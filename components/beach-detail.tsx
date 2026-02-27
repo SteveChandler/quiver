@@ -27,7 +27,7 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getYesterdayAccuracy } from "@/actions/accuracy-actions";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
-import { FavoriteButton } from "@/components/favorite-button";
+import { BeachAlertCta } from "@/components/beach-detail/beach-alert-cta";
 import { BeachReviewForm } from "@/components/beach/beach-review-form";
 import { REVIEW_TRACKING_SOURCES, type ReviewTrackingSource } from "@/lib/constants/review-tracking";
 import { track } from "@/lib/analytics";
@@ -404,9 +404,10 @@ function BeachDetailContent({
         <Navigation className="mr-2 h-4 w-4" />
         Get directions
       </Button>
-      <FavoriteButton
+      <BeachAlertCta
         beachId={beach.id}
-        variant="outline"
+        beachName={beach.name}
+        compact
         className="h-10 border-gray-300 text-gray-700 hover:bg-gray-50"
       />
     </>

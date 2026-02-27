@@ -38,9 +38,16 @@ export class AuthValidator {
   constructor(
     request: NextRequest,
     cookieCallbacks: SupabaseCookieOptions,
-    verbose = false
+    verbose = false,
+    existingClient?: SupabaseClient
   ) {
     this.verbose = verbose;
+
+    // Use existing client if provided (avoids creating duplicate clients)
+    if (existingClient) {
+      this.supabase = existingClient;
+      return;
+    }
 
     // Validate required environment variables
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();

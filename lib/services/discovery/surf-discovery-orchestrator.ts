@@ -48,6 +48,7 @@ import {
   getRecommendationLabel,
   buildDiscoveryMessage,
 } from './response-formatter';
+import { fetchPersonalizationContext, calculatePersonalizationBonus } from './personalization-layer';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
 
@@ -262,6 +263,9 @@ async function scoreBeachForDiscovery(args: {
   /** Pre-parsed and validated skill level from candidate pool builder */
   userSkillLevel: SkillLevel | null;
   distanceMiles?: number;
+  affinityBonus?: number;
+  personalizationBonus?: number;
+  personalizationReasons?: string[];
 }): Promise<DetailedScore> {
   const { beach, forecast, userPrefs, preferredWaveSize, userSkillLevel, distanceMiles } =
     args;
@@ -269,8 +273,8 @@ async function scoreBeachForDiscovery(args: {
   // Use the new domain-driven scoring engine
   const engine = getDiscoveryScoringEngine();
 
-  // Affinity scoring disabled in discovery; active in personalized-scoring-service.ts
-  const affinityBonus = 0;
+  // Use affinity bonus from personalization layer if provided
+  const affinityBonus = args.affinityBonus ?? 0;
 
   // Calculate distance penalty (0 to -20 points)
   let distancePenalty = 0;
@@ -302,6 +306,18 @@ async function scoreBeachForDiscovery(args: {
     preferredWaveSize: preferredWaveSizeOption,
     userSkillLevel,
   });
+
+  // Apply personalization bonus from personalization layer
+  const persBonus = args.personalizationBonus ?? 0;
+  if (persBonus > 0) {
+    detailedScore.total = Math.min(100, detailedScore.total + persBonus);
+    detailedScore.subscores.personalizationBonus = persBonus;
+  }
+
+  // Merge personalization reasons
+  if (args.personalizationReasons && args.personalizationReasons.length > 0) {
+    detailedScore.reasons = [...args.personalizationReasons, ...detailedScore.reasons];
+  }
 
   // Add distance warning if far
   if (distanceMiles !== undefined && distanceMiles > 30) {
@@ -357,7 +373,7 @@ async function discoverSurfSpotsInner(
   log.debug(`Discovering surf spots for user ${userId} (maxResults: ${maxResults})`);
 
   // 1. Build candidate pool (GPS-based, sorted by distance)
-  const { candidates, preferredWaveSize, userSkillLevel } = await buildCandidatePool(userId, {
+  const { candidates, preferredWaveSize, userSkillLevel, preferredBreakType } = await buildCandidatePool(userId, {
     userLocation,
     radiusMiles,
   });
@@ -451,29 +467,33 @@ async function discoverSurfSpotsInner(
 
   // Fetch sunsets (now returns Map<beachId, Date[]>)
   const uniqueDates = Array.from(allDates);
-  const sunTimesCache = await getBatchSunTimes(
-    Array.from(allBeachIds),
-    uniqueDates
-  );
-
-  // Batch-fetch water quality for all candidate beaches (avoids N+1)
   const supabase = createSupabaseServiceRoleClient();
   const candidateBeachIds = Array.from(allBeachIds);
-  const { data: wqRows } = await supabase
-    .from('beach_water_quality')
-    .select('beach_id, status')
-    .in('beach_id', candidateBeachIds);
+
+  // Fetch user preferences first so we can pass them to fetchPersonalizationContext
+  // (avoids a duplicate getUserSurfPreferences call inside the personalization layer)
+  const userPrefs = await getUserSurfPreferences(userId).catch((err) => {
+    log.warn('Failed to fetch user surf preferences, continuing without them', err);
+    return null;
+  });
+
+  // Batch-fetch sun times, water quality, and personalization context in parallel
+  const [sunTimesCache, wqResult, personalizationCtx] = await Promise.all([
+    getBatchSunTimes(Array.from(allBeachIds), uniqueDates),
+    supabase
+      .from('beach_water_quality')
+      .select('beach_id, status')
+      .in('beach_id', candidateBeachIds),
+    fetchPersonalizationContext(userId, candidateBeachIds, preferredBreakType, userPrefs),
+  ]);
 
   const wqMap = new Map<string, string>();
-  for (const row of wqRows ?? []) {
+  for (const row of wqResult.data ?? []) {
     wqMap.set(row.beach_id, row.status);
   }
 
   // 3. Score each beach with detailed breakdown
   const scored: SurfDiscoveryRecommendation[] = [];
-
-  // Pre-load user preferences
-  const userPrefs = await getUserSurfPreferences(userId);
 
   const beachesWithNoWindow: string[] = [];
   for (const { beach, forecasts } of beachForecasts) {
@@ -514,6 +534,9 @@ async function discoverSurfSpotsInner(
       lon: beach.lon || 0,
     });
 
+    // Calculate personalization bonus for this beach
+    const persResult = calculatePersonalizationBonus(beach, bestWindowForecast, personalizationCtx);
+
     // Detailed scoring
     const detailedScore = await scoreBeachForDiscovery({
       beach,
@@ -522,6 +545,9 @@ async function discoverSurfSpotsInner(
       preferredWaveSize,
       userSkillLevel,
       distanceMiles,
+      affinityBonus: persResult.affinityBonus,
+      personalizationBonus: persResult.personalizationBonus,
+      personalizationReasons: persResult.reasons,
     });
 
     // Apply water quality override after scoring
@@ -565,8 +591,8 @@ async function discoverSurfSpotsInner(
   const allScoresSorted = [...scored].sort((a, b) => b.score - a.score);
   log.debug(`[discoverSurfSpots] All ${scored.length} scored beaches (before top-N filter):`);
   allScoresSorted.forEach((rec, idx) => {
-    const { waveHeightFit, periodEnergyScore, windAlignment, tideFit, distancePenalty } = rec.subscores;
-    log.debug(`  ${idx + 1}. ${rec.beach.name}: score=${rec.score} (wave=${waveHeightFit}, period=${periodEnergyScore}, wind=${windAlignment}, tide=${tideFit}, dist=${distancePenalty})`);
+    const { waveHeightFit, periodEnergyScore, windAlignment, tideFit, distancePenalty, personalizationBonus, affinityBonus } = rec.subscores;
+    log.debug(`  ${idx + 1}. ${rec.beach.name}: score=${rec.score} (wave=${waveHeightFit}, period=${periodEnergyScore}, wind=${windAlignment}, tide=${tideFit}, dist=${distancePenalty}, pers=${personalizationBonus}, affinity=${affinityBonus})`);
   });
 
   // 4. Fetch and merge favorites

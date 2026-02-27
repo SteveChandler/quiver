@@ -458,6 +458,7 @@ function createMockDiscoveryResponse(): SurfDiscoveryResponse {
           windAlignment: 18,
           tideFit: 12,
           affinityBonus: 10,
+          personalizationBonus: 0,
           distancePenalty: 0,
         },
         summary: "Great conditions at Test Beach",

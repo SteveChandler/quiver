@@ -11,9 +11,10 @@ import {
   ArrowRight,
   CalendarDays,
 } from "lucide-react";
-import { stateToSlug, buildCityUrl } from "@/lib/utils/beach-url-utils";
+import { stateToSlug, buildCityUrl, getUsStateDisplayNameFromSlug } from "@/lib/utils/beach-url-utils";
 import { buildCitySlug } from "@/lib/seo/city-slug-utils";
 import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
+import { INTENT_DEFINITIONS, buildStateIntentUrl } from "@/lib/constants/intent-definitions";
 import type { Beach } from "@/types/database";
 
 const INTENT_GUIDES = [
@@ -136,6 +137,22 @@ export function RelatedGuidesSection({
           </Link>
         )}
       </div>
+      {stateSlug && (
+        <p className="mt-4 text-sm text-gray-500">
+          Explore across {getUsStateDisplayNameFromSlug(stateSlug)}:{" "}
+          {INTENT_DEFINITIONS.map((intent, index) => (
+            <span key={intent.key}>
+              {index > 0 && " · "}
+              <Link
+                href={buildStateIntentUrl(intent.key, stateSlug)}
+                className="text-sky-600 hover:text-sky-700 hover:underline"
+              >
+                {intent.label}
+              </Link>
+            </span>
+          ))}
+        </p>
+      )}
     </section>
   );
 }

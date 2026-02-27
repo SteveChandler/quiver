@@ -21,6 +21,8 @@ interface IntentGuidesGridProps {
   stateAbbrev?: string;
   /** Optional current intent key — when set, that card is rendered as a highlighted non-link "You're here" card */
   currentIntent?: IntentKey;
+  /** Optional intent keys to exclude (e.g., hide least-crowded when city has no light/moderate beaches) */
+  excludeIntents?: IntentKey[];
 }
 
 /**
@@ -32,7 +34,7 @@ interface IntentGuidesGridProps {
  *
  * Features:
  * - Deterministic: always shows all 7 intents, no conditional logic
- * - Grouped by Session (3) and Style (4) categories
+ * - Grouped by Conditions (4) and Style (3) categories
  * - Polymorphic: supports both state and city locations
  * - URL format: /{intent}/{location-slug}
  */
@@ -42,6 +44,7 @@ export function IntentGuidesGrid({
   locationType,
   stateAbbrev,
   currentIntent,
+  excludeIntents,
 }: IntentGuidesGridProps) {
   const displayName =
     locationType === "city" && stateAbbrev
@@ -53,6 +56,14 @@ export function IntentGuidesGrid({
       ? buildStateIntentUrl(intentKey, locationSlug)
       : buildCityIntentUrl(intentKey, locationSlug);
 
+  const excludeSet = excludeIntents ? new Set(excludeIntents) : null;
+  const conditionsIntents = excludeSet
+    ? INTENTS_BY_GROUP.conditions.filter((i) => !excludeSet.has(i.key as IntentKey))
+    : INTENTS_BY_GROUP.conditions;
+  const styleIntents = excludeSet
+    ? INTENTS_BY_GROUP.style.filter((i) => !excludeSet.has(i.key as IntentKey))
+    : INTENTS_BY_GROUP.style;
+
   // State pages get top margin since they're placed after other content
   const sectionClassName =
     locationType === "state" ? "mt-10 space-y-6" : "space-y-6";
@@ -63,47 +74,51 @@ export function IntentGuidesGrid({
         Surf Guides for {displayName}
       </h2>
 
-      {/* SESSION group */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-          {INTENT_GROUPS.session}
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {INTENTS_BY_GROUP.session.map((intent) =>
-            currentIntent === intent.key ? (
-              <IntentCardCurrent key={intent.key} intent={intent} />
-            ) : (
-              <IntentCard
-                key={intent.key}
-                intent={intent}
-                href={buildUrl(intent.key as IntentKey)}
-                locationName={locationName}
-              />
-            )
-          )}
+      {/* CONDITIONS group */}
+      {conditionsIntents.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+            {INTENT_GROUPS.conditions}
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {conditionsIntents.map((intent) =>
+              currentIntent === intent.key ? (
+                <IntentCardCurrent key={intent.key} intent={intent} />
+              ) : (
+                <IntentCard
+                  key={intent.key}
+                  intent={intent}
+                  href={buildUrl(intent.key as IntentKey)}
+                  locationName={locationName}
+                />
+              )
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* STYLE group */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-          {INTENT_GROUPS.style}
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {INTENTS_BY_GROUP.style.map((intent) =>
-            currentIntent === intent.key ? (
-              <IntentCardCurrent key={intent.key} intent={intent} />
-            ) : (
-              <IntentCard
-                key={intent.key}
-                intent={intent}
-                href={buildUrl(intent.key as IntentKey)}
-                locationName={locationName}
-              />
-            )
-          )}
+      {styleIntents.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+            {INTENT_GROUPS.style}
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {styleIntents.map((intent) =>
+              currentIntent === intent.key ? (
+                <IntentCardCurrent key={intent.key} intent={intent} />
+              ) : (
+                <IntentCard
+                  key={intent.key}
+                  intent={intent}
+                  href={buildUrl(intent.key as IntentKey)}
+                  locationName={locationName}
+                />
+              )
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }

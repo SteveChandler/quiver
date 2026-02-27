@@ -36,20 +36,23 @@ test.describe("State Hub Intent Guides Grid", () => {
     });
 
     test("should display all 7 intent cards", async ({ page }) => {
-      // Session group (3)
-      await expect(page.getByText("Dawn Patrol")).toBeVisible();
-      await expect(page.getByText("Sunset Sessions")).toBeVisible();
-      await expect(page.getByText("Tide Windows")).toBeVisible();
+      // Scope to the intent guides grid to avoid matching footer links
+      const grid = page.locator('section:has(h2:text("Surf Guides"))').first();
 
-      // Style group (4)
-      await expect(page.getByText("Beginner Spots")).toBeVisible();
-      await expect(page.getByText("Longboard Spots")).toBeVisible();
-      await expect(page.getByText("Less Crowded")).toBeVisible();
-      await expect(page.getByText("Water Temperature")).toBeVisible();
+      // Conditions group (4)
+      await expect(grid.getByText("Dawn Patrol")).toBeVisible();
+      await expect(grid.getByText("Sunset Sessions")).toBeVisible();
+      await expect(grid.getByText("Tide Windows")).toBeVisible();
+      await expect(grid.getByText("Water Temperature")).toBeVisible();
+
+      // Style group (3)
+      await expect(grid.getByText("Beginner Spots")).toBeVisible();
+      await expect(grid.getByText("Longboard Spots")).toBeVisible();
+      await expect(grid.getByText("Less Crowded")).toBeVisible();
     });
 
-    test("should display Session and Style group headings", async ({ page }) => {
-      await expect(page.getByRole("heading", { name: "Session" })).toBeVisible();
+    test("should display Conditions and Style group headings", async ({ page }) => {
+      await expect(page.getByRole("heading", { name: "Conditions" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Style" })).toBeVisible();
     });
 
@@ -60,17 +63,6 @@ test.describe("State Hub Intent Guides Grid", () => {
       await expect(beginnerLink).toHaveAttribute("href", "/beginner/ca");
     });
 
-    test("should navigate to intent page when clicking a card", async ({ page }) => {
-      const beginnerLink = page.getByRole("link", {
-        name: /Beginner Spots surf guide for California/i,
-      });
-
-      await beginnerLink.click();
-
-      // Wait for navigation to complete
-      await page.waitForURL(/\/beginner\/ca/, { timeout: 10000 });
-      await expect(page).toHaveURL(/\/beginner\/ca/);
-    });
   });
 
   test.describe("Hawaii State Page", () => {

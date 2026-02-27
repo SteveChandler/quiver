@@ -28,6 +28,7 @@ export default tseslint.config(
       "scripts/**",
       "supabase/**",
       "test-results/**",
+      "tools/**",
       "e2e/.auth/**",
       "types/database.generated.ts",
     ],

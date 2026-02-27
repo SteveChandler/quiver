@@ -11,8 +11,13 @@ import {
   getDbStateCandidatesForStateSlug,
   getStateDisplayNameFromSlug,
 } from "@/lib/geo/state-routing";
+import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
+import { ItemListSchema } from "@/components/seo/item-list-schema";
+import { WebPageSchema } from "@/components/seo/web-page-schema";
 
 export const revalidate = 86400; // 24h (best-effort; may be treated as dynamic if cookies are read)
+
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
 type StateRootPageProps = {
   params: Promise<{ intent: string }>;
@@ -108,7 +113,29 @@ export default async function StateRootPage(props: StateRootPageProps) {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
+    <>
+      {/* Structured Data for SEO */}
+      <BreadcrumbStructuredData
+        items={[
+          { name: "Home", url: baseUrl },
+          { name: stateName, url: `${baseUrl}/${normalized}` },
+        ]}
+      />
+      {beaches.length > 0 && (
+        <ItemListSchema
+          items={beaches.slice(0, 50).map((beach, index) => ({
+            name: beach.name,
+            url: `${baseUrl}${buildBeachUrl(beach)}`,
+            position: index + 1,
+          }))}
+          name={`Surf Beaches in ${stateName}`}
+        />
+      )}
+      <WebPageSchema
+        name={`Best Surf Beaches in ${stateName}`}
+        url={`${baseUrl}/${normalized}`}
+      />
+      <main className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="text-4xl font-bold">Best Surf Beaches in {stateName}</h1>
       <p className="mt-2 text-gray-600">{stateName}, USA</p>
 
@@ -158,10 +185,9 @@ export default async function StateRootPage(props: StateRootPageProps) {
         )}
       </div>
     </main>
+    </>
   );
 }
-
-
 
 
 

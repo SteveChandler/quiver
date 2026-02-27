@@ -4,7 +4,6 @@
  */
 
 import type { RichContent } from "@/lib/seo/rich-content";
-import { RichContentRenderer } from "@/lib/seo/rich-content";
 
 interface FAQItem {
   question: string;
@@ -44,49 +43,9 @@ export function FAQSchema({ items }: FAQSchemaProps) {
   );
 }
 
-/**
- * Combined FAQ Section — JSON-LD structured data + visible dl/dt/dd markup.
- * Use on listing pages (city, state) that generate data-driven FAQs.
- */
-export function FAQSection({
-  items,
-  locationName,
-}: {
-  items: FAQItem[] | RichFAQItem[];
-  locationName: string;
-}) {
-  if (items.length === 0) return null;
-
-  return (
-    <>
-      <FAQSchema items={items} />
-      <section className="mt-12" aria-label={`FAQ about surfing in ${locationName}`}>
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">
-          Frequently Asked Questions About Surfing in {locationName}
-        </h2>
-        <dl className="space-y-6">
-          {items.map((faq) => {
-            const richAnswer = "richAnswer" in faq ? faq.richAnswer : undefined;
-            return (
-              <div key={faq.question}>
-                <dt className="text-lg font-semibold text-gray-900 mb-2">
-                  {faq.question}
-                </dt>
-                <dd className="text-gray-700 leading-relaxed">
-                  {richAnswer ? (
-                    <RichContentRenderer content={richAnswer} />
-                  ) : (
-                    faq.answer
-                  )}
-                </dd>
-              </div>
-            );
-          })}
-        </dl>
-      </section>
-    </>
-  );
-}
+// FAQSection is now in ./faq-section.tsx (client component with accordion).
+// Re-export for backwards compatibility.
+export { FAQSection } from "./faq-section";
 
 /**
  * Beach-specific FAQ Schema for individual beach pages

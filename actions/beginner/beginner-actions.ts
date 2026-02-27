@@ -18,6 +18,7 @@ import type {
   ConditionMetricWithIcon,
 } from "@/types/beginner";
 import type { BeginnerNotesContent } from "@/types/editorial-content";
+import { getOptimizedImageUrl } from "@/lib/image-proxy";
 
 // ================================================
 // Internal Helpers
@@ -314,7 +315,8 @@ export async function getBeginnerBeachesWithEditorial(
       .select(
         `
         id, name, slug, city, state, average_rating, review_count, skill_level, break_type,
-        beach_editorial_content!left ( content_type, content )
+        beach_editorial_content!left ( content_type, content ),
+        beach_photos!left ( image_url )
       `
       )
       .or(
@@ -375,6 +377,15 @@ export async function getBeginnerBeachesWithEditorial(
         };
       }
 
+      // Pick first available beach photo
+      const photoRows = Array.isArray(beach.beach_photos)
+        ? beach.beach_photos
+        : [];
+      const firstPhoto = photoRows.find((p: any) => p.image_url);
+      const photoUrl = firstPhoto
+        ? getOptimizedImageUrl(firstPhoto.image_url)
+        : null;
+
       return {
         id: beach.id,
         name: beach.name,
@@ -389,6 +400,7 @@ export async function getBeginnerBeachesWithEditorial(
           ? formatWaveHeight(waveHeightMap.get(beach.id)!)
           : null,
         editorial,
+        photoUrl,
       };
     });
   } catch (error) {

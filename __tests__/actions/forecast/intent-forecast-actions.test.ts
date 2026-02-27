@@ -55,11 +55,13 @@ describe("getCityTideData", () => {
     expect(result).toBeNull();
   });
 
-  it("parses tide_schedule into TidePoint array", async () => {
+  it("parses tide_schedule into TidePoint array with dynamic computation", async () => {
+    // Create tide schedule that brackets the current time so interpolation works
+    const nowUnix = Math.floor(Date.now() / 1000);
     const tideSchedule = [
-      { time: 1706140800, height: 5.2, type: "high" as const },
-      { time: 1706162400, height: 1.1, type: "low" as const },
-      { time: 1706184000, height: 4.8, type: "high" as const },
+      { time: nowUnix - 3600, height: 5.2, type: "high" as const },   // 1h ago
+      { time: nowUnix + 3600, height: 1.1, type: "low" as const },    // 1h from now
+      { time: nowUnix + 7200, height: 4.8, type: "high" as const },   // 2h from now
     ];
 
     mockSupabase.single.mockResolvedValue({
@@ -91,12 +93,18 @@ describe("getCityTideData", () => {
     expect(result!.tidePoints[0].isHigh).toBe(true);
     expect(result!.tidePoints[0].h).toBe(5.2);
     expect(result!.tidePoints[1].isLow).toBe(true);
-    expect(result!.currentStatus).toBe("Rising");
+    // Dynamic computation: between high (1h ago) and low (1h from now) = Falling
+    expect(result!.currentStatus).toBe("Falling");
+    // Dynamic computation: interpolated height between 5.2 and 1.1 at midpoint ≈ 3.2
+    expect(result!.currentHeight).toMatch(/^\d+(\.\d+)? ft$/);
+    // Next tide should be the upcoming low
+    expect(result!.nextTideType).toBe("Low");
+    expect(result!.nextTideHeight).toBe("1.1 ft");
     expect(result!.beachName).toBe("La Jolla Shores");
     expect(result!.tideStation).toBe("La Jolla, CA");
   });
 
-  it("handles missing tide_schedule gracefully", async () => {
+  it("handles missing tide_schedule gracefully (falls back to pre-computed)", async () => {
     mockSupabase.single.mockResolvedValue({
       data: {
         beach_id: "beach-123",
@@ -120,7 +128,12 @@ describe("getCityTideData", () => {
 
     expect(result).not.toBeNull();
     expect(result!.tidePoints).toHaveLength(0);
+    // No tide_schedule → dynamic computation returns Unknown/null → falls back to pre-computed
     expect(result!.currentStatus).toBe("Falling");
+    expect(result!.currentHeight).toBe("2.5 ft");
+    expect(result!.nextTideType).toBe("Low");
+    expect(result!.nextTideTime).toBe("5:00 PM");
+    expect(result!.nextTideHeight).toBe("0.8 ft");
     expect(result!.beachName).toBe("Ocean Beach");
   });
 });

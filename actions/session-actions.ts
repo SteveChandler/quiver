@@ -399,32 +399,16 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
       throw new Error(`Session creation failed: ${error.message || 'Unknown database error'}`);
     }
 
-    // Track XP for logging a completed session
-    try {
-      await trackXPOptional("plan_session", session.id, "session");
-    } catch (xpError) {
-      console.error("Failed to track XP for logged session:", xpError);
-      // Don't fail the session creation if XP tracking fails
-    }
+    // Track XP (fire-and-forget — failure is non-fatal, already logged internally)
+    trackXPOptional("plan_session", session.id, "session").catch(() => {});
 
     // Fire-and-forget milestone check (first_session_logged, wave_range_learned, etc.)
     import("@/lib/services/personalization-milestone-service")
       .then(({ checkAndRecordMilestones }) => checkAndRecordMilestones(user.id))
       .catch(() => {});
 
-    // Create forecast snapshot for condition tracking
-    try {
-      const { createForecastSnapshotForSession } = await import("@/lib/utils/forecast-snapshot-utils");
-      await createForecastSnapshotForSession(
-        session.id,
-        session.beach_id,
-        session.arrival_time,
-        session.user_id
-      );
-    } catch (snapshotError) {
-      console.error("Failed to create forecast snapshot:", snapshotError);
-      // Don't fail the session creation if snapshot creation fails
-    }
+    // Forecast snapshot is created by DB trigger (trigger_create_session_forecast_snapshot)
+    // during the INSERT — no app-level call needed.
 
     revalidatePath("/sessions");
     revalidatePath("/profile");
@@ -531,13 +515,8 @@ export async function createPlannedSession(data: SessionFormState | SessionInput
       throw new Error(`Session creation failed: ${error.message || 'Unknown database error'}`);
     }
 
-    // Track XP for planning a session
-    try {
-      await trackXPOptional("plan_session", session.id, "session");
-    } catch (xpError) {
-      console.error("Failed to track XP for planned session:", xpError);
-      // Don't fail the session creation if XP tracking fails
-    }
+    // Track XP (fire-and-forget — failure is non-fatal, already logged internally)
+    trackXPOptional("plan_session", session.id, "session").catch(() => {});
 
     revalidatePath("/sessions");
     revalidatePath("/profile");

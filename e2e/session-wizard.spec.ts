@@ -116,9 +116,24 @@ test.describe('Session Wizard - Plan Mode', () => {
   });
 
   test('should have next/continue button', async ({ page }) => {
-    const nextButton = page.getByRole('button', { name: /next|continue|proceed/i });
-    const hasNext = await isVisibleSafe(nextButton);
+    // Next button requires beach selection — fill in a beach first
+    const beachInput = page.getByTestId('beach-search-input');
+    const hasBeachInput = await isVisibleSafe(beachInput);
 
+    if (hasBeachInput) {
+      await beachInput.fill('Black');
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for search input debounce
+      await page.waitForTimeout(500);
+      // Select the first beach suggestion
+      const beachOption = page.getByText(/black/i).first();
+      const hasOption = await isVisibleSafe(beachOption);
+      if (hasOption) {
+        await beachOption.click();
+      }
+    }
+
+    const nextButton = page.getByRole('button', { name: /next|continue|proceed/i }).first();
+    const hasNext = await isVisibleSafe(nextButton);
     expect(hasNext).toBe(true);
   });
 

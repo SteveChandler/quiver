@@ -76,7 +76,7 @@ const mockForecast: Partial<EnhancedForecastEntity> = {
 
 // Mock state for dynamic responses
 const mockState = {
-  candidatePoolResponse: { candidates: [] as Partial<Beach>[], preferredWaveSize: null as string | null },
+  candidatePoolResponse: { candidates: [] as Partial<Beach>[], preferredWaveSize: null as string | null, userSkillLevel: null as any, preferredBreakType: null as string | null },
   forecastBatchResponse: { successful: [] as any[], failed: [], staleCount: 0 },
   favoriteBeaches: [] as Partial<Beach>[],
   favoritesError: null as Error | null,
@@ -194,6 +194,7 @@ jest.mock('@/lib/domains/scoring', () => ({
       windAlignment: 15,
       tideFit: 12,
       affinityBonus: 0,
+      personalizationBonus: 0,
       distancePenalty: 0,
     },
     matchQuality: 'excellent',
@@ -206,6 +207,22 @@ jest.mock('@/lib/domains/scoring', () => ({
 // Mock timezone utils
 jest.mock('@/lib/utils/timezone-utils.server', () => ({
   getTimezoneFromCoords: jest.fn(() => 'America/Los_Angeles'),
+}));
+
+jest.mock('@/lib/services/discovery/personalization-layer', () => ({
+  fetchPersonalizationContext: jest.fn(async () => ({
+    implicitPrefs: null,
+    learnedPrefs: null,
+    affinityMap: new Map(),
+    preferredBreakType: null,
+    implicitWeight: 0,
+  })),
+  calculatePersonalizationBonus: jest.fn(() => ({
+    total: 0,
+    affinityBonus: 0,
+    personalizationBonus: 0,
+    reasons: [],
+  })),
 }));
 
 // Import after mocks
@@ -221,6 +238,8 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     mockState.candidatePoolResponse = {
       candidates: [mockBeach1, mockBeach2, mockBeach3, mockBeach4] as Beach[],
       preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
     };
     mockState.forecastBatchResponse = {
       successful: [
@@ -292,6 +311,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
             windAlignment: 10,
             tideFit: 10,
             affinityBonus: 0,
+            personalizationBonus: 0,
             distancePenalty: -5,
           },
           matchQuality: 'fair',
@@ -308,6 +328,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
           windAlignment: 15,
           tideFit: 12,
           affinityBonus: 0,
+          personalizationBonus: 0,
           distancePenalty: 0,
         },
         matchQuality: 'excellent',
@@ -371,6 +392,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
           windAlignment: 15,
           tideFit: 12,
           affinityBonus: 0,
+          personalizationBonus: 0,
           distancePenalty: 0,
         },
         matchQuality: 'excellent',
@@ -458,6 +480,8 @@ describe('discoverSurfSpots - Stale Data Fallback', () => {
     mockState.candidatePoolResponse = {
       candidates: [mockBeach1, mockBeach2, mockBeach3, mockBeach4] as Beach[],
       preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
     };
     mockState.favoriteBeaches = [];
     mockState.favoritesError = null;
@@ -674,5 +698,192 @@ describe('discoverSurfSpots - Stale Data Fallback', () => {
 
     // Verify no usingStaleData flag
     expect(result.metadata.usingStaleData).toBeUndefined();
+  });
+});
+
+describe('discoverSurfSpots - Personalization Integration', () => {
+  const testUserId = 'test-user-123';
+  const defaultUserLocation = { lat: 32.7157, lon: -117.1611 };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Re-establish default mock return values after clearAllMocks() (which clears
+    // mockReturnValue state set by previous tests in this describe block)
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+    scoreBeachWithEngine.mockReturnValue({
+      total: 75,
+      subscores: {
+        waveHeightFit: 20,
+        periodEnergyScore: 15,
+        windAlignment: 15,
+        tideFit: 12,
+        affinityBonus: 0,
+        personalizationBonus: 0,
+        distancePenalty: 0,
+      },
+      matchQuality: 'excellent',
+      reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+      warnings: [],
+      conditionBadges: [],
+    });
+    const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
+    calculatePersonalizationBonus.mockReturnValue({
+      total: 0,
+      affinityBonus: 0,
+      personalizationBonus: 0,
+      reasons: [],
+    });
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1, mockBeach2, mockBeach3, mockBeach4] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.forecastBatchResponse = {
+      successful: [
+        { beach: mockBeach1, forecasts: [mockForecast] },
+        { beach: mockBeach2, forecasts: [{ ...mockForecast, beach_id: 'beach-2' }] },
+        { beach: mockBeach3, forecasts: [{ ...mockForecast, beach_id: 'beach-3' }] },
+        { beach: mockBeach4, forecasts: [{ ...mockForecast, beach_id: 'beach-4' }] },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+    mockState.favoriteBeaches = [];
+    mockState.favoritesError = null;
+    mockState.userPrefs = null;
+  });
+
+  test('calls fetchPersonalizationContext with correct arguments', async () => {
+    const { fetchPersonalizationContext } = require('@/lib/services/discovery/personalization-layer');
+    mockState.candidatePoolResponse.preferredBreakType = 'reef';
+
+    await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
+
+    expect(fetchPersonalizationContext).toHaveBeenCalledTimes(1);
+    const args = fetchPersonalizationContext.mock.calls[0];
+    expect(args[0]).toBe(testUserId);
+    // beachIds should be the IDs from the forecasted beaches
+    expect(args[1]).toEqual(expect.arrayContaining(['beach-1', 'beach-2', 'beach-3', 'beach-4']));
+    expect(args[2]).toBe('reef'); // preferredBreakType
+    // 4th arg is userPrefs (null from our mock)
+    expect(args[3]).toBeNull();
+  });
+
+  test('calls calculatePersonalizationBonus for each beach', async () => {
+    const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
+
+    await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
+
+    // Should be called once per beach with forecasts
+    expect(calculatePersonalizationBonus).toHaveBeenCalledTimes(4);
+  });
+
+  test('personalization bonus flows into final score', async () => {
+    const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
+
+    // Mock personalization to give beach-1 a big bonus
+    calculatePersonalizationBonus.mockImplementation((beach: any) => {
+      if (beach.id === 'beach-1') {
+        return {
+          total: 20,
+          affinityBonus: 5,
+          personalizationBonus: 15,
+          reasons: ['Matches your preferred break type', 'Wave size matches your sweet spot'],
+        };
+      }
+      return { total: 0, affinityBonus: 0, personalizationBonus: 0, reasons: [] };
+    });
+
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
+
+    const beach1 = result.recommendations.find(r => r.beach.id === 'beach-1');
+    expect(beach1).toBeDefined();
+    // Score should be higher than the base 75 due to personalization
+    expect(beach1!.score).toBeGreaterThan(75);
+    // Personalization reasons should appear in the reasons array
+    expect(beach1!.reasons).toEqual(expect.arrayContaining([
+      'Matches your preferred break type',
+      'Wave size matches your sweet spot',
+    ]));
+    // subscores should include personalizationBonus
+    expect(beach1!.subscores.personalizationBonus).toBe(15);
+  });
+
+  test('zero personalization bonus does not change scores', async () => {
+    const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
+    calculatePersonalizationBonus.mockReturnValue({
+      total: 0,
+      affinityBonus: 0,
+      personalizationBonus: 0,
+      reasons: [],
+    });
+
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
+
+    // All beaches should have the base score (75 from the engine mock)
+    for (const rec of result.recommendations) {
+      expect(rec.score).toBe(75);
+      expect(rec.subscores.personalizationBonus).toBe(0);
+    }
+  });
+
+  test('personalization bonus is capped at 100', async () => {
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+    const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
+
+    // Base score of 90
+    scoreBeachWithEngine.mockReturnValue({
+      total: 90,
+      subscores: { waveHeightFit: 22, periodEnergyScore: 18, windAlignment: 18, tideFit: 14, affinityBonus: 0, personalizationBonus: 0, distancePenalty: 0 },
+      matchQuality: 'excellent',
+      reasons: ['Great conditions'],
+      warnings: [],
+      conditionBadges: [],
+    });
+
+    // Personalization bonus of 30 — would exceed 100
+    calculatePersonalizationBonus.mockReturnValue({
+      total: 30,
+      affinityBonus: 10,
+      personalizationBonus: 20,
+      reasons: ['Your go-to spot'],
+    });
+
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
+
+    // Score should be capped at 100
+    for (const rec of result.recommendations) {
+      expect(rec.score).toBeLessThanOrEqual(100);
+    }
+  });
+
+  test('personalization reasons are prepended to base reasons', async () => {
+    const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
+
+    calculatePersonalizationBonus.mockReturnValue({
+      total: 8,
+      affinityBonus: 0,
+      personalizationBonus: 8,
+      reasons: ['Matches your preferred break type'],
+    });
+
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
+
+    const rec = result.recommendations[0];
+    // Personalization reason should come first
+    expect(rec.reasons[0]).toBe('Matches your preferred break type');
+    // Base reasons should follow
+    expect(rec.reasons).toEqual(expect.arrayContaining(['Good wave size']));
+  });
+
+  test('discovery continues when getUserSurfPreferences throws', async () => {
+    const { getUserSurfPreferences } = require('@/lib/services/preference-learning-service');
+    getUserSurfPreferences.mockRejectedValueOnce(new Error('DB connection failed'));
+
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
+
+    // Should still return recommendations (graceful degradation)
+    expect(result.recommendations.length).toBeGreaterThan(0);
   });
 });

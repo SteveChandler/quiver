@@ -282,7 +282,7 @@ test.describe('Spot Surf Report', () => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
     // Look for the match score teaser button/element
-    const matchTeaser = page.getByText(/your match: \?\?\?/i);
+    const matchTeaser = page.getByTestId('match-score-teaser');
     await expect(matchTeaser).toBeVisible();
   });
 

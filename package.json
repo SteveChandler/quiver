@@ -262,6 +262,18 @@
     "ansi-regex": "^5.0.1",
     "@sentry/node": "10.27.0",
     "@sentry/core": "10.27.0",
-    "fast-xml-parser": "^5.3.6"
+    "fast-xml-parser": "^5.3.8",
+    "basic-ftp": "^5.2.0",
+    "@ducanh2912/next-pwa/**/rollup": "2.80.0",
+    "@sentry/nextjs/rollup": "4.59.0",
+    "@ducanh2912/next-pwa/**/minimatch": "5.1.8",
+    "depcheck/**/minimatch": "7.4.8",
+    "@capacitor/assets/**/minimatch": "8.0.6",
+    "typescript-eslint/**/minimatch": "9.0.7",
+    "@sentry/nextjs/**/minimatch": "9.0.7",
+    "eslint/**/minimatch": "9.0.7",
+    "eslint-plugin-jest/**/minimatch": "9.0.7",
+    "@capacitor/cli/**/minimatch": "10.2.3",
+    "@types/mapbox__point-geometry": "0.1.4"
   }
 }

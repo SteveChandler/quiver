@@ -43,7 +43,8 @@ export default defineConfig({
   timeout: 120 * 1000,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  retries: process.env.CI ? 1
+    : (process.env.BASE_URL && !process.env.BASE_URL.includes("localhost")) ? 1 : 0,
   workers: process.env.CI ? 5 : 3,  // Reduced to 3 for local testing against prod to avoid rate limits
   reporter: [["list"], ["html", { open: "never" }]],
   // Grep to skip data-dependent tests in local dev (when SKIP_DATA_TESTS=true)

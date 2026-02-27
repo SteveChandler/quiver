@@ -46,11 +46,6 @@ export function buildEnrichedBeachContent(beach: Beach & {
     sentences.push(`Works best on a ${beach.preferred_tide_direction} tide.`);
   }
 
-  // Hazards
-  if (beach.hazards && beach.hazards.length > 0) {
-    sentences.push(`Hazards include ${beach.hazards.join(', ')}.`);
-  }
-
   // Best months
   if (beach.best_months && beach.best_months.length > 0) {
     sentences.push(`Prime season runs ${formatMonthRange(beach.best_months)}.`);
@@ -64,21 +59,6 @@ export function buildEnrichedBeachContent(beach: Beach & {
   // Wind
   if (beach.wind_offshore_deg != null) {
     sentences.push(`Offshore winds come from ${degreeToCardinal(beach.wind_offshore_deg)} (${beach.wind_offshore_deg}\u00B0).`);
-  }
-
-  // Weave in existing description if present
-  if (beach.description && beach.description.trim().length > 0) {
-    sentences.push(beach.description.trim());
-  }
-
-  // Best conditions prose
-  if (beach.best_conditions_prose) {
-    sentences.push(beach.best_conditions_prose);
-  }
-
-  // Wave tips
-  if (beach.wave_tips) {
-    sentences.push(beach.wave_tips);
   }
 
   // Build highlights from real_takeaways

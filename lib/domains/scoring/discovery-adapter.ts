@@ -150,6 +150,7 @@ export function compositeToDetailedScore(
     windAlignment: Math.round((composite.subscores.get('windQuality') ?? 50) * 0.20),
     tideFit: Math.round((composite.subscores.get('tideFit') ?? 50) * 0.15),
     affinityBonus,
+    personalizationBonus: 0,
     distancePenalty,
   };
 

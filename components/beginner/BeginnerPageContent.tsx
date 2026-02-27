@@ -89,8 +89,6 @@ export function BeginnerPageContent({
           },
         ]}
       />
-      <FAQSection items={faqItems} locationName={cityName} />
-
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Breadcrumb */}
         <nav
@@ -149,7 +147,7 @@ export function BeginnerPageContent({
 
           {/* Module 5: Seasonal Guide */}
           <SectionFadeUp>
-            <SeasonalGuide cityName={cityName} />
+            <SeasonalGuide cityName={cityName} stateSlug={stateSlug} />
           </SectionFadeUp>
 
           {/* Module 6: Safety Essentials */}
@@ -177,6 +175,11 @@ export function BeginnerPageContent({
               stateName={stateName}
               bestTimeToSurfUrl={bestTimeToSurfUrl}
             />
+          </SectionFadeUp>
+
+          {/* FAQ Accordion */}
+          <SectionFadeUp>
+            <FAQSection items={faqItems} locationName={cityName} />
           </SectionFadeUp>
 
           {/* Planning Checklist */}

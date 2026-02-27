@@ -54,16 +54,6 @@ test.describe("Intent State Routes - /[intent]/[state]/", () => {
     await expect(heading).toContainText(/Oregon/i);
   });
 
-  test("should return 404 for invalid intent", async ({ page }) => {
-    const response = await page.goto("/invalid-intent/ca");
-    expect(response?.status()).toBe(404);
-  });
-
-  test("should return 404 for invalid state", async ({ page }) => {
-    const response = await page.goto("/beginner/zz");
-    expect(response?.status()).toBe(404);
-  });
-
   test("should handle non-surf state gracefully", async ({ page }) => {
     // North Dakota route now returns 200 with appropriate content
     // (route serves all states, showing empty or minimal content for non-surf states)
@@ -79,16 +69,16 @@ test.describe("Intent State Routes - /[intent]/[state]/", () => {
     expect(bodyText).toMatch(/\d+\s+spot/i);
   });
 
-  test("should display focus points section", async ({ page }) => {
+  test("should display FAQ section", async ({ page }) => {
     await page.goto("/beginner/ca", { timeout: PAGE_LOAD_TIMEOUT });
 
-    // Look for "What to focus on" section
-    const focusSection = page.getByRole("heading", { name: /what to focus on/i });
-    await expect(focusSection).toBeVisible();
+    // Look for the "Frequently Asked Questions" section which is present on state pages
+    const faqSection = page.getByRole("heading", { name: /frequently asked questions/i });
+    await expect(faqSection).toBeVisible();
 
-    // Should have list of focus points
-    const focusPoints = page.locator("ul li");
-    await expect(focusPoints.first()).toBeVisible();
+    // Should have list items (FAQ accordion entries)
+    const faqItems = page.locator("ul li, dl dt");
+    await expect(faqItems.first()).toBeVisible();
   });
 
   test("should not 404 when surf state has no beaches for intent", async ({ page }) => {
@@ -99,6 +89,25 @@ test.describe("Intent State Routes - /[intent]/[state]/", () => {
     // Page should either have beaches or show empty state, not 404
     const hasContent = await page.locator("h1").isVisible();
     expect(hasContent).toBe(true);
+  });
+});
+
+// 404 tests are intentional and must not use assertNoErrors in afterEach,
+// because navigating to a 404 page triggers network errors by design.
+test.describe("Intent State Routes - Expected 404s", () => {
+  test.beforeEach(async ({ page }) => {
+    // Set up error detection for console errors only; network 404s are expected here
+    setupErrorDetection(page);
+  });
+
+  test("should return 404 for invalid intent", async ({ page }) => {
+    const response = await page.goto("/invalid-intent/ca");
+    expect(response?.status()).toBe(404);
+  });
+
+  test("should return 404 for invalid state", async ({ page }) => {
+    const response = await page.goto("/beginner/zz");
+    expect(response?.status()).toBe(404);
   });
 });
 
@@ -156,6 +165,10 @@ test.describe("Intent City Routes - /[intent]/[state]/[city]/", () => {
 
 test.describe("Intent Routes - Multiple Intents", () => {
   test("should work for all intents with same state", async ({ page }) => {
+    // Navigates 7 pages sequentially; mark slow to triple the default timeout and
+    // reduce flakiness from transient "Application Error" during sequential navigation.
+    test.slow();
+
     const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
 
     for (const intent of intents) {

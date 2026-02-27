@@ -14,11 +14,16 @@ import type { RichContent } from "@/lib/seo/rich-content";
 import { linkFirstMentions } from "@/lib/seo/rich-content";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 
-/** FAQ item with rich-content answer that can include internal links. */
-export interface RichFAQItem {
-  question: string;
-  answer: string;
-  richAnswer: RichContent;
+// Re-export RichFAQItem from the canonical definition in faq-schema
+import type { RichFAQItem } from "@/components/seo/faq-schema";
+export type { RichFAQItem } from "@/components/seo/faq-schema";
+
+export interface EditorialBeachSummary {
+  beachName: string;
+  beginnerNotes?: string | null;
+  bestTides?: string | null;
+  safetyNotes?: string | null;
+  crowdNotes?: string | null;
 }
 
 export interface CityContentInput {
@@ -27,6 +32,7 @@ export interface CityContentInput {
   stateSlug: string;
   stats: LocationStats;
   beaches: BeachWithMetrics[];
+  editorialBeachData?: EditorialBeachSummary[];
 }
 
 /**
@@ -36,7 +42,7 @@ export function generateCityContent(input: CityContentInput): {
   summary: string;
   faqs: FAQItem[];
 } {
-  const { cityName, stateName, stateSlug, stats, beaches } = input;
+  const { cityName, stateName, stateSlug, stats, beaches, editorialBeachData } = input;
 
   // Shared computation — used by both summary and FAQ
   const skillCounts = countValues(beaches.map((b) => b.skill_level));
@@ -44,7 +50,7 @@ export function generateCityContent(input: CityContentInput): {
 
   return {
     summary: buildSummary({ cityName, stateName, stats, beaches, skillCounts, regional }),
-    faqs: buildFAQ({ cityName, stateSlug, stats, beaches, skillCounts, regional }),
+    faqs: buildFAQ({ cityName, stateSlug, stats, beaches, skillCounts, regional, editorialBeachData }),
   };
 }
 
@@ -59,13 +65,13 @@ export function generateCityRichContent(input: CityContentInput): {
   summary: RichContent;
   faqs: RichFAQItem[];
 } {
-  const { cityName, stateName, stateSlug, stats, beaches } = input;
+  const { cityName, stateName, stateSlug, stats, beaches, editorialBeachData } = input;
 
   const skillCounts = countValues(beaches.map((b) => b.skill_level));
   const regional = getRegionalData(stateSlug);
 
   const plainSummary = buildSummary({ cityName, stateName, stats, beaches, skillCounts, regional });
-  const plainFaqs = buildFAQ({ cityName, stateSlug, stats, beaches, skillCounts, regional });
+  const plainFaqs = buildFAQ({ cityName, stateSlug, stats, beaches, skillCounts, regional, editorialBeachData });
 
   // Build name -> href pairs for beaches that have valid URLs
   const beachLinks = beaches
@@ -96,6 +102,7 @@ interface BuildContext {
   beaches: BeachWithMetrics[];
   skillCounts: Record<string, number>;
   regional: ReturnType<typeof getRegionalData>;
+  editorialBeachData?: EditorialBeachSummary[];
 }
 
 function buildSummary(
@@ -106,9 +113,9 @@ function buildSummary(
 
   // Sentence 1: Beach count + skill level distribution
   const skillParts: string[] = [];
-  if (skillCounts["Beginner"]) skillParts.push(`${skillCounts["Beginner"]} beginner-friendly`);
-  if (skillCounts["Intermediate"]) skillParts.push(`${skillCounts["Intermediate"]} intermediate`);
-  if (skillCounts["Advanced"]) skillParts.push(`${skillCounts["Advanced"]} advanced`);
+  if (skillCounts["beginner"]) skillParts.push(`${skillCounts["beginner"]} beginner-friendly`);
+  if (skillCounts["intermediate"]) skillParts.push(`${skillCounts["intermediate"]} intermediate`);
+  if (skillCounts["advanced"]) skillParts.push(`${skillCounts["advanced"]} advanced`);
 
   if (skillParts.length > 0) {
     const skillTotal = Object.values(skillCounts).reduce((a, b) => a + b, 0);
@@ -156,14 +163,14 @@ function buildSummary(
 function buildFAQ(
   ctx: BuildContext & { stateSlug: string }
 ): FAQItem[] {
-  const { cityName, stats, beaches, skillCounts, regional } = ctx;
+  const { cityName, stats, beaches, skillCounts, regional, editorialBeachData } = ctx;
   const faqs: FAQItem[] = [];
 
   // FAQ 1: How many surf spots?
   const skillDetail: string[] = [];
-  if (skillCounts["Beginner"]) skillDetail.push(`${skillCounts["Beginner"]} beginner`);
-  if (skillCounts["Intermediate"]) skillDetail.push(`${skillCounts["Intermediate"]} intermediate`);
-  if (skillCounts["Advanced"]) skillDetail.push(`${skillCounts["Advanced"]} advanced`);
+  if (skillCounts["beginner"]) skillDetail.push(`${skillCounts["beginner"]} beginner`);
+  if (skillCounts["intermediate"]) skillDetail.push(`${skillCounts["intermediate"]} intermediate`);
+  if (skillCounts["advanced"]) skillDetail.push(`${skillCounts["advanced"]} advanced`);
 
   faqs.push({
     question: `How many surf spots are in ${cityName}?`,
@@ -190,10 +197,10 @@ function buildFAQ(
   }
 
   // FAQ 3: Good for beginners?
-  const beginnerCount = skillCounts["Beginner"] || 0;
+  const beginnerCount = skillCounts["beginner"] || 0;
   if (beginnerCount > 0) {
     const beginnerNames = beaches
-      .filter((b) => b.skill_level === "Beginner")
+      .filter((b) => b.skill_level === "beginner")
       .slice(0, 3)
       .map((b) => b.name);
     faqs.push({
@@ -222,6 +229,39 @@ function buildFAQ(
       question: `What wetsuit do I need to surf in ${cityName}?`,
       answer: `Wetsuit requirements vary by season. Check the latest water temperature data on our forecast page for current recommendations.`,
     });
+  }
+
+  // Editorial-backed FAQs (only for cities with Layer 2 content)
+  if (editorialBeachData && editorialBeachData.length > 0) {
+    // Tide FAQ from editorial data
+    const tideBeaches = editorialBeachData.filter((b) => b.bestTides);
+    if (tideBeaches.length > 0) {
+      const tideInfo = tideBeaches.slice(0, 3).map((b) => `${b.beachName}: ${b.bestTides}`).join(". ");
+      faqs.push({
+        question: `When is the best tide to surf ${cityName}?`,
+        answer: `Preferred tides vary by spot. ${tideInfo}.`,
+      });
+    }
+
+    // Safety FAQ from editorial data
+    const safetyBeaches = editorialBeachData.filter((b) => b.safetyNotes);
+    if (safetyBeaches.length > 0) {
+      const safetyInfo = safetyBeaches.slice(0, 2).map((b) => `At ${b.beachName}: ${b.safetyNotes}`).join(" ");
+      faqs.push({
+        question: `Are there rip currents at ${cityName} beaches?`,
+        answer: `Ocean safety varies by location and conditions. ${safetyInfo}. Always check current conditions before entering the water.`,
+      });
+    }
+
+    // Crowd FAQ from editorial data
+    const crowdBeaches = editorialBeachData.filter((b) => b.crowdNotes);
+    if (crowdBeaches.length > 0) {
+      const crowdInfo = crowdBeaches.slice(0, 2).map((b) => `${b.beachName}: ${b.crowdNotes}`).join(". ");
+      faqs.push({
+        question: `How crowded are ${cityName} surf spots?`,
+        answer: `Crowds vary by beach and time of day. ${crowdInfo}.`,
+      });
+    }
   }
 
   return faqs;

@@ -60,7 +60,7 @@ interface ObservationSyncResult {
  *    - Fetches latest observations for active stations
  *    - Validates data quality
  *    - Inserts into ioos_observations table
- *    - Updates station last_seen_at timestamp
+ *    - Updates station last_seen_at timestamp on successful data fetch
  *
  * Query params:
  * - phase: "stations" | "observations" (required)
@@ -219,7 +219,9 @@ async function syncStations(maxStations: number): Promise<StationSyncResult> {
           nearest_beach_id: nearestBeach.id,
           distance_to_beach_km: Math.round(nearestBeach.distance * 10) / 10,
           active: true,
-          last_seen_at: new Date().toISOString(),
+          // Note: last_seen_at intentionally omitted — only updated by the
+          // observation sync phase when valid data is returned. Including it here
+          // would reset the freshness clock for dead stations every discovery cycle.
         });
         result.stationsLinkedToBeaches++;
       }

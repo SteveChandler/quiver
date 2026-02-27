@@ -1,0 +1,19 @@
+# Tests (not needed for production build)
+e2e/
+__tests__/
+
+# Documentation
+docs/
+
+# Scripts (dev-only)
+scripts/
+
+# Supabase config/migrations (deployed separately)
+/supabase/
+
+# Mobile native shells
+ios/
+android/
+
+# IDE/tool config
+.claude/

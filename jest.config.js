@@ -7,6 +7,7 @@ const createJestConfig = nextJest({
 
 // Add any custom config to be passed to Jest
 const customJestConfig = {
+  globalSetup: "<rootDir>/jest.tz-setup.js",
   setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
   testEnvironment: "jest-environment-jsdom",
   // Increase default test timeout to reduce flakiness with async/rendering tests
@@ -51,6 +52,8 @@ const customJestConfig = {
   moduleFileExtensions: ["js", "jsx", "ts", "tsx", "json"],
   // Handle dynamic imports and async code better
   preset: undefined,
+  // Cap workers in CI to match GitHub runner vCPUs (2) and reduce contention
+  ...(process.env.CI ? { maxWorkers: 2 } : {}),
   // Coverage configuration
   coverageProvider: "v8",
   coverageDirectory: "coverage",

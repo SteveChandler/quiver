@@ -105,7 +105,7 @@ jobs:
             echo "</details>" >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Fail on critical
+      - name: Fail on degraded or critical
         if: always()
         run: |
           DEEP_STATUS="${{ steps.deep.outputs.status }}"
@@ -116,7 +116,7 @@ jobs:
             exit 1
           fi
 
-          if [ "$DEEP_STATUS" = "critical" ] || [ "$DEEP_STATUS" = "fail" ]; then
+          if [ "$DEEP_STATUS" = "critical" ] || [ "$DEEP_STATUS" = "degraded" ] || [ "$DEEP_STATUS" = "fail" ]; then
             echo "Deep health check status: $DEEP_STATUS"
             exit 1
           fi

@@ -39,7 +39,7 @@ function generateTideSamples(
  */
 function createMockSupabase(options: {
   baseTideData: Record<string, unknown>;
-  repBeach: { id: string; name: string };
+  repBeach: { id: string; name: string; timezone: string | null };
   tideSamples: Array<{ ts: string; tide_height_m: number; tide_ft: number }>;
   cityBeaches: Array<Record<string, unknown>>;
 }) {
@@ -168,7 +168,7 @@ describe("getCityTideDataExpanded", () => {
 
     const mockSupa = createMockSupabase({
       baseTideData,
-      repBeach: { id: "beach-1", name: "Test Beach" },
+      repBeach: { id: "beach-1", name: "Test Beach", timezone: "America/Los_Angeles" },
       tideSamples,
       cityBeaches: [
         { name: "Test Beach", slug: "test-beach", preferred_tide_ft_min: 1, preferred_tide_ft_max: 4, preferred_tide_direction: "incoming", skill_level: "beginner" },
@@ -235,7 +235,7 @@ describe("getCityTideDataExpanded", () => {
 
     const mockSupa = createMockSupabase({
       baseTideData,
-      repBeach: { id: "beach-1", name: "Test Beach" },
+      repBeach: { id: "beach-1", name: "Test Beach", timezone: "America/Los_Angeles" },
       tideSamples,
       cityBeaches: [],
     });

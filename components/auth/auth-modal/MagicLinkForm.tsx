@@ -17,6 +17,8 @@ export interface MagicLinkFormProps {
   onEmailChange: (email: string) => void;
   onSubmit: () => void;
   onBack: () => void;
+  emailSuggestion?: { suggestion: string; suggestedEmail: string } | null;
+  onAcceptSuggestion?: (correctedEmail: string) => void;
 }
 
 export function MagicLinkForm({
@@ -26,6 +28,8 @@ export function MagicLinkForm({
   onEmailChange,
   onSubmit,
   onBack,
+  emailSuggestion,
+  onAcceptSuggestion,
 }: MagicLinkFormProps) {
   return (
     <div className="space-y-4 pt-2">
@@ -41,6 +45,18 @@ export function MagicLinkForm({
           ref={emailInputRef}
           disabled={loading}
         />
+        {emailSuggestion && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            {emailSuggestion.suggestion}{" "}
+            <button
+              type="button"
+              className="underline font-medium hover:text-amber-700 dark:hover:text-amber-300"
+              onClick={() => onAcceptSuggestion?.(emailSuggestion.suggestedEmail)}
+            >
+              Use {emailSuggestion.suggestedEmail}
+            </button>
+          </p>
+        )}
       </div>
 
       <Button

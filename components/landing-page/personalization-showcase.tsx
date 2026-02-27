@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { motion, useInView } from "framer-motion";
 import {
   Star,
@@ -12,6 +13,8 @@ import {
   Droplets,
 } from "lucide-react";
 import { SectionWrapper } from "./section-wrapper";
+import { useAuth } from "@/context/auth-context";
+import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 
 // -------------------------------------------------------------------
 // Static data for the generic → Quiver transformation
@@ -74,6 +77,9 @@ export function PersonalizationShowcase() {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, amount: 0.4 });
   const [isRevealed, setIsRevealed] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const { user } = useAuth();
+  const pathname = usePathname();
 
   // Trigger reveal ~1s after the card enters the viewport (once).
   useEffect(() => {
@@ -257,6 +263,21 @@ export function PersonalizationShowcase() {
         Powered by machine learning &mdash; not just buoy readings.
       </p>
 
+      {/* Conversion CTA — shown only to non-authenticated users */}
+      {!user && (
+        <div className="mt-8 flex flex-col items-center gap-2">
+          <button
+            onClick={() => setShowAuth(true)}
+            className="rounded-full bg-ocean-blue px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-ocean-blue/90 active:scale-95 transition-all duration-150"
+          >
+            Get Your Match Scores
+          </button>
+          <p className="text-xs text-gray-400 font-open-sans">
+            Free account, no credit card
+          </p>
+        </div>
+      )}
+
       {/* Community intel callout */}
       <div className="mt-8 flex flex-col items-center text-center">
         <div className="inline-flex items-center gap-2 rounded-full bg-green-50 border border-green-200 px-4 py-2">
@@ -270,6 +291,21 @@ export function PersonalizationShowcase() {
           </span>
         </div>
       </div>
+
+      {showAuth && (
+        <UnifiedAuthModal
+          isOpen={showAuth}
+          onClose={() => setShowAuth(false)}
+          mode="signup"
+          source="personalization-showcase"
+          returnTo={pathname}
+          contextMessage={{
+            title: "Get Personalized Match Scores",
+            description:
+              "Create a free account to see personalized match scores for every beach",
+          }}
+        />
+      )}
     </SectionWrapper>
   );
 }

@@ -26,9 +26,9 @@ describe("generateCityContent", () => {
   describe("summary", () => {
     it("includes beach count and skill breakdown", () => {
       const beaches = [
-        makeBeach({ id: "1", name: "Spot A", skill_level: "Beginner", average_rating: 4.5 }),
-        makeBeach({ id: "2", name: "Spot B", skill_level: "Intermediate" }),
-        makeBeach({ id: "3", name: "Spot C", skill_level: "Advanced" }),
+        makeBeach({ id: "1", name: "Spot A", skill_level: "beginner", average_rating: 4.5 }),
+        makeBeach({ id: "2", name: "Spot B", skill_level: "intermediate" }),
+        makeBeach({ id: "3", name: "Spot C", skill_level: "advanced" }),
       ];
       const { summary } = generateCityContent({
         cityName: "Del Mar",
@@ -46,7 +46,7 @@ describe("generateCityContent", () => {
 
     it("pluralizes 'break' based on skill-counted total, not totalBeaches", () => {
       const beaches = [
-        makeBeach({ id: "1", name: "Only Spot", skill_level: "Beginner", average_rating: 4.0 }),
+        makeBeach({ id: "1", name: "Only Spot", skill_level: "beginner", average_rating: 4.0 }),
       ];
       const { summary } = generateCityContent({
         cityName: "Test City",
@@ -136,8 +136,8 @@ describe("generateCityContent", () => {
   describe("faqs", () => {
     it("returns 4 FAQ items", () => {
       const beaches = [
-        makeBeach({ id: "1", name: "Spot A", skill_level: "Beginner" }),
-        makeBeach({ id: "2", name: "Spot B", skill_level: "Intermediate" }),
+        makeBeach({ id: "1", name: "Spot A", skill_level: "beginner" }),
+        makeBeach({ id: "2", name: "Spot B", skill_level: "intermediate" }),
       ];
       const { faqs } = generateCityContent({
         cityName: "Del Mar",
@@ -156,7 +156,7 @@ describe("generateCityContent", () => {
 
     it("produces beginner-positive FAQ when beginner spots exist", () => {
       const beaches = [
-        makeBeach({ id: "1", name: "Chill Beach", skill_level: "Beginner" }),
+        makeBeach({ id: "1", name: "Chill Beach", skill_level: "beginner" }),
       ];
       const { faqs } = generateCityContent({
         cityName: "Del Mar",
@@ -173,7 +173,7 @@ describe("generateCityContent", () => {
 
     it("produces beginner-negative FAQ when no beginner spots", () => {
       const beaches = [
-        makeBeach({ id: "1", name: "Heavy Spot", skill_level: "Advanced" }),
+        makeBeach({ id: "1", name: "Heavy Spot", skill_level: "advanced" }),
       ];
       const { faqs } = generateCityContent({
         cityName: "Del Mar",

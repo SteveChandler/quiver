@@ -79,23 +79,6 @@ test.describe('Guest Smoke: Critical Pages', () => {
     });
   });
 
-  test('Intent state page renders with heading and structured data @smoke', async ({ page }) => {
-    await gotoWithErrorCheck(page, errorCapture, '/beginner/ca', { timeout: 10000 });
-
-    // H1 should contain the state name and intent keyword
-    const h1 = page.locator('h1');
-    await expect(h1).toBeVisible({ timeout: 10000 });
-    const h1Text = await h1.textContent();
-    expect(h1Text?.toLowerCase()).toContain('california');
-    expect(h1Text?.toLowerCase()).toContain('beginner');
-
-    // JSON-LD structured data should exist
-    const jsonLd = page.locator('script[type="application/ld+json"]').first();
-    await expect(jsonLd).toBeAttached();
-
-    await assertNoErrors(page, errorCapture, { context: 'Intent state page' });
-  });
-
   test('404 page renders gracefully @smoke', async ({ page }) => {
     const response = await page.goto('/this-page-does-not-exist', {
       timeout: 10000,

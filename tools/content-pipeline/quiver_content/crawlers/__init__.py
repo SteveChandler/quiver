@@ -7,6 +7,8 @@ from quiver_content.crawlers.base import (
     CrawlResult,
 )
 from quiver_content.crawlers.government import GovernmentCrawler
+from quiver_content.crawlers.overpass import OverpassCrawler
+from quiver_content.crawlers.wannasurf import WannasurfCrawler
 from quiver_content.crawlers.wikipedia import WikipediaCrawler
 
 __all__ = [
@@ -15,5 +17,7 @@ __all__ = [
     "CrawlImage",
     "CrawlResult",
     "GovernmentCrawler",
+    "OverpassCrawler",
+    "WannasurfCrawler",
     "WikipediaCrawler",
 ]

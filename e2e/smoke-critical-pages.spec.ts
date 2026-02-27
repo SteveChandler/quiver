@@ -32,17 +32,13 @@ test.describe('Smoke: Critical Pages', () => {
     const heading = page.getByRole('heading', { name: /blacks/i });
     await expect(heading).toBeVisible({ timeout: 10000 });
 
-    // Forecast section or spot overview should render
-    const forecastArea = page.locator(
-      '[data-testid="spot-overview"], [data-testid="forecast"], [class*="forecast"], [class*="surf-report"]'
-    ).first();
-    const hasForecast = await isVisibleSafe(forecastArea, { timeout: 5000 });
+    // Conditions ticker or stats grid should render (matches actual testids on the page)
+    const ticker = page.locator('[data-testid="ticker-content"]');
+    const statsGrid = page.locator('[data-testid="beach-stats-grid"]');
+    const hasTicker = await isVisibleSafe(ticker, { timeout: 10000 });
+    const hasStats = await isVisibleSafe(statsGrid, { timeout: 5000 });
 
-    // Alternatively, check for wave height or swell text
-    const waveInfo = page.getByText(/ft|swell|wave/i).first();
-    const hasWaveInfo = await isVisibleSafe(waveInfo);
-
-    expect(hasForecast || hasWaveInfo).toBe(true);
+    expect(hasTicker || hasStats).toBe(true);
 
     await assertNoErrors(page, errorCapture, { context: 'Beach detail page' });
   });

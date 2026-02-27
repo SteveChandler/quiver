@@ -40,7 +40,7 @@ function CustomTooltip({
         Score: <span className="font-medium text-ocean-blue">{data.score}</span>
       </p>
       <p className="text-xs text-gray-500">
-        {data.bestMonthCount} beach{data.bestMonthCount !== 1 ? "es" : ""} peak this month
+        {data.bestMonthCount} beach{data.bestMonthCount !== 1 ? "es" : ""} in peak season
       </p>
     </div>
   );

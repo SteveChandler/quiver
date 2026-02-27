@@ -66,41 +66,25 @@ export function useCachedProfile() {
     }
 
     try {
-      // Get profile directly
-      const { getProfile } = await import("@/actions/profile-actions");
-      const profileResult = await getProfile(user.id);
+      const { getProfileWithHomeBeach } = await import("@/actions/profile-actions");
+      const result = await getProfileWithHomeBeach(user.id);
 
-      if (!profileResult.success || !profileResult.data) {
+      if (!result.success || !result.data) {
         return { profile: null, homeBeach: null };
       }
 
-      const profile = profileResult.data;
-
-      let homeBeach: Beach | null = null;
-
-      // No longer prefer top-ranked favorite beach; use home_beach_id only
-
-      // Resolve strictly via home_beach_id
-      if (profile.home_beach_id) {
-        const { getBeachById } = await import("@/actions/beach-actions");
-        const beachResult = await getBeachById(profile.home_beach_id);
-        if (beachResult.success && beachResult.data) {
-          homeBeach = beachResult.data;
-        }
-      }
-
-      const result = { profile, homeBeach };
+      const { profile, homeBeach } = result.data;
+      const resultData = { profile, homeBeach };
 
       // Cache the result
       const cacheData: CachedProfileData = {
-        ...result,
+        ...resultData,
         timestamp: Date.now(),
       };
 
       safeSetItem(CACHE_KEY, JSON.stringify(cacheData));
-
       setCachedData(cacheData);
-      return result;
+      return resultData;
     } catch (error) {
       console.error("Error fetching profile and home beach:", error);
       return { profile: null, homeBeach: null } as any;

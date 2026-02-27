@@ -15,10 +15,14 @@ import { SessionTimingModules } from "@/components/city/session-timing-modules";
 import { AboutAccordion } from "@/components/city/about-accordion";
 import { GuidesByIntentGrid } from "@/components/city/guides-by-intent-grid";
 import { PlanningChecklist } from "@/components/city/planning-checklist";
+import { FAQSection } from "@/components/seo/faq-schema";
 import { ItemListSchema } from "@/components/seo/item-list-schema";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
+import { SiblingCitiesSection } from "@/components/shared/sibling-cities-section";
+import { generateCityRichContent } from "@/lib/seo/city-content-generator";
 import { getUsStateDisplayNameFromSlug } from "@/lib/utils/beach-url-utils";
 import type { LocationStats, BeachWithMetrics } from "@/types/location";
+import type { TopCityInState } from "@/actions/beach/beach-location-actions";
 import { resolveIslandDisplayName } from "./city-page-utils";
 import type { LocationPageParams } from "./city-page-utils";
 import { SITE_ORIGIN } from "./city-page-utils";
@@ -33,6 +37,7 @@ interface EditorialLayoutProps {
   jsonLd: object;
   itemListItems: { name: string; url: string; position: number }[];
   bestTimeToSurfUrl?: string;
+  siblingCities?: TopCityInState[];
 }
 
 export function EditorialLayout({
@@ -44,6 +49,7 @@ export function EditorialLayout({
   jsonLd,
   itemListItems,
   bestTimeToSurfUrl,
+  siblingCities,
 }: EditorialLayoutProps) {
   const surfSpots = transformBeachesToSurfSpots(beaches);
   const topSpot = beaches[0];
@@ -54,6 +60,14 @@ export function EditorialLayout({
     ? getUsStateDisplayNameFromSlug(params.state)
     : params.state.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
   const stateUrl = `/beaches/${params.country}/${params.state}`;
+
+  const { faqs: cityFaqs } = generateCityRichContent({
+    cityName: displayCityName,
+    stateName,
+    stateSlug: params.state,
+    stats,
+    beaches,
+  });
 
   return (
     <>
@@ -194,6 +208,20 @@ export function EditorialLayout({
 
         {/* Planning Checklist */}
         <PlanningChecklist items={editorial.planning_checklist} />
+
+        {/* FAQ Section for SEO */}
+        <FAQSection items={cityFaqs} locationName={displayCityName} />
+
+        {/* Sibling Cities for internal linking */}
+        {siblingCities && siblingCities.length > 0 && (
+          <SiblingCitiesSection
+            currentCity={displayCityName}
+            stateSlug={params.state}
+            stateName={stateName}
+            stateUrl={stateUrl}
+            cities={siblingCities}
+          />
+        )}
       </div>
     </>
   );

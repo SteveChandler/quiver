@@ -83,6 +83,7 @@ export interface BeginnerBeachWithEditorial {
   breakType: string;
   currentWaveHeight: string | null;
   editorial: BeginnerBeachEditorial | null;
+  photoUrl?: string | null;
 }
 
 // ================================================

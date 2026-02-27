@@ -15,13 +15,10 @@ import type { Metadata } from "next";
 
 import {
   getBestTimeToSurfData,
-  getCitiesWithBestMonthsData,
 } from "@/actions/city/best-time-actions";
 import { findCityBySlug } from "@/actions/city/city-metadata-actions";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
-import { buildCitySlug } from "@/lib/seo/city-slug-utils";
-import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import { getStateSurfProfile } from "@/lib/data/monthly-surf-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
@@ -37,7 +34,9 @@ import { INTENT_DEFINITIONS, buildCityIntentUrl } from "@/lib/constants/intent-d
 export const dynamic = "force-dynamic";
 
 // Constants
-const currentYear = new Date().getFullYear();
+const now = new Date();
+const currentYear = now.getFullYear();
+const currentMonthIndex = now.getMonth(); // 0-based
 
 const MONTH_ABBREVS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -65,23 +64,8 @@ interface PageParams {
   params: Promise<{ city: string }>;
 }
 
-export async function generateStaticParams() {
-  try {
-    const result = await getCitiesWithBestMonthsData();
-    if (!result.success || !result.data) return [];
-
-    return result.data
-      .map((c) => {
-        const citySlug = buildCitySlug(c.city, c.state, COLLISION_CITY_MAP);
-        if (!citySlug) return null;
-        return { city: citySlug };
-      })
-      .filter((p): p is { city: string } => p !== null);
-  } catch (error) {
-    console.error("Failed to generate static params for best-time-to-surf:", error);
-    return [];
-  }
-}
+// NOTE: generateStaticParams removed — this page uses force-dynamic.
+// Pages are rendered on-demand via ISR.
 
 export async function generateMetadata(props: PageParams): Promise<Metadata> {
   const { city: citySlug } = await props.params;
@@ -229,29 +213,33 @@ export default async function BestTimeToSurfPage(props: PageParams) {
               {cityName}, {stateName} &mdash; Month-by-month surf guide
             </p>
 
-            {/* Peak month hero card */}
+            {/* Current month hero card */}
             <div className="rounded-2xl bg-gradient-to-br from-ocean-blue to-blue-700 p-6 md:p-8 text-white flex flex-col md:flex-row items-center gap-6">
               <AnimatedScoreGauge
-                score={data.peakScore}
+                score={data.monthly[currentMonthIndex].score}
                 size="xl"
                 showLabel
                 variant="hero"
               />
               <div className="text-center md:text-left">
                 <p className="text-white/80 text-sm font-medium uppercase tracking-wide mb-1">
-                  Peak Surf Month
+                  Surfing in {data.monthly[currentMonthIndex].monthName}
                 </p>
                 <p className="text-3xl md:text-4xl font-bold mb-2">
-                  {data.peakMonthName}
+                  {data.monthly[currentMonthIndex].monthName}
                 </p>
                 <p className="text-white/90 max-w-md">
-                  {data.topBeaches.length} of {data.totalBeaches} beaches hit
-                  their best conditions during {data.peakMonthName}.
+                  {data.monthly[currentMonthIndex].bestMonthCount > 0
+                    ? `${data.monthly[currentMonthIndex].bestMonthCount} of ${data.totalBeaches} beaches are in peak season right now.`
+                    : `${cityName} is between peak seasons right now.`}
                   {stateProfile
-                    ? ` Expect ${stateProfile.monthly[data.peakMonth - 1].waveHeightRange} waves and ${stateProfile.monthly[data.peakMonth - 1].waterTemp}°F water.`
+                    ? ` Expect ${stateProfile.monthly[currentMonthIndex].waveHeightRange} waves and ${stateProfile.monthly[currentMonthIndex].waterTemp}°F water.`
                     : data.waterTempRange
                       ? ` Water temperatures range ${data.waterTempRange}°F year-round.`
                       : ""}
+                  {data.peakMonth !== currentMonthIndex + 1
+                    ? ` Peak month: ${data.peakMonthName}.`
+                    : ""}
                 </p>
               </div>
             </div>
@@ -265,8 +253,8 @@ export default async function BestTimeToSurfPage(props: PageParams) {
               Surf Score by Month
             </h2>
             <p className="text-sm text-gray-600 mb-4">
-              Score reflects how many {cityName} beaches are in their peak
-              season each month, normalized to 100.
+              Score reflects overall surf quality each month — combining peak
+              season activity, water temperature, and crowd levels.
             </p>
             <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
               <MonthlySurfChart monthly={data.monthly} />

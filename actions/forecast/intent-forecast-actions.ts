@@ -3,14 +3,29 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { TidePoint } from "@/components/forecast/tide-chart-recharts";
 import type { TideScheduleEntry } from "@/types/forecast";
-import { parseWaterTempF } from "@/lib/utils/wetsuit-utils";
+import { parseWaterTempF, getWetsuitRecommendation } from "@/lib/utils/wetsuit-utils";
 import { TideExtremaDetector } from "@/lib/services/noaa-coops/tide-extrema-detector";
+import { getTideHeightAtTime, getTideStatusAtTime, getNextTideFromTime } from "@/lib/services/noaa-coops/tide-analysis";
+import type { TideData } from "@/lib/services/noaa-coops/types";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import { findMagicHour } from "@/lib/services/magic-hour/magic-hour-finder";
 import type { BeachMetadata, MagicHourResult } from "@/lib/services/magic-hour/types";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { buildCitySlug } from "@/lib/seo/city-slug-utils";
+import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 
 type SupabaseClient = Awaited<ReturnType<typeof createSupabaseServiceRoleClient>>;
+
+/**
+ * Get timezone for a US state. Covers all in-coverage coastal states.
+ */
+function getTimezoneForState(state: string): string {
+  const stateUpper = state.toUpperCase();
+  if (stateUpper === "HI") return "Pacific/Honolulu";
+  if (stateUpper === "PR") return "America/Puerto_Rico";
+  // All other in-coverage states (CA, OR, WA, Baja) use Pacific
+  return "America/Los_Angeles";
+}
 
 /**
  * City-level tide data for intent pages
@@ -87,6 +102,74 @@ export interface CityWaterTempData {
     tempF: number;
   }>;
   /** Name of the beach used for data attribution */
+  beachName: string;
+}
+
+/**
+ * Per-beach water temperature for comparison table
+ */
+export interface BeachWaterTemp {
+  beachName: string;
+  beachSlug: string | null;
+  tempF: number;
+  wetsuitThickness: string;
+}
+
+/**
+ * Monthly average water temperature (optional historical data)
+ */
+export interface MonthlyWaterTempAvg {
+  month: number;       // 1-12
+  monthLabel: string;  // "Jan", "Feb", etc.
+  avgTempF: number;
+  minTempF: number;
+  maxTempF: number;
+}
+
+/**
+ * Expanded water temperature data for the dedicated water-temp page
+ */
+export interface CityWaterTempExpanded extends CityWaterTempData {
+  /** Wetsuit recommendation for current temp */
+  wetsuitRecommendation: {
+    thickness: string;
+    description: string;
+    extras: string[];
+  };
+  /** Per-beach current temperatures for comparison */
+  beachTemps: BeachWaterTemp[];
+  /** Monthly average temps (null if insufficient historical data) */
+  monthlyAverages: MonthlyWaterTempAvg[] | null;
+}
+
+/**
+ * Sun times data for dawn-patrol and sunset intent pages
+ */
+export interface CitySunTimesData {
+  /** Formatted sunrise time (e.g., "6:32 AM") */
+  sunrise: string;
+  /** Formatted sunset time (e.g., "5:48 PM") */
+  sunset: string;
+  /** Civil twilight begin approximation (sunrise - 30min) */
+  firstLight: string;
+  /** Civil twilight end approximation (sunset + 30min) */
+  lastLight: string;
+  /** Day length formatted (e.g., "11h 16m") */
+  dayLength: string;
+  /** Day length change vs yesterday (e.g., "+2 min" or "-1 min") */
+  dayLengthChange: string;
+  /** Golden hour window (sunset - 60min to sunset) */
+  goldenHour: { start: string; end: string } | null;
+  /** 7-day sun times forecast */
+  sevenDayTimes: Array<{
+    date: string;
+    label: string;
+    sunrise: string;
+    sunset: string;
+    dayLength: string;
+    isToday: boolean;
+  }>;
+  /** Beach used for data attribution */
   beachName: string;
 }
 
@@ -190,10 +273,10 @@ export async function getCityTideData(
         return null;
       }
 
-      return processTideData(altBeach);
+      return processTideData(altBeach, state);
     }
 
-    return processTideData(beachWithForecast);
+    return processTideData(beachWithForecast, state);
   } catch (error) {
     console.error("Error in getCityTideData:", error);
     return null;
@@ -201,9 +284,12 @@ export async function getCityTideData(
 }
 
 /**
- * Process raw forecast data into CityTideData
+ * Process raw forecast data into CityTideData.
+ * Dynamically computes current tide values from the tide_schedule array
+ * rather than relying on pre-computed fields (which reflect the forecast
+ * row's time slot, not the actual current time).
  */
-function processTideData(forecastData: any): CityTideData | null {
+function processTideData(forecastData: any, state: string): CityTideData | null {
   const beach = forecastData.beaches;
   const rawForecast = forecastData.raw_forecast as {
     tide_schedule?: TideScheduleEntry[];
@@ -224,19 +310,38 @@ function processTideData(forecastData: any): CityTideData | null {
     }));
   }
 
-  // If no tide schedule, try to construct from individual forecast fields
-  if (tidePoints.length === 0 && forecastData.tide_height) {
-    // Fall back to just showing current state without chart
-    // The TideChart can handle empty data gracefully
-  }
+  // Convert TideScheduleEntry[] to TideData[] for tide-analysis functions
+  const tideData: TideData[] = tideSchedule
+    ? tideSchedule.map((entry) => ({
+        time: entry.time,
+        height: entry.height,
+        type: entry.type,
+        name: entry.type === "high" ? "High Tide" : "Low Tide",
+      }))
+    : [];
+
+  // Dynamically compute current tide values from schedule
+  const now = new Date();
+  const computedHeight = getTideHeightAtTime(tideData, now);
+  const computedStatus = getTideStatusAtTime(tideData, now);
+  const nextTide = getNextTideFromTime(tideData, now);
+
+  const timeZone = getTimezoneForState(state);
+  const nextTideTimeFormatted = nextTide
+    ? new Date(nextTide.time * 1000).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone,
+      })
+    : null;
 
   return {
     tidePoints,
-    currentStatus: forecastData.tide_status || null,
-    currentHeight: forecastData.tide_height || null,
-    nextTideType: forecastData.next_tide_type || null,
-    nextTideTime: forecastData.next_tide_time || null,
-    nextTideHeight: forecastData.next_tide_height || null,
+    currentStatus: computedStatus !== "Unknown" ? computedStatus : (forecastData.tide_status || null),
+    currentHeight: computedHeight != null ? `${computedHeight} ft` : (forecastData.tide_height || null),
+    nextTideType: nextTide ? (nextTide.type === "high" ? "High" : "Low") : (forecastData.next_tide_type || null),
+    nextTideTime: nextTideTimeFormatted || (forecastData.next_tide_time || null),
+    nextTideHeight: nextTide ? `${nextTide.height} ft` : (forecastData.next_tide_height || null),
     beachName: beach?.name || "Unknown Beach",
     tideStation: rawForecast?.tide_station?.name || null,
   };
@@ -246,7 +351,7 @@ function processTideData(forecastData: any): CityTideData | null {
  * Format a date for day labels: "Today", "Tomorrow", or "Wed, Feb 12"
  * Uses explicit timezone to ensure deterministic server-side output.
  */
-function formatDayLabel(date: Date, today: Date, timeZone = "America/Los_Angeles"): string {
+function formatDayLabel(date: Date, today: Date, timeZone: string): string {
   const fmt = (d: Date) =>
     new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
   const todayStr = fmt(today);
@@ -273,10 +378,10 @@ async function findRepresentativeBeach(
   supabase: SupabaseClient,
   cityName: string,
   state: string,
-): Promise<{ id: string; name: string } | null> {
+): Promise<{ id: string; name: string; timezone: string | null } | null> {
   const { data } = await supabase
     .from("beaches")
-    .select("id, name")
+    .select("id, name, timezone")
     .ilike("city", cityName)
     .ilike("state", state)
     .order("name", { ascending: true })
@@ -287,7 +392,7 @@ async function findRepresentativeBeach(
 
   const { data: alt } = await supabase
     .from("beaches")
-    .select("id, name")
+    .select("id, name, timezone")
     .ilike("city", cityName)
     .order("name", { ascending: true })
     .limit(1)
@@ -332,7 +437,8 @@ export async function getCityTideDataExpanded(
     const sevenDaysLater = new Date(now);
     sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
 
-    return fetchExpandedTideData(supabase, repBeach.id, cityName, state, baseTideData, chartStart, sevenDaysLater);
+    const timeZone = repBeach.timezone || getTimezoneForState(state);
+    return fetchExpandedTideData(supabase, repBeach.id, cityName, state, baseTideData, chartStart, sevenDaysLater, timeZone);
   } catch (error) {
     console.error("Error in getCityTideDataExpanded:", error);
     return null;
@@ -346,7 +452,8 @@ async function fetchExpandedTideData(
   state: string,
   baseTideData: CityTideData,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  timeZone: string
 ): Promise<CityTideDataExpanded> {
   // Parallel fetch: hourly tide data + beach preferences
   const [tideResult, beachesResult] = await Promise.all([
@@ -391,7 +498,6 @@ async function fetchExpandedTideData(
   const extremaRaw = detector.detectExtrema(samplesForDetector);
 
   // Group extrema by day with explicit timezone for deterministic output
-  const timeZone = "America/Los_Angeles";
   const today = new Date();
   const dateFmt = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
   const todayStr = dateFmt.format(today);
@@ -549,6 +655,295 @@ async function fetchWaterTempData(
     points,
     beachName: beach.name,
   };
+}
+
+/**
+ * Fetch monthly average water temperatures from historical forecast data.
+ * Returns null if fewer than 3 months of data available.
+ */
+async function fetchMonthlyWaterTempAverages(
+  supabase: SupabaseClient,
+  cityName: string,
+  state: string
+): Promise<MonthlyWaterTempAvg[] | null> {
+  try {
+    const beach = await findRepresentativeBeach(supabase, cityName, state);
+    if (!beach) return null;
+
+    // Fetch last 12 months of data and compute averages in JS
+    const twelveMonthsAgo = new Date();
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+
+    const { data: rawData } = await supabase
+      .from("enhanced_forecasts")
+      .select("forecast_at, water_temp")
+      .eq("beach_id", beach.id)
+      .gte("forecast_at", twelveMonthsAgo.toISOString())
+      .not("water_temp", "is", null)
+      .order("forecast_at", { ascending: true });
+
+    if (!rawData || rawData.length === 0) return null;
+
+    // Group by month and compute averages
+    const monthBuckets = new Map<number, number[]>();
+    for (const row of rawData) {
+      const tempF = parseWaterTempF(row.water_temp);
+      if (tempF === null) continue;
+      const month = new Date(row.forecast_at).getMonth() + 1; // 1-12
+      const bucket = monthBuckets.get(month) ?? [];
+      bucket.push(tempF);
+      monthBuckets.set(month, bucket);
+    }
+
+    // Need at least 3 months with data
+    if (monthBuckets.size < 3) return null;
+
+    const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const result: MonthlyWaterTempAvg[] = [];
+
+    for (let m = 1; m <= 12; m++) {
+      const temps = monthBuckets.get(m);
+      if (!temps || temps.length === 0) {
+        // Skip months with no data
+        continue;
+      }
+      const avg = temps.reduce((a, b) => a + b, 0) / temps.length;
+      result.push({
+        month: m,
+        monthLabel: monthLabels[m - 1],
+        avgTempF: Math.round(avg * 10) / 10,
+        minTempF: Math.round(Math.min(...temps) * 10) / 10,
+        maxTempF: Math.round(Math.max(...temps) * 10) / 10,
+      });
+    }
+
+    return result.length >= 3 ? result : null;
+  } catch (error) {
+    console.error("Error fetching monthly water temp averages:", error);
+    return null;
+  }
+}
+
+/**
+ * Get expanded water temperature data for the dedicated water-temp page.
+ * Includes per-beach comparison and monthly averages.
+ */
+export async function getCityWaterTempExpanded(
+  cityName: string,
+  state: string
+): Promise<CityWaterTempExpanded | null> {
+  try {
+    const [baseData, supabase] = await Promise.all([
+      getCityWaterTempHistory(cityName, state),
+      createSupabaseServiceRoleClient(),
+    ]);
+    if (!baseData) return null;
+
+    const wetsuitRec = getWetsuitRecommendation(baseData.currentTemp);
+
+    // Fetch per-beach temps: get all beaches in city with today's water_temp
+    const today = new Date().toISOString().split("T")[0];
+    const tomorrow = new Date(new Date(today + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
+
+    // Use a subquery pattern: get latest forecast per beach with water_temp
+    const { data: beachForecasts } = await supabase
+      .from("enhanced_forecasts")
+      .select(`
+        beach_id,
+        water_temp,
+        forecast_at,
+        beaches!inner (
+          name,
+          slug,
+          city,
+          state
+        )
+      `)
+      .ilike("beaches.city", cityName)
+      .ilike("beaches.state", state)
+      .gte("forecast_at", `${today}T00:00:00Z`)
+      .lt("forecast_at", `${tomorrow}T00:00:00Z`)
+      .not("water_temp", "is", null)
+      .order("forecast_at", { ascending: false });
+
+    // Deduplicate: keep first (most recent) forecast per beach
+    const seenBeaches = new Set<string>();
+    const beachTemps: BeachWaterTemp[] = [];
+
+    if (beachForecasts) {
+      for (const row of beachForecasts) {
+        if (seenBeaches.has(row.beach_id)) continue;
+        seenBeaches.add(row.beach_id);
+
+        const tempF = parseWaterTempF(row.water_temp);
+        if (tempF === null) continue;
+
+        const beach = row.beaches as any;
+        const rec = getWetsuitRecommendation(tempF);
+        beachTemps.push({
+          beachName: beach.name,
+          beachSlug: beach.slug ?? null,
+          tempF,
+          wetsuitThickness: rec.thickness,
+        });
+      }
+    }
+
+    // Sort beachTemps by temp descending (warmest first)
+    beachTemps.sort((a, b) => b.tempF - a.tempF);
+
+    // Attempt monthly averages from historical data
+    const monthlyAverages = await fetchMonthlyWaterTempAverages(supabase, cityName, state);
+
+    return {
+      ...baseData,
+      wetsuitRecommendation: {
+        thickness: wetsuitRec.thickness,
+        description: wetsuitRec.description,
+        extras: wetsuitRec.extras,
+      },
+      beachTemps,
+      monthlyAverages,
+    };
+  } catch (error) {
+    console.error("Error in getCityWaterTempExpanded:", error);
+    return null;
+  }
+}
+
+/**
+ * Get sun times data for dawn-patrol and sunset intent pages.
+ * Queries the sun_times table for a representative beach and returns
+ * formatted sunrise/sunset data with twilight and golden hour approximations.
+ *
+ * Twilight approximations (standard photography/surfing conventions):
+ * - First light (civil twilight begin) ≈ sunrise - 30 minutes
+ * - Last light (civil twilight end) ≈ sunset + 30 minutes
+ * - Golden hour start ≈ sunset - 60 minutes
+ * - Golden hour end ≈ sunset
+ */
+export async function getCitySunTimesData(
+  cityName: string,
+  state: string
+): Promise<CitySunTimesData | null> {
+  try {
+    const supabase = await createSupabaseServiceRoleClient();
+
+    const beach = await findRepresentativeBeach(supabase, cityName, state);
+    if (!beach) return null;
+
+    // Fetch today + next 6 days + yesterday (for day length change)
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const sixDaysLater = new Date(today);
+    sixDaysLater.setDate(sixDaysLater.getDate() + 6);
+
+    const yesterdayStr = yesterday.toISOString().split("T")[0];
+    const todayStr = today.toISOString().split("T")[0];
+    const endStr = sixDaysLater.toISOString().split("T")[0];
+
+    const { data: sunTimes, error } = await supabase
+      .from("sun_times")
+      .select("date, sunrise_utc, sunset_utc")
+      .eq("beach_id", beach.id)
+      .gte("date", yesterdayStr)
+      .lte("date", endStr)
+      .order("date", { ascending: true });
+
+    if (error || !sunTimes || sunTimes.length === 0) {
+      console.log(`No sun times data for ${cityName}, ${state}:`, error?.message);
+      return null;
+    }
+
+    const timeZone = beach.timezone || getTimezoneForState(state);
+    const timeFmt = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+
+    // Find today's and yesterday's data
+    const todayData = sunTimes.find(st => st.date === todayStr);
+    const yesterdayData = sunTimes.find(st => st.date === yesterdayStr);
+
+    if (!todayData || !todayData.sunrise_utc || !todayData.sunset_utc) {
+      console.log(`No sun times for today (${todayStr}) for beach ${beach.id}`);
+      return null;
+    }
+
+    const todaySunrise = new Date(todayData.sunrise_utc);
+    const todaySunset = new Date(todayData.sunset_utc);
+
+    // Calculate day length in minutes
+    const todayDayLengthMin = Math.round((todaySunset.getTime() - todaySunrise.getTime()) / 60000);
+
+    // Calculate day length change vs yesterday
+    let dayLengthChangeStr = "";
+    if (yesterdayData?.sunrise_utc && yesterdayData?.sunset_utc) {
+      const ySunrise = new Date(yesterdayData.sunrise_utc);
+      const ySunset = new Date(yesterdayData.sunset_utc);
+      const yDayLengthMin = Math.round((ySunset.getTime() - ySunrise.getTime()) / 60000);
+      const diff = todayDayLengthMin - yDayLengthMin;
+      if (diff > 0) dayLengthChangeStr = `+${diff} min vs yesterday`;
+      else if (diff < 0) dayLengthChangeStr = `${diff} min vs yesterday`;
+      else dayLengthChangeStr = "Same as yesterday";
+    }
+
+    // Calculate twilight approximations
+    const firstLightDate = new Date(todaySunrise.getTime() - 30 * 60000);
+    const lastLightDate = new Date(todaySunset.getTime() + 30 * 60000);
+
+    // Golden hour: sunset - 60min to sunset
+    const goldenHourStart = new Date(todaySunset.getTime() - 60 * 60000);
+
+    // Format day length
+    const hours = Math.floor(todayDayLengthMin / 60);
+    const mins = todayDayLengthMin % 60;
+    const dayLengthFormatted = `${hours}h ${mins}m`;
+
+    // Build 7-day times (skip yesterday)
+    const todayDate = new Date(todayStr + "T12:00:00");
+    const sevenDayTimes = sunTimes
+      .filter(st => st.date >= todayStr && st.sunrise_utc && st.sunset_utc)
+      .slice(0, 7)
+      .map(st => {
+        const sunrise = new Date(st.sunrise_utc!);
+        const sunset = new Date(st.sunset_utc!);
+        const dayMin = Math.round((sunset.getTime() - sunrise.getTime()) / 60000);
+        const h = Math.floor(dayMin / 60);
+        const m = dayMin % 60;
+        const stDate = new Date(st.date + "T12:00:00");
+
+        return {
+          date: st.date,
+          label: formatDayLabel(stDate, todayDate, timeZone),
+          sunrise: timeFmt.format(sunrise),
+          sunset: timeFmt.format(sunset),
+          dayLength: `${h}h ${m}m`,
+          isToday: st.date === todayStr,
+        };
+      });
+
+    return {
+      sunrise: timeFmt.format(todaySunrise),
+      sunset: timeFmt.format(todaySunset),
+      firstLight: timeFmt.format(firstLightDate),
+      lastLight: timeFmt.format(lastLightDate),
+      dayLength: dayLengthFormatted,
+      dayLengthChange: dayLengthChangeStr,
+      goldenHour: {
+        start: timeFmt.format(goldenHourStart),
+        end: timeFmt.format(todaySunset),
+      },
+      sevenDayTimes,
+      beachName: beach.name,
+    };
+  } catch (error) {
+    console.error("Error in getCitySunTimesData:", error);
+    return null;
+  }
 }
 
 /**
@@ -757,6 +1152,150 @@ export async function getIntentForecastSummary(
   } catch (error) {
     console.error("Error in getIntentForecastSummary:", error);
     return null;
+  }
+}
+
+/**
+ * State-level water temperature overview for the conditions state page.
+ * Single query joining enhanced_forecasts for representative beaches across top cities.
+ */
+export async function getStateWaterTempOverview(
+  stateSlug: string
+): Promise<Array<{ cityName: string; citySlug: string; tempF: number; wetsuitThickness: string }>> {
+  try {
+    const supabase = await createSupabaseServiceRoleClient();
+    const today = new Date().toISOString().split("T")[0];
+    const tomorrow = new Date(new Date(today + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
+
+    // Get one forecast per city with water temp, ordered geographically (north to south by lat)
+    const { data, error } = await supabase
+      .from("enhanced_forecasts")
+      .select(`
+        water_temp,
+        forecast_at,
+        beaches!inner (
+          name,
+          city,
+          state,
+          lat,
+          slug
+        )
+      `)
+      .ilike("beaches.state", stateSlug)
+      .gte("forecast_at", `${today}T00:00:00Z`)
+      .lt("forecast_at", `${tomorrow}T00:00:00Z`)
+      .not("water_temp", "is", null)
+      .order("forecast_at", { ascending: false })
+      .limit(200);
+
+    if (error || !data) return [];
+
+    // Deduplicate by city (keep first/most recent per city)
+    const cityMap = new Map<string, { cityName: string; state: string; lat: number; tempF: number }>();
+    for (const row of data) {
+      const beach = row.beaches as any;
+      const city = beach.city as string;
+      if (cityMap.has(city)) continue;
+
+      const tempF = parseWaterTempF(row.water_temp);
+      if (tempF === null) continue;
+
+      cityMap.set(city, {
+        cityName: city,
+        state: beach.state as string,
+        lat: beach.lat ?? 0,
+        tempF,
+      });
+    }
+
+    // Sort north to south (descending latitude)
+    const cities = Array.from(cityMap.values())
+      .sort((a, b) => b.lat - a.lat)
+      .slice(0, 10);
+
+    return cities.map(c => ({
+      cityName: c.cityName,
+      citySlug: buildCitySlug(c.cityName, c.state, COLLISION_CITY_MAP) || c.cityName.toLowerCase().replace(/\s+/g, "-"),
+      tempF: c.tempF,
+      wetsuitThickness: getWetsuitRecommendation(c.tempF).thickness,
+    }));
+  } catch (error) {
+    console.error("Error in getStateWaterTempOverview:", error);
+    return [];
+  }
+}
+
+/**
+ * State-level sun times overview for dawn-patrol/sunset state pages.
+ */
+export async function getStateSunTimesOverview(
+  stateSlug: string
+): Promise<Array<{ cityName: string; citySlug: string; sunrise: string; sunset: string; firstLight: string; goldenHourStart: string }>> {
+  try {
+    const supabase = await createSupabaseServiceRoleClient();
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    const { data, error } = await supabase
+      .from("sun_times")
+      .select(`
+        sunrise_utc,
+        sunset_utc,
+        beaches!inner (
+          city,
+          state,
+          lat,
+          timezone
+        )
+      `)
+      .ilike("beaches.state", stateSlug)
+      .eq("date", todayStr)
+      .limit(200);
+
+    if (error || !data) return [];
+
+    const fallbackTimeZone = getTimezoneForState(stateSlug);
+
+    // Deduplicate by city
+    const cityMap = new Map<string, { cityName: string; state: string; lat: number; sunrise: Date; sunset: Date; timezone: string }>();
+    for (const row of data) {
+      const beach = row.beaches as any;
+      const city = beach.city as string;
+      if (cityMap.has(city) || !row.sunrise_utc || !row.sunset_utc) continue;
+
+      cityMap.set(city, {
+        cityName: city,
+        state: beach.state as string,
+        lat: beach.lat ?? 0,
+        sunrise: new Date(row.sunrise_utc),
+        sunset: new Date(row.sunset_utc),
+        timezone: (beach.timezone as string) || fallbackTimeZone,
+      });
+    }
+
+    // Sort north to south
+    const cities = Array.from(cityMap.values())
+      .sort((a, b) => b.lat - a.lat)
+      .slice(0, 10);
+
+    return cities.map(c => {
+      const timeFmt = new Intl.DateTimeFormat("en-US", {
+        timeZone: c.timezone,
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+      return {
+        cityName: c.cityName,
+        citySlug: buildCitySlug(c.cityName, c.state, COLLISION_CITY_MAP) || c.cityName.toLowerCase().replace(/\s+/g, "-"),
+        sunrise: timeFmt.format(c.sunrise),
+        sunset: timeFmt.format(c.sunset),
+        firstLight: timeFmt.format(new Date(c.sunrise.getTime() - 30 * 60000)),
+        goldenHourStart: timeFmt.format(new Date(c.sunset.getTime() - 60 * 60000)),
+      };
+    });
+  } catch (error) {
+    console.error("Error in getStateSunTimesOverview:", error);
+    return [];
   }
 }
 

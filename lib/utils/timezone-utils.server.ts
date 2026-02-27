@@ -8,7 +8,7 @@
  * the browser.
  */
 
-import { find } from "geo-tz";
+import { find } from "geo-tz/now";
 
 /**
  * Default timezone fallback for when coordinates are missing or invalid

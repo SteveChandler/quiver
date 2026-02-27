@@ -58,7 +58,7 @@ export function UpgradeSessionSection() {
             {/* Right: image */}
             <div className="relative min-h-[260px] sm:min-h-[320px] md:min-h-[420px]">
               <Image
-                src="/landing-upgrade-session.png"
+                src="/landing-upgrade-session.jpg"
                 alt="Surfers sitting on boards in calm water"
                 fill
                 className="object-cover"

@@ -34,6 +34,7 @@ import { getBeachReviews } from "@/actions/beach-review-actions";
 import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
+import { HowToSurfSchema } from "@/components/seo/how-to-surf-schema";
 
 // Force dynamic rendering - this page accesses cookies via Supabase client
 export const dynamic = "force-dynamic";
@@ -256,6 +257,16 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           name={`${beach.name} Surf Report & Forecast`}
           url={`${baseUrl}${buildBeachUrl(beach)}`}
         />
+
+        {beach.skill_level === "beginner" && (
+          <HowToSurfSchema
+            beachName={beach.name}
+            waterTemp={null}
+            bestTide={beach.preferred_tide_direction || null}
+            accessTips={beach.access_tips || null}
+            localEtiquette={beach.local_etiquette || null}
+          />
+        )}
 
         {/* Client detail component with auth tracking */}
         <BeachDetailClient

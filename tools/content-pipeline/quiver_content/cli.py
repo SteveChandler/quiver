@@ -97,8 +97,8 @@ def audit(ctx, state, city, fmt):
     "--sources",
     "-s",
     multiple=True,
-    type=click.Choice(["wikipedia", "government"]),
-    help="Which sources to crawl (default: all)",
+    type=click.Choice(["wikipedia", "government", "wannasurf", "osm"]),
+    help="Which sources to crawl (default: all). wannasurf=surf spot data, osm=amenities",
 )
 @click.option("--force", is_flag=True, help="Ignore cache and re-crawl")
 @click.pass_context

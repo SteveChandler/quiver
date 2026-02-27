@@ -20,22 +20,8 @@ function normalizeCountryToMexico(country: string | null | undefined): boolean {
   return normalized === "mexico" || normalized === "mx" || normalized === "mex";
 }
 
-/**
- * Generate static params for all Mexican states at build time.
- */
-export async function generateStaticParams() {
-  const response = await getAllBeachLocations();
-  if (!response.success || !response.data) return [];
-
-  const stateSlugs = new Set<string>();
-  for (const loc of response.data as BeachLocationRow[]) {
-    if (!normalizeCountryToMexico(loc.country)) continue;
-    const stateSlug = generateLocationSlug(loc.state);
-    if (stateSlug) stateSlugs.add(stateSlug);
-  }
-
-  return [...stateSlugs].map((state) => ({ state }));
-}
+// NOTE: generateStaticParams removed — this page uses force-dynamic.
+// Pages are rendered on-demand via ISR.
 
 export async function generateMetadata(
   props: {

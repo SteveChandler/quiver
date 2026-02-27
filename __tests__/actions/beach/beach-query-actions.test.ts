@@ -35,11 +35,14 @@ function makeMockSupabase(data: any[] = [], error: any = null) {
     then: (resolve: any) => resolve ? resolve({ data, error }) : Promise.resolve({ data, error }),
   };
 
+  const inCalls: [string, any[]][] = [];
+
   // The query builder chains all methods; .order() and .limit() return the thenable result
   const queryBuilder: any = {};
   queryBuilder.select = jest.fn(() => queryBuilder);
   queryBuilder.or = jest.fn((condition: string) => { orCalls.push(condition); return queryBuilder; });
   queryBuilder.eq = jest.fn((col: string, val: any) => { eqCalls.push([col, val]); return queryBuilder; });
+  queryBuilder.in = jest.fn((col: string, vals: any[]) => { inCalls.push([col, vals]); return queryBuilder; });
   queryBuilder.order = jest.fn((col: string) => { orderCalls.push(col); return queryBuilder; });
   queryBuilder.limit = jest.fn((val: number) => { limitVal = val; return queryBuilder; });
   queryBuilder.is = jest.fn(() => queryBuilder);
@@ -56,6 +59,7 @@ function makeMockSupabase(data: any[] = [], error: any = null) {
   const tracker = {
     _orCalls: orCalls,
     _eqCalls: eqCalls,
+    _inCalls: inCalls,
     _orderCalls: orderCalls,
     get _limitVal() { return limitVal; },
     queryBuilder,
@@ -189,21 +193,20 @@ describe('beach-query-actions', () => {
       expect(skillOrCall).toBeUndefined();
     });
 
-    it('should sort results by crowd priority for least-crowded intent', async () => {
+    it('should apply crowd_level filter for least-crowded intent', async () => {
       const mockBeaches = [
-        { id: '1', name: 'Busy Beach', city: 'San Diego', state: 'CA', crowd_level: 'heavy' },
         { id: '2', name: 'Empty Beach', city: 'San Diego', state: 'CA', crowd_level: 'light' },
-        { id: '3', name: 'Another Beach', city: 'San Diego', state: 'CA', crowd_level: 'low' },
+        { id: '3', name: 'Chill Beach', city: 'San Diego', state: 'CA', crowd_level: 'moderate' },
       ];
-      makeMockSupabase(mockBeaches);
+      const qb = makeMockSupabase(mockBeaches);
 
       const result = await getBeachesByIntentAndCity('least-crowded', 'san-diego', 'ca');
       expect(result.success).toBe(true);
 
-      // Light and low crowd levels should sort before heavy
-      const names = result.data!.map(b => b.name);
-      expect(names.indexOf('Empty Beach')).toBeLessThan(names.indexOf('Busy Beach'));
-      expect(names.indexOf('Another Beach')).toBeLessThan(names.indexOf('Busy Beach'));
+      // Should call .in() with crowd_level filter for light and moderate
+      const crowdInCall = qb._inCalls.find(([col]: [string, any[]]) => col === 'crowd_level');
+      expect(crowdInCall).toBeDefined();
+      expect(crowdInCall![1]).toEqual(['light', 'moderate']);
     });
 
     it('should convert state slug to uppercase for query', async () => {

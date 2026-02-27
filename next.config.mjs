@@ -343,6 +343,9 @@ const nextConfig = {
             {
               from: "node_modules/geo-tz/data",
               to: "data",
+              globOptions: {
+                ignore: ["**/timezones-1970.*", "**/timezones.geojson.*"],
+              },
             },
           ],
         })
@@ -499,7 +502,7 @@ export default withSentryConfig(pwaConfig(nextConfig), {
 
   // Local builds/dev often don't have SENTRY_AUTH_TOKEN; avoid noisy warnings + uploads.
   authToken: process.env.SENTRY_AUTH_TOKEN,
-  dryRun: !process.env.SENTRY_AUTH_TOKEN,
+  dryRun: !process.env.SENTRY_AUTH_TOKEN || process.env.VERCEL_ENV === "preview",
 
   // Only print logs for uploading source maps in CI
   silent: !process.env.CI,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, memo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, Star, ChevronDown, ChevronUp } from "lucide-react";
@@ -12,6 +12,10 @@ import { ForecastPreview } from "@/components/ui/forecast-preview";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { formatRatingSimple } from "@/lib/utils/rating-formatters";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
+import { MatchScoreTeaser } from "@/components/recommendations/match-score-teaser";
+import { FavoriteButton } from "@/components/favorite-button";
+import { useAuth } from "@/context/auth-context";
+import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 
 interface BeachCardProps {
   id?: string;
@@ -70,7 +74,10 @@ const BeachCardComponent = function BeachCard({
   affinityData,
 }: BeachCardProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [sessionAuthModalOpen, setSessionAuthModalOpen] = useState(false);
+  const { user } = useAuth();
 
   // Generate beach URL (hierarchical if slug/city/state available, otherwise fallback to ID)
   const beachUrl = getBeachHrefSafe({ id, slug, city, state });
@@ -142,8 +149,8 @@ const BeachCardComponent = function BeachCard({
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
 
-          {/* Personalized Score Badge */}
-          {personalized && personalizedScore && (
+          {/* Personalization badge area */}
+          {user && personalized && personalizedScore ? (
             <div className="absolute top-2 left-2 z-10">
               <PersonalizedBadge
                 personalized={personalized}
@@ -163,6 +170,23 @@ const BeachCardComponent = function BeachCard({
                 displayMode="score"
                 size="sm"
                 className="shadow-md backdrop-blur-sm bg-white/95"
+              />
+            </div>
+          ) : !user && id ? (
+            <div className="absolute top-2 left-2 z-10">
+              <MatchScoreTeaser beachId={id} beachName={name} />
+            </div>
+          ) : null}
+
+          {/* Favorite Button - top-right, opposite corner from PersonalizedBadge */}
+          {id && (
+            <div className="absolute top-2 right-2 z-10">
+              <FavoriteButton
+                beachId={id}
+                beachName={name}
+                variant="ghost"
+                size="sm"
+                className="text-white drop-shadow-md hover:text-white"
               />
             </div>
           )}
@@ -240,6 +264,39 @@ const BeachCardComponent = function BeachCard({
               )}
             </div>
           </div>
+
+          {/* Session CTA - subtle link to encourage session logging */}
+          {user ? (
+            <Link
+              href={`/sessions/new?beach=${id}`}
+              className="block mt-2 text-xs text-muted-foreground underline-offset-4 hover:underline text-center"
+            >
+              Log a session here
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setSessionAuthModalOpen(true)}
+              className="block w-full mt-2 text-xs text-muted-foreground underline-offset-4 hover:underline text-center cursor-pointer"
+            >
+              Log a session here
+            </button>
+          )}
+
+          {/* Auth modal for session CTA (guests only) */}
+          {!user && sessionAuthModalOpen && (
+            <UnifiedAuthModal
+              isOpen={sessionAuthModalOpen}
+              onClose={() => setSessionAuthModalOpen(false)}
+              mode="signup"
+              source="session-log-cta"
+              returnTo={pathname}
+              contextMessage={{
+                title: "Track Your Sessions",
+                description: `Track your sessions at ${name} and get personalized recommendations`,
+              }}
+            />
+          )}
 
           {/* Expandable Forecast Preview */}
           <AnimatePresence>

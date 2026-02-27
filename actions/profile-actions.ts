@@ -67,18 +67,6 @@ export async function getProfile(userId: string): Promise<ProfileResult> {
   try {
     const supabase = await createSupabaseServerClient();
 
-    // First check if the connection is working
-    try {
-      await supabase.from("profiles").select("count").limit(1);
-    } catch (connectionError) {
-      console.error("Database connection error:", connectionError);
-      return {
-        success: false,
-        error: "Database connection failed. Please try again later.",
-        isConnectionError: true,
-      };
-    }
-
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
@@ -104,6 +92,52 @@ export async function getProfile(userId: string): Promise<ProfileResult> {
       error: error instanceof Error ? error.message : "Unknown error",
       isConnectionError: false,
     };
+  }
+}
+
+/**
+ * Get a user's profile with home beach in a single query.
+ * Combines the profile fetch and home beach lookup to avoid sequential round-trips.
+ */
+export async function getProfileWithHomeBeach(userId: string): Promise<{
+  success: boolean;
+  data?: { profile: any; homeBeach: any };
+  error?: string;
+}> {
+  if (!userId) {
+    return { success: false, error: "No user ID provided" };
+  }
+
+  try {
+    const supabase = await createSupabaseServerClient();
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*, home_beach:beaches!profiles_home_beach_id_fkey(*)")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(error.message || "Failed to fetch profile");
+    }
+
+    if (!data) {
+      // If no profile exists, create one (no home beach yet)
+      const createResult = await createProfile(userId);
+      if (createResult.success && createResult.data) {
+        return { success: true, data: { profile: createResult.data, homeBeach: null } };
+      }
+      const createError = !createResult.success ? (createResult as ProfileErrorResult).error : undefined;
+      return { success: false, error: createError || "Failed to create profile" };
+    }
+
+    // Extract home_beach from the joined result
+    const { home_beach, ...profile } = data;
+
+    return { success: true, data: { profile, homeBeach: home_beach || null } };
+  } catch (error) {
+    console.error("Error fetching profile with home beach:", error);
+    return { success: false, error: "Failed to load profile" };
   }
 }
 

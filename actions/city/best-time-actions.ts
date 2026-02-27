@@ -3,6 +3,8 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { withServerAction, type ServerActionResponse } from "@/lib/server-action-utils";
 import { getRegionalData } from "@/lib/seo/regional-surf-data";
+import { buildMonthlyScores } from "@/lib/utils/surf-score-utils";
+import { getStateSurfProfile } from "@/lib/data/monthly-surf-data";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -114,22 +116,30 @@ export async function getBestTimeToSurfData(
       return null;
     }
 
-    // Build monthly entries with scores
-    const maxCount = Math.max(...monthCounts);
+    // Compute composite monthly scores (shoulder-smoothed + blended)
+    const stateProfile = getStateSurfProfile(normalizedState.toLowerCase());
+    const regional = getRegionalData(normalizedState.toLowerCase());
+    const compositeScores = buildMonthlyScores(
+      monthCounts,
+      stateProfile?.monthly,
+      undefined,
+      regional?.waterTempRange ?? null
+    );
+
     const monthly: MonthlySurfEntry[] = monthCounts.map((count, i) => ({
       month: i + 1,
       monthName: MONTH_NAMES[i],
       bestMonthCount: count,
-      score: maxCount > 0 ? Math.round((count / maxCount) * 100) : 0,
+      score: compositeScores[i],
     }));
 
-    // Find peak month
-    const peakIndex = monthCounts.indexOf(maxCount);
+    // Find peak month from composite scores
+    const peakScore = Math.max(...compositeScores);
+    const peakIndex = compositeScores.indexOf(peakScore);
     const peakMonth = peakIndex + 1;
 
     // Regional data
     const stateSlug = normalizedState.toLowerCase();
-    const regional = getRegionalData(stateSlug);
 
     const stateName = STATE_NAMES[normalizedState] || normalizedState;
 
@@ -141,7 +151,7 @@ export async function getBestTimeToSurfData(
       totalBeaches: beaches.length,
       peakMonth,
       peakMonthName: MONTH_NAMES[peakIndex],
-      peakScore: monthly[peakIndex].score,
+      peakScore,
       monthly,
       waterTempRange: regional?.waterTempRange ?? null,
       summerWetsuit: regional?.summerWetsuit ?? null,

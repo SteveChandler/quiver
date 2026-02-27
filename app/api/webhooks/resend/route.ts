@@ -36,6 +36,11 @@ interface ResendWebhookPayload {
   data: {
     email_id: string;
     created_at: string;
+    to: string[];
+    bounce?: {
+      type: "hard" | "soft" | "undetermined";
+      message?: string;
+    };
     [key: string]: unknown;
   };
 }
@@ -129,6 +134,41 @@ async function handler(request: NextRequest): Promise<NextResponse> {
       console.log(
         `${CONTEXT_TAG} Updated ${column} for ${resendMessageId}`
       );
+    }
+
+    // Auto-suppress on hard bounce (runs regardless of whether email_send_log
+    // matched — the upsert is idempotent so replays and missing log entries are safe)
+    if (
+      payload.type === "email.bounced" &&
+      payload.data.bounce?.type === "hard" &&
+      payload.data.to?.length > 0
+    ) {
+      for (const email of payload.data.to) {
+        const sanitizedMessage = (payload.data.bounce.message || "no details")
+          .replace(/[^\x20-\x7E]/g, "")
+          .slice(0, 500);
+        const { error: suppressError } = await supabase
+          .from("email_suppression_list")
+          .upsert(
+            {
+              email: email.toLowerCase(),
+              reason: "hard_bounce",
+              notes: `Auto-suppressed from Resend bounce event ${resendMessageId} — ${sanitizedMessage}`,
+            },
+            { onConflict: "email" }
+          );
+
+        if (suppressError) {
+          console.error(
+            `${CONTEXT_TAG} Failed to suppress bounced email ${email}:`,
+            suppressError
+          );
+        } else {
+          console.log(
+            `${CONTEXT_TAG} Auto-suppressed hard-bounced email: ${email}`
+          );
+        }
+      }
     }
 
     return NextResponse.json({ received: true, processed: true });

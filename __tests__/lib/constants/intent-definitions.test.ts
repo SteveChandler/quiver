@@ -37,12 +37,12 @@ describe('intent-definitions', () => {
   });
 
   describe('INTENTS_BY_GROUP', () => {
-    it('should have 3 session intents', () => {
-      expect(INTENTS_BY_GROUP.session).toHaveLength(3);
+    it('should have 4 conditions intents', () => {
+      expect(INTENTS_BY_GROUP.conditions).toHaveLength(4);
     });
 
-    it('should have 4 style intents', () => {
-      expect(INTENTS_BY_GROUP.style).toHaveLength(4);
+    it('should have 3 style intents', () => {
+      expect(INTENTS_BY_GROUP.style).toHaveLength(3);
     });
   });
 

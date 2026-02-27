@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "12.2.3 (519615d)"
+  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -2188,6 +2193,30 @@ export type Database = {
           },
         ]
       }
+      email_suppression_list: {
+        Row: {
+          email: string
+          id: number
+          notes: string | null
+          reason: string
+          suppressed_at: string
+        }
+        Insert: {
+          email: string
+          id?: number
+          notes?: string | null
+          reason: string
+          suppressed_at?: string
+        }
+        Update: {
+          email?: string
+          id?: number
+          notes?: string | null
+          reason?: string
+          suppressed_at?: string
+        }
+        Relationships: []
+      }
       embed_impressions: {
         Row: {
           beach_slug: string
@@ -2414,6 +2443,7 @@ export type Database = {
       }
       favorite_beaches: {
         Row: {
+          alerts_enabled: boolean
           beach_id: string
           created_at: string | null
           id: string
@@ -2421,6 +2451,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          alerts_enabled?: boolean
           beach_id: string
           created_at?: string | null
           id?: string
@@ -2428,6 +2459,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          alerts_enabled?: boolean
           beach_id?: string
           created_at?: string | null
           id?: string
@@ -8230,4 +8262,3 @@ export const Constants = {
     },
   },
 } as const
-
