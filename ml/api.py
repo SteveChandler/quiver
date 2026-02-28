@@ -5,7 +5,7 @@ from datetime import datetime
 from fastapi import FastAPI, HTTPException, Security, status
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional
+from typing import Any, List, Optional
 import pandas as pd
 import numpy as np
 import os
@@ -51,6 +51,17 @@ candidate_model = None
 fe = FeatureEngineer()
 fe_ensemble = EnsembleFeatureEngineer()
 om_service = OpenMeteoService()
+
+# Lazy singleton for HRRRWindService — deferred import avoids startup failure
+# if eccodes is not installed (the service is only needed for the HRRR endpoint).
+_hrrr_service: Optional[Any] = None
+
+def _get_hrrr_service():
+    global _hrrr_service
+    if _hrrr_service is None:
+        from hrrr_wind_service import HRRRWindService
+        _hrrr_service = HRRRWindService(timeout=30.0)
+    return _hrrr_service
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -218,6 +229,38 @@ class HealthResponse(BaseModel):
     model_version: str
     candidate_loaded: bool = Field(default=False, description="Whether a candidate model is loaded for shadow scoring")
     candidate_version: Optional[str] = Field(default=None, description="Version of the loaded candidate model")
+
+class BeachCoordinate(BaseModel):
+    """Beach coordinate for HRRR wind extraction."""
+    id: str
+    lat: float
+    lon: float
+
+class HRRRWindRequest(BaseModel):
+    """Request for HRRR wind extraction."""
+    beaches: List[BeachCoordinate]
+    forecast_hours: Optional[List[int]] = Field(
+        default=[1], description="Forecast hours 0-18"
+    )
+
+    @field_validator("forecast_hours")
+    @classmethod
+    def validate_forecast_hours(cls, v: Optional[List[int]]) -> Optional[List[int]]:
+        if v is not None:
+            for h in v:
+                if h < 0 or h > 18:
+                    raise ValueError(f"forecast_hour must be 0-18, got {h}")
+        return v
+
+class HRRRWindResult(BaseModel):
+    """Single wind extraction result."""
+    beach_id: str
+    wind_speed_ms: float
+    wind_direction_deg: float
+    wind_gust_ms: Optional[float] = None
+    forecast_hour: int
+    model_run: str
+    valid_time: str
 
 # ----- Candidate Shadow Scoring Helper -----
 def score_candidate(features: pd.DataFrame, raw_heights: pd.Series) -> Optional[pd.Series]:
@@ -1067,3 +1110,50 @@ async def correct_batch(input: BatchInput):
         model_version=MODEL_VERSION,
         count=len(corrections)
     )
+
+
+# ----- HRRR Wind Extraction -----
+@app.post("/extract-hrrr-wind")
+async def extract_hrrr_wind(
+    request: HRRRWindRequest,
+    api_key: str = Security(verify_api_key),
+):
+    """Extract HRRR 3km wind data for beach coordinates.
+
+    Fetches the latest available HRRR model run from NOAA NOMADS,
+    parses the GRIB2 data, and returns wind speed, direction, and
+    gust values for each requested beach coordinate.
+    """
+    if not request.beaches:
+        raise HTTPException(status_code=400, detail="No beaches provided")
+
+    if len(request.beaches) > MAX_BATCH_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Max {MAX_BATCH_SIZE} beaches per request",
+        )
+
+    service = _get_hrrr_service()
+
+    try:
+        beaches = [
+            {"id": b.id, "lat": b.lat, "lon": b.lon}
+            for b in request.beaches
+        ]
+        results = await service.extract_current_wind(
+            beaches=beaches,
+            forecast_hours=request.forecast_hours,
+        )
+
+        return {
+            "results": results,
+            "count": len(results),
+            "beaches_requested": len(request.beaches),
+            "forecast_hours": request.forecast_hours,
+        }
+    except Exception as e:
+        logger.error("HRRR extraction failed: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=502,
+            detail=f"HRRR extraction failed: {str(e)}",
+        )

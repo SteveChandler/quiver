@@ -58,6 +58,10 @@
       "schedule": "0 14,16,18,20,22,0,2,4 * * *"
     },
     {
+      "path": "/api/cron/ml/extract-hrrr-wind",
+      "schedule": "15 * * * *"
+    },
+    {
       "path": "/api/cron/ml/correct-forecasts",
       "schedule": "0 */3 * * *"
     },

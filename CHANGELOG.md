@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **ML: HRRR wind extraction cron** — New cron job at `/api/cron/ml/extract-hrrr-wind` (runs at :15 each hour) calls the Fly.io ML service to extract 3km-resolution HRRR wind data for CONUS beaches (CA, OR, WA, northern Baja) and overwrites the `wind_speed`/`wind_direction`/`wind_direction_deg` columns on existing NOAA_NWS rows in `enhanced_forecasts`. The ML correction cron automatically picks up the improved wind values with no schema changes required (Phase 1 approach).
+
+### Fixed
+
+- **Auth: Native Google sign-in modal stuck spinning** — After completing Google sign-in via `signInWithIdToken()` on native (iOS/Android), the auth modal now correctly closes and stops the spinner. Previously, the success path only handled browser redirects, leaving native inline completions without cleanup.
+
 ### Changed
 
 - **Best Time to Surf: Shoulder smoothing + composite surf scores** — Monthly surf scores now use a Gaussian convolution kernel for smooth shoulder months (±1 month = 50%, ±2 months = 25%) instead of binary 100/0 cliffs. Scores blend beach peak season data with state-level conditions (Tier 1), regional water temperature (Tier 2), or smoothed peaks only (Tier 3). Rincón-style cities with identical winter peaks now show a gradual bell curve.

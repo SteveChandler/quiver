@@ -1,9 +1,9 @@
 # TypeScript ML Module Architecture
 
-> Forecast text parsing utilities for the ML bias correction pipeline.
+> Shared ML service utilities and forecast text parsing for the ML bias correction pipeline.
 
 **Location:** `lib/ml/`
-**Last Updated:** January 2026
+**Last Updated:** February 2026
 
 ## Overview
 
@@ -13,6 +13,7 @@ This module provides TypeScript utilities for parsing NOAA forecast text fields 
 
 ```
 lib/ml/
++-- ml-service-client.ts    # Shared ML service HTTP utilities
 +-- parse-wave-height.ts    # Wave and wind parsing functions
 +-- ARCHITECTURE.md         # This file
 
@@ -21,6 +22,30 @@ __tests__/lib/ml/
 ```
 
 ## API Reference
+
+### ml-service-client.ts
+
+Shared HTTP utilities for communicating with the Python ML service. Used by cron routes (`correct-forecasts`, `extract-hrrr-wind`).
+
+#### fetchWithRetry(url, options, maxRetries?)
+
+Fetch with exponential backoff retry. Retries on 5xx errors and network failures.
+
+**Signature:**
+```typescript
+function fetchWithRetry(url: string, options: RequestInit, maxRetries?: number): Promise<Response>
+```
+
+#### wakeUpService()
+
+Wake up the ML service (handles Render cold start). Reads `ML_SERVICE_URL` from `process.env` at call time.
+
+**Signature:**
+```typescript
+function wakeUpService(): Promise<boolean>
+```
+
+---
 
 ### parseWaveHeight(text)
 
@@ -233,4 +258,4 @@ The parsers are designed to be resilient:
 
 ---
 
-**Last Updated:** January 2026
+**Last Updated:** February 2026

@@ -148,7 +148,6 @@ export function UnifiedAuthModal({
   // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [startTime, setStartTime] = useState<number>(0);
 
   // Refs
   const emailInputRef = useRef<HTMLInputElement | null>(null);
@@ -301,6 +300,7 @@ export function UnifiedAuthModal({
    * Handle Google OAuth sign-in
    */
   const handleGoogleOAuth = async () => {
+    const start = Date.now();
     setLoading(true);
     setError(null);
 
@@ -310,7 +310,6 @@ export function UnifiedAuthModal({
     } else {
       trackLoginStarted("google");
     }
-    setStartTime(Date.now());
 
     // Build metadata only for signup
     const metadata =
@@ -322,8 +321,21 @@ export function UnifiedAuthModal({
       setError(result.error);
       trackLoginFailed({ method: "google", error_type: "oauth_failed" });
       setLoading(false);
+      return;
     }
-    // If successful, browser will redirect - no need to setLoading(false)
+
+    // Native: signInWithIdToken() completed inline — session is already established.
+    // Web: signInWithOAuth() triggered a redirect; this code runs briefly before
+    // the browser navigates away, so setLoading(false) + onClose() are harmless.
+    const duration = Date.now() - start;
+    if (activeMode === "signup") {
+      // Google OAuth verifies email server-side, so no client-side verification step is needed.
+      trackSignupSuccess({ method: "google", requires_verification: false });
+    } else {
+      trackLoginSuccess({ method: "google", duration_ms: duration });
+    }
+    setLoading(false);
+    onClose();
   };
 
   /**
@@ -340,7 +352,6 @@ export function UnifiedAuthModal({
 
     trackAuthMethodSelected({ method: "magic_link", mode: "login" });
     trackLoginStarted("magic_link");
-    setStartTime(Date.now());
 
     const result = await sendMagicLink(email, getReturnPath());
 
@@ -381,7 +392,7 @@ export function UnifiedAuthModal({
 
     setLoading(true);
     trackAuthMethodSelected({ method: "password", mode: activeMode });
-    setStartTime(Date.now());
+    const start = Date.now();
 
     try {
       if (activeMode === "signup") {
@@ -393,7 +404,6 @@ export function UnifiedAuthModal({
 
         await signUp(email, password, displayName.trim(), metadata);
 
-        const duration = Date.now() - startTime;
         trackSignupSuccess({ method: "password", requires_verification: true });
 
         setLoading(false);
@@ -413,7 +423,7 @@ export function UnifiedAuthModal({
         trackLoginStarted("password");
         await signIn(email, password);
 
-        const duration = Date.now() - startTime;
+        const duration = Date.now() - start;
         trackLoginSuccess({ method: "password", duration_ms: duration });
 
         setLoading(false);
