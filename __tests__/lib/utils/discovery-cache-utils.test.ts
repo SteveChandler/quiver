@@ -219,7 +219,7 @@ describe("discovery-cache-utils", () => {
       const cacheKey = "test_edge_key";
       const edgeData: CachedDiscoveryData = {
         discovery: createMockDiscoveryResponse(),
-        timestamp: Date.now() - 30 * 60 * 1000, // Exactly 30 minutes ago
+        timestamp: Date.now() - 30 * 60 * 1000 + 50, // Just under 30 minutes ago (avoids CI timing race)
         optionsHash: "abc123",
       };
       localStorage.setItem(cacheKey, JSON.stringify(edgeData));
