@@ -301,6 +301,53 @@ describe("UnifiedAuthModal", () => {
       expect(authEvents.trackLoginStarted).toHaveBeenCalledWith("google");
     });
 
+    it("should close modal and track success on successful OAuth", async () => {
+      render(
+        <UnifiedAuthModal
+          isOpen={true}
+          onClose={mockOnClose}
+          mode="login"
+          returnTo="/beach/123"
+        />
+      );
+
+      const googleButton = screen.getByText("Continue with Google");
+      fireEvent.click(googleButton);
+
+      await waitFor(() => {
+        expect(mockOnClose).toHaveBeenCalled();
+      });
+
+      expect(authEvents.trackLoginSuccess).toHaveBeenCalledWith(
+        expect.objectContaining({ method: "google" })
+      );
+    });
+
+    it("should track signup success on successful OAuth in signup mode", async () => {
+      render(
+        <UnifiedAuthModal
+          isOpen={true}
+          onClose={mockOnClose}
+          mode="signup"
+        />
+      );
+
+      // Accept terms first — Google button is disabled until terms are accepted in signup mode
+      const termsCheckbox = screen.getByRole("checkbox");
+      fireEvent.click(termsCheckbox);
+
+      const googleButton = screen.getByText("Continue with Google");
+      fireEvent.click(googleButton);
+
+      await waitFor(() => {
+        expect(mockOnClose).toHaveBeenCalled();
+      });
+
+      expect(authEvents.trackSignupSuccess).toHaveBeenCalledWith({
+        method: "google",
+      });
+    });
+
     it("should show error when OAuth fails", async () => {
       (authUtils.initiateOAuthFlow as jest.Mock).mockResolvedValue({
         error: "OAuth failed",

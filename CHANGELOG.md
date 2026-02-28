@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Auth: Native Google sign-in modal stuck spinning** — After completing Google sign-in via `signInWithIdToken()` on native (iOS/Android), the auth modal now correctly closes and stops the spinner. Previously, the success path only handled browser redirects, leaving native inline completions without cleanup.
+
 ### Changed
 
 - **Best Time to Surf: Shoulder smoothing + composite surf scores** — Monthly surf scores now use a Gaussian convolution kernel for smooth shoulder months (±1 month = 50%, ±2 months = 25%) instead of binary 100/0 cliffs. Scores blend beach peak season data with state-level conditions (Tier 1), regional water temperature (Tier 2), or smoothed peaks only (Tier 3). Rincón-style cities with identical winter peaks now show a gradual bell curve.
