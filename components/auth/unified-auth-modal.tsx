@@ -329,7 +329,7 @@ export function UnifiedAuthModal({
     // the browser navigates away, so setLoading(false) + onClose() are harmless.
     const duration = Date.now() - start;
     if (activeMode === "signup") {
-      trackSignupSuccess({ method: "google" });
+      trackSignupSuccess({ method: "google", requires_verification: false });
     } else {
       trackLoginSuccess({ method: "google", duration_ms: duration });
     }
@@ -351,7 +351,6 @@ export function UnifiedAuthModal({
 
     trackAuthMethodSelected({ method: "magic_link", mode: "login" });
     trackLoginStarted("magic_link");
-    setStartTime(Date.now());
 
     const result = await sendMagicLink(email, getReturnPath());
 

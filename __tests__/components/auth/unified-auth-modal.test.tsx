@@ -345,6 +345,7 @@ describe("UnifiedAuthModal", () => {
 
       expect(authEvents.trackSignupSuccess).toHaveBeenCalledWith({
         method: "google",
+        requires_verification: false,
       });
     });
 
