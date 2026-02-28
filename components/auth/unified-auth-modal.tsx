@@ -329,6 +329,7 @@ export function UnifiedAuthModal({
     // the browser navigates away, so setLoading(false) + onClose() are harmless.
     const duration = Date.now() - start;
     if (activeMode === "signup") {
+      // Google OAuth verifies email server-side, so no client-side verification step is needed.
       trackSignupSuccess({ method: "google", requires_verification: false });
     } else {
       trackLoginSuccess({ method: "google", duration_ms: duration });

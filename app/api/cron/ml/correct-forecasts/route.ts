@@ -1,54 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { parseWaveHeight, parseWindSpeed } from '@/lib/ml/parse-wave-height';
+import { fetchWithRetry, wakeUpService } from '@/lib/ml/ml-service-client';
 
 // Allow up to 120 seconds for cold start + processing all beaches
 export const maxDuration = 120;
-
-const ML_SERVICE_URL = process.env.ML_SERVICE_URL!;
-const ML_INTERNAL_SECRET = process.env.ML_INTERNAL_SECRET!;
-
-// ----- Helper: Retry with backoff -----
-async function fetchWithRetry(
-  url: string,
-  options: RequestInit,
-  maxRetries = 3
-): Promise<Response> {
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      const response = await fetch(url, options);
-      if (response.ok || response.status < 500) {
-        return response;
-      }
-      lastError = new Error(`HTTP ${response.status}`);
-    } catch (err) {
-      lastError = err as Error;
-    }
-
-    // Exponential backoff: 1s, 2s, 4s
-    if (attempt < maxRetries - 1) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, 1000 * Math.pow(2, attempt))
-      );
-    }
-  }
-
-  throw lastError;
-}
-
-// ----- Helper: Wake up the service -----
-async function wakeUpService(): Promise<boolean> {
-  try {
-    const response = await fetch(`${ML_SERVICE_URL}/health`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(15000), // 15s timeout for cold start
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
-}
 
 export async function GET(request: Request) {
   // Verify cron secret
@@ -57,7 +12,8 @@ export async function GET(request: Request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Check required env vars
+  const ML_SERVICE_URL = process.env.ML_SERVICE_URL;
+  const ML_INTERNAL_SECRET = process.env.ML_INTERNAL_SECRET;
   if (!ML_SERVICE_URL || !ML_INTERNAL_SECRET) {
     return Response.json(
       { error: 'ML_SERVICE_URL or ML_INTERNAL_SECRET not configured' },

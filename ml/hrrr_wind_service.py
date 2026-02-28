@@ -21,9 +21,24 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+# Check eccodes availability at import time so callers get a clear message
+# instead of a confusing ImportError deep inside parse_grib().
+try:
+    import eccodes as _eccodes  # noqa: F401
+    _ECCODES_AVAILABLE = True
+except ImportError:
+    _ECCODES_AVAILABLE = False
+    logger.warning(
+        "eccodes not installed — HRRR GRIB parsing will be unavailable. "
+        "Install with: pip install eccodes"
+    )
+
 NOMADS_BASE_URL = "https://nomads.ncep.noaa.gov/cgi-bin/filter_hrrr_2d.pl"
 
-# West Coast bounding box (with padding for coastal accuracy)
+# West Coast bounding box (with padding for coastal accuracy).
+# Intentionally restricted to the US West Coast (CA, OR, WA, northern Baja).
+# To expand to the full CONUS, change to approximately:
+#   toplat=50, bottomlat=24, leftlon=-125, rightlon=-66
 BBOX = {
     "toplat": 49,
     "bottomlat": 32,
@@ -89,6 +104,7 @@ class HRRRWindService:
         run_date: str,
         run_hour: int,
         forecast_hour: int,
+        client: Optional[httpx.AsyncClient] = None,
     ) -> Optional[bytes]:
         """Fetch a GRIB2 file from NOMADS for a specific run and forecast hour.
 
@@ -99,6 +115,7 @@ class HRRRWindService:
             run_date: Model run date "YYYYMMDD"
             run_hour: Model run hour (0-23)
             forecast_hour: Forecast hour (0-18)
+            client: Optional shared httpx client (creates one if not provided)
 
         Returns:
             Raw GRIB2 bytes, or None on failure
@@ -116,8 +133,8 @@ class HRRRWindService:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(NOMADS_BASE_URL, params=params)
+            async def _fetch(c: httpx.AsyncClient) -> Optional[bytes]:
+                response = await c.get(NOMADS_BASE_URL, params=params)
                 response.raise_for_status()
 
                 if len(response.content) < MIN_GRIB_BYTES:
@@ -133,6 +150,12 @@ class HRRRWindService:
                     len(response.content), run_date, run_hour, forecast_hour,
                 )
                 return response.content
+
+            if client is not None:
+                return await _fetch(client)
+            else:
+                async with httpx.AsyncClient(timeout=self.timeout) as c:
+                    return await _fetch(c)
 
         except httpx.HTTPStatusError as e:
             logger.warning("NOMADS HTTP error: %d", e.response.status_code)
@@ -151,6 +174,11 @@ class HRRRWindService:
             Dict with keys 'u10', 'v10', 'gust' (optional), 'lats', 'lons'.
             Each value is a flat numpy array over the grid points.
         """
+        if not _ECCODES_AVAILABLE:
+            raise RuntimeError(
+                "eccodes is not installed — cannot parse GRIB data. "
+                "Install with: pip install eccodes"
+            )
         import eccodes
 
         result: dict[str, np.ndarray] = {}
@@ -332,39 +360,40 @@ class HRRRWindService:
 
         all_results: list[dict] = []
 
-        for fh in forecast_hours:
-            if fh > HRRR_MAX_FORECAST_HOUR:
-                logger.warning(
-                    "Skipping forecast hour %d -- HRRR max is %d",
-                    fh, HRRR_MAX_FORECAST_HOUR,
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            for fh in forecast_hours:
+                if fh > HRRR_MAX_FORECAST_HOUR:
+                    logger.warning(
+                        "Skipping forecast hour %d -- HRRR max is %d",
+                        fh, HRRR_MAX_FORECAST_HOUR,
+                    )
+                    continue
+
+                grib_bytes = await self.fetch_grib(run_date, run_hour, fh, client=client)
+                if grib_bytes is None:
+                    logger.warning("No GRIB data for f%02d, skipping", fh)
+                    continue
+
+                grib_data = self.parse_grib(grib_bytes)
+                extractions = self.extract_wind_for_beaches(
+                    grib_data, beaches, fh, model_run
                 )
-                continue
 
-            grib_bytes = await self.fetch_grib(run_date, run_hour, fh)
-            if grib_bytes is None:
-                logger.warning("No GRIB data for f%02d, skipping", fh)
-                continue
+                for ext in extractions:
+                    # Compute the valid time for this forecast hour
+                    valid_time = datetime.strptime(run_date, "%Y%m%d").replace(
+                        hour=run_hour, tzinfo=timezone.utc,
+                    ) + timedelta(hours=fh)
 
-            grib_data = self.parse_grib(grib_bytes)
-            extractions = self.extract_wind_for_beaches(
-                grib_data, beaches, fh, model_run
-            )
-
-            for ext in extractions:
-                # Compute the valid time for this forecast hour
-                valid_time = datetime.strptime(run_date, "%Y%m%d").replace(
-                    hour=run_hour, tzinfo=timezone.utc,
-                ) + timedelta(hours=fh)
-
-                all_results.append({
-                    "beach_id": ext.beach_id,
-                    "wind_speed_ms": ext.wind_speed_ms,
-                    "wind_direction_deg": ext.wind_direction_deg,
-                    "wind_gust_ms": ext.wind_gust_ms,
-                    "forecast_hour": ext.forecast_hour,
-                    "model_run": ext.model_run,
-                    "valid_time": valid_time.isoformat(),
-                })
+                    all_results.append({
+                        "beach_id": ext.beach_id,
+                        "wind_speed_ms": ext.wind_speed_ms,
+                        "wind_direction_deg": ext.wind_direction_deg,
+                        "wind_gust_ms": ext.wind_gust_ms,
+                        "forecast_hour": ext.forecast_hour,
+                        "model_run": ext.model_run,
+                        "valid_time": valid_time.isoformat(),
+                    })
 
         logger.info(
             "Extracted HRRR wind for %d beaches x %d hours = %d results",

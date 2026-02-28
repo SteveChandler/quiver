@@ -1,52 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
+import { fetchWithRetry, wakeUpService } from '@/lib/ml/ml-service-client';
 
 // Allow up to 120 seconds for HRRR data fetch + processing
 export const maxDuration = 120;
 
-const ML_SERVICE_URL = process.env.ML_SERVICE_URL!;
-const ML_INTERNAL_SECRET = process.env.ML_INTERNAL_SECRET!;
-
-// ----- Helper: Retry with backoff -----
-async function fetchWithRetry(
-  url: string,
-  options: RequestInit,
-  maxRetries = 3
-): Promise<Response> {
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      const response = await fetch(url, options);
-      if (response.ok || response.status < 500) {
-        return response;
-      }
-      lastError = new Error(`HTTP ${response.status}`);
-    } catch (err) {
-      lastError = err as Error;
-    }
-
-    // Exponential backoff: 1s, 2s, 4s
-    if (attempt < maxRetries - 1) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, 1000 * Math.pow(2, attempt))
-      );
-    }
-  }
-
-  throw lastError;
-}
-
-// ----- Helper: Wake up the service -----
-async function wakeUpService(): Promise<boolean> {
-  try {
-    const response = await fetch(`${ML_SERVICE_URL}/health`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(15000), // 15s timeout for cold start
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
+/** Single wind extraction result from the ML service */
+interface HRRRWindResult {
+  beach_id: string;
+  wind_speed_ms: number;
+  wind_direction_deg: number;
+  wind_gust_ms: number | null;
+  forecast_hour: number;
+  model_run: string;
+  valid_time: string;
 }
 
 export async function GET(request: Request) {
@@ -56,7 +22,8 @@ export async function GET(request: Request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Check required env vars
+  const ML_SERVICE_URL = process.env.ML_SERVICE_URL;
+  const ML_INTERNAL_SECRET = process.env.ML_INTERNAL_SECRET;
   if (!ML_SERVICE_URL || !ML_INTERNAL_SECRET) {
     return Response.json(
       { error: 'ML_SERVICE_URL or ML_INTERNAL_SECRET not configured' },
@@ -102,8 +69,11 @@ export async function GET(request: Request) {
   }
 
   // Filter to beaches within HRRR CONUS coverage (lat 32-49, lon -126 to -117).
-  // This covers CA, OR, WA, and northern Baja. center_lng is the DB column name
-  // (legacy); lon is used for local variable naming per coordinate conventions.
+  // Intentionally restricted to the US West Coast (CA, OR, WA, northern Baja)
+  // matching the BBOX in ml/hrrr_wind_service.py. To expand to full CONUS,
+  // update both this filter and the Python BBOX.
+  // center_lng is the DB column name (legacy); lon is used for local variable
+  // naming per coordinate conventions.
   const conusBeaches = beaches.filter((b) => {
     const lat = b.center_lat;
     const lon = b.center_lng;
@@ -179,7 +149,7 @@ export async function GET(request: Request) {
   for (let i = 0; i < results.length; i += PARALLEL_BATCH) {
     const batch = results.slice(i, i + PARALLEL_BATCH);
 
-    const promises = batch.map(async (r: any) => {
+    const promises = batch.map(async (r: HRRRWindResult) => {
       // Round valid_time to the nearest hour for matching against forecast_at
       const validDate = new Date(r.valid_time);
       validDate.setMinutes(0, 0, 0);
@@ -190,7 +160,7 @@ export async function GET(request: Request) {
       const windSpeedMph = Math.round(r.wind_speed_ms * 2.237);
       const windDirectionDeg = Math.round(r.wind_direction_deg);
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('enhanced_forecasts')
         .update({
           wind_speed: `${windSpeedMph} mph`,
@@ -200,9 +170,10 @@ export async function GET(request: Request) {
         .eq('beach_id', r.beach_id)
         .eq('data_source', 'NOAA_NWS')
         .gte('forecast_at', hourStart)
-        .lt('forecast_at', hourEnd);
+        .lt('forecast_at', hourEnd)
+        .select('id');
 
-      return { error, beach_id: r.beach_id };
+      return { data, error, beach_id: r.beach_id };
     });
 
     const batchResults = await Promise.all(promises);
@@ -216,7 +187,7 @@ export async function GET(request: Request) {
           );
         }
       } else {
-        updated++;
+        updated += br.data?.length ?? 0;
       }
     }
   }
