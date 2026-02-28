@@ -9,3 +9,5 @@ supabase==2.3.0
 python-dotenv==1.0.0
 httpx>=0.24.0,<0.25.0
 tqdm==4.66.3
+cfgrib>=0.9.10
+eccodes>=1.5.0

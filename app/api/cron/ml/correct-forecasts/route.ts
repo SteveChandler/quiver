@@ -95,6 +95,10 @@ export async function GET(request: Request) {
   let hasMore = true;
 
   while (hasMore) {
+    // Note: HRRR wind data (3km resolution) may have enriched the wind_speed
+    // and wind_direction columns for CONUS beaches via the extract-hrrr-wind
+    // cron (runs at :15 each hour). The ML model benefits from this
+    // higher-resolution wind data automatically through the existing pipeline.
     const { data: batch, error } = await supabase
       .from('enhanced_forecasts')
       .select(
