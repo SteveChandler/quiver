@@ -53,13 +53,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     await expect(beachOption).toBeVisible({ timeout: TIMEOUTS.long });
     await beachOption.click();
 
-    // Step 2: Advance to DateTime step
-    const nextButton = page.getByRole('button', { name: /next/i }).first();
-    await expect(nextButton).toBeVisible({ timeout: TIMEOUTS.medium });
-    await expect(nextButton).toBeEnabled({ timeout: TIMEOUTS.medium });
-    await nextButton.click();
-
-    // Step 3: Fill in date and time
+    // Step 2: Fill in date and time (on same Where & When step)
     const dateInput = page.getByTestId('session-date-input');
     await expect(dateInput).toBeVisible({ timeout: TIMEOUTS.long });
 
@@ -71,15 +65,15 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     await expect(timeInput).toBeVisible({ timeout: TIMEOUTS.long });
     await timeInput.fill('09:00'); // Morning session (not night)
 
-    // Step 4: Navigate to Session Details step (through Equipment step 3)
+    // Step 3: Navigate to Session Details step (step 2)
+    const nextButton = page.getByRole('button', { name: /next/i }).first();
+    await expect(nextButton).toBeVisible({ timeout: TIMEOUTS.medium });
+    await expect(nextButton).toBeEnabled({ timeout: TIMEOUTS.medium });
     await nextButton.click();
     // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
-    await page.waitForTimeout(1000); // Wait for Equipment step (3) to load
-    await nextButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
-    await page.waitForTimeout(1000); // Wait for Session Details step (4) to load
+    await page.waitForTimeout(1000);
 
-    // Step 5: Verify condition fields are auto-prefilled on Session Details
+    // Verify condition fields are auto-prefilled on Session Details
     // Wave height field should have a numeric value or be editable
     // Note: Components use id="wave-height-input", not data-testid
     const waveHeightInput = page.locator('#wave-height-input').or(
@@ -173,10 +167,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     await expect(beachOption).toBeVisible({ timeout: TIMEOUTS.long });
     await beachOption.click();
 
-    // Step 2: Set date/time
-    const nextButton = page.getByRole('button', { name: /next/i }).first();
-    await nextButton.click();
-
+    // Step 2: Set date/time (on same Where & When step)
     const dateInput = page.getByTestId('session-date-input');
     await expect(dateInput).toBeVisible({ timeout: TIMEOUTS.long });
 
@@ -187,10 +178,8 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     await expect(timeInput).toBeVisible({ timeout: TIMEOUTS.long });
     await timeInput.fill('10:00');
 
-    // Navigate to Session Details step (step 3 = Equipment, step 4 = Session Details)
-    await nextButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
-    await page.waitForTimeout(1000);
+    // Navigate to Session Details step (step 2)
+    const nextButton = page.getByRole('button', { name: /next/i }).first();
     await nextButton.click();
     // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(1000);
@@ -289,10 +278,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     await expect(beachOption).toBeVisible({ timeout: TIMEOUTS.long });
     await beachOption.click();
 
-    // Step 2: Set date/time
-    const nextButton = page.getByRole('button', { name: /next/i }).first();
-    await nextButton.click();
-
+    // Step 2: Set date/time (on same Where & When step)
     const dateInput = page.getByTestId('session-date-input');
     await expect(dateInput).toBeVisible({ timeout: TIMEOUTS.long });
 
@@ -303,10 +289,8 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     await expect(timeInput).toBeVisible({ timeout: TIMEOUTS.long });
     await timeInput.fill('11:00');
 
-    // Navigate to Session Details step (step 3 = Equipment, step 4 = Session Details)
-    await nextButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
-    await page.waitForTimeout(1000);
+    // Navigate to Session Details step (step 2)
+    const nextButton = page.getByRole('button', { name: /next/i }).first();
     await nextButton.click();
     // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(1000);
@@ -413,10 +397,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     await expect(beachOption).toBeVisible({ timeout: TIMEOUTS.long });
     await beachOption.click();
 
-    // Step 2: Set night time (9 PM)
-    const nextButton = page.getByRole('button', { name: /next/i }).first();
-    await nextButton.click();
-
+    // Step 2: Set night time on same Where & When step (9 PM)
     const dateInput = page.getByTestId('session-date-input');
     await expect(dateInput).toBeVisible({ timeout: TIMEOUTS.long });
 
@@ -427,10 +408,8 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     await expect(timeInput).toBeVisible({ timeout: TIMEOUTS.long });
     await timeInput.fill('21:00'); // 9 PM - night time
 
-    // Navigate to Session Details step (step 3 = Equipment, step 4 = Session Details)
-    await nextButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
-    await page.waitForTimeout(1000);
+    // Navigate to Session Details step (step 2)
+    const nextButton = page.getByRole('button', { name: /next/i }).first();
     await nextButton.click();
     // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(1000);

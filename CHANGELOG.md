@@ -9,11 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Session Wizard: Consolidate to 2-step log flow and 3-step plan flow** — Merged location + date/time into a single "Where & When" step (`LocationDateTimeStep`). Log mode reduced from 4 steps to 2 (location-datetime + session-details). Plan mode reduced from 4 steps to 3 (location-datetime + goals + notes). Equipment/board picker folded into `SessionDetailsSection` as the first section. Removed post-save modals (`ForecastFeedbackFlow`, `ReviewPromptDialog`) — save now goes directly to celebration. DB trigger auto-creates forecast snapshots.
 - **ML: HRRR wind extraction cron** — New cron job at `/api/cron/ml/extract-hrrr-wind` (runs at :15 each hour) calls the Fly.io ML service to extract 3km-resolution HRRR wind data for CONUS beaches (CA, OR, WA, northern Baja) and overwrites the `wind_speed`/`wind_direction`/`wind_direction_deg` columns on existing NOAA_NWS rows in `enhanced_forecasts`. The ML correction cron automatically picks up the improved wind values with no schema changes required (Phase 1 approach).
 
 ### Fixed
 
 - **Auth: Native Google sign-in modal stuck spinning** — After completing Google sign-in via `signInWithIdToken()` on native (iOS/Android), the auth modal now correctly closes and stops the spinner. Previously, the success path only handled browser redirects, leaving native inline completions without cleanup.
+
+### Removed
+
+- **Session Wizard: Post-save modals** — Deleted `ForecastFeedbackFlow`, `ReviewPromptDialog`, and `useReviewPrompt` hook. Forecast accuracy is now collected inline in the wizard. 6 analytics events removed (`forecast_feedback_submitted/skipped`, `review_prompt_skipped`, `review_form_open/abandon`, `review_submit`).
 
 ### Changed
 

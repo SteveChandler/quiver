@@ -27,6 +27,7 @@ import { ConditionsSection } from "@/components/session-forms/ConditionsSection"
 import { PhotoSelectionSection } from "@/components/session-forms/PhotoSelectionSection";
 import { NotesSection } from "@/components/session-forms/NotesSection";
 import { SessionDetailsSection } from "@/components/session-forms/SessionDetailsSection";
+import { LocationDateTimeStep } from "@/components/session-forms/LocationDateTimeStep";
 import { QuickLocationTimeStep } from "@/components/session-forms/QuickLocationTimeStep";
 import { QuickRatingStep } from "@/components/session-forms/QuickRatingStep";
 import {
@@ -336,6 +337,15 @@ export function AnimatedSessionWizard({
     };
 
     switch (step.component) {
+      case "LocationDateTimeStep":
+        return (
+          <LocationDateTimeStep
+            formState={formState}
+            beaches={beaches}
+            updateField={updateField}
+            mode={mode}
+          />
+        );
       case "LocationStep":
         return <LocationStep {...baseProps} beaches={beaches} />;
       case "DateTimeSection":
@@ -371,6 +381,8 @@ export function AnimatedSessionWizard({
             updateField={updateField}
             selectedPhotos={selectedPhotos}
             onPhotosChange={handlePhotosChange}
+            boards={boards}
+            onBoardsRefresh={refreshBoards}
           />
         );
       case "QuickLocationTimeStep":

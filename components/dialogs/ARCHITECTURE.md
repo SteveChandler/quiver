@@ -22,38 +22,7 @@ Important dialogs (e.g., forms with unsaved changes) prevent accidental dismissa
 
 ## Current Components
 
-### ReviewPromptDialog
-
-**File**: `review-prompt-dialog.tsx`
-
-**Purpose**: Displays a post-session review prompt encouraging users to share their beach experience.
-
-**Usage**:
-```typescript
-import { ReviewPromptDialog } from '@/components/dialogs/review-prompt-dialog';
-import { useReviewPrompt } from '@/hooks/use-review-prompt';
-
-const reviewPrompt = useReviewPrompt({
-  onReviewSubmit: () => handleSuccess(),
-  onDismiss: () => handleDismiss(),
-});
-
-<ReviewPromptDialog
-  open={reviewPrompt.isOpen}
-  reviewData={reviewPrompt.reviewData}
-  onSuccess={reviewPrompt.handleSuccess}
-  onSkip={() => reviewPrompt.handleSkip("skip")}
-/>
-```
-
-**Features**:
-- Integrates with `BeachReviewForm` component
-- Prevents accidental dismissal during review
-- Consistent UI with icon, title, description
-- Skip button for users who don't want to review
-- Automatic tracking via form component
-
-**Hook Integration**: Designed to work seamlessly with `useReviewPrompt` hook.
+No reusable dialogs are currently in this directory. Previous components (`ReviewPromptDialog`) were removed as part of the session wizard consolidation (Feb 2026). See the patterns below for guidance on adding new dialogs.
 
 ## When to Add Dialogs Here
 

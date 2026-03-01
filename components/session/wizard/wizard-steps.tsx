@@ -20,7 +20,7 @@ export interface WizardStep {
 }
 
 // Feature flag for consolidated wizard (safe rollout)
-// Set to true to enable the new 4-step consolidated flow for log mode
+// Set to true to enable the 2-step log / 3-step plan consolidated flow
 export const USE_CONSOLIDATED_WIZARD = true;
 
 // Legacy step configurations (6 steps for log mode)
@@ -111,24 +111,15 @@ const WIZARD_STEPS_V1: Record<SessionFormMode, WizardStep[]> = {
   ],
 };
 
-// New consolidated step configurations (4 steps for log mode)
+// New consolidated step configurations (2 steps for log mode, 3 steps for plan mode)
 const WIZARD_STEPS_V2: Record<SessionFormMode, WizardStep[]> = {
   plan: [
-    // Plan mode unchanged (same as V1)
     {
-      id: "location",
-      title: "Location",
-      description: "Choose where you'll be surfing",
-      icon: <MapPin className="w-5 h-5" />,
-      component: "LocationStep",
-      isRequired: true,
-    },
-    {
-      id: "datetime",
-      title: "When",
-      description: "Set your session date and time",
-      icon: <Calendar className="w-5 h-5" />,
-      component: "DateTimeSection",
+      id: "location-datetime",
+      title: "Where & When",
+      description: "Where and when will you surf?",
+      icon: <Zap className="w-5 h-5" />,
+      component: "LocationDateTimeStep",
       isRequired: true,
     },
     {
@@ -149,37 +140,21 @@ const WIZARD_STEPS_V2: Record<SessionFormMode, WizardStep[]> = {
     },
   ],
   log: [
-    // CONSOLIDATED: 4 steps (was 6)
+    // CONSOLIDATED: 2 steps (was 4)
     {
-      id: "location",
-      title: "Location",
-      description: "Where did your session take place?",
-      icon: <MapPin className="w-5 h-5" />,
-      component: "LocationStep",
+      id: "location-datetime",
+      title: "Where & When",
+      description: "Where and when did you surf?",
+      icon: <Zap className="w-5 h-5" />,
+      component: "LocationDateTimeStep",
       isRequired: true,
-    },
-    {
-      id: "datetime",
-      title: "When",
-      description: "When did you surf?",
-      icon: <Calendar className="w-5 h-5" />,
-      component: "DateTimeSection",
-      isRequired: true,
-    },
-    {
-      id: "equipment",
-      title: "Equipment",
-      description: "Which board did you ride?",
-      icon: <Target className="w-5 h-5" />,
-      component: "EquipmentStep",
-      isRequired: false,
     },
     {
       id: "session-details",
       title: "Session Details",
       description: "Rate conditions, add photos, and share your experience",
       icon: <FileText className="w-5 h-5" />,
-      component: "SessionDetailsSection", // NEW CONSOLIDATED COMPONENT
+      component: "SessionDetailsSection",
       isRequired: false,
     },
   ],

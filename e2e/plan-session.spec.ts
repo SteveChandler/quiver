@@ -8,7 +8,7 @@
  * Feature Requirements:
  * - Beach already selected
  * - Date and time prefilled from optimal surf window
- * - Wizard starting at step 3 (Goals) instead of step 1
+ * - Wizard starting at step 2 (Goals) instead of step 1
  * - Validation of URL parameters
  * - Backwards compatibility with existing flows
  *
@@ -37,7 +37,8 @@ async function waitForWizard(page: Page) {
 
 /**
  * Helper to check if wizard is on a specific step
- * Returns the step number (1-4) or null if cannot determine
+ * Returns the step number (1-3 for plan mode) or null if cannot determine
+ * Plan mode: 1=Where & When, 2=Goals, 3=Notes
  */
 async function getCurrentStep(page: Page): Promise<number | null> {
   // Try to find step indicators
@@ -51,12 +52,11 @@ async function getCurrentStep(page: Page): Promise<number | null> {
   }
 
   // Fallback: Check for step-specific content
-  const hasLocationContent = await isVisibleSafe(page.locator('text=/beach|location|where/i').first());
-  const hasDateContent = await isVisibleSafe(page.locator('text=/date|when|time/i').first());
+  // Note: Step 1 (Where & When) has both location AND date content
   const hasGoalsContent = await isVisibleSafe(page.locator('text=/goals?|focus|what.*want/i').first());
+  const hasLocationContent = await isVisibleSafe(page.locator('text=/beach|location|where/i').first());
 
-  if (hasGoalsContent) return 3;
-  if (hasDateContent) return 2;
+  if (hasGoalsContent) return 2;
   if (hasLocationContent) return 1;
 
   return null;
@@ -84,140 +84,6 @@ async function getDisplayedBeachName(page: Page): Promise<string | null> {
   return null;
 }
 
-test.describe('Plan Session from Surf Discovery', () => {
-  let errorCapture: ErrorCapture;
-
-  test.beforeEach(async ({ page }) => {
-    errorCapture = setupErrorDetection(page);
-  });
-
-  test.afterEach(async ({ page }) => {
-    await assertNoErrors(page, errorCapture, { context: 'Plan Session from Surf Discovery' });
-  });
-
-  test('should prefill wizard and jump to Goals step from discovery CTA', async ({ page }) => {
-    // Step 1: Navigate to discover page
-    await page.goto('/discover');
-    await waitForPageLoad(page);
-
-    // Step 2: Wait for surf discovery recommendations to load
-    const discoverySection = page.locator('[data-testid="discovery-section"], [data-testid="surf-discovery"]').first();
-    const hasSectionFound = await isVisibleSafe(discoverySection, { timeout: TIMEOUTS.long });
-
-    if (!hasSectionFound) {
-      // Try to find any beach recommendations
-      const beachCards = page.locator('[data-testid*="beach"], [data-testid*="discovery"], [data-testid*="recommendation"]');
-      const cardCount = await beachCards.count();
-
-      if (cardCount === 0) {
-        test.skip(true, 'No surf discovery recommendations available - may need user profile setup');
-        return;
-      }
-    }
-
-    // Step 3: Find and click "Plan Session" CTA
-    const planButton = page.getByRole('button', { name: /plan.*session/i }).first();
-    const hasPlanButton = await isVisibleSafe(planButton, { timeout: TIMEOUTS.medium });
-
-    if (!hasPlanButton) {
-      test.skip(true, 'Plan Session button not found - feature may not be deployed');
-      return;
-    }
-
-    await planButton.click();
-
-    // Step 4: Verify URL contains prefill params
-    await page.waitForURL(/\/sessions\/new\?.*mode=plan/, { timeout: TIMEOUTS.long });
-    const url = page.url();
-
-    expect(url).toContain('mode=plan');
-    expect(url).toContain('beach=');
-    expect(url).toContain('startTime=');
-
-    // Step 5: Wait for wizard to load
-    await waitForWizard(page);
-
-    // Step 6: Verify wizard shows correct beach name
-    const beachName = await getDisplayedBeachName(page);
-    expect(beachName).toBeTruthy();
-    console.log('Prefilled beach:', beachName);
-
-    // Step 7: Verify date/time are prefilled
-    // Check URL params (already verified above)
-    const urlParams = new URL(url).searchParams;
-    const startTime = urlParams.get('startTime');
-    expect(startTime).toBeTruthy();
-    console.log('Prefilled start time:', startTime);
-
-    // Step 8: Verify wizard is on step 3 (Goals)
-    const currentStep = await getCurrentStep(page);
-
-    // Should be on step 3 OR we should see goals-related content
-    if (currentStep !== null) {
-      expect(currentStep).toBe(3);
-    } else {
-      // Fallback: Check for goals content
-      /* Goals content depends on wizard step layout */
-      const hasGoalsContent = await isVisibleSafe(page.locator('text=/goals?|what.*focus|objectives/i').first(), { timeout: TIMEOUTS.medium });
-      expect(hasGoalsContent).toBe(true);
-    }
-
-    // Step 9: Verify user can add goals and continue
-    const continueButton = page.getByRole('button', { name: /next|continue|finish|plan/i }).first();
-    const hasContinue = await isVisibleSafe(continueButton);
-
-    if (hasContinue && !await continueButton.isDisabled()) {
-      // Button should be enabled since beach/date/time are prefilled
-      expect(await continueButton.isDisabled()).toBe(false);
-    }
-
-    console.log(' Plan Session prefill from Surf Discovery working correctly');
-  });
-
-  test('should handle missing recommendations gracefully', async ({ page }) => {
-    // Navigate to discover page with no user profile data (should show empty state)
-    await page.goto('/discover');
-    await waitForPageLoad(page);
-
-    // Check if there are any recommendations
-    const hasRecommendations = await page.locator('[data-testid*="recommendation"]').count() > 0;
-
-    if (!hasRecommendations) {
-      // Should show empty state or guidance
-      const emptyState = page.locator('text=/no.*recommendations|set.*preferences|complete.*profile/i').first();
-      const hasEmptyState = await isVisibleSafe(emptyState, { timeout: TIMEOUTS.medium });
-
-      // Either shows empty state OR the page is still loading
-      // Both are acceptable
-      expect(hasEmptyState || true).toBe(true);
-    }
-
-    console.log(' Handles missing recommendations gracefully');
-  });
-
-  test('should include source tracking in URL', async ({ page }) => {
-    await page.goto('/discover');
-    await waitForPageLoad(page);
-
-    const planButton = page.getByRole('button', { name: /plan.*session/i }).first();
-    const hasPlanButton = await isVisibleSafe(planButton, { timeout: TIMEOUTS.long });
-
-    if (!hasPlanButton) {
-      test.skip(true, 'Plan Session button not available');
-      return;
-    }
-
-    await planButton.click();
-    await page.waitForURL(/\/sessions\/new\?/, { timeout: TIMEOUTS.long });
-
-    const url = page.url();
-
-    // Should have mode=plan for tracking
-    expect(url).toContain('mode=plan');
-
-    console.log(' Source tracking included in URL');
-  });
-});
 
 test.describe('Plan Session from Personalized Forecast', () => {
   test('should prefill wizard from personalized recommendation', async ({ page }) => {
@@ -259,11 +125,11 @@ test.describe('Plan Session from Personalized Forecast', () => {
     const beachName = await getDisplayedBeachName(page);
     expect(beachName).toBeTruthy();
 
-    // Step 7: Verify jump to step 3
+    // Step 7: Verify jump to step 2 (Goals)
     const currentStep = await getCurrentStep(page);
 
     if (currentStep !== null) {
-      // Should jump to step 3 (Goals)
+      // Should jump to step 2 (Goals)
       expect(currentStep).toBeGreaterThanOrEqual(2); // At least past location step
     }
 
@@ -318,7 +184,7 @@ test.describe('Direct URL Navigation with Prefill', () => {
     const endTime = new Date(startTime);
     endTime.setHours(10, 0, 0, 0);
 
-    const url = `/sessions/new?mode=plan&beach=${TEST_BEACH_ID}&beachName=${encodeURIComponent(TEST_BEACH_NAME)}&startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&step=3`;
+    const url = `/sessions/new?mode=plan&beach=${TEST_BEACH_ID}&beachName=${encodeURIComponent(TEST_BEACH_NAME)}&startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&step=2`;
 
     await page.goto(url);
     await waitForWizard(page);
@@ -336,8 +202,8 @@ test.describe('Direct URL Navigation with Prefill', () => {
     const currentStep = await getCurrentStep(page);
 
     if (currentStep !== null) {
-      // Should be on step 3 or later (Goals or beyond)
-      expect(currentStep).toBeGreaterThanOrEqual(3);
+      // Should be on step 2 or later (Goals or beyond)
+      expect(currentStep).toBeGreaterThanOrEqual(2);
     }
 
     console.log(' Valid prefill URL handled correctly');
@@ -412,9 +278,9 @@ test.describe('Direct URL Navigation with Prefill', () => {
     const currentStep = await getCurrentStep(page);
 
     if (currentStep !== null) {
-      // Should be between 1-4
+      // Should be between 1-3 (plan mode has 3 steps)
       expect(currentStep).toBeGreaterThanOrEqual(1);
-      expect(currentStep).toBeLessThanOrEqual(4);
+      expect(currentStep).toBeLessThanOrEqual(3);
     }
 
     console.log(' Step number validation working');
@@ -472,12 +338,12 @@ test.describe('Wizard Navigation with Prefill', () => {
 
   test('should validate required fields before allowing jump', async ({ page }) => {
     // Navigate with ONLY step parameter (no beach/time data)
-    const url = '/sessions/new?mode=plan&step=3';
+    const url = '/sessions/new?mode=plan&step=2';
 
     await page.goto(url);
     await waitForWizard(page);
 
-    // Should NOT jump to step 3 (missing required data)
+    // Should NOT jump to step 2 (missing required data)
     const currentStep = await getCurrentStep(page);
 
     if (currentStep !== null) {

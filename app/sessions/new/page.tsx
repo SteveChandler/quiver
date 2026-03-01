@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect } from "react";
+import React, { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { SessionWizard } from "@/components/session/wizard/SessionWizard";
@@ -10,13 +10,9 @@ import {
   extractFormState,
 } from "@/lib/utils/session-wizard-params";
 import { useAuth } from "@/context/auth-context";
-import { ReviewPromptDialog } from "@/components/dialogs/review-prompt-dialog";
 import { FormErrorBoundary } from "@/components/error-boundaries";
-import { useReviewPrompt } from "@/hooks/use-review-prompt";
-import { REVIEW_TIMEOUTS } from "@/lib/constants/review-tracking";
 import { useSessionSubmission } from "./useSessionSubmission";
 import { CelebrationOverlay } from "./CelebrationOverlay";
-import { ForecastFeedbackFlow } from "./ForecastFeedbackFlow";
 
 interface NewSessionPageContentProps {
   initialFormState?: Partial<SessionFormState>;
@@ -36,26 +32,12 @@ function NewSessionPageContent({
   const router = useRouter();
   const { user, isLoading } = useAuth();
 
-  // Post-session review prompt flow (using custom hook)
-  const reviewPrompt = useReviewPrompt({
-    autoDismissTimeout: REVIEW_TIMEOUTS.PROMPT_AUTO_DISMISS,
-    onReviewSubmit: () => submission.startCelebrationAndRedirect("log"),
-    onDismiss: () => submission.startCelebrationAndRedirect("log"),
-  });
-
   // Session submission hook - manages all post-save flows
   const submission = useSessionSubmission({
     mode,
     user,
-    reviewPrompt,
     convertSessionId,
-    quick,
   });
-
-  const { feedbackResolvedRef, feedbackResolved } = submission;
-  useEffect(() => {
-    feedbackResolvedRef.current = feedbackResolved;
-  }, [feedbackResolvedRef, feedbackResolved]);
 
   // Handle cancellation
   const handleCancel = () => {
@@ -87,24 +69,6 @@ function NewSessionPageContent({
           quick={quick}
         />
       </FormErrorBoundary>
-
-      {/* Post-log forecast feedback modal */}
-      <ForecastFeedbackFlow
-        open={submission.feedbackOpen}
-        session={submission.feedbackSession}
-        forecast={submission.feedbackForecast}
-        submitting={submission.feedbackSubmitting}
-        onSubmit={submission.handleSubmitFeedback}
-        onSkip={() => submission.handleSkipFeedback("skip")}
-      />
-
-      {/* Post-session review prompt modal */}
-      <ReviewPromptDialog
-        open={reviewPrompt.isOpen}
-        reviewData={reviewPrompt.reviewData}
-        onSuccess={reviewPrompt.handleSuccess}
-        onSkip={() => reviewPrompt.handleSkip("skip")}
-      />
 
       {/* Celebration overlay with share */}
       {submission.showCelebration && (

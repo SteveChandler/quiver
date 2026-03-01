@@ -82,24 +82,9 @@ test.describe('Session Wizard - Plan Mode', () => {
     }
   });
 
-  test('should have date and time selection', async ({ page }) => {
-    // Date/time is on step 2 — navigate there first
-    const beachInput = page.getByTestId('beach-search-input');
-    const hasBeachInput = await isVisibleSafe(beachInput);
-    if (hasBeachInput) {
-      await beachInput.fill('Black');
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for search input debounce
-      await page.waitForTimeout(500);
-      const nextButton = page.getByRole('button', { name: /next/i }).first();
-      const hasNext = await isVisibleSafe(nextButton);
-      if (hasNext) {
-        await nextButton.click();
-        // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
-        await page.waitForTimeout(500);
-      }
-    }
-
-    // Look for date input
+  test('should have date and time selection on step 1 (Where & When)', async ({ page }) => {
+    // Date/time is now on step 1 (combined Where & When step)
+    // Look for date input directly on the first step
     const dateInput = page.locator('input[type="date"]').or(page.getByTestId('session-date-input')).first();
     const hasDate = await isVisibleSafe(dateInput);
 
@@ -111,7 +96,7 @@ test.describe('Session Wizard - Plan Mode', () => {
     const timeInput = page.locator('input[type="time"]').or(page.getByTestId('session-time-input')).first();
     const hasTime = await isVisibleSafe(timeInput);
 
-    // At least one of date or time must be present on step 2
+    // At least one of date or time must be present on step 1
     expect(hasDate || hasTime).toBe(true);
   });
 
@@ -226,15 +211,22 @@ test.describe('Session Wizard - Log Mode', () => {
   });
 
   test('should have rating fields for logged sessions', async ({ page }) => {
-    // V2 wizard: rating fields are on step 4 (Session Details)
-    // Navigate through all 4 steps: Location → DateTime → Equipment → Session Details
+    // Consolidated wizard: rating fields are on step 2 (Session Details)
+    // Navigate through 2 steps: Where & When → Session Details
 
-    // Step 1: Select beach
+    // Step 1: Select beach and fill date (combined Where & When step)
     const beachInput = page.getByTestId('beach-search-input');
     await expect(beachInput).toBeVisible({ timeout: 10000 });
     await beachInput.fill('Black');
     // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for search input debounce
     await page.waitForTimeout(500);
+
+    const dateInput = page.getByTestId('session-date-input');
+    const hasDate = await isVisibleSafe(dateInput);
+    if (hasDate) {
+      const today = new Date().toISOString().split('T')[0];
+      await dateInput.fill(today);
+    }
 
     const nextButton = page.getByRole('button', { name: /next/i }).first();
     await expect(nextButton).toBeEnabled({ timeout: 5000 });
@@ -242,23 +234,7 @@ test.describe('Session Wizard - Log Mode', () => {
     // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(500);
 
-    // Step 2: Fill date/time
-    const dateInput = page.getByTestId('session-date-input');
-    const hasDate = await isVisibleSafe(dateInput);
-    if (hasDate) {
-      const today = new Date().toISOString().split('T')[0];
-      await dateInput.fill(today);
-    }
-    await nextButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
-    await page.waitForTimeout(500);
-
-    // Step 3: Skip equipment
-    await nextButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
-    await page.waitForTimeout(500);
-
-    // Step 4: Session Details — RatingInput renders as star buttons with aria-labels
+    // Step 2: Session Details — RatingInput renders as star buttons with aria-labels
     // e.g. "Rate Wave Quality as 1 out of 5 - ..."
     // We look for any of the three rating sections: Wave Quality, Parking Ease, Crowd Level
     const waveQualityRating = page.getByRole('button', { name: /rate wave quality as 1/i }).first();
@@ -275,7 +251,7 @@ test.describe('Session Wizard - Log Mode', () => {
   test('should show "Forecast from Your Session" and never render NaN @smoke', async ({
     page,
   }) => {
-    // Step 1: Select a beach (Location step)
+    // Step 1: Select beach, fill date and time (combined Where & When step)
     const beachInput = page.getByTestId('beach-search-input');
     await expect(beachInput).toBeVisible({ timeout: 10000 });
 
@@ -292,13 +268,7 @@ test.describe('Session Wizard - Log Mode', () => {
     await expect(beachOption).toBeVisible({ timeout: 15000 });
     await beachOption.click();
 
-    // Step 2: Go to DateTime step
-    const nextButton = page.getByRole('button', { name: /next/i }).first();
-    await expect(nextButton).toBeVisible({ timeout: 10000 });
-    await expect(nextButton).toBeEnabled({ timeout: 10000 });
-    await nextButton.click();
-
-    // Fill date and time (these drive forecast selection)
+    // Fill date and time on step 1 (these drive forecast selection)
     const dateInput = page.getByTestId('session-date-input');
     await expect(dateInput).toBeVisible({ timeout: 15000 });
 
@@ -309,11 +279,13 @@ test.describe('Session Wizard - Log Mode', () => {
     await expect(timeInput).toBeVisible({ timeout: 15000 });
     await timeInput.fill('06:00');
 
-    // Step 3: Advance to Equipment step, then Session Details
-    await nextButton.click();
+    // Step 2: Advance to Session Details
+    const nextButton = page.getByRole('button', { name: /next/i }).first();
+    await expect(nextButton).toBeVisible({ timeout: 10000 });
+    await expect(nextButton).toBeEnabled({ timeout: 10000 });
     await nextButton.click();
 
-    // Step 4: Forecast card should render on Session Details
+    // Forecast card should render on Session Details (step 2)
     const forecastHeading = page.getByRole('heading', {
       name: /forecast from your session/i,
     });
@@ -344,7 +316,7 @@ test.describe('Session Wizard - Complete Flow', () => {
     await page.goto('/sessions/new?mode=plan');
     await waitForPageLoad(page);
 
-    // Step 1: Select beach
+    // Step 1: Select beach, fill date/time (combined Where & When step)
     const beachInput = page.getByTestId('beach-search-input');
     await expect(beachInput).toBeVisible({ timeout: 10000 });
 
@@ -359,15 +331,7 @@ test.describe('Session Wizard - Complete Flow', () => {
     await expect(beachOption).toBeVisible({ timeout: 10000 });
     await beachOption.click();
 
-    // Navigate through all plan mode steps: Location → DateTime → Goals → Notes (last step = submit)
-    const nextButton = page.getByRole('button', { name: /next/i }).first();
-    await expect(nextButton).toBeEnabled({ timeout: 5000 });
-
-    // Step 2: DateTime
-    await nextButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
-    await page.waitForTimeout(500);
-
+    // Fill date/time on step 1
     const dateInput = page.getByTestId('session-date-input').or(page.locator('input[type="date"]')).first();
     const hasDate = await isVisibleSafe(dateInput);
     if (hasDate) {
@@ -381,12 +345,16 @@ test.describe('Session Wizard - Complete Flow', () => {
       await timeInput.fill('09:00');
     }
 
-    // Step 3: Goals (optional)
+    // Navigate through 3 plan mode steps: Where & When → Goals → Notes (last step = submit)
+    const nextButton = page.getByRole('button', { name: /next/i }).first();
+    await expect(nextButton).toBeEnabled({ timeout: 5000 });
+
+    // Step 2: Goals (optional)
     await nextButton.click();
     // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(500);
 
-    // Step 4: Notes (last step — submit button appears here)
+    // Step 3: Notes (last step — submit button appears here)
     await nextButton.click();
     // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(500);
@@ -477,8 +445,8 @@ test.describe('Session Wizard - Validation', () => {
     await page.goto('/sessions/new?mode=plan');
     await waitForPageLoad(page);
 
-    // V2 wizard: Next button is disabled when required fields are missing.
-    // The submit button only appears on the last step (step 4).
+    // Consolidated wizard: Next button is disabled when required fields are missing.
+    // The submit button only appears on the last step.
     // Verify that the Next button is disabled when no beach is selected.
     const nextButton = page.getByRole('button', { name: /next/i }).first();
     await expect(nextButton).toBeVisible({ timeout: 5000 });
@@ -515,7 +483,7 @@ test.describe('Session Wizard - Forecast Snapshot Creation', () => {
     await page.goto('/sessions/new?mode=log');
     await waitForPageLoad(page);
 
-    // Step 1: Select beach
+    // Step 1: Select beach and fill date (combined Where & When step)
     const beachInput = page.getByTestId('beach-search-input');
     await expect(beachInput).toBeVisible({ timeout: 10000 });
 
@@ -533,25 +501,14 @@ test.describe('Session Wizard - Forecast Snapshot Creation', () => {
       await page.waitForTimeout(500);
     }
 
-    // Navigate through log mode steps: Location → DateTime → Equipment → Session Details
-    const nextButton = page.getByRole('button', { name: /next/i }).first();
-
-    // Step 2: DateTime
-    await nextButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
-    await page.waitForTimeout(500);
     const dateInput = page.getByTestId('session-date-input').or(page.locator('input[type="date"]')).first();
     const hasDate = await isVisibleSafe(dateInput);
     if (hasDate) {
       await dateInput.fill(new Date().toISOString().split('T')[0]);
     }
 
-    // Step 3: Equipment (skip)
-    await nextButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
-    await page.waitForTimeout(500);
-
-    // Step 4: Session Details (last step — submit button appears here)
+    // Step 2: Session Details (last step — submit button appears here)
+    const nextButton = page.getByRole('button', { name: /next/i }).first();
     await nextButton.click();
     // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(500);

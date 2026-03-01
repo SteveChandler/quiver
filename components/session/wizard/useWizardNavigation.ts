@@ -53,20 +53,18 @@ export function useWizardNavigation({
    */
   const validateStepsUpTo = useCallback(
     (targetStepIndex: number): boolean => {
-      // Step 1 (index 0) - Location: Requires beach
-      if (targetStepIndex > 0 && !formState.selectedBeachId) {
-        if (process.env.NODE_ENV === "development") {
-          console.warn(
-            "Cannot jump to step",
-            targetStepIndex + 1,
-            "- missing beach selection"
-          );
+      // Step 1 (index 0) - Location+DateTime: Requires beach and date
+      if (targetStepIndex > 0) {
+        if (!formState.selectedBeachId) {
+          if (process.env.NODE_ENV === "development") {
+            console.warn(
+              "Cannot jump to step",
+              targetStepIndex + 1,
+              "- missing beach selection"
+            );
+          }
+          return false;
         }
-        return false;
-      }
-
-      // Step 2 (index 1) - DateTime: Requires date and time (for plan mode)
-      if (targetStepIndex > 1) {
         if (!formState.selectedDate) {
           if (process.env.NODE_ENV === "development") {
             console.warn(
@@ -90,7 +88,7 @@ export function useWizardNavigation({
         }
       }
 
-      // Step 3+ (index 2+) - Goals/Equipment/etc: No additional validation needed
+      // Step 2+ (index 1+) - Goals/Session Details/etc: No additional validation needed
       // These steps are optional and don't block progression
       return true;
     },
@@ -150,6 +148,11 @@ export function useWizardNavigation({
       if (!wizardStep) return false;
 
       switch (wizardStep.id) {
+        case "location-datetime":
+          if (mode === "plan") {
+            return Boolean(formState.selectedBeach && formState.selectedDate && formState.selectedTime);
+          }
+          return Boolean(formState.selectedBeach && formState.selectedDate);
         case "location":
           return Boolean(formState.selectedBeach);
         case "datetime":
@@ -177,9 +180,9 @@ export function useWizardNavigation({
   const canGoNext = currentStep < steps.length - 1 && isStepValid(currentStep);
   const canGoPrev = currentStep > 0;
   const isLastStep = currentStep === steps.length - 1;
-  const isFormComplete = steps
-    .filter((step) => step.isRequired)
-    .every((_, index) => isStepValid(index));
+  const isFormComplete = steps.every(
+    (step, index) => !step.isRequired || isStepValid(index)
+  );
 
   /**
    * Navigate to a specific step by index.
