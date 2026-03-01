@@ -88,6 +88,12 @@ export interface UserBadgeStats {
   detailed_boards: number;
   board_session_uses: number;
   twin_fin_sessions: number;
+  /** Sessions where skill_ratings is non-empty JSON */
+  skill_rated_sessions: number;
+  /** Confidence score (0-1) from user_surf_preferences sweet spot calculation */
+  sweet_spot_confidence: number;
+  /** Number of times user has shared a progression milestone */
+  progression_shares: number;
 }
 
 /**

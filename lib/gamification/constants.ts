@@ -80,5 +80,11 @@ export function getBadgeChecks(stats: UserBadgeStats): BadgeCheck[] {
     { slug: "ride_logger", condition: stats.board_session_uses >= 10 },
     { slug: "twin_fin_fan", condition: stats.twin_fin_sessions >= 5 },
     { slug: "quiver_king_queen", condition: stats.board_count >= 10 },
+
+    // Progression badges
+    { slug: "skill_tracker", condition: stats.skill_rated_sessions >= 10 },
+    { slug: "streak_warrior", condition: stats.consecutive_days >= 14 },
+    { slug: "sweet_spot_finder", condition: stats.sweet_spot_confidence > 0.5 },
+    { slug: "progression_sharer", condition: stats.progression_shares >= 1 },
   ];
 }

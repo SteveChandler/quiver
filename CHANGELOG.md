@@ -7,13 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+### Added
+- **Retro Surf Dark theme prototype on beach detail pages** — Scoped `.theme-retro-dark` CSS class wraps `/[state]/[city]/[beachSlug]` pages with a deep navy palette (`#0B1426` background, `#111D35` cards), hot pink `#FF3B8B` primary accents, electric yellow `#FFD639` badges, teal `#00D4AA` links, and Permanent Marker brush font for all headings. Zero business logic changes; all overrides are CSS-only under the scope class. Light theme on all other routes is unaffected.
+- **Progression tracking: per-skill self-assessment ratings (1–5) on session logging** — Skills practiced can be rated 1–5 directly in the Goals step of the session wizard.
+- **Progression dashboard with streaks, skill trends, sweet spot analysis, personal bests, and forecast impact** — New dashboard surfaces progression insights from logged session data.
+- **Shareable progression moments (monthly recaps, streak milestones)** — Users can share progression highlights via the share sheet.
+- **4 new progression badges: Skill Tracker, Streak Warrior, Sweet Spot Finder, Progression Sharer** — Awarded for engagement with progression tracking features.
+- **OG image routes for progression and streak share cards** — Dedicated Open Graph image endpoints for social sharing of progression milestones.
+- **"Feedback loop" brand copy reflecting two-pillar identity (Forecast + Track)** — Hero tagline updated to "Every session makes your next forecast smarter." Post-session confirmation copy now surfaces the user's contribution to forecast accuracy at their beach.
 
+### Changed
+- **Session goals now write to `goals[]` column instead of being appended to notes** — Structured storage enables progression analytics and trend tracking.
+- **Journal view adds Progression tab between Sessions and Insights** — Users can navigate directly to their progression dashboard from the journal.
+- **Zero state copy emphasizes forecast contribution and progression unlock** — Empty state messaging connects session logging to model improvement and progression features.
+
+### Fixed
+- **Goals toggle was writing to `notes` field instead of `goals` text[] column** — Fixed data routing so goal selections persist to the correct database column.
 - **IOOS: Fix station lifecycle bug for intermittent reporters** — Added reactivation check in observation sync that detects inactive stations with recent `last_seen_at` and reactivates them before processing. Fixes the circular dependency where deactivated stations could never accumulate fresh observations because only active stations were synced. Increased stale threshold from 7 to 14 days to accommodate CDIP buoys with multi-day maintenance gaps. Reactivated 8 CDIP stations still reporting valid wave data that were incorrectly deactivated on Feb 26.
 - **Auth: Native Google sign-in modal stuck spinning** — After completing Google sign-in via `signInWithIdToken()` on native (iOS/Android), the auth modal now correctly closes and stops the spinner. Previously, the success path only handled browser redirects, leaving native inline completions without cleanup.
 
 ### Added
 
+- **Progression: Server action `getProgressionDashboard`** — New `actions/progression-actions.ts` with `getProgressionDashboard()` using `makeAuthenticatedAction`. Returns streaks, monthly summary, skill progression, sweet spot, personal bests, forecast impact, and insights. Covered by 17 unit tests.
+- **Progression: Insight generator** — New `lib/progression/insight-generator.ts` generates human-readable insights from progression data. 15 unit tests.
+- **Progression: Streak calculator utility** — Added `lib/progression/streak-calculator.ts` replacing inline streak logic in badge-service. 11 unit tests.
 - **Device info enrichment on all events** — Server-side User-Agent parsing injects `_device` (type, OS, browser) and `_viewport_width` into event metadata. Lightweight regex-based parser, no npm dependencies.
 - **Anonymous visitor tracking with upgrade linking** — Pre-signup visitors tracked via localStorage-based visitor ID (`quiver_visitor_id`). Anonymous events (page_view, beach_view, tab_view, onboarding_step) inserted with `user_id: null` and `session_id`. On sign-in, events are linked to the authenticated user via `link_anonymous_events()` RPC. New `/api/events/link` endpoint.
 - **Bot filtering for event tracking** — Requests from known bots (Googlebot, Bingbot, crawlers, headless browsers) silently filtered before insert. Returns `{ ok: true, status: 'bot_filtered' }`.

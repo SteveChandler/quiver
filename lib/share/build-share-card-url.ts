@@ -203,3 +203,87 @@ export function buildSessionShareUrl(params: SessionShareParams): string {
 
   return `${baseUrl}/api/og/session?${searchParams.toString()}`;
 }
+
+/**
+ * Parameters for monthly progression recap share card
+ */
+export interface ProgressionShareParams {
+  /** Total sessions in the period */
+  sessions: number;
+  /** Total hours surfed */
+  hours: number;
+  /** Average session rating (1-5) */
+  avgRating: number;
+  /** Top skill name (e.g., "Pop-ups") */
+  topSkill?: string;
+  /** Top skill rating (1-5) */
+  topSkillRating?: number;
+  /** Longest streak in days */
+  streak?: number;
+  /** Month label (e.g., "March 2026") */
+  month: string;
+  /** Forecast impact string (e.g., "+8% at Blacks") */
+  forecastImpact?: string;
+}
+
+/**
+ * Parameters for streak milestone share card
+ */
+export interface StreakShareParams {
+  /** Number of consecutive days */
+  streak: number;
+  /** User's display name */
+  userName?: string;
+}
+
+/**
+ * Build a fully qualified URL for progression recap OG image
+ *
+ * @example
+ * buildProgressionShareUrl({ sessions: 12, hours: 18.5, avgRating: 4.2, month: "March 2026" })
+ * // => "https://quiversurf.app/api/og/progression?sessions=12&hours=18.5&avgRating=4.2&month=March+2026"
+ */
+export function buildProgressionShareUrl(params: ProgressionShareParams): string {
+  const baseUrl = getBaseUrl();
+  const searchParams = new URLSearchParams();
+
+  searchParams.set('sessions', params.sessions.toString());
+  searchParams.set('hours', params.hours.toString());
+  searchParams.set('avgRating', params.avgRating.toString());
+  searchParams.set('month', params.month);
+
+  if (params.topSkill) {
+    searchParams.set('topSkill', params.topSkill);
+  }
+  if (params.topSkillRating !== undefined) {
+    searchParams.set('topSkillRating', params.topSkillRating.toString());
+  }
+  if (params.streak !== undefined) {
+    searchParams.set('streak', params.streak.toString());
+  }
+  if (params.forecastImpact) {
+    searchParams.set('forecastImpact', params.forecastImpact);
+  }
+
+  return `${baseUrl}/api/og/progression?${searchParams.toString()}`;
+}
+
+/**
+ * Build a fully qualified URL for streak milestone OG image
+ *
+ * @example
+ * buildStreakShareUrl({ streak: 7, userName: "Steven" })
+ * // => "https://quiversurf.app/api/og/streak?streak=7&userName=Steven"
+ */
+export function buildStreakShareUrl(params: StreakShareParams): string {
+  const baseUrl = getBaseUrl();
+  const searchParams = new URLSearchParams();
+
+  searchParams.set('streak', params.streak.toString());
+
+  if (params.userName) {
+    searchParams.set('userName', params.userName);
+  }
+
+  return `${baseUrl}/api/og/streak?${searchParams.toString()}`;
+}

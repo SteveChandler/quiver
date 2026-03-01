@@ -52,6 +52,12 @@ jest.mock("@/components/session-forms/LocationStep", () => ({
   LocationStep: () => <div data-testid="location-step">Location Step</div>,
 }));
 
+jest.mock("@/components/session-forms/LocationDateTimeStep", () => ({
+  LocationDateTimeStep: () => (
+    <div data-testid="location-datetime-step">Location DateTime Step</div>
+  ),
+}));
+
 jest.mock("@/components/session-forms/DateTimeSection", () => ({
   DateTimeSection: () => (
     <div data-testid="datetime-step">DateTime Section</div>
@@ -85,9 +91,8 @@ jest.mock("@/components/session-forms/NotesSection", () => ({
 describe("SessionWizard (aligned)", () => {
   it("renders initial step header and progress", () => {
     render(<SessionWizard mode="plan" />);
-    expect(screen.getByText(/Step 1 of 4/i)).toBeInTheDocument();
-    expect(screen.getByText("Location")).toBeInTheDocument();
-    expect(screen.getByTestId("location-step")).toBeInTheDocument();
+    expect(screen.getByText(/Step 1 of 3/i)).toBeInTheDocument();
+    expect(screen.getByTestId("location-datetime-step")).toBeInTheDocument();
   });
 
   it("shows Next and disables Previous on first step", () => {
@@ -105,7 +110,6 @@ describe("SessionWizard (aligned)", () => {
     await user.click(screen.getByRole("button", { name: /next/i }));
 
     // Wait for transition to step 2
-    await screen.findByText(/Step 2 of 4/i);
-    expect(screen.getByText(/When/i)).toBeInTheDocument();
+    await screen.findByText(/Step 2 of 3/i);
   });
 });

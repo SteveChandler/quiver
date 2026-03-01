@@ -37,9 +37,16 @@ export function CelebrationOverlay({
           <h2 className="text-6xl font-bold text-green-600 mb-4">
             🎉 Success!
           </h2>
-          <p className="text-2xl text-gray-700 font-semibold mb-6">
+          <p className="text-2xl text-gray-700 font-semibold mb-2">
             {mode === "plan" ? "Session Planned!" : "Session Logged!"}
           </p>
+          {mode !== "plan" && (
+            <p className="text-base text-gray-500 mb-4">
+              {savedSessionData?.selectedBeach
+                ? `You just contributed to forecast accuracy at ${savedSessionData.selectedBeach}.`
+                : "You just contributed to forecast accuracy at your local break."}
+            </p>
+          )}
 
           {/* Share and Continue buttons */}
           <div className="flex flex-col gap-3 mt-6">

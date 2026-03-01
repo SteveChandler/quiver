@@ -246,8 +246,8 @@ export const SURF_ACTIVITIES = [
 // Content strings to reduce hardcoding
 export const CONTENT = {
   hero: {
-    title: "Forecasts that know your breaks",
-    subtitle: "Real-time conditions, personalized match scores, and local intel from surfers in the water so every session counts.",
+    title: "Every session makes your next forecast smarter.",
+    subtitle: "Surf forecasts powered by ML. Session tracking that trains the model. The more you surf, the better it gets — for everyone.",
     cta: "Start surfing smarter",
     secondaryCta: "Explore Features",
     benefits: [

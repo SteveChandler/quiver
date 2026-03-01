@@ -197,6 +197,8 @@ export function AnimatedSessionWizard({
         windDirection: formState.windDirection,
         forecastAccuracy: formState.forecastAccuracy,
         waveTypes: formState.waveTypes,
+        selectedGoals: formState.selectedGoals,
+        skillRatings: formState.skillRatings,
       };
 
       if (onComplete) {
@@ -316,7 +318,11 @@ export function AnimatedSessionWizard({
       if (!result.success) {
         throw new Error(result.error);
       }
-      toast.success("Session logged successfully!");
+      toast.success(
+        sessionData.selectedBeach
+          ? `Session logged! You just contributed to forecast accuracy at ${sessionData.selectedBeach}.`
+          : "Session logged! You just contributed to forecast accuracy at your local break."
+      );
     }
 
     // Redirect after brief delay

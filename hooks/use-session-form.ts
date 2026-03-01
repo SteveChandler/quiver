@@ -58,6 +58,8 @@ export type SessionFormState = {
     name?: string;
   }>;
   invitationMessage?: string;
+  selectedGoals: string[];
+  skillRatings: Record<string, number>;
 };
 
 export type SessionFormMode = "plan" | "log";
@@ -130,6 +132,8 @@ function getDefaultFormState(mode: SessionFormMode): SessionFormState {
     boardSuggestions: undefined,
     invitees: [],
     invitationMessage: "",
+    selectedGoals: [],
+    skillRatings: {},
   };
 }
 

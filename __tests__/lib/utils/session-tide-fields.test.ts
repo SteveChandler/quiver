@@ -26,6 +26,8 @@ describe('Session Tide Fields Transformation', () => {
         notes: 'Great session with excellent tide conditions!',
         photos: [],
         waveTypes: [],
+        selectedGoals: [],
+        skillRatings: {},
         // New condition fields
         waveHeight: 4.5,
         windSpeed: 10,
@@ -65,6 +67,8 @@ describe('Session Tide Fields Transformation', () => {
         notes: '',
         photos: [],
         waveTypes: [],
+        selectedGoals: [],
+        skillRatings: {},
         // No tide fields provided
       };
 
@@ -91,6 +95,8 @@ describe('Session Tide Fields Transformation', () => {
         notes: '',
         photos: [],
         waveTypes: [],
+        selectedGoals: [],
+        skillRatings: {},
         tideHeight: 2.5, // Only height provided
       };
 
@@ -113,6 +119,8 @@ describe('Session Tide Fields Transformation', () => {
         notes: '',
         photos: [],
         waveTypes: [],
+        selectedGoals: [],
+        skillRatings: {},
         tideStatus: 'falling', // Only status provided
       };
 

@@ -37,6 +37,10 @@ export interface SessionPayloadInput {
   tideHeight?: number;
   tideStatus?: string;
   forecastAccuracy?: "accurate" | "somewhat" | "inaccurate" | string;
+
+  // Goals and skill ratings
+  selectedGoals?: string[];
+  skillRatings?: Record<string, number>;
 }
 
 /** The shape sent to createPlannedSession / createLoggedSession server actions. */
@@ -66,6 +70,10 @@ export interface SessionPayload {
   tide_height_ft?: number;
   tide_status?: string;
   forecast_accuracy?: string;
+
+  // Goals and skill ratings
+  goals?: string[];
+  skill_ratings?: Record<string, number>;
 }
 
 /**
@@ -193,6 +201,13 @@ export function buildSessionPayload(
     }),
     ...(input.forecastAccuracy && {
       forecast_accuracy: input.forecastAccuracy,
+    }),
+    // Goals and skill ratings
+    ...(input.selectedGoals && input.selectedGoals.length > 0 && {
+      goals: input.selectedGoals,
+    }),
+    ...(input.skillRatings && Object.keys(input.skillRatings).length > 0 && {
+      skill_ratings: input.skillRatings,
     }),
   };
 }

@@ -65,19 +65,17 @@ export function GoalsSection({
   }
 
   const handleGoalToggle = (goal: string) => {
-    const currentNotes = formState.notes || "";
-    if (currentNotes.includes(goal)) {
-      updateField(
-        "notes",
-        currentNotes
-          .replace(goal, "")
-          .replace(/,\s*,/g, ",")
-          .replace(/^,\s*|,\s*$/g, "")
-          .trim()
-      );
+    const currentGoals = formState.selectedGoals ?? [];
+    if (currentGoals.includes(goal)) {
+      updateField("selectedGoals", currentGoals.filter((g) => g !== goal));
     } else {
-      updateField("notes", currentNotes ? `${currentNotes}, ${goal}` : goal);
+      updateField("selectedGoals", [...currentGoals, goal]);
     }
+  };
+
+  const handleSkillRating = (skill: string, rating: number) => {
+    const currentRatings = formState.skillRatings ?? {};
+    updateField("skillRatings", { ...currentRatings, [skill]: rating });
   };
 
   const handleRatingChange = (rating: number) => {
@@ -105,7 +103,7 @@ export function GoalsSection({
                 key={goal}
                 type="button"
                 variant={
-                  formState.notes?.includes(goal) ? "default" : "outline"
+                  (formState.selectedGoals ?? []).includes(goal) ? "default" : "outline"
                 }
                 size="sm"
                 onClick={() => handleGoalToggle(goal)}
@@ -115,6 +113,41 @@ export function GoalsSection({
               </Button>
             ))}
           </div>
+          {!isPlanning && (
+            <div className="space-y-2 mt-3">
+              {SKILL_GOALS.filter((goal) =>
+                (formState.selectedGoals ?? []).includes(goal)
+              ).map((skill) => (
+                <div key={skill} className="flex items-center gap-3">
+                  <span className="text-sm w-28 shrink-0">{skill}</span>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((rating) => (
+                      <button
+                        key={rating}
+                        type="button"
+                        onClick={() => handleSkillRating(skill, rating)}
+                        className={`p-1 rounded transition-all duration-200 ${
+                          (formState.skillRatings ?? {})[skill] >= rating
+                            ? "text-blue-500 bg-blue-50"
+                            : "text-gray-300 hover:text-gray-400 hover:bg-gray-50"
+                        }`}
+                        aria-label={`Rate ${skill} ${rating} stars`}
+                      >
+                        <Star
+                          className="w-4 h-4"
+                          fill={
+                            (formState.skillRatings ?? {})[skill] >= rating
+                              ? "currentColor"
+                              : "none"
+                          }
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           <p className="text-xs text-muted-foreground mt-2">
             {isPlanning
               ? "Select skills you want to focus on during this session"

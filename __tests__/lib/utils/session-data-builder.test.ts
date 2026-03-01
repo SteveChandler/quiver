@@ -173,6 +173,84 @@ describe("session-data-builder", () => {
     });
   });
 
+  describe("buildSessionPayload - goals and skill ratings", () => {
+    it("maps selectedGoals to goals column as string array", () => {
+      const input: SessionPayloadInput = {
+        selectedBeach: "Blacks Beach",
+        selectedGoals: ["Pop-ups", "Cutbacks"],
+      };
+      const payload = buildSessionPayload(input, userId, false);
+      expect(payload.goals).toEqual(["Pop-ups", "Cutbacks"]);
+    });
+
+    it("maps skillRatings to skill_ratings column as object", () => {
+      const input: SessionPayloadInput = {
+        selectedBeach: "Blacks Beach",
+        skillRatings: { "Pop-ups": 4, Cutbacks: 3 },
+      };
+      const payload = buildSessionPayload(input, userId, false);
+      expect(payload.skill_ratings).toEqual({ "Pop-ups": 4, Cutbacks: 3 });
+    });
+
+    it("omits goals when selectedGoals is empty array", () => {
+      const input: SessionPayloadInput = {
+        selectedBeach: "Blacks Beach",
+        selectedGoals: [],
+      };
+      const payload = buildSessionPayload(input, userId, false);
+      expect(payload.goals).toBeUndefined();
+    });
+
+    it("omits skill_ratings when skillRatings is empty object", () => {
+      const input: SessionPayloadInput = {
+        selectedBeach: "Blacks Beach",
+        skillRatings: {},
+      };
+      const payload = buildSessionPayload(input, userId, false);
+      expect(payload.skill_ratings).toBeUndefined();
+    });
+
+    it("preserves all existing fields unchanged when new fields added", () => {
+      const input: SessionPayloadInput = {
+        selectedBeach: "Blacks Beach",
+        selectedBeachId: "beach-456",
+        overallRating: "5",
+        waveHeight: 4.5,
+        selectedGoals: ["Pop-ups"],
+        skillRatings: { "Pop-ups": 4 },
+      };
+      const payload = buildSessionPayload(input, userId, false);
+      expect(payload.beach_name).toBe("Blacks Beach");
+      expect(payload.beach_id).toBe("beach-456");
+      expect(payload.rating).toBe(5);
+      expect(payload.wave_height_ft).toBe(4.5);
+      expect(payload.goals).toEqual(["Pop-ups"]);
+      expect(payload.skill_ratings).toEqual({ "Pop-ups": 4 });
+    });
+
+    it("handles selectedGoals with skills but no ratings", () => {
+      const input: SessionPayloadInput = {
+        selectedBeach: "Blacks Beach",
+        selectedGoals: ["Duck Dives"],
+        skillRatings: {},
+      };
+      const payload = buildSessionPayload(input, userId, false);
+      expect(payload.goals).toEqual(["Duck Dives"]);
+      expect(payload.skill_ratings).toBeUndefined();
+    });
+
+    it("does not include goals in planned sessions", () => {
+      const input: SessionPayloadInput = {
+        selectedBeach: "Blacks Beach",
+        selectedGoals: ["Pop-ups"],
+        skillRatings: { "Pop-ups": 5 },
+      };
+      const payload = buildSessionPayload(input, userId, true);
+      expect(payload.goals).toBeUndefined();
+      expect(payload.skill_ratings).toBeUndefined();
+    });
+  });
+
   describe("combineDateAndTime", () => {
     it("combines date and time into PostgreSQL format", () => {
       const result = combineDateAndTime("2026-02-12", "08:30");

@@ -19,6 +19,7 @@ import {
   getInflightCache,
   CACHE_TTL,
 } from "./cache";
+import { calculateStreak } from "@/lib/progression/streak-calculator";
 
 /**
  * Generic type alias for a Supabase query builder used in safeCount.
@@ -37,7 +38,7 @@ interface SessionRow {
   rating: number | null;
   status: string | null;
   arrival_time: string | null;
-  wave_height: string | null;
+  wave_height_ft: number | null;
 }
 
 /**
@@ -99,7 +100,7 @@ async function getUserStatsForBadges(
   try {
     const { data } = await supabase
       .from("sessions")
-      .select("notes,wave_quality,rating,status,arrival_time,wave_height")
+      .select("notes,wave_quality,rating,status,arrival_time,wave_height_ft")
       .eq("user_id", userId)
       .limit(1000);
     const sessions = data || [];
@@ -117,7 +118,7 @@ async function getUserStatsForBadges(
       return Number(m[1]);
     };
     swell_sessions = sessions.reduce((acc: number, s: SessionRow) => {
-      const h = parseFeet(s?.wave_height);
+      const h = s?.wave_height_ft ?? 0;
       const noteFlag =
         typeof s?.notes === "string" && /swell|storm|big|huge/i.test(s.notes);
       return acc + (h >= 8 || noteFlag ? 1 : 0);
@@ -154,31 +155,12 @@ async function getUserStatsForBadges(
     );
 
     // Compute max consecutive day streak (based on arrival date)
-    const dates = Array.from(
-      new Set(
-        completed.map((s) =>
-          new Date(s.arrival_time).toISOString().slice(0, 10)
-        )
-      )
-    ).sort();
-    let current = 0;
-    let best = 0;
-    for (let i = 0; i < dates.length; i++) {
-      if (i === 0) {
-        current = 1;
-        best = 1;
-        continue;
-      }
-      const prev = new Date(dates[i - 1]);
-      const curr = new Date(dates[i]);
-      const diffDays = Math.round(
-        (curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      if (diffDays === 1) current += 1;
-      else current = 1;
-      if (current > best) best = current;
-    }
-    consecutive_days = best || 0;
+    const today = new Date().toISOString().slice(0, 10);
+    const { bestStreak } = calculateStreak(
+      completed.map((s) => s.arrival_time),
+      today
+    );
+    consecutive_days = bestStreak;
   } catch {
     early_sessions = 0;
     consecutive_days = 0;
@@ -282,6 +264,42 @@ async function getUserStatsForBadges(
     users_tagged = 0;
   }
 
+  // Sessions with skill ratings (non-empty skill_ratings JSON object)
+  let skill_rated_sessions = 0;
+  try {
+    const { data: skillData } = await supabase
+      .from("sessions")
+      .select("skill_ratings")
+      .eq("user_id", userId)
+      .not("skill_ratings", "is", null)
+      .limit(1000);
+    skill_rated_sessions = (skillData || []).filter((s: { skill_ratings: unknown }) => {
+      if (!s?.skill_ratings) return false;
+      const ratings = s.skill_ratings as Record<string, unknown>;
+      return typeof ratings === "object" && Object.keys(ratings).length > 0;
+    }).length;
+  } catch {
+    skill_rated_sessions = 0;
+  }
+
+  // Sweet spot confidence from user_surf_preferences
+  let sweet_spot_confidence = 0;
+  try {
+    const { data: prefData } = await supabase
+      .from("user_surf_preferences")
+      .select("confidence")
+      .eq("user_id", userId)
+      .maybeSingle();
+    sweet_spot_confidence = (prefData as { confidence?: number } | null)?.confidence ?? 0;
+  } catch {
+    sweet_spot_confidence = 0;
+  }
+
+  // Progression shares count
+  const progression_shares = await safeCount(supabase, "xp_events", (q) =>
+    q.eq("user_id", userId).eq("action", "share_progression")
+  );
+
   return {
     session_count,
     board_count,
@@ -302,6 +320,9 @@ async function getUserStatsForBadges(
     detailed_boards,
     board_session_uses,
     twin_fin_sessions,
+    skill_rated_sessions,
+    sweet_spot_confidence,
+    progression_shares,
   };
 }
 

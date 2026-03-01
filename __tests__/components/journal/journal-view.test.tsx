@@ -269,7 +269,7 @@ describe("JournalView", () => {
     expect(screen.getByText("No Sessions Yet")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Start tracking your surf journey by logging your first session"
+        "Your sessions train our forecast model. Start logging to see your progression and improve forecasts for your community."
       )
     ).toBeInTheDocument();
     expect(screen.getByText("Log Your First Session")).toBeInTheDocument();

@@ -270,7 +270,11 @@ export function useSessionSubmission({
           hasPhotos: (sessionData.photos || []).length > 0,
         });
 
-        toast.success("Session logged successfully!");
+        toast.success(
+          sessionData.selectedBeach
+            ? `Session logged! You just contributed to forecast accuracy at ${sessionData.selectedBeach}.`
+            : "Session logged! You just contributed to forecast accuracy at your local break."
+        );
 
         // Upload photos in background (handlePhotoUpload shows its own toast notifications)
         if (sessionData.photos && sessionData.photos.length > 0) {

@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { GoalsSection } from '@/components/session-forms/GoalsSection';
 import { SessionFormState } from '@/hooks/use-session-form';
 
@@ -16,7 +17,7 @@ jest.mock('@/lib/constants/session-form-constants', () => ({
 
 const mockUpdateField = jest.fn();
 
-const defaultFormState = {
+const defaultFormState: SessionFormState = {
   selectedDate: '',
   selectedTime: '',
   selectedBeach: '',
@@ -32,7 +33,9 @@ const defaultFormState = {
   duration: '',
   photos: [],
   waveTypes: [],
-} as SessionFormState;
+  selectedGoals: [],
+  skillRatings: {},
+};
 
 describe('GoalsSection', () => {
   beforeEach(() => {
@@ -182,5 +185,95 @@ describe('GoalsSection', () => {
     expect(screen.getByText('How did you perform?')).toBeInTheDocument();
     expect(screen.getByText('Overall Goal Performance')).toBeInTheDocument();
     expect(screen.getByText('Skills Practiced')).toBeInTheDocument();
+  });
+
+  describe('selectedGoals behavior', () => {
+    function setup(overrides: Partial<SessionFormState> = {}) {
+      const { getFormText } = require('@/lib/constants/session-form-constants');
+      getFormText.mockReturnValue({ goals: 'Goals', showPerformanceRating: false });
+      const formState = { ...defaultFormState, ...overrides };
+      render(
+        <GoalsSection mode="log" formState={formState} updateField={mockUpdateField} />
+      );
+    }
+
+    it('goal toggle writes to selectedGoals, not notes', async () => {
+      const user = userEvent.setup();
+      setup({ selectedGoals: [] });
+
+      await user.click(screen.getByRole('button', { name: 'Pop-ups' }));
+
+      expect(mockUpdateField).toHaveBeenCalledWith('selectedGoals', ['Pop-ups']);
+      expect(mockUpdateField).not.toHaveBeenCalledWith('notes', expect.anything());
+    });
+
+    it('initial render shows no skills selected', () => {
+      setup({ selectedGoals: [] });
+
+      const btn = screen.getByRole('button', { name: 'Pop-ups' });
+      // outline variant — not the filled "default" variant
+      expect(btn).not.toHaveClass('bg-primary');
+    });
+
+    it('inline rating row appears when skill goal is selected', () => {
+      setup({ selectedGoals: ['Pop-ups'], skillRatings: {} });
+
+      // The aria-labelled star button proves the rating row is rendered
+      expect(screen.getByLabelText('Rate Pop-ups 1 stars')).toBeInTheDocument();
+      expect(screen.getByLabelText('Rate Pop-ups 5 stars')).toBeInTheDocument();
+    });
+
+    it('rating row hides when skill is deselected', () => {
+      setup({ selectedGoals: [], skillRatings: {} });
+
+      // No rating stars should be rendered for Pop-ups when not selected
+      expect(screen.queryByLabelText('Rate Pop-ups 1 stars')).not.toBeInTheDocument();
+    });
+
+    it('skillRatings state updated when user taps a star', async () => {
+      const user = userEvent.setup();
+      setup({ selectedGoals: ['Cutbacks'], skillRatings: {} });
+
+      await user.click(screen.getByLabelText('Rate Cutbacks 4 stars'));
+
+      expect(mockUpdateField).toHaveBeenCalledWith('skillRatings', { Cutbacks: 4 });
+    });
+
+    it('skill can be selected without a rating', async () => {
+      const user = userEvent.setup();
+      setup({ selectedGoals: [] });
+
+      await user.click(screen.getByRole('button', { name: 'Duck Dives' }));
+
+      expect(mockUpdateField).toHaveBeenCalledWith('selectedGoals', ['Duck Dives']);
+      // No skillRatings call expected
+      const skillRatingsCalls = mockUpdateField.mock.calls.filter(
+        ([field]) => field === 'skillRatings'
+      );
+      expect(skillRatingsCalls).toHaveLength(0);
+    });
+
+    it('skill ratings section hidden in plan mode', () => {
+      const { getFormText } = require('@/lib/constants/session-form-constants');
+      getFormText.mockReturnValue({ goals: 'Goals', showPerformanceRating: false });
+      render(
+        <GoalsSection
+          mode="plan"
+          formState={{ ...defaultFormState, selectedGoals: ['Pop-ups'], skillRatings: {} }}
+          updateField={mockUpdateField}
+        />
+      );
+
+      expect(screen.queryByLabelText('Rate Pop-ups 1 stars')).not.toBeInTheDocument();
+    });
+
+    it('goal deselect removes from selectedGoals array', async () => {
+      const user = userEvent.setup();
+      setup({ selectedGoals: ['Pop-ups', 'Cutbacks'] });
+
+      await user.click(screen.getByRole('button', { name: 'Pop-ups' }));
+
+      expect(mockUpdateField).toHaveBeenCalledWith('selectedGoals', ['Cutbacks']);
+    });
   });
 });
