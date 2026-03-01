@@ -14,6 +14,7 @@ import { loadFavoriteBeaches } from "@/components/map/map-favorites-loader";
 import { createWaveHeightBadge, type MarkerBuilderDeps } from "@/components/map/map-marker-builder";
 import { loadBeachesAndWaveHeights } from "@/components/map/map-beach-loader";
 import { createClusterMapMarker, type ClusterRendererDeps } from "@/components/map/map-cluster-renderer";
+import { useTrackEvent } from "@/hooks/use-track-event";
 
 // Mapbox CSS is imported globally in app/globals.css
 
@@ -90,6 +91,7 @@ export function InteractiveMap({
   const populateLocationsRef = useRef<((lat: number, lng: number) => Promise<void>) | null>(null);
 
   const { user } = useAuth();
+  const { track } = useTrackEvent();
   const router = useRouter();
 
   useEffect(() => {
@@ -204,13 +206,19 @@ export function InteractiveMap({
         hoveredBeachId: hoveredBeachIdRef.current,
         onHoverChange: setHoveredBeachId,
         onSelectChange: setSelectedBeachId,
-        onLocationClick,
+        onLocationClick: (beach: Beach) => {
+          track('map_interaction', {
+            metadata: { action: 'pin_click', beach_id: beach.id },
+            debounceMs: 500,
+          });
+          onLocationClick?.(beach);
+        },
         router,
         autoNavigate: autoNavigateOnMarkerClick,
       };
       return createWaveHeightBadge(location, waveHeight, deps);
     },
-    [onLocationClick, router, autoNavigateOnMarkerClick]
+    [onLocationClick, router, autoNavigateOnMarkerClick, track]
   );
 
   // Create cluster marker using extracted module with deps from refs
@@ -274,6 +282,12 @@ export function InteractiveMap({
     populateLocationsRef.current = populateLocations;
   }, [populateLocations]);
 
+  // Stable ref to track so the debounced handler can always access the latest version
+  const trackRef = useRef(track);
+  useEffect(() => {
+    trackRef.current = track;
+  }, [track]);
+
   // Optimized and debounced map move handler with viewport change detection
   const handleMoveEnd = useMemo(
     () =>
@@ -295,6 +309,12 @@ export function InteractiveMap({
           onBoundsChangeRef.current?.(boundsObj);
         }
         setCurrentZoom(zoom);
+
+        // Track zoom changes
+        trackRef.current('map_interaction', {
+          metadata: { action: 'zoom', zoom_level: Math.round(zoom) },
+          debounceMs: 3000,
+        });
 
         // Only fetch if viewport has significantly changed
         if (!hasViewportChanged(center.lat, center.lng, zoom)) {

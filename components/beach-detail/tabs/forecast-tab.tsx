@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
+import { useTrackEvent } from "@/hooks/use-track-event";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import {
@@ -73,6 +74,7 @@ export function ForecastTab({
   yesterdayAccuracy,
 }: ForecastTabProps) {
   const { user } = useAuth();
+  const { track: trackEvent } = useTrackEvent();
   const [activeSubTab, setActiveSubTab] = useState<
     "today" | "tides" | "conditions"
   >(defaultSubTab || "today");
@@ -84,9 +86,14 @@ export function ForecastTab({
   });
 
   const handleHorizonDaySelect = useCallback((date: string) => {
+    trackEvent('forecast_interaction', {
+      beachId: beach.id,
+      metadata: { action: 'change_slot', slot: date },
+      debounceMs: 1000,
+    });
     setHorizonSelectedDate(date);
     setActiveSubTab("conditions");
-  }, []); // State setters are stable refs
+  }, [beach.id, trackEvent]); // State setters are stable refs
 
   // Horizon Strip: aggregated day summaries (12 days)
   const horizonDaySummaries = useMemo(() => {
@@ -350,19 +357,20 @@ export function ForecastTab({
       {/* Tabbed Content */}
       <Tabs
         value={activeSubTab}
-        onValueChange={(value) => setActiveSubTab(value as typeof activeSubTab)}
+        onValueChange={(value) => {
+          trackEvent('forecast_interaction', {
+            beachId: beach.id,
+            metadata: { action: 'view_details', slot: value },
+            debounceMs: 1000,
+          });
+          setActiveSubTab(value as typeof activeSubTab);
+        }}
         className="w-full"
       >
         <TabsList className="grid w-full grid-cols-3 gap-2 rounded-full bg-blue-100/60 p-1">
           <TabsTrigger
             value="today"
             className="flex items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-all data-[state=active]:bg-white data-[state=active]:text-ocean-blue data-[state=active]:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ocean-blue"
-            onClick={() =>
-              track("forecast_subtab_click", {
-                beach_slug: slugify(beach.name),
-                tab: "today",
-              })
-            }
           >
             <Sun className="h-4 w-4" />
             <span>Today</span>
@@ -370,12 +378,6 @@ export function ForecastTab({
           <TabsTrigger
             value="tides"
             className="flex items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-all data-[state=active]:bg-white data-[state=active]:text-ocean-blue data-[state=active]:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ocean-blue"
-            onClick={() =>
-              track("forecast_subtab_click", {
-                beach_slug: slugify(beach.name),
-                tab: "tides",
-              })
-            }
           >
             <Waves className="h-4 w-4" />
             <span>Tides</span>
@@ -383,12 +385,6 @@ export function ForecastTab({
           <TabsTrigger
             value="conditions"
             className="flex items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-all data-[state=active]:bg-white data-[state=active]:text-ocean-blue data-[state=active]:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ocean-blue"
-            onClick={() =>
-              track("forecast_subtab_click", {
-                beach_slug: slugify(beach.name),
-                tab: "conditions",
-              })
-            }
           >
             <Globe2 className="h-4 w-4" />
             <span>Conditions</span>

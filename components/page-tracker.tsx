@@ -12,7 +12,6 @@
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useTrackEvent } from "@/hooks/use-track-event";
-import { useAuth } from "@/context/auth-context";
 
 /**
  * Maps pathname to a human-readable page name
@@ -78,13 +77,9 @@ function getSessionId(): string {
 export function PageTracker() {
   const pathname = usePathname();
   const { track } = useTrackEvent();
-  const { user } = useAuth();
   const prevPathname = useRef<string | null>(null);
 
   useEffect(() => {
-    // Only track for authenticated users
-    if (!user?.id) return;
-
     // Skip if pathname hasn't changed (initial mount is fine)
     if (prevPathname.current === pathname) return;
 
@@ -101,13 +96,13 @@ export function PageTracker() {
       metadata: {
         page,
         referrer: prevPathname.current || "",
-        session_id: sessionId,
+        browser_session_id: sessionId,
       },
       debounceMs: 500, // Shorter debounce for page views
     });
 
     prevPathname.current = pathname;
-  }, [pathname, user?.id, track]);
+  }, [pathname, track]);
 
   return null;
 }

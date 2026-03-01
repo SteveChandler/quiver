@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Device info enrichment on all events** — Server-side User-Agent parsing injects `_device` (type, OS, browser) and `_viewport_width` into event metadata. Lightweight regex-based parser, no npm dependencies.
+- **Anonymous visitor tracking with upgrade linking** — Pre-signup visitors tracked via localStorage-based visitor ID (`quiver_visitor_id`). Anonymous events (page_view, beach_view, tab_view, onboarding_step) inserted with `user_id: null` and `session_id`. On sign-in, events are linked to the authenticated user via `link_anonymous_events()` RPC. New `/api/events/link` endpoint.
+- **Bot filtering for event tracking** — Requests from known bots (Googlebot, Bingbot, crawlers, headless browsers) silently filtered before insert. Returns `{ ok: true, status: 'bot_filtered' }`.
+- **New event types: `tab_view` and `map_interaction`** — DB constraint expanded to include `tab_view`, `map_interaction`, and 6 social event types. Migration adds `session_id` column and makes `user_id` nullable with identity check constraint.
+- **Engagement tracking: Beach tab, forecast, and map interactions** — Wired `useTrackEvent` into `BeachTabs` (`tab_view` with time-on-tab), `ForecastTab` (`forecast_interaction` on horizon day select and sub-tab change), and `InteractiveMap` (`map_interaction` on pin clicks and zoom changes). Added optional `beachId` prop to `BeachTabs`.
+- **Privacy disclosure updates** — Updated "Technical Data" and "Automated Technologies" sections in privacy content to disclose anonymous visitor ID tracking. Updated `allow_implicit_tracking` toggle description to clarify pre-signup data retention.
+
 - **Session Wizard: Consolidate to 2-step log flow and 3-step plan flow** — Merged location + date/time into a single "Where & When" step (`LocationDateTimeStep`). Log mode reduced from 4 steps to 2 (location-datetime + session-details). Plan mode reduced from 4 steps to 3 (location-datetime + goals + notes). Equipment/board picker folded into `SessionDetailsSection` as the first section. Removed post-save modals (`ForecastFeedbackFlow`, `ReviewPromptDialog`) — save now goes directly to celebration. DB trigger auto-creates forecast snapshots.
 - **ML: HRRR wind extraction cron** — New cron job at `/api/cron/ml/extract-hrrr-wind` (runs at :15 each hour) calls the Fly.io ML service to extract 3km-resolution HRRR wind data for CONUS beaches (CA, OR, WA, northern Baja) and overwrites the `wind_speed`/`wind_direction`/`wind_direction_deg` columns on existing NOAA_NWS rows in `enhanced_forecasts`. The ML correction cron automatically picks up the improved wind values with no schema changes required (Phase 1 approach).
 

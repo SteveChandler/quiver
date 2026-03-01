@@ -38,7 +38,10 @@ export type ImplicitEventType =
   | 'social_share'
   | 'social_invite_send'
   | 'social_invite_respond'
-  | 'social_intel_confirm';
+  | 'social_intel_confirm'
+  // Tab and map engagement events
+  | 'tab_view'
+  | 'map_interaction';
 
 /**
  * Weight multipliers for each event type, determining how much
@@ -69,6 +72,9 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   social_invite_send: 0,
   social_invite_respond: 0,
   social_intel_confirm: 0,
+  // Tab and map engagement events (tracking only)
+  tab_view: 0,
+  map_interaction: 0,
 } as const;
 
 // -----------------------------------------------------------------------------
@@ -145,8 +151,8 @@ export interface PageViewMetadata {
   page: string;
   /** Previous page URL or path */
   referrer?: string;
-  /** Session identifier for grouping page views */
-  session_id?: string;
+  /** Browser session identifier for grouping page views (tab-scoped, distinct from DB session_id column) */
+  browser_session_id?: string;
 }
 
 /**
@@ -232,6 +238,32 @@ export interface ReviewFormMetadata {
 }
 
 // -----------------------------------------------------------------------------
+// Tab and Map Engagement Metadata Interfaces
+// -----------------------------------------------------------------------------
+
+/** Metadata for tab_view events */
+export interface TabViewMetadata {
+  /** Tab that was switched to */
+  tab: string;
+  /** Tab that was switched from */
+  previous_tab: string;
+  /** Time spent on the previous tab in milliseconds */
+  time_on_previous_ms: number;
+}
+
+/** Metadata for map_interaction events */
+export interface MapInteractionMetadata {
+  /** Type of map interaction */
+  action: 'pin_click' | 'zoom' | 'filter_change' | 'pan';
+  /** Beach ID if interacting with a specific beach */
+  beach_id?: string;
+  /** Current zoom level */
+  zoom_level?: number;
+  /** Filter value if changing filters */
+  filter?: string;
+}
+
+// -----------------------------------------------------------------------------
 // Social Tracking Metadata Interfaces
 // -----------------------------------------------------------------------------
 
@@ -304,19 +336,22 @@ export type EventMetadata =
   | SocialShareMetadata
   | SocialInviteSendMetadata
   | SocialInviteRespondMetadata
-  | SocialIntelConfirmMetadata;
+  | SocialIntelConfirmMetadata
+  | TabViewMetadata
+  | MapInteractionMetadata;
 
 /**
  * Full user event record as stored in the database
  */
 export interface UserEvent {
   id: string;
-  user_id: string;
+  user_id: string | null;
   event_type: ImplicitEventType;
   beach_id: string | null;
   metadata: EventMetadata;
   created_at: string;
   expires_at: string;
+  session_id?: string | null;
 }
 
 // =============================================================================
@@ -385,6 +420,8 @@ export interface TrackEventRequest {
   eventType: ImplicitEventType;
   beachId?: string;
   metadata?: EventMetadata;
+  viewportWidth?: number;
+  sessionId?: string;
 }
 
 /**

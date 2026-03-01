@@ -22,6 +22,7 @@ import {
   safeSetItem,
   safeRemoveItem,
 } from "@/lib/utils/safe-storage";
+import { getExistingVisitorId, clearVisitorId } from "@/lib/utils/visitor-id";
 import { AUTH_INIT_TIMEOUT_MS } from "@/lib/constants/ui";
 
 /**
@@ -325,6 +326,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     });
                   });
                 }
+              }
+
+              // Link anonymous events to the newly authenticated user
+              // Guard with session-scoped flag to prevent repeated calls on token refresh
+              const linkKey = `events_linked_${session.user.id}`;
+              const alreadyLinked = sessionStorage.getItem(linkKey);
+              const visitorId = getExistingVisitorId();
+              if (visitorId && !alreadyLinked) {
+                sessionStorage.setItem(linkKey, "true");
+                fetch('/api/events/link', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ sessionId: visitorId }),
+                })
+                  .then((res) => {
+                    if (res.ok) {
+                      clearVisitorId();
+                    }
+                  })
+                  .catch((err) => {
+                    if (process.env.NODE_ENV === 'development') {
+                      console.error('[AuthContext] Failed to link anonymous events:', err);
+                    }
+                  });
               }
 
               // Note: We don't navigate here. The auth state update (below) will cause

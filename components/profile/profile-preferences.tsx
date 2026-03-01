@@ -339,7 +339,7 @@ export function ProfilePreferences({
                 control={form.control as any}
                 name="allow_implicit_tracking"
                 label="Improve recommendations with my activity"
-                description="Uses your browsing behavior to personalize surf spot recommendations"
+                description="Uses your browsing behavior to personalize surf spot recommendations. Disabling this stops new tracking but does not delete pre-signup data."
                 disabled={isSubmitting}
               />
 
