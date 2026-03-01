@@ -7,14 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **IOOS: Fix station lifecycle bug for intermittent reporters** — Added reactivation check in observation sync that detects inactive stations with recent `last_seen_at` and reactivates them before processing. Fixes the circular dependency where deactivated stations could never accumulate fresh observations because only active stations were synced. Increased stale threshold from 7 to 14 days to accommodate CDIP buoys with multi-day maintenance gaps. Reactivated 8 CDIP stations still reporting valid wave data that were incorrectly deactivated on Feb 26.
+- **Auth: Native Google sign-in modal stuck spinning** — After completing Google sign-in via `signInWithIdToken()` on native (iOS/Android), the auth modal now correctly closes and stops the spinner. Previously, the success path only handled browser redirects, leaving native inline completions without cleanup.
+
 ### Added
 
 - **Session Wizard: Consolidate to 2-step log flow and 3-step plan flow** — Merged location + date/time into a single "Where & When" step (`LocationDateTimeStep`). Log mode reduced from 4 steps to 2 (location-datetime + session-details). Plan mode reduced from 4 steps to 3 (location-datetime + goals + notes). Equipment/board picker folded into `SessionDetailsSection` as the first section. Removed post-save modals (`ForecastFeedbackFlow`, `ReviewPromptDialog`) — save now goes directly to celebration. DB trigger auto-creates forecast snapshots.
 - **ML: HRRR wind extraction cron** — New cron job at `/api/cron/ml/extract-hrrr-wind` (runs at :15 each hour) calls the Fly.io ML service to extract 3km-resolution HRRR wind data for CONUS beaches (CA, OR, WA, northern Baja) and overwrites the `wind_speed`/`wind_direction`/`wind_direction_deg` columns on existing NOAA_NWS rows in `enhanced_forecasts`. The ML correction cron automatically picks up the improved wind values with no schema changes required (Phase 1 approach).
-
-### Fixed
-
-- **Auth: Native Google sign-in modal stuck spinning** — After completing Google sign-in via `signInWithIdToken()` on native (iOS/Android), the auth modal now correctly closes and stops the spinner. Previously, the success path only handled browser redirects, leaving native inline completions without cleanup.
 
 ### Removed
 

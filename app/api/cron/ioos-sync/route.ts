@@ -35,6 +35,7 @@ interface StationSyncResult {
 
 interface ObservationSyncResult {
   phase: "observations";
+  stationsReactivated: number;
   stationsSynced: number;
   observationsInserted: number;
   stationsFailed: number;
@@ -349,6 +350,7 @@ async function syncObservations(
 
   const result: ObservationSyncResult = {
     phase: "observations",
+    stationsReactivated: 0,
     stationsSynced: 0,
     observationsInserted: 0,
     stationsFailed: 0,
@@ -362,6 +364,55 @@ async function syncObservations(
   try {
     const ioosService = new IOOSService();
     const supabase = createSupabaseServiceRoleClient();
+
+    // Reactivate inactive stations that have recent observations.
+    // This fixes the lifecycle bug where intermittent reporters (e.g., CDIP buoys
+    // reporting every 2-6h) get deactivated by the stale check, but can never
+    // accumulate fresh last_seen_at because the observation sync only processes
+    // active stations.
+    const MAX_REACTIVATIONS_PER_RUN = 25;
+    let reactivatedIds: string[] = [];
+
+    const reactivationThreshold = new Date();
+    reactivationThreshold.setDate(
+      reactivationThreshold.getDate() - IOOS_QUALITY_THRESHOLDS.stationInactiveDays
+    );
+
+    const { data: inactiveWithRecentData, error: reactivateCheckError } = await supabase
+      .from("ioos_stations")
+      .select("station_id")
+      .eq("active", false)
+      .eq("has_wave_data", true)
+      .gt("last_seen_at", reactivationThreshold.toISOString());
+
+    if (!reactivateCheckError && inactiveWithRecentData && inactiveWithRecentData.length > 0) {
+      reactivatedIds = inactiveWithRecentData
+        .map((s) => s.station_id)
+        .slice(0, MAX_REACTIVATIONS_PER_RUN);
+
+      if (inactiveWithRecentData.length > MAX_REACTIVATIONS_PER_RUN) {
+        console.warn(
+          `⚠️ ${inactiveWithRecentData.length} stations eligible for reactivation, capping at ${MAX_REACTIVATIONS_PER_RUN}`
+        );
+      }
+
+      const { error: reactivateError } = await supabase
+        .from("ioos_stations")
+        .update({ active: true })
+        .in("station_id", reactivatedIds);
+
+      if (!reactivateError) {
+        result.stationsReactivated = reactivatedIds.length;
+        console.log(
+          `♻️ Reactivated ${reactivatedIds.length} stations with recent data: ${reactivatedIds.join(", ")}`
+        );
+      } else {
+        reactivatedIds = [];
+        result.errors.push(
+          `Failed to reactivate stations: ${reactivateError.message}`
+        );
+      }
+    }
 
     // Get active stations with wave data, including variable_map
     const { data: stations, error: stationsError } = await supabase
@@ -555,15 +606,27 @@ async function syncObservations(
       }
     }
 
-    // Mark stations as inactive if no data for 7+ days
+    // Mark stations as inactive if no data for stationInactiveDays (14 days).
+    // Exclude just-reactivated stations so they get a fair chance to report data
+    // before being re-deactivated (their first ERDDAP fetch may fail transiently).
     const staleThreshold = new Date();
     staleThreshold.setDate(staleThreshold.getDate() - IOOS_QUALITY_THRESHOLDS.stationInactiveDays);
 
-    const { error: staleError } = await supabase
+    let staleQuery = supabase
       .from("ioos_stations")
       .update({ active: false })
       .lt("last_seen_at", staleThreshold.toISOString())
       .eq("active", true);
+
+    if (reactivatedIds.length > 0) {
+      staleQuery = staleQuery.not(
+        "station_id",
+        "in",
+        `(${reactivatedIds.join(",")})`
+      );
+    }
+
+    const { error: staleError } = await staleQuery;
 
     if (staleError) {
       result.errors.push(`Failed to mark stale stations: ${staleError.message}`);
