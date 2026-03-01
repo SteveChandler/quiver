@@ -15,6 +15,7 @@ import {
   getConditionBadge,
   buildHeadlineText,
   isTomorrowInTimezone,
+  isEveningInTimezone,
 } from "@/lib/utils/condition-tier-utils";
 import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
 import { BoardRecommendationBadge } from "@/components/recommendations/board-recommendation-badge";
@@ -235,7 +236,8 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
     return todayStr !== startDayStr && window.start > now;
   })();
 
-  const headline = buildHeadlineText(beach.name, tier, isTomorrow, timeSlot);
+  const isEvening = isEveningInTimezone(timezone);
+  const headline = buildHeadlineText(beach.name, tier, isTomorrow, timeSlot, isEvening);
 
   return (
     <div className="space-y-4 px-4 sm:px-1" data-testid="hero-recommendation">

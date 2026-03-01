@@ -6,6 +6,7 @@ import {
   getConditionBadge,
   buildHeadlineText,
   isTomorrowInTimezone,
+  isEveningInTimezone,
 } from "@/lib/utils/condition-tier-utils";
 
 describe("condition-tier-utils", () => {
@@ -148,6 +149,48 @@ describe("condition-tier-utils", () => {
         expect(result.connector).toBe("\u2014 conditions are fair at");
       });
     });
+
+    describe("tomorrow evening (isEvening = true)", () => {
+      it("builds headline with plain tomorrow prefix", () => {
+        const result = buildHeadlineText("Big Jetty", "great", true, undefined, true);
+        expect(result.prefix).toBe("Tomorrow at ");
+        expect(result.beachPart).toBe("Big Jetty");
+        expect(result.connector).toBe("is your best bet at");
+      });
+
+      it("builds headline with dawn-patrol time slot", () => {
+        const result = buildHeadlineText("Big Jetty", "great", true, "dawn-patrol", true);
+        expect(result.prefix).toBe("Tomorrow's dawn patrol at ");
+      });
+
+      it("builds headline with lunch-session time slot", () => {
+        const result = buildHeadlineText("Big Jetty", "great", true, "lunch-session", true);
+        expect(result.prefix).toBe("Tomorrow midday at ");
+      });
+
+      it("builds headline with afternoon time slot", () => {
+        const result = buildHeadlineText("Big Jetty", "great", true, "afternoon", true);
+        expect(result.prefix).toBe("Tomorrow afternoon at ");
+      });
+
+      it("builds good tier headline for tomorrow evening", () => {
+        const result = buildHeadlineText("Big Jetty", "good", true, undefined, true);
+        expect(result.prefix).toBe("Tomorrow at ");
+        expect(result.connector).toBe("is a good option at");
+      });
+
+      it("builds fair tier headline for tomorrow evening", () => {
+        const result = buildHeadlineText("Big Jetty", "fair", true, undefined, true);
+        expect(result.prefix).toBe("Tomorrow at ");
+        expect(result.connector).toBe("\u2014 conditions are fair at");
+      });
+
+      it("builds marginal tier headline for tomorrow evening", () => {
+        const result = buildHeadlineText("Big Jetty", "marginal", true, undefined, true);
+        expect(result.prefix).toBe("Tomorrow at ");
+        expect(result.connector).toBe("\u2014 conditions are marginal at");
+      });
+    });
   });
 
   describe("isTomorrowInTimezone", () => {
@@ -174,6 +217,44 @@ describe("condition-tier-utils", () => {
       // Note: Function checks "not today AND in future", so this returns true
       // This is intentional - we treat any future non-today date as "tomorrow" for display
       expect(isTomorrowInTimezone(nextWeek, "America/Los_Angeles")).toBe(true);
+    });
+  });
+
+  describe("isEveningInTimezone", () => {
+    it("returns true when local time is 18:00 or later", () => {
+      // Mock a time at 8 PM UTC — in UTC that's 20:00, well past 18
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date("2026-02-28T20:00:00Z"));
+      expect(isEveningInTimezone("UTC")).toBe(true);
+      jest.useRealTimers();
+    });
+
+    it("returns false when local time is before 18:00", () => {
+      // Mock a time at 10 AM UTC
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date("2026-02-28T10:00:00Z"));
+      expect(isEveningInTimezone("UTC")).toBe(false);
+      jest.useRealTimers();
+    });
+
+    it("respects timezone offset", () => {
+      // 1 AM UTC = 5 PM (17:00) Pacific (UTC-8) — not evening
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date("2026-02-28T01:00:00Z"));
+      expect(isEveningInTimezone("America/Los_Angeles")).toBe(false);
+      jest.useRealTimers();
+    });
+
+    it("returns true at exactly 18:00 in timezone", () => {
+      // 2 AM UTC = 6 PM (18:00) Pacific (PST, UTC-8) — evening
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date("2026-02-28T02:00:00Z"));
+      expect(isEveningInTimezone("America/Los_Angeles")).toBe(true);
+      jest.useRealTimers();
+    });
+
+    it("returns false for invalid timezone (safe default)", () => {
+      expect(isEveningInTimezone("Invalid/Timezone")).toBe(false);
     });
   });
 

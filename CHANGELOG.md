@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Hero headline: Evening-aware "Tomorrow" framing** — After 6 PM local time, the homepage headline drops "Skip today —" from tomorrow recommendations and uses plain "Tomorrow at..." instead, since the day's surf windows are already over. Share text updated consistently.
 - **Best Time to Surf: Shoulder smoothing + composite surf scores** — Monthly surf scores now use a Gaussian convolution kernel for smooth shoulder months (±1 month = 50%, ±2 months = 25%) instead of binary 100/0 cliffs. Scores blend beach peak season data with state-level conditions (Tier 1), regional water temperature (Tier 2), or smoothed peaks only (Tier 3). Rincón-style cities with identical winter peaks now show a gradual bell curve.
 
 ### Performance

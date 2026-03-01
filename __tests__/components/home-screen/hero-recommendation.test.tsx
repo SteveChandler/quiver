@@ -60,6 +60,7 @@ jest.mock("@/lib/utils/condition-tier-utils", () => ({
     connector: "—",
   })),
   isTomorrowInTimezone: jest.fn(() => false),
+  isEveningInTimezone: jest.fn(() => false),
 }));
 
 jest.mock("@/lib/constants/animations", () => ({
