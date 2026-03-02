@@ -47,7 +47,7 @@ export function SessionSlider({
   const isSet = numericValue !== undefined && !isNaN(numericValue);
   const max = labels.length;
   const progress = isSet ? (numericValue - 1) / (max - 1) : 0;
-  const activeColor = isSet ? interpolateColor(colors, progress) : "#D1D5DB";
+  const activeColor = isSet ? interpolateColor(colors, progress) : "#1E2D4A";
   const currentLabel = isSet ? labels[numericValue - 1] : undefined;
 
   return (
@@ -58,7 +58,7 @@ export function SessionSlider({
           {icon}
           <span
             className={cn(
-              "font-bold text-[#1A1A1A]",
+              "font-bold text-[#F0F0F0]",
               hero ? "text-base" : "text-sm"
             )}
           >
@@ -76,7 +76,7 @@ export function SessionSlider({
             {currentLabel}
           </span>
         ) : (
-          <span className="text-sm text-[#6B7280]">Tap to rate</span>
+          <span className="text-sm text-[#9AABC6]">Tap to rate</span>
         )}
       </div>
 
@@ -92,27 +92,27 @@ export function SessionSlider({
       >
         <SliderPrimitive.Track
           className={cn(
-            "relative w-full grow overflow-hidden rounded-full bg-gray-200",
+            "relative w-full grow overflow-hidden rounded-full bg-[#1E2D4A]",
             hero ? "h-3" : "h-2"
           )}
         >
           <SliderPrimitive.Range
             className="absolute h-full rounded-full transition-colors"
-            style={{ backgroundColor: isSet ? activeColor : "#D1D5DB" }}
+            style={{ backgroundColor: isSet ? activeColor : "#1E2D4A" }}
           />
         </SliderPrimitive.Track>
         <SliderPrimitive.Thumb
           className={cn(
-            "block rounded-full border-2 border-white shadow-md transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-110",
+            "block rounded-full border-2 border-[#111D35] shadow-md transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-110",
             hero ? "h-7 w-7" : "h-6 w-6",
             !isSet && "opacity-0"
           )}
-          style={{ backgroundColor: isSet ? activeColor : "#D1D5DB" }}
+          style={{ backgroundColor: isSet ? activeColor : "#1E2D4A" }}
         />
       </SliderPrimitive.Root>
 
       {/* Endpoint labels */}
-      <div className="flex justify-between text-xs text-[#6B7280] font-medium">
+      <div className="flex justify-between text-xs text-[#9AABC6] font-medium">
         <span>{labels[0]}</span>
         <span>{labels[labels.length - 1]}</span>
       </div>

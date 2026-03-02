@@ -49,34 +49,34 @@ export function SessionScrollForm({
   }
 
   return (
-    <div className={cn("relative min-h-screen bg-[#FAFAF5]", className)}>
+    <div className={cn("relative min-h-screen bg-[#0B1426]", className)}>
       {/* Grain overlay */}
       <div
-        className="pointer-events-none fixed inset-0 z-0 opacity-[0.03]"
+        className="pointer-events-none fixed inset-0 z-0 opacity-[0.04]"
         style={{ backgroundImage: "url('/textures/noise.png')", backgroundRepeat: "repeat" }}
       />
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col min-h-screen">
+      <div className="relative z-10 flex flex-col min-h-screen max-w-xl mx-auto w-full">
         {/* Sticky header */}
-        <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-[#FAFAF5] border-b border-gray-100">
+        <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-[#0B1426] border-b border-[#1E2D4A]">
           <button
             type="button"
             aria-label="Cancel"
             onClick={onCancel}
-            className="p-1 rounded-full text-gray-400 hover:text-gray-600 transition-colors"
+            className="p-1 rounded-full text-[#8B9EC2] hover:text-[#A8B8D0] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
 
-          <h1 className="text-base font-bold text-[#1A1A1A]">{title}</h1>
+          <h1 className="text-base font-bold text-[#F0F0F0]">{title}</h1>
 
           <Button
             type="button"
             size="sm"
             disabled={!canSave || loadingData}
             onClick={handleSave}
-            className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold px-4 disabled:opacity-40"
+            className="bg-gradient-to-r from-[#FF3B8B] to-[#E0357A] hover:from-[#E0357A] hover:to-[#C92F6C] text-white font-semibold px-4 disabled:opacity-40"
           >
             {loadingData ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
           </Button>
@@ -87,7 +87,7 @@ export function SessionScrollForm({
           <div className="px-4 py-6 space-y-6 pb-32">
             {/* Section 1: Location + Date/Time */}
             <section className="space-y-4">
-              <h2 className="text-sm font-bold text-[#1A1A1A] uppercase tracking-wide">
+              <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">
                 {isPlanning ? "Where & when?" : "Where'd you surf?"}
               </h2>
               <LocationStep
@@ -105,11 +105,11 @@ export function SessionScrollForm({
 
             {isLog && (
               <>
-                <hr className="border-gray-100" />
+                <hr className="border-[#1E2D4A]" />
 
                 {/* Section 2: Equipment */}
                 <section className="space-y-4">
-                  <h2 className="text-sm font-bold text-[#1A1A1A] uppercase tracking-wide">
+                  <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">
                     What&apos;d you ride?
                   </h2>
                   <EquipmentStep
@@ -120,11 +120,11 @@ export function SessionScrollForm({
                   />
                 </section>
 
-                <hr className="border-gray-100" />
+                <hr className="border-[#1E2D4A]" />
 
                 {/* Section 3: Conditions (objective inputs) */}
                 <section className="space-y-4">
-                  <h2 className="text-sm font-bold text-[#1A1A1A] uppercase tracking-wide">
+                  <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">
                     What was it like out there?
                   </h2>
                   <ConditionsSection
@@ -134,11 +134,11 @@ export function SessionScrollForm({
                   />
                 </section>
 
-                <hr className="border-gray-100" />
+                <hr className="border-[#1E2D4A]" />
 
                 {/* Section 4: Subjective sliders + Wave types */}
                 <section className="space-y-6">
-                  <h2 className="text-sm font-bold text-[#1A1A1A] uppercase tracking-wide">
+                  <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">
                     How were the waves?
                   </h2>
 
@@ -168,7 +168,7 @@ export function SessionScrollForm({
                   />
 
                   <div className="space-y-2">
-                    <span className="text-sm font-bold text-[#1A1A1A]">
+                    <span className="text-sm font-bold text-[#F0F0F0]">
                       Wave Types
                     </span>
                     <WaveTypeSelector
@@ -178,41 +178,67 @@ export function SessionScrollForm({
                   </div>
                 </section>
 
-                <hr className="border-gray-100" />
+                <hr className="border-[#1E2D4A]" />
 
                 {/* Section 5: Forecast accuracy */}
-                <section className="space-y-3">
-                  <h2 className="text-sm font-bold text-[#1A1A1A] uppercase tracking-wide">
-                    Was the forecast right?
+                <section className="space-y-4">
+                  <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">
+                    Was the forecast accurate?
                   </h2>
-                  <p className="text-xs text-[#6B7280]">
-                    Did the forecast match actual conditions?
-                  </p>
-                  <select
-                    aria-label="Forecast accuracy"
-                    value={formState.forecastAccuracy ?? ""}
-                    onChange={(e) =>
-                      updateField(
-                        "forecastAccuracy",
-                        e.target.value as SessionFormState["forecastAccuracy"]
-                      )
-                    }
-                    className="w-full h-12 rounded-lg border border-gray-200 bg-white px-3 text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  >
-                    <option value="">Select accuracy...</option>
-                    {FORECAST_ACCURACY_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label} — {opt.description}
-                      </option>
-                    ))}
-                  </select>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    {FORECAST_ACCURACY_OPTIONS.map((option) => {
+                      const IconComponent = option.icon;
+                      const isSelected = formState.forecastAccuracy === option.value;
+
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() =>
+                            updateField(
+                              "forecastAccuracy",
+                              option.value as "accurate" | "somewhat" | "inaccurate"
+                            )
+                          }
+                          className={cn(
+                            "p-4 rounded-lg border-2 transition-all",
+                            isSelected
+                              ? "border-[#FF3B8B] bg-[#FF3B8B]/10"
+                              : "border-[#1E2D4A] bg-[#172544] hover:bg-[#1E2D4A]"
+                          )}
+                          aria-label={`${option.label}: ${option.description}`}
+                        >
+                          <div className="flex flex-col items-center gap-2">
+                            <IconComponent
+                              className={cn(
+                                "h-6 w-6",
+                                isSelected ? "text-[#FF3B8B]" : option.color
+                              )}
+                            />
+                            <span
+                              className={cn(
+                                "font-medium",
+                                isSelected ? "text-[#FF3B8B]" : "text-[#F0F0F0]"
+                              )}
+                            >
+                              {option.label}
+                            </span>
+                            <span className="text-xs text-[#9AABC6] text-center">
+                              {option.description}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </section>
 
-                <hr className="border-gray-100" />
+                <hr className="border-[#1E2D4A]" />
 
                 {/* Section 6: Photos */}
                 <section className="space-y-4">
-                  <h2 className="text-sm font-bold text-[#1A1A1A] uppercase tracking-wide">
+                  <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">
                     Photos
                   </h2>
                   <PhotoSelectionSection
@@ -222,13 +248,13 @@ export function SessionScrollForm({
                   />
                 </section>
 
-                <hr className="border-gray-100" />
+                <hr className="border-[#1E2D4A]" />
               </>
             )}
 
             {isPlanning && (
               <>
-                <hr className="border-gray-100" />
+                <hr className="border-[#1E2D4A]" />
 
                 {/* Plan mode section 2: Goals */}
                 <section>
@@ -239,13 +265,13 @@ export function SessionScrollForm({
                   />
                 </section>
 
-                <hr className="border-gray-100" />
+                <hr className="border-[#1E2D4A]" />
               </>
             )}
 
             {/* Notes (both modes) */}
             <section className="space-y-4">
-              <h2 className="text-sm font-bold text-[#1A1A1A] uppercase tracking-wide">
+              <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">
                 Notes
               </h2>
               <NotesSection
@@ -255,11 +281,11 @@ export function SessionScrollForm({
               />
             </section>
 
-            <hr className="border-gray-100" />
+            <hr className="border-[#1E2D4A]" />
 
             {/* Visibility (both modes) */}
             <section className="space-y-4">
-              <h2 className="text-sm font-bold text-[#1A1A1A] uppercase tracking-wide">
+              <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">
                 Visibility
               </h2>
               <VisibilitySection
@@ -273,12 +299,13 @@ export function SessionScrollForm({
         </main>
 
         {/* Sticky bottom save button */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#FAFAF5] border-t border-gray-100 safe-area-bottom">
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#0B1426] border-t border-[#1E2D4A] safe-area-bottom">
+          <div className="max-w-xl mx-auto">
           <button
             type="button"
             disabled={!canSave || loadingData}
             onClick={handleSave}
-            className="w-full py-4 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold text-lg active:scale-[0.98] transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full py-4 rounded-xl bg-gradient-to-r from-[#FF3B8B] to-[#E0357A] text-white font-bold text-lg active:scale-[0.98] transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {loadingData ? (
               <span className="flex items-center justify-center gap-2">
@@ -289,6 +316,7 @@ export function SessionScrollForm({
               `Save ${isPlanning ? "Plan" : "Session"}`
             )}
           </button>
+          </div>
         </div>
       </div>
     </div>

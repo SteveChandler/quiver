@@ -21,7 +21,7 @@ export function VisibilitySection({
   return (
     <div className="space-y-4">
       {/* Segmented control */}
-      <div className="flex rounded-xl bg-gray-100 p-1">
+      <div className="flex rounded-xl bg-[#172544] p-1">
         <button
           type="button"
           aria-label="Public"
@@ -30,8 +30,8 @@ export function VisibilitySection({
           className={cn(
             "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all",
             isPublic
-              ? "bg-white text-[#1A1A1A] shadow-sm"
-              : "text-[#6B7280] hover:text-[#1A1A1A]"
+              ? "bg-[#1E2D4A] text-[#F0F0F0] shadow-sm"
+              : "text-[#8B9EC2] hover:text-[#F0F0F0]"
           )}
         >
           <Eye className="h-4 w-4" />
@@ -48,8 +48,8 @@ export function VisibilitySection({
           className={cn(
             "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all",
             !isPublic
-              ? "bg-white text-[#1A1A1A] shadow-sm"
-              : "text-[#6B7280] hover:text-[#1A1A1A]"
+              ? "bg-[#1E2D4A] text-[#F0F0F0] shadow-sm"
+              : "text-[#8B9EC2] hover:text-[#F0F0F0]"
           )}
         >
           <Lock className="h-4 w-4" />
@@ -70,13 +70,13 @@ export function VisibilitySection({
               type="checkbox"
               checked={isMuted}
               onChange={(e) => onMutedChange(e.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+              className="mt-1 h-4 w-4 rounded border-[#1E2D4A] text-[#FF3B8B] focus:ring-[#FF3B8B]"
             />
             <div>
-              <span className="text-sm font-medium text-[#1A1A1A]">
+              <span className="text-sm font-medium text-[#F0F0F0]">
                 Keep it off the feed
               </span>
-              <p className="text-xs text-[#6B7280]">
+              <p className="text-xs text-[#9AABC6]">
                 Public on your profile, but won't show up in others' feeds
               </p>
             </div>
@@ -91,7 +91,7 @@ export function VisibilitySection({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="text-xs text-[#6B7280] overflow-hidden"
+            className="text-xs text-[#9AABC6] overflow-hidden"
           >
             Private sessions still help improve forecast accuracy
           </motion.p>
