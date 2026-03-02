@@ -231,7 +231,7 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
   const recentSessions = (await addFeaturedPhotoToSessions(
     supabase,
     sessionsRaw
-  )) as SessionWithDetails[];
+  )) as unknown as SessionWithDetails[];
 
   // Build response
   const responseData: ProfilePageData = {

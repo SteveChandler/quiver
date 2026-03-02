@@ -2,6 +2,7 @@
 
 import { makeAuthenticatedAction } from "@/lib/server-action-utils";
 import { calculateStreak } from "@/lib/progression/streak-calculator";
+import type { Json } from "@/types/supabase";
 import {
   generateInsights,
   type ProgressionData,
@@ -80,7 +81,9 @@ interface SessionRow {
   wind_speed_mph: number | null;
   wind_direction: string | null;
   beach_id: string | null;
-  skill_ratings: Record<string, number> | null;
+  // DB returns Json; cast to record at usage sites
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  skill_ratings: any;
 }
 
 // ---------------------------------------------------------------------------
@@ -330,7 +333,7 @@ export const getProgressionDashboard = makeAuthenticatedAction(
     }
 
     const sessions: SessionRow[] = (rawSessions ?? []).filter(
-      (s: Record<string, unknown>): s is SessionRow => s?.arrival_time != null
+      (s: any): s is SessionRow => s?.arrival_time != null
     );
 
     // Streak

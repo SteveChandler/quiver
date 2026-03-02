@@ -198,7 +198,7 @@ export async function processWaterQualityAlerts(
 
   // Build a Set of "userId|beachId" combos already notified today
   const alreadyNotifiedToday = new Set<string>();
-  (todayNotifs || []).forEach((n) => {
+  (todayNotifs || []).forEach((n: { user_id: string; data: any }) => {
     const data = n.data as Record<string, unknown> | null;
     const beachId = data?.beach_id as string | undefined;
     if (beachId) {

@@ -179,7 +179,7 @@ export async function getSpotGalleryPhotos(
     }
 
     return {
-      data: data.map((row) => ({
+      data: data.map((row: { image_url: string; thumb_url: string | null; attribution_html: string | null; title: string | null; creator_name: string | null }) => ({
         imageUrl: row.image_url,
         thumbUrl: row.thumb_url,
         attributionHtml: row.attribution_html,

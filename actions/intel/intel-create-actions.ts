@@ -133,7 +133,7 @@ export async function createIntelPost(
           beachId: normalizedBeachId,
         });
       } else {
-        const duplicateMatch = recentIntel?.find((existing) => {
+        const duplicateMatch = recentIntel?.find((existing: { id: string; title: string; description: string; latitude: number | null; longitude: number | null; created_at: string }) => {
           const existingHash = createIntelDedupeHash({
             userId: user.id,
             tag,

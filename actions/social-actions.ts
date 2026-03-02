@@ -244,7 +244,7 @@ export async function getSuggestedUsers(limit: number = 10) {
       .select("following_id")
       .eq("follower_id", user.id);
 
-    const followingIds = (alreadyFollowing || []).map((f) => f.following_id);
+    const followingIds = (alreadyFollowing || []).map((f: { following_id: string }) => f.following_id);
     followingIds.push(user.id); // Exclude self
 
     // Find users with the most followers who aren't already followed

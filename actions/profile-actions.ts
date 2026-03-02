@@ -305,8 +305,8 @@ export async function updateProfile(
 
         if (!beachError && candidates && candidates.length > 0) {
           const lower = text.toLowerCase();
-          const exact = candidates.find((b) => b.name.toLowerCase() === lower);
-          const starts = candidates.find((b) => b.name.toLowerCase().startsWith(lower));
+          const exact = candidates.find((b: { id: string; name: string }) => b.name.toLowerCase() === lower);
+          const starts = candidates.find((b: { id: string; name: string }) => b.name.toLowerCase().startsWith(lower));
           const contains = candidates[0];
 
           const match = exact || starts || contains;

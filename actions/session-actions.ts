@@ -559,7 +559,7 @@ async function getAllSessions(limit = 20) {
 
     // Manually resolve beach data for each session
     const enhancedSessions = await Promise.all(
-      (basicSessions || []).map(async (session) => {
+      (basicSessions || []).map(async (session: Record<string, any>) => {
         let beach = null;
         
         // Try to fetch beach data if beach_id exists

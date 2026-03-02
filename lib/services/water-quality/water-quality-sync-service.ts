@@ -473,7 +473,7 @@ export async function syncWQStations(
         : CEDEN_CONFIG.matchRadiusM;
       const radiusKm = radiusM / 1000;
 
-      const stateBeaches = beaches.filter(b => b.state === station.state_code);
+      const stateBeaches = beaches.filter((b: { id: string; name: string; lat: number; lon: number; state: string | null }) => b.state === station.state_code);
       let nearestBeachId: string | null = null;
       let nearestDistanceM: number | null = null;
 
@@ -973,7 +973,7 @@ export async function evaluateWaterQuality(
 
     // Fetch ALL samples for all linked stations in one query (avoids N+1 pattern).
     // Supabase .in() supports up to 1000 values; linkedStations is typically <500.
-    const allStationUuids = linkedStations.map(s => s.id);
+    const allStationUuids = linkedStations.map((s: { id: string }) => s.id);
     const { data: allSamples, error: allSamplesError } = await supabase
       .from("wq_samples")
       .select("station_id, characteristic, value, detection_condition, sample_date")

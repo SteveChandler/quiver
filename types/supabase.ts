@@ -1,3 +1,8 @@
+import { SupabaseClient } from "@supabase/supabase-js";
+
+export type SupabaseServiceClient = SupabaseClient<Database>;
+export type SupabaseServerClient = SupabaseClient<Database>;
+
 export type Json =
   | string
   | number
