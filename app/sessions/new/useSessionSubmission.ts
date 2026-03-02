@@ -13,7 +13,6 @@ import { createActivity } from "@/actions/activity-actions";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { buildSessionPayload } from "@/lib/utils/session-data-builder";
-import { REVIEW_TIMEOUTS } from "@/lib/constants/review-tracking";
 
 interface UseSessionSubmissionOptions {
   mode: SessionFormMode;
@@ -28,43 +27,10 @@ export function useSessionSubmission({
 }: UseSessionSubmissionOptions) {
   const router = useRouter();
 
-  // Celebration and share state
-  const [showCelebration, setShowCelebration] = useState(false);
+  // Share state
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
   const [savedSessionData, setSavedSessionData] = useState<any | null>(null);
   const [createdSessionId, setCreatedSessionId] = useState<string | null>(null);
-
-  /**
-   * Start celebration animation and redirect to profile
-   */
-  const startCelebrationAndRedirect = (modeToCelebrate: SessionFormMode) => {
-    setShowCelebration(true);
-
-    // Trigger celebration with confetti
-    if (typeof window !== "undefined") {
-      const reduce = window.matchMedia(
-        "(prefers-reduced-motion: reduce)"
-      ).matches;
-      if (!reduce) {
-        import("canvas-confetti")
-          .then(({ default: confetti }) => {
-            confetti({
-              particleCount: 140,
-              spread: 70,
-              origin: { y: 0.6 },
-            });
-          })
-          .catch(() => {
-            // Silently fail - confetti is non-essential
-          });
-      }
-    }
-
-    // Redirect to profile after extended celebration
-    setTimeout(() => {
-      router.push("/profile");
-    }, REVIEW_TIMEOUTS.CELEBRATION_DURATION);
-  };
 
   /**
    * Handle sharing session
@@ -223,7 +189,7 @@ export function useSessionSubmission({
           inviteesCount: sessionData.invitees?.length || 0,
         });
 
-        toast.success("Session planned successfully!");
+        toast.success("Planned. Let's go.");
       } else {
         // Create logged session using shared builder (single source of truth for condition fields)
         const loggedSessionData = buildSessionPayload(
@@ -270,11 +236,7 @@ export function useSessionSubmission({
           hasPhotos: (sessionData.photos || []).length > 0,
         });
 
-        toast.success(
-          sessionData.selectedBeach
-            ? `Session logged! You just contributed to forecast accuracy at ${sessionData.selectedBeach}.`
-            : "Session logged! You just contributed to forecast accuracy at your local break."
-        );
+        toast.success("Logged. Nice one.");
 
         // Upload photos in background (handlePhotoUpload shows its own toast notifications)
         if (sessionData.photos && sessionData.photos.length > 0) {
@@ -284,7 +246,10 @@ export function useSessionSubmission({
         }
       }
 
-      startCelebrationAndRedirect(mode);
+      // Navigate to profile with highlight
+      const highlightParam = `highlight=${result.data.id}`;
+      const tabParam = mode === "plan" ? "tab=planned&" : "";
+      router.push(`/profile?${tabParam}${highlightParam}`);
     } catch (error) {
       console.error("Error creating session:", error);
 
@@ -304,7 +269,6 @@ export function useSessionSubmission({
 
   return {
     // States
-    showCelebration,
     shareSheetOpen,
     setShareSheetOpen,
     savedSessionData,
@@ -313,6 +277,5 @@ export function useSessionSubmission({
     handleSessionComplete,
     handleShareSession,
     handleShareSheetClose,
-    startCelebrationAndRedirect,
   };
 }

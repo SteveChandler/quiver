@@ -12,7 +12,6 @@ import {
 import { useAuth } from "@/context/auth-context";
 import { FormErrorBoundary } from "@/components/error-boundaries";
 import { useSessionSubmission } from "./useSessionSubmission";
-import { CelebrationOverlay } from "./CelebrationOverlay";
 
 interface NewSessionPageContentProps {
   initialFormState?: Partial<SessionFormState>;
@@ -70,18 +69,7 @@ function NewSessionPageContent({
         />
       </FormErrorBoundary>
 
-      {/* Celebration overlay with share */}
-      {submission.showCelebration && (
-        <CelebrationOverlay
-          mode={mode}
-          savedSessionData={submission.savedSessionData}
-          createdSessionId={submission.createdSessionId}
-          shareSheetOpen={submission.shareSheetOpen}
-          onShareSheetOpenChange={submission.handleShareSheetClose}
-          onShareSession={submission.handleShareSession}
-          onContinue={() => router.push("/profile")}
-        />
-      )}
+
     </div>
   );
 }
