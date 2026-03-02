@@ -3,7 +3,6 @@ import { render } from "@testing-library/react";
 import { NativeAuthGuard } from "@/components/native-auth-guard";
 import { useAuth } from "@/context/auth-context";
 import { isNativeApp } from "@/lib/mobile/platform";
-import { safeGetItem } from "@/lib/utils/safe-storage";
 import {
   isRedirectLoopDetected,
   incrementRedirectAttempt,
@@ -25,11 +24,6 @@ jest.mock("@/context/auth-context", () => ({
 // Mock platform utils
 jest.mock("@/lib/mobile/platform", () => ({
   isNativeApp: jest.fn(),
-}));
-
-// Mock safe storage
-jest.mock("@/lib/utils/safe-storage", () => ({
-  safeGetItem: jest.fn(),
 }));
 
 // Mock auth utils
@@ -69,7 +63,6 @@ describe("NativeAuthGuard", () => {
     });
 
     jest.mocked(isNativeApp).mockReturnValue(true);
-    jest.mocked(safeGetItem).mockReturnValue("1");
     jest.mocked(isRedirectLoopDetected).mockReturnValue(false);
   });
 
@@ -78,46 +71,16 @@ describe("NativeAuthGuard", () => {
     expect(container.innerHTML).toBe("");
   });
 
-  it("redirects native returning user to sign-in on home page", () => {
+  it("redirects unauthenticated native user to /welcome", () => {
     // All default mocks are set up for this scenario
     render(<NativeAuthGuard />);
 
-    expect(mockRouterReplace).toHaveBeenCalledWith("/auth/sign-in");
+    expect(mockRouterReplace).toHaveBeenCalledWith("/welcome");
     expect(incrementRedirectAttempt).toHaveBeenCalled();
-  });
-
-  it("includes redirectTo param for non-root pages", () => {
-    jest.mocked(usePathname).mockReturnValue("/forecast");
-
-    render(<NativeAuthGuard />);
-
-    expect(mockRouterReplace).toHaveBeenCalledWith(
-      "/auth/sign-in?redirectTo=%2Fforecast"
-    );
-    expect(incrementRedirectAttempt).toHaveBeenCalled();
-  });
-
-  it("includes redirectTo param for nested routes", () => {
-    jest.mocked(usePathname).mockReturnValue("/sessions/abc123");
-
-    render(<NativeAuthGuard />);
-
-    expect(mockRouterReplace).toHaveBeenCalledWith(
-      "/auth/sign-in?redirectTo=%2Fsessions%2Fabc123"
-    );
   });
 
   it("does not redirect on web", () => {
     jest.mocked(isNativeApp).mockReturnValue(false);
-
-    render(<NativeAuthGuard />);
-
-    expect(mockRouterReplace).not.toHaveBeenCalled();
-    expect(incrementRedirectAttempt).not.toHaveBeenCalled();
-  });
-
-  it("does not redirect new users without returning flag", () => {
-    jest.mocked(safeGetItem).mockReturnValue(null);
 
     render(<NativeAuthGuard />);
 
@@ -179,8 +142,8 @@ describe("NativeAuthGuard", () => {
     expect(mockRouterReplace).not.toHaveBeenCalled();
   });
 
-  it("does not redirect when loop detected", () => {
-    jest.mocked(isRedirectLoopDetected).mockReturnValue(true);
+  it("does not redirect when already on /welcome", () => {
+    jest.mocked(usePathname).mockReturnValue("/welcome");
 
     render(<NativeAuthGuard />);
 
@@ -188,27 +151,13 @@ describe("NativeAuthGuard", () => {
     expect(incrementRedirectAttempt).not.toHaveBeenCalled();
   });
 
-  it("handles returning flag set to empty string as truthy", () => {
-    jest.mocked(safeGetItem).mockReturnValue("");
+  it("does not redirect when loop detected", () => {
+    jest.mocked(isRedirectLoopDetected).mockReturnValue(true);
 
     render(<NativeAuthGuard />);
 
-    // Empty string is falsy, should NOT redirect
     expect(mockRouterReplace).not.toHaveBeenCalled();
-  });
-
-  it("handles returning flag set to any truthy value", () => {
-    jest.mocked(safeGetItem).mockReturnValue("true");
-
-    render(<NativeAuthGuard />);
-
-    expect(mockRouterReplace).toHaveBeenCalledWith("/auth/sign-in");
-  });
-
-  it("calls safeGetItem with correct key", () => {
-    render(<NativeAuthGuard />);
-
-    expect(safeGetItem).toHaveBeenCalledWith("quiver_returning_user");
+    expect(incrementRedirectAttempt).not.toHaveBeenCalled();
   });
 
   it("does not call clearRedirectAttempts for unauthenticated users", () => {
@@ -247,7 +196,7 @@ describe("NativeAuthGuard", () => {
     expect(mockRouterReplace).not.toHaveBeenCalled();
   });
 
-  it("prioritizes auth check over returning user check", () => {
+  it("prioritizes auth check over redirect", () => {
     jest.mocked(useAuth).mockReturnValue({
       isAuthenticated: true,
       isLoading: false,
@@ -258,7 +207,6 @@ describe("NativeAuthGuard", () => {
       signOut: jest.fn(),
       refreshSession: jest.fn(),
     });
-    jest.mocked(safeGetItem).mockReturnValue("1");
 
     render(<NativeAuthGuard />);
 
@@ -266,24 +214,29 @@ describe("NativeAuthGuard", () => {
     expect(mockRouterReplace).not.toHaveBeenCalled();
   });
 
-  it("redirects when only auth page check passes but pathname is not auth", () => {
+  it("redirects to /welcome for non-root pages", () => {
+    jest.mocked(usePathname).mockReturnValue("/forecast");
+
+    render(<NativeAuthGuard />);
+
+    expect(mockRouterReplace).toHaveBeenCalledWith("/welcome");
+    expect(incrementRedirectAttempt).toHaveBeenCalled();
+  });
+
+  it("redirects to /welcome for nested routes", () => {
+    jest.mocked(usePathname).mockReturnValue("/sessions/abc123");
+
+    render(<NativeAuthGuard />);
+
+    expect(mockRouterReplace).toHaveBeenCalledWith("/welcome");
+  });
+
+  it("redirects to /welcome for map page", () => {
     jest.mocked(usePathname).mockReturnValue("/map");
 
     render(<NativeAuthGuard />);
 
-    expect(mockRouterReplace).toHaveBeenCalledWith(
-      "/auth/sign-in?redirectTo=%2Fmap"
-    );
-  });
-
-  it("handles URL encoding for special characters in redirectTo", () => {
-    jest.mocked(usePathname).mockReturnValue("/beach/ca/san-diego/blacks");
-
-    render(<NativeAuthGuard />);
-
-    expect(mockRouterReplace).toHaveBeenCalledWith(
-      "/auth/sign-in?redirectTo=%2Fbeach%2Fca%2Fsan-diego%2Fblacks"
-    );
+    expect(mockRouterReplace).toHaveBeenCalledWith("/welcome");
   });
 
   it("resets hasRedirected ref when user authenticates", () => {
@@ -320,6 +273,6 @@ describe("NativeAuthGuard", () => {
       refreshSession: jest.fn(),
     });
     rerender(<NativeAuthGuard />);
-    expect(mockRouterReplace).toHaveBeenCalledWith("/auth/sign-in");
+    expect(mockRouterReplace).toHaveBeenCalledWith("/welcome");
   });
 });
