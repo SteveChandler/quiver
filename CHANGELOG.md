@@ -21,13 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **SEO CTR optimization for beach page meta tags** — All beach title tiers now include location context (city + state) via progressive fallback suffix. PR/HI states expand to full names ("Puerto Rico", "Hawaii"). Description snippets split on sentence/clause boundaries instead of hard 60-char truncation, preventing broken mid-word text. Added "punchy", "heavy", "clean" wave character keywords. Description opener includes location and uses "7-day surf forecast" phrasing.
-
 - **Session goals now write to `goals[]` column instead of being appended to notes** — Structured storage enables progression analytics and trend tracking.
+- **Journal view adds Progression tab between Sessions and Insights** — Users can navigate directly to their progression dashboard from the journal.
+- **Zero state copy emphasizes forecast contribution and progression unlock** — Empty state messaging connects session logging to model improvement and progression features.
 
 ### Fixed
 - **`/spots/blacks-beach` 404** — Added legacy slug alias (`blacks-beach` → `blacks`) in middleware so the Google-indexed URL resolves correctly via 301 redirect.
-- **Journal view adds Progression tab between Sessions and Insights** — Users can navigate directly to their progression dashboard from the journal.
-- **Zero state copy emphasizes forecast contribution and progression unlock** — Empty state messaging connects session logging to model improvement and progression features.
 
 ### Removed
 - Deleted ~8MB of unused assets (AI-generated example images, stale screenshots, unused OG image)

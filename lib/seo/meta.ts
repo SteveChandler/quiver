@@ -154,6 +154,9 @@ function extractWaveCharacter(waveTips: string | null | undefined): string | nul
     ["steep", "Steep"],
     ["barreling", "Barreling"],
     ["peeling", "Peeling"],
+    ["punchy", "Punchy"],
+    ["heavy", "Heavy"],
+    ["clean", "Clean"],
   ];
   for (const [pattern, label] of keywords) {
     if (new RegExp(pattern, "i").test(waveTips)) return label;
@@ -174,6 +177,88 @@ function formatCrowdSignal(crowdLevel: string | null | undefined): string | null
 }
 
 /**
+ * Builds a location suffix for beach page titles, trying progressively shorter formats.
+ * Tries: "| {City}, {ExpandedState}" -> "| {City}, {ST}" -> "| {City}" -> "| {ST}" -> ""
+ */
+function buildTitleLocationSuffix(
+  coreText: string,
+  city: string | null | undefined,
+  state: string | null | undefined,
+): string {
+  if (!city && !state) return "";
+  const expandedState = state ? expandStateForMeta(state) : null;
+
+  if (city && expandedState) {
+    const suffix1 = ` | ${city}, ${expandedState}`;
+    if ((coreText + suffix1).length <= MAX_TITLE_LENGTH) return suffix1;
+  }
+  if (city && state && state !== expandedState) {
+    const suffix2 = ` | ${city}, ${state}`;
+    if ((coreText + suffix2).length <= MAX_TITLE_LENGTH) return suffix2;
+  }
+  if (city) {
+    const suffix3 = ` | ${city}`;
+    if ((coreText + suffix3).length <= MAX_TITLE_LENGTH) return suffix3;
+  }
+  if (state) {
+    const suffix4 = ` | ${state}`;
+    if ((coreText + suffix4).length <= MAX_TITLE_LENGTH) return suffix4;
+  }
+  return "";
+}
+
+const WEAK_TRAILING_WORDS = /\s+(the|a|an|for|in|at|to|of|that|but|with|and|or|by|on|from)$/i;
+
+/**
+ * Extracts a clean description snippet from wave_tips text.
+ * Prefers whole sentences; falls back to clause boundaries; strips weak trailing words.
+ * Exported for testing.
+ */
+export function extractDescriptionSnippet(
+  waveTips: string,
+  budget: number,
+): string {
+  if (!waveTips || budget <= 0) return "";
+
+  // Split on sentence boundaries (". " or ".\n"), not bare "."
+  const sentences = waveTips.split(/\.\s+/);
+  // Strip any trailing period from the first element (happens when input ends with ".")
+  const first = sentences[0].trim().replace(/\.$/, "");
+
+  let snippet: string;
+
+  if (first.length <= budget) {
+    snippet = first;
+  } else {
+    // Try clause boundaries in order of preference
+    const clauseBreaks = [";", " — ", " – "];
+    let truncated = "";
+    for (const sep of clauseBreaks) {
+      const idx = first.indexOf(sep);
+      if (idx > 0 && idx <= budget) {
+        truncated = first.slice(0, idx);
+        break;
+      }
+    }
+    if (!truncated) {
+      // Last resort: word boundary
+      const cut = first.slice(0, budget);
+      const lastSpace = cut.lastIndexOf(" ");
+      truncated = lastSpace > budget * 0.5 ? cut.slice(0, lastSpace) : cut;
+    }
+    snippet = truncated;
+  }
+
+  // Strip weak trailing words before punctuating
+  snippet = snippet.replace(WEAK_TRAILING_WORDS, "").trim();
+
+  if (!snippet) return "";
+
+  // Capitalize first character
+  return snippet.charAt(0).toUpperCase() + snippet.slice(1);
+}
+
+/**
  * Build dynamic metadata for beach pages using live forecast data.
  * Falls back to generic titles when forecast data is unavailable.
  *
@@ -184,6 +269,7 @@ function formatCrowdSignal(crowdLevel: string | null | undefined): string | null
  * - Wave character extracted from wave_tips creates unique SERP snippets
  * - Crowd signal ("Uncrowded" / "Popular") as differentiator in no-forecast titles
  * - Title length capped at 60 chars for optimal SERP display
+ * - Location context appended to all title tiers via buildTitleLocationSuffix
  *
  * Competitive patterns:
  * - Surfline: "{Beach} Surf Report, Surf Forecast and Surf Cams - Surfline"
@@ -226,60 +312,88 @@ export function buildDynamicBeachMetadata({
   let title: string;
 
   if (forecast?.wave_height) {
-    // WITH forecast: 3-tier fallback
-    // Tier 1: {Beach}: {height} — {WaveChar} {BreakShort} | {City}
-    if (waveChar && beach.break_type && beach.city) {
-      const t1 = `${beach.name}: ${forecast.wave_height} — ${waveChar} ${shortBreakType(beach.break_type)} | ${beach.city}`;
+    // WITH forecast: 3-tier fallback, each tier appends best-fitting location suffix
+
+    // Tier 1 core: {Beach}: {height} — {WaveChar} {BreakShort}
+    if (waveChar && beach.break_type) {
+      const t1Core = `${beach.name}: ${forecast.wave_height} — ${waveChar} ${shortBreakType(beach.break_type)}`;
+      const t1Suffix = buildTitleLocationSuffix(t1Core, beach.city, beach.state);
+      const t1 = t1Core + t1Suffix;
       if (t1.length <= MAX_TITLE_LENGTH) {
         title = t1;
+      } else if (t1Core.length <= MAX_TITLE_LENGTH) {
+        title = t1Core;
       } else if (skill && beach.break_type) {
         // Tier 2: {Beach}: {height} — {Skill} {BreakShort}
-        const t2 = `${beach.name}: ${forecast.wave_height} — ${skill} ${shortBreakType(beach.break_type)}`;
-        title = truncateTitleForSEO(t2.length <= MAX_TITLE_LENGTH ? t2 : `${beach.name}: ${forecast.wave_height} Today | Surf Report`);
+        const t2Core = `${beach.name}: ${forecast.wave_height} — ${skill} ${shortBreakType(beach.break_type)}`;
+        const t2Suffix = buildTitleLocationSuffix(t2Core, beach.city, beach.state);
+        const t2 = t2Core + t2Suffix;
+        const t2Best = t2.length <= MAX_TITLE_LENGTH ? t2 : (t2Core.length <= MAX_TITLE_LENGTH ? t2Core : `${beach.name}: ${forecast.wave_height} Today | Surf Report`);
+        title = truncateTitleForSEO(t2Best);
       } else {
-        // Tier 3: {Beach}: {height} Today | Surf Report
-        title = truncateTitleForSEO(`${beach.name}: ${forecast.wave_height} Today | Surf Report`);
+        // Tier 3
+        const t3Core = `${beach.name}: ${forecast.wave_height} Today`;
+        const t3Suffix = buildTitleLocationSuffix(t3Core, beach.city, beach.state);
+        title = truncateTitleForSEO(t3Suffix ? t3Core + t3Suffix : `${t3Core} | Surf Report`);
       }
     } else if (skill && beach.break_type) {
       // Tier 2: {Beach}: {height} — {Skill} {BreakShort}
-      const t2 = `${beach.name}: ${forecast.wave_height} — ${skill} ${shortBreakType(beach.break_type)}`;
+      const t2Core = `${beach.name}: ${forecast.wave_height} — ${skill} ${shortBreakType(beach.break_type)}`;
+      const t2Suffix = buildTitleLocationSuffix(t2Core, beach.city, beach.state);
+      const t2 = t2Core + t2Suffix;
       if (t2.length <= MAX_TITLE_LENGTH) {
         title = t2;
+      } else if (t2Core.length <= MAX_TITLE_LENGTH) {
+        title = t2Core;
       } else {
         // Tier 3
-        title = truncateTitleForSEO(`${beach.name}: ${forecast.wave_height} Today | Surf Report`);
+        const t3Core = `${beach.name}: ${forecast.wave_height} Today`;
+        const t3Suffix = buildTitleLocationSuffix(t3Core, beach.city, beach.state);
+        title = truncateTitleForSEO(t3Suffix ? t3Core + t3Suffix : `${t3Core} | Surf Report`);
       }
     } else {
-      // Tier 3: {Beach}: {height} Today | Surf Report
-      title = truncateTitleForSEO(`${beach.name}: ${forecast.wave_height} Today | Surf Report`);
+      // Tier 3: {Beach}: {height} Today + location suffix
+      const t3Core = `${beach.name}: ${forecast.wave_height} Today`;
+      const t3Suffix = buildTitleLocationSuffix(t3Core, beach.city, beach.state);
+      title = truncateTitleForSEO(t3Suffix ? t3Core + t3Suffix : `${t3Core} | Surf Report`);
     }
   } else {
-    // WITHOUT forecast: 3-tier fallback
-    // Tier 1: {Beach} — {Skill} {WaveChar} {BreakShort} | {City}
-    if (skill && waveChar && beach.break_type && beach.city) {
-      const t1 = `${beach.name} — ${skill} ${waveChar} ${shortBreakType(beach.break_type)} | ${beach.city}`;
+    // WITHOUT forecast: 3-tier fallback, each tier appends best-fitting location suffix
+
+    // Tier 1 core: {Beach} — {Skill} {WaveChar} {BreakShort}
+    if (skill && waveChar && beach.break_type) {
+      const t1Core = `${beach.name} — ${skill} ${waveChar} ${shortBreakType(beach.break_type)}`;
+      const t1Suffix = buildTitleLocationSuffix(t1Core, beach.city, beach.state);
+      const t1 = t1Core + t1Suffix;
       if (t1.length <= MAX_TITLE_LENGTH) {
         title = t1;
+      } else if (t1Core.length <= MAX_TITLE_LENGTH) {
+        title = t1Core;
       } else if (skill && beach.break_type) {
-        // Tier 2: {Beach} — {Skill} {Break} | {City} (full capitalizeBreakType)
-        const t2City = beach.city ? ` | ${beach.city}` : "";
-        const t2 = `${beach.name} — ${skill} ${capitalizeBreakType(beach.break_type)}${t2City}`;
-        title = truncateTitleForSEO(t2.length <= MAX_TITLE_LENGTH ? t2 : buildNoForecastTier3(beach.name, beach.break_type, crowdSignal, beach.city));
+        // Tier 2: {Beach} — {Skill} {Break}
+        const t2Core = `${beach.name} — ${skill} ${capitalizeBreakType(beach.break_type)}`;
+        const t2Suffix = buildTitleLocationSuffix(t2Core, beach.city, beach.state);
+        const t2 = t2Core + t2Suffix;
+        const t2Best = t2.length <= MAX_TITLE_LENGTH ? t2 : (t2Core.length <= MAX_TITLE_LENGTH ? t2Core : buildNoForecastTier3(beach.name, beach.break_type, crowdSignal, beach.city, beach.state));
+        title = truncateTitleForSEO(t2Best);
       } else {
-        title = truncateTitleForSEO(buildNoForecastTier3(beach.name, beach.break_type, crowdSignal, beach.city));
+        title = truncateTitleForSEO(buildNoForecastTier3(beach.name, beach.break_type, crowdSignal, beach.city, beach.state));
       }
     } else if (skill && beach.break_type) {
-      // Tier 2: {Beach} — {Skill} {Break} | {City}
-      const t2City = beach.city ? ` | ${beach.city}` : "";
-      const t2 = `${beach.name} — ${skill} ${capitalizeBreakType(beach.break_type)}${t2City}`;
+      // Tier 2: {Beach} — {Skill} {Break} + location suffix
+      const t2Core = `${beach.name} — ${skill} ${capitalizeBreakType(beach.break_type)}`;
+      const t2Suffix = buildTitleLocationSuffix(t2Core, beach.city, beach.state);
+      const t2 = t2Core + t2Suffix;
       if (t2.length <= MAX_TITLE_LENGTH) {
         title = t2;
+      } else if (t2Core.length <= MAX_TITLE_LENGTH) {
+        title = t2Core;
       } else {
-        title = truncateTitleForSEO(buildNoForecastTier3(beach.name, beach.break_type, crowdSignal, beach.city));
+        title = truncateTitleForSEO(buildNoForecastTier3(beach.name, beach.break_type, crowdSignal, beach.city, beach.state));
       }
     } else {
       // Tier 3
-      title = truncateTitleForSEO(buildNoForecastTier3(beach.name, beach.break_type, crowdSignal, beach.city));
+      title = truncateTitleForSEO(buildNoForecastTier3(beach.name, beach.break_type, crowdSignal, beach.city, beach.state));
     }
   }
 
@@ -296,28 +410,28 @@ export function buildDynamicBeachMetadata({
   let description: string;
 
   if (forecast?.wave_height) {
-    // WITH forecast description
-    const close = "7-day forecast, crowd intel & optimal surf windows.";
+    // WITH forecast description — location-aware opener
+    const close = "7-day surf forecast, crowd intel & optimal windows.";
+    const openerBase = `${forecast.wave_height} at ${beach.name}`;
+    const openerLocation = locationContext ? `, ${locationContext}` : "";
+    const opener = `${openerBase}${openerLocation}.`;
+
+    // Budget accounting: description = opener + mid + " " + [ratingSignal + " "] + close
+    // where mid = " {snippet}." = snippet.length + 2 chars
+    const budgetWithRating = MAX_DESC - opener.length - 1 - close.length - (ratingSignal ? 1 + ratingSignal.length : 0) - 2;
+    const budgetWithoutRating = MAX_DESC - opener.length - 1 - close.length - 2;
+    const snippetBudget = Math.max(0, ratingSignal ? budgetWithRating : budgetWithoutRating);
+
     let mid = "";
-    if (beach.wave_tips) {
-      // First sentence of wave_tips, capped at 60 chars at word boundary
-      const firstSentence = beach.wave_tips.split(".")[0].trim();
-      let waveSentence = firstSentence;
-      if (firstSentence.length > 60) {
-        const truncated = firstSentence.slice(0, 60);
-        const lastSpace = truncated.lastIndexOf(" ");
-        waveSentence = lastSpace > 20 ? truncated.slice(0, lastSpace) : truncated;
-      }
-      // Capitalize first character for proper sentence start in descriptions
-      if (waveSentence) {
-        waveSentence = waveSentence.charAt(0).toUpperCase() + waveSentence.slice(1);
-      }
-      mid = waveSentence ? ` ${waveSentence}.` : "";
-    } else if (beach.break_type && beach.skill_level) {
-      mid = ` ${capitalizeBreakType(beach.break_type)} for ${beach.skill_level} surfers.`;
+    if (beach.wave_tips && snippetBudget > 10) {
+      const snippet = extractDescriptionSnippet(beach.wave_tips, snippetBudget);
+      mid = snippet ? ` ${snippet}.` : "";
+    } else if (beach.break_type && beach.skill_level && snippetBudget > 10) {
+      const candidate = ` ${capitalizeBreakType(beach.break_type)} for ${beach.skill_level} surfers.`;
+      mid = candidate.length - 1 <= snippetBudget ? candidate : "";
     }
 
-    const base = `${forecast.wave_height} at ${beach.name}.${mid}`;
+    const base = `${opener}${mid}`;
     const withRating = ratingSignal ? `${base} ${ratingSignal} ${close}` : `${base} ${close}`;
     if (withRating.length <= MAX_DESC) {
       description = withRating;
@@ -361,19 +475,27 @@ export function buildDynamicBeachMetadata({
 
 /**
  * Builds the tier-3 no-forecast title fallback.
- * Format: "{Beach} — {Break} | {CrowdSignal or City}" or "{Beach} | {CrowdSignal or City or 'Surf Report'}"
+ * Format: "{Beach} — {Break} | {location or CrowdSignal}" or "{Beach} | {location or 'Surf Report'}"
  */
 function buildNoForecastTier3(
   beachName: string,
   breakType: string | null | undefined,
   crowdSignal: string | null,
   city: string | null | undefined,
+  state?: string | null | undefined,
 ): string {
-  const trailing = crowdSignal ?? city ?? "Surf Report";
   if (breakType) {
-    return `${beachName} — ${capitalizeBreakType(breakType)} | ${trailing}`;
+    const core = `${beachName} — ${capitalizeBreakType(breakType)}`;
+    const locationSuffix = buildTitleLocationSuffix(core, city, state);
+    if (locationSuffix) return core + locationSuffix;
+    if (crowdSignal) return `${core} | ${crowdSignal}`;
+    return core;
   }
-  return `${beachName} | ${trailing}`;
+  const base = beachName;
+  const locationSuffix = buildTitleLocationSuffix(base, city, state);
+  if (locationSuffix) return base + locationSuffix;
+  if (crowdSignal) return `${base} | ${crowdSignal}`;
+  return `${base} | Surf Report`;
 }
 
 /**

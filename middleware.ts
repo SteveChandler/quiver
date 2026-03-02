@@ -30,6 +30,13 @@ const isVerbose = process.env.MIDDLEWARE_VERBOSE === "true";
 // Known beach sub-pages with dedicated routes (e.g., /ca/city/beach/tides)
 const BEACH_SUBPATHS = new Set(["tides", "water-temp"]);
 
+// Legacy slug variants that Google indexed but don't match the DB slug.
+// Maps old slug → current DB slug so /spots/{old} resolves instead of 404-ing.
+// Remove entries after Google drops the cached URLs (~6 months after redirect).
+const LEGACY_SPOT_SLUG_ALIASES: Record<string, string> = {
+  "blacks-beach": "blacks", // 271 impressions at 0 clicks — added Mar 2026
+};
+
 function log(message: string, data?: any) {
   if (isDev && isVerbose) {
     console.warn(message, data || "");
@@ -64,7 +71,8 @@ export async function middleware(request: NextRequest) {
    */
   const spotsMatch = pathname.match(/^\/spots\/([^/]+?)\/?$/);
   if (spotsMatch && spotsMatch[1]) {
-    const spotSlug = spotsMatch[1];
+    const rawSlug = spotsMatch[1];
+    const spotSlug = LEGACY_SPOT_SLUG_ALIASES[rawSlug] ?? rawSlug;
     try {
       const beach = await lookupBeachBySlug(spotSlug);
       if (beach) {
