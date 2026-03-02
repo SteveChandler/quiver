@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Apple Sign-In button in auth modal** — `AuthProviders` component gains an optional `onAppleClick` prop; when provided, an Apple button renders before the Google button (per Apple HIG). `UnifiedAuthModal` wires `handleAppleSignIn` which calls `signInWithApple()`, tracks analytics events, and mirrors the existing Google OAuth success/error flow. `trackAuthMethodSelected` union type extended to include `"apple"`.
 - **Apple Sign-In utility module (`lib/mobile/apple-sign-in.ts`)** — Native iOS path uses `@capacitor-community/apple-sign-in` to present the system sign-in sheet and exchanges the identity token with Supabase via `signInWithIdToken`. Web path falls back to Supabase OAuth redirect flow for Apple. Includes Sentry error capture for native exceptions.
 - **Retro Surf Dark theme prototype on beach detail pages** — Scoped `.theme-retro-dark` CSS class wraps `/[state]/[city]/[beachSlug]` pages with a deep navy palette (`#0B1426` background, `#111D35` cards), hot pink `#FF3B8B` primary accents, electric yellow `#FFD639` badges, teal `#00D4AA` links, and Permanent Marker brush font for all headings. Zero business logic changes; all overrides are CSS-only under the scope class. Light theme on all other routes is unaffected.
 - **Beach detail video hero redesign: title at top, forecast at bottom of live cam** — `CamsSection` gains an optional `variant="hero"` prop that renders full-bleed video with no card chrome. `BeachHeroCompact` gains `overlayMode` prop that hides the h1, removes the white background/border, and switches text to white with shadow for legibility over video. `beach-detail.tsx` now renders a two-gradient overlay (top for title, bottom for forecast/conditions ticker) when a cam is present, and falls back to the normal photo gallery + inline flow when no cam exists. Removed all CSS hero workaround hacks from `globals.css` that are now handled via component props.
@@ -19,7 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **"Feedback loop" brand copy reflecting two-pillar identity (Forecast + Track)** — Hero tagline updated to "Every session makes your next forecast smarter." Post-session confirmation copy now surfaces the user's contribution to forecast accuracy at their beach.
 
 ### Changed
+- **SEO CTR optimization for beach page meta tags** — All beach title tiers now include location context (city + state) via progressive fallback suffix. PR/HI states expand to full names ("Puerto Rico", "Hawaii"). Description snippets split on sentence/clause boundaries instead of hard 60-char truncation, preventing broken mid-word text. Added "punchy", "heavy", "clean" wave character keywords. Description opener includes location and uses "7-day surf forecast" phrasing.
+
 - **Session goals now write to `goals[]` column instead of being appended to notes** — Structured storage enables progression analytics and trend tracking.
+
+### Fixed
+- **`/spots/blacks-beach` 404** — Added legacy slug alias (`blacks-beach` → `blacks`) in middleware so the Google-indexed URL resolves correctly via 301 redirect.
 - **Journal view adds Progression tab between Sessions and Insights** — Users can navigate directly to their progression dashboard from the journal.
 - **Zero state copy emphasizes forecast contribution and progression unlock** — Empty state messaging connects session logging to model improvement and progression features.
 
