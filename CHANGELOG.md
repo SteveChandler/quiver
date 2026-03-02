@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Retro Surf Dark theme prototype on beach detail pages** — Scoped `.theme-retro-dark` CSS class wraps `/[state]/[city]/[beachSlug]` pages with a deep navy palette (`#0B1426` background, `#111D35` cards), hot pink `#FF3B8B` primary accents, electric yellow `#FFD639` badges, teal `#00D4AA` links, and Permanent Marker brush font for all headings. Zero business logic changes; all overrides are CSS-only under the scope class. Light theme on all other routes is unaffected.
+- **Beach detail video hero redesign: title at top, forecast at bottom of live cam** — `CamsSection` gains an optional `variant="hero"` prop that renders full-bleed video with no card chrome. `BeachHeroCompact` gains `overlayMode` prop that hides the h1, removes the white background/border, and switches text to white with shadow for legibility over video. `beach-detail.tsx` now renders a two-gradient overlay (top for title, bottom for forecast/conditions ticker) when a cam is present, and falls back to the normal photo gallery + inline flow when no cam exists. Removed all CSS hero workaround hacks from `globals.css` that are now handled via component props.
 - **Progression tracking: per-skill self-assessment ratings (1–5) on session logging** — Skills practiced can be rated 1–5 directly in the Goals step of the session wizard.
 - **Progression dashboard with streaks, skill trends, sweet spot analysis, personal bests, and forecast impact** — New dashboard surfaces progression insights from logged session data.
 - **Shareable progression moments (monthly recaps, streak milestones)** — Users can share progression highlights via the share sheet.
@@ -20,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Session goals now write to `goals[]` column instead of being appended to notes** — Structured storage enables progression analytics and trend tracking.
 - **Journal view adds Progression tab between Sessions and Insights** — Users can navigate directly to their progression dashboard from the journal.
 - **Zero state copy emphasizes forecast contribution and progression unlock** — Empty state messaging connects session logging to model improvement and progression features.
+
+### Removed
+- Deleted ~8MB of unused assets (AI-generated example images, stale screenshots, unused OG image)
+- Removed dead components: high-confidence-indicator, xp-boosters, export-modal
+- Cleaned up orphaned test mocks for deleted components
+- Removed hardcoded tunnel URL from Capacitor dev config
 
 ### Fixed
 - **Goals toggle was writing to `notes` field instead of `goals` text[] column** — Fixed data routing so goal selections persist to the correct database column.

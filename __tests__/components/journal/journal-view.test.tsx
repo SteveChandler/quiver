@@ -89,17 +89,6 @@ jest.mock("@/components/journal/session-annotation-modal", () => ({
     ) : null,
 }));
 
-jest.mock("@/components/journal/export-modal", () => ({
-  ExportModal: ({ isOpen, onClose }: any) =>
-    isOpen ? (
-      <div data-testid="export-modal">
-        <button onClick={onClose} data-testid="close-export">
-          Close
-        </button>
-      </div>
-    ) : null,
-}));
-
 const mockUser = {
   id: "user-123",
   email: "test@example.com",

@@ -475,7 +475,6 @@ For detailed documentation, see [`/components/home-screen/ARCHITECTURE.md`](/com
 - **`journal-view.tsx`** - Main journaling interface
 - **`calendar-heatmap.tsx`** - Visual session activity calendar
 - **`session-analytics.tsx`** - Statistical analysis dashboard
-- **`export-modal.tsx`** - PDF export functionality
 - **`session-annotation-modal.tsx`** - Session detail editing
 
 #### Features

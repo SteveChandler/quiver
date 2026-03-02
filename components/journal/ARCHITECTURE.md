@@ -8,7 +8,6 @@ User journal visualization and export. Shows calendar heatmap, analytics, and ex
 
 - `journal-view.tsx` — main container orchestrating analytics + list/calendar
 - `calendar-heatmap.tsx` — per-day session density and quick stats
-- `export-modal.tsx` — export flows (PDF) with filters and batching
 - `session-analytics.tsx` — summary cards and trends
 
 ## Data Flow

@@ -185,16 +185,6 @@ export const mockJournalComponents = () => {
       ) : null,
   }));
 
-  jest.mock("@/components/journal/export-modal", () => ({
-    ExportModal: ({ isOpen, onClose }: any) =>
-      isOpen ? (
-        <div data-testid="export-modal">
-          <button onClick={onClose} data-testid="close-export">
-            Close
-          </button>
-        </div>
-      ) : null,
-  }));
 };
 
 // Comprehensive setup function for forecast-related tests
