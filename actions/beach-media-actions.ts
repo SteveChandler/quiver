@@ -3,6 +3,7 @@
 import { withDatabaseOperation } from "@/lib/server-action-utils";
 import { withApprovedPhotos } from "@/lib/supabase/query-builders";
 import { DEFAULT_BEACH_PHOTOS_LIMIT } from "@/lib/constants/featured-beaches-config";
+import type { Database } from "@/types/supabase";
 
 /**
  * Clean Openverse thumbnail URLs by removing ?format=json suffix.
@@ -42,7 +43,7 @@ export async function getBestBeachPhotosAction(beachId: string, limit = DEFAULT_
 
     // If we have beach photos, return them
     if (beachPhotos && beachPhotos.length > 0) {
-      const mapped = beachPhotos.map((row: { id: string; image_url: string; thumb_url: string | null; fetched_at: string }) => ({
+      const mapped = beachPhotos.map((row: Pick<Database['public']['Tables']['beach_photos']['Row'], 'id' | 'image_url' | 'thumb_url' | 'fetched_at'>) => ({
         id: row.id,
         created_at: row.fetched_at,
         public_url: cleanThumbnailUrl(row.thumb_url) || row.image_url,
@@ -63,7 +64,7 @@ export async function getBestBeachPhotosAction(beachId: string, limit = DEFAULT_
 
     if (sessionError) return { data: null, error: sessionError };
 
-    const mapped = (sessionMedia || []).map((row: { id: string; created_at: string; storage_path: string; media_type: string }) => {
+    const mapped = (sessionMedia || []).map((row: Pick<Database['public']['Tables']['session_media']['Row'], 'id' | 'created_at' | 'storage_path' | 'media_type'>) => {
       const { data: pub } = supabase.storage
         .from("session-media")
         .getPublicUrl(row.storage_path);

@@ -81,9 +81,8 @@ interface SessionRow {
   wind_speed_mph: number | null;
   wind_direction: string | null;
   beach_id: string | null;
-  // DB returns Json; cast to record at usage sites
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  skill_ratings: any;
+  // DB returns Json; cast to Record<string, number> at usage sites
+  skill_ratings: Json | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -130,7 +129,8 @@ function computeSkillProgression(sessions: SessionRow[]): SkillTrend[] {
   // Collect all skills across all sessions
   const allSkills = new Set<string>();
   for (const s of sessions) {
-    for (const skill of Object.keys(s.skill_ratings ?? {})) {
+    const ratings = s.skill_ratings as Record<string, number> | null;
+    for (const skill of Object.keys(ratings ?? {})) {
       allSkills.add(skill);
     }
   }
@@ -139,10 +139,10 @@ function computeSkillProgression(sessions: SessionRow[]): SkillTrend[] {
 
   for (const skill of allSkills) {
     const currentRatings = current
-      .map((s) => s.skill_ratings?.[skill])
+      .map((s) => (s.skill_ratings as Record<string, number> | null)?.[skill])
       .filter((v): v is number => v !== undefined);
     const previousRatings = previous
-      .map((s) => s.skill_ratings?.[skill])
+      .map((s) => (s.skill_ratings as Record<string, number> | null)?.[skill])
       .filter((v): v is number => v !== undefined);
 
     if (currentRatings.length === 0) continue;
@@ -332,8 +332,8 @@ export const getProgressionDashboard = makeAuthenticatedAction(
       throw new Error(`Failed to fetch sessions: ${sessionsError.message}`);
     }
 
-    const sessions: SessionRow[] = (rawSessions ?? []).filter(
-      (s: any): s is SessionRow => s?.arrival_time != null
+    const sessions = (rawSessions ?? []).filter(
+      (s): s is typeof s & SessionRow => s?.arrival_time != null
     );
 
     // Streak

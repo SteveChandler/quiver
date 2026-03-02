@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { withAuthenticatedAction } from "@/lib/server-action-utils";
 import { revalidatePath } from "next/cache";
 import type { Profile } from "@/types/database";
+import type { Database } from "@/types/supabase";
 
 /**
  * Follow a user
@@ -244,7 +245,7 @@ export async function getSuggestedUsers(limit: number = 10) {
       .select("following_id")
       .eq("follower_id", user.id);
 
-    const followingIds = (alreadyFollowing || []).map((f: { following_id: string }) => f.following_id);
+    const followingIds = (alreadyFollowing || []).map((f: Pick<Database['public']['Tables']['user_follows']['Row'], 'following_id'>) => f.following_id);
     followingIds.push(user.id); // Exclude self
 
     // Find users with the most followers who aren't already followed

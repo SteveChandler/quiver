@@ -973,7 +973,7 @@ export async function evaluateWaterQuality(
 
     // Fetch ALL samples for all linked stations in one query (avoids N+1 pattern).
     // Supabase .in() supports up to 1000 values; linkedStations is typically <500.
-    const allStationUuids = linkedStations.map((s: { id: string }) => s.id);
+    const allStationUuids = linkedStations.map((s) => s.id);
     const { data: allSamples, error: allSamplesError } = await supabase
       .from("wq_samples")
       .select("station_id, characteristic, value, detection_condition, sample_date")

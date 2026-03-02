@@ -13,7 +13,7 @@
  * - Mock users are always skipped
  */
 
-import type { SupabaseServiceClient } from "@/types/supabase";
+import type { SupabaseServiceClient, Json } from "@/types/supabase";
 import { sendPushNotification } from "@/lib/services/push-notifications";
 import { getLocalHour, DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
 
@@ -198,7 +198,7 @@ export async function processWaterQualityAlerts(
 
   // Build a Set of "userId|beachId" combos already notified today
   const alreadyNotifiedToday = new Set<string>();
-  (todayNotifs || []).forEach((n: { user_id: string; data: any }) => {
+  (todayNotifs || []).forEach((n: { user_id: string; data: Json }) => {
     const data = n.data as Record<string, unknown> | null;
     const beachId = data?.beach_id as string | undefined;
     if (beachId) {

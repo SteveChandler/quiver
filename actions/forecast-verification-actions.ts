@@ -1,6 +1,7 @@
 "use server";
 
 import { makeAuthenticatedAction } from "@/lib/server-action-utils";
+import type { Database } from "@/types/supabase";
 
 // Types
 export interface ForecastVoteInput {
@@ -226,7 +227,7 @@ export const getUserVerificationStreak = makeAuthenticatedAction(
     }
 
     // Calculate streaks
-    const voteDates: string[] = (votes as { created_at: string }[]).map((v) =>
+    const voteDates: string[] = (votes as Pick<Database['public']['Tables']['forecast_accuracy_votes']['Row'], 'created_at'>[]).map((v) =>
       new Date(v.created_at).toDateString()
     );
     const uniqueDates: string[] = [...new Set(voteDates)];

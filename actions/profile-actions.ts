@@ -4,6 +4,7 @@ import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/l
 import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { withAuthenticatedAction } from "@/lib/server-action-utils";
 import type { Profile } from "@/types/database";
+import type { Database } from "@/types/supabase";
 import { z } from "zod";
 import { getProfileWithHomeBeachById } from "@/lib/profile/fetchers";
 
@@ -305,8 +306,8 @@ export async function updateProfile(
 
         if (!beachError && candidates && candidates.length > 0) {
           const lower = text.toLowerCase();
-          const exact = candidates.find((b: { id: string; name: string }) => b.name.toLowerCase() === lower);
-          const starts = candidates.find((b: { id: string; name: string }) => b.name.toLowerCase().startsWith(lower));
+          const exact = candidates.find((b: Pick<Database['public']['Tables']['beaches']['Row'], 'id' | 'name'>) => b.name.toLowerCase() === lower);
+          const starts = candidates.find((b: Pick<Database['public']['Tables']['beaches']['Row'], 'id' | 'name'>) => b.name.toLowerCase().startsWith(lower));
           const contains = candidates[0];
 
           const match = exact || starts || contains;

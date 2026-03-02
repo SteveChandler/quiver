@@ -10,6 +10,7 @@ import type {
   SessionForecastSnapshot,
   BeachForecastAccuracy,
 } from "@/types/database";
+import type { Json } from "@/types/supabase";
 
 /**
  * Filters for querying the authenticated user's forecast history.
@@ -593,8 +594,8 @@ export async function getUserForecastAccuracySummary(): Promise<
 
     // Calculate accuracy metrics
     type Snapshot = {
-      forecast_snapshot: Record<string, any> | null;
-      actual_conditions: Record<string, any> | null;
+      forecast_snapshot: Json;
+      actual_conditions: Json;
       session: { beach_name: string } | null;
     };
     const accuracyScores = (snapshots as Snapshot[]).map((snapshot) => {
