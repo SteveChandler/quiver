@@ -33,6 +33,24 @@ jest.mock("@/lib/data/client", () => ({
   },
 }));
 
+// Mock FeedHighlight — not lazy-loaded, direct import
+jest.mock("@/components/profile/FeedHighlight", () => ({
+  FeedHighlight: ({
+    sessionId,
+    onShare,
+    onDismiss,
+  }: {
+    sessionId: string | null;
+    onShare: () => void;
+    onDismiss: () => void;
+  }) => (
+    <div data-testid="feed-highlight" data-session-id={sessionId}>
+      <button onClick={onShare}>Share</button>
+      <button onClick={onDismiss}>Dismiss</button>
+    </div>
+  ),
+}));
+
 // Mock lazy-loaded components
 jest.mock("@/components/favorite-beaches", () => ({
   FavoriteBeaches: () => <div data-testid="favorite-beaches">Favorite Beaches</div>,
@@ -297,6 +315,89 @@ describe("ProfileView - Surf Style Card", () => {
       });
 
       expect(screen.getByText("Learning your preferences...")).toBeInTheDocument();
+    });
+  });
+
+  describe("FeedHighlight Banner", () => {
+    it("renders FeedHighlight when ?highlight= param is present", async () => {
+      mockSearchParamsGet = jest.fn((key: string) => {
+        if (key === "highlight") return "session-abc";
+        if (key === "tab") return "sessions";
+        return null;
+      });
+      mockSearchParamsToString = jest.fn().mockReturnValue("highlight=session-abc&tab=sessions");
+
+      (useUserPreferences as jest.Mock).mockReturnValue({
+        data: null,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<ProfileView />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("feed-highlight")).toBeInTheDocument();
+      });
+
+      expect(screen.getByTestId("feed-highlight")).toHaveAttribute(
+        "data-session-id",
+        "session-abc"
+      );
+    });
+
+    it("does not render FeedHighlight when ?highlight= param is absent", async () => {
+      mockSearchParamsGet = jest.fn((key: string) => {
+        if (key === "tab") return "sessions";
+        return null;
+      });
+      mockSearchParamsToString = jest.fn().mockReturnValue("tab=sessions");
+
+      (useUserPreferences as jest.Mock).mockReturnValue({
+        data: null,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<ProfileView />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("journal-view")).toBeInTheDocument();
+      });
+
+      expect(screen.queryByTestId("feed-highlight")).not.toBeInTheDocument();
+    });
+
+    it("cleans the highlight param from URL when onDismiss is called", async () => {
+      mockSearchParamsGet = jest.fn((key: string) => {
+        if (key === "highlight") return "session-abc";
+        if (key === "tab") return "sessions";
+        return null;
+      });
+      mockSearchParamsToString = jest.fn().mockReturnValue("highlight=session-abc&tab=sessions");
+
+      (useUserPreferences as jest.Mock).mockReturnValue({
+        data: null,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<ProfileView />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("feed-highlight")).toBeInTheDocument();
+      });
+
+      screen.getByText("Dismiss").click();
+
+      await waitFor(() => {
+        expect(mockRouter.replace).toHaveBeenCalledWith(
+          "/profile?tab=sessions",
+          { scroll: false }
+        );
+      });
     });
   });
 
