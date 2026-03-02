@@ -338,6 +338,10 @@ export function sessionToFormState(session: any): any {
     // Notes
     notes: session.notes || "",
 
+    // Visibility
+    isPublic: session.is_public ?? true,
+    isMuted: session.muted ?? false,
+
     // Photos (empty array for now - photos are handled separately)
     photos: [],
   };

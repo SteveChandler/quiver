@@ -20,10 +20,6 @@ export function VisibilitySection({
 }: VisibilitySectionProps) {
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-bold text-[#1A1A1A] uppercase tracking-wide">
-        Visibility
-      </h3>
-
       {/* Segmented control */}
       <div className="flex rounded-xl bg-gray-100 p-1">
         <button

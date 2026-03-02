@@ -4479,6 +4479,7 @@ export type Database = {
           invitee_ids: string[]
           is_public: boolean | null
           likes_count: number
+          muted: boolean
           notes: string | null
           parking_ease: number | null
           rating: number | null
@@ -4547,6 +4548,7 @@ export type Database = {
           invitee_ids?: string[]
           is_public?: boolean | null
           likes_count?: number
+          muted?: boolean
           notes?: string | null
           parking_ease?: number | null
           rating?: number | null
@@ -4658,6 +4660,7 @@ export type Database = {
           invitee_ids: string[] | null
           is_public: boolean | null
           likes_count: number | null
+          muted: boolean | null
           notes: string | null
           parking_ease: number | null
           rating: number | null
@@ -4693,6 +4696,7 @@ export type Database = {
           invitee_ids?: string[] | null
           is_public?: boolean | null
           likes_count?: number | null
+          muted?: boolean | null
           notes?: string | null
           parking_ease?: number | null
           rating?: number | null
@@ -4728,6 +4732,7 @@ export type Database = {
           invitee_ids?: string[] | null
           is_public?: boolean | null
           likes_count?: number | null
+          muted?: boolean | null
           notes?: string | null
           parking_ease?: number | null
           rating?: number | null

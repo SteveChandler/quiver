@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Share2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,16 +13,18 @@ interface FeedHighlightProps {
 
 export function FeedHighlight({ sessionId, onShare, onDismiss }: FeedHighlightProps) {
   const [visible, setVisible] = useState(!!sessionId);
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
 
   // Auto-dismiss after 10 seconds
   useEffect(() => {
     if (!sessionId) return;
     const timer = setTimeout(() => {
       setVisible(false);
-      onDismiss();
+      onDismissRef.current();
     }, 10000);
     return () => clearTimeout(timer);
-  }, [sessionId, onDismiss]);
+  }, [sessionId]);
 
   if (!visible || !sessionId) return null;
 
