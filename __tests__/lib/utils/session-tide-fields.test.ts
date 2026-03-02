@@ -148,6 +148,8 @@ describe('Session Tide Fields Transformation', () => {
           notes: '',
           photos: [],
           waveTypes: [],
+          selectedGoals: [],
+          skillRatings: {},
           tideStatus: status,
         };
 
