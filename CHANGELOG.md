@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **"Feedback loop" brand copy reflecting two-pillar identity (Forecast + Track)** — Hero tagline updated to "Every session makes your next forecast smarter." Post-session confirmation copy now surfaces the user's contribution to forecast accuracy at their beach.
 
 ### Changed
+- **E2E tests updated for session scroll form redesign** — `e2e/session-wizard.spec.ts` renamed to `e2e/session-form.spec.ts`. All three session test files (`session-form.spec.ts`, `session-wizard-autofill.spec.ts`, `plan-session.spec.ts`) updated: removed wizard step navigation (Next/Previous button clicks), removed progress bar assertions, replaced star-rating button selectors with Radix `role="slider"` interactions, updated post-save expectations to match toast + `/profile?highlight=` redirect, and removed `getCurrentStep`/`waitForWizard` helpers that referenced wizard step indicators.
 - **Session goals now write to `goals[]` column instead of being appended to notes** — Structured storage enables progression analytics and trend tracking.
 - **Journal view adds Progression tab between Sessions and Insights** — Users can navigate directly to their progression dashboard from the journal.
 - **Zero state copy emphasizes forecast contribution and progression unlock** — Empty state messaging connects session logging to model improvement and progression features.
