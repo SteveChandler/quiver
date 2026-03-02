@@ -44,6 +44,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
 import { track } from "@/lib/analytics";
 
+import { FeedHighlight } from "@/components/profile/FeedHighlight";
+
 // Lazy load heavy tab components for better performance
 const BoardsManager = lazy(() =>
   import("@/components/profile/boards-manager").then((m) => ({
@@ -122,6 +124,10 @@ function ProfileViewContent() {
 
   // Get active tab from URL or default to "sessions"
   const activeTab = searchParams?.get("tab") || "sessions";
+
+  // FeedHighlight: session ID from ?highlight= param, opened after session save
+  const highlightSessionId = searchParams?.get("highlight") || null;
+  const [highlightShareOpen, setHighlightShareOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!user) throw new Error("User not authenticated");
@@ -494,6 +500,19 @@ function ProfileViewContent() {
                     value="sessions"
                     className="p-4 sm:p-6 space-y-4 m-0"
                   >
+                    {highlightSessionId && (
+                      <FeedHighlight
+                        sessionId={highlightSessionId}
+                        onShare={() => setHighlightShareOpen(true)}
+                        onDismiss={() => {
+                          // Clean the highlight param from the URL without a full navigation
+                          const params = new URLSearchParams(searchParams?.toString() ?? "");
+                          params.delete("highlight");
+                          const newUrl = params.toString() ? `/profile?${params.toString()}` : "/profile";
+                          router.replace(newUrl, { scroll: false });
+                        }}
+                      />
+                    )}
                     <Suspense fallback={<TabLoadingSkeleton type="Journal" />}>
                       <JournalView />
                     </Suspense>

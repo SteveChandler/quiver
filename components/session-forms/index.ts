@@ -3,9 +3,6 @@ export { SessionForm } from "./SessionForm";
 export { SessionFormWrapper } from "./SessionFormWrapper";
 export { SessionFormHeader } from "./SessionFormHeader";
 
-// New Session Wizard Component (Phase 2)
-export { SessionWizard } from "../session/wizard/SessionWizard";
-
 // Step components
 export { DateTimeSection } from "./DateTimeSection";
 export { DateTimeStep } from "./DateTimeStep";

@@ -38,62 +38,6 @@ export const ANIMATION_VARIANTS = {
   },
 };
 
-// Session Wizard Motion Specifications
-export const WIZARD_MOTION = {
-  step: {
-    initial: { x: 40, opacity: 0 },
-    animate: { x: 0, opacity: 1 },
-    exit: { x: -40, opacity: 0 },
-    transition: { type: "spring", damping: 22, stiffness: 260 }
-  },
-  progress: {
-    initial: { scaleX: 0 },
-    animate: { scaleX: 1 },
-    transition: { duration: 0.6, ease: "easeOut" }
-  },
-  focus: {
-    rest:  { scale: 1, boxShadow: "0 0 0 0 rgba(0,119,182,0)" },
-    focus: { scale: 1.01, boxShadow: "0 0 0 4px rgba(0,119,182,0.25)" },
-    valid: { scale: 1.005, boxShadow: "0 0 0 4px rgba(34,197,94,0.25)" },
-    error: {
-      x: [0, -6, 6, -6, 6, 0] as number[],
-      boxShadow: "0 0 0 4px rgba(239,68,68,0.25)",
-    },
-    transition: { duration: 0.24 }
-  },
-  hint: {
-    initial: { y: 8, opacity: 0 },
-    animate: { y: 0, opacity: 1 },
-    exit:    { y: 8, opacity: 0 },
-    transition: { duration: 0.22 }
-  },
-  autosave: {
-    initial: { scale: 1, opacity: 0 },
-    saving: { 
-      scale: 1.02, 
-      opacity: 0.8,
-      transition: { duration: 0.18, ease: "easeOut" }
-    },
-    saved: { 
-      scale: 1, 
-      opacity: 1,
-      transition: { duration: 0.28, ease: "easeOut" }
-    }
-  },
-  celebration: {
-    initial: { scale: 1, rotate: 0 },
-    animate: { 
-      scale: [1, 1.1, 1.05, 1], 
-      rotate: [0, 5, -3, 0],
-      transition: { 
-        duration: 0.8, 
-        ease: "easeOut",
-        times: [0, 0.3, 0.7, 1]
-      }
-    }
-  }
-} as const;
-
 // MAP_MOTION - Priority 1: Geographic Expansion & Beach Discovery
 // Addresses 85% San Diego isolation problem with engaging map interactions
 export const MAP_MOTION = {

@@ -300,6 +300,7 @@ export function createMockSession(overrides: Partial<Session> = {}): Session {
     description: null,
     status: "completed",
     is_public: true,
+    muted: false,
     created_at: new Date().toISOString(),
     deleted_at: null,
     comments_count: 0,
