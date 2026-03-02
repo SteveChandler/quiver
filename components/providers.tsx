@@ -112,6 +112,7 @@ function AuthOverlays() {
 export function Providers({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLandingPage = pathname === "/";
+  const isWelcomePage = pathname === "/welcome";
 
   // Note: We keep SelectedBeachProvider mounted even on "/"
   // so back/forward navigation doesn't destroy client caches and force refetches.
@@ -141,7 +142,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
             <AuthOverlays />
 
             <SelectedBeachProvider>
-              {!isLandingPage ? (
+              {isWelcomePage ? (
+                /* Welcome/onboarding — full-screen, no nav or footer */
+                <>{children}</>
+              ) : !isLandingPage ? (
                 <AuthenticatedAppContent>{children}</AuthenticatedAppContent>
               ) : (
                 /* Landing Page Optimized Path */

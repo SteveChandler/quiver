@@ -143,7 +143,7 @@ export default async function RootLayout({
 
   // Show the shared site footer on public content pages; hide on landing
   // (has its own footer), auth pages, authenticated app pages, and embeds.
-  const hideFooterPrefixes = ["/auth", "/admin", "/profile", "/inbox", "/sessions", "/prefs", "/embed"];
+  const hideFooterPrefixes = ["/auth", "/admin", "/profile", "/inbox", "/sessions", "/prefs", "/embed", "/welcome"];
   const showSiteFooter =
     !isLandingPage && !hideFooterPrefixes.some((p) => pathname.startsWith(p));
 

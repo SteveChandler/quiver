@@ -49,8 +49,8 @@ export function OrbitAnimation({ visible }: OrbitAnimationProps) {
         <motion.div
           className="absolute rounded-full"
           style={{
-            width: 160,
-            height: 160,
+            width: 240,
+            height: 240,
             background:
               "radial-gradient(circle, rgba(0,119,182,0.35) 0%, rgba(0,180,216,0.18) 45%, transparent 70%)",
           }}
@@ -148,13 +148,13 @@ export function OrbitAnimation({ visible }: OrbitAnimationProps) {
         {/* Logo — centered on top of rings, priority loaded */}
         <motion.div
           className="relative z-10 flex items-center justify-center"
-          style={{ width: 96, height: 96 }}
+          style={{ width: 180, height: 180 }}
         >
           <Image
             src="/quiver-logo-transparent.png"
             alt="Quiver"
-            width={96}
-            height={96}
+            width={180}
+            height={180}
             priority
             className="object-contain drop-shadow-lg"
           />
