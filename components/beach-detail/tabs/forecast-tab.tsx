@@ -411,53 +411,53 @@ export function ForecastTab({
                   <TideAlertBadge alert={tideAlert} />
                 )}
 
-                <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3 md:gap-6">
-                  <div className="flex flex-col gap-3 sm:gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-ocean-blue/5 to-white p-4 sm:p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex-1">
-                      <div className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
-                        Current Tide
+                <div className="grid grid-cols-3 gap-2 sm:gap-4 md:gap-6">
+                  <div className="flex flex-col items-center gap-1 sm:gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-ocean-blue/5 to-white p-3 sm:p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex h-10 w-10 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-ocean-blue/10 sm:order-last">
+                      <TideIcon className="h-5 w-5 sm:h-8 sm:w-8 text-ocean-blue" />
+                    </div>
+                    <div className="text-center sm:text-left sm:flex-1">
+                      <div className="text-[10px] sm:text-xs uppercase tracking-wider sm:tracking-[0.2em] text-ocean-blue">
+                        Tide
                       </div>
-                      <div className="mt-2 text-2xl font-bold text-dark-grey">
+                      <div className="mt-0.5 sm:mt-2 text-base sm:text-2xl font-bold text-dark-grey">
                         {getCurrentTideDisplay()}
                       </div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="hidden sm:block text-sm text-muted-foreground">
                         Next: {heroNextTideType} @ {getNextTideTimeDisplay()}
                       </div>
                     </div>
-                    <div className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-ocean-blue/10 self-start sm:self-auto">
-                      <TideIcon className="h-6 w-6 sm:h-8 sm:w-8 text-ocean-blue" />
-                    </div>
                   </div>
-                  <div className="flex flex-col gap-3 sm:gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-100/40 to-white p-4 sm:p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex-1">
-                      <div className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
+                  <div className="flex flex-col items-center gap-1 sm:gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-100/40 to-white p-3 sm:p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex h-10 w-10 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-ocean-blue/10 sm:order-last">
+                      <Wind className="h-5 w-5 sm:h-8 sm:w-8 text-ocean-blue" />
+                    </div>
+                    <div className="text-center sm:text-left sm:flex-1">
+                      <div className="text-[10px] sm:text-xs uppercase tracking-wider sm:tracking-[0.2em] text-ocean-blue">
                         Wind
                       </div>
-                      <div className="mt-2 text-2xl font-bold text-dark-grey">
+                      <div className="mt-0.5 sm:mt-2 text-base sm:text-2xl font-bold text-dark-grey">
                         {currentForecast?.wind_speed ?? "—"}
                       </div>
-                      <div className="text-sm text-muted-foreground uppercase">
+                      <div className="text-xs sm:text-sm text-muted-foreground uppercase">
                         {currentForecast?.wind_direction ?? "—"}
                       </div>
                     </div>
-                    <div className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-ocean-blue/10 self-start sm:self-auto">
-                      <Wind className="h-6 w-6 sm:h-8 sm:w-8 text-ocean-blue" />
-                    </div>
                   </div>
-                  <div className="flex flex-col gap-3 sm:gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-100/30 to-white p-4 sm:p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex-1">
-                      <div className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
+                  <div className="flex flex-col items-center gap-1 sm:gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-100/30 to-white p-3 sm:p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex h-10 w-10 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-ocean-blue/10 sm:order-last">
+                      <Waves className="h-5 w-5 sm:h-8 sm:w-8 text-ocean-blue" />
+                    </div>
+                    <div className="text-center sm:text-left sm:flex-1">
+                      <div className="text-[10px] sm:text-xs uppercase tracking-wider sm:tracking-[0.2em] text-ocean-blue">
                         Swell
                       </div>
-                      <div className="mt-2 text-2xl font-bold text-dark-grey">
+                      <div className="mt-0.5 sm:mt-2 text-base sm:text-2xl font-bold text-dark-grey">
                         {heroWaveHeight} ft
                       </div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-xs sm:text-sm text-muted-foreground">
                         {snapshotSwellDetails}
                       </div>
-                    </div>
-                    <div className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-ocean-blue/10 self-start sm:self-auto">
-                      <Waves className="h-6 w-6 sm:h-8 sm:w-8 text-ocean-blue" />
                     </div>
                   </div>
                 </div>
