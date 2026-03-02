@@ -35,6 +35,8 @@ const defaultFormState: SessionFormState = {
   waveTypes: [],
   selectedGoals: [],
   skillRatings: {},
+  isPublic: true,
+  isMuted: false,
 };
 
 describe('GoalsSection', () => {

@@ -189,6 +189,8 @@ export const mockSessionFormState = {
     { email: "sarah@example.com", name: "Sarah Wave" },
   ],
   invitationMessage: "Dawn patrol tomorrow! Who's in? 🌅🏄‍♂️",
+  isPublic: true,
+  isMuted: false,
 };
 
 // Mock boards data
