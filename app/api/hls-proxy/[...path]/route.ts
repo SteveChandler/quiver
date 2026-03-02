@@ -29,6 +29,7 @@ const ALLOWED_HOSTS: Record<string, Record<string, string>> = {
   "hls.cdn-surfline.com": {
     Referer: "https://www.surfline.com/",
   },
+  "live.hdontap.com": {},
 };
 
 /** Max response size: 10MB (typical HLS segments are 2-6MB) */
@@ -61,7 +62,8 @@ async function hlsProxyHandler(
 
   const hostname = pathSegments[0];
   const resourcePath = "/" + pathSegments.slice(1).join("/");
-  const targetUrl = `https://${hostname}${resourcePath}`;
+  const queryString = request.nextUrl.search; // includes "?" prefix if present
+  const targetUrl = `https://${hostname}${resourcePath}${queryString}`;
 
   // Security: strict hostname whitelist
   const hostConfig = ALLOWED_HOSTS[hostname];

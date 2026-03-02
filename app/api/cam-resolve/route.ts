@@ -9,9 +9,9 @@ export const dynamic = "force-dynamic";
  * Cam Resolve API Route
  *
  * Resolves camera page URLs (e.g. HDOnTap) to their underlying HLS stream URLs.
- * HDOnTap blocks iframe embedding (X-Frame-Options: DENY), but their actual
- * HLS streams at live.hdontap.com have CORS `*` — so we just need to extract
- * the signed HLS URL from the page HTML server-side.
+ * HDOnTap blocks iframe embedding (X-Frame-Options: DENY) and their HLS
+ * streams at live.hdontap.com are CORS-blocked. We extract the signed HLS URL
+ * from the page HTML server-side, then the client proxies it via /api/hls-proxy/.
  *
  * GET /api/cam-resolve?url=https://hdontap.com/stream/186699/...
  * → { hlsUrl: "https://live.hdontap.com/hls/.../playlist.m3u8?t=...&e=..." }

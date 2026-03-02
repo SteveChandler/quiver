@@ -20,6 +20,19 @@ export function getViewableUrl(url: string | null | undefined): string | null {
   }
 }
 
+/** Route CORS-blocked HLS hosts through our proxy */
+export function toProxiedHlsUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === "live.hdontap.com") {
+      return `/api/hls-proxy/${parsed.hostname}${parsed.pathname}${parsed.search}`;
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
   if (!url) return { kind: "none" };
   let href = "";

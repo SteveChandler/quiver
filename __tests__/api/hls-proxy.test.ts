@@ -636,4 +636,95 @@ describe("HLS Proxy Route", () => {
       );
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // HDOnTap support
+  // ---------------------------------------------------------------------------
+  describe("HDOnTap Support", () => {
+    it("should allow live.hdontap.com through the whitelist", async () => {
+      mockUpstreamResponse("#EXTM3U\n");
+
+      const request = createRequest(
+        "http://localhost/api/hls-proxy/live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8"
+      );
+      const context = createContext([
+        "live.hdontap.com",
+        "hls",
+        "hosb1",
+        "stream.stream",
+        "playlist.m3u8",
+      ]);
+
+      const response = await GET(request, context);
+      expect(response.status).toBe(200);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should not send Referer header for HDOnTap (no extra headers configured)", async () => {
+      mockUpstreamResponse("#EXTM3U\n");
+
+      const request = createRequest(
+        "http://localhost/api/hls-proxy/live.hdontap.com/hls/stream/playlist.m3u8"
+      );
+      const context = createContext([
+        "live.hdontap.com",
+        "hls",
+        "stream",
+        "playlist.m3u8",
+      ]);
+
+      await GET(request, context);
+
+      const fetchCall = mockFetch.mock.calls[0];
+      expect(fetchCall[1].headers.Referer).toBeUndefined();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Query string forwarding
+  // ---------------------------------------------------------------------------
+  describe("Query String Forwarding", () => {
+    it("should forward query string to upstream for HDOnTap signed URLs", async () => {
+      mockUpstreamResponse("#EXTM3U\n");
+
+      const request = createRequest(
+        "http://localhost/api/hls-proxy/live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8?t=abc123&e=9999999999"
+      );
+      const context = createContext([
+        "live.hdontap.com",
+        "hls",
+        "hosb1",
+        "stream.stream",
+        "playlist.m3u8",
+      ]);
+
+      await GET(request, context);
+
+      const fetchCall = mockFetch.mock.calls[0];
+      expect(fetchCall[0]).toBe(
+        "https://live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8?t=abc123&e=9999999999"
+      );
+    });
+
+    it("should not append query string when none is present (Surfline regression)", async () => {
+      mockUpstreamResponse("#EXTM3U\n");
+
+      const request = createRequest(
+        "http://localhost/api/hls-proxy/hls.cdn-surfline.com/cam/12345/playlist.m3u8"
+      );
+      const context = createContext([
+        "hls.cdn-surfline.com",
+        "cam",
+        "12345",
+        "playlist.m3u8",
+      ]);
+
+      await GET(request, context);
+
+      const fetchCall = mockFetch.mock.calls[0];
+      expect(fetchCall[0]).toBe(
+        "https://hls.cdn-surfline.com/cam/12345/playlist.m3u8"
+      );
+    });
+  });
 });

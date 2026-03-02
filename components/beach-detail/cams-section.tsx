@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Loader2, CameraOff, RefreshCw } from "lucide-react";
-import { buildCamEmbed, getViewableUrl } from "@/lib/media/cam-embed";
+import { buildCamEmbed, getViewableUrl, toProxiedHlsUrl } from "@/lib/media/cam-embed";
 import type { BeachSources } from "@/hooks/use-beach-detail-data";
 
 const HLSVideoPlayer = dynamic(() => import("./hls-video-player"), {
@@ -51,7 +51,7 @@ export function CamsSection({ sources, variant = "default" }: CamsSectionProps) 
       .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
       .then((data: { hlsUrl?: string }) => {
         if (!cancelled && data.hlsUrl) {
-          setResolvedHlsUrl(data.hlsUrl);
+          setResolvedHlsUrl(toProxiedHlsUrl(data.hlsUrl));
         } else if (!cancelled) {
           setHlsError(true);
         }
