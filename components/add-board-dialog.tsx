@@ -162,38 +162,54 @@ export function AddBoardDialog({
   const dialogOpen = isControlled ? open : isOpen;
 
   const dialogContent = (
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>Add New Board</DialogTitle>
-        <DialogDescription>
-          Add a new surfboard to your quiver.
-        </DialogDescription>
-      </DialogHeader>
-      <Form {...form}>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            form.handleSubmit((data) => handleAddBoard(data, e))(e);
-          }}
-          className="space-y-4"
-        >
-          <BoardFormFields control={form.control} disabled={isSubmitting} />
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" type="button" onClick={resetForm}>
-                Cancel
+    <DialogContent className="bg-[#0B1426] border-[#1E2D4A] overflow-hidden">
+      {/* pointer-events-none is critical — grain sits below the close (X) button injected by DialogContent */}
+      <div
+        className="pointer-events-none absolute inset-0 z-0 opacity-[0.04]"
+        style={{ backgroundImage: "url('/textures/noise.png')", backgroundRepeat: "repeat" }}
+      />
+      <div className="theme-retro-dark relative z-10">
+        <DialogHeader>
+          <DialogTitle>Add New Board</DialogTitle>
+          <DialogDescription>
+            Add a new surfboard to your quiver.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              form.handleSubmit((data) => handleAddBoard(data, e))(e);
+            }}
+            className="space-y-4"
+          >
+            <BoardFormFields control={form.control} disabled={isSubmitting} theme="dark" />
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={resetForm}
+                  className="border-[#1E2D4A] bg-transparent text-[#8B9EC2] hover:bg-[#172544]"
+                >
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="bg-gradient-to-r from-[#FF3B8B] to-[#E0357A] text-white hover:brightness-110 border-0"
+              >
+                {isSubmitting && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Add Board
               </Button>
-            </DialogClose>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              Add Board
-            </Button>
-          </DialogFooter>
-        </form>
-      </Form>
+            </DialogFooter>
+          </form>
+        </Form>
+      </div>
     </DialogContent>
   );
 

@@ -65,6 +65,7 @@ interface FormSelectProps<TFieldValues extends FieldValues = FieldValues>
   options: SelectOption[];
   emptyOption?: string;
   renderOption?: (option: SelectOption) => ReactNode;
+  selectContentClassName?: string;
 }
 
 interface FormCheckboxProps<TFieldValues extends FieldValues = FieldValues>
@@ -312,6 +313,7 @@ export function FormSelect<TFieldValues extends FieldValues = FieldValues>({
   renderOption,
   disabled,
   className,
+  selectContentClassName,
 }: FormSelectProps<TFieldValues>) {
   return (
     <FormField
@@ -330,7 +332,7 @@ export function FormSelect<TFieldValues extends FieldValues = FieldValues>({
                 <SelectValue placeholder={placeholder || emptyOption} />
               </SelectTrigger>
             </FormControl>
-            <SelectContent>
+            <SelectContent className={selectContentClassName}>
               {emptyOption && <SelectItem value="">{emptyOption}</SelectItem>}
               {options.map((option) => (
                 <SelectItem key={option.value} value={option.value}>

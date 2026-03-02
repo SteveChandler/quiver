@@ -45,6 +45,8 @@ interface BoardFormFieldsProps<
   disabled?: boolean;
   /** Whether to show placeholders in the inputs (useful for edit forms where values exist) */
   showPlaceholders?: boolean;
+  /** Theme variant — "dark" threads theme-retro-dark to Select portal */
+  theme?: "light" | "dark";
 }
 
 /**
@@ -60,6 +62,7 @@ export function BoardFormFields<
   control,
   disabled = false,
   showPlaceholders = true,
+  theme,
 }: BoardFormFieldsProps<TFieldValues>) {
   return (
     <>
@@ -78,6 +81,7 @@ export function BoardFormFields<
           options={BOARD_TYPE_OPTIONS}
           placeholder={showPlaceholders ? "Select board type" : undefined}
           disabled={disabled}
+          selectContentClassName={theme === "dark" ? "theme-retro-dark" : undefined}
         />
         <FormNumberInput
           control={control}
@@ -117,8 +121,6 @@ export function BoardFormFields<
     </>
   );
 }
-
-
 
 
 
