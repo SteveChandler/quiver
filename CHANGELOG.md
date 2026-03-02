@@ -8,9 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **FeedHighlight share prompt on profile after session save** — New `FeedHighlight` component (`components/profile/FeedHighlight.tsx`) renders an orange banner with a Share CTA and auto-dismisses after 10 seconds. Wired into `profile-view.tsx` sessions tab via the `?highlight=<sessionId>` search param; dismiss cleans the param from the URL via `router.replace`.
-
-
+- **Visibility toggle on session form** — Public/Just me segmented control with animated "Keep it off the feed" mute option for public sessions
+- **`muted` column on sessions table** — When true, session is public on profile but hidden from community feed
+- **FeedHighlight share prompt after session save** — Orange banner on profile with Share CTA, auto-dismisses after 10s
+- **Grain texture and warm brand colors on session form** — Sand-tone background, surfer microcopy, orange gradient save button
 - **Retro Surf Dark theme prototype on beach detail pages** — Scoped `.theme-retro-dark` CSS class wraps `/[state]/[city]/[beachSlug]` pages with a deep navy palette (`#0B1426` background, `#111D35` cards), hot pink `#FF3B8B` primary accents, electric yellow `#FFD639` badges, teal `#00D4AA` links, and Permanent Marker brush font for all headings. Zero business logic changes; all overrides are CSS-only under the scope class. Light theme on all other routes is unaffected.
 - **Beach detail video hero redesign: title at top, forecast at bottom of live cam** — `CamsSection` gains an optional `variant="hero"` prop that renders full-bleed video with no card chrome. `BeachHeroCompact` gains `overlayMode` prop that hides the h1, removes the white background/border, and switches text to white with shadow for legibility over video. `beach-detail.tsx` now renders a two-gradient overlay (top for title, bottom for forecast/conditions ticker) when a cam is present, and falls back to the normal photo gallery + inline flow when no cam exists. Removed all CSS hero workaround hacks from `globals.css` that are now handled via component props.
 - **Progression tracking: per-skill self-assessment ratings (1–5) on session logging** — Skills practiced can be rated 1–5 directly in the Goals step of the session wizard.
@@ -21,12 +22,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **"Feedback loop" brand copy reflecting two-pillar identity (Forecast + Track)** — Hero tagline updated to "Every session makes your next forecast smarter." Post-session confirmation copy now surfaces the user's contribution to forecast accuracy at their beach.
 
 ### Changed
-- **E2E tests updated for session scroll form redesign** — `e2e/session-wizard.spec.ts` renamed to `e2e/session-form.spec.ts`. All three session test files (`session-form.spec.ts`, `session-wizard-autofill.spec.ts`, `plan-session.spec.ts`) updated: removed wizard step navigation (Next/Previous button clicks), removed progress bar assertions, replaced star-rating button selectors with Radix `role="slider"` interactions, updated post-save expectations to match toast + `/profile?highlight=` redirect, and removed `getCurrentStep`/`waitForWizard` helpers that referenced wizard step indicators.
+- **Session form redesigned as single scrollable page** — Replaces multi-step wizard for both Log and Plan modes, inspired by Strava's Add Manual Activity flow
+- **Subjective ratings use branded sliders** — Wave quality, crowd, and overall ratings now use Radix UI sliders with color ramps instead of star ratings
+- **Post-save navigates to profile feed** — Session save navigates to profile with highlighted session card instead of showing celebration modal
+- **Session form microcopy updated to Quiver brand voice** — Casual surfer tone ("Where'd you surf?", "What'd you ride?", "Logged. Nice one.")
+- **ConditionsSection slimmed to objective inputs only** — Star ratings, wave types, notes, and forecast accuracy moved to the scroll form's dedicated sections
 - **Session goals now write to `goals[]` column instead of being appended to notes** — Structured storage enables progression analytics and trend tracking.
 - **Journal view adds Progression tab between Sessions and Insights** — Users can navigate directly to their progression dashboard from the journal.
 - **Zero state copy emphasizes forecast contribution and progression unlock** — Empty state messaging connects session logging to model improvement and progression features.
 
 ### Removed
+- **Session wizard step navigation** — Previous/Next buttons, progress bar, step indicators all removed
+- **CelebrationOverlay modal and confetti animation** — Replaced by feed-insertion post-save flow
+- **Parking Ease rating** — Removed as part of form simplification
 - Deleted ~8MB of unused assets (AI-generated example images, stale screenshots, unused OG image)
 - Removed dead components: high-confidence-indicator, xp-boosters, export-modal
 - Cleaned up orphaned test mocks for deleted components
