@@ -2,7 +2,6 @@
 
 import { useEffect, useId, useRef, useCallback } from "react";
 import {
-  Activity,
   Waves,
   Wind,
   Thermometer,
@@ -240,15 +239,14 @@ export function ConditionsSection({
   return (
     <SimpleCardLayout
       title={
-        <div className="flex items-center">
-          <Activity className="w-5 h-5 mr-2 text-primary" />
-          Session Conditions
-        </div>
+        <span className="text-sm font-bold text-[#1A1A1A] uppercase tracking-wide">
+          Actual Conditions
+        </span>
       }
       description={
         formState.selectedBeachId && formState.selectedDate
-          ? "Rate the conditions during your session and help the community with real-time data"
-          : "Showing fallback until beach and date are selected. You can still enter your observations."
+          ? "Help the community with real surf reports"
+          : "Select a beach and date above, then fill in what you observed"
       }
     >
       <div className="space-y-8">
@@ -342,8 +340,8 @@ export function ConditionsSection({
 
         {/* Actual Conditions */}
         <div className="space-y-6">
-          <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-            Actual Surf Conditions
+          <h3 className="text-sm font-bold text-[#1A1A1A] uppercase tracking-wide">
+            Your Observations
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
