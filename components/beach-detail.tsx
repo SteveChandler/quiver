@@ -415,46 +415,92 @@ function BeachDetailContent({
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-gray-50/30 to-white">
-      {/* Main Content Container */}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6">
-        {/* Breadcrumb Navigation */}
-        <BeachBreadcrumb beach={beach} className="mb-4" />
+      {showCamHero ? (
+        /* Immersive cam hero: video background with title at top and forecast at bottom */
+        <div className="retro-hero-section relative mb-6">
+          {/* Video background — hero variant strips card chrome */}
+          <Suspense fallback={<div className="aspect-video w-full" style={{ backgroundColor: "#111D35" }} />}>
+            <CamsSection sources={sources} variant="hero" />
+          </Suspense>
 
-        {/* Compact Hero - Title, Rating, Difficulty, Location */}
-        <BeachHeroCompact
-          beach={beach as any}
-          publicMode={publicMode}
-          personalizationScore={personalizationData?.score}
-          affinityData={personalizationData?.affinityData}
-          baseScore={beach.base_score}
-          isLoadingPersonalization={personalizationData?.isLoading}
-          currentForecast={currentForecast}
-          className="mb-6"
-        />
-
-        {/* At-a-Glance Conditions Ticker */}
-        {currentForecast && (
-          <ConditionsTicker
-            data={forecastToConditionsData(currentForecast)}
-            theme="light"
-            beachName={beach.name}
-            className="mb-4"
+          {/* Top gradient — darkens top for title readability */}
+          <div
+            className="absolute inset-x-0 top-0 h-1/3 pointer-events-none z-[5]"
+            style={{ background: "linear-gradient(to bottom, rgba(11,20,38,0.7) 0%, rgba(11,20,38,0.3) 60%, transparent 100%)" }}
           />
-        )}
+
+          {/* Bottom gradient — darkens bottom for forecast readability */}
+          <div
+            className="retro-hero-gradient absolute inset-x-0 bottom-0 h-1/2 pointer-events-none z-[5]"
+            style={{ background: "linear-gradient(to top, #0B1426 0%, rgba(11,20,38,0.85) 30%, rgba(11,20,38,0.3) 65%, transparent 100%)" }}
+          />
+
+          {/* Title — top of video */}
+          <div className="retro-hero-overlay absolute inset-x-0 top-0 px-4 sm:px-6 pt-6 z-[6]">
+            <div className="mx-auto max-w-7xl">
+              <BeachBreadcrumb beach={beach} className="mb-1" />
+              <h1
+                className="font-display text-4xl sm:text-5xl font-bold text-white leading-tight"
+                style={{ textShadow: "0 2px 16px rgba(0,0,0,0.7)" }}
+              >
+                {beach.name} Surf Report
+              </h1>
+            </div>
+          </div>
+
+          {/* Forecast overlay — bottom of video */}
+          <div className="absolute inset-x-0 bottom-0 px-4 sm:px-6 pb-4 z-[6]">
+            <div className="mx-auto max-w-7xl">
+              <BeachHeroCompact
+                beach={beach as any}
+                publicMode={publicMode}
+                personalizationScore={personalizationData?.score}
+                affinityData={personalizationData?.affinityData}
+                baseScore={beach.base_score}
+                isLoadingPersonalization={personalizationData?.isLoading}
+                currentForecast={currentForecast}
+                overlayMode={true}
+              />
+              {currentForecast && (
+                <ConditionsTicker
+                  data={forecastToConditionsData(currentForecast)}
+                  theme="dark"
+                  beachName={beach.name}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Photo gallery fallback — normal flow, no overlay magic */
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6">
+          <BeachBreadcrumb beach={beach} className="mb-4" />
+          <BeachHeroCompact
+            beach={beach as any}
+            publicMode={publicMode}
+            personalizationScore={personalizationData?.score}
+            affinityData={personalizationData?.affinityData}
+            baseScore={beach.base_score}
+            isLoadingPersonalization={personalizationData?.isLoading}
+            currentForecast={currentForecast}
+          />
+          <BeachPhotoGallery beach={beach} className="mb-6" />
+          {currentForecast && (
+            <ConditionsTicker
+              data={forecastToConditionsData(currentForecast)}
+              theme="light"
+              beachName={beach.name}
+              className="mb-4"
+            />
+          )}
+        </div>
+      )}
+
+      {/* Main Content Container */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
 
         {/* Surf Call Card (server-rendered slot) */}
         {surfReportSlot}
-
-        {/* Hero Media: Live Cam (when available) or Photo Gallery */}
-        {showCamHero ? (
-          <div className="mb-6">
-            <Suspense fallback={<div className="aspect-video w-full animate-pulse rounded-3xl bg-blue-100/50" />}>
-              <CamsSection sources={sources} />
-            </Suspense>
-          </div>
-        ) : (
-          <BeachPhotoGallery beach={beach} className="mb-6" />
-        )}
 
         {/* Key Stats Grid */}
         <BeachStatsGrid

@@ -30,6 +30,8 @@ interface BeachHeroCompactProps {
   currentForecast?: EnhancedForecastEntity | null;
   className?: string;
   publicMode?: boolean;
+  /** When true, renders transparent over video — hides h1, uses white text */
+  overlayMode?: boolean;
 }
 
 export function BeachHeroCompact({
@@ -40,7 +42,8 @@ export function BeachHeroCompact({
   isLoadingPersonalization,
   currentForecast,
   className,
-  publicMode
+  publicMode,
+  overlayMode = false,
 }: BeachHeroCompactProps) {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const rating = beach.average_rating;
@@ -113,15 +116,20 @@ export function BeachHeroCompact({
   }, [publicMode, personalizationScore, isLoadingPersonalization, beach.name]);
 
   return (
-    <div className={`bg-white py-6 border-b border-gray-200 ${className || ""}`}>
+    <div
+      className={`${overlayMode ? "" : "bg-white border-b border-gray-200"} py-6 ${className || ""}`}
+    >
       {/* Phase 4 Spec: Beach Name - 36px Roboto, 700 weight, 44px line-height, 8px margin-bottom */}
-      <h1 className="text-4xl font-roboto font-bold leading-[44px] text-gray-900 mb-2">
-        {beach.name} Surf Report
-      </h1>
+      {/* Hidden in overlayMode — title is rendered separately in the hero overlay above */}
+      {!overlayMode && (
+        <h1 className="text-4xl font-roboto font-bold leading-[44px] text-gray-900 mb-2">
+          {beach.name} Surf Report
+        </h1>
+      )}
 
       {/* Personalization Badge - Show after title for authenticated users */}
       {isLoadingPersonalization && (
-        <div className="flex items-center gap-2 text-muted-foreground mb-3">
+        <div className={`flex items-center gap-2 mb-3 ${overlayMode ? "text-white/70" : "text-muted-foreground"}`}>
           <Loader2 className="h-4 w-4 animate-spin" />
           <span className="text-sm">Calculating your match...</span>
         </div>
@@ -188,7 +196,10 @@ export function BeachHeroCompact({
       )}
 
       {/* Phase 4 Spec: Metadata Row - 12px margin, flex layout */}
-      <div className="flex flex-wrap items-center gap-2 my-3">
+      <div
+        className="flex flex-wrap items-center gap-2 my-3"
+        style={overlayMode ? { textShadow: "0 1px 8px rgba(0,0,0,0.5)" } : undefined}
+      >
         {/* Phase 4 Spec: Rating Component - 8px gap, 12px vertical margin */}
         {rating > 0 && (
           <>
@@ -196,15 +207,15 @@ export function BeachHeroCompact({
               {/* Phase 4 Spec: Star Icons - 20×20px */}
               <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
               {/* Phase 4 Spec: Rating Text - 18px, 600 weight */}
-              <span className="text-lg font-semibold text-gray-900">{rating.toFixed(1)}</span>
+              <span className={`text-lg font-semibold ${overlayMode ? "text-white" : "text-gray-900"}`}>{rating.toFixed(1)}</span>
             </div>
             {/* Phase 4 Spec: Review Count - 14px, gray-600, 8px margin-left */}
             {reviewCount > 0 && (
-              <span className="text-sm text-gray-600 ml-2">
+              <span className={`text-sm ml-2 ${overlayMode ? "text-white/70" : "text-gray-600"}`}>
                 ({reviewCount} {reviewCount === 1 ? "review" : "reviews"})
               </span>
             )}
-            <span className="text-gray-400">·</span>
+            <span className={overlayMode ? "text-white/40" : "text-gray-400"}>·</span>
           </>
         )}
 
@@ -217,17 +228,17 @@ export function BeachHeroCompact({
             >
               {beach.skill_level}
             </Badge>
-            <span className="text-gray-400">·</span>
+            <span className={overlayMode ? "text-white/40" : "text-gray-400"}>·</span>
           </>
         )}
 
         {/* Break Type */}
-        <span className="text-gray-900 font-medium text-sm">{breakType}</span>
+        <span className={`font-medium text-sm ${overlayMode ? "text-white" : "text-gray-900"}`}>{breakType}</span>
 
-        <span className="text-gray-400">·</span>
+        <span className={overlayMode ? "text-white/40" : "text-gray-400"}>·</span>
 
         {/* Location */}
-        <span className="text-gray-600 text-sm">{location}</span>
+        <span className={`text-sm ${overlayMode ? "text-white/70" : "text-gray-600"}`}>{location}</span>
       </div>
 
       {publicMode && (

@@ -13,9 +13,10 @@ const HLSVideoPlayer = dynamic(() => import("./hls-video-player"), {
 
 interface CamsSectionProps {
   sources?: BeachSources | null;
+  variant?: "default" | "hero";
 }
 
-export function CamsSection({ sources }: CamsSectionProps) {
+export function CamsSection({ sources, variant = "default" }: CamsSectionProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeBlocked, setIframeBlocked] = useState(false);
   const [hlsError, setHlsError] = useState(false);
@@ -144,6 +145,14 @@ export function CamsSection({ sources }: CamsSectionProps) {
   } else {
     // Camera exists but can't be embedded — hide section entirely
     return null;
+  }
+
+  if (variant === "hero") {
+    return (
+      <div className="relative aspect-video w-full overflow-hidden">
+        {visual}
+      </div>
+    );
   }
 
   return (

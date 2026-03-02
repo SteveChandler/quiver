@@ -193,7 +193,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     }
 
     return (
-      <>
+      <div className="theme-retro-dark min-h-screen">
         {/* Structured Data: Place/Beach */}
         <BeachPageStructuredData
           beachName={beach.name}
@@ -307,7 +307,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             />
           <RelatedGuidesSection beach={beach} bestTimeToSurfUrl={bestTimeToSurfUrl} />
         </div>
-      </>
+      </div>
     );
   } catch (error) {
     // Ensure Next.js router signals are not swallowed by this page-level try/catch.

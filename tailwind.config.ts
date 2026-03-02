@@ -17,6 +17,7 @@ const config: Config = {
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],
         roboto: ["var(--font-roboto)", "system-ui", "sans-serif"],
         "open-sans": ["var(--font-open-sans)", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "cursive"],
       },
       colors: {
         "ocean-blue": "#0077B6",

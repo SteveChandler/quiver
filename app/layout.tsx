@@ -1,6 +1,6 @@
 import type React from "react";
 import type { Metadata, Viewport } from "next";
-import { Inter, Roboto, Open_Sans } from "next/font/google";
+import { Inter, Roboto, Open_Sans, Permanent_Marker } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
 import { SEO_CONFIG } from "@/lib/constants/seo";
@@ -31,6 +31,14 @@ const openSans = Open_Sans({
   display: "swap",
   preload: false, // Not critical for LCP
   variable: "--font-open-sans",
+});
+
+const permanentMarker = Permanent_Marker({
+  weight: "400",
+  subsets: ["latin"],
+  display: "swap",
+  preload: false, // Only used for the retro theme prototype
+  variable: "--font-display",
 });
 
 // Optimize viewport for mobile performance
@@ -172,7 +180,7 @@ export default async function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${roboto.variable} ${openSans.variable}`}
+      className={`${inter.variable} ${roboto.variable} ${openSans.variable} ${permanentMarker.variable}`}
     >
       {/* WARNING: No whitespace allowed between tags in <head> to prevent React hydration errors. See: https://react.dev/link/hydration-mismatch */}
       <head>

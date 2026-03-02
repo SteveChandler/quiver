@@ -75,9 +75,6 @@ export function PersonalizedForecastTeaser({
         >
           Get Your Forecast
         </button>
-        <p className="text-center text-xs text-muted-foreground">
-          Free &bull; No credit card
-        </p>
       </div>
 
       {showAuth && (
