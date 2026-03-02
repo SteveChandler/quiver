@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/auth-context";
+import { isNativeApp } from "@/lib/mobile/platform";
 import { OrbitAnimation } from "./orbit-animation";
 import { AuthMethodPicker } from "./auth-method-picker";
 import { Button } from "@/components/ui/button";
@@ -28,8 +29,13 @@ export function WelcomeScreen() {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("splash");
 
-  // Redirect returning/authenticated users immediately
+  // Redirect returning/authenticated users immediately.
+  // Also redirect desktop/web visitors — this page is native-app only.
   useEffect(() => {
+    if (!isLoading && !isNativeApp()) {
+      router.replace("/");
+      return;
+    }
     if (!isLoading && isAuthenticated) {
       router.replace("/");
     }

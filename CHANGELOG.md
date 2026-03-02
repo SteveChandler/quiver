@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **OG image routes for progression and streak share cards** — Dedicated Open Graph image endpoints for social sharing of progression milestones.
 - **"Feedback loop" brand copy reflecting two-pillar identity (Forecast + Track)** — Hero tagline updated to "Every session makes your next forecast smarter." Post-session confirmation copy now surfaces the user's contribution to forecast accuracy at their beach.
 
+### Fixed
+- **`/welcome` restricted to native app only** — `WelcomeScreen` now calls `isNativeApp()` after auth loading resolves; non-Capacitor visitors are immediately redirected to `/`. Added `/welcome` to the robots.txt disallow list. Sitemap confirmed to not include `/welcome`. The `robots: { index: false, follow: false }` metadata on `app/welcome/page.tsx` was already in place.
+
 ### Changed
 - **SEO CTR optimization for beach page meta tags** — All beach title tiers now include location context (city + state) via progressive fallback suffix. PR/HI states expand to full names ("Puerto Rico", "Hawaii"). Description snippets split on sentence/clause boundaries instead of hard 60-char truncation, preventing broken mid-word text. Added "punchy", "heavy", "clean" wave character keywords. Description opener includes location and uses "7-day surf forecast" phrasing.
 - **Session goals now write to `goals[]` column instead of being appended to notes** — Structured storage enables progression analytics and trend tracking.
