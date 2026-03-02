@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback } from "react";
-import { Waves, Wind, Anchor, TrendingUp } from "lucide-react";
+import { useCallback, useState } from "react";
+import { Waves, Wind, Anchor, TrendingUp, ChevronDown } from "lucide-react";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -15,7 +15,7 @@ interface BeachStatsGridProps {
 
 function StatsGridSkeleton({ className }: { className?: string }) {
   return (
-    <div className={`bg-gray-50 p-5 rounded-xl my-6 animate-pulse ${className || ""}`}>
+    <div className={`bg-gray-50 p-4 sm:p-5 rounded-xl my-4 sm:my-6 animate-pulse ${className || ""}`}>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="flex flex-col gap-1">
@@ -53,6 +53,8 @@ export function BeachStatsGrid({
     immediate: true,
     initialData: null,
   });
+
+  const [expanded, setExpanded] = useState(false);
 
   // Show loading skeleton while fetching calibration data
   if (loading) {
@@ -139,8 +141,19 @@ export function BeachStatsGrid({
   ];
 
   return (
-    <div data-testid="beach-stats-grid" className={`bg-gray-50 p-5 rounded-xl my-6 ${className || ""}`}>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div data-testid="beach-stats-grid" className={`bg-gray-50 p-4 sm:p-5 rounded-xl my-4 sm:my-6 ${className || ""}`}>
+      <button
+        type="button"
+        className="flex w-full items-center justify-between md:hidden"
+        onClick={() => setExpanded((prev) => !prev)}
+        aria-expanded={expanded}
+      >
+        <span className="text-sm font-semibold text-gray-900">Spot Details</span>
+        <ChevronDown
+          className={`h-5 w-5 text-gray-500 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+        />
+      </button>
+      <div className={`${expanded ? "grid" : "hidden"} md:grid grid-cols-2 md:grid-cols-4 gap-4 ${expanded ? "mt-3 md:mt-0" : ""}`}>
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (

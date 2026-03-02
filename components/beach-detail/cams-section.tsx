@@ -100,7 +100,7 @@ export function CamsSection({ sources, variant = "default" }: CamsSectionProps) 
           src={intent.src}
           title={intent.title || "Live Cam"}
           allow={intent.allow}
-          className="h-full w-full"
+          className="h-full w-full object-cover"
           loading="lazy"
           onError={() => setIframeBlocked(true)}
         />
@@ -138,7 +138,7 @@ export function CamsSection({ sources, variant = "default" }: CamsSectionProps) 
           autoPlay
           playsInline
           muted
-          className="h-full w-full"
+          className="h-full w-full object-cover"
         />
       </div>
     );
@@ -149,7 +149,7 @@ export function CamsSection({ sources, variant = "default" }: CamsSectionProps) 
 
   if (variant === "hero") {
     return (
-      <div className="relative aspect-video w-full overflow-hidden">
+      <div className="relative aspect-[4/5] w-full overflow-hidden sm:aspect-video [&>div]:h-full [&>div]:!aspect-auto">
         {visual}
       </div>
     );

@@ -121,7 +121,7 @@ export default function HLSVideoPlayer({ src, title, onError }: HLSVideoPlayerPr
         autoPlay
         playsInline
         muted
-        className="h-full w-full"
+        className="h-full w-full object-cover"
         title={title}
       />
     </div>

@@ -67,9 +67,9 @@ export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false 
   return (
     <section
       aria-label={`${isTomorrow ? "Tomorrow's" : "Today's"} surf call for ${spotName}`}
-      className="mb-6"
+      className="mb-4 sm:mb-6"
     >
-      <div className="rounded-3xl border border-blue-100/60 bg-white/95 p-5 shadow-lg backdrop-blur">
+      <div className="rounded-3xl border border-blue-100/60 bg-white/95 p-4 sm:p-5 shadow-lg backdrop-blur">
         {/* Header row */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
@@ -88,7 +88,7 @@ export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false 
                 Best at {peakTimeCasual}
               </span>
             )}
-            <h2 className="text-lg font-semibold text-dark-grey">
+            <h2 className="text-base sm:text-lg font-semibold text-dark-grey">
               {heading}
             </h2>
           </div>
@@ -115,7 +115,7 @@ export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false 
             source="surf-call-conditions"
           >
             {(showBestWindow || report.waveHeight || windDisplay || tideDisplay) && (
-              <div className="mt-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+              <div className="mt-3 sm:mt-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
                 {(() => {
                   const items: React.ReactNode[] = [];
                   if (showBestWindow) {
@@ -146,7 +146,7 @@ export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false 
 
             {/* Why sentence */}
             {report.whySentence && (
-              <p className="mt-3 text-sm text-muted-foreground">
+              <p className="mt-2 sm:mt-3 text-sm text-muted-foreground">
                 {report.whySentence}
               </p>
             )}
@@ -161,14 +161,14 @@ function SpotSurfReportSkeleton() {
   return (
     <section
       aria-label="Loading surf call"
-      className="mb-6"
+      className="mb-4 sm:mb-6"
     >
-      <div className="animate-pulse rounded-3xl border border-blue-100/60 bg-white/95 p-5 shadow-lg backdrop-blur">
+      <div className="animate-pulse rounded-3xl border border-blue-100/60 bg-white/95 p-4 sm:p-5 shadow-lg backdrop-blur">
         <div className="flex items-center gap-3">
           <div className="h-7 w-16 rounded-xl bg-slate-200" />
           <div className="h-6 w-36 rounded bg-slate-200" />
         </div>
-        <div className="mt-4 flex gap-4">
+        <div className="mt-3 sm:mt-4 flex gap-4">
           <div className="h-4 w-24 rounded bg-slate-100" />
           <div className="h-4 w-20 rounded bg-slate-100" />
           <div className="h-4 w-16 rounded bg-slate-100" />
