@@ -115,12 +115,9 @@ async function getBeachRoutes(): Promise<MetadataRoute.Sitemap> {
   const fallbackDate = "2026-02-10";
 
   return beaches
-    .filter((b) => b.slug) // Only include beaches with a slug
+    .filter((b) => b.slug && b.city && b.state) // Only include beaches with complete location data
     .map((beach) => {
-      // Use hierarchical URL if we have complete location data
-      const beachUrl = beach.city && beach.state
-        ? `${baseUrl}${buildBeachUrl(beach)}`
-        : `${baseUrl}/spots/${beach.slug}`;
+      const beachUrl = `${baseUrl}${buildBeachUrl(beach)}`;
 
       const lastModifiedDate =
         (beach as { updated_at?: string | null }).updated_at ||
@@ -183,6 +180,11 @@ async function getLocationRoutes(): Promise<MetadataRoute.Sitemap> {
       continue;
     }
 
+    // Filter out locations with fewer than 2 beaches (thin content).
+    // Metro areas (beachCount=0 in the listing) are exempt — their content
+    // is aggregated from constituent cities at runtime.
+    if (!(location as any).isMetro && (location.beachCount ?? 0) < 2) continue;
+
     if (isUsa) {
       const stateSlug = stateToSlug(location.state);
       const citySlug = slugifyAscii(location.city);
@@ -239,32 +241,34 @@ async function getIntentRoutes(): Promise<MetadataRoute.Sitemap> {
 
   // Skill-based intents that require cities to have matching beach skill levels
   const BEGINNER_INTENTS = new Set(["beginner", "longboard"]);
+  const FILTERED_INTENTS = new Set(["beginner", "longboard", "least-crowded"]);
   const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
 
   const routes: MetadataRoute.Sitemap = [];
 
-  // Track which states have beginner/longboard beaches (derived from city data below).
-  // When city data is unavailable (fetch fails or empty), we fail-open: include all
-  // state-level routes rather than accidentally removing indexed pages from the sitemap.
+  // Track which states have beginner/longboard beaches and least-crowded beaches
+  // (derived from city data below).
   const statesWithBeginnerBeaches = new Set<string>();
-  let cityDataAvailable = false;
+  const statesWithLeastCrowdedBeaches = new Set<string>();
 
   // City-level intent pages (database-driven)
   try {
     const citiesResult = await getAllCitiesWithBeachSkills(1);
     if (citiesResult.success && citiesResult.data && citiesResult.data.length > 0) {
-      cityDataAvailable = true;
-
       // Filter to US-only cities (non-US cities lack state codes for disambiguation)
       const usCities = citiesResult.data.filter(
         (c) => c.country?.toUpperCase() === "USA" || c.country?.toUpperCase() === "US"
       );
       const collisionMap = COLLISION_CITY_MAP;
 
-      // Derive which states have beginner/longboard beaches for state-level filtering below
+      // Derive which states have beginner/longboard beaches and least-crowded beaches
+      // for state-level filtering below
       for (const c of usCities) {
         if (c.hasBeginnerBeaches && c.state) {
           statesWithBeginnerBeaches.add(c.state.toLowerCase());
+        }
+        if (c.hasLeastCrowdedBeaches && c.state) {
+          statesWithLeastCrowdedBeaches.add(c.state.toLowerCase());
         }
       }
 
@@ -281,10 +285,12 @@ async function getIntentRoutes(): Promise<MetadataRoute.Sitemap> {
         if (cityRecord.beachCount === 2 && !cityRecord.hasEditorialContent) continue;
 
         for (const intent of intents) {
-          // Filter skill-based intents to cities with matching beaches.
+          // Filter skill-based and crowd-based intents to cities with matching beaches.
           // This ensures empty intent pages are NOT included in the sitemap.
-          // Cities without beginner-friendly beaches skip beginner/longboard intents.
-          if (BEGINNER_INTENTS.has(intent) && !cityRecord.hasBeginnerBeaches) continue;
+          if (FILTERED_INTENTS.has(intent)) {
+            if (BEGINNER_INTENTS.has(intent) && !cityRecord.hasBeginnerBeaches) continue;
+            if (intent === "least-crowded" && !cityRecord.hasLeastCrowdedBeaches) continue;
+          }
 
           // Dynamic priority based on beach count
           const priority = cityRecord.beachCount >= 10 ? 0.8 : 0.7;
@@ -311,10 +317,11 @@ async function getIntentRoutes(): Promise<MetadataRoute.Sitemap> {
   const usStates = ["ca", "or", "wa", "hi", "pr", "fl", "nj", "ny", "nc", "sc", "tx", "ma", "me", "nh", "ri", "ga"];
   for (const state of usStates) {
     for (const intent of intents) {
-      // Skip skill-based intents for states with no matching beaches.
-      // Fail-open: if city data was unavailable, include all routes to avoid
-      // removing indexed pages from the sitemap.
-      if (cityDataAvailable && BEGINNER_INTENTS.has(intent) && !statesWithBeginnerBeaches.has(state)) continue;
+      // Skip skill-based and crowd-based intents for states with no matching beaches.
+      if (FILTERED_INTENTS.has(intent)) {
+        if (BEGINNER_INTENTS.has(intent) && !statesWithBeginnerBeaches.has(state)) continue;
+        if (intent === "least-crowded" && !statesWithLeastCrowdedBeaches.has(state)) continue;
+      }
 
       routes.push({
         url: `${baseUrl}/${intent}/${state}`,

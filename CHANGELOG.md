@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Sitemap: sync `least-crowded` intent pages with runtime noindex logic** — `least-crowded` city and state intent pages are now filtered using a new `hasLeastCrowdedBeaches` flag (crowd_level `light` or `moderate`) on `CityWithSkillCategories`, preventing empty pages from being indexed. `FILTERED_INTENTS` set introduced in `app/sitemap.ts` to group all data-gated intents. Both city-level and state-level filtering apply the same flag.
+- **Sitemap: remove fail-open guard for filtered state-level intent pages** — The `cityDataAvailable` flag that bypassed beginner/longboard/least-crowded filtering when city data was unavailable has been removed. State-level filtered intent routes are now excluded when city data is absent (fail-closed), preventing thin pages from entering the sitemap during transient DB failures.
+- **Sitemap: filter location browse pages with fewer than 2 beaches** — City location pages (`/beaches/usa/{state}/{city}`) with only 1 beach are now excluded as thin content.
+- **Sitemap: exclude incomplete beaches and remove `/spots/` fallback** — Beach routes now require `slug`, `city`, and `state` to be included. Beaches missing city or state are excluded entirely rather than falling back to `/spots/{slug}` URLs (which are blocked by `robots.txt`).
 - **HDOnTap camera CORS errors** — HLS proxy now rewrites absolute URLs in `.m3u8` manifests to proxy-relative paths, so hls.js follows sub-resource requests (chunklists, segments) through `/api/hls-proxy/` instead of directly to `live.hdontap.com`
 
 ### Added
@@ -47,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`/welcome` restricted to native app only** — `WelcomeScreen` now calls `isNativeApp()` after auth loading resolves; non-Capacitor visitors are immediately redirected to `/`. Added `/welcome` to the robots.txt disallow list. Sitemap confirmed to not include `/welcome`. The `robots: { index: false, follow: false }` metadata on `app/welcome/page.tsx` was already in place.
 
 ### Changed
+- **Global rebrand: dark retro surf aesthetic (navy #0B1426, hot pink #FF3B8B, teal #00D4AA) replaces corporate light theme**
 - **SEO CTR optimization for beach page meta tags** — All beach title tiers now include location context (city + state) via progressive fallback suffix. PR/HI states expand to full names ("Puerto Rico", "Hawaii"). Description snippets split on sentence/clause boundaries instead of hard 60-char truncation, preventing broken mid-word text. Added "punchy", "heavy", "clean" wave character keywords. Description opener includes location and uses "7-day surf forecast" phrasing.
 - **Session form redesigned as single scrollable page** — Replaces multi-step wizard for both Log and Plan modes, inspired by Strava's Add Manual Activity flow
 - **Subjective ratings use branded sliders** — Wave quality, crowd, and overall ratings now use Radix UI sliders with color ramps instead of star ratings

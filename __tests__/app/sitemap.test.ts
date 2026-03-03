@@ -55,8 +55,8 @@ describe("Sitemap Generation", () => {
     (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
       success: true,
       data: [
-        { city: "San Diego", state: "CA", country: "USA", beachCount: 15, hasBeginnerBeaches: true, hasAdvancedBeaches: true },
-        { city: "Encinitas", state: "CA", country: "USA", beachCount: 5, hasBeginnerBeaches: true, hasAdvancedBeaches: false },
+        { city: "San Diego", state: "CA", country: "USA", beachCount: 15, hasBeginnerBeaches: true, hasAdvancedBeaches: true, hasLeastCrowdedBeaches: true, hasEditorialContent: true },
+        { city: "Encinitas", state: "CA", country: "USA", beachCount: 5, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: true, hasEditorialContent: true },
       ],
     });
   });
@@ -167,8 +167,16 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
 
-      // Should still return state-level intent routes
-      expect(result.find((r) => r.url === `${baseUrl}/beginner/ca`)).toBeTruthy();
+      // City-level intent routes should be absent (no data to derive them)
+      expect(result.find((r) => r.url === `${baseUrl}/beginner/san-diego`)).toBeUndefined();
+
+      // Unfiltered state-level intent routes should still be present (tide, water-temp, etc.)
+      expect(result.find((r) => r.url === `${baseUrl}/tide/ca`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/water-temp/ca`)).toBeTruthy();
+
+      // Filtered state-level intents (beginner, longboard, least-crowded) are now excluded
+      // when city data is unavailable — fail-closed to avoid indexing empty pages.
+      expect(result.find((r) => r.url === `${baseUrl}/beginner/ca`)).toBeUndefined();
 
       consoleSpy.mockRestore();
     });
@@ -176,12 +184,12 @@ describe("Sitemap Generation", () => {
     it("should include state-level intent routes", async () => {
       const result = await sitemap();
       const usStates = ["ca", "or", "wa", "hi", "fl", "nj", "ny", "nc", "sc", "tx"];
-      const nonSkillIntents = ["least-crowded", "tide", "water-temp", "dawn-patrol", "sunset"];
+      const unFilteredIntents = ["tide", "water-temp", "dawn-patrol", "sunset"];
       const skillIntents = ["beginner", "longboard"];
 
-      // Non-skill intents should exist for all states
+      // Unfiltered intents should exist for all states
       for (const state of usStates) {
-        for (const intent of nonSkillIntents) {
+        for (const intent of unFilteredIntents) {
           const route = result.find((r) => r.url === `${baseUrl}/${intent}/${state}`);
           expect(route).toBeTruthy();
         }
@@ -193,6 +201,12 @@ describe("Sitemap Generation", () => {
         // States without beginner data should be excluded
         expect(result.find((r) => r.url === `${baseUrl}/${intent}/ga`)).toBeUndefined();
       }
+
+      // least-crowded is now filtered: only states with hasLeastCrowdedBeaches get it.
+      // Default mock has CA cities with hasLeastCrowdedBeaches: true → CA gets the route.
+      expect(result.find((r) => r.url === `${baseUrl}/least-crowded/ca`)).toBeTruthy();
+      // GA has no cities in the mock → least-crowded/ga should be excluded.
+      expect(result.find((r) => r.url === `${baseUrl}/least-crowded/ga`)).toBeUndefined();
     });
   });
 
@@ -222,7 +236,7 @@ describe("Sitemap Generation", () => {
       });
     });
 
-    it("should not generate city intent routes when getAllCitiesWithBeachSkills returns empty", async () => {
+    it("should not generate city or filtered-state intent routes when getAllCitiesWithBeachSkills returns empty", async () => {
       (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
         success: true,
         data: [],
@@ -236,18 +250,25 @@ describe("Sitemap Generation", () => {
       );
       expect(cityIntentRoute).toBeUndefined();
 
-      // State-level intent routes should still exist
-      const stateIntentRoute = result.find(
+      // Filtered state-level intent routes (beginner, longboard, least-crowded) are
+      // excluded when city data returns empty — fail-closed prevents indexing empty pages.
+      const stateBeginnerRoute = result.find(
         (r) => r.url === `${baseUrl}/beginner/ca`
       );
-      expect(stateIntentRoute).toBeTruthy();
+      expect(stateBeginnerRoute).toBeUndefined();
+
+      // Unfiltered state-level intent routes (tide, water-temp, etc.) still exist
+      const stateTideRoute = result.find(
+        (r) => r.url === `${baseUrl}/tide/ca`
+      );
+      expect(stateTideRoute).toBeTruthy();
     });
 
     it("should exclude beginner/longboard intents for cities without beginner beaches", async () => {
       (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
         success: true,
         data: [
-          { city: "Advanced City", state: "CA", country: "USA", beachCount: 5, hasBeginnerBeaches: false, hasAdvancedBeaches: true },
+          { city: "Advanced City", state: "CA", country: "USA", beachCount: 5, hasBeginnerBeaches: false, hasAdvancedBeaches: true, hasLeastCrowdedBeaches: true },
         ],
       });
 
@@ -257,19 +278,21 @@ describe("Sitemap Generation", () => {
       expect(result.find((r) => r.url === `${baseUrl}/beginner/advanced-city`)).toBeUndefined();
       expect(result.find((r) => r.url === `${baseUrl}/longboard/advanced-city`)).toBeUndefined();
 
-      // Should still include non-skill intents
+      // Should still include non-filtered intents
       expect(result.find((r) => r.url === `${baseUrl}/tide/advanced-city`)).toBeTruthy();
       expect(result.find((r) => r.url === `${baseUrl}/water-temp/advanced-city`)).toBeTruthy();
-      expect(result.find((r) => r.url === `${baseUrl}/least-crowded/advanced-city`)).toBeTruthy();
       expect(result.find((r) => r.url === `${baseUrl}/dawn-patrol/advanced-city`)).toBeTruthy();
       expect(result.find((r) => r.url === `${baseUrl}/sunset/advanced-city`)).toBeTruthy();
+
+      // least-crowded is included because hasLeastCrowdedBeaches is true
+      expect(result.find((r) => r.url === `${baseUrl}/least-crowded/advanced-city`)).toBeTruthy();
     });
 
     it("should include beginner/longboard intents for cities WITH beginner beaches", async () => {
       (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
         success: true,
         data: [
-          { city: "Beginner Town", state: "CA", country: "USA", beachCount: 3, hasBeginnerBeaches: true, hasAdvancedBeaches: false },
+          { city: "Beginner Town", state: "CA", country: "USA", beachCount: 3, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false },
         ],
       });
 
@@ -284,9 +307,9 @@ describe("Sitemap Generation", () => {
       (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
         success: true,
         data: [
-          { city: "San Diego", state: "CA", country: "USA", beachCount: 15, hasBeginnerBeaches: true, hasAdvancedBeaches: true },
-          { city: "Rosarito", state: "Baja California", country: "Mexico", beachCount: 3, hasBeginnerBeaches: true, hasAdvancedBeaches: false },
-          { city: "Puerto Nuevo", state: "Baja California", country: "Mexico", beachCount: 2, hasBeginnerBeaches: false, hasAdvancedBeaches: false },
+          { city: "San Diego", state: "CA", country: "USA", beachCount: 15, hasBeginnerBeaches: true, hasAdvancedBeaches: true, hasLeastCrowdedBeaches: true },
+          { city: "Rosarito", state: "Baja California", country: "Mexico", beachCount: 3, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false },
+          { city: "Puerto Nuevo", state: "Baja California", country: "Mexico", beachCount: 2, hasBeginnerBeaches: false, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false },
         ],
       });
 
@@ -304,10 +327,10 @@ describe("Sitemap Generation", () => {
       (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
         success: true,
         data: [
-          { city: "Newport", state: "OR", country: "USA", beachCount: 5, hasBeginnerBeaches: true, hasAdvancedBeaches: false },
-          { city: "Newport Beach", state: "CA", country: "USA", beachCount: 10, hasBeginnerBeaches: true, hasAdvancedBeaches: true },
-          { city: "Koloa", state: "HI", country: "USA", beachCount: 3, hasBeginnerBeaches: true, hasAdvancedBeaches: false },
-          { city: "Waikoloa", state: "HI", country: "USA", beachCount: 5, hasBeginnerBeaches: false, hasAdvancedBeaches: false },
+          { city: "Newport", state: "OR", country: "USA", beachCount: 5, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false },
+          { city: "Newport Beach", state: "CA", country: "USA", beachCount: 10, hasBeginnerBeaches: true, hasAdvancedBeaches: true, hasLeastCrowdedBeaches: false },
+          { city: "Koloa", state: "HI", country: "USA", beachCount: 3, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false },
+          { city: "Waikoloa", state: "HI", country: "USA", beachCount: 5, hasBeginnerBeaches: false, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false },
         ],
       });
 
@@ -328,26 +351,26 @@ describe("Sitemap Generation", () => {
       expect(result.find((r) => r.url === `${baseUrl}/tide/waikoloa`)).toBeTruthy();
     });
 
-    it("should still include non-skill intents for all cities regardless of skill flags", async () => {
+    it("should still include non-filtered intents for all cities regardless of skill/crowd flags", async () => {
       (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
         success: true,
         data: [
-          { city: "No Skill Data", state: "FL", country: "USA", beachCount: 5, hasBeginnerBeaches: false, hasAdvancedBeaches: false },
+          { city: "No Skill Data", state: "FL", country: "USA", beachCount: 5, hasBeginnerBeaches: false, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false },
         ],
       });
 
       const result = await sitemap();
 
-      // Non-skill intents always included (no state suffix since not in collision list)
+      // Unfiltered intents always included (no state suffix since not in collision list)
       expect(result.find((r) => r.url === `${baseUrl}/tide/no-skill-data`)).toBeTruthy();
       expect(result.find((r) => r.url === `${baseUrl}/water-temp/no-skill-data`)).toBeTruthy();
-      expect(result.find((r) => r.url === `${baseUrl}/least-crowded/no-skill-data`)).toBeTruthy();
       expect(result.find((r) => r.url === `${baseUrl}/dawn-patrol/no-skill-data`)).toBeTruthy();
       expect(result.find((r) => r.url === `${baseUrl}/sunset/no-skill-data`)).toBeTruthy();
 
-      // Skill intents excluded (no beginner beaches)
+      // Filtered intents excluded (no beginner beaches, no least-crowded beaches)
       expect(result.find((r) => r.url === `${baseUrl}/beginner/no-skill-data`)).toBeUndefined();
       expect(result.find((r) => r.url === `${baseUrl}/longboard/no-skill-data`)).toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/least-crowded/no-skill-data`)).toBeUndefined();
     });
   });
 
@@ -374,7 +397,7 @@ describe("Sitemap Generation", () => {
       expect(hierarchicalRoute).toBeTruthy();
     });
 
-    it("should use /spots/{slug} for beaches missing location data", async () => {
+    it("should exclude beaches missing location data (no /spots/ fallback)", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [
@@ -389,11 +412,14 @@ describe("Sitemap Generation", () => {
       });
 
       const result = await sitemap();
-      // Incomplete data falls back to /spots/ URL
+      // Incomplete data is excluded entirely — /spots/ URLs are blocked by robots.txt
       const spotsRoute = result.find((r) =>
         r.url.includes("/spots/mystery-break")
       );
-      expect(spotsRoute).toBeTruthy();
+      expect(spotsRoute).toBeUndefined();
+      // No entry at all for this beach
+      const anyBreakRoute = result.find((r) => r.url.includes("mystery-break"));
+      expect(anyBreakRoute).toBeUndefined();
     });
 
     it("should include beach routes using hierarchical URL for complete data", async () => {
@@ -449,7 +475,7 @@ describe("Sitemap Generation", () => {
       expect(waterTempRoute).toBeUndefined();
     });
 
-    it("should NOT include tides/water-temp for beaches without hierarchical URLs", async () => {
+    it("should exclude beaches without hierarchical URLs entirely", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [
@@ -464,12 +490,9 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
 
-      // Main page should exist
-      expect(result.find((r) => r.url.includes("/spots/mystery-break"))).toBeTruthy();
-
-      // No tides/water-temp for non-hierarchical URLs
-      expect(result.find((r) => r.url.includes("/mystery-break/tides"))).toBeUndefined();
-      expect(result.find((r) => r.url.includes("/mystery-break/water-temp"))).toBeUndefined();
+      // Beaches without city+state are excluded entirely (no /spots/ fallback)
+      expect(result.find((r) => r.url.includes("/spots/mystery-break"))).toBeUndefined();
+      expect(result.find((r) => r.url.includes("mystery-break"))).toBeUndefined();
     });
 
     it("should use hierarchical URL for international beaches with complete data", async () => {
@@ -518,28 +541,26 @@ describe("Sitemap Generation", () => {
       expect(beachRoute).toBeUndefined();
     });
 
-    it("should use /spots/{slug} fallback for beaches without city", async () => {
+    it("should exclude beaches without city (no /spots/ fallback)", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [
           {
             id: "beach-1",
             slug: "sunset-cliffs-garbage",
-            city: null, // Missing city - falls back to /spots/ URL
+            city: null, // Missing city — excluded from sitemap
             state: "CA",
           },
         ],
       });
 
       const result = await sitemap();
-      const sunsetRoute = result.find((r) =>
-        r.url.includes("/spots/sunset-cliffs")
-      );
-
-      expect(sunsetRoute).toBeTruthy();
+      // Neither hierarchical nor /spots/ URL should appear
+      expect(result.find((r) => r.url.includes("/spots/sunset-cliffs"))).toBeUndefined();
+      expect(result.find((r) => r.url.includes("sunset-cliffs"))).toBeUndefined();
     });
 
-    it("should use /spots/{slug} fallback for beaches without state", async () => {
+    it("should exclude beaches without state (no /spots/ fallback)", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [
@@ -547,17 +568,15 @@ describe("Sitemap Generation", () => {
             id: "beach-1",
             slug: "sunset-cliffs-garbage",
             city: "San Diego",
-            state: null, // Missing state - falls back to /spots/ URL
+            state: null, // Missing state — excluded from sitemap
           },
         ],
       });
 
       const result = await sitemap();
-      const sunsetRoute = result.find((r) =>
-        r.url.includes("/spots/sunset-cliffs")
-      );
-
-      expect(sunsetRoute).toBeTruthy();
+      // Neither hierarchical nor /spots/ URL should appear
+      expect(result.find((r) => r.url.includes("/spots/sunset-cliffs"))).toBeUndefined();
+      expect(result.find((r) => r.url.includes("sunset-cliffs"))).toBeUndefined();
     });
 
     it("should set priority 0.7 for beach routes", async () => {
@@ -657,9 +676,9 @@ describe("Sitemap Generation", () => {
       (getAllBeachLocations as jest.Mock).mockResolvedValue({
         success: true,
         data: [
-          { city: "La Jolla", state: "CA", country: "USA" },
-          { city: "Encinitas", state: "CA", country: "USA" },
-          { city: "Rosarito", state: "Baja California", country: "Mexico" },
+          { city: "La Jolla", state: "CA", country: "USA", beachCount: 5 },
+          { city: "Encinitas", state: "CA", country: "USA", beachCount: 3 },
+          { city: "Rosarito", state: "Baja California", country: "Mexico", beachCount: 4 },
         ],
       });
 
@@ -680,9 +699,9 @@ describe("Sitemap Generation", () => {
       (getAllBeachLocations as jest.Mock).mockResolvedValue({
         success: true,
         data: [
-          { city: "La Jolla", state: "CA", country: "USA" },
-          { city: "Haleiwa", state: "HI", country: "USA" },
-          { city: "Rosarito", state: "Baja California", country: "Mexico" },
+          { city: "La Jolla", state: "CA", country: "USA", beachCount: 5 },
+          { city: "Haleiwa", state: "HI", country: "USA", beachCount: 3 },
+          { city: "Rosarito", state: "Baja California", country: "Mexico", beachCount: 4 },
         ],
       });
 
@@ -704,7 +723,7 @@ describe("Sitemap Generation", () => {
     it("should emit both island-specific canonical URLs for HI Waimea (waimea-kauai + waimea-big-island)", async () => {
       (getAllBeachLocations as jest.Mock).mockResolvedValue({
         success: true,
-        data: [{ city: "Waimea", state: "HI", country: "USA" }],
+        data: [{ city: "Waimea", state: "HI", country: "USA", beachCount: 5 }],
       });
 
       const result = await sitemap();
@@ -725,7 +744,7 @@ describe("Sitemap Generation", () => {
     it("should emit ASCII-normalized canonical slugs for diacritics (Rincón -> rincon)", async () => {
       (getAllBeachLocations as jest.Mock).mockResolvedValue({
         success: true,
-        data: [{ city: "Rincón", state: "PR", country: "USA" }],
+        data: [{ city: "Rincón", state: "PR", country: "USA", beachCount: 6 }],
       });
 
       const result = await sitemap();
@@ -740,7 +759,7 @@ describe("Sitemap Generation", () => {
     it("should set priority 0.75 for location routes", async () => {
       (getAllBeachLocations as jest.Mock).mockResolvedValue({
         success: true,
-        data: [{ city: "La Jolla", state: "CA", country: "USA" }],
+        data: [{ city: "La Jolla", state: "CA", country: "USA", beachCount: 5 }],
       });
 
       const result = await sitemap();
@@ -754,7 +773,7 @@ describe("Sitemap Generation", () => {
     it("should set changeFrequency to weekly for location routes", async () => {
       (getAllBeachLocations as jest.Mock).mockResolvedValue({
         success: true,
-        data: [{ city: "La Jolla", state: "CA", country: "USA" }],
+        data: [{ city: "La Jolla", state: "CA", country: "USA", beachCount: 5 }],
       });
 
       const result = await sitemap();
@@ -763,6 +782,37 @@ describe("Sitemap Generation", () => {
       );
 
       expect(locationRoute?.changeFrequency).toBe("weekly");
+    });
+
+    it("should exclude thin-content locations with fewer than 2 beaches", async () => {
+      (getAllBeachLocations as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          { city: "Big City", state: "CA", country: "USA", beachCount: 5 },
+          { city: "Tiny Town", state: "CA", country: "USA", beachCount: 1 },
+        ],
+      });
+
+      const result = await sitemap();
+
+      expect(result.find((r) => r.url.endsWith("/ca/big-city"))).toBeTruthy();
+      expect(result.find((r) => r.url.endsWith("/ca/tiny-town"))).toBeUndefined();
+    });
+
+    it("should include metro areas even though they have beachCount 0", async () => {
+      (getAllBeachLocations as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          { city: "Orange County", state: "CA", country: "USA", beachCount: 0, isMetro: true },
+          { city: "Encinitas", state: "CA", country: "USA", beachCount: 5 },
+        ],
+      });
+
+      const result = await sitemap();
+
+      // Metro area should still be included despite beachCount: 0
+      expect(result.find((r) => r.url.endsWith("/ca/orange-county"))).toBeTruthy();
+      expect(result.find((r) => r.url.endsWith("/ca/encinitas"))).toBeTruthy();
     });
 
     it("should handle getAllBeachLocations failure gracefully", async () => {
@@ -819,7 +869,7 @@ describe("Sitemap Generation", () => {
       });
       (getAllBeachLocations as jest.Mock).mockResolvedValue({
         success: true,
-        data: [{ city: "La Jolla", state: "CA", country: "USA" }],
+        data: [{ city: "La Jolla", state: "CA", country: "USA", beachCount: 5 }],
       });
 
       const result = await sitemap();
