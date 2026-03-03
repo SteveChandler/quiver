@@ -45,7 +45,7 @@ export class ShareImageError extends Error {
 /**
  * Fetches an image and converts it to a Blob
  */
-async function fetchImageAsBlob(imageUrl: string): Promise<Blob> {
+export async function fetchImageAsBlob(imageUrl: string): Promise<Blob> {
   try {
     const response = await fetch(imageUrl, {
       mode: "cors",
@@ -233,7 +233,7 @@ async function shareWeb(
 /**
  * Downloads image as fallback
  */
-function downloadImage(blob: Blob, filename: string): ShareImageResult {
+export function downloadImage(blob: Blob, filename: string): ShareImageResult {
   const ext = getExtensionFromMime(blob.type);
   const fullFilename = filename.includes(".") ? filename : `${filename}.${ext}`;
 
@@ -249,6 +249,13 @@ function downloadImage(blob: Blob, filename: string): ShareImageResult {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 
   return { success: true, method: "download" };
+}
+
+/**
+ * Copies text to the clipboard
+ */
+export async function copyToClipboard(text: string): Promise<void> {
+  await navigator.clipboard.writeText(text);
 }
 
 /**

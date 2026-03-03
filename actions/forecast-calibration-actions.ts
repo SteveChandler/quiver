@@ -131,7 +131,7 @@ export async function getBeachForecastAccuracy(
       .select("*")
       .eq("beach_id", beachId)
       .maybeSingle();
-  });
+  }, { allowNull: true });
 }
 
 /**

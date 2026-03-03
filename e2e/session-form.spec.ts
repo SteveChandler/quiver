@@ -335,9 +335,9 @@ test.describe('Session Form - Complete Flow', () => {
     await cancelButton.click();
 
     // After clicking Cancel, onCancel calls router.push("/profile")
-    await waitForPageLoad(page);
-    const stillOnForm = page.url().includes('/sessions/new');
-    expect(stillOnForm).toBe(false);
+    // Use waitForURL instead of waitForPageLoad — client-side navigation
+    // may not trigger a full page load event.
+    await page.waitForURL(/\/profile/, { timeout: 10000 });
   });
 });
 

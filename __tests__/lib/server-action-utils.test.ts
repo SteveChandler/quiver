@@ -237,6 +237,33 @@ describe("server-action-utils", () => {
       expect(bad.error).toBe("No data returned from operation");
     });
 
+    test("allows null data when allowNull option is set", async () => {
+      const ok = await withDatabaseOperation(async () => ({
+        data: null,
+        error: null,
+      }), { allowNull: true });
+      expect(ok.success).toBe(true);
+      expect(ok.data).toBeNull();
+    });
+
+    test("still returns data normally with allowNull option", async () => {
+      const ok = await withDatabaseOperation(async () => ({
+        data: { id: 1 },
+        error: null,
+      }), { allowNull: true });
+      expect(ok.success).toBe(true);
+      expect(ok.data).toEqual({ id: 1 });
+    });
+
+    test("still throws on error even with allowNull option", async () => {
+      const bad = await withDatabaseOperation(async () => ({
+        data: null,
+        error: { message: "db err" },
+      }), { allowNull: true });
+      expect(bad.success).toBe(false);
+      expect(bad.error).toBe("db err");
+    });
+
     test("provides supabase client to operation", async () => {
       let clientReceived: any = null;
       await withDatabaseOperation(async (supabase) => {

@@ -155,7 +155,7 @@ export async function getSpotFeaturedPhoto(
       },
       error: null,
     };
-  }).then((result) => result.data ?? null);
+  }, { allowNull: true }).then((result) => result.data ?? null);
 }
 
 /**

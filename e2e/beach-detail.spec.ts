@@ -34,8 +34,8 @@ test.describe('Beach Detail Page', () => {
   });
 
   test('should display beach statistics', async ({ page }) => {
-    // Should show break type
-    const breakType = page.getByText(/break type|beach break|reef break/i).first();
+    // QuickStats renders break type as "Beach Break", "Reef Break", etc.
+    const breakType = page.getByText(/beach break|reef break|point break/i).first();
     await expect(breakType).toBeVisible({ timeout: 10000 });
 
     // Should show rating or reviews
@@ -130,7 +130,7 @@ test.describe('Beach Detail Page', () => {
     await expect(beachName).toBeVisible();
 
     // Content should be readable
-    const breakType = page.getByText(/break type|beach break/i).first();
+    const breakType = page.getByText(/beach break|reef break|point break/i).first();
     await expect(breakType).toBeVisible({ timeout: 10000 });
   });
 
@@ -260,9 +260,13 @@ test.describe('Beach Detail - Forecast Tab', () => {
     await forecastTab.click();
     await expect(forecastTab).toHaveAttribute('data-state', 'active', { timeout: 5000 });
 
-    // Today sub-tab shows "Current Tide" card
-    const currentTide = page.getByText(/Current Tide/i).first();
-    await expect(currentTide).toBeVisible({ timeout: 15000 });
+    // Today sub-tab shows "Current Conditions" with tide, wind, swell cards.
+    // Scope to the visible tabpanel to avoid matching hidden overview tab content.
+    const tabpanel = page.getByRole('tabpanel');
+    await expect(tabpanel).toBeVisible({ timeout: 10000 });
+
+    const tideLabel = tabpanel.getByText(/^Tide$/i).first();
+    await expect(tideLabel).toBeVisible({ timeout: 15000 });
 
     // Switch to Tides sub-tab for the full tide chart
     const tidesSubTab = page.getByRole('tab', { name: /tides/i });

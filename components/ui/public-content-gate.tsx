@@ -37,6 +37,12 @@ export function PublicContentGate({
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("signup");
 
+  // Prevent hydration mismatch: during SSR isLoading=true so children render unblurred,
+  // but auth resolves before this component hydrates, causing server/client DOM mismatch.
+  // Always render children on first render to match server HTML.
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => setHasMounted(true), []);
+
   // Track CTA view for non-authenticated users (only once)
   useEffect(() => {
     if (!user && !isLoading && !hasTrackedView.current) {
@@ -48,9 +54,9 @@ export function PublicContentGate({
     }
   }, [user, isLoading, source, ctaTitle]);
 
-  // If user is authenticated OR still loading auth, show full content without blur
-  // This prevents the auth gate from flashing during session restoration
-  if (user || isLoading) {
+  // If user is authenticated, still loading auth, or not yet mounted (hydration safety),
+  // show full content without blur
+  if (!hasMounted || user || isLoading) {
     return <>{children ?? null}</>;
   }
 

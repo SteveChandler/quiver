@@ -218,7 +218,8 @@ export function createServerAction<TInput, TOutput>(
 export async function withDatabaseOperation<T>(
   operation: (
     supabase: SupabaseServerClient
-  ) => Promise<{ data: T | null; error: any }>
+  ) => Promise<{ data: T | null; error: any }>,
+  options?: { allowNull?: boolean }
 ): Promise<ServerActionResponse<T>> {
   return withServerAction(async () => {
     const supabase = await createSupabaseServerClient();
@@ -228,11 +229,11 @@ export async function withDatabaseOperation<T>(
       throw new Error(error.message || "Database operation failed");
     }
 
-    if (!data) {
+    if (!data && !options?.allowNull) {
       throw new Error("No data returned from operation");
     }
 
-    return data;
+    return data as T;
   });
 }
 

@@ -34,7 +34,9 @@ export function useDynamicTide(
   forecasts: EnhancedForecastEntity[],
   _beachTimezone?: string | null
 ): DynamicTideResult {
-  const [computedAt, setComputedAt] = useState<number>(Date.now());
+  // Initialize as null to avoid hydration mismatch (Date.now() differs
+  // between server and client). Real value is set in useEffect on mount.
+  const [computedAt, setComputedAt] = useState<number | null>(null);
 
   // Extract tide_schedule from the first forecast that has it
   const tideSchedule = useMemo(() => {
@@ -51,7 +53,7 @@ export function useDynamicTide(
 
   // Compute next tides from schedule
   const tideResult = useMemo((): DynamicTideResult => {
-    if (!tideSchedule) {
+    if (!tideSchedule || computedAt === null) {
       return {
         nextTide: null,
         minutesUntil: null,
@@ -125,8 +127,10 @@ export function useDynamicTide(
     };
   }, [tideSchedule, computedAt]);
 
-  // Recompute on mount and when tab becomes visible
+  // Set real timestamp on mount (client-only) and recompute on visibility change
   useEffect(() => {
+    setComputedAt(Date.now());
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         setComputedAt(Date.now());

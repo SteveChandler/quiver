@@ -76,5 +76,5 @@ export async function getBestBeachPhotosAction(beachId: string, limit = DEFAULT_
     });
 
     return { data: mapped, error: null };
-  });
+  }, { allowNull: true });
 }
