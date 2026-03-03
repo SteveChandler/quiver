@@ -16,7 +16,6 @@ export { SPOT_PROFILE_DEFAULTS } from './types';
 
 export {
   createSpotProfile,
-  angularDifference,
   isDirectionInWindow,
   calculateWindowAlignment,
 } from './spot-profile';

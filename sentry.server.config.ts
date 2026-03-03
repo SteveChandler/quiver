@@ -40,14 +40,15 @@ function detectEnvironment(url: string | undefined): string {
   }
 }
 
+const isProduction = process.env.NODE_ENV === "production";
+
 Sentry.init({
   dsn: "https://9a9b828ed217cf8ae38f59b3e9fec9ab@o4510293516091392.ingest.us.sentry.io/4510293517205504",
 
-  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
-
-  // Enable logs to be sent to Sentry
-  enableLogs: true,
+  // Disable all Sentry overhead in development
+  enabled: isProduction,
+  tracesSampleRate: isProduction ? 1 : 0,
+  enableLogs: isProduction,
 
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii

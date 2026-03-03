@@ -1,4 +1,5 @@
 import type { EnhancedForecastEntity } from '@/types/forecast';
+import { angleDifference } from '@/lib/domains/shared';
 
 /** Valid trend tag labels */
 export type TrendTag =
@@ -30,18 +31,6 @@ const CLEAN_SWELL_PERIOD_MIN = 10;
 /** Maximum variance in wave period for "Clean Swell" */
 const CLEAN_SWELL_VARIANCE_MAX = 4;
 
-/**
- * Computes the smallest angular difference between two angles in degrees.
- * Handles the 0/360 degree boundary correctly.
- * Returns a value in [0, 180].
- */
-function angularDifference(a: number, b: number): number {
-  let diff = Math.abs(a - b) % 360;
-  if (diff > 180) {
-    diff = 360 - diff;
-  }
-  return diff;
-}
 
 /**
  * Computes the population variance of an array of numbers.
@@ -170,8 +159,8 @@ function computeWindDirectionTag(
     return null;
   }
 
-  const firstOffshoreDistance = angularDifference(firstDir, offshoreDeg);
-  const lastOffshoreDistance = angularDifference(lastDir, offshoreDeg);
+  const firstOffshoreDistance = angleDifference(firstDir, offshoreDeg);
+  const lastOffshoreDistance = angleDifference(lastDir, offshoreDeg);
 
   const improvement = firstOffshoreDistance - lastOffshoreDistance;
 

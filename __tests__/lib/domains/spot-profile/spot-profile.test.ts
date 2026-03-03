@@ -6,11 +6,11 @@
 
 import {
   createSpotProfile,
-  angularDifference,
   isDirectionInWindow,
   calculateWindowAlignment,
   SPOT_PROFILE_DEFAULTS,
 } from '@/lib/domains/spot-profile';
+import { angleDifference } from '@/lib/domains/shared';
 import type { Beach } from '@/types/database';
 
 // Mock beach factory for testing
@@ -66,48 +66,48 @@ function createMockBeach(overrides: Partial<Beach> = {}): Beach {
 }
 
 describe('Spot Profile Domain', () => {
-  describe('angularDifference', () => {
+  describe('angleDifference', () => {
     it('should return 0 for identical angles', () => {
-      expect(angularDifference(90, 90)).toBe(0);
-      expect(angularDifference(0, 0)).toBe(0);
-      expect(angularDifference(360, 360)).toBe(0);
+      expect(angleDifference(90, 90)).toBe(0);
+      expect(angleDifference(0, 0)).toBe(0);
+      expect(angleDifference(360, 360)).toBe(0);
     });
 
     it('should calculate simple differences correctly', () => {
-      expect(angularDifference(90, 100)).toBe(10);
-      expect(angularDifference(100, 90)).toBe(10);
-      expect(angularDifference(0, 45)).toBe(45);
-      expect(angularDifference(180, 270)).toBe(90);
+      expect(angleDifference(90, 100)).toBe(10);
+      expect(angleDifference(100, 90)).toBe(10);
+      expect(angleDifference(0, 45)).toBe(45);
+      expect(angleDifference(180, 270)).toBe(90);
     });
 
     it('should handle wrap-around at 360°', () => {
-      expect(angularDifference(350, 10)).toBe(20);
-      expect(angularDifference(10, 350)).toBe(20);
-      expect(angularDifference(0, 359)).toBe(1);
-      expect(angularDifference(1, 359)).toBe(2);
+      expect(angleDifference(350, 10)).toBe(20);
+      expect(angleDifference(10, 350)).toBe(20);
+      expect(angleDifference(0, 359)).toBe(1);
+      expect(angleDifference(1, 359)).toBe(2);
     });
 
     it('should never return more than 180', () => {
-      expect(angularDifference(0, 180)).toBe(180);
-      expect(angularDifference(0, 181)).toBe(179);
-      expect(angularDifference(0, 270)).toBe(90);
-      expect(angularDifference(90, 270)).toBe(180);
+      expect(angleDifference(0, 180)).toBe(180);
+      expect(angleDifference(0, 181)).toBe(179);
+      expect(angleDifference(0, 270)).toBe(90);
+      expect(angleDifference(90, 270)).toBe(180);
     });
 
     it('should handle 360 as equivalent to 0', () => {
-      expect(angularDifference(0, 360)).toBe(0);
-      expect(angularDifference(360, 0)).toBe(0);
-      expect(angularDifference(360, 10)).toBe(10);
+      expect(angleDifference(0, 360)).toBe(0);
+      expect(angleDifference(360, 0)).toBe(0);
+      expect(angleDifference(360, 10)).toBe(10);
     });
 
     it('should handle angles > 360', () => {
-      expect(angularDifference(370, 10)).toBe(0); // 370 = 10
-      expect(angularDifference(720, 0)).toBe(0); // 720 = 0
+      expect(angleDifference(370, 10)).toBe(0); // 370 = 10
+      expect(angleDifference(720, 0)).toBe(0); // 720 = 0
     });
 
     it('should handle negative angles', () => {
-      expect(angularDifference(-10, 10)).toBe(20); // -10 = 350
-      expect(angularDifference(-90, 90)).toBe(180);
+      expect(angleDifference(-10, 10)).toBe(20); // -10 = 350
+      expect(angleDifference(-90, 90)).toBe(180);
     });
   });
 

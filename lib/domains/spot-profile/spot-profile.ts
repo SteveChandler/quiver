@@ -229,29 +229,13 @@ function knotsToMph(knots: number): number {
 }
 
 /**
- * Calculates angular difference between two directions.
- * Returns value between 0 and 180.
- *
- * @deprecated Use angleDifference from '@/lib/domains/shared' directly.
- * Kept for backwards compatibility.
- */
-export function angularDifference(deg1: number, deg2: number): number {
-  if (process.env.NODE_ENV === 'development') {
-    console.warn(
-      'angularDifference is deprecated. Use angleDifference from @/lib/domains/shared instead.'
-    );
-  }
-  return sharedAngleDifference(deg1, deg2);
-}
-
-/**
  * Checks if a direction is within a swell window.
  */
 export function isDirectionInWindow(
   directionDeg: number,
   window: SwellWindow
 ): boolean {
-  const diff = angularDifference(directionDeg, window.centerDeg);
+  const diff = sharedAngleDifference(directionDeg, window.centerDeg);
   return diff <= window.halfWidthDeg;
 }
 
@@ -263,7 +247,7 @@ export function calculateWindowAlignment(
   directionDeg: number,
   window: SwellWindow
 ): number {
-  const diff = angularDifference(directionDeg, window.centerDeg);
+  const diff = sharedAngleDifference(directionDeg, window.centerDeg);
 
   if (diff <= window.halfWidthDeg) {
     // Within window: score based on how centered
