@@ -49,7 +49,7 @@ export function SessionScrollForm({
   }
 
   return (
-    <div className={cn("relative min-h-screen bg-[#0B1426]", className)}>
+    <div className={cn("relative min-h-screen bg-[#0B1426] session-scroll-form", className)}>
       {/* Grain overlay */}
       <div
         className="pointer-events-none fixed inset-0 z-0 opacity-[0.04]"

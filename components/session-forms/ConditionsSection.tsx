@@ -239,7 +239,7 @@ export function ConditionsSection({
   return (
     <SimpleCardLayout
       title={
-        <span className="text-sm font-bold text-[#1A1A1A] uppercase tracking-wide">
+        <span className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">
           Actual Conditions
         </span>
       }
@@ -340,7 +340,7 @@ export function ConditionsSection({
 
         {/* Actual Conditions */}
         <div className="space-y-6">
-          <h3 className="text-sm font-bold text-[#1A1A1A] uppercase tracking-wide">
+          <h3 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">
             Your Observations
           </h3>
 
