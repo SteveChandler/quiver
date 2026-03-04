@@ -145,11 +145,12 @@ async function hlsProxyHandler(
 
     // Rewrite absolute URLs in manifests to proxy-relative paths so hls.js
     // follows them through the proxy instead of directly to the CDN
-    let responseBody: ArrayBuffer | Uint8Array = body;
+    let responseBody: ArrayBuffer = body;
     if (isManifest) {
       const text = new TextDecoder().decode(body);
       const rewritten = rewriteManifestUrls(text);
-      responseBody = new TextEncoder().encode(rewritten);
+      const encoded = new TextEncoder().encode(rewritten);
+      responseBody = encoded.buffer as ArrayBuffer;
     }
 
     const contentType = isManifest
