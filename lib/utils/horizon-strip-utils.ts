@@ -15,6 +15,7 @@ import {
 import {
   toForecastForScoring,
   type BeachWithThresholds,
+  type UserScoringPreferences,
 } from '@/lib/scoring/types';
 import { DEFAULT_TIMEZONE } from '@/lib/utils/timezone-utils';
 import {
@@ -50,6 +51,8 @@ export interface DaySummary {
   bestTime: string | null;
   /** Primary swell period for display */
   period: number | null;
+  /** Whether scores are personalized based on user preferences */
+  isPersonalized?: boolean;
 }
 
 /**
@@ -168,7 +171,8 @@ function groupForecastsByDate(
 function findBestForecast(
   dayForecasts: EnhancedForecastEntity[],
   beach: BeachWithThresholds,
-  beachTz?: string
+  beachTz?: string,
+  userPreferences?: UserScoringPreferences
 ): { forecast: EnhancedForecastEntity; score: number } | null {
   if (dayForecasts.length === 0) return null;
 
@@ -177,7 +181,7 @@ function findBestForecast(
 
   for (const forecast of dayForecasts) {
     const forecastForScoring = toForecastForScoring(forecast, beachTz);
-    const result = scoreConditions(forecastForScoring, beach);
+    const result = scoreConditions(forecastForScoring, beach, { userPreferences });
 
     if (result.total > bestScore) {
       bestScore = result.total;
@@ -272,9 +276,11 @@ export function aggregateDayForecasts(
   options: {
     maxDays?: number;
     timezone?: string;
+    userPreferences?: UserScoringPreferences;
   } = {}
 ): DaySummary[] {
   const { maxDays = 12, timezone = beach.timezone || DEFAULT_TIMEZONE } = options;
+  const userPreferences = options.userPreferences;
 
   if (!forecasts || forecasts.length === 0) {
     return [];
@@ -304,7 +310,7 @@ export function aggregateDayForecasts(
     const dayForecasts = forecastsByDate.get(dateStr) || [];
 
     // Find best forecast for scoring
-    const bestResult = findBestForecast(dayForecasts, beachWithThresholds, timezone);
+    const bestResult = findBestForecast(dayForecasts, beachWithThresholds, timezone, userPreferences);
 
     if (!bestResult) continue;
 
@@ -331,6 +337,7 @@ export function aggregateDayForecasts(
       isToday: isTodayFlag,
       bestTime: bestForecast.forecast_time || null,
       period,
+      isPersonalized: !!userPreferences?.preferredWaveSize,
     });
   }
 

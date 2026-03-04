@@ -16,7 +16,7 @@ import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { formatWaveRange } from "@/lib/utils/wave-formatters";
 import { capitalize } from "@/lib/utils/text-utils";
 import { cn } from "@/lib/utils";
-import { Wind, Clock, Waves } from "lucide-react";
+import { Wind, Clock, Waves, Sparkles } from "lucide-react";
 import type { EnrichedDaySummary } from "@/lib/utils/enriched-day-summary";
 
 interface BestDayHeroProps {
@@ -24,6 +24,7 @@ interface BestDayHeroProps {
   otherGoodDays: EnrichedDaySummary[];
   /** When true, the hero shows a user-selected date instead of the overall best */
   isUserSelected?: boolean;
+  isPersonalized?: boolean;
 }
 
 const WIND_DISPLAY: Record<
@@ -35,7 +36,7 @@ const WIND_DISPLAY: Record<
   onshore: { label: "Onshore", color: "text-amber-300", icon: false },
 };
 
-export function BestDayHero({ bestDay, otherGoodDays, isUserSelected }: BestDayHeroProps) {
+export function BestDayHero({ bestDay, otherGoodDays, isUserSelected, isPersonalized }: BestDayHeroProps) {
   const wind = WIND_DISPLAY[bestDay.windConditions] ?? WIND_DISPLAY.onshore;
 
   return (
@@ -114,6 +115,13 @@ export function BestDayHero({ bestDay, otherGoodDays, isUserSelected }: BestDayH
                 {bestDay.period != null && (
                   <span className="text-white/80">
                     {bestDay.period}s period
+                  </span>
+                )}
+
+                {isPersonalized && (
+                  <span className="inline-flex items-center gap-1 text-xs text-white/80">
+                    <Sparkles className="h-3 w-3" />
+                    Scored for you
                   </span>
                 )}
               </div>

@@ -87,7 +87,7 @@ export function ConditionsOverview({
   return (
     <div className="space-y-6">
       {/* Hero - always visible (in public mode, only best from first 3 days) */}
-      <BestDayHero bestDay={heroDay} otherGoodDays={publicMode ? [] : otherGoodDays} isUserSelected={isUserSelected} />
+      <BestDayHero bestDay={heroDay} otherGoodDays={publicMode ? [] : otherGoodDays} isUserSelected={isUserSelected} isPersonalized={heroDay.isPersonalized} />
 
       {/* Other good days + chart - gated for public */}
       {publicMode ? (

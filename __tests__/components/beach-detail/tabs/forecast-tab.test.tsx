@@ -62,6 +62,15 @@ jest.mock("@/hooks/use-sun-times", () => ({
     sunset: new Date("2026-02-10T17:30:00"),
   })),
 }));
+jest.mock("@/hooks/use-user-profile", () => ({
+  useUserProfile: jest.fn(() => ({ profile: null })),
+}));
+
+// Mock useTrackEvent hook
+const mockTrackEvent = jest.fn();
+jest.mock("@/hooks/use-track-event", () => ({
+  useTrackEvent: () => ({ track: mockTrackEvent }),
+}));
 
 // Mock utilities
 jest.mock("@/lib/analytics", () => ({
@@ -85,25 +94,37 @@ jest.mock("@/lib/utils/date-utils", () => ({
   formatTimeInBeachTimezone: jest.fn(() => "7:00 AM"),
 }));
 
-// Mock Tabs components
-jest.mock("@/components/ui/tabs", () => ({
-  Tabs: ({ children, value, onValueChange, ...props }: any) => (
-    <div data-testid="tabs" data-value={value} {...props}>
-      {children}
-    </div>
-  ),
-  TabsContent: ({ children, value, ...props }: any) => (
-    <div data-testid={`tab-content-${value}`} {...props}>
-      {children}
-    </div>
-  ),
-  TabsList: ({ children }: any) => <div data-testid="tabs-list">{children}</div>,
-  TabsTrigger: ({ children, value, onClick }: any) => (
-    <button data-testid={`tab-trigger-${value}`} onClick={onClick}>
-      {children}
-    </button>
-  ),
-}));
+// Mock Tabs components — TabsTrigger threads onValueChange from Tabs via context
+jest.mock("@/components/ui/tabs", () => {
+  const React = require("react");
+  const Ctx = React.createContext<((v: string) => void) | undefined>(undefined);
+  return {
+    Tabs: ({ children, value, onValueChange, ...props }: any) => (
+      <Ctx.Provider value={onValueChange}>
+        <div data-testid="tabs" data-value={value} {...props}>
+          {children}
+        </div>
+      </Ctx.Provider>
+    ),
+    TabsContent: ({ children, value, ...props }: any) => (
+      <div data-testid={`tab-content-${value}`} {...props}>
+        {children}
+      </div>
+    ),
+    TabsList: ({ children }: any) => <div data-testid="tabs-list">{children}</div>,
+    TabsTrigger: ({ children, value }: any) => {
+      const onValueChange = React.useContext(Ctx);
+      return (
+        <button
+          data-testid={`tab-trigger-${value}`}
+          onClick={() => onValueChange?.(value)}
+        >
+          {children}
+        </button>
+      );
+    },
+  };
+});
 
 // Import mocked dependencies
 import { track } from "@/lib/analytics";
@@ -201,6 +222,7 @@ describe("ForecastTab", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockTrackEvent.mockClear();
   });
 
   describe("Tab Rendering", () => {
@@ -255,7 +277,7 @@ describe("ForecastTab", () => {
     it("displays current tide information", () => {
       render(<ForecastTab {...defaultProps} />);
 
-      expect(screen.getByText("Current Tide")).toBeInTheDocument();
+      expect(screen.getByText("Tide")).toBeInTheDocument();
       expect(screen.getByText("Rising")).toBeInTheDocument();
     });
 
@@ -395,9 +417,10 @@ describe("ForecastTab", () => {
       const todayTrigger = screen.getByTestId("tab-trigger-today");
       fireEvent.click(todayTrigger);
 
-      expect(track).toHaveBeenCalledWith("forecast_subtab_click", {
-        beach_slug: "test-beach",
-        tab: "today",
+      expect(mockTrackEvent).toHaveBeenCalledWith("forecast_interaction", {
+        beachId: "beach-1",
+        metadata: { action: "view_details", slot: "today" },
+        debounceMs: 1000,
       });
     });
 
@@ -407,9 +430,10 @@ describe("ForecastTab", () => {
       const tidesTrigger = screen.getByTestId("tab-trigger-tides");
       fireEvent.click(tidesTrigger);
 
-      expect(track).toHaveBeenCalledWith("forecast_subtab_click", {
-        beach_slug: "test-beach",
-        tab: "tides",
+      expect(mockTrackEvent).toHaveBeenCalledWith("forecast_interaction", {
+        beachId: "beach-1",
+        metadata: { action: "view_details", slot: "tides" },
+        debounceMs: 1000,
       });
     });
 
@@ -419,9 +443,10 @@ describe("ForecastTab", () => {
       const conditionsTrigger = screen.getByTestId("tab-trigger-conditions");
       fireEvent.click(conditionsTrigger);
 
-      expect(track).toHaveBeenCalledWith("forecast_subtab_click", {
-        beach_slug: "test-beach",
-        tab: "conditions",
+      expect(mockTrackEvent).toHaveBeenCalledWith("forecast_interaction", {
+        beachId: "beach-1",
+        metadata: { action: "view_details", slot: "conditions" },
+        debounceMs: 1000,
       });
     });
   });
