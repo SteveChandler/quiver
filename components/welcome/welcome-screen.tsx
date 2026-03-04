@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/auth-context";
-import { isNativeApp } from "@/lib/mobile/platform";
 import { OrbitAnimation } from "./orbit-animation";
 import { AuthMethodPicker } from "./auth-method-picker";
 import { Button } from "@/components/ui/button";
@@ -30,12 +29,7 @@ export function WelcomeScreen() {
   const [phase, setPhase] = useState<Phase>("splash");
 
   // Redirect returning/authenticated users immediately.
-  // Also redirect desktop/web visitors — this page is native-app only.
   useEffect(() => {
-    if (!isLoading && !isNativeApp()) {
-      router.replace("/");
-      return;
-    }
     if (!isLoading && isAuthenticated) {
       router.replace("/");
     }
@@ -140,10 +134,11 @@ export function WelcomeScreen() {
             </motion.div>
           )}
 
-          {/* Get Started CTA */}
+          {/* Get Started + Log In CTAs */}
           {phase === "cta" && (
             <motion.div
               key="cta"
+              className="flex flex-col gap-3"
               initial={{ opacity: 0, y: 32 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -16 }}
@@ -155,6 +150,14 @@ export function WelcomeScreen() {
                 className="w-full bg-white text-blue-900 hover:bg-white/90 active:bg-white/80 font-semibold text-base"
               >
                 Get Started
+              </Button>
+              <Button
+                onClick={() => router.push("/auth/sign-in")}
+                variant="outline"
+                size="lg"
+                className="w-full border-white/40 text-white hover:bg-white/10 active:bg-white/20 font-semibold text-base"
+              >
+                Log In
               </Button>
             </motion.div>
           )}

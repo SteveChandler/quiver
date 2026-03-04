@@ -10,6 +10,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
         
+        // Enable cookie persistence for WKWebView (matches Android CookieManager setup)
+        HTTPCookieStorage.shared.cookieAcceptPolicy = .always
+
         // Fix iOS keyboard accessory view collection view crash
         // Disable input accessory view to prevent UICollectionView crash with forms
         if #available(iOS 16.0, *) {

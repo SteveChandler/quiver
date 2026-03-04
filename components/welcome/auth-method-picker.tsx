@@ -149,17 +149,15 @@ export function AuthMethodPicker({ returnTo = "/" }: AuthMethodPickerProps) {
       </Button>
 
       {/* Already have an account */}
-      <p className="mt-1 text-center text-sm text-muted-foreground">
-        Already have an account?{" "}
-        <button
-          type="button"
-          onClick={() => router.push("/auth/sign-in")}
-          className="font-medium text-primary hover:underline"
-          disabled={isAnyLoading}
-        >
-          Log in
-        </button>
-      </p>
+      <Button
+        variant="ghost"
+        size="lg"
+        className="w-full text-white/60 hover:text-white/80 hover:bg-white/10"
+        onClick={() => router.push("/auth/sign-in")}
+        disabled={isAnyLoading}
+      >
+        Already have an account? <span className="ml-1 font-semibold text-white">Log in</span>
+      </Button>
     </div>
   );
 }

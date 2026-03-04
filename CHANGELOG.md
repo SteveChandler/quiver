@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Native app welcome screen fixes** — Removed `isNativeApp()` redirect that caused a race condition (Capacitor bridge not yet injected), added prominent "Log In" button alongside "Get Started" on welcome screen, upgraded buried login text to a full-width ghost button in auth picker, and added iOS cookie persistence (`HTTPCookieStorage.shared.cookieAcceptPolicy = .always`) to match Android's `CookieManager` setup
 - **Sitemap: sync `least-crowded` intent pages with runtime noindex logic** — `least-crowded` city and state intent pages are now filtered using a new `hasLeastCrowdedBeaches` flag (crowd_level `light` or `moderate`) on `CityWithSkillCategories`, preventing empty pages from being indexed. `FILTERED_INTENTS` set introduced in `app/sitemap.ts` to group all data-gated intents. Both city-level and state-level filtering apply the same flag.
 - **Sitemap: remove fail-open guard for filtered state-level intent pages** — The `cityDataAvailable` flag that bypassed beginner/longboard/least-crowded filtering when city data was unavailable has been removed. State-level filtered intent routes are now excluded when city data is absent (fail-closed), preventing thin pages from entering the sitemap during transient DB failures.
 - **Sitemap: filter location browse pages with fewer than 2 beaches** — City location pages (`/beaches/usa/{state}/{city}`) with only 1 beach are now excluded as thin content.
