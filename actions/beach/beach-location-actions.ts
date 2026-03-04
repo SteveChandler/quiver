@@ -267,11 +267,9 @@ async function getAllCitiesWithBeachSkillsFallback(minBeaches: number = 1) {
       const existing = cityMap.get(key);
 
       const skill = (beach.skill_level || "").toLowerCase();
-      // lower-intermediate is included as beginner (matches RPC logic)
       const isBeginner =
         skill.includes("beginner") ||
-        skill.includes("longboard") ||
-        skill === "lower-intermediate";
+        skill.includes("longboard");
       const isAdvanced = skill.includes("advanced") || skill.includes("expert");
       const isLeastCrowded = ['light', 'moderate'].includes((beach as any).crowd_level?.toLowerCase() || '');
       const hasDescription = !!(beach as any).description?.trim();

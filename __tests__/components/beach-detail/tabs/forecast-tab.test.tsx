@@ -96,7 +96,7 @@ jest.mock("@/lib/utils/date-utils", () => ({
 
 // Mock Tabs components — TabsTrigger threads onValueChange from Tabs via context
 jest.mock("@/components/ui/tabs", () => {
-  const React = require("react");
+  const React = require("react") as typeof import("react");
   const Ctx = React.createContext<((v: string) => void) | undefined>(undefined);
   return {
     Tabs: ({ children, value, onValueChange, ...props }: any) => (
