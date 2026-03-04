@@ -22,10 +22,10 @@ export function ForecastOutlookCard({ className, regionSlug }: ForecastOutlookCa
     <Link
       href={regionSlug ? `/forecast/${regionSlug}` : "/forecast"}
       className={cn(
-        "block rounded-xl bg-gradient-to-br from-sky-50 via-blue-50 to-cyan-50",
-        "border border-sky-200 hover:border-sky-300",
+        "block rounded-xl bg-gradient-to-br from-sky-50 via-blue-50 to-cyan-50 dark:from-[#111D35] dark:via-[#0F1A2E] dark:to-[#111D35]",
+        "border border-sky-200 dark:border-[#1E2D4A] hover:border-sky-300 dark:hover:border-[#2A3F5F]",
         "p-4 transition-all duration-200",
-        "hover:shadow-md hover:from-sky-100 hover:via-blue-50 hover:to-cyan-50",
+        "hover:shadow-md hover:from-sky-100 hover:via-blue-50 hover:to-cyan-50 dark:hover:from-[#172544] dark:hover:via-[#111D35] dark:hover:to-[#172544]",
         "group",
         className
       )}
@@ -34,19 +34,19 @@ export function ForecastOutlookCard({ className, regionSlug }: ForecastOutlookCa
     >
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-100 group-hover:bg-sky-200 transition-colors">
-            <Calendar className="h-5 w-5 text-sky-600" aria-hidden="true" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-100 dark:bg-[#1E2D4A] group-hover:bg-sky-200 dark:group-hover:bg-[#2A3F5F] transition-colors">
+            <Calendar className="h-5 w-5 text-sky-600 dark:text-[#FF3B8B]" aria-hidden="true" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900 group-hover:text-sky-700 transition-colors">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 group-hover:text-sky-700 dark:group-hover:text-[#FF3B8B] transition-colors">
               7-Day Outlook
             </h3>
-            <p id={descriptionId} className="text-sm text-gray-600">
+            <p id={descriptionId} className="text-sm text-gray-600 dark:text-gray-400">
               Regional forecasts & best days
             </p>
           </div>
         </div>
-        <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-sky-600 group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
+        <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-500 group-hover:text-sky-600 dark:group-hover:text-[#FF3B8B] group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
       </div>
     </Link>
   );

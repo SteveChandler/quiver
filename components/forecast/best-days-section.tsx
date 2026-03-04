@@ -170,7 +170,7 @@ function BestDayCard({ day, isHero = false, className, index = 0 }: BestDayCardP
       <Card
         className={cn(
           "relative overflow-hidden border-2",
-          "bg-gradient-to-br from-sky-50 via-blue-50 to-cyan-50",
+          "bg-gradient-to-br from-sky-50 via-blue-50 to-cyan-50 dark:from-[#111D35] dark:via-[#0F1A2E] dark:to-[#111D35]",
           scoreColors.border,
           className
         )}
@@ -260,7 +260,7 @@ function BestDayCard({ day, isHero = false, className, index = 0 }: BestDayCardP
         className={cn(
           "transition-all duration-200",
           "hover:shadow-md hover:border-border/80",
-          "hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/50",
+          "hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/50 dark:hover:from-[#172544]/50 dark:hover:to-[#1E2D4A]/50",
           "group",
           className
         )}

@@ -343,8 +343,8 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
 
         {/* Cross-Links Section */}
         <ScrollReveal variant="fadeUp" delay={200}>
-          <section className="mb-16 bg-gradient-to-br from-slate-50 to-gray-50 rounded-xl p-8 border border-slate-200">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">
+          <section className="mb-16 bg-gradient-to-br from-slate-50 to-gray-50 dark:from-[#0F1A2E] dark:to-[#111D35] rounded-xl p-8 border border-slate-200 dark:border-[#1E2D4A]">
+            <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
               Explore More
             </h2>
             <div className={`grid ${showGuideLink ? "md:grid-cols-2" : ""} gap-4`}>
@@ -352,12 +352,12 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
               {showGuideLink && (
                 <Link
                   href={`/guides/surfing-${guideSlug}`}
-                  className="block p-6 rounded-lg border border-gray-200 bg-white hover:border-blue-500 hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/30 transition-all duration-200 group"
+                  className="block p-6 rounded-lg border border-gray-200 dark:border-[#1E2D4A] bg-white dark:bg-[#111D35] hover:border-blue-500 hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/30 dark:hover:from-[#172544]/50 dark:hover:to-[#1E2D4A]/30 transition-all duration-200 group"
                 >
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-blue-600 transition-colors">
                     {region.name} Surf Guide
                   </h3>
-                  <p className="text-sm text-gray-600 mb-3">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                     Explore surf spots, local knowledge, and conditions across{" "}
                     {region.name}
                   </p>
@@ -370,12 +370,12 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
               {/* Link back to Forecast Hub */}
               <Link
                 href="/forecast"
-                className="block p-6 rounded-lg border border-gray-200 bg-white hover:border-blue-500 hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/30 transition-all duration-200 group"
+                className="block p-6 rounded-lg border border-gray-200 dark:border-[#1E2D4A] bg-white dark:bg-[#111D35] hover:border-blue-500 hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/30 dark:hover:from-[#172544]/50 dark:hover:to-[#1E2D4A]/30 transition-all duration-200 group"
               >
-                <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-blue-600 transition-colors">
                   Other Regional Forecasts
                 </h3>
-                <p className="text-sm text-gray-600 mb-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                   Compare conditions across all regions and find the best waves
                 </p>
                 <span className="text-sm font-medium text-blue-600 group-hover:underline">
