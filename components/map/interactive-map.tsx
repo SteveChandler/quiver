@@ -453,7 +453,7 @@ export function InteractiveMap({
             left: -8px;
             right: -8px;
             bottom: -8px;
-            border: 3px solid #0077B6;
+            border: 3px solid #FF3B8B;
             border-radius: 50%;
             pointer-events: none;
             animation: pulse 2s infinite;
@@ -465,7 +465,7 @@ export function InteractiveMap({
         if (badge) {
           (badge as HTMLElement).style.transform = "scale(1.4)";
           (badge as HTMLElement).style.background =
-            "linear-gradient(to right, #0077B6, #005f8a)";
+            "linear-gradient(to right, #FF3B8B, #CC2E6F)";
         }
       } else {
         // Remove selection ring if present

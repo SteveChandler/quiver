@@ -193,7 +193,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     }
 
     return (
-      <div className="theme-retro-dark min-h-screen">
+      <div className="min-h-screen">
         {/* Structured Data: Place/Beach */}
         <BeachPageStructuredData
           beachName={beach.name}

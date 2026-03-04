@@ -21,7 +21,7 @@ const roboto = Roboto({
   weight: ["400", "500", "700"],
   subsets: ["latin"],
   display: "swap",
-  preload: true,
+  preload: false, // No longer primary heading font — deprioritized
   variable: "--font-roboto",
 });
 
@@ -160,6 +160,7 @@ export default async function RootLayout({
                   --foreground: 222.2 84% 4.9%;
                   --card: 0 0% 100%;
                   --card-foreground: 222.2 84% 4.9%;
+                  --primary: 201 100% 36%;
                   --border: 214.3 31.8% 91.4%;
                   --muted: 210 40% 96.1%;
                   --muted-foreground: 215.4 16.3% 46.9%;
@@ -289,7 +290,7 @@ export default async function RootLayout({
                 width: 20px;
                 height: 20px;
                 border: 2px solid #f3f3f3;
-                border-top: 2px solid #3498db;
+                border-top: 2px solid #FF3B8B;
                 border-radius: 50%;
                 animation: spin 1s linear infinite;
               }
@@ -301,7 +302,7 @@ export default async function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.className} font-sans antialiased`}>
+      <body className={`${inter.className} font-sans antialiased theme-retro-dark`}>
         <Providers>{children}</Providers>
 
         {/*

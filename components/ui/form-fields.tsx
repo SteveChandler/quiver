@@ -457,7 +457,7 @@ export function FormSwitch<TFieldValues extends FieldValues = FieldValues>({
                 checked={field.value}
                 onCheckedChange={field.onChange}
                 disabled={disabled}
-                className="data-[state=checked]:bg-[#0077B6] focus-visible:ring-[#0077B6]/50 hover:shadow-[0_0_0_3px_rgba(0,119,182,0.15)]"
+                className="data-[state=checked]:bg-[#FF3B8B] focus-visible:ring-[#FF3B8B]/50 hover:shadow-[0_0_0_3px_rgba(255,59,139,0.15)]"
                 aria-label={label}
               />
             </FormControl>

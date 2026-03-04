@@ -81,7 +81,7 @@ export function BoardFormFields<
           options={BOARD_TYPE_OPTIONS}
           placeholder={showPlaceholders ? "Select board type" : undefined}
           disabled={disabled}
-          selectContentClassName={theme === "dark" ? "theme-retro-dark" : undefined}
+          selectContentClassName={undefined}
         />
         <FormNumberInput
           control={control}

@@ -168,7 +168,7 @@ export function AddBoardDialog({
         className="pointer-events-none absolute inset-0 z-0 opacity-[0.04]"
         style={{ backgroundImage: "url('/textures/noise.png')", backgroundRepeat: "repeat" }}
       />
-      <div className="theme-retro-dark relative z-10">
+      <div className="relative z-10">
         <DialogHeader>
           <DialogTitle>Add New Board</DialogTitle>
           <DialogDescription>

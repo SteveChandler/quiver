@@ -61,7 +61,7 @@ export function NotificationsSection({ control }: NotificationsSectionProps) {
 
       {/* Advanced Settings - Collapsible */}
       <details className="mt-3 group">
-        <summary className="flex cursor-pointer items-center justify-between py-2 text-sm font-medium text-foreground hover:text-[#0077B6] transition-colors">
+        <summary className="flex cursor-pointer items-center justify-between py-2 text-sm font-medium text-foreground hover:text-[#FF3B8B] transition-colors">
           Advanced Settings
           <ChevronDown
             className="h-4 w-4 transition-transform duration-200 group-open:rotate-180"

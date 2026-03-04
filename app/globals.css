@@ -6,29 +6,28 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 201 100% 36%; /* Ocean-blue #0077B6 — unified primary action color */
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 201 100% 36%; /* Match primary color */
+    --background: 220 50% 7%;       /* #0B1426 deep navy */
+    --foreground: 0 0% 94%;         /* #F0F0F0 off-white */
+    --card: 220 45% 13%;            /* #111D35 card surface */
+    --card-foreground: 0 0% 94%;
+    --popover: 220 45% 13%;
+    --popover-foreground: 0 0% 94%;
+    --primary: 338 100% 62%;        /* #FF3B8B hot pink */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 40% 18%;       /* #172544 elevated */
+    --secondary-foreground: 0 0% 94%;
+    --muted: 220 40% 18%;
+    --muted-foreground: 220 30% 65%; /* #9AABC6 slate blue */
+    --accent: 220 40% 18%;
+    --accent-foreground: 0 0% 94%;
+    --destructive: 0 100% 68%;      /* #FF5C5C coral red */
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 40% 20%;          /* #1E2D4A */
+    --input: 220 40% 20%;
+    --ring: 338 100% 62%;
     --radius: 0.5rem;
-    /* Status tokens — TODO: add dark-mode overrides when .dark theme is implemented */
-    --success: 142 71% 29%;
-    --success-foreground: 0 0% 100%;
+    --success: 120 100% 68%;        /* #7BFF5C lime */
+    --success-foreground: 0 0% 0%;
     --warning: 38 92% 32%;
     --warning-foreground: 0 0% 100%;
     --info: 217 91% 43%;
@@ -241,62 +240,15 @@ body.js-loaded .ssr-beach-section {
 }
 
 /* =============================================================================
-   RETRO SURF DARK THEME — Prototype / Spot-check only
-   Scoped entirely under .theme-retro-dark so the default light theme is untouched.
+   RETRO SURF DARK THEME — Global
+   The .theme-retro-dark class on <body> activates these override selectors.
+   :root now carries the retro-dark CSS variable values directly.
    See docs/plans/2026-03-01-retro-surf-redesign.md for the full design spec.
    ============================================================================= */
 
-/* When a page uses the dark theme, propagate CSS variables to the body so that
-   Radix portals (dialogs, sheets, popovers) rendered outside .theme-retro-dark
-   inherit the correct dark-theme tokens instead of light-theme defaults. */
-body:has(.theme-retro-dark) {
-  --background: 220 50% 7%;
-  --foreground: 0 0% 94%;
-  --card: 220 45% 13%;
-  --card-foreground: 0 0% 94%;
-  --popover: 220 45% 13%;
-  --popover-foreground: 0 0% 94%;
-  --primary: 338 100% 62%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 220 40% 18%;
-  --secondary-foreground: 0 0% 94%;
-  --muted: 220 40% 18%;
-  --muted-foreground: 220 30% 65%;
-  --accent: 220 40% 18%;
-  --accent-foreground: 0 0% 94%;
-  --destructive: 0 100% 68%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 220 40% 20%;
-  --input: 220 40% 20%;
-  --ring: 338 100% 62%;
-}
-
-.theme-retro-dark {
-  /* ---- CSS custom property overrides ---- */
-  --background: 220 50% 7%;
-  --foreground: 0 0% 94%;
-  --card: 220 45% 13%;
-  --card-foreground: 0 0% 94%;
-  --popover: 220 45% 13%;
-  --popover-foreground: 0 0% 94%;
-  --primary: 338 100% 62%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 220 40% 18%;
-  --secondary-foreground: 0 0% 94%;
-  --muted: 220 40% 18%;
-  --muted-foreground: 220 30% 65%;
-  --accent: 220 40% 18%;
-  --accent-foreground: 0 0% 94%;
-  --destructive: 0 100% 68%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 220 40% 20%;
-  --input: 220 40% 20%;
-  --ring: 338 100% 62%;
-
-  /* ---- Base styles ---- */
-  background-color: #0B1426;
-  color: #F0F0F0;
-}
+/* body:has(.theme-retro-dark) and .theme-retro-dark variable blocks removed —
+   :root now carries the retro-dark values globally. The .theme-retro-dark class
+   on <body> still activates override selectors below. */
 
 /* ---- Tailwind utility overrides (broad attribute selectors) ---- */
 
@@ -553,6 +505,21 @@ body:has(.theme-retro-dark) {
 }
 .theme-retro-dark ::-webkit-scrollbar-thumb:hover {
   background: #FF3B8B;
+}
+
+/* ---- Landing page: hardcoded hex backgrounds that CSS variable overrides can't reach ---- */
+.theme-retro-dark [class*="bg-[#d7e1ea]"] {
+  background-color: #111D35 !important;
+}
+.theme-retro-dark [class*="from-[#d7e1ea]"] {
+  --tw-gradient-from: #111D35 !important;
+}
+
+/* ---- Hero search bar: prevent two-tone from global input override ---- */
+.theme-retro-dark [data-testid="hero-search-input"],
+.theme-retro-dark [cmdk-input] {
+  background-color: transparent !important;
+  border-color: transparent !important;
 }
 
 /* Session scroll form — transparent card containers to reduce contrast */

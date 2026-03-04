@@ -21,9 +21,9 @@ const config: Config = {
         display: ["var(--font-display)", "cursive"],
       },
       colors: {
-        "ocean-blue": "#0077B6",
-        "sunset-orange": "#FF7F11",
-        "sandy-beige": "#F5F5DC",
+        "ocean-blue": "#FF3B8B",
+        "sunset-orange": "#FFD639",
+        "sandy-beige": "#111D35",
         "dark-grey": "#333333",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
