@@ -427,7 +427,7 @@ function BeachDetailContent({
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-gray-50/30 to-white">
       {/* Immersive hero: video or photos background with title at top and forecast at bottom */}
-      <div className="retro-hero-section relative mb-6">
+      <div className="relative mb-6 min-h-[280px] md:min-h-[400px]">
         {showCamHero ? (
           /* Video background — hero variant strips card chrome */
           <Suspense
@@ -442,7 +442,7 @@ function BeachDetailContent({
           </Suspense>
         ) : (
           /* Photo gallery background */
-          <BeachPhotoGallery beach={beach} className="w-full h-full" />
+          <BeachPhotoGallery beach={beach} className="w-full" />
         )}
 
         {/* Top gradient — darkens top for title readability */}
@@ -456,7 +456,7 @@ function BeachDetailContent({
 
         {/* Bottom gradient — darkens bottom for forecast readability */}
         <div
-          className="retro-hero-gradient absolute inset-x-0 bottom-0 h-1/2 pointer-events-none z-[5]"
+          className="absolute inset-x-0 bottom-0 h-1/2 pointer-events-none z-[5]"
           style={{
             background:
               "linear-gradient(to top, #0B1426 0%, rgba(11,20,38,0.85) 30%, rgba(11,20,38,0.3) 65%, transparent 100%)",
@@ -464,7 +464,7 @@ function BeachDetailContent({
         />
 
         {/* Title — top of hero */}
-        <div className="retro-hero-overlay absolute inset-x-0 top-0 px-4 sm:px-6 pt-6 z-[6]">
+        <div className="absolute inset-x-0 top-0 px-4 sm:px-6 pt-6 z-[6]">
           <div className="mx-auto max-w-7xl">
             <BeachBreadcrumb beach={beach} className="mb-1" />
             <h1

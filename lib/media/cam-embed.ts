@@ -98,6 +98,14 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
       return { kind: "hdontap", pageUrl: href };
     }
 
+    // Port of Brookings Harbor (HDRelay-powered) — resolve to HLS stream server-side.
+    if (
+      u.hostname === "www.portofbrookingsharbor.com" ||
+      u.hostname === "portofbrookingsharbor.com"
+    ) {
+      return { kind: "hdontap", pageUrl: href };
+    }
+
     // Default iframe attempt (may be blocked)
     return { kind: "iframe", src: href, title: "Live Cam", allow: "autoplay" };
   } catch {

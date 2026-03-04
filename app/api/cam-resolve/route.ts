@@ -28,6 +28,8 @@ const ALLOWED_RESOLVE_HOSTS = [
   "portal.hdontap.com",
   "www.obhotel.com",
   "obhotel.com",
+  "www.portofbrookingsharbor.com",
+  "portofbrookingsharbor.com",
 ];
 
 async function camResolveHandler(request: NextRequest): Promise<NextResponse> {

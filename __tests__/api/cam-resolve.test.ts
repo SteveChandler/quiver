@@ -552,6 +552,38 @@ describe("GET /api/cam-resolve", () => {
 
   // ===== HDRelay (OB Hotel) =====
 
+  describe("HDRelay (Port of Brookings Harbor)", () => {
+    it("admits portofbrookingsharbor.com (not 403)", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve("<html>no stream here</html>"),
+        headers: new Headers(),
+      });
+
+      const res = await GET(
+        makeRequest("https://www.portofbrookingsharbor.com/chetco-river-bar-camera.html")
+      );
+      expect(res.status).not.toBe(403);
+      expect(mockFetch).toHaveBeenCalled();
+    });
+
+    it("does NOT append /embed/ to portofbrookingsharbor.com URLs", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve("<html>no stream here</html>"),
+        headers: new Headers(),
+      });
+
+      await GET(
+        makeRequest("https://www.portofbrookingsharbor.com/chetco-river-bar-camera.html")
+      );
+
+      const fetchedUrl = mockFetch.mock.calls[0][0];
+      expect(fetchedUrl).not.toContain("/embed/");
+      expect(fetchedUrl).toBe("https://www.portofbrookingsharbor.com/chetco-river-bar-camera.html");
+    });
+  });
+
   describe("HDRelay (OB Hotel)", () => {
     it("admits obhotel.com (not 403)", async () => {
       mockFetch.mockResolvedValue({

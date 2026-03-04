@@ -104,6 +104,16 @@ describe("buildCamEmbed", () => {
     });
   });
 
+  it("returns hdontap kind for portofbrookingsharbor.com camera pages", () => {
+    const result = buildCamEmbed(
+      "https://www.portofbrookingsharbor.com/chetco-river-bar-camera.html"
+    );
+    expect(result).toEqual({
+      kind: "hdontap",
+      pageUrl: "https://www.portofbrookingsharbor.com/chetco-river-bar-camera.html",
+    });
+  });
+
   // --- Protocol validation ---
   it("rejects javascript: URIs", () => {
     expect(buildCamEmbed("javascript:alert(1)")).toEqual({ kind: "none" });
