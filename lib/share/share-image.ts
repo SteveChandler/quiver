@@ -46,6 +46,14 @@ export class ShareImageError extends Error {
  * Fetches an image and converts it to a Blob
  */
 export async function fetchImageAsBlob(imageUrl: string): Promise<Blob> {
+  // Block dangerous URL protocols; allow relative URLs and http/https
+  if (typeof imageUrl === "string" && imageUrl.length > 0) {
+    const protocol = imageUrl.split(":")[0]?.toLowerCase();
+    if (protocol && protocol !== "https" && protocol !== "http" && !imageUrl.startsWith("/")) {
+      throw new ShareImageError("Invalid image URL protocol", "FETCH_FAILED");
+    }
+  }
+
   try {
     const response = await fetch(imageUrl, {
       mode: "cors",
@@ -255,6 +263,9 @@ export function downloadImage(blob: Blob, filename: string): ShareImageResult {
  * Copies text to the clipboard
  */
 export async function copyToClipboard(text: string): Promise<void> {
+  if (typeof navigator === "undefined" || !navigator.clipboard) {
+    throw new Error("Clipboard API not available");
+  }
   await navigator.clipboard.writeText(text);
 }
 

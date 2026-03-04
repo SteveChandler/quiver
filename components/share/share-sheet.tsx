@@ -43,6 +43,9 @@ export interface ShareSheetProps {
 
 type ActionState = "idle" | "loading" | "success" | "error";
 
+// Issue 6: Typed union for action keys instead of bare string
+type ActionKey = "copy" | "save" | "more";
+
 /**
  * Lovi-style dark share sheet with three actions:
  * Copy Link, Save image, and More (full native share).
@@ -60,43 +63,83 @@ export function ShareSheet({
   className,
   shareUrl,
 }: ShareSheetProps) {
-  const [actionStates, setActionStates] = React.useState<Record<string, ActionState>>({});
+  // Issue 6: Use Record<ActionKey, ActionState> for full type safety
+  const [actionStates, setActionStates] = React.useState<Partial<Record<ActionKey, ActionState>>>({});
   const [imageError, setImageError] = React.useState(false);
   const blobRef = React.useRef<Blob | null>(null);
 
-  // Reset state and pre-fetch image blob when sheet opens
+  // Issue 2: Track all pending timer IDs so we can clear them on close/unmount
+  const timersRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+
+  // Issue 1: Stale-closure guard for the pre-fetch effect
   React.useEffect(() => {
     if (open) {
       setActionStates({});
       setImageError(false);
       blobRef.current = null;
 
+      let cancelled = false;
       fetchImageAsBlob(imageUrl)
         .then((blob) => {
-          blobRef.current = blob;
+          if (!cancelled) blobRef.current = blob;
         })
         .catch(() => {
           // Image fetch failure is handled gracefully - Save will re-fetch if needed
         });
+
+      return () => {
+        cancelled = true;
+      };
     }
   }, [open, imageUrl]);
 
-  function setActionState(action: string, state: ActionState) {
+  // Issue 2: Clear all pending timers when the sheet closes
+  React.useEffect(() => {
+    if (!open) {
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current.clear();
+    }
+  }, [open]);
+
+  // Issue 2: Clear all pending timers on unmount
+  React.useEffect(() => {
+    return () => {
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current.clear();
+    };
+  }, []);
+
+  // Issue 6: ActionKey typed parameter
+  function setActionState(action: ActionKey, state: ActionState) {
     setActionStates((prev) => ({ ...prev, [action]: state }));
   }
 
-  function resetActionAfter(action: string, delay: number) {
-    setTimeout(() => setActionState(action, "idle"), delay);
+  // Issue 2: Track timer IDs in ref instead of bare setTimeout
+  function resetActionAfter(action: ActionKey, delay: number) {
+    const id = setTimeout(() => {
+      setActionState(action, "idle");
+      timersRef.current.delete(id);
+    }, delay);
+    timersRef.current.add(id);
   }
 
+  // Issue 3: Use URL constructor for safe UTM param construction
   const handleCopyLink = async () => {
     setActionState("copy", "loading");
 
-    const base = shareUrl ?? (typeof window !== "undefined" ? window.location.href : "");
-    const separator = base.includes("?") ? "&" : "?";
-    const url = `${base}${separator}utm_source=quiver&utm_medium=share&utm_campaign=${type}_share`;
-
     try {
+      const base = shareUrl ?? (typeof window !== "undefined" ? window.location.href : "");
+      if (!base) {
+        setActionState("copy", "error");
+        resetActionAfter("copy", 1500);
+        return;
+      }
+      const urlObj = new URL(base);
+      urlObj.searchParams.set("utm_source", "quiver");
+      urlObj.searchParams.set("utm_medium", "share");
+      urlObj.searchParams.set("utm_campaign", `${type}_share`);
+      const url = urlObj.toString();
+
       await copyToClipboard(url);
       setActionState("copy", "success");
       track("share_link_copied", { type });
@@ -154,7 +197,12 @@ export function ShareSheet({
         }),
         keepalive: true,
       }).catch(() => {});
-      setTimeout(() => onOpenChange(false), 500);
+      // Issue 2: Track the close timeout in timersRef
+      const closeId = setTimeout(() => {
+        onOpenChange(false);
+        timersRef.current.delete(closeId);
+      }, 500);
+      timersRef.current.add(closeId);
     } catch (error) {
       if (error instanceof ShareImageError && error.code === "SHARE_CANCELLED") {
         setActionState("more", "idle");
@@ -210,6 +258,15 @@ export function ShareSheet({
             )}
           </div>
 
+          {/* Issue 5: Screen reader status announcements */}
+          <div className="sr-only" aria-live="polite" role="status">
+            {actionStates["copy"] === "success" && "Link copied to clipboard"}
+            {actionStates["save"] === "success" && "Image saved"}
+            {actionStates["copy"] === "loading" && "Copying link"}
+            {actionStates["save"] === "loading" && "Saving image"}
+            {actionStates["more"] === "loading" && "Opening share"}
+          </div>
+
           {/* Action buttons row */}
           <div className="flex items-start justify-center gap-8 w-full max-w-sm mx-auto">
             <ActionButton
@@ -233,9 +290,11 @@ export function ShareSheet({
           </div>
 
           {/* Close text button */}
+          {/* Issue 8: aria-label on bottom Close button */}
           <button
             onClick={() => onOpenChange(false)}
             className="text-white/50 hover:text-white/70 text-sm font-medium py-3 w-full transition-colors"
+            aria-label="Close share sheet"
           >
             Close
           </button>
