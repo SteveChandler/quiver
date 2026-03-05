@@ -20,6 +20,9 @@ import type {
   TrackEventRequest,
 } from '@/types/implicit-preferences';
 import { getTrackingCache, setTrackingCache } from '@/lib/services/tracking-cache';
+import { parseUserAgent } from '@/lib/utils/user-agent-parser';
+import { isBot } from '@/lib/utils/bot-detector';
+import { createServiceRoleClient } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,7 +56,7 @@ const rateLimitOrder: string[] = [];
  * Check and update rate limit for a user
  * Returns true if within limits, false if rate limited
  */
-function checkRateLimit(userId: string): { allowed: boolean; remaining: number; resetAt: number } {
+function checkRateLimit(userId: string, limit: number = RATE_LIMIT): { allowed: boolean; remaining: number; resetAt: number } {
   const now = Date.now();
   const entry = rateLimitMap.get(userId);
 
@@ -69,13 +72,13 @@ function checkRateLimit(userId: string): { allowed: boolean; remaining: number; 
 
   if (current) {
     // Check if over limit
-    if (current.count >= RATE_LIMIT) {
+    if (current.count >= limit) {
       return { allowed: false, remaining: 0, resetAt };
     }
 
     // Increment count
     current.count++;
-    return { allowed: true, remaining: RATE_LIMIT - current.count, resetAt };
+    return { allowed: true, remaining: limit - current.count, resetAt };
   }
 
   // New entry - apply LRU eviction if at capacity
@@ -88,7 +91,7 @@ function checkRateLimit(userId: string): { allowed: boolean; remaining: number; 
   rateLimitOrder.push(userId);
   rateLimitMap.set(userId, { count: 1, resetAt });
 
-  return { allowed: true, remaining: RATE_LIMIT - 1, resetAt };
+  return { allowed: true, remaining: limit - 1, resetAt };
 }
 
 // =============================================================================
@@ -121,7 +124,18 @@ const VALID_EVENTS: ImplicitEventType[] = [
   'social_invite_send',
   'social_invite_respond',
   'social_intel_confirm',
+  // Tab and map engagement events
+  'tab_view',
+  'map_interaction',
 ];
+
+const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
+  'page_view', 'beach_view', 'tab_view', 'onboarding_step',
+];
+
+const ANON_RATE_LIMIT = 30; // Lower rate limit for anonymous users
+
+import { isValidUUID } from '@/lib/utils/validation';
 
 /**
  * Check if implicit tracking is allowed for a user
@@ -157,47 +171,13 @@ async function isTrackingAllowed(
 }
 
 export async function POST(request: Request) {
-  const supabase = await createAPIServerClient();
-
-  // 1. Auth check
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return createAuthError('Unauthorized');
+  // 1. Bot filtering
+  const ua = request.headers.get('user-agent') || '';
+  if (isBot(ua)) {
+    return createSuccessResponse({ ok: true, status: 'bot_filtered' });
   }
 
-  // 2. Rate limiting check
-  const rateLimit = checkRateLimit(user.id);
-  if (!rateLimit.allowed) {
-    return new Response(
-      JSON.stringify({
-        ok: false,
-        status: 'rate_limited',
-        error: 'Too many requests. Please try again later.',
-      }),
-      {
-        status: 429,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-RateLimit-Limit': RATE_LIMIT.toString(),
-          'X-RateLimit-Remaining': '0',
-          'X-RateLimit-Reset': Math.ceil(rateLimit.resetAt / 1000).toString(),
-          'Retry-After': Math.ceil((rateLimit.resetAt - Date.now()) / 1000).toString(),
-        },
-      }
-    );
-  }
-
-  // 3. Privacy gatekeeper
-  const allowed = await isTrackingAllowed(supabase, user.id);
-  if (!allowed) {
-    // Return success to client (don't retry) but don't write data
-    return createSuccessResponse({ ok: true, status: 'tracking_disabled' });
-  }
-
-  // 4. Parse and validate request
+  // 2. Parse request body first (before auth check, needed for anonymous flow)
   let body: TrackEventRequest;
   try {
     body = await request.json();
@@ -205,28 +185,131 @@ export async function POST(request: Request) {
     return createErrorResponse('Invalid JSON body', undefined, 400);
   }
 
-  const { eventType, beachId, metadata } = body;
+  // 3. Device enrichment
+  const enrichedMetadata = {
+    ...(body.metadata || {}),
+    _device: parseUserAgent(ua),
+    ...(body.viewportWidth ? { _viewport_width: body.viewportWidth } : {}),
+  };
 
-  if (!eventType || !VALID_EVENTS.includes(eventType as ImplicitEventType)) {
-    return createErrorResponse(
-      `Invalid event type. Must be one of: ${VALID_EVENTS.join(', ')}`,
-      undefined,
-      400
-    );
+  const { eventType, beachId } = body;
+
+  // 4. Try auth
+  const supabase = await createAPIServerClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (!authError && user) {
+    // Authenticated flow
+
+    // Rate limiting check
+    const rateLimit = checkRateLimit(user.id);
+    if (!rateLimit.allowed) {
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          status: 'rate_limited',
+          error: 'Too many requests. Please try again later.',
+        }),
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-RateLimit-Limit': RATE_LIMIT.toString(),
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': Math.ceil(rateLimit.resetAt / 1000).toString(),
+            'Retry-After': Math.ceil((rateLimit.resetAt - Date.now()) / 1000).toString(),
+          },
+        }
+      );
+    }
+
+    // Privacy gatekeeper
+    const allowed = await isTrackingAllowed(supabase, user.id);
+    if (!allowed) {
+      return createSuccessResponse({ ok: true, status: 'tracking_disabled' });
+    }
+
+    // Validate event type
+    if (!eventType || !VALID_EVENTS.includes(eventType as ImplicitEventType)) {
+      return createErrorResponse(
+        `Invalid event type. Must be one of: ${VALID_EVENTS.join(', ')}`,
+        undefined,
+        400
+      );
+    }
+
+    // Insert event
+    const { error: insertError } = await supabase.from('user_events').insert({
+      user_id: user.id,
+      event_type: eventType,
+      beach_id: beachId || null,
+      metadata: enrichedMetadata,
+    });
+
+    if (insertError) {
+      console.error('Error inserting event:', insertError);
+      return createErrorResponse('Failed to record event', undefined, 500);
+    }
+
+    return createSuccessResponse({ ok: true });
   }
 
-  // 5. Insert event
-  const { error: insertError } = await supabase.from('user_events').insert({
-    user_id: user.id,
-    event_type: eventType,
-    beach_id: beachId || null,
-    metadata: metadata || {},
-  });
+  // 5. Anonymous flow — requires sessionId
+  if (body.sessionId) {
+    if (!isValidUUID(body.sessionId)) {
+      return createErrorResponse('Invalid sessionId format', undefined, 400);
+    }
 
-  if (insertError) {
-    console.error('Error inserting event:', insertError);
-    return createErrorResponse('Failed to record event', undefined, 500);
+    if (!eventType || !ANONYMOUS_ALLOWED_EVENTS.includes(eventType as ImplicitEventType)) {
+      return createErrorResponse(
+        `Event type not allowed for anonymous users. Must be one of: ${ANONYMOUS_ALLOWED_EVENTS.join(', ')}`,
+        undefined,
+        400
+      );
+    }
+
+    const anonRateLimit = checkRateLimit(`anon:${body.sessionId}`, ANON_RATE_LIMIT);
+    if (!anonRateLimit.allowed) {
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          status: 'rate_limited',
+          error: 'Too many requests. Please try again later.',
+        }),
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-RateLimit-Limit': ANON_RATE_LIMIT.toString(),
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': Math.ceil(anonRateLimit.resetAt / 1000).toString(),
+            'Retry-After': Math.ceil((anonRateLimit.resetAt - Date.now()) / 1000).toString(),
+          },
+        }
+      );
+    }
+
+    const serviceClient = createServiceRoleClient();
+    // Cast needed: session_id column and nullable user_id added by migration 20260301130001
+    const { error: insertError } = await serviceClient.from('user_events').insert({
+      user_id: null as any,
+      session_id: body.sessionId,
+      event_type: eventType,
+      beach_id: beachId || null,
+      metadata: enrichedMetadata,
+    } as any);
+
+    if (insertError) {
+      console.error('Error inserting anonymous event:', insertError);
+      return createErrorResponse('Failed to record event', undefined, 500);
+    }
+
+    return createSuccessResponse({ ok: true });
   }
 
-  return createSuccessResponse({ ok: true });
+  // 6. Neither authenticated nor anonymous sessionId
+  return createAuthError('Unauthorized');
 }

@@ -14,6 +14,7 @@ import {
   getConditionBadge,
   buildHeadlineText,
   isTomorrowInTimezone,
+  isEveningInTimezone,
 } from "@/lib/utils/condition-tier-utils";
 import { buildSurfCallShareUrl } from "./build-share-card-url";
 
@@ -87,7 +88,8 @@ export function buildSurfCallShareData(input: BuildShareDataInput): ShareData | 
     const isTomorrow = isTomorrowInTimezone(window.start, timezone);
 
     // Build headline text for share description
-    const headlineText = buildHeadlineText(beach.name, tier, isTomorrow, timeSlot);
+    const isEvening = isEveningInTimezone(timezone);
+    const headlineText = buildHeadlineText(beach.name, tier, isTomorrow, timeSlot, isEvening);
 
     // Build time context for OG image subtitle (e.g., "Tomorrow Morning", "This Afternoon")
     // Time slots: dawn-patrol (6-11am), lunch-session (11am-2pm), afternoon (2-6pm)

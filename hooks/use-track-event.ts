@@ -29,6 +29,7 @@
 import { useCallback, useRef } from "react";
 import { useAuth } from "@/context/auth-context";
 import type { ImplicitEventType, EventMetadata } from "@/types/implicit-preferences";
+import { getVisitorId } from "@/lib/utils/visitor-id";
 
 interface TrackEventOptions {
   /** The beach ID to associate with this event (optional for some event types) */
@@ -58,9 +59,6 @@ export function useTrackEvent() {
       eventType: ImplicitEventType,
       { beachId, metadata = {}, debounceMs = 1000 }: TrackEventOptions = {}
     ) => {
-      // Skip for guests
-      if (!user?.id) return;
-
       // Debounce duplicate events
       const key = `${eventType}-${beachId ?? "no-beach"}`;
       const now = Date.now();
@@ -78,6 +76,8 @@ export function useTrackEvent() {
             eventType,
             beachId,
             metadata,
+            viewportWidth: typeof window !== 'undefined' ? window.innerWidth : undefined,
+            ...(user?.id ? {} : { sessionId: getVisitorId() }),
           }),
           keepalive: true, // Survives page navigation
         });

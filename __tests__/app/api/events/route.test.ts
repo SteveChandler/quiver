@@ -10,10 +10,15 @@
 import { POST } from '@/app/api/events/route';
 import { __clearTrackingCache } from '@/lib/services/tracking-cache';
 import { createAPIServerClient } from '@/lib/supabase/api-server-client';
+import { createServiceRoleClient } from '@/lib/supabase';
 
 // Mock Supabase client
 jest.mock('@/lib/supabase/api-server-client', () => ({
   createAPIServerClient: jest.fn(),
+}));
+
+jest.mock('@/lib/supabase', () => ({
+  createServiceRoleClient: jest.fn(),
 }));
 
 const mockSupabase = {
@@ -162,7 +167,7 @@ describe('POST /api/events', () => {
       user_id: 'user-123',
       event_type: 'beach_view',
       beach_id: '123',
-      metadata: { duration_ms: 5000 },
+      metadata: expect.objectContaining({ duration_ms: 5000, _device: expect.any(Object) }),
     });
   });
 
@@ -339,7 +344,7 @@ describe('POST /api/events', () => {
       user_id: 'user-123',
       event_type: 'location_update',
       beach_id: null,
-      metadata: {},
+      metadata: expect.objectContaining({ _device: expect.any(Object) }),
     });
   });
 
@@ -690,6 +695,21 @@ describe('POST /api/events', () => {
         'profile_update',
         'onboarding_step',
         'cta_click',
+        // Review tracking events
+        'review_form_open',
+        'review_form_abandon',
+        'review_validation_error',
+        'review_submit',
+        // Tab and map engagement events
+        'tab_view',
+        'map_interaction',
+        // Social tracking events
+        'social_follow',
+        'social_like',
+        'social_share',
+        'social_invite_send',
+        'social_invite_respond',
+        'social_intel_confirm',
       ];
 
       for (const eventType of validEventTypes) {
@@ -706,7 +726,7 @@ describe('POST /api/events', () => {
           user_id: 'user-event-types',
           event_type: eventType,
           beach_id: null,
-          metadata: {},
+          metadata: expect.objectContaining({ _device: expect.any(Object) }),
         });
       }
     });
@@ -763,7 +783,7 @@ describe('POST /api/events', () => {
         user_id: 'user-metadata',
         event_type: 'discovery_click',
         beach_id: 'beach-789',
-        metadata: complexMetadata,
+        metadata: expect.objectContaining({ ...complexMetadata, _device: expect.any(Object) }),
       });
     });
 
@@ -805,8 +825,142 @@ describe('POST /api/events', () => {
         user_id: 'user-empty-meta',
         event_type: 'beach_view',
         beach_id: null,
-        metadata: {},
+        metadata: expect.objectContaining({ _device: expect.any(Object) }),
       });
+    });
+  });
+
+  describe('device enrichment and bot filtering', () => {
+    it('enriches metadata with _device info', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: { id: 'user-device' } },
+        error: null,
+      });
+
+      const mockInsert = jest.fn().mockResolvedValue({ error: null });
+      mockSupabase.from.mockImplementation((table: string) => {
+        if (table === 'profiles') {
+          return {
+            select: jest.fn(() => ({
+              eq: jest.fn(() => ({
+                single: jest.fn().mockResolvedValue({
+                  data: { allow_implicit_tracking: true },
+                  error: null,
+                }),
+              })),
+            })),
+            insert: jest.fn(() => ({ error: null })),
+          };
+        }
+        return { insert: mockInsert, select: jest.fn() };
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+        body: JSON.stringify({ eventType: 'beach_view' }),
+      });
+
+      await POST(request);
+
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            _device: expect.objectContaining({
+              device_type: expect.any(String),
+              os: expect.any(String),
+              browser: expect.any(String),
+            }),
+          }),
+        })
+      );
+    });
+
+    it('filters bot requests silently', async () => {
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Googlebot/2.1 (+http://www.google.com/bot.html)',
+        },
+        body: JSON.stringify({ eventType: 'page_view' }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.status).toBe('bot_filtered');
+    });
+
+    it('accepts anonymous events with valid sessionId', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventType: 'page_view',
+          sessionId: '12345678-1234-1234-1234-123456789012',
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockServiceInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: null,
+          session_id: '12345678-1234-1234-1234-123456789012',
+          event_type: 'page_view',
+        })
+      );
+    });
+
+    it('rejects non-allowed event types for anonymous users', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventType: 'forecast_interaction',
+          sessionId: '12345678-1234-1234-1234-123456789012',
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 401 when neither auth nor sessionId', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventType: 'page_view' }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(401);
     });
   });
 });

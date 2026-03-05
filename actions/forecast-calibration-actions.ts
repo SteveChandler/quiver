@@ -10,6 +10,7 @@ import type {
   SessionForecastSnapshot,
   BeachForecastAccuracy,
 } from "@/types/database";
+import type { Json } from "@/types/supabase";
 
 /**
  * Filters for querying the authenticated user's forecast history.
@@ -130,7 +131,7 @@ export async function getBeachForecastAccuracy(
       .select("*")
       .eq("beach_id", beachId)
       .maybeSingle();
-  });
+  }, { allowNull: true });
 }
 
 /**
@@ -592,7 +593,12 @@ export async function getUserForecastAccuracySummary(): Promise<
     }
 
     // Calculate accuracy metrics
-    const accuracyScores = snapshots.map((snapshot) => {
+    type Snapshot = {
+      forecast_snapshot: Json;
+      actual_conditions: Json;
+      session: { beach_name: string } | null;
+    };
+    const accuracyScores = (snapshots as Snapshot[]).map((snapshot) => {
       const forecastSnapshot = snapshot.forecast_snapshot as Record<string, any>;
       const actualConditions = snapshot.actual_conditions as Record<string, any>;
       const forecastHeight = parseFloat(
@@ -622,7 +628,7 @@ export async function getUserForecastAccuracySummary(): Promise<
     };
 
     // Group by beach and calculate beach-specific accuracy
-    const beachStats = snapshots.reduce<Record<string, BeachStatsEntry>>((acc, snapshot) => {
+    const beachStats = (snapshots as Snapshot[]).reduce<Record<string, BeachStatsEntry>>((acc, snapshot) => {
       const beachName = snapshot.session?.beach_name || "Unknown Beach";
       if (!acc[beachName]) {
         acc[beachName] = { sessions: [], accuracy: 0 };

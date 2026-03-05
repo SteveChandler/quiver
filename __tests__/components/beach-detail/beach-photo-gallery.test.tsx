@@ -110,7 +110,7 @@ describe('BeachPhotoGallery', () => {
       const { container } = render(<BeachPhotoGallery beach={mockBeach} />);
 
       const gridContainer = container.querySelector('.grid');
-      expect(gridContainer).toHaveClass('gap-2'); // gap-2 = 8px in Tailwind
+      expect(gridContainer).toHaveClass('gap-1');
     });
 
     test('applies correct border radius (12px) when photos exist', () => {
@@ -126,7 +126,8 @@ describe('BeachPhotoGallery', () => {
       const { container } = render(<BeachPhotoGallery beach={mockBeach} />);
 
       const gridContainer = container.querySelector('.grid');
-      expect(gridContainer).toHaveClass('rounded-xl'); // rounded-xl = 12px
+      // Grid container uses gap-1 and overflow-hidden (no rounded-xl on grid itself)
+      expect(gridContainer).toHaveClass('overflow-hidden');
     });
 
     test('has overflow hidden for border radius when photos exist', () => {
@@ -327,7 +328,7 @@ describe('BeachPhotoGallery', () => {
       // Right column container
       const rightColumn = container.querySelector('.grid.grid-cols-2.md\\:grid-cols-1');
       expect(rightColumn).toBeInTheDocument();
-      expect(rightColumn).toHaveClass('gap-2');
+      expect(rightColumn).toHaveClass('gap-1');
     });
   });
 

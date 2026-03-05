@@ -37,7 +37,7 @@ Pair the base color with opacity modifiers for backgrounds and borders:
 ### Do / Don't
 
 - **Do** use `text-success`, `bg-info/10`, `border-destructive/20` for status indicators.
-- **Don't** replace decorative or brand colors (ocean-blue links, amber star ratings) with status tokens.
+- **Don't** replace decorative or brand colors (primary action links, amber star ratings) with status tokens.
 
 ---
 
@@ -209,30 +209,44 @@ Props: `icon` (Lucide), `title`, `description`, `action?`, `secondaryAction?`, `
 
 ## 10. Brand Colors
 
-Ocean-blue is the **primary action color** across both the landing page and authenticated app. Orange is a **secondary accent** for warm highlights and badges.
+The app uses a **retro dark surf aesthetic**. Hot pink is the **primary action color**; deep navy is the global background. The Tailwind token `ocean-blue` still exists in `tailwind.config.ts` but now maps to `#FF3B8B` (hot pink) — do not assume it is blue.
 
 | Token | Hex | Role |
 |-------|-----|------|
-| `ocean-blue` | `#0077B6` | **Primary action color** -- CTAs, links, active states, buttons |
+| `ocean-blue` | `#FF3B8B` | **Primary action color** -- CTAs, links, active states, buttons (token retained; value is now hot pink) |
 | `sunset-orange` | `#FF7F11` | Secondary accent -- warm highlights, badges, decorative emphasis |
 | `sandy-beige` | `#F5F5DC` | Decorative -- beach-detail gradient background (1 usage, keep) |
 | `dark-grey` | `#333333` | High-contrast text |
 
+### Retro dark palette
+
+The global background and card surfaces use the following values directly (not tokenized as Tailwind colors — apply via `bg-[#...]` or CSS custom properties):
+
+| Role | Hex | Notes |
+|------|-----|-------|
+| Background | `#0B1426` | Deep navy -- global page background |
+| Card surface | `#111D35` | Slightly lighter navy for card/panel backgrounds |
+| Primary accent | `#FF3B8B` | Hot pink -- same value as `ocean-blue` token |
+| Teal accent | `#00D4AA` | Links, success states, secondary highlights |
+| Electric yellow | `#FFD639` | Badges, ratings, energy indicators |
+
 ### Hover states
 
 Use Tailwind opacity modifiers instead of separate dark tokens:
-- `hover:bg-ocean-blue/90` for blue button hovers
+- `hover:bg-ocean-blue/90` for primary button hovers
 - `hover:text-ocean-blue/80` for link hovers
 
 ### CSS custom property
 
-`--primary` in `globals.css` is set to `199 100% 36%` (matches `#0077B6`). All `bg-primary` / `text-primary` usages from shadcn/ui inherit ocean-blue automatically.
+`--primary` in `globals.css` is set to match `#FF3B8B` (hot pink). All `bg-primary` / `text-primary` usages from shadcn/ui inherit the hot pink value automatically.
 
 ### Do / Don't
 
-- **Do** use `ocean-blue` for all primary actions and CTAs (both landing and app)
-- **Do** use `sunset-orange` / `accent.orange` for secondary accents, badges, and warm decorative elements
-- **Don't** use orange as the primary CTA color (it's secondary)
+- **Do** use `ocean-blue` (hot pink `#FF3B8B`) for all primary actions and CTAs
+- **Do** use `#00D4AA` (teal) for links and secondary highlights in dark contexts
+- **Do** use `#FFD639` (electric yellow) for badges and energy/rating indicators
+- **Don't** use `#0077B6` anywhere -- that is the old corporate blue and has been replaced
+- **Don't** use `sunset-orange` as the primary CTA color (it's secondary)
 - **Don't** create new `-dark` color tokens -- use `/90`, `/80` opacity modifiers instead
 
 ---
@@ -242,8 +256,9 @@ Use Tailwind opacity modifiers instead of separate dark tokens:
 The landing page and authenticated app share the same visual language:
 
 - **Same font hierarchy:** Roboto for headings, Inter for body, Open Sans for long-form content
-- **Same primary color:** Ocean-blue for all CTAs and action buttons
-- **Gradients encouraged** in both contexts for visual depth
+- **Same primary color:** Hot pink `#FF3B8B` (`ocean-blue` token) for all CTAs and action buttons
+- **Same dark background:** Deep navy `#0B1426` as the global page background
+- **Gradients encouraged** in both contexts for visual depth against the dark background
 - **Same shadow scale** (see Shadow Scale section)
 - **Same footer component** (`SiteFooter`) with optional brand section for landing
 

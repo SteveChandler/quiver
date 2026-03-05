@@ -49,7 +49,7 @@ export function NotesSection({
           </label>
           <textarea
             placeholder={text.notesPlaceholder}
-            className="w-full border rounded-lg p-3 min-h-24 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
+            className="w-full border border-[#1E2D4A] bg-[#172544] text-[#F0F0F0] placeholder:text-[#8B9EC2] rounded-lg p-3 min-h-24 focus:ring-2 focus:ring-[#FF3B8B] focus:border-transparent resize-vertical"
             value={formState.notes || ""}
             onChange={(e) => updateField("notes", e.target.value)}
             rows={4}
@@ -72,14 +72,14 @@ export function NotesSection({
         {/* Session Summary for Logged Sessions */}
         {!isPlanning && (
           <div className="pt-4 border-t">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <div className="bg-[#172544] border border-[#1E2D4A] rounded-lg p-3">
               <div className="flex items-start">
-                <ClipboardList className="w-4 h-4 mt-0.5 mr-2 text-green-600 flex-shrink-0" />
+                <ClipboardList className="w-4 h-4 mt-0.5 mr-2 text-[#7BFF5C] flex-shrink-0" />
                 <div className="text-sm">
-                  <p className="font-medium text-green-800 mb-1">
+                  <p className="font-medium text-[#7BFF5C] mb-1">
                     Session Summary Tips:
                   </p>
-                  <ul className="text-green-700 space-y-1 text-xs">
+                  <ul className="text-[#A8B8D0] space-y-1 text-xs">
                     <li>• Describe the wave conditions you experienced</li>
                     <li>• Note any new skills you practiced or learned</li>
                     <li>• Share memorable moments or challenges</li>

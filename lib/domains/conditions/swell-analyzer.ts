@@ -13,11 +13,10 @@
 import type { SwellComponent, SwellAnalysis } from './types';
 import type { SwellWindow } from '../spot-profile/types';
 import {
-  angularDifference,
   calculateWindowAlignment,
 } from '../spot-profile/spot-profile';
 import { CONDITIONS_CONSTANTS } from './types';
-import { directionName } from '../shared';
+import { angleDifference, directionName } from '../shared';
 
 /**
  * Analyzes primary and secondary swell interaction for a beach.
@@ -109,7 +108,7 @@ function calculateInterferencePenalty(
   primary: SwellComponent,
   secondary: SwellComponent
 ): number {
-  const directionDiff = angularDifference(
+  const directionDiff = angleDifference(
     primary.directionDeg,
     secondary.directionDeg
   );
@@ -215,7 +214,7 @@ export function areSwellsAligned(
   swell1: SwellComponent,
   swell2: SwellComponent
 ): boolean {
-  const diff = angularDifference(swell1.directionDeg, swell2.directionDeg);
+  const diff = angleDifference(swell1.directionDeg, swell2.directionDeg);
   return diff < CONDITIONS_CONSTANTS.INTERFERENCE_START_DEG;
 }
 
@@ -226,6 +225,6 @@ export function areSwellsCrossing(
   swell1: SwellComponent,
   swell2: SwellComponent
 ): boolean {
-  const diff = angularDifference(swell1.directionDeg, swell2.directionDeg);
+  const diff = angleDifference(swell1.directionDeg, swell2.directionDeg);
   return diff > 60;
 }

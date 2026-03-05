@@ -70,22 +70,22 @@ describe('BeachStatsGrid', () => {
       // Container should have bg-gray-50, p-5, rounded-xl, my-6
       const outerContainer = container.querySelector('.bg-gray-50');
       expect(outerContainer).toBeInTheDocument();
-      expect(outerContainer).toHaveClass('p-5', 'rounded-xl', 'my-6');
+      expect(outerContainer).toHaveClass('p-4', 'rounded-xl', 'my-4');
     });
 
     test('has responsive grid layout (2 cols mobile, 4 cols desktop)', () => {
       const { container } = render(<BeachStatsGrid beach={mockBeach} />);
 
-      const grid = container.querySelector('.grid');
+      // Grid is hidden on mobile by default (expandable), visible on md+
+      const grid = container.querySelector('.md\\:grid');
       expect(grid).toBeInTheDocument();
-      // Should have responsive grid: 2 cols mobile, 4 cols desktop
       expect(grid).toHaveClass('grid-cols-2', 'md:grid-cols-4');
     });
 
     test('applies correct gap spacing (16px)', () => {
       const { container } = render(<BeachStatsGrid beach={mockBeach} />);
 
-      const grid = container.querySelector('.grid');
+      const grid = container.querySelector('.md\\:grid');
       // gap-4 = 16px consistently
       expect(grid).toHaveClass('gap-4');
     });
@@ -272,31 +272,33 @@ describe('BeachStatsGrid', () => {
   });
 
   describe('Icon Styling', () => {
-    test('all icons have correct size class (h-6 w-6 = 24px)', () => {
+    test('stat icons have correct size class (h-6 w-6 = 24px)', () => {
       const { container } = render(<BeachStatsGrid beach={mockBeach} />);
 
-      const icons = container.querySelectorAll('svg');
-      icons.forEach(icon => {
+      // Target only stat icons (h-6 w-6), not the ChevronDown toggle (h-5 w-5)
+      const statIcons = container.querySelectorAll('svg.h-6.w-6');
+      expect(statIcons.length).toBe(4);
+      statIcons.forEach(icon => {
         expect(icon).toHaveClass('h-6', 'w-6');
       });
     });
 
-    test('all icons use consistent ocean-blue color (#0077B6)', () => {
+    test('stat icons use consistent ocean-blue color (#0077B6)', () => {
       const { container } = render(<BeachStatsGrid beach={mockBeach} />);
 
-      const icons = container.querySelectorAll('svg');
-
-      // All icons should use text-ocean-blue consistently
-      icons.forEach(icon => {
+      const statIcons = container.querySelectorAll('svg.text-ocean-blue');
+      expect(statIcons.length).toBe(4);
+      statIcons.forEach(icon => {
         expect(icon).toHaveClass('text-ocean-blue');
       });
     });
 
-    test('icons have bottom margin (mb-1 = 4px)', () => {
+    test('stat icons have bottom margin (mb-1 = 4px)', () => {
       const { container } = render(<BeachStatsGrid beach={mockBeach} />);
 
-      const icons = container.querySelectorAll('svg');
-      icons.forEach(icon => {
+      const statIcons = container.querySelectorAll('svg.mb-1');
+      expect(statIcons.length).toBe(4);
+      statIcons.forEach(icon => {
         expect(icon).toHaveClass('mb-1');
       });
     });
@@ -362,7 +364,7 @@ describe('BeachStatsGrid', () => {
       const { container } = render(<BeachStatsGrid beach={mockBeach} />);
 
       const outerContainer = container.querySelector('.bg-gray-50');
-      expect(outerContainer).toHaveClass('p-5');
+      expect(outerContainer).toHaveClass('p-4');
     });
 
     test('container has correct border radius (rounded-xl = 12px)', () => {
@@ -372,11 +374,11 @@ describe('BeachStatsGrid', () => {
       expect(outerContainer).toHaveClass('rounded-xl');
     });
 
-    test('container has correct vertical margin (my-6 = 24px)', () => {
+    test('container has correct vertical margin (my-4 base, sm:my-6)', () => {
       const { container } = render(<BeachStatsGrid beach={mockBeach} />);
 
       const outerContainer = container.querySelector('.bg-gray-50');
-      expect(outerContainer).toHaveClass('my-6');
+      expect(outerContainer).toHaveClass('my-4');
     });
   });
 
@@ -395,10 +397,10 @@ describe('BeachStatsGrid', () => {
     test('icons are decorative (no alt text needed)', () => {
       const { container } = render(<BeachStatsGrid beach={mockBeach} />);
 
-      const icons = container.querySelectorAll('svg');
+      const statIcons = container.querySelectorAll('svg.text-ocean-blue');
       // SVG icons from lucide-react are decorative, no aria-label needed
       // as they're accompanied by text labels
-      expect(icons.length).toBeGreaterThan(0);
+      expect(statIcons.length).toBe(4);
     });
   });
 

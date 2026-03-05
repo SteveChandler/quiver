@@ -532,7 +532,7 @@ export function SurfTerminal({
               aria-label={`Show ${tr.label} of data`}
               className={`px-2 py-0.5 text-xs rounded transition-colors ${
                 selectedRange === tr.hours
-                  ? "bg-[#00d4aa] text-black font-semibold"
+                  ? "bg-[#4A70D9] text-black font-semibold"
                   : isDark
                     ? "text-slate-400 hover:text-slate-200 hover:bg-white/5"
                     : "text-slate-500 hover:text-slate-800 hover:bg-black/5"

@@ -28,6 +28,7 @@ jest.mock("@/lib/services/ioos", () => ({
 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { IOOSService } from "@/lib/services/ioos";
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
 describe("IOOS Sync - Observation Sync", () => {
   let mockSupabase: any;
@@ -68,6 +69,12 @@ describe("IOOS Sync - Observation Sync", () => {
         return this;
       }),
       eq: jest.fn(function (this: any) {
+        return this;
+      }),
+      gt: jest.fn(function (this: any) {
+        return this;
+      }),
+      not: jest.fn(function (this: any) {
         return this;
       }),
       in: jest.fn(function (this: any) {
@@ -156,7 +163,12 @@ describe("IOOS Sync - Observation Sync", () => {
       if (table === "ioos_stations") {
         const chain: any = {
           select: jest.fn(() => chain),
+          update: jest.fn(() => chain),
           eq: jest.fn(() => chain),
+          gt: jest.fn(() => chain),
+          not: jest.fn(() => chain),
+          in: jest.fn(() => chain),
+          lt: jest.fn(() => chain),
           order: jest.fn(() => chain),
           limit: jest.fn(() => chain),
           then: jest.fn((resolve) =>
@@ -245,7 +257,12 @@ describe("IOOS Sync - Observation Sync", () => {
       if (table === "ioos_stations") {
         const chain: any = {
           select: jest.fn(() => chain),
+          update: jest.fn(() => chain),
           eq: jest.fn(() => chain),
+          gt: jest.fn(() => chain),
+          not: jest.fn(() => chain),
+          in: jest.fn(() => chain),
+          lt: jest.fn(() => chain),
           order: jest.fn(() => chain),
           limit: jest.fn(() => chain),
           then: jest.fn((resolve) => resolve({ data: manyStations, error: null })),
@@ -273,6 +290,9 @@ describe("IOOS Sync - Observation Sync", () => {
     const request = new NextRequest("http://localhost/api/cron/ioos-sync?phase=observations");
     const response = await GET(request);
     const data = await response.json();
+
+    // Clear the expected reactivation cap warning (100 mock stations > 25 cap)
+    expectConsoleWarnings([/stations eligible for reactivation, capping at/]);
 
     // Verify not all stations were processed (runtime limit kicked in)
     expect(data.stationsSynced).toBeLessThan(100);
@@ -335,6 +355,8 @@ describe("IOOS Sync - Observation Sync", () => {
           select: jest.fn(() => chain),
           update: jest.fn(() => chain),
           eq: jest.fn(() => chain),
+          gt: jest.fn(() => chain),
+          not: jest.fn(() => chain),
           in: jest.fn(() => chain),
           lt: jest.fn(() => chain),
           order: jest.fn(() => chain),
@@ -353,11 +375,87 @@ describe("IOOS Sync - Observation Sync", () => {
     const response = await GET(request);
     const data = await response.json();
 
+    // Clear the expected reactivation cap warning (30 mock stations > 25 cap)
+    expectConsoleWarnings([/stations eligible for reactivation, capping at/]);
+
     // Verify all stations were processed
     expect(data.stationsSynced).toBe(30);
 
     // Verify fetchObservationDynamic was called for each station
     expect(mockIOOSService.fetchObservationDynamic).toHaveBeenCalledTimes(30);
+  });
+
+  it("reactivates inactive stations with recent last_seen_at", async () => {
+    // Track which tables and operations are called
+    const updateCalls: Array<{ table: string; data: any }> = [];
+
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === "ioos_stations") {
+        const chain: any = {
+          select: jest.fn(() => chain),
+          update: jest.fn((data: any) => {
+            updateCalls.push({ table, data });
+            return chain;
+          }),
+          eq: jest.fn(function (this: any, col: string, val: any) {
+            // Return inactive station for the reactivation query (active=false)
+            if (col === "active" && val === false) {
+              chain._isReactivationQuery = true;
+            }
+            return chain;
+          }),
+          gt: jest.fn(() => chain),
+          not: jest.fn(() => chain),
+          in: jest.fn(() => chain),
+          lt: jest.fn(() => chain),
+          order: jest.fn(() => chain),
+          limit: jest.fn(() => chain),
+          then: jest.fn((resolve) => {
+            if (chain._isReactivationQuery) {
+              chain._isReactivationQuery = false;
+              return resolve({
+                data: [{ station_id: "reactivated-station-1" }],
+                error: null,
+              });
+            }
+            return resolve({
+              data: [
+                {
+                  station_id: "station-1",
+                  variable_map: { wave_height: "sea_surface_wave_significant_height" },
+                  active: true,
+                  has_wave_data: true,
+                  variables_last_synced_at: new Date().toISOString(),
+                },
+              ],
+              error: null,
+            });
+          }),
+        };
+        return chain;
+      }
+      if (table === "ioos_observations") {
+        return { upsert: jest.fn(() => Promise.resolve({ error: null })) };
+      }
+      return {
+        select: jest.fn(() => ({
+          then: jest.fn((resolve) => resolve({ data: [], error: null })),
+        })),
+      };
+    });
+
+    const request = new NextRequest(
+      "http://localhost/api/cron/ioos-sync?phase=observations"
+    );
+    const response = await GET(request);
+    const data = await response.json();
+
+    // Verify the reactivation update was issued
+    const reactivationUpdate = updateCalls.find((c) => c.data?.active === true);
+    expect(reactivationUpdate).toBeDefined();
+
+    // Verify stationsReactivated is reported
+    expect(data.stationsReactivated).toBe(1);
   });
 
   it("handles null observations gracefully without incrementing stationsFailed", async () => {

@@ -107,6 +107,8 @@ describe('city lookup functions', () => {
         beach_count: number;
         has_beginner: boolean;
         has_advanced: boolean;
+        has_editorial?: boolean;
+        has_least_crowded?: boolean;
       }>
     ) {
       const supabase = {

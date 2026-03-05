@@ -12,6 +12,7 @@ import type {
   ConditionSubscores,
   MatchQuality,
   RecommendationLabel,
+  UserScoringPreferences,
 } from './types';
 import { trackFallback } from '@/lib/monitoring/fallback-tracker';
 
@@ -118,6 +119,48 @@ function scoreWaveHeightFit(waveHeight: number): { score: number; reason: string
     reason = `Big swell - expert only`;
   } else {
     score = Math.round(MAX_WAVE_HEIGHT_FIT * waveHeight);
+  }
+
+  return { score: Math.min(MAX_WAVE_HEIGHT_FIT, Math.max(0, score)), reason };
+}
+
+/**
+ * Score wave height fit personalized to user preference (0-25 points)
+ */
+function scoreWaveHeightFitPersonalized(
+  waveHeight: number,
+  preferredSize: 'small' | 'medium' | 'large'
+): { score: number; reason: string | null } {
+  if (waveHeight <= 0) {
+    return { score: 0, reason: null };
+  }
+
+  const ranges = {
+    small: { idealMin: 1, idealMax: 3, partialLowMin: 0.5, partialHighMax: 5 },
+    medium: { idealMin: 2, idealMax: 5, partialLowMin: 1, partialHighMax: 8 },
+    large: { idealMin: 5, idealMax: 10, partialLowMin: 3, partialHighMax: 14 },
+  };
+
+  const range = ranges[preferredSize];
+  let score: number;
+  let reason: string | null = null;
+
+  if (waveHeight >= range.idealMin && waveHeight <= range.idealMax) {
+    score = MAX_WAVE_HEIGHT_FIT;
+    reason = `Your kind of waves (${waveHeight.toFixed(1)}ft)`;
+  } else if (waveHeight < range.idealMin && waveHeight >= range.partialLowMin) {
+    score = Math.round(MAX_WAVE_HEIGHT_FIT * (waveHeight / range.idealMin));
+    reason = `Below your preferred size (${waveHeight.toFixed(1)}ft)`;
+  } else if (waveHeight > range.idealMax && waveHeight <= range.partialHighMax) {
+    const fraction = 1 - (waveHeight - range.idealMax) / (range.partialHighMax - range.idealMax);
+    score = Math.round(MAX_WAVE_HEIGHT_FIT * fraction);
+    reason = `Above your comfort zone (${waveHeight.toFixed(1)}ft)`;
+  } else if (waveHeight < range.partialLowMin) {
+    score = Math.round(MAX_WAVE_HEIGHT_FIT * 0.1);
+    reason = `Below your preferred size (${waveHeight.toFixed(1)}ft)`;
+  } else {
+    score = Math.round(MAX_WAVE_HEIGHT_FIT * 0.2);
+    reason = `Above your comfort zone (${waveHeight.toFixed(1)}ft)`;
   }
 
   return { score: Math.min(MAX_WAVE_HEIGHT_FIT, Math.max(0, score)), reason };
@@ -301,6 +344,7 @@ function buildMessage(
 export interface ScoreConditionsOptions {
   /** Water quality status for the beach */
   waterQuality?: { status: 'good' | 'advisory' | 'closure' | 'unknown' };
+  userPreferences?: UserScoringPreferences;
 }
 
 /**
@@ -353,7 +397,9 @@ export function scoreConditions(
   }
 
   // Calculate subscores
-  const waveResult = scoreWaveHeightFit(forecast.waveHeight);
+  const waveResult = options?.userPreferences?.preferredWaveSize
+    ? scoreWaveHeightFitPersonalized(forecast.waveHeight, options.userPreferences.preferredWaveSize)
+    : scoreWaveHeightFit(forecast.waveHeight);
   const periodResult = scorePeriodEnergy(forecast.wavePeriod);
   const windResult = scoreWindAlignment(forecast.windSpeed, forecast.windDirection, beach);
   const tideResult = scoreTideFit(forecast.tideHeight, beach);

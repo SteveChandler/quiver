@@ -1,6 +1,7 @@
 "use server";
 
 import { makeAuthenticatedAction } from "@/lib/server-action-utils";
+import type { Database } from "@/types/supabase";
 
 // Types
 export interface ForecastVoteInput {
@@ -144,7 +145,7 @@ export const getBeachAccuracyStats = makeAuthenticatedAction(
     // Calculate statistics
     const totalVotes = votes?.length || 0;
     const accurateVotes =
-      votes?.filter((v) => v.was_accurate).length || 0;
+      votes?.filter((v: { was_accurate: boolean }) => v.was_accurate).length || 0;
     const inaccurateVotes = totalVotes - accurateVotes;
     const accuracyPercentage =
       totalVotes > 0 ? (accurateVotes / totalVotes) * 100 : 0;
@@ -184,7 +185,7 @@ export const getForecastAccuracyStats = makeAuthenticatedAction(
     // Calculate statistics
     const totalVotes = votes?.length || 0;
     const accurateVotes =
-      votes?.filter((v) => v.was_accurate).length || 0;
+      votes?.filter((v: { was_accurate: boolean }) => v.was_accurate).length || 0;
     const inaccurateVotes = totalVotes - accurateVotes;
     const accuracyPercentage =
       totalVotes > 0 ? (accurateVotes / totalVotes) * 100 : 0;
@@ -226,10 +227,10 @@ export const getUserVerificationStreak = makeAuthenticatedAction(
     }
 
     // Calculate streaks
-    const voteDates = votes.map((v) =>
+    const voteDates: string[] = (votes as Pick<Database['public']['Tables']['forecast_accuracy_votes']['Row'], 'created_at'>[]).map((v) =>
       new Date(v.created_at).toDateString()
     );
-    const uniqueDates = [...new Set(voteDates)];
+    const uniqueDates: string[] = [...new Set(voteDates)];
 
     let currentStreak = 0;
     let longestStreak = 0;

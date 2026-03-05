@@ -35,11 +35,11 @@ export function trackAuthModalOpened(params: {
 
 /**
  * Track when user selects an auth method
- * @param params.method - The auth method selected (google/password/magic_link)
+ * @param params.method - The auth method selected (apple/google/password/magic_link)
  * @param params.mode - The current mode (login/signup)
  */
 export function trackAuthMethodSelected(params: {
-  method: "google" | "password" | "magic_link";
+  method: "apple" | "google" | "password" | "magic_link";
   mode: "login" | "signup";
 }) {
   track("auth_method_selected", {

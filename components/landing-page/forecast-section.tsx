@@ -147,7 +147,7 @@ export function ForecastSection() {
                     ${
                       activeFeatureId === feature.id
                         ? "bg-ocean-blue text-white shadow-sm"
-                        : "bg-white/70 text-slate-700 hover:bg-white"
+                        : "bg-white/70 text-[#334155] hover:bg-white"
                     }
                   `}
                 >
@@ -169,7 +169,7 @@ export function ForecastSection() {
                 >
                   <ArrowUp
                     aria-hidden="true"
-                    className="mx-auto h-4 w-4 text-gray-700"
+                    className="mx-auto h-4 w-4 text-white"
                   />
                 </button>
               </div>
@@ -194,8 +194,8 @@ export function ForecastSection() {
                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:rounded
                       ${
                         activeFeatureId === feature.id
-                          ? "font-bold text-slate-900 decoration-slate-500 decoration-2"
-                          : "font-normal text-slate-700 decoration-slate-300 hover:decoration-slate-500"
+                          ? "font-bold text-[#0f172a] decoration-[#64748b] decoration-2"
+                          : "font-normal text-[#334155] decoration-[#cbd5e1] hover:decoration-[#64748b]"
                       }
                     `}
                   >
@@ -213,7 +213,7 @@ export function ForecastSection() {
                 >
                   <ArrowDown
                     aria-hidden="true"
-                    className="mx-auto h-4 w-4 text-gray-700"
+                    className="mx-auto h-4 w-4 text-white"
                   />
                 </button>
               </div>
@@ -278,10 +278,10 @@ export function ForecastSection() {
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.25, ease: "easeInOut" }}
                 >
-                  <h2 className="text-4xl lg:text-5xl font-roboto font-semibold tracking-tight leading-[1.05] text-slate-900">
+                  <h2 className="text-4xl lg:text-5xl font-roboto font-semibold tracking-tight leading-[1.05] text-[#0f172a]">
                     {activeFeature.headline}
                   </h2>
-                  <p className="mt-5 text-base leading-7 text-slate-600 max-w-[420px] mx-auto md:mx-0">
+                  <p className="mt-5 text-base leading-7 text-[#475569] max-w-[420px] mx-auto md:mx-0">
                     {activeFeature.body}
                   </p>
 

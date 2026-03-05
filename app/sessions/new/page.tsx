@@ -1,61 +1,38 @@
 "use client";
 
-import React, { Suspense, useEffect } from "react";
+import React, { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { SessionWizard } from "@/components/session/wizard/SessionWizard";
+import { SessionScrollForm } from "@/components/session-forms/SessionScrollForm";
 import { SessionFormMode, SessionFormState } from "@/hooks/use-session-form";
 import {
   parseSessionWizardParams,
   extractFormState,
 } from "@/lib/utils/session-wizard-params";
 import { useAuth } from "@/context/auth-context";
-import { ReviewPromptDialog } from "@/components/dialogs/review-prompt-dialog";
 import { FormErrorBoundary } from "@/components/error-boundaries";
-import { useReviewPrompt } from "@/hooks/use-review-prompt";
-import { REVIEW_TIMEOUTS } from "@/lib/constants/review-tracking";
 import { useSessionSubmission } from "./useSessionSubmission";
-import { CelebrationOverlay } from "./CelebrationOverlay";
-import { ForecastFeedbackFlow } from "./ForecastFeedbackFlow";
 
 interface NewSessionPageContentProps {
   initialFormState?: Partial<SessionFormState>;
-  targetStep?: number;
   mode: SessionFormMode;
   convertSessionId?: string | null;
-  quick?: boolean;
 }
 
 function NewSessionPageContent({
   initialFormState,
-  targetStep,
   mode,
   convertSessionId,
-  quick,
 }: NewSessionPageContentProps) {
   const router = useRouter();
   const { user, isLoading } = useAuth();
-
-  // Post-session review prompt flow (using custom hook)
-  const reviewPrompt = useReviewPrompt({
-    autoDismissTimeout: REVIEW_TIMEOUTS.PROMPT_AUTO_DISMISS,
-    onReviewSubmit: () => submission.startCelebrationAndRedirect("log"),
-    onDismiss: () => submission.startCelebrationAndRedirect("log"),
-  });
 
   // Session submission hook - manages all post-save flows
   const submission = useSessionSubmission({
     mode,
     user,
-    reviewPrompt,
     convertSessionId,
-    quick,
   });
-
-  const { feedbackResolvedRef, feedbackResolved } = submission;
-  useEffect(() => {
-    feedbackResolvedRef.current = feedbackResolved;
-  }, [feedbackResolvedRef, feedbackResolved]);
 
   // Handle cancellation
   const handleCancel = () => {
@@ -77,47 +54,16 @@ function NewSessionPageContent({
   return (
     <div className="min-h-screen bg-gray-50 relative">
       <FormErrorBoundary formId="session-form">
-        <SessionWizard
-          mode={mode}
+        <SessionScrollForm
+          initialMode={mode}
           onComplete={submission.handleSessionComplete}
           onCancel={handleCancel}
           className="min-h-screen"
           initialFormState={initialFormState}
-          targetStep={targetStep}
-          quick={quick}
         />
       </FormErrorBoundary>
 
-      {/* Post-log forecast feedback modal */}
-      <ForecastFeedbackFlow
-        open={submission.feedbackOpen}
-        session={submission.feedbackSession}
-        forecast={submission.feedbackForecast}
-        submitting={submission.feedbackSubmitting}
-        onSubmit={submission.handleSubmitFeedback}
-        onSkip={() => submission.handleSkipFeedback("skip")}
-      />
 
-      {/* Post-session review prompt modal */}
-      <ReviewPromptDialog
-        open={reviewPrompt.isOpen}
-        reviewData={reviewPrompt.reviewData}
-        onSuccess={reviewPrompt.handleSuccess}
-        onSkip={() => reviewPrompt.handleSkip("skip")}
-      />
-
-      {/* Celebration overlay with share */}
-      {submission.showCelebration && (
-        <CelebrationOverlay
-          mode={mode}
-          savedSessionData={submission.savedSessionData}
-          createdSessionId={submission.createdSessionId}
-          shareSheetOpen={submission.shareSheetOpen}
-          onShareSheetOpenChange={submission.handleShareSheetClose}
-          onShareSession={submission.handleShareSession}
-          onContinue={() => router.push("/profile")}
-        />
-      )}
     </div>
   );
 }
@@ -128,26 +74,22 @@ function NewSessionPageWrapper() {
   // Parse and validate URL parameters for wizard prefill
   const parseResult = parseSessionWizardParams(searchParams);
 
-  // Extract mode, quick flag, and convertSessionId from URL (backwards compatible)
+  // Extract mode and convertSessionId from URL (backwards compatible)
   const mode = (searchParams.get("mode") as SessionFormMode) || "plan";
-  const quick = searchParams.get("quick") === "true";
   const convertSessionId = searchParams.get("convert");
 
-  // Prepare initial form state and target step if validation succeeded
+  // Prepare initial form state if validation succeeded
   let initialFormState: Partial<SessionFormState> | undefined;
-  let targetStep: number | undefined;
 
   if (parseResult.success) {
     // Convert validated params to form state format
     initialFormState = extractFormState(parseResult.data);
-    targetStep = parseResult.data.targetStep;
 
     // Log successful prefill (development only)
     if (process.env.NODE_ENV === "development") {
-      console.log("Session wizard prefill data:", {
+      console.log("Session form prefill data:", {
         beach: parseResult.data.beachName,
         startTime: parseResult.data.startTime,
-        targetStep,
       });
     }
   } else if (
@@ -178,10 +120,8 @@ function NewSessionPageWrapper() {
   return (
     <NewSessionPageContent
       initialFormState={initialFormState}
-      targetStep={targetStep}
       mode={mode}
       convertSessionId={convertSessionId}
-      quick={quick}
     />
   );
 }

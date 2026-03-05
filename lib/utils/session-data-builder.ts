@@ -37,6 +37,14 @@ export interface SessionPayloadInput {
   tideHeight?: number;
   tideStatus?: string;
   forecastAccuracy?: "accurate" | "somewhat" | "inaccurate" | string;
+
+  // Goals and skill ratings
+  selectedGoals?: string[];
+  skillRatings?: Record<string, number>;
+
+  // Visibility and feed controls
+  isPublic?: boolean;
+  isMuted?: boolean;
 }
 
 /** The shape sent to createPlannedSession / createLoggedSession server actions. */
@@ -66,6 +74,14 @@ export interface SessionPayload {
   tide_height_ft?: number;
   tide_status?: string;
   forecast_accuracy?: string;
+
+  // Goals and skill ratings
+  goals?: string[];
+  skill_ratings?: Record<string, number>;
+
+  // Visibility and feed controls
+  is_public?: boolean;
+  muted?: boolean;
 }
 
 /**
@@ -142,6 +158,8 @@ export function buildSessionPayload(
     user_id: userId,
     notes: input.notes || undefined,
     status: isPlanning ? "planned" : "completed",
+    is_public: input.isPublic ?? true,
+    muted: input.isMuted ?? false,
   };
 
   // For planned sessions, we only need the base fields
@@ -193,6 +211,13 @@ export function buildSessionPayload(
     }),
     ...(input.forecastAccuracy && {
       forecast_accuracy: input.forecastAccuracy,
+    }),
+    // Goals and skill ratings
+    ...(input.selectedGoals && input.selectedGoals.length > 0 && {
+      goals: input.selectedGoals,
+    }),
+    ...(input.skillRatings && Object.keys(input.skillRatings).length > 0 && {
+      skill_ratings: input.skillRatings,
     }),
   };
 }

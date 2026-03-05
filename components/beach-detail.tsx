@@ -29,7 +29,10 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import { BeachAlertCta } from "@/components/beach-detail/beach-alert-cta";
 import { BeachReviewForm } from "@/components/beach/beach-review-form";
-import { REVIEW_TRACKING_SOURCES, type ReviewTrackingSource } from "@/lib/constants/review-tracking";
+import {
+  REVIEW_TRACKING_SOURCES,
+  type ReviewTrackingSource,
+} from "@/lib/constants/review-tracking";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { buildCamEmbed } from "@/lib/media/cam-embed";
@@ -63,34 +66,34 @@ import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 const OverviewTab = lazy(() =>
   import("@/components/beach-detail/tabs/overview-tab").then((m) => ({
     default: m.OverviewTab,
-  }))
+  })),
 );
 const ForecastTab = lazy(() =>
   import("@/components/beach-detail/tabs/forecast-tab").then((m) => ({
     default: m.ForecastTab,
-  }))
+  })),
 );
 const ReviewsTab = lazy(() =>
   import("@/components/beach-detail/tabs/reviews-tab").then((m) => ({
     default: m.ReviewsTab,
-  }))
+  })),
 );
 const IntelTab = lazy(() =>
   import("@/components/beach-detail/tabs/intel-tab").then((m) => ({
     default: m.IntelTab,
-  }))
+  })),
 );
 const SessionsTab = lazy(() =>
   import("@/components/beach-detail/tabs/sessions-tab").then((m) => ({
     default: m.SessionsTab,
-  }))
+  })),
 );
 
 // Dynamic import for cam player (no SSR — uses browser-only HLS)
 const CamsSection = lazy(() =>
   import("@/components/beach-detail/cams-section").then((m) => ({
     default: m.CamsSection,
-  }))
+  })),
 );
 
 // Constants to prevent unnecessary re-renders
@@ -118,7 +121,7 @@ interface BeachDetailProps {
   };
   onPersonalizationRequest?: (
     forecast: EnhancedForecastEntity,
-    baseScore: number
+    baseScore: number,
   ) => void;
 }
 
@@ -141,7 +144,8 @@ function BeachDetailContent({
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
-  const [reviewDialogSource, setReviewDialogSource] = useState<ReviewTrackingSource>(REVIEW_TRACKING_SOURCES.OVERVIEW_CTA);
+  const [reviewDialogSource, setReviewDialogSource] =
+    useState<ReviewTrackingSource>(REVIEW_TRACKING_SOURCES.OVERVIEW_CTA);
   const [reviewRefreshTrigger, setReviewRefreshTrigger] = useState(0);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedForecastEntry, setSelectedForecastEntry] =
@@ -152,7 +156,9 @@ function BeachDetailContent({
     "log" | "plan"
   >("log");
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<BeachTabValue>(defaultTab || "overview");
+  const [activeTab, setActiveTab] = useState<BeachTabValue>(
+    defaultTab || "overview",
+  );
 
   // Track whether we've already synced the tab from URL params
   // If defaultTab is provided (e.g., from tides/water-temp pages), mark as synced
@@ -171,7 +177,7 @@ function BeachDetailContent({
     if (
       tabQueryParam &&
       ["overview", "forecast", "reviews", "intel", "sessions"].includes(
-        tabQueryParam
+        tabQueryParam,
       )
     ) {
       setActiveTab(tabQueryParam as BeachTabValue);
@@ -240,10 +246,13 @@ function BeachDetailContent({
   const { data: yesterdayAccuracy } = useDataFetcher(fetchAccuracy);
 
   // Review handlers
-  const handleWriteReview = useCallback((source: ReviewTrackingSource = REVIEW_TRACKING_SOURCES.OVERVIEW_CTA) => {
-    setReviewDialogSource(source);
-    setReviewDialogOpen(true);
-  }, []);
+  const handleWriteReview = useCallback(
+    (source: ReviewTrackingSource = REVIEW_TRACKING_SOURCES.OVERVIEW_CTA) => {
+      setReviewDialogSource(source);
+      setReviewDialogOpen(true);
+    },
+    [],
+  );
 
   const handleReviewSuccess = useCallback(() => {
     setReviewDialogOpen(false);
@@ -321,7 +330,9 @@ function BeachDetailContent({
     personalizationData?.isLoading,
   ]);
 
-  const showCamHero = Boolean(sources?.camera_url) && buildCamEmbed(sources?.camera_url).kind !== "none";
+  const showCamHero =
+    Boolean(sources?.camera_url) &&
+    buildCamEmbed(sources?.camera_url).kind !== "none";
 
   // Calculate destination coordinates and directions handler BEFORE early returns
   // (must be before early returns to maintain consistent hook count)
@@ -415,46 +426,84 @@ function BeachDetailContent({
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-gray-50/30 to-white">
-      {/* Main Content Container */}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6">
-        {/* Breadcrumb Navigation */}
-        <BeachBreadcrumb beach={beach} className="mb-4" />
+      {/* Immersive hero: video or photos background with title at top and forecast at bottom */}
+      <div className="relative mb-6 min-h-[280px] md:min-h-[400px]">
+        {showCamHero ? (
+          /* Video background — hero variant strips card chrome */
+          <Suspense
+            fallback={
+              <div
+                className="aspect-video w-full"
+                style={{ backgroundColor: "#111D35" }}
+              />
+            }
+          >
+            <CamsSection sources={sources} variant="hero" />
+          </Suspense>
+        ) : (
+          /* Photo gallery background */
+          <BeachPhotoGallery beach={beach} className="w-full" />
+        )}
 
-        {/* Compact Hero - Title, Rating, Difficulty, Location */}
-        <BeachHeroCompact
-          beach={beach as any}
-          publicMode={publicMode}
-          personalizationScore={personalizationData?.score}
-          affinityData={personalizationData?.affinityData}
-          baseScore={beach.base_score}
-          isLoadingPersonalization={personalizationData?.isLoading}
-          currentForecast={currentForecast}
-          className="mb-6"
+        {/* Top gradient — darkens top for title readability */}
+        <div
+          className="absolute inset-x-0 top-0 h-1/3 pointer-events-none z-[5]"
+          style={{
+            background:
+              "linear-gradient(to bottom, rgba(11,20,38,0.7) 0%, rgba(11,20,38,0.3) 60%, transparent 100%)",
+          }}
         />
 
-        {/* At-a-Glance Conditions Ticker */}
-        {currentForecast && (
-          <ConditionsTicker
-            data={forecastToConditionsData(currentForecast)}
-            theme="light"
-            beachName={beach.name}
-            className="mb-4"
-          />
-        )}
+        {/* Bottom gradient — darkens bottom for forecast readability */}
+        <div
+          className="absolute inset-x-0 bottom-0 h-1/2 pointer-events-none z-[5]"
+          style={{
+            background:
+              "linear-gradient(to top, #0B1426 0%, rgba(11,20,38,0.85) 30%, rgba(11,20,38,0.3) 65%, transparent 100%)",
+          }}
+        />
 
+        {/* Title — top of hero */}
+        <div className="absolute inset-x-0 top-0 px-4 sm:px-6 pt-6 z-[6]">
+          <div className="mx-auto max-w-7xl">
+            <BeachBreadcrumb beach={beach} className="mb-1" />
+            <h1
+              className="font-display text-4xl sm:text-5xl font-bold text-white leading-tight"
+              style={{ textShadow: "0 2px 16px rgba(0,0,0,0.7)" }}
+            >
+              {beach.name} Surf Report
+            </h1>
+          </div>
+        </div>
+
+        {/* Forecast overlay — bottom of hero */}
+        <div className="absolute inset-x-0 bottom-0 px-4 sm:px-6 pb-4 z-[6]">
+          <div className="mx-auto max-w-7xl">
+            <BeachHeroCompact
+              beach={beach as any}
+              publicMode={publicMode}
+              personalizationScore={personalizationData?.score}
+              affinityData={personalizationData?.affinityData}
+              baseScore={beach.base_score}
+              isLoadingPersonalization={personalizationData?.isLoading}
+              currentForecast={currentForecast}
+              overlayMode={true}
+            />
+            {currentForecast && (
+              <ConditionsTicker
+                data={forecastToConditionsData(currentForecast)}
+                theme="dark"
+                beachName={beach.name}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Container */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
         {/* Surf Call Card (server-rendered slot) */}
         {surfReportSlot}
-
-        {/* Hero Media: Live Cam (when available) or Photo Gallery */}
-        {showCamHero ? (
-          <div className="mb-6">
-            <Suspense fallback={<div className="aspect-video w-full animate-pulse rounded-3xl bg-blue-100/50" />}>
-              <CamsSection sources={sources} />
-            </Suspense>
-          </div>
-        ) : (
-          <BeachPhotoGallery beach={beach} className="mb-6" />
-        )}
 
         {/* Key Stats Grid */}
         <BeachStatsGrid
@@ -480,7 +529,8 @@ function BeachDetailContent({
           <Alert className="border-amber-200/70 bg-amber-50 text-amber-900 mb-6">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              Forecast data is temporarily unavailable. Some information may be missing.
+              Forecast data is temporarily unavailable. Some information may be
+              missing.
             </AlertDescription>
           </Alert>
         )}
@@ -495,7 +545,14 @@ function BeachDetailContent({
           {/* Overview Tab */}
           <BeachTabContent value="overview">
             <Suspense fallback={<TabLoadingSkeleton />}>
-              <OverviewTab beach={beach as any} amenities={amenities} waterQuality={waterQuality} onWriteReview={() => handleWriteReview(REVIEW_TRACKING_SOURCES.OVERVIEW_CTA)} />
+              <OverviewTab
+                beach={beach as any}
+                amenities={amenities}
+                waterQuality={waterQuality}
+                onWriteReview={() =>
+                  handleWriteReview(REVIEW_TRACKING_SOURCES.OVERVIEW_CTA)
+                }
+              />
             </Suspense>
             {publicMode && (
               <div className="mt-8">
@@ -537,7 +594,9 @@ function BeachDetailContent({
               <Suspense fallback={<TabLoadingSkeleton />}>
                 <ReviewsTab
                   beach={beach}
-                  onWriteReview={() => handleWriteReview(REVIEW_TRACKING_SOURCES.REVIEWS_TAB)}
+                  onWriteReview={() =>
+                    handleWriteReview(REVIEW_TRACKING_SOURCES.REVIEWS_TAB)
+                  }
                   reviewRefreshTrigger={reviewRefreshTrigger}
                   publicMode={publicMode}
                   previewCount={3}
@@ -586,7 +645,10 @@ function BeachDetailContent({
 
       {/* Review Dialog */}
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
-        <DialogContent aria-describedby={undefined} className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          aria-describedby={undefined}
+          className="max-w-2xl max-h-[90vh] overflow-y-auto"
+        >
           <DialogHeader>
             <DialogTitle>Write a Review for {beach?.name}</DialogTitle>
           </DialogHeader>

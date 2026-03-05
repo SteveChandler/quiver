@@ -74,7 +74,7 @@ export function createWaveHeightBadge(
         left: -8px;
         right: -8px;
         bottom: -8px;
-        border: 3px solid #0077B6;
+        border: 3px solid #FF3B8B;
         border-radius: 50%;
         pointer-events: none;
         animation: pulse 2s infinite;
@@ -103,12 +103,12 @@ export function createWaveHeightBadge(
         isFavorite
           ? "linear-gradient(to right, #3b82f6, #2563eb)"
           : isSelected
-          ? "linear-gradient(to right, #0077B6, #005f8a)"
+          ? "linear-gradient(to right, #FF3B8B, #CC2E6F)"
           : "linear-gradient(to right, #fbbf24, #f59e0b)"
       };
       box-shadow: ${
         isSelected
-          ? "0 0 20px rgba(0,119,182,0.5), 0 8px 25px rgba(0, 0, 0, 0.3)"
+          ? "0 0 20px rgba(255,59,139,0.4), 0 8px 25px rgba(0, 0, 0, 0.3)"
           : isHovered
           ? "0 8px 20px rgba(0, 0, 0, 0.4)"
           : "0 4px 12px rgba(0, 0, 0, 0.3)"

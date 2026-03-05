@@ -106,34 +106,75 @@ export interface HeadlineText {
 }
 
 /**
+ * Check if the current time in a timezone is evening (6 PM or later).
+ * After 6 PM, the day's surf windows (dawn-patrol, lunch-session, afternoon)
+ * are over, so "tomorrow" is the natural framing instead of "skip today".
+ * @param timezone IANA timezone string
+ * @returns true if local time is 18:00 or later
+ */
+export function isEveningInTimezone(timezone: string): boolean {
+  try {
+    const now = new Date();
+    const hourStr = new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      hour12: false,
+      timeZone: timezone,
+    }).format(now);
+    return parseInt(hourStr, 10) >= 18;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Build headline parts based on condition tier and time context
  * @param beachName Name of the beach
  * @param tier Condition tier
  * @param isTomorrow Whether the forecast is for tomorrow
  * @param timeSlot Optional time slot for tomorrow prefix
+ * @param isEvening Whether it's evening (6 PM+) — uses plain "Tomorrow" instead of "Skip today"
  * @returns Object with prefix, beachPart, and connector strings
  */
 export function buildHeadlineText(
   beachName: string,
   tier: ConditionTier,
   isTomorrow: boolean,
-  timeSlot?: TimeSlot
+  timeSlot?: TimeSlot,
+  isEvening?: boolean
 ): HeadlineText {
   // Build tomorrow prefix based on time slot
+  // During evening hours, the day's surf windows are over so use plain "Tomorrow"
+  // During daytime, "Skip today" signals that tomorrow is a better choice
   let prefix = "";
   if (isTomorrow) {
-    switch (timeSlot) {
-      case "dawn-patrol":
-        prefix = "Skip today \u2014 tomorrow's dawn patrol at ";
-        break;
-      case "lunch-session":
-        prefix = "Skip today \u2014 tomorrow midday at ";
-        break;
-      case "afternoon":
-        prefix = "Skip today \u2014 tomorrow afternoon at ";
-        break;
-      default:
-        prefix = "Skip today \u2014 tomorrow at ";
+    if (isEvening) {
+      switch (timeSlot) {
+        case "dawn-patrol":
+          prefix = "Tomorrow's dawn patrol at ";
+          break;
+        case "lunch-session":
+          prefix = "Tomorrow midday at ";
+          break;
+        case "afternoon":
+          prefix = "Tomorrow afternoon at ";
+          break;
+        default:
+          prefix = "Tomorrow at ";
+      }
+    } else {
+      switch (timeSlot) {
+        case "dawn-patrol":
+          prefix = "Skip today \u2014 tomorrow's dawn patrol at ";
+          break;
+        case "lunch-session":
+          prefix = "Skip today \u2014 tomorrow midday at ";
+          break;
+        case "afternoon":
+          prefix = "Skip today \u2014 tomorrow afternoon at ";
+          break;
+        default:
+          prefix = "Skip today \u2014 tomorrow at ";
+      }
     }
   }
 

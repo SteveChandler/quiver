@@ -39,6 +39,7 @@ import {
 } from "@/lib/analytics/auth-events";
 import { useLocationSafe } from "@/context/location-context";
 import { getAttributionFromCookies } from "@/lib/attribution";
+import { signInWithApple } from "@/lib/mobile/apple-sign-in";
 import {
   AuthProviders,
   EmailPasswordForm,
@@ -297,6 +298,43 @@ export function UnifiedAuthModal({
   }, [isOpen, initialView, initialMode]);
 
   /**
+   * Handle Apple Sign-In
+   */
+  const handleAppleSignIn = async () => {
+    const start = Date.now();
+    setLoading(true);
+    setError(null);
+
+    trackAuthMethodSelected({ method: "apple", mode: activeMode });
+    if (activeMode === "signup") {
+      trackSignupStarted("apple");
+    } else {
+      trackLoginStarted("apple");
+    }
+
+    const result = await signInWithApple(getReturnPath());
+
+    if (result.error) {
+      setError(result.error);
+      trackLoginFailed({ method: "apple", error_type: "oauth_failed" });
+      setLoading(false);
+      return;
+    }
+
+    // Native: signInWithIdToken() completed inline — session is already established.
+    // Web: signInWithOAuth() triggered a redirect; this code runs briefly before
+    // the browser navigates away, so setLoading(false) + onClose() are harmless.
+    const duration = Date.now() - start;
+    if (activeMode === "signup") {
+      trackSignupSuccess({ method: "apple", requires_verification: false });
+    } else {
+      trackLoginSuccess({ method: "apple", duration_ms: duration });
+    }
+    setLoading(false);
+    onClose();
+  };
+
+  /**
    * Handle Google OAuth sign-in
    */
   const handleGoogleOAuth = async () => {
@@ -485,6 +523,7 @@ export function UnifiedAuthModal({
             loading={loading}
             termsAccepted={termsAccepted}
             onTermsAcceptedChange={setTermsAccepted}
+            onAppleClick={handleAppleSignIn}
             onGoogleClick={handleGoogleOAuth}
             onEmailPasswordClick={() => setView("email-password")}
             onMagicLinkClick={() => setView("magic-link")}
@@ -614,4 +653,3 @@ export function UnifiedAuthModal({
     </Dialog>
   );
 }
-

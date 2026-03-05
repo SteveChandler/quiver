@@ -120,7 +120,7 @@ describe("WaveTypeSelector", () => {
     );
     
     const fatButton = screen.getByRole("button", { name: /Fat Wide, mellow waves/i });
-    expect(fatButton).toHaveClass("border-blue-500", "bg-blue-50");
+    expect(fatButton).toHaveClass("border-[#FF3B8B]");
   });
 
   it("shows tooltips with wave type descriptions", () => {

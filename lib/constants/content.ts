@@ -77,9 +77,9 @@ export const PRIVACY_CONTENT = {
   hero: {
     title: "Privacy Policy",
     subtitle: "How we protect and handle your data",
-    lastUpdated: "February 12, 2026",
+    lastUpdated: "March 1, 2026",
     effectiveDate:
-      "This policy is effective as of February 12, 2026. We will notify you of any material changes by email or through our app.",
+      "This policy is effective as of March 1, 2026. We will notify you of any material changes by email or through our app.",
   },
   overview: {
     title: "Welcome to Quiver's Privacy Policy",
@@ -137,7 +137,7 @@ export const PRIVACY_CONTENT = {
       {
         name: "Technical Data",
         description:
-          "includes internet protocol (IP) address, device ID, login data, browser type and version, time zone setting and location, browsing patterns, operating system and platform. We also collect interaction data including page views, feature usage, scroll behavior, and navigation patterns through analytics services. Multiple analytics services may receive the same event data for redundancy and accuracy.",
+          "includes internet protocol (IP) address, device ID, login data, browser type and version, time zone setting and location, browsing patterns, operating system and platform. We also collect interaction data including page views, feature usage, scroll behavior, and navigation patterns through analytics services. Multiple analytics services may receive the same event data for redundancy and accuracy. Before you create an account, we collect anonymous browsing data (pages visited, beaches viewed) using a randomly generated identifier stored in your browser. When you sign up, this anonymous data is linked to your account to provide a better experience from the start.",
         sources: "Directly or indirectly from you, From third parties",
         purpose:
           "Performance of a contract, Necessary for our legitimate interests, Necessary to comply with a legal obligation",
@@ -215,7 +215,7 @@ export const PRIVACY_CONTENT = {
         {
           subtitle: "Automated Technologies",
           details:
-            "As you interact with our Services, we automatically collect Technical and Usage Data about your equipment, browsing actions and patterns through cookies, web beacons, and similar technologies.",
+            "As you interact with our Services, we automatically collect Technical and Usage Data about your equipment, browsing actions and patterns through cookies, web beacons, and similar technologies. We also assign a randomly generated visitor ID stored in your browser's localStorage to track anonymous browsing activity (beaches viewed, pages visited) before you sign up. This identifier is not linked to your identity until account creation.",
         },
         {
           subtitle: "Third Parties or Public Sources",

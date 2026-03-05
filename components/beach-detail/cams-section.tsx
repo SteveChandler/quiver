@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Loader2, CameraOff, RefreshCw } from "lucide-react";
-import { buildCamEmbed, getViewableUrl } from "@/lib/media/cam-embed";
+import { buildCamEmbed, getViewableUrl, toProxiedHlsUrl } from "@/lib/media/cam-embed";
 import type { BeachSources } from "@/hooks/use-beach-detail-data";
 
 const HLSVideoPlayer = dynamic(() => import("./hls-video-player"), {
@@ -13,9 +13,10 @@ const HLSVideoPlayer = dynamic(() => import("./hls-video-player"), {
 
 interface CamsSectionProps {
   sources?: BeachSources | null;
+  variant?: "default" | "hero";
 }
 
-export function CamsSection({ sources }: CamsSectionProps) {
+export function CamsSection({ sources, variant = "default" }: CamsSectionProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeBlocked, setIframeBlocked] = useState(false);
   const [hlsError, setHlsError] = useState(false);
@@ -50,7 +51,7 @@ export function CamsSection({ sources }: CamsSectionProps) {
       .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
       .then((data: { hlsUrl?: string }) => {
         if (!cancelled && data.hlsUrl) {
-          setResolvedHlsUrl(data.hlsUrl);
+          setResolvedHlsUrl(toProxiedHlsUrl(data.hlsUrl));
         } else if (!cancelled) {
           setHlsError(true);
         }
@@ -99,7 +100,7 @@ export function CamsSection({ sources }: CamsSectionProps) {
           src={intent.src}
           title={intent.title || "Live Cam"}
           allow={intent.allow}
-          className="h-full w-full"
+          className="h-full w-full object-cover"
           loading="lazy"
           onError={() => setIframeBlocked(true)}
         />
@@ -137,13 +138,21 @@ export function CamsSection({ sources }: CamsSectionProps) {
           autoPlay
           playsInline
           muted
-          className="h-full w-full"
+          className="h-full w-full object-cover"
         />
       </div>
     );
   } else {
     // Camera exists but can't be embedded — hide section entirely
     return null;
+  }
+
+  if (variant === "hero") {
+    return (
+      <div className="relative aspect-[4/5] w-full overflow-hidden sm:aspect-video [&>div]:h-full [&>div]:!aspect-auto">
+        {visual}
+      </div>
+    );
   }
 
   return (

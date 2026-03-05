@@ -5,11 +5,15 @@ import { isVisibleSafe } from "./utils/strict-helpers";
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 /**
- * Session Wizard Auto-Forecast Autofill Tests
+ * Session Form Auto-Forecast Autofill Tests
  *
  * Tests the auto-forecast autofill feature that automatically populates
  * condition fields (waves, wind, water temp, tide) when users select
  * a spot and date/time during session logging.
+ *
+ * The multi-step wizard has been replaced with a single scrollable form
+ * (SessionScrollForm). Condition fields are always visible — there is no
+ * "navigate to Session Details step" required before interacting with them.
  *
  * Key behaviors tested:
  * 1. Auto-prefill after selecting beach + date/time (NEW sessions only)
@@ -18,10 +22,12 @@ import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error
  * 4. Placeholder examples shown when forecast data is missing
  * 5. All condition fields persist correctly to database
  *
+ * Post-save flow: toast confirmation → redirect to /profile?highlight=<id>
+ *
  * @project auth
  */
 
-test.describe('Session Wizard - Auto-Forecast Autofill', () => {
+test.describe('Session Form - Auto-Forecast Autofill', () => {
   let errorCapture: ErrorCapture;
 
   test.beforeEach(async ({ page }) => {
@@ -32,11 +38,11 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
   });
 
   test.afterEach(async ({ page }) => {
-    await assertNoErrors(page, errorCapture, { context: 'Session Wizard Autofill' });
+    await assertNoErrors(page, errorCapture, { context: 'Session Form Autofill' });
   });
 
   test('should auto-prefill condition fields after selecting beach and date/time', async ({ page }) => {
-    // Step 1: Select a beach with known forecast data
+    // Select a beach with known forecast data
     const beachInput = page.getByTestId('beach-search-input');
     await expect(beachInput).toBeVisible({ timeout: TIMEOUTS.medium });
 
@@ -53,13 +59,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     await expect(beachOption).toBeVisible({ timeout: TIMEOUTS.long });
     await beachOption.click();
 
-    // Step 2: Advance to DateTime step
-    const nextButton = page.getByRole('button', { name: /next/i }).first();
-    await expect(nextButton).toBeVisible({ timeout: TIMEOUTS.medium });
-    await expect(nextButton).toBeEnabled({ timeout: TIMEOUTS.medium });
-    await nextButton.click();
-
-    // Step 3: Fill in date and time
+    // Fill in date and time — both are always visible in the scroll form
     const dateInput = page.getByTestId('session-date-input');
     await expect(dateInput).toBeVisible({ timeout: TIMEOUTS.long });
 
@@ -71,16 +71,12 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     await expect(timeInput).toBeVisible({ timeout: TIMEOUTS.long });
     await timeInput.fill('09:00'); // Morning session (not night)
 
-    // Step 4: Navigate to Session Details step (through Equipment step 3)
-    await nextButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
-    await page.waitForTimeout(1000); // Wait for Equipment step (3) to load
-    await nextButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
-    await page.waitForTimeout(1000); // Wait for Session Details step (4) to load
+    // Condition fields in ConditionsSection are always visible — no step navigation needed.
+    // Allow time for auto-prefill to run after beach + date/time are set.
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for autofill debounce after field changes
+    await page.waitForTimeout(1000);
 
-    // Step 5: Verify condition fields are auto-prefilled on Session Details
-    // Wave height field should have a numeric value or be editable
+    // Wave height field check
     // Note: Components use id="wave-height-input", not data-testid
     const waveHeightInput = page.locator('#wave-height-input').or(
       page.locator('input[name="waveHeight"]')
@@ -156,9 +152,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
   });
 
   test('should preserve user edits over auto-prefilled values', async ({ page }) => {
-    // Complete the wizard flow and override autofilled values
-
-    // Step 1: Select beach
+    // Select beach
     const beachInput = page.getByTestId('beach-search-input');
     await expect(beachInput).toBeVisible({ timeout: TIMEOUTS.medium });
     await beachInput.fill('Black');
@@ -173,10 +167,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     await expect(beachOption).toBeVisible({ timeout: TIMEOUTS.long });
     await beachOption.click();
 
-    // Step 2: Set date/time
-    const nextButton = page.getByRole('button', { name: /next/i }).first();
-    await nextButton.click();
-
+    // Set date/time — both are always visible in the scroll form
     const dateInput = page.getByTestId('session-date-input');
     await expect(dateInput).toBeVisible({ timeout: TIMEOUTS.long });
 
@@ -187,15 +178,12 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     await expect(timeInput).toBeVisible({ timeout: TIMEOUTS.long });
     await timeInput.fill('10:00');
 
-    // Navigate to Session Details step (step 3 = Equipment, step 4 = Session Details)
-    await nextButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
-    await page.waitForTimeout(1000);
-    await nextButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
+    // Allow time for autofill to run
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for autofill debounce after field changes
     await page.waitForTimeout(1000);
 
-    // Override auto-prefilled wave height with custom value
+    // Override auto-prefilled wave height with custom value.
+    // Condition fields are always visible — no step navigation needed.
     // Note: Components use id="wave-height-input", not data-testid
     const waveHeightInput = page.locator('#wave-height-input').or(
       page.locator('input[name="waveHeight"]')
@@ -208,7 +196,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     await waveHeightInput.clear();
     await waveHeightInput.fill(customWaveHeight);
 
-    // Step 4: Override wind speed
+    // Override wind speed
     const windSpeedInput = page.locator('#wind-speed-input').or(
       page.locator('input[name="windSpeed"]')
     ).first();
@@ -221,31 +209,28 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
       await windSpeedInput.fill(customWindSpeed);
     }
 
-    // Step 5: Complete the form with ratings
-    // Fill wave quality rating
-    const waveQualitySlider = page.locator('input[type="range"][name="waveQuality"]').or(
-      page.locator('#wave-quality-slider')
-    ).first();
+    // Interact with an Overall rating slider via keyboard.
+    // SessionSlider renders a Radix SliderPrimitive with role="slider".
+    // The sliders are always visible in the scroll form — no step navigation needed.
+    const overallSlider = page.getByRole('slider', { name: /overall/i }).first();
+    const sliderVisible = await isVisibleSafe(overallSlider, { timeout: TIMEOUTS.short });
 
-    const waveQualityVisible = await isVisibleSafe(waveQualitySlider, { timeout: TIMEOUTS.short });
-
-    if (waveQualityVisible) {
-      await waveQualitySlider.fill('8');
+    if (sliderVisible) {
+      await overallSlider.focus();
+      await overallSlider.press('ArrowRight');
+      await overallSlider.press('ArrowRight');
     }
 
-    // Step 6: Submit the session
-    const submitButton = page.getByRole('button', { name: /log|submit|save|complete/i }).first();
+    // Submit — the sticky-footer Save button is always visible
+    const submitButton = page.getByRole('button', { name: /save session|save/i }).first();
     await expect(submitButton).toBeVisible({ timeout: TIMEOUTS.medium });
 
     await submitButton.click();
 
-    // Step 7: Wait for success indication
-    // The session wizard shows a celebration overlay then redirects to /profile
-    // We wait for either the celebration OR the redirect to profile
+    // Post-save: toast confirmation then redirect to /profile?highlight=<id>
     const successPromise = Promise.race([
-      page.getByText(/🎉|Success!/i).waitFor({ timeout: 60000 }).then(() => 'celebration'),
+      page.getByText(/logged\. nice one\./i).waitFor({ timeout: 60000 }).then(() => 'toast'),
       page.waitForURL(/\/profile/, { timeout: 60000 }).then(() => 'redirect'),
-      page.getByText(/success|logged|created|saved/i).waitFor({ timeout: 60000 }).then(() => 'message'),
     ]).catch(() => null);
 
     const result = await successPromise;
@@ -274,7 +259,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     // This test verifies data persistence end-to-end
     // Complete flow: fill form -> submit -> verify data saved
 
-    // Step 1: Complete beach selection
+    // Complete beach selection
     const beachInput = page.getByTestId('beach-search-input');
     await expect(beachInput).toBeVisible({ timeout: TIMEOUTS.medium });
     await beachInput.fill('Black');
@@ -289,10 +274,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     await expect(beachOption).toBeVisible({ timeout: TIMEOUTS.long });
     await beachOption.click();
 
-    // Step 2: Set date/time
-    const nextButton = page.getByRole('button', { name: /next/i }).first();
-    await nextButton.click();
-
+    // Set date/time — both are always visible in the scroll form
     const dateInput = page.getByTestId('session-date-input');
     await expect(dateInput).toBeVisible({ timeout: TIMEOUTS.long });
 
@@ -303,15 +285,11 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     await expect(timeInput).toBeVisible({ timeout: TIMEOUTS.long });
     await timeInput.fill('11:00');
 
-    // Navigate to Session Details step (step 3 = Equipment, step 4 = Session Details)
-    await nextButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
-    await page.waitForTimeout(1000);
-    await nextButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
+    // Allow time for autofill to run
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for autofill debounce after field changes
     await page.waitForTimeout(1000);
 
-    // Step 3: Fill all condition fields (whether prefilled or manual)
+    // Fill all condition fields — always visible in scroll form
     const testConditions = {
       waveHeight: '5.0',
       windSpeed: '12',
@@ -359,33 +337,31 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
       await tideHeightInput.fill(testConditions.tideHeight);
     }
 
-    // Step 4: Fill required rating fields
-    const waveQualitySlider = page.locator('input[type="range"][name="waveQuality"]').or(
-      page.locator('#wave-quality-slider')
-    ).first();
-
-    if (await isVisibleSafe(waveQualitySlider, { timeout: TIMEOUTS.short })) {
-      await waveQualitySlider.fill('7');
+    // Interact with the Overall rating slider via keyboard.
+    // SessionSlider renders a Radix SliderPrimitive with role="slider".
+    const overallSlider = page.getByRole('slider', { name: /overall/i }).first();
+    if (await isVisibleSafe(overallSlider, { timeout: TIMEOUTS.short })) {
+      await overallSlider.focus();
+      // Press ArrowRight to set a value (sliders start at 1, move to 3)
+      await overallSlider.press('ArrowRight');
+      await overallSlider.press('ArrowRight');
     }
 
-    // Step 5: Submit
-    const submitButton = page.getByRole('button', { name: /log|submit|save|complete/i }).first();
+    // Submit — sticky-footer Save button is always visible
+    const submitButton = page.getByRole('button', { name: /save session|save/i }).first();
     await expect(submitButton).toBeVisible({ timeout: TIMEOUTS.medium });
 
     await submitButton.click();
 
-    // Step 6: Verify success or that form was processed
-    const successMessage = page.getByText(/success|logged|created|saved/i);
-    const celebration = page.getByText(/🎉|Success!/i);
-
+    // Verify success: toast confirmation or profile redirect
+    const successMessage = page.getByText(/logged\. nice one\./i);
     const hasSuccess = await isVisibleSafe(successMessage, { timeout: TIMEOUTS.long });
-    const hasCelebration = await isVisibleSafe(celebration, { timeout: TIMEOUTS.long });
 
-    // If submission didn't show success message, check if we navigated away from form
+    // If submission didn't show success toast, check if we navigated away from form
     const stillOnForm = page.url().includes('/sessions/new');
 
-    // Either we saw success or we navigated away (both indicate progress)
-    expect(hasSuccess || hasCelebration || !stillOnForm).toBe(true);
+    // Either we saw success toast or we navigated away (both indicate progress)
+    expect(hasSuccess || !stillOnForm).toBe(true);
 
     // Note: Full verification of database persistence would require:
     // 1. Extracting session ID from success message or redirect URL
@@ -398,7 +374,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
   test('should handle night session without recommendation language', async ({ page }) => {
     // Verify that night sessions are logged neutrally without "recommended" language
 
-    // Step 1: Select beach
+    // Select beach
     const beachInput = page.getByTestId('beach-search-input');
     await expect(beachInput).toBeVisible({ timeout: TIMEOUTS.medium });
     await beachInput.fill('Black');
@@ -413,10 +389,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     await expect(beachOption).toBeVisible({ timeout: TIMEOUTS.long });
     await beachOption.click();
 
-    // Step 2: Set night time (9 PM)
-    const nextButton = page.getByRole('button', { name: /next/i }).first();
-    await nextButton.click();
-
+    // Set night time — both fields are always visible in the scroll form (9 PM)
     const dateInput = page.getByTestId('session-date-input');
     await expect(dateInput).toBeVisible({ timeout: TIMEOUTS.long });
 
@@ -425,28 +398,20 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
 
     const timeInput = page.getByTestId('session-time-input');
     await expect(timeInput).toBeVisible({ timeout: TIMEOUTS.long });
-    await timeInput.fill('21:00'); // 9 PM - night time
+    await timeInput.fill('21:00'); // 9 PM — night time
 
-    // Navigate to Session Details step (step 3 = Equipment, step 4 = Session Details)
-    await nextButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
-    await page.waitForTimeout(1000);
-    await nextButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
+    // Allow autofill to run
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for autofill debounce after field changes
     await page.waitForTimeout(1000);
 
-    // Step 3: Verify no "recommended" or promotional language appears
+    // Verify no "recommended" or promotional language appears
     const pageContent = await page.content();
     const hasRecommendedText = pageContent.toLowerCase().includes('recommended');
     const hasShouldText = pageContent.toLowerCase().includes('you should surf');
-    const hasGreatForText = pageContent.toLowerCase().includes('great for');
 
     // Night sessions should use neutral language
     expect(hasRecommendedText).toBe(false);
     expect(hasShouldText).toBe(false);
-
-    // However, forecast data should still be shown (neutrally)
-    // This is implicit - if we got to the Conditions step, forecast data may be present
 
     // Look for night session indicator if it exists
     const nightIndicator = page.getByText(/night session|after dark|evening/i);
@@ -464,10 +429,10 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
   });
 });
 
-test.describe('Session Wizard Autofill - Edge Cases', () => {
+test.describe('Session Form Autofill - Edge Cases', () => {
   test.fixme('should handle beach change after conditions are prefilled', async ({ page }) => {
-    // Requires wizard back navigation, state management to clear previous forecast values,
-    // and re-fetch forecast for new beach selection — not yet implemented
+    // Requires scroll-form state management to clear previous forecast values
+    // when beach changes and re-fetch forecast for new beach selection — not yet implemented
   });
 
   test.fixme('should handle partial forecast data gracefully', async ({ page }) => {

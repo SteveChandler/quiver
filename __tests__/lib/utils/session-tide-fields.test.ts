@@ -26,6 +26,8 @@ describe('Session Tide Fields Transformation', () => {
         notes: 'Great session with excellent tide conditions!',
         photos: [],
         waveTypes: [],
+        selectedGoals: [],
+        skillRatings: {},
         // New condition fields
         waveHeight: 4.5,
         windSpeed: 10,
@@ -34,6 +36,8 @@ describe('Session Tide Fields Transformation', () => {
         // Tide fields
         tideHeight: 3.25,
         tideStatus: 'rising',
+        isPublic: true,
+        isMuted: false,
       };
 
       const dbData = transformSessionFormStateToDbSchema(formState);
@@ -65,6 +69,10 @@ describe('Session Tide Fields Transformation', () => {
         notes: '',
         photos: [],
         waveTypes: [],
+        selectedGoals: [],
+        skillRatings: {},
+        isPublic: true,
+        isMuted: false,
         // No tide fields provided
       };
 
@@ -91,6 +99,10 @@ describe('Session Tide Fields Transformation', () => {
         notes: '',
         photos: [],
         waveTypes: [],
+        selectedGoals: [],
+        skillRatings: {},
+        isPublic: true,
+        isMuted: false,
         tideHeight: 2.5, // Only height provided
       };
 
@@ -113,6 +125,10 @@ describe('Session Tide Fields Transformation', () => {
         notes: '',
         photos: [],
         waveTypes: [],
+        selectedGoals: [],
+        skillRatings: {},
+        isPublic: true,
+        isMuted: false,
         tideStatus: 'falling', // Only status provided
       };
 
@@ -140,6 +156,10 @@ describe('Session Tide Fields Transformation', () => {
           notes: '',
           photos: [],
           waveTypes: [],
+          selectedGoals: [],
+          skillRatings: {},
+          isPublic: true,
+          isMuted: false,
           tideStatus: status,
         };
 

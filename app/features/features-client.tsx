@@ -211,7 +211,7 @@ export default function FeaturesPageClient() {
                   {...ANIMATION_VARIANTS.staggerItem(index, 0.5)}
                   className="flex gap-4"
                 >
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center mt-0.5">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-50 dark:bg-[#1E2D4A] flex items-center justify-center mt-0.5">
                     <Check className="h-4 w-4 text-ocean-blue" />
                   </div>
                   <div>
@@ -231,11 +231,11 @@ export default function FeaturesPageClient() {
               {...ANIMATION_VARIANTS.fadeInView}
               className="flex justify-center"
             >
-              <div className="relative w-72 h-72 rounded-2xl bg-gradient-to-br from-blue-50 to-white border border-blue-100 shadow-lg flex flex-col items-center justify-center p-6">
+              <div className="relative w-72 h-72 rounded-2xl bg-gradient-to-br from-blue-50 to-white dark:from-[#111D35] dark:to-[#0F1A2E] border border-blue-100 dark:border-[#1E2D4A] shadow-lg flex flex-col items-center justify-center p-6">
                 <div className="text-6xl font-roboto font-bold text-ocean-blue mb-2">
                   87
                 </div>
-                <div className="text-sm font-open-sans text-gray-600 mb-4">
+                <div className="text-sm font-open-sans text-gray-600 dark:text-gray-400 mb-4">
                   Match Score
                 </div>
                 <Badge className="bg-ocean-blue/10 text-ocean-blue border-0 text-xs">
@@ -251,7 +251,7 @@ export default function FeaturesPageClient() {
       </section>
 
       {/* Section 4: Live Intelligence */}
-      <section className="py-20 px-4 bg-blue-50/50">
+      <section className="py-20 px-4 bg-blue-50/50 dark:bg-[#0B1426]">
         <div className="max-w-6xl mx-auto">
           <motion.div {...ANIMATION_VARIANTS.fadeInView} className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-roboto font-bold text-dark-grey mb-4">

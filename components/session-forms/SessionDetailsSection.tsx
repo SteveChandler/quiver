@@ -34,12 +34,14 @@ import {
 } from "@/components/ui/select";
 import { SessionFormMode } from "@/lib/constants/session-form-constants";
 import { SessionFormState } from "@/hooks/use-session-form";
+import { Board } from "@/types/database";
 import { cn } from "@/lib/utils";
 import {
   RatingInput,
   WIND_DIRECTIONS,
   FORECAST_ACCURACY_OPTIONS,
 } from "./shared";
+import { EquipmentStep } from "./EquipmentStep";
 
 /**
  * SessionDetailsSection - Consolidated component for log mode
@@ -64,6 +66,8 @@ interface SessionDetailsSectionProps {
   ) => void;
   selectedPhotos: File[];
   onPhotosChange: (files: File[]) => void;
+  boards?: Board[];
+  onBoardsRefresh?: () => void;
 }
 
 // Photo upload constraints
@@ -92,7 +96,7 @@ type FieldStateTracking = {
  * Main SessionDetailsSection Component
  *
  * This component only renders in log mode and provides:
- * 1. Duration input
+ * 1. Equipment / board selection
  * 2. Forecast comparison (if available)
  * 3. Wave conditions (height, water temp, wind speed/direction)
  * 4. Experience ratings (wave quality, parking, crowd)
@@ -107,6 +111,8 @@ export function SessionDetailsSection({
   updateField,
   selectedPhotos,
   onPhotosChange,
+  boards = [],
+  onBoardsRefresh,
 }: SessionDetailsSectionProps) {
   // Local state for photo preview management ONLY (not form data)
   const [filePreviews, setFilePreviews] = useState<FilePreview[]>([]);
@@ -369,29 +375,20 @@ export function SessionDetailsSection({
       description="Rate conditions, add photos, and share your experience"
     >
       <div className="space-y-8">
-        {/* SECTION 1: Duration Input */}
+        {/* SECTION 0: Equipment / Board Picker */}
         <div>
-          <label
-            className="mb-2 block text-sm font-medium"
-            htmlFor="duration-input"
-          >
-            Session Duration
-          </label>
-          <Input
-            id="duration-input"
-            type="text"
-            placeholder="e.g., 60m, 1h 30m, 2h"
-            value={formState.duration}
-            onChange={(e) => updateField("duration", e.target.value)}
-            aria-describedby="duration-help"
-          />
-          <p id="duration-help" className="text-xs text-muted-foreground mt-1">
-            Enter duration like &quot;60m&quot;, &quot;1h 30m&quot;, or
-            &quot;2h&quot;
-          </p>
+            <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
+              Equipment
+            </h3>
+            <EquipmentStep
+              formState={formState}
+              boards={boards}
+              updateField={updateField}
+              onBoardsRefresh={onBoardsRefresh}
+            />
         </div>
 
-        {/* SECTION 2: Forecast Comparison */}
+        {/* SECTION 1: Forecast Comparison */}
         {forecastLoading ? (
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
             <div className="animate-pulse">

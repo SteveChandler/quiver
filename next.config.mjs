@@ -91,7 +91,7 @@ const nextConfig = {
   compress: true,
 
   // External packages for server components (moved from experimental)
-  serverExternalPackages: ["@supabase/supabase-js"],
+  serverExternalPackages: ["@supabase/supabase-js", "geo-tz"],
 
   // Power pack optimizations
   poweredByHeader: false, // Remove X-Powered-By header
@@ -333,24 +333,8 @@ const nextConfig = {
       "react/jsx-runtime.js": "react/jsx-runtime",
     };
 
-    // Copy geo-tz data files to server build directory
-    // Required for timezone lookups in API routes
-    if (isServer) {
-      const CopyPlugin = require("copy-webpack-plugin");
-      config.plugins.push(
-        new CopyPlugin({
-          patterns: [
-            {
-              from: "node_modules/geo-tz/data",
-              to: "data",
-              globOptions: {
-                ignore: ["**/timezones-1970.*", "**/timezones.geojson.*"],
-              },
-            },
-          ],
-        })
-      );
-    }
+    // geo-tz is resolved at runtime via serverExternalPackages
+    // (no CopyPlugin needed — saves 69 MB per server compilation)
 
     // Add bundle analyzer in development
     if (process.env.ANALYZE === "true") {
@@ -366,10 +350,10 @@ const nextConfig = {
     return config;
   },
 
-  // Add performance budgets
+  // Dev server page caching — keep more pages in memory to reduce recompilation
   onDemandEntries: {
-    maxInactiveAge: 25 * 1000,
-    pagesBufferLength: 2,
+    maxInactiveAge: 120 * 1000,
+    pagesBufferLength: 10,
   },
 };
 

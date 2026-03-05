@@ -64,10 +64,10 @@ test.describe("Surf Terminal Embed", () => {
     // Click a different range
     await page.getByRole("button", { name: /7D/ }).click();
 
-    // 7D button should now have the active style (bg-[#00d4aa])
+    // 7D button should now have the active style (bg-[#4A70D9])
     await expect(page.getByRole("button", { name: /7D/ })).toHaveCSS(
       "background-color",
-      "rgb(0, 212, 170)"
+      "rgb(74, 112, 217)"
     );
   });
 

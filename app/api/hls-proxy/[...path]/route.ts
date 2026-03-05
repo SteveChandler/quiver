@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
  *
  * Path-based design: /api/hls-proxy/<hostname>/<path>
  * This lets relative URLs inside .m3u8 manifests resolve through the proxy
- * automatically without rewriting manifest content.
+ * automatically. For providers that use absolute URLs in manifests (e.g.,
+ * HDOnTap), we rewrite them server-side to proxy-relative paths.
  *
  * Security:
  * - Strict hostname whitelist (prevents open proxy / SSRF)
@@ -29,7 +30,29 @@ const ALLOWED_HOSTS: Record<string, Record<string, string>> = {
   "hls.cdn-surfline.com": {
     Referer: "https://www.surfline.com/",
   },
+  "live.hdontap.com": {},
 };
+
+/**
+ * Regex matching absolute URLs for any allowed host.
+ * Built from ALLOWED_HOSTS keys so it stays in sync automatically.
+ * Captures: (1) hostname, (2) path+query
+ */
+const ABSOLUTE_URL_REGEX = new RegExp(
+  `https?://(${Object.keys(ALLOWED_HOSTS)
+    .map((h) => h.replace(/\./g, "\\."))
+    .join("|")})(/[^\\s"']*)`,
+  "g"
+);
+
+/** Rewrite absolute URLs in HLS manifests to proxy-relative paths */
+function rewriteManifestUrls(manifest: string): string {
+  return manifest.replace(
+    ABSOLUTE_URL_REGEX,
+    (_match, host: string, pathAndQuery: string) =>
+      `/api/hls-proxy/${host}${pathAndQuery}`
+  );
+}
 
 /** Max response size: 10MB (typical HLS segments are 2-6MB) */
 const MAX_RESPONSE_SIZE = 10 * 1024 * 1024;
@@ -61,7 +84,8 @@ async function hlsProxyHandler(
 
   const hostname = pathSegments[0];
   const resourcePath = "/" + pathSegments.slice(1).join("/");
-  const targetUrl = `https://${hostname}${resourcePath}`;
+  const queryString = request.nextUrl.search; // includes "?" prefix if present
+  const targetUrl = `https://${hostname}${resourcePath}${queryString}`;
 
   // Security: strict hostname whitelist
   const hostConfig = ALLOWED_HOSTS[hostname];
@@ -119,6 +143,16 @@ async function hlsProxyHandler(
     const isSegment =
       resourcePath.endsWith(".ts") || resourcePath.endsWith(".aac");
 
+    // Rewrite absolute URLs in manifests to proxy-relative paths so hls.js
+    // follows them through the proxy instead of directly to the CDN
+    let responseBody: ArrayBuffer = body;
+    if (isManifest) {
+      const text = new TextDecoder().decode(body);
+      const rewritten = rewriteManifestUrls(text);
+      const encoded = new TextEncoder().encode(rewritten);
+      responseBody = encoded.buffer as ArrayBuffer;
+    }
+
     const contentType = isManifest
       ? "application/vnd.apple.mpegurl"
       : isSegment
@@ -137,18 +171,18 @@ async function hlsProxyHandler(
       host: hostname,
       path: resourcePath,
       type: isManifest ? "manifest" : isSegment ? "segment" : "other",
-      bytes: body.byteLength,
+      bytes: responseBody.byteLength,
       ms: elapsed,
     });
 
-    return new NextResponse(body, {
+    return new NextResponse(responseBody, {
       status: upstream.status,
       headers: {
         "Content-Type": contentType,
         "Cache-Control": cacheControl,
         "Access-Control-Allow-Origin": "*",
         "X-HLS-Proxy-Host": hostname,
-        "X-HLS-Proxy-Bytes": body.byteLength.toString(),
+        "X-HLS-Proxy-Bytes": responseBody.byteLength.toString(),
         "X-HLS-Proxy-Ms": elapsed.toString(),
       },
     });

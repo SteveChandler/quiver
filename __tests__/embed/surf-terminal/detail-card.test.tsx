@@ -369,7 +369,7 @@ describe("DetailCard", () => {
       // Find the ML Adjusted row value span
       const mlLabel = screen.getByText("ML Adjusted");
       const mlRow = mlLabel.closest("div");
-      const valueSpan = mlRow?.querySelector(".text-\\[\\#00d4aa\\]");
+      const valueSpan = mlRow?.querySelector(".text-\\[\\#4A70D9\\]");
       expect(valueSpan).toBeInTheDocument();
     });
 

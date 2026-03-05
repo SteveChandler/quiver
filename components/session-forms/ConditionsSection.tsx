@@ -2,16 +2,9 @@
 
 import { useEffect, useId, useRef, useCallback } from "react";
 import {
-  Activity,
-  Star,
-  Users,
-  Car,
   Waves,
   Wind,
   Thermometer,
-  CheckCircle2,
-  AlertCircle,
-  XCircle,
   Moon,
   TrendingUp,
   TrendingDown,
@@ -19,8 +12,6 @@ import {
 import { useSessionForecast } from "@/hooks/use-session-forecast";
 import { SimpleCardLayout } from "@/components/ui/form-layout";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { WaveTypeSelector } from "@/components/ui/wave-type-selector";
 import {
   Select,
   SelectContent,
@@ -28,16 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  getRatingDescription,
-  SessionFormMode,
-} from "@/lib/constants/session-form-constants";
+import { SessionFormMode } from "@/lib/constants/session-form-constants";
 import { SessionFormState } from "@/hooks/use-session-form";
-import {
-  RatingInput,
-  WIND_DIRECTIONS,
-  FORECAST_ACCURACY_OPTIONS,
-} from "./shared";
+import { WIND_DIRECTIONS } from "./shared";
 import { formatWaterTemp } from "@/lib/formatters/surf-data";
 
 // Tide status options for the dropdown
@@ -79,7 +63,6 @@ export function ConditionsSection({
   const windDirectionLabelId = useId();
   const tideHeightInputId = useId();
   const tideStatusLabelId = useId();
-  const vibeNotesId = useId();
 
   // Track field states for auto-prefill logic
   // States: empty -> prefilled -> user-edited
@@ -256,15 +239,14 @@ export function ConditionsSection({
   return (
     <SimpleCardLayout
       title={
-        <div className="flex items-center">
-          <Activity className="w-5 h-5 mr-2 text-primary" />
-          Session Conditions
-        </div>
+        <span className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">
+          Actual Conditions
+        </span>
       }
       description={
         formState.selectedBeachId && formState.selectedDate
-          ? "Rate the conditions during your session and help the community with real-time data"
-          : "Showing fallback until beach and date are selected. You can still enter your observations."
+          ? "Help the community with real surf reports"
+          : "Select a beach and date above, then fill in what you observed"
       }
     >
       <div className="space-y-8">
@@ -358,8 +340,8 @@ export function ConditionsSection({
 
         {/* Actual Conditions */}
         <div className="space-y-6">
-          <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-            Actual Surf Conditions
+          <h3 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">
+            Your Observations
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -524,140 +506,6 @@ export function ConditionsSection({
           </div>
         </div>
 
-        {/* Experience Ratings */}
-        <div className="space-y-6">
-          <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-            Session Experience
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Wave Quality */}
-            <RatingInput
-              label="Wave Quality"
-              icon={Star}
-              value={formState.waveQuality}
-              onChange={(value) => updateField("waveQuality", value)}
-              colorClass="text-yellow-500"
-              ratingType="waveQuality"
-              emptyText="Rate the waves"
-            />
-
-            {/* Parking Ease */}
-            <RatingInput
-              label="Parking Ease"
-              icon={Car}
-              value={formState.parkingEase}
-              onChange={(value) => updateField("parkingEase", value)}
-              colorClass="text-green-500"
-              ratingType="parkingEase"
-              emptyText="How easy to park?"
-            />
-
-            {/* Crowd Level */}
-            <RatingInput
-              label="Crowd Level"
-              icon={Users}
-              value={formState.crowdLevel}
-              onChange={(value) => updateField("crowdLevel", value)}
-              colorClass="text-orange-500"
-              ratingType="crowdLevel"
-              emptyText="How crowded?"
-            />
-          </div>
-        </div>
-
-        {/* Wave Types */}
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-            Wave Type
-          </h3>
-          <WaveTypeSelector
-            selectedTypes={formState.waveTypes}
-            onChange={(types) => updateField("waveTypes", types)}
-          />
-        </div>
-
-        {/* Vibe / Notes */}
-        <div>
-          <label
-            className="mb-2 block text-sm font-medium"
-            htmlFor={vibeNotesId}
-          >
-            Session Vibe / Notes
-          </label>
-          <Textarea
-            id={vibeNotesId}
-            placeholder="super fun, nice and glassy..."
-            className="min-h-[80px]"
-            value={formState.notes}
-            onChange={(e) => updateField("notes", e.target.value)}
-          />
-        </div>
-
-        {/* Forecast Accuracy */}
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-            Was the forecast accurate?
-            {mode === "log" && (
-              <span className="text-red-500 ml-1">*</span>
-            )}
-          </h3>
-          {mode === "log" && !formState.forecastAccuracy && (
-            <p className="text-xs text-amber-600">
-              Please select an option to help improve our forecasts
-            </p>
-          )}
-
-          <div className="grid grid-cols-3 gap-3">
-            {FORECAST_ACCURACY_OPTIONS.map((option) => {
-              const IconComponent = option.icon;
-              const isSelected = formState.forecastAccuracy === option.value;
-
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => {
-                    updateField(
-                      "forecastAccuracy",
-                      option.value as "accurate" | "somewhat" | "inaccurate"
-                    );
-                  }}
-                  className={`p-4 rounded-lg border-2 transition-all ${
-                    isSelected
-                      ? "border-blue-500 bg-blue-50"
-                      : `border-gray-200 ${option.bgColor}`
-                  }`}
-                >
-                  <div className="flex flex-col items-center gap-2">
-                    <IconComponent
-                      className={`h-6 w-6 ${
-                        isSelected ? "text-blue-600" : option.color
-                      }`}
-                    />
-                    <span
-                      className={`font-medium ${
-                        isSelected ? "text-blue-700" : "text-gray-700"
-                      }`}
-                    >
-                      {option.label}
-                    </span>
-                    <span className="text-xs text-gray-500 text-center">
-                      {option.description}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-          <p className="text-xs text-muted-foreground text-center">
-            💡 Your condition reports help improve forecasts and assist other
-            surfers in the community
-          </p>
-        </div>
       </div>
     </SimpleCardLayout>
   );

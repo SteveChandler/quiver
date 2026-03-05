@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Share2, Loader2, AlertCircle, ImageIcon } from "lucide-react";
+import { Share2, Loader2, ImageIcon, Link as LinkIcon, Download, Check, X } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -9,8 +9,14 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { shareImage, ShareImageError } from "@/lib/share/share-image";
+import {
+  shareImage,
+  ShareImageError,
+  fetchImageAsBlob,
+  downloadImage,
+  copyToClipboard,
+} from "@/lib/share/share-image";
+import { isNativeApp } from "@/lib/mobile/platform";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 
@@ -31,18 +37,20 @@ export interface ShareSheetProps {
   text?: string;
   /** Optional className for the sheet content */
   className?: string;
+  /** Optional URL to share (defaults to current page URL) */
+  shareUrl?: string;
 }
 
-type ShareState = "idle" | "loading" | "error" | "success";
+type ActionState = "idle" | "loading" | "success" | "error";
 
-const LOADING_TEXT = "Generating image...";
+// Issue 6: Typed union for action keys instead of bare string
+type ActionKey = "copy" | "save" | "more";
 
 /**
- * Minimal bottom sheet for sharing images
+ * Lovi-style dark share sheet with three actions:
+ * Copy Link, Save image, and More (full native share).
  *
- * Shows image preview with a single "Share" button.
- * Uses native share sheets on mobile, Web Share API on desktop,
- * with download fallback when share APIs are unavailable.
+ * Pre-fetches the image blob when the sheet opens so Save is instant.
  */
 export function ShareSheet({
   open,
@@ -53,31 +61,135 @@ export function ShareSheet({
   title = "Check out my session!",
   text,
   className,
+  shareUrl,
 }: ShareSheetProps) {
-  const [state, setState] = React.useState<ShareState>("idle");
-  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
-  const [imageLoaded, setImageLoaded] = React.useState(false);
+  // Issue 6: Use Record<ActionKey, ActionState> for full type safety
+  const [actionStates, setActionStates] = React.useState<Partial<Record<ActionKey, ActionState>>>({});
+  const [imageError, setImageError] = React.useState(false);
+  const blobRef = React.useRef<Blob | null>(null);
 
-  // Reset state when sheet opens
+  // Issue 2: Track all pending timer IDs so we can clear them on close/unmount
+  const timersRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+
+  // Issue 1: Stale-closure guard for the pre-fetch effect
   React.useEffect(() => {
     if (open) {
-      setState("idle");
-      setErrorMessage(null);
-      setImageLoaded(false);
+      setActionStates({});
+      setImageError(false);
+      blobRef.current = null;
+
+      let cancelled = false;
+      fetchImageAsBlob(imageUrl)
+        .then((blob) => {
+          if (!cancelled) blobRef.current = blob;
+        })
+        .catch(() => {
+          // Image fetch failure is handled gracefully - Save will re-fetch if needed
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [open, imageUrl]);
+
+  // Issue 2: Clear all pending timers when the sheet closes
+  React.useEffect(() => {
+    if (!open) {
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current.clear();
     }
   }, [open]);
 
-  const handleShare = async () => {
-    setState("loading");
-    setErrorMessage(null);
+  // Issue 2: Clear all pending timers on unmount
+  React.useEffect(() => {
+    const timers = timersRef.current;
+    return () => {
+      timers.forEach(clearTimeout);
+      timers.clear();
+    };
+  }, []);
+
+  // Issue 6: ActionKey typed parameter
+  function setActionState(action: ActionKey, state: ActionState) {
+    setActionStates((prev) => ({ ...prev, [action]: state }));
+  }
+
+  // Issue 2: Track timer IDs in ref instead of bare setTimeout
+  function resetActionAfter(action: ActionKey, delay: number) {
+    const id = setTimeout(() => {
+      setActionState(action, "idle");
+      timersRef.current.delete(id);
+    }, delay);
+    timersRef.current.add(id);
+  }
+
+  // Issue 3: Use URL constructor for safe UTM param construction
+  const handleCopyLink = async () => {
+    setActionState("copy", "loading");
+
+    try {
+      // eslint-disable-next-line no-restricted-properties -- reading URL for clipboard copy, not navigating
+      const base = shareUrl ?? (typeof window !== "undefined" ? window.location.href : "");
+      if (!base) {
+        setActionState("copy", "error");
+        resetActionAfter("copy", 1500);
+        return;
+      }
+      const urlObj = new URL(base);
+      urlObj.searchParams.set("utm_source", "quiver");
+      urlObj.searchParams.set("utm_medium", "share");
+      urlObj.searchParams.set("utm_campaign", `${type}_share`);
+      const url = urlObj.toString();
+
+      await copyToClipboard(url);
+      setActionState("copy", "success");
+      track("share_link_copied", { type });
+      resetActionAfter("copy", 2000);
+    } catch {
+      setActionState("copy", "error");
+      resetActionAfter("copy", 1500);
+    }
+  };
+
+  const handleSave = async () => {
+    setActionState("save", "loading");
+
+    try {
+      // Native: open native share sheet so user can save to Photos
+      if (isNativeApp()) {
+        await shareImage(imageUrl, filename, { title, text });
+        setActionState("save", "success");
+        track("share_image_saved", { type });
+        resetActionAfter("save", 1500);
+        return;
+      }
+
+      // Web: download directly
+      const blob = blobRef.current ?? (await fetchImageAsBlob(imageUrl));
+      downloadImage(blob, filename);
+      setActionState("save", "success");
+      track("share_image_saved", { type });
+      resetActionAfter("save", 1500);
+    } catch (error) {
+      if (error instanceof ShareImageError && error.code === "SHARE_CANCELLED") {
+        setActionState("save", "idle");
+        return;
+      }
+      setActionState("save", "error");
+      resetActionAfter("save", 1500);
+    }
+  };
+
+  const handleMore = async () => {
+    setActionState("more", "loading");
 
     track("share_started", { type });
 
     try {
       await shareImage(imageUrl, filename, { title, text });
-      setState("success");
+      setActionState("more", "success");
       track("share_completed", { type });
-      // Track in user_events for growth metrics
       fetch("/api/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -87,20 +199,19 @@ export function ShareSheet({
         }),
         keepalive: true,
       }).catch(() => {});
-      // Close after successful share
-      setTimeout(() => onOpenChange(false), 500);
+      // Issue 2: Track the close timeout in timersRef
+      const closeId = setTimeout(() => {
+        onOpenChange(false);
+        timersRef.current.delete(closeId);
+      }, 500);
+      timersRef.current.add(closeId);
     } catch (error) {
-      if (error instanceof ShareImageError) {
-        // User cancelled - just reset to idle
-        if (error.code === "SHARE_CANCELLED") {
-          setState("idle");
-          return;
-        }
-        setErrorMessage(error.message);
-      } else {
-        setErrorMessage("Failed to share image");
+      if (error instanceof ShareImageError && error.code === "SHARE_CANCELLED") {
+        setActionState("more", "idle");
+        return;
       }
-      setState("error");
+      setActionState("more", "error");
+      resetActionAfter("more", 1500);
     }
   };
 
@@ -109,72 +220,126 @@ export function ShareSheet({
       <SheetContent
         side="bottom"
         className={cn(
-          "rounded-t-2xl pb-safe",
+          "rounded-t-2xl pb-safe border-t-0 border-transparent bg-[#252D6B]",
+          "[&>button[data-radix-dialog-close]]:hidden",
           className
         )}
       >
-        <SheetHeader className="sr-only">
-          <SheetTitle>Share Session</SheetTitle>
-          <SheetDescription>Share your session image</SheetDescription>
+        <SheetHeader>
+          <div className="flex items-center justify-between mb-4">
+            <SheetTitle className="text-white font-bold text-lg">Share the stoke</SheetTitle>
+            <button
+              onClick={() => onOpenChange(false)}
+              className="text-white/60 hover:text-white transition-colors"
+              aria-label="Close share sheet"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <SheetDescription className="sr-only">
+            Share your session image via link, download, or native share
+          </SheetDescription>
         </SheetHeader>
 
-        <div className="flex flex-col items-center gap-4 pt-2">
+        <div className="flex flex-col items-center gap-6">
           {/* Image preview */}
-          <div className="relative w-full max-w-sm aspect-[4/3] rounded-lg overflow-hidden bg-muted">
-            {/* Image loading skeleton */}
-            {!imageLoaded && (
-              <div className="absolute inset-0 flex items-center justify-center bg-slate-200 dark:bg-slate-700 animate-pulse">
-                <ImageIcon className="h-12 w-12 text-slate-400 dark:text-slate-500" />
+          <div className="aspect-[4/3] w-full max-w-sm mx-auto rounded-2xl border border-[#404C92] overflow-hidden bg-[#0F1B30]">
+            {imageError ? (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-white/40">
+                <ImageIcon className="h-10 w-10" />
+                <span className="text-sm text-center px-4">{title}</span>
               </div>
-            )}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={imageUrl}
-              alt="Session preview"
-              className={cn(
-                "w-full h-full object-cover transition-opacity duration-300",
-                imageLoaded ? "opacity-100" : "opacity-0"
-              )}
-              onLoad={() => setImageLoaded(true)}
-            />
-            {/* Share action loading overlay - 70% opacity allows preview visibility while indicating blocking operation */}
-            {state === "loading" && (
-              <div className="absolute inset-0 bg-background/70 flex flex-col items-center justify-center gap-2">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <span className="text-sm font-medium text-foreground">{LOADING_TEXT}</span>
-              </div>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={imageUrl}
+                alt="Session preview"
+                className="w-full h-full object-cover"
+                onError={() => setImageError(true)}
+              />
             )}
           </div>
 
-          {/* Error message */}
-          {state === "error" && errorMessage && (
-            <div className="flex items-center gap-2 text-sm text-destructive">
-              <AlertCircle className="h-4 w-4" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
+          {/* Issue 5: Screen reader status announcements */}
+          <div className="sr-only" aria-live="polite" role="status">
+            {actionStates["copy"] === "success" && "Link copied to clipboard"}
+            {actionStates["save"] === "success" && "Image saved"}
+            {actionStates["copy"] === "loading" && "Copying link"}
+            {actionStates["save"] === "loading" && "Saving image"}
+            {actionStates["more"] === "loading" && "Opening share"}
+          </div>
 
-          {/* Share button */}
-          <Button
-            onClick={handleShare}
-            disabled={state === "loading"}
-            size="lg"
-            className="w-full max-w-sm"
+          {/* Action buttons row */}
+          <div className="flex items-start justify-center gap-8 w-full max-w-sm mx-auto">
+            <ActionButton
+              label={actionStates["copy"] === "success" ? "Copied!" : "Copy Link"}
+              state={actionStates["copy"] ?? "idle"}
+              idleIcon={<LinkIcon className="h-5 w-5 text-white" />}
+              onClick={handleCopyLink}
+            />
+            <ActionButton
+              label={actionStates["save"] === "success" ? "Saved!" : "Save"}
+              state={actionStates["save"] ?? "idle"}
+              idleIcon={<Download className="h-5 w-5 text-white" />}
+              onClick={handleSave}
+            />
+            <ActionButton
+              label="More"
+              state={actionStates["more"] ?? "idle"}
+              idleIcon={<Share2 className="h-5 w-5 text-white" />}
+              onClick={handleMore}
+            />
+          </div>
+
+          {/* Close text button */}
+          {/* Issue 8: aria-label on bottom Close button */}
+          <button
+            onClick={() => onOpenChange(false)}
+            className="text-white/50 hover:text-white/70 text-sm font-medium py-3 w-full transition-colors"
+            aria-label="Close share sheet"
           >
-            {state === "loading" ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {LOADING_TEXT}
-              </>
-            ) : (
-              <>
-                <Share2 className="h-4 w-4" />
-                Share
-              </>
-            )}
-          </Button>
+            Close
+          </button>
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+interface ActionButtonProps {
+  label: string;
+  state: ActionState;
+  idleIcon: React.ReactNode;
+  onClick: () => void;
+}
+
+function ActionButton({ label, state, idleIcon, onClick }: ActionButtonProps) {
+  const isSuccess = state === "success";
+  const isLoading = state === "loading";
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={isLoading}
+      className="flex flex-col items-center gap-0 disabled:opacity-60"
+    >
+      <div className="w-12 h-12 rounded-full bg-[#354090] border border-[#404C92] flex items-center justify-center">
+        {isLoading ? (
+          <Loader2 className="h-5 w-5 text-white animate-spin" />
+        ) : isSuccess ? (
+          <Check className="h-5 w-5 text-[#4A70D9]" />
+        ) : (
+          idleIcon
+        )}
+      </div>
+      <span
+        className={cn(
+          "text-xs mt-1.5",
+          isSuccess ? "text-[#4A70D9]" : "text-white/70"
+        )}
+      >
+        {label}
+      </span>
+    </button>
   );
 }

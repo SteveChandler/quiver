@@ -3,7 +3,7 @@
 /**
  * NativeAuthGuard Component
  *
- * Redirects native Capacitor app users to /auth/sign-in when their session expires.
+ * Redirects native Capacitor app users to /welcome when unauthenticated.
  * Web users are completely unaffected - this only applies to native apps.
  */
 
@@ -11,7 +11,6 @@ import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { isNativeApp } from "@/lib/mobile/platform";
-import { safeGetItem } from "@/lib/utils/safe-storage";
 import {
   isRedirectLoopDetected,
   incrementRedirectAttempt,
@@ -31,24 +30,20 @@ export function NativeAuthGuard() {
     // Only applies to native Capacitor apps
     if (!isNativeApp()) return;
 
-    // Reset redirect flag when user authenticates or lands on an auth page,
+    // Reset redirect flag when user authenticates or lands on an auth/welcome page,
     // so the guard can fire again if they later return unauthenticated.
-    if (isAuthenticated || pathname.startsWith("/auth")) {
+    if (isAuthenticated || pathname.startsWith("/auth") || pathname.startsWith("/welcome")) {
       hasRedirected.current = false;
     }
 
-    // Already on an auth page — don't redirect
-    if (pathname.startsWith("/auth")) return;
+    // Already on an auth or welcome page — don't redirect
+    if (pathname.startsWith("/auth") || pathname.startsWith("/welcome")) return;
 
     // User IS authenticated — clear any redirect attempts and bail
     if (isAuthenticated) {
       clearRedirectAttempts();
       return;
     }
-
-    // Only redirect returning users (new installs shouldn't be forced to login)
-    const isReturning = safeGetItem("quiver_returning_user");
-    if (!isReturning) return;
 
     // Prevent redirect loops
     if (isRedirectLoopDetected()) return;
@@ -59,9 +54,7 @@ export function NativeAuthGuard() {
 
     incrementRedirectAttempt();
 
-    const redirectTo =
-      pathname !== "/" ? `?redirectTo=${encodeURIComponent(pathname)}` : "";
-    router.replace(`/auth/sign-in${redirectTo}`);
+    router.replace("/welcome");
   }, [isAuthenticated, isLoading, pathname, router]);
 
   return null;

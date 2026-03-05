@@ -106,11 +106,11 @@ export function EnhancedBeachOverview({
               </ul>
             )}
             {beach.local_etiquette && (
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <h4 className="text-sm font-semibold text-blue-900 mb-1">
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-500/10 rounded-lg border border-blue-200 dark:border-blue-500/20">
+                <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-1">
                   Local Etiquette
                 </h4>
-                <p className="text-sm text-blue-800">{beach.local_etiquette}</p>
+                <p className="text-sm text-blue-800 dark:text-blue-200">{beach.local_etiquette}</p>
               </div>
             )}
           </CardContent>

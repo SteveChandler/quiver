@@ -10,7 +10,7 @@ import {
 } from "react";
 import Image from "next/image";
 
-const OCEAN_BLUE = "#0077B6";
+const INDICATOR_COLOR = "#FFFFFF";
 
 const DEFAULT_SLIDES: HeroCarouselImage[] = [
   {
@@ -188,13 +188,13 @@ export function HeroCarousel({
       >
         <path
           d="M400 0C400 220.914 220.914 400 0 400"
-          stroke={OCEAN_BLUE}
+          stroke={INDICATOR_COLOR}
           strokeWidth="3"
           strokeLinecap="round"
         />
         <path
           d="M400 60C400 247.777 247.777 400 60 400"
-          stroke={OCEAN_BLUE}
+          stroke={INDICATOR_COLOR}
           strokeWidth="2"
           strokeLinecap="round"
           opacity="0.6"
@@ -208,13 +208,13 @@ export function HeroCarousel({
       >
         <path
           d="M0 300C0 134.315 134.315 0 300 0"
-          stroke={OCEAN_BLUE}
+          stroke={INDICATOR_COLOR}
           strokeWidth="3"
           strokeLinecap="round"
         />
         <path
           d="M0 240C0 107.452 107.452 0 240 0"
-          stroke={OCEAN_BLUE}
+          stroke={INDICATOR_COLOR}
           strokeWidth="2"
           strokeLinecap="round"
           opacity="0.6"

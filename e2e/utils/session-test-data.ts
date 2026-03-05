@@ -114,18 +114,7 @@ export async function createTestSession(
     await beachOption.click();
     await page.waitForTimeout(300);
 
-    // Continue to Date/Time step
-    const nextButton = page
-      .getByRole("button", { name: /next/i })
-      .first();
-    const hasNext = await nextButton.isVisible().catch(() => false);
-
-    if (hasNext) {
-      await nextButton.click();
-      await page.waitForTimeout(400);
-    }
-
-    // Set required date (log mode requires date; time optional but helps forecast matching)
+    // Fill date/time on same Where & When step
     const dateInput = page.getByTestId("session-date-input");
     const hasDate = await dateInput.isVisible({ timeout: 10000 }).catch(() => false);
     if (hasDate) {
@@ -139,10 +128,13 @@ export async function createTestSession(
       await timeInput.fill("06:00");
     }
 
-    // Advance to Session Details (Equipment step is optional; then Session Details is last step)
+    // Advance to Session Details (step 2)
+    const nextButton = page
+      .getByRole("button", { name: /next/i })
+      .first();
+    const hasNext = await nextButton.isVisible().catch(() => false);
+
     if (hasNext) {
-      await nextButton.click();
-      await page.waitForTimeout(300);
       await nextButton.click();
       await page.waitForTimeout(500);
     }

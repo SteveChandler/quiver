@@ -1,4 +1,4 @@
-import { buildCamEmbed, getViewableUrl } from "@/lib/media/cam-embed";
+import { buildCamEmbed, getViewableUrl, toProxiedHlsUrl } from "@/lib/media/cam-embed";
 
 describe("buildCamEmbed", () => {
   // --- Null / undefined ---
@@ -104,6 +104,16 @@ describe("buildCamEmbed", () => {
     });
   });
 
+  it("returns hdontap kind for portofbrookingsharbor.com camera pages", () => {
+    const result = buildCamEmbed(
+      "https://www.portofbrookingsharbor.com/chetco-river-bar-camera.html"
+    );
+    expect(result).toEqual({
+      kind: "hdontap",
+      pageUrl: "https://www.portofbrookingsharbor.com/chetco-river-bar-camera.html",
+    });
+  });
+
   // --- Protocol validation ---
   it("rejects javascript: URIs", () => {
     expect(buildCamEmbed("javascript:alert(1)")).toEqual({ kind: "none" });
@@ -128,6 +138,54 @@ describe("buildCamEmbed", () => {
   it("returns none for invalid URL strings", () => {
     const result = buildCamEmbed("not-a-valid-url");
     expect(result).toEqual({ kind: "none" });
+  });
+});
+
+describe("toProxiedHlsUrl", () => {
+  it("rewrites live.hdontap.com URLs through the proxy", () => {
+    const input =
+      "https://live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8?t=abc123&e=9999999999";
+    expect(toProxiedHlsUrl(input)).toBe(
+      "/api/hls-proxy/live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8?t=abc123&e=9999999999"
+    );
+  });
+
+  it("preserves query string including token and expiry", () => {
+    const input =
+      "https://live.hdontap.com/hls/path/playlist.m3u8?t=TOKEN&e=1234567890";
+    expect(toProxiedHlsUrl(input)).toContain("?t=TOKEN&e=1234567890");
+  });
+
+  it("passes through non-HDOnTap URLs unchanged", () => {
+    const surflineUrl =
+      "https://hls.cdn-surfline.com/cam/12345/playlist.m3u8";
+    expect(toProxiedHlsUrl(surflineUrl)).toBe(surflineUrl);
+  });
+
+  it("passes through already-proxied HDOnTap URLs unchanged", () => {
+    const already =
+      "/api/hls-proxy/live.hdontap.com/hls/stream/playlist.m3u8?t=abc";
+    expect(toProxiedHlsUrl(already)).toBe(already);
+  });
+
+  it("handles malformed URL input without throwing", () => {
+    expect(() => toProxiedHlsUrl("not a url")).not.toThrow();
+    expect(toProxiedHlsUrl("not a url")).toBe("not a url");
+  });
+
+  it("rewrites http:// HDOnTap URLs", () => {
+    const httpUrl =
+      "http://live.hdontap.com/hls/stream/playlist.m3u8?t=abc";
+    expect(toProxiedHlsUrl(httpUrl)).toBe(
+      "/api/hls-proxy/live.hdontap.com/hls/stream/playlist.m3u8?t=abc"
+    );
+  });
+
+  it("handles HDOnTap URLs without query params", () => {
+    const url = "https://live.hdontap.com/hls/stream/playlist.m3u8";
+    expect(toProxiedHlsUrl(url)).toBe(
+      "/api/hls-proxy/live.hdontap.com/hls/stream/playlist.m3u8"
+    );
   });
 });
 

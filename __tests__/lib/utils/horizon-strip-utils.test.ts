@@ -298,5 +298,107 @@ describe('horizon-strip-utils', () => {
 
       expect(result.length).toBe(3);
     });
+
+    // -------------------------------------------------------------------------
+    // isPersonalized flag based on userPreferences
+    // -------------------------------------------------------------------------
+    describe('isPersonalized flag', () => {
+      // Build a minimal set of today + tomorrow forecasts to guarantee at least
+      // one DaySummary is returned regardless of the current date.
+      function makeTodayAndTomorrowForecasts(): EnhancedForecastEntity[] {
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const todayStr = today.toISOString().split('T')[0];
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+        return [
+          makeForecast(todayStr, '06:00', 'NOAA_NWS'),
+          makeForecast(todayStr, '12:00', 'NOAA_NWS'),
+          makeForecast(tomorrowStr, '06:00', 'NOAA_NWS'),
+          makeForecast(tomorrowStr, '12:00', 'NOAA_NWS'),
+        ];
+      }
+
+      it('sets isPersonalized to true on every DaySummary when userPreferences with preferredWaveSize is provided', () => {
+        const forecasts = makeTodayAndTomorrowForecasts();
+        const result = aggregateDayForecasts(forecasts, mockBeach, {
+          userPreferences: { preferredWaveSize: 'medium' },
+        });
+
+        expect(result.length).toBeGreaterThan(0);
+        for (const summary of result) {
+          expect(summary.isPersonalized).toBe(true);
+        }
+      });
+
+      it('sets isPersonalized to true for preferredWaveSize "small"', () => {
+        const forecasts = makeTodayAndTomorrowForecasts();
+        const result = aggregateDayForecasts(forecasts, mockBeach, {
+          userPreferences: { preferredWaveSize: 'small' },
+        });
+
+        expect(result.length).toBeGreaterThan(0);
+        for (const summary of result) {
+          expect(summary.isPersonalized).toBe(true);
+        }
+      });
+
+      it('sets isPersonalized to true for preferredWaveSize "large"', () => {
+        const forecasts = makeTodayAndTomorrowForecasts();
+        const result = aggregateDayForecasts(forecasts, mockBeach, {
+          userPreferences: { preferredWaveSize: 'large' },
+        });
+
+        expect(result.length).toBeGreaterThan(0);
+        for (const summary of result) {
+          expect(summary.isPersonalized).toBe(true);
+        }
+      });
+
+      it('sets isPersonalized to false (falsy) on every DaySummary when userPreferences is omitted', () => {
+        const forecasts = makeTodayAndTomorrowForecasts();
+        // No userPreferences option passed
+        const result = aggregateDayForecasts(forecasts, mockBeach);
+
+        expect(result.length).toBeGreaterThan(0);
+        for (const summary of result) {
+          // isPersonalized is optional — undefined or false both satisfy !isPersonalized
+          expect(summary.isPersonalized).toBeFalsy();
+        }
+      });
+
+      it('sets isPersonalized to false (falsy) when userPreferences is an empty object', () => {
+        const forecasts = makeTodayAndTomorrowForecasts();
+        const result = aggregateDayForecasts(forecasts, mockBeach, {
+          userPreferences: {},
+        });
+
+        expect(result.length).toBeGreaterThan(0);
+        for (const summary of result) {
+          expect(summary.isPersonalized).toBeFalsy();
+        }
+      });
+
+      it('sets isPersonalized to false (falsy) when preferredWaveSize is null', () => {
+        const forecasts = makeTodayAndTomorrowForecasts();
+        const result = aggregateDayForecasts(forecasts, mockBeach, {
+          userPreferences: { preferredWaveSize: null },
+        });
+
+        expect(result.length).toBeGreaterThan(0);
+        for (const summary of result) {
+          expect(summary.isPersonalized).toBeFalsy();
+        }
+      });
+
+      it('returns an empty array and no summaries when forecasts list is empty', () => {
+        const result = aggregateDayForecasts([], mockBeach, {
+          userPreferences: { preferredWaveSize: 'medium' },
+        });
+        expect(result).toHaveLength(0);
+      });
+    });
   });
 });

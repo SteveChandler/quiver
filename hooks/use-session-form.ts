@@ -31,6 +31,9 @@ export type SessionFormState = {
   // Tide fields for session conditions:
   tideHeight?: number; // User-reported tide height in feet
   tideStatus?: string; // User-reported tide status (rising, falling, high, low)
+  // Visibility fields
+  isPublic: boolean; // Whether session is visible to others (default true)
+  isMuted: boolean; // Whether session is hidden from community feed (default false)
   // New Session Planner Pro fields
   optimalTimes?: Array<{
     time: string;
@@ -58,6 +61,8 @@ export type SessionFormState = {
     name?: string;
   }>;
   invitationMessage?: string;
+  selectedGoals: string[];
+  skillRatings: Record<string, number>;
 };
 
 export type SessionFormMode = "plan" | "log";
@@ -124,12 +129,17 @@ function getDefaultFormState(mode: SessionFormMode): SessionFormState {
     // Tide fields (initialize to undefined)
     tideHeight: undefined,
     tideStatus: undefined,
+    // Visibility defaults
+    isPublic: true,
+    isMuted: false,
     // Initialize new Session Planner Pro fields
     optimalTimes: undefined,
     selectedOptimalTime: undefined,
     boardSuggestions: undefined,
     invitees: [],
     invitationMessage: "",
+    selectedGoals: [],
+    skillRatings: {},
   };
 }
 

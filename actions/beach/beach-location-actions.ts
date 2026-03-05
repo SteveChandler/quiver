@@ -175,6 +175,7 @@ export interface CityWithSkillCategories {
   beachCount: number;
   hasBeginnerBeaches: boolean;
   hasAdvancedBeaches: boolean;
+  hasLeastCrowdedBeaches: boolean;
   /** TRUE when >= 2 beaches have description + at least one of crowd_tips/wave_tips/best_conditions_prose */
   hasEditorialContent: boolean;
 }
@@ -203,8 +204,10 @@ export async function getAllCitiesWithBeachSkills(minBeaches: number = 1) {
       return getAllCitiesWithBeachSkillsFallback(minBeaches);
     }
 
-    // Transform RPC response to expected format
-    const cities: CityWithSkillCategories[] = (data || []).map((row: {
+    // Transform RPC response to expected format.
+    // Cast through unknown because the Supabase-generated type for this RPC may not yet
+    // include has_least_crowded if the DB function hasn't been updated on all envs.
+    type RpcRow = {
       city: string;
       state: string;
       country: string | null;
@@ -212,13 +215,16 @@ export async function getAllCitiesWithBeachSkills(minBeaches: number = 1) {
       has_beginner: boolean;
       has_advanced: boolean;
       has_editorial: boolean;
-    }) => ({
+      has_least_crowded?: boolean;
+    };
+    const cities: CityWithSkillCategories[] = ((data || []) as unknown as RpcRow[]).map((row) => ({
       city: row.city,
       state: row.state,
       country: row.country,
       beachCount: Number(row.beach_count),
       hasBeginnerBeaches: row.has_beginner,
       hasAdvancedBeaches: row.has_advanced,
+      hasLeastCrowdedBeaches: row.has_least_crowded ?? false,
       hasEditorialContent: row.has_editorial ?? false,
     }));
 
@@ -245,7 +251,7 @@ async function getAllCitiesWithBeachSkillsFallback(minBeaches: number = 1) {
 
     const { data, error } = await supabase
       .from("beaches")
-      .select("city, state, country, skill_level, description, crowd_tips, wave_tips, best_conditions_prose")
+      .select("city, state, country, skill_level, crowd_level, description, crowd_tips, wave_tips, best_conditions_prose")
       .or("is_private.is.null,is_private.eq.false")
       .not("city", "is", null)
       .not("state", "is", null)
@@ -261,12 +267,11 @@ async function getAllCitiesWithBeachSkillsFallback(minBeaches: number = 1) {
       const existing = cityMap.get(key);
 
       const skill = (beach.skill_level || "").toLowerCase();
-      // lower-intermediate is included as beginner (matches RPC logic)
       const isBeginner =
         skill.includes("beginner") ||
-        skill.includes("longboard") ||
-        skill === "lower-intermediate";
+        skill.includes("longboard");
       const isAdvanced = skill.includes("advanced") || skill.includes("expert");
+      const isLeastCrowded = ['light', 'moderate'].includes((beach as any).crowd_level?.toLowerCase() || '');
       const hasDescription = !!(beach as any).description?.trim();
       const hasEditorialField =
         !!(beach as any).crowd_tips?.trim() ||
@@ -278,6 +283,7 @@ async function getAllCitiesWithBeachSkillsFallback(minBeaches: number = 1) {
         existing.beachCount++;
         if (isBeginner) existing.hasBeginnerBeaches = true;
         if (isAdvanced) existing.hasAdvancedBeaches = true;
+        if (isLeastCrowded) existing.hasLeastCrowdedBeaches = true;
         if (isQualityBeach) existing.editorialCount++;
       } else {
         cityMap.set(key, {
@@ -287,6 +293,7 @@ async function getAllCitiesWithBeachSkillsFallback(minBeaches: number = 1) {
           beachCount: 1,
           hasBeginnerBeaches: isBeginner,
           hasAdvancedBeaches: isAdvanced,
+          hasLeastCrowdedBeaches: isLeastCrowded,
           hasEditorialContent: false, // computed after aggregation
           editorialCount: isQualityBeach ? 1 : 0,
         });

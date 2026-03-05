@@ -1,7 +1,8 @@
 "use client";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ReactNode, useState, useCallback } from "react";
+import { ReactNode, useState, useCallback, useRef } from "react";
+import { useTrackEvent } from "@/hooks/use-track-event";
 
 export type BeachTabValue =
   | "overview"
@@ -27,6 +28,7 @@ interface BeachTabsProps {
   className?: string;
   actions?: ReactNode;
   publicMode?: boolean;
+  beachId?: string;
 }
 
 /**
@@ -53,6 +55,7 @@ export function BeachTabs({
   className,
   actions,
   publicMode = false,
+  beachId,
 }: BeachTabsProps) {
   // Determine if component is controlled or uncontrolled
   const isControlled = activeTab !== undefined && onTabChange !== undefined;
@@ -63,8 +66,26 @@ export function BeachTabs({
   // Use activeTab if controlled, otherwise use internal state
   const value = isControlled ? activeTab : internalTab;
 
+  const { track } = useTrackEvent();
+  const tabEnterTime = useRef<number>(Date.now());
+  const previousTab = useRef<BeachTabValue>(isControlled ? activeTab : defaultTab);
+
   const handleTabChange = (newValue: string) => {
     const tabValue = newValue as BeachTabValue;
+
+    // Track tab switch
+    const now = Date.now();
+    track('tab_view', {
+      beachId,
+      metadata: {
+        tab: tabValue,
+        previous_tab: previousTab.current,
+        time_on_previous_ms: now - tabEnterTime.current,
+      },
+      debounceMs: 300,
+    });
+    tabEnterTime.current = now;
+    previousTab.current = tabValue;
 
     if (isControlled) {
       // In controlled mode, just notify parent

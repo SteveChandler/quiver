@@ -37,9 +37,14 @@ jest.mock("@/lib/analytics/auth-events", () => ({
   extractEmailDomain: jest.fn((email) => email.split("@")[1] || "unknown"),
 }));
 
+jest.mock("@/lib/mobile/apple-sign-in", () => ({
+  signInWithApple: jest.fn(),
+}));
+
 import { useAuth } from "@/context/auth-context";
 import * as authUtils from "@/lib/auth/auth-utils";
 import * as authEvents from "@/lib/analytics/auth-events";
+import * as appleSignIn from "@/lib/mobile/apple-sign-in";
 import { useRouter } from "next/navigation";
 
 describe("UnifiedAuthModal", () => {
@@ -71,6 +76,9 @@ describe("UnifiedAuthModal", () => {
     (authUtils.clearAuthRedirect as jest.Mock).mockImplementation(() => {});
     (authUtils.initiateOAuthFlow as jest.Mock).mockResolvedValue({});
     (authUtils.sendMagicLink as jest.Mock).mockResolvedValue({});
+
+    // Mock Apple Sign-In with default successful response
+    (appleSignIn.signInWithApple as jest.Mock).mockResolvedValue({});
   });
 
   describe("Modal rendering", () => {
@@ -269,6 +277,144 @@ describe("UnifiedAuthModal", () => {
       expect(
         screen.getByText("Already have an account?")
       ).toBeInTheDocument();
+    });
+  });
+
+  describe("Apple Sign-In button visibility", () => {
+    it("should show the Apple button when enableOAuth is true (onAppleClick is always passed)", () => {
+      render(
+        <UnifiedAuthModal
+          isOpen={true}
+          onClose={mockOnClose}
+          mode="login"
+          enableOAuth={true}
+        />
+      );
+
+      expect(screen.getByText("Continue with Apple")).toBeInTheDocument();
+    });
+
+    it("should not show the Apple button when enableOAuth is false", () => {
+      render(
+        <UnifiedAuthModal
+          isOpen={true}
+          onClose={mockOnClose}
+          mode="login"
+          enableOAuth={false}
+        />
+      );
+
+      expect(
+        screen.queryByText("Continue with Apple")
+      ).not.toBeInTheDocument();
+    });
+
+    it("should show Apple button before Google button", () => {
+      render(
+        <UnifiedAuthModal
+          isOpen={true}
+          onClose={mockOnClose}
+          mode="login"
+          enableOAuth={true}
+        />
+      );
+
+      const buttons = screen.getAllByRole("button");
+      const appleIdx = buttons.findIndex((b) =>
+        b.textContent?.includes("Continue with Apple")
+      );
+      const googleIdx = buttons.findIndex((b) =>
+        b.textContent?.includes("Continue with Google")
+      );
+
+      expect(appleIdx).toBeGreaterThanOrEqual(0);
+      expect(googleIdx).toBeGreaterThanOrEqual(0);
+      expect(appleIdx).toBeLessThan(googleIdx);
+    });
+  });
+
+  describe("Apple Sign-In flow", () => {
+    it("should call signInWithApple and close modal on success", async () => {
+      render(
+        <UnifiedAuthModal
+          isOpen={true}
+          onClose={mockOnClose}
+          mode="login"
+          returnTo="/sessions"
+        />
+      );
+
+      const appleButton = screen.getByText("Continue with Apple");
+      fireEvent.click(appleButton);
+
+      await waitFor(() => {
+        expect(appleSignIn.signInWithApple).toHaveBeenCalledWith("/sessions");
+      });
+
+      expect(mockOnClose).toHaveBeenCalled();
+      expect(authEvents.trackAuthMethodSelected).toHaveBeenCalledWith({
+        method: "apple",
+        mode: "login",
+      });
+      expect(authEvents.trackLoginStarted).toHaveBeenCalledWith("apple");
+      expect(authEvents.trackLoginSuccess).toHaveBeenCalledWith(
+        expect.objectContaining({ method: "apple" })
+      );
+    });
+
+    it("should show error when Apple Sign-In fails", async () => {
+      (appleSignIn.signInWithApple as jest.Mock).mockResolvedValue({
+        error: "Apple sign-in was cancelled or failed.",
+      });
+
+      render(
+        <UnifiedAuthModal
+          isOpen={true}
+          onClose={mockOnClose}
+          mode="login"
+        />
+      );
+
+      const appleButton = screen.getByText("Continue with Apple");
+      fireEvent.click(appleButton);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText("Apple sign-in was cancelled or failed.")
+        ).toBeInTheDocument();
+      });
+
+      expect(mockOnClose).not.toHaveBeenCalled();
+      expect(authEvents.trackLoginFailed).toHaveBeenCalledWith({
+        method: "apple",
+        error_type: "oauth_failed",
+      });
+    });
+
+    it("should track signup success on Apple Sign-In in signup mode", async () => {
+      render(
+        <UnifiedAuthModal
+          isOpen={true}
+          onClose={mockOnClose}
+          mode="signup"
+        />
+      );
+
+      // Accept terms first — Apple button is disabled until terms are accepted in signup mode
+      const termsCheckbox = screen.getByRole("checkbox");
+      fireEvent.click(termsCheckbox);
+
+      const appleButton = screen.getByText("Continue with Apple");
+      fireEvent.click(appleButton);
+
+      await waitFor(() => {
+        expect(mockOnClose).toHaveBeenCalled();
+      });
+
+      expect(authEvents.trackSignupSuccess).toHaveBeenCalledWith({
+        method: "apple",
+        requires_verification: false,
+      });
     });
   });
 

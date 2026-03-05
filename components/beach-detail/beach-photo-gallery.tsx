@@ -17,11 +17,10 @@ interface BestPhoto {
 
 async function getBestBeachPhotos(
   beachId: string,
-  limit = 5
+  limit = 5,
 ): Promise<BestPhoto[]> {
-  const { getBestBeachPhotosAction } = await import(
-    "@/actions/beach-media-actions"
-  );
+  const { getBestBeachPhotosAction } =
+    await import("@/actions/beach-media-actions");
   const result = await getBestBeachPhotosAction(beachId, limit);
   if (!result.success) throw new Error(result.error || "Failed to load photos");
   return result.data as BestPhoto[];
@@ -39,7 +38,12 @@ interface MapFallbackProps {
   priority?: boolean;
 }
 
-function MapFallback({ mapUrl, beachName, sizes, priority = false }: MapFallbackProps) {
+function MapFallback({
+  mapUrl,
+  beachName,
+  sizes,
+  priority = false,
+}: MapFallbackProps) {
   return (
     <Image
       src={mapUrl}
@@ -54,7 +58,10 @@ function MapFallback({ mapUrl, beachName, sizes, priority = false }: MapFallback
   );
 }
 
-export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) {
+export function BeachPhotoGallery({
+  beach,
+  className,
+}: BeachPhotoGalleryProps) {
   // Fixed: Only show one map when photos < 2
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
@@ -75,22 +82,18 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
   // Filter out failed images (memoized)
   const validPhotos = useMemo(
     () => photos?.filter((p) => !failedImages.has(p.id)) || [],
-    [photos, failedImages]
+    [photos, failedImages],
   );
 
   // Generate a static map URL using the utility function (memoized)
   const mapUrl = useMemo(
     () =>
-      getStaticMapImageUrl(
-        beach.lat ?? undefined,
-        beach.lon ?? undefined,
-        {
-          width: 600,
-          height: 400,
-          zoom: 13,
-        }
-      ),
-    [beach.lat, beach.lon]
+      getStaticMapImageUrl(beach.lat ?? undefined, beach.lon ?? undefined, {
+        width: 600,
+        height: 400,
+        zoom: 13,
+      }),
+    [beach.lat, beach.lon],
   );
 
   const heroPhoto = validPhotos[0];
@@ -100,8 +103,11 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
   // When no photos available, show only the map in a simple layout
   if (!hasPhotos) {
     return (
-      <div data-testid="beach-photo-gallery" className={`relative ${className || ""}`}>
-        <div className="relative aspect-[3/2] md:aspect-auto md:min-h-[400px] bg-muted rounded-xl overflow-hidden">
+      <div
+        data-testid="beach-photo-gallery"
+        className={`relative ${className || ""}`}
+      >
+        <div className="relative aspect-[3/2] md:aspect-auto md:min-h-[400px] bg-muted overflow-hidden h-full">
           {beach.lat && beach.lon ? (
             <MapFallback
               mapUrl={mapUrl}
@@ -110,7 +116,10 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
               priority
             />
           ) : (
-            <div data-testid="camera-icon-fallback" className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-ocean-blue/10 to-blue-200/20">
+            <div
+              data-testid="camera-icon-fallback"
+              className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-ocean-blue/10 to-blue-200/20"
+            >
               <Camera className="h-16 w-16 text-muted-foreground/40" />
             </div>
           )}
@@ -120,8 +129,11 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
   }
 
   return (
-    <div data-testid="beach-photo-gallery" className={`relative ${className || ""}`}>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded-xl overflow-hidden">
+    <div
+      data-testid="beach-photo-gallery"
+      className={`relative ${className || ""}`}
+    >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-1 overflow-hidden h-full">
         {/* Phase 1 Spec: gap-2 = 8px ✅, rounded-xl = 12px ✅ */}
         {/* Main/Hero Photo (left side on desktop, top on mobile) */}
         {/* Phase 1 Spec: min-h-[400px] on desktop, aspect-[3/2] on mobile */}
@@ -152,7 +164,7 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
         </div>
 
         {/* Right Column: Small photos and map */}
-        <div className="grid grid-cols-2 md:grid-cols-1 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-1 gap-1 h-full">
           {/* Small Photo 1 or Map (when only 1 photo total) */}
           {/* Phase 1 Spec: 196px height on desktop, aspect-[3/2] on mobile */}
           <div className="relative aspect-[3/2] md:aspect-auto md:h-[196px] bg-muted">

@@ -42,7 +42,7 @@ function renderFallback() {
           style={{
             marginTop: 24,
             fontSize: 22,
-            color: '#f97316',
+            color: '#F78E42',
             display: 'flex',
           }}
         >
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
               style={{
                 fontSize: 20,
                 fontWeight: 600,
-                color: '#f97316',
+                color: '#F78E42',
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
                 display: 'flex',
@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
               style={{
                 width: 80,
                 height: 3,
-                backgroundColor: '#f97316',
+                backgroundColor: '#F78E42',
                 marginBottom: 28,
                 display: 'flex',
               }}

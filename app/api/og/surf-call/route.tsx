@@ -222,7 +222,7 @@ export async function GET(request: NextRequest) {
                     style={{
                       fontSize: 32,
                       fontWeight: 500,
-                      color: "#F97316", // Highlight the time window
+                      color: "#F78E42", // Highlight the time window
                     }}
                   >
                     {windowTime}
@@ -237,7 +237,7 @@ export async function GET(request: NextRequest) {
                 style={{
                   fontSize: 110,
                   fontWeight: 800,
-                  color: "#F97316",
+                  color: "#F78E42",
                   letterSpacing: "-0.03em",
                   lineHeight: 1,
                   display: "flex",

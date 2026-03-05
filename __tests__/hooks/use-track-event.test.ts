@@ -7,6 +7,11 @@ jest.mock("@/context/auth-context", () => ({
   useAuth: jest.fn(),
 }));
 
+// Mock visitor-id module
+jest.mock("@/lib/utils/visitor-id", () => ({
+  getVisitorId: jest.fn(() => "visitor-uuid-123"),
+}));
+
 // Mock fetch
 global.fetch = jest.fn();
 
@@ -41,19 +46,22 @@ describe("useTrackEvent", () => {
         });
       });
 
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/events",
-        expect.objectContaining({
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            eventType: "beach_view",
-            beachId: "beach-456",
-            metadata: { duration_ms: 5000 },
-          }),
-          keepalive: true,
-        })
-      );
+      const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+      const fetchOptions = fetchCall[1];
+      const body = JSON.parse(fetchOptions.body);
+
+      expect(fetchCall[0]).toBe("/api/events");
+      expect(fetchOptions).toMatchObject({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        keepalive: true,
+      });
+      expect(body).toMatchObject({
+        eventType: "beach_view",
+        beachId: "beach-456",
+        metadata: { duration_ms: 5000 },
+      });
+      expect(typeof body.viewportWidth).toBe("number");
     });
 
     it("includes keepalive: true in fetch options", async () => {
@@ -93,16 +101,11 @@ describe("useTrackEvent", () => {
         });
       });
 
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/events",
-        expect.objectContaining({
-          body: JSON.stringify({
-            eventType: "location_update",
-            beachId: undefined,
-            metadata: { lat: 33.0, lon: -117.0, accuracy_m: 10 },
-          }),
-        })
-      );
+      const fetchBody = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+      expect(fetchBody).toMatchObject({
+        eventType: "location_update",
+        metadata: { lat: 33.0, lon: -117.0, accuracy_m: 10 },
+      });
     });
 
     it("tracks event with empty metadata", async () => {
@@ -120,22 +123,22 @@ describe("useTrackEvent", () => {
         });
       });
 
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/events",
-        expect.objectContaining({
-          body: JSON.stringify({
-            eventType: "beach_view",
-            beachId: "beach-456",
-            metadata: {},
-          }),
-        })
-      );
+      const fetchBody = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+      expect(fetchBody).toMatchObject({
+        eventType: "beach_view",
+        beachId: "beach-456",
+        metadata: {},
+      });
     });
   });
 
   describe("guest users", () => {
-    it("does not track for guests (no user)", async () => {
+    it("tracks anonymously for guests with sessionId", async () => {
       (useAuth as jest.Mock).mockReturnValue({ user: null });
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true }),
+      });
 
       const { result } = renderHook(() => useTrackEvent());
 
@@ -146,11 +149,20 @@ describe("useTrackEvent", () => {
         });
       });
 
-      expect(global.fetch).not.toHaveBeenCalled();
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/events",
+        expect.objectContaining({
+          body: expect.stringContaining('"sessionId":"visitor-uuid-123"'),
+        })
+      );
     });
 
-    it("does not track when user is undefined", async () => {
+    it("tracks with sessionId when user is undefined", async () => {
       (useAuth as jest.Mock).mockReturnValue({ user: undefined });
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true }),
+      });
 
       const { result } = renderHook(() => useTrackEvent());
 
@@ -160,11 +172,20 @@ describe("useTrackEvent", () => {
         });
       });
 
-      expect(global.fetch).not.toHaveBeenCalled();
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/events",
+        expect.objectContaining({
+          body: expect.stringContaining('"sessionId":"visitor-uuid-123"'),
+        })
+      );
     });
 
-    it("does not track when user.id is missing", async () => {
+    it("tracks with sessionId when user.id is missing", async () => {
       (useAuth as jest.Mock).mockReturnValue({ user: {} });
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true }),
+      });
 
       const { result } = renderHook(() => useTrackEvent());
 
@@ -174,7 +195,12 @@ describe("useTrackEvent", () => {
         });
       });
 
-      expect(global.fetch).not.toHaveBeenCalled();
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/events",
+        expect.objectContaining({
+          body: expect.stringContaining('"sessionId":"visitor-uuid-123"'),
+        })
+      );
     });
   });
 

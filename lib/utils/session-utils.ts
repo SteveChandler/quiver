@@ -247,8 +247,9 @@ export function transformSessionFormStateToDbSchema(
     dbData.goals = formState.waveTypes;
   }
 
-  // Default to public sessions
-  dbData.is_public = true;
+  // Visibility and feed controls
+  dbData.is_public = formState.isPublic ?? true;
+  dbData.muted = formState.isMuted ?? false;
 
   // Clean up undefined/empty values
   const cleaned: Partial<Session> = {};
@@ -336,6 +337,10 @@ export function sessionToFormState(session: any): any {
 
     // Notes
     notes: session.notes || "",
+
+    // Visibility
+    isPublic: session.is_public ?? true,
+    isMuted: session.muted ?? false,
 
     // Photos (empty array for now - photos are handled separately)
     photos: [],

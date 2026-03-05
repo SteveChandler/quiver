@@ -20,6 +20,19 @@ export function getViewableUrl(url: string | null | undefined): string | null {
   }
 }
 
+/** Route CORS-blocked HLS hosts through our proxy */
+export function toProxiedHlsUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === "live.hdontap.com") {
+      return `/api/hls-proxy/${parsed.hostname}${parsed.pathname}${parsed.search}`;
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
   if (!url) return { kind: "none" };
   let href = "";
@@ -82,6 +95,14 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
     // OB Hotel webcam (HDRelay-powered) — resolve to HLS stream server-side.
     // Reuses "hdontap" kind since the cam-resolve pipeline handles both providers.
     if (u.hostname === "www.obhotel.com" || u.hostname === "obhotel.com") {
+      return { kind: "hdontap", pageUrl: href };
+    }
+
+    // Port of Brookings Harbor (HDRelay-powered) — resolve to HLS stream server-side.
+    if (
+      u.hostname === "www.portofbrookingsharbor.com" ||
+      u.hostname === "portofbrookingsharbor.com"
+    ) {
       return { kind: "hdontap", pageUrl: href };
     }
 

@@ -126,8 +126,9 @@ export const IOOS_QUALITY_THRESHOLDS = {
   // Observation age (hours) - mark as stale after this
   maxObservationAgeHours: 6,
 
-  // Station inactive threshold (days)
-  stationInactiveDays: 7,
+  // Station inactive threshold (days) — 14 days gives buffer for intermittent
+  // reporters like CDIP buoys that can have multi-day maintenance gaps
+  stationInactiveDays: 14,
 } as const;
 
 /**

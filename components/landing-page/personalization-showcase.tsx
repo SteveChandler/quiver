@@ -152,7 +152,7 @@ export function PersonalizationShowcase() {
                   <div className="flex items-center gap-2">
                     <motion.div
                       animate={{
-                        color: isRevealed ? "#0077B6" : "#9CA3AF",
+                        color: isRevealed ? "#FF3B8B" : "#9CA3AF",
                       }}
                       transition={{ duration: ROW_DURATION, delay }}
                     >

@@ -11,6 +11,7 @@ import {
 } from "@/lib/utils/spot-data-transformer";
 import { createContextLogger } from "@/lib/logger";
 import type { Beach } from "@/types/database";
+import type { Database } from "@/types/supabase";
 
 const log = createContextLogger("SpotDataActions");
 
@@ -154,7 +155,7 @@ export async function getSpotFeaturedPhoto(
       },
       error: null,
     };
-  }).then((result) => result.data ?? null);
+  }, { allowNull: true }).then((result) => result.data ?? null);
 }
 
 /**
@@ -179,7 +180,7 @@ export async function getSpotGalleryPhotos(
     }
 
     return {
-      data: data.map((row) => ({
+      data: data.map((row: Pick<Database['public']['Tables']['beach_photos']['Row'], 'image_url' | 'thumb_url' | 'attribution_html' | 'title' | 'creator_name'>) => ({
         imageUrl: row.image_url,
         thumbUrl: row.thumb_url,
         attributionHtml: row.attribution_html,

@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
               style={{
                 width: 80,
                 height: 3,
-                backgroundColor: '#f97316',
+                backgroundColor: '#F78E42',
                 marginBottom: 28,
                 display: 'flex',
               }}

@@ -6,29 +6,28 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 201 100% 36%; /* Ocean-blue #0077B6 — unified primary action color */
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 201 100% 36%; /* Match primary color */
+    --background: 220 50% 7%;       /* #0B1426 deep navy */
+    --foreground: 0 0% 94%;         /* #F0F0F0 off-white */
+    --card: 220 45% 13%;            /* #111D35 card surface */
+    --card-foreground: 0 0% 94%;
+    --popover: 220 45% 13%;
+    --popover-foreground: 0 0% 94%;
+    --primary: 338 100% 62%;        /* #FF3B8B hot pink */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 40% 18%;       /* #172544 elevated */
+    --secondary-foreground: 0 0% 94%;
+    --muted: 220 40% 18%;
+    --muted-foreground: 220 30% 65%; /* #9AABC6 slate blue */
+    --accent: 220 40% 18%;
+    --accent-foreground: 0 0% 94%;
+    --destructive: 0 100% 68%;      /* #FF5C5C coral red */
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 40% 20%;          /* #1E2D4A */
+    --input: 220 40% 20%;
+    --ring: 338 100% 62%;
     --radius: 0.5rem;
-    /* Status tokens — TODO: add dark-mode overrides when .dark theme is implemented */
-    --success: 142 71% 29%;
-    --success-foreground: 0 0% 100%;
+    --success: 120 100% 68%;        /* #7BFF5C lime */
+    --success-foreground: 0 0% 0%;
     --warning: 38 92% 32%;
     --warning-foreground: 0 0% 100%;
     --info: 217 91% 43%;
@@ -238,4 +237,301 @@ body.authenticated .ssr-beach-section {
    The SSR version remains for SEO crawlers and no-JS fallback. */
 body.js-loaded .ssr-beach-section {
   display: none;
+}
+
+/* =============================================================================
+   RETRO SURF DARK THEME — Global
+   The .theme-retro-dark class on <body> activates these override selectors.
+   :root now carries the retro-dark CSS variable values directly.
+   See docs/plans/2026-03-01-retro-surf-redesign.md for the full design spec.
+   ============================================================================= */
+
+/* body:has(.theme-retro-dark) and .theme-retro-dark variable blocks removed —
+   :root now carries the retro-dark values globally. The .theme-retro-dark class
+   on <body> still activates override selectors below. */
+
+/* ---- Tailwind utility overrides (broad attribute selectors) ---- */
+
+/* ALL white backgrounds → dark navy card surface */
+.theme-retro-dark [class*="bg-white"] {
+  background-color: #111D35 !important;
+  --tw-bg-opacity: 1 !important;
+}
+/* Translucent variants need alpha */
+.theme-retro-dark [class*="bg-white\\/9"],
+.theme-retro-dark [class*="bg-white\\/8"] {
+  background-color: rgba(17, 29, 53, 0.95) !important;
+}
+
+/* ALL light gray backgrounds → elevated surface */
+.theme-retro-dark [class*="bg-gray-5"],
+.theme-retro-dark [class*="bg-gray-1"],
+.theme-retro-dark [class*="bg-slate-5"],
+.theme-retro-dark [class*="bg-slate-1"] {
+  background-color: #172544 !important;
+  --tw-bg-opacity: 1 !important;
+}
+.theme-retro-dark .bg-gray-200 { background-color: #1E2D4A !important; }
+
+/* Light blue backgrounds → subtle teal tint */
+.theme-retro-dark [class*="bg-blue-5"],
+.theme-retro-dark [class*="bg-blue-1"] {
+  background-color: rgba(0, 212, 170, 0.08) !important;
+  --tw-bg-opacity: 1 !important;
+}
+
+/* Gradient backgrounds that leak light colors */
+.theme-retro-dark [class*="from-blue-1"],
+.theme-retro-dark [class*="from-blue-5"],
+.theme-retro-dark [class*="from-white"],
+.theme-retro-dark [class*="via-white"],
+.theme-retro-dark [class*="to-blue-5"],
+.theme-retro-dark [class*="to-indigo-5"],
+.theme-retro-dark [class*="from-indigo-5"],
+.theme-retro-dark [class*="from-sandy-beige"] {
+  --tw-gradient-from: #111D35 !important;
+  --tw-gradient-via: #0B1426 !important;
+  --tw-gradient-to: #0B1426 !important;
+  background: #111D35 !important;
+}
+
+/* bg-gradient with light origins — only on full-page wrappers */
+.theme-retro-dark > [class*="bg-gradient"],
+.theme-retro-dark .min-h-screen[class*="bg-gradient"] {
+  background: #0B1426 !important;
+}
+
+/* Text — all grays bumped for readable contrast on #0B1426 */
+.theme-retro-dark .text-gray-900 { color: #F0F0F0 !important; }
+.theme-retro-dark .text-gray-800 { color: #E8ECF4 !important; }
+.theme-retro-dark .text-gray-700 { color: #D0D9EA !important; }
+.theme-retro-dark .text-gray-600 { color: #A8B8D0 !important; }
+.theme-retro-dark .text-gray-500 { color: #9AABC6 !important; }
+.theme-retro-dark .text-gray-400 { color: #8B9EC2 !important; }
+.theme-retro-dark .text-gray-300 { color: #8B9EC2 !important; }
+.theme-retro-dark .text-slate-900 { color: #F0F0F0 !important; }
+.theme-retro-dark .text-slate-800 { color: #E8ECF4 !important; }
+.theme-retro-dark .text-slate-700 { color: #D0D9EA !important; }
+.theme-retro-dark .text-slate-600 { color: #A8B8D0 !important; }
+.theme-retro-dark .text-slate-500 { color: #9AABC6 !important; }
+.theme-retro-dark .text-black { color: #F0F0F0 !important; }
+.theme-retro-dark .text-dark-grey { color: #F0F0F0 !important; }
+.theme-retro-dark .text-foreground { color: #F0F0F0 !important; }
+
+/* Colored text used in section headers (tips, hazards, amenities) */
+.theme-retro-dark .text-amber-600,
+.theme-retro-dark .text-amber-700 { color: #FFD639 !important; }
+.theme-retro-dark .text-orange-600,
+.theme-retro-dark .text-orange-700 { color: #FF9F43 !important; }
+.theme-retro-dark .text-red-600,
+.theme-retro-dark .text-red-700 { color: #FF6B6B !important; }
+.theme-retro-dark .text-teal-600,
+.theme-retro-dark .text-teal-700 { color: #00D4AA !important; }
+.theme-retro-dark .text-cyan-600,
+.theme-retro-dark .text-cyan-700 { color: #00D4AA !important; }
+.theme-retro-dark .text-purple-600,
+.theme-retro-dark .text-purple-700 { color: #C084FC !important; }
+.theme-retro-dark .text-rose-600,
+.theme-retro-dark .text-rose-700 { color: #FF3B8B !important; }
+
+/* Muted foreground — used by shadcn components */
+.theme-retro-dark .text-muted-foreground { color: #9AABC6 !important; }
+
+/* Brand color remaps — hot pink takes over ocean-blue */
+.theme-retro-dark .text-ocean-blue { color: #FF3B8B !important; }
+.theme-retro-dark .border-ocean-blue { border-color: #FF3B8B !important; }
+.theme-retro-dark .bg-ocean-blue { background-color: #FF3B8B !important; }
+.theme-retro-dark .text-blue-600 { color: #00D4AA !important; }
+.theme-retro-dark .text-blue-700 { color: #00D4AA !important; }
+.theme-retro-dark .text-blue-500 { color: #00D4AA !important; }
+
+/* Stars and ratings — keep yellow */
+.theme-retro-dark .text-yellow-500 { color: #FFD639 !important; }
+.theme-retro-dark .fill-yellow-500 { fill: #FFD639 !important; }
+.theme-retro-dark .text-yellow-400 { color: #FFD639 !important; }
+.theme-retro-dark .fill-yellow-400 { fill: #FFD639 !important; }
+
+/* Success / lime */
+.theme-retro-dark .text-green-500 { color: #7BFF5C !important; }
+.theme-retro-dark .text-green-600 { color: #7BFF5C !important; }
+.theme-retro-dark .text-emerald-500 { color: #7BFF5C !important; }
+.theme-retro-dark .text-emerald-600 { color: #7BFF5C !important; }
+
+/* Borders */
+.theme-retro-dark .border-gray-200 { border-color: #1E2D4A !important; }
+.theme-retro-dark .border-gray-100 { border-color: #1E2D4A !important; }
+.theme-retro-dark .border-gray-300 { border-color: #243558 !important; }
+.theme-retro-dark .border-blue-200 { border-color: #1E2D4A !important; }
+.theme-retro-dark .border-slate-200 { border-color: #1E2D4A !important; }
+.theme-retro-dark .divide-gray-200 > * + * { border-color: #1E2D4A !important; }
+.theme-retro-dark [class*="border-blue-100"] { border-color: #1E2D4A !important; }
+.theme-retro-dark [class*="border-ocean-blue\\/"] { border-color: rgba(255, 59, 139, 0.15) !important; }
+
+/* ---- Typography: brush font for headings ---- */
+.theme-retro-dark h1,
+.theme-retro-dark h2,
+.theme-retro-dark h3 {
+  font-family: var(--font-display), cursive !important;
+  letter-spacing: 0.01em;
+}
+
+/* ---- Tab / nav active states ---- */
+.theme-retro-dark [data-state="active"] {
+  color: #FF3B8B !important;
+  border-color: #FF3B8B !important;
+}
+/* Sub-tab pills (forecast today/tides/conditions) — active needs visible bg */
+.theme-retro-dark [role="tablist"] [data-state="active"] {
+  background-color: #1E2D4A !important;
+  box-shadow: 0 2px 8px rgba(255, 59, 139, 0.15) !important;
+}
+
+/* ---- Badges / sticker treatment (narrow selectors — only actual badges) ---- */
+.theme-retro-dark span[class*="rounded-full"][class*="bg-blue-50"],
+.theme-retro-dark span[class*="rounded-full"][class*="bg-orange-50"],
+.theme-retro-dark span[class*="rounded-full"][class*="bg-red-50"],
+.theme-retro-dark span[class*="rounded-full"][class*="bg-cyan-50"] {
+  background-color: rgba(255, 214, 57, 0.12) !important;
+  color: #FFD639 !important;
+  border-color: rgba(255, 214, 57, 0.25) !important;
+  transform: rotate(-1deg);
+}
+/* shadcn Badge component */
+.theme-retro-dark [data-slot="badge"] {
+  background-color: rgba(255, 214, 57, 0.12) !important;
+  color: #FFD639 !important;
+  border-color: rgba(255, 214, 57, 0.25) !important;
+  transform: rotate(-1deg);
+}
+
+/* ---- Section-level colored backgrounds (tips, amenities, hazards) ---- */
+.theme-retro-dark [class*="bg-yellow-5"],
+.theme-retro-dark [class*="bg-amber-5"] {
+  background-color: rgba(255, 214, 57, 0.08) !important;
+  border-color: rgba(255, 214, 57, 0.2) !important;
+  --tw-bg-opacity: 1 !important;
+}
+.theme-retro-dark [class*="bg-orange-5"] {
+  background-color: rgba(255, 159, 67, 0.08) !important;
+  border-color: rgba(255, 159, 67, 0.2) !important;
+  --tw-bg-opacity: 1 !important;
+}
+.theme-retro-dark [class*="bg-red-5"] {
+  background-color: rgba(255, 92, 92, 0.08) !important;
+  border-color: rgba(255, 92, 92, 0.2) !important;
+  --tw-bg-opacity: 1 !important;
+}
+.theme-retro-dark [class*="bg-green-5"],
+.theme-retro-dark [class*="bg-emerald-5"] {
+  background-color: rgba(123, 255, 92, 0.06) !important;
+  border-color: rgba(123, 255, 92, 0.15) !important;
+  --tw-bg-opacity: 1 !important;
+}
+.theme-retro-dark [class*="bg-purple-5"] {
+  background-color: rgba(192, 132, 252, 0.08) !important;
+  border-color: rgba(192, 132, 252, 0.15) !important;
+  --tw-bg-opacity: 1 !important;
+}
+.theme-retro-dark [class*="bg-cyan-5"] {
+  background-color: rgba(0, 212, 170, 0.08) !important;
+  border-color: rgba(0, 212, 170, 0.15) !important;
+  --tw-bg-opacity: 1 !important;
+}
+
+/* ---- Buttons — hot pink fill, slightly hand-cut radius ---- */
+.theme-retro-dark .bg-primary,
+.theme-retro-dark button.bg-primary,
+.theme-retro-dark a.bg-primary,
+.theme-retro-dark button[class*="bg-ocean-blue"],
+.theme-retro-dark a[class*="bg-ocean-blue"],
+.theme-retro-dark button[class*="bg-pink"],
+.theme-retro-dark a[class*="bg-pink"] {
+  background-color: #FF3B8B !important;
+  border-radius: 12px 14px 11px 13px !important;
+}
+/* ---- Card hover glow ---- */
+.theme-retro-dark .session-card-hover:hover {
+  transform: translateZ(0) translateY(-2px) !important;
+  box-shadow: 0 0 24px rgba(255, 59, 139, 0.2) !important;
+}
+
+/* ---- Container transparency ---- */
+.theme-retro-dark .container {
+  background-color: transparent;
+}
+
+/* ---- Gradient / translucent brand backgrounds (CTA cards, teasers) ---- */
+.theme-retro-dark [class*="from-ocean-blue"],
+.theme-retro-dark [class*="bg-ocean-blue\/"] {
+  background: rgba(255, 59, 139, 0.1) !important;
+}
+.theme-retro-dark [class*="via-white"] {
+  --tw-gradient-via: transparent !important;
+}
+.theme-retro-dark [class*="to-cyan-50"] {
+  --tw-gradient-to: transparent !important;
+}
+.theme-retro-dark [class*="ring-ocean-blue"] {
+  --tw-ring-color: rgba(255, 59, 139, 0.15) !important;
+}
+
+/* ---- Shadow overrides (no light box-shadows leaking through) ---- */
+.theme-retro-dark .shadow-sm { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important; }
+.theme-retro-dark .shadow { box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important; }
+.theme-retro-dark .shadow-md { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important; }
+.theme-retro-dark .shadow-lg { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important; }
+
+/* ---- Dividers ---- */
+.theme-retro-dark hr {
+  border-color: #1E2D4A;
+}
+
+/* ---- Input fields ---- */
+.theme-retro-dark input,
+.theme-retro-dark textarea,
+.theme-retro-dark select {
+  background-color: #172544 !important;
+  border-color: #1E2D4A !important;
+  color: #F0F0F0 !important;
+}
+
+/* ---- Scrollbar (webkit) ---- */
+.theme-retro-dark ::-webkit-scrollbar-track {
+  background: #0B1426;
+}
+.theme-retro-dark ::-webkit-scrollbar-thumb {
+  background: #1E2D4A;
+  border-radius: 4px;
+}
+.theme-retro-dark ::-webkit-scrollbar-thumb:hover {
+  background: #FF3B8B;
+}
+
+/* ---- Landing page: hardcoded hex backgrounds that CSS variable overrides can't reach ---- */
+.theme-retro-dark [class*="bg-[#d7e1ea]"] {
+  background-color: #111D35 !important;
+}
+.theme-retro-dark [class*="from-[#d7e1ea]"] {
+  --tw-gradient-from: #111D35 !important;
+}
+
+/* ---- Hero search bar: prevent two-tone from global input override ---- */
+.theme-retro-dark [data-testid="hero-search-input"],
+.theme-retro-dark [cmdk-input] {
+  background-color: transparent !important;
+  border-color: transparent !important;
+}
+
+/* Session scroll form — transparent card containers to reduce contrast */
+.session-scroll-form {
+  --card: 220 55% 10%;
+  --card-foreground: 0 0% 94%;
+  --border: 220 40% 15%;
+  --muted: 220 40% 18%;
+  --muted-foreground: 220 30% 65%;
+  --input: 220 40% 20%;
+}
+
+.session-scroll-form .shadow-sm {
+  box-shadow: none;
 }

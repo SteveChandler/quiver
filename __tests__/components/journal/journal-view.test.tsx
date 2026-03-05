@@ -89,17 +89,6 @@ jest.mock("@/components/journal/session-annotation-modal", () => ({
     ) : null,
 }));
 
-jest.mock("@/components/journal/export-modal", () => ({
-  ExportModal: ({ isOpen, onClose }: any) =>
-    isOpen ? (
-      <div data-testid="export-modal">
-        <button onClick={onClose} data-testid="close-export">
-          Close
-        </button>
-      </div>
-    ) : null,
-}));
-
 const mockUser = {
   id: "user-123",
   email: "test@example.com",
@@ -269,7 +258,7 @@ describe("JournalView", () => {
     expect(screen.getByText("No Sessions Yet")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Start tracking your surf journey by logging your first session"
+        "Your sessions train our forecast model. Start logging to see your progression and improve forecasts for your community."
       )
     ).toBeInTheDocument();
     expect(screen.getByText("Log Your First Session")).toBeInTheDocument();

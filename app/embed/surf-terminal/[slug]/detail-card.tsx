@@ -169,7 +169,7 @@ function Row({
     <div className="flex justify-between items-center">
       <span className="opacity-60 text-xs">{label}</span>
       <span
-        className={`text-xs ${accent ? "text-[#00d4aa] font-semibold" : ""}`}
+        className={`text-xs ${accent ? "text-[#4A70D9] font-semibold" : ""}`}
       >
         {value}
       </span>

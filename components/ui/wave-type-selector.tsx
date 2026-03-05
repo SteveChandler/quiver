@@ -106,13 +106,13 @@ export function WaveTypeSelector({
       {selectedTypes.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700">Selected:</span>
+            <span className="text-sm font-medium text-[#A8B8D0]">Selected:</span>
             <Button
               type="button"
               variant="ghost"
               size="sm"
               onClick={clearAll}
-              className="h-6 px-2 text-xs text-gray-500 hover:text-gray-700"
+              className="h-6 px-2 text-xs text-[#8B9EC2] hover:text-[#A8B8D0]"
             >
               Clear all
             </Button>
@@ -141,7 +141,7 @@ export function WaveTypeSelector({
 
       {/* Available Options */}
       <div className="space-y-2">
-        <span className="text-sm font-medium text-gray-700">
+        <span className="text-sm font-medium text-[#A8B8D0]">
           Wave characteristics:
         </span>
         <div className="grid grid-cols-2 gap-2">
@@ -155,8 +155,8 @@ export function WaveTypeSelector({
                 onClick={() => toggleWaveType(waveType.id)}
                 className={`p-2 rounded-lg border-2 transition-all text-left ${
                   isSelected
-                    ? "border-blue-500 bg-blue-50"
-                    : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                    ? "border-[#FF3B8B] bg-[#FF3B8B]/10"
+                    : "border-[#1E2D4A] hover:border-[#2A3F66] bg-[#172544] hover:bg-[#1E2D4A]"
                 }`}
                 title={waveType.description}
               >
@@ -164,13 +164,13 @@ export function WaveTypeSelector({
                   <span className="text-lg">{waveType.emoji}</span>
                   <span
                     className={`text-sm font-medium ${
-                      isSelected ? "text-blue-700" : "text-gray-700"
+                      isSelected ? "text-[#FF3B8B]" : "text-[#F0F0F0]"
                     }`}
                   >
                     {waveType.label}
                   </span>
                 </div>
-                <p className="text-xs text-gray-500 leading-tight break-words">
+                <p className="text-xs text-[#9AABC6] leading-tight break-words">
                   {waveType.description}
                 </p>
               </button>
@@ -180,7 +180,7 @@ export function WaveTypeSelector({
       </div>
 
       {selectedTypes.length === 0 && (
-        <p className="text-xs text-gray-500 text-center italic">
+        <p className="text-xs text-[#8B9EC2] text-center italic">
           Select wave characteristics that best describe the conditions
         </p>
       )}

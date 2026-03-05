@@ -151,13 +151,13 @@ export function PersonalizationProgress({
         animate={{ opacity: 1, y: 0 }}
         exit={reducedMotion ? undefined : { opacity: 0, y: -8 }}
         transition={reducedMotion ? { duration: 0 } : { duration: 0.3 }}
-        className="relative overflow-hidden rounded-2xl border border-blue-200/30 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-5 shadow-sm"
+        className="relative overflow-hidden rounded-2xl border border-blue-200/30 dark:border-[#1E2D4A] bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-[#111D35] dark:via-[#0F1A2E] dark:to-[#111D35] p-5 shadow-sm"
         data-testid="personalization-progress"
       >
         {/* Dismiss button */}
         <button
           onClick={handleDismiss}
-          className="absolute top-3 right-3 p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-white/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          className="absolute top-3 right-3 p-1.5 rounded-full text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 hover:bg-white/60 dark:hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
           aria-label="Dismiss personalization progress"
           data-testid="personalization-progress-dismiss"
         >
@@ -166,12 +166,12 @@ export function PersonalizationProgress({
 
         {/* Header */}
         <div className="flex items-center gap-2 mb-2 pr-8">
-          <StageIcon className="h-5 w-5 text-blue-600 shrink-0" />
-          <h3 className="text-sm font-semibold text-slate-900">{headline}</h3>
+          <StageIcon className="h-5 w-5 text-blue-600 dark:text-[#FF3B8B] shrink-0" />
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">{headline}</h3>
         </div>
 
         {/* Progress bar */}
-        <div className="w-full h-1.5 bg-slate-200/60 rounded-full mb-3 overflow-hidden">
+        <div className="w-full h-1.5 bg-slate-200/60 dark:bg-slate-700/40 rounded-full mb-3 overflow-hidden">
           <motion.div
             className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500"
             initial={{ width: 0 }}
@@ -185,11 +185,11 @@ export function PersonalizationProgress({
         </div>
 
         {/* Body */}
-        <p className="text-sm text-slate-600 leading-relaxed mb-4">{body}</p>
+        <p className="text-sm text-slate-600 dark:text-gray-400 leading-relaxed mb-4">{body}</p>
 
         {/* Intel prompt (conditional) */}
         {showIntelPrompt && (
-          <p className="text-xs text-slate-500 mb-3">
+          <p className="text-xs text-slate-500 dark:text-gray-400 mb-3">
             Or{" "}
             <Link
               href="/map"

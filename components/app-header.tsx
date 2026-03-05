@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import { useAuth } from "@/context/auth-context";
@@ -113,6 +113,12 @@ export function AppHeader() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
 
+  // Prevent hydration mismatch: auth state resolves before children hydrate,
+  // causing server HTML (spinner) to differ from client DOM (login buttons).
+  // Always render spinner until after mount so first client render matches server.
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => setHasMounted(true), []);
+
   // Handle search submission
   const handleSearch = useCallback(
     (e?: React.FormEvent) => {
@@ -134,7 +140,9 @@ export function AppHeader() {
   // Don't render header on landing page for unauthenticated users
   // Landing page has its own Navbar component
   // IMPORTANT: This conditional return MUST come AFTER all hooks are called
-  if (!user && pathname === "/") {
+  // Use hasMounted guard to prevent hydration mismatch: server always returns null
+  // on "/", client matches on first render, then shows header after mount if logged in
+  if (pathname === "/" && (!hasMounted || !user)) {
     return null;
   }
 
@@ -521,7 +529,7 @@ export function AppHeader() {
           </Sheet>
 
           {/* Auth Section - Far Right */}
-          {authLoading ? (
+          {(!hasMounted || authLoading) ? (
             <Loader2 className="h-5 w-5 animate-spin" />
           ) : user ? (
             <DropdownMenu>

@@ -8,18 +8,11 @@ jest.mock("next/navigation", () => ({
   usePathname: () => mockUsePathname(),
 }));
 
-// Mock auth context
-jest.mock("@/context/auth-context", () => ({
-  useAuth: jest.fn(),
-}));
-
 // Mock useTrackEvent hook
 const mockTrack = jest.fn();
 jest.mock("@/hooks/use-track-event", () => ({
   useTrackEvent: () => ({ track: mockTrack }),
 }));
-
-import { useAuth } from "@/context/auth-context";
 
 // Mock sessionStorage
 const mockSessionStorage: Record<string, string> = {};
@@ -68,27 +61,8 @@ describe("PageTracker", () => {
     mockRandomUUID.mockClear();
   });
 
-  describe("authentication", () => {
-    it("does not track for unauthenticated users", () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: null });
-      mockUsePathname.mockReturnValue("/home");
-
-      render(<PageTracker />);
-
-      expect(mockTrack).not.toHaveBeenCalled();
-    });
-
-    it("does not track when user.id is missing", () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: {} });
-      mockUsePathname.mockReturnValue("/home");
-
-      render(<PageTracker />);
-
-      expect(mockTrack).not.toHaveBeenCalled();
-    });
-
-    it("tracks page_view event for authenticated users", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+  describe("tracking behavior", () => {
+    it("tracks page_view event on mount", async () => {
       mockUsePathname.mockReturnValue("/home");
 
       render(<PageTracker />);
@@ -98,7 +72,7 @@ describe("PageTracker", () => {
           metadata: {
             page: "home",
             referrer: "",
-            session_id: expect.any(String),
+            browser_session_id: expect.any(String),
           },
           debounceMs: 500,
         });
@@ -108,7 +82,6 @@ describe("PageTracker", () => {
 
   describe("page navigation", () => {
     it("tracks page_view event on pathname change", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
       mockUsePathname.mockReturnValue("/home");
 
       const { rerender } = render(<PageTracker />);
@@ -127,7 +100,7 @@ describe("PageTracker", () => {
           metadata: {
             page: "discover",
             referrer: "/home",
-            session_id: expect.any(String),
+            browser_session_id: expect.any(String),
           },
           debounceMs: 500,
         });
@@ -135,7 +108,6 @@ describe("PageTracker", () => {
     });
 
     it("does not track duplicate navigations to same path", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
       mockUsePathname.mockReturnValue("/home");
 
       const { rerender } = render(<PageTracker />);
@@ -152,7 +124,6 @@ describe("PageTracker", () => {
     });
 
     it("does not track landing page views", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
       mockUsePathname.mockReturnValue("/");
 
       render(<PageTracker />);
@@ -166,7 +137,6 @@ describe("PageTracker", () => {
 
   describe("session ID generation", () => {
     it("generates consistent session IDs within same session", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
       mockUsePathname.mockReturnValue("/home");
 
       render(<PageTracker />);
@@ -176,7 +146,7 @@ describe("PageTracker", () => {
       });
 
       const firstCall = mockTrack.mock.calls[0];
-      const firstSessionId = firstCall[1].metadata.session_id;
+      const firstSessionId = firstCall[1].metadata.browser_session_id;
 
       // Navigate to new page
       mockUsePathname.mockReturnValue("/discover");
@@ -187,7 +157,7 @@ describe("PageTracker", () => {
       });
 
       const secondCall = mockTrack.mock.calls[1];
-      const secondSessionId = secondCall[1].metadata.session_id;
+      const secondSessionId = secondCall[1].metadata.browser_session_id;
 
       expect(firstSessionId).toBe(secondSessionId);
     });
@@ -196,7 +166,6 @@ describe("PageTracker", () => {
       // Clear session storage to force new ID generation
       delete mockSessionStorage.__quiver_session_id;
 
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
       mockUsePathname.mockReturnValue("/home");
 
       render(<PageTracker />);
@@ -235,7 +204,6 @@ describe("PageTracker", () => {
     it.each(pageMappings)(
       "maps $pathname to $expected",
       async ({ pathname, expected }) => {
-        (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
         mockUsePathname.mockReturnValue(pathname);
         mockTrack.mockClear();
 
@@ -246,7 +214,7 @@ describe("PageTracker", () => {
             metadata: {
               page: expected,
               referrer: expect.any(String),
-              session_id: expect.any(String),
+              browser_session_id: expect.any(String),
             },
             debounceMs: 500,
           });
@@ -257,7 +225,6 @@ describe("PageTracker", () => {
 
   describe("referrer tracking", () => {
     it("tracks previous pathname as referrer", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
       mockUsePathname.mockReturnValue("/home");
 
       const { rerender } = render(<PageTracker />);
@@ -284,7 +251,6 @@ describe("PageTracker", () => {
 
   describe("component rendering", () => {
     it("renders null (no visible UI)", () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
       mockUsePathname.mockReturnValue("/home");
 
       const { container } = render(<PageTracker />);

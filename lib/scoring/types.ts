@@ -147,6 +147,10 @@ export function toForecastForScoring(
   };
 }
 
+export interface UserScoringPreferences {
+  preferredWaveSize?: 'small' | 'medium' | 'large' | null;
+}
+
 /**
  * Parse wind direction from degrees or cardinal string
  */

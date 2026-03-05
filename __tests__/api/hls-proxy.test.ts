@@ -636,4 +636,264 @@ describe("HLS Proxy Route", () => {
       );
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // HDOnTap support
+  // ---------------------------------------------------------------------------
+  describe("HDOnTap Support", () => {
+    it("should allow live.hdontap.com through the whitelist", async () => {
+      mockUpstreamResponse("#EXTM3U\n");
+
+      const request = createRequest(
+        "http://localhost/api/hls-proxy/live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8"
+      );
+      const context = createContext([
+        "live.hdontap.com",
+        "hls",
+        "hosb1",
+        "stream.stream",
+        "playlist.m3u8",
+      ]);
+
+      const response = await GET(request, context);
+      expect(response.status).toBe(200);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should not send Referer header for HDOnTap (no extra headers configured)", async () => {
+      mockUpstreamResponse("#EXTM3U\n");
+
+      const request = createRequest(
+        "http://localhost/api/hls-proxy/live.hdontap.com/hls/stream/playlist.m3u8"
+      );
+      const context = createContext([
+        "live.hdontap.com",
+        "hls",
+        "stream",
+        "playlist.m3u8",
+      ]);
+
+      await GET(request, context);
+
+      const fetchCall = mockFetch.mock.calls[0];
+      expect(fetchCall[1].headers.Referer).toBeUndefined();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Manifest URL rewriting (absolute → proxy-relative)
+  // ---------------------------------------------------------------------------
+  describe("Manifest URL Rewriting", () => {
+    it("should rewrite absolute HDOnTap URLs to proxy-relative paths", async () => {
+      const manifest = [
+        "#EXTM3U",
+        "#EXT-X-STREAM-INF:BANDWIDTH=2000000",
+        "https://live.hdontap.com/hls/hosb1/stream.stream/chunklist.m3u8",
+        "",
+      ].join("\n");
+      mockUpstreamResponse(manifest);
+
+      const request = createRequest(
+        "http://localhost/api/hls-proxy/live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8"
+      );
+      const context = createContext([
+        "live.hdontap.com",
+        "hls",
+        "hosb1",
+        "stream.stream",
+        "playlist.m3u8",
+      ]);
+
+      const response = await GET(request, context);
+      const body = await response.text();
+
+      expect(body).toContain(
+        "/api/hls-proxy/live.hdontap.com/hls/hosb1/stream.stream/chunklist.m3u8"
+      );
+      expect(body).not.toContain("https://live.hdontap.com");
+    });
+
+    it("should preserve relative URLs unchanged (Surfline compatibility)", async () => {
+      const manifest = [
+        "#EXTM3U",
+        "#EXT-X-STREAM-INF:BANDWIDTH=2000000",
+        "chunklist_w123.m3u8",
+        "",
+      ].join("\n");
+      mockUpstreamResponse(manifest);
+
+      const request = createRequest(
+        "http://localhost/api/hls-proxy/hls.cdn-surfline.com/cam/12345/playlist.m3u8"
+      );
+      const context = createContext([
+        "hls.cdn-surfline.com",
+        "cam",
+        "12345",
+        "playlist.m3u8",
+      ]);
+
+      const response = await GET(request, context);
+      const body = await response.text();
+
+      expect(body).toContain("chunklist_w123.m3u8");
+      expect(body).not.toContain("/api/hls-proxy/");
+    });
+
+    it("should NOT rewrite URLs for non-allowed hosts", async () => {
+      const manifest = [
+        "#EXTM3U",
+        "#EXT-X-STREAM-INF:BANDWIDTH=2000000",
+        "https://evil.example.com/hls/stream/chunklist.m3u8",
+        "",
+      ].join("\n");
+      mockUpstreamResponse(manifest);
+
+      const request = createRequest(
+        "http://localhost/api/hls-proxy/live.hdontap.com/hls/stream/playlist.m3u8"
+      );
+      const context = createContext([
+        "live.hdontap.com",
+        "hls",
+        "stream",
+        "playlist.m3u8",
+      ]);
+
+      const response = await GET(request, context);
+      const body = await response.text();
+
+      expect(body).toContain("https://evil.example.com/hls/stream/chunklist.m3u8");
+    });
+
+    it("should NOT modify binary .ts segment responses", async () => {
+      const binaryData = new Uint8Array([0x47, 0x40, 0x00, 0x10, 0xff]);
+      mockUpstreamResponse(binaryData.buffer);
+
+      const request = createRequest(
+        "http://localhost/api/hls-proxy/live.hdontap.com/hls/stream/segment0.ts"
+      );
+      const context = createContext([
+        "live.hdontap.com",
+        "hls",
+        "stream",
+        "segment0.ts",
+      ]);
+
+      const response = await GET(request, context);
+      const buffer = await response.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+
+      expect(bytes).toEqual(binaryData);
+    });
+
+    it("should handle multiple absolute URLs in multivariant manifests", async () => {
+      const manifest = [
+        "#EXTM3U",
+        "#EXT-X-STREAM-INF:BANDWIDTH=800000",
+        "https://live.hdontap.com/hls/hosb1/stream.stream/chunklist_low.m3u8",
+        "#EXT-X-STREAM-INF:BANDWIDTH=2000000",
+        "https://live.hdontap.com/hls/hosb1/stream.stream/chunklist_high.m3u8",
+        "",
+      ].join("\n");
+      mockUpstreamResponse(manifest);
+
+      const request = createRequest(
+        "http://localhost/api/hls-proxy/live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8"
+      );
+      const context = createContext([
+        "live.hdontap.com",
+        "hls",
+        "hosb1",
+        "stream.stream",
+        "playlist.m3u8",
+      ]);
+
+      const response = await GET(request, context);
+      const body = await response.text();
+
+      expect(body).toContain(
+        "/api/hls-proxy/live.hdontap.com/hls/hosb1/stream.stream/chunklist_low.m3u8"
+      );
+      expect(body).toContain(
+        "/api/hls-proxy/live.hdontap.com/hls/hosb1/stream.stream/chunklist_high.m3u8"
+      );
+      expect(body).not.toContain("https://live.hdontap.com");
+    });
+
+    it("should preserve query parameters with signed tokens", async () => {
+      const manifest = [
+        "#EXTM3U",
+        "#EXT-X-STREAM-INF:BANDWIDTH=2000000",
+        "https://live.hdontap.com/hls/hosb1/stream/chunklist.m3u8?t=abc123&e=9999999999",
+        "",
+      ].join("\n");
+      mockUpstreamResponse(manifest);
+
+      const request = createRequest(
+        "http://localhost/api/hls-proxy/live.hdontap.com/hls/hosb1/stream/playlist.m3u8"
+      );
+      const context = createContext([
+        "live.hdontap.com",
+        "hls",
+        "hosb1",
+        "stream",
+        "playlist.m3u8",
+      ]);
+
+      const response = await GET(request, context);
+      const body = await response.text();
+
+      expect(body).toContain(
+        "/api/hls-proxy/live.hdontap.com/hls/hosb1/stream/chunklist.m3u8?t=abc123&e=9999999999"
+      );
+      expect(body).not.toContain("https://live.hdontap.com");
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Query string forwarding
+  // ---------------------------------------------------------------------------
+  describe("Query String Forwarding", () => {
+    it("should forward query string to upstream for HDOnTap signed URLs", async () => {
+      mockUpstreamResponse("#EXTM3U\n");
+
+      const request = createRequest(
+        "http://localhost/api/hls-proxy/live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8?t=abc123&e=9999999999"
+      );
+      const context = createContext([
+        "live.hdontap.com",
+        "hls",
+        "hosb1",
+        "stream.stream",
+        "playlist.m3u8",
+      ]);
+
+      await GET(request, context);
+
+      const fetchCall = mockFetch.mock.calls[0];
+      expect(fetchCall[0]).toBe(
+        "https://live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8?t=abc123&e=9999999999"
+      );
+    });
+
+    it("should not append query string when none is present (Surfline regression)", async () => {
+      mockUpstreamResponse("#EXTM3U\n");
+
+      const request = createRequest(
+        "http://localhost/api/hls-proxy/hls.cdn-surfline.com/cam/12345/playlist.m3u8"
+      );
+      const context = createContext([
+        "hls.cdn-surfline.com",
+        "cam",
+        "12345",
+        "playlist.m3u8",
+      ]);
+
+      await GET(request, context);
+
+      const fetchCall = mockFetch.mock.calls[0];
+      expect(fetchCall[0]).toBe(
+        "https://hls.cdn-surfline.com/cam/12345/playlist.m3u8"
+      );
+    });
+  });
 });

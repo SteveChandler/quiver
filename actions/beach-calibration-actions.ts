@@ -18,6 +18,7 @@ export async function getLatestBeachCalibrationAction(beachId: string) {
         .maybeSingle();
 
       return { data: data ?? null, error };
-    }
+    },
+    { allowNull: true }
   );
 }

@@ -32,7 +32,7 @@ export function CoastPulseTimelineItem({ item, onReport, onPhotoClick }: CoastPu
       className="relative pb-4 last:pb-0 animate-in fade-in duration-300"
     >
       {/* Timeline dot */}
-      <div className="absolute -left-6 top-1 w-4 h-4 rounded-full bg-[#f97316] border-[3px] border-[#1e1e1e]" />
+      <div className="absolute -left-6 top-1 w-4 h-4 rounded-full bg-[#F78E42] border-[3px] border-[#1e1e1e]" />
 
       {/* Content */}
       <div className="space-y-1">

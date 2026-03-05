@@ -30,6 +30,7 @@ import { SessionCardWrapper } from "@/components/session-card-wrapper";
 import { CalendarHeatmap } from "./calendar-heatmap";
 import { SessionAnalytics } from "./session-analytics";
 import { SessionAnnotationModal } from "./session-annotation-modal";
+import { ProgressionDashboard } from "./progression-dashboard";
 // Removed dropdown filter in favor of Completed/Planned tabs
 import { useAuth } from "@/context/auth-context";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -260,7 +261,7 @@ export function JournalView({ className }: JournalViewProps) {
       <ZeroState
         icon={BookOpen}
         title="No Sessions Yet"
-        description="Start tracking your surf journey by logging your first session"
+        description="Your sessions train our forecast model. Start logging to see your progression and improve forecasts for your community."
         action={{
           label: "Log Your First Session",
           href: "/sessions/new?mode=log",
@@ -341,10 +342,14 @@ export function JournalView({ className }: JournalViewProps) {
 
       {/* Main Content */}
       <Tabs defaultValue="sessions" className="space-y-4">
-        <TabsList className="grid grid-cols-2 w-full max-w-md">
+        <TabsList className="grid grid-cols-3 w-full max-w-lg">
           <TabsTrigger value="sessions">
             <Calendar className="h-4 w-4 mr-2" />
             Sessions
+          </TabsTrigger>
+          <TabsTrigger value="progression">
+            <TrendingUp className="h-4 w-4 mr-2" />
+            Progression
           </TabsTrigger>
           <TabsTrigger value="insights">
             <BarChart3 className="h-4 w-4 mr-2" />
@@ -472,6 +477,10 @@ export function JournalView({ className }: JournalViewProps) {
               }}
             />
           )}
+        </TabsContent>
+
+        <TabsContent value="progression" className="space-y-4">
+          <ProgressionDashboard />
         </TabsContent>
 
         <TabsContent value="insights" className="space-y-4">

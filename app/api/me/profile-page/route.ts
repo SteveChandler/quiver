@@ -226,12 +226,17 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
     allow_implicit_tracking: profileData.allow_implicit_tracking ?? null,
   };
 
-  // Enrich sessions with featured photos
+  // Enrich sessions with featured photos.
+  // Double cast required: Supabase infers relation fields from the query alias
+  // (e.g. `beach`, `user`) while SessionWithDetails declares canonical names
+  // (`beaches`, `profiles`) plus back-compat aliases. The structures are
+  // compatible at runtime but TypeScript cannot verify the overlap, so we cast
+  // through `unknown`.
   const sessionsRaw = recentSessionsResult.data || [];
   const recentSessions = (await addFeaturedPhotoToSessions(
     supabase,
     sessionsRaw
-  )) as SessionWithDetails[];
+  )) as unknown as SessionWithDetails[];
 
   // Build response
   const responseData: ProfilePageData = {

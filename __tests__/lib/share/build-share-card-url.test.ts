@@ -1,4 +1,9 @@
-import { buildSessionShareUrl, buildSurfCallShareUrl } from "@/lib/share/build-share-card-url";
+import {
+  buildSessionShareUrl,
+  buildSurfCallShareUrl,
+  buildProgressionShareUrl,
+  buildStreakShareUrl,
+} from "@/lib/share/build-share-card-url";
 
 describe("buildSessionShareUrl", () => {
   it("builds a session OG URL with required params", () => {
@@ -262,5 +267,125 @@ describe("buildSurfCallShareUrl", () => {
       expect(parsed.searchParams.has("conditionLabel")).toBe(false);
       expect(parsed.searchParams.has("message")).toBe(false);
     });
+  });
+});
+
+describe("buildProgressionShareUrl", () => {
+  it("builds a progression OG URL with required params", () => {
+    const url = buildProgressionShareUrl({
+      sessions: 12,
+      hours: 18.5,
+      avgRating: 4.2,
+      month: "March 2026",
+    });
+
+    const parsed = new URL(url);
+    expect(parsed.pathname).toBe("/api/og/progression");
+    expect(parsed.searchParams.get("sessions")).toBe("12");
+    expect(parsed.searchParams.get("hours")).toBe("18.5");
+    expect(parsed.searchParams.get("avgRating")).toBe("4.2");
+    expect(parsed.searchParams.get("month")).toBe("March 2026");
+  });
+
+  it("includes optional params when provided", () => {
+    const url = buildProgressionShareUrl({
+      sessions: 12,
+      hours: 18.5,
+      avgRating: 4.2,
+      month: "March 2026",
+      topSkill: "Pop-ups",
+      topSkillRating: 4.8,
+      streak: 5,
+      forecastImpact: "+8% at Blacks",
+    });
+
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get("topSkill")).toBe("Pop-ups");
+    expect(parsed.searchParams.get("topSkillRating")).toBe("4.8");
+    expect(parsed.searchParams.get("streak")).toBe("5");
+    expect(parsed.searchParams.get("forecastImpact")).toBe("+8% at Blacks");
+  });
+
+  it("omits optional params when not provided", () => {
+    const url = buildProgressionShareUrl({
+      sessions: 8,
+      hours: 12,
+      avgRating: 3.5,
+      month: "February 2026",
+    });
+
+    const parsed = new URL(url);
+    expect(parsed.searchParams.has("topSkill")).toBe(false);
+    expect(parsed.searchParams.has("topSkillRating")).toBe(false);
+    expect(parsed.searchParams.has("streak")).toBe(false);
+    expect(parsed.searchParams.has("forecastImpact")).toBe(false);
+  });
+
+  it("includes streak=0 when explicitly set to 0", () => {
+    const url = buildProgressionShareUrl({
+      sessions: 3,
+      hours: 4.5,
+      avgRating: 3.0,
+      month: "January 2026",
+      streak: 0,
+    });
+
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get("streak")).toBe("0");
+  });
+
+  it("properly encodes special characters in month and topSkill", () => {
+    const url = buildProgressionShareUrl({
+      sessions: 10,
+      hours: 15,
+      avgRating: 4.0,
+      month: "March 2026",
+      topSkill: "Pop-ups & Carves",
+      forecastImpact: "+10% at Ocean Beach",
+    });
+
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get("topSkill")).toBe("Pop-ups & Carves");
+    expect(parsed.searchParams.get("forecastImpact")).toBe("+10% at Ocean Beach");
+  });
+});
+
+describe("buildStreakShareUrl", () => {
+  it("builds a streak OG URL with streak param", () => {
+    const url = buildStreakShareUrl({ streak: 7 });
+
+    const parsed = new URL(url);
+    expect(parsed.pathname).toBe("/api/og/streak");
+    expect(parsed.searchParams.get("streak")).toBe("7");
+  });
+
+  it("includes userName when provided", () => {
+    const url = buildStreakShareUrl({ streak: 14, userName: "Steven" });
+
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get("streak")).toBe("14");
+    expect(parsed.searchParams.get("userName")).toBe("Steven");
+  });
+
+  it("omits userName when not provided", () => {
+    const url = buildStreakShareUrl({ streak: 3 });
+
+    const parsed = new URL(url);
+    expect(parsed.searchParams.has("userName")).toBe(false);
+  });
+
+  it("handles streak of 1 correctly", () => {
+    const url = buildStreakShareUrl({ streak: 1, userName: "Alex" });
+
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get("streak")).toBe("1");
+    expect(parsed.searchParams.get("userName")).toBe("Alex");
+  });
+
+  it("properly encodes userName with special characters", () => {
+    const url = buildStreakShareUrl({ streak: 10, userName: "O'Brien & Co" });
+
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get("userName")).toBe("O'Brien & Co");
   });
 });
