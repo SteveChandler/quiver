@@ -378,7 +378,7 @@ it("should reject upload when quota exceeded", async () => {
 
 ## Related Documents
 
-- `docs/CODEBASE_ASSESSMENT_2025-12-08.md` - Overall health assessment
+
 - `docs/research/IMPLEMENTATION_STATUS_REPORT.md` - Research feature tracking
 - `docs/features/PERSONALIZATION_FORECAST_IMPLEMENTATION.md` - Personalization details
 - `CHANGELOG.md` - Track fixes as they're implemented

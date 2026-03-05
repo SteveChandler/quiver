@@ -432,7 +432,7 @@ This cache is about **offline support** and **perceived performance**. It can be
 **Why this matters:**
 
 - It disables browser HTTP caching even when the API route returns strong caching headers (`Cache-Control`, ETag).
-- It can contribute to Lighthouse findings around back/forward cache when key requests are `no-store` (see `scripts/beach-detail-lighthouse.report.*`).
+- It can contribute to Lighthouse findings around back/forward cache when key requests are `no-store`.
 - It creates a split-brain where the server is “cacheable” but the client opts out.
 
 ### 4) Mismatched TTLs across layers makes staleness debugging hard

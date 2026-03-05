@@ -4,7 +4,6 @@
  * This module defines types for tracking user behavior and learning
  * implicit preferences from those interactions.
  *
- * @see docs/plans/2026-01-25-implicit-preference-learning-design.md
  */
 
 // =============================================================================

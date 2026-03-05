@@ -302,7 +302,7 @@ Key indexes in place:
 
 - [SUPABASE_GUIDE.md](/Users/stevenchandler/Desktop/quiver/docs/SUPABASE_GUIDE.md) - Database access patterns and types
 - [supabase/ARCHITECTURE.md](/Users/stevenchandler/Desktop/quiver/supabase/ARCHITECTURE.md) - Migration history
-- [CODEBASE_ASSESSMENT_2025-12-22.md](/Users/stevenchandler/Desktop/quiver/docs/CODEBASE_ASSESSMENT_2025-12-22.md) - Previous assessment
+
 
 ---
 
