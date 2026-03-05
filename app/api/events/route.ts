@@ -117,10 +117,57 @@ const VALID_EVENTS: ImplicitEventType[] = [
   'review_form_abandon',
   'review_validation_error',
   'review_submit',
-  // Social tracking events
+  // Share tracking events
+  'share_started',
+  'share_completed',
+  'share_link_copied',
+  'share_image_saved',
+  'cam_share',
+  'share_intel_button_clicked',
+  'share_intel_signin_prompt',
+  'surf_plan_share',
+  // Signup/auth conversion events
+  'signup_cta_click',
+  'signup_cta_view',
+  'signin_cta_click',
+  // Home screen events
+  'home_at_beach_click',
+  'home_plan_weekend_click',
+  'home_plan_weekend_no_recommendation',
+  // Session logging events
+  'session_log_start',
+  'session_log_submit',
+  'session_share_opened_post_save',
+  'session_share_closed_post_save',
+  // Onboarding/tour events
+  'product_tour_started',
+  'product_tour_completed',
+  'product_tour_skipped',
+  'product_tour_step_viewed',
+  // Beach detail events
+  'beach_search',
+  'forecast_tab_click',
+  'horizon_strip_day_selected',
+  'match_score_teaser_click',
+  'match_score_teaser_view',
+  'set_home_beach',
+  'map_marker_click',
+  // Intel events
+  'local_intel_tab_viewed',
+  'intel_post_created',
+  'intel_post_confirmed',
+  'plan_session_from_intel',
+  // Profile events
+  'surf_profile_viewed',
+  'surf_profile_progress_shown',
+  // Discovery events
+  'personalized_score_shown',
+  'favorite_shown_in_carousel',
+  'mini_log_teaser_click',
+  'plan_unlock_click',
+  // Social events
   'social_follow',
   'social_like',
-  'social_share',
   'social_invite_send',
   'social_invite_respond',
   'social_intel_confirm',
@@ -131,6 +178,13 @@ const VALID_EVENTS: ImplicitEventType[] = [
 
 const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
   'page_view', 'beach_view', 'tab_view', 'onboarding_step',
+  // Conversion tracking (critical for understanding anon→authed funnel)
+  'signup_cta_click', 'signup_cta_view', 'signin_cta_click', 'cta_click',
+  // Engagement signals from anonymous visitors
+  'forecast_interaction', 'forecast_tab_click', 'horizon_strip_day_selected',
+  'beach_search', 'map_interaction', 'map_marker_click',
+  'share_started', 'share_completed', 'share_link_copied',
+  'match_score_teaser_view', 'match_score_teaser_click',
 ];
 
 const ANON_RATE_LIMIT = 30; // Lower rate limit for anonymous users

@@ -59,8 +59,8 @@ export function BeachDetailClient({
       trackPublicPageView("beach-detail", { slug });
     }
 
-    // Track beach view for implicit preferences
-    if (user && beach?.id) {
+    // Track beach view for all visitors (authed + anonymous)
+    if (beach?.id) {
       track('beach_view', {
         beachId: beach.id,
         metadata: { referrer: document.referrer },
@@ -72,7 +72,7 @@ export function BeachDetailClient({
 
     // Track duration on unmount
     return () => {
-      if (user && beach?.id) {
+      if (beach?.id) {
         const duration = Date.now() - startTime;
         if (duration > 3000) {
           track('beach_view', {

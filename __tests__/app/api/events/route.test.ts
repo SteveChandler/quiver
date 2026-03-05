@@ -700,19 +700,75 @@ describe('POST /api/events', () => {
         'review_form_abandon',
         'review_validation_error',
         'review_submit',
-        // Tab and map engagement events
-        'tab_view',
-        'map_interaction',
-        // Social tracking events
+        // Share tracking events
+        'share_started',
+        'share_completed',
+        'share_link_copied',
+        'share_image_saved',
+        'cam_share',
+        'share_intel_button_clicked',
+        'share_intel_signin_prompt',
+        'surf_plan_share',
+        // Signup/auth conversion events
+        'signup_cta_click',
+        'signup_cta_view',
+        'signin_cta_click',
+        // Home screen events
+        'home_at_beach_click',
+        'home_plan_weekend_click',
+        'home_plan_weekend_no_recommendation',
+        // Session logging events
+        'session_log_start',
+        'session_log_submit',
+        'session_share_opened_post_save',
+        'session_share_closed_post_save',
+        // Onboarding/tour events
+        'product_tour_started',
+        'product_tour_completed',
+        'product_tour_skipped',
+        'product_tour_step_viewed',
+        // Beach detail events
+        'beach_search',
+        'forecast_tab_click',
+        'horizon_strip_day_selected',
+        'match_score_teaser_click',
+        'match_score_teaser_view',
+        'set_home_beach',
+        'map_marker_click',
+        // Intel events
+        'local_intel_tab_viewed',
+        'intel_post_created',
+        'intel_post_confirmed',
+        'plan_session_from_intel',
+        // Profile events
+        'surf_profile_viewed',
+        'surf_profile_progress_shown',
+        // Discovery events
+        'personalized_score_shown',
+        'favorite_shown_in_carousel',
+        'mini_log_teaser_click',
+        'plan_unlock_click',
+        // Social events
         'social_follow',
         'social_like',
-        'social_share',
         'social_invite_send',
         'social_invite_respond',
         'social_intel_confirm',
+        // Tab and map engagement events
+        'tab_view',
+        'map_interaction',
       ];
 
-      for (const eventType of validEventTypes) {
+      const realDateNow = Date.now;
+      let timeOffset = 0;
+      jest.spyOn(Date, 'now').mockImplementation(() => realDateNow() + timeOffset);
+
+      for (let i = 0; i < validEventTypes.length; i++) {
+        const eventType = validEventTypes[i];
+        // Advance past rate limit window every 50 events to avoid 429s
+        if (i > 0 && i % 50 === 0) {
+          timeOffset += 61_000;
+        }
         jest.clearAllMocks();
 
         const request = new Request('http://localhost/api/events', {
@@ -729,6 +785,8 @@ describe('POST /api/events', () => {
           metadata: expect.objectContaining({ _device: expect.any(Object) }),
         });
       }
+
+      jest.spyOn(Date, 'now').mockRestore();
     });
   });
 
@@ -938,7 +996,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          eventType: 'forecast_interaction',
+          eventType: 'session_log_submit',
           sessionId: '12345678-1234-1234-1234-123456789012',
         }),
       });
