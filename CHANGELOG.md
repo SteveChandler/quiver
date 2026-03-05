@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- Dead API route: `/api/health/fonts` (unused font health check)
+- Dead API route: `/api/v1/recommendations/feedback` (unused spot feedback endpoint)
+- Dead script: `scripts/test-lint.sh`
+- 10 unused Tailwind animation keyframes and utility classes
+
 ### Changed
 - Features page hero CTA now links to /map (try-first funnel) instead of /auth/sign-up
 - Added StickySignupBar and InlineSignupCta to /features page for mobile conversion

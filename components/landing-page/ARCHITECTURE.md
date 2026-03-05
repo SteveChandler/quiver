@@ -625,10 +625,6 @@ export default async function DataComponent() {
 | --------------------------------------- | ------------------------ |
 | `initial={{ opacity: 0 }}`              | `animate-fade-in`        |
 | `initial={{ opacity: 0, y: 30 }}`       | `animate-fade-in-up`     |
-| `initial={{ opacity: 0, y: -20 }}`      | `animate-fade-in-down`   |
-| `initial={{ opacity: 0, x: -30 }}`      | `animate-slide-in-left`  |
-| `initial={{ opacity: 0, x: 30 }}`       | `animate-slide-in-right` |
-| `initial={{ opacity: 0, scale: 0.95 }}` | `animate-scale-in`       |
 
 ### Implementing Lazy Loading
 

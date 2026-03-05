@@ -21,9 +21,9 @@ const config: Config = {
         display: ["var(--font-display)", "cursive"],
       },
       colors: {
-        "ocean-blue": "#FF3B8B",
-        "sunset-orange": "#FFD639",
-        "sandy-beige": "#111D35",
+        "ocean-blue": "#F78E42",
+        "sunset-orange": "#FDB84B",
+        "sandy-beige": "#2D357D",
         "dark-grey": "#333333",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
@@ -50,11 +50,11 @@ const config: Config = {
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
-          orange: "#f97316", // Secondary accent — warm highlights, badges
+          orange: "#FDB84B", // Secondary accent — warm highlights, badges
         },
         header: {
-          start: "#0f172a", // Dark gradient start (slate-900)
-          end: "#1e293b", // Dark gradient end (slate-800)
+          start: "#1E2558", // Dark gradient start (dark Deep Twilight)
+          end: "#252D6B", // Dark gradient end (Deep Twilight)
         },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
@@ -132,26 +132,6 @@ const config: Config = {
           "0%": { opacity: "0", transform: "translateY(30px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
-        fadeInDown: {
-          "0%": { opacity: "0", transform: "translateY(-20px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
-        },
-        slideInLeft: {
-          "0%": { opacity: "0", transform: "translateX(-30px)" },
-          "100%": { opacity: "1", transform: "translateX(0)" },
-        },
-        slideInRight: {
-          "0%": { opacity: "0", transform: "translateX(30px)" },
-          "100%": { opacity: "1", transform: "translateX(0)" },
-        },
-        scaleIn: {
-          "0%": { opacity: "0", transform: "scale(0.95)" },
-          "100%": { opacity: "1", transform: "scale(1)" },
-        },
-        scaleInLarge: {
-          "0%": { opacity: "0", transform: "scale(0.9)" },
-          "100%": { opacity: "1", transform: "scale(1)" },
-        },
         shimmer: {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
@@ -163,11 +143,6 @@ const config: Config = {
         heartbeat: {
           "0%, 100%": { transform: "scale(1)" },
           "50%": { transform: "scale(1.15)" },
-        },
-        // Forecast page animations
-        scoreGaugeFill: {
-          "0%": { strokeDashoffset: "100" },
-          "100%": { strokeDashoffset: "var(--score-offset, 0)" },
         },
         pulseGlow: {
           "0%, 100%": { boxShadow: "0 0 0 0 rgba(34, 197, 94, 0.4)" },
@@ -181,22 +156,6 @@ const config: Config = {
           "0%": { transform: "translateX(0)" },
           "100%": { transform: "translateX(-50%)" },
         },
-        countUp: {
-          "0%": { opacity: "0", transform: "translateY(10px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
-        },
-        sparklineDraw: {
-          "0%": { strokeDashoffset: "1000" },
-          "100%": { strokeDashoffset: "0" },
-        },
-        revealUp: {
-          "0%": { opacity: "0", transform: "translateY(20px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
-        },
-        revealScale: {
-          "0%": { opacity: "0", transform: "scale(0.95)" },
-          "100%": { opacity: "1", transform: "scale(1)" },
-        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -206,24 +165,13 @@ const config: Config = {
         "fade-in-fast": "fadeIn 0.4s ease-out",
         "fade-in-up": "fadeInUp 0.8s ease-out",
         "fade-in-up-fast": "fadeInUp 0.6s ease-out",
-        "fade-in-down": "fadeInDown 0.8s ease-out",
-        "slide-in-left": "slideInLeft 0.8s ease-out",
-        "slide-in-right": "slideInRight 0.8s ease-out",
-        "scale-in": "scaleIn 0.8s ease-out",
-        "scale-in-large": "scaleInLarge 0.9s ease-out",
         shimmer: "shimmer 1.5s infinite linear",
         "ocean-swell": "oceanSwell 2s ease-in-out infinite",
         heartbeat: "heartbeat 1.2s ease-in-out infinite",
-        // Forecast page animations
-        "score-gauge-fill": "scoreGaugeFill 1.2s ease-out forwards",
         "pulse-glow": "pulseGlow 2s ease-in-out infinite",
         "pulse-glow-blue": "pulseGlowBlue 2s ease-in-out infinite",
         "wave-flow": "waveFlow 8s linear infinite",
         "ticker-scroll": "waveFlow 30s linear infinite",
-        "count-up": "countUp 0.5s ease-out forwards",
-        "sparkline-draw": "sparklineDraw 0.8s ease-out forwards",
-        "reveal-up": "revealUp 0.5s ease-out forwards",
-        "reveal-scale": "revealScale 0.5s ease-out forwards",
       },
     },
   },
