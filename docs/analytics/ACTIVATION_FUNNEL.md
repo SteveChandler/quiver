@@ -379,7 +379,6 @@ Use this before launching changes:
 
 ## Related Documentation
 
-- [GTM + GA4 Implementation Plan](/docs/planning/archive/GTM_GA4_IMPLEMENTATION_PLAN.md)
 - [Push Notification Architecture](/docs/features/PUSH_NOTIFICATIONS.md)
 - [Personalization System](/lib/services/ARCHITECTURE.md)
 

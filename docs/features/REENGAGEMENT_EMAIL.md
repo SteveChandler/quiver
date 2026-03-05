@@ -398,8 +398,6 @@ LIMIT 20;
 
 ## Related Documentation
 
-- [Email Core Loop Design](/docs/plans/completed/2026-01-20-email-core-loop-design.md) - Original design document
-- [Email Core Loop Implementation](/docs/plans/completed/2026-01-20-email-core-loop-implementation.md) - Implementation plan
 - [Forecast Digest Email](/app/api/cron/forecast-digest-email/) - Mon/Thu forecast digest (consolidated from daily digest + weekend outlook)
 
 ---
