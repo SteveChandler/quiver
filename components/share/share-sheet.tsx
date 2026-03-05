@@ -128,6 +128,7 @@ export function ShareSheet({
     setActionState("copy", "loading");
 
     try {
+      // eslint-disable-next-line no-restricted-properties -- reading URL for clipboard copy, not navigating
       const base = shareUrl ?? (typeof window !== "undefined" ? window.location.href : "");
       if (!base) {
         setActionState("copy", "error");
@@ -218,7 +219,7 @@ export function ShareSheet({
       <SheetContent
         side="bottom"
         className={cn(
-          "rounded-t-2xl pb-safe border-t-0 border-transparent bg-[#0B1426]",
+          "rounded-t-2xl pb-safe border-t-0 border-transparent bg-[#252D6B]",
           "[&>button[data-radix-dialog-close]]:hidden",
           className
         )}
@@ -241,7 +242,7 @@ export function ShareSheet({
 
         <div className="flex flex-col items-center gap-6">
           {/* Image preview */}
-          <div className="aspect-[4/3] w-full max-w-sm mx-auto rounded-2xl border border-[#1E2D4A] overflow-hidden bg-[#0F1B30]">
+          <div className="aspect-[4/3] w-full max-w-sm mx-auto rounded-2xl border border-[#404C92] overflow-hidden bg-[#0F1B30]">
             {imageError ? (
               <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-white/40">
                 <ImageIcon className="h-10 w-10" />
@@ -321,11 +322,11 @@ function ActionButton({ label, state, idleIcon, onClick }: ActionButtonProps) {
       disabled={isLoading}
       className="flex flex-col items-center gap-0 disabled:opacity-60"
     >
-      <div className="w-12 h-12 rounded-full bg-[#172544] border border-[#1E2D4A] flex items-center justify-center">
+      <div className="w-12 h-12 rounded-full bg-[#354090] border border-[#404C92] flex items-center justify-center">
         {isLoading ? (
           <Loader2 className="h-5 w-5 text-white animate-spin" />
         ) : isSuccess ? (
-          <Check className="h-5 w-5 text-[#00D4AA]" />
+          <Check className="h-5 w-5 text-[#4A70D9]" />
         ) : (
           idleIcon
         )}
@@ -333,7 +334,7 @@ function ActionButton({ label, state, idleIcon, onClick }: ActionButtonProps) {
       <span
         className={cn(
           "text-xs mt-1.5",
-          isSuccess ? "text-[#00D4AA]" : "text-white/70"
+          isSuccess ? "text-[#4A70D9]" : "text-white/70"
         )}
       >
         {label}

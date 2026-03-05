@@ -49,9 +49,16 @@ function makeChain(terminalResult: any = { data: [], error: null }) {
 
 const USER_ID = "user-abc-123";
 
+// Use dynamic dates relative to today so streak tests don't go stale
+function daysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString();
+}
+
 const completedSessions = [
   {
-    arrival_time: "2026-03-01T08:00:00.000Z",
+    arrival_time: daysAgo(0), // today
     wave_height_ft: 4,
     wave_quality: 4,
     rating: 8,
@@ -64,7 +71,7 @@ const completedSessions = [
     skill_ratings: { "Pop-ups": 4, "Duck Dives": 3 },
   },
   {
-    arrival_time: "2026-02-28T07:00:00.000Z",
+    arrival_time: daysAgo(1), // yesterday
     wave_height_ft: 4,
     wave_quality: 5,
     rating: 9,
@@ -77,7 +84,7 @@ const completedSessions = [
     skill_ratings: { "Pop-ups": 3, "Duck Dives": 3 },
   },
   {
-    arrival_time: "2026-02-20T09:00:00.000Z",
+    arrival_time: daysAgo(10), // 10 days ago (breaks streak)
     wave_height_ft: 3,
     wave_quality: 3,
     rating: 7,
@@ -169,10 +176,10 @@ describe("getProgressionDashboard", () => {
       expect(result.success).toBe(true);
       const { streaks } = result.data!;
 
-      // 2026-03-01 and 2026-02-28 are consecutive — current streak >= 2
+      // today and yesterday are consecutive — current streak >= 2
       expect(streaks.currentStreak).toBeGreaterThanOrEqual(2);
       expect(streaks.bestStreak).toBeGreaterThanOrEqual(2);
-      expect(streaks.lastSessionDate).toBe("2026-03-01");
+      expect(streaks.lastSessionDate).toBe(new Date().toISOString().slice(0, 10));
     });
 
     it("returns zero streaks for new user with no sessions", async () => {

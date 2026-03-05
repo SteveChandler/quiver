@@ -21,7 +21,7 @@ export function VisibilitySection({
   return (
     <div className="space-y-4">
       {/* Segmented control */}
-      <div className="flex rounded-xl bg-[#172544] p-1">
+      <div className="flex rounded-xl bg-[#354090] p-1">
         <button
           type="button"
           aria-label="Public"
@@ -30,7 +30,7 @@ export function VisibilitySection({
           className={cn(
             "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all",
             isPublic
-              ? "bg-[#1E2D4A] text-[#F0F0F0] shadow-sm"
+              ? "bg-[#404C92] text-[#F0F0F0] shadow-sm"
               : "text-[#8B9EC2] hover:text-[#F0F0F0]"
           )}
         >
@@ -48,7 +48,7 @@ export function VisibilitySection({
           className={cn(
             "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all",
             !isPublic
-              ? "bg-[#1E2D4A] text-[#F0F0F0] shadow-sm"
+              ? "bg-[#404C92] text-[#F0F0F0] shadow-sm"
               : "text-[#8B9EC2] hover:text-[#F0F0F0]"
           )}
         >
@@ -70,14 +70,14 @@ export function VisibilitySection({
               type="checkbox"
               checked={isMuted}
               onChange={(e) => onMutedChange(e.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-[#1E2D4A] text-[#FF3B8B] focus:ring-[#FF3B8B]"
+              className="mt-1 h-4 w-4 rounded border-[#404C92] text-[#F78E42] focus:ring-[#F78E42]"
             />
             <div>
               <span className="text-sm font-medium text-[#F0F0F0]">
                 Keep it off the feed
               </span>
               <p className="text-xs text-[#9AABC6]">
-                Public on your profile, but won't show up in others' feeds
+                Public on your profile, but won&apos;t show up in others&apos; feeds
               </p>
             </div>
           </motion.label>
