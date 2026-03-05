@@ -103,9 +103,10 @@ export function ShareSheet({
 
   // Issue 2: Clear all pending timers on unmount
   React.useEffect(() => {
+    const timers = timersRef.current;
     return () => {
-      timersRef.current.forEach(clearTimeout);
-      timersRef.current.clear();
+      timers.forEach(clearTimeout);
+      timers.clear();
     };
   }, []);
 
