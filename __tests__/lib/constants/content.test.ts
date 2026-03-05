@@ -59,32 +59,29 @@ describe("lib/constants/content invariants", () => {
     expect(Array.isArray(FEATURES_EXTENDED_CONTENT.hero.stats)).toBe(true);
     expect(FEATURES_EXTENDED_CONTENT.hero.stats.length).toBeGreaterThan(0);
 
-    // Pipeline
-    expect(typeof FEATURES_EXTENDED_CONTENT.pipeline.title).toBe("string");
-    expect(FEATURES_EXTENDED_CONTENT.pipeline.title.length).toBeGreaterThan(0);
-    expect(Array.isArray(FEATURES_EXTENDED_CONTENT.pipeline.steps)).toBe(true);
-    expect(FEATURES_EXTENDED_CONTENT.pipeline.steps.length).toBe(4);
-    for (const step of FEATURES_EXTENDED_CONTENT.pipeline.steps) {
-      expect(typeof step.id).toBe("string");
-      expect(typeof step.title).toBe("string");
-      expect(step.title.length).toBeGreaterThan(0);
-      expect(typeof step.description).toBe("string");
-      expect(step.description.length).toBeGreaterThan(0);
+    // Benefits
+    expect(Array.isArray(FEATURES_EXTENDED_CONTENT.benefits.cards)).toBe(true);
+    expect(FEATURES_EXTENDED_CONTENT.benefits.cards.length).toBe(4);
+    for (const card of FEATURES_EXTENDED_CONTENT.benefits.cards) {
+      expect(typeof card.id).toBe("string");
+      expect(typeof card.title).toBe("string");
+      expect(card.title.length).toBeGreaterThan(0);
+      expect(typeof card.description).toBe("string");
+      expect(card.description.length).toBeGreaterThan(0);
     }
 
-    // Personalization
-    expect(Array.isArray(FEATURES_EXTENDED_CONTENT.personalization.features)).toBe(true);
-    expect(FEATURES_EXTENDED_CONTENT.personalization.features.length).toBeGreaterThan(0);
-    for (const f of FEATURES_EXTENDED_CONTENT.personalization.features) {
-      expect(typeof f.title).toBe("string");
-      expect(f.title.length).toBeGreaterThan(0);
-      expect(typeof f.description).toBe("string");
-      expect(f.description.length).toBeGreaterThan(0);
+    // Deep Dive
+    expect(typeof FEATURES_EXTENDED_CONTENT.deepDive.heading).toBe("string");
+    expect(FEATURES_EXTENDED_CONTENT.deepDive.heading.length).toBeGreaterThan(0);
+    expect(Array.isArray(FEATURES_EXTENDED_CONTENT.deepDive.items)).toBe(true);
+    expect(FEATURES_EXTENDED_CONTENT.deepDive.items.length).toBe(4);
+    for (const item of FEATURES_EXTENDED_CONTENT.deepDive.items) {
+      expect(typeof item.id).toBe("string");
+      expect(typeof item.title).toBe("string");
+      expect(item.title.length).toBeGreaterThan(0);
+      expect(typeof item.content).toBe("string");
+      expect(item.content.length).toBeGreaterThan(0);
     }
-
-    // Intelligence
-    expect(Array.isArray(FEATURES_EXTENDED_CONTENT.intelligence.cards)).toBe(true);
-    expect(FEATURES_EXTENDED_CONTENT.intelligence.cards.length).toBeGreaterThan(0);
 
     // CTA
     expect(typeof FEATURES_EXTENDED_CONTENT.cta.title).toBe("string");

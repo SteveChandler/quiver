@@ -833,182 +833,78 @@ export const TERMS_CONTENT = {
 
 export const FEATURES_EXTENDED_CONTENT = {
   hero: {
-    title: "Surf Forecasts That Actually Learn What You Love",
+    title: "Know Where to Paddle Out Before You Leave the House",
     subtitle:
-      "Quiver combines real-time buoy data, machine learning, and your personal surf history to recommend the right beach at the right time.",
+      "Quiver learns your wave preferences and tells you which beach will be best today. No decoding charts. No guesswork.",
     stats: [
       { value: "96+", label: "Beaches" },
-      { value: "3hr", label: "ML Correction Cycle" },
-      { value: "0-100", label: "Match Scores" },
-      { value: "Live", label: "Buoy Data" },
-    ],
-    cta: { text: "Explore Live Conditions", href: "/map" },
-  },
-  pipeline: {
-    title: "Powered by Real Data, Not Guesswork",
-    subtitle:
-      "Our ML pipeline corrects raw NOAA models with real-time buoy observations to deliver forecasts you can trust.",
-    steps: [
-      {
-        id: "noaa",
-        title: "NOAA Wave Models",
-        description:
-          "Global wave models provide the base forecast with swell height, period, and direction.",
-      },
-      {
-        id: "buoys",
-        title: "Real-Time Buoys",
-        description:
-          "IOOS and CDIP buoy networks deliver live observations from stations along the coast.",
-      },
-      {
-        id: "ml",
-        title: "XGBoost ML Correction",
-        description:
-          "Our ML model learns local biases and corrects predictions using 90 days of training data.",
-      },
-      {
-        id: "forecast",
-        title: "Your Personalized Forecast",
-        description:
-          "Match scores combine corrected conditions with your preferences for tailored recommendations.",
-      },
-    ],
-    stats: [
-      { value: "30,000+", label: "Training Observations" },
-      { value: "3hr", label: "Correction Cadence" },
-      { value: "90-day", label: "Data Window" },
+      { value: "3hr", label: "Updated Every 3 Hours" },
+      { value: "0-100", label: "Your Personal Match Score" },
+      { value: "Live", label: "Real Conditions, Not Guesses" },
     ],
   },
-  personalization: {
-    title: "Forecasts That Know Your Style",
-    subtitle:
-      "Every surfer is different. Quiver learns what matters to you and surfaces the sessions that fit.",
-    features: [
-      {
-        title: "Match Scores 0-100",
-        description:
-          "Every beach gets a personalized score based on how well conditions align with your preferences.",
-      },
-      {
-        title: "Time-Slot Filtering",
-        description:
-          "See forecasts for dawn patrol, midday, or evening sessions based on your availability.",
-      },
-      {
-        title: "Skill-Appropriate Recommendations",
-        description:
-          "Conditions are evaluated relative to your experience level so you always find waves you can handle.",
-      },
-      {
-        title: "Travel Adaptation",
-        description:
-          "Visiting a new coast? Your preferences travel with you for instant local recommendations.",
-      },
-      {
-        title: "Daily Digest Emails",
-        description:
-          "Get a morning summary of your top-scoring beaches delivered to your inbox.",
-      },
-    ],
-  },
-  intelligence: {
-    title: "Know What's Happening Right Now",
-    subtitle:
-      "Live data feeds keep you connected to conditions and the community in real time.",
+  benefits: {
     cards: [
       {
-        id: "coast-pulse",
-        title: "Coast Pulse Feed",
+        id: "know-now",
+        title: "Know What's Happening Now",
         description:
-          "Real-time condition updates aggregated across all monitored beaches on your coast.",
+          "Live updates from buoys and surfers. No more driving to a flat beach.",
       },
       {
-        id: "activity",
-        title: "Activity Feed",
+        id: "see-whos-surfing",
+        title: "See Who's Surfing",
         description:
-          "See who's surfing, what they're riding, and how the waves are performing right now.",
+          "Real-time reports from your breaks. Know if it's worth the paddle.",
       },
       {
-        id: "reviews",
-        title: "Community Reviews",
+        id: "log-sessions",
+        title: "Log Sessions in 30 Seconds",
         description:
-          "Honest reviews from local surfers covering wave quality, crowds, and insider tips.",
+          "Conditions fill in automatically. Just add your notes.",
       },
       {
-        id: "follow",
-        title: "Follow System",
-        description:
-          "Follow favorite surfers and spots to curate a personalized stream of updates.",
-      },
-    ],
-  },
-  discovery: {
-    title: "The Deepest Surf Guide on the Web",
-    subtitle:
-      "350+ intent-based pages help you find exactly the right break for any style, skill, or scenario.",
-    examples: [
-      { label: "Best Beginner Spots", href: "/map?level=beginner" },
-      { label: "Longboard-Friendly Waves", href: "/map?type=longboard" },
-      { label: "Dawn Patrol Picks", href: "/map" },
-      { label: "Regional Hub Guides", href: "/map" },
-    ],
-  },
-  sessionTracking: {
-    title: "Your Surf Journal, Supercharged",
-    subtitle:
-      "Log sessions with auto-prefilled conditions and build a rich history of your wave-riding life.",
-    features: [
-      {
-        title: "Auto-Prefilled Conditions",
-        description:
-          "Wave height, wind, tide, and temperature are filled in automatically from forecast data.",
-      },
-      {
-        title: "Equipment Tracking",
-        description:
-          "Log which board and wetsuit you used so you can correlate gear with session quality.",
-      },
-      {
-        title: "Forecast Accuracy Feedback",
-        description:
-          "Rate how accurate the forecast was to help our ML model learn and improve.",
-      },
-      {
-        title: "Session Analytics",
-        description:
-          "Visualize frequency, favorite spots, and progression over time with charts and insights.",
+        id: "watch-progress",
+        title: "Watch Yourself Progress",
+        description: "Charts and insights from your surf history.",
       },
     ],
   },
-  mobile: {
-    title: "Native Apps for iOS and Android",
-    subtitle:
-      "Take Quiver everywhere with native mobile apps built for speed and reliability.",
-    features: [
+  deepDive: {
+    heading: "Want the Details? We've Got Layers.",
+    items: [
       {
-        title: "Push Alerts",
-        description:
-          "Get notified when conditions at your favorite spots hit your preferred thresholds.",
+        id: "forecast",
+        title: "How the forecast works",
+        content:
+          "We pull raw predictions from NOAA wave models, correct them every 3 hours with live IOOS and CDIP buoy readings, then run everything through an XGBoost ML model trained on 90 days of local data. The result: forecasts that match what you actually find at the beach.",
       },
       {
-        title: "Native Camera",
-        description:
-          "Snap session photos directly in the app and attach them to your log instantly.",
+        id: "discovery",
+        title: "350+ surf guides",
+        content:
+          "Intent-based guides for every style — beginner spots, longboard-friendly waves, dawn patrol picks, and regional hub guides. Each one built from real forecast data, not just a list.",
       },
       {
-        title: "Location-Aware Recommendations",
-        description:
-          "Automatic nearby beach suggestions based on your current GPS location.",
+        id: "mobile",
+        title: "Native iOS & Android apps",
+        content:
+          "Push alerts when conditions hit your thresholds, native camera for session photos, and GPS-based nearby beach suggestions. Take Quiver everywhere.",
+      },
+      {
+        id: "data",
+        title: "The data behind your forecast",
+        content:
+          "30,000+ training observations, 3-hour correction cadence, 90-day rolling data window. Every forecast is backed by real buoy readings, not just model output.",
       },
     ],
   },
   cta: {
-    title: "Stop Guessing. Start Surfing Smarter.",
-    subtitle:
-      "Join surfers who've traded guesswork for data-driven sessions.",
-    primaryCta: { text: "Sign Up Free", href: "/auth/sign-up" },
+    title: "Your Next Session Starts Here",
+    subtitle: "Know where to surf before you leave the house.",
+    // href kept for secondaryCta parity; primary CTA opens auth modal via onClick
+    primaryCta: { text: "Get Started", href: "/auth/sign-up" },
     secondaryCta: { text: "Explore the Map", href: "/map" },
-    note: "No credit card required. Works on web, iOS, and Android.",
+    note: "Free account. Works on web, iOS, and Android.",
   },
 } as const;
