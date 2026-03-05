@@ -16,6 +16,8 @@ import { FEATURES_EXTENDED_CONTENT } from "@/lib/constants/content";
 import { FEATURE_CARDS } from "@/lib/constants/features";
 import { motion } from "framer-motion";
 import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
+import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 
 const PIPELINE_ICONS = [Database, Radio, Brain, User] as const;
 
@@ -211,7 +213,7 @@ export default function FeaturesPageClient() {
                   {...ANIMATION_VARIANTS.staggerItem(index, 0.5)}
                   className="flex gap-4"
                 >
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-50 dark:bg-[#1E2D4A] flex items-center justify-center mt-0.5">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-50 dark:bg-[#404C92] flex items-center justify-center mt-0.5">
                     <Check className="h-4 w-4 text-ocean-blue" />
                   </div>
                   <div>
@@ -231,7 +233,7 @@ export default function FeaturesPageClient() {
               {...ANIMATION_VARIANTS.fadeInView}
               className="flex justify-center"
             >
-              <div className="relative w-72 h-72 rounded-2xl bg-gradient-to-br from-blue-50 to-white dark:from-[#111D35] dark:to-[#0F1A2E] border border-blue-100 dark:border-[#1E2D4A] shadow-lg flex flex-col items-center justify-center p-6">
+              <div className="relative w-72 h-72 rounded-2xl bg-gradient-to-br from-blue-50 to-white dark:from-[#2D357D] dark:to-[#0F1A2E] border border-blue-100 dark:border-[#404C92] shadow-lg flex flex-col items-center justify-center p-6">
                 <div className="text-6xl font-roboto font-bold text-ocean-blue mb-2">
                   87
                 </div>
@@ -251,7 +253,7 @@ export default function FeaturesPageClient() {
       </section>
 
       {/* Section 4: Live Intelligence */}
-      <section className="py-20 px-4 bg-blue-50/50 dark:bg-[#0B1426]">
+      <section className="py-20 px-4 bg-blue-50/50 dark:bg-[#252D6B]">
         <div className="max-w-6xl mx-auto">
           <motion.div {...ANIMATION_VARIANTS.fadeInView} className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-roboto font-bold text-dark-grey mb-4">
@@ -531,6 +533,25 @@ export default function FeaturesPageClient() {
           </div>
         </div>
       </section>
+
+      {/* Inline Signup CTA after feature cards */}
+      <section className="py-12 px-4 bg-gradient-to-br from-white to-blue-50">
+        <div className="max-w-4xl mx-auto">
+          <InlineSignupCta
+            title="Ready to Know Before You Go?"
+            description="Get personalized match scores for every beach, based on your skill level and wave preferences."
+            primaryButtonText="Get My Forecast"
+            source="features-bottom"
+          />
+        </div>
+      </section>
+
+      <StickySignupBar
+        source="features-page"
+        ctaText="Try It Free"
+        supportingText="Personalized surf forecasts — no credit card"
+        scrollThreshold={400}
+      />
     </div>
   );
 }

@@ -7,8 +7,8 @@ import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useAuth } from "@/context/auth-context";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { usePersistedDismissal } from "@/hooks/use-persisted-dismissal";
-import { track } from "@/lib/analytics";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
+import { trackSignupCtaClick, trackSignupCtaView } from "@/lib/analytics/signup-conversion-tracking";
 import { cn } from "@/lib/utils";
 
 interface StickySignupBarProps {
@@ -57,6 +57,7 @@ export function StickySignupBar({
 
   // Handle scroll visibility with throttle to avoid excessive re-renders
   const wasVisible = useRef(false);
+  const hasTrackedView = useRef(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -65,6 +66,10 @@ export function StickySignupBar({
       if (visible !== wasVisible.current) {
         wasVisible.current = visible;
         setIsVisible(visible);
+        if (visible && !hasTrackedView.current) {
+          trackSignupCtaView({ source, cta_type: "sticky_bar" });
+          hasTrackedView.current = true;
+        }
       }
     };
 
@@ -73,10 +78,10 @@ export function StickySignupBar({
 
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [scrollThreshold]);
+  }, [scrollThreshold, source]);
 
   const handleCtaClick = useCallback(() => {
-    track("signup_cta_click", {
+    trackSignupCtaClick({
       source,
       cta_type: "sticky_bar",
       cta_text: ctaText,

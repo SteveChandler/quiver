@@ -842,7 +842,7 @@ export const FEATURES_EXTENDED_CONTENT = {
       { value: "0-100", label: "Match Scores" },
       { value: "Live", label: "Buoy Data" },
     ],
-    cta: { text: "Get Your Personalized Forecast", href: "/auth/sign-up" },
+    cta: { text: "Explore Live Conditions", href: "/map" },
   },
   pipeline: {
     title: "Powered by Real Data, Not Guesswork",

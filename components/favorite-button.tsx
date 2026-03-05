@@ -10,6 +10,7 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { usePendingAction } from "@/hooks/use-pending-action";
 import { usePathname } from "next/navigation";
+import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
 
 interface FavoriteButtonProps {
   beachId: string;
@@ -98,6 +99,7 @@ export function FavoriteButton({
 
   const toggleFavorite = async () => {
     if (!user) {
+      trackSignupCtaClick({ source: `favorite-${beachName}`, cta_type: "favorite" });
       setPendingAction({ type: "favorite", beachId, beachName });
       setShowAuth(true);
       return;
