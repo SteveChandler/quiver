@@ -59,13 +59,7 @@ export function BeachDetailClient({
       trackPublicPageView("beach-detail", { slug });
     }
 
-    // Track beach view for all visitors (authed + anonymous)
-    if (beach?.id) {
-      track('beach_view', {
-        beachId: beach.id,
-        metadata: { referrer: document.referrer },
-      });
-    }
+    // beach_view tracking is handled by BeachDetailContent via useTrackEvent
 
     // Capture mount time for cleanup function
     const startTime = mountTime.current;

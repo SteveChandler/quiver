@@ -24,6 +24,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useBeachDetailData } from "@/hooks/use-beach-detail-data";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { useSunTimes } from "@/hooks/use-sun-times";
 import { getYesterdayAccuracy } from "@/actions/accuracy-actions";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
@@ -34,6 +35,7 @@ import {
   type ReviewTrackingSource,
 } from "@/lib/constants/review-tracking";
 import { track } from "@/lib/analytics";
+import { useTrackEvent } from "@/hooks/use-track-event";
 import { slugify } from "@/lib/utils/text-utils";
 import { buildCamEmbed } from "@/lib/media/cam-embed";
 import { FullPageLoader } from "@/components/ui/loading-states";
@@ -159,6 +161,7 @@ function BeachDetailContent({
   const [activeTab, setActiveTab] = useState<BeachTabValue>(
     defaultTab || "overview",
   );
+  const { track: trackEvent } = useTrackEvent();
 
   // Track whether we've already synced the tab from URL params
   // If defaultTab is provided (e.g., from tides/water-temp pages), mark as synced
@@ -239,6 +242,17 @@ function BeachDetailContent({
   // Fetch forecast calibration data
   const { sessionSnapshots } = useForecastCalibration({ beachId: id });
 
+  // Fetch sun times for today (drives ocean viz sky)
+  const todayDate = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, []);
+  const { sunrise, sunset } = useSunTimes(id, todayDate);
+  const sunTimes = useMemo(
+    () => ({ sunrise, sunset }),
+    [sunrise, sunset]
+  );
+
   // Fetch yesterday's accuracy data
   const fetchAccuracy = useCallback(async () => {
     return await getYesterdayAccuracy(id);
@@ -278,10 +292,18 @@ function BeachDetailContent({
     if (!beach) return;
     try {
       const isHome = (searchParams?.get("from") || "") === "home";
+      // GA4 tracking
       track("beach_view", {
         beach_slug: slugify(beach.name),
         region: beach.region || getBeachLocation(beach) || undefined,
         is_home: isHome,
+      });
+      // Supabase user_events tracking (works for both authed and anon)
+      trackEvent("beach_view", {
+        beachId: beach.id,
+        metadata: {
+          referrer: isHome ? "home" : document.referrer || undefined,
+        },
       });
     } catch {}
     // only on first load per beach id
@@ -333,6 +355,7 @@ function BeachDetailContent({
   const showCamHero =
     Boolean(sources?.camera_url) &&
     buildCamEmbed(sources?.camera_url).kind !== "none";
+  const showOceanHero = !showCamHero;
 
   // Calculate destination coordinates and directions handler BEFORE early returns
   // (must be before early returns to maintain consistent hook count)
@@ -434,11 +457,28 @@ function BeachDetailContent({
             fallback={
               <div
                 className="aspect-video w-full"
-                style={{ backgroundColor: "#111D35" }}
+                style={{ backgroundColor: "#2D357D" }}
               />
             }
           >
             <CamsSection sources={sources} variant="hero" />
+          </Suspense>
+        ) : showOceanHero ? (
+          /* 3D ocean visualization for beaches without cameras */
+          <Suspense
+            fallback={
+              <div
+                className="aspect-[4/5] sm:aspect-video w-full"
+                style={{ backgroundColor: "#0a5e6e" }}
+              />
+            }
+          >
+            <CamsSection
+              sources={sources}
+              variant="hero"
+              forecast={currentForecast}
+              sunTimes={sunTimes}
+            />
           </Suspense>
         ) : (
           /* Photo gallery background */
@@ -459,7 +499,7 @@ function BeachDetailContent({
           className="absolute inset-x-0 bottom-0 h-1/2 pointer-events-none z-[5]"
           style={{
             background:
-              "linear-gradient(to top, #0B1426 0%, rgba(11,20,38,0.85) 30%, rgba(11,20,38,0.3) 65%, transparent 100%)",
+              "linear-gradient(to top, #252D6B 0%, rgba(37,45,107,0.85) 30%, rgba(37,45,107,0.3) 65%, transparent 100%)",
           }}
         />
 
