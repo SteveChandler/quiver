@@ -218,10 +218,11 @@ describe("Middleware Integration Tests", () => {
 
       const response = await middleware(request);
 
-      // Middleware canonicalizes short URLs to the canonical /beaches/usa/... URL
-      expect(response.status).toBe(301);
-      expect(response.headers.get("location")).toBe(
-        "http://localhost:3000/beaches/usa/hi/haleiwa"
+      // Short city URLs are served via internal rewrite (no visible redirect)
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+      expect(response.headers.get("x-middleware-rewrite")).toContain(
+        "/beaches/usa/hi/haleiwa"
       );
     });
 
@@ -240,9 +241,11 @@ describe("Middleware Integration Tests", () => {
 
       const response = await middleware(request);
 
-      expect(response.status).toBe(301);
-      expect(response.headers.get("location")).toBe(
-        "http://localhost:3000/beaches/mexico/baja-california/rosarito"
+      // Short international city URLs are served via internal rewrite (no visible redirect)
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+      expect(response.headers.get("x-middleware-rewrite")).toContain(
+        "/beaches/mexico/baja-california/rosarito"
       );
     });
 

@@ -8,13 +8,13 @@ import {
   getLocationPageData,
 } from "@/actions/beach/beach-location-list-actions";
 import {
-  isValidStateSlug,
   isValidCountrySlug,
 } from "@/lib/utils/beach-url-utils";
 import {
   SITE_ORIGIN,
   resolveDisplayCityName,
   resolveMetroConfig,
+  buildCanonicalCityPath,
 } from "./city-page-utils";
 import type { LocationPageProps } from "./city-page-utils";
 import { expandStateForMeta, truncateTitleForSEO } from "@/lib/seo/meta";
@@ -196,11 +196,7 @@ export async function generateMetadata(props: LocationPageProps) {
       }
     }
 
-    const isUsa = params.country.toLowerCase() === "usa";
-    const canonicalPath =
-      isUsa && isValidStateSlug(params.state)
-        ? `/beaches/usa/${params.state}/${params.city}`
-        : `/beaches/${params.country}/${params.state}/${params.city}`;
+    const canonicalPath = buildCanonicalCityPath(params);
     const url = `${SITE_ORIGIN}${canonicalPath}`;
 
     return {

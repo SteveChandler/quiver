@@ -24,7 +24,7 @@ import type { MetroAreaConfig } from "@/lib/constants/metro-areas";
 import type { LocationStats, BeachWithMetrics, LocationIdentifier } from "@/types/location";
 import { LocationMapClient } from "./location-map-client";
 import type { LocationPageParams } from "./city-page-utils";
-import { SITE_ORIGIN } from "./city-page-utils";
+import { SITE_ORIGIN, buildCanonicalCityPath } from "./city-page-utils";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 
 interface BeachHighlight {
@@ -98,12 +98,12 @@ export function StandardLayout({
         { name: "Quiver", url: `${SITE_ORIGIN}/` },
         { name: countryName, url: `${SITE_ORIGIN}${countryUrl}` },
         { name: stateName, url: `${SITE_ORIGIN}${stateUrl}` },
-        { name: displayCityName, url: `${SITE_ORIGIN}/beaches/${params.country}/${params.state}/${params.city}` },
+        { name: displayCityName, url: `${SITE_ORIGIN}${buildCanonicalCityPath(params)}` },
       ]} />
       {/* WebPage JSON-LD with dateModified signals content freshness to Google */}
       <WebPageSchema
         name={`Best Surf Beaches in ${displayCityName}`}
-        url={`${SITE_ORIGIN}/beaches/${params.country}/${params.state}/${params.city}`}
+        url={`${SITE_ORIGIN}${buildCanonicalCityPath(params)}`}
       />
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">

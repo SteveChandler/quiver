@@ -317,7 +317,9 @@ describe("Sitemap URLs are Canonical", () => {
     });
 
     it("generated location URLs match canonical format", async () => {
-      // Sitemap generates /beaches/usa/{state}/{city} for US locations
+      // Sitemap now generates /{state}/{city} (short URLs) which are internally
+      // rewritten to /beaches/usa/{state}/{city} by middleware. The /beaches/...
+      // route still works directly and should not redirect.
       const generatedLocationUrls = [
         "/beaches/usa/ca/san-diego",
         "/beaches/usa/ca/la-jolla",
@@ -326,6 +328,28 @@ describe("Sitemap URLs are Canonical", () => {
       ];
 
       for (const path of generatedLocationUrls) {
+        const result = await handleSeoRedirect(path);
+        expect(result.redirect).toBe(false);
+      }
+    });
+
+    it("short-format city URLs emitted by sitemap do not trigger SEO redirects", async () => {
+      // The sitemap emits /{state}/{city} for US cities and
+      // /{country}/{region}/{city} for international cities.
+      // These must not trigger handleSeoRedirect (middleware rewrites them instead).
+      const shortFormatUrls = [
+        "/ca/san-diego",
+        "/ca/la-jolla",
+        "/hi/waimea-kauai",
+        "/hi/waimea-big-island",
+        "/hi/haleiwa",
+        "/or/pacific-city",
+        "/pr/rincon",
+        // International short format
+        "/mexico/baja-california/rosarito",
+      ];
+
+      for (const path of shortFormatUrls) {
         const result = await handleSeoRedirect(path);
         expect(result.redirect).toBe(false);
       }
@@ -410,8 +434,9 @@ describe("Sitemap URL Format Reference", () => {
 
     /**
      * City location URLs:
-     * - Canonical (USA): /beaches/usa/{state}/{city}
-     * - Canonical (Intl): /beaches/{country}/{region}/{city}
+     * - Canonical (USA): /{state}/{city} (rewritten to /beaches/usa/{state}/{city})
+     * - Canonical (Intl): /{country}/{region}/{city} (rewritten to /beaches/{country}/{region}/{city})
+     * - Direct route: /beaches/usa/{state}/{city} still works (no redirect)
      */
     it("documents location URL canonical format", async () => {
       // USA format - should NOT redirect

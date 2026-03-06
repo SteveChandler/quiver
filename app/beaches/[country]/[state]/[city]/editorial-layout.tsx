@@ -23,7 +23,7 @@ import { generateCityRichContent } from "@/lib/seo/city-content-generator";
 import { getUsStateDisplayNameFromSlug } from "@/lib/utils/beach-url-utils";
 import type { LocationStats, BeachWithMetrics } from "@/types/location";
 import type { TopCityInState } from "@/actions/beach/beach-location-actions";
-import { resolveIslandDisplayName } from "./city-page-utils";
+import { resolveIslandDisplayName, buildCanonicalCityPath } from "./city-page-utils";
 import type { LocationPageParams } from "./city-page-utils";
 import { SITE_ORIGIN } from "./city-page-utils";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
@@ -84,12 +84,12 @@ export function EditorialLayout({
         { name: "Quiver", url: `${SITE_ORIGIN}/` },
         { name: countryName, url: `${SITE_ORIGIN}${countryUrl}` },
         { name: stateName, url: `${SITE_ORIGIN}${stateUrl}` },
-        { name: displayCityName, url: `${SITE_ORIGIN}/beaches/${params.country}/${params.state}/${params.city}` },
+        { name: displayCityName, url: `${SITE_ORIGIN}${buildCanonicalCityPath(params)}` },
       ]} />
       {/* WebPage JSON-LD with dateModified signals content freshness to Google */}
       <WebPageSchema
         name={`Best Surf Beaches in ${displayCityName}`}
-        url={`${SITE_ORIGIN}/beaches/${params.country}/${params.state}/${params.city}`}
+        url={`${SITE_ORIGIN}${buildCanonicalCityPath(params)}`}
       />
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
