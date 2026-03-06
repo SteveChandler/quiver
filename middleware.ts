@@ -30,6 +30,40 @@ const isVerbose = process.env.MIDDLEWARE_VERBOSE === "true";
 // Known beach sub-pages with dedicated routes (e.g., /ca/city/beach/tides)
 const BEACH_SUBPATHS = new Set(["tides", "water-temp"]);
 
+// Reserved first-path segments that should NOT be treated as international country slugs
+const INTERNATIONAL_RESERVED_SEGMENTS = new Set([
+  "api",
+  "_next",
+  "auth",
+  "admin",
+  "beach",
+  "beaches",
+  "discover",
+  "embed",
+  "features",
+  "forecast",
+  "inbox",
+  "journal",
+  "map",
+  "privacy",
+  "profile",
+  "sessions",
+  "share",
+  "spots",
+  "s",
+  "user",
+  "error",
+  ".well-known",
+  // Intent slugs - prevent /{intent}/{state}/{city} from being treated as international URLs
+  "beginner",
+  "longboard",
+  "tide",
+  "water-temp",
+  "dawn-patrol",
+  "sunset",
+  "least-crowded",
+]);
+
 // Legacy slug variants that Google indexed but don't match the DB slug.
 // Maps old slug → current DB slug so /spots/{old} resolves instead of 404-ing.
 // Remove entries after Google drops the cached URLs (~6 months after redirect).
@@ -55,6 +89,9 @@ function log(message: string, data?: any) {
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Deferred rewrite target for city URLs — set below, applied in createSecureResponse()
+  let rewriteTarget: URL | undefined;
 
   /**
    * Legacy /spots/{slug} → canonical URL redirect (HTTP 301)
@@ -201,15 +238,14 @@ export async function middleware(request: NextRequest) {
   /**
    * Canonical city pages (SEO)
    *
-   * Canonical (USA):  /beaches/usa/{state}/{city}
-   * Canonical (Intl): /beaches/{country}/{state}/{city}
+   * Canonical (USA):  /{state}/{city}           (served via rewrite to /beaches/usa/{state}/{city})
+   * Canonical (Intl): /{country}/{state}/{city}  (served via rewrite to /beaches/{country}/{state}/{city})
    *
    * Legacy:
-   * - /{state}/{city}
-   * - /{country}/{state}/{city}
    * - /beaches/{state}/{city}
    *
-   * We keep the legacy URLs working via a 301 to the canonical.
+   * Legacy URLs redirect 301 to /beaches/usa/{state}/{city} (direct route).
+   * Short URLs are served via internal rewrite for zero-redirect SEO.
    */
 
   // Canonicalize /beaches/{country}/{state}/{city} slugs (lowercase + "usa" normalization)
@@ -275,22 +311,21 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl, { status: 301 });
   }
 
-  // Rewrite canonical short city URLs to the existing location page route
-  // Example: /hi/haleiwa -> 301 to /beaches/usa/hi/haleiwa
+  // Rewrite short city URLs to the location page route (no visible redirect)
+  // Example: /hi/haleiwa -> internally serves /beaches/usa/hi/haleiwa
   const canonicalCityMatch = pathname.match(/^\/([^/]+)\/([^/]+)$/);
   if (canonicalCityMatch) {
     const state = canonicalCityMatch[1]?.toLowerCase() || "";
     const city = canonicalCityMatch[2]?.toLowerCase() || "";
 
     if (isValidStateSlug(state)) {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = `/beaches/usa/${state}/${city}`;
-      return NextResponse.redirect(redirectUrl, { status: 301 });
+      rewriteTarget = request.nextUrl.clone();
+      rewriteTarget.pathname = `/beaches/usa/${state}/${city}`;
     }
   }
 
-  // Rewrite canonical short international city URLs to the existing location page route
-  // Example: /mexico/baja-california/rosarito -> 301 to /beaches/mexico/baja-california/rosarito
+  // Rewrite short international city URLs to the location page route (no visible redirect)
+  // Example: /mexico/baja-california/rosarito -> internally serves /beaches/mexico/baja-california/rosarito
   const canonicalInternationalCityMatch = pathname.match(
     /^\/([^/]+)\/([^/]+)\/([^/]+)$/
   );
@@ -304,44 +339,9 @@ export async function middleware(request: NextRequest) {
       // country segment is actually a state slug; let the beach route handle it
       // (or fall through to normal routing).
     } else {
-      // Avoid rewriting other first-party routes that also have 3 segments.
-      const reserved = new Set([
-        "api",
-        "_next",
-        "auth",
-        "admin",
-        "beach",
-        "beaches",
-        "discover",
-        "embed",
-        "features",
-        "forecast",
-        "inbox",
-        "journal",
-        "map",
-        "privacy",
-        "profile",
-        "sessions",
-        "share",
-        "spots",
-        "s",
-        "user",
-        "error",
-        ".well-known",
-        // Intent slugs - prevent /{intent}/{state}/{city} from being treated as international URLs
-        "beginner",
-        "longboard",
-        "tide",
-        "water-temp",
-        "dawn-patrol",
-        "sunset",
-        "least-crowded",
-      ]);
-
-      if (!reserved.has(country)) {
-        const redirectUrl = request.nextUrl.clone();
-        redirectUrl.pathname = `/beaches/${country}/${state}/${city}`;
-        return NextResponse.redirect(redirectUrl, { status: 301 });
+      if (!INTERNATIONAL_RESERVED_SEGMENTS.has(country)) {
+        rewriteTarget = request.nextUrl.clone();
+        rewriteTarget.pathname = `/beaches/${country}/${state}/${city}`;
       }
     }
   }
@@ -374,8 +374,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Create response with security headers
-  const response = createSecureResponse(request);
+  // Create response with security headers (and optional rewrite for city URLs)
+  const response = createSecureResponse(request, rewriteTarget);
 
   log(`[Middleware] Processing ${RouteGuard.describeRoute(routeClassification)}: ${pathname}`);
 
@@ -418,18 +418,18 @@ export async function middleware(request: NextRequest) {
 }
 
 /**
- * Create a NextResponse with security headers and attribution cookies
+ * Create a NextResponse with security headers and attribution cookies.
+ * If rewriteUrl is provided, uses NextResponse.rewrite() to serve content
+ * from a different route without a visible redirect.
  */
-function createSecureResponse(request: NextRequest): NextResponse {
+function createSecureResponse(request: NextRequest, rewriteUrl?: URL): NextResponse {
   // Add pathname to request headers for server components to access
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-pathname", request.nextUrl.pathname);
 
-  const response = NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
-  });
+  const response = rewriteUrl
+    ? NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } })
+    : NextResponse.next({ request: { headers: requestHeaders } });
 
   // Add security headers to all responses
   const isEmbedRoute = request.nextUrl.pathname.startsWith("/embed/");

@@ -4,7 +4,6 @@
  * This module defines types for tracking user behavior and learning
  * implicit preferences from those interactions.
  *
- * @see docs/plans/2026-01-25-implicit-preference-learning-design.md
  */
 
 // =============================================================================
@@ -32,10 +31,57 @@ export type ImplicitEventType =
   | 'review_form_abandon'
   | 'review_validation_error'
   | 'review_submit'
-  // Social tracking events
+  // Share tracking events
+  | 'share_started'
+  | 'share_completed'
+  | 'share_link_copied'
+  | 'share_image_saved'
+  | 'cam_share'
+  | 'share_intel_button_clicked'
+  | 'share_intel_signin_prompt'
+  | 'surf_plan_share'
+  // Signup/auth conversion events
+  | 'signup_cta_click'
+  | 'signup_cta_view'
+  | 'signin_cta_click'
+  // Home screen events
+  | 'home_at_beach_click'
+  | 'home_plan_weekend_click'
+  | 'home_plan_weekend_no_recommendation'
+  // Session logging events
+  | 'session_log_start'
+  | 'session_log_submit'
+  | 'session_share_opened_post_save'
+  | 'session_share_closed_post_save'
+  // Onboarding/tour events
+  | 'product_tour_started'
+  | 'product_tour_completed'
+  | 'product_tour_skipped'
+  | 'product_tour_step_viewed'
+  // Beach detail events
+  | 'beach_search'
+  | 'forecast_tab_click'
+  | 'horizon_strip_day_selected'
+  | 'match_score_teaser_click'
+  | 'match_score_teaser_view'
+  | 'set_home_beach'
+  | 'map_marker_click'
+  // Intel events
+  | 'local_intel_tab_viewed'
+  | 'intel_post_created'
+  | 'intel_post_confirmed'
+  | 'plan_session_from_intel'
+  // Profile events
+  | 'surf_profile_viewed'
+  | 'surf_profile_progress_shown'
+  // Discovery events
+  | 'personalized_score_shown'
+  | 'favorite_shown_in_carousel'
+  | 'mini_log_teaser_click'
+  | 'plan_unlock_click'
+  // Social events
   | 'social_follow'
   | 'social_like'
-  | 'social_share'
   | 'social_invite_send'
   | 'social_invite_respond'
   | 'social_intel_confirm'
@@ -60,19 +106,66 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   profile_update: 0,
   onboarding_step: 0,
   cta_click: 0,
-  // Review tracking events (tracking only, no preference learning weight)
+  // Review tracking events
   review_form_open: 0,
   review_form_abandon: 0,
   review_validation_error: 0,
   review_submit: 0,
-  // Social tracking events (tracking only, no preference learning weight)
+  // Share tracking events
+  share_started: 0,
+  share_completed: 0,
+  share_link_copied: 0,
+  share_image_saved: 0,
+  cam_share: 0,
+  share_intel_button_clicked: 0,
+  share_intel_signin_prompt: 0,
+  surf_plan_share: 0,
+  // Signup/auth conversion events
+  signup_cta_click: 0,
+  signup_cta_view: 0,
+  signin_cta_click: 0,
+  // Home screen events
+  home_at_beach_click: 0,
+  home_plan_weekend_click: 0,
+  home_plan_weekend_no_recommendation: 0,
+  // Session logging events
+  session_log_start: 0,
+  session_log_submit: 0,
+  session_share_opened_post_save: 0,
+  session_share_closed_post_save: 0,
+  // Onboarding/tour events
+  product_tour_started: 0,
+  product_tour_completed: 0,
+  product_tour_skipped: 0,
+  product_tour_step_viewed: 0,
+  // Beach detail events
+  beach_search: 0,
+  forecast_tab_click: 0,
+  horizon_strip_day_selected: 0,
+  match_score_teaser_click: 0,
+  match_score_teaser_view: 0,
+  set_home_beach: 0,
+  map_marker_click: 0,
+  // Intel events
+  local_intel_tab_viewed: 0,
+  intel_post_created: 0,
+  intel_post_confirmed: 0,
+  plan_session_from_intel: 0,
+  // Profile events
+  surf_profile_viewed: 0,
+  surf_profile_progress_shown: 0,
+  // Discovery events
+  personalized_score_shown: 0,
+  favorite_shown_in_carousel: 0,
+  mini_log_teaser_click: 0,
+  plan_unlock_click: 0,
+  // Social events
   social_follow: 0,
   social_like: 0,
-  social_share: 0,
   social_invite_send: 0,
   social_invite_respond: 0,
   social_intel_confirm: 0,
-  // Tab and map engagement events (tracking only)
+  // Tab and map engagement events
   tab_view: 0,
   map_interaction: 0,
 } as const;

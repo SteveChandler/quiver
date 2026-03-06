@@ -165,13 +165,13 @@ async function getLocationRoutes(): Promise<MetadataRoute.Sitemap> {
       usaStates.add("hi");
       locationRoutes.push(
         {
-          url: `${baseUrl}/beaches/usa/hi/waimea-kauai`,
+          url: `${baseUrl}/hi/waimea-kauai`,
           lastModified: locationPageDate,
           changeFrequency: "weekly",
           priority: 0.75,
         },
         {
-          url: `${baseUrl}/beaches/usa/hi/waimea-big-island`,
+          url: `${baseUrl}/hi/waimea-big-island`,
           lastModified: locationPageDate,
           changeFrequency: "weekly",
           priority: 0.75,
@@ -191,7 +191,7 @@ async function getLocationRoutes(): Promise<MetadataRoute.Sitemap> {
       if (stateSlug && citySlug) {
         usaStates.add(stateSlug);
         locationRoutes.push({
-          url: `${baseUrl}/beaches/usa/${stateSlug}/${citySlug}`,
+          url: `${baseUrl}/${stateSlug}/${citySlug}`,
           lastModified: locationPageDate,
           changeFrequency: "weekly",
           priority: 0.75,
@@ -203,7 +203,7 @@ async function getLocationRoutes(): Promise<MetadataRoute.Sitemap> {
       const citySlug = slugifyAscii(location.city);
       if (countrySlug && regionSlug && citySlug) {
         locationRoutes.push({
-          url: `${baseUrl}/beaches/${countrySlug}/${regionSlug}/${citySlug}`,
+          url: `${baseUrl}/${countrySlug}/${regionSlug}/${citySlug}`,
           lastModified: locationPageDate,
           changeFrequency: "weekly",
           priority: 0.75,
@@ -237,7 +237,7 @@ async function getLocationRoutes(): Promise<MetadataRoute.Sitemap> {
  */
 async function getIntentRoutes(): Promise<MetadataRoute.Sitemap> {
   // Use template version date - intent pages change when template updates
-  const intentTemplateDate = "2026-02-10";
+  const intentTemplateDate = "2026-03-06";
 
   // Skill-based intents that require cities to have matching beach skill levels
   const BEGINNER_INTENTS = new Set(["beginner", "longboard"]);

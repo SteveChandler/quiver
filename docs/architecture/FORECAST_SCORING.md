@@ -374,7 +374,6 @@ console.log(breakdown);
 
 - [Personalization Strategy](/docs/reference/PERSONALIZATION_STRATEGY.md)
 - [Forecast Implementation](/docs/features/PERSONALIZATION_FORECAST_IMPLEMENTATION.md)
-- [Beach Data Structure](/docs/archive/reports/BEACH_DATA_STRUCTURE_ANALYSIS.md)
 - [Database Schema](/docs/diagrams/database-schema.md)
 
 ---

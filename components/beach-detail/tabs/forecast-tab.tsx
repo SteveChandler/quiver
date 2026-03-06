@@ -19,8 +19,8 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BestSurfWindow } from "@/components/beach-detail/best-surf-window";
-import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
+import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
 import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
 import { resolveBeachTimezone, getLocalDateString } from "@/lib/utils/timezone-utils";
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
@@ -336,7 +336,7 @@ export function ForecastTab({
                   border border-ocean-blue/10 p-3 cursor-pointer
                   hover:border-ocean-blue/20 hover:shadow-sm transition-all"
                 onClick={() => {
-                  track("signup_cta_click", { source: "horizon-strip-outlook" });
+                  trackSignupCtaClick({ source: "horizon-strip-outlook" });
                   trackAuthModalOpened({ mode: "signup", source: "horizon-strip-outlook" });
                   setHorizonAuthModal(true);
                 }}

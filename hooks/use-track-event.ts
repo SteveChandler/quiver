@@ -4,8 +4,6 @@
  * React hook for tracking implicit user events (beach views, discovery interactions, etc.)
  * Uses a fire-and-forget approach with client-side debouncing to prevent overwhelming the API.
  *
- * @see docs/plans/2026-01-25-implicit-preference-learning-design.md
- *
  * @example
  * ```tsx
  * const { track } = useTrackEvent();

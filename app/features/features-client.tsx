@@ -1,66 +1,95 @@
 "use client";
 
+import { useState, useCallback, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
-import {
-  ArrowRight,
-  Check,
-  Database,
-  Radio,
-  Brain,
-  User,
-} from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { FEATURES_EXTENDED_CONTENT } from "@/lib/constants/content";
-import { FEATURE_CARDS } from "@/lib/constants/features";
 import { motion } from "framer-motion";
 import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
-
-const PIPELINE_ICONS = [Database, Radio, Brain, User] as const;
+import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { PersonalizationShowcase } from "@/components/landing-page/personalization-showcase";
+import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
+import { useAuth } from "@/context/auth-context";
+import { track } from "@/lib/analytics";
+import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 export default function FeaturesPageClient() {
-  const {
-    hero,
-    pipeline,
-    personalization,
-    intelligence,
-    discovery,
-    sessionTracking,
-    mobile,
-    cta,
-  } = FEATURES_EXTENDED_CONTENT;
+  const { hero, benefits, deepDive, cta } = FEATURES_EXTENDED_CONTENT;
+  const { user } = useAuth();
+  const pathname = usePathname();
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authSource, setAuthSource] = useState("features-hero");
+
+  // Scroll depth tracking with rAF guard to avoid excessive work on fast scroll
+  const scrollMilestones = useRef(new Set<number>());
+  const scrollRafPending = useRef(false);
+  useEffect(() => {
+    const handleScroll = () => {
+      if (scrollRafPending.current) return;
+      scrollRafPending.current = true;
+      requestAnimationFrame(() => {
+        scrollRafPending.current = false;
+        const docHeight =
+          document.documentElement.scrollHeight - window.innerHeight;
+        if (docHeight <= 0) return;
+        const scrollPercent = Math.round((window.scrollY / docHeight) * 100);
+        for (const milestone of [25, 50, 75, 100]) {
+          if (
+            scrollPercent >= milestone &&
+            !scrollMilestones.current.has(milestone)
+          ) {
+            scrollMilestones.current.add(milestone);
+            track("scroll_depth", {
+              page: "/features",
+              depth_percent: milestone,
+            });
+          }
+        }
+      });
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const handleSignupClick = useCallback((ctaLocation: string) => {
+    track("signup_cta_click", { source: "features", cta_type: ctaLocation });
+    trackAuthModalOpened({
+      mode: "signup",
+      source: `features-${ctaLocation}`,
+    });
+    setAuthSource(`features-${ctaLocation}`);
+    setAuthModalOpen(true);
+  }, []);
 
   return (
     <div className="min-h-screen">
-      {/* Section 1: Hero */}
-      <section className="py-20 px-4 bg-gradient-to-br from-sandy-beige via-white to-blue-50">
+      {/* Section 1: Hero — Dark theme */}
+      <section className="py-20 px-4 bg-[#252D6B]">
         <div className="max-w-6xl mx-auto">
           <motion.div
             {...ANIMATION_VARIANTS.fadeInView}
             className="text-center mb-12"
           >
             <motion.h1
-              className="text-4xl md:text-6xl font-roboto font-bold text-dark-grey mb-6"
+              className="text-4xl md:text-6xl font-roboto font-bold text-white mb-6"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
             >
-              {hero.title.split("Learn").map((part, i) =>
-                i === 0 ? (
-                  <span key={i}>{part}</span>
-                ) : (
-                  <span
-                    key={i}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
-                  >
-                    Learn{part}
-                  </span>
-                )
-              )}
+              {hero.title}
             </motion.h1>
             <motion.p
-              className="text-xl md:text-2xl text-gray-600 mb-8 font-open-sans max-w-3xl mx-auto"
+              className="text-xl md:text-2xl text-white/80 mb-8 font-open-sans max-w-3xl mx-auto"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
@@ -68,23 +97,23 @@ export default function FeaturesPageClient() {
               {hero.subtitle}
             </motion.p>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-              className="flex justify-center mb-12"
-            >
-              <Button
-                size="lg"
-                className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
-                asChild
+            {!user && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.4 }}
+                className="flex justify-center mb-12"
               >
-                <Link href={hero.cta.href}>
-                  {hero.cta.text}
+                <Button
+                  size="lg"
+                  onClick={() => handleSignupClick("hero")}
+                  className="bg-white text-[#252D6B] hover:bg-gray-100 px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  Get My Forecast
                   <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
-            </motion.div>
+                </Button>
+              </motion.div>
+            )}
           </motion.div>
 
           {/* Stats Bar */}
@@ -92,14 +121,14 @@ export default function FeaturesPageClient() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.6 }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-6 bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl"
+            className="grid grid-cols-2 md:grid-cols-4 gap-6 bg-white/10 backdrop-blur-sm rounded-2xl p-8"
           >
             {hero.stats.map((stat) => (
               <div key={stat.label} className="text-center">
-                <div className="text-2xl md:text-3xl font-roboto font-bold text-ocean-blue">
+                <div className="text-2xl md:text-3xl font-roboto font-bold text-white">
                   {stat.value}
                 </div>
-                <div className="text-sm text-gray-600 font-open-sans mt-1">
+                <div className="text-sm text-white/70 font-open-sans mt-1">
                   {stat.label}
                 </div>
               </div>
@@ -108,174 +137,41 @@ export default function FeaturesPageClient() {
         </div>
       </section>
 
-      {/* Section 2: Data Pipeline */}
-      <section className="py-20 px-4 bg-gradient-to-b from-slate-900 to-slate-800 text-white">
+      {/* Section 2: PersonalizationShowcase (reused) with bridge text */}
+      <section>
+        <div className="max-w-6xl mx-auto px-4 pt-8">
+          <p className="text-center text-base font-open-sans text-gray-500">
+            We crunch 40+ data points from buoys, weather models, and community
+            reports — so you get one clear answer.
+          </p>
+        </div>
+        <PersonalizationShowcase />
+      </section>
+
+      {/* Section 3: Benefits + Social Proof — Dark theme */}
+      <section className="py-20 px-4 bg-[#252D6B]">
         <div className="max-w-6xl mx-auto">
-          <motion.div {...ANIMATION_VARIANTS.fadeInView} className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-roboto font-bold mb-4">
-              {pipeline.title}
-            </h2>
-            <p className="text-lg text-gray-300 max-w-2xl mx-auto font-open-sans">
-              {pipeline.subtitle}
-            </p>
-          </motion.div>
-
-          {/* Pipeline Steps */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-16">
-            {pipeline.steps.map((step, index) => {
-              const Icon = PIPELINE_ICONS[index];
-              return (
-                <motion.div
-                  key={step.id}
-                  {...ANIMATION_VARIANTS.staggerItem(index, 0.6)}
-                  className="relative"
-                >
-                  <Card className="h-full bg-white/5 border-white/10 backdrop-blur-sm">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="w-10 h-10 rounded-full bg-ocean-blue/20 flex items-center justify-center">
-                          <Icon className="h-5 w-5 text-ocean-blue" />
-                        </div>
-                        <Badge
-                          variant="secondary"
-                          className="bg-white/10 text-white/80 text-xs"
-                        >
-                          Step {index + 1}
-                        </Badge>
-                      </div>
-                      <h3 className="text-lg font-roboto font-bold text-white">
-                        {step.title}
-                      </h3>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-gray-300 font-open-sans">
-                        {step.description}
-                      </p>
-                    </CardContent>
-                  </Card>
-                  {/* Connecting arrow (hidden on last item and mobile) */}
-                  {index < pipeline.steps.length - 1 && (
-                    <div className="hidden md:flex absolute top-1/2 -right-3 transform -translate-y-1/2 z-10">
-                      <motion.div
-                        initial={{ opacity: 0, x: -5 }}
-                        whileInView={{ opacity: 1, x: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: index * 0.2 + 0.5 }}
-                      >
-                        <ArrowRight className="h-5 w-5 text-ocean-blue" />
-                      </motion.div>
-                    </div>
-                  )}
-                </motion.div>
-              );
-            })}
-          </div>
-
-          {/* Pipeline Stats */}
           <motion.div
             {...ANIMATION_VARIANTS.fadeInView}
-            className="flex flex-wrap justify-center gap-8"
+            className="text-center mb-16"
           >
-            {pipeline.stats.map((stat) => (
-              <div key={stat.label} className="text-center">
-                <div className="text-2xl font-roboto font-bold text-ocean-blue">
-                  {stat.value}
-                </div>
-                <div className="text-sm text-gray-400 font-open-sans">
-                  {stat.label}
-                </div>
-              </div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Section 3: Personalization */}
-      <section className="py-20 px-4 bg-white">
-        <div className="max-w-6xl mx-auto">
-          <motion.div {...ANIMATION_VARIANTS.fadeInView} className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-roboto font-bold text-dark-grey mb-4">
-              {personalization.title}
+            <h2 className="text-3xl md:text-4xl font-roboto font-bold text-white mb-4">
+              Everything You Need, Nothing You Don&apos;t
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto font-open-sans">
-              {personalization.subtitle}
-            </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            {/* Feature List */}
-            <div className="space-y-6">
-              {personalization.features.map((feature, index) => (
-                <motion.div
-                  key={feature.title}
-                  {...ANIMATION_VARIANTS.staggerItem(index, 0.5)}
-                  className="flex gap-4"
-                >
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-50 dark:bg-[#1E2D4A] flex items-center justify-center mt-0.5">
-                    <Check className="h-4 w-4 text-ocean-blue" />
-                  </div>
-                  <div>
-                    <h3 className="font-roboto font-bold text-dark-grey mb-1">
-                      {feature.title}
-                    </h3>
-                    <p className="text-sm text-gray-600 font-open-sans">
-                      {feature.description}
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* Visual Demo - Match Score Badge */}
-            <motion.div
-              {...ANIMATION_VARIANTS.fadeInView}
-              className="flex justify-center"
-            >
-              <div className="relative w-72 h-72 rounded-2xl bg-gradient-to-br from-blue-50 to-white dark:from-[#111D35] dark:to-[#0F1A2E] border border-blue-100 dark:border-[#1E2D4A] shadow-lg flex flex-col items-center justify-center p-6">
-                <div className="text-6xl font-roboto font-bold text-ocean-blue mb-2">
-                  87
-                </div>
-                <div className="text-sm font-open-sans text-gray-600 dark:text-gray-400 mb-4">
-                  Match Score
-                </div>
-                <Badge className="bg-ocean-blue/10 text-ocean-blue border-0 text-xs">
-                  Great conditions for you
-                </Badge>
-                <div className="mt-4 text-xs text-gray-500 font-open-sans text-center">
-                  Based on your skill level, wave preferences, and schedule
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Section 4: Live Intelligence */}
-      <section className="py-20 px-4 bg-blue-50/50 dark:bg-[#0B1426]">
-        <div className="max-w-6xl mx-auto">
-          <motion.div {...ANIMATION_VARIANTS.fadeInView} className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-roboto font-bold text-dark-grey mb-4">
-              {intelligence.title}
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto font-open-sans">
-              {intelligence.subtitle}
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {intelligence.cards.map((card, index) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+            {benefits.cards.map((card, index) => (
               <motion.div
                 key={card.id}
                 {...ANIMATION_VARIANTS.staggerItem(index, 0.5)}
               >
-                <Card className="h-full hover:shadow-lg transition-shadow duration-300 bg-white/90 backdrop-blur-sm border border-gray-100">
-                  <CardHeader>
-                    <h3 className="text-xl font-roboto font-bold text-dark-grey">
+                <Card className="h-full bg-[#2D357D] border-white/10 shadow-lg">
+                  <CardContent className="p-6">
+                    <h3 className="text-xl font-roboto font-bold text-white mb-2">
                       {card.title}
                     </h3>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-600 font-open-sans">
+                    <p className="text-white/70 font-open-sans">
                       {card.description}
                     </p>
                   </CardContent>
@@ -283,135 +179,51 @@ export default function FeaturesPageClient() {
               </motion.div>
             ))}
           </div>
+
+          <div className="max-w-4xl mx-auto">
+            <InlineSignupCta
+              title="Sounds good?"
+              description="Join surfers who check Quiver before every session."
+              primaryButtonText="Get My Forecast"
+              source="features-mid-page"
+            />
+          </div>
         </div>
       </section>
 
-      {/* Section 5: Spot Discovery */}
+      {/* Section 4: Collapsible Deep-Dive (Accordions) */}
       <section className="py-20 px-4 bg-white">
-        <div className="max-w-6xl mx-auto">
-          <motion.div {...ANIMATION_VARIANTS.fadeInView} className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-roboto font-bold text-dark-grey mb-4">
-              {discovery.title}
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto font-open-sans">
-              {discovery.subtitle}
-            </p>
-          </motion.div>
-
+        <div className="max-w-3xl mx-auto">
           <motion.div
             {...ANIMATION_VARIANTS.fadeInView}
-            className="flex flex-wrap justify-center gap-3"
+            className="text-center mb-12"
           >
-            {discovery.examples.map((example) => (
-              <Link key={example.label} href={example.href}>
-                <Badge
-                  variant="secondary"
-                  className="px-4 py-2 text-sm hover:bg-ocean-blue hover:text-white transition-colors duration-200 cursor-pointer"
-                >
-                  {example.label}
-                  <ArrowRight className="ml-1 h-3 w-3" />
-                </Badge>
-              </Link>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Section 6: Session Tracking */}
-      <section className="py-20 px-4 bg-gray-50">
-        <div className="max-w-6xl mx-auto">
-          <motion.div {...ANIMATION_VARIANTS.fadeInView} className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-roboto font-bold text-dark-grey mb-4">
-              {sessionTracking.title}
+              {deepDive.heading}
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto font-open-sans">
-              {sessionTracking.subtitle}
-            </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {sessionTracking.features.map((feature, index) => (
-              <motion.div
-                key={feature.title}
-                {...ANIMATION_VARIANTS.staggerItem(index, 0.5)}
+          <Accordion type="multiple" className="w-full">
+            {deepDive.items.map((item) => (
+              <AccordionItem
+                key={item.id}
+                value={item.id}
+                className="border-gray-200"
               >
-                <Card className="h-full bg-white shadow-sm hover:shadow-md transition-shadow duration-300">
-                  <CardHeader>
-                    <h3 className="text-lg font-roboto font-bold text-dark-grey">
-                      {feature.title}
-                    </h3>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-gray-600 font-open-sans">
-                      {feature.description}
-                    </p>
-                  </CardContent>
-                </Card>
-              </motion.div>
+                <AccordionTrigger className="text-lg font-roboto font-semibold text-dark-grey hover:no-underline">
+                  {item.title}
+                </AccordionTrigger>
+                <AccordionContent className="text-gray-600 font-open-sans leading-relaxed">
+                  {item.content}
+                </AccordionContent>
+              </AccordionItem>
             ))}
-          </div>
+          </Accordion>
         </div>
       </section>
 
-      {/* Section 7: Mobile */}
-      <section className="py-20 px-4 bg-gradient-to-r from-ocean-blue to-blue-600 text-white">
-        <div className="max-w-6xl mx-auto">
-          <motion.div {...ANIMATION_VARIANTS.fadeInView} className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-roboto font-bold mb-4">
-              {mobile.title}
-            </h2>
-            <p className="text-lg text-white/80 max-w-2xl mx-auto font-open-sans">
-              {mobile.subtitle}
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {mobile.features.map((feature, index) => (
-              <motion.div
-                key={feature.title}
-                {...ANIMATION_VARIANTS.staggerItem(index, 0.5)}
-              >
-                <Card className="h-full bg-white/10 border-white/20 backdrop-blur-sm">
-                  <CardHeader>
-                    <h3 className="text-lg font-roboto font-bold text-white">
-                      {feature.title}
-                    </h3>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-white/80 font-open-sans">
-                      {feature.description}
-                    </p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Section 8: CTA */}
-      <section className="py-20 px-4 bg-gradient-to-r from-ocean-blue to-blue-600 relative overflow-hidden">
-        {/* Background Wave Animation */}
-        <div className="absolute inset-0 opacity-10">
-          <motion.div
-            animate={{
-              backgroundPositionX: ["0%", "100%"],
-              backgroundPositionY: ["0%", "100%"],
-            }}
-            transition={{
-              duration: 20,
-              repeat: Infinity,
-              repeatType: "reverse",
-            }}
-            className="w-full h-full"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 20% 80%, white 2px, transparent 2px), radial-gradient(circle at 80% 20%, white 2px, transparent 2px)",
-              backgroundSize: "100px 100px",
-            }}
-          />
-        </div>
-
+      {/* Section 5: Final CTA */}
+      <section className="py-20 px-4 bg-gradient-to-r from-ocean-blue to-[#D57835] relative overflow-hidden">
         <motion.div
           {...ANIMATION_VARIANTS.fadeInView}
           className="max-w-4xl mx-auto text-center relative z-10"
@@ -442,16 +254,16 @@ export default function FeaturesPageClient() {
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.4 }}
           >
-            <Button
-              size="lg"
-              className="bg-white text-ocean-blue hover:bg-gray-50 px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
-              asChild
-            >
-              <Link href={cta.primaryCta.href}>
+            {!user && (
+              <Button
+                size="lg"
+                onClick={() => handleSignupClick("bottom-cta")}
+                className="bg-white text-ocean-blue hover:bg-gray-50 px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+              >
                 {cta.primaryCta.text}
                 <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
-            </Button>
+              </Button>
+            )}
 
             <Button
               size="lg"
@@ -459,7 +271,9 @@ export default function FeaturesPageClient() {
               className="border border-white/30 text-white hover:bg-white/10 px-8 py-4 text-lg font-roboto font-semibold rounded-full transition-all duration-300"
               asChild
             >
-              <Link href={cta.secondaryCta.href}>{cta.secondaryCta.text}</Link>
+              <Link href={cta.secondaryCta.href}>
+                {cta.secondaryCta.text}
+              </Link>
             </Button>
           </motion.div>
 
@@ -475,62 +289,27 @@ export default function FeaturesPageClient() {
         </motion.div>
       </section>
 
-      {/* Feature Cards Overview */}
-      <section className="py-20 px-4 bg-white">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-roboto font-bold text-dark-grey mb-4">
-              Everything at a Glance
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto font-open-sans">
-              Six pillars that make Quiver the most data-driven surf platform
-              available
-            </p>
-          </div>
+      <StickySignupBar
+        source="features"
+        ctaText="Get My Forecast"
+        supportingText="Personalized surf forecasts"
+        scrollThreshold={400}
+      />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {FEATURE_CARDS.map((feature, index) => (
-              <motion.div
-                key={feature.title}
-                {...ANIMATION_VARIANTS.staggerItem(index, 0.5)}
-              >
-                <Card className="h-full hover:shadow-lg transition-shadow duration-300 bg-white border border-gray-100">
-                  <CardHeader className="text-center pb-4">
-                    <div
-                      className={`mx-auto mb-4 w-14 h-14 ${feature.iconBgColor} rounded-full flex items-center justify-center`}
-                    >
-                      <feature.icon
-                        className={`h-7 w-7 ${feature.iconColor}`}
-                      />
-                    </div>
-                    <h3 className="text-xl font-roboto font-bold text-dark-grey">
-                      {feature.title}
-                    </h3>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="font-open-sans text-gray-600 text-center text-sm mb-4">
-                      {feature.description}
-                    </p>
-                    <ul className="space-y-2 text-sm font-open-sans text-gray-600">
-                      {feature.features.map((featureItem, featureIndex) => (
-                        <li
-                          key={featureIndex}
-                          className="flex items-center gap-2"
-                        >
-                          <featureItem.icon
-                            className={`h-4 w-4 ${featureItem.color}`}
-                          />
-                          {featureItem.text}
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {authModalOpen && (
+        <UnifiedAuthModal
+          isOpen={authModalOpen}
+          onClose={() => setAuthModalOpen(false)}
+          mode="signup"
+          source={authSource}
+          returnTo={pathname}
+          contextMessage={{
+            title: "Your Personalized Forecast Awaits",
+            description:
+              "Create an account to unlock match scores for every beach.",
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useAuth } from "@/context/auth-context";
-import { track } from "@/lib/analytics";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
+import { trackSignupCtaClick, trackSignupCtaView } from "@/lib/analytics/signup-conversion-tracking";
 import { cn } from "@/lib/utils";
 
 interface InlineSignupCtaProps {
@@ -40,9 +40,17 @@ export function InlineSignupCta({
 }: InlineSignupCtaProps) {
   const { user, isLoading } = useAuth();
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const hasTrackedView = useRef(false);
+
+  useEffect(() => {
+    if (!user && !isLoading && !hasTrackedView.current) {
+      trackSignupCtaView({ source, cta_type: "inline" });
+      hasTrackedView.current = true;
+    }
+  }, [user, isLoading, source]);
 
   const handleSignupClick = useCallback(() => {
-    track("signup_cta_click", {
+    trackSignupCtaClick({
       source,
       cta_type: "inline",
       cta_text: primaryButtonText,

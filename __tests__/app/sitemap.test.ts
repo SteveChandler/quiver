@@ -728,16 +728,16 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
 
-      const kauai = result.find((r) => r.url === `${baseUrl}/beaches/usa/hi/waimea-kauai`);
+      const kauai = result.find((r) => r.url === `${baseUrl}/hi/waimea-kauai`);
       expect(kauai).toBeTruthy();
 
       const bigIsland = result.find(
-        (r) => r.url === `${baseUrl}/beaches/usa/hi/waimea-big-island`
+        (r) => r.url === `${baseUrl}/hi/waimea-big-island`
       );
       expect(bigIsland).toBeTruthy();
 
       // Ensure ambiguous /waimea is not emitted
-      const ambiguous = result.find((r) => r.url === `${baseUrl}/beaches/usa/hi/waimea`);
+      const ambiguous = result.find((r) => r.url === `${baseUrl}/hi/waimea`);
       expect(ambiguous).toBeUndefined();
     });
 

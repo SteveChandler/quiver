@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Target } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { cn } from "@/lib/utils";
+import {
+  trackSignupCtaView,
+  trackSignupCtaClick,
+} from "@/lib/analytics/signup-conversion-tracking";
 
 interface PersonalizedForecastTeaserProps {
   beachId: string;
@@ -27,6 +31,17 @@ export function PersonalizedForecastTeaser({
   const { user } = useAuth();
   const pathname = usePathname();
   const [showAuth, setShowAuth] = useState(false);
+  const hasTrackedView = useRef(false);
+
+  useEffect(() => {
+    if (!user && !hasTrackedView.current) {
+      trackSignupCtaView({
+        source: "personalized-forecast-teaser",
+        beach_name: beachName,
+      });
+      hasTrackedView.current = true;
+    }
+  }, [user, beachName]);
 
   if (user) {
     return null;
@@ -70,7 +85,13 @@ export function PersonalizedForecastTeaser({
       <div className="space-y-2">
         <button
           type="button"
-          onClick={() => setShowAuth(true)}
+          onClick={() => {
+            trackSignupCtaClick({
+              source: "personalized-forecast-teaser",
+              beach_name: beachName,
+            });
+            setShowAuth(true);
+          }}
           className="w-full rounded-xl bg-ocean-blue px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-ocean-blue/90 active:scale-[0.98]"
         >
           Get Your Forecast

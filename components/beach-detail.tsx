@@ -34,6 +34,7 @@ import {
   type ReviewTrackingSource,
 } from "@/lib/constants/review-tracking";
 import { track } from "@/lib/analytics";
+import { useTrackEvent } from "@/hooks/use-track-event";
 import { slugify } from "@/lib/utils/text-utils";
 import { buildCamEmbed } from "@/lib/media/cam-embed";
 import { FullPageLoader } from "@/components/ui/loading-states";
@@ -159,6 +160,7 @@ function BeachDetailContent({
   const [activeTab, setActiveTab] = useState<BeachTabValue>(
     defaultTab || "overview",
   );
+  const { track: trackEvent } = useTrackEvent();
 
   // Track whether we've already synced the tab from URL params
   // If defaultTab is provided (e.g., from tides/water-temp pages), mark as synced
@@ -278,10 +280,18 @@ function BeachDetailContent({
     if (!beach) return;
     try {
       const isHome = (searchParams?.get("from") || "") === "home";
+      // GA4 tracking
       track("beach_view", {
         beach_slug: slugify(beach.name),
         region: beach.region || getBeachLocation(beach) || undefined,
         is_home: isHome,
+      });
+      // Supabase user_events tracking (works for both authed and anon)
+      trackEvent("beach_view", {
+        beachId: beach.id,
+        metadata: {
+          referrer: isHome ? "home" : document.referrer || undefined,
+        },
       });
     } catch {}
     // only on first load per beach id
@@ -434,7 +444,7 @@ function BeachDetailContent({
             fallback={
               <div
                 className="aspect-video w-full"
-                style={{ backgroundColor: "#111D35" }}
+                style={{ backgroundColor: "#2D357D" }}
               />
             }
           >
@@ -459,7 +469,7 @@ function BeachDetailContent({
           className="absolute inset-x-0 bottom-0 h-1/2 pointer-events-none z-[5]"
           style={{
             background:
-              "linear-gradient(to top, #0B1426 0%, rgba(11,20,38,0.85) 30%, rgba(11,20,38,0.3) 65%, transparent 100%)",
+              "linear-gradient(to top, #252D6B 0%, rgba(37,45,107,0.85) 30%, rgba(37,45,107,0.3) 65%, transparent 100%)",
           }}
         />
 

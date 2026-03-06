@@ -21,7 +21,7 @@ import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 // -------------------------------------------------------------------
 
 interface ForecastRow {
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   generic: string;
   quiver: string;
@@ -152,7 +152,7 @@ export function PersonalizationShowcase() {
                   <div className="flex items-center gap-2">
                     <motion.div
                       animate={{
-                        color: isRevealed ? "#FF3B8B" : "#9CA3AF",
+                        color: isRevealed ? "#F78E42" : "#9CA3AF",
                       }}
                       transition={{ duration: ROW_DURATION, delay }}
                     >
@@ -273,7 +273,7 @@ export function PersonalizationShowcase() {
             Get Your Match Scores
           </button>
           <p className="text-xs text-gray-400 font-open-sans">
-            Free account, no credit card
+            See your personalized match scores
           </p>
         </div>
       )}
@@ -302,7 +302,7 @@ export function PersonalizationShowcase() {
           contextMessage={{
             title: "Get Personalized Match Scores",
             description:
-              "Create a free account to see personalized match scores for every beach",
+              "Create an account to unlock match scores for every beach",
           }}
         />
       )}

@@ -11,6 +11,7 @@ import {
   parseHiIslandCitySlug,
   getHiIslandDisplayName,
   getBeachHrefSafe,
+  isValidStateSlug,
 } from "@/lib/utils/beach-url-utils";
 import type { BeachWithMetrics } from "@/types/location";
 
@@ -73,6 +74,20 @@ export function resolveIslandDisplayName(
   return hiParsed?.islandSlug
     ? getHiIslandDisplayName(hiParsed.islandSlug)
     : null;
+}
+
+/**
+ * Build the canonical short URL path for a city page.
+ *
+ * USA cities:          /{state}/{city}          (e.g., /ca/san-diego)
+ * International cities: /{country}/{region}/{city} (e.g., /mexico/baja-california/rosarito)
+ */
+export function buildCanonicalCityPath(params: LocationPageParams): string {
+  const isUsa = params.country.toLowerCase() === "usa";
+  if (isUsa && isValidStateSlug(params.state)) {
+    return `/${params.state}/${params.city}`;
+  }
+  return `/${params.country}/${params.state}/${params.city}`;
 }
 
 /**

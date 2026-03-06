@@ -209,26 +209,30 @@ Props: `icon` (Lucide), `title`, `description`, `action?`, `secondaryAction?`, `
 
 ## 10. Brand Colors
 
-The app uses a **retro dark surf aesthetic**. Hot pink is the **primary action color**; deep navy is the global background. The Tailwind token `ocean-blue` still exists in `tailwind.config.ts` but now maps to `#FF3B8B` (hot pink) — do not assume it is blue.
+The app uses a **sunset/twilight surf aesthetic**. Charming Orange is the **primary action color**; Deep Twilight is the global background. The Tailwind token `ocean-blue` still exists in `tailwind.config.ts` but now maps to `#F78E42` (Charming Orange) — do not assume it is blue or pink.
 
 | Token | Hex | Role |
 |-------|-----|------|
-| `ocean-blue` | `#FF3B8B` | **Primary action color** -- CTAs, links, active states, buttons (token retained; value is now hot pink) |
+| `ocean-blue` | `#F78E42` | **Primary action color** -- CTAs, links, active states, buttons (token retained; value is now Charming Orange) |
 | `sunset-orange` | `#FF7F11` | Secondary accent -- warm highlights, badges, decorative emphasis |
 | `sandy-beige` | `#F5F5DC` | Decorative -- beach-detail gradient background (1 usage, keep) |
 | `dark-grey` | `#333333` | High-contrast text |
 
-### Retro dark palette
+### Sunset/twilight palette
 
 The global background and card surfaces use the following values directly (not tokenized as Tailwind colors — apply via `bg-[#...]` or CSS custom properties):
 
 | Role | Hex | Notes |
 |------|-----|-------|
-| Background | `#0B1426` | Deep navy -- global page background |
-| Card surface | `#111D35` | Slightly lighter navy for card/panel backgrounds |
-| Primary accent | `#FF3B8B` | Hot pink -- same value as `ocean-blue` token |
-| Teal accent | `#00D4AA` | Links, success states, secondary highlights |
-| Electric yellow | `#FFD639` | Badges, ratings, energy indicators |
+| Background | `#252D6B` | Deep Twilight -- global page background |
+| Card surface | `#2D357D` | Slightly lighter twilight for card/panel backgrounds |
+| Elevated surface | `#354090` | Elevated cards, modals |
+| Border | `#404C92` | Subtle borders and dividers |
+| Primary accent | `#F78E42` | Charming Orange -- same value as `ocean-blue` token |
+| Twilight Blue accent | `#4A70D9` | Links, success states, secondary highlights |
+| Paradise Gold | `#FDB84B` | Badges, ratings, energy indicators |
+| Charming Orange (dark) | `#D57835` | Hover/pressed states for primary accent |
+| Valentina Pink | `#D3408B` | Tertiary pop -- decorative highlights, special badges |
 
 ### Hover states
 
@@ -238,14 +242,17 @@ Use Tailwind opacity modifiers instead of separate dark tokens:
 
 ### CSS custom property
 
-`--primary` in `globals.css` is set to match `#FF3B8B` (hot pink). All `bg-primary` / `text-primary` usages from shadcn/ui inherit the hot pink value automatically.
+`--primary` in `globals.css` is set to match `#F78E42` (Charming Orange). All `bg-primary` / `text-primary` usages from shadcn/ui inherit the Charming Orange value automatically.
 
 ### Do / Don't
 
-- **Do** use `ocean-blue` (hot pink `#FF3B8B`) for all primary actions and CTAs
-- **Do** use `#00D4AA` (teal) for links and secondary highlights in dark contexts
-- **Do** use `#FFD639` (electric yellow) for badges and energy/rating indicators
+- **Do** use `ocean-blue` (Charming Orange `#F78E42`) for all primary actions and CTAs
+- **Do** use `#4A70D9` (Twilight Blue) for links and secondary highlights in dark contexts
+- **Do** use `#FDB84B` (Paradise Gold) for badges and energy/rating indicators
+- **Do** use `#D3408B` (Valentina Pink) sparingly as a tertiary pop color
 - **Don't** use `#0077B6` anywhere -- that is the old corporate blue and has been replaced
+- **Don't** use `#FF3B8B` (old hot pink) -- replaced by Charming Orange `#F78E42`
+- **Don't** use `#0B1426` (old deep navy) -- replaced by Deep Twilight `#252D6B`
 - **Don't** use `sunset-orange` as the primary CTA color (it's secondary)
 - **Don't** create new `-dark` color tokens -- use `/90`, `/80` opacity modifiers instead
 
@@ -256,8 +263,8 @@ Use Tailwind opacity modifiers instead of separate dark tokens:
 The landing page and authenticated app share the same visual language:
 
 - **Same font hierarchy:** Roboto for headings, Inter for body, Open Sans for long-form content
-- **Same primary color:** Hot pink `#FF3B8B` (`ocean-blue` token) for all CTAs and action buttons
-- **Same dark background:** Deep navy `#0B1426` as the global page background
+- **Same primary color:** Charming Orange `#F78E42` (`ocean-blue` token) for all CTAs and action buttons
+- **Same dark background:** Deep Twilight `#252D6B` as the global page background
 - **Gradients encouraged** in both contexts for visual depth against the dark background
 - **Same shadow scale** (see Shadow Scale section)
 - **Same footer component** (`SiteFooter`) with optional brand section for landing

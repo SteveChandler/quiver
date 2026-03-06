@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sparkles } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { track } from "@/lib/analytics";
 import React, { useEffect, useRef, useState } from "react";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
+import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import {
-  trackAuthModalOpened,
-} from "@/lib/analytics/auth-events";
+  trackSignupCtaView,
+  trackSignupCtaClick,
+  trackSigninCtaClick,
+} from "@/lib/analytics/signup-conversion-tracking";
 
 interface PublicContentGateProps {
   children?: React.ReactNode;
@@ -46,7 +48,7 @@ export function PublicContentGate({
   // Track CTA view for non-authenticated users (only once)
   useEffect(() => {
     if (!user && !isLoading && !hasTrackedView.current) {
-      track("signup_cta_view", {
+      trackSignupCtaView({
         source,
         cta_title: ctaTitle,
       });
@@ -68,7 +70,7 @@ export function PublicContentGate({
   }[blurLevel];
 
   const handleSignUpClick = () => {
-    track("signup_cta_click", {
+    trackSignupCtaClick({
       source,
       cta_title: ctaTitle,
     });
@@ -81,7 +83,7 @@ export function PublicContentGate({
   };
 
   const handleSignInClick = () => {
-    track("signin_cta_click", {
+    trackSigninCtaClick({
       source,
       cta_title: ctaTitle,
     });
