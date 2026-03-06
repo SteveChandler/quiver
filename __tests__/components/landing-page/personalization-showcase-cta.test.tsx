@@ -50,7 +50,7 @@ describe("PersonalizationShowcase CTA", () => {
       screen.getByRole("button", { name: /get your match scores/i })
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/free account, no credit card/i)
+      screen.getByText(/see your personalized match scores/i)
     ).toBeInTheDocument();
   });
 
@@ -72,7 +72,7 @@ describe("PersonalizationShowcase CTA", () => {
       screen.queryByRole("button", { name: /get your match scores/i })
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByText(/free account, no credit card/i)
+      screen.queryByText(/see your personalized match scores/i)
     ).not.toBeInTheDocument();
   });
 

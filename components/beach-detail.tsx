@@ -24,7 +24,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useBeachDetailData } from "@/hooks/use-beach-detail-data";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { useSunTimes } from "@/hooks/use-sun-times";
 import { getYesterdayAccuracy } from "@/actions/accuracy-actions";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
@@ -242,17 +241,6 @@ function BeachDetailContent({
   // Fetch forecast calibration data
   const { sessionSnapshots } = useForecastCalibration({ beachId: id });
 
-  // Fetch sun times for today (drives ocean viz sky)
-  const todayDate = useMemo(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  }, []);
-  const { sunrise, sunset } = useSunTimes(id, todayDate);
-  const sunTimes = useMemo(
-    () => ({ sunrise, sunset }),
-    [sunrise, sunset]
-  );
-
   // Fetch yesterday's accuracy data
   const fetchAccuracy = useCallback(async () => {
     return await getYesterdayAccuracy(id);
@@ -355,7 +343,6 @@ function BeachDetailContent({
   const showCamHero =
     Boolean(sources?.camera_url) &&
     buildCamEmbed(sources?.camera_url).kind !== "none";
-  const showOceanHero = !showCamHero;
 
   // Calculate destination coordinates and directions handler BEFORE early returns
   // (must be before early returns to maintain consistent hook count)
@@ -462,23 +449,6 @@ function BeachDetailContent({
             }
           >
             <CamsSection sources={sources} variant="hero" />
-          </Suspense>
-        ) : showOceanHero ? (
-          /* 3D ocean visualization for beaches without cameras */
-          <Suspense
-            fallback={
-              <div
-                className="aspect-[4/5] sm:aspect-video w-full"
-                style={{ backgroundColor: "#0a5e6e" }}
-              />
-            }
-          >
-            <CamsSection
-              sources={sources}
-              variant="hero"
-              forecast={currentForecast}
-              sunTimes={sunTimes}
-            />
           </Suspense>
         ) : (
           /* Photo gallery background */
