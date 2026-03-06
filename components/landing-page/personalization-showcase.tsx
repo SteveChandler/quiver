@@ -21,7 +21,7 @@ import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 // -------------------------------------------------------------------
 
 interface ForecastRow {
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   generic: string;
   quiver: string;

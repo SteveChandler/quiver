@@ -170,7 +170,7 @@ export function AnimatedEngagementStat({
   label,
   delay = 0,
 }: {
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   value: number;
   label: string;
   delay?: number;

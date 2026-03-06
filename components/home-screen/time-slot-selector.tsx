@@ -13,7 +13,7 @@ interface TimeSlotSelectorProps {
   className?: string;
 }
 
-const TIME_SLOT_OPTIONS: { value: TimeSlot; label: string; icon: React.ElementType }[] = [
+const TIME_SLOT_OPTIONS: { value: TimeSlot; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { value: 'any', label: 'Any time', icon: Clock },
   { value: 'dawn-patrol', label: 'Dawn patrol', icon: Sunrise },
   { value: 'lunch-session', label: 'Lunch session', icon: Sun },
