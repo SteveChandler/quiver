@@ -1,9 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import {
+  trackBestConditionsViewed,
+  trackBestConditionsClick,
+} from "@/lib/analytics/engagement-tracking";
 import type { DaySummary } from "@/lib/utils/regional-forecast-utils";
 import { getScoreColorClasses, SCORE_THRESHOLDS } from "@/lib/utils/score-color-utils";
 import { formatWaveRange } from "@/lib/utils/wave-formatters";
@@ -56,6 +60,8 @@ interface BestDayCardProps {
   className?: string;
   /** Stagger index for animation delay */
   index?: number;
+  /** Click handler for analytics tracking */
+  onClick?: () => void;
 }
 
 /**
@@ -159,7 +165,7 @@ function ConditionStat({
 /**
  * Individual day card component
  */
-function BestDayCard({ day, isHero = false, className, index = 0 }: BestDayCardProps) {
+function BestDayCard({ day, isHero = false, className, index = 0, onClick }: BestDayCardProps) {
   const scoreColors = getScoreColorClasses(day.score);
   const windInfo = getWindInfo(day.windConditions);
   const timeSlotInfo = getTimeSlotInfo(day.bestTimeSlot);
@@ -170,10 +176,11 @@ function BestDayCard({ day, isHero = false, className, index = 0 }: BestDayCardP
       <Card
         className={cn(
           "relative overflow-hidden border-2",
-          "bg-gradient-to-br from-sky-50 via-blue-50 to-cyan-50 dark:from-[#111D35] dark:via-[#0F1A2E] dark:to-[#111D35]",
+          "bg-gradient-to-br from-sky-50 via-blue-50 to-cyan-50 dark:from-[#2D357D] dark:via-[#0F1A2E] dark:to-[#2D357D]",
           scoreColors.border,
           className
         )}
+        onClick={onClick}
       >
         {/* Wave background overlay */}
         <WaveBackground variant="light" />
@@ -260,10 +267,11 @@ function BestDayCard({ day, isHero = false, className, index = 0 }: BestDayCardP
         className={cn(
           "transition-all duration-200",
           "hover:shadow-md hover:border-border/80",
-          "hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/50 dark:hover:from-[#172544]/50 dark:hover:to-[#1E2D4A]/50",
+          "hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/50 dark:hover:from-[#354090]/50 dark:hover:to-[#404C92]/50",
           "group",
           className
         )}
+        onClick={onClick}
       >
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
@@ -323,6 +331,29 @@ export function BestDaysSection({
   regionName,
   className,
 }: BestDaysSectionProps) {
+  const sectionRef = useRef<HTMLElement>(null);
+  const hasTrackedView = useRef(false);
+
+  // Track when section enters viewport (fire once)
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section || days.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasTrackedView.current) {
+          hasTrackedView.current = true;
+          trackBestConditionsViewed(days.length, false);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.3 }
+    );
+
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, [days.length]);
+
   // Sort days by score, excluding bestDay, and take top 4
   const otherTopDays = days
     .filter((d) => d.dateString !== bestDay.dateString)
@@ -330,7 +361,7 @@ export function BestDaysSection({
     .slice(0, 4);
 
   return (
-    <section className={cn("space-y-6", className)}>
+    <section ref={sectionRef} className={cn("space-y-6", className)}>
       {/* Section Header */}
       <ScrollReveal variant="fadeUp">
         <div className="space-y-1">
@@ -345,7 +376,12 @@ export function BestDaysSection({
 
       {/* Hero Best Day Card */}
       <ScrollReveal variant="scale" delay={100}>
-        <BestDayCard day={bestDay} isHero />
+        <BestDayCard
+          day={bestDay}
+          isHero
+          // regionName passed as beachName — these are region-level day cards, not beach-specific
+          onClick={() => trackBestConditionsClick(regionName, 1, bestDay.score)}
+        />
       </ScrollReveal>
 
       {/* Other Good Days Grid */}
@@ -358,7 +394,13 @@ export function BestDaysSection({
           </ScrollReveal>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {otherTopDays.map((day, index) => (
-              <BestDayCard key={day.dateString} day={day} index={index} />
+              <BestDayCard
+                key={day.dateString}
+                day={day}
+                index={index}
+                // regionName passed as beachName — these are region-level day cards, not beach-specific
+                onClick={() => trackBestConditionsClick(regionName, index + 2, day.score)}
+              />
             ))}
           </div>
         </div>
