@@ -2,7 +2,7 @@
  * Onboarding Flow - Modal Close + Completion CTA
  *
  * Validates that:
- * - The onboarding Dialog close (X) actually closes a controlled Radix Dialog
+ * - The onboarding overlay close (X) dismisses the full-screen onboarding
  * - The completion CTA navigates to the dashboard Forecast tab deterministically
  *
  * Uses `showOnboarding=1` to force open and `debugOnboarding=1` (dev-only)
@@ -39,26 +39,26 @@ test.describe("Onboarding - close + view full forecast", () => {
     await expect(dialog).toBeVisible({ timeout: TIMEOUTS.long });
 
     // Confirm first step (Home Beach) is visible.
-    await expect(page.getByText(/your daily surf report starts here/i)).toBeVisible({
+    await expect(page.getByText(/where do you surf/i)).toBeVisible({
       timeout: TIMEOUTS.long,
     });
 
-    // Radix close button should work (wired via onOpenChange).
-    const closeButton = dialog.getByRole("button", { name: /close/i });
+    // Skip (X) button dismisses the overlay.
+    const closeButton = dialog.getByRole("button", { name: /skip onboarding/i });
     await closeButton.click();
     await expect(dialog).toBeHidden({ timeout: TIMEOUTS.long });
 
     // Re-open and run through steps.
     await page.goto("/?showOnboarding=1&debugOnboarding=1");
     await waitForPageLoad(page);
-    await expect(page.getByText(/your daily surf report starts here/i)).toBeVisible({
+    await expect(page.getByText(/where do you surf/i)).toBeVisible({
       timeout: TIMEOUTS.long,
     });
 
-    // Step 1: Home beach
-    await page.getByLabel(/search for your beach/i).fill("Blacks");
+    // Step 1: Home beach — label is now uppercase tracking text
+    await page.locator('#beachSearch').fill("Blacks");
 
-    // Home beach results are rendered as buttons in an absolute dropdown beneath the input.
+    // Home beach results are rendered as buttons in a dark dropdown beneath the input.
     // Click the first result row (most relevant match).
     const resultsDropdown = page.locator("div.absolute.z-10.w-full").first();
     const firstBeachOption = resultsDropdown
@@ -67,7 +67,11 @@ test.describe("Onboarding - close + view full forecast", () => {
     await expect(firstBeachOption).toBeVisible({ timeout: TIMEOUTS.long });
     await firstBeachOption.click();
 
-    // Step 2: Level + Time
+    // Beach celebration: 500ms pause before auto-advancing
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- deliberate UX celebration delay
+    await page.waitForTimeout(800);
+
+    // Step 2: Level + Time (copy changed: "What kind of surfer are you?")
     await expect(page.getByTestId("level-and-time-step")).toBeVisible({
       timeout: TIMEOUTS.long,
     });
@@ -80,11 +84,11 @@ test.describe("Onboarding - close + view full forecast", () => {
       timeout: TIMEOUTS.long,
     });
 
-    // Debug harness bypasses save and should navigate to home page.
+    // Debug harness bypasses save — CTA text is now "See your full forecast →"
     await page.getByTestId("complete-onboarding-button").click();
 
     // After completing onboarding, router.push does a soft navigation.
-    // Wait for the dialog to close and home page content to appear.
+    // Wait for the overlay to close and home page content to appear.
     await expect(page.getByRole("dialog")).toBeHidden({ timeout: TIMEOUTS.long });
 
     // Home screen content should be present - check for new UI elements

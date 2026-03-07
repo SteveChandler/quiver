@@ -13,9 +13,6 @@ jest.mock("@/store/onboarding-store");
 jest.mock("next/navigation", () => ({
   useSearchParams: jest.fn(),
 }));
-jest.mock("@/components/onboarding/stepper", () => ({
-  Stepper: () => <div data-testid="stepper" />,
-}));
 jest.mock("@/components/onboarding/steps/home-beach-step", () => ({
   HomeBeachStep: () => <div data-testid="home-beach-step" />,
 }));
@@ -28,9 +25,38 @@ jest.mock("@/components/onboarding/steps/payoff-step", () => ({
 jest.mock("@/hooks/use-onboarding-tracking", () => ({
   useOnboardingTracking: jest.fn(),
 }));
+jest.mock("@/hooks/use-reduced-motion", () => ({
+  useReducedMotion: () => false,
+}));
 jest.mock("@/actions/onboarding-actions", () => ({
   skipOnboarding: jest.fn(),
 }));
+jest.mock("framer-motion", () => {
+  const React = require("react");
+  return {
+    motion: {
+      div: React.forwardRef(
+        (props: Record<string, unknown>, ref: React.Ref<HTMLDivElement>) => {
+          const {
+            animate: _a,
+            initial: _i,
+            exit: _e,
+            variants: _v,
+            custom: _c,
+            transition: _t,
+            whileTap: _wt,
+            whileHover: _wh,
+            ...rest
+          } = props;
+          return <div ref={ref} {...rest} />;
+        }
+      ),
+    },
+    AnimatePresence: ({ children }: { children: React.ReactNode }) => (
+      <>{children}</>
+    ),
+  };
+});
 
 describe("OnboardingDialog Logic", () => {
   const mockOpenDialog = jest.fn();
@@ -63,7 +89,7 @@ describe("OnboardingDialog Logic", () => {
   it("opens dialog for new user (no profile)", () => {
     jest.useFakeTimers();
     render(<OnboardingDialog />);
-    
+
     // Fast-forward timers for setTimeout
     act(() => {
       jest.runAllTimers();
@@ -104,7 +130,7 @@ describe("OnboardingDialog Logic", () => {
 
     jest.useFakeTimers();
     render(<OnboardingDialog />);
-    
+
     act(() => {
       jest.runAllTimers();
     });
@@ -121,7 +147,7 @@ describe("OnboardingDialog Logic", () => {
 
     jest.useFakeTimers();
     render(<OnboardingDialog />);
-    
+
     act(() => {
       jest.runAllTimers();
     });
@@ -140,7 +166,7 @@ describe("OnboardingDialog Logic", () => {
 
     jest.useFakeTimers();
     render(<OnboardingDialog />);
-    
+
     act(() => {
       jest.runAllTimers();
     });
@@ -157,7 +183,7 @@ describe("OnboardingDialog Logic", () => {
 
     jest.useFakeTimers();
     render(<OnboardingDialog />);
-    
+
     act(() => {
       jest.runAllTimers();
     });
@@ -170,5 +196,61 @@ describe("OnboardingDialog Logic", () => {
     render(<OnboardingDialog />);
     expect(mockCheckUserId).toHaveBeenCalledWith("user-123");
   });
-});
 
+  it("renders full-screen overlay with role=dialog when open", () => {
+    (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
+      isOpen: true,
+      isCompleted: false,
+      currentStep: 0,
+      openDialog: mockOpenDialog,
+      reset: mockReset,
+      checkUserId: mockCheckUserId,
+      closeDialog: jest.fn(),
+      setCurrentStep: jest.fn(),
+    });
+    (useSearchParams as jest.Mock).mockReturnValue({
+      get: (key: string) => (key === "showOnboarding" ? "1" : null),
+    });
+
+    render(<OnboardingDialog />);
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toBeInTheDocument();
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(dialog).toHaveAttribute("aria-label", "Set up your surf profile");
+  });
+
+  it("renders skip button that is hidden on payoff step", () => {
+    // Step 0 - skip button visible
+    (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
+      isOpen: true,
+      isCompleted: false,
+      currentStep: 0,
+      openDialog: mockOpenDialog,
+      reset: mockReset,
+      checkUserId: mockCheckUserId,
+      closeDialog: jest.fn(),
+      setCurrentStep: jest.fn(),
+    });
+    (useSearchParams as jest.Mock).mockReturnValue({
+      get: (key: string) => (key === "showOnboarding" ? "1" : null),
+    });
+
+    const { rerender } = render(<OnboardingDialog />);
+    expect(screen.getByLabelText("Skip onboarding")).toBeInTheDocument();
+
+    // Step 2 (payoff) - skip button hidden
+    (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
+      isOpen: true,
+      isCompleted: false,
+      currentStep: 2,
+      openDialog: mockOpenDialog,
+      reset: mockReset,
+      checkUserId: mockCheckUserId,
+      closeDialog: jest.fn(),
+      setCurrentStep: jest.fn(),
+    });
+
+    rerender(<OnboardingDialog />);
+    expect(screen.queryByLabelText("Skip onboarding")).not.toBeInTheDocument();
+  });
+});

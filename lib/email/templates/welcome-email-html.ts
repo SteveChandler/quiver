@@ -75,15 +75,19 @@ export function generateWelcomeEmailHtml(params: WelcomeEmailParams): string {
 </head>
 <body style="font-family: ${FONT_FAMILY}; max-width: 600px; margin: 0 auto; padding: 20px; color: ${COLORS.text};">
   <p style="font-size: 16px; color: ${COLORS.text}; margin-bottom: 8px;">
-    You know that 5am moment — alarm goes off, and you're still not sure if it's actually worth it.
+    Your Quiver account is live — you're officially a Level 1 Kook.
+  </p>
+
+  <p style="font-size: 16px; color: ${COLORS.text}; margin-bottom: 8px;">
+    Your home beach forecast is waiting. Every session you log levels you up and makes it smarter.
   </p>
 
   <p style="font-size: 16px; color: ${COLORS.text}; margin-bottom: 24px;">
-    Quiver just tells you. Yes or no. Best window. That's it.
+    You know that 5am moment — alarm goes off, and you're still not sure if it's actually worth it. Quiver just tells you. Yes or no. Best window. That's it.
   </p>
 
   <p style="font-size: 14px; color: ${COLORS.textSecondary}; margin-bottom: 20px;">
-    To dial it in, I just need a few things:
+    Help me dial in your forecast:
   </p>
 
   <div style="margin-bottom: 24px;">
@@ -107,7 +111,7 @@ export function generateWelcomeEmailHtml(params: WelcomeEmailParams): string {
   </div>
 
   <p style="color: ${COLORS.textTertiary}; font-size: 14px; margin-top: 24px;">
-    Or just <a href="${baseUrl}" style="color: ${COLORS.primary}; text-decoration: none;">check out the app →</a>
+    Or just <a href="${baseUrl}" style="color: ${COLORS.primary}; text-decoration: none;">check your forecast now →</a>
   </p>
 
   <p style="color: ${COLORS.text}; font-size: 14px; margin-top: 32px;">
@@ -126,11 +130,13 @@ export function generateWelcomeEmailText(params: WelcomeEmailParams): string {
   const baseUrl = rawBaseUrl.trim();
 
   return `
-You know that 5am moment — alarm goes off, and you're still not sure if it's actually worth it.
+Your Quiver account is live — you're officially a Level 1 Kook.
 
-Quiver just tells you. Yes or no. Best window. That's it.
+Your home beach forecast is waiting. Every session you log levels you up and makes it smarter.
 
-To dial it in, I just need a few things:
+You know that 5am moment — alarm goes off, and you're still not sure if it's actually worth it. Quiver just tells you. Yes or no. Best window. That's it.
+
+Help me dial in your forecast:
 
 When do you usually surf?
 - Dawn patrol: ${baseUrl}/api/prefs/set?time=dawn&token=${token}
@@ -149,10 +155,10 @@ How often should I email?
 Home break?
 ${baseUrl}/prefs/home-beach?token=${token}
 
-Or just check out the app: ${baseUrl}
+Or check your forecast now: ${baseUrl}
 
 — Steven
   `.trim();
 }
 
-export const WELCOME_EMAIL_SUBJECT = "You're in";
+export const WELCOME_EMAIL_SUBJECT = "Your forecast is live";

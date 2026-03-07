@@ -239,6 +239,17 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
   const isEvening = isEveningInTimezone(timezone);
   const headline = buildHeadlineText(beach.name, tier, isTomorrow, timeSlot, isEvening);
 
+  // Override headline when showing the user's home beach
+  if (homeBeachId && homeBeachId === beach.id) {
+    if (tier === "great" || tier === "good") {
+      headline.prefix = "Your beach is firing";
+      headline.beachPart = "";
+    } else {
+      headline.prefix = "Your spot: ";
+      headline.beachPart = beach.name;
+    }
+  }
+
   return (
     <div className="space-y-4 px-4 sm:px-1" data-testid="hero-recommendation">
       {/* Main headline */}

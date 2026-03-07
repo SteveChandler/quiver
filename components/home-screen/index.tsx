@@ -17,6 +17,8 @@ import { track } from "@/lib/analytics";
 import { toast } from "sonner";
 import { getProfileStrength } from "@/actions/dashboard-actions";
 import { getPersonalizationStatus } from "@/actions/personalization-actions";
+import { getUserXPStatus } from "@/lib/gamification/gamification-actions";
+import { LEVEL_THRESHOLDS } from "@/lib/gamification/constants";
 import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
 import { usePersonalizationMilestones } from "@/hooks/use-personalization-milestones";
 import type { TimeSlot } from "@/types/personalization";
@@ -70,6 +72,11 @@ import { buildQuickLogUrl } from "./first-session-cta";
 import type { ReminderResult } from "@/hooks/use-reminder-handler";
 
 const DEFAULT_LOCATION = { lat: 32.715, lon: -117.161 }; // San Diego
+
+function getLevelTitle(xp: number): string {
+  const level = [...LEVEL_THRESHOLDS].reverse().find((l) => xp >= l.xp_required);
+  return level?.title || LEVEL_THRESHOLDS[0].title;
+}
 
 export function HomeScreen() {
   const router = useRouter();
@@ -152,6 +159,18 @@ export function HomeScreen() {
     initialData: null,
   });
   const personalizationStatus = personalizationResponse?.data ?? null;
+
+  // Fetch user XP status for level badge in greeting
+  const fetchUserXP = useCallback(async () => {
+    if (!profile) return null;
+    return await getUserXPStatus();
+  }, [profile]);
+  const { data: xpResponse } = useDataFetcher(fetchUserXP, {
+    skip: !profile,
+    initialData: null,
+  });
+  const userXP = xpResponse?.data ?? null;
+  const xpLevelTitle = userXP ? getLevelTitle(userXP.xp_total) : null;
 
   // Deliver personalization milestone toasts
   usePersonalizationMilestones(!!profile);
@@ -369,6 +388,8 @@ export function HomeScreen() {
             <GreetingSection
               userName={profile?.full_name || null}
               timeOfDay={timeOfDay}
+              levelTitle={xpLevelTitle}
+              xpTotal={userXP?.xp_total ?? null}
             />
           </motion.section>
 

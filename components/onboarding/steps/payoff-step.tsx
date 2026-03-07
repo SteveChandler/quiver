@@ -2,29 +2,53 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { motion, useMotionValue, useSpring } from 'framer-motion';
+import confetti from 'canvas-confetti';
 import { useOnboardingStore } from '@/store/onboarding-store';
 import { useProfileContext } from '@/context/profile-context';
 import { useForecastPreview } from '@/hooks/use-forecast-preview';
 import { saveOnboardingData } from '@/actions/onboarding-actions';
 import { data as dataClient } from '@/lib/data/client';
 import { getLocalDateString } from '@/lib/utils/timezone-utils';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2, MapPin, Sparkles, Waves, Wind } from 'lucide-react';
 import { toast } from 'sonner';
+import { useReducedMotion } from '@/hooks/use-reduced-motion';
+import { LEVEL_THRESHOLDS } from '@/lib/gamification/constants';
 import type { Profile } from '@/types/database';
 import type { ClientBeachDailyIntel } from '@/lib/data/client';
+
+// Animated score counter — displays a spring-animated number
+function AnimatedScore({ target }: { target: number }) {
+  const motionValue = useMotionValue(0);
+  const springValue = useSpring(motionValue, { stiffness: 80, damping: 20 });
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    motionValue.set(target);
+    const unsubscribe = springValue.on('change', (v) => {
+      setDisplay(Math.round(v));
+    });
+    return unsubscribe;
+  }, [target, motionValue, springValue]);
+
+  return <span>{display}</span>;
+}
 
 export function PayoffStep() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data, completeOnboarding } = useOnboardingStore();
   const { updateProfile } = useProfileContext();
+  const reducedMotion = useReducedMotion();
 
   const [isSaving, setIsSaving] = useState(true);
   const [saveSucceeded, setSaveSucceeded] = useState(false);
   const [intel, setIntel] = useState<ClientBeachDailyIntel | null>(null);
   const [intelLoading, setIntelLoading] = useState(true);
+
+  // Beat reveal state: 0 = loading, 1 = beat1 visible, 2 = beat2 visible, 3 = beat3 visible
+  const [beat, setBeat] = useState(0);
 
   const isDebugOnboarding =
     searchParams?.get('debugOnboarding') === '1' &&
@@ -104,6 +128,37 @@ export function PayoffStep() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const isLoading = isSaving || intelLoading || forecastLoading;
+
+  // Start reveal beats once content is loaded
+  useEffect(() => {
+    if (isLoading) return;
+
+    if (reducedMotion) {
+      // Show everything immediately
+      setBeat(2);
+      return;
+    }
+
+    // Beat 1: immediate — beach name + conditions card
+    setBeat(1);
+
+    // Beat 2: 500ms — XP badge + confetti
+    const t2 = setTimeout(() => {
+      setBeat(2);
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.65 },
+        colors: ['#F78E42', '#FFB703', '#FFFFFF', '#00B4D8', '#FF6B6B'],
+      });
+    }, 500);
+
+    return () => {
+      clearTimeout(t2);
+    };
+  }, [isLoading, reducedMotion]);
+
   const handleFinish = async () => {
     // If save hasn't succeeded yet, retry
     if (!saveSucceeded && !isDebugOnboarding) {
@@ -138,152 +193,171 @@ export function PayoffStep() {
     }
   };
 
-  const getScoreColor = (score: number | null) => {
-    if (!score) return 'text-gray-600';
-    if (score >= 7) return 'text-green-600';
-    if (score >= 5) return 'text-yellow-600';
-    return 'text-orange-600';
-  };
-
-  const isLoading = isSaving || intelLoading || forecastLoading;
+  const conditionsScore = intel?.conditions_score ?? null;
+  const kookTitle = LEVEL_THRESHOLDS[0].title;
 
   return (
     <div className="space-y-6" data-testid="payoff-step">
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-4">
-        <MapPin className="h-5 w-5 text-ocean-blue" />
-        <h2 className="text-xl font-bold">
-          {data.homeBeachName || 'Your Home Beach'}
-        </h2>
-      </div>
-
       {/* Loading State */}
       {isLoading ? (
         <div className="space-y-4">
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-32 w-full" />
-          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-6 w-48 bg-white/10" />
+          <Skeleton className="h-32 w-full bg-white/10" />
+          <Skeleton className="h-16 w-full bg-white/10" />
         </div>
       ) : (
         <>
-          {/* Best Window Card (when intel is available) */}
-          {intel && (intel.best_window_start || intel.surf_description) && (
-            <div className="bg-gradient-to-br from-sky-50 to-blue-50 border border-sky-200 rounded-lg p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Your Best Window
-                </p>
-                {intel.conditions_score !== null && (
-                  <span
-                    className={`text-sm font-bold ${getScoreColor(intel.conditions_score)}`}
-                  >
-                    {intel.conditions_score}/10
+          {/* Beat 1: Heading + Conditions Card */}
+          {beat >= 1 && (
+            <motion.div
+              initial={reducedMotion ? false : { opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: 'easeOut' }}
+              className="space-y-4"
+            >
+              <div className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-[#F78E42]" />
+                <h2 className="text-white font-roboto text-2xl font-bold">
+                  You&apos;re set up for {data.homeBeachName || 'your home beach'}
+                </h2>
+              </div>
+
+              {/* Best Window Card (when intel is available) */}
+              {intel && (intel.best_window_start || intel.surf_description) && (
+                <div className="bg-white/10 border border-white/20 rounded-lg p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/60">
+                      Your Best Window
+                    </p>
+                    {conditionsScore !== null && (
+                      <span className="text-sm font-bold text-[#F78E42]">
+                        <AnimatedScore target={conditionsScore} />/10
+                      </span>
+                    )}
+                  </div>
+
+                  {intel.best_window_start && intel.best_window_end && (
+                    <p className="text-white text-2xl font-bold">
+                      {formatTime(intel.best_window_start)} —{' '}
+                      {formatTime(intel.best_window_end)}
+                    </p>
+                  )}
+
+                  <div className="flex items-center gap-4 text-sm">
+                    {intel.surf_min_ft !== null && intel.surf_max_ft !== null && (
+                      <div className="flex items-center gap-1">
+                        <Waves className="h-4 w-4 text-white/60" />
+                        <span className="text-white">
+                          {intel.surf_min_ft}-{intel.surf_max_ft} ft
+                        </span>
+                      </div>
+                    )}
+                    {intel.wind_quality && intel.wind_speed_mph !== null && (
+                      <div className="flex items-center gap-1">
+                        <Wind className="h-4 w-4 text-white/60" />
+                        <span className="text-white">
+                          {intel.wind_quality} {intel.wind_speed_mph}mph
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {intel.best_window_description && (
+                    <p className="text-sm italic text-white/60">
+                      {intel.best_window_description}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Fallback Card (when no intel, using forecastPreview) */}
+              {!intel && forecastPreview && (
+                <div className="bg-white/10 border border-white/20 rounded-lg p-6 space-y-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-white/60">
+                    Today&apos;s Conditions
+                  </p>
+
+                  <div className="space-y-2">
+                    {forecastPreview.wave_height && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Waves className="h-4 w-4 text-white/60" />
+                        <span className="text-white">{forecastPreview.wave_height}</span>
+                      </div>
+                    )}
+                    {(forecastPreview.wind_speed || forecastPreview.wind_direction) && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Wind className="h-4 w-4 text-white/60" />
+                        <span className="text-white">
+                          {forecastPreview.wind_speed}{' '}
+                          {forecastPreview.wind_direction}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="text-sm italic text-white/60">
+                    Full forecast available on your home page
+                  </p>
+                </div>
+              )}
+
+              {/* No Data State */}
+              {!intel && !forecastPreview && (
+                <div className="bg-white/10 border border-white/20 rounded-lg p-6">
+                  <p className="text-sm text-white/60">
+                    Your personalized forecast is ready on the home page
+                  </p>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* Beat 2: XP Badge + CTA */}
+          {beat >= 2 && (
+            <motion.div
+              initial={reducedMotion ? false : { opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={
+                reducedMotion
+                  ? { duration: 0 }
+                  : { type: 'spring', stiffness: 300, damping: 18 }
+              }
+              className="space-y-4"
+            >
+              {/* XP Badge */}
+              <div className="bg-white/10 border border-white/20 rounded-lg p-3 flex items-center gap-3">
+                <Sparkles className="h-5 w-5 text-[#F78E42]" />
+                <div>
+                  <p className="font-bold text-sm text-white">
+                    +100 XP &middot; {kookTitle}
+                  </p>
+                  <p className="text-xs text-white/60">
+                    Welcome to the surf community
+                  </p>
+                </div>
+              </div>
+
+              {/* CTA Button */}
+              <motion.button
+                onClick={handleFinish}
+                disabled={isSaving}
+                initial={reducedMotion ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: reducedMotion ? 0 : 0.2, duration: 0.3 }}
+                className="w-full py-3.5 rounded-lg bg-gradient-to-r from-[#F78E42] to-[#D57835] text-white font-semibold text-sm disabled:opacity-50 transition-opacity"
+                data-testid="complete-onboarding-button"
+              >
+                {isSaving ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Setting up...
                   </span>
+                ) : (
+                  'See your full forecast \u2192'
                 )}
-              </div>
-
-              {intel.best_window_start && intel.best_window_end && (
-                <p className="text-2xl font-bold">
-                  {formatTime(intel.best_window_start)} —{' '}
-                  {formatTime(intel.best_window_end)}
-                </p>
-              )}
-
-              <div className="flex items-center gap-4 text-sm">
-                {intel.surf_min_ft !== null && intel.surf_max_ft !== null && (
-                  <div className="flex items-center gap-1">
-                    <Waves className="h-4 w-4 text-ocean-blue" />
-                    <span>
-                      {intel.surf_min_ft}-{intel.surf_max_ft} ft
-                    </span>
-                  </div>
-                )}
-                {intel.wind_quality && intel.wind_speed_mph !== null && (
-                  <div className="flex items-center gap-1">
-                    <Wind className="h-4 w-4 text-sky-600" />
-                    <span>
-                      {intel.wind_quality} {intel.wind_speed_mph}mph
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {intel.best_window_description && (
-                <p className="text-sm italic text-muted-foreground">
-                  {intel.best_window_description}
-                </p>
-              )}
-            </div>
+              </motion.button>
+            </motion.div>
           )}
-
-          {/* Fallback Card (when no intel, using forecastPreview) */}
-          {!intel && forecastPreview && (
-            <div className="bg-gradient-to-br from-sky-50 to-blue-50 border border-sky-200 rounded-lg p-6 space-y-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Today&apos;s Conditions
-              </p>
-
-              <div className="space-y-2">
-                {forecastPreview.wave_height && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Waves className="h-4 w-4 text-ocean-blue" />
-                    <span>{forecastPreview.wave_height}</span>
-                  </div>
-                )}
-                {(forecastPreview.wind_speed || forecastPreview.wind_direction) && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Wind className="h-4 w-4 text-sky-600" />
-                    <span>
-                      {forecastPreview.wind_speed}{' '}
-                      {forecastPreview.wind_direction}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <p className="text-sm italic text-muted-foreground">
-                Full forecast available on your home page
-              </p>
-            </div>
-          )}
-
-          {/* No Data State */}
-          {!intel && !forecastPreview && (
-            <div className="bg-gradient-to-br from-sky-50 to-blue-50 border border-sky-200 rounded-lg p-6">
-              <p className="text-sm text-muted-foreground">
-                Your personalized forecast is ready on the home page
-              </p>
-            </div>
-          )}
-
-          {/* XP Badge */}
-          <div className="bg-gradient-to-r from-green-50 to-teal-50 rounded-lg p-3 border border-green-200 flex items-center gap-3">
-            <Sparkles className="h-5 w-5 text-green-600" />
-            <div>
-              <p className="font-bold text-sm">+100 XP earned!</p>
-              <p className="text-xs text-muted-foreground">
-                Welcome to the surf community
-              </p>
-            </div>
-          </div>
-
-          {/* CTA Button */}
-          <Button
-            onClick={handleFinish}
-            size="lg"
-            className="w-full"
-            disabled={isSaving}
-            data-testid="complete-onboarding-button"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Setting up...
-              </>
-            ) : (
-              'Check Full Forecast'
-            )}
-          </Button>
         </>
       )}
     </div>

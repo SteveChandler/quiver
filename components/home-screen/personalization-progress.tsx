@@ -105,9 +105,9 @@ export function PersonalizationProgress({
 
   switch (stage) {
     case "getting_started":
-      headline = "Your forecasts are getting smarter";
+      headline = "We're dialed in on your spot and schedule";
       body =
-        "Onboarding prefs are active. Log a session or post intel to start training the algorithm.";
+        "Log a session and your forecast starts learning what you like. Five sessions and it's all yours.";
       ctaLabel = "Log a Session";
       ctaHref = "/sessions/new?mode=log";
       showIntelPrompt = status.intelPostCount === 0;
@@ -134,9 +134,9 @@ export function PersonalizationProgress({
     }
   }
 
-  // Progress percentage (simple: sessionCount capped at SESSIONS_FOR_PERSONALIZED)
+  // Progress percentage (endowed progress effect: starts at 20%, scales to 100%)
   const progressPercent = Math.min(
-    (status.sessionCount / SESSIONS_FOR_PERSONALIZED) * 100,
+    (status.sessionCount / SESSIONS_FOR_PERSONALIZED) * 80 + 20,
     100
   );
 
@@ -151,7 +151,7 @@ export function PersonalizationProgress({
         animate={{ opacity: 1, y: 0 }}
         exit={reducedMotion ? undefined : { opacity: 0, y: -8 }}
         transition={reducedMotion ? { duration: 0 } : { duration: 0.3 }}
-        className="relative overflow-hidden rounded-2xl border border-blue-200/30 dark:border-[#1E2D4A] bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-[#111D35] dark:via-[#0F1A2E] dark:to-[#111D35] p-5 shadow-sm"
+        className="relative overflow-hidden rounded-2xl border border-blue-200/30 dark:border-[#404C92] bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-[#2D357D] dark:via-[#0F1A2E] dark:to-[#2D357D] p-5 shadow-sm"
         data-testid="personalization-progress"
       >
         {/* Dismiss button */}
@@ -166,7 +166,7 @@ export function PersonalizationProgress({
 
         {/* Header */}
         <div className="flex items-center gap-2 mb-2 pr-8">
-          <StageIcon className="h-5 w-5 text-blue-600 dark:text-[#FF3B8B] shrink-0" />
+          <StageIcon className="h-5 w-5 text-blue-600 dark:text-[#F78E42] shrink-0" />
           <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">{headline}</h3>
         </div>
 

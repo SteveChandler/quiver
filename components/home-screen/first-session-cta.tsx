@@ -46,13 +46,13 @@ export function FirstSessionCta({ onLogSession }: FirstSessionCtaProps) {
       <div className="flex items-center gap-2">
         <Sparkles className="h-5 w-5 text-orange-400 shrink-0" />
         <h2 className="text-base sm:text-lg font-roboto font-semibold text-white">
-          Log your first session
+          Did you surf recently?
         </h2>
       </div>
 
       {/* Body */}
       <p className="text-sm text-white/60 leading-relaxed">
-        Your forecasts get smarter with every session you track.
+        Log it in 30 seconds. Your forecast starts learning what you like.
       </p>
 
       {/* CTA Button */}
@@ -70,7 +70,7 @@ export function FirstSessionCta({ onLogSession }: FirstSessionCtaProps) {
 
       {/* Friction reducer */}
       <p className="text-xs text-white/40 text-center">
-        Takes about 30 seconds
+        Just pick your spot and rate the waves
       </p>
     </motion.div>
   );
