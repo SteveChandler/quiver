@@ -29,8 +29,9 @@ from open_meteo_service import OpenMeteoService
 from config import (
     MODEL_PATH, MODEL_VERSION, INTERNAL_SECRET,
     FALLBACK_MODEL_PATH, USE_ENSEMBLE, OPEN_METEO_TIMEOUT_MS,
-    CANDIDATE_VERSION, CANDIDATE_PATH
+    CANDIDATE_VERSION, CANDIDATE_PATH,
 )
+from guardrails import apply_guardrails
 
 # ----- Constants -----
 MAX_BATCH_SIZE = 1000
@@ -738,23 +739,12 @@ async def train_model(request: TrainRequest):
         predicted_bias = model_trained.predict(X_holdout)
         raw_forecast = df_holdout['forecast_height_m'].values
 
-        # v3 guardrails: 75% max (was 50%), 0.2m floor (was 0.5m)
-        max_bias = np.maximum(np.abs(raw_forecast) * request.config.max_bias_pct, request.config.bias_floor_m)
-        clipped_bias = np.clip(predicted_bias, -max_bias, max_bias)
-        clipped_bias = np.clip(clipped_bias, -1.5, 1.5)
-        # Small-wave safety: don't more than double sub-0.5m forecasts
-        small_mask = np.abs(raw_forecast) < 0.5
-        if small_mask.any():
-            small_cap = np.abs(raw_forecast)
-            clipped_bias = np.where(
-                small_mask,
-                np.clip(clipped_bias, -small_cap, small_cap),
-                clipped_bias
-            )
-        # No-correction zone
-        clipped_bias[np.abs(clipped_bias) < 0.03] = 0.0
-        corrected = raw_forecast + clipped_bias
-        corrected = np.clip(corrected, 0.01, 15.0)
+        corrected, clipped_bias = apply_guardrails(
+            physics_forecast=raw_forecast,
+            predicted_bias=predicted_bias,
+            max_bias_pct=request.config.max_bias_pct,
+            bias_floor_m=request.config.bias_floor_m,
+        )
 
         # Bucket evaluation
         bucket_results = evaluate_buckets(df_holdout, corrected)

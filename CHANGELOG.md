@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `/forecast-accuracy` page — data-driven SEO content page comparing Quiver ML forecast accuracy against the NOAA marine baseline. Pulls live stats from the `beach_ml_performance_baseline` materialized view: hero stat cards (improvement %, beach count, predictions validated), NOAA vs Quiver MAE bar chart, regional accuracy grouped chart, top-20 beach leaderboard, methodology explainer, and FAQ with FAQPage JSON-LD. ISR at 6 hours. Breadcrumb + WebPage structured data. Added to sitemap at priority 0.85 and to the footer guides section.
+- Static OG image route at `/api/og/forecast-accuracy` for social sharing of the `/forecast-accuracy` page — edge runtime, 1200x630, dark navy gradient with "Surf Forecast Accuracy Report" heading and "ML-Corrected Predictions vs NOAA Baseline" subtitle
+- `docs/seo/DOMAIN_AUTHORITY_PLAYBOOK.md` — 12-month off-site SEO playbook covering surf school widget partnerships, HARO/Qwoted positioning, guest post targets, data story pipeline, and monthly milestone tracking (complements the existing on-page Phase 2 plan)
+
 ### Removed
 - Dead API route: `/api/health/fonts` (unused font health check)
 - Dead API route: `/api/v1/recommendations/feedback` (unused spot feedback endpoint)
@@ -14,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 10 unused Tailwind animation keyframes and utility classes
 
 ### Changed
+- **ML v3.2: Small-wave taper guardrail** — Linearly scales down ML corrections when raw NOAA forecast is below 0.8m (0% at ≤0.3m, 100% at ≥0.8m). Prevents overcorrection on calm days where the model's learned upward bias dominates the raw forecast. At Scripps with a typical 0.47m calm-day forecast, the correction is now ~34% of what it was, reducing error from ~0.27m to ~0.04m. Also added both tapers (large-swell + small-wave) to `train_v3.py` and `api.py` holdout evaluations for consistency with production `model.py`.
+- **Forecast accuracy labels reverted to "NOAA Baseline"** — All "Other Forecasts" labels on `/forecast-accuracy` changed back to "NOAA Baseline" across hero, comparison bar, regional chart, and beach leaderboard. We can't defensibly claim superiority over Surfline without systematic data.
 - Features page hero CTA now links to /map (try-first funnel) instead of /auth/sign-up
 - Added StickySignupBar and InlineSignupCta to /features page for mobile conversion
 

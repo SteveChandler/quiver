@@ -17,7 +17,7 @@ MODEL_PATH = os.getenv("MODEL_PATH", "models/bias_model_combined_v1.json")
 #   combined_v1: Initial ensemble model with NOAA + Open-Meteo
 #   v2.1: Added large swell scaling to taper corrections for waves >1.5m
 #   v3.1: Lowered taper start from 2.0m to 1.5m (data: -8.7% accuracy in 1.5-2.0m range)
-MODEL_VERSION = os.getenv("MODEL_VERSION", "v3.1")
+MODEL_VERSION = os.getenv("MODEL_VERSION", "v3.2")
 
 # Large swell scaling thresholds (v3.1)
 # v2.1: 1.5-2.5m taper (too aggressive, 0% correction at >2.5m)
@@ -27,6 +27,13 @@ MODEL_VERSION = os.getenv("MODEL_VERSION", "v3.1")
 # Linear taper: 100% correction below TAPER_START, 0% above TAPER_END
 LARGE_SWELL_TAPER_START = float(os.getenv("LARGE_SWELL_TAPER_START", "1.5"))  # meters
 LARGE_SWELL_TAPER_END = float(os.getenv("LARGE_SWELL_TAPER_END", "4.0"))      # meters
+
+# Small-wave taper thresholds (v3.2)
+# Mirror of large-swell taper. Prevents overcorrection on calm days where the
+# model's learned upward bias (+~0.35m) dominates the raw forecast.
+# Linear taper: 0% correction below TAPER_START, 100% above TAPER_END
+SMALL_WAVE_TAPER_START = float(os.getenv("SMALL_WAVE_TAPER_START", "0.3"))  # meters
+SMALL_WAVE_TAPER_END = float(os.getenv("SMALL_WAVE_TAPER_END", "0.8"))      # meters
 
 # Fallback model (NOAA-only) if Open-Meteo fetch fails or coordinates unavailable
 FALLBACK_MODEL_PATH = os.getenv("FALLBACK_MODEL_PATH", "models/bias_model_v1.json")

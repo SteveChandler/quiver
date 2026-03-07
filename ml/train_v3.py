@@ -11,6 +11,7 @@ from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 from transformers_v2 import preprocess_v2, V2_FEATURE_COLUMNS
+from guardrails import apply_guardrails
 
 # Validation gate thresholds (keep in sync with api.py)
 OVERALL_IMPROVEMENT_MIN = 50      # % of predictions that must improve
@@ -239,23 +240,10 @@ def main():
     predicted_bias = model.predict(X_holdout)
     raw_forecast = df_holdout['forecast_height_m'].values
 
-    # v3 guardrails: 75% max (was 50%), 0.2m floor (was 0.5m)
-    max_bias = np.maximum(np.abs(raw_forecast) * 0.75, 0.2)
-    clipped_bias = np.clip(predicted_bias, -max_bias, max_bias)
-    clipped_bias = np.clip(clipped_bias, -1.5, 1.5)
-    # Small-wave safety: don't more than double sub-0.5m forecasts
-    small_mask = np.abs(raw_forecast) < 0.5
-    if small_mask.any():
-        small_cap = np.abs(raw_forecast)
-        clipped_bias = np.where(
-            small_mask,
-            np.clip(clipped_bias, -small_cap, small_cap),
-            clipped_bias
-        )
-    # No-correction zone
-    clipped_bias[np.abs(clipped_bias) < 0.03] = 0.0
-    corrected = raw_forecast + clipped_bias
-    corrected = np.clip(corrected, 0.01, 15.0)
+    corrected, clipped_bias = apply_guardrails(
+        physics_forecast=raw_forecast,
+        predicted_bias=predicted_bias,
+    )
 
     # Bucket evaluation
     bucket_results = evaluate_buckets(df_holdout, corrected)
