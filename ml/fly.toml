@@ -11,7 +11,7 @@ primary_region = 'lax'
 
 [env]
   MODEL_PATH = 'models/bias_model_v3.json'
-  MODEL_VERSION = 'v3.1'
+  MODEL_VERSION = 'v3.2'
   FALLBACK_MODEL_PATH = 'models/bias_model_v2.json'
   USE_ENSEMBLE = 'false'
   PORT = '8080'
