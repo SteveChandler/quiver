@@ -11,7 +11,7 @@ interface SiteFooterProps {
  * SiteFooter - Compact server component rendered on all public content pages.
  *
  * Zero JS bundle impact (server component). Provides ~14 crawlable internal
- * links on every page for SEO internal linking and user navigation.
+ * links on every page for SEO internal linking and user navigation (5 columns).
  *
  * Rendered conditionally in root layout — hidden on auth pages and
  * authenticated app pages. The landing page uses this component with
@@ -19,7 +19,7 @@ interface SiteFooterProps {
  *
  * Props:
  * - showBrandSection: Enables the rich brand column (Quiver heading, tagline,
- *   description). Switches to a 6-column grid with the brand spanning 2 cols.
+ *   description). Switches to a 7-column grid with the brand spanning 2 cols.
  * - showSocialLinks: Adds Instagram and YouTube icon links inside the brand
  *   section. Has no effect when showBrandSection is false.
  */
@@ -43,7 +43,7 @@ export function SiteFooter({
     >
       <div className="max-w-7xl mx-auto">
         <div
-          className={`grid grid-cols-2 ${showBrandSection ? "md:grid-cols-6" : "md:grid-cols-4"} gap-8 ${showBrandSection ? "mb-10" : "mb-8"}`}
+          className={`grid grid-cols-2 ${showBrandSection ? "md:grid-cols-7" : "md:grid-cols-5"} gap-8 ${showBrandSection ? "mb-10" : "mb-8"}`}
         >
           {showBrandSection && (
             <div className="md:col-span-2">
@@ -117,11 +117,28 @@ export function SiteFooter({
             </ul>
           </div>
 
-          {/* Surf Guides */}
+          {/* Forecasts */}
           <div>
-            <h4 className={headingClass}>Surf Guides</h4>
+            <h4 className={headingClass}>Forecasts</h4>
             <ul className={listClass}>
-              {FOOTER_LINKS.guides.map((link) => (
+              {FOOTER_LINKS.forecasts.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="hover:text-white transition-colors"
+                  >
+                    {link.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Explore */}
+          <div>
+            <h4 className={headingClass}>Explore</h4>
+            <ul className={listClass}>
+              {FOOTER_LINKS.explore.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
