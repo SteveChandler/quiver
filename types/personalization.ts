@@ -70,6 +70,8 @@ export interface PersonalizedForecastWindow {
   score?: number;
   /** Peak time within the window (highest score moment) */
   peakTime?: Date;
+  /** Original forecast entity this window was derived from (used for scoring, not serialized) */
+  sourceForecast?: EnhancedForecastEntity;
 }
 
 /** Condition badge shown on recommendations */

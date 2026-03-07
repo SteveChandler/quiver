@@ -404,6 +404,7 @@ function buildResult(
     usedTideBoundaries: bestWindow.usedTideBoundaries,
     score: bestWindow.score,
     peakTime,
+    sourceForecast: bestWindow.forecast,
   };
 }
 

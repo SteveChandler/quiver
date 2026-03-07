@@ -887,3 +887,214 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     expect(result.recommendations.length).toBeGreaterThan(0);
   });
 });
+
+describe('discoverSurfSpots - Time Slot Scoring Differentiation', () => {
+  const testUserId = 'test-user-123';
+  const defaultUserLocation = { lat: 32.7157, lon: -117.1611 };
+
+  // Forecasts at different hours with different conditions
+  const calmMorningForecast: Partial<EnhancedForecastEntity> = {
+    beach_id: 'beach-1',
+    forecast_at: '2024-01-15T07:00:00Z',
+    forecast_date: '2024-01-15',
+    forecast_time: '07:00:00',
+    wave_height: '4.0',
+    wave_period: '14s',
+    wind_speed: '3',
+    wind_direction_deg: 0,
+    tide_status: 'Rising',
+    data_source: 'CDIP',
+    confidence_score: 90,
+  };
+
+  const windyAfternoonForecast: Partial<EnhancedForecastEntity> = {
+    beach_id: 'beach-1',
+    forecast_at: '2024-01-15T15:00:00Z',
+    forecast_date: '2024-01-15',
+    forecast_time: '15:00:00',
+    wave_height: '2.0',
+    wave_period: '8s',
+    wind_speed: '18',
+    wind_direction_deg: 225,
+    tide_status: 'Falling',
+    data_source: 'CDIP',
+    confidence_score: 70,
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+    const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
+
+    calculatePersonalizationBonus.mockReturnValue({
+      total: 0,
+      affinityBonus: 0,
+      personalizationBonus: 0,
+      reasons: [],
+    });
+
+    // Score differently based on the forecast passed in:
+    // calm morning forecast (wind_speed '3') scores high,
+    // windy afternoon forecast (wind_speed '18') scores low.
+    scoreBeachWithEngine.mockImplementation((_engine: any, _beach: any, forecast: any) => {
+      const windSpeed = parseInt(forecast?.wind_speed || '10', 10);
+      const isCalm = windSpeed < 10;
+      return {
+        total: isCalm ? 92 : 58,
+        subscores: {
+          waveHeightFit: isCalm ? 24 : 12,
+          periodEnergyScore: isCalm ? 18 : 10,
+          windAlignment: isCalm ? 20 : 8,
+          tideFit: isCalm ? 14 : 10,
+          affinityBonus: 0,
+          personalizationBonus: 0,
+          distancePenalty: 0,
+        },
+        matchQuality: isCalm ? 'excellent' : 'fair',
+        reasons: isCalm ? ['Glassy conditions', 'Strong swell'] : ['Onshore wind', 'Weak swell'],
+        warnings: isCalm ? [] : ['Strong onshore wind'],
+        conditionBadges: [],
+      };
+    });
+
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.forecastBatchResponse = {
+      successful: [
+        { beach: mockBeach1, forecasts: [calmMorningForecast, windyAfternoonForecast] },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+    mockState.favoriteBeaches = [];
+    mockState.favoritesError = null;
+    mockState.userPrefs = null;
+  });
+
+  test('different time slots produce different scores for the same beach via sourceForecast', async () => {
+    const { selectBestWindow: mockSelectBestWindow } = require('@/lib/services/discovery/window-selector');
+
+    // Dawn patrol: return the calm morning forecast as sourceForecast
+    mockSelectBestWindow.mockImplementation(() => ({
+      start: new Date('2024-01-15T07:00:00Z'),
+      end: new Date('2024-01-15T10:00:00Z'),
+      tide: 'Rising',
+      wind: '3 mph N',
+      waveHeight: '4 ft',
+      wavePeriod: '14s',
+      dataSource: 'CDIP',
+      confidence: 90,
+      timezone: 'America/Los_Angeles',
+      sourceForecast: calmMorningForecast,
+    }));
+
+    const dawnResult = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      timeSlot: 'dawn-patrol',
+    });
+
+    // Afternoon: return the windy afternoon forecast as sourceForecast
+    mockSelectBestWindow.mockImplementation(() => ({
+      start: new Date('2024-01-15T15:00:00Z'),
+      end: new Date('2024-01-15T18:00:00Z'),
+      tide: 'Falling',
+      wind: '18 mph SW',
+      waveHeight: '2 ft',
+      wavePeriod: '8s',
+      dataSource: 'CDIP',
+      confidence: 70,
+      timezone: 'America/Los_Angeles',
+      sourceForecast: windyAfternoonForecast,
+    }));
+
+    const afternoonResult = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      timeSlot: 'afternoon',
+    });
+
+    // Both should return recommendations
+    expect(dawnResult.recommendations.length).toBe(1);
+    expect(afternoonResult.recommendations.length).toBe(1);
+
+    const dawnScore = dawnResult.recommendations[0].score;
+    const afternoonScore = afternoonResult.recommendations[0].score;
+
+    // Dawn patrol should score much higher (calm) vs afternoon (windy)
+    expect(dawnScore).toBe(92);
+    expect(afternoonScore).toBe(58);
+    expect(dawnScore).not.toBe(afternoonScore);
+  });
+
+  test('fuzzy-match fallback picks nearest forecast when sourceForecast is absent', async () => {
+    const { selectBestWindow: mockSelectBestWindow } = require('@/lib/services/discovery/window-selector');
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+
+    // Return a window WITHOUT sourceForecast — triggers the fuzzy fallback
+    mockSelectBestWindow.mockImplementation(() => ({
+      start: new Date('2024-01-15T15:00:00Z'), // Closer to windyAfternoonForecast (15:00)
+      end: new Date('2024-01-15T18:00:00Z'),
+      tide: 'Falling',
+      wind: '18 mph SW',
+      waveHeight: '2 ft',
+      wavePeriod: '8s',
+      dataSource: 'CDIP',
+      confidence: 70,
+      timezone: 'America/Los_Angeles',
+      // No sourceForecast — fuzzy fallback must activate
+    }));
+
+    // Track which forecast the scoring engine receives
+    let receivedForecast: any = null;
+    scoreBeachWithEngine.mockImplementation((_engine: any, _beach: any, forecast: any) => {
+      receivedForecast = forecast;
+      return {
+        total: 60,
+        subscores: { waveHeightFit: 15, periodEnergyScore: 12, windAlignment: 10, tideFit: 10, affinityBonus: 0, personalizationBonus: 0, distancePenalty: 0 },
+        matchQuality: 'good',
+        reasons: ['Moderate conditions'],
+        warnings: [],
+        conditionBadges: [],
+      };
+    });
+
+    await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      timeSlot: 'afternoon',
+    });
+
+    // The fuzzy fallback should pick windyAfternoonForecast (15:00)
+    // not calmMorningForecast (07:00), since 15:00 is closer to window.start
+    expect(receivedForecast).toBeDefined();
+    expect(receivedForecast.forecast_at).toBe('2024-01-15T15:00:00Z');
+  });
+
+  test('sourceForecast is stripped from the response window', async () => {
+    const { selectBestWindow: mockSelectBestWindow } = require('@/lib/services/discovery/window-selector');
+
+    mockSelectBestWindow.mockImplementation(() => ({
+      start: new Date('2024-01-15T07:00:00Z'),
+      end: new Date('2024-01-15T10:00:00Z'),
+      tide: 'Rising',
+      wind: '3 mph N',
+      waveHeight: '4 ft',
+      wavePeriod: '14s',
+      dataSource: 'CDIP',
+      confidence: 90,
+      timezone: 'America/Los_Angeles',
+      sourceForecast: calmMorningForecast,
+    }));
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      timeSlot: 'dawn-patrol',
+    });
+
+    // sourceForecast should be deleted before building the response
+    expect(result.recommendations[0].window.sourceForecast).toBeUndefined();
+  });
+});

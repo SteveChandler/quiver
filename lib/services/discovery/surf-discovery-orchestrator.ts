@@ -519,14 +519,19 @@ async function discoverSurfSpotsInner(
       continue;
     }
 
-    // IMPORTANT: Score the same forecast entry we selected for bestWindow.
-    // The window is derived from a specific forecast timestamp, so we match it here
-    // to avoid scoring a different time slot (e.g. forecasts[0]).
-    const bestWindowForecast =
-      forecasts.find((f) => {
-        const t = new Date(f.forecast_at).getTime();
-        return t === bestWindow.start.getTime();
-      }) || forecasts[0];
+    // Use the exact forecast entity that the window selector scored.
+    // sourceForecast carries the forecast through from window selection;
+    // fuzzy-match fallback handles edge cases where it's absent.
+    const bestWindowForecast = bestWindow.sourceForecast
+      ?? forecasts.reduce((closest, f) => {
+           const fTime = new Date(f.forecast_at).getTime();
+           const closestTime = new Date(closest.forecast_at).getTime();
+           const target = bestWindow.start.getTime();
+           return Math.abs(fTime - target) < Math.abs(closestTime - target) ? f : closest;
+         }, forecasts[0]);
+
+    // Strip sourceForecast to avoid bloating the API response
+    delete bestWindow.sourceForecast;
 
     // Calculate distance
     const distanceMiles = calculateDistance(userLocation, {
