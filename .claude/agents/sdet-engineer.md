@@ -960,12 +960,12 @@ When implementing notification bell, verify:
 **Test Suites:**
 
 1. **Typography Validation**
-   - Logo uses correct font family (Roboto Bold)
+   - Logo uses correct font family (Space Grotesk Bold)
    - Logo font size correct (text-xl md:text-2xl)
    - Logo color correct (text-primary, ocean blue #0077B6)
    - Navigation links use correct font (text-sm font-medium)
    - Search placeholder uses correct font and color
-   - Button text uses Roboto font-semibold
+   - Button text uses Space Grotesk font-semibold
    - All text readable at all breakpoints
    - Font weights consistent (medium, semibold, bold)
 
@@ -1007,7 +1007,7 @@ When implementing notification bell, verify:
 
 ```typescript
 // Typography validation
-test("logo uses Roboto Bold font", async ({ page }) => {
+test("logo uses Space Grotesk Bold font", async ({ page }) => {
   await page.goto("/map");
 
   const logo = page.getByText("Quiver").first();
@@ -1019,7 +1019,7 @@ test("logo uses Roboto Bold font", async ({ page }) => {
     window.getComputedStyle(el).fontWeight
   );
 
-  expect(fontFamily).toContain("Roboto");
+  expect(fontFamily).toContain("Space Grotesk");
   expect(parseInt(fontWeight)).toBeGreaterThanOrEqual(700); // Bold
 });
 
@@ -1509,7 +1509,7 @@ npx playwright test e2e/nav-header-accessibility.spec.ts --reporter=html
 When polishing header styling and accessibility, verify:
 
 **Typography:**
-- [ ] Logo uses Roboto Bold font family
+- [ ] Logo uses Space Grotesk Bold font family
 - [ ] Logo size: text-xl md:text-2xl
 - [ ] Logo color: text-primary (ocean blue #0077B6)
 - [ ] Navigation links: text-sm font-medium
