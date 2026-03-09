@@ -3,6 +3,7 @@ import { ChevronLeft, MapPin } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { cache } from "react";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 import {
   SURF_INTENTS,
@@ -327,6 +328,19 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
   return metadata;
 }
 
+async function getCityExcludeIntents(cityName: string, state: string): Promise<IntentKey[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("beaches")
+    .select("id")
+    .ilike("city", cityName)
+    .ilike("state", state)
+    .in("crowd_level", ["Light", "Moderate"])
+    .limit(1);
+
+  return !data || data.length === 0 ? ["least-crowded"] : [];
+}
+
 export default async function IntentPage(props: IntentPageParams) {
   const params = await props.params;
   const definition = SURF_INTENTS[params.intent as SurfIntentSlug];
@@ -466,12 +480,13 @@ export default async function IntentPage(props: IntentPageParams) {
     const stateSlugLower = cityMetadata.state.toLowerCase();
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
-    const [conditionsData, beaches, cityEditorial, bestTimeToSurfUrl] =
+    const [conditionsData, beaches, cityEditorial, bestTimeToSurfUrl, excludeIntents] =
       await Promise.all([
         getBeginnerConditionsData(params.city, stateSlugLower),
         getBeginnerBeachesWithEditorial(params.city, stateSlugLower),
         getBeginnerCityEditorial(params.city, stateSlugLower),
         getBestTimeToSurfUrl(params.city, cityMetadata.cityName, cityMetadata.state),
+        getCityExcludeIntents(cityMetadata.cityName, cityMetadata.state),
       ]);
 
     const { badge: conditionsBadge, rightNow: rightNowConditions } = conditionsData;
@@ -525,6 +540,7 @@ export default async function IntentPage(props: IntentPageParams) {
           totalBeaches={beaches.length}
           baseUrl={baseUrl}
           bestTimeToSurfUrl={bestTimeToSurfUrl}
+          excludeIntents={excludeIntents.length > 0 ? excludeIntents : undefined}
         />
       </>
     );
@@ -536,10 +552,11 @@ export default async function IntentPage(props: IntentPageParams) {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
     const tidePageContent = buildIntentPageContent("tide", cityMetadata);
 
-    const [expandedTideData, tideBeachesResult, bestTimeToSurfUrl] = await Promise.all([
+    const [expandedTideData, tideBeachesResult, bestTimeToSurfUrl, excludeIntents] = await Promise.all([
       getCityTideDataExpanded(cityMetadata.cityName, cityMetadata.state),
       getBeachesByIntentAndCity("tide", cityMetadata.cityName, stateSlugLower),
       getBestTimeToSurfUrl(params.city, cityMetadata.cityName, cityMetadata.state),
+      getCityExcludeIntents(cityMetadata.cityName, cityMetadata.state),
     ]);
 
     // If expanded data unavailable, fall through to generic intent flow
@@ -609,6 +626,7 @@ export default async function IntentPage(props: IntentPageParams) {
             updatedAt="Refreshed hourly"
             baseUrl={baseUrl}
             bestTimeToSurfUrl={bestTimeToSurfUrl}
+            excludeIntents={excludeIntents.length > 0 ? excludeIntents : undefined}
           />
         </>
       );
@@ -622,11 +640,12 @@ export default async function IntentPage(props: IntentPageParams) {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
     const waterTempPageContent = buildIntentPageContent("water-temp", cityMetadata);
 
-    const [expandedWaterTempData, waterTempBeachesResult, bestTimeToSurfUrl, editorialBeaches] = await Promise.all([
+    const [expandedWaterTempData, waterTempBeachesResult, bestTimeToSurfUrl, editorialBeaches, excludeIntents] = await Promise.all([
       getCityWaterTempExpanded(cityMetadata.cityName, cityMetadata.state),
       getBeachesByIntentAndCity("water-temp", cityMetadata.cityName, stateSlugLower),
       getBestTimeToSurfUrl(params.city, cityMetadata.cityName, cityMetadata.state),
       getCityBeachEditorialData(cityMetadata.cityName, cityMetadata.state),
+      getCityExcludeIntents(cityMetadata.cityName, cityMetadata.state),
     ]);
 
     // If expanded data available, render dedicated water-temp page
@@ -692,6 +711,7 @@ export default async function IntentPage(props: IntentPageParams) {
             baseUrl={baseUrl}
             bestTimeToSurfUrl={bestTimeToSurfUrl}
             editorialBeaches={editorialBeaches}
+            excludeIntents={excludeIntents.length > 0 ? excludeIntents : undefined}
           />
         </>
       );
@@ -705,11 +725,12 @@ export default async function IntentPage(props: IntentPageParams) {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
     const dawnPatrolPageContent = buildIntentPageContent("dawn-patrol", cityMetadata);
 
-    const [sunTimesData, dawnPatrolBeachesResult, bestTimeToSurfUrl, editorialBeaches] = await Promise.all([
+    const [sunTimesData, dawnPatrolBeachesResult, bestTimeToSurfUrl, editorialBeaches, excludeIntents] = await Promise.all([
       getCitySunTimesData(cityMetadata.cityName, cityMetadata.state),
       getBeachesByIntentAndCity("dawn-patrol", cityMetadata.cityName, stateSlugLower),
       getBestTimeToSurfUrl(params.city, cityMetadata.cityName, cityMetadata.state),
       getCityBeachEditorialData(cityMetadata.cityName, cityMetadata.state),
+      getCityExcludeIntents(cityMetadata.cityName, cityMetadata.state),
     ]);
 
     if (sunTimesData) {
@@ -774,6 +795,7 @@ export default async function IntentPage(props: IntentPageParams) {
             baseUrl={baseUrl}
             bestTimeToSurfUrl={bestTimeToSurfUrl}
             editorialBeaches={editorialBeaches}
+            excludeIntents={excludeIntents.length > 0 ? excludeIntents : undefined}
           />
         </>
       );
@@ -787,11 +809,12 @@ export default async function IntentPage(props: IntentPageParams) {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
     const sunsetPageContent = buildIntentPageContent("sunset", cityMetadata);
 
-    const [sunTimesData, sunsetBeachesResult, bestTimeToSurfUrl, editorialBeaches] = await Promise.all([
+    const [sunTimesData, sunsetBeachesResult, bestTimeToSurfUrl, editorialBeaches, excludeIntents] = await Promise.all([
       getCitySunTimesData(cityMetadata.cityName, cityMetadata.state),
       getBeachesByIntentAndCity("sunset", cityMetadata.cityName, stateSlugLower),
       getBestTimeToSurfUrl(params.city, cityMetadata.cityName, cityMetadata.state),
       getCityBeachEditorialData(cityMetadata.cityName, cityMetadata.state),
+      getCityExcludeIntents(cityMetadata.cityName, cityMetadata.state),
     ]);
 
     if (sunTimesData) {
@@ -856,6 +879,7 @@ export default async function IntentPage(props: IntentPageParams) {
             baseUrl={baseUrl}
             bestTimeToSurfUrl={bestTimeToSurfUrl}
             editorialBeaches={editorialBeaches}
+            excludeIntents={excludeIntents.length > 0 ? excludeIntents : undefined}
           />
         </>
       );

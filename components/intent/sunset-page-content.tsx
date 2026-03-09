@@ -11,6 +11,7 @@ import type { SurfSpot } from "@/lib/data/surf-spots";
 import type { CitySunTimesData } from "@/actions/forecast/intent-forecast-actions";
 import type { IntentPageContent } from "@/lib/seo/intent-content-templates";
 import type { BeachEditorialItem } from "@/types/location";
+import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { SURF_INTENTS } from "@/lib/constants/surf-intents";
 import { ContinueExploring } from "@/components/shared/continue-exploring";
 import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
@@ -30,6 +31,7 @@ interface SunsetPageContentProps {
   baseUrl: string;
   bestTimeToSurfUrl?: string;
   editorialBeaches?: BeachEditorialItem[];
+  excludeIntents?: IntentKey[];
 }
 
 /**
@@ -50,6 +52,7 @@ export function SunsetPageContent({
   baseUrl,
   bestTimeToSurfUrl,
   editorialBeaches,
+  excludeIntents,
 }: SunsetPageContentProps) {
   const definition = SURF_INTENTS["sunset"];
   const faqItems = generateIntentFAQ(
@@ -173,6 +176,7 @@ export function SunsetPageContent({
             stateSlug={stateSlug}
             stateName={stateName}
             bestTimeToSurfUrl={bestTimeToSurfUrl}
+            excludeIntents={excludeIntents}
           />
 
           {/* Intent cross-links for SEO */}

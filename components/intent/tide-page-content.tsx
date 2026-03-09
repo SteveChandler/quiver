@@ -10,6 +10,7 @@ import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { SurfSpot } from "@/lib/data/surf-spots";
 import type { CityTideDataExpanded } from "@/actions/forecast/intent-forecast-actions";
 import type { IntentPageContent } from "@/lib/seo/intent-content-templates";
+import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { SURF_INTENTS } from "@/lib/constants/surf-intents";
 import { ContinueExploring } from "@/components/shared/continue-exploring";
 import { TideHeroSection } from "./tide-hero-section";
@@ -29,6 +30,7 @@ interface TidePageContentProps {
   updatedAt: string;
   baseUrl: string;
   bestTimeToSurfUrl?: string;
+  excludeIntents?: IntentKey[];
 }
 
 /**
@@ -49,6 +51,7 @@ export function TidePageContent({
   updatedAt,
   baseUrl,
   bestTimeToSurfUrl,
+  excludeIntents,
 }: TidePageContentProps) {
   const definition = SURF_INTENTS["tide"];
   const faqItems = generateIntentFAQ(
@@ -176,6 +179,7 @@ export function TidePageContent({
             stateSlug={stateSlug}
             stateName={stateName}
             bestTimeToSurfUrl={bestTimeToSurfUrl}
+            excludeIntents={excludeIntents}
           />
 
           {/* FAQ Accordion */}
