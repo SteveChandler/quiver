@@ -25,6 +25,8 @@
 
 import type { ScorerPlugin, ScorerInput, ScorerResult } from '../types';
 import { SCORER_WEIGHTS } from '../types';
+import type { SkillLevel } from '../../spot-profile/types';
+import { SKILL_WAVE_RANGES } from '../../user-preferences/skill-level';
 
 // ============================================================================
 // Configuration Types
@@ -55,6 +57,28 @@ const DEFAULT_WAVE_CONFIG: WaveHeightConfig = {
   idealMax: 5,
   absoluteMax: 8,
 };
+
+/**
+ * Get wave config adjusted for the beach's skill level.
+ *
+ * The idealMin for each skill level is derived from SKILL_WAVE_RANGES.ideal.min
+ * (canonical source in user-preferences/skill-level.ts) rather than being
+ * duplicated here. The hard gate counterpart (SKILL_LEVEL_MINIMUMS) lives in
+ * surf-call-logic.ts and is derived from SKILL_WAVE_RANGES.acceptable.min
+ * (with an intentional expert override — see that file for details).
+ *
+ * Returns DEFAULT_WAVE_CONFIG for null/unknown skill levels.
+ */
+function getWaveConfigForProfile(skillLevel: SkillLevel | null): WaveHeightConfig {
+  if (!skillLevel) return DEFAULT_WAVE_CONFIG;
+  const ranges = SKILL_WAVE_RANGES[skillLevel];
+  if (!ranges) return DEFAULT_WAVE_CONFIG;
+  return {
+    idealMin: ranges.ideal.min,
+    idealMax: DEFAULT_WAVE_CONFIG.idealMax,
+    absoluteMax: DEFAULT_WAVE_CONFIG.absoluteMax,
+  };
+}
 
 /**
  * Period thresholds for scoring tiers.
@@ -328,19 +352,6 @@ function scoreBaseConditions(input: ScorerInput, config: WaveHeightConfig): Scor
 export const baseConditionsScorer: ScorerPlugin = {
   name: 'baseConditions',
   weight: SCORER_WEIGHTS.baseConditions,
-  score: (input) => scoreBaseConditions(input, DEFAULT_WAVE_CONFIG),
+  score: (input) => scoreBaseConditions(input, getWaveConfigForProfile(input.profile.skillLevel)),
 };
 
-/**
- * Create a base conditions scorer with custom configuration.
- */
-function createBaseConditionsScorer(
-  customConfig?: Partial<WaveHeightConfig>
-): ScorerPlugin {
-  const config = { ...DEFAULT_WAVE_CONFIG, ...customConfig };
-  return {
-    name: 'baseConditions',
-    weight: SCORER_WEIGHTS.baseConditions,
-    score: (input) => scoreBaseConditions(input, config),
-  };
-}

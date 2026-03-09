@@ -21,7 +21,8 @@ import type { SpotProfile } from '../spot-profile/types';
 import type { ConditionsSnapshot, ConditionsWindow } from '../conditions/types';
 import type { UserPreferences } from '../user-preferences/types';
 import type { SkillLevel } from '../user-preferences/skill-level';
-import { getSkillLevelOrDefault } from '../user-preferences/skill-level';
+import { getSkillLevelOrDefault, SKILL_WAVE_RANGES as SKILL_WAVE_RANGES_SOURCE } from '../user-preferences/skill-level';
+import type { SkillWaveRanges } from '../user-preferences/skill-level';
 import { createSpotProfile } from '../spot-profile';
 import { createSwellComponent } from '../conditions';
 import {
@@ -260,31 +261,11 @@ export const WAVE_SIZE_SCORING_CONFIG = {
 
 /**
  * Skill-based wave height ranges.
- * Defines ideal and acceptable wave ranges for each skill level.
+ * Canonical definition lives in user-preferences/skill-level.ts.
+ * Re-exported here for backwards compatibility with existing imports.
  */
-interface SkillWaveRanges {
-  ideal: { min: number; max: number };
-  acceptable: { min: number; max: number };
-}
-
-export const SKILL_WAVE_RANGES: Record<SkillLevel, SkillWaveRanges> = {
-  beginner: {
-    ideal: { min: 1, max: 3 },
-    acceptable: { min: 0.5, max: 4 },
-  },
-  intermediate: {
-    ideal: { min: 2, max: 5 },
-    acceptable: { min: 1, max: 6 },
-  },
-  advanced: {
-    ideal: { min: 3, max: 8 },
-    acceptable: { min: 2, max: 12 },
-  },
-  expert: {
-    ideal: { min: 4, max: 12 },
-    acceptable: { min: 2, max: 20 },
-  },
-};
+export type { SkillWaveRanges };
+export const SKILL_WAVE_RANGES = SKILL_WAVE_RANGES_SOURCE;
 
 /**
  * Preference-based wave height ranges.

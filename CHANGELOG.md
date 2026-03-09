@@ -8,11 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `usePersistedDismissal` hook now accepts a `storage` option (`"local"` | `"session"`, default `"local"`); `StickySignupBar` uses `"session"` so its dismissal clears on tab close rather than persisting 7 days
+- Live cam gating for anonymous users — beach page hero shows a blurred thumbnail with `PublicContentGate` "Watch the Live Cam" CTA; authenticated users see the full stream
+- `InlineSignupCta` moved above the fold on beach pages — now renders after `BeachStatsGrid` instead of buried at the bottom of the page
 - Home screen level badge pill in `GreetingSection` — shows user's level title and total XP (e.g. "Kook · 100 XP") below the greeting when XP data is available
 - Hero recommendation "Your beach" headline override — when the recommended beach matches the user's home beach, shows "Your beach is firing" (great/good tiers) or "Your spot: {name}" (fair/marginal tiers)
 - `/forecast-accuracy` page — data-driven SEO content page comparing Quiver ML forecast accuracy against the NOAA marine baseline. Pulls live stats from the `beach_ml_performance_baseline` materialized view: hero stat cards (improvement %, beach count, predictions validated), NOAA vs Quiver MAE bar chart, regional accuracy grouped chart, top-20 beach leaderboard, methodology explainer, and FAQ with FAQPage JSON-LD. ISR at 6 hours. Breadcrumb + WebPage structured data. Added to sitemap at priority 0.85 and to the footer guides section.
 - Static OG image route at `/api/og/forecast-accuracy` for social sharing of the `/forecast-accuracy` page — edge runtime, 1200x630, dark navy gradient with "Surf Forecast Accuracy Report" heading and "ML-Corrected Predictions vs NOAA Baseline" subtitle
 - `docs/seo/DOMAIN_AUTHORITY_PLAYBOOK.md` — 12-month off-site SEO playbook covering surf school widget partnerships, HARO/Qwoted positioning, guest post targets, data story pipeline, and monthly milestone tracking (complements the existing on-page Phase 2 plan)
+
+### Fixed
+- Surf call verdict now skill-level-aware — advanced/expert beaches with tiny waves (e.g. 1.3 ft at Blacks Beach) correctly return NO instead of YES. Hard gate uses `max(break_type_min, skill_level_min)`, base conditions scorer derives `idealMin` from beach skill level, and window-level wave check prevents small-wave windows from passing when daily max is larger.
+- `user_events_event_type_check` CHECK constraint expanded from 23 to 62 event types — all share, signup/auth, session log, tour, intel, profile, and discovery events were silently failing with 500 errors because the DB constraint was not updated when new event types were added to the application code
 
 ### Removed
 - Dead API route: `/api/health/fonts` (unused font health check)
@@ -21,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 10 unused Tailwind animation keyframes and utility classes
 
 ### Changed
+- `StickySignupBar` dismissal switched from localStorage (7-day) to sessionStorage — bar reappears on new tabs/sessions instead of staying hidden for a week
+- Mobile header now shows a compact "Sign Up" pill button and hides the "Log in" ghost button (accessible via hamburger menu) — desktop retains the full contextual CTA from `getSignupCta`
 - Home screen personalization progress bar starts at 20% (endowed progress effect) instead of 0%
 - `PersonalizationProgress` `getting_started` copy updated to "We're dialed in on your spot and schedule" / "Log a session and your forecast starts learning what you like. Five sessions and it's all yours."
 - `FirstSessionCta` heading changed to "Did you surf recently?", body to "Log it in 30 seconds. Your forecast starts learning what you like.", friction reducer to "Just pick your spot and rate the waves"

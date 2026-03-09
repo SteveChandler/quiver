@@ -1120,4 +1120,85 @@ describe('computeSurfCall', () => {
       expect(result.whySentence).not.toBe('Waves too small for this spot.');
     });
   });
+
+  describe('skill-level-aware minimums', () => {
+    it('rejects 1.5ft waves at advanced beach break (min=2.0)', () => {
+      const forecasts = [makeForecast({ wave_height: '1.5 ft' })];
+      const window = makeWindow({ waveHeight: '1.5 ft', score: 75 });
+      const beach = makeBeach({ skill_level: 'advanced', break_type: 'beach break' } as Partial<Beach>);
+      const result = computeSurfCall(window, forecasts, beach);
+      expect(result.verdict).toBe('NO');
+      expect(result.whySentence).toMatch(/too small/i);
+    });
+
+    it('accepts 1.5ft waves at beginner beach break (min=1.5)', () => {
+      const forecasts = [makeForecast({ wave_height: '1.5 ft' })];
+      const window = makeWindow({ waveHeight: '1.5 ft', score: 75 });
+      const beach = makeBeach({ skill_level: 'beginner', break_type: 'beach break' } as Partial<Beach>);
+      const result = computeSurfCall(window, forecasts, beach);
+      // Should not be rejected by hard gate — break_type min is 1.5, skill min is 0.5
+      expect(result.whySentence).not.toMatch(/too small/i);
+    });
+
+    it('rejects 1.8ft waves at expert reef break (min=2.5)', () => {
+      const forecasts = [makeForecast({ wave_height: '1.8 ft' })];
+      const window = makeWindow({ waveHeight: '1.8 ft', score: 75 });
+      const beach = makeBeach({ skill_level: 'expert', break_type: 'reef break' } as Partial<Beach>);
+      const result = computeSurfCall(window, forecasts, beach);
+      expect(result.verdict).toBe('NO');
+      expect(result.whySentence).toMatch(/too small/i);
+    });
+
+    it('falls back to break_type minimum when skill_level is null', () => {
+      const forecasts = [makeForecast({ wave_height: '1.5 ft' })];
+      const window = makeWindow({ waveHeight: '1.5 ft', score: 75 });
+      const beach = makeBeach({ skill_level: null, break_type: 'beach break' } as Partial<Beach>);
+      const result = computeSurfCall(window, forecasts, beach);
+      // skill_level null → skillMin=0, break min=1.5 → max(1.5, 0) = 1.5
+      // 1.5 ft wave >= 1.5 min → not rejected
+      expect(result.whySentence).not.toMatch(/too small/i);
+    });
+
+    it('uses skill_level minimum when higher than break_type minimum', () => {
+      // Expert at beach break: max(1.5 break, 2.5 expert) = 2.5
+      const forecasts = [makeForecast({ wave_height: '2.0 ft' })];
+      const window = makeWindow({ waveHeight: '2.0 ft', score: 75 });
+      const beach = makeBeach({ skill_level: 'expert', break_type: 'beach break' } as Partial<Beach>);
+      const result = computeSurfCall(window, forecasts, beach);
+      expect(result.verdict).toBe('NO');
+      expect(result.whySentence).toMatch(/too small/i);
+    });
+  });
+
+  describe('window wave height check', () => {
+    it('rejects when daily max passes gate but window waves are too small', () => {
+      // Daily max is 3.0 (passes advanced gate of 2.0), but window has 1.3 ft
+      const forecasts = [
+        makeForecast({ wave_height: '1.3 ft', forecast_at: '2026-01-22T08:00:00Z' }),
+        makeForecast({ wave_height: '3.0 ft', forecast_at: '2026-01-22T22:00:00Z' }),
+      ];
+      const window = makeWindow({ waveHeight: '1.3 ft', score: 75 });
+      const beach = makeBeach({ skill_level: 'advanced', break_type: 'beach break' } as Partial<Beach>);
+      const result = computeSurfCall(window, forecasts, beach);
+      expect(result.verdict).toBe('NO');
+      expect(result.whySentence).toBe('Best window waves too small for this spot.');
+    });
+
+    it('passes when window waves meet the minimum', () => {
+      const forecasts = [makeForecast({ wave_height: '3.0 ft' })];
+      const window = makeWindow({ waveHeight: '3.0 ft', score: 75 });
+      const beach = makeBeach({ skill_level: 'advanced', break_type: 'beach break' } as Partial<Beach>);
+      const result = computeSurfCall(window, forecasts, beach);
+      expect(result.whySentence).not.toMatch(/too small/i);
+    });
+
+    it('skips window check when waveHeight is null', () => {
+      const forecasts = [makeForecast({ wave_height: '3.0 ft' })];
+      const window = makeWindow({ waveHeight: 'Unknown', score: 75 });
+      const beach = makeBeach({ skill_level: 'advanced', break_type: 'beach break' } as Partial<Beach>);
+      const result = computeSurfCall(window, forecasts, beach);
+      // parseMaxWaveHeight('Unknown') returns null → skip check
+      expect(result.whySentence).not.toBe('Best window waves too small for this spot.');
+    });
+  });
 });

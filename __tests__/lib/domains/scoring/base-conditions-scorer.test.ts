@@ -145,6 +145,55 @@ describe('Base Conditions Scorer', () => {
     });
   });
 
+  describe('skill-level-aware idealMin', () => {
+    it('should boost beginner beach scoring for small waves (idealMin=1)', () => {
+      // 1.5ft at beginner beach: idealMin=1, so 1.5 is IN ideal range → score 100
+      const beginnerInput = createInput({ waveHeight: 1.5 }, { skillLevel: 'beginner' });
+      // 1.5ft at intermediate beach: idealMin=2, so 1.5 is below ideal → score 75
+      const intermediateInput = createInput({ waveHeight: 1.5 }, { skillLevel: 'intermediate' });
+
+      const beginnerResult = baseConditionsScorer.score(beginnerInput);
+      const intermediateResult = baseConditionsScorer.score(intermediateInput);
+
+      expect(beginnerResult.score).toBeGreaterThan(intermediateResult.score);
+    });
+
+    it('should penalize advanced beach for small waves (idealMin=3)', () => {
+      // 1.3ft at advanced beach: idealMin=3, score = round(1.3/3 * 100) = 43
+      const advancedInput = createInput({ waveHeight: 1.3 }, { skillLevel: 'advanced' });
+      // 1.3ft at intermediate beach: idealMin=2, score = round(1.3/2 * 100) = 65
+      const intermediateInput = createInput({ waveHeight: 1.3 }, { skillLevel: 'intermediate' });
+
+      const advancedResult = baseConditionsScorer.score(advancedInput);
+      const intermediateResult = baseConditionsScorer.score(intermediateInput);
+
+      expect(advancedResult.score).toBeLessThan(intermediateResult.score);
+    });
+
+    it('should use idealMin=4 for expert beaches', () => {
+      // 2ft at expert beach: idealMin=4, height score = round(2/4 * 100) = 50
+      // Combined with 12s period (~85): 50*0.6 + 85*0.4 = 64
+      const expertInput = createInput({ waveHeight: 2 }, { skillLevel: 'expert' });
+      const result = baseConditionsScorer.score(expertInput);
+
+      expect(result.score).toBeLessThan(70);
+    });
+
+    it('should not change scoring for intermediate (idealMin=2 matches default)', () => {
+      const input = createInput({ waveHeight: 4 }, { skillLevel: 'intermediate' });
+      const result = baseConditionsScorer.score(input);
+      // 4ft@12s with idealMin=2: height=100, period=78 → 100*0.6 + 78*0.4 = 91
+      expect(result.score).toBe(91);
+    });
+
+    it('should use default config for null skill level', () => {
+      const input = createInput({ waveHeight: 4 }, { skillLevel: null });
+      const result = baseConditionsScorer.score(input);
+      // Null skillLevel → DEFAULT_WAVE_CONFIG (idealMin=2) → same as intermediate
+      expect(result.score).toBe(91);
+    });
+  });
+
   describe('regression tests', () => {
     // Lock in expected behavior to detect unintended changes during refactoring
     // These tests verify the exact scores produced by the asymptotic period formula
