@@ -181,17 +181,17 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
           </h3>
 
           {/* Time window */}
-          <p className="text-[10px] xs:text-xs text-white/60" data-testid="compact-card-time">
+          <p className="text-[10px] xs:text-xs text-medium" data-testid="compact-card-time">
             {compactTime}
             {showBestAtTag && (
-              <span className="ml-1 text-white/80">· Best at {peakTimeCasual}</span>
+              <span className="ml-1 text-high">· Best at {peakTimeCasual}</span>
             )}
           </p>
 
           {/* Conditions - stacked for mobile */}
-          <div className="space-y-0.5 text-[10px] xs:text-xs text-white/80">
+          <div className="space-y-0.5 text-[10px] xs:text-xs text-high">
             <div className="flex items-center gap-1">
-              <Ruler className="h-3 w-3 text-white/70 shrink-0" />
+              <Ruler className="h-3 w-3 text-medium shrink-0" />
               <span className="font-medium">{window.waveHeight}</span>
               {primaryBadge && (
                 <span className="text-white font-semibold bg-white/20 px-1 rounded">
@@ -200,14 +200,14 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
               )}
             </div>
             <div className="flex items-center gap-1">
-              <Wind className="h-3 w-3 text-white/70 shrink-0" />
+              <Wind className="h-3 w-3 text-medium shrink-0" />
               <span className="truncate">{window.wind}</span>
             </div>
           </div>
 
           {/* Distance */}
           {formattedDistance && (
-            <p className="text-[10px] xs:text-xs text-white/60">
+            <p className="text-[10px] xs:text-xs text-medium">
               {formattedDistance}
             </p>
           )}

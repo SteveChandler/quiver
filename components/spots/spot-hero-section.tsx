@@ -97,13 +97,13 @@ export function SpotHeroSection({
         <div className="max-w-5xl mx-auto">
           {/* Photo indicator */}
           {hasPhoto && (
-            <div className="flex items-center gap-2 text-white/80 mb-2">
+            <div className="flex items-center gap-2 text-high mb-2">
               <Camera className="w-4 h-4" />
               <span className="text-sm">Beach photo</span>
             </div>
           )}
           {!hasPhoto && hasCoordinates && (
-            <div className="flex items-center gap-2 text-white/80 mb-2">
+            <div className="flex items-center gap-2 text-high mb-2">
               <MapPin className="w-4 h-4" />
               <span className="text-sm">Location map</span>
             </div>

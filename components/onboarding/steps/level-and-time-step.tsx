@@ -44,8 +44,8 @@ export function LevelAndTimeStep() {
       {/* Section A - Experience Level */}
       <div className="space-y-4">
         <div>
-          <h2 className="text-white font-roboto text-2xl font-bold">What kind of surfer are you?</h2>
-          <p className="text-white/60 mt-1">
+          <h2 className="text-white font-heading text-2xl font-bold">What kind of surfer are you?</h2>
+          <p className="text-medium mt-1">
             We&apos;ll match conditions to your level
           </p>
         </div>
@@ -93,7 +93,7 @@ export function LevelAndTimeStep() {
                       </motion.span>
                     )}
                   </div>
-                  <div className="text-xs text-white/60 mt-1">{level.description}</div>
+                  <div className="text-xs text-medium mt-1">{level.description}</div>
                 </div>
               </motion.button>
             );
@@ -104,8 +104,8 @@ export function LevelAndTimeStep() {
       {/* Section B - When Do You Surf */}
       <div className="space-y-4">
         <div>
-          <h2 className="text-white font-roboto text-2xl font-bold">When do you surf?</h2>
-          <p className="text-white/60 mt-1">
+          <h2 className="text-white font-heading text-2xl font-bold">When do you surf?</h2>
+          <p className="text-medium mt-1">
             We&apos;ll highlight the best times for you
           </p>
         </div>
@@ -142,7 +142,7 @@ export function LevelAndTimeStep() {
                 <div className="text-3xl flex-shrink-0">{time.emoji}</div>
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-white">{time.label}</div>
-                  <div className="text-sm text-white/60">{time.description}</div>
+                  <div className="text-sm text-medium">{time.description}</div>
                 </div>
                 {isSelected && (
                   <motion.span

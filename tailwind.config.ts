@@ -15,10 +15,9 @@ const config: Config = {
         'xs': '475px',  // Extra small devices
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
-        roboto: ["var(--font-roboto)", "system-ui", "sans-serif"],
-        "open-sans": ["var(--font-open-sans)", "system-ui", "sans-serif"],
-        display: ["var(--font-display)", "cursive"],
+        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
+        heading: ["var(--font-heading)", "system-ui", "sans-serif"],
+        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
       },
       colors: {
         "ocean-blue": "#F78E42",

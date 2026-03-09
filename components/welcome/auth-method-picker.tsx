@@ -152,7 +152,7 @@ export function AuthMethodPicker({ returnTo = "/" }: AuthMethodPickerProps) {
       <Button
         variant="ghost"
         size="lg"
-        className="w-full text-white/60 hover:text-white/80 hover:bg-white/10"
+        className="w-full text-medium hover:text-white/80 hover:bg-white/10"
         onClick={() => router.push("/auth/sign-in")}
         disabled={isAnyLoading}
       >

@@ -113,13 +113,13 @@ export function BestDayHero({ bestDay, otherGoodDays, isUserSelected, isPersonal
 
                 {/* Swell period */}
                 {bestDay.period != null && (
-                  <span className="text-white/80">
+                  <span className="text-high">
                     {bestDay.period}s period
                   </span>
                 )}
 
                 {isPersonalized && (
-                  <span className="inline-flex items-center gap-1 text-xs text-white/80">
+                  <span className="inline-flex items-center gap-1 text-xs text-high">
                     <Sparkles className="h-3 w-3" />
                     Scored for you
                   </span>

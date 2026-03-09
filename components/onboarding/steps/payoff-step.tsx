@@ -217,7 +217,7 @@ export function PayoffStep() {
             >
               <div className="flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-[#F78E42]" />
-                <h2 className="text-white font-roboto text-2xl font-bold">
+                <h2 className="text-white font-heading text-2xl font-bold">
                   You&apos;re set up for {data.homeBeachName || 'your home beach'}
                 </h2>
               </div>
@@ -226,7 +226,7 @@ export function PayoffStep() {
               {intel && (intel.best_window_start || intel.surf_description) && (
                 <div className="bg-white/10 border border-white/20 rounded-lg p-6 space-y-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-white/60">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-medium">
                       Your Best Window
                     </p>
                     {conditionsScore !== null && (
@@ -246,7 +246,7 @@ export function PayoffStep() {
                   <div className="flex items-center gap-4 text-sm">
                     {intel.surf_min_ft !== null && intel.surf_max_ft !== null && (
                       <div className="flex items-center gap-1">
-                        <Waves className="h-4 w-4 text-white/60" />
+                        <Waves className="h-4 w-4 text-medium" />
                         <span className="text-white">
                           {intel.surf_min_ft}-{intel.surf_max_ft} ft
                         </span>
@@ -254,7 +254,7 @@ export function PayoffStep() {
                     )}
                     {intel.wind_quality && intel.wind_speed_mph !== null && (
                       <div className="flex items-center gap-1">
-                        <Wind className="h-4 w-4 text-white/60" />
+                        <Wind className="h-4 w-4 text-medium" />
                         <span className="text-white">
                           {intel.wind_quality} {intel.wind_speed_mph}mph
                         </span>
@@ -263,7 +263,7 @@ export function PayoffStep() {
                   </div>
 
                   {intel.best_window_description && (
-                    <p className="text-sm italic text-white/60">
+                    <p className="text-sm italic text-medium">
                       {intel.best_window_description}
                     </p>
                   )}
@@ -273,20 +273,20 @@ export function PayoffStep() {
               {/* Fallback Card (when no intel, using forecastPreview) */}
               {!intel && forecastPreview && (
                 <div className="bg-white/10 border border-white/20 rounded-lg p-6 space-y-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-white/60">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-medium">
                     Today&apos;s Conditions
                   </p>
 
                   <div className="space-y-2">
                     {forecastPreview.wave_height && (
                       <div className="flex items-center gap-2 text-sm">
-                        <Waves className="h-4 w-4 text-white/60" />
+                        <Waves className="h-4 w-4 text-medium" />
                         <span className="text-white">{forecastPreview.wave_height}</span>
                       </div>
                     )}
                     {(forecastPreview.wind_speed || forecastPreview.wind_direction) && (
                       <div className="flex items-center gap-2 text-sm">
-                        <Wind className="h-4 w-4 text-white/60" />
+                        <Wind className="h-4 w-4 text-medium" />
                         <span className="text-white">
                           {forecastPreview.wind_speed}{' '}
                           {forecastPreview.wind_direction}
@@ -295,7 +295,7 @@ export function PayoffStep() {
                     )}
                   </div>
 
-                  <p className="text-sm italic text-white/60">
+                  <p className="text-sm italic text-medium">
                     Full forecast available on your home page
                   </p>
                 </div>
@@ -304,7 +304,7 @@ export function PayoffStep() {
               {/* No Data State */}
               {!intel && !forecastPreview && (
                 <div className="bg-white/10 border border-white/20 rounded-lg p-6">
-                  <p className="text-sm text-white/60">
+                  <p className="text-sm text-medium">
                     Your personalized forecast is ready on the home page
                   </p>
                 </div>
@@ -331,7 +331,7 @@ export function PayoffStep() {
                   <p className="font-bold text-sm text-white">
                     +100 XP &middot; {kookTitle}
                   </p>
-                  <p className="text-xs text-white/60">
+                  <p className="text-xs text-medium">
                     Welcome to the surf community
                   </p>
                 </div>

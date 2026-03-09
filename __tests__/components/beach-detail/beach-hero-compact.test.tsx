@@ -60,10 +60,10 @@ describe("BeachHeroCompact Component - Phase 4 Specifications", () => {
       expect(heading).toHaveClass("text-4xl");
     });
 
-    it("should use Roboto font family", () => {
+    it("should use heading font family", () => {
       render(<BeachHeroCompact beach={mockBeach} />);
       const heading = screen.getByRole("heading", { level: 1 });
-      expect(heading).toHaveClass("font-roboto");
+      expect(heading).toHaveClass("font-heading");
     });
 
     it("should have font-bold (700 weight)", () => {

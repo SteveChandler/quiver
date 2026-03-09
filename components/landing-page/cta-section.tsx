@@ -15,7 +15,7 @@ export function CTASection() {
   if (!isLoading && user) return null;
 
   return (
-    <section className="py-20 px-4 bg-gradient-to-r from-ocean-blue to-blue-600 relative overflow-hidden">
+    <section className="py-20 px-4 bg-gradient-to-r from-ocean-blue to-blue-600 relative overflow-hidden noise-texture-strong">
       {/* Background Pattern (static; keep landing CSS-only) */}
       <div className="absolute inset-0 opacity-10">
         <div
@@ -29,12 +29,12 @@ export function CTASection() {
       </div>
 
       <div className="max-w-4xl mx-auto text-center relative z-10 animate-fade-in-up">
-        <h2 className="text-3xl md:text-4xl font-roboto font-bold text-white mb-6 animate-fade-in-up">
+        <h2 className="text-3xl md:text-4xl font-heading font-bold text-white mb-6 animate-fade-in-up">
           Ready to surf smarter?
         </h2>
 
         <p
-          className="text-xl text-white/90 mb-8 font-open-sans animate-fade-in-up"
+          className="text-xl text-high mb-8 font-sans animate-fade-in-up"
           style={{ animationDelay: "200ms" }}
         >
           Find your crew, track epic sessions, and discover amazing spots. Free to join — priceless connections.
@@ -46,7 +46,7 @@ export function CTASection() {
         >
           <Button
             size="lg"
-            className="bg-white text-ocean-blue hover:bg-gray-50 px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 motion-optimized like-button-spring ripple-effect"
+            className="bg-white text-ocean-blue hover:bg-gray-50 px-8 py-4 text-lg font-heading font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 motion-optimized like-button-spring ripple-effect"
             asChild
           >
             <Link href={preserveQueryParams("/auth/sign-up", searchParams)}>
@@ -58,7 +58,7 @@ export function CTASection() {
           <Button
             size="lg"
             variant="ghost"
-            className="border border-white/30 text-white hover:bg-white/10 px-8 py-4 text-lg font-roboto font-semibold rounded-full transition-all duration-300"
+            className="border border-white/30 text-white hover:bg-white/10 px-8 py-4 text-lg font-heading font-semibold rounded-full transition-all duration-300"
             asChild
           >
             <Link href={preserveQueryParams("/about", searchParams)}>
@@ -68,7 +68,7 @@ export function CTASection() {
         </div>
 
         <p
-          className="text-white/80 text-sm font-open-sans animate-fade-in-up"
+          className="text-high text-sm font-sans animate-fade-in-up"
           style={{ animationDelay: "600ms" }}
         >
           Free to join — no credit card required

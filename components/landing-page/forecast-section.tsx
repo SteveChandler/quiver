@@ -278,7 +278,7 @@ export function ForecastSection() {
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.25, ease: "easeInOut" }}
                 >
-                  <h2 className="text-4xl lg:text-5xl font-roboto font-semibold tracking-tight leading-[1.05] text-[#0f172a]">
+                  <h2 className="text-4xl lg:text-5xl font-heading font-semibold tracking-tight leading-[1.05] text-[#0f172a]">
                     {activeFeature.headline}
                   </h2>
                   <p className="mt-5 text-base leading-7 text-[#475569] max-w-[420px] mx-auto md:mx-0">

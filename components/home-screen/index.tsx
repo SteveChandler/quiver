@@ -365,10 +365,7 @@ export function HomeScreen() {
       <main className="flex-1 home-container pb-20 md:pb-0 overflow-auto">
         {/* Dark gradient header section */}
         <motion.div
-          className={`${reducedMotion
-            ? "bg-gradient-to-b from-header-start to-header-end"
-            : "bg-[linear-gradient(135deg,#0f172a_0%,#334155_50%,#0f172a_100%)] bg-[length:200%_200%] animate-ocean-swell"
-          } pt-8 sm:pt-10 pb-8 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 space-y-6 xs:space-y-8`}
+          className="relative overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8"
           initial={reducedMotion ? false : "hidden"}
           animate="visible"
           variants={reducedMotion ? {
@@ -380,93 +377,108 @@ export function HomeScreen() {
             },
           }}
         >
-          {/* 1. Greeting Section */}
-          <motion.section
-            className="centered-container"
-            variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
-          >
-            <GreetingSection
-              userName={profile?.full_name || null}
-              timeOfDay={timeOfDay}
-              levelTitle={xpLevelTitle}
-              xpTotal={userXP?.xp_total ?? null}
-            />
-          </motion.section>
-
-          {/* 2. Time Slot Filter */}
-          {profile && (
+          {/* Background photo */}
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: "url('/images/home-hero-bg.avif')" }}
+          />
+          {/* Dark overlay for readability */}
+          <div className={`absolute inset-0 ${reducedMotion
+            ? "bg-gradient-to-b from-header-start to-header-end"
+            : "bg-gradient-to-b from-black/60 via-black/40 to-black/70"
+          }`} />
+          {/* Noise texture on overlay */}
+          <div className="absolute inset-0 noise-texture pointer-events-none" />
+          {/* Content */}
+          <div className="relative z-10 pt-8 sm:pt-10 pb-8 px-4 sm:px-6 lg:px-8 space-y-6 xs:space-y-8">
+            {/* 1. Greeting Section */}
             <motion.section
               className="centered-container"
               variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
             >
-              <TimeSlotSelector
-                value={timeSlot}
-                onChange={handleTimeSlotChange}
-                className="mb-2"
+              <GreetingSection
+                userName={profile?.full_name || null}
+                timeOfDay={timeOfDay}
+                levelTitle={xpLevelTitle}
+                xpTotal={userXP?.xp_total ?? null}
               />
             </motion.section>
-          )}
 
-          {/* 3. Hero Recommendation */}
-          {profile && (
-            <motion.section
-              className="centered-container"
-              variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
-            >
-              <HeroRecommendation
-                recommendation={topRecommendation}
-                loading={discoveryLoading}
-                error={discoveryError ? new Error(discoveryError) : null}
-                onPlanSession={handleAtBeach}
-                onViewBeach={handleViewBeach}
-                onEnableReminder={handleHeroEnableReminder}
-                forecastAlertsEnabled={profile.notif_forecast_alerts ?? false}
-                homeBeachId={homeBeach?.id ?? null}
-                timeSlot={timeSlot}
-              />
-            </motion.section>
-          )}
-
-          {/* 4. Primary Actions (or FirstSessionCta for zero-session users) */}
-          {profile && (
-            <motion.section
-              className="centered-container"
-              variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
-            >
-              {personalizationStatus?.sessionCount === 0 ? (
-                <FirstSessionCta onLogSession={handleQuickLog} />
-              ) : topRecommendation ? (
-                <PrimaryActions
-                  topRecommendation={topRecommendation}
-                  onAtBeach={handleAtBeach}
-                  onPlanWeekend={handlePlanWeekend}
-                  disabled={discoveryLoading}
-                  shareData={shareData}
+            {/* 2. Time Slot Filter */}
+            {profile && (
+              <motion.section
+                className="centered-container"
+                variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
+              >
+                <TimeSlotSelector
+                  value={timeSlot}
+                  onChange={handleTimeSlotChange}
+                  className="mb-2"
                 />
-              ) : !discoveryLoading && discovery?.recommendations.length === 0 && timeSlot !== 'any' ? (
-                <div className="text-center py-8 px-4" data-testid="time-slot-empty-state">
-                  <p className="text-white/80 mb-3">
-                    No great {timeSlot === 'dawn-patrol' ? 'dawn patrol' : timeSlot} windows in the next 24 hours.
-                  </p>
-                  <button
-                    onClick={() => setTimeSlot('any')}
-                    className="text-white hover:text-white/90 underline text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-header-end"
-                  >
-                    Show all times
-                  </button>
-                </div>
-              ) : !discoveryLoading ? (
-                <div className="flex flex-col gap-3 px-4 sm:px-1" data-testid="fallback-actions">
-                  <button
-                    onClick={() => router.push("/map")}
-                    className="w-full h-12 sm:h-14 min-h-[44px] rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 text-white font-semibold text-sm sm:text-base border border-white/20 hover:border-white/30 shadow-sm hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-header-end"
-                  >
-                    Explore Beaches Near You
-                  </button>
-                </div>
-              ) : null}
-            </motion.section>
-          )}
+              </motion.section>
+            )}
+
+            {/* 3. Hero Recommendation */}
+            {profile && (
+              <motion.section
+                className="centered-container"
+                variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
+              >
+                <HeroRecommendation
+                  recommendation={topRecommendation}
+                  loading={discoveryLoading}
+                  error={discoveryError ? new Error(discoveryError) : null}
+                  onPlanSession={handleAtBeach}
+                  onViewBeach={handleViewBeach}
+                  onEnableReminder={handleHeroEnableReminder}
+                  forecastAlertsEnabled={profile.notif_forecast_alerts ?? false}
+                  homeBeachId={homeBeach?.id ?? null}
+                  timeSlot={timeSlot}
+                />
+              </motion.section>
+            )}
+
+            {/* 4. Primary Actions (or FirstSessionCta for zero-session users) */}
+            {profile && (
+              <motion.section
+                className="centered-container"
+                variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
+              >
+                {personalizationStatus?.sessionCount === 0 ? (
+                  <FirstSessionCta onLogSession={handleQuickLog} />
+                ) : topRecommendation ? (
+                  <PrimaryActions
+                    topRecommendation={topRecommendation}
+                    onAtBeach={handleAtBeach}
+                    onPlanWeekend={handlePlanWeekend}
+                    disabled={discoveryLoading}
+                    shareData={shareData}
+                  />
+                ) : !discoveryLoading && discovery?.recommendations.length === 0 && timeSlot !== 'any' ? (
+                  <div className="text-center py-8 px-4" data-testid="time-slot-empty-state">
+                    <p className="text-high mb-3">
+                      No great {timeSlot === 'dawn-patrol' ? 'dawn patrol' : timeSlot} windows in the next 24 hours.
+                    </p>
+                    <button
+                      onClick={() => setTimeSlot('any')}
+                      className="text-white hover:text-white/90 underline text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-header-end"
+                    >
+                      Show all times
+                    </button>
+                  </div>
+                ) : !discoveryLoading ? (
+                  <div className="flex flex-col gap-3 px-4 sm:px-1" data-testid="fallback-actions">
+                    <button
+                      onClick={() => router.push("/map")}
+                      className="w-full h-12 sm:h-14 min-h-[44px] rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 text-white font-semibold text-sm sm:text-base border border-white/20 hover:border-white/30 shadow-sm hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-header-end"
+                    >
+                      Explore Beaches Near You
+                    </button>
+                  </div>
+                ) : null}
+              </motion.section>
+            )}
+          </div>
         </motion.div>
 
         {/* Conditions Ticker - full width for edge-to-edge scroll */}

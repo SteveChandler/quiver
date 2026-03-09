@@ -16,10 +16,10 @@ export function MethodologySection() {
         <div className="grid gap-8 md:grid-cols-2">
           <div className="space-y-6">
             <div>
-              <h3 className="text-base font-semibold text-white/90 mb-2">
+              <h3 className="text-base font-semibold text-high mb-2">
                 NOAA Marine Forecasts as the Baseline
               </h3>
-              <p className="text-sm text-white/60 leading-relaxed">
+              <p className="text-sm text-medium leading-relaxed">
                 NOAA&apos;s National Weather Service publishes marine wave height
                 forecasts for coastal regions across the US. These serve as our
                 baseline — they represent what any surfer would see checking a
@@ -29,10 +29,10 @@ export function MethodologySection() {
             </div>
 
             <div>
-              <h3 className="text-base font-semibold text-white/90 mb-2">
+              <h3 className="text-base font-semibold text-high mb-2">
                 Per-Beach ML Bias Correction
               </h3>
-              <p className="text-sm text-white/60 leading-relaxed">
+              <p className="text-sm text-medium leading-relaxed">
                 Every beach has unique exposure to swell direction, wind patterns,
                 and local geography. Quiver&apos;s XGBoost model learns per-beach
                 correction factors from historical buoy observations, adjusting
@@ -43,10 +43,10 @@ export function MethodologySection() {
             </div>
 
             <div>
-              <h3 className="text-base font-semibold text-white/90 mb-2">
+              <h3 className="text-base font-semibold text-high mb-2">
                 Ground Truth from the IOOS Buoy Network
               </h3>
-              <p className="text-sm text-white/60 leading-relaxed">
+              <p className="text-sm text-medium leading-relaxed">
                 Validation uses real wave height readings from the Integrated
                 Ocean Observing System (IOOS) buoy network. Buoys report
                 significant wave height every 1–6 hours. We match each
@@ -58,10 +58,10 @@ export function MethodologySection() {
 
           <div className="space-y-6">
             <div>
-              <h3 className="text-base font-semibold text-white/90 mb-2">
+              <h3 className="text-base font-semibold text-high mb-2">
                 What MAE Means
               </h3>
-              <p className="text-sm text-white/60 leading-relaxed">
+              <p className="text-sm text-medium leading-relaxed">
                 Mean Absolute Error (MAE) measures the average absolute
                 difference between a forecast and the observed buoy reading,
                 expressed in meters. A raw MAE of 0.40m means the forecast is,
@@ -71,10 +71,10 @@ export function MethodologySection() {
             </div>
 
             <div>
-              <h3 className="text-base font-semibold text-white/90 mb-2">
+              <h3 className="text-base font-semibold text-high mb-2">
                 Rolling 14-Day Evaluation Window
               </h3>
-              <p className="text-sm text-white/60 leading-relaxed">
+              <p className="text-sm text-medium leading-relaxed">
                 All accuracy statistics shown here use a 14-day rolling window
                 of matched forecast-observation pairs. This keeps the data
                 current and reflects recent model performance rather than
@@ -84,10 +84,10 @@ export function MethodologySection() {
             </div>
 
             <div>
-              <h3 className="text-base font-semibold text-white/90 mb-2">
+              <h3 className="text-base font-semibold text-high mb-2">
                 Automated Weekly Retraining
               </h3>
-              <p className="text-sm text-white/60 leading-relaxed">
+              <p className="text-sm text-medium leading-relaxed">
                 The ML model retrains weekly using a 90-day rolling window of
                 matched observation data. Retraining includes validation gates —
                 the new model must outperform the previous version before

@@ -54,7 +54,7 @@ export function NOAAComparisonBar({ rawMae, correctedMae }: NOAAComparisonBarPro
         <h2 className="text-xl font-semibold text-white mb-1">
           NOAA Baseline vs. Quiver
         </h2>
-        <p className="text-sm text-white/70 mb-6">
+        <p className="text-sm text-medium mb-6">
           Quiver reduces wave height error from{" "}
           <strong className="text-white">{rawMae.toFixed(3)}m</strong> to{" "}
           <strong className="text-white">{correctedMae.toFixed(3)}m</strong> — measured as Mean Absolute
@@ -101,7 +101,7 @@ export function NOAAComparisonBar({ rawMae, correctedMae }: NOAAComparisonBarPro
           </BarChart>
         </ChartContainer>
 
-        <p className="text-xs text-white/50 mt-4 text-center">
+        <p className="text-xs text-medium mt-4 text-center">
           Lower is better. Values are average MAE across all tracked beaches (14-day
           rolling window).
         </p>

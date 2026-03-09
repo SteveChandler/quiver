@@ -131,10 +131,10 @@ export function HeroRecommendationEmpty() {
   return (
     <div className="px-4 sm:px-1 py-4" data-testid="hero-recommendation-empty">
       <div className="text-center">
-        <p className="text-base sm:text-lg text-white/80">
+        <p className="text-base sm:text-lg text-high">
           No surf recommendations available
         </p>
-        <p className="text-xs sm:text-sm mt-1 text-white/60">
+        <p className="text-xs sm:text-sm mt-1 text-medium">
           Check back later for updated conditions
         </p>
       </div>
@@ -253,7 +253,7 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
   return (
     <div className="space-y-4 px-4 sm:px-1" data-testid="hero-recommendation">
       {/* Main headline */}
-      <h1 className="text-2xl xs:text-3xl sm:text-4xl font-roboto font-bold tracking-tight text-white leading-tight">
+      <h1 className="text-2xl xs:text-3xl sm:text-4xl font-heading font-bold tracking-tight text-white leading-tight">
         {headline.prefix}
         <button
           onClick={() => onViewBeach(beach.id)}
@@ -280,14 +280,14 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
 
       {/* Natural language message */}
       {message && (
-        <p className="text-sm sm:text-base text-white/80 leading-relaxed" data-testid="hero-message">
+        <p className="text-sm sm:text-base text-high leading-relaxed" data-testid="hero-message">
           {message}
         </p>
       )}
 
       {/* Personalization context line - subtle explanation when recommendation is personalized */}
       {insights && insights.state !== "onboarding" && (
-        <p className="text-xs text-white/50" data-testid="hero-personalization-context">
+        <p className="text-xs text-medium" data-testid="hero-personalization-context">
           {getPersonalizationExplanation({
             base: 0,
             onboardingPrefs: insights.state === "degraded" ? 1 : 0,

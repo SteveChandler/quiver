@@ -82,7 +82,7 @@ Common Tailwind z-index values also in use:
 
 ## 4. Typography Hierarchy
 
-Font families loaded via CSS variables: Inter (default sans), Roboto, Open Sans.
+Font families loaded via CSS variables: DM Sans (default sans), Space Grotesk (headings), Space Mono (monospace).
 
 | Role              | Classes                                           |
 |-------------------|---------------------------------------------------|
@@ -98,13 +98,13 @@ Font families loaded via CSS variables: Inter (default sans), Roboto, Open Sans.
 
 Three font families are loaded via Google Fonts and configured as CSS variables:
 
-| Font | Tailwind Class | Usage |
-|------|---------------|-------|
-| **Inter** | `font-sans` (default) | Body text, navigation, UI elements, form inputs |
-| **Roboto** | `font-roboto` | All headings (h1-h4), CTAs, brand-prominent text |
-| **Open Sans** | `font-open-sans` | Descriptive body copy on content-heavy pages (landing, about, features) |
+| Font | Tailwind Class | CSS Variable | Usage |
+|------|---------------|-------------|-------|
+| **DM Sans** | `font-sans` (default) | `--font-sans` | Body text, navigation, UI elements, form inputs |
+| **Space Grotesk** | `font-heading` | `--font-heading` | All headings (h1-h4), CTAs, brand-prominent text |
+| **Space Mono** | `font-mono` | `--font-mono` | Code blocks, data tables, technical content |
 
-**Rule:** App pages must use `font-roboto` on headings. Many components default to Inter -- always add `font-roboto` to `text-xl font-semibold`, `text-2xl font-bold`, and similar heading patterns.
+**Rule:** App pages must use `font-heading` on headings. Many components default to DM Sans -- always add `font-heading` to `text-xl font-semibold`, `text-2xl font-bold`, and similar heading patterns.
 
 **Local font copies** exist in `public/fonts/` but are used exclusively by Satori for OG image rendering (see `scripts/fetch-fonts.mjs`). Web pages load fonts via Google Fonts CDN.
 
@@ -262,7 +262,7 @@ Use Tailwind opacity modifiers instead of separate dark tokens:
 
 The landing page and authenticated app share the same visual language:
 
-- **Same font hierarchy:** Roboto for headings, Inter for body, Open Sans for long-form content
+- **Same font hierarchy:** Space Grotesk for headings, DM Sans for body, Space Mono for monospace
 - **Same primary color:** Charming Orange `#F78E42` (`ocean-blue` token) for all CTAs and action buttons
 - **Same dark background:** Deep Twilight `#252D6B` as the global page background
 - **Gradients encouraged** in both contexts for visual depth against the dark background
@@ -283,6 +283,104 @@ Standard durations from `lib/constants/animations.ts`:
 | `hero`     | 1.0s   | Hero section intros        |
 
 Respect `prefers-reduced-motion` -- all motion is disabled globally in `globals.css` when the user preference is set.
+
+---
+
+## 13. Text Emphasis System
+
+On dark backgrounds (Deep Twilight `#252D6B` and related card surfaces), use the three-tier white opacity system instead of raw `text-white` or arbitrary opacity modifiers.
+
+| Class | Opacity | Color value | Use for |
+|-------|---------|-------------|---------|
+| `text-white` | 100% | `#ffffff` | Headlines, primary labels, strong emphasis |
+| `text-high` | 87% | `rgba(255,255,255,0.87)` | High emphasis body text, important descriptions |
+| `text-medium` | 60% | `rgba(255,255,255,0.6)` | Secondary text, metadata, timestamps, helper labels |
+| `text-white/40` and below | ≤40% | — | Decorative only: dot separators, disabled states, icon placeholders |
+
+Both `text-high` and `text-medium` are CSS utility classes defined in `app/globals.css` under `@layer utilities`. They are not Tailwind theme tokens — use the class names directly.
+
+`text-muted-foreground` (`#9AABC6`) is separate from this system. It comes from the shadcn/ui theme and is intended for UI chrome (form labels, helper text inside UI components). Do not substitute it for `text-medium` on dark surfaces.
+
+```tsx
+// Section heading on dark background
+<h2 className="text-white font-heading text-xl font-semibold">Forecast</h2>
+
+// Description / body copy
+<p className="text-high text-sm">Best window is early morning before the wind picks up.</p>
+
+// Metadata row (location, timestamp, count)
+<span className="text-medium text-xs">Updated 10 min ago</span>
+
+// Decorative separator — decorative only, not readable text
+<span className="text-white/30">·</span>
+```
+
+### Migration rules for legacy opacity modifiers
+
+When editing a component that uses raw `text-white/{n}`, migrate to the semantic class:
+
+| Legacy class | Replace with |
+|---|---|
+| `text-white/90`, `text-white/80` | `text-high` |
+| `text-white/70`, `text-white/60`, `text-white/50` | `text-medium` |
+| `text-white/40` and below | Leave as-is (decorative) |
+
+### Do / Don't
+
+- **Do** use `text-white` for headlines and the strongest emphasis elements.
+- **Do** use `text-high` for body copy and important descriptions.
+- **Do** use `text-medium` for secondary metadata such as timestamps, review counts, and location labels.
+- **Don't** use arbitrary `text-white/70` or `text-white/80` modifiers — use the semantic tier class instead.
+- **Don't** use `text-muted-foreground` on dark card surfaces — it is for shadcn/ui chrome, not content text.
+
+---
+
+## 14. Texture & Grain
+
+A CSS-only noise texture is available as utility classes defined in `app/globals.css`. The texture is generated via an inline SVG `feTurbulence` filter — no image files are needed.
+
+| Class | Overlay opacity | Use for |
+|-------|----------------|---------|
+| `noise-texture` | 3% | Cards, section containers, elevated surfaces |
+| `noise-texture-subtle` | 2% | Page-level backgrounds (body), large surfaces |
+| `noise-texture-strong` | 5% | CTA sections, hero areas needing extra depth |
+
+### How it works
+
+Each class sets `position: relative; isolation: isolate` on the element and injects a full-bleed `::after` pseudo-element with `mix-blend-mode: overlay`. The grain layer sits on top of the content at `z-index: 1` with `pointer-events: none`, so it never interferes with interaction.
+
+```tsx
+// Card with standard grain
+<div className="noise-texture rounded-xl bg-[#2D357D] p-4">
+  ...
+</div>
+
+// Hero section with strong grain
+<section className="noise-texture-strong bg-[#252D6B] py-24">
+  ...
+</section>
+
+// Page background with subtle grain
+<main className="noise-texture-subtle min-h-screen bg-[#252D6B]">
+  ...
+</main>
+```
+
+### Where NOT to apply
+
+- **Photos and images** — grain on top of a photo degrades quality and looks unintentional.
+- **Maps** — Mapbox GL canvases and map containers; the overlay will obscure map tiles.
+- **Data tables** — rows and cells; the pseudo-element disrupts row backgrounds.
+- **Inline text elements** (`<span>`, `<p>`, `<a>`) — apply texture to the containing block, not individual text nodes.
+- **Components that already have a `::after` pseudo-element** — the texture class will conflict.
+
+### Do / Don't
+
+- **Do** apply texture classes to block-level containers (cards, sections, panels).
+- **Do** prefer `noise-texture` as the default; only step up to `noise-texture-strong` for focal CTA areas.
+- **Don't** stack multiple texture classes on the same element.
+- **Don't** add texture to photo cards, map embeds, or data grids.
+- **Don't** create custom `::after` grain implementations — use these classes.
 
 ---
 

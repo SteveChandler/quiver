@@ -134,7 +134,7 @@ export function SpotOverview({ beach, amenities, waterQuality }: SpotOverviewPro
     <div className="space-y-6">
       <Card className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border-blue-200/50 shadow-lg">
         <CardHeader className="pb-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 border-b border-blue-100/50">
-          <CardTitle className="flex items-center gap-2 text-lg font-roboto text-gray-800">
+          <CardTitle className="flex items-center gap-2 text-lg font-heading text-gray-800">
             <MapPin className="h-5 w-5 text-blue-600" /> Spot Summary
           </CardTitle>
         </CardHeader>
@@ -177,7 +177,7 @@ export function SpotOverview({ beach, amenities, waterQuality }: SpotOverviewPro
 
       <Card className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border-blue-200/50 shadow-lg">
         <CardHeader className="pb-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 border-b border-blue-100/50">
-          <CardTitle className="flex items-center gap-2 text-lg font-roboto text-gray-800">
+          <CardTitle className="flex items-center gap-2 text-lg font-heading text-gray-800">
             <AlertTriangle className="h-5 w-5 text-blue-600" /> Hazards
           </CardTitle>
         </CardHeader>
@@ -194,7 +194,7 @@ export function SpotOverview({ beach, amenities, waterQuality }: SpotOverviewPro
       {validPhotos.length > 0 && (
         <Card className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border-blue-200/50 shadow-lg">
           <CardHeader className="pb-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 border-b border-blue-100/50">
-            <CardTitle className="flex items-center gap-2 text-lg font-roboto text-gray-800">
+            <CardTitle className="flex items-center gap-2 text-lg font-heading text-gray-800">
               <Images className="h-5 w-5 text-blue-600" /> Best-of Gallery
             </CardTitle>
           </CardHeader>

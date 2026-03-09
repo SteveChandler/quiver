@@ -42,7 +42,7 @@ export function HeroSection() {
       <div className="relative z-30 w-full max-w-3xl mx-auto px-6 text-center text-white flex flex-col items-center gap-6">
         {/* Main Headline - AllTrails style: lighter weight, tighter tracking */}
         <h1
-          className="font-semibold leading-tight tracking-tight text-5xl md:text-6xl font-roboto animate-fade-in-up [text-shadow:_0_2px_8px_rgb(0_0_0_/_30%)] text-balance"
+          className="font-semibold leading-tight tracking-tight text-5xl md:text-6xl font-heading animate-fade-in-up [text-shadow:_0_2px_8px_rgb(0_0_0_/_30%)] text-balance"
           style={{ animationDelay: "100ms" }}
         >
           {CONTENT.hero.title}
@@ -51,7 +51,7 @@ export function HeroSection() {
         {/* Supporting Subhead */}
         {CONTENT.hero.subtitle ? (
           <p
-            className="text-lg md:text-xl text-white/90 max-w-2xl font-open-sans leading-relaxed animate-fade-in-up"
+            className="text-lg md:text-xl text-high max-w-2xl font-sans leading-relaxed animate-fade-in-up"
             style={{ animationDelay: "150ms" }}
           >
             {CONTENT.hero.subtitle}
@@ -74,7 +74,7 @@ export function HeroSection() {
         <Link
           href="/map"
           onClick={handleExploreClick}
-          className="text-white/90 underline underline-offset-4 hover:text-white transition-colors text-base sm:text-lg animate-fade-in-up"
+          className="text-high underline underline-offset-4 hover:text-white transition-colors text-base sm:text-lg animate-fade-in-up"
           style={{ animationDelay: "300ms" }}
         >
           Explore nearby spots

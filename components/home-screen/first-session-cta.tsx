@@ -45,13 +45,13 @@ export function FirstSessionCta({ onLogSession }: FirstSessionCtaProps) {
       {/* Heading */}
       <div className="flex items-center gap-2">
         <Sparkles className="h-5 w-5 text-orange-400 shrink-0" />
-        <h2 className="text-base sm:text-lg font-roboto font-semibold text-white">
+        <h2 className="text-base sm:text-lg font-heading font-semibold text-white">
           Did you surf recently?
         </h2>
       </div>
 
       {/* Body */}
-      <p className="text-sm text-white/60 leading-relaxed">
+      <p className="text-sm text-medium leading-relaxed">
         Log it in 30 seconds. Your forecast starts learning what you like.
       </p>
 

@@ -387,7 +387,7 @@ function BeachDetailContent({
 
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
-            <h2 className="text-xl font-roboto font-bold mb-2 text-dark-grey">
+            <h2 className="text-xl font-heading font-bold mb-2 text-dark-grey">
               {error || "Beach data not found"}
             </h2>
             <Button
@@ -496,7 +496,7 @@ function BeachDetailContent({
           <div className="mx-auto max-w-7xl">
             <BeachBreadcrumb beach={beach} className="mb-1" />
             <h1
-              className="font-display text-4xl sm:text-5xl font-bold text-white leading-tight"
+              className="font-heading text-4xl sm:text-5xl font-bold text-white leading-tight"
               style={{ textShadow: "0 2px 16px rgba(0,0,0,0.7)" }}
             >
               {beach.name} Surf Report

@@ -121,20 +121,20 @@ export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false 
                   items.push(
                     <div key="window">
                       <span className="text-xs uppercase tracking-[0.2em] text-ocean-blue">Best window</span>
-                      <span className="ml-2 font-roboto font-semibold text-dark-grey">
+                      <span className="ml-2 font-heading font-semibold text-dark-grey">
                         {formatTime(report.bestWindowStart!, timezone)}–{formatTime(report.bestWindowEnd!, timezone)}
                       </span>
                     </div>
                   );
                 }
                 if (report.waveHeight) {
-                  items.push(<span key="wave" className="font-roboto font-semibold text-dark-grey">{report.waveHeight}</span>);
+                  items.push(<span key="wave" className="font-heading font-semibold text-dark-grey">{report.waveHeight}</span>);
                 }
                 if (windDisplay) {
-                  items.push(<span key="wind" className="font-roboto text-sm text-dark-grey">{windDisplay}</span>);
+                  items.push(<span key="wind" className="font-heading text-sm text-dark-grey">{windDisplay}</span>);
                 }
                 if (tideDisplay) {
-                  items.push(<span key="tide" className="font-roboto text-sm text-dark-grey">{tideDisplay}</span>);
+                  items.push(<span key="tide" className="font-heading text-sm text-dark-grey">{tideDisplay}</span>);
                 }
                 return items.flatMap((item, i) =>
                   i === 0 ? [item] : [<span key={`sep-${i}`} className="text-slate-300">&middot;</span>, item]

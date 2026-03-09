@@ -145,7 +145,7 @@ export function SurfSpotCard({
           {/* Content Section */}
           <div className="p-4 flex-1">
             {/* Name */}
-            <h3 className="text-base font-semibold font-roboto text-gray-900 mb-1 line-clamp-1">
+            <h3 className="text-base font-semibold font-heading text-gray-900 mb-1 line-clamp-1">
               {name}
             </h3>
 

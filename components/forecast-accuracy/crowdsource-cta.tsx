@@ -16,7 +16,7 @@ export function CrowdsourceCta() {
       <h2 className="text-xl md:text-2xl font-bold text-white mb-2">
         Help Us Get Even More Accurate
       </h2>
-      <p className="text-white/70 max-w-lg mx-auto mb-6 text-sm md:text-base leading-relaxed">
+      <p className="text-medium max-w-lg mx-auto mb-6 text-sm md:text-base leading-relaxed">
         Every session you log helps calibrate our model. Report what you
         actually see at the beach — wave size, conditions, crowd — and
         your observations feed back into better forecasts for everyone.

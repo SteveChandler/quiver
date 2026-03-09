@@ -155,7 +155,7 @@ export function SurfHighlightsSection() {
     <section className="py-14 bg-gradient-to-b from-white to-blue-50/50">
       <div className="max-w-7xl mx-auto px-6">
         {/* AllTrails-style editorial header - left-aligned with location emphasis */}
-        <h2 className="text-2xl md:text-3xl font-roboto font-semibold text-dark-grey mb-8 text-left">
+        <h2 className="text-2xl md:text-3xl font-heading font-semibold text-dark-grey mb-8 text-left">
           {displayName && hasResolvedLocation
             ? `Top surf spots near ${displayName}`
             : "Top surf spots"}

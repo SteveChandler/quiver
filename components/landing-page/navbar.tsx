@@ -188,7 +188,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                     source: "landing-navbar",
                   });
                 }}
-                className="text-white/70 hover:text-white text-sm font-medium transition-colors"
+                className="text-medium hover:text-white text-sm font-medium transition-colors"
               >
                 Log in
               </button>

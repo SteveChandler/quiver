@@ -408,7 +408,7 @@ export function ForecastTab({
             <section className="rounded-3xl border border-blue-100/60 bg-white/95 p-4 md:p-6 shadow-lg backdrop-blur">
               <div className="flex flex-col gap-6">
                 <div className="flex flex-wrap items-center justify-between gap-4">
-                  <h2 className="text-xl font-roboto font-semibold text-dark-grey">
+                  <h2 className="text-xl font-heading font-semibold text-dark-grey">
                     Current Conditions
                   </h2>
                   <span className="text-sm text-muted-foreground">
@@ -547,7 +547,7 @@ export function ForecastTab({
         <TabsContent value="tides" className="mt-6">
           <section className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg backdrop-blur overflow-hidden">
             <div className="flex items-center justify-between p-6 pb-0 mb-4">
-              <h2 className="text-xl font-roboto font-semibold text-dark-grey">
+              <h2 className="text-xl font-heading font-semibold text-dark-grey">
                 Tide Forecast
               </h2>
               <EmbedCodeButton beachSlug={beach.slug} beachName={beach.name} />

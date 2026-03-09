@@ -319,14 +319,14 @@ Multiple components on the beach detail page do not match the design system spec
 
 #### 3.4 Hero Section
 **Issues:**
-- ❌ Beach name typography wrong (should be 36px Roboto, 44px line-height)
+- ❌ Beach name typography wrong (should be 36px Space Grotesk, 44px line-height)
 - ❌ Beach name color wrong (should be gray-900)
 - ❌ Hero container styling incorrect
 - ❌ Breadcrumb separator, styling, margins wrong
 
 **Failing Tests:**
 ```
-✘ beach-detail-layout.spec.ts:466 › Beach Name Typography (36px Roboto, 44px line-height)
+✘ beach-detail-layout.spec.ts:466 › Beach Name Typography (36px Space Grotesk, 44px line-height)
 ✘ beach-detail-layout.spec.ts:495 › Beach Name Color (gray-900)
 ✘ beach-detail-layout.spec.ts:509 › Hero Container Styling (white bg, border-bottom)
 ✘ beach-detail-layout.spec.ts:655 › Breadcrumb Separator Character (›)
@@ -346,7 +346,7 @@ Multiple components on the beach detail page do not match the design system spec
     <span>{beachName}</span>
   </nav>
 
-  <h1 className="font-roboto text-4xl leading-[44px] text-gray-900">
+  <h1 className="font-heading text-4xl leading-[44px] text-gray-900">
     {/* 36px = text-4xl, line-height 44px ✅ */}
     {beachName}
   </h1>
@@ -356,7 +356,7 @@ Multiple components on the beach detail page do not match the design system spec
 ### Design System Reference
 - **Primary Color:** Ocean Blue (`#0077B6`, `rgb(0, 119, 182)`)
 - **Hover Color:** Darker Ocean Blue (`#006699`)
-- **Font Family:** Roboto for headings
+- **Font Family:** Space Grotesk for headings
 - **Spacing Scale:** 4px increments (gap-4 = 16px, gap-6 = 24px, etc.)
 
 ### Fix Steps

@@ -244,7 +244,7 @@ function ProfileViewContent() {
         className="sticky top-0 z-10 bg-white/90 backdrop-blur-sm border-b border-white/20 shadow-sm"
       >
         <div className="container flex items-center h-16 px-2 sm:px-4">
-          <h1 className="text-xl font-roboto font-bold text-dark-grey flex items-center gap-2">
+          <h1 className="text-xl font-heading font-bold text-dark-grey flex items-center gap-2">
             <User className="h-5 w-5 text-ocean-blue" />
             {profile?.full_name
               ? `${profile.full_name}'s Profile`
@@ -311,22 +311,22 @@ function ProfileViewContent() {
                         {...ANIMATION_VARIANTS.staggerItem(1)}
                         className="flex-1 text-center sm:text-left space-y-1"
                       >
-                        <h2 className="text-lg sm:text-xl font-roboto font-bold text-dark-grey">
+                        <h2 className="text-lg sm:text-xl font-heading font-bold text-dark-grey">
                           {profile?.full_name || "Surfer"}
                         </h2>
-                        <p className="text-sm text-muted-foreground font-open-sans">
+                        <p className="text-sm text-muted-foreground font-sans">
                           {user?.email}
                         </p>
 
                         {/* Bio */}
                         {profile?.bio && (
-                          <p className="text-xs sm:text-sm font-open-sans text-gray-600 max-w-md">
+                          <p className="text-xs sm:text-sm font-sans text-gray-600 max-w-md">
                             {profile.bio}
                           </p>
                         )}
 
                         {/* Profile Details */}
-                        <div className="flex flex-wrap justify-center sm:justify-start gap-2 pt-1 text-xs font-open-sans text-muted-foreground">
+                        <div className="flex flex-wrap justify-center sm:justify-start gap-2 pt-1 text-xs font-sans text-muted-foreground">
                           {profile?.location && (
                             <div className="flex items-center bg-ocean-blue/10 px-2 py-0.5 rounded-full">
                               <MapPin className="h-3 w-3 mr-1 text-ocean-blue" />
@@ -351,7 +351,7 @@ function ProfileViewContent() {
 
                         {/* Home Break */}
                         {profile?.home_beach_id && (
-                          <div className="text-xs font-open-sans pt-0.5">
+                          <div className="text-xs font-sans pt-0.5">
                             <span className="text-muted-foreground">
                               Home Break:{" "}
                             </span>
@@ -370,7 +370,7 @@ function ProfileViewContent() {
                         {/* Surf Style Card */}
                         {preferences && (
                           <div className="mt-4 bg-white/10 rounded-lg p-3 backdrop-blur">
-                            <p className="text-white/80 text-xs uppercase tracking-wide font-medium">
+                            <p className="text-high text-xs uppercase tracking-wide font-medium">
                               Your Surf Style
                             </p>
                             {preferences.confidence > 0.5 ? (
@@ -380,7 +380,7 @@ function ProfileViewContent() {
                                     ? `${preferences.wave_min_ft}-${preferences.wave_max_ft}ft waves`
                                     : "Learning your preferences..."}
                                 </p>
-                                <p className="text-white/60 text-xs mt-1">
+                                <p className="text-medium text-xs mt-1">
                                   Based on {preferences.sample_size} sessions
                                 </p>
                               </>
@@ -411,7 +411,7 @@ function ProfileViewContent() {
                         <Button
                           size="sm"
                           onClick={() => setEditModalOpen(true)}
-                          className="bg-gradient-to-r from-ocean-blue to-blue-600 hover:from-blue-600 hover:to-ocean-blue text-white px-3 py-1.5 text-xs font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+                          className="bg-gradient-to-r from-ocean-blue to-blue-600 hover:from-blue-600 hover:to-ocean-blue text-white px-3 py-1.5 text-xs font-heading font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
                         >
                           <Edit className="h-3 w-3 mr-1" />
                           Edit
@@ -460,35 +460,35 @@ function ProfileViewContent() {
                 <TabsList className="grid grid-cols-5 w-full h-14 lg:h-16 bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-lg">
                   <TabsTrigger
                     value="sessions"
-                    className="text-sm lg:text-base font-roboto data-[state=active]:bg-gradient-to-r data-[state=active]:from-ocean-blue data-[state=active]:to-blue-600 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+                    className="text-sm lg:text-base font-heading data-[state=active]:bg-gradient-to-r data-[state=active]:from-ocean-blue data-[state=active]:to-blue-600 data-[state=active]:text-white transition-all duration-300 rounded-lg"
                   >
                     <CalendarDays className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
                     Journal+
                   </TabsTrigger>
                   <TabsTrigger
                     value="quiver"
-                    className="text-sm lg:text-base font-roboto data-[state=active]:bg-gradient-to-r data-[state=active]:from-sunset-orange data-[state=active]:to-orange-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+                    className="text-sm lg:text-base font-heading data-[state=active]:bg-gradient-to-r data-[state=active]:from-sunset-orange data-[state=active]:to-orange-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
                   >
                     <Surfboard className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
                     Quiver
                   </TabsTrigger>
                   <TabsTrigger
                     value="beaches"
-                    className="text-sm lg:text-base font-roboto data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+                    className="text-sm lg:text-base font-heading data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
                   >
                     <Heart className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
                     Beaches
                   </TabsTrigger>
                   <TabsTrigger
                     value="comments"
-                    className="text-sm lg:text-base font-roboto data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+                    className="text-sm lg:text-base font-heading data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
                   >
                     <MessageSquare className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
                     Comments
                   </TabsTrigger>
                   <TabsTrigger
                     value="surf-profile"
-                    className="text-sm lg:text-base font-roboto data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+                    className="text-sm lg:text-base font-heading data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
                   >
                     <User className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
                     Profile
@@ -534,7 +534,7 @@ function ProfileViewContent() {
                     className="p-4 sm:p-6 space-y-4 m-0"
                   >
                     <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-xl font-roboto font-semibold text-dark-grey">
+                      <h3 className="text-xl font-heading font-semibold text-dark-grey">
                         Favorite Beaches
                       </h3>
                       <Button
@@ -543,7 +543,7 @@ function ProfileViewContent() {
                         onClick={() => {
                           router.push("/map");
                         }}
-                        className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-emerald-500 hover:to-green-600 text-white font-roboto font-medium rounded-full transition-all duration-300"
+                        className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-emerald-500 hover:to-green-600 text-white font-heading font-medium rounded-full transition-all duration-300"
                       >
                         <Plus className="h-4 w-4 mr-1" />
                         Add Beach

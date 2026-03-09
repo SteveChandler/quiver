@@ -255,10 +255,10 @@ export function HomeBeachStep() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div>
-        <h2 className="text-white font-roboto text-2xl font-bold mb-2">
+        <h2 className="text-white font-heading text-2xl font-bold mb-2">
           Where do you surf?
         </h2>
-        <p className="text-white/60 text-sm">
+        <p className="text-medium text-sm">
           Pick your home break — we&apos;ll dial your forecast to it
         </p>
       </div>
@@ -285,14 +285,14 @@ export function HomeBeachStep() {
                 {nearbyError}
               </p>
             ) : (
-              <p className="text-white/60">Loading nearby beaches…</p>
+              <p className="text-medium">Loading nearby beaches…</p>
             )}
           </div>
         )}
 
         {nearbyBeaches.length > 0 && (
           <div className="space-y-2">
-            <Label className="text-white/60 text-xs uppercase tracking-wide">Nearby beaches</Label>
+            <Label className="text-medium text-xs uppercase tracking-wide">Nearby beaches</Label>
             <div className="grid grid-cols-1 gap-2">
               {nearbyBeaches.slice(0, 6).map((beach) => {
                 const isCelebrating = celebratingBeachId === beach.id;
@@ -307,11 +307,11 @@ export function HomeBeachStep() {
                         : "bg-white/10 border border-white/20 hover:bg-white/15"
                     }`}
                   >
-                    <MapPin className="h-4 w-4 text-white/50 flex-shrink-0" />
+                    <MapPin className="h-4 w-4 text-medium flex-shrink-0" />
                     <div className="min-w-0 flex-1">
                       <div className="font-medium text-white truncate">{beach.name}</div>
                       {(beach.city || beach.state || beach.region) && (
-                        <div className="text-sm text-white/60 truncate">
+                        <div className="text-sm text-medium truncate">
                           {[beach.city, beach.state || beach.region]
                             .filter(Boolean)
                             .join(", ")}
@@ -338,7 +338,7 @@ export function HomeBeachStep() {
       {/* Popular beaches - shown only when no nearby results and no search query */}
       {nearbyBeaches.length === 0 && query.trim().length === 0 && popularBeaches.length > 0 && (
         <div className="space-y-2">
-          <Label className="text-white/60 text-xs uppercase tracking-wide">Popular beaches</Label>
+          <Label className="text-medium text-xs uppercase tracking-wide">Popular beaches</Label>
           <div className="grid grid-cols-2 gap-2">
             {popularBeaches.map((beach) => {
               const isCelebrating = celebratingBeachId === beach.id;
@@ -355,7 +355,7 @@ export function HomeBeachStep() {
                 >
                   <div className="font-medium text-white truncate">{beach.name}</div>
                   {(beach.city || beach.state) && (
-                    <div className="text-xs text-white/60 truncate">
+                    <div className="text-xs text-medium truncate">
                       {[beach.city, beach.state].filter(Boolean).join(', ')}
                     </div>
                   )}
@@ -367,7 +367,7 @@ export function HomeBeachStep() {
       )}
 
       <div>
-        <Label htmlFor="beachSearch" className="text-white/60 text-xs uppercase tracking-wide">
+        <Label htmlFor="beachSearch" className="text-medium text-xs uppercase tracking-wide">
           Search for your beach
         </Label>
         <div className="relative mt-1">
@@ -393,11 +393,11 @@ export function HomeBeachStep() {
                   onClick={() => selectBeach(beach)}
                   className="w-full px-4 py-3 text-left hover:bg-white/10 flex items-center gap-3 border-b border-white/10 last:border-b-0 transition-colors"
                 >
-                  <MapPin className="h-4 w-4 text-white/50 flex-shrink-0" />
+                  <MapPin className="h-4 w-4 text-medium flex-shrink-0" />
                   <div>
                     <div className="font-medium text-white">{beach.name}</div>
                     {(beach.region || beach.country) && (
-                      <div className="text-sm text-white/60">
+                      <div className="text-sm text-medium">
                         {[beach.region, beach.country].filter(Boolean).join(", ")}
                       </div>
                     )}

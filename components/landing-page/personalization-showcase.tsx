@@ -95,13 +95,13 @@ export function PersonalizationShowcase() {
     >
       {/* Section header */}
       <div className="text-center mb-12 animate-fade-in-up">
-        <p className="text-base font-open-sans text-gray-500 mb-3">
+        <p className="text-base font-sans text-gray-500 mb-3">
           Tired of driving to the beach for blown-out, flat conditions?
         </p>
-        <h2 className="text-3xl sm:text-4xl md:text-5xl font-roboto font-bold text-dark-grey mb-4">
+        <h2 className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold text-dark-grey mb-4">
           Same ocean. Better forecast.
         </h2>
-        <p className="text-lg font-open-sans text-gray-600 max-w-2xl mx-auto">
+        <p className="text-lg font-sans text-gray-600 max-w-2xl mx-auto">
           Our ML model analyzes 40+ data points to deliver forecasts that match
           what you actually find at the beach.
         </p>
@@ -162,7 +162,7 @@ export function PersonalizationShowcase() {
                     <div className="relative h-5 flex-1 overflow-hidden">
                       {/* Generic value */}
                       <motion.span
-                        className="absolute inset-0 text-sm font-open-sans text-gray-400 whitespace-nowrap"
+                        className="absolute inset-0 text-sm font-sans text-gray-400 whitespace-nowrap"
                         animate={{
                           opacity: isRevealed ? 0 : 1,
                           y: isRevealed ? -6 : 0,
@@ -173,7 +173,7 @@ export function PersonalizationShowcase() {
                       </motion.span>
                       {/* Quiver value */}
                       <motion.span
-                        className="absolute inset-0 text-sm font-open-sans text-gray-700 whitespace-nowrap"
+                        className="absolute inset-0 text-sm font-sans text-gray-700 whitespace-nowrap"
                         animate={{
                           opacity: isRevealed ? 1 : 0,
                           y: isRevealed ? 0 : 6,
@@ -203,7 +203,7 @@ export function PersonalizationShowcase() {
               </p>
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 shrink-0 text-ocean-blue" />
-                <span className="text-sm font-open-sans font-medium text-gray-700">
+                <span className="text-sm font-sans font-medium text-gray-700">
                   6:30 &ndash; 10:00 AM
                 </span>
               </div>
@@ -232,7 +232,7 @@ export function PersonalizationShowcase() {
               }}
               transition={{ duration: ROW_DURATION, delay: SCORE_DELAY }}
             >
-              <span className="text-2xl font-roboto font-bold text-gray-400">
+              <span className="text-2xl font-heading font-bold text-gray-400">
                 6/10
               </span>
             </motion.div>
@@ -246,7 +246,7 @@ export function PersonalizationShowcase() {
               }}
               transition={{ duration: ROW_DURATION, delay: SCORE_DELAY }}
             >
-              <span className="text-2xl font-roboto font-bold text-ocean-blue">
+              <span className="text-2xl font-heading font-bold text-ocean-blue">
                 91% Match
               </span>
               <span className="inline-flex items-center gap-1 rounded-full bg-ocean-blue/10 px-2.5 py-0.5 text-xs font-semibold text-ocean-blue">
@@ -259,7 +259,7 @@ export function PersonalizationShowcase() {
       </div>
 
       {/* Powered by ML note */}
-      <p className="mt-6 text-center text-sm text-gray-400 font-open-sans">
+      <p className="mt-6 text-center text-sm text-gray-400 font-sans">
         Powered by machine learning &mdash; not just buoy readings.
       </p>
 
@@ -272,7 +272,7 @@ export function PersonalizationShowcase() {
           >
             Get Your Match Scores
           </button>
-          <p className="text-xs text-gray-400 font-open-sans">
+          <p className="text-xs text-gray-400 font-sans">
             See your personalized match scores
           </p>
         </div>
@@ -286,7 +286,7 @@ export function PersonalizationShowcase() {
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
           </span>
           <Users className="h-4 w-4 text-green-600" />
-          <span className="text-sm font-medium font-open-sans text-green-700">
+          <span className="text-sm font-medium font-sans text-green-700">
             Plus, real-time intel from surfers in the water right now
           </span>
         </div>

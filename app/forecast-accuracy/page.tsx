@@ -139,7 +139,7 @@ export default async function ForecastAccuracyPage() {
               <h1 className="text-3xl font-bold text-white mb-3">
                 How Accurate Is Quiver&apos;s Surf Forecast?
               </h1>
-              <p className="text-lg text-white/70 max-w-xl mx-auto mb-6">
+              <p className="text-lg text-medium max-w-xl mx-auto mb-6">
                 We&apos;re accumulating buoy-validated forecast data across our
                 beach network. Check back in a few days — accuracy stats update
                 daily as new observations arrive.

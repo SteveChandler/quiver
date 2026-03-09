@@ -30,11 +30,11 @@ export function SiteFooter({
   const currentYear = new Date().getFullYear();
 
   const headingClass = showBrandSection
-    ? "font-roboto font-semibold mb-4 text-lg"
-    : "font-roboto font-semibold mb-3 text-sm uppercase tracking-wide text-gray-400";
+    ? "font-heading font-semibold mb-4 text-lg"
+    : "font-heading font-semibold mb-3 text-sm uppercase tracking-wide text-gray-400";
 
   const listClass = showBrandSection
-    ? "space-y-2.5 font-open-sans text-gray-300 text-sm"
+    ? "space-y-2.5 font-sans text-gray-300 text-sm"
     : "space-y-2 text-sm text-gray-300";
 
   return (
@@ -47,11 +47,11 @@ export function SiteFooter({
         >
           {showBrandSection && (
             <div className="md:col-span-2">
-              <h3 className="text-3xl font-roboto font-bold mb-3">Quiver</h3>
-              <p className="font-open-sans text-gray-300 mb-4 text-base italic">
+              <h3 className="text-3xl font-heading font-bold mb-3">Quiver</h3>
+              <p className="font-sans text-gray-300 mb-4 text-base italic">
                 Built for surfers. Powered by the swell.
               </p>
-              <p className="font-open-sans text-gray-400 mb-6 max-w-md leading-relaxed">
+              <p className="font-sans text-gray-400 mb-6 max-w-md leading-relaxed">
                 Discover surf spots, connect with your community, and track your
                 sessions. Join the movement that&apos;s bringing surfers
                 together.
@@ -172,10 +172,10 @@ export function SiteFooter({
         <div className={`border-t border-gray-700 ${showBrandSection ? "pt-8" : "pt-6"}`}>
           {showBrandSection ? (
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <p className="font-open-sans text-gray-400 text-sm">
+              <p className="font-sans text-gray-400 text-sm">
                 &copy; {currentYear} Quiver Surf. All rights reserved.
               </p>
-              <p className="font-open-sans text-gray-400 text-sm">
+              <p className="font-sans text-gray-400 text-sm">
                 Made with 🌊 for the surf community
               </p>
             </div>

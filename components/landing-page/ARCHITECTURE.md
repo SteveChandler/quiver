@@ -952,8 +952,8 @@ The landing page was redesigned with AllTrails-inspired visual patterns:
 
 **Typography:**
 
-- Editorial headlines: `font-roboto font-bold` with `tracking-tight`
-- Body text: `font-open-sans` with `leading-relaxed`
+- Editorial headlines: `font-heading font-bold` with `tracking-tight`
+- Body text: `font-sans` with `leading-relaxed`
 - Reduced font weights for lighter feel
 
 **Component Patterns:**

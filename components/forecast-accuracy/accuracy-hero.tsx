@@ -27,7 +27,7 @@ export function AccuracyHero({
       <h1 className="text-3xl md:text-4xl font-bold text-white mb-3">
         How Accurate Is Quiver&apos;s Surf Forecast?
       </h1>
-      <p className="text-lg text-white/70 max-w-2xl mx-auto mb-10">
+      <p className="text-lg text-medium max-w-2xl mx-auto mb-10">
         Updated daily from live buoy data. Rolling 14-day window comparing our
         Quiver&apos;s forecasts against the NOAA marine baseline.
       </p>
@@ -38,7 +38,7 @@ export function AccuracyHero({
           <span className="text-4xl font-bold text-emerald-400 mb-1">
             {improvementDisplay}
           </span>
-          <span className="text-sm font-medium text-white/80 text-center">
+          <span className="text-sm font-medium text-high text-center">
             Average Improvement over NOAA Baseline
           </span>
         </div>
@@ -48,7 +48,7 @@ export function AccuracyHero({
           <span className="text-4xl font-bold text-sky-300 mb-1">
             {formatNumber(beachCount)}
           </span>
-          <span className="text-sm font-medium text-white/80 text-center">
+          <span className="text-sm font-medium text-high text-center">
             Beaches Tracked
           </span>
         </div>
@@ -58,7 +58,7 @@ export function AccuracyHero({
           <span className="text-4xl font-bold text-amber-400 mb-1">
             {formatNumber(totalPredictions)}
           </span>
-          <span className="text-sm font-medium text-white/80 text-center">
+          <span className="text-sm font-medium text-high text-center">
             Predictions Validated
           </span>
         </div>

@@ -28,6 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 10 unused Tailwind animation keyframes and utility classes
 
 ### Changed
+- Migrated `text-white/90` and `text-white/80` to `text-high`, and `text-white/70`, `text-white/60`, `text-white/50` to `text-medium` across onboarding steps (`home-beach-step`, `level-and-time-step`, `payoff-step`) and content pages (`about-client`, `privacy/page`, `terms/page`, `features-client`); hover/focus states and decorative classes (`text-white/40` and below) left untouched
+- Home screen header now uses a layered background: photo (`/images/home-hero-bg.avif`) behind a dark gradient overlay and noise texture, replacing the animated `bg-[linear-gradient]` + `animate-ocean-swell` approach. Reduced motion path retains the `from-header-start to-header-end` gradient overlay.
+- Home screen time-slot empty-state paragraph migrated from `text-white/80` to `text-high`
+- `docs/STYLE_GUIDE.md` — added Section 13 (Text Emphasis System) documenting the three-tier white opacity system (`text-white`, `text-high`, `text-medium`) with migration rules for legacy `text-white/{n}` modifiers, and Section 14 (Texture & Grain) documenting `noise-texture`, `noise-texture-subtle`, and `noise-texture-strong` CSS utility classes
+- `getScoreColorClass("marginal")` in `lib/utils/condition-tier-utils.ts` now returns `"text-medium"` instead of `"text-white/60"` per the text emphasis migration rules; test updated in-sync
+- Replaced typeface stack: Inter/Roboto/Open Sans/Permanent Marker replaced with DM Sans (body), Space Grotesk (headings), and Space Mono (monospace). Tailwind classes `font-roboto` and `font-open-sans` replaced with `font-heading` and `font-sans` respectively.
 - `StickySignupBar` dismissal switched from localStorage (7-day) to sessionStorage — bar reappears on new tabs/sessions instead of staying hidden for a week
 - `StickySignupBar` added to `/beach/[slug]` and `/mexico/.../[beachSlug]` pages for parity with the main beach route
 - Mobile header now shows a compact "Sign Up" pill button and hides the "Log in" ghost button (accessible via hamburger menu) — desktop retains the full contextual CTA from `getSignupCta`
@@ -297,7 +303,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Brand alignment:** Unified visual language across landing page and authenticated app — ocean-blue is now the primary action color everywhere, orange demoted to secondary accent
 - **Primary actions ocean-blue:** Home screen CTA buttons use ocean-blue gradient instead of orange (`primary-actions.tsx`)
 - **Bottom nav active state:** Changed from orange to ocean-blue (`bottom-nav.tsx`)
-- **Font consistency:** Added `font-roboto` to greeting and hero headings for consistent typography
+- **Font consistency:** Added `font-heading` to greeting and hero headings for consistent typography
 - **CSS primary variable:** Aligned `--primary` and `--ring` CSS variables with ocean-blue (#0077B6)
 - **Ocean-blue hover states:** Replaced `ocean-blue-dark` token with `ocean-blue/90` opacity modifier in beach-actions and product-tour
 - **Style guide expanded:** Added font family rules, logo usage, naming conventions, landing/app alignment, and updated brand color documentation

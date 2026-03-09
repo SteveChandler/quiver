@@ -65,7 +65,7 @@ export function RegionalAccuracyChart({ data }: RegionalAccuracyChartProps) {
         <h2 className="text-xl font-semibold text-white mb-1">
           Accuracy by Region
         </h2>
-        <p className="text-sm text-white/70 mb-6">
+        <p className="text-sm text-medium mb-6">
           Wave height MAE (meters) by state — lower is better. Regions sorted by
           improvement over NOAA.
         </p>
@@ -126,7 +126,7 @@ export function RegionalAccuracyChart({ data }: RegionalAccuracyChartProps) {
           </BarChart>
         </ChartContainer>
 
-        <p className="text-xs text-white/50 mt-4 text-center">
+        <p className="text-xs text-medium mt-4 text-center">
           Only regions with 3+ validated beaches shown. 14-day rolling evaluation
           window.
         </p>

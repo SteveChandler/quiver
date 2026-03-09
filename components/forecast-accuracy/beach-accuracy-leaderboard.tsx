@@ -62,7 +62,7 @@ export function BeachAccuracyLeaderboard({ beaches }: BeachAccuracyLeaderboardPr
           <h2 className="text-xl font-semibold text-white">
             Top Beaches by Accuracy Improvement
           </h2>
-          <p className="text-sm text-white/60 mt-1">
+          <p className="text-sm text-medium mt-1">
             Ranked by reduction in wave height error versus the NOAA baseline.
             Minimum 20 validated predictions.
           </p>
@@ -72,22 +72,22 @@ export function BeachAccuracyLeaderboard({ beaches }: BeachAccuracyLeaderboardPr
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 bg-white/5">
-                <th className="px-4 py-3 text-left font-medium text-white/60 w-8">
+                <th className="px-4 py-3 text-left font-medium text-medium w-8">
                   #
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-white/60">
+                <th className="px-4 py-3 text-left font-medium text-medium">
                   Beach
                 </th>
-                <th className="px-4 py-3 text-right font-medium text-white/60">
+                <th className="px-4 py-3 text-right font-medium text-medium">
                   NOAA Error
                 </th>
-                <th className="px-4 py-3 text-right font-medium text-white/60">
+                <th className="px-4 py-3 text-right font-medium text-medium">
                   Quiver Error
                 </th>
-                <th className="px-4 py-3 text-right font-medium text-white/60 min-w-[120px]">
+                <th className="px-4 py-3 text-right font-medium text-medium min-w-[120px]">
                   Improvement
                 </th>
-                <th className="px-4 py-3 text-right font-medium text-white/60 hidden sm:table-cell">
+                <th className="px-4 py-3 text-right font-medium text-medium hidden sm:table-cell">
                   Predictions
                 </th>
               </tr>
@@ -133,10 +133,10 @@ export function BeachAccuracyLeaderboard({ beaches }: BeachAccuracyLeaderboardPr
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right text-white/60 font-mono text-xs">
+                    <td className="px-4 py-3 text-right text-medium font-mono text-xs">
                       {formatMae(beach.rawMae)}
                     </td>
-                    <td className="px-4 py-3 text-right text-white/60 font-mono text-xs">
+                    <td className="px-4 py-3 text-right text-medium font-mono text-xs">
                       {formatMae(beach.correctedMae)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-xs">

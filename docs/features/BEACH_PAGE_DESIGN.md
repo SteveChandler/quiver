@@ -575,8 +575,8 @@ Key test scenarios:
 
 | Element          | Font   | Size    | Weight |
 | ---------------- | ------ | ------- | ------ |
-| Beach name (h1)  | Roboto | 36-48px | 800    |
-| Section headings | Roboto | 20-24px | 600    |
+| Beach name (h1)  | Space Grotesk | 36-48px | 800    |
+| Section headings | Space Grotesk | 20-24px | 600    |
 | Body text        | System | 14px    | 400    |
 | Metadata         | System | 12-14px | 500    |
 
@@ -675,7 +675,7 @@ beach-detail.tsx
 
 **Phase 4: Hero & Metadata** ✅
 
-- Compact hero with 36px Roboto headings
+- Compact hero with 36px Space Grotesk headings
 - 20px star ratings, difficulty badges
 - 46 unit tests for typography and styling
 

@@ -96,7 +96,7 @@ export function WaterQualityBadge({ waterQuality, beachState }: WaterQualityBadg
         className={`pb-3 border-b ${config.headerBg}`}
       >
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-lg font-roboto text-gray-800">
+          <CardTitle className="flex items-center gap-2 text-lg font-heading text-gray-800">
             <Droplets className={`h-5 w-5 ${config.iconColor}`} />
             Water Quality
           </CardTitle>

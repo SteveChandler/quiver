@@ -11,7 +11,7 @@ export function ActivitiesSection() {
       title={CONTENT.sections.activities.title}
       subtitle={CONTENT.sections.activities.subtitle}
       className="py-16 md:py-20 px-4 bg-white"
-      titleClassName="text-2xl sm:text-3xl font-roboto font-semibold text-dark-grey"
+      titleClassName="text-2xl sm:text-3xl font-heading font-semibold text-dark-grey"
     >
       {/* Desktop / Tablet: evenly spread across full width */}
       <ul className="mt-10 hidden w-full items-start justify-between md:flex">
@@ -33,7 +33,7 @@ export function ActivitiesSection() {
                   className="h-full w-full object-cover object-center"
                 />
               </span>
-              <span className="mt-4 text-sm font-medium font-open-sans text-slate-900 group-hover:text-ocean-blue transition-colors">
+              <span className="mt-4 text-sm font-medium font-sans text-slate-900 group-hover:text-ocean-blue transition-colors">
                 {activity.title}
               </span>
             </Link>
@@ -61,7 +61,7 @@ export function ActivitiesSection() {
                   className="h-full w-full object-cover object-center"
                 />
               </span>
-              <span className="mt-4 text-sm font-medium font-open-sans text-slate-900 group-hover:text-ocean-blue transition-colors">
+              <span className="mt-4 text-sm font-medium font-sans text-slate-900 group-hover:text-ocean-blue transition-colors">
                 {activity.title}
               </span>
             </Link>

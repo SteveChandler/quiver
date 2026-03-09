@@ -129,7 +129,7 @@ export default function HeroSearchLazy({
   const SearchPlaceholder = () => (
     <div className="relative w-full">
       {/* Search icon - left side */}
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/70 pointer-events-none">
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-medium pointer-events-none">
         <svg
           className="w-5 h-5"
           fill="none"
@@ -170,7 +170,7 @@ export default function HeroSearchLazy({
   const LoadingFallback = () => (
     <div className="relative w-full">
       {/* Loading spinner - left side */}
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/70">
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-medium">
         <Loader2 className="w-5 h-5 animate-spin" aria-label="Loading search" />
       </div>
       <input

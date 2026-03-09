@@ -82,11 +82,11 @@ export function GreetingSection({
       animate={reducedMotion ? { opacity: 1, y: 0 } : HOME_HEADER_MOTION.entryItem.animate}
       transition={reducedMotion ? { duration: 0 } : HOME_HEADER_MOTION.entryItem.transition}
     >
-      <h1 className="text-base xs:text-lg sm:text-xl font-roboto font-normal text-white/80 leading-tight">
+      <h1 className="text-base xs:text-lg sm:text-xl font-heading font-normal text-high leading-tight">
         {greeting}
       </h1>
       {levelTitle && xpTotal != null && (
-        <span className="text-xs text-white/50 bg-white/10 rounded-full px-2 py-0.5 inline-flex items-center gap-1 mt-1">
+        <span className="text-xs text-medium bg-white/10 rounded-full px-2 py-0.5 inline-flex items-center gap-1 mt-1">
           {levelTitle} · {xpTotal} XP
         </span>
       )}

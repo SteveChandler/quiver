@@ -1,6 +1,6 @@
 import type React from "react";
 import type { Metadata, Viewport } from "next";
-import { Inter, Roboto, Open_Sans, Permanent_Marker } from "next/font/google";
+import { DM_Sans, Space_Grotesk, Space_Mono } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
 import { SEO_CONFIG } from "@/lib/constants/seo";
@@ -9,36 +9,26 @@ import { LandingPageSSRSection } from "@/components/landing-page/landing-page-ss
 import { SiteFooter } from "@/components/shared/site-footer";
 import { buildRootStructuredDataGraph } from "@/lib/seo/root-structured-data";
 
-// Optimize font loading with display swap for better performance
-const inter = Inter({
+const dmSans = DM_Sans({
   subsets: ["latin"],
   display: "swap",
   preload: true,
-  variable: "--font-inter",
+  variable: "--font-sans",
 });
 
-const roboto = Roboto({
-  weight: ["400", "500", "700"],
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   display: "swap",
-  preload: false, // No longer primary heading font — deprioritized
-  variable: "--font-roboto",
+  preload: false,
+  variable: "--font-heading",
 });
 
-const openSans = Open_Sans({
-  weight: ["400", "600"],
+const spaceMono = Space_Mono({
+  weight: ["400", "700"],
   subsets: ["latin"],
   display: "swap",
-  preload: false, // Not critical for LCP
-  variable: "--font-open-sans",
-});
-
-const permanentMarker = Permanent_Marker({
-  weight: "400",
-  subsets: ["latin"],
-  display: "swap",
-  preload: false, // Only used for the retro theme prototype
-  variable: "--font-display",
+  preload: false,
+  variable: "--font-mono",
 });
 
 // Optimize viewport for mobile performance
@@ -150,7 +140,7 @@ export default async function RootLayout({
   // Embed routes get a minimal shell — no providers, nav, footer, or heavy assets
   if (isEmbedRoute) {
     return (
-      <html lang="en" className={inter.variable}>
+      <html lang="en" className={dmSans.variable}>
         <head>
           <style
             dangerouslySetInnerHTML={{
@@ -170,7 +160,7 @@ export default async function RootLayout({
             }}
           />
         </head>
-        <body className={`${inter.className} font-sans antialiased`}>
+        <body className={`${dmSans.className} font-sans antialiased`}>
           {children}
         </body>
       </html>
@@ -181,19 +171,13 @@ export default async function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${roboto.variable} ${openSans.variable} ${permanentMarker.variable}`}
+      className={`${dmSans.variable} ${spaceGrotesk.variable} ${spaceMono.variable}`}
     >
       {/* WARNING: No whitespace allowed between tags in <head> to prevent React hydration errors. See: https://react.dev/link/hydration-mismatch */}
       <head>
         {/* Analytics scripts moved to AnalyticsLoader component. This prevents loading GA4 and Ahrefs on the landing page. Performance impact: ~100KB saved, ~20ms faster TTI */}
         {/* Resource hints for performance - ESSENTIAL ONLY */}
-        {/* Fonts are critical for all routes */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
+        {/* next/font/google handles font preconnect automatically */}
         {/* 
           Localhost safety: if a PWA service worker was previously registered, it can cache
           stale Next.js chunk references and break hydration. This runs before React/JS bundles
@@ -302,7 +286,7 @@ export default async function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.className} font-sans antialiased theme-retro-dark`}>
+      <body className={`${dmSans.className} font-sans antialiased theme-retro-dark noise-texture-subtle`}>
         <Providers>{children}</Providers>
 
         {/*

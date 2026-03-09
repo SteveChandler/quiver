@@ -26,8 +26,8 @@ export function SectionWrapper({
   className = "py-20 px-4",
   title,
   subtitle,
-  titleClassName = "text-4xl md:text-5xl font-roboto font-bold text-dark-grey mb-4",
-  subtitleClassName = "text-xl font-open-sans text-gray-600 max-w-2xl mx-auto",
+  titleClassName = "text-4xl md:text-5xl font-heading font-bold text-dark-grey mb-4",
+  subtitleClassName = "text-xl font-sans text-gray-600 max-w-2xl mx-auto",
   maxWidth = "6xl",
   centerContent = false,
   "data-testid": testId,
@@ -36,7 +36,7 @@ export function SectionWrapper({
   const contentClass = centerContent ? "text-center" : "";
 
   return (
-    <section className={className} data-testid={testId}>
+    <section className={`${className} noise-texture`} data-testid={testId}>
       <div className={containerClass}>
         {(title || subtitle) && (
           <div className={`${contentClass} mb-12 animate-fade-in-up`}>

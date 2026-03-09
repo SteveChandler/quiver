@@ -30,7 +30,7 @@ The `/app` directory follows Next.js 16 App Router conventions, implementing a m
 
 - **Function**: Root layout wrapper for entire application
 - **Features**:
-  - Font optimization (Inter with display swap)
+  - Font optimization (DM Sans with display swap)
   - SEO metadata configuration
   - Performance optimizations (resource hints, prefetching)
   - Auth context provider
