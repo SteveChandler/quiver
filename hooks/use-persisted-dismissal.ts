@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { track } from "@/lib/analytics";
 
 const STORAGE_KEY_PREFIX = "quiver_dismissed_";
@@ -39,6 +39,8 @@ interface UsePersistedDismissalOptions {
   trackingEvent?: string;
   /** Additional tracking properties (optional) */
   trackingProps?: Record<string, unknown>;
+  /** Storage backend — "session" clears on tab close, "local" persists across sessions (default: "local") */
+  storage?: "local" | "session";
 }
 
 interface UsePersistedDismissalResult {
@@ -85,19 +87,25 @@ export function usePersistedDismissal(
     durationDays = 7,
     trackingEvent,
     trackingProps,
+    storage = "local",
   } = options;
+
+  const store = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    return storage === "session" ? sessionStorage : localStorage;
+  }, [storage]);
 
   // Start as dismissed until we verify localStorage state
   const [isDismissed, setIsDismissed] = useState(true);
 
   const storageKey = `${STORAGE_KEY_PREFIX}${sanitizeKey(key)}`;
 
-  // Check localStorage for dismissal state on mount
+  // Check storage for dismissal state on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     try {
-      const stored = localStorage.getItem(storageKey);
+      const stored = store!.getItem(storageKey);
 
       if (!stored) {
         // No stored value - not dismissed
@@ -111,7 +119,7 @@ export function usePersistedDismissal(
         data = JSON.parse(stored);
       } catch {
         // Invalid JSON - clear and show
-        localStorage.removeItem(storageKey);
+        store!.removeItem(storageKey);
         setIsDismissed(false);
         return;
       }
@@ -122,7 +130,7 @@ export function usePersistedDismissal(
 
       if (!dismissedDate) {
         // Invalid timestamp - clear and show
-        localStorage.removeItem(storageKey);
+        store!.removeItem(storageKey);
         setIsDismissed(false);
         return;
       }
@@ -134,7 +142,7 @@ export function usePersistedDismissal(
 
       if (daysSinceDismiss >= durationDays) {
         // Expired - clear and show
-        localStorage.removeItem(storageKey);
+        store!.removeItem(storageKey);
         setIsDismissed(false);
         return;
       }
@@ -142,11 +150,11 @@ export function usePersistedDismissal(
       // Still within dismissal period - keep dismissed
       setIsDismissed(true);
     } catch (error) {
-      // localStorage not available - show the item
-      console.warn("localStorage not available:", error);
+      // Storage not available - show the item
+      console.warn("Storage not available:", error);
       setIsDismissed(false);
     }
-  }, [storageKey, durationDays]);
+  }, [storageKey, durationDays, store]);
 
   const handleDismiss = useCallback(() => {
     setIsDismissed(true);
@@ -158,27 +166,27 @@ export function usePersistedDismissal(
 
     if (typeof window !== "undefined") {
       try {
-        localStorage.setItem(
+        store!.setItem(
           storageKey,
           JSON.stringify({ timestamp: new Date().toISOString() })
         );
       } catch (error) {
-        console.warn("localStorage not available:", error);
+        console.warn("Storage not available:", error);
       }
     }
-  }, [storageKey, trackingEvent, trackingProps]);
+  }, [storageKey, trackingEvent, trackingProps, store]);
 
   const clearDismissal = useCallback(() => {
     setIsDismissed(false);
 
     if (typeof window !== "undefined") {
       try {
-        localStorage.removeItem(storageKey);
+        store!.removeItem(storageKey);
       } catch (error) {
-        console.warn("localStorage not available:", error);
+        console.warn("Storage not available:", error);
       }
     }
-  }, [storageKey]);
+  }, [storageKey, store]);
 
   return {
     isDismissed,

@@ -328,6 +328,10 @@ function isIgnorableConsoleError(text: string): boolean {
     'hydrating',
     'A tree hydrated but',
 
+    // React DOM nesting warnings (dev-mode only, not production errors)
+    'cannot be a descendant of',
+    'cannot contain a nested',
+
     // Image loading (handled gracefully)
     'Image optimization',
 

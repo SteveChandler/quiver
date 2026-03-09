@@ -28,7 +28,7 @@ interface StickySignupBarProps {
  * Features:
  * - Fixed bottom position, mobile only (hidden on md+)
  * - Appears after scrolling past threshold
- * - Dismissable with 7-day localStorage persistence
+ * - Dismissable with session-based persistence (auto-clears on tab close)
  * - Opens UnifiedAuthModal instead of navigating
  * - Safe area padding for iOS devices
  * - Respects prefers-reduced-motion for animations
@@ -49,9 +49,10 @@ export function StickySignupBar({
   const { isDismissed, handleDismiss } = usePersistedDismissal(
     `sticky_signup_${source}`,
     {
-      durationDays: 7,
+      durationDays: 1, // Session ends before this, but provides a safety expiry
       trackingEvent: "signup_cta_dismiss",
       trackingProps: { source },
+      storage: "session",
     }
   );
 

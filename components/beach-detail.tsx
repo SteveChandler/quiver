@@ -60,6 +60,8 @@ import {
 import { SessionPlanningModal } from "@/components/beach-detail/session-planning-modal";
 import { TabLoadingSkeleton } from "@/components/beach-detail/tab-loading-skeleton";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { PublicContentGate } from "@/components/ui/public-content-gate";
+import { CamHeroPlaceholder } from "@/components/beach-detail/cam-hero-placeholder";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 
 // PERFORMANCE OPTIMIZATION: Lazy load tab content to reduce initial bundle size
@@ -439,17 +441,33 @@ function BeachDetailContent({
       {/* Immersive hero: video or photos background with title at top and forecast at bottom */}
       <div className="relative mb-6 min-h-[280px] md:min-h-[400px]">
         {showCamHero ? (
-          /* Video background — hero variant strips card chrome */
-          <Suspense
-            fallback={
-              <div
-                className="aspect-video w-full"
-                style={{ backgroundColor: "#2D357D" }}
+          publicMode ? (
+            /* Anonymous users: gated cam placeholder */
+            <PublicContentGate
+              ctaTitle="Watch the Live Cam"
+              ctaDescription={`Sign up free to stream ${beach.name} in real time`}
+              ctaButtonText="Sign Up Free"
+              blurLevel="sm"
+              source="cam-hero"
+            >
+              <CamHeroPlaceholder
+                cameraUrl={sources?.camera_url}
+                beachName={beach.name}
               />
-            }
-          >
-            <CamsSection sources={sources} variant="hero" />
-          </Suspense>
+            </PublicContentGate>
+          ) : (
+            /* Authenticated users: live cam stream */
+            <Suspense
+              fallback={
+                <div
+                  className="aspect-video w-full"
+                  style={{ backgroundColor: "#2D357D" }}
+                />
+              }
+            >
+              <CamsSection sources={sources} variant="hero" />
+            </Suspense>
+          )
         ) : (
           /* Photo gallery background */
           <BeachPhotoGallery beach={beach} className="w-full" />
@@ -521,6 +539,18 @@ function BeachDetailContent({
           currentForecast={currentForecast}
           className="mb-6"
         />
+
+        {/* Inline signup CTA — above the fold for anonymous visitors */}
+        {publicMode && (
+          <div className="mb-6">
+            <InlineSignupCta
+              title="Know Before You Go"
+              description={`Get your personal match score, 12-day outlook, and condition alerts for ${beach.name}`}
+              primaryButtonText="Get My Forecast"
+              source={`beach-detail-${slugify(beach.name)}`}
+            />
+          </div>
+        )}
 
         {/* Action Buttons */}
         <BeachActions

@@ -29,7 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - `StickySignupBar` dismissal switched from localStorage (7-day) to sessionStorage — bar reappears on new tabs/sessions instead of staying hidden for a week
+- `StickySignupBar` added to `/beach/[slug]` and `/mexico/.../[beachSlug]` pages for parity with the main beach route
 - Mobile header now shows a compact "Sign Up" pill button and hides the "Log in" ghost button (accessible via hamburger menu) — desktop retains the full contextual CTA from `getSignupCta`
+- `getSignupCta` regex generalized to match any 2-letter state code and `/mexico/` routes instead of hardcoded subset
 - Home screen personalization progress bar starts at 20% (endowed progress effect) instead of 0%
 - `PersonalizationProgress` `getting_started` copy updated to "We're dialed in on your spot and schedule" / "Log a session and your forecast starts learning what you like. Five sessions and it's all yours."
 - `FirstSessionCta` heading changed to "Did you surf recently?", body to "Log it in 30 seconds. Your forecast starts learning what you like.", friction reducer to "Just pick your spot and rate the waves"
