@@ -389,11 +389,29 @@ For detailed algorithm documentation, see `lib/services/ARCHITECTURE.md`.
 
 ### Mobile Architecture
 
-**Status**: Phase 1 Complete - Ready for Native Build Generation
+Two mobile strategies coexist:
 
-- **Approach**: Capacitor shell wrapping Next.js web app.
-- **Key Components**: PWA manifest, Service Worker (forecast caching), Capacitor bridge.
-- **Next Steps**: Run `npm run mobile:sync` to generate iOS/Android projects.
+#### Capacitor Web Wrapper (this repo)
+- **Approach**: Capacitor 8 shell wrapping the Next.js web app
+- **Key Components**: PWA manifest, Service Worker (forecast caching), Capacitor bridge
+- **Use case**: Full web feature parity on mobile, push notifications via FCM
+
+#### Expo Native App (`../quiver-native`)
+- **Repo**: Separate Git repo — `quiver-native`
+- **Stack**: Expo 55, React Native 0.83, Tamagui, TanStack Query, Zustand, React Navigation 7
+- **Backend**: Shares same Supabase instance (DB + Auth + Storage). Also calls this repo's Next.js API routes for forecasts/surf calls.
+- **Docs**: Has its own `CLAUDE.md`, `docs/ARCHITECTURE.md`, and inline `ARCHITECTURE.md` files
+- **Build**: EAS Build (dev/preview/production profiles) or local `npx expo run:ios/android`
+- **Bundle ID**: `app.quiversurf.native`
+
+**Key differences from web:**
+| Aspect | Web (Capacitor) | Native (Expo) |
+|--------|----------------|---------------|
+| Data fetching | `useDataFetcher` / SWR | TanStack Query |
+| Styling | Tailwind + Radix UI | Tamagui + StyleSheet |
+| State | React Context | Zustand (auth) + TanStack Query (server) |
+| Coordinates | `center_lat`/`center_lng` (DB), `latitude`/`longitude` (props) | `lat`/`lon` |
+| Auth | Clerk + Supabase | Supabase Auth + SecureStore |
 
 ---
 

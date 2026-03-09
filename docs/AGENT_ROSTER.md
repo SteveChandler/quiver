@@ -23,7 +23,8 @@ Specialist subagents available for the Quiver project. The main session is a coo
 | QA Strategy | `qa-expert` |
 | Design Review | `quiver-design-reviewer` |
 | Data Research | `data-researcher` |
-| Mobile (Capacitor) | `fullstack-engineer` |
+| Mobile — Capacitor (this repo) | `fullstack-engineer` |
+| Mobile — React Native (`quiver-native`) | Work in `../quiver-native` repo with its own CLAUDE.md |
 
 ## Workflow
 
