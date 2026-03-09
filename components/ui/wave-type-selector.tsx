@@ -155,8 +155,8 @@ export function WaveTypeSelector({
                 onClick={() => toggleWaveType(waveType.id)}
                 className={`p-2 rounded-lg border-2 transition-all text-left ${
                   isSelected
-                    ? "border-[#FF3B8B] bg-[#FF3B8B]/10"
-                    : "border-[#1E2D4A] hover:border-[#2A3F66] bg-[#172544] hover:bg-[#1E2D4A]"
+                    ? "border-[#F78E42] bg-[#F78E42]/10"
+                    : "border-[#404C92] hover:border-[#2A3F66] bg-[#354090] hover:bg-[#404C92]"
                 }`}
                 title={waveType.description}
               >
@@ -164,7 +164,7 @@ export function WaveTypeSelector({
                   <span className="text-lg">{waveType.emoji}</span>
                   <span
                     className={`text-sm font-medium ${
-                      isSelected ? "text-[#FF3B8B]" : "text-[#F0F0F0]"
+                      isSelected ? "text-[#F78E42]" : "text-[#F0F0F0]"
                     }`}
                   >
                     {waveType.label}

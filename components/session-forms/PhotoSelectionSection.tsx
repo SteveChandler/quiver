@@ -197,7 +197,7 @@ export function PhotoSelectionSection({
         {/* Upload Area */}
         <Card
           className={cn(
-            "border-2 border-dashed transition-colors cursor-pointer bg-[#172544] border-[#1E2D4A]",
+            "border-2 border-dashed transition-colors cursor-pointer bg-[#354090] border-[#404C92]",
             isDragging && "border-primary bg-primary/5",
             (disabled || isProcessing) && "opacity-50 cursor-not-allowed"
           )}
@@ -237,7 +237,7 @@ export function PhotoSelectionSection({
               type="button"
               variant="outline"
               size="sm"
-              className="mt-4 bg-[#172544] border-[#1E2D4A] text-[#A8B8D0] hover:bg-[#1E2D4A] hover:text-[#F0F0F0]"
+              className="mt-4 bg-[#354090] border-[#404C92] text-[#A8B8D0] hover:bg-[#404C92] hover:text-[#F0F0F0]"
               disabled={disabled || isProcessing}
             >
               <Upload className="h-4 w-4 mr-2" />
@@ -284,7 +284,7 @@ export function PhotoSelectionSection({
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {filePreviews.map((filePreview) => (
                 <div key={filePreview.id} className="relative group">
-                  <div className="aspect-square rounded-lg overflow-hidden bg-[#172544]">
+                  <div className="aspect-square rounded-lg overflow-hidden bg-[#354090]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={filePreview.url}

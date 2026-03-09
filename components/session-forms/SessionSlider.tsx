@@ -47,7 +47,7 @@ export function SessionSlider({
   const isSet = numericValue !== undefined && !isNaN(numericValue);
   const max = labels.length;
   const progress = isSet ? (numericValue - 1) / (max - 1) : 0;
-  const activeColor = isSet ? interpolateColor(colors, progress) : "#1E2D4A";
+  const activeColor = isSet ? interpolateColor(colors, progress) : "#404C92";
   const currentLabel = isSet ? labels[numericValue - 1] : undefined;
 
   return (
@@ -92,22 +92,22 @@ export function SessionSlider({
       >
         <SliderPrimitive.Track
           className={cn(
-            "relative w-full grow overflow-hidden rounded-full bg-[#1E2D4A]",
+            "relative w-full grow overflow-hidden rounded-full bg-[#404C92]",
             hero ? "h-3" : "h-2"
           )}
         >
           <SliderPrimitive.Range
             className="absolute h-full rounded-full transition-colors"
-            style={{ backgroundColor: isSet ? activeColor : "#1E2D4A" }}
+            style={{ backgroundColor: isSet ? activeColor : "#404C92" }}
           />
         </SliderPrimitive.Track>
         <SliderPrimitive.Thumb
           className={cn(
-            "block rounded-full border-2 border-[#111D35] shadow-md transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-110",
+            "block rounded-full border-2 border-[#2D357D] shadow-md transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-110",
             hero ? "h-7 w-7" : "h-6 w-6",
             !isSet && "opacity-0"
           )}
-          style={{ backgroundColor: isSet ? activeColor : "#1E2D4A" }}
+          style={{ backgroundColor: isSet ? activeColor : "#404C92" }}
         />
       </SliderPrimitive.Root>
 

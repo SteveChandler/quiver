@@ -290,7 +290,7 @@ export default async function RootLayout({
                 width: 20px;
                 height: 20px;
                 border: 2px solid #f3f3f3;
-                border-top: 2px solid #FF3B8B;
+                border-top: 2px solid #F78E42;
                 border-radius: 50%;
                 animation: spin 1s linear infinite;
               }

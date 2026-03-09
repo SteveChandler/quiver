@@ -49,7 +49,7 @@ export function SessionScrollForm({
   }
 
   return (
-    <div className={cn("relative min-h-screen bg-[#0B1426] session-scroll-form", className)}>
+    <div className={cn("relative min-h-screen bg-[#252D6B] session-scroll-form", className)}>
       {/* Grain overlay */}
       <div
         className="pointer-events-none fixed inset-0 z-0 opacity-[0.04]"
@@ -59,7 +59,7 @@ export function SessionScrollForm({
       {/* Content */}
       <div className="relative z-10 flex flex-col min-h-screen max-w-xl mx-auto w-full">
         {/* Sticky header */}
-        <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-[#0B1426] border-b border-[#1E2D4A]">
+        <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-[#252D6B] border-b border-[#404C92]">
           <button
             type="button"
             aria-label="Cancel"
@@ -76,7 +76,7 @@ export function SessionScrollForm({
             size="sm"
             disabled={!canSave || loadingData}
             onClick={handleSave}
-            className="bg-gradient-to-r from-[#FF3B8B] to-[#E0357A] hover:from-[#E0357A] hover:to-[#C92F6C] text-white font-semibold px-4 disabled:opacity-40"
+            className="bg-gradient-to-r from-[#F78E42] to-[#D57835] hover:from-[#D57835] hover:to-[#C92F6C] text-white font-semibold px-4 disabled:opacity-40"
           >
             {loadingData ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
           </Button>
@@ -105,7 +105,7 @@ export function SessionScrollForm({
 
             {isLog && (
               <>
-                <hr className="border-[#1E2D4A]" />
+                <hr className="border-[#404C92]" />
 
                 {/* Section 2: Equipment */}
                 <section className="space-y-4">
@@ -120,7 +120,7 @@ export function SessionScrollForm({
                   />
                 </section>
 
-                <hr className="border-[#1E2D4A]" />
+                <hr className="border-[#404C92]" />
 
                 {/* Section 3: Conditions (objective inputs) */}
                 <section className="space-y-4">
@@ -134,7 +134,7 @@ export function SessionScrollForm({
                   />
                 </section>
 
-                <hr className="border-[#1E2D4A]" />
+                <hr className="border-[#404C92]" />
 
                 {/* Section 4: Subjective sliders + Wave types */}
                 <section className="space-y-6">
@@ -178,7 +178,7 @@ export function SessionScrollForm({
                   </div>
                 </section>
 
-                <hr className="border-[#1E2D4A]" />
+                <hr className="border-[#404C92]" />
 
                 {/* Section 5: Forecast accuracy */}
                 <section className="space-y-4">
@@ -204,8 +204,8 @@ export function SessionScrollForm({
                           className={cn(
                             "p-4 rounded-lg border-2 transition-all",
                             isSelected
-                              ? "border-[#FF3B8B] bg-[#FF3B8B]/10"
-                              : "border-[#1E2D4A] bg-[#172544] hover:bg-[#1E2D4A]"
+                              ? "border-[#F78E42] bg-[#F78E42]/10"
+                              : "border-[#404C92] bg-[#354090] hover:bg-[#404C92]"
                           )}
                           aria-label={`${option.label}: ${option.description}`}
                         >
@@ -213,13 +213,13 @@ export function SessionScrollForm({
                             <IconComponent
                               className={cn(
                                 "h-6 w-6",
-                                isSelected ? "text-[#FF3B8B]" : option.color
+                                isSelected ? "text-[#F78E42]" : option.color
                               )}
                             />
                             <span
                               className={cn(
                                 "font-medium",
-                                isSelected ? "text-[#FF3B8B]" : "text-[#F0F0F0]"
+                                isSelected ? "text-[#F78E42]" : "text-[#F0F0F0]"
                               )}
                             >
                               {option.label}
@@ -234,7 +234,7 @@ export function SessionScrollForm({
                   </div>
                 </section>
 
-                <hr className="border-[#1E2D4A]" />
+                <hr className="border-[#404C92]" />
 
                 {/* Section 6: Photos */}
                 <section className="space-y-4">
@@ -248,13 +248,13 @@ export function SessionScrollForm({
                   />
                 </section>
 
-                <hr className="border-[#1E2D4A]" />
+                <hr className="border-[#404C92]" />
               </>
             )}
 
             {isPlanning && (
               <>
-                <hr className="border-[#1E2D4A]" />
+                <hr className="border-[#404C92]" />
 
                 {/* Plan mode section 2: Goals */}
                 <section>
@@ -265,7 +265,7 @@ export function SessionScrollForm({
                   />
                 </section>
 
-                <hr className="border-[#1E2D4A]" />
+                <hr className="border-[#404C92]" />
               </>
             )}
 
@@ -281,7 +281,7 @@ export function SessionScrollForm({
               />
             </section>
 
-            <hr className="border-[#1E2D4A]" />
+            <hr className="border-[#404C92]" />
 
             {/* Visibility (both modes) */}
             <section className="space-y-4">
@@ -299,13 +299,13 @@ export function SessionScrollForm({
         </main>
 
         {/* Sticky bottom save button */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#0B1426] border-t border-[#1E2D4A] safe-area-bottom">
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#252D6B] border-t border-[#404C92] safe-area-bottom">
           <div className="max-w-xl mx-auto">
           <button
             type="button"
             disabled={!canSave || loadingData}
             onClick={handleSave}
-            className="w-full py-4 rounded-xl bg-gradient-to-r from-[#FF3B8B] to-[#E0357A] text-white font-bold text-lg active:scale-[0.98] transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full py-4 rounded-xl bg-gradient-to-r from-[#F78E42] to-[#D57835] text-white font-bold text-lg active:scale-[0.98] transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {loadingData ? (
               <span className="flex items-center justify-center gap-2">

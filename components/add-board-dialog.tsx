@@ -162,7 +162,7 @@ export function AddBoardDialog({
   const dialogOpen = isControlled ? open : isOpen;
 
   const dialogContent = (
-    <DialogContent className="bg-[#0B1426] border-[#1E2D4A] overflow-hidden">
+    <DialogContent className="bg-[#252D6B] border-[#404C92] overflow-hidden">
       {/* pointer-events-none is critical — grain sits below the close (X) button injected by DialogContent */}
       <div
         className="pointer-events-none absolute inset-0 z-0 opacity-[0.04]"
@@ -191,7 +191,7 @@ export function AddBoardDialog({
                   variant="outline"
                   type="button"
                   onClick={resetForm}
-                  className="border-[#1E2D4A] bg-transparent text-[#8B9EC2] hover:bg-[#172544]"
+                  className="border-[#404C92] bg-transparent text-[#8B9EC2] hover:bg-[#354090]"
                 >
                   Cancel
                 </Button>
@@ -199,7 +199,7 @@ export function AddBoardDialog({
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="bg-gradient-to-r from-[#FF3B8B] to-[#E0357A] text-white hover:brightness-110 border-0"
+                className="bg-gradient-to-r from-[#F78E42] to-[#D57835] text-white hover:brightness-110 border-0"
               >
                 {isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

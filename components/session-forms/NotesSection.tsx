@@ -49,7 +49,7 @@ export function NotesSection({
           </label>
           <textarea
             placeholder={text.notesPlaceholder}
-            className="w-full border border-[#1E2D4A] bg-[#172544] text-[#F0F0F0] placeholder:text-[#8B9EC2] rounded-lg p-3 min-h-24 focus:ring-2 focus:ring-[#FF3B8B] focus:border-transparent resize-vertical"
+            className="w-full border border-[#404C92] bg-[#354090] text-[#F0F0F0] placeholder:text-[#8B9EC2] rounded-lg p-3 min-h-24 focus:ring-2 focus:ring-[#F78E42] focus:border-transparent resize-vertical"
             value={formState.notes || ""}
             onChange={(e) => updateField("notes", e.target.value)}
             rows={4}
@@ -72,7 +72,7 @@ export function NotesSection({
         {/* Session Summary for Logged Sessions */}
         {!isPlanning && (
           <div className="pt-4 border-t">
-            <div className="bg-[#172544] border border-[#1E2D4A] rounded-lg p-3">
+            <div className="bg-[#354090] border border-[#404C92] rounded-lg p-3">
               <div className="flex items-start">
                 <ClipboardList className="w-4 h-4 mt-0.5 mr-2 text-[#7BFF5C] flex-shrink-0" />
                 <div className="text-sm">

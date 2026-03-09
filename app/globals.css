@@ -6,25 +6,25 @@
 
 @layer base {
   :root {
-    --background: 220 50% 7%;       /* #0B1426 deep navy */
+    --background: 233 49% 28%;       /* #252D6B Deep Twilight */
     --foreground: 0 0% 94%;         /* #F0F0F0 off-white */
-    --card: 220 45% 13%;            /* #111D35 card surface */
+    --card: 233 49% 33%;            /* ~#2D357D card surface */
     --card-foreground: 0 0% 94%;
-    --popover: 220 45% 13%;
+    --popover: 233 49% 33%;
     --popover-foreground: 0 0% 94%;
-    --primary: 338 100% 62%;        /* #FF3B8B hot pink */
+    --primary: 25 92% 61%;          /* #F78E42 Charming Orange */
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 40% 18%;       /* #172544 elevated */
+    --secondary: 233 47% 38%;       /* ~#354090 elevated */
     --secondary-foreground: 0 0% 94%;
-    --muted: 220 40% 18%;
+    --muted: 233 47% 38%;
     --muted-foreground: 220 30% 65%; /* #9AABC6 slate blue */
-    --accent: 220 40% 18%;
+    --accent: 233 47% 38%;
     --accent-foreground: 0 0% 94%;
     --destructive: 0 100% 68%;      /* #FF5C5C coral red */
     --destructive-foreground: 0 0% 100%;
-    --border: 220 40% 20%;          /* #1E2D4A */
-    --input: 220 40% 20%;
-    --ring: 338 100% 62%;
+    --border: 233 38% 41%;          /* ~#404C92 */
+    --input: 233 38% 41%;
+    --ring: 25 92% 61%;             /* Match primary */
     --radius: 0.5rem;
     --success: 120 100% 68%;        /* #7BFF5C lime */
     --success-foreground: 0 0% 0%;
@@ -254,13 +254,13 @@ body.js-loaded .ssr-beach-section {
 
 /* ALL white backgrounds → dark navy card surface */
 .theme-retro-dark [class*="bg-white"] {
-  background-color: #111D35 !important;
+  background-color: #2D357D !important;
   --tw-bg-opacity: 1 !important;
 }
 /* Translucent variants need alpha */
 .theme-retro-dark [class*="bg-white\\/9"],
 .theme-retro-dark [class*="bg-white\\/8"] {
-  background-color: rgba(17, 29, 53, 0.95) !important;
+  background-color: rgba(45, 53, 125, 0.95) !important;
 }
 
 /* ALL light gray backgrounds → elevated surface */
@@ -268,15 +268,15 @@ body.js-loaded .ssr-beach-section {
 .theme-retro-dark [class*="bg-gray-1"],
 .theme-retro-dark [class*="bg-slate-5"],
 .theme-retro-dark [class*="bg-slate-1"] {
-  background-color: #172544 !important;
+  background-color: #354090 !important;
   --tw-bg-opacity: 1 !important;
 }
-.theme-retro-dark .bg-gray-200 { background-color: #1E2D4A !important; }
+.theme-retro-dark .bg-gray-200 { background-color: #404C92 !important; }
 
 /* Light blue backgrounds → subtle teal tint */
 .theme-retro-dark [class*="bg-blue-5"],
 .theme-retro-dark [class*="bg-blue-1"] {
-  background-color: rgba(0, 212, 170, 0.08) !important;
+  background-color: rgba(74, 112, 217, 0.08) !important;
   --tw-bg-opacity: 1 !important;
 }
 
@@ -289,19 +289,19 @@ body.js-loaded .ssr-beach-section {
 .theme-retro-dark [class*="to-indigo-5"],
 .theme-retro-dark [class*="from-indigo-5"],
 .theme-retro-dark [class*="from-sandy-beige"] {
-  --tw-gradient-from: #111D35 !important;
-  --tw-gradient-via: #0B1426 !important;
-  --tw-gradient-to: #0B1426 !important;
-  background: #111D35 !important;
+  --tw-gradient-from: #2D357D !important;
+  --tw-gradient-via: #252D6B !important;
+  --tw-gradient-to: #252D6B !important;
+  background: #2D357D !important;
 }
 
 /* bg-gradient with light origins — only on full-page wrappers */
 .theme-retro-dark > [class*="bg-gradient"],
 .theme-retro-dark .min-h-screen[class*="bg-gradient"] {
-  background: #0B1426 !important;
+  background: #252D6B !important;
 }
 
-/* Text — all grays bumped for readable contrast on #0B1426 */
+/* Text — all grays bumped for readable contrast on #252D6B */
 .theme-retro-dark .text-gray-900 { color: #F0F0F0 !important; }
 .theme-retro-dark .text-gray-800 { color: #E8ECF4 !important; }
 .theme-retro-dark .text-gray-700 { color: #D0D9EA !important; }
@@ -320,36 +320,36 @@ body.js-loaded .ssr-beach-section {
 
 /* Colored text used in section headers (tips, hazards, amenities) */
 .theme-retro-dark .text-amber-600,
-.theme-retro-dark .text-amber-700 { color: #FFD639 !important; }
+.theme-retro-dark .text-amber-700 { color: #FDB84B !important; }
 .theme-retro-dark .text-orange-600,
 .theme-retro-dark .text-orange-700 { color: #FF9F43 !important; }
 .theme-retro-dark .text-red-600,
 .theme-retro-dark .text-red-700 { color: #FF6B6B !important; }
 .theme-retro-dark .text-teal-600,
-.theme-retro-dark .text-teal-700 { color: #00D4AA !important; }
+.theme-retro-dark .text-teal-700 { color: #4A70D9 !important; }
 .theme-retro-dark .text-cyan-600,
-.theme-retro-dark .text-cyan-700 { color: #00D4AA !important; }
+.theme-retro-dark .text-cyan-700 { color: #4A70D9 !important; }
 .theme-retro-dark .text-purple-600,
 .theme-retro-dark .text-purple-700 { color: #C084FC !important; }
 .theme-retro-dark .text-rose-600,
-.theme-retro-dark .text-rose-700 { color: #FF3B8B !important; }
+.theme-retro-dark .text-rose-700 { color: #F78E42 !important; }
 
 /* Muted foreground — used by shadcn components */
 .theme-retro-dark .text-muted-foreground { color: #9AABC6 !important; }
 
-/* Brand color remaps — hot pink takes over ocean-blue */
-.theme-retro-dark .text-ocean-blue { color: #FF3B8B !important; }
-.theme-retro-dark .border-ocean-blue { border-color: #FF3B8B !important; }
-.theme-retro-dark .bg-ocean-blue { background-color: #FF3B8B !important; }
-.theme-retro-dark .text-blue-600 { color: #00D4AA !important; }
-.theme-retro-dark .text-blue-700 { color: #00D4AA !important; }
-.theme-retro-dark .text-blue-500 { color: #00D4AA !important; }
+/* Brand color remaps — Charming Orange takes over ocean-blue */
+.theme-retro-dark .text-ocean-blue { color: #F78E42 !important; }
+.theme-retro-dark .border-ocean-blue { border-color: #F78E42 !important; }
+.theme-retro-dark .bg-ocean-blue { background-color: #F78E42 !important; }
+.theme-retro-dark .text-blue-600 { color: #4A70D9 !important; }
+.theme-retro-dark .text-blue-700 { color: #4A70D9 !important; }
+.theme-retro-dark .text-blue-500 { color: #4A70D9 !important; }
 
-/* Stars and ratings — keep yellow */
-.theme-retro-dark .text-yellow-500 { color: #FFD639 !important; }
-.theme-retro-dark .fill-yellow-500 { fill: #FFD639 !important; }
-.theme-retro-dark .text-yellow-400 { color: #FFD639 !important; }
-.theme-retro-dark .fill-yellow-400 { fill: #FFD639 !important; }
+/* Stars and ratings — Paradise Gold */
+.theme-retro-dark .text-yellow-500 { color: #FDB84B !important; }
+.theme-retro-dark .fill-yellow-500 { fill: #FDB84B !important; }
+.theme-retro-dark .text-yellow-400 { color: #FDB84B !important; }
+.theme-retro-dark .fill-yellow-400 { fill: #FDB84B !important; }
 
 /* Success / lime */
 .theme-retro-dark .text-green-500 { color: #7BFF5C !important; }
@@ -358,14 +358,14 @@ body.js-loaded .ssr-beach-section {
 .theme-retro-dark .text-emerald-600 { color: #7BFF5C !important; }
 
 /* Borders */
-.theme-retro-dark .border-gray-200 { border-color: #1E2D4A !important; }
-.theme-retro-dark .border-gray-100 { border-color: #1E2D4A !important; }
-.theme-retro-dark .border-gray-300 { border-color: #243558 !important; }
-.theme-retro-dark .border-blue-200 { border-color: #1E2D4A !important; }
-.theme-retro-dark .border-slate-200 { border-color: #1E2D4A !important; }
-.theme-retro-dark .divide-gray-200 > * + * { border-color: #1E2D4A !important; }
-.theme-retro-dark [class*="border-blue-100"] { border-color: #1E2D4A !important; }
-.theme-retro-dark [class*="border-ocean-blue\\/"] { border-color: rgba(255, 59, 139, 0.15) !important; }
+.theme-retro-dark .border-gray-200 { border-color: #404C92 !important; }
+.theme-retro-dark .border-gray-100 { border-color: #404C92 !important; }
+.theme-retro-dark .border-gray-300 { border-color: #4A5A9E !important; }
+.theme-retro-dark .border-blue-200 { border-color: #404C92 !important; }
+.theme-retro-dark .border-slate-200 { border-color: #404C92 !important; }
+.theme-retro-dark .divide-gray-200 > * + * { border-color: #404C92 !important; }
+.theme-retro-dark [class*="border-blue-100"] { border-color: #404C92 !important; }
+.theme-retro-dark [class*="border-ocean-blue\\/"] { border-color: rgba(247, 142, 66, 0.15) !important; }
 
 /* ---- Typography: brush font for headings ---- */
 .theme-retro-dark h1,
@@ -377,13 +377,13 @@ body.js-loaded .ssr-beach-section {
 
 /* ---- Tab / nav active states ---- */
 .theme-retro-dark [data-state="active"] {
-  color: #FF3B8B !important;
-  border-color: #FF3B8B !important;
+  color: #F78E42 !important;
+  border-color: #F78E42 !important;
 }
 /* Sub-tab pills (forecast today/tides/conditions) — active needs visible bg */
 .theme-retro-dark [role="tablist"] [data-state="active"] {
-  background-color: #1E2D4A !important;
-  box-shadow: 0 2px 8px rgba(255, 59, 139, 0.15) !important;
+  background-color: #404C92 !important;
+  box-shadow: 0 2px 8px rgba(247, 142, 66, 0.15) !important;
 }
 
 /* ---- Badges / sticker treatment (narrow selectors — only actual badges) ---- */
@@ -391,24 +391,24 @@ body.js-loaded .ssr-beach-section {
 .theme-retro-dark span[class*="rounded-full"][class*="bg-orange-50"],
 .theme-retro-dark span[class*="rounded-full"][class*="bg-red-50"],
 .theme-retro-dark span[class*="rounded-full"][class*="bg-cyan-50"] {
-  background-color: rgba(255, 214, 57, 0.12) !important;
-  color: #FFD639 !important;
-  border-color: rgba(255, 214, 57, 0.25) !important;
+  background-color: rgba(253, 184, 75, 0.12) !important;
+  color: #FDB84B !important;
+  border-color: rgba(253, 184, 75, 0.25) !important;
   transform: rotate(-1deg);
 }
 /* shadcn Badge component */
 .theme-retro-dark [data-slot="badge"] {
-  background-color: rgba(255, 214, 57, 0.12) !important;
-  color: #FFD639 !important;
-  border-color: rgba(255, 214, 57, 0.25) !important;
+  background-color: rgba(253, 184, 75, 0.12) !important;
+  color: #FDB84B !important;
+  border-color: rgba(253, 184, 75, 0.25) !important;
   transform: rotate(-1deg);
 }
 
 /* ---- Section-level colored backgrounds (tips, amenities, hazards) ---- */
 .theme-retro-dark [class*="bg-yellow-5"],
 .theme-retro-dark [class*="bg-amber-5"] {
-  background-color: rgba(255, 214, 57, 0.08) !important;
-  border-color: rgba(255, 214, 57, 0.2) !important;
+  background-color: rgba(253, 184, 75, 0.08) !important;
+  border-color: rgba(253, 184, 75, 0.2) !important;
   --tw-bg-opacity: 1 !important;
 }
 .theme-retro-dark [class*="bg-orange-5"] {
@@ -433,12 +433,12 @@ body.js-loaded .ssr-beach-section {
   --tw-bg-opacity: 1 !important;
 }
 .theme-retro-dark [class*="bg-cyan-5"] {
-  background-color: rgba(0, 212, 170, 0.08) !important;
-  border-color: rgba(0, 212, 170, 0.15) !important;
+  background-color: rgba(74, 112, 217, 0.08) !important;
+  border-color: rgba(74, 112, 217, 0.15) !important;
   --tw-bg-opacity: 1 !important;
 }
 
-/* ---- Buttons — hot pink fill, slightly hand-cut radius ---- */
+/* ---- Buttons — Charming Orange fill, slightly hand-cut radius ---- */
 .theme-retro-dark .bg-primary,
 .theme-retro-dark button.bg-primary,
 .theme-retro-dark a.bg-primary,
@@ -446,13 +446,13 @@ body.js-loaded .ssr-beach-section {
 .theme-retro-dark a[class*="bg-ocean-blue"],
 .theme-retro-dark button[class*="bg-pink"],
 .theme-retro-dark a[class*="bg-pink"] {
-  background-color: #FF3B8B !important;
+  background-color: #F78E42 !important;
   border-radius: 12px 14px 11px 13px !important;
 }
 /* ---- Card hover glow ---- */
 .theme-retro-dark .session-card-hover:hover {
   transform: translateZ(0) translateY(-2px) !important;
-  box-shadow: 0 0 24px rgba(255, 59, 139, 0.2) !important;
+  box-shadow: 0 0 24px rgba(247, 142, 66, 0.2) !important;
 }
 
 /* ---- Container transparency ---- */
@@ -463,7 +463,7 @@ body.js-loaded .ssr-beach-section {
 /* ---- Gradient / translucent brand backgrounds (CTA cards, teasers) ---- */
 .theme-retro-dark [class*="from-ocean-blue"],
 .theme-retro-dark [class*="bg-ocean-blue\/"] {
-  background: rgba(255, 59, 139, 0.1) !important;
+  background: rgba(247, 142, 66, 0.1) !important;
 }
 .theme-retro-dark [class*="via-white"] {
   --tw-gradient-via: transparent !important;
@@ -472,7 +472,7 @@ body.js-loaded .ssr-beach-section {
   --tw-gradient-to: transparent !important;
 }
 .theme-retro-dark [class*="ring-ocean-blue"] {
-  --tw-ring-color: rgba(255, 59, 139, 0.15) !important;
+  --tw-ring-color: rgba(247, 142, 66, 0.15) !important;
 }
 
 /* ---- Shadow overrides (no light box-shadows leaking through) ---- */
@@ -483,36 +483,36 @@ body.js-loaded .ssr-beach-section {
 
 /* ---- Dividers ---- */
 .theme-retro-dark hr {
-  border-color: #1E2D4A;
+  border-color: #404C92;
 }
 
 /* ---- Input fields ---- */
 .theme-retro-dark input,
 .theme-retro-dark textarea,
 .theme-retro-dark select {
-  background-color: #172544 !important;
-  border-color: #1E2D4A !important;
+  background-color: #354090 !important;
+  border-color: #404C92 !important;
   color: #F0F0F0 !important;
 }
 
 /* ---- Scrollbar (webkit) ---- */
 .theme-retro-dark ::-webkit-scrollbar-track {
-  background: #0B1426;
+  background: #252D6B;
 }
 .theme-retro-dark ::-webkit-scrollbar-thumb {
-  background: #1E2D4A;
+  background: #404C92;
   border-radius: 4px;
 }
 .theme-retro-dark ::-webkit-scrollbar-thumb:hover {
-  background: #FF3B8B;
+  background: #F78E42;
 }
 
 /* ---- Landing page: hardcoded hex backgrounds that CSS variable overrides can't reach ---- */
 .theme-retro-dark [class*="bg-[#d7e1ea]"] {
-  background-color: #111D35 !important;
+  background-color: #2D357D !important;
 }
 .theme-retro-dark [class*="from-[#d7e1ea]"] {
-  --tw-gradient-from: #111D35 !important;
+  --tw-gradient-from: #2D357D !important;
 }
 
 /* ---- Hero search bar: prevent two-tone from global input override ---- */
@@ -524,12 +524,12 @@ body.js-loaded .ssr-beach-section {
 
 /* Session scroll form — transparent card containers to reduce contrast */
 .session-scroll-form {
-  --card: 220 55% 10%;
+  --card: 233 49% 25%;
   --card-foreground: 0 0% 94%;
-  --border: 220 40% 15%;
-  --muted: 220 40% 18%;
+  --border: 233 40% 30%;
+  --muted: 233 47% 35%;
   --muted-foreground: 220 30% 65%;
-  --input: 220 40% 20%;
+  --input: 233 38% 35%;
 }
 
 .session-scroll-form .shadow-sm {
