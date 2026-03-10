@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { SurfHighlightsSection } from "@/components/landing-page/surf-highlights-section";
 import { UpgradeSessionSection } from "./upgrade-session-section";
-import { PersonalizationShowcase } from "@/components/landing-page/personalization-showcase";
+import { MLPipelineShowcase } from "@/components/landing-page/ml-pipeline-showcase";
 import { ActivitiesSection } from "@/components/landing-page/activities-section";
 import { ForecastSection } from "@/components/landing-page/forecast-section";
 import { CTASection } from "@/components/landing-page/cta-section";
@@ -47,7 +47,7 @@ export function LandingInteractiveSections() {
       <LandingConditionsTicker />
       <SurfHighlightsSection />
       <UpgradeSessionSection />
-      <PersonalizationShowcase />
+      <MLPipelineShowcase />
       <ActivitiesSection />
       <div suppressHydrationWarning>
         {hasMounted ? <ForecastSection /> : <ForecastSectionFallback />}

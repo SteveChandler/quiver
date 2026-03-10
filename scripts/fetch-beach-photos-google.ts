@@ -1,4 +1,6 @@
-// Fetch beach photos from Google Places API (New) for beaches missing photos
+// Fetch beach photos from Google Places API (New) for beaches missing photos.
+// Downloads images and re-uploads them to Supabase Storage so we own the URLs
+// (Google Places media URLs are ephemeral redirects that break in Next.js image pipeline).
 // Usage:
 //   npx tsx scripts/fetch-beach-photos-google.ts --dryRun
 //   npx tsx scripts/fetch-beach-photos-google.ts
@@ -15,17 +17,22 @@ GOOGLE_PLACES_API_KEY=
 import "dotenv/config";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const GOOGLE_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 
-const GOOGLE_API_KEY = process.env.GOOGLE_PLACES_API_KEY!;
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env var");
+  process.exit(1);
+}
 if (!GOOGLE_API_KEY) {
   console.error("Missing GOOGLE_PLACES_API_KEY env var");
   process.exit(1);
 }
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { persistSession: false },
+});
 
 const args = new Map<string, string>();
 for (let i = 2; i < process.argv.length; i++) {
@@ -47,6 +54,13 @@ interface Beach {
   lon: number;
   city: string | null;
   state: string | null;
+}
+
+interface PlacePhoto {
+  name: string;
+  widthPx: number;
+  heightPx: number;
+  authorAttributions: Array<{ displayName: string; uri: string }>;
 }
 
 async function getBeachesMissingPhotos(): Promise<Beach[]> {
@@ -124,7 +138,7 @@ async function findPlaceId(beach: Beach): Promise<string | null> {
   return json.places[0].id;
 }
 
-async function getPlacePhotos(placeId: string): Promise<string[]> {
+async function getPlacePhotos(placeId: string): Promise<PlacePhoto[]> {
   const res = await fetch(
     `https://places.googleapis.com/v1/places/${placeId}`,
     {
@@ -141,23 +155,75 @@ async function getPlacePhotos(placeId: string): Promise<string[]> {
   }
 
   const json = (await res.json()) as {
-    photos?: Array<{ name: string; widthPx: number; heightPx: number; authorAttributions: Array<{ displayName: string; uri: string }> }>;
+    photos?: PlacePhoto[];
   };
 
   if (!json.photos?.length) return [];
 
-  // Get up to 3 photo URLs via the Place Photos endpoint
-  const urls: string[] = [];
-  for (const photo of json.photos.slice(0, 3)) {
-    // The photo media URI returns the actual image
-    const photoUrl = `https://places.googleapis.com/v1/${photo.name}/media?maxWidthPx=800&key=${GOOGLE_API_KEY}`;
-    urls.push(photoUrl);
-  }
-
-  return urls;
+  // Return up to 3 photo metadata objects
+  return json.photos.slice(0, 3);
 }
 
-async function upsertPhoto(beachId: string, imageUrl: string, index: number) {
+async function downloadAndUploadPhoto(
+  photo: PlacePhoto,
+  beachId: string,
+  index: number,
+): Promise<{ publicUrl: string; attribution: string }> {
+  // 1. Download image from Google Places media endpoint (follows redirects)
+  // Use header-based auth to keep API key out of URL logs
+  const mediaUrl = `https://places.googleapis.com/v1/${photo.name}/media?maxWidthPx=800`;
+  const res = await fetch(mediaUrl, {
+    headers: { "X-Goog-Api-Key": GOOGLE_API_KEY },
+  });
+  if (!res.ok) throw new Error(`Photo download failed: ${res.status}`);
+
+  // 2. Get image bytes
+  const arrayBuffer = await res.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  // 3. Determine content type and file extension
+  const contentType = res.headers.get("content-type") || "image/jpeg";
+  const ext = contentType.includes("png")
+    ? "png"
+    : contentType.includes("webp")
+      ? "webp"
+      : "jpg";
+
+  // 4. Upload to Supabase Storage
+  const storagePath = `google-places/${beachId}/${index}.${ext}`;
+  const { error: uploadError } = await supabase.storage
+    .from("beach-photos")
+    .upload(storagePath, buffer, {
+      contentType,
+      cacheControl: "31536000", // 1 year cache
+      upsert: true,
+    });
+  if (uploadError) throw uploadError;
+
+  // 5. Get public URL
+  const { data: urlData } = supabase.storage
+    .from("beach-photos")
+    .getPublicUrl(storagePath);
+
+  // 6. Build attribution HTML from author attributions (escape to prevent XSS)
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const attributions = photo.authorAttributions
+    .map((a) => (a.uri ? `<a href="${esc(a.uri)}">${esc(a.displayName)}</a>` : esc(a.displayName)))
+    .join(", ");
+  const attribution = attributions
+    ? `Photo by ${attributions} via Google`
+    : "Photo via Google";
+
+  return { publicUrl: urlData.publicUrl, attribution };
+}
+
+async function upsertPhoto(
+  beachId: string,
+  imageUrl: string,
+  attribution: string,
+  index: number,
+) {
   const sourceId = `google-places-${beachId}-${index}`;
   const { error } = await supabase.from("beach_photos").upsert(
     {
@@ -165,7 +231,8 @@ async function upsertPhoto(beachId: string, imageUrl: string, index: number) {
       source: "google_places",
       source_id: sourceId,
       image_url: imageUrl,
-      thumb_url: imageUrl.replace("maxWidthPx=800", "maxWidthPx=400"),
+      thumb_url: null, // Supabase image transformations handle thumbnailing
+      attribution_html: attribution,
       approved: true,
       fetched_at: new Date().toISOString(),
     },
@@ -199,21 +266,22 @@ async function main() {
         continue;
       }
 
-      const photoUrls = await getPlacePhotos(placeId);
-      if (!photoUrls.length) {
+      const photos = await getPlacePhotos(placeId);
+      if (!photos.length) {
         console.log(`  No photos found`);
         failed++;
         continue;
       }
 
-      for (let i = 0; i < photoUrls.length; i++) {
-        await upsertPhoto(beach.id, photoUrls[i], i);
+      for (let i = 0; i < photos.length; i++) {
+        const { publicUrl, attribution } = await downloadAndUploadPhoto(photos[i], beach.id, i);
+        await upsertPhoto(beach.id, publicUrl, attribution, i);
       }
 
-      console.log(`  Saved ${photoUrls.length} photos`);
+      console.log(`  Saved ${photos.length} photos`);
       success++;
 
-      // Rate limit: 600 req/min for Places API
+      // Courtesy throttle (~5 API calls per beach: search + details + up to 3 media downloads)
       await new Promise((r) => setTimeout(r, 300));
     } catch (err) {
       console.error(`Error on ${beach.name}:`, err);

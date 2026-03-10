@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Google Places beach photos now download to Supabase Storage instead of storing ephemeral API URLs that returned 400 errors
+
+### Changed
+- `beach_photos.source` CHECK constraint expanded to allow `'google_places'` as a valid photo source
+
 ### Added
+- `beach-photos` Supabase Storage bucket for hosting downloaded Google Places photos
 - `components/landing-page/match-score-ring.tsx` — SVG animated circular score display with neon orange arc, glow filter, and quality label derived from `getScoreColorClasses()`; supports Framer Motion entry animation via `animated` prop
 - `components/landing-page/hero-match-demo.tsx` — live match score card for hero section; fetches real top beach via `getTopBeachesNow(1)` + `getEnhancedBeachForecasts`, derives condition chips from forecast data, renders `MatchScoreRing` with ambient cyan orb; static fallback when fetch fails
 - `components/landing-page/ml-pipeline-showcase.tsx` — 3-step ML pipeline visualization ("Real-Time Data" → "ML Scoring Engine" → "Your Match Score"); scroll-triggered Framer Motion stagger, `MatchScoreRing` animated on viewport entry, CTA opens `UnifiedAuthModal` for unauthenticated users
