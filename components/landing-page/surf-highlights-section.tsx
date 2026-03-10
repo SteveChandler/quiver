@@ -7,7 +7,6 @@ import { CONTENT } from "@/lib/constants/features";
 import { ChevronRight } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
-import { FALLBACK_IMAGE_BY_NAME } from "@/lib/constants/featured-beaches-config";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLocationSafe } from "@/context/location-context";
 
@@ -51,37 +50,17 @@ export function SurfHighlightsSection() {
       const result = await response.json();
       const beaches: Beach[] = result.data || result;
 
-      // Track used image URLs to prevent duplicates
-      const usedImages = new Set<string>();
-      const DEFAULT_FALLBACK = "/sunsetBeach.jpg";
-
-      // Transform beaches into surf spot cards with live forecast data
+      // Only show beaches with working photos — skip those without.
+      // Google Places photo URLs require server-side API key auth and
+      // always 404 when loaded from the client / image proxy.
       const spotCards = beaches
+        .filter(
+          (beach) =>
+            beach.photo_url &&
+            !beach.photo_url.includes("places.googleapis.com")
+        )
         .map((beach, index) => {
-          // Determine the image URL
-          let imageUrl: string;
-
-          if (beach.photo_url) {
-            // Use actual photo from database (proxied for external URLs)
-            imageUrl = getProxiedImageUrl(beach.photo_url);
-          } else {
-            const fallbackUrl =
-              FALLBACK_IMAGE_BY_NAME[
-                beach.name as keyof typeof FALLBACK_IMAGE_BY_NAME
-              ];
-
-            if (fallbackUrl) {
-              // Use fallback image if available and not already used
-              imageUrl = usedImages.has(fallbackUrl)
-                ? DEFAULT_FALLBACK
-                : fallbackUrl;
-            } else {
-              // Use default fallback
-              imageUrl = DEFAULT_FALLBACK;
-            }
-          }
-
-          usedImages.add(imageUrl);
+          const imageUrl = getProxiedImageUrl(beach.photo_url!);
 
           return {
             id: beach.id,

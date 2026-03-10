@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Wind, Waves, Droplets } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getTopBeachesNow } from "@/actions/forecast/get-top-beaches-now";
+import { useLocationSafe } from "@/context/location-context";
 import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
 import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 import { forecastToConditionsData } from "@/lib/mappers/conditions-mappers";
@@ -134,9 +135,26 @@ function ConditionChip({ label, index }: ConditionChipProps) {
 // ---------------------------------------------------------------------------
 
 export function HeroMatchDemo() {
+  const locationCtx = useLocationSafe();
+  const coordinates = locationCtx?.location?.coordinates ?? null;
+
+  // Serialize to stable string for dependency tracking
+  const coordsKey = coordinates
+    ? `${coordinates.lat.toFixed(2)},${coordinates.lon.toFixed(2)}`
+    : "";
+
   const fetchDemoData = useCallback(async (): Promise<DemoData> => {
-    // Step 1: get the top beach right now
-    const topBeaches = await getTopBeachesNow(1);
+    // Parse coords from stable key
+    let lat: number | undefined;
+    let lon: number | undefined;
+    if (coordsKey) {
+      const [latStr, lonStr] = coordsKey.split(",");
+      lat = parseFloat(latStr);
+      lon = parseFloat(lonStr);
+    }
+
+    // Step 1: get the top beach right now (filtered to user's region if coords available)
+    const topBeaches = await getTopBeachesNow(1, lat, lon);
     const topBeach = topBeaches[0];
 
     if (!topBeach) {
@@ -182,9 +200,18 @@ export function HeroMatchDemo() {
       score: topBeach.score,
       conditions: buildConditionChips(topBeach.waveHeight, null, null),
     };
-  }, []);
+  }, [coordsKey]);
 
-  const { data, loading } = useDataFetcher(fetchDemoData);
+  const { data, loading, refetch } = useDataFetcher(fetchDemoData);
+
+  // Re-fetch when coordinates resolve (useDataFetcher only fires on mount)
+  const initialCoordsRef = useRef(coordsKey);
+  useEffect(() => {
+    if (coordsKey && coordsKey !== initialCoordsRef.current) {
+      initialCoordsRef.current = coordsKey;
+      refetch();
+    }
+  }, [coordsKey, refetch]);
 
   if (loading) {
     return <CardSkeleton />;
