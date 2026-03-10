@@ -234,9 +234,12 @@ export function HomeScreen() {
     enabled: !!profile && !geoLoading && !discoveryLoading,
   });
 
-  // Extract top recommendation and remaining spots (show all, no limit)
-  const topRecommendation = discovery?.recommendations[0] || null;
-  const topSpots = discovery?.recommendations.slice(1) || [];
+  // Extract top recommendation and remaining spots — only show beaches with photos
+  const recsWithPhotos = discovery?.recommendations.filter(
+    (rec) => rec.beach.photo_url?.startsWith('http')
+  ) || [];
+  const topRecommendation = recsWithPhotos[0] || null;
+  const topSpots = recsWithPhotos.slice(1);
 
   // Derive forecast region from top recommendation or home beach city
   const forecastRegionSlug = useMemo(() => {
@@ -365,7 +368,7 @@ export function HomeScreen() {
       <main className="flex-1 home-container pb-20 md:pb-0 overflow-auto">
         {/* Dark gradient header section */}
         <motion.div
-          className="relative overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8"
+          className="relative overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8 rounded-b-2xl sm:rounded-b-3xl"
           initial={reducedMotion ? false : "hidden"}
           animate="visible"
           variants={reducedMotion ? {
@@ -379,16 +382,18 @@ export function HomeScreen() {
         >
           {/* Background photo */}
           <div
-            className="absolute inset-0 bg-cover bg-center"
+            className="absolute inset-0 bg-cover bg-center motion-safe:animate-hero-ken-burns will-change-transform"
             style={{ backgroundImage: "url('/images/home-hero-bg.avif')" }}
           />
           {/* Dark overlay for readability */}
           <div className={`absolute inset-0 ${reducedMotion
             ? "bg-gradient-to-b from-header-start to-header-end"
-            : "bg-gradient-to-b from-black/60 via-black/40 to-black/70"
+            : "bg-gradient-to-b from-[#0A0E1A]/80 via-[#0A0E1A]/50 to-[#0A0E1A]/90 animate-hero-gradient-shift"
           }`} />
           {/* Noise texture on overlay */}
-          <div className="absolute inset-0 noise-texture pointer-events-none" />
+          <div className="absolute inset-0 noise-texture-strong pointer-events-none" />
+          {/* Scan lines overlay */}
+          <div className="absolute inset-0 scan-lines pointer-events-none" />
           {/* Content */}
           <div className="relative z-10 pt-8 sm:pt-10 pb-8 px-4 sm:px-6 lg:px-8 space-y-6 xs:space-y-8">
             {/* 1. Greeting Section */}
