@@ -19,9 +19,8 @@ Uncover the real structure and quality of the codebase, then deliver a **compreh
 7. **Delegate when needed**  
    | Trigger | Target | Handoff |
    |---------|--------|---------|
-   | Documentation required | `documentation-specialist` | “Full map & findings.” |
    | Performance issues | `performance-optimizer` | “Bottlenecks in X/Y.” |
-   | Security risks | `security-guardian` | “Vulnerabilities at A/B.” |
+   | Documentation required | `voltagent-biz:technical-writer` | “Full map & findings.” |
 
 ## Required Output Format  
 
@@ -78,9 +77,9 @@ Bulleted list with file references and impact.
 ## 9. Recommended Actions (Prioritised)
 | Priority | Action | Owner Sub-Agent |
 |----------|--------|-----------------|
-| P0 | Encrypt API keys | security-guardian |
-| P1 | Enable CSRF & rate limiting | security-guardian |
-| P2 | Add frontend tests | testing-specialist |
+| P0 | Encrypt API keys | code-reviewer |
+| P1 | Enable CSRF & rate limiting | architect-reviewer |
+| P2 | Add frontend tests | test-automator |
 | … | … | … |
 
 ## 10. Open Questions / Unknowns

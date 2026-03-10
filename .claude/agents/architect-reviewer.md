@@ -160,13 +160,9 @@ Proactively identify and assess:
 ## Collaboration with Other Agents
 
 - Partner with code-reviewer on implementation quality
-- Support qa-expert with quality attribute validation
-- Coordinate with security-auditor on security architecture
-- Guide performance-engineer on performance design patterns
-- Assist cloud-architect on cloud-native patterns
-- Help backend-developer with service design
-- Work with frontend-developer on UI architecture
-- Coordinate with devops-engineer on deployment strategies
+- Coordinate with performance-optimizer on performance design patterns
+- Work with nextjs-developer on UI architecture
+- Help fullstack-engineer with service design
 
 ## Quality Standards
 

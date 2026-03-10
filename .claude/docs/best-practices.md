@@ -60,7 +60,7 @@ Never mix behavioural instructions meant for the agent into the `description` bl
 
 ## 5. Granularity & Single Responsibility
 
-* One agent = one domain of expertise (`code-reviewer`, `api-architect`).
+* One agent = one domain of expertise (`code-reviewer`, `supabase-db-expert`).
 * Avoid “mega‑agents”; smaller prompts stay in‑context and converge faster.
 * Chain work via delegation rather than bloating a single prompt.
 
@@ -106,7 +106,7 @@ Claude scans conversations for cues that match the `description`. Embed action w
 /agents            # interactive editor
 e                  # open file in external editor
 git add .claude/agents/*
-git commit -m "tune(api-architect): clarify versioning strategy"
+git commit -m "tune(supabase-db-expert): clarify RLS strategy"
 ```
 
 Iterate in small commits; pair with a `code-reviewer` agent for meta‑feedback.

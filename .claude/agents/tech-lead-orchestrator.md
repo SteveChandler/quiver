@@ -55,17 +55,28 @@ Task 2: [description] → AGENT: @agent-[exact-agent-name]
 Check system context for available agents. Categories include:
 
 - **Orchestration**: `tech-lead-orchestrator` (PLANNING ONLY)
-- **Core**: `code-reviewer` (QA), `performance-optimizer`, `documentation-specialist`
-- **Frontend**: `nextjs-developer` (Next.js/React), `tailwind-frontend-expert` (Styling), `react-nextjs-expert` (Components)
-- **Backend/Data**: `supabase-db-expert`, `api-designer`
-- **Testing**: `test-automator` (Playwright), `qa-expert`
-- **Specialized**: `project-analyst` (Stack analysis), `refactoring-specialist`, `code-archaeologist`
+- **Core**: `code-reviewer` (QA), `performance-optimizer`
+- **Frontend**: `nextjs-developer` (Next.js/React/SSR/SEO)
+- **Backend/Data**: `supabase-db-expert` (DB/RLS/Migrations), `fullstack-engineer` (growth features)
+- **Testing**: `test-automator` (Playwright E2E)
+- **Specialized**: `refactoring-specialist`, `code-archaeologist`, `architect-reviewer`, `ml-data-expert` (Python/ML)
+- **Design**: `quiver-design-reviewer`
+- **Config**: `team-configurator`
+
+For generic tasks not covered above, use **voltagent fallback** agents:
+- `voltagent-core-dev:api-designer` (generic API design)
+- `voltagent-core-dev:backend-developer` (non-Supabase backend)
+- `voltagent-core-dev:frontend-developer` (non-Next.js frontend, Tailwind)
+- `voltagent-core-dev:ui-designer` (visual/UI design)
+- `voltagent-biz:technical-writer` (documentation)
+- `voltagent-biz:business-analyst` (data analysis)
+- `voltagent-biz:scrum-master` (QA strategy)
 
 Selection rules:
 
-- **ALWAYS** prefer specialist agents over generic ones.
-- **Frontend**: Use `nextjs-developer` for pages/routing, `react-nextjs-expert` for components.
-- **Backend**: Use `supabase-db-expert` for DB/RLS, `api-designer` for endpoints.
+- **ALWAYS** prefer Quiver specialist agents over voltagent generics.
+- **Frontend**: Use `nextjs-developer` for pages, routing, components, and styling.
+- **Backend**: Use `supabase-db-expert` for DB/RLS, `fullstack-engineer` for full-stack growth features.
 - **Testing**: Use `test-automator` for E2E/Unit tests.
 
 ## Example
@@ -78,36 +89,34 @@ Selection rules:
 ### Agent Assignments
 
 Task 1: specific_task_description → AGENT: supabase-db-expert
-Task 2: specific_task_description → AGENT: api-designer
+Task 2: specific_task_description → AGENT: fullstack-engineer
 Task 3: specific_task_description → AGENT: nextjs-developer
-Task 4: specific_task_description → AGENT: react-nextjs-expert
-Task 5: specific_task_description → AGENT: test-automator
-Task 6: specific_task_description → AGENT: code-reviewer
+Task 4: specific_task_description → AGENT: test-automator
+Task 5: specific_task_description → AGENT: code-reviewer
 
 ### Execution Order
 
 - **Sequential**: Task 1 → Task 2
-- **Parallel**: Tasks 3, 4 after Task 2
-- **Sequential**: Task 5 after Tasks 3, 4
-- **Sequential**: Task 6 after Task 5
+- **Sequential**: Task 3 after Task 2
+- **Sequential**: Task 4 after Task 3
+- **Sequential**: Task 5 after Task 4
 
 ### Available Agents for This Project
 
 [From system context:]
 
 - supabase-db-expert: Database schema & RLS
-- api-designer: API Route definition
+- fullstack-engineer: API routes & growth features
 - nextjs-developer: Page implementation & data fetching
-- react-nextjs-expert: UI Components
 - test-automator: Playwright E2E tests
 - code-reviewer: Final QA
 
 ### Instructions to Main Agent
 
 - Delegate task 1 to supabase-db-expert
-- Follow with task 2 to api-designer
-- Run tasks 3 and 4 in parallel
-- Finish with testing (5) and review (6)
+- Follow with task 2 to fullstack-engineer
+- Then task 3 to nextjs-developer
+- Finish with testing (4) and review (5)
 
 ## Common Patterns
 
@@ -151,11 +160,9 @@ Skill Consultation:
 
 Agent Assignments:
 Task 1: Schema design → AGENT: @supabase-db-expert
-Task 2: API endpoints → AGENT: @api-designer
-Task 3: Page implementation (consult seo-audit) → AGENT: @nextjs-developer
-Task 4: UI components → AGENT: @react-nextjs-expert
-Task 5: E2E tests → AGENT: @test-automator
-Task 6: Final review → AGENT: @code-reviewer
+Task 2: API endpoints + page implementation (consult seo-audit) → AGENT: @nextjs-developer
+Task 3: E2E tests → AGENT: @test-automator
+Task 4: Final review → AGENT: @code-reviewer
 ```
 
 Remember: Every task gets a sub-agent. Maximum 2 parallel. Use exact format.

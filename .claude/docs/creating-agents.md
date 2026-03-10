@@ -48,7 +48,7 @@ description: |
   - <example>
     Context: User needs to build an API
     user: "Create a REST API for products"
-    assistant: "I'll use @agent-backend-developer to build a comprehensive products API"
+    assistant: "I'll use @agent-fullstack-engineer to build a comprehensive products API"
     <commentary>
     API development is a core backend task
     </commentary>
@@ -56,7 +56,7 @@ description: |
   - <example>
     Context: User has completed backend and needs frontend
     user: "Now I need a UI for this API"
-    assistant: "The backend is complete. Let me hand this off to @agent-tailwind-frontend-expert"
+    assistant: "The backend is complete. Let me hand this off to @agent-nextjs-developer"
     <commentary>
     Recognizing when to delegate to frontend specialist
     </commentary>
@@ -140,17 +140,17 @@ tools: Read, Grep, Glob, Bash  # Read-only tools for safety
 
 ### Backend → Frontend Flow
 ```
-@agent-backend-developer → API Complete → @agent-frontend-developer → UI Built → @agent-code-reviewer
+@agent-fullstack-engineer → API Complete → @agent-nextjs-developer → UI Built → @agent-code-reviewer
 ```
 
 ### Full Stack Development
 ```
-@agent-tech-lead-orchestrator → @agent-backend-developer + @agent-frontend-developer → Integration → Testing
+@agent-tech-lead-orchestrator → @agent-fullstack-engineer + @agent-nextjs-developer → Integration → Testing
 ```
 
 ### Review Pipeline
 ```
-@agent-backend-developer → Code Complete → @agent-code-reviewer → @agent-performance-optimizer
+@agent-fullstack-engineer → Code Complete → @agent-code-reviewer → @agent-performance-optimizer
 ```
 
 ## Next Steps

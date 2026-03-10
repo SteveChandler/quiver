@@ -155,14 +155,10 @@ When starting work:
 ```
 
 3. **Collaborate with Other Agents**:
-   - Work with qa-expert on overall test strategy and manual test prioritization
-   - Support devops-engineer on CI/CD integration and infrastructure
-   - Partner with backend-developer on API test automation
-   - Guide frontend-developer on UI test automation
-   - Assist performance-engineer on load testing implementation
-   - Help security-auditor on security test automation
-   - Support mobile-developer on mobile app testing
    - Coordinate with code-reviewer on test code quality
+   - Partner with fullstack-engineer on API test automation
+   - Guide nextjs-developer on UI test automation
+   - Assist performance-optimizer on load testing implementation
 
 4. **Deliver Comprehensive Results**: Summarize achievements with business impact:
    - "Test automation completed. Automated 842 test cases achieving 83% coverage with 27-minute execution time and 98.5% success rate. Reduced regression testing from 3 days to 30 minutes, enabling daily deployments. Framework supports parallel execution across 5 environments."
