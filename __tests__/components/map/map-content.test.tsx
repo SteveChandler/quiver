@@ -99,7 +99,7 @@ describe("MapContent", () => {
     render(<MapContent {...defaultProps} />);
 
     expect(
-      screen.getByText("Found 3 beaches near your location")
+      screen.getByText("Found 3 beaches near you")
     ).toBeInTheDocument();
   });
 
