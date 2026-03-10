@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `components/landing-page/match-score-ring.tsx` — SVG animated circular score display with neon orange arc, glow filter, and quality label derived from `getScoreColorClasses()`; supports Framer Motion entry animation via `animated` prop
+- `components/landing-page/hero-match-demo.tsx` — live match score card for hero section; fetches real top beach via `getTopBeachesNow(1)` + `getEnhancedBeachForecasts`, derives condition chips from forecast data, renders `MatchScoreRing` with ambient cyan orb; static fallback when fetch fails
+- `components/landing-page/ml-pipeline-showcase.tsx` — 3-step ML pipeline visualization ("Real-Time Data" → "ML Scoring Engine" → "Your Match Score"); scroll-triggered Framer Motion stagger, `MatchScoreRing` animated on viewport entry, CTA opens `UnifiedAuthModal` for unauthenticated users
+- `components/landing-page/how-it-works-section.tsx` — 3-step signup onboarding preview ("Tell us your style" / "We score every beach" / "Surf your best match"); scroll-triggered stagger, icon circles, CTA opens `UnifiedAuthModal` for unauthenticated users
+- Cyberpunk CSS utilities in `app/globals.css`: neon box-shadow glows (`glow-cyan`, `glow-orange`, `glow-magenta`), GPU-composited hover glow (`glow-hover-cyan`), container-scoped scan lines (`scan-lines`), neon text glows (`text-glow-cyan`, `text-glow-orange`), HUD border (`border-hud`), CP2077-style angular clip paths (`clip-cyber`, `clip-cyber-sm`), ambient gradient orbs (`ambient-orb-cyan`, `ambient-orb-orange`), and hover-only glitch animation (`text-glitch`) with `@keyframes glitch`
+- Cyberpunk color tokens in `tailwind.config.ts`: `neon.cyan`, `neon.magenta`, `neon.orange`, `neon.gold`; dark background tokens `bg-deep`, `bg-surface`, `bg-elevated`; and `border-glow`
+- Updated `CONTENT` hero strings in `lib/constants/features.ts` to ML-intelligence messaging: title "Every beach, scored for you", new subtitle emphasizing the ML model, CTA "Get Your Match Score"; updated section titles: `surfHighlights` → "Top Picks Right Now", `cta` → "What's your Match Score?" / "Free forever. 30-second setup."
+
 ### Changed
 - Applied Quiver brand guide (Deep Twilight dark theme) to all landing page sections: `PersonalizationShowcase`, `SocialFeedSection`, `SurfHighlightsSection`, `HeroSection`, and `CTASection` now use `bg-[#252D6B]` instead of warm-white backgrounds, the `text-white`/`text-high`/`text-medium` emphasis system for all text, card surfaces at `bg-[#2D357D]` with `border-[#404C92]` borders, and the `<Button>` component in place of hand-coded `<button>` elements
 
