@@ -146,10 +146,10 @@ export function AmenitiesBadges({ amenities }: AmenitiesBadgesProps) {
     typeof nearestM === "number" ? formatSourceDistance(nearestM) : null;
 
   return (
-    <Card className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border-blue-200/50 shadow-lg">
-      <CardHeader className="pb-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 border-b border-blue-100/50">
-        <CardTitle className="flex items-center gap-2 text-lg font-heading text-gray-800">
-          <Waves className="h-5 w-5 text-blue-600" /> Amenities
+    <Card className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-emerald-50/60 dark:from-card dark:to-card border-emerald-200/50 dark:border-emerald-500/20 shadow-lg">
+      <CardHeader className="pb-3 bg-gradient-to-r from-emerald-50/80 to-green-50/80 dark:from-emerald-500/10 dark:to-emerald-500/5 border-b border-emerald-100/50 dark:border-emerald-500/20">
+        <CardTitle className="flex items-center gap-2 text-lg font-heading text-gray-800 dark:text-gray-100">
+          <Waves className="h-5 w-5 text-emerald-600" /> Amenities
         </CardTitle>
         {distanceLabel && (
           <p className="text-xs text-muted-foreground mt-0.5">

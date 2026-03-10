@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Waves, Wind, Anchor, TrendingUp, ChevronDown } from "lucide-react";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -55,6 +56,7 @@ export function BeachStatsGrid({
   });
 
   const [expanded, setExpanded] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
 
   // Show loading skeleton while fetching calibration data
   if (loading) {
@@ -141,7 +143,7 @@ export function BeachStatsGrid({
   ];
 
   return (
-    <div data-testid="beach-stats-grid" className={`bg-gray-50 p-4 sm:p-5 rounded-xl my-4 sm:my-6 ${className || ""}`}>
+    <div data-testid="beach-stats-grid" data-tier="supporting" className={`bg-gray-50 p-4 sm:p-5 rounded-xl my-4 sm:my-6 ${className || ""}`}>
       <button
         type="button"
         className="flex w-full items-center justify-between md:hidden"
@@ -154,10 +156,17 @@ export function BeachStatsGrid({
         />
       </button>
       <div className={`${expanded ? "grid" : "hidden"} md:grid grid-cols-2 md:grid-cols-4 gap-4 ${expanded ? "mt-3 md:mt-0" : ""}`}>
-        {stats.map((stat) => {
+        {stats.map((stat, i) => {
           const Icon = stat.icon;
           return (
-            <div key={stat.label} className="flex flex-col gap-1">
+            <motion.div
+              key={stat.label}
+              className="flex flex-col gap-1"
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 16, scale: 0.92 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ type: "spring", stiffness: 100, damping: 18, delay: 0.3 + i * 0.1 }}
+            >
               <Icon className="h-6 w-6 text-ocean-blue mb-1" />
               <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
                 {stat.label}
@@ -165,7 +174,7 @@ export function BeachStatsGrid({
               <div className="text-base font-semibold text-gray-900">
                 {stat.value}
               </div>
-            </div>
+            </motion.div>
           );
         })}
       </div>

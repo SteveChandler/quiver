@@ -47,7 +47,7 @@ export function UnifiedSurfCard({
     !surfCall.bestWindowEnd
   ) {
     return (
-      <Card className="rounded-3xl border-yellow-100/60 bg-yellow-50/50">
+      <Card data-tier="hero" className="noise-texture overflow-hidden rounded-3xl border-yellow-100/60 bg-yellow-50/50">
         <CardContent className="p-6 flex items-start gap-3">
           <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
           <div className="flex-1">
@@ -73,7 +73,7 @@ export function UnifiedSurfCard({
   const showBestAtTag = surfCall.windowMinutes != null && surfCall.windowMinutes > 180 && peakTimeCasual;
 
   return (
-    <Card className="rounded-3xl border-blue-100/60 bg-gradient-to-br from-blue-50/50 to-white shadow-lg">
+    <Card data-tier="hero" className="noise-texture overflow-hidden rounded-3xl border-blue-100/60 bg-gradient-to-br from-blue-50/50 to-white shadow-lg">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
@@ -83,6 +83,7 @@ export function UnifiedSurfCard({
             <p className="text-xs text-muted-foreground mt-1">
               Based on forecast scoring · Updated {updatedTime}
             </p>
+            <div className="h-0.5 w-16 rounded-full bg-gradient-to-r from-transparent via-[#F78E42] to-transparent motion-safe:animate-shimmer mt-1" style={{ backgroundSize: "200% 100%" }} />
           </div>
           <button
             onClick={() => setShareOpen(true)}
@@ -96,7 +97,7 @@ export function UnifiedSurfCard({
 
       <CardContent className="space-y-4">
         {/* Window Time Range */}
-        <div className="bg-gradient-to-br from-blue-50/80 to-green-50/50 rounded-2xl p-4 border border-blue-200/60">
+        <div className="rounded-2xl p-4 border border-blue-200/60" style={{ background: 'linear-gradient(135deg, rgba(247,142,66,0.06), rgba(74,112,217,0.08))' }}>
           <div className="flex items-center gap-2 mb-2">
             <Clock className="h-5 w-5 text-blue-600" />
             <h4 className="font-semibold text-blue-900">Window</h4>
@@ -136,7 +137,7 @@ export function UnifiedSurfCard({
         )}
 
         {/* Key Conditions */}
-        <div className="bg-white/80 rounded-xl p-3 border border-blue-100">
+        <div className="bg-white/80 dark:bg-[#354090]/50 rounded-xl p-3 border border-gray-200/60 dark:border-[#404C92]/60">
           <p className="text-sm text-gray-700 font-medium mb-1">Conditions</p>
           <p className="text-sm text-gray-600">
             {surfCall.waveHeight && `${surfCall.waveHeight} · `}
@@ -148,7 +149,7 @@ export function UnifiedSurfCard({
         </div>
 
         {/* Why Sentence */}
-        <div className="bg-blue-50/50 rounded-xl p-3 border border-blue-100/50">
+        <div className="bg-blue-50/50 dark:bg-[#354090]/30 rounded-xl p-3 border border-gray-200/40 dark:border-[#404C92]/40">
           <p className="text-sm text-gray-700 leading-relaxed">
             {surfCall.whySentence}
           </p>

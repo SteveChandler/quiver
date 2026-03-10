@@ -113,12 +113,12 @@ export function BeachTabs({
     "rounded-none border-b-2 border-transparent -mb-0.5 " + // Phase 5: Border and negative margin for overlap
     "px-2 py-2 sm:px-6 sm:py-3 " + // Phase 5: Responsive padding (mobile: 8px h / 8px v, desktop: 24px h / 12px v)
     "text-xs sm:text-base font-medium text-gray-600 " + // Phase 5: Responsive font size (mobile: 12px, desktop: 16px)
-    "transition-all duration-200 " + // Phase 5: Spec transitions (0.2s ease)
-    "hover:bg-gray-50 hover:text-gray-900 " + // Phase 5: Spec hover states
-    "data-[state=active]:border-ocean-blue " + // Phase 5: Spec active border color (#0077B6)
-    "data-[state=active]:text-ocean-blue " + // Phase 5: Spec active text color (#0077B6)
-    "data-[state=active]:font-semibold " + // Phase 5: Spec active font weight (600)
-    "data-[state=active]:bg-transparent data-[state=active]:shadow-none"; // Remove default active styles
+    "transition-all duration-300 ease-out " + // Smooth transitions
+    "hover:bg-gray-50 dark:hover:bg-[#354090]/50 hover:text-gray-900 " + // Tier-aware hover
+    "data-[state=active]:border-ocean-blue " + // Active border color
+    "data-[state=active]:text-ocean-blue " + // Active text color
+    "data-[state=active]:font-semibold " + // Active font weight
+    "data-[state=active]:bg-transparent data-[state=active]:shadow-[0_2px_12px_rgba(247,142,66,0.15)]"; // Active glow
 
   const stickyTop = "calc(var(--app-safe-area-top, 0px) + 4rem)";
 
@@ -126,6 +126,7 @@ export function BeachTabs({
     <Tabs value={value} onValueChange={handleTabChange} className={className}>
       {/* Sticky container mimicking AllTrails-style anchor nav */}
       <div
+        data-tier="nav"
         className="sticky z-40 mb-6 border-b-2 border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80"
         style={{ top: stickyTop }}
       >
