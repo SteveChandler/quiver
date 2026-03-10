@@ -102,13 +102,15 @@ export function SurfSpotCard({
       style={{ animationDelay: `${delay * 100}ms`, animationFillMode: "both" }}
     >
       <Link href={beachUrl} prefetch={false} className="block group h-full">
-        {/* AllTrails-style card: rounded-2xl, subtle shadow transition */}
-        <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 h-full flex flex-col">
+        {/* Dark cyberpunk card */}
+        <div className="bg-bg-surface rounded-2xl overflow-hidden shadow-none hover:shadow-lg transition-shadow duration-200 h-full flex flex-col glow-hover-cyan">
           {/* Image Section */}
-          <div className="relative h-44 bg-gray-100 overflow-hidden rounded-t-2xl">
-            {/* Score badge - top-left corner of image */}
-            {typeof score === 'number' && score > 0 && (
-              <div className={`absolute top-3 left-3 z-10 inline-flex items-center justify-center h-8 min-w-[2rem] px-1.5 rounded-full text-xs font-bold text-white ${getScoreColorClasses(score).bg}`}>
+          <div className="relative h-48 md:h-56 bg-bg-deep overflow-hidden rounded-t-2xl">
+            {/* Score badge - circular, top-left corner of image */}
+            {typeof score === "number" && score > 0 && (
+              <div
+                className={`absolute top-3 left-3 z-10 inline-flex items-center justify-center h-10 w-10 rounded-full text-sm font-mono font-bold text-white glow-orange ${getScoreColorClasses(score).bg}`}
+              >
                 {score}
               </div>
             )}
@@ -118,9 +120,9 @@ export function SurfSpotCard({
               type="button"
               aria-label={`Save ${name}`}
               onClick={handleSaveClick}
-              className="absolute top-3 right-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm hover:bg-white hover:shadow-md transition-all"
+              className="absolute top-3 right-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 shadow-sm hover:bg-white/20 hover:shadow-md transition-all"
             >
-              <Bookmark className="h-4 w-4 text-gray-600" />
+              <Bookmark className="h-4 w-4 text-white/70" />
             </button>
 
             {!showFallback ? (
@@ -136,8 +138,8 @@ export function SurfSpotCard({
                 onError={() => setImageError(true)}
               />
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
-                <Waves className="h-12 w-12 text-slate-300" />
+              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-bg-surface to-bg-elevated">
+                <Waves className="h-12 w-12 text-white/20" />
               </div>
             )}
           </div>
@@ -145,45 +147,45 @@ export function SurfSpotCard({
           {/* Content Section */}
           <div className="p-4 flex-1">
             {/* Name */}
-            <h3 className="text-base font-semibold font-heading text-gray-900 mb-1 line-clamp-1">
+            <h3 className="text-base font-semibold font-sans text-white mb-1 line-clamp-1">
               {name}
             </h3>
 
-            {/* Meta row - AllTrails style: Wave Height · Rating · Type · Location */}
-            <div className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5 text-sm text-gray-600">
+            {/* Meta row */}
+            <div className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5 text-sm text-white/60">
               {/* Wave height */}
-              {typeof waveHeight === 'number' && waveHeight > 0 && (
+              {typeof waveHeight === "number" && waveHeight > 0 && (
                 <>
                   <span className="flex items-center gap-0.5">
-                    <Waves className="h-3.5 w-3.5 text-blue-500" />
-                    <span className="font-medium text-gray-800">{formatWaveHeight(waveHeight)}</span>
+                    <Waves className="h-3.5 w-3.5 text-neon-cyan" />
+                    <span className="font-medium text-white/80">{formatWaveHeight(waveHeight)}</span>
                   </span>
-                  <span className="text-gray-300">·</span>
+                  <span className="text-white/20">·</span>
                 </>
               )}
               {/* Rating */}
               <div className="flex items-center gap-0.5">
                 <Star
-                  className="h-3.5 w-3.5 text-gray-700 fill-gray-700"
+                  className="h-3.5 w-3.5 text-white/70 fill-white/70"
                   aria-hidden="true"
                 />
-                <span className="font-medium text-gray-800">
+                <span className="font-medium text-white/80">
                   {typeof averageRating === "number"
                     ? averageRating.toFixed(1)
                     : "New"}
                 </span>
                 {typeof reviewCount === "number" && reviewCount > 0 && (
-                  <span className="text-gray-500">({reviewCount})</span>
+                  <span className="text-white/60">({reviewCount})</span>
                 )}
               </div>
-              <span className="text-gray-300">·</span>
+              <span className="text-white/20">·</span>
               {/* Skill level */}
-              <span className="text-gray-600">
+              <span className="text-white/60">
                 {formatSkillLevel(skillLevel)}
               </span>
-              <span className="text-gray-300">·</span>
+              <span className="text-white/20">·</span>
               {/* Location */}
-              <span className="text-gray-600 truncate">{location}</span>
+              <span className="text-white/60 truncate">{location}</span>
             </div>
           </div>
         </div>

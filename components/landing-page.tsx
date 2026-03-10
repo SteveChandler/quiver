@@ -8,10 +8,11 @@ import { PerformanceUtils } from "@/lib/utils/performance-utils";
 import { QuiverFAQSchema } from "@/components/seo/faq-schema";
 
 // Import sections for modern landing page
+import { LandingConditionsTicker } from "@/components/landing-page/landing-conditions-ticker";
+import { MLPipelineShowcase } from "@/components/landing-page/ml-pipeline-showcase";
 import { SurfHighlightsSection } from "@/components/landing-page/surf-highlights-section";
-import { UpgradeSessionSection } from "./landing-page/upgrade-session-section";
-import { ActivitiesSection } from "@/components/landing-page/activities-section";
-import { ForecastSection } from "@/components/landing-page/forecast-section";
+import { HowItWorksSection } from "@/components/landing-page/how-it-works-section";
+import { SocialFeedSection } from "@/components/landing-page/social-feed-section";
 import { CTASection } from "@/components/landing-page/cta-section";
 import { SiteFooter } from "@/components/shared/site-footer";
 
@@ -19,7 +20,7 @@ import { SiteFooter } from "@/components/shared/site-footer";
 function SectionSkeleton({ height = "h-64" }: { height?: string }) {
   return (
     <div
-      className={`w-full ${height} bg-gradient-to-r from-gray-100 to-gray-200 animate-pulse rounded-lg mx-auto`}
+      className={`w-full ${height} bg-gradient-to-r from-bg-surface to-bg-elevated animate-pulse rounded-lg mx-auto`}
     >
       <div className="flex items-center justify-center h-full">
         <div className="loading-spinner" />
@@ -92,7 +93,7 @@ export default function LandingPage({ autoOpenLogin = false }: { autoOpenLogin?:
   }, []);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#252D6B]">
       {/* FAQ Structured Data for SEO */}
       <QuiverFAQSchema />
 
@@ -111,29 +112,34 @@ export default function LandingPage({ autoOpenLogin = false }: { autoOpenLogin?:
       <Navbar autoOpenLogin={autoOpenLogin} />
 
       <main role="main">
-        {/* Hero Section - Search-Centric */}
+        {/* Hero Section */}
         <HeroSection />
 
         {/* Progressive loading sections - Modern layout */}
         <div className="space-y-0">
-          {/* Surf Highlights Section (replaces Social Feed) */}
+          {/* Conditions Ticker — shows the product is live */}
+          <ProgressiveSection height="h-12">
+            <LandingConditionsTicker />
+          </ProgressiveSection>
+
+          {/* ML Pipeline Showcase */}
+          <ProgressiveSection height="h-96">
+            <MLPipelineShowcase />
+          </ProgressiveSection>
+
+          {/* Top Picks */}
           <ProgressiveSection height="h-96">
             <SurfHighlightsSection />
           </ProgressiveSection>
 
-          {/* Upgrade Session Section */}
-          <ProgressiveSection height="h-96">
-            <UpgradeSessionSection />
+          {/* How It Works */}
+          <ProgressiveSection height="h-64">
+            <HowItWorksSection />
           </ProgressiveSection>
 
-          {/* Activities Section (replaces Features) */}
+          {/* Social Feed */}
           <ProgressiveSection height="h-96">
-            <ActivitiesSection />
-          </ProgressiveSection>
-
-          {/* Forecast Section */}
-          <ProgressiveSection height="h-80">
-            <ForecastSection />
+            <SocialFeedSection />
           </ProgressiveSection>
 
           {/* CTA Section */}

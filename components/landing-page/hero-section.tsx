@@ -1,46 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { CONTENT } from "@/lib/constants/features";
 import { HeroCarousel } from "./hero-carousel";
-import HeroSearchLazy from "@/components/landing-page/hero-search-lazy";
-import type { Beach } from "@/types/database";
+import { HeroMatchDemo } from "./hero-match-demo";
+import { Button } from "@/components/ui/button";
+import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
+import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 
 export function HeroSection() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const router = useRouter();
-
-  const navigateToMap = (query?: string) => {
-    const trimmed = query?.trim();
-    const url =
-      trimmed && trimmed.length > 0
-        ? `/map?search=${encodeURIComponent(trimmed)}`
-        : "/map";
-    router.push(url);
-  };
-
-  const handleBeachSelect = (beach: Beach) => {
-    // Navigate to map with the selected beach name as search query
-    navigateToMap(beach.name);
-  };
-
-  const handleExploreClick = async (
-    event: React.MouseEvent<HTMLAnchorElement>
-  ) => {
-    event.preventDefault();
-    navigateToMap(searchQuery);
-  };
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "signup">("signup");
 
   return (
     <section className="relative min-h-[75svh] flex items-center justify-center overflow-clip md:overflow-visible pt-20">
       {/* Hero Carousel Background - includes gradient overlay */}
       <HeroCarousel />
 
-      {/* Hero Content - Search-Centric, true vertical center */}
+      {/* Hero Content */}
       <div className="relative z-30 w-full max-w-3xl mx-auto px-6 text-center text-white flex flex-col items-center gap-6">
-        {/* Main Headline - AllTrails style: lighter weight, tighter tracking */}
+        {/* Main Headline */}
         <h1
           className="font-semibold leading-tight tracking-tight text-5xl md:text-6xl font-heading animate-fade-in-up [text-shadow:_0_2px_8px_rgb(0_0_0_/_30%)] text-balance"
           style={{ animationDelay: "100ms" }}
@@ -48,38 +27,51 @@ export function HeroSection() {
           {CONTENT.hero.title}
         </h1>
 
-        {/* Supporting Subhead */}
-        {CONTENT.hero.subtitle ? (
-          <p
-            className="text-lg md:text-xl text-high max-w-2xl font-sans leading-relaxed animate-fade-in-up"
-            style={{ animationDelay: "150ms" }}
-          >
+        {/* Subhead */}
+        <div
+          className="flex flex-col items-center gap-2 animate-fade-in-up"
+          style={{ animationDelay: "150ms" }}
+        >
+          <p className="text-lg md:text-xl text-high max-w-2xl font-sans leading-relaxed">
             {CONTENT.hero.subtitle}
           </p>
-        ) : null}
-
-        {/* Search Bar - Hero Focus with lazy-loaded autocomplete */}
-        <div
-          className="w-full animate-fade-in-up"
-          style={{ animationDelay: "200ms" }}
-        >
-          <HeroSearchLazy
-            onFallback={navigateToMap}
-            onQueryChange={setSearchQuery}
-            onSelect={handleBeachSelect}
-          />
         </div>
 
-        {/* Explore Nearby Link - Simple underlined text link */}
-        <Link
-          href="/map"
-          onClick={handleExploreClick}
-          className="text-high underline underline-offset-4 hover:text-white transition-colors text-base sm:text-lg animate-fade-in-up"
-          style={{ animationDelay: "300ms" }}
+        {/* Live Match Score Demo Card */}
+        <div
+          className="animate-fade-in-up w-full max-w-sm"
+          style={{ animationDelay: "200ms" }}
         >
-          Explore nearby spots
-        </Link>
+          <HeroMatchDemo />
+        </div>
+
+        {/* CTA Button */}
+        <Button
+          onClick={() => {
+            setAuthMode("signup");
+            setAuthModalOpen(true);
+            trackAuthModalOpened({ mode: "signup", source: "hero-cta" });
+          }}
+          className="bg-ocean-blue text-white rounded-full px-8 py-4 font-sans font-semibold text-lg shadow-lg hover:bg-ocean-blue/90 animate-fade-in-up"
+          style={{ animationDelay: "300ms" }}
+          size="lg"
+        >
+          {CONTENT.hero.cta}
+        </Button>
       </div>
+
+      <UnifiedAuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        mode={authMode}
+        source="hero-cta"
+        returnTo="/"
+        contextMessage={
+          authMode === "signup"
+            ? { title: "Get Your Match Score", description: "Personalized surf forecasts in 30 seconds" }
+            : undefined
+        }
+      />
     </section>
   );
 }

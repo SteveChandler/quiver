@@ -32,20 +32,22 @@ export function LandingConditionsTicker() {
   if (!loading && !result) return null;
 
   return (
-    <section className="py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        {result?.beachName && (
-          <p className="text-sm text-gray-500 mb-2 text-center">
-            Current conditions nearby
-          </p>
-        )}
-        <ConditionsTicker
-          data={result?.data ?? {}}
-          theme="light"
-          loading={loading}
-          beachName={result?.beachName}
-        />
+    <section className="py-8 bg-[#1E2558] noise-texture">
+      <div className="flex items-center justify-center gap-2 mb-2 px-4">
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+        </span>
+        <p className="text-xs font-mono uppercase tracking-wider text-white/60">
+          Live conditions nearby
+        </p>
       </div>
+      <ConditionsTicker
+        data={result?.data ?? {}}
+        theme="dark"
+        loading={loading}
+        beachName={result?.beachName}
+      />
     </section>
   );
 }

@@ -24,15 +24,27 @@ jest.mock("@/components/landing-page/surf-highlights-section", () => ({
   ),
 }));
 
-jest.mock("@/components/landing-page/activities-section", () => ({
-  ActivitiesSection: () => (
-    <div data-testid="activities-section">Activities Section</div>
+jest.mock("@/components/landing-page/landing-conditions-ticker", () => ({
+  LandingConditionsTicker: () => (
+    <div data-testid="landing-conditions-ticker">Conditions Ticker</div>
   ),
 }));
 
-jest.mock("@/components/landing-page/forecast-section", () => ({
-  ForecastSection: () => (
-    <div data-testid="forecast-section">Forecast Section</div>
+jest.mock("@/components/landing-page/ml-pipeline-showcase", () => ({
+  MLPipelineShowcase: () => (
+    <div data-testid="ml-pipeline-showcase">ML Pipeline Showcase</div>
+  ),
+}));
+
+jest.mock("@/components/landing-page/how-it-works-section", () => ({
+  HowItWorksSection: () => (
+    <div data-testid="how-it-works-section">How It Works Section</div>
+  ),
+}));
+
+jest.mock("@/components/landing-page/social-feed-section", () => ({
+  SocialFeedSection: () => (
+    <div data-testid="social-feed-section">Social Feed Section</div>
   ),
 }));
 
@@ -57,11 +69,13 @@ describe("LandingPage", () => {
     expect(screen.getByTestId("hero-section")).toBeInTheDocument();
   });
 
-  it("applies the correct background class (AllTrails-style white)", () => {
+  it("applies the correct dark background class", () => {
     const { container } = render(<LandingPage />);
 
     const mainDiv = container.firstChild as HTMLElement;
-    expect(mainDiv).toHaveClass("min-h-screen", "bg-white");
+    expect(mainDiv).toHaveClass("min-h-screen");
+    // Dark background for cyberpunk theme
+    expect(mainDiv.className).toContain("bg-[#252D6B]");
   });
 
   it("renders progressive section containers", () => {
@@ -71,24 +85,29 @@ describe("LandingPage", () => {
     const sectionsContainer = container.querySelector(".space-y-0");
     expect(sectionsContainer).toBeInTheDocument();
 
-    // Should have 6 progressive section containers (one for each lazy-loaded section)
+    // Should have 7 progressive section containers
     const progressiveSections = sectionsContainer?.children;
-    expect(progressiveSections).toHaveLength(6);
+    expect(progressiveSections).toHaveLength(7);
   });
 
-  it("shows AllTrails-style sections", () => {
-    const { container } = render(<LandingPage />);
+  it("shows key landing page sections", () => {
+    render(<LandingPage />);
 
-    // Should show AllTrails-style sections
-    // Since mocks render immediately, test that sections are present
+    // Since mocks render immediately, test that key sections are present
+    const mlPipelineShowcase = screen.getByTestId("ml-pipeline-showcase");
+    expect(mlPipelineShowcase).toBeInTheDocument();
+
+    const howItWorksSection = screen.getByTestId("how-it-works-section");
+    expect(howItWorksSection).toBeInTheDocument();
+
     const surfHighlightsSection = screen.getByTestId("surf-highlights-section");
     expect(surfHighlightsSection).toBeInTheDocument();
 
-    const activitiesSection = screen.getByTestId("activities-section");
-    expect(activitiesSection).toBeInTheDocument();
+    const socialFeedSection = screen.getByTestId("social-feed-section");
+    expect(socialFeedSection).toBeInTheDocument();
   });
 
-  it("has proper semantic structure with AllTrails-style layout", () => {
+  it("has proper semantic structure with dark cyberpunk layout", () => {
     const { container } = render(<LandingPage />);
 
     // Check that the main container has proper HTML structure
@@ -111,6 +130,6 @@ describe("LandingPage", () => {
 
     // Verify we have the expected number of progressive sections
     const progressiveSections = sectionsContainer?.children;
-    expect(progressiveSections).toHaveLength(6); // 6 lazy-loaded sections
+    expect(progressiveSections).toHaveLength(7);
   });
 });

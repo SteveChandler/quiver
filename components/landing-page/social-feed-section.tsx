@@ -7,9 +7,10 @@ import { SectionWrapper } from "./section-wrapper";
 import SocialPostCard from "@/components/social-post-card";
 import { CONTENT } from "@/lib/constants/features";
 import { fetchRecentPosts, Post } from "@/lib/utils/posts-utils";
-import { Users, TrendingUp, Heart } from "lucide-react";
+import { Users, TrendingUp, Clock, Waves } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { preserveQueryParams } from "@/lib/utils/navigation-utils";
+import { Button } from "@/components/ui/button";
 
 export function SocialFeedSection() {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -42,7 +43,9 @@ export function SocialFeedSection() {
       title={CONTENT.sections.social.title}
       subtitle={CONTENT.sections.social.subtitle}
       centerContent
-      className="py-20 px-4"
+      className="py-20 px-4 bg-[#252D6B]"
+      titleClassName="text-4xl md:text-5xl font-heading font-bold text-white mb-4"
+      subtitleClassName="text-xl font-sans text-high max-w-2xl mx-auto"
     >
       {/* Community Stats */}
       <motion.div
@@ -53,25 +56,25 @@ export function SocialFeedSection() {
         className="grid grid-cols-3 gap-6 mb-12 max-w-2xl mx-auto"
       >
         <div className="text-center">
-          <div className="flex items-center justify-center w-12 h-12 bg-ocean-blue/10 rounded-full mx-auto mb-2">
-            <Users className="h-6 w-6 text-ocean-blue" />
+          <div className="flex items-center justify-center w-12 h-12 bg-[#354090] rounded-full mx-auto mb-2">
+            <Waves className="h-6 w-6 text-neon-cyan" />
           </div>
-          <div className="text-2xl font-bold text-gray-900">Active</div>
-          <div className="text-sm text-gray-600">Community</div>
+          <div className="text-2xl font-bold font-mono text-white">1,200+</div>
+          <div className="text-sm text-medium">Beaches Scored</div>
         </div>
         <div className="text-center">
-          <div className="flex items-center justify-center w-12 h-12 bg-sunset-orange/10 rounded-full mx-auto mb-2">
-            <TrendingUp className="h-6 w-6 text-sunset-orange" />
+          <div className="flex items-center justify-center w-12 h-12 bg-[#354090] rounded-full mx-auto mb-2">
+            <TrendingUp className="h-6 w-6 text-neon-orange" />
           </div>
-          <div className="text-2xl font-bold text-gray-900">Epic</div>
-          <div className="text-sm text-gray-600">Sessions Logged</div>
+          <div className="text-2xl font-bold font-mono text-white">30K+</div>
+          <div className="text-sm text-medium">Observations Analyzed</div>
         </div>
         <div className="text-center">
-          <div className="flex items-center justify-center w-12 h-12 bg-green-500/10 rounded-full mx-auto mb-2">
-            <Heart className="h-6 w-6 text-green-600" />
+          <div className="flex items-center justify-center w-12 h-12 bg-[#354090] rounded-full mx-auto mb-2">
+            <Clock className="h-6 w-6 text-neon-magenta" />
           </div>
-          <div className="text-2xl font-bold text-gray-900">Real</div>
-          <div className="text-sm text-gray-600">Connections Made</div>
+          <div className="text-2xl font-bold font-mono text-white">Every 3hrs</div>
+          <div className="text-sm text-medium">Updated</div>
         </div>
       </motion.div>
 
@@ -80,7 +83,7 @@ export function SocialFeedSection() {
           {[...Array(4)].map((_, i) => (
             <div
               key={i}
-              className="aspect-square bg-gray-200 rounded-lg animate-pulse"
+              className="aspect-square bg-[#354090] rounded-lg animate-pulse"
             />
           ))}
         </div>
@@ -111,7 +114,7 @@ export function SocialFeedSection() {
           ))}
         </div>
       ) : (
-        <div className="text-center text-gray-500 mb-8">
+        <div className="text-center text-medium mb-8">
           No recent posts yet. Be the first to share!
         </div>
       )}
@@ -124,16 +127,15 @@ export function SocialFeedSection() {
         transition={{ duration: 0.6, delay: 0.4 }}
         className="text-center"
       >
-        <p className="text-gray-600 mb-4">
+        <p className="text-high mb-4 font-sans">
           Want to share your next epic session?
         </p>
-        <Link
-          href={preserveQueryParams("/auth/sign-up", searchParams)}
-          className="inline-flex items-center gap-2 bg-ocean-blue text-white px-6 py-3 rounded-full font-semibold hover:bg-ocean-blue/90 transition-colors"
-        >
-          Join the Community
-          <Users className="h-4 w-4" />
-        </Link>
+        <Button size="lg" className="rounded-full" asChild>
+          <Link href={preserveQueryParams("/auth/sign-up", searchParams)}>
+            Join the Community
+            <Users className="h-4 w-4" />
+          </Link>
+        </Button>
       </motion.div>
     </SectionWrapper>
   );

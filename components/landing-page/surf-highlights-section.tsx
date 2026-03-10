@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { SurfSpotCard, SurfSpotCardProps } from "./surf-spot-card";
 import { CONTENT } from "@/lib/constants/features";
 import { ChevronRight } from "lucide-react";
@@ -30,9 +31,6 @@ export function SurfHighlightsSection() {
   const locationCtx = useLocationSafe();
   const location = locationCtx?.location;
   const coordinates = location?.coordinates ?? null;
-  const displayName = location?.displayName ?? null;
-  const locationSource = location?.source;
-  const hasResolvedLocation = locationSource === "ip" || locationSource === "browser";
 
   // Serialize coordinates to a stable string to use as dependency (rounded for privacy + cacheability)
   const coordsKey = coordinates
@@ -152,13 +150,11 @@ export function SurfHighlightsSection() {
   };
 
   return (
-    <section className="py-14 bg-gradient-to-b from-white to-blue-50/50">
+    <section className="py-14 bg-[#252D6B] noise-texture">
       <div className="max-w-7xl mx-auto px-6">
-        {/* AllTrails-style editorial header - left-aligned with location emphasis */}
-        <h2 className="text-2xl md:text-3xl font-heading font-semibold text-dark-grey mb-8 text-left">
-          {displayName && hasResolvedLocation
-            ? `Top surf spots near ${displayName}`
-            : "Top surf spots"}
+        {/* Editorial header */}
+        <h2 className="text-2xl md:text-3xl font-heading font-semibold text-white mb-8 text-left">
+          {CONTENT.sections.surfHighlights.title}
         </h2>
 
         {loading ? (
@@ -175,7 +171,7 @@ export function SurfHighlightsSection() {
                   <SurfSpotCard key={spot.id} {...spot} delay={index} />
                 ))
               ) : (
-                <div className="col-span-full text-center py-12 text-gray-500">
+                <div className="col-span-full text-center py-12 text-medium">
                   No surf spots available at the moment.
                 </div>
               )}
@@ -187,13 +183,23 @@ export function SurfHighlightsSection() {
                 type="button"
                 onClick={handleNext}
                 aria-label="Next surf spots"
-                className="hidden md:flex items-center justify-center absolute -right-2 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white shadow-md hover:shadow-lg transition-shadow z-10 border border-gray-100"
+                className="hidden md:flex items-center justify-center absolute -right-2 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-[#354090] shadow-md hover:shadow-lg transition-shadow z-10 border border-[#404C92]"
               >
-                <ChevronRight className="h-5 w-5 text-dark-grey" />
+                <ChevronRight className="h-5 w-5 text-white" />
               </button>
             )}
           </div>
         )}
+
+        {/* Browse all spots link */}
+        <div className="mt-8 text-left">
+          <Link
+            href="/ca/san-diego"
+            className="text-ocean-blue font-sans font-medium hover:text-ocean-blue/80 transition-colors underline-offset-4 hover:underline"
+          >
+            Browse all surf spots &rarr;
+          </Link>
+        </div>
       </div>
     </section>
   );
