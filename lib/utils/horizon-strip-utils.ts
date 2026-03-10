@@ -138,6 +138,7 @@ function toBeachWithThresholds(beach: Beach): BeachWithThresholds {
     max_wind_onshore_mph: maxWindOnshoreMph,
     // max_wind_any_mph: not available on Beach type, will use default in scorer
     max_wind_any_mph: null,
+    skill_level: beach.skill_level ?? null,
   };
 }
 

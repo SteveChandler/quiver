@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Applied Quiver brand guide (Deep Twilight dark theme) to all landing page sections: `PersonalizationShowcase`, `SocialFeedSection`, `SurfHighlightsSection`, `HeroSection`, and `CTASection` now use `bg-[#252D6B]` instead of warm-white backgrounds, the `text-white`/`text-high`/`text-medium` emphasis system for all text, card surfaces at `bg-[#2D357D]` with `border-[#404C92]` borders, and the `<Button>` component in place of hand-coded `<button>` elements
+
 ### Added
+- Landing page hero copy updated to personalization-first messaging: title "Surf forecasts that know what you like", subtitle emphasizing Quiver learning skill level and preferences, and a new descriptor line "Personalized surf forecasts for 1,200+ beaches" below the subtitle
+- Hero carousel updated to real San Diego beach photos (Blacks Beach, Swami's, Windansea, Ocean Beach); gradient overlay lightened from `from-black/60 via-black/20 to-black/50` to `from-black/50 via-black/10 to-black/40`
+- `FALLBACK_IMAGE_BY_NAME` in `featured-beaches-config.ts` expanded with additional SD beach entries (Scripps Beach, La Jolla Shores, La Jolla Cove, Cardiff Reef, Cardiff State Beach, Cardiff-by-the-Sea, Sunset Cliffs, Pacific Beach, Mission Beach, Tourmaline Surfing Park) so no SD beach falls back to the generic sunset placeholder
+- `lib/constants/dam-break-chunks.ts` — pre-computed polygon definitions, fall vectors, and SVG crack paths for the dam-break scroll animation: 6 `GATE_CHUNKS` (Phase 1, 0–40% scroll), 8 desktop `HERO_CHUNKS` and 6 mobile `HERO_CHUNKS_MOBILE` (Phase 2, 40–100% scroll), plus `GATE_CRACK_PATHS` (3 paths) and `HERO_CRACK_PATHS` (4 paths) for the pre-fracture crack reveal
+- `hooks/use-dam-break-scroll.ts` — scroll-linked animation hook for the dam-break landing hero; exports `useDamBreakScroll` (phase progress MotionValues, chunk definitions, gate interactivity state) and `computeChunkStyle` utility for per-chunk gravity/drift transforms in rendering-layer child components
+- `components/beach-detail/dam-break-hero.tsx` — React component that renders the dam-break scroll animation wrapping the beach hero for guest users; Phase 1 (0–40% scroll) fractures the signup gate overlay into falling chunks, Phase 2 (40–100%) collapses the hero itself; respects `prefers-reduced-motion` by rendering a static fallback with no animation
+- Conditions ticker is now full-width and edge-to-edge on beach detail pages — moved outside `max-w-7xl` container, `rounded-xl` removed so it spans the full viewport width as a flush bar at the bottom of the hero
+- Surf call gated for guests on beach detail pages — `surfReportSlot` renders blurred (`blur-sm`, `pointer-events-none`) with a centered dark overlay CTA ("Sign up free to see today's surf call") and orange signup button that opens the auth modal
+- Home hero Ken Burns effect and animated gradient overlay — background image slowly zooms/pans (35s cycle) and the dark overlay pulses opacity (20s cycle), both via pure CSS Tailwind animations; both respect `prefers-reduced-motion` (`motion-safe:` prefix for Ken Burns, natural exclusion via `reducedMotion` branch for gradient)
 - `usePersistedDismissal` hook now accepts a `storage` option (`"local"` | `"session"`, default `"local"`); `StickySignupBar` uses `"session"` so its dismissal clears on tab close rather than persisting 7 days
 - Live cam gating for anonymous users — beach page hero shows a blurred thumbnail with `PublicContentGate` "Watch the Live Cam" CTA; authenticated users see the full stream
 - `InlineSignupCta` moved above the fold on beach pages — now renders after `BeachStatsGrid` instead of buried at the bottom of the page
@@ -18,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docs/seo/DOMAIN_AUTHORITY_PLAYBOOK.md` — 12-month off-site SEO playbook covering surf school widget partnerships, HARO/Qwoted positioning, guest post targets, data story pipeline, and monthly milestone tracking (complements the existing on-page Phase 2 plan)
 
 ### Fixed
+- Surf scores drastically deflated to match realistic expectations — added wave-height ceiling to legacy scorer (`getWaveHeightCeiling()` with 5-segment curve), compressed sub-ideal wave scoring in modern scorer (max 55 at idealMin instead of 100, ideal range ramps 55→100), and converted personalization from additive (+0–50 pts) to multiplicative (1.0–1.15x). A 1-2ft day at an intermediate beach with perfect conditions now scores ~45-55 (Fair) instead of 96 (Epic).
+- Onboarding dialog z-index raised from `z-50` to `z-[60]` so the full-screen overlay renders above the sticky app header (`z-50`), making the "Skip onboarding" close button clickable without the header intercepting pointer events
 - Surf call verdict now skill-level-aware — advanced/expert beaches with tiny waves (e.g. 1.3 ft at Blacks Beach) correctly return NO instead of YES. Hard gate uses `max(break_type_min, skill_level_min)`, base conditions scorer derives `idealMin` from beach skill level, and window-level wave check prevents small-wave windows from passing when daily max is larger.
 - `user_events_event_type_check` CHECK constraint expanded from 23 to 62 event types — all share, signup/auth, session log, tour, intel, profile, and discovery events were silently failing with 500 errors because the DB constraint was not updated when new event types were added to the application code
 
@@ -26,6 +40,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dead API route: `/api/v1/recommendations/feedback` (unused spot feedback endpoint)
 - Dead script: `scripts/test-lint.sh`
 - 10 unused Tailwind animation keyframes and utility classes
+- `ActivitiesSection`, `ForecastSection` (phone-mock switcher), and `UpgradeSessionSection` removed from the landing page render order as part of the March 2026 redesign — component files preserved, not deleted
+
+### Changed
+- Landing page section order redesigned for clearer value story: Ticker → Personalization Showcase → Surf Highlights → Social Feed → CTA (was: Ticker → Highlights → Upgrade Session → Personalization → Activities → Forecast)
+- `PersonalizationShowcase` background changed from `bg-white` to `bg-[#FAF8F5]` (warm off-white) for section contrast rhythm
+- `SocialFeedSection` background changed to `bg-[#FAF8F5]` (warm off-white) for alternating section backgrounds
+- Surf spot card image height increased from `h-44` to `h-48`/`h-56` (mobile/desktop) for more cinematic card proportions
+- Surf spot card title typography changed from `font-heading` to `font-sans` per the "Space Grotesk only at text-2xl+" rule
+- "Browse all surf spots →" ghost-style link added below the surf highlights grid, linking to `/ca/san-diego`
+- Social feed CTA button updated with explicit `font-sans` and `shadow-sm` classes to match primary button system
+- Site footer section headings in brand mode (`showBrandSection=true`) changed from `font-heading` to `font-sans` at `text-lg` (Space Grotesk reserved for text-2xl and above)
 
 ### Changed
 - Migrated `text-white/90` and `text-white/80` to `text-high`, and `text-white/70`, `text-white/60`, `text-white/50` to `text-medium` across onboarding steps (`home-beach-step`, `level-and-time-step`, `payoff-step`) and content pages (`about-client`, `privacy/page`, `terms/page`, `features-client`); hover/focus states and decorative classes (`text-white/40` and below) left untouched

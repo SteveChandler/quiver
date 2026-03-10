@@ -8,18 +8,25 @@
  * 4. Implicit preferences (inferred from engagement patterns)
  * 5. Beach affinity (familiarity from past sessions)
  *
- * Scoring breakdown:
- * - Base score: From existing coach picks algorithm
- * - Onboarding wave size match: +10 pts
- * - Onboarding break type match: +8 pts
- * - Learned wave range match: +15 pts * confidence
- * - Learned wind preferences match: +10 pts * confidence
- * - Learned tide preferences match: +8 pts * confidence
- * - Implicit wave range match: +10 pts * implicitWeight
- * - Implicit break type match: +8 pts * implicitWeight
- * - Implicit top engaged beach: +2 pts (flat)
- * - Beach affinity: +affinity_score * 0.15 (max 15 pts)
- * - Final score capped at 100
+ * Scoring uses a multiplicative approach to prevent score inflation:
+ * - Individual bonus components are calculated the same way (additive pts)
+ * - The total bonus is converted to a multiplier (1.0x to 1.15x)
+ * - multiplier = 1.0 + min(totalBonus / MAX_ADDITIVE, 1.0) * MAX_MULTIPLIER
+ * - finalScore = min(100, round(baseScore * multiplier))
+ *
+ * This means personalization gently boosts good conditions rather than
+ * inflating mediocre scores into artificially high ratings.
+ *
+ * Bonus components (accumulated into totalBonus, max ~50):
+ * - Onboarding wave size match: 10 pts
+ * - Onboarding break type match: 8 pts
+ * - Learned wave range match: 15 pts * confidence
+ * - Learned wind preferences match: 10 pts * confidence
+ * - Learned tide preferences match: 8 pts * confidence
+ * - Implicit wave range match: 10 pts * implicitWeight
+ * - Implicit break type match: 8 pts * implicitWeight
+ * - Implicit top engaged beach: 2 pts (flat)
+ * - Beach affinity: affinity_score * 0.15 (max 15 pts)
  *
  * @see supabase/migrations/20251103000002_beach_affinity.sql
  * @see supabase/migrations/20251103000003_user_surf_preferences.sql
@@ -56,6 +63,8 @@ export interface PersonalizedScore {
     implicitPrefs: number;
     /** Bonus from beach affinity */
     affinity: number;
+    /** Multiplier applied to base score (1.0x to 1.15x) */
+    multiplier: number;
   };
 }
 
@@ -85,7 +94,6 @@ export async function scoreBeachForUser(
 ): Promise<PersonalizedScore> {
   const supabase = createSupabaseServiceRoleClient();
 
-  let score = baseScore;
   let personalized = false;
   const breakdown = {
     base: baseScore,
@@ -93,6 +101,7 @@ export async function scoreBeachForUser(
     learnedPrefs: 0,
     implicitPrefs: 0,
     affinity: 0,
+    multiplier: 1.0,
   };
 
   try {
@@ -107,7 +116,6 @@ export async function scoreBeachForUser(
       // Match wave size preference
       if (profile.preferred_wave_size && profile.preferred_wave_size !== 'any') {
         if (matchesWaveSize(forecast, profile.preferred_wave_size)) {
-          score += 10;
           breakdown.onboardingPrefs += 10;
           personalized = true;
         }
@@ -122,7 +130,6 @@ export async function scoreBeachForUser(
           .single();
 
         if (beach?.break_type === profile.preferred_break_type) {
-          score += 8;
           breakdown.onboardingPrefs += 8;
           personalized = true;
         }
@@ -136,7 +143,6 @@ export async function scoreBeachForUser(
       // Match learned wave range
       if (matchesLearnedWaveRange(forecast, learnedPrefs)) {
         const bonus = 15 * learnedPrefs.confidence;
-        score += bonus;
         breakdown.learnedPrefs += bonus;
         personalized = true;
       }
@@ -144,7 +150,6 @@ export async function scoreBeachForUser(
       // Match learned wind preferences
       if (matchesLearnedWindPrefs(forecast, learnedPrefs)) {
         const bonus = 10 * learnedPrefs.confidence;
-        score += bonus;
         breakdown.learnedPrefs += bonus;
         personalized = true;
       }
@@ -152,7 +157,6 @@ export async function scoreBeachForUser(
       // Match learned tide preferences
       if (matchesLearnedTidePrefs(forecast, learnedPrefs)) {
         const bonus = 8 * learnedPrefs.confidence;
-        score += bonus;
         breakdown.learnedPrefs += bonus;
         personalized = true;
       }
@@ -190,7 +194,6 @@ export async function scoreBeachForUser(
         );
 
         if (implicitBonus.total > 0) {
-          score += implicitBonus.total;
           breakdown.implicitPrefs = implicitBonus.total;
           personalized = true;
         }
@@ -208,7 +211,6 @@ export async function scoreBeachForUser(
     if (affinity && affinity.affinity_score > 10) {
       // Up to 15 bonus points for familiar beaches
       const affinityBonus = Math.min(affinity.affinity_score * 0.15, 15);
-      score += affinityBonus;
       breakdown.affinity = affinityBonus;
       personalized = true;
     }
@@ -217,8 +219,18 @@ export async function scoreBeachForUser(
     console.error(`Error personalizing score for user ${userId}, beach ${beachId}:`, error);
   }
 
+  // Convert additive bonuses to a multiplicative boost (1.0x to 1.15x)
+  const totalBonus = breakdown.onboardingPrefs + breakdown.learnedPrefs
+                   + breakdown.implicitPrefs + breakdown.affinity;
+  const MAX_ADDITIVE = 50;  // maximum possible bonus sum
+  const MAX_MULTIPLIER = 0.15;  // max 15% boost
+  const multiplier = 1.0 + Math.min(totalBonus / MAX_ADDITIVE, 1.0) * MAX_MULTIPLIER;
+  breakdown.multiplier = multiplier;
+
+  const finalScore = Math.min(100, Math.round(baseScore * multiplier));
+
   return {
-    score: Math.min(100, Math.round(score)),
+    score: finalScore,
     personalized,
     breakdown,
   };

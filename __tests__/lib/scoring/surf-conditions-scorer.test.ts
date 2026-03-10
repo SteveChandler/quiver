@@ -1,4 +1,4 @@
-import { scoreConditions } from '@/lib/scoring/surf-conditions-scorer';
+import { scoreConditions, getWaveHeightCeiling } from '@/lib/scoring/surf-conditions-scorer';
 import type { BeachWithThresholds, ForecastForScoring } from '@/lib/scoring/types';
 
 describe('scoreConditions', () => {
@@ -151,17 +151,19 @@ describe('scoreConditions', () => {
       expect(result.total).toBeLessThanOrEqual(100);
     });
 
-    it('total equals normalized sum of subscores', () => {
+    it('total equals normalized sum of subscores capped by wave-height ceiling', () => {
       const result = scoreConditions(baseForecast, baseBeach);
       // Max raw points: 25 + 20 + 20 + 15 = 80
-      // Normalized = (raw / 80) * 100
+      // Normalized = (raw / 80) * 100, then capped by wave-height ceiling
       const rawSum =
         result.subscores.waveHeightFit +
         result.subscores.periodEnergy +
         result.subscores.windAlignment +
         result.subscores.tideFit;
-      const expectedNormalized = Math.round((rawSum / 80) * 100);
-      expect(result.total).toBe(expectedNormalized);
+      const normalizedTotal = Math.round((rawSum / 80) * 100);
+      // Default skill level is intermediate (idealMin=2, idealMax=5)
+      const ceiling = getWaveHeightCeiling(baseForecast.waveHeight, 2, 5);
+      expect(result.total).toBe(Math.min(normalizedTotal, ceiling));
     });
   });
 

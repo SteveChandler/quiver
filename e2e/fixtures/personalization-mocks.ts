@@ -39,8 +39,10 @@ const GENERATED_AT = new Date().toISOString();
 // Matches PersonalizedScore interface from
 // lib/services/personalized-scoring-service.ts
 
+// totalBonus = 5+8+4+0 = 17, multiplier = 1.0+(17/50)*0.15 = 1.051
+// score = round(75*1.051) = 79
 export const MOCK_PERSONALIZED_SCORE = {
-  score: 92,
+  score: 79,
   personalized: true,
   breakdown: {
     base: 75,
@@ -48,6 +50,7 @@ export const MOCK_PERSONALIZED_SCORE = {
     learnedPrefs: 8,
     implicitPrefs: 4,
     affinity: 0,
+    multiplier: 1.051,
   },
 };
 

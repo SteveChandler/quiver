@@ -10,9 +10,10 @@
  *
  * Wave Height Scoring:
  * - Ideal range varies by beach but defaults to 2-5ft
- * - Below ideal: Rideable but less fun (linear degradation)
- * - Above ideal: More challenging, requires skill (moderate penalty)
- * - Very large: Epic conditions for skilled surfers
+ * - Below ideal: Compressed curve (0 → 55 at idealMin)
+ * - Ideal range: Ramp from 55 at idealMin to 100 at idealMax
+ * - Above ideal: More challenging, requires skill (moderate penalty from 100 → 70)
+ * - Very large: Epic conditions for skilled surfers (85)
  *
  * Wave Period Scoring:
  * - Period indicates swell energy (longer = more power)
@@ -123,10 +124,16 @@ const PERIOD_SCORING = {
 
 /**
  * Wave height scoring parameters.
+ *
+ * Sub-ideal waves cap at subIdealCeiling (55) to compress scores for
+ * waves below idealMin.  The ideal range then ramps from 55 → 100 so
+ * that idealMin is the transition point and idealMax is the peak.
  */
 const WAVE_HEIGHT_SCORING = {
-  /** Score for ideal wave height range */
-  idealScore: 100,
+  /** Maximum score at idealMax (top of ideal range) */
+  idealMaxScore: 100,
+  /** Score at idealMin (bottom of ideal range / ceiling for sub-ideal) */
+  subIdealCeiling: 55,
   /** Maximum penalty for large waves (100 - this = minimum score) */
   largeWavePenalty: 30,
   /** Minimum score for waves above ideal but below absolute max */
@@ -166,9 +173,9 @@ const COMPONENT_WEIGHTS = {
  * Score wave height fit (0-100).
  *
  * Scoring logic:
- * - Ideal range: 100 (perfect conditions)
- * - Below ideal: Linear ramp from 0-100
- * - Above ideal but rideable: Linear ramp from 100-70
+ * - Below ideal: Linear ramp from 0 → subIdealCeiling (55)
+ * - Ideal range:  Ramp from subIdealCeiling (55) at idealMin → 100 at idealMax
+ * - Above ideal but rideable: Linear ramp from 100 → 70
  * - Very large (epic): 85 (skill adjustment handles appropriateness)
  * - Flat (0ft): 0
  */
@@ -181,22 +188,28 @@ function scoreWaveHeight(
   }
 
   const { idealMin, idealMax, absoluteMax } = config;
+  const { subIdealCeiling, idealMaxScore } = WAVE_HEIGHT_SCORING;
 
-  // Ideal range - full score
-  if (height >= idealMin && height <= idealMax) {
+  // Below ideal - compressed partial score (0 → 55)
+  if (height < idealMin) {
+    const ratio = height / idealMin;
+    const score = Math.round(ratio * subIdealCeiling);
     return {
-      score: WAVE_HEIGHT_SCORING.idealScore,
-      reason: `Good wave size (${height.toFixed(1)}ft)`,
+      score: Math.max(0, Math.min(subIdealCeiling, score)),
+      reason: height >= WAVE_HEIGHT_SCORING.smallWaveThreshold
+        ? `Below ideal range (${height.toFixed(1)}ft < ${idealMin}ft minimum)`
+        : null,
     };
   }
 
-  // Below ideal - partial score
-  if (height < idealMin) {
-    // Linear from 0 at 0ft to 100 at idealMin
-    const score = Math.round((height / idealMin) * WAVE_HEIGHT_SCORING.idealScore);
+  // Ideal range - ramp from subIdealCeiling (55) at idealMin → 100 at idealMax
+  if (height >= idealMin && height <= idealMax) {
+    const progress = (height - idealMin) / Math.max(idealMax - idealMin, 1);
+    const rampRange = idealMaxScore - subIdealCeiling; // 45
+    const score = Math.round(subIdealCeiling + progress * rampRange);
     return {
-      score: Math.max(0, Math.min(WAVE_HEIGHT_SCORING.idealScore, score)),
-      reason: height >= WAVE_HEIGHT_SCORING.smallWaveThreshold ? 'Small but rideable waves' : null,
+      score,
+      reason: `Good wave size (${height.toFixed(1)}ft)`,
     };
   }
 
@@ -206,7 +219,7 @@ function scoreWaveHeight(
     const range = absoluteMax - idealMax;
     const excess = height - idealMax;
     const penalty = (excess / range) * WAVE_HEIGHT_SCORING.largeWavePenalty;
-    const score = Math.round(WAVE_HEIGHT_SCORING.idealScore - penalty);
+    const score = Math.round(idealMaxScore - penalty);
     return {
       score: Math.max(WAVE_HEIGHT_SCORING.largeWaveMinScore, score),
       reason: `Larger swell (${height.toFixed(1)}ft)`,

@@ -79,7 +79,7 @@ describe('Unified Scoring Integration', () => {
           forecast_at: '2026-01-14T07:00:00Z',
           forecast_date: '2026-01-14',
           forecast_time: '07:00:00',
-          wave_height: '2.5',
+          wave_height: '4.5',
           wave_period: '12s',
           wind_speed: '5',
           wind_direction_deg: 90,
@@ -90,7 +90,8 @@ describe('Unified Scoring Integration', () => {
 
       const result = scoreConditions(forecast, oceanBeachPier);
 
-      // Good conditions should score well
+      // Good conditions with solid wave height should score well
+      // Wave-height ceiling for 4.5ft intermediate (ideal 2-5) = 93
       expect(result.total).toBeGreaterThanOrEqual(70);
       expect(result.recommendationLabel).toBe('Worth it');
       expect(result.message).toMatch(/worth it/i);

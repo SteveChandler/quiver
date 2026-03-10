@@ -28,6 +28,8 @@ export interface BeachWithThresholds {
   // Wind thresholds for skip conditions
   max_wind_onshore_mph?: number | null;
   max_wind_any_mph?: number | null;
+  // Beach skill level for wave-height ceiling
+  skill_level?: string | null;
 }
 
 /**
