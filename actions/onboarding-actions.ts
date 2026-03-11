@@ -94,6 +94,16 @@ export async function saveOnboardingData(data: OnboardingData) {
       if (data.preferredBreakType) profileUpdate.preferred_break_type = data.preferredBreakType;
       if (data.crowdPreference) profileUpdate.crowd_preference = data.crowdPreference;
 
+      // Map onboarding time bucket to oracle preferred_session_time
+      const SESSION_TIME_MAP: Record<string, string> = {
+        dawn: 'dawn_patrol',
+        after_work: 'evening',
+        weekends: 'any',
+      };
+      if (data.preferredTime) {
+        profileUpdate.preferred_session_time = SESSION_TIME_MAP[data.preferredTime] ?? 'any';
+      }
+
       const { data: updatedProfile, error: profileError } = await supabase
         .from('profiles')
         .update(profileUpdate)
