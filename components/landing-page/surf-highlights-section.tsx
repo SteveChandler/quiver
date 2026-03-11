@@ -180,7 +180,7 @@ export function SurfHighlightsSection() {
   };
 
   return (
-    <section className="py-16 md:py-24 bg-[#252D6B] noise-texture border-t border-white/[0.06]">
+    <section className="pt-16 pb-8 md:pt-24 md:pb-10 bg-[#252D6B] noise-texture border-t border-white/[0.06]">
       <div className="max-w-7xl mx-auto px-6">
         {/* Social proof stats bar */}
         <motion.div
@@ -248,7 +248,7 @@ export function SurfHighlightsSection() {
         <div className="mt-8 text-left">
           <Link
             href="/map"
-            className="text-[#4A70D9] font-sans font-medium hover:text-[#4A70D9]/80 transition-colors underline-offset-4 hover:underline"
+            className="text-[#4A70D9] font-sans font-medium hover:text-ocean-blue transition-colors underline-offset-4 hover:underline"
           >
             Browse all surf spots &rarr;
           </Link>

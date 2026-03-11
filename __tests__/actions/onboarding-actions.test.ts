@@ -128,6 +128,27 @@ describe("saveOnboardingData", () => {
       });
     });
 
+    it.each([
+      ['dawn', 'dawn_patrol'],
+      ['after_work', 'evening'],
+      ['weekends', 'any'],
+    ] as const)("should map preferredTime '%s' to preferred_session_time '%s'", async (preferredTime, expectedSessionTime) => {
+      await saveOnboardingData({
+        homeBeachId: "beach-123",
+        preferredTime,
+      });
+
+      expect(lastProfileUpdate.preferred_session_time).toBe(expectedSessionTime);
+    });
+
+    it("should not set preferred_session_time when preferredTime is absent", async () => {
+      await saveOnboardingData({
+        homeBeachId: "beach-123",
+      });
+
+      expect(lastProfileUpdate.preferred_session_time).toBeUndefined();
+    });
+
     it("should handle NULL values for optional fields (home beach still required)", async () => {
       const onboardingData = {
         fullName: "Jane Doe",

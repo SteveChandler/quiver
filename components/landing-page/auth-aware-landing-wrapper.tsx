@@ -21,8 +21,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Mail } from "lucide-react";
 
-const HomeScreenDynamic = dynamic(
-  () => import("@/components/home-screen").then((m) => m.HomeScreen),
+const OracleHomeScreenDynamic = dynamic(
+  () =>
+    import("@/components/oracle/oracle-home-screen").then(
+      (m) => m.OracleHomeScreen
+    ),
   {
     ssr: false,
     loading: () => AuthLoadingStates.checking(),
@@ -122,9 +125,9 @@ export function AuthAwareLandingWrapper() {
     return AuthLoadingStates.checking();
   }
 
-  // Authenticated users see the HomeScreen
+  // Authenticated users see the Oracle home screen
   if (user) {
-    return <HomeScreenDynamic />;
+    return <OracleHomeScreenDynamic />;
   }
 
   // Unauthenticated users see the interactive landing page sections

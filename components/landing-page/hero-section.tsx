@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
-import { HeroCarousel } from "./hero-carousel";
+import { HeroVideoBackground } from "./hero-video-background";
 
 const containerVariants = {
   hidden: {},
@@ -36,8 +36,8 @@ export function HeroSection() {
       ref={sectionRef}
       className="relative flex items-center justify-center overflow-hidden bg-black pt-32 pb-24 min-h-[600px] md:min-h-[700px]"
     >
-      {/* Background image carousel */}
-      <HeroCarousel />
+      {/* Background: video → Ken Burns images loop */}
+      <HeroVideoBackground />
 
       {/* Hero content */}
       <motion.div

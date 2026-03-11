@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { Loader2, Shield } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -55,6 +56,10 @@ const preferencesFormSchema = z.object({
     .optional(),
   crowd_preference: z
     .enum(["social", "moderate", "solitude"])
+    .nullable()
+    .optional(),
+  preferred_session_time: z
+    .enum(["dawn_patrol", "morning", "lunch", "afternoon", "evening", "any"])
     .nullable()
     .optional(),
   // Notification preferences
@@ -119,6 +124,7 @@ export function ProfilePreferences({
           | "moderate"
           | "solitude"
           | null) ?? null,
+      preferred_session_time: (profile as any)?.preferred_session_time ?? null,
       // Notification preferences
       notif_reminders: profile?.notif_reminders || false,
       notif_forecast_alerts: profile?.notif_forecast_alerts ?? true,
@@ -174,6 +180,7 @@ export function ProfilePreferences({
         preferred_wave_size: data.preferred_wave_size ?? null,
         preferred_break_type: data.preferred_break_type ?? null,
         crowd_preference: data.crowd_preference ?? null,
+        preferred_session_time: data.preferred_session_time ?? null,
         // Notification preferences
         notif_reminders: data.notif_reminders,
         notif_forecast_alerts: data.notif_forecast_alerts,
@@ -280,6 +287,50 @@ export function ProfilePreferences({
                 control={form.control as any}
                 name="crowd_preference"
                 disabled={isSubmitting}
+              />
+
+              <FormField
+                control={form.control as any}
+                name="preferred_session_time"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Preferred Surf Time</FormLabel>
+                    <FormDescription>
+                      When do you usually paddle out? Used to personalize your home screen.
+                    </FormDescription>
+                    <FormControl>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        {[
+                          { value: "dawn_patrol", label: "Dawn Patrol", desc: "4–7am" },
+                          { value: "morning", label: "Morning", desc: "7–10am" },
+                          { value: "lunch", label: "Lunch", desc: "10am–1pm" },
+                          { value: "afternoon", label: "Afternoon", desc: "1–5pm" },
+                          { value: "evening", label: "Evening", desc: "5pm–dark" },
+                          { value: "any", label: "Any time", desc: "Flexible" },
+                        ].map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() =>
+                              field.onChange(
+                                field.value === option.value ? null : option.value
+                              )
+                            }
+                            className={cn(
+                              "rounded-lg border p-3 text-center text-sm transition-colors",
+                              field.value === option.value
+                                ? "border-primary bg-primary/10 font-medium"
+                                : "border-input hover:border-primary/40"
+                            )}
+                          >
+                            <div className="font-medium">{option.label}</div>
+                            <div className="text-xs text-muted-foreground">{option.desc}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </FormControl>
+                  </FormItem>
+                )}
               />
             </div>
 

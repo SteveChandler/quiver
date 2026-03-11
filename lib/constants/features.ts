@@ -47,7 +47,7 @@ export const FEATURE_CARDS = [
     icon: Star,
     title: "Personalization",
     description:
-      "The more you surf, the smarter Quiver gets. Match scores learn your wave range, ideal conditions, and go-to breaks — from your sessions and the community's live intel.",
+      "The more you surf, the smarter Quiver gets. Match scores learn your wave range, ideal conditions, and go-to breaks from your sessions and the community's live intel.",
     iconBgColor: "bg-sunset-orange/10",
     iconColor: "text-sunset-orange",
     features: [
@@ -308,7 +308,7 @@ export const CONTENT = {
     features: {
       title: "Everything you need to surf with friends",
       subtitle:
-        "From finding surf buddies to sharing epic sessions - your complete surf community platform",
+        "From finding surf buddies to sharing epic sessions, your complete surf community platform",
     },
     cta: {
       title: "Ready to surf smarter?",

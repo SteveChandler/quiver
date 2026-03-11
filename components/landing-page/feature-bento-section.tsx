@@ -104,7 +104,7 @@ export function FeatureBentoSection() {
 
   return (
     <section
-      className="relative py-16 md:py-24 px-4 bg-[#252D6B] noise-texture overflow-hidden"
+      className="relative pt-8 pb-16 md:pt-10 md:pb-24 px-4 bg-[#252D6B] noise-texture"
       data-testid="feature-bento-section"
     >
       {/* Off-center gradient glow */}
@@ -123,9 +123,11 @@ export function FeatureBentoSection() {
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold text-white mb-4">
             Everything you need to surf smarter
           </h2>
-          <p className="text-base sm:text-lg font-sans text-white/60 max-w-2xl mx-auto">
-            From finding surf buddies to sharing epic sessions — your complete
-            surf community platform.
+          <p className="text-base sm:text-lg font-sans text-white/60 max-w-3xl mx-auto">
+            Quiver corrects raw NOAA forecasts down to individual beach breaks
+            using per-beach ML models trained on 30,000+ buoy observations. The
+            result: bias-corrected surf predictions for 185+ beaches, updated
+            every 3 hours.
           </p>
         </div>
 
