@@ -3,6 +3,12 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HeroSection } from "@/components/landing-page/hero-section";
 
+// Mock HTMLMediaElement.play (JSDOM doesn't implement it)
+beforeAll(() => {
+  HTMLMediaElement.prototype.play = jest.fn().mockResolvedValue(undefined);
+  HTMLMediaElement.prototype.pause = jest.fn();
+});
+
 // Mock framer-motion to avoid animation complexity in tests
 jest.mock("framer-motion", () => {
   const React = require("react");

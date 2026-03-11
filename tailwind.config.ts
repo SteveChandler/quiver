@@ -155,6 +155,18 @@ const config: Config = {
           "0%": { transform: "translateX(0)" },
           "100%": { transform: "translateX(-50%)" },
         },
+        kenBurnsZoomIn: {
+          "0%": { transform: "scale(1)" },
+          "100%": { transform: "scale(1.15)" },
+        },
+        kenBurnsZoomOut: {
+          "0%": { transform: "scale(1.15)" },
+          "100%": { transform: "scale(1)" },
+        },
+        kenBurnsSlowPan: {
+          "0%": { transform: "scale(1.1) translateX(-2%)" },
+          "100%": { transform: "scale(1.1) translateX(2%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -171,6 +183,9 @@ const config: Config = {
         "pulse-glow-blue": "pulseGlowBlue 2s ease-in-out infinite",
         "wave-flow": "waveFlow 8s linear infinite",
         "ticker-scroll": "waveFlow 30s linear infinite",
+        "ken-burns-zoom-in": "kenBurnsZoomIn 10s ease-out forwards",
+        "ken-burns-zoom-out": "kenBurnsZoomOut 10s ease-out forwards",
+        "ken-burns-slow-pan": "kenBurnsSlowPan 10s ease-out forwards",
       },
     },
   },
