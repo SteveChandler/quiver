@@ -10,7 +10,7 @@ export function ActivitiesSection() {
     <SectionWrapper
       title={CONTENT.sections.activities.title}
       subtitle={CONTENT.sections.activities.subtitle}
-      className="py-16 md:py-20 px-4 bg-[#252D6B]"
+      className="pt-16 pb-8 md:pt-20 md:pb-10 px-4 bg-[#252D6B]"
       titleClassName="text-2xl sm:text-3xl font-heading font-semibold text-white"
     >
       {/* Desktop / Tablet: evenly spread across full width */}
