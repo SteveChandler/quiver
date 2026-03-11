@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { motion, useInView } from "framer-motion";
 import { SurfSpotCard, SurfSpotCardProps } from "./surf-spot-card";
 import { CONTENT } from "@/lib/constants/features";
 import { ChevronRight } from "lucide-react";
@@ -24,12 +25,60 @@ interface Beach {
   wave_height?: number | null;
 }
 
+// ---------------------------------------------------------------------------
+// Animated count-up number
+// ---------------------------------------------------------------------------
+
+const STATS = [
+  { value: 30, suffix: "K+", label: "Buoy Observations" },
+  { value: 350, suffix: "+", label: "Surf Spots" },
+  { value: 10, suffix: "K+", label: "Sessions Logged" },
+] as const;
+
+function CountUp({ target, suffix }: { target: number; suffix: string }) {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, amount: 0.5 });
+
+  useEffect(() => {
+    if (!inView) return;
+    let frame: number;
+    const duration = 1200; // ms
+    const start = performance.now();
+
+    function tick(now: number) {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.round(eased * target));
+      if (progress < 1) frame = requestAnimationFrame(tick);
+    }
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [inView, target]);
+
+  return (
+    <span ref={ref} className="tabular-nums">
+      {count}
+      {suffix}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
 export function SurfHighlightsSection() {
   const [page, setPage] = useState(0);
   const pageSize = 4;
   const locationCtx = useLocationSafe();
   const location = locationCtx?.location;
   const coordinates = location?.coordinates ?? null;
+  const statsRef = useRef<HTMLDivElement>(null);
+  const statsInView = useInView(statsRef, { once: true, amount: 0.3 });
 
   // Serialize coordinates to a stable string to use as dependency (rounded for privacy + cacheability)
   const coordsKey = coordinates
@@ -129,9 +178,32 @@ export function SurfHighlightsSection() {
   };
 
   return (
-    <section className="py-14 bg-[#252D6B] noise-texture">
+    <section className="py-16 md:py-24 bg-[#252D6B] noise-texture border-t border-white/[0.06]">
       <div className="max-w-7xl mx-auto px-6">
-        {/* Editorial header */}
+        {/* Social proof stats bar */}
+        <motion.div
+          ref={statsRef}
+          initial={{ opacity: 0, y: 16 }}
+          animate={statsInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.5 }}
+          className="flex flex-wrap items-center justify-center gap-8 md:gap-16 mb-14"
+        >
+          {STATS.map((stat, i) => (
+            <div key={stat.label} className="text-center">
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={statsInView ? { opacity: 1 } : {}}
+                transition={{ duration: 0.4, delay: i * 0.15 }}
+                className="text-3xl md:text-4xl font-heading font-bold text-white"
+              >
+                <CountUp target={stat.value} suffix={stat.suffix} />
+              </motion.p>
+              <p className="text-sm text-[#9AABC6] mt-1">{stat.label}</p>
+            </div>
+          ))}
+        </motion.div>
+
+        {/* Section header */}
         <h2 className="text-2xl md:text-3xl font-heading font-semibold text-white mb-8 text-left">
           {CONTENT.sections.surfHighlights.title}
         </h2>
@@ -139,7 +211,7 @@ export function SurfHighlightsSection() {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[...Array(4)].map((_, i) => (
-              <Skeleton key={i} className="h-80 rounded-2xl" />
+              <Skeleton key={i} className="h-80 rounded-2xl bg-white/[0.06]" />
             ))}
           </div>
         ) : (
@@ -150,19 +222,19 @@ export function SurfHighlightsSection() {
                   <SurfSpotCard key={spot.id} {...spot} delay={index} />
                 ))
               ) : (
-                <div className="col-span-full text-center py-12 text-medium">
+                <div className="col-span-full text-center py-12 text-[#9AABC6]">
                   No surf spots available at the moment.
                 </div>
               )}
             </div>
 
-            {/* AllTrails-style floating carousel control */}
+            {/* Floating carousel control */}
             {total > pageSize && (
               <button
                 type="button"
                 onClick={handleNext}
                 aria-label="Next surf spots"
-                className="hidden md:flex items-center justify-center absolute -right-2 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-[#354090] shadow-md hover:shadow-lg transition-shadow z-10 border border-[#404C92]"
+                className="hidden md:flex items-center justify-center absolute -right-2 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/[0.08] shadow-md hover:shadow-lg hover:bg-white/[0.15] transition-all duration-300 z-10 border border-white/[0.1]"
               >
                 <ChevronRight className="h-5 w-5 text-white" />
               </button>
@@ -174,7 +246,7 @@ export function SurfHighlightsSection() {
         <div className="mt-8 text-left">
           <Link
             href="/ca/san-diego"
-            className="text-ocean-blue font-sans font-medium hover:text-ocean-blue/80 transition-colors underline-offset-4 hover:underline"
+            className="text-[#4A70D9] font-sans font-medium hover:text-[#4A70D9]/80 transition-colors underline-offset-4 hover:underline"
           >
             Browse all surf spots &rarr;
           </Link>

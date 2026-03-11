@@ -32,7 +32,7 @@ function MapSkeleton() {
 
 export default function MapPage() {
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col h-[calc(100dvh-64px)] overflow-hidden">
       <h1 className="sr-only">Interactive Surf Spots Map</h1>
       <Suspense fallback={<MapSkeleton />}>
         <MapPageClient />

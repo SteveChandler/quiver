@@ -16,27 +16,14 @@ export function CTASection() {
   if (!isLoading && user) return null;
 
   return (
-    <section className="py-20 px-4 bg-bg-deep scan-lines noise-texture-strong relative overflow-hidden">
-      {/* Ambient orange orb behind button area */}
-      <div
-        className="ambient-orb-orange"
-        style={{
-          bottom: "10%",
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: 400,
-          height: 300,
-        }}
-        aria-hidden="true"
-      />
-
+    <section className="py-24 md:py-32 px-4 bg-bg-deep noise-texture-strong relative">
       <div className="max-w-4xl mx-auto text-center relative z-10 animate-fade-in-up">
         <h2 className="text-3xl md:text-4xl font-heading font-bold text-white mb-6 animate-fade-in-up text-glow-orange">
           {CONTENT.sections.cta.title}
         </h2>
 
         <p
-          className="text-xl text-high mb-8 font-sans animate-fade-in-up"
+          className="text-xl text-[#9AABC6] mb-8 font-sans animate-fade-in-up"
           style={{ animationDelay: "200ms" }}
         >
           {CONTENT.sections.cta.subtitle}
@@ -48,7 +35,7 @@ export function CTASection() {
         >
           <Button
             size="lg"
-            className="bg-ocean-blue text-white clip-cyber px-8 py-3 font-sans font-semibold shadow-sm hover:bg-ocean-blue/90 motion-optimized"
+            className="bg-ocean-blue text-white rounded-full px-8 py-3 font-sans font-semibold hover:shadow-lg hover:shadow-ocean-blue/20 transition-all duration-300 hover:bg-ocean-blue/90"
             asChild
           >
             <Link href={preserveQueryParams("/auth/sign-up", searchParams)}>
@@ -70,7 +57,7 @@ export function CTASection() {
         </div>
 
         <p
-          className="text-high text-sm font-sans animate-fade-in-up"
+          className="text-white/50 text-sm font-sans animate-fade-in-up"
           style={{ animationDelay: "600ms" }}
         >
           Free to join — no credit card required

@@ -25,7 +25,7 @@ export const FEATURE_CARDS = [
     icon: Brain,
     title: "ML Forecasts",
     description:
-      "XGBoost-corrected wave predictions trained on 30,000+ buoy observations deliver forecasts you can actually trust.",
+      "Quiver-corrected wave predictions trained on 30,000+ buoy observations deliver forecasts you can actually trust.",
     iconBgColor: "bg-ocean-blue/10",
     iconColor: "text-ocean-blue",
     features: [
@@ -101,23 +101,23 @@ export const FEATURE_CARDS = [
     title: "Spot Discovery",
     description:
       "350+ intent-based guide pages help you find the right break for any style, skill level, or time of day.",
-    iconBgColor: "bg-purple-500/10",
-    iconColor: "text-purple-600",
+    iconBgColor: "bg-[#4A70D9]/10",
+    iconColor: "text-[#4A70D9]",
     features: [
       {
         icon: MapPin,
         text: "Regional hub guides",
-        color: "text-purple-600",
+        color: "text-[#4A70D9]",
       },
       {
         icon: Book,
         text: "Intent-based pages",
-        color: "text-purple-600",
+        color: "text-[#4A70D9]",
       },
       {
         icon: AlertTriangle,
         text: "Local insider tips",
-        color: "text-purple-600",
+        color: "text-[#4A70D9]",
       },
     ],
   },
@@ -171,6 +171,31 @@ export const FEATURE_CARDS = [
       },
     ],
   },
+  {
+    icon: Users,
+    title: "Community",
+    description:
+      "Share sessions, post photos, and connect with surfers at your local breaks. The more you share, the smarter Quiver gets for everyone.",
+    iconBgColor: "bg-[#F78E42]/10",
+    iconColor: "text-[#F78E42]",
+    features: [
+      {
+        icon: Users,
+        text: "Local surf crews",
+        color: "text-[#F78E42]",
+      },
+      {
+        icon: Heart,
+        text: "Session sharing",
+        color: "text-[#F78E42]",
+      },
+      {
+        icon: Eye,
+        text: "Live crowd reports",
+        color: "text-[#F78E42]",
+      },
+    ],
+  },
 ];
 
 // Surf Activities for discovery navigation
@@ -194,8 +219,8 @@ export const SURF_ACTIVITIES = [
     imageSrc: "/reef.jpg",
     imageAlt: "Breaking wave at a reef break",
     link: "/map?type=reef",
-    iconBgColor: "bg-purple-100",
-    iconColor: "text-purple-600",
+    iconBgColor: "bg-[#4A70D9]/10",
+    iconColor: "text-[#4A70D9]",
   },
   {
     icon: Mountain,

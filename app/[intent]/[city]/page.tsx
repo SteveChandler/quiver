@@ -335,7 +335,7 @@ async function getCityExcludeIntents(cityName: string, state: string): Promise<I
     .select("id")
     .ilike("city", cityName)
     .ilike("state", state)
-    .in("crowd_level", ["Light", "Moderate"])
+    .or("crowd_level.ilike.light,crowd_level.ilike.moderate")
     .limit(1);
 
   return !data || data.length === 0 ? ["least-crowded"] : [];
@@ -1008,7 +1008,7 @@ export default async function IntentPage(props: IntentPageParams) {
           },
           {
             name: `${cityMetadata.cityName} Surf`,
-            url: `${safeBaseUrl}/beaches/usa/${stateSlugLower}/${params.city}`,
+            url: `${safeBaseUrl}/${stateSlugLower}/${params.city}`,
           },
           {
             name: definition.label,
@@ -1043,7 +1043,7 @@ export default async function IntentPage(props: IntentPageParams) {
           className="flex items-center gap-1 text-sm mb-6"
         >
           <Link
-            href={`/beaches/usa/${cityMetadata.state.toLowerCase()}/${params.city}`}
+            href={`/${cityMetadata.state.toLowerCase()}/${params.city}`}
             className="inline-flex items-center gap-1 text-ocean-blue hover:underline"
           >
             <ChevronLeft className="h-4 w-4" />

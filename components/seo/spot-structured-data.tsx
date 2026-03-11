@@ -25,7 +25,7 @@ export function SpotStructuredData({
     ? `${safeBase}/${stateSlug}/${citySlug}/${spot.slug}`
     : `${safeBase}/spots/${spot.slug}`;
   const cityUrl = citySlug && stateSlug
-    ? `${safeBase}/beaches/usa/${stateSlug}/${citySlug}`
+    ? `${safeBase}/${stateSlug}/${citySlug}`
     : citySlug
       ? `${safeBase}/ca/${citySlug}`
       : undefined;

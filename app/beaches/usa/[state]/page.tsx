@@ -199,7 +199,7 @@ export default async function UsaStatePage(
                 return (
                   <li key={c.citySlug}>
                     <Link
-                      href={`/beaches/usa/${stateSlug}/${c.citySlug}`}
+                      href={`/${stateSlug}/${c.citySlug}`}
                       className="flex items-center justify-between rounded-lg px-3 py-2 text-slate-800 hover:bg-slate-50 hover:text-ocean-blue transition-colors"
                     >
                       <span>{c.cityName}</span>

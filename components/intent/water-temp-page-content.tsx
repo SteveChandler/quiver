@@ -64,7 +64,7 @@ export function WaterTempPageContent({
           { name: "Quiver", url: `${baseUrl}/` },
           {
             name: `${cityName} Surf`,
-            url: `${baseUrl}/beaches/usa/${stateSlug}/${citySlug}`,
+            url: `${baseUrl}/${stateSlug}/${citySlug}`,
           },
           {
             name: "Water Temperature",
@@ -79,7 +79,7 @@ export function WaterTempPageContent({
           className="flex items-center gap-1 text-sm mb-6"
         >
           <Link
-            href={`/beaches/usa/${stateSlug}/${citySlug}`}
+            href={`/${stateSlug}/${citySlug}`}
             className="inline-flex items-center gap-1 text-ocean-blue hover:underline"
           >
             <ChevronLeft className="h-4 w-4" />

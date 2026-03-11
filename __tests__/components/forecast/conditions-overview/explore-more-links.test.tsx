@@ -3,9 +3,15 @@ import { ExploreMoreLinks } from "@/components/forecast/conditions-overview/expl
 import type { Beach } from "@/types/database";
 
 // Mock beach-url-utils
-const mockBuildCityUrl = jest.fn((state, city) => `/surf/${state}/${city}`);
+const mockBuildHiCityUrlForBeach = jest.fn(
+  (beach: { state: string | null | undefined; city: string | null | undefined }) =>
+    `/surf/${beach.state}/${beach.city}`
+);
 jest.mock("@/lib/utils/beach-url-utils", () => ({
-  buildCityUrl: (state: string, city: string | null) => mockBuildCityUrl(state, city),
+  buildHiCityUrlForBeach: (beach: {
+    state: string | null | undefined;
+    city: string | null | undefined;
+  }) => mockBuildHiCityUrlForBeach(beach),
 }));
 
 // Mock Next.js Link
@@ -53,11 +59,13 @@ describe("ExploreMoreLinks", () => {
     expect(links).toHaveLength(2);
   });
 
-  it("renders city surf guide link with buildCityUrl", () => {
+  it("renders city surf guide link with buildHiCityUrlForBeach", () => {
     const beach = createMockBeach({ state: "CA", city: "San Diego" });
     render(<ExploreMoreLinks beach={beach} />);
 
-    expect(mockBuildCityUrl).toHaveBeenCalledWith("CA", "San Diego");
+    expect(mockBuildHiCityUrlForBeach).toHaveBeenCalledWith(
+      expect.objectContaining({ state: "CA", city: "San Diego" })
+    );
 
     const cityLink = screen.getByRole("link", { name: /San Diego Surf Guide/i });
     expect(cityLink).toHaveAttribute("href", "/surf/CA/San Diego");
@@ -142,10 +150,12 @@ describe("ExploreMoreLinks", () => {
     expect(mapLink).toHaveTextContent("Nearby Beaches on Map");
   });
 
-  it("passes correct parameters to buildCityUrl with different states", () => {
+  it("passes correct parameters to buildHiCityUrlForBeach with different states", () => {
     const beach = createMockBeach({ state: "HI", city: "Honolulu" });
     render(<ExploreMoreLinks beach={beach} />);
 
-    expect(mockBuildCityUrl).toHaveBeenCalledWith("HI", "Honolulu");
+    expect(mockBuildHiCityUrlForBeach).toHaveBeenCalledWith(
+      expect.objectContaining({ state: "HI", city: "Honolulu" })
+    );
   });
 });

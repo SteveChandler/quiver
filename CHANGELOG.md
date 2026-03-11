@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- `ExploreMoreLinks` now uses `buildHiCityUrlForBeach` for city guide links, ensuring Hawaii beaches with ambiguous city names (e.g. Waimea) resolve to island-qualified URLs (`/hi/waimea-kauai`) instead of the bare city slug
+
+### Changed
+- Landing page full redesign (nunu.ai-inspired): unified dark-first design with Deep Twilight (#252D6B) background throughout all sections, frosted glass cards (`bg-white/[0.04] backdrop-blur-md`), bold centered typography, generous spacing, and Framer Motion scroll-triggered animations
+- Hero section rewritten: removed carousel/match-demo, now centered bold headline with dual pill CTAs and ambient radial glow
+- Feature bento grid replaces old UpgradeSessionSection: asymmetric card grid with 6 custom animated SVG illustrations (wave-bars, match-ring, signal-ripples, compass-pin, chart-trend, phone-notification)
+- Social proof stats bar added to surf highlights: animated count-up numbers (30K+ observations, 350+ spots, 10K+ sessions)
+- ML pipeline showcase cleaned up: replaced cyber aesthetic (clip-cyber, neon glows) with frosted glass cards and brand-palette step indicators
+- Forecast section restyled: dark frosted glass wrapper, dark tab pills, white text on dark background
+- Activities section restyled: dark background with ring glow hover effects on circular images
+- CTA section simplified: removed scan-lines/ambient-orb/clip-cyber, cleaner pill CTAs with generous padding
+- Removed LandingConditionsTicker from landing page
+- Replaced purple accents with Twilight Blue (#4A70D9) in feature cards and surf activities constants
+
+### Added
+- `components/landing-page/feature-bento-section.tsx` — bento grid layout with frosted glass cards and animated illustrations
+- `components/landing-page/bento-illustrations/` — 6 custom animated SVG illustration components following animated-wave-icon pattern (CSS keyframes, useReducedMotion accessibility)
+
+### Fixed
+- City links in state page, sibling-cities section, and SEO content now use canonical `/${stateSlug}/${citySlug}` URLs instead of the legacy `/beaches/usa/${stateSlug}/${citySlug}` format; state-level URLs remain unchanged
+- `/spots/lowers-trestles` 404 — added legacy slug alias redirecting to canonical `/spots/lower-trestles`; also fixed stored link in Orange County editorial content
+- `/least-crowded/{city}` 404s (30+ cities) — fixed case mismatch between `getCityExcludeIntents` (used capitalized `["Light", "Moderate"]`) and `applyIntentFilters` (used lowercase); both now use case-insensitive `ilike` matching
 - Google Places beach photos now download to Supabase Storage instead of storing ephemeral API URLs that returned 400 errors
 
 ### Changed

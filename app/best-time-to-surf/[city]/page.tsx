@@ -194,7 +194,7 @@ export default async function BestTimeToSurfPage(props: PageParams) {
           </Link>
           <span className="text-gray-400 mx-1">&rsaquo;</span>
           <Link
-            href={`/beaches/usa/${stateSlug}/${citySlug}`}
+            href={`/${stateSlug}/${citySlug}`}
             className="inline-flex items-center gap-1 text-ocean-blue hover:underline"
           >
             {cityName}
@@ -389,7 +389,7 @@ export default async function BestTimeToSurfPage(props: PageParams) {
           <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-sm text-sky-700">
             <li>
               <Link
-                href={`/beaches/usa/${stateSlug}/${citySlug}`}
+                href={`/${stateSlug}/${citySlug}`}
                 className="underline-offset-2 hover:underline"
               >
                 Back to the {cityName} surf hub

@@ -1,64 +1,91 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { motion, useInView } from "framer-motion";
+import Link from "next/link";
 import { CONTENT } from "@/lib/constants/features";
-import { HeroCarousel } from "./hero-carousel";
-import { HeroMatchDemo } from "./hero-match-demo";
 import { Button } from "@/components/ui/button";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 
+const containerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.15 } },
+} as const;
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 24 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: "easeOut" as const },
+  },
+} as const;
+
 export function HeroSection() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("signup");
+  const sectionRef = useRef<HTMLElement>(null);
+  const isInView = useInView(sectionRef, { once: true, amount: 0.2 });
 
   return (
-    <section className="relative min-h-[75svh] flex items-center justify-center overflow-clip md:overflow-visible pt-20">
-      {/* Hero Carousel Background - includes gradient overlay */}
-      <HeroCarousel />
+    <section
+      ref={sectionRef}
+      className="relative flex items-center justify-center overflow-hidden bg-[#252D6B] pt-32 pb-24"
+    >
+      {/* Ambient radial glow */}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-[#F78E42]/5 rounded-full blur-[120px] pointer-events-none" />
 
-      {/* Hero Content */}
-      <div className="relative z-30 w-full max-w-3xl mx-auto px-6 text-center text-white flex flex-col items-center gap-6">
-        {/* Main Headline */}
-        <h1
-          className="font-semibold leading-tight tracking-tight text-5xl md:text-6xl font-heading animate-fade-in-up [text-shadow:_0_2px_8px_rgb(0_0_0_/_30%)] text-balance"
-          style={{ animationDelay: "100ms" }}
+      {/* Hero content */}
+      <motion.div
+        className="relative z-10 flex flex-col items-center gap-8 px-6 text-center max-w-4xl mx-auto"
+        variants={containerVariants}
+        initial="hidden"
+        animate={isInView ? "visible" : "hidden"}
+      >
+        {/* Headline */}
+        <motion.h1
+          className="text-5xl md:text-6xl lg:text-7xl font-heading font-bold text-white leading-tight tracking-tight text-balance"
+          variants={itemVariants}
         >
           {CONTENT.hero.title}
-        </h1>
+        </motion.h1>
 
-        {/* Subhead */}
-        <div
-          className="flex flex-col items-center gap-2 animate-fade-in-up"
-          style={{ animationDelay: "150ms" }}
+        {/* Subtitle */}
+        <motion.p
+          className="text-lg md:text-xl text-[#9AABC6] max-w-2xl leading-relaxed"
+          variants={itemVariants}
         >
-          <p className="text-lg md:text-xl text-high max-w-2xl font-sans leading-relaxed">
-            {CONTENT.hero.subtitle}
-          </p>
-        </div>
+          {CONTENT.hero.subtitle}
+        </motion.p>
 
-        {/* Live Match Score Demo Card */}
-        <div
-          className="animate-fade-in-up w-full max-w-sm"
-          style={{ animationDelay: "200ms" }}
+        {/* CTA buttons */}
+        <motion.div
+          className="flex flex-col sm:flex-row items-center gap-4"
+          variants={itemVariants}
         >
-          <HeroMatchDemo />
-        </div>
+          <Button
+            onClick={() => {
+              setAuthMode("signup");
+              setAuthModalOpen(true);
+              trackAuthModalOpened({ mode: "signup", source: "hero-cta" });
+            }}
+            className="bg-ocean-blue text-white rounded-full px-8 py-4 font-semibold text-lg shadow-lg hover:bg-ocean-blue/90 hover:shadow-xl hover:shadow-ocean-blue/20 transition-all duration-300"
+            size="lg"
+          >
+            {CONTENT.hero.cta}
+          </Button>
 
-        {/* CTA Button */}
-        <Button
-          onClick={() => {
-            setAuthMode("signup");
-            setAuthModalOpen(true);
-            trackAuthModalOpened({ mode: "signup", source: "hero-cta" });
-          }}
-          className="bg-ocean-blue text-white rounded-full px-8 py-4 font-sans font-semibold text-lg shadow-lg hover:bg-ocean-blue/90 animate-fade-in-up"
-          style={{ animationDelay: "300ms" }}
-          size="lg"
-        >
-          {CONTENT.hero.cta}
-        </Button>
-      </div>
+          <Button
+            asChild
+            variant="ghost"
+            className="border border-white/30 text-white rounded-full px-6 py-4 font-semibold hover:bg-white/10 transition-all duration-300"
+            size="lg"
+          >
+            <Link href="/about">Learn More</Link>
+          </Button>
+        </motion.div>
+      </motion.div>
 
       <UnifiedAuthModal
         isOpen={authModalOpen}
@@ -68,7 +95,11 @@ export function HeroSection() {
         returnTo="/"
         contextMessage={
           authMode === "signup"
-            ? { title: "Get Your Match Score", description: "Personalized surf forecasts in 30 seconds" }
+            ? {
+                title: "Get Your Match Score",
+                description:
+                  "Personalized surf forecasts in 30 seconds",
+              }
             : undefined
         }
       />

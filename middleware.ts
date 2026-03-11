@@ -69,6 +69,7 @@ const INTERNATIONAL_RESERVED_SEGMENTS = new Set([
 // Remove entries after Google drops the cached URLs (~6 months after redirect).
 const LEGACY_SPOT_SLUG_ALIASES: Record<string, string> = {
   "blacks-beach": "blacks", // 271 impressions at 0 clicks — added Mar 2026
+  "lowers-trestles": "lower-trestles", // plural variant linked from OC surf spots page
 };
 
 function log(message: string, data?: any) {

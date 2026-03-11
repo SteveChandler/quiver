@@ -3,15 +3,45 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HeroSection } from "@/components/landing-page/hero-section";
 
-// Mock HeroCarousel (uses images and CSS that jest can't handle)
-jest.mock("@/components/landing-page/hero-carousel", () => ({
-  HeroCarousel: () => <div data-testid="hero-carousel" />,
-}));
-
-// Mock HeroMatchDemo (fetches data)
-jest.mock("@/components/landing-page/hero-match-demo", () => ({
-  HeroMatchDemo: () => <div data-testid="hero-match-demo">Match Demo</div>,
-}));
+// Mock framer-motion to avoid animation complexity in tests
+jest.mock("framer-motion", () => {
+  const React = require("react");
+  return {
+    motion: {
+      div: React.forwardRef(
+        (props: Record<string, unknown>, ref: React.Ref<HTMLDivElement>) => {
+          const {
+            variants: _variants,
+            initial: _initial,
+            animate: _animate,
+            whileInView: _whileInView,
+            ...rest
+          } = props;
+          return <div ref={ref} {...rest} />;
+        }
+      ),
+      h1: React.forwardRef(
+        (
+          props: Record<string, unknown>,
+          ref: React.Ref<HTMLHeadingElement>
+        ) => {
+          const { variants: _variants, ...rest } = props;
+          return <h1 ref={ref} {...rest} />;
+        }
+      ),
+      p: React.forwardRef(
+        (
+          props: Record<string, unknown>,
+          ref: React.Ref<HTMLParagraphElement>
+        ) => {
+          const { variants: _variants, ...rest } = props;
+          return <p ref={ref} {...rest} />;
+        }
+      ),
+    },
+    useInView: () => true,
+  };
+});
 
 // Mock UnifiedAuthModal
 jest.mock("@/components/auth/unified-auth-modal", () => ({
@@ -38,9 +68,9 @@ jest.mock("@/lib/analytics/auth-events", () => ({
 jest.mock("@/lib/constants/features", () => ({
   CONTENT: {
     hero: {
-      title: "Every beach, scored for you",
+      title: "Every session makes your next forecast smarter.",
       subtitle: "Test subtitle",
-      cta: "Get Your Match Score",
+      cta: "Start surfing smarter",
     },
   },
 }));
@@ -49,26 +79,39 @@ describe("HeroSection", () => {
   it("renders the hero headline from CONTENT", () => {
     render(<HeroSection />);
     expect(
-      screen.getByRole("heading", { name: /every beach, scored for you/i })
+      screen.getByRole("heading", {
+        name: /every session makes your next forecast smarter/i,
+      })
     ).toBeInTheDocument();
   });
 
-  it("renders the HeroMatchDemo card", () => {
+  it("renders the subtitle text", () => {
     render(<HeroSection />);
-    expect(screen.getByTestId("hero-match-demo")).toBeInTheDocument();
+    expect(screen.getByText("Test subtitle")).toBeInTheDocument();
   });
 
-  it("renders the CTA button with correct text", () => {
+  it("renders the primary CTA button with correct text", () => {
     render(<HeroSection />);
-    const cta = screen.getByRole("button", { name: /get your match score/i });
+    const cta = screen.getByRole("button", {
+      name: /start surfing smarter/i,
+    });
     expect(cta).toBeInTheDocument();
   });
 
-  it("opens auth modal in signup mode when CTA is clicked", async () => {
+  it("renders the Learn More secondary CTA linking to /about", () => {
+    render(<HeroSection />);
+    const learnMore = screen.getByRole("link", { name: /learn more/i });
+    expect(learnMore).toBeInTheDocument();
+    expect(learnMore).toHaveAttribute("href", "/about");
+  });
+
+  it("opens auth modal in signup mode when primary CTA is clicked", async () => {
     const user = userEvent.setup();
     render(<HeroSection />);
 
-    const cta = screen.getByRole("button", { name: /get your match score/i });
+    const cta = screen.getByRole("button", {
+      name: /start surfing smarter/i,
+    });
     await user.click(cta);
 
     const modal = screen.getByTestId("auth-modal");
@@ -76,9 +119,32 @@ describe("HeroSection", () => {
     expect(modal).toHaveAttribute("data-mode", "signup");
   });
 
+  it("tracks auth modal opened event when CTA is clicked", async () => {
+    const { trackAuthModalOpened } = require("@/lib/analytics/auth-events");
+    const user = userEvent.setup();
+    render(<HeroSection />);
+
+    const cta = screen.getByRole("button", {
+      name: /start surfing smarter/i,
+    });
+    await user.click(cta);
+
+    expect(trackAuthModalOpened).toHaveBeenCalledWith({
+      mode: "signup",
+      source: "hero-cta",
+    });
+  });
+
+  it("does not render HeroCarousel or HeroMatchDemo", () => {
+    render(<HeroSection />);
+    expect(screen.queryByTestId("hero-carousel")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("hero-match-demo")).not.toBeInTheDocument();
+  });
+
   it("does not render a search bar", () => {
     render(<HeroSection />);
-    // Search input should not exist — it moved to the navbar
-    expect(screen.queryByPlaceholderText(/search by beach/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText(/search by beach/i)
+    ).not.toBeInTheDocument();
   });
 });

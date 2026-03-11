@@ -203,10 +203,10 @@ describe('beach-query-actions', () => {
       const result = await getBeachesByIntentAndCity('least-crowded', 'san-diego', 'ca');
       expect(result.success).toBe(true);
 
-      // Should call .in() with crowd_level filter for light and moderate
-      const crowdInCall = qb._inCalls.find(([col]: [string, any[]]) => col === 'crowd_level');
-      expect(crowdInCall).toBeDefined();
-      expect(crowdInCall![1]).toEqual(['light', 'moderate']);
+      // Should call .or() with case-insensitive crowd_level filter
+      const crowdOrCall = qb._orCalls.find((c: string) => c.includes('crowd_level'));
+      expect(crowdOrCall).toBeDefined();
+      expect(crowdOrCall).toBe('crowd_level.ilike.light,crowd_level.ilike.moderate');
     });
 
     it('should convert state slug to uppercase for query', async () => {

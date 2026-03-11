@@ -16,21 +16,21 @@ import { Button } from "@/components/ui/button";
 
 function StepDataSources() {
   return (
-    <div className="clip-cyber-sm bg-bg-surface border border-neon-cyan/20 p-6 flex flex-col gap-4 h-full">
-      <span className="font-mono text-4xl text-white text-glow-cyan leading-none">
-        01
-      </span>
+    <div className="bg-white/[0.04] backdrop-blur-md border border-white/[0.08] rounded-2xl p-6 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] flex flex-col gap-4 h-full">
+      <div className="w-8 h-8 rounded-full border-2 border-[#F78E42] flex items-center justify-center text-sm font-bold text-white">
+        1
+      </div>
       <div>
         <h3 className="text-lg font-semibold text-white mb-1">Real-Time Data</h3>
-        <p className="text-sm text-white/60">
+        <p className="text-sm text-[#9AABC6]">
           30K+ buoy observations, NOAA models, community reports
         </p>
       </div>
       <div className="flex flex-wrap gap-3 mt-auto">
-        <Waves className="h-5 w-5 text-neon-cyan" aria-label="Wave data" />
-        <Radio className="h-5 w-5 text-neon-cyan" aria-label="Satellite data" />
-        <Droplets className="h-5 w-5 text-neon-cyan" aria-label="Water conditions" />
-        <Users className="h-5 w-5 text-neon-cyan" aria-label="Community reports" />
+        <Waves className="h-5 w-5 text-[#4A70D9]" aria-label="Wave data" />
+        <Radio className="h-5 w-5 text-[#4A70D9]" aria-label="Satellite data" />
+        <Droplets className="h-5 w-5 text-[#4A70D9]" aria-label="Water conditions" />
+        <Users className="h-5 w-5 text-[#4A70D9]" aria-label="Community reports" />
       </div>
     </div>
   );
@@ -49,24 +49,24 @@ const ML_CHIPS = [
 
 function StepMLEngine() {
   return (
-    <div className="clip-cyber-sm bg-bg-surface border border-neon-orange/20 p-6 flex flex-col gap-4 h-full">
-      <span className="font-mono text-4xl text-white text-glow-cyan leading-none">
-        02
-      </span>
+    <div className="bg-white/[0.04] backdrop-blur-md border border-white/[0.08] rounded-2xl p-6 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] flex flex-col gap-4 h-full">
+      <div className="w-8 h-8 rounded-full border-2 border-[#F78E42] flex items-center justify-center text-sm font-bold text-white">
+        2
+      </div>
       <div>
         <h3 className="text-lg font-semibold text-white mb-1">ML Scoring Engine</h3>
-        <p className="text-sm text-white/60">
-          XGBoost ensemble scores 4 factors every 3 hours
+        <p className="text-sm text-[#9AABC6]">
+          Quiver ensemble scores 4 factors every 3 hours
         </p>
       </div>
       <div className="flex items-center gap-3">
-        <Brain className="h-6 w-6 text-neon-orange shrink-0" aria-hidden="true" />
+        <Brain className="h-6 w-6 text-[#F78E42] shrink-0" aria-hidden="true" />
       </div>
       <div className="flex flex-wrap gap-2 mt-auto">
         {ML_CHIPS.map((chip) => (
           <span
             key={chip}
-            className="text-[10px] uppercase tracking-wider bg-bg-deep/60 px-2 py-0.5 rounded-full border border-neon-orange/20 text-white/70"
+            className="text-[10px] uppercase tracking-wider bg-white/[0.06] px-2 py-0.5 rounded-full border border-white/[0.1] text-white/60"
           >
             {chip}
           </span>
@@ -86,13 +86,13 @@ interface StepMatchScoreProps {
 
 function StepMatchScore({ inView }: StepMatchScoreProps) {
   return (
-    <div className="clip-cyber-sm bg-bg-surface border border-neon-magenta/20 p-6 flex flex-col gap-4 h-full">
-      <span className="font-mono text-4xl text-white text-glow-cyan leading-none">
-        03
-      </span>
+    <div className="bg-white/[0.04] backdrop-blur-md border border-white/[0.08] rounded-2xl p-6 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] flex flex-col gap-4 h-full">
+      <div className="w-8 h-8 rounded-full border-2 border-[#F78E42] flex items-center justify-center text-sm font-bold text-white">
+        3
+      </div>
       <div>
         <h3 className="text-lg font-semibold text-white mb-1">Your Match Score</h3>
-        <p className="text-sm text-white/60">
+        <p className="text-sm text-[#9AABC6]">
           Personalized to your skill level and wave preferences
         </p>
       </div>
@@ -113,7 +113,7 @@ function StepConnector() {
       className="hidden md:flex items-center justify-center shrink-0"
       aria-hidden="true"
     >
-      <div className="w-8 border-t border-dashed border-neon-cyan/20" />
+      <div className="w-8 border-t border-dashed border-white/20" />
     </div>
   );
 }
@@ -131,7 +131,7 @@ export function MLPipelineShowcase() {
 
   return (
     <SectionWrapper
-      className="py-12 md:py-16 px-4 bg-[#252D6B] noise-texture-strong"
+      className="py-12 md:py-16 px-4 bg-[#2D357D] noise-texture-strong"
       data-testid="ml-pipeline-showcase"
     >
       {/* Section header */}

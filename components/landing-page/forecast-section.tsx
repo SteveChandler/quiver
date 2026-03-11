@@ -119,9 +119,12 @@ export function ForecastSection() {
   );
 
   return (
-    <SectionWrapper className="py-16 md:py-20 px-4 bg-white" maxWidth="6xl">
+    <SectionWrapper className="relative py-16 md:py-20 px-4 bg-[#252D6B] noise-texture" maxWidth="6xl">
+      {/* Ambient glow */}
+      <div className="absolute top-1/2 left-1/4 w-[400px] h-[400px] bg-ocean-blue/[0.06] rounded-full blur-[100px] pointer-events-none" />
+
       <div
-        className="relative overflow-hidden rounded-[32px] sm:rounded-[40px] lg:rounded-[48px] bg-[#F3EEE6] shadow-sm ring-1 ring-black/5 animate-fade-in-up"
+        className="relative overflow-hidden rounded-3xl bg-white/[0.04] backdrop-blur-md border border-white/[0.08] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] animate-fade-in-up"
         data-testid="forecast-section"
       >
         <div className="px-4 sm:px-8 md:px-12 lg:px-20 py-12 md:py-16 lg:py-20">
@@ -147,7 +150,7 @@ export function ForecastSection() {
                     ${
                       activeFeatureId === feature.id
                         ? "bg-ocean-blue text-white shadow-sm"
-                        : "bg-white/70 text-[#334155] hover:bg-white"
+                        : "bg-white/[0.06] text-white/60 hover:bg-white/[0.1]"
                     }
                   `}
                 >
@@ -165,7 +168,7 @@ export function ForecastSection() {
                   type="button"
                   aria-label="Previous feature"
                   onClick={handlePrevious}
-                  className="h-10 w-10 rounded-full bg-white/70 shadow-sm ring-1 ring-black/5 hover:bg-white transition-colors focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2"
+                  className="h-10 w-10 rounded-full bg-white/[0.08] ring-1 ring-white/10 hover:bg-white/[0.15] transition-colors focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2"
                 >
                   <ArrowUp
                     aria-hidden="true"
@@ -194,8 +197,8 @@ export function ForecastSection() {
                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:rounded
                       ${
                         activeFeatureId === feature.id
-                          ? "font-bold text-[#0f172a] decoration-[#64748b] decoration-2"
-                          : "font-normal text-[#334155] decoration-[#cbd5e1] hover:decoration-[#64748b]"
+                          ? "font-bold text-white decoration-white/40 decoration-2"
+                          : "font-normal text-white/50 decoration-white/20 hover:decoration-white/40"
                       }
                     `}
                   >
@@ -209,7 +212,7 @@ export function ForecastSection() {
                   type="button"
                   aria-label="Next feature"
                   onClick={handleNext}
-                  className="h-10 w-10 rounded-full bg-white/70 shadow-sm ring-1 ring-black/5 hover:bg-white transition-colors focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2"
+                  className="h-10 w-10 rounded-full bg-white/[0.08] ring-1 ring-white/10 hover:bg-white/[0.15] transition-colors focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2"
                 >
                   <ArrowDown
                     aria-hidden="true"
@@ -278,10 +281,10 @@ export function ForecastSection() {
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.25, ease: "easeInOut" }}
                 >
-                  <h2 className="text-4xl lg:text-5xl font-heading font-semibold tracking-tight leading-[1.05] text-[#0f172a]">
+                  <h2 className="text-4xl lg:text-5xl font-heading font-semibold tracking-tight leading-[1.05] text-white">
                     {activeFeature.headline}
                   </h2>
-                  <p className="mt-5 text-base leading-7 text-[#475569] max-w-[420px] mx-auto md:mx-0">
+                  <p className="mt-5 text-base leading-7 text-[#9AABC6] max-w-[420px] mx-auto md:mx-0">
                     {activeFeature.body}
                   </p>
 

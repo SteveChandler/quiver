@@ -195,7 +195,7 @@ export function generateStateRichContent(input: StateContentInput): {
       if (citySlug) {
         cityLinks.push({
           name: b.city,
-          href: `/beaches/usa/${stateSlug}/${citySlug}`,
+          href: `/${stateSlug}/${citySlug}`,
         });
       }
     }

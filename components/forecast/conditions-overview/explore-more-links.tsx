@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Compass, Map, ArrowRight } from "lucide-react";
-import { buildCityUrl } from "@/lib/utils/beach-url-utils";
+import { buildHiCityUrlForBeach } from "@/lib/utils/beach-url-utils";
 import type { Beach } from "@/types/database";
 
 interface ExploreMoreLinksProps {
@@ -15,7 +15,7 @@ const cardClass =
 export function ExploreMoreLinks({ beach }: ExploreMoreLinksProps) {
   const cards = [
     {
-      href: buildCityUrl(beach.state, beach.city),
+      href: buildHiCityUrlForBeach(beach),
       icon: Compass,
       title: `${beach.city ?? "Local"} Surf Guide`,
       description: "Compare conditions across all local breaks",
