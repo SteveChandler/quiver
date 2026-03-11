@@ -30,6 +30,7 @@ import { SessionPromptEmail } from "@/lib/mailer/templates/SessionPromptEmail";
 import type { SessionPromptCandidate } from "@/lib/email/email-types";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
+import { signEmailToken, getEmailTokenSecret } from "@/lib/utils/email-token";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -123,9 +124,29 @@ async function processCandidate(
   }
 
   // 2. Prepare email content
-  const logSessionUrl = `${baseUrl}/sessions/new?mode=log&beach=${candidate.home_beach_id}`;
   const unsubscribeUrl = `${baseUrl}/settings`;
   const emailSubject = `How was your session at ${candidate.beach_name}?`;
+
+  // Generate a signed token for the one-tap email actions
+  const tokenSecret = getEmailTokenSecret();
+  const token = await signEmailToken(
+    { user_id: candidate.user_id, purpose: "log_session" },
+    tokenSecret
+  );
+
+  // Yesterday's date in YYYY-MM-DD format (UTC) for the session log
+  const yesterday = new Date();
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  const sessionDate = yesterday.toISOString().slice(0, 10);
+
+  const confirmUrl =
+    `${baseUrl}/session/confirm?token=${encodeURIComponent(token)}` +
+    `&beach_id=${encodeURIComponent(candidate.home_beach_id)}` +
+    `&date=${encodeURIComponent(sessionDate)}`;
+
+  const skipUrl =
+    `${baseUrl}/session/skip?token=${encodeURIComponent(token)}` +
+    `&beach_id=${encodeURIComponent(candidate.home_beach_id)}`;
 
   // 3. Rate limit and send email
   await rateLimiter.throttle();
@@ -140,7 +161,8 @@ async function processCandidate(
       beachName: candidate.beach_name,
       conditionsScore: candidate.conditions_score,
       surfDescription: candidate.surf_description,
-      logSessionUrl,
+      confirmUrl,
+      skipUrl,
       unsubscribeUrl,
     }),
   });

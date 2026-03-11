@@ -99,6 +99,12 @@ jest.mock("@/lib/utils/email-rate-limiter", () => ({
   })),
 }));
 
+// Mock email token utilities so cron tests don't need a real EMAIL_TOKEN_SECRET
+jest.mock("@/lib/utils/email-token", () => ({
+  signEmailToken: jest.fn().mockResolvedValue("mock-signed-token"),
+  getEmailTokenSecret: jest.fn().mockReturnValue("mock-secret"),
+}));
+
 describe("Session Prompt Email Cron Job API", () => {
   const mockRequest = (
     headers: Record<string, string> = {},
@@ -418,7 +424,7 @@ describe("Session Prompt Email Cron Job API", () => {
       });
     });
 
-    it("should include correct template props without bestWindow", async () => {
+    it("should include correct template props with confirmUrl and skipUrl", async () => {
       const candidates = [
         {
           user_id: "user-1",
@@ -447,17 +453,20 @@ describe("Session Prompt Email Cron Job API", () => {
 
       await GET(request);
 
-      expect(SessionPromptEmail).toHaveBeenCalledWith({
-        displayName: "John Doe",
-        beachName: "Ocean Beach",
-        conditionsScore: 9,
-        surfDescription: "Clean 3-4ft",
-        logSessionUrl: "https://quiversurf.app/sessions/new?mode=log&beach=beach-1",
-        unsubscribeUrl: "https://quiversurf.app/settings",
-      });
+      const callArgs = SessionPromptEmail.mock.calls[0][0];
+      expect(callArgs.displayName).toBe("John Doe");
+      expect(callArgs.beachName).toBe("Ocean Beach");
+      expect(callArgs.conditionsScore).toBe(9);
+      expect(callArgs.surfDescription).toBe("Clean 3-4ft");
+      expect(callArgs.unsubscribeUrl).toBe("https://quiversurf.app/settings");
+      // confirmUrl and skipUrl are signed tokens — verify structure only
+      expect(callArgs.confirmUrl).toContain("https://quiversurf.app/session/confirm");
+      expect(callArgs.confirmUrl).toContain("beach_id=beach-1");
+      expect(callArgs.skipUrl).toContain("https://quiversurf.app/session/skip");
+      expect(callArgs.skipUrl).toContain("beach_id=beach-1");
     });
 
-    it("should not include ctaUrl in template props", async () => {
+    it("should not include logSessionUrl in template props", async () => {
       const candidates = [
         {
           user_id: "user-1",
@@ -487,6 +496,7 @@ describe("Session Prompt Email Cron Job API", () => {
       await GET(request);
 
       const callArgs = SessionPromptEmail.mock.calls[0][0];
+      expect(callArgs.logSessionUrl).toBeUndefined();
       expect(callArgs.ctaUrl).toBeUndefined();
       expect(callArgs.bestWindow).toBeUndefined();
     });

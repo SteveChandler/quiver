@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- One-tap session logging from email: session-prompt emails now include two direct-action buttons ("Yes, I surfed!" and "No, I didn't surf") backed by signed JWT tokens — clicking logs or skips without requiring the user to navigate the app. Added `GET /session/confirm` (token verify, dedup check, `session_logs` insert with `source: 'email'`) and `GET /session/skip` (token verify, friendly dismissal page with forecast link) routes. The `session-prompt-email` cron now generates a `log_session` JWT via `signEmailToken` and passes `confirmUrl`/`skipUrl` to the `SessionPromptEmail` template, replacing the previous single `logSessionUrl` CTA.
+
 ### Fixed
 - Layout: landing page "Local surf favorites near you" section no longer leaks into `/map` after client-side navigation — moved `LandingPageSSRSection` from root layout into `app/page.tsx` (route-scoped, the idiomatic Next.js fix)
 - Layout: site footer no longer persists on `/map` after client-side navigation — added `HideOnRoutes` client gate and `/map` to footer hide list
