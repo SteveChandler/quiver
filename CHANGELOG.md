@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Oracle: `ActivityFeed` component — renders a list of recent local surf activity items (sessions/intel) with gradient avatar circles, semantic text tiers, and an empty state; used in Oracle home screen
+- Oracle: `SessionTimeSelector` component — 6-option grid (Dawn Patrol through Any time) for capturing preferred paddle-out time, with gold selected-state styling and `onSelect` callback
+- Oracle: `oracle-actions.ts` server actions — `getLocalActivity` (last-24h sessions + intel at home beach, merged and sorted, excluding current user) and `updatePreferredSessionTime` (writes to `profiles.preferred_session_time`), both wrapped in `withAuthenticatedAction`
 - Oracle: `OracleHero` cinematic hero component (~520px) with beach photo Ken Burns reveal, swell line overlay, wind indicator compass, gradient conditions overlay (wave height count-up, Paradise Gold score badge, swell/tide/water stats, best window card), greeting strip with XP badge, and a sequenced Framer Motion animation timeline (`shouldAnimate` flag; calls `onAnimationComplete` at 3s)
 - Oracle: `SwellLines` subcomponent — 5 Twilight Blue gradient lines rotated to swell compass direction with 30% opacity entrance animation
 - Oracle: `WindIndicator` subcomponent — compass circle with directional SVG arrow and speed label
