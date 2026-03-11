@@ -503,7 +503,7 @@ function buildNoForecastTier3(
  * Falls back to generic titles when tide data is unavailable.
  *
  * CTR Optimization:
- * - Dynamic "Next High" time creates unique snippets
+ * - Height values in title/description create unique, data-rich snippets
  * - Specific date (e.g. "Feb 7") targets date-specific queries
  * - No "Free" — focus on data richness and freshness
  */
@@ -515,6 +515,8 @@ export function buildDynamicTideMetadata({
   tideData: {
     nextHighTime?: string | null;
     nextLowTime?: string | null;
+    nextHighHeight?: number | null;
+    nextLowHeight?: number | null;
   } | null;
 }): { title: string; description: string } {
   const now = new Date();
@@ -524,18 +526,28 @@ export function buildDynamicTideMetadata({
   const locationContext =
     beach.city && beach.state ? ` in ${beach.city}, ${beach.state}` : "";
 
-  // CTR-optimized title with date and dynamic tide time
+  // CTR-optimized title with height values when available
   let title: string;
   if (tideData?.nextHighTime) {
-    const fullTitle = `${beach.name} Tides ${monthDay}: Next High ${tideData.nextHighTime} | Chart`;
-    if (fullTitle.length <= MAX_TITLE_LENGTH) {
-      title = fullTitle;
+    const highLabel = tideData.nextHighHeight != null
+      ? `High ${tideData.nextHighHeight}ft at ${tideData.nextHighTime}`
+      : `High ${tideData.nextHighTime}`;
+    const lowLabel = tideData.nextLowTime
+      ? `, Low at ${tideData.nextLowTime}`
+      : "";
+
+    // Tier 1: "{Beach} Tides {MonthDay}: High {Height}ft at {Time}, Low at {Time}"
+    const t1 = `${beach.name} Tides ${monthDay}: ${highLabel}${lowLabel}`;
+    if (t1.length <= MAX_TITLE_LENGTH) {
+      title = t1;
     } else {
-      const shortTitle = `${beach.name} Tides ${monthDay}: High ${tideData.nextHighTime}`;
-      title = truncateTitleForSEO(shortTitle);
+      // Tier 2: "{Beach} Tides {MonthDay}: High {Height}ft at {Time}"
+      const t2 = `${beach.name} Tides ${monthDay}: ${highLabel}`;
+      title = truncateTitleForSEO(t2);
     }
   } else {
-    const fullTitle = `${beach.name} Tide Chart ${monthDay} | High & Low Times`;
+    // WITHOUT data: "{Beach} Tide Times {MonthDay} — High & Low Predictions"
+    const fullTitle = `${beach.name} Tide Times ${monthDay} — High & Low Predictions`;
     if (fullTitle.length <= MAX_TITLE_LENGTH) {
       title = fullTitle;
     } else {
@@ -544,13 +556,32 @@ export function buildDynamicTideMetadata({
     }
   }
 
-  // Description with specific times and date
-  const description =
-    tideData?.nextHighTime && tideData?.nextLowTime
-      ? `${beach.name} tides for ${month} ${day}: High tide at ${tideData.nextHighTime}, low at ${tideData.nextLowTime}. Hourly chart & best surf windows.`
-      : `${beach.name} tide chart for ${month} ${day}${locationContext}. Today's high and low tide times. Hourly predictions and optimal surf windows.`;
+  // Description with height values when available
+  let description: string;
+  if (tideData?.nextHighTime && tideData?.nextLowTime) {
+    const highPart = tideData.nextHighHeight != null
+      ? `High ${tideData.nextHighHeight}ft at ${tideData.nextHighTime}`
+      : `High tide at ${tideData.nextHighTime}`;
+    const lowPart = tideData.nextLowHeight != null
+      ? `low ${tideData.nextLowHeight}ft at ${tideData.nextLowTime}`
+      : `low at ${tideData.nextLowTime}`;
+    description = `Plan your ${beach.name} surf around today's tides. ${highPart}, ${lowPart}. Hourly chart, best windows & ML-enhanced forecast.`;
+  } else {
+    description = `${beach.name} tide chart for ${month} ${day}${locationContext}. Today's high and low tide times. Hourly predictions and optimal surf windows.`;
+  }
 
   return { title, description };
+}
+
+/**
+ * Truncates a wetsuit label to its thickness portion for compact titles.
+ * e.g., "3/2mm fullsuit" -> "3/2mm", "5/4/3mm hooded" -> "5/4/3mm", "boardshorts" -> "boardshorts"
+ */
+function shortenWetsuitLabel(label: string): string {
+  // Match thickness pattern like "3/2mm", "4/3mm", "5/4/3mm"
+  const match = label.match(/^(\d+\/[\d/]+mm)/);
+  if (match) return match[1];
+  return label;
 }
 
 /**
@@ -559,8 +590,8 @@ export function buildDynamicTideMetadata({
  *
  * CTR Optimization:
  * - Actual temperature in title is highly clickable
- * - "Wetsuit Guide" adds value proposition
- * - "Today" adds freshness
+ * - Short wetsuit label keeps title under 60 chars
+ * - "Today" adds freshness signal
  */
 export function buildDynamicWaterTempMetadata({
   beach,
@@ -574,19 +605,34 @@ export function buildDynamicWaterTempMetadata({
 }): { title: string; description: string } {
   const locationContext =
     beach.city && beach.state ? ` in ${beach.city}, ${beach.state}` : "";
+  const city = beach.city || beach.state || "the area";
 
   // CTR-optimized title with actual temperature when available
   let title: string;
   if (waterTempData?.tempF) {
-    const fullTitle = `${beach.name} Water Temp: ${waterTempData.tempF}°F Today | Wetsuit Guide`;
-    if (fullTitle.length <= MAX_TITLE_LENGTH) {
-      title = fullTitle;
+    const wetsuitShort = waterTempData.wetsuitRec
+      ? shortenWetsuitLabel(waterTempData.wetsuitRec)
+      : null;
+    // "{Beach} Water Temp: {T}°F — {WetsuitShort} Today"
+    if (wetsuitShort) {
+      const fullTitle = `${beach.name} Water Temp: ${waterTempData.tempF}°F — ${wetsuitShort} Today`;
+      if (fullTitle.length <= MAX_TITLE_LENGTH) {
+        title = fullTitle;
+      } else {
+        const shortTitle = `${beach.name} Water Temp: ${waterTempData.tempF}°F | Wetsuit`;
+        title = truncateTitleForSEO(shortTitle);
+      }
     } else {
-      const shortTitle = `${beach.name} Water Temp: ${waterTempData.tempF}°F | Wetsuit`;
-      title = truncateTitleForSEO(shortTitle);
+      const fullTitle = `${beach.name} Water Temp: ${waterTempData.tempF}°F Today`;
+      if (fullTitle.length <= MAX_TITLE_LENGTH) {
+        title = fullTitle;
+      } else {
+        title = truncateTitleForSEO(`${beach.name} Water Temp: ${waterTempData.tempF}°F`);
+      }
     }
   } else {
-    const fullTitle = `${beach.name} Water Temperature Today | Wetsuit Guide`;
+    // WITHOUT data: "{Beach} Water Temp Today — What to Wear Surfing"
+    const fullTitle = `${beach.name} Water Temp Today — What to Wear Surfing`;
     if (fullTitle.length <= MAX_TITLE_LENGTH) {
       title = fullTitle;
     } else {
@@ -596,10 +642,16 @@ export function buildDynamicWaterTempMetadata({
   }
 
   // CTR-optimized description with wetsuit recommendation
-  const description = waterTempData?.tempF && waterTempData?.wetsuitRec
-    ? `${beach.name} water is ${waterTempData.tempF}°F today. ${waterTempData.wetsuitRec} recommended. Seasonal trends and wetsuit thickness guide.`
-    : `Current water temp at ${beach.name}${locationContext}. Wetsuit recommendation and seasonal trends. Updated daily with live buoy data.`;
+  let description: string;
+  if (waterTempData?.tempF && waterTempData?.wetsuitRec) {
+    // "{Beach} is {T}°F today — grab a {wetsuitRec}. Seasonal trends, monthly averages & what to wear surfing in {City}."
+    description = `${beach.name} is ${waterTempData.tempF}°F today — grab a ${waterTempData.wetsuitRec}. Seasonal trends, monthly averages & what to wear surfing in ${city}.`;
+    if (description.length > 160) {
+      description = `${beach.name} water is ${waterTempData.tempF}°F today. ${waterTempData.wetsuitRec} recommended. Seasonal trends and wetsuit thickness guide.`;
+    }
+  } else {
+    description = `Current water temp at ${beach.name}${locationContext}. Wetsuit recommendation and seasonal trends. Updated daily with live buoy data.`;
+  }
 
   return { title, description };
 }
-
