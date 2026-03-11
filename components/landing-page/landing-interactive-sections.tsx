@@ -7,6 +7,7 @@ import { MLPipelineShowcase } from "@/components/landing-page/ml-pipeline-showca
 import { ActivitiesSection } from "@/components/landing-page/activities-section";
 import { ForecastSection } from "@/components/landing-page/forecast-section";
 import { CTASection } from "@/components/landing-page/cta-section";
+import { QuiverDefinitionSection } from "@/components/landing-page/quiver-definition-section";
 
 function ForecastSectionFallback() {
   // Deterministic placeholder to avoid SSR/client mismatches (e.g. Intl/animation libs).
@@ -45,6 +46,7 @@ export function LandingInteractiveSections() {
     <div className="space-y-0">
       <SurfHighlightsSection />
       <FeatureBentoSection />
+      <QuiverDefinitionSection />
       <MLPipelineShowcase />
       <ActivitiesSection />
       <div suppressHydrationWarning>

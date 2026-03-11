@@ -82,7 +82,7 @@ export function QuiverFAQSchema() {
     {
       question: "What is Quiver?",
       answer:
-        "Quiver is an ML-powered surf forecast platform with live conditions, crowd intelligence, and session tracking for 185+ beaches across California, Hawaii, Oregon and more. Get personalized surf windows updated every 3 hours with real buoy data.",
+        "Quiver is a free, ML-powered surf forecast platform that corrects raw NOAA predictions for individual beach breaks. It trains per-beach XGBoost models on 30,000+ observations from CDIP, NDBC, and IOOS buoy networks, analyzing 72 directional swell bins to bias-correct forecasts every 3 hours for 185+ beaches across California, Hawaii, Oregon, Washington, Florida, the East Coast, and Puerto Rico. Features include personalized Match Scores, tide charts, live conditions, session tracking, and a surf community — all free.",
     },
     {
       question: "How do I track surf sessions on Quiver?",

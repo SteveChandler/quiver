@@ -1,0 +1,63 @@
+# Quiver
+
+> ML-powered surf forecast and community platform for US coasts, Hawaii, and Baja California.
+
+## About
+
+Quiver is a free surf forecasting platform that applies per-beach XGBoost bias correction on top of NOAA WaveWatch III baseline models, trained on 30,000+ buoy observations from CDIP, NDBC, and IOOS. Forecasts are updated every 3 hours across 72 directional bins. The platform combines ML-corrected wave predictions with personalized Match Scores, session tracking, and a community layer where surfers share conditions and sessions.
+
+## Features
+
+- Match Scores: personalized 0-100 surf quality rating per beach that learns from your sessions and preferred conditions
+- 7-Day Forecasts: ML-corrected wave height, period, direction, and wind forecasts updated every 3 hours
+- Tide Charts: NWS-sourced tide predictions for every beach
+- Live Conditions: real-time buoy observations from CDIP, NDBC, and IOOS stations
+- Surf Map: interactive map of 185+ beaches with live forecast overlays and filtering by break type and skill level
+- Session Tracking: log sessions with auto-prefilled conditions, equipment, and accuracy feedback
+- Surf Journal: personal history of sessions with progression analytics
+- Community: share sessions and photos, follow local surfers, post crowd and condition reports
+- Spot Discovery: 350+ intent-based guide pages for finding breaks by style, skill level, or wave type
+- Mobile Apps: native iOS and Android apps with push condition alerts and GPS-based recommendations
+- Forecast Accuracy: public accuracy tracking showing how ML predictions compare to observed buoy readings
+
+## Coverage Areas
+
+- Southern California: https://www.quiversurf.app/forecast/southern-california
+- San Diego: https://www.quiversurf.app/forecast/san-diego
+- Orange County: https://www.quiversurf.app/forecast/orange-county
+- Los Angeles: https://www.quiversurf.app/forecast/los-angeles
+- Northern California: https://www.quiversurf.app/forecast/northern-california
+- Santa Cruz: https://www.quiversurf.app/forecast/santa-cruz
+- Ventura & Santa Barbara: https://www.quiversurf.app/forecast/ventura-santa-barbara
+- Hawaii: https://www.quiversurf.app/forecast/hawaii
+- Oregon: https://www.quiversurf.app/forecast/oregon
+- Washington: https://www.quiversurf.app/forecast/washington
+- Florida: https://www.quiversurf.app/forecast/florida
+- Puerto Rico: https://www.quiversurf.app/forecast/puerto-rico
+- Outer Banks: https://www.quiversurf.app/forecast/outer-banks
+- New Jersey: https://www.quiversurf.app/forecast/new-jersey
+- New York: https://www.quiversurf.app/forecast/new-york
+- Baja California: https://www.quiversurf.app/forecast/baja-california
+
+## Data Sources
+
+- CDIP (Coastal Data Information Program)
+- NDBC (National Data Buoy Center)
+- IOOS (Integrated Ocean Observing System)
+- NOAA WaveWatch III (global baseline wave model)
+- NWS tide predictions
+
+## Key Pages
+
+- Home: https://www.quiversurf.app
+- Forecast Hub: https://www.quiversurf.app/forecast
+- Surf Map: https://www.quiversurf.app/map
+- Forecast Accuracy: https://www.quiversurf.app/forecast-accuracy
+
+## Pricing
+
+Free. All features including ML forecasts, session tracking, and community are free with no paywalled tiers.
+
+## Contact
+
+- Website: https://www.quiversurf.app
