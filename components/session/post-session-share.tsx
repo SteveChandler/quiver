@@ -1,0 +1,129 @@
+"use client";
+
+import { useEffect } from "react";
+import { motion } from "framer-motion";
+
+export interface PostSessionShareProps {
+  /** Beach name to display */
+  beachName: string;
+  /** Overall session rating (1–5) */
+  overallRating: number;
+  /** Wave size description (e.g. "Waist-Chest") */
+  waveSize: string;
+  /** Called when the user taps "Share Your Session" */
+  onShare: () => void;
+  /** Called when the user taps "Skip" */
+  onSkip: () => void;
+}
+
+/**
+ * Full-screen celebration overlay shown after logging a session.
+ * Fires canvas-confetti once on mount (skipped for prefers-reduced-motion).
+ * Renders a dialog with beach name, star rating, wave size, and
+ * Share / Skip CTAs.
+ */
+export function PostSessionShare({
+  beachName,
+  overallRating,
+  waveSize,
+  onShare,
+  onSkip,
+}: PostSessionShareProps) {
+  const clampedRating = Math.max(0, Math.min(5, Math.round(overallRating)));
+
+  useEffect(() => {
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (prefersReduced) return;
+
+    // Dynamic import keeps confetti out of the initial bundle
+    import("canvas-confetti")
+      .then(({ default: confetti }) => {
+        confetti({ particleCount: 140, spread: 70, origin: { y: 0.6 } });
+      })
+      .catch(() => {
+        // Non-fatal — celebration degrades gracefully without confetti
+      });
+  }, []);
+
+  // Keyboard: Escape dismisses the dialog, matching aria-modal expectations.
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onSkip();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onSkip]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Session logged — share your session"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-b from-[#0d1f2d] via-[#1a3a4a] to-[#0d1f2d] px-6"
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.92 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.35, ease: "easeOut" }}
+        className="flex flex-col items-center gap-6 w-full max-w-sm text-center"
+      >
+        {/* Headline */}
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-4xl font-extrabold text-white tracking-tight">
+            Session Logged
+          </span>
+          <span className="text-lg font-medium text-white/70">{beachName}</span>
+        </div>
+
+        {/* Star rating */}
+        <div
+          aria-label={`${clampedRating} out of 5 stars`}
+          className="flex items-center gap-1"
+        >
+          {Array.from({ length: 5 }, (_, i) => (
+            <svg
+              key={i}
+              aria-hidden="true"
+              width={32}
+              height={32}
+              viewBox="0 0 24 24"
+            >
+              <path
+                d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                fill={i < clampedRating ? "#FFD700" : "rgba(255,255,255,0.28)"}
+              />
+            </svg>
+          ))}
+        </div>
+
+        {/* Wave size */}
+        {waveSize ? (
+          <span className="text-base font-semibold text-white/80 uppercase tracking-widest">
+            {waveSize}
+          </span>
+        ) : null}
+
+        {/* CTAs */}
+        <div className="flex flex-col gap-3 w-full mt-2">
+          <button
+            onClick={onShare}
+            className="w-full rounded-2xl bg-[#4A70D9] hover:bg-[#3a60c9] active:bg-[#2a50b9] text-white font-bold text-base py-4 transition-colors"
+          >
+            Share Your Session
+          </button>
+          <button
+            onClick={onSkip}
+            className="w-full rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/70 font-medium text-base py-3.5 transition-colors"
+          >
+            Skip
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}

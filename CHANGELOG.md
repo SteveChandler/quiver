@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Session: post-session share prompt (`PostSessionShare`) — full-screen celebration overlay with canvas-confetti, beach name, star rating, wave size, and Share/Skip CTAs shown after logging a session; wires up existing `ShareSheet` and OG image infrastructure that was built but never triggered, creating a viral acquisition channel
+
 ### Fixed
 - Layout: landing page "Local surf favorites near you" section no longer leaks into `/map` after client-side navigation — moved `LandingPageSSRSection` from root layout into `app/page.tsx` (route-scoped, the idiomatic Next.js fix)
 - Layout: site footer no longer persists on `/map` after client-side navigation — added `HideOnRoutes` client gate and `/map` to footer hide list
