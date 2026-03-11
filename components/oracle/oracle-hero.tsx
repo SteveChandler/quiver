@@ -39,6 +39,7 @@ function useWaveHeightAnimation(
     shouldAnimate ? "0ft" : waveHeight
   );
   const hasRun = useRef(false);
+  const rafRef = useRef<number>(0);
 
   useEffect(() => {
     if (!shouldAnimate || hasRun.current) return;
@@ -56,7 +57,7 @@ function useWaveHeightAnimation(
       const tick = () => {
         const elapsed = Date.now() - startTime - delay;
         if (elapsed < 0) {
-          requestAnimationFrame(tick);
+          rafRef.current = requestAnimationFrame(tick);
           return;
         }
         const progress = Math.min(elapsed / duration, 1);
@@ -66,15 +67,18 @@ function useWaveHeightAnimation(
 
         if (progress < 1) {
           setDisplayed(`${current}ft`);
-          requestAnimationFrame(tick);
+          rafRef.current = requestAnimationFrame(tick);
         } else {
           setDisplayed(waveHeight);
         }
       };
-      requestAnimationFrame(tick);
+      rafRef.current = requestAnimationFrame(tick);
     }, 0);
 
-    return () => clearTimeout(timeout);
+    return () => {
+      clearTimeout(timeout);
+      cancelAnimationFrame(rafRef.current);
+    };
   }, [shouldAnimate, waveHeight]);
 
   return displayed;

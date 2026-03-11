@@ -14,7 +14,13 @@ export interface LocalActivityItem {
  * Fetch recent activity at user's home beach (last 24h), excluding the
  * current user's own entries. Returns up to 5 items sorted newest-first.
  */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function getLocalActivity(beachId: string) {
+  if (!UUID_RE.test(beachId)) {
+    throw new Error("Invalid beach ID");
+  }
+
   return withAuthenticatedAction<LocalActivityItem[]>(async (user, supabase) => {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 

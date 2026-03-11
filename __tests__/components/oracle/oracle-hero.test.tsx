@@ -48,6 +48,27 @@ const DEFAULT_PROPS = {
   shouldAnimate: false,
 };
 
+// Pin time to 9am so greeting tests are deterministic
+beforeAll(() => {
+  jest.useFakeTimers({
+    doNotFake: [
+      "nextTick",
+      "setImmediate",
+      "clearImmediate",
+      "setInterval",
+      "clearInterval",
+      "setTimeout",
+      "clearTimeout",
+      "queueMicrotask",
+    ],
+  });
+  jest.setSystemTime(new Date("2026-03-10T09:00:00.000Z"));
+});
+
+afterAll(() => {
+  jest.useRealTimers();
+});
+
 describe("OracleHero", () => {
   beforeEach(() => {
     jest.clearAllMocks();

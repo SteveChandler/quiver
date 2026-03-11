@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useOracleData } from "@/hooks/use-oracle-data";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -17,6 +17,13 @@ import type { TimeWindow } from "@/components/oracle/todays-windows";
 import type { NearbySpot } from "@/components/oracle/nearby-spots";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import type { LocalActivityItem } from "@/actions/oracle-actions";
+
+/** Extended profile fields not yet in generated Supabase types. */
+interface ProfileWithOracle {
+  preferred_session_time: string | null;
+  level_title: string | null;
+  xp_total: number | null;
+}
 
 // ============================================================================
 // Helpers
@@ -303,9 +310,9 @@ export function OracleHomeScreen() {
   const beachName =
     homeBeach?.name ?? topRec?.beach?.name ?? "Your Beach";
 
-  // Preferred session time — may not be in the TypeScript Profile type yet
-  const preferredTime =
-    (profile as Record<string, unknown>)?.preferred_session_time as string | null ?? null;
+  // Cast once for fields not yet in generated Profile type
+  const oracleProfile = profile as unknown as ProfileWithOracle | undefined;
+  const preferredTime = oracleProfile?.preferred_session_time ?? null;
 
   // Best window data
   const bestWindowTime = window?.start ? formatWindowTime(window.start) : "—";
@@ -313,13 +320,20 @@ export function OracleHomeScreen() {
   const bestWindowSubtitle =
     topRec?.reasons?.[0] ?? "Check the forecast for details";
 
-  // Transformed sub-component data
-  const timeWindows = transformToTimeWindows(
-    oracle.discovery?.recommendations ?? [],
-    topRec
+  // Transformed sub-component data (memoised to avoid child re-renders)
+  const recommendations = oracle.discovery?.recommendations ?? [];
+  const timeWindows = useMemo(
+    () => transformToTimeWindows(recommendations, topRec),
+    [recommendations, topRec]
   );
-  const nearbySpots = transformToNearbySpots(oracle.remainingSpots);
-  const activityItems = transformActivityItems(activityRaw ?? []);
+  const nearbySpots = useMemo(
+    () => transformToNearbySpots(oracle.remainingSpots),
+    [oracle.remainingSpots]
+  );
+  const activityItems = useMemo(
+    () => transformActivityItems(activityRaw ?? []),
+    [activityRaw]
+  );
 
   // Build forecast deep-link for the home beach
   const forecastUrl =
@@ -357,12 +371,8 @@ export function OracleHomeScreen() {
         shouldAnimate={oracle.shouldAnimate}
         onAnimationComplete={oracle.markAnimationPlayed}
         userName={profile?.display_name ?? profile?.full_name}
-        levelTitle={
-          (profile as Record<string, unknown>)?.level_title as string | null
-        }
-        xpTotal={
-          (profile as Record<string, unknown>)?.xp_total as number | null
-        }
+        levelTitle={oracleProfile?.level_title ?? null}
+        xpTotal={oracleProfile?.xp_total ?? null}
       />
 
       {/* Inline session time selector — only shows when preference is not yet set */}
@@ -372,6 +382,9 @@ export function OracleHomeScreen() {
         </div>
       )}
 
+      {/* TODO: Wire hasSessionToday (check sessions table for today) and
+           hasFollows (check follows count) to enable "Share your session"
+           and "Tell your crew" CTA branches. */}
       <ContextualCTA
         hasHomeBeach={!!homeBeach}
         hasSessionToday={false}
