@@ -2,17 +2,17 @@
  * Home Page - SSR Landing with Auth-Aware Routing
  *
  * Architecture:
- * - SSR beach section is rendered in layout.tsx OUTSIDE the Providers client boundary
- * - This page renders the client-side auth-aware wrapper
- *
- * SEO: Beach links are server-rendered in layout.tsx via LandingPageSSRSection,
- * ensuring they appear in view-source for crawlers regardless of JS loading.
+ * - LandingPageSSRSection is rendered here (server component) for SEO crawlability.
+ *   It fetches beach data server-side and renders links visible in view-source.
+ * - AuthAwareLandingWrapper handles the client-side auth-aware hero/content.
  *
  * Performance: ISR with 10-minute revalidation prevents full re-render on every request.
  * Featured beaches already have a 10-minute cache, so this aligns with that strategy.
  */
 
 import type { Metadata } from "next";
+import { AuthAwareLandingWrapper } from "@/components/landing-page/auth-aware-landing-wrapper";
+import { LandingPageSSRSection } from "@/components/landing-page/landing-page-ssr-section";
 
 // ISR: Revalidate every 10 minutes (aligns with featured beaches cache)
 export const revalidate = 600;
@@ -23,8 +23,11 @@ export const metadata: Metadata = {
   },
 };
 
-import { AuthAwareLandingWrapper } from "@/components/landing-page/auth-aware-landing-wrapper";
-
 export default function Home() {
-  return <AuthAwareLandingWrapper />;
+  return (
+    <>
+      <AuthAwareLandingWrapper />
+      <LandingPageSSRSection />
+    </>
+  );
 }

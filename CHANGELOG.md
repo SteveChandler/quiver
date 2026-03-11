@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Layout: landing page "Local surf favorites near you" section no longer leaks into `/map` after client-side navigation — moved `LandingPageSSRSection` from root layout into `app/page.tsx` (route-scoped, the idiomatic Next.js fix)
 - Layout: site footer no longer persists on `/map` after client-side navigation — added `HideOnRoutes` client gate and `/map` to footer hide list
+- E2E: all 15 map test failures fixed — enabled WebGL in headless Chromium (`--use-gl=angle` in Playwright config), replaced `networkidle` waits with timeouts (Mapbox tiles never go idle), fixed desktop sidebar selector to match actual `SidebarBeachCard` buttons, and updated marker-click URL check to match hierarchical URLs (`/ca/`, `/or/` etc.)
 - Map page: break type filters ("beach", "point", "reef", etc.) and "beginner-friendly" filter now return matching results instead of 0 — added `break_type` and `skill_level` to `BEACH_LIST_FIELDS` and `get_nearby_beaches` RPC
 - Landing page code quality: removed unused `Calendar`, `Car`, and `Anchor` imports from `lib/constants/features.ts`
 - Landing page code quality: `SectionWrapper` now accepts a `noiseVariant` prop (`"texture"` | `"strong"` | `"none"`) instead of always appending `noise-texture`; callers that were doubling up the class (`forecast-section`, `how-it-works-section`, `ml-pipeline-showcase`) have been updated to remove the redundant class from their `className` prop
@@ -24,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ExploreMoreLinks` now uses `buildHiCityUrlForBeach` for city guide links, ensuring Hawaii beaches with ambiguous city names (e.g. Waimea) resolve to island-qualified URLs (`/hi/waimea-kauai`) instead of the bare city slug
 
 ### Changed
+- Landing page image quality overhaul: replaced 3 dark/low-res hero carousel images (hero-2, hero-4, hero-5) with vibrant Unsplash photos, cropped watermark from Windansea image (hero-3), and replaced all 6 "Browse by activity" thumbnails with high-quality 600x600 WebP images in `public/images/activities/`
 - SEO: enriched meta descriptions on map page, city listing pages, and all 7 intent page templates to hit the 150-160 char target range (previously 87-98 chars) — adds state names, spot names, singular/plural noun handling, and richer feature keywords for better SERP snippets and social sharing
 - Hero section: rotating San Diego beach photos (La Jolla, Blacks, Windansea, Scripps Pier, Ocean Beach) with Ken Burns zoom/pan animation, 1.5s crossfade transitions, 65% dark overlay, tab-pause, and `prefers-reduced-motion` support — replaces solid blue background
 - Landing page full redesign (nunu.ai-inspired): unified dark-first design with Deep Twilight (#252D6B) background throughout all sections, frosted glass cards (`bg-white/[0.04] backdrop-blur-md`), bold centered typography, generous spacing, and Framer Motion scroll-triggered animations

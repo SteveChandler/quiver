@@ -229,9 +229,10 @@ test.describe('Map Coordinate Validation', () => {
 
       console.log('[Map Interaction] Clicked marker, beach card appeared:', cardText?.substring(0, 50));
     } else {
-      // Alternative: clicking may navigate to beach detail page
+      // Alternative: clicking may navigate to beach detail page.
+      // App uses hierarchical URLs like /ca/san-diego/blacks, /or/..., /hi/..., etc.
       const currentUrl = page.url();
-      const navigatedToBeach = currentUrl.includes('/beach/');
+      const navigatedToBeach = /\/(beach|ca|or|wa|hi|fl|nj|nc|sc|tx|ny|pr)\//.test(currentUrl);
 
       console.log('[Map Interaction] Clicked marker, navigated to:', currentUrl);
       expect(navigatedToBeach || cardVisible).toBe(true);

@@ -1,15 +1,14 @@
 /**
  * Landing Page SSR Section
  *
- * This server component is rendered OUTSIDE the Providers (client boundary)
- * in the root layout, ensuring beach links are always present in the initial HTML
- * for SEO crawlability.
+ * Server component rendered in app/page.tsx, ensuring beach links are always
+ * present in the initial HTML for SEO crawlability.
  *
  * Architecture:
- * - Rendered as a sibling to Providers in layout.tsx (not a child)
+ * - Rendered in the landing page route (app/page.tsx), not the root layout
  * - Fetches beach data server-side
  * - Renders static beach links that appear in view-source
- * - Positioned AFTER Providers in DOM order so it appears after the Hero section
+ * - Positioned AFTER AuthAwareLandingWrapper in DOM order
  *
  * @module components/landing-page/landing-page-ssr-section
  */
@@ -21,8 +20,7 @@ import { QuiverFAQSchema } from "@/components/seo/faq-schema";
 /**
  * Server-rendered landing page section for SEO
  *
- * This component is conditionally rendered in the root layout for the landing page.
- * Because it's outside the Providers client boundary, it renders fully on the server.
+ * Rendered in app/page.tsx (a server component) so it's fully server-rendered.
  */
 export async function LandingPageSSRSection() {
   // Fetch beaches server-side - this happens on every request

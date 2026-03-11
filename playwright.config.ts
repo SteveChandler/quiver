@@ -74,6 +74,10 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
+    // Enable WebGL in headless Chromium so Mapbox GL renders a canvas
+    launchOptions: {
+      args: ['--use-gl=angle'],
+    },
   },
   projects: [
     // Guest-only: runs unauthenticated checks with cleared auth state

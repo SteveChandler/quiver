@@ -5,8 +5,8 @@ import { headers } from "next/headers";
 import "./globals.css";
 import { SEO_CONFIG } from "@/lib/constants/seo";
 import { Providers } from "@/components/providers";
-import { LandingPageSSRSection } from "@/components/landing-page/landing-page-ssr-section";
 import { SiteFooter } from "@/components/shared/site-footer";
+import { HideOnRoutes } from "@/components/hide-on-routes";
 import { buildRootStructuredDataGraph } from "@/lib/seo/root-structured-data";
 
 const dmSans = DM_Sans({
@@ -133,7 +133,7 @@ export default async function RootLayout({
 
   // Show the shared site footer on public content pages; hide on landing
   // (has its own footer), auth pages, authenticated app pages, and embeds.
-  const hideFooterPrefixes = ["/auth", "/admin", "/profile", "/inbox", "/sessions", "/prefs", "/embed", "/welcome"];
+  const hideFooterPrefixes = ["/auth", "/admin", "/profile", "/inbox", "/sessions", "/prefs", "/embed", "/welcome", "/map"];
   const showSiteFooter =
     !isLandingPage && !hideFooterPrefixes.some((p) => pathname.startsWith(p));
 
@@ -289,14 +289,11 @@ export default async function RootLayout({
       <body className={`${dmSans.className} font-sans antialiased theme-retro-dark noise-texture-subtle`}>
         <Providers>{children}</Providers>
 
-        {/*
-          SSR Beach Section for Landing Page SEO
-          Rendered OUTSIDE Providers (client boundary) to ensure server-side rendering.
-          This section is always present in the HTML for crawlers, regardless of JS loading.
-          Positioned AFTER Providers so it appears after Hero/main content in DOM order.
-        */}
-        {isLandingPage && <LandingPageSSRSection />}
-        {showSiteFooter && <SiteFooter />}
+        {/* Footer: server guard prevents rendering on excluded routes;
+            HideOnRoutes client gate handles stale layout after SPA navigation */}
+        <HideOnRoutes exact={["/"]} prefixes={hideFooterPrefixes}>
+          {showSiteFooter && <SiteFooter />}
+        </HideOnRoutes>
       </body>
     </html>
   );
