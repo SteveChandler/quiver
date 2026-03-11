@@ -160,7 +160,7 @@ function BeachDetailContent({
   >("log");
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<BeachTabValue>(
-    defaultTab || "overview",
+    defaultTab || "forecast",
   );
   const { track: trackEvent } = useTrackEvent();
 
@@ -530,8 +530,19 @@ function BeachDetailContent({
 
       {/* Main Content Container */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        {/* Surf Call Card (server-rendered slot) */}
-        {surfReportSlot}
+        {/* Surf Call Card — gated for anonymous visitors */}
+        {publicMode ? (
+          <div className="mb-6">
+            <InlineSignupCta
+              title="Know Before You Go"
+              description={`Get today's surf call, your personal match score, 12-day outlook, and condition alerts for ${beach.name}`}
+              primaryButtonText="Get My Forecast"
+              source={`beach-detail-${slugify(beach.name)}`}
+            />
+          </div>
+        ) : (
+          surfReportSlot
+        )}
 
         {/* Key Stats Grid */}
         <BeachStatsGrid
@@ -539,18 +550,6 @@ function BeachDetailContent({
           currentForecast={currentForecast}
           className="mb-6"
         />
-
-        {/* Inline signup CTA — above the fold for anonymous visitors */}
-        {publicMode && (
-          <div className="mb-6">
-            <InlineSignupCta
-              title="Know Before You Go"
-              description={`Get your personal match score, 12-day outlook, and condition alerts for ${beach.name}`}
-              primaryButtonText="Get My Forecast"
-              source={`beach-detail-${slugify(beach.name)}`}
-            />
-          </div>
-        )}
 
         {/* Action Buttons */}
         <BeachActions
@@ -594,15 +593,7 @@ function BeachDetailContent({
                 }
               />
             </Suspense>
-            {publicMode && (
-              <div className="mt-8">
-                <InlineSignupCta
-                  title={`Get Personalized Forecasts for ${beach.name}`}
-                  description="Sign up to see your match score, best surf windows, and the full 5-day forecast"
-                  source="overview-inline"
-                />
-              </div>
-            )}
+            {/* Top-level CTA already visible for anonymous users — no duplicate needed here */}
           </BeachTabContent>
 
           {/* Forecast Tab */}

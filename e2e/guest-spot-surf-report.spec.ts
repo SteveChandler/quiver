@@ -25,31 +25,16 @@ test.describe('Spot Surf Report', () => {
     await assertNoErrors(page, errorCapture, { context: 'Spot Surf Report' });
   });
 
-  test('displays surf report card or gracefully degrades on beach page', async ({ page }) => {
+  test('displays signup CTA instead of surf report for anonymous users', async ({ page }) => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
-    // The surf report section uses aria-label containing "surf call"
+    // Anonymous users should NOT see the surf report card
     const surfReport = page.locator('section[aria-label*="surf call"]');
-    const isVisible = await isVisibleSafe(surfReport);
+    await expect(surfReport).not.toBeVisible({ timeout: 5000 });
 
-    if (isVisible) {
-      // Verify verdict badge is present (YES, MAYBE, or NO)
-      const verdictBadge = surfReport.locator('text=/^(YES|MAYBE|NO)$/');
-      await expect(verdictBadge).toBeVisible();
-
-      // Verify surf call heading (today or tomorrow) — uses Unicode right quote \u2019
-      const heading = surfReport.locator('h2');
-      await expect(heading).toHaveText(/^(Today\u2019s|Tomorrow\u2019s) Surf Call$/);
-
-      // Verify updated timestamp is shown
-      const updated = surfReport.getByText(/Updated/);
-      await expect(updated).toBeVisible();
-    } else {
-      // Graceful degradation: page still renders without the card
-      // Verify the beach detail content is still present
-      const pageContent = page.locator('main, [class*="beach"], [class*="detail"]').first();
-      await expect(pageContent).toBeVisible();
-    }
+    // Instead, they should see the inline signup CTA
+    const signupCta = page.getByTestId('inline-signup-cta');
+    await expect(signupCta).toBeVisible({ timeout: 10000 });
   });
 
   test('SEO metadata includes surf report title format', async ({ page }) => {
@@ -100,89 +85,49 @@ test.describe('Spot Surf Report', () => {
     expect(new Date(webPageSchema?.dateModified).getTime()).not.toBeNaN();
   });
 
-  test('surf report card shows best window when conditions exist', async ({ page }) => {
+  test('surf report card is hidden for anonymous users (gated behind auth)', async ({ page }) => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
+    // Surf report should not be visible for anonymous users
     const surfReport = page.locator('section[aria-label*="surf call"]');
-    const isVisible = await isVisibleSafe(surfReport);
-
-    if (isVisible) {
-      // Check for the "Best window" label (inline layout with dot separators)
-      const bestWindowLabel = surfReport.getByText(/best window/i);
-      const hasWindow = await isVisibleSafe(bestWindowLabel);
-
-      if (hasWindow) {
-        await expect(bestWindowLabel).toBeVisible();
-
-        // Time format should be visible nearby (e.g., "6:30 AM–9:00 AM")
-        const timeText = surfReport.locator('text=/\\d{1,2}:\\d{2}\\s*(AM|PM)/i');
-        await expect(timeText.first()).toBeVisible();
-      }
-    }
+    await expect(surfReport).not.toBeVisible({ timeout: 5000 });
   });
 
-  test('surf report renders correctly on mobile viewport', async ({ page }) => {
+  test('signup CTA renders correctly on mobile viewport for anonymous users', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
+    // Surf report should be hidden, signup CTA should be visible
     const surfReport = page.locator('section[aria-label*="surf call"]');
-    const isVisible = await isVisibleSafe(surfReport);
+    await expect(surfReport).not.toBeVisible({ timeout: 5000 });
 
-    if (isVisible) {
-      // Verify card doesn't overflow viewport on mobile
-      const box = await surfReport.boundingBox();
-      if (box) {
-        expect(box.width).toBeLessThanOrEqual(375);
-      }
+    const signupCta = page.getByTestId('inline-signup-cta');
+    await expect(signupCta).toBeVisible({ timeout: 10000 });
 
-      // Verdict badge still visible
-      const verdictBadge = surfReport.locator('text=/^(YES|MAYBE|NO)$/');
-      await expect(verdictBadge).toBeVisible();
+    // Verify CTA doesn't overflow viewport on mobile
+    const box = await signupCta.boundingBox();
+    if (box) {
+      expect(box.width).toBeLessThanOrEqual(375);
     }
   });
 
-  test('guest users see PublicContentGate CTA on surf report conditions', async ({ page }) => {
+  test('inline signup CTA opens auth modal for guest users', async ({ page }) => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
-    const surfReport = page.locator('section[aria-label*="surf call"]');
-    const isVisible = await isVisibleSafe(surfReport);
+    // The inline signup CTA replaces the surf call for anonymous users
+    const signupCta = page.getByTestId('inline-signup-cta');
+    await expect(signupCta).toBeVisible({ timeout: 10000 });
 
-    if (isVisible) {
-      // The PublicContentGate renders an h3 with ctaTitle and a "Sign Up Free" button
-      const gateTitle = surfReport.getByRole('heading', { name: /see today's best window/i });
-      const hasCTATitle = await isVisibleSafe(gateTitle);
+    // Click the primary CTA button
+    const ctaButton = signupCta.getByTestId('inline-signup-primary-cta');
+    await ctaButton.click();
 
-      if (hasCTATitle) {
-        await expect(gateTitle).toBeVisible();
+    // Should open the auth modal (a dialog), not navigate away
+    const authModal = page.getByRole('dialog');
+    await expect(authModal).toBeVisible({ timeout: 5000 });
 
-        // The gate renders a primary "Sign Up Free" button (not a link)
-        const signUpButton = surfReport.getByRole('button', { name: /sign up free/i });
-        await expect(signUpButton).toBeVisible();
-      }
-    }
-  });
-
-  test('clicking PublicContentGate CTA opens auth modal for guest users', async ({ page }) => {
-    await navigateToBeach(page, TEST_BEACHES.blacks);
-
-    const surfReport = page.locator('section[aria-label*="surf call"]');
-    const isVisible = await isVisibleSafe(surfReport);
-
-    if (isVisible) {
-      const signUpButton = surfReport.getByRole('button', { name: /sign up free/i });
-      const hasButton = await isVisibleSafe(signUpButton);
-
-      if (hasButton) {
-        await signUpButton.click();
-
-        // PublicContentGate opens UnifiedAuthModal (a dialog), not a page navigation
-        const authModal = page.getByRole('dialog');
-        await expect(authModal).toBeVisible({ timeout: 5000 });
-
-        // URL should remain on the beach page — no navigation occurs
-        expect(page.url()).not.toContain('/auth/sign-in');
-      }
-    }
+    // URL should remain on the beach page
+    expect(page.url()).not.toContain('/auth/sign-in');
   });
 
   test('anonymous user can browse beach page without auth gate blocking', async ({ page }) => {
@@ -207,12 +152,9 @@ test.describe('Spot Surf Report', () => {
   test('anonymous user sees 3-day forecast preview', async ({ page }) => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
-    // Click on the Forecast tab
+    // Forecast tab is active by default
     const forecastTab = page.getByRole('tab', { name: /forecast/i });
-    await forecastTab.click();
-
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for forecast content to load
-    await page.waitForTimeout(1000);
+    await expect(forecastTab).toHaveAttribute('data-state', 'active', { timeout: 10000 });
 
     // Verify the section heading shows "3-Day Outlook" (not "5-Day Outlook")
     const outlookHeading = page.getByText(/3-day outlook/i);
@@ -226,11 +168,7 @@ test.describe('Spot Surf Report', () => {
   test('BestSurfWindow is gated with signup CTA for anonymous users', async ({ page }) => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
-    // Click on the Forecast tab
-    const forecastTab = page.getByRole('tab', { name: /forecast/i });
-    await forecastTab.click();
-
-    // Wait for forecast sub-tabs to appear (indicates ForecastTab has mounted with data)
+    // Forecast tab is active by default — wait for sub-tabs to appear (indicates ForecastTab has mounted with data)
     await page.getByRole('tab', { name: /today/i }).waitFor({ state: 'visible', timeout: 15000 });
 
     // Look for the PublicContentGate CTA heading within the Forecast panel

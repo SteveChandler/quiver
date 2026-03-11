@@ -63,9 +63,8 @@ test.describe('Beach Detail Page', () => {
   });
 
   test('should display forecast information', async ({ page }) => {
-    // Click Forecast tab (Overview tab is active by default and doesn't show wave data)
+    // Forecast tab is active by default
     const forecastTab = page.getByRole('tab', { name: /forecast/i });
-    await forecastTab.click();
     await expect(forecastTab).toHaveAttribute('data-state', 'active', { timeout: 5000 });
 
     // Today sub-tab is active by default - shows "Current Conditions" heading
@@ -102,8 +101,8 @@ test.describe('Beach Detail Page', () => {
     await expect(intelTab).toBeVisible();
     await expect(sessionsTab).toBeVisible();
 
-    // Overview should be active by default
-    await expect(overviewTab).toHaveAttribute('data-state', 'active');
+    // Forecast should be active by default
+    await expect(forecastTab).toHaveAttribute('data-state', 'active');
   });
 
   test('should allow favoriting/unfavoriting beach', async ({ page }) => {
@@ -195,21 +194,13 @@ test.describe('Beach Detail - Forecast Tab', () => {
     await assertNoErrors(page, errorCapture, { context: 'Beach Forecast Tab' });
   });
 
-  test('should switch to forecast tab and display forecast', async ({ page }) => {
-    // Verify forecast tab exists and is clickable
+  test('should display forecast tab content by default', async ({ page }) => {
+    // Forecast tab is active by default
     const forecastTab = page.getByRole('tab', { name: /forecast/i });
     await expect(forecastTab).toBeVisible({ timeout: 10000 });
-
-    // Initially should be inactive
-    await expect(forecastTab).toHaveAttribute('data-state', 'inactive');
-
-    // Click forecast tab
-    await forecastTab.click();
-
-    // Should become active
     await expect(forecastTab).toHaveAttribute('data-state', 'active', { timeout: 5000 });
 
-    // Overview tab should become inactive
+    // Overview tab should be inactive
     const overviewTab = page.getByRole('tab', { name: /overview/i });
     await expect(overviewTab).toHaveAttribute('data-state', 'inactive');
 
@@ -255,9 +246,8 @@ test.describe('Beach Detail - Forecast Tab', () => {
   });
 
   test('should display tides on forecast tab', async ({ page }) => {
-    // Click Forecast tab (Overview is active by default and has no tide data)
+    // Forecast tab is active by default
     const forecastTab = page.getByRole('tab', { name: /forecast/i });
-    await forecastTab.click();
     await expect(forecastTab).toHaveAttribute('data-state', 'active', { timeout: 5000 });
 
     // Today sub-tab shows "Current Conditions" with tide, wind, swell cards.

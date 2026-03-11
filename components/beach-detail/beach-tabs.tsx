@@ -48,7 +48,7 @@ interface BeachTabsProps {
  * - Controlled: Use activeTab and onTabChange props
  */
 export function BeachTabs({
-  defaultTab = "overview",
+  defaultTab = "forecast",
   activeTab,
   onTabChange,
   children,
