@@ -26,6 +26,7 @@ export default function robots(): MetadataRoute.Robots {
               "/profile/", // Private: user's own profile
               "/inbox/", // Private: notifications
               "/sessions/", // Private: user sessions
+              "/session/", // Email action routes (confirm/skip) — transactional pages, not for indexing
               "/auth/*", // Auth pages
               "/embed/", // Embeddable widgets (prevent duplicate content)
               "/spots/", // Legacy URL pattern — canonical URLs are hierarchical (state/city/beach); 301 redirects handle traffic but disallowing stops Google from re-indexing old slugs
