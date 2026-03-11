@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Settings: "Preferred Surf Time" field added to the Surf Preferences section of `ProfilePreferences` — 6-option toggle grid (Dawn Patrol through Any time) persists `profiles.preferred_session_time`; clicking the active option deselects (clears to null)
+- Onboarding: persist `preferred_session_time` to `profiles` during onboarding — maps `dawn` → `dawn_patrol`, `after_work` → `evening`, `weekends` → `any` so the Oracle home screen can use the preference immediately after signup
 - Oracle: `ActivityFeed` component — renders a list of recent local surf activity items (sessions/intel) with gradient avatar circles, semantic text tiers, and an empty state; used in Oracle home screen
 - Oracle: `SessionTimeSelector` component — 6-option grid (Dawn Patrol through Any time) for capturing preferred paddle-out time, with gold selected-state styling and `onSelect` callback
 - Oracle: `oracle-actions.ts` server actions — `getLocalActivity` (last-24h sessions + intel at home beach, merged and sorted, excluding current user) and `updatePreferredSessionTime` (writes to `profiles.preferred_session_time`), both wrapped in `withAuthenticatedAction`
@@ -19,10 +21,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Oracle: `NearbySpots` horizontal scroll component — displays a row of nearby surf spot cards (photo thumbnail, conditions, wave height) with loading skeleton and `onViewSpot` callback; used in the Oracle home screen
 - Oracle: `ContextualCTA` component with state-aware button priority logic — surfaces the highest-value action (set home beach, share session, paddle out, tell crew, invite friend) based on user state, with a secondary row of two outline buttons for supporting actions
 - Oracle: `useOracleData` hook (`hooks/use-oracle-data.ts`) aggregates profile, geolocation, surf discovery, hero photo (three-tier fallback: FALLBACK_IMAGE_BY_NAME > async beach photo > random hero image), animation state (first-visit-of-day via `localStorage`), and reduced-motion into a single composable data source for the oracle hero component
+- Oracle: `OracleHomeScreen` composition component — wires all oracle sub-components (hero, CTA, timeline, nearby spots, activity feed, session time selector) with data transforms, replaces `HomeScreen` for authenticated users
+- Oracle: `preferred_session_time` column on `profiles` table (migration `20260311120000`) — stores user's preferred surf time for oracle personalization
 - GEO: `public/llms.txt` — static AI-crawler site guide following the llms.txt standard, listing features, coverage areas with verified `/forecast/` links, data sources, and key pages
 - GEO: `QuiverDefinitionSection` — new static SSR section on the landing page with a fact-dense "What is Quiver?" explanation (XGBoost models, 30,000+ buoy observations, 72 swell bins, bias-correction methodology) positioned between `FeatureBentoSection` and `MLPipelineShowcase`
 - GEO: Updated `QuiverFAQSchema` "What is Quiver?" answer with the same fact-dense copy (per-beach ML models, CDIP/NDBC/IOOS networks, coverage geography) for structured-data richness
 - GEO: `robots.ts` now explicitly welcomes AI search crawlers (`GPTBot`, `OAI-SearchBot`, `ClaudeBot`, `PerplexityBot`) with the same allow/disallow rules as `*`, blocks training-only crawlers (`CCBot`, `Bytespider`, `cohere-ai`), and extracts shared paths into a `COMMON_DISALLOW` constant
+
+### Changed
+- Authed home screen replaced with Oracle layout — `AuthAwareLandingWrapper` now loads `OracleHomeScreen` instead of `HomeScreen` for authenticated users
+- Oracle hero greeting now uses time-aware message (Good morning/afternoon/evening) instead of hardcoded "Good morning"
 
 ### Fixed
 - Layout: landing page "Local surf favorites near you" section no longer leaks into `/map` after client-side navigation — moved `LandingPageSSRSection` from root layout into `app/page.tsx` (route-scoped, the idiomatic Next.js fix)
