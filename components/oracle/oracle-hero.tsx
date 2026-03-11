@@ -112,6 +112,13 @@ export function OracleHero({
 
   const hasGreeting = userName || levelTitle || xpTotal != null;
 
+  const greeting = (() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  })();
+
   return (
     <section
       role="banner"
@@ -166,7 +173,7 @@ export function OracleHero({
           <div className="flex flex-col gap-0.5">
             {userName && (
               <p className="text-medium text-xs">
-                Good morning, {userName}
+                {greeting}, {userName}
               </p>
             )}
             {(levelTitle || xpTotal != null) && (
