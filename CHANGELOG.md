@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- SEO: `buildDynamicTideMetadata` now accepts `nextHighHeight` and `nextLowHeight` and produces data-rich titles (`{Beach} Tides {Date}: High {H}ft at {T}, Low at {T}`) and "Plan your surf" descriptions with "ML-enhanced" signal — improves CTR on 45 zero-click tide pages
+- SEO: `buildDynamicWaterTempMetadata` now uses shortened wetsuit label (`shortenWetsuitLabel` helper: "3/2mm fullsuit" -> "3/2mm") in titles (`{Beach} Water Temp: {T}°F — {WetsuitShort} Today`) and city context in descriptions — improves CTR on water temp pages
+- SEO: `renderBeachSubPage` in `beach-sub-page-utils.tsx` now renders `NearbyBeachesEnriched` (4 nearby beaches within 25 miles) below all sub-page content to reduce bounce rate via internal linking
+
 ### Fixed
 - Layout: landing page "Local surf favorites near you" section no longer leaks into `/map` after client-side navigation — moved `LandingPageSSRSection` from root layout into `app/page.tsx` (route-scoped, the idiomatic Next.js fix)
 - Layout: site footer no longer persists on `/map` after client-side navigation — added `HideOnRoutes` client gate and `/map` to footer hide list

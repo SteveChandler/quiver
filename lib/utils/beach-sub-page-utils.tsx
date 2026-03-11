@@ -8,6 +8,10 @@ import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachFAQSchema } from "@/components/seo/faq-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
+import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
+import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
+import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
+import type { Beach } from "@/types/database";
 import type { Metadata } from "next";
 import {
   buildPageMetadata,
@@ -88,6 +92,22 @@ export async function renderBeachSubPage({
   const config = SUB_PAGE_CONFIGS[pageType];
   const subPagePath = `${beachPath}/${pageType}`;
 
+  // Fetch and enrich nearby beaches for internal linking and discovery
+  let nearbyBeachesRaw: Beach[] = [];
+  try {
+    if (beach.lat && beach.lon) {
+      const nearbyResult = await getNearbyBeaches(beach.lat, beach.lon, 25);
+      if (nearbyResult?.success && nearbyResult.data) {
+        nearbyBeachesRaw = nearbyResult.data
+          .filter((b) => b.id !== beach.id && b.slug !== beach.slug)
+          .slice(0, 4);
+      }
+    }
+  } catch {
+    // Gracefully degrade — nearby beaches are not critical
+  }
+  const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
+
   return (
     <>
       <BeachPageStructuredData
@@ -120,6 +140,15 @@ export async function renderBeachSubPage({
         defaultTab={config.defaultTab}
         defaultSubTab={config.defaultSubTab}
       />
+
+      <div className="container mx-auto px-4 pb-8">
+        <NearbyBeachesEnriched
+          beaches={nearbyBeaches}
+          sourceBeachName={beach.name}
+          sourceBeachLat={beach.lat}
+          sourceBeachLon={beach.lon}
+        />
+      </div>
     </>
   );
 }
@@ -150,6 +179,8 @@ export async function generateBeachSubPageMetadata({
           tideData: {
             nextHighTime: tideMeta.nextHighTime,
             nextLowTime: tideMeta.nextLowTime,
+            nextHighHeight: tideMeta.nextHighHeight,
+            nextLowHeight: tideMeta.nextLowHeight,
           },
         });
         title = result.title;
