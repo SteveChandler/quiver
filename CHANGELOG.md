@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Layout: landing page "Local surf favorites near you" section no longer leaks into `/map` after client-side navigation — moved `LandingPageSSRSection` from root layout into `app/page.tsx` (route-scoped, the idiomatic Next.js fix)
+- Layout: site footer no longer persists on `/map` after client-side navigation — added `HideOnRoutes` client gate and `/map` to footer hide list
 - Map page: break type filters ("beach", "point", "reef", etc.) and "beginner-friendly" filter now return matching results instead of 0 — added `break_type` and `skill_level` to `BEACH_LIST_FIELDS` and `get_nearby_beaches` RPC
 - Landing page code quality: removed unused `Calendar`, `Car`, and `Anchor` imports from `lib/constants/features.ts`
 - Landing page code quality: `SectionWrapper` now accepts a `noiseVariant` prop (`"texture"` | `"strong"` | `"none"`) instead of always appending `noise-texture`; callers that were doubling up the class (`forecast-section`, `how-it-works-section`, `ml-pipeline-showcase`) have been updated to remove the redundant class from their `className` prop
@@ -22,8 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ExploreMoreLinks` now uses `buildHiCityUrlForBeach` for city guide links, ensuring Hawaii beaches with ambiguous city names (e.g. Waimea) resolve to island-qualified URLs (`/hi/waimea-kauai`) instead of the bare city slug
 
 ### Changed
+- SEO: enriched meta descriptions on map page, city listing pages, and all 7 intent page templates to hit the 150-160 char target range (previously 87-98 chars) — adds state names, spot names, singular/plural noun handling, and richer feature keywords for better SERP snippets and social sharing
+- Hero section: rotating San Diego beach photos (La Jolla, Blacks, Windansea, Scripps Pier, Ocean Beach) with Ken Burns zoom/pan animation, 1.5s crossfade transitions, 65% dark overlay, tab-pause, and `prefers-reduced-motion` support — replaces solid blue background
 - Landing page full redesign (nunu.ai-inspired): unified dark-first design with Deep Twilight (#252D6B) background throughout all sections, frosted glass cards (`bg-white/[0.04] backdrop-blur-md`), bold centered typography, generous spacing, and Framer Motion scroll-triggered animations
-- Hero section rewritten: removed carousel/match-demo, now centered bold headline with dual pill CTAs and ambient radial glow
 - Feature bento grid replaces old UpgradeSessionSection: asymmetric card grid with 6 custom animated SVG illustrations (wave-bars, match-ring, signal-ripples, compass-pin, chart-trend, phone-notification)
 - Social proof stats bar added to surf highlights: animated count-up numbers (30K+ observations, 350+ spots, 10K+ sessions)
 - ML pipeline showcase cleaned up: replaced cyber aesthetic (clip-cyber, neon glows) with frosted glass cards and brand-palette step indicators

@@ -133,9 +133,16 @@ describe("buildIntentPageContent", () => {
     ] as const;
 
     intents.forEach((intent) => {
-      it(`includes live data freshness suffix in ${intent} meta description`, () => {
+      it(`includes live data freshness suffix or fills 150+ chars in ${intent} meta description`, () => {
         const content = buildIntentPageContent(intent, mockMetadata);
-        expect(content.metaDescription.toLowerCase()).toContain("updated hourly");
+        const desc = content.metaDescription.toLowerCase();
+        // Enriched descriptions may hit the 160-char truncation limit,
+        // clipping the "Updated hourly..." suffix — that's expected.
+        // 150-char floor ensures descriptions stay well above the original
+        // 87-98 char problem range while accommodating truncation.
+        const hasSuffix = desc.includes("updated hourly");
+        const isNearMax = content.metaDescription.length >= 150;
+        expect(hasSuffix || isNearMax).toBe(true);
       });
     });
 
@@ -143,6 +150,38 @@ describe("buildIntentPageContent", () => {
       intents.forEach((intent) => {
         const content = buildIntentPageContent(intent, mockMetadata);
         expect(content.title.length).toBeLessThanOrEqual(60);
+      });
+    });
+  });
+
+  describe("single-beach city", () => {
+    const minimalMetadata: CityMetadata = {
+      cityName: "Hilo",
+      state: "HI",
+      stateName: "Hawaii",
+      totalBeaches: 1,
+      beginnerCount: 1,
+      intermediateCount: 0,
+      advancedCount: 0,
+      beaches: [{ name: "Honoli'i", slug: "honolii", skillLevel: "intermediate" }],
+      centerLat: 19.73,
+      centerLon: -155.09,
+    };
+
+    it("uses singular nouns for 1 beach", () => {
+      const intents = ["beginner", "least-crowded", "longboard", "sunset"] as const;
+      intents.forEach((intent) => {
+        const content = buildIntentPageContent(intent, minimalMetadata);
+        expect(content.metaDescription).not.toMatch(/1 [\w-]+ spots/);
+        expect(content.metaDescription).not.toMatch(/1 breaks/);
+      });
+    });
+
+    it("produces descriptions of at least 100 characters", () => {
+      const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"] as const;
+      intents.forEach((intent) => {
+        const content = buildIntentPageContent(intent, minimalMetadata);
+        expect(content.metaDescription.length).toBeGreaterThanOrEqual(100);
       });
     });
   });

@@ -174,7 +174,7 @@ export async function generateMetadata(props: LocationPageProps) {
         topBeaches.length > 0
           ? ` ${topBeaches.join(", ")} and more.`
           : "";
-      const suffix = " Live forecasts & crowd intel.";
+      const suffix = " Hourly surf forecasts, tide charts & real-time crowd levels. Updated with live buoy data.";
       const ratingSnippet =
         stats.totalReviews >= 5
           ? ` Rated ${stats.averageRating.toFixed(1)}/5.`

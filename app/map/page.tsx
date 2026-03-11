@@ -53,7 +53,7 @@ export async function generateMetadata(
   const base = buildPageMetadata({
     title: "Surf Spots Map",
     description:
-      "Explore surf spots with reviews and live conditions. Find your next epic wave with Quiver's map.",
+      "Explore surf spots on an interactive map with real-time conditions, break types, and crowd levels. Filter by skill level, wave type, and distance from you.",
     path: "/map",
   });
 
