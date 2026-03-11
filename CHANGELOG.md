@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Map page: break type filters ("beach", "point", "reef", etc.) and "beginner-friendly" filter now return matching results instead of 0 — added `break_type` and `skill_level` to `BEACH_LIST_FIELDS` and `get_nearby_beaches` RPC
 - Landing page code quality: removed unused `Calendar`, `Car`, and `Anchor` imports from `lib/constants/features.ts`
 - Landing page code quality: `SectionWrapper` now accepts a `noiseVariant` prop (`"texture"` | `"strong"` | `"none"`) instead of always appending `noise-texture`; callers that were doubling up the class (`forecast-section`, `how-it-works-section`, `ml-pipeline-showcase`) have been updated to remove the redundant class from their `className` prop
 - Landing page code quality: added `ILLUSTRATIONS[i]` index-mismatch guard (`if (!Illustration) return null`) in `feature-bento-section` to prevent a runtime crash if the two arrays fall out of sync

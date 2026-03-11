@@ -293,6 +293,337 @@ describe("useBeachSearch", () => {
     });
   });
 
+  describe("break type filters", () => {
+    // Dedicated fixtures with diverse break_type/skill_level for filter coverage
+    const filterBeaches = [
+      { id: "f-1", name: "Sandy Shore", lat: 32.75, lon: -117.25, break_type: "beach", skill_level: "beginner" },
+      { id: "f-2", name: "Reef Ledge", lat: 32.76, lon: -117.26, break_type: "reef", skill_level: "advanced" },
+      { id: "f-3", name: "Point Break Cove", lat: 32.77, lon: -117.27, break_type: "point", skill_level: "intermediate" },
+      { id: "f-4", name: "Beach Reef Combo", lat: 32.78, lon: -117.28, break_type: "beach/reef break", skill_level: "intermediate-advanced" },
+      { id: "f-5", name: "Mellow Point", lat: 32.79, lon: -117.29, break_type: "point", skill_level: "beginner-intermediate" },
+      { id: "f-6", name: "Mystery Spot", lat: 32.80, lon: -117.30, break_type: null, skill_level: "beginner" },
+      { id: "f-7", name: "Jetty Break", lat: 32.81, lon: -117.31, break_type: "jetty", skill_level: "lower-intermediate" },
+    ] as any[];
+
+    beforeEach(() => {
+      (mockGetBeaches as any).mockResolvedValue({
+        success: true,
+        data: filterBeaches,
+      });
+    });
+
+    it("should filter by 'beach' break type", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      act(() => {
+        result.current.toggleBreakType("beach");
+      });
+
+      // "Sandy Shore" (beach), "Beach Reef Combo" (beach/reef break)
+      expect(result.current.filteredBeaches).toHaveLength(2);
+      const names = result.current.filteredBeaches.map((b: any) => b.name);
+      expect(names).toContain("Sandy Shore");
+      expect(names).toContain("Beach Reef Combo");
+    });
+
+    it("should filter by 'reef' break type", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      act(() => {
+        result.current.toggleBreakType("reef");
+      });
+
+      // "Reef Ledge" (reef), "Beach Reef Combo" (beach/reef break)
+      expect(result.current.filteredBeaches).toHaveLength(2);
+      const names = result.current.filteredBeaches.map((b: any) => b.name);
+      expect(names).toContain("Reef Ledge");
+      expect(names).toContain("Beach Reef Combo");
+    });
+
+    it("should filter by 'point' break type", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      act(() => {
+        result.current.toggleBreakType("point");
+      });
+
+      // "Point Break Cove" (point, intermediate), "Mellow Point" (point, beginner-intermediate)
+      expect(result.current.filteredBeaches).toHaveLength(2);
+      const names = result.current.filteredBeaches.map((b: any) => b.name);
+      expect(names).toContain("Point Break Cove");
+      expect(names).toContain("Mellow Point");
+    });
+
+    it("should exclude beaches with null break_type from filtered results", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      act(() => {
+        result.current.toggleBreakType("beach");
+      });
+
+      const ids = result.current.filteredBeaches.map((b: any) => b.id);
+      expect(ids).not.toContain("f-6"); // Mystery Spot has null break_type
+    });
+
+    it("should match multiple break types with OR logic", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      act(() => {
+        result.current.toggleBreakType("reef");
+      });
+      act(() => {
+        result.current.toggleBreakType("point");
+      });
+
+      // reef: "Reef Ledge", "Beach Reef Combo"; point: "Point Break Cove", "Mellow Point"
+      expect(result.current.filteredBeaches).toHaveLength(4);
+    });
+
+    it("should toggle break type off when clicked again", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      act(() => {
+        result.current.toggleBreakType("reef");
+      });
+      expect(result.current.filteredBeaches).toHaveLength(2);
+
+      act(() => {
+        result.current.toggleBreakType("reef");
+      });
+      // All beaches should be shown again (no active filter)
+      expect(result.current.filteredBeaches).toHaveLength(7);
+    });
+  });
+
+  describe("longboard filter heuristic", () => {
+    const longboardBeaches = [
+      { id: "lb-1", name: "Mellow Beach", lat: 32.75, lon: -117.25, break_type: "beach", skill_level: "beginner" },
+      { id: "lb-2", name: "Chill Point", lat: 32.76, lon: -117.26, break_type: "point", skill_level: "beginner-intermediate" },
+      { id: "lb-3", name: "Intermediate Beach", lat: 32.77, lon: -117.27, break_type: "beach", skill_level: "intermediate" },
+      { id: "lb-4", name: "Lower-Int Point", lat: 32.78, lon: -117.28, break_type: "point", skill_level: "lower-intermediate" },
+      { id: "lb-5", name: "Advanced Reef", lat: 32.79, lon: -117.29, break_type: "reef", skill_level: "advanced" },
+      { id: "lb-6", name: "Int-Advanced Beach", lat: 32.80, lon: -117.30, break_type: "beach", skill_level: "intermediate-advanced" },
+      { id: "lb-7", name: "Expert Point", lat: 32.81, lon: -117.31, break_type: "point", skill_level: "expert" },
+      { id: "lb-8", name: "Beginner Reef", lat: 32.82, lon: -117.32, break_type: "reef", skill_level: "beginner" },
+    ] as any[];
+
+    beforeEach(() => {
+      (mockGetBeaches as any).mockResolvedValue({
+        success: true,
+        data: longboardBeaches,
+      });
+    });
+
+    it("should match beach breaks at beginner/intermediate skill levels", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      act(() => {
+        result.current.toggleBreakType("longboard");
+      });
+
+      const names = result.current.filteredBeaches.map((b: any) => b.name);
+      // Should include: beach+beginner, point+beginner-intermediate, beach+intermediate, point+lower-intermediate
+      expect(names).toContain("Mellow Beach");         // beach + beginner
+      expect(names).toContain("Chill Point");           // point + beginner-intermediate
+      expect(names).toContain("Intermediate Beach");    // beach + intermediate
+      expect(names).toContain("Lower-Int Point");       // point + lower-intermediate
+    });
+
+    it("should exclude advanced and expert skill levels", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      act(() => {
+        result.current.toggleBreakType("longboard");
+      });
+
+      const names = result.current.filteredBeaches.map((b: any) => b.name);
+      expect(names).not.toContain("Advanced Reef");       // reef + advanced
+      expect(names).not.toContain("Int-Advanced Beach");  // beach + intermediate-advanced
+      expect(names).not.toContain("Expert Point");        // point + expert
+    });
+
+    it("should exclude reef breaks even at beginner skill", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      act(() => {
+        result.current.toggleBreakType("longboard");
+      });
+
+      const names = result.current.filteredBeaches.map((b: any) => b.name);
+      expect(names).not.toContain("Beginner Reef");  // reef + beginner — not longboard-friendly
+    });
+  });
+
+  describe("bodyboard filter heuristic", () => {
+    const bodyboardBeaches = [
+      { id: "bb-1", name: "Shore Break", lat: 32.75, lon: -117.25, break_type: "beach", skill_level: "beginner" },
+      { id: "bb-2", name: "Advanced Shore", lat: 32.76, lon: -117.26, break_type: "beach", skill_level: "advanced" },
+      { id: "bb-3", name: "Rocky Reef", lat: 32.77, lon: -117.27, break_type: "reef", skill_level: "intermediate" },
+      { id: "bb-4", name: "Long Point", lat: 32.78, lon: -117.28, break_type: "point", skill_level: "beginner" },
+    ] as any[];
+
+    beforeEach(() => {
+      (mockGetBeaches as any).mockResolvedValue({
+        success: true,
+        data: bodyboardBeaches,
+      });
+    });
+
+    it("should match all beach breaks regardless of skill level", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      act(() => {
+        result.current.toggleBreakType("bodyboard");
+      });
+
+      expect(result.current.filteredBeaches).toHaveLength(2);
+      const names = result.current.filteredBeaches.map((b: any) => b.name);
+      expect(names).toContain("Shore Break");
+      expect(names).toContain("Advanced Shore");
+    });
+
+    it("should exclude reef and point breaks", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      act(() => {
+        result.current.toggleBreakType("bodyboard");
+      });
+
+      const names = result.current.filteredBeaches.map((b: any) => b.name);
+      expect(names).not.toContain("Rocky Reef");
+      expect(names).not.toContain("Long Point");
+    });
+  });
+
+  describe("beginner-friendly filter", () => {
+    const skillBeaches = [
+      { id: "sk-1", name: "Beginner Cove", lat: 32.75, lon: -117.25, break_type: "beach", skill_level: "beginner" },
+      { id: "sk-2", name: "Begin-Int Shore", lat: 32.76, lon: -117.26, break_type: "beach", skill_level: "beginner-intermediate" },
+      { id: "sk-3", name: "Intermediate Reef", lat: 32.77, lon: -117.27, break_type: "reef", skill_level: "intermediate" },
+      { id: "sk-4", name: "Advanced Point", lat: 32.78, lon: -117.28, break_type: "point", skill_level: "advanced" },
+    ] as any[];
+
+    beforeEach(() => {
+      (mockGetBeaches as any).mockResolvedValue({
+        success: true,
+        data: skillBeaches,
+      });
+    });
+
+    it("should filter to beaches with beginner in skill_level", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      act(() => {
+        result.current.toggleBeginnerFriendly();
+      });
+
+      expect(result.current.filteredBeaches).toHaveLength(2);
+      const names = result.current.filteredBeaches.map((b: any) => b.name);
+      expect(names).toContain("Beginner Cove");
+      expect(names).toContain("Begin-Int Shore");
+    });
+
+    it("should toggle off to show all beaches again", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      act(() => {
+        result.current.toggleBeginnerFriendly();
+      });
+      expect(result.current.filteredBeaches).toHaveLength(2);
+
+      act(() => {
+        result.current.toggleBeginnerFriendly();
+      });
+      expect(result.current.filteredBeaches).toHaveLength(4);
+    });
+  });
+
+  describe("clearAllFilters", () => {
+    beforeEach(() => {
+      (mockGetBeaches as any).mockResolvedValue({
+        success: true,
+        data: mockBeaches,
+      });
+    });
+
+    it("should reset all filters and show all beaches", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      // Apply both filter types
+      act(() => {
+        result.current.toggleBeginnerFriendly();
+        result.current.toggleBreakType("reef");
+      });
+
+      // Filters are active — fewer results
+      expect(result.current.filteredBeaches.length).toBeLessThan(5);
+
+      act(() => {
+        result.current.clearAllFilters();
+      });
+
+      expect(result.current.filteredBeaches).toHaveLength(5);
+      expect(result.current.filters.beginnerFriendly).toBe(false);
+      expect(result.current.filters.breakTypes.size).toBe(0);
+    });
+  });
+
   describe("loading states", () => {
     it("should show loading state during beach loading", async () => {
       let resolvePromise: (value: any) => void;

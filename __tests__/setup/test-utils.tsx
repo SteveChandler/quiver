@@ -197,6 +197,8 @@ export const createMockBeaches = (count: number = 6) =>
       crowd_density_rating: 3.8,
       parking_rating: 3.5,
       accessibility_rating: 4.0,
+      break_type: "beach",
+      skill_level: "beginner-intermediate",
     },
     {
       id: "beach-2",
@@ -208,6 +210,8 @@ export const createMockBeaches = (count: number = 6) =>
       crowd_density_rating: 4.2,
       parking_rating: 3.0,
       accessibility_rating: 4.5,
+      break_type: "beach",
+      skill_level: "beginner",
     },
     {
       id: "beach-3",
@@ -219,6 +223,8 @@ export const createMockBeaches = (count: number = 6) =>
       crowd_density_rating: 4.0,
       parking_rating: 2.5,
       accessibility_rating: 3.5,
+      break_type: "reef",
+      skill_level: "intermediate",
     },
     {
       id: "beach-4",
@@ -230,6 +236,8 @@ export const createMockBeaches = (count: number = 6) =>
       crowd_density_rating: 3.2,
       parking_rating: 2.8,
       accessibility_rating: 3.0,
+      break_type: "reef",
+      skill_level: "advanced",
     },
     {
       id: "beach-5",
@@ -241,6 +249,8 @@ export const createMockBeaches = (count: number = 6) =>
       crowd_density_rating: 3.5,
       parking_rating: 3.2,
       accessibility_rating: 3.8,
+      break_type: "point",
+      skill_level: "intermediate",
     },
     {
       id: "beach-6",
@@ -252,6 +262,8 @@ export const createMockBeaches = (count: number = 6) =>
       crowd_density_rating: 4.5,
       parking_rating: 3.1,
       accessibility_rating: 4.2,
+      break_type: "beach",
+      skill_level: "beginner",
     },
   ].slice(0, count);
 
