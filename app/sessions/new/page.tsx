@@ -12,6 +12,8 @@ import {
 import { useAuth } from "@/context/auth-context";
 import { FormErrorBoundary } from "@/components/error-boundaries";
 import { useSessionSubmission } from "./useSessionSubmission";
+import { PostSessionShare } from "@/components/session/post-session-share";
+import { ShareSheet } from "@/components/share/share-sheet";
 
 interface NewSessionPageContentProps {
   initialFormState?: Partial<SessionFormState>;
@@ -51,6 +53,19 @@ function NewSessionPageContent({
     );
   }
 
+  // Derive display props from saved session data
+  const beachName =
+    submission.savedSessionData?.selectedBeach ||
+    submission.savedSessionData?.selectedBeachId ||
+    "";
+  const overallRating = submission.savedSessionData?.overallRating
+    ? Number(submission.savedSessionData.overallRating)
+    : 0;
+  const waveSize =
+    submission.savedSessionData?.waveSize ||
+    submission.savedSessionData?.waveHeight ||
+    "";
+
   return (
     <div className="min-h-screen bg-gray-50 relative">
       <FormErrorBoundary formId="session-form">
@@ -63,7 +78,28 @@ function NewSessionPageContent({
         />
       </FormErrorBoundary>
 
-
+      {/* Post-session share prompt — rendered after a successful log */}
+      {submission.showSharePrompt && mode === "log" && (
+        <>
+          <PostSessionShare
+            beachName={beachName}
+            overallRating={overallRating}
+            waveSize={waveSize}
+            onShare={submission.handleShareSession}
+            onSkip={submission.handleSkipShare}
+          />
+          {submission.shareCardUrl && (
+            <ShareSheet
+              open={submission.shareSheetOpen}
+              onOpenChange={submission.handleShareSheetClose}
+              imageUrl={submission.shareCardUrl}
+              type="session"
+              filename="quiver-session"
+              title="Check out my session!"
+            />
+          )}
+        </>
+      )}
     </div>
   );
 }

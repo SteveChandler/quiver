@@ -13,6 +13,7 @@ import { createActivity } from "@/actions/activity-actions";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { buildSessionPayload } from "@/lib/utils/session-data-builder";
+import { buildSessionShareUrl } from "@/lib/share/build-share-card-url";
 
 interface UseSessionSubmissionOptions {
   mode: SessionFormMode;
@@ -29,6 +30,7 @@ export function useSessionSubmission({
 
   // Share state
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
+  const [showSharePrompt, setShowSharePrompt] = useState(false);
   const [savedSessionData, setSavedSessionData] = useState<any | null>(null);
   const [createdSessionId, setCreatedSessionId] = useState<string | null>(null);
 
@@ -52,6 +54,16 @@ export function useSessionSubmission({
   };
 
   /**
+   * Handle skipping the share prompt — navigates to profile with session highlighted.
+   */
+  const handleSkipShare = () => {
+    setShowSharePrompt(false);
+    const tabParam = mode === "plan" ? "tab=planned&" : "";
+    const highlightId = createdSessionId ?? "";
+    router.push(`/profile?${tabParam}highlight=${highlightId}`);
+  };
+
+  /**
    * Handle share sheet close
    */
   const handleShareSheetClose = (open: boolean) => {
@@ -66,6 +78,13 @@ export function useSessionSubmission({
       } catch (e) {
         console.error("Error tracking share close:", e);
       }
+
+      // Navigate to profile with the session highlighted so the user
+      // has a clear next step instead of being stuck on the overlay.
+      setShowSharePrompt(false);
+      const tabParam = mode === "plan" ? "tab=planned&" : "";
+      const highlightId = createdSessionId ?? "";
+      router.push(`/profile?${tabParam}highlight=${highlightId}`);
     }
   };
 
@@ -244,9 +263,13 @@ export function useSessionSubmission({
             console.error("Background photo upload failed:", err)
           );
         }
+
+        // Show share prompt for log mode instead of navigating immediately
+        setShowSharePrompt(true);
+        return;
       }
 
-      // Navigate to profile with highlight
+      // Plan mode: navigate to profile with highlight
       const highlightParam = `highlight=${result.data.id}`;
       const tabParam = mode === "plan" ? "tab=planned&" : "";
       router.push(`/profile?${tabParam}${highlightParam}`);
@@ -267,15 +290,34 @@ export function useSessionSubmission({
     }
   };
 
+  // Build share card URL from saved session data (null until a session is logged)
+  const shareCardUrl = savedSessionData
+    ? buildSessionShareUrl({
+        beach: savedSessionData.selectedBeach || savedSessionData.selectedBeachId || "Unknown Beach",
+        rating: savedSessionData.overallRating
+          ? String(savedSessionData.overallRating)
+          : "Good",
+        stars: savedSessionData.overallRating
+          ? Math.round(Number(savedSessionData.overallRating))
+          : 4,
+        size: savedSessionData.waveSize || savedSessionData.waveHeight || "Waist-Chest",
+        board: savedSessionData.boardUsed || savedSessionData.board || "",
+      })
+    : null;
+
   return {
     // States
     shareSheetOpen,
     setShareSheetOpen,
+    showSharePrompt,
+    setShowSharePrompt,
     savedSessionData,
     createdSessionId,
+    shareCardUrl,
     // Handlers
     handleSessionComplete,
     handleShareSession,
     handleShareSheetClose,
+    handleSkipShare,
   };
 }
