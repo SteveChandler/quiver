@@ -16,7 +16,7 @@ export function CTASection() {
   if (!isLoading && user) return null;
 
   return (
-    <section className="py-24 md:py-32 px-4 bg-bg-deep noise-texture-strong relative">
+    <section className="py-24 md:py-32 px-4 bg-[#252D6B] noise-texture-strong relative">
       <div className="max-w-4xl mx-auto text-center relative z-10 animate-fade-in-up">
         <h2 className="text-3xl md:text-4xl font-heading font-bold text-white mb-6 animate-fade-in-up text-glow-orange">
           {CONTENT.sections.cta.title}

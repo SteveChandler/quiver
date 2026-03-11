@@ -1,5 +1,4 @@
 import {
-  Calendar,
   BarChart3,
   MapPin,
   Users,
@@ -8,9 +7,7 @@ import {
   Book,
   Eye,
   AlertTriangle,
-  Car,
   Waves,
-  Anchor,
   Wind,
   Baby,
   Heart,

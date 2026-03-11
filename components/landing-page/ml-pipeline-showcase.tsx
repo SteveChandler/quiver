@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { motion, useInView } from "framer-motion";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { Brain, Radio, Waves, Droplets, Users } from "lucide-react";
 import { SectionWrapper } from "./section-wrapper";
 import { MatchScoreRing } from "./match-score-ring";
@@ -22,7 +23,7 @@ function StepDataSources() {
       </div>
       <div>
         <h3 className="text-lg font-semibold text-white mb-1">Real-Time Data</h3>
-        <p className="text-sm text-[#9AABC6]">
+        <p className="text-sm text-[#B0C0D6]">
           30K+ buoy observations, NOAA models, community reports
         </p>
       </div>
@@ -55,7 +56,7 @@ function StepMLEngine() {
       </div>
       <div>
         <h3 className="text-lg font-semibold text-white mb-1">ML Scoring Engine</h3>
-        <p className="text-sm text-[#9AABC6]">
+        <p className="text-sm text-[#B0C0D6]">
           Quiver ensemble scores 4 factors every 3 hours
         </p>
       </div>
@@ -92,7 +93,7 @@ function StepMatchScore({ inView }: StepMatchScoreProps) {
       </div>
       <div>
         <h3 className="text-lg font-semibold text-white mb-1">Your Match Score</h3>
-        <p className="text-sm text-[#9AABC6]">
+        <p className="text-sm text-[#B0C0D6]">
           Personalized to your skill level and wave preferences
         </p>
       </div>
@@ -128,10 +129,12 @@ export function MLPipelineShowcase() {
   const [showAuth, setShowAuth] = useState(false);
   const { user } = useAuth();
   const pathname = usePathname();
+  const reducedMotion = useReducedMotion();
 
   return (
     <SectionWrapper
-      className="py-12 md:py-16 px-4 bg-[#2D357D] noise-texture-strong"
+      className="py-12 md:py-16 px-4 bg-[#2D357D]"
+      noiseVariant="strong"
       data-testid="ml-pipeline-showcase"
     >
       {/* Section header */}
@@ -151,7 +154,7 @@ export function MLPipelineShowcase() {
       >
         <motion.div
           className="flex-1"
-          initial={{ opacity: 0, y: 24 }}
+          initial={reducedMotion ? false : { opacity: 0, y: 24 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5, delay: 0 }}
         >
@@ -162,7 +165,7 @@ export function MLPipelineShowcase() {
 
         <motion.div
           className="flex-1"
-          initial={{ opacity: 0, y: 24 }}
+          initial={reducedMotion ? false : { opacity: 0, y: 24 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5, delay: 0.15 }}
         >
@@ -173,7 +176,7 @@ export function MLPipelineShowcase() {
 
         <motion.div
           className="flex-1"
-          initial={{ opacity: 0, y: 24 }}
+          initial={reducedMotion ? false : { opacity: 0, y: 24 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
@@ -185,7 +188,7 @@ export function MLPipelineShowcase() {
       {!user && (
         <motion.div
           className="mt-10 flex justify-center"
-          initial={{ opacity: 0 }}
+          initial={reducedMotion ? false : { opacity: 0 }}
           animate={isInView ? { opacity: 1 } : {}}
           transition={{ duration: 0.5, delay: 0.5 }}
         >

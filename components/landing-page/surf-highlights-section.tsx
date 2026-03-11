@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, useInView } from "framer-motion";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { SurfSpotCard, SurfSpotCardProps } from "./surf-spot-card";
 import { CONTENT } from "@/lib/constants/features";
 import { ChevronRight } from "lucide-react";
@@ -79,6 +80,7 @@ export function SurfHighlightsSection() {
   const coordinates = location?.coordinates ?? null;
   const statsRef = useRef<HTMLDivElement>(null);
   const statsInView = useInView(statsRef, { once: true, amount: 0.3 });
+  const reducedMotion = useReducedMotion();
 
   // Serialize coordinates to a stable string to use as dependency (rounded for privacy + cacheability)
   const coordsKey = coordinates
@@ -183,7 +185,7 @@ export function SurfHighlightsSection() {
         {/* Social proof stats bar */}
         <motion.div
           ref={statsRef}
-          initial={{ opacity: 0, y: 16 }}
+          initial={reducedMotion ? false : { opacity: 0, y: 16 }}
           animate={statsInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5 }}
           className="flex flex-wrap items-center justify-center gap-8 md:gap-16 mb-14"
@@ -191,14 +193,14 @@ export function SurfHighlightsSection() {
           {STATS.map((stat, i) => (
             <div key={stat.label} className="text-center">
               <motion.p
-                initial={{ opacity: 0 }}
+                initial={reducedMotion ? false : { opacity: 0 }}
                 animate={statsInView ? { opacity: 1 } : {}}
                 transition={{ duration: 0.4, delay: i * 0.15 }}
                 className="text-3xl md:text-4xl font-heading font-bold text-white"
               >
                 <CountUp target={stat.value} suffix={stat.suffix} />
               </motion.p>
-              <p className="text-sm text-[#9AABC6] mt-1">{stat.label}</p>
+              <p className="text-sm text-[#B0C0D6] mt-1">{stat.label}</p>
             </div>
           ))}
         </motion.div>
@@ -245,7 +247,7 @@ export function SurfHighlightsSection() {
         {/* Browse all spots link */}
         <div className="mt-8 text-left">
           <Link
-            href="/ca/san-diego"
+            href="/map"
             className="text-[#4A70D9] font-sans font-medium hover:text-[#4A70D9]/80 transition-colors underline-offset-4 hover:underline"
           >
             Browse all surf spots &rarr;

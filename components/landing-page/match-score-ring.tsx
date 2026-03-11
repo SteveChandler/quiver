@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { motion } from "framer-motion";
 import { getScoreColorClasses } from "@/lib/utils/score-color-utils";
 
@@ -18,6 +19,8 @@ export function MatchScoreRing({
   animated = true,
   className,
 }: MatchScoreRingProps) {
+  const id = useId();
+  const filterId = `glow-ring-${id}`;
   const clampedScore = Math.max(0, Math.min(100, score));
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -52,7 +55,7 @@ export function MatchScoreRing({
 
         {/* Glow filter */}
         <defs>
-          <filter id={`glow-ring-${clampedScore}`} x="-50%" y="-50%" width="200%" height="200%">
+          <filter id={filterId} x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="2" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
@@ -79,7 +82,7 @@ export function MatchScoreRing({
             style={{
               transformOrigin: `${center}px ${center}px`,
               rotate: "-90deg",
-              filter: `url(#glow-ring-${clampedScore})`,
+              filter: `url(#${filterId})`,
             }}
           />
         ) : (
@@ -96,7 +99,7 @@ export function MatchScoreRing({
             style={{
               transformOrigin: `${center}px ${center}px`,
               transform: "rotate(-90deg)",
-              filter: `url(#glow-ring-${clampedScore})`,
+              filter: `url(#${filterId})`,
             }}
           />
         )}

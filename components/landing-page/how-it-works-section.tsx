@@ -100,7 +100,7 @@ export function HowItWorksSection() {
 
   return (
     <SectionWrapper
-      className="py-12 md:py-16 px-4 bg-[#252D6B] noise-texture"
+      className="py-12 md:py-16 px-4 bg-[#252D6B]"
       data-testid="how-it-works-section"
     >
       {/* Section header */}

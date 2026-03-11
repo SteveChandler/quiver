@@ -119,7 +119,7 @@ export function ForecastSection() {
   );
 
   return (
-    <SectionWrapper className="relative py-16 md:py-20 px-4 bg-[#252D6B] noise-texture" maxWidth="6xl">
+    <SectionWrapper className="relative py-16 md:py-20 px-4 bg-[#252D6B]" maxWidth="6xl">
       {/* Ambient glow */}
       <div className="absolute top-1/2 left-1/4 w-[400px] h-[400px] bg-ocean-blue/[0.06] rounded-full blur-[100px] pointer-events-none" />
 
@@ -142,6 +142,7 @@ export function ForecastSection() {
                   aria-selected={activeFeatureId === feature.id}
                   aria-controls="phone-mock-panel"
                   data-feature-id={feature.id}
+                  tabIndex={activeFeatureId === feature.id ? 0 : -1}
                   onClick={() => handleFeatureClick(feature.id)}
                   onKeyDown={(e) => handleKeyDown(e, feature.id)}
                   className={`
@@ -190,6 +191,7 @@ export function ForecastSection() {
                     aria-selected={activeFeatureId === feature.id}
                     aria-controls="phone-mock-panel"
                     data-feature-id={feature.id}
+                    tabIndex={activeFeatureId === feature.id ? 0 : -1}
                     onClick={() => handleFeatureClick(feature.id)}
                     onKeyDown={(e) => handleKeyDown(e, feature.id)}
                     className={`

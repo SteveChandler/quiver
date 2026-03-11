@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Landing page code quality: removed unused `Calendar`, `Car`, and `Anchor` imports from `lib/constants/features.ts`
+- Landing page code quality: `SectionWrapper` now accepts a `noiseVariant` prop (`"texture"` | `"strong"` | `"none"`) instead of always appending `noise-texture`; callers that were doubling up the class (`forecast-section`, `how-it-works-section`, `ml-pipeline-showcase`) have been updated to remove the redundant class from their `className` prop
+- Landing page code quality: added `ILLUSTRATIONS[i]` index-mismatch guard (`if (!Illustration) return null`) in `feature-bento-section` to prevent a runtime crash if the two arrays fall out of sync
+- Landing page bug: SVG filter IDs in `match-score-ring` switched from `glow-ring-${clampedScore}` (collides when two rings share a score) to a stable per-instance ID via React `useId()`
+- Landing page bug: replaced undefined Tailwind token `bg-bg-deep` in `cta-section` with explicit `bg-[#252D6B]`
+- Landing page UX: "Browse all surf spots" link in `surf-highlights-section` changed from `/ca/san-diego` to `/map`, the universal exploration entry point
+- Landing page accessibility: `useReducedMotion` hook now gates all Framer Motion entry animations (`containerVariants`/`itemVariants` stagger, inline `initial` props) in `hero-section`, `feature-bento-section`, `ml-pipeline-showcase`, and `surf-highlights-section` — when the user prefers reduced motion, `initial={false}` tells Framer Motion to skip straight to the visible state
+- Landing page accessibility: added `aria-hidden="true"` to the decorative ambient radial glow `div` in `hero-section`, matching the existing pattern in `feature-bento-section`
+- Landing page accessibility: WAI-ARIA Tabs Pattern `tabIndex` management added to both mobile and desktop tab buttons in `forecast-section` — only the active tab has `tabIndex={0}`; inactive tabs use `tabIndex={-1}`
+- Landing page contrast: `text-[#9AABC6]` bumped to `text-[#B0C0D6]` on all `text-sm` instances (bento card descriptions in `feature-bento-section`, step descriptions in `ml-pipeline-showcase`, stats labels in `surf-highlights-section`) to meet WCAG AA 4.5:1 minimum for small text; larger text retains `#9AABC6`
 - `ExploreMoreLinks` now uses `buildHiCityUrlForBeach` for city guide links, ensuring Hawaii beaches with ambiguous city names (e.g. Waimea) resolve to island-qualified URLs (`/hi/waimea-kauai`) instead of the bare city slug
 
 ### Changed

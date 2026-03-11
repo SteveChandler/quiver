@@ -3,6 +3,7 @@
 import { useRef, type ComponentType } from "react";
 import { motion, useInView, type Variants } from "framer-motion";
 import { FEATURE_CARDS } from "@/lib/constants/features";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import {
   WaveBars,
   MatchRingIllustration,
@@ -85,7 +86,7 @@ function BentoCard({ title, description, Illustration, isTall }: BentoCardProps)
       <h3 className="font-heading text-xl font-semibold text-white mb-2">
         {title}
       </h3>
-      <p className="text-sm leading-relaxed text-[#9AABC6]">
+      <p className="text-sm leading-relaxed text-[#B0C0D6]">
         {description}
       </p>
     </motion.div>
@@ -99,6 +100,7 @@ function BentoCard({ title, description, Illustration, isTall }: BentoCardProps)
 export function FeatureBentoSection() {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, amount: 0.15 });
+  const reducedMotion = useReducedMotion();
 
   return (
     <section
@@ -131,13 +133,15 @@ export function FeatureBentoSection() {
         <motion.div
           ref={ref}
           variants={containerVariants}
-          initial="hidden"
+          initial={reducedMotion ? false : "hidden"}
           animate={isInView ? "visible" : "hidden"}
           className="grid grid-cols-1 md:grid-cols-3 gap-4"
         >
           {FEATURE_CARDS.map((card, i) => {
             const isTall = i === 0 || i === 2;
             const Illustration = ILLUSTRATIONS[i];
+
+            if (!Illustration) return null;
 
             return (
               <BentoCard

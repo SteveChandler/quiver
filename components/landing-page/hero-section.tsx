@@ -7,6 +7,8 @@ import { CONTENT } from "@/lib/constants/features";
 import { Button } from "@/components/ui/button";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import { HeroCarousel } from "./hero-carousel";
 
 const containerVariants = {
   hidden: {},
@@ -27,20 +29,21 @@ export function HeroSection() {
   const [authMode, setAuthMode] = useState<"login" | "signup">("signup");
   const sectionRef = useRef<HTMLElement>(null);
   const isInView = useInView(sectionRef, { once: true, amount: 0.2 });
+  const reducedMotion = useReducedMotion();
 
   return (
     <section
       ref={sectionRef}
-      className="relative flex items-center justify-center overflow-hidden bg-[#252D6B] pt-32 pb-24"
+      className="relative flex items-center justify-center overflow-hidden bg-black pt-32 pb-24 min-h-[600px] md:min-h-[700px]"
     >
-      {/* Ambient radial glow */}
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-[#F78E42]/5 rounded-full blur-[120px] pointer-events-none" />
+      {/* Background image carousel */}
+      <HeroCarousel />
 
       {/* Hero content */}
       <motion.div
-        className="relative z-10 flex flex-col items-center gap-8 px-6 text-center max-w-4xl mx-auto"
+        className="relative z-20 flex flex-col items-center gap-8 px-6 text-center max-w-4xl mx-auto"
         variants={containerVariants}
-        initial="hidden"
+        initial={reducedMotion ? false : "hidden"}
         animate={isInView ? "visible" : "hidden"}
       >
         {/* Headline */}
@@ -53,7 +56,7 @@ export function HeroSection() {
 
         {/* Subtitle */}
         <motion.p
-          className="text-lg md:text-xl text-[#9AABC6] max-w-2xl leading-relaxed"
+          className="text-lg md:text-xl text-white/80 max-w-2xl leading-relaxed"
           variants={itemVariants}
         >
           {CONTENT.hero.subtitle}
