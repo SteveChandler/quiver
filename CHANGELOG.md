@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Oracle: `OracleHero` cinematic hero component (~520px) with beach photo Ken Burns reveal, swell line overlay, wind indicator compass, gradient conditions overlay (wave height count-up, Paradise Gold score badge, swell/tide/water stats, best window card), greeting strip with XP badge, and a sequenced Framer Motion animation timeline (`shouldAnimate` flag; calls `onAnimationComplete` at 3s)
+- Oracle: `SwellLines` subcomponent — 5 Twilight Blue gradient lines rotated to swell compass direction with 30% opacity entrance animation
+- Oracle: `WindIndicator` subcomponent — compass circle with directional SVG arrow and speed label
+- Oracle: `ConditionsOverlay` subcomponent — bottom-anchored absolute panel with beach name, wave height heading, score badge, swell/tide/temp stat row, and animated best window card
+- Oracle: `TodaysWindows` visual timeline component — renders surf windows as proportional quality bars with gold emphasis for best windows, preferred-time ring highlight, and a "Full forecast" deep-link
+- Oracle: `NearbySpots` horizontal scroll component — displays a row of nearby surf spot cards (photo thumbnail, conditions, wave height) with loading skeleton and `onViewSpot` callback; used in the Oracle home screen
+- Oracle: `ContextualCTA` component with state-aware button priority logic — surfaces the highest-value action (set home beach, share session, paddle out, tell crew, invite friend) based on user state, with a secondary row of two outline buttons for supporting actions
+- Oracle: `useOracleData` hook (`hooks/use-oracle-data.ts`) aggregates profile, geolocation, surf discovery, hero photo (three-tier fallback: FALLBACK_IMAGE_BY_NAME > async beach photo > random hero image), animation state (first-visit-of-day via `localStorage`), and reduced-motion into a single composable data source for the oracle hero component
+- GEO: `public/llms.txt` — static AI-crawler site guide following the llms.txt standard, listing features, coverage areas with verified `/forecast/` links, data sources, and key pages
+- GEO: `QuiverDefinitionSection` — new static SSR section on the landing page with a fact-dense "What is Quiver?" explanation (XGBoost models, 30,000+ buoy observations, 72 swell bins, bias-correction methodology) positioned between `FeatureBentoSection` and `MLPipelineShowcase`
+- GEO: Updated `QuiverFAQSchema` "What is Quiver?" answer with the same fact-dense copy (per-beach ML models, CDIP/NDBC/IOOS networks, coverage geography) for structured-data richness
+- GEO: `robots.ts` now explicitly welcomes AI search crawlers (`GPTBot`, `OAI-SearchBot`, `ClaudeBot`, `PerplexityBot`) with the same allow/disallow rules as `*`, blocks training-only crawlers (`CCBot`, `Bytespider`, `cohere-ai`), and extracts shared paths into a `COMMON_DISALLOW` constant
+
 ### Fixed
 - Layout: landing page "Local surf favorites near you" section no longer leaks into `/map` after client-side navigation — moved `LandingPageSSRSection` from root layout into `app/page.tsx` (route-scoped, the idiomatic Next.js fix)
 - Layout: site footer no longer persists on `/map` after client-side navigation — added `HideOnRoutes` client gate and `/map` to footer hide list
@@ -25,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ExploreMoreLinks` now uses `buildHiCityUrlForBeach` for city guide links, ensuring Hawaii beaches with ambiguous city names (e.g. Waimea) resolve to island-qualified URLs (`/hi/waimea-kauai`) instead of the bare city slug
 
 ### Changed
+- Hero section: replaced 5-image carousel with full-screen looping drone video of surfer at golden hour, premium split-headline typography (Instrument Serif italic accent + Space Grotesk bold), single white pill CTA, 30% dark overlay, tab-pause, reduced-motion fallback to poster frame, and video error fallback
 - Landing page image quality overhaul: replaced 3 dark/low-res hero carousel images (hero-2, hero-4, hero-5) with vibrant Unsplash photos, cropped watermark from Windansea image (hero-3), and replaced all 6 "Browse by activity" thumbnails with high-quality 600x600 WebP images in `public/images/activities/`
 - SEO: enriched meta descriptions on map page, city listing pages, and all 7 intent page templates to hit the 150-160 char target range (previously 87-98 chars) — adds state names, spot names, singular/plural noun handling, and richer feature keywords for better SERP snippets and social sharing
 - Hero section: rotating San Diego beach photos (La Jolla, Blacks, Windansea, Scripps Pier, Ocean Beach) with Ken Burns zoom/pan animation, 1.5s crossfade transitions, 65% dark overlay, tab-pause, and `prefers-reduced-motion` support — replaces solid blue background
