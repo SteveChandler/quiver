@@ -16,21 +16,13 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ABOUT_CONTENT } from "@/lib/constants/content";
 import { motion } from "framer-motion";
 import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
-import {
-  AnimatedEngagementStat,
-  EngagementProgressTracker,
-} from "@/components/engagement/micro-interactions";
+import { AnimatedEngagementStat } from "@/components/engagement/micro-interactions";
 
 export default function AboutPageClient() {
   const { hero, mission, story, team, future } = ABOUT_CONTENT;
-  const isTest =
-    typeof window !== "undefined" && (window as any).__PLAYWRIGHT__ === true;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sandy-beige via-white to-blue-50">
-      {/* Disable heavy engagement tracker in E2E to prevent dev runtime instability */}
-      {!isTest && <EngagementProgressTracker />}
-
       {/* Enhanced Hero Section with Motion */}
       <section className="py-20 px-4 relative overflow-hidden">
         {/* Animated Background */}

@@ -52,14 +52,8 @@ export interface OracleData {
 
 const DEFAULT_LOCATION = { lat: 32.715, lon: -117.161 }; // San Diego
 
-const HERO_IMAGES = [
-  "/images/hero/hero-1-la-jolla.webp",
-  "/images/hero/hero-2-barrel-wave.webp",
-  "/images/hero/hero-3-windansea.webp",
-  "/images/hero/hero-4-beach-sunset.webp",
-  "/images/hero/hero-5-aerial-ocean.webp",
-  "/images/hero/hero-golden-hour-poster.webp",
-] as const;
+/** Abstract aerial ocean — used when no beach-specific photo is available. */
+const FALLBACK_HERO_IMAGE = "/images/hero/hero-5-aerial-ocean.webp";
 
 const LAST_ORACLE_REVEAL_KEY = "lastOracleReveal";
 
@@ -69,11 +63,6 @@ const LAST_ORACLE_REVEAL_KEY = "lastOracleReveal";
 
 function getTodayDateString(): string {
   return new Date().toISOString().split("T")[0];
-}
-
-function pickRandomHeroImage(): string {
-  const index = Math.floor(Math.random() * HERO_IMAGES.length);
-  return HERO_IMAGES[index];
 }
 
 /**
@@ -202,15 +191,18 @@ export function useOracleData(): OracleData {
     }
   );
 
-  // Tier 3: random hero image (static — computed once, stable across renders)
-  const [randomHeroImage] = useState<string>(() => pickRandomHeroImage());
-
   // Final resolved hero photo URL
+  // When no home beach is set, prefer the top recommendation's photo so the
+  // hero image matches the beach name shown in the overlay.
+  // Falls back to a generic abstract aerial ocean image.
   const heroPhotoUrl = useMemo((): string => {
     if (fallbackByName) return fallbackByName;
     if (fetchedPhotoUrl) return fetchedPhotoUrl;
-    return randomHeroImage;
-  }, [fallbackByName, fetchedPhotoUrl, randomHeroImage]);
+    if (topRecommendation?.beach?.photo_url) return topRecommendation.beach.photo_url;
+    const topBeachFallback = getFallbackImageForBeach(topRecommendation?.beach as Beach | null);
+    if (topBeachFallback) return topBeachFallback;
+    return FALLBACK_HERO_IMAGE;
+  }, [fallbackByName, fetchedPhotoUrl, topRecommendation]);
 
   const heroPhotoLoading = photoFetchLoading && fallbackByName === null;
 

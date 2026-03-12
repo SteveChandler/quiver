@@ -145,7 +145,7 @@ function transformToTimeWindows(
 
     if (isBest) {
       quality = bestScore;
-      slotLabel = topRec.summary.length > 0 ? topRec.summary.slice(0, 20) : label;
+      slotLabel = topRec.summary.length > 0 ? topRec.summary : label;
       height = waveHeight;
     } else {
       // Check if another recommendation lands in this slot
@@ -163,7 +163,7 @@ function transformToTimeWindows(
         const hourDiff = Math.abs(hour - bestHour);
         quality = Math.max(0.1, bestScore - hourDiff * 0.15);
         slotLabel = label;
-        height = waveHeight;
+        height = "—";
       }
     }
 
@@ -230,16 +230,18 @@ export function OracleHomeScreen() {
   const { refreshProfile } = oracle;
 
   // ------------------------------------------------------------------
-  // Activity fetch — only when homeBeach is available
+  // Activity fetch — use homeBeach, falling back to topRec's beach
   // ------------------------------------------------------------------
+  const activityBeachId = oracle.homeBeach?.id ?? oracle.topRecommendation?.beach?.id ?? null;
+
   const fetchActivity = useCallback(async (): Promise<LocalActivityItem[]> => {
-    if (!oracle.homeBeach?.id) return [];
-    const result = await getLocalActivity(oracle.homeBeach.id);
+    if (!activityBeachId) return [];
+    const result = await getLocalActivity(activityBeachId);
     return result?.data ?? [];
-  }, [oracle.homeBeach?.id]);
+  }, [activityBeachId]);
 
   const { data: activityRaw } = useDataFetcher(fetchActivity, {
-    skip: !oracle.homeBeach?.id,
+    skip: !activityBeachId,
   });
 
   // ------------------------------------------------------------------
@@ -350,11 +352,12 @@ export function OracleHomeScreen() {
   // ------------------------------------------------------------------
   return (
     <div className="min-h-screen bg-[#252D6B]">
+    <div className="mx-auto max-w-3xl">
       <OracleHero
         beachName={beachName}
         heroPhotoUrl={oracle.heroPhotoUrl}
         waveHeight={waveHeight}
-        score={score / 10}
+        score={Math.min(score / 10, 9.9)}
         swellDirection={swellDir}
         swellPeriod={swellPeriod}
         tideHeight={tideH}
@@ -412,6 +415,7 @@ export function OracleHomeScreen() {
       </div>
 
       <BottomNav />
+    </div>
     </div>
   );
 }

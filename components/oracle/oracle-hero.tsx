@@ -176,7 +176,7 @@ export function OracleHero({
         {hasGreeting && (
           <div className="flex flex-col gap-0.5">
             {userName && (
-              <p className="text-medium text-xs">
+              <p className="text-medium text-sm">
                 {greeting}, {userName}
               </p>
             )}

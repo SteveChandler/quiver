@@ -289,7 +289,7 @@ test.describe('Guest Landing - Search', () => {
     await waitForPageLoad(page);
 
     // Use placeholder text to find the search input (works with both simple and cmdk inputs)
-    const searchInput = page.getByPlaceholder('Search by beach, spot, or region');
+    const searchInput = page.getByPlaceholder('Search by beach');
 
     await searchInput.fill('ocean beach');
     await searchInput.press('Enter');
@@ -303,7 +303,7 @@ test.describe('Guest Landing - Search', () => {
     await waitForPageLoad(page);
 
     // Use placeholder text to find the search input (works with both simple and cmdk inputs)
-    const searchInput = page.getByPlaceholder('Search by beach, spot, or region');
+    const searchInput = page.getByPlaceholder('Search by beach');
 
     await searchInput.fill('tourmaline');
     await searchInput.press('Enter');
