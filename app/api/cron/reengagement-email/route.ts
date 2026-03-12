@@ -34,6 +34,7 @@ import {
 import type { IntelPost, ReengagementCandidate } from "@/lib/email/email-types";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
+import { signEmailToken, getEmailTokenSecret } from "@/lib/utils/email-token";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -175,6 +176,19 @@ async function processCandidate(
   const conditionLabel = getConditionLabelText(candidate.conditions_score);
   const emailSubject = `${conditionLabel} conditions at ${candidate.beach_name} today!`;
 
+  // 4b. Generate one-tap session log URL
+  const tokenSecret = getEmailTokenSecret();
+  const token = await signEmailToken(
+    { user_id: candidate.user_id, purpose: "log_session" },
+    tokenSecret
+  );
+  // UTC date -- matches cron schedule at 18:00 UTC (10 AM Pacific)
+  const today = new Date().toISOString().slice(0, 10);
+  const logSessionUrl =
+    `${baseUrl}/session/confirm?token=${encodeURIComponent(token)}` +
+    `&beach_id=${encodeURIComponent(candidate.home_beach_id)}` +
+    `&date=${encodeURIComponent(today)}`;
+
   // 5. Rate limit and send email
   await rateLimiter.throttle();
 
@@ -192,6 +206,7 @@ async function processCandidate(
       windDescription: candidate.wind_description,
       bestWindow,
       recentIntel,
+      logSessionUrl,
       ctaUrl,
       unsubscribeUrl,
       baseUrl,
