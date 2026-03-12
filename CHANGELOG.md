@@ -47,6 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GEO: `robots.ts` now explicitly welcomes AI search crawlers (`GPTBot`, `OAI-SearchBot`, `ClaudeBot`, `PerplexityBot`) with the same allow/disallow rules as `*`, blocks training-only crawlers (`CCBot`, `Bytespider`, `cohere-ai`), and extracts shared paths into a `COMMON_DISALLOW` constant
 
 ### Changed
+- Refactor: `toggleSessionLike` and `getSessionLikeStatus` in `actions/like-actions.ts` now use `withAuthenticatedAction` wrapper instead of manual `createSupabaseServerClient` + `auth.getUser()` calls — consistent with established server action pattern
+- Refactor: extracted `mapSkillLevel`, `mapCrowdFactor`, `inferCitySlug`, and `inferCitySlugForSurfSpot` into `lib/utils/beach-mapping-helpers.ts`; both `beach-to-surfspot-transformer.ts` and `spot-data-transformer.ts` now import from the shared helpers instead of duplicating logic
 - Authed home screen replaced with Oracle layout — `AuthAwareLandingWrapper` now loads `OracleHomeScreen` instead of `HomeScreen` for authenticated users
 - Oracle hero greeting now uses time-aware message (Good morning/afternoon/evening) instead of hardcoded "Good morning"
 - Combined "What is Quiver?" and feature bento sections into unified section with concise ML value prop header

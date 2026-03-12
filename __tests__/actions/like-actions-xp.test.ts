@@ -2,21 +2,36 @@ import { toggleSessionLike } from "@/actions/like-actions";
 
 // Mocks
 const mockSupabase: any = {
-  auth: {
-    getUser: jest.fn(),
-  },
   from: jest.fn(),
 };
 
 const mockCreditAuthorWithXP = jest.fn();
 
-jest.mock("@/lib/supabase/server", () => ({
-  createSupabaseServerClient: async () => mockSupabase,
+jest.mock("@/lib/server-action-utils", () => ({
+  withAuthenticatedAction: jest.fn(),
 }));
 
 jest.mock("@/lib/gamification", () => ({
   creditAuthorWithXP: (...args: any[]) => mockCreditAuthorWithXP(...args),
 }));
+
+const { withAuthenticatedAction } = require("@/lib/server-action-utils");
+
+const liker = { id: "user-liker" };
+
+// Helper: wire withAuthenticatedAction to call the action with liker + mockSupabase
+function setupAuthMock() {
+  (withAuthenticatedAction as jest.Mock).mockImplementation(
+    async (action: any) => {
+      try {
+        const data = await action(liker, mockSupabase);
+        return { success: true, ...data };
+      } catch (err: any) {
+        return { success: false, error: err.message ?? "Unknown error" };
+      }
+    }
+  );
+}
 
 // Helper builders for common chains
 function makeSelectChain(final: any) {
@@ -49,15 +64,11 @@ function makeInsertChain(result: any = { error: null }) {
 }
 
 describe("toggleSessionLike → author XP crediting", () => {
-  const liker = { id: "user-liker" };
   const sessionId = "sess-1";
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockSupabase.auth.getUser.mockResolvedValue({
-      data: { user: liker },
-      error: null,
-    });
+    setupAuthMock();
   });
 
   it("likes a session and credits the author when liker != author", async () => {
@@ -97,7 +108,7 @@ describe("toggleSessionLike → author XP crediting", () => {
     const res = await toggleSessionLike(sessionId);
     // Debug on failure
     if (!res?.success) {
-       
+
       console.error('toggleSessionLike failure:', res);
     }
     expect(res.success).toBe(true);

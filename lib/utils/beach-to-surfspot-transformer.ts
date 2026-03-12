@@ -11,69 +11,13 @@
  */
 
 import type { BeachWithMetrics } from "@/types/location";
-import type { SurfSpot, SurfCitySlug, SurfIntentSlug } from "@/lib/data/surf-spots";
+import type { SurfSpot, SurfIntentSlug } from "@/lib/data/surf-spots";
 import { sanitizeBeachDescription } from "@/lib/utils/text-utils";
-
-/**
- * Map database skill_level to SurfSpot skillLevel enum
- */
-function mapSkillLevel(
-  dbSkillLevel: string | null
-): SurfSpot["skillLevel"] {
-  if (!dbSkillLevel) return "Intermediate";
-
-  const normalized = dbSkillLevel.toLowerCase();
-
-  if (normalized.includes("beginner")) return "Beginner friendly";
-  if (normalized.includes("longboard")) return "Longboard friendly";
-  if (normalized.includes("advanced")) return "Advanced";
-  if (normalized.includes("expert")) return "Intermediate to expert";
-
-  return "Intermediate";
-}
-
-/**
- * Map database crowd_level to SurfSpot crowdFactor enum
- */
-function mapCrowdFactor(
-  dbCrowdLevel: string | null
-): SurfSpot["crowdFactor"] {
-  if (!dbCrowdLevel) return "Moderate";
-
-  const normalized = dbCrowdLevel.toLowerCase();
-
-  if (normalized.includes("light") || normalized.includes("low")) return "Light";
-  if (normalized.includes("heavy") || normalized.includes("high")) return "Heavy";
-
-  return "Moderate";
-}
-
-/**
- * Derive city slug from city name
- */
-function deriveCitySlug(cityName: string | null): SurfCitySlug {
-  if (!cityName) return "san-diego";
-
-  const normalized = cityName.toLowerCase();
-
-  if (normalized.includes("orange")) return "orange-county";
-
-  // San Diego metro area cities
-  if (
-    normalized.includes("san diego") ||
-    normalized.includes("la jolla") ||
-    normalized.includes("pacific beach") ||
-    normalized.includes("ocean beach") ||
-    normalized.includes("coronado") ||
-    normalized.includes("encinitas") ||
-    normalized.includes("carlsbad") ||
-    normalized.includes("del mar")
-  ) {
-    return "san-diego";
-  }
-
-  return "san-diego"; // Default
-}
+import {
+  mapSkillLevel,
+  mapCrowdFactor,
+  inferCitySlugForSurfSpot,
+} from "@/lib/utils/beach-mapping-helpers";
 
 /**
  * Transform a BeachWithMetrics object to SurfSpot format.
@@ -98,7 +42,7 @@ export function transformBeachToSurfSpot(beach: BeachWithMetrics): SurfSpot {
     id: beach.id, // Preserve database UUID for forecast lookups
     slug: beach.slug ?? fallbackSlug,
     name: beach.name,
-    citySlug: deriveCitySlug(beach.city),
+    citySlug: inferCitySlugForSurfSpot(beach.city),
     region: beach.region ?? `${beach.city ?? "Unknown"}, ${beach.state ?? "CA"}`,
 
     // Coordinates: database and SurfSpot both use lat/lon

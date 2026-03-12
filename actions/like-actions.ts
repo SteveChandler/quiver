@@ -1,26 +1,10 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { revalidatePath } from "next/cache";
+import { withAuthenticatedAction } from "@/lib/server-action-utils";
 import { creditAuthorWithXP } from "@/lib/gamification";
 
 export async function toggleSessionLike(sessionId: string) {
-  const supabase = await createSupabaseServerClient();
-
-  try {
-    // Get the current user
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      return {
-        success: false,
-        error: "Authentication required",
-      };
-    }
-
+  return withAuthenticatedAction(async (user, supabase) => {
     // Check if user has already liked this session
     const { data: existingLike, error: checkError } = await supabase
       .from("session_likes")
@@ -45,7 +29,6 @@ export async function toggleSessionLike(sessionId: string) {
       }
 
       return {
-        success: true,
         liked: false,
         message: "Session unliked",
       };
@@ -87,38 +70,15 @@ export async function toggleSessionLike(sessionId: string) {
       }
 
       return {
-        success: true,
         liked: true,
         message: "Session liked",
       };
     }
-  } catch (error) {
-    console.error("Error toggling session like:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+  });
 }
 
 export async function getSessionLikeStatus(sessionId: string) {
-  const supabase = await createSupabaseServerClient();
-
-  try {
-    // Get the current user
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      return {
-        success: true,
-        liked: false,
-        likesCount: 0,
-      };
-    }
-
+  return withAuthenticatedAction(async (user, supabase) => {
     // Check if user has liked this session
     const { data: userLike, error: likeError } = await supabase
       .from("session_likes")
@@ -142,15 +102,8 @@ export async function getSessionLikeStatus(sessionId: string) {
     }
 
     return {
-      success: true,
       liked: !!userLike,
       likesCount: likesCount || 0,
     };
-  } catch (error) {
-    console.error("Error getting session like status:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+  });
 }
