@@ -91,6 +91,12 @@ jest.mock("@/lib/mailer/templates/ReengagementEmail", () => ({
   ReengagementEmail: jest.fn(() => "ReengagementEmail"),
 }));
 
+// Mock email token utilities
+jest.mock("@/lib/utils/email-token", () => ({
+  signEmailToken: jest.fn().mockResolvedValue("mock-email-token-jwt"),
+  getEmailTokenSecret: jest.fn().mockReturnValue("mock-secret"),
+}));
+
 // Mock email formatters
 jest.mock("@/lib/email/email-formatters", () => ({
   formatDatabaseTime: jest.fn((time: string) => {
