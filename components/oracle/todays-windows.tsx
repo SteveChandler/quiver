@@ -7,6 +7,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
 
 export interface TimeWindow {
   time: string;
@@ -14,6 +15,18 @@ export interface TimeWindow {
   height: string;
   quality: number;
   isBest: boolean;
+  /** Primary swell period, e.g. "14s" */
+  swellPeriod?: string;
+  /** Primary swell direction, e.g. "WNW" */
+  swellDirection?: string;
+  /** Wind speed, e.g. "8 mph" */
+  windSpeed?: string;
+  /** Wind direction, e.g. "NW" */
+  windDirection?: string;
+  /** Tide height, e.g. "3.2 ft" */
+  tideHeight?: string;
+  /** Tide status, e.g. "Rising" or "Falling" */
+  tideStatus?: string;
 }
 
 export interface TodaysWindowsProps {
@@ -30,6 +43,34 @@ const PREFERRED_TIME_TO_HOUR: Record<string, string> = {
   afternoon: "2pm",
   evening: "5pm",
 };
+
+/**
+ * Build compact condition segments (swell, wind, tide) from a TimeWindow.
+ * Returns an array of display strings like ["14s WNW", "8mph NW", "3.2ft Rising"].
+ */
+function buildConditionSegments(w: TimeWindow): string[] {
+  const segments: string[] = [];
+
+  if (w.swellPeriod || w.swellDirection) {
+    segments.push([w.swellPeriod, w.swellDirection].filter(Boolean).join(" "));
+  }
+
+  if (w.windSpeed || w.windDirection) {
+    const spd = w.windSpeed
+      ? /mph|kn/i.test(w.windSpeed) ? w.windSpeed : `${w.windSpeed}mph`
+      : null;
+    segments.push([spd, w.windDirection].filter(Boolean).join(" "));
+  }
+
+  if (w.tideHeight || w.tideStatus) {
+    const ht = w.tideHeight
+      ? /ft|m\b/i.test(w.tideHeight) ? w.tideHeight : `${w.tideHeight}ft`
+      : null;
+    segments.push([ht, w.tideStatus].filter(Boolean).join(" "));
+  }
+
+  return segments;
+}
 
 export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow }: TodaysWindowsProps) {
   const preferredHour = preferredTime ? PREFERRED_TIME_TO_HOUR[preferredTime] ?? null : null;
@@ -68,6 +109,7 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow 
           {windows.map((window) => {
             const isPreferred = preferredHour !== null && window.time === preferredHour;
             const barWidthPercent = Math.round(window.quality * 100);
+            const conditionSegments = buildConditionSegments(window);
 
             return (
               <div
@@ -114,10 +156,31 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow 
                   </div>
 
                   {/* Wave height — 48px fixed width */}
-                  <span className="w-12 shrink-0 text-right text-sm font-semibold text-high">
-                    {window.height}
-                  </span>
+                  <WaveHeightDisplay
+                    height={window.height}
+                    showTooltip={false}
+                    className="w-12 shrink-0 text-right text-sm font-semibold text-high"
+                  />
                 </div>
+
+                {/* Condition details sub-line: swell · wind · tide */}
+                {conditionSegments.length > 0 && (
+                  <div className="flex gap-3 pt-0.5 pb-0.5">
+                    <div className="w-12 shrink-0" />
+                    <div
+                      className={
+                        window.isBest
+                          ? "flex flex-1 items-center justify-between text-[10px] leading-tight text-white/50"
+                          : "flex flex-1 items-center justify-between text-[10px] leading-tight text-medium/50"
+                      }
+                    >
+                      {conditionSegments.map((seg, i) => (
+                        <span key={i}>{seg}</span>
+                      ))}
+                    </div>
+                    <div className="w-12 shrink-0" />
+                  </div>
+                )}
               </div>
             );
           })}
