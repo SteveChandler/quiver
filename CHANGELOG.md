@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Oracle: Today's Windows condition text (swell/wind/tide) moved inline to the right side of the quality bar instead of rendering on a separate sub-line, keeping each row to a single line
 
 ### Added
+- SEO: `TideDatasetSchema` and `WaterTempDatasetSchema` server components emit `Dataset` JSON-LD on all tide and water-temp city pages (`/tide/*`) and beach sub-pages (`/*/tides`, `/*water-temp`), enabling Google Dataset rich snippets with live tide heights and water temperature — zero new DB queries, reuses React-cached data already fetched for rendering
 - SEO: `buildDynamicTideMetadata` now accepts `nextHighHeight` and `nextLowHeight` and produces data-rich titles (`{Beach} Tides {Date}: High {H}ft at {T}, Low at {T}`) and "Plan your surf" descriptions with "ML-enhanced" signal — improves CTR on 45 zero-click tide pages
 - SEO: `buildDynamicWaterTempMetadata` now uses shortened wetsuit label (`shortenWetsuitLabel` helper: "3/2mm fullsuit" -> "3/2mm") in titles (`{Beach} Water Temp: {T}°F — {WetsuitShort} Today`) and city context in descriptions — improves CTR on water temp pages
 - SEO: `renderBeachSubPage` in `beach-sub-page-utils.tsx` now renders `NearbyBeachesEnriched` (4 nearby beaches within 25 miles) below all sub-page content to reduce bounce rate via internal linking
