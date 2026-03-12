@@ -144,6 +144,7 @@ async function processCandidate(
   candidate: ReengagementCandidate,
   supabase: SupabaseClient,
   baseUrl: string,
+  tokenSecret: string,
   rateLimiter: ReturnType<typeof createResendRateLimiter>,
   emailLogger: ReturnType<typeof createEmailLogger>
 ): Promise<ProcessingResult> {
@@ -177,7 +178,6 @@ async function processCandidate(
   const emailSubject = `${conditionLabel} conditions at ${candidate.beach_name} today!`;
 
   // 4b. Generate one-tap session log URL
-  const tokenSecret = getEmailTokenSecret();
   const token = await signEmailToken(
     { user_id: candidate.user_id, purpose: "log_session" },
     tokenSecret
@@ -215,7 +215,7 @@ async function processCandidate(
 
   if (sendError) {
     console.error(
-      `${CONTEXT_TAG} Failed to send to ${candidate.email}:`,
+      `${CONTEXT_TAG} Failed to send to ${candidate.user_id}:`,
       sendError
     );
     return { status: "send_failed", error: sendError };
@@ -236,7 +236,7 @@ async function processCandidate(
   });
 
   console.log(
-    `${CONTEXT_TAG} Sent to ${candidate.email} for ${candidate.beach_name} (score: ${candidate.conditions_score})`
+    `${CONTEXT_TAG} Sent to ${candidate.user_id} for ${candidate.beach_name} (score: ${candidate.conditions_score})`
   );
 
   return { status: "success" };
@@ -300,6 +300,7 @@ export async function GET(request: Request) {
 
     summary.candidates = candidates.length;
     const baseUrl = getBaseUrl();
+    const tokenSecret = getEmailTokenSecret();
 
     // Initialize shared utilities
     const rateLimiter = createResendRateLimiter();
@@ -312,6 +313,7 @@ export async function GET(request: Request) {
           candidate,
           supabase,
           baseUrl,
+          tokenSecret,
           rateLimiter,
           emailLogger
         );
