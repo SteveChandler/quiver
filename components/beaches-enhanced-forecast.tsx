@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { cn } from "@/lib/utils";
-import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
+import { formatTimeInBeachTimezone } from "@/lib/utils/date-time";
 import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
