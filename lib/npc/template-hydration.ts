@@ -64,7 +64,7 @@ export async function fetchSurfConditions(
     wavePeriod: parseFloat(String(forecast?.wave_period || 0)) || null,
     windSpeed: parseFloat(String(forecast?.wind_speed || 0)) || null,
     windDirection: forecast?.wind_direction || null,
-    tideHeight: parseFloat(String(forecast?.tide_height || 0)) || null,
+    tideHeight: parseFloat(String(forecast?.tide_height || '')) || null,
     tideStatus: forecast?.tide_status || null,
     waterTemp,
   };

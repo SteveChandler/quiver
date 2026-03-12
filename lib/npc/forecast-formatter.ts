@@ -366,7 +366,7 @@ export async function fetchRegionalForecast(
       windDirection: primaryForecast?.wind_direction || null,
       windOffshoreDeg: beachWindMap.get(primaryBeach.id) ?? null,
       tideTime: primaryForecast?.next_tide_time || null,
-      tideHeight: parseFloat(String(primaryForecast?.tide_height || 0)) || null,
+      tideHeight: parseFloat(String(primaryForecast?.tide_height || '')) || null,
       tideType: primaryForecast?.next_tide_type || null,
       tideAt: primaryForecast?.next_tide_at || null,
       waterTemp: parseWaterTemp(primaryForecast?.water_temp as string | null),

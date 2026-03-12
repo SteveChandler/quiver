@@ -191,6 +191,8 @@ export class NOAACOOPSService {
     try {
       const supabase = await createSupabaseServiceRoleClient();
       const now = new Date();
+      const TIDE_LOOKBACK_MS = 6 * 60 * 60 * 1000; // 6 hours before now for interpolation
+      const startTime = new Date(now.getTime() - TIDE_LOOKBACK_MS);
       const endTime = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
       if (this.isVerbose()) {
@@ -202,7 +204,7 @@ export class NOAACOOPSService {
         .from("tide_forecasts")
         .select("ts, tide_height_m, tide_phase, source")
         .eq("beach_id", beachId)
-        .gte("ts", now.toISOString())
+        .gte("ts", startTime.toISOString())
         .lte("ts", endTime.toISOString())
         .order("ts", { ascending: true });
 

@@ -7,6 +7,15 @@ jest.mock("@/lib/services/forecast/confidence-scorer", () => ({
   calculateConfidenceScore: jest.fn(() => 75),
 }));
 
+jest.mock("@/lib/logger", () => ({
+  createContextLogger: () => ({
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  }),
+}));
+
 jest.mock("@/lib/utils/wave-formatters", () => ({
   toFaceHeightFeet: jest.fn(() => "3.5 ft"),
 }));
@@ -181,6 +190,28 @@ describe("ForecastBuilder", () => {
     const utcTime = `${String(utcHour).padStart(2, "0")}:00:00`;
     expect(f.forecast_date).toBe(utcDate);
     expect(f.forecast_time).toBe(utcTime);
+  });
+
+  it("uses '-- ft' fallback when tide interpolation fails", async () => {
+    const builderNoTide = new ForecastBuilder({
+      getWaveDirectionText: (deg: number) => "SW",
+      getTideStatusAtTime: () => "Unknown",
+      getTideHeightAtTime: () => null,
+      getNextTideFromTime: () => null,
+      getDataQualityScore: () => 85,
+    });
+
+    const forecasts = await builderNoTide.buildForecasts({
+      beach: mockBeach,
+      waveData: mockWaveData,
+      tideData: mockTideData,
+      weatherData: [],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+    });
+
+    expect(forecasts[0].tide_height).toBe("-- ft");
   });
 
   it("prioritizes CDIP data when available", async () => {

@@ -82,7 +82,7 @@ export function forecastToSnapshot(forecast: EnhancedForecastEntity): Conditions
   );
 
   // Parse tide data
-  const tideHeight = parseFloat(forecast.tide_height || '0');
+  const tideHeight = parseFloat(forecast.tide_height || '0') || 0;
   const tideStatus = parseTideStatus(forecast.tide_status);
   const tideDirection = parseTideDirection(forecast.tide_status);
 

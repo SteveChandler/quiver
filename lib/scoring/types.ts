@@ -144,7 +144,7 @@ export function toForecastForScoring(
     wavePeriod: parseFloat(forecast.wave_period?.replace('s', '') || '0'),
     windSpeed: parseFloat(forecast.wind_speed || '0'),
     windDirection: parseWindDirection(forecast.wind_direction_deg, forecast.wind_direction),
-    tideHeight: parseFloat(forecast.tide_height || '0'),
+    tideHeight: parseFloat(forecast.tide_height || '0') || 0,
     tideStatus: forecast.tide_status?.toLowerCase() || null,
   };
 }

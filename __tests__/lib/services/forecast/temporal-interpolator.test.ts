@@ -40,14 +40,14 @@ describe("getCDIPDataForTime", () => {
     expect(result?.significantWaveHeight).toBe(1.5);
   });
 
-  it("returns null for times more than 6 hours in the future", () => {
-    const futureTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+  it("returns null for times more than 1 hour in the future", () => {
+    const futureTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
     const result = getCDIPDataForTime(mockCdipData as any, futureTime);
     expect(result).toBeNull();
   });
 
-  it("returns data for times within 6 hours", () => {
-    const nearFuture = new Date(now.getTime() + 5 * 60 * 60 * 1000);
+  it("returns data for times within 1 hour", () => {
+    const nearFuture = new Date(now.getTime() + 30 * 60 * 1000); // 30 min
     const result = getCDIPDataForTime(mockCdipData as any, nearFuture);
     expect(result).not.toBeNull();
   });

@@ -206,8 +206,9 @@ function formatForecastForEmail(forecasts: EnhancedForecastEntity[]) {
   const windDirection = `${windCardinal}`;
 
   // Format tide status
-  const tideHeight = firstForecast.tide_height
-    ? `${parseFloat(firstForecast.tide_height).toFixed(1)}ft`
+  const parsedTide = parseFloat(firstForecast.tide_height || "");
+  const tideHeight = Number.isFinite(parsedTide)
+    ? `${parsedTide.toFixed(1)}ft`
     : "N/A";
   const tideStatus = firstForecast.tide_status
     ? `${tideHeight}, ${firstForecast.tide_status}`
