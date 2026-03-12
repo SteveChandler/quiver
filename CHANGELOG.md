@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Dark mode contrast: bumped gray/slate/muted text overrides to 5.5+ contrast ratio on navy backgrounds, added missing sky-*/indigo-*/blue-800/900 overrides, fixed cyan text from too-dark #4A70D9 to readable #22D3EE, and updated hardcoded chart hex colors (tide chart, water temp, monthly surf, outlook bar) with dark-mode-aware values and tooltip backgrounds
+- Oracle: Today's Windows now shows per-slot wave heights instead of the same height repeated across all 5 time slots — the discovery orchestrator populates `slotForecasts` (keyed by hour 5/8/11/14/17) on the top recommendation using actual hourly forecast data already in memory (no additional DB queries)
+- Oracle: Wave height badge on the home screen now matches the beach page — replaced the 1.5x artificial variance multiplier (`SET_WAVE_VARIANCE`) with actual min/max from hourly forecasts within the best window's time range, consistent with `getWaveHeightRange()` logic on the beach detail page
+- Oracle: Hero tide direction now reflects the current hour instead of the best window's forecast hour — `slotForecasts` now carries per-slot wind/tide/swell fields populated from the midpoint hourly forecast for each slot; the hero reads from the slot closest to `new Date().getHours()` and falls back to the forecast entity
+- Oracle: Wind/tide conditions in Today's Windows were identical across all 5 slots (all reading from one `topConditions` object) — synthetic fallback slots now use per-slot wind/tide/swell from `slotForecasts` when available, falling back to `topConditions`
+- Oracle: Today's Windows condition text (swell/wind/tide) moved inline to the right side of the quality bar instead of rendering on a separate sub-line, keeping each row to a single line
+
 ### Added
 - SEO: `buildDynamicTideMetadata` now accepts `nextHighHeight` and `nextLowHeight` and produces data-rich titles (`{Beach} Tides {Date}: High {H}ft at {T}, Low at {T}`) and "Plan your surf" descriptions with "ML-enhanced" signal — improves CTR on 45 zero-click tide pages
 - SEO: `buildDynamicWaterTempMetadata` now uses shortened wetsuit label (`shortenWetsuitLabel` helper: "3/2mm fullsuit" -> "3/2mm") in titles (`{Beach} Water Temp: {T}°F — {WetsuitShort} Today`) and city context in descriptions — improves CTR on water temp pages

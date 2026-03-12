@@ -4,6 +4,7 @@ export interface ActivityItem {
   id: string;
   userName: string;
   action: string;
+  content?: string;
   timeAgo: string;
   initial: string;
   type: "session" | "intel";
@@ -61,6 +62,9 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
                   </span>{" "}
                   {item.action}
                 </p>
+                {item.content && (
+                  <p className="text-medium text-xs line-clamp-2 mt-0.5">{item.content}</p>
+                )}
                 <p className="text-medium text-xs">{item.timeAgo}</p>
               </div>
             </div>

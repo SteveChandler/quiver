@@ -6,6 +6,7 @@ export interface LocalActivityItem {
   id: string;
   userName: string;
   action: string;
+  content?: string;
   createdAt: string;
   type: "session" | "intel";
 }
@@ -40,7 +41,7 @@ export async function getLocalActivity(beachId: string) {
     const { data: intel } = await supabase
       .from("intel_posts")
       .select(
-        `id, created_at, user_id,
+        `id, created_at, description, user_id,
         profiles!intel_posts_user_id_fkey(display_name, full_name)`
       )
       .eq("beach_id", beachId)
@@ -63,6 +64,7 @@ export async function getLocalActivity(beachId: string) {
         userName:
           i.profiles?.display_name || i.profiles?.full_name || "Someone",
         action: "posted intel",
+        content: i.description ?? undefined,
         createdAt: i.created_at,
         type: "intel" as const,
       })),

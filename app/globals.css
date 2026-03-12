@@ -17,7 +17,7 @@
     --secondary: 233 47% 38%;       /* ~#354090 elevated */
     --secondary-foreground: 0 0% 94%;
     --muted: 233 47% 38%;
-    --muted-foreground: 220 30% 65%; /* #9AABC6 slate blue */
+    --muted-foreground: 220 30% 75%; /* #B8C7E0 slate blue — bumped for contrast */
     --accent: 233 47% 38%;
     --accent-foreground: 0 0% 94%;
     --destructive: 0 100% 68%;      /* #FF5C5C coral red */
@@ -75,7 +75,7 @@
     color: rgba(255, 255, 255, 0.87);
   }
   .text-medium {
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(255, 255, 255, 0.7);
   }
 
   .bg-warm-section {
@@ -473,15 +473,15 @@ body.js-loaded .ssr-beach-section {
 .theme-retro-dark .text-gray-900 { color: #F0F0F0 !important; }
 .theme-retro-dark .text-gray-800 { color: #E8ECF4 !important; }
 .theme-retro-dark .text-gray-700 { color: #D0D9EA !important; }
-.theme-retro-dark .text-gray-600 { color: #A8B8D0 !important; }
-.theme-retro-dark .text-gray-500 { color: #9AABC6 !important; }
-.theme-retro-dark .text-gray-400 { color: #8B9EC2 !important; }
-.theme-retro-dark .text-gray-300 { color: #8B9EC2 !important; }
+.theme-retro-dark .text-gray-600 { color: #BCC8DC !important; }
+.theme-retro-dark .text-gray-500 { color: #B0BFDA !important; }
+.theme-retro-dark .text-gray-400 { color: #A0B2CF !important; }
+.theme-retro-dark .text-gray-300 { color: #A0B2CF !important; }
 .theme-retro-dark .text-slate-900 { color: #F0F0F0 !important; }
 .theme-retro-dark .text-slate-800 { color: #E8ECF4 !important; }
 .theme-retro-dark .text-slate-700 { color: #D0D9EA !important; }
-.theme-retro-dark .text-slate-600 { color: #A8B8D0 !important; }
-.theme-retro-dark .text-slate-500 { color: #9AABC6 !important; }
+.theme-retro-dark .text-slate-600 { color: #BCC8DC !important; }
+.theme-retro-dark .text-slate-500 { color: #B0BFDA !important; }
 .theme-retro-dark .text-black { color: #F0F0F0 !important; }
 .theme-retro-dark .text-dark-grey { color: #F0F0F0 !important; }
 .theme-retro-dark .text-foreground { color: #F0F0F0 !important; }
@@ -496,22 +496,25 @@ body.js-loaded .ssr-beach-section {
 .theme-retro-dark .text-teal-600,
 .theme-retro-dark .text-teal-700 { color: #4A70D9 !important; }
 .theme-retro-dark .text-cyan-600,
-.theme-retro-dark .text-cyan-700 { color: #4A70D9 !important; }
+.theme-retro-dark .text-cyan-700 { color: #22D3EE !important; }
+.theme-retro-dark .text-cyan-800 { color: #E0E7FF !important; }
 .theme-retro-dark .text-purple-600,
 .theme-retro-dark .text-purple-700 { color: #C084FC !important; }
 .theme-retro-dark .text-rose-600,
 .theme-retro-dark .text-rose-700 { color: #F78E42 !important; }
 
 /* Muted foreground — used by shadcn components */
-.theme-retro-dark .text-muted-foreground { color: #9AABC6 !important; }
+.theme-retro-dark .text-muted-foreground { color: #B0BFDA !important; }
 
 /* Brand color remaps — Charming Orange takes over ocean-blue */
 .theme-retro-dark .text-ocean-blue { color: #F78E42 !important; }
 .theme-retro-dark .border-ocean-blue { border-color: #F78E42 !important; }
 .theme-retro-dark .bg-ocean-blue { background-color: #F78E42 !important; }
-.theme-retro-dark .text-blue-600 { color: #4A70D9 !important; }
-.theme-retro-dark .text-blue-700 { color: #4A70D9 !important; }
-.theme-retro-dark .text-blue-500 { color: #4A70D9 !important; }
+.theme-retro-dark .text-blue-500 { color: #8AB5FF !important; }
+.theme-retro-dark .text-blue-600 { color: #8AB5FF !important; }
+.theme-retro-dark .text-blue-700 { color: #8AB5FF !important; }
+.theme-retro-dark .text-blue-800 { color: #E8ECF4 !important; }
+.theme-retro-dark .text-blue-900 { color: #F0F0F0 !important; }
 
 /* Stars and ratings — Paradise Gold */
 .theme-retro-dark .text-yellow-500 { color: #FDB84B !important; }
@@ -604,6 +607,29 @@ body.js-loaded .ssr-beach-section {
   background-color: rgba(74, 112, 217, 0.08) !important;
   border-color: rgba(74, 112, 217, 0.15) !important;
   --tw-bg-opacity: 1 !important;
+}
+
+/* Sky backgrounds → dark surface */
+.theme-retro-dark [class*="bg-sky-5"],
+.theme-retro-dark [class*="bg-sky-1"] {
+  background-color: #354090 !important;
+  --tw-bg-opacity: 1 !important;
+}
+/* Sky text → brighter blue */
+.theme-retro-dark .text-sky-600 { color: #38BDF8 !important; }
+.theme-retro-dark .text-sky-500 { color: #38BDF8 !important; }
+.theme-retro-dark .border-l-sky-500 { border-left-color: #38BDF8 !important; }
+.theme-retro-dark .border-sky-200 { border-color: #404C92 !important; }
+
+/* Indigo text */
+.theme-retro-dark .text-indigo-500 { color: #A5B4FC !important; }
+.theme-retro-dark .text-indigo-600 { color: #A5B4FC !important; }
+.theme-retro-dark .text-indigo-700 { color: #C7D2FE !important; }
+.theme-retro-dark .text-indigo-800 { color: #E0E7FF !important; }
+/* Indigo backgrounds → dark surface */
+.theme-retro-dark [class*="bg-indigo-5"],
+.theme-retro-dark [class*="bg-indigo-1"] {
+  background-color: rgba(74, 112, 217, 0.08) !important;
 }
 
 /* ---- Buttons — Charming Orange fill, slightly hand-cut radius ---- */

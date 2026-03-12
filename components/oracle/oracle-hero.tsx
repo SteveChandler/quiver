@@ -36,13 +36,15 @@ function useWaveHeightAnimation(
   shouldAnimate: boolean
 ): string {
   const [displayed, setDisplayed] = useState(
-    shouldAnimate ? "0ft" : waveHeight
+    shouldAnimate ? "" : waveHeight
   );
   const hasRun = useRef(false);
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
     if (!shouldAnimate || hasRun.current) return;
+    // Wait for real wave height data before animating
+    if (waveHeight === "—" || waveHeight === "0ft") return;
     hasRun.current = true;
 
     // Parse the first number from waveHeight, e.g. "4-5ft" → 4, "6ft" → 6
@@ -80,6 +82,13 @@ function useWaveHeightAnimation(
       cancelAnimationFrame(rafRef.current);
     };
   }, [shouldAnimate, waveHeight]);
+
+  // Sync displayed value when not animating (e.g. return visit or data update)
+  useEffect(() => {
+    if (!shouldAnimate && displayed !== waveHeight) {
+      setDisplayed(waveHeight);
+    }
+  }, [shouldAnimate, waveHeight, displayed]);
 
   return displayed;
 }

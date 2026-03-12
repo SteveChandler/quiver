@@ -88,4 +88,34 @@ describe("TodaysWindows", () => {
     render(<TodaysWindows windows={[]} preferredTime={null} />);
     expect(screen.getByText("Today's Windows")).toBeInTheDocument();
   });
+
+  it("renders conditions inline inside the quality bar (no separate condition sub-line)", () => {
+    const windowsWithConditions: TimeWindow[] = [
+      {
+        time: "8am",
+        label: "Morning glass",
+        height: "3-4ft",
+        quality: 0.8,
+        isBest: true,
+        swellPeriod: "14s",
+        swellDirection: "WNW",
+        windSpeed: "8 mph",
+        windDirection: "NW",
+        tideHeight: "3.2 ft",
+        tideStatus: "Rising",
+      },
+    ];
+    const { container } = render(
+      <TodaysWindows windows={windowsWithConditions} preferredTime={null} />
+    );
+
+    // Conditions span should be a sibling of the label span inside the bar container
+    const barContainer = container.querySelector(".relative.flex.min-w-0.flex-1");
+    expect(barContainer).toBeInTheDocument();
+    // Conditions should render inside the bar container, not outside it
+    const conditionSpan = barContainer?.querySelector("span.ml-auto");
+    expect(conditionSpan).toBeInTheDocument();
+    // The condition text should be present
+    expect(screen.getByText(/14s/)).toBeInTheDocument();
+  });
 });

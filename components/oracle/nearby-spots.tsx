@@ -29,7 +29,7 @@ function SpotCard({
     <div
       role="button"
       tabIndex={0}
-      className="bg-[#2D357D] border border-[#404C92] noise-texture rounded-xl min-w-[150px] flex-shrink-0 cursor-pointer"
+      className="bg-[#2D357D] border border-[#404C92] noise-texture rounded-xl w-[280px] min-w-[280px] flex-shrink-0 snap-start cursor-pointer"
       onClick={() => onViewSpot(spot.id)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -64,7 +64,7 @@ function SpotCard({
 
 function SkeletonCard() {
   return (
-    <div className="bg-[#2D357D] border border-[#404C92] rounded-xl min-w-[150px] flex-shrink-0">
+    <div className="bg-[#2D357D] border border-[#404C92] rounded-xl w-[280px] min-w-[280px] flex-shrink-0 snap-start">
       <Skeleton className="h-[90px] rounded-t-xl rounded-b-none" />
       <div className="p-3 flex flex-col gap-2">
         <Skeleton className="h-4 w-24" />
@@ -82,21 +82,30 @@ export function NearbySpots({ spots, onViewSpot, loading = false }: NearbySpotsP
         <h2 className="font-heading text-white text-lg font-semibold">Nearby Spots</h2>
         <button className="text-[#4A70D9] text-sm font-medium">Map &gt;</button>
       </div>
-      <div
-        className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4"
-        style={{ WebkitOverflowScrolling: "touch" }}
-      >
-        {loading ? (
-          <>
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-          </>
-        ) : (
-          spots.map((spot) => (
-            <SpotCard key={spot.id} spot={spot} onViewSpot={onViewSpot} />
-          ))
+      <div className="relative">
+        <div
+          className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-2 -mx-6 px-6"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          {loading ? (
+            <>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </>
+          ) : (
+            spots.map((spot) => (
+              <SpotCard key={spot.id} spot={spot} onViewSpot={onViewSpot} />
+            ))
+          )}
+        </div>
+        {!loading && spots.length > 2 && (
+          <div
+            className="absolute right-0 top-0 bottom-2 w-8 sm:w-12 pointer-events-none bg-gradient-to-l from-[#252D6B] to-transparent md:hidden"
+            aria-hidden="true"
+            data-testid="scroll-fade-indicator"
+          />
         )}
       </div>
     </section>

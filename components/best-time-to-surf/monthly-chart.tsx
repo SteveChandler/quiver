@@ -34,12 +34,12 @@ function CustomTooltip({
 
   const data = payload[0].payload;
   return (
-    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-md">
-      <p className="text-sm font-semibold text-gray-900">{data.monthName}</p>
-      <p className="text-sm text-gray-600">
+    <div className="rounded-lg border border-border bg-card px-3 py-2 shadow-md">
+      <p className="text-sm font-semibold text-foreground">{data.monthName}</p>
+      <p className="text-sm text-muted-foreground">
         Score: <span className="font-medium text-ocean-blue">{data.score}</span>
       </p>
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-muted-foreground">
         {data.bestMonthCount} beach{data.bestMonthCount !== 1 ? "es" : ""} in peak season
       </p>
     </div>
@@ -62,16 +62,16 @@ export function MonthlySurfChart({ monthly, className }: MonthlySurfChartProps) 
               <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.05} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#404C92" />
           <XAxis
             dataKey="abbrev"
-            tick={{ fontSize: 12, fill: "#6b7280" }}
+            tick={{ fontSize: 12, fill: "#B0BFDA" }}
             tickLine={false}
-            axisLine={{ stroke: "#e5e7eb" }}
+            axisLine={{ stroke: "#404C92" }}
           />
           <YAxis
             domain={[0, 100]}
-            tick={{ fontSize: 12, fill: "#6b7280" }}
+            tick={{ fontSize: 12, fill: "#B0BFDA" }}
             tickLine={false}
             axisLine={false}
             tickFormatter={(v) => `${v}`}

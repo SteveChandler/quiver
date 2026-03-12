@@ -106,18 +106,18 @@ export function WaterTempHeroSection({ data }: WaterTempHeroSectionProps) {
                   >
                     <CartesianGrid
                       strokeDasharray="3 3"
-                      stroke="#e2e8f0"
+                      stroke="#404C92"
                       vertical={false}
                     />
                     <XAxis
                       dataKey="day"
-                      tick={{ fontSize: 12, fill: "#64748b" }}
-                      axisLine={{ stroke: "#cbd5e1" }}
+                      tick={{ fontSize: 12, fill: "#B0BFDA" }}
+                      axisLine={{ stroke: "#404C92" }}
                       tickLine={false}
                     />
                     <YAxis
                       domain={[yMin, yMax]}
-                      tick={{ fontSize: 12, fill: "#64748b" }}
+                      tick={{ fontSize: 12, fill: "#B0BFDA" }}
                       axisLine={false}
                       tickLine={false}
                       tickFormatter={(v) => `${v}°`}
@@ -142,10 +142,11 @@ export function WaterTempHeroSection({ data }: WaterTempHeroSectionProps) {
                         return label;
                       }}
                       contentStyle={{
-                        backgroundColor: "rgba(255, 255, 255, 0.95)",
-                        border: "1px solid #e2e8f0",
+                        backgroundColor: "rgba(45, 53, 125, 0.95)",
+                        border: "1px solid #404C92",
                         borderRadius: "8px",
                         fontSize: "13px",
+                        color: "#F0F0F0",
                       }}
                     />
                     <Line

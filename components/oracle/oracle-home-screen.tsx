@@ -115,6 +115,20 @@ const TIME_SLOT_HOURS: Array<{ time: string; hour: number; label: string }> = [
  * We use the top recommendation's data as the anchor for the "best" slot.
  * Other slots get synthetic lower-quality bars derived from the best score.
  */
+/**
+ * Extract tide/wind/swell condition fields from a forecast entity.
+ */
+function extractConditions(f: SurfDiscoveryRecommendation["forecast"]) {
+  return {
+    swellPeriod: f.swell_1_period ?? f.wave_period ?? undefined,
+    swellDirection: f.swell_1_direction ?? f.wave_direction ?? undefined,
+    windSpeed: f.wind_speed ?? undefined,
+    windDirection: f.wind_direction ?? undefined,
+    tideHeight: f.tide_height ?? undefined,
+    tideStatus: f.tide_status ?? undefined,
+  };
+}
+
 function transformToTimeWindows(
   recommendations: SurfDiscoveryRecommendation[],
   topRec: SurfDiscoveryRecommendation | null
@@ -133,6 +147,7 @@ function transformToTimeWindows(
   const bestHour = topRec.window.start.getHours();
   const bestScore = topRec.score / 100; // normalise 0-100 → 0-1
   const waveHeight = topRec.waveHeightBadge ?? topRec.forecast.wave_height ?? "—";
+  const topConditions = extractConditions(topRec.forecast);
 
   return TIME_SLOT_HOURS.map(({ time, hour, label }) => {
     // Check if this slot covers the top rec's window start
@@ -142,6 +157,7 @@ function transformToTimeWindows(
     let quality: number;
     let slotLabel: string;
     let height: string;
+    let conditions = topConditions;
 
     if (isBest) {
       quality = bestScore;
@@ -158,16 +174,29 @@ function transformToTimeWindows(
         quality = matchedRec.score / 100;
         height = matchedRec.waveHeightBadge ?? matchedRec.forecast.wave_height ?? "—";
         slotLabel = label;
+        conditions = extractConditions(matchedRec.forecast);
       } else {
         // Synthetic fallback: quality degrades away from the best slot
         const hourDiff = Math.abs(hour - bestHour);
         quality = Math.max(0.1, bestScore - hourDiff * 0.15);
         slotLabel = label;
-        height = "—";
+        // Use per-slot wave height and conditions when available (from slotForecasts on the top rec)
+        const slotData = topRec.slotForecasts?.[hour];
+        height = slotData?.waveHeightBadge ?? slotData?.waveHeight ?? waveHeight;
+        if (slotData) {
+          conditions = {
+            swellPeriod: slotData.swellPeriod ?? topConditions.swellPeriod,
+            swellDirection: slotData.swellDirection ?? topConditions.swellDirection,
+            windSpeed: slotData.windSpeed ?? topConditions.windSpeed,
+            windDirection: slotData.windDirection ?? topConditions.windDirection,
+            tideHeight: slotData.tideHeight ?? topConditions.tideHeight,
+            tideStatus: slotData.tideStatus ?? topConditions.tideStatus,
+          };
+        }
       }
     }
 
-    return { time, label: slotLabel, height, quality, isBest };
+    return { time, label: slotLabel, height, quality, isBest, ...conditions };
   });
 }
 
@@ -195,6 +224,7 @@ function transformActivityItems(raw: LocalActivityItem[]): ActivityItem[] {
     id: item.id,
     userName: item.userName,
     action: item.action,
+    content: item.content,
     timeAgo: formatTimeAgo(item.createdAt),
     initial: (item.userName[0] ?? "?").toUpperCase(),
     type: item.type,
@@ -276,39 +306,57 @@ export function OracleHomeScreen() {
 
   const handleViewSpot = useCallback(
     (spotId: string) => {
-      const spot = oracle.remainingSpots.find((r) => r.beach.id === spotId);
+      const spot = oracle.discovery?.recommendations?.find((r) => r.beach.id === spotId);
       if (!spot?.beach.slug) return;
 
       const city = spot.beach.city?.toLowerCase().replace(/\s+/g, "-") ?? "";
       const state = spot.beach.state?.toLowerCase() ?? "";
-      router.push(`/surf-forecast/${city}-${state}/${spot.beach.slug}`);
+      router.push(`/${state}/${city}/${spot.beach.slug}`);
     },
-    [router, oracle.remainingSpots]
+    [router, oracle.discovery?.recommendations]
   );
 
   // ------------------------------------------------------------------
   // Extract top-level data
   // ------------------------------------------------------------------
   const { topRecommendation: topRec, profile, homeBeach } = oracle;
-  const forecast = topRec?.forecast;
-  const window = topRec?.window;
+
+  // Find the user's home beach within discovery results for consistent hero data.
+  // If found, use its recommendation so hero name + forecast data match.
+  // If not found (user far from home beach), fall back to topRec for everything.
+  const homeBeachRec = useMemo(() => {
+    if (!homeBeach?.id || !oracle.discovery?.recommendations) return null;
+    return oracle.discovery.recommendations.find(r => r.beach.id === homeBeach.id) ?? null;
+  }, [homeBeach?.id, oracle.discovery?.recommendations]);
+
+  const heroRec = homeBeachRec ?? topRec;
+
+  const forecast = heroRec?.forecast;
+  const window = heroRec?.window;
 
   // Parse numeric forecast values with safe defaults
-  const waveHeight = topRec?.waveHeightBadge ?? forecast?.wave_height ?? "—";
+  const waveHeight = heroRec?.waveHeightBadge ?? forecast?.wave_height ?? "—";
   const swellDir =
     forecast?.swell_1_direction ?? forecast?.wave_direction ?? "W";
   const swellPeriod = parseNumeric(
     forecast?.swell_1_period ?? forecast?.wave_period
   );
-  const tideH = parseNumeric(forecast?.tide_height);
+  // Use per-slot data for current hour (fixes stale tide direction)
+  const currentHour = new Date().getHours();
+  const currentSlotHour = TIME_SLOT_HOURS.reduce((closest, slot) =>
+    Math.abs(slot.hour - currentHour) < Math.abs(closest.hour - currentHour) ? slot : closest
+  ).hour;
+  const currentSlot = heroRec?.slotForecasts?.[currentSlotHour];
+
+  const tideH = parseNumeric(currentSlot?.tideHeight ?? forecast?.tide_height);
   const tideDir: "rising" | "falling" =
-    forecast?.tide_status?.toLowerCase().includes("rising") ? "rising" : "falling";
+    (currentSlot?.tideStatus ?? forecast?.tide_status)?.toLowerCase().includes("rising")
+      ? "rising" : "falling";
   const waterTemp = parseNumeric(forecast?.water_temp);
-  const windSpd = parseNumeric(forecast?.wind_speed);
-  const windDir = forecast?.wind_direction ?? "—";
-  const score = topRec?.score ?? 0;
-  const beachName =
-    homeBeach?.name ?? topRec?.beach?.name ?? "Your Beach";
+  const windSpd = parseNumeric(currentSlot?.windSpeed ?? forecast?.wind_speed);
+  const windDir = currentSlot?.windDirection ?? forecast?.wind_direction ?? "—";
+  const score = heroRec?.score ?? 0;
+  const beachName = heroRec?.beach?.name ?? homeBeach?.name ?? "Your Beach";
 
   // Cast once for fields not yet in generated Profile type
   const oracleProfile = profile as unknown as ProfileWithOracle | undefined;
@@ -318,32 +366,46 @@ export function OracleHomeScreen() {
   const bestWindowTime = window?.start ? formatWindowTime(window.start) : "—";
   const bestWindowTitle = getBestWindowTitle(preferredTime, window);
   const bestWindowSubtitle =
-    topRec?.reasons?.[0] ?? "Check the forecast for details";
+    heroRec?.reasons?.[0] ?? "Check the forecast for details";
+
+  // Check if the top recommendation is for tomorrow
+  const isTomorrow = useMemo(() => {
+    if (!window?.start) return false;
+    const now = new Date();
+    const windowDate = new Date(window.start);
+    return windowDate.getDate() !== now.getDate() ||
+      windowDate.getMonth() !== now.getMonth() ||
+      windowDate.getFullYear() !== now.getFullYear();
+  }, [window?.start]);
 
   // Transformed sub-component data (memoised to avoid child re-renders)
   const timeWindows = useMemo(
-    () => transformToTimeWindows(oracle.discovery?.recommendations ?? [], topRec),
-    [oracle.discovery?.recommendations, topRec]
+    () => transformToTimeWindows(oracle.discovery?.recommendations ?? [], heroRec),
+    [oracle.discovery?.recommendations, heroRec]
   );
-  const nearbySpots = useMemo(
-    () => transformToNearbySpots(oracle.remainingSpots),
-    [oracle.remainingSpots]
-  );
+  const nearbySpots = useMemo(() => {
+    const heroBeachId = heroRec?.beach?.id;
+    const spots = (oracle.discovery?.recommendations ?? [])
+      .filter(r => r.beach.id !== heroBeachId)
+      .sort((a, b) => (a.distanceMiles ?? Infinity) - (b.distanceMiles ?? Infinity));
+    return transformToNearbySpots(spots);
+  }, [oracle.discovery?.recommendations, heroRec?.beach?.id]);
   const activityItems = useMemo(
     () => transformActivityItems(activityRaw ?? []),
     [activityRaw]
   );
 
-  // Build forecast deep-link for the home beach
+  // Build forecast deep-link for the hero beach
+  const heroBeach = heroRec?.beach ?? homeBeach;
   const forecastUrl =
-    homeBeach?.slug && homeBeach.city && homeBeach.state
-      ? `/surf-forecast/${homeBeach.city.toLowerCase().replace(/\s+/g, "-")}-${homeBeach.state.toLowerCase()}/${homeBeach.slug}`
+    heroBeach?.slug && heroBeach.city && heroBeach.state
+      ? `/${heroBeach.state.toLowerCase()}/${heroBeach.city.toLowerCase().replace(/\s+/g, "-")}/${heroBeach.slug}`
       : undefined;
 
   // ------------------------------------------------------------------
   // Loading gate
   // ------------------------------------------------------------------
-  if (oracle.discoveryLoading && !topRec) {
+  if (oracle.discoveryLoading && !heroRec) {
     return <LoadingSkeleton />;
   }
 
@@ -403,6 +465,7 @@ export function OracleHomeScreen() {
           windows={timeWindows}
           preferredTime={preferredTime}
           forecastUrl={forecastUrl}
+          isTomorrow={isTomorrow}
         />
 
         <NearbySpots
