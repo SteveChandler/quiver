@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Refactor (Phase 2D): Add `components/ui/hero-card.tsx` shared card shell — extracts the gradient + border + attribution footer pattern common to intent hero sections; adopted in `TideHeroSection` as proof-of-concept
+- Refactor (Phase 2E): Move `SectionWrapper` from `components/landing-page/section-wrapper.tsx` to `components/ui/section-wrapper.tsx` for broader reuse; old path becomes a re-export shim for backward compat
+
 ### Added
 - SEO: `buildDynamicTideMetadata` now accepts `nextHighHeight` and `nextLowHeight` and produces data-rich titles (`{Beach} Tides {Date}: High {H}ft at {T}, Low at {T}`) and "Plan your surf" descriptions with "ML-enhanced" signal — improves CTR on 45 zero-click tide pages
 - SEO: `buildDynamicWaterTempMetadata` now uses shortened wetsuit label (`shortenWetsuitLabel` helper: "3/2mm fullsuit" -> "3/2mm") in titles (`{Beach} Water Temp: {T}°F — {WetsuitShort} Today`) and city context in descriptions — improves CTR on water temp pages
