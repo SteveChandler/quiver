@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Refactor: consolidate wave height formatting (3 files → 1). Merged `lib/utils/wave-height-formatter.ts` and `lib/services/forecast/format-utils.ts` into `lib/utils/wave-formatters.ts` and `lib/formatters/surf-data.ts`. Renamed three `formatWaveHeight` variants to unique names: `formatWaveHeightDecimal` (returns "3.5ft"), `formatWaveHeightRange` (returns "3-5ft" via SET_WAVE_VARIANCE), and `formatWaveHeightBucket` (returns bucketed "2-3ft"). Updated all consumer imports (~44 files). Phase 1A of codebase redundancy cleanup.
+
 ### Added
 - SEO: `buildDynamicTideMetadata` now accepts `nextHighHeight` and `nextLowHeight` and produces data-rich titles (`{Beach} Tides {Date}: High {H}ft at {T}, Low at {T}`) and "Plan your surf" descriptions with "ML-enhanced" signal — improves CTR on 45 zero-click tide pages
 - SEO: `buildDynamicWaterTempMetadata` now uses shortened wetsuit label (`shortenWetsuitLabel` helper: "3/2mm fullsuit" -> "3/2mm") in titles (`{Beach} Water Temp: {T}°F — {WetsuitShort} Today`) and city context in descriptions — improves CTR on water temp pages

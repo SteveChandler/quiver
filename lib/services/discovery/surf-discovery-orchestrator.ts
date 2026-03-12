@@ -35,7 +35,7 @@ import {
 } from '@/lib/domains/scoring';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { SET_WAVE_VARIANCE } from '@/lib/utils/wave-height-transformer';
-import { formatWaveHeightRangeString } from '@/lib/utils/wave-height-formatter';
+import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 
 // Import from other discovery modules

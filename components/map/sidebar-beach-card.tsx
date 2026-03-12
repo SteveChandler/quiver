@@ -3,7 +3,7 @@
 import { memo } from "react";
 import { cn } from "@/lib/utils";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
-import { formatWaveHeight } from "@/lib/formatters/surf-data";
+import { formatWaveHeightRange as formatWaveHeight } from "@/lib/formatters/surf-data";
 import type { Beach } from "@/types/database";
 
 export interface SidebarBeachCardProps {

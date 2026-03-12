@@ -9,7 +9,7 @@ import {
   formatFeet,
   metersToFeetString,
   extractWindSpeed,
-} from "@/lib/services/forecast/format-utils";
+} from "@/lib/formatters/surf-data";
 
 describe("validateForecastValues", () => {
   const baseForecast = {

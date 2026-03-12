@@ -38,7 +38,7 @@ import {
   type CDIPBuoyData,
   type EnhancedForecastWithRawData,
 } from "@/types/forecast";
-import { toFaceHeightFeet } from "@/lib/utils/wave-height-formatter";
+import { toFaceHeightFeet } from "@/lib/utils/wave-formatters";
 import {
   ForecastError,
   ForecastErrorCode,

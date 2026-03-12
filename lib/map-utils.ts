@@ -473,10 +473,10 @@ export function getStaticMapImageUrlWithWaveHeight(
   } = {}
 ): string {
   // Import wave height formatter
-  const { formatWaveHeight } = require("@/lib/utils/wave-height-formatter");
+  const { formatWaveHeightBucket } = require("@/lib/utils/wave-formatters");
 
   // Format wave height for display
-  const waveHeightText = formatWaveHeight(waveHeight);
+  const waveHeightText = formatWaveHeightBucket(waveHeight);
 
   // Use the main function with marker text
   return getStaticMapImageUrl(latitude, longitude, {

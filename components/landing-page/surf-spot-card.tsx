@@ -8,7 +8,7 @@ import { Bookmark, Star, Waves } from "lucide-react";
 import { getBlurPlaceholder } from "@/lib/constants/blur-placeholders";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { getScoreColorClasses } from "@/lib/utils/score-color-utils";
-import { formatWaveHeight } from "@/lib/formatters/surf-data";
+import { formatWaveHeightRange as formatWaveHeight } from "@/lib/formatters/surf-data";
 
 export interface SurfSpotCardProps {
   id: string;

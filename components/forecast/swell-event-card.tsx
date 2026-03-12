@@ -15,7 +15,7 @@ import { Waves } from "lucide-react";
 import type { SwellEvent } from "@/lib/utils/regional-forecast-utils";
 import { formatCompactDate, formatShortDate } from "@/lib/utils/time-formatters";
 import { getWaveSizeLabel } from "@/lib/utils/wave-formatters";
-import { formatWaveHeightRangeString } from "@/lib/utils/wave-height-formatter";
+import { formatWaveHeightRangeString } from "@/lib/utils/wave-formatters";
 import { SwellWaveChart } from "./swell-wave-chart";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { formatSwellPeriod } from "@/lib/formatters/surf-data";

@@ -71,8 +71,8 @@ jest.mock("@/lib/utils/current-forecast-utils", () => ({
   }),
 }));
 
-jest.mock("@/lib/utils/wave-height-formatter", () => ({
-  formatWaveHeight: jest.fn((height) => height),
+jest.mock("@/lib/utils/wave-formatters", () => ({
+  formatWaveHeightBucket: jest.fn((height) => height),
   getWaveHeightValue: jest.fn(() => 2.6),
 }));
 

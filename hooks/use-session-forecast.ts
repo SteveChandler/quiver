@@ -3,7 +3,7 @@
 import { useMemo, useCallback } from "react";
 import { useDataFetcher } from "./use-data-fetcher";
 import { isNightHour } from "@/lib/utils/timezone-utils";
-import { formatWaveHeightRangeString } from "@/lib/utils/wave-height-formatter";
+import { formatWaveHeightRangeString } from "@/lib/utils/wave-formatters";
 import { SET_WAVE_VARIANCE } from "@/lib/utils/wave-height-transformer";
 import { extractForecastDate, extractLocalHour } from "@/lib/utils/forecast-at-adapter";
 
