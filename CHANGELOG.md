@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Refactor (Phase 1D): `generateLocationSlug` in `lib/utils/location-slug.ts` now delegates to `cityToSlug` from `beach-url-utils.ts`; `normalizeState` uses `US_STATE_SLUG_MAP` (exported from `beach-url-utils.ts`) for its lookup instead of a separate hardcoded map — no consumer changes needed
+
+### Removed
+- Dead code: deleted `BeachHero`, `ForecastConfidenceBadge`, and `EnhancedForecastWithTransparency` components (plus their test files) — all had zero runtime consumers (Phase 2A cleanup)
+
 ### Fixed
 - Dark mode contrast: bumped gray/slate/muted text overrides to 5.5+ contrast ratio on navy backgrounds, added missing sky-*/indigo-*/blue-800/900 overrides, fixed cyan text from too-dark #4A70D9 to readable #22D3EE, and updated hardcoded chart hex colors (tide chart, water temp, monthly surf, outlook bar) with dark-mode-aware values and tooltip backgrounds
 - Oracle: Today's Windows now shows per-slot wave heights instead of the same height repeated across all 5 time slots — the discovery orchestrator populates `slotForecasts` (keyed by hour 5/8/11/14/17) on the top recommendation using actual hourly forecast data already in memory (no additional DB queries)

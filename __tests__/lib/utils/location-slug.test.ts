@@ -310,7 +310,12 @@ describe("Location Slug Utilities", () => {
 
     it("should return original for unrecognized states", () => {
       expect(normalizeState("Unknown State")).toBe("Unknown State");
-      expect(normalizeState("Texas")).toBe("Texas"); // Not in mapping
+    });
+
+    it("should normalize Texas (now covered by US_STATE_SLUG_MAP)", () => {
+      expect(normalizeState("Texas")).toBe("TX");
+      expect(normalizeState("texas")).toBe("TX");
+      expect(normalizeState("TX")).toBe("TX");
     });
 
     it("should handle Hawaii", () => {
@@ -423,6 +428,30 @@ describe("Location Slug Utilities", () => {
     it("should not have double slashes", () => {
       const url = buildLocationUrl("La Jolla", "CA", "USA");
       expect(url).not.toContain("//");
+    });
+  });
+
+  describe("Delegation: generateLocationSlug delegates to cityToSlug", () => {
+    it("should produce identical output to cityToSlug from beach-url-utils", async () => {
+      const { cityToSlug } = await import("@/lib/utils/beach-url-utils");
+
+      const inputs = [
+        "La Jolla",
+        "San Diego",
+        "Rincón",
+        "São Paulo",
+        "O'Shaughnessy Beach",
+        "Huntington Beach",
+        "Cardiff-by-the-Sea",
+        null,
+        undefined,
+        "",
+        "  Malibu  ",
+      ] as Array<string | null | undefined>;
+
+      for (const input of inputs) {
+        expect(generateLocationSlug(input)).toBe(cityToSlug(input));
+      }
     });
   });
 });

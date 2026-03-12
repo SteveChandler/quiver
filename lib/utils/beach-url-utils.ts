@@ -103,7 +103,7 @@ export function buildHiCityUrlForBeach(beach: {
  * - Keep this map USA-only. `isValidStateSlug()` is used to disambiguate routing
  *   between state slugs and intent slugs (see `docs/architecture/URL_ROUTING.md`).
  */
-const US_STATE_SLUG_MAP: Record<string, string> = {
+export const US_STATE_SLUG_MAP: Record<string, string> = {
   // US States (2-letter codes)
   CA: "ca",
   FL: "fl",
