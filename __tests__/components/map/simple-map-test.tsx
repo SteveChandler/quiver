@@ -90,8 +90,12 @@ jest.mock("@/lib/utils/distance-utils", () => ({
   }),
 }));
 
-jest.mock("@/hooks/use-cached-api", () => ({
+jest.mock("@/lib/utils/request-cache", () => ({
   createCachedMapFetch: jest.fn(() => jest.fn().mockResolvedValue({ data: [] })),
+  apiCache: { get: jest.fn(() => null), set: jest.fn(), delete: jest.fn(), clear: jest.fn(), has: jest.fn(() => false), clearExpired: jest.fn(), getStats: jest.fn() },
+  forecastCache: { get: jest.fn(() => null), set: jest.fn(), delete: jest.fn(), clear: jest.fn(), has: jest.fn(() => false), clearExpired: jest.fn(), getStats: jest.fn() },
+  beachCache: { get: jest.fn(() => null), set: jest.fn(), delete: jest.fn(), clear: jest.fn(), has: jest.fn(() => false), clearExpired: jest.fn(), getStats: jest.fn() },
+  RequestCache: class { static createKey(...parts: any[]) { return parts.join(":"); } },
 }));
 
 jest.mock("@/lib/constants/ui", () => ({

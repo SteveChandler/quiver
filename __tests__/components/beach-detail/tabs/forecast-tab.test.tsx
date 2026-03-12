@@ -62,8 +62,8 @@ jest.mock("@/hooks/use-sun-times", () => ({
     sunset: new Date("2026-02-10T17:30:00"),
   })),
 }));
-jest.mock("@/hooks/use-user-profile", () => ({
-  useUserProfile: jest.fn(() => ({ profile: null })),
+jest.mock("@/hooks/use-cached-profile", () => ({
+  useCachedProfile: jest.fn(() => ({ profile: null, profileLoading: false, profileError: null, refreshProfile: jest.fn(), clearCache: jest.fn(), hasCachedData: false })),
 }));
 
 // Mock useTrackEvent hook
