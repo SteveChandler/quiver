@@ -1,10 +1,20 @@
 "use server";
 
-import { withAuthenticatedAction } from "@/lib/server-action-utils";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { creditAuthorWithXP } from "@/lib/gamification";
 
 export async function toggleSessionLike(sessionId: string) {
-  return withAuthenticatedAction(async (user, supabase) => {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { success: false, error: "Authentication required" };
+    }
+
     // Check if user has already liked this session
     const { data: existingLike, error: checkError } = await supabase
       .from("session_likes")
@@ -14,7 +24,7 @@ export async function toggleSessionLike(sessionId: string) {
       .maybeSingle();
 
     if (checkError) {
-      throw checkError;
+      return { success: false, error: checkError.message };
     }
 
     if (existingLike) {
@@ -25,10 +35,11 @@ export async function toggleSessionLike(sessionId: string) {
         .eq("id", existingLike.id);
 
       if (deleteError) {
-        throw deleteError;
+        return { success: false, error: deleteError.message };
       }
 
       return {
+        success: true,
         liked: false,
         message: "Session unliked",
       };
@@ -42,7 +53,7 @@ export async function toggleSessionLike(sessionId: string) {
         });
 
       if (insertError) {
-        throw insertError;
+        return { success: false, error: insertError.message };
       }
 
       // Get the session author to credit them with XP
@@ -70,15 +81,41 @@ export async function toggleSessionLike(sessionId: string) {
       }
 
       return {
+        success: true,
         liked: true,
         message: "Session liked",
       };
     }
-  });
+  } catch (error) {
+    console.error("Error toggling session like:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+    };
+  }
 }
 
 export async function getSessionLikeStatus(sessionId: string) {
-  return withAuthenticatedAction(async (user, supabase) => {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    // Graceful degradation for unauthenticated users
+    if (!user) {
+      const { count: likesCount, error: countError } = await supabase
+        .from("session_likes")
+        .select("*", { count: "exact", head: true })
+        .eq("session_id", sessionId);
+
+      return {
+        success: true,
+        liked: false,
+        likesCount: countError ? 0 : likesCount || 0,
+      };
+    }
+
     // Check if user has liked this session
     const { data: userLike, error: likeError } = await supabase
       .from("session_likes")
@@ -88,7 +125,7 @@ export async function getSessionLikeStatus(sessionId: string) {
       .maybeSingle();
 
     if (likeError) {
-      throw likeError;
+      return { success: false, error: likeError.message };
     }
 
     // Get total likes count
@@ -98,12 +135,19 @@ export async function getSessionLikeStatus(sessionId: string) {
       .eq("session_id", sessionId);
 
     if (countError) {
-      throw countError;
+      return { success: false, error: countError.message };
     }
 
     return {
+      success: true,
       liked: !!userLike,
       likesCount: likesCount || 0,
     };
-  });
+  } catch (error) {
+    console.error("Error getting session like status:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+    };
+  }
 }

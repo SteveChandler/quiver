@@ -151,8 +151,8 @@ export function createCachedMapFetch<T>(apiPath: string, ttl: number) {
     // Use aggressive rounding for buoy conditions since it's fallback data
     const precision = apiPath.includes("buoys/conditions") ? 1 : 3; // 1 decimal = ~10km zones
     const latKey = latitude.toFixed(precision);
-    const lngKey = longitude.toFixed(precision);
-    const cacheKey = RequestCache.createKey(apiPath, latKey, lngKey);
+    const lonKey = longitude.toFixed(precision);
+    const cacheKey = RequestCache.createKey(apiPath, latKey, lonKey);
 
     // Check cache first
     const cached = apiCache.get<T>(cacheKey);

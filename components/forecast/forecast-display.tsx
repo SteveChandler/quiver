@@ -84,7 +84,7 @@ export function ForecastDisplay({
 
   // Calculate forecast quality metrics
   const qualityMetrics = React.useMemo(() => {
-    if (!forecasts.length) return null;
+    if (!forecasts?.length) return null;
 
     const highConfidenceCount = forecasts.filter(
       (f) => f.confidence_score != null && f.confidence_score >= 75

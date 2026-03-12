@@ -28,8 +28,10 @@ jest.mock("@/components/forecast/confidence-score-explanation", () => ({
 import { ForecastPreview } from "@/components/ui/forecast-preview";
 
 const mockForecastPreview = {
+  type: "enhanced" as const,
   wave_height: "4-6 ft",
   wind_speed: "8 mph",
+  wind_direction: "NW",
   weather_condition: "Sunny",
   confidence_score: 85,
   data_source: "CDIP",
@@ -37,8 +39,10 @@ const mockForecastPreview = {
 };
 
 const mockFallbackPreview = {
+  type: "enhanced" as const,
   wave_height: "2-4 ft",
   wind_speed: "15 mph",
+  wind_direction: "SW",
   weather_condition: "Cloudy",
   confidence_score: 42,
   data_source: "FALLBACK",

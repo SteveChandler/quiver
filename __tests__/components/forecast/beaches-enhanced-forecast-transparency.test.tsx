@@ -132,7 +132,7 @@ describe("BeachesEnhancedForecastWithTransparency", () => {
           beachId="beach-1"
           beachName="Trestles"
           showTransparency={true}
-          showTransparencySummary={true}
+          showQualitySummary={true}
         />
       );
 
@@ -238,7 +238,7 @@ describe("BeachesEnhancedForecastWithTransparency", () => {
           beachId="beach-1"
           beachName="Trestles"
           showTransparency={true}
-          highlightLowConfidence={true}
+          highlightQualityVariations={true}
         />
       );
 
