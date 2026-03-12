@@ -94,9 +94,9 @@ jest.mock("@/components/ui/public-content-gate", () => ({
   ),
 }));
 
-// Mock the enhanced forecast component with transparency
-import { BeachesEnhancedForecastWithTransparency } from "@/components/forecast/beaches-enhanced-forecast-with-transparency";
-import { ForecastDisplayWithTransparency } from "@/components/forecast/forecast-display-with-transparency";
+// Merged: transparency variants now live in the base components
+import { BeachesEnhancedForecast as BeachesEnhancedForecastWithTransparency } from "@/components/beaches-enhanced-forecast";
+import { ForecastDisplay as ForecastDisplayWithTransparency } from "@/components/forecast/forecast-display";
 
 describe("BeachesEnhancedForecastWithTransparency", () => {
   beforeAll(() => {

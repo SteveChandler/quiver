@@ -15,7 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refactor (Phase 2E): move `SectionWrapper` to `components/ui/section-wrapper.tsx`; old path re-exports
 
 ### Removed
-- Dead code: deleted `BeachHero`, `ForecastConfidenceBadge`, and `EnhancedForecastWithTransparency` — zero runtime consumers (Phase 2A)
+- Dead code: deleted `BeachHero`, `ForecastConfidenceBadge`, `EnhancedForecastWithTransparency` — zero runtime consumers (Phase 2A)
+- Deleted `forecast-display-with-transparency.tsx` and `beaches-enhanced-forecast-with-transparency.tsx` — absorbed into base components behind optional props (Phase 2B)
+- Deleted `forecast-preview-with-transparency.tsx` — absorbed into `forecast-preview.tsx` behind optional props (Phase 2C)
 
 ### Fixed
 - Dark mode contrast: bumped gray/slate/muted text overrides to 5.5+ contrast ratio on navy backgrounds, added missing sky-*/indigo-*/blue-800/900 overrides, fixed cyan text from too-dark #4A70D9 to readable #22D3EE, and updated hardcoded chart hex colors (tide chart, water temp, monthly surf, outlook bar) with dark-mode-aware values and tooltip backgrounds
