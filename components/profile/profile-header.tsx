@@ -67,22 +67,22 @@ export function ProfileHeader({
                 {...ANIMATION_VARIANTS.staggerItem(1)}
                 className="flex-1 text-center sm:text-left space-y-1"
               >
-                <h2 className="text-lg sm:text-xl font-roboto font-bold text-dark-grey">
+                <h2 className="text-lg sm:text-xl font-heading font-bold text-dark-grey">
                   {profile.full_name || "Surfer"}
                 </h2>
-                <p className="text-sm text-muted-foreground font-open-sans">
+                <p className="text-sm text-muted-foreground font-sans">
                   {email}
                 </p>
 
                 {/* Bio */}
                 {profile.bio && (
-                  <p className="text-xs sm:text-sm font-open-sans text-gray-600 max-w-md">
+                  <p className="text-xs sm:text-sm font-sans text-gray-600 max-w-md">
                     {profile.bio}
                   </p>
                 )}
 
                 {/* Profile Details Badges */}
-                <div className="flex flex-wrap justify-center sm:justify-start gap-2 pt-1 text-xs font-open-sans text-muted-foreground">
+                <div className="flex flex-wrap justify-center sm:justify-start gap-2 pt-1 text-xs font-sans text-muted-foreground">
                   {profile.location && (
                     <div className="flex items-center bg-ocean-blue/10 px-2 py-0.5 rounded-full">
                       <MapPin className="h-3 w-3 mr-1 text-ocean-blue" />
@@ -112,7 +112,7 @@ export function ProfileHeader({
 
                 {/* Home Break */}
                 {profile.home_beach_id && (
-                  <div className="text-xs font-open-sans pt-0.5">
+                  <div className="text-xs font-sans pt-0.5">
                     <span className="text-muted-foreground">Home Break: </span>
                     <span className="font-medium text-ocean-blue">
                       {profile.homeBeachName || "Set"}
@@ -130,7 +130,7 @@ export function ProfileHeader({
                   size="sm"
                   onClick={onEditClick}
                   aria-label="Edit profile"
-                  className="bg-gradient-to-r from-ocean-blue to-blue-600 hover:from-blue-600 hover:to-ocean-blue text-white px-3 py-1.5 text-xs font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+                  className="bg-gradient-to-r from-ocean-blue to-blue-600 hover:from-blue-600 hover:to-ocean-blue text-white px-3 py-1.5 text-xs font-heading font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
                 >
                   <Edit className="h-3 w-3 mr-1" />
                   Edit

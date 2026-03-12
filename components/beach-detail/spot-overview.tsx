@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ interface SpotOverviewProps {
 }
 
 export function SpotOverview({ beach, amenities, waterQuality }: SpotOverviewProps) {
+  const prefersReducedMotion = useReducedMotion();
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
   const fetchPhotos = useCallback(async () => {
@@ -132,95 +134,137 @@ export function SpotOverview({ beach, amenities, waterQuality }: SpotOverviewPro
 
   return (
     <div className="space-y-6">
-      <Card className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border-blue-200/50 shadow-lg">
-        <CardHeader className="pb-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 border-b border-blue-100/50">
-          <CardTitle className="flex items-center gap-2 text-lg font-roboto text-gray-800">
-            <MapPin className="h-5 w-5 text-blue-600" /> Spot Summary
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <div className="text-sm text-muted-foreground">Break Type</div>
-            <div className="text-base font-medium">
-              {beach.break_type || "—"}
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="text-sm text-muted-foreground">Best Swell</div>
-            <div className="text-base font-medium">{bestSwell}</div>
-          </div>
-          <div className="space-y-2">
-            <div className="text-sm text-muted-foreground">
-              Best Wind / Tide
-            </div>
-            <div className="text-base font-medium">
-              {bestWind} / {tidePref}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Wave Tips */}
-      <WaveTipsCard tips={beach.wave_tips} />
-
-      <WaterQualityBadge waterQuality={waterQuality ?? null} beachState={beach.state} />
-
-      <AmenitiesBadges
-        amenities={
-          amenities ??
-          deriveAmenitiesFromFeatures(
-            (beach as any).features ?? null,
-            (beach as any).amenities ?? null
-          )
-        }
-      />
-
-      <Card className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border-blue-200/50 shadow-lg">
-        <CardHeader className="pb-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 border-b border-blue-100/50">
-          <CardTitle className="flex items-center gap-2 text-lg font-roboto text-gray-800">
-            <AlertTriangle className="h-5 w-5 text-blue-600" /> Hazards
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
-            <li>Rip currents</li>
-            <li>Rocks near low tide</li>
-            <li>Localism varies by peak</li>
-          </ul>
-        </CardContent>
-      </Card>
-
-      {/* Best-of gallery — only render when photos exist */}
-      {validPhotos.length > 0 && (
-        <Card className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border-blue-200/50 shadow-lg">
-          <CardHeader className="pb-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 border-b border-blue-100/50">
-            <CardTitle className="flex items-center gap-2 text-lg font-roboto text-gray-800">
-              <Images className="h-5 w-5 text-blue-600" /> Best-of Gallery
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 40, scale: 0.92, filter: "blur(10px)" }}
+        whileInView={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+        viewport={{ once: true, margin: "-60px" }}
+        transition={{ type: "spring", stiffness: 44, damping: 16 }}
+      >
+        <Card className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-cyan-50/60 dark:from-card dark:to-card border-cyan-200/50 dark:border-cyan-500/20 shadow-lg noise-texture">
+          <CardHeader className="pb-3 bg-gradient-to-r from-cyan-50/80 to-teal-50/80 dark:from-cyan-500/10 dark:to-cyan-500/5 border-b border-cyan-100/50 dark:border-cyan-500/20">
+            <CardTitle className="flex items-center gap-2 text-lg font-heading text-gray-800 dark:text-gray-100">
+              <MapPin className="h-5 w-5 text-teal-600" /> Spot Summary
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {validPhotos.map((p) => (
-                <div
-                  key={p.id}
-                  className="relative aspect-square overflow-hidden rounded-lg bg-muted"
-                >
-                  <Image
-                    src={p.public_url}
-                    alt="Best of spot"
-                    fill
-                    loading="lazy"
-                    sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
-                    className="object-cover"
-                    onError={() => handleImageError(p.id)}
-                    // External Openverse/Flickr images bypass Next.js optimization due to CORS and rate limiting
-                    unoptimized={p.public_url.includes("openverse") || p.public_url.includes("flickr")}
-                  />
-                </div>
-              ))}
+          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <div className="text-sm text-muted-foreground">Break Type</div>
+              <div className="text-base font-medium">
+                {beach.break_type || "—"}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm text-muted-foreground">Best Swell</div>
+              <div className="text-base font-medium">{bestSwell}</div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm text-muted-foreground">
+                Best Wind / Tide
+              </div>
+              <div className="text-base font-medium">
+                {bestWind} / {tidePref}
+              </div>
             </div>
           </CardContent>
         </Card>
+      </motion.div>
+
+      {/* Wave Tips */}
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 40, scale: 0.92, filter: "blur(10px)" }}
+        whileInView={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+        viewport={{ once: true, margin: "-60px" }}
+        transition={{ type: "spring", stiffness: 44, damping: 16 }}
+      >
+        <WaveTipsCard tips={beach.wave_tips} />
+      </motion.div>
+
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 40, scale: 0.92, filter: "blur(10px)" }}
+        whileInView={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+        viewport={{ once: true, margin: "-60px" }}
+        transition={{ type: "spring", stiffness: 44, damping: 16 }}
+      >
+        <WaterQualityBadge waterQuality={waterQuality ?? null} beachState={beach.state} />
+      </motion.div>
+
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 40, scale: 0.92, filter: "blur(10px)" }}
+        whileInView={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+        viewport={{ once: true, margin: "-60px" }}
+        transition={{ type: "spring", stiffness: 44, damping: 16 }}
+      >
+        <AmenitiesBadges
+          amenities={
+            amenities ??
+            deriveAmenitiesFromFeatures(
+              (beach as any).features ?? null,
+              (beach as any).amenities ?? null
+            )
+          }
+        />
+      </motion.div>
+
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 40, scale: 0.92, filter: "blur(10px)" }}
+        whileInView={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+        viewport={{ once: true, margin: "-60px" }}
+        transition={{ type: "spring", stiffness: 44, damping: 16 }}
+      >
+        <Card className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-rose-50/60 dark:from-card dark:to-card border-rose-200/50 dark:border-rose-500/20 shadow-lg noise-texture">
+          <CardHeader className="pb-3 bg-gradient-to-r from-rose-50/80 to-red-50/80 dark:from-rose-500/10 dark:to-rose-500/5 border-b border-rose-100/50 dark:border-rose-500/20">
+            <CardTitle className="flex items-center gap-2 text-lg font-heading text-gray-800 dark:text-gray-100">
+              <AlertTriangle className="h-5 w-5 text-rose-500" /> Hazards
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
+              <li>Rip currents</li>
+              <li>Rocks near low tide</li>
+              <li>Localism varies by peak</li>
+            </ul>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Best-of gallery — only render when photos exist */}
+      {validPhotos.length > 0 && (
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 40, scale: 0.92, filter: "blur(10px)" }}
+          whileInView={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ type: "spring", stiffness: 44, damping: 16 }}
+        >
+          <Card className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-purple-50/60 dark:from-card dark:to-card border-purple-200/50 dark:border-purple-500/20 shadow-lg noise-texture">
+            <CardHeader className="pb-3 bg-gradient-to-r from-purple-50/80 to-violet-50/80 dark:from-purple-500/10 dark:to-purple-500/5 border-b border-purple-100/50 dark:border-purple-500/20">
+              <CardTitle className="flex items-center gap-2 text-lg font-heading text-gray-800 dark:text-gray-100">
+                <Images className="h-5 w-5 text-purple-600" /> Best-of Gallery
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {validPhotos.map((p) => (
+                  <div
+                    key={p.id}
+                    className="relative aspect-square overflow-hidden rounded-lg bg-muted"
+                  >
+                    <Image
+                      src={p.public_url}
+                      alt="Best of spot"
+                      fill
+                      loading="lazy"
+                      sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
+                      className="object-cover"
+                      onError={() => handleImageError(p.id)}
+                      // External Openverse/Flickr images bypass Next.js optimization due to CORS and rate limiting
+                      unoptimized={p.public_url.includes("openverse") || p.public_url.includes("flickr")}
+                    />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       )}
     </div>
   );

@@ -203,7 +203,9 @@ test.describe('Featured Beaches API Contract', () => {
 
       // Keep in sync with the landing-page UI contract (SurfHighlightsSection/SurfSpotCard)
       // and the API payload returned by /api/beaches/featured.
-      const expectedFields = [
+      // Required fields are always present; optional enrichment fields appear only
+      // when forecast data is available from the cache.
+      const requiredFields = [
         'id',
         'name',
         'slug',
@@ -214,20 +216,24 @@ test.describe('Featured Beaches API Contract', () => {
         'average_rating',
         'review_count',
         'skill_level',
-        'score',
       ];
+      const optionalFields = [
+        'score',       // Added by forecast enrichment when cache has data
+        'wave_height', // Added by forecast enrichment when cache has data
+      ];
+      const allAllowedFields = [...requiredFields, ...optionalFields];
 
       beaches.forEach((beach: any) => {
         const actualFields = Object.keys(beach);
 
-        // Check all expected fields are present
-        expectedFields.forEach(field => {
+        // All required fields must be present on every beach
+        requiredFields.forEach(field => {
           expect(actualFields).toContain(field);
         });
 
-        // Check no unexpected fields exist
+        // No unexpected fields should exist (actual must be a subset of all allowed)
         actualFields.forEach(field => {
-          expect(expectedFields).toContain(field);
+          expect(allAllowedFields).toContain(field);
         });
       });
     });

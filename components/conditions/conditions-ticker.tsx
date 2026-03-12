@@ -112,7 +112,7 @@ export function ConditionsTicker({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-xl group",
+        "overflow-hidden group",
         isDark
           ? "bg-[#2a2a2a] text-gray-300"
           : "bg-white border border-gray-100 text-gray-700",
@@ -144,18 +144,16 @@ export function ConditionsTicker({
             className="ticker-animated-track items-center py-3"
             aria-hidden="true"
           >
-            <div className="flex items-center gap-3 w-max animate-ticker-scroll group-hover:[animation-play-state:paused] px-4 will-change-transform">
-              {cards.map((card, i) => (
-                <span key={card.id} className="flex items-center gap-3 shrink-0">
-                  {i > 0 && <Divider isDark={isDark} />}
-                  <TickerCard card={card} isDark={isDark} />
-                </span>
-              ))}
-              <Divider isDark={isDark} />
-              {cards.map((card, i) => (
-                <span key={`dup-${card.id}`} className="flex items-center gap-3 shrink-0">
-                  {i > 0 && <Divider isDark={isDark} />}
-                  <TickerCard card={card} isDark={isDark} />
+            <div className="flex items-center gap-3 w-max animate-ticker-scroll group-hover:[animation-play-state:paused] will-change-transform">
+              {[0, 1, 2, 3].map((copy) => (
+                <span key={`copy-${copy}`} className="flex items-center gap-3 shrink-0">
+                  {copy > 0 && <Divider isDark={isDark} />}
+                  {cards.map((card, i) => (
+                    <span key={`${copy}-${card.id}`} className="flex items-center gap-3 shrink-0">
+                      {i > 0 && <Divider isDark={isDark} />}
+                      <TickerCard card={card} isDark={isDark} />
+                    </span>
+                  ))}
                 </span>
               ))}
             </div>

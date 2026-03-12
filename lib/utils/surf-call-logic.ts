@@ -12,6 +12,7 @@ import type { PersonalizedForecastWindow } from '@/types/personalization';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import { computeTrendTags, type TrendTag } from '@/lib/scoring';
 import { formatTideHeight, formatWaveHeight } from '@/lib/formatters/surf-data';
+import { parseSkillLevel, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences/skill-level';
 
 // ============================================================================
 // Types
@@ -57,6 +58,26 @@ const BREAK_TYPE_MINIMUMS: Record<string, number> = {
   default: 1.5,
 };
 
+// Wave height hard gate minimums by skill level (in feet).
+//
+// These are derived from SKILL_WAVE_RANGES.acceptable.min (canonical source in
+// user-preferences/skill-level.ts) for beginner/intermediate/advanced.
+//
+// Expert is intentionally set HIGHER than acceptable.min (2.5 vs 2.0).
+// Reason: acceptable.min is a user-safety floor ("don't recommend waves too
+// small for the user to paddle"). SKILL_LEVEL_MINIMUMS is a beach-as-venue
+// gate ("this expert-rated break isn't worth paddling out under 2.5 ft —
+// the wave shape won't form properly"). These are different concerns.
+//
+// The scoring curve counterpart (idealMin) lives in base-conditions-scorer.ts
+// and is derived from SKILL_WAVE_RANGES.ideal.min with no overrides needed.
+const SKILL_LEVEL_MINIMUMS: Record<string, number> = {
+  beginner:     SKILL_WAVE_RANGES.beginner.acceptable.min,     // 0.5
+  intermediate: SKILL_WAVE_RANGES.intermediate.acceptable.min, // 1.0
+  advanced:     SKILL_WAVE_RANGES.advanced.acceptable.min,     // 2.0
+  expert:       2.5, // intentionally above acceptable.min (2.0) — see comment above
+};
+
 // Wind speed thresholds (in mph)
 const WIND_SPEED_GLASSY = 5;
 const WIND_SPEED_LIGHT_MAX = 10;
@@ -99,7 +120,12 @@ interface BeachWithWindData {
 function getMinRideable(beach: Beach): number {
   const beachWithType = beach as Beach & BeachWithBreakType;
   const breakType = (beachWithType.break_type || 'default').toLowerCase();
-  return BREAK_TYPE_MINIMUMS[breakType] ?? BREAK_TYPE_MINIMUMS.default;
+  const breakMin = BREAK_TYPE_MINIMUMS[breakType] ?? BREAK_TYPE_MINIMUMS.default;
+
+  const skillLevel = parseSkillLevel(beach.skill_level);
+  const skillMin = skillLevel ? (SKILL_LEVEL_MINIMUMS[skillLevel] ?? 0) : 0;
+
+  return Math.max(breakMin, skillMin);
 }
 
 /**
@@ -465,6 +491,17 @@ export function computeSurfCall(
     return {
       ...baseResult,
       whySentence: 'No viable surf window today.',
+    };
+  }
+
+  // Hard NO: window wave height below minimum rideable
+  // The daily max may pass the gate above, but the best window can have smaller waves
+  const windowWave = parseMaxWaveHeight(window.waveHeight);
+  if (windowWave !== null && windowWave < minRideable) {
+    return {
+      ...baseResult,
+      waveHeight: formatWaveHeight(windowWave),
+      whySentence: 'Best window waves too small for this spot.',
     };
   }
 

@@ -6,6 +6,7 @@ import type {
   BeginnerBeachWithEditorial,
   BeginnerCityEditorial,
 } from "@/types/beginner";
+import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSection } from "@/components/seo/faq-schema";
 import { CTASection } from "@/components/landing-page/cta-section";
@@ -35,6 +36,7 @@ interface BeginnerPageContentProps {
   totalBeaches: number;
   baseUrl: string;
   bestTimeToSurfUrl?: string;
+  excludeIntents?: IntentKey[];
 }
 
 export function BeginnerPageContent({
@@ -50,6 +52,7 @@ export function BeginnerPageContent({
   totalBeaches,
   baseUrl,
   bestTimeToSurfUrl,
+  excludeIntents,
 }: BeginnerPageContentProps) {
   const faqItems = [
     {
@@ -81,7 +84,7 @@ export function BeginnerPageContent({
           { name: "Quiver", url: `${baseUrl}/` },
           {
             name: `${cityName} Surf`,
-            url: `${baseUrl}/beaches/usa/${stateSlug}/${citySlug}`,
+            url: `${baseUrl}/${stateSlug}/${citySlug}`,
           },
           {
             name: "Beginner Spots",
@@ -96,7 +99,7 @@ export function BeginnerPageContent({
           className="flex items-center gap-1 text-sm mb-6"
         >
           <Link
-            href={`/beaches/usa/${stateSlug}/${citySlug}`}
+            href={`/${stateSlug}/${citySlug}`}
             className="inline-flex items-center gap-1 text-ocean-blue hover:underline"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -174,6 +177,7 @@ export function BeginnerPageContent({
               stateSlug={stateSlug}
               stateName={stateName}
               bestTimeToSurfUrl={bestTimeToSurfUrl}
+              excludeIntents={excludeIntents}
             />
           </SectionFadeUp>
 

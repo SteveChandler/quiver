@@ -62,7 +62,7 @@ describe('intent-definitions', () => {
 
   describe('buildCityHubUrl', () => {
     it('should build correct city hub URL', () => {
-      expect(buildCityHubUrl('ca', 'san-diego')).toBe('/beaches/usa/ca/san-diego');
+      expect(buildCityHubUrl('ca', 'san-diego')).toBe('/ca/san-diego');
     });
   });
 

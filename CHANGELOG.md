@@ -7,13 +7,154 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- SEO: `buildDynamicTideMetadata` now accepts `nextHighHeight` and `nextLowHeight` and produces data-rich titles (`{Beach} Tides {Date}: High {H}ft at {T}, Low at {T}`) and "Plan your surf" descriptions with "ML-enhanced" signal — improves CTR on 45 zero-click tide pages
+- SEO: `buildDynamicWaterTempMetadata` now uses shortened wetsuit label (`shortenWetsuitLabel` helper: "3/2mm fullsuit" -> "3/2mm") in titles (`{Beach} Water Temp: {T}°F — {WetsuitShort} Today`) and city context in descriptions — improves CTR on water temp pages
+- SEO: `renderBeachSubPage` in `beach-sub-page-utils.tsx` now renders `NearbyBeachesEnriched` (4 nearby beaches within 25 miles) below all sub-page content to reduce bounce rate via internal linking
+- One-tap session logging from email: session-prompt emails now include two direct-action buttons ("Yes, I surfed!" and "No, I didn't surf") backed by signed JWT tokens — clicking logs or skips without requiring the user to navigate the app. Added `GET /session/confirm` and `GET /session/skip` routes with UUID validation, date range checks, and noindex meta tags.
+- Session: post-session share prompt (`PostSessionShare`) — full-screen celebration overlay with confetti, star rating, and Share/Skip CTAs after logging a session; wires up existing ShareSheet and OG image infrastructure to create a viral acquisition channel
+- Settings: "Preferred Surf Time" field added to the Surf Preferences section of `ProfilePreferences` — 6-option toggle grid (Dawn Patrol through Any time) persists `profiles.preferred_session_time`; clicking the active option deselects (clears to null)
+- Onboarding: persist `preferred_session_time` to `profiles` during onboarding — maps `dawn` → `dawn_patrol`, `after_work` → `evening`, `weekends` → `any` so the Oracle home screen can use the preference immediately after signup
+- Oracle: `ActivityFeed` component — renders a list of recent local surf activity items (sessions/intel) with gradient avatar circles, semantic text tiers, and an empty state; used in Oracle home screen
+- Oracle: `SessionTimeSelector` component — 6-option grid (Dawn Patrol through Any time) for capturing preferred paddle-out time, with gold selected-state styling and `onSelect` callback
+- Oracle: `oracle-actions.ts` server actions — `getLocalActivity` (last-24h sessions + intel at home beach, merged and sorted, excluding current user) and `updatePreferredSessionTime` (writes to `profiles.preferred_session_time`), both wrapped in `withAuthenticatedAction`
+- Oracle: `OracleHero` cinematic hero component (~520px) with beach photo Ken Burns reveal, swell line overlay, wind indicator compass, gradient conditions overlay (wave height count-up, Paradise Gold score badge, swell/tide/water stats, best window card), greeting strip with XP badge, and a sequenced Framer Motion animation timeline (`shouldAnimate` flag; calls `onAnimationComplete` at 3s)
+- Oracle: `SwellLines` subcomponent — 5 Twilight Blue gradient lines rotated to swell compass direction with 30% opacity entrance animation
+- Oracle: `WindIndicator` subcomponent — compass circle with directional SVG arrow and speed label
+- Oracle: `ConditionsOverlay` subcomponent — bottom-anchored absolute panel with beach name, wave height heading, score badge, swell/tide/temp stat row, and animated best window card
+- Oracle: `TodaysWindows` visual timeline component — renders surf windows as proportional quality bars with gold emphasis for best windows, preferred-time ring highlight, and a "Full forecast" deep-link
+- Oracle: `NearbySpots` horizontal scroll component — displays a row of nearby surf spot cards (photo thumbnail, conditions, wave height) with loading skeleton and `onViewSpot` callback; used in the Oracle home screen
+- Oracle: `ContextualCTA` component with state-aware button priority logic — surfaces the highest-value action (set home beach, share session, paddle out, tell crew, invite friend) based on user state, with a secondary row of two outline buttons for supporting actions
+- Oracle: `useOracleData` hook (`hooks/use-oracle-data.ts`) aggregates profile, geolocation, surf discovery, hero photo (three-tier fallback: FALLBACK_IMAGE_BY_NAME > async beach photo > random hero image), animation state (first-visit-of-day via `localStorage`), and reduced-motion into a single composable data source for the oracle hero component
+- Oracle: `OracleHomeScreen` composition component — wires all oracle sub-components (hero, CTA, timeline, nearby spots, activity feed, session time selector) with data transforms, replaces `HomeScreen` for authenticated users
+- Oracle: `preferred_session_time` column on `profiles` table (migration `20260311120000`) — stores user's preferred surf time for oracle personalization
+- GEO: `public/llms.txt` — static AI-crawler site guide following the llms.txt standard, listing features, coverage areas with verified `/forecast/` links, data sources, and key pages
+- GEO: Updated `QuiverFAQSchema` "What is Quiver?" answer with the same fact-dense copy (per-beach ML models, CDIP/NDBC/IOOS networks, coverage geography) for structured-data richness
+- GEO: `robots.ts` now explicitly welcomes AI search crawlers (`GPTBot`, `OAI-SearchBot`, `ClaudeBot`, `PerplexityBot`) with the same allow/disallow rules as `*`, blocks training-only crawlers (`CCBot`, `Bytespider`, `cohere-ai`), and extracts shared paths into a `COMMON_DISALLOW` constant
+
+### Changed
+- Authed home screen replaced with Oracle layout — `AuthAwareLandingWrapper` now loads `OracleHomeScreen` instead of `HomeScreen` for authenticated users
+- Oracle hero greeting now uses time-aware message (Good morning/afternoon/evening) instead of hardcoded "Good morning"
+- Combined "What is Quiver?" and feature bento sections into unified section with concise ML value prop header
+
+### Fixed
+- Layout: landing page "Local surf favorites near you" section no longer leaks into `/map` after client-side navigation — moved `LandingPageSSRSection` from root layout into `app/page.tsx` (route-scoped, the idiomatic Next.js fix)
+- Layout: site footer no longer persists on `/map` after client-side navigation — added `HideOnRoutes` client gate and `/map` to footer hide list
+- E2E: all 15 map test failures fixed — enabled WebGL in headless Chromium (`--use-gl=angle` in Playwright config), replaced `networkidle` waits with timeouts (Mapbox tiles never go idle), fixed desktop sidebar selector to match actual `SidebarBeachCard` buttons, and updated marker-click URL check to match hierarchical URLs (`/ca/`, `/or/` etc.)
+- Map page: break type filters ("beach", "point", "reef", etc.) and "beginner-friendly" filter now return matching results instead of 0 — added `break_type` and `skill_level` to `BEACH_LIST_FIELDS` and `get_nearby_beaches` RPC
+- Landing page code quality: removed unused `Calendar`, `Car`, and `Anchor` imports from `lib/constants/features.ts`
+- Landing page code quality: `SectionWrapper` now accepts a `noiseVariant` prop (`"texture"` | `"strong"` | `"none"`) instead of always appending `noise-texture`; callers that were doubling up the class (`forecast-section`, `how-it-works-section`, `ml-pipeline-showcase`) have been updated to remove the redundant class from their `className` prop
+- Landing page code quality: added `ILLUSTRATIONS[i]` index-mismatch guard (`if (!Illustration) return null`) in `feature-bento-section` to prevent a runtime crash if the two arrays fall out of sync
+- Landing page bug: SVG filter IDs in `match-score-ring` switched from `glow-ring-${clampedScore}` (collides when two rings share a score) to a stable per-instance ID via React `useId()`
+- Landing page bug: replaced undefined Tailwind token `bg-bg-deep` in `cta-section` with explicit `bg-[#252D6B]`
+- Landing page UX: "Browse all surf spots" link in `surf-highlights-section` changed from `/ca/san-diego` to `/map`, the universal exploration entry point
+- Landing page accessibility: `useReducedMotion` hook now gates all Framer Motion entry animations (`containerVariants`/`itemVariants` stagger, inline `initial` props) in `hero-section`, `feature-bento-section`, `ml-pipeline-showcase`, and `surf-highlights-section` — when the user prefers reduced motion, `initial={false}` tells Framer Motion to skip straight to the visible state
+- Landing page accessibility: added `aria-hidden="true"` to the decorative ambient radial glow `div` in `hero-section`, matching the existing pattern in `feature-bento-section`
+- Landing page accessibility: WAI-ARIA Tabs Pattern `tabIndex` management added to both mobile and desktop tab buttons in `forecast-section` — only the active tab has `tabIndex={0}`; inactive tabs use `tabIndex={-1}`
+- Landing page contrast: `text-[#9AABC6]` bumped to `text-[#B0C0D6]` on all `text-sm` instances (bento card descriptions in `feature-bento-section`, step descriptions in `ml-pipeline-showcase`, stats labels in `surf-highlights-section`) to meet WCAG AA 4.5:1 minimum for small text; larger text retains `#9AABC6`
+- `ExploreMoreLinks` now uses `buildHiCityUrlForBeach` for city guide links, ensuring Hawaii beaches with ambiguous city names (e.g. Waimea) resolve to island-qualified URLs (`/hi/waimea-kauai`) instead of the bare city slug
+
+### Changed
+- Hero section: replaced 5-image carousel with full-screen looping drone video of surfer at golden hour, premium split-headline typography (Instrument Serif italic accent + Space Grotesk bold), single white pill CTA, 30% dark overlay, tab-pause, reduced-motion fallback to poster frame, and video error fallback
+- Landing page image quality overhaul: replaced 3 dark/low-res hero carousel images (hero-2, hero-4, hero-5) with vibrant Unsplash photos, cropped watermark from Windansea image (hero-3), and replaced all 6 "Browse by activity" thumbnails with high-quality 600x600 WebP images in `public/images/activities/`
+- SEO: enriched meta descriptions on map page, city listing pages, and all 7 intent page templates to hit the 150-160 char target range (previously 87-98 chars) — adds state names, spot names, singular/plural noun handling, and richer feature keywords for better SERP snippets and social sharing
+- Hero section: rotating San Diego beach photos (La Jolla, Blacks, Windansea, Scripps Pier, Ocean Beach) with Ken Burns zoom/pan animation, 1.5s crossfade transitions, 65% dark overlay, tab-pause, and `prefers-reduced-motion` support — replaces solid blue background
+- Landing page full redesign (nunu.ai-inspired): unified dark-first design with Deep Twilight (#252D6B) background throughout all sections, frosted glass cards (`bg-white/[0.04] backdrop-blur-md`), bold centered typography, generous spacing, and Framer Motion scroll-triggered animations
+- Feature bento grid replaces old UpgradeSessionSection: asymmetric card grid with 6 custom animated SVG illustrations (wave-bars, match-ring, signal-ripples, compass-pin, chart-trend, phone-notification)
+- Social proof stats bar added to surf highlights: animated count-up numbers (30K+ observations, 350+ spots, 10K+ sessions)
+- ML pipeline showcase cleaned up: replaced cyber aesthetic (clip-cyber, neon glows) with frosted glass cards and brand-palette step indicators
+- Forecast section restyled: dark frosted glass wrapper, dark tab pills, white text on dark background
+- Activities section restyled: dark background with ring glow hover effects on circular images
+- CTA section simplified: removed scan-lines/ambient-orb/clip-cyber, cleaner pill CTAs with generous padding
+- Removed LandingConditionsTicker from landing page
+- Replaced purple accents with Twilight Blue (#4A70D9) in feature cards and surf activities constants
+
+### Added
+- `components/landing-page/feature-bento-section.tsx` — bento grid layout with frosted glass cards and animated illustrations
+- `components/landing-page/bento-illustrations/` — 6 custom animated SVG illustration components following animated-wave-icon pattern (CSS keyframes, useReducedMotion accessibility)
+
+### Fixed
+- City links in state page, sibling-cities section, and SEO content now use canonical `/${stateSlug}/${citySlug}` URLs instead of the legacy `/beaches/usa/${stateSlug}/${citySlug}` format; state-level URLs remain unchanged
+- `/spots/lowers-trestles` 404 — added legacy slug alias redirecting to canonical `/spots/lower-trestles`; also fixed stored link in Orange County editorial content
+- `/least-crowded/{city}` 404s (30+ cities) — fixed case mismatch between `getCityExcludeIntents` (used capitalized `["Light", "Moderate"]`) and `applyIntentFilters` (used lowercase); both now use case-insensitive `ilike` matching
+- Google Places beach photos now download to Supabase Storage instead of storing ephemeral API URLs that returned 400 errors
+
+### Changed
+- `beach_photos.source` CHECK constraint expanded to allow `'google_places'` as a valid photo source
+
+### Added
+- `beach-photos` Supabase Storage bucket for hosting downloaded Google Places photos
+- `components/landing-page/match-score-ring.tsx` — SVG animated circular score display with neon orange arc, glow filter, and quality label derived from `getScoreColorClasses()`; supports Framer Motion entry animation via `animated` prop
+- `components/landing-page/hero-match-demo.tsx` — live match score card for hero section; fetches real top beach via `getTopBeachesNow(1)` + `getEnhancedBeachForecasts`, derives condition chips from forecast data, renders `MatchScoreRing` with ambient cyan orb; static fallback when fetch fails
+- `components/landing-page/ml-pipeline-showcase.tsx` — 3-step ML pipeline visualization ("Real-Time Data" → "ML Scoring Engine" → "Your Match Score"); scroll-triggered Framer Motion stagger, `MatchScoreRing` animated on viewport entry, CTA opens `UnifiedAuthModal` for unauthenticated users
+- `components/landing-page/how-it-works-section.tsx` — 3-step signup onboarding preview ("Tell us your style" / "We score every beach" / "Surf your best match"); scroll-triggered stagger, icon circles, CTA opens `UnifiedAuthModal` for unauthenticated users
+- Cyberpunk CSS utilities in `app/globals.css`: neon box-shadow glows (`glow-cyan`, `glow-orange`, `glow-magenta`), GPU-composited hover glow (`glow-hover-cyan`), container-scoped scan lines (`scan-lines`), neon text glows (`text-glow-cyan`, `text-glow-orange`), HUD border (`border-hud`), CP2077-style angular clip paths (`clip-cyber`, `clip-cyber-sm`), ambient gradient orbs (`ambient-orb-cyan`, `ambient-orb-orange`), and hover-only glitch animation (`text-glitch`) with `@keyframes glitch`
+- Cyberpunk color tokens in `tailwind.config.ts`: `neon.cyan`, `neon.magenta`, `neon.orange`, `neon.gold`; dark background tokens `bg-deep`, `bg-surface`, `bg-elevated`; and `border-glow`
+- Updated `CONTENT` hero strings in `lib/constants/features.ts` to ML-intelligence messaging: title "Every beach, scored for you", new subtitle emphasizing the ML model, CTA "Get Your Match Score"; updated section titles: `surfHighlights` → "Top Picks Right Now", `cta` → "What's your Match Score?" / "Free forever. 30-second setup."
+
+### Changed
+- Landing page restructure (cyberpunk pass): navbar gains inline search bar (`HeroSearchLazy`, desktop 300px + mobile sheet) and CTA updated to "Get Your Match Score"; hero section removes search bar and "Explore nearby spots" link, now shows `HeroMatchDemo` live score card + CTA button that opens `UnifiedAuthModal`; conditions ticker converted to dark bg (`#1E2558`) with LIVE pulse indicator; `SurfSpotCard` converted to dark variant (`bg-bg-surface`, white text, neon-cyan wave icon, circular score badge with `glow-orange`, `glow-hover-cyan` hover effect); `SurfHighlightsSection` heading replaced with `CONTENT.sections.surfHighlights.title`; `SocialFeedSection` stat cards updated to ML-focused metrics (1,200+ Beaches, 30K+ Observations, Every 3hrs) with neon icon accents; `CTASection` copy updated from `CONTENT` with dark `bg-bg-deep scan-lines` background, `text-glow-orange` headline, `clip-cyber` CTA button, ambient orange orb; `landing-page.tsx` background set to `bg-[#252D6B]`, `PersonalizationShowcase` replaced by `MLPipelineShowcase`, `HowItWorksSection` added, `SectionSkeleton` updated to dark gradient
+- Applied Quiver brand guide (Deep Twilight dark theme) to all landing page sections: `PersonalizationShowcase`, `SocialFeedSection`, `SurfHighlightsSection`, `HeroSection`, and `CTASection` now use `bg-[#252D6B]` instead of warm-white backgrounds, the `text-white`/`text-high`/`text-medium` emphasis system for all text, card surfaces at `bg-[#2D357D]` with `border-[#404C92]` borders, and the `<Button>` component in place of hand-coded `<button>` elements
+
+### Added
+- Landing page hero copy updated to personalization-first messaging: title "Surf forecasts that know what you like", subtitle emphasizing Quiver learning skill level and preferences, and a new descriptor line "Personalized surf forecasts for 1,200+ beaches" below the subtitle
+- Hero carousel updated to real San Diego beach photos (Blacks Beach, Swami's, Windansea, Ocean Beach); gradient overlay lightened from `from-black/60 via-black/20 to-black/50` to `from-black/50 via-black/10 to-black/40`
+- `FALLBACK_IMAGE_BY_NAME` in `featured-beaches-config.ts` expanded with additional SD beach entries (Scripps Beach, La Jolla Shores, La Jolla Cove, Cardiff Reef, Cardiff State Beach, Cardiff-by-the-Sea, Sunset Cliffs, Pacific Beach, Mission Beach, Tourmaline Surfing Park) so no SD beach falls back to the generic sunset placeholder
+- `lib/constants/dam-break-chunks.ts` — pre-computed polygon definitions, fall vectors, and SVG crack paths for the dam-break scroll animation: 6 `GATE_CHUNKS` (Phase 1, 0–40% scroll), 8 desktop `HERO_CHUNKS` and 6 mobile `HERO_CHUNKS_MOBILE` (Phase 2, 40–100% scroll), plus `GATE_CRACK_PATHS` (3 paths) and `HERO_CRACK_PATHS` (4 paths) for the pre-fracture crack reveal
+- `hooks/use-dam-break-scroll.ts` — scroll-linked animation hook for the dam-break landing hero; exports `useDamBreakScroll` (phase progress MotionValues, chunk definitions, gate interactivity state) and `computeChunkStyle` utility for per-chunk gravity/drift transforms in rendering-layer child components
+- `components/beach-detail/dam-break-hero.tsx` — React component that renders the dam-break scroll animation wrapping the beach hero for guest users; Phase 1 (0–40% scroll) fractures the signup gate overlay into falling chunks, Phase 2 (40–100%) collapses the hero itself; respects `prefers-reduced-motion` by rendering a static fallback with no animation
+- Conditions ticker is now full-width and edge-to-edge on beach detail pages — moved outside `max-w-7xl` container, `rounded-xl` removed so it spans the full viewport width as a flush bar at the bottom of the hero
+- Surf call gated for guests on beach detail pages — `surfReportSlot` renders blurred (`blur-sm`, `pointer-events-none`) with a centered dark overlay CTA ("Sign up free to see today's surf call") and orange signup button that opens the auth modal
+- Home hero Ken Burns effect and animated gradient overlay — background image slowly zooms/pans (35s cycle) and the dark overlay pulses opacity (20s cycle), both via pure CSS Tailwind animations; both respect `prefers-reduced-motion` (`motion-safe:` prefix for Ken Burns, natural exclusion via `reducedMotion` branch for gradient)
+- `usePersistedDismissal` hook now accepts a `storage` option (`"local"` | `"session"`, default `"local"`); `StickySignupBar` uses `"session"` so its dismissal clears on tab close rather than persisting 7 days
+- Live cam gating for anonymous users — beach page hero shows a blurred thumbnail with `PublicContentGate` "Watch the Live Cam" CTA; authenticated users see the full stream
+- `InlineSignupCta` moved above the fold on beach pages — now renders after `BeachStatsGrid` instead of buried at the bottom of the page
+- Home screen level badge pill in `GreetingSection` — shows user's level title and total XP (e.g. "Kook · 100 XP") below the greeting when XP data is available
+- Hero recommendation "Your beach" headline override — when the recommended beach matches the user's home beach, shows "Your beach is firing" (great/good tiers) or "Your spot: {name}" (fair/marginal tiers)
+- `/forecast-accuracy` page — data-driven SEO content page comparing Quiver ML forecast accuracy against the NOAA marine baseline. Pulls live stats from the `beach_ml_performance_baseline` materialized view: hero stat cards (improvement %, beach count, predictions validated), NOAA vs Quiver MAE bar chart, regional accuracy grouped chart, top-20 beach leaderboard, methodology explainer, and FAQ with FAQPage JSON-LD. ISR at 6 hours. Breadcrumb + WebPage structured data. Added to sitemap at priority 0.85 and to the footer guides section.
+- Static OG image route at `/api/og/forecast-accuracy` for social sharing of the `/forecast-accuracy` page — edge runtime, 1200x630, dark navy gradient with "Surf Forecast Accuracy Report" heading and "ML-Corrected Predictions vs NOAA Baseline" subtitle
+- `docs/seo/DOMAIN_AUTHORITY_PLAYBOOK.md` — 12-month off-site SEO playbook covering surf school widget partnerships, HARO/Qwoted positioning, guest post targets, data story pipeline, and monthly milestone tracking (complements the existing on-page Phase 2 plan)
+
+### Fixed
+- Surf scores drastically deflated to match realistic expectations — added wave-height ceiling to legacy scorer (`getWaveHeightCeiling()` with 5-segment curve), compressed sub-ideal wave scoring in modern scorer (max 55 at idealMin instead of 100, ideal range ramps 55→100), and converted personalization from additive (+0–50 pts) to multiplicative (1.0–1.15x). A 1-2ft day at an intermediate beach with perfect conditions now scores ~45-55 (Fair) instead of 96 (Epic).
+- Onboarding dialog z-index raised from `z-50` to `z-[60]` so the full-screen overlay renders above the sticky app header (`z-50`), making the "Skip onboarding" close button clickable without the header intercepting pointer events
+- Surf call verdict now skill-level-aware — advanced/expert beaches with tiny waves (e.g. 1.3 ft at Blacks Beach) correctly return NO instead of YES. Hard gate uses `max(break_type_min, skill_level_min)`, base conditions scorer derives `idealMin` from beach skill level, and window-level wave check prevents small-wave windows from passing when daily max is larger.
+- `user_events_event_type_check` CHECK constraint expanded from 23 to 62 event types — all share, signup/auth, session log, tour, intel, profile, and discovery events were silently failing with 500 errors because the DB constraint was not updated when new event types were added to the application code
+
 ### Removed
 - Dead API route: `/api/health/fonts` (unused font health check)
 - Dead API route: `/api/v1/recommendations/feedback` (unused spot feedback endpoint)
 - Dead script: `scripts/test-lint.sh`
 - 10 unused Tailwind animation keyframes and utility classes
+- `ActivitiesSection`, `ForecastSection` (phone-mock switcher), and `UpgradeSessionSection` removed from the landing page render order as part of the March 2026 redesign — component files preserved, not deleted
 
 ### Changed
+- Landing page section order redesigned for clearer value story: Ticker → Personalization Showcase → Surf Highlights → Social Feed → CTA (was: Ticker → Highlights → Upgrade Session → Personalization → Activities → Forecast)
+- `PersonalizationShowcase` background changed from `bg-white` to `bg-[#FAF8F5]` (warm off-white) for section contrast rhythm
+- `SocialFeedSection` background changed to `bg-[#FAF8F5]` (warm off-white) for alternating section backgrounds
+- Surf spot card image height increased from `h-44` to `h-48`/`h-56` (mobile/desktop) for more cinematic card proportions
+- Surf spot card title typography changed from `font-heading` to `font-sans` per the "Space Grotesk only at text-2xl+" rule
+- "Browse all surf spots →" ghost-style link added below the surf highlights grid, linking to `/ca/san-diego`
+- Social feed CTA button updated with explicit `font-sans` and `shadow-sm` classes to match primary button system
+- Site footer section headings in brand mode (`showBrandSection=true`) changed from `font-heading` to `font-sans` at `text-lg` (Space Grotesk reserved for text-2xl and above)
+
+### Changed
+- Migrated `text-white/90` and `text-white/80` to `text-high`, and `text-white/70`, `text-white/60`, `text-white/50` to `text-medium` across onboarding steps (`home-beach-step`, `level-and-time-step`, `payoff-step`) and content pages (`about-client`, `privacy/page`, `terms/page`, `features-client`); hover/focus states and decorative classes (`text-white/40` and below) left untouched
+- Home screen header now uses a layered background: photo (`/images/home-hero-bg.avif`) behind a dark gradient overlay and noise texture, replacing the animated `bg-[linear-gradient]` + `animate-ocean-swell` approach. Reduced motion path retains the `from-header-start to-header-end` gradient overlay.
+- Home screen time-slot empty-state paragraph migrated from `text-white/80` to `text-high`
+- `docs/STYLE_GUIDE.md` — added Section 13 (Text Emphasis System) documenting the three-tier white opacity system (`text-white`, `text-high`, `text-medium`) with migration rules for legacy `text-white/{n}` modifiers, and Section 14 (Texture & Grain) documenting `noise-texture`, `noise-texture-subtle`, and `noise-texture-strong` CSS utility classes
+- `getScoreColorClass("marginal")` in `lib/utils/condition-tier-utils.ts` now returns `"text-medium"` instead of `"text-white/60"` per the text emphasis migration rules; test updated in-sync
+- Replaced typeface stack: Inter/Roboto/Open Sans/Permanent Marker replaced with DM Sans (body), Space Grotesk (headings), and Space Mono (monospace). Tailwind classes `font-roboto` and `font-open-sans` replaced with `font-heading` and `font-sans` respectively.
+- `StickySignupBar` dismissal switched from localStorage (7-day) to sessionStorage — bar reappears on new tabs/sessions instead of staying hidden for a week
+- `StickySignupBar` added to `/beach/[slug]` and `/mexico/.../[beachSlug]` pages for parity with the main beach route
+- Mobile header now shows a compact "Sign Up" pill button and hides the "Log in" ghost button (accessible via hamburger menu) — desktop retains the full contextual CTA from `getSignupCta`
+- `getSignupCta` regex generalized to match any 2-letter state code and `/mexico/` routes instead of hardcoded subset
+- Home screen personalization progress bar starts at 20% (endowed progress effect) instead of 0%
+- `PersonalizationProgress` `getting_started` copy updated to "We're dialed in on your spot and schedule" / "Log a session and your forecast starts learning what you like. Five sessions and it's all yours."
+- `FirstSessionCta` heading changed to "Did you surf recently?", body to "Log it in 30 seconds. Your forecast starts learning what you like.", friction reducer to "Just pick your spot and rate the waves"
+- Welcome email subject updated to "Your forecast is live"; opening copy now identity-focused with Level 1 Kook framing and "Your home beach forecast is waiting" messaging
+- **ML v3.2: Small-wave taper guardrail** — Linearly scales down ML corrections when raw NOAA forecast is below 0.8m (0% at ≤0.3m, 100% at ≥0.8m). Prevents overcorrection on calm days where the model's learned upward bias dominates the raw forecast. At Scripps with a typical 0.47m calm-day forecast, the correction is now ~34% of what it was, reducing error from ~0.27m to ~0.04m. Also added both tapers (large-swell + small-wave) to `train_v3.py` and `api.py` holdout evaluations for consistency with production `model.py`.
+- **Forecast accuracy labels reverted to "NOAA Baseline"** — All "Other Forecasts" labels on `/forecast-accuracy` changed back to "NOAA Baseline" across hero, comparison bar, regional chart, and beach leaderboard. We can't defensibly claim superiority over Surfline without systematic data.
 - Features page hero CTA now links to /map (try-first funnel) instead of /auth/sign-up
 - Added StickySignupBar and InlineSignupCta to /features page for mobile conversion
 
@@ -273,7 +414,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Brand alignment:** Unified visual language across landing page and authenticated app — ocean-blue is now the primary action color everywhere, orange demoted to secondary accent
 - **Primary actions ocean-blue:** Home screen CTA buttons use ocean-blue gradient instead of orange (`primary-actions.tsx`)
 - **Bottom nav active state:** Changed from orange to ocean-blue (`bottom-nav.tsx`)
-- **Font consistency:** Added `font-roboto` to greeting and hero headings for consistent typography
+- **Font consistency:** Added `font-heading` to greeting and hero headings for consistent typography
 - **CSS primary variable:** Aligned `--primary` and `--ring` CSS variables with ocean-blue (#0077B6)
 - **Ocean-blue hover states:** Replaced `ocean-blue-dark` token with `ocean-blue/90` opacity modifier in beach-actions and product-tour
 - **Style guide expanded:** Added font family rules, logo usage, naming conventions, landing/app alignment, and updated brand color documentation

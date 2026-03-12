@@ -744,9 +744,13 @@ describe('selectBestWindow past window filtering with tolerance', () => {
 
     const result = selectBestWindow(forecasts, mockBeach as Beach, null);
     expect(result).not.toBeNull();
-    // Should NOT pick the 3:30pm window (excluded by tolerance filter)
-    // The result should be from one of the other windows
-    expect(result!.start.getUTCHours()).toBeGreaterThanOrEqual(16);
+    // Should NOT pick the 3:30pm window (excluded by tolerance filter).
+    // The 3:30pm window resolves to 23:30 UTC (local-as-UTC convention for LA tz),
+    // while valid windows resolve to 00:xx–02:xx UTC (next calendar day in UTC).
+    // Verify the selected window is not from the excluded past forecast (wave_height '4'
+    // from past-excluded is same as others, so check it comes from 16:30Z+ which scores
+    // higher: wave_height '5', period '14s', confidence 90).
+    expect(result!.waveHeight).toBe('5');
   });
 });
 

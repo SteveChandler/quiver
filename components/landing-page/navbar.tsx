@@ -19,6 +19,8 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import { useLandingLocation } from "@/hooks/use-landing-location";
+import HeroSearchLazy from "@/components/landing-page/hero-search-lazy";
+import { useRouter } from "next/navigation";
 
 const STATIC_MENU_ITEMS = [
   { label: "7-Day Outlook", href: "/forecast", category: "Forecast" },
@@ -62,6 +64,16 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const { regionName } = useLandingLocation();
+  const router = useRouter();
+
+  const navigateToMap = (query?: string) => {
+    const trimmed = query?.trim();
+    const url =
+      trimmed && trimmed.length > 0
+        ? `/map?search=${encodeURIComponent(trimmed)}`
+        : "/map";
+    router.push(url);
+  };
 
   // Prevent hydration mismatch from Radix UI components generating different IDs
   useEffect(() => {
@@ -101,8 +113,8 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
               <Image
                 src="/logoQuiver.png"
                 alt="Quiver Logo"
-                width={40}
-                height={40}
+                width={48}
+                height={48}
                 priority
                 className="transition-transform group-hover:scale-110"
               />
@@ -177,6 +189,14 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
               </span>
             )}
 
+            {/* Compact Search Bar */}
+            <div className="w-[300px]">
+              <HeroSearchLazy
+                onFallback={navigateToMap}
+                onSelect={(beach) => navigateToMap(beach.name)}
+              />
+            </div>
+
             {/* Auth Buttons */}
             <div className="flex items-center gap-4 ml-2">
               <button
@@ -188,7 +208,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                     source: "landing-navbar",
                   });
                 }}
-                className="text-white/70 hover:text-white text-sm font-medium transition-colors"
+                className="text-medium hover:text-white text-sm font-medium transition-colors"
               >
                 Log in
               </button>
@@ -201,9 +221,9 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                     source: "landing-navbar",
                   });
                 }}
-                className="bg-white/95 text-ocean-blue hover:bg-white font-semibold rounded-full px-5 py-2 shadow-lg backdrop-blur-sm hover:shadow-xl transition-all duration-200"
+                className="bg-ocean-blue text-white rounded-full px-6 py-3 font-sans font-semibold shadow-sm hover:bg-ocean-blue/90"
               >
-                Start surfing smarter
+                Get Your Match Score
               </Button>
             </div>
           </div>
@@ -231,6 +251,14 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                   {/* Scrollable menu content */}
                   <div className="flex-1 overflow-y-auto px-6">
                     <div className="flex flex-col gap-6 mt-8">
+                      {/* Mobile Search */}
+                      <div className="w-full">
+                        <HeroSearchLazy
+                          onFallback={navigateToMap}
+                          onSelect={(beach) => navigateToMap(beach.name)}
+                        />
+                      </div>
+
                       {/* Mobile Explore - Region groups */}
                       <div>
                         <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
@@ -309,7 +337,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                         });
                       }}
                     >
-                      Start surfing smarter
+                      Get Your Match Score
                     </Button>
                     <Button
                       variant="ghost"
@@ -351,7 +379,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
         mode={authMode}
         source="landing-navbar"
         returnTo="/"
-        contextMessage={authMode === "signup" ? { title: "Start surfing smarter", description: "Personalized surf forecasts in 30 seconds" } : undefined}
+        contextMessage={authMode === "signup" ? { title: "Get Your Match Score", description: "Personalized surf forecasts in 30 seconds" } : undefined}
       />
     </nav>
   );

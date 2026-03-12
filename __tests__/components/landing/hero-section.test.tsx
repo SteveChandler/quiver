@@ -1,77 +1,156 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useRouter } from "next/navigation";
 import { HeroSection } from "@/components/landing-page/hero-section";
 
-jest.mock("next/navigation", () => ({
-  useRouter: jest.fn(),
-}));
+// Mock HTMLMediaElement.play (JSDOM doesn't implement it)
+beforeAll(() => {
+  HTMLMediaElement.prototype.play = jest.fn().mockResolvedValue(undefined);
+  HTMLMediaElement.prototype.pause = jest.fn();
+});
 
-jest.mock("@/components/landing-page/hero-search-lazy", () => {
+// Mock framer-motion to avoid animation complexity in tests
+jest.mock("framer-motion", () => {
+  const React = require("react");
   return {
-    __esModule: true,
-    // eslint-disable-next-line react-hooks/rules-of-hooks -- mock factory, not a real component
-    default: ({
-      onFallback,
-      onQueryChange,
-    }: {
-      onFallback?: (query?: string) => void;
-      onQueryChange?: (query: string) => void;
-    }) => {
-      // Simple mock that behaves like a text input wired to the callbacks.
-      // eslint-disable-next-line react-hooks/rules-of-hooks -- mock component inside jest.mock factory
-      const [value, setValue] = React.useState("");
-      return (
-        <input
-          aria-label="Beach search"
-          value={value}
-          onChange={(e) => {
-            setValue(e.target.value);
-            onQueryChange?.(e.target.value);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              onFallback?.(value);
-            }
-          }}
-        />
-      );
+    motion: {
+      div: React.forwardRef(
+        (props: Record<string, unknown>, ref: React.Ref<HTMLDivElement>) => {
+          const {
+            variants: _variants,
+            initial: _initial,
+            animate: _animate,
+            whileInView: _whileInView,
+            ...rest
+          } = props;
+          return <div ref={ref} {...rest} />;
+        }
+      ),
+      h1: React.forwardRef(
+        (
+          props: Record<string, unknown>,
+          ref: React.Ref<HTMLHeadingElement>
+        ) => {
+          const { variants: _variants, ...rest } = props;
+          return <h1 ref={ref} {...rest} />;
+        }
+      ),
+      p: React.forwardRef(
+        (
+          props: Record<string, unknown>,
+          ref: React.Ref<HTMLParagraphElement>
+        ) => {
+          const { variants: _variants, ...rest } = props;
+          return <p ref={ref} {...rest} />;
+        }
+      ),
     },
+    useInView: () => true,
   };
 });
 
-describe("HeroSection landing search", () => {
-  const push = jest.fn();
+// Mock UnifiedAuthModal
+jest.mock("@/components/auth/unified-auth-modal", () => ({
+  UnifiedAuthModal: ({
+    isOpen,
+    mode,
+  }: {
+    isOpen: boolean;
+    mode: string;
+  }) =>
+    isOpen ? (
+      <div data-testid="auth-modal" data-mode={mode}>
+        Auth Modal
+      </div>
+    ) : null,
+}));
 
-  beforeEach(() => {
-    (useRouter as jest.Mock).mockReturnValue({ push });
-    push.mockReset();
+// Mock analytics
+jest.mock("@/lib/analytics/auth-events", () => ({
+  trackAuthModalOpened: jest.fn(),
+}));
+
+// Mock CONTENT
+jest.mock("@/lib/constants/features", () => ({
+  CONTENT: {
+    hero: {
+      title: "Every session makes your next forecast smarter.",
+      subtitle: "Test subtitle",
+      cta: "Start surfing smarter",
+    },
+  },
+}));
+
+describe("HeroSection", () => {
+  it("renders the hero headline from CONTENT", () => {
+    render(<HeroSection />);
+    expect(
+      screen.getByRole("heading", {
+        name: /every session makes your next forecast smarter/i,
+      })
+    ).toBeInTheDocument();
   });
 
-  it("falls back to map search with query when pressing Enter", async () => {
-    const user = userEvent.setup();
+  it("renders the subtitle text", () => {
     render(<HeroSection />);
-
-    const input = screen.getByLabelText("Beach search");
-
-    await user.type(input, "ocean beach{enter}");
-
-    expect(push).toHaveBeenCalledWith(
-      "/map?search=" + encodeURIComponent("ocean beach")
-    );
+    expect(screen.getByText("Test subtitle")).toBeInTheDocument();
   });
 
-  it("navigates to plain map when Explore nearby spots is clicked with empty query", async () => {
-    const user = userEvent.setup();
+  it("renders the primary CTA button with correct text", () => {
     render(<HeroSection />);
-
-    const exploreLink = screen.getByRole("link", {
-      name: /explore nearby spots/i,
+    const cta = screen.getByRole("button", {
+      name: /start surfing smarter/i,
     });
+    expect(cta).toBeInTheDocument();
+  });
 
-    await user.click(exploreLink);
+  it("renders the Learn More secondary CTA linking to /about", () => {
+    render(<HeroSection />);
+    const learnMore = screen.getByRole("link", { name: /learn more/i });
+    expect(learnMore).toBeInTheDocument();
+    expect(learnMore).toHaveAttribute("href", "/about");
+  });
 
-    expect(push).toHaveBeenCalledWith("/map");
+  it("opens auth modal in signup mode when primary CTA is clicked", async () => {
+    const user = userEvent.setup();
+    render(<HeroSection />);
+
+    const cta = screen.getByRole("button", {
+      name: /start surfing smarter/i,
+    });
+    await user.click(cta);
+
+    const modal = screen.getByTestId("auth-modal");
+    expect(modal).toBeInTheDocument();
+    expect(modal).toHaveAttribute("data-mode", "signup");
+  });
+
+  it("tracks auth modal opened event when CTA is clicked", async () => {
+    const { trackAuthModalOpened } = require("@/lib/analytics/auth-events");
+    const user = userEvent.setup();
+    render(<HeroSection />);
+
+    const cta = screen.getByRole("button", {
+      name: /start surfing smarter/i,
+    });
+    await user.click(cta);
+
+    expect(trackAuthModalOpened).toHaveBeenCalledWith({
+      mode: "signup",
+      source: "hero-cta",
+    });
+  });
+
+  it("does not render HeroCarousel or HeroMatchDemo", () => {
+    render(<HeroSection />);
+    expect(screen.queryByTestId("hero-carousel")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("hero-match-demo")).not.toBeInTheDocument();
+  });
+
+  it("does not render a search bar", () => {
+    render(<HeroSection />);
+    expect(
+      screen.queryByPlaceholderText(/search by beach/i)
+    ).not.toBeInTheDocument();
   });
 });

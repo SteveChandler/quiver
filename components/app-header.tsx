@@ -147,14 +147,15 @@ export function AppHeader() {
   }
 
   const getSignupCta = (path: string) => {
-    if (path.match(/^\/(ca|hi|or|wa|pr|mx)\//)) return "Get Your Match";
+    // Match any 2-letter state/territory code or /mexico/ beach routes
+    if (path.match(/^\/([a-z]{2}|mexico)\//)) return "Get Your Match";
     if (path.startsWith("/forecast")) return "Full Forecast";
     if (path.match(/^\/(beginner|longboard|dawn-patrol|tide|water-temp)\//)) return "Find Your Spot";
     return "Get Started";
   };
 
   const getSignupContext = (path: string): { title: string; description: string } => {
-    if (path.match(/^\/(ca|hi|or|wa|pr|mx)\//))
+    if (path.match(/^\/([a-z]{2}|mexico)\//))
       return { title: "Get Your Match", description: "Personalized surf forecasts in 30 seconds" };
     if (path.startsWith("/forecast"))
       return { title: "See the Full Forecast", description: "Get the complete 12-day outlook" };
@@ -593,7 +594,7 @@ export function AppHeader() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  className="hidden lg:inline-flex focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                   onClick={() => {
                     setAuthMode("login");
                     setAuthModalOpen(true);
@@ -607,7 +608,7 @@ export function AppHeader() {
                 </Button>
                 <Button
                   size="sm"
-                  className="bg-gradient-to-b from-primary to-primary/90 text-primary-foreground rounded-full px-5 h-10 font-semibold shadow-sm hover:shadow-md hover:from-primary/95 hover:to-primary/85 active:scale-[0.98] transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  className="bg-gradient-to-b from-primary to-primary/90 text-primary-foreground rounded-full px-3 lg:px-5 h-10 font-semibold shadow-sm hover:shadow-md hover:from-primary/95 hover:to-primary/85 active:scale-[0.98] transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                   onClick={() => {
                     setAuthMode("signup");
                     setAuthModalOpen(true);
@@ -617,7 +618,8 @@ export function AppHeader() {
                     });
                   }}
                 >
-                  {getSignupCta(pathname)}
+                  <span className="lg:hidden">Sign Up</span>
+                  <span className="hidden lg:inline">{getSignupCta(pathname)}</span>
                 </Button>
               </div>
 

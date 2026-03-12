@@ -95,7 +95,7 @@ export const buildCityIntentUrl = (
 ): string => `/${intent}/${citySlug}`;
 
 export const buildCityHubUrl = (stateSlug: string, citySlug: string): string =>
-  `/beaches/usa/${stateSlug}/${citySlug}`;
+  `/${stateSlug}/${citySlug}`;
 
 /**
  * Parse old collision-aware city slugs for redirect handling.

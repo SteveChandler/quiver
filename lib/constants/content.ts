@@ -837,7 +837,7 @@ export const FEATURES_EXTENDED_CONTENT = {
     subtitle:
       "Quiver learns your wave preferences and tells you which beach will be best today. No decoding charts. No guesswork.",
     stats: [
-      { value: "96+", label: "Beaches" },
+      { value: "275+", label: "Beaches" },
       { value: "3hr", label: "Updated Every 3 Hours" },
       { value: "0-100", label: "Your Personal Match Score" },
       { value: "Live", label: "Real Conditions, Not Guesses" },

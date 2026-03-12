@@ -203,10 +203,10 @@ export function EmbedPromoPage({ variant, beaches }: EmbedPromoPageProps) {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Left: copy */}
             <div className="text-center lg:text-left">
-              <h1 className="text-4xl md:text-5xl font-roboto font-bold tracking-tight mb-6">
+              <h1 className="text-4xl md:text-5xl font-heading font-bold tracking-tight mb-6">
                 {copy.heroTitle}
               </h1>
-              <p className="text-lg font-open-sans text-slate-300 max-w-lg mx-auto lg:mx-0 mb-8">
+              <p className="text-lg font-sans text-slate-300 max-w-lg mx-auto lg:mx-0 mb-8">
                 {copy.heroSubtitle}
               </p>
               <Button
@@ -243,10 +243,10 @@ export function EmbedPromoPage({ variant, beaches }: EmbedPromoPageProps) {
               <div className="flex items-center justify-center w-16 h-16 bg-sky-100 rounded-full mb-5">
                 <prop.icon className="h-7 w-7 text-ocean-blue" />
               </div>
-              <h3 className="text-xl font-roboto font-bold text-gray-900 mb-2">
+              <h3 className="text-xl font-heading font-bold text-gray-900 mb-2">
                 {prop.title}
               </h3>
-              <p className="font-open-sans text-gray-600 leading-relaxed max-w-xs">
+              <p className="font-sans text-gray-600 leading-relaxed max-w-xs">
                 {prop.description}
               </p>
             </div>
@@ -262,10 +262,10 @@ export function EmbedPromoPage({ variant, beaches }: EmbedPromoPageProps) {
         className="py-20 px-4 bg-slate-50 scroll-mt-20"
       >
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-roboto font-bold text-gray-900 text-center mb-3">
+          <h2 className="text-3xl font-heading font-bold text-gray-900 text-center mb-3">
             Build Your Embed
           </h2>
-          <p className="font-open-sans text-gray-600 text-center mb-10 max-w-xl mx-auto">
+          <p className="font-sans text-gray-600 text-center mb-10 max-w-xl mx-auto">
             Pick a beach, choose a widget type, and copy the code.
           </p>
 
@@ -350,10 +350,10 @@ export function EmbedPromoPage({ variant, beaches }: EmbedPromoPageProps) {
         centerContent
         maxWidth="4xl"
       >
-        <h2 className="text-3xl font-roboto font-bold text-gray-900 mb-4">
+        <h2 className="text-3xl font-heading font-bold text-gray-900 mb-4">
           {copy.socialProofTitle}
         </h2>
-        <p className="text-lg font-open-sans text-gray-600 leading-relaxed max-w-2xl mx-auto">
+        <p className="text-lg font-sans text-gray-600 leading-relaxed max-w-2xl mx-auto">
           {copy.socialProofBody}
         </p>
       </SectionWrapper>
@@ -363,10 +363,10 @@ export function EmbedPromoPage({ variant, beaches }: EmbedPromoPageProps) {
       {/* ----------------------------------------------------------------- */}
       <section className="relative overflow-hidden bg-gradient-to-r from-sky-500 to-blue-600 py-20 px-4 text-white text-center">
         <div className="max-w-2xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-roboto font-bold mb-4">
+          <h2 className="text-3xl md:text-4xl font-heading font-bold mb-4">
             {copy.ctaTitle}
           </h2>
-          <p className="text-lg font-open-sans text-white/80 mb-8">{copy.ctaBody}</p>
+          <p className="text-lg font-sans text-high mb-8">{copy.ctaBody}</p>
           <Button
             size="lg"
             className="bg-white text-ocean-blue hover:bg-white/90 rounded-full px-8 font-semibold"

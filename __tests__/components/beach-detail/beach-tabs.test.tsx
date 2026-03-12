@@ -46,8 +46,8 @@ describe('BeachTabs Component', () => {
         </BeachTabs>
       );
 
-      // Overview should be visible by default
-      expect(screen.getByText('Overview Content')).toBeInTheDocument();
+      // Forecast should be visible by default (defaultTab="forecast")
+      expect(screen.getByText('Forecast Content')).toBeInTheDocument();
     });
 
     test('accepts custom className prop', () => {
@@ -64,7 +64,7 @@ describe('BeachTabs Component', () => {
   });
 
   describe('Default Tab Selection', () => {
-    test('defaults to "overview" tab when no defaultTab provided', () => {
+    test('defaults to "forecast" tab when no defaultTab provided', () => {
       render(
         <BeachTabs>
           <BeachTabContent value="overview">Overview Content</BeachTabContent>
@@ -72,8 +72,8 @@ describe('BeachTabs Component', () => {
         </BeachTabs>
       );
 
-      const overviewTab = screen.getByRole('tab', { name: /overview/i });
-      expect(overviewTab).toHaveAttribute('data-state', 'active');
+      const forecastTab = screen.getByRole('tab', { name: /forecast/i });
+      expect(forecastTab).toHaveAttribute('data-state', 'active');
     });
 
     test('respects custom defaultTab prop', () => {
@@ -185,9 +185,9 @@ describe('BeachTabs Component', () => {
 
       const overviewTab = screen.getByRole('tab', { name: /overview/i });
 
-      // Phase 5: Transition specification (0.2s ease)
+      // Phase 5: Transition specification
       expect(overviewTab).toHaveClass('transition-all');
-      expect(overviewTab).toHaveClass('duration-200');
+      expect(overviewTab).toHaveClass('duration-300');
     });
 
     test('TabTriggers have correct hover state classes', () => {
@@ -218,7 +218,6 @@ describe('BeachTabs Component', () => {
       expect(overviewTab).toHaveClass('data-[state=active]:text-ocean-blue'); // Text color
       expect(overviewTab).toHaveClass('data-[state=active]:font-semibold'); // Font weight 600
       expect(overviewTab).toHaveClass('data-[state=active]:bg-transparent'); // No background
-      expect(overviewTab).toHaveClass('data-[state=active]:shadow-none'); // No shadow
 
       // Verify it actually has active state
       expect(overviewTab).toHaveAttribute('data-state', 'active');
@@ -426,7 +425,7 @@ describe('BeachTabs Component', () => {
 
     test('BeachTabContent export works correctly', () => {
       render(
-        <BeachTabs>
+        <BeachTabs defaultTab="overview">
           <BeachTabContent value="overview">
             <div>Test Content</div>
           </BeachTabContent>

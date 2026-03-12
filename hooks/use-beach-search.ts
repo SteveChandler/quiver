@@ -90,47 +90,39 @@ export function useBeachSearch() {
     (query: string, beachList: Beach[], activeRegion: string | "ALL", filters: BeachSearchState["filters"]) => {
       let working = beachList;
 
-      // Debug logging
-      console.log('🔍 Applying filters:', {
-        totalBeaches: beachList.length,
-        activeRegion,
-        filters: {
-          beginnerFriendly: filters.beginnerFriendly,
-          breakTypes: Array.from(filters.breakTypes),
-        },
-        sampleBeach: beachList[0] ? {
-          name: beachList[0].name,
-          skill_level: beachList[0].skill_level,
-          break_type: beachList[0].break_type,
-        } : null,
-      });
-
       // Region filter
       if (activeRegion !== "ALL") {
         working = working.filter((b) => (b.region || "") === activeRegion);
-        console.log(`  After region filter: ${working.length} beaches`);
       }
 
       // Beginner-friendly filter
       if (filters.beginnerFriendly) {
         working = working.filter((b) => (b.skill_level || "").toLowerCase().includes("beginner"));
-        console.log(`  After beginner filter: ${working.length} beaches`);
       }
 
       // Break type filter - use substring matching to handle descriptive break_type values
-      // (e.g., "Right point over reef/rock" matches "point" and "reef" filters)
+      // (e.g., "beach/reef break" matches both "beach" and "reef" filters).
+      // "longboard" and "bodyboard" are board-type heuristics, not break_type values:
+      //   longboard → mellow waves: beach or point breaks at beginner/intermediate skill
+      //   bodyboard → shore break: beach breaks at any skill level
       if (filters.breakTypes && filters.breakTypes.size > 0) {
         working = working.filter((b) => {
-          // Exclude beaches with unknown break_type (null/undefined) from filtered results
-          // to ensure accurate filter matching. Beaches without break_type won't match any filter.
           if (!b.break_type) return false;
           const breakTypeLower = b.break_type.toLowerCase();
-          // Match if break_type contains ANY of the selected filter keywords
-          return Array.from(filters.breakTypes).some(filterType =>
-            breakTypeLower.includes(filterType)
-          );
+          const skillLower = (b.skill_level || "").toLowerCase();
+
+          return Array.from(filters.breakTypes).some((filterType) => {
+            if (filterType === "longboard") {
+              const mellowBreak = breakTypeLower.includes("beach") || breakTypeLower.includes("point");
+              const mellowSkill = skillLower.includes("beginner") || (skillLower.includes("intermediate") && !skillLower.includes("advanced"));
+              return mellowBreak && mellowSkill;
+            }
+            if (filterType === "bodyboard") {
+              return breakTypeLower.includes("beach");
+            }
+            return breakTypeLower.includes(filterType);
+          });
         });
-        console.log(`  After break type filter: ${working.length} beaches`);
       }
 
       // Fuzzy search with punctuation-insensitive normalization and alias support
@@ -138,7 +130,6 @@ export function useBeachSearch() {
       
       // If no normalized query, return all filtered beaches
       if (searchVariants.length === 0 || !searchVariants[0]) {
-        console.log(`✅ Final filtered beaches: ${working.length}`);
         return working;
       }
 
@@ -155,8 +146,7 @@ export function useBeachSearch() {
           return tokens.every((t) => hay.includes(t));
         });
       });
-      
-      console.log(`✅ Final filtered beaches (after search): ${result.length}`);
+
       return result;
     },
     []
@@ -244,7 +234,6 @@ export function useBeachSearch() {
     async (latitude: number, longitude: number) => {
       // Prevent duplicate requests - check ref first (more reliable than state)
       if (nearbyRequestInFlightRef.current) {
-        console.log("[useBeachSearch] Nearby request already in flight, skipping");
         return;
       }
 
@@ -337,15 +326,12 @@ export function useBeachSearch() {
         return;
       }
 
-      console.log("[useBeachSearch] Loading nearby beaches for selected beach:", beach.name);
-
       try {
         const result = await getNearbyBeaches(beach.lat, beach.lon, MAX_DISTANCE_MILES);
 
         if (result.success && result.data) {
           // Filter out the selected beach itself
           const nearby = result.data.filter((b) => b.id !== beach.id);
-          console.log("[useBeachSearch] Found", nearby.length, "beaches near", beach.name);
           setSelectedBeachNearby(nearby);
         }
       } catch (error) {

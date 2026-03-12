@@ -269,7 +269,7 @@ export function BeachIntelSection({
         )}
       >
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg font-roboto">
+          <CardTitle className="flex items-center gap-2 text-lg font-heading">
             <MessageSquare className="h-5 w-5 text-blue-600" />
             Local Intel
           </CardTitle>
@@ -308,7 +308,7 @@ export function BeachIntelSection({
       >
         <CardHeader className="pb-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 border-b border-blue-100/50">
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-lg font-roboto text-gray-800">
+            <CardTitle className="flex items-center gap-2 text-lg font-heading text-gray-800">
               <MessageSquare className="h-5 w-5 text-blue-600" />
               Local Intel
               {posts.length > 0 && (

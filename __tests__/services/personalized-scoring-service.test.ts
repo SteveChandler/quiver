@@ -374,9 +374,10 @@ describe('personalized-scoring-service', () => {
       expect(result.breakdown.onboardingPrefs).toBe(0);
       expect(result.breakdown.learnedPrefs).toBe(0);
       expect(result.breakdown.affinity).toBe(0);
+      expect(result.breakdown.multiplier).toBe(1.0);
     });
 
-    it('should add onboarding wave size bonus', async () => {
+    it('should apply onboarding wave size bonus multiplicatively', async () => {
       // Mock profile with wave size preference, no affinity
       mockQueryResults = [
         {
@@ -389,12 +390,14 @@ describe('personalized-scoring-service', () => {
       const forecast = createMockForecast('4.5', '10', '180', 'rising'); // Medium waves
       const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 75);
 
-      expect(result.score).toBe(85); // 75 + 10
+      // multiplier = 1.0 + (10/50)*0.15 = 1.03, score = round(75*1.03) = 77
+      expect(result.score).toBe(77);
       expect(result.personalized).toBe(true);
       expect(result.breakdown.onboardingPrefs).toBe(10);
+      expect(result.breakdown.multiplier).toBeCloseTo(1.03, 4);
     });
 
-    it('should add onboarding break type bonus', async () => {
+    it('should apply onboarding break type bonus multiplicatively', async () => {
       // First query: profile with break type preference
       // Second query: beach with matching break type
       // Third query: affinity
@@ -410,12 +413,14 @@ describe('personalized-scoring-service', () => {
       const forecast = createMockForecast('4.0', '10', '180', 'rising');
       const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 75);
 
-      expect(result.score).toBe(83); // 75 + 8 for break type
+      // multiplier = 1.0 + (8/50)*0.15 = 1.024, score = round(75*1.024) = 77
+      expect(result.score).toBe(77);
       expect(result.personalized).toBe(true);
       expect(result.breakdown.onboardingPrefs).toBe(8);
+      expect(result.breakdown.multiplier).toBeCloseTo(1.024, 4);
     });
 
-    it('should add learned preferences bonus', async () => {
+    it('should apply learned preferences bonus multiplicatively', async () => {
       // No onboarding prefs, no affinity
       mockQueryResults = [
         { data: { preferred_wave_size: 'any' }, error: null },
@@ -444,6 +449,10 @@ describe('personalized-scoring-service', () => {
 
       // With 0.8 confidence: wave (+15*0.8=12) + wind (+10*0.8=8) + tide (+8*0.8=6.4) = 26.4
       expect(result.breakdown.learnedPrefs).toBeCloseTo(26.4, 0);
+
+      // multiplier = 1.0 + (26.4/50)*0.15 = 1.0792, score = round(75*1.0792) = 81
+      expect(result.breakdown.multiplier).toBeCloseTo(1.0792, 3);
+      expect(result.score).toBe(81);
     });
 
     it('should not apply learned preferences when confidence is low', async () => {
@@ -472,7 +481,7 @@ describe('personalized-scoring-service', () => {
       expect(result.breakdown.learnedPrefs).toBe(0);
     });
 
-    it('should add beach affinity bonus', async () => {
+    it('should apply beach affinity bonus multiplicatively', async () => {
       // Profile query, then affinity query
       mockQueryResults = [
         { data: { preferred_wave_size: 'any' }, error: null },
@@ -485,6 +494,10 @@ describe('personalized-scoring-service', () => {
       expect(result.score).toBeGreaterThan(75);
       expect(result.personalized).toBe(true);
       expect(result.breakdown.affinity).toBeCloseTo(12, 0); // 80 * 0.15 = 12
+
+      // multiplier = 1.0 + (12/50)*0.15 = 1.036, score = round(75*1.036) = 78
+      expect(result.breakdown.multiplier).toBeCloseTo(1.036, 4);
+      expect(result.score).toBe(78);
     });
 
     it('should cap affinity bonus at 15 points', async () => {
@@ -497,9 +510,13 @@ describe('personalized-scoring-service', () => {
       const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 75);
 
       expect(result.breakdown.affinity).toBe(15); // Capped at 15
+
+      // multiplier = 1.0 + (15/50)*0.15 = 1.045, score = round(75*1.045) = 78
+      expect(result.breakdown.multiplier).toBeCloseTo(1.045, 4);
+      expect(result.score).toBe(78);
     });
 
-    it('should combine all bonuses correctly', async () => {
+    it('should combine all bonuses multiplicatively', async () => {
       // Profile with both preferences, beach query, affinity query
       mockQueryResults = [
         {
@@ -531,6 +548,12 @@ describe('personalized-scoring-service', () => {
       expect(result.breakdown.onboardingPrefs).toBe(18); // 10 + 8
       expect(result.breakdown.learnedPrefs).toBeCloseTo(29.7, 0); // (15+10+8)*0.9
       expect(result.breakdown.affinity).toBeCloseTo(9, 0); // 60*0.15
+
+      // totalBonus = 18 + 29.7 + 9 = 56.7, capped at 50 for ratio
+      // multiplier = 1.0 + min(56.7/50, 1.0)*0.15 = 1.15 (max)
+      // score = round(70 * 1.15) = round(80.5) = 81
+      expect(result.breakdown.multiplier).toBe(1.15);
+      expect(result.score).toBe(81);
     });
 
     it('should cap final score at 100', async () => {
@@ -559,8 +582,10 @@ describe('personalized-scoring-service', () => {
       const forecast = createMockForecast('4.5', '10', '180', 'rising');
       const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 90); // High base
 
-      expect(result.score).toBe(100); // Capped at 100
+      // With multiplicative scoring: 90 * 1.15 = 103.5 -> capped at 100
+      expect(result.score).toBe(100);
       expect(result.score).toBeLessThanOrEqual(100);
+      expect(result.breakdown.multiplier).toBe(1.15);
     });
 
     it('should ignore low affinity scores (< 10)', async () => {
@@ -875,9 +900,10 @@ describe('personalized-scoring-service', () => {
       // Onboarding prefs also apply
       expect(result.breakdown.onboardingPrefs).toBe(18); // 10 (wave) + 8 (break type)
 
-      // Total should be high
+      // Total should use multiplicative scoring
       const totalBonus = result.breakdown.onboardingPrefs + result.breakdown.learnedPrefs + result.breakdown.implicitPrefs + result.breakdown.affinity;
-      expect(result.score).toBe(Math.min(100, Math.round(75 + totalBonus)));
+      const expectedMultiplier = 1.0 + Math.min(totalBonus / 50, 1.0) * 0.15;
+      expect(result.score).toBe(Math.min(100, Math.round(75 * expectedMultiplier)));
     });
   });
 });

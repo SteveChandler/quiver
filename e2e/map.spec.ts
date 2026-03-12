@@ -167,7 +167,8 @@ test.describe('Map Page - Filter Functionality', () => {
 
     // Click to activate filter
     await beginnerBadge.click();
-    await page.waitForLoadState('networkidle');
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- networkidle never fires on Mapbox pages (continuous tile fetches); brief pause for filter API response
+    await page.waitForTimeout(2000);
 
     // Badge should change visual state (outline -> default variant)
     // We can verify this by checking if beaches are filtered
@@ -179,7 +180,8 @@ test.describe('Map Page - Filter Functionality', () => {
 
     // Click again to deactivate
     await beginnerBadge.click();
-    await page.waitForLoadState('networkidle');
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- networkidle never fires on Mapbox pages (continuous tile fetches); brief pause for filter API response
+    await page.waitForTimeout(2000);
   });
 
   test('should toggle break type filters', async ({ page }) => {
@@ -187,7 +189,8 @@ test.describe('Map Page - Filter Functionality', () => {
 
     // Click to activate beach break filter
     await beachBadge.click();
-    await page.waitForLoadState('networkidle');
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- networkidle never fires on Mapbox pages (continuous tile fetches); brief pause for filter API response
+    await page.waitForTimeout(2000);
 
     const beachesAfterFilter = page.locator('a[href^="/beach/"], a[href*="/ca/"]');
     const countAfterFilter = await beachesAfterFilter.count();
@@ -196,7 +199,8 @@ test.describe('Map Page - Filter Functionality', () => {
 
     // Click again to deactivate
     await beachBadge.click();
-    await page.waitForLoadState('networkidle');
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- networkidle never fires on Mapbox pages (continuous tile fetches); brief pause for filter API response
+    await page.waitForTimeout(2000);
   });
 
 });
@@ -357,7 +361,8 @@ test.describe('Map Page - Geolocation', () => {
     });
 
     await nearMeButton.click();
-    await page.waitForLoadState('networkidle');
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- networkidle never fires on Mapbox pages (continuous tile fetches); brief pause for filter API response
+    await page.waitForTimeout(2000);
 
     // Wait for beaches to load - check using data-testid
     const beachMarkers = page.locator('[data-testid="beach-marker"]');
@@ -680,25 +685,27 @@ test.describe('Map Page - Beach Card Navigation', () => {
     await page.goto('/map?search=Blacks');
     await waitForPageLoad(page);
 
-    // Wait for sidebar beach cards to appear (desktop shows MapSidebar)
-    const sidebarCards = page.locator('[data-testid="sidebar-beach-card"]');
-    const hasSidebarCards = await isVisibleSafe(sidebarCards.first(), { timeout: TIMEOUTS.long });
+    // Desktop sidebar renders SidebarBeachCard as <button> elements (not links).
+    // The sidebar uses handleSidebarNavigate which calls router.push() directly on click —
+    // so clicking the button navigates immediately to the beach detail page.
+    const sidebarButton = page.getByRole('button', { name: /Blacks/i }).first();
+    const hasSidebarButton = await isVisibleSafe(sidebarButton, { timeout: TIMEOUTS.long });
 
-    if (!hasSidebarCards) {
-      // Fallback: look for any clickable beach link in the sidebar area
-      const sidebarLinks = page.locator('a[href*="/ca/"], a[href*="/beach/"]');
-      const hasLinks = await isVisibleSafe(sidebarLinks.first(), { timeout: TIMEOUTS.medium });
+    if (!hasSidebarButton) {
+      // Fallback: find the first sidebar button that looks like a beach card (has beach/location text)
+      const firstSidebarButton = page.locator('button[type="button"]').filter({ hasText: /\bCA\b|\bOR\b|\bWA\b|\bHI\b/ }).first();
+      const hasFirstButton = await isVisibleSafe(firstSidebarButton, { timeout: TIMEOUTS.medium });
 
-      if (!hasLinks) {
-        throw new Error('No sidebar beach cards or links found on desktop map page');
+      if (!hasFirstButton) {
+        throw new Error('No sidebar beach buttons found on desktop map page');
       }
 
-      await sidebarLinks.first().click();
+      await firstSidebarButton.click();
     } else {
-      await sidebarCards.first().click();
+      await sidebarButton.click();
     }
 
-    // Should have navigated away from /map
+    // Desktop sidebar navigates directly on click (handleSidebarNavigate → router.push)
     await page.waitForURL(/\/(ca|or|wa|hi|beach)\//, { timeout: TIMEOUTS.medium });
   });
 

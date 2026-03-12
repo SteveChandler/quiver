@@ -175,11 +175,12 @@ describe('window calculator edge cases', () => {
 
   it('finds peak time within window', () => {
     // Use wave period to differentiate scores (14s+ gives max points, lower gives less)
+    // waveHeight=5 at idealMax gives ceiling=100 so period differences drive ranking
     const forecasts = [
-      createForecast(6, { wavePeriod: 10 }),  // Good but not max
-      createForecast(7, { wavePeriod: 16 }),  // Best - max period score
-      createForecast(8, { wavePeriod: 12 }),  // Good
-      createForecast(9, { wavePeriod: 10 }),  // Good but not max
+      createForecast(6, { waveHeight: 5, wavePeriod: 10 }),  // Good but not max
+      createForecast(7, { waveHeight: 5, wavePeriod: 16 }),  // Best - max period score
+      createForecast(8, { waveHeight: 5, wavePeriod: 12 }),  // Good
+      createForecast(9, { waveHeight: 5, wavePeriod: 10 }),  // Good but not max
     ];
 
     const result = calculateOptimalWindow(forecasts, baseBeach);
@@ -190,15 +191,15 @@ describe('window calculator edge cases', () => {
   });
 
   it('uses custom minScoreThreshold', () => {
-    // Use small waves (0.5ft) + short period (6s) to get scores around 60-70
-    // Score ~69 with these conditions (below 80 but above 60)
+    // Use ideal-range waves (2ft) + short period (6s) to get moderate scores
+    // Wave-height ceiling caps at 55 for 2ft intermediate, so total ~55
     const forecasts = [
-      createForecast(6, { waveHeight: 0.5, wavePeriod: 6 }),
-      createForecast(7, { waveHeight: 0.5, wavePeriod: 6 }),
-      createForecast(8, { waveHeight: 0.5, wavePeriod: 6 }),
+      createForecast(6, { waveHeight: 2, wavePeriod: 6 }),
+      createForecast(7, { waveHeight: 2, wavePeriod: 6 }),
+      createForecast(8, { waveHeight: 2, wavePeriod: 6 }),
     ];
 
-    // With high threshold (90), should return null since scores are ~69
+    // With high threshold (90), should return null since scores are ~55
     const highThresholdResult = calculateOptimalWindow(forecasts, baseBeach, { minScoreThreshold: 90 });
 
     // With low threshold (50), should find a window

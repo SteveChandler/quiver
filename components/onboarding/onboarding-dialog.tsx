@@ -1,14 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
+import { X } from "lucide-react";
 import { useOnboardingStore } from "@/store/onboarding-store";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import { HomeBeachStep } from "./steps/home-beach-step";
 import { LevelAndTimeStep } from "./steps/level-and-time-step";
 import { PayoffStep } from "./steps/payoff-step";
@@ -17,6 +13,7 @@ import { useAuth } from "@/context/auth-context";
 import { useProfileContext } from "@/context/profile-context";
 import { skipOnboarding } from "@/actions/onboarding-actions";
 import { useOnboardingTracking } from "@/hooks/use-onboarding-tracking";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { Profile } from "@/types/database";
 
 const STEPS = [
@@ -28,6 +25,13 @@ const STEPS = [
 // Delays for dialog opening (ms)
 const DIALOG_OPEN_DELAY = 500; // Let page settle before showing onboarding
 const TESTING_OPEN_DELAY = 100; // Shorter delay for test mode
+
+// Gradient backgrounds per step
+const STEP_GRADIENTS = [
+  "linear-gradient(to bottom, #0B1D3A, #1A3A5C)", // Step 0: dark navy
+  "linear-gradient(to bottom, #1A2744, #8B3A2A)", // Step 1: warm dusk
+  "linear-gradient(to bottom, #0B2E4A, #0077B6)", // Step 2: open ocean
+];
 
 /** Check if profile has enough data to skip onboarding (e.g., filled via Edit Profile) */
 function isProfileSubstantiallyComplete(
@@ -73,6 +77,8 @@ export function OnboardingDialog() {
     checkUserId,
   } = useOnboardingStore();
 
+  const reducedMotion = useReducedMotion();
+
   // Set up step tracking for engagement analytics
   useOnboardingTracking();
 
@@ -86,6 +92,33 @@ export function OnboardingDialog() {
     isOpen &&
     !isCompleted &&
     (isTesting || (user && !hasCompletedOnboarding && !substantiallyComplete));
+
+  // Track direction for slide animations by comparing to previous step
+  const prevStepRef = useRef(currentStep);
+  const [direction, setDirection] = useState<1 | -1>(1);
+
+  useEffect(() => {
+    if (currentStep !== prevStepRef.current) {
+      setDirection(currentStep > prevStepRef.current ? 1 : -1);
+      prevStepRef.current = currentStep;
+    }
+  }, [currentStep]);
+
+  // Focus trap: set inert on <main> when overlay is open
+  useEffect(() => {
+    const main = document.querySelector("main");
+    if (!main) return;
+
+    if (shouldRender) {
+      main.setAttribute("inert", "");
+    } else {
+      main.removeAttribute("inert");
+    }
+
+    return () => {
+      main.removeAttribute("inert");
+    };
+  }, [shouldRender]);
 
   // Guard against stale persisted step indexes from older onboarding versions.
   // If currentStep is out of bounds, clamp to step 0 so we still render reliably.
@@ -169,43 +202,106 @@ export function OnboardingDialog() {
 
   const CurrentStepComponent = STEPS[currentStep];
 
-  if (!CurrentStepComponent) {
+  if (!CurrentStepComponent || !shouldRender) {
     return null;
   }
 
+  function handleSkip() {
+    if (user?.id && !isTesting) {
+      skipOnboarding(); // Fire and forget - persists to database
+    }
+    closeDialog();
+  }
+
+  const slideVariants = {
+    enter: (dir: number) => ({
+      x: reducedMotion ? 0 : dir * 250,
+      opacity: 0,
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+    },
+    exit: (dir: number) => ({
+      x: reducedMotion ? 0 : dir * -250,
+      opacity: 0,
+    }),
+  };
+
+  const safeStep = Math.min(Math.max(currentStep, 0), STEP_GRADIENTS.length - 1);
+  const isPayoffStep = currentStep === STEPS.length - 1;
+
   return (
-    <Dialog
-      open={!!shouldRender}
-      onOpenChange={(open) => {
-        // In a controlled Radix Dialog, internal close controls (X / DialogClose)
-        // only work if we sync the new open state back to our store.
-        if (!open) {
-          // Permanently skip onboarding by setting onboarding_completed_at in DB
-          if (user?.id && !isTesting) {
-            skipOnboarding(); // Fire and forget - persists to database
-          }
-          closeDialog();
-        }
-      }}
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Set up your surf profile"
+      className="fixed inset-0 z-50 overflow-y-auto"
     >
-      <DialogContent
-        className="max-w-lg max-h-[90vh] overflow-y-auto"
-        onInteractOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
-      >
-        <DialogTitle className="sr-only">Onboarding Wizard</DialogTitle>
-        <DialogDescription className="sr-only">
-          Complete the onboarding steps to set up your profile.
-        </DialogDescription>
-        <div className="p-6">
+      <h2 className="sr-only">Set up your surf profile</h2>
+
+      {/* Gradient background layers — crossfade between steps */}
+      <div className="absolute inset-0">
+        {STEP_GRADIENTS.map((gradient, index) => (
+          <motion.div
+            key={index}
+            className="absolute inset-0"
+            animate={{ opacity: index === safeStep ? 1 : 0 }}
+            transition={{ duration: reducedMotion ? 0 : 0.5 }}
+            style={{ background: gradient }}
+          />
+        ))}
+      </div>
+
+      {/* Grain texture overlay */}
+      <div
+        className="pointer-events-none absolute inset-0 z-0 opacity-[0.04]"
+        style={{
+          backgroundImage: "url('/textures/noise.png')",
+          backgroundRepeat: "repeat",
+        }}
+      />
+
+      {/* Content */}
+      <div className="relative z-10 flex min-h-screen flex-col">
+        {/* Top bar: skip button + dots */}
+        <div className="relative flex items-center justify-center px-4 pt-6 pb-2">
           <OnboardingProgress
             currentStep={currentStep}
             totalSteps={STEPS.length}
-            className="mb-6"
           />
-          <CurrentStepComponent />
+
+          {/* X skip button — hidden on payoff step */}
+          {!isPayoffStep && (
+            <button
+              onClick={handleSkip}
+              aria-label="Skip onboarding"
+              className="absolute right-4 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full text-white/60 transition-colors hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
         </div>
-      </DialogContent>
-    </Dialog>
+
+        {/* Step content with slide transitions */}
+        <div className="flex flex-1 flex-col items-center px-4">
+          <div className="w-full max-w-lg">
+            <AnimatePresence mode="wait" custom={direction}>
+              <motion.div
+                key={currentStep}
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              >
+                <CurrentStepComponent />
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

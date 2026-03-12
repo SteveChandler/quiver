@@ -122,7 +122,7 @@ describe("LandingConditionsTicker", () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it("uses light theme", async () => {
+  it("uses dark theme", async () => {
     mockGetTopBeaches.mockResolvedValue([
       { beachId: "beach-1", beachName: "Trestles", score: 90 } as any,
     ]);
@@ -136,6 +136,7 @@ describe("LandingConditionsTicker", () => {
       expect(screen.getAllByText("3ft").length).toBeGreaterThan(0);
     });
     const region = screen.getByRole("region");
-    expect(region.className).toContain("bg-white");
+    // LandingConditionsTicker passes theme="dark" to ConditionsTicker
+    expect(region.className).toContain("bg-[#2a2a2a]");
   });
 });

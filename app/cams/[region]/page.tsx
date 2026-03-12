@@ -127,10 +127,10 @@ export default async function CamsRegionPage({ params }: PageProps) {
               <Video className="h-4 w-4" />
               <span>{regionBeaches.length} Live Cameras</span>
             </div>
-            <h1 className="font-roboto text-4xl font-bold text-gray-900 md:text-5xl">
+            <h1 className="font-heading text-4xl font-bold text-gray-900 md:text-5xl">
               {region.name} Surf Cams
             </h1>
-            <p className="mt-4 font-open-sans text-lg text-gray-600">
+            <p className="mt-4 font-sans text-lg text-gray-600">
               {region.description}
             </p>
           </div>
@@ -148,7 +148,7 @@ export default async function CamsRegionPage({ params }: PageProps) {
       {nearbyRegions.length > 0 && (
         <div className="px-4 pb-20">
           <div className="mx-auto max-w-6xl">
-            <h2 className="mb-6 font-roboto text-2xl font-bold text-gray-900">
+            <h2 className="mb-6 font-heading text-2xl font-bold text-gray-900">
               More Surf Cam Regions
             </h2>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -162,7 +162,7 @@ export default async function CamsRegionPage({ params }: PageProps) {
                     href={`/cams/${r.slug}`}
                     className="group rounded-xl border border-blue-100/60 bg-white/80 p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
                   >
-                    <h3 className="font-roboto text-lg font-bold text-gray-900 group-hover:text-ocean-blue">
+                    <h3 className="font-heading text-lg font-bold text-gray-900 group-hover:text-ocean-blue">
                       {r.name}
                     </h3>
                     <p className="mt-1 text-sm text-gray-500">

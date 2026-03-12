@@ -105,10 +105,10 @@ export default async function CamsHubPage() {
               <Video className="h-4 w-4" />
               <span>{camCount} Live Cameras</span>
             </div>
-            <h1 className="font-roboto text-4xl font-bold text-gray-900 md:text-5xl lg:text-6xl">
+            <h1 className="font-heading text-4xl font-bold text-gray-900 md:text-5xl lg:text-6xl">
               Live Surf Cams
             </h1>
-            <p className="mt-4 font-open-sans text-lg text-gray-600 md:text-xl">
+            <p className="mt-4 font-sans text-lg text-gray-600 md:text-xl">
               Watch {camCount} live surf cams across {stateCount} states.
               {" "}Updated 24/7.
             </p>
@@ -156,7 +156,7 @@ export default async function CamsHubPage() {
       {/* More Surf Tools */}
       <div className="px-4 pb-12">
         <div className="mx-auto max-w-6xl">
-          <h2 className="mb-4 font-roboto text-xl font-semibold text-gray-900">
+          <h2 className="mb-4 font-heading text-xl font-semibold text-gray-900">
             More Surf Tools
           </h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -178,10 +178,10 @@ export default async function CamsHubPage() {
       <div className="px-4 pb-20">
         <div className="mx-auto max-w-3xl text-center">
           <div className="rounded-2xl border border-blue-200/50 bg-white/80 p-8 shadow-lg backdrop-blur-sm">
-            <h2 className="font-roboto text-2xl font-bold text-gray-900">
+            <h2 className="font-heading text-2xl font-bold text-gray-900">
               Know a cam we&apos;re missing?
             </h2>
-            <p className="mt-2 font-open-sans text-gray-600">
+            <p className="mt-2 font-sans text-gray-600">
               Help us grow the largest surf cam directory.
             </p>
             <a

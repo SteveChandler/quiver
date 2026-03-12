@@ -36,6 +36,9 @@ export function WaveHeightDisplay({
   const displayHeight = useMemo(() => {
     if (!height) return null;
 
+    // If height is already a range string (e.g., "1-2ft", "3-4 ft"), pass through unchanged
+    if (/\d+(?:\.\d+)?-\d+(?:\.\d+)?\s*ft/i.test(height)) return height;
+
     // Extract numeric value using shared utility
     const low = extractNumericWaveHeight(height);
     if (low === null) return height;

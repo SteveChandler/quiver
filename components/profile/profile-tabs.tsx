@@ -91,35 +91,35 @@ export function ProfileTabs({
         <TabsList className="grid grid-cols-5 w-full h-14 lg:h-16 bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-lg">
           <TabsTrigger
             value="sessions"
-            className="text-sm lg:text-base font-roboto data-[state=active]:bg-gradient-to-r data-[state=active]:from-ocean-blue data-[state=active]:to-blue-600 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+            className="text-sm lg:text-base font-heading data-[state=active]:bg-gradient-to-r data-[state=active]:from-ocean-blue data-[state=active]:to-blue-600 data-[state=active]:text-white transition-all duration-300 rounded-lg"
           >
             <CalendarDays className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
             Journal+
           </TabsTrigger>
           <TabsTrigger
             value="quiver"
-            className="text-sm lg:text-base font-roboto data-[state=active]:bg-gradient-to-r data-[state=active]:from-sunset-orange data-[state=active]:to-orange-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+            className="text-sm lg:text-base font-heading data-[state=active]:bg-gradient-to-r data-[state=active]:from-sunset-orange data-[state=active]:to-orange-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
           >
             <Surfboard className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
             Quiver
           </TabsTrigger>
           <TabsTrigger
             value="beaches"
-            className="text-sm lg:text-base font-roboto data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+            className="text-sm lg:text-base font-heading data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
           >
             <Heart className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
             Beaches
           </TabsTrigger>
           <TabsTrigger
             value="comments"
-            className="text-sm lg:text-base font-roboto data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+            className="text-sm lg:text-base font-heading data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
           >
             <MessageSquare className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
             Comments
           </TabsTrigger>
           <TabsTrigger
             value="surf-profile"
-            className="text-sm lg:text-base font-roboto data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+            className="text-sm lg:text-base font-heading data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
           >
             <User className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
             Profile
@@ -141,7 +141,7 @@ export function ProfileTabs({
 
           <TabsContent value="beaches" className="p-4 sm:p-6 space-y-4 m-0">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-roboto font-semibold text-dark-grey">
+              <h3 className="text-xl font-heading font-semibold text-dark-grey">
                 Favorite Beaches
               </h3>
               <Button
@@ -150,7 +150,7 @@ export function ProfileTabs({
                 onClick={() => {
                   router.push("/map");
                 }}
-                className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-emerald-500 hover:to-green-600 text-white font-roboto font-medium rounded-full transition-all duration-300"
+                className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-emerald-500 hover:to-green-600 text-white font-heading font-medium rounded-full transition-all duration-300"
               >
                 <Plus className="h-4 w-4 mr-1" />
                 Add Beach

@@ -273,7 +273,7 @@ export function AnimatedScoreGauge({
           className={cn(
             "font-medium",
             config.labelSize,
-            isHero ? "text-white/80" : scoreColors.text,
+            isHero ? "text-high" : scoreColors.text,
             !hasAnimated && !reducedMotion && "opacity-0",
             hasAnimated && "animate-fade-in"
           )}

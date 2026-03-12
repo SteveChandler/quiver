@@ -34,11 +34,11 @@ export function UpgradeSessionSection() {
                 <span className="sr-only">Wave, map, and community icons</span>
               </div>
 
-              <h2 className="text-4xl md:text-5xl font-roboto font-bold text-dark-grey leading-tight">
+              <h2 className="text-4xl md:text-5xl font-heading font-bold text-dark-grey leading-tight">
                 {CONTENT.sections.upgradeSession.title}
               </h2>
 
-              <p className="mt-4 text-base sm:text-lg font-open-sans text-gray-600 leading-relaxed max-w-xl">
+              <p className="mt-4 text-base sm:text-lg font-sans text-gray-600 leading-relaxed max-w-xl">
                 {CONTENT.sections.upgradeSession.subtitle}
               </p>
 

@@ -65,10 +65,10 @@ export default function SocialPostCard({
               </AvatarFallback>
             </Avatar>
             <div>
-              <p className="text-white font-roboto font-semibold text-sm leading-tight">
+              <p className="text-white font-heading font-semibold text-sm leading-tight">
                 {name || ""}
               </p>
-              <p className="text-white/90 font-open-sans text-xs leading-tight mt-0.5">
+              <p className="text-high font-sans text-xs leading-tight mt-0.5">
                 {activity}
               </p>
             </div>

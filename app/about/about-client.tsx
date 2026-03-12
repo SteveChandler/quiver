@@ -16,21 +16,13 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ABOUT_CONTENT } from "@/lib/constants/content";
 import { motion } from "framer-motion";
 import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
-import {
-  AnimatedEngagementStat,
-  EngagementProgressTracker,
-} from "@/components/engagement/micro-interactions";
+import { AnimatedEngagementStat } from "@/components/engagement/micro-interactions";
 
 export default function AboutPageClient() {
   const { hero, mission, story, team, future } = ABOUT_CONTENT;
-  const isTest =
-    typeof window !== "undefined" && (window as any).__PLAYWRIGHT__ === true;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sandy-beige via-white to-blue-50">
-      {/* Disable heavy engagement tracker in E2E to prevent dev runtime instability */}
-      {!isTest && <EngagementProgressTracker />}
-
       {/* Enhanced Hero Section with Motion */}
       <section className="py-20 px-4 relative overflow-hidden">
         {/* Animated Background */}
@@ -52,7 +44,7 @@ export default function AboutPageClient() {
             transition={{ duration: 0.8 }}
           >
             <motion.h1
-              className="text-4xl md:text-6xl font-roboto font-bold text-dark-grey mb-6"
+              className="text-4xl md:text-6xl font-heading font-bold text-dark-grey mb-6"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8, delay: 0.2 }}
@@ -60,7 +52,7 @@ export default function AboutPageClient() {
               About Quiver
             </motion.h1>
             <motion.h2
-              className="text-2xl md:text-3xl font-roboto font-semibold text-gray-700 mb-6"
+              className="text-2xl md:text-3xl font-heading font-semibold text-gray-700 mb-6"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.3 }}
@@ -72,7 +64,7 @@ export default function AboutPageClient() {
               </span>
             </motion.h2>
             <motion.p
-              className="text-xl md:text-2xl text-gray-600 mb-8 font-open-sans max-w-4xl mx-auto"
+              className="text-xl md:text-2xl text-gray-600 mb-8 font-sans max-w-4xl mx-auto"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.4 }}
@@ -122,13 +114,13 @@ export default function AboutPageClient() {
       <section className="py-20 px-4 bg-white/50">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-roboto font-bold text-dark-grey mb-6">
+            <h2 className="text-3xl md:text-4xl font-heading font-bold text-dark-grey mb-6">
               {mission.title}
             </h2>
-            <p className="text-xl text-gray-600 mb-8 font-open-sans">
+            <p className="text-xl text-gray-600 mb-8 font-sans">
               {mission.subtitle}
             </p>
-            <p className="text-lg text-gray-600 max-w-3xl mx-auto font-open-sans">
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto font-sans">
               {mission.description}
             </p>
           </div>
@@ -144,12 +136,12 @@ export default function AboutPageClient() {
                   <div className="mx-auto mb-4 w-16 h-16 bg-ocean-blue/10 rounded-full flex items-center justify-center">
                     <value.icon className="h-8 w-8 text-ocean-blue" />
                   </div>
-                  <h3 className="text-xl font-roboto font-bold text-dark-grey">
+                  <h3 className="text-xl font-heading font-bold text-dark-grey">
                     {value.title}
                   </h3>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600 font-open-sans">
+                  <p className="text-gray-600 font-sans">
                     {value.description}
                   </p>
                 </CardContent>
@@ -162,14 +154,14 @@ export default function AboutPageClient() {
       {/* Story Section */}
       <section className="py-20 px-4">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-roboto font-bold text-dark-grey mb-12 text-center">
+          <h2 className="text-3xl md:text-4xl font-heading font-bold text-dark-grey mb-12 text-center">
             {story.title}
           </h2>
           <div className="space-y-8">
             {story.content.map((paragraph, index) => (
               <p
                 key={index}
-                className="text-lg text-gray-600 font-open-sans leading-relaxed"
+                className="text-lg text-gray-600 font-sans leading-relaxed"
               >
                 {paragraph}
               </p>
@@ -181,10 +173,10 @@ export default function AboutPageClient() {
       {/* Team Section */}
       <section className="py-20 px-4 bg-white/50">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-roboto font-bold text-dark-grey mb-6">
+          <h2 className="text-3xl md:text-4xl font-heading font-bold text-dark-grey mb-6">
             {team.title}
           </h2>
-          <p className="text-lg text-gray-600 font-open-sans leading-relaxed">
+          <p className="text-lg text-gray-600 font-sans leading-relaxed">
             {team.description}
           </p>
         </div>
@@ -194,10 +186,10 @@ export default function AboutPageClient() {
       <section className="py-20 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-roboto font-bold text-dark-grey mb-6">
+            <h2 className="text-3xl md:text-4xl font-heading font-bold text-dark-grey mb-6">
               {future.title}
             </h2>
-            <p className="text-lg text-gray-600 max-w-3xl mx-auto font-open-sans mb-12">
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto font-sans mb-12">
               {future.description}
             </p>
           </div>
@@ -214,7 +206,7 @@ export default function AboutPageClient() {
                     {index + 1}
                   </span>
                 </div>
-                <p className="text-gray-700 font-open-sans">{goal}</p>
+                <p className="text-gray-700 font-sans">{goal}</p>
               </div>
             ))}
           </div>
@@ -257,7 +249,7 @@ export default function AboutPageClient() {
           className="max-w-4xl mx-auto text-center relative z-10"
         >
           <motion.h2
-            className="text-3xl md:text-4xl font-roboto font-bold text-white mb-6"
+            className="text-3xl md:text-4xl font-heading font-bold text-white mb-6"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -266,7 +258,7 @@ export default function AboutPageClient() {
             Ready to Be Part of Our Story? 🌊
           </motion.h2>
           <motion.p
-            className="text-xl text-white/90 mb-8 font-open-sans"
+            className="text-xl text-high mb-8 font-sans"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -285,7 +277,7 @@ export default function AboutPageClient() {
           >
             <Button
               size="lg"
-              className="bg-white text-ocean-blue hover:bg-gray-50 px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 motion-optimized like-button-spring ripple-effect"
+              className="bg-white text-ocean-blue hover:bg-gray-50 px-8 py-4 text-lg font-heading font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 motion-optimized like-button-spring ripple-effect"
               asChild
             >
               <Link href="/auth/sign-up">
@@ -297,7 +289,7 @@ export default function AboutPageClient() {
             <Button
               size="lg"
               variant="ghost"
-              className="border border-white/30 text-white hover:bg-white/10 px-8 py-4 text-lg font-roboto font-semibold rounded-full transition-all duration-300"
+              className="border border-white/30 text-white hover:bg-white/10 px-8 py-4 text-lg font-heading font-semibold rounded-full transition-all duration-300"
               asChild
             >
               <Link href="/features">Explore Features</Link>
@@ -305,7 +297,7 @@ export default function AboutPageClient() {
           </motion.div>
 
           <motion.p
-            className="text-white/80 text-sm font-open-sans"
+            className="text-high text-sm font-sans"
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}

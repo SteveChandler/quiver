@@ -15,6 +15,10 @@ import type {
   UserScoringPreferences,
 } from './types';
 import { trackFallback } from '@/lib/monitoring/fallback-tracker';
+import {
+  SKILL_WAVE_RANGES,
+  parseSkillLevel,
+} from '@/lib/domains/user-preferences/skill-level';
 
 // Default thresholds
 const DEFAULT_MAX_WIND_ONSHORE_MPH = 10;
@@ -339,6 +343,48 @@ function buildMessage(
 }
 
 /**
+ * Compute a wave-height-based score ceiling (0-100).
+ *
+ * Maps wave height to a ceiling that caps the overall condition score,
+ * preventing inflated scores when waves are too small or too large for
+ * the beach's skill level.
+ *
+ * Segments:
+ *   0 ft            -> 0
+ *   0 < h < 1       -> 0-20  (linear ramp)
+ *   1 <= h < idealMin -> 30-55 (ramp toward ideal)
+ *   idealMin <= h <= idealMax -> 55-100 (full ideal range)
+ *   h > idealMax    -> 100 declining toward 65
+ *
+ * @param waveHeight - Forecast wave height in feet
+ * @param idealMin   - Lower bound of ideal range for skill level
+ * @param idealMax   - Upper bound of ideal range for skill level
+ * @returns Ceiling value 0-100
+ */
+export function getWaveHeightCeiling(
+  waveHeight: number,
+  idealMin: number,
+  idealMax: number
+): number {
+  if (waveHeight <= 0) return 0;
+  if (waveHeight < 1) return Math.round(20 * waveHeight); // 0-20
+  if (waveHeight < idealMin) {
+    return Math.round(
+      30 + ((waveHeight - 1) / Math.max(idealMin - 1, 0.5)) * 25
+    ); // 30-55
+  }
+  if (waveHeight <= idealMax) {
+    return Math.round(
+      55 +
+        ((waveHeight - idealMin) / Math.max(idealMax - idealMin, 1)) * 45
+    ); // 55-100
+  }
+  // Above ideal: decline from 100 toward 65
+  const overRatio = Math.min((waveHeight - idealMax) / idealMax, 1);
+  return Math.round(100 - overRatio * 35);
+}
+
+/**
  * Options for scoreConditions()
  */
 export interface ScoreConditionsOptions {
@@ -415,8 +461,18 @@ export function scoreConditions(
   const rawTotal = subscores.waveHeightFit + subscores.periodEnergy + subscores.windAlignment + subscores.tideFit;
   const normalizedTotal = Math.round((rawTotal / MAX_RAW_POINTS) * 100);
 
+  // Apply wave-height ceiling based on beach skill level
+  const parsedSkill = parseSkillLevel(beach.skill_level);
+  const skillRanges = SKILL_WAVE_RANGES[parsedSkill ?? 'intermediate'];
+  const ceiling = getWaveHeightCeiling(
+    forecast.waveHeight,
+    skillRanges.ideal.min,
+    skillRanges.ideal.max
+  );
+  const cappedTotal = Math.min(normalizedTotal, ceiling);
+
   // Determine quality and label
-  const matchQuality = getMatchQuality(normalizedTotal);
+  const matchQuality = getMatchQuality(cappedTotal);
   const recommendationLabel = getRecommendationLabel(matchQuality);
 
   // Collect reasons and warnings
@@ -435,7 +491,7 @@ export function scoreConditions(
   const message = buildMessage(matchQuality, recommendationLabel, reasons, warnings, null);
 
   const result: ConditionScore = {
-    total: normalizedTotal,
+    total: cappedTotal,
     subscores,
     matchQuality,
     recommendationLabel,

@@ -17,6 +17,8 @@ import { track } from "@/lib/analytics";
 import { toast } from "sonner";
 import { getProfileStrength } from "@/actions/dashboard-actions";
 import { getPersonalizationStatus } from "@/actions/personalization-actions";
+import { getUserXPStatus } from "@/lib/gamification/gamification-actions";
+import { LEVEL_THRESHOLDS } from "@/lib/gamification/constants";
 import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
 import { usePersonalizationMilestones } from "@/hooks/use-personalization-milestones";
 import type { TimeSlot } from "@/types/personalization";
@@ -70,6 +72,11 @@ import { buildQuickLogUrl } from "./first-session-cta";
 import type { ReminderResult } from "@/hooks/use-reminder-handler";
 
 const DEFAULT_LOCATION = { lat: 32.715, lon: -117.161 }; // San Diego
+
+function getLevelTitle(xp: number): string {
+  const level = [...LEVEL_THRESHOLDS].reverse().find((l) => xp >= l.xp_required);
+  return level?.title || LEVEL_THRESHOLDS[0].title;
+}
 
 export function HomeScreen() {
   const router = useRouter();
@@ -153,6 +160,18 @@ export function HomeScreen() {
   });
   const personalizationStatus = personalizationResponse?.data ?? null;
 
+  // Fetch user XP status for level badge in greeting
+  const fetchUserXP = useCallback(async () => {
+    if (!profile) return null;
+    return await getUserXPStatus();
+  }, [profile]);
+  const { data: xpResponse } = useDataFetcher(fetchUserXP, {
+    skip: !profile,
+    initialData: null,
+  });
+  const userXP = xpResponse?.data ?? null;
+  const xpLevelTitle = userXP ? getLevelTitle(userXP.xp_total) : null;
+
   // Deliver personalization milestone toasts
   usePersonalizationMilestones(!!profile);
 
@@ -215,9 +234,12 @@ export function HomeScreen() {
     enabled: !!profile && !geoLoading && !discoveryLoading,
   });
 
-  // Extract top recommendation and remaining spots (show all, no limit)
-  const topRecommendation = discovery?.recommendations[0] || null;
-  const topSpots = discovery?.recommendations.slice(1) || [];
+  // Extract top recommendation and remaining spots — only show beaches with photos
+  const recsWithPhotos = discovery?.recommendations.filter(
+    (rec) => rec.beach.photo_url?.startsWith('http')
+  ) || [];
+  const topRecommendation = recsWithPhotos[0] || null;
+  const topSpots = recsWithPhotos.slice(1);
 
   // Derive forecast region from top recommendation or home beach city
   const forecastRegionSlug = useMemo(() => {
@@ -346,10 +368,7 @@ export function HomeScreen() {
       <main className="flex-1 home-container pb-20 md:pb-0 overflow-auto">
         {/* Dark gradient header section */}
         <motion.div
-          className={`${reducedMotion
-            ? "bg-gradient-to-b from-header-start to-header-end"
-            : "bg-[linear-gradient(135deg,#0f172a_0%,#334155_50%,#0f172a_100%)] bg-[length:200%_200%] animate-ocean-swell"
-          } pt-8 sm:pt-10 pb-8 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 space-y-6 xs:space-y-8`}
+          className="relative overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8 rounded-b-2xl sm:rounded-b-3xl"
           initial={reducedMotion ? false : "hidden"}
           animate="visible"
           variants={reducedMotion ? {
@@ -361,91 +380,110 @@ export function HomeScreen() {
             },
           }}
         >
-          {/* 1. Greeting Section */}
-          <motion.section
-            className="centered-container"
-            variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
-          >
-            <GreetingSection
-              userName={profile?.full_name || null}
-              timeOfDay={timeOfDay}
-            />
-          </motion.section>
-
-          {/* 2. Time Slot Filter */}
-          {profile && (
+          {/* Background photo */}
+          <div
+            className="absolute inset-0 bg-cover bg-center motion-safe:animate-hero-ken-burns will-change-transform"
+            style={{ backgroundImage: "url('/images/home-hero-bg.avif')" }}
+          />
+          {/* Dark overlay for readability */}
+          <div className={`absolute inset-0 ${reducedMotion
+            ? "bg-gradient-to-b from-header-start to-header-end"
+            : "bg-gradient-to-b from-[#0A0E1A]/80 via-[#0A0E1A]/50 to-[#0A0E1A]/90 animate-hero-gradient-shift"
+          }`} />
+          {/* Noise texture on overlay */}
+          <div className="absolute inset-0 noise-texture-strong pointer-events-none" />
+          {/* Scan lines overlay */}
+          <div className="absolute inset-0 scan-lines pointer-events-none" />
+          {/* Content */}
+          <div className="relative z-10 pt-8 sm:pt-10 pb-8 px-4 sm:px-6 lg:px-8 space-y-6 xs:space-y-8">
+            {/* 1. Greeting Section */}
             <motion.section
               className="centered-container"
               variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
             >
-              <TimeSlotSelector
-                value={timeSlot}
-                onChange={handleTimeSlotChange}
-                className="mb-2"
+              <GreetingSection
+                userName={profile?.full_name || null}
+                timeOfDay={timeOfDay}
+                levelTitle={xpLevelTitle}
+                xpTotal={userXP?.xp_total ?? null}
               />
             </motion.section>
-          )}
 
-          {/* 3. Hero Recommendation */}
-          {profile && (
-            <motion.section
-              className="centered-container"
-              variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
-            >
-              <HeroRecommendation
-                recommendation={topRecommendation}
-                loading={discoveryLoading}
-                error={discoveryError ? new Error(discoveryError) : null}
-                onPlanSession={handleAtBeach}
-                onViewBeach={handleViewBeach}
-                onEnableReminder={handleHeroEnableReminder}
-                forecastAlertsEnabled={profile.notif_forecast_alerts ?? false}
-                homeBeachId={homeBeach?.id ?? null}
-                timeSlot={timeSlot}
-              />
-            </motion.section>
-          )}
-
-          {/* 4. Primary Actions (or FirstSessionCta for zero-session users) */}
-          {profile && (
-            <motion.section
-              className="centered-container"
-              variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
-            >
-              {personalizationStatus?.sessionCount === 0 ? (
-                <FirstSessionCta onLogSession={handleQuickLog} />
-              ) : topRecommendation ? (
-                <PrimaryActions
-                  topRecommendation={topRecommendation}
-                  onAtBeach={handleAtBeach}
-                  onPlanWeekend={handlePlanWeekend}
-                  disabled={discoveryLoading}
-                  shareData={shareData}
+            {/* 2. Time Slot Filter */}
+            {profile && (
+              <motion.section
+                className="centered-container"
+                variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
+              >
+                <TimeSlotSelector
+                  value={timeSlot}
+                  onChange={handleTimeSlotChange}
+                  className="mb-2"
                 />
-              ) : !discoveryLoading && discovery?.recommendations.length === 0 && timeSlot !== 'any' ? (
-                <div className="text-center py-8 px-4" data-testid="time-slot-empty-state">
-                  <p className="text-white/80 mb-3">
-                    No great {timeSlot === 'dawn-patrol' ? 'dawn patrol' : timeSlot} windows in the next 24 hours.
-                  </p>
-                  <button
-                    onClick={() => setTimeSlot('any')}
-                    className="text-white hover:text-white/90 underline text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-header-end"
-                  >
-                    Show all times
-                  </button>
-                </div>
-              ) : !discoveryLoading ? (
-                <div className="flex flex-col gap-3 px-4 sm:px-1" data-testid="fallback-actions">
-                  <button
-                    onClick={() => router.push("/map")}
-                    className="w-full h-12 sm:h-14 min-h-[44px] rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 text-white font-semibold text-sm sm:text-base border border-white/20 hover:border-white/30 shadow-sm hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-header-end"
-                  >
-                    Explore Beaches Near You
-                  </button>
-                </div>
-              ) : null}
-            </motion.section>
-          )}
+              </motion.section>
+            )}
+
+            {/* 3. Hero Recommendation */}
+            {profile && (
+              <motion.section
+                className="centered-container"
+                variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
+              >
+                <HeroRecommendation
+                  recommendation={topRecommendation}
+                  loading={discoveryLoading}
+                  error={discoveryError ? new Error(discoveryError) : null}
+                  onPlanSession={handleAtBeach}
+                  onViewBeach={handleViewBeach}
+                  onEnableReminder={handleHeroEnableReminder}
+                  forecastAlertsEnabled={profile.notif_forecast_alerts ?? false}
+                  homeBeachId={homeBeach?.id ?? null}
+                  timeSlot={timeSlot}
+                />
+              </motion.section>
+            )}
+
+            {/* 4. Primary Actions (or FirstSessionCta for zero-session users) */}
+            {profile && (
+              <motion.section
+                className="centered-container"
+                variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
+              >
+                {personalizationStatus?.sessionCount === 0 ? (
+                  <FirstSessionCta onLogSession={handleQuickLog} />
+                ) : topRecommendation ? (
+                  <PrimaryActions
+                    topRecommendation={topRecommendation}
+                    onAtBeach={handleAtBeach}
+                    onPlanWeekend={handlePlanWeekend}
+                    disabled={discoveryLoading}
+                    shareData={shareData}
+                  />
+                ) : !discoveryLoading && discovery?.recommendations.length === 0 && timeSlot !== 'any' ? (
+                  <div className="text-center py-8 px-4" data-testid="time-slot-empty-state">
+                    <p className="text-high mb-3">
+                      No great {timeSlot === 'dawn-patrol' ? 'dawn patrol' : timeSlot} windows in the next 24 hours.
+                    </p>
+                    <button
+                      onClick={() => setTimeSlot('any')}
+                      className="text-white hover:text-white/90 underline text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-header-end"
+                    >
+                      Show all times
+                    </button>
+                  </div>
+                ) : !discoveryLoading ? (
+                  <div className="flex flex-col gap-3 px-4 sm:px-1" data-testid="fallback-actions">
+                    <button
+                      onClick={() => router.push("/map")}
+                      className="w-full h-12 sm:h-14 min-h-[44px] rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 text-white font-semibold text-sm sm:text-base border border-white/20 hover:border-white/30 shadow-sm hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-header-end"
+                    >
+                      Explore Beaches Near You
+                    </button>
+                  </div>
+                ) : null}
+              </motion.section>
+            )}
+          </div>
         </motion.div>
 
         {/* Conditions Ticker - full width for edge-to-edge scroll */}

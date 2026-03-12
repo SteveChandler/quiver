@@ -26,7 +26,7 @@ export function MonthlyAveragesChart({ data }: MonthlyAveragesChartProps) {
     <section>
       <Card className="overflow-hidden rounded-2xl border-slate-200/50 shadow-sm">
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg font-roboto text-gray-800">
+          <CardTitle className="flex items-center gap-2 text-lg font-heading text-gray-800">
             <Calendar className="h-5 w-5 text-cyan-600" />
             Monthly Water Temperature
           </CardTitle>

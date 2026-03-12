@@ -32,7 +32,8 @@ function makeProps(
     beachName: "Black's Beach",
     conditionsScore: 8,
     surfDescription: "Clean 4-6ft sets",
-    logSessionUrl: "https://quiversurf.app/sessions/new?beach=blacks",
+    confirmUrl: "https://quiversurf.app/sessions/new?beach=blacks&action=confirm",
+    skipUrl: "https://quiversurf.app/sessions/new?beach=blacks&action=skip",
     unsubscribeUrl: "https://quiversurf.app/profile/notifications",
     ...overrides,
   };
@@ -194,32 +195,34 @@ describe("SessionPromptEmail", () => {
   });
 
   describe("CTA Link", () => {
-    it("renders 'Log Your Session' link with correct URL", () => {
-      const props = makeProps({
-        logSessionUrl: "https://quiversurf.app/sessions/new?beach=blacks",
-      });
+    it("renders confirm CTA link with correct URL", () => {
+      const confirmUrl = "https://quiversurf.app/sessions/new?beach=blacks&action=confirm";
+      const props = makeProps({ confirmUrl });
       render(<SessionPromptEmail {...props} />);
 
-      const link = screen.getByText(/Log Your Session/i);
+      const link = screen.getByText(/Yes, I surfed!/i);
       expect(link).toBeInTheDocument();
-      expect(link.closest("a")).toHaveAttribute(
-        "href",
-        "https://quiversurf.app/sessions/new?beach=blacks"
-      );
+      expect(link.closest("a")).toHaveAttribute("href", confirmUrl);
     });
 
-    it("handles session URL with different query parameters", () => {
-      const props = makeProps({
-        logSessionUrl:
-          "https://quiversurf.app/sessions/new?beach=swamis&date=2026-02-10",
-      });
+    it("renders skip CTA link with correct URL", () => {
+      const skipUrl = "https://quiversurf.app/sessions/new?beach=blacks&action=skip";
+      const props = makeProps({ skipUrl });
       render(<SessionPromptEmail {...props} />);
 
-      const link = screen.getByText(/Log Your Session/i);
-      expect(link.closest("a")).toHaveAttribute(
-        "href",
-        "https://quiversurf.app/sessions/new?beach=swamis&date=2026-02-10"
-      );
+      const link = screen.getByText(/No, I didn't surf/i);
+      expect(link).toBeInTheDocument();
+      expect(link.closest("a")).toHaveAttribute("href", skipUrl);
+    });
+
+    it("handles confirm URL with different query parameters", () => {
+      const confirmUrl =
+        "https://quiversurf.app/sessions/new?beach=swamis&date=2026-02-10&action=confirm";
+      const props = makeProps({ confirmUrl });
+      render(<SessionPromptEmail {...props} />);
+
+      const link = screen.getByText(/Yes, I surfed!/i);
+      expect(link.closest("a")).toHaveAttribute("href", confirmUrl);
     });
   });
 
@@ -293,7 +296,8 @@ describe("SessionPromptEmail", () => {
       ).toBeInTheDocument();
 
       // CTA
-      expect(screen.getByText(/Log Your Session/i)).toBeInTheDocument();
+      expect(screen.getByText(/Yes, I surfed!/i)).toBeInTheDocument();
+      expect(screen.getByText(/No, I didn't surf/i)).toBeInTheDocument();
 
       // Footer
       expect(
@@ -325,7 +329,7 @@ describe("SessionPromptEmail", () => {
       expect(paragraph.textContent).not.toMatch(/Clean/i);
 
       // CTA still present
-      expect(screen.getByText(/Log Your Session/i)).toBeInTheDocument();
+      expect(screen.getByText(/Yes, I surfed!/i)).toBeInTheDocument();
     });
 
     it("renders with perfect conditions (score 10)", () => {

@@ -93,7 +93,7 @@ export function SpotPhotoGallery({ beachId, spotName }: SpotPhotoGalleryProps) {
             {photo.attributionHtml && (
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-end justify-start p-2 opacity-0 group-hover:opacity-100">
                 <div
-                  className="text-xs text-white/90 line-clamp-2"
+                  className="text-xs text-high line-clamp-2"
                   dangerouslySetInnerHTML={{ __html: photo.attributionHtml }}
                 />
               </div>

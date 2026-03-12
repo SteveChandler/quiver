@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { preserveQueryParams } from "@/lib/utils/navigation-utils";
 import { useAuth } from "@/context/auth-context";
+import { CONTENT } from "@/lib/constants/features";
 
 export function CTASection() {
   const searchParams = useSearchParams();
@@ -15,29 +16,17 @@ export function CTASection() {
   if (!isLoading && user) return null;
 
   return (
-    <section className="py-20 px-4 bg-gradient-to-r from-ocean-blue to-blue-600 relative overflow-hidden">
-      {/* Background Pattern (static; keep landing CSS-only) */}
-      <div className="absolute inset-0 opacity-10">
-        <div
-          className="w-full h-full bg-gradient-to-br from-white to-transparent"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 20% 80%, white 2px, transparent 2px), radial-gradient(circle at 80% 20%, white 2px, transparent 2px)",
-            backgroundSize: "100px 100px",
-          }}
-        />
-      </div>
-
+    <section className="pt-8 pb-24 md:pt-10 md:pb-32 px-4 bg-[#252D6B] noise-texture-strong relative">
       <div className="max-w-4xl mx-auto text-center relative z-10 animate-fade-in-up">
-        <h2 className="text-3xl md:text-4xl font-roboto font-bold text-white mb-6 animate-fade-in-up">
-          Ready to surf smarter?
+        <h2 className="text-3xl md:text-4xl font-heading font-bold text-white mb-6 animate-fade-in-up text-glow-orange">
+          {CONTENT.sections.cta.title}
         </h2>
 
         <p
-          className="text-xl text-white/90 mb-8 font-open-sans animate-fade-in-up"
+          className="text-xl text-[#9AABC6] mb-8 font-sans animate-fade-in-up"
           style={{ animationDelay: "200ms" }}
         >
-          Find your crew, track epic sessions, and discover amazing spots. Free to join — priceless connections.
+          {CONTENT.sections.cta.subtitle}
         </p>
 
         <div
@@ -46,11 +35,11 @@ export function CTASection() {
         >
           <Button
             size="lg"
-            className="bg-white text-ocean-blue hover:bg-gray-50 px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 motion-optimized like-button-spring ripple-effect"
+            className="bg-ocean-blue text-white rounded-full px-8 py-3 font-sans font-semibold hover:shadow-lg hover:shadow-ocean-blue/20 transition-all duration-300 hover:bg-ocean-blue/90"
             asChild
           >
             <Link href={preserveQueryParams("/auth/sign-up", searchParams)}>
-              Start surfing smarter
+              {CONTENT.hero.cta}
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
           </Button>
@@ -58,7 +47,7 @@ export function CTASection() {
           <Button
             size="lg"
             variant="ghost"
-            className="border border-white/30 text-white hover:bg-white/10 px-8 py-4 text-lg font-roboto font-semibold rounded-full transition-all duration-300"
+            className="border border-white/30 text-white rounded-full px-6 py-3 font-sans font-semibold hover:bg-white/10"
             asChild
           >
             <Link href={preserveQueryParams("/about", searchParams)}>
@@ -68,7 +57,7 @@ export function CTASection() {
         </div>
 
         <p
-          className="text-white/80 text-sm font-open-sans animate-fade-in-up"
+          className="text-white/50 text-sm font-sans animate-fade-in-up"
           style={{ animationDelay: "600ms" }}
         >
           Free to join — no credit card required

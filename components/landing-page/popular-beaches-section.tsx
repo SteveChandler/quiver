@@ -99,7 +99,7 @@ function BeachCard({ beach }: { beach: EnrichedBeach }) {
         {/* Content Section */}
         <div className="p-4">
           {/* Name */}
-          <h3 className="text-lg font-bold font-roboto text-dark-grey mb-1 group-hover:text-ocean-blue transition-colors">
+          <h3 className="text-lg font-bold font-heading text-dark-grey mb-1 group-hover:text-ocean-blue transition-colors">
             {beach.name}
           </h3>
 
@@ -149,10 +149,10 @@ export function PopularBeachesSection({ beaches }: PopularBeachesSectionProps) {
       <div className="max-w-7xl mx-auto">
         {/* Section Header */}
         <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-roboto font-bold text-dark-grey mb-4">
+          <h2 className="text-4xl md:text-5xl font-heading font-bold text-dark-grey mb-4">
             {CONTENT.sections.surfHighlights.title}
           </h2>
-          <p className="text-xl font-open-sans text-gray-600 max-w-2xl mx-auto">
+          <p className="text-xl font-sans text-gray-600 max-w-2xl mx-auto">
             {CONTENT.sections.surfHighlights.subtitle}
           </p>
         </div>
@@ -174,7 +174,7 @@ export function PopularBeachesSection({ beaches }: PopularBeachesSectionProps) {
         <div className="text-center">
           <Button
             size="lg"
-            className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-8 py-4 text-lg font-roboto font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+            className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-8 py-4 text-lg font-heading font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
             asChild
           >
             <Link href="/map">

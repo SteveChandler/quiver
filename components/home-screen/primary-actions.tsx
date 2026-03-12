@@ -157,7 +157,7 @@ export const PrimaryActions = React.memo(function PrimaryActions({
         className={cn(
           "flex-1 h-12 sm:h-14 min-h-[44px] rounded-full",
           "bg-transparent hover:bg-white/10 active:bg-white/15",
-          "text-white/80 hover:text-white font-medium text-sm sm:text-base",
+          "text-high hover:text-white font-medium text-sm sm:text-base",
           "border border-white/30 hover:border-white/40",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-header-end",
           "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent",
@@ -193,7 +193,7 @@ export const PrimaryActions = React.memo(function PrimaryActions({
           className={cn(
             "flex-1 h-12 sm:h-14 min-h-[44px] rounded-full",
             "bg-transparent hover:bg-white/10 active:bg-white/15",
-            "text-white/80 hover:text-white font-medium text-sm sm:text-base",
+            "text-high hover:text-white font-medium text-sm sm:text-base",
             "border border-white/30 hover:border-white/40",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-header-end",
             "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent",

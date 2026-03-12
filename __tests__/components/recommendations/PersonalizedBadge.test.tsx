@@ -250,6 +250,7 @@ describe('PersonalizedBadge', () => {
       onboardingPrefs: 10,
       learnedPrefs: 5,
       affinity: 2,
+      multiplier: 1.051,
     };
 
     it('should show tooltip with breakdown on desktop', () => {
@@ -280,6 +281,7 @@ describe('PersonalizedBadge', () => {
             onboardingPrefs: 10,
             learnedPrefs: 0, // Should be hidden
             affinity: 0, // Should be hidden
+            multiplier: 1.03,
           }}
         />
       );
@@ -383,6 +385,7 @@ describe('PersonalizedBadge', () => {
             onboardingPrefs: 10,
             learnedPrefs: 5,
             affinity: 2,
+            multiplier: 1.051,
           }}
         />
       );
@@ -403,6 +406,7 @@ describe('PersonalizedBadge', () => {
             onboardingPrefs: 10,
             learnedPrefs: 5,
             affinity: 2,
+            multiplier: 1.051,
           }}
         />
       );
@@ -457,6 +461,7 @@ describe('PersonalizedBadge', () => {
             onboardingPrefs: 10,
             learnedPrefs: 5,
             affinity: 2,
+            multiplier: 1.051,
           }}
         />
       );

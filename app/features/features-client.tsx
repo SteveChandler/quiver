@@ -81,7 +81,7 @@ export default function FeaturesPageClient() {
             className="text-center mb-12"
           >
             <motion.h1
-              className="text-4xl md:text-6xl font-roboto font-bold text-white mb-6"
+              className="text-4xl md:text-6xl font-heading font-bold text-white mb-6"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
@@ -89,7 +89,7 @@ export default function FeaturesPageClient() {
               {hero.title}
             </motion.h1>
             <motion.p
-              className="text-xl md:text-2xl text-white/80 mb-8 font-open-sans max-w-3xl mx-auto"
+              className="text-xl md:text-2xl text-high mb-8 font-sans max-w-3xl mx-auto"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
@@ -107,7 +107,7 @@ export default function FeaturesPageClient() {
                 <Button
                   size="lg"
                   onClick={() => handleSignupClick("hero")}
-                  className="bg-white text-[#252D6B] hover:bg-gray-100 px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+                  className="bg-white text-[#252D6B] hover:bg-gray-100 px-8 py-4 text-lg font-heading font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
                 >
                   Get My Forecast
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -125,10 +125,10 @@ export default function FeaturesPageClient() {
           >
             {hero.stats.map((stat) => (
               <div key={stat.label} className="text-center">
-                <div className="text-2xl md:text-3xl font-roboto font-bold text-white">
+                <div className="text-2xl md:text-3xl font-heading font-bold text-white">
                   {stat.value}
                 </div>
-                <div className="text-sm text-white/70 font-open-sans mt-1">
+                <div className="text-sm text-medium font-sans mt-1">
                   {stat.label}
                 </div>
               </div>
@@ -140,7 +140,7 @@ export default function FeaturesPageClient() {
       {/* Section 2: PersonalizationShowcase (reused) with bridge text */}
       <section>
         <div className="max-w-6xl mx-auto px-4 pt-8">
-          <p className="text-center text-base font-open-sans text-gray-500">
+          <p className="text-center text-base font-sans text-gray-500">
             We crunch 40+ data points from buoys, weather models, and community
             reports — so you get one clear answer.
           </p>
@@ -155,7 +155,7 @@ export default function FeaturesPageClient() {
             {...ANIMATION_VARIANTS.fadeInView}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-roboto font-bold text-white mb-4">
+            <h2 className="text-3xl md:text-4xl font-heading font-bold text-white mb-4">
               Everything You Need, Nothing You Don&apos;t
             </h2>
           </motion.div>
@@ -168,10 +168,10 @@ export default function FeaturesPageClient() {
               >
                 <Card className="h-full bg-[#2D357D] border-white/10 shadow-lg">
                   <CardContent className="p-6">
-                    <h3 className="text-xl font-roboto font-bold text-white mb-2">
+                    <h3 className="text-xl font-heading font-bold text-white mb-2">
                       {card.title}
                     </h3>
-                    <p className="text-white/70 font-open-sans">
+                    <p className="text-medium font-sans">
                       {card.description}
                     </p>
                   </CardContent>
@@ -198,7 +198,7 @@ export default function FeaturesPageClient() {
             {...ANIMATION_VARIANTS.fadeInView}
             className="text-center mb-12"
           >
-            <h2 className="text-3xl md:text-4xl font-roboto font-bold text-dark-grey mb-4">
+            <h2 className="text-3xl md:text-4xl font-heading font-bold text-dark-grey mb-4">
               {deepDive.heading}
             </h2>
           </motion.div>
@@ -210,10 +210,10 @@ export default function FeaturesPageClient() {
                 value={item.id}
                 className="border-gray-200"
               >
-                <AccordionTrigger className="text-lg font-roboto font-semibold text-dark-grey hover:no-underline">
+                <AccordionTrigger className="text-lg font-heading font-semibold text-dark-grey hover:no-underline">
                   {item.title}
                 </AccordionTrigger>
-                <AccordionContent className="text-gray-600 font-open-sans leading-relaxed">
+                <AccordionContent className="text-gray-600 font-sans leading-relaxed">
                   {item.content}
                 </AccordionContent>
               </AccordionItem>
@@ -229,7 +229,7 @@ export default function FeaturesPageClient() {
           className="max-w-4xl mx-auto text-center relative z-10"
         >
           <motion.h2
-            className="text-3xl md:text-4xl font-roboto font-bold text-white mb-6"
+            className="text-3xl md:text-4xl font-heading font-bold text-white mb-6"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -238,7 +238,7 @@ export default function FeaturesPageClient() {
             {cta.title}
           </motion.h2>
           <motion.p
-            className="text-xl text-white/90 mb-8 font-open-sans"
+            className="text-xl text-high mb-8 font-sans"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -258,7 +258,7 @@ export default function FeaturesPageClient() {
               <Button
                 size="lg"
                 onClick={() => handleSignupClick("bottom-cta")}
-                className="bg-white text-ocean-blue hover:bg-gray-50 px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+                className="bg-white text-ocean-blue hover:bg-gray-50 px-8 py-4 text-lg font-heading font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
               >
                 {cta.primaryCta.text}
                 <ArrowRight className="ml-2 h-5 w-5" />
@@ -268,7 +268,7 @@ export default function FeaturesPageClient() {
             <Button
               size="lg"
               variant="ghost"
-              className="border border-white/30 text-white hover:bg-white/10 px-8 py-4 text-lg font-roboto font-semibold rounded-full transition-all duration-300"
+              className="border border-white/30 text-white hover:bg-white/10 px-8 py-4 text-lg font-heading font-semibold rounded-full transition-all duration-300"
               asChild
             >
               <Link href={cta.secondaryCta.href}>
@@ -278,7 +278,7 @@ export default function FeaturesPageClient() {
           </motion.div>
 
           <motion.p
-            className="text-white/80 text-sm font-open-sans"
+            className="text-high text-sm font-sans"
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}

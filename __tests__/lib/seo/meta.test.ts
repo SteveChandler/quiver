@@ -660,6 +660,21 @@ describe("SEO Meta Builder", () => {
         expect(result.title).toContain("Ocean Beach");
       });
 
+      it("should include height values in title when provided", () => {
+        const result = buildDynamicTideMetadata({
+          beach: mockBeach,
+          tideData: {
+            nextHighTime: "2:30 PM",
+            nextLowTime: "8:45 AM",
+            nextHighHeight: 5.2,
+            nextLowHeight: 0.8,
+          },
+        });
+        expect(result.title).toContain("5.2ft");
+        expect(result.title).toContain("Ocean Beach");
+        expect(result.title.length).toBeLessThanOrEqual(60);
+      });
+
       it("should include both tide times in description", () => {
         const result = buildDynamicTideMetadata({
           beach: mockBeach,
@@ -667,6 +682,34 @@ describe("SEO Meta Builder", () => {
         });
         expect(result.description).toContain("2:30 PM");
         expect(result.description).toContain("8:45 AM");
+      });
+
+      it("should include height values in description when provided", () => {
+        const result = buildDynamicTideMetadata({
+          beach: mockBeach,
+          tideData: {
+            nextHighTime: "2:30 PM",
+            nextLowTime: "8:45 AM",
+            nextHighHeight: 5.2,
+            nextLowHeight: 0.8,
+          },
+        });
+        expect(result.description).toContain("5.2ft");
+        expect(result.description).toContain("0.8ft");
+        expect(result.description).toContain("Plan your Ocean Beach surf");
+      });
+
+      it("should mention best windows in description", () => {
+        const result = buildDynamicTideMetadata({
+          beach: mockBeach,
+          tideData: {
+            nextHighTime: "2:30 PM",
+            nextLowTime: "8:45 AM",
+            nextHighHeight: 5.2,
+            nextLowHeight: 0.8,
+          },
+        });
+        expect(result.description).toContain("best windows");
       });
     });
 
@@ -677,7 +720,7 @@ describe("SEO Meta Builder", () => {
           tideData: null,
         });
         expect(result.title).toContain("Ocean Beach");
-        expect(result.title).toContain("Tide Chart");
+        expect(result.title).toContain("Tide Times");
       });
 
       it("should use fallback title when nextHighTime is null", () => {
@@ -723,13 +766,47 @@ describe("SEO Meta Builder", () => {
         expect(result.title).toContain("Ocean Beach");
       });
 
-      it("should include temperature and wetsuit rec in description", () => {
+      it("should use shortened wetsuit label in title", () => {
+        const result = buildDynamicWaterTempMetadata({
+          beach: mockBeach,
+          waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
+        });
+        // Short form "3/2mm" appears; long form "fullsuit" is dropped from title
+        expect(result.title).toContain("3/2mm");
+        expect(result.title.length).toBeLessThanOrEqual(60);
+      });
+
+      it("should include temperature and full wetsuit rec in description", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
         });
         expect(result.description).toContain("64°F");
         expect(result.description).toContain("3/2mm fullsuit");
+      });
+
+      it("should use city context in description", () => {
+        const result = buildDynamicWaterTempMetadata({
+          beach: mockBeach,
+          waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
+        });
+        expect(result.description).toContain("San Diego");
+      });
+
+      it("description follows 'is X°F today' pattern", () => {
+        const result = buildDynamicWaterTempMetadata({
+          beach: mockBeach,
+          waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
+        });
+        expect(result.description).toContain("Ocean Beach is 64°F today");
+      });
+
+      it("description length never exceeds 160 chars", () => {
+        const result = buildDynamicWaterTempMetadata({
+          beach: { name: "A Very Long Named Surf Beach Near The Pier", city: "San Francisco", state: "CA" },
+          waterTempData: { tempF: 58, wetsuitRec: "4/3mm fullsuit with boots" },
+        });
+        expect(result.description.length).toBeLessThanOrEqual(160);
       });
     });
 
@@ -740,7 +817,7 @@ describe("SEO Meta Builder", () => {
           waterTempData: null,
         });
         expect(result.title).toContain("Ocean Beach");
-        expect(result.title).toContain("Water Temperature");
+        expect(result.title).toContain("Water Temp");
       });
 
       it("should use fallback title when tempF is null", () => {

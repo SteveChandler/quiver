@@ -37,15 +37,15 @@ export function FeatureCard({
           >
             <Icon className={`h-8 w-8 ${iconColor}`} />
           </div>
-          <h3 className="text-2xl font-roboto font-bold text-dark-grey">
+          <h3 className="text-2xl font-heading font-bold text-dark-grey">
             {title}
           </h3>
         </CardHeader>
         <CardContent>
-          <p className="font-open-sans text-gray-600 text-center mb-4">
+          <p className="font-sans text-gray-600 text-center mb-4">
             {description}
           </p>
-          <ul className="space-y-2 text-sm font-open-sans text-gray-600">
+          <ul className="space-y-2 text-sm font-sans text-gray-600">
             {features.map((feature, index) => (
               <li key={index} className="flex items-center gap-2">
                 <feature.icon className={`h-4 w-4 ${feature.color}`} />

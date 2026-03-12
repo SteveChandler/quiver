@@ -37,6 +37,7 @@ interface MapContentProps {
   onMapClick?: () => void;
   autoNavigateOnMarkerClick?: boolean;
   onShowBeaches?: () => void;
+  visibleBeachCount?: number;
 }
 
 const MAX_DISTANCE_MILES = 30;
@@ -67,6 +68,7 @@ export function MapContent({
   onMapClick,
   autoNavigateOnMarkerClick,
   onShowBeaches,
+  visibleBeachCount,
 }: MapContentProps) {
   // Memoize the map display coordinates
   const mapCenter = useMemo(() => {
@@ -183,33 +185,58 @@ export function MapContent({
         {/* Map overlay with beach count */}
         <div data-testid="map-overlay" className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-md max-w-[55vw] sm:max-w-xs z-10">
           <p className="text-sm font-medium">
-            {searchQuery
-              ? filteredBeaches.length > 0
-                ? `Found ${filteredBeaches.length} ${
-                    filteredBeaches.length === 1 ? "beach" : "beaches"
-                  } for \"${searchQuery}\"`
-                : isLikelyOutOfAreaSearch(searchQuery)
-                ? `\"${searchQuery}\" is outside our coverage area`
-                : `No beaches found for \"${searchQuery}\"`
-              : userLocation
-              ? usingDefaultLocation
-                ? `Showing beaches near Ocean Beach, San Diego`
-                : filteredBeaches.length > 0
-                ? `Found ${filteredBeaches.length} beaches near your location`
-                : `No beaches within ${MAX_DISTANCE_MILES} miles of your location`
-              : "Loading beach locations..."}
+            {(() => {
+              const displayCount = visibleBeachCount ?? filteredBeaches.length;
+
+              if (searchQuery) {
+                if (filteredBeaches.length > 0) {
+                  return `Found ${displayCount} ${displayCount === 1 ? "beach" : "beaches"} for "${searchQuery}"`;
+                }
+                return isLikelyOutOfAreaSearch(searchQuery)
+                  ? `"${searchQuery}" is outside our coverage area`
+                  : `No beaches found for "${searchQuery}"`;
+              }
+
+              if (userLocation) {
+                if (usingDefaultLocation) {
+                  return `Showing beaches near Ocean Beach, San Diego`;
+                }
+                if (displayCount > 0) {
+                  return `Found ${displayCount} ${displayCount === 1 ? "beach" : "beaches"} near you`;
+                }
+                return `No beaches within ${MAX_DISTANCE_MILES} miles of your location`;
+              }
+
+              return "Loading beach locations...";
+            })()}
           </p>
-          {filteredBeaches.length > 0 && (
-            <p className="text-xs text-muted-foreground mt-1">
-              {selectedBeach
-                ? `Showing ${selectedBeach.name}`
-                : searchQuery && filteredBeaches.length === 1
-                ? `Showing ${filteredBeaches[0].name} on the map`
-                : searchQuery && filteredBeaches.length > 1
-                ? `Showing ${filteredBeaches[0].name} - tap other beach cards below to see them on the map`
-                : "Tap a beach card below to see it on the map"}
-            </p>
-          )}
+          {(() => {
+            const displayCount = visibleBeachCount ?? filteredBeaches.length;
+            const hasMoreOffscreen = visibleBeachCount != null && visibleBeachCount < filteredBeaches.length;
+            if (hasMoreOffscreen) {
+              return (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {selectedBeach
+                    ? `Showing ${selectedBeach.name} · Zoom out to find more`
+                    : "Zoom out to find more"}
+                </p>
+              );
+            }
+            if (displayCount > 0) {
+              return (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {selectedBeach
+                    ? `Showing ${selectedBeach.name}`
+                    : searchQuery && displayCount === 1
+                    ? `Showing ${filteredBeaches[0].name} on the map`
+                    : searchQuery && displayCount > 1
+                    ? `Showing ${filteredBeaches[0].name} - tap other beach cards below to see them on the map`
+                    : "Tap a beach card below to see it on the map"}
+                </p>
+              );
+            }
+            return null;
+          })()}
           {filteredBeaches.length === 0 && searchQuery && (
             <p className="text-xs text-muted-foreground mt-1">
               {isLikelyOutOfAreaSearch(searchQuery)

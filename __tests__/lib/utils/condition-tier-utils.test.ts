@@ -59,7 +59,7 @@ describe("condition-tier-utils", () => {
     });
 
     it("returns muted white for marginal tier", () => {
-      expect(getScoreColorClass("marginal")).toBe("text-white/60");
+      expect(getScoreColorClass("marginal")).toBe("text-medium");
     });
   });
 

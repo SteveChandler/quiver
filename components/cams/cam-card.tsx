@@ -71,7 +71,7 @@ export function CamCard({ beach }: CamCardProps) {
         </span>
 
         {/* Beach name overlay */}
-        <span className="absolute bottom-3 left-0 right-0 z-10 px-4 text-center font-roboto text-lg font-bold text-white drop-shadow-md">
+        <span className="absolute bottom-3 left-0 right-0 z-10 px-4 text-center font-heading text-lg font-bold text-white drop-shadow-md">
           {beach.name}
         </span>
       </div>

@@ -9,6 +9,7 @@ interface SectionWrapperProps {
   subtitleClassName?: string;
   maxWidth?: "4xl" | "6xl" | "7xl";
   centerContent?: boolean;
+  noiseVariant?: "texture" | "strong" | "none";
   "data-testid"?: string;
 }
 
@@ -21,22 +22,36 @@ const MAX_WIDTH_CLASS: Record<
   "7xl": "max-w-7xl",
 };
 
+const NOISE_CLASS: Record<
+  NonNullable<SectionWrapperProps["noiseVariant"]>,
+  string
+> = {
+  texture: "noise-texture",
+  strong: "noise-texture-strong",
+  none: "",
+};
+
 export function SectionWrapper({
   children,
   className = "py-20 px-4",
   title,
   subtitle,
-  titleClassName = "text-4xl md:text-5xl font-roboto font-bold text-dark-grey mb-4",
-  subtitleClassName = "text-xl font-open-sans text-gray-600 max-w-2xl mx-auto",
+  titleClassName = "text-4xl md:text-5xl font-heading font-bold text-dark-grey mb-4",
+  subtitleClassName = "text-xl font-sans text-gray-600 max-w-2xl mx-auto",
   maxWidth = "6xl",
   centerContent = false,
+  noiseVariant = "texture",
   "data-testid": testId,
 }: SectionWrapperProps) {
   const containerClass = `${MAX_WIDTH_CLASS[maxWidth]} mx-auto`;
   const contentClass = centerContent ? "text-center" : "";
+  const noiseClass = NOISE_CLASS[noiseVariant];
 
   return (
-    <section className={className} data-testid={testId}>
+    <section
+      className={`${className}${noiseClass ? ` ${noiseClass}` : ""}`}
+      data-testid={testId}
+    >
       <div className={containerClass}>
         {(title || subtitle) && (
           <div className={`${contentClass} mb-12 animate-fade-in-up`}>

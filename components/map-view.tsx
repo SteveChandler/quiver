@@ -268,7 +268,7 @@ export function MapView() {
   }, [activeRegion, beaches]);
 
   return (
-    <div className="flex-1 flex flex-col" data-testid="map-view">
+    <div className="flex-1 flex flex-col min-h-0" data-testid="map-view">
       {/* Map Controls (View Mode Toggle & Near Me) */}
       <MapSearchHeader
         viewMode={viewMode}
@@ -366,6 +366,7 @@ export function MapView() {
               onMapClick={isMobile ? handleMapClick : undefined}
               autoNavigateOnMarkerClick={!isMobile}
               onShowBeaches={isMobile && showRecovery ? handleShowBeaches : undefined}
+              visibleBeachCount={viewportBeaches.length}
             />
 
           </div>

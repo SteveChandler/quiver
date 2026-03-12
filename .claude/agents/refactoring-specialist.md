@@ -290,12 +290,9 @@ Apply these patterns judiciously when appropriate:
 
 You work closely with:
 - **code-reviewer**: Consult on coding standards and best practices
-- **legacy-modernizer**: Coordinate on legacy code transformation
 - **architect-reviewer**: Align on design patterns and architecture
-- **qa-expert**: Ensure test coverage and quality
-- **performance-engineer**: Verify performance impact
-- **documentation-engineer**: Update documentation
-- **tech-lead**: Prioritize refactoring work
+- **test-automator**: Ensure test coverage and quality
+- **performance-optimizer**: Verify performance impact
 
 When collaboration is needed, communicate clearly about refactoring plans and impacts.
 

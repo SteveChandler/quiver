@@ -229,8 +229,10 @@ describe("POST /api/beach/personalized-score", () => {
       const beachId = "beach-123";
       const baseScore = 75;
 
+      // totalBonus = 10+5+3+2 = 20, multiplier = 1.0+(20/50)*0.15 = 1.06
+      // score = round(75*1.06) = 80
       const mockPersonalizedScore = {
-        score: 95,
+        score: 80,
         personalized: true,
         breakdown: {
           base: 75,
@@ -238,6 +240,7 @@ describe("POST /api/beach/personalized-score", () => {
           learnedPrefs: 5,
           implicitPrefs: 3,
           affinity: 2,
+          multiplier: 1.06,
         },
       };
 
@@ -262,7 +265,7 @@ describe("POST /api/beach/personalized-score", () => {
       );
 
       expect(result.data).toEqual(mockPersonalizedScore);
-      expect(result.data.score).toBe(95);
+      expect(result.data.score).toBe(80);
       expect(result.data.personalized).toBe(true);
     });
 
@@ -297,8 +300,10 @@ describe("POST /api/beach/personalized-score", () => {
     });
 
     it("includes score breakdown", async () => {
+      // totalBonus = 10+5+2+1 = 18, multiplier = 1.0+(18/50)*0.15 = 1.054
+      // score = round(70*1.054) = 74
       const mockScore = {
-        score: 88,
+        score: 74,
         personalized: true,
         breakdown: {
           base: 70,
@@ -306,6 +311,7 @@ describe("POST /api/beach/personalized-score", () => {
           learnedPrefs: 5,
           implicitPrefs: 2,
           affinity: 1,
+          multiplier: 1.054,
         },
       };
 
@@ -328,16 +334,17 @@ describe("POST /api/beach/personalized-score", () => {
         learnedPrefs: 5,
         implicitPrefs: 2,
         affinity: 1,
+        multiplier: 1.054,
       });
 
-      // Verify breakdown adds up correctly
-      const total =
-        result.data.breakdown.base +
+      // Verify multiplicative scoring: score = min(100, round(base * multiplier))
+      const totalBonus =
         result.data.breakdown.onboardingPrefs +
         result.data.breakdown.learnedPrefs +
         result.data.breakdown.implicitPrefs +
         result.data.breakdown.affinity;
-      expect(total).toBe(88);
+      const expectedMultiplier = 1.0 + Math.min(totalBonus / 50, 1.0) * 0.15;
+      expect(result.data.score).toBe(Math.min(100, Math.round(result.data.breakdown.base * expectedMultiplier)));
     });
   });
 

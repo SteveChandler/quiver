@@ -6,7 +6,8 @@ export interface SessionPromptEmailProps {
   beachName: string;
   conditionsScore: number; // 0-10 scale, yesterday's score
   surfDescription: string | null;
-  logSessionUrl: string;
+  confirmUrl: string;
+  skipUrl: string;
   unsubscribeUrl: string;
 }
 
@@ -15,7 +16,8 @@ export function SessionPromptEmail({
   beachName,
   conditionsScore,
   surfDescription,
-  logSessionUrl,
+  confirmUrl,
+  skipUrl,
   unsubscribeUrl,
 }: SessionPromptEmailProps) {
   const greeting = displayName ? `Hey ${displayName}!` : "Hey there!";
@@ -79,10 +81,10 @@ export function SessionPromptEmail({
           Your session logs help the community and improve our forecasts.
         </div>
 
-        {/* Primary CTA Button */}
+        {/* Two-button CTA layout: confirm session vs. skip */}
         <div style={{ textAlign: "center" as const, marginBottom: 32 }}>
           <a
-            href={logSessionUrl}
+            href={confirmUrl}
             style={{
               backgroundColor: "#0066cc",
               color: "#ffffff",
@@ -92,9 +94,26 @@ export function SessionPromptEmail({
               display: "inline-block",
               fontSize: 16,
               fontWeight: "bold",
+              marginBottom: 12,
             }}
           >
-            Log Your Session &rarr;
+            Yes, I surfed! &rarr;
+          </a>
+          <br />
+          <a
+            href={skipUrl}
+            style={{
+              backgroundColor: "#f3f4f6",
+              color: "#374151",
+              padding: "12px 28px",
+              textDecoration: "none",
+              borderRadius: 8,
+              display: "inline-block",
+              fontSize: 14,
+              fontWeight: "500",
+            }}
+          >
+            No, I didn&apos;t surf
           </a>
         </div>
       </div>

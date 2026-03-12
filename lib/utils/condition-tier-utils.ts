@@ -57,7 +57,7 @@ export function getScoreColorClass(tier: ConditionTier): string {
     case "fair":
       return "text-amber-400";
     case "marginal":
-      return "text-white/60";
+      return "text-medium";
   }
 }
 

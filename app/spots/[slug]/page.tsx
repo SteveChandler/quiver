@@ -8,7 +8,7 @@ import {
   type SurfCitySlug,
 } from "@/lib/data/surf-spots";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
-import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
+import { buildBeachUrl, getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { getBeachForecastPreview } from "@/actions/forecast-actions";
 import { getIntentSlug } from "@/lib/utils/slug-helpers";
 import { SpotStructuredData } from "@/components/seo/spot-structured-data";
@@ -258,7 +258,7 @@ export default async function SpotPage(props: SpotPageParams) {
             {spot.citySlug ? (
               <a
                 className="font-semibold text-sky-700 underline-offset-2 hover:underline"
-                href={`/beaches/usa/ca/${spot.citySlug}`}
+                href={`/${spot.state?.toLowerCase() || "ca"}/${spot.citySlug}`}
               >
                 {cityName} surf spots
               </a>
@@ -372,7 +372,7 @@ export default async function SpotPage(props: SpotPageParams) {
                   {validNearbySpots.map((nearbySpot) => (
                     <li key={nearbySpot!.slug}>
                       <a
-                        href={buildBeachUrl(nearbySpot!)}
+                        href={getBeachHrefSafe(nearbySpot!) || `/spots/${nearbySpot!.slug}`}
                         className="underline-offset-2 hover:underline"
                       >
                         {nearbySpot!.name} tide chart

@@ -69,6 +69,7 @@ const INTERNATIONAL_RESERVED_SEGMENTS = new Set([
 // Remove entries after Google drops the cached URLs (~6 months after redirect).
 const LEGACY_SPOT_SLUG_ALIASES: Record<string, string> = {
   "blacks-beach": "blacks", // 271 impressions at 0 clicks — added Mar 2026
+  "lowers-trestles": "lower-trestles", // plural variant linked from OC surf spots page
 };
 
 function log(message: string, data?: any) {
@@ -248,7 +249,9 @@ export async function middleware(request: NextRequest) {
    * Short URLs are served via internal rewrite for zero-redirect SEO.
    */
 
-  // Canonicalize /beaches/{country}/{state}/{city} slugs (lowercase + "usa" normalization)
+  // Redirect /beaches/{country}/{state}/{city} to canonical short URL
+  // /beaches/usa/or/otter-rock -> /or/otter-rock (301)
+  // /beaches/mexico/baja-california/rosarito -> /mexico/baja-california/rosarito (301)
   const legacyLocationMatch = pathname.match(
     /^\/beaches\/([^/]+)\/([^/]+)\/([^/]+)$/
   );
@@ -258,25 +261,29 @@ export async function middleware(request: NextRequest) {
     const city = legacyLocationMatch[3]?.toLowerCase() || "";
 
     // Special-case HI ambiguous city slugs to avoid redirect chains.
-    if (country === "usa" && state === "hi" && city === "waimea") {
+    if (
+      (country === "usa" || country === "us") &&
+      state === "hi" &&
+      city === "waimea"
+    ) {
       const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/beaches/usa/hi/waimea-kauai";
+      redirectUrl.pathname = "/hi/waimea-kauai";
       return NextResponse.redirect(redirectUrl, { status: 301 });
     }
 
-    const canonicalCountry = country === "us" ? "usa" : country;
-    const canonicalPath = `/beaches/${canonicalCountry}/${state}/${city}`;
-
-    // Avoid redirect loops: only redirect when normalization changes the path.
-    if (pathname !== canonicalPath) {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = canonicalPath;
-      return NextResponse.redirect(redirectUrl, { status: 301 });
+    const redirectUrl = request.nextUrl.clone();
+    if (country === "usa" || country === "us") {
+      // USA: /beaches/usa/or/otter-rock -> /or/otter-rock
+      redirectUrl.pathname = `/${state}/${city}`;
+    } else {
+      // International: /beaches/mexico/baja-california/rosarito -> /mexico/baja-california/rosarito
+      redirectUrl.pathname = `/${country}/${state}/${city}`;
     }
+    return NextResponse.redirect(redirectUrl, { status: 301 });
   }
 
   // Legacy shortcut redirect (no country segment)
-  // Redirect /beaches/ca/san-diego -> /beaches/usa/ca/san-diego
+  // Redirect /beaches/ca/san-diego -> /ca/san-diego
   const beachesStateCityMatch = pathname.match(/^\/beaches\/([^/]+)\/([^/]+)$/);
   if (beachesStateCityMatch) {
     const state = beachesStateCityMatch[1]?.toLowerCase() || "";
@@ -284,7 +291,7 @@ export async function middleware(request: NextRequest) {
 
     if (isValidStateSlug(state)) {
       const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = `/beaches/usa/${state}/${city}`;
+      redirectUrl.pathname = `/${state}/${city}`;
       return NextResponse.redirect(redirectUrl, { status: 301 });
     }
   }

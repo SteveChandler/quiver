@@ -330,16 +330,16 @@ test.describe('Home Header Animations', () => {
     });
 
     test('should display gradient header background', async ({ page }) => {
-      // Check for gradient header container
+      // Check for gradient header overlay
       // Note: CSS classes differ based on reducedMotion preference:
-      // - With reduced motion: .bg-gradient-to-b.from-header-start.to-header-end
-      // - Without reduced motion: .bg-[linear-gradient...] with animate-ocean-swell
-      const reducedMotionHeader = page.locator('.bg-gradient-to-b.from-header-start.to-header-end').first();
-      const animatedHeader = page.locator('.animate-ocean-swell').first();
+      // - With reduced motion: .bg-gradient-to-b.from-header-start.to-header-end (overlay div)
+      // - Without reduced motion: .bg-gradient-to-b.from-black\/60 (overlay div)
+      const reducedMotionOverlay = page.locator('.bg-gradient-to-b.from-header-start.to-header-end').first();
+      const animatedOverlay = page.locator('.from-black\\/60').first();
 
-      // Either pattern should be visible (depending on user's reduced motion setting)
-      const hasReducedMotion = await isVisibleSafe(reducedMotionHeader, { timeout: 1000 });
-      const hasAnimated = await isVisibleSafe(animatedHeader, { timeout: 1000 });
+      // Either pattern should be present (depending on user's reduced motion setting)
+      const hasReducedMotion = await isVisibleSafe(reducedMotionOverlay, { timeout: 1000 });
+      const hasAnimated = await isVisibleSafe(animatedOverlay, { timeout: 1000 });
 
       expect(hasReducedMotion || hasAnimated).toBe(true);
     });

@@ -6,7 +6,7 @@ import { SpotSurfReportStream } from "@/components/spots/spot-surf-report";
 import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-section";
-import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
@@ -286,16 +286,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           supportingText={`Your match score for ${beach.name}`}
           scrollThreshold={150}
         />
-
-        {/* Signup CTA for anonymous visitors */}
-        <div className="container mx-auto px-4 pt-6">
-          <InlineSignupCta
-            title="Know Before You Go"
-            description={`Get your personal match score, 12-day outlook, and condition alerts for ${beach.name}`}
-            primaryButtonText="Get My Forecast"
-            source={`beach-detail-${beachSlug}`}
-          />
-        </div>
 
         {/* SSR sections below tabs for SEO crawlability */}
         <div className="container mx-auto px-4 pb-8 space-y-8">

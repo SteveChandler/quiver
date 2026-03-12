@@ -128,8 +128,8 @@ export function GoalsSection({
                         onClick={() => handleSkillRating(skill, rating)}
                         className={`p-1 rounded transition-all duration-200 ${
                           (formState.skillRatings ?? {})[skill] >= rating
-                            ? "text-[#FF3B8B] bg-[#FF3B8B]/10"
-                            : "text-[#3A4F72] hover:text-[#8B9EC2] hover:bg-[#1E2D4A]"
+                            ? "text-[#F78E42] bg-[#F78E42]/10"
+                            : "text-[#3A4F72] hover:text-[#8B9EC2] hover:bg-[#404C92]"
                         }`}
                         aria-label={`Rate ${skill} ${rating} stars`}
                       >
@@ -170,8 +170,8 @@ export function GoalsSection({
                     onClick={() => handleRatingChange(rating)}
                     className={`p-2 rounded-lg transition-all duration-200 ${
                       parseInt(formState.overallRating) >= rating
-                        ? "text-[#FF3B8B] bg-[#FF3B8B]/10"
-                        : "text-[#3A4F72] hover:text-[#8B9EC2] hover:bg-[#1E2D4A]"
+                        ? "text-[#F78E42] bg-[#F78E42]/10"
+                        : "text-[#3A4F72] hover:text-[#8B9EC2] hover:bg-[#404C92]"
                     }`}
                     title={getRatingDescription("overallRating", rating)}
                   >

@@ -88,9 +88,11 @@ function applyIntentFilters(
     return baseQuery.or(skillConditions);
   }
 
-  // Filter least-crowded to only light/moderate beaches
+  // Filter least-crowded to only light/moderate beaches (case-insensitive)
   if (intent === "least-crowded") {
-    return baseQuery.in("crowd_level", LEAST_CROWDED_LEVELS);
+    return baseQuery.or(
+      LEAST_CROWDED_LEVELS.map((l) => `crowd_level.ilike.${l}`).join(",")
+    );
   }
 
   return baseQuery;

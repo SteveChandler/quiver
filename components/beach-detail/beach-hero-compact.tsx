@@ -119,17 +119,17 @@ export function BeachHeroCompact({
     <div
       className={`${overlayMode ? "" : "bg-white border-b border-gray-200"} py-6 ${className || ""}`}
     >
-      {/* Phase 4 Spec: Beach Name - 36px Roboto, 700 weight, 44px line-height, 8px margin-bottom */}
+      {/* Phase 4 Spec: Beach Name - 36px Space Grotesk, 700 weight, 44px line-height, 8px margin-bottom */}
       {/* Hidden in overlayMode — title is rendered separately in the hero overlay above */}
       {!overlayMode && (
-        <h1 className="text-4xl font-roboto font-bold leading-[44px] text-gray-900 mb-2">
+        <h1 className="text-4xl font-heading font-bold leading-[44px] text-gray-900 mb-2">
           {beach.name} Surf Report
         </h1>
       )}
 
       {/* Personalization Badge - Show after title for authenticated users */}
       {isLoadingPersonalization && (
-        <div className={`flex items-center gap-2 mb-3 ${overlayMode ? "text-white/70" : "text-muted-foreground"}`}>
+        <div className={`flex items-center gap-2 mb-3 ${overlayMode ? "text-medium" : "text-muted-foreground"}`}>
           <Loader2 className="h-4 w-4 animate-spin" />
           <span className="text-sm">Calculating your match...</span>
         </div>
@@ -211,7 +211,7 @@ export function BeachHeroCompact({
             </div>
             {/* Phase 4 Spec: Review Count - 14px, gray-600, 8px margin-left */}
             {reviewCount > 0 && (
-              <span className={`text-sm ml-2 ${overlayMode ? "text-white/70" : "text-gray-600"}`}>
+              <span className={`text-sm ml-2 ${overlayMode ? "text-medium" : "text-gray-600"}`}>
                 ({reviewCount} {reviewCount === 1 ? "review" : "reviews"})
               </span>
             )}
@@ -238,7 +238,7 @@ export function BeachHeroCompact({
         <span className={overlayMode ? "text-white/40" : "text-gray-400"}>·</span>
 
         {/* Location */}
-        <span className={`text-sm ${overlayMode ? "text-white/70" : "text-gray-600"}`}>{location}</span>
+        <span className={`text-sm ${overlayMode ? "text-medium" : "text-gray-600"}`}>{location}</span>
       </div>
 
       {publicMode && (

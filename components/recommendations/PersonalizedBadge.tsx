@@ -27,6 +27,7 @@ export interface PersonalizedBadgeProps {
     onboardingPrefs: number;
     learnedPrefs: number;
     affinity: number;
+    multiplier: number;
   };
 
   /** User's affinity data for this beach */
@@ -398,7 +399,8 @@ const arePersonalizedBadgePropsEqual = (
       prev.breakdown.base !== next.breakdown.base ||
       prev.breakdown.onboardingPrefs !== next.breakdown.onboardingPrefs ||
       prev.breakdown.learnedPrefs !== next.breakdown.learnedPrefs ||
-      prev.breakdown.affinity !== next.breakdown.affinity
+      prev.breakdown.affinity !== next.breakdown.affinity ||
+      prev.breakdown.multiplier !== next.breakdown.multiplier
     ) {
       return false;
     }

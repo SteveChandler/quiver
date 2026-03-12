@@ -216,8 +216,8 @@ describe("Enhanced Chart Utilities", () => {
         expect(config).toHaveProperty("highTide");
         expect(config).toHaveProperty("lowTide");
 
-        expect(config.tideHeight.color).toBe("#FF3B8B"); // Hot pink (primary)
-        expect(config.highTide.color).toBe("#FFD639"); // Electric yellow
+        expect(config.tideHeight.color).toBe("#F78E42"); // Charming Orange (primary)
+        expect(config.highTide.color).toBe("#FDB84B"); // Paradise Gold
         expect(config.lowTide.color).toBe("#333333"); // Dark grey
 
         expect(config.tideHeight.label).toBe("Tide Height");

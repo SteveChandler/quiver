@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
 import { useOnboardingStore } from "@/store/onboarding-store";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   EXPERIENCE_LEVELS,
@@ -11,9 +11,12 @@ import {
   type ExperienceLevel,
   type TimePreference,
 } from "@/lib/constants/user-preferences";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
 
 export function LevelAndTimeStep() {
   const { data, updateData, nextStep, prevStep } = useOnboardingStore();
+  const reducedMotion = useReducedMotion();
 
   const [selectedLevel, setSelectedLevel] = useState<ExperienceLevel | null>(
     data.experienceLevel || null
@@ -41,9 +44,9 @@ export function LevelAndTimeStep() {
       {/* Section A - Experience Level */}
       <div className="space-y-4">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">What&apos;s your experience level?</h2>
-          <p className="text-muted-foreground mt-1">
-            This helps us personalize your surf forecasts
+          <h2 className="text-white font-heading text-2xl font-bold">What kind of surfer are you?</h2>
+          <p className="text-medium mt-1">
+            We&apos;ll match conditions to your level
           </p>
         </div>
 
@@ -52,26 +55,47 @@ export function LevelAndTimeStep() {
             const isSelected = selectedLevel === level.value;
 
             return (
-              <button
+              <motion.button
                 key={level.value}
                 type="button"
                 onClick={() => setSelectedLevel(level.value)}
+                whileTap={reducedMotion ? undefined : { scale: 0.97 }}
+                animate={
+                  reducedMotion
+                    ? undefined
+                    : isSelected
+                    ? { scale: [1, 1.03, 1] }
+                    : { scale: 1 }
+                }
+                transition={
+                  reducedMotion
+                    ? undefined
+                    : { type: "spring", ...HOME_HEADER_MOTION.spring }
+                }
                 className={cn(
-                  "p-3 border-2 rounded-lg text-left transition-all flex flex-col items-center gap-2",
+                  "p-3 border rounded-lg text-left transition-colors flex flex-col items-center gap-2",
                   isSelected
-                    ? "border-ocean-blue bg-blue-50"
-                    : "border-gray-200 hover:border-gray-300"
+                    ? "border-[#F78E42] bg-[#F78E42]/10"
+                    : "bg-white/10 border-white/20 hover:bg-white/15"
                 )}
               >
                 <div className="text-2xl flex-shrink-0">{level.emoji}</div>
                 <div className="w-full text-center">
-                  <div className="font-semibold text-foreground flex items-center justify-center gap-2">
+                  <div className="font-semibold text-white flex items-center justify-center gap-2">
                     {level.label}
-                    {isSelected && <CheckCircle2 className="w-4 h-4 text-ocean-blue flex-shrink-0" />}
+                    {isSelected && (
+                      <motion.span
+                        initial={reducedMotion ? { scale: 1 } : { scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", ...HOME_HEADER_MOTION.spring }}
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-[#F78E42] flex-shrink-0" />
+                      </motion.span>
+                    )}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">{level.description}</div>
+                  <div className="text-xs text-medium mt-1">{level.description}</div>
                 </div>
-              </button>
+              </motion.button>
             );
           })}
         </div>
@@ -80,8 +104,8 @@ export function LevelAndTimeStep() {
       {/* Section B - When Do You Surf */}
       <div className="space-y-4">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">When do you surf?</h2>
-          <p className="text-muted-foreground mt-1">
+          <h2 className="text-white font-heading text-2xl font-bold">When do you surf?</h2>
+          <p className="text-medium mt-1">
             We&apos;ll highlight the best times for you
           </p>
         </div>
@@ -91,24 +115,45 @@ export function LevelAndTimeStep() {
             const isSelected = selectedTime === time.value;
 
             return (
-              <button
+              <motion.button
                 key={time.value}
                 type="button"
                 onClick={() => setSelectedTime(time.value)}
+                whileTap={reducedMotion ? undefined : { scale: 0.97 }}
+                animate={
+                  reducedMotion
+                    ? undefined
+                    : isSelected
+                    ? { scale: [1, 1.03, 1] }
+                    : { scale: 1 }
+                }
+                transition={
+                  reducedMotion
+                    ? undefined
+                    : { type: "spring", ...HOME_HEADER_MOTION.spring }
+                }
                 className={cn(
-                  "w-full p-4 border-2 rounded-lg text-left transition-all flex items-center gap-4",
+                  "w-full p-4 border rounded-lg text-left transition-colors flex items-center gap-4",
                   isSelected
-                    ? "border-ocean-blue bg-blue-50"
-                    : "border-gray-200 hover:border-gray-300"
+                    ? "border-[#F78E42] bg-[#F78E42]/10"
+                    : "bg-white/10 border-white/20 hover:bg-white/15"
                 )}
               >
                 <div className="text-3xl flex-shrink-0">{time.emoji}</div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-foreground">{time.label}</div>
-                  <div className="text-sm text-muted-foreground">{time.description}</div>
+                  <div className="font-semibold text-white">{time.label}</div>
+                  <div className="text-sm text-medium">{time.description}</div>
                 </div>
-                {isSelected && <CheckCircle2 className="w-6 h-6 text-ocean-blue flex-shrink-0" />}
-              </button>
+                {isSelected && (
+                  <motion.span
+                    initial={reducedMotion ? { scale: 1 } : { scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", ...HOME_HEADER_MOTION.spring }}
+                  >
+                    <CheckCircle2 className="w-6 h-6 text-[#F78E42] flex-shrink-0" />
+                  </motion.span>
+                )}
+              </motion.button>
             );
           })}
         </div>
@@ -116,26 +161,27 @@ export function LevelAndTimeStep() {
 
       {/* Navigation Buttons */}
       <div className="flex gap-3 pt-4">
-        <Button
-          variant="outline"
+        <button
+          type="button"
           onClick={prevStep}
-          className="flex-1"
+          className="flex-1 py-3 rounded-lg bg-white/10 border border-white/20 text-white font-semibold text-sm hover:bg-white/15 transition-colors"
         >
           Back
-        </Button>
-        <Button
-          variant="ghost"
+        </button>
+        <button
+          type="button"
           onClick={handleSkip}
-          className="flex-1"
+          className="flex-1 py-3 text-white/50 hover:text-white/70 text-sm transition-colors"
         >
           Skip
-        </Button>
-        <Button
+        </button>
+        <button
+          type="button"
           onClick={handleContinue}
-          className="flex-1"
+          className="flex-1 py-3 rounded-lg bg-gradient-to-r from-[#F78E42] to-[#D57835] text-white font-semibold text-sm transition-opacity"
         >
           Continue
-        </Button>
+        </button>
       </div>
     </div>
   );

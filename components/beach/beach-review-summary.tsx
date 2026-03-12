@@ -102,7 +102,7 @@ export function BeachReviewSummary({
         className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg"
       >
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-blue-100/60 bg-blue-50/70 p-6">
-          <h2 className="flex items-center gap-2 text-lg font-roboto font-semibold text-dark-grey">
+          <h2 className="flex items-center gap-2 text-lg font-heading font-semibold text-dark-grey">
             <Star className="h-5 w-5 text-yellow-500" /> Reviews & Ratings
           </h2>
           {user && onWriteReview && (
@@ -136,7 +136,7 @@ export function BeachReviewSummary({
       className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg"
     >
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-blue-100/60 bg-blue-50/80 p-6">
-        <h2 className="flex items-center gap-2 text-lg font-roboto font-semibold text-dark-grey">
+        <h2 className="flex items-center gap-2 text-lg font-heading font-semibold text-dark-grey">
           <Star className="h-5 w-5 text-yellow-500" /> Reviews & Ratings
         </h2>
         {user && onWriteReview && (
@@ -156,7 +156,7 @@ export function BeachReviewSummary({
               Overall score
             </div>
             <div className="flex items-end gap-3">
-              <span className="text-5xl font-roboto font-extrabold text-ocean-blue">
+              <span className="text-5xl font-heading font-extrabold text-ocean-blue">
                 {averageOverall.toFixed(1)}
               </span>
               <StarRating rating={Math.round(averageOverall)} size="lg" />

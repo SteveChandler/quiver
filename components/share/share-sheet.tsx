@@ -335,7 +335,7 @@ function ActionButton({ label, state, idleIcon, onClick }: ActionButtonProps) {
       <span
         className={cn(
           "text-xs mt-1.5",
-          isSuccess ? "text-[#4A70D9]" : "text-white/70"
+          isSuccess ? "text-[#4A70D9]" : "text-medium"
         )}
       >
         {label}

@@ -10,29 +10,33 @@ import { createInput } from '../__fixtures__';
 
 describe('Base Conditions Scorer', () => {
   describe('wave height scoring', () => {
-    it('should score ideal wave height (2-5ft) highly', () => {
+    it('should score ideal wave height (2-5ft) with ramping score', () => {
       const input = createInput({ waveHeight: 3.5 });
       const result = baseConditionsScorer.score(input);
 
-      expect(result.score).toBeGreaterThanOrEqual(80);
+      // 3.5ft: height = round(55 + ((3.5-2)/3)*45) = 78, period(12s)=78
+      // Combined: round(78*0.6 + 78*0.4) = 78
+      expect(result.score).toBeGreaterThanOrEqual(70);
       expect(result.reasons).toContain('Good wave size (3.5ft)');
     });
 
-    it('should score small waves (1-2ft) with moderate score', () => {
+    it('should score small waves (1-2ft) with compressed score', () => {
       const input = createInput({ waveHeight: 1.5 });
       const result = baseConditionsScorer.score(input);
 
+      // 1.5ft: height = round(1.5/2 * 55) = 41, period(12s) = 78
+      // Combined: round(41*0.6 + 78*0.4) = 56
       expect(result.score).toBeGreaterThanOrEqual(50);
-      expect(result.score).toBeLessThan(80);
+      expect(result.score).toBeLessThan(70);
     });
 
     it('should score very small waves (<1ft) with low score', () => {
       const input = createInput({ waveHeight: 0.7 });
       const result = baseConditionsScorer.score(input);
 
-      // Wave height (0.7ft) scores ~35, period (12s) scores ~85
-      // Combined: 35*0.6 + 85*0.4 = 55
-      expect(result.score).toBeLessThan(70);
+      // Wave height (0.7ft): round(0.7/2 * 55) = 19, period (12s) = 78
+      // Combined: round(19*0.6 + 78*0.4) = 43
+      expect(result.score).toBeLessThan(50);
       expect(result.warnings).toContain('Waves may be too small');
     });
 
@@ -48,6 +52,8 @@ describe('Base Conditions Scorer', () => {
       const input = createInput({ waveHeight: 6.5 });
       const result = baseConditionsScorer.score(input);
 
+      // 6.5ft: height = round(100 - (1.5/3)*30) = 85, period(12s) = 78
+      // Combined: round(85*0.6 + 78*0.4) = 82
       expect(result.score).toBeGreaterThanOrEqual(60);
       expect(result.score).toBeLessThan(90);
       expect(result.reasons).toContain('Larger swell (6.5ft)');
@@ -57,8 +63,8 @@ describe('Base Conditions Scorer', () => {
       const input = createInput({ waveHeight: 10 });
       const result = baseConditionsScorer.score(input);
 
-      // Now scores 8ft+ waves highly - skill adjustment handles appropriateness
-      expect(result.score).toBeGreaterThanOrEqual(80);
+      // Epic = 85, period(12s) = 78 → combined = round(85*0.6 + 78*0.4) = 82
+      expect(result.score).toBeGreaterThanOrEqual(75);
       expect(result.reasons).toContain('Epic swell (10.0ft)');
     });
   });
@@ -116,7 +122,7 @@ describe('Base Conditions Scorer', () => {
       expect(result18s.score).toBeLessThan(result22s.score);
       // All should be reasonably high scores
       expect(result14s.score).toBeGreaterThanOrEqual(80);
-      expect(result22s.score).toBeGreaterThanOrEqual(90);
+      expect(result22s.score).toBeGreaterThanOrEqual(85);
     });
   });
 
@@ -145,14 +151,68 @@ describe('Base Conditions Scorer', () => {
     });
   });
 
+  describe('skill-level-aware idealMin', () => {
+    it('should boost beginner beach scoring for small waves (idealMin=1)', () => {
+      // 1.5ft at beginner beach: idealMin=1, idealMax=5, 1.5 is IN ideal range
+      //   height = round(55 + ((1.5-1)/(5-1))*45) = round(55 + 5.625) = 61
+      const beginnerInput = createInput({ waveHeight: 1.5 }, { skillLevel: 'beginner' });
+      // 1.5ft at intermediate beach: idealMin=2, below ideal
+      //   height = round(1.5/2 * 55) = 41
+      const intermediateInput = createInput({ waveHeight: 1.5 }, { skillLevel: 'intermediate' });
+
+      const beginnerResult = baseConditionsScorer.score(beginnerInput);
+      const intermediateResult = baseConditionsScorer.score(intermediateInput);
+
+      expect(beginnerResult.score).toBeGreaterThan(intermediateResult.score);
+    });
+
+    it('should penalize advanced beach for small waves (idealMin=3)', () => {
+      // 1.3ft at advanced beach: idealMin=3, height = round(1.3/3 * 55) = 24
+      const advancedInput = createInput({ waveHeight: 1.3 }, { skillLevel: 'advanced' });
+      // 1.3ft at intermediate beach: idealMin=2, height = round(1.3/2 * 55) = 36
+      const intermediateInput = createInput({ waveHeight: 1.3 }, { skillLevel: 'intermediate' });
+
+      const advancedResult = baseConditionsScorer.score(advancedInput);
+      const intermediateResult = baseConditionsScorer.score(intermediateInput);
+
+      expect(advancedResult.score).toBeLessThan(intermediateResult.score);
+    });
+
+    it('should use idealMin=4 for expert beaches', () => {
+      // 2ft at expert beach: idealMin=4, height score = round(2/4 * 55) = 28
+      // Combined with 12s period (~78): round(28*0.6 + 78*0.4) = 48
+      const expertInput = createInput({ waveHeight: 2 }, { skillLevel: 'expert' });
+      const result = baseConditionsScorer.score(expertInput);
+
+      expect(result.score).toBeLessThan(55);
+    });
+
+    it('should not change scoring for intermediate (idealMin=2 matches default)', () => {
+      const input = createInput({ waveHeight: 4 }, { skillLevel: 'intermediate' });
+      const result = baseConditionsScorer.score(input);
+      // 4ft@12s with idealMin=2, idealMax=5: height = round(55 + (2/3)*45) = 85
+      // period = 78 → round(85*0.6 + 78*0.4) = 82
+      expect(result.score).toBe(82);
+    });
+
+    it('should use default config for null skill level', () => {
+      const input = createInput({ waveHeight: 4 }, { skillLevel: null });
+      const result = baseConditionsScorer.score(input);
+      // Null skillLevel → DEFAULT_WAVE_CONFIG (idealMin=2) → same as intermediate
+      expect(result.score).toBe(82);
+    });
+  });
+
   describe('regression tests', () => {
     // Lock in expected behavior to detect unintended changes during refactoring
-    // These tests verify the exact scores produced by the asymptotic period formula
+    // These tests verify the exact scores produced by the compressed wave height
+    // curve (55→100 in ideal range) combined with asymptotic period formula.
+    // 4ft height: round(55 + ((4-2)/3)*45) = 85
     const periodRegressionCases = [
-      { waveHeight: 4, wavePeriod: 10, expectedScore: 88 }, // 100*0.6 + 70*0.4
-      { waveHeight: 4, wavePeriod: 14, expectedScore: 94 }, // 100*0.6 + 84*0.4
-      { waveHeight: 4, wavePeriod: 18, expectedScore: 96 }, // 100*0.6 + 91*0.4
-      { waveHeight: 4, wavePeriod: 22, expectedScore: 98 }, // 100*0.6 + 95*0.4
+      { waveHeight: 4, wavePeriod: 10, expectedScore: 79 }, // 85*0.6 + 70*0.4
+      { waveHeight: 4, wavePeriod: 14, expectedScore: 85 }, // 85*0.6 + 84*0.4
+      { waveHeight: 4, wavePeriod: 18, expectedScore: 87 }, // 85*0.6 + 91*0.4
+      { waveHeight: 4, wavePeriod: 22, expectedScore: 89 }, // 85*0.6 + 95*0.4
     ];
 
     periodRegressionCases.forEach(({ waveHeight, wavePeriod, expectedScore }) => {
@@ -166,9 +226,10 @@ describe('Base Conditions Scorer', () => {
     // Verify the exponential asymptotic formula produces expected period scores
     // These are the isolated period scores (not combined with wave height)
     it('should produce correct isolated period scores', () => {
-      // Test period scoring in isolation by using ideal wave height
+      // Test period scoring in isolation by using idealMax wave height (5ft)
+      // for a clean height_score = 100.
       // Combined score = height_score * 0.6 + period_score * 0.4
-      // With ideal wave height (4ft), height_score = 100
+      // With idealMax wave height (5ft), height_score = 100
       // So: combined = 100 * 0.6 + period_score * 0.4 = 60 + period_score * 0.4
       // Therefore: period_score = (combined - 60) / 0.4
 
@@ -180,7 +241,7 @@ describe('Base Conditions Scorer', () => {
       ];
 
       testCases.forEach(({ period, expectedPeriodScore }) => {
-        const input = createInput({ waveHeight: 4, wavePeriod: period });
+        const input = createInput({ waveHeight: 5, wavePeriod: period });
         const result = baseConditionsScorer.score(input);
         // Reverse calculate the period score from combined
         const derivedPeriodScore = Math.round((result.score - 60) / 0.4);

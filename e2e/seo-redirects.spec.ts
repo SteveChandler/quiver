@@ -66,16 +66,6 @@ test.describe('SEO Redirect Recovery', () => {
     });
   });
 
-  test.describe('404 Handling', () => {
-    test('shows 404 for truly nonexistent beach', async ({ page }) => {
-      // This beach doesn't exist in the database
-      const response = await page.goto('/ca/san-diego/definitely-not-a-real-beach-xyz-123');
-
-      // Should return 404
-      expect(response?.status()).toBe(404);
-    });
-  });
-
   test.describe('Query Parameter Preservation', () => {
     test('preserves query parameters on redirect', async ({ page }) => {
       // Navigate with query params

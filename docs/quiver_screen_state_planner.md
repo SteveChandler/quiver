@@ -18,10 +18,10 @@
 - **Warning**: `yellow-600` / `amber-500`
 
 ### Typography
-- **H1**: Roboto Bold, `text-5xl` → `text-7xl`
-- **H2**: Roboto Bold, `text-4xl` → `text-5xl`
-- **H3/Card**: Roboto Medium, `text-2xl`
-- **Body**: Open Sans, `text-base` → `text-xl`
+- **H1**: Space Grotesk Bold, `text-5xl` → `text-7xl`
+- **H2**: Space Grotesk Bold, `text-4xl` → `text-5xl`
+- **H3/Card**: Space Grotesk Medium, `text-2xl`
+- **Body**: DM Sans, `text-base` → `text-xl`
 - **Min size**: 14px
 
 ### Spacing

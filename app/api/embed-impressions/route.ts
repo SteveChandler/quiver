@@ -65,6 +65,8 @@ const VALID_WIDGET_TYPES = ['tides', 'conditions', 'surf-terminal', 'ticker'] as
 const SLUG_PATTERN = /^[a-z0-9-]+$/;
 const MAX_SLUG_LENGTH = 200;
 
+const INTERNAL_DOMAINS = ['localhost', 'www.quiversurf.app', 'dev.quiversurf.app', 'quiversurf.app'];
+
 function extractReferrerDomain(request: Request): string | null {
   const referer = request.headers.get('referer');
   if (!referer) return null;
@@ -74,6 +76,11 @@ function extractReferrerDomain(request: Request): string | null {
   } catch {
     return null;
   }
+}
+
+function isInternalReferrer(domain: string | null): boolean {
+  if (!domain) return false;
+  return INTERNAL_DOMAINS.includes(domain);
 }
 
 // =============================================================================
@@ -118,8 +125,11 @@ export async function POST(request: Request) {
     return createValidationError('Invalid beachSlug');
   }
 
-  // 4. Extract referrer domain server-side
+  // 4. Extract referrer domain server-side — skip internal traffic
   const referrerDomain = extractReferrerDomain(request);
+  if (isInternalReferrer(referrerDomain)) {
+    return new Response(null, { status: 204, headers: DEFAULT_SECURITY_HEADERS });
+  }
 
   // 5. Insert via service role (bypasses RLS)
   try {

@@ -25,7 +25,7 @@ export function ProfileStrength({ strength }: ProfileStrengthProps) {
 
   return (
     <div
-      className="group relative overflow-hidden rounded-xl border border-amber-100 dark:border-[#1E2D4A] bg-gradient-to-br from-amber-50 to-white dark:from-[#111D35] dark:to-[#0F1A2E] p-5 shadow-sm hover:shadow-md transition-all"
+      className="group relative overflow-hidden rounded-xl border border-amber-100 dark:border-[#404C92] bg-gradient-to-br from-amber-50 to-white dark:from-[#2D357D] dark:to-[#0F1A2E] p-5 shadow-sm hover:shadow-md transition-all"
       data-testid="profile-strength"
     >
       {/* Header */}

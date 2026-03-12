@@ -230,7 +230,9 @@ test.describe('Edit Profile - Preferences Fields', () => {
     // Should show validation error (form shouldn't submit)
     // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for validation feedback
     await page.waitForTimeout(1000);
-    const dialog = page.getByRole('dialog');
+    // Use the specific Edit Profile dialog to avoid matching the onboarding overlay
+    // which may also be present as role="dialog" on some test-user configurations.
+    const dialog = page.getByRole('dialog', { name: /edit profile/i });
     await expect(dialog).toBeVisible();
 
     // Fill name to make it valid
@@ -250,8 +252,9 @@ test.describe('Edit Profile - Preferences Fields', () => {
 
     await openEditProfileModal(page);
 
-    // Modal should be responsive
-    const dialog = page.getByRole('dialog');
+    // Modal should be responsive — use specific name to avoid matching the onboarding overlay
+    // which may also render as role="dialog" depending on profile state.
+    const dialog = page.getByRole('dialog', { name: /edit profile/i });
     await expect(dialog).toBeVisible();
 
     // Dropdowns should be usable

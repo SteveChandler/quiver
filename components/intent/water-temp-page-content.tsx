@@ -11,6 +11,7 @@ import type { SurfSpot } from "@/lib/data/surf-spots";
 import type { CityWaterTempExpanded } from "@/actions/forecast/intent-forecast-actions";
 import type { IntentPageContent } from "@/lib/seo/intent-content-templates";
 import type { BeachEditorialItem } from "@/types/location";
+import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { SURF_INTENTS } from "@/lib/constants/surf-intents";
 import { ContinueExploring } from "@/components/shared/continue-exploring";
 import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
@@ -31,6 +32,7 @@ interface WaterTempPageContentProps {
   baseUrl: string;
   bestTimeToSurfUrl?: string;
   editorialBeaches?: BeachEditorialItem[];
+  excludeIntents?: IntentKey[];
 }
 
 export function WaterTempPageContent({
@@ -45,6 +47,7 @@ export function WaterTempPageContent({
   baseUrl,
   bestTimeToSurfUrl,
   editorialBeaches,
+  excludeIntents,
 }: WaterTempPageContentProps) {
   const definition = SURF_INTENTS["water-temp"];
   const faqItems = generateIntentFAQ(
@@ -61,7 +64,7 @@ export function WaterTempPageContent({
           { name: "Quiver", url: `${baseUrl}/` },
           {
             name: `${cityName} Surf`,
-            url: `${baseUrl}/beaches/usa/${stateSlug}/${citySlug}`,
+            url: `${baseUrl}/${stateSlug}/${citySlug}`,
           },
           {
             name: "Water Temperature",
@@ -76,7 +79,7 @@ export function WaterTempPageContent({
           className="flex items-center gap-1 text-sm mb-6"
         >
           <Link
-            href={`/beaches/usa/${stateSlug}/${citySlug}`}
+            href={`/${stateSlug}/${citySlug}`}
             className="inline-flex items-center gap-1 text-ocean-blue hover:underline"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -175,6 +178,7 @@ export function WaterTempPageContent({
             stateSlug={stateSlug}
             stateName={stateName}
             bestTimeToSurfUrl={bestTimeToSurfUrl}
+            excludeIntents={excludeIntents}
           />
 
           {/* Intent cross-links for SEO */}

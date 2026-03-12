@@ -129,7 +129,7 @@ export default function HeroSearchLazy({
   const SearchPlaceholder = () => (
     <div className="relative w-full">
       {/* Search icon - left side */}
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-medium pointer-events-none">
         <svg
           className="w-5 h-5"
           fill="none"
@@ -147,10 +147,10 @@ export default function HeroSearchLazy({
       </div>
       <input
         type="text"
-        placeholder="Search by beach, spot, or region"
-        className="w-full h-14 md:h-16 pl-12 pr-6 text-lg bg-white/95 text-dark-grey rounded-full
-                   shadow-lg border-0 focus:outline-none focus:ring-2 focus:ring-ocean-blue
-                   placeholder:text-slate-500 transition-all duration-200"
+        placeholder="Search by beach"
+        className="w-full h-14 md:h-16 pl-12 pr-4 text-base md:text-lg bg-white/20 backdrop-blur-md text-white rounded-full
+                   shadow-lg border border-white/30 focus:outline-none focus:ring-2 focus:ring-ocean-blue
+                   placeholder:text-white/70 transition-all duration-200"
         value={searchValue}
         onChange={handlePlaceholderChange}
         onFocus={handlePlaceholderFocus}
@@ -170,15 +170,15 @@ export default function HeroSearchLazy({
   const LoadingFallback = () => (
     <div className="relative w-full">
       {/* Loading spinner - left side */}
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-medium">
         <Loader2 className="w-5 h-5 animate-spin" aria-label="Loading search" />
       </div>
       <input
         type="text"
-        placeholder="Search by beach, spot, or region"
-        className="w-full h-14 md:h-16 pl-12 pr-6 text-lg bg-white/95 text-dark-grey rounded-full
-                   shadow-lg border-0 focus:outline-none focus:ring-2 focus:ring-ocean-blue
-                   placeholder:text-slate-500 transition-all duration-200"
+        placeholder="Search by beach"
+        className="w-full h-14 md:h-16 pl-12 pr-4 text-base md:text-lg bg-white/20 backdrop-blur-md text-white rounded-full
+                   shadow-lg border border-white/30 focus:outline-none focus:ring-2 focus:ring-ocean-blue
+                   placeholder:text-white/70 transition-all duration-200"
         value={searchValue}
         disabled
         aria-label="Search loading"
@@ -195,9 +195,9 @@ export default function HeroSearchLazy({
     <Suspense fallback={<LoadingFallback />}>
       <BeachSearchAutocomplete
         initialValue={searchValue}
-        placeholder="Search by beach, spot, or region"
-        className="w-full h-14 md:h-16 bg-white/95 text-dark-grey rounded-full shadow-lg border-0 [&>.relative]:h-full [&_[cmdk-input-wrapper]]:border-0 [&_[cmdk-input-wrapper]]:px-0 [&_[cmdk-input-wrapper]]:pl-4 [&_[cmdk-input-wrapper]]:pr-6 [&_[cmdk-input-wrapper]]:h-full [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:mr-3 [&_[cmdk-input-wrapper]_svg]:opacity-100 [&_[cmdk-input-wrapper]_svg]:text-slate-400 focus-within:ring-2 focus-within:ring-ocean-blue overflow-hidden"
-        inputClassName="h-full py-0 text-lg placeholder:text-slate-500"
+        placeholder="Search by beach"
+        className="w-full h-14 md:h-16 bg-white/20 backdrop-blur-md text-white rounded-full shadow-lg border border-white/30 [&>.relative]:h-full [&_[cmdk-input-wrapper]]:border-0 [&_[cmdk-input-wrapper]]:px-0 [&_[cmdk-input-wrapper]]:pl-4 [&_[cmdk-input-wrapper]]:pr-4 [&_[cmdk-input-wrapper]]:h-full [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:mr-3 [&_[cmdk-input-wrapper]_svg]:opacity-100 [&_[cmdk-input-wrapper]_svg]:text-white/70 focus-within:ring-2 focus-within:ring-ocean-blue overflow-hidden"
+        inputClassName="h-full py-0 text-base md:text-lg placeholder:text-white/70 text-white"
         maxResults={8}
         requireExplicitSelection
         onFallback={onFallback}

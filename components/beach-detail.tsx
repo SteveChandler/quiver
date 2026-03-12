@@ -60,6 +60,8 @@ import {
 import { SessionPlanningModal } from "@/components/beach-detail/session-planning-modal";
 import { TabLoadingSkeleton } from "@/components/beach-detail/tab-loading-skeleton";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { PublicContentGate } from "@/components/ui/public-content-gate";
+import { CamHeroPlaceholder } from "@/components/beach-detail/cam-hero-placeholder";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 
 // PERFORMANCE OPTIMIZATION: Lazy load tab content to reduce initial bundle size
@@ -158,7 +160,7 @@ function BeachDetailContent({
   >("log");
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<BeachTabValue>(
-    defaultTab || "overview",
+    defaultTab || "forecast",
   );
   const { track: trackEvent } = useTrackEvent();
 
@@ -385,7 +387,7 @@ function BeachDetailContent({
 
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
-            <h2 className="text-xl font-roboto font-bold mb-2 text-dark-grey">
+            <h2 className="text-xl font-heading font-bold mb-2 text-dark-grey">
               {error || "Beach data not found"}
             </h2>
             <Button
@@ -439,17 +441,33 @@ function BeachDetailContent({
       {/* Immersive hero: video or photos background with title at top and forecast at bottom */}
       <div className="relative mb-6 min-h-[280px] md:min-h-[400px]">
         {showCamHero ? (
-          /* Video background — hero variant strips card chrome */
-          <Suspense
-            fallback={
-              <div
-                className="aspect-video w-full"
-                style={{ backgroundColor: "#2D357D" }}
+          publicMode ? (
+            /* Anonymous users: gated cam placeholder */
+            <PublicContentGate
+              ctaTitle="Watch the Live Cam"
+              ctaDescription={`Sign up free to stream ${beach.name} in real time`}
+              ctaButtonText="Sign Up Free"
+              blurLevel="sm"
+              source="cam-hero"
+            >
+              <CamHeroPlaceholder
+                cameraUrl={sources?.camera_url}
+                beachName={beach.name}
               />
-            }
-          >
-            <CamsSection sources={sources} variant="hero" />
-          </Suspense>
+            </PublicContentGate>
+          ) : (
+            /* Authenticated users: live cam stream */
+            <Suspense
+              fallback={
+                <div
+                  className="aspect-video w-full"
+                  style={{ backgroundColor: "#2D357D" }}
+                />
+              }
+            >
+              <CamsSection sources={sources} variant="hero" />
+            </Suspense>
+          )
         ) : (
           /* Photo gallery background */
           <BeachPhotoGallery beach={beach} className="w-full" />
@@ -478,7 +496,7 @@ function BeachDetailContent({
           <div className="mx-auto max-w-7xl">
             <BeachBreadcrumb beach={beach} className="mb-1" />
             <h1
-              className="font-display text-4xl sm:text-5xl font-bold text-white leading-tight"
+              className="font-heading text-4xl sm:text-5xl font-bold text-white leading-tight"
               style={{ textShadow: "0 2px 16px rgba(0,0,0,0.7)" }}
             >
               {beach.name} Surf Report
@@ -512,8 +530,19 @@ function BeachDetailContent({
 
       {/* Main Content Container */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        {/* Surf Call Card (server-rendered slot) */}
-        {surfReportSlot}
+        {/* Surf Call Card — gated for anonymous visitors */}
+        {publicMode ? (
+          <div className="mb-6">
+            <InlineSignupCta
+              title="Know Before You Go"
+              description={`Get today's surf call, your personal match score, 12-day outlook, and condition alerts for ${beach.name}`}
+              primaryButtonText="Get My Forecast"
+              source={`beach-detail-${slugify(beach.name)}`}
+            />
+          </div>
+        ) : (
+          surfReportSlot
+        )}
 
         {/* Key Stats Grid */}
         <BeachStatsGrid
@@ -564,15 +593,7 @@ function BeachDetailContent({
                 }
               />
             </Suspense>
-            {publicMode && (
-              <div className="mt-8">
-                <InlineSignupCta
-                  title={`Get Personalized Forecasts for ${beach.name}`}
-                  description="Sign up to see your match score, best surf windows, and the full 5-day forecast"
-                  source="overview-inline"
-                />
-              </div>
-            )}
+            {/* Top-level CTA already visible for anonymous users — no duplicate needed here */}
           </BeachTabContent>
 
           {/* Forecast Tab */}

@@ -844,7 +844,7 @@ For detailed documentation, see [`/components/home-screen/ARCHITECTURE.md`](/com
 
 #### Typography Scale
 
-- **Font Families**: Inter (system), Roboto (headers), Open Sans (body)
+- **Font Families**: DM Sans (body), Space Grotesk (headings), Space Mono (monospace)
 - **Scale**: Modular scale with consistent line heights
 - **Responsive**: Fluid typography with clamp() functions
 

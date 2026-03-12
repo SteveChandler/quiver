@@ -163,7 +163,7 @@ describe("Middleware Integration Tests", () => {
 
       expect(response.status).toBe(301);
       expect(response.headers.get("location")).toBe(
-        "http://localhost:3000/beaches/usa/ca/san-diego"
+        "http://localhost:3000/ca/san-diego"
       );
     });
 
@@ -174,7 +174,7 @@ describe("Middleware Integration Tests", () => {
 
       expect(response.status).toBe(301);
       expect(response.headers.get("location")).toBe(
-        "http://localhost:3000/beaches/usa/ca/san-diego?utm_source=test"
+        "http://localhost:3000/ca/san-diego?utm_source=test"
       );
     });
 
@@ -195,9 +195,10 @@ describe("Middleware Integration Tests", () => {
 
       const response = await middleware(request);
 
-      // /beaches/usa/{state}/{city} is canonical and should not redirect
-      expect(response.status).toBe(200);
-      expect(response.headers.get("location")).toBeNull();
+      expect(response.status).toBe(301);
+      expect(response.headers.get("location")).toBe(
+        "http://localhost:3000/hi/haleiwa"
+      );
     });
 
     it("should preserve query params when redirecting legacy /beaches/usa URLs", async () => {
@@ -208,9 +209,10 @@ describe("Middleware Integration Tests", () => {
 
       const response = await middleware(request);
 
-      // /beaches/usa/{state}/{city} is canonical and should not redirect
-      expect(response.status).toBe(200);
-      expect(response.headers.get("location")).toBeNull();
+      expect(response.status).toBe(301);
+      expect(response.headers.get("location")).toBe(
+        "http://localhost:3000/hi/haleiwa?utm_source=test"
+      );
     });
 
     it("should rewrite /{state}/{city} to /beaches/usa/{state}/{city}", async () => {
@@ -231,9 +233,10 @@ describe("Middleware Integration Tests", () => {
 
       const response = await middleware(request);
 
-      // /beaches/{country}/{state}/{city} is canonical for international and should not redirect
-      expect(response.status).toBe(200);
-      expect(response.headers.get("location")).toBeNull();
+      expect(response.status).toBe(301);
+      expect(response.headers.get("location")).toBe(
+        "http://localhost:3000/mexico/baja-california/rosarito"
+      );
     });
 
     it("should rewrite /{country}/{state}/{city} to /beaches/{country}/{state}/{city} for international", async () => {
@@ -269,14 +272,14 @@ describe("Middleware Integration Tests", () => {
       expect(response.headers.get("location")).toBe("http://localhost:3000/ca");
     });
 
-    it("should normalize /beaches/us/CA/San-Diego -> /beaches/usa/ca/san-diego (301)", async () => {
+    it("should normalize /beaches/us/CA/San-Diego -> /ca/san-diego (301)", async () => {
       const request = createMockRequest("/beaches/us/CA/San-Diego");
 
       const response = await middleware(request);
 
       expect(response.status).toBe(301);
       expect(response.headers.get("location")).toBe(
-        "http://localhost:3000/beaches/usa/ca/san-diego"
+        "http://localhost:3000/ca/san-diego"
       );
     });
 
@@ -291,14 +294,14 @@ describe("Middleware Integration Tests", () => {
       );
     });
 
-    it("should disambiguate HI Waimea canonical URL /beaches/usa/hi/waimea -> /beaches/usa/hi/waimea-kauai (301)", async () => {
+    it("should disambiguate HI Waimea canonical URL /beaches/usa/hi/waimea -> /hi/waimea-kauai (301)", async () => {
       const request = createMockRequest("/beaches/usa/hi/waimea");
 
       const response = await middleware(request);
 
       expect(response.status).toBe(301);
       expect(response.headers.get("location")).toBe(
-        "http://localhost:3000/beaches/usa/hi/waimea-kauai"
+        "http://localhost:3000/hi/waimea-kauai"
       );
     });
   });

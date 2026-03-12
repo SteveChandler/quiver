@@ -541,11 +541,11 @@ export const formatChartDate = (time: Date | string | number): string => {
 export const getTideChartConfig = (): ChartConfig => ({
   tideHeight: {
     label: "Tide Height",
-    color: "#FF3B8B", // Retro pink
+    color: "#F78E42", // Charming Orange
   },
   highTide: {
     label: "High Tide",
-    color: "#FFD639", // Retro yellow
+    color: "#FDB84B", // Paradise Gold
   },
   lowTide: {
     label: "Low Tide",

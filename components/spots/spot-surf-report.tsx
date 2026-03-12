@@ -4,7 +4,7 @@ import type { Beach } from '@/types/database';
 import { getSpotSurfReport } from '@/actions/spot/spot-surf-report-actions';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { formatTimeInTimezone, formatTimeCasual } from '@/lib/utils/time-formatting';
-import { PublicContentGate } from '@/components/ui/public-content-gate';
+
 
 interface SpotSurfReportProps {
   report: SurfCallResult;
@@ -69,7 +69,7 @@ export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false 
       aria-label={`${isTomorrow ? "Tomorrow's" : "Today's"} surf call for ${spotName}`}
       className="mb-4 sm:mb-6"
     >
-      <div className="rounded-3xl border border-blue-100/60 bg-white/95 p-4 sm:p-5 shadow-lg backdrop-blur">
+      <div data-tier="hero" className="noise-texture overflow-hidden rounded-3xl border border-blue-100/60 bg-white/95 p-4 sm:p-5 shadow-lg backdrop-blur">
         {/* Header row */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
@@ -106,51 +106,42 @@ export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false 
           </div>
         </div>
 
-        {/* Conditions row + why sentence — blurred for unauthenticated users */}
-        {(showBestWindow || report.waveHeight || windDisplay || tideDisplay || report.whySentence) && (
-          <PublicContentGate
-            ctaTitle="See Today's Best Window"
-            ctaDescription="Sign up to see surf conditions — best time, wave height, wind, and tide"
-            blurLevel="sm"
-            source="surf-call-conditions"
-          >
-            {(showBestWindow || report.waveHeight || windDisplay || tideDisplay) && (
-              <div className="mt-3 sm:mt-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                {(() => {
-                  const items: React.ReactNode[] = [];
-                  if (showBestWindow) {
-                    items.push(
-                      <div key="window">
-                        <span className="text-xs uppercase tracking-[0.2em] text-ocean-blue">Best window</span>
-                        <span className="ml-2 font-roboto font-semibold text-dark-grey">
-                          {formatTime(report.bestWindowStart!, timezone)}–{formatTime(report.bestWindowEnd!, timezone)}
-                        </span>
-                      </div>
-                    );
-                  }
-                  if (report.waveHeight) {
-                    items.push(<span key="wave" className="font-roboto font-semibold text-dark-grey">{report.waveHeight}</span>);
-                  }
-                  if (windDisplay) {
-                    items.push(<span key="wind" className="font-roboto text-sm text-dark-grey">{windDisplay}</span>);
-                  }
-                  if (tideDisplay) {
-                    items.push(<span key="tide" className="font-roboto text-sm text-dark-grey">{tideDisplay}</span>);
-                  }
-                  return items.flatMap((item, i) =>
-                    i === 0 ? [item] : [<span key={`sep-${i}`} className="text-slate-300">&middot;</span>, item]
-                  );
-                })()}
-              </div>
-            )}
+        {/* Conditions row + why sentence */}
+        {(showBestWindow || report.waveHeight || windDisplay || tideDisplay) && (
+          <div className="mt-3 sm:mt-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            {(() => {
+              const items: React.ReactNode[] = [];
+              if (showBestWindow) {
+                items.push(
+                  <div key="window">
+                    <span className="text-xs uppercase tracking-[0.2em] text-ocean-blue">Best window</span>
+                    <span className="ml-2 font-heading font-semibold text-dark-grey">
+                      {formatTime(report.bestWindowStart!, timezone)}–{formatTime(report.bestWindowEnd!, timezone)}
+                    </span>
+                  </div>
+                );
+              }
+              if (report.waveHeight) {
+                items.push(<span key="wave" className="font-heading font-semibold text-dark-grey">{report.waveHeight}</span>);
+              }
+              if (windDisplay) {
+                items.push(<span key="wind" className="font-heading text-sm text-dark-grey">{windDisplay}</span>);
+              }
+              if (tideDisplay) {
+                items.push(<span key="tide" className="font-heading text-sm text-dark-grey">{tideDisplay}</span>);
+              }
+              return items.flatMap((item, i) =>
+                i === 0 ? [item] : [<span key={`sep-${i}`} className="text-slate-300">&middot;</span>, item]
+              );
+            })()}
+          </div>
+        )}
 
-            {/* Why sentence */}
-            {report.whySentence && (
-              <p className="mt-2 sm:mt-3 text-sm text-muted-foreground">
-                {report.whySentence}
-              </p>
-            )}
-          </PublicContentGate>
+        {/* Why sentence */}
+        {report.whySentence && (
+          <p className="mt-2 sm:mt-3 text-sm text-muted-foreground">
+            {report.whySentence}
+          </p>
         )}
       </div>
     </section>

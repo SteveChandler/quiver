@@ -260,6 +260,111 @@ class TestGuardrailInteractions:
         assert result.iloc[0] == pytest.approx(3.9, rel=0.01)
 
 
+class TestSmallWaveTaper:
+    """Test the v3.2 small-wave taper guardrail that reduces corrections for small forecasts."""
+
+    @pytest.fixture
+    def mock_model(self):
+        """Create a model with mocked XGBoost that returns constant bias."""
+        from model import QuiverBiasModel
+
+        model = QuiverBiasModel()
+        mock_xgb = MagicMock()
+        model.model = mock_xgb
+        return model
+
+    def test_small_wave_taper_midpoint(self, mock_model):
+        """0.55m forecast (midpoint of 0.3-0.8 taper) gets ~50% correction.
+
+        scale = (0.55 - 0.3) / (0.8 - 0.3) = 0.25 / 0.5 = 0.5
+        bias = 0.4 * 0.5 = 0.2m -> result = 0.55 + 0.2 = 0.75m
+        """
+        X = pd.DataFrame({"dummy_feature": [1.0]})
+        physics_forecast = pd.Series([0.55])
+
+        mock_model.model.predict.return_value = np.array([0.4])
+        result = mock_model.predict(X, physics_forecast)
+
+        # 0.55m is above 0.5m so small-wave proportional cap doesn't apply
+        # small_wave_scale = 0.5, bias = 0.4 * 0.5 = 0.2m
+        # 75% clip: max(0.55*0.75, 0.2) = 0.4125m, 0.2 passes
+        assert result.iloc[0] == pytest.approx(0.75, abs=0.02)
+
+    def test_small_wave_taper_below_start(self, mock_model):
+        """0.2m forecast (below 0.3m start) gets 0% correction.
+
+        scale = max(0, (0.2 - 0.3) / 0.5) = 0
+        bias = 0.4 * 0 = 0m -> result = 0.2m (raw forecast)
+        """
+        X = pd.DataFrame({"dummy_feature": [1.0]})
+        physics_forecast = pd.Series([0.2])
+
+        mock_model.model.predict.return_value = np.array([0.4])
+        result = mock_model.predict(X, physics_forecast)
+
+        assert result.iloc[0] == pytest.approx(0.2, abs=0.01)
+
+    def test_small_wave_taper_above_end(self, mock_model):
+        """1.0m forecast (above 0.8m end) gets 100% correction — no taper effect.
+
+        scale = min(1, (1.0 - 0.3) / 0.5) = 1.0
+        bias = 0.4 * 1.0 = 0.4m -> result = 1.0 + 0.4 = 1.4m
+        """
+        X = pd.DataFrame({"dummy_feature": [1.0]})
+        physics_forecast = pd.Series([1.0])
+
+        mock_model.model.predict.return_value = np.array([0.4])
+        result = mock_model.predict(X, physics_forecast)
+
+        assert result.iloc[0] == pytest.approx(1.4, rel=0.01)
+
+    def test_small_wave_taper_boundary_start(self, mock_model):
+        """0.3m forecast (exactly at taper start) gets 0% correction.
+
+        scale = (0.3 - 0.3) / 0.5 = 0
+        """
+        X = pd.DataFrame({"dummy_feature": [1.0]})
+        physics_forecast = pd.Series([0.3])
+
+        mock_model.model.predict.return_value = np.array([0.4])
+        result = mock_model.predict(X, physics_forecast)
+
+        assert result.iloc[0] == pytest.approx(0.3, abs=0.01)
+
+    def test_small_wave_taper_boundary_end(self, mock_model):
+        """0.8m forecast (exactly at taper end) gets 100% correction.
+
+        scale = (0.8 - 0.3) / 0.5 = 1.0
+        bias = 0.4 * 1.0 = 0.4m -> result = 0.8 + 0.4 = 1.2m
+        """
+        X = pd.DataFrame({"dummy_feature": [1.0]})
+        physics_forecast = pd.Series([0.8])
+
+        mock_model.model.predict.return_value = np.array([0.4])
+        result = mock_model.predict(X, physics_forecast)
+
+        assert result.iloc[0] == pytest.approx(1.2, rel=0.01)
+
+    def test_combined_tapers_batch(self, mock_model):
+        """Mixed wave heights with both small-wave and large-swell tapers applied."""
+        X = pd.DataFrame({"dummy_feature": [1.0, 1.0, 1.0, 1.0, 1.0]})
+        physics_forecast = pd.Series([0.2, 0.55, 1.0, 2.75, 5.0])
+
+        mock_model.model.predict.return_value = np.array([0.4, 0.4, 0.4, 0.4, 0.4])
+        result = mock_model.predict(X, physics_forecast)
+
+        # 0.2m: below small taper start -> 0% correction -> 0.2m
+        assert result.iloc[0] == pytest.approx(0.2, abs=0.01)
+        # 0.55m: small taper scale=0.5 -> bias=0.2m -> 0.75m
+        assert result.iloc[1] == pytest.approx(0.75, abs=0.02)
+        # 1.0m: above small taper, below large taper -> 100% -> 1.0+0.4=1.4m
+        assert result.iloc[2] == pytest.approx(1.4, rel=0.01)
+        # 2.75m: large taper scale=0.5 -> bias=0.2m -> 2.75+0.2=2.95m
+        assert result.iloc[3] == pytest.approx(2.95, rel=0.01)
+        # 5.0m: above large taper -> 0% correction -> 5.0m
+        assert result.iloc[4] == pytest.approx(5.0, rel=0.01)
+
+
 class TestSmallWaveProportionalCap:
     """Test the small-wave safety cap that prevents more than doubling sub-0.5m forecasts."""
 
@@ -274,59 +379,68 @@ class TestSmallWaveProportionalCap:
         return model
 
     def test_small_wave_cap_limits_positive_bias(self, mock_model):
-        """A 0.3m forecast with 0.5m raw bias should be capped to 0.3m bias.
+        """A 0.45m forecast with 0.5m raw bias gets tapered then capped.
 
-        Without the cap, a 0.3m forecast could be corrected to 0.8m (more than
-        doubled). The small-wave cap limits bias to the forecast magnitude for
-        sub-0.5m forecasts, so max corrected = 0.3 + 0.3 = 0.6m.
+        Small-wave taper: scale = (0.45 - 0.3) / 0.5 = 0.3
+        Tapered bias = 0.5 * 0.3 = 0.15m
+        75% clip: max(0.45 * 0.75, 0.2) = 0.3375m -> 0.15 passes
+        Small-wave cap (0.45 < 0.5m): clips to [-0.45, 0.45] -> 0.15 passes
+        Result = 0.45 + 0.15 = 0.6m
         """
         X = pd.DataFrame({"dummy_feature": [1.0]})
-        physics_forecast = pd.Series([0.3])
+        physics_forecast = pd.Series([0.45])
 
-        # Raw bias of 0.5m would more than double the forecast
         mock_model.model.predict.return_value = np.array([0.5])
         result = mock_model.predict(X, physics_forecast)
 
-        # Bias floor: max(0.3 * 0.75, 0.2) = 0.225m -> clips 0.5 to 0.225
-        # Small-wave cap (0.3 < 0.5m): clips to [-0.3, 0.3] -> 0.225 passes (< 0.3)
-        # Result = 0.3 + 0.225 = 0.525m
-        assert result.iloc[0] == pytest.approx(0.525, abs=0.01)
+        assert result.iloc[0] == pytest.approx(0.6, abs=0.02)
 
     def test_small_wave_cap_limits_negative_bias(self, mock_model):
-        """A 0.3m forecast with -0.5m raw bias should be capped to -0.3m bias."""
+        """A 0.45m forecast with -0.5m raw bias gets tapered then capped.
+
+        Small-wave taper: scale = (0.45 - 0.3) / 0.5 = 0.3
+        Tapered bias = -0.5 * 0.3 = -0.15m
+        75% clip: max(0.45 * 0.75, 0.2) = 0.3375m -> -0.15 passes
+        Small-wave cap (0.45 < 0.5m): clips to [-0.45, 0.45] -> -0.15 passes
+        Result = 0.45 - 0.15 = 0.3m
+        """
         X = pd.DataFrame({"dummy_feature": [1.0]})
-        physics_forecast = pd.Series([0.3])
+        physics_forecast = pd.Series([0.45])
 
         mock_model.model.predict.return_value = np.array([-0.5])
         result = mock_model.predict(X, physics_forecast)
 
-        # Bias floor: max(0.3 * 0.75, 0.2) = 0.225m -> clips -0.5 to -0.225
-        # Small-wave cap (0.3 < 0.5m): clips to [-0.3, 0.3] -> -0.225 passes (> -0.3)
-        # Result = 0.3 - 0.225 = 0.075m
-        assert result.iloc[0] == pytest.approx(0.075, abs=0.01)
+        assert result.iloc[0] == pytest.approx(0.3, abs=0.02)
 
     def test_small_wave_cap_not_applied_above_threshold(self, mock_model):
-        """A 0.6m forecast should NOT have the small-wave cap applied."""
+        """A 0.6m forecast is above the small-wave proportional cap threshold (0.5m)
+        but still within the small-wave taper zone (0.3-0.8m).
+
+        Small-wave taper: scale = (0.6 - 0.3) / 0.5 = 0.6
+        Tapered bias = 0.5 * 0.6 = 0.3m
+        75% clip: max(0.6 * 0.75, 0.2) = 0.45m -> 0.3 passes
+        No small-wave cap (0.6 >= 0.5m)
+        Result = 0.6 + 0.3 = 0.9m
+        """
         X = pd.DataFrame({"dummy_feature": [1.0]})
         physics_forecast = pd.Series([0.6])
 
         mock_model.model.predict.return_value = np.array([0.5])
         result = mock_model.predict(X, physics_forecast)
 
-        # 0.6m >= 0.5m threshold, so small-wave cap does NOT apply
-        # Bias floor: max(0.6 * 0.75, 0.2) = 0.45m -> clips 0.5 to 0.45
-        # Result = 0.6 + 0.45 = 1.05m
-        assert result.iloc[0] == pytest.approx(1.05, rel=0.01)
+        assert result.iloc[0] == pytest.approx(0.9, abs=0.02)
 
     def test_small_wave_cap_with_very_small_forecast(self, mock_model):
-        """A 0.1m forecast should have bias tightly capped at 0.1m."""
+        """A 0.1m forecast (below taper start) gets 0% correction.
+
+        Small-wave taper: scale = max(0, (0.1 - 0.3) / 0.5) = 0
+        Tapered bias = 0.3 * 0 = 0m
+        Result = 0.1m (raw forecast preserved)
+        """
         X = pd.DataFrame({"dummy_feature": [1.0]})
         physics_forecast = pd.Series([0.1])
 
         mock_model.model.predict.return_value = np.array([0.3])
         result = mock_model.predict(X, physics_forecast)
 
-        # Bias floor: max(0.1 * 0.75, 0.2) = 0.2m -> clips 0.3 to 0.2
-        # Small-wave cap (0.1 < 0.5m): clips to [-0.1, 0.1] -> 0.2 clipped to 0.1
-        # Result = 0.1 + 0.1 = 0.2m
-        assert result.iloc[0] == pytest.approx(0.2, rel=0.01)
+        assert result.iloc[0] == pytest.approx(0.1, abs=0.01)

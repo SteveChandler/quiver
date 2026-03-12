@@ -11,6 +11,7 @@ import {
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   withBotBlockingAndRateLimit: (handler: any) => handler,
   withErrorHandler: (handler: any) => handler,
+  withRateLimit: (handler: any) => handler,
 }));
 
 const mockSupabaseClient = createMockSupabaseClient();
@@ -101,10 +102,10 @@ describe("/api/sessions/public", () => {
       author: { id: profileId },
     });
 
-    // No rating in API payload
-    expect(item).not.toHaveProperty("rating");
+    // Route exposes rating as public data for community feed
+    expect(item).toHaveProperty("rating");
 
-    // No author identifying fields
+    // Author object exposes only id (name/avatar exposed via displayName/avatarUrl top-level fields)
     expect(item.author).not.toHaveProperty("name");
     expect(item.author).not.toHaveProperty("avatar");
   });

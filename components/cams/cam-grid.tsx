@@ -41,7 +41,7 @@ export function CamGrid({ beaches, groupByRegion = false }: CamGridProps) {
         return (
           <section key={region.slug} id={region.slug}>
             <div className="mb-4 flex items-baseline justify-between">
-              <h2 className="font-roboto text-2xl font-bold text-gray-900">
+              <h2 className="font-heading text-2xl font-bold text-gray-900">
                 {region.name}
               </h2>
               <Link

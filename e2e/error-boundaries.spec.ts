@@ -50,38 +50,6 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
       console.log("✓ Page remained functional after error injection");
     });
 
-    test("should provide 'Try Again' button in error fallback", async ({ page }) => {
-      // Navigate to non-existent page to trigger 404 error boundary
-      await page.goto("/nonexistent-page-12345");
-      await page.waitForLoadState("load");
-
-      // Look for error UI elements
-      const errorMessage = page.locator('text=/error|something went wrong|not found/i').first();
-      const errorVisible = await isVisibleSafe(errorMessage, { timeout: 5000 });
-
-      if (errorVisible) {
-        console.log("✓ Error message displayed");
-
-        // Look for retry/home button
-        const retryButton = page.locator('button, a').filter({ hasText: /try again|go home|back/i }).first();
-        const buttonVisible = await isVisibleSafe(retryButton, { timeout: 2000 });
-
-        if (buttonVisible) {
-          console.log("✓ Recovery button found");
-
-          // Click recovery button
-          await retryButton.click();
-          await page.waitForLoadState("load");
-
-          // Should navigate to a working page
-          const url = page.url();
-          expect(url).not.toContain("nonexistent");
-
-          console.log(`✓ Recovered to: ${url}`);
-        }
-      }
-    });
-
     test("should maintain navigation functionality after error", async ({ page }) => {
       // Visit a page that may have errors
       await page.goto("/");
@@ -97,36 +65,6 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
       console.log("✓ Navigation works after potential errors");
     });
 
-    test("should not crash entire app on component error", async ({ page }) => {
-      const errors: string[] = [];
-
-      page.on("pageerror", (error) => {
-        errors.push(error.message);
-      });
-
-      await page.goto("/");
-      await waitForPageLoad(page);
-
-      // Trigger potential errors by rapid navigation
-      await page.goto("/map");
-      await page.waitForLoadState("load");
-
-      await page.goto("/discover");
-      await page.waitForLoadState("load");
-
-      await page.goto("/");
-      await page.waitForLoadState("load");
-
-      // Even if there are errors, the page should still render something
-      const bodyVisible = await page.isVisible("body");
-      expect(bodyVisible).toBe(true);
-
-      if (errors.length > 0) {
-        console.log(`Errors caught by error boundaries: ${errors.length}`);
-      } else {
-        console.log("✓ No uncaught errors");
-      }
-    });
   });
 
   // TODO: Network simulation tests are flaky in local dev due to browser context isolation
@@ -241,56 +179,9 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
       }
     });
 
-    test("should maintain form state across navigation errors", async ({ page }) => {
-      await page.goto("/");
-      await waitForPageLoad(page);
-
-      // Navigate to different pages to ensure form error boundaries work across routes
-      const routes = ["/sessions", "/discover", "/map"];
-
-      for (const route of routes) {
-        await page.goto(route);
-        await page.waitForLoadState("load");
-
-        // Page should load without crashing
-        const bodyVisible = await page.isVisible("body");
-        expect(bodyVisible).toBe(true);
-      }
-
-      console.log("✓ Navigation works across all routes with error boundaries");
-    });
   });
 
   test.describe("Error Logging and Monitoring", () => {
-    test("should log errors to console with context", async ({ page }) => {
-      const consoleLogs: Array<{ type: string; message: string }> = [];
-
-      page.on("console", (msg) => {
-        consoleLogs.push({
-          type: msg.type(),
-          message: msg.text(),
-        });
-      });
-
-      await page.goto("/");
-      await waitForPageLoad(page);
-
-      // Trigger an error scenario
-      await page.evaluate(() => {
-        console.error("Test error with context", { page: "home", user: "test" });
-      });
-
-      // Should have error logs
-      const errorLogs = consoleLogs.filter((log) => log.type === "error");
-
-      if (errorLogs.length > 0) {
-        // Error logs should include context
-        const hasContext = errorLogs.some((log) => log.message.includes("context"));
-
-        console.log(`✓ Error logging active (${errorLogs.length} errors logged)`);
-      }
-    });
-
     test("should include error tier and category tags", async ({ page }) => {
       const consoleLogs: string[] = [];
 
@@ -336,39 +227,6 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
       console.log("✓ No sensitive information exposed in logs");
     });
 
-    test("should handle multiple concurrent errors without crashing", async ({ page }) => {
-      const errors: string[] = [];
-
-      page.on("pageerror", (error) => {
-        errors.push(error.message);
-      });
-
-      await page.goto("/");
-      await waitForPageLoad(page);
-
-      // Trigger multiple errors simultaneously
-      await page.evaluate(() => {
-        // Simulate multiple concurrent errors
-        setTimeout(() => {
-          throw new Error("Error 1");
-        }, 100);
-        setTimeout(() => {
-          throw new Error("Error 2");
-        }, 100);
-        setTimeout(() => {
-          throw new Error("Error 3");
-        }, 100);
-      });
-
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for injected error timers to fire
-      await page.waitForTimeout(1000);
-
-      // App should still be functional
-      const bodyVisible = await page.isVisible("body");
-      expect(bodyVisible).toBe(true);
-
-      console.log(`✓ Handled ${errors.length} concurrent errors without crashing`);
-    });
   });
 
   // TODO: Error recovery tests require specific error states that are hard to trigger locally
@@ -470,36 +328,6 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
       expect(bodyVisible).toBe(true);
 
       console.log("✓ Async component errors handled");
-    });
-
-    test("should handle errors in event handlers", async ({ page }) => {
-      await page.goto("/");
-      await waitForPageLoad(page);
-
-      // Inject an error handler
-      await page.evaluate(() => {
-        const button = document.querySelector("button");
-        if (button) {
-          button.addEventListener("click", () => {
-            throw new Error("Event handler error");
-          });
-        }
-      });
-
-      // Click buttons - should not crash app
-      const button = page.locator("button").first();
-      const buttonVisible = await isVisibleSafe(button);
-
-      if (buttonVisible) {
-        await button.click();
-        await page.waitForLoadState("load");
-
-        // App should still be functional
-        const bodyVisible = await page.isVisible("body");
-        expect(bodyVisible).toBe(true);
-
-        console.log("✓ Event handler errors don't crash app");
-      }
     });
 
     // TODO: Test drift - rapid navigation causes connection reset

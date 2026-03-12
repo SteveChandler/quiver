@@ -7,6 +7,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { Waves, Car, Users, AlertTriangle, MapPin } from "lucide-react";
 
 interface PracticalTipsSectionProps {
@@ -39,9 +40,9 @@ export function PracticalTipsSection({
   if (!hasTips) return null;
 
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle>Local Knowledge</CardTitle>
+    <Card className={cn("overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-amber-50/60 dark:from-card dark:to-card border-amber-200/50 dark:border-amber-500/20 shadow-lg noise-texture", className)}>
+      <CardHeader className="pb-3 bg-gradient-to-r from-amber-50/80 to-yellow-50/80 dark:from-amber-500/10 dark:to-amber-500/5 border-b border-amber-100/50 dark:border-amber-500/20">
+        <CardTitle className="text-lg font-heading text-gray-800 dark:text-gray-100">Local Knowledge</CardTitle>
         <p className="text-sm text-muted-foreground">
           Insider tips from local surfers
         </p>
@@ -53,7 +54,7 @@ export function PracticalTipsSection({
             <AccordionItem value="conditions">
               <AccordionTrigger className="hover:no-underline">
                 <div className="flex items-center gap-2">
-                  <Waves className="h-4 w-4 text-blue-600" />
+                  <Waves className="h-4 w-4 text-amber-600" />
                   <span className="font-semibold">Best Conditions</span>
                 </div>
               </AccordionTrigger>
@@ -70,7 +71,7 @@ export function PracticalTipsSection({
             <AccordionItem value="parking">
               <AccordionTrigger className="hover:no-underline">
                 <div className="flex items-center gap-2">
-                  <Car className="h-4 w-4 text-blue-600" />
+                  <Car className="h-4 w-4 text-amber-600" />
                   <span className="font-semibold">Parking</span>
                 </div>
               </AccordionTrigger>
@@ -87,7 +88,7 @@ export function PracticalTipsSection({
             <AccordionItem value="access">
               <AccordionTrigger className="hover:no-underline">
                 <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-blue-600" />
+                  <MapPin className="h-4 w-4 text-amber-600" />
                   <span className="font-semibold">Access</span>
                 </div>
               </AccordionTrigger>
@@ -104,7 +105,7 @@ export function PracticalTipsSection({
             <AccordionItem value="waves">
               <AccordionTrigger className="hover:no-underline">
                 <div className="flex items-center gap-2">
-                  <Waves className="h-4 w-4 text-blue-600" />
+                  <Waves className="h-4 w-4 text-amber-600" />
                   <span className="font-semibold">Wave Characteristics</span>
                 </div>
               </AccordionTrigger>
@@ -121,7 +122,7 @@ export function PracticalTipsSection({
             <AccordionItem value="crowd">
               <AccordionTrigger className="hover:no-underline">
                 <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-blue-600" />
+                  <Users className="h-4 w-4 text-amber-600" />
                   <span className="font-semibold">Crowd Info</span>
                 </div>
               </AccordionTrigger>

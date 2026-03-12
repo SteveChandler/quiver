@@ -10,6 +10,7 @@ import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { SurfSpot } from "@/lib/data/surf-spots";
 import type { CityTideDataExpanded } from "@/actions/forecast/intent-forecast-actions";
 import type { IntentPageContent } from "@/lib/seo/intent-content-templates";
+import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { SURF_INTENTS } from "@/lib/constants/surf-intents";
 import { ContinueExploring } from "@/components/shared/continue-exploring";
 import { TideHeroSection } from "./tide-hero-section";
@@ -29,6 +30,7 @@ interface TidePageContentProps {
   updatedAt: string;
   baseUrl: string;
   bestTimeToSurfUrl?: string;
+  excludeIntents?: IntentKey[];
 }
 
 /**
@@ -49,6 +51,7 @@ export function TidePageContent({
   updatedAt,
   baseUrl,
   bestTimeToSurfUrl,
+  excludeIntents,
 }: TidePageContentProps) {
   const definition = SURF_INTENTS["tide"];
   const faqItems = generateIntentFAQ(
@@ -65,7 +68,7 @@ export function TidePageContent({
           { name: "Quiver", url: `${baseUrl}/` },
           {
             name: `${cityName} Surf`,
-            url: `${baseUrl}/beaches/usa/${stateSlug}/${citySlug}`,
+            url: `${baseUrl}/${stateSlug}/${citySlug}`,
           },
           {
             name: "Tides",
@@ -80,7 +83,7 @@ export function TidePageContent({
           className="flex items-center gap-1 text-sm mb-6"
         >
           <Link
-            href={`/beaches/usa/${stateSlug}/${citySlug}`}
+            href={`/${stateSlug}/${citySlug}`}
             className="inline-flex items-center gap-1 text-ocean-blue hover:underline"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -176,6 +179,7 @@ export function TidePageContent({
             stateSlug={stateSlug}
             stateName={stateName}
             bestTimeToSurfUrl={bestTimeToSurfUrl}
+            excludeIntents={excludeIntents}
           />
 
           {/* FAQ Accordion */}

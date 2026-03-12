@@ -198,7 +198,7 @@ Replace the existing greeting section in `components/home-screen/index.tsx`:
 
 ```tsx
 // OLD
-<h2 className="text-3xl sm:text-4xl font-roboto font-bold leading-tight sm:leading-[44px] text-gray-900">
+<h2 className="text-3xl sm:text-4xl font-heading font-bold leading-tight sm:leading-[44px] text-gray-900">
   Hey, {user ? profile?.full_name || "Surfer" : "Guest"}!
 </h2>
 

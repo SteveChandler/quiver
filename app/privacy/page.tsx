@@ -43,17 +43,17 @@ export default function PrivacyPage() {
       {/* Hero Section */}
       <section className="py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl md:text-6xl font-roboto font-bold text-dark-grey mb-6">
+          <h1 className="text-4xl md:text-6xl font-heading font-bold text-dark-grey mb-6">
             {hero.title}
           </h1>
-          <p className="text-xl md:text-2xl text-gray-600 mb-8 font-open-sans">
+          <p className="text-xl md:text-2xl text-gray-600 mb-8 font-sans">
             {hero.subtitle}
           </p>
           <div className="space-y-2">
             <Badge variant="outline" className="text-sm font-medium">
               Last Updated: {hero.lastUpdated}
             </Badge>
-            <p className="text-sm text-gray-500 font-open-sans">
+            <p className="text-sm text-gray-500 font-sans">
               {hero.effectiveDate}
             </p>
           </div>
@@ -63,10 +63,10 @@ export default function PrivacyPage() {
       {/* Overview Section */}
       <section className="py-12 px-4 bg-white/50">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-roboto font-bold text-dark-grey mb-6 text-center">
+          <h2 className="text-3xl font-heading font-bold text-dark-grey mb-6 text-center">
             {overview.title}
           </h2>
-          <p className="text-lg text-gray-600 font-open-sans leading-relaxed text-center">
+          <p className="text-lg text-gray-600 font-sans leading-relaxed text-center">
             {overview.description}
           </p>
         </div>
@@ -77,48 +77,48 @@ export default function PrivacyPage() {
         <div className="max-w-6xl mx-auto">
           <Card className="hover:shadow-lg transition-shadow duration-300 bg-white/80 backdrop-blur-sm">
             <CardHeader>
-              <h2 className="text-3xl font-roboto font-bold text-dark-grey mb-4">
+              <h2 className="text-3xl font-heading font-bold text-dark-grey mb-4">
                 {importantInfo.title}
               </h2>
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
-                <h3 className="text-lg font-roboto font-semibold text-dark-grey mb-3">
+                <h3 className="text-lg font-heading font-semibold text-dark-grey mb-3">
                   Purpose of this Privacy Policy
                 </h3>
-                <p className="text-gray-600 font-open-sans leading-relaxed">
+                <p className="text-gray-600 font-sans leading-relaxed">
                   {importantInfo.purpose}
                 </p>
               </div>
               <div>
-                <h3 className="text-lg font-roboto font-semibold text-dark-grey mb-3">
+                <h3 className="text-lg font-heading font-semibold text-dark-grey mb-3">
                   Children’s Privacy
                 </h3>
-                <p className="text-gray-600 font-open-sans leading-relaxed">
+                <p className="text-gray-600 font-sans leading-relaxed">
                   {importantInfo.childrenPolicy}
                 </p>
               </div>
               <div>
-                <h3 className="text-lg font-roboto font-semibold text-dark-grey mb-3">
+                <h3 className="text-lg font-heading font-semibold text-dark-grey mb-3">
                   Contact Details
                 </h3>
-                <p className="text-gray-600 font-open-sans leading-relaxed">
+                <p className="text-gray-600 font-sans leading-relaxed">
                   {importantInfo.contact}
                 </p>
               </div>
               <div>
-                <h3 className="text-lg font-roboto font-semibold text-dark-grey mb-3">
+                <h3 className="text-lg font-heading font-semibold text-dark-grey mb-3">
                   Changes to Privacy Policy
                 </h3>
-                <p className="text-gray-600 font-open-sans leading-relaxed">
+                <p className="text-gray-600 font-sans leading-relaxed">
                   {importantInfo.changes}
                 </p>
               </div>
               <div>
-                <h3 className="text-lg font-roboto font-semibold text-dark-grey mb-3">
+                <h3 className="text-lg font-heading font-semibold text-dark-grey mb-3">
                   Third-Party Links
                 </h3>
-                <p className="text-gray-600 font-open-sans leading-relaxed">
+                <p className="text-gray-600 font-sans leading-relaxed">
                   {importantInfo.thirdPartyLinks}
                 </p>
               </div>
@@ -131,10 +131,10 @@ export default function PrivacyPage() {
       <section className="py-12 px-4 bg-white/50">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-roboto font-bold text-dark-grey mb-6">
+            <h2 className="text-3xl md:text-4xl font-heading font-bold text-dark-grey mb-6">
               {dataCategories.title}
             </h2>
-            <p className="text-lg text-gray-600 max-w-4xl mx-auto font-open-sans">
+            <p className="text-lg text-gray-600 max-w-4xl mx-auto font-sans">
               {dataCategories.intro}
             </p>
           </div>
@@ -146,7 +146,7 @@ export default function PrivacyPage() {
                 className="hover:shadow-lg transition-shadow duration-300 bg-white/80 backdrop-blur-sm"
               >
                 <CardContent className="p-6">
-                  <h3 className="text-xl font-roboto font-bold text-dark-grey mb-3">
+                  <h3 className="text-xl font-heading font-bold text-dark-grey mb-3">
                     {category.name}
                   </h3>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-sm">
@@ -154,7 +154,7 @@ export default function PrivacyPage() {
                       <p className="font-semibold text-gray-700 mb-1">
                         Description:
                       </p>
-                      <p className="text-gray-600 font-open-sans">
+                      <p className="text-gray-600 font-sans">
                         {category.description}
                       </p>
                     </div>
@@ -162,7 +162,7 @@ export default function PrivacyPage() {
                       <p className="font-semibold text-gray-700 mb-1">
                         Sources:
                       </p>
-                      <p className="text-gray-600 font-open-sans">
+                      <p className="text-gray-600 font-sans">
                         {category.sources}
                       </p>
                     </div>
@@ -170,7 +170,7 @@ export default function PrivacyPage() {
                       <p className="font-semibold text-gray-700 mb-1">
                         Legal Basis:
                       </p>
-                      <p className="text-gray-600 font-open-sans">
+                      <p className="text-gray-600 font-sans">
                         {category.purpose}
                       </p>
                     </div>
@@ -178,7 +178,7 @@ export default function PrivacyPage() {
                       <p className="font-semibold text-gray-700 mb-1">
                         Third Parties Disclosed:
                       </p>
-                      <p className="text-gray-600 font-open-sans">
+                      <p className="text-gray-600 font-sans">
                         {category.disclosed}
                       </p>
                     </div>
@@ -195,10 +195,10 @@ export default function PrivacyPage() {
         <div className="max-w-4xl mx-auto">
           <Card className="bg-blue-50 border-blue-200">
             <CardContent className="p-6">
-              <h3 className="text-xl font-roboto font-bold text-dark-grey mb-4">
+              <h3 className="text-xl font-heading font-bold text-dark-grey mb-4">
                 {accessibility.title}
               </h3>
-              <p className="text-gray-600 font-open-sans leading-relaxed">
+              <p className="text-gray-600 font-sans leading-relaxed">
                 {accessibility.description}
               </p>
             </CardContent>
@@ -218,7 +218,7 @@ export default function PrivacyPage() {
                       <div className="w-12 h-12 bg-ocean-blue/10 rounded-full flex items-center justify-center">
                         <section.icon className="h-6 w-6 text-ocean-blue" />
                       </div>
-                      <h2 className="text-2xl md:text-3xl font-roboto font-bold text-dark-grey">
+                      <h2 className="text-2xl md:text-3xl font-heading font-bold text-dark-grey">
                         {section.title}
                       </h2>
                     </div>
@@ -227,10 +227,10 @@ export default function PrivacyPage() {
                     <div className="space-y-6">
                       {section.content.map((item, itemIndex) => (
                         <div key={itemIndex}>
-                          <h3 className="text-lg font-roboto font-semibold text-dark-grey mb-3">
+                          <h3 className="text-lg font-heading font-semibold text-dark-grey mb-3">
                             {item.subtitle}
                           </h3>
-                          <p className="text-gray-600 font-open-sans leading-relaxed">
+                          <p className="text-gray-600 font-sans leading-relaxed">
                             {item.details}
                           </p>
                         </div>
@@ -247,7 +247,7 @@ export default function PrivacyPage() {
       {/* Quick Navigation */}
       <section className="py-12 px-4 bg-white/50">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-roboto font-bold text-dark-grey mb-8 text-center">
+          <h2 className="text-2xl font-heading font-bold text-dark-grey mb-8 text-center">
             Quick Navigation
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -258,7 +258,7 @@ export default function PrivacyPage() {
                 className="flex items-center gap-3 p-4 bg-white/80 backdrop-blur-sm rounded-lg hover:shadow-md transition-shadow duration-300 group"
               >
                 <section.icon className="h-5 w-5 text-ocean-blue group-hover:text-ocean-blue/80" />
-                <span className="text-dark-grey font-open-sans group-hover:text-ocean-blue transition-colors">
+                <span className="text-dark-grey font-sans group-hover:text-ocean-blue transition-colors">
                   {section.title}
                 </span>
               </Link>
@@ -273,20 +273,20 @@ export default function PrivacyPage() {
           {/* US Residents Annex */}
           <Card className="hover:shadow-lg transition-shadow duration-300 bg-white/80 backdrop-blur-sm">
             <CardHeader>
-              <h2 className="text-2xl md:text-3xl font-roboto font-bold text-dark-grey">
+              <h2 className="text-2xl md:text-3xl font-heading font-bold text-dark-grey">
                 {annexes.usResidents.title}
               </h2>
-              <p className="text-gray-600 font-open-sans">
+              <p className="text-gray-600 font-sans">
                 {annexes.usResidents.intro}
               </p>
             </CardHeader>
             <CardContent className="space-y-6">
               {annexes.usResidents.sections.map((section, index) => (
                 <div key={index}>
-                  <h3 className="text-lg font-roboto font-semibold text-dark-grey mb-3">
+                  <h3 className="text-lg font-heading font-semibold text-dark-grey mb-3">
                     {section.title}
                   </h3>
-                  <p className="text-gray-600 font-open-sans leading-relaxed">
+                  <p className="text-gray-600 font-sans leading-relaxed">
                     {section.content}
                   </p>
                 </div>
@@ -297,20 +297,20 @@ export default function PrivacyPage() {
           {/* Surf Sessions Annex */}
           <Card className="hover:shadow-lg transition-shadow duration-300 bg-white/80 backdrop-blur-sm">
             <CardHeader>
-              <h2 className="text-2xl md:text-3xl font-roboto font-bold text-dark-grey">
+              <h2 className="text-2xl md:text-3xl font-heading font-bold text-dark-grey">
                 {annexes.surfSessions.title}
               </h2>
-              <p className="text-gray-600 font-open-sans">
+              <p className="text-gray-600 font-sans">
                 {annexes.surfSessions.intro}
               </p>
             </CardHeader>
             <CardContent className="space-y-6">
               {annexes.surfSessions.sections.map((section, index) => (
                 <div key={index}>
-                  <h3 className="text-lg font-roboto font-semibold text-dark-grey mb-3">
+                  <h3 className="text-lg font-heading font-semibold text-dark-grey mb-3">
                     {section.title}
                   </h3>
-                  <p className="text-gray-600 font-open-sans leading-relaxed">
+                  <p className="text-gray-600 font-sans leading-relaxed">
                     {section.content}
                   </p>
                 </div>
@@ -323,14 +323,14 @@ export default function PrivacyPage() {
       {/* Contact Section */}
       <section className="py-20 px-4 bg-gradient-to-r from-ocean-blue to-blue-600">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-roboto font-bold text-white mb-6">
+          <h2 className="text-3xl md:text-4xl font-heading font-bold text-white mb-6">
             {contact.title}
           </h2>
-          <p className="text-xl text-white/90 mb-8 font-open-sans">
+          <p className="text-xl text-high mb-8 font-sans">
             {contact.description}
           </p>
 
-          <div className="space-y-4 text-white/90 font-open-sans max-w-2xl mx-auto mb-8">
+          <div className="space-y-4 text-high font-sans max-w-2xl mx-auto mb-8">
             {contact.methods.map((method, index) => (
               <div key={index} className="text-center">
                 <p>
@@ -343,7 +343,7 @@ export default function PrivacyPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Button
               size="lg"
-              className="bg-white text-ocean-blue hover:bg-gray-50 px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+              className="bg-white text-ocean-blue hover:bg-gray-50 px-8 py-4 text-lg font-heading font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
               asChild
             >
               <Link href="mailto:privacy@quiversurf.com">

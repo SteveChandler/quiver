@@ -8,7 +8,7 @@ import os
 import logging
 from typing import Dict, Any, Optional, Tuple
 
-from config import LARGE_SWELL_TAPER_START, LARGE_SWELL_TAPER_END
+from guardrails import apply_guardrails
 
 logger = logging.getLogger(__name__)
 
@@ -104,50 +104,16 @@ class QuiverBiasModel:
             pass  # Use X as-is if feature name detection fails
 
         # Predict the residual (bias)
-        predicted_bias = pd.Series(self.model.predict(X), index=physics_forecast.index)
+        raw_bias = self.model.predict(X)
 
-        # --- v2.1 Guardrails ---
-
-        # 0. Large swell scaling: taper corrections for waves outside training distribution
-        # The model was trained primarily on small waves during a flat spell, making it
-        # less reliable for large swells. We apply a linear taper:
-        #   - Below TAPER_START (1.5m default): 100% of predicted correction applied
-        #   - Between TAPER_START and TAPER_END: linear interpolation
-        #   - Above TAPER_END (2.5m default): 0% correction (use raw physics forecast)
-        # Thresholds are configurable via LARGE_SWELL_TAPER_START/END env vars.
-        scale_factor = np.clip(
-            (LARGE_SWELL_TAPER_END - physics_forecast) / (LARGE_SWELL_TAPER_END - LARGE_SWELL_TAPER_START),
-            0.0,  # No correction for very large swells
-            1.0   # Full correction for small swells
+        # Apply the shared guardrail pipeline (operates on numpy arrays).
+        corrected_np, _ = apply_guardrails(
+            physics_forecast=physics_forecast.values,
+            predicted_bias=raw_bias,
         )
-        predicted_bias = predicted_bias * scale_factor
 
-        # 1. Clip bias to +/- 75% of raw forecast (min 0.2m floor for small waves)
-        max_bias = np.maximum(physics_forecast.abs() * 0.75, 0.2)
-        predicted_bias = predicted_bias.clip(lower=-max_bias, upper=max_bias)
-
-        # Small-wave safety: don't more than double sub-0.5m forecasts
-        small_mask = physics_forecast.abs() < 0.5
-        if small_mask.any():
-            small_cap = physics_forecast.abs()
-            predicted_bias = predicted_bias.where(
-                ~small_mask,
-                predicted_bias.clip(lower=-small_cap, upper=small_cap)
-            )
-
-        # 2. Absolute bias cap at +/- 1.5m
-        predicted_bias = predicted_bias.clip(lower=-1.5, upper=1.5)
-
-        # 3. No-correction zone: skip corrections smaller than 0.03m
-        predicted_bias = predicted_bias.where(predicted_bias.abs() >= 0.03, 0.0)
-
-        # Apply correction: Final = Model + Bias
-        corrected_forecast = physics_forecast + predicted_bias
-
-        # 4. Physical bounds: wave height in [0.01, 15.0]m
-        corrected_forecast = corrected_forecast.clip(lower=0.01, upper=15.0)
-
-        return corrected_forecast
+        # Return as a pandas Series aligned to the input index.
+        return pd.Series(corrected_np, index=physics_forecast.index)
 
     def save(self, filepath: str):
         """Saves the model to a JSON file (lightweight, portable)."""

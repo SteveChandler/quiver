@@ -45,7 +45,7 @@ export function SessionsTab({
       {/* Forecast Accuracy Comparison - hidden in public mode */}
       {!publicMode && sessionSnapshots && sessionSnapshots.length > 0 && (
         <section className="rounded-3xl bg-white/95 p-6 shadow-lg backdrop-blur">
-          <h2 className="text-xl font-roboto font-semibold text-dark-grey mb-4">
+          <h2 className="text-xl font-heading font-semibold text-dark-grey mb-4">
             Forecast Accuracy
           </h2>
           <SessionForecastComparison

@@ -44,6 +44,7 @@ interface BeachCardProps {
     onboardingPrefs: number;
     learnedPrefs: number;
     affinity: number;
+    multiplier: number;
   };
   affinityData?: {
     sessionCount: number;
@@ -400,7 +401,8 @@ const areBeachCardPropsEqual = (
       prev.scoreBreakdown.base !== next.scoreBreakdown.base ||
       prev.scoreBreakdown.onboardingPrefs !== next.scoreBreakdown.onboardingPrefs ||
       prev.scoreBreakdown.learnedPrefs !== next.scoreBreakdown.learnedPrefs ||
-      prev.scoreBreakdown.affinity !== next.scoreBreakdown.affinity
+      prev.scoreBreakdown.affinity !== next.scoreBreakdown.affinity ||
+      prev.scoreBreakdown.multiplier !== next.scoreBreakdown.multiplier
     ) {
       return false;
     }

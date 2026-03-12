@@ -222,6 +222,7 @@ const getCachedSurfReport = unstable_cache(
       });
 
       if (window) {
+        delete window.sourceForecast;
         const adjustedWindow = applyPreferenceAdjustments(window, preferredWaveSize, userSkillLevel);
         return { report: computeSurfCall(adjustedWindow, todayForecasts, beach), isTomorrow: false };
       }
@@ -238,6 +239,7 @@ const getCachedSurfReport = unstable_cache(
       });
 
       if (window) {
+        delete window.sourceForecast;
         const adjustedWindow = applyPreferenceAdjustments(window, preferredWaveSize, userSkillLevel);
         return { report: computeSurfCall(adjustedWindow, tomorrowForecasts, beach), isTomorrow: true };
       }

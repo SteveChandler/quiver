@@ -81,7 +81,7 @@ export function BeachActions({
             data-testid="log-session-btn"
             variant="default"
             onClick={handleLogSession}
-            className="h-12 px-6 text-base font-semibold rounded-md bg-ocean-blue hover:bg-ocean-blue/90 active:scale-[0.98] transition-all"
+            className="h-12 px-6 text-base font-semibold rounded-md bg-ocean-blue hover:bg-ocean-blue/90 hover:shadow-[0_0_16px_rgba(247,142,66,0.3)] active:scale-[0.98] transition-all"
           >
             <Plus className="h-5 w-5 mr-2" />
             {publicMode ? "Track Your Sessions" : "Log Session"}
@@ -100,7 +100,7 @@ export function BeachActions({
             data-testid="plan-session-btn"
             variant="default"
             onClick={handlePlanSession}
-            className="h-12 px-6 text-base font-semibold rounded-md bg-ocean-blue hover:bg-ocean-blue/90 active:scale-[0.98] transition-all"
+            className="h-12 px-6 text-base font-semibold rounded-md bg-ocean-blue hover:bg-ocean-blue/90 hover:shadow-[0_0_16px_rgba(247,142,66,0.3)] active:scale-[0.98] transition-all"
           >
             <BookOpen className="h-5 w-5 mr-2" />
             {publicMode ? "Plan a Session" : "Plan Session"}
