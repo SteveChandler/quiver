@@ -8,12 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- Refactor (Phase 1D): `generateLocationSlug` now delegates to `cityToSlug` from `beach-url-utils.ts`; `normalizeState` uses `US_STATE_SLUG_MAP`
+- Refactor (Phase 1D): `generateLocationSlug` now delegates to `cityToSlug`; `normalizeState` uses `US_STATE_SLUG_MAP`
 - Refactor (Phase 1A): consolidate wave height formatting (3 files → 1) — `formatWaveHeightDecimal`, `formatWaveHeightRange`, `formatWaveHeightBucket`
-- Refactor (Phase 1B): consolidated 4 date/time files into `lib/utils/date-time.ts`; flattened `dateUtils` object to named exports
+- Refactor (Phase 1B): consolidated 4 date/time files into `lib/utils/date-time.ts`; flattened `dateUtils` to named exports
+- Refactor (Phase 2D): add `components/ui/hero-card.tsx` shared card shell; adopted in `TideHeroSection`
+- Refactor (Phase 2E): move `SectionWrapper` to `components/ui/section-wrapper.tsx`; old path re-exports
 
 ### Removed
-- Dead code: deleted `BeachHero`, `ForecastConfidenceBadge`, and `EnhancedForecastWithTransparency` components (plus their test files) — zero runtime consumers (Phase 2A)
+- Dead code: deleted `BeachHero`, `ForecastConfidenceBadge`, and `EnhancedForecastWithTransparency` — zero runtime consumers (Phase 2A)
 
 ### Fixed
 - Dark mode contrast: bumped gray/slate/muted text overrides to 5.5+ contrast ratio on navy backgrounds, added missing sky-*/indigo-*/blue-800/900 overrides, fixed cyan text from too-dark #4A70D9 to readable #22D3EE, and updated hardcoded chart hex colors (tide chart, water temp, monthly surf, outlook bar) with dark-mode-aware values and tooltip backgrounds

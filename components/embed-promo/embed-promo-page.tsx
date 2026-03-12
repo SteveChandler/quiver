@@ -10,7 +10,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SectionWrapper } from "@/components/landing-page/section-wrapper";
+import { SectionWrapper } from "@/components/ui/section-wrapper";
 import { SITE_URL } from "@/lib/constants/seo";
 
 // ---------------------------------------------------------------------------

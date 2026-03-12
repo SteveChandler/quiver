@@ -1,5 +1,6 @@
 import { Waves, ArrowUp, ArrowDown, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { HeroCard } from "@/components/ui/hero-card";
 import type { CityTideDataExpanded } from "@/actions/forecast/intent-forecast-actions";
 
 interface TideHeroSectionProps {
@@ -34,7 +35,13 @@ export function TideHeroSection({ data }: TideHeroSectionProps) {
   const NextIcon = isNextHigh ? ArrowUp : ArrowDown;
 
   return (
-    <section aria-label="Current tide conditions" className="rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border border-blue-200/50 shadow-lg p-6 md:p-8">
+    <HeroCard
+      gradient="from-white/80 to-blue-50/60"
+      borderColor="border-blue-200/50"
+      attribution={`NOAA tide data via ${tideStation || beachName}`}
+      attributionBorderColor="border-blue-100/50"
+      aria-label="Current tide conditions"
+    >
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
         {/* Current Tide */}
         <div className="flex items-start gap-4">
@@ -98,11 +105,6 @@ export function TideHeroSection({ data }: TideHeroSectionProps) {
           </div>
         )}
       </div>
-
-      {/* Attribution */}
-      <p className="text-xs text-gray-500 mt-4 pt-3 border-t border-blue-100/50">
-        NOAA tide data via {tideStation || beachName}
-      </p>
-    </section>
+    </HeroCard>
   );
 }
