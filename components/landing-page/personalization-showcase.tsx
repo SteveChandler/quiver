@@ -94,7 +94,7 @@ export function PersonalizationShowcase() {
       data-testid="personalization-showcase"
     >
       {/* Section header */}
-      <div className="text-center mb-12 animate-fade-in-up">
+      <div className="text-center mb-10 md:mb-12 animate-fade-in-up">
         <p className="text-base font-sans text-gray-500 mb-3">
           Tired of driving to the beach for blown-out, flat conditions?
         </p>

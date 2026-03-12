@@ -6,7 +6,6 @@ import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-en
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-section";
 
-import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { generateBeachFAQ } from "@/lib/utils/beach-faq-utils";
 import type { Metadata } from "next";
@@ -168,13 +167,6 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
           surfReportSlot={<SpotSurfReportStream beach={beach} />}
           surfCallReport={surfCallReport}
           surfCallIsTomorrow={surfCallIsTomorrow}
-        />
-
-        <StickySignupBar
-          source={`beach-detail-${params.beachSlug}`}
-          ctaText="See Your Match"
-          supportingText={`Your match score for ${beach.name}`}
-          scrollThreshold={150}
         />
 
         {/* SSR sections below tabs for SEO crawlability */}

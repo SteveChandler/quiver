@@ -432,7 +432,7 @@ describe("TideConditionsCard", () => {
       );
 
       const icon = container.querySelector("svg");
-      expect(icon).toHaveClass("text-blue-600");
+      expect(icon).toHaveClass("text-sky-500");
     });
   });
 

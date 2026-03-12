@@ -16,19 +16,12 @@ export function SocialFeedSection() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const searchParams = useSearchParams();
-  const isTest =
-    typeof window !== "undefined" && (window as any).__PLAYWRIGHT__ === true;
-
   useEffect(() => {
     const loadPosts = async () => {
       try {
         const posts = await fetchRecentPosts();
         setPosts(posts);
       } catch (e) {
-        // Swallow errors in test mode to avoid noisy console errors
-        if (!isTest) {
-          console.error(e);
-        }
         setPosts([]);
       } finally {
         setLoading(false);
@@ -57,7 +50,7 @@ export function SocialFeedSection() {
       >
         <div className="text-center">
           <div className="flex items-center justify-center w-12 h-12 bg-[#354090] rounded-full mx-auto mb-2">
-            <Waves className="h-6 w-6 text-neon-cyan" />
+            <Waves className="h-6 w-6 text-cyan-400" />
           </div>
           <div className="text-2xl font-bold font-mono text-white">1,200+</div>
           <div className="text-sm text-medium">Beaches Scored</div>

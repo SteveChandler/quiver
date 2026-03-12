@@ -103,9 +103,9 @@ export function SurfSpotCard({
     >
       <Link href={beachUrl} prefetch={false} className="block group h-full">
         {/* Dark cyberpunk card */}
-        <div className="bg-bg-surface rounded-2xl overflow-hidden shadow-none hover:shadow-lg transition-shadow duration-200 h-full flex flex-col glow-hover-cyan">
+        <div className="bg-[#1E2558] rounded-2xl overflow-hidden shadow-none hover:shadow-xl hover:shadow-black/20 hover:-translate-y-1 transition-all duration-200 h-full flex flex-col glow-hover-cyan">
           {/* Image Section */}
-          <div className="relative h-48 md:h-56 bg-bg-deep overflow-hidden rounded-t-2xl">
+          <div className="relative h-48 md:h-56 bg-[#171E45] overflow-hidden rounded-t-2xl">
             {/* Score badge - circular, top-left corner of image */}
             {typeof score === "number" && score > 0 && (
               <div
@@ -138,7 +138,7 @@ export function SurfSpotCard({
                 onError={() => setImageError(true)}
               />
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-bg-surface to-bg-elevated">
+              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#1E2558] to-[#252D6B]">
                 <Waves className="h-12 w-12 text-white/20" />
               </div>
             )}
@@ -157,7 +157,7 @@ export function SurfSpotCard({
               {typeof waveHeight === "number" && waveHeight > 0 && (
                 <>
                   <span className="flex items-center gap-0.5">
-                    <Waves className="h-3.5 w-3.5 text-neon-cyan" />
+                    <Waves className="h-3.5 w-3.5 text-cyan-400" />
                     <span className="font-medium text-white/80">{formatWaveHeight(waveHeight)}</span>
                   </span>
                   <span className="text-white/20">·</span>

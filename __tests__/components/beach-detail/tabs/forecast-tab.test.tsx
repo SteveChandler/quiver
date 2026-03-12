@@ -342,26 +342,19 @@ describe("ForecastTab", () => {
       expect(screen.queryByText("5-Day Outlook")).not.toBeInTheDocument();
     });
 
-    it("gates BestSurfWindow behind PublicContentGate in public mode", () => {
+    it("shows BestSurfWindow without a gate in public mode", () => {
       render(<ForecastTab {...defaultProps} publicMode={true} />);
 
-      const publicGate = screen.getByTestId("public-gate");
-      expect(publicGate).toBeInTheDocument();
-      expect(publicGate).toHaveAttribute("data-source", "best-window-gate");
-      expect(publicGate).toContainElement(screen.getByTestId("best-surf-window"));
+      // Gate has been removed — BestSurfWindow is visible to all users
+      expect(screen.queryByTestId("public-gate")).not.toBeInTheDocument();
+      expect(screen.getByTestId("best-surf-window")).toBeInTheDocument();
     });
 
-    it("does not gate BestSurfWindow in authenticated mode", () => {
+    it("shows BestSurfWindow without a gate in authenticated mode", () => {
       render(<ForecastTab {...defaultProps} publicMode={false} />);
 
-      const publicGate = screen.queryByTestId("public-gate");
-      const bestSurfWindow = screen.getByTestId("best-surf-window");
-
-      if (publicGate) {
-        expect(publicGate).not.toContainElement(bestSurfWindow);
-      } else {
-        expect(bestSurfWindow).toBeInTheDocument();
-      }
+      expect(screen.queryByTestId("public-gate")).not.toBeInTheDocument();
+      expect(screen.getByTestId("best-surf-window")).toBeInTheDocument();
     });
 
     it("shows lock message about full 12-day outlook when horizonDaySummaries.length > 3", () => {

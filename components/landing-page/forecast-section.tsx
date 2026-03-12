@@ -147,7 +147,7 @@ export function ForecastSection() {
                   onKeyDown={(e) => handleKeyDown(e, feature.id)}
                   className={`
                     px-4 py-2 rounded-full text-xs font-semibold transition-all
-                    focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2
+                    focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]
                     ${
                       activeFeatureId === feature.id
                         ? "bg-ocean-blue text-white shadow-sm"
@@ -169,7 +169,7 @@ export function ForecastSection() {
                   type="button"
                   aria-label="Previous feature"
                   onClick={handlePrevious}
-                  className="h-10 w-10 rounded-full bg-white/[0.08] ring-1 ring-white/10 hover:bg-white/[0.15] transition-colors focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2"
+                  className="h-10 w-10 rounded-full bg-white/[0.08] ring-1 ring-white/10 hover:bg-white/[0.15] transition-colors focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
                 >
                   <ArrowUp
                     aria-hidden="true"
@@ -196,7 +196,7 @@ export function ForecastSection() {
                     onKeyDown={(e) => handleKeyDown(e, feature.id)}
                     className={`
                       text-sm text-left underline underline-offset-4 transition-all
-                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:rounded
+                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B] focus-visible:rounded
                       ${
                         activeFeatureId === feature.id
                           ? "font-bold text-white decoration-white/40 decoration-2"
@@ -214,7 +214,7 @@ export function ForecastSection() {
                   type="button"
                   aria-label="Next feature"
                   onClick={handleNext}
-                  className="h-10 w-10 rounded-full bg-white/[0.08] ring-1 ring-white/10 hover:bg-white/[0.15] transition-colors focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2"
+                  className="h-10 w-10 rounded-full bg-white/[0.08] ring-1 ring-white/10 hover:bg-white/[0.15] transition-colors focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
                 >
                   <ArrowDown
                     aria-hidden="true"
@@ -292,7 +292,7 @@ export function ForecastSection() {
 
                   <div className="mt-10 flex flex-col gap-4 items-center md:items-start">
                     <Button
-                      className="rounded-full px-7 py-3 text-sm font-semibold bg-ocean-blue hover:bg-ocean-blue/90 text-white shadow-sm"
+                      className="rounded-full px-7 py-3 text-sm font-semibold bg-ocean-blue hover:bg-ocean-blue/90 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 text-white shadow-sm focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
                       asChild
                       data-testid={`forecast-cta-${activeFeatureId}`}
                     >

@@ -2,14 +2,15 @@
 
 import { useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { motion, useInView } from "framer-motion";
-import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import { motion, useInView, useReducedMotion } from "framer-motion";
 import { Brain, Radio, Waves, Droplets, Users } from "lucide-react";
 import { SectionWrapper } from "./section-wrapper";
 import { MatchScoreRing } from "./match-score-ring";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
+
+const EASE_OUT_QUART: [number, number, number, number] = [0.25, 1, 0.5, 1];
 
 // ---------------------------------------------------------------------------
 // Step 1 — Real-Time Data
@@ -108,14 +109,23 @@ function StepMatchScore({ inView }: StepMatchScoreProps) {
 // Connector (desktop only)
 // ---------------------------------------------------------------------------
 
-function StepConnector() {
+interface StepConnectorProps {
+  isInView: boolean;
+  delay: number;
+  shouldReduceMotion: boolean;
+}
+
+function StepConnector({ isInView, delay, shouldReduceMotion }: StepConnectorProps) {
   return (
-    <div
+    <motion.div
       className="hidden md:flex items-center justify-center shrink-0"
       aria-hidden="true"
+      initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0 }}
+      animate={isInView ? { opacity: 1 } : {}}
+      transition={{ duration: 0.4, delay, ease: EASE_OUT_QUART }}
     >
       <div className="w-8 border-t border-dashed border-white/20" />
-    </div>
+    </motion.div>
   );
 }
 
@@ -125,11 +135,13 @@ function StepConnector() {
 
 export function MLPipelineShowcase() {
   const ref = useRef<HTMLDivElement>(null);
-  const isInView = useInView(ref, { once: true, amount: 0.3 });
+  const isInView = useInView(ref, { once: true, amount: 0.25 });
   const [showAuth, setShowAuth] = useState(false);
   const { user } = useAuth();
   const pathname = usePathname();
-  const reducedMotion = useReducedMotion();
+  const shouldReduceMotion = useReducedMotion() ?? false;
+
+  const stepInitial = shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 };
 
   return (
     <SectionWrapper
@@ -138,7 +150,7 @@ export function MLPipelineShowcase() {
       data-testid="ml-pipeline-showcase"
     >
       {/* Section header */}
-      <div className="text-center mb-10 animate-fade-in-up">
+      <div className="text-center mb-10 md:mb-12 animate-fade-in-up">
         <h2 className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold text-white mb-4">
           How your Match Score works
         </h2>
@@ -154,31 +166,31 @@ export function MLPipelineShowcase() {
       >
         <motion.div
           className="flex-1"
-          initial={reducedMotion ? false : { opacity: 0, y: 24 }}
+          initial={stepInitial}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.5, delay: 0 }}
+          transition={{ duration: 0.6, delay: 0, ease: EASE_OUT_QUART }}
         >
           <StepDataSources />
         </motion.div>
 
-        <StepConnector />
+        <StepConnector isInView={isInView} delay={0.3} shouldReduceMotion={shouldReduceMotion} />
 
         <motion.div
           className="flex-1"
-          initial={reducedMotion ? false : { opacity: 0, y: 24 }}
+          initial={stepInitial}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.5, delay: 0.15 }}
+          transition={{ duration: 0.6, delay: 0.5, ease: EASE_OUT_QUART }}
         >
           <StepMLEngine />
         </motion.div>
 
-        <StepConnector />
+        <StepConnector isInView={isInView} delay={0.8} shouldReduceMotion={shouldReduceMotion} />
 
         <motion.div
           className="flex-1"
-          initial={reducedMotion ? false : { opacity: 0, y: 24 }}
+          initial={stepInitial}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.5, delay: 0.3 }}
+          transition={{ duration: 0.6, delay: 1.0, ease: EASE_OUT_QUART }}
         >
           <StepMatchScore inView={isInView} />
         </motion.div>
@@ -188,9 +200,9 @@ export function MLPipelineShowcase() {
       {!user && (
         <motion.div
           className="mt-10 flex justify-center"
-          initial={reducedMotion ? false : { opacity: 0 }}
+          initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0 }}
           animate={isInView ? { opacity: 1 } : {}}
-          transition={{ duration: 0.5, delay: 0.5 }}
+          transition={{ duration: 0.6, delay: 1.3, ease: EASE_OUT_QUART }}
         >
           <Button
             onClick={() => setShowAuth(true)}

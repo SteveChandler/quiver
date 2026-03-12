@@ -52,16 +52,13 @@ import { BeachStatsGrid } from "@/components/beach-detail/beach-stats-grid";
 import { ConditionsTicker } from "@/components/conditions/conditions-ticker";
 import { forecastToConditionsData } from "@/lib/mappers/conditions-mappers";
 import { BeachActions } from "@/components/beach-detail/beach-actions";
+import { RecentReports } from "@/components/beach-detail/recent-reports";
 import {
   BeachTabs,
   BeachTabContent,
   type BeachTabValue,
 } from "@/components/beach-detail/beach-tabs";
-import { SessionPlanningModal } from "@/components/beach-detail/session-planning-modal";
 import { TabLoadingSkeleton } from "@/components/beach-detail/tab-loading-skeleton";
-import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
-import { PublicContentGate } from "@/components/ui/public-content-gate";
-import { CamHeroPlaceholder } from "@/components/beach-detail/cam-hero-placeholder";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 
 // PERFORMANCE OPTIMIZATION: Lazy load tab content to reduce initial bundle size
@@ -150,14 +147,11 @@ function BeachDetailContent({
   const [reviewDialogSource, setReviewDialogSource] =
     useState<ReviewTrackingSource>(REVIEW_TRACKING_SOURCES.OVERVIEW_CTA);
   const [reviewRefreshTrigger, setReviewRefreshTrigger] = useState(0);
+  const [conditionsReportRefreshTrigger, setConditionsReportRefreshTrigger] = useState(0);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedForecastEntry, setSelectedForecastEntry] =
     useState<EnhancedForecastEntity | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [sessionPlanningOpen, setSessionPlanningOpen] = useState(false);
-  const [sessionPlanningMode, setSessionPlanningMode] = useState<
-    "log" | "plan"
-  >("log");
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<BeachTabValue>(
     defaultTab || "forecast",
@@ -346,6 +340,18 @@ function BeachDetailContent({
     Boolean(sources?.camera_url) &&
     buildCamEmbed(sources?.camera_url).kind !== "none";
 
+  // Subtle score-based tint overlay — gives an instant emotional signal
+  // before the user reads any numbers. Kept well under 10% opacity so
+  // it's felt rather than consciously seen.
+  const heroTintStyle = useMemo((): string | undefined => {
+    const score = beach?.base_score;
+    if (score == null) return undefined;
+    if (score >= 8) return "rgba(251, 184, 75, 0.08)";  // Paradise Gold — warm/inviting
+    if (score >= 6) return "rgba(247, 142, 66, 0.05)";  // Charming Orange — subtle warm
+    if (score >= 4) return undefined;                   // Neutral — no tint
+    return "rgba(14, 165, 233, 0.06)";                  // Ocean Teal — cool/poor conditions
+  }, [beach?.base_score]);
+
   // Calculate destination coordinates and directions handler BEFORE early returns
   // (must be before early returns to maintain consistent hook count)
   const destinationCoordinates =
@@ -405,17 +411,6 @@ function BeachDetailContent({
   // Track if tab data is still loading (for skeleton loaders)
   const tabDataLoading = loading;
 
-  // Session planning handlers
-  const handlePlanSession = () => {
-    setSessionPlanningMode("plan");
-    setSessionPlanningOpen(true);
-  };
-
-  const handleLogSession = () => {
-    setSessionPlanningMode("log");
-    setSessionPlanningOpen(true);
-  };
-
   const tabActions = (
     <>
       <Button
@@ -441,33 +436,17 @@ function BeachDetailContent({
       {/* Immersive hero: video or photos background with title at top and forecast at bottom */}
       <div className="relative mb-6 min-h-[280px] md:min-h-[400px]">
         {showCamHero ? (
-          publicMode ? (
-            /* Anonymous users: gated cam placeholder */
-            <PublicContentGate
-              ctaTitle="Watch the Live Cam"
-              ctaDescription={`Sign up free to stream ${beach.name} in real time`}
-              ctaButtonText="Sign Up Free"
-              blurLevel="sm"
-              source="cam-hero"
-            >
-              <CamHeroPlaceholder
-                cameraUrl={sources?.camera_url}
-                beachName={beach.name}
+          /* Live cam stream — visible to all users */
+          <Suspense
+            fallback={
+              <div
+                className="aspect-video w-full"
+                style={{ backgroundColor: "#2D357D" }}
               />
-            </PublicContentGate>
-          ) : (
-            /* Authenticated users: live cam stream */
-            <Suspense
-              fallback={
-                <div
-                  className="aspect-video w-full"
-                  style={{ backgroundColor: "#2D357D" }}
-                />
-              }
-            >
-              <CamsSection sources={sources} variant="hero" />
-            </Suspense>
-          )
+            }
+          >
+            <CamsSection sources={sources} variant="hero" />
+          </Suspense>
         ) : (
           /* Photo gallery background */
           <BeachPhotoGallery beach={beach} className="w-full" />
@@ -490,6 +469,17 @@ function BeachDetailContent({
               "linear-gradient(to top, #252D6B 0%, rgba(37,45,107,0.85) 30%, rgba(37,45,107,0.3) 65%, transparent 100%)",
           }}
         />
+
+        {/* Conditions-score tint — full-hero color wash at very low opacity.
+            Felt subconsciously before the user reads any numbers.
+            Sits above the gradients but below all text/UI elements. */}
+        {heroTintStyle && (
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 pointer-events-none z-[5]"
+            style={{ background: heroTintStyle }}
+          />
+        )}
 
         {/* Title — top of hero */}
         <div className="absolute inset-x-0 top-0 px-4 sm:px-6 pt-6 z-[6]">
@@ -530,19 +520,8 @@ function BeachDetailContent({
 
       {/* Main Content Container */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        {/* Surf Call Card — gated for anonymous visitors */}
-        {publicMode ? (
-          <div className="mb-6">
-            <InlineSignupCta
-              title="Know Before You Go"
-              description={`Get today's surf call, your personal match score, 12-day outlook, and condition alerts for ${beach.name}`}
-              primaryButtonText="Get My Forecast"
-              source={`beach-detail-${slugify(beach.name)}`}
-            />
-          </div>
-        ) : (
-          surfReportSlot
-        )}
+        {/* Surf Call Card — visible to authenticated users only */}
+        {!publicMode && surfReportSlot}
 
         {/* Key Stats Grid */}
         <BeachStatsGrid
@@ -554,13 +533,20 @@ function BeachDetailContent({
         {/* Action Buttons */}
         <BeachActions
           beach={beach}
-          onPlanSession={handlePlanSession}
-          onLogSession={handleLogSession}
           onGetDirections={handleGetDirections}
           canGetDirections={canGetDirections}
           publicMode={publicMode}
           onAuthRequired={handleAuthRequired}
+          onConditionsReportSuccess={() =>
+            setConditionsReportRefreshTrigger((prev) => prev + 1)
+          }
           className="mb-8"
+        />
+
+        {/* Recent Conditions Reports — last 24h community reports */}
+        <RecentReports
+          beachId={beach.id}
+          refreshTrigger={conditionsReportRefreshTrigger}
         />
 
         {/* Forecast Error Warning Banner */}
@@ -593,7 +579,7 @@ function BeachDetailContent({
                 }
               />
             </Suspense>
-            {/* Top-level CTA already visible for anonymous users — no duplicate needed here */}
+            {/* Contextual alerts CTA renders below BeachTabs for anonymous users — no duplicate needed here */}
           </BeachTabContent>
 
           {/* Forecast Tab */}
@@ -664,15 +650,28 @@ function BeachDetailContent({
             </Suspense>
           </BeachTabContent>
         </BeachTabs>
-      </div>
 
-      {/* Session Planning Modal */}
-      <SessionPlanningModal
-        open={sessionPlanningOpen}
-        onOpenChange={setSessionPlanningOpen}
-        beach={beach}
-        initialMode={sessionPlanningMode}
-      />
+        {/* Contextual alerts CTA — shown only to anonymous users, after content is consumed */}
+        {publicMode && (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-8 border-t border-gray-100 mt-2">
+            <div>
+              <p className="text-sm font-medium text-gray-800">
+                Know when it&apos;s firing at {beach.name}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Free alerts — we&apos;ll let you know when conditions are good
+              </p>
+            </div>
+            <Button
+              onClick={() => setAuthModalOpen(true)}
+              className="sm:flex-shrink-0 rounded-full bg-ocean-blue text-white px-5 font-semibold shadow-sm hover:shadow-md"
+              data-testid="contextual-alerts-cta"
+            >
+              Get Alerts
+            </Button>
+          </div>
+        )}
+      </div>
 
       {/* Review Dialog */}
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>

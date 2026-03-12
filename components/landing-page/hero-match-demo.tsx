@@ -82,7 +82,7 @@ function buildConditionChips(
 
 function CardSkeleton() {
   return (
-    <div className="relative w-full max-w-sm bg-bg-surface/80 backdrop-blur-md border-hud rounded-xl p-5 overflow-hidden">
+    <div className="relative w-full max-w-sm bg-[#1E2558]/80 backdrop-blur-md border-hud rounded-xl p-5 overflow-hidden">
       <div className="animate-pulse space-y-3">
         <div className="h-3 bg-white/10 rounded w-24" />
         <div className="h-4 bg-white/15 rounded w-40" />
@@ -122,7 +122,7 @@ function ConditionChip({ label, index }: ConditionChipProps) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1 bg-bg-deep/60 text-white/80 text-xs px-2 py-1 rounded-full border ${borderClass}`}
+      className={`inline-flex items-center gap-1 bg-[#171E45]/60 text-white/80 text-xs px-2 py-1 rounded-full border ${borderClass}`}
     >
       <Icon className="h-3 w-3" />
       {label}
@@ -243,7 +243,7 @@ export function HeroMatchDemo() {
       />
 
       {/* Card */}
-      <div className="relative bg-bg-surface/80 backdrop-blur-md border-hud rounded-xl p-5 flex flex-col gap-4">
+      <div className="relative bg-[#1E2558]/80 backdrop-blur-md border-hud rounded-xl p-5 flex flex-col gap-4">
         {/* Header row */}
         <div className="flex items-start justify-between gap-4">
           {/* Beach info */}

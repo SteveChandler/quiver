@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { motion, useInView } from "framer-motion";
-import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import { motion, useInView, useReducedMotion } from "framer-motion";
 import { SurfSpotCard, SurfSpotCardProps } from "./surf-spot-card";
 import { CONTENT } from "@/lib/constants/features";
 import { ChevronRight } from "lucide-react";
@@ -27,48 +26,6 @@ interface Beach {
 }
 
 // ---------------------------------------------------------------------------
-// Animated count-up number
-// ---------------------------------------------------------------------------
-
-const STATS = [
-  { value: 30, suffix: "K+", label: "Buoy Observations" },
-  { value: 350, suffix: "+", label: "Surf Spots" },
-  { value: 10, suffix: "K+", label: "Sessions Logged" },
-] as const;
-
-function CountUp({ target, suffix }: { target: number; suffix: string }) {
-  const [count, setCount] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.5 });
-
-  useEffect(() => {
-    if (!inView) return;
-    let frame: number;
-    const duration = 1200; // ms
-    const start = performance.now();
-
-    function tick(now: number) {
-      const elapsed = now - start;
-      const progress = Math.min(elapsed / duration, 1);
-      // Ease-out cubic
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setCount(Math.round(eased * target));
-      if (progress < 1) frame = requestAnimationFrame(tick);
-    }
-
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [inView, target]);
-
-  return (
-    <span ref={ref} className="tabular-nums">
-      {count}
-      {suffix}
-    </span>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -78,9 +35,6 @@ export function SurfHighlightsSection() {
   const locationCtx = useLocationSafe();
   const location = locationCtx?.location;
   const coordinates = location?.coordinates ?? null;
-  const statsRef = useRef<HTMLDivElement>(null);
-  const statsInView = useInView(statsRef, { once: true, amount: 0.3 });
-  const reducedMotion = useReducedMotion();
 
   // Serialize coordinates to a stable string to use as dependency (rounded for privacy + cacheability)
   const coordsKey = coordinates
@@ -136,12 +90,15 @@ export function SurfHighlightsSection() {
 
       return spotCards;
     } catch (error) {
-      console.error("Error fetching beaches:", error);
       return [];
     }
   }, [coordsKey]);
 
   const { data: surfSpots, loading, refetch } = useDataFetcher(fetchBeaches);
+
+  const sectionRef = useRef<HTMLElement>(null);
+  const isInView = useInView(sectionRef, { once: true, amount: 0.2 });
+  const shouldReduceMotion = useReducedMotion();
 
   // Re-fetch when coordinates resolve (useDataFetcher only fires on mount)
   const initialCoordsRef = useRef(coordsKey);
@@ -179,36 +136,32 @@ export function SurfHighlightsSection() {
     setPage((prev) => (prev + 1) % pageCount);
   };
 
+  const easeOutQuart: [number, number, number, number] = [0.25, 1, 0.5, 1];
+
   return (
-    <section className="pt-16 pb-8 md:pt-24 md:pb-10 bg-[#252D6B] noise-texture border-t border-white/[0.06]">
+    <section
+      ref={sectionRef}
+      className="pt-16 pb-8 md:pt-24 md:pb-10 bg-[#252D6B] noise-texture border-t border-white/[0.06]"
+    >
       <div className="max-w-7xl mx-auto px-6">
-        {/* Social proof stats bar */}
-        <motion.div
-          ref={statsRef}
-          initial={reducedMotion ? false : { opacity: 0, y: 16 }}
-          animate={statsInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.5 }}
-          className="flex flex-wrap items-center justify-center gap-8 md:gap-16 mb-14"
-        >
-          {STATS.map((stat, i) => (
-            <div key={stat.label} className="text-center">
-              <motion.p
-                initial={reducedMotion ? false : { opacity: 0 }}
-                animate={statsInView ? { opacity: 1 } : {}}
-                transition={{ duration: 0.4, delay: i * 0.15 }}
-                className="text-3xl md:text-4xl font-heading font-bold text-white"
-              >
-                <CountUp target={stat.value} suffix={stat.suffix} />
-              </motion.p>
-              <p className="text-sm text-[#B0C0D6] mt-1">{stat.label}</p>
-            </div>
-          ))}
-        </motion.div>
+        {/* Social proof */}
+        <p className="text-center text-sm md:text-base text-[#B0C0D6] mb-14">
+          Covering 750+ beaches across California, Oregon, Washington, Hawaii, Puerto Rico &amp; beyond
+        </p>
 
         {/* Section header */}
-        <h2 className="text-2xl md:text-3xl font-heading font-semibold text-white mb-8 text-left">
+        <motion.h2
+          className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold text-white mb-10 md:mb-12 text-left"
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
+          animate={
+            shouldReduceMotion
+              ? {}
+              : { opacity: isInView ? 1 : 0, y: isInView ? 0 : 16 }
+          }
+          transition={{ duration: 0.5, ease: easeOutQuart }}
+        >
           {CONTENT.sections.surfHighlights.title}
-        </h2>
+        </motion.h2>
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -221,7 +174,26 @@ export function SurfHighlightsSection() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {visibleSpots.length > 0 ? (
                 visibleSpots.map((spot, index) => (
-                  <SurfSpotCard key={spot.id} {...spot} delay={index} />
+                  <motion.div
+                    key={spot.id}
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                    animate={
+                      shouldReduceMotion
+                        ? {}
+                        : {
+                            opacity: isInView ? 1 : 0,
+                            y: isInView ? 0 : 20,
+                          }
+                    }
+                    transition={{
+                      duration: 0.5,
+                      ease: easeOutQuart,
+                      delay: shouldReduceMotion ? 0 : 0.2 + index * 0.1,
+                    }}
+                    className="h-full"
+                  >
+                    <SurfSpotCard key={spot.id} {...spot} delay={index} />
+                  </motion.div>
                 ))
               ) : (
                 <div className="col-span-full text-center py-12 text-[#9AABC6]">
@@ -245,14 +217,25 @@ export function SurfHighlightsSection() {
         )}
 
         {/* Browse all spots link */}
-        <div className="mt-8 text-left">
+        <motion.div
+          className="mt-8 text-left"
+          initial={shouldReduceMotion ? false : { opacity: 0 }}
+          animate={
+            shouldReduceMotion ? {} : { opacity: isInView ? 1 : 0 }
+          }
+          transition={{
+            duration: 0.5,
+            ease: easeOutQuart,
+            delay: shouldReduceMotion ? 0 : 0.6,
+          }}
+        >
           <Link
             href="/map"
             className="text-[#4A70D9] font-sans font-medium hover:text-ocean-blue transition-colors underline-offset-4 hover:underline"
           >
             Browse all surf spots &rarr;
           </Link>
-        </div>
+        </motion.div>
       </div>
     </section>
   );

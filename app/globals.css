@@ -83,13 +83,6 @@
   }
 
   /* === NEON GLOW: 4-layer progressive blur === */
-  .glow-cyan {
-    box-shadow:
-      inset 0 0 10px rgba(0, 240, 255, 0.05),
-      0 0 7px rgba(0, 240, 255, 0.2),
-      0 0 20px rgba(0, 240, 255, 0.12),
-      0 0 40px rgba(0, 240, 255, 0.06);
-  }
   .glow-orange {
     box-shadow:
       inset 0 0 10px rgba(255, 107, 43, 0.06),
@@ -97,14 +90,6 @@
       0 0 20px rgba(255, 107, 43, 0.15),
       0 0 40px rgba(255, 107, 43, 0.06);
   }
-  .glow-magenta {
-    box-shadow:
-      inset 0 0 10px rgba(255, 45, 124, 0.05),
-      0 0 7px rgba(255, 45, 124, 0.2),
-      0 0 20px rgba(255, 45, 124, 0.12),
-      0 0 40px rgba(255, 45, 124, 0.05);
-  }
-
   /* === ANIMATED GLOW: use ::after opacity trick (GPU-composited) === */
   .glow-hover-cyan {
     position: relative;
@@ -147,13 +132,6 @@
   }
 
   /* === NEON TEXT GLOW === */
-  .text-glow-cyan {
-    text-shadow:
-      0 0 7px #fff,
-      0 0 10px rgba(0, 240, 255, 0.5),
-      0 0 21px rgba(0, 240, 255, 0.3),
-      0 0 42px rgba(0, 240, 255, 0.15);
-  }
   .text-glow-orange {
     text-shadow:
       0 0 7px #fff,
@@ -168,28 +146,6 @@
     box-shadow: inset 0 0 12px rgba(0, 240, 255, 0.03);
   }
 
-  /* === CP2077 ANGULAR CLIP === */
-  .clip-cyber {
-    clip-path: polygon(
-      0 0,
-      calc(100% - 12px) 0,
-      100% 12px,
-      100% 100%,
-      12px 100%,
-      0 calc(100% - 12px)
-    );
-  }
-  .clip-cyber-sm {
-    clip-path: polygon(
-      0 0,
-      calc(100% - 8px) 0,
-      100% 8px,
-      100% 100%,
-      8px 100%,
-      0 calc(100% - 8px)
-    );
-  }
-
   /* === AMBIENT GRADIENT ORBS === */
   .ambient-orb-cyan {
     position: absolute;
@@ -199,17 +155,6 @@
     filter: blur(80px);
     pointer-events: none;
   }
-  .ambient-orb-orange {
-    position: absolute;
-    width: 400px;
-    height: 400px;
-    background: radial-gradient(circle, rgba(255, 107, 43, 0.1), transparent 70%);
-    filter: blur(80px);
-    pointer-events: none;
-  }
-
-  /* === GLITCH TEXT: subtle, hover-only === */
-  .text-glitch:hover { animation: glitch 0.3s ease-in-out; }
 }
 
 @layer components {
@@ -737,15 +682,6 @@ body.js-loaded .ssr-beach-section {
   66% {
     transform: scale(1.08) translate(-1%, 1%);
   }
-}
-
-/* === GLITCH TEXT keyframes === */
-@keyframes glitch {
-  0%, 100% { transform: translate(0); }
-  20% { transform: translate(-2px, 1px); }
-  40% { transform: translate(2px, -1px); }
-  60% { transform: translate(-1px, -1px); }
-  80% { transform: translate(1px, 1px); }
 }
 
 @keyframes hero-glow-breathe {

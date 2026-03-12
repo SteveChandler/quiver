@@ -63,16 +63,11 @@ function TideExtremeCard({
       {/* Header */}
       <div className="flex items-center gap-1.5 mb-2">
         {isHigh ? (
-          <ArrowUp className="h-4 w-4 text-blue-600" />
+          <ArrowUp className="h-4 w-4 text-sky-500" />
         ) : (
-          <ArrowDown className="h-4 w-4 text-slate-600" />
+          <ArrowDown className="h-4 w-4 text-sky-500" />
         )}
-        <span
-          className={cn(
-            "text-xs font-semibold uppercase tracking-wide",
-            isHigh ? "text-blue-700" : "text-slate-700"
-          )}
-        >
+        <span className="text-xs font-semibold uppercase tracking-wide text-sky-500">
           {isHigh ? "High Tide" : "Low Tide"}
         </span>
       </div>
@@ -187,7 +182,7 @@ export function TideNextExtreme({
 
   return (
     <div className={cn("space-y-2", className)}>
-      <h4 className="text-sm font-medium text-slate-700">Next Tides</h4>
+      <h4 className="text-sm font-medium text-sky-500">Next Tides</h4>
       <div data-testid="next-tides-cards" className="flex gap-3">
         {tideCards.map((c) => (
           <React.Fragment key={c.type}>{c.node}</React.Fragment>
@@ -222,7 +217,7 @@ export function TideNextExtremeCompact({
             className="flex items-center gap-1.5"
             data-testid="next-tide-high"
           >
-            <ArrowUp className="h-4 w-4 text-blue-600" />
+            <ArrowUp className="h-4 w-4 text-sky-500" />
             <span className="font-medium">
               {formatTideHeight(nextHigh.height)}
             </span>
@@ -241,7 +236,7 @@ export function TideNextExtremeCompact({
             className="flex items-center gap-1.5"
             data-testid="next-tide-low"
           >
-            <ArrowDown className="h-4 w-4 text-slate-600" />
+            <ArrowDown className="h-4 w-4 text-sky-500" />
             <span className="font-medium">
               {formatTideHeight(nextLow.height)}
             </span>
@@ -287,7 +282,7 @@ export function TideNextExtremeRow({
   return (
     <div className={cn("grid grid-cols-2 gap-4 text-sm", className)}>
       <div>
-        <div className="text-xs text-slate-500 mb-0.5">Next High</div>
+        <div className="text-xs text-sky-500 font-medium mb-0.5">Next High</div>
         {nextHigh && minutesToHigh !== null ? (
           <div className="font-medium text-blue-700">
             {formatTime(nextHigh.time)} · {formatTideHeight(nextHigh.height)}
@@ -297,7 +292,7 @@ export function TideNextExtremeRow({
         )}
       </div>
       <div>
-        <div className="text-xs text-slate-500 mb-0.5">Next Low</div>
+        <div className="text-xs text-sky-500 font-medium mb-0.5">Next Low</div>
         {nextLow && minutesToLow !== null ? (
           <div className="font-medium text-slate-700">
             {formatTime(nextLow.time)} · {formatTideHeight(nextLow.height)}

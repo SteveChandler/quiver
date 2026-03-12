@@ -119,7 +119,7 @@ export function FeatureBentoSection() {
 
       <div className="relative max-w-6xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-12 md:mb-16">
+        <div className="text-center mb-10 md:mb-12">
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold text-white mb-4">
             Everything you need to surf smarter
           </h2>

@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Report Conditions feature: replaces "Log Session" CTA with inline "Report Conditions" card on beach detail pages — users select wave size (1-2ft through 5+ft) and vibe (Firing/Fun/Meh/Rough) with an optional note; submission creates an `intel_posts` record (with new `wave_size_range` + `vibe` columns) and a minimal `sessions` record (`source: 'conditions_report'`) for ML training; deduplicates to one report per user per beach per calendar day
+- Recent Reports section on beach detail page: shows up to 3 community conditions reports from the last 24 hours (name, time ago, wave size, vibe emoji, note); hidden when empty — no dead empty state
+- Migration `20260312120000_add_conditions_report_fields.sql`: adds `wave_size_range` and `vibe` columns to `intel_posts`, `source` column to `sessions`, and a `(beach_id, created_at DESC)` index for the 24h recency query
+
 ### Changed
+- Beach detail page: removed 3 of 4 auth gates to reduce friction — live cam feed and "Best Time to Surf Today" are now visible to anonymous users; sticky bottom signup bar removed from all beach detail routes; `PersonalizedForecastTeaser` secondary CTA removed from forecast tab; single "Get My Forecast" CTA in the Know Before You Go section is the sole conversion point for anonymous visitors
+
+
+- Landing page: replaced "0K+" vanity counter stats bar with a single factual social proof line ("Covering 769 beaches across California, Oregon, Washington, Hawaii, Puerto Rico & beyond") in `SurfHighlightsSection`
 - Refactor (Phase 1D): `generateLocationSlug` now delegates to `cityToSlug`; `normalizeState` uses `US_STATE_SLUG_MAP`
 - Refactor (Phase 1A): consolidate wave height formatting (3 files → 1) — `formatWaveHeightDecimal`, `formatWaveHeightRange`, `formatWaveHeightBucket`
 - Refactor (Phase 1B): consolidated 4 date/time files into `lib/utils/date-time.ts`; flattened `dateUtils` to named exports

@@ -9,7 +9,6 @@ export { TideChart } from './tide-chart-recharts';
 export type { TidePoint, TideChartProps } from './tide-chart-recharts';
 
 // Forecast Transparency & Verification Components
-export { ForecastConfidenceBadge } from './forecast-confidence-badge';
 export { ForecastVerificationWidget } from './forecast-verification-widget';
 export { ForecastAccuracyStats } from './forecast-accuracy-stats';
 export { BuoyStationLink } from './buoy-station-link';

@@ -1,33 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { usePathname } from "next/navigation";
-import { Navigation, Plus, BookOpen } from "lucide-react";
+import { Navigation, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HomeBeachBanner } from "@/components/home/HomeBeachBanner";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
+import { ConditionsReportCard } from "@/components/beach-detail/conditions-report-card";
 import type { Beach } from "@/types/database";
 
 interface BeachActionsProps {
   beach: Beach;
-  onPlanSession?: () => void;
-  onLogSession?: () => void;
   className?: string;
   onGetDirections?: () => void;
   canGetDirections?: boolean;
   publicMode?: boolean;
   onAuthRequired?: () => void;
+  /** Called after a successful conditions report so parent can refresh RecentReports */
+  onConditionsReportSuccess?: () => void;
 }
 
 export function BeachActions({
   beach,
-  onPlanSession,
-  onLogSession,
   className,
   onGetDirections,
   canGetDirections,
   publicMode,
   onAuthRequired,
+  onConditionsReportSuccess,
 }: BeachActionsProps) {
   const hasCoordinates = Boolean(beach.lat && beach.lon);
   const directionsEnabled = canGetDirections ?? hasCoordinates;
@@ -36,28 +36,23 @@ export function BeachActions({
 
   // Internal modal state for per-button source tracking in public mode
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authSource, setAuthSource] = useState<"session-log-cta" | "session-plan-cta">("session-log-cta");
 
-  const handleLogSession = () => {
-    if (publicMode) {
-      setAuthSource("session-log-cta");
-      setAuthModalOpen(true);
-      // Also notify parent if they want to know auth was required
-      onAuthRequired?.();
-      return;
-    }
-    onLogSession?.();
-  };
+  // Report Conditions inline card visibility
+  const [reportCardOpen, setReportCardOpen] = useState(false);
 
-  const handlePlanSession = () => {
+  const handleReportConditions = useCallback(() => {
     if (publicMode) {
-      setAuthSource("session-plan-cta");
       setAuthModalOpen(true);
       onAuthRequired?.();
       return;
     }
-    onPlanSession?.();
-  };
+    setReportCardOpen(true);
+  }, [publicMode, onAuthRequired]);
+
+  const handleReportSuccess = useCallback(() => {
+    setReportCardOpen(false);
+    onConditionsReportSuccess?.();
+  }, [onConditionsReportSuccess]);
 
   const handleDirectionsClick = () => {
     if (onGetDirections) {
@@ -71,99 +66,75 @@ export function BeachActions({
 
   return (
     <div data-testid="beach-actions" className={`space-y-4 ${className || ""}`}>
-      {/* Primary Action Buttons - Phase 3 Spec Compliance */}
-      {/* Grid: 2 cols mobile and up | Gap: 12px | Margin: 20px 0 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 my-5">
-        {/* Log Session / Track Your Sessions - Primary Action */}
+      {/* Primary Action Buttons — 2-button layout */}
+      {/* Flex row: equal-width buttons, 12px gap, 20px vertical margin */}
+      <div className="flex gap-3 my-5">
+        {/* Report Conditions — primary community CTA */}
         {/* Spec: 48px height, #0077B6 bg, white text, 8px radius, 16px font, 600 weight, 0 24px padding, #006699 hover */}
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 flex-1">
           <Button
-            data-testid="log-session-btn"
+            data-testid="report-conditions-btn"
             variant="default"
-            onClick={handleLogSession}
-            className="h-12 px-6 text-base font-semibold rounded-md bg-ocean-blue hover:bg-ocean-blue/90 hover:shadow-[0_0_16px_rgba(247,142,66,0.3)] active:scale-[0.98] transition-all"
+            onClick={handleReportConditions}
+            className="h-12 w-full px-6 text-base font-semibold rounded-md bg-ocean-blue hover:bg-ocean-blue/90 hover:shadow-[0_0_16px_rgba(247,142,66,0.3)] active:scale-[0.98] transition-all"
           >
-            <Plus className="h-5 w-5 mr-2" />
-            {publicMode ? "Track Your Sessions" : "Log Session"}
+            <Radio className="h-5 w-5 mr-2" />
+            Report Conditions
           </Button>
-          {publicMode && (
-            <p className="text-xs text-muted-foreground text-center">
-              Build your surf log and unlock personalized recommendations
-            </p>
-          )}
+          <p className="text-xs text-muted-foreground text-center">
+            Share what the waves are like right now
+          </p>
         </div>
 
-        {/* Plan Session / Plan a Session - Primary Action */}
-        {/* Spec: 48px height, #0077B6 bg, white text, 8px radius, 16px font, 600 weight, 0 24px padding, #006699 hover */}
-        <div className="flex flex-col gap-1">
+        {/* Get Directions — the action after deciding to go surf */}
+        <div className="flex flex-col gap-1 flex-1">
           <Button
-            data-testid="plan-session-btn"
-            variant="default"
-            onClick={handlePlanSession}
-            className="h-12 px-6 text-base font-semibold rounded-md bg-ocean-blue hover:bg-ocean-blue/90 hover:shadow-[0_0_16px_rgba(247,142,66,0.3)] active:scale-[0.98] transition-all"
+            data-testid="get-directions-btn"
+            variant="outline"
+            onClick={handleDirectionsClick}
+            disabled={!directionsEnabled}
+            className="h-12 w-full px-6 text-base font-semibold rounded-md hover:bg-gray-50 active:scale-[0.98] transition-all"
           >
-            <BookOpen className="h-5 w-5 mr-2" />
-            {publicMode ? "Plan a Session" : "Plan Session"}
+            <Navigation className="h-5 w-5 mr-2" />
+            Get Directions
           </Button>
-          {publicMode && (
-            <p className="text-xs text-muted-foreground text-center">
-              Coordinate with friends and pick the best time
-            </p>
-          )}
         </div>
       </div>
 
-      {/* Auth modal for public mode — per-button source tracking */}
+      {/* Inline Report Conditions card — expands in place when button is clicked */}
+      {reportCardOpen && (
+        <ConditionsReportCard
+          beachId={beach.id}
+          beachName={beach.name}
+          publicMode={publicMode}
+          onAuthRequired={onAuthRequired}
+          onSubmitSuccess={handleReportSuccess}
+          onDismiss={() => setReportCardOpen(false)}
+        />
+      )}
+
+      {/* Auth modal for public mode — gates Report Conditions for anonymous users */}
       {publicMode && authModalOpen && (
         <UnifiedAuthModal
           isOpen={authModalOpen}
           onClose={() => setAuthModalOpen(false)}
           mode="signup"
-          source={authSource}
+          source="conditions-report-cta"
           returnTo={pathname}
-          contextMessage={
-            authSource === "session-log-cta"
-              ? {
-                  title: "Track Your Sessions",
-                  description: `Build your surf log at ${beach.name} and unlock personalized recommendations`,
-                }
-              : {
-                  title: "Plan a Session",
-                  description: `Coordinate with friends and pick the best time to surf ${beach.name}`,
-                }
-          }
+          contextMessage={{
+            title: "Report Conditions",
+            description: `Help the ${beach.name} surf community by sharing what it's like out there`,
+          }}
         />
       )}
 
-      {/* Mobile-only Directions & Home Beach Row */}
-      <div className="flex flex-wrap items-center gap-3 md:hidden">
-        <Button
-          data-testid="get-directions-btn-mobile"
-          variant="outline"
-          onClick={handleDirectionsClick}
-          disabled={!directionsEnabled}
-          className="h-10 px-4 text-sm font-medium rounded-md hover:bg-gray-50 active:scale-[0.98] transition-all"
-        >
-          <Navigation className="mr-2 h-4 w-4" />
-          Get directions
-        </Button>
-        <HomeBeachBanner
-          selectedBeachId={beach.id}
-          selectedBeachName={beach.name}
-          publicMode={publicMode}
-          onAuthRequired={onAuthRequired}
-        />
-      </div>
-
-      {/* Desktop Home Beach Banner */}
-      <div className="hidden md:block">
-        <HomeBeachBanner
-          selectedBeachId={beach.id}
-          selectedBeachName={beach.name}
-          publicMode={publicMode}
-          onAuthRequired={onAuthRequired}
-        />
-      </div>
+      {/* Home Beach Banner */}
+      <HomeBeachBanner
+        selectedBeachId={beach.id}
+        selectedBeachName={beach.name}
+        publicMode={publicMode}
+        onAuthRequired={onAuthRequired}
+      />
     </div>
   );
 }
