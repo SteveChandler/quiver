@@ -30,5 +30,6 @@ export const REGION_GROUPS: RegionGroup[] = [
     label: "East Coast",
     slugs: ["florida", "outer-banks", "new-york", "new-jersey"],
   },
-  { label: "International", slugs: ["puerto-rico", "baja-california"] },
+  { label: "Caribbean", slugs: ["puerto-rico"] },
+  { label: "Mexico", slugs: ["baja-california"] },
 ];
