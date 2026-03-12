@@ -6,7 +6,7 @@ import type { TimeWindow } from "@/components/oracle/todays-windows";
 
 const SAMPLE_WINDOWS: TimeWindow[] = [
   { time: "5am", label: "Best window", height: "4-5ft", quality: 0.9, isBest: true },
-  { time: "8am", label: "Still clean", height: "4ft", quality: 0.7, isBest: false },
+  { time: "8am", label: "Still clean", height: "4 ft", quality: 0.7, isBest: false },
   { time: "11am", label: "Onshore", height: "3-4ft", quality: 0.3, isBest: false },
 ];
 
@@ -63,7 +63,7 @@ describe("TodaysWindows", () => {
   it("renders wave heights for each window", () => {
     render(<TodaysWindows windows={SAMPLE_WINDOWS} preferredTime={null} />);
     expect(screen.getByText("4-5ft")).toBeInTheDocument();
-    expect(screen.getByText("4ft")).toBeInTheDocument();
+    expect(screen.getByText("4-6ft")).toBeInTheDocument(); // "4 ft" point value → range via WaveHeightDisplay
     expect(screen.getByText("3-4ft")).toBeInTheDocument();
   });
 
