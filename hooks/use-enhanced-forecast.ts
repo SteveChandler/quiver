@@ -35,7 +35,7 @@ interface UseEnhancedForecastReturn {
   isStale: boolean;
   cacheAgeMs?: number;
   setSelectedDate: (date: string) => void;
-  refetch: () => Promise<ForecastData>;
+  refetch: () => Promise<ForecastData | undefined>;
   invalidateCache: () => void;
   handleRefresh: () => Promise<void>;
 }

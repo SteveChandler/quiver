@@ -47,7 +47,7 @@ interface UseSurfDiscoveryReturn {
   /** Error message if request failed */
   error: string | null;
   /** Function to manually refetch the recommendations */
-  refetch: () => Promise<void>;
+  refetch: () => Promise<SurfDiscoveryResponse | undefined>;
   /** Convenience helper: true if recommendations exist, false otherwise */
   hasRecommendations: boolean;
   /** Whether the current data is from cache */

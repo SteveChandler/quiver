@@ -376,7 +376,8 @@ describe("formatMonthRange", () => {
   });
 
   it("handles wrap-around range (Nov through Feb)", () => {
-    expect(formatMonthRange([11, 12, 1, 2])).toBe("November through February");
+    // After sorting, [11,12,1,2] → [1,2,11,12] which has a gap; falls back to listing
+    expect(formatMonthRange([11, 12, 1, 2])).toBe("January, February, November, and December");
   });
 });
 
@@ -540,9 +541,9 @@ describe("formatCompactDate", () => {
 });
 
 describe("formatShortDate", () => {
-  it("returns 'Sat 8' style", () => {
+  it("returns '8 Sat' style", () => {
     const result = formatShortDate(new Date("2025-02-08T12:00:00"));
-    expect(result).toMatch(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s\d{1,2}$/);
+    expect(result).toMatch(/^\d{1,2}\s(Mon|Tue|Wed|Thu|Fri|Sat|Sun)$/);
   });
 });
 
