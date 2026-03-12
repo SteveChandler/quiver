@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GEO: `robots.ts` now explicitly welcomes AI search crawlers (`GPTBot`, `OAI-SearchBot`, `ClaudeBot`, `PerplexityBot`) with the same allow/disallow rules as `*`, blocks training-only crawlers (`CCBot`, `Bytespider`, `cohere-ai`), and extracts shared paths into a `COMMON_DISALLOW` constant
 
 ### Changed
+- Refactor (Phase 1F): added optional `cacheKey`, `cacheTTL`, and `cache` params to `useDataFetcher` — cache-aware fetching is now built into the canonical hook, eliminating the need for a separate `useCachedApi` wrapper. Migrated `useEnhancedForecast` to `useDataFetcher` with the new params, migrated `ForecastTab` and `AppHeader` from the removed `useUserProfile` to `useCachedProfile`, and moved `createCachedMapFetch` from `hooks/use-cached-api.ts` to `lib/utils/request-cache.ts`. Deleted `hooks/use-cached-api.ts` and `hooks/use-user-profile.ts`.
 - Authed home screen replaced with Oracle layout — `AuthAwareLandingWrapper` now loads `OracleHomeScreen` instead of `HomeScreen` for authenticated users
 - Oracle hero greeting now uses time-aware message (Good morning/afternoon/evening) instead of hardcoded "Good morning"
 - Combined "What is Quiver?" and feature bento sections into unified section with concise ML value prop header

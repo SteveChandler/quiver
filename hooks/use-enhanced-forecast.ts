@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useCachedApi } from "@/hooks/use-cached-api";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { forecastCache, RequestCache } from "@/lib/utils/request-cache";
 import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -126,16 +126,18 @@ export function useEnhancedForecast({
     defaultDays
   );
 
-  // Use cached API hook with memoized fetch function
+  // Use data fetcher with built-in caching
   const {
     data: forecastData,
     loading,
     error,
     refetch,
     invalidateCache,
-  } = useCachedApi(fetchForecasts, cacheKey, {
+  } = useDataFetcher(fetchForecasts, {
+    cacheKey,
     cache: forecastCache,
     immediate: immediate && Boolean(beachId),
+    skip: !beachId,
   });
 
   // Auto-generate forecasts when no data exists

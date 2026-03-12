@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { AppHeader } from "@/components/app-header";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { useUserProfile } from "@/hooks/use-user-profile";
+import { useCachedProfile } from "@/hooks/use-cached-profile";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 
 // Mock Next.js navigation hooks
@@ -19,9 +19,9 @@ jest.mock("@/context/auth-context", () => ({
   useAuth: jest.fn(),
 }));
 
-// Mock user profile hook
-jest.mock("@/hooks/use-user-profile", () => ({
-  useUserProfile: jest.fn(),
+// Mock cached profile hook
+jest.mock("@/hooks/use-cached-profile", () => ({
+  useCachedProfile: jest.fn(),
 }));
 
 // Mock data fetcher hook
@@ -174,7 +174,11 @@ describe("AppHeader", () => {
     },
     profile: {
       profile: { full_name: "Test User", avatar_url: null },
-      loading: false,
+      profileLoading: false,
+      profileError: null,
+      refreshProfile: jest.fn(),
+      clearCache: jest.fn(),
+      hasCachedData: false,
     },
     unreadCount: {
       data: 0,
@@ -188,7 +192,7 @@ describe("AppHeader", () => {
     (usePathname as jest.Mock).mockReturnValue(defaultMocks.pathname);
     (useSearchParams as jest.Mock).mockReturnValue(defaultMocks.searchParams);
     (useAuth as jest.Mock).mockReturnValue(defaultMocks.auth);
-    (useUserProfile as jest.Mock).mockReturnValue(defaultMocks.profile);
+    (useCachedProfile as jest.Mock).mockReturnValue(defaultMocks.profile);
     (useDataFetcher as jest.Mock).mockReturnValue(defaultMocks.unreadCount);
   });
 

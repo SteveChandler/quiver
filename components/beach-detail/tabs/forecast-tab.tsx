@@ -41,7 +41,7 @@ import { DataErrorBoundary } from "@/components/error-boundaries";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import { useAuth } from "@/context/auth-context";
 import { PersonalizedForecastTeaser } from "@/components/beach-detail/personalized-forecast-teaser";
-import { useUserProfile } from "@/hooks/use-user-profile";
+import { useCachedProfile } from "@/hooks/use-cached-profile";
 
 const ConditionsOverview = dynamic(
   () =>
@@ -75,7 +75,7 @@ export function ForecastTab({
   yesterdayAccuracy,
 }: ForecastTabProps) {
   const { user } = useAuth();
-  const { profile } = useUserProfile({ userId: user?.id, enabled: !!user });
+  const { profile } = useCachedProfile();
 
   const userScoringPrefs = useMemo(() => {
     const validSizes = ['small', 'medium', 'large'] as const;

@@ -23,7 +23,7 @@ import { preserveQueryParams } from "@/lib/utils/navigation-utils";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 
-import { useUserProfile } from "@/hooks/use-user-profile";
+import { useCachedProfile } from "@/hooks/use-cached-profile";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { Badge } from "@/components/ui/badge";
 import { useSessionInvitationsSubscription } from "@/hooks/use-session-invitations-subscription";
@@ -61,10 +61,7 @@ export function AppHeader() {
   // This ensures the same hooks are called in the same order on every render
 
   // Use shared profile loading hook
-  const { profile, loading: profileLoading } = useUserProfile({
-    userId: user?.id,
-    enabled: !!user,
-  });
+  const { profile, profileLoading } = useCachedProfile();
 
   // Unread notification count (pending invitations)
   const fetchNotificationsCount = useCallback(async () => {
