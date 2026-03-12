@@ -24,8 +24,8 @@ jest.mock("@/components/forecast/confidence-score-explanation", () => ({
   ),
 }));
 
-// Mock the enhanced forecast preview component
-import { ForecastPreviewWithTransparency } from "@/components/forecast/forecast-preview-with-transparency";
+// Phase 2C: ForecastPreviewWithTransparency merged into ForecastPreview
+import { ForecastPreview } from "@/components/ui/forecast-preview";
 
 const mockForecastPreview = {
   wave_height: "4-6 ft",
@@ -49,11 +49,11 @@ const mockFallbackPreview = {
   },
 };
 
-describe("ForecastPreviewWithTransparency", () => {
+describe("ForecastPreview (transparency integration)", () => {
   describe("Grid Variant with Transparency", () => {
     it("should display forecast preview with compact transparency indicators", () => {
       render(
-        <ForecastPreviewWithTransparency
+        <ForecastPreview
           forecastPreview={mockForecastPreview}
           loading={false}
           error={null}
@@ -78,7 +78,7 @@ describe("ForecastPreviewWithTransparency", () => {
 
     it("should show confidence score badge for high quality forecasts", () => {
       render(
-        <ForecastPreviewWithTransparency
+        <ForecastPreview
           forecastPreview={mockForecastPreview}
           loading={false}
           error={null}
@@ -94,7 +94,7 @@ describe("ForecastPreviewWithTransparency", () => {
 
     it("should show warning styling for low confidence forecasts", () => {
       render(
-        <ForecastPreviewWithTransparency
+        <ForecastPreview
           forecastPreview={mockFallbackPreview}
           loading={false}
           error={null}
@@ -112,7 +112,7 @@ describe("ForecastPreviewWithTransparency", () => {
   describe("Inline Variant with Transparency", () => {
     it("should display compact transparency in inline layout", () => {
       render(
-        <ForecastPreviewWithTransparency
+        <ForecastPreview
           forecastPreview={mockForecastPreview}
           loading={false}
           error={null}
@@ -140,7 +140,7 @@ describe("ForecastPreviewWithTransparency", () => {
 
     it("should prioritize confidence score in limited space", () => {
       render(
-        <ForecastPreviewWithTransparency
+        <ForecastPreview
           forecastPreview={mockForecastPreview}
           loading={false}
           error={null}
@@ -161,7 +161,7 @@ describe("ForecastPreviewWithTransparency", () => {
   describe("Transparency Options", () => {
     it("should respect showTransparency=false", () => {
       render(
-        <ForecastPreviewWithTransparency
+        <ForecastPreview
           forecastPreview={mockForecastPreview}
           loading={false}
           error={null}
@@ -180,7 +180,7 @@ describe("ForecastPreviewWithTransparency", () => {
 
     it("should show only confidence when showConfidenceScore=true but showTransparency=false", () => {
       render(
-        <ForecastPreviewWithTransparency
+        <ForecastPreview
           forecastPreview={mockForecastPreview}
           loading={false}
           error={null}
@@ -200,7 +200,7 @@ describe("ForecastPreviewWithTransparency", () => {
   describe("Fallback Data Indicators", () => {
     it("should show fallback indicator for fallback forecasts", () => {
       render(
-        <ForecastPreviewWithTransparency
+        <ForecastPreview
           forecastPreview={mockFallbackPreview}
           loading={false}
           error={null}
@@ -219,7 +219,7 @@ describe("ForecastPreviewWithTransparency", () => {
 
     it("should show distance indicator for nearby fallbacks", () => {
       render(
-        <ForecastPreviewWithTransparency
+        <ForecastPreview
           forecastPreview={mockFallbackPreview}
           loading={false}
           error={null}
@@ -237,7 +237,7 @@ describe("ForecastPreviewWithTransparency", () => {
   describe("Loading and Error States", () => {
     it("should show transparency loading state", () => {
       render(
-        <ForecastPreviewWithTransparency
+        <ForecastPreview
           forecastPreview={null}
           loading={true}
           error={null}
@@ -252,7 +252,7 @@ describe("ForecastPreviewWithTransparency", () => {
 
     it("should handle transparency data errors gracefully", () => {
       render(
-        <ForecastPreviewWithTransparency
+        <ForecastPreview
           forecastPreview={null}
           loading={false}
           error="Failed to load transparency data"
@@ -274,7 +274,7 @@ describe("ForecastPreviewWithTransparency", () => {
   describe("Responsive Design", () => {
     it("should adapt transparency indicators for mobile", () => {
       render(
-        <ForecastPreviewWithTransparency
+        <ForecastPreview
           forecastPreview={mockForecastPreview}
           loading={false}
           error={null}
@@ -290,7 +290,7 @@ describe("ForecastPreviewWithTransparency", () => {
 
     it("should hide secondary transparency info on very small screens", () => {
       render(
-        <ForecastPreviewWithTransparency
+        <ForecastPreview
           forecastPreview={mockForecastPreview}
           loading={false}
           error={null}
@@ -311,7 +311,7 @@ describe("ForecastPreviewWithTransparency", () => {
   describe("Accessibility", () => {
     it("should have proper ARIA labels for transparency indicators", () => {
       render(
-        <ForecastPreviewWithTransparency
+        <ForecastPreview
           forecastPreview={mockForecastPreview}
           loading={false}
           error={null}
@@ -329,7 +329,7 @@ describe("ForecastPreviewWithTransparency", () => {
 
     it("should provide screen reader context for low confidence", () => {
       render(
-        <ForecastPreviewWithTransparency
+        <ForecastPreview
           forecastPreview={mockFallbackPreview}
           loading={false}
           error={null}
@@ -347,7 +347,7 @@ describe("ForecastPreviewWithTransparency", () => {
   describe("Integration with Existing Components", () => {
     it("should work as drop-in replacement for ForecastPreview", () => {
       const { container } = render(
-        <ForecastPreviewWithTransparency
+        <ForecastPreview
           forecastPreview={mockForecastPreview}
           loading={false}
           error={null}
@@ -367,7 +367,7 @@ describe("ForecastPreviewWithTransparency", () => {
 
     it("should support all existing ForecastPreview props", () => {
       render(
-        <ForecastPreviewWithTransparency
+        <ForecastPreview
           forecastPreview={mockForecastPreview}
           loading={false}
           error={null}
@@ -375,7 +375,7 @@ describe("ForecastPreviewWithTransparency", () => {
           showConfidenceScore={true}
           className="custom-class"
           showTransparency={true}
-          // Props from original ForecastPreview
+          // Legacy support passthrough
           legacy_prop_support={true}
         />
       );
