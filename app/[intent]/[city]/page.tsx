@@ -72,6 +72,8 @@ import {
 import { BeginnerPageContent } from "@/components/beginner/BeginnerPageContent";
 import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
+import { TideDatasetSchema } from "@/components/seo/tide-dataset-schema";
+import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-schema";
 
 export const dynamic = "force-dynamic";
 
@@ -614,6 +616,26 @@ export default async function IntentPage(props: IntentPageParams) {
             name={tidePageContent.title}
             url={tidePageUrl}
           />
+          {/* Dataset JSON-LD — enables Google Dataset rich snippets for tide pages */}
+          <TideDatasetSchema
+            cityOrBeachName={cityMetadata.cityName}
+            state={cityMetadata.stateName}
+            url={tidePageUrl}
+            latitude={cityMetadata.centerLat ?? undefined}
+            longitude={cityMetadata.centerLon ?? undefined}
+            nextHighTime={expandedTideData.sevenDayExtrema
+              .flatMap((d) => d.events)
+              .find((e) => e.type === "high")?.timeFormatted ?? null}
+            nextHighHeight={expandedTideData.sevenDayExtrema
+              .flatMap((d) => d.events)
+              .find((e) => e.type === "high")?.height ?? null}
+            nextLowTime={expandedTideData.sevenDayExtrema
+              .flatMap((d) => d.events)
+              .find((e) => e.type === "low")?.timeFormatted ?? null}
+            nextLowHeight={expandedTideData.sevenDayExtrema
+              .flatMap((d) => d.events)
+              .find((e) => e.type === "low")?.height ?? null}
+          />
           <TidePageContent
             cityName={cityMetadata.cityName}
             citySlug={params.city}
@@ -698,6 +720,16 @@ export default async function IntentPage(props: IntentPageParams) {
           <WebPageSchema
             name={waterTempPageContent.title}
             url={waterTempPageUrl}
+          />
+          {/* Dataset JSON-LD — enables Google Dataset rich snippets for water-temp pages */}
+          <WaterTempDatasetSchema
+            cityOrBeachName={cityMetadata.cityName}
+            state={cityMetadata.stateName}
+            url={waterTempPageUrl}
+            latitude={cityMetadata.centerLat ?? undefined}
+            longitude={cityMetadata.centerLon ?? undefined}
+            tempF={expandedWaterTempData.currentTemp}
+            wetsuitRec={expandedWaterTempData.wetsuitRecommendation.thickness}
           />
           <WaterTempPageContent
             cityName={cityMetadata.cityName}
