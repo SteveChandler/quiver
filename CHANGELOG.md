@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- Deleted `components/forecast/forecast-display-with-transparency.tsx` and `components/forecast/beaches-enhanced-forecast-with-transparency.tsx` — transparency features absorbed into base components (`ForecastDisplay` and `BeachesEnhancedForecast`) behind optional props (default `false`), eliminating dual-component delegation (Phase 2B cleanup)
+
 ### Added
 - SEO: `buildDynamicTideMetadata` now accepts `nextHighHeight` and `nextLowHeight` and produces data-rich titles (`{Beach} Tides {Date}: High {H}ft at {T}, Low at {T}`) and "Plan your surf" descriptions with "ML-enhanced" signal — improves CTR on 45 zero-click tide pages
 - SEO: `buildDynamicWaterTempMetadata` now uses shortened wetsuit label (`shortenWetsuitLabel` helper: "3/2mm fullsuit" -> "3/2mm") in titles (`{Beach} Water Temp: {T}°F — {WetsuitShort} Today`) and city context in descriptions — improves CTR on water temp pages
