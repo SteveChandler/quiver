@@ -330,13 +330,13 @@ export interface ForecastPreview {
 // CDIP Data Types
 export interface CDIPDataPoint {
   timestamp: string;
-  significantWaveHeight: number; // meters
+  significantWaveHeight: number; // feet (converted from meters in cdip/data-parser)
   peakWavePeriod: number; // seconds
   peakWaveDirection: number; // degrees
-  swellHeight?: number; // meters
+  swellHeight?: number; // feet (derived from significantWaveHeight in cdip/data-parser)
   swellPeriod?: number; // seconds
   swellDirection?: number; // degrees
-  windWaveHeight?: number; // meters
+  windWaveHeight?: number; // feet (derived from significantWaveHeight in cdip/data-parser)
   windWavePeriod?: number; // seconds
   windWaveDirection?: number; // degrees
 }
