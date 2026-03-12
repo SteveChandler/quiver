@@ -7,7 +7,7 @@ jest.mock("@/lib/services/forecast/confidence-scorer", () => ({
   calculateConfidenceScore: jest.fn(() => 75),
 }));
 
-jest.mock("@/lib/utils/wave-height-formatter", () => ({
+jest.mock("@/lib/utils/wave-formatters", () => ({
   toFaceHeightFeet: jest.fn(() => "3.5 ft"),
 }));
 

@@ -9,10 +9,10 @@
  */
 
 import { calculateConfidenceScore } from "./confidence-scorer";
-import { toFaceHeightFeet } from "@/lib/utils/wave-height-formatter";
+import { toFaceHeightFeet } from "@/lib/utils/wave-formatters";
 import { cardinalToDegrees } from "./forecast-transformer";
 import { formatWaterTemp } from "@/lib/formatters/surf-data";
-import { formatPeriodSeconds } from "./format-utils";
+import { formatPeriodSeconds } from "@/lib/formatters/surf-data";
 import { getNormalizedDateString, getNormalizedTimeString, getNormalizedForecastAt } from "./datetime-utils";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
 import type { Beach } from "@/types/database";

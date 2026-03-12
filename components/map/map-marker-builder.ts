@@ -1,5 +1,5 @@
 import type { Beach } from "@/types/database";
-import { formatWaveHeight } from "@/lib/utils/wave-height-formatter";
+import { formatWaveHeightBucket as formatWaveHeight } from "@/lib/utils/wave-formatters";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";

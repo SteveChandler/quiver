@@ -12,7 +12,7 @@ import { SET_WAVE_VARIANCE } from "@/lib/utils/wave-height-transformer";
 import {
   formatWaveHeightRangeString,
   extractNumericWaveHeight,
-} from "@/lib/utils/wave-height-formatter";
+} from "@/lib/utils/wave-formatters";
 
 interface WaveHeightDisplayProps {
   height: string | null | undefined;

@@ -17,7 +17,7 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getTopBeachesNow } from "@/actions/forecast/get-top-beaches-now";
 import type { TopBeachEntry } from "@/lib/utils/forecast-hub-utils";
 import { getScoreColorClasses } from "@/lib/utils/score-color-utils";
-import { formatWaveHeight } from "@/lib/formatters/surf-data";
+import { formatWaveHeightRange as formatWaveHeight } from "@/lib/formatters/surf-data";
 import { ForecastSectionContainer } from "./forecast-section-container";
 
 function BestRightNowSkeleton() {

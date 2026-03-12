@@ -59,8 +59,8 @@ jest.mock("@/lib/utils/current-forecast-utils", () => ({
   }),
 }));
 
-jest.mock("@/lib/utils/wave-height-formatter", () => ({
-  formatWaveHeight: jest.fn((height) => {
+jest.mock("@/lib/utils/wave-formatters", () => ({
+  formatWaveHeightBucket: jest.fn((height) => {
     if (typeof height === "string") return height;
     if (typeof height === "number") return `${height} ft`;
     return "No data";
@@ -258,11 +258,11 @@ describe("Map Forecast Basic Tests", () => {
   });
 
   it("should format wave heights correctly", () => {
-    const { formatWaveHeight } = require("@/lib/utils/wave-height-formatter");
-    
-    expect(formatWaveHeight("2.6 ft")).toBe("2.6 ft");
-    expect(formatWaveHeight(2.6)).toBe("2.6 ft");
-    expect(formatWaveHeight(undefined)).toBe("No data");
+    const { formatWaveHeightBucket } = require("@/lib/utils/wave-formatters");
+
+    expect(formatWaveHeightBucket("2.6 ft")).toBe("2.6 ft");
+    expect(formatWaveHeightBucket(2.6)).toBe("2.6 ft");
+    expect(formatWaveHeightBucket(undefined)).toBe("No data");
   });
 
   it("should calculate offshore positions", () => {

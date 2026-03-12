@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- Refactor (Phase 1D): `generateLocationSlug` in `lib/utils/location-slug.ts` now delegates to `cityToSlug` from `beach-url-utils.ts`; `normalizeState` uses `US_STATE_SLUG_MAP` (exported from `beach-url-utils.ts`) for its lookup instead of a separate hardcoded map — no consumer changes needed
+- Refactor (Phase 1D): `generateLocationSlug` in `lib/utils/location-slug.ts` now delegates to `cityToSlug` from `beach-url-utils.ts`; `normalizeState` uses `US_STATE_SLUG_MAP` for lookup instead of a separate hardcoded map
+- Refactor (Phase 1A): consolidate wave height formatting (3 files → 1). Merged `wave-height-formatter.ts` and `format-utils.ts` into `wave-formatters.ts` and `surf-data.ts`. Renamed three `formatWaveHeight` variants to unique names: `formatWaveHeightDecimal`, `formatWaveHeightRange`, `formatWaveHeightBucket`
 
 ### Removed
 - Dead code: deleted `BeachHero`, `ForecastConfidenceBadge`, and `EnhancedForecastWithTransparency` components (plus their test files) — all had zero runtime consumers (Phase 2A cleanup)
