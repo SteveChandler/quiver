@@ -2,14 +2,6 @@ import { render, screen } from "@testing-library/react";
 import { SpotSurfReport } from "@/components/spots/spot-surf-report";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 
-jest.mock("@/components/ui/public-content-gate", () => ({
-  PublicContentGate: ({ children, source }: any) => (
-    <div data-testid="public-content-gate" data-source={source}>
-      {children}
-    </div>
-  ),
-}));
-
 function makeReport(overrides: Partial<SurfCallResult> = {}): SurfCallResult {
   return {
     verdict: "YES",
@@ -39,8 +31,8 @@ function makeReport(overrides: Partial<SurfCallResult> = {}): SurfCallResult {
 }
 
 describe("SpotSurfReport", () => {
-  describe("PublicContentGate integration", () => {
-    it("wraps conditions in PublicContentGate with correct source prop", () => {
+  describe("Conditions rendering", () => {
+    it("renders conditions data when report has wave/wind/tide", () => {
       render(
         <SpotSurfReport
           report={makeReport()}
@@ -48,13 +40,11 @@ describe("SpotSurfReport", () => {
         />
       );
 
-      const gate = screen.getByTestId("public-content-gate");
-      expect(gate).toBeInTheDocument();
-      expect(gate).toHaveAttribute("data-source", "surf-call-conditions");
+      expect(screen.getByText("3-5 ft")).toBeInTheDocument();
     });
 
-    it("does not render PublicContentGate when no conditions data exists", () => {
-      render(
+    it("does not render conditions row when no conditions data exists", () => {
+      const { container } = render(
         <SpotSurfReport
           report={makeReport({
             verdict: "NO",
@@ -70,10 +60,12 @@ describe("SpotSurfReport", () => {
         />
       );
 
-      expect(screen.queryByTestId("public-content-gate")).not.toBeInTheDocument();
+      // No condition items should appear
+      expect(screen.queryByText("Best window")).not.toBeInTheDocument();
+      expect(container.querySelector(".mt-3, .mt-4")).toBeNull();
     });
 
-    it("renders PublicContentGate when only whySentence is present", () => {
+    it("renders why sentence when only whySentence is present", () => {
       render(
         <SpotSurfReport
           report={makeReport({
@@ -90,7 +82,6 @@ describe("SpotSurfReport", () => {
         />
       );
 
-      expect(screen.getByTestId("public-content-gate")).toBeInTheDocument();
       expect(screen.getByText("Conditions are poor today.")).toBeInTheDocument();
     });
   });
@@ -315,9 +306,9 @@ describe("SpotSurfReport", () => {
         />
       );
 
-      // Only heading and verdict should exist, no conditions
-      const section = screen.getByRole("region");
-      expect(section.querySelectorAll(".mt-4")).toHaveLength(0);
+      // Only heading and verdict should exist, no conditions row
+      expect(screen.queryByText("Best window")).not.toBeInTheDocument();
+      expect(screen.queryByText("·")).not.toBeInTheDocument();
     });
   });
 });

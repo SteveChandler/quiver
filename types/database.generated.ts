@@ -3574,7 +3574,9 @@ export type Database = {
           phone_number: string | null
           posting_window: Json | null
           preferences_v2_shown_at: string | null
+          level_title: string | null
           preferred_break_type: string | null
+          preferred_session_time: string | null
           preferred_wave_size: string | null
           referral_code: string | null
           signup_context: Json | null
@@ -3583,6 +3585,7 @@ export type Database = {
           timezone: string | null
           trust_score: number
           updated_at: string | null
+          xp_total: number | null
         }
         Insert: {
           activity_level?: string | null
@@ -3623,7 +3626,9 @@ export type Database = {
           phone_number?: string | null
           posting_window?: Json | null
           preferences_v2_shown_at?: string | null
+          level_title?: string | null
           preferred_break_type?: string | null
+          preferred_session_time?: string | null
           preferred_wave_size?: string | null
           referral_code?: string | null
           signup_context?: Json | null
@@ -3632,6 +3637,7 @@ export type Database = {
           timezone?: string | null
           trust_score?: number
           updated_at?: string | null
+          xp_total?: number | null
         }
         Update: {
           activity_level?: string | null
@@ -3672,7 +3678,9 @@ export type Database = {
           phone_number?: string | null
           posting_window?: Json | null
           preferences_v2_shown_at?: string | null
+          level_title?: string | null
           preferred_break_type?: string | null
+          preferred_session_time?: string | null
           preferred_wave_size?: string | null
           referral_code?: string | null
           signup_context?: Json | null
@@ -3681,6 +3689,7 @@ export type Database = {
           timezone?: string | null
           trust_score?: number
           updated_at?: string | null
+          xp_total?: number | null
         }
         Relationships: [
           {

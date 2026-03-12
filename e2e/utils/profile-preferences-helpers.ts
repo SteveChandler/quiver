@@ -48,17 +48,63 @@ export const TEST_PREFERENCES = {
 };
 
 /**
- * Get the current authenticated user's profile
+ * Get the current authenticated user's profile.
+ * Uses a direct SQL query via the service-role client to join auth.users with profiles,
+ * so the lookup is reliable regardless of whether profiles.email is populated.
  */
 export async function getCurrentUserProfile(userEmail: string) {
+  // Use rpc to find the user's auth UUID by email, then fetch the profile by id.
+  // supabaseAdmin has service-role access so it can read auth.users.
+  const { data: rows, error: rpcError } = await supabaseAdmin.rpc(
+    'get_user_id_by_email' as any,
+    { p_email: userEmail }
+  ) as any;
+
+  let userId: string | undefined;
+
+  if (rpcError || !rows?.length) {
+    // Fallback: paginate through auth.admin.listUsers to find the user
+    let page = 1;
+    const perPage = 50;
+    let found = false;
+
+    while (!found) {
+      const { data: usersPage, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+        page,
+        perPage,
+      });
+
+      if (listError) {
+        throw new Error(`Failed to list auth users (page ${page}) for ${userEmail}: ${listError.message}`);
+      }
+
+      const match = usersPage?.users?.find((u) => u.email === userEmail);
+      if (match) {
+        userId = match.id;
+        found = true;
+      } else if (!usersPage?.users?.length || usersPage.users.length < perPage) {
+        // No more pages
+        break;
+      }
+
+      page++;
+    }
+
+    if (!userId) {
+      throw new Error(`No auth user found with email ${userEmail}`);
+    }
+  } else {
+    userId = rows[0] as string;
+  }
+
   const { data: profile, error } = await supabaseAdmin
     .from('profiles')
     .select('*')
-    .eq('email', userEmail)
+    .eq('id', userId)
     .single();
 
   if (error) {
-    throw new Error(`Failed to get profile for ${userEmail}: ${error.message}`);
+    throw new Error(`Failed to get profile for ${userEmail} (id=${userId}): ${error.message}`);
   }
 
   return profile;

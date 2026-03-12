@@ -127,10 +127,12 @@ export function HeroVideoBackground() {
   if (reducedMotion) {
     return (
       <div className="absolute inset-0 z-0">
-        <img
+        <Image
           src={POSTER_SRC}
           alt=""
-          className="h-full w-full object-cover"
+          fill
+          sizes="100vw"
+          className="object-cover"
           aria-hidden="true"
         />
         <div className="absolute inset-0 bg-black/30" />

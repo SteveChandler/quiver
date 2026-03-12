@@ -28,7 +28,7 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl }: TodaysWin
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-heading text-lg font-semibold text-white">Today's Windows</h2>
+        <h2 className="font-heading text-lg font-semibold text-white">{"Today's Windows"}</h2>
         {forecastUrl && (
           <Link
             href={forecastUrl}

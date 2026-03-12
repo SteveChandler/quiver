@@ -227,6 +227,7 @@ function LoadingSkeleton() {
 export function OracleHomeScreen() {
   const oracle = useOracleData();
   const router = useRouter();
+  const { refreshProfile } = oracle;
 
   // ------------------------------------------------------------------
   // Activity fetch — only when homeBeach is available
@@ -247,9 +248,9 @@ export function OracleHomeScreen() {
   const handleSessionTimeSelect = useCallback(
     async (time: string) => {
       await updatePreferredSessionTime(time);
-      oracle.refreshProfile();
+      refreshProfile();
     },
-    [oracle.refreshProfile]
+    [refreshProfile]
   );
 
   // ------------------------------------------------------------------
@@ -265,13 +266,10 @@ export function OracleHomeScreen() {
     [router]
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
   const handleInviteFriend = useCallback(() => {}, []);
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
   const handleSetAlarm = useCallback(() => {}, []);
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
   const handleShareSession = useCallback(() => {}, []);
 
   const handleViewSpot = useCallback(
@@ -321,10 +319,9 @@ export function OracleHomeScreen() {
     topRec?.reasons?.[0] ?? "Check the forecast for details";
 
   // Transformed sub-component data (memoised to avoid child re-renders)
-  const recommendations = oracle.discovery?.recommendations ?? [];
   const timeWindows = useMemo(
-    () => transformToTimeWindows(recommendations, topRec),
-    [recommendations, topRec]
+    () => transformToTimeWindows(oracle.discovery?.recommendations ?? [], topRec),
+    [oracle.discovery?.recommendations, topRec]
   );
   const nearbySpots = useMemo(
     () => transformToNearbySpots(oracle.remainingSpots),

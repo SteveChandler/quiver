@@ -26,6 +26,9 @@ jest.mock("@/lib/utils/performance-utils", () => ({
 jest.mock("@/components/home-screen", () => ({
   HomeScreen: () => <div data-testid="home-screen" />,
 }));
+jest.mock("@/components/oracle/oracle-home-screen", () => ({
+  OracleHomeScreen: () => <div data-testid="home-screen" />,
+}));
 jest.mock("@/components/landing-page/navbar", () => ({
   Navbar: () => <div data-testid="navbar" />,
 }));
