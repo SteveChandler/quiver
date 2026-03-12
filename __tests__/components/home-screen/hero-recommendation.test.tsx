@@ -33,21 +33,18 @@ jest.mock("@/lib/utils", () => ({
   cn: jest.fn((...args: any[]) => args.flat().filter(Boolean).join(" ")),
 }));
 
-jest.mock("@/lib/utils/date-utils", () => ({
+jest.mock("@/lib/utils/date-time", () => ({
   formatBeachDateTime: jest.fn((date: Date, timezone: string, format: string) => {
     if (format === "m") return "0";
     if (format === "ha") return "7AM";
     if (format === "h:mm a") return "7:30 AM";
     return "7am";
   }),
+  formatTimeWindowCompact: jest.fn(() => "7-10am"),
 }));
 
 jest.mock("@/lib/utils/rating-formatters", () => ({
   formatDiscoveryScore: jest.fn((score: number) => score.toFixed(1)),
-}));
-
-jest.mock("@/lib/utils/time-formatters", () => ({
-  formatTimeWindowCompact: jest.fn(() => "7-10am"),
 }));
 
 jest.mock("@/lib/utils/condition-tier-utils", () => ({

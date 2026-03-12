@@ -3,7 +3,7 @@ import type { SurfCallResult } from '@/lib/utils/surf-call-logic';
 import type { Beach } from '@/types/database';
 import { getSpotSurfReport } from '@/actions/spot/spot-surf-report-actions';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
-import { formatTimeInTimezone, formatTimeCasual } from '@/lib/utils/time-formatting';
+import { formatTimeInTimezone, formatTimeCasual } from '@/lib/utils/date-time';
 
 
 interface SpotSurfReportProps {

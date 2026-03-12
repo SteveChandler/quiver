@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EmojiRatingDisplay } from "@/components/intel/emoji-picker";
-import { formatTimeAgo } from "@/lib/utils/time-formatters";
+import { formatTimeAgo } from "@/lib/utils/date-time";
 import { formatDistanceDisplay } from "@/lib/utils/distance-utils";
 import { SOURCE_CONFIG, getTrendIcon } from "./constants";
 import type { CoastPulseItem } from "./types";

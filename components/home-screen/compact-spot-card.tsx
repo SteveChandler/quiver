@@ -8,8 +8,7 @@ import { cn } from "@/lib/utils";
 import { formatDiscoveryScore } from "@/lib/utils/rating-formatters";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 import { formatDistanceDisplay } from "@/lib/utils/distance-utils";
-import { formatTimeWindowCompact } from "@/lib/utils/time-formatters";
-import { formatTimeCasual } from "@/lib/utils/time-formatting";
+import { formatTimeWindowCompact, formatTimeCasual } from "@/lib/utils/date-time";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import { track } from "@/lib/analytics";
 

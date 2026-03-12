@@ -1,5 +1,5 @@
 import type { Beach } from '@/types/database';
-import { formatMonthRange } from '@/lib/utils/date-utils';
+import { formatMonthRange } from '@/lib/utils/date-time';
 import { degreeToCardinal } from '@/lib/utils/geo-utils';
 
 export interface FAQItem {

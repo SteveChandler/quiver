@@ -6,7 +6,7 @@ jest.mock("@/lib/utils/rating-formatters", () => ({
   formatDiscoveryScore: (score: number) => (score / 10).toFixed(1),
 }));
 
-jest.mock("@/lib/utils/time-formatters", () => ({
+jest.mock("@/lib/utils/date-time", () => ({
   formatTimeWindowCompact: () => "7-10am",
 }));
 

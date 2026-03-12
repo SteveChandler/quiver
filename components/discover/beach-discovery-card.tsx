@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
-import { formatBeachTimeRange } from "@/lib/utils/date-utils";
+import { formatBeachTimeRange } from "@/lib/utils/date-time";
 import { formatDistanceDisplay } from "@/lib/utils/distance-utils";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import { useBeachPersonalization } from "@/hooks/use-beach-personalization";
