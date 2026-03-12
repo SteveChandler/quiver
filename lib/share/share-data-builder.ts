@@ -8,7 +8,7 @@
 
 import type { SurfDiscoveryRecommendation, TimeSlot } from "@/types/personalization";
 import { formatDiscoveryScore } from "@/lib/utils/rating-formatters";
-import { formatTimeWindowCompact } from "@/lib/utils/time-formatters";
+import { formatTimeWindowCompact } from "@/lib/utils/date-time";
 import {
   getConditionTier,
   getConditionBadge,

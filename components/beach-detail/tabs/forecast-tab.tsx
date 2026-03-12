@@ -21,7 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BestSurfWindow } from "@/components/beach-detail/best-surf-window";
 import { slugify } from "@/lib/utils/text-utils";
 import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
-import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
+import { formatTimeInBeachTimezone } from "@/lib/utils/date-time";
 import { resolveBeachTimezone, getLocalDateString } from "@/lib/utils/timezone-utils";
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
 import { useDynamicTide } from "@/hooks/use-dynamic-tide";

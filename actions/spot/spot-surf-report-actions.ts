@@ -6,7 +6,7 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
 import { computeSurfCall, type SurfCallResult } from '@/lib/utils/surf-call-logic';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { DEFAULT_TIMEZONE } from '@/lib/utils/timezone-constants';
-import { formatDateInTimezone } from '@/lib/utils/date-formatting';
+import { formatDateInTimezone } from '@/lib/utils/date-time';
 import { extractForecastDate } from '@/lib/utils/forecast-at-adapter';
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getBatchSunTimes } from '@/lib/services/discovery';

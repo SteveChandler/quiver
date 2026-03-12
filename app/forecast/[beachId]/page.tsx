@@ -12,7 +12,7 @@ import {
   getGuideSlugForRegion,
   hasHubGuide,
 } from "@/lib/data/forecast-regions";
-import { formatFullDateWithYear } from "@/lib/utils/time-formatters";
+import { formatFullDateWithYear } from "@/lib/utils/date-time";
 import {
   aggregateRegionalForecast,
   getBeachesForRegion,

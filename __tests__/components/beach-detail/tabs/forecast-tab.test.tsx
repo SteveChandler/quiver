@@ -90,7 +90,7 @@ jest.mock("@/lib/utils/horizon-strip-utils", () => ({
 jest.mock("@/lib/surf/tide-direction", () => ({
   getTideAlert: jest.fn(() => null),
 }));
-jest.mock("@/lib/utils/date-utils", () => ({
+jest.mock("@/lib/utils/date-time", () => ({
   formatTimeInBeachTimezone: jest.fn(() => "7:00 AM"),
 }));
 

@@ -10,7 +10,7 @@ jest.mock("@/lib/utils", () => ({
   cn: jest.fn((...args: any[]) => args.flat().filter(Boolean).join(" ")),
 }));
 
-jest.mock("@/lib/utils/time-formatters", () => ({
+jest.mock("@/lib/utils/date-time", () => ({
   getWindowDayLabel: jest.fn(() => "today"),
 }));
 
@@ -497,7 +497,7 @@ describe("TopSpotsCarousel - Carousel Title", () => {
   });
 
   it("displays dynamic title with day label when heroWindow provided", () => {
-    const { getWindowDayLabel } = require("@/lib/utils/time-formatters");
+    const { getWindowDayLabel } = require("@/lib/utils/date-time");
     getWindowDayLabel.mockReturnValue("tomorrow");
 
     render(

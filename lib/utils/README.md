@@ -25,10 +25,10 @@ formatWaveHeight(3, 5)       // "3-5 ft"
 
 ### Date & Time
 
-**File:** `date-utils.ts`
+**File:** `date-time.ts` (canonical — absorbs date-formatting, date-utils, time-formatting, time-formatters)
 
 ```typescript
-import { formatDate, formatTime, getRelativeTime } from "@/lib/utils/date-utils";
+import { formatDate, formatForecastTime, formatTimeInTimezone, formatTimeAgo } from "@/lib/utils/date-time";
 ```
 
 **File:** `timezone-utils.ts`
