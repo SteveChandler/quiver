@@ -119,8 +119,9 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
     name: "Puerto Rico",
     title: "Puerto Rico Surf Forecast - 7 Day Outlook",
     metaDescription:
-      "Puerto Rico surf forecast covering Rincon, Isabela, and the north shore. Warm water waves year-round.",
+      "Puerto Rico surf forecast covering Rincon, Aguadilla, Isabela, and the west coast. 7-day swell outlook, NW groundswell tracking, and optimal windows for Caribbean surfing.",
     states: ["pr"],
+    cities: ["Rincon", "Aguadilla", "Isabela", "Arecibo", "Hatillo"],
     centerLat: 18.22,
     centerLon: -67.15,
     zoom: 9,

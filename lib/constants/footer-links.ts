@@ -8,6 +8,7 @@ export const FOOTER_LINKS = {
   beaches: [
     { name: "United States", href: "/beaches/usa" },
     { name: "Mexico", href: "/beaches/mexico" },
+    { name: "Puerto Rico Surf", href: "/forecast/puerto-rico" },
   ],
   forecasts: [
     { name: "7-Day Forecast", href: "/forecast" },
