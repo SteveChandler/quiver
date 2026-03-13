@@ -32,11 +32,15 @@ describe('NearbySpots scroll behavior', () => {
 
     const scrollContainer = screen.getByTestId('nearby-spots-scroll');
 
+    // jsdom doesn't support scrollWidth/clientWidth, so mock them to activate the handler
+    Object.defineProperty(scrollContainer, 'scrollWidth', { value: 1000, configurable: true });
+    Object.defineProperty(scrollContainer, 'clientWidth', { value: 300, configurable: true });
+
     // Simulate mouse wheel (vertical deltaY)
     fireEvent.wheel(scrollContainer, { deltaY: 100 });
 
-    // scrollLeft should be defined (jsdom initializes to 0)
-    expect(scrollContainer.scrollLeft).toBeDefined();
+    // Handler should have converted deltaY to scrollLeft
+    expect(scrollContainer.scrollLeft).toBe(100);
   });
 
   it('attaches and cleans up the wheel event listener', () => {
