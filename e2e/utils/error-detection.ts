@@ -379,6 +379,13 @@ function isIgnorableConsoleError(text: string): boolean {
     // which framer-motion logs as an error in dev but handles gracefully in production.
     // This does not affect component functionality or test validity.
     'Only two keyframes currently supported with spring and inertia animations',
+
+    // Google Sign-In (GSI / Google One Tap) errors in headless CI environments.
+    // No Google account is available in headless Chromium, so these are expected:
+    // - "Provider's accounts list is empty." (no signed-in Google user)
+    // - "[GSI_LOGGER]: FedCM get() rejects with NetworkError" (FedCM token fetch fails)
+    "Provider's accounts list is empty",
+    '[GSI_LOGGER]',
   ];
 
   return ignorable.some((pattern) => text.includes(pattern));

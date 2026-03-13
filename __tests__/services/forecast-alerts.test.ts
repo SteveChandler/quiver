@@ -318,7 +318,12 @@ describe("formatForecastTimeLocal", () => {
 // ---------------------------------------------------------------------------
 
 describe("runForecastThresholdAlerts", () => {
+  // Pin the clock to noon Pacific (8 PM UTC) so tests never land in quiet
+  // hours (10 PM – 4 AM local) and results are deterministic.
+  const FAKE_NOW_UTC = new Date("2026-03-13T20:00:00Z"); // noon Pacific
+
   beforeEach(() => {
+    jest.useFakeTimers({ now: FAKE_NOW_UTC });
     jest.clearAllMocks();
     // Default: push notification succeeds with 1 device
     (sendPushNotification as jest.Mock).mockResolvedValue({
@@ -326,6 +331,10 @@ describe("runForecastThresholdAlerts", () => {
       failed: 0,
       errors: [],
     });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   // -------------------------------------------------------------------------
