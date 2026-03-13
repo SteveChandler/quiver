@@ -16,6 +16,7 @@ interface OnboardingData {
   crowdPreference?: 'social' | 'moderate' | 'solitude';
   pushEnabled?: boolean;
   emailEnabled?: boolean;
+  referralCode?: string;
 }
 
 /**
@@ -118,6 +119,19 @@ export async function saveOnboardingData(data: OnboardingData) {
 
       if (!updatedProfile) {
         throw new Error('Profile not found. Please ensure your account is fully set up.');
+      }
+
+      // Generate referral code for new user and claim referral if provided (non-blocking)
+      try {
+        const { getOrCreateReferralCode, claimReferral } = await import('@/actions/referral-actions');
+        await getOrCreateReferralCode();
+
+        // If they arrived via a referral link, claim it
+        if (data.referralCode) {
+          await claimReferral(data.referralCode);
+        }
+      } catch (refErr) {
+        console.warn('[onboarding] Referral handling error (non-blocking):', refErr);
       }
 
       // Create default email preferences (non-blocking)
