@@ -44,6 +44,8 @@ export interface OracleData {
   geoSource: string;
   requestLocation: () => void;
   geoLoading: boolean;
+  /** Parsed user skill level from profile (for frontend skill comparisons) */
+  userSkillLevel: string | null;
 }
 
 // ============================================================================
@@ -142,6 +144,11 @@ export function useOracleData(): OracleData {
   }, [geoSource, usingDefaultLocation, geoCoords?.lat, geoCoords?.lon, homeBeachCoords]);
 
   // ------------------------------------------------------------------
+  // Skill level (parsed from profile for cache invalidation + frontend display)
+  // ------------------------------------------------------------------
+  const userSkillLevel = (profile as Record<string, unknown> | null)?.experience_level as string | null ?? null;
+
+  // ------------------------------------------------------------------
   // Surf discovery
   // ------------------------------------------------------------------
   const { discovery, loading: discoveryLoading } = useSurfDiscovery({
@@ -150,6 +157,7 @@ export function useOracleData(): OracleData {
     enabled: !!profile && !geoLoading,
     immediate: true,
     userLocation,
+    userSkillLevel,
   });
 
   const topRecommendation = discovery?.recommendations[0] ?? null;
@@ -263,5 +271,6 @@ export function useOracleData(): OracleData {
     geoSource,
     requestLocation,
     geoLoading,
+    userSkillLevel,
   };
 }

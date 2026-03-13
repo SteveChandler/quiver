@@ -3,7 +3,7 @@
  *
  * Tests the helper functions extracted from applyPreferredWaveSizeAdjustment:
  * - checkSkillCeiling
- * - calculateSkillBonus
+ * - calculateBeachSkillMatchBonus (condition-aware, replaces calculateSkillBonus)
  * - calculatePreferenceAdjustment
  *
  * Also tests safety defaults and priority order.
@@ -11,7 +11,7 @@
 
 import {
   checkSkillCeiling,
-  calculateSkillBonus,
+  calculateBeachSkillMatchBonus,
   calculatePreferenceAdjustment,
   WAVE_SIZE_SCORING_CONFIG,
   SKILL_WAVE_RANGES,
@@ -109,60 +109,114 @@ describe('Skill Level Wave Scoring', () => {
     });
   });
 
-  describe('calculateSkillBonus', () => {
-    describe('beginner (ideal 1-3ft)', () => {
-      it('should bonus waves in ideal skill range', () => {
-        expect(calculateSkillBonus(2, 'beginner').bonus).toBe(3);
-        expect(calculateSkillBonus(2, 'beginner').reason).toBe('Great wave size for your level');
+  describe('calculateBeachSkillMatchBonus', () => {
+    describe('beach at or below user level with ideal waves', () => {
+      it('should bonus beginner beach + beginner user + ideal waves', () => {
+        const result = calculateBeachSkillMatchBonus(2, 'beginner', 'beginner');
+        expect(result.adjustment).toBe(3);
+        expect(result.reason).toBe('Conditions match your experience level today');
+        expect(result.warning).toBeNull();
       });
 
-      it('should bonus at minimum of ideal range', () => {
-        expect(calculateSkillBonus(1, 'beginner').bonus).toBe(3);
+      it('should bonus intermediate beach + advanced user + ideal waves', () => {
+        const result = calculateBeachSkillMatchBonus(5, 'intermediate', 'advanced');
+        expect(result.adjustment).toBe(3);
+        expect(result.reason).toBe('Conditions match your experience level today');
       });
 
-      it('should bonus at maximum of ideal range', () => {
-        expect(calculateSkillBonus(3, 'beginner').bonus).toBe(3);
+      it('should bonus at boundaries of ideal range', () => {
+        // Beginner ideal: 1-3ft
+        expect(calculateBeachSkillMatchBonus(1, 'beginner', 'beginner').adjustment).toBe(3);
+        expect(calculateBeachSkillMatchBonus(3, 'beginner', 'beginner').adjustment).toBe(3);
       });
 
       it('should not bonus waves below ideal range', () => {
-        expect(calculateSkillBonus(0.5, 'beginner').bonus).toBe(0);
-        expect(calculateSkillBonus(0.5, 'beginner').reason).toBeNull();
+        expect(calculateBeachSkillMatchBonus(0.5, 'beginner', 'beginner').adjustment).toBe(0);
       });
 
       it('should not bonus waves above ideal but within acceptable', () => {
-        expect(calculateSkillBonus(3.5, 'beginner').bonus).toBe(0);
+        // Beginner ideal max = 3, acceptable max = 4
+        expect(calculateBeachSkillMatchBonus(3.5, 'beginner', 'beginner').adjustment).toBe(0);
       });
     });
 
-    describe('intermediate (ideal 2-5ft)', () => {
-      it('should bonus waves at 3.5ft', () => {
-        const result = calculateSkillBonus(3.5, 'intermediate');
-        expect(result.bonus).toBe(3);
-        expect(result.reason).toBe('Great wave size for your level');
+    describe('beach harder than user with manageable conditions', () => {
+      it('should give small bonus for 1-level gap with manageable waves', () => {
+        // Advanced beach, intermediate user, 3ft waves (within intermediate ideal max of 5)
+        const result = calculateBeachSkillMatchBonus(3, 'advanced', 'intermediate');
+        expect(result.adjustment).toBe(1);
+        expect(result.reason).toContain('Advanced spot');
+        expect(result.reason).toContain('manageable');
+        expect(result.warning).toBeNull();
       });
 
-      it('should not bonus waves at 6ft (outside ideal)', () => {
-        expect(calculateSkillBonus(6, 'intermediate').bonus).toBe(0);
+      it('should give neutral for 2-level gap with manageable waves', () => {
+        // Expert beach, intermediate user, 3ft waves
+        const result = calculateBeachSkillMatchBonus(3, 'expert', 'intermediate');
+        expect(result.adjustment).toBe(0);
+        expect(result.reason).toContain('Expert spot');
+        expect(result.reason).toContain('manageable');
+      });
+
+      it('Pipeline at 3ft for beginner — small penalty, not massive', () => {
+        // Expert beach at 3ft, beginner user (ideal max = 3)
+        const result = calculateBeachSkillMatchBonus(3, 'expert', 'beginner');
+        expect(result.adjustment).toBe(0); // Manageable — waves at ideal max
+        expect(result.reason).toContain('manageable');
       });
     });
 
-    describe('advanced (ideal 3-8ft)', () => {
-      it('should bonus waves at 5ft', () => {
-        expect(calculateSkillBonus(5, 'advanced').bonus).toBe(3);
+    describe('beach harder than user with challenging conditions', () => {
+      it('should penalize 1-level gap with non-manageable waves', () => {
+        // Advanced beach, intermediate user, 6ft waves (above intermediate ideal max of 5)
+        const result = calculateBeachSkillMatchBonus(6, 'advanced', 'intermediate');
+        expect(result.adjustment).toBe(-2); // 1 gap * 2
+        expect(result.reason).toBeNull();
       });
 
-      it('should bonus waves at 8ft (at max ideal)', () => {
-        expect(calculateSkillBonus(8, 'advanced').bonus).toBe(3);
+      it('should penalize 2-level gap with non-manageable waves and add warning', () => {
+        // Expert beach, intermediate user, 8ft waves
+        const result = calculateBeachSkillMatchBonus(8, 'expert', 'intermediate');
+        expect(result.adjustment).toBe(-4); // 2 gap * 2
+        expect(result.warning).toContain('conditions may be challenging');
+      });
+
+      it('should penalize 3-level gap with cap at -6', () => {
+        // Expert beach, beginner user, 5ft waves (above beginner ideal max of 3)
+        const result = calculateBeachSkillMatchBonus(5, 'expert', 'beginner');
+        expect(result.adjustment).toBe(-6); // min(3 * 2, 6)
+        expect(result.warning).toContain('conditions may be challenging');
+      });
+
+      it('Pipeline at 15ft for beginner — penalty from skill match', () => {
+        // checkSkillCeiling handles the main penalty, but skill match also adds
+        const result = calculateBeachSkillMatchBonus(15, 'expert', 'beginner');
+        expect(result.adjustment).toBe(-6); // capped at 6
+        expect(result.warning).toBeTruthy();
       });
     });
 
-    describe('expert (ideal 4-12ft)', () => {
-      it('should bonus waves at 8ft', () => {
-        expect(calculateSkillBonus(8, 'expert').bonus).toBe(3);
+    describe('null beach skill level', () => {
+      it('should default to intermediate when beach skill level is null', () => {
+        // null beach → 'intermediate', beginner user, ideal waves
+        const result = calculateBeachSkillMatchBonus(2, null, 'beginner');
+        // skillGap = 1 (intermediate > beginner), waves manageable (2 <= 3)
+        expect(result.adjustment).toBe(1);
+        expect(result.reason).toContain('Intermediate spot');
       });
 
-      it('should bonus waves at 12ft', () => {
-        expect(calculateSkillBonus(12, 'expert').bonus).toBe(3);
+      it('should give bonus when user is intermediate and beach is null', () => {
+        // null → intermediate, intermediate user, ideal waves
+        const result = calculateBeachSkillMatchBonus(3, null, 'intermediate');
+        expect(result.adjustment).toBe(3); // skillGap = 0, ideal range
+      });
+    });
+
+    describe('compound skill levels (pre-migration)', () => {
+      it('should handle unrecognized values by defaulting to intermediate', () => {
+        const result = calculateBeachSkillMatchBonus(3, 'beginner-intermediate', 'intermediate');
+        // parseSkillLevel returns null for 'beginner-intermediate' → defaults to 'intermediate'
+        expect(result.adjustment).toBe(3); // skillGap = 0, ideal range
       });
     });
   });
@@ -269,14 +323,10 @@ describe('Skill Level Wave Scoring', () => {
 
   describe('Priority Order', () => {
     it('should verify skill ceiling check happens before preference', () => {
-      // This is a documentation/logic test - skill ceiling should be checked
-      // before any preference bonus is applied
-
       // For beginner seeing 12ft waves with "large" preference:
       // - Skill ceiling: 12ft - 4ft = 8ft over = 64pt penalty
       // - Should NOT get large preference bonus
 
-      // We test the individual functions work correctly
       const skillResult = checkSkillCeiling(12, 'beginner');
       expect(skillResult.penalty).toBe(64);
 
@@ -285,7 +335,6 @@ describe('Skill Level Wave Scoring', () => {
       expect(prefResult.adjustment).toBe(5); // Would give bonus
 
       // But in actual use, skill ceiling penalty > 0 means we don't check preference
-      // This is verified by the main function logic in applyPreferredWaveSizeAdjustment
     });
 
     it('should verify preference only applies when skill ceiling passes', () => {
@@ -300,17 +349,17 @@ describe('Skill Level Wave Scoring', () => {
       expect(prefResult.adjustment).toBe(0);
     });
 
-    it('should give skill bonus when no preference is set', () => {
-      // Intermediate with no preference, 3ft waves:
+    it('should give beach skill match bonus when no preference is set', () => {
+      // Intermediate user at intermediate beach, 3ft waves:
       // - Skill ceiling: passes (3ft <= 6ft)
       // - No preference to check
-      // - Skill bonus: 3ft in ideal range (2-5ft), +3pts
+      // - Beach skill match: beach matches user level, waves in ideal range → +3
 
       const skillResult = checkSkillCeiling(3, 'intermediate');
       expect(skillResult.penalty).toBe(0);
 
-      const bonusResult = calculateSkillBonus(3, 'intermediate');
-      expect(bonusResult.bonus).toBe(3);
+      const bonusResult = calculateBeachSkillMatchBonus(3, 'intermediate', 'intermediate');
+      expect(bonusResult.adjustment).toBe(3);
     });
   });
 
@@ -368,8 +417,9 @@ describe('Skill Level Wave Scoring', () => {
       const skillResult = checkSkillCeiling(0, 'beginner');
       expect(skillResult.penalty).toBe(0);
 
-      const bonusResult = calculateSkillBonus(0, 'beginner');
-      expect(bonusResult.bonus).toBe(0); // 0 is below ideal 1-3ft
+      // 0ft waves, beginner beach, beginner user — not in ideal range (1-3ft)
+      const bonusResult = calculateBeachSkillMatchBonus(0, 'beginner', 'beginner');
+      expect(bonusResult.adjustment).toBe(0);
 
       const prefResult = calculatePreferenceAdjustment(0, 'small');
       // 0ft is 0.5ft below acceptable min of 0.5ft
@@ -385,6 +435,52 @@ describe('Skill Level Wave Scoring', () => {
       const result = checkSkillCeiling(50, 'expert'); // 30ft over
       expect(result.penalty).toBe(240); // 30 * 8
       expect(result.warning).toBe('Dangerous: Waves far exceed your skill level');
+    });
+  });
+
+  describe('Condition-Aware Scoring Matrix', () => {
+    // Verifies the key scenarios from the plan
+    const testMatrix: Array<{
+      scenario: string;
+      waveHeight: number;
+      beachSkill: string;
+      userSkill: SkillLevel;
+      expectedAdjMin: number;
+      expectedAdjMax: number;
+    }> = [
+      {
+        scenario: 'Pipeline at 3ft for beginner (expert beach, mild conditions)',
+        waveHeight: 3, beachSkill: 'expert', userSkill: 'beginner',
+        expectedAdjMin: -1, expectedAdjMax: 1,
+      },
+      {
+        scenario: 'Pipeline at 15ft for beginner (expert beach, heavy conditions)',
+        waveHeight: 15, beachSkill: 'expert', userSkill: 'beginner',
+        expectedAdjMin: -6, expectedAdjMax: -4,
+      },
+      {
+        scenario: 'Mellow beach at 2ft for beginner (beginner beach, ideal)',
+        waveHeight: 2, beachSkill: 'beginner', userSkill: 'beginner',
+        expectedAdjMin: 3, expectedAdjMax: 3,
+      },
+      {
+        scenario: 'Advanced beach at 4ft for intermediate (1-level gap, manageable)',
+        waveHeight: 4, beachSkill: 'advanced', userSkill: 'intermediate',
+        expectedAdjMin: 1, expectedAdjMax: 1,
+      },
+      {
+        scenario: 'Expert beach at 8ft for intermediate (2-level gap, heavy)',
+        waveHeight: 8, beachSkill: 'expert', userSkill: 'intermediate',
+        expectedAdjMin: -4, expectedAdjMax: -4,
+      },
+    ];
+
+    testMatrix.forEach(({ scenario, waveHeight, beachSkill, userSkill, expectedAdjMin, expectedAdjMax }) => {
+      it(scenario, () => {
+        const result = calculateBeachSkillMatchBonus(waveHeight, beachSkill, userSkill);
+        expect(result.adjustment).toBeGreaterThanOrEqual(expectedAdjMin);
+        expect(result.adjustment).toBeLessThanOrEqual(expectedAdjMax);
+      });
     });
   });
 });

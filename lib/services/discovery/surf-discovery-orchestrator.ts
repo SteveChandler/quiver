@@ -34,6 +34,7 @@ import {
   type DiscoveryScoringOptions,
 } from '@/lib/domains/scoring';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
+import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
 import { SET_WAVE_VARIANCE } from '@/lib/utils/wave-height-transformer';
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
@@ -239,6 +240,42 @@ function calculateDistance(
 }
 
 /**
+ * Generate a primary recommendation reason based on skill match and conditions.
+ * This becomes the hero subtitle in the Oracle UI.
+ */
+function generatePrimaryReason(
+  beach: Beach,
+  forecast: EnhancedForecastEntity,
+  userSkillLevel: SkillLevel | null
+): string | null {
+  if (!userSkillLevel) return null;
+
+  const waveHeight = parseFloat(String(forecast.wave_height ?? '0'));
+  const beachSkill = parseSkillLevel(beach.skill_level);
+  const userSkill = getSkillLevelOrDefault(userSkillLevel);
+  const userRanges = SKILL_WAVE_RANGES[userSkill];
+
+  const SKILL_RANK: Record<string, number> = {
+    beginner: 0, intermediate: 1, advanced: 2, expert: 3,
+  };
+
+  const skillGap = (beachSkill ? SKILL_RANK[beachSkill] : 1) - SKILL_RANK[userSkill];
+  const wavesManageable = waveHeight <= userRanges.ideal.max;
+
+  if (skillGap <= 0) {
+    return `Conditions at ${beach.name} match your experience level today`;
+  }
+
+  if (skillGap > 0 && wavesManageable) {
+    const label = beachSkill ?? 'advanced';
+    const heightDisplay = waveHeight > 0 ? ` ${Math.round(waveHeight * 10) / 10}ft` : '';
+    return `${beach.name} is an ${label} spot, but today's${heightDisplay} conditions are manageable`;
+  }
+
+  return `Heads up: ${beach.name} is pumping today — waves are well above your comfort zone`;
+}
+
+/**
  * Empty response for error cases
  */
 function emptyResponse(maxResults: number): SurfDiscoveryResponse {
@@ -326,6 +363,7 @@ async function scoreBeachForDiscovery(args: {
     distancePenalty,
     preferredWaveSize: preferredWaveSizeOption,
     userSkillLevel,
+    beachSkillLevel: beach.skill_level,
   });
 
   // Apply personalization bonus from personalization layer
@@ -345,11 +383,10 @@ async function scoreBeachForDiscovery(args: {
     detailedScore.warnings.push(`${Math.round(distanceMiles)} miles away - long drive`);
   }
 
-  // Add skill level warning if needed
-  if (beach.skill_level === 'advanced' || beach.skill_level === 'expert') {
-    if (!detailedScore.warnings.some((w) => w.includes('Advanced'))) {
-      detailedScore.warnings.push('Advanced spot - check conditions carefully');
-    }
+  // Generate primary recommendation reason for skill-aware communication
+  const primaryReason = generatePrimaryReason(beach, forecast, userSkillLevel);
+  if (primaryReason) {
+    detailedScore.reasons = [primaryReason, ...detailedScore.reasons.filter(r => r !== primaryReason)];
   }
 
   // Generate condition badges (keep existing badge generation)

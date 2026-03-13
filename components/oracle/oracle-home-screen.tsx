@@ -201,19 +201,38 @@ function transformToTimeWindows(
 }
 
 /**
+ * Skill level ordering for comparison.
+ */
+const SKILL_RANK: Record<string, number> = {
+  beginner: 0,
+  intermediate: 1,
+  advanced: 2,
+  expert: 3,
+};
+
+/**
  * Map remaining spots to the NearbySpot shape.
  */
 function transformToNearbySpots(
-  remainingSpots: SurfDiscoveryRecommendation[]
+  remainingSpots: SurfDiscoveryRecommendation[],
+  userSkillLevel: string | null
 ): NearbySpot[] {
-  return remainingSpots.map((rec) => ({
-    id: rec.beach.id,
-    name: rec.beach.name,
-    conditions: rec.summary,
-    height: rec.waveHeightBadge ?? rec.forecast.wave_height ?? "—",
-    photoUrl: rec.beach.photo_url ?? null,
-    score: rec.score,
-  }));
+  const userRank = SKILL_RANK[userSkillLevel ?? ""] ?? -1;
+  return remainingSpots.map((rec) => {
+    const beachRank = SKILL_RANK[rec.beach.skill_level?.toLowerCase() ?? ""] ?? 1;
+    const waveHeight = parseFloat(String(rec.forecast.wave_height ?? "0"));
+    // Show skill mismatch when beach exceeds user level AND conditions are non-trivial
+    const skillMismatch = userRank >= 0 && beachRank > userRank && waveHeight > 2;
+    return {
+      id: rec.beach.id,
+      name: rec.beach.name,
+      conditions: rec.summary,
+      height: rec.waveHeightBadge ?? rec.forecast.wave_height ?? "—",
+      photoUrl: rec.beach.photo_url ?? null,
+      score: rec.score,
+      skillMismatch,
+    };
+  });
 }
 
 /**
@@ -388,8 +407,8 @@ export function OracleHomeScreen() {
     const spots = (oracle.discovery?.recommendations ?? [])
       .filter(r => r.beach.id !== heroBeachId)
       .sort((a, b) => (a.distanceMiles ?? Infinity) - (b.distanceMiles ?? Infinity));
-    return transformToNearbySpots(spots);
-  }, [oracle.discovery?.recommendations, heroRec?.beach?.id]);
+    return transformToNearbySpots(spots, oracle.userSkillLevel);
+  }, [oracle.discovery?.recommendations, heroRec?.beach?.id, oracle.userSkillLevel]);
   const activityItems = useMemo(
     () => transformActivityItems(activityRaw ?? []),
     [activityRaw]
