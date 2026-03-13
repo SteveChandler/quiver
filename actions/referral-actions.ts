@@ -105,3 +105,34 @@ export async function getReferralStats() {
     };
   });
 }
+
+/**
+ * Leaderboard entry shape returned by the DB function.
+ */
+export interface ReferralLeaderboardEntry {
+  user_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  referral_count: number;
+  rank: number;
+}
+
+/**
+ * Fetch the referral leaderboard (top referrers).
+ * Uses the DB function `get_referral_leaderboard` (SECURITY DEFINER)
+ * so it can aggregate across users despite RLS.
+ */
+export async function getReferralLeaderboard(limit = 10) {
+  return withAuthenticatedAction(async (_user, supabase) => {
+    const { data, error } = await supabase
+      .rpc('get_referral_leaderboard' as any, { max_results: limit });
+
+    if (error) {
+      // Function may not exist yet if migration hasn't been applied
+      console.warn('[referral-actions] Leaderboard query failed:', error.message);
+      return [] as ReferralLeaderboardEntry[];
+    }
+
+    return (data ?? []) as ReferralLeaderboardEntry[];
+  });
+}
