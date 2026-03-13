@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Analytics: auth funnel events (`auth_modal_opened`, `auth_method_selected`, `signup_started`, `signup_success`, `login_success`) now dual-fire to both GA4 and internal `user_events` table for dashboard measurement
 
 ### Added
+- Growth: Google One Tap sign-in for anonymous web visitors — shows after 3-second delay on any page, exchanges credential via Supabase `signInWithIdToken` (no redirect), remembers dismissal for 24 hours, skipped on Capacitor native
+- Growth: referral leaderboard on profile page — ranked list of top referrers with current user stats, invite CTA with native share, and referral code display; backed by new `get_referral_leaderboard` SECURITY DEFINER DB function
+- Growth: live social proof stats on landing page — replaces static "750+ beaches" text with dynamic counters (beaches, sessions, users, today's reports) from new `/api/community-stats` endpoint; 10-minute cache
+- Growth: contextual signup prompt on map page — inline banner in sidebar (after 3rd beach) and bottom sheet (after 2nd beach) with adaptive copy ("Get alerts for [Beach Name]" when selected); dismissable per session, addresses 98.8% bounce rate
 - Growth: referral codes wired to onboarding — new users get auto-generated referral codes, `?ref=CODE` URLs captured via middleware cookie, referral claimed during onboarding
 - Growth: "Invite a Friend" flow on Oracle home screen — share sheet with referral URL via `InviteSheet` component
 - Growth: "Share your session" wired on Oracle home screen — opens `ShareSheet` with surf call data from current recommendation
