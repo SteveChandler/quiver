@@ -21,7 +21,7 @@ import type { SpotProfile } from '../spot-profile/types';
 import type { ConditionsSnapshot, ConditionsWindow } from '../conditions/types';
 import type { UserPreferences } from '../user-preferences/types';
 import type { SkillLevel } from '../user-preferences/skill-level';
-import { getSkillLevelOrDefault, SKILL_WAVE_RANGES as SKILL_WAVE_RANGES_SOURCE } from '../user-preferences/skill-level';
+import { getSkillLevelOrDefault, parseSkillLevel, SKILL_WAVE_RANGES as SKILL_WAVE_RANGES_SOURCE } from '../user-preferences/skill-level';
 import type { SkillWaveRanges } from '../user-preferences/skill-level';
 import { createSpotProfile } from '../spot-profile';
 import { createSwellComponent } from '../conditions';
@@ -186,6 +186,8 @@ export interface DiscoveryScoringOptions {
   preferredWaveSize?: 'small' | 'medium' | 'large' | 'any' | null;
   /** User's experience/skill level */
   userSkillLevel?: SkillLevel | null;
+  /** Beach's static skill level from database */
+  beachSkillLevel?: string | null;
 }
 
 /**
@@ -215,12 +217,13 @@ export function scoreBeachWithEngine(
   // Apply preferred wave size adjustment WITH skill level
   // Now applies if there's a preference OR a skill level (for skill ceiling checks)
   let adjustedComposite = composite;
-  if (options?.preferredWaveSize !== 'any' || options?.userSkillLevel) {
+  if (options?.preferredWaveSize !== 'any' || options?.userSkillLevel || options?.beachSkillLevel) {
     adjustedComposite = applyPreferredWaveSizeAdjustment(
       composite,
       snapshot.waveHeight,
       options?.preferredWaveSize || 'any',
-      options?.userSkillLevel
+      options?.userSkillLevel,
+      options?.beachSkillLevel
     );
   }
 
@@ -325,37 +328,90 @@ export function checkSkillCeiling(
 }
 
 /**
- * Result of calculating skill-based bonus.
+ * Result of condition-aware beach skill match scoring.
  */
-export interface SkillBonusResult {
-  /** Bonus points (0 if not in ideal range) */
-  bonus: number;
-  /** Reason string if bonus applies */
+export interface BeachSkillMatchResult {
+  /** Score adjustment (positive = bonus, negative = penalty) */
+  adjustment: number;
+  /** Reason string for the adjustment */
   reason: string | null;
+  /** Warning string if conditions are challenging */
+  warning: string | null;
 }
 
+/** Numeric ordering for skill level comparisons. */
+const SKILL_ORDER: Record<SkillLevel, number> = {
+  beginner: 0,
+  intermediate: 1,
+  advanced: 2,
+  expert: 3,
+};
+
 /**
- * Calculate bonus for waves in user's ideal skill range.
- * Only applies when no wave size preference is set.
+ * Calculate condition-aware skill match bonus/penalty.
+ *
+ * Considers BOTH the beach's static skill level AND current wave height
+ * to determine how well conditions match the user's experience level.
+ *
+ * Cases:
+ * - Beach at/below user level + ideal waves → bonus (+3)
+ * - Beach harder but conditions manageable → small bonus (+1) or neutral
+ * - Beach harder + conditions heavy → penalty (-2 to -6)
+ * - Beach at/below user level + non-ideal waves → neutral (0)
+ *
+ * Note: checkSkillCeiling handles dangerous wave-height penalties separately.
  *
  * @param waveHeight - Current wave height in feet
- * @param skillLevel - User's skill level
- * @returns Bonus and reason (if applicable)
+ * @param beachSkillLevel - Beach's skill level from database (may be null)
+ * @param userSkillLevel - User's skill level
+ * @returns Adjustment, reason, and warning (as applicable)
  */
-export function calculateSkillBonus(
+export function calculateBeachSkillMatchBonus(
   waveHeight: number,
-  skillLevel: SkillLevel
-): SkillBonusResult {
-  const skillRanges = SKILL_WAVE_RANGES[skillLevel];
+  beachSkillLevel: string | null,
+  userSkillLevel: SkillLevel
+): BeachSkillMatchResult {
+  const beachSkill: SkillLevel = parseSkillLevel(beachSkillLevel) ?? 'intermediate';
+  const userRanges = SKILL_WAVE_RANGES[userSkillLevel];
+  const skillGap = SKILL_ORDER[beachSkill] - SKILL_ORDER[userSkillLevel];
+  const wavesInIdealRange = waveHeight >= userRanges.ideal.min && waveHeight <= userRanges.ideal.max;
+  const wavesManageable = waveHeight <= userRanges.ideal.max;
 
-  if (waveHeight >= skillRanges.ideal.min && waveHeight <= skillRanges.ideal.max) {
+  // Beach at or below user level with ideal wave conditions — best match
+  if (skillGap <= 0 && wavesInIdealRange) {
     return {
-      bonus: WAVE_SIZE_SCORING_CONFIG.skillIdealBonus,
-      reason: 'Great wave size for your level',
+      adjustment: WAVE_SIZE_SCORING_CONFIG.skillIdealBonus,
+      reason: 'Conditions match your experience level today',
+      warning: null,
     };
   }
 
-  return { bonus: 0, reason: null };
+  // Beach harder than user but conditions are mild enough
+  if (skillGap > 0 && wavesManageable) {
+    const label = beachSkill.charAt(0).toUpperCase() + beachSkill.slice(1);
+    return {
+      adjustment: skillGap === 1 ? 1 : 0,
+      reason: `${label} spot, but today's conditions are manageable`,
+      warning: null,
+    };
+  }
+
+  // Beach harder than user and conditions aren't easy
+  // Note: checkSkillCeiling handles the heavy wave-height penalties separately
+  if (skillGap > 0) {
+    const label = beachSkill.charAt(0).toUpperCase() + beachSkill.slice(1);
+    const penalty = Math.min(skillGap * 2, 6);
+    return {
+      adjustment: -penalty,
+      reason: null,
+      warning: skillGap >= 2
+        ? `${label} spot — conditions may be challenging for your level`
+        : null,
+    };
+  }
+
+  // Beach at or below user level, waves outside ideal range — neutral
+  return { adjustment: 0, reason: null, warning: null };
 }
 
 /**
@@ -457,7 +513,8 @@ function applyPreferredWaveSizeAdjustment(
   composite: CompositeScore,
   waveHeight: number,
   preferredSize: 'small' | 'medium' | 'large' | 'any',
-  userSkillLevel?: SkillLevel | null
+  userSkillLevel?: SkillLevel | null,
+  beachSkillLevel?: string | null
 ): CompositeScore {
   // SAFETY: Default to 'beginner' if no skill level set
   const skillLevel = getSkillLevelOrDefault(userSkillLevel);
@@ -481,9 +538,11 @@ function applyPreferredWaveSizeAdjustment(
     return applyScoreAdjustment(composite, adjustment, reason, warning);
   }
 
-  // 3. Fall back to skill-based bonus
-  const { bonus, reason } = calculateSkillBonus(waveHeight, skillLevel);
-  return applyScoreAdjustment(composite, bonus, reason, null);
+  // 3. Fall back to condition-aware skill-based scoring
+  const { adjustment, reason, warning } = calculateBeachSkillMatchBonus(
+    waveHeight, beachSkillLevel ?? null, skillLevel
+  );
+  return applyScoreAdjustment(composite, adjustment, reason, warning);
 }
 
 // =============================================================================

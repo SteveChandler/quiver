@@ -35,7 +35,7 @@ export {
 export type {
   DiscoveryScoringOptions,
   SkillCeilingResult,
-  SkillBonusResult,
+  BeachSkillMatchResult,
   PreferenceAdjustmentResult,
 } from './discovery-adapter';
 export {
@@ -49,6 +49,6 @@ export {
   SKILL_WAVE_RANGES,
   PREF_WAVE_RANGES,
   checkSkillCeiling,
-  calculateSkillBonus,
+  calculateBeachSkillMatchBonus,
   calculatePreferenceAdjustment,
 } from './discovery-adapter';

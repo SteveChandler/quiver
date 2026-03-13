@@ -10,6 +10,8 @@ export interface NearbySpot {
   height: string;
   photoUrl: string | null;
   score?: number;
+  /** True when beach skill level exceeds user level AND conditions are significant */
+  skillMismatch?: boolean;
 }
 
 export interface NearbySpotsProps {
@@ -52,9 +54,19 @@ function SpotCard({
         )}
       </div>
       <div className="p-3">
-        <p className="font-heading text-white text-sm font-semibold line-clamp-1">
-          {spot.name}
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="font-heading text-white text-sm font-semibold line-clamp-1">
+            {spot.name}
+          </p>
+          {spot.skillMismatch && (
+            <span
+              className="shrink-0 text-[10px] font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-full"
+              title="Above your skill level"
+            >
+              ADV
+            </span>
+          )}
+        </div>
         <p className="text-medium text-xs">{spot.conditions}</p>
         <p className="text-[#4A70D9] text-base font-bold">{spot.height}</p>
       </div>

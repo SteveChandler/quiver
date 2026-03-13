@@ -35,6 +35,8 @@ export interface DiscoveryCacheOptions {
   horizonHours?: number;
   maxResults?: number;
   timeSlot?: TimeSlot;
+  /** User's skill level — included so changing it invalidates the cache */
+  userSkillLevel?: string | null;
 }
 
 export const CACHE_KEY_PREFIX = "quiver_discovery_";
@@ -53,6 +55,7 @@ export function hashDiscoveryOptions(options: DiscoveryCacheOptions): string {
     `r:${options.radiusMiles || "def"}`,
     `h:${options.horizonHours || "def"}`,
     `m:${options.maxResults || "def"}`,
+    `sk:${options.userSkillLevel || "def"}`,
   ];
   const key = parts.join("|");
 
