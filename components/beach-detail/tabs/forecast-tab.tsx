@@ -39,6 +39,7 @@ import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { DataErrorBoundary } from "@/components/error-boundaries";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import { useCachedProfile } from "@/hooks/use-cached-profile";
+import { PublicContentGate } from "@/components/ui/public-content-gate";
 
 const ConditionsOverview = dynamic(
   () =>
@@ -504,15 +505,21 @@ export function ForecastTab({
             <YesterdaysAccuracyCard accuracy={yesterdayAccuracy} />
           )}
 
-          {/* Best Surf Window — visible to all users */}
-          <BestSurfWindow
-            beachId={beach.id}
-            beachName={beach.name}
-            beachTimezone={beachTimezone}
-            forecasts={todaysForecasts}
-            surfCall={surfCall}
-            surfCallIsTomorrow={surfCallIsTomorrow}
-          />
+          {/* Best Surf Window — gated for anonymous users */}
+          <PublicContentGate
+            ctaTitle={`See today's surf call for ${beach.name}`}
+            ctaDescription="Sign up to get personalized surf calls and best time to paddle out"
+            source="surf-call-conditions"
+          >
+            <BestSurfWindow
+              beachId={beach.id}
+              beachName={beach.name}
+              beachTimezone={beachTimezone}
+              forecasts={todaysForecasts}
+              surfCall={surfCall}
+              surfCallIsTomorrow={surfCallIsTomorrow}
+            />
+          </PublicContentGate>
         </TabsContent>
 
         {/* Tides Tab */}

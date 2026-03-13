@@ -342,18 +342,20 @@ describe("ForecastTab", () => {
       expect(screen.queryByText("5-Day Outlook")).not.toBeInTheDocument();
     });
 
-    it("shows BestSurfWindow without a gate in public mode", () => {
+    it("shows BestSurfWindow with PublicContentGate in public mode", () => {
       render(<ForecastTab {...defaultProps} publicMode={true} />);
 
-      // Gate has been removed — BestSurfWindow is visible to all users
-      expect(screen.queryByTestId("public-gate")).not.toBeInTheDocument();
+      // Gate wraps BestSurfWindow — anonymous users see the auth CTA
+      expect(screen.getByTestId("public-gate")).toBeInTheDocument();
+      expect(screen.getByTestId("public-gate")).toHaveAttribute("data-source", "surf-call-conditions");
       expect(screen.getByTestId("best-surf-window")).toBeInTheDocument();
     });
 
-    it("shows BestSurfWindow without a gate in authenticated mode", () => {
+    it("shows BestSurfWindow with PublicContentGate in authenticated mode", () => {
       render(<ForecastTab {...defaultProps} publicMode={false} />);
 
-      expect(screen.queryByTestId("public-gate")).not.toBeInTheDocument();
+      // Gate is always rendered; the gate component itself handles auth check internally
+      expect(screen.getByTestId("public-gate")).toBeInTheDocument();
       expect(screen.getByTestId("best-surf-window")).toBeInTheDocument();
     });
 
