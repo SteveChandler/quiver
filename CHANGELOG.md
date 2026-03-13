@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Hourly Open-Meteo wind cron (`/api/cron/wind/update`) — fetches accurate wind for all 273 beaches every hour, replaces garbage CDIP wind with real forecasts
+- `wind_source` column on `enhanced_forecasts` — tracks wind data provenance (HRRR > NWS > OPEN_METEO_WIND), prevents bad data overwriting good data
+- `lib/services/open-meteo-wind-service.ts` — Open-Meteo Weather API client for hourly wind
 - Testing: comprehensive unit tests for `referral-actions.ts` — 23 tests covering `getOrCreateReferralCode`, `claimReferral` (validation, self-referral, duplicates, SQL wildcard rejection), `getReferralStats`, and `getReferralLeaderboard` (graceful degradation)
 - Operations: `get_conversion_funnel(days)` Supabase RPC function — returns 7-step signup funnel metrics (anonymous_sessions -> cta_views -> cta_clicks -> auth_modal_opens -> signup_starts -> signup_completes -> onboarding_completes) with bot-filtered counts and unique session tracking
 - Oracle skill-aware beach recommendations: scoring now considers beach skill level + current wave height together (not just wave height alone); Pipeline at 3ft → manageable for beginners, Pipeline at 15ft → heavy penalty. Hero subtitle shows skill-aware reasoning ("Conditions match your experience level today" or "Advanced spot, but today's conditions are manageable"). Nearby Spots cards show ADV badge when beach exceeds user skill and conditions are significant. Changing skill level in settings immediately invalidates discovery cache.
@@ -23,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support page at `/support` — static server component with FAQ, contact email, bug report instructions, and links to Privacy Policy and Terms of Service; required for iOS App Store listing
 
 ### Fixed
+- Oracle time slots now show accurate wind data — HRRR wind enrichment expanded from NOAA_NWS rows only to all forecast rows
+- Nearby Spots carousel now scrollable with mouse wheel (was trackpad-only)
 - Auth: fixed 5 broken `unified-auth-modal` tests caused by Apple Sign-In env guard -- split tests into "Apple available" and "Apple unavailable" describe blocks with proper env var setup/teardown
 - Security: referral leaderboard DB function now prefers `display_name` over `full_name` to avoid exposing users' real names (new migration `20260313060000`)
 - Security: referral code validation (`/^[A-Z0-9]{4,12}$/i`) added in middleware cookie capture and `claimReferral` action; replaced `ilike` (SQL wildcard-vulnerable) with exact `eq` match

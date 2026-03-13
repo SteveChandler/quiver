@@ -59,11 +59,9 @@ const mockSupabaseClient = {
       return {
         update: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              gte: jest.fn().mockReturnValue({
-                lt: jest.fn().mockReturnValue({
-                  select: jest.fn().mockResolvedValue(mockUpdateResult),
-                }),
+            gte: jest.fn().mockReturnValue({
+              lt: jest.fn().mockReturnValue({
+                select: jest.fn().mockResolvedValue(mockUpdateResult),
               }),
             }),
           }),
@@ -192,11 +190,11 @@ describe('Cron: extract-hrrr-wind', () => {
     mockBeachesResult = {
       data: [
         // In CONUS range (San Diego)
-        { id: 'beach-sd', center_lat: 32.8, center_lng: -117.3 },
+        { id: 'beach-sd', lat: 32.8, lon: -117.3 },
         // Hawaii — outside CONUS range
-        { id: 'beach-hi', center_lat: 21.3, center_lng: -157.8 },
+        { id: 'beach-hi', lat: 21.3, lon: -157.8 },
         // Puerto Rico — outside CONUS range
-        { id: 'beach-pr', center_lat: 18.4, center_lng: -66.1 },
+        { id: 'beach-pr', lat: 18.4, lon: -66.1 },
       ],
       error: null,
     };
@@ -236,7 +234,7 @@ describe('Cron: extract-hrrr-wind', () => {
 
   it('returns 502 when ML service request throws', async () => {
     mockBeachesResult = {
-      data: [{ id: 'beach-1', center_lat: 34.0, center_lng: -118.5 }],
+      data: [{ id: 'beach-1', lat: 34.0, lon: -118.5 }],
       error: null,
     };
     mockFetchWithRetry.mockRejectedValue(new Error('Connection refused'));
@@ -254,7 +252,7 @@ describe('Cron: extract-hrrr-wind', () => {
 
   it('returns 502 when ML service returns non-OK status', async () => {
     mockBeachesResult = {
-      data: [{ id: 'beach-1', center_lat: 34.0, center_lng: -118.5 }],
+      data: [{ id: 'beach-1', lat: 34.0, lon: -118.5 }],
       error: null,
     };
     mockFetchWithRetry.mockResolvedValue({
@@ -278,7 +276,7 @@ describe('Cron: extract-hrrr-wind', () => {
 
   it('converts wind speed from m/s to mph correctly', async () => {
     mockBeachesResult = {
-      data: [{ id: 'beach-1', center_lat: 34.0, center_lng: -118.5 }],
+      data: [{ id: 'beach-1', lat: 34.0, lon: -118.5 }],
       error: null,
     };
 
@@ -319,13 +317,11 @@ describe('Cron: extract-hrrr-wind', () => {
             capturedUpdate = data;
             return {
               eq: jest.fn().mockReturnValue({
-                eq: jest.fn().mockReturnValue({
-                  gte: jest.fn().mockReturnValue({
-                    lt: jest.fn().mockReturnValue({
-                      select: jest.fn().mockResolvedValue({
-                        data: [{ id: '1' }],
-                        error: null,
-                      }),
+                gte: jest.fn().mockReturnValue({
+                  lt: jest.fn().mockReturnValue({
+                    select: jest.fn().mockResolvedValue({
+                      data: [{ id: '1' }],
+                      error: null,
                     }),
                   }),
                 }),
@@ -354,7 +350,7 @@ describe('Cron: extract-hrrr-wind', () => {
 
   it('counts actual matched rows from .select("id")', async () => {
     mockBeachesResult = {
-      data: [{ id: 'beach-1', center_lat: 34.0, center_lng: -118.5 }],
+      data: [{ id: 'beach-1', lat: 34.0, lon: -118.5 }],
       error: null,
     };
 
@@ -391,13 +387,11 @@ describe('Cron: extract-hrrr-wind', () => {
         return {
           update: jest.fn().mockReturnValue({
             eq: jest.fn().mockReturnValue({
-              eq: jest.fn().mockReturnValue({
-                gte: jest.fn().mockReturnValue({
-                  lt: jest.fn().mockReturnValue({
-                    select: jest.fn().mockResolvedValue({
-                      data: [{ id: '1' }, { id: '2' }, { id: '3' }],
-                      error: null,
-                    }),
+              gte: jest.fn().mockReturnValue({
+                lt: jest.fn().mockReturnValue({
+                  select: jest.fn().mockResolvedValue({
+                    data: [{ id: '1' }, { id: '2' }, { id: '3' }],
+                    error: null,
                   }),
                 }),
               }),
