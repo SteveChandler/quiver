@@ -132,10 +132,13 @@ const VALID_EVENTS: ImplicitEventType[] = [
   'signin_cta_click',
   // Auth funnel events (fire before user is authenticated)
   'auth_modal_opened',
+  'auth_modal_closed_without_action',
   'auth_method_selected',
+  'auth_provider_selected',
   'signup_started',
   'signup_success',
   'login_success',
+  'signup_form_submitted',
   // Home screen events
   'home_at_beach_click',
   'home_plan_weekend_click',
@@ -187,7 +190,9 @@ const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
   // Conversion tracking (critical for understanding anon→authed funnel)
   'signup_cta_click', 'signup_cta_view', 'signin_cta_click', 'cta_click',
   // Auth funnel events (fire before user is authenticated — must be anonymous-allowed)
-  'auth_modal_opened', 'auth_method_selected', 'signup_started', 'signup_success', 'login_success',
+  'auth_modal_opened', 'auth_modal_closed_without_action',
+  'auth_method_selected', 'auth_provider_selected',
+  'signup_started', 'signup_success', 'login_success', 'signup_form_submitted',
   // Engagement signals from anonymous visitors
   'forecast_interaction', 'forecast_tab_click', 'horizon_strip_day_selected',
   'beach_search', 'map_interaction', 'map_marker_click',
@@ -233,9 +238,25 @@ async function isTrackingAllowed(
 }
 
 export async function POST(request: Request) {
-  // 1. Bot filtering
+  // 1. Bot filtering — silent 200 OK so bots don't learn they're detected
   const ua = request.headers.get('user-agent') || '';
+  const acceptLanguage = request.headers.get('accept-language');
+
+  // UA-based check (known bot patterns)
   if (isBot(ua)) {
+    return createSuccessResponse({ ok: true, status: 'bot_filtered' });
+  }
+
+  // Header-based heuristics: real browsers always send Accept-Language.
+  // Headless clients and programmatic requests commonly omit it.
+  // Short or missing UAs are also a strong signal.
+  if (!ua || ua.length < 15 || !acceptLanguage) {
+    return createSuccessResponse({ ok: true, status: 'bot_filtered' });
+  }
+
+  // Headless browser / automation tool signatures not caught by isBot()
+  const headlessPatterns = /headlesschrome|phantomjs|selenium|puppeteer|playwright|webdriver|chrome-lighthouse|pagespeed|lighthouse/i;
+  if (headlessPatterns.test(ua)) {
     return createSuccessResponse({ ok: true, status: 'bot_filtered' });
   }
 

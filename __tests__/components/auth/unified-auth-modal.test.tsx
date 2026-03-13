@@ -17,6 +17,7 @@ jest.mock("@/lib/auth/auth-utils", () => ({
   initiateOAuthFlow: jest.fn(),
   sendMagicLink: jest.fn(),
   validateEmail: jest.fn(),
+  validateEmailDomain: jest.fn().mockReturnValue({ isValid: true }),
   validatePassword: jest.fn(),
   getAuthRedirect: jest.fn(),
   setAuthRedirect: jest.fn(),
@@ -25,13 +26,16 @@ jest.mock("@/lib/auth/auth-utils", () => ({
 
 jest.mock("@/lib/analytics/auth-events", () => ({
   trackAuthModalOpened: jest.fn(),
+  trackAuthModalClosedWithoutAction: jest.fn(),
   trackAuthMethodSelected: jest.fn(),
+  trackAuthProviderSelected: jest.fn(),
   trackLoginStarted: jest.fn(),
   trackLoginSuccess: jest.fn(),
   trackLoginFailed: jest.fn(),
   trackSignupStarted: jest.fn(),
   trackSignupSuccess: jest.fn(),
   trackSignupFailed: jest.fn(),
+  trackSignupFormSubmitted: jest.fn(),
   trackMagicLinkSent: jest.fn(),
   categorizeAuthError: jest.fn(() => "unknown_error"),
   extractEmailDomain: jest.fn((email) => email.split("@")[1] || "unknown"),
@@ -669,7 +673,8 @@ describe("UnifiedAuthModal", () => {
           "John Doe",
           expect.objectContaining({
             signup_context: expect.any(Object),
-          })
+          }),
+          expect.any(String) // returnTo path
         );
       });
 
@@ -678,11 +683,10 @@ describe("UnifiedAuthModal", () => {
         requires_verification: true,
       });
 
-      // Email/password signup requires email confirmation; we redirect to the
-      // return path (falls back to "/") and close the modal (unless on /auth/sign-up).
+      // Email/password signup requires email confirmation; we redirect to landing
+      // with returnTo so users return to their beach page after verification.
       const router = useRouter();
-      // No returnTo prop passed → getReturnPath() returns "/" → "/?signup=confirm-email"
-      expect(router.replace).toHaveBeenCalledWith("/?signup=confirm-email");
+      expect(router.replace).toHaveBeenCalledWith(expect.stringContaining("signup=confirm-email"));
       expect(mockOnClose).toHaveBeenCalled();
     });
 

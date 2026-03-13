@@ -710,8 +710,8 @@ export function BeachesEnhancedForecast({
                 </span>
               ) : (
                 <span>
-                  You're viewing the most recent forecast saved on this device.
-                  We'll sync updated data automatically when you're back online.
+                  You&apos;re viewing the most recent forecast saved on this device.
+                  We&apos;ll sync updated data automatically when you&apos;re back online.
                 </span>
               )}
             </AlertDescription>

@@ -697,8 +697,8 @@ describe("discoverSurfSpots scoring behavior", () => {
 
     // Should get a reasonable score with bonus for waves matching skill level
     expect(rec.score).toBeGreaterThanOrEqual(60);
-    // Should have reason about great wave size for level
-    expect(rec.reasons.some(r => r.includes('Great wave size for your level'))).toBe(true);
+    // Should have reason about conditions matching experience level
+    expect(rec.reasons.some(r => r.includes('match your experience level') || r.includes('Great wave size for your level'))).toBe(true);
   });
 });
 

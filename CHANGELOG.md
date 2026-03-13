@@ -10,6 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Testing: comprehensive unit tests for `referral-actions.ts` — 23 tests covering `getOrCreateReferralCode`, `claimReferral` (validation, self-referral, duplicates, SQL wildcard rejection), `getReferralStats`, and `getReferralLeaderboard` (graceful degradation)
 - Operations: `get_conversion_funnel(days)` Supabase RPC function — returns 7-step signup funnel metrics (anonymous_sessions -> cta_views -> cta_clicks -> auth_modal_opens -> signup_starts -> signup_completes -> onboarding_completes) with bot-filtered counts and unique session tracking
+- Oracle skill-aware beach recommendations: scoring now considers beach skill level + current wave height together (not just wave height alone); Pipeline at 3ft → manageable for beginners, Pipeline at 15ft → heavy penalty. Hero subtitle shows skill-aware reasoning ("Conditions match your experience level today" or "Advanced spot, but today's conditions are manageable"). Nearby Spots cards show ADV badge when beach exceeds user skill and conditions are significant. Changing skill level in settings immediately invalidates discovery cache.
+- Migration `20260312130000_classify_beach_skill_levels.sql`: normalizes compound skill_level values (`beginner-intermediate` → `beginner`, `intermediate-advanced` → `intermediate`, `all` → `beginner`), adds CHECK constraint and NOT NULL DEFAULT
+- Growth: Google One Tap sign-in for anonymous web visitors — shows after 3-second delay on any page, exchanges credential via Supabase `signInWithIdToken` (no redirect), remembers dismissal for 24 hours, skipped on Capacitor native
+- Growth: referral leaderboard on profile page — ranked list of top referrers with current user stats, invite CTA with native share, and referral code display; backed by new `get_referral_leaderboard` SECURITY DEFINER DB function
+- Growth: live social proof stats on landing page — replaces static "750+ beaches" text with dynamic counters (beaches, sessions, users, today's reports) from new `/api/community-stats` endpoint; 10-minute cache
+- Growth: contextual signup prompt on map page — inline banner in sidebar (after 3rd beach) and bottom sheet (after 2nd beach) with adaptive copy ("Get alerts for [Beach Name]" when selected); dismissable per session, addresses 98.8% bounce rate
+- Growth: referral codes wired to onboarding — new users get auto-generated referral codes, `?ref=CODE` URLs captured via middleware cookie, referral claimed during onboarding
+- Growth: "Invite a Friend" flow on Oracle home screen — share sheet with referral URL via `InviteSheet` component
+- Growth: "Share your session" wired on Oracle home screen — opens `ShareSheet` with surf call data from current recommendation
+- Growth: CTA copy optimization across 4 pages — gates now match user intent per surface ("See the full 7-day forecast", "See what your crew has been surfing", etc.)
+- Support page at `/support` — static server component with FAQ, contact email, bug report instructions, and links to Privacy Policy and Terms of Service; required for iOS App Store listing
 
 ### Fixed
 - Auth: fixed 5 broken `unified-auth-modal` tests caused by Apple Sign-In env guard -- split tests into "Apple available" and "Apple unavailable" describe blocks with proper env var setup/teardown
@@ -31,23 +42,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Auth: hidden Apple Sign-In button when `NEXT_PUBLIC_APPLE_CLIENT_ID` is not configured (prevents broken button UX)
 - Auth: email confirmation redirect now preserves beach page context instead of hardcoded `/?signup=confirm-email`
 - Analytics: auth funnel events (`auth_modal_opened`, `auth_method_selected`, `signup_started`, `signup_success`, `login_success`) now dual-fire to both GA4 and internal `user_events` table for dashboard measurement
-
-### Added
-- Growth: Google One Tap sign-in for anonymous web visitors — shows after 3-second delay on any page, exchanges credential via Supabase `signInWithIdToken` (no redirect), remembers dismissal for 24 hours, skipped on Capacitor native
-- Growth: referral leaderboard on profile page — ranked list of top referrers with current user stats, invite CTA with native share, and referral code display; backed by new `get_referral_leaderboard` SECURITY DEFINER DB function
-- Growth: live social proof stats on landing page — replaces static "750+ beaches" text with dynamic counters (beaches, sessions, users, today's reports) from new `/api/community-stats` endpoint; 10-minute cache
-- Growth: contextual signup prompt on map page — inline banner in sidebar (after 3rd beach) and bottom sheet (after 2nd beach) with adaptive copy ("Get alerts for [Beach Name]" when selected); dismissable per session, addresses 98.8% bounce rate
-- Growth: referral codes wired to onboarding — new users get auto-generated referral codes, `?ref=CODE` URLs captured via middleware cookie, referral claimed during onboarding
-- Growth: "Invite a Friend" flow on Oracle home screen — share sheet with referral URL via `InviteSheet` component
-- Growth: "Share your session" wired on Oracle home screen — opens `ShareSheet` with surf call data from current recommendation
-- Growth: CTA copy optimization across 4 pages — gates now match user intent per surface ("See the full 7-day forecast", "See what your crew has been surfing", etc.)
-- Support page at `/support` — static server component with FAQ, contact email, bug report instructions, and links to Privacy Policy and Terms of Service; required for iOS App Store listing
 - Report Conditions feature: replaces "Log Session" CTA with inline "Report Conditions" card on beach detail pages — users select wave size (1-2ft through 5+ft) and vibe (Firing/Fun/Meh/Rough) with an optional note; submission creates an `intel_posts` record (with new `wave_size_range` + `vibe` columns) and a minimal `sessions` record (`source: 'conditions_report'`) for ML training; deduplicates to one report per user per beach per calendar day
 - Recent Reports section on beach detail page: shows up to 3 community conditions reports from the last 24 hours (name, time ago, wave size, vibe emoji, note); hidden when empty — no dead empty state
 - Migration `20260312120000_add_conditions_report_fields.sql`: adds `wave_size_range` and `vibe` columns to `intel_posts`, `source` column to `sessions`, and a `(beach_id, created_at DESC)` index for the 24h recency query
 
+### Fixed
+- Restored `surf-call-conditions` PublicContentGate in SpotSurfReport — the only CTA converting at 2.4% was deleted Mar 11; verdict badge remains visible, conditions detail gated
+- Fixed CTA view event inflation (~27x per session) — added module-level dedup Set in `trackSignupCtaView` so IntersectionObserver-driven CTAs fire once per source per page load
+- Fixed email confirmation redirect losing user context — signup from `/ca/san-diego/blacks` now returns user to that page after email verification instead of `/`
+- Connected auth funnel events to `user_events` DB table — `auth-events.ts` was GA4-only, causing zero `auth_modal_opened`/`signup_started` events in internal analytics
+- Added `trackAuthModalClosedWithoutAction`, `trackAuthProviderSelected`, `trackSignupFormSubmitted` for granular funnel measurement
+- Fixed bot filtering: empty User-Agent now correctly returns `isBot=true`; added Accept-Language, short-UA, and headless browser pattern checks to `/api/events`
+
 ### Changed
 - Beach detail page: removed 3 of 4 auth gates to reduce friction — live cam feed and "Best Time to Surf Today" are now visible to anonymous users; sticky bottom signup bar removed from all beach detail routes; `PersonalizedForecastTeaser` secondary CTA removed from forecast tab; single "Get My Forecast" CTA in the Know Before You Go section is the sole conversion point for anonymous visitors
+- CTA copy optimization: best-window-gate uses beach-specific copy ("Best Window at {beach} Today"), cam-hero uses contextual copy ("{beach} is Live Right Now"), hero teaser shows data-driven forecast preview
+- Moved horizon strip upsell from inside Forecast tab to above tab bar — visible to all beach page visitors instead of just Forecast tab users
+- Tide page titles: lead with unique value ("Tide Chart & Surf Windows") instead of duplicating Google knowledge panel answer
+- Water-temp page titles: "Water Temp & Wetsuit Guide" instead of raw temperature Google already shows
+- Tide/water-temp meta descriptions: lead with value proposition, not raw data
+- Added `TideFAQSchema` and `WaterTempFAQSchema` structured data for rich SERP results
 
 
 - Landing page: replaced "0K+" vanity counter stats bar with a single factual social proof line ("Covering 769 beaches across California, Oregon, Washington, Hawaii, Puerto Rico & beyond") in `SurfHighlightsSection`

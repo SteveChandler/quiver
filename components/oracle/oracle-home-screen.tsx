@@ -353,6 +353,7 @@ export function OracleHomeScreen() {
         toast("Coming soon", { description: "Alarm notifications are on the way." })
       );
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleShareSession = useCallback(() => {

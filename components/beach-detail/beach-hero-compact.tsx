@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Star, Loader2, Sparkles, Waves, Wind, Anchor } from "lucide-react";
+import { Star, Loader2, CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
 import { MatchScoreEducation } from "@/components/recommendations/match-score-education";
@@ -11,12 +11,12 @@ import { useBoardRecommendation } from "@/hooks/use-board-recommendation";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { track } from "@/lib/analytics";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
+import { trackSignupCtaClick, trackSignupCtaView } from "@/lib/analytics/signup-conversion-tracking";
 import type { Beach } from "@/types/database";
 import type { PersonalizedScore } from "@/lib/services/personalized-scoring-service";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 import { slugify } from "@/lib/utils/text-utils";
-import { getScoreColorClasses } from "@/lib/utils/score-color-utils";
 
 interface BeachHeroCompactProps {
   beach: Beach & {
@@ -33,6 +33,10 @@ interface BeachHeroCompactProps {
   publicMode?: boolean;
   /** When true, renders transparent over video — hides h1, uses white text */
   overlayMode?: boolean;
+  /** First day beyond the 3-day public horizon — used to build data-driven teaser copy */
+  firstHiddenDayName?: string | null;
+  /** Peak wave height in the gated forecast window (days 4-12) */
+  peakHiddenWaveHeight?: number | null;
 }
 
 export function BeachHeroCompact({
@@ -45,6 +49,8 @@ export function BeachHeroCompact({
   className,
   publicMode,
   overlayMode = false,
+  firstHiddenDayName,
+  peakHiddenWaveHeight,
 }: BeachHeroCompactProps) {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const rating = beach.average_rating;
@@ -89,6 +95,10 @@ export function BeachHeroCompact({
     track("match_score_teaser_click", {
       beach_slug: slugify(beach.name),
     });
+    trackSignupCtaClick({
+      source: "match-score-teaser",
+      cta_title: "forecast-teaser",
+    });
     trackAuthModalOpened({
       mode: "signup",
       source: "match-score-teaser",
@@ -108,6 +118,7 @@ export function BeachHeroCompact({
         if (entry.isIntersecting && !hasTrackedView.current) {
           hasTrackedView.current = true;
           track("match_score_teaser_view", { beach_slug: slugify(beach.name) });
+          trackSignupCtaView({ source: "match-score-teaser", cta_title: "forecast-teaser" });
         }
       },
       { threshold: 0.5 }
@@ -116,70 +127,41 @@ export function BeachHeroCompact({
     return () => observer.disconnect();
   }, [publicMode, personalizationScore, isLoadingPersonalization, beach.name]);
 
-  // Conditions score badge (used in overlay mode)
-  const scoreColors = baseScore != null ? getScoreColorClasses(baseScore) : null;
+  // Build data-driven teaser copy for anonymous users.
+  // Prefer concrete forecast data (wave height on a named upcoming day),
+  // fall back to a compelling static message about the 12-day window.
+  const teaserHeadline = useMemo(() => {
+    if (firstHiddenDayName && peakHiddenWaveHeight && peakHiddenWaveHeight >= 2) {
+      return `${firstHiddenDayName}'s swell hits ${peakHiddenWaveHeight.toFixed(0)}ft — see the 12-day outlook`;
+    }
+    if (firstHiddenDayName) {
+      return `See what's coming ${firstHiddenDayName} — full 12-day outlook`;
+    }
+    return "Best window tomorrow: sign up for alerts";
+  }, [firstHiddenDayName, peakHiddenWaveHeight]);
 
-  // Overlay mode: stripped-down conditions strip for fast scanning
-  if (overlayMode) {
-    return (
-      <div className={`py-3 ${className || ""}`}>
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Conditions score badge */}
-          {scoreColors && baseScore != null && (
-            <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold text-white ${scoreColors.bg}`}
-              style={{ textShadow: "none" }}
-            >
-              {baseScore}
-              <span className="font-medium text-white/80 text-xs">{scoreColors.label}</span>
-            </span>
-          )}
+  const teaserSubtext = useMemo(() => {
+    if (firstHiddenDayName && peakHiddenWaveHeight && peakHiddenWaveHeight >= 2) {
+      return "Free — takes 30 seconds";
+    }
+    return "Free — no credit card needed";
+  }, [firstHiddenDayName, peakHiddenWaveHeight]);
 
-          {/* Wave height */}
-          {currentForecast?.wave_height && (
-            <span className="inline-flex items-center gap-1.5 text-white" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>
-              <Waves className="h-4 w-4 text-white/70 shrink-0" aria-hidden="true" />
-              <span className="text-sm font-semibold">{currentForecast.wave_height}</span>
-            </span>
-          )}
-
-          {/* Wind summary */}
-          {currentForecast?.wind_speed && (
-            <span className="inline-flex items-center gap-1.5 text-white" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>
-              <Wind className="h-4 w-4 text-white/70 shrink-0" aria-hidden="true" />
-              <span className="text-sm font-semibold">
-                {currentForecast.wind_direction
-                  ? `${currentForecast.wind_speed} ${currentForecast.wind_direction}`
-                  : currentForecast.wind_speed}
-              </span>
-            </span>
-          )}
-
-          {/* Tide state */}
-          {currentForecast?.tide_status && (
-            <span className="inline-flex items-center gap-1.5 text-white" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>
-              <Anchor className="h-4 w-4 text-white/70 shrink-0" aria-hidden="true" />
-              <span className="text-sm font-semibold">{currentForecast.tide_status}</span>
-            </span>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Default (non-overlay) mode: full metadata display
   return (
     <div
-      className={`bg-white border-b border-gray-200 py-6 ${className || ""}`}
+      className={`${overlayMode ? "" : "bg-white border-b border-gray-200"} py-6 ${className || ""}`}
     >
       {/* Phase 4 Spec: Beach Name - 36px Space Grotesk, 700 weight, 44px line-height, 8px margin-bottom */}
-      <h1 className="text-4xl font-heading font-bold leading-[44px] text-gray-900 mb-2">
-        {beach.name} Surf Report
-      </h1>
+      {/* Hidden in overlayMode — title is rendered separately in the hero overlay above */}
+      {!overlayMode && (
+        <h1 className="text-4xl font-heading font-bold leading-[44px] text-gray-900 mb-2">
+          {beach.name} Surf Report
+        </h1>
+      )}
 
       {/* Personalization Badge - Show after title for authenticated users */}
       {isLoadingPersonalization && (
-        <div className="flex items-center gap-2 mb-3 text-muted-foreground">
+        <div className={`flex items-center gap-2 mb-3 ${overlayMode ? "text-medium" : "text-muted-foreground"}`}>
           <Loader2 className="h-4 w-4 animate-spin" />
           <span className="text-sm">Calculating your match...</span>
         </div>
@@ -201,7 +183,7 @@ export function BeachHeroCompact({
         </div>
       )}
 
-      {/* Match Score Teaser - Show for anonymous users */}
+      {/* Forecast Teaser - Show for anonymous users with data-driven copy */}
       {publicMode && !personalizationScore && !isLoadingPersonalization && (
         <motion.div
           ref={teaserRef}
@@ -218,17 +200,17 @@ export function BeachHeroCompact({
               hover:shadow-md hover:border-ocean-blue/25 transition-all duration-200"
           >
             <div className="flex-shrink-0 p-2 rounded-xl bg-ocean-blue/10">
-              <Sparkles className="h-5 w-5 text-ocean-blue" />
+              <CalendarDays className="h-5 w-5 text-ocean-blue" />
             </div>
             <div className="flex-1 text-left">
               <p className="text-sm font-semibold text-gray-900">
-                How well does this spot match you?
+                {teaserHeadline}
               </p>
-              <p className="text-xs text-gray-500 mt-0.5">Takes 30 seconds</p>
+              <p className="text-xs text-gray-500 mt-0.5">{teaserSubtext}</p>
             </div>
             <div className="flex-shrink-0 text-sm font-semibold text-ocean-blue
               group-hover:translate-x-0.5 transition-transform">
-              See score →
+              See it →
             </div>
           </button>
         </motion.div>
@@ -246,7 +228,10 @@ export function BeachHeroCompact({
       )}
 
       {/* Phase 4 Spec: Metadata Row - 12px margin, flex layout */}
-      <div className="flex flex-wrap items-center gap-2 my-3">
+      <div
+        className="flex flex-wrap items-center gap-2 my-3"
+        style={overlayMode ? { textShadow: "0 1px 8px rgba(0,0,0,0.5)" } : undefined}
+      >
         {/* Phase 4 Spec: Rating Component - 8px gap, 12px vertical margin */}
         {rating > 0 && (
           <>
@@ -254,15 +239,15 @@ export function BeachHeroCompact({
               {/* Phase 4 Spec: Star Icons - 20×20px */}
               <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
               {/* Phase 4 Spec: Rating Text - 18px, 600 weight */}
-              <span className="text-lg font-semibold text-gray-900">{rating.toFixed(1)}</span>
+              <span className={`text-lg font-semibold ${overlayMode ? "text-white" : "text-gray-900"}`}>{rating.toFixed(1)}</span>
             </div>
             {/* Phase 4 Spec: Review Count - 14px, gray-600, 8px margin-left */}
             {reviewCount > 0 && (
-              <span className="text-sm ml-2 text-gray-600">
+              <span className={`text-sm ml-2 ${overlayMode ? "text-medium" : "text-gray-600"}`}>
                 ({reviewCount} {reviewCount === 1 ? "review" : "reviews"})
               </span>
             )}
-            <span className="text-gray-400">·</span>
+            <span className={overlayMode ? "text-white/40" : "text-gray-400"}>·</span>
           </>
         )}
 
@@ -275,17 +260,17 @@ export function BeachHeroCompact({
             >
               {beach.skill_level}
             </Badge>
-            <span className="text-gray-400">·</span>
+            <span className={overlayMode ? "text-white/40" : "text-gray-400"}>·</span>
           </>
         )}
 
         {/* Break Type */}
-        <span className="font-medium text-sm text-gray-900">{breakType}</span>
+        <span className={`font-medium text-sm ${overlayMode ? "text-white" : "text-gray-900"}`}>{breakType}</span>
 
-        <span className="text-gray-400">·</span>
+        <span className={overlayMode ? "text-white/40" : "text-gray-400"}>·</span>
 
         {/* Location */}
-        <span className="text-sm text-gray-600">{location}</span>
+        <span className={`text-sm ${overlayMode ? "text-medium" : "text-gray-600"}`}>{location}</span>
       </div>
 
       {publicMode && (

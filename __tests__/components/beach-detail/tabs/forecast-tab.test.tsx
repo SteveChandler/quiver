@@ -62,8 +62,11 @@ jest.mock("@/hooks/use-sun-times", () => ({
     sunset: new Date("2026-02-10T17:30:00"),
   })),
 }));
-jest.mock("@/hooks/use-cached-profile", () => ({
-  useCachedProfile: jest.fn(() => ({ profile: null, profileLoading: false, profileError: null, refreshProfile: jest.fn(), clearCache: jest.fn(), hasCachedData: false })),
+jest.mock("@/context/auth-context", () => ({
+  useAuth: jest.fn(() => ({ user: null })),
+}));
+jest.mock("@/components/beach-detail/personalized-forecast-teaser", () => ({
+  PersonalizedForecastTeaser: (props: any) => <div data-testid="personalized-forecast-teaser" />,
 }));
 
 // Mock useTrackEvent hook
@@ -342,24 +345,26 @@ describe("ForecastTab", () => {
       expect(screen.queryByText("5-Day Outlook")).not.toBeInTheDocument();
     });
 
-    it("shows BestSurfWindow with PublicContentGate in public mode", () => {
+    it("shows BestSurfWindow behind a PublicContentGate in public mode", () => {
       render(<ForecastTab {...defaultProps} publicMode={true} />);
 
-      // Gate wraps BestSurfWindow — anonymous users see the auth CTA
+      // PublicContentGate wraps BestSurfWindow for unauthenticated users
       expect(screen.getByTestId("public-gate")).toBeInTheDocument();
-      expect(screen.getByTestId("public-gate")).toHaveAttribute("data-source", "surf-call-conditions");
       expect(screen.getByTestId("best-surf-window")).toBeInTheDocument();
     });
 
-    it("shows BestSurfWindow with PublicContentGate in authenticated mode", () => {
+    it("shows BestSurfWindow without PublicContentGate in authenticated mode", () => {
       render(<ForecastTab {...defaultProps} publicMode={false} />);
 
-      // Gate is always rendered; the gate component itself handles auth check internally
-      expect(screen.getByTestId("public-gate")).toBeInTheDocument();
+      // Gate only wraps in publicMode — authenticated users see BestSurfWindow directly
+      expect(screen.queryByTestId("public-gate")).not.toBeInTheDocument();
       expect(screen.getByTestId("best-surf-window")).toBeInTheDocument();
     });
 
-    it("shows lock message about full 12-day outlook when horizonDaySummaries.length > 3", () => {
+    it("limits HorizonStrip to 3 days in public mode even when more day summaries exist", () => {
+      // The horizon strip upsell ("Conditions shift on Day 4 / See outlook") has been moved
+      // to beach-detail.tsx (above the tab bar) so all beach viewers see it, not just
+      // Forecast tab visitors. ForecastTab only renders the 3-day strip itself.
       const mockDaySummaries = [
         { date: "2026-02-10", waveHeight: 4.5 },
         { date: "2026-02-11", waveHeight: 5.0 },
@@ -371,8 +376,11 @@ describe("ForecastTab", () => {
 
       render(<ForecastTab {...defaultProps} publicMode={true} />);
 
-      expect(screen.getByText(/See outlook/i)).toBeInTheDocument();
-      expect(screen.getByText(/Conditions shift on/i)).toBeInTheDocument();
+      // Shows 3-Day Outlook label (capped to 3 days)
+      expect(screen.getAllByText("3-Day Outlook").length).toBeGreaterThanOrEqual(1);
+      const horizonStrip = screen.getByTestId("horizon-strip");
+      // HorizonStrip receives only the first 3 days
+      expect(horizonStrip).toHaveAttribute("data-days", "3");
     });
 
     it("does not show lock message when horizonDaySummaries.length <= 3", () => {

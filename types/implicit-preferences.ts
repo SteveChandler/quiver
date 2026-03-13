@@ -46,10 +46,13 @@ export type ImplicitEventType =
   | 'signin_cta_click'
   // Auth funnel events (fire before user is authenticated)
   | 'auth_modal_opened'
+  | 'auth_modal_closed_without_action'
   | 'auth_method_selected'
+  | 'auth_provider_selected'
   | 'signup_started'
   | 'signup_success'
   | 'login_success'
+  | 'signup_form_submitted'
   // Home screen events
   | 'home_at_beach_click'
   | 'home_plan_weekend_click'
@@ -132,10 +135,13 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   signin_cta_click: 0,
   // Auth funnel events (fire before user is authenticated)
   auth_modal_opened: 0,
+  auth_modal_closed_without_action: 0,
   auth_method_selected: 0,
+  auth_provider_selected: 0,
   signup_started: 0,
   signup_success: 0,
   login_success: 0,
+  signup_form_submitted: 0,
   // Home screen events
   home_at_beach_click: 0,
   home_plan_weekend_click: 0,

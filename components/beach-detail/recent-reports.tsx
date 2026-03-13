@@ -45,7 +45,7 @@ function ReportCard({ report }: { report: ConditionsReportData }) {
         </span>
       </p>
       {report.note && (
-        <p className="text-xs text-gray-500 italic">"{report.note}"</p>
+        <p className="text-xs text-gray-500 italic">{'"'}{report.note}{'"'}</p>
       )}
     </div>
   );

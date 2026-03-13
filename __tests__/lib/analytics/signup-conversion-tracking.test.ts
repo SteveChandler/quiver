@@ -2,6 +2,7 @@ import {
   trackSignupCtaView,
   trackSignupCtaClick,
   trackSigninCtaClick,
+  _resetViewedSourcesForTesting,
 } from "@/lib/analytics/signup-conversion-tracking";
 import { track } from "@/lib/analytics";
 import { getVisitorId } from "@/lib/utils/visitor-id";
@@ -22,6 +23,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   global.fetch = mockFetch;
   Object.defineProperty(window, "innerWidth", { value: 375, writable: true });
+  // Reset module-level deduplication Set so tests are isolated
+  _resetViewedSourcesForTesting();
 });
 
 // ---------------------------------------------------------------------------
@@ -56,37 +59,32 @@ describe("trackSignupCtaView", () => {
     });
   });
 
-  it("deduplicates — second and third calls with same source do not re-fire", () => {
-    let freshTrackView!: typeof trackSignupCtaView;
+  it("deduplicates: only fires once per source per page load", () => {
+    const params = { source: "cam-hero", cta_title: "Watch Live Cam" };
 
-    jest.isolateModules(() => {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      freshTrackView = require("@/lib/analytics/signup-conversion-tracking").trackSignupCtaView;
-    });
+    trackSignupCtaView(params);
+    trackSignupCtaView(params);
+    trackSignupCtaView(params);
 
-    const params = { source: "cam-hero", cta_title: "Watch the Live Cam" };
-    freshTrackView(params);
-    freshTrackView(params); // second call — should be suppressed
-    freshTrackView(params); // third call — should be suppressed
-
+    // Despite being called 3 times, only one GA4 + one fetch event should fire
     expect(track).toHaveBeenCalledTimes(1);
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   it("fires independently for different sources", () => {
-    let freshTrackView!: typeof trackSignupCtaView;
+    trackSignupCtaView({ source: "cam-hero", cta_title: "Watch Cam" });
+    trackSignupCtaView({ source: "inline-cta", cta_title: "Get Forecast" });
 
-    jest.isolateModules(() => {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      freshTrackView = require("@/lib/analytics/signup-conversion-tracking").trackSignupCtaView;
-    });
+    expect(track).toHaveBeenCalledTimes(2);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
 
-    freshTrackView({ source: "cam-hero" });
-    freshTrackView({ source: "inline-cta" });
-    freshTrackView({ source: "sticky-bar" });
+  it("treats missing source as 'unknown' for dedup key", () => {
+    trackSignupCtaView({ cta_title: "Sign Up" });
+    trackSignupCtaView({ cta_title: "Sign Up Again" });
 
-    expect(track).toHaveBeenCalledTimes(3);
-    expect(mockFetch).toHaveBeenCalledTimes(3);
+    // Both have source=undefined → same dedup key "unknown" → only fires once
+    expect(track).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -107,6 +105,15 @@ describe("trackSignupCtaClick", () => {
       }),
       keepalive: true,
     });
+  });
+
+  it("is NOT deduplicated — fires every time (clicks are discrete actions)", () => {
+    const params = { source: "sticky-bar", cta_type: "sticky_bar" };
+    trackSignupCtaClick(params);
+    trackSignupCtaClick(params);
+
+    expect(track).toHaveBeenCalledTimes(2);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 });
 

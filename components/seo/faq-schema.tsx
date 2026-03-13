@@ -75,6 +75,61 @@ export function BeachFAQSchema({ beachName }: { beachName: string }) {
 }
 
 /**
+ * Tide-specific FAQ Schema for tide sub-pages
+ * Targets high-intent queries like "what time is high tide" and "best tide for surfing"
+ * These are the exact questions GSC shows with >100 impressions and 0 clicks on tide pages.
+ */
+export function TideFAQSchema({ beachName }: { beachName: string }) {
+  const faqItems: FAQItem[] = [
+    {
+      question: `What time is high tide at ${beachName} today?`,
+      answer: `Today's high and low tide times for ${beachName} are shown on our interactive tide chart, updated every 3 hours with precise hourly predictions. The chart also highlights the optimal surf windows around each tide extreme.`,
+    },
+    {
+      question: `What's the best tide for surfing at ${beachName}?`,
+      answer: `The best tide for surfing at ${beachName} depends on the break type. Our tide chart includes surf window analysis that identifies the 2–3 hour windows each day when tide direction and height combine for the best conditions. Check the 7-day outlook to plan sessions in advance.`,
+    },
+    {
+      question: `How accurate are the tide predictions for ${beachName}?`,
+      answer: `Tide predictions for ${beachName} are sourced from NOAA harmonic tide tables and are highly accurate (typically within a few minutes). Our ML-enhanced forecast layer adds local conditions context like swell, wind, and how the tide interacts with the specific break.`,
+    },
+    {
+      question: `What wetsuit do I need for ${beachName}?`,
+      answer: `Wetsuit recommendations for ${beachName} are based on real-time water temperature from the nearest CDIP or NDBC buoy. Check the water temperature page for ${beachName} to get today's reading and a gear recommendation.`,
+    },
+  ];
+
+  return <FAQSchema items={faqItems} />;
+}
+
+/**
+ * Water temperature-specific FAQ Schema for water-temp sub-pages
+ * Targets gear-planning queries that pull users deeper into Quiver's unique value.
+ */
+export function WaterTempFAQSchema({ beachName }: { beachName: string }) {
+  const faqItems: FAQItem[] = [
+    {
+      question: `What wetsuit do I need for ${beachName}?`,
+      answer: `The wetsuit recommendation for ${beachName} is based on today's live water temperature from the nearest buoy. Visit the ${beachName} water temperature page for the current reading and a specific wetsuit thickness recommendation (e.g., 3/2mm, 4/3mm, or boardshorts).`,
+    },
+    {
+      question: `What is the water temperature at ${beachName} right now?`,
+      answer: `Current water temperature at ${beachName} is sourced from CDIP and NDBC buoy networks and updated multiple times per day. The page also shows seasonal trends and monthly averages so you can plan trips in advance.`,
+    },
+    {
+      question: `Is the water warm enough to surf without a wetsuit at ${beachName}?`,
+      answer: `Whether you need a wetsuit at ${beachName} depends on the current water temperature. In summer at warmer breaks, boardshorts may suffice above ~70°F. In colder months or at northern beaches, a 3/2mm–5/4mm fullsuit is typically required. Check the current reading on the ${beachName} water temperature page for a specific recommendation.`,
+    },
+    {
+      question: `What time of year is the water warmest at ${beachName}?`,
+      answer: `Water temperature at ${beachName} typically peaks in late summer (August–October) and drops to its coldest in late winter (February–March). The monthly averages chart on the ${beachName} water temperature page shows the full seasonal pattern so you can plan your trip.`,
+    },
+  ];
+
+  return <FAQSchema items={faqItems} />;
+}
+
+/**
  * Quiver-specific FAQ Schema for Landing Page
  */
 export function QuiverFAQSchema() {
