@@ -456,6 +456,8 @@ test.describe('Push Notification Device Removal - API Tests', () => {
   let userId: string;
 
   test.beforeEach(async ({ request }) => {
+    test.skip(!process.env.SUPABASE_SERVICE_ROLE_KEY, 'Requires SUPABASE_SERVICE_ROLE_KEY for database verification');
+
     const testUserEmail = process.env.TEST_USER_EMAIL || 'test@quiver.com';
     const admin = getAdminClient();
     const { data, error } = await admin

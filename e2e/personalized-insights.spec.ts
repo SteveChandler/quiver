@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { waitForPageLoad, ensureAuthenticated } from './utils/test-helpers';
-import { TIMEOUTS, VIEWPORTS } from './fixtures/test-data';
+import { TIMEOUTS, VIEWPORTS, isDevEnvironment } from './fixtures/test-data';
 import { isVisibleSafe } from './utils/strict-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 import { setupPersonalizationMocks } from './fixtures/personalization-mocks';
@@ -45,6 +45,11 @@ import { setupPersonalizationMocks } from './fixtures/personalization-mocks';
  */
 
 test.describe('Personalized Insights', () => {
+  // Skip on dev/production — personalized insights tests require local DB
+  // with seeded session data. The personalized-forecast-card component was
+  // removed (commit 0431e505e8cd) and most tests are already test.fixme().
+  test.skip(!!isDevEnvironment, 'Personalization tests require local DB with seeded session data');
+
   let errorCapture: ErrorCapture;
 
   test.beforeEach(async ({ page }) => {
