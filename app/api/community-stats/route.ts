@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createAPIServerClient } from "@/lib/supabase/api-server-client";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
 
 /**
  * GET /api/community-stats
@@ -8,8 +9,9 @@ import { createAPIServerClient } from "@/lib/supabase/api-server-client";
  * Unauthenticated — this is public data.
  *
  * Response cached for 10 minutes (matches ISR revalidation).
+ * Protected by bot blocking + rate limiting (4 parallel DB queries per request).
  */
-export async function GET() {
+async function communityStatsHandler(_request: NextRequest) {
   try {
     const supabase = await createAPIServerClient();
 
@@ -72,3 +74,5 @@ export async function GET() {
     );
   }
 }
+
+export const GET = withBotBlockingAndRateLimit(communityStatsHandler, "public-default");
