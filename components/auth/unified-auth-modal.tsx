@@ -447,8 +447,10 @@ export function UnifiedAuthModal({
         setLoading(false);
 
         // Email/password signup requires email confirmation.
-        // Return users to landing and show a confirmation toast there.
-        router.replace("/?signup=confirm-email");
+        // Return users to their original page and show a confirmation toast there.
+        const returnPath = getReturnPath();
+        const separator = returnPath.includes("?") ? "&" : "?";
+        router.replace(`${returnPath}${separator}signup=confirm-email`);
 
         // Close modal when it's an overlay (e.g. landing page).
         // If we're on the dedicated /auth/sign-up page, onClose() navigates to "/"
@@ -523,7 +525,7 @@ export function UnifiedAuthModal({
             loading={loading}
             termsAccepted={termsAccepted}
             onTermsAcceptedChange={setTermsAccepted}
-            onAppleClick={handleAppleSignIn}
+            onAppleClick={process.env.NEXT_PUBLIC_APPLE_CLIENT_ID ? handleAppleSignIn : undefined}
             onGoogleClick={handleGoogleOAuth}
             onEmailPasswordClick={() => setView("email-password")}
             onMagicLinkClick={() => setView("magic-link")}

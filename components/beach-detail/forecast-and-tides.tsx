@@ -35,6 +35,7 @@ import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { BestSurfWindow } from "./best-surf-window";
+import { PublicContentGate } from "@/components/ui/public-content-gate";
 import { resolveBeachTimezone, getLocalDateString } from "@/lib/utils/timezone-utils";
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
 
@@ -134,13 +135,19 @@ export function ForecastAndTides({
 
           <TabsContent value="today" className="mt-4">
             {/* Best Surf Window Intel */}
-            <BestSurfWindow
-              beachId={beach.id}
-              beachName={beach.name}
-              beachTimezone={beachTimezone}
-              forecasts={todaysForecasts}
-              surfCall={surfCall}
-            />
+            <PublicContentGate
+              ctaTitle={`See today's surf call for ${beach.name}`}
+              ctaDescription="Sign up to get personalized surf calls and best time to paddle out"
+              source="surf-call-conditions"
+            >
+              <BestSurfWindow
+                beachId={beach.id}
+                beachName={beach.name}
+                beachTimezone={beachTimezone}
+                forecasts={todaysForecasts}
+                surfCall={surfCall}
+              />
+            </PublicContentGate>
 
             {/* Collapsible Detailed Forecast Table */}
             <Collapsible className="mt-4">

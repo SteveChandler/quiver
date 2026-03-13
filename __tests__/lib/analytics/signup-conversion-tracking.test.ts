@@ -24,10 +24,23 @@ beforeEach(() => {
   Object.defineProperty(window, "innerWidth", { value: 375, writable: true });
 });
 
+// ---------------------------------------------------------------------------
+// trackSignupCtaView — uses module-level deduplication (firedCtaViews Set).
+// Each test that checks deduplication behavior loads a fresh module instance
+// via jest.isolateModules() so the Set starts empty and mocks remain active.
+// ---------------------------------------------------------------------------
+
 describe("trackSignupCtaView", () => {
-  it("fires GA4 track and POST /api/events", () => {
+  it("fires GA4 track and POST /api/events on first call", () => {
+    let freshTrackView!: typeof trackSignupCtaView;
+
+    jest.isolateModules(() => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      freshTrackView = require("@/lib/analytics/signup-conversion-tracking").trackSignupCtaView;
+    });
+
     const params = { source: "test-page", cta_title: "Sign Up" };
-    trackSignupCtaView(params);
+    freshTrackView(params);
 
     expect(track).toHaveBeenCalledWith("signup_cta_view", params);
     expect(mockFetch).toHaveBeenCalledWith("/api/events", {
@@ -41,6 +54,39 @@ describe("trackSignupCtaView", () => {
       }),
       keepalive: true,
     });
+  });
+
+  it("deduplicates — second and third calls with same source do not re-fire", () => {
+    let freshTrackView!: typeof trackSignupCtaView;
+
+    jest.isolateModules(() => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      freshTrackView = require("@/lib/analytics/signup-conversion-tracking").trackSignupCtaView;
+    });
+
+    const params = { source: "cam-hero", cta_title: "Watch the Live Cam" };
+    freshTrackView(params);
+    freshTrackView(params); // second call — should be suppressed
+    freshTrackView(params); // third call — should be suppressed
+
+    expect(track).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("fires independently for different sources", () => {
+    let freshTrackView!: typeof trackSignupCtaView;
+
+    jest.isolateModules(() => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      freshTrackView = require("@/lib/analytics/signup-conversion-tracking").trackSignupCtaView;
+    });
+
+    freshTrackView({ source: "cam-hero" });
+    freshTrackView({ source: "inline-cta" });
+    freshTrackView({ source: "sticky-bar" });
+
+    expect(track).toHaveBeenCalledTimes(3);
+    expect(mockFetch).toHaveBeenCalledTimes(3);
   });
 });
 
