@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOracleData } from "@/hooks/use-oracle-data";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -12,6 +12,9 @@ import { NearbySpots } from "@/components/oracle/nearby-spots";
 import { ActivityFeed } from "@/components/oracle/activity-feed";
 import { SessionTimeSelector } from "@/components/oracle/session-time-selector";
 import { BottomNav } from "@/components/home-screen/bottom-nav";
+import { InviteSheet } from "@/components/oracle/invite-sheet";
+import { ShareSheet } from "@/components/share/share-sheet";
+import { buildSurfCallShareData } from "@/lib/share/share-data-builder";
 import type { ActivityItem } from "@/components/oracle/activity-feed";
 import type { TimeWindow } from "@/components/oracle/todays-windows";
 import type { NearbySpot } from "@/components/oracle/nearby-spots";
@@ -278,6 +281,13 @@ export function OracleHomeScreen() {
   const router = useRouter();
   const { refreshProfile } = oracle;
 
+  // Invite-a-friend sheet state
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+
+  // Session share sheet state
+  const [shareOpen, setShareOpen] = useState(false);
+
   // ------------------------------------------------------------------
   // Activity fetch — use homeBeach, falling back to topRec's beach
   // ------------------------------------------------------------------
@@ -317,11 +327,24 @@ export function OracleHomeScreen() {
     [router]
   );
 
-  const handleInviteFriend = useCallback(() => {}, []);
+  const handleInviteFriend = useCallback(async () => {
+    try {
+      const { getOrCreateReferralCode } = await import("@/actions/referral-actions");
+      const result = await getOrCreateReferralCode();
+      if (result?.data?.code) {
+        setReferralCode(result.data.code);
+      }
+    } catch {
+      // Silently fail — invite still works without code
+    }
+    setInviteOpen(true);
+  }, []);
 
   const handleSetAlarm = useCallback(() => {}, []);
 
-  const handleShareSession = useCallback(() => {}, []);
+  const handleShareSession = useCallback(() => {
+    setShareOpen(true);
+  }, []);
 
   const handleViewSpot = useCallback(
     (spotId: string) => {
@@ -414,6 +437,12 @@ export function OracleHomeScreen() {
     [activityRaw]
   );
 
+  // Build share data for the session share sheet
+  const shareData = useMemo(() => {
+    if (!heroRec) return null;
+    return buildSurfCallShareData({ recommendation: heroRec });
+  }, [heroRec]);
+
   // Build forecast deep-link for the hero beach
   const heroBeach = heroRec?.beach ?? homeBeach;
   const forecastUrl =
@@ -497,6 +526,24 @@ export function OracleHomeScreen() {
       </div>
 
       <BottomNav />
+
+      <InviteSheet
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+        referralCode={referralCode}
+      />
+
+      {shareData && (
+        <ShareSheet
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          imageUrl={shareData.imageUrl}
+          type="wave"
+          filename={`quiver-surf-call-${heroRec?.beach?.slug || "beach"}`}
+          title={shareData.title}
+          text={shareData.text}
+        />
+      )}
     </div>
     </div>
   );
