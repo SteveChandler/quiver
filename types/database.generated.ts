@@ -2277,6 +2277,7 @@ export type Database = {
           weather_condition: string | null
           wind_direction: string | null
           wind_direction_deg: number | null
+          wind_source: string | null
           wind_speed: string | null
           wind_wave_direction: string | null
           wind_wave_height: string | null
@@ -2314,6 +2315,7 @@ export type Database = {
           weather_condition?: string | null
           wind_direction?: string | null
           wind_direction_deg?: number | null
+          wind_source?: string | null
           wind_speed?: string | null
           wind_wave_direction?: string | null
           wind_wave_height?: string | null
@@ -2351,6 +2353,7 @@ export type Database = {
           weather_condition?: string | null
           wind_direction?: string | null
           wind_direction_deg?: number | null
+          wind_source?: string | null
           wind_speed?: string | null
           wind_wave_direction?: string | null
           wind_wave_height?: string | null
@@ -3574,7 +3577,6 @@ export type Database = {
           phone_number: string | null
           posting_window: Json | null
           preferences_v2_shown_at: string | null
-          level_title: string | null
           preferred_break_type: string | null
           preferred_session_time: string | null
           preferred_wave_size: string | null
@@ -3585,7 +3587,6 @@ export type Database = {
           timezone: string | null
           trust_score: number
           updated_at: string | null
-          xp_total: number | null
         }
         Insert: {
           activity_level?: string | null
@@ -3626,7 +3627,6 @@ export type Database = {
           phone_number?: string | null
           posting_window?: Json | null
           preferences_v2_shown_at?: string | null
-          level_title?: string | null
           preferred_break_type?: string | null
           preferred_session_time?: string | null
           preferred_wave_size?: string | null
@@ -3637,7 +3637,6 @@ export type Database = {
           timezone?: string | null
           trust_score?: number
           updated_at?: string | null
-          xp_total?: number | null
         }
         Update: {
           activity_level?: string | null
@@ -3678,7 +3677,6 @@ export type Database = {
           phone_number?: string | null
           posting_window?: Json | null
           preferences_v2_shown_at?: string | null
-          level_title?: string | null
           preferred_break_type?: string | null
           preferred_session_time?: string | null
           preferred_wave_size?: string | null
@@ -3689,7 +3687,6 @@ export type Database = {
           timezone?: string | null
           trust_score?: number
           updated_at?: string | null
-          xp_total?: number | null
         }
         Relationships: [
           {
@@ -4471,11 +4468,12 @@ export type Database = {
           invitee_ids: string[]
           is_public: boolean | null
           likes_count: number
-          muted: boolean
+          muted: boolean | null
           notes: string | null
           parking_ease: number | null
           rating: number | null
           share_count: number
+          skill_ratings: Json | null
           status: string | null
           tide_height_ft: number | null
           tide_status: string | null
@@ -4505,11 +4503,12 @@ export type Database = {
           invitee_ids?: string[]
           is_public?: boolean | null
           likes_count?: number
-          muted?: boolean
+          muted?: boolean | null
           notes?: string | null
           parking_ease?: number | null
           rating?: number | null
           share_count?: number
+          skill_ratings?: Json | null
           status?: string | null
           tide_height_ft?: number | null
           tide_status?: string | null
@@ -4539,11 +4538,12 @@ export type Database = {
           invitee_ids?: string[]
           is_public?: boolean | null
           likes_count?: number
-          muted?: boolean
+          muted?: boolean | null
           notes?: string | null
           parking_ease?: number | null
           rating?: number | null
           share_count?: number
+          skill_ratings?: Json | null
           status?: string | null
           tide_height_ft?: number | null
           tide_status?: string | null
@@ -5334,7 +5334,8 @@ export type Database = {
           expires_at: string
           id: string
           metadata: Json
-          user_id: string
+          session_id: string | null
+          user_id: string | null
         }
         Insert: {
           beach_id?: string | null
@@ -5343,7 +5344,8 @@ export type Database = {
           expires_at?: string
           id?: string
           metadata?: Json
-          user_id: string
+          session_id?: string | null
+          user_id?: string | null
         }
         Update: {
           beach_id?: string | null
@@ -5352,7 +5354,8 @@ export type Database = {
           expires_at?: string
           id?: string
           metadata?: Json
-          user_id?: string
+          session_id?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -6978,6 +6981,7 @@ export type Database = {
           has_advanced: boolean
           has_beginner: boolean
           has_editorial: boolean
+          has_least_crowded: boolean
           state: string
         }[]
       }
@@ -7053,6 +7057,15 @@ export type Database = {
               wind_description: string
             }[]
           }
+      get_conversion_funnel: {
+        Args: { days?: number }
+        Returns: {
+          funnel_step: string
+          step_order: number
+          total_count: number
+          unique_sessions: number
+        }[]
+      }
       get_current_production_model: {
         Args: never
         Returns: {
@@ -7147,6 +7160,14 @@ export type Database = {
           with_ground_truth: number
         }[]
       }
+      get_most_visited_beach: {
+        Args: { user_id: string }
+        Returns: {
+          beach_id: string
+          beach_name: string
+          visit_count: number
+        }[]
+      }
       get_nearby_beaches: {
         Args: {
           input_lat: number
@@ -7155,6 +7176,7 @@ export type Database = {
           max_distance_meters?: number
         }
         Returns: {
+          break_type: string
           city: string
           distance_meters: number
           id: string
@@ -7261,6 +7283,7 @@ export type Database = {
           wave_period_s: number
         }[]
       }
+      get_profile_stats: { Args: { p_user_id: string }; Returns: Json }
       get_reengagement_email_candidates: {
         Args: {
           p_dedupe_hours?: number
@@ -7281,6 +7304,16 @@ export type Database = {
           surf_description: string
           user_id: string
           wind_description: string
+        }[]
+      }
+      get_referral_leaderboard: {
+        Args: { max_results?: number }
+        Returns: {
+          avatar_url: string
+          display_name: string
+          rank: number
+          referral_count: number
+          user_id: string
         }[]
       }
       get_session_prompt_candidates:
@@ -7394,6 +7427,10 @@ export type Database = {
         Returns: undefined
       }
       is_admin_user: { Args: never; Returns: boolean }
+      link_anonymous_events: {
+        Args: { p_session_id: string; p_user_id: string }
+        Returns: number
+      }
       longtransactionsenabled: { Args: never; Returns: boolean }
       nightly_forecast_maintenance: { Args: never; Returns: Json }
       notify_session_invite: {
@@ -8274,3 +8311,5 @@ export const Constants = {
     },
   },
 } as const
+A new version of Supabase CLI is available: v2.78.1 (currently installed v2.75.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
