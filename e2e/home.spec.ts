@@ -1027,7 +1027,7 @@ test.describe('Home Page - Navigation', () => {
     }
   });
 
-  test('navigates to profile sessions when log session CTA is clicked', async ({ page }) => {
+  test('navigates to session log form when log session CTA is clicked', async ({ page }) => {
     // When conditions are good and user has home beach, CTA is "Paddle out — log a session"
     const paddleOutBtn = page.getByRole('button', { name: /paddle out/i });
     const hasBtn = await isVisibleSafe(paddleOutBtn, { timeout: 30_000 });
@@ -1036,8 +1036,8 @@ test.describe('Home Page - Navigation', () => {
       await expect(paddleOutBtn).toBeEnabled();
       await paddleOutBtn.click();
 
-      await page.waitForURL(/\/profile.*tab=sessions/, { timeout: 20_000 });
-      await expect(page).toHaveURL(/\/profile.*tab=sessions/);
+      await page.waitForURL(/\/sessions\/new\?mode=log/, { timeout: 20_000 });
+      await expect(page).toHaveURL(/\/sessions\/new\?mode=log/);
     } else {
       // CTA depends on user state — verify the oracle screen is still present
       const oracleScreen = page.locator('.min-h-screen').first();

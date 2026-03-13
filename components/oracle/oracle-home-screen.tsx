@@ -328,7 +328,7 @@ export function OracleHomeScreen() {
   );
 
   const handleLogSession = useCallback(
-    () => router.push("/profile?tab=sessions"),
+    () => router.push("/sessions/new?mode=log"),
     [router]
   );
 
