@@ -33,9 +33,7 @@ import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 
-// Force dynamic rendering - database calls use no-store fetch
-// Note: revalidate is not used with force-dynamic; caching is handled by the database layer
-export const dynamic = "force-dynamic";
+export const revalidate = 600;
 // Allow dynamic params for beach UUIDs (not pre-rendered)
 export const dynamicParams = true;
 

@@ -5,10 +5,19 @@ import type { Beach } from '@/types/database';
 // Helper to create forecast at specific hour
 function createForecast(date: string, hour: number, score: number = 70): EnhancedForecastEntity {
   const timeStr = `${hour.toString().padStart(2, '0')}:00:00`;
+
+  // Compute proper UTC forecast_at from local PT time using the actual timezone offset.
+  // This mirrors localDateTimeToUTC: treat local time as naive UTC, then correct by offset.
+  const naiveUtc = new Date(`${date}T${timeStr}Z`);
+  const utcRepr = naiveUtc.toLocaleString('en-US', { timeZone: 'UTC' });
+  const localRepr = naiveUtc.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+  const offsetMs = new Date(utcRepr).getTime() - new Date(localRepr).getTime();
+  const properForecastAt = new Date(naiveUtc.getTime() + offsetMs).toISOString();
+
   return {
     id: `forecast-${date}-${hour}`,
     beach_id: 'test-beach',
-    forecast_at: `${date}T${timeStr}Z`,
+    forecast_at: properForecastAt,
     forecast_date: date,
     forecast_time: timeStr,
     wave_height: '3.5',

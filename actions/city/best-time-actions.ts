@@ -1,6 +1,6 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createPublicReadClient } from "@/lib/supabase/server";
 import { withServerAction, type ServerActionResponse } from "@/lib/server-action-utils";
 import { getRegionalData } from "@/lib/seo/regional-surf-data";
 import { buildMonthlyScores } from "@/lib/utils/surf-score-utils";
@@ -77,7 +77,7 @@ export async function getBestTimeToSurfData(
   state: string
 ): Promise<ServerActionResponse<BestTimeToSurfData | null>> {
   return withServerAction(async () => {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createPublicReadClient();
     const normalizedState = state.toUpperCase();
 
     const { data: beaches, error } = await supabase
@@ -180,7 +180,7 @@ export async function getCitiesWithBestMonthsData(): Promise<
   ServerActionResponse<Array<{ city: string; state: string; beachCount: number }>>
 > {
   return withServerAction(async () => {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createPublicReadClient();
 
     // Find all cities with at least one beach that has best_months data
     const { data, error } = await supabase

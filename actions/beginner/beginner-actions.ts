@@ -1,6 +1,6 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createPublicReadClient } from "@/lib/supabase/server";
 import { parseLocationFromSlug } from "@/lib/utils/location-slug";
 import {
   parseFloatSafe,
@@ -33,7 +33,7 @@ function cityNameFromSlug(citySlug: string): string {
 }
 
 async function findTopBeginnerBeach(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  supabase: ReturnType<typeof createPublicReadClient>,
   citySlug: string,
   stateSlug: string
 ): Promise<{ id: string; name: string; slug: string } | null> {
@@ -59,7 +59,7 @@ async function findTopBeginnerBeach(
 }
 
 async function getLatestForecast(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  supabase: ReturnType<typeof createPublicReadClient>,
   beachId: string
 ): Promise<Record<string, any> | null> {
   const today = new Date().toISOString().split("T")[0];
@@ -235,7 +235,7 @@ export async function getBeginnerConditionsData(
   rightNow: RightNowConditions | null;
 }> {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createPublicReadClient();
     const beach = await findTopBeginnerBeach(supabase, citySlug, stateSlug);
     if (!beach) return { badge: null, rightNow: null };
 
@@ -303,7 +303,7 @@ export async function getBeginnerBeachesWithEditorial(
   stateSlug: string
 ): Promise<BeginnerBeachWithEditorial[]> {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createPublicReadClient();
     const cityName = cityNameFromSlug(citySlug);
     const escapedCity = escapeLikePattern(cityName);
     const normalizedState = stateSlug.toUpperCase();
@@ -410,7 +410,7 @@ export async function getBeginnerCityEditorial(
   stateSlug: string
 ): Promise<BeginnerCityEditorial | null> {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createPublicReadClient();
 
     // Try beginner-specific editorial first
     const { data: beginnerData } = await supabase

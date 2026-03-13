@@ -26,6 +26,12 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <>
+      <link
+        rel="preload"
+        as="image"
+        href="/images/hero/hero-golden-hour-poster.webp"
+        type="image/webp"
+      />
       <AuthAwareLandingWrapper />
       <LandingPageSSRSection />
     </>

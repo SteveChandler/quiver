@@ -31,7 +31,7 @@ import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { SITE_URL } from "@/lib/constants/seo";
 import { INTENT_DEFINITIONS, buildCityIntentUrl } from "@/lib/constants/intent-definitions";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 86400;
 
 // Constants
 const now = new Date();
@@ -64,8 +64,7 @@ interface PageParams {
   params: Promise<{ city: string }>;
 }
 
-// NOTE: generateStaticParams removed — this page uses force-dynamic.
-// Pages are rendered on-demand via ISR.
+// NOTE: generateStaticParams removed — pages are rendered on-demand via ISR.
 
 export async function generateMetadata(props: PageParams): Promise<Metadata> {
   const { city: citySlug } = await props.params;

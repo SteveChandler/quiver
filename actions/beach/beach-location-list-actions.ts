@@ -9,7 +9,7 @@
 
 "use server";
 
-import { withDatabaseOperation } from "@/lib/server-action-utils";
+import { withDatabaseOperation, withServerAction, withPublicDatabaseOperation } from "@/lib/server-action-utils";
 import type {
   LocationPageData,
   LocationStats,
@@ -394,48 +394,50 @@ export async function getLocationPageData(
  * @returns Array of location identifiers with beach counts
  */
 export async function getAllBeachLocations() {
-  return withDatabaseOperation(async (supabase) => {
-    const { data, error } = await supabase.rpc("get_all_beach_locations");
+  return withServerAction(() =>
+    withPublicDatabaseOperation(async (supabase) => {
+      const { data, error } = await supabase.rpc("get_all_beach_locations");
 
-    if (error) {
-      console.error("Error fetching all beach locations:", error);
-      throw new Error(`Failed to fetch locations: ${error.message}`);
-    }
+      if (error) {
+        console.error("Error fetching all beach locations:", error);
+        throw new Error(`Failed to fetch locations: ${error.message}`);
+      }
 
-    if (!data || data.length === 0) {
-      return { data: [], error: null };
-    }
+      if (!data || data.length === 0) {
+        return [];
+      }
 
-    // Map to consistent format
-    const locations = data.map((loc: any) => ({
-      country: loc.country,
-      state: loc.state,
-      city: loc.city,
-      beachCount: loc.beach_count,
-    }));
+      // Map to consistent format
+      const locations = (data as any[]).map((loc: any) => ({
+        country: loc.country,
+        state: loc.state,
+        city: loc.city,
+        beachCount: loc.beach_count,
+      }));
 
-    // Add metro areas to the list for static generation
-    const metroSlugs = getAllMetroSlugs();
-    const metroLocations = metroSlugs.map((slug) => {
-      const config = getMetroConfig(slug);
-      if (!config) return null;
+      // Add metro areas to the list for static generation
+      const metroSlugs = getAllMetroSlugs();
+      const metroLocations = metroSlugs.map((slug) => {
+        const config = getMetroConfig(slug);
+        if (!config) return null;
 
-      return {
-        country: config.country,
-        state: config.state,
-        city: config.displayName,
-        beachCount: 0, // Will be calculated at runtime from constituent cities
-        isMetro: true,
-      };
-    }).filter(Boolean) as Array<{
-      country: string;
-      state: string;
-      city: string;
-      beachCount: number;
-      isMetro: boolean;
-    }>;
+        return {
+          country: config.country,
+          state: config.state,
+          city: config.displayName,
+          beachCount: 0, // Will be calculated at runtime from constituent cities
+          isMetro: true,
+        };
+      }).filter(Boolean) as Array<{
+        country: string;
+        state: string;
+        city: string;
+        beachCount: number;
+        isMetro: boolean;
+      }>;
 
-    return { data: [...locations, ...metroLocations], error: null };
-  });
+      return [...locations, ...metroLocations];
+    })
+  );
 }
 

@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createPublicReadClient } from '@/lib/supabase/server';
 import {
   lookupCityBySlug,
   lookupCityByCityAndStateSlug,
@@ -7,7 +7,7 @@ import {
 
 jest.mock('@/lib/supabase/server');
 
-const mockCreate = createSupabaseServerClient as jest.Mock;
+const mockCreate = createPublicReadClient as jest.Mock;
 
 /**
  * Create a mock Supabase client that returns the given cities data
@@ -46,7 +46,7 @@ describe('city lookup functions', () => {
         { city: 'San Diego', state: 'CA', country: 'USA' },
         { city: 'Los Angeles', state: 'CA', country: 'USA' },
       ];
-      mockCreate.mockResolvedValue(makeSupabaseFake(mockCities));
+      mockCreate.mockReturnValue(makeSupabaseFake(mockCities));
 
       const result = await lookupCityBySlug('san-diego');
       expect(result).toBeDefined();
@@ -62,7 +62,7 @@ describe('city lookup functions', () => {
       const mockCities = [
         { city: 'San Diego', state: 'CA', country: 'USA' },
       ];
-      mockCreate.mockResolvedValue(makeSupabaseFake(mockCities));
+      mockCreate.mockReturnValue(makeSupabaseFake(mockCities));
 
       const result = await lookupCityBySlug('nonexistent-city-xyz');
       expect(result).toBeNull();
@@ -87,7 +87,7 @@ describe('city lookup functions', () => {
           })),
         })),
       } as any;
-      mockCreate.mockResolvedValue(supabase);
+      mockCreate.mockReturnValue(supabase);
 
       const result = await lookupCityBySlug('san-diego');
       expect(result).toBeNull();
@@ -163,7 +163,7 @@ describe('city lookup functions', () => {
         { city: 'San Diego', state: 'CA', country: 'USA', beach_count: 2, has_beginner: true, has_advanced: true },
         { city: 'Malibu', state: 'CA', country: 'USA', beach_count: 1, has_beginner: false, has_advanced: true },
       ];
-      mockCreate.mockResolvedValue(makeSkillRpcSupabaseFake(cities));
+      mockCreate.mockReturnValue(makeSkillRpcSupabaseFake(cities));
 
       const result = await getAllCitiesWithBeachSkills(1);
       expect(result.success).toBe(true);
@@ -182,7 +182,7 @@ describe('city lookup functions', () => {
       const cities = [
         { city: 'Waikiki', state: 'HI', country: 'USA', beach_count: 1, has_beginner: true, has_advanced: false },
       ];
-      mockCreate.mockResolvedValue(makeSkillRpcSupabaseFake(cities));
+      mockCreate.mockReturnValue(makeSkillRpcSupabaseFake(cities));
 
       const result = await getAllCitiesWithBeachSkills(1);
       const waikiki = result.data?.find(c => c.city === 'Waikiki');
@@ -193,7 +193,7 @@ describe('city lookup functions', () => {
       const cities = [
         { city: 'Pipeline', state: 'HI', country: 'USA', beach_count: 1, has_beginner: false, has_advanced: true },
       ];
-      mockCreate.mockResolvedValue(makeSkillRpcSupabaseFake(cities));
+      mockCreate.mockReturnValue(makeSkillRpcSupabaseFake(cities));
 
       const result = await getAllCitiesWithBeachSkills(1);
       const pipeline = result.data?.find(c => c.city === 'Pipeline');
@@ -204,7 +204,7 @@ describe('city lookup functions', () => {
       const cities = [
         { city: 'Unknown', state: 'CA', country: 'USA', beach_count: 1, has_beginner: false, has_advanced: false },
       ];
-      mockCreate.mockResolvedValue(makeSkillRpcSupabaseFake(cities));
+      mockCreate.mockReturnValue(makeSkillRpcSupabaseFake(cities));
 
       const result = await getAllCitiesWithBeachSkills(1);
       const unknown = result.data?.find(c => c.city === 'Unknown');
@@ -217,7 +217,7 @@ describe('city lookup functions', () => {
       const cities = [
         { city: 'Big City', state: 'CA', country: 'USA', beach_count: 3, has_beginner: true, has_advanced: true },
       ];
-      mockCreate.mockResolvedValue(makeSkillRpcSupabaseFake(cities));
+      mockCreate.mockReturnValue(makeSkillRpcSupabaseFake(cities));
 
       const result = await getAllCitiesWithBeachSkills(3);
       expect(result.data?.length).toBe(1);
@@ -244,7 +244,7 @@ describe('city lookup functions', () => {
           })),
         })),
       } as any;
-      mockCreate.mockResolvedValue(supabase);
+      mockCreate.mockReturnValue(supabase);
 
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
@@ -260,7 +260,7 @@ describe('city lookup functions', () => {
         { city: 'Fallback City', state: 'CA', country: 'USA', skill_level: 'beginner' },
         { city: 'Fallback City', state: 'CA', country: 'USA', skill_level: 'advanced' },
       ];
-      mockCreate.mockResolvedValue(makeSkillSupabaseFake(beaches));
+      mockCreate.mockReturnValue(makeSkillSupabaseFake(beaches));
 
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
       const result = await getAllCitiesWithBeachSkills(1);
@@ -279,7 +279,7 @@ describe('city lookup functions', () => {
         { city: 'Oceanside', state: 'CA', country: 'USA' },
         { city: 'Oceanside', state: 'OR', country: 'USA' },
       ];
-      mockCreate.mockResolvedValue(makeSupabaseFake(mockCities));
+      mockCreate.mockReturnValue(makeSupabaseFake(mockCities));
 
       const result = await lookupCityByCityAndStateSlug('oceanside', 'ca');
       expect(result).toBeDefined();
@@ -296,12 +296,12 @@ describe('city lookup functions', () => {
         { city: 'Oceanside', state: 'CA', country: 'USA' },
         { city: 'Oceanside', state: 'OR', country: 'USA' },
       ];
-      mockCreate.mockResolvedValue(makeSupabaseFake(mockCities));
+      mockCreate.mockReturnValue(makeSupabaseFake(mockCities));
 
       const resultCA = await lookupCityByCityAndStateSlug('oceanside', 'ca');
       expect(resultCA?.stateName).toBe('CA');
 
-      mockCreate.mockResolvedValue(makeSupabaseFake(mockCities));
+      mockCreate.mockReturnValue(makeSupabaseFake(mockCities));
       const resultOR = await lookupCityByCityAndStateSlug('oceanside', 'or');
       expect(resultOR?.stateName).toBe('OR');
     });
@@ -310,7 +310,7 @@ describe('city lookup functions', () => {
       const mockCities = [
         { city: 'Oceanside', state: 'CA', country: 'USA' },
       ];
-      mockCreate.mockResolvedValue(makeSupabaseFake(mockCities));
+      mockCreate.mockReturnValue(makeSupabaseFake(mockCities));
 
       const result = await lookupCityByCityAndStateSlug('nonexistent', 'ca');
       expect(result).toBeNull();
@@ -320,7 +320,7 @@ describe('city lookup functions', () => {
       const mockCities = [
         { city: 'Oceanside', state: 'CA', country: 'USA' },
       ];
-      mockCreate.mockResolvedValue(makeSupabaseFake(mockCities));
+      mockCreate.mockReturnValue(makeSupabaseFake(mockCities));
 
       const result = await lookupCityByCityAndStateSlug('oceanside', 'fl');
       expect(result).toBeNull();
@@ -345,7 +345,7 @@ describe('city lookup functions', () => {
           })),
         })),
       } as any;
-      mockCreate.mockResolvedValue(supabase);
+      mockCreate.mockReturnValue(supabase);
 
       const result = await lookupCityByCityAndStateSlug('oceanside', 'ca');
       expect(result).toBeNull();

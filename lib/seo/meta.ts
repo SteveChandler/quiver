@@ -527,19 +527,20 @@ export function buildDynamicTideMetadata({
   const now = new Date();
   const monthYear = now.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 
-  // Title: emphasize unique value (chart + surf windows) over raw tide times.
-  // Tier 1: "{Beach} Tide Chart & Surf Windows | {Mon YYYY}"
-  // Tier 2 (name too long): "{Beach} Tide Chart & Surf Windows"
-  // Tier 3 (still long): truncate beach name
-  const coreTitle = `${beach.name} Tide Chart & Surf Windows`;
-  const fullTitle = `${coreTitle} | ${monthYear}`;
+  // Title: decision-making framing to target "best time to surf" intent.
+  // Tier 1: "Best Tide to Surf {Beach} | {Mon YYYY}" (if <=60 chars)
+  // Tier 2: "Best Tide to Surf {Beach}" (drop date, if <=60 chars)
+  // Tier 3: "{Beach} Tide & Surf Windows" (very long names)
+  const tier1 = `Best Tide to Surf ${beach.name} | ${monthYear}`;
+  const tier2 = `Best Tide to Surf ${beach.name}`;
+  const tier3 = `${beach.name} Tide & Surf Windows`;
   let title: string;
-  if (fullTitle.length <= MAX_TITLE_LENGTH) {
-    title = fullTitle;
-  } else if (coreTitle.length <= MAX_TITLE_LENGTH) {
-    title = coreTitle;
+  if (tier1.length <= MAX_TITLE_LENGTH) {
+    title = tier1;
+  } else if (tier2.length <= MAX_TITLE_LENGTH) {
+    title = tier2;
   } else {
-    title = truncateTitleForSEO(`${beach.name} Tide Chart`);
+    title = truncateTitleForSEO(tier3);
   }
 
   // Description: lead with value proposition, then include live tide data for relevance.
@@ -587,19 +588,20 @@ export function buildDynamicWaterTempMetadata({
   const now = new Date();
   const monthYear = now.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 
-  // Title: emphasize unique value (wetsuit guide) over raw temperature Google already shows.
-  // Tier 1: "{Beach} Water Temp & Wetsuit Guide | {Mon YYYY}"
-  // Tier 2 (name too long): "{Beach} Water Temp & Wetsuit Guide"
-  // Tier 3 (still long): truncate beach name
-  const coreTitle = `${beach.name} Water Temp & Wetsuit Guide`;
-  const fullTitle = `${coreTitle} | ${monthYear}`;
+  // Title: gear-planning framing to target "what wetsuit" intent.
+  // Tier 1: "What Wetsuit for {Beach}? | {Mon YYYY}" (if <=60 chars)
+  // Tier 2: "What Wetsuit for {Beach}?" (drop date, if <=60 chars)
+  // Tier 3: "{Beach} Water Temp & Wetsuit Rec" (very long names)
+  const tier1 = `What Wetsuit for ${beach.name}? | ${monthYear}`;
+  const tier2 = `What Wetsuit for ${beach.name}?`;
+  const tier3 = `${beach.name} Water Temp & Wetsuit Rec`;
   let title: string;
-  if (fullTitle.length <= MAX_TITLE_LENGTH) {
-    title = fullTitle;
-  } else if (coreTitle.length <= MAX_TITLE_LENGTH) {
-    title = coreTitle;
+  if (tier1.length <= MAX_TITLE_LENGTH) {
+    title = tier1;
+  } else if (tier2.length <= MAX_TITLE_LENGTH) {
+    title = tier2;
   } else {
-    title = truncateTitleForSEO(`${beach.name} Water Temp`);
+    title = truncateTitleForSEO(tier3);
   }
 
   // Description: consistent value-first pattern regardless of whether we have live data.

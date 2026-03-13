@@ -4,7 +4,7 @@ import {
   generateBeachSubPageMetadata,
 } from "@/lib/utils/beach-sub-page-utils";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export default async function MexicoBeachTidesPage(props: {
   params: Promise<{ region: string; city: string; beachSlug: string }>;

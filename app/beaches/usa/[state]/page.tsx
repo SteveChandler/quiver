@@ -21,7 +21,7 @@ import { FAQSection } from "@/components/seo/faq-schema";
 import { generateStateRichContent } from "@/lib/seo/state-content-generator";
 import { RichContentRenderer } from "@/lib/seo/rich-content";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 86400;
 
 type BeachLocationRow = {
   city: string;

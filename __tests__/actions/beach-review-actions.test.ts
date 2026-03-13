@@ -14,6 +14,7 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(() =>
     Promise.resolve(mockSupabaseClient)
   ),
+  createPublicReadClient: jest.fn(() => mockSupabaseClient),
 }));
 
 // Import after mocking

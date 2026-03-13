@@ -1,6 +1,6 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createPublicReadClient } from "@/lib/supabase/server";
 import { getRegionForBeach } from "@/lib/data/cam-regions";
 import { unstable_cache } from "next/cache";
 
@@ -23,7 +23,7 @@ export interface CamBeachWithRegion extends CamBeach {
  */
 export const getBeachesWithCameras = unstable_cache(
   async (): Promise<CamBeachWithRegion[]> => {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createPublicReadClient();
 
     const { data, error } = await supabase
       .from("beach_sources")

@@ -9,12 +9,12 @@ import {
   getCityMetadata,
   findCityBySlug,
 } from "@/actions/city/city-metadata-actions";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createPublicReadClient } from "@/lib/supabase/server";
 
 // Mock the Supabase server client
 jest.mock("@/lib/supabase/server", () => ({
   __esModule: true,
-  createSupabaseServerClient: jest.fn(),
+  createPublicReadClient: jest.fn(),
 }));
 
 // Chain builder for Supabase query mocking
@@ -119,7 +119,7 @@ describe("City Metadata Actions", () => {
       rpc: jest.fn(() => Promise.resolve(defaultRpcResponse)),
     };
 
-    (createSupabaseServerClient as jest.Mock).mockResolvedValue(
+    (createPublicReadClient as jest.Mock).mockReturnValue(
       mockSupabaseClient
     );
   });
@@ -343,7 +343,7 @@ describe("City Metadata Actions", () => {
 
       await getCityMetadata("Santa Cruz", "CA");
 
-      expect(createSupabaseServerClient).toHaveBeenCalled();
+      expect(createPublicReadClient).toHaveBeenCalled();
     });
   });
 

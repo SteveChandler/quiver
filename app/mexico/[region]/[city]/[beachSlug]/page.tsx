@@ -22,7 +22,7 @@ import { WebPageSchema } from "@/components/seo/web-page-schema";
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 interface PageProps {
   params: Promise<{ region: string; city: string; beachSlug: string }>;

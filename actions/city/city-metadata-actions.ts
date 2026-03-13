@@ -1,6 +1,6 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createPublicReadClient } from "@/lib/supabase/server";
 import { withServerAction, ServerActionResponse } from "@/lib/server-action-utils";
 import { resolveCityFromSlug } from "@/lib/seo/city-slug-utils";
 
@@ -69,7 +69,7 @@ export async function getCityMetadata(
   state: string
 ): Promise<ServerActionResponse<CityMetadata | null>> {
   return withServerAction(async () => {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createPublicReadClient();
     const normalizedState = state.toUpperCase();
 
     const { data: beaches, error } = await supabase
@@ -144,7 +144,7 @@ export async function findCitiesMatchingPattern(
   cityPattern: string
 ): Promise<ServerActionResponse<CityPatternMatch[]>> {
   return withServerAction(async () => {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createPublicReadClient();
 
     // Call RPC without state filter to get all matching cities
     const { data: matches, error } = await supabase.rpc("find_cities_by_pattern", {
@@ -180,7 +180,7 @@ export async function findCityBySlug(
   slug: string
 ): Promise<ServerActionResponse<CityMetadata | null>> {
   return withServerAction(async () => {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createPublicReadClient();
     const { cityPattern, stateFilter } = resolveCityFromSlug(slug);
 
     // Use RPC function for accent-insensitive and hyphen-normalized matching
@@ -261,7 +261,7 @@ export async function getCityBeachEditorialData(
   state: string
 ): Promise<BeachEditorialItem[]> {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createPublicReadClient();
     const normalizedState = state.toUpperCase();
 
     // The generated database.ts types do not yet include all editorial columns,

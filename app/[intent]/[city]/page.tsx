@@ -3,7 +3,7 @@ import { ChevronLeft, MapPin } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { cache } from "react";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createPublicReadClient } from "@/lib/supabase/server";
 
 import {
   SURF_INTENTS,
@@ -75,7 +75,7 @@ import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { TideDatasetSchema } from "@/components/seo/tide-dataset-schema";
 import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-schema";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 /**
  * Try to resolve a city slug with automatic state suffix detection.
@@ -183,9 +183,8 @@ const BEGINNER_INTENTS = new Set(["beginner", "longboard"]);
 /** Intents that may return zero beaches and should noindex at state level when empty */
 const NOINDEX_WHEN_EMPTY_INTENTS = new Set(["beginner", "longboard", "least-crowded"]);
 
-// NOTE: generateStaticParams removed — this page uses force-dynamic.
-// Pages are rendered on-demand. State-level routes (e.g., /beginner/ca)
-// are handled by the dynamic catch-all.
+// NOTE: generateStaticParams not used — pages are rendered on-demand with ISR (revalidate = 3600).
+// State-level routes (e.g., /beginner/ca) are handled by the dynamic catch-all.
 
 interface IntentPageParams {
   // NOTE: although this page is primarily for surf intents, this route also
@@ -331,7 +330,7 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
 }
 
 async function getCityExcludeIntents(cityName: string, state: string): Promise<IntentKey[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createPublicReadClient();
   const { data } = await supabase
     .from("beaches")
     .select("id")

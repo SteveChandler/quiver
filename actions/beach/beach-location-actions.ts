@@ -1,6 +1,6 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createPublicReadClient } from "@/lib/supabase/server";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 import { slugifyAscii } from "@/lib/utils/text-utils";
 import { stateToSlug } from "@/lib/utils/beach-url-utils";
@@ -16,7 +16,7 @@ export async function getNearbyBeaches(
   // - data?: Beach[]
   // - error?: string
   // - fallbackUsed?: boolean (true when RPC path fails and we fall back to client-side filtering)
-  const supabase = await createSupabaseServerClient();
+  const supabase = createPublicReadClient();
 
   try {
     // Convert miles to meters for the PostGIS function (round to integer)
@@ -119,7 +119,7 @@ export interface CityWithBeachCount {
  */
 async function getAllCitiesWithBeaches(minBeaches: number = 1) {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createPublicReadClient();
 
     const { data, error } = await supabase
       .from("beaches")
@@ -191,7 +191,7 @@ export interface CityWithSkillCategories {
  */
 export async function getAllCitiesWithBeachSkills(minBeaches: number = 1) {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createPublicReadClient();
 
     // Use RPC for database-side aggregation (much faster than full table scan)
     const { data, error } = await supabase.rpc("get_cities_with_beach_skills", {
@@ -247,7 +247,7 @@ export async function getAllCitiesWithBeachSkills(minBeaches: number = 1) {
  */
 async function getAllCitiesWithBeachSkillsFallback(minBeaches: number = 1) {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createPublicReadClient();
 
     const { data, error } = await supabase
       .from("beaches")
