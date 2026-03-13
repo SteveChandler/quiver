@@ -10,6 +10,7 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLocationSafe } from "@/context/location-context";
+import { SocialProofBar } from "./social-proof-bar";
 
 interface Beach {
   id: string;
@@ -144,10 +145,10 @@ export function SurfHighlightsSection() {
       className="pt-16 pb-8 md:pt-24 md:pb-10 bg-[#252D6B] noise-texture border-t border-white/[0.06]"
     >
       <div className="max-w-7xl mx-auto px-6">
-        {/* Social proof */}
-        <p className="text-center text-sm md:text-base text-[#B0C0D6] mb-14">
-          Covering 750+ beaches across California, Oregon, Washington, Hawaii, Puerto Rico &amp; beyond
-        </p>
+        {/* Social proof — dynamic community stats */}
+        <div className="mb-10">
+          <SocialProofBar />
+        </div>
 
         {/* Section header */}
         <motion.h2
