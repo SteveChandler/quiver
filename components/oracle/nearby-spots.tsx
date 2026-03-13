@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export interface NearbySpot {
@@ -89,6 +90,24 @@ function SkeletonCard() {
 }
 
 export function NearbySpots({ spots, onViewSpot, loading = false }: NearbySpotsProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      // Only intercept vertical scroll when container is horizontally scrollable
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && el.scrollWidth > el.clientWidth) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, []);
+
   return (
     <section>
       <div className="flex items-center justify-between mb-3">
@@ -97,6 +116,8 @@ export function NearbySpots({ spots, onViewSpot, loading = false }: NearbySpotsP
       </div>
       <div className="relative">
         <div
+          ref={scrollRef}
+          data-testid="nearby-spots-scroll"
           className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-2 -mx-6 px-6"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
