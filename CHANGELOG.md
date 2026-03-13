@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Auth: fixed 5 broken `unified-auth-modal` tests caused by Apple Sign-In env guard -- split tests into "Apple available" and "Apple unavailable" describe blocks with proper env var setup/teardown
+- Security: referral leaderboard DB function now prefers `display_name` over `full_name` to avoid exposing users' real names (new migration `20260313060000`)
+- Security: referral code validation (`/^[A-Z0-9]{4,12}$/i`) added in middleware cookie capture and `claimReferral` action; replaced `ilike` (SQL wildcard-vulnerable) with exact `eq` match
+- Security: `/api/community-stats` wrapped with `withBotBlockingAndRateLimit` (public-default tier) to prevent abuse of 4 parallel DB queries
+- Design: `PublicContentGate` redesigned -- removed Card/Sparkles AI slop, uses Waves icon + navy gradient fade + Charming Orange CTA + smooth blur transition
+- Design: `SocialProofBar` replaced 4 metric counters with single dynamic prose statement prioritizing today's reports, session count, user count, or beach coverage fallback
+- Design: `ContextualCTA` primary button now dramatically more prominent (`bg-[#F78E42]`, larger padding) with ghost-style secondary buttons
+- Design: `MapSignupPrompt` gradient replaced with `bg-white/[0.04]` + left Charming Orange border accent
+- Growth: referral leaderboard share URL uses `NEXT_PUBLIC_SITE_URL` env var instead of hardcoded domain
 - SEO: removed manual " | Quiver" suffixes from support, forecast-accuracy, best-time-to-surf, intent/city, and beach-slug pages where the root layout template already appends it (was causing double-branding like "Support | Quiver | Quiver")
 - SEO: improved weak page titles for map (`Interactive Surf Map — Real-Time Conditions & Forecasts`), discover (`Find Local Surfers & Surf Buddies Near You`), state root pages (`Best Surf Spots in ${stateName} — Conditions & Forecasts`), and beaches/usa/[state] pages (`Surf Beaches in ${stateName} — Every City & Break`) to better match search intent
 - SEO: updated all forecast region titles in `forecast-regions.ts` to use em dash and hyphenated "7-Day" (e.g. `Southern California Surf Forecast — 7-Day Outlook`)
