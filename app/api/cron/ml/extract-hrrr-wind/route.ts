@@ -55,9 +55,9 @@ export async function GET(request: Request) {
   // Fetch all beaches with coordinates
   const { data: beaches, error: beachError } = await supabase
     .from('beaches')
-    .select('id, center_lat, center_lng')
-    .not('center_lat', 'is', null)
-    .not('center_lng', 'is', null);
+    .select('id, lat, lon')
+    .not('lat', 'is', null)
+    .not('lon', 'is', null);
 
   if (beachError) {
     console.error('[HRRR] Error fetching beaches:', beachError);
@@ -72,12 +72,8 @@ export async function GET(request: Request) {
   // Intentionally restricted to the US West Coast (CA, OR, WA, northern Baja)
   // matching the BBOX in ml/hrrr_wind_service.py. To expand to full CONUS,
   // update both this filter and the Python BBOX.
-  // center_lng is the DB column name (legacy); lon is used for local variable
-  // naming per coordinate conventions.
   const conusBeaches = beaches.filter((b) => {
-    const lat = b.center_lat;
-    const lon = b.center_lng;
-    return lat >= 32 && lat <= 49 && lon >= -126 && lon <= -117;
+    return b.lat >= 32 && b.lat <= 49 && b.lon >= -126 && b.lon <= -117;
   });
 
   console.log(
@@ -92,8 +88,8 @@ export async function GET(request: Request) {
   // Forecast hours 1-6 covers the most critical near-term period.
   const beachCoords = conusBeaches.map((b) => ({
     id: b.id,
-    lat: b.center_lat,
-    lon: b.center_lng,
+    lat: b.lat,
+    lon: b.lon,
   }));
 
   let response: Response;
