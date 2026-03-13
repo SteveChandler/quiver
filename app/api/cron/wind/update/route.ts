@@ -32,9 +32,9 @@ export async function GET(request: Request) {
   // Fetch all beaches with coordinates
   const { data: beaches, error: beachError } = await supabase
     .from('beaches')
-    .select('id, center_lat, center_lng, name')
-    .not('center_lat', 'is', null)
-    .not('center_lng', 'is', null);
+    .select('id, lat, lon, name')
+    .not('lat', 'is', null)
+    .not('lon', 'is', null);
 
   if (beachError || !beaches?.length) {
     return createErrorResponse('Failed to fetch beaches');
@@ -55,7 +55,7 @@ export async function GET(request: Request) {
 
     const results = await Promise.allSettled(
       batch.map(async (beach) => {
-        const windPoints = await fetchHourlyWind(beach.center_lat, beach.center_lng);
+        const windPoints = await fetchHourlyWind(beach.lat, beach.lon);
         if (!windPoints.length) return { beach: beach.name, updated: 0, skipped: 0 };
 
         let beachUpdated = 0;
