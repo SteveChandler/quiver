@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { SidebarBeachCard } from "@/components/map/sidebar-beach-card";
 import { SelectedBeachCard } from "@/components/map/selected-beach-card";
+import { MapSignupPrompt } from "@/components/map/map-signup-prompt";
 import { useBeachListState } from "@/hooks/use-beach-list-state";
 import { useBottomSheetGesture } from "@/hooks/use-bottom-sheet-gesture";
 import type { Beach } from "@/types/database";
@@ -150,7 +151,28 @@ export function MapBottomSheet({
           </div>
         ) : (
           <div className="space-y-1 pb-4">
-            {beaches.map((beach) => (
+            {/* Signup prompt for anonymous users — appears after first 2 beaches on mobile */}
+            {beaches.slice(0, 2).map((beach) => (
+              <div
+                key={beach.id}
+                ref={(el) => setCardRef(beach.id, el)}
+              >
+                <SidebarBeachCard
+                  beach={beach}
+                  waveHeight={waveHeightMap.get(beach.id) ?? undefined}
+                  isSelected={selectedBeach?.id === beach.id}
+                  distance={distanceMap?.get(beach.id)}
+                  onSelect={handleBeachSelect}
+                />
+              </div>
+            ))}
+
+            <MapSignupPrompt
+              beachName={selectedBeach?.name}
+              source="map-bottom-sheet"
+            />
+
+            {beaches.slice(2).map((beach) => (
               <div
                 key={beach.id}
                 ref={(el) => setCardRef(beach.id, el)}
