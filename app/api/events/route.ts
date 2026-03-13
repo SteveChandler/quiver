@@ -130,6 +130,12 @@ const VALID_EVENTS: ImplicitEventType[] = [
   'signup_cta_click',
   'signup_cta_view',
   'signin_cta_click',
+  // Auth funnel events (fire before user is authenticated)
+  'auth_modal_opened',
+  'auth_method_selected',
+  'signup_started',
+  'signup_success',
+  'login_success',
   // Home screen events
   'home_at_beach_click',
   'home_plan_weekend_click',
@@ -180,6 +186,8 @@ const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
   'page_view', 'beach_view', 'tab_view', 'onboarding_step',
   // Conversion tracking (critical for understanding anon→authed funnel)
   'signup_cta_click', 'signup_cta_view', 'signin_cta_click', 'cta_click',
+  // Auth funnel events (fire before user is authenticated — must be anonymous-allowed)
+  'auth_modal_opened', 'auth_method_selected', 'signup_started', 'signup_success', 'login_success',
   // Engagement signals from anonymous visitors
   'forecast_interaction', 'forecast_tab_click', 'horizon_strip_day_selected',
   'beach_search', 'map_interaction', 'map_marker_click',

@@ -14,6 +14,31 @@
  */
 
 import { track } from "@/lib/analytics";
+import { getVisitorId } from "@/lib/utils/visitor-id";
+
+/**
+ * Fire an event to the internal user_events table via POST /api/events.
+ * Auth events fire before the user is authenticated, so they use sessionId
+ * for anonymous tracking. Errors are swallowed — tracking must never break the app.
+ */
+function fireToUserEvents(eventType: string, params: Record<string, any>) {
+  if (typeof window === "undefined") return;
+  try {
+    fetch("/api/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        eventType,
+        metadata: params,
+        sessionId: getVisitorId(),
+        viewportWidth: window.innerWidth,
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // Swallow errors — tracking must never break the app
+  }
+}
 
 /**
  * Track when the auth modal is opened
@@ -26,11 +51,13 @@ export function trackAuthModalOpened(params: {
   source: string;
   context?: string;
 }) {
-  track("auth_modal_opened", {
+  const eventParams = {
     mode: params.mode,
     source: params.source,
     context: params.context,
-  });
+  };
+  track("auth_modal_opened", eventParams);
+  fireToUserEvents("auth_modal_opened", eventParams);
 }
 
 /**
@@ -42,10 +69,12 @@ export function trackAuthMethodSelected(params: {
   method: "apple" | "google" | "password" | "magic_link";
   mode: "login" | "signup";
 }) {
-  track("auth_method_selected", {
+  const eventParams = {
     method: params.method,
     mode: params.mode,
-  });
+  };
+  track("auth_method_selected", eventParams);
+  fireToUserEvents("auth_method_selected", eventParams);
 }
 
 /**
@@ -68,10 +97,12 @@ export function trackLoginSuccess(params: {
   method: string;
   duration_ms: number;
 }) {
-  track("login_success", {
+  const eventParams = {
     method: params.method,
     duration_ms: params.duration_ms,
-  });
+  };
+  track("login_success", eventParams);
+  fireToUserEvents("login_success", eventParams);
 }
 
 /**
@@ -94,10 +125,12 @@ export function trackLoginFailed(params: {
  * @param method - The auth method being used
  */
 export function trackSignupStarted(method: string) {
-  track("signup_started", {
+  const eventParams = {
     method,
     timestamp: Date.now(),
-  });
+  };
+  track("signup_started", eventParams);
+  fireToUserEvents("signup_started", eventParams);
 }
 
 /**
@@ -109,10 +142,12 @@ export function trackSignupSuccess(params: {
   method: string;
   requires_verification: boolean;
 }) {
-  track("signup_success", {
+  const eventParams = {
     method: params.method,
     requires_verification: params.requires_verification,
-  });
+  };
+  track("signup_success", eventParams);
+  fireToUserEvents("signup_success", eventParams);
 }
 
 /**
