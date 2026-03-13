@@ -36,7 +36,7 @@ export async function generateMetadata(props: StateRootPageProps) {
 
   const stateName = getStateDisplayNameFromSlug(stateSlug);
   return buildPageMetadata({
-    title: `Best Surf Beaches in ${stateName}`,
+    title: `Best Surf Spots in ${stateName} — Conditions & Forecasts`,
     description: `Explore top surf spots in ${stateName}. Find beaches, conditions, and the best times to surf with Quiver.`,
     path: `/${stateSlug}`,
   });

@@ -37,7 +37,7 @@ const SITE_ORIGIN = (
 
 export async function generateMetadata(): Promise<Metadata> {
   return buildPageMetadata({
-    title: "Surf Forecast Accuracy | Quiver ML vs NOAA Baseline",
+    title: "Surf Forecast Accuracy — ML vs NOAA Baseline",
     description:
       "See how accurate Quiver's ML-corrected surf forecasts are versus the NOAA marine baseline. Live buoy-validated data across 100+ beaches. Updated daily.",
     path: "/forecast-accuracy",
@@ -80,7 +80,7 @@ export default async function ForecastAccuracyPage() {
         ]}
       />
       <WebPageSchema
-        name="Surf Forecast Accuracy | Quiver ML vs NOAA Baseline"
+        name="Surf Forecast Accuracy — ML vs NOAA Baseline"
         url={`${SITE_ORIGIN}/forecast-accuracy`}
         description="Live buoy-validated forecast accuracy data comparing Quiver's ML model against the NOAA marine baseline across 100+ surf beaches."
       />

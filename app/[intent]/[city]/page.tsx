@@ -243,7 +243,7 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
   // This prevents Google from selecting an arbitrary canonical URL
   if (!definition) {
     return {
-      title: "Page Not Found | Quiver",
+      title: "Page Not Found",
       description: "This page could not be found.",
       alternates: {
         canonical: `${baseUrl}/${params.intent}/${params.city}`,
@@ -261,7 +261,7 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
   if (!cityMetadata) {
     const parsedCityName = parseLocationFromSlug(params.city);
     return {
-      title: `${definition.label} Spots in ${parsedCityName} | Quiver`,
+      title: `${definition.label} Spots in ${parsedCityName}`,
       description: `Find ${definition.label.toLowerCase()} surf spots near ${parsedCityName}. AI-powered recommendations for every skill level.`,
       alternates: {
         canonical: `${baseUrl}/${params.intent}/${params.city}`,

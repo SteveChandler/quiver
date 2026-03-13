@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- SEO: removed manual " | Quiver" suffixes from support, forecast-accuracy, best-time-to-surf, intent/city, and beach-slug pages where the root layout template already appends it (was causing double-branding like "Support | Quiver | Quiver")
+- SEO: improved weak page titles for map (`Interactive Surf Map — Real-Time Conditions & Forecasts`), discover (`Find Local Surfers & Surf Buddies Near You`), state root pages (`Best Surf Spots in ${stateName} — Conditions & Forecasts`), and beaches/usa/[state] pages (`Surf Beaches in ${stateName} — Every City & Break`) to better match search intent
+- SEO: updated all forecast region titles in `forecast-regions.ts` to use em dash and hyphenated "7-Day" (e.g. `Southern California Surf Forecast — 7-Day Outlook`)
 - Analytics: `signup_cta_view` event now deduplicates per source per page session via a module-level `Set` in `signup-conversion-tracking.ts` — eliminates ~27x inflation for the `cam-hero` source caused by component remount cycles
 - Analytics: `isBot()` now treats missing/empty user-agents as bots (changed from `false` to `true`), improving bot filtering at the `/api/events` endpoint
 - Bot detection: added viewport-based fingerprint detection (`isSuspiciousFingerprint`) targeting Windows+Chrome+1280px bot pattern that bypasses UA-based filtering
@@ -17,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Analytics: auth funnel events (`auth_modal_opened`, `auth_method_selected`, `signup_started`, `signup_success`, `login_success`) now dual-fire to both GA4 and internal `user_events` table for dashboard measurement
 
 ### Added
+- Support page at `/support` — static server component with FAQ, contact email, bug report instructions, and links to Privacy Policy and Terms of Service; required for iOS App Store listing
 - Report Conditions feature: replaces "Log Session" CTA with inline "Report Conditions" card on beach detail pages — users select wave size (1-2ft through 5+ft) and vibe (Firing/Fun/Meh/Rough) with an optional note; submission creates an `intel_posts` record (with new `wave_size_range` + `vibe` columns) and a minimal `sessions` record (`source: 'conditions_report'`) for ML training; deduplicates to one report per user per beach per calendar day
 - Recent Reports section on beach detail page: shows up to 3 community conditions reports from the last 24 hours (name, time ago, wave size, vibe emoji, note); hidden when empty — no dead empty state
 - Migration `20260312120000_add_conditions_report_fields.sql`: adds `wave_size_range` and `vibe` columns to `intel_posts`, `source` column to `sessions`, and a `(beach_id, created_at DESC)` index for the 24h recency query

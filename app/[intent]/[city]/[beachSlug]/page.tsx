@@ -311,7 +311,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
   // Skip metadata generation for invalid state slugs (intent slugs)
   if (!isValidStateSlug(stateParam)) {
     return {
-      title: "Page Not Found | Quiver",
+      title: "Page Not Found",
       robots: { index: false, follow: false },
     };
   }
@@ -328,7 +328,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
     // indexable metadata is emitted before notFound() renders the 404 page.
     if (!beach) {
       return {
-        title: "Page Not Found | Quiver",
+        title: "Page Not Found",
         robots: { index: false, follow: false },
       };
     }
@@ -412,7 +412,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
   // Error fallback: couldn't resolve beach data — suppress indexing to avoid
   // emitting a canonical URL to a page that may not render correctly.
   return {
-    title: "Page Not Found | Quiver",
+    title: "Page Not Found",
     robots: { index: false, follow: false },
   };
 }

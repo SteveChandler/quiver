@@ -51,7 +51,7 @@ export async function generateMetadata(
   // variants like `/map?search=Capitola` or `/map?city=san-diego`
   // (canonicalize to `/map`).
   const base = buildPageMetadata({
-    title: "Surf Spots Map",
+    title: "Interactive Surf Map — Real-Time Conditions & Forecasts",
     description:
       "Explore surf spots on an interactive map with real-time conditions, break types, and crowd levels. Filter by skill level, wave type, and distance from you.",
     path: "/map",
