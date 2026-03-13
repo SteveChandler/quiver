@@ -33,19 +33,11 @@ import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 
-export const revalidate = 600;
+// Force dynamic rendering — this page fetches live forecast data via service-role
+// client (no-store), which is incompatible with static/ISR rendering in Next.js 16.
+export const dynamic = "force-dynamic";
 // Allow dynamic params for beach UUIDs (not pre-rendered)
 export const dynamicParams = true;
-
-/**
- * Generate static paths for all forecast regions
- * Beach IDs are dynamic and not pre-rendered
- */
-export async function generateStaticParams() {
-  return getAllForecastRegionSlugs().map((slug) => ({
-    beachId: slug,
-  }));
-}
 
 /**
  * Generate metadata for both regional forecasts and beach redirects
