@@ -523,7 +523,7 @@ export function UnifiedAuthModal({
             loading={loading}
             termsAccepted={termsAccepted}
             onTermsAcceptedChange={setTermsAccepted}
-            onAppleClick={handleAppleSignIn}
+            onAppleClick={process.env.NEXT_PUBLIC_APPLE_CLIENT_ID ? handleAppleSignIn : undefined}
             onGoogleClick={handleGoogleOAuth}
             onEmailPasswordClick={() => setView("email-password")}
             onMagicLinkClick={() => setView("magic-link")}
