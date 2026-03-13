@@ -117,6 +117,9 @@ jest.mock('@/lib/services/discovery/window-selector', () => ({
   getLocalDateStr: jest.fn((date: Date, _tz: string) => {
     return date.toISOString().split('T')[0];
   }),
+  getLocalHour: jest.fn((date: Date, _tz: string) => {
+    return date.getUTCHours();
+  }),
 }));
 
 jest.mock('@/lib/services/discovery/response-formatter', () => ({
