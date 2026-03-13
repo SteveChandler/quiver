@@ -11,7 +11,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Navigation, AlertTriangle } from "lucide-react";
+import { Navigation, AlertTriangle, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -52,14 +52,21 @@ import { BeachStatsGrid } from "@/components/beach-detail/beach-stats-grid";
 import { ConditionsTicker } from "@/components/conditions/conditions-ticker";
 import { forecastToConditionsData } from "@/lib/mappers/conditions-mappers";
 import { BeachActions } from "@/components/beach-detail/beach-actions";
-import { RecentReports } from "@/components/beach-detail/recent-reports";
 import {
   BeachTabs,
   BeachTabContent,
   type BeachTabValue,
 } from "@/components/beach-detail/beach-tabs";
+import { SessionPlanningModal } from "@/components/beach-detail/session-planning-modal";
 import { TabLoadingSkeleton } from "@/components/beach-detail/tab-loading-skeleton";
+import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { PublicContentGate } from "@/components/ui/public-content-gate";
+import { CamHeroPlaceholder } from "@/components/beach-detail/cam-hero-placeholder";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
+import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
+import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
+import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
+import { motion } from "framer-motion";
 
 // PERFORMANCE OPTIMIZATION: Lazy load tab content to reduce initial bundle size
 // Only load the active tab's code on-demand
@@ -147,11 +154,14 @@ function BeachDetailContent({
   const [reviewDialogSource, setReviewDialogSource] =
     useState<ReviewTrackingSource>(REVIEW_TRACKING_SOURCES.OVERVIEW_CTA);
   const [reviewRefreshTrigger, setReviewRefreshTrigger] = useState(0);
-  const [conditionsReportRefreshTrigger, setConditionsReportRefreshTrigger] = useState(0);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedForecastEntry, setSelectedForecastEntry] =
     useState<EnhancedForecastEntity | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [sessionPlanningOpen, setSessionPlanningOpen] = useState(false);
+  const [sessionPlanningMode, setSessionPlanningMode] = useState<
+    "log" | "plan"
+  >("log");
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<BeachTabValue>(
     defaultTab || "forecast",
@@ -340,17 +350,36 @@ function BeachDetailContent({
     Boolean(sources?.camera_url) &&
     buildCamEmbed(sources?.camera_url).kind !== "none";
 
-  // Subtle score-based tint overlay — gives an instant emotional signal
-  // before the user reads any numbers. Kept well under 10% opacity so
-  // it's felt rather than consciously seen.
-  const heroTintStyle = useMemo((): string | undefined => {
-    const score = beach?.base_score;
-    if (score == null) return undefined;
-    if (score >= 8) return "rgba(251, 184, 75, 0.08)";  // Paradise Gold — warm/inviting
-    if (score >= 6) return "rgba(247, 142, 66, 0.05)";  // Charming Orange — subtle warm
-    if (score >= 4) return undefined;                   // Neutral — no tint
-    return "rgba(14, 165, 233, 0.06)";                  // Ocean Teal — cool/poor conditions
-  }, [beach?.base_score]);
+  // Horizon strip data for public mode teaser (Phase 2C + 2D)
+  // Computed here so both the hero teaser and above-tab upsell can share the same data
+  const [horizonAuthModal, setHorizonAuthModal] = useState(false);
+
+  const horizonDaySummaries = useMemo(() => {
+    if (!publicMode || !forecasts.length || !beach) return [];
+    return aggregateDayForecasts(forecasts, beach, {
+      maxDays: 12,
+      timezone: beachTimezone || undefined,
+    });
+  }, [publicMode, forecasts, beach, beachTimezone]);
+
+  const firstHiddenDayName = useMemo(() => {
+    if (!publicMode || horizonDaySummaries.length <= 3) return null;
+    const hiddenDay = horizonDaySummaries[3];
+    if (!hiddenDay?.fullDate) return null;
+    try {
+      return new Date(`${hiddenDay.fullDate}T00:00:00`).toLocaleDateString(undefined, { weekday: "long" });
+    } catch {
+      return null;
+    }
+  }, [publicMode, horizonDaySummaries]);
+
+  // Peak wave height across the hidden days (4-12) for data-driven teaser copy
+  const peakHiddenWaveHeight = useMemo(() => {
+    if (!publicMode || horizonDaySummaries.length <= 3) return null;
+    const hiddenDays = horizonDaySummaries.slice(3);
+    const maxHeight = Math.max(...hiddenDays.map(d => d.maxHeight ?? 0).filter(h => h > 0));
+    return maxHeight > 0 ? maxHeight : null;
+  }, [publicMode, horizonDaySummaries]);
 
   // Calculate destination coordinates and directions handler BEFORE early returns
   // (must be before early returns to maintain consistent hook count)
@@ -411,6 +440,17 @@ function BeachDetailContent({
   // Track if tab data is still loading (for skeleton loaders)
   const tabDataLoading = loading;
 
+  // Session planning handlers
+  const handlePlanSession = () => {
+    setSessionPlanningMode("plan");
+    setSessionPlanningOpen(true);
+  };
+
+  const handleLogSession = () => {
+    setSessionPlanningMode("log");
+    setSessionPlanningOpen(true);
+  };
+
   const tabActions = (
     <>
       <Button
@@ -436,17 +476,33 @@ function BeachDetailContent({
       {/* Immersive hero: video or photos background with title at top and forecast at bottom */}
       <div className="relative mb-6 min-h-[280px] md:min-h-[400px]">
         {showCamHero ? (
-          /* Live cam stream — visible to all users */
-          <Suspense
-            fallback={
-              <div
-                className="aspect-video w-full"
-                style={{ backgroundColor: "#2D357D" }}
+          publicMode ? (
+            /* Anonymous users: gated cam placeholder */
+            <PublicContentGate
+              ctaTitle={`${beach.name} is Live Right Now`}
+              ctaDescription="Sign up free to watch the cam, get notified when it's firing, and see the 12-day outlook"
+              ctaButtonText="Watch the Cam"
+              blurLevel="sm"
+              source="cam-hero"
+            >
+              <CamHeroPlaceholder
+                cameraUrl={sources?.camera_url}
+                beachName={beach.name}
               />
-            }
-          >
-            <CamsSection sources={sources} variant="hero" />
-          </Suspense>
+            </PublicContentGate>
+          ) : (
+            /* Authenticated users: live cam stream */
+            <Suspense
+              fallback={
+                <div
+                  className="aspect-video w-full"
+                  style={{ backgroundColor: "#2D357D" }}
+                />
+              }
+            >
+              <CamsSection sources={sources} variant="hero" />
+            </Suspense>
+          )
         ) : (
           /* Photo gallery background */
           <BeachPhotoGallery beach={beach} className="w-full" />
@@ -469,17 +525,6 @@ function BeachDetailContent({
               "linear-gradient(to top, #252D6B 0%, rgba(37,45,107,0.85) 30%, rgba(37,45,107,0.3) 65%, transparent 100%)",
           }}
         />
-
-        {/* Conditions-score tint — full-hero color wash at very low opacity.
-            Felt subconsciously before the user reads any numbers.
-            Sits above the gradients but below all text/UI elements. */}
-        {heroTintStyle && (
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 pointer-events-none z-[5]"
-            style={{ background: heroTintStyle }}
-          />
-        )}
 
         {/* Title — top of hero */}
         <div className="absolute inset-x-0 top-0 px-4 sm:px-6 pt-6 z-[6]">
@@ -506,6 +551,8 @@ function BeachDetailContent({
               isLoadingPersonalization={personalizationData?.isLoading}
               currentForecast={currentForecast}
               overlayMode={true}
+              firstHiddenDayName={firstHiddenDayName}
+              peakHiddenWaveHeight={peakHiddenWaveHeight}
             />
             {currentForecast && (
               <ConditionsTicker
@@ -520,8 +567,19 @@ function BeachDetailContent({
 
       {/* Main Content Container */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        {/* Surf Call Card — visible to authenticated users only */}
-        {!publicMode && surfReportSlot}
+        {/* Surf Call Card — gated for anonymous visitors */}
+        {publicMode ? (
+          <div className="mb-6">
+            <InlineSignupCta
+              title="Know Before You Go"
+              description={`Get today's surf call, your personal match score, 12-day outlook, and condition alerts for ${beach.name}`}
+              primaryButtonText="Get My Forecast"
+              source={`beach-detail-${slugify(beach.name)}`}
+            />
+          </div>
+        ) : (
+          surfReportSlot
+        )}
 
         {/* Key Stats Grid */}
         <BeachStatsGrid
@@ -537,16 +595,7 @@ function BeachDetailContent({
           canGetDirections={canGetDirections}
           publicMode={publicMode}
           onAuthRequired={handleAuthRequired}
-          onConditionsReportSuccess={() =>
-            setConditionsReportRefreshTrigger((prev) => prev + 1)
-          }
           className="mb-8"
-        />
-
-        {/* Recent Conditions Reports — last 24h community reports */}
-        <RecentReports
-          beachId={beach.id}
-          refreshTrigger={conditionsReportRefreshTrigger}
         />
 
         {/* Forecast Error Warning Banner */}
@@ -558,6 +607,48 @@ function BeachDetailContent({
               missing.
             </AlertDescription>
           </Alert>
+        )}
+
+        {/* Horizon Strip Upsell — visible to ALL beach viewers (not just Forecast tab visitors).
+            Shows when in publicMode and there are days beyond the 3-day free horizon. */}
+        {publicMode && horizonDaySummaries.length > 3 && (
+          <>
+            <motion.button
+              type="button"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="mb-6 w-full flex items-center gap-3 rounded-xl
+                bg-gradient-to-r from-blue-50/80 to-cyan-50/60
+                border border-ocean-blue/10 p-3 cursor-pointer
+                hover:border-ocean-blue/20 hover:shadow-sm transition-all"
+              onClick={() => {
+                trackSignupCtaClick({ source: "horizon-strip-above-tabs" });
+                trackAuthModalOpened({ mode: "signup", source: "horizon-strip-above-tabs" });
+                setHorizonAuthModal(true);
+              }}
+            >
+              <CalendarDays className="h-4 w-4 text-ocean-blue flex-shrink-0" />
+              <p className="text-sm text-gray-700">
+                {firstHiddenDayName
+                  ? <>Conditions shift on <span className="font-semibold">{firstHiddenDayName}</span>{peakHiddenWaveHeight && peakHiddenWaveHeight >= 2 ? ` — ${peakHiddenWaveHeight.toFixed(0)}ft swell` : ""}</>
+                  : "Conditions shift on Day 4"}
+              </p>
+              <span className="ml-auto text-sm font-semibold text-ocean-blue whitespace-nowrap">
+                See 12-day outlook →
+              </span>
+            </motion.button>
+            <UnifiedAuthModal
+              isOpen={horizonAuthModal}
+              onClose={() => setHorizonAuthModal(false)}
+              mode="signup"
+              source="horizon-strip-above-tabs"
+              contextMessage={{
+                title: "See the Full Outlook",
+                description: "Plan your week with the 12-day forecast",
+              }}
+            />
+          </>
         )}
 
         {/* Tabbed Content */}
@@ -579,7 +670,7 @@ function BeachDetailContent({
                 }
               />
             </Suspense>
-            {/* Contextual alerts CTA renders below BeachTabs for anonymous users — no duplicate needed here */}
+            {/* Top-level CTA already visible for anonymous users — no duplicate needed here */}
           </BeachTabContent>
 
           {/* Forecast Tab */}
@@ -650,28 +741,15 @@ function BeachDetailContent({
             </Suspense>
           </BeachTabContent>
         </BeachTabs>
-
-        {/* Contextual alerts CTA — shown only to anonymous users, after content is consumed */}
-        {publicMode && (
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-8 border-t border-gray-100 mt-2">
-            <div>
-              <p className="text-sm font-medium text-gray-800">
-                Know when it&apos;s firing at {beach.name}
-              </p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Free alerts — we&apos;ll let you know when conditions are good
-              </p>
-            </div>
-            <Button
-              onClick={() => setAuthModalOpen(true)}
-              className="sm:flex-shrink-0 rounded-full bg-ocean-blue text-white px-5 font-semibold shadow-sm hover:shadow-md"
-              data-testid="contextual-alerts-cta"
-            >
-              Get Alerts
-            </Button>
-          </div>
-        )}
       </div>
+
+      {/* Session Planning Modal */}
+      <SessionPlanningModal
+        open={sessionPlanningOpen}
+        onOpenChange={setSessionPlanningOpen}
+        beach={beach}
+        initialMode={sessionPlanningMode}
+      />
 
       {/* Review Dialog */}
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>

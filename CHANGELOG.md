@@ -14,8 +14,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Recent Reports section on beach detail page: shows up to 3 community conditions reports from the last 24 hours (name, time ago, wave size, vibe emoji, note); hidden when empty — no dead empty state
 - Migration `20260312120000_add_conditions_report_fields.sql`: adds `wave_size_range` and `vibe` columns to `intel_posts`, `source` column to `sessions`, and a `(beach_id, created_at DESC)` index for the 24h recency query
 
+### Fixed
+- Restored `surf-call-conditions` PublicContentGate in SpotSurfReport — the only CTA converting at 2.4% was deleted Mar 11; verdict badge remains visible, conditions detail gated
+- Fixed CTA view event inflation (~27x per session) — added module-level dedup Set in `trackSignupCtaView` so IntersectionObserver-driven CTAs fire once per source per page load
+- Fixed email confirmation redirect losing user context — signup from `/ca/san-diego/blacks` now returns user to that page after email verification instead of `/`
+- Connected auth funnel events to `user_events` DB table — `auth-events.ts` was GA4-only, causing zero `auth_modal_opened`/`signup_started` events in internal analytics
+- Added `trackAuthModalClosedWithoutAction`, `trackAuthProviderSelected`, `trackSignupFormSubmitted` for granular funnel measurement
+- Fixed bot filtering: empty User-Agent now correctly returns `isBot=true`; added Accept-Language, short-UA, and headless browser pattern checks to `/api/events`
+
 ### Changed
 - Beach detail page: removed 3 of 4 auth gates to reduce friction — live cam feed and "Best Time to Surf Today" are now visible to anonymous users; sticky bottom signup bar removed from all beach detail routes; `PersonalizedForecastTeaser` secondary CTA removed from forecast tab; single "Get My Forecast" CTA in the Know Before You Go section is the sole conversion point for anonymous visitors
+- CTA copy optimization: best-window-gate uses beach-specific copy ("Best Window at {beach} Today"), cam-hero uses contextual copy ("{beach} is Live Right Now"), hero teaser shows data-driven forecast preview
+- Moved horizon strip upsell from inside Forecast tab to above tab bar — visible to all beach page visitors instead of just Forecast tab users
+- Tide page titles: lead with unique value ("Tide Chart & Surf Windows") instead of duplicating Google knowledge panel answer
+- Water-temp page titles: "Water Temp & Wetsuit Guide" instead of raw temperature Google already shows
+- Tide/water-temp meta descriptions: lead with value proposition, not raw data
+- Added `TideFAQSchema` and `WaterTempFAQSchema` structured data for rich SERP results
 
 
 - Landing page: replaced "0K+" vanity counter stats bar with a single factual social proof line ("Covering 769 beaches across California, Oregon, Washington, Hawaii, Puerto Rico & beyond") in `SurfHighlightsSection`

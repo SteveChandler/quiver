@@ -1,6 +1,6 @@
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
-import { BeachFAQSchema } from "@/components/seo/faq-schema";
+import { WaterTempFAQSchema } from "@/components/seo/faq-schema";
 import { BeachDetailClient } from "../beach-detail-client";
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicWaterTempMetadata } from "@/lib/seo/meta";
@@ -65,8 +65,8 @@ export default async function BeachWaterTempPage(
           ]}
         />
 
-        {/* FAQ Structured Data for rich snippets */}
-        <BeachFAQSchema beachName={beach.name} />
+        {/* FAQ Structured Data with water-temp-specific questions for rich snippets */}
+        <WaterTempFAQSchema beachName={beach.name} />
 
         <BeachDetailClient
           beach={beach}

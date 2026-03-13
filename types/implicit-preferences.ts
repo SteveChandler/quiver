@@ -44,6 +44,11 @@ export type ImplicitEventType =
   | 'signup_cta_click'
   | 'signup_cta_view'
   | 'signin_cta_click'
+  // Auth modal funnel events
+  | 'auth_modal_opened'
+  | 'auth_modal_closed_without_action'
+  | 'auth_provider_selected'
+  | 'signup_form_submitted'
   // Home screen events
   | 'home_at_beach_click'
   | 'home_plan_weekend_click'
@@ -124,6 +129,11 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   signup_cta_click: 0,
   signup_cta_view: 0,
   signin_cta_click: 0,
+  // Auth modal funnel events
+  auth_modal_opened: 0,
+  auth_modal_closed_without_action: 0,
+  auth_provider_selected: 0,
+  signup_form_submitted: 0,
   // Home screen events
   home_at_beach_click: 0,
   home_plan_weekend_click: 0,

@@ -502,10 +502,15 @@ function buildNoForecastTier3(
  * Build dynamic metadata for tide pages using live tide data.
  * Falls back to generic titles when tide data is unavailable.
  *
- * CTR Optimization:
- * - Height values in title/description create unique, data-rich snippets
- * - Specific date (e.g. "Feb 7") targets date-specific queries
- * - No "Free" — focus on data richness and freshness
+ * CTR Optimization (updated strategy):
+ * - Titles emphasize Quiver's UNIQUE value (interactive chart, surf windows) over
+ *   raw tide times that Google already surfaces in its knowledge panel.
+ * - Users who see "High 5.2ft at 2:15 PM" in the SERP get their answer and don't click.
+ *   Titles like "T-Street Tide Chart & Surf Windows | Mar 2026" highlight what only
+ *   Quiver provides: surf-window analysis, 3-hour update cadence, 7-day outlook.
+ * - Descriptions keep specific tide data to reinforce relevance and answer intent,
+ *   but lead with the value proposition so the click driver is clear.
+ * - Month+Year date token keeps title fresh without encoding daily-volatile data.
  */
 export function buildDynamicTideMetadata({
   beach,
@@ -520,43 +525,24 @@ export function buildDynamicTideMetadata({
   } | null;
 }): { title: string; description: string } {
   const now = new Date();
-  const month = now.toLocaleDateString("en-US", { month: "long" });
-  const day = now.getDate();
-  const monthDay = now.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const locationContext =
-    beach.city && beach.state ? ` in ${beach.city}, ${beach.state}` : "";
+  const monthYear = now.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 
-  // CTR-optimized title with height values when available
+  // Title: emphasize unique value (chart + surf windows) over raw tide times.
+  // Tier 1: "{Beach} Tide Chart & Surf Windows | {Mon YYYY}"
+  // Tier 2 (name too long): "{Beach} Tide Chart & Surf Windows"
+  // Tier 3 (still long): truncate beach name
+  const coreTitle = `${beach.name} Tide Chart & Surf Windows`;
+  const fullTitle = `${coreTitle} | ${monthYear}`;
   let title: string;
-  if (tideData?.nextHighTime) {
-    const highLabel = tideData.nextHighHeight != null
-      ? `High ${tideData.nextHighHeight}ft at ${tideData.nextHighTime}`
-      : `High ${tideData.nextHighTime}`;
-    const lowLabel = tideData.nextLowTime
-      ? `, Low at ${tideData.nextLowTime}`
-      : "";
-
-    // Tier 1: "{Beach} Tides {MonthDay}: High {Height}ft at {Time}, Low at {Time}"
-    const t1 = `${beach.name} Tides ${monthDay}: ${highLabel}${lowLabel}`;
-    if (t1.length <= MAX_TITLE_LENGTH) {
-      title = t1;
-    } else {
-      // Tier 2: "{Beach} Tides {MonthDay}: High {Height}ft at {Time}"
-      const t2 = `${beach.name} Tides ${monthDay}: ${highLabel}`;
-      title = truncateTitleForSEO(t2);
-    }
+  if (fullTitle.length <= MAX_TITLE_LENGTH) {
+    title = fullTitle;
+  } else if (coreTitle.length <= MAX_TITLE_LENGTH) {
+    title = coreTitle;
   } else {
-    // WITHOUT data: "{Beach} Tide Times {MonthDay} — High & Low Predictions"
-    const fullTitle = `${beach.name} Tide Times ${monthDay} — High & Low Predictions`;
-    if (fullTitle.length <= MAX_TITLE_LENGTH) {
-      title = fullTitle;
-    } else {
-      const shortTitle = `${beach.name} Tides ${monthDay} | Chart`;
-      title = truncateTitleForSEO(shortTitle);
-    }
+    title = truncateTitleForSEO(`${beach.name} Tide Chart`);
   }
 
-  // Description with height values when available
+  // Description: lead with value proposition, then include live tide data for relevance.
   let description: string;
   if (tideData?.nextHighTime && tideData?.nextLowTime) {
     const highPart = tideData.nextHighHeight != null
@@ -565,33 +551,28 @@ export function buildDynamicTideMetadata({
     const lowPart = tideData.nextLowHeight != null
       ? `low ${tideData.nextLowHeight}ft at ${tideData.nextLowTime}`
       : `low at ${tideData.nextLowTime}`;
-    description = `Plan your ${beach.name} surf around today's tides. ${highPart}, ${lowPart}. Hourly chart, best windows & ML-enhanced forecast.`;
+    const candidate = `Interactive tide chart with optimal surf windows for ${beach.name}. ${highPart}, ${lowPart}. Updated every 3 hours.`;
+    description = candidate.length <= 160 ? candidate : candidate.slice(0, 157) + "…";
   } else {
-    description = `${beach.name} tide chart for ${month} ${day}${locationContext}. Today's high and low tide times. Hourly predictions and optimal surf windows.`;
+    description = `Interactive tide chart with optimal surf windows for ${beach.name}. Updated every 3 hours with 7-day outlook and best-time-to-go analysis.`;
   }
 
   return { title, description };
 }
 
 /**
- * Truncates a wetsuit label to its thickness portion for compact titles.
- * e.g., "3/2mm fullsuit" -> "3/2mm", "5/4/3mm hooded" -> "5/4/3mm", "boardshorts" -> "boardshorts"
- */
-function shortenWetsuitLabel(label: string): string {
-  // Match thickness pattern like "3/2mm", "4/3mm", "5/4/3mm"
-  const match = label.match(/^(\d+\/[\d/]+mm)/);
-  if (match) return match[1];
-  return label;
-}
-
-/**
  * Build dynamic metadata for water temperature pages.
  * Falls back to generic titles when temperature data is unavailable.
  *
- * CTR Optimization:
- * - Actual temperature in title is highly clickable
- * - Short wetsuit label keeps title under 60 chars
- * - "Today" adds freshness signal
+ * CTR Optimization (updated strategy):
+ * - Titles emphasize Quiver's UNIQUE value (wetsuit guide, seasonal trends) over
+ *   the raw temperature that Google already surfaces in knowledge panels.
+ * - "Waikiki Beach Water Temperature: 78°F" → user sees temp and doesn't click.
+ *   "Waikiki Beach Water Temp & Wetsuit Guide | Mar 2026" surfaces what only
+ *   Quiver provides: wetsuit thickness recommendation, seasonal trend chart, buoy data.
+ * - Descriptions remain specific (current temp + wetsuit rec) because they reinforce
+ *   that our page has the data — but the click driver is the gear-planning angle.
+ * - Month+Year date token keeps title fresh without encoding daily-volatile data.
  */
 export function buildDynamicWaterTempMetadata({
   beach,
@@ -603,54 +584,40 @@ export function buildDynamicWaterTempMetadata({
     wetsuitRec?: string | null;
   } | null;
 }): { title: string; description: string } {
-  const locationContext =
-    beach.city && beach.state ? ` in ${beach.city}, ${beach.state}` : "";
-  const city = beach.city || beach.state || "the area";
+  const now = new Date();
+  const monthYear = now.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 
-  // CTR-optimized title with actual temperature when available
+  // Title: emphasize unique value (wetsuit guide) over raw temperature Google already shows.
+  // Tier 1: "{Beach} Water Temp & Wetsuit Guide | {Mon YYYY}"
+  // Tier 2 (name too long): "{Beach} Water Temp & Wetsuit Guide"
+  // Tier 3 (still long): truncate beach name
+  const coreTitle = `${beach.name} Water Temp & Wetsuit Guide`;
+  const fullTitle = `${coreTitle} | ${monthYear}`;
   let title: string;
-  if (waterTempData?.tempF) {
-    const wetsuitShort = waterTempData.wetsuitRec
-      ? shortenWetsuitLabel(waterTempData.wetsuitRec)
-      : null;
-    // "{Beach} Water Temp: {T}°F — {WetsuitShort} Today"
-    if (wetsuitShort) {
-      const fullTitle = `${beach.name} Water Temp: ${waterTempData.tempF}°F — ${wetsuitShort} Today`;
-      if (fullTitle.length <= MAX_TITLE_LENGTH) {
-        title = fullTitle;
-      } else {
-        const shortTitle = `${beach.name} Water Temp: ${waterTempData.tempF}°F | Wetsuit`;
-        title = truncateTitleForSEO(shortTitle);
-      }
-    } else {
-      const fullTitle = `${beach.name} Water Temp: ${waterTempData.tempF}°F Today`;
-      if (fullTitle.length <= MAX_TITLE_LENGTH) {
-        title = fullTitle;
-      } else {
-        title = truncateTitleForSEO(`${beach.name} Water Temp: ${waterTempData.tempF}°F`);
-      }
-    }
+  if (fullTitle.length <= MAX_TITLE_LENGTH) {
+    title = fullTitle;
+  } else if (coreTitle.length <= MAX_TITLE_LENGTH) {
+    title = coreTitle;
   } else {
-    // WITHOUT data: "{Beach} Water Temp Today — What to Wear Surfing"
-    const fullTitle = `${beach.name} Water Temp Today — What to Wear Surfing`;
-    if (fullTitle.length <= MAX_TITLE_LENGTH) {
-      title = fullTitle;
-    } else {
-      const shortTitle = `${beach.name} Water Temp | Wetsuit Guide`;
-      title = truncateTitleForSEO(shortTitle);
-    }
+    title = truncateTitleForSEO(`${beach.name} Water Temp`);
   }
 
-  // CTR-optimized description with wetsuit recommendation
+  // Description: consistent value-first pattern regardless of whether we have live data.
+  // The description reinforces what Quiver offers beyond the temperature number Google shows.
+  // For very long beach names we drop the trailing sentence to stay within 160 chars.
+  const MAX_DESC = 160;
+  const fullDesc = `Current water temperature at ${beach.name} with wetsuit recommendations, seasonal trends, and real-time buoy data. Plan your session with the right gear.`;
+  const shortDesc = `Current water temperature at ${beach.name} with wetsuit recommendations, seasonal trends, and real-time buoy data.`;
   let description: string;
-  if (waterTempData?.tempF && waterTempData?.wetsuitRec) {
-    // "{Beach} is {T}°F today — grab a {wetsuitRec}. Seasonal trends, monthly averages & what to wear surfing in {City}."
-    description = `${beach.name} is ${waterTempData.tempF}°F today — grab a ${waterTempData.wetsuitRec}. Seasonal trends, monthly averages & what to wear surfing in ${city}.`;
-    if (description.length > 160) {
-      description = `${beach.name} water is ${waterTempData.tempF}°F today. ${waterTempData.wetsuitRec} recommended. Seasonal trends and wetsuit thickness guide.`;
-    }
+  if (fullDesc.length <= MAX_DESC) {
+    description = fullDesc;
+  } else if (shortDesc.length <= MAX_DESC) {
+    description = shortDesc;
   } else {
-    description = `Current water temp at ${beach.name}${locationContext}. Wetsuit recommendation and seasonal trends. Updated daily with live buoy data.`;
+    // Last resort: hard truncate at word boundary
+    const cut = fullDesc.slice(0, MAX_DESC - 1);
+    const lastSpace = cut.lastIndexOf(" ");
+    description = (lastSpace > MAX_DESC * 0.5 ? cut.slice(0, lastSpace) : cut) + "…";
   }
 
   return { title, description };

@@ -6,7 +6,7 @@
 
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
-import { BeachFAQSchema } from "@/components/seo/faq-schema";
+import { BeachFAQSchema, TideFAQSchema, WaterTempFAQSchema } from "@/components/seo/faq-schema";
 import { TideDatasetSchema } from "@/components/seo/tide-dataset-schema";
 import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
@@ -141,7 +141,13 @@ export async function renderBeachSubPage({
         ]}
       />
 
-      <BeachFAQSchema beachName={beach.name} />
+      {pageType === "tides" ? (
+        <TideFAQSchema beachName={beach.name} />
+      ) : pageType === "water-temp" ? (
+        <WaterTempFAQSchema beachName={beach.name} />
+      ) : (
+        <BeachFAQSchema beachName={beach.name} />
+      )}
 
       {/* Dataset JSON-LD — enables Google Dataset rich snippets for tide/water-temp pages */}
       {pageType === "tides" && tideMetaForSchema && (

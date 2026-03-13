@@ -5,7 +5,9 @@
 
 import {
   trackAuthModalOpened,
+  trackAuthModalClosedWithoutAction,
   trackAuthMethodSelected,
+  trackAuthProviderSelected,
   trackLoginStarted,
   trackLoginSuccess,
   trackLoginFailed,
@@ -17,6 +19,7 @@ import {
   trackAuthRedirectCompleted,
   trackAuthWallShown,
   trackAuthWallDismissed,
+  trackSignupFormSubmitted,
   categorizeAuthError,
   extractEmailDomain,
 } from "@/lib/analytics/auth-events";
@@ -26,11 +29,22 @@ jest.mock("@/lib/analytics", () => ({
   track: jest.fn(),
 }));
 
+// Mock visitor-id so fireToUserEvents doesn't throw in tests
+jest.mock("@/lib/utils/visitor-id", () => ({
+  getVisitorId: jest.fn(() => "test-visitor-id"),
+}));
+
 import { track } from "@/lib/analytics";
+
+// Silence fetch calls from fireToUserEvents in tests
+const mockFetch = jest.fn(() => Promise.resolve({ ok: true }));
+global.fetch = mockFetch as any;
 
 describe("auth-events", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFetch.mockReset();
+    mockFetch.mockResolvedValue({ ok: true });
   });
 
   describe("Modal events", () => {
@@ -67,6 +81,90 @@ describe("auth-events", () => {
           source: "content-gate",
           context: undefined,
         });
+      });
+    });
+
+    describe("trackAuthModalClosedWithoutAction", () => {
+      it("should track modal closed without action with mode and source", () => {
+        trackAuthModalClosedWithoutAction({ mode: "signup", source: "landing-cta" });
+
+        expect(track).toHaveBeenCalledWith("auth_modal_closed_without_action", {
+          mode: "signup",
+          source: "landing-cta",
+        });
+      });
+
+      it("should dual-fire to /api/events", () => {
+        trackAuthModalClosedWithoutAction({ mode: "login", source: "content-gate" });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          "/api/events",
+          expect.objectContaining({
+            method: "POST",
+            body: expect.stringContaining("auth_modal_closed_without_action"),
+          })
+        );
+      });
+    });
+
+    describe("trackAuthProviderSelected", () => {
+      it("should track provider selected with provider, mode, and source", () => {
+        trackAuthProviderSelected({ provider: "google", mode: "signup", source: "landing-cta" });
+
+        expect(track).toHaveBeenCalledWith("auth_provider_selected", {
+          provider: "google",
+          mode: "signup",
+          source: "landing-cta",
+        });
+      });
+
+      it("should dual-fire to /api/events", () => {
+        trackAuthProviderSelected({ provider: "apple", mode: "login", source: "auth-gate" });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          "/api/events",
+          expect.objectContaining({
+            method: "POST",
+            body: expect.stringContaining("auth_provider_selected"),
+          })
+        );
+      });
+    });
+
+    describe("trackSignupFormSubmitted", () => {
+      it("should track form submission with mode and source", () => {
+        trackSignupFormSubmitted({ mode: "signup", source: "landing-cta" });
+
+        expect(track).toHaveBeenCalledWith("signup_form_submitted", {
+          mode: "signup",
+          source: "landing-cta",
+        });
+      });
+
+      it("should dual-fire to /api/events", () => {
+        trackSignupFormSubmitted({ mode: "login", source: "auth-gate" });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          "/api/events",
+          expect.objectContaining({
+            method: "POST",
+            body: expect.stringContaining("signup_form_submitted"),
+          })
+        );
+      });
+    });
+
+    describe("trackAuthModalOpened dual-fire", () => {
+      it("should dual-fire to /api/events", () => {
+        trackAuthModalOpened({ mode: "signup", source: "landing-cta" });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          "/api/events",
+          expect.objectContaining({
+            method: "POST",
+            body: expect.stringContaining("auth_modal_opened"),
+          })
+        );
       });
     });
 
