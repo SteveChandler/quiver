@@ -322,6 +322,7 @@ export function createMockSession(overrides: Partial<Session> = {}): Session {
     invitee_ids: [],
     image_url: null,
     board_snapshot: null,
+    skill_ratings: null,
     tide_height_ft: null,
     tide_status: null,
     ...overrides,
