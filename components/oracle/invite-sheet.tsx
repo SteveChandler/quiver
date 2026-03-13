@@ -2,6 +2,9 @@
 
 import { ShareSheet } from "@/components/share/share-sheet";
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
+
 interface InviteSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -15,14 +18,14 @@ interface InviteSheetProps {
  */
 export function InviteSheet({ open, onOpenChange, referralCode }: InviteSheetProps) {
   const shareUrl = referralCode
-    ? `https://quiversurf.app/?ref=${referralCode}`
-    : "https://quiversurf.app";
+    ? `${SITE_URL}/?ref=${referralCode}`
+    : SITE_URL;
 
   return (
     <ShareSheet
       open={open}
       onOpenChange={onOpenChange}
-      imageUrl="/api/og/surf-call?beach=Quiver&verdict=YES&window=Join+the+crew&waveHeight=%F0%9F%A4%99&wind=Share+the+stoke"
+      imageUrl="/api/og/surf-call?beach=Quiver&message=Join+the+crew&conditionLabel=Invite"
       type="wave"
       title="Join me on Quiver"
       text="I'm using Quiver to find the best surf conditions. Join with my invite link!"

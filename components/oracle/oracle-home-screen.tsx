@@ -21,6 +21,9 @@ import type { NearbySpot } from "@/components/oracle/nearby-spots";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import type { LocalActivityItem } from "@/actions/oracle-actions";
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
+
 /** Extended profile fields not yet in generated Supabase types. */
 interface ProfileWithOracle {
   preferred_session_time: string | null;
@@ -327,20 +330,30 @@ export function OracleHomeScreen() {
     [router]
   );
 
-  const handleInviteFriend = useCallback(async () => {
-    try {
-      const { getOrCreateReferralCode } = await import("@/actions/referral-actions");
-      const result = await getOrCreateReferralCode();
-      if (result?.data?.code) {
-        setReferralCode(result.data.code);
-      }
-    } catch {
-      // Silently fail — invite still works without code
-    }
+  const handleInviteFriend = useCallback(() => {
+    // Open sheet immediately — referral code loads in the background
     setInviteOpen(true);
-  }, []);
 
-  const handleSetAlarm = useCallback(() => {}, []);
+    if (!referralCode) {
+      import("@/actions/referral-actions")
+        .then(({ getOrCreateReferralCode }) => getOrCreateReferralCode())
+        .then((result) => {
+          if (result?.data?.code) setReferralCode(result.data.code);
+        })
+        .catch(() => {
+          // Silently fail — invite still works without code
+        });
+    }
+  }, [referralCode]);
+
+  const handleSetAlarm = useCallback(() => {
+    // TODO: Wire to native alarm / notification scheduling
+    if (typeof window !== "undefined") {
+      import("sonner").then(({ toast }) =>
+        toast("Coming soon", { description: "Alarm notifications are on the way." })
+      );
+    }
+  }, []);
 
   const handleShareSession = useCallback(() => {
     setShareOpen(true);
@@ -542,6 +555,7 @@ export function OracleHomeScreen() {
           filename={`quiver-surf-call-${heroRec?.beach?.slug || "beach"}`}
           title={shareData.title}
           text={shareData.text}
+          shareUrl={forecastUrl ? `${SITE_URL}${forecastUrl}` : undefined}
         />
       )}
     </div>
