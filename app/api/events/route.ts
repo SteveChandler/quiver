@@ -21,7 +21,7 @@ import type {
 } from '@/types/implicit-preferences';
 import { getTrackingCache, setTrackingCache } from '@/lib/services/tracking-cache';
 import { parseUserAgent } from '@/lib/utils/user-agent-parser';
-import { isBot } from '@/lib/utils/bot-detector';
+import { isBot, isSuspiciousFingerprint } from '@/lib/utils/bot-detector';
 import { createServiceRoleClient } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -237,6 +237,11 @@ export async function POST(request: Request) {
     body = await request.json();
   } catch {
     return createErrorResponse('Invalid JSON body', undefined, 400);
+  }
+
+  // 2a. Fingerprint-based bot filtering (requires body for viewportWidth)
+  if (isSuspiciousFingerprint(ua, body.viewportWidth)) {
+    return createSuccessResponse({ ok: true, status: 'bot_filtered' });
   }
 
   // 3. Device enrichment

@@ -1,4 +1,4 @@
-import { isBot } from "@/lib/utils/bot-detector";
+import { isBot, isSuspiciousFingerprint } from "@/lib/utils/bot-detector";
 
 describe("isBot", () => {
   it("detects Googlebot", () => {
@@ -64,5 +64,52 @@ describe("isBot", () => {
     expect(isBot("GOOGLEBOT/2.1")).toBe(true);
     expect(isBot("googlebot/2.1")).toBe(true);
     expect(isBot("BINGBOT/2.0")).toBe(true);
+  });
+});
+
+describe("isSuspiciousFingerprint", () => {
+  const WINDOWS_CHROME_UA =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+  const MAC_CHROME_UA =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+  const WINDOWS_EDGE_UA =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0";
+  const WINDOWS_OPERA_UA =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 OPR/106.0.0.0";
+
+  it("returns true for Windows + Chrome + 1280px viewport", () => {
+    expect(isSuspiciousFingerprint(WINDOWS_CHROME_UA, 1280)).toBe(true);
+  });
+
+  it("returns false for Windows + Chrome + 1920px viewport", () => {
+    expect(isSuspiciousFingerprint(WINDOWS_CHROME_UA, 1920)).toBe(false);
+  });
+
+  it("returns false for Windows + Chrome + 1440px viewport", () => {
+    expect(isSuspiciousFingerprint(WINDOWS_CHROME_UA, 1440)).toBe(false);
+  });
+
+  it("returns false for Windows + Chrome + 768px viewport", () => {
+    expect(isSuspiciousFingerprint(WINDOWS_CHROME_UA, 768)).toBe(false);
+  });
+
+  it("returns false for Mac + Chrome + 1280px viewport", () => {
+    expect(isSuspiciousFingerprint(MAC_CHROME_UA, 1280)).toBe(false);
+  });
+
+  it("returns false for Windows + Edge + 1280px viewport", () => {
+    expect(isSuspiciousFingerprint(WINDOWS_EDGE_UA, 1280)).toBe(false);
+  });
+
+  it("returns false for Windows + Opera + 1280px viewport", () => {
+    expect(isSuspiciousFingerprint(WINDOWS_OPERA_UA, 1280)).toBe(false);
+  });
+
+  it("returns false when viewportWidth is undefined", () => {
+    expect(isSuspiciousFingerprint(WINDOWS_CHROME_UA, undefined)).toBe(false);
+  });
+
+  it("returns false when UA is empty", () => {
+    expect(isSuspiciousFingerprint("", 1280)).toBe(false);
   });
 });
