@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Analytics: `signup_cta_view` event now deduplicates per source per page session via a module-level `Set` in `signup-conversion-tracking.ts` — eliminates ~27x inflation for the `cam-hero` source caused by component remount cycles
+- Analytics: `isBot()` now treats missing/empty user-agents as bots (changed from `false` to `true`), improving bot filtering at the `/api/events` endpoint
+
 ### Added
 - Report Conditions feature: replaces "Log Session" CTA with inline "Report Conditions" card on beach detail pages — users select wave size (1-2ft through 5+ft) and vibe (Firing/Fun/Meh/Rough) with an optional note; submission creates an `intel_posts` record (with new `wave_size_range` + `vibe` columns) and a minimal `sessions` record (`source: 'conditions_report'`) for ML training; deduplicates to one report per user per beach per calendar day
 - Recent Reports section on beach detail page: shows up to 3 community conditions reports from the last 24 hours (name, time ago, wave size, vibe emoji, note); hidden when empty — no dead empty state

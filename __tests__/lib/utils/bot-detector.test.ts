@@ -56,8 +56,8 @@ describe("isBot", () => {
     ).toBe(false);
   });
 
-  it("returns false for empty string", () => {
-    expect(isBot("")).toBe(false);
+  it("returns true for empty string (no UA = likely bot)", () => {
+    expect(isBot("")).toBe(true);
   });
 
   it("is case-insensitive", () => {

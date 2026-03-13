@@ -9,6 +9,17 @@
 import { track } from "@/lib/analytics";
 import { getVisitorId } from "@/lib/utils/visitor-id";
 
+/**
+ * Deduplicates signup_cta_view events per source per page session.
+ *
+ * Without this guard, components using IntersectionObserver or scroll
+ * listeners re-trigger on every visibility change (e.g. scroll direction
+ * reversal), inflating view counts ~27x for sources like "cam-hero".
+ * A module-level Set survives component unmount/remount cycles, unlike
+ * a per-component useRef.
+ */
+const firedCtaViews = new Set<string>();
+
 function fireToUserEvents(eventType: string, params: Record<string, any>) {
   if (typeof window === "undefined") return;
 
@@ -30,6 +41,9 @@ function fireToUserEvents(eventType: string, params: Record<string, any>) {
 }
 
 export function trackSignupCtaView(params: Record<string, any>) {
+  const key = String(params.source ?? "unknown");
+  if (firedCtaViews.has(key)) return; // Already fired this session — skip duplicate
+  firedCtaViews.add(key);
   track("signup_cta_view", params);
   fireToUserEvents("signup_cta_view", params);
 }
