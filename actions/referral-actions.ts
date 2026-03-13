@@ -43,11 +43,17 @@ export async function getOrCreateReferralCode() {
  */
 export async function claimReferral(code: string) {
   return withAuthenticatedAction(async (user, supabase) => {
-    // 1. Look up the referrer by code (case-insensitive)
+    // Validate referral code format: 4-12 alphanumeric characters only
+    // Prevents SQL wildcard injection (% and _ are treated as wildcards by ilike)
+    if (!/^[A-Z0-9]{4,12}$/i.test(code)) {
+      return { success: false, error: 'Invalid referral code' };
+    }
+
+    // 1. Look up the referrer by code (case-insensitive via uppercased eq)
     const { data: referrer, error: lookupError } = await supabase
       .from('profiles')
       .select('id')
-      .ilike('referral_code', code)
+      .eq('referral_code', code.toUpperCase())
       .single();
 
     if (lookupError || !referrer) {
