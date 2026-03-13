@@ -639,9 +639,10 @@ describe("UnifiedAuthModal", () => {
         requires_verification: true,
       });
 
-      // Email/password signup requires email confirmation; we redirect to landing
-      // and close the modal (unless on the dedicated /auth/sign-up page).
+      // Email/password signup requires email confirmation; we redirect to the
+      // return path (falls back to "/") and close the modal (unless on /auth/sign-up).
       const router = useRouter();
+      // No returnTo prop passed → getReturnPath() returns "/" → "/?signup=confirm-email"
       expect(router.replace).toHaveBeenCalledWith("/?signup=confirm-email");
       expect(mockOnClose).toHaveBeenCalled();
     });
