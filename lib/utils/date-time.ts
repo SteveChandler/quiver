@@ -15,6 +15,43 @@
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
 
 // =============================================================================
+// Timezone-aware hour/minute extraction (client-safe)
+// =============================================================================
+
+/**
+ * Get the hour (0-23) of a Date in a specific IANA timezone.
+ * Client-safe alternative to getLocalHour() from timezone-utils.server.ts.
+ */
+export function getHourInTimezone(date: Date, timezone: string): number {
+  try {
+    const hourStr = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      hour: "numeric",
+      hour12: false,
+    }).format(date);
+    const hour = parseInt(hourStr, 10);
+    return hour === 24 ? 0 : hour;
+  } catch {
+    return date.getUTCHours();
+  }
+}
+
+/**
+ * Get the minute (0-59) of a Date in a specific IANA timezone.
+ */
+export function getMinuteInTimezone(date: Date, timezone: string): number {
+  try {
+    const minuteStr = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      minute: "numeric",
+    }).format(date);
+    return parseInt(minuteStr, 10);
+  } catch {
+    return date.getUTCMinutes();
+  }
+}
+
+// =============================================================================
 // Beach-timezone helpers (from date-utils.ts)
 // =============================================================================
 

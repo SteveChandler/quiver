@@ -152,7 +152,7 @@ export function useOracleData(): OracleData {
   // Surf discovery
   // ------------------------------------------------------------------
   const { discovery, loading: discoveryLoading } = useSurfDiscovery({
-    maxResults: 6,
+    maxResults: 10,
     horizonHours: 24,
     enabled: !!profile && !geoLoading,
     immediate: true,

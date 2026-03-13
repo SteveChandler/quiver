@@ -278,6 +278,6 @@
     "@capacitor/cli/**/minimatch": "10.2.3",
     "@types/mapbox__point-geometry": "0.1.4",
     "serialize-javascript": "^7.0.3",
-    "@tootallnate/once": "^3.0.1"
+    "@tootallnate/once": "2.0.0"
   }
 }

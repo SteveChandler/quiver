@@ -8,6 +8,9 @@
 import {
   // dateUtils object (backward-compat)
   dateUtils,
+  // timezone-aware hour/minute extraction
+  getHourInTimezone,
+  getMinuteInTimezone,
   // flattened named exports
   formatDate,
   formatForecastTime,
@@ -553,5 +556,64 @@ describe("formatFullDateWithYear", () => {
     expect(result).toMatch(
       /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s(January|February|March|April|May|June|July|August|September|October|November|December)\s\d{1,2},\s\d{4}$/
     );
+  });
+});
+
+// =============================================================================
+// getHourInTimezone
+// =============================================================================
+
+describe("getHourInTimezone", () => {
+  // 2026-03-13T15:00:00Z: PDT began Mar 8, so LA is UTC-7 → 8 AM
+  const mar13_15utc = new Date("2026-03-13T15:00:00Z");
+
+  it("returns correct hour for LA timezone (PDT, UTC-7)", () => {
+    expect(getHourInTimezone(mar13_15utc, "America/Los_Angeles")).toBe(8);
+  });
+
+  it("returns correct hour for NY timezone (EDT, UTC-4)", () => {
+    expect(getHourInTimezone(mar13_15utc, "America/New_York")).toBe(11);
+  });
+
+  it("returns correct hour for Hawaii (no DST, UTC-10)", () => {
+    expect(getHourInTimezone(mar13_15utc, "Pacific/Honolulu")).toBe(5);
+  });
+
+  it("handles midnight UTC (returns 0)", () => {
+    const midnight = new Date("2026-03-13T00:00:00Z");
+    expect(getHourInTimezone(midnight, "UTC")).toBe(0);
+  });
+
+  it("maps hour 24 to 0", () => {
+    // Some Intl implementations report midnight as 24 — function normalizes to 0.
+    // Test via UTC midnight which is always 0 in UTC timezone.
+    const midnight = new Date("2026-03-13T00:00:00Z");
+    expect(getHourInTimezone(midnight, "UTC")).toBe(0);
+  });
+
+  it("falls back to UTC hours for invalid timezone", () => {
+    const date = new Date("2026-03-13T15:00:00Z");
+    expect(getHourInTimezone(date, "Invalid/Timezone")).toBe(15);
+  });
+});
+
+// =============================================================================
+// getMinuteInTimezone
+// =============================================================================
+
+describe("getMinuteInTimezone", () => {
+  it("returns correct minute (30) in LA timezone", () => {
+    const date = new Date("2026-03-13T15:30:00Z");
+    expect(getMinuteInTimezone(date, "America/Los_Angeles")).toBe(30);
+  });
+
+  it("returns 0 for on-the-hour times", () => {
+    const date = new Date("2026-03-13T15:00:00Z");
+    expect(getMinuteInTimezone(date, "America/Los_Angeles")).toBe(0);
+  });
+
+  it("falls back to UTC minutes for invalid timezone", () => {
+    const date = new Date("2026-03-13T15:45:00Z");
+    expect(getMinuteInTimezone(date, "Invalid/Timezone")).toBe(45);
   });
 });

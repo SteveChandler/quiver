@@ -1101,3 +1101,192 @@ describe('discoverSurfSpots - Time Slot Scoring Differentiation', () => {
     expect(result.recommendations[0].window.sourceForecast).toBeUndefined();
   });
 });
+
+describe('discoverSurfSpots - Today Fallback Warning Log', () => {
+  const testUserId = 'test-user-123';
+  const defaultUserLocation = { lat: 32.7157, lon: -117.1611 };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+    const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
+
+    scoreBeachWithEngine.mockReturnValue({
+      total: 75,
+      subscores: {
+        waveHeightFit: 20,
+        periodEnergyScore: 15,
+        windAlignment: 15,
+        tideFit: 12,
+        affinityBonus: 0,
+        personalizationBonus: 0,
+        distancePenalty: 0,
+      },
+      matchQuality: 'excellent',
+      reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+      warnings: [],
+      conditionBadges: [],
+    });
+
+    calculatePersonalizationBonus.mockReturnValue({
+      total: 0,
+      affinityBonus: 0,
+      personalizationBonus: 0,
+      reasons: [],
+    });
+
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.favoriteBeaches = [];
+    mockState.favoritesError = null;
+    mockState.userPrefs = null;
+  });
+
+  test('logs warning with falling-back message when today forecasts fail window selection', async () => {
+    const { selectBestWindow: mockSelectBestWindow } = require('@/lib/services/discovery/window-selector');
+    const { createContextLogger } = require('@/lib/logger');
+
+    // Provide a fresh warn spy we can inspect
+    const warnSpy = jest.fn();
+    createContextLogger.mockReturnValue({
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: warnSpy,
+      error: jest.fn(),
+    });
+
+    const todayForecast: Partial<EnhancedForecastEntity> = {
+      beach_id: 'beach-1',
+      forecast_at: '2024-01-15T12:00:00Z',
+      forecast_date: '2024-01-15',
+      forecast_time: '12:00:00',
+      wave_height: '3.5',
+      wave_period: '12s',
+      wind_speed: '8',
+      wind_direction_deg: 270,
+      tide_status: 'Rising',
+      data_source: 'CDIP',
+    };
+    const tomorrowForecast: Partial<EnhancedForecastEntity> = {
+      beach_id: 'beach-1',
+      forecast_at: '2024-01-16T12:00:00Z',
+      forecast_date: '2024-01-16',
+      forecast_time: '12:00:00',
+      wave_height: '4.0',
+      wave_period: '13s',
+      wind_speed: '5',
+      wind_direction_deg: 270,
+      tide_status: 'Rising',
+      data_source: 'CDIP',
+    };
+
+    mockState.forecastBatchResponse = {
+      successful: [{ beach: mockBeach1, forecasts: [todayForecast, tomorrowForecast] }],
+      failed: [],
+      staleCount: 0,
+    };
+
+    const validWindow = {
+      start: new Date('2024-01-16T12:00:00Z'),
+      end: new Date('2024-01-16T15:00:00Z'),
+      tide: 'Rising',
+      wind: '5 mph W',
+      waveHeight: '4 ft',
+      wavePeriod: '13s',
+      dataSource: 'CDIP',
+      confidence: 85,
+      timezone: 'America/Los_Angeles',
+      sourceForecast: tomorrowForecast,
+    };
+    mockSelectBestWindow
+      .mockReturnValueOnce(null)
+      .mockReturnValueOnce(validWindow);
+
+    // Re-import the module so createContextLogger is called again with our spy
+    jest.resetModules();
+    // Re-apply all mocks after resetModules
+    jest.doMock('@/lib/logger', () => ({
+      createContextLogger: jest.fn(() => ({
+        debug: jest.fn(),
+        info: jest.fn(),
+        warn: warnSpy,
+        error: jest.fn(),
+      })),
+    }));
+    jest.doMock('@/lib/services/discovery/window-selector', () => ({
+      selectBestWindow: mockSelectBestWindow,
+      getLocalDateStr: jest.fn((date: Date, _tz: string) => date.toISOString().split('T')[0]),
+      getLocalHour: jest.fn((date: Date, _tz: string) => date.getUTCHours()),
+    }));
+    jest.doMock('@/lib/services/discovery/candidate-pool-builder', () => ({
+      buildCandidatePool: jest.fn(async () => mockState.candidatePoolResponse),
+    }));
+    jest.doMock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
+      batchFetchForecasts: jest.fn(async () => mockState.forecastBatchResponse),
+    }));
+    jest.doMock('@/lib/services/discovery/response-formatter', () => ({
+      enrichWithPhotos: jest.fn(async (recs: any[]) => recs),
+      generateDiscoverySummary: jest.fn(() => 'Good conditions'),
+      getRecommendationLabel: jest.fn(() => 'Worth it'),
+      buildDiscoveryMessage: jest.fn(() => 'Worth it — Good conditions'),
+    }));
+    jest.doMock('@/lib/services/preference-learning-service', () => ({
+      getUserSurfPreferences: jest.fn(async () => null),
+    }));
+    jest.doMock('@/lib/services/beach-query-service', () => ({
+      getFavoriteBeachesFromDb: jest.fn(async () => ({ success: true, data: [] })),
+    }));
+    jest.doMock('@/lib/supabase/server', () => ({
+      createSupabaseServiceRoleClient: jest.fn(() => ({
+        from: jest.fn(() => ({
+          select: jest.fn(() => ({
+            in: jest.fn(() => ({
+              in: jest.fn(() => ({
+                order: jest.fn(() => Promise.resolve({ data: [], error: null })),
+              })),
+            })),
+            eq: jest.fn(() => ({
+              in: jest.fn(() => Promise.resolve({ data: [], error: null })),
+            })),
+          })),
+        })),
+      })),
+    }));
+    jest.doMock('@/lib/domains/scoring', () => ({
+      createDiscoveryScoringEngine: jest.fn(() => ({})),
+      scoreBeachWithEngine: jest.fn(() => ({
+        total: 75,
+        subscores: { waveHeightFit: 20, periodEnergyScore: 15, windAlignment: 15, tideFit: 12, affinityBonus: 0, personalizationBonus: 0, distancePenalty: 0 },
+        matchQuality: 'excellent',
+        reasons: ['Good wave size'],
+        warnings: [],
+        conditionBadges: [],
+      })),
+    }));
+    jest.doMock('@/lib/utils/timezone-utils.server', () => ({
+      getTimezoneFromCoords: jest.fn(() => 'America/Los_Angeles'),
+    }));
+    jest.doMock('@/lib/services/discovery/personalization-layer', () => ({
+      fetchPersonalizationContext: jest.fn(async () => ({
+        implicitPrefs: null, learnedPrefs: null, affinityMap: new Map(), preferredBreakType: null, implicitWeight: 0,
+      })),
+      calculatePersonalizationBonus: jest.fn(() => ({ total: 0, affinityBonus: 0, personalizationBonus: 0, reasons: [] })),
+    }));
+
+    const { discoverSurfSpots: freshDiscover } = require('@/lib/services/discovery/surf-discovery-orchestrator');
+
+    await freshDiscover(testUserId, { userLocation: defaultUserLocation });
+
+    // The warn spy should have been called with the fallback message
+    const warnCalls = warnSpy.mock.calls.map((args: any[]) => args[0]);
+    const fallbackCall = warnCalls.find((msg: string) =>
+      typeof msg === 'string' && msg.includes('falling back to all-day forecasts')
+    );
+    expect(fallbackCall).toBeDefined();
+  });
+});

@@ -21,8 +21,9 @@ beforeAll(() => {
       "queueMicrotask",
     ],
   });
-  // Set to 9am UTC on the same date as MOCK_WINDOW so isTomorrow=false
-  jest.setSystemTime(new Date("2026-03-11T09:00:00.000Z"));
+  // Set to 3pm UTC (8am PDT) on the same date as MOCK_WINDOW so isTomorrow=false
+  // and currentHour in America/Los_Angeles = 8 (morning slot)
+  jest.setSystemTime(new Date("2026-03-11T15:00:00.000Z"));
 });
 
 afterAll(() => {
@@ -139,8 +140,8 @@ const MOCK_FORECAST = {
 };
 
 const MOCK_WINDOW = {
-  start: new Date("2026-03-11T06:00:00"),
-  end: new Date("2026-03-11T09:00:00"),
+  start: new Date("2026-03-11T13:00:00.000Z"), // 6 AM PDT
+  end: new Date("2026-03-11T16:00:00.000Z"),   // 9 AM PDT
   tide: "Rising",
   wind: "8 mph NW",
   waveHeight: "3-4ft",
@@ -416,10 +417,11 @@ describe("OracleHomeScreen", () => {
   });
 
   it("generates a personalized dawn patrol title when window starts early", () => {
+    // 5:45 AM PDT = 12:45 UTC (PDT is UTC-7 in March 2026)
     const earlyWindow = {
       ...MOCK_WINDOW,
-      start: new Date("2026-03-11T05:45:00"),
-      end: new Date("2026-03-11T08:45:00"),
+      start: new Date("2026-03-11T12:45:00.000Z"),
+      end: new Date("2026-03-11T15:45:00.000Z"),
     };
     mockOracleData = {
       ...mockOracleData,
@@ -437,8 +439,8 @@ describe("OracleHomeScreen", () => {
     // slotForecasts at hour 5 (5am slot) has a different height than the best window
     const topRecWithSlots = {
       ...MOCK_TOP_REC,
-      // Best window at 8am (hour 8)
-      window: { ...MOCK_WINDOW, start: new Date("2026-03-11T08:00:00") },
+      // Best window at 8am PDT (15:00 UTC)
+      window: { ...MOCK_WINDOW, start: new Date("2026-03-11T15:00:00.000Z") },
       slotForecasts: {
         5: { waveHeight: "1.5 ft", waveHeightBadge: "1-2ft" },
         11: { waveHeight: "2.5 ft", waveHeightBadge: "2-3ft" },
@@ -467,7 +469,7 @@ describe("OracleHomeScreen", () => {
     // slotForecasts[8] has different tide/wind than the forecast entity
     const topRecWithCurrentSlot = {
       ...MOCK_TOP_REC,
-      window: { ...MOCK_WINDOW, start: new Date("2026-03-11T06:00:00") },
+      window: { ...MOCK_WINDOW, start: new Date("2026-03-11T13:00:00.000Z") }, // 6 AM PDT
       slotForecasts: {
         8: {
           waveHeight: "3.5 ft",
@@ -499,8 +501,8 @@ describe("OracleHomeScreen", () => {
     // No slotForecasts — all slots get the same waveHeightBadge from the top rec
     const topRecNoSlots = {
       ...MOCK_TOP_REC,
-      // Best window at 8am (hour 8)
-      window: { ...MOCK_WINDOW, start: new Date("2026-03-11T08:00:00") },
+      // Best window at 8am PDT (15:00 UTC)
+      window: { ...MOCK_WINDOW, start: new Date("2026-03-11T15:00:00.000Z") },
       slotForecasts: undefined,
     };
     mockOracleData = {
@@ -517,5 +519,28 @@ describe("OracleHomeScreen", () => {
     // There should be multiple instances of "3-4ft" across the time windows
     const allBadges = screen.getAllByText("3-4ft");
     expect(allBadges.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("isTomorrow uses timezone-aware comparison: returns false for same-day window", () => {
+    render(<OracleHomeScreen />);
+    expect(screen.getByText("Today's Windows")).toBeInTheDocument();
+  });
+
+  it("isTomorrow uses timezone-aware comparison: returns true for next-day window", () => {
+    const tomorrowWindow = {
+      ...MOCK_WINDOW,
+      start: new Date("2026-03-12T14:00:00.000Z"),
+      timezone: "America/Los_Angeles",
+    };
+    mockOracleData = {
+      ...mockOracleData,
+      topRecommendation: { ...MOCK_TOP_REC, window: tomorrowWindow },
+      discovery: {
+        ...mockOracleData.discovery!,
+        recommendations: [{ ...MOCK_TOP_REC, window: tomorrowWindow }],
+      },
+    } as unknown as OracleData;
+    render(<OracleHomeScreen />);
+    expect(screen.getByText("Tomorrow's Windows")).toBeInTheDocument();
   });
 });

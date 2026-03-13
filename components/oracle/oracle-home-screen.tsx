@@ -20,6 +20,8 @@ import type { TimeWindow } from "@/components/oracle/todays-windows";
 import type { NearbySpot } from "@/components/oracle/nearby-spots";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import type { LocalActivityItem } from "@/actions/oracle-actions";
+import { isFutureDayInTimezone } from "@/lib/utils/condition-tier-utils";
+import { getHourInTimezone, getMinuteInTimezone } from "@/lib/utils/date-time";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -48,9 +50,9 @@ function parseNumeric(value: string | null | undefined, fallback = 0): number {
 /**
  * Format a Date to short time string like "5:45a" or "11:30a".
  */
-function formatWindowTime(date: Date): string {
-  const hours = date.getHours();
-  const minutes = date.getMinutes();
+function formatWindowTime(date: Date, timezone: string): string {
+  const hours = getHourInTimezone(date, timezone);
+  const minutes = getMinuteInTimezone(date, timezone);
   const period = hours < 12 ? "a" : "p";
   const displayHour = hours % 12 === 0 ? 12 : hours % 12;
   const displayMinutes = minutes === 0 ? "" : `:${String(minutes).padStart(2, "0")}`;
@@ -83,7 +85,7 @@ function getBestWindowTitle(
 ): string {
   if (!window) return "Surf's looking good";
 
-  const hour = window.start.getHours();
+  const hour = getHourInTimezone(window.start, window.timezone || "America/Los_Angeles");
 
   if (preferredTime === "dawn_patrol" || (!preferredTime && hour < 8)) {
     return "Dawn patrol is your move";
@@ -150,7 +152,7 @@ function transformToTimeWindows(
     }));
   }
 
-  const bestHour = topRec.window.start.getHours();
+  const bestHour = getHourInTimezone(topRec.window.start, topRec.window.timezone || "America/Los_Angeles");
   const bestScore = topRec.score / 100; // normalise 0-100 → 0-1
   const waveHeight = topRec.waveHeightBadge ?? topRec.forecast.wave_height ?? "—";
   const topConditions = extractConditions(topRec.forecast);
@@ -172,7 +174,7 @@ function transformToTimeWindows(
     } else {
       // Check if another recommendation lands in this slot
       const matchedRec = recommendations.find((r) => {
-        const h = r.window.start.getHours();
+        const h = getHourInTimezone(r.window.start, r.window.timezone || "America/Los_Angeles");
         return h >= hour && h < hour + 3;
       });
 
@@ -398,7 +400,8 @@ export function OracleHomeScreen() {
     forecast?.swell_1_period ?? forecast?.wave_period
   );
   // Use per-slot data for current hour (fixes stale tide direction)
-  const currentHour = new Date().getHours();
+  const heroTz = window?.timezone || "America/Los_Angeles";
+  const currentHour = getHourInTimezone(new Date(), heroTz);
   const currentSlotHour = TIME_SLOT_HOURS.reduce((closest, slot) =>
     Math.abs(slot.hour - currentHour) < Math.abs(closest.hour - currentHour) ? slot : closest
   ).hour;
@@ -419,20 +422,16 @@ export function OracleHomeScreen() {
   const preferredTime = oracleProfile?.preferred_session_time ?? null;
 
   // Best window data
-  const bestWindowTime = window?.start ? formatWindowTime(window.start) : "—";
+  const bestWindowTime = window?.start ? formatWindowTime(window.start, heroTz) : "—";
   const bestWindowTitle = getBestWindowTitle(preferredTime, window);
   const bestWindowSubtitle =
     heroRec?.reasons?.[0] ?? "Check the forecast for details";
 
-  // Check if the top recommendation is for tomorrow
+  // Check if the top recommendation is for tomorrow (timezone-aware)
   const isTomorrow = useMemo(() => {
     if (!window?.start) return false;
-    const now = new Date();
-    const windowDate = new Date(window.start);
-    return windowDate.getDate() !== now.getDate() ||
-      windowDate.getMonth() !== now.getMonth() ||
-      windowDate.getFullYear() !== now.getFullYear();
-  }, [window?.start]);
+    return isFutureDayInTimezone(window.start, heroTz);
+  }, [window?.start, heroTz]);
 
   // Transformed sub-component data (memoised to avoid child re-renders)
   const timeWindows = useMemo(
@@ -497,6 +496,7 @@ export function OracleHomeScreen() {
         userName={profile?.display_name ?? profile?.full_name}
         levelTitle={oracleProfile?.level_title ?? null}
         xpTotal={oracleProfile?.xp_total ?? null}
+        timezone={heroTz}
       />
 
       {/* Inline session time selector — only shows when preference is not yet set */}

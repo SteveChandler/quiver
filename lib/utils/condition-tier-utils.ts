@@ -205,7 +205,7 @@ export function buildHeadlineText(
  * @param timezone IANA timezone string
  * @returns true if date is tomorrow in the given timezone
  */
-export function isTomorrowInTimezone(date: Date, timezone: string): boolean {
+export function isFutureDayInTimezone(date: Date, timezone: string): boolean {
   const now = new Date();
   const dateFormatter = new Intl.DateTimeFormat("en-US", {
     year: "numeric",

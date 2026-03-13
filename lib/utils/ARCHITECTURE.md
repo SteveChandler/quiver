@@ -142,7 +142,7 @@ export function buildHeadlineText(
 ): HeadlineText;
 
 // Check if a date is tomorrow in a given timezone
-export function isTomorrowInTimezone(date: Date, timezone: string): boolean;
+export function isFutureDayInTimezone(date: Date, timezone: string): boolean;
 ```
 
 ### Wave Height Transformation (NEW)

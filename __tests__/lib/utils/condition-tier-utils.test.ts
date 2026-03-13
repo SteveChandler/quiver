@@ -5,7 +5,7 @@ import {
   getScoreColorClass,
   getConditionBadge,
   buildHeadlineText,
-  isTomorrowInTimezone,
+  isFutureDayInTimezone,
   isEveningInTimezone,
 } from "@/lib/utils/condition-tier-utils";
 
@@ -193,22 +193,22 @@ describe("condition-tier-utils", () => {
     });
   });
 
-  describe("isTomorrowInTimezone", () => {
+  describe("isFutureDayInTimezone", () => {
     it("returns false for today", () => {
       const today = new Date();
-      expect(isTomorrowInTimezone(today, "America/Los_Angeles")).toBe(false);
+      expect(isFutureDayInTimezone(today, "America/Los_Angeles")).toBe(false);
     });
 
     it("returns true for tomorrow", () => {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      expect(isTomorrowInTimezone(tomorrow, "America/Los_Angeles")).toBe(true);
+      expect(isFutureDayInTimezone(tomorrow, "America/Los_Angeles")).toBe(true);
     });
 
     it("returns false for past dates", () => {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      expect(isTomorrowInTimezone(yesterday, "America/Los_Angeles")).toBe(false);
+      expect(isFutureDayInTimezone(yesterday, "America/Los_Angeles")).toBe(false);
     });
 
     it("returns true for dates far in future (treated as 'not today')", () => {
@@ -216,7 +216,7 @@ describe("condition-tier-utils", () => {
       nextWeek.setDate(nextWeek.getDate() + 7);
       // Note: Function checks "not today AND in future", so this returns true
       // This is intentional - we treat any future non-today date as "tomorrow" for display
-      expect(isTomorrowInTimezone(nextWeek, "America/Los_Angeles")).toBe(true);
+      expect(isFutureDayInTimezone(nextWeek, "America/Los_Angeles")).toBe(true);
     });
   });
 

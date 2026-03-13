@@ -575,6 +575,10 @@ async function discoverSurfSpotsInner(
 
     // Fall back to all forecasts (includes tomorrow) only if today has no viable window
     if (!bestWindow) {
+      const reason = todayForecasts.length === 0
+        ? `no today forecasts (total=${forecasts.length})`
+        : `today's ${todayForecasts.length} forecasts failed window selection`;
+      log.warn(`[discoverSurfSpots] ${beach.name}: falling back to all-day forecasts — ${reason}`);
       bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
     }
 

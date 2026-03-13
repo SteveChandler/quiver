@@ -53,6 +53,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Migration `20260312120000_add_conditions_report_fields.sql`: adds `wave_size_range` and `vibe` columns to `intel_posts`, `source` column to `sessions`, and a `(beach_id, created_at DESC)` index for the 24h recency query
 
 ### Fixed
+- Oracle home screen: fixed "Tomorrow's Windows" showing before noon — `resolveForecastTime` misinterpreted UTC `forecast_time` (OPEN_METEO data) as local time, shifting today's forecasts +7h past sunset filters; added UTC hour check to the three-way heuristic
+- Oracle home screen: replaced 6 `getHours()` calls (browser timezone) with `getHourInTimezone()` (beach timezone) across `oracle-home-screen.tsx` and `oracle-hero.tsx` for correct time slot rendering and greeting
+- Oracle home screen: `isTomorrow` check now uses timezone-aware `isFutureDayInTimezone()` instead of naive date comparison
+- Oracle home screen: increased Nearby Spots `maxResults` from 6 to 10 so more beaches (e.g., Ocean Beach Pier) appear
+- Added diagnostic `log.warn` in surf-discovery-orchestrator when today's window selection fails and falls back to tomorrow
+- Renamed `isTomorrowInTimezone` → `isFutureDayInTimezone` for clarity (was misleading — function checks any future day, not just tomorrow)
+- Added `getHourInTimezone` and `getMinuteInTimezone` helpers to `lib/utils/date-time.ts`
+- Fixed `@tootallnate/once` ESM resolution (3.0.1 → 2.0.0) that blocked oracle-home-screen test suite under Jest/jsdom
 - Restored `surf-call-conditions` PublicContentGate in SpotSurfReport — the only CTA converting at 2.4% was deleted Mar 11; verdict badge remains visible, conditions detail gated
 - Fixed CTA view event inflation (~27x per session) — added module-level dedup Set in `trackSignupCtaView` so IntersectionObserver-driven CTAs fire once per source per page load
 - Fixed email confirmation redirect losing user context — signup from `/ca/san-diego/blacks` now returns user to that page after email verification instead of `/`
