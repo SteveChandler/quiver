@@ -236,6 +236,7 @@ export class ForecastBuilder {
       wind_speed: this.getWindSpeed(weatherPoint),
       wind_direction: this.getWindDirection(weatherPoint),
       wind_direction_deg: cardinalToDegrees(weatherPoint?.windDirection || "SW"),
+      wind_source: weatherPoint?.windSpeed ? 'NWS' : null,
 
       // Tide information
       tide_status: tideInfo.status,
