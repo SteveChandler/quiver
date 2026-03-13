@@ -144,6 +144,10 @@
     {
       "path": "/api/cron/water-quality-alerts",
       "schedule": "0 13 * * 2,5"
+    },
+    {
+      "path": "/api/cron/wind/update",
+      "schedule": "45 * * * *"
     }
   ]
 }

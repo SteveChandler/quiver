@@ -108,7 +108,7 @@ export const submitConditionsReport = makeAuthenticatedAction(
     // --- Fetch beach coords for the intel post (required fields) ---
     const { data: beach, error: beachError } = await supabase
       .from("beaches")
-      .select("lat, lon, name")
+      .select("center_lat, center_lng, name")
       .eq("id", beachId)
       .single();
 
@@ -117,8 +117,8 @@ export const submitConditionsReport = makeAuthenticatedAction(
       return { success: false, error: "Beach not found" };
     }
 
-    const lat = beach.lat ?? 0;
-    const lon = beach.lon ?? 0;
+    const lat = beach.center_lat ?? 0;
+    const lon = beach.center_lng ?? 0;
 
     // --- Create intel post ---
     const { data: intelPost, error: intelError } = await supabase
