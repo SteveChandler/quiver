@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Growth: CTA copy optimization across 4 pages — gates now match user intent per surface ("See the full 7-day forecast", "See what your crew has been surfing", etc.)
 - Support page at `/support` — static server component with FAQ, contact email, bug report instructions, and links to Privacy Policy and Terms of Service; required for iOS App Store listing
 
+### Changed
+- Tide page sections now animate in with staggered fade-up on scroll via `SectionFadeUp` wrapper (respects `prefers-reduced-motion`)
+- Dark mode contrast: `text-sky-700` override added to retro-dark theme (`#38BDF8`), fixes ~35 near-invisible link instances across 10+ components
+- Dark mode contrast: `ContinueExploring` container and `BeachTempComparison` card/text now legible in dark theme
+- Extracted `SectionFadeUp` to `components/shared/section-fade-up.tsx` for reuse across intent pages (re-export preserves existing imports)
+
 ### Fixed
 - Auth: fixed 5 broken `unified-auth-modal` tests caused by Apple Sign-In env guard -- split tests into "Apple available" and "Apple unavailable" describe blocks with proper env var setup/teardown
 - Security: referral leaderboard DB function now prefers `display_name` over `full_name` to avoid exposing users' real names (new migration `20260313060000`)

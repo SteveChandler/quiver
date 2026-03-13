@@ -159,16 +159,16 @@ test.describe("Beginner page - San Diego", () => {
   });
 
   test("should have continue exploring links", async ({ page }) => {
-    const continueSection = page.locator("text=/Continue exploring/i");
+    const continueSection = page.locator("aside", { hasText: /Continue exploring/i });
     await expect(continueSection).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
-    // Should have links to tide, water-temp, and least-crowded pages
-    await expect(page.locator("a[href*='/tide/san-diego']")).toBeVisible();
+    // Should have links to tide, water-temp, and least-crowded pages (scoped to aside)
+    await expect(continueSection.locator("a[href*='/tide/san-diego']")).toBeVisible();
     await expect(
-      page.locator("a[href*='/water-temp/san-diego']")
+      continueSection.locator("a[href*='/water-temp/san-diego']")
     ).toBeVisible();
     await expect(
-      page.locator("a[href*='/least-crowded/san-diego']")
+      continueSection.locator("a[href*='/least-crowded/san-diego']")
     ).toBeVisible();
   });
 

@@ -8,21 +8,21 @@ interface BeachTempComparisonProps {
   stateSlug: string;
 }
 
-/** Color-code temperature: cold blue → warm amber */
+/** Color-code temperature: cold blue → warm amber (with dark mode variants) */
 function getTempColor(tempF: number): string {
-  if (tempF < 54) return "border-blue-300 bg-blue-50 text-blue-800";
-  if (tempF < 62) return "border-cyan-300 bg-cyan-50 text-cyan-800";
-  if (tempF < 68) return "border-teal-300 bg-teal-50 text-teal-800";
-  if (tempF < 74) return "border-amber-300 bg-amber-50 text-amber-800";
-  return "border-red-300 bg-red-50 text-red-800";
+  if (tempF < 54) return "border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-500/30 dark:bg-blue-950/40 dark:text-blue-200";
+  if (tempF < 62) return "border-cyan-300 bg-cyan-50 text-cyan-800 dark:border-cyan-500/30 dark:bg-cyan-950/40 dark:text-cyan-200";
+  if (tempF < 68) return "border-teal-300 bg-teal-50 text-teal-800 dark:border-teal-500/30 dark:bg-teal-950/40 dark:text-teal-200";
+  if (tempF < 74) return "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-200";
+  return "border-red-300 bg-red-50 text-red-800 dark:border-red-500/30 dark:bg-red-950/40 dark:text-red-200";
 }
 
 function getTempBgGradient(tempF: number): string {
-  if (tempF < 54) return "from-blue-50/80 to-white/80";
-  if (tempF < 62) return "from-cyan-50/80 to-white/80";
-  if (tempF < 68) return "from-teal-50/80 to-white/80";
-  if (tempF < 74) return "from-amber-50/80 to-white/80";
-  return "from-red-50/80 to-white/80";
+  if (tempF < 54) return "from-blue-50/80 to-white/80 dark:from-blue-950/30 dark:to-transparent";
+  if (tempF < 62) return "from-cyan-50/80 to-white/80 dark:from-cyan-950/30 dark:to-transparent";
+  if (tempF < 68) return "from-teal-50/80 to-white/80 dark:from-teal-950/30 dark:to-transparent";
+  if (tempF < 74) return "from-amber-50/80 to-white/80 dark:from-amber-950/30 dark:to-transparent";
+  return "from-red-50/80 to-white/80 dark:from-red-950/30 dark:to-transparent";
 }
 
 export function BeachTempComparison({
@@ -54,7 +54,7 @@ export function BeachTempComparison({
               className={`rounded-xl border p-4 shadow-sm bg-gradient-to-br ${bgGradient} ${colorClass} transition-colors`}
             >
               <div className="flex items-center justify-between">
-                <h3 className="font-medium text-gray-900 text-sm truncate mr-2">
+                <h3 className="font-medium text-gray-900 dark:text-white text-sm truncate mr-2">
                   {beach.beachName}
                 </h3>
                 <div className="flex items-center gap-1 shrink-0">
