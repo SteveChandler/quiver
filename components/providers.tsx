@@ -11,6 +11,15 @@ import { AnalyticsLoader } from "@/components/analytics/analytics-loader";
 import dynamic from "next/dynamic";
 import { ChunkErrorHandler } from "@/components/chunk-error-handler";
 
+// Google One Tap — dynamically imported, SSR disabled (requires browser APIs)
+const GoogleOneTap = dynamic(
+  () =>
+    import("@/components/auth/google-one-tap").then((mod) => ({
+      default: mod.GoogleOneTap,
+    })),
+  { ssr: false }
+);
+
 // Dynamic imports for analytics components
 const GoogleAnalytics = dynamic(
   () => import("@/components/analytics/google-analytics"),
@@ -131,6 +140,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <AuthProvider>
           {/* Global body class manager for authenticated state */}
           <AuthBodyClassManager />
+          {/* Google One Tap sign-in prompt for anonymous web visitors */}
+          <Suspense fallback={null}>
+            <GoogleOneTap />
+          </Suspense>
           {/* Redirect native app users to sign-in on expired sessions */}
           <NativeAuthGuard />
           {/* Page view tracking for engagement analytics */}
