@@ -5,17 +5,18 @@
  * for the AllTrails-style location browsing feature.
  */
 
-import { slugifyAscii } from "@/lib/utils/text-utils";
+import { cityToSlug, US_STATE_SLUG_MAP } from "@/lib/utils/beach-url-utils";
 
 /**
  * Generate a URL-friendly slug from location text
+ *
+ * Delegates to cityToSlug from beach-url-utils for consistency.
  *
  * @param text - Location name (e.g., "La Jolla", "San Diego")
  * @returns Slugified text (e.g., "la-jolla", "san-diego")
  */
 export function generateLocationSlug(text: string | null | undefined): string {
-  if (!text) return "";
-  return slugifyAscii(text);
+  return cityToSlug(text);
 }
 
 /**
@@ -159,31 +160,55 @@ export function normalizeCountry(country: string | null | undefined): string {
 }
 
 /**
+ * Canonical display names for known international states/regions.
+ * Keyed by lowercase for case-insensitive lookup.
+ * US states are covered by US_STATE_SLUG_MAP; this handles non-US regions
+ * known to the Quiver coverage area.
+ */
+const INTERNATIONAL_STATE_DISPLAY_NAMES: Record<string, string> = {
+  "baja california": "Baja California",
+};
+
+/**
  * Normalize state name to abbreviation format
  *
+ * Uses US_STATE_SLUG_MAP from beach-url-utils for consistency. Does a
+ * case-insensitive lookup so "california", "California", and "CALIFORNIA"
+ * all normalize to "CA". Returns 2-letter uppercase abbreviations for known
+ * US states, the canonical display name for known international states
+ * (e.g., "baja california" → "Baja California"), or the original (trimmed)
+ * value for anything unrecognized.
+ *
  * @param state - State name or abbreviation
- * @returns State abbreviation (e.g., "CA")
+ * @returns State abbreviation (e.g., "CA") or normalized name if recognized
  */
 export function normalizeState(state: string | null | undefined): string {
   if (!state) return "";
 
-  const normalized = state.trim();
+  const trimmed = state.trim();
+  if (!trimmed) return "";
 
   // If already abbreviated (2 chars), return uppercase
-  if (normalized.length === 2) {
-    return normalized.toUpperCase();
+  if (trimmed.length === 2) {
+    return trimmed.toUpperCase();
   }
 
-  // Common state name mappings
-  const stateMap: Record<string, string> = {
-    "california": "CA",
-    "baja california": "Baja California", // Keep full name for Mexican states
-    "oregon": "OR",
-    "washington": "WA",
-    "hawaii": "HI",
-    "florida": "FL",
-  };
+  const trimmedLower = trimmed.toLowerCase();
 
-  const mapped = stateMap[normalized.toLowerCase()];
-  return mapped || normalized; // Return mapped or original
+  // Case-insensitive lookup against US_STATE_SLUG_MAP.
+  // The map has entries like { California: "ca", "New York": "ny", ... }.
+  // We scan for a key that matches case-insensitively, then uppercase the
+  // 2-letter slug to produce the canonical abbreviation (e.g., "CA").
+  for (const [key, slug] of Object.entries(US_STATE_SLUG_MAP)) {
+    if (key.toLowerCase() === trimmedLower && slug.length === 2) {
+      return slug.toUpperCase();
+    }
+  }
+
+  // Check international state display names (e.g., "baja california" → "Baja California")
+  const intlDisplay = INTERNATIONAL_STATE_DISPLAY_NAMES[trimmedLower];
+  if (intlDisplay) return intlDisplay;
+
+  // Return original trimmed value for unrecognized states
+  return trimmed;
 }

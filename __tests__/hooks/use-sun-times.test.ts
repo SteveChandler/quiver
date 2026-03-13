@@ -15,6 +15,7 @@ const baseReturn = {
   refetch: jest.fn(),
   retry: jest.fn(),
   reset: jest.fn(),
+  invalidateCache: jest.fn(),
 };
 
 describe("useSunTimes", () => {

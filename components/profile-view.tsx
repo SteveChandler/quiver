@@ -46,6 +46,13 @@ import { track } from "@/lib/analytics";
 
 import { FeedHighlight } from "@/components/profile/FeedHighlight";
 
+// Lazy load the referral leaderboard
+const ReferralLeaderboard = lazy(() =>
+  import("@/components/profile/referral-leaderboard").then((m) => ({
+    default: m.ReferralLeaderboard,
+  }))
+);
+
 // Lazy load heavy tab components for better performance
 const BoardsManager = lazy(() =>
   import("@/components/profile/boards-manager").then((m) => ({
@@ -436,6 +443,16 @@ function ProfileViewContent() {
                   />
                 )}
               </div>
+            </motion.section>
+
+            {/* Referral Leaderboard */}
+            <motion.section
+              {...ANIMATION_VARIANTS.fadeUpWithDelay(0.25)}
+              className="max-w-6xl mx-auto px-2 sm:px-4"
+            >
+              <Suspense fallback={null}>
+                <ReferralLeaderboard />
+              </Suspense>
             </motion.section>
 
             {/* Modern Tabs Section */}

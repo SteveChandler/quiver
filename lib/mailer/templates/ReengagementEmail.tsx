@@ -14,6 +14,7 @@ export interface ReengagementEmailProps {
     end: string;
   } | null;
   recentIntel: IntelPost[];
+  logSessionUrl: string;
   ctaUrl: string;
   unsubscribeUrl: string;
   baseUrl?: string;
@@ -53,6 +54,7 @@ export function ReengagementEmail({
   windDescription,
   bestWindow,
   recentIntel,
+  logSessionUrl,
   ctaUrl,
   unsubscribeUrl,
   baseUrl = "https://quiversurf.app",
@@ -61,7 +63,6 @@ export function ReengagementEmail({
   const { label: conditionLabel, color: conditionColor, emoji } = getConditionLabel(conditionsScore);
   const displayScore = scoreToDisplayPercent(conditionsScore);
   const motivationalCopy = getMotivationalCopy(conditionsScore);
-  const logSessionUrl = `${baseUrl}/sessions/new?mode=log`;
 
   return (
     <div

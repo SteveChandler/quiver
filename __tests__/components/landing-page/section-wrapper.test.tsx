@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { SectionWrapper } from "@/components/landing-page/section-wrapper";
+import { SectionWrapper } from "@/components/ui/section-wrapper";
 
 // Mock framer-motion to avoid animation issues in tests
 jest.mock("framer-motion", () => ({

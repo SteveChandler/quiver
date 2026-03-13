@@ -1,95 +1,102 @@
 /**
  * Unit tests for lib/formatters/surf-data.ts
  *
- * TDD RED phase: these tests are written BEFORE the implementation exists.
- * All tests are expected to fail until lib/formatters/surf-data.ts is created.
- *
  * Contract under test
  * -------------------
- * formatWaveHeight(ft)   – delegates to formatWaveHeightRangeString with SET_WAVE_VARIANCE
- * formatWindSpeed(mph)   – rounds to nearest integer, appends ' mph'
- * formatSwellPeriod(s)   – rounds to nearest integer, appends 's'
- * formatTideHeight(ft)   – formats to 1 decimal place, appends 'ft'
- * formatWaterTemp(°F)    – rounds to nearest integer, appends '°F'
+ * formatWaveHeightRange(ft)  – delegates to formatWaveHeightRangeString with SET_WAVE_VARIANCE
+ * formatWindSpeed(mph)       – rounds to nearest integer, appends ' mph'
+ * formatSwellPeriod(s)       – rounds to nearest integer, appends 's'
+ * formatTideHeight(ft)       – formats to 1 decimal place, appends 'ft'
+ * formatWaterTemp(°F)        – rounds to nearest integer, appends '°F'
+ * formatPeriodSeconds(value) – validates range 4–25s and delegates to formatSwellPeriod
+ * formatWaveFeet(meters)     – converts meters→feet, validates range 0–10m
+ * formatFeet(feet)           – formats feet value with ft suffix
+ * metersToFeetString(meters) – converts meters to feet string
+ * extractWindSpeed(str)      – extracts numeric wind speed from string
  */
 
 import { describe, it, expect } from "@jest/globals";
 import {
-  formatWaveHeight,
+  formatWaveHeightRange,
   formatWindSpeed,
   formatSwellPeriod,
   formatTideHeight,
   formatWaterTemp,
+  formatPeriodSeconds,
+  formatWaveFeet,
+  formatFeet,
+  metersToFeetString,
+  extractWindSpeed,
 } from "@/lib/formatters/surf-data";
 
 // ---------------------------------------------------------------------------
-// formatWaveHeight
+// formatWaveHeightRange (previously formatWaveHeight)
 // ---------------------------------------------------------------------------
 
-describe("formatWaveHeight", () => {
+describe("formatWaveHeightRange", () => {
   describe("flat / non-positive values", () => {
     it("returns 'Flat' for zero", () => {
-      expect(formatWaveHeight(0)).toBe("Flat");
+      expect(formatWaveHeightRange(0)).toBe("Flat");
     });
 
     it("returns 'Flat' for negative values", () => {
-      expect(formatWaveHeight(-1)).toBe("Flat");
+      expect(formatWaveHeightRange(-1)).toBe("Flat");
     });
 
     it("returns 'Flat' for large negative values", () => {
-      expect(formatWaveHeight(-10)).toBe("Flat");
+      expect(formatWaveHeightRange(-10)).toBe("Flat");
     });
   });
 
   describe("NaN and Infinity guards", () => {
     it("returns 'Flat' for NaN", () => {
-      expect(formatWaveHeight(NaN)).toBe("Flat");
+      expect(formatWaveHeightRange(NaN)).toBe("Flat");
     });
 
     it("returns 'Flat' for Infinity", () => {
-      expect(formatWaveHeight(Infinity)).toBe("Flat");
+      expect(formatWaveHeightRange(Infinity)).toBe("Flat");
     });
 
     it("returns 'Flat' for -Infinity", () => {
-      expect(formatWaveHeight(-Infinity)).toBe("Flat");
+      expect(formatWaveHeightRange(-Infinity)).toBe("Flat");
     });
   });
 
   describe("small ranges that collapse to a single value", () => {
     it("collapses 0.5ft (set=0.75) to a single value '1ft'", () => {
       // low=0.5 rounds to 1, high=0.75 rounds to 1 → same → "1ft"
-      expect(formatWaveHeight(0.5)).toBe("1ft");
+      expect(formatWaveHeightRange(0.5)).toBe("1ft");
     });
   });
 
   describe("standard ranges", () => {
     it("formats 1ft as '1-2ft' (1 * 1.5 = 1.5, rounds to 2)", () => {
-      expect(formatWaveHeight(1)).toBe("1-2ft");
+      expect(formatWaveHeightRange(1)).toBe("1-2ft");
     });
 
     it("formats 3ft as '3-5ft' (3 * 1.5 = 4.5, rounds to 5)", () => {
-      expect(formatWaveHeight(3)).toBe("3-5ft");
+      expect(formatWaveHeightRange(3)).toBe("3-5ft");
     });
 
     it("formats 6ft as '6-9ft' (6 * 1.5 = 9.0)", () => {
-      expect(formatWaveHeight(6)).toBe("6-9ft");
+      expect(formatWaveHeightRange(6)).toBe("6-9ft");
     });
 
     it("formats 10ft as '10-15ft' (10 * 1.5 = 15.0)", () => {
-      expect(formatWaveHeight(10)).toBe("10-15ft");
+      expect(formatWaveHeightRange(10)).toBe("10-15ft");
     });
   });
 
   describe("return type", () => {
     it("always returns a string", () => {
-      expect(typeof formatWaveHeight(0)).toBe("string");
-      expect(typeof formatWaveHeight(3)).toBe("string");
-      expect(typeof formatWaveHeight(10)).toBe("string");
+      expect(typeof formatWaveHeightRange(0)).toBe("string");
+      expect(typeof formatWaveHeightRange(3)).toBe("string");
+      expect(typeof formatWaveHeightRange(10)).toBe("string");
     });
 
     it("returned string ends with 'ft' for positive heights", () => {
-      expect(formatWaveHeight(3)).toMatch(/ft$/);
-      expect(formatWaveHeight(6)).toMatch(/ft$/);
+      expect(formatWaveHeightRange(3)).toMatch(/ft$/);
+      expect(formatWaveHeightRange(6)).toMatch(/ft$/);
     });
   });
 });
@@ -380,5 +387,114 @@ describe("formatWaterTemp", () => {
     it("returns '--°F' for -Infinity", () => {
       expect(formatWaterTemp(-Infinity)).toBe("--°F");
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatPeriodSeconds (merged from format-utils.ts)
+// ---------------------------------------------------------------------------
+
+describe("formatPeriodSeconds", () => {
+  it("returns null for null input", () => {
+    expect(formatPeriodSeconds(null)).toBeNull();
+  });
+
+  it("returns null for undefined input", () => {
+    expect(formatPeriodSeconds(undefined)).toBeNull();
+  });
+
+  it("formats valid number with s suffix", () => {
+    // formatPeriodSeconds delegates to formatSwellPeriod which rounds: round(12.5)=13
+    expect(formatPeriodSeconds(12.5)).toBe("13s");
+  });
+
+  it("parses string input", () => {
+    // formatSwellPeriod rounds: round(14.2)=14
+    expect(formatPeriodSeconds("14.2")).toBe("14s");
+  });
+
+  it("rejects periods below 4s as invalid", () => {
+    expect(formatPeriodSeconds(3.5)).toBeNull();
+  });
+
+  it("rejects periods above 25s as invalid", () => {
+    expect(formatPeriodSeconds(26)).toBeNull();
+  });
+
+  it("returns null for non-finite values", () => {
+    expect(formatPeriodSeconds(Infinity)).toBeNull();
+    expect(formatPeriodSeconds(NaN)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatWaveFeet (merged from format-utils.ts)
+// ---------------------------------------------------------------------------
+
+describe("formatWaveFeet", () => {
+  it("returns null for null input", () => {
+    expect(formatWaveFeet(null)).toBeNull();
+  });
+
+  it("converts meters to feet with ft suffix", () => {
+    expect(formatWaveFeet(1)).toBe("3.3 ft");
+  });
+
+  it("rejects negative values", () => {
+    expect(formatWaveFeet(-1)).toBeNull();
+  });
+
+  it("rejects values over 10 meters as sensor glitch", () => {
+    expect(formatWaveFeet(11)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatFeet (merged from format-utils.ts)
+// ---------------------------------------------------------------------------
+
+describe("formatFeet", () => {
+  it("returns null for null input", () => {
+    expect(formatFeet(null)).toBeNull();
+  });
+
+  it("formats feet value with ft suffix", () => {
+    expect(formatFeet(4.5)).toBe("4.5 ft");
+  });
+
+  it("rejects negative values", () => {
+    expect(formatFeet(-1)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// metersToFeetString (merged from format-utils.ts)
+// ---------------------------------------------------------------------------
+
+describe("metersToFeetString", () => {
+  it("converts meters to feet string", () => {
+    expect(metersToFeetString(1)).toBe("3.3 ft");
+  });
+
+  it("handles sub-foot values with decimal", () => {
+    expect(metersToFeetString(0.2)).toBe("0.7 ft");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractWindSpeed (merged from format-utils.ts)
+// ---------------------------------------------------------------------------
+
+describe("extractWindSpeed", () => {
+  it("extracts number from wind speed string", () => {
+    expect(extractWindSpeed("15 mph")).toBe("15 mph");
+  });
+
+  it("returns default for empty string", () => {
+    expect(extractWindSpeed("")).toBe("10 mph");
+  });
+
+  it("returns default for null input", () => {
+    expect(extractWindSpeed(null as any)).toBe("10 mph");
   });
 });

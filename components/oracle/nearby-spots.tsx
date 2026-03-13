@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export interface NearbySpot {
@@ -10,6 +11,8 @@ export interface NearbySpot {
   height: string;
   photoUrl: string | null;
   score?: number;
+  /** True when beach skill level exceeds user level AND conditions are significant */
+  skillMismatch?: boolean;
 }
 
 export interface NearbySpotsProps {
@@ -29,7 +32,7 @@ function SpotCard({
     <div
       role="button"
       tabIndex={0}
-      className="bg-[#2D357D] border border-[#404C92] noise-texture rounded-xl min-w-[150px] flex-shrink-0 cursor-pointer"
+      className="bg-[#2D357D] border border-[#404C92] noise-texture rounded-xl w-[280px] min-w-[280px] flex-shrink-0 snap-start cursor-pointer"
       onClick={() => onViewSpot(spot.id)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -52,9 +55,19 @@ function SpotCard({
         )}
       </div>
       <div className="p-3">
-        <p className="font-heading text-white text-sm font-semibold line-clamp-1">
-          {spot.name}
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="font-heading text-white text-sm font-semibold line-clamp-1">
+            {spot.name}
+          </p>
+          {spot.skillMismatch && (
+            <span
+              className="shrink-0 text-[10px] font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-full"
+              title="Above your skill level"
+            >
+              ADV
+            </span>
+          )}
+        </div>
         <p className="text-medium text-xs">{spot.conditions}</p>
         <p className="text-[#4A70D9] text-base font-bold">{spot.height}</p>
       </div>
@@ -64,7 +77,7 @@ function SpotCard({
 
 function SkeletonCard() {
   return (
-    <div className="bg-[#2D357D] border border-[#404C92] rounded-xl min-w-[150px] flex-shrink-0">
+    <div className="bg-[#2D357D] border border-[#404C92] rounded-xl w-[280px] min-w-[280px] flex-shrink-0 snap-start">
       <Skeleton className="h-[90px] rounded-t-xl rounded-b-none" />
       <div className="p-3 flex flex-col gap-2">
         <Skeleton className="h-4 w-24" />
@@ -80,23 +93,32 @@ export function NearbySpots({ spots, onViewSpot, loading = false }: NearbySpotsP
     <section>
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-heading text-white text-lg font-semibold">Nearby Spots</h2>
-        <button className="text-[#4A70D9] text-sm font-medium">Map &gt;</button>
+        <Link href="/map" className="text-[#4A70D9] text-sm font-medium">Map &gt;</Link>
       </div>
-      <div
-        className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4"
-        style={{ WebkitOverflowScrolling: "touch" }}
-      >
-        {loading ? (
-          <>
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-          </>
-        ) : (
-          spots.map((spot) => (
-            <SpotCard key={spot.id} spot={spot} onViewSpot={onViewSpot} />
-          ))
+      <div className="relative">
+        <div
+          className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-2 -mx-6 px-6"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          {loading ? (
+            <>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </>
+          ) : (
+            spots.map((spot) => (
+              <SpotCard key={spot.id} spot={spot} onViewSpot={onViewSpot} />
+            ))
+          )}
+        </div>
+        {!loading && spots.length > 2 && (
+          <div
+            className="absolute right-0 top-0 bottom-2 w-8 sm:w-12 pointer-events-none bg-gradient-to-l from-[#252D6B] to-transparent md:hidden"
+            aria-hidden="true"
+            data-testid="scroll-fade-indicator"
+          />
         )}
       </div>
     </section>

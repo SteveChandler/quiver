@@ -6,7 +6,9 @@
 
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
-import { BeachFAQSchema } from "@/components/seo/faq-schema";
+import { BeachFAQSchema, TideFAQSchema, WaterTempFAQSchema } from "@/components/seo/faq-schema";
+import { TideDatasetSchema } from "@/components/seo/tide-dataset-schema";
+import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
@@ -92,20 +94,28 @@ export async function renderBeachSubPage({
   const config = SUB_PAGE_CONFIGS[pageType];
   const subPagePath = `${beachPath}/${pageType}`;
 
-  // Fetch and enrich nearby beaches for internal linking and discovery
-  let nearbyBeachesRaw: Beach[] = [];
-  try {
-    if (beach.lat && beach.lon) {
-      const nearbyResult = await getNearbyBeaches(beach.lat, beach.lon, 25);
-      if (nearbyResult?.success && nearbyResult.data) {
-        nearbyBeachesRaw = nearbyResult.data
-          .filter((b) => b.id !== beach.id && b.slug !== beach.slug)
-          .slice(0, 4);
+  // Fetch dataset schema data in parallel with nearby beaches — uses React cache()
+  // so no extra DB queries when generateBeachSubPageMetadata already called these.
+  const [nearbyBeachesRaw, tideMetaForSchema, waterTempMetaForSchema] = await Promise.all([
+    (async (): Promise<Beach[]> => {
+      try {
+        if (beach.lat && beach.lon) {
+          const result = await getNearbyBeaches(beach.lat, beach.lon, 25);
+          if (result?.success && result.data) {
+            return result.data
+              .filter((b) => b.id !== beach.id && b.slug !== beach.slug)
+              .slice(0, 4);
+          }
+        }
+      } catch {
+        // Gracefully degrade — nearby beaches are not critical
       }
-    }
-  } catch {
-    // Gracefully degrade — nearby beaches are not critical
-  }
+      return [];
+    })(),
+    pageType === "tides" ? getTideMetaData(beach.id) : Promise.resolve(null),
+    pageType === "water-temp" ? getWaterTempMetaData(beach.id) : Promise.resolve(null),
+  ]);
+
   const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
 
   return (
@@ -131,7 +141,39 @@ export async function renderBeachSubPage({
         ]}
       />
 
-      <BeachFAQSchema beachName={beach.name} />
+      {pageType === "tides" ? (
+        <TideFAQSchema beachName={beach.name} />
+      ) : pageType === "water-temp" ? (
+        <WaterTempFAQSchema beachName={beach.name} />
+      ) : (
+        <BeachFAQSchema beachName={beach.name} />
+      )}
+
+      {/* Dataset JSON-LD — enables Google Dataset rich snippets for tide/water-temp pages */}
+      {pageType === "tides" && tideMetaForSchema && (
+        <TideDatasetSchema
+          cityOrBeachName={beach.name}
+          state={beach.state || undefined}
+          url={`${baseUrl}${subPagePath}`}
+          latitude={beach.lat || undefined}
+          longitude={beach.lon || undefined}
+          nextHighTime={tideMetaForSchema.nextHighTime}
+          nextHighHeight={tideMetaForSchema.nextHighHeight}
+          nextLowTime={tideMetaForSchema.nextLowTime}
+          nextLowHeight={tideMetaForSchema.nextLowHeight}
+        />
+      )}
+      {pageType === "water-temp" && waterTempMetaForSchema && (
+        <WaterTempDatasetSchema
+          cityOrBeachName={beach.name}
+          state={beach.state || undefined}
+          url={`${baseUrl}${subPagePath}`}
+          latitude={beach.lat || undefined}
+          longitude={beach.lon || undefined}
+          tempF={waterTempMetaForSchema.tempF}
+          wetsuitRec={waterTempMetaForSchema.wetsuitRec}
+        />
+      )}
 
       <BeachDetailClient
         beach={beach}

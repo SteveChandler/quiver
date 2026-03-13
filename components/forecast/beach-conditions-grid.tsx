@@ -13,7 +13,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { BeachConditionSummary } from "@/lib/utils/regional-forecast-utils";
 import { getScoreColorClasses } from "@/lib/utils/score-color-utils";
-import { formatWaveHeight } from "@/lib/utils/wave-formatters";
+import { formatWaveHeightDecimal as formatWaveHeight } from "@/lib/utils/wave-formatters";
 import { ScoreBadge } from "./score-badge";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { AnimatedCounter } from "@/components/ui/animated-counter";

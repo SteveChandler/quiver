@@ -37,6 +37,17 @@ const mockSupabase = {
   })),
 };
 
+/**
+ * Default headers that simulate a real browser request.
+ * The bot-filtering layer checks for Accept-Language (real browsers always send it)
+ * and a plausible User-Agent. Tests that should reach the application logic need these.
+ */
+const BROWSER_HEADERS = {
+  'Content-Type': 'application/json',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+};
+
 describe('POST /api/events', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -52,6 +63,7 @@ describe('POST /api/events', () => {
 
     const request = new Request('http://localhost/api/events', {
       method: 'POST',
+      headers: BROWSER_HEADERS,
       body: JSON.stringify({ eventType: 'beach_view', beachId: '123' }),
     });
 
@@ -80,6 +92,7 @@ describe('POST /api/events', () => {
 
     const request = new Request('http://localhost/api/events', {
       method: 'POST',
+      headers: BROWSER_HEADERS,
       body: JSON.stringify({ eventType: 'invalid_event' }),
     });
 
@@ -115,6 +128,7 @@ describe('POST /api/events', () => {
 
     const request = new Request('http://localhost/api/events', {
       method: 'POST',
+      headers: BROWSER_HEADERS,
       body: JSON.stringify({ eventType: 'beach_view', beachId: '123' }),
     });
 
@@ -153,6 +167,7 @@ describe('POST /api/events', () => {
 
     const request = new Request('http://localhost/api/events', {
       method: 'POST',
+      headers: BROWSER_HEADERS,
       body: JSON.stringify({
         eventType: 'beach_view',
         beachId: '123',
@@ -192,6 +207,7 @@ describe('POST /api/events', () => {
 
     const request = new Request('http://localhost/api/events', {
       method: 'POST',
+      headers: BROWSER_HEADERS,
       body: 'invalid json',
     });
 
@@ -220,6 +236,7 @@ describe('POST /api/events', () => {
 
     const request = new Request('http://localhost/api/events', {
       method: 'POST',
+      headers: BROWSER_HEADERS,
       body: JSON.stringify({ beachId: '123' }),
     });
 
@@ -256,6 +273,7 @@ describe('POST /api/events', () => {
 
     const request = new Request('http://localhost/api/events', {
       method: 'POST',
+      headers: BROWSER_HEADERS,
       body: JSON.stringify({
         eventType: 'beach_view',
         beachId: '123',
@@ -301,6 +319,7 @@ describe('POST /api/events', () => {
     for (const eventType of validEvents) {
       const request = new Request('http://localhost/api/events', {
         method: 'POST',
+        headers: BROWSER_HEADERS,
         body: JSON.stringify({ eventType }),
       });
 
@@ -335,6 +354,7 @@ describe('POST /api/events', () => {
 
     const request = new Request('http://localhost/api/events', {
       method: 'POST',
+      headers: BROWSER_HEADERS,
       body: JSON.stringify({ eventType: 'location_update' }),
     });
 
@@ -377,6 +397,7 @@ describe('POST /api/events', () => {
       for (let i = 0; i < 10; i++) {
         const request = new Request('http://localhost/api/events', {
           method: 'POST',
+          headers: BROWSER_HEADERS,
           body: JSON.stringify({ eventType: 'beach_view', beachId: `beach-${i}` }),
         });
 
@@ -415,6 +436,7 @@ describe('POST /api/events', () => {
       for (let i = 0; i < 60; i++) {
         const request = new Request('http://localhost/api/events', {
           method: 'POST',
+          headers: BROWSER_HEADERS,
           body: JSON.stringify({ eventType: 'beach_view', beachId: `beach-${i}` }),
         });
 
@@ -425,6 +447,7 @@ describe('POST /api/events', () => {
       // 61st request should be rate limited
       const rateLimitedRequest = new Request('http://localhost/api/events', {
         method: 'POST',
+        headers: BROWSER_HEADERS,
         body: JSON.stringify({ eventType: 'beach_view', beachId: 'beach-61' }),
       });
 
@@ -464,6 +487,7 @@ describe('POST /api/events', () => {
       for (let i = 0; i < 60; i++) {
         const request = new Request('http://localhost/api/events', {
           method: 'POST',
+          headers: BROWSER_HEADERS,
           body: JSON.stringify({ eventType: 'beach_view' }),
         });
         await POST(request);
@@ -472,6 +496,7 @@ describe('POST /api/events', () => {
       // Check headers on rate-limited response
       const request = new Request('http://localhost/api/events', {
         method: 'POST',
+        headers: BROWSER_HEADERS,
         body: JSON.stringify({ eventType: 'beach_view' }),
       });
 
@@ -516,6 +541,7 @@ describe('POST /api/events', () => {
       for (let i = 0; i < 60; i++) {
         const request = new Request('http://localhost/api/events', {
           method: 'POST',
+          headers: BROWSER_HEADERS,
           body: JSON.stringify({ eventType: 'beach_view' }),
         });
         await POST(request);
@@ -524,6 +550,7 @@ describe('POST /api/events', () => {
       // User 1 should be rate limited
       const user1Request = new Request('http://localhost/api/events', {
         method: 'POST',
+        headers: BROWSER_HEADERS,
         body: JSON.stringify({ eventType: 'beach_view' }),
       });
       const user1Response = await POST(user1Request);
@@ -537,6 +564,7 @@ describe('POST /api/events', () => {
 
       const user2Request = new Request('http://localhost/api/events', {
         method: 'POST',
+        headers: BROWSER_HEADERS,
         body: JSON.stringify({ eventType: 'beach_view' }),
       });
       const user2Response = await POST(user2Request);
@@ -574,6 +602,7 @@ describe('POST /api/events', () => {
       // First request - should query database
       const request1 = new Request('http://localhost/api/events', {
         method: 'POST',
+        headers: BROWSER_HEADERS,
         body: JSON.stringify({ eventType: 'beach_view' }),
       });
       await POST(request1);
@@ -582,6 +611,7 @@ describe('POST /api/events', () => {
       // Second request - should use cache
       const request2 = new Request('http://localhost/api/events', {
         method: 'POST',
+        headers: BROWSER_HEADERS,
         body: JSON.stringify({ eventType: 'beach_view' }),
       });
       await POST(request2);
@@ -615,6 +645,7 @@ describe('POST /api/events', () => {
 
       const request = new Request('http://localhost/api/events', {
         method: 'POST',
+        headers: BROWSER_HEADERS,
         body: JSON.stringify({ eventType: 'beach_view' }),
       });
 
@@ -649,6 +680,7 @@ describe('POST /api/events', () => {
 
       const request = new Request('http://localhost/api/events', {
         method: 'POST',
+        headers: BROWSER_HEADERS,
         body: JSON.stringify({ eventType: 'beach_view' }),
       });
 
@@ -713,6 +745,11 @@ describe('POST /api/events', () => {
         'signup_cta_click',
         'signup_cta_view',
         'signin_cta_click',
+        // Auth modal funnel events
+        'auth_modal_opened',
+        'auth_modal_closed_without_action',
+        'auth_provider_selected',
+        'signup_form_submitted',
         // Home screen events
         'home_at_beach_click',
         'home_plan_weekend_click',
@@ -773,6 +810,7 @@ describe('POST /api/events', () => {
 
         const request = new Request('http://localhost/api/events', {
           method: 'POST',
+          headers: BROWSER_HEADERS,
           body: JSON.stringify({ eventType }),
         });
 
@@ -828,6 +866,7 @@ describe('POST /api/events', () => {
 
       const request = new Request('http://localhost/api/events', {
         method: 'POST',
+        headers: BROWSER_HEADERS,
         body: JSON.stringify({
           eventType: 'discovery_click',
           beachId: 'beach-789',
@@ -871,6 +910,7 @@ describe('POST /api/events', () => {
 
       const request = new Request('http://localhost/api/events', {
         method: 'POST',
+        headers: BROWSER_HEADERS,
         body: JSON.stringify({
           eventType: 'beach_view',
           metadata: {},
@@ -915,10 +955,7 @@ describe('POST /api/events', () => {
 
       const request = new Request('http://localhost/api/events', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        },
+        headers: BROWSER_HEADERS,
         body: JSON.stringify({ eventType: 'beach_view' }),
       });
 
@@ -937,12 +974,67 @@ describe('POST /api/events', () => {
       );
     });
 
-    it('filters bot requests silently', async () => {
+    it('filters bot requests silently via UA pattern', async () => {
       const request = new Request('http://localhost/api/events', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept-Language': 'en-US',
           'User-Agent': 'Googlebot/2.1 (+http://www.google.com/bot.html)',
+        },
+        body: JSON.stringify({ eventType: 'page_view' }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.status).toBe('bot_filtered');
+    });
+
+    it('filters requests missing Accept-Language header', async () => {
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+          // No Accept-Language — bot heuristic
+        },
+        body: JSON.stringify({ eventType: 'page_view' }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.status).toBe('bot_filtered');
+    });
+
+    it('filters requests with suspiciously short User-Agent', async () => {
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept-Language': 'en-US',
+          'User-Agent': 'curl/7.0',
+        },
+        body: JSON.stringify({ eventType: 'page_view' }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.status).toBe('bot_filtered');
+    });
+
+    it('filters headless browser signatures', async () => {
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept-Language': 'en-US',
+          'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/113.0.5672.63 Safari/537.36',
         },
         body: JSON.stringify({ eventType: 'page_view' }),
       });
@@ -967,7 +1059,7 @@ describe('POST /api/events', () => {
 
       const request = new Request('http://localhost/api/events', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: BROWSER_HEADERS,
         body: JSON.stringify({
           eventType: 'page_view',
           sessionId: '12345678-1234-1234-1234-123456789012',
@@ -994,7 +1086,7 @@ describe('POST /api/events', () => {
 
       const request = new Request('http://localhost/api/events', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: BROWSER_HEADERS,
         body: JSON.stringify({
           eventType: 'session_log_submit',
           sessionId: '12345678-1234-1234-1234-123456789012',
@@ -1013,7 +1105,7 @@ describe('POST /api/events', () => {
 
       const request = new Request('http://localhost/api/events', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: BROWSER_HEADERS,
         body: JSON.stringify({ eventType: 'page_view' }),
       });
 

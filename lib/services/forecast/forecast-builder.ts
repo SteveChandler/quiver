@@ -8,11 +8,12 @@
  * to reduce file size and improve maintainability.
  */
 
+import { createContextLogger } from "@/lib/logger";
 import { calculateConfidenceScore } from "./confidence-scorer";
-import { toFaceHeightFeet } from "@/lib/utils/wave-height-formatter";
+import { toFaceHeightFeet } from "@/lib/utils/wave-formatters";
 import { cardinalToDegrees } from "./forecast-transformer";
 import { formatWaterTemp } from "@/lib/formatters/surf-data";
-import { formatPeriodSeconds } from "./format-utils";
+import { formatPeriodSeconds } from "@/lib/formatters/surf-data";
 import { getNormalizedDateString, getNormalizedTimeString, getNormalizedForecastAt } from "./datetime-utils";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
 import type { Beach } from "@/types/database";
@@ -58,6 +59,8 @@ export interface ForecastInputs {
   cdipData: CDIPBuoyData | null;
   ioosWaterTempC: number | null;
 }
+
+const log = createContextLogger("ForecastBuilder");
 
 /**
  * Builds forecast entities by combining data from multiple sources
@@ -330,8 +333,8 @@ export class ForecastBuilder {
     const now = new Date();
     const hoursFromNow = (targetTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-    // Only use CDIP data for current conditions (within 6 hours)
-    if (hoursFromNow > 6) {
+    // Only use CDIP data for current conditions (within 1 hour)
+    if (hoursFromNow > 1) {
       return null;
     }
 
@@ -373,7 +376,7 @@ export class ForecastBuilder {
   private getTideInfo(tideData: COOPSForecast | null, targetTime: Date, beachTimezone?: string | null): ResolvedTideInfo {
     const defaultTideInfo = {
       status: "Unknown",
-      currentHeight: "2.5 ft",
+      currentHeight: "-- ft",
       nextTideTime: "Unknown",
       nextTideType: "Unknown",
       nextTideHeight: "Unknown",
@@ -388,7 +391,11 @@ export class ForecastBuilder {
 
     return {
       status,
-      currentHeight: currentHeight ? `${currentHeight} ft` : "2.5 ft",
+      currentHeight: (() => {
+        if (currentHeight != null) return `${currentHeight} ft`;
+        log.debug(`Tide interpolation failed for ${targetTime.toISOString()}`);
+        return "-- ft";
+      })(),
       nextTideTime: nextTide
         ? new Date(nextTide.time * 1000).toLocaleTimeString([], {
             hour: "2-digit",

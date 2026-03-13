@@ -133,7 +133,7 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow 
                   </span>
 
                   {/* Quality bar container */}
-                  <div className="relative flex min-w-0 flex-1 items-center h-7">
+                  <div className="relative flex min-w-0 flex-1 items-center h-7 overflow-hidden">
                     {/* Background bar — absolute, width driven by quality */}
                     <div
                       className={
@@ -143,48 +143,48 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow 
                       }
                       style={{ width: `${barWidthPercent}%` }}
                     />
-                    {/* Label — sits on top, full container width */}
+                    {/* Label — sits on top, left-aligned, truncates when space is tight */}
                     <span
                       className={
                         window.isBest
-                          ? "relative z-10 truncate px-2 text-xs font-semibold text-white"
-                          : "relative z-10 truncate px-2 text-xs font-semibold text-medium"
+                          ? "relative z-10 min-w-0 truncate px-2 text-xs font-semibold text-white"
+                          : "relative z-10 min-w-0 truncate px-2 text-xs font-semibold text-medium"
                       }
                     >
                       {window.label}
                     </span>
+                    {/* Conditions — inline right-aligned, hidden on very small screens */}
+                    {conditionSegments.length > 0 && (
+                      <span className="relative z-10 ml-auto hidden gap-2 px-2 text-[10px] leading-tight text-medium/50 whitespace-nowrap sm:flex">
+                        {conditionSegments.map((seg, i) => (
+                          <span key={i}>{seg}</span>
+                        ))}
+                      </span>
+                    )}
                   </div>
 
                   {/* Wave height — 48px fixed width */}
-                  <WaveHeightDisplay
-                    height={window.height}
-                    showTooltip={false}
-                    className="w-12 shrink-0 text-right text-sm font-semibold text-high"
-                  />
+                  {window.height === "—" && !window.isBest ? (
+                    <span className="w-12 shrink-0 text-right text-sm font-semibold text-white/30">
+                      —
+                    </span>
+                  ) : (
+                    <WaveHeightDisplay
+                      height={window.height}
+                      showTooltip={false}
+                      className="w-12 shrink-0 text-right text-sm font-semibold text-high"
+                    />
+                  )}
                 </div>
-
-                {/* Condition details sub-line: swell · wind · tide */}
-                {conditionSegments.length > 0 && (
-                  <div className="flex gap-3 pt-0.5 pb-0.5">
-                    <div className="w-12 shrink-0" />
-                    <div
-                      className={
-                        window.isBest
-                          ? "flex flex-1 items-center justify-between text-[10px] leading-tight text-white/50"
-                          : "flex flex-1 items-center justify-between text-[10px] leading-tight text-medium/50"
-                      }
-                    >
-                      {conditionSegments.map((seg, i) => (
-                        <span key={i}>{seg}</span>
-                      ))}
-                    </div>
-                    <div className="w-12 shrink-0" />
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
+        {windows.filter(w => w.height === "—").length >= 4 && (
+          <p className="text-white/40 text-xs text-center mt-3">
+            Set your home beach for full forecast windows
+          </p>
+        )}
       </div>
     </div>
   );

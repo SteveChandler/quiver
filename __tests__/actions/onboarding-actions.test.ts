@@ -21,38 +21,42 @@ jest.mock("@/lib/server-action-utils", () => {
       if (table === 'profiles') {
         return {
           update: (data: any) => {
-            lastProfileUpdate = data;
-            return {
-              eq: (column: string, value: any) => ({
-                select: () => ({
-                  single: () => {
-                    // Simulate constraint violations
-                    if (data.display_name === 'duplicate') {
-                      return Promise.resolve({
-                        data: null,
-                        error: { message: 'duplicate key value violates unique constraint "profiles_display_name_key"', code: '23505' }
-                      });
-                    }
-                    if (data.preferred_wave_size === 'invalid') {
-                      return Promise.resolve({
-                        data: null,
-                        error: { message: 'new row for relation "profiles" violates check constraint "profiles_preferred_wave_size_check"', code: '23514' }
-                      });
-                    }
-                    // Return updated profile data
+            // Only capture the main profile update (not referral_code updates)
+            if (!('referral_code' in data)) {
+              lastProfileUpdate = data;
+            }
+            const eqResult = {
+              // For update().eq() used without select (e.g. referral_code update)
+              then: (resolve: any) => resolve({ error: null }),
+              select: () => ({
+                single: () => {
+                  // Simulate constraint violations
+                  if (data.display_name === 'duplicate') {
                     return Promise.resolve({
-                      data: {
-                        id: 'user-123',
-                        ...data,
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString(),
-                      },
-                      error: null
+                      data: null,
+                      error: { message: 'duplicate key value violates unique constraint "profiles_display_name_key"', code: '23505' }
                     });
                   }
-                })
+                  if (data.preferred_wave_size === 'invalid') {
+                    return Promise.resolve({
+                      data: null,
+                      error: { message: 'new row for relation "profiles" violates check constraint "profiles_preferred_wave_size_check"', code: '23514' }
+                    });
+                  }
+                  // Return updated profile data
+                  return Promise.resolve({
+                    data: {
+                      id: 'user-123',
+                      ...data,
+                      created_at: new Date().toISOString(),
+                      updated_at: new Date().toISOString(),
+                    },
+                    error: null
+                  });
+                }
               })
             };
+            return { eq: (_column: string, _value: any) => eqResult };
           },
           select: (columns?: string) => ({
             eq: (column: string, value: any) => ({
@@ -72,13 +76,35 @@ jest.mock("@/lib/server-action-utils", () => {
                   });
                 }
               }),
+              // Used by getOrCreateReferralCode to check if profile has a referral_code
+              single: () => Promise.resolve({
+                data: { referral_code: null },
+                error: null
+              }),
             })
           })
         };
       }
 
+      if (table === 'referrals') {
+        return {
+          select: (_columns?: string) => ({
+            eq: (_column: string, _value: any) => ({
+              maybeSingle: () => Promise.resolve({ data: null, error: null }),
+            }),
+          }),
+          insert: (_data: any) => Promise.resolve({ error: null }),
+        };
+      }
+
       return {};
-    }
+    },
+    rpc: (fn: string, _args?: any) => {
+      if (fn === 'generate_referral_code') {
+        return Promise.resolve({ data: 'ABC123', error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
+    },
   };
 
   return {

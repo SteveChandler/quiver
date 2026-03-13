@@ -475,6 +475,18 @@ function captureAttributionParams(
     // Check if we have any UTM params to capture
     const hasUtmParams = Object.values(utmParams).some((v) => v != null);
 
+    // Capture referral code from ?ref=CODE (always, even without UTM params)
+    // Validate format: 4-12 alphanumeric characters only (prevents injection via SQL wildcards)
+    const refCode = searchParams.get('ref');
+    if (refCode && /^[A-Z0-9]{4,12}$/i.test(refCode)) {
+      response.cookies.set('qvr_referral_code', refCode, {
+        path: '/',
+        maxAge: 90 * 24 * 60 * 60, // 90 days
+        httpOnly: false, // Needs to be readable by client JS
+        sameSite: 'lax',
+      });
+    }
+
     // Get referrer from headers (external referrers only)
     const referrer = request.headers.get("referer") || null;
     const host = request.headers.get("host") || "";

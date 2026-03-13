@@ -1,11 +1,14 @@
 /**
  * Unit tests for auth-events.ts
- * Tests that all analytics events are tracked correctly with proper parameters
+ * Tests that all analytics events are tracked correctly with proper parameters,
+ * and that key auth funnel events dual-fire to the internal user_events table.
  */
 
 import {
   trackAuthModalOpened,
+  trackAuthModalClosedWithoutAction,
   trackAuthMethodSelected,
+  trackAuthProviderSelected,
   trackLoginStarted,
   trackLoginSuccess,
   trackLoginFailed,
@@ -17,6 +20,7 @@ import {
   trackAuthRedirectCompleted,
   trackAuthWallShown,
   trackAuthWallDismissed,
+  trackSignupFormSubmitted,
   categorizeAuthError,
   extractEmailDomain,
 } from "@/lib/analytics/auth-events";
@@ -26,11 +30,24 @@ jest.mock("@/lib/analytics", () => ({
   track: jest.fn(),
 }));
 
+// Mock visitor-id so fireToUserEvents doesn't throw in tests
+jest.mock("@/lib/utils/visitor-id", () => ({
+  getVisitorId: jest.fn(() => "test-visitor-id"),
+}));
+
 import { track } from "@/lib/analytics";
+import { getVisitorId } from "@/lib/utils/visitor-id";
+
+const mockFetch = jest.fn(() => Promise.resolve({ ok: true } as Response));
+global.fetch = mockFetch as any;
 
 describe("auth-events", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    global.fetch = mockFetch;
+    mockFetch.mockReset();
+    mockFetch.mockResolvedValue({ ok: true } as Response);
+    Object.defineProperty(window, "innerWidth", { value: 375, writable: true });
   });
 
   describe("Modal events", () => {
@@ -67,6 +84,90 @@ describe("auth-events", () => {
           source: "content-gate",
           context: undefined,
         });
+      });
+    });
+
+    describe("trackAuthModalClosedWithoutAction", () => {
+      it("should track modal closed without action with mode and source", () => {
+        trackAuthModalClosedWithoutAction({ mode: "signup", source: "landing-cta" });
+
+        expect(track).toHaveBeenCalledWith("auth_modal_closed_without_action", {
+          mode: "signup",
+          source: "landing-cta",
+        });
+      });
+
+      it("should dual-fire to /api/events", () => {
+        trackAuthModalClosedWithoutAction({ mode: "login", source: "content-gate" });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          "/api/events",
+          expect.objectContaining({
+            method: "POST",
+            body: expect.stringContaining("auth_modal_closed_without_action"),
+          })
+        );
+      });
+    });
+
+    describe("trackAuthProviderSelected", () => {
+      it("should track provider selected with provider, mode, and source", () => {
+        trackAuthProviderSelected({ provider: "google", mode: "signup", source: "landing-cta" });
+
+        expect(track).toHaveBeenCalledWith("auth_provider_selected", {
+          provider: "google",
+          mode: "signup",
+          source: "landing-cta",
+        });
+      });
+
+      it("should dual-fire to /api/events", () => {
+        trackAuthProviderSelected({ provider: "apple", mode: "login", source: "auth-gate" });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          "/api/events",
+          expect.objectContaining({
+            method: "POST",
+            body: expect.stringContaining("auth_provider_selected"),
+          })
+        );
+      });
+    });
+
+    describe("trackSignupFormSubmitted", () => {
+      it("should track form submission with mode and source", () => {
+        trackSignupFormSubmitted({ mode: "signup", source: "landing-cta" });
+
+        expect(track).toHaveBeenCalledWith("signup_form_submitted", {
+          mode: "signup",
+          source: "landing-cta",
+        });
+      });
+
+      it("should dual-fire to /api/events", () => {
+        trackSignupFormSubmitted({ mode: "login", source: "auth-gate" });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          "/api/events",
+          expect.objectContaining({
+            method: "POST",
+            body: expect.stringContaining("signup_form_submitted"),
+          })
+        );
+      });
+    });
+
+    describe("trackAuthModalOpened dual-fire", () => {
+      it("should dual-fire to /api/events", () => {
+        trackAuthModalOpened({ mode: "signup", source: "landing-cta" });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          "/api/events",
+          expect.objectContaining({
+            method: "POST",
+            body: expect.stringContaining("auth_modal_opened"),
+          })
+        );
       });
     });
 
@@ -243,6 +344,209 @@ describe("auth-events", () => {
         expect(track).toHaveBeenCalledWith("auth_wall_dismissed", {
           timestamp: expect.any(Number),
         });
+      });
+    });
+  });
+
+  describe("Dual-fire to user_events (internal DB)", () => {
+    describe("trackAuthModalOpened", () => {
+      it("calls both track() and fetch('/api/events')", () => {
+        trackAuthModalOpened({ mode: "signup", source: "landing-navbar" });
+
+        expect(track).toHaveBeenCalledWith("auth_modal_opened", {
+          mode: "signup",
+          source: "landing-navbar",
+          context: undefined,
+        });
+        expect(mockFetch).toHaveBeenCalledWith("/api/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventType: "auth_modal_opened",
+            metadata: { mode: "signup", source: "landing-navbar", context: undefined },
+            sessionId: "test-visitor-id",
+            viewportWidth: 375,
+          }),
+          keepalive: true,
+        });
+      });
+
+      it("fetch body includes eventType, metadata, sessionId, viewportWidth", () => {
+        trackAuthModalOpened({ mode: "login", source: "auth-gate", context: "beach-detail" });
+
+        const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
+        const body = JSON.parse(callArgs[1].body as string);
+        expect(body).toMatchObject({
+          eventType: "auth_modal_opened",
+          metadata: { mode: "login", source: "auth-gate", context: "beach-detail" },
+          sessionId: "test-visitor-id",
+          viewportWidth: 375,
+        });
+      });
+    });
+
+    describe("trackAuthMethodSelected", () => {
+      it("calls both track() and fetch('/api/events')", () => {
+        trackAuthMethodSelected({ method: "google", mode: "signup" });
+
+        expect(track).toHaveBeenCalledWith("auth_method_selected", {
+          method: "google",
+          mode: "signup",
+        });
+        expect(mockFetch).toHaveBeenCalledWith("/api/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventType: "auth_method_selected",
+            metadata: { method: "google", mode: "signup" },
+            sessionId: "test-visitor-id",
+            viewportWidth: 375,
+          }),
+          keepalive: true,
+        });
+      });
+    });
+
+    describe("trackSignupStarted", () => {
+      it("calls both track() and fetch('/api/events')", () => {
+        jest.spyOn(Date, "now").mockReturnValue(1741827600000);
+        trackSignupStarted("password");
+
+        expect(track).toHaveBeenCalledWith("signup_started", {
+          method: "password",
+          timestamp: 1741827600000,
+        });
+        expect(mockFetch).toHaveBeenCalledWith("/api/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventType: "signup_started",
+            metadata: { method: "password", timestamp: 1741827600000 },
+            sessionId: "test-visitor-id",
+            viewportWidth: 375,
+          }),
+          keepalive: true,
+        });
+        jest.spyOn(Date, "now").mockRestore();
+      });
+    });
+
+    describe("trackSignupSuccess", () => {
+      it("calls both track() and fetch('/api/events')", () => {
+        trackSignupSuccess({ method: "google", requires_verification: false });
+
+        expect(track).toHaveBeenCalledWith("signup_success", {
+          method: "google",
+          requires_verification: false,
+        });
+        expect(mockFetch).toHaveBeenCalledWith("/api/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventType: "signup_success",
+            metadata: { method: "google", requires_verification: false },
+            sessionId: "test-visitor-id",
+            viewportWidth: 375,
+          }),
+          keepalive: true,
+        });
+      });
+
+      it("fetch body includes all required fields", () => {
+        trackSignupSuccess({ method: "password", requires_verification: true });
+
+        const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
+        const body = JSON.parse(callArgs[1].body as string);
+        expect(body).toMatchObject({
+          eventType: "signup_success",
+          metadata: { method: "password", requires_verification: true },
+          sessionId: "test-visitor-id",
+          viewportWidth: expect.any(Number),
+        });
+      });
+    });
+
+    describe("trackLoginSuccess", () => {
+      it("calls both track() and fetch('/api/events')", () => {
+        trackLoginSuccess({ method: "apple", duration_ms: 800 });
+
+        expect(track).toHaveBeenCalledWith("login_success", {
+          method: "apple",
+          duration_ms: 800,
+        });
+        expect(mockFetch).toHaveBeenCalledWith("/api/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventType: "login_success",
+            metadata: { method: "apple", duration_ms: 800 },
+            sessionId: "test-visitor-id",
+            viewportWidth: 375,
+          }),
+          keepalive: true,
+        });
+      });
+    });
+
+    describe("sessionId comes from getVisitorId()", () => {
+      it("uses visitor id from getVisitorId()", () => {
+        (getVisitorId as jest.Mock).mockReturnValue("custom-visitor-xyz");
+        trackSignupSuccess({ method: "google", requires_verification: false });
+
+        const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
+        const body = JSON.parse(callArgs[1].body as string);
+        expect(body.sessionId).toBe("custom-visitor-xyz");
+      });
+    });
+
+    describe("SSR safety", () => {
+      it("does not call fetch when window is undefined", () => {
+        const origWindow = global.window;
+        // @ts-expect-error -- simulating SSR
+        delete global.window;
+
+        trackSignupSuccess({ method: "google", requires_verification: false });
+
+        // track() is still called (it has its own SSR guard)
+        expect(track).toHaveBeenCalled();
+        // but fetch should not be called
+        expect(mockFetch).not.toHaveBeenCalled();
+
+        global.window = origWindow;
+      });
+    });
+
+    describe("error handling", () => {
+      it("swallows fetch errors silently", () => {
+        mockFetch.mockImplementationOnce(() => Promise.reject(new Error("network")));
+        expect(() => trackSignupSuccess({ method: "google", requires_verification: false })).not.toThrow();
+      });
+
+      it("swallows synchronous fetch errors silently", () => {
+        mockFetch.mockImplementationOnce(() => {
+          throw new Error("sync error");
+        });
+        expect(() => trackSignupSuccess({ method: "google", requires_verification: false })).not.toThrow();
+      });
+    });
+
+    describe("GA4-only events do NOT dual-fire", () => {
+      it("trackLoginStarted does not call fetch", () => {
+        trackLoginStarted("password");
+        expect(track).toHaveBeenCalled();
+        expect(mockFetch).not.toHaveBeenCalled();
+      });
+
+      it("trackLoginFailed does not call fetch", () => {
+        trackLoginFailed({ method: "password", error_type: "invalid_credentials" });
+        expect(track).toHaveBeenCalled();
+        expect(mockFetch).not.toHaveBeenCalled();
+      });
+
+      it("trackSignupFailed does not call fetch", () => {
+        trackSignupFailed({ method: "password", error_type: "email_exists" });
+        expect(track).toHaveBeenCalled();
+        expect(mockFetch).not.toHaveBeenCalled();
       });
     });
   });

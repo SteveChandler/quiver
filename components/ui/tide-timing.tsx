@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
+import { formatTimeInBeachTimezone } from "@/lib/utils/date-time";
 import { Clock, ArrowUp, ArrowDown, Timer } from "lucide-react";
 import { formatTideHeight } from "@/lib/formatters/surf-data";
 

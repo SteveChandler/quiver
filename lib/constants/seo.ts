@@ -7,7 +7,7 @@ export const SEO_CONFIG = {
   title:
     "Quiver — Surf Reports & Forecasts for 185+ Beaches",
   description:
-    "ML-powered surf forecasts updated every 3 hours with live buoy data. Crowd levels, tide charts & personalized surf windows for California, Hawaii & Oregon.",
+    "ML-powered surf forecasts updated every 3 hours with live buoy data. Crowd levels, tide charts & personalized surf windows for California, Hawaii, Puerto Rico & Oregon.",
   keywords: [
     // P0: Queries to own
     "best time to surf today",
@@ -50,6 +50,10 @@ export const SEO_CONFIG = {
     "best surfing in California",
     "California surf forecast",
     "Hawaii surf report",
+    "Puerto Rico surf forecast",
+    "Caribbean surfing",
+    "Rincon surf report",
+    "surfing Puerto Rico",
   ],
 
   // Open Graph enhanced

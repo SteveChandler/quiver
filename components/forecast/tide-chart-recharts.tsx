@@ -333,14 +333,14 @@ export function TideChart({
           >
             <defs>
               <linearGradient id={`fill-${gradId}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#1e40af" stopOpacity={0.25} />
-                <stop offset="100%" stopColor="#1e40af" stopOpacity={0.06} />
+                <stop offset="0%" stopColor="#4A70D9" stopOpacity={0.25} />
+                <stop offset="100%" stopColor="#4A70D9" stopOpacity={0.06} />
               </linearGradient>
             </defs>
 
             <CartesianGrid
               vertical={false}
-              stroke="#e2e8f0"
+              stroke="#404C92"
               strokeDasharray="0"
               strokeOpacity={0.5}
             />
@@ -356,7 +356,7 @@ export function TideChart({
               axisLine={false}
               tickLine={false}
               interval={0}
-              tick={{ fontSize: 12, fill: "#475569", fontWeight: 500 }}
+              tick={{ fontSize: 12, fill: "#B0BFDA", fontWeight: 500 }}
               height={22}
               orientation="top"
             />
@@ -373,7 +373,7 @@ export function TideChart({
               axisLine={false}
               tickLine={false}
               interval={0}
-              tick={{ fontSize: 12, fill: "#475569", fontWeight: 500 }}
+              tick={{ fontSize: 12, fill: "#B0BFDA", fontWeight: 500 }}
               height={28}
               orientation="bottom"
             />
@@ -383,21 +383,21 @@ export function TideChart({
               axisLine={false}
               tickLine={false}
               width={36}
-              tick={{ fontSize: 12, fill: "#475569", fontWeight: 500 }}
+              tick={{ fontSize: 12, fill: "#B0BFDA", fontWeight: 500 }}
               tickFormatter={(v) => v.toFixed(0)}
             />
 
             <Area
               type="monotone"
               dataKey="h"
-              stroke="#1e40af"
+              stroke="#8AB5FF"
               strokeWidth={3}
               fill={`url(#fill-${gradId})`}
               isAnimationActive={animationEnabled}
               connectNulls={true}
             />
 
-            <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" />
+            <ReferenceLine y={0} stroke="#8B9EC2" strokeDasharray="4 4" />
 
             {showNowLine && (
               <ReferenceLine
@@ -420,7 +420,7 @@ export function TideChart({
 
             <Tooltip
               content={<TideTooltip unit={unit} />}
-              cursor={{ stroke: "#cbd5e1", strokeDasharray: "2 2" }}
+              cursor={{ stroke: "#606DA8", strokeDasharray: "2 2" }}
             />
           </AreaChart>
         </ResponsiveContainer>

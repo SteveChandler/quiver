@@ -59,8 +59,8 @@ jest.mock("@/lib/utils/current-forecast-utils", () => ({
   }),
 }));
 
-jest.mock("@/lib/utils/wave-height-formatter", () => ({
-  formatWaveHeight: jest.fn((height) => {
+jest.mock("@/lib/utils/wave-formatters", () => ({
+  formatWaveHeightBucket: jest.fn((height) => {
     if (typeof height === "string") return height;
     if (typeof height === "number") return `${height} ft`;
     return "No data";
@@ -77,8 +77,12 @@ jest.mock("@/lib/utils/distance-utils", () => ({
   calculateDistanceInMiles: jest.fn(() => 5),
 }));
 
-jest.mock("@/hooks/use-cached-api", () => ({
+jest.mock("@/lib/utils/request-cache", () => ({
   createCachedMapFetch: jest.fn(() => jest.fn().mockResolvedValue({ data: [] })),
+  apiCache: { get: jest.fn(() => null), set: jest.fn(), delete: jest.fn(), clear: jest.fn(), has: jest.fn(() => false), clearExpired: jest.fn(), getStats: jest.fn() },
+  forecastCache: { get: jest.fn(() => null), set: jest.fn(), delete: jest.fn(), clear: jest.fn(), has: jest.fn(() => false), clearExpired: jest.fn(), getStats: jest.fn() },
+  beachCache: { get: jest.fn(() => null), set: jest.fn(), delete: jest.fn(), clear: jest.fn(), has: jest.fn(() => false), clearExpired: jest.fn(), getStats: jest.fn() },
+  RequestCache: class { static createKey(...parts: any[]) { return parts.join(":"); } },
 }));
 
 jest.mock("@/lib/constants/ui", () => ({
@@ -258,11 +262,11 @@ describe("Map Forecast Basic Tests", () => {
   });
 
   it("should format wave heights correctly", () => {
-    const { formatWaveHeight } = require("@/lib/utils/wave-height-formatter");
-    
-    expect(formatWaveHeight("2.6 ft")).toBe("2.6 ft");
-    expect(formatWaveHeight(2.6)).toBe("2.6 ft");
-    expect(formatWaveHeight(undefined)).toBe("No data");
+    const { formatWaveHeightBucket } = require("@/lib/utils/wave-formatters");
+
+    expect(formatWaveHeightBucket("2.6 ft")).toBe("2.6 ft");
+    expect(formatWaveHeightBucket(2.6)).toBe("2.6 ft");
+    expect(formatWaveHeightBucket(undefined)).toBe("No data");
   });
 
   it("should calculate offshore positions", () => {

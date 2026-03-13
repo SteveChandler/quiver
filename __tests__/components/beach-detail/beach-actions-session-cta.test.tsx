@@ -1,24 +1,18 @@
 /**
- * TDD tests for session CTA improvements in BeachActions (Task 8A)
+ * Tests for BeachActions component — Report Conditions CTA
  *
  * Validates:
- * - "Track Your Sessions" label for guest users on the Log Session button
- * - "Plan a Session" label for guest users on the Plan Session button
- * - Supporting description text visible below each button in public mode
- * - Correct source values passed to UnifiedAuthModal per button
+ * - "Report Conditions" button is always visible
+ * - "Help others know what it's really like" subtitle always visible
+ * - Inline ConditionsReportCard expands on click for authenticated users
+ * - Auth modal opens with correct source for guest users
+ * - Auth modal uses "conditions-report-cta" source value
  */
 
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { BeachActions } from "@/components/beach-detail/beach-actions";
-
-// Mock FavoriteButton component
-jest.mock("@/components/favorite-button", () => ({
-  FavoriteButton: ({ beachId }: { beachId: string }) => (
-    <button data-testid="favorite-button">Favorite {beachId}</button>
-  ),
-}));
 
 // Mock HomeBeachBanner component
 jest.mock("@/components/home/HomeBeachBanner", () => ({
@@ -27,10 +21,12 @@ jest.mock("@/components/home/HomeBeachBanner", () => ({
   ),
 }));
 
-// Mock BeachAlertCta to avoid auth dependencies
-jest.mock("@/components/beach-detail/beach-alert-cta", () => ({
-  BeachAlertCta: ({ beachName }: any) => (
-    <div data-testid="beach-alert-cta">{beachName}</div>
+// Mock ConditionsReportCard so it doesn't need real auth/actions
+jest.mock("@/components/beach-detail/conditions-report-card", () => ({
+  ConditionsReportCard: (props: any) => (
+    <div data-testid="conditions-report-card">
+      <button onClick={props.onDismiss}>Cancel</button>
+    </div>
   ),
 }));
 
@@ -61,13 +57,26 @@ const mockBeach = {
   updated_at: "2024-01-01",
 } as any;
 
-describe("BeachActions - session CTA improvements for guests (Task 8A)", () => {
+describe("BeachActions", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  describe("Guest button labels", () => {
-    it("shows 'Track Your Sessions' label for guest users on Log Session button", () => {
+  describe("Report Conditions button", () => {
+    it("always shows 'Report Conditions' button regardless of auth state", () => {
+      render(
+        <BeachActions
+          beach={mockBeach}
+          publicMode={false}
+        />
+      );
+
+      expect(
+        screen.getByRole("button", { name: /report conditions/i })
+      ).toBeInTheDocument();
+    });
+
+    it("always shows the 'Help others know what it's really like' subtitle", () => {
       render(
         <BeachActions
           beach={mockBeach}
@@ -77,78 +86,11 @@ describe("BeachActions - session CTA improvements for guests (Task 8A)", () => {
       );
 
       expect(
-        screen.getByRole("button", { name: /track your sessions/i })
+        screen.getByText(/share what the waves are like right now/i)
       ).toBeInTheDocument();
     });
 
-    it("shows 'Plan a Session' label for guest users on Plan Session button", () => {
-      render(
-        <BeachActions
-          beach={mockBeach}
-          publicMode={true}
-          onAuthRequired={jest.fn()}
-        />
-      );
-
-      expect(
-        screen.getByRole("button", { name: /plan a session/i })
-      ).toBeInTheDocument();
-    });
-
-    it("shows 'Log Session' label for authenticated users (no publicMode)", () => {
-      render(
-        <BeachActions
-          beach={mockBeach}
-          publicMode={false}
-          onLogSession={jest.fn()}
-        />
-      );
-
-      expect(
-        screen.getByRole("button", { name: /log session/i })
-      ).toBeInTheDocument();
-      expect(
-        screen.queryByRole("button", { name: /track your sessions/i })
-      ).not.toBeInTheDocument();
-    });
-
-    it("shows 'Plan Session' label for authenticated users (no publicMode)", () => {
-      render(
-        <BeachActions
-          beach={mockBeach}
-          publicMode={false}
-          onPlanSession={jest.fn()}
-        />
-      );
-
-      expect(
-        screen.getByRole("button", { name: /plan session/i })
-      ).toBeInTheDocument();
-      expect(
-        screen.queryByRole("button", { name: /plan a session/i })
-      ).not.toBeInTheDocument();
-    });
-  });
-
-  describe("Guest description text", () => {
-    it("shows description text for guest session buttons", () => {
-      render(
-        <BeachActions
-          beach={mockBeach}
-          publicMode={true}
-          onAuthRequired={jest.fn()}
-        />
-      );
-
-      expect(
-        screen.getByText(/build your surf log and unlock personalized recommendations/i)
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText(/coordinate with friends and pick the best time/i)
-      ).toBeInTheDocument();
-    });
-
-    it("does not show description text for authenticated users", () => {
+    it("expands the inline ConditionsReportCard when clicked (authenticated)", () => {
       render(
         <BeachActions
           beach={mockBeach}
@@ -156,17 +98,14 @@ describe("BeachActions - session CTA improvements for guests (Task 8A)", () => {
         />
       );
 
-      expect(
-        screen.queryByText(/build your surf log/i)
-      ).not.toBeInTheDocument();
-      expect(
-        screen.queryByText(/coordinate with friends/i)
-      ).not.toBeInTheDocument();
-    });
-  });
+      fireEvent.click(
+        screen.getByRole("button", { name: /report conditions/i })
+      );
 
-  describe("Source prop per button", () => {
-    it("opens auth modal with source='session-log-cta' when guest clicks Track Your Sessions", () => {
+      expect(screen.getByTestId("conditions-report-card")).toBeInTheDocument();
+    });
+
+    it("opens auth modal when guest clicks Report Conditions", () => {
       render(
         <BeachActions
           beach={mockBeach}
@@ -176,14 +115,16 @@ describe("BeachActions - session CTA improvements for guests (Task 8A)", () => {
       );
 
       fireEvent.click(
-        screen.getByRole("button", { name: /track your sessions/i })
+        screen.getByRole("button", { name: /report conditions/i })
       );
 
       const modal = screen.getByTestId("auth-modal");
-      expect(modal).toHaveAttribute("data-source", "session-log-cta");
+      expect(modal).toHaveAttribute("data-source", "conditions-report-cta");
     });
+  });
 
-    it("opens auth modal with source='session-plan-cta' when guest clicks Plan a Session", () => {
+  describe("Source prop in public mode", () => {
+    it("opens auth modal with source='conditions-report-cta' when guest clicks Report Conditions", () => {
       render(
         <BeachActions
           beach={mockBeach}
@@ -193,11 +134,48 @@ describe("BeachActions - session CTA improvements for guests (Task 8A)", () => {
       );
 
       fireEvent.click(
-        screen.getByRole("button", { name: /plan a session/i })
+        screen.getByRole("button", { name: /report conditions/i })
       );
 
       const modal = screen.getByTestId("auth-modal");
-      expect(modal).toHaveAttribute("data-source", "session-plan-cta");
+      expect(modal).toHaveAttribute("data-source", "conditions-report-cta");
+    });
+
+    it("shows contextMessage title 'Report Conditions' in auth modal", () => {
+      render(
+        <BeachActions
+          beach={mockBeach}
+          publicMode={true}
+          onAuthRequired={jest.fn()}
+        />
+      );
+
+      fireEvent.click(
+        screen.getByRole("button", { name: /report conditions/i })
+      );
+
+      const modal = screen.getByTestId("auth-modal");
+      expect(modal).toHaveAttribute("data-context-title", "Report Conditions");
+    });
+
+    it("Get Directions does not open auth modal in publicMode", () => {
+      const mockOpen = jest.fn();
+      global.window.open = mockOpen;
+
+      render(
+        <BeachActions
+          beach={mockBeach}
+          publicMode={true}
+          onAuthRequired={jest.fn()}
+        />
+      );
+
+      fireEvent.click(
+        screen.getByRole("button", { name: /get directions/i })
+      );
+
+      expect(screen.queryByTestId("auth-modal")).not.toBeInTheDocument();
+      expect(mockOpen).toHaveBeenCalled();
     });
   });
 });

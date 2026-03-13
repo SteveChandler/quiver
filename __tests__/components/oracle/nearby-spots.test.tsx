@@ -110,7 +110,7 @@ describe("NearbySpots", () => {
 
       // Skeletons are rendered as divs with animate-pulse; count the skeleton wrappers
       const skeletonWrappers = container.querySelectorAll(
-        ".min-w-\\[150px\\].flex-shrink-0"
+        ".min-w-\\[280px\\].flex-shrink-0"
       );
       expect(skeletonWrappers).toHaveLength(4);
     });
@@ -158,6 +158,30 @@ describe("NearbySpots", () => {
       expect(
         screen.getByRole("heading", { name: "Nearby Spots" })
       ).toBeInTheDocument();
+    });
+  });
+
+  describe("Scroll fade indicator", () => {
+    it("shows fade indicator when more than 2 spots are present", () => {
+      render(<NearbySpots spots={mockSpots} onViewSpot={jest.fn()} />);
+
+      expect(screen.getByTestId("scroll-fade-indicator")).toBeInTheDocument();
+    });
+
+    it("does not show fade indicator when 2 or fewer spots", () => {
+      render(
+        <NearbySpots spots={mockSpots.slice(0, 2)} onViewSpot={jest.fn()} />
+      );
+
+      expect(screen.queryByTestId("scroll-fade-indicator")).not.toBeInTheDocument();
+    });
+
+    it("does not show fade indicator when loading", () => {
+      render(
+        <NearbySpots spots={mockSpots} onViewSpot={jest.fn()} loading={true} />
+      );
+
+      expect(screen.queryByTestId("scroll-fade-indicator")).not.toBeInTheDocument();
     });
   });
 });

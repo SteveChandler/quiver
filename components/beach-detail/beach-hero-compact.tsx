@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Star, Loader2, Sparkles } from "lucide-react";
+import { Star, Loader2, CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
 import { MatchScoreEducation } from "@/components/recommendations/match-score-education";
@@ -11,6 +11,7 @@ import { useBoardRecommendation } from "@/hooks/use-board-recommendation";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { track } from "@/lib/analytics";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
+import { trackSignupCtaClick, trackSignupCtaView } from "@/lib/analytics/signup-conversion-tracking";
 import type { Beach } from "@/types/database";
 import type { PersonalizedScore } from "@/lib/services/personalized-scoring-service";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -32,6 +33,10 @@ interface BeachHeroCompactProps {
   publicMode?: boolean;
   /** When true, renders transparent over video — hides h1, uses white text */
   overlayMode?: boolean;
+  /** First day beyond the 3-day public horizon — used to build data-driven teaser copy */
+  firstHiddenDayName?: string | null;
+  /** Peak wave height in the gated forecast window (days 4-12) */
+  peakHiddenWaveHeight?: number | null;
 }
 
 export function BeachHeroCompact({
@@ -44,6 +49,8 @@ export function BeachHeroCompact({
   className,
   publicMode,
   overlayMode = false,
+  firstHiddenDayName,
+  peakHiddenWaveHeight,
 }: BeachHeroCompactProps) {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const rating = beach.average_rating;
@@ -88,6 +95,10 @@ export function BeachHeroCompact({
     track("match_score_teaser_click", {
       beach_slug: slugify(beach.name),
     });
+    trackSignupCtaClick({
+      source: "match-score-teaser",
+      cta_title: "forecast-teaser",
+    });
     trackAuthModalOpened({
       mode: "signup",
       source: "match-score-teaser",
@@ -107,6 +118,7 @@ export function BeachHeroCompact({
         if (entry.isIntersecting && !hasTrackedView.current) {
           hasTrackedView.current = true;
           track("match_score_teaser_view", { beach_slug: slugify(beach.name) });
+          trackSignupCtaView({ source: "match-score-teaser", cta_title: "forecast-teaser" });
         }
       },
       { threshold: 0.5 }
@@ -114,6 +126,26 @@ export function BeachHeroCompact({
     observer.observe(el);
     return () => observer.disconnect();
   }, [publicMode, personalizationScore, isLoadingPersonalization, beach.name]);
+
+  // Build data-driven teaser copy for anonymous users.
+  // Prefer concrete forecast data (wave height on a named upcoming day),
+  // fall back to a compelling static message about the 12-day window.
+  const teaserHeadline = useMemo(() => {
+    if (firstHiddenDayName && peakHiddenWaveHeight && peakHiddenWaveHeight >= 2) {
+      return `${firstHiddenDayName}'s swell hits ${peakHiddenWaveHeight.toFixed(0)}ft — see the 12-day outlook`;
+    }
+    if (firstHiddenDayName) {
+      return `See what's coming ${firstHiddenDayName} — full 12-day outlook`;
+    }
+    return "Best window tomorrow: sign up for alerts";
+  }, [firstHiddenDayName, peakHiddenWaveHeight]);
+
+  const teaserSubtext = useMemo(() => {
+    if (firstHiddenDayName && peakHiddenWaveHeight && peakHiddenWaveHeight >= 2) {
+      return "Free — takes 30 seconds";
+    }
+    return "Free — no credit card needed";
+  }, [firstHiddenDayName, peakHiddenWaveHeight]);
 
   return (
     <div
@@ -151,7 +183,7 @@ export function BeachHeroCompact({
         </div>
       )}
 
-      {/* Match Score Teaser - Show for anonymous users */}
+      {/* Forecast Teaser - Show for anonymous users with data-driven copy */}
       {publicMode && !personalizationScore && !isLoadingPersonalization && (
         <motion.div
           ref={teaserRef}
@@ -168,17 +200,17 @@ export function BeachHeroCompact({
               hover:shadow-md hover:border-ocean-blue/25 transition-all duration-200"
           >
             <div className="flex-shrink-0 p-2 rounded-xl bg-ocean-blue/10">
-              <Sparkles className="h-5 w-5 text-ocean-blue" />
+              <CalendarDays className="h-5 w-5 text-ocean-blue" />
             </div>
             <div className="flex-1 text-left">
               <p className="text-sm font-semibold text-gray-900">
-                How well does this spot match you?
+                {teaserHeadline}
               </p>
-              <p className="text-xs text-gray-500 mt-0.5">Takes 30 seconds</p>
+              <p className="text-xs text-gray-500 mt-0.5">{teaserSubtext}</p>
             </div>
             <div className="flex-shrink-0 text-sm font-semibold text-ocean-blue
               group-hover:translate-x-0.5 transition-transform">
-              See score →
+              See it →
             </div>
           </button>
         </motion.div>

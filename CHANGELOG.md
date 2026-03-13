@@ -8,6 +8,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Testing: comprehensive unit tests for `referral-actions.ts` — 23 tests covering `getOrCreateReferralCode`, `claimReferral` (validation, self-referral, duplicates, SQL wildcard rejection), `getReferralStats`, and `getReferralLeaderboard` (graceful degradation)
+- Operations: `get_conversion_funnel(days)` Supabase RPC function — returns 7-step signup funnel metrics (anonymous_sessions -> cta_views -> cta_clicks -> auth_modal_opens -> signup_starts -> signup_completes -> onboarding_completes) with bot-filtered counts and unique session tracking
+- Oracle skill-aware beach recommendations: scoring now considers beach skill level + current wave height together (not just wave height alone); Pipeline at 3ft → manageable for beginners, Pipeline at 15ft → heavy penalty. Hero subtitle shows skill-aware reasoning ("Conditions match your experience level today" or "Advanced spot, but today's conditions are manageable"). Nearby Spots cards show ADV badge when beach exceeds user skill and conditions are significant. Changing skill level in settings immediately invalidates discovery cache.
+- Migration `20260312130000_classify_beach_skill_levels.sql`: normalizes compound skill_level values (`beginner-intermediate` → `beginner`, `intermediate-advanced` → `intermediate`, `all` → `beginner`), adds CHECK constraint and NOT NULL DEFAULT
+- Growth: Google One Tap sign-in for anonymous web visitors — shows after 3-second delay on any page, exchanges credential via Supabase `signInWithIdToken` (no redirect), remembers dismissal for 24 hours, skipped on Capacitor native
+- Growth: referral leaderboard on profile page — ranked list of top referrers with current user stats, invite CTA with native share, and referral code display; backed by new `get_referral_leaderboard` SECURITY DEFINER DB function
+- Growth: live social proof stats on landing page — replaces static "750+ beaches" text with dynamic counters (beaches, sessions, users, today's reports) from new `/api/community-stats` endpoint; 10-minute cache
+- Growth: contextual signup prompt on map page — inline banner in sidebar (after 3rd beach) and bottom sheet (after 2nd beach) with adaptive copy ("Get alerts for [Beach Name]" when selected); dismissable per session, addresses 98.8% bounce rate
+- Growth: referral codes wired to onboarding — new users get auto-generated referral codes, `?ref=CODE` URLs captured via middleware cookie, referral claimed during onboarding
+- Growth: "Invite a Friend" flow on Oracle home screen — share sheet with referral URL via `InviteSheet` component
+- Growth: "Share your session" wired on Oracle home screen — opens `ShareSheet` with surf call data from current recommendation
+- Growth: CTA copy optimization across 4 pages — gates now match user intent per surface ("See the full 7-day forecast", "See what your crew has been surfing", etc.)
+- Support page at `/support` — static server component with FAQ, contact email, bug report instructions, and links to Privacy Policy and Terms of Service; required for iOS App Store listing
+
+### Fixed
+- Auth: fixed 5 broken `unified-auth-modal` tests caused by Apple Sign-In env guard -- split tests into "Apple available" and "Apple unavailable" describe blocks with proper env var setup/teardown
+- Security: referral leaderboard DB function now prefers `display_name` over `full_name` to avoid exposing users' real names (new migration `20260313060000`)
+- Security: referral code validation (`/^[A-Z0-9]{4,12}$/i`) added in middleware cookie capture and `claimReferral` action; replaced `ilike` (SQL wildcard-vulnerable) with exact `eq` match
+- Security: `/api/community-stats` wrapped with `withBotBlockingAndRateLimit` (public-default tier) to prevent abuse of 4 parallel DB queries
+- Design: `PublicContentGate` redesigned -- removed Card/Sparkles AI slop, uses Waves icon + navy gradient fade + Charming Orange CTA + smooth blur transition
+- Design: `SocialProofBar` replaced 4 metric counters with single dynamic prose statement prioritizing today's reports, session count, user count, or beach coverage fallback
+- Design: `ContextualCTA` primary button now dramatically more prominent (`bg-[#F78E42]`, larger padding) with ghost-style secondary buttons
+- Design: `MapSignupPrompt` gradient replaced with `bg-white/[0.04]` + left Charming Orange border accent
+- Growth: referral leaderboard share URL uses `NEXT_PUBLIC_SITE_URL` env var instead of hardcoded domain
+- SEO: removed manual " | Quiver" suffixes from support, forecast-accuracy, best-time-to-surf, intent/city, and beach-slug pages where the root layout template already appends it (was causing double-branding like "Support | Quiver | Quiver")
+- SEO: improved weak page titles for map (`Interactive Surf Map — Real-Time Conditions & Forecasts`), discover (`Find Local Surfers & Surf Buddies Near You`), state root pages (`Best Surf Spots in ${stateName} — Conditions & Forecasts`), and beaches/usa/[state] pages (`Surf Beaches in ${stateName} — Every City & Break`) to better match search intent
+- SEO: updated all forecast region titles in `forecast-regions.ts` to use em dash and hyphenated "7-Day" (e.g. `Southern California Surf Forecast — 7-Day Outlook`)
+- Analytics: `signup_cta_view` event now deduplicates per source per page session via a module-level `Set` in `signup-conversion-tracking.ts` — eliminates ~27x inflation for the `cam-hero` source caused by component remount cycles
+- Analytics: `isBot()` now treats missing/empty user-agents as bots (changed from `false` to `true`), improving bot filtering at the `/api/events` endpoint
+- Bot detection: added viewport-based fingerprint detection (`isSuspiciousFingerprint`) targeting Windows+Chrome+1280px bot pattern that bypasses UA-based filtering
+- Auth: restored surf-call CTA gate for anonymous users — best surf window is now behind `PublicContentGate` with "See today's surf call for [Beach Name]" copy
+- Auth: hidden Apple Sign-In button when `NEXT_PUBLIC_APPLE_CLIENT_ID` is not configured (prevents broken button UX)
+- Auth: email confirmation redirect now preserves beach page context instead of hardcoded `/?signup=confirm-email`
+- Analytics: auth funnel events (`auth_modal_opened`, `auth_method_selected`, `signup_started`, `signup_success`, `login_success`) now dual-fire to both GA4 and internal `user_events` table for dashboard measurement
+- Report Conditions feature: replaces "Log Session" CTA with inline "Report Conditions" card on beach detail pages — users select wave size (1-2ft through 5+ft) and vibe (Firing/Fun/Meh/Rough) with an optional note; submission creates an `intel_posts` record (with new `wave_size_range` + `vibe` columns) and a minimal `sessions` record (`source: 'conditions_report'`) for ML training; deduplicates to one report per user per beach per calendar day
+- Recent Reports section on beach detail page: shows up to 3 community conditions reports from the last 24 hours (name, time ago, wave size, vibe emoji, note); hidden when empty — no dead empty state
+- Migration `20260312120000_add_conditions_report_fields.sql`: adds `wave_size_range` and `vibe` columns to `intel_posts`, `source` column to `sessions`, and a `(beach_id, created_at DESC)` index for the 24h recency query
+
+### Fixed
+- Restored `surf-call-conditions` PublicContentGate in SpotSurfReport — the only CTA converting at 2.4% was deleted Mar 11; verdict badge remains visible, conditions detail gated
+- Fixed CTA view event inflation (~27x per session) — added module-level dedup Set in `trackSignupCtaView` so IntersectionObserver-driven CTAs fire once per source per page load
+- Fixed email confirmation redirect losing user context — signup from `/ca/san-diego/blacks` now returns user to that page after email verification instead of `/`
+- Connected auth funnel events to `user_events` DB table — `auth-events.ts` was GA4-only, causing zero `auth_modal_opened`/`signup_started` events in internal analytics
+- Added `trackAuthModalClosedWithoutAction`, `trackAuthProviderSelected`, `trackSignupFormSubmitted` for granular funnel measurement
+- Fixed bot filtering: empty User-Agent now correctly returns `isBot=true`; added Accept-Language, short-UA, and headless browser pattern checks to `/api/events`
+
+### Changed
+- Beach detail page: removed 3 of 4 auth gates to reduce friction — live cam feed and "Best Time to Surf Today" are now visible to anonymous users; sticky bottom signup bar removed from all beach detail routes; `PersonalizedForecastTeaser` secondary CTA removed from forecast tab; single "Get My Forecast" CTA in the Know Before You Go section is the sole conversion point for anonymous visitors
+- CTA copy optimization: best-window-gate uses beach-specific copy ("Best Window at {beach} Today"), cam-hero uses contextual copy ("{beach} is Live Right Now"), hero teaser shows data-driven forecast preview
+- Moved horizon strip upsell from inside Forecast tab to above tab bar — visible to all beach page visitors instead of just Forecast tab users
+- Tide page titles: lead with unique value ("Tide Chart & Surf Windows") instead of duplicating Google knowledge panel answer
+- Water-temp page titles: "Water Temp & Wetsuit Guide" instead of raw temperature Google already shows
+- Tide/water-temp meta descriptions: lead with value proposition, not raw data
+- Added `TideFAQSchema` and `WaterTempFAQSchema` structured data for rich SERP results
+
+
+- Landing page: replaced "0K+" vanity counter stats bar with a single factual social proof line ("Covering 769 beaches across California, Oregon, Washington, Hawaii, Puerto Rico & beyond") in `SurfHighlightsSection`
+- Refactor (Phase 1D): `generateLocationSlug` now delegates to `cityToSlug`; `normalizeState` uses `US_STATE_SLUG_MAP`
+- Refactor (Phase 1A): consolidate wave height formatting (3 files → 1) — `formatWaveHeightDecimal`, `formatWaveHeightRange`, `formatWaveHeightBucket`
+- Refactor (Phase 1B): consolidated 4 date/time files into `lib/utils/date-time.ts`; flattened `dateUtils` to named exports
+- Refactor (Phase 2D): add `components/ui/hero-card.tsx` shared card shell; adopted in `TideHeroSection`
+- Refactor (Phase 2E): move `SectionWrapper` to `components/ui/section-wrapper.tsx`; old path re-exports
+
+### Removed
+- Dead code: deleted `BeachHero`, `ForecastConfidenceBadge`, `EnhancedForecastWithTransparency` — zero runtime consumers (Phase 2A)
+- Deleted `forecast-display-with-transparency.tsx` and `beaches-enhanced-forecast-with-transparency.tsx` — absorbed into base components behind optional props (Phase 2B)
+- Deleted `forecast-preview-with-transparency.tsx` — absorbed into `forecast-preview.tsx` behind optional props (Phase 2C)
+
+### Fixed
+- Dark mode contrast: bumped gray/slate/muted text overrides to 5.5+ contrast ratio on navy backgrounds, added missing sky-*/indigo-*/blue-800/900 overrides, fixed cyan text from too-dark #4A70D9 to readable #22D3EE, and updated hardcoded chart hex colors (tide chart, water temp, monthly surf, outlook bar) with dark-mode-aware values and tooltip backgrounds
+- Oracle: Today's Windows now shows per-slot wave heights instead of the same height repeated across all 5 time slots — the discovery orchestrator populates `slotForecasts` (keyed by hour 5/8/11/14/17) on the top recommendation using actual hourly forecast data already in memory (no additional DB queries)
+- Oracle: Wave height badge on the home screen now matches the beach page — replaced the 1.5x artificial variance multiplier (`SET_WAVE_VARIANCE`) with actual min/max from hourly forecasts within the best window's time range, consistent with `getWaveHeightRange()` logic on the beach detail page
+- Oracle: Hero tide direction now reflects the current hour instead of the best window's forecast hour — `slotForecasts` now carries per-slot wind/tide/swell fields populated from the midpoint hourly forecast for each slot; the hero reads from the slot closest to `new Date().getHours()` and falls back to the forecast entity
+- Oracle: Wind/tide conditions in Today's Windows were identical across all 5 slots (all reading from one `topConditions` object) — synthetic fallback slots now use per-slot wind/tide/swell from `slotForecasts` when available, falling back to `topConditions`
+- Oracle: Today's Windows condition text (swell/wind/tide) moved inline to the right side of the quality bar instead of rendering on a separate sub-line, keeping each row to a single line
+
+### Added
+- SEO: `TideDatasetSchema` and `WaterTempDatasetSchema` server components emit `Dataset` JSON-LD on all tide and water-temp city pages (`/tide/*`) and beach sub-pages (`/*/tides`, `/*water-temp`), enabling Google Dataset rich snippets with live tide heights and water temperature — zero new DB queries, reuses React-cached data already fetched for rendering
 - SEO: `buildDynamicTideMetadata` now accepts `nextHighHeight` and `nextLowHeight` and produces data-rich titles (`{Beach} Tides {Date}: High {H}ft at {T}, Low at {T}`) and "Plan your surf" descriptions with "ML-enhanced" signal — improves CTR on 45 zero-click tide pages
 - SEO: `buildDynamicWaterTempMetadata` now uses shortened wetsuit label (`shortenWetsuitLabel` helper: "3/2mm fullsuit" -> "3/2mm") in titles (`{Beach} Water Temp: {T}°F — {WetsuitShort} Today`) and city context in descriptions — improves CTR on water temp pages
 - SEO: `renderBeachSubPage` in `beach-sub-page-utils.tsx` now renders `NearbyBeachesEnriched` (4 nearby beaches within 25 miles) below all sub-page content to reduce bounce rate via internal linking
@@ -33,6 +111,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GEO: `robots.ts` now explicitly welcomes AI search crawlers (`GPTBot`, `OAI-SearchBot`, `ClaudeBot`, `PerplexityBot`) with the same allow/disallow rules as `*`, blocks training-only crawlers (`CCBot`, `Bytespider`, `cohere-ai`), and extracts shared paths into a `COMMON_DISALLOW` constant
 
 ### Changed
+- Refactor (Phase 1C): `toggleSessionLike` and `getSessionLikeStatus` now use `withAuthenticatedAction` wrapper instead of manual auth
+- Refactor (Phase 1E): extracted `mapSkillLevel`, `mapCrowdFactor`, `inferCitySlug` into `lib/utils/beach-mapping-helpers.ts`
+- Refactor (Phase 1F): added optional `cacheKey`/`cacheTTL`/`cache` params to `useDataFetcher`. Deleted `use-cached-api.ts` and `use-user-profile.ts`
 - Authed home screen replaced with Oracle layout — `AuthAwareLandingWrapper` now loads `OracleHomeScreen` instead of `HomeScreen` for authenticated users
 - Oracle hero greeting now uses time-aware message (Good morning/afternoon/evening) instead of hardcoded "Good morning"
 - Combined "What is Quiver?" and feature bento sections into unified section with concise ML value prop header

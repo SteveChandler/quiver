@@ -11,7 +11,7 @@ import type { CDIPBuoyData } from "@/types/forecast";
  * Get CDIP buoy data for a specific time
  *
  * CDIP provides real-time buoy measurements, not forecasts.
- * Only returns data for current/recent conditions (within 6 hours).
+ * Only returns data for current/recent conditions (within 1 hour).
  */
 export function getCDIPDataForTime(
   cdipData: CDIPBuoyData | null,
@@ -24,9 +24,9 @@ export function getCDIPDataForTime(
   const hoursFromNow =
     (targetTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-  // Only use CDIP data for current conditions (within 6 hours)
-  // Beyond that, NOAA forecasts are more appropriate
-  if (hoursFromNow > 6) {
+  // Only use CDIP data for current conditions (within 1 hour)
+  // Beyond that, model-based forecasts provide varying predictions
+  if (hoursFromNow > 1) {
     return null;
   }
 

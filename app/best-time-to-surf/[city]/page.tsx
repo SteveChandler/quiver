@@ -72,7 +72,7 @@ export async function generateMetadata(props: PageParams): Promise<Metadata> {
 
   const cityResult = await findCityBySlug(citySlug);
   if (!cityResult.success || !cityResult.data) {
-    return { title: "Page Not Found | Quiver" };
+    return { title: "Page Not Found" };
   }
 
   const { cityName, stateName } = cityResult.data;

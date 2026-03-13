@@ -6,7 +6,7 @@ p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT L
 ```
 This filters out test accounts, local dev accounts, and seed/demo data (`@example.invalid`).
 
-Run these 14 SQL queries **in parallel** against project `vawdnbbgawichorsjiwe` using the Supabase MCP `execute_sql` tool directly from the main session (do NOT delegate to subagents — they cannot access MCP tools):
+Run these 17 SQL queries **in parallel** against project `vawdnbbgawichorsjiwe` using the Supabase MCP `execute_sql` tool directly from the main session (do NOT delegate to subagents — they cannot access MCP tools):
 
 ### Query 1: Users
 ```sql
@@ -58,23 +58,28 @@ WHERE esl.sent_at >= NOW() - INTERVAL '7 days'
   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid';
 ```
 
-### Query 5: User Behavior Events (7d)
+### Query 5: User Behavior Events (7d) — includes anonymous visitors
 ```sql
 SELECT
   COUNT(*) AS total_events_7d,
-  COUNT(DISTINCT user_id) AS users_with_events_7d,
+  COUNT(*) FILTER (WHERE ue.user_id IS NULL) AS anonymous_events_7d,
+  COUNT(*) FILTER (WHERE ue.user_id IS NOT NULL) AS authenticated_events_7d,
+  COUNT(DISTINCT ue.user_id) FILTER (WHERE ue.user_id IS NOT NULL) AS users_with_events_7d,
+  COUNT(DISTINCT ue.session_id) FILTER (WHERE ue.user_id IS NULL) AS anonymous_visitors_7d,
   COUNT(*) FILTER (WHERE event_type = 'page_view') AS page_views,
   COUNT(*) FILTER (WHERE event_type = 'beach_view') AS beach_views,
   COUNT(*) FILTER (WHERE event_type = 'discovery_click') AS discovery_clicks,
   COUNT(*) FILTER (WHERE event_type = 'discovery_skip') AS discovery_skips,
   COUNT(*) FILTER (WHERE event_type = 'forecast_check') AS forecast_checks,
   COUNT(*) FILTER (WHERE event_type = 'session_action') AS session_actions,
-  COUNT(*) FILTER (WHERE event_type = 'cta_click') AS cta_clicks,
-  ROUND(COUNT(*)::numeric / NULLIF(COUNT(DISTINCT user_id), 0), 1) AS avg_events_per_user
+  COUNT(*) FILTER (WHERE event_type = 'tab_view') AS tab_views,
+  COUNT(*) FILTER (WHERE event_type = 'map_interaction') AS map_interactions,
+  COUNT(*) FILTER (WHERE event_type LIKE 'forecast_%') AS forecast_interactions,
+  COUNT(*) FILTER (WHERE event_type LIKE 'onboarding_%') AS onboarding_events
 FROM user_events ue
-JOIN profiles p ON ue.user_id = p.id
+LEFT JOIN profiles p ON ue.user_id = p.id
 WHERE ue.created_at >= NOW() - INTERVAL '7 days'
-  AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid';
+  AND (ue.user_id IS NULL OR (p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'));
 ```
 
 ### Query 6: Content Creation Activity (7d)
@@ -105,7 +110,7 @@ SELECT beach_name, total_activity FROM (
     UNION ALL
     SELECT ip.beach_id FROM intel_posts ip JOIN profiles p ON ip.user_id = p.id WHERE ip.created_at >= NOW() - INTERVAL '7 days' AND ip.beach_id IS NOT NULL AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'
     UNION ALL
-    SELECT ue.beach_id FROM user_events ue JOIN profiles p ON ue.user_id = p.id WHERE ue.created_at >= NOW() - INTERVAL '7 days' AND ue.event_type = 'beach_view' AND ue.beach_id IS NOT NULL AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'
+    SELECT ue.beach_id FROM user_events ue LEFT JOIN profiles p ON ue.user_id = p.id WHERE ue.created_at >= NOW() - INTERVAL '7 days' AND ue.event_type = 'beach_view' AND ue.beach_id IS NOT NULL AND (ue.user_id IS NULL OR (p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'))
   ) activity
   JOIN beaches b ON activity.beach_id = b.id
   GROUP BY b.id, b.name
@@ -138,7 +143,7 @@ ORDER BY day DESC;
 SELECT
   (SELECT MAX(p.created_at) FROM profiles p WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS latest_signup,
   (SELECT MAX(s.created_at) FROM sessions s JOIN profiles p ON s.user_id = p.id WHERE s.deleted_at IS NULL AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS latest_session,
-  (SELECT MAX(ue.created_at) FROM user_events ue JOIN profiles p ON ue.user_id = p.id WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS latest_event,
+  (SELECT MAX(ue.created_at) FROM user_events ue LEFT JOIN profiles p ON ue.user_id = p.id WHERE ue.user_id IS NULL OR (p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid')) AS latest_event,
   (SELECT MAX(esl.sent_at) FROM email_send_log esl JOIN profiles p ON esl.user_id = p.id WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS latest_email,
   (SELECT MAX(br.created_at) FROM beach_reviews br JOIN profiles p ON br.user_id = p.id WHERE br.deleted_at IS NULL AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS latest_review,
   (SELECT MAX(ip.created_at) FROM intel_posts ip JOIN profiles p ON ip.user_id = p.id WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS latest_intel,
@@ -157,8 +162,8 @@ SELECT source, unique_users_7d, rows_7d, latest FROM (
   SELECT 'intel_posts', COUNT(DISTINCT ip.user_id), COUNT(*), MAX(ip.created_at)
   FROM intel_posts ip JOIN profiles p ON ip.user_id = p.id WHERE ip.created_at >= NOW() - INTERVAL '7 days' AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'
   UNION ALL
-  SELECT 'user_events', COUNT(DISTINCT ue.user_id), COUNT(*), MAX(ue.created_at)
-  FROM user_events ue JOIN profiles p ON ue.user_id = p.id WHERE ue.created_at >= NOW() - INTERVAL '7 days' AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'
+  SELECT 'user_events', COUNT(DISTINCT ue.user_id) FILTER (WHERE ue.user_id IS NOT NULL), COUNT(*), MAX(ue.created_at)
+  FROM user_events ue LEFT JOIN profiles p ON ue.user_id = p.id WHERE ue.created_at >= NOW() - INTERVAL '7 days' AND (ue.user_id IS NULL OR (p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'))
   UNION ALL
   SELECT 'boards', COUNT(DISTINCT b.user_id), COUNT(*), MAX(b.created_at)
   FROM boards b JOIN profiles p ON b.user_id = p.id WHERE b.created_at >= NOW() - INTERVAL '7 days' AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'
@@ -242,18 +247,43 @@ Present results as a markdown dashboard:
 | {table} | {timestamp} | {human_readable_age} |
 | ... | ... | ... |
 
-### User Behavior Events (7d)
+### User Behavior Events (7d) — includes anonymous visitors
 | Metric | Value |
 |--------|-------|
-| Users with Events | {users_with_events_7d} |
 | Total Events | {total_events_7d} |
-| Beach Views | {beach_views} |
+| Anonymous Events | {anonymous_events_7d} |
+| Authenticated Events | {authenticated_events_7d} |
+| Authenticated Users | {users_with_events_7d} |
+| Anonymous Visitors (by session) | {anonymous_visitors_7d} |
 | Page Views | {page_views} |
+| Beach Views | {beach_views} |
+| Tab Views | {tab_views} |
+| Map Interactions | {map_interactions} |
+| Forecast Interactions | {forecast_interactions} |
+| Onboarding Events | {onboarding_events} |
 | Discovery Clicks | {discovery_clicks} |
 | Forecast Checks | {forecast_checks} |
 
-> **Note**: RLS policy bug was fixed in migration `20260207060000`.
-> Events are now tracked correctly for all authenticated users.
+### Signup Funnel (7d)
+| Event | Count |
+|-------|-------|
+| {event_type} | {count} |
+| ... | ... |
+
+> **Key metric**: `signup_cta_click` (not `signup_cta_view`) is the real intent signal.
+> CTA click rate = signup_cta_click / signup_cta_view.
+
+### Onboarding Steps (7d)
+| Event | Step | Count | Unique |
+|-------|------|-------|--------|
+| {event_type} | {step} | {count} | {unique_users} |
+| ... | ... | ... | ... |
+
+### Daily Anonymous vs Authenticated (7d)
+| Date | Anonymous | Authenticated | Total Events |
+|------|-----------|---------------|-------------|
+| {day} | {anonymous_visitors} | {authenticated_users} | {total_events} |
+| ... | ... | ... | ... |
 ```
 
 ### Query 11: Fallback Health — Summary (24h / 7d)
@@ -356,6 +386,45 @@ SELECT
 FROM v_enhanced_forecast_latest
 GROUP BY data_source
 ORDER BY beach_count DESC;
+```
+
+### Query 15: Signup Funnel Breakdown (7d)
+```sql
+SELECT
+  event_type,
+  COUNT(*) AS count
+FROM user_events
+WHERE created_at >= NOW() - INTERVAL '7 days'
+  AND event_type IN ('signup_cta_view', 'signup_cta_click', 'signin_cta_click', 'signup_started', 'signup_completed', 'login_started', 'login_completed')
+GROUP BY event_type
+ORDER BY count DESC;
+```
+
+### Query 16: Onboarding Step Funnel (7d)
+```sql
+SELECT
+  event_type,
+  metadata->>'step' AS step,
+  COUNT(*) AS count,
+  COUNT(DISTINCT COALESCE(user_id::text, session_id)) AS unique_users
+FROM user_events
+WHERE created_at >= NOW() - INTERVAL '7 days'
+  AND event_type LIKE 'onboarding_%'
+GROUP BY event_type, metadata->>'step'
+ORDER BY step, event_type;
+```
+
+### Query 17: Daily Anonymous vs Authenticated Visitors (7d)
+```sql
+SELECT
+  DATE(created_at) AS day,
+  COUNT(DISTINCT session_id) FILTER (WHERE user_id IS NULL) AS anonymous_visitors,
+  COUNT(DISTINCT user_id) FILTER (WHERE user_id IS NOT NULL) AS authenticated_users,
+  COUNT(*) AS total_events
+FROM user_events
+WHERE created_at >= NOW() - INTERVAL '7 days'
+GROUP BY DATE(created_at)
+ORDER BY day DESC;
 ```
 
 Add to the dashboard output:

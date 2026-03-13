@@ -32,18 +32,18 @@ function CustomTooltip({
   const day = payload[0].payload;
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-md">
-      <p className="font-medium text-slate-800">{day.date}</p>
-      <p className="text-slate-600">
+    <div className="rounded-lg border border-border bg-card px-3 py-2 text-sm shadow-md">
+      <p className="font-medium text-foreground">{day.date}</p>
+      <p className="text-muted-foreground">
         Score: {day.score} &mdash; {getQualityLabel(day.score)}
       </p>
-      <p className="text-slate-600">
+      <p className="text-muted-foreground">
         Waves: {formatWaveRange([day.minHeight, day.maxHeight], "integer")}
       </p>
-      <p className="text-slate-600">
+      <p className="text-muted-foreground">
         Wind: {capitalize(day.windConditions)}
       </p>
-      <p className="text-slate-600">
+      <p className="text-muted-foreground">
         Best time: {capitalize(day.bestTimeSlot)}
       </p>
     </div>
@@ -65,9 +65,9 @@ export function OutlookBarChart({ days }: OutlookBarChartProps) {
   }, []);
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white/95 shadow-sm p-4 sm:p-6" role="img" aria-label={`Bar chart showing daily surf condition scores for the next ${days.length} days`}>
-      <h3 className="text-lg font-semibold text-slate-800">{days.length}-Day Outlook</h3>
-      <p className="text-sm text-slate-500 mb-4">
+    <div className="rounded-2xl border border-border bg-card shadow-sm p-4 sm:p-6" role="img" aria-label={`Bar chart showing daily surf condition scores for the next ${days.length} days`}>
+      <h3 className="text-lg font-semibold text-foreground">{days.length}-Day Outlook</h3>
+      <p className="text-sm text-muted-foreground mb-4">
         Daily surf condition scores
       </p>
 
@@ -93,9 +93,9 @@ export function OutlookBarChart({ days }: OutlookBarChartProps) {
             content={<CustomTooltip />}
             cursor={{ fill: "rgba(0,0,0,0.04)" }}
           />
-          <ReferenceLine y={40} stroke="#d1d5db" strokeDasharray="3 3" />
-          <ReferenceLine y={60} stroke="#d1d5db" strokeDasharray="3 3" />
-          <ReferenceLine y={80} stroke="#d1d5db" strokeDasharray="3 3" />
+          <ReferenceLine y={40} stroke="#606DA8" strokeDasharray="3 3" />
+          <ReferenceLine y={60} stroke="#606DA8" strokeDasharray="3 3" />
+          <ReferenceLine y={80} stroke="#606DA8" strokeDasharray="3 3" />
           <Bar dataKey="score" radius={[4, 4, 0, 0]} maxBarSize={40}>
             {days.map((day, i) => (
               <Cell

@@ -71,8 +71,8 @@ jest.mock("@/lib/utils/current-forecast-utils", () => ({
   }),
 }));
 
-jest.mock("@/lib/utils/wave-height-formatter", () => ({
-  formatWaveHeight: jest.fn((height) => height),
+jest.mock("@/lib/utils/wave-formatters", () => ({
+  formatWaveHeightBucket: jest.fn((height) => height),
   getWaveHeightValue: jest.fn(() => 2.6),
 }));
 
@@ -90,8 +90,12 @@ jest.mock("@/lib/utils/distance-utils", () => ({
   }),
 }));
 
-jest.mock("@/hooks/use-cached-api", () => ({
+jest.mock("@/lib/utils/request-cache", () => ({
   createCachedMapFetch: jest.fn(() => jest.fn().mockResolvedValue({ data: [] })),
+  apiCache: { get: jest.fn(() => null), set: jest.fn(), delete: jest.fn(), clear: jest.fn(), has: jest.fn(() => false), clearExpired: jest.fn(), getStats: jest.fn() },
+  forecastCache: { get: jest.fn(() => null), set: jest.fn(), delete: jest.fn(), clear: jest.fn(), has: jest.fn(() => false), clearExpired: jest.fn(), getStats: jest.fn() },
+  beachCache: { get: jest.fn(() => null), set: jest.fn(), delete: jest.fn(), clear: jest.fn(), has: jest.fn(() => false), clearExpired: jest.fn(), getStats: jest.fn() },
+  RequestCache: class { static createKey(...parts: any[]) { return parts.join(":"); } },
 }));
 
 jest.mock("@/lib/constants/ui", () => ({

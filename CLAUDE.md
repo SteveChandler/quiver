@@ -6,12 +6,12 @@ The main session is a **coordinator**, not an implementer. Use subagents for all
 
 | Situation | Action |
 |-----------|--------|
-| Multi-step task | `@tech-lead-orchestrator` FIRST, then follow its routing map |
+| Multi-step task | `@agents-orchestrator` FIRST, then follow its routing map |
 | Single-domain task | Use the specialist agent directly (see `docs/AGENT_ROSTER.md`) |
-| Unsure which agent | Ask `@tech-lead-orchestrator` anyway |
+| Unsure which agent | Ask `@agents-orchestrator` anyway |
 | "This is simple, I'll just..." | STOP. Use an agent. Always. |
 
-Workflow: `@tech-lead-orchestrator` -> specialist agents -> `@code-reviewer` for QA.
+Workflow: `@agents-orchestrator` -> specialist agents -> `@engineering-code-reviewer` for QA.
 Full roster: `docs/AGENT_ROSTER.md`
 
 ---
@@ -157,7 +157,7 @@ Before touching `lib/seo/meta.ts` or related SEO files, define the target patter
 - TypeScript-first, explicit signatures, meaningful names. Early returns, no empty catches. Minimal comments (explain **why**). Preserve existing formatting. Don't reformat unrelated code.
 
 ### Pre-Merge Checklist
-- [ ] `code-reviewer` agent review
+- [ ] `engineering-code-reviewer` agent review
 - [ ] All tests passing (unit + E2E)
 - [ ] CHANGELOG.md updated under `[Unreleased]`
 - [ ] No console errors or warnings
@@ -175,6 +175,33 @@ Before touching `lib/seo/meta.ts` or related SEO files, define the target patter
 - Don't use `forecast_date` + `forecast_time` in new queries (use `forecast_at`)
 - Don't reference `sessions.profile_id` (dropped Feb 2026 -- use `user_id`)
 - Don't `DROP VIEW` + `CREATE VIEW` without carrying forward `WITH (security_invoker = true)`
+
+---
+
+## Design Context
+
+### Users
+Surfers checking conditions, logging sessions, and connecting with their local crew. They open Quiver before dawn to decide whether to paddle out, mid-session to log conditions, and post-session to share with friends. The job: **make the call confidently and feel part of something**.
+
+### Brand Personality
+**Chill, Reliable, Smart.** Quiet confidence — not trying to impress, just knows its stuff. Like the local who always knows when the swell is hitting. No hype, no corporate polish, just trustworthy data wrapped in surf culture.
+
+### Aesthetic Direction
+- **Visual tone**: Retro 80s-90s surf culture. Deep Twilight navy (`#252D6B`) base, Charming Orange (`#F78E42`) primary accent. Always-dark theme.
+- **Typography**: Space Grotesk for personality (headings), DM Sans for data clarity (body), Space Mono for technical values.
+- **Texture**: Sticker aesthetic — rotated badges (1-3deg), asymmetric border radius, scan lines, noise overlays. Sparse accents for impact.
+- **References**: Stussy/Palace streetwear energy, Magic Seaweed-era data-first rawness, local shop zine vibes.
+- **Anti-references**: Corporate SaaS (Stripe/Linear blue-gray), generic AI slop (cyan-on-dark, purple gradients, glassmorphism), overly polished Apple-minimalism. If it looks like a template, it's wrong.
+
+### Emotional Goal
+**Belonging + identity.** This is MY surf app. Local pride. Part of a crew. The interface should feel like it was made by surfers, for surfers — not by a product team chasing metrics.
+
+### Design Principles
+1. **Data is sacred** — Forecast numbers, tide charts, and conditions must be crisp and instantly scannable. Never sacrifice readability for aesthetics.
+2. **Personality over polish** — A slightly rough sticker rotation is better than pixel-perfect corporate alignment. Charm > cleanliness.
+3. **Sparse accents hit harder** — Use Charming Orange and neon glows sparingly. When everything glows, nothing does.
+4. **Surf culture, not surf cliche** — No generic wave illustrations, no "hang loose" clip art, no teal-and-white Surfline palette. Reference the culture through typography, texture, and attitude.
+5. **Respect reduced motion** — All animations must honor `prefers-reduced-motion`. Data-first users shouldn't need motion to use the app.
 
 ---
 

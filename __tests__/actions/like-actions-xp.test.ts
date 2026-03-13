@@ -2,21 +2,21 @@ import { toggleSessionLike } from "@/actions/like-actions";
 
 // Mocks
 const mockSupabase: any = {
-  auth: {
-    getUser: jest.fn(),
-  },
+  auth: { getUser: jest.fn() },
   from: jest.fn(),
 };
 
 const mockCreditAuthorWithXP = jest.fn();
 
 jest.mock("@/lib/supabase/server", () => ({
-  createSupabaseServerClient: async () => mockSupabase,
+  createSupabaseServerClient: jest.fn(() => Promise.resolve(mockSupabase)),
 }));
 
 jest.mock("@/lib/gamification", () => ({
   creditAuthorWithXP: (...args: any[]) => mockCreditAuthorWithXP(...args),
 }));
+
+const liker = { id: "user-liker" };
 
 // Helper builders for common chains
 function makeSelectChain(final: any) {
@@ -49,7 +49,6 @@ function makeInsertChain(result: any = { error: null }) {
 }
 
 describe("toggleSessionLike → author XP crediting", () => {
-  const liker = { id: "user-liker" };
   const sessionId = "sess-1";
 
   beforeEach(() => {
@@ -97,7 +96,6 @@ describe("toggleSessionLike → author XP crediting", () => {
     const res = await toggleSessionLike(sessionId);
     // Debug on failure
     if (!res?.success) {
-       
       console.error('toggleSessionLike failure:', res);
     }
     expect(res.success).toBe(true);

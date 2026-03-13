@@ -650,17 +650,18 @@ describe("SEO Meta Builder", () => {
       state: "CA",
     };
 
-    describe("with tide data", () => {
-      it("should include next high time in title", () => {
+    describe("title — value-first pattern (chart + surf windows, not raw tide times)", () => {
+      it("should contain beach name, 'Tide Chart' and 'Surf Windows' in title", () => {
         const result = buildDynamicTideMetadata({
           beach: mockBeach,
           tideData: { nextHighTime: "2:30 PM", nextLowTime: "8:45 AM" },
         });
-        expect(result.title).toContain("2:30 PM");
         expect(result.title).toContain("Ocean Beach");
+        expect(result.title).toContain("Tide Chart");
+        expect(result.title).toContain("Surf Windows");
       });
 
-      it("should include height values in title when provided", () => {
+      it("should NOT put raw tide times in title (avoids giving away the answer Google shows)", () => {
         const result = buildDynamicTideMetadata({
           beach: mockBeach,
           tideData: {
@@ -670,12 +671,35 @@ describe("SEO Meta Builder", () => {
             nextLowHeight: 0.8,
           },
         });
-        expect(result.title).toContain("5.2ft");
-        expect(result.title).toContain("Ocean Beach");
+        expect(result.title).not.toContain("2:30 PM");
+        expect(result.title).not.toContain("5.2ft");
         expect(result.title.length).toBeLessThanOrEqual(60);
       });
 
-      it("should include both tide times in description", () => {
+      it("should include month+year date token in title when name is short enough", () => {
+        const result = buildDynamicTideMetadata({
+          beach: mockBeach,
+          tideData: null,
+        });
+        // Month+year suffix should be present for short beach names
+        expect(result.title).toMatch(/\|\s+\w+ \d{4}$/);
+      });
+
+      it("title is identical with or without tide data (consistent value signal)", () => {
+        const withData = buildDynamicTideMetadata({
+          beach: mockBeach,
+          tideData: { nextHighTime: "2:30 PM", nextLowTime: "8:45 AM", nextHighHeight: 5.2, nextLowHeight: 0.8 },
+        });
+        const withoutData = buildDynamicTideMetadata({
+          beach: mockBeach,
+          tideData: null,
+        });
+        expect(withData.title).toBe(withoutData.title);
+      });
+    });
+
+    describe("description — includes tide data for relevance signals", () => {
+      it("should include both tide times in description when available", () => {
         const result = buildDynamicTideMetadata({
           beach: mockBeach,
           tideData: { nextHighTime: "2:30 PM", nextLowTime: "8:45 AM" },
@@ -696,10 +720,9 @@ describe("SEO Meta Builder", () => {
         });
         expect(result.description).toContain("5.2ft");
         expect(result.description).toContain("0.8ft");
-        expect(result.description).toContain("Plan your Ocean Beach surf");
       });
 
-      it("should mention best windows in description", () => {
+      it("should lead description with 'Interactive tide chart' value proposition", () => {
         const result = buildDynamicTideMetadata({
           beach: mockBeach,
           tideData: {
@@ -709,26 +732,38 @@ describe("SEO Meta Builder", () => {
             nextLowHeight: 0.8,
           },
         });
-        expect(result.description).toContain("best windows");
+        expect(result.description).toContain("Interactive tide chart");
+        expect(result.description).toContain("surf windows");
+      });
+
+      it("should use 7-day outlook fallback description when no tide data", () => {
+        const result = buildDynamicTideMetadata({
+          beach: mockBeach,
+          tideData: null,
+        });
+        expect(result.description).toContain("Interactive tide chart");
+        expect(result.description).toContain("7-day outlook");
+        expect(result.description).toContain("best-time-to-go");
       });
     });
 
     describe("without tide data", () => {
-      it("should use fallback title when tideData is null", () => {
+      it("should use value-first fallback title when tideData is null", () => {
         const result = buildDynamicTideMetadata({
           beach: mockBeach,
           tideData: null,
         });
         expect(result.title).toContain("Ocean Beach");
-        expect(result.title).toContain("Tide Times");
+        expect(result.title).toContain("Tide Chart");
       });
 
-      it("should use fallback title when nextHighTime is null", () => {
+      it("should use value-first fallback title when nextHighTime is null", () => {
         const result = buildDynamicTideMetadata({
           beach: mockBeach,
           tideData: { nextHighTime: null, nextLowTime: null },
         });
         expect(result.title).toContain("Ocean Beach");
+        expect(result.title).toContain("Tide Chart");
         expect(result.title).not.toContain("Next High");
       });
     });
@@ -756,49 +791,72 @@ describe("SEO Meta Builder", () => {
       state: "CA",
     };
 
-    describe("with water temp data", () => {
-      it("should include temperature in title", () => {
+    describe("title — value-first pattern (wetsuit guide, not raw temperature)", () => {
+      it("should contain beach name, 'Water Temp' and 'Wetsuit Guide' in title", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
         });
-        expect(result.title).toContain("64°F");
         expect(result.title).toContain("Ocean Beach");
+        expect(result.title).toContain("Water Temp");
+        expect(result.title).toContain("Wetsuit Guide");
       });
 
-      it("should use shortened wetsuit label in title", () => {
+      it("should NOT put raw temperature in title (avoids giving away answer Google shows)", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
         });
-        // Short form "3/2mm" appears; long form "fullsuit" is dropped from title
-        expect(result.title).toContain("3/2mm");
+        expect(result.title).not.toContain("64°F");
+        expect(result.title).not.toContain("3/2mm");
         expect(result.title.length).toBeLessThanOrEqual(60);
       });
 
-      it("should include temperature and full wetsuit rec in description", () => {
+      it("should include month+year date token in title when name is short enough", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
-          waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
+          waterTempData: null,
         });
-        expect(result.description).toContain("64°F");
-        expect(result.description).toContain("3/2mm fullsuit");
+        expect(result.title).toMatch(/\|\s+\w+ \d{4}$/);
       });
 
-      it("should use city context in description", () => {
+      it("title is identical with or without water temp data (consistent value signal)", () => {
+        const withData = buildDynamicWaterTempMetadata({
+          beach: mockBeach,
+          waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
+        });
+        const withoutData = buildDynamicWaterTempMetadata({
+          beach: mockBeach,
+          waterTempData: null,
+        });
+        expect(withData.title).toBe(withoutData.title);
+      });
+    });
+
+    describe("description — consistent value proposition pattern", () => {
+      it("should include wetsuit recommendations in description", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
         });
-        expect(result.description).toContain("San Diego");
+        expect(result.description).toContain("wetsuit recommendations");
       });
 
-      it("description follows 'is X°F today' pattern", () => {
+      it("should mention seasonal trends and real-time buoy data", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
         });
-        expect(result.description).toContain("Ocean Beach is 64°F today");
+        expect(result.description).toContain("seasonal trends");
+        expect(result.description).toContain("real-time buoy data");
+      });
+
+      it("should include beach name in description", () => {
+        const result = buildDynamicWaterTempMetadata({
+          beach: mockBeach,
+          waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
+        });
+        expect(result.description).toContain("Ocean Beach");
       });
 
       it("description length never exceeds 160 chars", () => {
@@ -808,10 +866,24 @@ describe("SEO Meta Builder", () => {
         });
         expect(result.description.length).toBeLessThanOrEqual(160);
       });
+
+      it("description is consistent with or without live data", () => {
+        const withData = buildDynamicWaterTempMetadata({
+          beach: mockBeach,
+          waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
+        });
+        const withoutData = buildDynamicWaterTempMetadata({
+          beach: mockBeach,
+          waterTempData: null,
+        });
+        // Both should contain the same core value proposition
+        expect(withData.description).toContain("wetsuit recommendations");
+        expect(withoutData.description).toContain("wetsuit recommendations");
+      });
     });
 
     describe("without water temp data", () => {
-      it("should use fallback title when waterTempData is null", () => {
+      it("should use value-first fallback title when waterTempData is null", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: null,
@@ -820,7 +892,7 @@ describe("SEO Meta Builder", () => {
         expect(result.title).toContain("Water Temp");
       });
 
-      it("should use fallback title when tempF is null", () => {
+      it("should use value-first fallback title when tempF is null", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: { tempF: null, wetsuitRec: null },

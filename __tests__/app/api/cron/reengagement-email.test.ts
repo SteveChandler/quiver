@@ -91,6 +91,12 @@ jest.mock("@/lib/mailer/templates/ReengagementEmail", () => ({
   ReengagementEmail: jest.fn(() => "ReengagementEmail"),
 }));
 
+// Mock email token utilities
+jest.mock("@/lib/utils/email-token", () => ({
+  signEmailToken: jest.fn().mockResolvedValue("mock-email-token-jwt"),
+  getEmailTokenSecret: jest.fn().mockReturnValue("mock-secret"),
+}));
+
 // Mock email formatters
 jest.mock("@/lib/email/email-formatters", () => ({
   formatDatabaseTime: jest.fn((time: string) => {
@@ -179,6 +185,22 @@ describe("Re-engagement Email Cron Job API", () => {
       data: { id: "test-email-id" },
       error: null,
     });
+  });
+
+  const makeMockCandidate = (overrides = {}) => ({
+    user_id: "user-1",
+    email: "surfer@example.com",
+    display_name: "Test Surfer",
+    home_beach_id: "beach-1",
+    beach_name: "Blacks Beach",
+    beach_slug: "blacks",
+    conditions_score: 8,
+    surf_description: "3-5ft with clean conditions",
+    wind_description: "Light offshore winds",
+    best_window_start: "06:00:00",
+    best_window_end: "10:00:00",
+    recommendation: "Go now!",
+    ...overrides,
   });
 
   describe("Authentication", () => {
@@ -629,6 +651,37 @@ describe("Re-engagement Email Cron Job API", () => {
 
       expect(data.success).toBe(true);
       expect(data.data.summary.skipped.sendFailed).toBe(1);
+    });
+
+    it("should pass logSessionUrl to the email template", async () => {
+      const { ReengagementEmail } = require("@/lib/mailer/templates/ReengagementEmail");
+      const { signEmailToken } = require("@/lib/utils/email-token");
+
+      mockRpc.mockResolvedValueOnce({
+        data: [makeMockCandidate()],
+        error: null,
+      });
+
+      // Claim slot succeeds
+      mockRpc.mockResolvedValueOnce({ data: true, error: null });
+
+      await GET(mockRequest({ "x-vercel-cron": "true" }));
+
+      expect(signEmailToken).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: expect.any(String),
+          purpose: "log_session",
+        }),
+        "mock-secret"
+      );
+
+      expect(ReengagementEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          logSessionUrl: expect.stringMatching(
+            /\/session\/confirm\?token=.+&beach_id=.+&date=\d{4}-\d{2}-\d{2}/
+          ),
+        })
+      );
     });
   });
 

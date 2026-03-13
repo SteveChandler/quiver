@@ -47,7 +47,7 @@ jest.mock("@/lib/utils/timezone-utils.server", () => ({
 }));
 
 let formatDateCallCount = 0;
-jest.mock("@/lib/utils/date-formatting", () => ({
+jest.mock("@/lib/utils/date-time", () => ({
   formatDateInTimezone: jest.fn(() => {
     formatDateCallCount++;
     return formatDateCallCount % 2 === 1 ? "2024-01-15" : "2024-01-16";

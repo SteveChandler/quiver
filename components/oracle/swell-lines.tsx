@@ -35,7 +35,7 @@ interface SwellLinesProps {
 
 // Offsets spread the 5 lines across the hero area at varying vertical positions.
 const LINE_OFFSETS = ["15%", "30%", "50%", "68%", "82%"];
-const LINE_WIDTHS = ["110%", "90%", "105%", "95%", "100%"];
+const LINE_WIDTHS = ["150%", "135%", "150%", "140%", "160%"];
 
 export function SwellLines({ swellDirection, shouldAnimate }: SwellLinesProps) {
   const rotationDeg = compassToRotationDegrees(swellDirection);
@@ -45,29 +45,51 @@ export function SwellLines({ swellDirection, shouldAnimate }: SwellLinesProps) {
       aria-hidden="true"
       className="pointer-events-none absolute inset-0 overflow-hidden"
     >
-      {LINE_OFFSETS.map((topOffset, index) => (
-        <motion.div
-          key={index}
-          initial={shouldAnimate ? { opacity: 0, x: -20 } : false}
-          animate={{ opacity: 0.3, x: 0 }}
-          transition={
-            shouldAnimate
-              ? { duration: 1.2, delay: 0.3 + index * 0.06, ease: "easeOut" }
-              : { duration: 0 }
-          }
-          style={{
-            position: "absolute",
-            top: topOffset,
-            left: "-5%",
-            width: LINE_WIDTHS[index],
-            height: "1px",
-            background:
-              "linear-gradient(to right, transparent 0%, #4A70D9 30%, #4A70D9 70%, transparent 100%)",
-            transform: `rotate(${rotationDeg}deg)`,
-            transformOrigin: "left center",
-          }}
-        />
-      ))}
+      {LINE_OFFSETS.map((topOffset, index) => {
+        // Vary the wavelength and speed slightly to create organic depth
+        const wavelength = 120 + index * 40; // 120px to 280px
+        const duration = 2.5 + index * 0.5;
+
+        return (
+          <motion.div
+            key={index}
+            initial={shouldAnimate ? { opacity: 0, x: -20 } : { opacity: 0.4, x: 0 }}
+            animate={{
+              opacity: 0.4,
+              x: 0,
+              backgroundPositionX: ["0px", `${wavelength}px`],
+            }}
+            transition={{
+              opacity: {
+                duration: 1.2,
+                delay: shouldAnimate ? 0.3 + index * 0.06 : 0,
+                ease: "easeOut",
+              },
+              x: {
+                duration: 1.2,
+                delay: shouldAnimate ? 0.3 + index * 0.06 : 0,
+                ease: "easeOut",
+              },
+              backgroundPositionX: {
+                repeat: Infinity,
+                duration: duration,
+                ease: "linear",
+              },
+            }}
+            style={{
+              position: "absolute",
+              top: topOffset,
+              left: "-25%", // Shift left to ensure rotation coverage
+              width: LINE_WIDTHS[index],
+              height: "2px", // Give it a slight thickness for visibility
+              background: `repeating-linear-gradient(to right, transparent 0%, rgba(74,112,217,0.1) 25%, #4A70D9 50%, rgba(74,112,217,0.1) 75%, transparent 100%)`,
+              backgroundSize: `${wavelength}px 100%`,
+              transform: `rotate(${rotationDeg}deg)`,
+              transformOrigin: "center center",
+            }}
+          />
+        );
+      })}
     </div>
   );
 }

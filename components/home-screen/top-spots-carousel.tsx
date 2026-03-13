@@ -4,7 +4,7 @@ import React from "react";
 import { MapPin, Navigation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { getWindowDayLabel } from "@/lib/utils/time-formatters";
+import { getWindowDayLabel } from "@/lib/utils/date-time";
 import type { SurfDiscoveryRecommendation, PersonalizedForecastWindow, TimeSlot } from "@/types/personalization";
 import {
   CompactSpotCard,

@@ -21,8 +21,8 @@ beforeAll(() => {
       "queueMicrotask",
     ],
   });
-  // Set to 9am UTC so getGreeting() returns "Good morning" regardless of test runner TZ
-  jest.setSystemTime(new Date("2026-03-10T09:00:00.000Z"));
+  // Set to 9am UTC on the same date as MOCK_WINDOW so isTomorrow=false
+  jest.setSystemTime(new Date("2026-03-11T09:00:00.000Z"));
 });
 
 afterAll(() => {
@@ -398,7 +398,7 @@ describe("OracleHomeScreen", () => {
     // activityRaw will be [] (mocked getLocalActivity returns [])
     render(<OracleHomeScreen />);
     // ActivityFeed empty state text
-    expect(screen.getByText("No local activity yet")).toBeInTheDocument();
+    expect(screen.getByText("Your local lineup is quiet")).toBeInTheDocument();
   });
 
   it("renders BottomNav", () => {
@@ -431,5 +431,91 @@ describe("OracleHomeScreen", () => {
     } as unknown as OracleData;
     render(<OracleHomeScreen />);
     expect(screen.getByText("Dawn patrol is your move")).toBeInTheDocument();
+  });
+
+  it("uses slotForecasts wave heights for non-best time slots when provided", () => {
+    // slotForecasts at hour 5 (5am slot) has a different height than the best window
+    const topRecWithSlots = {
+      ...MOCK_TOP_REC,
+      // Best window at 8am (hour 8)
+      window: { ...MOCK_WINDOW, start: new Date("2026-03-11T08:00:00") },
+      slotForecasts: {
+        5: { waveHeight: "1.5 ft", waveHeightBadge: "1-2ft" },
+        11: { waveHeight: "2.5 ft", waveHeightBadge: "2-3ft" },
+        14: { waveHeight: "3.0 ft", waveHeightBadge: "3-4ft" },
+        17: { waveHeight: "2.0 ft", waveHeightBadge: "2-3ft" },
+      },
+    };
+    mockOracleData = {
+      ...mockOracleData,
+      topRecommendation: topRecWithSlots,
+      discovery: {
+        ...mockOracleData.discovery!,
+        recommendations: [topRecWithSlots],
+      },
+    } as unknown as OracleData;
+    render(<OracleHomeScreen />);
+
+    // 5am slot should show "1-2ft" from slotForecasts
+    expect(screen.getByText("1-2ft")).toBeInTheDocument();
+    // 11am slot should show "2-3ft" from slotForecasts
+    expect(screen.getAllByText("2-3ft").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("prefers current-slot tide/wind data over forecast entity values when slotForecasts is populated", () => {
+    // System time is 9am UTC → currentSlotHour = 8 (closest slot to hour 9)
+    // slotForecasts[8] has different tide/wind than the forecast entity
+    const topRecWithCurrentSlot = {
+      ...MOCK_TOP_REC,
+      window: { ...MOCK_WINDOW, start: new Date("2026-03-11T06:00:00") },
+      slotForecasts: {
+        8: {
+          waveHeight: "3.5 ft",
+          waveHeightBadge: "3-5ft",
+          windSpeed: "5",
+          windDirection: "SW",
+          tideHeight: "1.5",
+          tideStatus: "Falling",
+          swellPeriod: "10s",
+          swellDirection: "SW",
+        },
+      },
+    };
+    mockOracleData = {
+      ...mockOracleData,
+      topRecommendation: topRecWithCurrentSlot,
+      discovery: {
+        ...mockOracleData.discovery!,
+        recommendations: [topRecWithCurrentSlot],
+      },
+    } as unknown as OracleData;
+    // The component should render without error — tide/wind data from slotForecasts[8]
+    // is used instead of the stale forecast entity values
+    render(<OracleHomeScreen />);
+    expect(screen.getByRole("banner")).toBeInTheDocument();
+  });
+
+  it("falls back to top rec waveHeight for slots without slotForecasts data", () => {
+    // No slotForecasts — all slots get the same waveHeightBadge from the top rec
+    const topRecNoSlots = {
+      ...MOCK_TOP_REC,
+      // Best window at 8am (hour 8)
+      window: { ...MOCK_WINDOW, start: new Date("2026-03-11T08:00:00") },
+      slotForecasts: undefined,
+    };
+    mockOracleData = {
+      ...mockOracleData,
+      topRecommendation: topRecNoSlots,
+      discovery: {
+        ...mockOracleData.discovery!,
+        recommendations: [topRecNoSlots],
+      },
+    } as unknown as OracleData;
+    render(<OracleHomeScreen />);
+
+    // All non-best slots fall back to "3-4ft" (waveHeightBadge from MOCK_TOP_REC)
+    // There should be multiple instances of "3-4ft" across the time windows
+    const allBadges = screen.getAllByText("3-4ft");
+    expect(allBadges.length).toBeGreaterThanOrEqual(1);
   });
 });

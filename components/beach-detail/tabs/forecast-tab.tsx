@@ -3,7 +3,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import dynamic from "next/dynamic";
-import { motion } from "framer-motion";
 import {
   ArrowUp,
   ArrowDown,
@@ -12,7 +11,6 @@ import {
   Wind,
   Sun,
   Globe2,
-  CalendarDays,
 } from "lucide-react";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -20,8 +18,7 @@ import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BestSurfWindow } from "@/components/beach-detail/best-surf-window";
 import { slugify } from "@/lib/utils/text-utils";
-import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
-import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
+import { formatTimeInBeachTimezone } from "@/lib/utils/date-time";
 import { resolveBeachTimezone, getLocalDateString } from "@/lib/utils/timezone-utils";
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
 import { useDynamicTide } from "@/hooks/use-dynamic-tide";
@@ -36,12 +33,9 @@ import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
 import { formatTideHeight } from "@/lib/formatters/surf-data";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
 import { EmbedCodeButton } from "@/components/beach-detail/embed-code-modal";
-import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { DataErrorBoundary } from "@/components/error-boundaries";
-import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import { useAuth } from "@/context/auth-context";
 import { PersonalizedForecastTeaser } from "@/components/beach-detail/personalized-forecast-teaser";
-import { useUserProfile } from "@/hooks/use-user-profile";
 
 const ConditionsOverview = dynamic(
   () =>
@@ -75,19 +69,11 @@ export function ForecastTab({
   yesterdayAccuracy,
 }: ForecastTabProps) {
   const { user } = useAuth();
-  const { profile } = useUserProfile({ userId: user?.id, enabled: !!user });
-
-  const userScoringPrefs = useMemo(() => {
-    const validSizes = ['small', 'medium', 'large'] as const;
-    if (!profile?.preferred_wave_size || !validSizes.includes(profile.preferred_wave_size as typeof validSizes[number])) return undefined;
-    return { preferredWaveSize: profile.preferred_wave_size as 'small' | 'medium' | 'large' };
-  }, [profile?.preferred_wave_size]);
 
   const { track: trackEvent } = useTrackEvent();
   const [activeSubTab, setActiveSubTab] = useState<
     "today" | "tides" | "conditions"
   >(defaultSubTab || "today");
-  const [horizonAuthModal, setHorizonAuthModal] = useState(false);
 
   // Horizon Strip: selected date for filtering (defaults to today)
   const [horizonSelectedDate, setHorizonSelectedDate] = useState<string>(() => {
@@ -109,23 +95,11 @@ export function ForecastTab({
     return aggregateDayForecasts(forecasts, beach, {
       maxDays: 12,
       timezone: beachTimezone || undefined,
-      userPreferences: userScoringPrefs,
     });
-  }, [forecasts, beach, beachTimezone, userScoringPrefs]);
+  }, [forecasts, beach, beachTimezone]);
 
   // Public mode: limit horizon to 3 days
   const publicHorizonDays = publicMode ? horizonDaySummaries.slice(0, 3) : horizonDaySummaries;
-
-  const firstHiddenDayName = useMemo(() => {
-    if (!publicMode || horizonDaySummaries.length <= 3) return null;
-    const hiddenDay = horizonDaySummaries[3];
-    if (!hiddenDay?.fullDate) return null;
-    try {
-      return new Date(`${hiddenDay.fullDate}T00:00:00`).toLocaleDateString(undefined, { weekday: "long" });
-    } catch {
-      return null;
-    }
-  }, [publicMode, horizonDaySummaries]);
 
   // Forecasts filtered by horizon strip selection
   const selectedDateForecasts = useMemo(() => {
@@ -324,43 +298,6 @@ export function ForecastTab({
             onSelectDate={handleHorizonDaySelect}
             beachSlug={slugify(beach.name)}
           />
-          {publicMode && horizonDaySummaries.length > 3 && (
-            <>
-              <motion.button
-                type="button"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="mt-3 w-full flex items-center gap-3 rounded-xl
-                  bg-gradient-to-r from-blue-50/80 to-cyan-50/60
-                  border border-ocean-blue/10 p-3 cursor-pointer
-                  hover:border-ocean-blue/20 hover:shadow-sm transition-all"
-                onClick={() => {
-                  trackSignupCtaClick({ source: "horizon-strip-outlook" });
-                  trackAuthModalOpened({ mode: "signup", source: "horizon-strip-outlook" });
-                  setHorizonAuthModal(true);
-                }}
-              >
-                <CalendarDays className="h-4 w-4 text-ocean-blue flex-shrink-0" />
-                <p className="text-sm text-gray-700">
-                  Conditions shift on <span className="font-semibold">{firstHiddenDayName ?? "Day 4"}</span>
-                </p>
-                <span className="ml-auto text-sm font-semibold text-ocean-blue whitespace-nowrap">
-                  See outlook →
-                </span>
-              </motion.button>
-              <UnifiedAuthModal
-                isOpen={horizonAuthModal}
-                onClose={() => setHorizonAuthModal(false)}
-                mode="signup"
-                source="horizon-strip-outlook"
-                contextMessage={{
-                  title: "See the Full Outlook",
-                  description: "Plan your week with the 12-day forecast",
-                }}
-              />
-            </>
-          )}
         </section>
       )}
 
@@ -531,8 +468,9 @@ export function ForecastTab({
             );
             return publicMode ? (
               <PublicContentGate
-                ctaTitle="See the Best Time to Surf Today"
-                ctaDescription="Sign up to unlock AI-powered surf window analysis — we find the optimal conditions for you"
+                ctaTitle={`Best Window at ${beach.name} Today`}
+                ctaDescription="We score every hour by tide, wind, and swell — sign up to see today's optimal window at a glance"
+                ctaButtonText="See Today's Best Window"
                 blurLevel="md"
                 source="best-window-gate"
                 className="min-h-[200px]"

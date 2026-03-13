@@ -63,10 +63,18 @@ export function PayoffStep() {
   // Guard against double-execution (React 18 strict mode, Zustand hydration)
   const hasRun = useRef(false);
 
+  // Read referral code from cookie (set by middleware when user arrives via ?ref=CODE)
+  function getReferralCodeFromCookie(): string | null {
+    if (typeof document === 'undefined') return null;
+    const match = document.cookie.match(/(?:^|;\s*)qvr_referral_code=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+
   // Shared save logic — returns true on success
   const attemptSave = async (): Promise<boolean> => {
     try {
-      const result = await saveOnboardingData(data);
+      const referralCode = getReferralCodeFromCookie() ?? undefined;
+      const result = await saveOnboardingData({ ...data, referralCode });
 
       if (!result.success) {
         toast.error(result.error || 'Failed to save your preferences. Please try again.');

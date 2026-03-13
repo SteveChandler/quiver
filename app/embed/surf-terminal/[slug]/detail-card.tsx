@@ -2,7 +2,7 @@
 
 import { memo } from "react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
-import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
+import { formatTimeInBeachTimezone } from "@/lib/utils/date-time";
 
 interface DetailCardProps {
   forecast: EnhancedForecastEntity | null;

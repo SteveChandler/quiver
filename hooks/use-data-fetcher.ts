@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { apiCache, RequestCache } from "@/lib/utils/request-cache";
 
 interface DataFetcherState<T> {
   data: T | null;
@@ -12,31 +13,73 @@ interface DataFetcherOptions<T = any> {
   onSuccess?: (data: any) => void;
   onError?: (error: string) => void;
   initialData?: T;
+  /** When provided, results are read from / written to the cache before fetching. */
+  cacheKey?: string;
+  /** TTL in milliseconds for cached entries. Defaults to the cache's own default TTL. */
+  cacheTTL?: number;
+  /** Cache instance to use. Defaults to the shared `apiCache`. */
+  cache?: RequestCache;
 }
 
 export function useDataFetcher<T>(
   fetchFn: () => Promise<T>,
   options: DataFetcherOptions<T> = {}
 ) {
-  const { immediate = true, skip = false, onSuccess, onError, initialData } = options;
+  const {
+    immediate = true,
+    skip = false,
+    onSuccess,
+    onError,
+    initialData,
+    cacheKey,
+    cacheTTL,
+    cache = apiCache,
+  } = options;
 
   // Use ref to store the latest fetch function to avoid dependency issues
   const fetchFnRef = useRef(fetchFn);
   const onSuccessRef = useRef(onSuccess);
   const onErrorRef = useRef(onError);
+  const cacheKeyRef = useRef(cacheKey);
+  const cacheTTLRef = useRef(cacheTTL);
+  const cacheRef = useRef(cache);
 
   // Update refs when props change
   fetchFnRef.current = fetchFn;
   onSuccessRef.current = onSuccess;
   onErrorRef.current = onError;
+  cacheKeyRef.current = cacheKey;
+  cacheTTLRef.current = cacheTTL;
+  cacheRef.current = cache;
 
-  const [state, setState] = useState<DataFetcherState<T>>({
-    data: (initialData as T | null) ?? null,
-    loading: immediate && !skip,
-    error: null,
+  const [state, setState] = useState<DataFetcherState<T>>(() => {
+    // Seed initial state from cache when a cacheKey is provided
+    if (cacheKey) {
+      const cachedData = cache.get<T>(cacheKey);
+      if (cachedData !== null) {
+        return { data: cachedData, loading: false, error: null };
+      }
+    }
+    return {
+      data: (initialData as T | null) ?? null,
+      loading: immediate && !skip,
+      error: null,
+    };
   });
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (bypassCache = false) => {
+    // Return cached data immediately when available and not forcing a refresh
+    if (!bypassCache && cacheKeyRef.current) {
+      const cachedData = cacheRef.current.get<T>(cacheKeyRef.current);
+      if (cachedData !== null) {
+        setState({ data: cachedData, loading: false, error: null });
+        if (onSuccessRef.current) {
+          onSuccessRef.current(cachedData);
+        }
+        return cachedData;
+      }
+    }
+
     setState((prev) => {
       if (prev.loading && prev.error === null) return prev;
       return { ...prev, loading: true, error: null };
@@ -44,6 +87,12 @@ export function useDataFetcher<T>(
 
     try {
       const result = await fetchFnRef.current();
+
+      // Populate cache when a key is provided
+      if (cacheKeyRef.current) {
+        cacheRef.current.set(cacheKeyRef.current, result, cacheTTLRef.current);
+      }
+
       setState({
         data: result,
         loading: false,
@@ -53,6 +102,8 @@ export function useDataFetcher<T>(
       if (onSuccessRef.current) {
         onSuccessRef.current(result);
       }
+
+      return result;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to fetch data";
@@ -110,10 +161,21 @@ export function useDataFetcher<T>(
     });
   }, []);
 
+  // Removes the cached entry so the next fetch hits the network.
+  const invalidateCache = useCallback(() => {
+    if (cacheKeyRef.current) {
+      cacheRef.current.delete(cacheKeyRef.current);
+    }
+  }, []);
+
+  // refetch bypasses the cache and forces a network request
+  const refetch = useCallback(() => fetchData(true), [fetchData]);
+
   return {
     ...state,
-    refetch: fetchData,
+    refetch,
     retry,
     reset,
+    invalidateCache,
   };
 }

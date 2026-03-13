@@ -56,56 +56,25 @@ export function NearbyBeachesEnriched({
       : "/map";
 
   return (
-    <section ref={sectionRef} className={className}>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-gray-900">
-          Nearby Surf Spots
-        </h2>
-        <Link
-          href={mapLink}
-          className="text-sm font-medium text-sky-600 hover:text-sky-700 transition-colors"
-        >
-          Explore all nearby spots
-        </Link>
-      </div>
-
-      {/* Desktop: grid layout */}
-      <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {beaches.map((beach, index) => (
-          <div
-            key={beach.id}
-            onClick={() =>
-              trackNearbyBeachClick(
-                beach.name,
-                index + 1,
-                beach.score ?? 0
-              )
-            }
+    <div className="-mx-4 px-4 py-8 bg-warm-section">
+      <section ref={sectionRef} className={className}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-900">
+            Nearby Surf Spots
+          </h2>
+          <Link
+            href={mapLink}
+            className="text-sm font-medium text-sky-600 hover:text-sky-700 transition-colors"
           >
-            <SurfSpotCard
-              id={beach.id}
-              name={beach.name}
-              location={getBeachLocation(beach)}
-              slug={beach.slug}
-              city={beach.city}
-              state={beach.state}
-              imageUrl={beach.photoUrl}
-              score={beach.score}
-              waveHeight={beach.waveHeight}
-              skillLevel={beach.skill_level}
-              delay={index}
-            />
-          </div>
-        ))}
-      </div>
+            Explore all nearby spots
+          </Link>
+        </div>
 
-      {/* Mobile: horizontal scroll */}
-      <div className="sm:hidden -mx-4 px-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide">
-        <div className="flex gap-4" style={{ width: "max-content" }}>
+        {/* Desktop: grid layout */}
+        <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {beaches.map((beach, index) => (
             <div
               key={beach.id}
-              className="snap-start min-w-[280px] max-w-[300px]"
               onClick={() =>
                 trackNearbyBeachClick(
                   beach.name,
@@ -130,7 +99,40 @@ export function NearbyBeachesEnriched({
             </div>
           ))}
         </div>
-      </div>
-    </section>
+
+        {/* Mobile: horizontal scroll */}
+        <div className="sm:hidden -mx-4 px-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide">
+          <div className="flex gap-4" style={{ width: "max-content" }}>
+            {beaches.map((beach, index) => (
+              <div
+                key={beach.id}
+                className="snap-start min-w-[280px] max-w-[300px]"
+                onClick={() =>
+                  trackNearbyBeachClick(
+                    beach.name,
+                    index + 1,
+                    beach.score ?? 0
+                  )
+                }
+              >
+                <SurfSpotCard
+                  id={beach.id}
+                  name={beach.name}
+                  location={getBeachLocation(beach)}
+                  slug={beach.slug}
+                  city={beach.city}
+                  state={beach.state}
+                  imageUrl={beach.photoUrl}
+                  score={beach.score}
+                  waveHeight={beach.waveHeight}
+                  skillLevel={beach.skill_level}
+                  delay={index}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }

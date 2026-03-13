@@ -34,14 +34,15 @@ import {
   type DiscoveryScoringOptions,
 } from '@/lib/domains/scoring';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
+import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
 import { SET_WAVE_VARIANCE } from '@/lib/utils/wave-height-transformer';
-import { formatWaveHeightRangeString } from '@/lib/utils/wave-height-formatter';
+import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 
 // Import from other discovery modules
 import { buildCandidatePool } from './candidate-pool-builder';
 import { batchFetchForecasts } from './forecast-batch-fetcher';
-import { selectBestWindow, getLocalDateStr } from './window-selector';
+import { selectBestWindow, getLocalDateStr, getLocalHour } from './window-selector';
 import {
   enrichWithPhotos,
   generateDiscoverySummary,
@@ -67,14 +68,35 @@ const DEFAULT_OVERALL_TIMEOUT_MS = 12000; // Increased from 8s for more beaches
 
 /**
  * Format wave height as a range string for badge display.
- * Shows average waves (input) to set waves (1.5x input).
- * Returns null for flat conditions (< 0.5ft).
+ * Uses actual min/max from a set of forecasts when provided.
+ * Falls back to the 1.5x multiplier when no forecasts are available.
+ * Returns null for flat conditions (< 0.5ft average).
  *
- * @param waveHeight - Average wave height in feet
+ * @param waveHeight - Average wave height in feet (used for flat check and fallback)
+ * @param forecasts - Optional hourly forecasts to derive actual min/max from
  * @returns Range string like "3-5ft" or null if flat
  */
-export function formatWaveHeightRange(waveHeight: number): string | null {
+export function formatWaveHeightRange(
+  waveHeight: number,
+  forecasts?: EnhancedForecastEntity[]
+): string | null {
   if (waveHeight < 0.5) return null;
+
+  if (forecasts && forecasts.length > 0) {
+    const heights = forecasts
+      .map((f) => parseFloat(String(f.wave_height ?? '')))
+      .filter((h) => !isNaN(h) && h > 0);
+
+    if (heights.length >= 2) {
+      const min = Math.min(...heights);
+      const max = Math.max(...heights);
+      if (max > min) {
+        return formatWaveHeightRangeString(min, max);
+      }
+    }
+  }
+
+  // Fallback: single-point estimate using 1.5x variance
   return formatWaveHeightRangeString(waveHeight, waveHeight * SET_WAVE_VARIANCE);
 }
 
@@ -218,6 +240,42 @@ function calculateDistance(
 }
 
 /**
+ * Generate a primary recommendation reason based on skill match and conditions.
+ * This becomes the hero subtitle in the Oracle UI.
+ */
+function generatePrimaryReason(
+  beach: Beach,
+  forecast: EnhancedForecastEntity,
+  userSkillLevel: SkillLevel | null
+): string | null {
+  if (!userSkillLevel) return null;
+
+  const waveHeight = parseFloat(String(forecast.wave_height ?? '0'));
+  const beachSkill = parseSkillLevel(beach.skill_level);
+  const userSkill = getSkillLevelOrDefault(userSkillLevel);
+  const userRanges = SKILL_WAVE_RANGES[userSkill];
+
+  const SKILL_RANK: Record<string, number> = {
+    beginner: 0, intermediate: 1, advanced: 2, expert: 3,
+  };
+
+  const skillGap = (beachSkill ? SKILL_RANK[beachSkill] : 1) - SKILL_RANK[userSkill];
+  const wavesManageable = waveHeight <= userRanges.ideal.max;
+
+  if (skillGap <= 0) {
+    return `Conditions at ${beach.name} match your experience level today`;
+  }
+
+  if (skillGap > 0 && wavesManageable) {
+    const label = beachSkill ?? 'advanced';
+    const heightDisplay = waveHeight > 0 ? ` ${Math.round(waveHeight * 10) / 10}ft` : '';
+    return `${beach.name} is an ${label} spot, but today's${heightDisplay} conditions are manageable`;
+  }
+
+  return `Heads up: ${beach.name} is pumping today — waves are well above your comfort zone`;
+}
+
+/**
  * Empty response for error cases
  */
 function emptyResponse(maxResults: number): SurfDiscoveryResponse {
@@ -305,6 +363,7 @@ async function scoreBeachForDiscovery(args: {
     distancePenalty,
     preferredWaveSize: preferredWaveSizeOption,
     userSkillLevel,
+    beachSkillLevel: beach.skill_level,
   });
 
   // Apply personalization bonus from personalization layer
@@ -324,11 +383,10 @@ async function scoreBeachForDiscovery(args: {
     detailedScore.warnings.push(`${Math.round(distanceMiles)} miles away - long drive`);
   }
 
-  // Add skill level warning if needed
-  if (beach.skill_level === 'advanced' || beach.skill_level === 'expert') {
-    if (!detailedScore.warnings.some((w) => w.includes('Advanced'))) {
-      detailedScore.warnings.push('Advanced spot - check conditions carefully');
-    }
+  // Generate primary recommendation reason for skill-aware communication
+  const primaryReason = generatePrimaryReason(beach, forecast, userSkillLevel);
+  if (primaryReason) {
+    detailedScore.reasons = [primaryReason, ...detailedScore.reasons.filter(r => r !== primaryReason)];
   }
 
   // Generate condition badges (keep existing badge generation)
@@ -436,6 +494,13 @@ async function discoverSurfSpotsInner(
       log.error(`No forecasts retrieved for user ${userId} (even with stale fallback)`);
       return emptyResponse(maxResults);
     }
+  }
+
+  // Build a lookup map of all hourly forecasts keyed by beach ID.
+  // Used later to compute per-slot wave heights and accurate waveHeightBadge for the top rec.
+  const forecastsByBeachId = new Map<string, EnhancedForecastEntity[]>();
+  for (const { beach, forecasts } of beachForecasts) {
+    forecastsByBeachId.set(beach.id, forecasts);
   }
 
   // Collect all dates from forecasts and fetch sun times
@@ -585,6 +650,13 @@ async function discoverSurfSpotsInner(
       drivingTimeMinutes: distanceMiles ? Math.round(distanceMiles * 1.5) : undefined,
       generated_at: new Date().toISOString(),
     });
+
+    log.info(
+      `RANKING DEBUG: ${beach.name} score=${detailedScore.total} ` +
+      `wave=${detailedScore.subscores.waveHeightFit} wind=${detailedScore.subscores.windAlignment} ` +
+      `tide=${detailedScore.subscores.tideFit} dist=${distanceMiles?.toFixed(1)}mi ` +
+      `height=${bestWindowForecast.wave_height}`
+    );
   }
 
   // Log beaches that had no window selected
@@ -644,6 +716,103 @@ async function discoverSurfSpotsInner(
 
   // 5. Enrich with photos
   const enrichedRanked = await enrichWithPhotos(merged);
+
+  // 6. Post-process the top recommendation only:
+  //    a) Fix waveHeightBadge to use actual min/max from the window's hourly forecasts
+  //       (replaces the 1.5x variance estimate with beach-page-consistent logic).
+  //    b) Attach slotForecasts for Today's Windows per-slot wave heights.
+  if (enrichedRanked.length > 0) {
+    const topRec = enrichedRanked[0];
+    const allHourly = forecastsByBeachId.get(topRec.beach.id) ?? [];
+
+    // Filter to forecasts within the best window's time range
+    const windowStart = topRec.window.start;
+    const windowEnd = topRec.window.end;
+    const windowForecasts = allHourly.filter((f) => {
+      const t = new Date(f.forecast_at);
+      return t >= windowStart && t <= windowEnd;
+    });
+
+    // Compute accurate waveHeightBadge from actual window min/max
+    const windowHeights = windowForecasts
+      .map((f) => parseFloat(String(f.wave_height ?? '')))
+      .filter((h) => !isNaN(h) && h > 0);
+
+    if (windowHeights.length >= 2) {
+      const winMin = Math.min(...windowHeights);
+      const winMax = Math.max(...windowHeights);
+      if (winMax > winMin) {
+        enrichedRanked[0] = {
+          ...topRec,
+          waveHeightBadge: formatWaveHeightRangeString(winMin, winMax),
+        };
+      }
+    }
+
+    // Compute per-slot wave heights for the same day as the top rec's window
+    const SLOT_HOURS = [5, 8, 11, 14, 17];
+    const slotForecasts: NonNullable<SurfDiscoveryRecommendation['slotForecasts']> = {};
+    const beachTz = getTimezoneFromCoords(topRec.beach.lat || 0, topRec.beach.lon || 0);
+    const windowDateStr = getLocalDateStr(topRec.window.start, beachTz);
+    const sameDayForecasts = allHourly.filter((f) =>
+      getLocalDateStr(new Date(f.forecast_at), beachTz) === windowDateStr
+    );
+
+    for (const slotHour of SLOT_HOURS) {
+      // Collect forecasts whose local hour falls within the 3-hour slot window
+      const slotHourlyForecasts = sameDayForecasts.filter((f) => {
+        const localHour = getLocalHour(new Date(f.forecast_at), beachTz);
+        if (localHour === null) return false;
+        return localHour >= slotHour && localHour < slotHour + 3;
+      });
+
+      if (slotHourlyForecasts.length === 0) {
+        continue;
+      }
+
+      const slotHeights = slotHourlyForecasts
+        .map((f) => parseFloat(String(f.wave_height ?? '')))
+        .filter((h) => !isNaN(h) && h > 0);
+
+      if (slotHeights.length === 0) {
+        continue;
+      }
+
+      const slotMin = Math.min(...slotHeights);
+      const slotMax = Math.max(...slotHeights);
+
+      // Single-height string for the slot (simple formatted value)
+      const avgHeight = slotHeights.reduce((a, b) => a + b, 0) / slotHeights.length;
+      const waveHeight = `${Math.round(avgHeight * 10) / 10} ft`;
+
+      // Badge uses actual min/max when range is meaningful, otherwise single value
+      const waveHeightBadge =
+        slotMax > slotMin
+          ? formatWaveHeightRangeString(slotMin, slotMax)
+          : formatWaveHeightRangeString(slotMin, slotMin);
+
+      const midIndex = Math.floor(slotHourlyForecasts.length / 2);
+      const midForecast = slotHourlyForecasts[midIndex];
+
+      slotForecasts[slotHour] = {
+        waveHeight,
+        waveHeightBadge,
+        windSpeed: midForecast.wind_speed ?? null,
+        windDirection: midForecast.wind_direction ?? null,
+        tideHeight: midForecast.tide_height ?? null,
+        tideStatus: midForecast.tide_status ?? null,
+        swellPeriod: midForecast.swell_1_period ?? midForecast.wave_period ?? null,
+        swellDirection: midForecast.swell_1_direction ?? midForecast.wave_direction ?? null,
+      };
+    }
+
+    if (Object.keys(slotForecasts).length > 0) {
+      enrichedRanked[0] = {
+        ...enrichedRanked[0],
+        slotForecasts,
+      };
+    }
+  }
 
   const duration = Date.now() - startTime;
   log.debug(

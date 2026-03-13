@@ -4,7 +4,7 @@ import { UnifiedSurfCard } from "@/components/beach-detail/unified-surf-card";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 
 // Mock time formatting utilities
-jest.mock("@/lib/utils/time-formatting", () => ({
+jest.mock("@/lib/utils/date-time", () => ({
   formatTimeInTimezone: jest.fn((_date, _tz) => "8:00 AM"),
   formatTimeCasual: jest.fn(() => "around 9am"),
 }));
@@ -94,7 +94,7 @@ describe("UnifiedSurfCard", () => {
     });
 
     it("shows window time range for YES verdict", () => {
-      const { formatTimeInTimezone } = require("@/lib/utils/time-formatting");
+      const { formatTimeInTimezone } = require("@/lib/utils/date-time");
       formatTimeInTimezone.mockImplementation((dateStr: string, _tz: string) => {
         if (dateStr === "2026-02-10T06:00:00") return "6:00 AM";
         if (dateStr === "2026-02-10T08:00:00") return "8:00 AM";
@@ -423,7 +423,7 @@ describe("UnifiedSurfCard", () => {
 
   describe("Peak Time Display", () => {
     it("shows 'Best at' text for windows > 180 minutes with peakTime", () => {
-      const { formatTimeCasual } = require("@/lib/utils/time-formatting");
+      const { formatTimeCasual } = require("@/lib/utils/date-time");
       formatTimeCasual.mockReturnValue("around 9:30am");
 
       const surfCall = createMockSurfCall({
@@ -463,7 +463,7 @@ describe("UnifiedSurfCard", () => {
     });
 
     it("does not show 'Best at' when peakTime is null", () => {
-      const { formatTimeCasual } = require("@/lib/utils/time-formatting");
+      const { formatTimeCasual } = require("@/lib/utils/date-time");
       formatTimeCasual.mockReturnValue(null);
 
       const surfCall = createMockSurfCall({

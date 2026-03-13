@@ -11,7 +11,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Navigation, AlertTriangle } from "lucide-react";
+import { Navigation, AlertTriangle, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -63,6 +63,10 @@ import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
 import { CamHeroPlaceholder } from "@/components/beach-detail/cam-hero-placeholder";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
+import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
+import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
+import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
+import { motion } from "framer-motion";
 
 // PERFORMANCE OPTIMIZATION: Lazy load tab content to reduce initial bundle size
 // Only load the active tab's code on-demand
@@ -346,6 +350,37 @@ function BeachDetailContent({
     Boolean(sources?.camera_url) &&
     buildCamEmbed(sources?.camera_url).kind !== "none";
 
+  // Horizon strip data for public mode teaser (Phase 2C + 2D)
+  // Computed here so both the hero teaser and above-tab upsell can share the same data
+  const [horizonAuthModal, setHorizonAuthModal] = useState(false);
+
+  const horizonDaySummaries = useMemo(() => {
+    if (!publicMode || !forecasts.length || !beach) return [];
+    return aggregateDayForecasts(forecasts, beach, {
+      maxDays: 12,
+      timezone: beachTimezone || undefined,
+    });
+  }, [publicMode, forecasts, beach, beachTimezone]);
+
+  const firstHiddenDayName = useMemo(() => {
+    if (!publicMode || horizonDaySummaries.length <= 3) return null;
+    const hiddenDay = horizonDaySummaries[3];
+    if (!hiddenDay?.fullDate) return null;
+    try {
+      return new Date(`${hiddenDay.fullDate}T00:00:00`).toLocaleDateString(undefined, { weekday: "long" });
+    } catch {
+      return null;
+    }
+  }, [publicMode, horizonDaySummaries]);
+
+  // Peak wave height across the hidden days (4-12) for data-driven teaser copy
+  const peakHiddenWaveHeight = useMemo(() => {
+    if (!publicMode || horizonDaySummaries.length <= 3) return null;
+    const hiddenDays = horizonDaySummaries.slice(3);
+    const maxHeight = Math.max(...hiddenDays.map(d => d.maxHeight ?? 0).filter(h => h > 0));
+    return maxHeight > 0 ? maxHeight : null;
+  }, [publicMode, horizonDaySummaries]);
+
   // Calculate destination coordinates and directions handler BEFORE early returns
   // (must be before early returns to maintain consistent hook count)
   const destinationCoordinates =
@@ -444,9 +479,9 @@ function BeachDetailContent({
           publicMode ? (
             /* Anonymous users: gated cam placeholder */
             <PublicContentGate
-              ctaTitle="Watch the Live Cam"
-              ctaDescription={`Sign up free to stream ${beach.name} in real time`}
-              ctaButtonText="Sign Up Free"
+              ctaTitle={`${beach.name} is Live Right Now`}
+              ctaDescription="Sign up free to watch the cam, get notified when it's firing, and see the 12-day outlook"
+              ctaButtonText="Watch the Cam"
               blurLevel="sm"
               source="cam-hero"
             >
@@ -516,6 +551,8 @@ function BeachDetailContent({
               isLoadingPersonalization={personalizationData?.isLoading}
               currentForecast={currentForecast}
               overlayMode={true}
+              firstHiddenDayName={firstHiddenDayName}
+              peakHiddenWaveHeight={peakHiddenWaveHeight}
             />
             {currentForecast && (
               <ConditionsTicker
@@ -554,8 +591,6 @@ function BeachDetailContent({
         {/* Action Buttons */}
         <BeachActions
           beach={beach}
-          onPlanSession={handlePlanSession}
-          onLogSession={handleLogSession}
           onGetDirections={handleGetDirections}
           canGetDirections={canGetDirections}
           publicMode={publicMode}
@@ -572,6 +607,48 @@ function BeachDetailContent({
               missing.
             </AlertDescription>
           </Alert>
+        )}
+
+        {/* Horizon Strip Upsell — visible to ALL beach viewers (not just Forecast tab visitors).
+            Shows when in publicMode and there are days beyond the 3-day free horizon. */}
+        {publicMode && horizonDaySummaries.length > 3 && (
+          <>
+            <motion.button
+              type="button"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="mb-6 w-full flex items-center gap-3 rounded-xl
+                bg-gradient-to-r from-blue-50/80 to-cyan-50/60
+                border border-ocean-blue/10 p-3 cursor-pointer
+                hover:border-ocean-blue/20 hover:shadow-sm transition-all"
+              onClick={() => {
+                trackSignupCtaClick({ source: "horizon-strip-above-tabs" });
+                trackAuthModalOpened({ mode: "signup", source: "horizon-strip-above-tabs" });
+                setHorizonAuthModal(true);
+              }}
+            >
+              <CalendarDays className="h-4 w-4 text-ocean-blue flex-shrink-0" />
+              <p className="text-sm text-gray-700">
+                {firstHiddenDayName
+                  ? <>Conditions shift on <span className="font-semibold">{firstHiddenDayName}</span>{peakHiddenWaveHeight && peakHiddenWaveHeight >= 2 ? ` — ${peakHiddenWaveHeight.toFixed(0)}ft swell` : ""}</>
+                  : "Conditions shift on Day 4"}
+              </p>
+              <span className="ml-auto text-sm font-semibold text-ocean-blue whitespace-nowrap">
+                See 12-day outlook →
+              </span>
+            </motion.button>
+            <UnifiedAuthModal
+              isOpen={horizonAuthModal}
+              onClose={() => setHorizonAuthModal(false)}
+              mode="signup"
+              source="horizon-strip-above-tabs"
+              contextMessage={{
+                title: "See the Full Outlook",
+                description: "Plan your week with the 12-day forecast",
+              }}
+            />
+          </>
         )}
 
         {/* Tabbed Content */}

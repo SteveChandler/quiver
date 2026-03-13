@@ -92,6 +92,9 @@ function getIntentTemplates(
     const zone = getClimateZone(stateSlug);
     switch (zone) {
       case "tropical":
+        if (stateSlug === "pr") {
+          return `${cityName} sits in the Caribbean sweet spot — water temps hold in the upper 70s to low 80s year-round. NW groundswells charge the west coast from November through March, while trade wind swell keeps the east coast alive the rest of the year. A rash guard is all you need; use this guide to track swell windows and pick your side of the island.`;
+        }
         return `${cityName} stays warm year-round with water temps rarely dipping below the mid-70s. A rashguard handles most sessions, and reef booties are more important than neoprene here. Use this guide to plan around trade wind shifts and seasonal swell patterns.`;
       case "warm-atlantic":
         return `${cityName} water stays swimmable most of the year, but winter cold fronts can drop temps fast. Hurricane season brings the warmest water alongside the best waves. This guide helps you pick the right rubber for each season.`;

@@ -593,8 +593,8 @@ export function BestSurfWindow({
           {/* Surf */}
           <div className="bg-white/80 rounded-xl p-3 border border-blue-100">
             <div className="flex items-center gap-2 mb-1">
-              <Waves className="h-4 w-4 text-blue-500" />
-              <span className="text-xs font-medium text-muted-foreground">
+              <Waves className="h-4 w-4 text-sky-500" />
+              <span className="text-xs font-medium text-sky-500">
                 Surf
               </span>
             </div>
@@ -625,8 +625,8 @@ export function BestSurfWindow({
           {/* Tide */}
           <div className="bg-white/80 rounded-xl p-3 border border-blue-100">
             <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="h-4 w-4 text-blue-500" />
-              <span className="text-xs font-medium text-muted-foreground">
+              <TrendingUp className="h-4 w-4 text-sky-500" />
+              <span className="text-xs font-medium text-sky-500">
                 Tide
               </span>
             </div>

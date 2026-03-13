@@ -7,7 +7,6 @@ import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-en
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-section";
 
-import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
 import { getBeachForecastPreview } from "@/actions/forecast-actions";
@@ -280,13 +279,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           waterQuality={waterQualityResult}
         />
 
-        <StickySignupBar
-          source={`beach-detail-${beachSlug}`}
-          ctaText="See Your Match"
-          supportingText={`Your match score for ${beach.name}`}
-          scrollThreshold={150}
-        />
-
         {/* SSR sections below tabs for SEO crawlability */}
         <div className="container mx-auto px-4 pb-8 space-y-8">
           <NearbyBeachesEnriched
@@ -319,7 +311,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
   // Skip metadata generation for invalid state slugs (intent slugs)
   if (!isValidStateSlug(stateParam)) {
     return {
-      title: "Page Not Found | Quiver",
+      title: "Page Not Found",
       robots: { index: false, follow: false },
     };
   }
@@ -336,7 +328,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
     // indexable metadata is emitted before notFound() renders the 404 page.
     if (!beach) {
       return {
-        title: "Page Not Found | Quiver",
+        title: "Page Not Found",
         robots: { index: false, follow: false },
       };
     }
@@ -420,7 +412,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
   // Error fallback: couldn't resolve beach data — suppress indexing to avoid
   // emitting a canonical URL to a page that may not render correctly.
   return {
-    title: "Page Not Found | Quiver",
+    title: "Page Not Found",
     robots: { index: false, follow: false },
   };
 }

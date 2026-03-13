@@ -9,6 +9,25 @@
 import { track } from "@/lib/analytics";
 import { getVisitorId } from "@/lib/utils/visitor-id";
 
+/**
+ * Module-level deduplication Set for signup_cta_view events.
+ *
+ * Prevents IntersectionObserver-driven components (e.g. cam-hero, sticky-bar)
+ * from inflating view counts by re-firing on every scroll intersection.
+ * The Set resets on full page reload, which is the correct session boundary.
+ *
+ * Key = source identifier (e.g. "cam-hero", "inline-cta").
+ */
+const viewedSources = new Set<string>();
+
+/**
+ * Reset the deduplication Set. Only intended for use in tests.
+ * Do NOT call this in application code.
+ */
+export function _resetViewedSourcesForTesting(): void {
+  viewedSources.clear();
+}
+
 function fireToUserEvents(eventType: string, params: Record<string, any>) {
   if (typeof window === "undefined") return;
 
@@ -30,6 +49,13 @@ function fireToUserEvents(eventType: string, params: Record<string, any>) {
 }
 
 export function trackSignupCtaView(params: Record<string, any>) {
+  // Deduplicate view events per source per page load.
+  // Without this, scroll-triggered IntersectionObservers fire dozens of times
+  // per session, making CTA view metrics completely unreliable.
+  const sourceKey = String(params.source ?? "unknown");
+  if (viewedSources.has(sourceKey)) return;
+  viewedSources.add(sourceKey);
+
   track("signup_cta_view", params);
   fireToUserEvents("signup_cta_view", params);
 }

@@ -235,13 +235,13 @@ function ForecastDayTable({
                 <th className="text-left p-3 text-sm font-medium text-muted-foreground">
                   Time
                 </th>
-                <th className="text-left p-3 text-sm font-medium text-muted-foreground">
+                <th className="text-left p-3 text-sm font-medium text-sky-500">
                   Surf (ft)
                 </th>
-                <th className="text-left p-3 text-sm font-medium text-muted-foreground">
+                <th className="text-left p-3 text-sm font-medium text-sky-500">
                   Primary Swell
                 </th>
-                <th className="text-left p-3 text-sm font-medium text-muted-foreground">
+                <th className="text-left p-3 text-sm font-medium text-sky-500">
                   Secondary Swell
                 </th>
                 <th className="text-left p-3 text-sm font-medium text-muted-foreground">

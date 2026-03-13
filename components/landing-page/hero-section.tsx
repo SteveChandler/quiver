@@ -73,7 +73,7 @@ export function HeroSection() {
               setAuthModalOpen(true);
               trackAuthModalOpened({ mode: "signup", source: "hero-cta" });
             }}
-            className="bg-ocean-blue text-white rounded-full px-8 py-4 font-semibold text-lg shadow-lg hover:bg-ocean-blue/90 hover:shadow-xl hover:shadow-ocean-blue/20 transition-all duration-300"
+            className="bg-ocean-blue text-white rounded-full px-8 py-4 font-semibold text-lg shadow-lg hover:bg-ocean-blue/90 hover:shadow-xl hover:shadow-ocean-blue/20 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
             size="lg"
           >
             {CONTENT.hero.cta}
@@ -82,7 +82,7 @@ export function HeroSection() {
           <Button
             asChild
             variant="ghost"
-            className="border border-white/30 text-white rounded-full px-6 py-4 font-semibold hover:bg-white/10 transition-all duration-300"
+            className="border border-white/30 text-white rounded-full px-6 py-4 font-semibold hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
             size="lg"
           >
             <Link href="/about">Learn More</Link>

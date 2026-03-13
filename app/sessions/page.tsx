@@ -252,8 +252,8 @@ export default function SessionsPage() {
 
         {/* Public content gate for session feed */}
         <PublicContentGate
-          ctaTitle="Join Quiver to see community sessions"
-          ctaDescription="Connect with local surfers, view their sessions, and share your own surf stories"
+          ctaTitle="See what your crew has been surfing"
+          ctaDescription="Sign up to view session logs and connect with local surfers"
           blurLevel="lg"
           source="sessions-feed"
           className="min-h-[600px]"

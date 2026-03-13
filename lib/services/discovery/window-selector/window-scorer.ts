@@ -47,7 +47,7 @@ export function scoreForecastWindow(
   const wavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
   const windSpeed = parseFloat(forecast.wind_speed || '0');
   const windDir = getDirectionDegrees(forecast.wind_direction_deg, forecast.wind_direction);
-  const tideHeight = parseFloat(forecast.tide_height || '0');
+  const tideHeight = parseFloat(forecast.tide_height || '0') || 0;
 
   // 1. Wave Height Fit (0-25 points)
   if (userPrefs) {

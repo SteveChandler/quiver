@@ -248,7 +248,7 @@
   "resolutions": {
     "lodash": "^4.17.23",
     "lodash-es": "^4.17.23",
-    "tar": "^7.5.8",
+    "tar": "^7.5.11",
     "xmlbuilder": "^15.1.1",
     "tmp": "^0.2.5",
     "undici": "^6.23.0",
@@ -276,6 +276,8 @@
     "eslint/**/minimatch": "9.0.7",
     "eslint-plugin-jest/**/minimatch": "9.0.7",
     "@capacitor/cli/**/minimatch": "10.2.3",
-    "@types/mapbox__point-geometry": "0.1.4"
+    "@types/mapbox__point-geometry": "0.1.4",
+    "serialize-javascript": "^7.0.3",
+    "@tootallnate/once": "^3.0.1"
   }
 }

@@ -34,7 +34,7 @@ jest.mock("@/lib/utils/timezone-utils.server", () => ({
 
 // Track call count for formatDateInTimezone to return different values
 let formatDateCallCount = 0;
-jest.mock("@/lib/utils/date-formatting", () => ({
+jest.mock("@/lib/utils/date-time", () => ({
   formatDateInTimezone: jest.fn((date: Date) => {
     // First call is for "today", second call is for "tomorrow"
     formatDateCallCount++;

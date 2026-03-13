@@ -27,7 +27,7 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
   "southern-california": {
     slug: "southern-california",
     name: "Southern California",
-    title: "Southern California Surf Forecast - 7 Day Outlook",
+    title: "Southern California Surf Forecast — 7-Day Outlook",
     metaDescription:
       "Get the complete Southern California surf forecast. Daily conditions, swell analysis, and the best days to surf SoCal this week.",
     states: ["ca"],
@@ -39,7 +39,7 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
   "san-diego": {
     slug: "san-diego",
     name: "San Diego",
-    title: "San Diego Surf Forecast - 7 Day Outlook",
+    title: "San Diego Surf Forecast — 7-Day Outlook",
     metaDescription:
       "San Diego surf forecast with beach-by-beach conditions. Find the best waves from Imperial Beach to Oceanside.",
     states: ["ca"],
@@ -59,7 +59,7 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
   "orange-county": {
     slug: "orange-county",
     name: "Orange County",
-    title: "Orange County Surf Forecast - 7 Day Outlook",
+    title: "Orange County Surf Forecast — 7-Day Outlook",
     metaDescription:
       "OC surf forecast covering Huntington, Newport, Trestles and more. Daily conditions and best days this week.",
     states: ["ca"],
@@ -77,7 +77,7 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
   "los-angeles": {
     slug: "los-angeles",
     name: "Los Angeles",
-    title: "Los Angeles Surf Forecast - 7 Day Outlook",
+    title: "Los Angeles Surf Forecast — 7-Day Outlook",
     metaDescription:
       "LA surf forecast from Malibu to Manhattan Beach. Get daily conditions and find the best waves this week.",
     states: ["ca"],
@@ -105,7 +105,7 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
   "northern-california": {
     slug: "northern-california",
     name: "Northern California",
-    title: "Northern California Surf Forecast - 7 Day Outlook",
+    title: "Northern California Surf Forecast — 7-Day Outlook",
     metaDescription:
       "NorCal surf forecast with conditions from Santa Cruz to San Francisco. Plan your session with our 7-day outlook.",
     states: ["ca"],
@@ -117,10 +117,11 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
   "puerto-rico": {
     slug: "puerto-rico",
     name: "Puerto Rico",
-    title: "Puerto Rico Surf Forecast - 7 Day Outlook",
+    title: "Puerto Rico Surf Forecast — 7-Day Outlook",
     metaDescription:
-      "Puerto Rico surf forecast covering Rincon, Isabela, and the north shore. Warm water waves year-round.",
+      "Puerto Rico surf forecast covering Rincon, Aguadilla, Isabela, and the west coast. 7-day swell outlook, NW groundswell tracking, and optimal windows for Caribbean surfing.",
     states: ["pr"],
+    cities: ["Rincon", "Aguadilla", "Isabela", "Arecibo", "Hatillo"],
     centerLat: 18.22,
     centerLon: -67.15,
     zoom: 9,
@@ -128,7 +129,7 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
   hawaii: {
     slug: "hawaii",
     name: "Hawaii",
-    title: "Hawaii Surf Forecast - 7 Day Outlook",
+    title: "Hawaii Surf Forecast — 7-Day Outlook",
     metaDescription:
       "Hawaii surf forecast covering North Shore, Waikiki, and Maui. Pipeline to Waikiki — find the best waves in the islands.",
     states: ["hi"],
@@ -139,7 +140,7 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
   oregon: {
     slug: "oregon",
     name: "Oregon",
-    title: "Oregon Surf Forecast - 7 Day Outlook",
+    title: "Oregon Surf Forecast — 7-Day Outlook",
     metaDescription:
       "Oregon surf forecast from Seaside to Brookings. Cold water, powerful waves, and uncrowded lineups on the Pacific Northwest coast.",
     states: ["or"],
@@ -150,7 +151,7 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
   washington: {
     slug: "washington",
     name: "Washington",
-    title: "Washington Surf Forecast - 7 Day Outlook",
+    title: "Washington Surf Forecast — 7-Day Outlook",
     metaDescription:
       "Washington surf forecast covering Westport, Long Beach, and the Olympic Peninsula. Pacific Northwest surf conditions updated daily.",
     states: ["wa"],
@@ -161,7 +162,7 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
   "baja-california": {
     slug: "baja-california",
     name: "Baja California",
-    title: "Baja California Surf Forecast - 7 Day Outlook",
+    title: "Baja California Surf Forecast — 7-Day Outlook",
     metaDescription:
       "Baja California surf forecast for Rosarito, Puerto Nuevo, and the northern Baja coast. Cross-border waves just south of San Diego.",
     states: ["baja california"],
@@ -172,7 +173,7 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
   "santa-cruz": {
     slug: "santa-cruz",
     name: "Santa Cruz",
-    title: "Santa Cruz Surf Forecast - 7 Day Outlook",
+    title: "Santa Cruz Surf Forecast — 7-Day Outlook",
     metaDescription:
       "Santa Cruz surf forecast covering Steamer Lane, Pleasure Point, and the greater Santa Cruz coast. Cold water, world-class waves.",
     states: ["ca"],
@@ -189,7 +190,7 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
   "ventura-santa-barbara": {
     slug: "ventura-santa-barbara",
     name: "Ventura & Santa Barbara",
-    title: "Ventura & Santa Barbara Surf Forecast - 7 Day Outlook",
+    title: "Ventura & Santa Barbara Surf Forecast — 7-Day Outlook",
     metaDescription:
       "Ventura and Santa Barbara surf forecast from Rincon to Jalama. Point breaks, beach breaks, and some of California's best waves.",
     states: ["ca"],
@@ -208,7 +209,7 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
   florida: {
     slug: "florida",
     name: "Florida",
-    title: "Florida Surf Forecast - 7 Day Outlook",
+    title: "Florida Surf Forecast — 7-Day Outlook",
     metaDescription:
       "Florida surf forecast covering New Smyrna, Sebastian Inlet, and Jacksonville. Atlantic swells, hurricane season updates, and daily conditions.",
     states: ["fl"],
@@ -219,7 +220,7 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
   "outer-banks": {
     slug: "outer-banks",
     name: "Outer Banks",
-    title: "Outer Banks Surf Forecast - 7 Day Outlook",
+    title: "Outer Banks Surf Forecast — 7-Day Outlook",
     metaDescription:
       "Outer Banks surf forecast for Cape Hatteras, Rodanthe, and the NC barrier islands. Nor'easter swells and uncrowded East Coast peaks.",
     states: ["nc"],
@@ -230,7 +231,7 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
   "new-york": {
     slug: "new-york",
     name: "New York",
-    title: "New York Surf Forecast - 7 Day Outlook",
+    title: "New York Surf Forecast — 7-Day Outlook",
     metaDescription:
       "New York surf forecast covering Long Island, Rockaway Beach, and Montauk. Atlantic swells and urban surf conditions.",
     states: ["ny"],
@@ -241,7 +242,7 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
   "new-jersey": {
     slug: "new-jersey",
     name: "New Jersey",
-    title: "New Jersey Surf Forecast - 7 Day Outlook",
+    title: "New Jersey Surf Forecast — 7-Day Outlook",
     metaDescription:
       "New Jersey surf forecast from Manasquan to Cape May. Beach break barrels, nor'easter swells, and East Coast surf conditions.",
     states: ["nj"],

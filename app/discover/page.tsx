@@ -9,7 +9,7 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const searchParams = await props.searchParams;
   const base = buildPageMetadata({
-    title: "Discover Surfers - Find Surf Buddies",
+    title: "Find Local Surfers & Surf Buddies Near You",
     description:
       "Find and follow surfers in your community. Search for surf buddies, connect with local surfers, and build your crew. Sign in to discover surfers near you and coordinate surf sessions.",
     path: "/discover",

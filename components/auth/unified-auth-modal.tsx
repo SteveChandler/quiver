@@ -26,7 +26,9 @@ import {
 } from "@/lib/auth/auth-utils";
 import {
   trackAuthModalOpened,
+  trackAuthModalClosedWithoutAction,
   trackAuthMethodSelected,
+  trackAuthProviderSelected,
   trackLoginStarted,
   trackLoginSuccess,
   trackLoginFailed,
@@ -34,6 +36,7 @@ import {
   trackSignupSuccess,
   trackSignupFailed,
   trackMagicLinkSent,
+  trackSignupFormSubmitted,
   categorizeAuthError,
   extractEmailDomain,
 } from "@/lib/analytics/auth-events";
@@ -152,6 +155,9 @@ export function UnifiedAuthModal({
 
   // Refs
   const emailInputRef = useRef<HTMLInputElement | null>(null);
+  // Track whether the user completed an auth action so we can fire
+  // auth_modal_closed_without_action only for dismissals that didn't lead to auth.
+  const authActionTakenRef = useRef(false);
 
   // Location context for signup metadata
   const locationContext = useLocationSafe();
@@ -284,7 +290,9 @@ export function UnifiedAuthModal({
 
   // Reset form when modal opens/closes
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen) {
+      authActionTakenRef.current = false;
+    } else {
       setView(initialView);
       setActiveMode(initialMode);
       setEmail("");
@@ -305,7 +313,9 @@ export function UnifiedAuthModal({
     setLoading(true);
     setError(null);
 
+    authActionTakenRef.current = true;
     trackAuthMethodSelected({ method: "apple", mode: activeMode });
+    trackAuthProviderSelected({ provider: "apple", mode: activeMode, source });
     if (activeMode === "signup") {
       trackSignupStarted("apple");
     } else {
@@ -342,7 +352,9 @@ export function UnifiedAuthModal({
     setLoading(true);
     setError(null);
 
+    authActionTakenRef.current = true;
     trackAuthMethodSelected({ method: "google", mode: activeMode });
+    trackAuthProviderSelected({ provider: "google", mode: activeMode, source });
     if (activeMode === "signup") {
       trackSignupStarted("google");
     } else {
@@ -388,7 +400,9 @@ export function UnifiedAuthModal({
     setLoading(true);
     setError(null);
 
+    authActionTakenRef.current = true;
     trackAuthMethodSelected({ method: "magic_link", mode: "login" });
+    trackAuthProviderSelected({ provider: "magic_link", mode: "login", source });
     trackLoginStarted("magic_link");
 
     const result = await sendMagicLink(email, getReturnPath());
@@ -429,7 +443,10 @@ export function UnifiedAuthModal({
     }
 
     setLoading(true);
+    authActionTakenRef.current = true;
     trackAuthMethodSelected({ method: "password", mode: activeMode });
+    trackAuthProviderSelected({ provider: "email_password", mode: activeMode, source });
+    trackSignupFormSubmitted({ mode: activeMode, source });
     const start = Date.now();
 
     try {
@@ -440,15 +457,21 @@ export function UnifiedAuthModal({
         // Build metadata for signup
         const metadata = buildSignupMetadata("email");
 
-        await signUp(email, password, displayName.trim(), metadata);
+        await signUp(email, password, displayName.trim(), metadata, getReturnPath());
 
         trackSignupSuccess({ method: "password", requires_verification: true });
 
         setLoading(false);
 
         // Email/password signup requires email confirmation.
-        // Return users to landing and show a confirmation toast there.
-        router.replace("/?signup=confirm-email");
+        // Encode the current page path so the confirm route can return the user
+        // to the beach page (or wherever they signed up from) after verification.
+        const confirmReturnTo = getReturnPath();
+        const confirmQuery = new URLSearchParams({ signup: "confirm-email" });
+        if (confirmReturnTo && confirmReturnTo !== "/") {
+          confirmQuery.set("returnTo", confirmReturnTo);
+        }
+        router.replace(`/?${confirmQuery.toString()}`);
 
         // Close modal when it's an overlay (e.g. landing page).
         // If we're on the dedicated /auth/sign-up page, onClose() navigates to "/"
@@ -483,6 +506,17 @@ export function UnifiedAuthModal({
       setError(errorMessage);
       setLoading(false);
     }
+  };
+
+  /**
+   * Handle modal close — fires auth_modal_closed_without_action when the user
+   * dismisses without completing an auth flow.
+   */
+  const handleClose = () => {
+    if (!authActionTakenRef.current && view !== "verify-email" && view !== "success") {
+      trackAuthModalClosedWithoutAction({ mode, source });
+    }
+    onClose();
   };
 
   /**
@@ -523,7 +557,7 @@ export function UnifiedAuthModal({
             loading={loading}
             termsAccepted={termsAccepted}
             onTermsAcceptedChange={setTermsAccepted}
-            onAppleClick={handleAppleSignIn}
+            onAppleClick={process.env.NEXT_PUBLIC_APPLE_CLIENT_ID ? handleAppleSignIn : undefined}
             onGoogleClick={handleGoogleOAuth}
             onEmailPasswordClick={() => setView("email-password")}
             onMagicLinkClick={() => setView("magic-link")}
@@ -583,7 +617,7 @@ export function UnifiedAuthModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={dismissible ? onClose : undefined}>
+    <Dialog open={isOpen} onOpenChange={dismissible ? handleClose : undefined}>
       <DialogContent
         className="sm:max-w-md"
         onInteractOutside={(e) => !dismissible && e.preventDefault()}

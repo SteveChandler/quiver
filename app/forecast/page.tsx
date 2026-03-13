@@ -8,7 +8,7 @@ import {
   hasHubGuide,
 } from "@/lib/data/forecast-regions";
 import { REGION_GROUPS } from "@/lib/data/region-groups";
-import { formatFullDateWithYear } from "@/lib/utils/time-formatters";
+import { formatFullDateWithYear } from "@/lib/utils/date-time";
 import {
   getRegionalSummaries,
   getBestRegionForUser,

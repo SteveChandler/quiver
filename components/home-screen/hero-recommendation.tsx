@@ -5,9 +5,8 @@ import { Clock, AlertCircle } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { formatBeachDateTime } from "@/lib/utils/date-utils";
+import { formatBeachDateTime, formatTimeWindowCompact } from "@/lib/utils/date-time";
 import { formatDiscoveryScore } from "@/lib/utils/rating-formatters";
-import { formatTimeWindowCompact } from "@/lib/utils/time-formatters";
 import {
   type ConditionTier,
   getConditionTier,

@@ -1,13 +1,14 @@
 /**
  * Unit Tests for BeachActions Component
  *
- * Validates Phase 3 specifications from the beach detail refactor:
- * - Button height (should be 48px exact, currently size="lg")
- * - Icon sizing (currently 16px, spec wants 20px)
+ * Validates the 2-button layout after distill:
+ * - "Report Conditions" and "Get Directions" are the only two action buttons
+ * - Button height (48px / h-12)
+ * - Icon sizing (20px / h-5 w-5)
  * - Primary button color (ocean-blue #0077B6 with ocean-blue/90 hover)
- * - Grid layout (responsive: mobile stack, desktop row)
+ * - Flex row layout with equal-width buttons
  * - Gap spacing (12px between buttons)
- * - Button functionality (directions, session planning)
+ * - Button functionality (directions, report conditions)
  */
 
 import React from 'react';
@@ -33,6 +34,15 @@ jest.mock('@/components/auth/unified-auth-modal', () => ({
     ) : null,
 }));
 
+// Mock ConditionsReportCard
+jest.mock('@/components/beach-detail/conditions-report-card', () => ({
+  ConditionsReportCard: (props: any) => (
+    <div data-testid="conditions-report-card">
+      <button onClick={props.onDismiss}>Cancel</button>
+    </div>
+  ),
+}));
+
 // Mock window.open
 const mockOpen = jest.fn();
 global.window.open = mockOpen;
@@ -51,80 +61,48 @@ describe('BeachActions', () => {
     updated_at: '2024-01-01',
   } as any;
 
-  const mockOnPlanSession = jest.fn();
-  const mockOnLogSession = jest.fn();
-
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   describe('Primary Action Buttons', () => {
-    test('renders all three primary action buttons', () => {
+    test('renders exactly two primary action buttons', () => {
       render(<BeachActions beach={mockBeach} />);
 
+      expect(screen.getByRole('button', { name: /report conditions/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /get directions/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /log session/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /plan session/i })).toBeInTheDocument();
     });
 
-    test('Get Directions button is visible and enabled when coordinates exist', () => {
+    test('does not render Plan Session button', () => {
       render(<BeachActions beach={mockBeach} />);
 
-      const directionsBtn = screen.getByRole('button', { name: /get directions/i });
-      expect(directionsBtn).toBeInTheDocument();
-      expect(directionsBtn).toBeEnabled();
+      expect(screen.queryByRole('button', { name: /plan session/i })).not.toBeInTheDocument();
+    });
+
+    test('does not render Log Session button', () => {
+      render(<BeachActions beach={mockBeach} />);
+
+      expect(screen.queryByRole('button', { name: /log session/i })).not.toBeInTheDocument();
+    });
+
+    test('does not render Set Alerts button', () => {
+      render(<BeachActions beach={mockBeach} />);
+
+      expect(screen.queryByRole('button', { name: /set alerts/i })).not.toBeInTheDocument();
+    });
+
+    test('Get Directions button is enabled when coordinates exist', () => {
+      render(<BeachActions beach={mockBeach} />);
+
+      expect(screen.getByRole('button', { name: /get directions/i })).toBeEnabled();
     });
 
     test('Get Directions button is disabled when coordinates missing', () => {
-      const beachWithoutCoords = {
-        ...mockBeach,
-        lat: null,
-        lon: null,
-      };
+      const beachWithoutCoords = { ...mockBeach, lat: null, lon: null };
 
       render(<BeachActions beach={beachWithoutCoords} />);
 
-      const directionsBtn = screen.getByRole('button', { name: /get directions/i });
-      expect(directionsBtn).toBeDisabled();
-    });
-
-    test('Log Session button calls onLogSession callback when clicked', () => {
-      render(
-        <BeachActions
-          beach={mockBeach}
-          onLogSession={mockOnLogSession}
-        />
-      );
-
-      const logBtn = screen.getByRole('button', { name: /log session/i });
-      fireEvent.click(logBtn);
-
-      expect(mockOnLogSession).toHaveBeenCalledTimes(1);
-    });
-
-    test('Plan Session button calls onPlanSession callback when clicked', () => {
-      render(
-        <BeachActions
-          beach={mockBeach}
-          onPlanSession={mockOnPlanSession}
-        />
-      );
-
-      const planBtn = screen.getByRole('button', { name: /plan session/i });
-      fireEvent.click(planBtn);
-
-      expect(mockOnPlanSession).toHaveBeenCalledTimes(1);
-    });
-
-    test('buttons work without callbacks provided', () => {
-      render(<BeachActions beach={mockBeach} />);
-
-      const logBtn = screen.getByRole('button', { name: /log session/i });
-      const planBtn = screen.getByRole('button', { name: /plan session/i });
-
-      // Should not throw errors
-      expect(() => fireEvent.click(logBtn)).not.toThrow();
-      expect(() => fireEvent.click(planBtn)).not.toThrow();
+      expect(screen.getByRole('button', { name: /get directions/i })).toBeDisabled();
     });
   });
 
@@ -132,8 +110,7 @@ describe('BeachActions', () => {
     test('opens Google Maps with correct coordinates', () => {
       render(<BeachActions beach={mockBeach} />);
 
-      const directionsBtn = screen.getByRole('button', { name: /get directions/i });
-      fireEvent.click(directionsBtn);
+      fireEvent.click(screen.getByRole('button', { name: /get directions/i }));
 
       expect(mockOpen).toHaveBeenCalledWith(
         `https://www.google.com/maps/dir/?api=1&destination=${mockBeach.lat},${mockBeach.lon}`,
@@ -142,284 +119,202 @@ describe('BeachActions', () => {
       );
     });
 
+    test('calls onGetDirections callback when provided', () => {
+      const mockOnGetDirections = jest.fn();
+      render(<BeachActions beach={mockBeach} onGetDirections={mockOnGetDirections} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /get directions/i }));
+
+      expect(mockOnGetDirections).toHaveBeenCalledTimes(1);
+      expect(mockOpen).not.toHaveBeenCalled();
+    });
+
     test('does not open maps when coordinates are missing', () => {
-      const beachWithoutCoords = {
-        ...mockBeach,
-        lat: null,
-        lon: null,
-      };
+      const beachWithoutCoords = { ...mockBeach, lat: null, lon: null };
 
       render(<BeachActions beach={beachWithoutCoords} />);
 
-      const directionsBtn = screen.getByRole('button', { name: /get directions/i });
-
-      // Button should be disabled, but try clicking anyway
-      expect(directionsBtn).toBeDisabled();
+      expect(screen.getByRole('button', { name: /get directions/i })).toBeDisabled();
     });
   });
 
-  describe('Button Styling - Size and Layout (Phase 3 Compliance)', () => {
-    test('all action buttons have exact 48px height (h-12)', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
+  describe('Report Conditions Functionality', () => {
+    test('expands ConditionsReportCard inline when authenticated user clicks', () => {
+      render(<BeachActions beach={mockBeach} publicMode={false} />);
 
-      const logBtn = screen.getByRole('button', { name: /log session/i });
-      const planBtn = screen.getByRole('button', { name: /plan session/i });
+      fireEvent.click(screen.getByRole('button', { name: /report conditions/i }));
 
-      // Phase 3 spec requires exactly 48px (h-12) for primary buttons
-      expect(logBtn).toHaveClass('h-12');
-      expect(planBtn).toHaveClass('h-12');
-      // Directions button on mobile has h-10, which is acceptable
+      expect(screen.getByTestId('conditions-report-card')).toBeInTheDocument();
     });
 
-    test('buttons container uses grid layout (2 cols mobile, 2 cols desktop)', () => {
+    test('opens auth modal when guest clicks Report Conditions', () => {
+      render(<BeachActions beach={mockBeach} publicMode={true} onAuthRequired={jest.fn()} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /report conditions/i }));
+
+      expect(screen.getByTestId('auth-modal')).toBeInTheDocument();
+      expect(screen.getByTestId('auth-modal')).toHaveAttribute('data-source', 'conditions-report-cta');
+    });
+
+    test('calls onAuthRequired when guest clicks Report Conditions', () => {
+      const mockAuthRequired = jest.fn();
+      render(<BeachActions beach={mockBeach} publicMode={true} onAuthRequired={mockAuthRequired} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /report conditions/i }));
+
+      expect(mockAuthRequired).toHaveBeenCalledTimes(1);
+    });
+
+    test('always shows Report Conditions subtitle', () => {
+      render(<BeachActions beach={mockBeach} />);
+
+      expect(screen.getByText(/share what the waves are like right now/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('Button Styling - Size and Layout', () => {
+    test('both primary buttons have 48px height (h-12)', () => {
+      render(<BeachActions beach={mockBeach} />);
+
+      expect(screen.getByRole('button', { name: /report conditions/i })).toHaveClass('h-12');
+      expect(screen.getByRole('button', { name: /get directions/i })).toHaveClass('h-12');
+    });
+
+    test('buttons container uses flex row layout', () => {
       const { container } = render(<BeachActions beach={mockBeach} />);
 
-      // Component uses grid-cols-1 sm:grid-cols-2
-      const primaryContainer = container.querySelector('.grid.grid-cols-1.sm\\:grid-cols-2');
-      expect(primaryContainer).toBeInTheDocument();
+      const flexRow = container.querySelector('.flex.gap-3');
+      expect(flexRow).toBeInTheDocument();
     });
 
     test('buttons have correct gap spacing (gap-3 = 12px)', () => {
       const { container } = render(<BeachActions beach={mockBeach} />);
 
-      const gridContainer = container.querySelector('.gap-3');
-      expect(gridContainer).toBeInTheDocument();
+      expect(container.querySelector('.gap-3')).toBeInTheDocument();
     });
 
     test('primary buttons have correct padding (px-6 = 24px)', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
+      render(<BeachActions beach={mockBeach} />);
 
-      const logBtn = screen.getByRole('button', { name: /log session/i });
-      const planBtn = screen.getByRole('button', { name: /plan session/i });
-
-      expect(logBtn).toHaveClass('px-6');
-      expect(planBtn).toHaveClass('px-6');
+      expect(screen.getByRole('button', { name: /report conditions/i })).toHaveClass('px-6');
+      expect(screen.getByRole('button', { name: /get directions/i })).toHaveClass('px-6');
     });
 
-    test('secondary button has correct padding (px-4 = 16px)', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
+    test('buttons have correct font size (text-base)', () => {
+      render(<BeachActions beach={mockBeach} />);
 
-      const directionsBtn = screen.getByRole('button', { name: /get directions/i });
-      expect(directionsBtn).toHaveClass('px-4');
+      expect(screen.getByRole('button', { name: /report conditions/i })).toHaveClass('text-base');
+      expect(screen.getByRole('button', { name: /get directions/i })).toHaveClass('text-base');
     });
 
-    test('buttons have correct font size (text-base for primary, text-sm for secondary)', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
+    test('buttons have font-semibold (600 weight)', () => {
+      render(<BeachActions beach={mockBeach} />);
 
-      const logBtn = screen.getByRole('button', { name: /log session/i });
-      const planBtn = screen.getByRole('button', { name: /plan session/i });
-      const directionsBtn = screen.getByRole('button', { name: /get directions/i });
-
-      expect(logBtn).toHaveClass('text-base');
-      expect(planBtn).toHaveClass('text-base');
-      expect(directionsBtn).toHaveClass('text-sm');
-    });
-
-    test('primary buttons have font-semibold (600 weight)', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
-
-      const logBtn = screen.getByRole('button', { name: /log session/i });
-      const planBtn = screen.getByRole('button', { name: /plan session/i });
-
-      expect(logBtn).toHaveClass('font-semibold');
-      expect(planBtn).toHaveClass('font-semibold');
-    });
-
-    test('secondary button has font-medium (500 weight)', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
-
-      const directionsBtn = screen.getByRole('button', { name: /get directions/i });
-      expect(directionsBtn).toHaveClass('font-medium');
+      expect(screen.getByRole('button', { name: /report conditions/i })).toHaveClass('font-semibold');
+      expect(screen.getByRole('button', { name: /get directions/i })).toHaveClass('font-semibold');
     });
 
     test('buttons have border-radius 8px (rounded-md)', () => {
+      render(<BeachActions beach={mockBeach} />);
+
+      expect(screen.getByRole('button', { name: /report conditions/i })).toHaveClass('rounded-md');
+      expect(screen.getByRole('button', { name: /get directions/i })).toHaveClass('rounded-md');
+    });
+
+    test('flex row has correct vertical margin (my-5 = 20px)', () => {
       const { container } = render(<BeachActions beach={mockBeach} />);
 
-      const logBtn = screen.getByRole('button', { name: /log session/i });
-      const planBtn = screen.getByRole('button', { name: /plan session/i });
-      const directionsBtn = screen.getByRole('button', { name: /get directions/i });
-
-      expect(logBtn).toHaveClass('rounded-md');
-      expect(planBtn).toHaveClass('rounded-md');
-      expect(directionsBtn).toHaveClass('rounded-md');
+      expect(container.querySelector('.my-5')).toBeInTheDocument();
     });
   });
 
-  describe('Button Styling - Colors (Phase 3 Compliance)', () => {
-    test('Log Session button has ocean-blue background with ocean-blue/90 hover', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
+  describe('Button Styling - Colors', () => {
+    test('Report Conditions button has ocean-blue background with ocean-blue/90 hover', () => {
+      render(<BeachActions beach={mockBeach} />);
 
-      const logBtn = screen.getByRole('button', { name: /log session/i });
-      // Phase 3 spec: #0077B6 background, ocean-blue/90 hover (now using Tailwind class)
-      expect(logBtn).toHaveClass('bg-ocean-blue', 'hover:bg-ocean-blue/90');
-    });
-
-    test('Plan Session button has ocean-blue background with ocean-blue/90 hover', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
-
-      const planBtn = screen.getByRole('button', { name: /plan session/i });
-      // Phase 3 spec: #0077B6 background, ocean-blue/90 hover (now using Tailwind class)
-      expect(planBtn).toHaveClass('bg-ocean-blue', 'hover:bg-ocean-blue/90');
+      expect(screen.getByRole('button', { name: /report conditions/i }))
+        .toHaveClass('bg-ocean-blue', 'hover:bg-ocean-blue/90');
     });
 
     test('Get Directions button has gray-50 hover state', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
+      render(<BeachActions beach={mockBeach} />);
 
-      const directionsBtn = screen.getByRole('button', { name: /get directions/i });
-      expect(directionsBtn).toHaveClass('hover:bg-gray-50');
+      expect(screen.getByRole('button', { name: /get directions/i }))
+        .toHaveClass('hover:bg-gray-50');
     });
 
     test('all buttons have active transform state (scale 0.98)', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
+      render(<BeachActions beach={mockBeach} />);
 
-      const logBtn = screen.getByRole('button', { name: /log session/i });
-      const planBtn = screen.getByRole('button', { name: /plan session/i });
-      const directionsBtn = screen.getByRole('button', { name: /get directions/i });
-
-      // Phase 3 spec requires active:scale-[0.98]
-      expect(logBtn).toHaveClass('active:scale-[0.98]');
-      expect(planBtn).toHaveClass('active:scale-[0.98]');
-      expect(directionsBtn).toHaveClass('active:scale-[0.98]');
+      expect(screen.getByRole('button', { name: /report conditions/i }))
+        .toHaveClass('active:scale-[0.98]');
+      expect(screen.getByRole('button', { name: /get directions/i }))
+        .toHaveClass('active:scale-[0.98]');
     });
 
     test('all buttons have transition-all for smooth animations', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
+      render(<BeachActions beach={mockBeach} />);
 
-      const logBtn = screen.getByRole('button', { name: /log session/i });
-      const planBtn = screen.getByRole('button', { name: /plan session/i });
-      const directionsBtn = screen.getByRole('button', { name: /get directions/i });
-
-      expect(logBtn).toHaveClass('transition-all');
-      expect(planBtn).toHaveClass('transition-all');
-      expect(directionsBtn).toHaveClass('transition-all');
+      expect(screen.getByRole('button', { name: /report conditions/i }))
+        .toHaveClass('transition-all');
+      expect(screen.getByRole('button', { name: /get directions/i }))
+        .toHaveClass('transition-all');
     });
   });
 
   describe('Button Icons', () => {
     test('Get Directions button has Navigation icon', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
+      render(<BeachActions beach={mockBeach} />);
 
       const directionsBtn = screen.getByRole('button', { name: /get directions/i });
-      const icon = directionsBtn.querySelector('.lucide-navigation');
-
-      expect(icon).toBeInTheDocument();
+      expect(directionsBtn.querySelector('.lucide-navigation')).toBeInTheDocument();
     });
 
-    test('Log Session button has Plus icon', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
+    test('Report Conditions button has Radio icon', () => {
+      render(<BeachActions beach={mockBeach} />);
 
-      const logBtn = screen.getByRole('button', { name: /log session/i });
-      const icon = logBtn.querySelector('.lucide-plus');
-
-      expect(icon).toBeInTheDocument();
+      const reportBtn = screen.getByRole('button', { name: /report conditions/i });
+      expect(reportBtn.querySelector('.lucide-radio')).toBeInTheDocument();
     });
 
-    test('Plan Session button has BookOpen icon', () => {
+    test('primary button icons have h-5 w-5 sizing', () => {
       const { container } = render(<BeachActions beach={mockBeach} />);
 
-      const planBtn = screen.getByRole('button', { name: /plan session/i });
-      const icon = planBtn.querySelector('.lucide-book-open');
+      const radioIcon = container.querySelector('.lucide-radio');
+      const navIcon = container.querySelector('.lucide-navigation');
 
-      expect(icon).toBeInTheDocument();
-    });
-
-    test('all icons have correct size (h-5 w-5 for primary, h-4 w-4 for directions)', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
-
-      const logIcon = container.querySelector('.lucide-plus');
-      const planIcon = container.querySelector('.lucide-book-open');
-      const directionsIcon = container.querySelector('.lucide-navigation');
-
-      // Primary buttons use h-5 w-5 (20×20px)
-      expect(logIcon).toHaveClass('h-5', 'w-5');
-      expect(planIcon).toHaveClass('h-5', 'w-5');
-      // Directions button uses h-4 w-4 (16×16px)
-      expect(directionsIcon).toHaveClass('h-4', 'w-4');
+      expect(radioIcon).toHaveClass('h-5', 'w-5');
+      expect(navIcon).toHaveClass('h-5', 'w-5');
     });
 
     test('all icons have correct margin (mr-2)', () => {
       const { container } = render(<BeachActions beach={mockBeach} />);
 
-      const icons = container.querySelectorAll('.lucide-navigation, .lucide-plus, .lucide-book-open');
-
-      icons.forEach(icon => {
+      container.querySelectorAll('.lucide-navigation, .lucide-radio').forEach(icon => {
         expect(icon).toHaveClass('mr-2');
       });
     });
   });
 
-  describe('Secondary Actions', () => {
-    test('renders HomeBeachBanner components (mobile and desktop)', () => {
+  describe('HomeBeachBanner', () => {
+    test('renders HomeBeachBanner with beach name', () => {
       render(<BeachActions beach={mockBeach} />);
 
-      // Component renders HomeBeachBanner for both mobile and desktop
-      const homeBanners = screen.getAllByTestId('home-beach-banner');
-      expect(homeBanners.length).toBeGreaterThanOrEqual(1);
-      expect(homeBanners[0]).toHaveTextContent(mockBeach.name);
-    });
-
-    test('secondary actions are in flex container with gap (mobile section)', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
-
-      // Mobile section uses flex layout
-      const secondaryContainer = container.querySelector('.flex.flex-wrap.items-center.gap-3');
-      expect(secondaryContainer).toBeInTheDocument();
-    });
-  });
-
-  describe('Responsive Layout (Phase 3 Grid System)', () => {
-    test('uses 1 column on mobile, 2 columns on small screens (grid-cols-1 sm:grid-cols-2)', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
-
-      const gridContainer = container.querySelector('.grid-cols-1.sm\\:grid-cols-2');
-      expect(gridContainer).toBeInTheDocument();
-    });
-
-    test('Plan Session button does not span columns', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
-
-      const planBtn = screen.getByRole('button', { name: /plan session/i });
-      // Component doesn't use col-span classes
-      expect(planBtn).not.toHaveClass('col-span-2');
-      expect(planBtn).not.toHaveClass('md:col-span-1');
-    });
-
-    test('grid container has correct margin (my-5 = 20px vertical)', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
-
-      const gridContainer = container.querySelector('.grid');
-      expect(gridContainer).toHaveClass('my-5');
-    });
-
-    test('mobile section is hidden on desktop (md:hidden)', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
-
-      const mobileSection = container.querySelector('.md\\:hidden');
-      expect(mobileSection).toBeInTheDocument();
-    });
-
-    test('desktop home beach banner is hidden on mobile (hidden md:block)', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
-
-      const desktopBanner = container.querySelector('.hidden.md\\:block');
-      expect(desktopBanner).toBeInTheDocument();
+      expect(screen.getByTestId('home-beach-banner')).toHaveTextContent(mockBeach.name);
     });
   });
 
   describe('Container Structure', () => {
-    test('renders with correct spacing structure', () => {
+    test('renders with correct spacing structure (space-y-4)', () => {
       const { container } = render(<BeachActions beach={mockBeach} />);
 
-      // Root container should have space-y-4
-      const root = container.querySelector('.space-y-4');
-      expect(root).toBeInTheDocument();
+      expect(container.querySelector('.space-y-4')).toBeInTheDocument();
     });
 
-    test('secondary actions appear after primary actions', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
+    test('has data-testid="beach-actions"', () => {
+      render(<BeachActions beach={mockBeach} />);
 
-      const root = container.firstChild;
-      expect(root?.childNodes.length).toBeGreaterThanOrEqual(2);
+      expect(screen.getByTestId('beach-actions')).toBeInTheDocument();
     });
   });
 
@@ -429,18 +324,15 @@ describe('BeachActions', () => {
         <BeachActions beach={mockBeach} className="custom-class" />
       );
 
-      const root = container.firstChild;
-      expect(root).toHaveClass('custom-class');
+      expect(container.firstChild).toHaveClass('custom-class');
     });
 
-    test('preserves other classes when custom className added', () => {
+    test('preserves space-y-4 class when custom className added', () => {
       const { container } = render(
         <BeachActions beach={mockBeach} className="custom-class" />
       );
 
-      const root = container.firstChild;
-      expect(root).toHaveClass('space-y-4');
-      expect(root).toHaveClass('custom-class');
+      expect(container.firstChild).toHaveClass('space-y-4');
     });
   });
 
@@ -448,204 +340,77 @@ describe('BeachActions', () => {
     test('all buttons have accessible names', () => {
       render(<BeachActions beach={mockBeach} />);
 
+      expect(screen.getByRole('button', { name: /report conditions/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /get directions/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /log session/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /plan session/i })).toBeInTheDocument();
     });
 
-    test('disabled button is properly marked', () => {
-      const beachWithoutCoords = {
-        ...mockBeach,
-        lat: null,
-        lon: null,
-      };
+    test('disabled directions button is properly marked', () => {
+      const beachWithoutCoords = { ...mockBeach, lat: null, lon: null };
 
       render(<BeachActions beach={beachWithoutCoords} />);
 
-      const directionsBtn = screen.getByRole('button', { name: /get directions/i });
-      expect(directionsBtn).toHaveAttribute('disabled');
+      expect(screen.getByRole('button', { name: /get directions/i })).toHaveAttribute('disabled');
     });
 
-    test('buttons are keyboard accessible', () => {
-      render(
-        <BeachActions
-          beach={mockBeach}
-          onLogSession={mockOnLogSession}
-        />
-      );
-
-      const logBtn = screen.getByRole('button', { name: /log session/i });
-      logBtn.focus();
-
-      expect(logBtn).toHaveFocus();
-
-      // Simulate Enter key
-      fireEvent.keyDown(logBtn, { key: 'Enter', code: 'Enter' });
-      // Button click handlers work with keyboard
-    });
-
-    test('icons do not interfere with button text', () => {
+    test('Report Conditions button is keyboard accessible', () => {
       render(<BeachActions beach={mockBeach} />);
 
-      // Button text should be readable with screen readers
-      const directionsBtn = screen.getByRole('button', { name: /get directions/i });
-      expect(directionsBtn.textContent).toContain('Get directions');
+      const reportBtn = screen.getByRole('button', { name: /report conditions/i });
+      reportBtn.focus();
+
+      expect(reportBtn).toHaveFocus();
     });
   });
 
   describe('Edge Cases', () => {
     test('handles beach with partial coordinates', () => {
-      const beachWithOnlyLat = {
-        ...mockBeach,
-        lat: 33.7701,
-        lon: null,
-      };
+      const beachWithOnlyLat = { ...mockBeach, lat: 33.7701, lon: null };
 
       render(<BeachActions beach={beachWithOnlyLat} />);
 
-      const directionsBtn = screen.getByRole('button', { name: /get directions/i });
-      expect(directionsBtn).toBeDisabled();
+      expect(screen.getByRole('button', { name: /get directions/i })).toBeDisabled();
     });
 
-    test('handles beach with zero coordinates', () => {
-      const beachWithZeroCoords = {
-        ...mockBeach,
-        lat: 0,
-        lon: 0,
-      };
+    test('handles beach with zero coordinates (falsy — disabled)', () => {
+      const beachWithZeroCoords = { ...mockBeach, lat: 0, lon: 0 };
 
       render(<BeachActions beach={beachWithZeroCoords} />);
 
-      const directionsBtn = screen.getByRole('button', { name: /get directions/i });
-      // Zero coordinates (0,0) would be in the ocean near Africa - technically valid
-      // But in our case, 0 is falsy so button will be disabled
-      expect(directionsBtn).toBeDisabled();
-    });
-
-    test('handles multiple rapid clicks', () => {
-      render(
-        <BeachActions
-          beach={mockBeach}
-          onLogSession={mockOnLogSession}
-        />
-      );
-
-      const logBtn = screen.getByRole('button', { name: /log session/i });
-
-      fireEvent.click(logBtn);
-      fireEvent.click(logBtn);
-      fireEvent.click(logBtn);
-
-      expect(mockOnLogSession).toHaveBeenCalledTimes(3);
+      expect(screen.getByRole('button', { name: /get directions/i })).toBeDisabled();
     });
 
     test('renders correctly when all optional props omitted', () => {
       render(<BeachActions beach={mockBeach} />);
 
+      expect(screen.getByRole('button', { name: /report conditions/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /get directions/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /log session/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /plan session/i })).toBeInTheDocument();
     });
   });
 
-  describe('Public Mode Auth Gating', () => {
-    test('in publicMode, clicking "Track Your Sessions" calls onAuthRequired instead of onLogSession', () => {
-      const mockAuthRequired = jest.fn();
+  describe('Public Mode', () => {
+    test('in publicMode, clicking Report Conditions opens auth modal', () => {
       render(
-        <BeachActions
-          beach={mockBeach}
-          onLogSession={mockOnLogSession}
-          publicMode={true}
-          onAuthRequired={mockAuthRequired}
-        />
+        <BeachActions beach={mockBeach} publicMode={true} onAuthRequired={jest.fn()} />
       );
 
-      // In public mode the label changes to "Track Your Sessions"
-      const logBtn = screen.getByRole('button', { name: /track your sessions/i });
-      fireEvent.click(logBtn);
+      fireEvent.click(screen.getByRole('button', { name: /report conditions/i }));
 
-      expect(mockAuthRequired).toHaveBeenCalledTimes(1);
-      expect(mockOnLogSession).not.toHaveBeenCalled();
+      expect(screen.getByTestId('auth-modal')).toBeInTheDocument();
     });
 
-    test('in publicMode, clicking "Plan a Session" calls onAuthRequired instead of onPlanSession', () => {
-      const mockAuthRequired = jest.fn();
+    test('in publicMode, Get Directions still works (no auth gate)', () => {
       render(
-        <BeachActions
-          beach={mockBeach}
-          onPlanSession={mockOnPlanSession}
-          publicMode={true}
-          onAuthRequired={mockAuthRequired}
-        />
+        <BeachActions beach={mockBeach} publicMode={true} onAuthRequired={jest.fn()} />
       );
 
-      // In public mode the label changes to "Plan a Session"
-      const planBtn = screen.getByRole('button', { name: /plan a session/i });
-      fireEvent.click(planBtn);
+      fireEvent.click(screen.getByRole('button', { name: /get directions/i }));
 
-      expect(mockAuthRequired).toHaveBeenCalledTimes(1);
-      expect(mockOnPlanSession).not.toHaveBeenCalled();
-    });
-
-    test('without publicMode, buttons call original handlers normally', () => {
-      const mockAuthRequired = jest.fn();
-      render(
-        <BeachActions
-          beach={mockBeach}
-          onLogSession={mockOnLogSession}
-          onPlanSession={mockOnPlanSession}
-          onAuthRequired={mockAuthRequired}
-        />
+      expect(mockOpen).toHaveBeenCalledWith(
+        expect.stringContaining('google.com/maps'),
+        '_blank',
+        'noopener'
       );
-
-      fireEvent.click(screen.getByRole('button', { name: /log session/i }));
-      fireEvent.click(screen.getByRole('button', { name: /plan session/i }));
-
-      expect(mockOnLogSession).toHaveBeenCalledTimes(1);
-      expect(mockOnPlanSession).toHaveBeenCalledTimes(1);
-      expect(mockAuthRequired).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('Integration', () => {
-    test('components work together without conflicts', () => {
-      render(
-        <BeachActions
-          beach={mockBeach}
-          onPlanSession={mockOnPlanSession}
-          onLogSession={mockOnLogSession}
-          className="custom-class"
-        />
-      );
-
-      // All components should render
-      expect(screen.getByRole('button', { name: /get directions/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /log session/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /plan session/i })).toBeInTheDocument();
-
-      // Component renders HomeBeachBanner (mobile + desktop)
-      expect(screen.getAllByTestId('home-beach-banner').length).toBeGreaterThanOrEqual(1);
-    });
-
-    test('callbacks and rendering work independently', () => {
-      const { rerender } = render(
-        <BeachActions beach={mockBeach} onLogSession={mockOnLogSession} />
-      );
-
-      const logBtn = screen.getByRole('button', { name: /log session/i });
-      fireEvent.click(logBtn);
-
-      expect(mockOnLogSession).toHaveBeenCalledTimes(1);
-
-      // Rerender with different callback
-      const newCallback = jest.fn();
-      rerender(
-        <BeachActions beach={mockBeach} onLogSession={newCallback} />
-      );
-
-      fireEvent.click(logBtn);
-      expect(newCallback).toHaveBeenCalledTimes(1);
-      expect(mockOnLogSession).toHaveBeenCalledTimes(1); // Old callback not called again
+      expect(screen.queryByTestId('auth-modal')).not.toBeInTheDocument();
     });
   });
 });

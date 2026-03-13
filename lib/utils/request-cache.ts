@@ -140,6 +140,41 @@ export const beachCache = new RequestCache({
 
 export { RequestCache };
 
+/**
+ * Factory that returns a cached fetch function for map API calls.
+ * Rounds coordinates to reduce cache fragmentation.
+ * Moved here from `hooks/use-cached-api.ts` so map utilities can import it
+ * without pulling in React hook code.
+ */
+export function createCachedMapFetch<T>(apiPath: string, ttl: number) {
+  return (latitude: number, longitude: number): Promise<T> => {
+    // Use aggressive rounding for buoy conditions since it's fallback data
+    const precision = apiPath.includes("buoys/conditions") ? 1 : 3; // 1 decimal = ~10km zones
+    const latKey = latitude.toFixed(precision);
+    const lonKey = longitude.toFixed(precision);
+    const cacheKey = RequestCache.createKey(apiPath, latKey, lonKey);
+
+    // Check cache first
+    const cached = apiCache.get<T>(cacheKey);
+    if (cached) {
+      return Promise.resolve(cached);
+    }
+
+    // Fetch and cache
+    return fetch(`${apiPath}?latitude=${latitude}&longitude=${longitude}`, {
+      headers: { Accept: "application/json" },
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      })
+      .then((data) => {
+        apiCache.set(cacheKey, data, ttl);
+        return data;
+      });
+  };
+}
+
 // Simplified auto-cleanup for NOAA data - run less frequently since data is long-lived
 if (typeof window !== "undefined" && !(window as any).__PLAYWRIGHT__) {
   setInterval(() => {

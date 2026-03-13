@@ -2,8 +2,7 @@
 
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Sparkles } from "lucide-react";
+import { Waves } from "lucide-react";
 import { usePathname } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
@@ -98,52 +97,48 @@ export function PublicContentGate({
   // Public user: show blurred content with CTA overlay
   return (
     <div className={`relative ${className}`}>
-      {/* Blurred content */}
+      {/* Blurred content — smooth unblur transition on auth */}
       {children ? (
-        <div className={`${blurClass} pointer-events-none select-none`}>
+        <div
+          className={`${blurClass} pointer-events-none select-none transition-[filter] duration-300 ease-out`}
+        >
           {children}
         </div>
       ) : null}
 
-      {/* CTA Overlay */}
-      <div className="absolute inset-0 flex items-center justify-center p-4 bg-gradient-to-t from-background/95 via-background/80 to-background/40">
-        <Card className="max-w-md w-full shadow-xl border-2 border-primary/20">
-          <CardContent className="p-6 text-center space-y-4">
-            <div className="flex justify-center">
-              <div className="p-3 bg-primary/10 rounded-full">
-                <Sparkles className="h-8 w-8 text-primary" />
-              </div>
-            </div>
+      {/* CTA Overlay — natural content break, not a paywall card */}
+      <div className="absolute inset-0 flex items-end justify-center p-4 pb-8 bg-gradient-to-t from-[#252D6B] via-[#252D6B]/80 to-transparent">
+        <div className="max-w-sm w-full space-y-4 text-center">
+          <div className="flex justify-center">
+            <Waves className="h-6 w-6 text-[#F78E42]" />
+          </div>
 
-            <div>
-              <h3 className="text-xl font-bold mb-2">{ctaTitle}</h3>
-              {ctaDescription && (
-                <p className="text-sm text-muted-foreground">
-                  {ctaDescription}
-                </p>
-              )}
-            </div>
+          <div>
+            <h3 className="text-lg font-heading font-bold text-white mb-1">
+              {ctaTitle}
+            </h3>
+            {ctaDescription && (
+              <p className="text-sm text-[#9AABC6]">{ctaDescription}</p>
+            )}
+          </div>
 
-            <div className="space-y-2">
-              <Button onClick={handleSignUpClick} size="lg" className="w-full">
-                <Sparkles className="h-4 w-4 mr-2" />
-                {ctaButtonText}
-              </Button>
-              <Button
-                onClick={handleSignInClick}
-                variant="outline"
-                size="lg"
-                className="w-full"
-              >
-                Log in
-              </Button>
-            </div>
-
-            <p className="text-xs text-muted-foreground">
-              Trusted by hundreds of surfers along the coast
-            </p>
-          </CardContent>
-        </Card>
+          <div className="space-y-2">
+            <Button
+              onClick={handleSignUpClick}
+              size="lg"
+              className="w-full bg-[#F78E42] hover:bg-[#D57835] text-white font-heading font-semibold"
+            >
+              {ctaButtonText}
+            </Button>
+            <button
+              type="button"
+              onClick={handleSignInClick}
+              className="w-full text-sm text-white/60 hover:text-white/80 transition-colors py-2"
+            >
+              Already have an account? Log in
+            </button>
+          </div>
+        </div>
       </div>
 
       <UnifiedAuthModal

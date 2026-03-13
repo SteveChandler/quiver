@@ -301,7 +301,7 @@ describe("ConditionsOverview", () => {
 
     expect(screen.getByTestId("public-content-gate")).toBeInTheDocument();
     expect(screen.getByTestId("gate-cta")).toHaveTextContent(
-      "Unlock the Full 12-Day Outlook"
+      "See all 12 days of surf conditions"
     );
     expect(screen.getByTestId("outlook-bar-chart")).toBeInTheDocument();
   });

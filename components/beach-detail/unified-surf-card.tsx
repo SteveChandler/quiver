@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock, AlertCircle, Share2 } from "lucide-react";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import type { TrendTag } from "@/lib/scoring";
-import { formatTimeInTimezone, formatTimeCasual } from "@/lib/utils/time-formatting";
+import { formatTimeInTimezone, formatTimeCasual } from "@/lib/utils/date-time";
 import { ShareSheet } from "@/components/share/share-sheet";
 import { buildSurfCallShareUrl } from "@/lib/share/build-share-card-url";
 

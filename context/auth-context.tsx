@@ -88,6 +88,7 @@ type AuthContextType = {
     password: string,
     fullName?: string,
     metadata?: Record<string, any>,
+    returnTo?: string,
   ) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -549,12 +550,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password: string,
     fullName?: string,
     metadata?: Record<string, any>,
+    returnTo?: string,
   ): Promise<void> => {
     setIsLoading(true);
     try {
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+      // Embed the returnTo path in the confirmation link so Supabase redirects
+      // the user back to their beach page (or wherever they signed up from)
+      // after clicking the email link. Falls back to "/" if not provided.
+      const safeReturnTo =
+        returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")
+          ? returnTo
+          : "/";
       const emailRedirectTo = siteUrl
-        ? `${siteUrl.replace(/\/$/, "")}/auth/confirm?next=/`
+        ? `${siteUrl.replace(/\/$/, "")}/auth/confirm?next=${encodeURIComponent(safeReturnTo)}`
         : undefined;
 
       // Merge fullName into metadata if provided

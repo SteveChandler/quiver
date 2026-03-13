@@ -17,6 +17,7 @@ jest.mock("@/lib/auth/auth-utils", () => ({
   initiateOAuthFlow: jest.fn(),
   sendMagicLink: jest.fn(),
   validateEmail: jest.fn(),
+  validateEmailDomain: jest.fn().mockReturnValue({ isValid: true }),
   validatePassword: jest.fn(),
   getAuthRedirect: jest.fn(),
   setAuthRedirect: jest.fn(),
@@ -25,13 +26,16 @@ jest.mock("@/lib/auth/auth-utils", () => ({
 
 jest.mock("@/lib/analytics/auth-events", () => ({
   trackAuthModalOpened: jest.fn(),
+  trackAuthModalClosedWithoutAction: jest.fn(),
   trackAuthMethodSelected: jest.fn(),
+  trackAuthProviderSelected: jest.fn(),
   trackLoginStarted: jest.fn(),
   trackLoginSuccess: jest.fn(),
   trackLoginFailed: jest.fn(),
   trackSignupStarted: jest.fn(),
   trackSignupSuccess: jest.fn(),
   trackSignupFailed: jest.fn(),
+  trackSignupFormSubmitted: jest.fn(),
   trackMagicLinkSent: jest.fn(),
   categorizeAuthError: jest.fn(() => "unknown_error"),
   extractEmailDomain: jest.fn((email) => email.split("@")[1] || "unknown"),
@@ -281,59 +285,98 @@ describe("UnifiedAuthModal", () => {
   });
 
   describe("Apple Sign-In button visibility", () => {
-    it("should show the Apple button when enableOAuth is true (onAppleClick is always passed)", () => {
-      render(
-        <UnifiedAuthModal
-          isOpen={true}
-          onClose={mockOnClose}
-          mode="login"
-          enableOAuth={true}
-        />
-      );
+    describe("when NEXT_PUBLIC_APPLE_CLIENT_ID is set", () => {
+      beforeEach(() => {
+        process.env.NEXT_PUBLIC_APPLE_CLIENT_ID = "com.example.test";
+      });
 
-      expect(screen.getByText("Continue with Apple")).toBeInTheDocument();
+      afterEach(() => {
+        delete process.env.NEXT_PUBLIC_APPLE_CLIENT_ID;
+      });
+
+      it("should show the Apple button when enableOAuth is true", () => {
+        render(
+          <UnifiedAuthModal
+            isOpen={true}
+            onClose={mockOnClose}
+            mode="login"
+            enableOAuth={true}
+          />
+        );
+
+        expect(screen.getByText("Continue with Apple")).toBeInTheDocument();
+      });
+
+      it("should not show the Apple button when enableOAuth is false", () => {
+        render(
+          <UnifiedAuthModal
+            isOpen={true}
+            onClose={mockOnClose}
+            mode="login"
+            enableOAuth={false}
+          />
+        );
+
+        expect(
+          screen.queryByText("Continue with Apple")
+        ).not.toBeInTheDocument();
+      });
+
+      it("should show Apple button before Google button", () => {
+        render(
+          <UnifiedAuthModal
+            isOpen={true}
+            onClose={mockOnClose}
+            mode="login"
+            enableOAuth={true}
+          />
+        );
+
+        const buttons = screen.getAllByRole("button");
+        const appleIdx = buttons.findIndex((b) =>
+          b.textContent?.includes("Continue with Apple")
+        );
+        const googleIdx = buttons.findIndex((b) =>
+          b.textContent?.includes("Continue with Google")
+        );
+
+        expect(appleIdx).toBeGreaterThanOrEqual(0);
+        expect(googleIdx).toBeGreaterThanOrEqual(0);
+        expect(appleIdx).toBeLessThan(googleIdx);
+      });
     });
 
-    it("should not show the Apple button when enableOAuth is false", () => {
-      render(
-        <UnifiedAuthModal
-          isOpen={true}
-          onClose={mockOnClose}
-          mode="login"
-          enableOAuth={false}
-        />
-      );
+    describe("when NEXT_PUBLIC_APPLE_CLIENT_ID is not set", () => {
+      beforeEach(() => {
+        delete process.env.NEXT_PUBLIC_APPLE_CLIENT_ID;
+      });
 
-      expect(
-        screen.queryByText("Continue with Apple")
-      ).not.toBeInTheDocument();
-    });
+      it("should not show the Apple button even when enableOAuth is true", () => {
+        render(
+          <UnifiedAuthModal
+            isOpen={true}
+            onClose={mockOnClose}
+            mode="login"
+            enableOAuth={true}
+          />
+        );
 
-    it("should show Apple button before Google button", () => {
-      render(
-        <UnifiedAuthModal
-          isOpen={true}
-          onClose={mockOnClose}
-          mode="login"
-          enableOAuth={true}
-        />
-      );
-
-      const buttons = screen.getAllByRole("button");
-      const appleIdx = buttons.findIndex((b) =>
-        b.textContent?.includes("Continue with Apple")
-      );
-      const googleIdx = buttons.findIndex((b) =>
-        b.textContent?.includes("Continue with Google")
-      );
-
-      expect(appleIdx).toBeGreaterThanOrEqual(0);
-      expect(googleIdx).toBeGreaterThanOrEqual(0);
-      expect(appleIdx).toBeLessThan(googleIdx);
+        expect(
+          screen.queryByText("Continue with Apple")
+        ).not.toBeInTheDocument();
+      });
     });
   });
 
   describe("Apple Sign-In flow", () => {
+    beforeEach(() => {
+      process.env.NEXT_PUBLIC_APPLE_CLIENT_ID = "com.example.test";
+    });
+
+    afterEach(() => {
+      delete process.env.NEXT_PUBLIC_APPLE_CLIENT_ID;
+    });
+
     it("should call signInWithApple and close modal on success", async () => {
       render(
         <UnifiedAuthModal
@@ -630,7 +673,8 @@ describe("UnifiedAuthModal", () => {
           "John Doe",
           expect.objectContaining({
             signup_context: expect.any(Object),
-          })
+          }),
+          expect.any(String) // returnTo path
         );
       });
 
@@ -640,9 +684,9 @@ describe("UnifiedAuthModal", () => {
       });
 
       // Email/password signup requires email confirmation; we redirect to landing
-      // and close the modal (unless on the dedicated /auth/sign-up page).
+      // with returnTo so users return to their beach page after verification.
       const router = useRouter();
-      expect(router.replace).toHaveBeenCalledWith("/?signup=confirm-email");
+      expect(router.replace).toHaveBeenCalledWith(expect.stringContaining("signup=confirm-email"));
       expect(mockOnClose).toHaveBeenCalled();
     });
 

@@ -5,7 +5,7 @@
 
 import type { Beach } from "@/types/database";
 import type { SurfSpot } from "@/lib/data/surf-spots";
-import { slugifyAscii } from "@/lib/utils/text-utils";
+import { inferCitySlug } from "@/lib/utils/beach-mapping-helpers";
 
 /**
  * Unified data structure for spot pages.
@@ -52,44 +52,6 @@ export interface SpotPageData {
   speakableSummary: string | null;
   beginnerNotes: string | null;
   intentTags: string[] | null;
-}
-
-/**
- * Maps city names to city slugs for URL generation.
- * Uses slugifyAscii to convert city names to URL-safe slugs that match
- * the intent page routing (e.g., "Huntington Beach" -> "huntington-beach").
- *
- * Special cases:
- * - San Diego area neighborhoods map to "san-diego" since they share intent pages
- * - Generic "Orange County" entries map to null since county-level intent pages don't exist
- */
-function inferCitySlug(city: string | null): string | null {
-  if (!city) return null;
-  const cityLower = city.toLowerCase().trim();
-
-  // San Diego area neighborhoods should map to the main "san-diego" slug
-  // since the intent pages aggregate at the city level
-  const sanDiegoNeighborhoods = [
-    "la jolla",
-    "ocean beach",
-    "pacific beach",
-    "mission beach",
-    "del mar",
-  ];
-  if (sanDiegoNeighborhoods.some((n) => cityLower === n)) {
-    return "san-diego";
-  }
-
-  // Generic "Orange County" doesn't have a valid intent page - return null
-  // Individual OC cities (Huntington Beach, Newport Beach, etc.) will be slugified normally
-  if (cityLower === "orange county") {
-    return null;
-  }
-
-  // For all other cities, generate a slug using slugifyAscii
-  // This matches the intent page routing which uses city slugs from the database
-  const slug = slugifyAscii(city);
-  return slug || null;
 }
 
 /**

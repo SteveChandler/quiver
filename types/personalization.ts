@@ -219,6 +219,20 @@ export interface SurfDiscoveryRecommendation {
   conditionBadges?: ConditionBadge[];
   /** Wave height display badge (e.g., "2-3ft") */
   waveHeightBadge?: string;
+  /**
+   * Per-slot wave heights for Today's Windows display.
+   * Keyed by hour (5, 8, 11, 14, 17). Only populated on the top recommendation.
+   */
+  slotForecasts?: Record<number, {
+    waveHeight: string;
+    waveHeightBadge: string | null;
+    windSpeed?: string | null;
+    windDirection?: string | null;
+    tideHeight?: string | null;
+    tideStatus?: string | null;
+    swellPeriod?: string | null;
+    swellDirection?: string | null;
+  }>;
   /** Distance in miles (GPS phase) */
   distanceMiles?: number;
   /** Estimated driving time in minutes (GPS phase) */

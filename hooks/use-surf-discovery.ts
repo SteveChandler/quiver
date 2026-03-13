@@ -26,6 +26,8 @@ interface UseSurfDiscoveryOptions {
   maxResults?: number;
   /** Filter windows to specific time of day (default: 'any') */
   timeSlot?: TimeSlot;
+  /** User's skill level — included in cache key so changes invalidate cache */
+  userSkillLevel?: string | null;
   /** Whether the hook is enabled (default: true) */
   enabled?: boolean;
   /** Whether to fetch immediately on mount (default: true) */
@@ -47,7 +49,7 @@ interface UseSurfDiscoveryReturn {
   /** Error message if request failed */
   error: string | null;
   /** Function to manually refetch the recommendations */
-  refetch: () => Promise<void>;
+  refetch: () => Promise<SurfDiscoveryResponse | undefined>;
   /** Convenience helper: true if recommendations exist, false otherwise */
   hasRecommendations: boolean;
   /** Whether the current data is from cache */
@@ -107,6 +109,7 @@ export function useSurfDiscovery(
     horizonHours,
     maxResults,
     timeSlot,
+    userSkillLevel,
     enabled = true,
     immediate = true,
     onSuccess,
@@ -132,8 +135,9 @@ export function useSurfDiscovery(
       horizonHours,
       maxResults,
       timeSlot,
+      userSkillLevel,
     });
-  }, [userLat, userLon, radiusMiles, horizonHours, maxResults, timeSlot]);
+  }, [userLat, userLon, radiusMiles, horizonHours, maxResults, timeSlot, userSkillLevel]);
 
   // Generate cache key for this user + options combination
   const cacheKey = useMemo(() => {
