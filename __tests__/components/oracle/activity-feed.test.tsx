@@ -33,7 +33,7 @@ describe("ActivityFeed", () => {
   describe("empty state", () => {
     it("renders the empty state message when items array is empty", () => {
       render(<ActivityFeed items={[]} />);
-      expect(screen.getByText(/no local activity yet/i)).toBeInTheDocument();
+      expect(screen.getByText(/your local lineup is quiet/i)).toBeInTheDocument();
     });
 
     it("does not render any activity rows in empty state", () => {
@@ -70,7 +70,7 @@ describe("ActivityFeed", () => {
 
     it("does not render the empty state message when items are present", () => {
       render(<ActivityFeed items={[SESSION_ITEM]} />);
-      expect(screen.queryByText(/no local activity yet/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/your local lineup is quiet/i)).not.toBeInTheDocument();
     });
   });
 });

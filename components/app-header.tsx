@@ -167,6 +167,8 @@ export function AppHeader() {
     ? [
         { name: "Discover", href: "/map" },
         { name: "Sessions", href: "/profile?tab=sessions" },
+        // TODO: /?tab=community is a dead route — the Oracle home screen has no community tab handler.
+        // Keep the link for now until a community tab is implemented or the route is removed.
         { name: "Community", href: "/?tab=community" },
         ...(isUserAdmin ? [{ name: "Admin", href: "/admin" }] : []),
       ]

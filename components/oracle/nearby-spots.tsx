@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export interface NearbySpot {
@@ -92,7 +93,7 @@ export function NearbySpots({ spots, onViewSpot, loading = false }: NearbySpotsP
     <section>
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-heading text-white text-lg font-semibold">Nearby Spots</h2>
-        <button className="text-[#4A70D9] text-sm font-medium">Map &gt;</button>
+        <Link href="/map" className="text-[#4A70D9] text-sm font-medium">Map &gt;</Link>
       </div>
       <div className="relative">
         <div

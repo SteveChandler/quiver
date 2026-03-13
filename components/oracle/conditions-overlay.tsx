@@ -33,12 +33,7 @@ function ScoreBadge({
       animate={{ scale: 1 }}
       transition={
         shouldAnimate
-          ? {
-              type: "spring",
-              stiffness: 400,
-              damping: 17,
-              delay: 1.5,
-            }
+          ? { duration: 0.4, delay: 1.5, ease: [0.16, 1, 0.3, 1] }
           : { duration: 0 }
       }
       className="inline-flex items-center gap-1 rounded-full bg-[#FDB84B] px-3 py-1"
@@ -96,13 +91,7 @@ export function ConditionsOverlay({
       <div className="flex items-end gap-3">
         <h1
           aria-label={`Wave height ${waveHeight}`}
-          className="font-heading text-[56px] font-extrabold leading-none sm:text-[64px]"
-          style={{
-            background: "linear-gradient(to bottom, #ffffff 0%, #4A70D9 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-          }}
+          className="font-heading text-[56px] font-extrabold leading-none text-white drop-shadow-md sm:text-[64px]"
         >
           {displayWaveHeight}
         </h1>

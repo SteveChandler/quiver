@@ -264,7 +264,7 @@ function LoadingSkeleton() {
   return (
     <div className="min-h-screen bg-[#252D6B] animate-pulse">
       {/* Hero placeholder */}
-      <div className="h-[520px] w-full bg-[#2D357D] rounded-2xl" />
+      <div className="h-[420px] md:h-[480px] w-full bg-[#2D357D] rounded-2xl" />
       {/* Content placeholders */}
       <div className="space-y-6 px-6 py-4">
         <div className="h-10 rounded-xl bg-[#2D357D]" />
@@ -475,7 +475,7 @@ export function OracleHomeScreen() {
   // ------------------------------------------------------------------
   return (
     <div className="min-h-screen bg-[#252D6B]">
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-3xl md:max-w-6xl">
       <OracleHero
         beachName={beachName}
         heroPhotoUrl={oracle.heroPhotoUrl}
@@ -505,37 +505,47 @@ export function OracleHomeScreen() {
         </div>
       )}
 
+      {/* 2-column at md+: left = CTA + Windows, right = Nearby + Activity.
+          On mobile this falls back to a single stacked column automatically. */}
       {/* TODO: Wire hasSessionToday (check sessions table for today) and
            hasFollows (check follows count) to enable "Share your session"
            and "Tell your crew" CTA branches. */}
-      <ContextualCTA
-        hasHomeBeach={!!homeBeach}
-        hasSessionToday={false}
-        hasFollows={false}
-        conditionsGood={score > 60}
-        preferredTime={preferredTime}
-        onSetHomeBeach={handleSetHomeBeach}
-        onLogSession={handleLogSession}
-        onInviteFriend={handleInviteFriend}
-        onSetAlarm={handleSetAlarm}
-        onShareSession={handleShareSession}
-      />
+      <div className="md:grid md:grid-cols-[1fr_380px] md:gap-6 md:px-6 md:py-4">
+        {/* Left column: CTA + Today's Windows */}
+        <div className="space-y-6">
+          <ContextualCTA
+            hasHomeBeach={!!homeBeach}
+            hasSessionToday={false}
+            hasFollows={false}
+            conditionsGood={score > 60}
+            preferredTime={preferredTime}
+            onSetHomeBeach={handleSetHomeBeach}
+            onLogSession={handleLogSession}
+            onInviteFriend={handleInviteFriend}
+            onSetAlarm={handleSetAlarm}
+            onShareSession={handleShareSession}
+          />
 
-      <div className="space-y-6 px-6 pb-24">
-        <TodaysWindows
-          windows={timeWindows}
-          preferredTime={preferredTime}
-          forecastUrl={forecastUrl}
-          isTomorrow={isTomorrow}
-        />
+          <div className="px-6 md:px-0">
+            <TodaysWindows
+              windows={timeWindows}
+              preferredTime={preferredTime}
+              forecastUrl={forecastUrl}
+              isTomorrow={isTomorrow}
+            />
+          </div>
+        </div>
 
-        <NearbySpots
-          spots={nearbySpots}
-          onViewSpot={handleViewSpot}
-          loading={oracle.discoveryLoading}
-        />
+        {/* Right column: Nearby Spots + Activity Feed */}
+        <div className="space-y-6 px-6 pb-24 md:px-0 md:pb-6">
+          <NearbySpots
+            spots={nearbySpots}
+            onViewSpot={handleViewSpot}
+            loading={oracle.discoveryLoading}
+          />
 
-        <ActivityFeed items={activityItems} />
+          <ActivityFeed items={activityItems} />
+        </div>
       </div>
 
       <BottomNav />

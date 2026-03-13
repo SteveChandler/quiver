@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Home, Map, BookOpen, User } from "lucide-react";
@@ -16,12 +16,15 @@ interface NavItem {
 }
 
 /**
- * Bottom navigation items
+ * Bottom navigation items.
+ * Labels are aligned with desktop top-nav language:
+ *   "Discover" matches desktop "Discover" (/map)
+ *   "Sessions" matches desktop "Sessions" (/profile?tab=sessions)
  */
 const navItems: NavItem[] = [
   { href: "/", label: "Home", icon: Home },
-  { href: "/map", label: "Map", icon: Map },
-  { href: "/profile?tab=sessions", label: "Log", icon: BookOpen },
+  { href: "/map", label: "Discover", icon: Map },
+  { href: "/profile?tab=sessions", label: "Sessions", icon: BookOpen },
   { href: "/profile", label: "Profile", icon: User },
 ];
 
@@ -44,6 +47,31 @@ const navItems: NavItem[] = [
 export function BottomNav() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  // Hide on scroll-down, show on scroll-up to reclaim screen real estate on
+  // content-dense mobile layouts. Always visible at the top of the page.
+  const [visible, setVisible] = useState(true);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentY = window.scrollY;
+      const delta = currentY - lastScrollY.current;
+
+      if (currentY < 50) {
+        setVisible(true);
+      } else if (delta > 10) {
+        setVisible(false); // scrolling down
+      } else if (delta < -10) {
+        setVisible(true); // scrolling up
+      }
+
+      lastScrollY.current = currentY;
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   /**
    * Determine if a nav item is currently active
@@ -69,9 +97,11 @@ export function BottomNav() {
     <nav
       className={cn(
         "fixed bottom-0 left-0 right-0 z-40",
-        "bg-white border-t border-gray-200",
+        "bg-[#1E2560] border-t border-[#404C92]",
         "pb-[env(safe-area-inset-bottom)]",
-        "md:hidden" // Only show on mobile/small tablets
+        "md:hidden", // Only show on mobile/small tablets
+        "transition-transform duration-300 ease-out motion-reduce:transition-none",
+        visible ? "translate-y-0" : "translate-y-full"
       )}
       role="navigation"
       aria-label="Main navigation"
@@ -89,15 +119,15 @@ export function BottomNav() {
                 "w-full h-full min-h-[44px]",
                 "text-xs font-medium transition-colors",
                 active
-                  ? "text-ocean-blue"
-                  : "text-gray-500 hover:text-gray-700 active:text-gray-900"
+                  ? "text-[#F78E42]"
+                  : "text-[#7B83B5] hover:text-[#A0A8D0] active:text-[#C0C8E0]"
               )}
               aria-current={active ? "page" : undefined}
             >
               <item.icon
                 className={cn(
                   "h-6 w-6 mb-1",
-                  active ? "text-ocean-blue" : "text-gray-400"
+                  active ? "text-[#F78E42]" : "text-[#5A6298]"
                 )}
               />
               <span>{item.label}</span>

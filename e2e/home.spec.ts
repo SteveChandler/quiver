@@ -333,7 +333,7 @@ test.describe('Home Page - Layout', () => {
       const headingVisible = await isVisibleSafe(heading, { timeout: TIMEOUTS.medium });
 
       if (headingVisible) {
-        const emptyState = page.locator('text=No local activity yet');
+        const emptyState = page.locator('text=Your local lineup is quiet');
         const activityItems = page.locator('.space-y-3 > div');
 
         const hasEmpty = await isVisibleSafe(emptyState, { timeout: TIMEOUTS.short });

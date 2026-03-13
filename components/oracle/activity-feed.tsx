@@ -21,16 +21,16 @@ function AvatarCircle({
   initial: string;
   type: "session" | "intel";
 }) {
-  const gradient =
-    type === "session"
-      ? "from-[#3b82f6] to-[#8b5cf6]"
-      : "from-[#f59e0b] to-[#ef4444]";
+  const bgClass =
+    type === "session" ? "bg-[#3A4499]" : "bg-[#F78E42]/20";
+  const textClass =
+    type === "session" ? "text-[#FDB84B]" : "text-[#F78E42]";
 
   return (
     <div
-      className={`flex h-[38px] w-[38px] flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${gradient}`}
+      className={`flex h-[38px] w-[38px] flex-shrink-0 items-center justify-center rounded-full ${bgClass}`}
     >
-      <span className="text-sm font-bold text-white">{initial}</span>
+      <span className={`text-sm font-bold ${textClass}`}>{initial}</span>
     </div>
   );
 }
@@ -43,9 +43,12 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
       </h2>
 
       {items.length === 0 ? (
-        <p className="text-medium py-6 text-center text-sm">
-          No local activity yet
-        </p>
+        <div className="noise-texture rounded-xl border border-[#404C92] bg-[#2D357D] p-5 text-center">
+          <p className="text-high text-sm font-semibold mb-1">Your local lineup is quiet</p>
+          <p className="text-medium text-xs">
+            Log a session to see what your crew is up to — or be the first to post.
+          </p>
+        </div>
       ) : (
         <div className="space-y-3">
           {items.map((item) => (

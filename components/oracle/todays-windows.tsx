@@ -164,16 +164,27 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow 
                   </div>
 
                   {/* Wave height — 48px fixed width */}
-                  <WaveHeightDisplay
-                    height={window.height}
-                    showTooltip={false}
-                    className="w-12 shrink-0 text-right text-sm font-semibold text-high"
-                  />
+                  {window.height === "—" && !window.isBest ? (
+                    <span className="w-12 shrink-0 text-right text-sm font-semibold text-white/30">
+                      —
+                    </span>
+                  ) : (
+                    <WaveHeightDisplay
+                      height={window.height}
+                      showTooltip={false}
+                      className="w-12 shrink-0 text-right text-sm font-semibold text-high"
+                    />
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
+        {windows.filter(w => w.height === "—").length >= 4 && (
+          <p className="text-white/40 text-xs text-center mt-3">
+            Set your home beach for full forecast windows
+          </p>
+        )}
       </div>
     </div>
   );

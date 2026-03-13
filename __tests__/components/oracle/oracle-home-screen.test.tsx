@@ -398,7 +398,7 @@ describe("OracleHomeScreen", () => {
     // activityRaw will be [] (mocked getLocalActivity returns [])
     render(<OracleHomeScreen />);
     // ActivityFeed empty state text
-    expect(screen.getByText("No local activity yet")).toBeInTheDocument();
+    expect(screen.getByText("Your local lineup is quiet")).toBeInTheDocument();
   });
 
   it("renders BottomNav", () => {
