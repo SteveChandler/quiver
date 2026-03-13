@@ -207,17 +207,34 @@ export async function GET(request: Request) {
     console.error('Error upserting corrections:', upsertError);
   }
 
-  // Also log for monitoring
+  // Build lookup from parsed input data to enrich log with input features
+  const parsedLookup = new Map<string, typeof parsed[0]>();
+  for (const p of parsed) {
+    parsedLookup.set(`${p.beach_id}:${p.forecast_ts}`, p);
+  }
+
+  // Also log for monitoring (includes input features for training data quality
+  // and candidate shadow scoring fields for model promotion pipeline)
   const { error: logError } = await supabase.from('ml_predictions_log').upsert(
-    corrections.map((c: any) => ({
-      beach_id: c.beach_id,
-      predicted_at: c.forecast_ts,
-      raw_forecast_m: c.raw_height_m,
-      corrected_forecast_m: c.corrected_height_m,
-      bias_applied_m: c.bias_applied_m,
-      model_version: c.model_version,
-    })),
-    { onConflict: 'beach_id,predicted_at', ignoreDuplicates: true }
+    corrections.map((c: any) => {
+      const input = parsedLookup.get(`${c.beach_id}:${c.forecast_ts}`);
+      return {
+        beach_id: c.beach_id,
+        predicted_at: c.forecast_ts,
+        raw_forecast_m: c.raw_height_m,
+        corrected_forecast_m: c.corrected_height_m,
+        bias_applied_m: c.bias_applied_m,
+        model_version: c.model_version,
+        // Input features for training data quality (F4 fix)
+        wave_period_s: input?.wave_period_s ?? null,
+        wind_speed_ms: input?.wind_speed_ms ?? null,
+        wind_direction_deg: input?.wind_direction_deg ?? null,
+        // Shadow scoring fields for candidate promotion pipeline (F2 fix)
+        candidate_corrected_m: c.candidate_corrected_m ?? null,
+        candidate_model_version: c.candidate_model_version ?? null,
+      };
+    }),
+    { onConflict: 'beach_id,predicted_at' }
   );
 
   if (logError) {
