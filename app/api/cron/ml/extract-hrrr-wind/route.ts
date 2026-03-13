@@ -134,10 +134,10 @@ export async function GET(request: Request) {
     return Response.json({ message: 'No HRRR data available', extracted: 0 });
   }
 
-  // Update existing NOAA_NWS rows in enhanced_forecasts with HRRR wind data.
-  // HRRR provides 3km-resolution wind vs. NWS grid (~2.5km avg), so overwriting
-  // wind_speed and wind_direction enriches the data the ML correction cron reads
-  // automatically — no separate HRRR rows or schema changes needed for Phase 1.
+  // Update all enhanced_forecasts rows with HRRR wind data.
+  // HRRR is the highest-priority wind source and overwrites any existing wind values
+  // regardless of data_source. wind_source='HRRR' is stamped so lower-priority sources
+  // (NWS, OPEN_METEO_WIND) won't overwrite it later.
   //
   // wind_speed is stored as text (e.g. "5 mph") matching the NWS format that
   // parseWindSpeed() in correct-forecasts/route.ts expects.
@@ -166,9 +166,9 @@ export async function GET(request: Request) {
           wind_speed: `${windSpeedMph} mph`,
           wind_direction: String(windDirectionDeg),
           wind_direction_deg: windDirectionDeg,
+          wind_source: 'HRRR',
         })
         .eq('beach_id', r.beach_id)
-        .eq('data_source', 'NOAA_NWS')
         .gte('forecast_at', hourStart)
         .lt('forecast_at', hourEnd)
         .select('id');
