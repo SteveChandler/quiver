@@ -105,9 +105,10 @@ export function ReferralLeaderboard({ onInvite }: ReferralLeaderboardProps) {
       return;
     }
 
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
     const shareUrl = referralCode
-      ? `https://www.quiversurf.app/?ref=${referralCode}`
-      : "https://www.quiversurf.app";
+      ? `${baseUrl}/?ref=${referralCode}`
+      : baseUrl;
 
     if (navigator.share) {
       try {

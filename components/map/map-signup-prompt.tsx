@@ -81,7 +81,7 @@ export function MapSignupPrompt({ beachName, source }: MapSignupPromptProps) {
 
   return (
     <>
-      <div className="relative mx-2 my-3 p-3 rounded-xl bg-gradient-to-r from-[#252D6B] to-[#1a2055] border border-white/[0.08] shadow-sm">
+      <div className="relative mx-2 my-3 p-3 rounded-xl bg-white/[0.04] border-l-2 border-[#F78E42] shadow-sm">
         {/* Dismiss button */}
         <button
           type="button"
