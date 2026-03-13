@@ -3577,6 +3577,7 @@ export type Database = {
           phone_number: string | null
           posting_window: Json | null
           preferences_v2_shown_at: string | null
+          level_title: string | null
           preferred_break_type: string | null
           preferred_session_time: string | null
           preferred_wave_size: string | null
@@ -3587,6 +3588,7 @@ export type Database = {
           timezone: string | null
           trust_score: number
           updated_at: string | null
+          xp_total: number | null
         }
         Insert: {
           activity_level?: string | null
@@ -3627,6 +3629,7 @@ export type Database = {
           phone_number?: string | null
           posting_window?: Json | null
           preferences_v2_shown_at?: string | null
+          level_title?: string | null
           preferred_break_type?: string | null
           preferred_session_time?: string | null
           preferred_wave_size?: string | null
@@ -3637,6 +3640,7 @@ export type Database = {
           timezone?: string | null
           trust_score?: number
           updated_at?: string | null
+          xp_total?: number | null
         }
         Update: {
           activity_level?: string | null
@@ -3677,6 +3681,7 @@ export type Database = {
           phone_number?: string | null
           posting_window?: Json | null
           preferences_v2_shown_at?: string | null
+          level_title?: string | null
           preferred_break_type?: string | null
           preferred_session_time?: string | null
           preferred_wave_size?: string | null
@@ -3687,6 +3692,7 @@ export type Database = {
           timezone?: string | null
           trust_score?: number
           updated_at?: string | null
+          xp_total?: number | null
         }
         Relationships: [
           {
@@ -4650,6 +4656,7 @@ export type Database = {
           invitee_ids: string[] | null
           is_public: boolean | null
           likes_count: number | null
+          muted: boolean | null
           notes: string | null
           parking_ease: number | null
           rating: number | null
@@ -4685,6 +4692,7 @@ export type Database = {
           invitee_ids?: string[] | null
           is_public?: boolean | null
           likes_count?: number | null
+          muted?: boolean | null
           notes?: string | null
           parking_ease?: number | null
           rating?: number | null
@@ -4720,6 +4728,7 @@ export type Database = {
           invitee_ids?: string[] | null
           is_public?: boolean | null
           likes_count?: number | null
+          muted?: boolean | null
           notes?: string | null
           parking_ease?: number | null
           rating?: number | null
