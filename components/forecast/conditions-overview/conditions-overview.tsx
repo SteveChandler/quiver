@@ -92,8 +92,8 @@ export function ConditionsOverview({
       {/* Other good days + chart - gated for public */}
       {publicMode ? (
         <PublicContentGate
-          ctaTitle="Unlock the Full 12-Day Outlook"
-          ctaDescription="Sign up to see all surf conditions and plan your week"
+          ctaTitle="See all 12 days of surf conditions"
+          ctaDescription="Sign up free to plan your best sessions"
           blurLevel="md"
           source="conditions-overview-gate"
         >

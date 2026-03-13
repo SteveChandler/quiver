@@ -607,8 +607,8 @@ export function BeachesEnhancedForecast({
               </div>
 
               <PublicContentGate
-                ctaTitle="Sign up free to unlock the full forecast"
-                ctaDescription="See the full 10-day forecast, tides, and detailed data transparency for every window."
+                ctaTitle="See the full 7-day forecast"
+                ctaDescription="Create a free account to view detailed surf forecasts and conditions"
                 blurLevel="md"
                 source="forecast-page"
                 className="min-h-[520px]"
@@ -775,8 +775,8 @@ export function BeachesEnhancedForecast({
 
                 {/* Gated detailed content */}
                 <PublicContentGate
-                  ctaTitle="Sign up free to see 10-day forecast"
-                  ctaDescription="Get detailed wave heights, wind conditions, tides, and confidence ratings for the next 10 days"
+                  ctaTitle="Unlock the extended 10-day outlook"
+                  ctaDescription="Sign up to plan your week with the full forecast"
                   blurLevel="md"
                   source="forecast-page"
                   className="min-h-[400px]"
