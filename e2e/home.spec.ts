@@ -582,7 +582,7 @@ test.describe('Home Page - Activation', () => {
         recommendations: [
           {
             beach: {
-              id: "test-beach-001",
+              id: "00000000-0000-4000-a000-000000000001",
               name: "Test Beach",
               slug: "test-beach",
               city: "San Diego",
@@ -603,7 +603,7 @@ test.describe('Home Page - Activation', () => {
             },
             forecast: {
               id: "test-forecast-001",
-              beach_id: "test-beach-001",
+              beach_id: "00000000-0000-4000-a000-000000000001",
               forecast_date: new Date().toISOString().split("T")[0],
               forecast_time: "12:00",
               wave_height: "3.3",
@@ -837,7 +837,7 @@ test.describe('Home Page - Activation', () => {
             data: {
               id: "test-user",
               full_name: "Test User",
-              home_beach_id: "test-beach-001",
+              home_beach_id: "00000000-0000-4000-a000-000000000001",
               notif_push_enabled: false,
               notif_forecast_alerts: false,
             },
