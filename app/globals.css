@@ -78,10 +78,6 @@
     color: rgba(255, 255, 255, 0.7);
   }
 
-  .bg-warm-section {
-    background-color: #FAF8F5;
-  }
-
   /* === NEON GLOW: 4-layer progressive blur === */
   .glow-orange {
     box-shadow:
@@ -563,6 +559,7 @@ body.js-loaded .ssr-beach-section {
 /* Sky text → brighter blue */
 .theme-retro-dark .text-sky-600 { color: #38BDF8 !important; }
 .theme-retro-dark .text-sky-500 { color: #38BDF8 !important; }
+.theme-retro-dark .text-sky-700 { color: #38BDF8 !important; }
 .theme-retro-dark .border-l-sky-500 { border-left-color: #38BDF8 !important; }
 .theme-retro-dark .border-sky-200 { border-color: #404C92 !important; }
 

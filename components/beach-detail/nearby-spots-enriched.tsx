@@ -56,15 +56,15 @@ export function NearbyBeachesEnriched({
       : "/map";
 
   return (
-    <div className="-mx-4 px-4 py-8 bg-warm-section">
+    <div className="-mx-4 px-4 py-8 bg-[#2D357D]/40">
       <section ref={sectionRef} className={className}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">
+          <h2 className="text-xl font-semibold text-white/90">
             Nearby Surf Spots
           </h2>
           <Link
             href={mapLink}
-            className="text-sm font-medium text-sky-600 hover:text-sky-700 transition-colors"
+            className="text-sm font-medium text-sky-400 hover:text-sky-300 transition-colors"
           >
             Explore all nearby spots
           </Link>
