@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Analytics: `signup_cta_view` event now deduplicates per source per page session via a module-level `Set` in `signup-conversion-tracking.ts` — eliminates ~27x inflation for the `cam-hero` source caused by component remount cycles
 - Analytics: `isBot()` now treats missing/empty user-agents as bots (changed from `false` to `true`), improving bot filtering at the `/api/events` endpoint
+- Bot detection: added viewport-based fingerprint detection (`isSuspiciousFingerprint`) targeting Windows+Chrome+1280px bot pattern that bypasses UA-based filtering
+- Auth: restored surf-call CTA gate for anonymous users — best surf window is now behind `PublicContentGate` with "See today's surf call for [Beach Name]" copy
+- Auth: hidden Apple Sign-In button when `NEXT_PUBLIC_APPLE_CLIENT_ID` is not configured (prevents broken button UX)
+- Auth: email confirmation redirect now preserves beach page context instead of hardcoded `/?signup=confirm-email`
+- Analytics: auth funnel events (`auth_modal_opened`, `auth_method_selected`, `signup_started`, `signup_success`, `login_success`) now dual-fire to both GA4 and internal `user_events` table for dashboard measurement
 
 ### Added
 - Report Conditions feature: replaces "Log Session" CTA with inline "Report Conditions" card on beach detail pages — users select wave size (1-2ft through 5+ft) and vibe (Firing/Fun/Meh/Rough) with an optional note; submission creates an `intel_posts` record (with new `wave_size_range` + `vibe` columns) and a minimal `sessions` record (`source: 'conditions_report'`) for ML training; deduplicates to one report per user per beach per calendar day
