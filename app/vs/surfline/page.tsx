@@ -34,7 +34,7 @@ export const revalidate = 86400;
 // ---------------------------------------------------------------------------
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Quiver vs Surfline: Free Surf Forecasts That Don't Gate the Stoke (2026)",
+  title: "Quiver vs Surfline: Don't Gate the Stoke (2026)",
   description:
     "Honest comparison of Quiver and Surfline in 2026. Crowd-sourced surf calls, tide charts, session logging. See where each app wins and decide for yourself.",
   path: "/vs/surfline",
