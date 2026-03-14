@@ -1,6 +1,6 @@
 "use server";
 
-import { createSupabaseServerClient as createClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient as createClient, createPublicReadClient } from "@/lib/supabase/server";
 import type { BeachReview, BeachReviewWithUser } from "@/types/database";
 import { revalidatePath } from "next/cache";
 import { withErrorHandling, handleSupabaseError } from "@/lib/action-utils";
@@ -22,7 +22,7 @@ async function trackXPOptional(action: string, entityId?: string, entityType?: s
 
 export async function getBeachReviews(beachId: string) {
   return withErrorHandling(async () => {
-    const supabase = await createClient();
+    const supabase = createPublicReadClient();
 
     const { data, error } = await supabase
       .from("beach_reviews")

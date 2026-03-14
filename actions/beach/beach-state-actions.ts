@@ -1,6 +1,6 @@
 "use server";
 
-import { withDatabaseOperation } from "@/lib/server-action-utils";
+import { withServerAction, withPublicDatabaseOperation } from "@/lib/server-action-utils";
 import type { Beach } from "@/types/database";
 import { expandPartialBeach } from "@/lib/utils/beach-defaults";
 
@@ -51,25 +51,27 @@ export async function getStateMapBeaches(params: {
 }) {
   const { stateValues, limit = 200 } = params;
 
-  return withDatabaseOperation<Beach[]>(async (supabase) => {
-    if (!Array.isArray(stateValues) || stateValues.length === 0) {
-      return { data: [], error: null };
-    }
+  return withServerAction(() =>
+    withPublicDatabaseOperation<Beach[]>(async (supabase) => {
+      if (!Array.isArray(stateValues) || stateValues.length === 0) {
+        return [];
+      }
 
-    const { data, error } = await supabase
-      .from("beaches")
-      .select(STATE_MAP_BEACH_FIELDS)
-      .in("state", stateValues)
-      .or("country.is.null,country.eq.USA,country.eq.US,country.eq.usa,country.eq.us")
-      .not("lat", "is", null)
-      .not("lon", "is", null)
-      .order("name")
-      .limit(limit);
+      const { data, error } = await supabase
+        .from("beaches")
+        .select(STATE_MAP_BEACH_FIELDS)
+        .in("state", stateValues)
+        .or("country.is.null,country.eq.USA,country.eq.US,country.eq.usa,country.eq.us")
+        .not("lat", "is", null)
+        .not("lon", "is", null)
+        .order("name")
+        .limit(limit);
 
-    if (error) throw error;
-    const rows = (data ?? []) as StateMapBeachRow[];
-    return { data: rows.map(toFullBeach), error: null };
-  });
+      if (error) throw error;
+      const rows = (data ?? []) as StateMapBeachRow[];
+      return rows.map(toFullBeach);
+    })
+  );
 }
 
 

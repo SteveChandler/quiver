@@ -25,6 +25,11 @@ import {
 } from '../utils/email-token-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from '../utils/error-detection';
 
+const isRemoteEnvironment =
+  process.env.BASE_URL?.includes('dev.quiversurf.app') ||
+  process.env.BASE_URL?.includes('quiversurf.app') ||
+  process.env.TEST_ENV === 'dev';
+
 /**
  * Check if the session log route is available
  * (requires dev server running from this worktree)
@@ -88,10 +93,13 @@ test.describe('Session Logging', () => {
     errorCapture = setupErrorDetection(page);
     expectedErrorStatuses = [];
     test.skip(!isEmailTokenTestingAvailable(), 'Requires email token secret');
+    // Session logging tokens are signed with the local EMAIL_TOKEN_SECRET which
+    // will not match the remote server's secret on dev/production.
+    test.skip(!!isRemoteEnvironment, 'Session logging requires local dev server (token secret mismatch on remote)');
 
     // Check if the route is available (dev server must be running from this worktree)
     const routeAvailable = await isSessionLogRouteAvailable(page);
-    test.skip(!routeAvailable, 'Requires email token secret');
+    test.skip(!routeAvailable, 'Session log route not available');
   });
 
   test.afterEach(async ({ page }) => {

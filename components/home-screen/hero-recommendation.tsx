@@ -13,7 +13,7 @@ import {
   getScoreColorClass,
   getConditionBadge,
   buildHeadlineText,
-  isTomorrowInTimezone,
+  isFutureDayInTimezone,
   isEveningInTimezone,
 } from "@/lib/utils/condition-tier-utils";
 import { HOME_HEADER_MOTION } from "@/lib/constants/animations";

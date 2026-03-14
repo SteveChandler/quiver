@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hourly Open-Meteo wind cron (`/api/cron/wind/update`) — fetches accurate wind for all 273 beaches every hour, replaces garbage CDIP wind with real forecasts
 - `wind_source` column on `enhanced_forecasts` — tracks wind data provenance (HRRR > NWS > OPEN_METEO_WIND), prevents bad data overwriting good data
 - `lib/services/open-meteo-wind-service.ts` — Open-Meteo Weather API client for hourly wind
+- SEO: above-the-fold `TideSummaryHero` and `WaterTempSummaryHero` server components on sub-pages — immediately answers the search query (tide times, water temp + wetsuit rec) before the heavy client component loads
+- SEO: hero poster `<link rel="preload">` on landing page for faster LCP
+
+### Changed
+- SEO: tide page titles reframed from "Tide Chart & Surf Windows" to "Best Tide to Surf {Beach}" — targets intent queries Google can't answer with Knowledge Panels
+- SEO: water-temp page titles reframed from "Water Temp & Wetsuit Guide" to "What Wetsuit for {Beach}?" — targets gear-planning intent
+- SEO: removed `| Quiver` suffix from tide/water-temp sub-page titles (saves 10 chars for keywords)
+- Performance: converted 20+ public pages from `force-dynamic` to ISR with `revalidate` (3600s for beach pages, 86400s for directories, 600s for forecasts) — pages now served from Vercel edge cache instead of cold server renders
+- Performance: created `createPublicReadClient` (cookie-free Supabase client) and `withPublicDatabaseOperation` to enable ISR without triggering Next.js dynamic rendering
 - Testing: comprehensive unit tests for `referral-actions.ts` — 23 tests covering `getOrCreateReferralCode`, `claimReferral` (validation, self-referral, duplicates, SQL wildcard rejection), `getReferralStats`, and `getReferralLeaderboard` (graceful degradation)
 - Operations: `get_conversion_funnel(days)` Supabase RPC function — returns 7-step signup funnel metrics (anonymous_sessions -> cta_views -> cta_clicks -> auth_modal_opens -> signup_starts -> signup_completes -> onboarding_completes) with bot-filtered counts and unique session tracking
 - Oracle skill-aware beach recommendations: scoring now considers beach skill level + current wave height together (not just wave height alone); Pipeline at 3ft → manageable for beginners, Pipeline at 15ft → heavy penalty. Hero subtitle shows skill-aware reasoning ("Conditions match your experience level today" or "Advanced spot, but today's conditions are manageable"). Nearby Spots cards show ADV badge when beach exceeds user skill and conditions are significant. Changing skill level in settings immediately invalidates discovery cache.
@@ -24,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Growth: "Share your session" wired on Oracle home screen — opens `ShareSheet` with surf call data from current recommendation
 - Growth: CTA copy optimization across 4 pages — gates now match user intent per surface ("See the full 7-day forecast", "See what your crew has been surfing", etc.)
 - Support page at `/support` — static server component with FAQ, contact email, bug report instructions, and links to Privacy Policy and Terms of Service; required for iOS App Store listing
+
+### Changed
+- Tide page sections now animate in with staggered fade-up on scroll via `SectionFadeUp` wrapper (respects `prefers-reduced-motion`)
+- Dark mode contrast: `text-sky-700` override added to retro-dark theme (`#38BDF8`), fixes ~35 near-invisible link instances across 10+ components
+- Dark mode contrast: `ContinueExploring` container and `BeachTempComparison` card/text now legible in dark theme
+- Extracted `SectionFadeUp` to `components/shared/section-fade-up.tsx` for reuse across intent pages (re-export preserves existing imports)
 
 ### Fixed
 - Oracle time slots now show accurate wind data — HRRR wind enrichment expanded from NOAA_NWS rows only to all forecast rows
@@ -52,6 +67,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Migration `20260312120000_add_conditions_report_fields.sql`: adds `wave_size_range` and `vibe` columns to `intel_posts`, `source` column to `sessions`, and a `(beach_id, created_at DESC)` index for the 24h recency query
 
 ### Fixed
+- Oracle home screen: fixed "Tomorrow's Windows" showing before noon — `resolveForecastTime` misinterpreted UTC `forecast_time` (OPEN_METEO data) as local time, shifting today's forecasts +7h past sunset filters; added UTC hour check to the three-way heuristic
+- Oracle home screen: replaced 6 `getHours()` calls (browser timezone) with `getHourInTimezone()` (beach timezone) across `oracle-home-screen.tsx` and `oracle-hero.tsx` for correct time slot rendering and greeting
+- Oracle home screen: `isTomorrow` check now uses timezone-aware `isFutureDayInTimezone()` instead of naive date comparison
+- Oracle home screen: increased Nearby Spots `maxResults` from 6 to 10 so more beaches (e.g., Ocean Beach Pier) appear
+- Added diagnostic `log.warn` in surf-discovery-orchestrator when today's window selection fails and falls back to tomorrow
+- Renamed `isTomorrowInTimezone` → `isFutureDayInTimezone` for clarity (was misleading — function checks any future day, not just tomorrow)
+- Added `getHourInTimezone` and `getMinuteInTimezone` helpers to `lib/utils/date-time.ts`
+- Fixed `@tootallnate/once` ESM resolution (3.0.1 → 2.0.0) that blocked oracle-home-screen test suite under Jest/jsdom
 - Restored `surf-call-conditions` PublicContentGate in SpotSurfReport — the only CTA converting at 2.4% was deleted Mar 11; verdict badge remains visible, conditions detail gated
 - Fixed CTA view event inflation (~27x per session) — added module-level dedup Set in `trackSignupCtaView` so IntersectionObserver-driven CTAs fire once per source per page load
 - Fixed email confirmation redirect losing user context — signup from `/ca/san-diego/blacks` now returns user to that page after email verification instead of `/`

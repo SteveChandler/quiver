@@ -7,21 +7,21 @@
  * - applyIntentFilters: skill-based vs non-skill intents
  */
 
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createPublicReadClient } from '@/lib/supabase/server';
 import {
   getBeachesByIntentAndCity,
   getBeachesByState,
 } from '@/actions/beach/beach-query-actions';
 
 jest.mock('@/lib/supabase/server');
-const mockCreate = createSupabaseServerClient as jest.Mock;
+const mockCreate = createPublicReadClient as jest.Mock;
 
 /**
  * Creates a mock Supabase client that tracks query builder method calls
  * and returns the specified data from the final awaited query.
  *
- * The supabase client itself is NOT thenable (so `await createSupabaseServerClient()`
- * resolves properly), but the query result (returned by terminal methods like .order())
+ * The supabase client itself is NOT thenable (so `createPublicReadClient()`
+ * returns synchronously), but the query result (returned by terminal methods like .order())
  * is a thenable that resolves to { data, error }.
  */
 function makeMockSupabase(data: any[] = [], error: any = null) {
@@ -66,7 +66,7 @@ function makeMockSupabase(data: any[] = [], error: any = null) {
     supabase,
   };
 
-  mockCreate.mockResolvedValue(supabase);
+  mockCreate.mockReturnValue(supabase);
   return tracker;
 }
 

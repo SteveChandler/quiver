@@ -74,6 +74,13 @@ export function resolveForecastTime(
         // forecast_at is already proper UTC (local rendering matches forecast_time)
         return forecastAtDate;
       }
+
+      // Check if forecast_time is UTC (matches forecast_at UTC hour directly)
+      const forecastAtUtcHour = forecastAtDate.getUTCHours();
+      if (forecastAtUtcHour === forecastTimeHour) {
+        // forecast_time is in UTC, and forecast_at is proper UTC — use forecast_at directly
+        return forecastAtDate;
+      }
     } catch {
       // Fall through to local interpretation
     }

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { waitForPageLoad } from './utils/test-helpers';
+import { waitForPageLoad, waitForAuthenticatedHome } from './utils/test-helpers';
 import { TIMEOUTS } from './fixtures/test-data';
 import {
   setupErrorDetection,
@@ -23,6 +23,12 @@ test.describe('Coast Pulse Intel Features', () => {
     errorCapture = setupErrorDetection(page);
     await gotoWithErrorCheck(page, errorCapture, '/');
     await waitForPageLoad(page);
+
+    const authHomeLoaded = await waitForAuthenticatedHome(page);
+    if (!authHomeLoaded) {
+      test.skip(true, 'Authenticated home screen did not render — coast-pulse requires OracleHomeScreen');
+      return;
+    }
   });
 
   test.afterEach(async ({ page }) => {

@@ -21,7 +21,7 @@ import { getAllCitiesWithBeachSkills } from "@/actions/beach/beach-location-acti
 
 // Mock the Supabase client
 jest.mock("@/lib/supabase/server", () => ({
-  createSupabaseServerClient: jest.fn().mockResolvedValue({
+  createPublicReadClient: jest.fn().mockReturnValue({
     from: jest.fn().mockReturnValue({
       select: jest.fn().mockReturnValue({
         ilike: jest.fn().mockReturnValue({

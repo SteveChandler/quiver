@@ -13,7 +13,7 @@ import {
   getConditionTier,
   getConditionBadge,
   buildHeadlineText,
-  isTomorrowInTimezone,
+  isFutureDayInTimezone,
   isEveningInTimezone,
 } from "@/lib/utils/condition-tier-utils";
 import { buildSurfCallShareUrl } from "./build-share-card-url";
@@ -85,7 +85,7 @@ export function buildSurfCallShareData(input: BuildShareDataInput): ShareData | 
 
     // Determine if tomorrow using centralized utility
     const timezone = window.timezone || beach.timezone || "America/Los_Angeles";
-    const isTomorrow = isTomorrowInTimezone(window.start, timezone);
+    const isTomorrow = isFutureDayInTimezone(window.start, timezone);
 
     // Build headline text for share description
     const isEvening = isEveningInTimezone(timezone);

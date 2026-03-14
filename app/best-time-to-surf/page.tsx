@@ -19,7 +19,7 @@ import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 86400;
 
 const SITE_ORIGIN = (
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app"

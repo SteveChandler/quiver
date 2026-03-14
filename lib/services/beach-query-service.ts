@@ -13,7 +13,7 @@
 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { ServerActionResponse } from "@/lib/server-action-utils";
-import { withDatabaseOperation } from "@/lib/server-action-utils";
+import { withServerAction, withPublicDatabaseOperation } from "@/lib/server-action-utils";
 import type { Beach } from "@/types/database";
 
 // ---------------------------------------------------------------------------
@@ -43,8 +43,8 @@ const BEACH_DETAIL_FIELDS = "*";
  * `ServerActionResponse<Beach[]>` for drop-in compatibility with existing callers.
  */
 export async function getBeachesFromDb(): Promise<ServerActionResponse<Beach[]>> {
-  return withDatabaseOperation<Beach[]>(async (supabase) => {
-    try {
+  return withServerAction(() =>
+    withPublicDatabaseOperation<Beach[]>(async (supabase) => {
       // Use selective fields instead of * to reduce data transfer
       let result: any = await supabase
         .from("beaches")
@@ -70,12 +70,13 @@ export async function getBeachesFromDb(): Promise<ServerActionResponse<Beach[]>>
         }
       }
 
-      return result;
-    } catch (err) {
-      // Normalize non-Error throws to a standard shape
-      return { data: null, error: { message: err instanceof Error ? err.message : "Unknown error" } } as any;
-    }
-  });
+      if (result.error) {
+        throw new Error(result.error.message || "Database operation failed");
+      }
+
+      return (result.data ?? []) as Beach[];
+    })
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -88,13 +89,19 @@ export async function getBeachesFromDb(): Promise<ServerActionResponse<Beach[]>>
  * Extracted from `getBeachById()` in beach-query-actions.
  */
 export async function getBeachByIdFromDb(id: string): Promise<ServerActionResponse<Beach>> {
-  return withDatabaseOperation<Beach>(async (supabase) => {
-    return supabase
-      .from("beaches")
-      .select(BEACH_DETAIL_FIELDS)
-      .eq("id", id)
-      .single();
-  });
+  return withServerAction(() =>
+    withPublicDatabaseOperation<Beach>(async (supabase) => {
+      const { data, error } = await supabase
+        .from("beaches")
+        .select(BEACH_DETAIL_FIELDS)
+        .eq("id", id)
+        .single();
+
+      if (error) throw new Error(error.message || "Database operation failed");
+      if (!data) throw new Error("No data returned from operation");
+      return data as Beach;
+    })
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -108,26 +115,26 @@ export async function getBeachByIdFromDb(id: string): Promise<ServerActionRespon
  * Excludes private beaches.
  */
 export async function getBeachesBySlugFromDb(slug: string): Promise<ServerActionResponse<Beach[]>> {
-  return withDatabaseOperation<Beach[]>(async (supabase) => {
-    const normalized = slug.trim().toLowerCase();
+  return withServerAction(() =>
+    withPublicDatabaseOperation<Beach[]>(async (supabase) => {
+      const normalized = slug.trim().toLowerCase();
 
-    if (!normalized) {
-      return { data: [], error: null };
-    }
+      if (!normalized) {
+        return [];
+      }
 
-    const { data, error } = await supabase
-      .from("beaches")
-      .select(BEACH_DETAIL_FIELDS)
-      .eq("slug", normalized)
-      .or("is_private.is.null,is_private.eq.false")
-      .order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("beaches")
+        .select(BEACH_DETAIL_FIELDS)
+        .eq("slug", normalized)
+        .or("is_private.is.null,is_private.eq.false")
+        .order("created_at", { ascending: false });
 
-    if (error) {
-      throw error;
-    }
+      if (error) throw error;
 
-    return { data: (data ?? []) as Beach[], error: null };
-  });
+      return (data ?? []) as Beach[];
+    })
+  );
 }
 
 // ---------------------------------------------------------------------------

@@ -11,6 +11,8 @@ import { TideDatasetSchema } from "@/components/seo/tide-dataset-schema";
 import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
+import { TideSummaryHero } from "@/components/beach-detail/tide-summary-hero";
+import { WaterTempSummaryHero } from "@/components/beach-detail/water-temp-summary-hero";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import type { Beach } from "@/types/database";
@@ -175,6 +177,16 @@ export async function renderBeachSubPage({
         />
       )}
 
+      {pageType === "tides" && tideMetaForSchema && (
+        <TideSummaryHero beachName={beach.name} tideData={tideMetaForSchema} />
+      )}
+      {pageType === "water-temp" && waterTempMetaForSchema && (
+        <WaterTempSummaryHero
+          beachName={beach.name}
+          waterTempData={waterTempMetaForSchema}
+        />
+      )}
+
       <BeachDetailClient
         beach={beach}
         slug={beachSlug}
@@ -249,17 +261,19 @@ export async function generateBeachSubPageMetadata({
       description = result.description;
     }
 
-    return buildPageMetadata({
+    const meta = buildPageMetadata({
       title,
       description,
       path: subPagePath,
       image: `/api/og/beach?slug=${beachSlug}`,
     });
+    return { ...meta, title: { absolute: title } };
   }
 
-  return buildPageMetadata({
+  const meta = buildPageMetadata({
     title: config.fallbackMetadata.title,
     description: config.fallbackMetadata.description,
     path: subPagePath,
   });
+  return { ...meta, title: { absolute: config.fallbackMetadata.title } };
 }

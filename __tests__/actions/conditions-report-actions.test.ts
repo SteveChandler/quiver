@@ -71,7 +71,7 @@ const mockSupabaseClient = (supabase: ReturnType<typeof createSupabaseMock>) => 
 const mockUser = { id: "user-test-123" };
 
 // Beach record returned by the beaches lookup
-const mockBeach = { lat: 32.75, lon: -117.25, name: "Ocean Beach" };
+const mockBeach = { center_lat: 32.75, center_lng: -117.25, name: "Ocean Beach" };
 
 // A completed intel_posts insert result
 const mockIntelPost = { id: "intel-post-abc" };

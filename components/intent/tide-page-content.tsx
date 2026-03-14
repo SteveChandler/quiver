@@ -13,6 +13,7 @@ import type { IntentPageContent } from "@/lib/seo/intent-content-templates";
 import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { SURF_INTENTS } from "@/lib/constants/surf-intents";
 import { ContinueExploring } from "@/components/shared/continue-exploring";
+import { SectionFadeUp } from "@/components/shared/section-fade-up";
 import { TideHeroSection } from "./tide-hero-section";
 import { TideFullChart } from "./tide-full-chart";
 import { SevenDayTideTable } from "./seven-day-tide-table";
@@ -94,96 +95,116 @@ export function TidePageContent({
         </nav>
 
         {/* Header */}
-        <header className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
-            {pageContent.heading}
-          </h1>
-          <p className="text-lg text-gray-600 mb-4">{regionLabel}</p>
+        <SectionFadeUp delay={0}>
+          <header className="mb-8">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
+              {pageContent.heading}
+            </h1>
+            <p className="text-lg text-gray-600 mb-4">{regionLabel}</p>
 
-          <div className="space-y-2 mt-6">
-            <p className="text-base text-gray-700">
-              Updated {updatedAt} · Tide data refreshes every 30 minutes from
-              NOAA stations.
-            </p>
-            <p className="text-base text-gray-700">{pageContent.intro}</p>
-          </div>
-        </header>
+            <div className="space-y-2 mt-6">
+              <p className="text-base text-gray-700">
+                Updated {updatedAt} · Tide data refreshes every 30 minutes from
+                NOAA stations.
+              </p>
+              <p className="text-base text-gray-700">{pageContent.intro}</p>
+            </div>
+          </header>
+        </SectionFadeUp>
 
         <div className="space-y-12">
           {/* Module 1: Tide Hero - current conditions */}
-          <TideHeroSection data={tideData} />
+          <SectionFadeUp delay={0.1}>
+            <TideHeroSection data={tideData} />
+          </SectionFadeUp>
 
           {/* Module 2: Interactive multi-day chart */}
-          <TideFullChart hourlyPoints={tideData.hourlyPoints} />
+          <SectionFadeUp delay={0.15}>
+            <TideFullChart hourlyPoints={tideData.hourlyPoints} />
+          </SectionFadeUp>
 
           {/* Module 3: 7-day high/low table */}
-          <SevenDayTideTable days={tideData.sevenDayExtrema} />
+          <SectionFadeUp>
+            <SevenDayTideTable days={tideData.sevenDayExtrema} />
+          </SectionFadeUp>
 
           {/* Module 4: Per-beach tide preferences */}
-          <BeachTideCards
-            beaches={tideData.beachTidePreferences}
-            citySlug={citySlug}
-            stateSlug={stateSlug}
-          />
+          <SectionFadeUp>
+            <BeachTideCards
+              beaches={tideData.beachTidePreferences}
+              citySlug={citySlug}
+              stateSlug={stateSlug}
+            />
+          </SectionFadeUp>
 
           {/* Inline Signup CTA */}
-          <InlineSignupCta
-            title={`Track Your ${cityName} Sessions`}
-            description="Log your sessions, save your favorite breaks, and get personalized spot recommendations."
-            source={`intent-tide-${citySlug}`}
-            className="my-8"
-          />
+          <SectionFadeUp>
+            <InlineSignupCta
+              title={`Track Your ${cityName} Sessions`}
+              description="Log your sessions, save your favorite breaks, and get personalized spot recommendations."
+              source={`intent-tide-${citySlug}`}
+              className="my-8"
+            />
+          </SectionFadeUp>
 
           {/* Map & Recommendations */}
           {spots.length > 0 && (
-            <section>
-              <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                Top spot recommendations
-              </h2>
-              <p className="mb-6 text-sm text-gray-600">
-                Sort your quiver, choose the right tide window, and jot down a
-                backup in case the main peak gets stacked.
-              </p>
-              <CityMapView
-                spots={spots}
-                cityName={cityName}
-                citySlug={citySlug}
-                stateSlug={stateSlug}
-                countrySlug="usa"
-              />
-            </section>
+            <SectionFadeUp>
+              <section>
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+                  Top spot recommendations
+                </h2>
+                <p className="mb-6 text-sm text-gray-600">
+                  Sort your quiver, choose the right tide window, and jot down a
+                  backup in case the main peak gets stacked.
+                </p>
+                <CityMapView
+                  spots={spots}
+                  cityName={cityName}
+                  citySlug={citySlug}
+                  stateSlug={stateSlug}
+                  countrySlug="usa"
+                />
+              </section>
+            </SectionFadeUp>
           )}
 
           {/* Editorial Focus Section */}
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-              What to focus on today
-            </h2>
-            <ul className="grid gap-3 sm:grid-cols-2">
-              {definition.focusPoints.map((point) => (
-                <li
-                  key={point}
-                  className="rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 p-4 text-sm text-gray-700 shadow-sm"
-                >
-                  {point}
-                </li>
-              ))}
-            </ul>
-          </section>
+          <SectionFadeUp>
+            <section>
+              <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+                What to focus on today
+              </h2>
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {definition.focusPoints.map((point) => (
+                  <li
+                    key={point}
+                    className="rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 p-4 text-sm text-gray-700 shadow-sm"
+                  >
+                    {point}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </SectionFadeUp>
 
           {/* Continue Exploring */}
-          <ContinueExploring
-            currentIntent="tide"
-            citySlug={citySlug}
-            cityName={cityName}
-            stateSlug={stateSlug}
-            stateName={stateName}
-            bestTimeToSurfUrl={bestTimeToSurfUrl}
-            excludeIntents={excludeIntents}
-          />
+          <SectionFadeUp>
+            <ContinueExploring
+              currentIntent="tide"
+              citySlug={citySlug}
+              cityName={cityName}
+              stateSlug={stateSlug}
+              stateName={stateName}
+              bestTimeToSurfUrl={bestTimeToSurfUrl}
+              excludeIntents={excludeIntents}
+            />
+          </SectionFadeUp>
 
           {/* FAQ Accordion */}
-          <FAQSection items={faqItems} locationName={cityName} />
+          <SectionFadeUp>
+            <FAQSection items={faqItems} locationName={cityName} />
+          </SectionFadeUp>
         </div>
       </div>
 

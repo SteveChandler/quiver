@@ -23,12 +23,16 @@
 
 import { test, expect } from "@playwright/test";
 import { waitForPageLoad, ensureAuthenticated, navigateToBeach } from "./utils/test-helpers";
-import { VIEWPORTS, TIMEOUTS, TEST_BEACHES } from "./fixtures/test-data";
+import { VIEWPORTS, TIMEOUTS, TEST_BEACHES, isDevEnvironment } from "./fixtures/test-data";
 import { isVisibleSafe } from "./utils/strict-helpers";
 import { setupPersonalizationMocks } from "./fixtures/personalization-mocks";
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 test.describe('Personalization Match Scores', () => {
+  // Skip on dev/production — personalization score tests depend on local DB
+  // with seeded session data and authenticated home page rendering badges.
+  test.skip(!!isDevEnvironment, 'Personalization tests require local DB with seeded session data');
+
   let errorCapture: ErrorCapture;
 
   test.beforeEach(async ({ page }) => {

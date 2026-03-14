@@ -2,7 +2,7 @@
 
 import { unstable_cache } from "next/cache";
 import { withDatabaseOperation } from "@/lib/server-action-utils";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createPublicReadClient } from "@/lib/supabase/server";
 import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 import {
   getBeachesFromDb,
@@ -106,7 +106,7 @@ async function _getBeachesByIntentAndCityInternal(
   citySlug: string,
   stateSlug: string
 ): Promise<Beach[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createPublicReadClient();
 
   // Start with base query for city
   let query = supabase
@@ -179,7 +179,7 @@ export async function getBeachesByIntentAndCity(
  * Internal function to fetch all beaches in a state - used by cached wrapper.
  */
 async function _getBeachesByStateInternal(stateSlug: string): Promise<Beach[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createPublicReadClient();
 
   const { data, error } = await supabase
     .from("beaches")
@@ -235,7 +235,7 @@ async function _getBeachesByIntentAndStateInternal(
   intent: string,
   stateSlug: string
 ): Promise<Beach[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createPublicReadClient();
 
   let query = supabase
     .from("beaches")

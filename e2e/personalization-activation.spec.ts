@@ -20,12 +20,15 @@
 
 import { test, expect } from "@playwright/test";
 import { waitForPageLoad, ensureAuthenticated } from "./utils/test-helpers";
-import { VIEWPORTS, TIMEOUTS } from "./fixtures/test-data";
+import { VIEWPORTS, TIMEOUTS, isDevEnvironment } from "./fixtures/test-data";
 import { setupPersonalizationMocks } from "./fixtures/personalization-mocks";
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 import { isVisibleSafe } from './utils/strict-helpers';
 
 test.describe("Personalization Activation - Favorites", () => {
+  // Skip on dev/production — requires local DB with seeded session data
+  test.skip(!!isDevEnvironment, 'Personalization tests require local DB with seeded session data');
+
   let errorCapture: ErrorCapture;
 
   test.beforeEach(async ({ page }) => {
@@ -149,6 +152,9 @@ test.describe("Personalization Activation - Favorites", () => {
 });
 
 test.describe("Personalization Activation - Surf Style Profile Card", () => {
+  // Skip on dev/production — requires local DB with seeded session data
+  test.skip(!!isDevEnvironment, 'Personalization tests require local DB with seeded session data');
+
   let errorCapture: ErrorCapture;
 
   test.beforeEach(async ({ page }) => {
@@ -445,6 +451,9 @@ test.describe("Personalization Activation - Unauthenticated User Degradation", (
 });
 
 test.describe("Personalization Activation - Analytics Events", () => {
+  // Skip on dev/production — requires local DB with seeded session data
+  test.skip(!!isDevEnvironment, 'Personalization tests require local DB with seeded session data');
+
   let errorCapture: ErrorCapture;
 
   test.beforeEach(async ({ page }) => {
@@ -504,6 +513,9 @@ test.describe("Personalization Activation - Analytics Events", () => {
 });
 
 test.describe("Personalization Activation - Responsive Design", () => {
+  // Skip on dev/production — requires local DB with seeded session data
+  test.skip(!!isDevEnvironment, 'Personalization tests require local DB with seeded session data');
+
   let errorCapture: ErrorCapture;
 
   test.beforeEach(async ({ page }) => {

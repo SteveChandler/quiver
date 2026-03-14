@@ -23,7 +23,7 @@ import {
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 interface PageProps {
   params: Promise<{ region: string }>;

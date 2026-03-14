@@ -47,8 +47,8 @@ export function ContinueExploring({
   );
 
   return (
-    <aside className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border border-blue-200/50 shadow-lg p-5">
-      <h2 className="text-lg font-semibold text-gray-800 mb-3">
+    <aside className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 dark:from-white/5 dark:to-blue-900/10 border border-blue-200/50 shadow-lg p-5">
+      <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">
         Continue exploring
       </h2>
       <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-sm text-sky-700">

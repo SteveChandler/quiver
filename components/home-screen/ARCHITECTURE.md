@@ -284,7 +284,7 @@ import {
   getScoreColorClass,
   getConditionBadge,
   buildHeadlineText,
-  isTomorrowInTimezone,
+  isFutureDayInTimezone,
 } from "@/lib/utils/condition-tier-utils";
 
 // Get tier from score

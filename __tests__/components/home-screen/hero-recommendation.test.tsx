@@ -56,7 +56,7 @@ jest.mock("@/lib/utils/condition-tier-utils", () => ({
     beachPart: name,
     connector: "—",
   })),
-  isTomorrowInTimezone: jest.fn(() => false),
+  isFutureDayInTimezone: jest.fn(() => false),
   isEveningInTimezone: jest.fn(() => false),
 }));
 

@@ -31,12 +31,15 @@ import { getSpotSurfReport } from "@/actions/spot/spot-surf-report-actions";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { getBeachReviews } from "@/actions/beach-review-actions";
 import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createPublicReadClient } from "@/lib/supabase/server";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { HowToSurfSchema } from "@/components/seo/how-to-surf-schema";
 
-// Force dynamic rendering - this page accesses cookies via Supabase client
-export const dynamic = "force-dynamic";
+// NOTE: ISR is partially effective here — getSpotSurfReport() still calls
+// cookies() for auth-aware scoring, which opts into dynamic rendering.
+// Sub-pages (tides, water-temp) and other page types fully benefit from ISR.
+// TODO: Move surf report to client-side fetch to unlock full ISR on this page.
+export const revalidate = 3600;
 
 const getCachedBeachCandidates = cache(async (slug: string) => {
   const { getBeachesBySlug } = await import("@/actions/beach/beach-query-actions");
@@ -118,7 +121,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
         : Promise.resolve(undefined),
       (async () => {
         try {
-          const supabase = await createSupabaseServerClient();
+          const supabase = createPublicReadClient();
           const { data } = await supabase
             .from("mv_beach_amenities")
             .select("*")
@@ -132,7 +135,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       })(),
       (async () => {
         try {
-          const supabase = await createSupabaseServerClient();
+          const supabase = createPublicReadClient();
           const { data } = await supabase
             .from("beach_water_quality")
             .select("*")
@@ -417,5 +420,4 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
   };
 }
 
-// NOTE: generateStaticParams removed - this page uses force-dynamic due to cookie access.
-// Pages are rendered on-demand with ISR caching via Next.js defaults.
+// NOTE: generateStaticParams not used — pages are rendered on-demand with ISR (revalidate = 3600).

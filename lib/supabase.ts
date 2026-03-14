@@ -165,6 +165,33 @@ export const createServerClient = async () => {
   });
 };
 
+/**
+ * Create a cookie-free public read client using the anon key.
+ *
+ * Purpose: Pages that use ISR (revalidate) cannot call cookies() from next/headers,
+ * because doing so opts them into dynamic rendering. This client uses the anon key
+ * without any cookie or session handling, making it safe to use in ISR page components.
+ *
+ * Important:
+ * - Use only for public read-only queries (no authenticated operations).
+ * - Do NOT use createNoStoreFetch here — ISR relies on Next.js caching fetch requests.
+ * - A fresh client is created per call (no singleton) — anon key clients are stateless.
+ */
+export const createPublicReadClient = () => {
+  const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+  const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error(
+      "Supabase configuration missing. Check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables."
+    );
+  }
+
+  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+};
+
 // Singleton: service-role clients are stateless (no user session, persistSession: false,
 // autoRefreshToken: false) — safe to reuse across requests. PostgREST query builders
 // are independent per .from() call. This prevents ~400 never-disposed clients per E2E run.

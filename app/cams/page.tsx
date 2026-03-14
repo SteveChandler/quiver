@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 86400;
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";

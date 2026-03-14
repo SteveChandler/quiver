@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { SwellLines } from "./swell-lines";
 import { WindIndicator } from "./wind-indicator";
 import { ConditionsOverlay } from "./conditions-overlay";
+import { getHourInTimezone } from "@/lib/utils/date-time";
 
 export interface OracleHeroProps {
   beachName: string;
@@ -27,6 +28,7 @@ export interface OracleHeroProps {
   userName?: string | null;
   levelTitle?: string | null;
   xpTotal?: number | null;
+  timezone?: string;
 }
 
 // Animated wave height: count up from "0" to the actual numeric prefix.
@@ -113,6 +115,7 @@ export function OracleHero({
   userName,
   levelTitle,
   xpTotal,
+  timezone,
 }: OracleHeroProps) {
   const animatedWaveHeight = useWaveHeightAnimation(waveHeight, shouldAnimate);
 
@@ -126,7 +129,7 @@ export function OracleHero({
   const hasGreeting = userName || levelTitle || xpTotal != null;
 
   const greeting = (() => {
-    const hour = new Date().getHours();
+    const hour = getHourInTimezone(new Date(), timezone || "America/Los_Angeles");
     if (hour < 12) return "Good morning";
     if (hour < 17) return "Good afternoon";
     return "Good evening";

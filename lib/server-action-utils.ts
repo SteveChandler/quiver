@@ -2,10 +2,12 @@
 // restrictions that require every export to be an async function. Individual
 // server actions and returned functions include "use server" where required.
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createPublicReadClient } from "@/lib/supabase/server";
 import type { SupabaseServerClient } from "@/types/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { User } from "@supabase/supabase-js";
 import { z } from "zod";
+import type { Database } from "@/types/database.generated";
 
 // Standard server action response type
 export interface ServerActionResponse<T = any> {
@@ -235,6 +237,32 @@ export async function withDatabaseOperation<T>(
 
     return data as T;
   });
+}
+
+/**
+ * Public (cookie-free) database operation for ISR-compatible pages.
+ *
+ * Unlike withDatabaseOperation, this never calls cookies() from next/headers.
+ * Use this in Server Components or data-fetching functions that run under ISR
+ * (i.e. with a `revalidate` export) where dynamic rendering must be avoided.
+ *
+ * Constraints:
+ * - Queries run as the anon role and are subject to RLS policies.
+ * - Do NOT use for authenticated or write operations.
+ * - Errors are re-thrown (no ServerActionResponse envelope) so the caller can
+ *   handle them at the page level (e.g. notFound(), redirect()).
+ */
+export async function withPublicDatabaseOperation<T>(
+  operation: (supabase: SupabaseClient<Database>) => Promise<T>,
+  errorMessage: string = "Database operation failed"
+): Promise<T> {
+  try {
+    const supabase = createPublicReadClient();
+    return await operation(supabase);
+  } catch (error) {
+    console.error(`${errorMessage}:`, error);
+    throw error;
+  }
 }
 
 // Common database queries
