@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Waves } from "lucide-react";
 import { usePathname } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import {
@@ -94,6 +95,11 @@ export function PublicContentGate({
     });
   };
 
+  const prefersReduced = useReducedMotion();
+
+  // Entrance choreography easing — exponential ease-out
+  const easeOutQuart: [number, number, number, number] = [0.25, 1, 0.5, 1];
+
   // Public user: show blurred content with CTA overlay
   return (
     <div className={`relative ${className}`}>
@@ -109,27 +115,86 @@ export function PublicContentGate({
       {/* CTA Overlay — natural content break, not a paywall card */}
       <div className="absolute inset-0 flex items-end justify-center p-4 pb-8 bg-gradient-to-t from-[#252D6B] via-[#252D6B]/80 to-transparent">
         <div className="max-w-sm w-full space-y-4 text-center">
-          <div className="flex justify-center">
-            <Waves className="h-6 w-6 text-[#F78E42]" />
-          </div>
+          {/* Waves icon — fade in + gentle rocking */}
+          <motion.div
+            className="flex justify-center"
+            initial={prefersReduced ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.2, ease: easeOutQuart }}
+          >
+            <motion.div
+              animate={
+                prefersReduced
+                  ? {}
+                  : { rotate: [-5, 5, -5] }
+              }
+              transition={
+                prefersReduced
+                  ? {}
+                  : {
+                      duration: 3,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }
+              }
+            >
+              <Waves className="h-6 w-6 text-[#F78E42]" />
+            </motion.div>
+          </motion.div>
 
-          <div>
+          {/* Title + description — slide up with stagger */}
+          <motion.div
+            initial={prefersReduced ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              duration: 0.3,
+              delay: prefersReduced ? 0 : 0.1,
+              ease: easeOutQuart,
+            }}
+          >
             <h3 className="text-lg font-heading font-bold text-white mb-1">
               {ctaTitle}
             </h3>
             {ctaDescription && (
-              <p className="text-sm text-[#9AABC6]">{ctaDescription}</p>
+              <motion.p
+                className="text-sm text-[#9AABC6]"
+                initial={prefersReduced ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{
+                  duration: 0.25,
+                  delay: prefersReduced ? 0 : 0.2,
+                  ease: easeOutQuart,
+                }}
+              >
+                {ctaDescription}
+              </motion.p>
             )}
-          </div>
+          </motion.div>
 
-          <div className="space-y-2">
-            <Button
-              onClick={handleSignUpClick}
-              size="lg"
-              className="w-full bg-[#F78E42] hover:bg-[#D57835] text-white font-heading font-semibold"
+          {/* CTA buttons — scale in with glow */}
+          <motion.div
+            className="space-y-2"
+            initial={prefersReduced ? false : { opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{
+              duration: 0.35,
+              delay: prefersReduced ? 0 : 0.3,
+              ease: easeOutQuart,
+            }}
+          >
+            <motion.div
+              whileHover={prefersReduced ? {} : { scale: 1.03 }}
+              whileTap={prefersReduced ? {} : { scale: 0.97 }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
             >
-              {ctaButtonText}
-            </Button>
+              <Button
+                onClick={handleSignUpClick}
+                size="lg"
+                className="w-full bg-[#F78E42] hover:bg-[#D57835] hover:shadow-[0_0_20px_rgba(247,142,66,0.3)] text-white font-heading font-semibold transition-shadow"
+              >
+                {ctaButtonText}
+              </Button>
+            </motion.div>
             <button
               type="button"
               onClick={handleSignInClick}
@@ -137,7 +202,7 @@ export function PublicContentGate({
             >
               Already have an account? Log in
             </button>
-          </div>
+          </motion.div>
         </div>
       </div>
 

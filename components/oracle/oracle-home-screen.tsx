@@ -53,7 +53,7 @@ function parseNumeric(value: string | null | undefined, fallback = 0): number {
 function formatWindowTime(date: Date, timezone: string): string {
   const hours = getHourInTimezone(date, timezone);
   const minutes = getMinuteInTimezone(date, timezone);
-  const period = hours < 12 ? "am" : "pm";
+  const period = hours < 12 ? "a" : "p";
   const displayHour = hours % 12 === 0 ? 12 : hours % 12;
   const displayMinutes = minutes === 0 ? "" : `:${String(minutes).padStart(2, "0")}`;
   return `${displayHour}${displayMinutes}${period}`;
@@ -545,7 +545,9 @@ export function OracleHomeScreen() {
             loading={oracle.discoveryLoading}
           />
 
-          <ActivityFeed items={activityItems} />
+          {activityItems.length > 0 && (
+            <ActivityFeed items={activityItems} />
+          )}
         </div>
       </div>
 

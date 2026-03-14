@@ -466,10 +466,26 @@ export function ForecastTab({
                 surfCallIsTomorrow={surfCallIsTomorrow}
               />
             );
+
+            // Build dynamic teaser from surf call data
+            const gateDescription = (() => {
+              if (!surfCall?.bestWindowStart) {
+                return "We score every hour by tide, wind, and swell -- sign up to see today's optimal window";
+              }
+              const formatTeaser = (t: string) => {
+                try {
+                  return new Date(`2000-01-01T${t}`).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+                } catch { return t; }
+              };
+              const start = formatTeaser(surfCall.bestWindowStart);
+              const waveInfo = surfCall.waveHeight ? ` at ${surfCall.waveHeight}` : "";
+              return `Best window starts at ${start}${waveInfo} -- sign up to see the full breakdown`;
+            })();
+
             return publicMode ? (
               <PublicContentGate
-                ctaTitle={`Best Window at ${beach.name} Today`}
-                ctaDescription="We score every hour by tide, wind, and swell — sign up to see today's optimal window at a glance"
+                ctaTitle={`See today's surf call for ${beach.name}`}
+                ctaDescription={gateDescription}
                 ctaButtonText="See Today's Best Window"
                 blurLevel="md"
                 source="best-window-gate"

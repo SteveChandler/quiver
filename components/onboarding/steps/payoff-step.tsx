@@ -18,21 +18,35 @@ import { LEVEL_THRESHOLDS } from '@/lib/gamification/constants';
 import type { Profile } from '@/types/database';
 import type { ClientBeachDailyIntel } from '@/lib/data/client';
 
-// Animated score counter — displays a spring-animated number
+// Animated score counter — displays a spring-animated number with scale pop on finish
 function AnimatedScore({ target }: { target: number }) {
   const motionValue = useMotionValue(0);
   const springValue = useSpring(motionValue, { stiffness: 80, damping: 20 });
   const [display, setDisplay] = useState(0);
+  const [finished, setFinished] = useState(false);
 
   useEffect(() => {
     motionValue.set(target);
+    setFinished(false);
     const unsubscribe = springValue.on('change', (v) => {
-      setDisplay(Math.round(v));
+      const rounded = Math.round(v);
+      setDisplay(rounded);
+      // Detect when spring animation has settled at target
+      if (rounded === target && Math.abs(v - target) < 0.5) {
+        setFinished(true);
+      }
     });
     return unsubscribe;
   }, [target, motionValue, springValue]);
 
-  return <span>{display}</span>;
+  return (
+    <motion.span
+      animate={finished ? { scale: [1, 1.15, 1] } : { scale: 1 }}
+      transition={{ duration: 0.25, ease: [0.25, 1, 0.5, 1] }}
+    >
+      {display}
+    </motion.span>
+  );
 }
 
 export function PayoffStep() {
@@ -182,8 +196,17 @@ export function PayoffStep() {
     // Dispatch completion event
     window.dispatchEvent(new CustomEvent('onboarding_completed'));
 
-    // Navigate to home with forecast tab
-    router.push('/?tab=forecast');
+    // Redirect to home beach page if we have enough data to build a URL,
+    // otherwise fall back to the home screen forecast tab.
+    const slug = data.homeBeachSlug;
+    const city = data.homeBeachCity?.toLowerCase().replace(/\s+/g, '-');
+    const state = data.homeBeachState?.toLowerCase();
+
+    if (slug && city && state) {
+      router.push(`/${state}/${city}/${slug}`);
+    } else {
+      router.push('/?tab=forecast');
+    }
     router.refresh();
 
     toast.success('Welcome to Quiver!');
@@ -332,8 +355,17 @@ export function PayoffStep() {
               }
               className="space-y-4"
             >
-              {/* XP Badge */}
-              <div className="bg-white/10 border border-white/20 rounded-lg p-3 flex items-center gap-3">
+              {/* XP Badge — sticker slap entrance with slight rotation */}
+              <motion.div
+                initial={reducedMotion ? false : { opacity: 0, y: 12, rotate: -2 }}
+                animate={{ opacity: 1, y: 0, rotate: 0 }}
+                transition={
+                  reducedMotion
+                    ? { duration: 0 }
+                    : { type: 'spring', stiffness: 300, damping: 18 }
+                }
+                className="bg-white/10 border border-white/20 rounded-lg p-3 flex items-center gap-3"
+              >
                 <Sparkles className="h-5 w-5 text-[#F78E42]" />
                 <div>
                   <p className="font-bold text-sm text-white">
@@ -343,16 +375,16 @@ export function PayoffStep() {
                     Welcome to the surf community
                   </p>
                 </div>
-              </div>
+              </motion.div>
 
-              {/* CTA Button */}
+              {/* CTA Button — with pulse glow animation */}
               <motion.button
                 onClick={handleFinish}
                 disabled={isSaving}
                 initial={reducedMotion ? false : { opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: reducedMotion ? 0 : 0.2, duration: 0.3 }}
-                className="w-full py-3.5 rounded-lg bg-gradient-to-r from-[#F78E42] to-[#D57835] text-white font-semibold text-sm disabled:opacity-50 transition-opacity"
+                className="payoff-cta-glow w-full py-3.5 rounded-lg bg-gradient-to-r from-[#F78E42] to-[#D57835] text-white font-semibold text-sm disabled:opacity-50 transition-opacity"
                 data-testid="complete-onboarding-button"
               >
                 {isSaving ? (
@@ -364,6 +396,26 @@ export function PayoffStep() {
                   'See your full forecast \u2192'
                 )}
               </motion.button>
+
+              {/* CSS pulse glow for CTA — lightweight, no JS overhead */}
+              <style jsx>{`
+                .payoff-cta-glow {
+                  animation: ctaPulseGlow 2s ease-in-out infinite;
+                }
+                @keyframes ctaPulseGlow {
+                  0%, 100% {
+                    box-shadow: 0 0 0 0 rgba(247, 142, 66, 0);
+                  }
+                  50% {
+                    box-shadow: 0 0 16px 4px rgba(247, 142, 66, 0.25);
+                  }
+                }
+                @media (prefers-reduced-motion: reduce) {
+                  .payoff-cta-glow {
+                    animation: none !important;
+                  }
+                }
+              `}</style>
             </motion.div>
           )}
         </>

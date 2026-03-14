@@ -36,6 +36,12 @@ export function RecentSessionsSection({
   const previewSessions = publicMode ? sessions.slice(0, previewCount) : sessions;
   const hasMore = publicMode && sessions.length > previewCount;
 
+  // Hide entire section when empty — showing "No sessions logged yet" to new
+  // users signals an inactive community and increases churn.
+  if (!loading && sessions.length === 0) {
+    return null;
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -46,14 +52,6 @@ export function RecentSessionsSection({
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading sessions...
           </div>
-        )}
-
-        {!loading && sessions.length === 0 && (
-          <GradientEmptyState
-            icon={Waves}
-            title="No sessions logged yet"
-            description="Surfed here? Log your session to share conditions with the community."
-          />
         )}
 
         {publicMode && previewSessions.length > 0 ? (

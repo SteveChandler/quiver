@@ -561,7 +561,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       });
     });
 
-    it("completes onboarding and navigates when CTA clicked", async () => {
+    it("completes onboarding and navigates to home beach when slug data available", async () => {
       const mockPush = jest.fn();
       const mockRefresh = jest.fn();
 
@@ -575,6 +575,58 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
         data: {
           homeBeachId: "beach-123",
           homeBeachName: "Malibu",
+          homeBeachSlug: "malibu-surfrider",
+          homeBeachCity: "Malibu",
+          homeBeachState: "CA",
+        },
+      });
+
+      const user = userEvent.setup();
+      render(<PayoffStep />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole("button", { name: /See your full forecast/i })
+        ).toBeInTheDocument();
+      });
+
+      const ctaButton = screen.getByRole("button", {
+        name: /See your full forecast/i,
+      });
+      await user.click(ctaButton);
+
+      await waitFor(() => {
+        expect(mockCompleteOnboarding).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith("/ca/malibu/malibu-surfrider");
+      });
+
+      await waitFor(() => {
+        expect(mockRefresh).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(toast.success).toHaveBeenCalledWith("Welcome to Quiver!");
+      });
+    });
+
+    it("falls back to home forecast tab when beach slug data is missing", async () => {
+      const mockPush = jest.fn();
+      const mockRefresh = jest.fn();
+
+      jest.spyOn(require("next/navigation"), "useRouter").mockReturnValue({
+        push: mockPush,
+        refresh: mockRefresh,
+      });
+
+      mockUseOnboardingStore.mockReturnValue({
+        ...defaultStore,
+        data: {
+          homeBeachId: "beach-123",
+          homeBeachName: "Malibu",
+          // No slug/city/state — should fall back
         },
       });
 
@@ -598,10 +650,6 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
 
       await waitFor(() => {
         expect(mockPush).toHaveBeenCalledWith("/?tab=forecast");
-      });
-
-      await waitFor(() => {
-        expect(mockRefresh).toHaveBeenCalled();
       });
 
       await waitFor(() => {

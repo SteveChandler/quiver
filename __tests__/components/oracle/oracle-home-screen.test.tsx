@@ -67,7 +67,6 @@ jest.mock("framer-motion", () => {
     AnimatePresence: ({ children }: { children: React.ReactNode }) => (
       <>{children}</>
     ),
-    useReducedMotion: jest.fn(() => false),
   };
 });
 
@@ -294,9 +293,10 @@ describe("OracleHomeScreen", () => {
     expect(screen.getByText("Nearby Spots")).toBeInTheDocument();
   });
 
-  it("renders Activity section", () => {
+  it("hides Activity section when no activity items exist", () => {
     render(<OracleHomeScreen />);
-    expect(screen.getByText("Activity")).toBeInTheDocument();
+    // ActivityFeed is hidden when empty to avoid isolation signals
+    expect(screen.queryByText("Activity")).not.toBeInTheDocument();
   });
 
   it("shows session time selector when preferred_session_time is not set", () => {
@@ -396,11 +396,12 @@ describe("OracleHomeScreen", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("3-4ft");
   });
 
-  it("renders activity empty state when no activity items exist", () => {
+  it("hides activity feed when no activity items exist", () => {
     // activityRaw will be [] (mocked getLocalActivity returns [])
     render(<OracleHomeScreen />);
-    // ActivityFeed empty state text
-    expect(screen.getByText("Your local lineup is quiet")).toBeInTheDocument();
+    // ActivityFeed should be hidden when empty — no isolation signals
+    expect(screen.queryByText("Your local lineup is quiet")).not.toBeInTheDocument();
+    expect(screen.queryByText("Activity")).not.toBeInTheDocument();
   });
 
   it("renders BottomNav", () => {

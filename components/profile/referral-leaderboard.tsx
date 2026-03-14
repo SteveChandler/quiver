@@ -154,6 +154,13 @@ export function ReferralLeaderboard({ onInvite }: ReferralLeaderboardProps) {
   const hasLeaderboardData =
     leaderboard && Array.isArray(leaderboard) && leaderboard.length > 0;
 
+  // Hide entire section when empty — showing "0 referrals" and an empty
+  // leaderboard signals isolation, not community. Only render when the user
+  // or someone on the platform has referral activity to display.
+  if (!hasLeaderboardData && myStats.total_referrals === 0) {
+    return null;
+  }
+
   // Find current user's rank in the leaderboard
   const myRank = hasLeaderboardData
     ? leaderboard.find(

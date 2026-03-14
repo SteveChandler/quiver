@@ -7,17 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-- Oracle: window selector night guard — tide-driven boundaries that shifted start time to nighttime hours (e.g. 1am) are now re-validated and rejected, preventing "BEST TIME 1a" recommendations
-- Oracle: time format now shows "am"/"pm" instead of "a"/"p" (e.g. "5:45am" not "5:45a")
+### Added
+- Activation: post-signup redirect to home beach page — after onboarding, users land on their home beach's forecast page (`/ca/san-diego/ocean-beach`) instead of the generic home feed, reducing time-to-value
+- Activation: dynamic teaser copy on surf-call gate CTA — anonymous users see actual best-window time and wave height from forecast data (e.g., "Best window starts at 7:00 AM at 4.2ft"), creating urgency to sign up
+- Polish: entrance choreography on PublicContentGate (signup CTA) — staggered fade-in of waves icon, title, description, and CTA button with hover/press feedback and gentle icon rocking animation
+- Polish: payoff step enhancements — CTA button pulse glow, score counter scale pop on finish, XP badge sticker-slap entrance with rotation
+- Polish: scroll-triggered animations on /vs/surfline comparison page — fade-in sections, sticker badge scale-in, price count-up from $0 to $99.99, and pulsing ring on Quiver's $0 card; uses CSS transitions + Intersection Observer (no framer-motion) for minimal bundle impact
+- All new animations respect `prefers-reduced-motion` with CSS media queries and framer-motion's `useReducedMotion`
 
 ### Changed
-- Oracle: secondary CTA button contrast improved (60% → 70% opacity) and vertical gap increased for better mobile touch targets
-- Oracle: Nearby Spots card images now request retina-quality source (560×180), conditions text truncated with line-clamp
-- Oracle: "Map >" and "Full forecast >" links replaced with ChevronRight icon for consistency
-- Oracle: wind indicator label, stat labels, and stat spacing refined for readability (10px → 11px, gap-5 → gap-6)
-- Oracle: hero section uses full-bleed on mobile (no rounded corners), rounded on desktop
-- Oracle: score badge alignment tightened, best window subtitle truncated on small screens
+- Growth: hide empty social features to prevent isolation signals — ActivityFeed (Oracle), ReferralLeaderboard (profile), UserSocialStats (0/0 followers), RecentSessions (beach detail), and UnifiedCommunityFeed all return null when empty instead of showing discouraging empty states
 
 ### Added
 - Hourly Open-Meteo wind cron (`/api/cron/wind/update`) — fetches accurate wind for all 273 beaches every hour, replaces garbage CDIP wind with real forecasts
