@@ -804,8 +804,8 @@ export default function VsSurflinePage() {
             Ready to check the forecast without the paywall?
           </h2>
           <p className="mx-auto mt-4 max-w-xl font-sans text-muted-foreground md:text-lg">
-            Browse any forecast without signing up. When you&apos;re ready,
-            create an account in 30 seconds to unlock sessions and your crew.
+            Create a free account in 30 seconds. Get your home beach
+            forecast, log sessions, and build your crew.
           </p>
 
           <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
