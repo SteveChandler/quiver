@@ -10,24 +10,51 @@ import {
 
 describe("lib/constants/content invariants", () => {
   test("ABOUT_CONTENT has required structure and non-empty strings", () => {
+    // Hero
     expect(typeof ABOUT_CONTENT.hero.title).toBe("string");
     expect(ABOUT_CONTENT.hero.title.length).toBeGreaterThan(0);
     expect(typeof ABOUT_CONTENT.hero.subtitle).toBe("string");
     expect(ABOUT_CONTENT.hero.subtitle.length).toBeGreaterThan(0);
-    expect(typeof ABOUT_CONTENT.hero.description).toBe("string");
-    expect(ABOUT_CONTENT.hero.description.length).toBeGreaterThan(0);
 
-    expect(Array.isArray(ABOUT_CONTENT.mission.values)).toBe(true);
-    expect(ABOUT_CONTENT.mission.values.length).toBeGreaterThan(0);
-    for (const v of ABOUT_CONTENT.mission.values) {
-      expect(typeof v.title).toBe("string");
-      expect(v.title.length).toBeGreaterThan(0);
-      expect(typeof v.description).toBe("string");
-      expect(v.description.length).toBeGreaterThan(0);
-      // Icon should be a component reference (lucide-react exports can be function or forwardRef object)
-      expect(v.icon).toBeTruthy();
-      expect(["function", "object"]).toContain(typeof v.icon);
+    // Problem
+    expect(Array.isArray(ABOUT_CONTENT.problem)).toBe(true);
+    expect(ABOUT_CONTENT.problem).toHaveLength(2);
+    for (const p of ABOUT_CONTENT.problem) {
+      expect(typeof p).toBe("string");
+      expect(p.length).toBeGreaterThan(0);
     }
+
+    // Solution
+    expect(typeof ABOUT_CONTENT.solution.intro).toBe("string");
+    expect(ABOUT_CONTENT.solution.intro.length).toBeGreaterThan(0);
+    expect(typeof ABOUT_CONTENT.solution.closer).toBe("string");
+    expect(ABOUT_CONTENT.solution.closer.length).toBeGreaterThan(0);
+    expect(Array.isArray(ABOUT_CONTENT.solution.stats)).toBe(true);
+    expect(ABOUT_CONTENT.solution.stats).toHaveLength(4);
+    for (const stat of ABOUT_CONTENT.solution.stats) {
+      expect(typeof stat.value).toBe("string");
+      expect(stat.value.length).toBeGreaterThan(0);
+      expect(typeof stat.label).toBe("string");
+      expect(stat.label.length).toBeGreaterThan(0);
+    }
+
+    // What's Next
+    expect(Array.isArray(ABOUT_CONTENT.whatsNext)).toBe(true);
+    expect(ABOUT_CONTENT.whatsNext).toHaveLength(2);
+    for (const p of ABOUT_CONTENT.whatsNext) {
+      expect(typeof p).toBe("string");
+      expect(p.length).toBeGreaterThan(0);
+    }
+
+    // CTA
+    expect(typeof ABOUT_CONTENT.cta.title).toBe("string");
+    expect(ABOUT_CONTENT.cta.title.length).toBeGreaterThan(0);
+    expect(typeof ABOUT_CONTENT.cta.subtitle).toBe("string");
+    expect(typeof ABOUT_CONTENT.cta.primaryLabel).toBe("string");
+    expect(typeof ABOUT_CONTENT.cta.primaryHref).toBe("string");
+    expect(typeof ABOUT_CONTENT.cta.secondaryLabel).toBe("string");
+    expect(typeof ABOUT_CONTENT.cta.secondaryHref).toBe("string");
+    expect(ABOUT_CONTENT.cta.secondaryHref).toMatch(/^mailto:/);
   });
 
   test("PRIVACY_CONTENT sections have unique ids and basic contact sanity", () => {
