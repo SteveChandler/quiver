@@ -111,17 +111,17 @@ const FAQ_ITEMS = [
 {
     question: "How does Quiver's Oracle compare to Surfline's human forecasters?",
     answer:
-      "Oracle is Quiver's crowd-sourced forecasting engine. It trains per-beach models on 30,000+ buoy observations to bias-correct NOAA forecasts every 3 hours, while session data from real surfers provides ground truth. Surfline employs human forecasters who write editorial surf reports. Both approaches have merit — Oracle excels at consistency, frequency, and community validation, while Surfline's forecasters add narrative context.",
+      "Oracle builds a separate forecast model for each beach using local buoy data, then checks its predictions against real session reports from surfers. It updates every 3 hours. Surfline uses human forecasters who write editorial surf reports. Both approaches work — Oracle is more consistent and frequent, while Surfline's forecasters add narrative context you can't get from data alone.",
   },
   {
     question: "What beaches does Quiver cover?",
     answer:
-      "Quiver covers 279 beaches across California, Hawaii, Oregon, Washington, Puerto Rico, Florida, the East Coast, and Baja Mexico. Every beach gets ML-corrected forecasts, tide charts, crowd data, and session logging — all free.",
+      "Quiver covers 279 beaches across California, Hawaii, Oregon, Washington, Puerto Rico, Florida, the East Coast, and Baja Mexico. Every beach gets a personalized forecast model, tide charts, crowd data, and session logging — all free.",
   },
   {
     question: "Can I switch from Surfline to Quiver?",
     answer:
-      "You can start using Quiver alongside Surfline immediately — there's nothing to cancel or migrate. Create a free account, set your home beaches, and start getting ML-powered surf calls. Many surfers use both apps and find that Quiver's free forecast data covers most of what they were paying Surfline for.",
+      "You can start using Quiver alongside Surfline immediately — there's nothing to cancel or migrate. Create a free account, set your home beaches, and see the forecast for yourself. Many surfers use both and find that Quiver covers most of what they were paying Surfline for.",
   },
   {
     question: "Is this page biased toward Quiver?",
@@ -150,7 +150,7 @@ const COMPARISON_FEATURES: FeatureRow[] = [
     feature: "Swell & Wind Forecasts",
     description: "Wave height, swell direction/period, wind speed/direction",
     quiver: "free",
-    quiverNote: "Crowd-sourced ML, updated every 3 hours",
+    quiverNote: "Beach-specific, updated every 3 hours",
     surfline: "partial",
     surflineNote: "Basic free, detailed behind Premium",
   },
@@ -331,8 +331,8 @@ export default function VsSurflinePage() {
           </h1>
           <p className="mx-auto mt-4 max-w-2xl font-sans text-lg text-muted-foreground sm:text-xl md:mt-6">
             The surf forecast you check every morning shouldn&apos;t cost $120/year.
-            Quiver gives you ML-corrected surf calls validated by real surfers,
-            tide charts, crowd data, and session logging{" "}
+            Quiver gives you surf calls tuned to your specific beach, tide
+            charts, crowd data, and session logging{" "}
             <span className="font-semibold text-primary">
               — no paywall on the data that matters
             </span>
@@ -391,9 +391,8 @@ export default function VsSurflinePage() {
             <p>
               The question isn&apos;t whether Surfline is good. It&apos;s whether what
               you&apos;re paying for is worth $120/year when community-driven
-              alternatives deliver comparable (and in some cases better) forecast
-              accuracy through crowd-sourced ML — validated by surfers
-              actually in the water.
+              alternatives deliver comparable — and in some cases better —
+              forecast accuracy, validated by surfers actually in the water.
             </p>
           </div>
         </div>
@@ -614,11 +613,11 @@ export default function VsSurflinePage() {
             />
             <QuiverAdvantageCard
               icon={<Zap className="h-5 w-5" />}
-              title="Crowd-Sourced Forecasting"
-              description="Oracle combines ML with real surfer observations. Per-beach
-                models bias-correct NOAA forecasts every 3 hours, while
-                crowd-sourced session data keeps predictions honest. The more
-                people surf with Quiver, the smarter every forecast gets."
+              title="Learns From Real Surfers"
+              description="Oracle trains a separate model for each beach using local buoy
+                data, then checks its predictions against real session reports.
+                The more people surf with Quiver, the more accurate every
+                forecast gets."
               badge="Oracle"
               href="/forecast-accuracy"
             />
@@ -642,9 +641,9 @@ export default function VsSurflinePage() {
             <QuiverAdvantageCard
               icon={<Shield className="h-5 w-5" />}
               title="Transparent Data"
-              description="Quiver shows you exactly where forecast data comes from — NOAA,
-                CDIP buoys, NDBC stations, Open-Meteo wind models. We show
-                confidence scores and data source indicators. No black box."
+              description="Quiver shows you exactly where forecast data comes from and
+                how confident we are in each prediction. Every data source
+                is visible. No black box."
               badge="Open data"
               href="/forecast-accuracy"
             />
@@ -667,16 +666,17 @@ export default function VsSurflinePage() {
             beach or 6ft barrels at an exposed reef.
           </p>
           <p className="mt-4 font-sans text-base leading-relaxed text-muted-foreground md:text-lg">
-            Oracle fixes this by training per-beach ML models on thousands
-            of buoy observations, then validating predictions with{" "}
+            Oracle fixes this by learning how each beach actually behaves —
+            using years of buoy data to understand how your specific break
+            transforms open-ocean swell. Then it checks those predictions
+            against{" "}
             <Link
               href="/sessions"
               className="font-semibold text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
             >
-              real session data
+              real session reports
             </Link>
-            {" "}from surfers in the water. Community-corrected forecasts,
-            updated every 3 hours, with a{" "}
+            {" "}from surfers in the water. Updated every 3 hours, with a{" "}
             <Link
               href="/forecast-accuracy"
               className="font-semibold text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
