@@ -36,7 +36,7 @@ export const revalidate = 86400;
 export const metadata: Metadata = buildPageMetadata({
   title: "Quiver vs Surfline: Free Surf Forecasts That Don't Gate the Stoke (2026)",
   description:
-    "Honest comparison of Quiver and Surfline in 2026. ML-powered surf calls, tide charts, session logging — all free. See where each app wins and decide for yourself.",
+    "Honest comparison of Quiver and Surfline in 2026. Crowd-sourced surf calls, tide charts, session logging. See where each app wins and decide for yourself.",
   path: "/vs/surfline",
   keywords: [
     "surfline alternative",
@@ -67,7 +67,7 @@ function ComparisonStructuredData() {
     operatingSystem: "Web, iOS, Android",
     url: SITE_ORIGIN,
     description:
-      "Free ML-powered surf forecast app with tide charts, session logging, and community features for 185+ beaches.",
+      "Crowd-sourced surf forecast app with crowd-sourced ML, tide charts, session logging, and community features for 185+ beaches.",
     offers: {
       "@type": "Offer",
       price: "0",
@@ -113,17 +113,12 @@ const FAQ_ITEMS = [
   {
     question: "Is Quiver really free?",
     answer:
-      "Yes. Quiver is 100% free with no paywall, no premium tier, and no ads. All surf forecasts, tide charts, session logging, and community features are available to every user at no cost.",
+      "Yes, Quiver is free today. All surf forecasts, tide charts, session logging, and community features are available to every user at no cost. We may introduce premium features or ads in the future as we grow, but the core forecast data you need to make the call will always be accessible.",
   },
   {
     question: "How does Quiver's Oracle compare to Surfline's human forecasters?",
     answer:
-      "Oracle is Quiver's ML-powered surf conditions engine. It trains per-beach XGBoost models on 30,000+ buoy observations to bias-correct NOAA forecasts every 3 hours. Surfline employs human forecasters who write editorial surf reports. Both approaches have merit — Oracle excels at consistency and frequency, while human forecasters can incorporate local knowledge and narrative context.",
-  },
-  {
-    question: "Does Quiver have surf cams?",
-    answer:
-      "Quiver offers free cam access where available, but our cam network is smaller than Surfline's 700+ camera locations. We focus on providing accurate forecast data and ML-powered surf calls rather than competing on camera quantity.",
+      "Oracle is Quiver's crowd-sourced forecasting engine. It trains per-beach models on 30,000+ buoy observations to bias-correct NOAA forecasts every 3 hours, while session data from real surfers provides ground truth. Surfline employs human forecasters who write editorial surf reports. Both approaches have merit — Oracle excels at consistency, frequency, and community validation, while Surfline's forecasters add narrative context.",
   },
   {
     question: "What beaches does Quiver cover?",
@@ -162,7 +157,7 @@ const COMPARISON_FEATURES: FeatureRow[] = [
     feature: "Swell & Wind Forecasts",
     description: "Wave height, swell direction/period, wind speed/direction",
     quiver: "free",
-    quiverNote: "ML-corrected, updated every 3 hours",
+    quiverNote: "Crowd-sourced ML, updated every 3 hours",
     surfline: "partial",
     surflineNote: "Basic free, detailed behind Premium",
   },
@@ -178,19 +173,11 @@ const COMPARISON_FEATURES: FeatureRow[] = [
     feature: "Surf Conditions Rating",
     description: "Go/no-go surf call based on current conditions",
     quiver: "free",
-    quiverNote: "Oracle: ML-powered, per-beach scoring",
+    quiverNote: "Oracle: crowd-sourced + ML, per-beach",
     surfline: "paid",
     surflineNote: "Human forecasters, Premium only",
   },
-  {
-    feature: "Surf Cams",
-    description: "Live camera streams from beach locations",
-    quiver: "partial",
-    quiverNote: "Free where available, smaller network",
-    surfline: "paid",
-    surflineNote: "700+ cams, ad-free requires Premium",
-  },
-  {
+{
     feature: "Session Logging",
     description: "Track surf sessions with conditions and photos",
     quiver: "free",
@@ -222,18 +209,10 @@ const COMPARISON_FEATURES: FeatureRow[] = [
     surfline: "paid",
     surflineNote: "Crowd data in Premium",
   },
-  {
-    feature: "Ad-Free Experience",
-    description: "Clean interface without advertising",
-    quiver: "free",
-    quiverNote: "Zero ads, ever",
-    surfline: "paid",
-    surflineNote: "Heavy ads on free tier",
-  },
 ];
 
 const PRICING = {
-  quiver: { label: "Free", price: "$0", period: "forever" },
+  quiver: { label: "Free", price: "$0", period: "" },
   surfline: { label: "Premium", price: "$99.99", period: "/year" },
 } as const;
 
@@ -294,16 +273,14 @@ function StatusBadge({
 
 function StickerBadge({
   children,
-  rotate,
   className = "",
 }: {
   children: React.ReactNode;
-  rotate?: string;
   className?: string;
 }) {
   return (
     <span
-      className={`inline-block rounded-md bg-primary px-3 py-1 text-xs font-bold text-white font-heading uppercase tracking-wide ${rotate || "rotate-1"} ${className}`}
+      className={`inline-block rounded-md bg-primary px-3 py-1 text-xs font-bold text-white font-heading uppercase tracking-wide ${className}`}
     >
       {children}
     </span>
@@ -344,10 +321,10 @@ export default function VsSurflinePage() {
         <div className="relative mx-auto max-w-4xl text-center">
           <div className="mb-6 flex items-center justify-center gap-3">
             <AnimatedStickerBadge>
-              <StickerBadge rotate="-rotate-2">Updated March 2026</StickerBadge>
+              <StickerBadge>Updated March 2026</StickerBadge>
             </AnimatedStickerBadge>
             <AnimatedStickerBadge>
-              <StickerBadge rotate="rotate-2" className="bg-emerald-600">
+              <StickerBadge className="bg-emerald-600">
                 Honest Comparison
               </StickerBadge>
             </AnimatedStickerBadge>
@@ -358,10 +335,10 @@ export default function VsSurflinePage() {
           </h1>
           <p className="mx-auto mt-4 max-w-2xl font-sans text-lg text-muted-foreground sm:text-xl md:mt-6">
             The surf forecast you check every morning shouldn&apos;t cost $100/year.
-            Quiver gives you ML-powered surf calls, tide charts, crowd data,
-            and session logging{" "}
+            Quiver gives you crowd-sourced surf calls,
+            tide charts, crowd data, and session logging{" "}
             <span className="font-semibold text-primary">
-              — all free, no paywall
+              — no paywall on the data that matters
             </span>
             .
           </p>
@@ -376,7 +353,7 @@ export default function VsSurflinePage() {
                   <p className="mt-1 font-mono text-3xl font-bold text-emerald-400">
                     $0
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground">Free forever</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Free</p>
                 </div>
               </HeroPulse>
             </FadeInSection>
@@ -413,15 +390,16 @@ export default function VsSurflinePage() {
             <p>
               But the surf forecast landscape has changed. The core data that
               Surfline charges $99.99/year for — detailed swell forecasts, conditions
-              ratings, crowd info, and ad-free access — is now available for free
-              through apps like Quiver that use machine learning to process the
-              same NOAA, CDIP, and NDBC data sources.
+              ratings, and crowd info — is now available through apps like Quiver
+              that combine crowd-sourced observations with machine learning to
+              process the same NOAA, CDIP, and NDBC data sources.
             </p>
             <p>
               The question isn&apos;t whether Surfline is good. It&apos;s whether what
-              you&apos;re paying for is worth $100/year when free alternatives deliver
-              comparable (and in some cases better) forecast accuracy through
-              ML-powered bias correction.
+              you&apos;re paying for is worth $100/year when community-driven
+              alternatives deliver comparable (and in some cases better) forecast
+              accuracy through crowd-sourced ML — validated by surfers
+              actually in the water.
             </p>
           </div>
         </div>
@@ -498,7 +476,7 @@ export default function VsSurflinePage() {
                       </p>
                     </td>
                     <td className="px-5 py-5 text-center">
-                      <span className="inline-block rotate-1 rounded-lg bg-emerald-600 px-4 py-1.5 font-mono text-sm font-bold text-white">
+                      <span className="inline-block rounded-lg bg-emerald-600 px-4 py-1.5 font-mono text-sm font-bold text-white">
                         $0 — Free
                       </span>
                     </td>
@@ -593,12 +571,6 @@ export default function VsSurflinePage() {
 
           <FadeInSection className="mt-8 grid gap-4 sm:grid-cols-2">
             <SurflineAdvantageCard
-              title="Camera Network"
-              description="Surfline operates 700+ surf cameras worldwide, the largest network
-                in the industry. Their HD and premium cam feeds are a real differentiator.
-                Quiver has free cams where available, but we can't match that scale."
-            />
-            <SurflineAdvantageCard
               title="Human Forecaster Content"
               description="Surfline employs experienced surfer-forecasters who write narrative
                 surf reports with local insight. These editorial forecasts add context
@@ -639,30 +611,31 @@ export default function VsSurflinePage() {
           <FadeInSection className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <QuiverAdvantageCard
               icon={<Zap className="h-5 w-5" />}
-              title="100% Free Forecasts"
-              description="Every forecast feature is free. No paywall on conditions ratings,
-                no premium tier for detailed swell data, no subscription to
-                remove ads. The forecast data you need to make the call
-                shouldn't cost $100/year."
-              badge="$0 forever"
+              title="Free Forecasts"
+              description="Every forecast feature is free today. No paywall on conditions
+                ratings, no premium tier for detailed swell data. The
+                forecast data you need to make the call shouldn't cost
+                $100/year."
+              badge="Free"
             />
             <QuiverAdvantageCard
               icon={<Zap className="h-5 w-5" />}
-              title="ML-Powered Surf Calls"
-              description="Oracle — Quiver's ML engine — trains per-beach XGBoost models
-                on 30,000+ buoy observations. It bias-corrects raw NOAA forecasts
-                every 3 hours, analyzing 72 directional swell bins. The result:
-                surf calls tuned to your specific break, not a regional generalization."
-              badge="Oracle AI"
+              title="Crowd-Sourced ML"
+              description="Oracle combines machine learning with real surfer observations.
+                Per-beach models trained on 30,000+ buoy readings bias-correct
+                NOAA forecasts every 3 hours, while crowd-sourced session data
+                keeps predictions grounded in reality — not just algorithms."
+              badge="Oracle"
+              href="/forecast-accuracy"
             />
             <QuiverAdvantageCard
-              icon={<Shield className="h-5 w-5" />}
-              title="Zero Ads"
-              description="Surfline's free tier is cluttered with ads — video pre-rolls,
-                banner ads, interstitials. Quiver has zero advertising. Your
-                dawn patrol check should load fast and clean, not buffer through
-                a car commercial."
-              badge="Ad-free"
+              icon={<Users className="h-5 w-5" />}
+              title="Crowd-Sourced Forecasting"
+              description="Quiver's forecasts are built on real observations from the
+                community. Surfers log conditions, report accuracy, and
+                contribute to a living dataset that makes every forecast
+                better. The more people surf with Quiver, the smarter it gets."
+              badge="Community-powered"
             />
             <QuiverAdvantageCard
               icon={<Users className="h-5 w-5" />}
@@ -671,6 +644,7 @@ export default function VsSurflinePage() {
                 sessions with your crew through beautiful summary cards. Build
                 your surf journal over time and track your progression."
               badge="Free journal"
+              href="/sessions"
             />
             <QuiverAdvantageCard
               icon={<Users className="h-5 w-5" />}
@@ -687,6 +661,7 @@ export default function VsSurflinePage() {
                 CDIP buoys, NDBC stations, Open-Meteo wind models. We show
                 confidence scores and data source indicators. No black box."
               badge="Open data"
+              href="/forecast-accuracy"
             />
           </FadeInSection>
         </div>
@@ -708,16 +683,23 @@ export default function VsSurflinePage() {
             at an exposed reef.
           </p>
           <p className="mt-4 font-sans text-base leading-relaxed text-muted-foreground md:text-lg">
-            Quiver&apos;s Oracle solves this with per-beach machine learning.
-            For each of our 185+ beaches, we train an XGBoost model on thousands
+            Quiver&apos;s Oracle solves this with a crowd-sourced approach.
+            For each of our 185+ beaches, we train ML models on thousands
             of historical observations from nearby CDIP, NDBC, and IOOS buoys.
-            The model learns how each specific break transforms open-ocean swell —
-            accounting for terrain sheltering, swell wrapping, and wind exposure
-            across 72 directional bins.
+            But what makes Oracle different is the crowd-sourced layer: real
+            surfers logging{" "}
+            <Link
+              href="/sessions"
+              className="font-semibold text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
+            >
+              session data
+            </Link>
+            {" "}that validates and improves predictions over time. The more
+            people surf with Quiver, the smarter every forecast gets.
           </p>
           <p className="mt-4 font-sans text-base leading-relaxed text-muted-foreground md:text-lg">
-            The result: forecasts corrected for your exact beach, updated every
-            3 hours, with a{" "}
+            The result: community-validated forecasts corrected for your exact
+            beach, updated every 3 hours, with a{" "}
             <Link
               href="/forecast-accuracy"
               className="font-semibold text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
@@ -725,8 +707,8 @@ export default function VsSurflinePage() {
               publicly tracked accuracy record
             </Link>
             {" "}against real buoy measurements. Surfline&apos;s human forecasters
-            bring valuable experience, but they can&apos;t manually bias-correct
-            185 beaches every 3 hours. ML can.
+            bring valuable experience, but they can&apos;t crowd-source accuracy
+            from every surfer at every break.
           </p>
         </div>
       </section>
@@ -742,35 +724,21 @@ export default function VsSurflinePage() {
 
           <div className="mt-8 space-y-8">
             <FeatureDeepDive
-              title="Surf Forecasts: ML vs. Human"
-              quiverApproach="Quiver uses per-beach XGBoost models trained on historical
-                buoy data to bias-correct NOAA marine forecasts. Updates every
-                3 hours. Every beach gets a personalized model that accounts for
-                terrain sheltering, swell access, and local wind exposure. Free
-                for every user."
+              title="Surf Forecasts: Crowd-Sourced vs. Editorial"
+              quiverApproach="Quiver combines per-beach ML models with real surfer
+                observations. Models trained on buoy data bias-correct NOAA
+                forecasts every 3 hours, while crowd-sourced session logs
+                provide ground truth that keeps predictions honest. Every beach
+                gets a personalized, community-validated model."
               surflineApproach="Surfline employs human forecasters who write narrative
                 surf reports. Their forecasts include editorial context and local
                 insight. Detailed conditions ratings and 'surf height' ranges
                 require a $99.99/year Premium subscription."
-              verdict="Quiver's ML approach means more frequent updates with consistent
-                accuracy. Surfline's human touch adds narrative context but at a
-                significant annual cost."
+              verdict="Quiver's crowd-sourced approach means more frequent updates
+                validated by real surfers. Surfline's editorial touch adds
+                narrative context but at a significant annual cost."
             />
-            <FeatureDeepDive
-              title="Surf Cams: Scale vs. Price"
-              quiverApproach="Free cam access where available. Smaller camera network
-                than competitors. Focused on providing the best forecast data
-                rather than competing on camera quantity. No ads on cam feeds."
-              surflineApproach="Industry-leading 700+ cameras worldwide. HD and
-                premium cam feeds. Free tier includes ads and limited rewind.
-                Premium ($99.99/yr) unlocks ad-free viewing, multi-cam, and
-                extended rewind."
-              verdict="Surfline clearly wins on camera scale. If live cams are your
-                primary use case, Surfline Premium may be worth it. If you mainly
-                check the forecast before heading out, Quiver's free forecasts
-                cover that need."
-            />
-            <FeatureDeepDive
+<FeatureDeepDive
               title="Session Tracking: Journal vs. Basic"
               quiverApproach="Full surf journal with session logging, photo uploads,
                 conditions recording, and social sharing. Share session summary
@@ -823,11 +791,11 @@ export default function VsSurflinePage() {
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400" />
-                  <span>Value ML-powered accuracy over editorial narrative</span>
+                  <span>Value crowd-sourced, data-driven accuracy over editorial narrative</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400" />
-                  <span>Want a clean, ad-free forecast check experience</span>
+                  <span>Want a clean, fast forecast check experience</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400" />
@@ -835,7 +803,7 @@ export default function VsSurflinePage() {
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400" />
-                  <span>Are tired of paying for data that should be free</span>
+                  <span>Believe surf conditions data should be community-driven</span>
                 </li>
               </ul>
             </div>
@@ -929,6 +897,53 @@ export default function VsSurflinePage() {
       </section>
 
       {/* ================================================================= */}
+      {/* Internal Links — Browse Forecasts */}
+      {/* ================================================================= */}
+      <section className="px-4 py-12 md:py-16">
+        <div className="mx-auto max-w-4xl">
+          <h2 className="font-heading text-2xl font-bold md:text-3xl">
+            Browse Free Forecasts
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Check out Quiver&apos;s crowd-sourced forecasts for popular breaks.
+          </p>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              { name: "Blacks Beach", href: "/ca/san-diego/blacks" },
+              { name: "Huntington Beach", href: "/ca/huntington-beach/huntington-beach" },
+              { name: "Trestles", href: "/ca/san-clemente/trestles" },
+              { name: "Pipeline", href: "/hi/north-shore/pipeline" },
+              { name: "Rincon", href: "/ca/santa-barbara/rincon" },
+              { name: "Ocean Beach SF", href: "/ca/san-francisco/ocean-beach" },
+            ].map((beach) => (
+              <Link
+                key={beach.href}
+                href={beach.href}
+                className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:border-primary/50 hover:bg-card/80"
+              >
+                {beach.name}
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              </Link>
+            ))}
+          </div>
+          <div className="mt-4 flex gap-4">
+            <Link
+              href="/forecast"
+              className="text-sm font-semibold text-primary hover:underline"
+            >
+              View all 185+ beaches →
+            </Link>
+            <Link
+              href="/forecast-accuracy"
+              className="text-sm font-semibold text-primary hover:underline"
+            >
+              See our accuracy data →
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================================= */}
       {/* CTA Section */}
       {/* ================================================================= */}
       <section className="relative overflow-hidden px-4 py-16 md:py-20">
@@ -937,7 +952,7 @@ export default function VsSurflinePage() {
 
         <FadeInSection className="relative mx-auto max-w-3xl text-center">
           <AnimatedStickerBadge className="mb-6">
-            <StickerBadge rotate="-rotate-1">
+            <StickerBadge>
               No credit card required
             </StickerBadge>
           </AnimatedStickerBadge>
@@ -946,8 +961,8 @@ export default function VsSurflinePage() {
             Ready to check the forecast without the paywall?
           </h2>
           <p className="mx-auto mt-4 max-w-xl font-sans text-muted-foreground md:text-lg">
-            Join surfers who switched from Surfline Premium to Quiver&apos;s free
-            ML-powered forecasts. Set up in 30 seconds.
+            Join surfers who switched from Surfline Premium to Quiver&apos;s
+            crowd-sourced forecasts. Set up in 30 seconds.
           </p>
 
           <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -967,7 +982,7 @@ export default function VsSurflinePage() {
           </div>
 
           <p className="mt-6 text-xs text-muted-foreground">
-            Free forever. 185+ beaches. ML-powered surf calls.
+            Free today. 185+ beaches. Crowd-sourced surf calls.
           </p>
         </FadeInSection>
       </section>
@@ -1003,13 +1018,15 @@ function QuiverAdvantageCard({
   title,
   description,
   badge,
+  href,
 }: {
   icon: React.ReactNode;
   title: string;
   description: string;
   badge: string;
+  href?: string;
 }) {
-  return (
+  const content = (
     <div className="rounded-xl border border-primary/20 bg-card p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -1019,7 +1036,7 @@ function QuiverAdvantageCard({
           </h3>
         </div>
         <AnimatedStickerBadge className="flex-shrink-0">
-          <StickerBadge rotate="rotate-1" className="text-[10px]">
+          <StickerBadge className="text-[10px]">
             {badge}
           </StickerBadge>
         </AnimatedStickerBadge>
@@ -1027,8 +1044,17 @@ function QuiverAdvantageCard({
       <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
         {description}
       </p>
+      {href && (
+        <Link
+          href={href}
+          className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+        >
+          Learn more <ArrowRight className="h-3 w-3" />
+        </Link>
+      )}
     </div>
   );
+  return content;
 }
 
 function FeatureDeepDive({
