@@ -758,13 +758,17 @@ describe("discoverSurfSpots sunset filtering", () => {
     consoleErrorSpy?.mockRestore();
   });
 
-  // Helper to set up sun_times mock with specific sunset
+  // Helper to set up sun_times mock with specific sunset.
+  // sunrise_utc uses 06:15:00Z because getTimezoneFromCoords is mocked to return
+  // "UTC", so all local-hour comparisons happen in UTC. Using a Pacific-local
+  // sunrise (e.g. 15:15 UTC = 7:15am Pacific) would incorrectly trigger the
+  // pre-sunrise rejection for afternoon UTC forecasts.
   function setSunsetTime(sunsetUtc: string, localDate: string = "2025-01-20") {
     const { __setMockSunTimes } = require("@/lib/supabase/server");
     __setMockSunTimes([{
       beach_id: "beach-1",
       local_date: localDate,
-      sunrise_utc: `${localDate}T15:15:00Z`, // ~7:15am Pacific
+      sunrise_utc: `${localDate}T06:15:00Z`, // 6:15am UTC — safe for UTC-timezone tests
       sunset_utc: sunsetUtc,
     }]);
   }

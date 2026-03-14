@@ -45,6 +45,9 @@ export function PublicContentGate({
   const [hasMounted, setHasMounted] = useState(false);
   useEffect(() => setHasMounted(true), []);
 
+  // Must be called unconditionally before any early returns (Rules of Hooks).
+  const prefersReduced = useReducedMotion();
+
   // Track CTA view for non-authenticated users (only once)
   useEffect(() => {
     if (!user && !isLoading && !hasTrackedView.current) {
@@ -94,8 +97,6 @@ export function PublicContentGate({
       source: `public-content-gate-${source}`,
     });
   };
-
-  const prefersReduced = useReducedMotion();
 
   // Entrance choreography easing — exponential ease-out
   const easeOutQuart: [number, number, number, number] = [0.25, 1, 0.5, 1];

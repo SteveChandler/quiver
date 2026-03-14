@@ -41,7 +41,7 @@ jest.mock("next/navigation", () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Mock framer-motion (used inside OracleHero)
+// Mock framer-motion (used inside OracleHero and ShareSheet)
 // ---------------------------------------------------------------------------
 jest.mock("framer-motion", () => {
   const React = require("react");
@@ -67,6 +67,7 @@ jest.mock("framer-motion", () => {
     AnimatePresence: ({ children }: { children: React.ReactNode }) => (
       <>{children}</>
     ),
+    useReducedMotion: () => false,
   };
 });
 
