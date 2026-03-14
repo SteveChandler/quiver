@@ -249,8 +249,10 @@ ORDER BY level;
 
 ```sql
 SELECT
-  COALESCE(signup_context->>'utm_source', 'direct') AS source,
-  COALESCE(signup_context->>'utm_medium', 'none') AS medium,
+  COALESCE(signup_context->'utm'->>'source', 'direct') AS source,
+  COALESCE(signup_context->'utm'->>'medium', 'none') AS medium,
+  COALESCE(signup_context->'device'->>'kind', 'unknown') AS device,
+  COALESCE(signup_context->>'method', 'unknown') AS auth_method,
   COUNT(*) AS signups,
   COUNT(*) FILTER (WHERE onboarding_completed_at IS NOT NULL) AS onboarded,
   ROUND(COUNT(*) FILTER (WHERE onboarding_completed_at IS NOT NULL)::numeric / NULLIF(COUNT(*), 0) * 100, 1) AS onboard_pct,
@@ -259,7 +261,7 @@ SELECT
 FROM profiles
 WHERE created_at >= NOW() - INTERVAL '30 days'
   AND email NOT ILIKE '%test%' AND email NOT ILIKE '%quiver%' AND email NOT ILIKE '%admin%' AND email NOT LIKE '%@example.invalid'
-GROUP BY source, medium
+GROUP BY source, medium, device, auth_method
 ORDER BY signups DESC;
 ```
 
@@ -316,7 +318,7 @@ Present results as a markdown report:
 | Invite Acceptance | (from session_invitations) | >30% |
 
 ## Attribution (30d)
-| Source | Medium | Signups | Onboarded | Onboard% | Has Session | Session% |
+| Source | Medium | Device | Auth Method | Signups | Onboarded | Onboard% | Has Session | Session% |
 | {rows from query 10} |
 
 ## Badge/XP Distribution
