@@ -608,7 +608,7 @@ export default function VsSurflinePage() {
             if you surf US beaches regularly.
           </p>
 
-          <FadeInSection className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <FadeInSection className="mt-8 grid gap-5 sm:grid-cols-2">
             <QuiverAdvantageCard
               icon={<Zap className="h-5 w-5" />}
               title="Free Forecasts"
@@ -620,22 +620,13 @@ export default function VsSurflinePage() {
             />
             <QuiverAdvantageCard
               icon={<Zap className="h-5 w-5" />}
-              title="Crowd-Sourced ML"
-              description="Oracle combines machine learning with real surfer observations.
-                Per-beach models trained on 30,000+ buoy readings bias-correct
-                NOAA forecasts every 3 hours, while crowd-sourced session data
-                keeps predictions grounded in reality — not just algorithms."
+              title="Crowd-Sourced Forecasting"
+              description="Oracle combines ML with real surfer observations. Per-beach
+                models bias-correct NOAA forecasts every 3 hours, while
+                crowd-sourced session data keeps predictions honest. The more
+                people surf with Quiver, the smarter every forecast gets."
               badge="Oracle"
               href="/forecast-accuracy"
-            />
-            <QuiverAdvantageCard
-              icon={<Users className="h-5 w-5" />}
-              title="Crowd-Sourced Forecasting"
-              description="Quiver's forecasts are built on real observations from the
-                community. Surfers log conditions, report accuracy, and
-                contribute to a living dataset that makes every forecast
-                better. The more people surf with Quiver, the smarter it gets."
-              badge="Community-powered"
             />
             <QuiverAdvantageCard
               icon={<Users className="h-5 w-5" />}
@@ -676,169 +667,33 @@ export default function VsSurflinePage() {
             The Oracle Difference
           </h2>
           <p className="mt-4 font-sans text-base leading-relaxed text-muted-foreground md:text-lg">
-            Most surf forecast apps show you the same raw NOAA data in different
-            wrappers. The problem? NOAA&apos;s marine forecast is designed for
-            open-ocean shipping, not individual surf breaks. A 4ft forecast at an
-            offshore buoy might mean 2ft mush at a sheltered beach or 6ft barrels
-            at an exposed reef.
+            Most surf apps show you raw NOAA data in different wrappers.
+            But NOAA forecasts are for open-ocean shipping, not surf breaks.
+            A 4ft offshore buoy reading might mean 2ft mush at a sheltered
+            beach or 6ft barrels at an exposed reef.
           </p>
           <p className="mt-4 font-sans text-base leading-relaxed text-muted-foreground md:text-lg">
-            Quiver&apos;s Oracle solves this with a crowd-sourced approach.
-            For each of our 185+ beaches, we train ML models on thousands
-            of historical observations from nearby CDIP, NDBC, and IOOS buoys.
-            But what makes Oracle different is the crowd-sourced layer: real
-            surfers logging{" "}
+            Oracle fixes this by training per-beach ML models on thousands
+            of buoy observations, then validating predictions with{" "}
             <Link
               href="/sessions"
               className="font-semibold text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
             >
-              session data
+              real session data
             </Link>
-            {" "}that validates and improves predictions over time. The more
-            people surf with Quiver, the smarter every forecast gets.
-          </p>
-          <p className="mt-4 font-sans text-base leading-relaxed text-muted-foreground md:text-lg">
-            The result: community-validated forecasts corrected for your exact
-            beach, updated every 3 hours, with a{" "}
+            {" "}from surfers in the water. Community-corrected forecasts,
+            updated every 3 hours, with a{" "}
             <Link
               href="/forecast-accuracy"
               className="font-semibold text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
             >
               publicly tracked accuracy record
             </Link>
-            {" "}against real buoy measurements. Surfline&apos;s human forecasters
-            bring valuable experience, but they can&apos;t crowd-source accuracy
-            from every surfer at every break.
+            .
           </p>
         </div>
       </section>
 
-      {/* ================================================================= */}
-      {/* Detailed Feature Deep Dives */}
-      {/* ================================================================= */}
-      <section className="px-4 py-12 md:py-16">
-        <div className="mx-auto max-w-4xl">
-          <h2 className="font-heading text-2xl font-bold md:text-3xl">
-            Feature Deep Dive
-          </h2>
-
-          <div className="mt-8 space-y-8">
-            <FeatureDeepDive
-              title="Surf Forecasts: Crowd-Sourced vs. Editorial"
-              quiverApproach="Quiver combines per-beach ML models with real surfer
-                observations. Models trained on buoy data bias-correct NOAA
-                forecasts every 3 hours, while crowd-sourced session logs
-                provide ground truth that keeps predictions honest. Every beach
-                gets a personalized, community-validated model."
-              surflineApproach="Surfline employs human forecasters who write narrative
-                surf reports. Their forecasts include editorial context and local
-                insight. Detailed conditions ratings and 'surf height' ranges
-                require a $99.99/year Premium subscription."
-              verdict="Quiver's crowd-sourced approach means more frequent updates
-                validated by real surfers. Surfline's editorial touch adds
-                narrative context but at a significant annual cost."
-            />
-<FeatureDeepDive
-              title="Session Tracking: Journal vs. Basic"
-              quiverApproach="Full surf journal with session logging, photo uploads,
-                conditions recording, and social sharing. Share session summary
-                cards with your crew. Track your progression over time with
-                detailed session history. All free."
-              surflineApproach="Session tracking feature available for logging
-                surf sessions. Includes conditions data and basic session notes.
-                Some features tied to premium."
-              verdict="Both platforms offer session tracking. Quiver's community-oriented
-                sharing and crew features give it an edge for surfers who want
-                a social journal."
-            />
-            <FeatureDeepDive
-              title="Crowd Data: Intelligence vs. General"
-              quiverApproach="Crowd level data and optimal window analysis for each
-                beach. Quiver identifies the best time to go based on crowd
-                patterns and conditions. Free for every beach."
-              surflineApproach="Crowd data and best-time-to-go features are
-                part of the Surfline Premium subscription. Free tier shows basic
-                conditions but gates crowd intelligence."
-              verdict="Both platforms provide crowd data, but Quiver makes it free.
-                If you're checking crowd levels to avoid the masses, you
-                shouldn't have to pay for that information."
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* ================================================================= */}
-      {/* Who Should Use What */}
-      {/* ================================================================= */}
-      <section className="border-y border-border bg-card/50 px-4 py-12 md:py-16">
-        <div className="mx-auto max-w-4xl">
-          <h2 className="font-heading text-2xl font-bold md:text-3xl">
-            Who Should Use What?
-          </h2>
-          <div className="mt-8 grid gap-6 sm:grid-cols-2">
-            <div className="rounded-xl border border-border bg-background p-6">
-              <h3 className="font-heading text-lg font-bold text-primary">
-                Choose Quiver if you...
-              </h3>
-              <ul className="mt-4 space-y-3 font-sans text-sm text-muted-foreground">
-                <li className="flex items-start gap-2">
-                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400" />
-                  <span>Surf US beaches (CA, HI, OR, WA, FL, East Coast, PR)</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400" />
-                  <span>Want accurate forecasts without paying a subscription</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400" />
-                  <span>Value crowd-sourced, data-driven accuracy over editorial narrative</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400" />
-                  <span>Want a clean, fast forecast check experience</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400" />
-                  <span>Want to log sessions and share with your crew</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400" />
-                  <span>Believe surf conditions data should be community-driven</span>
-                </li>
-              </ul>
-            </div>
-            <div className="rounded-xl border border-border bg-background p-6">
-              <h3 className="font-heading text-lg font-bold text-muted-foreground">
-                Surfline might be better if you...
-              </h3>
-              <ul className="mt-4 space-y-3 font-sans text-sm text-muted-foreground">
-                <li className="flex items-start gap-2">
-                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400" />
-                  <span>Surf internationally and need global coverage</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400" />
-                  <span>Rely heavily on live surf cams for decision-making</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400" />
-                  <span>Prefer human-written forecast narratives</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400" />
-                  <span>Value brand familiarity and a 40-year track record</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400" />
-                  <span>
-                    Don&apos;t mind paying $100/year for the full package
-                  </span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* ================================================================= */}
       {/* FAQ Section */}
@@ -1057,48 +912,3 @@ function QuiverAdvantageCard({
   return content;
 }
 
-function FeatureDeepDive({
-  title,
-  quiverApproach,
-  surflineApproach,
-  verdict,
-}: {
-  title: string;
-  quiverApproach: string;
-  surflineApproach: string;
-  verdict: string;
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-6">
-      <h3 className="font-heading text-lg font-bold text-foreground">{title}</h3>
-
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-primary">
-            Quiver&apos;s Approach
-          </p>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            {quiverApproach}
-          </p>
-        </div>
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Surfline&apos;s Approach
-          </p>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            {surflineApproach}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-4 rounded-lg bg-background p-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Our Take
-        </p>
-        <p className="mt-1 text-sm leading-relaxed text-foreground/80">
-          {verdict}
-        </p>
-      </div>
-    </div>
-  );
-}
