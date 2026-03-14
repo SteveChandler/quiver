@@ -20,8 +20,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SEO: removed `| Quiver` suffix from tide/water-temp sub-page titles (saves 10 chars for keywords)
 - Performance: converted 20+ public pages from `force-dynamic` to ISR with `revalidate` (3600s for beach pages, 86400s for directories, 600s for forecasts) — pages now served from Vercel edge cache instead of cold server renders
 - Performance: created `createPublicReadClient` (cookie-free Supabase client) and `withPublicDatabaseOperation` to enable ISR without triggering Next.js dynamic rendering
-
-### Added
 - Testing: comprehensive unit tests for `referral-actions.ts` — 23 tests covering `getOrCreateReferralCode`, `claimReferral` (validation, self-referral, duplicates, SQL wildcard rejection), `getReferralStats`, and `getReferralLeaderboard` (graceful degradation)
 - Operations: `get_conversion_funnel(days)` Supabase RPC function — returns 7-step signup funnel metrics (anonymous_sessions -> cta_views -> cta_clicks -> auth_modal_opens -> signup_starts -> signup_completes -> onboarding_completes) with bot-filtered counts and unique session tracking
 - Oracle skill-aware beach recommendations: scoring now considers beach skill level + current wave height together (not just wave height alone); Pipeline at 3ft → manageable for beginners, Pipeline at 15ft → heavy penalty. Hero subtitle shows skill-aware reasoning ("Conditions match your experience level today" or "Advanced spot, but today's conditions are manageable"). Nearby Spots cards show ADV badge when beach exceeds user skill and conditions are significant. Changing skill level in settings immediately invalidates discovery cache.
