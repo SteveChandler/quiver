@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Share2, Loader2, ImageIcon, Link as LinkIcon, Download, Check, X } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   Sheet,
   SheetContent,
@@ -70,6 +71,8 @@ export function ShareSheet({
 
   // Issue 2: Track all pending timer IDs so we can clear them on close/unmount
   const timersRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+
+  const prefersReducedMotion = useReducedMotion();
 
   // Issue 1: Stale-closure guard for the pre-fetch effect
   React.useEffect(() => {
@@ -220,14 +223,17 @@ export function ShareSheet({
       <SheetContent
         side="bottom"
         className={cn(
-          "rounded-t-2xl pb-safe border-t-0 border-transparent bg-[#252D6B]",
+          "rounded-t-2xl pb-safe border-t-2 border-[#F78E42]/30 noise-texture shadow-[0_-4px_20px_rgba(247,142,66,0.12)]",
           "[&>button[data-radix-dialog-close]]:hidden",
           className
         )}
+        style={{ background: 'linear-gradient(180deg, #1E2558 0%, #252D6B 40%, #2D357D 100%)' }}
       >
         <SheetHeader>
           <div className="flex items-center justify-between mb-4">
-            <SheetTitle className="text-white font-bold text-lg">Share the stoke</SheetTitle>
+            <SheetTitle className="text-white font-bold text-xl font-heading text-glow-orange">
+              Share the <span className="text-[#F78E42]">stoke</span>
+            </SheetTitle>
             <button
               onClick={() => onOpenChange(false)}
               className="text-white/60 hover:text-white transition-colors"
@@ -243,7 +249,13 @@ export function ShareSheet({
 
         <div className="flex flex-col items-center gap-6">
           {/* Image preview */}
-          <div className="aspect-[4/3] w-full max-w-sm mx-auto rounded-2xl border border-[#404C92] overflow-hidden bg-[#0F1B30]">
+          <motion.div
+            className="aspect-[9/16] max-w-[200px] mx-auto border-2 border-[#F78E42]/25 overflow-hidden bg-[#0F1B30] shadow-lg"
+            style={{ borderRadius: '12px 14px 11px 13px', rotate: -2 }}
+            initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3, delay: 0.15 }}
+          >
             {imageError ? (
               <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-white/40">
                 <ImageIcon className="h-10 w-10" />
@@ -258,7 +270,7 @@ export function ShareSheet({
                 onError={() => setImageError(true)}
               />
             )}
-          </div>
+          </motion.div>
 
           {/* Issue 5: Screen reader status announcements */}
           <div className="sr-only" aria-live="polite" role="status">
@@ -276,18 +288,27 @@ export function ShareSheet({
               state={actionStates["copy"] ?? "idle"}
               idleIcon={<LinkIcon className="h-5 w-5 text-white" />}
               onClick={handleCopyLink}
+              rotation={-1.5}
+              prefersReducedMotion={prefersReducedMotion}
+              delay={0.25}
             />
             <ActionButton
               label={actionStates["save"] === "success" ? "Saved!" : "Save"}
               state={actionStates["save"] ?? "idle"}
               idleIcon={<Download className="h-5 w-5 text-white" />}
               onClick={handleSave}
+              rotation={1}
+              prefersReducedMotion={prefersReducedMotion}
+              delay={0.33}
             />
             <ActionButton
               label="More"
               state={actionStates["more"] ?? "idle"}
               idleIcon={<Share2 className="h-5 w-5 text-white" />}
               onClick={handleMore}
+              rotation={-0.5}
+              prefersReducedMotion={prefersReducedMotion}
+              delay={0.41}
             />
           </div>
 
@@ -295,7 +316,7 @@ export function ShareSheet({
           {/* Issue 8: aria-label on bottom Close button */}
           <button
             onClick={() => onOpenChange(false)}
-            className="text-white/50 hover:text-white/70 text-sm font-medium py-3 w-full transition-colors"
+            className="font-heading text-xs uppercase tracking-wider text-white/40 hover:text-white/60 py-3 w-full transition-colors"
             aria-label="Close share sheet"
           >
             Close
@@ -311,35 +332,49 @@ interface ActionButtonProps {
   state: ActionState;
   idleIcon: React.ReactNode;
   onClick: () => void;
+  rotation?: number;
+  prefersReducedMotion?: boolean | null;
+  delay?: number;
 }
 
-function ActionButton({ label, state, idleIcon, onClick }: ActionButtonProps) {
+function ActionButton({ label, state, idleIcon, onClick, rotation = 0, prefersReducedMotion, delay = 0 }: ActionButtonProps) {
   const isSuccess = state === "success";
   const isLoading = state === "loading";
 
   return (
-    <button
+    <motion.button
       onClick={onClick}
       disabled={isLoading}
       className="flex flex-col items-center gap-0 disabled:opacity-60"
+      style={{ rotate: rotation }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, delay }}
+      whileTap={prefersReducedMotion ? undefined : { scale: 0.96 }}
     >
-      <div className="w-12 h-12 rounded-full bg-[#354090] border border-[#404C92] flex items-center justify-center">
+      <div
+        className={cn(
+          "w-12 h-12 flex items-center justify-center border bg-gradient-to-br from-[#354090] to-[#2D357D] transition-colors",
+          isSuccess ? "border-[#F78E42]/50" : "border-[#404C92] hover:border-[#F78E42]/50"
+        )}
+        style={{ borderRadius: '12px 14px 11px 13px' }}
+      >
         {isLoading ? (
           <Loader2 className="h-5 w-5 text-white animate-spin" />
         ) : isSuccess ? (
-          <Check className="h-5 w-5 text-[#4A70D9]" />
+          <Check className="h-5 w-5 text-[#F78E42]" />
         ) : (
           idleIcon
         )}
       </div>
       <span
         className={cn(
-          "text-xs mt-1.5",
-          isSuccess ? "text-[#4A70D9]" : "text-medium"
+          "text-xs mt-1.5 font-heading",
+          isSuccess ? "text-[#F78E42]" : "text-medium"
         )}
       >
         {label}
       </span>
-    </button>
+    </motion.button>
   );
 }

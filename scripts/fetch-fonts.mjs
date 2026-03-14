@@ -60,6 +60,11 @@ const FILES = [
     url: "https://unpkg.com/@fontsource/inter@5.0.16/files/inter-latin-700-normal.woff2",
     dest: path.join(outDir, "Inter", "Inter-Bold.woff2"),
   },
+  // Space Grotesk - Brand heading font for OG images
+  {
+    url: "https://github.com/floriankarsten/space-grotesk/raw/master/fonts/ttf/static/SpaceGrotesk-Bold.ttf",
+    dest: path.join(outDir, "SpaceGrotesk", "SpaceGrotesk-Bold.ttf"),
+  },
 ];
 
 function ensureDir(dir) {
