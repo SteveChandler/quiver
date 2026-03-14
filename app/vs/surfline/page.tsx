@@ -110,12 +110,7 @@ function ComparisonStructuredData() {
 // ---------------------------------------------------------------------------
 
 const FAQ_ITEMS = [
-  {
-    question: "Is Quiver really free?",
-    answer:
-      "Yes, Quiver is free today. All surf forecasts, tide charts, session logging, and community features are available to every user at no cost. We may introduce premium features or ads in the future as we grow, but the core forecast data you need to make the call will always be accessible.",
-  },
-  {
+{
     question: "How does Quiver's Oracle compare to Surfline's human forecasters?",
     answer:
       "Oracle is Quiver's crowd-sourced forecasting engine. It trains per-beach models on 30,000+ buoy observations to bias-correct NOAA forecasts every 3 hours, while session data from real surfers provides ground truth. Surfline employs human forecasters who write editorial surf reports. Both approaches have merit — Oracle excels at consistency, frequency, and community validation, while Surfline's forecasters add narrative context.",
