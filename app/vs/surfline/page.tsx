@@ -346,7 +346,7 @@ export default function VsSurflinePage() {
           <div className="mx-auto mt-8 grid max-w-lg grid-cols-2 gap-4 md:mt-10">
             <FadeInSection delay={100}>
               <HeroPulse>
-                <div className="rounded-xl border border-border bg-card p-5 text-center">
+                <div className="flex h-full flex-col items-center justify-center rounded-xl border border-border bg-card p-5 text-center">
                   <p className="font-heading text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                     Quiver
                   </p>
@@ -358,7 +358,7 @@ export default function VsSurflinePage() {
               </HeroPulse>
             </FadeInSection>
             <FadeInSection delay={250}>
-              <div className="rounded-xl border border-border bg-card p-5 text-center">
+              <div className="flex h-full flex-col items-center justify-center rounded-xl border border-border bg-card p-5 text-center">
                 <p className="font-heading text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                   Surfline Premium
                 </p>

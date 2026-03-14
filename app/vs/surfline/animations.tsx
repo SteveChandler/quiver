@@ -225,9 +225,9 @@ interface HeroPulseProps {
  */
 export function HeroPulse({ children, className = "" }: HeroPulseProps) {
   return (
-    <div className={`vs-hero-pulse ${className}`}>
+    <div className={`vs-hero-pulse h-full ${className}`}>
       <div className="vs-hero-pulse__ring" aria-hidden="true" />
-      <div className="relative">{children}</div>
+      <div className="relative h-full">{children}</div>
     </div>
   );
 }
