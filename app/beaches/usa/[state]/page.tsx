@@ -20,6 +20,15 @@ import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
 import { FAQSection } from "@/components/seo/faq-schema";
 import { generateStateRichContent } from "@/lib/seo/state-content-generator";
 import { RichContentRenderer } from "@/lib/seo/rich-content";
+import { buildCityIntentUrl } from "@/lib/constants/intent-definitions";
+import { ExpandableCityList } from "@/components/state/expandable-city-list";
+
+/** Intent quick-links shown per city for crawler discovery */
+const CITY_INTENT_PILLS = [
+  { key: "beginner" as const, label: "Beginner" },
+  { key: "tide" as const, label: "Tides" },
+  { key: "water-temp" as const, label: "Water Temp" },
+];
 
 export const revalidate = 86400;
 
@@ -193,26 +202,39 @@ export default async function UsaStatePage(
             Surf cities in {stateName}
           </h2>
           <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <ul className="grid gap-2">
-              {cities.map((c) => {
-                const spotCount = cityBeachCounts.get(c.citySlug);
-                return (
-                  <li key={c.citySlug}>
-                    <Link
-                      href={`/${stateSlug}/${c.citySlug}`}
-                      className="flex items-center justify-between rounded-lg px-3 py-2 text-slate-800 hover:bg-slate-50 hover:text-ocean-blue transition-colors"
-                    >
-                      <span>{c.cityName}</span>
-                      {spotCount && spotCount > 0 && (
-                        <span className="text-xs text-slate-500">
-                          {spotCount} {spotCount === 1 ? "spot" : "spots"}
-                        </span>
-                      )}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
+            <ExpandableCityList totalCount={cities.length}>
+              <ul className="grid gap-2">
+                {cities.map((c) => {
+                  const spotCount = cityBeachCounts.get(c.citySlug);
+                  return (
+                    <li key={c.citySlug} className="space-y-1">
+                      <Link
+                        href={`/${stateSlug}/${c.citySlug}`}
+                        className="flex items-center justify-between rounded-lg px-3 py-2 text-slate-800 hover:bg-slate-50 hover:text-ocean-blue transition-colors"
+                      >
+                        <span>{c.cityName}</span>
+                        {spotCount && spotCount > 0 && (
+                          <span className="text-xs text-slate-500">
+                            {spotCount} {spotCount === 1 ? "spot" : "spots"}
+                          </span>
+                        )}
+                      </Link>
+                      <div className="flex flex-wrap gap-1 px-3 pb-1">
+                        {CITY_INTENT_PILLS.map(({ key, label }) => (
+                          <Link
+                            key={key}
+                            href={buildCityIntentUrl(key, c.citySlug)}
+                            className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-600 hover:border-ocean-blue hover:text-ocean-blue transition-colors"
+                          >
+                            {label}
+                          </Link>
+                        ))}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </ExpandableCityList>
           </div>
         </section>
 

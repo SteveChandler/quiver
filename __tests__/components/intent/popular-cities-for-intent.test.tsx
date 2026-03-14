@@ -23,6 +23,14 @@ jest.mock("next/link", () => {
   };
 });
 
+/** Generate N city fixtures */
+function makeCities(count: number) {
+  return Array.from({ length: count }, (_, i) => ({
+    slug: `city-${i + 1}`,
+    name: `City ${i + 1}`,
+  }));
+}
+
 describe("PopularCitiesForIntent", () => {
   const defaultProps = {
     intentKey: "beginner" as const,
@@ -63,5 +71,53 @@ describe("PopularCitiesForIntent", () => {
       <PopularCitiesForIntent {...defaultProps} cities={[]} />
     );
     expect(container).toBeEmptyDOMElement();
+  });
+
+  describe("two-tier rendering", () => {
+    it("should show only top tier when 8 or fewer cities", () => {
+      render(
+        <PopularCitiesForIntent {...defaultProps} cities={makeCities(8)} />
+      );
+
+      // All 8 cities rendered
+      for (let i = 1; i <= 8; i++) {
+        expect(screen.getByText(`City ${i}`)).toBeInTheDocument();
+      }
+
+      // No separator
+      expect(
+        screen.queryByText(/More Beginner Spots cities/i)
+      ).not.toBeInTheDocument();
+    });
+
+    it("should show both tiers when more than 8 cities", () => {
+      render(
+        <PopularCitiesForIntent {...defaultProps} cities={makeCities(12)} />
+      );
+
+      // All 12 cities rendered
+      for (let i = 1; i <= 12; i++) {
+        expect(screen.getByText(`City ${i}`)).toBeInTheDocument();
+      }
+
+      // Separator present
+      expect(
+        screen.getByText("More Beginner Spots cities in California")
+      ).toBeInTheDocument();
+    });
+
+    it("should render correct URLs for cities in both tiers", () => {
+      render(
+        <PopularCitiesForIntent {...defaultProps} cities={makeCities(10)} />
+      );
+
+      // Top tier city (city-1)
+      const topLink = screen.getByRole("link", { name: "City 1" });
+      expect(topLink).toHaveAttribute("href", "/beginner/city-1");
+
+      // Bottom tier city (city-9)
+      const bottomLink = screen.getByRole("link", { name: "City 9" });
+      expect(bottomLink).toHaveAttribute("href", "/beginner/city-9");
+    });
   });
 });
