@@ -21,8 +21,6 @@ import {
   FadeInSection,
   AnimatedStickerBadge,
   AnimatedFeatureRow,
-  PriceCountUp,
-  HeroPulse,
   VsAnimationStyles,
 } from "./animations";
 
@@ -67,7 +65,7 @@ function ComparisonStructuredData() {
     operatingSystem: "Web, iOS, Android",
     url: SITE_ORIGIN,
     description:
-      "Crowd-sourced surf forecast app with crowd-sourced ML, tide charts, session logging, and community features for 185+ beaches.",
+      "Crowd-sourced surf forecast app with crowd-sourced ML, tide charts, session logging, and community features for 279 beaches.",
     offers: {
       "@type": "Offer",
       price: "0",
@@ -86,7 +84,7 @@ function ComparisonStructuredData() {
       "Surf forecast app with cam network, human forecaster reports, and premium subscription features.",
     offers: {
       "@type": "Offer",
-      price: "99.99",
+      price: "119.99",
       priceCurrency: "USD",
       priceValidUntil: "2026-12-31",
     },
@@ -118,7 +116,7 @@ const FAQ_ITEMS = [
   {
     question: "What beaches does Quiver cover?",
     answer:
-      "Quiver covers 185+ beaches across California, Hawaii, Oregon, Washington, Puerto Rico, Florida, the East Coast, and Baja Mexico. Every beach gets ML-corrected forecasts, tide charts, crowd data, and session logging — all free.",
+      "Quiver covers 279 beaches across California, Hawaii, Oregon, Washington, Puerto Rico, Florida, the East Coast, and Baja Mexico. Every beach gets ML-corrected forecasts, tide charts, crowd data, and session logging — all free.",
   },
   {
     question: "Can I switch from Surfline to Quiver?",
@@ -168,11 +166,19 @@ const COMPARISON_FEATURES: FeatureRow[] = [
     feature: "Surf Conditions Rating",
     description: "Go/no-go surf call based on current conditions",
     quiver: "free",
-    quiverNote: "Oracle: crowd-sourced + ML, per-beach",
-    surfline: "paid",
-    surflineNote: "Human forecasters, Premium only",
+    quiverNote: "Oracle: community-validated, per-beach",
+    surfline: "partial",
+    surflineNote: "Basic rating free, detailed reports Premium",
   },
-{
+  {
+    feature: "Surf Cams",
+    description: "Live camera streams from beach locations",
+    quiver: "none",
+    quiverNote: "Not available",
+    surfline: "partial",
+    surflineNote: "700+ cams, ad-free requires Premium",
+  },
+  {
     feature: "Session Logging",
     description: "Track surf sessions with conditions and photos",
     quiver: "free",
@@ -208,7 +214,7 @@ const COMPARISON_FEATURES: FeatureRow[] = [
 
 const PRICING = {
   quiver: { label: "Free", price: "$0", period: "" },
-  surfline: { label: "Premium", price: "$99.99", period: "/year" },
+  surfline: { label: "Premium", price: "$119.99", period: "/year" },
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -314,14 +320,9 @@ export default function VsSurflinePage() {
         />
 
         <div className="relative mx-auto max-w-4xl text-center">
-          <div className="mb-6 flex items-center justify-center gap-3">
+          <div className="mb-6 flex items-center justify-center">
             <AnimatedStickerBadge>
               <StickerBadge>Updated March 2026</StickerBadge>
-            </AnimatedStickerBadge>
-            <AnimatedStickerBadge>
-              <StickerBadge className="bg-emerald-600">
-                Honest Comparison
-              </StickerBadge>
             </AnimatedStickerBadge>
           </div>
 
@@ -329,8 +330,8 @@ export default function VsSurflinePage() {
             Quiver vs Surfline
           </h1>
           <p className="mx-auto mt-4 max-w-2xl font-sans text-lg text-muted-foreground sm:text-xl md:mt-6">
-            The surf forecast you check every morning shouldn&apos;t cost $100/year.
-            Quiver gives you crowd-sourced surf calls,
+            The surf forecast you check every morning shouldn&apos;t cost $120/year.
+            Quiver gives you ML-corrected surf calls validated by real surfers,
             tide charts, crowd data, and session logging{" "}
             <span className="font-semibold text-primary">
               — no paywall on the data that matters
@@ -340,17 +341,15 @@ export default function VsSurflinePage() {
 
           <div className="mx-auto mt-8 grid max-w-lg grid-cols-2 gap-4 md:mt-10">
             <FadeInSection delay={100}>
-              <HeroPulse>
-                <div className="flex h-full flex-col items-center justify-center rounded-xl border border-border bg-card p-5 text-center">
-                  <p className="font-heading text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                    Quiver
-                  </p>
-                  <p className="mt-1 font-mono text-3xl font-bold text-emerald-400">
-                    $0
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">Free</p>
-                </div>
-              </HeroPulse>
+              <div className="flex h-full flex-col items-center justify-center rounded-xl border border-border bg-card p-5 text-center">
+                <p className="font-heading text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  Quiver
+                </p>
+                <p className="mt-1 font-mono text-3xl font-bold text-emerald-400">
+                  $0
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">Free</p>
+              </div>
             </FadeInSection>
             <FadeInSection delay={250}>
               <div className="flex h-full flex-col items-center justify-center rounded-xl border border-border bg-card p-5 text-center">
@@ -358,7 +357,7 @@ export default function VsSurflinePage() {
                   Surfline Premium
                 </p>
                 <p className="mt-1 font-mono text-3xl font-bold text-amber-400">
-                  <PriceCountUp target={99.99} />
+                  $119.99
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">/year</p>
               </div>
@@ -384,14 +383,14 @@ export default function VsSurflinePage() {
             </p>
             <p>
               But the surf forecast landscape has changed. The core data that
-              Surfline charges $99.99/year for — detailed swell forecasts, conditions
-              ratings, and crowd info — is now available through apps like Quiver
-              that combine crowd-sourced observations with machine learning to
-              process the same NOAA, CDIP, and NDBC data sources.
+              Surfline charges $119.99/year for — detailed swell forecasts, conditions
+              ratings, and crowd info — is now available for free through newer
+              apps like Quiver that combine community observations with machine
+              learning to deliver beach-specific accuracy.
             </p>
             <p>
               The question isn&apos;t whether Surfline is good. It&apos;s whether what
-              you&apos;re paying for is worth $100/year when community-driven
+              you&apos;re paying for is worth $120/year when community-driven
               alternatives deliver comparable (and in some cases better) forecast
               accuracy through crowd-sourced ML — validated by surfers
               actually in the water.
@@ -477,7 +476,7 @@ export default function VsSurflinePage() {
                     </td>
                     <td className="px-5 py-5 text-center">
                       <span className="font-mono text-sm font-semibold text-muted-foreground">
-                        $99.99/yr
+                        $119.99/yr
                       </span>
                     </td>
                   </tr>
@@ -542,7 +541,7 @@ export default function VsSurflinePage() {
                     Surfline
                   </p>
                   <p className="mt-1 font-mono text-xl font-bold text-amber-400">
-                    $99.99/yr
+                    $119.99/yr
                   </p>
                 </div>
               </div>
@@ -610,7 +609,7 @@ export default function VsSurflinePage() {
               description="Every forecast feature is free today. No paywall on conditions
                 ratings, no premium tier for detailed swell data. The
                 forecast data you need to make the call shouldn't cost
-                $100/year."
+                $120/year."
               badge="Free"
             />
             <QuiverAdvantageCard
@@ -634,10 +633,10 @@ export default function VsSurflinePage() {
             />
             <QuiverAdvantageCard
               icon={<Users className="h-5 w-5" />}
-              title="Community-First Approach"
-              description="Follow surfers, build your crew, see what your friends are surfing.
-                Quiver is built around the idea that surfing is better with your
-                people. Surfline is a media company; Quiver is a community platform."
+              title="Built for Your Crew"
+              description="Follow surfers, build your crew, share sessions. Quiver is
+                built around the idea that surfing is better with your people.
+                We're still early, but the foundation is social from day one."
               badge="Crew feeds"
             />
             <QuiverAdvantageCard
@@ -755,7 +754,7 @@ export default function VsSurflinePage() {
             Browse Free Forecasts
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Check out Quiver&apos;s crowd-sourced forecasts for popular breaks.
+            No signup needed. Check the forecast for your beach right now.
           </p>
           <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {[
@@ -781,7 +780,7 @@ export default function VsSurflinePage() {
               href="/forecast"
               className="text-sm font-semibold text-primary hover:underline"
             >
-              View all 185+ beaches →
+              View all 279 beaches →
             </Link>
             <Link
               href="/forecast-accuracy"
@@ -801,18 +800,12 @@ export default function VsSurflinePage() {
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-emerald-600/5" />
 
         <FadeInSection className="relative mx-auto max-w-3xl text-center">
-          <AnimatedStickerBadge className="mb-6">
-            <StickerBadge>
-              No credit card required
-            </StickerBadge>
-          </AnimatedStickerBadge>
-
           <h2 className="font-heading text-2xl font-bold sm:text-3xl md:text-4xl">
             Ready to check the forecast without the paywall?
           </h2>
           <p className="mx-auto mt-4 max-w-xl font-sans text-muted-foreground md:text-lg">
-            Join surfers who switched from Surfline Premium to Quiver&apos;s
-            crowd-sourced forecasts. Set up in 30 seconds.
+            Browse any forecast without signing up. When you&apos;re ready,
+            create an account in 30 seconds to unlock sessions and your crew.
           </p>
 
           <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -832,7 +825,7 @@ export default function VsSurflinePage() {
           </div>
 
           <p className="mt-6 text-xs text-muted-foreground">
-            Free today. 185+ beaches. Crowd-sourced surf calls.
+            279 beaches. Free forecasts. Available on iOS.
           </p>
         </FadeInSection>
       </section>
