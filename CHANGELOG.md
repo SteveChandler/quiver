@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Oracle: window selector night guard — tide-driven boundaries that shifted start time to nighttime hours (e.g. 1am) are now re-validated and rejected, preventing "BEST TIME 1a" recommendations
+- Oracle: time format now shows "am"/"pm" instead of "a"/"p" (e.g. "5:45am" not "5:45a")
+
+### Changed
+- Oracle: secondary CTA button contrast improved (60% → 70% opacity) and vertical gap increased for better mobile touch targets
+- Oracle: Nearby Spots card images now request retina-quality source (560×180), conditions text truncated with line-clamp
+- Oracle: "Map >" and "Full forecast >" links replaced with ChevronRight icon for consistency
+- Oracle: wind indicator label, stat labels, and stat spacing refined for readability (10px → 11px, gap-5 → gap-6)
+- Oracle: hero section uses full-bleed on mobile (no rounded corners), rounded on desktop
+- Oracle: score badge alignment tightened, best window subtitle truncated on small screens
+
 ### Added
 - Hourly Open-Meteo wind cron (`/api/cron/wind/update`) — fetches accurate wind for all 273 beaches every hour, replaces garbage CDIP wind with real forecasts
 - `wind_source` column on `enhanced_forecasts` — tracks wind data provenance (HRRR > NWS > OPEN_METEO_WIND), prevents bad data overwriting good data

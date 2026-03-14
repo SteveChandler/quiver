@@ -130,12 +130,12 @@ export function ContextualCTA(props: ContextualCTAProps) {
             {primary.label}
           </Button>
 
-          <div className="flex flex-col gap-1 sm:flex-row sm:gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
             {secondary.map((action) => (
               <Button
                 key={action.label}
                 variant="ghost"
-                className="w-full text-white/60 hover:text-white/80 hover:bg-white/[0.04] font-heading text-sm sm:flex-1"
+                className="w-full text-white/70 hover:text-white/90 hover:bg-white/[0.04] font-heading text-sm sm:flex-1"
                 onClick={action.handler}
               >
                 {action.label}

@@ -138,7 +138,7 @@ export function OracleHero({
   return (
     <section
       role="banner"
-      className="relative h-[420px] md:h-[480px] w-full overflow-hidden rounded-2xl"
+      className="relative h-[420px] md:h-[480px] w-full overflow-hidden rounded-none md:rounded-2xl"
       aria-label={`${beachName} surf conditions`}
     >
       {/* Layer 1: Beach photo with Ken Burns scale + gradient overlay */}
