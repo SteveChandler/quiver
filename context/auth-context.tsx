@@ -34,34 +34,48 @@ const signupMetadataSchema = z
   .object({
     signup_context: z
       .object({
-        source: z.string().optional(),
+        method: z.string().optional(),
+        entrypoint: z.string().optional(),
+        landing_path: z.string().optional(),
         referrer: z.string().optional(),
-        campaign: z.string().optional(),
-        landing_page: z.string().optional(),
+        utm: z
+          .object({
+            source: z.string().nullable().optional(),
+            medium: z.string().nullable().optional(),
+            campaign: z.string().nullable().optional(),
+            content: z.string().nullable().optional(),
+            term: z.string().nullable().optional(),
+          })
+          .optional(),
+        tz: z.string().nullable().optional(),
+        locale: z.string().nullable().optional(),
+        device: z
+          .object({
+            kind: z.enum(["mobile", "desktop"]).optional(),
+          })
+          .optional(),
+        captured_at: z.string().optional(),
       })
-      .strict()
       .optional(),
     location_data: z
       .object({
-        latitude: z.number(),
-        longitude: z.number(),
-        accuracy_m: z.number().optional(),
-        city: z.string().optional(),
-        region: z.string().optional(),
+        source: z.string().optional(),
+        city: z.string().nullable().optional(),
+        region: z.string().nullable().optional(),
+        country: z.string().nullable().optional(),
+        latitude: z.number().nullable().optional(),
+        longitude: z.number().nullable().optional(),
       })
-      .strict()
+      .nullable()
       .optional(),
     legal_consent: z
       .object({
-        terms_accepted: z.boolean(),
-        privacy_accepted: z.boolean(),
-        timestamp: z.string(),
-        version: z.string().optional(),
+        terms_accepted_at: z.string().optional(),
+        terms_version: z.string().optional(),
+        privacy_accepted_at: z.string().optional(),
       })
-      .strict()
       .optional(),
-  })
-  .strict();
+  });
 
 /**
  * AuthContext provides authentication state and methods throughout the application.

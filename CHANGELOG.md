@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- SEO: state browse pages (`/beaches/usa/ca`) now show Beginner/Tides/Water Temp intent pill links per city for crawler discovery of city intent pages
+- SEO: `getTopCitiesInState` default limit raised from 8 to 100 so all qualifying cities are returned for crawl discovery (backwards-compatible — pass a lower value when a small subset is needed)
+- SEO: `PopularCitiesForIntent` on state intent pages now shows a two-tier layout — top 8 cities in the existing prominent grid, remaining cities in a compact 3–4 column grid below a labeled divider; all links are always server-rendered (no accordion/collapse) for full crawler visibility
+
+### Added
+- GEO: `sameAs` (Bluesky, X/Twitter), `founder`, and `areaServed` fields on Organization structured data for AI citation attribution
+- GEO: `llms-full.txt` with Q&A pairs, ML accuracy stats, coverage data, competitive positioning, and founder story for AI crawler ingestion
+- GEO: explicit AI crawler rules in robots.txt — allow GPTBot, ChatGPT-User, OAI-SearchBot, ClaudeBot, PerplexityBot; block Bytespider; crawl-delay on training-capable bots
+- GEO: server-rendered prose summary on beach detail pages — natural-language conditions block visible in initial HTML for AI crawlers
+- GEO: SSR conversion of About page — all content now server-rendered (was entirely client-rendered and invisible to crawlers)
+- GEO: SSR conversion of Features page — static content server-rendered with interactive elements (auth modal, scroll tracking) extracted to thin client components
+
+### Added
+- Activation: post-signup redirect to home beach page — after onboarding, users land on their home beach's forecast page (`/ca/san-diego/ocean-beach`) instead of the generic home feed, reducing time-to-value
+- Activation: dynamic teaser copy on surf-call gate CTA — anonymous users see actual best-window time and wave height from forecast data (e.g., "Best window starts at 7:00 AM at 4.2ft"), creating urgency to sign up
+- Polish: entrance choreography on PublicContentGate (signup CTA) — staggered fade-in of waves icon, title, description, and CTA button with hover/press feedback and gentle icon rocking animation
+- Polish: payoff step enhancements — CTA button pulse glow, score counter scale pop on finish, XP badge sticker-slap entrance with rotation
+- Polish: scroll-triggered animations on /vs/surfline comparison page — fade-in sections, sticker badge scale-in, price count-up from $0 to $99.99, and pulsing ring on Quiver's $0 card; uses CSS transitions + Intersection Observer (no framer-motion) for minimal bundle impact
+- All new animations respect `prefers-reduced-motion` with CSS media queries and framer-motion's `useReducedMotion`
+
+### Changed
+- Growth: hide empty social features to prevent isolation signals — ActivityFeed (Oracle), ReferralLeaderboard (profile), UserSocialStats (0/0 followers), RecentSessions (beach detail), and UnifiedCommunityFeed all return null when empty instead of showing discouraging empty states
+
 ### Added
 - Hourly Open-Meteo wind cron (`/api/cron/wind/update`) — fetches accurate wind for all 273 beaches every hour, replaces garbage CDIP wind with real forecasts
 - `wind_source` column on `enhanced_forecasts` — tracks wind data provenance (HRRR > NWS > OPEN_METEO_WIND), prevents bad data overwriting good data

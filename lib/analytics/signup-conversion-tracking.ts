@@ -10,22 +10,51 @@ import { track } from "@/lib/analytics";
 import { getVisitorId } from "@/lib/utils/visitor-id";
 
 /**
- * Module-level deduplication Set for signup_cta_view events.
+ * Session-level deduplication for signup_cta_view events.
  *
- * Prevents IntersectionObserver-driven components (e.g. cam-hero, sticky-bar)
- * from inflating view counts by re-firing on every scroll intersection.
- * The Set resets on full page reload, which is the correct session boundary.
+ * Each CTA source fires at most once per browser session (tab lifetime),
+ * regardless of page navigations, re-renders, or component remounts.
+ * Uses sessionStorage so dedup survives Next.js client-side navigations
+ * AND full page loads within the same tab session.
  *
- * Key = source identifier (e.g. "cam-hero", "inline-cta").
+ * The in-memory Set acts as a fast path and SSR-safe fallback.
  */
 const viewedSources = new Set<string>();
 
+function hasViewedInSession(source: string): boolean {
+  if (viewedSources.has(source)) return true;
+  try {
+    return sessionStorage.getItem(`quiver_cta_viewed_${source}`) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markViewedInSession(source: string): void {
+  viewedSources.add(source);
+  try {
+    sessionStorage.setItem(`quiver_cta_viewed_${source}`, "1");
+  } catch {
+    // SSR or storage unavailable
+  }
+}
+
 /**
- * Reset the deduplication Set. Only intended for use in tests.
+ * Reset the deduplication state. Only intended for use in tests.
  * Do NOT call this in application code.
  */
 export function _resetViewedSourcesForTesting(): void {
   viewedSources.clear();
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key?.startsWith("quiver_cta_viewed_")) keysToRemove.push(key);
+    }
+    keysToRemove.forEach((k) => sessionStorage.removeItem(k));
+  } catch {
+    // SSR or storage unavailable
+  }
 }
 
 function fireToUserEvents(eventType: string, params: Record<string, any>) {
@@ -49,12 +78,12 @@ function fireToUserEvents(eventType: string, params: Record<string, any>) {
 }
 
 export function trackSignupCtaView(params: Record<string, any>) {
-  // Deduplicate view events per source per page load.
-  // Without this, scroll-triggered IntersectionObservers fire dozens of times
-  // per session, making CTA view metrics completely unreliable.
+  // Deduplicate view events per source per browser session.
+  // Without this, scroll-triggered IntersectionObservers and page navigations
+  // fire thousands of events per day, drowning out real behavioral signals.
   const sourceKey = String(params.source ?? "unknown");
-  if (viewedSources.has(sourceKey)) return;
-  viewedSources.add(sourceKey);
+  if (hasViewedInSession(sourceKey)) return;
+  markViewedInSession(sourceKey);
 
   track("signup_cta_view", params);
   fireToUserEvents("signup_cta_view", params);

@@ -92,12 +92,76 @@ export const SEO_CONFIG = {
       name: "Quiver",
       alternateName: "Quiver Surf App",
       description:
-        "ML-powered surf forecast platform with live conditions, crowd intelligence, and session tracking for 185+ beaches across California, Hawaii, Oregon and more",
+        "ML-powered surf forecast platform with live conditions, crowd intelligence, and session tracking for 279+ beaches across California, Hawaii, Oregon, Washington, Florida, Puerto Rico, and more",
       url: SITE_URL,
       logo: `${SITE_URL}/logo.png`,
       foundingDate: "2024",
       applicationCategory: "Sports & Recreation",
       operatingSystem: "Web, iOS, Android",
+      sameAs: [
+        "https://bsky.app/profile/quiversurf.app",
+        "https://x.com/quiversurf",
+      ],
+      founder: {
+        "@type": "Person",
+        jobTitle: "Founder",
+        worksFor: {
+          "@type": "Organization",
+          name: "Quiver Surf Technologies, Inc.",
+        },
+      },
+      areaServed: [
+        {
+          "@type": "State",
+          name: "California",
+          containedInPlace: { "@type": "Country", name: "United States" },
+        },
+        {
+          "@type": "State",
+          name: "Oregon",
+          containedInPlace: { "@type": "Country", name: "United States" },
+        },
+        {
+          "@type": "State",
+          name: "Washington",
+          containedInPlace: { "@type": "Country", name: "United States" },
+        },
+        {
+          "@type": "State",
+          name: "Hawaii",
+          containedInPlace: { "@type": "Country", name: "United States" },
+        },
+        {
+          "@type": "State",
+          name: "Florida",
+          containedInPlace: { "@type": "Country", name: "United States" },
+        },
+        {
+          "@type": "AdministrativeArea",
+          name: "Puerto Rico",
+          containedInPlace: { "@type": "Country", name: "United States" },
+        },
+        {
+          "@type": "State",
+          name: "New Jersey",
+          containedInPlace: { "@type": "Country", name: "United States" },
+        },
+        {
+          "@type": "State",
+          name: "New York",
+          containedInPlace: { "@type": "Country", name: "United States" },
+        },
+        {
+          "@type": "State",
+          name: "North Carolina",
+          containedInPlace: { "@type": "Country", name: "United States" },
+        },
+        {
+          "@type": "AdministrativeArea",
+          name: "Baja California",
+          containedInPlace: { "@type": "Country", name: "Mexico" },
+        },
+      ],
     },
 
     softwareApplication: {

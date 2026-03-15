@@ -631,6 +631,12 @@ export function selectBestWindow(
     if (tideBoundaries && useTideBoundaries) {
       effectiveStartTime = tideBoundaries.start;
       endTime = tideBoundaries.end;
+
+      // Re-validate tide-adjusted start time against night filter
+      if (shouldSkipDueToLight({ startTime: effectiveStartTime, sunsets, sunrises, beachTz, getLocalDateStrForBeach })) {
+        log.debug(`[selectBestWindow] ${actualBeach.name}: Tide-adjusted start ${effectiveStartTime.toISOString()} falls in night hours, skipping`);
+        continue;
+      }
     } else {
       endTime = calculateWindowEnd(i, effectiveStartTime, effectiveThreshold, filteredForecasts, getLocalDateStrForBeach);
     }
@@ -708,6 +714,12 @@ export function selectBestWindow(
     start: refinedTimes.start,
     end: refinedTimes.end,
   };
+
+  // Final night guard after refinement
+  if (shouldSkipDueToLight({ startTime: bestWindow.start, sunsets, sunrises, beachTz, getLocalDateStrForBeach })) {
+    log.debug(`[selectBestWindow] ${actualBeach.name}: Refined start falls in night hours, returning null`);
+    return null;
+  }
 
   return buildResult(bestWindow, filteredForecasts, beachTz);
 }

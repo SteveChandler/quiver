@@ -45,42 +45,56 @@ describe("UserSocialStats", () => {
     expect(screen.getByText("Following")).toBeInTheDocument();
   });
 
-  it("should handle zero counts", () => {
+  it("should render nothing when both counts are zero", () => {
     const profileWithZeroCounts = {
       ...mockProfile,
       followers_count: 0,
       following_count: 0,
     };
 
-    render(<UserSocialStats profile={profileWithZeroCounts} />);
+    const { container } = render(<UserSocialStats profile={profileWithZeroCounts} />);
 
-    expect(screen.getAllByText("0")).toHaveLength(2);
-    expect(screen.getByText("Followers")).toBeInTheDocument();
-    expect(screen.getByText("Following")).toBeInTheDocument();
+    // Component returns null when both are 0
+    expect(container.firstChild).toBeNull();
+    expect(screen.queryByText("Followers")).not.toBeInTheDocument();
+    expect(screen.queryByText("Following")).not.toBeInTheDocument();
   });
 
-  it("should handle null counts", () => {
+  it("should render nothing when both counts are null", () => {
     const profileWithNullCounts = {
       ...mockProfile,
       followers_count: null,
       following_count: null,
     };
 
-    render(<UserSocialStats profile={profileWithNullCounts} />);
+    const { container } = render(<UserSocialStats profile={profileWithNullCounts} />);
 
-    expect(screen.getAllByText("0")).toHaveLength(2);
+    expect(container.firstChild).toBeNull();
   });
 
-  it("should handle undefined counts", () => {
+  it("should render nothing when both counts are undefined", () => {
     const profileWithUndefinedCounts = {
       ...mockProfile,
       followers_count: null,
       following_count: null,
     } as unknown as Profile;
 
-    render(<UserSocialStats profile={profileWithUndefinedCounts} />);
+    const { container } = render(<UserSocialStats profile={profileWithUndefinedCounts} />);
 
-    expect(screen.getAllByText("0")).toHaveLength(2);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("should render when only one count is non-zero", () => {
+    const profileWithOneCount = {
+      ...mockProfile,
+      followers_count: 5,
+      following_count: 0,
+    };
+
+    render(<UserSocialStats profile={profileWithOneCount} />);
+
+    expect(screen.getByText("5")).toBeInTheDocument();
+    expect(screen.getByText("Followers")).toBeInTheDocument();
   });
 
   it("should open followers modal when followers button is clicked", () => {
@@ -307,16 +321,16 @@ describe("UserSocialStats", () => {
       expect(screen.getByText("-10")).toBeInTheDocument();
     });
 
-    it("should handle profile without social stats", () => {
+    it("should handle profile without social stats (returns null)", () => {
       const minimalProfile = {
         ...mockProfile,
         followers_count: null,
         following_count: null,
       } as Profile;
 
-      expect(() => {
-        render(<UserSocialStats profile={minimalProfile} />);
-      }).not.toThrow();
+      const { container } = render(<UserSocialStats profile={minimalProfile} />);
+      // Returns null when both counts are zero/null
+      expect(container.firstChild).toBeNull();
     });
   });
 });

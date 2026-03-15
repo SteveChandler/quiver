@@ -364,7 +364,9 @@ export default async function IntentPage(props: IntentPageParams) {
     const beaches = beachesResult.success && beachesResult.data ? beachesResult.data : [];
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
-    // Fetch top cities in this state for PopularCitiesForIntent component
+    // Fetch all cities in this state for PopularCitiesForIntent component.
+    // No explicit limit — uses default of 100 so all qualifying cities are
+    // server-rendered for crawl discovery (two-tier display handles visual hierarchy).
     const topCities = await getTopCitiesInState(params.city);
 
     // Render state-level intent page (with empty state if no beaches)

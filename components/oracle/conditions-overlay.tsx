@@ -54,7 +54,7 @@ interface SwellStatProps {
 function SwellStat({ label, value }: SwellStatProps) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-medium text-[10px] uppercase tracking-wider">
+      <span className="text-medium text-[11px] uppercase tracking-wider">
         {label}
       </span>
       <span className="text-high text-base font-medium">{value}</span>
@@ -95,13 +95,13 @@ export function ConditionsOverlay({
         >
           {displayWaveHeight}
         </h1>
-        <div className="mb-2">
+        <div className="mb-1.5">
           <ScoreBadge score={score} shouldAnimate={shouldAnimate} />
         </div>
       </div>
 
       {/* Swell details row */}
-      <div className="flex gap-5">
+      <div className="flex gap-6">
         <SwellStat
           label="Swell"
           value={`${swellDirection} ${swellPeriod}s`}
@@ -129,7 +129,7 @@ export function ConditionsOverlay({
             <p className="font-heading text-sm font-semibold text-[#FDB84B]">
               {bestWindowTitle}
             </p>
-            <p className="text-medium text-xs">{bestWindowSubtitle}</p>
+            <p className="text-medium text-xs line-clamp-1 sm:line-clamp-none">{bestWindowSubtitle}</p>
           </div>
           <div className="shrink-0 text-right">
             <p className="text-medium text-[10px] uppercase tracking-wider">

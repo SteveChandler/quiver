@@ -137,7 +137,15 @@ export function ForecastAndTides({
             {/* Best Surf Window Intel */}
             <PublicContentGate
               ctaTitle={`See today's surf call for ${beach.name}`}
-              ctaDescription="Sign up to get personalized surf calls and best time to paddle out"
+              ctaDescription={
+                surfCall?.bestWindowStart
+                  ? `Best window starts at ${(() => {
+                      try {
+                        return new Date(`2000-01-01T${surfCall.bestWindowStart}`).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+                      } catch { return surfCall.bestWindowStart; }
+                    })()}${surfCall.waveHeight ? ` at ${surfCall.waveHeight}` : ""} -- sign up to see the full breakdown`
+                  : "Sign up to get personalized surf calls and best time to paddle out"
+              }
               source="surf-call-conditions"
             >
               <BestSurfWindow

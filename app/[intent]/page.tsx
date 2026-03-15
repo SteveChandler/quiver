@@ -47,7 +47,11 @@ export async function generateMetadata(props: StateRootPageProps) {
  * - /ca
  * - /or
  *
- * Note: We implement this as `/[intent]` to avoid route collisions with the existing
+ * Note: In production, `/ca` is 301-redirected to `/beaches/usa/ca` by the
+ * SEO redirect handler (handleStateOnlyRedirect). This page is a fallback
+ * for direct access or if the redirect is bypassed.
+ *
+ * We implement this as `/[intent]` to avoid route collisions with the existing
  * `/[intent]/[city]` and `/[intent]/[city]/[beachSlug]` hierarchy.
  */
 export default async function StateRootPage(props: StateRootPageProps) {
@@ -188,14 +192,3 @@ export default async function StateRootPage(props: StateRootPageProps) {
     </>
   );
 }
-
-
-
-
-
-
-
-
-
-
-

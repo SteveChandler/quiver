@@ -1,5 +1,4 @@
 import {
-  Heart,
   Shield,
   Users,
   Target,
@@ -16,60 +15,38 @@ import {
 
 export const ABOUT_CONTENT = {
   hero: {
-    title: "About Quiver",
-    subtitle: "The story behind the surf community platform",
-    description:
-      "Born from a passion for surfing and a belief that the best sessions happen with friends, Quiver connects surfers worldwide to share the stoke.",
+    title: "I built Quiver because I was tired of being wrong.",
+    subtitle:
+      "Wrong about the swell. Wrong about the wind. Wrong about whether it was even worth getting out of bed at 5am.",
   },
-  mission: {
-    title: "Our Mission",
-    subtitle: "Connecting surfers, one session at a time",
-    description:
-      "We believe surfing is better when shared. Quiver exists to help surfers find their crew, discover epic spots, and build lasting connections through our shared love of the ocean.",
-    values: [
-      {
-        icon: Heart,
-        title: "Community First",
-        description:
-          "Every feature we build strengthens the bonds between surfers and celebrates our shared passion.",
-      },
-      {
-        icon: Shield,
-        title: "Authentic Connections",
-        description:
-          "We foster genuine relationships built on trust, respect, and the mutual love of surfing.",
-      },
-      {
-        icon: Waves,
-        title: "Ocean Respect",
-        description:
-          "We promote sustainable surfing practices and encourage respect for our marine environment.",
-      },
+  problem: [
+    "I was checking five different apps before every session. Surfline for the cam, Magic Seaweed for the swell, NOAA for the wind, some tide app, and then a group text to see if anyone was going out. And half the time I'd show up and conditions were nothing like what any of them said.",
+    "The worst part? There was no way to say \"hey, this is wrong.\" No way to tell the next person that the south wind was actually hammering Blacks even though the forecast said offshore. You just showed up, got skunked, and drove home.",
+  ],
+  solution: {
+    intro:
+      "So I started building something different. Not another forecast aggregator — a platform that pulls real data from real sources and actually lets surfers tell each other what's happening.",
+    stats: [
+      { value: "279", label: "beaches" },
+      { value: "131", label: "cities" },
+      { value: "17", label: "states" },
+      { value: "42K+", label: "forecasts" },
     ],
+    closer:
+      "Every forecast is built from NOAA buoy data and ML models trained on real ocean observations — not just recycled from the same source everyone else uses.",
   },
-  story: {
-    title: "Our Story",
-    content: [
-      "Quiver was born from countless solo surf sessions where we wished we had someone to share the stoke with. We noticed that surfers everywhere faced the same challenge - finding like-minded people to surf with and share experiences.",
-      "What started as a simple idea to connect local surfers has evolved into a comprehensive platform that helps surfers plan sessions, track their progress, discover new spots, and most importantly, build lasting friendships.",
-      "Today, Quiver serves surfers across the globe, from beginners catching their first waves to seasoned pros sharing their knowledge. We're building more than just an app - we're cultivating a community that celebrates the pure joy of surfing.",
-    ],
-  },
-  team: {
-    title: "Built by Surfers, for Surfers",
-    description:
-      "Our team understands the surf community because we are the surf community. Every line of code is written with deep respect for surf culture and the connections that make our sport special.",
-  },
-  future: {
-    title: "The Future of Surf Community",
-    description:
-      "We're just getting started. Our vision is to become the essential platform that every surfer uses to connect with their community, whether they're at their home break or exploring waves on the other side of the world.",
-    goals: [
-      "Connect 1 million surfers worldwide",
-      "Support local surf communities globally",
-      "Promote ocean conservation and sustainability",
-      "Foster the next generation of surfers",
-    ],
+  whatsNext: [
+    "Quiver is early. I'm not going to pretend it's finished. But that's kind of the point — I want the people who use it to help shape what it becomes.",
+    "If the forecast was off at your spot, tell me. If there's a beach we're missing, tell me. If you want a feature that would make you actually open this thing every morning, I want to hear it.",
+  ],
+  cta: {
+    title: "Come check it out.",
+    subtitle:
+      "Free. No credit card. No spam. Just better data for your next session.",
+    primaryLabel: "Check the forecast",
+    primaryHref: "/",
+    secondaryLabel: "Drop me a line",
+    secondaryHref: "mailto:support@quiversurf.app",
   },
 } as const;
 

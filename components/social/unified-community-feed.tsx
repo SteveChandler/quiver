@@ -124,18 +124,10 @@ export function UnifiedCommunityFeed({
     );
   }
 
+  // Hide entirely when empty — showing "No activity yet" signals an empty
+  // community and drives churn. Only render when there is actual content.
   if (combinedFeed.length === 0) {
-    return (
-      <div className={`text-center py-8 text-muted-foreground ${className}`}>
-        <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
-        <p className="text-lg font-medium mb-2">No activity yet</p>
-        <p className="text-sm">
-          {userId
-            ? "Follow other surfers to see their activities and sessions here"
-            : "Start logging sessions and connecting with other surfers!"}
-        </p>
-      </div>
-    );
+    return null;
   }
 
   return (

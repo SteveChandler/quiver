@@ -113,7 +113,8 @@
     "mobile:release:android": "bash scripts/release-android.sh",
     "mobile:assets": "capacitor-assets generate --config mobile/capacitor-assets.config.ts",
     "terrain:analyze": "tsx scripts/terrain-analysis.ts",
-    "terrain:validate": "tsx scripts/terrain/validate-golden-beaches.ts"
+    "terrain:validate": "tsx scripts/terrain/validate-golden-beaches.ts",
+    "dev-note": "node scripts/dev-note.mjs"
   },
   "dependencies": {
     "@capacitor-community/apple-sign-in": "^7.1.0",

@@ -38,10 +38,12 @@ describe("buildRootStructuredDataGraph", () => {
 });
 
 describe("SEO_CONFIG structured data", () => {
-  it("Organization does not include fabricated sameAs links", () => {
+  it("Organization sameAs contains only known official social profiles", () => {
     const org = SEO_CONFIG.structuredData.organization as any;
     expect(org["@type"]).toBe("Organization");
-    expect(org.sameAs).toBeUndefined();
+    expect(Array.isArray(org.sameAs)).toBe(true);
+    expect(org.sameAs).toContain("https://bsky.app/profile/quiversurf.app");
+    expect(org.sameAs).toContain("https://x.com/quiversurf");
   });
 
   it("WebSite includes SearchAction for sitelinks search box", () => {

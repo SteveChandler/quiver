@@ -545,7 +545,9 @@ export function OracleHomeScreen() {
             loading={oracle.discoveryLoading}
           />
 
-          <ActivityFeed items={activityItems} />
+          {activityItems.length > 0 && (
+            <ActivityFeed items={activityItems} />
+          )}
         </div>
       </div>
 

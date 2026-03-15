@@ -56,7 +56,7 @@ export function WindIndicator({ windDirection, windSpeed }: WindIndicatorProps) 
         </svg>
       </div>
       {/* Label */}
-      <span className="text-medium font-mono text-[10px] leading-none">
+      <span className="text-medium font-mono text-[11px] leading-none">
         {windDirection} {windSpeed}mph
       </span>
     </div>

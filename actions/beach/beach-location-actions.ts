@@ -422,13 +422,16 @@ export interface TopCityInState {
  * Get the top cities in a state by beach count.
  * Used to populate PopularCitiesForIntent on state intent pages.
  *
+ * Default limit is high (100) so all qualifying cities are returned for crawler
+ * discovery. Pass a lower value only when you intentionally want a small subset.
+ *
  * @param stateSlug - 2-letter state slug (e.g., "ca", "fl")
- * @param limit - Maximum number of cities to return (default: 8)
+ * @param limit - Maximum number of cities to return (default: 100)
  * @returns Array of cities sorted by beach count (descending)
  */
 export async function getTopCitiesInState(
   stateSlug: string,
-  limit = 8
+  limit = 100
 ): Promise<TopCityInState[]> {
   try {
     // Get all cities with at least 1 beach

@@ -2,6 +2,7 @@ export const FOOTER_LINKS = {
   about: [
     { name: "About Quiver", href: "/about" },
     { name: "Features", href: "/features" },
+    { name: "Quiver vs Surfline", href: "/vs/surfline" },
     { name: "For Businesses", href: "/for-businesses" },
     { name: "For Surf Schools", href: "/for-surf-schools" },
   ],

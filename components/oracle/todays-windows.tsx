@@ -1,4 +1,4 @@
-import { InfoIcon } from "lucide-react";
+import { InfoIcon, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
 import {
@@ -95,11 +95,8 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow 
           </TooltipProvider>
         </h2>
         {forecastUrl && (
-          <Link
-            href={forecastUrl}
-            className="text-sm font-medium text-[#4A70D9] hover:text-[#4A70D9]/80"
-          >
-            Full forecast &gt;
+          <Link href={forecastUrl} className="text-sm font-medium text-[#4A70D9] hover:text-[#4A70D9]/80 inline-flex items-center gap-0.5">
+            Full forecast <ChevronRight className="h-3.5 w-3.5" />
           </Link>
         )}
       </div>

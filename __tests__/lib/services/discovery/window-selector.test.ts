@@ -1198,11 +1198,14 @@ describe('selectBestWindow with tide-driven boundaries', () => {
       userPrefs: null,
     });
 
-    // If a result is returned, it should NOT span overnight
+    // If a result is returned, it should NOT span overnight (in local timezone)
     if (result) {
-      const startDate = result.start.toISOString().slice(0, 10);
-      const endDate = result.end.toISOString().slice(0, 10);
-      // Start and end should be on the same day
+      const fmt = (d: Date) => new Intl.DateTimeFormat("en-CA", {
+        year: "numeric", month: "2-digit", day: "2-digit",
+        timeZone: "America/Los_Angeles",
+      }).format(d);
+      const startDate = fmt(result.start);
+      const endDate = fmt(result.end);
       expect(startDate).toBe(endDate);
     }
   });
@@ -1262,6 +1265,75 @@ describe('selectBestWindow with tide-driven boundaries', () => {
       // Lunch session slot is 11am-2pm
       expect(startHour).toBeGreaterThanOrEqual(11);
       expect(startHour).toBeLessThan(14);
+    }
+  });
+
+  it('should reject tide-adjusted windows that shift start time to night hours (e.g. 1am-2am)', () => {
+    // Tide schedule where the preferred range crossing occurs at ~1am PT
+    const tideSchedule = [
+      { time: Math.floor(new Date('2024-01-15T06:00:00Z').getTime() / 1000), height: 5.8, type: 'high' as const },
+      { time: Math.floor(new Date('2024-01-15T12:30:00Z').getTime() / 1000), height: 0.5, type: 'low' as const },
+    ];
+
+    // Forecast at 10pm PT (6am UTC next day) - this passes the light check initially
+    // because the initial startTime is in the evening, but tide boundaries shift it to 1am
+    const forecasts = [
+      createForecast({
+        id: 'forecast-night-tide',
+        forecast_at: '2024-01-15T17:00:00Z', // 9am PT
+        forecast_date: '2024-01-15',
+        forecast_time: '09:00',
+        wave_height: '4',
+        wave_period: '12s',
+        tide_height: '2.5',
+        tide_status: 'Falling',
+        confidence_score: 80,
+        raw_forecast: {
+          tide_schedule: tideSchedule,
+          data_sources: ['NOAA_NWS'],
+        },
+      } as any),
+    ];
+
+    // Set system time to 8am PT
+    jest.setSystemTime(new Date('2024-01-15T16:00:00Z'));
+
+    const beachWithTidePrefs = {
+      ...mockBeach,
+      preferred_tide_ft_min: 2.0,
+      preferred_tide_ft_max: 4.0,
+      preferred_tide_direction: 'falling',
+    } as any;
+
+    // Create a sun times cache with sunset at 5:30pm PT and sunrise at 6:30am PT
+    const sunTimesCache = new Map<string, { sunrises: Date[]; sunsets: Date[] }>();
+    sunTimesCache.set('beach-1', {
+      sunrises: [new Date('2024-01-15T14:30:00Z')], // 6:30am PT
+      sunsets: [new Date('2024-01-16T01:30:00Z')],   // 5:30pm PT
+    });
+
+    const result = selectBestWindow(
+      forecasts,
+      beachWithTidePrefs,
+      null,
+      undefined,
+      sunTimesCache
+    );
+
+    // If the tide-adjusted start time falls during night hours (before sunrise),
+    // the window should be rejected. The result may be null or have a daytime start.
+    if (result) {
+      // If a window is returned, verify its start time is during daylight hours
+      const startHour = parseInt(
+        new Intl.DateTimeFormat("en-US", {
+          hour: "numeric",
+          hour12: false,
+          timeZone: "America/Los_Angeles",
+        }).format(result.start),
+        10
+      );
+      expect(startHour).toBeGreaterThanOrEqual(6);
+      expect(startHour).toBeLessThan(21);
     }
   });
 });

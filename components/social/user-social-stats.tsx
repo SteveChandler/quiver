@@ -17,6 +17,14 @@ export function UserSocialStats({
   const [followersModalOpen, setFollowersModalOpen] = useState(false);
   const [followingModalOpen, setFollowingModalOpen] = useState(false);
 
+  const followersCount = profile.followers_count || 0;
+  const followingCount = profile.following_count || 0;
+
+  // Hide when both counts are zero — empty social stats signal isolation
+  if (followersCount === 0 && followingCount === 0) {
+    return null;
+  }
+
   return (
     <div className={`flex items-center gap-6 ${className}`}>
       <Button
@@ -25,7 +33,7 @@ export function UserSocialStats({
         onClick={() => setFollowersModalOpen(true)}
       >
         <span className="font-semibold text-lg">
-          {profile.followers_count || 0}
+          {followersCount}
         </span>
         <span className="text-sm text-muted-foreground">Followers</span>
       </Button>
@@ -36,7 +44,7 @@ export function UserSocialStats({
         onClick={() => setFollowingModalOpen(true)}
       >
         <span className="font-semibold text-lg">
-          {profile.following_count || 0}
+          {followingCount}
         </span>
         <span className="text-sm text-muted-foreground">Following</span>
       </Button>

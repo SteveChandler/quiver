@@ -173,22 +173,33 @@ export const CDIP_API_CONFIG = {
 ```typescript
 export const ABOUT_CONTENT = {
   hero: {
-    title: "About Quiver",
-    subtitle: "The story behind the surf community platform",
-    description: "Born from a passion for surfing...",
+    title: "I built Quiver because...",
+    subtitle: "Wrong about the swell...",
   },
-  mission: {
-    title: "Our Mission",
-    values: [
-      {
-        icon: Heart,
-        title: "Community First",
-        description: "Every feature we build strengthens the bonds...",
-      },
-      // ... more values
+  problem: [
+    "I was checking five different apps...",
+    "The worst part?...",
+  ],
+  solution: {
+    intro: "So I started building...",
+    stats: [
+      { value: "279", label: "beaches" },
+      // ... more stats
     ],
+    closer: "Every forecast is built from NOAA buoy data...",
   },
-  // ... more sections
+  whatsNext: [
+    "Quiver is early...",
+    "If the forecast was off...",
+  ],
+  cta: {
+    title: "Come check it out.",
+    subtitle: "Free. No credit card...",
+    primaryLabel: "Check the forecast",
+    primaryHref: "/",
+    secondaryLabel: "Drop me a line",
+    secondaryHref: "mailto:support@quiversurf.app",
+  },
 } as const;
 
 export const PRIVACY_CONTENT = {
@@ -416,9 +427,9 @@ function AboutPage() {
   return (
     <div>
       <h1>{ABOUT_CONTENT.hero.title}</h1>
-      <p>{ABOUT_CONTENT.hero.description}</p>
-      {ABOUT_CONTENT.mission.values.map((value) => (
-        <ValueCard key={value.title} {...value} />
+      <p>{ABOUT_CONTENT.hero.subtitle}</p>
+      {ABOUT_CONTENT.problem.map((paragraph, i) => (
+        <p key={i}>{paragraph}</p>
       ))}
     </div>
   );

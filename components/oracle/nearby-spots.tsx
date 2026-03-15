@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
+import { ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export interface NearbySpot {
@@ -47,8 +48,8 @@ function SpotCard({
           <Image
             src={spot.photoUrl}
             alt={spot.name}
-            width={150}
-            height={90}
+            width={560}
+            height={180}
             className="w-full h-full object-cover"
           />
         ) : (
@@ -69,7 +70,7 @@ function SpotCard({
             </span>
           )}
         </div>
-        <p className="text-medium text-xs">{spot.conditions}</p>
+        <p className="text-medium text-xs line-clamp-1">{spot.conditions}</p>
         <p className="text-[#4A70D9] text-base font-bold">{spot.height}</p>
       </div>
     </div>
@@ -112,7 +113,7 @@ export function NearbySpots({ spots, onViewSpot, loading = false }: NearbySpotsP
     <section>
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-heading text-white text-lg font-semibold">Nearby Spots</h2>
-        <Link href="/map" className="text-[#4A70D9] text-sm font-medium">Map &gt;</Link>
+        <Link href="/map" className="text-[#4A70D9] text-sm font-medium inline-flex items-center gap-0.5">Map <ChevronRight className="h-3.5 w-3.5" /></Link>
       </div>
       <div className="relative">
         <div

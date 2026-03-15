@@ -16,11 +16,11 @@ function renderFallback() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(180deg, #1a3a4a 0%, #0d1f2d 100%)',
-          fontFamily: 'system-ui, -apple-system, sans-serif',
+          background: 'linear-gradient(180deg, #1E2558 0%, #252D6B 100%)',
+          fontFamily: 'SpaceGrotesk, system-ui, sans-serif',
         }}
       >
-        <div style={{ fontSize: 120, fontWeight: 800, color: '#FFFFFF', display: 'flex' }}>
+        <div style={{ fontSize: 120, fontWeight: 800, color: '#FFFFFF', display: 'flex', fontFamily: 'SpaceGrotesk, system-ui, sans-serif' }}>
           Quiver
         </div>
         <div style={{ fontSize: 42, fontWeight: 500, color: 'rgba(255,255,255,0.8)', marginTop: 24, display: 'flex' }}>
@@ -34,6 +34,14 @@ function renderFallback() {
 
 export async function GET(request: NextRequest) {
   try {
+  const spaceGroteskData = await fetch(
+    new URL('/fonts/SpaceGrotesk/SpaceGrotesk-Bold.ttf',
+      process.env.NODE_ENV === 'production'
+        ? process.env.NEXT_PUBLIC_APP_URL || 'https://quiversurf.app'
+        : `${new URL(request.url).protocol}//${new URL(request.url).host}`
+    )
+  ).then(res => res.arrayBuffer());
+
   const { searchParams } = new URL(request.url);
 
   const beach = searchParams.get('beach') || 'Unknown Beach';
@@ -45,7 +53,6 @@ export async function GET(request: NextRequest) {
   const windLabel = searchParams.get('windLabel') || '';
   const windSpeed = searchParams.get('windSpeed') || '';
   const tagline = searchParams.get('tagline') || '';
-  const footer = searchParams.get('footer') || '';
   const bg = searchParams.get('bg') || DEFAULT_BG;
 
   // Get base URL for local assets (logo) - use request origin in development
@@ -146,13 +153,9 @@ export async function GET(request: NextRequest) {
 
   // Truncate beach name if too long
   const displayBeach =
-    beach.length > 22 ? beach.substring(0, 19) + '...' : beach;
+    beach.length > 28 ? beach.substring(0, 25) + '...' : beach;
 
   const displayTagline = truncate(tagline, 56);
-  const displayFooter = truncate(
-    footer || `Similar to your best ${displayBeach} sessions`,
-    52
-  );
   const displayDate = date ? truncate(date, 34) : '';
 
   const showWind = Boolean(windLabel || windSpeed);
@@ -167,7 +170,7 @@ export async function GET(request: NextRequest) {
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
-          fontFamily: 'system-ui, -apple-system, Inter, sans-serif',
+          fontFamily: 'SpaceGrotesk, system-ui, sans-serif',
         }}
       >
         {/* Background Image - must use img for Satori/ImageResponse */}
@@ -185,7 +188,7 @@ export async function GET(request: NextRequest) {
           }}
         />
 
-        {/* Global overlay for legibility */}
+        {/* Brand-tinted overlay for legibility */}
         <div
           style={{
             position: 'absolute',
@@ -194,7 +197,7 @@ export async function GET(request: NextRequest) {
             right: 0,
             bottom: 0,
             background:
-              'linear-gradient(180deg, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.18) 40%, rgba(0,0,0,0.55) 100%)',
+              'linear-gradient(180deg, rgba(37,45,107,0.75) 0%, rgba(37,45,107,0.15) 40%, rgba(30,37,88,0.65) 100%)',
             display: 'flex',
           }}
         />
@@ -218,20 +221,7 @@ export async function GET(request: NextRequest) {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <div
               style={{
-                fontSize: 54,
-                fontWeight: 600,
-                color: 'rgba(255,255,255,0.95)',
-                textShadow: '0 2px 14px rgba(0,0,0,0.55)',
                 marginTop: 10,
-                display: 'flex',
-              }}
-            >
-              Great Surf Session!
-            </div>
-
-            <div
-              style={{
-                marginTop: 34,
                 fontSize: 132,
                 fontWeight: 800,
                 letterSpacing: '-0.02em',
@@ -243,14 +233,30 @@ export async function GET(request: NextRequest) {
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
                 display: 'flex',
+                fontFamily: 'SpaceGrotesk, system-ui, sans-serif',
               }}
             >
               {displayBeach}
             </div>
 
+            {displayDate && (
+              <div
+                style={{
+                  marginTop: 16,
+                  fontSize: 44,
+                  fontWeight: 500,
+                  color: 'rgba(255,255,255,0.9)',
+                  textShadow: '0 2px 10px rgba(0,0,0,0.45)',
+                  display: 'flex',
+                }}
+              >
+                {displayDate}
+              </div>
+            )}
+
             <div
               style={{
-                marginTop: 16,
+                marginTop: 20,
                 display: 'flex',
                 alignItems: 'center',
                 gap: 14,
@@ -270,76 +276,46 @@ export async function GET(request: NextRequest) {
               </div>
             </div>
 
-            {displayDate && (
-              <div
-                style={{
-                  marginTop: 12,
-                  fontSize: 50,
-                  fontWeight: 500,
-                  color: 'rgba(255,255,255,0.9)',
-                  textShadow: '0 2px 10px rgba(0,0,0,0.45)',
-                  display: 'flex',
-                }}
-              >
-                {displayDate}
-              </div>
-            )}
-
+            {/* Sticker-style condition badges */}
             <div
               style={{
                 marginTop: 38,
                 display: 'flex',
                 alignItems: 'center',
-                gap: 18,
-                padding: '14px 24px',
-                borderRadius: 16,
-                backgroundColor: 'rgba(0,0,0,0.28)',
-                border: '1px solid rgba(255,255,255,0.18)',
+                gap: 20,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center' }}>
+              {/* Wave size badge */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '16px 28px',
+                backgroundColor: 'rgba(247,142,66,0.9)',
+                borderRadius: '14px 16px 13px 15px',
+                transform: 'rotate(-1.5deg)',
+                fontFamily: 'SpaceGrotesk, system-ui, sans-serif',
+              }}>
                 <WaveIcon />
-              </div>
-              <div
-                style={{
-                  fontSize: 38,
-                  fontWeight: 600,
-                  color: '#FFFFFF',
-                  textShadow: '0 2px 10px rgba(0,0,0,0.45)',
-                  display: 'flex',
-                }}
-              >
-                {size}
+                <span style={{ fontSize: 38, fontWeight: 700, color: '#FFFFFF', display: 'flex' }}>{size}</span>
               </div>
 
+              {/* Wind badge */}
               {showWind && (
-                <>
-                  <div
-                    style={{
-                      fontSize: 38,
-                      color: 'rgba(255,255,255,0.78)',
-                      display: 'flex',
-                      marginLeft: 2,
-                      marginRight: 2,
-                    }}
-                  >
-                    •
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <WindIcon />
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 38,
-                      fontWeight: 600,
-                      color: '#FFFFFF',
-                      textShadow: '0 2px 10px rgba(0,0,0,0.45)',
-                      display: 'flex',
-                    }}
-                  >
-                    {windText}
-                  </div>
-                </>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '16px 28px',
+                  backgroundColor: 'rgba(37,45,107,0.85)',
+                  border: '2px solid rgba(247,142,66,0.6)',
+                  borderRadius: '13px 15px 14px 16px',
+                  transform: 'rotate(1deg)',
+                  fontFamily: 'SpaceGrotesk, system-ui, sans-serif',
+                }}>
+                  <WindIcon />
+                  <span style={{ fontSize: 38, fontWeight: 700, color: '#FFFFFF', display: 'flex' }}>{windText}</span>
+                </div>
               )}
             </div>
 
@@ -367,10 +343,13 @@ export async function GET(request: NextRequest) {
             {board && (
               <div
                 style={{
-                  fontSize: 30,
+                  fontSize: 28,
                   fontWeight: 500,
                   color: 'rgba(255,255,255,0.85)',
-                  textShadow: '0 2px 10px rgba(0,0,0,0.45)',
+                  backgroundColor: 'rgba(255,255,255,0.12)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: '10px 12px 11px 13px',
+                  padding: '10px 20px',
                   marginBottom: 18,
                   display: 'flex',
                 }}
@@ -378,33 +357,6 @@ export async function GET(request: NextRequest) {
                 {truncate(board, 34)}
               </div>
             )}
-
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 16,
-                marginBottom: 30,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <Star filled={true} sizePx={42} />
-                <Star filled={true} sizePx={42} />
-                <Star filled={true} sizePx={42} />
-              </div>
-              <div
-                style={{
-                  fontSize: 40,
-                  fontWeight: 500,
-                  fontStyle: 'italic',
-                  color: 'rgba(255,255,255,0.92)',
-                  textShadow: '0 2px 14px rgba(0,0,0,0.55)',
-                  display: 'flex',
-                }}
-              >
-                {displayFooter}
-              </div>
-            </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -426,6 +378,7 @@ export async function GET(request: NextRequest) {
                   textShadow: '0 4px 18px rgba(0,0,0,0.55)',
                   letterSpacing: '-0.01em',
                   display: 'flex',
+                  fontFamily: 'SpaceGrotesk, system-ui, sans-serif',
                 }}
               >
                 Quiver
@@ -451,6 +404,14 @@ export async function GET(request: NextRequest) {
     {
       width: 1080,
       height: 1920,
+      fonts: [
+        {
+          name: 'SpaceGrotesk',
+          data: spaceGroteskData,
+          weight: 700,
+          style: 'normal',
+        },
+      ],
     }
   );
   response.headers.set('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800');

@@ -34,6 +34,7 @@ import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
 import { createPublicReadClient } from "@/lib/supabase/server";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { HowToSurfSchema } from "@/components/seo/how-to-surf-schema";
+import { BeachProseSummary } from "@/components/beach-detail/beach-prose-summary";
 
 // NOTE: ISR is partially effective here — getSpotSurfReport() still calls
 // cookies() for auth-aware scoring, which opts into dynamic rendering.
@@ -269,6 +270,12 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             localEtiquette={beach.local_etiquette || null}
           />
         )}
+
+        {/* SSR prose summary for AI crawlers and search engines (GEO) */}
+        <BeachProseSummary
+          beach={beach}
+          surfCallReport={surfCallReport}
+        />
 
         {/* Client detail component with auth tracking */}
         <BeachDetailClient
