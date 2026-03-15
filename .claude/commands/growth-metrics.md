@@ -160,6 +160,7 @@ SELECT
   COUNT(*) FILTER (WHERE event_type = 'social_intel_confirm') AS intel_confirms
 FROM user_events
 WHERE created_at >= NOW() - INTERVAL '7 days'
+  AND (bot_flagged IS NULL OR bot_flagged = false)
   AND event_type LIKE 'social_%';
 ```
 
@@ -222,10 +223,10 @@ FROM weekly_sessions;
 
 ```sql
 SELECT
-  (SELECT COUNT(*) FROM user_events WHERE event_type = 'social_share' AND created_at >= NOW() - INTERVAL '30 days') AS shares,
+  (SELECT COUNT(*) FROM user_events WHERE event_type = 'social_share' AND created_at >= NOW() - INTERVAL '30 days' AND (bot_flagged IS NULL OR bot_flagged = false)) AS shares,
   (SELECT COUNT(*) FROM sessions s JOIN profiles p ON p.id = s.user_id WHERE s.created_at >= NOW() - INTERVAL '30 days' AND p.email NOT ILIKE '%test%' AND p.email NOT ILIKE '%quiver%' AND p.email NOT ILIKE '%admin%' AND p.email NOT LIKE '%@example.invalid') AS sessions,
   ROUND(
-    (SELECT COUNT(*) FROM user_events WHERE event_type = 'social_share' AND created_at >= NOW() - INTERVAL '30 days')::numeric
+    (SELECT COUNT(*) FROM user_events WHERE event_type = 'social_share' AND created_at >= NOW() - INTERVAL '30 days' AND (bot_flagged IS NULL OR bot_flagged = false))::numeric
     / NULLIF((SELECT COUNT(*) FROM sessions s JOIN profiles p ON p.id = s.user_id WHERE s.created_at >= NOW() - INTERVAL '30 days' AND p.email NOT ILIKE '%test%'), 0) * 100
   , 1) AS share_rate_pct;
 ```

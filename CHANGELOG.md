@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Scripts: `scripts/validate-cameras.ts` — camera health validation script for the `cam-health` dashboard skill
+
+### Fixed
+- Stats: `app-stats` signup funnel now uses correct event name `signup_success` (was `signup_completed` which never matched)
+- Stats: `app-stats` and `growth-metrics` event queries now filter `bot_flagged` events, preventing bot traffic from inflating metrics
+- Stats: `app-stats` signup funnel now tracks 8 new auth funnel event types (auth_modal_opened, auth_method_selected, etc.)
+- Stats: `app-stats` Q16 onboarding query fixed COALESCE type mismatch (session_id uuid needs `::text` cast)
+- Stats: `ml-stats` rewritten from nonexistent script dependency to direct psql queries
+- Stats: `dashboard` query count corrected from 14 to 17 for app-stats
+
 ### Changed
 - SEO: state browse pages (`/beaches/usa/ca`) now show Beginner/Tides/Water Temp intent pill links per city for crawler discovery of city intent pages
 - SEO: `getTopCitiesInState` default limit raised from 8 to 100 so all qualifying cities are returned for crawl discovery (backwards-compatible — pass a lower value when a small subset is needed)

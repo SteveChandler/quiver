@@ -75,10 +75,12 @@ SELECT
   COUNT(*) FILTER (WHERE event_type = 'tab_view') AS tab_views,
   COUNT(*) FILTER (WHERE event_type = 'map_interaction') AS map_interactions,
   COUNT(*) FILTER (WHERE event_type LIKE 'forecast_%') AS forecast_interactions,
-  COUNT(*) FILTER (WHERE event_type LIKE 'onboarding_%') AS onboarding_events
+  COUNT(*) FILTER (WHERE event_type LIKE 'onboarding_%') AS onboarding_events,
+  (SELECT COUNT(*) FROM user_events WHERE created_at >= NOW() - INTERVAL '7 days' AND bot_flagged = true) AS bot_flagged_events
 FROM user_events ue
 LEFT JOIN profiles p ON ue.user_id = p.id
 WHERE ue.created_at >= NOW() - INTERVAL '7 days'
+  AND (ue.bot_flagged IS NULL OR ue.bot_flagged = false)
   AND (ue.user_id IS NULL OR (p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'));
 ```
 
@@ -263,6 +265,7 @@ Present results as a markdown dashboard:
 | Onboarding Events | {onboarding_events} |
 | Discovery Clicks | {discovery_clicks} |
 | Forecast Checks | {forecast_checks} |
+| Bot-Flagged (excluded) | {bot_flagged_events} |
 
 ### Signup Funnel (7d)
 | Event | Count |
@@ -272,6 +275,7 @@ Present results as a markdown dashboard:
 
 > **Key metric**: `signup_cta_click` (not `signup_cta_view`) is the real intent signal.
 > CTA click rate = signup_cta_click / signup_cta_view.
+> Auth funnel: signup_cta_click → auth_modal_opened → auth_method_selected → signup_started → signup_success.
 
 ### Onboarding Steps (7d)
 | Event | Step | Count | Unique |
@@ -395,7 +399,14 @@ SELECT
   COUNT(*) AS count
 FROM user_events
 WHERE created_at >= NOW() - INTERVAL '7 days'
-  AND event_type IN ('signup_cta_view', 'signup_cta_click', 'signin_cta_click', 'signup_started', 'signup_completed', 'login_started', 'login_completed')
+  AND (bot_flagged IS NULL OR bot_flagged = false)
+  AND event_type IN (
+    'signup_cta_view', 'signup_cta_click', 'signin_cta_click',
+    'auth_modal_opened', 'auth_modal_closed_without_action',
+    'auth_method_selected', 'auth_provider_selected',
+    'signup_started', 'signup_success', 'signup_form_submitted',
+    'login_success'
+  )
 GROUP BY event_type
 ORDER BY count DESC;
 ```
@@ -406,9 +417,10 @@ SELECT
   event_type,
   metadata->>'step' AS step,
   COUNT(*) AS count,
-  COUNT(DISTINCT COALESCE(user_id::text, session_id)) AS unique_users
+  COUNT(DISTINCT COALESCE(user_id::text, session_id::text)) AS unique_users
 FROM user_events
 WHERE created_at >= NOW() - INTERVAL '7 days'
+  AND (bot_flagged IS NULL OR bot_flagged = false)
   AND event_type LIKE 'onboarding_%'
 GROUP BY event_type, metadata->>'step'
 ORDER BY step, event_type;
@@ -423,6 +435,7 @@ SELECT
   COUNT(*) AS total_events
 FROM user_events
 WHERE created_at >= NOW() - INTERVAL '7 days'
+  AND (bot_flagged IS NULL OR bot_flagged = false)
 GROUP BY DATE(created_at)
 ORDER BY day DESC;
 ```
