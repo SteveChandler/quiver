@@ -132,15 +132,12 @@ export async function GET(request: Request) {
       const npc = npcsToProcess[i];
       const postTime = postTimestamps[i];
       try {
-        // Get beaches for this NPC
-        const beaches = await getBeachesForNPC(supabase, npc, 5);
-        if (beaches.length === 0) {
+        // Get a weighted beach selection for this NPC
+        const beach = await getBeachesForNPC(supabase, npc);
+        if (!beach) {
           console.warn(`[npc-activity] No beaches found for NPC ${npc.full_name}`);
           continue;
         }
-
-        // Pick a random beach
-        const beach = beaches[Math.floor(Math.random() * beaches.length)];
 
         // Determine content type based on weights
         const contentType = selectContentType();

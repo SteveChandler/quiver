@@ -1,5 +1,5 @@
 /**
- * Beach Selection Utility - 70% home, 25% secondary, 5% adventure
+ * Beach Selection Utility - 50% home, 35% secondary, 15% adventure
  */
 
 export interface NPCBeachConfig {
@@ -13,12 +13,16 @@ export function selectBeachForPost(config: NPCBeachConfig): string {
   if (!homeBeachIds.length) throw new Error('NPC must have at least one home beach');
 
   const roll = Math.random();
-  if (roll < 0.70 || secondaryBeaches.length === 0) {
+  if (roll < 0.50 || secondaryBeaches.length === 0) {
+    // 50% — home beach
     return pickRandom(homeBeachIds);
-  } else if (roll < 0.95) {
+  } else if (roll < 0.85) {
+    // 35% — secondary/regional beach
     return pickRandom(secondaryBeaches);
   } else {
-    return secondaryBeaches.length > 0 ? pickRandom(secondaryBeaches) : pickRandom(homeBeachIds);
+    // 15% — adventure: random from all region beaches (home + secondary combined)
+    const all = [...homeBeachIds, ...secondaryBeaches];
+    return pickRandom(all);
   }
 }
 
