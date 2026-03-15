@@ -48,12 +48,12 @@ function parseNumeric(value: string | null | undefined, fallback = 0): number {
 }
 
 /**
- * Format a Date to short time string like "5:45a" or "11:30a".
+ * Format a Date to short time string like "5:45am" or "11:30am".
  */
 function formatWindowTime(date: Date, timezone: string): string {
   const hours = getHourInTimezone(date, timezone);
   const minutes = getMinuteInTimezone(date, timezone);
-  const period = hours < 12 ? "a" : "p";
+  const period = hours < 12 ? "am" : "pm";
   const displayHour = hours % 12 === 0 ? 12 : hours % 12;
   const displayMinutes = minutes === 0 ? "" : `:${String(minutes).padStart(2, "0")}`;
   return `${displayHour}${displayMinutes}${period}`;
@@ -80,30 +80,17 @@ function formatTimeAgo(dateStr: string): string {
  * Generate a personalized best window title based on preferred session time.
  */
 function getBestWindowTitle(
-  preferredTime: string | null,
   window: SurfDiscoveryRecommendation["window"] | undefined
 ): string {
   if (!window) return "Surf's looking good";
 
   const hour = getHourInTimezone(window.start, window.timezone || "America/Los_Angeles");
 
-  if (preferredTime === "dawn_patrol" || (!preferredTime && hour < 8)) {
-    return "Dawn patrol is your move";
-  }
-  if (preferredTime === "morning" || (!preferredTime && hour < 12)) {
-    return "Morning glass is calling";
-  }
-  if (preferredTime === "lunch") {
-    return "Lunchtime waves are on";
-  }
-  if (preferredTime === "afternoon" || (!preferredTime && hour < 17)) {
-    return "Afternoon session lined up";
-  }
-  if (preferredTime === "evening") {
-    return "Evening session incoming";
-  }
-
-  return "Best window found";
+  if (hour < 8) return "Dawn patrol is your move";
+  if (hour < 12) return "Morning glass is calling";
+  if (hour < 14) return "Lunchtime waves are on";
+  if (hour < 17) return "Afternoon session lined up";
+  return "Evening session incoming";
 }
 
 /**
@@ -423,7 +410,7 @@ export function OracleHomeScreen() {
 
   // Best window data
   const bestWindowTime = window?.start ? formatWindowTime(window.start, heroTz) : "—";
-  const bestWindowTitle = getBestWindowTitle(preferredTime, window);
+  const bestWindowTitle = getBestWindowTitle(window);
   const bestWindowSubtitle =
     heroRec?.reasons?.[0] ?? "Check the forecast for details";
 
