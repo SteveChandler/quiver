@@ -36,6 +36,8 @@ import { EmbedCodeButton } from "@/components/beach-detail/embed-code-modal";
 import { DataErrorBoundary } from "@/components/error-boundaries";
 import { useAuth } from "@/context/auth-context";
 import { PersonalizedForecastTeaser } from "@/components/beach-detail/personalized-forecast-teaser";
+import { TideStatusStrip } from "@/components/beach-detail/tide-status-strip";
+import { TideChartSection } from "@/components/beach-detail/tide-chart-section";
 
 const ConditionsOverview = dynamic(
   () =>
@@ -498,28 +500,17 @@ export function ForecastTab({
         </TabsContent>
 
         {/* Tides Tab */}
-        <TabsContent value="tides" className="mt-6">
-          <section className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg backdrop-blur overflow-hidden">
-            <div className="flex items-center justify-between p-6 pb-0 mb-4">
-              <h2 className="text-xl font-heading font-semibold text-dark-grey">
-                Tide Forecast
-              </h2>
-              <EmbedCodeButton beachSlug={beach.slug} beachName={beach.name} />
-            </div>
-            <iframe
-              src={`/embed/surf-terminal/${beach.slug}?theme=light&range=3d`}
-              width="100%"
-              className="border-0 h-[clamp(380px,60vh,600px)]"
-              title={`${beach.name} Surf Terminal`}
-              loading="lazy"
-            />
-          </section>
-
-          {/* Tide Conditions Card */}
+        <TabsContent value="tides" className="space-y-4 mt-6">
+          <TideStatusStrip dynamicTide={dynamicTide} />
+          <TideChartSection forecasts={forecasts} />
+          {beach.preferred_tide_direction && <TideAlertBadge alert={tideAlert} />}
           <TideConditionsCard
             prose={beach.best_conditions_prose}
             preferredDirection={beach.preferred_tide_direction}
           />
+          <div className="flex justify-end px-1">
+            <EmbedCodeButton beachSlug={beach.slug} beachName={beach.name} />
+          </div>
         </TabsContent>
 
         {/* Conditions Tab */}

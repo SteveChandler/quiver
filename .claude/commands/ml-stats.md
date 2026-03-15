@@ -2,100 +2,129 @@ Query the Quiver ML pipeline health metrics from Supabase and present a formatte
 
 ## How to Run
 
-Execute the ml stats script which queries production Supabase:
+### Step 1: Read credentials from `.env.production.local`
+
+Read the file `/Users/stevenchandler/Desktop/quiver/.env.production.local` and extract:
+- `POSTGRES_PASSWORD` — used as `PGPASSWORD` for all psql commands
+- `POSTGRES_URL_NON_POOLING` — the full connection string (e.g. `postgresql://postgres.xxx:PASSWORD@aws-0-us-west-1.pooler.supabase.com:5432/postgres`)
+
+Also read `/Users/stevenchandler/Desktop/quiver/.env` and extract:
+- `FLY_API_TOKEN` — used for Fly.io machine status queries
+
+### Step 2: Run SQL queries in parallel via psql
+
+Run all five SQL queries below in parallel as background bash commands. For each query, set `PGPASSWORD` from the env file and use the `POSTGRES_URL_NON_POOLING` value as the connection string. Use `-t -A -F '|'` flags for pipe-delimited output that is easy to parse.
+
+**General psql invocation pattern:**
+```bash
+PGPASSWORD="<value>" psql "<POSTGRES_URL_NON_POOLING>" -t -A -F '|' -c "<SQL>"
+```
+
+---
+
+#### Query 1: Pipeline Health (RPC)
+
+```sql
+SELECT * FROM get_ml_health_metrics();
+```
+
+If this fails with "function does not exist", note the warning and skip this section. The RPC returns a single row with columns:
+`total_predictions`, `pending_observations`, `pending_12_24h`, `pending_gt_24h`, `sentinel_marked`, `matched_last_24h`, `total_observable_24h`, `match_rate_24h`, `avg_raw_error_24h`, `avg_corrected_error_24h`, `improvement_pct_24h`, `oldest_pending_age_hours`, `observable_beaches_count`
+
+---
+
+#### Query 2: Weekly Metrics (RPC)
+
+```sql
+SELECT * FROM get_ml_weekly_metrics();
+```
+
+If this fails with "function does not exist", note the warning and skip this section. The RPC returns rows with columns:
+`model_version`, `predictions`, `with_ground_truth`, `avg_raw_error_m`, `avg_corrected_error_m`, `avg_improvement_m`, `pct_improved`
+
+---
+
+#### Query 3: 24h Performance Metrics (direct)
+
+```sql
+SELECT
+  COUNT(*) FILTER (WHERE gt.observation_id IS NOT NULL) AS matched_last_24h,
+  COUNT(*) AS total_observable_24h,
+  ROUND(COUNT(*) FILTER (WHERE gt.observation_id IS NOT NULL)::numeric / NULLIF(COUNT(*), 0) * 100, 1) AS match_rate_pct,
+  ROUND(AVG(ABS(p.predicted_height_m - gt.observed_height_m)) FILTER (WHERE gt.observation_id IS NOT NULL), 3) AS mae_raw,
+  ROUND(AVG(ABS(p.corrected_height_m - gt.observed_height_m)) FILTER (WHERE gt.observation_id IS NOT NULL AND p.corrected_height_m IS NOT NULL), 3) AS mae_corrected,
+  ROUND((1 - AVG(ABS(p.corrected_height_m - gt.observed_height_m)) FILTER (WHERE gt.observation_id IS NOT NULL AND p.corrected_height_m IS NOT NULL) / NULLIF(AVG(ABS(p.predicted_height_m - gt.observed_height_m)) FILTER (WHERE gt.observation_id IS NOT NULL), 0)) * 100, 1) AS improvement_pct
+FROM ml_predictions p
+LEFT JOIN ml_ground_truth gt ON gt.prediction_id = p.id
+JOIN observable_beaches ob ON ob.beach_id = p.beach_id
+WHERE p.predicted_at >= NOW() - INTERVAL '24 hours';
+```
+
+If `ml_predictions` or `ml_ground_truth` tables do not exist, try this simpler fallback to confirm table presence:
+```sql
+SELECT COUNT(*) AS prediction_count FROM ml_predictions WHERE predicted_at >= NOW() - INTERVAL '24 hours';
+```
+
+---
+
+#### Query 4: Model Registry (last 10)
+
+```sql
+SELECT version, status, holdout_improvement_pct, holdout_raw_mae, holdout_corrected_mae, training_samples, training_window_days, notes, created_at, deployed_at
+FROM ml_model_registry
+ORDER BY created_at DESC
+LIMIT 10;
+```
+
+If `ml_model_registry` does not exist, note the warning and skip this section.
+
+---
+
+#### Query 5: Candidate Shadow Scoring
+
+```sql
+SELECT
+  EXISTS(SELECT 1 FROM ml_model_registry WHERE status = 'validated') AS candidate_active,
+  (SELECT version FROM ml_model_registry WHERE status = 'validated' ORDER BY created_at DESC LIMIT 1) AS candidate_version,
+  (SELECT COUNT(*) FROM ml_predictions WHERE is_candidate = true) AS candidate_predictions,
+  (SELECT ROUND(AVG(ABS(p.predicted_height_m - gt.observed_height_m)), 3)
+   FROM ml_predictions p
+   JOIN ml_ground_truth gt ON gt.prediction_id = p.id
+   WHERE p.is_candidate = true AND gt.observed_height_m IS NOT NULL) AS candidate_avg_error;
+```
+
+If `is_candidate` column does not exist on `ml_predictions`, use this fallback to check for a candidate model only:
+```sql
+SELECT
+  EXISTS(SELECT 1 FROM ml_model_registry WHERE status = 'validated') AS candidate_active,
+  (SELECT version FROM ml_model_registry WHERE status = 'validated' ORDER BY created_at DESC LIMIT 1) AS candidate_version,
+  NULL::bigint AS candidate_predictions,
+  NULL::numeric AS candidate_avg_error;
+```
+
+---
+
+### Step 3: Run Fly.io health checks in parallel
+
+Run these two curl commands in parallel (background bash):
 
 ```bash
-npx tsx scripts/ml-stats.ts
+# Health endpoint — no auth required
+curl -s --max-time 10 https://quiver-ml.fly.dev/health
+
+# Machines API — requires FLY_API_TOKEN from .env
+curl -s --max-time 10 \
+  -H "Authorization: Bearer <FLY_API_TOKEN>" \
+  "https://api.machines.dev/v1/apps/quiver-ml/machines"
 ```
 
-The script:
-- Loads credentials from `.env.production.local` (not `.env` which points to local dev)
-- Uses service role key to bypass RLS
-- Calls RPC functions for pipeline health and weekly metrics
-- Queries model registry for recent deployments (last 10)
-- Queries candidate shadow scoring status
-- Queries Fly.io for deployment health (requires `FLY_API_TOKEN` in .env)
-- Outputs JSON to stdout
+If `FLY_API_TOKEN` is empty or not found, skip the machines API call and note: "FLY_API_TOKEN not configured — skipping machines check."
 
-## Parsing the Output
+---
 
-The script outputs JSON in this format:
+### Step 4: Collect all results
 
-```json
-{
-  "pipelineHealth": [{
-    "total_predictions": N,
-    "pending_observations": N,
-    "pending_12_24h": N,
-    "pending_gt_24h": N,
-    "sentinel_marked": N,
-    "matched_last_24h": N,
-    "total_observable_24h": N,
-    "match_rate_24h": N,
-    "avg_raw_error_24h": N.NNN,
-    "avg_corrected_error_24h": N.NNN,
-    "improvement_pct_24h": N.N,
-    "oldest_pending_age_hours": N,
-    "observable_beaches_count": N
-  }] | null,
-  "pipelineHealthError": "message" | null,
-  "weeklyMetrics": [{
-    "model_version": "vX.X",
-    "predictions": N,
-    "with_ground_truth": N,
-    "avg_raw_error_m": N.NNN,
-    "avg_corrected_error_m": N.NNN,
-    "avg_improvement_m": N.NNN,
-    "pct_improved": N.N
-  }, ...] | null,
-  "weeklyMetricsError": "message" | null,
-  "metrics24h": {
-    "matchedLast24h": N,
-    "totalObservable24h": N,
-    "matchRatePct": N,
-    "maeRaw": N.NNN,
-    "maeCorrected": N.NNN,
-    "improvementPct": N.N
-  } | null,
-  "modelRegistry": [{
-    "version": "v3.YYYYMMDD.HHMM",
-    "status": "deployed|validated|failed|training|rolled_back",
-    "holdout_improvement_pct": N.N | null,
-    "holdout_raw_mae": N.NNN | null,
-    "holdout_corrected_mae": N.NNN | null,
-    "created_at": "ISO timestamp",
-    "deployed_at": "ISO timestamp" | null,
-    "training_samples": N | null,
-    "training_window_days": N | null,
-    "notes": "string (may contain JSON diagnostics)" | null
-  }, ...] | null,
-  "modelRegistryError": "message" | null,
-  "candidateStatus": {
-    "candidateActive": true|false,
-    "candidateVersion": "v3.YYYYMMDD.HHMM" | null,
-    "candidatePredictions": N,
-    "candidateAvgError": N.NNN | null
-  },
-  "candidateStatusError": "message" | null,
-  "deploymentHealth": {
-    "healthEndpoint": {
-      "status": "ok",
-      "model_version": "v3.YYYYMMDD.HHMM",
-      "model_loaded": true,
-      "candidate_loaded": true|false,
-      "candidate_version": "v3.YYYYMMDD.HHMM" | null
-    } | null,
-    "healthError": "message" | null,
-    "machines": [{
-      "id": "machine_id",
-      "state": "started|stopped|stopping",
-      "memoryMb": 2048,
-      "updatedAt": "ISO timestamp"
-    }, ...] | null,
-    "machinesError": "message" | null
-  }
-}
-```
+Wait for all background commands to finish, then parse and format the output as described in the Output Format section below.
 
 ## Output Format
 
@@ -118,10 +147,12 @@ Present results as a markdown dashboard:
 | Metric | Value |
 |--------|-------|
 | Matched / Observable | {matchedLast24h} / {totalObservable24h} |
-| Match Rate | {matchRatePct}% |
+| Match Rate | {min(matchRatePct, 100)}% {if matchRatePct > 100: "(capped — see note)"} |
 | MAE (Raw) | {maeRaw}m |
 | MAE (Corrected) | {maeCorrected}m |
 | Improvement | {improvementPct}% |
+
+> **Note (if matchRatePct > 100):** Raw rate is {matchRatePct}%. This happens because some predictions younger than 4h already have observations, inflating the numerator beyond the 4-24h denominator. The pipeline is healthy — this is a reporting window mismatch, not a data issue.
 
 ### Model Performance by Version (from weeklyMetrics)
 | Model | Predictions | Ground Truth | Raw MAE | Corrected MAE | Improvement |
@@ -160,6 +191,7 @@ If any section returns an error, display: `Warning: {section}: {error message}`
 After the dashboard, flag any of these conditions:
 
 ### Pipeline Health Anomalies
+- **match_rate_24h > 100** — "Match rate exceeds 100% — some <4h predictions already matched. Cosmetic issue, pipeline is healthy."
 - **match_rate_24h < 15** — "Low match rate — check IOOS station sync and variable aliases"
 - **improvement_pct_24h < 5** — "Correction model underperforming"
 - **pending_gt_24h > 0** — "Stale pending predictions — check cron job"
@@ -193,6 +225,8 @@ Display flags as a bulleted warnings list. If no anomalies, print "No anomalies 
 ### Match Rate (match_rate_24h)
 The percentage of predictions for observable beaches that received ground truth observations within 24 hours. Target: >80%.
 
+**If match rate exceeds 100%:** This is a known reporting quirk — the denominator (`total_observable_24h`) excludes predictions younger than 4h, but the numerator (`matched_last_24h`) includes them if they already have observations. The pipeline is healthy; cap display at 100%.
+
 **If match rate drops below 50%:**
 1. Check IOOS station sync (see troubleshooting below)
 2. Verify `observable_beaches` materialized view is being refreshed
@@ -203,7 +237,7 @@ Number of beaches with active IOOS observation sources. The `observable_beaches`
 - Station is active with `has_wave_data = true`
 - Station has observations within the last **24 hours** (tightened Feb 2026)
 
-**Healthy range: 30-60 beaches** (depends on station availability)
+**Healthy range: 80-150 beaches** (depends on station availability; ~118 as of Mar 2026)
 
 ### Model Lifecycle Statuses
 | Status | Meaning |

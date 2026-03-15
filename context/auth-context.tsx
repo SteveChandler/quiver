@@ -580,6 +580,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ? `${siteUrl.replace(/\/$/, "")}/auth/confirm?next=${encodeURIComponent(safeReturnTo)}`
         : undefined;
 
+      // Store returnTo in a cookie as fallback for email confirmation redirect.
+      // Supabase may strip custom query params from emailRedirectTo, and
+      // localStorage doesn't survive cross-device email opens.
+      if (safeReturnTo && safeReturnTo !== "/") {
+        document.cookie = `auth_return_to=${encodeURIComponent(safeReturnTo)}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+      }
+
       // Merge fullName into metadata if provided
       const userData = {
         ...(fullName ? { full_name: fullName } : {}),

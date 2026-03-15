@@ -14,11 +14,13 @@ describe('selectBeachForPost', () => {
     expect(typeof result).toBe('string');
   });
 
-  it('returns home beach most often', () => {
+  it('returns home beach most often (50% weight)', () => {
     const results = Array.from({ length: 1000 }, () => selectBeachForPost(mockConfig));
     const homeCount = results.filter(id => mockConfig.homeBeachIds.includes(id)).length;
-    expect(homeCount).toBeGreaterThan(600);
-    expect(homeCount).toBeLessThan(800);
+    // 50% home + 15% adventure (which can also pick home beaches from the merged pool)
+    // Lower bound >400 (pure 50% chance), upper bound <700 (adventure adds some home picks)
+    expect(homeCount).toBeGreaterThan(400);
+    expect(homeCount).toBeLessThan(700);
   });
 });
 

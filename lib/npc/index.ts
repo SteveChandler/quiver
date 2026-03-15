@@ -6,6 +6,7 @@
 export * from './posting-windows';
 export {
   type NPCProfile,
+  type BeachRecord,
   fetchEligibleNPCs,
   selectNPCsForCurrentHour,
   getBeachesForNPC,

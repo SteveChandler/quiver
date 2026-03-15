@@ -11,6 +11,13 @@ import {
   getPostingWindow,
   isWithinPostingWindow,
 } from './posting-windows';
+import {
+  REGIONS,
+  HOME_BEACH_COUNT,
+  SOCAL_REGIONS,
+  NORCAL_REGIONS,
+} from '@/config/regions';
+import { selectBeachForPost } from './beach-selection';
 
 export type ActivityLevel = 'high' | 'medium' | 'low';
 
@@ -22,6 +29,14 @@ export interface NPCProfile {
   activity_level: ActivityLevel;
   posting_window: { primary?: number[]; secondary?: number[] } | null;
   is_system_account: boolean;
+}
+
+export interface BeachRecord {
+  id: string;
+  name: string;
+  lat: number | null;
+  lon: number | null;
+  city: string | null;
 }
 
 /**
@@ -111,95 +126,95 @@ export function selectNPCsForCurrentHour(
 }
 
 /**
- * Get beaches assigned to an NPC based on their home region
+ * Build the combined list of beach slugs for an NPC's home region.
+ * Visitor regions merge slugs from multiple home regions.
  */
-export async function getBeachesForNPC(
-  supabase: SupabaseClient<Database>,
-  npc: NPCProfile,
-  limit: number = 5
-): Promise<
-  Array<{
-    id: string;
-    name: string;
-    lat: number | null;
-    lon: number | null;
-    city: string | null;
-  }>
-> {
-  // Region to approximate coordinates mapping
-  const REGION_COORDS: Record<string, { lat: number; lon: number }> = {
-    'sf-bay-area': { lat: 37.7749, lon: -122.4194 },
-    'central-coast': { lat: 36.9741, lon: -122.0308 },
-    'north-san-diego': { lat: 32.8801, lon: -117.2340 },
-    'south-san-diego': { lat: 32.7157, lon: -117.1611 },
-    'orange-county': { lat: 33.6846, lon: -117.8265 },
-    'socal-visitor': { lat: 33.8, lon: -118.0 },
-    'norcal-visitor': { lat: 37.5, lon: -122.3 },
-  };
-
-  const coords = REGION_COORDS[npc.home_region];
-
-  if (!coords) {
-    // Fallback: get random beaches
-    const { data } = await supabase
-      .from('beaches')
-      .select('id, name, lat, lon, city')
-      .not('lat', 'is', null)
-      .not('lon', 'is', null)
-      .limit(limit);
-    return data || [];
+function getSlugListForRegion(homeRegion: string): string[] {
+  if (homeRegion === 'socal-visitor') {
+    return SOCAL_REGIONS.flatMap((r) => REGIONS[r]?.beachSlugs ?? []);
   }
-
-  // Get beaches near the NPC's home region
-  // Using a simple bounding box query (Supabase doesn't have PostGIS distance by default)
-  const latRange = 0.5; // ~55km
-  const lonRange = 0.5;
-
-  const { data } = await supabase
-    .from('beaches')
-    .select('id, name, lat, lon, city')
-    .gte('lat', coords.lat - latRange)
-    .lte('lat', coords.lat + latRange)
-    .gte('lon', coords.lon - lonRange)
-    .lte('lon', coords.lon + lonRange)
-    .limit(limit * 2); // Fetch more to allow random selection
-
-  if (!data || data.length === 0) {
-    // Fallback to any beaches
-    const { data: fallback } = await supabase
-      .from('beaches')
-      .select('id, name, lat, lon, city')
-      .not('lat', 'is', null)
-      .limit(limit);
-    return fallback || [];
+  if (homeRegion === 'norcal-visitor') {
+    return NORCAL_REGIONS.flatMap((r) => REGIONS[r]?.beachSlugs ?? []);
   }
-
-  // Shuffle and return limited selection
-  const shuffled = [...data].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, limit);
+  if (homeRegion === 'all-regions') {
+    return Object.values(REGIONS).flatMap((r) => r.beachSlugs);
+  }
+  return REGIONS[homeRegion]?.beachSlugs ?? [];
 }
 
 /**
- * Pick a random beach for an NPC's home vs secondary preference
- * 70% home beaches, 25% secondary, 5% random adventure
+ * Select a beach for an NPC to post about, using weighted home/secondary/adventure logic.
+ *
+ * Returns a single beach record chosen with 50/35/15 weighting:
+ *   50% — home beaches (first HOME_BEACH_COUNT slugs for the region)
+ *   35% — secondary beaches (remaining slugs in the region)
+ *   15% — adventure (random from all region beaches)
+ *
+ * Falls back to a random beach from the DB if the region has no slug config.
  */
-function selectBeachForPost(
-  homeBeaches: Array<{ id: string; name: string }>,
-  secondaryBeaches: Array<{ id: string; name: string }>,
-  allBeaches: Array<{ id: string; name: string }>
-): { id: string; name: string } | null {
-  const roll = Math.random();
+export async function getBeachesForNPC(
+  supabase: SupabaseClient<Database>,
+  npc: NPCProfile
+): Promise<BeachRecord | null> {
+  const allSlugs = getSlugListForRegion(npc.home_region);
 
-  if (roll < 0.7 && homeBeaches.length > 0) {
-    // 70% - Home beach
-    return homeBeaches[Math.floor(Math.random() * homeBeaches.length)];
-  } else if (roll < 0.95 && secondaryBeaches.length > 0) {
-    // 25% - Secondary/regional beaches
-    return secondaryBeaches[Math.floor(Math.random() * secondaryBeaches.length)];
-  } else if (allBeaches.length > 0) {
-    // 5% - Random adventure
-    return allBeaches[Math.floor(Math.random() * allBeaches.length)];
+  // If the region has a configured slug list, use it
+  if (allSlugs.length > 0) {
+    const { data, error } = await supabase
+      .from('beaches')
+      .select('id, name, slug, lat, lon, city')
+      .in('slug', allSlugs);
+
+    if (error) {
+      console.error(`[npc-selection] Beach slug query failed: ${error.message}`);
+    }
+
+    const beachMap = new Map((data ?? []).map((b) => [b.slug ?? b.name, b]));
+
+    // Preserve the slug ordering from config so home/secondary split is stable
+    const ordered: BeachRecord[] = allSlugs
+      .map((slug) => beachMap.get(slug))
+      .filter((b): b is NonNullable<typeof b> => b != null)
+      .map((b) => ({
+        id: b.id,
+        name: b.name,
+        lat: b.lat ?? null,
+        lon: b.lon ?? null,
+        city: b.city ?? null,
+      }));
+
+    if (ordered.length > 0) {
+      const homeSlugs = ordered.slice(0, HOME_BEACH_COUNT).map((b) => b.id);
+      const secondarySlugs = ordered.slice(HOME_BEACH_COUNT).map((b) => b.id);
+
+      const selectedId = selectBeachForPost({
+        homeBeachIds: homeSlugs.length > 0 ? homeSlugs : ordered.map((b) => b.id),
+        secondaryBeaches: secondarySlugs,
+        homeRegion: npc.home_region,
+      });
+
+      return ordered.find((b) => b.id === selectedId) ?? ordered[0];
+    }
   }
 
-  return homeBeaches[0] || secondaryBeaches[0] || allBeaches[0] || null;
+  // Fallback: no slug config or no DB matches — return a random beach
+  console.warn(
+    `[npc-selection] No region slug config for "${npc.home_region}", using random fallback`
+  );
+  const { data: fallback } = await supabase
+    .from('beaches')
+    .select('id, name, lat, lon, city')
+    .not('lat', 'is', null)
+    .limit(20);
+
+  if (!fallback || fallback.length === 0) return null;
+
+  const pick = fallback[Math.floor(Math.random() * fallback.length)];
+  return {
+    id: pick.id,
+    name: pick.name,
+    lat: pick.lat ?? null,
+    lon: pick.lon ?? null,
+    city: pick.city ?? null,
+  };
 }

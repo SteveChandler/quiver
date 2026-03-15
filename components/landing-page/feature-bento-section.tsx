@@ -104,7 +104,7 @@ export function FeatureBentoSection() {
 
   return (
     <section
-      className="relative pt-8 pb-16 md:pt-10 md:pb-24 px-4 bg-[#252D6B] noise-texture"
+      className="relative overflow-hidden pt-8 pb-16 md:pt-10 md:pb-24 px-4 bg-[#252D6B] noise-texture"
       data-testid="feature-bento-section"
     >
       {/* Off-center gradient glow */}
