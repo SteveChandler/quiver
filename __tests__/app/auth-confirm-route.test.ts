@@ -27,6 +27,20 @@ describe("/auth/confirm resolveConfirmNext()", () => {
     expect(resolveConfirmNext("signup", "http://evil.com")).toBe("/");
     expect(resolveConfirmNext("signup", "//evil.com")).toBe("/");
   });
+
+  it("resolves cookie fallback value through resolveConfirmNext safely", () => {
+    // Simulates the decoded cookie value being passed as the next param
+    expect(resolveConfirmNext("signup", "/ca/san-diego/blacks")).toBe(
+      "/ca/san-diego/blacks"
+    );
+    // Cookie with encoded value that was decoded before passing
+    expect(
+      resolveConfirmNext("signup", decodeURIComponent("%2Fca%2Fsan-diego%2Fblacks"))
+    ).toBe("/ca/san-diego/blacks");
+    // Malicious cookie value is still blocked
+    expect(resolveConfirmNext("signup", "https://evil.com")).toBe("/");
+    expect(resolveConfirmNext("signup", "//evil.com")).toBe("/");
+  });
 });
 
 
