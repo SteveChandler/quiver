@@ -119,7 +119,7 @@ export function ForecastSection() {
   );
 
   return (
-    <SectionWrapper className="relative pt-8 pb-8 md:pt-10 md:pb-10 px-4 bg-[#252D6B]" maxWidth="6xl">
+    <SectionWrapper className="relative overflow-hidden pt-8 pb-8 md:pt-10 md:pb-10 px-4 bg-[#252D6B]" maxWidth="6xl">
       {/* Ambient glow */}
       <div className="absolute top-1/2 left-1/4 w-[400px] h-[400px] bg-ocean-blue/[0.06] rounded-full blur-[100px] pointer-events-none" />
 

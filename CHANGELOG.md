@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scripts: `scripts/validate-cameras.ts` — camera health validation script for the `cam-health` dashboard skill
 
 ### Fixed
+- Landing page: fixed horizontal overflow on mobile caused by decorative glow effects extending beyond viewport
 - Stats: `app-stats` signup funnel now uses correct event name `signup_success` (was `signup_completed` which never matched)
 - Stats: `app-stats` and `growth-metrics` event queries now filter `bot_flagged` events, preventing bot traffic from inflating metrics
 - Stats: `app-stats` signup funnel now tracks 8 new auth funnel event types (auth_modal_opened, auth_method_selected, etc.)
