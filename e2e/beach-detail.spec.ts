@@ -263,8 +263,8 @@ test.describe('Beach Detail - Forecast Tab', () => {
     await tidesSubTab.click();
     await expect(tidesSubTab).toHaveAttribute('data-state', 'active', { timeout: 5000 });
 
-    // Tides sub-tab renders a Surf Terminal iframe
-    const tideIframe = page.locator('iframe[src*="/embed/surf-terminal/"]');
-    await expect(tideIframe).toBeVisible({ timeout: 15000 });
+    // Tides sub-tab renders native tide components (no more iframe)
+    const tideChart = page.getByTestId('tide-chart-section');
+    await expect(tideChart).toBeVisible({ timeout: 15000 });
   });
 });

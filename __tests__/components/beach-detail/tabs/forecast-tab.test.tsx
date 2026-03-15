@@ -39,6 +39,12 @@ jest.mock("@/components/beach-detail/embed-code-modal", () => ({
 jest.mock("@/components/beach-detail/unified-surf-card", () => ({
   UnifiedSurfCard: () => <div data-testid="unified-surf-card" />,
 }));
+jest.mock("@/components/beach-detail/tide-status-strip", () => ({
+  TideStatusStrip: (props: any) => <div data-testid="tide-status-strip" />,
+}));
+jest.mock("@/components/beach-detail/tide-chart-section", () => ({
+  TideChartSection: (props: any) => <div data-testid="tide-chart-section" />,
+}));
 
 // Mock dynamic imports
 jest.mock("next/dynamic", () => (fn: any) => {
@@ -455,16 +461,16 @@ describe("ForecastTab", () => {
   });
 
   describe("Tides Tab", () => {
-    it("renders surf-terminal iframe in Tides tab", () => {
+    it("renders TideStatusStrip in Tides tab", () => {
       render(<ForecastTab {...defaultProps} defaultSubTab="tides" />);
 
-      const iframe = screen.getByTitle("Test Beach Surf Terminal");
-      expect(iframe).toBeInTheDocument();
-      expect(iframe).toHaveAttribute(
-        "src",
-        "/embed/surf-terminal/test-beach?theme=light&range=3d"
-      );
-      expect(iframe).toHaveAttribute("loading", "lazy");
+      expect(screen.getByTestId("tide-status-strip")).toBeInTheDocument();
+    });
+
+    it("renders TideChartSection in Tides tab", () => {
+      render(<ForecastTab {...defaultProps} defaultSubTab="tides" />);
+
+      expect(screen.getByTestId("tide-chart-section")).toBeInTheDocument();
     });
 
     it("renders TideConditionsCard in Tides tab", () => {
@@ -473,16 +479,29 @@ describe("ForecastTab", () => {
       expect(screen.getByTestId("tide-conditions-card")).toBeInTheDocument();
     });
 
-    it("renders Tide Forecast heading in Tides tab", () => {
-      render(<ForecastTab {...defaultProps} defaultSubTab="tides" />);
-
-      expect(screen.getByText("Tide Forecast")).toBeInTheDocument();
-    });
-
     it("renders EmbedCodeButton in Tides tab", () => {
       render(<ForecastTab {...defaultProps} defaultSubTab="tides" />);
 
       expect(screen.getByTestId("embed-code")).toBeInTheDocument();
+    });
+
+    it("renders TideAlertBadge in Tides tab when beach has preferred_tide_direction", () => {
+      const beachWithPreferredTide = {
+        ...mockBeach,
+        preferred_tide_direction: "rising",
+      };
+
+      render(
+        <ForecastTab
+          {...defaultProps}
+          beach={beachWithPreferredTide}
+          defaultSubTab="tides"
+        />
+      );
+
+      // TideAlertBadge appears in both Today tab and Tides tab
+      const alerts = screen.getAllByTestId("tide-alert");
+      expect(alerts.length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -520,7 +539,9 @@ describe("ForecastTab", () => {
         />
       );
 
-      expect(screen.getByTestId("tide-alert")).toBeInTheDocument();
+      // TideAlertBadge appears in both Today tab and Tides tab
+      const alerts = screen.getAllByTestId("tide-alert");
+      expect(alerts.length).toBeGreaterThanOrEqual(1);
     });
 
     it("does not render TideAlertBadge when beach has no preferred_tide_direction", () => {
