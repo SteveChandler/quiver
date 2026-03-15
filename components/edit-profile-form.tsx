@@ -21,6 +21,7 @@ import { updateProfile } from "@/actions/profile-actions";
 import { useAuth } from "@/context/auth-context";
 import { toastUtils } from "@/lib/utils/toast-utils";
 import { useProfileContext } from "@/context/profile-context";
+import { invalidateProfileCache } from "@/lib/data/client";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { NotificationsSection } from "@/components/profile/notifications-section";
@@ -160,7 +161,8 @@ export function EditProfileForm({
         }
       } catch {}
 
-      // Refresh profile data
+      // Clear gateway cache before refreshing context to prevent stale data
+      if (user.id) invalidateProfileCache(user.id);
       startTransition(() => refreshProfile());
 
       toastUtils.profile.updated();

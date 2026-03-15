@@ -48,54 +48,51 @@ export const TEST_PREFERENCES = {
 };
 
 /**
- * Get the current authenticated user's profile.
- * Uses a direct SQL query via the service-role client to join auth.users with profiles,
- * so the lookup is reliable regardless of whether profiles.email is populated.
+ * Resolve a user's auth UUID from their email address.
+ * Uses RPC first, falls back to paginating auth.admin.listUsers.
+ * All mutation helpers use this to avoid relying on profiles.email being populated.
  */
-export async function getCurrentUserProfile(userEmail: string) {
-  // Use rpc to find the user's auth UUID by email, then fetch the profile by id.
-  // supabaseAdmin has service-role access so it can read auth.users.
+async function resolveUserId(userEmail: string): Promise<string> {
   const { data: rows, error: rpcError } = await supabaseAdmin.rpc(
     'get_user_id_by_email' as any,
     { p_email: userEmail }
   ) as any;
 
-  let userId: string | undefined;
-
-  if (rpcError || !rows?.length) {
-    // Fallback: paginate through auth.admin.listUsers to find the user
-    let page = 1;
-    const perPage = 50;
-    let found = false;
-
-    while (!found) {
-      const { data: usersPage, error: listError } = await supabaseAdmin.auth.admin.listUsers({
-        page,
-        perPage,
-      });
-
-      if (listError) {
-        throw new Error(`Failed to list auth users (page ${page}) for ${userEmail}: ${listError.message}`);
-      }
-
-      const match = usersPage?.users?.find((u) => u.email === userEmail);
-      if (match) {
-        userId = match.id;
-        found = true;
-      } else if (!usersPage?.users?.length || usersPage.users.length < perPage) {
-        // No more pages
-        break;
-      }
-
-      page++;
-    }
-
-    if (!userId) {
-      throw new Error(`No auth user found with email ${userEmail}`);
-    }
-  } else {
-    userId = rows[0] as string;
+  if (!rpcError && rows?.length) {
+    return rows[0] as string;
   }
+
+  // Fallback: paginate through auth.admin.listUsers to find the user
+  let page = 1;
+  const perPage = 50;
+
+  while (true) {
+    const { data: usersPage, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+      page,
+      perPage,
+    });
+
+    if (listError) {
+      throw new Error(`Failed to list auth users (page ${page}) for ${userEmail}: ${listError.message}`);
+    }
+
+    const match = usersPage?.users?.find((u) => u.email === userEmail);
+    if (match) return match.id;
+
+    if (!usersPage?.users?.length || usersPage.users.length < perPage) break;
+    page++;
+  }
+
+  throw new Error(`No auth user found with email ${userEmail}`);
+}
+
+/**
+ * Get the current authenticated user's profile.
+ * Uses a direct SQL query via the service-role client to join auth.users with profiles,
+ * so the lookup is reliable regardless of whether profiles.email is populated.
+ */
+export async function getCurrentUserProfile(userEmail: string) {
+  const userId = await resolveUserId(userEmail);
 
   const { data: profile, error } = await supabaseAdmin
     .from('profiles')
@@ -117,6 +114,7 @@ export async function setUserState(
   userEmail: string,
   state: UserState
 ): Promise<void> {
+  const userId = await resolveUserId(userEmail);
   const now = new Date().toISOString();
   const pastDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days ago
 
@@ -151,7 +149,7 @@ export async function setUserState(
   const { error } = await supabaseAdmin
     .from('profiles')
     .update(updateData)
-    .eq('email', userEmail);
+    .eq('id', userId);
 
   if (error) {
     throw new Error(`Failed to set user state: ${error.message}`);
@@ -167,10 +165,12 @@ export async function setUserPreferences(
   userEmail: string,
   preferences: Partial<typeof TEST_PREFERENCES> = TEST_PREFERENCES
 ): Promise<void> {
+  const userId = await resolveUserId(userEmail);
+
   const { error } = await supabaseAdmin
     .from('profiles')
     .update(preferences)
-    .eq('email', userEmail);
+    .eq('id', userId);
 
   if (error) {
     throw new Error(`Failed to set preferences: ${error.message}`);
@@ -183,6 +183,8 @@ export async function setUserPreferences(
  * Clear user preferences (set to null/empty)
  */
 export async function clearUserPreferences(userEmail: string): Promise<void> {
+  const userId = await resolveUserId(userEmail);
+
   const { error } = await supabaseAdmin
     .from('profiles')
     .update({
@@ -192,7 +194,7 @@ export async function clearUserPreferences(userEmail: string): Promise<void> {
       preferred_break_type: null,
       crowd_preference: null,
     })
-    .eq('email', userEmail);
+    .eq('id', userId);
 
   if (error) {
     throw new Error(`Failed to clear preferences: ${error.message}`);
