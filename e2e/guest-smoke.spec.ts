@@ -65,20 +65,36 @@ test.describe('Guest Smoke: Critical Pages', () => {
     await expect(heading).toBeVisible({ timeout: 10000 });
 
     // At least one of these beach-page content elements should render.
-    // ticker-content: requires currentForecast (client-side fetch, may not load in guest context)
-    // beach-stats-grid: renders after calibration API resolves (replaces skeleton, so may lag)
-    // inline-signup-cta: always visible for unauthenticated users (guest-specific CTA card)
-    // beach-actions: always rendered once beach data loads (Report Conditions / Get Directions row)
-    const ticker = page.locator('[data-testid="ticker-content"]');
+    //
+    // Reliability ranking for guest/unauthenticated users:
+    //
+    // beach-stats-grid: MOST reliable — renders unconditionally once beach data loads.
+    //   Accepts currentForecast as optional; shows static beach stats even without it.
+    //   No auth dependency, no extra API gate. Primary check with generous CI timeout.
+    //
+    // beach-actions: RELIABLE — the Report Conditions / Get Directions row. Renders
+    //   unconditionally once beach data is available. No auth or forecast dependency.
+    //
+    // inline-signup-cta: RELIABLE for guests — shown in publicMode for unauthenticated
+    //   users, but the component reads useAuth() and returns null while isLoading=true.
+    //   Auth context resolves quickly, so a 15s timeout is more than sufficient in CI.
+    //
+    // ticker-content: LEAST reliable — only renders when currentForecast is non-null
+    //   (requires the forecast API call to complete) AND buildConditionsCards returns
+    //   at least one card. Falls back to skeleton or nothing if forecast is unavailable.
     const statsGrid = page.locator('[data-testid="beach-stats-grid"]');
-    const signupCta = page.locator('[data-testid="inline-signup-cta"]');
     const beachActions = page.locator('[data-testid="beach-actions"]');
-    const hasTicker = await isVisibleSafe(ticker, { timeout: 10000 });
-    const hasStats = await isVisibleSafe(statsGrid, { timeout: 5000 });
-    const hasSignupCta = await isVisibleSafe(signupCta, { timeout: 5000 });
-    const hasBeachActions = await isVisibleSafe(beachActions, { timeout: 5000 });
+    const signupCta = page.locator('[data-testid="inline-signup-cta"]');
+    const ticker = page.locator('[data-testid="ticker-content"]');
 
-    expect(hasTicker || hasStats || hasSignupCta || hasBeachActions).toBe(true);
+    // Primary check: beach-stats-grid is the most reliable server-data-driven element.
+    // Give it a generous timeout so slow CI environments don't produce flaky failures.
+    const hasStats = await isVisibleSafe(statsGrid, { timeout: 20000 });
+    const hasBeachActions = await isVisibleSafe(beachActions, { timeout: 15000 });
+    const hasSignupCta = await isVisibleSafe(signupCta, { timeout: 15000 });
+    const hasTicker = await isVisibleSafe(ticker, { timeout: 10000 });
+
+    expect(hasStats || hasBeachActions || hasSignupCta || hasTicker).toBe(true);
 
     // Skip console checks — guest visitors trigger expected 401s from auth-dependent APIs
     await assertNoErrors(page, errorCapture, {
