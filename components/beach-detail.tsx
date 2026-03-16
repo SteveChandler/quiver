@@ -517,14 +517,16 @@ function BeachDetailContent({
           }}
         />
 
-        {/* Bottom gradient — darkens bottom for forecast readability */}
-        <div
-          className="absolute inset-x-0 bottom-0 h-1/2 pointer-events-none z-[5]"
-          style={{
-            background:
-              "linear-gradient(to top, #252D6B 0%, rgba(37,45,107,0.85) 30%, rgba(37,45,107,0.3) 65%, transparent 100%)",
-          }}
-        />
+        {/* Bottom gradient — darkens bottom for forecast readability (hidden when cam is gated) */}
+        {!(publicMode && showCamHero) && (
+          <div
+            className="absolute inset-x-0 bottom-0 h-1/2 pointer-events-none z-[5]"
+            style={{
+              background:
+                "linear-gradient(to top, #252D6B 0%, rgba(37,45,107,0.85) 30%, rgba(37,45,107,0.3) 65%, transparent 100%)",
+            }}
+          />
+        )}
 
         {/* Title — top of hero */}
         <div className="absolute inset-x-0 top-0 px-4 sm:px-6 pt-6 z-[6]">
@@ -539,30 +541,32 @@ function BeachDetailContent({
           </div>
         </div>
 
-        {/* Forecast overlay — bottom of hero */}
-        <div className="absolute inset-x-0 bottom-0 px-4 sm:px-6 pb-4 z-[6]">
-          <div className="mx-auto max-w-7xl">
-            <BeachHeroCompact
-              beach={beach as any}
-              publicMode={publicMode}
-              personalizationScore={personalizationData?.score}
-              affinityData={personalizationData?.affinityData}
-              baseScore={beach.base_score}
-              isLoadingPersonalization={personalizationData?.isLoading}
-              currentForecast={currentForecast}
-              overlayMode={true}
-              firstHiddenDayName={firstHiddenDayName}
-              peakHiddenWaveHeight={peakHiddenWaveHeight}
-            />
-            {currentForecast && (
-              <ConditionsTicker
-                data={forecastToConditionsData(currentForecast)}
-                theme="dark"
-                beachName={beach.name}
+        {/* Forecast overlay — bottom of hero (hidden when cam is gated to avoid mobile overlap) */}
+        {!(publicMode && showCamHero) && (
+          <div className="absolute inset-x-0 bottom-0 px-4 sm:px-6 pb-4 z-[6]">
+            <div className="mx-auto max-w-7xl">
+              <BeachHeroCompact
+                beach={beach as any}
+                publicMode={publicMode}
+                personalizationScore={personalizationData?.score}
+                affinityData={personalizationData?.affinityData}
+                baseScore={beach.base_score}
+                isLoadingPersonalization={personalizationData?.isLoading}
+                currentForecast={currentForecast}
+                overlayMode={true}
+                firstHiddenDayName={firstHiddenDayName}
+                peakHiddenWaveHeight={peakHiddenWaveHeight}
               />
-            )}
+              {currentForecast && (
+                <ConditionsTicker
+                  data={forecastToConditionsData(currentForecast)}
+                  theme="dark"
+                  beachName={beach.name}
+                />
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Main Content Container */}
