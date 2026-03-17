@@ -45,7 +45,7 @@ export const FEATURED_BEACHES_LIMIT = 50;
  * Default radius (miles) for proximity-based featured beach filtering.
  * Beaches within this distance of the user's location are shown preferentially.
  */
-export const FEATURED_BEACHES_RADIUS_MILES = 50;
+export const FEATURED_BEACHES_RADIUS_MILES = 150;
 
 /**
  * Minimum number of nearby beaches required before proximity filtering kicks in.

@@ -4,13 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, useInView, useReducedMotion } from "framer-motion";
 import { SurfSpotCard, SurfSpotCardProps } from "./surf-spot-card";
-import { CONTENT } from "@/lib/constants/features";
 import { ChevronRight } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLocationSafe } from "@/context/location-context";
-import { SocialProofBar } from "./social-proof-bar";
 
 interface Beach {
   id: string;
@@ -30,6 +28,11 @@ interface Beach {
 // Main component
 // ---------------------------------------------------------------------------
 
+interface FetchResult {
+  spots: SurfSpotCardProps[];
+  isNearby: boolean;
+}
+
 export function SurfHighlightsSection() {
   const [page, setPage] = useState(0);
   const pageSize = 4;
@@ -42,7 +45,7 @@ export function SurfHighlightsSection() {
     ? `${coordinates.lat.toFixed(2)},${coordinates.lon.toFixed(2)}`
     : "";
 
-  const fetchBeaches = useCallback(async (): Promise<SurfSpotCardProps[]> => {
+  const fetchBeaches = useCallback(async (): Promise<FetchResult> => {
     try {
       let url = "/api/beaches/featured";
       if (coordsKey) {
@@ -54,7 +57,9 @@ export function SurfHighlightsSection() {
         throw new Error("Failed to fetch beaches");
       }
       const result = await response.json();
-      const beaches: Beach[] = result.data || result;
+      const payload = result.data || result;
+      const beaches: Beach[] = payload.beaches || payload;
+      const isNearby: boolean = payload.isNearby ?? false;
 
       // Only show beaches with working photos — skip those without.
       // Google Places photo URLs require server-side API key auth and
@@ -89,13 +94,15 @@ export function SurfHighlightsSection() {
         })
         .slice(0, 8); // Only take first 8 for display
 
-      return spotCards;
+      return { spots: spotCards, isNearby };
     } catch (error) {
-      return [];
+      return { spots: [], isNearby: false };
     }
   }, [coordsKey]);
 
-  const { data: surfSpots, loading, refetch } = useDataFetcher(fetchBeaches);
+  const { data: fetchResult, loading, refetch } = useDataFetcher(fetchBeaches);
+  const surfSpots = fetchResult?.spots ?? null;
+  const isNearby = fetchResult?.isNearby ?? false;
 
   const sectionRef = useRef<HTMLElement>(null);
   const isInView = useInView(sectionRef, { once: true, amount: 0.2 });
@@ -145,11 +152,6 @@ export function SurfHighlightsSection() {
       className="pt-16 pb-8 md:pt-24 md:pb-10 bg-[#252D6B] noise-texture border-t border-white/[0.06]"
     >
       <div className="max-w-7xl mx-auto px-6">
-        {/* Social proof — dynamic community stats */}
-        <div className="mb-10">
-          <SocialProofBar />
-        </div>
-
         {/* Section header */}
         <motion.h2
           className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold text-white mb-10 md:mb-12 text-left"
@@ -161,7 +163,7 @@ export function SurfHighlightsSection() {
           }
           transition={{ duration: 0.5, ease: easeOutQuart }}
         >
-          {CONTENT.sections.surfHighlights.title}
+          {isNearby ? "Local surf favorites near you" : "Popular surf spots"}
         </motion.h2>
 
         {loading ? (

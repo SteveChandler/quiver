@@ -9,7 +9,7 @@ interface LandingPageShellProps {
 
 export async function LandingPageShell({ children }: LandingPageShellProps) {
   // Fetch beaches server-side for SEO and initial render
-  const beaches = await getFeaturedBeaches();
+  const { beaches } = await getFeaturedBeaches();
 
   return (
     <div className="min-h-screen bg-white">

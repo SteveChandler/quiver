@@ -46,7 +46,7 @@ async function featuredBeachesHandler(request: NextRequest) {
       }
     }
 
-    const beaches = await getFeaturedBeaches(
+    const { beaches, isNearby } = await getFeaturedBeaches(
       coordinates ? { coordinates } : undefined
     );
 
@@ -87,13 +87,13 @@ async function featuredBeachesHandler(request: NextRequest) {
 
     // Short cache for forecast-enriched data (2 minutes for personalized, 5 minutes otherwise)
     if (coordinates) {
-      return createSuccessResponse(enrichedBeaches);
+      return createSuccessResponse({ beaches: enrichedBeaches, isNearby });
     }
-    return await createCachedResponse(enrichedBeaches, CacheDuration.SHORT);
+    return await createCachedResponse({ beaches: enrichedBeaches, isNearby }, CacheDuration.SHORT);
   } catch (error) {
     console.error("Error fetching featured beaches:", error);
     // Return empty array rather than error for graceful degradation
-    return createSuccessResponse([]);
+    return createSuccessResponse({ beaches: [], isNearby: false });
   }
 }
 

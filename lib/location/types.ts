@@ -45,8 +45,8 @@ export interface ResolvedLocation {
  * Result of matching IP location to a metro area.
  */
 export interface MetroMatch {
-  /** Metro area slug (e.g., "san-diego") */
-  slug: string;
+  /** Metro area slug (e.g., "san-diego"), null when matched by raw IP coordinates */
+  slug: string | null;
   /** Display name (e.g., "San Diego") */
   displayName: string;
   /** Center coordinates of the metro area */

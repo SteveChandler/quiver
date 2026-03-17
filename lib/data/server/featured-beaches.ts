@@ -275,13 +275,18 @@ function filterByProximity(
  *
  * @returns Promise resolving to array of enriched beach objects (up to FEATURED_BEACHES_LIMIT)
  */
-async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<EnrichedBeach[]> {
+export interface FeaturedBeachesResult {
+  beaches: EnrichedBeach[];
+  isNearby: boolean;
+}
+
+async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<FeaturedBeachesResult> {
   try {
     const supabase = await createSupabaseServerClient();
 
     if (!supabase) {
       console.error("Failed to initialize Supabase client");
-      return [];
+      return { beaches: [], isNearby: false };
     }
 
     // Step 1: Parallel fetch - photos and all candidate beaches at once
@@ -313,7 +318,7 @@ async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<En
     }
     if (beachesResult.error) {
       console.error("Database error fetching beaches:", beachesResult.error);
-      return [];
+      return { beaches: [], isNearby: false };
     }
 
     // Step 2: Build photos map (one photo per beach)
@@ -372,7 +377,7 @@ async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<En
     // Step 6: When user coordinates are available, filter to nearby beaches
     const userCoords = options?.coordinates;
     if (!userCoords) {
-      return globalList;
+      return { beaches: globalList, isNearby: false };
     }
 
     const radiusMiles = options?.radiusMiles ?? FEATURED_BEACHES_RADIUS_MILES;
@@ -386,11 +391,13 @@ async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<En
     );
 
     // Fall back to global list if too few nearby results
-    return nearby.length < MIN_NEARBY_RESULTS ? globalList : nearby;
+    if (nearby.length < MIN_NEARBY_RESULTS) {
+      return { beaches: globalList, isNearby: false };
+    }
+    return { beaches: nearby, isNearby: true };
   } catch (error) {
     console.error("Error fetching featured beaches:", error);
-    // Return empty array for graceful degradation
-    return [];
+    return { beaches: [], isNearby: false };
   }
 }
 
@@ -402,7 +409,7 @@ async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<En
  *
  * Note: Wrapped in try/catch to be resilient in test environments where Next cache may not be available.
  */
-export async function getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<EnrichedBeach[]> {
+export async function getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<FeaturedBeachesResult> {
   // When coordinates are provided, bypass cache to avoid cache key explosion per unique lat/lon
   if (options?.coordinates) {
     return await _getFeaturedBeaches(options);

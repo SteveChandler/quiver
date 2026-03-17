@@ -80,6 +80,18 @@ Full guide: `docs/COORDINATE_CONVENTIONS.md`
 
 Use `forecast_at` (timestamptz), not deprecated `forecast_date` + `forecast_time`. Adapter: `lib/utils/forecast-at-adapter.ts`. Query: `.gte("forecast_at", startISO).lt("forecast_at", endISO).order("forecast_at")`
 
+### Event Tracking
+
+Pre-auth funnel events (`signup_cta_view`, `signup_cta_click`, `signup_form_submitted`, `auth_modal_opened`, `auth_modal_closed_without_action`) must **never fire for authenticated users**. Guard client-side with `if (!user)` and server-side in `/api/events/route.ts` with `PRE_AUTH_ONLY_EVENTS` blocklist. Events during auth transition (`signup_started`, `signup_success`, `login_success`) are allowed for both.
+
+### CTA Components (Defense-in-Depth)
+
+Every CTA component that shows to anonymous users must **independently check auth state** via `useAuth()` and hide/transform for logged-in users. Never rely solely on a parent's `publicMode` prop — auth state may propagate at different speeds. Components: `PublicContentGate`, `InlineSignupCta`, `MatchScoreTeaser`, `PersonalizedForecastTeaser`, `StickySignupBar`.
+
+### OAuth Testing
+
+Always test OAuth signup flows (Apple, Google) on **real iOS Safari** — cookie handling during cross-origin OAuth redirects differs from Chrome. The auth context at `context/auth-context.tsx` uses `onAuthStateChange` which may not fire if session cookies aren't immediately visible after redirect.
+
 ---
 
 ## Git Workflow
@@ -98,7 +110,7 @@ See `docs/GIT_WORKFLOW.md` for the full branching strategy, hotfix process, and 
 ## Routing Patterns
 
 - **Beach pages:** `app/[intent]/[city]/[beachSlug]/page.tsx` - accepts 2-letter state slugs for all states
-- **Coverage areas:** CA, OR, WA, HI, Baja are in-coverage - never show "out of area" messaging for these
+- **Coverage areas:** Full US coasts (ME, NH, MA, RI, NY, NJ, NC, SC, GA, FL, CA, OR, WA, TX), HI, PR, Baja — never show "out of area" messaging for these. Source of truth: `lib/constants/coverage-areas.ts`
 - Full details: `docs/ROUTING_PATTERNS.md`
 
 ---
@@ -175,6 +187,8 @@ Before touching `lib/seo/meta.ts` or related SEO files, define the target patter
 - Don't use `forecast_date` + `forecast_time` in new queries (use `forecast_at`)
 - Don't reference `sessions.profile_id` (dropped Feb 2026 -- use `user_id`)
 - Don't `DROP VIEW` + `CREATE VIEW` without carrying forward `WITH (security_invoker = true)`
+- Don't fire pre-auth funnel events (`signup_cta_view`, `auth_modal_opened`, etc.) for authenticated users
+- Don't rely on parent `publicMode` prop alone for hiding CTAs — always self-guard with `useAuth()`
 
 ---
 
