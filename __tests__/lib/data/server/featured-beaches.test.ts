@@ -114,8 +114,8 @@ describe("getFeaturedBeaches", () => {
     expect(beachNames).toContain("Asbury Park");
   });
 
-  it("returns { beaches, isNearby: true } when only 1 nearby beach exists (MIN_NEARBY_RESULTS = 1)", async () => {
-    // Only 1 NJ beach + SD beaches — previously fell back to global with MIN_NEARBY_RESULTS = 4
+  it("falls back to global list when fewer than 4 nearby beaches have photos", async () => {
+    // Only 1 NJ beach with photo — below MIN_NEARBY_RESULTS (4), so falls back to global
     const singleNJBeach = [NJ_BEACHES[0]];
     const singleNJPhoto = [PHOTOS[0]];
     setupMockQueries(
@@ -128,9 +128,9 @@ describe("getFeaturedBeaches", () => {
       radiusMiles: 150,
     });
 
-    expect(result.isNearby).toBe(true);
+    expect(result.isNearby).toBe(false);
+    // Should return global list (includes all beaches with photos)
     expect(result.beaches.length).toBeGreaterThanOrEqual(1);
-    expect(result.beaches[0].name).toBe("Asbury Park");
   });
 
   it("returns { beaches, isNearby: false } when no beaches are within radius", async () => {

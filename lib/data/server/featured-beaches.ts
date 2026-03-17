@@ -394,8 +394,11 @@ async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<Fe
       FEATURED_BEACHES_LIMIT
     );
 
-    // Fall back to global list if too few nearby results
-    if (nearby.length < MIN_NEARBY_RESULTS) {
+    // Fall back to global list if too few nearby results WITH photos
+    // (photo-less beaches get stripped client-side, so counting them would
+    // produce a sparse grid)
+    const nearbyWithPhotos = nearby.filter((b) => b.has_real_photo);
+    if (nearbyWithPhotos.length < MIN_NEARBY_RESULTS) {
       return { beaches: globalList, isNearby: false };
     }
     return { beaches: nearby, isNearby: true };

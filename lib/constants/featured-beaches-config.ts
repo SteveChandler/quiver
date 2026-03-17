@@ -48,11 +48,11 @@ export const FEATURED_BEACHES_LIMIT = 50;
 export const FEATURED_BEACHES_RADIUS_MILES = 150;
 
 /**
- * Minimum number of nearby beaches required before proximity filtering kicks in.
- * If fewer than this many beaches are within the radius, fall back to the global list
- * to prevent showing an empty or near-empty section.
+ * Minimum number of nearby beaches (with photos) required before proximity filtering kicks in.
+ * If fewer than this many displayable beaches are within the radius, fall back to the global list
+ * to prevent a sparse grid. Matches the desktop grid column count (lg:grid-cols-4).
  */
-export const MIN_NEARBY_RESULTS = 1;
+export const MIN_NEARBY_RESULTS = 4;
 
 /**
  * Mapping of beach names to curated fallback imagery.
