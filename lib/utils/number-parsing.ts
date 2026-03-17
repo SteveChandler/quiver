@@ -70,3 +70,43 @@ export function parseWavePeriod(value: unknown, fallback: number = 0): number {
   const parsed = parseFloat(cleaned);
   return Number.isNaN(parsed) ? fallback : parsed;
 }
+
+const CARDINAL_TO_DEGREES: Record<string, number> = {
+  N: 0,
+  NNE: 22.5,
+  NE: 45,
+  ENE: 67.5,
+  E: 90,
+  ESE: 112.5,
+  SE: 135,
+  SSE: 157.5,
+  S: 180,
+  SSW: 202.5,
+  SW: 225,
+  WSW: 247.5,
+  W: 270,
+  WNW: 292.5,
+  NW: 315,
+  NNW: 337.5,
+};
+
+/**
+ * Convert a direction value to degrees. Accepts numeric degrees or cardinal strings ("SW", "WNW", etc.).
+ * Returns null if the input cannot be parsed.
+ */
+export function getDirectionDegrees(
+  deg: number | string | null | undefined,
+  cardinal?: string | null | undefined
+): number | null {
+  if (deg !== null && deg !== undefined) {
+    const numDeg = typeof deg === 'string' ? parseFloat(deg) : deg;
+    if (!isNaN(numDeg)) return numDeg;
+    // First param is a non-numeric string — try cardinal lookup
+    if (typeof deg === 'string') {
+      const fromCardinal = CARDINAL_TO_DEGREES[deg.toUpperCase()];
+      if (fromCardinal !== undefined) return fromCardinal;
+    }
+  }
+  if (!cardinal) return null;
+  return CARDINAL_TO_DEGREES[cardinal.toUpperCase()] ?? null;
+}

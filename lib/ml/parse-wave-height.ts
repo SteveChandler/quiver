@@ -14,7 +14,10 @@ const KTS_TO_MS = 0.514444;
  * - "3ft", "3 ft"
  * - "Flat", "flat"
  */
-export function parseWaveHeight(text: string | null | undefined): number | null {
+export function parseWaveHeight(
+  text: string | null | undefined,
+  options?: { useLowerBound?: boolean }
+): number | null {
   if (!text || text.toLowerCase().includes('flat')) {
     return 0.15;
   }
@@ -33,7 +36,8 @@ export function parseWaveHeight(text: string | null | undefined): number | null 
 
   if (values.length === 2) {
     // Range: take midpoint
-    return ((values[0] + values[1]) / 2) * FEET_TO_METERS;
+    const value = options?.useLowerBound ? values[0] : (values[0] + values[1]) / 2;
+    return value * FEET_TO_METERS;
   } else if (values.length === 1) {
     return values[0] * FEET_TO_METERS;
   }
