@@ -38,7 +38,8 @@ export function SurfHighlightsSection() {
   const pageSize = 4;
   const locationCtx = useLocationSafe();
   const location = locationCtx?.location;
-  const coordinates = location?.coordinates ?? null;
+  // Don't use coordinates until location has resolved (avoids race with default SD coords)
+  const coordinates = location && !location.isLoading ? location.coordinates : null;
 
   // Serialize coordinates to a stable string to use as dependency (rounded for privacy + cacheability)
   const coordsKey = coordinates
