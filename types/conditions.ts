@@ -8,4 +8,5 @@ export interface ConditionsData {
   waterTemp?: string | null;
   tideStatus?: string | null;
   tideHeight?: string | null;
+  rideableWavesPerHour?: number | null;
 }

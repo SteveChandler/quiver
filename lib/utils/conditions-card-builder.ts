@@ -1,6 +1,6 @@
 import type { ConditionsData } from "@/types/conditions";
 
-export type ConditionsIconType = "waves" | "swell" | "wind" | "water" | "tide";
+export type ConditionsIconType = "waves" | "swell" | "wind" | "water" | "tide" | "frequency";
 
 export interface ConditionsCard {
   id: string;
@@ -10,11 +10,18 @@ export interface ConditionsCard {
   tideRising?: boolean;
 }
 
+export interface BuildConditionsCardsOptions {
+  showFrequency?: boolean;
+}
+
 /**
  * Builds an array of conditions cards from ConditionsData.
  * Pure function — no React dependency, fully testable.
  */
-export function buildConditionsCards(data: ConditionsData): ConditionsCard[] {
+export function buildConditionsCards(
+  data: ConditionsData,
+  options?: BuildConditionsCardsOptions
+): ConditionsCard[] {
   const cards: ConditionsCard[] = [];
 
   if (data.waveHeight != null && data.waveHeight !== "") {
@@ -84,6 +91,30 @@ export function buildConditionsCards(data: ConditionsData): ConditionsCard[] {
         tideRising: isRising,
       });
     }
+  }
+
+  if (
+    options?.showFrequency &&
+    data.rideableWavesPerHour != null &&
+    data.rideableWavesPerHour > 0
+  ) {
+    cards.push({
+      id: "frequency",
+      label: "Waves/hr",
+      value: `~${data.rideableWavesPerHour}`,
+      iconType: "frequency",
+    });
+  } else if (
+    options?.showFrequency &&
+    data.rideableWavesPerHour === 0 &&
+    data.waveHeight != null
+  ) {
+    cards.push({
+      id: "frequency",
+      label: "Waves/hr",
+      value: "Flat",
+      iconType: "frequency",
+    });
   }
 
   return cards;

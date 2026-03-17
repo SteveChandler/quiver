@@ -544,9 +544,10 @@ function BeachDetailContent({
               />
               {currentForecast && (
                 <ConditionsTicker
-                  data={forecastToConditionsData(currentForecast)}
+                  data={forecastToConditionsData(currentForecast, beach)}
                   theme="dark"
                   beachName={beach.name}
+                  showFrequency
                 />
               )}
             </div>

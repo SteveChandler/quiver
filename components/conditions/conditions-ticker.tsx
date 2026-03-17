@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Compass, Wind, Thermometer, ChevronUp, ChevronDown } from "lucide-react";
+import { Compass, Wind, Thermometer, ChevronUp, ChevronDown, Activity } from "lucide-react";
 import { AnimatedWaveIcon } from "@/components/ui/animated-wave-icon";
 import type { ConditionsData } from "@/types/conditions";
 import {
@@ -15,6 +15,7 @@ interface ConditionsTickerProps {
   theme?: "light" | "dark";
   loading?: boolean;
   beachName?: string;
+  showFrequency?: boolean;
   className?: string;
 }
 
@@ -39,6 +40,8 @@ function CardIcon({
       return <Thermometer {...props} />;
     case "tide":
       return tideRising ? <ChevronUp {...props} /> : <ChevronDown {...props} />;
+    case "frequency":
+      return <Activity {...props} />;
   }
 }
 
@@ -95,10 +98,11 @@ export function ConditionsTicker({
   theme = "light",
   loading = false,
   beachName,
+  showFrequency,
   className,
 }: ConditionsTickerProps) {
   const isDark = theme === "dark";
-  const cards = loading ? [] : buildConditionsCards(data);
+  const cards = loading ? [] : buildConditionsCards(data, { showFrequency });
 
   if (!loading && cards.length === 0) return null;
 

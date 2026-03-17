@@ -1,14 +1,30 @@
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { ConditionsData } from "@/types/conditions";
+import { calculateRideableWaves } from "@/lib/domains/wave-frequency";
+import { parseWavePeriod, parseWindSpeed, getDirectionDegrees } from "@/lib/utils/number-parsing";
+import { parseWaveHeight } from "@/lib/ml/parse-wave-height";
+
+const METERS_TO_FEET = 1 / 0.3048;
+const MPH_TO_KTS = 1 / 1.151;
+
+/** Minimal beach shape needed for wave frequency calculation */
+export interface BeachForWaveFrequency {
+  break_type: string | null;
+  aspect_deg: number | null;
+  swell_access_factors: number[] | null;
+}
 
 /**
  * Maps an EnhancedForecastEntity (snake_case DB row) to the
  * shared ConditionsData shape (camelCase) used by ticker components.
+ *
+ * When `beach` is provided, also calculates rideable waves per hour.
  */
 export function forecastToConditionsData(
-  forecast: EnhancedForecastEntity
+  forecast: EnhancedForecastEntity,
+  beach?: BeachForWaveFrequency | null,
 ): ConditionsData {
-  return {
+  const base: ConditionsData = {
     waveHeight: forecast.wave_height ?? null,
     wavePeriod: forecast.wave_period ?? null,
     waveDirection: forecast.wave_direction ?? null,
@@ -18,4 +34,31 @@ export function forecastToConditionsData(
     tideStatus: forecast.tide_status ?? null,
     tideHeight: forecast.tide_height ?? null,
   };
+
+  if (beach) {
+    const heightMeters = parseWaveHeight(forecast.wave_height, { useLowerBound: true });
+    const heightFt = heightMeters != null ? heightMeters * METERS_TO_FEET : null;
+
+    // parseWindSpeed (number-parsing) returns raw number (units stripped).
+    // Forecast wind_speed is typically "X mph". Calculator expects knots, so convert.
+    const windSpeedRaw = parseWindSpeed(forecast.wind_speed);
+    const windSpeedKts = windSpeedRaw * MPH_TO_KTS;
+
+    const result = calculateRideableWaves({
+      dominantPeriodS: parseWavePeriod(forecast.wave_period) || null,
+      swell1PeriodS: parseWavePeriod(forecast.swell_1_period) || null,
+      swell2PeriodS: parseWavePeriod(forecast.swell_2_period) || null,
+      swell1DirectionDeg: getDirectionDegrees(forecast.swell_1_direction),
+      waveHeightFt: heightFt,
+      windSpeedKts,
+      windDirectionDeg: forecast.wind_direction_deg ?? getDirectionDegrees(forecast.wind_direction),
+      breakType: beach.break_type,
+      aspectDeg: beach.aspect_deg,
+      swellAccessFactors: beach.swell_access_factors,
+    });
+
+    base.rideableWavesPerHour = result.rideableWavesPerHour;
+  }
+
+  return base;
 }
