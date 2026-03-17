@@ -60,8 +60,9 @@ import {
 import { SessionPlanningModal } from "@/components/beach-detail/session-planning-modal";
 import { TabLoadingSkeleton } from "@/components/beach-detail/tab-loading-skeleton";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
-import { PublicContentGate } from "@/components/ui/public-content-gate";
-import { CamHeroPlaceholder } from "@/components/beach-detail/cam-hero-placeholder";
+import { MatchScoreTeaser } from "@/components/recommendations/match-score-teaser";
+import { TrustStrip } from "@/components/beach-detail/trust-strip";
+import { ForecastConfidenceBadge } from "@/components/beach-detail/forecast-confidence-badge";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
 import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
@@ -476,33 +477,17 @@ function BeachDetailContent({
       {/* Immersive hero: video or photos background with title at top and forecast at bottom */}
       <div className="relative mb-6 min-h-[280px] md:min-h-[400px]">
         {showCamHero ? (
-          publicMode ? (
-            /* Anonymous users: gated cam placeholder */
-            <PublicContentGate
-              ctaTitle={`${beach.name} is Live Right Now`}
-              ctaDescription="Sign up free to watch the cam, get notified when it's firing, and see the 12-day outlook"
-              ctaButtonText="Watch the Cam"
-              blurLevel="sm"
-              source="cam-hero"
-            >
-              <CamHeroPlaceholder
-                cameraUrl={sources?.camera_url}
-                beachName={beach.name}
+          /* Live cam stream — ungated for all users */
+          <Suspense
+            fallback={
+              <div
+                className="aspect-video w-full"
+                style={{ backgroundColor: "#2D357D" }}
               />
-            </PublicContentGate>
-          ) : (
-            /* Authenticated users: live cam stream */
-            <Suspense
-              fallback={
-                <div
-                  className="aspect-video w-full"
-                  style={{ backgroundColor: "#2D357D" }}
-                />
-              }
-            >
-              <CamsSection sources={sources} variant="hero" />
-            </Suspense>
-          )
+            }
+          >
+            <CamsSection sources={sources} variant="hero" />
+          </Suspense>
         ) : (
           /* Photo gallery background */
           <BeachPhotoGallery beach={beach} className="w-full" />
@@ -517,8 +502,8 @@ function BeachDetailContent({
           }}
         />
 
-        {/* Bottom gradient — darkens bottom for forecast readability (hidden when cam is gated) */}
-        {!(publicMode && showCamHero) && (
+        {/* Bottom gradient — darkens bottom for forecast readability (hidden when cam is active) */}
+        {!showCamHero && (
           <div
             className="absolute inset-x-0 bottom-0 h-1/2 pointer-events-none z-[5]"
             style={{
@@ -541,8 +526,8 @@ function BeachDetailContent({
           </div>
         </div>
 
-        {/* Forecast overlay — bottom of hero (hidden when cam is gated to avoid mobile overlap) */}
-        {!(publicMode && showCamHero) && (
+        {/* Forecast overlay — bottom of hero (hidden when cam video is playing) */}
+        {!showCamHero && (
           <div className="absolute inset-x-0 bottom-0 px-4 sm:px-6 pb-4 z-[6]">
             <div className="mx-auto max-w-7xl">
               <BeachHeroCompact
@@ -571,13 +556,23 @@ function BeachDetailContent({
 
       {/* Main Content Container */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        {/* Match Score Teaser — prominent card for anonymous visitors */}
+        {publicMode && (
+          <div className="mb-4 -mt-2">
+            <MatchScoreTeaser
+              beachId={beach.id}
+              beachName={beach.name}
+              variant="card"
+            />
+          </div>
+        )}
         {/* Surf Call Card — gated for anonymous visitors */}
         {publicMode ? (
           <div className="mb-6">
             <InlineSignupCta
-              title="Know Before You Go"
-              description={`Get today's surf call, your personal match score, 12-day outlook, and condition alerts for ${beach.name}`}
-              primaryButtonText="Get My Forecast"
+              title={`Get Alerts for ${beach.name}`}
+              description="Get notified when conditions are good, see the full 12-day outlook, and get your personalized surf call"
+              primaryButtonText="Get Alerts — Free"
               source={`beach-detail-${slugify(beach.name)}`}
             />
           </div>
@@ -654,6 +649,12 @@ function BeachDetailContent({
             />
           </>
         )}
+
+        {/* Trust Strip + Confidence Badge — credibility signals for anonymous visitors */}
+        <TrustStrip />
+        <div className="mb-4">
+          <ForecastConfidenceBadge />
+        </div>
 
         {/* Tabbed Content */}
         <BeachTabs

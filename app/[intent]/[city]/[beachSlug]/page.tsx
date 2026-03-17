@@ -6,6 +6,7 @@ import { SpotSurfReportStream } from "@/components/spots/spot-surf-report";
 import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-section";
+import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
@@ -299,6 +300,16 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             />
           <RelatedGuidesSection beach={beach} bestTimeToSurfUrl={bestTimeToSurfUrl} />
         </div>
+
+        <StickySignupBar
+          source={`beach-detail-${beachSlug}`}
+          ctaText="Get Alerts"
+          supportingText={`Know when it's firing at ${beach.name}`}
+          contextMessage={{
+            title: `Get Alerts for ${beach.name}`,
+            description: "Condition alerts, 12-day outlook, and your personal match score",
+          }}
+        />
       </div>
     );
   } catch (error) {

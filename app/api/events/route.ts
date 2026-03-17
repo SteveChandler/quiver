@@ -329,6 +329,20 @@ export async function POST(request: Request) {
       );
     }
 
+    // Pre-auth funnel events should not be recorded for authenticated users
+    // These events are only meaningful when tracking anon → authed conversion
+    const PRE_AUTH_ONLY_EVENTS = [
+      'signup_cta_view',
+      'signup_cta_click',
+      'signup_form_submitted',
+      'auth_modal_opened',
+      'auth_modal_closed_without_action',
+    ];
+
+    if (PRE_AUTH_ONLY_EVENTS.includes(eventType)) {
+      return createSuccessResponse({ ok: true, skipped: true });
+    }
+
     // Insert event
     const { error: insertError } = await supabase.from('user_events').insert({
       user_id: user.id,

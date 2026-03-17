@@ -50,9 +50,12 @@ export async function GET(request: NextRequest) {
             cookiesToSet.forEach(({ name, value }) =>
               request.cookies.set(name, value)
             );
-            cookiesToSet.forEach(({ name, value, options }) =>
-              response.cookies.set({ name, value, ...options })
-            );
+            cookiesToSet.forEach(({ name, value, options }) => {
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`[Auth Callback] Setting cookie: ${name}, SameSite=${options?.sameSite}, Secure=${options?.secure}`);
+              }
+              response.cookies.set({ name, value, ...options });
+            });
           },
         },
       }
@@ -67,6 +70,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(signInUrl);
     }
   }
+
+  // Set a marker cookie so the client knows to force-refresh auth state
+  // This handles the iOS Safari case where onAuthStateChange doesn't fire
+  response.cookies.set('auth_callback_completed', '1', {
+    maxAge: 30,
+    path: '/',
+    httpOnly: false,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+  });
 
   return response;
 }

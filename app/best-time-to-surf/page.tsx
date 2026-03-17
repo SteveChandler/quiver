@@ -18,6 +18,8 @@ import { buildCitySlug } from "@/lib/seo/city-slug-utils";
 import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
+import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 
 export const revalidate = 86400;
 
@@ -267,6 +269,14 @@ export default async function BestTimeToSurfHubPage() {
           </ScrollReveal>
         )}
 
+        <InlineSignupCta
+          title="Know When to Paddle Out"
+          description="Get personalized alerts when conditions match your skill level, preferred breaks, and schedule"
+          primaryButtonText="Get Alerts — Free"
+          source="best-time-hub-inline"
+          className="mb-8"
+        />
+
         {/* Cross-linking to other features */}
         <ScrollReveal>
           <section className="rounded-2xl bg-gradient-to-br from-ocean-blue to-blue-700 p-6 md:p-8 text-white text-center">
@@ -293,6 +303,11 @@ export default async function BestTimeToSurfHubPage() {
           </section>
         </ScrollReveal>
       </div>
+      <StickySignupBar
+        source="best-time-hub"
+        ctaText="Get Alerts"
+        supportingText="Get notified when peak conditions arrive"
+      />
     </div>
   );
 }

@@ -28,6 +28,8 @@ import { AnimatedScoreGauge } from "@/components/forecast/animated-score-gauge";
 import { MonthlySurfChart } from "@/components/best-time-to-surf/monthly-chart";
 import { MonthlyGrid } from "@/components/best-time-to-surf/monthly-grid";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
+import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { SITE_URL } from "@/lib/constants/seo";
 import { INTENT_DEFINITIONS, buildCityIntentUrl } from "@/lib/constants/intent-definitions";
 
@@ -380,6 +382,14 @@ export default async function BestTimeToSurfPage(props: PageParams) {
           </ScrollReveal>
         )}
 
+        <InlineSignupCta
+          title={`Get Alerts for ${cityName}`}
+          description={`Get notified when conditions are ideal in ${cityName}. Personalized surf calls, 12-day outlooks, and condition alerts.`}
+          primaryButtonText="Get Alerts — Free"
+          source={`best-time-${citySlug}-inline`}
+          className="mb-8"
+        />
+
         {/* Continue Exploring */}
         <aside className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border border-blue-200/50 shadow-lg p-5">
           <h2 className="text-lg font-semibold text-gray-800 mb-3">
@@ -423,6 +433,11 @@ export default async function BestTimeToSurfPage(props: PageParams) {
           stateAbbrev={state}
         />
       </div>
+      <StickySignupBar
+        source={`best-time-${citySlug}`}
+        ctaText="Get Alerts"
+        supportingText={`Best conditions alerts for ${cityName}`}
+      />
     </div>
   );
 }

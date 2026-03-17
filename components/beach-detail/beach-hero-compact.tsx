@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Star, Loader2, CalendarDays } from "lucide-react";
+import { Star, Loader2, CalendarDays, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
 import { MatchScoreEducation } from "@/components/recommendations/match-score-education";
@@ -53,6 +53,7 @@ export function BeachHeroCompact({
   peakHiddenWaveHeight,
 }: BeachHeroCompactProps) {
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [showGhostAuthModal, setShowGhostAuthModal] = useState(false);
   const rating = beach.average_rating;
   const reviewCount = beach.review_count;
   const breakType = beach.break_type || "Beach Break";
@@ -210,10 +211,50 @@ export function BeachHeroCompact({
             </div>
             <div className="flex-shrink-0 text-sm font-semibold text-ocean-blue
               group-hover:translate-x-0.5 transition-transform">
-              See it →
+              Unlock →
             </div>
           </button>
         </motion.div>
+      )}
+
+      {/* Ghost Match Score — blurred/locked score to create curiosity */}
+      {publicMode && !personalizationScore && !isLoadingPersonalization && (
+        <div className="mb-3">
+          <button
+            onClick={() => {
+              trackSignupCtaClick({
+                source: "ghost-match-score",
+                cta_type: "ghost_score",
+                cta_text: "Your Match",
+              });
+              trackAuthModalOpened({
+                mode: "signup",
+                source: "ghost-match-score",
+              });
+              setShowGhostAuthModal(true);
+            }}
+            className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/20 hover:bg-white/20 transition-colors"
+            aria-label="See your personalized match score — sign up free"
+          >
+            <div className="relative flex items-center justify-center w-6 h-6">
+              <span className="text-sm font-bold text-white/30 blur-[2px] select-none" aria-hidden="true">87</span>
+              <Lock className="absolute h-3 w-3 text-white/80" />
+            </div>
+            <span className="text-xs text-white/80 font-medium">Your Match</span>
+          </button>
+          {showGhostAuthModal && (
+            <UnifiedAuthModal
+              isOpen={showGhostAuthModal}
+              onClose={() => setShowGhostAuthModal(false)}
+              mode="signup"
+              contextMessage={{
+                title: "See Your Match Score",
+                description: `Get a personalized conditions match for ${beach.name} based on your skill level and preferences`,
+              }}
+              source="ghost-match-score"
+            />
+          )}
+        </div>
       )}
 
       {/* Board Recommendation Badge - only show when confident */}

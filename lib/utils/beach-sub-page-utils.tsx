@@ -11,6 +11,8 @@ import { TideDatasetSchema } from "@/components/seo/tide-dataset-schema";
 import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
+import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { TideSummaryHero } from "@/components/beach-detail/tide-summary-hero";
 import { WaterTempSummaryHero } from "@/components/beach-detail/water-temp-summary-hero";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
@@ -66,6 +68,31 @@ const SUB_PAGE_CONFIGS: Record<SubPageType, SubPageConfig> = {
   },
 };
 
+const SUB_PAGE_CTA_CONFIGS: Record<SubPageType, {
+  ctaText: string;
+  supportingText: (beachName: string) => string;
+  inlineTitle: (beachName: string) => string;
+  inlineDescription: (beachName: string) => string;
+  sourcePrefix: string;
+}> = {
+  tides: {
+    ctaText: "Get Alerts",
+    supportingText: (beachName) => `Tide alerts for ${beachName}`,
+    inlineTitle: (beachName) => `Tide Alerts for ${beachName}`,
+    inlineDescription: (beachName) =>
+      `Get notified when optimal tide windows open at ${beachName}. Know the best times to paddle out without checking charts.`,
+    sourcePrefix: "tides",
+  },
+  "water-temp": {
+    ctaText: "Get Alerts",
+    supportingText: (beachName) => `Water temp alerts for ${beachName}`,
+    inlineTitle: (beachName) => `Water Temp Alerts for ${beachName}`,
+    inlineDescription: (beachName) =>
+      `Track water temperatures at ${beachName} and get wetsuit recommendations so you always suit up right.`,
+    sourcePrefix: "water-temp",
+  },
+};
+
 interface RenderParams {
   beachSlug: string;
   pageType: SubPageType;
@@ -94,6 +121,8 @@ export async function renderBeachSubPage({
       : null;
 
   const config = SUB_PAGE_CONFIGS[pageType];
+  const ctaConfig = SUB_PAGE_CTA_CONFIGS[pageType];
+  const ctaSource = `${ctaConfig.sourcePrefix}-${beachSlug}`;
   const subPagePath = `${beachPath}/${pageType}`;
 
   // Fetch dataset schema data in parallel with nearby beaches — uses React cache()
@@ -195,6 +224,15 @@ export async function renderBeachSubPage({
         defaultSubTab={config.defaultSubTab}
       />
 
+      <div className="container mx-auto px-4 py-8">
+        <InlineSignupCta
+          title={ctaConfig.inlineTitle(beach.name)}
+          description={ctaConfig.inlineDescription(beach.name)}
+          primaryButtonText="Get Alerts — Free"
+          source={`${ctaSource}-inline`}
+        />
+      </div>
+
       <div className="container mx-auto px-4 pb-8">
         <NearbyBeachesEnriched
           beaches={nearbyBeaches}
@@ -203,6 +241,12 @@ export async function renderBeachSubPage({
           sourceBeachLon={beach.lon}
         />
       </div>
+
+      <StickySignupBar
+        source={ctaSource}
+        ctaText={ctaConfig.ctaText}
+        supportingText={ctaConfig.supportingText(beach.name)}
+      />
     </>
   );
 }
