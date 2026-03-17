@@ -101,22 +101,14 @@ export function SurfHighlightsSection() {
     }
   }, [coordsKey]);
 
-  const { data: fetchResult, loading, refetch } = useDataFetcher(fetchBeaches);
+  const locationLoading = location?.isLoading !== false;
+  const { data: fetchResult, loading } = useDataFetcher(fetchBeaches, { skip: locationLoading });
   const surfSpots = fetchResult?.spots ?? null;
   const isNearby = fetchResult?.isNearby ?? false;
 
   const sectionRef = useRef<HTMLElement>(null);
   const isInView = useInView(sectionRef, { once: true, amount: 0.2 });
   const shouldReduceMotion = useReducedMotion();
-
-  // Re-fetch when coordinates resolve (useDataFetcher only fires on mount)
-  const initialCoordsRef = useRef(coordsKey);
-  useEffect(() => {
-    if (coordsKey && coordsKey !== initialCoordsRef.current) {
-      initialCoordsRef.current = coordsKey;
-      refetch();
-    }
-  }, [coordsKey, refetch]);
 
   const total = surfSpots?.length ?? 0;
   const pageCount = useMemo(() => {
@@ -167,7 +159,7 @@ export function SurfHighlightsSection() {
           {isNearby ? "Local surf favorites near you" : "Popular surf spots"}
         </motion.h2>
 
-        {loading ? (
+        {loading || locationLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[...Array(4)].map((_, i) => (
               <Skeleton key={i} className="h-80 rounded-2xl bg-white/[0.06]" />
