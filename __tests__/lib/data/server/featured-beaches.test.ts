@@ -114,8 +114,27 @@ describe("getFeaturedBeaches", () => {
     expect(beachNames).toContain("Asbury Park");
   });
 
-  it("returns { beaches, isNearby: false } when falling back to global list", async () => {
-    // Only SD beaches - not enough near NJ
+  it("returns { beaches, isNearby: true } when only 1 nearby beach exists (MIN_NEARBY_RESULTS = 1)", async () => {
+    // Only 1 NJ beach + SD beaches — previously fell back to global with MIN_NEARBY_RESULTS = 4
+    const singleNJBeach = [NJ_BEACHES[0]];
+    const singleNJPhoto = [PHOTOS[0]];
+    setupMockQueries(
+      [...singleNJPhoto, ...PHOTOS.filter((p) => p.beach_id.startsWith("sd"))],
+      [...singleNJBeach, ...SD_BEACHES]
+    );
+
+    const result = await getFeaturedBeaches({
+      coordinates: { lat: 40.56, lon: -74.28 },
+      radiusMiles: 150,
+    });
+
+    expect(result.isNearby).toBe(true);
+    expect(result.beaches.length).toBeGreaterThanOrEqual(1);
+    expect(result.beaches[0].name).toBe("Asbury Park");
+  });
+
+  it("returns { beaches, isNearby: false } when no beaches are within radius", async () => {
+    // Only SD beaches - none near NJ
     setupMockQueries(
       PHOTOS.filter((p) => p.beach_id.startsWith("sd")),
       SD_BEACHES

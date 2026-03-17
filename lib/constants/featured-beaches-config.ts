@@ -52,7 +52,7 @@ export const FEATURED_BEACHES_RADIUS_MILES = 150;
  * If fewer than this many beaches are within the radius, fall back to the global list
  * to prevent showing an empty or near-empty section.
  */
-export const MIN_NEARBY_RESULTS = 4;
+export const MIN_NEARBY_RESULTS = 1;
 
 /**
  * Mapping of beach names to curated fallback imagery.
