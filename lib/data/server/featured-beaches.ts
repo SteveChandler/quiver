@@ -301,11 +301,15 @@ async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<Fe
       photosQuery = photosQuery.not("beach_id", "in", `(${EXCLUDED_BEACH_IDS.join(",")})`);
     }
 
-    const beachesQuery = supabase
+    let beachesQuery = supabase
       .from("beaches")
       .select("id, name, city, state, slug, average_rating, review_count, skill_level, lat, lon")
-      .eq("is_private", false)
-      .limit(FEATURED_BEACHES_LIMIT * 3); // Fetch extra for filtering
+      .eq("is_private", false);
+
+    // When no coordinates, limit for performance; with coordinates, fetch all for proximity filtering
+    if (!options?.coordinates) {
+      beachesQuery = beachesQuery.limit(FEATURED_BEACHES_LIMIT * 3);
+    }
 
     // Execute both queries in parallel
     const [photosResult, beachesResult] = await Promise.all([
