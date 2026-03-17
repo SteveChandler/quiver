@@ -260,6 +260,7 @@
     "basic-ftp": "^5.2.0",
     "@ducanh2912/next-pwa/**/rollup": "2.80.0",
     "@sentry/nextjs/rollup": "4.59.0",
+    "@types/mapbox__point-geometry": "0.1.4",
     "serialize-javascript": "^7.0.3",
     "@tootallnate/once": "2.0.0"
   }
