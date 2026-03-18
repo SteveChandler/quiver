@@ -2,6 +2,9 @@
  * Parse NOAA forecast text fields to numeric values.
  */
 
+/** Returned by parseWaveHeight for flat/null/empty inputs (~6 inches, negligible surf). */
+export const FLAT_HEIGHT_METERS = 0.15;
+
 const FEET_TO_METERS = 0.3048;
 const MPH_TO_MS = 0.44704;
 const KTS_TO_MS = 0.514444;
@@ -19,7 +22,7 @@ export function parseWaveHeight(
   options?: { useLowerBound?: boolean }
 ): number | null {
   if (!text || text.toLowerCase().includes('flat')) {
-    return 0.15;
+    return FLAT_HEIGHT_METERS;
   }
 
   // Clean text: remove non-digits except hyphens and dots

@@ -2,7 +2,7 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { ConditionsData } from "@/types/conditions";
 import { calculateRideableWaves } from "@/lib/domains/wave-frequency";
 import { parseWavePeriod, parseWindSpeed, getDirectionDegrees } from "@/lib/utils/number-parsing";
-import { parseWaveHeight } from "@/lib/ml/parse-wave-height";
+import { parseWaveHeight, FLAT_HEIGHT_METERS } from "@/lib/ml/parse-wave-height";
 import { degreeToCardinal } from "@/lib/utils/geo-utils";
 
 const METERS_TO_FEET = 1 / 0.3048;
@@ -20,7 +20,7 @@ function getCombinedHeightFt(forecast: EnhancedForecastEntity): number | null {
 
   for (const field of [forecast.swell_1_height, forecast.swell_2_height, forecast.wind_wave_height]) {
     const meters = parseWaveHeight(field, { useLowerBound: true });
-    if (meters != null && meters > 0.15) { // 0.15m is the "flat" sentinel from parseWaveHeight
+    if (meters != null && meters > FLAT_HEIGHT_METERS) {
       components.push(meters * METERS_TO_FEET);
     }
   }
@@ -29,9 +29,12 @@ function getCombinedHeightFt(forecast: EnhancedForecastEntity): number | null {
     return Math.sqrt(components.reduce((sum, h) => sum + h * h, 0));
   }
 
-  // Fall back to wave_height field
+  // Fall back to wave_height field when no swell components available
   const meters = parseWaveHeight(forecast.wave_height, { useLowerBound: true });
-  return meters != null ? meters * METERS_TO_FEET : null;
+  if (meters != null && meters > FLAT_HEIGHT_METERS) {
+    return meters * METERS_TO_FEET;
+  }
+  return null;
 }
 
 /** Convert numeric degree strings (e.g. "109") to cardinal (e.g. "ESE"), pass through existing cardinals. */
