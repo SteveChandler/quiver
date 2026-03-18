@@ -47,7 +47,7 @@ export const maxDuration = 300; // 5 minutes for processing all users
 
 const CONTEXT_TAG = "[reengagement-email]";
 const INACTIVE_DAYS = 7; // User hasn't surfed in 7 days
-const MIN_SCORE = 7; // Minimum conditions_score (0-10 scale) to trigger email
+const MIN_SCORE = 70; // Minimum conditions_score (0-100 scale) to trigger email
 const DEDUPE_HOURS = 72; // 3 days between re-engagement emails
 const GLOBAL_COOLDOWN_HOURS = 48; // 2 days between any emails
 const ALERT_TYPE = "reengagement";

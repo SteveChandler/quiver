@@ -93,10 +93,15 @@ jest.mock("@/lib/email/email-formatters", () => ({
     return `${displayHour}:${minutes} ${ampm}`;
   }),
   getConditionLabel: jest.fn((score: number) => {
-    if (score >= 9) return { label: "Perfect", color: "#10b981", emoji: "🔥" };
-    if (score >= 8) return { label: "Excellent", color: "#3b82f6", emoji: "✨" };
+    if (score >= 85) return { label: "Perfect", color: "#10b981", emoji: "🔥" };
+    if (score >= 70) return { label: "Excellent", color: "#3b82f6", emoji: "✨" };
     return { label: "Good", color: "#22c55e", emoji: "🌊" };
   }),
+}));
+
+// Mock scoring module (re-scoring falls back gracefully when supabase.from is not available)
+jest.mock("@/lib/scoring", () => ({
+  scoreConditions: jest.fn(() => ({ total: 0 })),
 }));
 
 // Mock email logging service
@@ -227,7 +232,7 @@ describe("Conditions Alert Email Cron Job API", () => {
       await GET(request);
 
       expect(mockRpc).toHaveBeenCalledWith("get_conditions_alert_candidates", {
-        p_min_score: 7,
+        p_min_score: 70,
       });
     });
 
@@ -257,7 +262,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Test Beach 1",
           beach_slug: "test-beach-1",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Clean 3-4ft",
           wind_description: "Light offshore",
           best_window_start: "08:00:00",
@@ -270,7 +275,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           home_beach_id: "beach-2",
           beach_name: "Test Beach 2",
           beach_slug: "test-beach-2",
-          conditions_score: 8,
+          conditions_score: 80,
           surf_description: "Solid 2-3ft",
           wind_description: "Calm",
           best_window_start: null,
@@ -310,7 +315,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Test Beach",
           beach_slug: "test-beach",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Clean 3-4ft",
           wind_description: "Light offshore",
           best_window_start: null,
@@ -348,7 +353,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Test Beach",
           beach_slug: "test-beach",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Clean 3-4ft",
           wind_description: "Light offshore",
           best_window_start: null,
@@ -384,7 +389,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           home_beach_id: "beach-456",
           beach_name: "Test Beach",
           beach_slug: "test-beach",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Clean 3-4ft",
           wind_description: "Light offshore",
           best_window_start: null,
@@ -424,7 +429,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Ocean Beach",
           beach_slug: "ocean-beach",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Clean 3-4ft",
           wind_description: "Light offshore",
           best_window_start: "08:00:00",
@@ -449,15 +454,15 @@ describe("Conditions Alert Email Cron Job API", () => {
         from: "Quiver <test@quiversurf.app>",
         replyTo: "Quiver <test@quiversurf.app>",
         to: "user1@example.com",
-        subject: "🔥 Ocean Beach: 9/10 today",
+        subject: "🔥 Ocean Beach: 90 today",
         react: "ConditionsAlertEmail", // Mocked component
       });
     });
 
     it.each([
-      { score: 9, expectedEmoji: "🔥", expectedSubject: "🔥 Test Beach: 9/10 today" },
-      { score: 8, expectedEmoji: "✨", expectedSubject: "✨ Test Beach: 8/10 today" },
-      { score: 7, expectedEmoji: "🌊", expectedSubject: "🌊 Test Beach: 7/10 today" },
+      { score: 90, expectedEmoji: "🔥", expectedSubject: "🔥 Test Beach: 90 today" },
+      { score: 80, expectedEmoji: "✨", expectedSubject: "✨ Test Beach: 80 today" },
+      { score: 65, expectedEmoji: "🌊", expectedSubject: "🌊 Test Beach: 65 today" },
     ])("should use emoji $expectedEmoji in subject for score $score", async ({ score, expectedSubject }) => {
       jest.clearAllMocks();
 
@@ -500,7 +505,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Ocean Beach",
           beach_slug: "ocean-beach",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Clean 3-4ft",
           wind_description: "Light offshore",
           best_window_start: "08:00:00",
@@ -526,7 +531,7 @@ describe("Conditions Alert Email Cron Job API", () => {
       expect(ConditionsAlertEmail).toHaveBeenCalledWith({
         displayName: "John Doe",
         beachName: "Ocean Beach",
-        conditionsScore: 9,
+        conditionsScore: 90,
         surfDescription: "Clean 3-4ft",
         windDescription: "Light offshore",
         bestWindow: {
@@ -548,7 +553,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Test Beach",
           beach_slug: "test-beach",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Clean 3-4ft",
           wind_description: "Light offshore",
           best_window_start: null,
@@ -587,7 +592,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Test Beach",
           beach_slug: "test-beach",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Clean 3-4ft",
           wind_description: "Light offshore",
           best_window_start: null,
@@ -628,7 +633,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Test Beach",
           beach_slug: "test-beach",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Clean 3-4ft",
           wind_description: "Light offshore",
           best_window_start: null,
@@ -667,7 +672,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Test Beach 1",
           beach_slug: "test-beach-1",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Test",
           wind_description: "Test",
           best_window_start: null,
@@ -680,7 +685,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           home_beach_id: "beach-2",
           beach_name: "Test Beach 2",
           beach_slug: "test-beach-2",
-          conditions_score: 8,
+          conditions_score: 80,
           surf_description: "Test",
           wind_description: "Test",
           best_window_start: null,
@@ -713,7 +718,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Test Beach",
           beach_slug: "test-beach",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Clean 3-4ft",
           wind_description: "Light offshore",
           best_window_start: null,
@@ -739,8 +744,8 @@ describe("Conditions Alert Email Cron Job API", () => {
       expect(mockLogDelivery).toHaveBeenCalledWith({
         userId: "user-1",
         emailType: "conditions_alert",
-        subject: "🔥 Test Beach: 9/10 today",
-        bestScore: 9,
+        subject: "🔥 Test Beach: 90 today",
+        bestScore: 90,
         bestBeachId: "beach-1",
         resendMessageId: "mock-resend-id",
         meta: {
@@ -761,7 +766,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Test Beach",
           beach_slug: "test-beach",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Test",
           wind_description: "Test",
           best_window_start: null,
@@ -774,7 +779,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           home_beach_id: "beach-2",
           beach_name: "Test Beach 2",
           beach_slug: "test-beach-2",
-          conditions_score: 8,
+          conditions_score: 80,
           surf_description: "Test",
           wind_description: "Test",
           best_window_start: null,
@@ -787,7 +792,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           home_beach_id: "beach-3",
           beach_name: "Test Beach 3",
           beach_slug: "test-beach-3",
-          conditions_score: 7,
+          conditions_score: 70,
           surf_description: "Test",
           wind_description: "Test",
           best_window_start: null,

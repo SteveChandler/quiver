@@ -21,20 +21,13 @@ export interface ConditionsAlertEmailProps {
  * Replaces the generic database recommendation with engaging, score-specific messaging.
  */
 function getMotivationalCopy(score: number): string {
-  if (score >= 9) {
+  if (score >= 85) {
     return "This is as good as it gets. Drop what you're doing.";
-  } else if (score >= 8) {
+  } else if (score >= 70) {
     return "Conditions are dialed. Worth rearranging your schedule.";
   } else {
     return "Solid conditions today. A good day to shake off the rust.";
   }
-}
-
-/**
- * Convert 0-10 score to display percentage (0-100)
- */
-function scoreToDisplayPercent(score: number): number {
-  return Math.round(score * 10);
 }
 
 export function ConditionsAlertEmail({
@@ -50,7 +43,6 @@ export function ConditionsAlertEmail({
 }: ConditionsAlertEmailProps) {
   const greeting = displayName ? `Hey ${displayName}!` : "Hey there!";
   const { label: conditionLabel, color: conditionColor, emoji } = getConditionLabel(conditionsScore);
-  const displayScore = scoreToDisplayPercent(conditionsScore);
   const motivationalCopy = getMotivationalCopy(conditionsScore);
 
   return (
@@ -60,13 +52,13 @@ export function ConditionsAlertEmail({
         lineHeight: 1.6,
         maxWidth: 600,
         margin: "0 auto",
-        backgroundColor: "#ffffff",
+        backgroundColor: "#1E2456",
       }}
     >
       {/* Header Section */}
       <div
         style={{
-          backgroundColor: "#0066cc",
+          backgroundColor: "#252D6B",
           padding: "24px 20px",
           textAlign: "center" as const,
         }}
@@ -84,9 +76,9 @@ export function ConditionsAlertEmail({
       </div>
 
       {/* Content Section */}
-      <div style={{ padding: "24px 20px" }}>
+      <div style={{ padding: "24px 20px", backgroundColor: "#2D357D" }}>
         {/* Greeting */}
-        <p style={{ fontSize: 16, margin: "0 0 16px 0" }}>
+        <p style={{ fontSize: 16, margin: "0 0 16px 0", color: "#ffffff" }}>
           {greeting}
         </p>
 
@@ -113,7 +105,7 @@ export function ConditionsAlertEmail({
                 lineHeight: 1,
               }}
             >
-              {displayScore}
+              {conditionsScore}
             </div>
             <div
               style={{
@@ -132,13 +124,13 @@ export function ConditionsAlertEmail({
         {/* Motivational Copy */}
         <div
           style={{
-            backgroundColor: "#f5f9ff",
+            backgroundColor: "#354090",
             padding: "16px 20px",
-            borderLeft: "4px solid #0066cc",
+            borderLeft: "4px solid #F78E42",
             borderRadius: "0 8px 8px 0",
             marginBottom: 24,
             fontStyle: "italic",
-            color: "#333333",
+            color: "#ffffff",
           }}
         >
           &ldquo;{motivationalCopy}&rdquo;
@@ -159,9 +151,9 @@ export function ConditionsAlertEmail({
                   <td
                     style={{
                       padding: "12px 16px",
-                      borderBottom: "1px solid #e5e5e5",
+                      borderBottom: "1px solid #404C92",
                       fontWeight: "bold",
-                      color: "#555555",
+                      color: "rgba(255,255,255,0.6)",
                       width: "35%",
                     }}
                   >
@@ -170,8 +162,8 @@ export function ConditionsAlertEmail({
                   <td
                     style={{
                       padding: "12px 16px",
-                      borderBottom: "1px solid #e5e5e5",
-                      color: "#333333",
+                      borderBottom: "1px solid #404C92",
+                      color: "#ffffff",
                     }}
                   >
                     {surfDescription}
@@ -183,9 +175,9 @@ export function ConditionsAlertEmail({
                   <td
                     style={{
                       padding: "12px 16px",
-                      borderBottom: "1px solid #e5e5e5",
+                      borderBottom: "1px solid #404C92",
                       fontWeight: "bold",
-                      color: "#555555",
+                      color: "rgba(255,255,255,0.6)",
                     }}
                   >
                     Wind
@@ -193,8 +185,8 @@ export function ConditionsAlertEmail({
                   <td
                     style={{
                       padding: "12px 16px",
-                      borderBottom: "1px solid #e5e5e5",
-                      color: "#333333",
+                      borderBottom: "1px solid #404C92",
+                      color: "#ffffff",
                     }}
                   >
                     {windDescription}
@@ -206,9 +198,9 @@ export function ConditionsAlertEmail({
                   <td
                     style={{
                       padding: "12px 16px",
-                      borderBottom: "1px solid #e5e5e5",
+                      borderBottom: "1px solid #404C92",
                       fontWeight: "bold",
-                      color: "#555555",
+                      color: "rgba(255,255,255,0.6)",
                     }}
                   >
                     Best Window
@@ -216,8 +208,8 @@ export function ConditionsAlertEmail({
                   <td
                     style={{
                       padding: "12px 16px",
-                      borderBottom: "1px solid #e5e5e5",
-                      color: "#333333",
+                      borderBottom: "1px solid #404C92",
+                      color: "#ffffff",
                     }}
                   >
                     {bestWindow.start} - {bestWindow.end}
@@ -233,7 +225,7 @@ export function ConditionsAlertEmail({
           <a
             href={ctaUrl}
             style={{
-              backgroundColor: "#0066cc",
+              backgroundColor: "#F78E42",
               color: "#ffffff",
               padding: "14px 28px",
               textDecoration: "none",
@@ -252,15 +244,15 @@ export function ConditionsAlertEmail({
           <a
             href={logSessionUrl}
             style={{
-              backgroundColor: "#ffffff",
-              color: "#0066cc",
+              backgroundColor: "transparent",
+              color: "#4A70D9",
               padding: "12px 24px",
               textDecoration: "none",
               borderRadius: 8,
               display: "inline-block",
               fontSize: 14,
               fontWeight: "bold",
-              border: "2px solid #0066cc",
+              border: "2px solid #4A70D9",
             }}
           >
             Log Your Session
@@ -271,7 +263,7 @@ export function ConditionsAlertEmail({
       {/* Footer */}
       <div
         style={{
-          borderTop: "1px solid #e5e5e5",
+          borderTop: "1px solid #404C92",
           padding: "20px",
           textAlign: "center" as const,
         }}
@@ -279,7 +271,7 @@ export function ConditionsAlertEmail({
         <p
           style={{
             fontSize: 12,
-            color: "#666666",
+            color: "rgba(255,255,255,0.6)",
             margin: "0 0 8px 0",
           }}
         >
@@ -290,7 +282,7 @@ export function ConditionsAlertEmail({
           href={unsubscribeUrl}
           style={{
             fontSize: 12,
-            color: "#0066cc",
+            color: "#4A70D9",
             textDecoration: "underline",
           }}
         >

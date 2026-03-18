@@ -25,6 +25,8 @@ import {
   analyzeConditions,
   getConservativeRecommendation,
 } from "@/lib/utils/morning-intel-utils";
+import { scoreConditions } from "@/lib/scoring";
+import type { ForecastForScoring, BeachWithThresholds } from "@/lib/scoring";
 
 export class IntelGenerationService {
   private supabase;
@@ -404,6 +406,31 @@ export class IntelGenerationService {
       ? "onshore"
       : "cross-shore";
 
+    // Compute real 0-100 score using the unified scorer
+    let unifiedScore: number | null = null;
+    if (intel.surf && intel.wind && intel.tide && intel.beachPreferences) {
+      const forecastForScoring: ForecastForScoring = {
+        forecastTime: new Date(),
+        waveHeight: (intel.surf.min + intel.surf.max) / 2,
+        wavePeriod: intel.swells.primary?.period ?? 0,
+        windSpeed: intel.wind.speed,
+        windDirection: intel.wind.direction,
+        tideHeight: intel.tide.height,
+        tideStatus: intel.tide.direction || null,
+      };
+      const beachForScoring: BeachWithThresholds = {
+        id: beachId,
+        name: intel.beachPreferences.name,
+        wind_offshore_deg: intel.beachPreferences.windOffshoreDeg ?? null,
+        wind_offshore_tol_deg: intel.beachPreferences.windOffshoreTol ?? null,
+        preferred_tide_ft_min: intel.beachPreferences.tideMinFt ?? null,
+        preferred_tide_ft_max: intel.beachPreferences.tideMaxFt ?? null,
+        skill_level: intel.beachPreferences.skillLevel ?? null,
+      };
+      const scoreResult = scoreConditions(forecastForScoring, beachForScoring);
+      unifiedScore = scoreResult.total;
+    }
+
     const { error } = await this.supabase
       .from("beach_daily_intel")
       .upsert(
@@ -453,7 +480,7 @@ export class IntelGenerationService {
           // Analysis
           confidence: intel.confidence,
           recommendation: intel.notes,
-          conditions_score: intel.conditions?.score || null,
+          conditions_score: unifiedScore ?? intel.conditions?.score ?? null,
 
           // Full data - cast to Json type for JSONB column storage
           raw_intel_data: intel as unknown as Json,

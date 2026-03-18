@@ -13,9 +13,9 @@ import {
 // Mock the email formatters module
 jest.mock("@/lib/email/email-formatters", () => ({
   getConditionLabel: jest.fn((score: number) => {
-    if (score >= 9) {
+    if (score >= 85) {
       return { label: "Perfect", color: "#10b981", emoji: "🔥" };
-    } else if (score >= 8) {
+    } else if (score >= 70) {
       return { label: "Excellent", color: "#3b82f6", emoji: "✨" };
     } else {
       return { label: "Good", color: "#22c55e", emoji: "🌊" };
@@ -30,7 +30,7 @@ function makeProps(
   return {
     displayName: "John",
     beachName: "Black's Beach",
-    conditionsScore: 8,
+    conditionsScore: 80,
     surfDescription: "Clean 4-6ft sets",
     windDescription: "Light offshore 5-10mph",
     bestWindow: { start: "6:00 AM", end: "10:00 AM" },
@@ -63,36 +63,36 @@ describe("ConditionsAlertEmail", () => {
   });
 
   describe("Score Badge", () => {
-    it("displays score 8 as 80 (scoreToDisplayPercent)", () => {
-      const props = makeProps({ conditionsScore: 8 });
+    it("displays score 80 directly", () => {
+      const props = makeProps({ conditionsScore: 80 });
       render(<ConditionsAlertEmail {...props} />);
 
       expect(screen.getByText("80")).toBeInTheDocument();
     });
 
-    it("displays score 9 as 90", () => {
-      const props = makeProps({ conditionsScore: 9 });
+    it("displays score 90 directly", () => {
+      const props = makeProps({ conditionsScore: 90 });
       render(<ConditionsAlertEmail {...props} />);
 
       expect(screen.getByText("90")).toBeInTheDocument();
     });
 
-    it("displays score 7.5 as 75 (rounds correctly)", () => {
-      const props = makeProps({ conditionsScore: 7.5 });
+    it("displays score 75 directly", () => {
+      const props = makeProps({ conditionsScore: 75 });
       render(<ConditionsAlertEmail {...props} />);
 
       expect(screen.getByText("75")).toBeInTheDocument();
     });
 
-    it("displays score 10 as 100", () => {
-      const props = makeProps({ conditionsScore: 10 });
+    it("displays score 100 directly", () => {
+      const props = makeProps({ conditionsScore: 100 });
       render(<ConditionsAlertEmail {...props} />);
 
       expect(screen.getByText("100")).toBeInTheDocument();
     });
 
-    it("displays score 5 as 50", () => {
-      const props = makeProps({ conditionsScore: 5 });
+    it("displays score 50 directly", () => {
+      const props = makeProps({ conditionsScore: 50 });
       render(<ConditionsAlertEmail {...props} />);
 
       expect(screen.getByText("50")).toBeInTheDocument();
@@ -100,29 +100,29 @@ describe("ConditionsAlertEmail", () => {
   });
 
   describe("Condition Label", () => {
-    it("renders 'Perfect Conditions' for score 9", () => {
-      const props = makeProps({ conditionsScore: 9 });
+    it("renders 'Perfect Conditions' for score 90", () => {
+      const props = makeProps({ conditionsScore: 90 });
       render(<ConditionsAlertEmail {...props} />);
 
       expect(screen.getByText("Perfect Conditions")).toBeInTheDocument();
     });
 
-    it("renders 'Excellent Conditions' for score 8", () => {
-      const props = makeProps({ conditionsScore: 8 });
+    it("renders 'Excellent Conditions' for score 80", () => {
+      const props = makeProps({ conditionsScore: 80 });
       render(<ConditionsAlertEmail {...props} />);
 
       expect(screen.getByText("Excellent Conditions")).toBeInTheDocument();
     });
 
-    it("renders 'Good Conditions' for score 7", () => {
-      const props = makeProps({ conditionsScore: 7 });
+    it("renders 'Good Conditions' for score 60", () => {
+      const props = makeProps({ conditionsScore: 60 });
       render(<ConditionsAlertEmail {...props} />);
 
       expect(screen.getByText("Good Conditions")).toBeInTheDocument();
     });
 
-    it("renders 'Good Conditions' for score 5", () => {
-      const props = makeProps({ conditionsScore: 5 });
+    it("renders 'Good Conditions' for score 50", () => {
+      const props = makeProps({ conditionsScore: 50 });
       render(<ConditionsAlertEmail {...props} />);
 
       expect(screen.getByText("Good Conditions")).toBeInTheDocument();
@@ -130,8 +130,8 @@ describe("ConditionsAlertEmail", () => {
   });
 
   describe("Motivational Copy", () => {
-    it("displays top-tier copy for score >= 9", () => {
-      const props = makeProps({ conditionsScore: 9 });
+    it("displays top-tier copy for score >= 85", () => {
+      const props = makeProps({ conditionsScore: 90 });
       render(<ConditionsAlertEmail {...props} />);
 
       expect(
@@ -141,8 +141,8 @@ describe("ConditionsAlertEmail", () => {
       ).toBeInTheDocument();
     });
 
-    it("displays high-tier copy for score >= 8", () => {
-      const props = makeProps({ conditionsScore: 8 });
+    it("displays high-tier copy for score >= 70", () => {
+      const props = makeProps({ conditionsScore: 80 });
       render(<ConditionsAlertEmail {...props} />);
 
       expect(
@@ -152,8 +152,8 @@ describe("ConditionsAlertEmail", () => {
       ).toBeInTheDocument();
     });
 
-    it("displays standard copy for score < 8", () => {
-      const props = makeProps({ conditionsScore: 7 });
+    it("displays standard copy for score < 70", () => {
+      const props = makeProps({ conditionsScore: 60 });
       render(<ConditionsAlertEmail {...props} />);
 
       expect(
@@ -163,8 +163,8 @@ describe("ConditionsAlertEmail", () => {
       ).toBeInTheDocument();
     });
 
-    it("displays standard copy for score 5", () => {
-      const props = makeProps({ conditionsScore: 5 });
+    it("displays standard copy for score 50", () => {
+      const props = makeProps({ conditionsScore: 50 });
       render(<ConditionsAlertEmail {...props} />);
 
       expect(

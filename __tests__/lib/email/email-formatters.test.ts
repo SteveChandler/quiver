@@ -12,25 +12,25 @@ import {
 
 describe("email-formatters", () => {
   describe("getConditionLabel", () => {
-    describe("Perfect tier (score >= 9)", () => {
-      it("returns Perfect label for score 10", () => {
-        const result = getConditionLabel(10);
+    describe("Perfect tier (score >= 85)", () => {
+      it("returns Perfect label for score 100", () => {
+        const result = getConditionLabel(100);
 
         expect(result.label).toBe("Perfect");
         expect(result.color).toBe("#10b981");
         expect(result.emoji).toBe("🔥");
       });
 
-      it("returns Perfect label for score 9", () => {
-        const result = getConditionLabel(9);
+      it("returns Perfect label for score 90", () => {
+        const result = getConditionLabel(90);
 
         expect(result.label).toBe("Perfect");
         expect(result.color).toBe("#10b981");
         expect(result.emoji).toBe("🔥");
       });
 
-      it("returns Perfect label for score 9.5", () => {
-        const result = getConditionLabel(9.5);
+      it("returns Perfect label for score 95", () => {
+        const result = getConditionLabel(95);
 
         expect(result.label).toBe("Perfect");
         expect(result.color).toBe("#10b981");
@@ -38,25 +38,25 @@ describe("email-formatters", () => {
       });
     });
 
-    describe("Excellent tier (8 <= score < 9)", () => {
-      it("returns Excellent label for score 8.5", () => {
-        const result = getConditionLabel(8.5);
+    describe("Excellent tier (70 <= score < 85)", () => {
+      it("returns Excellent label for score 80", () => {
+        const result = getConditionLabel(80);
 
         expect(result.label).toBe("Excellent");
         expect(result.color).toBe("#3b82f6");
         expect(result.emoji).toBe("✨");
       });
 
-      it("returns Excellent label for score 8", () => {
-        const result = getConditionLabel(8);
+      it("returns Excellent label for score 75", () => {
+        const result = getConditionLabel(75);
 
         expect(result.label).toBe("Excellent");
         expect(result.color).toBe("#3b82f6");
         expect(result.emoji).toBe("✨");
       });
 
-      it("returns Excellent label for score 8.9", () => {
-        const result = getConditionLabel(8.9);
+      it("returns Excellent label for score 84", () => {
+        const result = getConditionLabel(84);
 
         expect(result.label).toBe("Excellent");
         expect(result.color).toBe("#3b82f6");
@@ -64,17 +64,17 @@ describe("email-formatters", () => {
       });
     });
 
-    describe("Good tier (score < 8)", () => {
-      it("returns Good label for score 7", () => {
-        const result = getConditionLabel(7);
+    describe("Good tier (score < 70)", () => {
+      it("returns Good label for score 65", () => {
+        const result = getConditionLabel(65);
 
         expect(result.label).toBe("Good");
         expect(result.color).toBe("#22c55e");
         expect(result.emoji).toBe("🌊");
       });
 
-      it("returns Good label for score 5", () => {
-        const result = getConditionLabel(5);
+      it("returns Good label for score 50", () => {
+        const result = getConditionLabel(50);
 
         expect(result.label).toBe("Good");
         expect(result.color).toBe("#22c55e");
@@ -89,8 +89,8 @@ describe("email-formatters", () => {
         expect(result.emoji).toBe("🌊");
       });
 
-      it("returns Good label for score 7.9", () => {
-        const result = getConditionLabel(7.9);
+      it("returns Good label for score 69", () => {
+        const result = getConditionLabel(69);
 
         expect(result.label).toBe("Good");
         expect(result.color).toBe("#22c55e");
@@ -99,26 +99,26 @@ describe("email-formatters", () => {
     });
 
     describe("Boundary conditions", () => {
-      it("handles score exactly at 9 boundary (Perfect)", () => {
-        const result = getConditionLabel(9);
+      it("handles score exactly at 85 boundary (Perfect)", () => {
+        const result = getConditionLabel(85);
 
         expect(result.label).toBe("Perfect");
       });
 
-      it("handles score just below 9 boundary (Excellent)", () => {
-        const result = getConditionLabel(8.99);
+      it("handles score just below 85 boundary (Excellent)", () => {
+        const result = getConditionLabel(84);
 
         expect(result.label).toBe("Excellent");
       });
 
-      it("handles score exactly at 8 boundary (Excellent)", () => {
-        const result = getConditionLabel(8);
+      it("handles score exactly at 70 boundary (Excellent)", () => {
+        const result = getConditionLabel(70);
 
         expect(result.label).toBe("Excellent");
       });
 
-      it("handles score just below 8 boundary (Good)", () => {
-        const result = getConditionLabel(7.99);
+      it("handles score just below 70 boundary (Good)", () => {
+        const result = getConditionLabel(69);
 
         expect(result.label).toBe("Good");
       });
@@ -133,8 +133,8 @@ describe("email-formatters", () => {
         expect(result.emoji).toBe("🌊");
       });
 
-      it("handles scores above 10 as Perfect", () => {
-        const result = getConditionLabel(11);
+      it("handles scores above 100 as Perfect", () => {
+        const result = getConditionLabel(110);
 
         expect(result.label).toBe("Perfect");
         expect(result.color).toBe("#10b981");
@@ -142,7 +142,7 @@ describe("email-formatters", () => {
       });
 
       it("handles fractional scores correctly", () => {
-        const result = getConditionLabel(8.333);
+        const result = getConditionLabel(75.5);
 
         expect(result.label).toBe("Excellent");
       });
@@ -150,38 +150,38 @@ describe("email-formatters", () => {
   });
 
   describe("getConditionLabelText", () => {
-    it("returns just the label string for score 10", () => {
-      const result = getConditionLabelText(10);
+    it("returns just the label string for score 100", () => {
+      const result = getConditionLabelText(100);
 
       expect(result).toBe("Perfect");
     });
 
-    it("returns just the label string for score 9", () => {
-      const result = getConditionLabelText(9);
+    it("returns just the label string for score 90", () => {
+      const result = getConditionLabelText(90);
 
       expect(result).toBe("Perfect");
     });
 
-    it("returns just the label string for score 8", () => {
-      const result = getConditionLabelText(8);
+    it("returns just the label string for score 75", () => {
+      const result = getConditionLabelText(75);
 
       expect(result).toBe("Excellent");
     });
 
-    it("returns just the label string for score 7", () => {
-      const result = getConditionLabelText(7);
+    it("returns just the label string for score 65", () => {
+      const result = getConditionLabelText(65);
 
       expect(result).toBe("Good");
     });
 
-    it("returns just the label string for score 5", () => {
-      const result = getConditionLabelText(5);
+    it("returns just the label string for score 50", () => {
+      const result = getConditionLabelText(50);
 
       expect(result).toBe("Good");
     });
 
     it("does not return color or emoji properties", () => {
-      const result = getConditionLabelText(9);
+      const result = getConditionLabelText(90);
 
       expect(result).toBe("Perfect");
       expect(result).not.toContain("#");

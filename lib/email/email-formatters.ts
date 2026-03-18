@@ -11,12 +11,12 @@ export interface ConditionLabelData {
 
 /**
  * Get the condition label with styling data for the email template.
- * Score is on 0-10 scale from beach_daily_intel.
+ * Score is on 0-100 scale from beach_daily_intel.
  */
 export function getConditionLabel(score: number): ConditionLabelData {
-  if (score >= 9) {
+  if (score >= 85) {
     return { label: "Perfect", color: "#10b981", emoji: "🔥" };
-  } else if (score >= 8) {
+  } else if (score >= 70) {
     return { label: "Excellent", color: "#3b82f6", emoji: "✨" };
   } else {
     return { label: "Good", color: "#22c55e", emoji: "🌊" };
@@ -25,7 +25,7 @@ export function getConditionLabel(score: number): ConditionLabelData {
 
 /**
  * Get just the condition label text for email subjects.
- * Score is on 0-10 scale from beach_daily_intel.
+ * Score is on 0-100 scale from beach_daily_intel.
  */
 export function getConditionLabelText(score: number): string {
   return getConditionLabel(score).label;
