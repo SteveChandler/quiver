@@ -8,6 +8,32 @@ import { degreeToCardinal } from "@/lib/utils/geo-utils";
 const METERS_TO_FEET = 1 / 0.3048;
 const MPH_TO_KTS = 1 / 1.151;
 
+/**
+ * Compute combined surf height (ft) from swell components using root-sum-of-squares.
+ * Falls back to wave_height if no individual components are available.
+ *
+ * RSS combines independent swell trains: sqrt(h1² + h2² + h3²)
+ * This matches how Surfline and NOAA compute "surf height" from swell components.
+ */
+function getCombinedHeightFt(forecast: EnhancedForecastEntity): number | null {
+  const components: number[] = [];
+
+  for (const field of [forecast.swell_1_height, forecast.swell_2_height, forecast.wind_wave_height]) {
+    const meters = parseWaveHeight(field, { useLowerBound: true });
+    if (meters != null && meters > 0.15) { // 0.15m is the "flat" sentinel from parseWaveHeight
+      components.push(meters * METERS_TO_FEET);
+    }
+  }
+
+  if (components.length > 0) {
+    return Math.sqrt(components.reduce((sum, h) => sum + h * h, 0));
+  }
+
+  // Fall back to wave_height field
+  const meters = parseWaveHeight(forecast.wave_height, { useLowerBound: true });
+  return meters != null ? meters * METERS_TO_FEET : null;
+}
+
 /** Convert numeric degree strings (e.g. "109") to cardinal (e.g. "ESE"), pass through existing cardinals. */
 function normalizeDirection(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -49,8 +75,10 @@ export function forecastToConditionsData(
   };
 
   if (beach) {
-    const heightMeters = parseWaveHeight(forecast.wave_height, { useLowerBound: true });
-    const heightFt = heightMeters != null ? heightMeters * METERS_TO_FEET : null;
+    // Use combined swell height (RSS) for the calculator — individual swell components
+    // give a better estimate of actual surf height than the raw wave_height field,
+    // which may represent a single offshore swell component.
+    const heightFt = getCombinedHeightFt(forecast);
 
     // parseWindSpeed (number-parsing) returns raw number (units stripped).
     // Forecast wind_speed is typically "X mph". Calculator expects knots, so convert.
