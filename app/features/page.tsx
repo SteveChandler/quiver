@@ -58,7 +58,7 @@ export default function FeaturesPage() {
                 <div className="flex justify-center mb-12">
                   <FeaturesSignupButton
                     ctaLocation="hero"
-                    className="bg-white text-[#252D6B] hover:bg-gray-100 px-8 py-4 text-lg font-heading font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+                    className="bg-[#F78E42] text-white hover:bg-[#e07d35] px-8 py-4 text-lg font-heading font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
                   />
                 </div>
               </div>
@@ -180,7 +180,7 @@ export default function FeaturesPage() {
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
                 <FeaturesSignupButton
                   ctaLocation="bottom-cta"
-                  className="bg-white text-ocean-blue hover:bg-gray-50 px-8 py-4 text-lg font-heading font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+                  className="bg-[#F78E42] text-white hover:bg-[#e07d35] px-8 py-4 text-lg font-heading font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
                 >
                   <>
                     {cta.primaryCta.text}
