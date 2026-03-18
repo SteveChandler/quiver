@@ -8,6 +8,7 @@ export interface ConditionsCard {
   value: string;
   iconType: ConditionsIconType;
   tideRising?: boolean;
+  ariaLabel?: string;
 }
 
 export interface BuildConditionsCardsOptions {
@@ -103,6 +104,7 @@ export function buildConditionsCards(
       label: "Waves/hr",
       value: `~${data.rideableWavesPerHour}`,
       iconType: "frequency",
+      ariaLabel: `approximately ${data.rideableWavesPerHour} rideable waves per hour`,
     });
   } else if (
     options?.showFrequency &&
@@ -114,6 +116,7 @@ export function buildConditionsCards(
       label: "Waves/hr",
       value: "Flat",
       iconType: "frequency",
+      ariaLabel: "flat, no rideable waves",
     });
   }
 

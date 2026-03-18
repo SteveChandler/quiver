@@ -48,11 +48,18 @@ export const FEATURED_BEACHES_LIMIT = 50;
 export const FEATURED_BEACHES_RADIUS_MILES = 150;
 
 /**
- * Minimum number of nearby beaches required before proximity filtering kicks in.
- * If fewer than this many beaches are within the radius, fall back to the global list
- * to prevent showing an empty or near-empty section.
+ * Minimum number of nearby beaches (with photos) required before proximity filtering kicks in.
+ * If fewer than this many displayable beaches are within the radius, fall back to the global list
+ * to prevent a sparse grid. Matches the desktop grid column count (lg:grid-cols-4).
  */
 export const MIN_NEARBY_RESULTS = 4;
+
+/**
+ * Progressive search radii (miles) used when the default radius finds too few nearby beaches.
+ * Expands outward until enough beaches with photos are found.
+ * Capped at 1000 miles to avoid showing irrelevant results (e.g., Hawaii for Minnesota).
+ */
+export const EXPANDED_SEARCH_RADII = [300, 500, 1000] as const;
 
 /**
  * Mapping of beach names to curated fallback imagery.

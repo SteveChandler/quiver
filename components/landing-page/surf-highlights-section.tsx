@@ -80,7 +80,7 @@ export function SurfHighlightsSection() {
             location:
               beach.city && beach.state
                 ? `${beach.city}, ${beach.state}`
-                : beach.city || beach.state || "California",
+                : beach.city || beach.state || "USA",
             slug: beach.slug,
             city: beach.city,
             state: beach.state,

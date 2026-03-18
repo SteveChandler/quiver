@@ -20,6 +20,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { withApprovedPhotos } from "@/lib/supabase/query-builders";
 import {
   EXCLUDED_BEACH_IDS,
+  EXPANDED_SEARCH_RADII,
   FEATURED_BEACHES_LIMIT,
   FEATURED_BEACHES_RADIUS_MILES,
   MIN_NEARBY_RESULTS,
@@ -394,11 +395,27 @@ async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<Fe
       FEATURED_BEACHES_LIMIT
     );
 
-    // Fall back to global list if too few nearby results
-    if (nearby.length < MIN_NEARBY_RESULTS) {
-      return { beaches: globalList, isNearby: false };
+    // If initial radius finds enough beaches with photos, use them
+    const nearbyWithPhotos = nearby.filter((b) => b.has_real_photo);
+    if (nearbyWithPhotos.length >= MIN_NEARBY_RESULTS) {
+      return { beaches: nearby, isNearby: true };
     }
-    return { beaches: nearby, isNearby: true };
+
+    // Expand radius progressively to find closest beaches
+    // (e.g., DC → OBX at ~300mi, Atlanta → FL at ~500mi)
+    for (const expandedRadius of EXPANDED_SEARCH_RADII) {
+      if (expandedRadius <= radiusMiles) continue; // skip radii we've already covered
+      const expanded = filterByProximity(
+        allDeduped, coordinatesById, userCoords, expandedRadius, FEATURED_BEACHES_LIMIT
+      );
+      const expandedWithPhotos = expanded.filter((b) => b.has_real_photo);
+      if (expandedWithPhotos.length >= MIN_NEARBY_RESULTS) {
+        return { beaches: expanded, isNearby: true };
+      }
+    }
+
+    // Only fall back to global list if even max radius finds nothing (e.g., landlocked midwest)
+    return { beaches: globalList, isNearby: false };
   } catch (error) {
     console.error("Error fetching featured beaches:", error);
     return { beaches: [], isNearby: false };

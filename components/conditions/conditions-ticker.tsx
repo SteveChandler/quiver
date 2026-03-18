@@ -47,7 +47,7 @@ function CardIcon({
 
 function TickerCard({ card, isDark }: { card: ConditionsCard; isDark: boolean }) {
   return (
-    <div className="flex items-center gap-1.5 shrink-0">
+    <div className="flex items-center gap-1.5 shrink-0" aria-label={card.ariaLabel}>
       <span className={isDark ? "text-gray-400" : "text-gray-500"}>
         <CardIcon iconType={card.iconType} tideRising={card.tideRising} />
       </span>
