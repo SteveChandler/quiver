@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Rideable waves per hour metric on beach detail page — predicts catchable wave frequency from swell, break type, and conditions; displayed in ConditionsTicker as "~N waves/hr"
+
+### Fixed
+- Landing page "Popular surf spots" no longer shows CA-only beaches for non-CA users — progressively expands search radius (300→500→1000mi) before falling back to global list
+- Security: restored `security_invoker = true` on `ten_day_enhanced_forecasts` view (was lost when view was recreated without it)
+
+### Performance
+- Dropped 3 duplicate indexes flagged by Supabase performance advisor (`idx_ioos_obs_station_observed`, `idx_templates_lookup`, `idx_templates_freshness`)
+
 ### Changed
 - SEO: state browse pages (`/beaches/usa/ca`) now show Beginner/Tides/Water Temp intent pill links per city for crawler discovery of city intent pages
 - SEO: `getTopCitiesInState` default limit raised from 8 to 100 so all qualifying cities are returned for crawl discovery (backwards-compatible — pass a lower value when a small subset is needed)
