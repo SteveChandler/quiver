@@ -6,7 +6,6 @@ import { Video } from "lucide-react";
 import { getBeachesWithCameras } from "@/actions/beach/cam-actions";
 import {
   CAM_REGIONS,
-  getAllCamRegionSlugs,
   getCamRegionBySlug,
 } from "@/lib/data/cam-regions";
 import { buildPageMetadata } from "@/lib/seo/meta";
@@ -29,10 +28,6 @@ export const revalidate = 3600;
 
 interface PageProps {
   params: Promise<{ region: string }>;
-}
-
-export function generateStaticParams() {
-  return getAllCamRegionSlugs().map((region) => ({ region }));
 }
 
 export async function generateMetadata({

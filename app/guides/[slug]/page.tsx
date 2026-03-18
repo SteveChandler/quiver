@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
 import {
-  HUB_REGION_SLUGS,
   getHubRegion,
   type HubRegion,
 } from "@/lib/data/hub-regions";
@@ -15,12 +14,6 @@ import { HubRegionClient } from "./hub-region-client";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 
 export const revalidate = 3600; // Revalidate every hour
-
-export async function generateStaticParams() {
-  return HUB_REGION_SLUGS.map((region) => ({
-    slug: `surfing-${region}`,
-  }));
-}
 
 export async function generateMetadata(
   props: {
