@@ -8,10 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- YouTube cam self-healing system — cron-based resolver auto-detects rotated YouTube live stream video IDs using channel handles as stable anchors (runs every 6h via Vercel cron)
+- Added Satellite Beach, FL and Pensacola Pier, FL YouTube cams
+- `--youtube-live-check` flag for `validate-cameras.ts` to verify YouTube streams are actually live via Data API
 - Rideable waves per hour metric on beach detail page — predicts catchable wave frequency from swell, break type, and conditions; displayed in ConditionsTicker as "~N waves/hr"
 - Landing page "Show spots near me" button — contextual geolocation prompt in surf highlights section upgrades IP-based location to precise browser coordinates for regionally relevant beach results
 
 ### Fixed
+- Nulled out 3 dead YouTube cam URLs (Ala Moana Bowls, Waikiki, Higgins Beach) that were showing "stream not available"
 - Landing page "Popular surf spots" no longer shows CA-only beaches for non-CA users — progressively expands search radius (300→500→1000mi) before falling back to global list
 - Security: restored `security_invoker = true` on `ten_day_enhanced_forecasts` view (was lost when view was recreated without it)
 
