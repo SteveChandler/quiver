@@ -351,3 +351,403 @@ describe("Task 7: Regression tests", () => {
     expect(pointResult.rideableWavesPerHour).toBeLessThan(beachResult.rideableWavesPerHour);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tide Height Factor
+// ---------------------------------------------------------------------------
+
+describe("Tide height factor", () => {
+  const baseForecast = () =>
+    makeForecast({
+      swell_1_height: "4",
+      swell_1_period: "14",
+      swell_1_direction: "W",
+      wind_speed: "0 mph",
+    });
+
+  test("null tide_height → no penalty (factor 1.0), output matches no-tide baseline", () => {
+    const beach = makeBeach({ break_type: "reef", swell_access_factors: Array(72).fill(1.0) });
+    const withTide = calculateRideableWaves(baseForecast(), beach);
+    const noTide = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_height: null }),
+      beach
+    );
+    expect(withTide.rideableWavesPerHour).toBe(noTide.rideableWavesPerHour);
+  });
+
+  test("non-numeric tide_height → no penalty", () => {
+    const beach = makeBeach({ break_type: "reef", swell_access_factors: Array(72).fill(1.0) });
+    const result = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_height: "N/A" }),
+      beach
+    );
+    expect(result.rideableWavesPerHour).toBeGreaterThan(0);
+  });
+
+  test("tide within preferred range → no penalty", () => {
+    const beach = makeBeach({
+      break_type: "reef",
+      preferred_tide_ft_min: 2.0,
+      preferred_tide_ft_max: 4.0,
+      swell_access_factors: Array(72).fill(1.0),
+    } as Partial<Beach>);
+
+    const inRange = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_height: "3.0" }),
+      beach
+    );
+    const noTide = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_height: null }),
+      beach
+    );
+    expect(inRange.rideableWavesPerHour).toBe(noTide.rideableWavesPerHour);
+  });
+
+  test("reef 1ft outside preferred range → meaningful reduction (~20%)", () => {
+    const beach = makeBeach({
+      break_type: "reef",
+      preferred_tide_ft_min: 2.0,
+      preferred_tide_ft_max: 4.0,
+      swell_access_factors: Array(72).fill(1.0),
+    } as Partial<Beach>);
+
+    const inRange = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_height: "3.0" }),
+      beach
+    );
+    const outside1ft = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_height: "5.0" }),
+      beach
+    );
+    // Should be noticeably reduced but not destroyed
+    expect(outside1ft.rideableWavesPerHour).toBeLessThan(inRange.rideableWavesPerHour);
+    expect(outside1ft.rideableWavesPerHour).toBeGreaterThan(inRange.rideableWavesPerHour * 0.5);
+  });
+
+  test("reef far outside preferred range → hits floor (0.3x)", () => {
+    const beach = makeBeach({
+      break_type: "reef",
+      preferred_tide_ft_min: 2.0,
+      preferred_tide_ft_max: 4.0,
+      swell_access_factors: Array(72).fill(1.0),
+    } as Partial<Beach>);
+
+    const inRange = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_height: "3.0" }),
+      beach
+    );
+    const farOutside = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_height: "7.0" }),
+      beach
+    );
+    // Should be severely reduced — near the 0.3 floor
+    expect(farOutside.rideableWavesPerHour).toBeLessThanOrEqual(
+      Math.round(inRange.rideableWavesPerHour * 0.4)
+    );
+  });
+
+  test("beach break outside range → mild penalty (floor 0.75)", () => {
+    const beach = makeBeach({
+      break_type: "beach",
+      preferred_tide_ft_min: 1.0,
+      preferred_tide_ft_max: 3.0,
+      swell_access_factors: Array(72).fill(1.0),
+    } as Partial<Beach>);
+
+    const inRange = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_height: "2.0" }),
+      beach
+    );
+    const outside2ft = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_height: "5.0" }),
+      beach
+    );
+    // Beach breaks are forgiving — even 2ft outside should keep > 75% (floor is 0.75)
+    expect(outside2ft.rideableWavesPerHour).toBeGreaterThan(
+      inRange.rideableWavesPerHour * 0.7
+    );
+  });
+
+  test("negative tide height below preferred range applies penalty", () => {
+    const beach = makeBeach({
+      break_type: "reef",
+      preferred_tide_ft_min: 1.0,
+      preferred_tide_ft_max: 4.0,
+      swell_access_factors: Array(72).fill(1.0),
+    } as Partial<Beach>);
+
+    const inRange = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_height: "2.5" }),
+      beach
+    );
+    const negative = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_height: "-1.0" }),
+      beach
+    );
+    // -1.0 is 2ft below min (1.0), which equals reef falloff → at floor
+    expect(negative.rideableWavesPerHour).toBeLessThan(inRange.rideableWavesPerHour);
+  });
+
+  test("default range used when beach has no tide preferences", () => {
+    const beach = makeBeach({
+      break_type: "reef",
+      swell_access_factors: Array(72).fill(1.0),
+    });
+
+    // Default range is 1.0–4.0, so 3.0 is in range → no penalty
+    const inDefault = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_height: "3.0" }),
+      beach
+    );
+    // 7.0 is far outside default range → significant penalty
+    const farOutside = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_height: "7.0" }),
+      beach
+    );
+    expect(farOutside.rideableWavesPerHour).toBeLessThan(inDefault.rideableWavesPerHour);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tide Direction Factor
+// ---------------------------------------------------------------------------
+
+describe("Tide direction factor", () => {
+  const baseForecast = () =>
+    makeForecast({
+      swell_1_height: "4",
+      swell_1_period: "14",
+      swell_1_direction: "W",
+      wind_speed: "0 mph",
+      tide_height: "3.0", // in default range to isolate direction effect
+    });
+
+  test("null tide_status → no penalty", () => {
+    const beach = makeBeach({
+      break_type: "reef",
+      preferred_tide_direction: "rising",
+      swell_access_factors: Array(72).fill(1.0),
+    } as Partial<Beach>);
+
+    const noStatus = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_status: null }),
+      beach
+    );
+    const noPreference = calculateRideableWaves(
+      baseForecast(),
+      makeBeach({ break_type: "reef", swell_access_factors: Array(72).fill(1.0) })
+    );
+    expect(noStatus.rideableWavesPerHour).toBe(noPreference.rideableWavesPerHour);
+  });
+
+  test("preferred_tide_direction 'either' → no penalty regardless of status", () => {
+    const beach = makeBeach({
+      break_type: "reef",
+      preferred_tide_direction: "either",
+      swell_access_factors: Array(72).fill(1.0),
+    } as Partial<Beach>);
+
+    const rising = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_status: "rising" }),
+      beach
+    );
+    const falling = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_status: "falling" }),
+      beach
+    );
+    expect(rising.rideableWavesPerHour).toBe(falling.rideableWavesPerHour);
+  });
+
+  test("matching tide direction → no penalty", () => {
+    const beach = makeBeach({
+      break_type: "reef",
+      preferred_tide_direction: "rising",
+      tide_direction_sensitivity: "high",
+      swell_access_factors: Array(72).fill(1.0),
+    } as Partial<Beach>);
+
+    const match = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_status: "rising" }),
+      beach
+    );
+    const noPreference = calculateRideableWaves(
+      baseForecast(),
+      makeBeach({ break_type: "reef", swell_access_factors: Array(72).fill(1.0) })
+    );
+    expect(match.rideableWavesPerHour).toBe(noPreference.rideableWavesPerHour);
+  });
+
+  test("mismatched direction on high-sensitivity reef → 0.6x penalty", () => {
+    const beach = makeBeach({
+      break_type: "reef",
+      preferred_tide_direction: "rising",
+      tide_direction_sensitivity: "high",
+      swell_access_factors: Array(72).fill(1.0),
+    } as Partial<Beach>);
+
+    const match = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_status: "rising" }),
+      beach
+    );
+    const mismatch = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_status: "falling" }),
+      beach
+    );
+    expect(mismatch.rideableWavesPerHour).toBeLessThan(match.rideableWavesPerHour);
+    // Should be roughly 60% of match (high sensitivity = 0.6 penalty)
+    expect(mismatch.rideableWavesPerHour).toBeLessThanOrEqual(
+      Math.round(match.rideableWavesPerHour * 0.7)
+    );
+  });
+
+  test("mismatched direction on low-sensitivity point → mild penalty (0.95x)", () => {
+    const beach = makeBeach({
+      break_type: "point",
+      preferred_tide_direction: "falling",
+      tide_direction_sensitivity: "low",
+      swell_access_factors: Array(72).fill(1.0),
+    } as Partial<Beach>);
+
+    const match = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_status: "falling" }),
+      beach
+    );
+    const mismatch = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_status: "rising" }),
+      beach
+    );
+    // Low sensitivity → very mild penalty
+    expect(mismatch.rideableWavesPerHour).toBeGreaterThanOrEqual(
+      match.rideableWavesPerHour - 2 // rounding tolerance
+    );
+  });
+
+  test("slack tide when direction preferred → intermediate penalty", () => {
+    const beach = makeBeach({
+      break_type: "reef",
+      preferred_tide_direction: "rising",
+      tide_direction_sensitivity: "high",
+      swell_access_factors: Array(72).fill(1.0),
+    } as Partial<Beach>);
+
+    const match = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_status: "rising" }),
+      beach
+    );
+    const slack = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_status: "slack" }),
+      beach
+    );
+    const mismatch = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_status: "falling" }),
+      beach
+    );
+    // Slack should be between match and full mismatch
+    expect(slack.rideableWavesPerHour).toBeLessThanOrEqual(match.rideableWavesPerHour);
+    expect(slack.rideableWavesPerHour).toBeGreaterThanOrEqual(mismatch.rideableWavesPerHour);
+  });
+
+  test("sensitivity defaults from break type when not set explicitly", () => {
+    // Reef defaults to high sensitivity
+    const reefBeach = makeBeach({
+      break_type: "reef",
+      preferred_tide_direction: "rising",
+      // no tide_direction_sensitivity → should default to "high"
+      swell_access_factors: Array(72).fill(1.0),
+    } as Partial<Beach>);
+
+    const match = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_status: "rising" }),
+      reefBeach
+    );
+    const mismatch = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_status: "falling" }),
+      reefBeach
+    );
+    // High sensitivity → significant penalty
+    expect(mismatch.rideableWavesPerHour).toBeLessThanOrEqual(
+      Math.round(match.rideableWavesPerHour * 0.7)
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Combined Tide Factors
+// ---------------------------------------------------------------------------
+
+describe("Combined tide factors", () => {
+  const baseForecast = () =>
+    makeForecast({
+      swell_1_height: "4",
+      swell_1_period: "14",
+      swell_1_direction: "W",
+      wind_speed: "0 mph",
+    });
+
+  test("worst case reef: wrong height AND wrong direction → near shutdown", () => {
+    const beach = makeBeach({
+      break_type: "reef",
+      preferred_tide_ft_min: 2.0,
+      preferred_tide_ft_max: 4.0,
+      preferred_tide_direction: "rising",
+      tide_direction_sensitivity: "high",
+      swell_access_factors: Array(72).fill(1.0),
+    } as Partial<Beach>);
+
+    const optimal = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_height: "3.0", tide_status: "rising" }),
+      beach
+    );
+    const worst = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_height: "7.0", tide_status: "falling" }),
+      beach
+    );
+    // 0.3 × 0.6 = 0.18 → should be < 25% of optimal
+    expect(worst.rideableWavesPerHour).toBeLessThanOrEqual(
+      Math.round(optimal.rideableWavesPerHour * 0.25)
+    );
+  });
+
+  test("forgiving beach: wrong height, wrong direction → still surfable", () => {
+    const beach = makeBeach({
+      break_type: "beach",
+      preferred_tide_ft_min: 1.0,
+      preferred_tide_ft_max: 3.0,
+      preferred_tide_direction: "rising",
+      tide_direction_sensitivity: "low",
+      swell_access_factors: Array(72).fill(1.0),
+    } as Partial<Beach>);
+
+    const worst = calculateRideableWaves(
+      makeForecast({ ...baseForecast(), tide_height: "5.0", tide_status: "falling" }),
+      beach
+    );
+    // Beach break floor is 0.75, low sensitivity mismatch is 0.95 → 0.71
+    // Should still produce waves
+    expect(worst.rideableWavesPerHour).toBeGreaterThan(0);
+  });
+
+  test("existing regression: clean groundswell still in range with tide data", () => {
+    const beach = makeBeach({
+      break_type: "beach",
+      aspect_deg: 270,
+      swell_access_factors: Array(72).fill(0.8),
+    });
+    const forecast = makeForecast({
+      wave_height: "4-5 ft",
+      swell_1_height: "4",
+      swell_1_period: "14",
+      swell_1_direction: "W",
+      swell_2_height: null,
+      swell_2_period: null,
+      wind_speed: "10 mph",
+      wind_direction: "E",
+      wind_direction_deg: 90,
+      tide_height: "2.5", // in default range
+      tide_status: null,
+    });
+    const result = calculateRideableWaves(forecast, beach);
+    expect(result.rideableWavesPerHour).toBeGreaterThanOrEqual(10);
+    expect(result.rideableWavesPerHour).toBeLessThanOrEqual(40);
+  });
+});

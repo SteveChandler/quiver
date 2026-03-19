@@ -2,7 +2,16 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import { parseWavePeriod, parseWindSpeed, getDirectionDegrees } from "@/lib/utils/number-parsing";
 import { parseWaveHeight, FLAT_HEIGHT_METERS } from "@/lib/ml/parse-wave-height";
-import { BREAK_TYPE_CONFIGS, FREQUENCY_CLAMPS, THRESHOLDS } from "./constants";
+import {
+  BREAK_TYPE_CONFIGS,
+  FREQUENCY_CLAMPS,
+  THRESHOLDS,
+  TIDE_HEIGHT_DEFAULTS,
+  TIDE_HEIGHT_FLOORS,
+  TIDE_HEIGHT_FALLOFF_FT,
+  TIDE_DIRECTION_MISMATCH_PENALTY,
+  TIDE_DIRECTION_SLACK_PENALTY,
+} from "./constants";
 import type { BreakType, WaveFrequencyResult } from "./types";
 
 const METERS_TO_FEET = 1 / 0.3048;
@@ -31,6 +40,84 @@ function getCombinedHeightFt(forecast: EnhancedForecastEntity): number {
     return meters * METERS_TO_FEET;
   }
   return 0;
+}
+
+/**
+ * Cosine-curve tide height factor.
+ * Within preferred range → 1.0. Outside → degrades toward break-type floor.
+ */
+function calculateTideHeightFactor(
+  tideHeightRaw: string | null | undefined,
+  preferredMin: number | null | undefined,
+  preferredMax: number | null | undefined,
+  breakType: string
+): number {
+  const tideHeight = parseFloat(tideHeightRaw ?? "");
+  if (isNaN(tideHeight)) return 1.0;
+
+  const min = preferredMin ?? TIDE_HEIGHT_DEFAULTS.MIN_FT;
+  const max = preferredMax ?? TIDE_HEIGHT_DEFAULTS.MAX_FT;
+
+  // Within preferred range — no penalty
+  if (tideHeight >= min && tideHeight <= max) return 1.0;
+
+  const floor = TIDE_HEIGHT_FLOORS[breakType] ?? TIDE_HEIGHT_FLOORS.other;
+  const falloff = TIDE_HEIGHT_FALLOFF_FT[breakType] ?? TIDE_HEIGHT_FALLOFF_FT.other;
+
+  const distOutside = tideHeight < min ? min - tideHeight : tideHeight - max;
+  const t = Math.min(distOutside / falloff, 1.0);
+
+  // Cosine interpolation: 1.0 → floor
+  return floor + (1.0 - floor) * (0.5 * (1 + Math.cos(Math.PI * t)));
+}
+
+/**
+ * Derives tide direction sensitivity from break type when not explicitly set.
+ */
+function deriveTideSensitivity(
+  explicit: string | null | undefined,
+  breakType: string
+): string {
+  if (explicit) {
+    const normalized = explicit.toLowerCase().trim();
+    if (normalized === "low" || normalized === "medium" || normalized === "high") {
+      return normalized;
+    }
+  }
+  if (breakType === "reef") return "high";
+  if (breakType === "point") return "low";
+  return "medium";
+}
+
+/**
+ * Tide direction factor.
+ * Compares forecast tide_status vs beach preferred_tide_direction.
+ */
+function calculateTideDirectionFactor(
+  tideStatus: string | null | undefined,
+  preferredDirection: string | null | undefined,
+  sensitivity: string | null | undefined,
+  breakType: string
+): number {
+  // No preference or 'either' → always 1.0
+  if (!preferredDirection || preferredDirection.toLowerCase() === "either") return 1.0;
+  // No tide status data → graceful degradation
+  if (!tideStatus) return 1.0;
+
+  const status = tideStatus.toLowerCase().trim();
+  const preferred = preferredDirection.toLowerCase().trim();
+  const sens = deriveTideSensitivity(sensitivity, breakType);
+
+  // Match → no penalty
+  if (status === preferred) return 1.0;
+
+  // Slack when a direction is preferred → intermediate penalty
+  if (status === "slack") {
+    return TIDE_DIRECTION_SLACK_PENALTY[sens] ?? TIDE_DIRECTION_SLACK_PENALTY.medium;
+  }
+
+  // Mismatch (rising vs falling or vice versa)
+  return TIDE_DIRECTION_MISMATCH_PENALTY[sens] ?? TIDE_DIRECTION_MISMATCH_PENALTY.medium;
 }
 
 /**
@@ -153,8 +240,24 @@ export function calculateRideableWaves(
     }
   }
 
-  // Step 7: Final
-  const raw = baseFrequency * breakFactor * penalty * accessFactor * windPenalty;
+  // Step 7: Tide height factor
+  const tideHeightFactor = calculateTideHeightFactor(
+    forecast.tide_height,
+    beach.preferred_tide_ft_min,
+    beach.preferred_tide_ft_max,
+    breakType
+  );
+
+  // Step 8: Tide direction factor
+  const tideDirectionFactor = calculateTideDirectionFactor(
+    forecast.tide_status,
+    beach.preferred_tide_direction,
+    beach.tide_direction_sensitivity,
+    breakType
+  );
+
+  // Step 9: Final
+  const raw = baseFrequency * breakFactor * penalty * accessFactor * windPenalty * tideHeightFactor * tideDirectionFactor;
   const rideableWavesPerHour = Math.max(
     0,
     Math.min(FREQUENCY_CLAMPS.MAX_FINAL_FREQUENCY, Math.round(raw))
