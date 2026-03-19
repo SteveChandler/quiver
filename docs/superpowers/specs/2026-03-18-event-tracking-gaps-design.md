@@ -68,6 +68,38 @@ export interface DiscoveryClickMetadata {
 }
 ```
 
+### Type guard updates — `isDiscoveryClickMetadata` / `isDiscoverySkipMetadata`
+
+Making `alternatives_count` optional breaks the existing type guards at lines 605-628 of `types/implicit-preferences.ts`. The guards use `'alternatives_count' in metadata` to discriminate between click and skip events. With `alternatives_count` now optional on clicks, a click without it would be misclassified as a skip.
+
+**Fix:** Use `chosen_beach_id` (only present on skip events) as the discriminator instead:
+
+```ts
+// Before
+export function isDiscoveryClickMetadata(metadata: EventMetadata | null): metadata is DiscoveryClickMetadata {
+  if (!metadata) return false;
+  return 'position' in metadata && 'score_shown' in metadata && 'alternatives_count' in metadata;
+}
+
+export function isDiscoverySkipMetadata(metadata: EventMetadata | null): metadata is DiscoverySkipMetadata {
+  if (!metadata) return false;
+  return 'position' in metadata && 'score_shown' in metadata && !('alternatives_count' in metadata);
+}
+
+// After
+export function isDiscoveryClickMetadata(metadata: EventMetadata | null): metadata is DiscoveryClickMetadata {
+  if (!metadata) return false;
+  return 'position' in metadata && 'score_shown' in metadata && !('chosen_beach_id' in metadata);
+}
+
+export function isDiscoverySkipMetadata(metadata: EventMetadata | null): metadata is DiscoverySkipMetadata {
+  if (!metadata) return false;
+  return 'position' in metadata && 'score_shown' in metadata && 'chosen_beach_id' in metadata;
+}
+```
+
+`chosen_beach_id` is unique to `DiscoverySkipMetadata` and provides a stable discriminator.
+
 ## Gap 1: Add full URL path to `page_view` events
 
 ### Problem
@@ -284,6 +316,7 @@ onClick={() => {
 **Minimal — type updates only.**
 
 - Update 4 metadata interfaces in `types/implicit-preferences.ts` (see Type Changes section)
+- Update 2 type guards (`isDiscoveryClickMetadata`, `isDiscoverySkipMetadata`) to use `chosen_beach_id` discriminator
 - All 4 event types already exist in `ImplicitEventType`
 - No new entries needed in `ANONYMOUS_ALLOWED_EVENTS`
 - No database migrations
