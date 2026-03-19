@@ -15,6 +15,7 @@ import { Loader2, MapPin, Sparkles, Waves, Wind } from 'lucide-react';
 import { toast } from 'sonner';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { LEVEL_THRESHOLDS } from '@/lib/gamification/constants';
+import { WaveParticles } from '../wave-particles';
 import type { Profile } from '@/types/database';
 import type { ClientBeachDailyIntel } from '@/lib/data/client';
 
@@ -152,32 +153,73 @@ export function PayoffStep() {
 
   const isLoading = isSaving || intelLoading || forecastLoading;
 
-  // Start reveal beats once content is loaded
+  // Start reveal beats once content is loaded — enhanced 3-beat reveal
   useEffect(() => {
     if (isLoading) return;
 
     if (reducedMotion) {
       // Show everything immediately
-      setBeat(2);
+      setBeat(3);
       return;
     }
 
-    // Beat 1: immediate — beach name + conditions card
+    // Beat 1: immediate — beach name + conditions card slides up
     setBeat(1);
 
-    // Beat 2: 500ms — XP badge + confetti
+    // Beat 2: 600ms — XP badge sticker slap + emoji confetti
+    // shapeFromText exists at runtime but types lag behind
+    const shapeFromText = (confetti as any).shapeFromText;
+    const surfEmoji = shapeFromText({ text: '🏄‍♂️', scalar: 2 });
+    const waveEmoji = shapeFromText({ text: '🌊', scalar: 2 });
+    const shakaEmoji = shapeFromText({ text: '🤙', scalar: 2 });
+    const fireEmoji = shapeFromText({ text: '🔥', scalar: 2 });
+
     const t2 = setTimeout(() => {
       setBeat(2);
+      // First salvo — colored confetti + emoji mix
       confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.65 },
+        particleCount: 80,
+        spread: 80,
+        origin: { y: 0.6 },
         colors: ['#F78E42', '#FFB703', '#FFFFFF', '#00B4D8', '#FF6B6B'],
       });
-    }, 500);
+      confetti({
+        particleCount: 12,
+        spread: 70,
+        origin: { y: 0.6 },
+        shapes: [surfEmoji, waveEmoji, shakaEmoji, fireEmoji],
+        scalar: 2,
+        gravity: 0.7,
+        ticks: 250,
+      });
+      // Second salvo 200ms later — more emoji
+      setTimeout(() => {
+        confetti({
+          particleCount: 50,
+          spread: 100,
+          origin: { y: 0.55, x: 0.6 },
+          colors: ['#F78E42', '#FFB703', '#FFFFFF', '#00B4D8'],
+        });
+        confetti({
+          particleCount: 10,
+          spread: 90,
+          origin: { y: 0.55, x: 0.6 },
+          shapes: [surfEmoji, waveEmoji, shakaEmoji],
+          scalar: 2,
+          gravity: 0.7,
+          ticks: 250,
+        });
+      }, 200);
+    }, 600);
+
+    // Beat 3: 1200ms — CTA button appears with gradient sweep
+    const t3 = setTimeout(() => {
+      setBeat(3);
+    }, 1200);
 
     return () => {
       clearTimeout(t2);
+      clearTimeout(t3);
     };
   }, [isLoading, reducedMotion]);
 
@@ -228,36 +270,52 @@ export function PayoffStep() {
   const kookTitle = LEVEL_THRESHOLDS[0].title;
 
   return (
-    <div className="space-y-6" data-testid="payoff-step">
+    <div className="relative space-y-5" data-testid="payoff-step">
+      {/* Ambient wave particles behind content */}
+      <WaveParticles />
+
       {/* Loading State */}
       {isLoading ? (
         <div className="space-y-4">
-          <Skeleton className="h-6 w-48 bg-white/10" />
-          <Skeleton className="h-32 w-full bg-white/10" />
-          <Skeleton className="h-16 w-full bg-white/10" />
+          {/* Pulsing wave icon */}
+          <div className="flex justify-center py-4">
+            <motion.div
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <Waves className="h-10 w-10 text-[#F78E42]/60" />
+            </motion.div>
+          </div>
+          <Skeleton className="h-6 w-48 bg-white/[0.06]" />
+          <Skeleton className="h-32 w-full bg-white/[0.06]" />
+          <Skeleton className="h-16 w-full bg-white/[0.06]" />
         </div>
       ) : (
         <>
-          {/* Beat 1: Heading + Conditions Card */}
+          {/* Beat 1: Heading + Conditions Card — bouncy spring slide up */}
           {beat >= 1 && (
             <motion.div
-              initial={reducedMotion ? false : { opacity: 0, y: 16 }}
+              initial={reducedMotion ? false : { opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, ease: 'easeOut' }}
-              className="space-y-4"
+              transition={
+                reducedMotion
+                  ? { duration: 0 }
+                  : { type: 'spring', stiffness: 200, damping: 12 }
+              }
+              className="space-y-4 relative z-10"
             >
               <div className="flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-[#F78E42]" />
-                <h2 className="text-white font-heading text-2xl font-bold">
+                <h2 className="font-handwritten text-3xl sm:text-4xl text-white">
                   You&apos;re set up for {data.homeBeachName || 'your home beach'}
                 </h2>
               </div>
 
               {/* Best Window Card (when intel is available) */}
               {intel && (intel.best_window_start || intel.surf_description) && (
-                <div className="bg-white/10 border border-white/20 rounded-lg p-6 space-y-4">
+                <div className="bg-white/[0.06] border border-white/[0.12] rounded-lg p-5 space-y-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-medium">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
                       Your Best Window
                     </p>
                     {conditionsScore !== null && (
@@ -277,7 +335,7 @@ export function PayoffStep() {
                   <div className="flex items-center gap-4 text-sm">
                     {intel.surf_min_ft !== null && intel.surf_max_ft !== null && (
                       <div className="flex items-center gap-1">
-                        <Waves className="h-4 w-4 text-medium" />
+                        <Waves className="h-4 w-4 text-white/50" />
                         <span className="text-white">
                           {intel.surf_min_ft}-{intel.surf_max_ft} ft
                         </span>
@@ -285,7 +343,7 @@ export function PayoffStep() {
                     )}
                     {intel.wind_quality && intel.wind_speed_mph !== null && (
                       <div className="flex items-center gap-1">
-                        <Wind className="h-4 w-4 text-medium" />
+                        <Wind className="h-4 w-4 text-white/50" />
                         <span className="text-white">
                           {intel.wind_quality} {intel.wind_speed_mph}mph
                         </span>
@@ -294,7 +352,7 @@ export function PayoffStep() {
                   </div>
 
                   {intel.best_window_description && (
-                    <p className="text-sm italic text-medium">
+                    <p className="text-sm italic text-white/50">
                       {intel.best_window_description}
                     </p>
                   )}
@@ -303,21 +361,21 @@ export function PayoffStep() {
 
               {/* Fallback Card (when no intel, using forecastPreview) */}
               {!intel && forecastPreview && (
-                <div className="bg-white/10 border border-white/20 rounded-lg p-6 space-y-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-medium">
+                <div className="bg-white/[0.06] border border-white/[0.12] rounded-lg p-5 space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
                     Today&apos;s Conditions
                   </p>
 
                   <div className="space-y-2">
                     {forecastPreview.wave_height && (
                       <div className="flex items-center gap-2 text-sm">
-                        <Waves className="h-4 w-4 text-medium" />
+                        <Waves className="h-4 w-4 text-white/50" />
                         <span className="text-white">{forecastPreview.wave_height}</span>
                       </div>
                     )}
                     {(forecastPreview.wind_speed || forecastPreview.wind_direction) && (
                       <div className="flex items-center gap-2 text-sm">
-                        <Wind className="h-4 w-4 text-medium" />
+                        <Wind className="h-4 w-4 text-white/50" />
                         <span className="text-white">
                           {forecastPreview.wind_speed}{' '}
                           {forecastPreview.wind_direction}
@@ -326,7 +384,7 @@ export function PayoffStep() {
                     )}
                   </div>
 
-                  <p className="text-sm italic text-medium">
+                  <p className="text-sm italic text-white/50">
                     Full forecast available on your home page
                   </p>
                 </div>
@@ -334,8 +392,8 @@ export function PayoffStep() {
 
               {/* No Data State */}
               {!intel && !forecastPreview && (
-                <div className="bg-white/10 border border-white/20 rounded-lg p-6">
-                  <p className="text-sm text-medium">
+                <div className="bg-white/[0.06] border border-white/[0.12] rounded-lg p-5">
+                  <p className="text-sm text-white/50">
                     Your personalized forecast is ready on the home page
                   </p>
                 </div>
@@ -343,48 +401,57 @@ export function PayoffStep() {
             </motion.div>
           )}
 
-          {/* Beat 2: XP Badge + CTA */}
+          {/* Beat 2: XP Badge — sticker slap entrance */}
           {beat >= 2 && (
             <motion.div
-              initial={reducedMotion ? false : { opacity: 0, y: 24 }}
+              initial={
+                reducedMotion
+                  ? false
+                  : { opacity: 0, scale: 1.5, rotate: -5 }
+              }
+              animate={{ opacity: 1, scale: 1, rotate: 0 }}
+              transition={
+                reducedMotion
+                  ? { duration: 0 }
+                  : {
+                      type: 'spring',
+                      stiffness: 300,
+                      damping: 15,
+                      duration: 0.4,
+                    }
+              }
+              className="relative z-10 bg-white/[0.08] border border-white/[0.15] rounded-lg p-3 flex items-center gap-3"
+            >
+              <div className="w-10 h-10 rounded-full bg-[#F78E42]/20 flex items-center justify-center flex-shrink-0">
+                <Sparkles className="h-5 w-5 text-[#F78E42]" />
+              </div>
+              <div>
+                <p className="font-bold text-sm text-white">
+                  +100 XP &middot; {kookTitle}
+                </p>
+                <p className="text-xs text-white/50">
+                  Welcome to the surf community
+                </p>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Beat 3: CTA Button — gradient sweep + pulse glow aura */}
+          {beat >= 3 && (
+            <motion.div
+              initial={reducedMotion ? false : { opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={
                 reducedMotion
                   ? { duration: 0 }
-                  : { type: 'spring', stiffness: 300, damping: 18 }
+                  : { duration: 0.4, ease: 'easeOut' }
               }
-              className="space-y-4"
+              className="relative z-10"
             >
-              {/* XP Badge — sticker slap entrance with slight rotation */}
-              <motion.div
-                initial={reducedMotion ? false : { opacity: 0, y: 12, rotate: -2 }}
-                animate={{ opacity: 1, y: 0, rotate: 0 }}
-                transition={
-                  reducedMotion
-                    ? { duration: 0 }
-                    : { type: 'spring', stiffness: 300, damping: 18 }
-                }
-                className="bg-white/10 border border-white/20 rounded-lg p-3 flex items-center gap-3"
-              >
-                <Sparkles className="h-5 w-5 text-[#F78E42]" />
-                <div>
-                  <p className="font-bold text-sm text-white">
-                    +100 XP &middot; {kookTitle}
-                  </p>
-                  <p className="text-xs text-medium">
-                    Welcome to the surf community
-                  </p>
-                </div>
-              </motion.div>
-
-              {/* CTA Button — with pulse glow animation */}
-              <motion.button
+              <button
                 onClick={handleFinish}
                 disabled={isSaving}
-                initial={reducedMotion ? false : { opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: reducedMotion ? 0 : 0.2, duration: 0.3 }}
-                className="payoff-cta-glow w-full py-3.5 rounded-lg bg-gradient-to-r from-[#F78E42] to-[#D57835] text-white font-semibold text-sm disabled:opacity-50 transition-opacity"
+                className="formgrid-cta-sweep formgrid-cta-glow w-full py-3.5 rounded-lg bg-gradient-to-r from-[#F78E42] to-[#D57835] text-white font-semibold text-sm disabled:opacity-50 transition-opacity"
                 data-testid="complete-onboarding-button"
               >
                 {isSaving ? (
@@ -395,27 +462,7 @@ export function PayoffStep() {
                 ) : (
                   'See your full forecast \u2192'
                 )}
-              </motion.button>
-
-              {/* CSS pulse glow for CTA — lightweight, no JS overhead */}
-              <style jsx>{`
-                .payoff-cta-glow {
-                  animation: ctaPulseGlow 2s ease-in-out infinite;
-                }
-                @keyframes ctaPulseGlow {
-                  0%, 100% {
-                    box-shadow: 0 0 0 0 rgba(247, 142, 66, 0);
-                  }
-                  50% {
-                    box-shadow: 0 0 16px 4px rgba(247, 142, 66, 0.25);
-                  }
-                }
-                @media (prefers-reduced-motion: reduce) {
-                  .payoff-cta-glow {
-                    animation: none !important;
-                  }
-                }
-              `}</style>
+              </button>
             </motion.div>
           )}
         </>

@@ -140,21 +140,6 @@ export function HomeBeachStep() {
     [nearbyBeachesData]
   );
 
-  const [popularBeaches, setPopularBeaches] = useState<Beach[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/beaches/popular?limit=8')
-      .then((res) => (res.ok ? res.json() : { data: [] }))
-      .then((result) => {
-        if (!cancelled) setPopularBeaches(result?.data || []);
-      })
-      .catch(() => {
-        // Non-critical - popular beaches are a nice-to-have
-      });
-    return () => { cancelled = true; };
-  }, []);
-
   const handleSkipForNow = () => {
     if (user?.id) {
       const result = handleOnboardingDismiss(user.id);
@@ -253,12 +238,12 @@ export function HomeBeachStep() {
   }, [handleUseLocation]);
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <div>
-        <h2 className="text-white font-heading text-2xl font-bold mb-2">
+        <h2 className="font-handwritten text-3xl sm:text-4xl text-white mb-1">
           Where do you surf?
         </h2>
-        <p className="text-medium text-sm">
+        <p className="text-white/60 text-sm">
           Pick your home break — we&apos;ll dial your forecast to it
         </p>
       </div>
@@ -268,14 +253,14 @@ export function HomeBeachStep() {
           type="button"
           onClick={handleUseLocation}
           disabled={isLocating}
-          className="w-full px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 text-white text-sm font-medium hover:bg-white/15 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          className="w-full px-4 py-2.5 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-sm font-medium hover:bg-white/10 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
         >
           <MapPin className="h-4 w-4" />
           {isLocating ? "Finding nearby beaches..." : "Use my location"}
         </button>
 
         {(nearbyLoading || nearbyError || locationError) && (
-          <div className="rounded-lg border border-white/20 bg-white/5 p-3 text-sm">
+          <div className="rounded-lg border border-white/[0.12] bg-white/[0.04] p-3 text-sm">
             {locationError ? (
               <p className="text-red-400" role="alert">
                 {locationError}
@@ -285,14 +270,14 @@ export function HomeBeachStep() {
                 {nearbyError}
               </p>
             ) : (
-              <p className="text-medium">Loading nearby beaches…</p>
+              <p className="text-white/50">Loading nearby beaches...</p>
             )}
           </div>
         )}
 
         {nearbyBeaches.length > 0 && (
           <div className="space-y-2">
-            <Label className="text-medium text-xs uppercase tracking-wide">Nearby beaches</Label>
+            <Label className="text-white/50 text-xs uppercase tracking-wide">Nearby beaches</Label>
             <div className="grid grid-cols-1 gap-2">
               {nearbyBeaches.slice(0, 6).map((beach) => {
                 const isCelebrating = celebratingBeachId === beach.id;
@@ -304,14 +289,14 @@ export function HomeBeachStep() {
                     className={`w-full px-4 py-3 text-left rounded-lg flex items-center gap-3 transition-colors ${
                       isCelebrating
                         ? "border border-[#F78E42] bg-[#F78E42]/10"
-                        : "bg-white/10 border border-white/20 hover:bg-white/15"
+                        : "bg-white/[0.06] border border-white/[0.12] hover:bg-white/10"
                     }`}
                   >
-                    <MapPin className="h-4 w-4 text-medium flex-shrink-0" />
+                    <MapPin className="h-4 w-4 text-white/50 flex-shrink-0" />
                     <div className="min-w-0 flex-1">
                       <div className="font-medium text-white truncate">{beach.name}</div>
                       {(beach.city || beach.state || beach.region) && (
-                        <div className="text-sm text-medium truncate">
+                        <div className="text-sm text-white/50 truncate">
                           {[beach.city, beach.state || beach.region]
                             .filter(Boolean)
                             .join(", ")}
@@ -335,39 +320,9 @@ export function HomeBeachStep() {
         )}
       </div>
 
-      {/* Popular beaches - shown only when no nearby results and no search query */}
-      {nearbyBeaches.length === 0 && query.trim().length === 0 && popularBeaches.length > 0 && (
-        <div className="space-y-2">
-          <Label className="text-medium text-xs uppercase tracking-wide">Popular beaches</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {popularBeaches.map((beach) => {
-              const isCelebrating = celebratingBeachId === beach.id;
-              return (
-                <button
-                  key={beach.id}
-                  type="button"
-                  onClick={() => selectBeach(beach)}
-                  className={`px-3 py-2.5 text-left rounded-lg text-sm transition-colors ${
-                    isCelebrating
-                      ? "border border-[#F78E42] bg-[#F78E42]/10"
-                      : "bg-white/10 border border-white/20 hover:bg-white/15"
-                  }`}
-                >
-                  <div className="font-medium text-white truncate">{beach.name}</div>
-                  {(beach.city || beach.state) && (
-                    <div className="text-xs text-medium truncate">
-                      {[beach.city, beach.state].filter(Boolean).join(', ')}
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       <div>
-        <Label htmlFor="beachSearch" className="text-medium text-xs uppercase tracking-wide">
+        <Label htmlFor="beachSearch" className="text-white/50 text-xs uppercase tracking-wide">
           Search for your beach
         </Label>
         <div className="relative mt-1">
@@ -377,27 +332,27 @@ export function HomeBeachStep() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoComplete="off"
-            className="w-full px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 text-white placeholder:text-white/40 text-sm focus:outline-none focus:ring-2 focus:ring-[#F78E42]/50 focus:border-[#F78E42]/50"
+            className="w-full px-4 py-2.5 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white placeholder:text-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-[#F78E42]/40 focus:border-[#F78E42]/40"
           />
           {isSearching && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <div className="animate-spin h-4 w-4 border-2 border-white/40 border-t-white/80 rounded-full" />
+              <div className="animate-spin h-4 w-4 border-2 border-white/30 border-t-white/70 rounded-full" />
             </div>
           )}
           {searchResults.length > 0 && (
-            <div className="absolute z-10 w-full mt-1 bg-[#1A2744] border border-white/20 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+            <div className="absolute z-10 w-full mt-1 bg-[#1A3A5C] border border-white/[0.12] rounded-lg shadow-xl max-h-60 overflow-y-auto">
               {searchResults.map((beach) => (
                 <button
                   key={beach.id}
                   type="button"
                   onClick={() => selectBeach(beach)}
-                  className="w-full px-4 py-3 text-left hover:bg-white/10 flex items-center gap-3 border-b border-white/10 last:border-b-0 transition-colors"
+                  className="w-full px-4 py-3 text-left hover:bg-white/[0.08] flex items-center gap-3 border-b border-white/[0.08] last:border-b-0 transition-colors"
                 >
-                  <MapPin className="h-4 w-4 text-medium flex-shrink-0" />
+                  <MapPin className="h-4 w-4 text-white/50 flex-shrink-0" />
                   <div>
                     <div className="font-medium text-white">{beach.name}</div>
                     {(beach.region || beach.country) && (
-                      <div className="text-sm text-medium">
+                      <div className="text-sm text-white/50">
                         {[beach.region, beach.country].filter(Boolean).join(", ")}
                       </div>
                     )}
@@ -436,7 +391,7 @@ export function HomeBeachStep() {
         <button
           type="button"
           onClick={handleSkipForNow}
-          className="w-full text-sm text-white/50 hover:text-white/70 transition-colors"
+          className="w-full text-sm text-white/40 hover:text-white/60 transition-colors"
         >
           Skip for now
         </button>

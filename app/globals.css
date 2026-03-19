@@ -770,3 +770,89 @@ body.js-loaded .ssr-beach-section {
 .session-scroll-form .shadow-sm {
   box-shadow: none;
 }
+
+/* =============================================================================
+   FORMGRID ONBOARDING — Scoped styles for the restyled onboarding dialog
+   ============================================================================= */
+
+/* Beach spray particles — drift left-to-right with slight vertical wobble */
+@keyframes formgrid-spray {
+  0% {
+    transform: translateX(0) translateY(0);
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  50% {
+    transform: translateX(50vw) translateY(-15px);
+  }
+  90% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateX(110vw) translateY(8px);
+    opacity: 0;
+  }
+}
+
+/* Wave particle drift for payoff celebration */
+@keyframes wave-particle-drift {
+  0% { transform: translateY(100%) scale(0.5); opacity: 0; }
+  15% { opacity: 0.6; }
+  85% { opacity: 0.2; }
+  100% { transform: translateY(-20%) scale(1); opacity: 0; }
+}
+
+/* FormGrid CTA gradient sweep */
+.formgrid-cta-sweep {
+  position: relative;
+  overflow: hidden;
+}
+.formgrid-cta-sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255,255,255,0.15) 45%,
+    rgba(255,255,255,0.25) 50%,
+    rgba(255,255,255,0.15) 55%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: formgridCtaSweep 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* FormGrid CTA pulse glow */
+.formgrid-cta-glow {
+  animation: formgrid-cta-pulse 2s ease-in-out infinite;
+}
+@keyframes formgrid-cta-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(247, 142, 66, 0); }
+  50% { box-shadow: 0 0 20px 6px rgba(247, 142, 66, 0.3); }
+}
+
+/* Reduced motion: disable all FormGrid animations */
+@media (prefers-reduced-motion: reduce) {
+  [aria-hidden="true"] .rounded-full { animation: none !important; }
+  .formgrid-cta-sweep::after { animation: none !important; display: none; }
+  .formgrid-cta-glow { animation: none !important; }
+}
+
+/* Override retro-dark theme input styles inside onboarding */
+.formgrid-onboarding input,
+.formgrid-onboarding textarea,
+.formgrid-onboarding select {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #F0F0F0 !important;
+}
+.formgrid-onboarding input:focus,
+.formgrid-onboarding textarea:focus,
+.formgrid-onboarding select:focus {
+  border-color: rgba(247, 142, 66, 0.5) !important;
+  box-shadow: 0 0 0 2px rgba(247, 142, 66, 0.2) !important;
+}
