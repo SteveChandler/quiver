@@ -6,7 +6,7 @@
  * - Rendering with all props
  * - Rendering with minimal props (null optional fields)
  * - Score-based messaging (Perfect, Excellent, Good)
- * - Score percentage display (0-10 scale to 0-100 percentage)
+ * - Score display (0-100 scale from beach_daily_intel)
  * - Optional sections visibility (bestWindow, recentIntel)
  * - URL construction (ctaUrl, logSessionUrl, unsubscribeUrl)
  * - Time formatting
@@ -27,7 +27,7 @@ describe("ReengagementEmail", () => {
     displayName: "John Doe",
     beachName: "Ocean Beach",
     beachSlug: "ocean-beach",
-    conditionsScore: 9,
+    conditionsScore: 90,
     surfDescription: "Clean 3-4ft waves",
     windDescription: "Light offshore",
     bestWindow: {
@@ -58,7 +58,7 @@ describe("ReengagementEmail", () => {
         displayName: null,
         beachName: "Test Beach",
         beachSlug: "test-beach",
-        conditionsScore: 8,
+        conditionsScore: 80,
         surfDescription: null,
         windDescription: null,
         bestWindow: null,
@@ -115,8 +115,8 @@ describe("ReengagementEmail", () => {
   });
 
   describe("Score-based Messaging", () => {
-    it("should show 'Perfect' label and emoji for score 9-10", () => {
-      const testScores = [9, 9.5, 10];
+    it("should show 'Perfect' label and emoji for score >= 85", () => {
+      const testScores = [90, 95, 100];
 
       testScores.forEach((score) => {
         const { container } = render(
@@ -131,9 +131,9 @@ describe("ReengagementEmail", () => {
       });
     });
 
-    it("should show 'Excellent' label and emoji for score 8", () => {
+    it("should show 'Excellent' label and emoji for score 70-84", () => {
       const { container } = render(
-        <ReengagementEmail {...defaultProps} conditionsScore={8} />
+        <ReengagementEmail {...defaultProps} conditionsScore={80} />
       );
 
       expect(container.textContent).toContain("Excellent Conditions");
@@ -143,9 +143,9 @@ describe("ReengagementEmail", () => {
       );
     });
 
-    it("should show 'Good' label and emoji for score 7", () => {
+    it("should show 'Good' label and emoji for score < 70", () => {
       const { container } = render(
-        <ReengagementEmail {...defaultProps} conditionsScore={7} />
+        <ReengagementEmail {...defaultProps} conditionsScore={65} />
       );
 
       expect(container.textContent).toContain("Good Conditions");
@@ -155,9 +155,9 @@ describe("ReengagementEmail", () => {
       );
     });
 
-    it("should show 'Good' label for edge case score 7.5", () => {
+    it("should show 'Good' label for edge case score 60", () => {
       const { container } = render(
-        <ReengagementEmail {...defaultProps} conditionsScore={7.5} />
+        <ReengagementEmail {...defaultProps} conditionsScore={60} />
       );
 
       expect(container.textContent).toContain("Good Conditions");
@@ -165,13 +165,13 @@ describe("ReengagementEmail", () => {
   });
 
   describe("Score Display", () => {
-    it("should convert score to display percentage (0-10 to 0-100)", () => {
+    it("should display the raw score value (0-100 scale)", () => {
       const testCases = [
-        { score: 10, expected: "100" },
-        { score: 9, expected: "90" },
-        { score: 8, expected: "80" },
-        { score: 7, expected: "70" },
-        { score: 7.5, expected: "75" },
+        { score: 100, expected: "100" },
+        { score: 90, expected: "90" },
+        { score: 80, expected: "80" },
+        { score: 65, expected: "65" },
+        { score: 75, expected: "75" },
         { score: 0, expected: "0" },
       ];
 
@@ -422,16 +422,16 @@ describe("ReengagementEmail", () => {
       // Check that header exists with the blue background
       const divs = container.querySelectorAll("div");
       const headerDiv = Array.from(divs).find(
-        (div) => div.style.backgroundColor === "rgb(0, 102, 204)"
+        (div) => div.style.backgroundColor === "rgb(37, 45, 107)"
       );
       expect(headerDiv).toBeTruthy();
     });
 
     it("should display score badge with condition color", () => {
       const testCases = [
-        { score: 9, color: "rgb(16, 185, 129)" }, // Perfect - green
-        { score: 8, color: "rgb(59, 130, 246)" }, // Excellent - blue
-        { score: 7, color: "rgb(34, 197, 94)" }, // Good - green
+        { score: 90, color: "rgb(16, 185, 129)" }, // Perfect - green
+        { score: 80, color: "rgb(59, 130, 246)" }, // Excellent - blue
+        { score: 65, color: "rgb(34, 197, 94)" }, // Good - green
       ];
 
       testCases.forEach(({ score, color }) => {
@@ -465,7 +465,7 @@ describe("ReengagementEmail", () => {
       // Check for motivational copy background color
       const divs = container.querySelectorAll("div");
       const motivationalDiv = Array.from(divs).find(
-        (div) => div.style.backgroundColor === "rgb(245, 249, 255)"
+        (div) => div.style.backgroundColor === "rgb(53, 64, 144)"
       );
       expect(motivationalDiv).toBeTruthy();
     });
@@ -524,10 +524,10 @@ describe("ReengagementEmail", () => {
       expect(container.textContent).toContain("Good Conditions");
     });
 
-    it("should handle score edge case 10", () => {
+    it("should handle score edge case 100", () => {
       const props: ReengagementEmailProps = {
         ...defaultProps,
-        conditionsScore: 10,
+        conditionsScore: 100,
       };
 
       const { container } = render(<ReengagementEmail {...props} />);
@@ -539,12 +539,12 @@ describe("ReengagementEmail", () => {
     it("should handle fractional scores correctly", () => {
       const props: ReengagementEmailProps = {
         ...defaultProps,
-        conditionsScore: 8.7,
+        conditionsScore: 82,
       };
 
       const { container } = render(<ReengagementEmail {...props} />);
 
-      expect(container.textContent).toContain("87");
+      expect(container.textContent).toContain("82");
       expect(container.textContent).toContain("Excellent Conditions");
     });
   });
@@ -603,16 +603,16 @@ describe("ReengagementEmail", () => {
     it("should display different motivational copy for each score tier", () => {
       const testCases = [
         {
-          score: 9,
+          score: 90,
           expectedCopy: "This is as good as it gets. Drop what you're doing.",
         },
         {
-          score: 8,
+          score: 80,
           expectedCopy:
             "Conditions are dialed. Worth rearranging your schedule.",
         },
         {
-          score: 7,
+          score: 65,
           expectedCopy: "Solid conditions today. A good day to shake off the rust.",
         },
       ];

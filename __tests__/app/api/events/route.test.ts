@@ -741,15 +741,10 @@ describe('POST /api/events', () => {
         'share_intel_button_clicked',
         'share_intel_signin_prompt',
         'surf_plan_share',
-        // Signup/auth conversion events
-        'signup_cta_click',
-        'signup_cta_view',
+        // Signup/auth conversion events (pre-auth-only events excluded — tested separately)
         'signin_cta_click',
-        // Auth modal funnel events
-        'auth_modal_opened',
-        'auth_modal_closed_without_action',
+        // Auth modal funnel events (pre-auth-only events excluded — tested separately)
         'auth_provider_selected',
-        'signup_form_submitted',
         // Home screen events
         'home_at_beach_click',
         'home_plan_weekend_click',

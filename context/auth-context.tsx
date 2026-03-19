@@ -392,7 +392,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                           : undefined,
                       entryPage:
                         typeof window !== "undefined"
-                          ? window.location.pathname
+                          ? window.location.pathname // eslint-disable-line no-restricted-properties -- reading pathname for analytics, not navigating
                           : undefined,
                     }),
                     keepalive: true,

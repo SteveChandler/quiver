@@ -73,15 +73,15 @@ test.describe('Service Health: Data Pipeline @smoke', () => {
 
     const json = await response.json();
 
-    expect(Array.isArray(json.data)).toBe(true);
-    expect(json.data.length).toBeGreaterThan(0);
+    expect(Array.isArray(json.data.beaches)).toBe(true);
+    expect(json.data.beaches.length).toBeGreaterThan(0);
 
-    const firstBeach = json.data[0];
+    const firstBeach = json.data.beaches[0];
     expect(firstBeach).toHaveProperty('id');
     expect(firstBeach).toHaveProperty('name');
     expect(firstBeach).toHaveProperty('slug');
 
-    console.log(`[Featured Beaches] Returned ${json.data.length} beaches`);
+    console.log(`[Featured Beaches] Returned ${json.data.beaches.length} beaches`);
   });
 });
 
