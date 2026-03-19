@@ -1,9 +1,37 @@
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import { parseWavePeriod, parseWindSpeed, getDirectionDegrees } from "@/lib/utils/number-parsing";
-import { parseWaveHeight } from "@/lib/ml/parse-wave-height";
+import { parseWaveHeight, FLAT_HEIGHT_METERS } from "@/lib/ml/parse-wave-height";
 import { BREAK_TYPE_CONFIGS, FREQUENCY_CLAMPS, THRESHOLDS } from "./constants";
 import type { BreakType, WaveFrequencyResult } from "./types";
+
+const METERS_TO_FEET = 1 / 0.3048;
+
+/**
+ * Compute combined surf height (ft) from swell components using root-sum-of-squares.
+ * Falls back to wave_height if no individual components are available.
+ */
+function getCombinedHeightFt(forecast: EnhancedForecastEntity): number {
+  const components: number[] = [];
+
+  for (const field of [forecast.swell_1_height, forecast.swell_2_height, forecast.wind_wave_height]) {
+    const meters = parseWaveHeight(field, { useLowerBound: true });
+    if (meters != null && meters > FLAT_HEIGHT_METERS) {
+      components.push(meters * METERS_TO_FEET);
+    }
+  }
+
+  if (components.length > 0) {
+    return Math.sqrt(components.reduce((sum, h) => sum + h * h, 0));
+  }
+
+  // Fall back to wave_height field
+  const meters = parseWaveHeight(forecast.wave_height, { useLowerBound: true });
+  if (meters != null && meters > FLAT_HEIGHT_METERS) {
+    return meters * METERS_TO_FEET;
+  }
+  return 0;
+}
 
 /**
  * Calculates the estimated number of rideable waves per hour at a beach.
@@ -17,13 +45,13 @@ export function calculateRideableWaves(
   const T1 = parseWavePeriod(forecast.swell_1_period || forecast.wave_period);
   if (T1 <= 0) return { rideableWavesPerHour: 0, confidence: "low" };
 
-  // Step 1: Height gate
+  // Step 1: Height gate — use RSS of swell components when available
+  // RSS combines independent swell trains: sqrt(h1² + h2² + h3²)
+  // This matches how surf height is derived from offshore swell components.
   const breakType = (beach.break_type?.toLowerCase() as BreakType) || "other";
   const config = BREAK_TYPE_CONFIGS[breakType] || BREAK_TYPE_CONFIGS.other;
 
-  // Use lower bound for threshold check per spec
-  const heightMeters = parseWaveHeight(forecast.wave_height, { useLowerBound: true });
-  const heightFt = heightMeters ? heightMeters / 0.3048 : 0;
+  const heightFt = getCombinedHeightFt(forecast);
 
   if (heightFt < config.thresholdFt) {
     return { rideableWavesPerHour: 0, confidence: resolveConfidence(forecast) };

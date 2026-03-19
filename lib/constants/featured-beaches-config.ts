@@ -55,6 +55,13 @@ export const FEATURED_BEACHES_RADIUS_MILES = 150;
 export const MIN_NEARBY_RESULTS = 4;
 
 /**
+ * Progressive search radii (miles) used when the default radius finds too few nearby beaches.
+ * Expands outward until enough beaches with photos are found.
+ * Capped at 1000 miles to avoid showing irrelevant results (e.g., Hawaii for Minnesota).
+ */
+export const EXPANDED_SEARCH_RADII = [300, 500, 1000] as const;
+
+/**
  * Mapping of beach names to curated fallback imagery.
  *
  * Landing page components and the featured beaches API both rely on these

@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Living Timeline — Mobile Mockup</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a1a;
+    color: #e8e8f0;
+    font-family: -apple-system, 'DM Sans', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    min-height: 100vh;
+  }
+
+  h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    color: #F78E42;
+    margin-bottom: 8px;
+    font-size: 18px;
+    text-align: center;
+  }
+  .desc {
+    color: #888;
+    font-size: 13px;
+    text-align: center;
+    margin-bottom: 24px;
+    max-width: 500px;
+  }
+
+  /* Phone frame */
+  .phone {
+    width: 375px;
+    height: 812px;
+    background: #0d1033;
+    border-radius: 40px;
+    border: 3px solid #1a1a3a;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+
+  /* Status bar */
+  .status-bar {
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #aaa;
+  }
+
+  /* Beach header */
+  .beach-header {
+    padding: 0 20px 12px;
+  }
+  .beach-header .back {
+    font-size: 13px;
+    color: #F78E42;
+    margin-bottom: 4px;
+  }
+  .beach-name {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.1;
+  }
+  .beach-meta {
+    font-size: 12px;
+    color: #666;
+    margin-top: 4px;
+  }
+  .beach-meta span { color: #F78E42; }
+
+  /* === THE LIVING TIMELINE === */
+  .timeline-section {
+    margin: 8px 0 0;
+    position: relative;
+  }
+
+  /* Ocean surface canvas area */
+  .ocean-canvas {
+    height: 140px;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(180deg, #0d1033 0%, #0f1850 30%, #162070 60%, #1a2880 100%);
+  }
+
+  /* Animated wave layers */
+  .wave-layer {
+    position: absolute;
+    bottom: 0;
+    left: -100%;
+    width: 300%;
+    height: 100%;
+  }
+
+  .wave-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .wave-path-1 {
+    fill: rgba(30, 60, 140, 0.6);
+    animation: wave-drift-1 8s linear infinite;
+  }
+  .wave-path-2 {
+    fill: rgba(25, 50, 120, 0.4);
+    animation: wave-drift-2 12s linear infinite;
+  }
+  .wave-path-3 {
+    fill: rgba(20, 40, 100, 0.3);
+    animation: wave-drift-3 6s linear infinite;
+  }
+
+  @keyframes wave-drift-1 { from { transform: translateX(0); } to { transform: translateX(33.33%); } }
+  @keyframes wave-drift-2 { from { transform: translateX(0); } to { transform: translateX(-33.33%); } }
+  @keyframes wave-drift-3 { from { transform: translateX(0); } to { transform: translateX(33.33%); } }
+
+  /* Wind particles */
+  .wind-particle {
+    position: absolute;
+    width: 20px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    animation: wind-blow 3s linear infinite;
+  }
+  @keyframes wind-blow {
+    from { transform: translateX(-40px); opacity: 0; }
+    20% { opacity: 1; }
+    80% { opacity: 1; }
+    to { transform: translateX(400px); opacity: 0; }
+  }
+
+  /* Golden window glow overlay */
+  .golden-window-glow {
+    position: absolute;
+    bottom: 0;
+    left: 18%;
+    width: 28%;
+    height: 100%;
+    background: linear-gradient(180deg,
+      rgba(247, 142, 66, 0) 0%,
+      rgba(247, 142, 66, 0.03) 40%,
+      rgba(247, 142, 66, 0.08) 70%,
+      rgba(247, 142, 66, 0.12) 100%
+    );
+    pointer-events: none;
+  }
+
+  /* Wave height indicator on left */
+  .wave-height-axis {
+    position: absolute;
+    left: 8px;
+    top: 10px;
+    bottom: 30px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    font-size: 9px;
+    color: rgba(255,255,255,0.25);
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* Current time indicator */
+  .now-indicator {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 22%;
+    width: 2px;
+    background: linear-gradient(180deg, #F78E42, rgba(247,142,66,0.3));
+    z-index: 5;
+  }
+  .now-label {
+    position: absolute;
+    top: 6px;
+    left: -8px;
+    font-size: 8px;
+    font-weight: 700;
+    color: #F78E42;
+    background: rgba(13,16,51,0.8);
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.5px;
+  }
+
+  /* Time axis below ocean */
+  .time-axis {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 12px;
+    font-size: 10px;
+    color: #444;
+    font-family: 'Space Mono', monospace;
+    background: rgba(13,16,51,0.9);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .time-axis .active { color: #F78E42; font-weight: 700; }
+  .time-axis .golden {
+    color: #F78E42;
+    text-shadow: 0 0 8px rgba(247,142,66,0.4);
+  }
+
+  /* Tide curve underneath */
+  .tide-strip {
+    height: 32px;
+    position: relative;
+    background: rgba(13,16,51,0.6);
+    overflow: hidden;
+  }
+  .tide-curve {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+  }
+  .tide-label {
+    position: absolute;
+    font-size: 8px;
+    color: rgba(255,255,255,0.3);
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* Scrub hint */
+  .scrub-hint {
+    text-align: center;
+    font-size: 10px;
+    color: #444;
+    padding: 6px 0;
+    background: rgba(13,16,51,0.9);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* === SESSION BRIEFING CARD (below timeline) === */
+  .briefing-card {
+    margin: 12px 16px;
+    background: linear-gradient(135deg, rgba(247,142,66,0.08), rgba(247,142,66,0.02));
+    border: 1px solid rgba(247,142,66,0.15);
+    border-radius: 16px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .briefing-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #F78E42, transparent);
+  }
+
+  .briefing-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #F78E42;
+    font-family: 'Space Mono', monospace;
+    margin-bottom: 8px;
+  }
+
+  .briefing-headline {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.3;
+    margin-bottom: 12px;
+  }
+  .briefing-headline .time { color: #F78E42; }
+  .briefing-headline .metric { color: #6ee7b7; }
+
+  .briefing-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .detail-item {
+    background: rgba(255,255,255,0.03);
+    border-radius: 10px;
+    padding: 10px;
+  }
+  .detail-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #555;
+    margin-bottom: 4px;
+    font-family: 'Space Mono', monospace;
+  }
+  .detail-value {
+    font-size: 16px;
+    font-weight: 700;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .detail-sub {
+    font-size: 10px;
+    color: #666;
+    margin-top: 2px;
+  }
+  .val-orange { color: #F78E42; }
+  .val-green { color: #6ee7b7; }
+  .val-blue { color: #60a5fa; }
+  .val-white { color: #e8e8f0; }
+
+  /* Swell direction mini viz */
+  .swell-arrow {
+    display: inline-block;
+    font-size: 14px;
+    margin-right: 4px;
+    animation: swell-pulse 3s ease-in-out infinite;
+  }
+  @keyframes swell-pulse {
+    0%, 100% { opacity: 0.6; transform: translateX(0); }
+    50% { opacity: 1; transform: translateX(2px); }
+  }
+
+  /* Wind streamline mini */
+  .wind-mini {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-top: 4px;
+  }
+  .wind-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: #60a5fa;
+    animation: wind-mini-drift 2s ease-in-out infinite;
+  }
+  .wind-dot:nth-child(2) { animation-delay: 0.3s; }
+  .wind-dot:nth-child(3) { animation-delay: 0.6s; }
+  .wind-dot:nth-child(4) { animation-delay: 0.9s; opacity: 0.5; }
+  @keyframes wind-mini-drift {
+    0%, 100% { transform: translateX(0); opacity: 0.3; }
+    50% { transform: translateX(4px); opacity: 1; }
+  }
+
+  /* Waves per hour visual */
+  .waves-visual {
+    display: flex;
+    gap: 2px;
+    margin-top: 6px;
+    align-items: end;
+  }
+  .wave-bar {
+    width: 3px;
+    background: #6ee7b7;
+    border-radius: 1px;
+    animation: wave-bar-pulse 2s ease-in-out infinite;
+  }
+  .wave-bar:nth-child(odd) { animation-delay: 0.5s; }
+  @keyframes wave-bar-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  /* Bottom tab bar */
+  .tab-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 70px;
+    background: rgba(13,16,51,0.95);
+    border-top: 1px solid rgba(255,255,255,0.05);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 8px 16px;
+  }
+  .tab-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    font-size: 9px;
+    color: #444;
+  }
+  .tab-item.active { color: #F78E42; }
+  .tab-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.05);
+  }
+  .tab-item.active .tab-icon {
+    background: rgba(247,142,66,0.15);
+  }
+
+  /* Notes section below phone */
+  .notes {
+    max-width: 500px;
+    margin-top: 24px;
+    padding: 16px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .notes h3 {
+    color: #F78E42;
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  .notes ul {
+    font-size: 13px;
+    color: #888;
+    line-height: 1.8;
+    padding-left: 16px;
+  }
+  .notes li strong { color: #ccc; }
+</style>
+</head>
+<body>
+
+<h2>The Living Timeline — Mobile First</h2>
+<p class="desc">Swipe/scrub through the next 24 hours. The ocean surface animates with real conditions. Golden windows glow. Tap for your session briefing.</p>
+
+<div class="phone">
+  <div class="status-bar">
+    <span>4:52 AM</span>
+    <span>&#9679;&#9679;&#9679;&#9679;&#9675; 5G</span>
+  </div>
+
+  <div class="beach-header">
+    <div class="back">&larr; San Diego</div>
+    <div class="beach-name">Blacks</div>
+    <div class="beach-meta">Beach break &middot; <span>Score 84</span> &middot; Advanced</div>
+  </div>
+
+  <!-- THE LIVING TIMELINE -->
+  <div class="timeline-section">
+    <div class="ocean-canvas">
+      <!-- Wave height axis -->
+      <div class="wave-height-axis">
+        <span>6ft</span>
+        <span>4ft</span>
+        <span>2ft</span>
+      </div>
+
+      <!-- Animated wave layers (CSS only) -->
+      <div class="wave-layer">
+        <svg class="wave-svg" viewBox="0 0 1200 200" preserveAspectRatio="none">
+          <path class="wave-path-3" d="M0,140 C100,120 200,160 300,130 C400,100 500,150 600,120 C700,90 800,140 900,110 C1000,80 1100,130 1200,100 L1200,200 L0,200 Z"/>
+        </svg>
+      </div>
+      <div class="wave-layer">
+        <svg class="wave-svg" viewBox="0 0 1200 200" preserveAspectRatio="none">
+          <path class="wave-path-2" d="M0,150 C150,130 250,170 400,140 C550,110 650,160 800,130 C950,100 1050,150 1200,120 L1200,200 L0,200 Z"/>
+        </svg>
+      </div>
+      <div class="wave-layer">
+        <svg class="wave-svg" viewBox="0 0 1200 200" preserveAspectRatio="none">
+          <path class="wave-path-1" d="M0,160 C200,140 300,180 500,150 C700,120 800,170 1000,140 C1100,120 1150,155 1200,135 L1200,200 L0,200 Z"/>
+        </svg>
+      </div>
+
+      <!-- Wind particles -->
+      <div class="wind-particle" style="top: 15%; animation-delay: 0s;"></div>
+      <div class="wind-particle" style="top: 28%; animation-delay: 1.2s;"></div>
+      <div class="wind-particle" style="top: 8%; animation-delay: 0.6s;"></div>
+      <div class="wind-particle" style="top: 35%; animation-delay: 2.1s;"></div>
+      <div class="wind-particle" style="top: 20%; animation-delay: 1.8s;"></div>
+
+      <!-- Golden window glow -->
+      <div class="golden-window-glow"></div>
+
+      <!-- Now indicator -->
+      <div class="now-indicator">
+        <div class="now-label">NOW</div>
+      </div>
+    </div>
+
+    <!-- Time axis -->
+    <div class="time-axis">
+      <span>3a</span>
+      <span class="active">5a</span>
+      <span class="golden">6a</span>
+      <span class="golden">7a</span>
+      <span class="golden">8a</span>
+      <span>9a</span>
+      <span>12p</span>
+      <span>3p</span>
+      <span>6p</span>
+      <span>9p</span>
+    </div>
+
+    <!-- Tide curve strip -->
+    <div class="tide-strip">
+      <svg class="tide-curve" viewBox="0 0 375 32" preserveAspectRatio="none">
+        <path d="M0,24 C40,22 80,18 120,12 C160,6 200,4 240,8 C280,12 320,20 375,26" fill="none" stroke="rgba(96,165,250,0.2)" stroke-width="1.5"/>
+        <path d="M0,24 C40,22 80,18 120,12 C160,6 200,4 240,8 C280,12 320,20 375,26 L375,32 L0,32 Z" fill="rgba(96,165,250,0.05)"/>
+      </svg>
+      <span class="tide-label" style="left: 200px; top: 2px;">▲ 4.8ft 7:12a</span>
+    </div>
+
+    <div class="scrub-hint">← swipe to scrub through time →</div>
+  </div>
+
+  <!-- SESSION BRIEFING CARD -->
+  <div class="briefing-card">
+    <div class="briefing-label">Your best window</div>
+    <div class="briefing-headline">
+      Be here at <span class="time">6:47am</span>.<br>
+      You'll catch <span class="metric">~18 waves/hr</span> in a 93-min window.
+    </div>
+
+    <div class="briefing-details">
+      <div class="detail-item">
+        <div class="detail-label">Waves/hr</div>
+        <div class="detail-value val-green">18</div>
+        <div class="detail-sub">high confidence</div>
+        <div class="waves-visual">
+          <div class="wave-bar" style="height: 8px;"></div>
+          <div class="wave-bar" style="height: 12px;"></div>
+          <div class="wave-bar" style="height: 10px;"></div>
+          <div class="wave-bar" style="height: 14px;"></div>
+          <div class="wave-bar" style="height: 9px;"></div>
+          <div class="wave-bar" style="height: 13px;"></div>
+          <div class="wave-bar" style="height: 11px;"></div>
+          <div class="wave-bar" style="height: 15px;"></div>
+          <div class="wave-bar" style="height: 10px;"></div>
+        </div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Swell</div>
+        <div class="detail-value val-orange"><span class="swell-arrow">→</span>4.2ft</div>
+        <div class="detail-sub">WNW @ 14s — building</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Wind</div>
+        <div class="detail-value val-blue">5 mph</div>
+        <div class="detail-sub">offshore, fading by 8:20a</div>
+        <div class="wind-mini">
+          <div class="wind-dot"></div>
+          <div class="wind-dot"></div>
+          <div class="wind-dot"></div>
+          <div class="wind-dot"></div>
+        </div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Tide</div>
+        <div class="detail-value val-white">Rising</div>
+        <div class="detail-sub">2.1ft → 4.8ft high @ 7:12a</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <div class="tab-item active"><div class="tab-icon"></div>Forecast</div>
+    <div class="tab-item"><div class="tab-icon"></div>Tides</div>
+    <div class="tab-item"><div class="tab-icon"></div>Intel</div>
+    <div class="tab-item"><div class="tab-icon"></div>Sessions</div>
+    <div class="tab-item"><div class="tab-icon"></div>Reviews</div>
+  </div>
+</div>
+
+<div class="notes">
+  <h3>How this works on mobile</h3>
+  <ul>
+    <li><strong>Swipe the ocean:</strong> Thumb drags horizontally through time. Wave surface height, wind particles, and golden glow all shift as you scrub.</li>
+    <li><strong>Golden windows glow:</strong> The optimal surf windows have a warm amber glow in the ocean canvas — you see them before reading any numbers.</li>
+    <li><strong>Waves animate at real period:</strong> If swell period is 14s, wave pulses come every ~14s. Faster period = choppier animation. You feel the conditions.</li>
+    <li><strong>Tap the golden zone:</strong> Tapping within a golden window opens the session briefing card with eerily specific predictions.</li>
+    <li><strong>The briefing card is share-ready:</strong> Screenshot it, send to the group chat. "Be at Blacks at 6:47am."</li>
+    <li><strong>Tide curve stays visible:</strong> Always shows the tidal context beneath the ocean — no need to switch tabs.</li>
+    <li><strong>Performance:</strong> CSS animations for waves + wind (no canvas/WebGL needed). Degrades to static on reduced-motion.</li>
+  </ul>
+</div>
+
+</body>
+</html>

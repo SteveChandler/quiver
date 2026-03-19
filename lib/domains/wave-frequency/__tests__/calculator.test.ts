@@ -278,7 +278,12 @@ describe("Task 7: Regression tests", () => {
 
   test("flat conditions (wave_height below threshold) → 0 waves/hr", () => {
     const beach = makeBeach({ break_type: "beach" });
-    const forecast = makeForecast({ wave_height: "1 ft" });
+    const forecast = makeForecast({
+      wave_height: "1 ft",
+      swell_1_height: null,
+      swell_2_height: null,
+      wind_wave_height: null,
+    });
     const result = calculateRideableWaves(forecast, beach);
     expect(result.rideableWavesPerHour).toBe(0);
   });

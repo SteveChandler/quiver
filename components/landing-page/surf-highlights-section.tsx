@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, useInView, useReducedMotion } from "framer-motion";
 import { SurfSpotCard, SurfSpotCardProps } from "./surf-spot-card";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, MapPin } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -38,6 +38,11 @@ export function SurfHighlightsSection() {
   const pageSize = 4;
   const locationCtx = useLocationSafe();
   const location = locationCtx?.location;
+  const hasPreciseLocation = locationCtx?.hasPreciseLocation ?? false;
+  const requestPreciseLocation = locationCtx?.requestPreciseLocation;
+  const locationError = locationCtx?.locationError ?? null;
+  const clearError = locationCtx?.clearError;
+  const [requesting, setRequesting] = useState(false);
   // Don't use coordinates until location has resolved (avoids race with default SD coords)
   const coordinates = location && !location.isLoading ? location.coordinates : null;
 
@@ -80,7 +85,7 @@ export function SurfHighlightsSection() {
             location:
               beach.city && beach.state
                 ? `${beach.city}, ${beach.state}`
-                : beach.city || beach.state || "California",
+                : beach.city || beach.state || "USA",
             slug: beach.slug,
             city: beach.city,
             state: beach.state,
@@ -139,6 +144,17 @@ export function SurfHighlightsSection() {
 
   const easeOutQuart: [number, number, number, number] = [0.25, 1, 0.5, 1];
 
+  const handleRequestLocation = async () => {
+    if (!requestPreciseLocation) return;
+    clearError?.();
+    setRequesting(true);
+    try {
+      await requestPreciseLocation();
+    } finally {
+      setRequesting(false);
+    }
+  };
+
   return (
     <section
       ref={sectionRef}
@@ -146,18 +162,44 @@ export function SurfHighlightsSection() {
     >
       <div className="max-w-7xl mx-auto px-6">
         {/* Section header */}
-        <motion.h2
-          className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold text-white mb-10 md:mb-12 text-left"
-          initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
-          animate={
-            shouldReduceMotion
-              ? {}
-              : { opacity: isInView ? 1 : 0, y: isInView ? 0 : 16 }
-          }
-          transition={{ duration: 0.5, ease: easeOutQuart }}
-        >
-          {isNearby ? "Local surf favorites near you" : "Popular surf spots"}
-        </motion.h2>
+        <div className="mb-10 md:mb-12">
+          <motion.h2
+            className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold text-white text-left"
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
+            animate={
+              shouldReduceMotion
+                ? {}
+                : { opacity: isInView ? 1 : 0, y: isInView ? 0 : 16 }
+            }
+            transition={{ duration: 0.5, ease: easeOutQuart }}
+          >
+            {isNearby ? "Local surf favorites near you" : "Popular surf spots"}
+          </motion.h2>
+
+          {!hasPreciseLocation && requestPreciseLocation && !loading && !locationLoading && (
+            <motion.div
+              className="mt-3 flex items-center gap-3 flex-wrap"
+              initial={shouldReduceMotion ? false : { opacity: 0 }}
+              animate={shouldReduceMotion ? {} : { opacity: isInView ? 1 : 0 }}
+              transition={{ duration: 0.4, ease: easeOutQuart, delay: 0.2 }}
+            >
+              <button
+                type="button"
+                onClick={handleRequestLocation}
+                disabled={requesting}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-white/[0.08] text-[#9AABC6] hover:bg-white/[0.14] hover:text-white border border-white/[0.1] transition-all duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
+              >
+                <MapPin size={14} />
+                {requesting ? "Locating\u2026" : "Show spots near me"}
+              </button>
+              {locationError && (
+                <span role="alert" className="text-sm text-amber-400/80">
+                  {locationError}
+                </span>
+              )}
+            </motion.div>
+          )}
+        </div>
 
         {loading || locationLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

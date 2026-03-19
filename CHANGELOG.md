@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Rideable waves per hour metric on beach detail page — predicts catchable wave frequency from swell, break type, and conditions; displayed in ConditionsTicker as "~N waves/hr"
+- Landing page "Show spots near me" button — contextual geolocation prompt in surf highlights section upgrades IP-based location to precise browser coordinates for regionally relevant beach results
 
 ### Fixed
 - Landing page "Popular surf spots" no longer shows CA-only beaches for non-CA users — progressively expands search radius (300→500→1000mi) before falling back to global list
