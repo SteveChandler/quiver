@@ -22,7 +22,7 @@ export interface SurfSpotCardProps {
   reviewCount?: number | null;
   skillLevel?: string | null;
   score?: number | null;
-  waveHeight?: number | null;
+  waveHeight?: string | number | null;
   swellHeight?: string;
   swellDirection?: string;
   windSpeed?: string;
@@ -154,15 +154,21 @@ export function SurfSpotCard({
             {/* Meta row */}
             <div className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5 text-sm text-white/60">
               {/* Wave height */}
-              {typeof waveHeight === "number" && waveHeight > 0 && (
-                <>
-                  <span className="flex items-center gap-0.5">
-                    <Waves className="h-3.5 w-3.5 text-cyan-400" />
-                    <span className="font-medium text-white/80">{formatWaveHeight(waveHeight)}</span>
-                  </span>
-                  <span className="text-white/20">·</span>
-                </>
-              )}
+              {(() => {
+                const numericHeight = typeof waveHeight === "string" ? parseFloat(waveHeight) : waveHeight;
+                if (numericHeight == null || !Number.isFinite(numericHeight) || numericHeight <= 0) return null;
+                return (
+                  <>
+                    <span className="flex items-center gap-0.5">
+                      <Waves className="h-3.5 w-3.5 text-cyan-400" />
+                      <span className="font-medium text-white/80">
+                        {typeof waveHeight === "string" ? `${Math.round(numericHeight)}ft` : formatWaveHeight(numericHeight)}
+                      </span>
+                    </span>
+                    <span className="text-white/20">·</span>
+                  </>
+                );
+              })()}
               {/* Rating */}
               <div className="flex items-center gap-0.5">
                 <Star

@@ -6,6 +6,11 @@
  * - Compound values (intermediate-advanced)
  * - Null/undefined fallback to "All levels"
  * - Underscore format normalization
+ *
+ * Tests wave height rendering:
+ * - String wave heights (raw from forecast API) display rounded, no variance multiplier
+ * - Zero/null/undefined wave heights are hidden
+ * - Numeric wave heights still use formatWaveHeightRange (backward compat)
  */
 
 import React from "react";
@@ -100,6 +105,47 @@ describe("SurfSpotCard", () => {
       expect(
         screen.getByText("Intermediate To Advanced")
       ).toBeInTheDocument();
+    });
+  });
+
+  describe("wave height rendering", () => {
+    it("renders string wave height as rounded integer with ft suffix", () => {
+      render(<SurfSpotCard {...defaultProps} waveHeight="2.8" />);
+      expect(screen.getByText("3ft")).toBeInTheDocument();
+    });
+
+    it("renders string wave height '5.2' as '5ft'", () => {
+      render(<SurfSpotCard {...defaultProps} waveHeight="5.2" />);
+      expect(screen.getByText("5ft")).toBeInTheDocument();
+    });
+
+    it("does not render wave section for string '0'", () => {
+      render(<SurfSpotCard {...defaultProps} waveHeight="0" />);
+      expect(screen.queryByText("0ft")).not.toBeInTheDocument();
+      expect(screen.queryByText("Flat")).not.toBeInTheDocument();
+    });
+
+    it("does not render wave section for string '0.0'", () => {
+      render(<SurfSpotCard {...defaultProps} waveHeight="0.0" />);
+      expect(screen.queryByText("0ft")).not.toBeInTheDocument();
+      expect(screen.queryByText("Flat")).not.toBeInTheDocument();
+    });
+
+    it("does not render wave section for null", () => {
+      render(<SurfSpotCard {...defaultProps} waveHeight={null} />);
+      expect(screen.queryByText(/ft$/)).not.toBeInTheDocument();
+    });
+
+    it("does not render wave section for undefined", () => {
+      render(<SurfSpotCard {...defaultProps} />);
+      expect(screen.queryByText(/ft$/)).not.toBeInTheDocument();
+    });
+
+    it("renders numeric wave height via formatWaveHeightRange", () => {
+      // Numeric path still uses the formatter (backward compat)
+      render(<SurfSpotCard {...defaultProps} waveHeight={3} />);
+      // formatWaveHeightRange(3) with SET_WAVE_VARIANCE=1.5 → "3-5ft"
+      expect(screen.getByText("3-5ft")).toBeInTheDocument();
     });
   });
 });

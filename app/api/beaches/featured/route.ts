@@ -67,13 +67,21 @@ async function featuredBeachesHandler(request: NextRequest) {
       const minimalBeach = { id: beach.id, name: beach.name } as any;
       const score = calculateDayScore(forecasts, minimalBeach);
 
-      // Extract wave height from the most recent forecast
-      const waveHeight = parseFloat(forecasts[0]?.wave_height || "0");
+      // Select the forecast closest to now (not the earliest in the window)
+      const now = Date.now();
+      const currentForecast = forecasts.reduce((closest, f) => {
+        const closestDiff = Math.abs(Date.parse(closest.forecast_at) - now);
+        const fDiff = Math.abs(Date.parse(f.forecast_at) - now);
+        return fDiff < closestDiff ? f : closest;
+      }, forecasts[0]);
+
+      // Pass the raw wave_height string (e.g. "2.8") — no parseFloat + variance inflation
+      const rawHeight = currentForecast?.wave_height ?? null;
 
       return {
         ...beach,
         score: score > 0 ? score : null,
-        wave_height: waveHeight > 0 ? waveHeight : null,
+        wave_height: rawHeight,
       };
     });
 

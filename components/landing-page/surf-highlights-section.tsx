@@ -21,7 +21,7 @@ interface Beach {
   review_count?: number | null;
   skill_level?: string | null;
   score?: number | null;
-  wave_height?: number | null;
+  wave_height?: string | number | null;
 }
 
 // ---------------------------------------------------------------------------
