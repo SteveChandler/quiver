@@ -240,6 +240,8 @@ describe("identifyGoldenWindows", () => {
       compositeScore,
       rideableWavesPerHour,
       waveFrequencyConfidence: "high" as const,
+      swellTrains: 1,
+      dominantBeatIntervalS: null,
       forecastDataConfidence: 80,
     };
   }
