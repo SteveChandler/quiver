@@ -25,6 +25,8 @@ export const THRESHOLDS = {
   MULTI_SWELL_MIN_HEIGHT_FT: 1.5,
   MULTI_SWELL_MIN_HEIGHT_RATIO: 0.25,
   MULTI_SWELL_BREAK_FACTOR_REDUCTION: 0.4,
+  /** Fraction of secondary pairwise beat frequency counted as independent wave events */
+  THREE_SWELL_ADDITIONAL_BEAT_FACTOR: 0.3,
 };
 
 /** Default preferred tide range (ft) when beach has no preference set */

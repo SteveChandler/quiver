@@ -130,7 +130,7 @@ export function calculateRideableWaves(
 ): WaveFrequencyResult {
   // Step 0: Period guard
   const T1 = parseWavePeriod(forecast.swell_1_period || forecast.wave_period);
-  if (T1 <= 0) return { rideableWavesPerHour: 0, confidence: "low" };
+  if (T1 <= 0) return { rideableWavesPerHour: 0, confidence: "low", swellTrains: 0, dominantBeatIntervalS: null };
 
   // Step 1: Height gate — use RSS of swell components when available
   // RSS combines independent swell trains: sqrt(h1² + h2² + h3²)
@@ -141,57 +141,87 @@ export function calculateRideableWaves(
   const heightFt = getCombinedHeightFt(forecast);
 
   if (heightFt < config.thresholdFt) {
-    return { rideableWavesPerHour: 0, confidence: resolveConfidence(forecast) };
+    return { rideableWavesPerHour: 0, confidence: resolveConfidence(forecast), swellTrains: 0, dominantBeatIntervalS: null };
   }
 
-  // Step 2: Base wave frequency
-  // Task 1: Guard T2 against sub-1s values to prevent near-zero denominators.
+  // Step 2: Base wave frequency via pairwise beat analysis
+  // Parse all three swell components for grouping.
   // swell component heights are bare numeric strings in feet (e.g. "4", "0.5") — use parseFloat.
   const T2 = parseWavePeriod(forecast.swell_2_period);
+  const T3 = parseWavePeriod(forecast.wind_wave_period);
   const swell1HeightFt = parseFloat(forecast.swell_1_height ?? "0") || 0;
   const swell2HeightFt = parseFloat(forecast.swell_2_height ?? "0") || 0;
+  const swell3HeightFt = parseFloat(forecast.wind_wave_height ?? "0") || 0;
 
-  // Task 2: Energy gate — only engage multi-swell math if secondary swell is meaningful.
-  const swell2HasEnergy =
-    swell2HeightFt >= THRESHOLDS.MULTI_SWELL_MIN_HEIGHT_FT ||
-    swell2HeightFt >= swell1HeightFt * THRESHOLDS.MULTI_SWELL_MIN_HEIGHT_RATIO;
+  // Energy gate — only engage multi-swell math if secondary/tertiary swell is meaningful.
+  const hasEnergy = (hFt: number) =>
+    hFt >= THRESHOLDS.MULTI_SWELL_MIN_HEIGHT_FT ||
+    hFt >= swell1HeightFt * THRESHOLDS.MULTI_SWELL_MIN_HEIGHT_RATIO;
+  const swell2HasEnergy = hasEnergy(swell2HeightFt);
+  const swell3HasEnergy = hasEnergy(swell3HeightFt);
+
+  // Build valid swell components for grouping analysis
+  const swellComponents: Array<{ period: number; heightFt: number }> = [
+    { period: T1, heightFt: swell1HeightFt },
+  ];
+  if (T2 >= THRESHOLDS.MIN_VALID_PERIOD_S && swell2HasEnergy) {
+    swellComponents.push({ period: T2, heightFt: swell2HeightFt });
+  }
+  if (T3 >= THRESHOLDS.MIN_VALID_PERIOD_S && swell3HasEnergy) {
+    swellComponents.push({ period: T3, heightFt: swell3HeightFt });
+  }
+
+  // Find all valid pairwise beat interactions
+  const beatPairs: Array<{ freq: number; weight: number; intervalS: number }> = [];
+  for (let i = 0; i < swellComponents.length; i++) {
+    for (let j = i + 1; j < swellComponents.length; j++) {
+      const a = swellComponents[i], b = swellComponents[j];
+      if (Math.abs(a.period - b.period) < THRESHOLDS.SWELL_DIFF_THRESHOLD_S) continue;
+      const setInterval = Math.max(
+        FREQUENCY_CLAMPS.MIN_SET_INTERVAL_S,
+        Math.min(FREQUENCY_CLAMPS.MAX_SET_INTERVAL_S, (a.period * b.period) / Math.abs(a.period - b.period))
+      );
+      const wavesPerSet = Math.max(
+        FREQUENCY_CLAMPS.MIN_WAVES_PER_SET,
+        Math.min(FREQUENCY_CLAMPS.MAX_WAVES_PER_SET, Math.round(Math.max(a.period, b.period) / Math.min(a.period, b.period)))
+      );
+      beatPairs.push({
+        freq: (3600 / setInterval) * wavesPerSet,
+        weight: Math.sqrt(a.heightFt * b.heightFt),
+        intervalS: setInterval,
+      });
+    }
+  }
 
   let baseFrequency: number;
+  const isMultiSwell = beatPairs.length > 0;
 
-  if (
-    T2 >= THRESHOLDS.MIN_VALID_PERIOD_S &&
-    swell2HasEnergy &&
-    Math.abs(T1 - T2) >= THRESHOLDS.SWELL_DIFF_THRESHOLD_S
-  ) {
-    // Two distinct swells: use grouping formula
-    const setInterval = Math.max(
-      FREQUENCY_CLAMPS.MIN_SET_INTERVAL_S,
-      Math.min(FREQUENCY_CLAMPS.MAX_SET_INTERVAL_S, (T1 * T2) / Math.abs(T1 - T2))
-    );
-    const wavesPerSet = Math.max(
-      FREQUENCY_CLAMPS.MIN_WAVES_PER_SET,
-      Math.min(FREQUENCY_CLAMPS.MAX_WAVES_PER_SET, Math.round(Math.max(T1, T2) / Math.min(T1, T2)))
-    );
-    baseFrequency = (3600 / setInterval) * wavesPerSet;
+  if (isMultiSwell) {
+    // Sort by frequency (descending) — most frequent sets dominate
+    beatPairs.sort((a, b) => b.freq - a.freq);
+    baseFrequency = beatPairs[0].freq;
+
+    // Additional pairwise interactions contribute extra independent wave events.
+    // Three swells create quasi-periodic interference with more constructive peaks
+    // than any single pair predicts — but not all peaks are independent.
+    for (let k = 1; k < beatPairs.length; k++) {
+      const energyRatio = beatPairs[0].weight > 0
+        ? Math.min(1.0, beatPairs[k].weight / beatPairs[0].weight)
+        : 0;
+      baseFrequency += beatPairs[k].freq * energyRatio * THRESHOLDS.THREE_SWELL_ADDITIONAL_BEAT_FACTOR;
+    }
   } else {
     // Single swell or unified energy
     baseFrequency = 3600 / T1;
   }
 
   // Step 3: Break type factor
-  // Task 3: When in multi-swell path, blend the break factor to avoid double penalty.
+  // When in multi-swell path, blend the break factor to avoid double penalty.
   // The grouping formula already reduces effective frequency; applying raw config.factor
   // on top of a lower base creates a disproportionate drop.
-  let breakFactor: number;
-  if (
-    T2 >= THRESHOLDS.MIN_VALID_PERIOD_S &&
-    swell2HasEnergy &&
-    Math.abs(T1 - T2) >= THRESHOLDS.SWELL_DIFF_THRESHOLD_S
-  ) {
-    breakFactor = config.factor + (1 - config.factor) * THRESHOLDS.MULTI_SWELL_BREAK_FACTOR_REDUCTION;
-  } else {
-    breakFactor = config.factor;
-  }
+  const breakFactor = isMultiSwell
+    ? config.factor + (1 - config.factor) * THRESHOLDS.MULTI_SWELL_BREAK_FACTOR_REDUCTION
+    : config.factor;
 
   // Step 4: Short period penalty
   // Task 6: Quadratic penalty for short periods — penalises sub-8s swells more aggressively.
@@ -200,10 +230,11 @@ export function calculateRideableWaves(
     : 1.0;
 
   // Step 5: Swell direction access
-  // Task 4: Consider both swell directions and use the best (max) access factor
-  // when the secondary swell has meaningful energy.
+  // Consider all swell directions and use the best (max) access factor
+  // when each swell has meaningful energy.
   const swellDeg1 = getDirectionDegrees(null, forecast.swell_1_direction);
   const swellDeg2 = getDirectionDegrees(null, forecast.swell_2_direction);
+  const swellDeg3 = getDirectionDegrees(null, forecast.wind_wave_direction);
   let accessFactor = 0.7; // Fallback
 
   if (swellDeg1 !== null && beach.swell_access_factors) {
@@ -211,12 +242,19 @@ export function calculateRideableWaves(
     const factor1 = beach.swell_access_factors[bin1];
     if (typeof factor1 === "number") accessFactor = factor1;
 
-    // Use the better access factor if secondary swell has meaningful energy
+    // Use the best access factor across all swells with meaningful energy
     if (swell2HasEnergy && swellDeg2 !== null) {
       const bin2 = Math.round(swellDeg2 / 5) % 72;
       const factor2 = beach.swell_access_factors[bin2];
       if (typeof factor2 === "number") {
         accessFactor = Math.max(accessFactor, factor2);
+      }
+    }
+    if (swell3HasEnergy && swellDeg3 !== null) {
+      const bin3 = Math.round(swellDeg3 / 5) % 72;
+      const factor3 = beach.swell_access_factors[bin3];
+      if (typeof factor3 === "number") {
+        accessFactor = Math.max(accessFactor, factor3);
       }
     }
   }
@@ -266,6 +304,8 @@ export function calculateRideableWaves(
   return {
     rideableWavesPerHour,
     confidence: resolveConfidence(forecast),
+    swellTrains: swellComponents.length,
+    dominantBeatIntervalS: isMultiSwell ? beatPairs[0].intervalS : null,
   };
 }
 

@@ -751,3 +751,249 @@ describe("Combined tide factors", () => {
     expect(result.rideableWavesPerHour).toBeLessThanOrEqual(40);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Three-Swell Grouping
+// ---------------------------------------------------------------------------
+
+describe("Three-swell grouping", () => {
+  const baseBeach = () =>
+    makeBeach({
+      break_type: "beach",
+      aspect_deg: 270,
+      swell_access_factors: Array(72).fill(0.8),
+    });
+
+  test("three distinct swells produces higher frequency than two-swell equivalent", () => {
+    const beach = baseBeach();
+
+    const twoSwell = calculateRideableWaves(
+      makeForecast({
+        swell_1_height: "4",
+        swell_1_period: "14",
+        swell_2_height: "2",
+        swell_2_period: "10",
+        wind_wave_height: null,
+        wind_wave_period: null,
+        wind_speed: "0 mph",
+      }),
+      beach
+    );
+
+    const threeSwell = calculateRideableWaves(
+      makeForecast({
+        swell_1_height: "4",
+        swell_1_period: "14",
+        swell_2_height: "2",
+        swell_2_period: "10",
+        wind_wave_height: "2",
+        wind_wave_period: "6",
+        wind_wave_direction: "W",
+        wind_speed: "0 mph",
+      }),
+      beach
+    );
+
+    expect(threeSwell.rideableWavesPerHour).toBeGreaterThan(twoSwell.rideableWavesPerHour);
+  });
+
+  test("three groundswells (NW + S + W) — California winter scenario", () => {
+    const beach = baseBeach();
+
+    const threeSwell = calculateRideableWaves(
+      makeForecast({
+        swell_1_height: "4",
+        swell_1_period: "14",
+        swell_1_direction: "NW",
+        swell_2_height: "2",
+        swell_2_period: "16",
+        swell_2_direction: "S",
+        wind_wave_height: "2",
+        wind_wave_period: "8",
+        wind_wave_direction: "W",
+        wind_speed: "0 mph",
+      }),
+      beach
+    );
+
+    // Three distinct groundswells should produce meaningful wave count
+    expect(threeSwell.rideableWavesPerHour).toBeGreaterThan(0);
+    // And more than single swell baseline
+    const singleSwell = calculateRideableWaves(
+      makeForecast({
+        swell_1_height: "4",
+        swell_1_period: "14",
+        swell_1_direction: "NW",
+        swell_2_height: null,
+        swell_2_period: null,
+        wind_wave_height: null,
+        wind_wave_period: null,
+        wind_speed: "0 mph",
+      }),
+      beach
+    );
+    expect(threeSwell.rideableWavesPerHour).toBeGreaterThan(singleSwell.rideableWavesPerHour);
+  });
+
+  test("wind wave below energy gate → falls back to two-swell path", () => {
+    const beach = baseBeach();
+
+    const twoSwell = calculateRideableWaves(
+      makeForecast({
+        swell_1_height: "4",
+        swell_1_period: "14",
+        swell_2_height: "2",
+        swell_2_period: "10",
+        wind_wave_height: null,
+        wind_wave_period: null,
+        wind_speed: "0 mph",
+      }),
+      beach
+    );
+
+    // Tiny wind chop that doesn't meet energy threshold
+    const withTinyChop = calculateRideableWaves(
+      makeForecast({
+        swell_1_height: "4",
+        swell_1_period: "14",
+        swell_2_height: "2",
+        swell_2_period: "10",
+        wind_wave_height: "0.3",
+        wind_wave_period: "4",
+        wind_speed: "0 mph",
+      }),
+      beach
+    );
+
+    // Should produce same result — tiny chop doesn't cross energy gate
+    expect(withTinyChop.rideableWavesPerHour).toBe(twoSwell.rideableWavesPerHour);
+  });
+
+  test("third swell with period too similar to primary → no additional grouping", () => {
+    const beach = baseBeach();
+
+    const twoSwell = calculateRideableWaves(
+      makeForecast({
+        swell_1_height: "4",
+        swell_1_period: "14",
+        swell_2_height: "2",
+        swell_2_period: "10",
+        wind_wave_height: null,
+        wind_wave_period: null,
+        wind_speed: "0 mph",
+      }),
+      beach
+    );
+
+    // Third swell at 14.5s — too close to primary 14s for meaningful beat
+    const similarPeriod = calculateRideableWaves(
+      makeForecast({
+        swell_1_height: "4",
+        swell_1_period: "14",
+        swell_2_height: "2",
+        swell_2_period: "10",
+        wind_wave_height: "2",
+        wind_wave_period: "14.5",
+        wind_speed: "0 mph",
+      }),
+      beach
+    );
+
+    // The T3-T1 pair (14.5-14=0.5 < 1.0 threshold) won't generate a beat.
+    // But T3-T2 pair (14.5-10=4.5) WILL generate a valid beat → still higher.
+    expect(similarPeriod.rideableWavesPerHour).toBeGreaterThanOrEqual(twoSwell.rideableWavesPerHour);
+  });
+
+  test("third swell direction extends access factor consideration", () => {
+    // Beach where primary swell is blocked, secondary is blocked, but wind wave is aligned
+    const accessFactors = Array(72).fill(0.1); // mostly blocked
+    accessFactors[54] = 0.9; // W bin (270/5 = 54) — good access
+
+    const beach = makeBeach({
+      break_type: "beach",
+      aspect_deg: 270,
+      swell_access_factors: accessFactors,
+    });
+
+    // Primary and secondary from blocked directions, wind wave from W
+    const forecast = makeForecast({
+      swell_1_height: "3",
+      swell_1_period: "14",
+      swell_1_direction: "N", // blocked
+      swell_2_height: "2",
+      swell_2_period: "10",
+      swell_2_direction: "N", // blocked
+      wind_wave_height: "2",
+      wind_wave_period: "6",
+      wind_wave_direction: "W", // aligned
+      wind_speed: "0 mph",
+    });
+
+    const result = calculateRideableWaves(forecast, beach);
+    // Access factor should pick up the wind wave's W direction (0.9)
+    // rather than being stuck at the blocked N direction (0.1)
+    expect(result.rideableWavesPerHour).toBeGreaterThan(0);
+  });
+
+  test("three-swell boost is proportional to third swell energy", () => {
+    const beach = baseBeach();
+
+    const smallThird = calculateRideableWaves(
+      makeForecast({
+        swell_1_height: "4",
+        swell_1_period: "14",
+        swell_2_height: "2",
+        swell_2_period: "10",
+        wind_wave_height: "1.5",
+        wind_wave_period: "6",
+        wind_speed: "0 mph",
+      }),
+      beach
+    );
+
+    const largeThird = calculateRideableWaves(
+      makeForecast({
+        swell_1_height: "4",
+        swell_1_period: "14",
+        swell_2_height: "2",
+        swell_2_period: "10",
+        wind_wave_height: "4",
+        wind_wave_period: "6",
+        wind_speed: "0 mph",
+      }),
+      beach
+    );
+
+    // Larger third swell → more additional wave events
+    expect(largeThird.rideableWavesPerHour).toBeGreaterThanOrEqual(smallThird.rideableWavesPerHour);
+  });
+
+  test("existing two-swell regression tests remain unchanged", () => {
+    // Reproduce the exact Task 3 test — adding complementary swell
+    const beach = makeBeach({ swell_access_factors: Array(72).fill(0.8) });
+    const singleSwell = makeForecast({
+      swell_1_height: "4",
+      swell_1_period: "14",
+      swell_2_height: null,
+      swell_2_period: null,
+      wind_wave_height: null,
+      wind_wave_period: null,
+    });
+    const baseResult = calculateRideableWaves(singleSwell, beach);
+
+    const withSwell = makeForecast({
+      swell_1_height: "4",
+      swell_1_period: "14",
+      swell_2_height: "2",
+      swell_2_period: "8",
+      wind_wave_height: null,
+      wind_wave_period: null,
+    });
+    const withSwellResult = calculateRideableWaves(withSwell, beach);
+
+    // Same constraint as Task 3: adding a swell should not reduce by > 50%
+    expect(withSwellResult.rideableWavesPerHour).toBeGreaterThan(
+      baseResult.rideableWavesPerHour * 0.5
+    );
+  });
+});

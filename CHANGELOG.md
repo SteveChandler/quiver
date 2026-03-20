@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Rideable waves/hr calculator now factors in tide height (cosine-curve degradation toward break-type-specific floors) and tide direction (sensitivity-based penalties for mismatch/slack) — reef breaks at wrong tide can drop to ~18% of optimal
+- Rideable waves/hr calculator generalized to three-swell pairwise beat frequency analysis — wind wave component now contributes to grouping math, not just height; additional pairs add independent wave events weighted by energy (0.3 independence factor)
+- Scored forecast API and conditions mapper now expose `swellTrains` (1-3) and `dominantBeatIntervalS` for downstream display
 - SEO: state browse pages (`/beaches/usa/ca`) now show Beginner/Tides/Water Temp intent pill links per city for crawler discovery of city intent pages
 - SEO: `getTopCitiesInState` default limit raised from 8 to 100 so all qualifying cities are returned for crawl discovery (backwards-compatible — pass a lower value when a small subset is needed)
 - SEO: `PopularCitiesForIntent` on state intent pages now shows a two-tier layout — top 8 cities in the existing prominent grid, remaining cities in a compact 3–4 column grid below a labeled divider; all links are always server-rendered (no accordion/collapse) for full crawler visibility

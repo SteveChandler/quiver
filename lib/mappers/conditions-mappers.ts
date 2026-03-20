@@ -40,6 +40,8 @@ export function forecastToConditionsData(
   if (beach) {
     const result = calculateRideableWaves(forecast, beach);
     base.rideableWavesPerHour = result.rideableWavesPerHour;
+    base.swellTrains = result.swellTrains;
+    base.dominantBeatIntervalS = result.dominantBeatIntervalS;
   }
 
   return base;

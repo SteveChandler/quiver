@@ -49,6 +49,8 @@ interface TimeSlot {
   compositeScore: number;
   rideableWavesPerHour: number;
   waveFrequencyConfidence: "high" | "medium" | "low";
+  swellTrains: number;
+  dominantBeatIntervalS: number | null;
   forecastDataConfidence: number;
 }
 
@@ -156,8 +158,12 @@ export function scoreForecastSlots(
     const compositeScore = scored.total;
 
     // Wave frequency
-    const { rideableWavesPerHour, confidence: waveFrequencyConfidence } =
-      calculateRideableWaves(forecast, beach);
+    const {
+      rideableWavesPerHour,
+      confidence: waveFrequencyConfidence,
+      swellTrains,
+      dominantBeatIntervalS,
+    } = calculateRideableWaves(forecast, beach);
 
     // Wave height range
     const surfHeight = parseWaveHeightRange(forecast.wave_height);
@@ -206,6 +212,8 @@ export function scoreForecastSlots(
       compositeScore,
       rideableWavesPerHour,
       waveFrequencyConfidence,
+      swellTrains,
+      dominantBeatIntervalS,
       forecastDataConfidence,
     };
   });
