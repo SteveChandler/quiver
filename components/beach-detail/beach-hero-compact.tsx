@@ -234,7 +234,7 @@ export function BeachHeroCompact({
               setShowGhostAuthModal(true);
             }}
             className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/20 hover:bg-white/20 transition-colors"
-            aria-label="See your personalized match score — sign up free"
+            aria-label="See your forecast — sign up free"
           >
             <div className="relative flex items-center justify-center w-6 h-6">
               <span className="text-sm font-bold text-white/30 blur-[2px] select-none" aria-hidden="true">87</span>

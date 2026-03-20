@@ -201,7 +201,7 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
 
     const metadata = buildPageMetadata({
       title: `${definition.label} Spots in ${stateName}`,
-      description: `Find the best ${definition.label.toLowerCase()} surf spots across ${stateName}. ML-powered conditions, crowd data & surf windows — updated hourly.`,
+      description: `Find the best ${definition.label.toLowerCase()} surf spots across ${stateName}. Live conditions, crowd data & surf windows — updated hourly.`,
       path: `/${params.intent}/${params.city}`,
       image: `/api/og/intent?intent=${params.intent}&city=${encodeURIComponent(stateName)}`,
     });
@@ -393,7 +393,7 @@ export default async function IntentPage(props: IntentPageParams) {
         <WebPageSchema
           name={`${intentDefinition.label} Surf Spots in ${stateName}`}
           url={statePageUrl}
-          description={`Find the best ${intentDefinition.label.toLowerCase()} surf spots across ${stateName}. ML-powered conditions, crowd data & surf windows — updated hourly.`}
+          description={`Find the best ${intentDefinition.label.toLowerCase()} surf spots across ${stateName}. Live conditions, crowd data & surf windows — updated hourly.`}
         />
         <div className="container mx-auto px-4 py-8 max-w-7xl">
           <header className="mb-8">
@@ -1114,7 +1114,7 @@ export default async function IntentPage(props: IntentPageParams) {
         <InlineSignupCta
           title={definition.ctaHeadline || `Track Your ${cityMetadata.cityName} Sessions`}
           description={definition.ctaDescription || "Log your sessions, save your favorite breaks, and get personalized spot recommendations."}
-          primaryButtonText={definition.ctaButton || "Get My Forecast"}
+          primaryButtonText={definition.ctaButton || "See Your Surf Call"}
           source={`intent-${params.intent}-${params.city}`}
           className="my-8"
         />

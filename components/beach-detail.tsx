@@ -572,7 +572,7 @@ function BeachDetailContent({
           <div className="mb-6">
             <InlineSignupCta
               title={`Get Alerts for ${beach.name}`}
-              description="Get notified when conditions are good, see the full 12-day outlook, and get your personalized surf call"
+              description="Get notified when conditions are good, see the full 12-day outlook, and get your surf call"
               primaryButtonText="Get Alerts — Free"
               source={`beach-detail-${slugify(beach.name)}`}
             />

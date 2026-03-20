@@ -30,7 +30,7 @@ interface Feature {
 const FEATURES: Feature[] = [
   {
     id: "forecast",
-    railLabel: "Personalized Forecast",
+    railLabel: "Your Surf Call",
     headline: CONTENT.sections.forecast.title,
     body: CONTENT.sections.forecast.subtitle,
     ctaLabel: CONTENT.sections.forecast.primaryCta,

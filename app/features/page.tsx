@@ -21,17 +21,18 @@ import {
 } from "./features-interactive";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "AI Surf Forecasts & Personalized Recommendations",
+  title: "Surf Forecast App Features — Free Reports, Tide Charts & More",
   description:
-    "Quiver uses machine learning to correct NOAA wave models with real-time buoy data, delivering personalized surf forecasts with 0-100 match scores. Free for iOS, Android, and web.",
+    "Quiver turns raw buoy data into a clear surf call for your beach. Free surf reports, tide charts, crowd levels, best-time-to-surf windows, and session tracking for 279+ beaches. iOS, Android, and web.",
   path: "/features",
   keywords: [
-    "ai surf forecast",
-    "personalized surf recommendations",
-    "ml wave prediction",
-    "real-time buoy data",
-    "surf forecast accuracy",
-    "surf session tracking",
+    "surf forecast app",
+    "best surf app",
+    "free surf report app",
+    "surf tracker app",
+    "surf session tracker",
+    "tide chart app",
+    "surf conditions app",
     "ios surf app",
     "android surf app",
   ],
@@ -125,7 +126,7 @@ export default function FeaturesPage() {
               <InlineSignupCta
                 title="Sounds good?"
                 description="Join surfers who check Quiver before every session."
-                primaryButtonText="Get My Forecast"
+                primaryButtonText="See Your Surf Call"
                 source="features-mid-page"
               />
             </div>

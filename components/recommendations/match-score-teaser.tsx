@@ -50,10 +50,10 @@ export function MatchScoreTeaser({
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white/90">
-              How well does {beachName} match you?
+              What does today look like at {beachName}?
             </p>
             <p className="text-xs text-white/50">
-              Sign up free to see your personalized match score
+              Sign up to see conditions explained clearly for your level
             </p>
           </div>
           <span className="text-lg font-bold text-amber-400">???</span>
@@ -65,8 +65,8 @@ export function MatchScoreTeaser({
             onClose={() => setShowAuth(false)}
             mode="signup"
             contextMessage={{
-              title: "See Your Match Score",
-              description: `See your personalized match score for ${beachName}`,
+              title: "See Your Forecast",
+              description: `See conditions at ${beachName} explained clearly for your level`,
             }}
             source="match-score-teaser"
             returnTo={pathname}
@@ -87,7 +87,7 @@ export function MatchScoreTeaser({
         )}
         onClick={() => setShowAuth(true)}
         role="button"
-        aria-label="Sign up to see your personalized match score"
+        aria-label="Sign up to see your forecast"
       >
         <Sparkles className="h-3 w-3" aria-hidden="true" />
         <span>Match: ???</span>
@@ -99,8 +99,8 @@ export function MatchScoreTeaser({
           onClose={() => setShowAuth(false)}
           mode="signup"
           contextMessage={{
-            title: "See Your Match Score",
-            description: `See your personalized match score for ${beachName}`,
+            title: "See Your Forecast",
+            description: `See conditions at ${beachName} explained clearly for your level`,
           }}
           source="match-score-teaser"
           returnTo={pathname}

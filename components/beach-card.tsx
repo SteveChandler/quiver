@@ -294,7 +294,7 @@ const BeachCardComponent = function BeachCard({
               returnTo={pathname}
               contextMessage={{
                 title: "Track Your Sessions",
-                description: `Track your sessions at ${name} and get personalized recommendations`,
+                description: `Track your sessions at ${name} and see conditions explained clearly`,
               }}
             />
           )}

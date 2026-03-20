@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dropped 3 duplicate indexes flagged by Supabase performance advisor (`idx_ioos_obs_station_observed`, `idx_templates_lookup`, `idx_templates_freshness`)
 
 ### Changed
+- Brand voice rewrite across all CTAs and marketing copy — shifted from product/feature language ("ML Forecasts", "Get Your Match Score") to knowledgeable-friend voice ("Your Surf Call", "See your forecast", "conditions explained clearly")
+- SEO meta strings rewritten to target real search queries ("surf report", "free surf forecast", "surfline alternative") instead of product jargon ("ML-powered", "personalized surf forecast", "AI surf forecast"); standardized beach count to 279+
+- Brand guide updated with brand essence, audience brief, Dawn Patrol color palette, competitive positioning, personality traits, and voice guidelines
 - Rideable waves/hr calculator now factors in tide height (cosine-curve degradation toward break-type-specific floors) and tide direction (sensitivity-based penalties for mismatch/slack) — reef breaks at wrong tide can drop to ~18% of optimal
 - Rideable waves/hr calculator generalized to three-swell pairwise beat frequency analysis — wind wave component now contributes to grouping math, not just height; additional pairs add independent wave events weighted by energy (0.3 independence factor)
 - Scored forecast API and conditions mapper now expose `swellTrains` (1-3) and `dominantBeatIntervalS` for downstream display

@@ -144,7 +144,7 @@ export function ForecastAndTides({
                         return new Date(`2000-01-01T${surfCall.bestWindowStart}`).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
                       } catch { return surfCall.bestWindowStart; }
                     })()}${surfCall.waveHeight ? ` at ${surfCall.waveHeight}` : ""} -- sign up to see the full breakdown`
-                  : "Sign up to get personalized surf calls and best time to paddle out"
+                  : "Sign up to see when to paddle out, explained clearly for your level"
               }
               source="surf-call-conditions"
             >

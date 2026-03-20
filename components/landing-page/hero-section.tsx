@@ -99,9 +99,9 @@ export function HeroSection() {
         contextMessage={
           authMode === "signup"
             ? {
-                title: "Get Your Match Score",
+                title: "See Your Forecast",
                 description:
-                  "Personalized surf forecasts in 30 seconds",
+                  "Conditions explained clearly in 30 seconds",
               }
             : undefined
         }

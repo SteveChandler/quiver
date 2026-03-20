@@ -91,7 +91,7 @@ export function TideFAQSchema({ beachName }: { beachName: string }) {
     },
     {
       question: `How accurate are the tide predictions for ${beachName}?`,
-      answer: `Tide predictions for ${beachName} are sourced from NOAA harmonic tide tables and are highly accurate (typically within a few minutes). Our ML-enhanced forecast layer adds local conditions context like swell, wind, and how the tide interacts with the specific break.`,
+      answer: `Tide predictions for ${beachName} are sourced from NOAA harmonic tide tables and are highly accurate (typically within a few minutes). Our forecast also factors in local conditions like swell, wind, and how the tide interacts with the specific break.`,
     },
     {
       question: `What wetsuit do I need for ${beachName}?`,
@@ -137,7 +137,7 @@ export function QuiverFAQSchema() {
     {
       question: "What is Quiver?",
       answer:
-        "Quiver is a free, ML-powered surf forecast platform that corrects raw NOAA predictions for individual beach breaks. It trains per-beach XGBoost models on 30,000+ observations from CDIP, NDBC, and IOOS buoy networks, analyzing 72 directional swell bins to bias-correct forecasts every 3 hours for 185+ beaches across California, Hawaii, Oregon, Washington, Florida, the East Coast, and Puerto Rico. Features include personalized Match Scores, tide charts, live conditions, session tracking, and a surf community — all free.",
+        "Quiver is a free surf report and forecast app that tells you when to go surfing at your beach. It uses real buoy data from CDIP, NDBC, and IOOS networks to build a forecast model for each of its 279+ beaches across California, Hawaii, Oregon, Washington, Florida, the East Coast, and Puerto Rico. The forecast updates every 3 hours and gets more accurate as surfers log sessions and report conditions. Features include surf reports, tide charts, crowd data, best-time-to-surf windows, session tracking, and a surf community — all free.",
     },
     {
       question: "How do I track surf sessions on Quiver?",

@@ -233,7 +233,7 @@ test.describe('Spot Surf Report', () => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
     // The beach hero renders a match score teaser button for anonymous users
-    const matchTeaser = page.getByRole('button', { name: /how well does this spot match you/i });
+    const matchTeaser = page.getByRole('button', { name: /what does today look like/i });
     await expect(matchTeaser).toBeVisible();
   });
 

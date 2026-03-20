@@ -411,7 +411,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText(/Your personalized forecast is ready on the home page/i)
+          screen.getByText(/Your surf call is ready on the home page/i)
         ).toBeInTheDocument();
       });
     });

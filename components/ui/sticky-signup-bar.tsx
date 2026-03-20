@@ -166,8 +166,8 @@ export function StickySignupBar({
         mode="signup"
         source={`sticky-bar-${source}`}
         contextMessage={contextMessage ?? {
-          title: "See Your Match Score",
-          description: "Personalized surf forecasts in 30 seconds",
+          title: "See Your Forecast",
+          description: "Conditions explained clearly in 30 seconds",
         }}
       />
     </>

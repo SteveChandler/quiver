@@ -77,7 +77,7 @@ export function MapSignupPrompt({ beachName, source }: MapSignupPromptProps) {
     : "Save your favorite spots";
   const description = beachName
     ? "Sign up to get notified when conditions are firing."
-    : "Create a free account to save spots and get personalized forecasts.";
+    : "Create a free account to save spots and see conditions explained clearly.";
 
   return (
     <>

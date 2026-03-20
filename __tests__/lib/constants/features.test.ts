@@ -34,9 +34,9 @@ describe("Features Constants", () => {
 
     it("has correct titles for feature cards", () => {
       const expectedTitles = [
-        "ML Forecasts",
-        "Personalization",
-        "Live Intel",
+        "Your Surf Call",
+        "Tuned to You",
+        "What's Happening Now",
         "Spot Discovery",
         "Session Tracking",
         "Mobile Apps",

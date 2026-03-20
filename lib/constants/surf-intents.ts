@@ -78,7 +78,7 @@ export const SURF_INTENTS: Record<SurfIntentSlug, SurfIntentDefinition> = {
     ],
     ctaHeadline: "A crowd-aware forecast that learns your go-tos",
     ctaDescription: "Quick post-session note → fewer crowds next time.",
-    ctaButton: "Get my forecast",
+    ctaButton: "See your surf call",
   },
   tide: {
     slug: "tide",
@@ -139,7 +139,7 @@ export const SURF_INTENTS: Record<SurfIntentSlug, SurfIntentDefinition> = {
     ],
     ctaHeadline: "A wetsuit planner that tracks your comfort zone",
     ctaDescription: "Log board + rubber → dialed gear recs next time.",
-    ctaButton: "Get my forecast",
+    ctaButton: "See your surf call",
   },
   longboard: {
     slug: "longboard",
@@ -160,7 +160,7 @@ export const SURF_INTENTS: Record<SurfIntentSlug, SurfIntentDefinition> = {
     ],
     ctaHeadline: "Your longboard forecast, tuned by your sessions",
     ctaDescription: "15-second log → smarter spot picks next time.",
-    ctaButton: "Get my forecast",
+    ctaButton: "See your surf call",
   },
   "dawn-patrol": {
     slug: "dawn-patrol",
@@ -181,7 +181,7 @@ export const SURF_INTENTS: Record<SurfIntentSlug, SurfIntentDefinition> = {
     ],
     ctaHeadline: "A dawn patrol forecast tuned to your schedule",
     ctaDescription: "15-second log → better early windows next time.",
-    ctaButton: "Get my forecast",
+    ctaButton: "See your surf call",
   },
   sunset: {
     slug: "sunset",
@@ -202,6 +202,6 @@ export const SURF_INTENTS: Record<SurfIntentSlug, SurfIntentDefinition> = {
     ],
     ctaHeadline: "A sunset forecast tuned to your after-work windows",
     ctaDescription: "Log when you paddle out → better evening picks next time.",
-    ctaButton: "Get my forecast",
+    ctaButton: "See your surf call",
   },
 };

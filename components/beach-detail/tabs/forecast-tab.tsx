@@ -488,7 +488,7 @@ export function ForecastTab({
               <PublicContentGate
                 ctaTitle={`See today's surf call for ${beach.name}`}
                 ctaDescription={gateDescription}
-                ctaButtonText="See Today's Best Window"
+                ctaButtonText="When to paddle out today"
                 blurLevel="md"
                 source="best-window-gate"
                 className="min-h-[200px]"

@@ -47,10 +47,10 @@ describe("PersonalizationShowcase CTA", () => {
     render(<PersonalizationShowcase />);
 
     expect(
-      screen.getByRole("button", { name: /get your match scores/i })
+      screen.getByRole("button", { name: /see your forecast/i })
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/see your personalized match scores/i)
+      screen.getByText(/see conditions explained clearly for your level/i)
     ).toBeInTheDocument();
   });
 
@@ -69,10 +69,10 @@ describe("PersonalizationShowcase CTA", () => {
     render(<PersonalizationShowcase />);
 
     expect(
-      screen.queryByRole("button", { name: /get your match scores/i })
+      screen.queryByRole("button", { name: /see your forecast/i })
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByText(/see your personalized match scores/i)
+      screen.queryByText(/see conditions explained clearly for your level/i)
     ).not.toBeInTheDocument();
   });
 
@@ -93,7 +93,7 @@ describe("PersonalizationShowcase CTA", () => {
     expect(screen.queryByTestId("auth-modal")).not.toBeInTheDocument();
 
     fireEvent.click(
-      screen.getByRole("button", { name: /get your match scores/i })
+      screen.getByRole("button", { name: /see your forecast/i })
     );
 
     const modal = screen.getByTestId("auth-modal");
