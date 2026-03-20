@@ -1,0 +1,46 @@
+<h2>Three approaches for the "wow" beach detail page</h2>
+<p class="subtitle">Each combines visual impact + eerily specific predictions. Click the one that pulls you.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>The Living Timeline</h3>
+      <p><strong>What it is:</strong> The next 24 hours as a smooth, animated horizontal timeline. Wave height rendered as a flowing ocean surface. Wind as animated particles. Tide as a breathing curve underneath. Golden windows glow and pulse. Scrub through time and watch conditions evolve.</p>
+      <p><strong>The wow:</strong> "It looks like a weather radar but for surf." You scrub to 6:45am and it shows: <em>18 rideable waves/hr, offshore winds fading by 8am, swell peaking at 4.2ft.</em> The ocean surface animation literally changes as you drag.</p>
+      <p><strong>Demo move:</strong> Open the page, scrub through tomorrow — the ocean comes alive, golden windows glow. Screenshot/video-worthy.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Strengths</h4><ul><li>Most visually impressive — the whole page transforms</li><li>Scrubbing creates an interactive "toy" people play with</li><li>Shows ALL of Quiver's data at once in one visualization</li><li>Unique — no surf app has anything like this</li></ul></div>
+        <div class="cons"><h4>Trade-offs</h4><ul><li>Highest build complexity (custom canvas/WebGL animation)</li><li>Risk of style over substance if execution isn't crisp</li><li>Mobile performance needs careful attention</li><li>Accessibility challenges with animation-heavy approach</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>The Session Briefing</h3>
+      <p><strong>What it is:</strong> A cinematic, card-based "mission briefing" for your next session. When you open a beach, the hero shows a bold, animated callout: <em>"Be at Blacks at 6:47am. You'll catch ~18 waves/hr in a 90-minute window. Swell peaks at 7:15. Offshore winds hold until 8:20."</em> Below: animated swell direction arrows, tide curve with your window highlighted, wind streamlines, board recommendation from your quiver.</p>
+      <p><strong>The wow:</strong> "It told me exactly when to show up and what to expect — down to the wave count." Eerily specific. Reads like a personal surf coach briefing.</p>
+      <p><strong>Demo move:</strong> "Check out what Quiver just told me" — screenshot the briefing card. Share-ready.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Strengths</h4><ul><li>Maximum "eerily specific" factor — the prediction IS the feature</li><li>Instantly shareable — one card captures the whole story</li><li>Moderate build complexity — builds on existing data, new UI layer</li><li>Natural retention hook: "Was Quiver right? Let me check tomorrow"</li></ul></div>
+        <div class="cons"><h4>Trade-offs</h4><ul><li>Less of a full-page visual transformation</li><li>Relies on prediction accuracy — wrong forecasts hurt trust fast</li><li>Static-ish after initial reveal (less interactive than A)</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>The Pulse — Living Conditions Hero</h3>
+      <p><strong>What it is:</strong> The hero section becomes an abstract, animated ocean state. Swell lines animate across at the actual predicted period (one pulse every 12 seconds for a 12s swell). Wind particles drift. The surface ripples more when conditions are firing, goes glassy when it's clean. Below: the eerily specific briefing text (waves/hr, window, board rec) with animated data visualizations (swell rose, wind dial, tide gauge).</p>
+      <p><strong>The wow:</strong> "The page is literally breathing with the ocean." You can FEEL the conditions before reading a single number. Combined with the specific predictions below, it's visual AND informative.</p>
+      <p><strong>Demo move:</strong> Open Blacks when it's pumping — the page is alive with energy. Open it on a flat day — it's calm and glassy. The page tells you the vibe before you read anything.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Strengths</h4><ul><li>Best of both — visual spectacle + specific predictions</li><li>The animation IS data (period = pulse rate, wind = particles)</li><li>Emotional response: you FEEL the conditions</li><li>Scales naturally: dramatic when firing, calm when flat</li><li>Hero-only scope = contained build, rest of page stays functional</li></ul></div>
+        <div class="cons"><h4>Trade-offs</h4><ul><li>Canvas/shader work for the ocean animation</li><li>Needs to degrade gracefully on low-end devices</li><li>Abstract visualization may confuse some users initially</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

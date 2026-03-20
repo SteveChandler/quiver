@@ -134,7 +134,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       render(<LevelAndTimeStep />);
 
       expect(
-        screen.getByText(/What kind of surfer are you\?/i)
+        screen.getByText(/What kind of surfer\??/i)
       ).toBeInTheDocument();
       expect(screen.getByText(/When do you surf\?/i)).toBeInTheDocument();
     });
@@ -411,7 +411,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText(/Your personalized forecast is ready on the home page/i)
+          screen.getByText(/Your surf call is ready on the home page/i)
         ).toBeInTheDocument();
       });
     });

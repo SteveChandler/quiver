@@ -34,7 +34,7 @@ interface InlineSignupCtaProps {
 export function InlineSignupCta({
   title,
   description,
-  primaryButtonText = "Get My Forecast",
+  primaryButtonText = "See your surf call",
   source,
   className,
 }: InlineSignupCtaProps) {
@@ -112,7 +112,7 @@ export function InlineSignupCta({
         source={`inline-cta-${source}`}
         contextMessage={{
           title: "Know Before You Go",
-          description: "Personalized surf forecasts in 30 seconds",
+          description: "Conditions explained clearly in 30 seconds",
         }}
       />
     </>

@@ -9,6 +9,8 @@ import { HomeBeachStep } from "./steps/home-beach-step";
 import { LevelAndTimeStep } from "./steps/level-and-time-step";
 import { PayoffStep } from "./steps/payoff-step";
 import { OnboardingProgress } from "./onboarding-progress";
+import { HeroImageSlot } from "./hero-image-slot";
+import { FloatingParticles } from "./floating-particles";
 import { useAuth } from "@/context/auth-context";
 import { useProfileContext } from "@/context/profile-context";
 import { skipOnboarding } from "@/actions/onboarding-actions";
@@ -25,13 +27,6 @@ const STEPS = [
 // Delays for dialog opening (ms)
 const DIALOG_OPEN_DELAY = 500; // Let page settle before showing onboarding
 const TESTING_OPEN_DELAY = 100; // Shorter delay for test mode
-
-// Gradient backgrounds per step
-const STEP_GRADIENTS = [
-  "linear-gradient(to bottom, #0B1D3A, #1A3A5C)", // Step 0: dark navy
-  "linear-gradient(to bottom, #1A2744, #8B3A2A)", // Step 1: warm dusk
-  "linear-gradient(to bottom, #0B2E4A, #0077B6)", // Step 2: open ocean
-];
 
 /** Check if profile has enough data to skip onboarding (e.g., filled via Edit Profile) */
 function isProfileSubstantiallyComplete(
@@ -228,7 +223,6 @@ export function OnboardingDialog() {
     }),
   };
 
-  const safeStep = Math.min(Math.max(currentStep, 0), STEP_GRADIENTS.length - 1);
   const isPayoffStep = currentStep === STEPS.length - 1;
 
   return (
@@ -236,69 +230,75 @@ export function OnboardingDialog() {
       role="dialog"
       aria-modal="true"
       aria-label="Set up your surf profile"
-      className="fixed inset-0 z-50 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto formgrid-onboarding"
     >
       <h2 className="sr-only">Set up your surf profile</h2>
 
-      {/* Gradient background layers — crossfade between steps */}
-      <div className="absolute inset-0">
-        {STEP_GRADIENTS.map((gradient, index) => (
-          <motion.div
-            key={index}
-            className="absolute inset-0"
-            animate={{ opacity: index === safeStep ? 1 : 0 }}
-            transition={{ duration: reducedMotion ? 0 : 0.5 }}
-            style={{ background: gradient }}
-          />
-        ))}
-      </div>
+      {/* Dark overlay background */}
+      <div className="absolute inset-0 bg-black/65" />
 
-      {/* Grain texture overlay */}
-      <div
-        className="pointer-events-none absolute inset-0 z-0 opacity-[0.04]"
-        style={{
-          backgroundImage: "url('/textures/noise.png')",
-          backgroundRepeat: "repeat",
-        }}
-      />
+      {/* Card: cream border frame */}
+      <div className="relative z-10 w-full max-w-2xl mx-4">
+        <div className="bg-[#F5F0E8] rounded-2xl p-2 sm:p-3 md:p-4">
+          {/* Inner dark card */}
+          <div className="relative rounded-xl overflow-hidden">
+            {/* Floating spray particles across the whole card */}
+            <FloatingParticles />
+            {/* Hero image — persistent across steps */}
+            <HeroImageSlot className="h-[30vh] sm:h-[35vh] lg:h-[40vh]" />
 
-      {/* Content */}
-      <div className="relative z-10 flex min-h-screen flex-col">
-        {/* Top bar: skip button + dots */}
-        <div className="relative flex items-center justify-center px-4 pt-6 pb-2">
-          <OnboardingProgress
-            currentStep={currentStep}
-            totalSteps={STEPS.length}
-          />
+            {/* Progress dots — overlaid at the bottom of the hero */}
+            <div className="relative -mt-8 z-10 pb-2">
+              <OnboardingProgress
+                currentStep={currentStep}
+                totalSteps={STEPS.length}
+              />
+            </div>
 
-          {/* X skip button — hidden on payoff step */}
-          {!isPayoffStep && (
-            <button
-              onClick={handleSkip}
-              aria-label="Skip onboarding"
-              className="absolute right-4 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full text-white/60 transition-colors hover:text-white"
+            {/* Form body — dark blue-teal gradient */}
+            <div
+              className="relative px-4 pb-4 pt-2 sm:px-6 sm:pb-6 md:px-8 md:pb-8"
+              style={{
+                background: "linear-gradient(to bottom, #2C4A5E, #1A3A5C)",
+              }}
             >
-              <X className="h-5 w-5" />
-            </button>
-          )}
-        </div>
+              {/* Noise texture overlay */}
+              <div
+                className="pointer-events-none absolute inset-0 z-0 opacity-[0.03]"
+                style={{
+                  backgroundImage: "url('/textures/noise.png')",
+                  backgroundRepeat: "repeat",
+                }}
+              />
 
-        {/* Step content with slide transitions */}
-        <div className="flex flex-1 flex-col items-center px-4">
-          <div className="w-full max-w-lg">
-            <AnimatePresence mode="wait" custom={direction}>
-              <motion.div
-                key={currentStep}
-                custom={direction}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              >
-                <CurrentStepComponent />
-              </motion.div>
-            </AnimatePresence>
+              {/* Skip button — hidden on payoff step */}
+              {!isPayoffStep && (
+                <button
+                  onClick={handleSkip}
+                  aria-label="Skip onboarding"
+                  className="absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-full text-white/50 transition-colors hover:text-white hover:bg-white/10"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+
+              {/* Step content with slide transitions */}
+              <div className="relative z-10">
+                <AnimatePresence mode="wait" custom={direction}>
+                  <motion.div
+                    key={currentStep}
+                    custom={direction}
+                    variants={slideVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  >
+                    <CurrentStepComponent />
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+            </div>
           </div>
         </div>
       </div>

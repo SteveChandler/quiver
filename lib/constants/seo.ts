@@ -5,62 +5,47 @@ export const SITE_URL = (
 export const SEO_CONFIG = {
   // Primary metadata
   title:
-    "Quiver — Surf Reports & Forecasts for 185+ Beaches",
+    "Quiver — Free Surf Reports, Forecasts & Conditions for 279+ Beaches",
   description:
-    "ML-powered surf forecasts updated every 3 hours with live buoy data. Crowd levels, tide charts & personalized surf windows for California, Hawaii, Puerto Rico & Oregon.",
+    "Surf reports and forecasts updated every 3 hours with live buoy data. Tide charts, crowd levels & best-time-to-surf windows for California, Hawaii, Florida, East Coast & more. Always free.",
   keywords: [
-    // P0: Queries to own
-    "best time to surf today",
-    "least crowded surf spots",
-    "AI surf forecast",
-    "personalized surf forecast",
-
-    // P1: High-volume daily queries
     "surf report",
     "surf forecast",
     "surf conditions today",
+    "free surf report",
+    "free surf forecast",
+    "surfline alternative",
+    "best time to surf",
+    "best time to surf today",
     "wave height today",
-    "surf forecast app",
     "tide chart",
+    "surf forecast app",
     "surf cam",
-
-    // P1: Discovery & beginner queries
-    "best beginner surf spots",
-    "where to surf today",
-    "learn to surf",
-    "beginner surf spots California",
+    "surf conditions",
+    "surf report today",
+    "best surf app",
     "surf spots near me",
-
-    // P2: Feature & product keywords
+    "where to surf today",
+    "beginner surf spots",
+    "least crowded surf spots",
     "surf tracker app",
     "surf session tracker",
-    "track my surf sessions",
     "surf journal app",
-    "wave height tracker",
-    "best time to surf",
-
-    // P2: Community & social
-    "surf community",
-    "find surf buddies",
-    "surf buddy finder",
-    "connect with surfers app",
-
-    // P2: Regional
-    "surfing California",
-    "best surfing in California",
-    "California surf forecast",
+    "California surf report",
     "Hawaii surf report",
-    "Puerto Rico surf forecast",
-    "Caribbean surfing",
-    "Rincon surf report",
-    "surfing Puerto Rico",
+    "Florida surf report",
+    "surf forecast California",
+    "surf forecast Hawaii",
+    "Puerto Rico surf report",
+    "New Jersey surf report",
+    "Oregon surf forecast",
   ],
 
   // Open Graph enhanced
   openGraph: {
-    title: "Quiver — Surf Reports, Forecasts & Live Conditions",
+    title: "Quiver — Your Surf Call for 279+ Beaches",
     description:
-      "ML-powered surf forecasts, crowd intelligence, and personalized surf windows for 185+ beaches. Updated every 3 hours with live buoy data.",
+      "Conditions at your beach, explained clearly. Surf reports, tide charts, crowd data & best-time-to-go windows for 279+ beaches. Free, updated every 3 hours.",
     type: "website",
     locale: "en_US",
     siteName: "Quiver",
@@ -77,9 +62,9 @@ export const SEO_CONFIG = {
   // Twitter Card enhanced
   twitter: {
     card: "summary_large_image",
-    title: "Quiver — Surf Reports, Forecasts & Live Conditions",
+    title: "Quiver — Your Surf Call for 279+ Beaches",
     description:
-      "ML-powered surf forecasts, live crowd data & personalized surf windows for 185+ beaches.",
+      "Conditions at your beach, explained clearly. Free surf reports, tide charts & crowd data for 279+ beaches.",
     site: "@quiversurf",
     creator: "@quiversurf",
   },
@@ -92,7 +77,7 @@ export const SEO_CONFIG = {
       name: "Quiver",
       alternateName: "Quiver Surf App",
       description:
-        "ML-powered surf forecast platform with live conditions, crowd intelligence, and session tracking for 279+ beaches across California, Hawaii, Oregon, Washington, Florida, Puerto Rico, and more",
+        "Free surf report and forecast platform with live conditions, tide charts, crowd data, and session tracking for 279+ beaches across California, Hawaii, Oregon, Washington, Florida, Puerto Rico, and more",
       url: SITE_URL,
       logo: `${SITE_URL}/logo.png`,
       foundingDate: "2024",
@@ -177,7 +162,7 @@ export const SEO_CONFIG = {
       },
       url: SITE_URL,
       description:
-        "Surf forecasts updated every 3 hours with real buoy data. Personalized match scores, crowd levels, tide charts & optimal surf windows for 185+ beaches.",
+        "Surf reports and forecasts updated every 3 hours with real buoy data. Crowd levels, tide charts & best-time-to-surf windows for 279+ beaches. Free.",
     },
 
     website: {
@@ -186,7 +171,7 @@ export const SEO_CONFIG = {
       name: "Quiver — Surf Reports & Forecasts",
       alternateName: "Quiver",
       description:
-        "Surf forecast platform with ML-powered conditions, crowd intelligence, and personalized session tracking for 185+ beaches",
+        "Free surf report and forecast platform with live conditions, crowd data, tide charts, and session tracking for 279+ beaches",
       url: SITE_URL,
       publisher: {
         "@type": "Organization",

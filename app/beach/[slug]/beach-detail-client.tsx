@@ -41,6 +41,8 @@ export function BeachDetailClient({
   const { user } = useAuth();
   const { track } = useTrackEvent();
   const mountTime = useRef(Date.now());
+  const beachIdRef = useRef<string | null>(null);
+  const beachNameRef = useRef<string | null>(null);
   const [personalizationData, setPersonalizationData] = useState<{
     score: PersonalizedScore | null;
     affinityData: { sessionCount: number; lastSurfed: Date } | null;
@@ -52,6 +54,14 @@ export function BeachDetailClient({
     isLoading: false,
     error: false,
   });
+
+  // Keep refs in sync with beach data
+  useEffect(() => {
+    if (beach?.id) {
+      beachIdRef.current = beach.id;
+      beachNameRef.current = beach.name;
+    }
+  }, [beach?.id, beach?.name]);
 
   useEffect(() => {
     // Track public page view
@@ -66,21 +76,23 @@ export function BeachDetailClient({
 
     // Track duration on unmount
     return () => {
-      if (beach?.id) {
+      const id = beachIdRef.current;
+      if (id) {
         const duration = Date.now() - startTime;
         if (duration > 3000) {
           track('beach_view', {
-            beachId: beach.id,
+            beachId: id,
             metadata: {
               duration_ms: duration,
-              forecast_viewed: true
+              forecast_viewed: true,
+              beach_name: beachNameRef.current ?? undefined,
             },
             debounceMs: 0, // Force fire on unmount
           });
         }
       }
     };
-  }, [slug, user, beach?.id, track]);
+  }, [slug, user, track]);
 
   return (
     <>

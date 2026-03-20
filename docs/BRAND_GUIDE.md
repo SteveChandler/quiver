@@ -4,6 +4,20 @@ What Quiver is, who it's for, and how it should feel. This is the reference poin
 
 ---
 
+## Brand essence
+
+QuiverSurf is the knowledgeable friend who lets you in on the secret language of the ocean. Not a surf shop. Not a coaching app. The trusted local who actually explains what the conditions mean — and why they matter for you, at your beach, on your board.
+
+The core emotional promise: **you are becoming someone who understands the ocean.**
+
+---
+
+## Who we're talking to
+
+The aspiring surfer carrying a big fantasy — freedom from the grid, a life reorganized around the ocean, belonging in the lineup. They feel excluded by the existing tools (Surfline speaks to people who already know what a 12-second period means). QuiverSurf translates without dumbing down.
+
+---
+
 ## Who Quiver is for
 
 Quiver is for the surfer who wants to know where to go today without having to decode a forecast. They surf a few times a week, maybe more. They're not beginners — they know what a good session feels like — but they're not the person cross-referencing buoy data with wind models at 5am either.
@@ -13,6 +27,52 @@ Right now, they check the cams. That's the most honest source they have. The wri
 What actually bothers them isn't that forecasts are hard to read. It's that the forecast doesn't learn. It's wrong on Tuesday, and it's wrong the same way the following Tuesday, and there's nothing they can do about it. They can't say "this wasn't a 3-5ft day here" and have anything change. They're consuming a broadcast that doesn't know them and doesn't want to.
 
 This person doesn't need more data. They need a better answer. One that gets sharper over time — ideally because their own experience is part of what makes it sharper.
+
+---
+
+## The fantasy we're serving
+
+When someone says "I want to learn to surf" they're expressing a deeper longing — to opt out of the ordinary. The surfer fantasy has several layers:
+
+- **Freedom from the grid** — reorganizing life around something unschedulable and wild
+- **Flow state** — the rarest form of presence; surfing is one of its purest delivery mechanisms
+- **Earned belonging** — the lineup has real gatekeeping; belonging means something
+- **Connection to something ancient and indifferent** — the ocean strips status; a CEO wipes out the same way a teenager does
+- **An aesthetic lifestyle** — the rituals, the language, the wax on the dash
+- **A reason to be outside obsessively** — surfing gives permission to track weather, tides, swell
+
+---
+
+## Brand personality
+
+- **Knowledgeable but never gatekeeping**
+- **Calm, unhurried, earned** — like someone who's been surfing for years
+- **Authentic over polished**
+- **Plain-spoken** — cuts through jargon
+- **In-person and real** — not social-media performative
+
+---
+
+## Positioning against competitors
+
+| Brand | What they sell |
+|-------|---------------|
+| Surfline | Expertise for people who already surf |
+| Patagonia | Environmental stewardship + quiet rebellion |
+| Vissla | Craft and soul surfing |
+| Local surf shops | Authenticity and place |
+| **QuiverSurf** | **Translation — letting the beginner in on the secret language** |
+
+Most brands speak to people already inside the culture. QuiverSurf's differentiation is the moment of crossing the threshold — taking someone from excluded to informed.
+
+---
+
+## Voice
+
+- Translate conditions so they're explained clearly, without talking down
+- Use specificity to build trust ("this is what 12 seconds means at your beach")
+- Skip the hype; the ocean is already exciting
+- Warm but direct — the knowledgeable friend, not the enthusiastic salesperson
 
 ---
 
@@ -44,7 +104,31 @@ Every screen should feel considered. Not A/B tested into blandness, not followin
 
 The visual direction draws from analog surf culture — VHS-era footage, hand-drawn sticker sheets, late-80s print ads from local shops. This applies to everything, eventually. Not just marketing materials, but the product itself.
 
-### Color palette direction
+### Color palette — Dawn Patrol
+
+The emotional core of the surfer fantasy. Pre-dawn, salt air, quiet water. These colors feel earned — you have to set an alarm to see them.
+
+| Name | Hex | Usage |
+|------|-----|-------|
+| Midnight navy | `#182540` | Primary backgrounds, dark surfaces |
+| Deep ocean | `#2A4A6B` | Secondary backgrounds, cards |
+| Amber dawn | `#C07840` | Primary accent, CTAs, highlights |
+| Warm sand | `#C4A97D` | Secondary accent, muted highlights |
+| Sun-bleached | `#F0ECE3` | Light backgrounds, text on dark |
+
+### Colors to avoid
+
+These read as "surf brand" not "surfer" — mass market, tourist-facing, sponsor-banner energy. Wrong for a tool that wants to feel like a trusted friend.
+
+| Color | Hex | Why not |
+|-------|-----|---------|
+| Neon turquoise | `#00B4D8` | Surf-brand cliché |
+| Loud coral | `#FF6B35` | Promo/sponsor energy |
+| Sponsor yellow | `#F7C948` | Billboard tone |
+| Promo purple | `#7B2FFF` | Tech/crypto aesthetic |
+| Sterile white | `#FFFFFF` | Never as a primary surface |
+
+### Color palette direction (legacy)
 
 Move away from clean corporate blue toward saturated, warm, analog tones. Deep ocean teals, electric purples, warm amber/orange — like a sunset captured on VHS. Not flat pastels, not muted minimalism. Saturated and alive, with the warmth of a CRT screen.
 

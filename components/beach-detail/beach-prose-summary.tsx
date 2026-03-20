@@ -88,17 +88,11 @@ export function BeachProseSummary({
 
   return (
     <section
-      className="container mx-auto px-4 pt-4 pb-2"
+      className="sr-only"
       aria-label="Conditions summary"
     >
-      <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-5 py-4">
-        <h2 className="sr-only">
-          {beach.name} Current Conditions Summary
-        </h2>
-        <p className="text-sm leading-relaxed text-medium font-sans">
-          {sentences.join(" ")}
-        </p>
-      </div>
+      <h2>{beach.name} Current Conditions Summary</h2>
+      <p>{sentences.join(" ")}</p>
     </section>
   );
 }

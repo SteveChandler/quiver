@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
+import { useAuth } from "@/context/auth-context";
 
 export interface MatchScoreTeaserProps {
   /** Beach identifier (used for future deferred actions if needed) */
@@ -14,32 +15,66 @@ export interface MatchScoreTeaserProps {
   beachName: string;
   /** Additional CSS classes */
   className?: string;
+  /** "badge" (default) = small inline badge, "card" = prominent card CTA */
+  variant?: "badge" | "card";
 }
 
-/**
- * MatchScoreTeaser Component
- *
- * A teaser badge shown to non-authenticated users in place of PersonalizedBadge.
- * Displays "Match: ???" in the same amber/yellow style, enticing users to sign
- * up to see their actual personalization match scores.
- *
- * On click, opens the UnifiedAuthModal in signup mode with a contextual message
- * about the match score feature. After auth, the parent beach-card swaps this
- * component for the real PersonalizedBadge automatically (no deferred action needed).
- *
- * @example
- * ```tsx
- * {!user && <MatchScoreTeaser beachId={beach.id} beachName={beach.name} />}
- * {user && <PersonalizedBadge ... />}
- * ```
- */
 export function MatchScoreTeaser({
   beachId: _beachId,
   beachName,
   className,
+  variant = "badge",
 }: MatchScoreTeaserProps) {
+  const { user } = useAuth();
   const [showAuth, setShowAuth] = useState(false);
   const pathname = usePathname();
+
+  // Don't show teaser for authenticated users
+  if (user) return null;
+
+  if (variant === "card") {
+    return (
+      <>
+        <button
+          data-testid="match-score-teaser-card"
+          onClick={() => setShowAuth(true)}
+          className={cn(
+            "w-full rounded-xl border border-amber-200/30 bg-gradient-to-r from-amber-50/10 to-amber-100/10",
+            "px-4 py-3 flex items-center gap-3 text-left",
+            "hover:from-amber-50/20 hover:to-amber-100/20 transition-colors",
+            className
+          )}
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-400/20">
+            <Sparkles className="h-5 w-5 text-amber-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-white/90">
+              What does today look like at {beachName}?
+            </p>
+            <p className="text-xs text-white/50">
+              Sign up to see conditions explained clearly for your level
+            </p>
+          </div>
+          <span className="text-lg font-bold text-amber-400">???</span>
+        </button>
+
+        {showAuth && (
+          <UnifiedAuthModal
+            isOpen={showAuth}
+            onClose={() => setShowAuth(false)}
+            mode="signup"
+            contextMessage={{
+              title: "See Your Forecast",
+              description: `See conditions at ${beachName} explained clearly for your level`,
+            }}
+            source="match-score-teaser"
+            returnTo={pathname}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <>
@@ -52,7 +87,7 @@ export function MatchScoreTeaser({
         )}
         onClick={() => setShowAuth(true)}
         role="button"
-        aria-label="Sign up to see your personalized match score"
+        aria-label="Sign up to see your forecast"
       >
         <Sparkles className="h-3 w-3" aria-hidden="true" />
         <span>Match: ???</span>
@@ -64,8 +99,8 @@ export function MatchScoreTeaser({
           onClose={() => setShowAuth(false)}
           mode="signup"
           contextMessage={{
-            title: "See Your Match Score",
-            description: `See your personalized match score for ${beachName}`,
+            title: "See Your Forecast",
+            description: `See conditions at ${beachName} explained clearly for your level`,
           }}
           source="match-score-teaser"
           returnTo={pathname}

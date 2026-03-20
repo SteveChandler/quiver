@@ -32,9 +32,9 @@ export const revalidate = 86400;
 // ---------------------------------------------------------------------------
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Quiver vs Surfline: Don't Gate the Stoke (2026)",
+  title: "Quiver vs Surfline (2026): Free Surf Forecast Alternative",
   description:
-    "Honest comparison of Quiver and Surfline in 2026. Crowd-sourced surf calls, tide charts, session logging. See where each app wins and decide for yourself.",
+    "Free alternative to Surfline Premium. Compare surf forecasts, tide charts, crowd data & session logging side by side. See where each app wins in 2026.",
   path: "/vs/surfline",
   keywords: [
     "surfline alternative",
@@ -65,7 +65,7 @@ function ComparisonStructuredData() {
     operatingSystem: "Web, iOS, Android",
     url: SITE_ORIGIN,
     description:
-      "Crowd-sourced surf forecast app with crowd-sourced ML, tide charts, session logging, and community features for 279 beaches.",
+      "Crowd-sourced surf forecast app with tide charts, session logging, and community features for 279+ beaches.",
     offers: {
       "@type": "Offer",
       price: "0",
@@ -116,7 +116,7 @@ const FAQ_ITEMS = [
   {
     question: "What beaches does Quiver cover?",
     answer:
-      "Quiver covers 279 beaches across California, Hawaii, Oregon, Washington, Puerto Rico, Florida, the East Coast, and Baja Mexico. Every beach gets a personalized forecast model, tide charts, crowd data, and session logging — all free.",
+      "Quiver covers 279+ beaches across California, Hawaii, Oregon, Washington, Puerto Rico, Florida, the East Coast, and Baja Mexico. Every beach gets a forecast model, tide charts, crowd data, and session logging — all free.",
   },
   {
     question: "Can I switch from Surfline to Quiver?",

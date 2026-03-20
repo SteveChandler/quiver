@@ -270,10 +270,10 @@ export function PersonalizationShowcase() {
             onClick={() => setShowAuth(true)}
             className="rounded-full bg-ocean-blue px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-ocean-blue/90 active:scale-95 transition-all duration-150"
           >
-            Get Your Match Scores
+            See Your Forecast
           </button>
           <p className="text-xs text-gray-400 font-sans">
-            See your personalized match scores
+            See conditions explained clearly for your level
           </p>
         </div>
       )}
@@ -300,9 +300,9 @@ export function PersonalizationShowcase() {
           source="personalization-showcase"
           returnTo={pathname}
           contextMessage={{
-            title: "Get Personalized Match Scores",
+            title: "See Your Forecast",
             description:
-              "Create an account to unlock match scores for every beach",
+              "Sign up to see conditions at every beach, explained clearly for your level",
           }}
         />
       )}

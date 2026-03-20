@@ -329,6 +329,20 @@ export async function POST(request: Request) {
       );
     }
 
+    // Pre-auth funnel events should not be recorded for authenticated users
+    // These events are only meaningful when tracking anon → authed conversion
+    const PRE_AUTH_ONLY_EVENTS = [
+      'signup_cta_view',
+      'signup_cta_click',
+      'signup_form_submitted',
+      'auth_modal_opened',
+      'auth_modal_closed_without_action',
+    ];
+
+    if (PRE_AUTH_ONLY_EVENTS.includes(eventType)) {
+      return createSuccessResponse({ ok: true, skipped: true });
+    }
+
     // Insert event
     const { error: insertError } = await supabase.from('user_events').insert({
       user_id: user.id,
@@ -393,6 +407,42 @@ export async function POST(request: Request) {
     if (insertError) {
       console.error('Error inserting anonymous event:', insertError);
       return createErrorResponse('Failed to record event', undefined, 500);
+    }
+
+    // Auth failure detection: if a signup_cta_view fires for a session
+    // that belongs to a user who signed up in the last 10 minutes, alert
+    if (eventType === 'signup_cta_view' && body.sessionId) {
+      try {
+        const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+        const { data: recentSignup } = await serviceClient
+          .from('user_events')
+          .select('user_id, metadata')
+          .eq('session_id', body.sessionId)
+          .eq('event_type', 'signup_success')
+          .gte('created_at', tenMinAgo)
+          .limit(1)
+          .single();
+
+        if (recentSignup?.user_id) {
+          const { data: profile } = await serviceClient
+            .from('profiles')
+            .select('full_name, email')
+            .eq('id', recentSignup.user_id)
+            .single();
+
+          const { sendAuthFailureAlert } = await import('@/lib/services/new-user-alerts');
+          sendAuthFailureAlert({
+            userId: recentSignup.user_id,
+            email: profile?.email || 'unknown',
+            name: profile?.full_name || null,
+            signupMethod: (recentSignup.metadata as Record<string, unknown>)?.method as string || 'unknown',
+            minutesSinceSignup: 10,
+            ctaSource: (enrichedMetadata as Record<string, unknown>)?.source as string || 'unknown',
+          }).catch(() => {}); // Fire and forget
+        }
+      } catch {
+        // Don't block event recording for alert failures
+      }
     }
 
     return createSuccessResponse({ ok: true });

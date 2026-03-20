@@ -18,8 +18,8 @@ interface PersonalizedForecastTeaserProps {
 }
 
 const FEATURE_BULLETS = [
-  "Wave difficulty rating for your skill",
-  "Best time windows for YOU",
+  "Wave difficulty for your level",
+  "Best time to paddle out",
   "Crowd preferences applied",
 ] as const;
 
@@ -60,13 +60,13 @@ export function PersonalizedForecastTeaser({
           <Target className="h-4 w-4 text-ocean-blue" />
         </div>
         <h3 className="text-base font-semibold text-dark-grey">
-          Personalized Forecast
+          Your Surf Call
         </h3>
       </div>
 
       {/* Subtitle */}
       <p className="text-sm text-muted-foreground">
-        See conditions matched to YOUR level
+        What the conditions mean for you
       </p>
 
       {/* Feature bullets */}
@@ -94,7 +94,7 @@ export function PersonalizedForecastTeaser({
           }}
           className="w-full rounded-xl bg-ocean-blue px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-ocean-blue/90 active:scale-[0.98]"
         >
-          Get Your Forecast
+          See your surf call
         </button>
       </div>
 
@@ -105,8 +105,8 @@ export function PersonalizedForecastTeaser({
           mode="signup"
           source="personalized-forecast-teaser"
           contextMessage={{
-            title: "Get Your Personalized Forecast",
-            description: `See conditions at ${beachName} matched to your skill level and preferences`,
+            title: "See Your Surf Call",
+            description: `Conditions at ${beachName} explained clearly for your level`,
           }}
           returnTo={pathname}
         />

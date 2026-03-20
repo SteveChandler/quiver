@@ -173,6 +173,32 @@ async function validateYoutube(
     return { live: false, detail: `oEmbed HTTP ${response.status}` };
   }
 
+  // Enhanced check: verify the stream is actually live via YouTube Data API
+  if (youtubeLiveCheck && youtubeApiKey) {
+    try {
+      const parsedUrl = new URL(url);
+      const videoId = parsedUrl.searchParams.get("v");
+      if (videoId) {
+        const apiUrl = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=liveStreamingDetails&key=${youtubeApiKey}`;
+        const apiResponse = await fetchWithTimeout(apiUrl);
+        if (apiResponse.ok) {
+          const apiData = await apiResponse.json();
+          const item = apiData.items?.[0];
+          if (!item) {
+            return { live: false, detail: "Video not found via Data API" };
+          }
+          const liveDetails = item.liveStreamingDetails;
+          if (!liveDetails?.actualStartTime || liveDetails?.actualEndTime) {
+            return { live: false, detail: "Stream exists but not currently live" };
+          }
+          return { live: true, detail: "Confirmed live via Data API" };
+        }
+      }
+    } catch {
+      // Fall through to oEmbed-only result if Data API check fails
+    }
+  }
+
   return { live: true, detail: "" };
 }
 
@@ -502,6 +528,8 @@ async function run(): Promise<ValidationReport> {
 // ---------------------------------------------------------------------------
 
 const useJson = process.argv.includes("--json");
+const youtubeLiveCheck = process.argv.includes("--youtube-live-check");
+const youtubeApiKey = process.env.YOUTUBE_API_KEY;
 
 run()
   .then((report) => {

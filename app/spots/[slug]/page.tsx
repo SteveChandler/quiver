@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import {
-  SURF_SPOT_SLUGS,
   type SurfSpotSlug,
   type SurfCitySlug,
 } from "@/lib/data/surf-spots";
@@ -31,10 +30,6 @@ function formatPacificDateTime(date: Date) {
     dateStyle: "long",
     timeStyle: "short",
   }).format(date);
-}
-
-export async function generateStaticParams() {
-  return SURF_SPOT_SLUGS.map((slug) => ({ slug }));
 }
 
 interface SpotPageParams {

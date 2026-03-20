@@ -19,9 +19,9 @@ import {
 // ---------------------------------------------------------------------------
 
 const ILLUSTRATIONS: ComponentType<{ className?: string }>[] = [
-  WaveBars,             // 0 — ML Forecasts
-  MatchRingIllustration, // 1 — Personalization
-  SignalRipples,        // 2 — Live Intel
+  WaveBars,             // 0 — Your Surf Call
+  MatchRingIllustration, // 1 — Tuned to You
+  SignalRipples,        // 2 — What's Happening Now
   CompassPin,           // 3 — Spot Discovery
   ChartTrend,           // 4 — Session Tracking
   PhoneNotification,    // 5 — Mobile Apps
@@ -124,9 +124,9 @@ export function FeatureBentoSection() {
             Everything you need to surf smarter
           </h2>
           <p className="text-base sm:text-lg font-sans text-white/60 max-w-3xl mx-auto">
-            Quiver corrects raw NOAA forecasts down to individual beach breaks
-            using per-beach ML models trained on 30,000+ buoy observations. The
-            result: bias-corrected surf predictions for 185+ beaches, updated
+            Quiver reads real buoy data and corrects the forecast for each
+            individual beach break — trained on 30,000+ observations. The
+            result: surf conditions explained clearly for 279+ beaches, updated
             every 3 hours.
           </p>
         </div>

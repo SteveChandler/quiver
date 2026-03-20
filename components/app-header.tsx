@@ -145,7 +145,7 @@ export function AppHeader() {
 
   const getSignupCta = (path: string) => {
     // Match any 2-letter state/territory code or /mexico/ beach routes
-    if (path.match(/^\/([a-z]{2}|mexico)\//)) return "Get Your Match";
+    if (path.match(/^\/([a-z]{2}|mexico)\//)) return "See Your Forecast";
     if (path.startsWith("/forecast")) return "Full Forecast";
     if (path.match(/^\/(beginner|longboard|dawn-patrol|tide|water-temp)\//)) return "Find Your Spot";
     return "Get Started";
@@ -153,10 +153,10 @@ export function AppHeader() {
 
   const getSignupContext = (path: string): { title: string; description: string } => {
     if (path.match(/^\/([a-z]{2}|mexico)\//))
-      return { title: "Get Your Match", description: "Personalized surf forecasts in 30 seconds" };
+      return { title: "See Your Forecast", description: "Conditions explained clearly in 30 seconds" };
     if (path.startsWith("/forecast"))
       return { title: "See the Full Forecast", description: "Get the complete 12-day outlook" };
-    return { title: "Get Started", description: "Personalized surf forecasts in 30 seconds" };
+    return { title: "Get Started", description: "Conditions explained clearly in 30 seconds" };
   };
 
   // Check if user is admin (client-side check for UI only - server-side check in middleware)

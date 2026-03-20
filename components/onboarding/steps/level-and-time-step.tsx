@@ -40,138 +40,155 @@ export function LevelAndTimeStep() {
   };
 
   return (
-    <div className="space-y-8" data-testid="level-and-time-step">
-      {/* Section A - Experience Level */}
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-white font-heading text-2xl font-bold">What kind of surfer are you?</h2>
-          <p className="text-medium mt-1">
-            We&apos;ll match conditions to your level
-          </p>
-        </div>
+    <div className="space-y-6" data-testid="level-and-time-step">
+      {/* Two-column layout on desktop */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
+        {/* Column A - Experience Level */}
+        <div className="space-y-3">
+          <div>
+            <h2 className="font-handwritten text-3xl sm:text-4xl text-white">What kind of surfer?</h2>
+            <p className="text-white/60 text-sm mt-1">
+              We&apos;ll match conditions to your level
+            </p>
+          </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          {EXPERIENCE_LEVELS.map((level) => {
-            const isSelected = selectedLevel === level.value;
+          <div className="space-y-2">
+            {EXPERIENCE_LEVELS.map((level) => {
+              const isSelected = selectedLevel === level.value;
 
-            return (
-              <motion.button
-                key={level.value}
-                type="button"
-                onClick={() => setSelectedLevel(level.value)}
-                whileTap={reducedMotion ? undefined : { scale: 0.97 }}
-                animate={
-                  reducedMotion
-                    ? undefined
-                    : isSelected
-                    ? { scale: [1, 1.03, 1] }
-                    : { scale: 1 }
-                }
-                transition={
-                  reducedMotion
-                    ? undefined
-                    : { type: "spring", ...HOME_HEADER_MOTION.spring }
-                }
-                className={cn(
-                  "p-3 border rounded-lg text-left transition-colors flex flex-col items-center gap-2",
-                  isSelected
-                    ? "border-[#F78E42] bg-[#F78E42]/10"
-                    : "bg-white/10 border-white/20 hover:bg-white/15"
-                )}
-              >
-                <div className="text-2xl flex-shrink-0">{level.emoji}</div>
-                <div className="w-full text-center">
-                  <div className="font-semibold text-white flex items-center justify-center gap-2">
-                    {level.label}
+              return (
+                <motion.button
+                  key={level.value}
+                  type="button"
+                  onClick={() => setSelectedLevel(level.value)}
+                  whileTap={reducedMotion ? undefined : { scale: 0.97 }}
+                  animate={
+                    reducedMotion
+                      ? undefined
+                      : { scale: isSelected ? 1.02 : 1 }
+                  }
+                  transition={
+                    reducedMotion
+                      ? undefined
+                      : { type: "spring", stiffness: 300, damping: 20 }
+                  }
+                  className={cn(
+                    "w-full px-3 py-2.5 border rounded-lg text-left transition-colors flex items-center gap-3",
+                    isSelected
+                      ? "border-[#F78E42] bg-[#F78E42]/10"
+                      : "bg-white/[0.06] border-white/[0.12] hover:bg-white/10"
+                  )}
+                >
+                  {/* Circle radio indicator */}
+                  <div
+                    className={cn(
+                      "w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors",
+                      isSelected
+                        ? "border-[#F78E42] bg-[#F78E42]"
+                        : "border-white/30"
+                    )}
+                  >
                     {isSelected && (
-                      <motion.span
+                      <motion.div
                         initial={reducedMotion ? { scale: 1 } : { scale: 0 }}
                         animate={{ scale: 1 }}
                         transition={{ type: "spring", ...HOME_HEADER_MOTION.spring }}
-                      >
-                        <CheckCircle2 className="w-4 h-4 text-[#F78E42] flex-shrink-0" />
-                      </motion.span>
+                        className="w-2 h-2 rounded-full bg-white"
+                      />
                     )}
                   </div>
-                  <div className="text-xs text-medium mt-1">{level.description}</div>
-                </div>
-              </motion.button>
-            );
-          })}
-        </div>
-      </div>
 
-      {/* Section B - When Do You Surf */}
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-white font-heading text-2xl font-bold">When do you surf?</h2>
-          <p className="text-medium mt-1">
-            We&apos;ll highlight the best times for you
-          </p>
+                  <div className="text-xl flex-shrink-0">{level.emoji}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold text-white text-sm">{level.label}</div>
+                    <div className="text-xs text-white/50">{level.description}</div>
+                  </div>
+                </motion.button>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {TIME_PREFERENCES.map((time) => {
-            const isSelected = selectedTime === time.value;
+        {/* Column B - When Do You Surf */}
+        <div className="space-y-3">
+          <div>
+            <h2 className="font-handwritten text-3xl sm:text-4xl text-white">When do you surf?</h2>
+            <p className="text-white/60 text-sm mt-1">
+              We&apos;ll highlight the best times
+            </p>
+          </div>
 
-            return (
-              <motion.button
-                key={time.value}
-                type="button"
-                onClick={() => setSelectedTime(time.value)}
-                whileTap={reducedMotion ? undefined : { scale: 0.97 }}
-                animate={
-                  reducedMotion
-                    ? undefined
-                    : isSelected
-                    ? { scale: [1, 1.03, 1] }
-                    : { scale: 1 }
-                }
-                transition={
-                  reducedMotion
-                    ? undefined
-                    : { type: "spring", ...HOME_HEADER_MOTION.spring }
-                }
-                className={cn(
-                  "w-full p-4 border rounded-lg text-left transition-colors flex items-center gap-4",
-                  isSelected
-                    ? "border-[#F78E42] bg-[#F78E42]/10"
-                    : "bg-white/10 border-white/20 hover:bg-white/15"
-                )}
-              >
-                <div className="text-3xl flex-shrink-0">{time.emoji}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-white">{time.label}</div>
-                  <div className="text-sm text-medium">{time.description}</div>
-                </div>
-                {isSelected && (
-                  <motion.span
-                    initial={reducedMotion ? { scale: 1 } : { scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", ...HOME_HEADER_MOTION.spring }}
+          <div className="space-y-2">
+            {TIME_PREFERENCES.map((time) => {
+              const isSelected = selectedTime === time.value;
+
+              return (
+                <motion.button
+                  key={time.value}
+                  type="button"
+                  onClick={() => setSelectedTime(time.value)}
+                  whileTap={reducedMotion ? undefined : { scale: 0.97 }}
+                  animate={
+                    reducedMotion
+                      ? undefined
+                      : { scale: isSelected ? 1.02 : 1 }
+                  }
+                  transition={
+                    reducedMotion
+                      ? undefined
+                      : { type: "spring", stiffness: 300, damping: 20 }
+                  }
+                  className={cn(
+                    "w-full px-3 py-2.5 border rounded-lg text-left transition-colors flex items-center gap-3",
+                    isSelected
+                      ? "border-[#F78E42] bg-[#F78E42]/10"
+                      : "bg-white/[0.06] border-white/[0.12] hover:bg-white/10"
+                  )}
+                >
+                  {/* Circle radio indicator */}
+                  <div
+                    className={cn(
+                      "w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors",
+                      isSelected
+                        ? "border-[#F78E42] bg-[#F78E42]"
+                        : "border-white/30"
+                    )}
                   >
-                    <CheckCircle2 className="w-6 h-6 text-[#F78E42] flex-shrink-0" />
-                  </motion.span>
-                )}
-              </motion.button>
-            );
-          })}
+                    {isSelected && (
+                      <motion.div
+                        initial={reducedMotion ? { scale: 1 } : { scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", ...HOME_HEADER_MOTION.spring }}
+                        className="w-2 h-2 rounded-full bg-white"
+                      />
+                    )}
+                  </div>
+
+                  <div className="text-2xl flex-shrink-0">{time.emoji}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-white text-sm">{time.label}</div>
+                    <div className="text-xs text-white/50">{time.description}</div>
+                  </div>
+                </motion.button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {/* Navigation Buttons */}
-      <div className="flex gap-3 pt-4">
+      <div className="flex gap-3 pt-2">
         <button
           type="button"
           onClick={prevStep}
-          className="flex-1 py-3 rounded-lg bg-white/10 border border-white/20 text-white font-semibold text-sm hover:bg-white/15 transition-colors"
+          className="flex-1 py-3 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white font-semibold text-sm hover:bg-white/10 transition-colors"
         >
           Back
         </button>
         <button
           type="button"
           onClick={handleSkip}
-          className="flex-1 py-3 text-white/50 hover:text-white/70 text-sm transition-colors"
+          className="flex-1 py-3 text-white/40 hover:text-white/60 text-sm transition-colors"
         >
           Skip
         </button>

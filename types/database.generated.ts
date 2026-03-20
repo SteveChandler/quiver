@@ -1056,6 +1056,10 @@ export type Database = {
           created_at: string
           forecast_source_id: string | null
           ndbc_buoy_ids: string[]
+          youtube_channel_handle: string | null
+          youtube_channel_id: string | null
+          youtube_last_resolved_at: string | null
+          youtube_stream_title_hint: string | null
         }
         Insert: {
           beach_id: string
@@ -1063,6 +1067,10 @@ export type Database = {
           created_at?: string
           forecast_source_id?: string | null
           ndbc_buoy_ids?: string[]
+          youtube_channel_handle?: string | null
+          youtube_channel_id?: string | null
+          youtube_last_resolved_at?: string | null
+          youtube_stream_title_hint?: string | null
         }
         Update: {
           beach_id?: string
@@ -1070,6 +1078,10 @@ export type Database = {
           created_at?: string
           forecast_source_id?: string | null
           ndbc_buoy_ids?: string[]
+          youtube_channel_handle?: string | null
+          youtube_channel_id?: string | null
+          youtube_last_resolved_at?: string | null
+          youtube_stream_title_hint?: string | null
         }
         Relationships: [
           {
@@ -2043,6 +2055,44 @@ export type Database = {
           table_name?: string
         }
         Relationships: []
+      }
+      dev_notes_queue: {
+        Row: {
+          created_at: string
+          id: string
+          polished_text: string | null
+          posted: boolean
+          posted_at: string | null
+          posting_log_id: string | null
+          raw_text: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          polished_text?: string | null
+          posted?: boolean
+          posted_at?: string | null
+          posting_log_id?: string | null
+          raw_text: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          polished_text?: string | null
+          posted?: boolean
+          posted_at?: string | null
+          posting_log_id?: string | null
+          raw_text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_notes_queue_posting_log_id_fkey"
+            columns: ["posting_log_id"]
+            isOneToOne: false
+            referencedRelation: "posting_log"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       digest_run_stats: {
         Row: {
@@ -3537,6 +3587,72 @@ export type Database = {
         }
         Relationships: []
       }
+      posting_config: {
+        Row: {
+          cadence_phase: string
+          created_at: string
+          enabled: boolean
+          id: string
+          last_posted_at: string | null
+          post_type: string
+        }
+        Insert: {
+          cadence_phase?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_posted_at?: string | null
+          post_type: string
+        }
+        Update: {
+          cadence_phase?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_posted_at?: string | null
+          post_type?: string
+        }
+        Relationships: []
+      }
+      posting_log: {
+        Row: {
+          beaches_featured: string[] | null
+          bluesky_uri: string | null
+          content_text: string
+          error_message: string | null
+          id: string
+          image_url: string | null
+          post_type: string
+          posted_at: string
+          success: boolean
+          template_index: number | null
+        }
+        Insert: {
+          beaches_featured?: string[] | null
+          bluesky_uri?: string | null
+          content_text: string
+          error_message?: string | null
+          id?: string
+          image_url?: string | null
+          post_type: string
+          posted_at?: string
+          success?: boolean
+          template_index?: number | null
+        }
+        Update: {
+          beaches_featured?: string[] | null
+          bluesky_uri?: string | null
+          content_text?: string
+          error_message?: string | null
+          id?: string
+          image_url?: string | null
+          post_type?: string
+          posted_at?: string
+          success?: boolean
+          template_index?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           activity_level: string | null
@@ -3577,7 +3693,6 @@ export type Database = {
           phone_number: string | null
           posting_window: Json | null
           preferences_v2_shown_at: string | null
-          level_title: string | null
           preferred_break_type: string | null
           preferred_session_time: string | null
           preferred_wave_size: string | null
@@ -3588,7 +3703,6 @@ export type Database = {
           timezone: string | null
           trust_score: number
           updated_at: string | null
-          xp_total: number | null
         }
         Insert: {
           activity_level?: string | null
@@ -3629,7 +3743,6 @@ export type Database = {
           phone_number?: string | null
           posting_window?: Json | null
           preferences_v2_shown_at?: string | null
-          level_title?: string | null
           preferred_break_type?: string | null
           preferred_session_time?: string | null
           preferred_wave_size?: string | null
@@ -3640,7 +3753,6 @@ export type Database = {
           timezone?: string | null
           trust_score?: number
           updated_at?: string | null
-          xp_total?: number | null
         }
         Update: {
           activity_level?: string | null
@@ -3681,7 +3793,6 @@ export type Database = {
           phone_number?: string | null
           posting_window?: Json | null
           preferences_v2_shown_at?: string | null
-          level_title?: string | null
           preferred_break_type?: string | null
           preferred_session_time?: string | null
           preferred_wave_size?: string | null
@@ -3692,7 +3803,6 @@ export type Database = {
           timezone?: string | null
           trust_score?: number
           updated_at?: string | null
-          xp_total?: number | null
         }
         Relationships: [
           {
@@ -4656,7 +4766,6 @@ export type Database = {
           invitee_ids: string[] | null
           is_public: boolean | null
           likes_count: number | null
-          muted: boolean | null
           notes: string | null
           parking_ease: number | null
           rating: number | null
@@ -4692,7 +4801,6 @@ export type Database = {
           invitee_ids?: string[] | null
           is_public?: boolean | null
           likes_count?: number | null
-          muted?: boolean | null
           notes?: string | null
           parking_ease?: number | null
           rating?: number | null
@@ -4728,7 +4836,6 @@ export type Database = {
           invitee_ids?: string[] | null
           is_public?: boolean | null
           likes_count?: number | null
-          muted?: boolean | null
           notes?: string | null
           parking_ease?: number | null
           rating?: number | null
@@ -5338,6 +5445,7 @@ export type Database = {
       user_events: {
         Row: {
           beach_id: string | null
+          bot_flagged: boolean | null
           created_at: string
           event_type: string
           expires_at: string
@@ -5348,6 +5456,7 @@ export type Database = {
         }
         Insert: {
           beach_id?: string | null
+          bot_flagged?: boolean | null
           created_at?: string
           event_type: string
           expires_at?: string
@@ -5358,6 +5467,7 @@ export type Database = {
         }
         Update: {
           beach_id?: string | null
+          bot_flagged?: boolean | null
           created_at?: string
           event_type?: string
           expires_at?: string
@@ -6155,12 +6265,14 @@ export type Database = {
           air_temperature: string | null
           beach_id: string | null
           confidence_score: number | null
+          coops_station_id: string | null
           created_at: string | null
           data_source: string | null
           forecast_at: string | null
           forecast_date: string | null
           forecast_time: string | null
           id: string | null
+          next_tide_at: string | null
           next_tide_height: string | null
           next_tide_time: string | null
           next_tide_type: string | null
@@ -6189,12 +6301,14 @@ export type Database = {
           air_temperature?: string | null
           beach_id?: string | null
           confidence_score?: number | null
+          coops_station_id?: string | null
           created_at?: string | null
           data_source?: string | null
           forecast_at?: string | null
           forecast_date?: string | null
           forecast_time?: string | null
           id?: string | null
+          next_tide_at?: string | null
           next_tide_height?: string | null
           next_tide_time?: string | null
           next_tide_type?: string | null
@@ -6223,12 +6337,14 @@ export type Database = {
           air_temperature?: string | null
           beach_id?: string | null
           confidence_score?: number | null
+          coops_station_id?: string | null
           created_at?: string | null
           data_source?: string | null
           forecast_at?: string | null
           forecast_date?: string | null
           forecast_time?: string | null
           id?: string | null
+          next_tide_at?: string | null
           next_tide_height?: string | null
           next_tide_time?: string | null
           next_tide_type?: string | null

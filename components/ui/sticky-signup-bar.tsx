@@ -20,6 +20,8 @@ interface StickySignupBarProps {
   supportingText?: string;
   /** Scroll threshold in pixels before showing the bar */
   scrollThreshold?: number;
+  /** Custom context message for the auth modal */
+  contextMessage?: { title: string; description: string };
 }
 
 /**
@@ -39,6 +41,7 @@ export function StickySignupBar({
   ctaText = "Join Free",
   supportingText = "Log sessions, save your spots",
   scrollThreshold = 300,
+  contextMessage,
 }: StickySignupBarProps) {
   const { user, isLoading } = useAuth();
   const reducedMotion = useReducedMotion();
@@ -162,9 +165,9 @@ export function StickySignupBar({
         onClose={() => setAuthModalOpen(false)}
         mode="signup"
         source={`sticky-bar-${source}`}
-        contextMessage={{
-          title: "See Your Match Score",
-          description: "Personalized surf forecasts in 30 seconds",
+        contextMessage={contextMessage ?? {
+          title: "See Your Forecast",
+          description: "Conditions explained clearly in 30 seconds",
         }}
       />
     </>

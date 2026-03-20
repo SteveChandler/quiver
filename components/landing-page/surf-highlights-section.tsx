@@ -4,13 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, useInView, useReducedMotion } from "framer-motion";
 import { SurfSpotCard, SurfSpotCardProps } from "./surf-spot-card";
-import { CONTENT } from "@/lib/constants/features";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, MapPin } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLocationSafe } from "@/context/location-context";
-import { SocialProofBar } from "./social-proof-bar";
 
 interface Beach {
   id: string;
@@ -23,26 +21,37 @@ interface Beach {
   review_count?: number | null;
   skill_level?: string | null;
   score?: number | null;
-  wave_height?: number | null;
+  wave_height?: string | number | null;
 }
 
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
+interface FetchResult {
+  spots: SurfSpotCardProps[];
+  isNearby: boolean;
+}
+
 export function SurfHighlightsSection() {
   const [page, setPage] = useState(0);
   const pageSize = 4;
   const locationCtx = useLocationSafe();
   const location = locationCtx?.location;
-  const coordinates = location?.coordinates ?? null;
+  const hasPreciseLocation = locationCtx?.hasPreciseLocation ?? false;
+  const requestPreciseLocation = locationCtx?.requestPreciseLocation;
+  const locationError = locationCtx?.locationError ?? null;
+  const clearError = locationCtx?.clearError;
+  const [requesting, setRequesting] = useState(false);
+  // Don't use coordinates until location has resolved (avoids race with default SD coords)
+  const coordinates = location && !location.isLoading ? location.coordinates : null;
 
   // Serialize coordinates to a stable string to use as dependency (rounded for privacy + cacheability)
   const coordsKey = coordinates
     ? `${coordinates.lat.toFixed(2)},${coordinates.lon.toFixed(2)}`
     : "";
 
-  const fetchBeaches = useCallback(async (): Promise<SurfSpotCardProps[]> => {
+  const fetchBeaches = useCallback(async (): Promise<FetchResult> => {
     try {
       let url = "/api/beaches/featured";
       if (coordsKey) {
@@ -54,7 +63,9 @@ export function SurfHighlightsSection() {
         throw new Error("Failed to fetch beaches");
       }
       const result = await response.json();
-      const beaches: Beach[] = result.data || result;
+      const payload = result.data || result;
+      const beaches: Beach[] = payload.beaches || payload;
+      const isNearby: boolean = payload.isNearby ?? false;
 
       // Only show beaches with working photos — skip those without.
       // Google Places photo URLs require server-side API key auth and
@@ -74,7 +85,7 @@ export function SurfHighlightsSection() {
             location:
               beach.city && beach.state
                 ? `${beach.city}, ${beach.state}`
-                : beach.city || beach.state || "California",
+                : beach.city || beach.state || "USA",
             slug: beach.slug,
             city: beach.city,
             state: beach.state,
@@ -89,26 +100,20 @@ export function SurfHighlightsSection() {
         })
         .slice(0, 8); // Only take first 8 for display
 
-      return spotCards;
+      return { spots: spotCards, isNearby };
     } catch (error) {
-      return [];
+      return { spots: [], isNearby: false };
     }
   }, [coordsKey]);
 
-  const { data: surfSpots, loading, refetch } = useDataFetcher(fetchBeaches);
+  const locationLoading = location?.isLoading !== false;
+  const { data: fetchResult, loading } = useDataFetcher(fetchBeaches, { skip: locationLoading });
+  const surfSpots = fetchResult?.spots ?? null;
+  const isNearby = fetchResult?.isNearby ?? false;
 
   const sectionRef = useRef<HTMLElement>(null);
   const isInView = useInView(sectionRef, { once: true, amount: 0.2 });
   const shouldReduceMotion = useReducedMotion();
-
-  // Re-fetch when coordinates resolve (useDataFetcher only fires on mount)
-  const initialCoordsRef = useRef(coordsKey);
-  useEffect(() => {
-    if (coordsKey && coordsKey !== initialCoordsRef.current) {
-      initialCoordsRef.current = coordsKey;
-      refetch();
-    }
-  }, [coordsKey, refetch]);
 
   const total = surfSpots?.length ?? 0;
   const pageCount = useMemo(() => {
@@ -139,32 +144,64 @@ export function SurfHighlightsSection() {
 
   const easeOutQuart: [number, number, number, number] = [0.25, 1, 0.5, 1];
 
+  const handleRequestLocation = async () => {
+    if (!requestPreciseLocation) return;
+    clearError?.();
+    setRequesting(true);
+    try {
+      await requestPreciseLocation();
+    } finally {
+      setRequesting(false);
+    }
+  };
+
   return (
     <section
       ref={sectionRef}
       className="pt-16 pb-8 md:pt-24 md:pb-10 bg-[#252D6B] noise-texture border-t border-white/[0.06]"
     >
       <div className="max-w-7xl mx-auto px-6">
-        {/* Social proof — dynamic community stats */}
-        <div className="mb-10">
-          <SocialProofBar />
+        {/* Section header */}
+        <div className="mb-10 md:mb-12">
+          <motion.h2
+            className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold text-white text-left"
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
+            animate={
+              shouldReduceMotion
+                ? {}
+                : { opacity: isInView ? 1 : 0, y: isInView ? 0 : 16 }
+            }
+            transition={{ duration: 0.5, ease: easeOutQuart }}
+          >
+            {isNearby ? "Local surf favorites near you" : "Popular surf spots"}
+          </motion.h2>
+
+          {!hasPreciseLocation && requestPreciseLocation && !loading && !locationLoading && (
+            <motion.div
+              className="mt-3 flex items-center gap-3 flex-wrap"
+              initial={shouldReduceMotion ? false : { opacity: 0 }}
+              animate={shouldReduceMotion ? {} : { opacity: isInView ? 1 : 0 }}
+              transition={{ duration: 0.4, ease: easeOutQuart, delay: 0.2 }}
+            >
+              <button
+                type="button"
+                onClick={handleRequestLocation}
+                disabled={requesting}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-white/[0.08] text-[#9AABC6] hover:bg-white/[0.14] hover:text-white border border-white/[0.1] transition-all duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
+              >
+                <MapPin size={14} />
+                {requesting ? "Locating\u2026" : "Show spots near me"}
+              </button>
+              {locationError && (
+                <span role="alert" className="text-sm text-amber-400/80">
+                  {locationError}
+                </span>
+              )}
+            </motion.div>
+          )}
         </div>
 
-        {/* Section header */}
-        <motion.h2
-          className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold text-white mb-10 md:mb-12 text-left"
-          initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
-          animate={
-            shouldReduceMotion
-              ? {}
-              : { opacity: isInView ? 1 : 0, y: isInView ? 0 : 16 }
-          }
-          transition={{ duration: 0.5, ease: easeOutQuart }}
-        >
-          {CONTENT.sections.surfHighlights.title}
-        </motion.h2>
-
-        {loading ? (
+        {loading || locationLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[...Array(4)].map((_, i) => (
               <Skeleton key={i} className="h-80 rounded-2xl bg-white/[0.06]" />

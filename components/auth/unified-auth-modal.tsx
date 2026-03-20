@@ -130,7 +130,7 @@ export function UnifiedAuthModal({
   enablePassword = true,
   enableOAuth = true,
 }: UnifiedAuthModalProps) {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -235,12 +235,12 @@ export function UnifiedAuthModal({
     };
   };
 
-  // Track modal open event
+  // Track modal open event — only for anonymous users (pre-auth funnel)
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !user) {
       trackAuthModalOpened({ mode, source });
     }
-  }, [isOpen, mode, source]);
+  }, [isOpen, mode, source, user]);
 
   // Store returnTo in localStorage when provided
   useEffect(() => {
@@ -446,7 +446,9 @@ export function UnifiedAuthModal({
     authActionTakenRef.current = true;
     trackAuthMethodSelected({ method: "password", mode: activeMode });
     trackAuthProviderSelected({ provider: "email_password", mode: activeMode, source });
-    trackSignupFormSubmitted({ mode: activeMode, source });
+    if (!user) {
+      trackSignupFormSubmitted({ mode: activeMode, source });
+    }
     const start = Date.now();
 
     try {

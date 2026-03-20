@@ -50,9 +50,9 @@ export function HomePageStructuredData() {
   const homePageData = {
     "@context": "https://schema.org",
     "@type": "WebPage",
-    name: "Quiver — Surf Reports, Forecasts & Conditions",
+    name: "Quiver — Free Surf Reports, Forecasts & Conditions",
     description:
-      "ML-powered surf forecasts, crowd intelligence, and personalized surf windows for 185+ beaches. Updated every 3 hours with live buoy data.",
+      "Free surf reports and forecasts for 279+ beaches. Tide charts, crowd data & best-time-to-surf windows. Updated every 3 hours with live buoy data.",
     url: siteUrl,
     mainEntity: {
       "@type": "SoftwareApplication",

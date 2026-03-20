@@ -20,6 +20,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { withApprovedPhotos } from "@/lib/supabase/query-builders";
 import {
   EXCLUDED_BEACH_IDS,
+  EXPANDED_SEARCH_RADII,
   FEATURED_BEACHES_LIMIT,
   FEATURED_BEACHES_RADIUS_MILES,
   MIN_NEARBY_RESULTS,
@@ -53,8 +54,8 @@ export interface EnrichedBeach {
   skill_level: string | null;
   photo_url: string | null | undefined;
   has_real_photo: boolean;
-  score?: number | null;        // Current forecast score (0-100)
-  wave_height?: number | null;  // Current wave height in feet
+  score?: number | null;                // Current forecast score (0-100)
+  wave_height?: string | number | null;  // Current wave height (raw string from forecast, e.g. "2.8")
 }
 
 const HTTP_URL_REGEX = /^https?:\/\//i;
@@ -275,13 +276,18 @@ function filterByProximity(
  *
  * @returns Promise resolving to array of enriched beach objects (up to FEATURED_BEACHES_LIMIT)
  */
-async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<EnrichedBeach[]> {
+export interface FeaturedBeachesResult {
+  beaches: EnrichedBeach[];
+  isNearby: boolean;
+}
+
+async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<FeaturedBeachesResult> {
   try {
     const supabase = await createSupabaseServerClient();
 
     if (!supabase) {
       console.error("Failed to initialize Supabase client");
-      return [];
+      return { beaches: [], isNearby: false };
     }
 
     // Step 1: Parallel fetch - photos and all candidate beaches at once
@@ -296,11 +302,15 @@ async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<En
       photosQuery = photosQuery.not("beach_id", "in", `(${EXCLUDED_BEACH_IDS.join(",")})`);
     }
 
-    const beachesQuery = supabase
+    let beachesQuery = supabase
       .from("beaches")
       .select("id, name, city, state, slug, average_rating, review_count, skill_level, lat, lon")
-      .eq("is_private", false)
-      .limit(FEATURED_BEACHES_LIMIT * 3); // Fetch extra for filtering
+      .eq("is_private", false);
+
+    // When no coordinates, limit for performance; with coordinates, fetch all for proximity filtering
+    if (!options?.coordinates) {
+      beachesQuery = beachesQuery.limit(FEATURED_BEACHES_LIMIT * 3);
+    }
 
     // Execute both queries in parallel
     const [photosResult, beachesResult] = await Promise.all([
@@ -313,7 +323,7 @@ async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<En
     }
     if (beachesResult.error) {
       console.error("Database error fetching beaches:", beachesResult.error);
-      return [];
+      return { beaches: [], isNearby: false };
     }
 
     // Step 2: Build photos map (one photo per beach)
@@ -372,7 +382,7 @@ async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<En
     // Step 6: When user coordinates are available, filter to nearby beaches
     const userCoords = options?.coordinates;
     if (!userCoords) {
-      return globalList;
+      return { beaches: globalList, isNearby: false };
     }
 
     const radiusMiles = options?.radiusMiles ?? FEATURED_BEACHES_RADIUS_MILES;
@@ -385,12 +395,30 @@ async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<En
       FEATURED_BEACHES_LIMIT
     );
 
-    // Fall back to global list if too few nearby results
-    return nearby.length < MIN_NEARBY_RESULTS ? globalList : nearby;
+    // If initial radius finds enough beaches with photos, use them
+    const nearbyWithPhotos = nearby.filter((b) => b.has_real_photo);
+    if (nearbyWithPhotos.length >= MIN_NEARBY_RESULTS) {
+      return { beaches: nearby, isNearby: true };
+    }
+
+    // Expand radius progressively to find closest beaches
+    // (e.g., DC → OBX at ~300mi, Atlanta → FL at ~500mi)
+    for (const expandedRadius of EXPANDED_SEARCH_RADII) {
+      if (expandedRadius <= radiusMiles) continue; // skip radii we've already covered
+      const expanded = filterByProximity(
+        allDeduped, coordinatesById, userCoords, expandedRadius, FEATURED_BEACHES_LIMIT
+      );
+      const expandedWithPhotos = expanded.filter((b) => b.has_real_photo);
+      if (expandedWithPhotos.length >= MIN_NEARBY_RESULTS) {
+        return { beaches: expanded, isNearby: true };
+      }
+    }
+
+    // Only fall back to global list if even max radius finds nothing (e.g., landlocked midwest)
+    return { beaches: globalList, isNearby: false };
   } catch (error) {
     console.error("Error fetching featured beaches:", error);
-    // Return empty array for graceful degradation
-    return [];
+    return { beaches: [], isNearby: false };
   }
 }
 
@@ -402,7 +430,7 @@ async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<En
  *
  * Note: Wrapped in try/catch to be resilient in test environments where Next cache may not be available.
  */
-export async function getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<EnrichedBeach[]> {
+export async function getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<FeaturedBeachesResult> {
   // When coordinates are provided, bypass cache to avoid cache key explosion per unique lat/lon
   if (options?.coordinates) {
     return await _getFeaturedBeaches(options);

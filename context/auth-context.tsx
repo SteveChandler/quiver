@@ -211,7 +211,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }, AUTH_INIT_TIMEOUT_MS);
 
       try {
-        const {
+        let {
           data: { session },
           error,
         } = await supabase.auth.getSession();
@@ -223,6 +223,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (error && process.env.NODE_ENV === "development") {
           console.error("AuthContext: Error during initialization:", error);
+        }
+
+        // Force session refresh after OAuth redirect
+        // iOS Safari may not fire onAuthStateChange if cookies were set
+        // during cross-origin redirect. Detect via cookie presence.
+        if (!session && typeof window !== "undefined") {
+          const hasAuthCookies = document.cookie.includes("sb-");
+          const justRedirected = sessionStorage.getItem(
+            "pending_signup_metadata",
+          );
+
+          if (hasAuthCookies || justRedirected) {
+            const {
+              data: { session: refreshedSession },
+            } = await supabase.auth.getSession();
+            if (refreshedSession) {
+              session = refreshedSession;
+            }
+          }
+        }
+
+        // Check if we just completed an OAuth callback
+        // The auth callback route sets a short-lived marker cookie so the client
+        // knows to force-refresh auth state (handles iOS Safari cookie race)
+        if (typeof window !== "undefined") {
+          const hasCallbackMarker = document.cookie.includes(
+            "auth_callback_completed",
+          );
+          if (hasCallbackMarker && !session) {
+            document.cookie =
+              "auth_callback_completed=; max-age=0; path=/";
+            const {
+              data: { session: freshSession },
+            } = await supabase.auth.getSession();
+            if (freshSession) {
+              session = freshSession;
+            }
+          }
         }
 
         // Update auth state regardless of error - session might still be valid
@@ -340,6 +378,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                       extra: { userId: session.user.id },
                     });
                   });
+
+                  // Send new-user alert to founder (fire and forget)
+                  fetch("/api/admin/new-user-alert", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      method:
+                        session.user.app_metadata?.provider || "unknown",
+                      viewportWidth:
+                        typeof window !== "undefined"
+                          ? window.innerWidth
+                          : undefined,
+                      entryPage:
+                        typeof window !== "undefined"
+                          ? window.location.pathname // eslint-disable-line no-restricted-properties -- reading pathname for analytics, not navigating
+                          : undefined,
+                    }),
+                    keepalive: true,
+                  }).catch(() => {});
                 }
               }
 

@@ -222,9 +222,9 @@ export function MLPipelineShowcase() {
           source="ml-pipeline-showcase"
           returnTo={pathname}
           contextMessage={{
-            title: "Unlock Your Match Scores",
+            title: "See Your Forecast",
             description:
-              "Create a free account to see personalized match scores for every beach near you.",
+              "Create a free account to see conditions explained clearly at every beach near you.",
           }}
         />
       )}

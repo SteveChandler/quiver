@@ -32,6 +32,14 @@ jest.mock('@/lib/supabase/server', () => ({
 const TEST_SECRET = 'test-secret-key-that-is-at-least-32-characters-long';
 const VALID_BEACH_UUID = 'a1b2c3d4-e5f6-4890-abcd-ef1234567890';
 
+/** A recent date (yesterday) that's always within the 7-day validity window. */
+function recentDate(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+const RECENT_DATE = recentDate();
+
 describe('GET /session/confirm', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -52,7 +60,7 @@ describe('GET /session/confirm', () => {
         TEST_SECRET
       );
       const request = new NextRequest(
-        `http://localhost:3000/session/confirm?token=${token}&date=2026-03-10`
+        `http://localhost:3000/session/confirm?token=${token}&date=${RECENT_DATE}`
       );
 
       const response = await GET(request);
@@ -95,7 +103,7 @@ describe('GET /session/confirm', () => {
     it('returns error when beach_id is not a valid UUID', async () => {
       const { GET } = await import('@/app/session/confirm/route');
       const request = new NextRequest(
-        'http://localhost:3000/session/confirm?token=sometoken&beach_id=not-a-uuid&date=2026-03-10'
+        `http://localhost:3000/session/confirm?token=sometoken&beach_id=not-a-uuid&date=${RECENT_DATE}`
       );
 
       const response = await GET(request);
@@ -110,7 +118,7 @@ describe('GET /session/confirm', () => {
     it('returns error when token is missing', async () => {
       const { GET } = await import('@/app/session/confirm/route');
       const request = new NextRequest(
-        `http://localhost:3000/session/confirm?beach_id=${VALID_BEACH_UUID}&date=2026-03-10`
+        `http://localhost:3000/session/confirm?beach_id=${VALID_BEACH_UUID}&date=${RECENT_DATE}`
       );
 
       const response = await GET(request);
@@ -123,7 +131,7 @@ describe('GET /session/confirm', () => {
     it('returns error for an invalid token', async () => {
       const { GET } = await import('@/app/session/confirm/route');
       const request = new NextRequest(
-        `http://localhost:3000/session/confirm?token=not-a-valid-jwt&beach_id=${VALID_BEACH_UUID}&date=2026-03-10`
+        `http://localhost:3000/session/confirm?token=not-a-valid-jwt&beach_id=${VALID_BEACH_UUID}&date=${RECENT_DATE}`
       );
 
       const response = await GET(request);
@@ -140,7 +148,7 @@ describe('GET /session/confirm', () => {
         TEST_SECRET
       );
       const request = new NextRequest(
-        `http://localhost:3000/session/confirm?token=${token}&beach_id=${VALID_BEACH_UUID}&date=2026-03-10`
+        `http://localhost:3000/session/confirm?token=${token}&beach_id=${VALID_BEACH_UUID}&date=${RECENT_DATE}`
       );
 
       const response = await GET(request);
@@ -154,7 +162,7 @@ describe('GET /session/confirm', () => {
       delete process.env.EMAIL_TOKEN_SECRET;
       const { GET } = await import('@/app/session/confirm/route');
       const request = new NextRequest(
-        `http://localhost:3000/session/confirm?token=some-token&beach_id=${VALID_BEACH_UUID}&date=2026-03-10`
+        `http://localhost:3000/session/confirm?token=some-token&beach_id=${VALID_BEACH_UUID}&date=${RECENT_DATE}`
       );
 
       const response = await GET(request);
@@ -232,7 +240,7 @@ describe('GET /session/confirm', () => {
         TEST_SECRET
       );
       const request = new NextRequest(
-        `http://localhost:3000/session/confirm?token=${token}&beach_id=${VALID_BEACH_UUID}&date=2026-03-10`
+        `http://localhost:3000/session/confirm?token=${token}&beach_id=${VALID_BEACH_UUID}&date=${RECENT_DATE}`
       );
 
       const response = await GET(request);
@@ -252,7 +260,7 @@ describe('GET /session/confirm', () => {
         TEST_SECRET
       );
       const request = new NextRequest(
-        `http://localhost:3000/session/confirm?token=${token}&beach_id=${VALID_BEACH_UUID}&date=2026-03-10`
+        `http://localhost:3000/session/confirm?token=${token}&beach_id=${VALID_BEACH_UUID}&date=${RECENT_DATE}`
       );
 
       const response = await GET(request);
@@ -271,7 +279,7 @@ describe('GET /session/confirm', () => {
         TEST_SECRET
       );
       const request = new NextRequest(
-        `http://localhost:3000/session/confirm?token=${token}&beach_id=${VALID_BEACH_UUID}&date=2026-03-10`
+        `http://localhost:3000/session/confirm?token=${token}&beach_id=${VALID_BEACH_UUID}&date=${RECENT_DATE}`
       );
 
       const response = await GET(request);
@@ -293,7 +301,7 @@ describe('GET /session/confirm', () => {
         TEST_SECRET
       );
       const request = new NextRequest(
-        `http://localhost:3000/session/confirm?token=${token}&beach_id=${VALID_BEACH_UUID}&date=2026-03-10`
+        `http://localhost:3000/session/confirm?token=${token}&beach_id=${VALID_BEACH_UUID}&date=${RECENT_DATE}`
       );
 
       const response = await GET(request);
@@ -306,7 +314,7 @@ describe('GET /session/confirm', () => {
       expect(mockInsert).toHaveBeenCalledWith({
         user_id: 'user-123',
         beach_id: VALID_BEACH_UUID,
-        window_start: expect.stringContaining('2026-03-10'),
+        window_start: expect.stringContaining(RECENT_DATE),
         rating: 'good',
         source: 'email',
       });
@@ -321,7 +329,7 @@ describe('GET /session/confirm', () => {
         TEST_SECRET
       );
       const request = new NextRequest(
-        `http://localhost:3000/session/confirm?token=${token}&beach_id=${VALID_BEACH_UUID}&date=2026-03-10`
+        `http://localhost:3000/session/confirm?token=${token}&beach_id=${VALID_BEACH_UUID}&date=${RECENT_DATE}`
       );
 
       const response = await GET(request);

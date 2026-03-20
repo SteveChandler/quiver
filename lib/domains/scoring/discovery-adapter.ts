@@ -15,6 +15,7 @@ import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { DetailedScore } from '@/types/personalization';
 import type { ScorerInput, CompositeScore } from './types';
+import { getDirectionDegrees } from '@/lib/utils/number-parsing';
 import { trackFallback } from '@/lib/monitoring/fallback-tracker';
 import { resolveConfidence } from '@/lib/monitoring/fallback-helpers';
 import type { SpotProfile } from '../spot-profile/types';
@@ -548,46 +549,6 @@ function applyPreferredWaveSizeAdjustment(
 // =============================================================================
 // Helper Functions
 // =============================================================================
-
-/**
- * Get direction in degrees from either numeric or string direction.
- */
-function getDirectionDegrees(
-  deg: number | string | null | undefined,
-  cardinal: string | null | undefined
-): number | null {
-  // If we have numeric degrees
-  if (deg !== null && deg !== undefined) {
-    const numDeg = typeof deg === 'string' ? parseFloat(deg) : deg;
-    if (!isNaN(numDeg)) {
-      return numDeg;
-    }
-  }
-
-  // Fall back to cardinal direction
-  if (!cardinal) return null;
-
-  const cardinalMap: Record<string, number> = {
-    N: 0,
-    NNE: 22.5,
-    NE: 45,
-    ENE: 67.5,
-    E: 90,
-    ESE: 112.5,
-    SE: 135,
-    SSE: 157.5,
-    S: 180,
-    SSW: 202.5,
-    SW: 225,
-    WSW: 247.5,
-    W: 270,
-    WNW: 292.5,
-    NW: 315,
-    NNW: 337.5,
-  };
-
-  return cardinalMap[cardinal.toUpperCase()] ?? null;
-}
 
 /**
  * Parse tide status from string.

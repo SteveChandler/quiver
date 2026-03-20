@@ -87,7 +87,7 @@ export function FeaturesSignupButton({
       >
         {children || (
           <>
-            Get My Forecast
+            See your surf call
             <ArrowRight className="ml-2 h-5 w-5" />
           </>
         )}
@@ -100,9 +100,9 @@ export function FeaturesSignupButton({
           source={authSource}
           returnTo={pathname}
           contextMessage={{
-            title: "Your Personalized Forecast Awaits",
+            title: "Your Surf Call",
             description:
-              "Create an account to unlock match scores for every beach.",
+              "Sign up to see conditions at every beach, explained clearly.",
           }}
         />
       )}
@@ -117,8 +117,8 @@ export function FeaturesStickyBar() {
   return (
     <StickySignupBar
       source="features"
-      ctaText="Get My Forecast"
-      supportingText="Personalized surf forecasts"
+      ctaText="See your surf call"
+      supportingText="Conditions explained clearly"
       scrollThreshold={400}
     />
   );

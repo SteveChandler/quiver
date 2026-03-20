@@ -9,7 +9,6 @@ import {
   isValidStateSlug,
   stateToSlug,
 } from "@/lib/utils/beach-url-utils";
-import { US_STATE_SLUGS } from "@/lib/seo/city-slug-utils";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import {
   generateLocationSlug,
@@ -38,15 +37,6 @@ type BeachLocationRow = {
   country?: string | null;
 };
 
-/**
- * Generate static params for all US states at build time.
- * This pre-renders state pages for faster initial loads.
- */
-export async function generateStaticParams() {
-  // Use the known list of US state slugs
-  const stateSlugs = Object.values(US_STATE_SLUGS);
-  return stateSlugs.map((state) => ({ state }));
-}
 
 export async function generateMetadata(
   props: {

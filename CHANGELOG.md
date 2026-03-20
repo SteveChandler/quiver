@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- YouTube cam self-healing system — cron-based resolver auto-detects rotated YouTube live stream video IDs using channel handles as stable anchors (runs every 6h via Vercel cron)
+- Added Satellite Beach, FL and Pensacola Pier, FL YouTube cams
+- `--youtube-live-check` flag for `validate-cameras.ts` to verify YouTube streams are actually live via Data API
+- Rideable waves per hour metric on beach detail page — predicts catchable wave frequency from swell, break type, and conditions; displayed in ConditionsTicker as "~N waves/hr"
+- Landing page "Show spots near me" button — contextual geolocation prompt in surf highlights section upgrades IP-based location to precise browser coordinates for regionally relevant beach results
+
+### Fixed
+- Nulled out 3 dead YouTube cam URLs (Ala Moana Bowls, Waikiki, Higgins Beach) that were showing "stream not available"
+- Landing page "Popular surf spots" no longer shows CA-only beaches for non-CA users — progressively expands search radius (300→500→1000mi) before falling back to global list
+- Security: restored `security_invoker = true` on `ten_day_enhanced_forecasts` view (was lost when view was recreated without it)
+
+### Performance
+- Dropped 3 duplicate indexes flagged by Supabase performance advisor (`idx_ioos_obs_station_observed`, `idx_templates_lookup`, `idx_templates_freshness`)
+
+### Changed
+- Brand voice rewrite across all CTAs and marketing copy — shifted from product/feature language ("ML Forecasts", "Get Your Match Score") to knowledgeable-friend voice ("Your Surf Call", "See your forecast", "conditions explained clearly")
+- SEO meta strings rewritten to target real search queries ("surf report", "free surf forecast", "surfline alternative") instead of product jargon ("ML-powered", "personalized surf forecast", "AI surf forecast"); standardized beach count to 279+
+- Brand guide updated with brand essence, audience brief, Dawn Patrol color palette, competitive positioning, personality traits, and voice guidelines
+- Rideable waves/hr calculator now factors in tide height (cosine-curve degradation toward break-type-specific floors) and tide direction (sensitivity-based penalties for mismatch/slack) — reef breaks at wrong tide can drop to ~18% of optimal
+- Rideable waves/hr calculator generalized to three-swell pairwise beat frequency analysis — wind wave component now contributes to grouping math, not just height; additional pairs add independent wave events weighted by energy (0.3 independence factor)
+- Scored forecast API and conditions mapper now expose `swellTrains` (1-3) and `dominantBeatIntervalS` for downstream display
+- SEO: state browse pages (`/beaches/usa/ca`) now show Beginner/Tides/Water Temp intent pill links per city for crawler discovery of city intent pages
+- SEO: `getTopCitiesInState` default limit raised from 8 to 100 so all qualifying cities are returned for crawl discovery (backwards-compatible — pass a lower value when a small subset is needed)
+- SEO: `PopularCitiesForIntent` on state intent pages now shows a two-tier layout — top 8 cities in the existing prominent grid, remaining cities in a compact 3–4 column grid below a labeled divider; all links are always server-rendered (no accordion/collapse) for full crawler visibility
+
+### Added
+- GEO: `sameAs` (Bluesky, X/Twitter), `founder`, and `areaServed` fields on Organization structured data for AI citation attribution
+- GEO: `llms-full.txt` with Q&A pairs, ML accuracy stats, coverage data, competitive positioning, and founder story for AI crawler ingestion
+- GEO: explicit AI crawler rules in robots.txt — allow GPTBot, ChatGPT-User, OAI-SearchBot, ClaudeBot, PerplexityBot; block Bytespider; crawl-delay on training-capable bots
+- GEO: server-rendered prose summary on beach detail pages — natural-language conditions block visible in initial HTML for AI crawlers
+- GEO: SSR conversion of About page — all content now server-rendered (was entirely client-rendered and invisible to crawlers)
+- GEO: SSR conversion of Features page — static content server-rendered with interactive elements (auth modal, scroll tracking) extracted to thin client components
+
+### Added
+- Activation: post-signup redirect to home beach page — after onboarding, users land on their home beach's forecast page (`/ca/san-diego/ocean-beach`) instead of the generic home feed, reducing time-to-value
+- Activation: dynamic teaser copy on surf-call gate CTA — anonymous users see actual best-window time and wave height from forecast data (e.g., "Best window starts at 7:00 AM at 4.2ft"), creating urgency to sign up
+- Polish: entrance choreography on PublicContentGate (signup CTA) — staggered fade-in of waves icon, title, description, and CTA button with hover/press feedback and gentle icon rocking animation
+- Polish: payoff step enhancements — CTA button pulse glow, score counter scale pop on finish, XP badge sticker-slap entrance with rotation
+- Polish: scroll-triggered animations on /vs/surfline comparison page — fade-in sections, sticker badge scale-in, price count-up from $0 to $99.99, and pulsing ring on Quiver's $0 card; uses CSS transitions + Intersection Observer (no framer-motion) for minimal bundle impact
+- All new animations respect `prefers-reduced-motion` with CSS media queries and framer-motion's `useReducedMotion`
+
+### Changed
+- Growth: hide empty social features to prevent isolation signals — ActivityFeed (Oracle), ReferralLeaderboard (profile), UserSocialStats (0/0 followers), RecentSessions (beach detail), and UnifiedCommunityFeed all return null when empty instead of showing discouraging empty states
+
+### Added
+- Scripts: `scripts/validate-cameras.ts` — camera health validation script for the `cam-health` dashboard skill
+
+### Fixed
+- Landing page: fixed horizontal overflow on mobile caused by decorative glow effects extending beyond viewport
+- Stats: `app-stats` signup funnel now uses correct event name `signup_success` (was `signup_completed` which never matched)
+- Stats: `app-stats` and `growth-metrics` event queries now filter `bot_flagged` events, preventing bot traffic from inflating metrics
+- Stats: `app-stats` signup funnel now tracks 8 new auth funnel event types (auth_modal_opened, auth_method_selected, etc.)
+- Stats: `app-stats` Q16 onboarding query fixed COALESCE type mismatch (session_id uuid needs `::text` cast)
+- Stats: `ml-stats` rewritten from nonexistent script dependency to direct psql queries
+- Stats: `dashboard` query count corrected from 14 to 17 for app-stats
+
 ### Changed
 - SEO: state browse pages (`/beaches/usa/ca`) now show Beginner/Tides/Water Temp intent pill links per city for crawler discovery of city intent pages
 - SEO: `getTopCitiesInState` default limit raised from 8 to 100 so all qualifying cities are returned for crawl discovery (backwards-compatible — pass a lower value when a small subset is needed)

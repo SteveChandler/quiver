@@ -7,7 +7,7 @@
  * Runs daily at 18:30 UTC (10:30 AM Pacific), offset 30 min from reengagement.
  *
  * Candidate selection via RPC:
- * 1. Home beach had conditions_score >= 7 yesterday
+ * 1. Home beach had conditions_score >= 70 yesterday
  * 2. User didn't log a session yesterday
  * 3. User hasn't been active in the app today (no user_events)
  * 4. User hasn't received ANY email today (one email per user per day)
@@ -42,7 +42,7 @@ export const maxDuration = 300; // 5 minutes for processing all users
 // ============================================================================
 
 const CONTEXT_TAG = "[session-prompt-email]";
-const MIN_SCORE = 7; // Minimum conditions_score (0-10 scale) to trigger email
+const MIN_SCORE = 70; // Minimum conditions_score (0-100 scale) to trigger email
 const DEDUPE_HOURS = 20; // Cooldown for claim_forecast_delivery_slot dedup
 const ALERT_TYPE = "session_prompt";
 

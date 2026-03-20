@@ -25,20 +25,13 @@ export interface ReengagementEmailProps {
  * Replaces the generic database recommendation with engaging, score-specific messaging.
  */
 function getMotivationalCopy(score: number): string {
-  if (score >= 9) {
+  if (score >= 85) {
     return "This is as good as it gets. Drop what you're doing.";
-  } else if (score >= 8) {
+  } else if (score >= 70) {
     return "Conditions are dialed. Worth rearranging your schedule.";
   } else {
     return "Solid conditions today. A good day to shake off the rust.";
   }
-}
-
-/**
- * Convert 0-10 score to display percentage (0-100)
- */
-function scoreToDisplayPercent(score: number): number {
-  return Math.round(score * 10);
 }
 
 function formatTag(tag: string): string {
@@ -61,7 +54,6 @@ export function ReengagementEmail({
 }: ReengagementEmailProps) {
   const greeting = displayName ? `Hey ${displayName}!` : "Hey there!";
   const { label: conditionLabel, color: conditionColor, emoji } = getConditionLabel(conditionsScore);
-  const displayScore = scoreToDisplayPercent(conditionsScore);
   const motivationalCopy = getMotivationalCopy(conditionsScore);
 
   return (
@@ -71,13 +63,13 @@ export function ReengagementEmail({
         lineHeight: 1.6,
         maxWidth: 600,
         margin: "0 auto",
-        backgroundColor: "#ffffff",
+        backgroundColor: "#1E2456",
       }}
     >
       {/* Header Section */}
       <div
         style={{
-          backgroundColor: "#0066cc",
+          backgroundColor: "#252D6B",
           padding: "24px 20px",
           textAlign: "center" as const,
         }}
@@ -95,13 +87,13 @@ export function ReengagementEmail({
       </div>
 
       {/* Content Section */}
-      <div style={{ padding: "24px 20px" }}>
+      <div style={{ padding: "24px 20px", backgroundColor: "#2D357D" }}>
         {/* Greeting */}
-        <p style={{ fontSize: 16, margin: "0 0 16px 0" }}>
+        <p style={{ fontSize: 16, margin: "0 0 16px 0", color: "#ffffff" }}>
           {greeting}
         </p>
 
-        <p style={{ fontSize: 16, margin: "0 0 20px 0", color: "#333333" }}>
+        <p style={{ fontSize: 16, margin: "0 0 20px 0", color: "#ffffff" }}>
           We noticed you haven&apos;t been in the water lately. Good news though &mdash;{" "}
           <strong>{beachName}</strong> is looking great today!
         </p>
@@ -129,7 +121,7 @@ export function ReengagementEmail({
                 lineHeight: 1,
               }}
             >
-              {displayScore}
+              {conditionsScore}
             </div>
             <div
               style={{
@@ -159,9 +151,9 @@ export function ReengagementEmail({
                 <td
                   style={{
                     padding: "12px 16px",
-                    borderBottom: "1px solid #e5e5e5",
+                    borderBottom: "1px solid #404C92",
                     fontWeight: "bold",
-                    color: "#555555",
+                    color: "rgba(255,255,255,0.6)",
                     width: "35%",
                   }}
                 >
@@ -170,8 +162,8 @@ export function ReengagementEmail({
                 <td
                   style={{
                     padding: "12px 16px",
-                    borderBottom: "1px solid #e5e5e5",
-                    color: "#333333",
+                    borderBottom: "1px solid #404C92",
+                    color: "#ffffff",
                   }}
                 >
                   {surfDescription}
@@ -183,9 +175,9 @@ export function ReengagementEmail({
                 <td
                   style={{
                     padding: "12px 16px",
-                    borderBottom: "1px solid #e5e5e5",
+                    borderBottom: "1px solid #404C92",
                     fontWeight: "bold",
-                    color: "#555555",
+                    color: "rgba(255,255,255,0.6)",
                   }}
                 >
                   Wind
@@ -193,8 +185,8 @@ export function ReengagementEmail({
                 <td
                   style={{
                     padding: "12px 16px",
-                    borderBottom: "1px solid #e5e5e5",
-                    color: "#333333",
+                    borderBottom: "1px solid #404C92",
+                    color: "#ffffff",
                   }}
                 >
                   {windDescription}
@@ -206,9 +198,9 @@ export function ReengagementEmail({
                 <td
                   style={{
                     padding: "12px 16px",
-                    borderBottom: "1px solid #e5e5e5",
+                    borderBottom: "1px solid #404C92",
                     fontWeight: "bold",
-                    color: "#555555",
+                    color: "rgba(255,255,255,0.6)",
                   }}
                 >
                   Best Window
@@ -216,8 +208,8 @@ export function ReengagementEmail({
                 <td
                   style={{
                     padding: "12px 16px",
-                    borderBottom: "1px solid #e5e5e5",
-                    color: "#333333",
+                    borderBottom: "1px solid #404C92",
+                    color: "#ffffff",
                   }}
                 >
                   {bestWindow.start} - {bestWindow.end}
@@ -230,13 +222,13 @@ export function ReengagementEmail({
         {/* Motivational Copy */}
         <div
           style={{
-            backgroundColor: "#f5f9ff",
+            backgroundColor: "#354090",
             padding: "16px 20px",
-            borderLeft: "4px solid #0066cc",
+            borderLeft: "4px solid #F78E42",
             borderRadius: "0 8px 8px 0",
             marginBottom: 24,
             fontStyle: "italic",
-            color: "#333333",
+            color: "#ffffff",
           }}
         >
           &ldquo;{motivationalCopy}&rdquo;
@@ -249,7 +241,7 @@ export function ReengagementEmail({
               style={{
                 fontSize: 14,
                 fontWeight: "bold",
-                color: "#0066cc",
+                color: "#4A70D9",
                 margin: "0 0 12px 0",
                 textTransform: "uppercase" as const,
                 letterSpacing: "0.5px",
@@ -261,7 +253,7 @@ export function ReengagementEmail({
               <div
                 key={intel.id}
                 style={{
-                  backgroundColor: "#f9fafb",
+                  backgroundColor: "#354090",
                   padding: "12px 16px",
                   borderRadius: 8,
                   marginBottom: 8,
@@ -270,8 +262,8 @@ export function ReengagementEmail({
                 <span
                   style={{
                     display: "inline-block",
-                    backgroundColor: "#e5e7eb",
-                    color: "#374151",
+                    backgroundColor: "#404C92",
+                    color: "rgba(255,255,255,0.87)",
                     fontSize: 11,
                     fontWeight: "bold",
                     padding: "2px 8px",
@@ -281,7 +273,7 @@ export function ReengagementEmail({
                 >
                   {formatTag(intel.tag)}
                 </span>
-                <span style={{ color: "#333333", fontSize: 14 }}>
+                <span style={{ color: "#ffffff", fontSize: 14 }}>
                   {intel.description}
                 </span>
               </div>
@@ -294,7 +286,7 @@ export function ReengagementEmail({
           <a
             href={ctaUrl}
             style={{
-              backgroundColor: "#0066cc",
+              backgroundColor: "#F78E42",
               color: "#ffffff",
               padding: "14px 28px",
               textDecoration: "none",
@@ -313,7 +305,7 @@ export function ReengagementEmail({
           <p
             style={{
               fontSize: 14,
-              color: "#666666",
+              color: "rgba(255,255,255,0.6)",
               margin: "0 0 12px 0",
             }}
           >
@@ -322,15 +314,15 @@ export function ReengagementEmail({
           <a
             href={logSessionUrl}
             style={{
-              backgroundColor: "#ffffff",
-              color: "#0066cc",
+              backgroundColor: "transparent",
+              color: "#4A70D9",
               padding: "12px 24px",
               textDecoration: "none",
               borderRadius: 8,
               display: "inline-block",
               fontSize: 14,
               fontWeight: "bold",
-              border: "2px solid #0066cc",
+              border: "2px solid #4A70D9",
             }}
           >
             Log Your Session
@@ -341,7 +333,7 @@ export function ReengagementEmail({
       {/* Footer */}
       <div
         style={{
-          borderTop: "1px solid #e5e5e5",
+          borderTop: "1px solid #404C92",
           padding: "20px",
           textAlign: "center" as const,
         }}
@@ -349,7 +341,7 @@ export function ReengagementEmail({
         <p
           style={{
             fontSize: 12,
-            color: "#666666",
+            color: "rgba(255,255,255,0.6)",
             margin: "0 0 8px 0",
           }}
         >
@@ -360,7 +352,7 @@ export function ReengagementEmail({
           href={unsubscribeUrl}
           style={{
             fontSize: 12,
-            color: "#0066cc",
+            color: "#4A70D9",
             textDecoration: "underline",
           }}
         >

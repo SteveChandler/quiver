@@ -46,7 +46,7 @@ async function featuredBeachesHandler(request: NextRequest) {
       }
     }
 
-    const beaches = await getFeaturedBeaches(
+    const { beaches, isNearby } = await getFeaturedBeaches(
       coordinates ? { coordinates } : undefined
     );
 
@@ -67,13 +67,21 @@ async function featuredBeachesHandler(request: NextRequest) {
       const minimalBeach = { id: beach.id, name: beach.name } as any;
       const score = calculateDayScore(forecasts, minimalBeach);
 
-      // Extract wave height from the most recent forecast
-      const waveHeight = parseFloat(forecasts[0]?.wave_height || "0");
+      // Select the forecast closest to now (not the earliest in the window)
+      const now = Date.now();
+      const currentForecast = forecasts.reduce((closest, f) => {
+        const closestDiff = Math.abs(Date.parse(closest.forecast_at) - now);
+        const fDiff = Math.abs(Date.parse(f.forecast_at) - now);
+        return fDiff < closestDiff ? f : closest;
+      }, forecasts[0]);
+
+      // Pass the raw wave_height string (e.g. "2.8") — no parseFloat + variance inflation
+      const rawHeight = currentForecast?.wave_height ?? null;
 
       return {
         ...beach,
         score: score > 0 ? score : null,
-        wave_height: waveHeight > 0 ? waveHeight : null,
+        wave_height: rawHeight,
       };
     });
 
@@ -87,13 +95,13 @@ async function featuredBeachesHandler(request: NextRequest) {
 
     // Short cache for forecast-enriched data (2 minutes for personalized, 5 minutes otherwise)
     if (coordinates) {
-      return createSuccessResponse(enrichedBeaches);
+      return createSuccessResponse({ beaches: enrichedBeaches, isNearby });
     }
-    return await createCachedResponse(enrichedBeaches, CacheDuration.SHORT);
+    return await createCachedResponse({ beaches: enrichedBeaches, isNearby }, CacheDuration.SHORT);
   } catch (error) {
     console.error("Error fetching featured beaches:", error);
     // Return empty array rather than error for graceful degradation
-    return createSuccessResponse([]);
+    return createSuccessResponse({ beaches: [], isNearby: false });
   }
 }
 

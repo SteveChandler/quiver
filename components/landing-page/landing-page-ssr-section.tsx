@@ -24,7 +24,7 @@ import { QuiverFAQSchema } from "@/components/seo/faq-schema";
  */
 export async function LandingPageSSRSection() {
   // Fetch beaches server-side - this happens on every request
-  const beaches = await getFeaturedBeaches();
+  const { beaches } = await getFeaturedBeaches();
 
   return (
     <>

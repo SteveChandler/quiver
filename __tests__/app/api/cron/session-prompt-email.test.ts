@@ -215,7 +215,7 @@ describe("Session Prompt Email Cron Job API", () => {
       await GET(request);
 
       expect(mockRpc).toHaveBeenCalledWith("get_session_prompt_candidates", {
-        p_min_score: 7,
+        p_min_score: 70,
       });
     });
 
@@ -245,7 +245,7 @@ describe("Session Prompt Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Test Beach 1",
           beach_slug: "test-beach-1",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Clean 3-4ft",
         },
         {
@@ -255,7 +255,7 @@ describe("Session Prompt Email Cron Job API", () => {
           home_beach_id: "beach-2",
           beach_name: "Test Beach 2",
           beach_slug: "test-beach-2",
-          conditions_score: 8,
+          conditions_score: 80,
           surf_description: "Solid 2-3ft",
         },
       ];
@@ -292,7 +292,7 @@ describe("Session Prompt Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Test Beach",
           beach_slug: "test-beach",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Clean 3-4ft",
         },
       ];
@@ -327,7 +327,7 @@ describe("Session Prompt Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Test Beach",
           beach_slug: "test-beach",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Clean 3-4ft",
         },
       ];
@@ -360,7 +360,7 @@ describe("Session Prompt Email Cron Job API", () => {
           home_beach_id: "beach-456",
           beach_name: "Test Beach",
           beach_slug: "test-beach",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Clean 3-4ft",
         },
       ];
@@ -397,7 +397,7 @@ describe("Session Prompt Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Ocean Beach",
           beach_slug: "ocean-beach",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Clean 3-4ft",
         },
       ];
@@ -433,7 +433,7 @@ describe("Session Prompt Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Ocean Beach",
           beach_slug: "ocean-beach",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Clean 3-4ft",
         },
       ];
@@ -456,7 +456,7 @@ describe("Session Prompt Email Cron Job API", () => {
       const callArgs = SessionPromptEmail.mock.calls[0][0];
       expect(callArgs.displayName).toBe("John Doe");
       expect(callArgs.beachName).toBe("Ocean Beach");
-      expect(callArgs.conditionsScore).toBe(9);
+      expect(callArgs.conditionsScore).toBe(90);
       expect(callArgs.surfDescription).toBe("Clean 3-4ft");
       expect(callArgs.unsubscribeUrl).toBe("https://quiversurf.app/settings");
       // confirmUrl and skipUrl are signed tokens — verify structure only
@@ -475,7 +475,7 @@ describe("Session Prompt Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Test Beach",
           beach_slug: "test-beach",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Clean 3-4ft",
         },
       ];
@@ -510,7 +510,7 @@ describe("Session Prompt Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Test Beach",
           beach_slug: "test-beach",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Clean 3-4ft",
         },
       ];
@@ -548,7 +548,7 @@ describe("Session Prompt Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Test Beach",
           beach_slug: "test-beach",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Clean 3-4ft",
         },
       ];
@@ -584,7 +584,7 @@ describe("Session Prompt Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Test Beach 1",
           beach_slug: "test-beach-1",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Test",
         },
         {
@@ -594,7 +594,7 @@ describe("Session Prompt Email Cron Job API", () => {
           home_beach_id: "beach-2",
           beach_name: "Test Beach 2",
           beach_slug: "test-beach-2",
-          conditions_score: 8,
+          conditions_score: 80,
           surf_description: "Test",
         },
       ];
@@ -624,7 +624,7 @@ describe("Session Prompt Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Test Beach",
           beach_slug: "test-beach",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Clean 3-4ft",
         },
       ];
@@ -648,7 +648,7 @@ describe("Session Prompt Email Cron Job API", () => {
         userId: "user-1",
         emailType: "session_prompt",
         subject: "How was your session at Test Beach?",
-        bestScore: 9,
+        bestScore: 90,
         bestBeachId: "beach-1",
         resendMessageId: "mock-resend-id",
         meta: {
@@ -669,7 +669,7 @@ describe("Session Prompt Email Cron Job API", () => {
           home_beach_id: "beach-1",
           beach_name: "Test Beach",
           beach_slug: "test-beach",
-          conditions_score: 9,
+          conditions_score: 90,
           surf_description: "Test",
         },
         {
@@ -679,7 +679,7 @@ describe("Session Prompt Email Cron Job API", () => {
           home_beach_id: "beach-2",
           beach_name: "Test Beach 2",
           beach_slug: "test-beach-2",
-          conditions_score: 8,
+          conditions_score: 80,
           surf_description: "Test",
         },
         {
@@ -689,7 +689,7 @@ describe("Session Prompt Email Cron Job API", () => {
           home_beach_id: "beach-3",
           beach_name: "Test Beach 3",
           beach_slug: "test-beach-3",
-          conditions_score: 7,
+          conditions_score: 70,
           surf_description: "Test",
         },
       ];

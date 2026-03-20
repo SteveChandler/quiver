@@ -23,23 +23,23 @@ interface HowItWorksStep {
 const STEPS: HowItWorksStep[] = [
   {
     number: "01",
-    title: "Tell us your style",
+    title: "Tell us where you surf",
     description:
-      "Skill level, wave preferences, favorite spots. Takes less than 30 seconds.",
+      "Your home beach, what kind of waves you like, how long you've been surfing.",
     Icon: Sliders,
   },
   {
     number: "02",
-    title: "We score every beach",
+    title: "We read the conditions for you",
     description:
-      "Real-time ML analysis of 1,200+ beaches — wave height, wind, tide, and your personal fit.",
+      "Wave height, wind, tide, swell direction — translated into whether it's worth the drive, for you.",
     Icon: Brain,
   },
   {
     number: "03",
-    title: "Surf your best match",
+    title: "Know when to go",
     description:
-      "Personalized top picks with optimal time windows so you never waste a drive.",
+      "Best window today, at your spots, with the conditions explained clearly.",
     Icon: Target,
   },
 ];
@@ -106,11 +106,10 @@ export function HowItWorksSection() {
       {/* Section header */}
       <div className="text-center mb-10 animate-fade-in-up">
         <h2 className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold text-white mb-4">
-          Start surfing smarter in 3 steps
+          How it works
         </h2>
         <p className="text-lg font-sans text-white/60 max-w-2xl mx-auto">
-          Quiver learns what you love and delivers personalized match scores for
-          every beach, every day.
+          Three steps to conditions explained clearly, every morning.
         </p>
       </div>
 
@@ -142,7 +141,7 @@ export function HowItWorksSection() {
             size="lg"
             className="rounded-full px-8"
           >
-            Start in 30 seconds
+            Set up in 30 seconds
           </Button>
         </motion.div>
       )}
@@ -157,7 +156,7 @@ export function HowItWorksSection() {
           contextMessage={{
             title: "Create Your Surf Profile",
             description:
-              "Tell us your style and get personalized match scores for 1,200+ beaches.",
+              "Tell us where you surf and we'll explain your conditions clearly.",
           }}
         />
       )}

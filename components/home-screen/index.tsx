@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/context/auth-context";
 import { useCachedProfile } from "@/hooks/use-cached-profile";
 import { useGeolocation } from "@/hooks/use-geolocation";
+import { useLocationSafe } from "@/context/location-context";
 import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
 import { useTimeSlotPrefetch } from "@/hooks/use-time-slot-prefetch";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -135,6 +136,12 @@ export function HomeScreen() {
     minDistanceChangeMeters: 1000, // 1 km
   });
 
+  // IP-based location from LocationContext (middleware cookie)
+  const locationCtx = useLocationSafe();
+  const ipCoords = locationCtx?.location?.source !== 'default' && !locationCtx?.location?.isLoading
+    ? locationCtx?.location?.coordinates
+    : null;
+
   // Reminder handler for forecast alerts (unified push registration)
   const { enableReminder } = useReminderHandler({
     homeBeachId: homeBeach?.id ?? null,
@@ -179,7 +186,7 @@ export function HomeScreen() {
   const isValidCoordinate = (lat: number, lon: number): boolean =>
     lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
 
-  // Determine coast pulse coordinates (fallback chain: GPS > homeBeach > San Diego)
+  // Determine coast pulse coordinates (fallback chain: GPS > homeBeach > IP location > San Diego)
   const coastPulseCoords = useMemo(() =>
     geoSource === "browser" &&
     !usingDefaultLocation &&
@@ -189,12 +196,14 @@ export function HomeScreen() {
       ? { lat: geoCoords.lat, lon: geoCoords.lon }
       : homeBeach?.lat != null && homeBeach?.lon != null
         ? { lat: homeBeach.lat, lon: homeBeach.lon }
-        : DEFAULT_LOCATION,
-    [geoSource, usingDefaultLocation, geoCoords?.lat, geoCoords?.lon, homeBeach?.lat, homeBeach?.lon]
+        : ipCoords?.lat != null && ipCoords?.lon != null
+          ? { lat: ipCoords.lat, lon: ipCoords.lon }
+          : DEFAULT_LOCATION,
+    [geoSource, usingDefaultLocation, geoCoords?.lat, geoCoords?.lon, homeBeach?.lat, homeBeach?.lon, ipCoords?.lat, ipCoords?.lon]
   );
 
   // Determine seed location for discovery (with validation)
-  // Fallback chain: browser GPS > home beach > default location (San Diego)
+  // Fallback chain: browser GPS > home beach > IP location > default location (San Diego)
   // This ensures users without configured beaches still see nearby recommendations
   const seedDiscoveryLocation = useMemo(() =>
     geoSource === "browser" &&
@@ -207,8 +216,11 @@ export function HomeScreen() {
           homeBeach?.lon != null &&
           isValidCoordinate(homeBeach.lat, homeBeach.lon)
         ? { lat: homeBeach.lat, lon: homeBeach.lon }
-        : DEFAULT_LOCATION,
-    [geoSource, usingDefaultLocation, geoCoords?.lat, geoCoords?.lon, homeBeach?.lat, homeBeach?.lon]
+        : ipCoords?.lat != null && ipCoords?.lon != null &&
+            isValidCoordinate(ipCoords.lat, ipCoords.lon)
+          ? { lat: ipCoords.lat, lon: ipCoords.lon }
+          : DEFAULT_LOCATION,
+    [geoSource, usingDefaultLocation, geoCoords?.lat, geoCoords?.lon, homeBeach?.lat, homeBeach?.lon, ipCoords?.lat, ipCoords?.lon]
   );
 
   // Fetch surf discovery (top recommendation + top spots)

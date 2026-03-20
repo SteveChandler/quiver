@@ -488,8 +488,8 @@ export default withSentryConfig(pwaConfig(nextConfig), {
   authToken: process.env.SENTRY_AUTH_TOKEN,
   dryRun: !process.env.SENTRY_AUTH_TOKEN || process.env.VERCEL_ENV === "preview",
 
-  // Only print logs for uploading source maps in CI
-  silent: !process.env.CI,
+  // Suppress verbose source map listing in build logs (saves ~220 log events on Vercel)
+  silent: true,
 
   // For all available options, see:
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/

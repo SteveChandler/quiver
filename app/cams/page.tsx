@@ -10,6 +10,8 @@ import { CamGrid } from "@/components/cams/cam-grid";
 import { CamsShareButton } from "@/components/cams/cams-share-button";
 import { OceanBackground } from "@/components/ui/ocean-background";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
+import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -153,6 +155,18 @@ export default async function CamsHubPage() {
         </div>
       </div>
 
+      {/* Inline Signup CTA */}
+      <div className="px-4 pb-12">
+        <div className="mx-auto max-w-3xl">
+          <InlineSignupCta
+            title="Never Miss a Session"
+            description="Get alerts when conditions line up at your favorite breaks. Free condition reports, 12-day outlooks, and your surf call."
+            primaryButtonText="Get Alerts — Free"
+            source="cams-hub-inline"
+          />
+        </div>
+      </div>
+
       {/* More Surf Tools */}
       <div className="px-4 pb-12">
         <div className="mx-auto max-w-6xl">
@@ -193,6 +207,11 @@ export default async function CamsHubPage() {
           </div>
         </div>
       </div>
+      <StickySignupBar
+        source="cams-hub"
+        ctaText="Get Cam Alerts"
+        supportingText="Get notified when conditions are firing"
+      />
     </OceanBackground>
   );
 }

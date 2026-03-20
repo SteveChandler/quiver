@@ -103,9 +103,19 @@ export function matchToMetroArea(ipLocation: IPLocationData): MetroMatch {
     if (nearestMetro) {
       return nearestMetro;
     }
+
+    // No metro match — return raw IP coordinates with city/region display name
+    const displayName = [ipLocation.city, ipLocation.region]
+      .filter(Boolean)
+      .join(", ") || "Your Area";
+    return {
+      slug: null,
+      displayName,
+      coordinates: { lat: latitude, lon: longitude },
+    };
   }
 
-  // Default to San Diego
+  // Default to San Diego only when no coordinates available at all
   return DEFAULT_LOCATION;
 }
 

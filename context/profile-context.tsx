@@ -276,9 +276,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   // Refresh function that clears cache and refetches
   const refreshProfile = useCallback(async () => {
     clearCache();
+    // Clear inflight dedup cache to force a fresh network request
+    const requestCacheKey = `profile-${user?.id}`;
+    profileRequestCache.delete(requestCacheKey);
     setIsLoading(true);
     await fetchProfileAndHomeBeach();
-  }, [clearCache, fetchProfileAndHomeBeach]);
+  }, [clearCache, fetchProfileAndHomeBeach, user?.id]);
 
   // Optimistic update for immediate UI feedback
   const updateProfile = useCallback(

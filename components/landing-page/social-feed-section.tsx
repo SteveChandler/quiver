@@ -124,7 +124,7 @@ export function SocialFeedSection() {
         </p>
         <Button size="lg" className="rounded-full" asChild>
           <Link href={preserveQueryParams("/auth/sign-up", searchParams)}>
-            Join the Community
+            See what surfers are posting
             <Users className="h-4 w-4" />
           </Link>
         </Button>

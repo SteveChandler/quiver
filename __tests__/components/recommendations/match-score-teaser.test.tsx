@@ -111,7 +111,7 @@ describe("MatchScoreTeaser", () => {
 
       expect(screen.getByTestId("auth-modal")).toHaveAttribute(
         "data-context-title",
-        "See Your Match Score"
+        "See Your Forecast"
       );
     });
 
@@ -123,7 +123,7 @@ describe("MatchScoreTeaser", () => {
 
       expect(screen.getByTestId("auth-modal")).toHaveAttribute(
         "data-context-description",
-        "See your personalized match score for Blacks Beach"
+        "See conditions at Blacks Beach explained clearly for your level"
       );
     });
   });

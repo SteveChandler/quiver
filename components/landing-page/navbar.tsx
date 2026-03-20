@@ -223,7 +223,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                 }}
                 className="bg-ocean-blue text-white rounded-full px-6 py-3 font-sans font-semibold shadow-sm hover:bg-ocean-blue/90"
               >
-                Get Your Match Score
+                See your forecast
               </Button>
             </div>
           </div>
@@ -337,7 +337,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                         });
                       }}
                     >
-                      Get Your Match Score
+                      See your forecast
                     </Button>
                     <Button
                       variant="ghost"
@@ -379,7 +379,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
         mode={authMode}
         source="landing-navbar"
         returnTo="/"
-        contextMessage={authMode === "signup" ? { title: "Get Your Match Score", description: "Personalized surf forecasts in 30 seconds" } : undefined}
+        contextMessage={authMode === "signup" ? { title: "See Your Forecast", description: "Conditions explained clearly in 30 seconds" } : undefined}
       />
     </nav>
   );

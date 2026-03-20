@@ -2,12 +2,12 @@
  * GET /api/cron/conditions-alert-email
  *
  * Conditions alert cron job: sends daily alerts when a user's home beach
- * has excellent conditions (score >= 7/10).
+ * has excellent conditions (score >= 70/100).
  *
  * Runs daily at 14:30 UTC (6:30 AM Pacific), 30 min after daily-intel generation.
  *
  * Candidate selection via RPC:
- * 1. User's home beach has conditions_score >= 7 today
+ * 1. User's home beach has conditions_score >= 70 today
  * 2. User hasn't been active in the app today (no user_events)
  * 3. User hasn't received ANY email today (one email per user per day)
  * 4. User has forecast alerts enabled
@@ -35,6 +35,8 @@ import type { ConditionsAlertCandidate } from "@/lib/email/email-types";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
+import { scoreConditions } from "@/lib/scoring";
+import type { ForecastForScoring, BeachWithThresholds } from "@/lib/scoring";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -46,7 +48,7 @@ export const maxDuration = 300; // 5 minutes for processing all users
 // ============================================================================
 
 const CONTEXT_TAG = "[conditions-alert-email]";
-const MIN_SCORE = 7; // Minimum conditions_score (0-10 scale) to trigger email
+const MIN_SCORE = 70; // Minimum conditions_score (0-100 scale) to trigger email
 const DEDUPE_HOURS = 20; // Cooldown for claim_forecast_delivery_slot dedup
 const ALERT_TYPE = "conditions_alert";
 
@@ -127,7 +129,66 @@ async function processCandidate(
     return { status: "claim_failed" };
   }
 
-  // 2. Format best window
+  // 2. Re-score with fresh forecast data for accuracy
+  let freshScore = candidate.conditions_score;
+  try {
+    // Fetch current forecast for this beach
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+    const { data: forecasts } = await supabase
+      .from("enhanced_forecasts")
+      .select(
+        "wave_height, wave_period, wind_speed, wind_direction_deg, wind_direction, tide_height, tide_status, forecast_at"
+      )
+      .eq("beach_id", candidate.home_beach_id)
+      .gte("forecast_at", `${todayStr}T00:00:00Z`)
+      .lt("forecast_at", `${todayStr}T23:59:59Z`)
+      .order("forecast_at", { ascending: true })
+      .limit(12);
+
+    // Fetch beach thresholds
+    const { data: beach } = await supabase
+      .from("beaches")
+      .select(
+        "id, name, wind_offshore_deg, wind_offshore_tol_deg, preferred_tide_ft_min, preferred_tide_ft_max, skill_level"
+      )
+      .eq("id", candidate.home_beach_id)
+      .single();
+
+    if (forecasts?.length && beach) {
+      // Score using the morning window (first available forecast)
+      const f = forecasts[0];
+      const forecastForScoring: ForecastForScoring = {
+        forecastTime: new Date(f.forecast_at),
+        waveHeight: parseFloat(f.wave_height || "0"),
+        wavePeriod: parseFloat(String(f.wave_period || "0").replace("s", "")),
+        windSpeed: parseFloat(f.wind_speed || "0"),
+        windDirection: f.wind_direction_deg
+          ? parseFloat(String(f.wind_direction_deg))
+          : null,
+        tideHeight: parseFloat(f.tide_height || "0"),
+        tideStatus: f.tide_status?.toLowerCase() || null,
+      };
+      const beachForScoring: BeachWithThresholds = {
+        id: beach.id,
+        name: beach.name,
+        wind_offshore_deg: beach.wind_offshore_deg,
+        wind_offshore_tol_deg: beach.wind_offshore_tol_deg,
+        preferred_tide_ft_min: beach.preferred_tide_ft_min,
+        preferred_tide_ft_max: beach.preferred_tide_ft_max,
+        skill_level: beach.skill_level,
+      };
+      const result = scoreConditions(forecastForScoring, beachForScoring);
+      freshScore = result.total;
+    }
+  } catch (rescoreError) {
+    console.warn(
+      `${CONTEXT_TAG} Re-score failed for ${candidate.beach_name}, using stored score:`,
+      rescoreError
+    );
+  }
+
+  // 3. Format best window
   const bestWindow =
     candidate.best_window_start && candidate.best_window_end
       ? {
@@ -136,14 +197,14 @@ async function processCandidate(
         }
       : null;
 
-  // 3. Prepare email content
+  // 4. Prepare email content
   const ctaUrl = `${baseUrl}${buildBeachUrl({ slug: candidate.beach_slug, city: candidate.beach_city, state: candidate.beach_state })}`;
   const logSessionUrl = `${baseUrl}/sessions/new?mode=log&beach=${candidate.home_beach_id}`;
   const unsubscribeUrl = `${baseUrl}/settings`;
-  const { emoji } = getConditionLabel(candidate.conditions_score);
-  const emailSubject = `${emoji} ${candidate.beach_name}: ${candidate.conditions_score}/10 today`;
+  const { emoji } = getConditionLabel(freshScore);
+  const emailSubject = `${emoji} ${candidate.beach_name}: ${freshScore} today`;
 
-  // 4. Rate limit and send email
+  // 5. Rate limit and send email
   await rateLimiter.throttle();
 
   const { data: sendData, error: sendError } = await resend.emails.send({
@@ -154,7 +215,7 @@ async function processCandidate(
     react: ConditionsAlertEmail({
       displayName: candidate.display_name,
       beachName: candidate.beach_name,
-      conditionsScore: candidate.conditions_score,
+      conditionsScore: freshScore,
       surfDescription: candidate.surf_description,
       windDescription: candidate.wind_description,
       bestWindow,
@@ -172,12 +233,12 @@ async function processCandidate(
     return { status: "send_failed", error: sendError };
   }
 
-  // 5. Log to email_send_log for tracking
+  // 6. Log to email_send_log for tracking
   await emailLogger.logDelivery({
     userId: candidate.user_id,
     emailType: "conditions_alert",
     subject: emailSubject,
-    bestScore: candidate.conditions_score,
+    bestScore: freshScore,
     bestBeachId: candidate.home_beach_id,
     resendMessageId: sendData?.id,
     meta: {
@@ -187,7 +248,7 @@ async function processCandidate(
   });
 
   console.log(
-    `${CONTEXT_TAG} Sent to user ${candidate.user_id} for ${candidate.beach_name} (score: ${candidate.conditions_score})`
+    `${CONTEXT_TAG} Sent to user ${candidate.user_id} for ${candidate.beach_name} (score: ${freshScore})`
   );
 
   return { status: "success" };

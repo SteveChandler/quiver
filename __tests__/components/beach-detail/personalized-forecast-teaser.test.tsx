@@ -41,17 +41,17 @@ describe("PersonalizedForecastTeaser", () => {
       } as any);
     });
 
-    it("shows Personalized Forecast heading", () => {
+    it("shows Your Surf Call heading", () => {
       render(<PersonalizedForecastTeaser {...defaultProps} />);
       expect(
-        screen.getByText("Personalized Forecast")
+        screen.getByText("Your Surf Call")
       ).toBeInTheDocument();
     });
 
-    it("shows Get Your Forecast button", () => {
+    it("shows See Your Surf Call button", () => {
       render(<PersonalizedForecastTeaser {...defaultProps} />);
       expect(
-        screen.getByRole("button", { name: /get your forecast/i })
+        screen.getByRole("button", { name: /see your surf call/i })
       ).toBeInTheDocument();
     });
   });
@@ -93,14 +93,14 @@ describe("PersonalizedForecastTeaser", () => {
     it("renders the wave difficulty benefit text", () => {
       render(<PersonalizedForecastTeaser {...defaultProps} />);
       expect(
-        screen.getByText(/wave difficulty rating for your skill/i)
+        screen.getByText(/wave difficulty for your level/i)
       ).toBeInTheDocument();
     });
 
-    it("renders the best time windows benefit text", () => {
+    it("renders the best time to paddle out benefit text", () => {
       render(<PersonalizedForecastTeaser {...defaultProps} />);
       expect(
-        screen.getByText(/best time windows for you/i)
+        screen.getByText(/best time to paddle out/i)
       ).toBeInTheDocument();
     });
 
@@ -133,14 +133,14 @@ describe("PersonalizedForecastTeaser", () => {
 
     it("opens auth modal on CTA click", () => {
       render(<PersonalizedForecastTeaser {...defaultProps} />);
-      const btn = screen.getByRole("button", { name: /get your forecast/i });
+      const btn = screen.getByRole("button", { name: /see your surf call/i });
       fireEvent.click(btn);
       expect(screen.getByTestId("auth-modal")).toBeInTheDocument();
     });
 
     it("passes correct source to auth modal", () => {
       render(<PersonalizedForecastTeaser {...defaultProps} />);
-      const btn = screen.getByRole("button", { name: /get your forecast/i });
+      const btn = screen.getByRole("button", { name: /see your surf call/i });
       fireEvent.click(btn);
       expect(screen.getByTestId("auth-modal")).toHaveAttribute(
         "data-source",

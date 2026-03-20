@@ -28,23 +28,40 @@ test.describe('Edit Profile - Preferences Fields', () => {
   });
 
   test.afterEach(async ({ page }) => {
-    await assertNoErrors(page, errorCapture, { context: 'Profile Edit Preferences' });
+    // Run cleanup FIRST so it always executes, even if assertNoErrors throws
     await resetUserToCleanState(TEST_USER.email);
+    // Clear browser profile cache so the next test gets fresh data
+    try {
+      await page.evaluate(() => {
+        for (const key of Object.keys(localStorage)) {
+          if (key.startsWith('quiver_profile_cache_')) {
+            localStorage.removeItem(key);
+          }
+        }
+      });
+    } catch {
+      // page may be on about:blank
+    }
+    await assertNoErrors(page, errorCapture, { context: 'Profile Edit Preferences' });
   });
 
   /**
-   * Helper function to open the Edit Profile modal
+   * Open the Edit Profile modal via URL parameter.
+   * Fast but form may have empty defaultValues (race with profile loading).
+   * Use openEditProfileModalWithData() when you need initialData populated.
    */
   async function openEditProfileModal(page: Page) {
     await page.goto('/profile?edit=true');
     await waitForPageLoad(page);
 
-    // Wait for dialog to appear
     const dialog = page.getByRole('dialog', { name: /edit profile/i });
     await expect(dialog).toBeVisible({ timeout: 10000 });
 
     return dialog;
   }
+
+
+
 
   test('all 5 preference fields are present in Edit Profile modal', async ({
     page,
@@ -200,20 +217,45 @@ test.describe('Edit Profile - Preferences Fields', () => {
     await expect(longboardButton).toHaveClass(/bg-primary/);
   });
 
-  // TODO: Fix - test drift due to form state/caching issues
-  // The form doesn't always reflect DB changes without hard refresh
-  test.fixme('form pre-populates with existing preference values', async ({ page }) => {
-    // TODO: Implement when feature is ready
-  });
+  test('form saves all preference data correctly', async ({ page }) => {
+    await clearUserPreferences(TEST_USER.email);
+    const dialog = await openEditProfileModal(page);
 
-  // TODO: Fix - test drift due to form state/caching issues
-  test.fixme('form saves all preference data correctly', async ({ page }) => {
-    // TODO: Implement when feature is ready
-  });
+    // Set all dropdown preference fields
+    await dialog.locator('select#experience_level').selectOption('advanced');
+    await dialog.locator('select#preferred_wave_size').selectOption('large');
+    await dialog.locator('select#preferred_break_type').selectOption('reef');
+    await dialog.locator('select#crowd_preference').selectOption('solitude');
 
-  // TODO: Fix - test drift due to form state/caching issues
-  test.fixme('values update in display card after save', async ({ page }) => {
-    // TODO: Implement when feature is ready
+    // Select surf styles — assert each toggle to confirm state update
+    const shortboardBtn = dialog.locator('button:has-text("Shortboard")');
+    await shortboardBtn.click();
+    await expect(shortboardBtn).toHaveClass(/bg-primary/);
+
+    const foilBtn = dialog.locator('button:has-text("Foil")');
+    await foilBtn.click();
+    await expect(foilBtn).toHaveClass(/bg-primary/);
+
+    // Ensure name is filled (required field)
+    const nameInput = dialog.getByLabel(/^name$/i);
+    const currentName = await nameInput.inputValue();
+    if (!currentName) {
+      await nameInput.fill('Test User');
+    }
+
+    // Save and wait for the server action to complete
+    await dialog.getByTestId('save-profile').click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for server action + modal close callback chain
+    await page.waitForTimeout(5000);
+
+    // Verify saved values in the database
+    const profile = await getCurrentUserProfile(TEST_USER.email);
+    expect(profile.experience_level).toBe('advanced');
+    expect(profile.preferred_wave_size).toBe('large');
+    expect(profile.preferred_break_type).toBe('reef');
+    expect(profile.crowd_preference).toBe('solitude');
+    expect(profile.surf_styles).toEqual(expect.arrayContaining(['shortboard', 'foil']));
+    expect(profile.surf_styles).toHaveLength(2);
   });
 
   test('form validation works properly for required fields', async ({ page }) => {
@@ -272,14 +314,69 @@ test.describe('Edit Profile - Preferences Fields', () => {
     await expect(surfStyleButtons).toHaveClass(/bg-primary/);
   });
 
-  // TODO: Fix - test drift due to form state/caching issues
-  test.fixme('can change preferences multiple times before saving', async ({ page }) => {
-    // TODO: Implement when feature is ready
+  test('can change preferences multiple times before saving', async ({ page }) => {
+    await clearUserPreferences(TEST_USER.email);
+    const dialog = await openEditProfileModal(page);
+
+    const experienceSelect = dialog.locator('select#experience_level');
+
+    // Change multiple times
+    await experienceSelect.selectOption('beginner');
+    await expect(experienceSelect).toHaveValue('beginner');
+
+    await experienceSelect.selectOption('expert');
+    await expect(experienceSelect).toHaveValue('expert');
+
+    await experienceSelect.selectOption('intermediate');
+    await expect(experienceSelect).toHaveValue('intermediate');
+
+    // Toggle surf styles back and forth
+    const shortboardButton = dialog.locator('button:has-text("Shortboard")');
+    await shortboardButton.click();
+    await expect(shortboardButton).toHaveClass(/bg-primary/);
+    await shortboardButton.click();
+    await expect(shortboardButton).not.toHaveClass(/bg-primary/);
+    await shortboardButton.click();
+    await expect(shortboardButton).toHaveClass(/bg-primary/);
+
+    // Ensure name is filled
+    const nameInput = dialog.getByLabel(/^name$/i);
+    const currentName = await nameInput.inputValue();
+    if (!currentName) {
+      await nameInput.fill('Test User');
+    }
+
+    // Save and wait for server action to complete
+    await dialog.getByTestId('save-profile').click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for server action + modal close callback chain
+    await page.waitForTimeout(5000);
+
+    // Verify the final values persisted (not intermediate ones)
+    const profile = await getCurrentUserProfile(TEST_USER.email);
+    expect(profile.experience_level).toBe('intermediate');
+    expect(profile.surf_styles).toContain('shortboard');
   });
 
-  // TODO: Fix - test drift due to form state/caching issues
-  test.fixme('cancel button discards changes', async ({ page }) => {
-    // TODO: Implement when feature is ready
+  test('cancel button discards changes', async ({ page }) => {
+    // Clear preferences so we start from a known null state
+    await clearUserPreferences(TEST_USER.email);
+    const dialog = await openEditProfileModal(page);
+
+    // Make changes in the form
+    await dialog.locator('select#experience_level').selectOption('expert');
+    await expect(dialog.locator('select#experience_level')).toHaveValue('expert');
+
+    await dialog.locator('select#preferred_wave_size').selectOption('large');
+
+    // Click Cancel instead of Save
+    await dialog.getByRole('button', { name: /cancel/i }).click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for dialog to close
+    await page.waitForTimeout(1000);
+
+    // Verify database was NOT modified (still has null/empty values)
+    const profile = await getCurrentUserProfile(TEST_USER.email);
+    expect(profile.experience_level).toBeNull();
+    expect(profile.preferred_wave_size).toBeNull();
   });
 
   test('all preference fields are optional (can be left empty)', async ({

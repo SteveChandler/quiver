@@ -6,7 +6,6 @@ import { Video } from "lucide-react";
 import { getBeachesWithCameras } from "@/actions/beach/cam-actions";
 import {
   CAM_REGIONS,
-  getAllCamRegionSlugs,
   getCamRegionBySlug,
 } from "@/lib/data/cam-regions";
 import { buildPageMetadata } from "@/lib/seo/meta";
@@ -14,6 +13,8 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { CamGrid } from "@/components/cams/cam-grid";
 import { OceanBackground } from "@/components/ui/ocean-background";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
+import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -27,10 +28,6 @@ export const revalidate = 3600;
 
 interface PageProps {
   params: Promise<{ region: string }>;
-}
-
-export function generateStaticParams() {
-  return getAllCamRegionSlugs().map((region) => ({ region }));
 }
 
 export async function generateMetadata({
@@ -144,6 +141,18 @@ export default async function CamsRegionPage({ params }: PageProps) {
         </div>
       </div>
 
+      {/* Inline Signup CTA */}
+      <div className="px-4 pb-12">
+        <div className="mx-auto max-w-3xl">
+          <InlineSignupCta
+            title="Never Miss a Session"
+            description="Get alerts when conditions line up at your favorite breaks. Free condition reports, 12-day outlooks, and your surf call."
+            primaryButtonText="Get Alerts — Free"
+            source={`cams-${region.slug}-inline`}
+          />
+        </div>
+      </div>
+
       {/* Nearby regions */}
       {nearbyRegions.length > 0 && (
         <div className="px-4 pb-20">
@@ -175,6 +184,11 @@ export default async function CamsRegionPage({ params }: PageProps) {
           </div>
         </div>
       )}
+      <StickySignupBar
+        source={`cams-${region.slug}`}
+        ctaText="Get Cam Alerts"
+        supportingText="Get notified when conditions are firing"
+      />
     </OceanBackground>
   );
 }

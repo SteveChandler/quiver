@@ -20,9 +20,9 @@ import {
 export const FEATURE_CARDS = [
   {
     icon: Brain,
-    title: "ML Forecasts",
+    title: "Your Surf Call",
     description:
-      "Quiver-corrected wave predictions trained on 30,000+ buoy observations deliver forecasts you can actually trust.",
+      "We read the buoys, the wind, the tide, and the swell — then tell you what it means at your beach, explained clearly.",
     iconBgColor: "bg-ocean-blue/10",
     iconColor: "text-ocean-blue",
     features: [
@@ -45,9 +45,9 @@ export const FEATURE_CARDS = [
   },
   {
     icon: Star,
-    title: "Personalization",
+    title: "Tuned to You",
     description:
-      "The more you surf, the smarter Quiver gets. Match scores learn your wave range, ideal conditions, and go-to breaks from your sessions and the community's live intel.",
+      "Quiver learns your spots, your wave range, and when you like to go. Your forecast gets more specific over time.",
     iconBgColor: "bg-sunset-orange/10",
     iconColor: "text-sunset-orange",
     features: [
@@ -70,9 +70,9 @@ export const FEATURE_CARDS = [
   },
   {
     icon: Waves,
-    title: "Live Intel",
+    title: "What's Happening Now",
     description:
-      "Real-time buoy feeds, community reports, and coast pulse updates keep you connected to what's happening now.",
+      "Live conditions from buoys and surfers at your local breaks.",
     iconBgColor: "bg-green-500/10",
     iconColor: "text-green-600",
     features: [
@@ -268,8 +268,8 @@ export const SURF_ACTIVITIES = [
 // Content strings to reduce hardcoding
 export const CONTENT = {
   hero: {
-    title: "Every session makes your next forecast smarter.",
-    subtitle: "Surf forecasts powered by ML. Session tracking that trains the model. The more you surf, the better it gets — for everyone.",
+    title: "Know what the swell means before you paddle out.",
+    subtitle: "Conditions at your beach, explained clearly. The more you surf, the sharper it gets.",
     cta: "Start surfing smarter",
     secondaryCta: "Explore Features",
     benefits: [
@@ -313,7 +313,7 @@ export const CONTENT = {
     cta: {
       title: "Ready to surf smarter?",
       subtitle:
-        "Find your crew, track epic sessions, and discover amazing spots. Free to join — priceless connections.",
+        "Conditions at your beach, explained clearly. Sessions logged. Your forecast gets sharper the more you surf.",
     },
   },
 } as const;

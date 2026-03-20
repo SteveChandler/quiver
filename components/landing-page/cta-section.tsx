@@ -91,7 +91,7 @@ export function CTASection() {
           className="text-white/50 text-sm font-sans"
           {...motionProps(400)}
         >
-          Free to join — no credit card required
+          Free. No paywall. No catch.
         </motion.p>
       </div>
     </section>
