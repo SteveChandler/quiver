@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SEO: state browse pages (`/beaches/usa/ca`) now show Beginner/Tides/Water Temp intent pill links per city for crawler discovery of city intent pages
 - SEO: `getTopCitiesInState` default limit raised from 8 to 100 so all qualifying cities are returned for crawl discovery (backwards-compatible — pass a lower value when a small subset is needed)
 - SEO: `PopularCitiesForIntent` on state intent pages now shows a two-tier layout — top 8 cities in the existing prominent grid, remaining cities in a compact 3–4 column grid below a labeled divider; all links are always server-rendered (no accordion/collapse) for full crawler visibility
+- First-session-nudge email now shows personalized home beach conditions for users who completed onboarding, with score-aware subject lines
 
 ### Added
 - GEO: `sameAs` (Bluesky, X/Twitter), `founder`, and `areaServed` fields on Organization structured data for AI citation attribution
