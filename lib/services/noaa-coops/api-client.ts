@@ -81,6 +81,21 @@ function buildWaterLevelUrl(stationId: string): string {
 }
 
 /**
+ * Build the CO-OPS API URL for water temperature
+ */
+function buildWaterTemperatureUrl(stationId: string): string {
+  const url = new URL(COOPS_BASE_URL);
+  url.searchParams.set("application", "quiver-surf-app");
+  url.searchParams.set("station", stationId);
+  url.searchParams.set("range", "24"); // Last 24 hours
+  url.searchParams.set("product", "water_temperature");
+  url.searchParams.set("units", "metric");
+  url.searchParams.set("time_zone", "gmt");
+  url.searchParams.set("format", "json");
+  return url.toString();
+}
+
+/**
  * Build the station metadata URL
  */
 function buildStationInfoUrl(stationId: string): string {
@@ -211,6 +226,57 @@ async function fetchCurrentWaterLevel(
     return parseFloat(latestReading.v);
   } catch {
     // Silently fail - water level is optional enhancement
+    return null;
+  }
+}
+
+/**
+ * Fetch latest water temperature from CO-OPS API
+ *
+ * Returns the most recent reading from the last 24 hours.
+ * Silent failure — returns null on any error.
+ *
+ * @param stationId - CO-OPS station ID (e.g., "8720218")
+ * @returns Temperature in Celsius with observation timestamp, or null
+ */
+export async function fetchWaterTemperature(
+  stationId: string
+): Promise<{ tempC: number; observedAt: string } | null> {
+  try {
+    const url = buildWaterTemperatureUrl(stationId);
+    const timeoutSignal = createTimeoutSignal(OPTIONAL_REQUEST_TIMEOUT_MS);
+
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": USER_AGENT,
+      },
+      ...(timeoutSignal ? { signal: timeoutSignal } : {}),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (!data.data || data.data.length === 0) {
+      return null;
+    }
+
+    // Use the most recent reading
+    const latest = data.data[data.data.length - 1];
+    const tempC = parseFloat(latest.v);
+
+    if (!isFinite(tempC)) {
+      return null;
+    }
+
+    // CO-OPS timestamps are GMT but lack timezone indicator — append Z for UTC
+    const observedAt = latest.t.replace(" ", "T") + "Z";
+
+    return { tempC, observedAt };
+  } catch {
+    // Silent failure — water temperature is optional enhancement
     return null;
   }
 }
