@@ -58,6 +58,7 @@ export interface ForecastInputs {
   buoyData: NDBCBuoyRow | null;
   cdipData: CDIPBuoyData | null;
   ioosWaterTempC: number | null;
+  coopsWaterTempC: number | null;
 }
 
 const log = createContextLogger("ForecastBuilder");
@@ -78,7 +79,7 @@ export class ForecastBuilder {
    * Build forecasts from raw data sources
    */
   async buildForecasts(inputs: ForecastInputs): Promise<EnhancedForecastWithRawData[]> {
-    const { beach, waveData, tideData, weatherData, buoyData, cdipData, ioosWaterTempC } = inputs;
+    const { beach, waveData, tideData, weatherData, buoyData, cdipData, ioosWaterTempC, coopsWaterTempC } = inputs;
     const forecasts: EnhancedForecastWithRawData[] = [];
     const now = new Date();
 
@@ -154,6 +155,7 @@ export class ForecastBuilder {
         cdipData,
         now,
         ioosWaterTempC,
+        coopsWaterTempC,
       });
 
       forecasts.push(forecast);
@@ -183,6 +185,7 @@ export class ForecastBuilder {
     cdipData: CDIPBuoyData | null;
     now: Date;
     ioosWaterTempC: number | null;
+    coopsWaterTempC: number | null;
   }): EnhancedForecastWithRawData {
     const {
       beach,
@@ -202,6 +205,7 @@ export class ForecastBuilder {
       cdipData,
       now,
       ioosWaterTempC,
+      coopsWaterTempC,
     } = params;
 
     return {
@@ -230,7 +234,7 @@ export class ForecastBuilder {
       wind_wave_direction: this.getWindWaveDirection(cdipPoint, wavePoint, useCDIPData),
 
       // Water temperature
-      water_temp: this.getWaterTemperature(buoyData, beach, forecastTime, ioosWaterTempC),
+      water_temp: this.getWaterTemperature(buoyData, beach, forecastTime, ioosWaterTempC, coopsWaterTempC),
 
       // Wind data
       wind_speed: this.getWindSpeed(weatherPoint),
@@ -599,7 +603,8 @@ export class ForecastBuilder {
     buoyData: NDBCBuoyRow | null,
     beach: Beach,
     forecastTime: Date,
-    ioosWaterTempC: number | null
+    ioosWaterTempC: number | null,
+    coopsWaterTempC: number | null
   ): string | null {
     // Priority 1: IOOS observed water temperature (most geographically accurate)
     if (ioosWaterTempC != null && isFinite(ioosWaterTempC)) {
@@ -607,12 +612,18 @@ export class ForecastBuilder {
       return formatWaterTemp(tempF);
     }
 
-    // Priority 2: NDBC buoy water temperature
+    // Priority 2: CO-OPS observed water temperature
+    if (coopsWaterTempC != null && isFinite(coopsWaterTempC)) {
+      const tempF = (coopsWaterTempC * 9) / 5 + 32;
+      return formatWaterTemp(tempF);
+    }
+
+    // Priority 3: NDBC buoy water temperature (currently dead code — buoyData always null)
     if (buoyData?.water_temperature != null && isFinite(buoyData.water_temperature)) {
       return formatWaterTemp((buoyData.water_temperature * 9) / 5 + 32);
     }
 
-    // Priority 3: Latitude-based estimation
+    // Priority 4: Latitude-based estimation
     return this.estimateWaterTemperature(beach.lat, forecastTime);
   }
 

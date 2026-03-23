@@ -87,6 +87,7 @@ describe("ForecastBuilder", () => {
       buoyData: null,
       cdipData: null,
       ioosWaterTempC: null,
+      coopsWaterTempC: null,
     });
 
     expect(forecasts.length).toBeGreaterThan(0);
@@ -102,6 +103,7 @@ describe("ForecastBuilder", () => {
       buoyData: null,
       cdipData: null,
       ioosWaterTempC: null,
+      coopsWaterTempC: null,
     });
 
     expect(forecasts[0].forecast_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -117,6 +119,7 @@ describe("ForecastBuilder", () => {
       buoyData: null,
       cdipData: null,
       ioosWaterTempC: null,
+      coopsWaterTempC: null,
     });
 
     expect(forecasts[0].data_source).toBe("NOAA_NWS");
@@ -131,6 +134,7 @@ describe("ForecastBuilder", () => {
       buoyData: null,
       cdipData: null,
       ioosWaterTempC: 26, // 26°C = ~79°F
+      coopsWaterTempC: null,
     });
 
     expect(forecasts[0].water_temp).toBe("79°F");
@@ -146,6 +150,7 @@ describe("ForecastBuilder", () => {
       buoyData: null,
       cdipData: null,
       ioosWaterTempC: null,
+      coopsWaterTempC: null,
     });
 
     // Hawaii (lat ~21) is subtropical zone, base 75°F +/- 6°F seasonal
@@ -163,6 +168,7 @@ describe("ForecastBuilder", () => {
       buoyData: null,
       cdipData: null,
       ioosWaterTempC: null,
+      coopsWaterTempC: null,
     });
 
     const forecast = forecasts[0];
@@ -179,6 +185,7 @@ describe("ForecastBuilder", () => {
       buoyData: null,
       cdipData: null,
       ioosWaterTempC: null,
+      coopsWaterTempC: null,
     });
 
     const f = forecasts[0];
@@ -209,6 +216,7 @@ describe("ForecastBuilder", () => {
       buoyData: null,
       cdipData: null,
       ioosWaterTempC: null,
+      coopsWaterTempC: null,
     });
 
     expect(forecasts[0].tide_height).toBe("-- ft");
@@ -235,9 +243,58 @@ describe("ForecastBuilder", () => {
       buoyData: null,
       cdipData: mockCdipData as any,
       ioosWaterTempC: null,
+      coopsWaterTempC: null,
     });
 
     // First forecast should use CDIP for current conditions
     expect(forecasts[0].data_source).toBe("CDIP");
+  });
+
+  it("uses CO-OPS water temperature when IOOS is unavailable", async () => {
+    const forecasts = await builder.buildForecasts({
+      beach: mockBeach,
+      waveData: mockWaveData,
+      tideData: mockTideData,
+      weatherData: [],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+      coopsWaterTempC: 20, // 20°C = 68°F
+    });
+
+    expect(forecasts[0].water_temp).toBe("68°F");
+  });
+
+  it("prefers IOOS over CO-OPS water temperature", async () => {
+    const forecasts = await builder.buildForecasts({
+      beach: mockBeach,
+      waveData: mockWaveData,
+      tideData: mockTideData,
+      weatherData: [],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: 26, // 26°C = ~79°F
+      coopsWaterTempC: 20, // 20°C = 68°F — should be ignored
+    });
+
+    expect(forecasts[0].water_temp).toBe("79°F");
+  });
+
+  it("falls back to latitude estimate when both IOOS and CO-OPS are null", async () => {
+    const hawaiiBeach = { ...mockBeach, lat: 21.3, lon: -157.8 } as Beach;
+    const forecasts = await builder.buildForecasts({
+      beach: hawaiiBeach,
+      waveData: mockWaveData,
+      tideData: mockTideData,
+      weatherData: [],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+    });
+
+    const tempF = parseInt(forecasts[0].water_temp || "0");
+    expect(tempF).toBeGreaterThanOrEqual(69);
+    expect(tempF).toBeLessThanOrEqual(81);
   });
 });

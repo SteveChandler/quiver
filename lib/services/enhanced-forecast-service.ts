@@ -1,4 +1,5 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { fetchWaterTemperature } from "@/lib/services/noaa-coops/api-client";
 import { ForecastDataSourceManager, NOAAWeatherDataSource } from "./forecast/data-source-manager";
 import { ForecastStorageService } from "./forecast/storage-service";
 import { ForecastBuilder } from "./forecast/forecast-builder";
@@ -89,13 +90,14 @@ export class EnhancedForecastService {
         // Note: NDBC buoy fetch was removed — it picked a random buoy (no geographic
         // filtering) so its wave/temp data was incorrect for non-local beaches.
         // Water temp is now sourced from IOOS; wave data from CDIP + WaveWatch.
-        const [waveData, tideData, weatherData, cdipData, ioosWaterTempResult] =
+        const [waveData, tideData, weatherData, cdipData, ioosWaterTempResult, coopsWaterTempResult] =
           await Promise.allSettled([
             this.fetchWaveDataWithRetry(beach),
             this.fetchTidalDataWithRetry(beach),
             this.fetchWeatherDataWithRetry(beach),
             this.fetchCDIPDataWithRetry(beach),
             this.fetchIOOSWaterTemp(beach),
+            this.fetchCOOPSWaterTemp(beach),
           ]);
 
         // Process results and handle failures gracefully
@@ -108,6 +110,7 @@ export class EnhancedForecastService {
           buoyData: null,
           cdipData: cdipData.status === "fulfilled" ? cdipData.value : null,
           ioosWaterTempC: ioosWaterTempResult.status === "fulfilled" ? ioosWaterTempResult.value : null,
+          coopsWaterTempC: coopsWaterTempResult.status === "fulfilled" ? coopsWaterTempResult.value : null,
         };
 
         // Log any data source failures
@@ -126,6 +129,11 @@ export class EnhancedForecastService {
           logError(ioosWaterTempResult.reason, {
             beachId: beach.id,
             dataSource: "ioos_water_temp",
+          });
+        if (coopsWaterTempResult.status === "rejected")
+          logError(coopsWaterTempResult.reason, {
+            beachId: beach.id,
+            dataSource: "coops_water_temp",
           });
 
         // Process and combine all data sources
@@ -330,6 +338,41 @@ export class EnhancedForecastService {
     });
   }
 
+  /** Maximum age (in hours) for CO-OPS water temperature to be considered valid */
+  private static readonly COOPS_STALENESS_HOURS = 48;
+
+  /**
+   * Fetch the latest CO-OPS water temperature for a beach.
+   * Uses the CO-OPS station resolver to find the mapped station,
+   * then fetches the latest water_temperature reading.
+   */
+  private async fetchCOOPSWaterTemp(beach: Beach): Promise<number | null> {
+    return withRetry(async () => {
+      const stationId = this.dataSourceManager
+        .getCOOPSService()
+        .getStationForLocation(beach.name, beach.lat, beach.lon);
+
+      const result = await fetchWaterTemperature(stationId);
+
+      if (!result) {
+        return null;
+      }
+
+      // Staleness check
+      const obsAge = Date.now() - new Date(result.observedAt).getTime();
+      const stalenessMs =
+        EnhancedForecastService.COOPS_STALENESS_HOURS * 60 * 60 * 1000;
+      if (obsAge > stalenessMs) {
+        log.debug(
+          `CO-OPS water temp for ${beach.name} is stale (${Math.round(obsAge / 3600000)}h old), skipping`
+        );
+        return null;
+      }
+
+      return result.tempC;
+    });
+  }
+
   /**
    * Combine all data sources into comprehensive forecast
    */
@@ -341,6 +384,7 @@ export class EnhancedForecastService {
     buoyData,
     cdipData,
     ioosWaterTempC,
+    coopsWaterTempC,
   }: {
     beach: Beach;
     waveData: any;
@@ -349,6 +393,7 @@ export class EnhancedForecastService {
     buoyData: any;
     cdipData: CDIPBuoyData | null;
     ioosWaterTempC: number | null;
+    coopsWaterTempC: number | null;
   }): Promise<EnhancedForecastWithRawData[]> {
     // Use ForecastBuilder to build forecasts
     const builder = new ForecastBuilder({
@@ -372,6 +417,7 @@ export class EnhancedForecastService {
       buoyData,
       cdipData,
       ioosWaterTempC,
+      coopsWaterTempC,
     });
 
     return forecasts;
