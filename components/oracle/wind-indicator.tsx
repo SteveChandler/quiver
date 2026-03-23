@@ -57,7 +57,7 @@ export function WindIndicator({ windDirection, windSpeed }: WindIndicatorProps) 
       </div>
       {/* Label */}
       <span className="text-medium font-mono text-[11px] leading-none">
-        {windDirection} {windSpeed}mph
+        {windSpeed === 0 ? "Calm" : `${windDirection} ${windSpeed}mph`}
       </span>
     </div>
   );

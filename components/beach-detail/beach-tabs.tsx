@@ -110,7 +110,7 @@ export function BeachTabs({
 
   // Phase 5: Common tab trigger classes following AllTrails spec
   const tabTriggerClasses =
-    "rounded-none border-b-2 border-transparent -mb-0.5 " + // Phase 5: Border and negative margin for overlap
+    "flex-1 rounded-none border-b-2 border-transparent -mb-0.5 " + // Phase 5: Border and negative margin for overlap
     "px-2 py-2 sm:px-6 sm:py-3 " + // Phase 5: Responsive padding (mobile: 8px h / 8px v, desktop: 24px h / 12px v)
     "text-xs sm:text-base font-medium text-gray-600 " + // Phase 5: Responsive font size (mobile: 12px, desktop: 16px)
     "transition-all duration-300 ease-out " + // Smooth transitions
@@ -130,8 +130,8 @@ export function BeachTabs({
         className="sticky z-40 mb-6 border-b-2 border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80"
         style={{ top: stickyTop }}
       >
-        <div className="flex w-full items-center gap-3 px-0 py-2 sm:py-0">
-          <TabsList className="flex flex-1 items-center justify-start gap-1 overflow-x-auto bg-transparent p-0 h-auto text-muted-foreground">
+        <div className="flex w-full items-center gap-1 px-0 py-2 sm:py-0">
+          <TabsList className="flex flex-[5] min-w-max md:min-w-0 items-center justify-start gap-1 bg-transparent p-0 h-auto text-muted-foreground">
             <TabsTrigger
               value="overview"
               className={tabTriggerClasses}
@@ -169,7 +169,7 @@ export function BeachTabs({
             </TabsTrigger>
           </TabsList>
           {actions ? (
-            <div className="hidden flex-shrink-0 items-center gap-2 md:flex">
+            <div className="hidden flex-[2] items-center gap-1 md:flex">
               {actions}
             </div>
           ) : null}

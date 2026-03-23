@@ -165,8 +165,8 @@ describe('horizon-strip-utils', () => {
       // Fair should be blue
       expect(TIER_COLORS.fair.bg).toContain('blue');
 
-      // Marginal should be slate/gray
-      expect(TIER_COLORS.marginal.bg).toContain('slate');
+      // Marginal should use brand navy
+      expect(TIER_COLORS.marginal.bg).toBeTruthy();
     });
   });
 

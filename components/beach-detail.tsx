@@ -455,19 +455,20 @@ function BeachDetailContent({
   const tabActions = (
     <>
       <Button
-        variant="outline"
+        variant="ghost"
         onClick={handleGetDirections}
         disabled={!canGetDirections}
-        className="h-10 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        className="flex-1 rounded-none border-0 border-b-2 border-transparent -mb-0.5 px-2 py-2 sm:px-6 sm:py-3 text-xs sm:text-base font-medium text-gray-600 transition-all duration-300 ease-out hover:bg-gray-50 dark:hover:bg-[#354090]/50 hover:text-gray-900 h-auto"
       >
-        <Navigation className="mr-2 h-4 w-4" />
-        Get directions
+        <Navigation className="mr-2 h-4 sm:h-5 w-4 sm:w-5" />
+        <span className="hidden sm:inline">Get directions</span>
+        <span className="sm:hidden">Directions</span>
       </Button>
       <BeachAlertCta
         beachId={beach.id}
         beachName={beach.name}
         compact
-        className="h-10 border-gray-300 text-gray-700 hover:bg-gray-50"
+        className="flex-1 bg-transparent shadow-none rounded-none border-0 border-b-2 border-transparent -mb-0.5 px-2 py-2 sm:px-6 sm:py-3 text-xs sm:text-base font-medium text-gray-600 transition-all duration-300 ease-out hover:bg-gray-50 dark:hover:bg-[#354090]/50 hover:text-gray-900 h-auto"
       />
     </>
   );
