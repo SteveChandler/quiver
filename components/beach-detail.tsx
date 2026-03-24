@@ -11,7 +11,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Navigation, AlertTriangle, CalendarDays } from "lucide-react";
+import { Navigation, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -59,15 +59,13 @@ import {
 } from "@/components/beach-detail/beach-tabs";
 import { SessionPlanningModal } from "@/components/beach-detail/session-planning-modal";
 import { TabLoadingSkeleton } from "@/components/beach-detail/tab-loading-skeleton";
-import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
-import { MatchScoreTeaser } from "@/components/recommendations/match-score-teaser";
+// InlineSignupCta and MatchScoreTeaser removed — Phase 1A CTA reduction.
+// The hero forecast teaser in BeachHeroCompact is now the sole CTA for anonymous users.
 import { TrustStrip } from "@/components/beach-detail/trust-strip";
 import { ForecastConfidenceBadge } from "@/components/beach-detail/forecast-confidence-badge";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
-import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
-import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
-import { motion } from "framer-motion";
+// trackSignupCtaClick, trackAuthModalOpened, and motion removed — only needed for removed CTAs
 
 // PERFORMANCE OPTIMIZATION: Lazy load tab content to reduce initial bundle size
 // Only load the active tab's code on-demand
@@ -351,10 +349,7 @@ function BeachDetailContent({
     Boolean(sources?.camera_url) &&
     buildCamEmbed(sources?.camera_url).kind !== "none";
 
-  // Horizon strip data for public mode teaser (Phase 2C + 2D)
-  // Computed here so both the hero teaser and above-tab upsell can share the same data
-  const [horizonAuthModal, setHorizonAuthModal] = useState(false);
-
+  // Horizon strip data for the hero teaser copy (firstHiddenDayName, peakHiddenWaveHeight)
   const horizonDaySummaries = useMemo(() => {
     if (!publicMode || !forecasts.length || !beach) return [];
     return aggregateDayForecasts(forecasts, beach, {
@@ -558,29 +553,8 @@ function BeachDetailContent({
 
       {/* Main Content Container */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        {/* Match Score Teaser — prominent card for anonymous visitors */}
-        {publicMode && (
-          <div className="mb-4 -mt-2">
-            <MatchScoreTeaser
-              beachId={beach.id}
-              beachName={beach.name}
-              variant="card"
-            />
-          </div>
-        )}
-        {/* Surf Call Card — gated for anonymous visitors */}
-        {publicMode ? (
-          <div className="mb-6">
-            <InlineSignupCta
-              title={`Get Alerts for ${beach.name}`}
-              description="Get notified when conditions are good, see the full 12-day outlook, and get your surf call"
-              primaryButtonText="Get Alerts — Free"
-              source={`beach-detail-${slugify(beach.name)}`}
-            />
-          </div>
-        ) : (
-          surfReportSlot
-        )}
+        {/* Surf report slot — authenticated users only */}
+        {!publicMode && surfReportSlot}
 
         {/* Key Stats Grid */}
         <BeachStatsGrid
@@ -610,47 +584,8 @@ function BeachDetailContent({
           </Alert>
         )}
 
-        {/* Horizon Strip Upsell — visible to ALL beach viewers (not just Forecast tab visitors).
-            Shows when in publicMode and there are days beyond the 3-day free horizon. */}
-        {publicMode && horizonDaySummaries.length > 3 && (
-          <>
-            <motion.button
-              type="button"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="mb-6 w-full flex items-center gap-3 rounded-xl
-                bg-gradient-to-r from-blue-50/80 to-cyan-50/60
-                border border-ocean-blue/10 p-3 cursor-pointer
-                hover:border-ocean-blue/20 hover:shadow-sm transition-all"
-              onClick={() => {
-                trackSignupCtaClick({ source: "horizon-strip-above-tabs" });
-                trackAuthModalOpened({ mode: "signup", source: "horizon-strip-above-tabs" });
-                setHorizonAuthModal(true);
-              }}
-            >
-              <CalendarDays className="h-4 w-4 text-ocean-blue flex-shrink-0" />
-              <p className="text-sm text-gray-700">
-                {firstHiddenDayName
-                  ? <>Conditions shift on <span className="font-semibold">{firstHiddenDayName}</span>{peakHiddenWaveHeight && peakHiddenWaveHeight >= 2 ? ` — ${peakHiddenWaveHeight.toFixed(0)}ft swell` : ""}</>
-                  : "Conditions shift on Day 4"}
-              </p>
-              <span className="ml-auto text-sm font-semibold text-ocean-blue whitespace-nowrap">
-                See 12-day outlook →
-              </span>
-            </motion.button>
-            <UnifiedAuthModal
-              isOpen={horizonAuthModal}
-              onClose={() => setHorizonAuthModal(false)}
-              mode="signup"
-              source="horizon-strip-above-tabs"
-              contextMessage={{
-                title: "See the Full Outlook",
-                description: "Plan your week with the 12-day forecast",
-              }}
-            />
-          </>
-        )}
+        {/* Horizon strip upsell removed — Phase 1A CTA reduction.
+            The hero forecast teaser is now the sole anonymous CTA. */}
 
         {/* Trust Strip + Confidence Badge — credibility signals for anonymous visitors */}
         <TrustStrip />

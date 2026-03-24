@@ -1,6 +1,6 @@
 /**
  * Unit tests for UnifiedAuthModal Terms of Service consent functionality
- * Tests terms checkbox behavior in signup mode
+ * Tests passive consent behavior (no checkbox friction on OAuth buttons)
  */
 
 import { render, screen, fireEvent } from "@testing-library/react";
@@ -40,6 +40,7 @@ jest.mock("@/lib/auth/auth-utils", () => ({
 jest.mock("@/lib/analytics/auth-events", () => ({
   trackAuthModalOpened: jest.fn(),
   trackAuthMethodSelected: jest.fn(),
+  trackAuthProviderSelected: jest.fn(),
   trackLoginStarted: jest.fn(),
   trackLoginSuccess: jest.fn(),
   trackLoginFailed: jest.fn(),
@@ -47,11 +48,17 @@ jest.mock("@/lib/analytics/auth-events", () => ({
   trackSignupSuccess: jest.fn(),
   trackSignupFailed: jest.fn(),
   trackMagicLinkSent: jest.fn(),
+  trackSignupFormSubmitted: jest.fn(),
+  trackAuthModalClosedWithoutAction: jest.fn(),
   categorizeAuthError: jest.fn(),
   extractEmailDomain: jest.fn(),
 }));
 
-describe("UnifiedAuthModal Terms Consent", () => {
+jest.mock("@/lib/mobile/apple-sign-in", () => ({
+  signInWithApple: jest.fn(),
+}));
+
+describe("UnifiedAuthModal Terms Consent — Passive Model", () => {
   const defaultProps = {
     isOpen: true,
     onClose: jest.fn(),
@@ -63,163 +70,144 @@ describe("UnifiedAuthModal Terms Consent", () => {
     jest.clearAllMocks();
   });
 
-  it("shows terms checkbox in signup mode on providers view", () => {
-    render(<UnifiedAuthModal {...defaultProps} />);
+  describe("No checkbox in signup mode", () => {
+    it("does not show a terms checkbox on the providers view", () => {
+      render(<UnifiedAuthModal {...defaultProps} />);
 
-    expect(screen.getByText(/I agree to the/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Terms of Service/i })).toHaveAttribute(
-      "href",
-      "/terms"
-    );
-    expect(screen.getByRole("link", { name: /Privacy Policy/i })).toHaveAttribute(
-      "href",
-      "/privacy"
-    );
-  });
-
-  it("does not show terms checkbox in login mode", () => {
-    render(<UnifiedAuthModal {...defaultProps} mode="login" />);
-
-    expect(screen.queryByText(/I agree to the/)).not.toBeInTheDocument();
-  });
-
-  it("disables Google OAuth button until terms accepted in signup mode", () => {
-    render(<UnifiedAuthModal {...defaultProps} />);
-
-    const googleButton = screen.getByRole("button", { name: /Continue with Google/i });
-    expect(googleButton).toBeDisabled();
-
-    // Check the terms checkbox
-    const checkbox = screen.getByRole("checkbox");
-    fireEvent.click(checkbox);
-
-    expect(googleButton).not.toBeDisabled();
-  });
-
-  it("shows terms checkbox on email/password form in signup mode", () => {
-    render(<UnifiedAuthModal {...defaultProps} />);
-
-    // Accept terms to enable email button (it's not disabled, but needed for consistency)
-    const checkbox = screen.getByRole("checkbox");
-    fireEvent.click(checkbox);
-
-    // Click email option
-    const emailButton = screen.getByRole("button", { name: /Continue with Email/i });
-    fireEvent.click(emailButton);
-
-    // Should still show terms checkbox on the email form
-    expect(screen.getByText(/I agree to the/)).toBeInTheDocument();
-  });
-
-  it("disables signup button until terms accepted on email form", () => {
-    render(<UnifiedAuthModal {...defaultProps} />);
-
-    // Accept terms first to enable navigation (though email button isn't actually disabled)
-    const providersCheckbox = screen.getByRole("checkbox");
-    fireEvent.click(providersCheckbox);
-
-    // Click email option
-    const emailButton = screen.getByRole("button", { name: /Continue with Email/i });
-    fireEvent.click(emailButton);
-
-    // The checkbox state should be independent per view in the implementation
-    // Let's verify the signup button behavior
-    const signupButton = screen.getByRole("button", { name: /Sign up/i });
-
-    // Fill in required fields
-    fireEvent.change(screen.getByLabelText(/Your Name/i), {
-      target: { value: "Test User" },
-    });
-    fireEvent.change(screen.getByLabelText(/Email/i), {
-      target: { value: "test@example.com" },
-    });
-    fireEvent.change(screen.getByLabelText(/Password/i), {
-      target: { value: "password123" },
+      expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
     });
 
-    // The terms checkbox state persists across views in the current implementation
-    // So the button should be enabled since we already accepted terms
-    // But let's test the button disabled state with a fresh modal
+    it('does not render "I agree to the" text', () => {
+      render(<UnifiedAuthModal {...defaultProps} />);
+
+      expect(screen.queryByText(/I agree to the/i)).not.toBeInTheDocument();
+    });
   });
 
-  it("signup button is disabled when terms not accepted", () => {
-    render(<UnifiedAuthModal {...defaultProps} />);
+  describe("Passive consent text in signup mode", () => {
+    it('shows passive consent text "By signing up, you agree to our"', () => {
+      render(<UnifiedAuthModal {...defaultProps} />);
 
-    // Click email option (it's not disabled)
-    const emailButton = screen.getByRole("button", { name: /Continue with Email/i });
-    fireEvent.click(emailButton);
-
-    // The signup button should be disabled since terms not accepted
-    const signupButton = screen.getByRole("button", { name: /Sign up/i });
-
-    // Fill in required fields
-    fireEvent.change(screen.getByLabelText(/Your Name/i), {
-      target: { value: "Test User" },
-    });
-    fireEvent.change(screen.getByLabelText(/Email/i), {
-      target: { value: "test@example.com" },
-    });
-    fireEvent.change(screen.getByLabelText(/Password/i), {
-      target: { value: "password123" },
+      expect(
+        screen.getByText(/By signing up, you agree to our/i)
+      ).toBeInTheDocument();
     });
 
-    // Signup button should be disabled because terms not accepted
-    expect(signupButton).toBeDisabled();
+    it("shows Terms link pointing to /terms", () => {
+      render(<UnifiedAuthModal {...defaultProps} />);
 
-    // Now accept terms
-    const emailFormCheckbox = screen.getByRole("checkbox");
-    fireEvent.click(emailFormCheckbox);
+      const termsLink = screen.getByRole("link", { name: /Terms/i });
+      expect(termsLink).toHaveAttribute("href", "/terms");
+    });
 
-    // Now button should be enabled
-    expect(signupButton).not.toBeDisabled();
+    it("shows Privacy Policy link pointing to /privacy", () => {
+      render(<UnifiedAuthModal {...defaultProps} />);
+
+      const privacyLink = screen.getByRole("link", { name: /Privacy Policy/i });
+      expect(privacyLink).toHaveAttribute("href", "/privacy");
+    });
+
+    it("Terms link opens in new tab with noopener noreferrer", () => {
+      render(<UnifiedAuthModal {...defaultProps} />);
+
+      const termsLink = screen.getByRole("link", { name: /Terms/i });
+      expect(termsLink).toHaveAttribute("target", "_blank");
+      expect(termsLink).toHaveAttribute("rel", "noopener noreferrer");
+    });
+
+    it("Privacy Policy link opens in new tab with noopener noreferrer", () => {
+      render(<UnifiedAuthModal {...defaultProps} />);
+
+      const privacyLink = screen.getByRole("link", { name: /Privacy Policy/i });
+      expect(privacyLink).toHaveAttribute("target", "_blank");
+      expect(privacyLink).toHaveAttribute("rel", "noopener noreferrer");
+    });
   });
 
-  it("opens terms link in new tab", () => {
-    render(<UnifiedAuthModal {...defaultProps} />);
+  describe("OAuth buttons are always enabled in signup mode", () => {
+    it("Google OAuth button is NOT disabled in signup mode", () => {
+      render(<UnifiedAuthModal {...defaultProps} />);
 
-    const termsLink = screen.getByRole("link", { name: /Terms of Service/i });
-    expect(termsLink).toHaveAttribute("target", "_blank");
-    expect(termsLink).toHaveAttribute("rel", "noopener noreferrer");
+      const googleButton = screen.getByRole("button", {
+        name: /Continue with Google/i,
+      });
+      expect(googleButton).not.toBeDisabled();
+    });
+
+    it("Google OAuth button is NOT disabled in login mode", () => {
+      render(<UnifiedAuthModal {...defaultProps} mode="login" />);
+
+      const googleButton = screen.getByRole("button", {
+        name: /Continue with Google/i,
+      });
+      expect(googleButton).not.toBeDisabled();
+    });
+
+    it("Google OAuth button is immediately clickable without any prior interaction", () => {
+      const mockInitiateOAuthFlow = require("@/lib/auth/auth-utils").initiateOAuthFlow;
+      mockInitiateOAuthFlow.mockResolvedValue({});
+
+      render(<UnifiedAuthModal {...defaultProps} />);
+
+      const googleButton = screen.getByRole("button", {
+        name: /Continue with Google/i,
+      });
+      fireEvent.click(googleButton);
+
+      expect(mockInitiateOAuthFlow).toHaveBeenCalled();
+    });
   });
 
-  it("opens privacy link in new tab", () => {
-    render(<UnifiedAuthModal {...defaultProps} />);
+  describe("No passive consent text in login mode", () => {
+    it("does not show passive consent text in login mode", () => {
+      render(<UnifiedAuthModal {...defaultProps} mode="login" />);
 
-    const privacyLink = screen.getByRole("link", { name: /Privacy Policy/i });
-    expect(privacyLink).toHaveAttribute("target", "_blank");
-    expect(privacyLink).toHaveAttribute("rel", "noopener noreferrer");
+      expect(
+        screen.queryByText(/By signing up, you agree to our/i)
+      ).not.toBeInTheDocument();
+    });
+
+    it("does not show a terms checkbox in login mode", () => {
+      render(<UnifiedAuthModal {...defaultProps} mode="login" />);
+
+      expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    });
   });
 
-  it("checkbox is unchecked by default in signup mode", () => {
-    render(<UnifiedAuthModal {...defaultProps} />);
+  describe("Email/password form in signup mode", () => {
+    it("does not show a terms checkbox on the email/password form", () => {
+      render(<UnifiedAuthModal {...defaultProps} />);
 
-    const checkbox = screen.getByRole("checkbox");
-    expect(checkbox).not.toBeChecked();
-  });
+      // Navigate to email form
+      const emailButton = screen.getByRole("button", {
+        name: /Continue with Email/i,
+      });
+      fireEvent.click(emailButton);
 
-  it("checkbox state is maintained after toggling", () => {
-    render(<UnifiedAuthModal {...defaultProps} />);
+      expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    });
 
-    const checkbox = screen.getByRole("checkbox");
+    it("shows passive consent text on the email/password signup form", () => {
+      render(<UnifiedAuthModal {...defaultProps} />);
 
-    // Initially unchecked
-    expect(checkbox).not.toBeChecked();
+      fireEvent.click(
+        screen.getByRole("button", { name: /Continue with Email/i })
+      );
 
-    // Check it
-    fireEvent.click(checkbox);
-    expect(checkbox).toBeChecked();
+      expect(
+        screen.getByText(/By signing up, you agree to our/i)
+      ).toBeInTheDocument();
+    });
 
-    // Uncheck it
-    fireEvent.click(checkbox);
-    expect(checkbox).not.toBeChecked();
-  });
+    it("Sign up button is enabled without needing to check any box", () => {
+      render(<UnifiedAuthModal {...defaultProps} />);
 
-  it("login mode allows Google OAuth without terms checkbox", () => {
-    render(<UnifiedAuthModal {...defaultProps} mode="login" />);
+      fireEvent.click(
+        screen.getByRole("button", { name: /Continue with Email/i })
+      );
 
-    const googleButton = screen.getByRole("button", { name: /Continue with Google/i });
-
-    // In login mode, the button should not be disabled due to terms
-    expect(googleButton).not.toBeDisabled();
+      const signupButton = screen.getByRole("button", { name: /Sign up/i });
+      expect(signupButton).not.toBeDisabled();
+    });
   });
 });

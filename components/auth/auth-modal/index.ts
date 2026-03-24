@@ -1,6 +1,3 @@
-export { TermsCheckbox } from "./TermsCheckbox";
-export type { TermsCheckboxProps } from "./TermsCheckbox";
-
 export { AuthProviders } from "./AuthProviders";
 export type { AuthProvidersProps } from "./AuthProviders";
 

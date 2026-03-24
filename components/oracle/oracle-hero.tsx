@@ -6,6 +6,7 @@ import { SwellLines } from "./swell-lines";
 import { WindIndicator } from "./wind-indicator";
 import { ConditionsOverlay } from "./conditions-overlay";
 import { getHourInTimezone } from "@/lib/utils/date-time";
+import { getOracleGreeting } from "@/lib/oracle/greeting";
 
 export interface OracleHeroProps {
   beachName: string;
@@ -29,6 +30,10 @@ export interface OracleHeroProps {
   levelTitle?: string | null;
   xpTotal?: number | null;
   timezone?: string;
+  /** Wind condition classification — "offshore", "onshore", "cross-shore", etc. Pass null when not available. */
+  windCondition?: string | null;
+  /** Days since user's last visit. Drives the "Missed you out there" greeting. */
+  daysAbsent?: number;
 }
 
 // Animated wave height: count up from "0" to the actual numeric prefix.
@@ -116,6 +121,8 @@ export function OracleHero({
   levelTitle,
   xpTotal,
   timezone,
+  windCondition,
+  daysAbsent = 0,
 }: OracleHeroProps) {
   const animatedWaveHeight = useWaveHeightAnimation(waveHeight, shouldAnimate);
 
@@ -130,9 +137,15 @@ export function OracleHero({
 
   const greeting = (() => {
     const hour = getHourInTimezone(new Date(), timezone || "America/Los_Angeles");
-    if (hour < 12) return "Good morning";
-    if (hour < 17) return "Good afternoon";
-    return "Good evening";
+    return getOracleGreeting({
+      score,
+      hour,
+      swellPeriod,
+      windCondition: windCondition ?? null,
+      userName: userName ?? "Surfer",
+      beachName: beachName ?? null,
+      daysAbsent,
+    });
   })();
 
   return (
@@ -189,7 +202,7 @@ export function OracleHero({
           <div className="flex flex-col gap-0.5">
             {userName && (
               <p className="text-medium text-sm">
-                {greeting}, {userName}
+                {greeting}
               </p>
             )}
             {(levelTitle || xpTotal != null) && (

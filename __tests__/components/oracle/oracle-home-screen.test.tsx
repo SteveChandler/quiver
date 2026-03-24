@@ -388,7 +388,8 @@ describe("OracleHomeScreen", () => {
 
   it("passes the correct userName from profile to OracleHero", () => {
     render(<OracleHomeScreen />);
-    expect(screen.getByText("Good morning, Alex")).toBeInTheDocument();
+    // Score=85 (8.5/10 > 7) at 8am PDT → conditions-reactive greeting for high score
+    expect(screen.getByText(/firing/i)).toBeInTheDocument();
   });
 
   it("uses waveHeightBadge from topRecommendation for display", () => {

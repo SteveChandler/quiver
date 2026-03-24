@@ -69,7 +69,7 @@ describe("BeachDetail loading and error guards", () => {
 
     render(<BeachDetail id="beach-1" />);
 
-    expect(screen.getByText(/Loading/i)).toBeInTheDocument();
+    expect(screen.getByText(/Checking the lineup/i)).toBeInTheDocument();
     expect(screen.queryByText(/Beach data not found/i)).not.toBeInTheDocument();
     expect(spy).toHaveBeenCalled();
   });

@@ -45,7 +45,7 @@ export function CenteredLoadingSpinner({ text }: { text?: string }) {
   );
 }
 
-export function FullPageLoader({ text = "Loading..." }: { text?: string }) {
+export function FullPageLoader({ text = "Checking the lineup..." }: { text?: string }) {
   return (
     <div className="flex-1 flex items-center justify-center min-h-[400px]">
       <div className="text-center space-y-4">
@@ -57,7 +57,7 @@ export function FullPageLoader({ text = "Loading..." }: { text?: string }) {
 }
 
 export function AuthLoader({
-  text = "Checking authentication...",
+  text = "Paddling out...",
 }: {
   text?: string;
 }) {

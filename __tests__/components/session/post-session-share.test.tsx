@@ -1,11 +1,12 @@
 /**
  * Tests for PostSessionShare Component
  *
- * Covers rendering, star display, callback invocation, and accessibility.
+ * Covers rendering, star display, callback invocation, accessibility,
+ * and the OG share card preview introduced in Phase 1D.
  */
 
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PostSessionShare } from "@/components/session/post-session-share";
 
@@ -41,6 +42,9 @@ const defaultProps = {
   onShare: jest.fn(),
   onSkip: jest.fn(),
 };
+
+const SHARE_CARD_URL =
+  "http://localhost:3000/api/og/session?beach=Ocean+Beach&rating=4&stars=4&size=Waist-Chest&board=";
 
 describe("PostSessionShare", () => {
   beforeEach(() => {
@@ -94,6 +98,75 @@ describe("PostSessionShare", () => {
       render(<PostSessionShare {...defaultProps} waveSize="" />);
       // Wave size span should not be present
       expect(screen.queryByText("Waist-Chest")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("OG card preview", () => {
+    it("renders an img element when shareCardUrl is provided", () => {
+      render(
+        <PostSessionShare {...defaultProps} shareCardUrl={SHARE_CARD_URL} />
+      );
+      const img = screen.getByRole("img", { name: /session share card/i });
+      expect(img).toBeInTheDocument();
+    });
+
+    it("img src points to the provided shareCardUrl", () => {
+      render(
+        <PostSessionShare {...defaultProps} shareCardUrl={SHARE_CARD_URL} />
+      );
+      const img = screen.getByRole("img", { name: /session share card/i });
+      expect(img).toHaveAttribute("src", SHARE_CARD_URL);
+    });
+
+    it("does not render img when shareCardUrl is not provided", () => {
+      render(<PostSessionShare {...defaultProps} />);
+      expect(
+        screen.queryByRole("img", { name: /session share card/i })
+      ).not.toBeInTheDocument();
+    });
+
+    it("shows a loading skeleton while the card image is loading", () => {
+      render(
+        <PostSessionShare {...defaultProps} shareCardUrl={SHARE_CARD_URL} />
+      );
+      // Loading placeholder should be present initially (before onLoad fires)
+      expect(screen.getByTestId("share-card-loading")).toBeInTheDocument();
+    });
+
+    it("hides the loading skeleton once the image has loaded", () => {
+      render(
+        <PostSessionShare {...defaultProps} shareCardUrl={SHARE_CARD_URL} />
+      );
+      const img = screen.getByRole("img", { name: /session share card/i });
+      // Simulate onLoad
+      fireEvent.load(img);
+      expect(
+        screen.queryByTestId("share-card-loading")
+      ).not.toBeInTheDocument();
+    });
+
+    it("renders share buttons below the card preview", () => {
+      render(
+        <PostSessionShare {...defaultProps} shareCardUrl={SHARE_CARD_URL} />
+      );
+      const img = screen.getByRole("img", { name: /session share card/i });
+      const shareBtn = screen.getByRole("button", {
+        name: /share your session/i,
+      });
+      // The share button should appear after (below) the image in the DOM
+      expect(
+        img.compareDocumentPosition(shareBtn) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+    });
+
+    it("renders 'Your session card is ready' microcopy when shareCardUrl provided", () => {
+      render(
+        <PostSessionShare {...defaultProps} shareCardUrl={SHARE_CARD_URL} />
+      );
+      expect(
+        screen.getByText(/your session card is ready/i)
+      ).toBeInTheDocument();
     });
   });
 

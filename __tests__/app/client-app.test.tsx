@@ -21,7 +21,7 @@ jest.mock("@/lib/utils/performance-utils", () => ({
 jest.mock("@/lib/utils/loading-utils", () => ({
   AuthLoadingStates: {
     checking: jest.fn(() => (
-      <div data-testid="auth-loading">Checking authentication...</div>
+      <div data-testid="auth-loading">Paddling out...</div>
     )),
   },
 }));
@@ -235,7 +235,7 @@ describe("ClientApp", () => {
 
       expect(screen.getByTestId("auth-loading")).toBeInTheDocument();
       expect(
-        screen.getByText("Checking authentication...")
+        screen.getByText("Paddling out...")
       ).toBeInTheDocument();
     });
 

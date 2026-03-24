@@ -71,5 +71,5 @@ export const AuthLoadingStates = {
     </>
   ),
 
-  checking: () => LoadingStates.page("Checking authentication..."),
+  checking: () => LoadingStates.page("Paddling out..."),
 };

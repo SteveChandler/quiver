@@ -261,7 +261,7 @@ export function JournalView({ className }: JournalViewProps) {
       <ZeroState
         icon={BookOpen}
         title="No Sessions Yet"
-        description="Your sessions train our forecast model. Start logging to see your progression and improve forecasts for your community."
+        description="Every session you log makes your forecast sharper. Start logging to see your progression and improve forecasts for your community."
         action={{
           label: "Log Your First Session",
           href: "/sessions/new?mode=log",

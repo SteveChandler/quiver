@@ -77,7 +77,7 @@ function resolveCTAs(props: ContextualCTAProps): {
       primary: setHomeBeach,
       secondary: [setAlarm, inviteFriend],
       contextLine:
-        "Pin your home break to unlock personalized windows, nearby spots, and local activity.",
+        "Lock in your local. Everything dials in from there.",
     };
   }
 

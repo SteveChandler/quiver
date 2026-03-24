@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 
 export interface PostSessionShareProps {
@@ -14,13 +14,19 @@ export interface PostSessionShareProps {
   onShare: () => void;
   /** Called when the user taps "Skip" */
   onSkip: () => void;
+  /**
+   * Fully-qualified URL to the OG session card image (e.g. /api/og/session?…).
+   * When provided, a visual preview of the share card is rendered above the CTAs
+   * so users see exactly what they're sharing before they tap.
+   */
+  shareCardUrl?: string;
 }
 
 /**
  * Full-screen celebration overlay shown after logging a session.
  * Fires canvas-confetti once on mount (skipped for prefers-reduced-motion).
- * Renders a dialog with beach name, star rating, wave size, and
- * Share / Skip CTAs.
+ * Renders a dialog with an OG share card preview (when shareCardUrl is provided),
+ * beach name, star rating, wave size, and Share / Skip CTAs.
  */
 export function PostSessionShare({
   beachName,
@@ -28,8 +34,10 @@ export function PostSessionShare({
   waveSize,
   onShare,
   onSkip,
+  shareCardUrl,
 }: PostSessionShareProps) {
   const clampedRating = Math.max(0, Math.min(5, Math.round(overallRating)));
+  const [cardImageLoaded, setCardImageLoaded] = useState(false);
 
   useEffect(() => {
     const prefersReduced =
@@ -64,13 +72,13 @@ export function PostSessionShare({
       role="dialog"
       aria-modal="true"
       aria-label="Session logged — share your session"
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-b from-[#0d1f2d] via-[#1a3a4a] to-[#0d1f2d] px-6"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-b from-[#0d1f2d] via-[#1a3a4a] to-[#0d1f2d] px-6 overflow-y-auto"
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.92 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.35, ease: "easeOut" }}
-        className="flex flex-col items-center gap-6 w-full max-w-sm text-center"
+        className="flex flex-col items-center gap-6 w-full max-w-sm text-center py-8"
       >
         {/* Headline */}
         <div className="flex flex-col items-center gap-1">
@@ -108,11 +116,42 @@ export function PostSessionShare({
           </span>
         ) : null}
 
+        {/* OG share card preview — hero of the celebration when available */}
+        {shareCardUrl ? (
+          <div className="w-full flex flex-col items-center gap-3">
+            {/* Microcopy */}
+            <p className="text-sm font-semibold text-[#F78E42] uppercase tracking-widest">
+              Your session card is ready to share
+            </p>
+
+            {/* Card preview container — 9:16 aspect ratio (1080×1920) */}
+            <div className="relative w-full rounded-2xl overflow-hidden border border-white/10"
+              style={{ aspectRatio: "9 / 16" }}
+            >
+              {/* Loading skeleton — shown until the image fires onLoad */}
+              {!cardImageLoaded && (
+                <div
+                  data-testid="share-card-loading"
+                  className="absolute inset-0 bg-gradient-to-b from-[#252D6B] to-[#1E2558] animate-pulse"
+                  aria-hidden="true"
+                />
+              )}
+              {/* eslint-disable-next-line @next/next/no-img-element -- OG images use img for Next.js edge compatibility */}
+              <img
+                src={shareCardUrl}
+                alt="Session share card preview"
+                onLoad={() => setCardImageLoaded(true)}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+        ) : null}
+
         {/* CTAs */}
         <div className="flex flex-col gap-3 w-full mt-2">
           <button
             onClick={onShare}
-            className="w-full rounded-2xl bg-[#4A70D9] hover:bg-[#3a60c9] active:bg-[#2a50b9] text-white font-bold text-base py-4 transition-colors"
+            className="w-full rounded-2xl bg-[#F78E42] hover:bg-[#D57835] active:bg-[#C06A25] text-white font-bold text-base py-4 transition-colors"
           >
             Share Your Session
           </button>

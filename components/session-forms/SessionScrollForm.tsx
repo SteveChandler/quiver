@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ import { VisibilitySection } from "./VisibilitySection";
 import { SessionSlider } from "./SessionSlider";
 import { WaveTypeSelector } from "@/components/ui/wave-type-selector";
 import { FORECAST_ACCURACY_OPTIONS } from "./shared/constants";
+import { SessionCelebration } from "@/components/session/session-celebration";
 
 interface SessionScrollFormProps {
   initialMode: SessionFormMode;
@@ -26,6 +28,10 @@ interface SessionScrollFormProps {
   onCancel: () => void;
   initialFormState?: Partial<SessionFormState>;
   className?: string;
+  /** Total logged sessions for this user — shown in the celebration overlay. */
+  sessionNumber?: number;
+  /** XP earned from this session — shown in the celebration overlay when > 0. */
+  xpEarned?: number;
 }
 
 export function SessionScrollForm({
@@ -34,6 +40,8 @@ export function SessionScrollForm({
   onCancel,
   initialFormState,
   className,
+  sessionNumber,
+  xpEarned,
 }: SessionScrollFormProps) {
   const { formState, updateField, boards, beaches, loadingData, isPlanning, refreshBoards } =
     useSessionForm({ initialMode, initialFormState });
@@ -43,10 +51,26 @@ export function SessionScrollForm({
 
   const canSave = Boolean(formState.selectedBeachId && formState.selectedDate);
 
-  function handleSave() {
+  // Celebration overlay state — only shown for logged sessions
+  const [pendingFormState, setPendingFormState] = useState<SessionFormState | null>(null);
+
+  const handleSave = useCallback(() => {
     if (!canSave) return;
-    onComplete(formState);
-  }
+    // Only show celebration for log mode; plan mode completes immediately
+    if (isLog) {
+      setPendingFormState(formState);
+    } else {
+      onComplete(formState);
+    }
+  }, [canSave, isLog, formState, onComplete]);
+
+  const handleCelebrationDismiss = useCallback(() => {
+    if (pendingFormState) {
+      const captured = pendingFormState;
+      setPendingFormState(null);
+      onComplete(captured);
+    }
+  }, [pendingFormState, onComplete]);
 
   return (
     <div className={cn("relative min-h-screen bg-[#252D6B] session-scroll-form", className)}>
@@ -319,6 +343,18 @@ export function SessionScrollForm({
           </div>
         </div>
       </div>
+
+      {/* Session celebration overlay — log mode only, shown after successful save */}
+      {pendingFormState && (
+        <SessionCelebration
+          sessionNumber={sessionNumber ?? 1}
+          beachName={pendingFormState.selectedBeach || "your spot"}
+          waveHeight={pendingFormState.waveHeight}
+          rating={pendingFormState.overallRating ? Number(pendingFormState.overallRating) : undefined}
+          xpEarned={xpEarned}
+          onDismiss={handleCelebrationDismiss}
+        />
+      )}
     </div>
   );
 }

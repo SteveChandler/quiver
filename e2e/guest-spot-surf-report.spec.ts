@@ -229,12 +229,20 @@ test.describe('Spot Surf Report', () => {
     expect(hasReviewsGate || hasIntelGate || hasSessionsGate).toBe(true);
   });
 
-  test('match score teaser shows for anonymous users', async ({ page }) => {
+  test('hero forecast teaser CTA shows for anonymous users (sole CTA after Phase 1A)', async ({ page }) => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
-    // The beach hero renders a match score teaser button for anonymous users
-    const matchTeaser = page.getByRole('button', { name: /what does today look like/i });
-    await expect(matchTeaser).toBeVisible();
+    // After Phase 1A CTA reduction, the MatchScoreTeaser card variant is removed.
+    // The sole anonymous CTA is now the forecast teaser in BeachHeroCompact.
+    // The ghost match-score button ("Your Match") or the forecast teaser button
+    // should be visible.
+    const ghostMatchScore = page.getByRole('button', { name: /your match/i });
+    const forecastTeaser = page.getByTestId('beach-hero-forecast-teaser');
+
+    const ghostVisible = await isVisibleSafe(ghostMatchScore, { timeout: 5000 });
+    const teaserVisible = await isVisibleSafe(forecastTeaser, { timeout: 5000 });
+
+    expect(ghostVisible || teaserVisible).toBe(true);
   });
 
   test('gated community tabs are accessible for anonymous users', async ({ page }) => {

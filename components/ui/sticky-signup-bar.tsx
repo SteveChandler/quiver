@@ -113,8 +113,8 @@ export function StickySignupBar({
       <div
         className={cn(
           "fixed bottom-0 left-0 right-0 z-50",
-          "bg-white/90 backdrop-blur-lg",
-          "border-t border-gray-200/80 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]",
+          "bg-[#252D6B]/95 backdrop-blur-lg",
+          "border-t border-white/10 shadow-[0_-4px_20px_rgba(0,0,0,0.3)]",
           "pb-[env(safe-area-inset-bottom)]",
           "md:hidden", // Only show on mobile
           reducedMotion
@@ -135,14 +135,14 @@ export function StickySignupBar({
       >
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex-1 min-w-0 mr-3">
-            <p className="text-sm text-gray-600 truncate">{supportingText}</p>
+            <p className="text-sm text-white/80 truncate">{supportingText}</p>
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
             <Button
               onClick={handleCtaClick}
               size="sm"
-              className="bg-ocean-blue text-white hover:bg-ocean-blue/90 font-semibold px-4 rounded-full shadow-sm"
+              className="bg-[#F78E42] text-white hover:bg-[#F78E42]/90 font-semibold px-4 rounded-full shadow-sm"
               data-testid="sticky-signup-cta"
             >
               {ctaText}
@@ -150,7 +150,7 @@ export function StickySignupBar({
 
             <button
               onClick={handleDismiss}
-              className="p-2.5 text-gray-400 hover:text-gray-600 transition-colors rounded-full hover:bg-gray-100 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              className="p-2.5 text-white/50 hover:text-white/80 transition-colors rounded-full hover:bg-white/10 min-w-[44px] min-h-[44px] flex items-center justify-center"
               aria-label="Dismiss signup prompt"
               data-testid="sticky-signup-dismiss"
             >

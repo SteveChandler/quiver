@@ -128,25 +128,20 @@ export function BeachHeroCompact({
     return () => observer.disconnect();
   }, [publicMode, personalizationScore, isLoadingPersonalization, beach.name]);
 
-  // Build data-driven teaser copy for anonymous users.
-  // Prefer concrete forecast data (wave height on a named upcoming day),
-  // fall back to a compelling static message about the 12-day window.
+  // Build benefit-driven teaser copy for anonymous users.
+  // Focus on what surfers actually want at 5:30am: community intel and the best window.
+  // Not future planning ("see 12-day outlook") — immediate value ("see if now is best").
   const teaserHeadline = useMemo(() => {
     if (firstHiddenDayName && peakHiddenWaveHeight && peakHiddenWaveHeight >= 2) {
-      return `${firstHiddenDayName}'s swell hits ${peakHiddenWaveHeight.toFixed(0)}ft — see the 12-day outlook`;
+      return `${peakHiddenWaveHeight.toFixed(0)}ft swell hits ${firstHiddenDayName} — see if now is the best time`;
     }
     if (firstHiddenDayName) {
-      return `See what's coming ${firstHiddenDayName} — full 12-day outlook`;
+      return `See what surfers reported this morning at ${beach.name}`;
     }
-    return "Best window tomorrow: sign up for alerts";
-  }, [firstHiddenDayName, peakHiddenWaveHeight]);
+    return `See if now is the best time to paddle out`;
+  }, [firstHiddenDayName, peakHiddenWaveHeight, beach.name]);
 
-  const teaserSubtext = useMemo(() => {
-    if (firstHiddenDayName && peakHiddenWaveHeight && peakHiddenWaveHeight >= 2) {
-      return "Free — takes 30 seconds";
-    }
-    return "Free — no credit card needed";
-  }, [firstHiddenDayName, peakHiddenWaveHeight]);
+  const teaserSubtext = "Free — takes 30 seconds";
 
   return (
     <div
@@ -184,7 +179,8 @@ export function BeachHeroCompact({
         </div>
       )}
 
-      {/* Forecast Teaser - Show for anonymous users with data-driven copy */}
+      {/* Forecast Teaser — the SOLE anonymous CTA on beach pages (Phase 1A/1B).
+          Dark-themed so it reads as native content, not an ad banner. */}
       {publicMode && !personalizationScore && !isLoadingPersonalization && (
         <motion.div
           ref={teaserRef}
@@ -194,68 +190,31 @@ export function BeachHeroCompact({
           className="mb-3"
         >
           <button
+            data-testid="beach-hero-forecast-teaser"
             onClick={handleMatchScoreTeaserClick}
             className="group w-full sm:max-w-sm flex items-center gap-3 rounded-2xl
-              border border-ocean-blue/15 bg-gradient-to-br from-ocean-blue/5 via-white to-cyan-50/80
-              p-3.5 shadow-sm ring-1 ring-ocean-blue/5
-              hover:shadow-md hover:border-ocean-blue/25 transition-all duration-200"
+              border border-white/15 bg-[#252D6B]/80 backdrop-blur-sm
+              p-3.5 shadow-sm
+              hover:bg-[#252D6B]/95 hover:border-white/25 transition-all duration-200"
           >
-            <div className="flex-shrink-0 p-2 rounded-xl bg-ocean-blue/10">
-              <CalendarDays className="h-5 w-5 text-ocean-blue" />
+            <div className="flex-shrink-0 p-2 rounded-xl bg-[#F78E42]/20">
+              <CalendarDays className="h-5 w-5 text-[#F78E42]" />
             </div>
             <div className="flex-1 text-left">
-              <p className="text-sm font-semibold text-gray-900">
+              <p className="text-sm font-semibold text-white">
                 {teaserHeadline}
               </p>
-              <p className="text-xs text-gray-500 mt-0.5">{teaserSubtext}</p>
+              <p className="text-xs text-white/60 mt-0.5">{teaserSubtext}</p>
             </div>
-            <div className="flex-shrink-0 text-sm font-semibold text-ocean-blue
+            <div className="flex-shrink-0 text-sm font-semibold text-[#F78E42]
               group-hover:translate-x-0.5 transition-transform">
-              Unlock →
+              See →
             </div>
           </button>
         </motion.div>
       )}
 
-      {/* Ghost Match Score — blurred/locked score to create curiosity */}
-      {publicMode && !personalizationScore && !isLoadingPersonalization && (
-        <div className="mb-3">
-          <button
-            onClick={() => {
-              trackSignupCtaClick({
-                source: "ghost-match-score",
-                cta_type: "ghost_score",
-                cta_text: "Your Match",
-              });
-              trackAuthModalOpened({
-                mode: "signup",
-                source: "ghost-match-score",
-              });
-              setShowGhostAuthModal(true);
-            }}
-            className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/20 hover:bg-white/20 transition-colors"
-            aria-label="See your forecast — sign up free"
-          >
-            <div className="relative flex items-center justify-center w-6 h-6">
-              <span className="text-sm font-bold text-white/30 blur-[2px] select-none" aria-hidden="true">87</span>
-              <Lock className="absolute h-3 w-3 text-white/80" />
-            </div>
-            <span className="text-xs text-white/80 font-medium">Your Match</span>
-          </button>
-          {showGhostAuthModal && (
-            <UnifiedAuthModal
-              isOpen={showGhostAuthModal}
-              onClose={() => setShowGhostAuthModal(false)}
-              mode="signup"
-              contextMessage={{
-                title: "See Your Match Score",
-                description: `Get a personalized conditions match for ${beach.name} based on your skill level and preferences`,
-              }}
-              source="ghost-match-score"
-            />
-          )}
-        </div>
-      )}
+      {/* Ghost Match Score removed — single CTA strategy (Phase 1A) */}
 
       {/* Board Recommendation Badge - only show when confident */}
       {boardRecommendation && (

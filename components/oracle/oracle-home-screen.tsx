@@ -339,7 +339,7 @@ export function OracleHomeScreen() {
     // TODO: Wire to native alarm / notification scheduling
     if (typeof window !== "undefined") {
       import("sonner").then(({ toast }) =>
-        toast("Coming soon", { description: "Alarm notifications are on the way." })
+        toast("Coming soon. We'll ping you when sets are rolling in.", { description: "Alarm notifications are on the way." })
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -481,6 +481,8 @@ export function OracleHomeScreen() {
         shouldAnimate={oracle.shouldAnimate}
         onAnimationComplete={oracle.markAnimationPlayed}
         userName={profile?.display_name ?? profile?.full_name}
+        // TODO: wire windCondition when wind quality label is available in forecast data
+        // TODO: wire daysAbsent from user's last session timestamp
         levelTitle={oracleProfile?.level_title ?? null}
         xpTotal={oracleProfile?.xp_total ?? null}
         timezone={heroTz}

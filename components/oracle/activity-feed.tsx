@@ -44,9 +44,9 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
 
       {items.length === 0 ? (
         <div className="noise-texture rounded-xl border border-[#404C92] bg-[#2D357D] p-5 text-center">
-          <p className="text-high text-sm font-semibold mb-1">Your local lineup is quiet</p>
+          <p className="text-high text-sm font-semibold mb-1">Intel board&apos;s empty</p>
           <p className="text-medium text-xs">
-            Log a session to see what your crew is up to — or be the first to post.
+            Be the first to drop some intel.
           </p>
         </div>
       ) : (

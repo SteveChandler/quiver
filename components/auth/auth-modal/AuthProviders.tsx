@@ -2,10 +2,13 @@
 
 import { Button } from "@/components/ui/button";
 import { Loader2, LogIn, Mail } from "lucide-react";
-import { TermsCheckbox } from "./TermsCheckbox";
 
 /**
  * Provider selection view
+ *
+ * Uses passive consent for Terms of Service in signup mode — the buttons are
+ * always enabled and consent is communicated via text below the OAuth buttons,
+ * reducing friction at the critical conversion moment.
  */
 export interface AuthProvidersProps {
   mode: "login" | "signup" | "auto";
@@ -13,8 +16,6 @@ export interface AuthProvidersProps {
   enablePassword: boolean;
   enableMagicLink: boolean;
   loading: boolean;
-  termsAccepted: boolean;
-  onTermsAcceptedChange: (accepted: boolean) => void;
   /** Optional Apple Sign-In handler. When provided, an Apple button is shown before Google (per Apple HIG). */
   onAppleClick?: () => void;
   onGoogleClick: () => void;
@@ -28,8 +29,6 @@ export function AuthProviders({
   enablePassword,
   enableMagicLink,
   loading,
-  termsAccepted,
-  onTermsAcceptedChange,
   onAppleClick,
   onGoogleClick,
   onEmailPasswordClick,
@@ -37,20 +36,13 @@ export function AuthProviders({
 }: AuthProvidersProps) {
   return (
     <div className="grid gap-3 pt-2">
-      {mode === "signup" && (
-        <TermsCheckbox
-          checked={termsAccepted}
-          onCheckedChange={onTermsAcceptedChange}
-          disabled={loading}
-        />
-      )}
       {enableOAuth && onAppleClick && (
         <Button
           onClick={onAppleClick}
           className="w-full"
           size="lg"
           variant="default"
-          disabled={loading || (mode === "signup" && !termsAccepted)}
+          disabled={loading}
         >
           {loading ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -74,7 +66,7 @@ export function AuthProviders({
           className="w-full"
           size="lg"
           variant="default"
-          disabled={loading || (mode === "signup" && !termsAccepted)}
+          disabled={loading}
         >
           {loading ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -83,6 +75,30 @@ export function AuthProviders({
           )}
           Continue with Google
         </Button>
+      )}
+
+      {/* Passive consent notice — shown after OAuth buttons in signup mode */}
+      {enableOAuth && mode === "signup" && (
+        <p className="text-center text-xs text-muted-foreground">
+          By signing up, you agree to our{" "}
+          <a
+            href="/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            Terms
+          </a>{" "}
+          and{" "}
+          <a
+            href="/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            Privacy Policy
+          </a>
+        </p>
       )}
 
       {(enablePassword || enableMagicLink) && enableOAuth && (

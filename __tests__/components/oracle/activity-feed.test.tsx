@@ -31,9 +31,16 @@ describe("ActivityFeed", () => {
   });
 
   describe("empty state", () => {
-    it("renders the empty state message when items array is empty", () => {
+    it("renders the 'Intel board's empty' headline when items array is empty", () => {
       render(<ActivityFeed items={[]} />);
-      expect(screen.getByText(/your local lineup is quiet/i)).toBeInTheDocument();
+      expect(screen.getByText(/intel board's empty/i)).toBeInTheDocument();
+    });
+
+    it("renders the follow-up empty state copy", () => {
+      render(<ActivityFeed items={[]} />);
+      expect(
+        screen.getByText(/be the first to drop some intel/i)
+      ).toBeInTheDocument();
     });
 
     it("does not render any activity rows in empty state", () => {
@@ -70,7 +77,7 @@ describe("ActivityFeed", () => {
 
     it("does not render the empty state message when items are present", () => {
       render(<ActivityFeed items={[SESSION_ITEM]} />);
-      expect(screen.queryByText(/your local lineup is quiet/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/intel board's empty/i)).not.toBeInTheDocument();
     });
   });
 });
