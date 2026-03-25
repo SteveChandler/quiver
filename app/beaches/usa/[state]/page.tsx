@@ -10,10 +10,7 @@ import {
   stateToSlug,
 } from "@/lib/utils/beach-url-utils";
 import { buildPageMetadata } from "@/lib/seo/meta";
-import {
-  generateLocationSlug,
-  normalizeCountry,
-} from "@/lib/utils/location-slug";
+import { normalizeCountry } from "@/lib/utils/location-slug";
 import { StateMapView } from "@/components/state/state-map-view";
 import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
 import { FAQSection } from "@/components/seo/faq-schema";
@@ -21,6 +18,8 @@ import { generateStateRichContent } from "@/lib/seo/state-content-generator";
 import { RichContentRenderer } from "@/lib/seo/rich-content";
 import { buildCityIntentUrl } from "@/lib/constants/intent-definitions";
 import { ExpandableCityList } from "@/components/state/expandable-city-list";
+import { buildCitySlug } from "@/lib/seo/city-slug-utils";
+import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 
 /** Intent quick-links shown per city for crawler discovery */
 const CITY_INTENT_PILLS = [
@@ -127,7 +126,7 @@ export default async function UsaStatePage(
     const cityName = String(loc.city || "").trim();
     if (!cityName) continue;
 
-    const citySlug = generateLocationSlug(cityName);
+    const citySlug = buildCitySlug(cityName, stateSlug.toUpperCase(), COLLISION_CITY_MAP);
     if (!citySlug) continue;
 
     // Prefer the "most descriptive" name we see (handles casing/diacritics).
@@ -147,7 +146,7 @@ export default async function UsaStatePage(
   const cityBeachCounts = new Map<string, number>();
   for (const b of beaches) {
     if (b.city) {
-      const slug = generateLocationSlug(b.city);
+      const slug = buildCitySlug(b.city || "", stateSlug.toUpperCase(), COLLISION_CITY_MAP);
       if (slug) {
         cityBeachCounts.set(slug, (cityBeachCounts.get(slug) || 0) + 1);
       }

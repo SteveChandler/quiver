@@ -468,3 +468,65 @@ export async function getTopCitiesInState(
     return [];
   }
 }
+
+/**
+ * Get the top cities in a state filtered by intent-specific beach availability.
+ * Used to populate PopularCitiesForIntent on state-level intent pages so that
+ * only cities with relevant beaches are linked (avoiding 404s).
+ *
+ * - "least-crowded": only cities with hasLeastCrowdedBeaches === true
+ * - "beginner" | "longboard": only cities with hasBeginnerBeaches === true
+ * - all other intents: behaves like getTopCitiesInState (no extra filter)
+ *
+ * @param stateSlug - 2-letter state slug (e.g., "ca", "fl")
+ * @param intentKey - Intent slug (e.g., "least-crowded", "beginner")
+ * @param limit - Maximum number of cities to return (default: 100)
+ * @returns Array of cities sorted by beach count (descending)
+ */
+export async function getTopCitiesInStateForIntent(
+  stateSlug: string,
+  intentKey: string,
+  limit = 100
+): Promise<TopCityInState[]> {
+  try {
+    // Use skill-aware city data so we can filter by intent
+    const citiesResult = await getAllCitiesWithBeachSkills(1);
+    if (!citiesResult.success || !citiesResult.data) return [];
+
+    // Normalize the state slug for comparison
+    const normalizedStateSlug = stateSlug.toLowerCase();
+
+    // Filter to cities in this state
+    let citiesInState = citiesResult.data.filter((city) => {
+      const cityStateSlug = stateToSlug(city.state);
+      return cityStateSlug === normalizedStateSlug;
+    });
+
+    // Apply intent-specific filter to avoid linking cities that would 404
+    if (intentKey === "least-crowded") {
+      citiesInState = citiesInState.filter((city) => city.hasLeastCrowdedBeaches);
+    } else if (intentKey === "beginner" || intentKey === "longboard") {
+      citiesInState = citiesInState.filter((city) => city.hasBeginnerBeaches);
+    }
+
+    // Sort by beach count (descending) and take top N
+    const sortedCities = citiesInState
+      .sort((a, b) => b.beachCount - a.beachCount)
+      .slice(0, limit);
+
+    // Use static collision map for consistency with sitemap canonical URLs
+    const { buildCitySlug } = await import("@/lib/seo/city-slug-utils");
+    const { COLLISION_CITY_MAP } = await import("@/lib/seo/city-collision-list");
+    const collisionMap = COLLISION_CITY_MAP;
+
+    // Transform to TopCityInState format
+    return sortedCities.map((city) => ({
+      slug: buildCitySlug(city.city, city.state, collisionMap),
+      name: city.city,
+      beachCount: city.beachCount,
+    }));
+  } catch (error) {
+    console.error("Error getting top cities in state for intent:", error);
+    return [];
+  }
+}

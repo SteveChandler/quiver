@@ -78,6 +78,12 @@ export interface BeachConditionSummary {
   beachId: string;
   beachName: string;
   beachSlug: string;
+  /** State name or abbreviation (e.g. "CA") — used to build hierarchical URLs */
+  state: string;
+  /** City name (e.g. "San Diego") — used to build hierarchical URLs */
+  city: string;
+  /** Country name (e.g. "USA") or null for domestic — used to build hierarchical URLs */
+  country: string | null;
   /** Current conditions score (0-100) */
   currentScore: number;
   /** Current wave height (feet) */
@@ -588,6 +594,9 @@ export function aggregateRegionalForecast(
       beachId: beach.id,
       beachName: beach.name || "Unknown Beach",
       beachSlug: beach.slug || "",
+      state: beach.state || "",
+      city: beach.city || "",
+      country: beach.country ?? null,
       currentScore,
       currentWaveHeight,
       trend,

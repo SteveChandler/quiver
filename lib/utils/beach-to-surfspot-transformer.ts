@@ -43,6 +43,7 @@ export function transformBeachToSurfSpot(beach: BeachWithMetrics): SurfSpot {
     slug: beach.slug ?? fallbackSlug,
     name: beach.name,
     citySlug: inferCitySlugForSurfSpot(beach.city),
+    city: beach.city ?? undefined,
     region: beach.region ?? `${beach.city ?? "Unknown"}, ${beach.state ?? "CA"}`,
 
     // Coordinates: database and SurfSpot both use lat/lon
