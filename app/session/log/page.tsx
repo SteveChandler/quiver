@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { logSession } from './actions';
@@ -14,6 +14,14 @@ const RATING_OPTIONS: { value: Rating; label: string; emoji: string }[] = [
 ];
 
 export default function SessionLogPage() {
+  return (
+    <Suspense>
+      <SessionLogContent />
+    </Suspense>
+  );
+}
+
+function SessionLogContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
   const beachId = searchParams.get('beach_id');

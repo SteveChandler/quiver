@@ -10,6 +10,7 @@
  * Featured beaches already have a 10-minute cache, so this aligns with that strategy.
  */
 
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { AuthAwareLandingWrapper } from "@/components/landing-page/auth-aware-landing-wrapper";
 import { LandingPageSSRSection } from "@/components/landing-page/landing-page-ssr-section";
@@ -32,7 +33,9 @@ export default function Home() {
         href="/images/hero/hero-golden-hour-poster.webp"
         type="image/webp"
       />
-      <AuthAwareLandingWrapper />
+      <Suspense>
+        <AuthAwareLandingWrapper />
+      </Suspense>
       <LandingPageSSRSection />
     </>
   );
