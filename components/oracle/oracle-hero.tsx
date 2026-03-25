@@ -19,7 +19,7 @@ export interface OracleHeroProps {
   tideDirection: "rising" | "falling";
   waterTemp: number;
   windSpeed: number;
-  windDirection: string;
+  windDirection: string | number;
   bestWindowTitle: string;
   bestWindowSubtitle: string;
   bestWindowTime: string;

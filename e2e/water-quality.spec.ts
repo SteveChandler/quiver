@@ -38,6 +38,16 @@ test.describe('Water Quality Badge - graceful absence', () => {
     errorCapture = setupErrorDetection(page);
     await navigateToBeach(page, TEST_BEACHES.blacks);
     await waitForPageLoad(page);
+
+    // Beach pages default to the Forecast tab. Click Overview to reveal
+    // water quality and other overview-specific cards.
+    const overviewTab = page.getByRole('tab', { name: /overview/i });
+    const isTabVisible = await isVisibleSafe(overviewTab, { timeout: 10000 });
+    if (isTabVisible) {
+      await overviewTab.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab panel transition
+      await page.waitForTimeout(500);
+    }
   });
 
   test.afterEach(async ({ page }) => {
@@ -78,6 +88,15 @@ test.describe('Water Quality Badge - graceful absence', () => {
 
   test('no water quality card is rendered on mobile viewport when data is absent', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
+
+    // Re-ensure Overview tab is selected after viewport resize
+    const overviewTab = page.getByRole('tab', { name: /overview/i });
+    const isTabVisible = await isVisibleSafe(overviewTab, { timeout: 5000 });
+    if (isTabVisible) {
+      await overviewTab.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab panel transition
+      await page.waitForTimeout(300);
+    }
 
     const wqTitle = page.getByText('Water Quality').first();
     const hasWQCard = await isVisibleSafe(wqTitle, { timeout: 3000 });
@@ -126,6 +145,16 @@ test.describe('Water Quality Badge - card rendering when data is present', () =>
     await navigateToBeach(page, TEST_BEACHES.blacks);
     await waitForPageLoad(page);
 
+    // Beach pages default to the Forecast tab. Click Overview to reveal
+    // water quality and other overview-specific cards.
+    const overviewTab = page.getByRole('tab', { name: /overview/i });
+    const isTabVisible = await isVisibleSafe(overviewTab, { timeout: 10000 });
+    if (isTabVisible) {
+      await overviewTab.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab panel transition
+      await page.waitForTimeout(500);
+    }
+
     // Workaround: Next.js dev server can serve stale SSR responses that
     // don't include newly-seeded data. One reload busts the cache.
     const wqProbe = page.getByText('Water Quality').first();
@@ -133,6 +162,14 @@ test.describe('Water Quality Badge - card rendering when data is present', () =>
     if (!rendered) {
       await page.reload();
       await waitForPageLoad(page);
+      // Re-click Overview tab after reload
+      const overviewTabAfterReload = page.getByRole('tab', { name: /overview/i });
+      const tabVisible = await isVisibleSafe(overviewTabAfterReload, { timeout: 10000 });
+      if (tabVisible) {
+        await overviewTabAfterReload.click();
+        // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab panel transition
+        await page.waitForTimeout(500);
+      }
     }
   });
 

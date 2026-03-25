@@ -60,13 +60,13 @@ test.describe('Featured Beaches API Contract', () => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
 
-      // API utils wrap responses in { success: true, data: [...], timestamp: ... }
+      // API wraps responses in { success: true, data: { beaches: [...], isNearby: boolean }, timestamp: ... }
       expect(json).toHaveProperty('success');
       expect(json).toHaveProperty('data');
       expect(json).toHaveProperty('timestamp');
 
       expect(json.success).toBe(true);
-      expect(Array.isArray(json.data)).toBe(true);
+      expect(Array.isArray(json.data.beaches)).toBe(true);
     });
 
     test('should return timestamp in ISO 8601 format', async ({ request: _request }) => {
@@ -99,14 +99,14 @@ test.describe('Featured Beaches API Contract', () => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
 
-      expect(Array.isArray(json.data)).toBe(true);
-      expect(json.data.length).toBeGreaterThan(0);
+      expect(Array.isArray(json.data.beaches)).toBe(true);
+      expect(json.data.beaches.length).toBeGreaterThan(0);
     });
 
     test('each beach should have required id field', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       beaches.forEach((beach: any, index: number) => {
         expect(beach).toHaveProperty('id');
@@ -119,7 +119,7 @@ test.describe('Featured Beaches API Contract', () => {
     test('each beach should have required name field', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       beaches.forEach((beach: any, index: number) => {
         expect(beach).toHaveProperty('name');
@@ -132,7 +132,7 @@ test.describe('Featured Beaches API Contract', () => {
     test('each beach should have slug field (string or null)', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       beaches.forEach((beach: any) => {
         expect(beach).toHaveProperty('slug');
@@ -146,7 +146,7 @@ test.describe('Featured Beaches API Contract', () => {
     test('each beach should have city field (string or null)', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       beaches.forEach((beach: any) => {
         expect(beach).toHaveProperty('city');
@@ -160,7 +160,7 @@ test.describe('Featured Beaches API Contract', () => {
     test('each beach should have state field (string or null)', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       beaches.forEach((beach: any) => {
         expect(beach).toHaveProperty('state');
@@ -174,7 +174,7 @@ test.describe('Featured Beaches API Contract', () => {
     test('each beach should have photo_url field (string or null)', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       beaches.forEach((beach: any) => {
         expect(beach).toHaveProperty('photo_url');
@@ -188,7 +188,7 @@ test.describe('Featured Beaches API Contract', () => {
     test('each beach should have has_real_photo field (boolean)', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       beaches.forEach((beach: any) => {
         expect(beach).toHaveProperty('has_real_photo');
@@ -199,7 +199,7 @@ test.describe('Featured Beaches API Contract', () => {
     test('beach objects should only contain expected fields', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       // Keep in sync with the landing-page UI contract (SurfHighlightsSection/SurfSpotCard)
       // and the API payload returned by /api/beaches/featured.
@@ -243,7 +243,7 @@ test.describe('Featured Beaches API Contract', () => {
     test('should prioritize beaches with real photos first', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       // Find indices of beaches with and without real photos
       let lastRealPhotoIndex = -1;
@@ -267,7 +267,7 @@ test.describe('Featured Beaches API Contract', () => {
     test('should return beaches with photos when available', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       const withPhotos = beaches.filter((b: any) => b.photo_url !== null && b.photo_url !== '');
 
@@ -280,7 +280,7 @@ test.describe('Featured Beaches API Contract', () => {
     test('photo URLs should be valid HTTP/HTTPS URLs when present', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       beaches.forEach((beach: any) => {
         if (beach.photo_url !== null && beach.photo_url !== '') {
@@ -292,7 +292,7 @@ test.describe('Featured Beaches API Contract', () => {
     test('has_real_photo should be true only when photo_url exists', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       beaches.forEach((beach: any) => {
         if (beach.has_real_photo === true) {
@@ -305,7 +305,7 @@ test.describe('Featured Beaches API Contract', () => {
     test('beaches without photos should have has_real_photo set to false', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       beaches.forEach((beach: any) => {
         if (beach.photo_url === null || beach.photo_url === '') {
@@ -319,7 +319,7 @@ test.describe('Featured Beaches API Contract', () => {
     test('should return reasonable number of beaches (4-50)', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       // API returns up to 50 beaches (enrichedWithPhotos + enrichedWithoutPhotos)
       expect(beaches.length).toBeGreaterThanOrEqual(4);
@@ -329,7 +329,7 @@ test.describe('Featured Beaches API Contract', () => {
     test('should not contain duplicate beach IDs', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       const ids = beaches.map((b: any) => b.id);
       const uniqueIds = new Set(ids);
@@ -340,7 +340,7 @@ test.describe('Featured Beaches API Contract', () => {
     test('should not contain duplicate beach names', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       const names = beaches.map((b: any) => b.name);
       const uniqueNames = new Set(names);
@@ -351,7 +351,7 @@ test.describe('Featured Beaches API Contract', () => {
     test('all required fields should be present and non-undefined', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       beaches.forEach((beach: any) => {
         // Required fields that must exist (can be null, but not undefined)
@@ -368,7 +368,7 @@ test.describe('Featured Beaches API Contract', () => {
     test('beach names should not be empty strings', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       beaches.forEach((beach: any) => {
         expect(beach.name.trim()).not.toBe('');
@@ -378,7 +378,7 @@ test.describe('Featured Beaches API Contract', () => {
     test('should only include public beaches (is_private = false)', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       // The API explicitly filters for is_private = false
       // We can't directly verify this from the response, but we can verify
@@ -398,16 +398,16 @@ test.describe('Featured Beaches API Contract', () => {
       const json = await response.json();
       expect(json).toHaveProperty('success');
       expect(json).toHaveProperty('data');
-      expect(Array.isArray(json.data)).toBe(true);
+      expect(Array.isArray(json.data.beaches)).toBe(true);
     });
 
     test('should return empty array instead of error for graceful degradation', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
 
-      // Even in error cases, the route returns createSuccessResponse([])
+      // Even in error cases, the route returns a successful response with empty beaches array
       expect(json.success).toBe(true);
-      expect(Array.isArray(json.data)).toBe(true);
+      expect(Array.isArray(json.data.beaches)).toBe(true);
     });
 
     test('should handle malformed query parameters gracefully', async ({ request: _request }) => {
@@ -418,7 +418,7 @@ test.describe('Featured Beaches API Contract', () => {
 
       const json = await response.json();
       expect(json.success).toBe(true);
-      expect(Array.isArray(json.data)).toBe(true);
+      expect(Array.isArray(json.data.beaches)).toBe(true);
     });
 
     test('should handle POST requests with 405 Method Not Allowed', async ({ request: _request }) => {
@@ -464,10 +464,10 @@ test.describe('Featured Beaches API Contract', () => {
       const json2 = await response2.json();
 
       // Results should be stable (same beaches, same order)
-      expect(json1.data.length).toBe(json2.data.length);
+      expect(json1.data.beaches.length).toBe(json2.data.beaches.length);
 
-      if (json1.data.length > 0) {
-        expect(json1.data[0].id).toBe(json2.data[0].id);
+      if (json1.data.beaches.length > 0) {
+        expect(json1.data.beaches[0].id).toBe(json2.data.beaches[0].id);
       }
     });
   });
@@ -495,10 +495,10 @@ test.describe('Featured Beaches API Contract', () => {
 
       // Even with no beaches, should return successful empty array
       expect(json.success).toBe(true);
-      expect(Array.isArray(json.data)).toBe(true);
+      expect(Array.isArray(json.data.beaches)).toBe(true);
 
       // Length should be >= 0 (could be empty)
-      expect(json.data.length).toBeGreaterThanOrEqual(0);
+      expect(json.data.beaches.length).toBeGreaterThanOrEqual(0);
     });
   });
 
@@ -506,7 +506,7 @@ test.describe('Featured Beaches API Contract', () => {
     test('should handle beaches with missing location data (null city/state)', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       // Find beaches with null location data
       const beachesWithNullLocation = beaches.filter((b: any) =>
@@ -523,7 +523,7 @@ test.describe('Featured Beaches API Contract', () => {
     test('should handle beaches with null slug', async ({ request: _request }) => {
       const response = await request.get(ENDPOINT);
       const json = await response.json();
-      const beaches = json.data;
+      const beaches = json.data.beaches;
 
       const beachesWithNullSlug = beaches.filter((b: any) => b.slug === null);
 

@@ -365,9 +365,9 @@ test.describe("Regional Forecast - Error Handling", () => {
   test("should show 404 for invalid region", async ({ page }) => {
     await page.goto("/forecast/nonexistent-region");
 
-    // Should show 404 page
+    // Should show 404 page — custom 404 heading is "Caught inside."
     await expect(
-      page.getByRole("heading", { name: /404|Not Found/i })
+      page.getByRole("heading", { name: /Caught inside/i })
     ).toBeVisible();
   });
 });

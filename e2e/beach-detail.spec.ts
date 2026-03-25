@@ -24,8 +24,8 @@ test.describe('Beach Detail Page', () => {
   });
 
   test('should display beach name and location', async ({ page }) => {
-    // Should show beach name in header
-    const beachName = page.getByRole('heading', { name: /blacks/i });
+    // Should show beach name in header (use level: 1 to avoid matching sr-only h2)
+    const beachName = page.getByRole('heading', { name: /blacks/i, level: 1 });
     await expect(beachName).toBeVisible({ timeout: 10000 });
 
     // Should show location (California) - use .first() to avoid strict mode violation
@@ -73,19 +73,25 @@ test.describe('Beach Detail Page', () => {
   });
 
   test('should have functional action buttons', async ({ page }) => {
-    // Should show action buttons
+    // Action buttons are Link-wrapped Buttons: Plan Session / Log Session
+    // They may match as role="button" or role="link" depending on rendering
     const logSessionButton = page.getByRole('button', { name: /log session|add session/i });
     const planSessionButton = page.getByRole('button', { name: /plan session/i });
+    const logSessionLink = page.getByRole('link', { name: /log session|add session/i });
+    const planSessionLink = page.getByRole('link', { name: /plan session/i });
 
-    const hasLogSession = await isVisibleSafe(logSessionButton);
-    const hasPlanSession = await isVisibleSafe(planSessionButton);
+    const hasLogButton = await isVisibleSafe(logSessionButton);
+    const hasPlanButton = await isVisibleSafe(planSessionButton);
+    const hasLogLink = await isVisibleSafe(logSessionLink);
+    const hasPlanLink = await isVisibleSafe(planSessionLink);
 
-    expect(hasLogSession || hasPlanSession).toBe(true);
+    expect(hasLogButton || hasPlanButton || hasLogLink || hasPlanLink).toBe(true);
   });
 
   test('should display tabs for different content sections', async ({ page }) => {
     // Should have tabs (Overview, Forecast, Reviews, etc.)
-    const tablist = page.getByRole('tablist');
+    // Use .first() — multiple tablists exist (main tabs + forecast sub-tabs)
+    const tablist = page.getByRole('tablist').first();
     await expect(tablist).toBeVisible({ timeout: 10000 });
 
     // Should have all five tabs
@@ -124,8 +130,8 @@ test.describe('Beach Detail Page', () => {
   test('should be responsive on mobile', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
 
-    // Beach name should still be visible
-    const beachName = page.getByRole('heading', { name: /blacks/i });
+    // Beach name should still be visible (use level: 1 to avoid matching sr-only h2)
+    const beachName = page.getByRole('heading', { name: /blacks/i, level: 1 });
     await expect(beachName).toBeVisible();
 
     // Content should be readable
@@ -233,8 +239,8 @@ test.describe('Beach Detail - Forecast Tab', () => {
       // Verify it becomes active
       await expect(tab.element).toHaveAttribute('data-state', 'active', { timeout: 5000 });
 
-      // Verify content panel is visible
-      const tabpanel = page.getByRole('tabpanel');
+      // Verify content panel is visible (use .first() — nested tab panels may exist)
+      const tabpanel = page.getByRole('tabpanel').first();
       await expect(tabpanel).toBeVisible();
 
       // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab content to load
@@ -252,7 +258,8 @@ test.describe('Beach Detail - Forecast Tab', () => {
 
     // Today sub-tab shows "Current Conditions" with tide, wind, swell cards.
     // Scope to the visible tabpanel to avoid matching hidden overview tab content.
-    const tabpanel = page.getByRole('tabpanel');
+    // Use .first() — multiple tabpanels exist (main beach tab + forecast sub-tab)
+    const tabpanel = page.getByRole('tabpanel').first();
     await expect(tabpanel).toBeVisible({ timeout: 10000 });
 
     const tideLabel = tabpanel.getByText(/^Tide$/i).first();

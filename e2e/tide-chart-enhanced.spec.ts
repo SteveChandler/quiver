@@ -1,14 +1,14 @@
 import { test, expect } from "@playwright/test";
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
-// Beach page URL - using the correct route pattern
-const BEACH_URL = "/ca/la-jolla/blacks";
+// Beach page URL - using the correct route pattern (Blacks is in San Diego)
+const BEACH_URL = "/ca/san-diego/blacks";
 
 /**
  * E2E tests for the tide chart on beach detail pages.
  *
- * The Tides tab renders an embedded surf terminal widget inside an iframe
- * (TradingView-based charting), NOT a Recharts SVG component.
+ * The Tides tab renders a Recharts SVG chart inside TideChartSection,
+ * with time range tabs (Today, 3-Day, 7-Day).
  */
 test.describe("Tide Chart", () => {
   let errorCapture: ErrorCapture;
@@ -40,7 +40,7 @@ test.describe("Tide Chart", () => {
       });
     });
 
-    test("loads embedded chart with series toggles", async ({ page }) => {
+    test("loads tide chart section with Recharts SVG", async ({ page }) => {
       await page.goto(BEACH_URL);
       await page.waitForLoadState("load");
 
@@ -50,12 +50,13 @@ test.describe("Tide Chart", () => {
       const tidesTab = page.getByRole("tab", { name: /tides/i });
       await tidesTab.click();
 
-      // The chart is inside an iframe — access the frame content
-      const chartFrame = page.frameLocator('iframe').first();
+      // The tide chart is a Recharts SVG component (not an iframe)
+      const tideChartSection = page.getByTestId("tide-chart-section");
+      await expect(tideChartSection).toBeVisible({ timeout: 15000 });
 
-      // Verify Waves and Tide series toggle buttons exist
-      await expect(chartFrame.getByRole("button", { name: /toggle waves/i })).toBeVisible({ timeout: 15000 });
-      await expect(chartFrame.getByRole("button", { name: /toggle tide/i })).toBeVisible({ timeout: 15000 });
+      // Verify the Recharts SVG container is rendered
+      const svgChart = tideChartSection.locator("svg.recharts-surface");
+      await expect(svgChart.first()).toBeVisible({ timeout: 15000 });
     });
 
     test("shows time range selector buttons", async ({ page }) => {
@@ -68,12 +69,14 @@ test.describe("Tide Chart", () => {
       const tidesTab = page.getByRole("tab", { name: /tides/i });
       await tidesTab.click();
 
-      // The chart iframe should have time range buttons
-      const chartFrame = page.frameLocator('iframe').first();
-      await expect(chartFrame.getByRole("button", { name: /24H/i })).toBeVisible({ timeout: 15000 });
-      await expect(chartFrame.getByRole("button", { name: /3D/i })).toBeVisible();
-      await expect(chartFrame.getByRole("button", { name: /7D/i })).toBeVisible();
-      await expect(chartFrame.getByRole("button", { name: /12D/i })).toBeVisible();
+      // Time range buttons are inside the TideChartSection (not an iframe)
+      const tideChartSection = page.getByTestId("tide-chart-section");
+      await expect(tideChartSection).toBeVisible({ timeout: 15000 });
+
+      // Verify the time range tabs: Today, 3-Day, 7-Day
+      await expect(tideChartSection.getByRole("tab", { name: /today/i })).toBeVisible();
+      await expect(tideChartSection.getByRole("tab", { name: /3-day/i })).toBeVisible();
+      await expect(tideChartSection.getByRole("tab", { name: /7-day/i })).toBeVisible();
     });
   });
 

@@ -126,7 +126,7 @@ test.describe('Coast Pulse Infinite Scroll', () => {
       const newCount = await newItems.count();
 
       // Either loading indicator appeared, or items increased, or we've reached the end
-      const endMessage = coastPulse.getByText("You've reached the beginning");
+      const endMessage = coastPulse.getByText("No older updates");
       const isEndMessageVisible = await isVisibleSafe(endMessage);
 
       // At least one of these should be true
@@ -158,7 +158,7 @@ test.describe('Coast Pulse Infinite Scroll', () => {
         await page.waitForTimeout(500);
 
         // Check if we've reached the end
-        const endMessage = coastPulse.getByText("You've reached the beginning");
+        const endMessage = coastPulse.getByText("No older updates");
         if (await isVisibleSafe(endMessage)) {
           // Found end message - test passes
           await expect(endMessage).toBeVisible();
@@ -190,7 +190,7 @@ test.describe('Coast Pulse Infinite Scroll', () => {
       }
 
       // Check the end state
-      const endMessage = coastPulse.getByText("You've reached the beginning");
+      const endMessage = coastPulse.getByText("No older updates");
       const loadingIndicator = coastPulse.locator('.animate-bounce');
 
       if (await isVisibleSafe(endMessage)) {
@@ -358,6 +358,12 @@ test.describe('Coast Pulse Infinite Scroll - Mobile', () => {
     errorCapture = setupErrorDetection(page);
     await gotoWithErrorCheck(page, errorCapture, '/');
     await waitForPageLoad(page);
+
+    const authHomeLoaded = await waitForAuthenticatedHome(page);
+    if (!authHomeLoaded) {
+      test.skip(true, 'Authenticated home screen did not render — coast-pulse requires OracleHomeScreen');
+      return;
+    }
   });
 
   test.afterEach(async ({ page }) => {
@@ -406,7 +412,7 @@ test.describe('Coast Pulse Infinite Scroll - Mobile', () => {
     await expect(timeline).toBeVisible({ timeout: TIMEOUTS.medium });
 
     // End message should be styled appropriately for mobile
-    const endMessage = coastPulse.getByText("You've reached the beginning");
+    const endMessage = coastPulse.getByText("No older updates");
 
     // Scroll to bottom
     for (let i = 0; i < 5; i++) {

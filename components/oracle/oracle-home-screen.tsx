@@ -41,7 +41,9 @@ interface ProfileWithOracle {
  * Safely parse a numeric value from a string that may contain units.
  * e.g. "14s" → 14, "3.2ft" → 3.2, "8 mph" → 8
  */
-function parseNumeric(value: string | null | undefined, fallback = 0): number {
+function parseNumeric(value: string | number | null | undefined, fallback = 0): number {
+  if (value == null) return fallback;
+  if (typeof value === "number") return isNaN(value) ? fallback : value;
   if (!value) return fallback;
   const match = value.match(/^(\d+(?:\.\d+)?)/);
   return match ? parseFloat(match[1]) : fallback;

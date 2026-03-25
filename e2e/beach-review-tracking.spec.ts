@@ -94,8 +94,9 @@ test.describe('Beach Review Tracking', () => {
       await ensureAuthenticated(page);
       await navigateToBeach(page, TEST_BEACHES.blacks);
 
-      // Should be on Overview tab by default
+      // Default tab is Forecast — switch to Overview tab where the review CTA lives
       const overviewTab = page.getByRole('tab', { name: /overview/i });
+      await overviewTab.click();
       await expect(overviewTab).toHaveAttribute('data-state', 'active');
 
       // Should show the review CTA
@@ -113,6 +114,11 @@ test.describe('Beach Review Tracking', () => {
       await waitForTrackingReady(page);
       // Clear events from page load (beach_view) so we only capture test interactions
       await page.evaluate(() => { (window as any).__capturedTrackingEvents = []; });
+
+      // Default tab is Forecast — switch to Overview tab where the review CTA lives
+      const overviewTab = page.getByRole('tab', { name: /overview/i });
+      await overviewTab.click();
+      await expect(overviewTab).toHaveAttribute('data-state', 'active');
 
       // Click the review CTA in overview tab
       const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
@@ -184,6 +190,11 @@ test.describe('Beach Review Tracking', () => {
       // Clear events from page load (beach_view) so we only capture test interactions
       await page.evaluate(() => { (window as any).__capturedTrackingEvents = []; });
 
+      // Default tab is Forecast — switch to Overview tab where the review CTA lives
+      const overviewTab = page.getByRole('tab', { name: /overview/i });
+      await overviewTab.click();
+      await expect(overviewTab).toHaveAttribute('data-state', 'active');
+
       // Open review form
       const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
       await expect(reviewCTA).toBeVisible({ timeout: 10000 });
@@ -218,6 +229,11 @@ test.describe('Beach Review Tracking', () => {
       await waitForTrackingReady(page);
       // Clear events from page load (beach_view) so we only capture test interactions
       await page.evaluate(() => { (window as any).__capturedTrackingEvents = []; });
+
+      // Default tab is Forecast — switch to Overview tab where the review CTA lives
+      const overviewTab = page.getByRole('tab', { name: /overview/i });
+      await overviewTab.click();
+      await expect(overviewTab).toHaveAttribute('data-state', 'active');
 
       // Open review form
       const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
@@ -261,6 +277,11 @@ test.describe('Beach Review Tracking', () => {
       // Clear events from page load (beach_view) so we only capture test interactions
       await page.evaluate(() => { (window as any).__capturedTrackingEvents = []; });
 
+      // Default tab is Forecast — switch to Overview tab where the review CTA lives
+      const overviewTab = page.getByRole('tab', { name: /overview/i });
+      await overviewTab.click();
+      await expect(overviewTab).toHaveAttribute('data-state', 'active');
+
       // Open review form
       const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
       await expect(reviewCTA).toBeVisible({ timeout: 10000 });
@@ -294,6 +315,11 @@ test.describe('Beach Review Tracking', () => {
       await ensureAuthenticated(page);
       await navigateToBeach(page, TEST_BEACHES.blacks);
 
+      // Default tab is Forecast — switch to Overview tab where the review CTA lives
+      const overviewTab = page.getByRole('tab', { name: /overview/i });
+      await overviewTab.click();
+      await expect(overviewTab).toHaveAttribute('data-state', 'active');
+
       // Open review form
       const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
       await reviewCTA.click();
@@ -316,6 +342,11 @@ test.describe('Beach Review Tracking', () => {
     test('CTA button should have visible focus indicator', async ({ page }) => {
       await ensureAuthenticated(page);
       await navigateToBeach(page, TEST_BEACHES.blacks);
+
+      // Default tab is Forecast — switch to Overview tab where the review CTA lives
+      const overviewTab = page.getByRole('tab', { name: /overview/i });
+      await overviewTab.click();
+      await expect(overviewTab).toHaveAttribute('data-state', 'active');
 
       // Find the review CTA button
       const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
@@ -346,6 +377,11 @@ test.describe('Review Form UI', () => {
     await ensureAuthenticated(page);
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
+    // Default tab is Forecast — switch to Overview tab where the review CTA lives
+    const overviewTab = page.getByRole('tab', { name: /overview/i });
+    await overviewTab.click();
+    await expect(overviewTab).toHaveAttribute('data-state', 'active');
+
     // Open review form
     const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
     await reviewCTA.click();
@@ -365,6 +401,11 @@ test.describe('Review Form UI', () => {
     await ensureAuthenticated(page);
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
+    // Default tab is Forecast — switch to Overview tab where the review CTA lives
+    const overviewTab = page.getByRole('tab', { name: /overview/i });
+    await overviewTab.click();
+    await expect(overviewTab).toHaveAttribute('data-state', 'active');
+
     // Open review form
     const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
     await reviewCTA.click();
@@ -381,6 +422,11 @@ test.describe('Review Form UI', () => {
   test('should have functional title and content inputs', async ({ page }) => {
     await ensureAuthenticated(page);
     await navigateToBeach(page, TEST_BEACHES.blacks);
+
+    // Default tab is Forecast — switch to Overview tab where the review CTA lives
+    const overviewTab = page.getByRole('tab', { name: /overview/i });
+    await overviewTab.click();
+    await expect(overviewTab).toHaveAttribute('data-state', 'active');
 
     // Open review form
     const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();

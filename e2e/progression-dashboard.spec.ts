@@ -19,7 +19,9 @@ test.describe('Progression Dashboard', () => {
 
   test.beforeEach(async ({ page }) => {
     errorCapture = setupErrorDetection(page);
-    await page.goto('/journal');
+    // The journal view (including the Progression tab) lives inside the profile page,
+    // under the "sessions" (Journal+) tab. There is no standalone /journal route.
+    await page.goto('/profile?tab=sessions');
     await waitForPageLoad(page);
   });
 

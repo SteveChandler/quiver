@@ -50,14 +50,18 @@ export const TEST_LOCATIONS: Record<string, LocationIdentifier> = {
 
 /**
  * Location URLs for navigation tests
+ *
+ * These use the canonical short URL form that the middleware serves via
+ * internal rewrite (no visible redirect). Legacy `/beaches/...` paths
+ * 301-redirect to these canonical URLs.
  */
 export const LOCATION_URLS = {
-  laJolla: "/beaches/usa/ca/la-jolla",
-  pacificBeach: "/beaches/usa/ca/pacific-beach",
-  newportBeach: "/beaches/usa/ca/newport-beach",
-  sanOnofre: "/beaches/usa/ca/san-onofre",
-  huntingtonBeach: "/beaches/usa/ca/huntington-beach",
-  ensenada: "/beaches/mexico/baja-california/ensenada",
+  laJolla: "/ca/la-jolla",
+  pacificBeach: "/ca/pacific-beach",
+  newportBeach: "/ca/newport-beach",
+  sanOnofre: "/ca/san-onofre",
+  huntingtonBeach: "/ca/huntington-beach",
+  ensenada: "/mexico/baja-california/ensenada",
 };
 
 /**

@@ -59,8 +59,8 @@ test.describe("Forecast Hub Landing Page", () => {
       page.getByRole("heading", { name: /Choose Your Region/i })
     ).toBeVisible();
 
-    // Check that group headings are visible
-    for (const group of ["California", "Pacific", "East Coast", "International"]) {
+    // Check that group headings are visible (matching REGION_GROUPS labels)
+    for (const group of ["California", "Pacific", "East Coast", "Caribbean", "Mexico"]) {
       await expect(
         page.getByRole("heading", { name: group, level: 3 })
       ).toBeVisible();
