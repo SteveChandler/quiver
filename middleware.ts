@@ -8,8 +8,6 @@ import { AdminChecker } from "@/lib/middleware/admin-checker";
 import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
 import {
   handleSeoRedirect,
-  lookupBeachBySlug,
-  buildCanonicalBeachUrl,
 } from "@/lib/middleware/seo-redirect-handler";
 import {
   parseUTMParams,
@@ -65,12 +63,10 @@ const INTERNATIONAL_RESERVED_SEGMENTS = new Set([
 ]);
 
 // Legacy slug variants that Google indexed but don't match the DB slug.
-// Maps old slug → current DB slug so /spots/{old} resolves instead of 404-ing.
-// Remove entries after Google drops the cached URLs (~6 months after redirect).
-const LEGACY_SPOT_SLUG_ALIASES: Record<string, string> = {
-  "blacks-beach": "blacks", // 271 impressions at 0 clicks — added Mar 2026
-  "lowers-trestles": "lower-trestles", // plural variant linked from OC surf spots page
-};
+// These were used by the middleware /spots/{slug} DB lookup (now removed to reduce TTFB).
+// Kept as reference; re-introduce if a static /spots redirect is added back.
+// "blacks-beach": "blacks"         — 271 impressions at 0 clicks (Mar 2026)
+// "lowers-trestles": "lower-trestles" — plural variant linked from OC surf spots page
 
 function log(message: string, data?: any) {
   if (isDev && isVerbose) {
@@ -95,37 +91,16 @@ export async function middleware(request: NextRequest) {
   let rewriteTarget: URL | undefined;
 
   /**
-   * Legacy /spots/{slug} → canonical URL redirect (HTTP 301)
+   * Legacy /spots/{slug} → canonical URL redirect
    *
-   * The spots page component uses permanentRedirect() which Next.js App Router
-   * emits as HTTP 308. Intercepting here in middleware allows us to issue the
-   * correct HTTP 301 for maximum crawler compatibility.
+   * The spots/[slug]/page.tsx page component uses permanentRedirect() to redirect
+   * to the canonical /{state}/{city}/{slug} URL. The middleware DB lookup that
+   * previously intercepted these requests has been removed to eliminate DB latency
+   * for anonymous users. The page route handles the redirect internally.
    *
-   * The DB lookup reuses the same lookupBeachBySlug helper used by handleSeoRedirect,
-   * so we stay within the established middleware DB access pattern (fetch + short timeout).
-   * Only redirects when the beach has complete location data (city + state in DB).
-   * If lookup fails or beach lacks location data, the request passes through to the
-   * spots page which renders the non-redirect path.
+   * LEGACY_SPOT_SLUG_ALIASES is retained in case it is needed again in the future,
+   * but is no longer used in the middleware redirect flow.
    */
-  const spotsMatch = pathname.match(/^\/spots\/([^/]+?)\/?$/);
-  if (spotsMatch && spotsMatch[1]) {
-    const rawSlug = spotsMatch[1];
-    const spotSlug = LEGACY_SPOT_SLUG_ALIASES[rawSlug] ?? rawSlug;
-    try {
-      const beach = await lookupBeachBySlug(spotSlug);
-      if (beach) {
-        const canonicalUrl = buildCanonicalBeachUrl(beach);
-        if (canonicalUrl && canonicalUrl !== `/spots/${spotSlug}`) {
-          // Preserve query parameters (tabs, UTM params, etc.)
-          const redirectUrl = request.nextUrl.clone();
-          redirectUrl.pathname = canonicalUrl;
-          return NextResponse.redirect(redirectUrl, { status: 301 });
-        }
-      }
-    } catch {
-      // Fail open: if DB lookup fails, let the spots page handle the request
-    }
-  }
 
   /**
    * Handle 4-segment state URLs that would incorrectly match the international route
@@ -363,7 +338,7 @@ export async function middleware(request: NextRequest) {
    *
    * Looks up beach by slug and redirects to canonical URL.
    */
-  const seoResult = await handleSeoRedirect(pathname);
+  const seoResult = handleSeoRedirect(pathname);
   if (seoResult.redirect && seoResult.url) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = seoResult.url;
@@ -386,9 +361,11 @@ export async function middleware(request: NextRequest) {
 
   log(`[Middleware] Processing ${RouteGuard.describeRoute(routeClassification)}: ${pathname}`);
 
-  // Always refresh the session to keep auth cookies fresh, regardless of route type.
-  // This ensures users stay logged in even when browsing public pages.
-  const supabaseClient = await refreshSession(request, response);
+  // Skip session refresh for anonymous/bot traffic (no Supabase auth cookies).
+  // This avoids creating a Supabase SSR client on every request, reducing TTFB for
+  // the vast majority of traffic that has no active session.
+  const hasAuthCookies = request.cookies.getAll().some(c => c.name.startsWith('sb-'));
+  const supabaseClient = hasAuthCookies ? await refreshSession(request, response) : null;
 
   // Public routes don't require authentication
   if (!routeClassification.requiresAuth) {

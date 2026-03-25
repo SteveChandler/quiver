@@ -509,6 +509,14 @@ export default withSentryConfig(pwaConfig(nextConfig), {
   // Disable automatic middleware instrumentation to reduce bundle size
   autoInstrumentMiddleware: false,
 
+  // Exclude heavy Replay artifacts from the initial bundle
+  bundleSizeOptimizations: {
+    excludeDebugStatements: true,
+    excludeReplayIframe: true,
+    excludeReplayShadowDom: true,
+    excludeReplayWorker: true,
+  },
+
   // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
   // See the following for more information:
   // https://docs.sentry.io/product/crons/

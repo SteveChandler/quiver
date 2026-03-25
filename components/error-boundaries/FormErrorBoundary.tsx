@@ -1,7 +1,6 @@
 'use client';
 
 import React, { Component, ReactNode, ErrorInfo } from 'react';
-import * as Sentry from '@sentry/nextjs';
 import { ErrorFallback } from './ErrorFallback';
 import {
   saveFormState,
@@ -109,23 +108,26 @@ export class FormErrorBoundary extends Component<
       this.setState({ savedFormState: formData });
     }
 
-    // Log to Sentry
-    Sentry.withScope((scope) => {
-      scope.setTag('error_boundary_type', 'form');
-      scope.setTag('form_id', formId);
-      scope.setTag('state_preserved', String(preserveState));
+    // Log to Sentry (lazy-loaded to defer ~555KB from initial bundle)
+    const savedFormState = this.state.savedFormState;
+    import('@sentry/nextjs').then(Sentry => {
+      Sentry.withScope((scope) => {
+        scope.setTag('error_boundary_type', 'form');
+        scope.setTag('form_id', formId);
+        scope.setTag('state_preserved', String(preserveState));
 
-      scope.setContext('form_state', {
-        has_saved_state: !!this.state.savedFormState,
-        field_count: Object.keys(this.state.savedFormState || {}).length,
+        scope.setContext('form_state', {
+          has_saved_state: !!savedFormState,
+          field_count: Object.keys(savedFormState || {}).length,
+        });
+
+        scope.setContext('component', {
+          stack: errorInfo.componentStack,
+        });
+
+        Sentry.captureException(error);
       });
-
-      scope.setContext('component', {
-        stack: errorInfo.componentStack,
-      });
-
-      Sentry.captureException(error);
-    });
+    }).catch(() => {});
 
     this.setState({ errorInfo });
 

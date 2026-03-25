@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import * as Sentry from "@sentry/nextjs";
 import { isChunkLoadError } from "@/components/error-boundaries/utils/error-categorizer";
 
 const STORAGE_KEY = "quiver:chunk_reload_count";
@@ -50,12 +49,14 @@ export function ChunkErrorHandler() {
       const count = getReloadCount();
       if (count >= MAX_RELOADS) return;
 
-      Sentry.captureException(error, {
-        tags: {
-          errorCategory: "chunk_load",
-          chunk_reload_attempt: count + 1,
-        },
-      });
+      import("@sentry/nextjs").then(Sentry => {
+        Sentry.captureException(error, {
+          tags: {
+            errorCategory: "chunk_load",
+            chunk_reload_attempt: count + 1,
+          },
+        });
+      }).catch(() => {});
 
       // sessionStorage.setItem is synchronous — safe to reload immediately after
       setReloadCount(count + 1);
