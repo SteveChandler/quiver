@@ -1,7 +1,6 @@
 import type React from "react";
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Space_Grotesk, Space_Mono, Caveat } from "next/font/google";
-import { headers } from "next/headers";
 import "./globals.css";
 import { SEO_CONFIG } from "@/lib/constants/seo";
 import { Providers } from "@/components/providers";
@@ -127,53 +126,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
+const hideFooterPrefixes = ["/auth", "/admin", "/profile", "/inbox", "/sessions", "/prefs", "/embed", "/welcome", "/map"];
+
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Get pathname from middleware header for conditional SSR
-  const headersList = await headers();
-  const pathname = headersList.get("x-pathname") || "";
-  const isLandingPage = pathname === "/";
-  const isEmbedRoute = pathname.startsWith("/embed");
-
-  // Show the shared site footer on public content pages; hide on landing
-  // (has its own footer), auth pages, authenticated app pages, and embeds.
-  const hideFooterPrefixes = ["/auth", "/admin", "/profile", "/inbox", "/sessions", "/prefs", "/embed", "/welcome", "/map"];
-  const showSiteFooter =
-    !isLandingPage && !hideFooterPrefixes.some((p) => pathname.startsWith(p));
-
-  // Embed routes get a minimal shell — no providers, nav, footer, or heavy assets
-  if (isEmbedRoute) {
-    return (
-      <html lang="en" className={dmSans.variable}>
-        <head>
-          <style
-            dangerouslySetInnerHTML={{
-              __html: `
-                :root {
-                  --background: 0 0% 100%;
-                  --foreground: 222.2 84% 4.9%;
-                  --card: 0 0% 100%;
-                  --card-foreground: 222.2 84% 4.9%;
-                  --primary: 201 100% 36%;
-                  --border: 214.3 31.8% 91.4%;
-                  --muted: 210 40% 96.1%;
-                  --muted-foreground: 215.4 16.3% 46.9%;
-                }
-                body { margin: 0; padding: 0; overflow: hidden; background: transparent; }
-              `,
-            }}
-          />
-        </head>
-        <body className={`${dmSans.className} font-sans antialiased`}>
-          {children}
-        </body>
-      </html>
-    );
-  }
-
   return (
     <html
       lang="en"
@@ -296,10 +255,9 @@ export default async function RootLayout({
       <body className={`${dmSans.className} font-sans antialiased theme-retro-dark noise-texture-subtle`}>
         <Providers>{children}</Providers>
 
-        {/* Footer: server guard prevents rendering on excluded routes;
-            HideOnRoutes client gate handles stale layout after SPA navigation */}
+        {/* HideOnRoutes client gate handles footer visibility via usePathname() */}
         <HideOnRoutes exact={["/"]} prefixes={hideFooterPrefixes}>
-          {showSiteFooter && <SiteFooter />}
+          <SiteFooter />
         </HideOnRoutes>
       </body>
     </html>

@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { AuthProvider, useAuth } from "@/context/auth-context";
 import { ProfileProvider } from "@/context/profile-context";
 import { LocationProvider } from "@/context/location-context";
@@ -56,6 +56,33 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { AppHeader } from "@/components/app-header";
 import { NativeAuthGuard } from "@/components/native-auth-guard";
+
+/**
+ * EmbedBodyOverride - Sets body styles for embed routes and cleans up on unmount.
+ *
+ * Embed widgets need overflow:hidden and transparent backgrounds. Since the root
+ * layout no longer branches on pathname (to enable ISR), this client component
+ * handles the embed body styles instead.
+ */
+function EmbedBodyOverride({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    document.body.style.background = "transparent";
+    document.body.style.margin = "0";
+    document.body.style.padding = "0";
+    // Remove theme class so .theme-retro-dark CSS overrides don't affect light embeds
+    document.body.classList.remove("theme-retro-dark", "noise-texture-subtle");
+    return () => {
+      document.body.style.overflow = "";
+      document.body.style.background = "";
+      document.body.style.margin = "";
+      document.body.style.padding = "";
+      document.body.classList.add("theme-retro-dark", "noise-texture-subtle");
+    };
+  }, []);
+
+  return <>{children}</>;
+}
 
 /**
  * AuthBodyClassManager - Manages body.authenticated class globally
@@ -122,6 +149,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLandingPage = pathname === "/";
   const isWelcomePage = pathname === "/welcome";
+  const isEmbedRoute = pathname.startsWith("/embed");
+
+  // Embed routes get a minimal shell — no providers, nav, footer, or heavy assets.
+  // Body styles are applied via EmbedBodyOverride since the root layout is now
+  // non-async (no headers() call) to enable ISR caching across the site.
+  if (isEmbedRoute) {
+    return <EmbedBodyOverride>{children}</EmbedBodyOverride>;
+  }
 
   // Note: We keep SelectedBeachProvider mounted even on "/"
   // so back/forward navigation doesn't destroy client caches and force refetches.

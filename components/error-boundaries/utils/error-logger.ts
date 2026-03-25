@@ -1,5 +1,3 @@
-import * as Sentry from '@sentry/nextjs';
-
 export interface ErrorLogContext {
   tier?: 'tier_1' | 'tier_2' | 'tier_3' | 'tier_4';
   boundaryType?: 'global' | 'route' | 'feature' | 'component';
@@ -12,36 +10,39 @@ export interface ErrorLogContext {
 }
 
 /**
- * Log error to Sentry with rich context
+ * Log error to Sentry with rich context.
+ * Sentry is lazy-loaded to avoid pulling ~555KB into the initial bundle.
  */
 export function logErrorBoundary(
   error: Error,
   context: ErrorLogContext
 ): void {
-  Sentry.withScope((scope) => {
-    // Set tags
-    if (context.tier) {
-      scope.setTag('error_boundary_tier', context.tier);
-    }
-    if (context.boundaryType) {
-      scope.setTag('error_boundary_type', context.boundaryType);
-    }
-    if (context.errorCategory) {
-      scope.setTag('error_category', context.errorCategory);
-    }
+  import('@sentry/nextjs').then(Sentry => {
+    Sentry.withScope((scope) => {
+      // Set tags
+      if (context.tier) {
+        scope.setTag('error_boundary_tier', context.tier);
+      }
+      if (context.boundaryType) {
+        scope.setTag('error_boundary_type', context.boundaryType);
+      }
+      if (context.errorCategory) {
+        scope.setTag('error_category', context.errorCategory);
+      }
 
-    // Set user context
-    if (context.userId) {
-      scope.setUser({ id: context.userId });
-    }
+      // Set user context
+      if (context.userId) {
+        scope.setUser({ id: context.userId });
+      }
 
-    // Set custom context
-    const { tier, boundaryType, errorCategory, userId, ...customContext } = context;
-    if (Object.keys(customContext).length > 0) {
-      scope.setContext('error_boundary', customContext);
-    }
+      // Set custom context
+      const { tier, boundaryType, errorCategory, userId, ...customContext } = context;
+      if (Object.keys(customContext).length > 0) {
+        scope.setContext('error_boundary', customContext);
+      }
 
-    // Capture exception
-    Sentry.captureException(error);
-  });
+      // Capture exception
+      Sentry.captureException(error);
+    });
+  }).catch(() => {});
 }

@@ -271,6 +271,11 @@ export interface BeachLookupResult {
  * - Short timeout: Don't block requests waiting for slow database
  * - Minimal data: Only fetch fields needed for redirect construction
  *
+ * NOTE: This function is no longer called from the SEO redirect flow (removed to
+ * eliminate DB latency for anonymous users). It is preserved here for potential
+ * future use (e.g., if a new redirect use case requiring DB lookup is introduced).
+ * It is no longer imported or called from middleware.ts.
+ *
  * @param slug - Beach slug to look up
  * @returns Beach data if found, null otherwise
  */
@@ -416,9 +421,9 @@ function handleUsCityRedirect(pathname: string): SeoRedirectResult {
  * Mexico beach URLs now have a dedicated route at /mexico/[region]/[city]/[beachSlug]
  * Let requests pass through to that route instead of redirecting to /spots/
  */
-async function handleMexicoBeachRedirect(
+function handleMexicoBeachRedirect(
   _pathname: string
-): Promise<SeoRedirectResult> {
+): SeoRedirectResult {
   // Mexico beach URLs now have a dedicated route at /mexico/[region]/[city]/[beachSlug]
   // Let the request pass through to that route instead of redirecting to /spots/
   return { redirect: false };
@@ -426,41 +431,31 @@ async function handleMexicoBeachRedirect(
 
 /**
  * Handle US beach URL redirects
- * Example: /ca/orange-county/doheny-state-beach → /ca/dana-point/doheny-state-beach
+ * Example: /hi/honolulu/waikiki-canoes-honolulu-hi → /hi/honolulu/waikiki-canoes
+ *
+ * Only handles static redirects from OLD_COMPOUND_SLUG_REDIRECTS (HI/PR legacy slugs).
+ * The DB lookup has been removed from middleware to eliminate latency for anonymous traffic.
+ * URLs with mismatched cities fall through to the page route which does its own beach lookup.
  */
-async function handleUsBeachRedirect(
+function handleUsBeachRedirect(
   pathname: string
-): Promise<SeoRedirectResult> {
+): SeoRedirectResult {
   const slug = extractBeachSlugFromPath(pathname);
   if (!slug) {
     return { redirect: false };
   }
 
-  // Lookup beach in database
-  const beach = await lookupBeachBySlug(slug);
-  if (!beach) {
-    // Check static map of old compound slugs (pre-migration 20260211060000)
-    const canonicalFromOldSlug = OLD_COMPOUND_SLUG_REDIRECTS[slug];
-    if (canonicalFromOldSlug) {
-      seoLog.info("Old compound slug redirect", { from: pathname, to: canonicalFromOldSlug });
-      return { redirect: true, url: canonicalFromOldSlug };
-    }
-    return { redirect: false };
+  // Check static map of old compound slugs (pre-migration 20260211060000)
+  // These are HI/PR beaches whose slugs were shortened; Google still indexes the old format.
+  const canonicalFromOldSlug = OLD_COMPOUND_SLUG_REDIRECTS[slug];
+  if (canonicalFromOldSlug) {
+    seoLog.info("Old compound slug redirect", { from: pathname, to: canonicalFromOldSlug });
+    return { redirect: true, url: canonicalFromOldSlug };
   }
 
-  // Build canonical URL
-  const canonicalUrl = buildCanonicalBeachUrl(beach);
-  if (!canonicalUrl) {
-    return { redirect: false };
-  }
-
-  // Check if current URL matches canonical (case-insensitive)
-  if (pathname.toLowerCase() === canonicalUrl.toLowerCase()) {
-    return { redirect: false };
-  }
-
-  seoLog.info("Beach URL redirect", { from: pathname, to: canonicalUrl });
-  return { redirect: true, url: canonicalUrl };
+  // No static redirect found. Let the request fall through to the page route,
+  // which performs its own beach lookup and handles city mismatches internally.
+  return { redirect: false };
 }
 
 /**
@@ -543,9 +538,9 @@ function handleIntentBeachLegacyRedirect(pathname: string): SeoRedirectResult {
  * @param pathname - URL pathname to check
  * @returns Redirect info if URL should redirect, otherwise { redirect: false }
  */
-export async function handleSeoRedirect(
+export function handleSeoRedirect(
   pathname: string
-): Promise<SeoRedirectResult> {
+): SeoRedirectResult {
   try {
     const patternType = classifyUrlPattern(pathname);
 

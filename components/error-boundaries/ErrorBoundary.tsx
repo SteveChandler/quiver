@@ -1,7 +1,6 @@
 'use client';
 
 import React, { Component, ReactNode, ErrorInfo } from 'react';
-import * as Sentry from '@sentry/nextjs';
 import { ErrorFallback } from './ErrorFallback';
 
 export interface ErrorBoundaryProps {
@@ -79,27 +78,34 @@ export class ErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log error to Sentry with rich context
-    Sentry.withScope((scope) => {
-      // Boundary metadata
-      scope.setTag('error_boundary_tier', this.props.tier || 'tier_4');
-      scope.setTag('error_boundary_type', this.props.boundaryType || 'component');
+    // Log error to Sentry with rich context (lazy-loaded to defer ~555KB from initial bundle)
+    const tier = this.props.tier || 'tier_4';
+    const boundaryType = this.props.boundaryType || 'component';
+    const componentName = this.props.componentName || 'Unknown';
+    const resetCount = this.state.resetCount;
+    const lastResetTime = this.state.lastResetTime;
+    import('@sentry/nextjs').then(Sentry => {
+      Sentry.withScope((scope) => {
+        // Boundary metadata
+        scope.setTag('error_boundary_tier', tier);
+        scope.setTag('error_boundary_type', boundaryType);
 
-      // Component context
-      scope.setContext('component', {
-        name: this.props.componentName || 'Unknown',
-        stack: errorInfo.componentStack,
+        // Component context
+        scope.setContext('component', {
+          name: componentName,
+          stack: errorInfo.componentStack,
+        });
+
+        // Boundary state
+        scope.setContext('boundary_state', {
+          reset_count: resetCount,
+          last_reset: lastResetTime,
+        });
+
+        // Capture exception
+        Sentry.captureException(error);
       });
-
-      // Boundary state
-      scope.setContext('boundary_state', {
-        reset_count: this.state.resetCount,
-        last_reset: this.state.lastResetTime,
-      });
-
-      // Capture exception
-      Sentry.captureException(error);
-    });
+    }).catch(() => {});
 
     // Update state with error info
     this.setState({ errorInfo });
