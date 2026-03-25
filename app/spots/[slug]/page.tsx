@@ -114,11 +114,8 @@ export default async function SpotPage(props: SpotPageParams) {
     return notFound();
   }
 
-  // Canonical redirect is handled by middleware (HTTP 301) for beaches with complete
-  // location data in the DB. If the middleware DB lookup timed out or failed, this page
-  // renders normally at /spots/{slug} — the generateMetadata canonical still points to
+  // This page renders at /spots/{slug} — the generateMetadata canonical points to
   // the hierarchical URL, so crawlers receive the correct canonical signal.
-  // See: middleware.ts — /spots/{slug} intercept block.
 
   // Get city name from spot data (database-driven)
   const cityName = spot.city || spot.region?.split(",")[0] || "Southern California";

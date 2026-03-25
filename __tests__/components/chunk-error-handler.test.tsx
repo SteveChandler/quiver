@@ -1,9 +1,10 @@
 import React from "react";
 import { render, act } from "@testing-library/react";
 
-// Mock Sentry
+// Mock Sentry — must handle both static imports and dynamic import() calls
 const mockCaptureException = jest.fn();
 jest.mock("@sentry/nextjs", () => ({
+  __esModule: true,
   captureException: (...args: unknown[]) => mockCaptureException(...args),
 }));
 
@@ -117,13 +118,18 @@ describe("ChunkErrorHandler", () => {
     expect(mockReload).not.toHaveBeenCalled();
   });
 
-  it("reports to Sentry with correct tags before reloading", () => {
+  it("reports to Sentry with correct tags before reloading", async () => {
     mockIsChunkLoadError.mockReturnValue(true);
     render(<ChunkErrorHandler />);
 
     const error = new Error("Loading chunk 789 failed");
     error.name = "ChunkLoadError";
     fireWindowError(error);
+
+    // Flush the dynamic import() promise used by the lazy Sentry import
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     expect(mockCaptureException).toHaveBeenCalledWith(error, {
       tags: {
@@ -133,13 +139,18 @@ describe("ChunkErrorHandler", () => {
     });
   });
 
-  it("increments reload attempt in Sentry tag", () => {
+  it("increments reload attempt in Sentry tag", async () => {
     mockIsChunkLoadError.mockReturnValue(true);
     storage["quiver:chunk_reload_count"] = "1";
     render(<ChunkErrorHandler />);
 
     const error = new Error("Loading chunk failed");
     fireWindowError(error);
+
+    // Flush the dynamic import() promise used by the lazy Sentry import
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     expect(mockCaptureException).toHaveBeenCalledWith(error, {
       tags: {

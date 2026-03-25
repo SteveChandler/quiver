@@ -70,11 +70,14 @@ function EmbedBodyOverride({ children }: { children: ReactNode }) {
     document.body.style.background = "transparent";
     document.body.style.margin = "0";
     document.body.style.padding = "0";
+    // Remove theme class so .theme-retro-dark CSS overrides don't affect light embeds
+    document.body.classList.remove("theme-retro-dark", "noise-texture-subtle");
     return () => {
       document.body.style.overflow = "";
       document.body.style.background = "";
       document.body.style.margin = "";
       document.body.style.padding = "";
+      document.body.classList.add("theme-retro-dark", "noise-texture-subtle");
     };
   }, []);
 

@@ -274,7 +274,7 @@ export interface BeachLookupResult {
  * NOTE: This function is no longer called from the SEO redirect flow (removed to
  * eliminate DB latency for anonymous users). It is preserved here for potential
  * future use (e.g., if a new redirect use case requiring DB lookup is introduced).
- * It is still imported and used by middleware.ts for /spots/{slug} redirects.
+ * It is no longer imported or called from middleware.ts.
  *
  * @param slug - Beach slug to look up
  * @returns Beach data if found, null otherwise
