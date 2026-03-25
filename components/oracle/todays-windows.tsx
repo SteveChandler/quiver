@@ -56,10 +56,14 @@ function buildConditionSegments(w: TimeWindow): string[] {
   }
 
   if (w.windSpeed || w.windDirection) {
-    const spd = w.windSpeed
-      ? /mph|kn/i.test(w.windSpeed) ? w.windSpeed : `${w.windSpeed}mph`
-      : null;
-    segments.push([spd, w.windDirection].filter(Boolean).join(" "));
+    if (w.windSpeed && /^0\s*(mph|kn)/i.test(w.windSpeed)) {
+      segments.push("Calm");
+    } else {
+      const spd = w.windSpeed
+        ? /mph|kn/i.test(w.windSpeed) ? w.windSpeed : `${w.windSpeed}mph`
+        : null;
+      segments.push([spd, w.windDirection].filter(Boolean).join(" "));
+    }
   }
 
   if (w.tideHeight || w.tideStatus) {

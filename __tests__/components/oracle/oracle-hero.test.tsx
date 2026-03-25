@@ -145,8 +145,9 @@ describe("OracleHero", () => {
   });
 
   it("renders optional greeting when userName provided", () => {
+    // System time is 9am UTC = 1am PST (hour < 7) and score=9.2 > 7 → dawn patrol greeting.
     render(<OracleHero {...DEFAULT_PROPS} userName="Alex" />);
-    expect(screen.getByText("Good morning, Alex")).toBeInTheDocument();
+    expect(screen.getByText("It's going off. Dawn patrol, Alex.")).toBeInTheDocument();
   });
 
   it("renders level title badge when levelTitle provided", () => {

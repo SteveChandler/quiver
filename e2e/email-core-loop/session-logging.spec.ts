@@ -134,9 +134,9 @@ test.describe('Session Logging', () => {
       await expect(page.getByText('Fired!')).toBeVisible();
 
       // Verify emojis are present
-      await expect(page.locator('text=👎')).toBeVisible();
-      await expect(page.locator('text=👍')).toBeVisible();
-      await expect(page.locator('text=🔥')).toBeVisible();
+      await expect(page.getByText('👎')).toBeVisible();
+      await expect(page.getByText('👍')).toBeVisible();
+      await expect(page.getByText('🔥')).toBeVisible();
     });
 
     test('should display notes textarea', async ({ page }) => {
@@ -329,14 +329,9 @@ test.describe('Session Logging', () => {
       await expect(page.locator('h1')).toContainText('Logged!');
 
       // Check for green background (success state)
-      const body = page.locator('body');
-      const bodyStyle = await body.evaluate((el) =>
-        window.getComputedStyle(el).backgroundColor
-      );
-
-      // The success page uses #f0fdf4 (green-50)
-      // RGB: 240, 253, 244
-      expect(bodyStyle).toMatch(/rgb\(240,\s*253,\s*244\)|#f0fdf4/i);
+      // The bg-green-50 class is on the page's root div, not the <body> element
+      const successDiv = page.locator('.bg-green-50').first();
+      await expect(successDiv).toBeVisible();
     });
   });
 
@@ -466,14 +461,9 @@ test.describe('Session Logging', () => {
       await expect(page.locator('h1')).toContainText('Missing Info');
 
       // Check for red background (error state)
-      const body = page.locator('body');
-      const bodyStyle = await body.evaluate((el) =>
-        window.getComputedStyle(el).backgroundColor
-      );
-
-      // The error page uses #fef2f2 (red-50)
-      // RGB: 254, 242, 242
-      expect(bodyStyle).toMatch(/rgb\(254,\s*242,\s*242\)|#fef2f2/i);
+      // The bg-red-50 class is on the page's root div, not the <body> element
+      const errorDiv = page.locator('.bg-red-50').first();
+      await expect(errorDiv).toBeVisible();
     });
   });
 
@@ -489,8 +479,8 @@ test.describe('Session Logging', () => {
 
       await page.goto(url);
 
-      // Click the Good sesh button
-      const goodButton = page.getByText('Good sesh').locator('..');
+      // Click the Good sesh button — the <button> is the ancestor of the text div
+      const goodButton = page.locator('button', { hasText: 'Good sesh' });
       await goodButton.click();
 
       // The button should have the selected styling (border-blue-500 and bg-blue-50)
@@ -510,12 +500,12 @@ test.describe('Session Logging', () => {
       await page.goto(url);
 
       // First select skip
-      const skipButton = page.getByText('Skipped it').locator('..');
+      const skipButton = page.locator('button', { hasText: 'Skipped it' });
       await skipButton.click();
       await expect(skipButton).toHaveClass(/border-blue-500/);
 
       // Then change to fired
-      const firedButton = page.getByText('Fired!').locator('..');
+      const firedButton = page.locator('button', { hasText: 'Fired!' });
       await firedButton.click();
       await expect(firedButton).toHaveClass(/border-blue-500/);
 

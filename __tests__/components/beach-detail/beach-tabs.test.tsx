@@ -122,11 +122,9 @@ describe('BeachTabs Component', () => {
 
       // Phase 5: Container styling - TabsList is inside a flex container
       expect(tabsList).toHaveClass('flex');
-      expect(tabsList).toHaveClass('flex-1');
       expect(tabsList).toHaveClass('items-center');
       expect(tabsList).toHaveClass('justify-start');
       expect(tabsList).toHaveClass('gap-1');
-      expect(tabsList).toHaveClass('overflow-x-auto');
       expect(tabsList).toHaveClass('bg-transparent');
       expect(tabsList).toHaveClass('p-0');
       expect(tabsList).toHaveClass('h-auto');

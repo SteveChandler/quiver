@@ -133,21 +133,25 @@ test.describe("Beginner page - San Diego", () => {
   });
 
   test("should render FAQ section with expandable items", async ({ page }) => {
-    const section = page.locator("[data-testid='beginner-faq']");
+    // FAQSection uses aria-label and <dl> with button toggles, not data-testid or <details>
+    const section = page.locator("section[aria-label*='FAQ']");
     await expect(section).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
     await expect(section.locator("h2")).toContainText(
       /Frequently Asked Questions/i
     );
 
-    // Should have FAQ items
-    const faqItems = section.locator("details");
-    const count = await faqItems.count();
+    // Should have FAQ items (buttons inside <dt> elements)
+    const faqButtons = section.locator("dt button");
+    const count = await faqButtons.count();
     expect(count).toBeGreaterThanOrEqual(3);
 
-    // Click to expand first FAQ
-    await faqItems.first().locator("summary").click();
-    const answer = faqItems.first().locator("div");
+    // First item is expanded by default; click to collapse then re-expand
+    const firstButton = faqButtons.first();
+    await firstButton.click();
+    // Click again to expand
+    await firstButton.click();
+    const answer = section.locator("dd").first();
     await expect(answer).toBeVisible();
   });
 

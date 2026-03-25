@@ -342,7 +342,7 @@ describe('Cron: extract-hrrr-wind', () => {
     // Verify wind conversion
     expect(capturedUpdate).toBeTruthy();
     expect(capturedUpdate.wind_speed).toBe('22 mph');
-    expect(capturedUpdate.wind_direction).toBe('181');
+    expect(capturedUpdate.wind_direction).toBe('S');
     expect(capturedUpdate.wind_direction_deg).toBe(181);
   });
 

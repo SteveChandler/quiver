@@ -34,8 +34,7 @@ import { formatTideHeight } from "@/lib/formatters/surf-data";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
 import { EmbedCodeButton } from "@/components/beach-detail/embed-code-modal";
 import { DataErrorBoundary } from "@/components/error-boundaries";
-import { useAuth } from "@/context/auth-context";
-import { PersonalizedForecastTeaser } from "@/components/beach-detail/personalized-forecast-teaser";
+// PersonalizedForecastTeaser and useAuth removed — Phase 1A CTA reduction.
 import { TideStatusStrip } from "@/components/beach-detail/tide-status-strip";
 import { TideChartSection } from "@/components/beach-detail/tide-chart-section";
 
@@ -70,7 +69,7 @@ export function ForecastTab({
   publicMode = false,
   yesterdayAccuracy,
 }: ForecastTabProps) {
-  const { user } = useAuth();
+
 
   const { track: trackEvent } = useTrackEvent();
   const [activeSubTab, setActiveSubTab] = useState<
@@ -274,15 +273,6 @@ export function ForecastTab({
   return (
     <DataErrorBoundary dataType="forecast" componentName="ForecastTab">
     <div className="space-y-6 py-6">
-      {/* Personalized forecast teaser for non-authenticated users */}
-      {!user && (
-        <PersonalizedForecastTeaser
-          beachId={beach.id}
-          beachName={beach.name}
-          className="mx-4 sm:mx-6"
-        />
-      )}
-
       {/* 12-Day Horizon Strip */}
       {forecasts.length > 0 && (
         <section className="space-y-2">

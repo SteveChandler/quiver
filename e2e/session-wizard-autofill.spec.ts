@@ -77,10 +77,8 @@ test.describe('Session Form - Auto-Forecast Autofill', () => {
     await page.waitForTimeout(1000);
 
     // Wave height field check
-    // Note: Components use id="wave-height-input", not data-testid
-    const waveHeightInput = page.locator('#wave-height-input').or(
-      page.locator('input[name="waveHeight"]')
-    ).first();
+    // ConditionsSection uses useId() for input IDs — use label-based selectors
+    const waveHeightInput = page.getByLabel(/wave height/i).first();
 
     const waveHeightVisible = await isVisibleSafe(waveHeightInput, { timeout: TIMEOUTS.short });
 
@@ -100,9 +98,7 @@ test.describe('Session Form - Auto-Forecast Autofill', () => {
     }
 
     // Wind speed field check
-    const windSpeedInput = page.locator('#wind-speed-input').or(
-      page.locator('input[name="windSpeed"]')
-    ).first();
+    const windSpeedInput = page.getByLabel(/wind speed/i).first();
 
     const windSpeedVisible = await isVisibleSafe(windSpeedInput, { timeout: TIMEOUTS.short });
 
@@ -116,9 +112,7 @@ test.describe('Session Form - Auto-Forecast Autofill', () => {
     }
 
     // Water temp field check
-    const waterTempInput = page.locator('#water-temp-input').or(
-      page.locator('input[name="waterTemp"]')
-    ).first();
+    const waterTempInput = page.getByLabel(/water temp/i).first();
 
     const waterTempVisible = await isVisibleSafe(waterTempInput, { timeout: TIMEOUTS.short });
 
@@ -133,9 +127,7 @@ test.describe('Session Form - Auto-Forecast Autofill', () => {
     }
 
     // Tide height field check
-    const tideHeightInput = page.locator('#tide-height-input').or(
-      page.locator('input[name="tideHeight"]')
-    ).first();
+    const tideHeightInput = page.getByLabel(/tide height/i).first();
 
     const tideHeightVisible = await isVisibleSafe(tideHeightInput, { timeout: TIMEOUTS.short });
 
@@ -184,10 +176,8 @@ test.describe('Session Form - Auto-Forecast Autofill', () => {
 
     // Override auto-prefilled wave height with custom value.
     // Condition fields are always visible — no step navigation needed.
-    // Note: Components use id="wave-height-input", not data-testid
-    const waveHeightInput = page.locator('#wave-height-input').or(
-      page.locator('input[name="waveHeight"]')
-    ).first();
+    // ConditionsSection uses useId() for input IDs — use label-based selectors
+    const waveHeightInput = page.getByLabel(/wave height/i).first();
 
     await expect(waveHeightInput).toBeVisible({ timeout: TIMEOUTS.medium });
 
@@ -197,9 +187,7 @@ test.describe('Session Form - Auto-Forecast Autofill', () => {
     await waveHeightInput.fill(customWaveHeight);
 
     // Override wind speed
-    const windSpeedInput = page.locator('#wind-speed-input').or(
-      page.locator('input[name="windSpeed"]')
-    ).first();
+    const windSpeedInput = page.getByLabel(/wind speed/i).first();
 
     const windSpeedVisible = await isVisibleSafe(windSpeedInput, { timeout: TIMEOUTS.short });
 
@@ -297,10 +285,8 @@ test.describe('Session Form - Auto-Forecast Autofill', () => {
       tideHeight: '2.3'
     };
 
-    // Wave height
-    const waveHeightInput = page.locator('#wave-height-input').or(
-      page.locator('input[name="waveHeight"]')
-    ).first();
+    // Wave height — ConditionsSection uses useId() for input IDs, use label selectors
+    const waveHeightInput = page.getByLabel(/wave height/i).first();
 
     if (await isVisibleSafe(waveHeightInput, { timeout: TIMEOUTS.short })) {
       await waveHeightInput.clear();
@@ -308,9 +294,7 @@ test.describe('Session Form - Auto-Forecast Autofill', () => {
     }
 
     // Wind speed
-    const windSpeedInput = page.locator('#wind-speed-input').or(
-      page.locator('input[name="windSpeed"]')
-    ).first();
+    const windSpeedInput = page.getByLabel(/wind speed/i).first();
 
     if (await isVisibleSafe(windSpeedInput, { timeout: TIMEOUTS.short })) {
       await windSpeedInput.clear();
@@ -318,9 +302,7 @@ test.describe('Session Form - Auto-Forecast Autofill', () => {
     }
 
     // Water temp
-    const waterTempInput = page.locator('#water-temp-input').or(
-      page.locator('input[name="waterTemp"]')
-    ).first();
+    const waterTempInput = page.getByLabel(/water temp/i).first();
 
     if (await isVisibleSafe(waterTempInput, { timeout: TIMEOUTS.short })) {
       await waterTempInput.clear();
@@ -328,9 +310,7 @@ test.describe('Session Form - Auto-Forecast Autofill', () => {
     }
 
     // Tide height
-    const tideHeightInput = page.locator('#tide-height-input').or(
-      page.locator('input[name="tideHeight"]')
-    ).first();
+    const tideHeightInput = page.getByLabel(/tide height/i).first();
 
     if (await isVisibleSafe(tideHeightInput, { timeout: TIMEOUTS.short })) {
       await tideHeightInput.clear();

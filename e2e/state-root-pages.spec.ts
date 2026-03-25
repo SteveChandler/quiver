@@ -31,6 +31,10 @@ test.describe("State root pages (DB-gated)", () => {
   test("should return 404 for unsupported state", async ({ page }) => {
     const response = await page.goto("/zz");
     expect(response?.status()).toBe(404);
+    // Clear captured 404 network errors so afterEach assertNoErrors doesn't fail
+    errorCapture.networkErrors = errorCapture.networkErrors.filter(
+      (err) => err.status !== 404
+    );
   });
 
   test("should not collide with reserved one-segment routes", async ({

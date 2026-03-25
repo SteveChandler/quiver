@@ -6,7 +6,7 @@ p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT L
 ```
 This filters out test accounts, local dev accounts, and seed/demo data (`@example.invalid`).
 
-Run these 17 SQL queries **in parallel** against project `vawdnbbgawichorsjiwe` using the Supabase MCP `execute_sql` tool directly from the main session (do NOT delegate to subagents — they cannot access MCP tools):
+Run these 23 SQL queries **in parallel** against project `vawdnbbgawichorsjiwe` using the Supabase MCP `execute_sql` tool directly from the main session (do NOT delegate to subagents — they cannot access MCP tools):
 
 ### Query 1: Users
 ```sql
@@ -51,7 +51,10 @@ SELECT
   COUNT(*) FILTER (WHERE esl.email_type = 'welcome') AS welcome_emails,
   COUNT(*) FILTER (WHERE esl.email_type = 'forecast_digest') AS forecast_digest_emails,
   COUNT(*) FILTER (WHERE esl.email_type = 'reengagement') AS reengagement_emails,
-  COUNT(*) FILTER (WHERE esl.email_type = 'weekly_recap') AS weekly_recap_emails
+  COUNT(*) FILTER (WHERE esl.email_type = 'weekly_recap') AS weekly_recap_emails,
+  COUNT(*) FILTER (WHERE esl.email_type = 'conditions_alert') AS conditions_alert_emails,
+  COUNT(*) FILTER (WHERE esl.email_type = 'session_prompt') AS session_prompt_emails,
+  COUNT(*) FILTER (WHERE esl.email_type = 'first_session_nudge') AS first_session_nudge_emails
 FROM email_send_log esl
 JOIN profiles p ON esl.user_id = p.id
 WHERE esl.sent_at >= NOW() - INTERVAL '7 days'
@@ -76,6 +79,13 @@ SELECT
   COUNT(*) FILTER (WHERE event_type = 'map_interaction') AS map_interactions,
   COUNT(*) FILTER (WHERE event_type LIKE 'forecast_%') AS forecast_interactions,
   COUNT(*) FILTER (WHERE event_type LIKE 'onboarding_%') AS onboarding_events,
+  COUNT(*) FILTER (WHERE event_type IN ('share_started', 'share_completed', 'share_link_copied', 'share_image_saved', 'cam_share', 'share_intel_button_clicked', 'surf_plan_share')) AS share_events,
+  COUNT(*) FILTER (WHERE event_type IN ('session_log_start', 'session_log_submit')) AS session_log_events,
+  COUNT(*) FILTER (WHERE event_type IN ('intel_post_created', 'intel_post_confirmed', 'local_intel_tab_viewed', 'plan_session_from_intel')) AS intel_events,
+  COUNT(*) FILTER (WHERE event_type = 'beach_search') AS beach_searches,
+  COUNT(*) FILTER (WHERE event_type IN ('product_tour_started', 'product_tour_completed', 'product_tour_skipped', 'product_tour_step_viewed')) AS tour_events,
+  COUNT(*) FILTER (WHERE event_type IN ('cta_click', 'signup_cta_click', 'signup_cta_view', 'signin_cta_click')) AS cta_events,
+  COUNT(*) FILTER (WHERE event_type IN ('review_form_open', 'review_form_abandon', 'review_validation_error')) AS review_form_events,
   (SELECT COUNT(*) FROM user_events WHERE created_at >= NOW() - INTERVAL '7 days' AND bot_flagged = true) AS bot_flagged_events
 FROM user_events ue
 LEFT JOIN profiles p ON ue.user_id = p.id
@@ -133,6 +143,12 @@ SELECT day, COUNT(DISTINCT user_id) AS active_users FROM (
   SELECT DATE(created_at), user_id FROM user_events WHERE created_at >= NOW() - INTERVAL '7 days' AND user_id IS NOT NULL
   UNION ALL
   SELECT DATE(created_at), user_id FROM boards WHERE created_at >= NOW() - INTERVAL '7 days'
+  UNION ALL
+  SELECT DATE(created_at), user_id FROM comments WHERE created_at >= NOW() - INTERVAL '7 days'
+  UNION ALL
+  SELECT DATE(created_at), user_id FROM session_likes WHERE created_at >= NOW() - INTERVAL '7 days'
+  UNION ALL
+  SELECT DATE(created_at), follower_id FROM user_follows WHERE created_at >= NOW() - INTERVAL '7 days'
 ) combined
 JOIN profiles p ON combined.user_id = p.id
 WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'
@@ -236,6 +252,19 @@ Present results as a markdown dashboard:
 | Forecast Digest | {forecast_digest_emails} |
 | Re-engagement | {reengagement_emails} |
 | Weekly Recap | {weekly_recap_emails} |
+| Conditions Alert | {conditions_alert_emails} |
+| Session Prompt | {session_prompt_emails} |
+| First Session Nudge | {first_session_nudge_emails} |
+
+### Email Engagement (7d)
+| Metric | Value |
+|--------|-------|
+| Delivered | {delivered} |
+| Opened | {opened} |
+| Clicked | {clicked} |
+| Bounced | {bounced} |
+| Open Rate | {open_rate_pct}% |
+| Click Rate | {click_rate_pct}% |
 
 ### Event Tracking Health (7d)
 | Source | Unique Users | Rows | Latest |
@@ -263,6 +292,13 @@ Present results as a markdown dashboard:
 | Map Interactions | {map_interactions} |
 | Forecast Interactions | {forecast_interactions} |
 | Onboarding Events | {onboarding_events} |
+| Share Events | {share_events} |
+| Session Log Events | {session_log_events} |
+| Intel Events | {intel_events} |
+| Beach Searches | {beach_searches} |
+| Tour Events | {tour_events} |
+| CTA Events | {cta_events} |
+| Review Form Events | {review_form_events} |
 | Discovery Clicks | {discovery_clicks} |
 | Forecast Checks | {forecast_checks} |
 | Bot-Flagged (excluded) | {bot_flagged_events} |
@@ -288,6 +324,59 @@ Present results as a markdown dashboard:
 |------|-----------|---------------|-------------|
 | {day} | {anonymous_visitors} | {authenticated_users} | {total_events} |
 | ... | ... | ... | ... |
+
+### Gamification & XP
+| Metric | Value |
+|--------|-------|
+| Users with XP | {users_with_xp} |
+| Avg Level | {avg_level} |
+| Max Level | {max_level} |
+| XP Events (7d) | {xp_events_7d} |
+| XP Earned (7d) | {xp_earned_7d} |
+| XP Active Users (7d) | {xp_active_users_7d} |
+| Total Badges Unlocked | {total_badges_unlocked} |
+| Badges Unlocked (7d) | {badges_unlocked_7d} |
+| Badge Types Defined | {total_badge_types} |
+
+### Social Graph
+| Metric | Value |
+|--------|-------|
+| Total Follows | {total_follows} |
+| New Follows (7d) | {new_follows_7d} |
+| Users Following Someone | {users_following_someone} |
+| Users with Followers | {users_with_followers} |
+| Avg Following/User | {avg_following_per_user} |
+| Avg Followers/User | {avg_followers_per_user} |
+
+### Session Engagement
+| Metric | Total | 7d |
+|--------|-------|----|
+| Likes | {total_likes} | {likes_7d} |
+| Comments | {total_comments} | {comments_7d} |
+| Shares | {total_shares} | {shares_7d} |
+| Media Uploads | {total_media} | {media_uploads_7d} |
+
+### Referrals
+| Metric | Value |
+|--------|-------|
+| Total Referrals | {total_referrals} |
+| Completed | {completed_referrals} |
+| Pending | {pending_referrals} |
+| New (7d) | {referrals_7d} |
+| Completed (7d) | {completed_7d} |
+| Unique Referrers | {unique_referrers} |
+| Conversion Rate | {conversion_rate_pct}% |
+
+### Notifications & Devices
+| Metric | Value |
+|--------|-------|
+| Notifications Sent (7d) | {notifications_7d} |
+| Notifications Read (7d) | {notifications_read_7d} |
+| Read Rate | {read_rate_pct}% |
+| Users with Devices | {users_with_devices} |
+| iOS Devices | {ios_devices} |
+| Android Devices | {android_devices} |
+| Web Devices | {web_devices} |
 ```
 
 ### Query 11: Fallback Health — Summary (24h / 7d)
@@ -440,6 +529,130 @@ GROUP BY DATE(created_at)
 ORDER BY day DESC;
 ```
 
+### Query 18: Gamification & XP
+```sql
+SELECT
+  COUNT(DISTINCT ux.user_id) AS users_with_xp,
+  ROUND(AVG(ux.level), 1) AS avg_level,
+  MAX(ux.level) AS max_level,
+  (SELECT COUNT(*) FROM xp_events xe JOIN profiles p2 ON xe.user_id = p2.id
+   WHERE xe.created_at >= NOW() - INTERVAL '7 days'
+   AND p2.email NOT ILIKE '%test%' AND p2.email NOT LIKE '%@local.test' AND p2.email NOT LIKE '%@example.invalid') AS xp_events_7d,
+  (SELECT COALESCE(SUM(xe.xp_amount), 0) FROM xp_events xe JOIN profiles p2 ON xe.user_id = p2.id
+   WHERE xe.created_at >= NOW() - INTERVAL '7 days'
+   AND p2.email NOT ILIKE '%test%' AND p2.email NOT LIKE '%@local.test' AND p2.email NOT LIKE '%@example.invalid') AS xp_earned_7d,
+  (SELECT COUNT(DISTINCT xe.user_id) FROM xp_events xe JOIN profiles p2 ON xe.user_id = p2.id
+   WHERE xe.created_at >= NOW() - INTERVAL '7 days'
+   AND p2.email NOT ILIKE '%test%' AND p2.email NOT LIKE '%@local.test' AND p2.email NOT LIKE '%@example.invalid') AS xp_active_users_7d,
+  (SELECT COUNT(*) FROM user_badges ub JOIN profiles p2 ON ub.user_id = p2.id
+   WHERE p2.email NOT ILIKE '%test%' AND p2.email NOT LIKE '%@local.test' AND p2.email NOT LIKE '%@example.invalid') AS total_badges_unlocked,
+  (SELECT COUNT(*) FROM user_badges ub JOIN profiles p2 ON ub.user_id = p2.id
+   WHERE ub.unlocked_at >= NOW() - INTERVAL '7 days'
+   AND p2.email NOT ILIKE '%test%' AND p2.email NOT LIKE '%@local.test' AND p2.email NOT LIKE '%@example.invalid') AS badges_unlocked_7d,
+  (SELECT COUNT(*) FROM badge_definitions) AS total_badge_types
+FROM user_xp ux
+JOIN profiles p ON ux.user_id = p.id
+WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid';
+```
+
+### Query 19: Social Graph
+```sql
+SELECT
+  (SELECT COUNT(*) FROM user_follows uf JOIN profiles p ON uf.follower_id = p.id
+   WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS total_follows,
+  (SELECT COUNT(*) FROM user_follows uf JOIN profiles p ON uf.follower_id = p.id
+   WHERE uf.created_at >= NOW() - INTERVAL '7 days'
+   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS new_follows_7d,
+  (SELECT COUNT(DISTINCT uf.follower_id) FROM user_follows uf JOIN profiles p ON uf.follower_id = p.id
+   WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS users_following_someone,
+  (SELECT COUNT(DISTINCT uf.following_id) FROM user_follows uf JOIN profiles p ON uf.following_id = p.id
+   WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS users_with_followers,
+  (SELECT ROUND(AVG(fc), 1) FROM (SELECT COUNT(*) AS fc FROM user_follows GROUP BY follower_id) t) AS avg_following_per_user,
+  (SELECT ROUND(AVG(fc), 1) FROM (SELECT COUNT(*) AS fc FROM user_follows GROUP BY following_id) t) AS avg_followers_per_user;
+```
+
+### Query 20: Session Engagement (likes, comments, shares, media)
+```sql
+SELECT
+  (SELECT COUNT(*) FROM session_likes sl JOIN profiles p ON sl.user_id = p.id
+   WHERE sl.created_at >= NOW() - INTERVAL '7 days'
+   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS likes_7d,
+  (SELECT COUNT(*) FROM session_likes sl JOIN profiles p ON sl.user_id = p.id
+   WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS total_likes,
+  (SELECT COUNT(*) FROM comments c JOIN profiles p ON c.user_id = p.id
+   WHERE c.created_at >= NOW() - INTERVAL '7 days'
+   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS comments_7d,
+  (SELECT COUNT(*) FROM comments c JOIN profiles p ON c.user_id = p.id
+   WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS total_comments,
+  (SELECT COUNT(*) FROM session_shares ss JOIN profiles p ON ss.user_id = p.id
+   WHERE ss.created_at >= NOW() - INTERVAL '7 days'
+   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS shares_7d,
+  (SELECT COUNT(*) FROM session_shares ss JOIN profiles p ON ss.user_id = p.id
+   WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS total_shares,
+  (SELECT COUNT(*) FROM session_media sm JOIN profiles p ON sm.user_id = p.id
+   WHERE sm.created_at >= NOW() - INTERVAL '7 days' AND sm.deleted_at IS NULL
+   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS media_uploads_7d,
+  (SELECT COUNT(*) FROM session_media sm JOIN profiles p ON sm.user_id = p.id
+   WHERE sm.deleted_at IS NULL
+   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS total_media;
+```
+
+### Query 21: Referrals
+```sql
+SELECT
+  COUNT(*) AS total_referrals,
+  COUNT(*) FILTER (WHERE r.status = 'completed') AS completed_referrals,
+  COUNT(*) FILTER (WHERE r.status = 'pending') AS pending_referrals,
+  COUNT(*) FILTER (WHERE r.created_at >= NOW() - INTERVAL '7 days') AS referrals_7d,
+  COUNT(*) FILTER (WHERE r.status = 'completed' AND r.completed_at >= NOW() - INTERVAL '7 days') AS completed_7d,
+  COUNT(DISTINCT r.referrer_id) AS unique_referrers,
+  ROUND(100.0 * COUNT(*) FILTER (WHERE r.status = 'completed') / NULLIF(COUNT(*), 0), 1) AS conversion_rate_pct
+FROM referrals r
+JOIN profiles p ON r.referrer_id = p.id
+WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid';
+```
+
+### Query 22: Notifications & Devices
+```sql
+SELECT
+  (SELECT COUNT(*) FROM notifications n JOIN profiles p ON n.user_id = p.id
+   WHERE n.created_at >= NOW() - INTERVAL '7 days'
+   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS notifications_7d,
+  (SELECT COUNT(*) FROM notifications n JOIN profiles p ON n.user_id = p.id
+   WHERE n.read_at IS NOT NULL AND n.created_at >= NOW() - INTERVAL '7 days'
+   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS notifications_read_7d,
+  (SELECT ROUND(100.0 * COUNT(*) FILTER (WHERE n.read_at IS NOT NULL) / NULLIF(COUNT(*), 0), 1)
+   FROM notifications n JOIN profiles p ON n.user_id = p.id
+   WHERE n.created_at >= NOW() - INTERVAL '7 days'
+   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS read_rate_pct,
+  (SELECT COUNT(DISTINCT ud.user_id) FROM user_devices ud JOIN profiles p ON ud.user_id = p.id
+   WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS users_with_devices,
+  (SELECT COUNT(*) FROM user_devices ud JOIN profiles p ON ud.user_id = p.id
+   WHERE ud.platform = 'ios'
+   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS ios_devices,
+  (SELECT COUNT(*) FROM user_devices ud JOIN profiles p ON ud.user_id = p.id
+   WHERE ud.platform = 'android'
+   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS android_devices,
+  (SELECT COUNT(*) FROM user_devices ud JOIN profiles p ON ud.user_id = p.id
+   WHERE ud.platform = 'web'
+   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS web_devices;
+```
+
+### Query 23: Email Engagement (7d)
+```sql
+SELECT
+  COUNT(*) FILTER (WHERE esl.delivered_at IS NOT NULL) AS delivered,
+  COUNT(*) FILTER (WHERE esl.opened_at IS NOT NULL) AS opened,
+  COUNT(*) FILTER (WHERE esl.clicked_at IS NOT NULL) AS clicked,
+  COUNT(*) FILTER (WHERE esl.bounced_at IS NOT NULL) AS bounced,
+  ROUND(100.0 * COUNT(*) FILTER (WHERE esl.opened_at IS NOT NULL) / NULLIF(COUNT(*) FILTER (WHERE esl.delivered_at IS NOT NULL), 0), 1) AS open_rate_pct,
+  ROUND(100.0 * COUNT(*) FILTER (WHERE esl.clicked_at IS NOT NULL) / NULLIF(COUNT(*) FILTER (WHERE esl.opened_at IS NOT NULL), 0), 1) AS click_rate_pct
+FROM email_send_log esl
+JOIN profiles p ON esl.user_id = p.id
+WHERE esl.sent_at >= NOW() - INTERVAL '7 days'
+  AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid';
+```
+
 Add to the dashboard output:
 
 ```
@@ -470,5 +683,10 @@ After the dashboard, flag any of these conditions:
 - **Enhanced forecasts all stale** (Query 13: avg_age_hours > 16 for enhanced source) — "All enhanced forecasts avg {n}h old — discovery will show stale/empty results"
 - **Marine forecasts stale** (Query 13: critical_stale > 50 for marine source) — "Marine forecasts: {n} beaches >6h stale"
 - **Low forecast coverage** (Query 13: coverage_pct < 90 for enhanced source) — "Forecast coverage at {n}% — {missing} beaches have no data"
+- **Zero social activity** (Query 19: new_follows_7d = 0 AND total_follows > 0) — "No new follows in 7 days — social features may be stale"
+- **Zero session engagement** (Query 20: likes_7d + comments_7d + shares_7d = 0) — "No likes, comments, or shares in 7 days"
+- **Referral stall** (Query 21: total_referrals > 0 AND referrals_7d = 0) — "No new referrals in 7 days"
+- **Low notification read rate** (Query 22: read_rate_pct < 20 AND notifications_7d > 10) — "Notification read rate at {n}% — users may be ignoring notifications"
+- **Email bounce spike** (Query 23: bounced > 0 AND bounced > delivered * 0.05) — "Email bounce rate >{n}% — check sender reputation"
 
 Display flags as a bulleted warnings list. If no anomalies, print "No anomalies detected."

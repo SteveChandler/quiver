@@ -443,10 +443,7 @@ describe("UnifiedAuthModal", () => {
         />
       );
 
-      // Accept terms first — Apple button is disabled until terms are accepted in signup mode
-      const termsCheckbox = screen.getByRole("checkbox");
-      fireEvent.click(termsCheckbox);
-
+      // Passive consent — Apple button is immediately clickable in signup mode
       const appleButton = screen.getByText("Continue with Apple");
       fireEvent.click(appleButton);
 
@@ -521,10 +518,7 @@ describe("UnifiedAuthModal", () => {
         />
       );
 
-      // Accept terms first — Google button is disabled until terms are accepted in signup mode
-      const termsCheckbox = screen.getByRole("checkbox");
-      fireEvent.click(termsCheckbox);
-
+      // Passive consent — Google button is immediately clickable in signup mode
       const googleButton = screen.getByText("Continue with Google");
       fireEvent.click(googleButton);
 
@@ -659,11 +653,7 @@ describe("UnifiedAuthModal", () => {
       );
       await userEvent.type(screen.getByLabelText("Password"), "password123");
 
-      // Accept terms (required for signup)
-      const checkbox = screen.getByRole("checkbox");
-      fireEvent.click(checkbox);
-
-      // Submit
+      // Submit — passive consent, no checkbox required
       fireEvent.click(screen.getByText("Sign up"));
 
       await waitFor(() => {
@@ -766,10 +756,7 @@ describe("UnifiedAuthModal", () => {
       await userEvent.type(screen.getByLabelText("Password"), "password123");
       // Don't fill in name
 
-      // Accept terms (required for signup)
-      const checkbox = screen.getByRole("checkbox");
-      fireEvent.click(checkbox);
-
+      // Submit — passive consent, no checkbox required
       fireEvent.click(screen.getByText("Sign up"));
 
       await waitFor(() => {

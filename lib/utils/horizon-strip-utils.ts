@@ -83,10 +83,10 @@ export const TIER_COLORS: Record<ConditionTier, {
     badge: 'bg-blue-300/30',
   },
   marginal: {
-    bg: 'bg-slate-200',
-    border: 'border-slate-300',
-    text: 'text-slate-600',
-    badge: 'bg-slate-100',
+    bg: 'bg-[#2D357D]',
+    border: 'border-[#354090]',
+    text: 'text-slate-300',
+    badge: 'bg-slate-400/20',
   },
 };
 

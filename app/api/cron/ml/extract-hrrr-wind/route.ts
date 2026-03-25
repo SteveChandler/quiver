@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { fetchWithRetry, wakeUpService } from '@/lib/ml/ml-service-client';
+import { degreeToCardinal } from '@/lib/utils/geo-utils';
 
 // Allow up to 120 seconds for HRRR data fetch + processing
 export const maxDuration = 120;
@@ -137,7 +138,7 @@ export async function GET(request: Request) {
   //
   // wind_speed is stored as text (e.g. "5 mph") matching the NWS format that
   // parseWindSpeed() in correct-forecasts/route.ts expects.
-  // wind_direction is stored as a numeric string in degrees, parsed with parseFloat().
+  // wind_direction is stored as a cardinal string (e.g. "SSW") via degreeToCardinal().
   let updated = 0;
   let errors = 0;
   const PARALLEL_BATCH = 20;
@@ -160,7 +161,7 @@ export async function GET(request: Request) {
         .from('enhanced_forecasts')
         .update({
           wind_speed: `${windSpeedMph} mph`,
-          wind_direction: String(windDirectionDeg),
+          wind_direction: degreeToCardinal(windDirectionDeg),
           wind_direction_deg: windDirectionDeg,
           wind_source: 'HRRR',
         })

@@ -119,14 +119,14 @@ function DayCard({
           {waveRange}
         </span>
         {day.period && (
-          <span className="text-[10px] opacity-80 leading-tight">
+          <span className="text-[11px] opacity-90 leading-tight">
             {formatSwellPeriod(day.period)}
           </span>
         )}
       </div>
 
       {/* Date */}
-      <span className="text-[10px] opacity-80">
+      <span className="text-[11px] opacity-90">
         {day.date}
       </span>
     </button>

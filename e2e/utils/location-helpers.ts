@@ -11,10 +11,13 @@ import {
   LOCATION_PAGE_TIMEOUTS,
 } from "../fixtures/location-data";
 import type { LocationIdentifier } from "@/types/location";
-import { buildLocationUrl } from "@/lib/utils/location-slug";
+import { buildCanonicalLocationUrl } from "./location-url";
 
 /**
  * Navigate to a location page
+ *
+ * Uses canonical short URLs (e.g. /ca/la-jolla) which the middleware
+ * internally rewrites to /beaches/usa/ca/la-jolla without a visible redirect.
  *
  * @param page - Playwright page object
  * @param city - City name
@@ -27,7 +30,7 @@ export async function navigateToLocation(
   state: string,
   country: string = "USA"
 ): Promise<void> {
-  const url = buildLocationUrl(city, state, country);
+  const url = buildCanonicalLocationUrl(city, state, country);
   await page.goto(url);
   await waitForLocationPageLoad(page);
 }
@@ -252,7 +255,7 @@ export async function clickBreadcrumbSegment(
     .locator(LOCATION_PAGE_SELECTORS.breadcrumbSegment)
     .filter({ hasText: label });
   await segment.click();
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("load");
 }
 
 /**
@@ -364,25 +367,41 @@ export async function verifyStatsDisplayed(page: Page): Promise<void> {
 /**
  * Check if location page URL is valid format
  *
+ * Matches canonical short URLs:
+ *   - USA:  /{state}/{city}               e.g. /ca/la-jolla
+ *   - Intl: /{country}/{state}/{city}     e.g. /mexico/baja-california/ensenada
+ *
+ * Also matches legacy /beaches/... paths for backwards compatibility.
+ *
  * @param url - URL to check
  * @returns True if URL matches location page pattern
  */
 export function isLocationPageUrl(url: string): boolean {
-  // Should match: /beaches/[country]/[state]/[city]
-  const pattern = /^\/beaches\/[a-z-]+\/[a-z-]+\/[a-z-]+$/;
+  // Canonical short: /{state}/{city} or /{country}/{state}/{city}
+  const shortUsaPattern = /^\/[a-z]{2}\/[a-z][a-z0-9-]+$/;
+  const shortIntlPattern = /^\/[a-z-]+\/[a-z-]+\/[a-z-]+$/;
+  // Legacy: /beaches/{country}/{state}/{city}
+  const legacyPattern = /^\/beaches\/[a-z-]+\/[a-z-]+\/[a-z-]+$/;
+
+  let pathname: string;
   try {
     const parsed = new URL(url);
-    // Normalize trailing slash just in case
-    const pathname = parsed.pathname.replace(/\/$/, "");
-    return pattern.test(pathname);
+    pathname = parsed.pathname.replace(/\/$/, "");
   } catch {
-    // Fallback: treat input as a pathname
-    return pattern.test(url.replace(/\/$/, ""));
+    pathname = url.replace(/\/$/, "");
   }
+
+  return (
+    shortUsaPattern.test(pathname) ||
+    shortIntlPattern.test(pathname) ||
+    legacyPattern.test(pathname)
+  );
 }
 
 /**
  * Get current location from URL
+ *
+ * Handles both canonical short URLs and legacy /beaches/... paths.
  *
  * @param page - Playwright page object
  * @returns Location identifier extracted from URL
@@ -393,15 +412,32 @@ export function getLocationFromUrl(page: Page): {
   city: string;
 } | null {
   const url = page.url();
-  const match = url.match(/\/beaches\/([a-z-]+)\/([a-z-]+)\/([a-z-]+)/);
+  let pathname: string;
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    pathname = url;
+  }
 
-  if (!match) return null;
+  // Legacy /beaches/{country}/{state}/{city}
+  const legacyMatch = pathname.match(/\/beaches\/([a-z-]+)\/([a-z-]+)\/([a-z-]+)/);
+  if (legacyMatch) {
+    return { country: legacyMatch[1], state: legacyMatch[2], city: legacyMatch[3] };
+  }
 
-  return {
-    country: match[1],
-    state: match[2],
-    city: match[3],
-  };
+  // Canonical short /{state}/{city} (USA, 2-letter state)
+  const shortUsaMatch = pathname.match(/^\/([a-z]{2})\/([a-z][a-z0-9-]+)$/);
+  if (shortUsaMatch) {
+    return { country: "usa", state: shortUsaMatch[1], city: shortUsaMatch[2] };
+  }
+
+  // Canonical short /{country}/{state}/{city} (international)
+  const shortIntlMatch = pathname.match(/^\/([a-z-]+)\/([a-z-]+)\/([a-z-]+)$/);
+  if (shortIntlMatch) {
+    return { country: shortIntlMatch[1], state: shortIntlMatch[2], city: shortIntlMatch[3] };
+  }
+
+  return null;
 }
 
 /**

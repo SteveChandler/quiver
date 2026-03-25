@@ -143,7 +143,6 @@ export function UnifiedAuthModal({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [termsAccepted, setTermsAccepted] = useState(false);
   const [emailSuggestion, setEmailSuggestion] = useState<{
     suggestion: string;
     suggestedEmail: string;
@@ -298,7 +297,6 @@ export function UnifiedAuthModal({
       setEmail("");
       setPassword("");
       setDisplayName("");
-      setTermsAccepted(false);
       setEmailSuggestion(null);
       setError(null);
       setLoading(false);
@@ -557,8 +555,6 @@ export function UnifiedAuthModal({
             enablePassword={enablePassword}
             enableMagicLink={enableMagicLink}
             loading={loading}
-            termsAccepted={termsAccepted}
-            onTermsAcceptedChange={setTermsAccepted}
             onAppleClick={process.env.NEXT_PUBLIC_APPLE_CLIENT_ID ? handleAppleSignIn : undefined}
             onGoogleClick={handleGoogleOAuth}
             onEmailPasswordClick={() => setView("email-password")}
@@ -573,13 +569,11 @@ export function UnifiedAuthModal({
             email={email}
             password={password}
             displayName={displayName}
-            termsAccepted={termsAccepted}
             loading={loading}
             emailInputRef={emailInputRef}
             onEmailChange={setEmail}
             onPasswordChange={setPassword}
             onDisplayNameChange={setDisplayName}
-            onTermsAcceptedChange={setTermsAccepted}
             onSubmit={handleEmailPassword}
             onBack={handleBack}
             emailSuggestion={emailSuggestion}

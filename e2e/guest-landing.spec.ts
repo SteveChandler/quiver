@@ -557,9 +557,10 @@ test.describe('Guest Landing - Deleted Photos', () => {
 
     const data = await response.json();
     expect(data.success).toBe(true);
-    expect(Array.isArray(data.data)).toBe(true);
+    expect(data.data).toHaveProperty('beaches');
+    expect(Array.isArray(data.data.beaches)).toBe(true);
 
-    const beaches = data.data;
+    const beaches = data.data.beaches;
     console.log(`[Test] Featured beaches API returned ${beaches.length} beaches`);
 
     // Step 4: Find our test beach in the results

@@ -14,6 +14,7 @@
  * - OR Authorization: Bearer <CRON_SECRET>
  */
 
+import * as React from "react";
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -23,6 +24,9 @@ import {
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
 import { FirstSessionNudgeEmail } from "@/lib/mailer/templates/FirstSessionNudgeEmail";
+import { PersonalizedNudgeEmail } from "@/lib/mailer/templates/PersonalizedNudgeEmail";
+import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
+import { formatDatabaseTime } from "@/lib/email/email-formatters";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 
@@ -48,6 +52,24 @@ interface NudgeCandidate {
   user_id: string;
   email: string;
   display_name: string | null;
+  home_beach_id: string | null;
+  onboarding_completed_at: string | null;
+}
+
+interface BeachData {
+  name: string;
+  slug: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+}
+
+interface IntelData {
+  conditions_score: number | null;
+  surf_description: string | null;
+  wind_description: string | null;
+  best_window_start: string | null;
+  best_window_end: string | null;
 }
 
 interface RunSummary {
@@ -58,6 +80,50 @@ interface RunSummary {
     sendFailed: number;
     logFailed: number;
   };
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+async function fetchBeachData(
+  supabase: ReturnType<typeof createSupabaseServiceRoleClient>,
+  beachId: string
+): Promise<BeachData | null> {
+  const { data, error } = await supabase
+    .from("beaches")
+    .select("name, slug, city, state, country")
+    .eq("id", beachId)
+    .single();
+  if (error || !data) return null;
+  return data as BeachData;
+}
+
+async function fetchIntelData(
+  supabase: ReturnType<typeof createSupabaseServiceRoleClient>,
+  beachId: string
+): Promise<IntelData | null> {
+  const now = new Date();
+  const pacificNow = new Date(
+    now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
+  );
+  const tomorrow = new Date(pacificNow);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+  const todayStr = pacificNow.toISOString().slice(0, 10);
+
+  for (const dateStr of [tomorrowStr, todayStr]) {
+    const { data, error } = await supabase
+      .from("beach_daily_intel")
+      .select("conditions_score, surf_description, wind_description, best_window_start, best_window_end")
+      .eq("beach_id", beachId)
+      .eq("forecast_date", dateStr)
+      .order("generated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!error && data) return data as IntelData;
+  }
+  return null;
 }
 
 // ============================================================================
@@ -103,7 +169,7 @@ export async function GET(request: Request) {
     // Query profiles table for users in the signup window (scalable, no pagination limit)
     const { data: windowProfiles, error: profilesError } = await supabase
       .from("profiles")
-      .select("id, display_name")
+      .select("id, display_name, home_beach_id, onboarding_completed_at")
       .gte("created_at", signupAfter)
       .lte("created_at", signupBefore);
 
@@ -155,7 +221,14 @@ export async function GET(request: Request) {
 
     // 4. Build candidate list — get email from auth for final candidates only
     const profileMap = new Map(
-      windowProfiles.map((p) => [p.id, p.display_name as string | null])
+      windowProfiles.map((p) => [
+        p.id,
+        {
+          display_name: p.display_name as string | null,
+          home_beach_id: p.home_beach_id as string | null,
+          onboarding_completed_at: p.onboarding_completed_at as string | null,
+        },
+      ])
     );
 
     const candidateIds: string[] = [];
@@ -178,10 +251,13 @@ export async function GET(request: Request) {
         const authUser = results[j].data;
         const userId = batch[j];
         if (authUser?.user?.email) {
+          const profile = profileMap.get(userId);
           candidates.push({
             user_id: userId,
             email: authUser.user.email,
-            display_name: profileMap.get(userId) ?? null,
+            display_name: profile?.display_name ?? null,
+            home_beach_id: profile?.home_beach_id ?? null,
+            onboarding_completed_at: profile?.onboarding_completed_at ?? null,
           });
         }
       }
@@ -208,18 +284,85 @@ export async function GET(request: Request) {
 
         const logSessionUrl = `${baseUrl}/sessions/new?mode=log&quick=true&utm_source=quiver&utm_medium=email&utm_campaign=first_session_nudge`;
         const unsubscribeUrl = `${baseUrl}/settings`;
-        const subject = "Your first forecast is waiting";
+
+        const isOnboarded =
+          candidate.home_beach_id !== null &&
+          candidate.onboarding_completed_at !== null;
+
+        let subject: string;
+        let emailElement: React.ReactElement;
+        let emailMeta: Record<string, unknown>;
+
+        if (isOnboarded) {
+          const beachData = await fetchBeachData(supabase, candidate.home_beach_id!);
+          const intelData = beachData
+            ? await fetchIntelData(supabase, candidate.home_beach_id!)
+            : null;
+
+          const beachName = beachData?.name ?? "your home beach";
+          const conditionsScore = intelData?.conditions_score ?? null;
+
+          subject =
+            conditionsScore !== null && conditionsScore >= 70
+              ? `✨ ${beachName} — conditions are looking good`
+              : `${beachName} — check tomorrow's forecast`;
+
+          const beachPath = beachData
+            ? buildBeachUrl({
+                slug: beachData.slug,
+                city: beachData.city,
+                state: beachData.state,
+                country: beachData.country,
+              })
+            : null;
+          const ctaUrl = beachPath
+            ? `${baseUrl}${beachPath}?utm_source=quiver&utm_medium=email&utm_campaign=first_session_nudge`
+            : `${baseUrl}?utm_source=quiver&utm_medium=email&utm_campaign=first_session_nudge`;
+
+          const windowStart = formatDatabaseTime(intelData?.best_window_start ?? null);
+          const windowEnd = formatDatabaseTime(intelData?.best_window_end ?? null);
+          const bestWindow =
+            windowStart && windowEnd ? { start: windowStart, end: windowEnd } : null;
+
+          emailElement = React.createElement(PersonalizedNudgeEmail, {
+            displayName: candidate.display_name,
+            beachName,
+            conditionsScore,
+            surfDescription: intelData?.surf_description ?? null,
+            windDescription: intelData?.wind_description ?? null,
+            bestWindow,
+            ctaUrl,
+            logSessionUrl,
+            unsubscribeUrl,
+          });
+
+          emailMeta = {
+            template: "personalized",
+            beach_name: beachName,
+            conditions_score: conditionsScore,
+            signup_window: `${SIGNUP_MIN_HOURS}-${SIGNUP_MAX_HOURS}h`,
+          };
+        } else {
+          subject = "Your first forecast is waiting";
+
+          emailElement = React.createElement(FirstSessionNudgeEmail, {
+            displayName: candidate.display_name,
+            logSessionUrl,
+            unsubscribeUrl,
+          });
+
+          emailMeta = {
+            template: "generic",
+            signup_window: `${SIGNUP_MIN_HOURS}-${SIGNUP_MAX_HOURS}h`,
+          };
+        }
 
         const { data: sendData, error: sendError } = await resend.emails.send({
           from: MAIL_FROM,
           replyTo: MAIL_REPLY_TO,
           to: candidate.email,
           subject,
-          react: FirstSessionNudgeEmail({
-            displayName: candidate.display_name,
-            logSessionUrl,
-            unsubscribeUrl,
-          }),
+          react: emailElement,
         });
 
         if (sendError) {
@@ -237,7 +380,7 @@ export async function GET(request: Request) {
           subject,
           resendMessageId: sendData?.id,
           localDate: today,
-          meta: { signup_window: `${SIGNUP_MIN_HOURS}-${SIGNUP_MAX_HOURS}h` },
+          meta: emailMeta,
         });
 
         if (!logResult.success) {
@@ -245,7 +388,10 @@ export async function GET(request: Request) {
         }
 
         summary.sent++;
-        console.log(`${CONTEXT_TAG} Sent to user ${candidate.user_id}`);
+        const templateType = isOnboarded ? "personalized" : "generic";
+        console.log(
+          `${CONTEXT_TAG} Sent ${templateType} to user ${candidate.user_id}`
+        );
       } catch (candidateError) {
         console.error(
           `${CONTEXT_TAG} Error processing ${candidate.user_id}:`,

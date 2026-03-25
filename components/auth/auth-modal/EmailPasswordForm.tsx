@@ -5,23 +5,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
-import { TermsCheckbox } from "./TermsCheckbox";
 
 /**
  * Email + password form view
+ *
+ * Terms consent is handled passively via the provider selection view — no
+ * checkbox is shown here. The submit button is enabled as soon as loading
+ * completes.
  */
 export interface EmailPasswordFormProps {
   mode: "login" | "signup" | "auto";
   email: string;
   password: string;
   displayName: string;
-  termsAccepted: boolean;
   loading: boolean;
   emailInputRef: React.RefObject<HTMLInputElement | null>;
   onEmailChange: (email: string) => void;
   onPasswordChange: (password: string) => void;
   onDisplayNameChange: (name: string) => void;
-  onTermsAcceptedChange: (accepted: boolean) => void;
   onSubmit: () => void;
   onBack: () => void;
   emailSuggestion?: { suggestion: string; suggestedEmail: string } | null;
@@ -33,13 +34,11 @@ export function EmailPasswordForm({
   email,
   password,
   displayName,
-  termsAccepted,
   loading,
   emailInputRef,
   onEmailChange,
   onPasswordChange,
   onDisplayNameChange,
-  onTermsAcceptedChange,
   onSubmit,
   onBack,
   emailSuggestion,
@@ -102,19 +101,35 @@ export function EmailPasswordForm({
         />
       </div>
 
+      {/* Passive consent notice for signup — no checkbox, just informational text */}
       {mode === "signup" && (
-        <TermsCheckbox
-          checked={termsAccepted}
-          onCheckedChange={onTermsAcceptedChange}
-          disabled={loading}
-        />
+        <p className="text-xs text-muted-foreground">
+          By signing up, you agree to our{" "}
+          <a
+            href="/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            Terms
+          </a>{" "}
+          and{" "}
+          <a
+            href="/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            Privacy Policy
+          </a>
+        </p>
       )}
 
       <Button
         onClick={onSubmit}
         className="w-full"
         size="lg"
-        disabled={loading || (mode === "signup" && !termsAccepted)}
+        disabled={loading}
       >
         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {mode === "signup" ? "Sign up" : "Log in"}

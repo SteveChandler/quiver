@@ -8,11 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Conditions-reactive Oracle greeting — dynamic greetings based on surf score, swell period, wind, time of day, and user absence
+- Session celebration overlay — "Session #N in the books" with condition-reactive subtitle, auto-dismiss, and XP badge
+- OG share card preview in post-session celebration — users see the beautiful share card before deciding to share
+- CO-OPS water temperature fallback — beaches with mapped tide stations now get real observed water temperatures instead of flat-line latitude estimates
 - YouTube cam self-healing system — cron-based resolver auto-detects rotated YouTube live stream video IDs using channel handles as stable anchors (runs every 6h via Vercel cron)
 - Added Satellite Beach, FL and Pensacola Pier, FL YouTube cams
 - `--youtube-live-check` flag for `validate-cameras.ts` to verify YouTube streams are actually live via Data API
 - Rideable waves per hour metric on beach detail page — predicts catchable wave frequency from swell, break type, and conditions; displayed in ConditionsTicker as "~N waves/hr"
 - Landing page "Show spots near me" button — contextual geolocation prompt in surf highlights section upgrades IP-based location to precise browser coordinates for regionally relevant beach results
+
+### Changed
+- Reduced anonymous beach page CTAs from 7-9 to 1 hero CTA — restyled dark theme to prevent ad-blindness
+- CTA copy rewritten for immediate surfer intent ("See if now is the best time" instead of "Get Alerts")
+- Replaced Terms checkbox in signup with passive consent — OAuth buttons no longer disabled until checkbox checked
+- Sticky signup bar restyled from light-mode (bg-white) to dark navy with Charming Orange accent
+- 404 page redesigned — dark navy theme, "Caught inside." headline, on-brand styling
+- Microcopy upgrades: "Checking the lineup..." loading states, "Intel board's empty" activity feed, "Lock in your local" contextual CTA, "Paddling out..." auth loading
 
 ### Fixed
 - Nulled out 3 dead YouTube cam URLs (Ala Moana Bowls, Waikiki, Higgins Beach) that were showing "stream not available"
@@ -32,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SEO: state browse pages (`/beaches/usa/ca`) now show Beginner/Tides/Water Temp intent pill links per city for crawler discovery of city intent pages
 - SEO: `getTopCitiesInState` default limit raised from 8 to 100 so all qualifying cities are returned for crawl discovery (backwards-compatible — pass a lower value when a small subset is needed)
 - SEO: `PopularCitiesForIntent` on state intent pages now shows a two-tier layout — top 8 cities in the existing prominent grid, remaining cities in a compact 3–4 column grid below a labeled divider; all links are always server-rendered (no accordion/collapse) for full crawler visibility
+- First-session-nudge email now shows personalized home beach conditions for users who completed onboarding, with score-aware subject lines
 
 ### Added
 - GEO: `sameAs` (Bluesky, X/Twitter), `founder`, and `areaServed` fields on Organization structured data for AI citation attribution

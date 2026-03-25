@@ -26,6 +26,16 @@ test.describe('Beach Amenities - CA beach (CCC data path)', () => {
     errorCapture = setupErrorDetection(page);
     await navigateToBeach(page, TEST_BEACHES.blacks);
     await waitForPageLoad(page);
+
+    // Beach pages default to the Forecast tab. Click Overview to reveal
+    // the amenities and spot summary cards.
+    const overviewTab = page.getByRole('tab', { name: /overview/i });
+    const isTabVisible = await isVisibleSafe(overviewTab, { timeout: 10000 });
+    if (isTabVisible) {
+      await overviewTab.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab panel transition
+      await page.waitForTimeout(500);
+    }
   });
 
   test.afterEach(async ({ page }) => {
@@ -184,6 +194,15 @@ test.describe('Beach Amenities - non-CA beach (fallback path)', () => {
     // once those beach slugs are verified in the test DB.
     await navigateToBeach(page, TEST_BEACHES.beacons);
     await waitForPageLoad(page);
+
+    // Beach pages default to the Forecast tab. Click Overview to reveal amenities.
+    const overviewTab = page.getByRole('tab', { name: /overview/i });
+    const isTabVisible = await isVisibleSafe(overviewTab, { timeout: 10000 });
+    if (isTabVisible) {
+      await overviewTab.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab panel transition
+      await page.waitForTimeout(500);
+    }
   });
 
   test.afterEach(async ({ page }) => {
@@ -243,6 +262,15 @@ test.describe('Beach Amenities - known badge labels', () => {
     errorCapture = setupErrorDetection(page);
     await navigateToBeach(page, TEST_BEACHES.blacks);
     await waitForPageLoad(page);
+
+    // Beach pages default to the Forecast tab. Click Overview to reveal amenities.
+    const overviewTab = page.getByRole('tab', { name: /overview/i });
+    const isTabVisible = await isVisibleSafe(overviewTab, { timeout: 10000 });
+    if (isTabVisible) {
+      await overviewTab.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab panel transition
+      await page.waitForTimeout(500);
+    }
   });
 
   test.afterEach(async ({ page }) => {

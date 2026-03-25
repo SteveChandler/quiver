@@ -41,7 +41,9 @@ interface ProfileWithOracle {
  * Safely parse a numeric value from a string that may contain units.
  * e.g. "14s" → 14, "3.2ft" → 3.2, "8 mph" → 8
  */
-function parseNumeric(value: string | null | undefined, fallback = 0): number {
+function parseNumeric(value: string | number | null | undefined, fallback = 0): number {
+  if (value == null) return fallback;
+  if (typeof value === "number") return isNaN(value) ? fallback : value;
   if (!value) return fallback;
   const match = value.match(/^(\d+(?:\.\d+)?)/);
   return match ? parseFloat(match[1]) : fallback;
@@ -339,7 +341,7 @@ export function OracleHomeScreen() {
     // TODO: Wire to native alarm / notification scheduling
     if (typeof window !== "undefined") {
       import("sonner").then(({ toast }) =>
-        toast("Coming soon", { description: "Alarm notifications are on the way." })
+        toast("Coming soon. We'll ping you when sets are rolling in.", { description: "Alarm notifications are on the way." })
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -481,6 +483,8 @@ export function OracleHomeScreen() {
         shouldAnimate={oracle.shouldAnimate}
         onAnimationComplete={oracle.markAnimationPlayed}
         userName={profile?.display_name ?? profile?.full_name}
+        // TODO: wire windCondition when wind quality label is available in forecast data
+        // TODO: wire daysAbsent from user's last session timestamp
         levelTitle={oracleProfile?.level_title ?? null}
         xpTotal={oracleProfile?.xp_total ?? null}
         timezone={heroTz}

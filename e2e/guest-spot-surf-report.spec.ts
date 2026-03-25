@@ -157,8 +157,8 @@ test.describe('Spot Surf Report', () => {
     const beachHeading = page.locator('h1');
     await expect(beachHeading).toBeVisible();
 
-    // Verify tabs are still accessible
-    const tabList = page.getByRole('tablist');
+    // Verify tabs are still accessible (use .first() since page has multiple tablists)
+    const tabList = page.getByRole('tablist').first();
     await expect(tabList).toBeVisible();
   });
 
@@ -185,7 +185,8 @@ test.describe('Spot Surf Report', () => {
     await page.getByRole('tab', { name: /today/i }).waitFor({ state: 'visible', timeout: 15000 });
 
     // Look for the PublicContentGate CTA heading within the Forecast panel
-    const bestTimeCTA = page.getByRole('heading', { name: /see the best time to surf today/i });
+    // The gate title is "See today's surf call for {beachName}"
+    const bestTimeCTA = page.getByRole('heading', { name: /see today's surf call/i });
     const outlookCTA = page.getByText(/see outlook/i);
 
     const hasBestTimeGate = await isVisibleSafe(bestTimeCTA, { timeout: 5000 });
@@ -229,12 +230,21 @@ test.describe('Spot Surf Report', () => {
     expect(hasReviewsGate || hasIntelGate || hasSessionsGate).toBe(true);
   });
 
-  test('match score teaser shows for anonymous users', async ({ page }) => {
+  test('hero forecast teaser CTA shows for anonymous users (sole CTA after Phase 1A)', async ({ page }) => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
-    // The beach hero renders a match score teaser button for anonymous users
-    const matchTeaser = page.getByRole('button', { name: /what does today look like/i });
-    await expect(matchTeaser).toBeVisible();
+    // After Phase 1A CTA reduction, the sole anonymous CTA is the forecast teaser
+    // in BeachHeroCompact. However, when the beach has a live cam, the hero overlay
+    // (including the teaser) is hidden. In that case, the BestSurfWindow gate CTA
+    // serves as the primary anonymous CTA instead.
+    const forecastTeaser = page.getByTestId('beach-hero-forecast-teaser');
+    const bestWindowGate = page.getByRole('heading', { name: /see today's surf call/i });
+
+    const teaserVisible = await isVisibleSafe(forecastTeaser, { timeout: 5000 });
+    const bestWindowGateVisible = await isVisibleSafe(bestWindowGate, { timeout: 5000 });
+
+    // At least one anonymous CTA should be visible (teaser if no cam, best window gate otherwise)
+    expect(teaserVisible || bestWindowGateVisible).toBe(true);
   });
 
   test('gated community tabs are accessible for anonymous users', async ({ page }) => {
