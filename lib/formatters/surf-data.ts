@@ -1,5 +1,7 @@
 import { SET_WAVE_VARIANCE } from '@/lib/utils/wave-height-transformer';
 import { METERS_TO_FEET } from '@/lib/utils/unit-conversions';
+// Cross-platform note: Wave range formatting also exists in quiver-native/src/lib/format-wave-height.ts
+// (different algorithm — takes string input like "2.6 ft" and uses floor/ceil rounding)
 
 /**
  * Format wave height as a surfer-friendly range string.

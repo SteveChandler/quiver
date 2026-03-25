@@ -179,3 +179,13 @@ quiver/android/debug/
 
 # Content pipeline output (crawl cache, staging, reports)
 tools/content-pipeline/output/
+
+# iOS build caches (regenerable)
+ios/DerivedData/
+ios/App/Pods/
+
+# Python virtual environments (not covered by venv/ above)
+**/.venv/
+
+# Claude Code worktrees
+.claude/worktrees/
