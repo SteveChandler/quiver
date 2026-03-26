@@ -11,6 +11,13 @@ interface LearnArticle {
     heading: string;
     content: string;
     keyTakeaway?: string;
+    /** Optional inline image displayed alongside section content */
+    image?: {
+      src: string;
+      alt: string;
+      /** "left" or "right" — side the image appears on in split layout */
+      position: "left" | "right";
+    };
   }[];
   faqs: {
     question: string;
@@ -28,7 +35,7 @@ export const learnArticles: LearnArticle[] = [
     slug: "how-to-read-a-surf-forecast",
     title: "How to Read a Surf Forecast",
     description: "Learn what each metric means on a surf forecast: wave height, period, direction, wind, and tide. Master the data to find better sessions.",
-    readingTimeMin: 8,
+    readingTimeMin: 5,
     heroImage: "/beginnerWhiteWater.jpg",
     thumbnailImage: "/beginnerWhiteWater.jpg",
     keywords: [
@@ -43,51 +50,68 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "overview",
         heading: "What a Surf Forecast Actually Tells You",
-        content: `<p>A surf forecast predicts ocean conditions at your local break: wave size, period (how far apart the waves are), wind speed, and tide. These metrics come from NOAA's WaveWatch III wave model, which runs on global weather data updated every 6 hours. The forecast doesn't predict which wave you'll catch—it predicts the raw ingredients you'll work with when you paddle out.</p><p>Quiver pulls forecasts from multiple models and combines them with observations from NDBC buoys and CDIP wave-measuring stations along your coast. This gives you both the model prediction and real buoy data so you can see how accurate the forecast has been lately. Think of a forecast as a weather report for the ocean—useful, but not perfect.</p>`,
+        content: `<p>A surf forecast predicts the raw ingredients you'll work with when you paddle out: wave size, period, direction, wind, and tide. These come from NOAA's WaveWatch III model, updated every 6 hours using global weather data. Quiver layers in real buoy observations from NDBC and CDIP stations so you can see how the prediction stacks up against reality. Think of it as a weather report for the ocean — useful, not perfect.</p>`,
         keyTakeaway:
           "A surf forecast predicts wave height, period, direction, and wind from NOAA models and real-time buoy observations.",
+        image: { src: "/images/learn/learn-surfer-watching.jpg", alt: "Surfer watching waves from the beach, reading conditions before paddling out", position: "right" },
       },
       {
         id: "wave-height",
         heading: "Wave Height: Significant vs. Face Height",
-        content: `<p>Wave height on a forecast usually means <strong>significant wave height</strong> (Hs)—the average of the tallest third of waves passing a point. This is what scientists measure with buoys, but it's not the same as the face height you see when paddling. A face height is roughly 1.5x to 2x the significant height because you're measuring from the back of the wave, which is taller than the average.</p><p>If a forecast says 6 feet significant wave height, expect face heights of 9 to 12 feet. Beginners often mistake significant height for face height and show up expecting smaller, softer waves than they actually get. Learn your local break's conversion factor by comparing forecasts to the actual waves you see. Sandy beaches with shifting bars convert differently than reef breaks with consistent bathymetry.</p>`,
+        content: `<p>Forecast height means <strong>significant wave height</strong> (Hs) — the average of the tallest third of waves at a buoy. That's not the face height you see paddling out. Face height runs roughly <strong>1.5x to 2x</strong> significant height, so a 6-foot forecast means 9-12 foot faces. Beginners regularly show up expecting smaller waves than they get. Learn your break's conversion by comparing forecasts to what you actually see — sandy beaches and reef breaks scale differently.</p>`,
         keyTakeaway:
           "Significant wave height (forecast) is roughly 60-70% of face height—multiply the forecast by 1.5-2x to estimate what you'll actually see.",
+        image: {
+          src: "/images/Winter-Swamis.webp",
+          alt: "Winter swell at Swamis — significant wave height vs face height",
+          position: "right",
+        },
       },
       {
         id: "swell-period",
         heading: "Swell Period: Why Seconds Matter",
-        content: `<p>Swell period is the time in seconds between consecutive wave crests. A 6-second period means one wave crest passes a fixed point every 6 seconds. A 14-second period means 14 seconds between waves. This single number tells you where the swell originated: local wind makes short periods (5-9 seconds), while distant storms make long periods (12+ seconds).</p><p>Long-period swells travel farther and retain more energy. A 14-second swell travels roughly 25 mph through deep water and maintains its shape better than a 6-second swell. In the lineup, long-period waves feel more powerful, stand up faster, and break more cleanly. A 4-foot swell at 14 seconds will be much better quality than a 4-foot swell at 6 seconds. Most forecast models show period alongside height—don't ignore it.</p>`,
+        content: `<p>Period is the gap between waves — count the seconds between crests passing a buoy. A <strong>6-second period</strong> means local wind chop. A <strong>14-second period</strong> means distant storm energy traveling at roughly 25 mph through deep water. In the lineup, long-period waves feel more powerful, stand up faster, and break cleaner. A 4-foot swell at 14 seconds will outperform a 4-foot swell at 6 seconds every time. Don't ignore this number.</p>`,
         keyTakeaway:
           "Period (in seconds) is more important than height for wave quality: longer periods (12+ sec) mean cleaner, more powerful waves from distant storms.",
       },
       {
         id: "swell-direction",
         heading: "Swell Direction: Is Your Break Facing It?",
-        content: `<p>Swell direction tells you which compass heading the waves are coming from. A swell from 300 degrees is approaching from the northwest. Your local break has a preferred direction—Rincon works on southwest swells, Malibu needs south to southwest, Sunset Beach wants north swells. If the forecast shows swell from a direction your break doesn't face, that break won't work, no matter the height or period.</p><p>Check your break's exposure on a map. If you face south, a north swell won't give you good waves. If you face southwest, a south swell at 200 degrees might be better than one at 180 degrees. Most forecasts show swell direction as a compass bearing (0-360) or as directional arrows. Compare the forecast direction to your break's known windows. If they don't match, paddle somewhere else—nearby breaks often face different directions.</p>`,
+        content: `<p>Swell direction is the compass heading waves arrive from — 300 degrees means northwest. Your break has a preferred window: Rincon wants southwest, Malibu needs south, Sunset Beach wants north. If the swell doesn't face your break, it doesn't matter how big or long-period it is — you won't get waves. Check your break's exposure on a map, compare it to the forecast direction, and if they don't match, paddle somewhere else. Nearby breaks often face completely different directions.</p>`,
         keyTakeaway:
           "Swell direction only matters if your break faces it: check your beach's exposure on a map and compare to the forecast direction.",
       },
       {
         id: "wind",
         heading: "Wind Speed and Direction: Offshore vs. Onshore",
-        content: `<p>Wind at the surface can make or break your session. <strong>Offshore</strong> wind blows from land to sea—it holds up the wave face, slows the breaking wave, and creates clean lines. <strong>Onshore</strong> wind blows from sea to land—it pushes the wave down, speeds up the break, and creates chop. Offshore is always better. Most surfers prefer wind speeds under 10 knots with an offshore component.</p><p>Check both wind direction and speed on your forecast. Winds under 5 knots matter less. Between 5-15 knots, direction matters a lot—offshore keeps waves shaped, onshore ruins them. Above 15 knots, even offshore wind creates too much texture. Dawn patrol sessions are prized because land cools overnight and creates offshore breezes before heating up midday. If the forecast shows onshore wind, start early or wait for the next swell.</p>`,
+        content: `<p><strong>Offshore</strong> wind blows from land to sea — it holds up the wave face, slows the break, and creates clean lines. <strong>Onshore</strong> does the opposite: pushes waves down and adds chop. Most surfers want wind under <strong>10 knots</strong> with an offshore component. Between 5-15 knots, direction is everything. Above 15 knots, even offshore gets too textured.</p><p>Dawn patrol exists because land cools overnight and creates natural offshore flow before heating reverses it midday. If the forecast shows onshore, go early or wait for a different day.</p>`,
         keyTakeaway:
           "Offshore wind (blowing from land to sea) cleans up wave faces; onshore wind creates chop. Most breaks work best with 5-10 knot offshore winds.",
+        image: {
+          src: "/images/activities/offshore-winds.webp",
+          alt: "Clean offshore wind holding up wave faces",
+          position: "left",
+        },
       },
       {
         id: "tide",
         heading: "Tide and How It Reshapes Your Break",
-        content: `<p>Tide changes water depth, and water depth controls where waves break. At low tide, shallow reefs and sandbars create hollow, fast waves—great for experienced surfers, often dangerous for beginners. At high tide, the same break becomes slower and mushier because water is deeper. Most beach breaks work best at mid-tide, when the bar has enough water to form waves but hasn't flooded out yet.</p><p>Check your local tide table before heading out. If your break breaks best at mid-tide, arriving at low tide means you'll be paddling over dry sandbars. Some reefs only work on the rising tide. Others are surfable only in a 2-hour window around high tide. Learn your break's tidal window by paddling at different tides and noting where the peaks form. Tide forecasts are accurate to minutes—use them to time your session, not just the swell.</p>`,
+        content: `<p>Tide changes water depth, which controls where and how waves break. Low tide exposes shallow bars and reefs — hollow, fast, often dangerous for beginners. High tide floods things out — slower, mushier. Most beach breaks hit their sweet spot at <strong>mid-tide</strong> when there's enough water to form waves without drowning the bars. Learn your break's tidal window by surfing different tides and noting where peaks form. Tide forecasts are accurate to the minute — use them to time your session, not just the swell.</p>`,
         keyTakeaway:
           "Tide changes wave shape: low tide makes waves hollow and fast, high tide makes them slower, and most beaches work best at mid-tide.",
+        image: { src: "/images/learn/learn-tide-pools.jpg", alt: "Aerial view of tide pools and exposed reef at low tide", position: "left" },
       },
       {
         id: "putting-it-together",
         heading: "Putting It All Together: Reading a Real Forecast",
-        content: `<p>A complete forecast looks like this: Tuesday, 5 AM, 4 feet at 14 seconds from 230 degrees, 8 knots offshore, high tide at 7:30 AM. This tells you the swell is quality (14-second period), face height will be roughly 6-7 feet, your break faces southwest so 230 degrees is good, wind is light and offshore (best case), and tide will be high so the break will be slower than usual. Overall: go early, before the tide floods it completely.</p><p>Compare this to: Tuesday, 5 AM, 4 feet at 6 seconds from 230 degrees, 15 knots onshore, low tide at 5 AM. The 6-second period means local chop, 15 knots onshore will roughen it up, and low tide will make it hollow and fast. This is a skippable session at this break, even though the height is the same. The period, wind, and tide tell the real story. Build this habit: never read height alone—always check period, direction, and wind before committing.</p>`,
+        content: `<p>Good forecast: Tuesday 5 AM, 4 feet at 14 seconds from 230 degrees, 8 knots offshore, high tide 7:30 AM. Quality period, your break faces southwest, wind is clean — go early before tide floods it. Bad forecast: same day, 4 feet at 6 seconds from 230 degrees, 15 knots onshore, low tide. Same height, completely different session. The 6-second period means chop, onshore wind ruins the face, and low tide makes it dangerous.</p><p>The habit: never read height alone. Always check period, direction, wind, and tide before committing.</p>`,
         keyTakeaway:
           "Read forecasts in order: height tells you scale, period tells you quality, direction tells you if your break works, wind tells you texture, tide tells you timing.",
+        image: {
+          src: "/images/OceanBeachSurfers.webp",
+          alt: "Surfers reading conditions at Ocean Beach",
+          position: "right",
+        },
       },
     ],
     faqs: [
@@ -143,7 +167,7 @@ export const learnArticles: LearnArticle[] = [
     slug: "swell-period-explained",
     title: "Swell Period Explained",
     description: "Understand swell period, why 14 seconds feels completely different than 6 seconds, and how to read it on your forecast.",
-    readingTimeMin: 7,
+    readingTimeMin: 4,
     heroImage: "/point-break.webp",
     thumbnailImage: "/point-break.webp",
     keywords: [
@@ -158,49 +182,61 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "definition",
         heading: "What Swell Period Actually Is",
-        content: `<p>Swell period is the time in seconds between two wave crests as they pass a fixed point. If you watch a buoy or a stationary surfer and count seconds between waves, that count is the period. A 6-second period means a new wave arrives every 6 seconds. A 14-second period means 14 seconds between waves. This single number encodes critical information about where the swell came from and how it will behave in your lineup.</p><p>Buoys and forecasts always measure period because it's consistent and measurable. Period doesn't change with water depth the way wavelength does. A 14-second swell remains a 14-second swell from the deep ocean all the way to shore. This makes it the most reliable indicator of swell quality in any forecast.</p>`,
+        content: `<p>Period is the gap between waves — count the seconds between crests passing a buoy. A <strong>6-second period</strong> means waves every 6 seconds. A <strong>14-second period</strong> means 14 seconds between waves. Unlike height or wavelength, period doesn't change with water depth. A 14-second swell stays 14 seconds from the deep ocean all the way to shore, making it the most reliable quality signal on any forecast.</p>`,
         keyTakeaway:
           "Swell period is the time in seconds between consecutive wave crests passing a point.",
+        image: { src: "/images/learn/learn-aerial-swell.jpg", alt: "Aerial view of organized swell lines approaching shore", position: "right" },
       },
       {
         id: "short-period",
         heading: "Short Period (5-9 seconds): Local Wind and Chop",
-        content: `<p>Short-period swells come from local wind—wind blowing at your coast right now. When wind hits water, it generates random energy across many directions and periods. Most of this energy is short-period, 5-9 seconds. Short periods mean waves are close together, but they're weaker, more chaotic, and break faster.</p><p>In the water, short-period waves feel mushy and quick. They don't stand up as you paddle into them—instead they collapse fast, creating a steep takeoff but little face. You get lots of opportunities to catch waves, but fewer good rides. Short-period swells are common on calm days when local wind has been blowing overnight. They're not bad—they're just smaller, softer, and require different technique than ground swells.</p>`,
+        content: `<p>Short-period swells come from local wind hitting the water near your coast. Waves are close together, weaker, and chaotic — energy scattered across directions and frequencies. In the water, they feel mushy and quick. Waves don't stand up as you paddle in; they collapse fast with a steep takeoff but little face. You'll get plenty of opportunities but fewer quality rides. Common on calm days after overnight wind, they're not necessarily bad — just softer and more forgiving of technique.</p>`,
         keyTakeaway:
           "Short-period swells (5-9 sec) come from local wind and create mushy, quick-breaking waves that are close together.",
       },
       {
         id: "long-period",
         heading: "Long Period (12+ seconds): Distant Storms",
-        content: `<p>Long-period swells come from distant storms thousands of miles away. When a storm churns the ocean, it generates waves across many periods, but the long-period energy escapes first. These swells travel across entire ocean basins, losing short-period energy along the way through friction and spreading. By the time a 14-second swell reaches your coast, it's traveled days and thousands of miles.</p><p>A 14-second swell travels roughly 25 mph through deep water. Longer periods mean faster travel and more organized energy. In the lineup, long-period waves stand up slower, peel for longer, and maintain power all the way through the break. You'll catch fewer waves but ride cleaner lines. Most surfers prefer long-period swells because the rides are longer and the waves feel more controlled.</p>`,
+        content: `<p>Long-period swells come from storms thousands of miles away. A <strong>14-second swell</strong> travels roughly <strong>25 mph</strong> through deep water, crossing entire ocean basins over days. Short-period energy gets stripped away by friction along the way, leaving only organized, powerful energy behind. In the lineup, long-period waves stand up slower, peel longer, and maintain power through the break. You'll catch fewer waves but ride cleaner lines — that's why most surfers live for long-period days.</p>`,
         keyTakeaway:
           "Long-period swells (12+ sec) come from distant storms, travel thousands of miles, and create organized, peeling waves.",
+        image: {
+          src: "/images/activities/point-breaks.webp",
+          alt: "Long-period ground swell peeling along a point break",
+          position: "right",
+        },
       },
       {
         id: "why-period-matters",
         heading: "Why Period Matters More Than Height",
-        content: `<p>Height tells you scale; period tells you quality. A 2-foot swell at 16 seconds will be more fun than a 4-foot swell at 6 seconds. Why? The 16-second swell means distant organized energy, clean lines, and rideable faces. The 4-foot chop means mushy, close-together waves that collapse fast. Beginners and pros alike will choose the smaller but longer-period swell.</p><p>This is why experienced surfers obsess over period. Height is visible from the beach—you can estimate it. Period is invisible but determines rideability. A beach break with a 14-second swell at 3 feet will have packed lineups. The same beach at 4 feet and 7 seconds will be empty because locals know it's unridden chop. Period is the secret metric that separates quality sessions from blown-out days.</p>`,
+        content: `<p>Height tells you scale. Period tells you quality. A <strong>2-foot swell at 16 seconds</strong> will be more fun than a <strong>4-foot swell at 6 seconds</strong> — the first means clean, organized distant energy; the second means mushy chop that collapses fast. This is why a beach break at 3 feet and 14 seconds will have packed lineups while the same beach at 4 feet and 7 seconds sits empty. Locals know. Period is the invisible metric that separates a real session from a blown-out day.</p>`,
         keyTakeaway:
           "A smaller swell with longer period (12+ sec) produces better waves than a bigger swell with short period (6 sec) because it means organized distant energy.",
+        image: {
+          src: "/images/hero/hero-2-barrel-wave.webp",
+          alt: "Powerful wave from a long-period swell",
+          position: "left",
+        },
       },
       {
         id: "fetch-and-distance",
         heading: "Period and Distance: The Fetch Law",
-        content: `<p>Swell period directly correlates to how far the generating storm is from your coast. A 6-second swell was generated nearby—probably within 100 miles. An 8-second swell was generated 200-500 miles away. A 12-second swell came from 500-1500 miles away. A 16-second swell often came from the Southern Hemisphere or South Pacific, thousands of miles distant.</p><p>This relationship comes from oceanography: wind-driven waves grow in proportion to wind speed, wind duration, and fetch (distance over which wind blows). Long swells require either very strong wind or very long fetch. Most long-period swells form from major storms with sustained wind over ocean basins. When you see a 14-second period on the forecast, you're looking at a system that got organized enough to push energy across an ocean.</p>`,
+        content: `<p>Period tells you how far away the storm was. A <strong>6-second swell</strong> was generated within 100 miles. An <strong>8-second swell</strong>, 200-500 miles. A <strong>12-second swell</strong>, 500-1500 miles. A <strong>16-second swell</strong> often crossed an entire ocean basin — Southern Hemisphere storms reaching California, for example. Long periods require either massive wind speed or enormous fetch (the distance wind blows uninterrupted over open water). When you see 14+ seconds on the forecast, a serious storm got organized enough to push energy across an ocean.</p>`,
         keyTakeaway:
           "Swell period indicates distance from source: 6-sec means nearby wind, 12-sec means 500+ miles away, 16-sec means thousands of miles away.",
       },
       {
         id: "reading-period",
         heading: "Reading Period on Your Forecast",
-        content: `<p>Every forecast tool shows period as a single number: "4 feet at 14 seconds" or sometimes split into primary and secondary periods. The primary period is what you want to focus on—it's the dominant wavelength in the water. Some forecasts show a range, like 12-16 seconds, which means multiple swells are mixing.</p><p>As a rule: below 9 seconds is short period (local wind, mushy). 9-12 seconds is medium (decent, still some local influence). Above 12 seconds is long period (quality, distant origin). Most forecast models break down into two or three swell components, each with its own period. If you see "3 feet at 14 sec + 2 feet at 7 sec," you have a long-period ground swell mixed with short-period local wind. The long-period part is the one that'll peel nicely.</p>`,
+        content: `<p>Forecasts show period as a single number — "4 feet at 14 seconds" — or split into primary and secondary components. Focus on the primary (dominant) period. Quick guide: <strong>below 9 seconds</strong> is short period (local wind, mushy). <strong>9-12 seconds</strong> is medium (decent, some local influence). <strong>Above 12 seconds</strong> is long period (quality, distant origin). If you see "3 feet at 14 sec + 2 feet at 7 sec," you've got ground swell mixed with local wind — the 14-second component is the one that'll peel.</p>`,
         keyTakeaway:
           "Check period on your forecast: 9-12 sec is medium quality, 12+ sec is good, below 9 sec means mushy local chop.",
+        image: { src: "/images/learn/learn-aerial-shore.jpg", alt: "Aerial view of swell lines hitting the coastline at an angle", position: "left" },
       },
       {
         id: "period-and-bathymetry",
         heading: "How Your Break's Bathymetry Interacts with Period",
-        content: `<p>Period behaves differently depending on what's under the water. Sand breaks accept all periods and work okay at any swell frequency. Reef breaks are picky—some reefs work best with 12+ second periods, while others peel at 8 seconds. Sandbars migrate based on winter swells (long period) vs summer chop (short period). A bar that breaks at peak tide on a 14-second swell might be completely different at low tide on a 6-second chop.</p><p>Learn your break's preferred period by paddling it across different forecasts. Note which swells produce the best banks, the cleanest lines, and the most favourable shape. Reef breaks often prefer longer periods because the fixed underwater structure works better with more organized energy. Beach breaks are more forgiving but still have sweet spots. This local knowledge—knowing your break prefers 12+ seconds—is worth more than any forecast skill.</p>`,
+        content: `<p>Every break has a period sweet spot. Reef breaks tend to prefer <strong>12+ second</strong> periods because fixed underwater structure channels organized energy into clean lines. Beach breaks are more forgiving across the range, but sandbars shift based on what swells they receive — winter ground swell reshapes bars differently than summer wind chop. Learn your break's preferred period by surfing it across different forecasts and noting which swells produce the best shape. That local knowledge is worth more than any forecasting skill.</p>`,
         keyTakeaway:
           "Every break has a preferred period: reef breaks often work best at 12+ seconds, beach breaks work across ranges, sandbars shift with swell frequency.",
       },
@@ -258,7 +294,7 @@ export const learnArticles: LearnArticle[] = [
     slug: "best-surf-conditions-for-beginners",
     title: "Best Surf Conditions for Beginners",
     description: "Ideal wave size, period, wind, and tide for learning to surf. Master conditions to learn faster and safer.",
-    readingTimeMin: 8,
+    readingTimeMin: 5,
     heroImage: "/4groms.jpg",
     thumbnailImage: "/4groms.jpg",
     keywords: [
@@ -272,49 +308,61 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "overview",
         heading: "The Ideal Beginner Session",
-        content: `<p>The best beginner session has four conditions: small consistent waves, long swell period, light offshore wind, and mid-tide on a sandy bottom. This combination gives you soft, predictable, forgiving waves that break repeatedly in the same spot. You'll catch 10+ waves, make mistakes safely, and build muscle memory without getting worked. Real beginners don't need big waves—they need repeatable waves.</p><p>Most beginners chase big swell and get discouraged. You don't want size; you want quality. A 2-foot swell at 14 seconds in offshore wind will teach you more in one session than a 6-foot day with onshore chop. This guide breaks down each condition and shows you how to read a forecast to find it. Your local beach probably offers beginner-perfect waves 1-2 times per week if you know what to look for.</p>`,
+        content: `<p>You don't need big waves — you need repeatable waves. The best beginner session has small consistent surf, long period, light offshore wind, and mid-tide over sand. That combo gives you soft, predictable waves breaking in the same spot. You'll catch 10+ waves, build muscle memory, and not get worked. A <strong>2-foot swell at 14 seconds</strong> in offshore wind will teach you more than a 6-foot day with onshore chop. Your local beach probably serves this up 1-2 times a week if you know what to look for.</p>`,
         keyTakeaway:
           "Best beginner sessions have small consistent waves (1-3 feet), long period (12+ sec), offshore wind, and mid-tide.",
+        image: { src: "/images/learn/learn-surfer-walks.jpg", alt: "Surfer walking toward gentle waves at a beginner-friendly beach", position: "right" },
       },
       {
         id: "wave-height",
         heading: "Wave Height: 1-3 Feet (Face Height) Is Ideal",
-        content: `<p>A 1-3 foot face height is perfect for beginners. This converts to roughly 0.5-2 feet significant wave height on a forecast. Why so small? Because learning to pop up, balance, and steer takes 100+ repetitions. Small waves let you catch more waves, fall safely, and practice the same move over and over. You won't get worked, which builds confidence. A 4-foot face is noticeably harder; a 6-foot face is genuinely scary when you can't paddle fast.</p><p>When checking forecasts, remember that significant height is roughly 60-70% of face height. If a forecast shows 2 feet, expect 3-4 foot faces. That's borderline for beginners—still okay if the period is long and the wind is offshore. Anything above 4 feet significant (6+ foot faces) is intermediate territory. The rule is simple: if you're not comfortable duck-diving or doing a solid bottom turn, it's too big.</p>`,
+        content: `<p><strong>1-3 foot face height</strong> is the sweet spot — roughly 0.5-2 feet significant height on a forecast. Learning to pop up takes 100+ reps, and small waves let you practice safely without getting worked. If a forecast says 2 feet, expect 3-4 foot faces (significant height is 60-70% of face height). That's borderline — still okay with long period and offshore wind. Above 4 feet significant (6+ foot faces) is intermediate territory. Simple rule: if you can't duck-dive confidently, it's too big.</p>`,
         keyTakeaway:
           "Start on 1-3 foot face height (0.5-2 feet on the forecast), which gives you safe, repeatable waves for practicing.",
+        image: {
+          src: "/images/activities/beginner-friendly.webp",
+          alt: "Beginner surfer riding small whitewater waves",
+          position: "right",
+        },
       },
       {
         id: "period-for-beginners",
         heading: "Swell Period: Why Longer Period Is Actually Easier",
-        content: `<p>Beginners often think longer period is scarier because bigger waves look intimidating. The opposite is true: long-period waves break slower and more predictably. A 14-second swell means you have 14 seconds between waves to paddle back out, regroup, and prepare for the next one. A 6-second swell means constant action and chaos. Long period gives you breathing room.</p><p>Long-period swells also stand up slower, giving you more time to pop up and set your line before the wave pitches. A 16-second ground swell at 2 feet feels more approachable than a 6-second wind swell at 3 feet, even though it's smaller on paper. Most beginner spots (Rincon, Waikiki, Oceanside) work best when a long-period swell is running. If your forecast shows 12+ seconds, that's your best learning window. Below 9 seconds, waves come fast and mushy—harder to catch and harder to ride.</p>`,
+        content: `<p>Long-period waves break slower and more predictably — the opposite of what most beginners expect. A <strong>14-second period</strong> gives you 14 seconds between waves to paddle back out and regroup. A 6-second period means constant chaos. Long-period swells also stand up slower, giving you more time to pop up and set your line. A 16-second ground swell at 2 feet feels way more approachable than a 6-second wind swell at 3 feet. If your forecast shows <strong>12+ seconds</strong>, that's your best learning window.</p>`,
         keyTakeaway:
           "Long-period swells (12+ sec) break slower and more predictably, giving beginners time to set up and recover between waves.",
       },
       {
         id: "wind",
         heading: "Wind: Offshore Early Morning Is Best",
-        content: `<p>Offshore wind holds up the wave face and slows the break, making it easier to pop up and control your board. Early morning is almost always offshore because land cools overnight and creates a pressure gradient that pulls wind from shore to sea. By noon, the land heats up and wind reverses to onshore. This is why every surfer wakes up at dawn—the offshore window closes fast.</p><p>Check your forecast wind direction and time it. If the forecast shows offshore wind until 10 AM, be in the water by 7 AM. Onshore winds make the same waves unrideable—chaotic, blown-out, closing out. Beginners especially need the forgiving shape that offshore gives. Even a 5-knot offshore breeze helps; 10+ knots offshore is excellent. If your forecast only shows onshore, pick a different day or find a beach that faces a different direction.</p>`,
+        content: `<p>Offshore wind holds up the wave face and slows the break — easier pop-ups, easier control. Early morning is almost always offshore because land cools overnight, pulling wind from shore to sea. By noon, heating reverses it to onshore. That's why every surfer wakes up at dawn. If the forecast shows offshore until 10 AM, be in the water by 7. Even <strong>5 knots offshore</strong> helps; <strong>10+ knots offshore</strong> is excellent. Onshore wind makes the same waves unrideable for beginners — pick a different day.</p>`,
         keyTakeaway:
           "Offshore wind holds up waves and slows breaks, making them easier to catch and control. Early morning (before heating) has the best offshore window.",
+        image: { src: "/images/learn/learn-dawn-patrol.jpg", alt: "Surfers heading out at golden hour — dawn patrol for calm offshore winds", position: "right" },
       },
       {
         id: "tide",
         heading: "Tide: Mid-Tide on Sand Is Sweet Spot",
-        content: `<p>Mid-tide on a sandy bottom produces the most consistent, forgiving waves for beginners. At low tide, reefs and bars get exposed, creating hollow, fast-breaking sections that pinch out your wave. At high tide, water floods the bar and everything becomes slower and mushier. Mid-tide—roughly 3-4 hours after low or before high—creates a balanced bar shape where waves peel smoothly.</p><p>Sandy beaches are more forgiving than reefs. If you fall, sand is softer than rock. Sandbars are naturally shoaling, which means they slow waves down gradually instead of pitching them abruptly. Your local beach probably has a best tide window—learn it by paddling at different tides and noting where the peak forms. Check tide tables and plan to be in the water during the mid-tide window for your spot.</p>`,
+        content: `<p><strong>Mid-tide on a sandy bottom</strong> is the most forgiving setup. Low tide exposes bars and creates hollow, fast sections — not beginner-friendly. High tide floods everything out, making it slow and mushy. Mid-tide (roughly 3-4 hours after low) creates balanced bar shapes where waves peel smoothly. Sand is also softer than reef when you fall. Learn your break's best tide window by surfing different tides and noting where peaks form.</p>`,
         keyTakeaway:
           "Mid-tide on a sandy beach creates the most forgiving, consistent waves because the bar is balanced and waves slow down gradually.",
       },
       {
         id: "crowd-management",
         heading: "Crowd Management: When to Avoid the Pack",
-        content: `<p>Lineups get crowded on beautiful days—offshore wind, manageable swell, light winds. This is frustrating when you're learning because you have fewer waves to catch and more people to navigate around. Crowded lineups also mean more collisions and less margin for error. As a beginner, you'll progress faster in smaller, less crowded sessions than in famous spots where 50 people are fighting for waves.</p><p>Check your forecast and paddle at off-peak times. Weekday mornings before work are quieter. Early summer swells are smaller but emptier than winter bombs. Less famous beaches at your coast often have the same conditions as the famous spot but with space to learn. You don't need the "best" wave—you need a forgiving wave with room to paddle and time to recover between attempts. After 6 months of consistent practice in smaller crowds, you'll be ready for the lineups.</p>`,
+        content: `<p>You'll progress faster in empty lineups than fighting 50 people for waves at a famous spot. Crowded sessions mean fewer waves, more collisions, and less room to make mistakes. Go on weekday mornings before work. Target smaller swells that don't draw the crowd. Hit lesser-known beaches with the same conditions and more space. You don't need the best wave — you need a forgiving wave with room to paddle. After 6 months of consistent practice in smaller crowds, you'll be ready for the lineups.</p>`,
         keyTakeaway:
           "Beginners progress faster in less crowded sessions: choose weekday mornings, smaller swells, and lesser-known spots over famous beaches.",
+        image: {
+          src: "/images/blacks.webp",
+          alt: "Crowded lineup at a popular surf break",
+          position: "left",
+        },
       },
       {
         id: "using-forecast",
         heading: "Using a Forecast to Plan Your Beginner Session",
-        content: `<p>Here's the checklist: (1) Height under 3 feet significant (4-5 feet face height), (2) Period 12+ seconds, (3) Offshore wind under 10 knots, (4) Mid-tide timing. When you see a forecast matching these, that's your day. Example: Tuesday, 6 AM, 1.5 feet at 14 seconds, 8 knots offshore, high tide 7:30 AM. Perfect beginner session.</p><p>Set a phone alert for days matching these conditions. Don't paddle randomly hoping it'll work out. The forecast is a tool to find the easiest days, not the biggest days. Most beginner-friendly spots have 2-4 good learning days per week if you check the forecast regularly. Use Quiver to compare your spot's conditions across the next 7 days and block out the best ones. Within a few weeks, you'll see the pattern—which swells work, which tides work, which wind windows work at your break.</p>`,
+        content: `<p>The checklist: (1) height under 3 feet significant, (2) period 12+ seconds, (3) offshore wind under 10 knots, (4) mid-tide timing. When a forecast matches all four, that's your day. Example: Tuesday 6 AM, 1.5 feet at 14 seconds, 8 knots offshore, high tide 7:30 AM — perfect beginner session. Don't paddle randomly hoping conditions work out. Use Quiver to scan the next 7 days and block the best windows. Within a few weeks, you'll spot the pattern at your break.</p>`,
         keyTakeaway:
           "Use forecasts to match four conditions: height under 3 feet, period 12+ sec, offshore wind, and mid-tide. Plan sessions around these windows.",
       },
@@ -378,7 +426,7 @@ export const learnArticles: LearnArticle[] = [
     slug: "wind-swell-vs-ground-swell",
     title: "Wind Swell vs Ground Swell",
     description: "Learn the difference between locally generated wind swells and distant ground swells, and why ground swell produces better waves.",
-    readingTimeMin: 7,
+    readingTimeMin: 4,
     heroImage: "/offShore.jpeg",
     thumbnailImage: "/offShore.jpeg",
     keywords: [
@@ -392,49 +440,60 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "definitions",
         heading: "Two Types of Ocean Swells: Definitions",
-        content: `<p><strong>Wind swell</strong> is generated by wind blowing directly at your coast right now. The wind pushes the ocean surface, creating waves locally. These waves have short periods (5-9 seconds) and disorganized energy because wind is chaotic. <strong>Ground swell</strong> (also called primary swell or ocean swell) comes from storms far away—sometimes thousands of miles. Ground swells have long periods (12+ seconds) and organized energy because they've been filtered by distance.</p><p>Every ocean has both at all times. Even on calm days, long-period ground swell is rolling in from some distant storm. When the wind picks up on your coast, wind swell gets added on top. Most forecasts show both as separate components: "4 feet at 14 seconds + 2 feet at 6 seconds." The first is ground swell, the second is wind swell. Both can contribute to your session, but ground swell is almost always the better waves.</p>`,
+        content: `<p><strong>Wind swell</strong> is generated by wind blowing at your coast right now — short periods (5-9 seconds), chaotic energy, disorganized. <strong>Ground swell</strong> comes from distant storms, sometimes thousands of miles away — long periods (12+ seconds), organized energy, filtered by distance. Most forecasts show both as separate components: "4 feet at 14 seconds + 2 feet at 6 seconds." The first is ground swell (the good stuff), the second is wind swell (local noise). Both can contribute, but ground swell almost always makes the better waves.</p>`,
         keyTakeaway:
           "Wind swell is local wind generating chaotic short-period waves; ground swell is distant storms creating organized long-period waves.",
       },
       {
         id: "ground-swell-forms",
         heading: "How Ground Swells Form: Storms and Fetch",
-        content: `<p>A major storm far out at sea (typhoon, nor'easter, Southern Ocean low) churns the ocean with sustained wind over huge distances (hundreds of miles of fetch). The storm generates waves across many periods, but the long-period energy travels fastest and farthest. As the swell propagates across ocean basins, short-period energy disperses and dissipates through friction, leaving behind organized long-period swell that eventually reaches your coast.</p><p>This process takes time. A storm in the Southern Ocean takes 5-7 days to reach California as a 16-second swell. A storm off Alaska takes 2-3 days to reach the West Coast. As the swell travels, it loses the short-period chop but retains the long-period core. By the time it reaches shore, it's been filtered to coherent energy across a narrow range of periods. This is why distant swells are so clean and organized.</p>`,
+        content: `<p>A major storm far out at sea churns the ocean with sustained wind over hundreds of miles of fetch. It generates waves across many periods, but long-period energy travels fastest and farthest. As the swell crosses ocean basins over days, short-period chop dissipates through friction, leaving behind clean, organized energy. A Southern Ocean storm takes 5-7 days to reach California as a <strong>16-second swell</strong>. An Alaskan storm takes 2-3 days. By the time it arrives, it's been filtered down to coherent, rideable energy.</p>`,
         keyTakeaway:
           "Ground swells form from distant storms with sustained wind over huge fetch, then travel ocean basins, losing short-period energy along the way.",
+        image: {
+          src: "/images/hero/hero-3-windansea.webp",
+          alt: "Clean ground swell lines at Windansea",
+          position: "right",
+        },
       },
       {
         id: "wind-swell-forms",
         heading: "How Wind Swells Form: Local Wind Right Now",
-        content: `<p>Wind swell forms when wind blows across the ocean at your coast. The longer the wind blows and the stronger it is, the bigger the wind swell grows. But wind is chaotic—it changes direction and intensity constantly—so the waves it generates are equally chaotic. Energy is scattered across periods and directions. This is why wind swell looks messy and close-together in person.</p><p>Wind swell only lasts as long as the wind does. As soon as the wind dies, the wind-swell component drops off a forecast. Ground swell persists for days because it's self-sustaining energy traveling across the ocean. The next time you see a forecast with multiple swell components, the short-period one is always wind swell (local), and the long-period one is always ground swell (distant).</p>`,
+        content: `<p>Wind swell forms when wind blows across the ocean at your coast. The energy is scattered across periods and directions because wind is chaotic — constantly shifting intensity and angle. That's why wind swell looks messy and close-together in person. The key difference: wind swell only lasts as long as the wind does. When the wind dies, the wind-swell component drops off the forecast. Ground swell persists for days because it's self-sustaining energy traveling across the ocean.</p>`,
         keyTakeaway:
           "Wind swell forms from local wind right now and disappears when wind stops; it's chaotic and short-period because energy is scattered.",
+        image: { src: "/images/learn/learn-choppy-sea.jpg", alt: "Choppy disorganized sea from local wind swell", position: "right" },
       },
       {
         id: "visual-differences",
         heading: "What Wind and Ground Swells Look Like in the Water",
-        content: `<p>Ground swell creates a visual pattern: organized sets with clean spacing, long lulls between sets (the 14-second period means 14 seconds between waves), and waves that all peel in similar directions. Sets are distinct and predictable. You can see them coming from far away because the swells are long and coherent. Ground swell looks powerful and clean even when it's small.</p><p>Wind swell looks chaotic: waves from many directions arriving at random, waves very close together (6-9 second periods), and no clear sets. It's crowded texture with little organization. Even big wind swell feels mushy because energy is scattered. On the beach, you can often see the visual difference from shore: clean, organized ground swell vs. choppy, confused wind swell. Experienced surfers spot this instantly.</p>`,
+        content: `<p>Ground swell is unmistakable: organized sets with clean spacing, long lulls between them, waves all peeling in similar directions. You can see sets coming from far away because the energy is long and coherent. Even small ground swell looks powerful. Wind swell is the opposite — waves from every direction, no clear sets, everything crammed together at 6-9 second intervals. Even big wind swell feels mushy because the energy is scattered. You can spot the difference from shore once you know what to look for.</p>`,
         keyTakeaway:
           "Ground swell has organized sets with clean spacing; wind swell is chaotic texture from many directions.",
       },
       {
         id: "quality-comparison",
         heading: "Which Produces Better Surf and Why",
-        content: `<p>Ground swell produces better surf almost always because organized energy creates predictable, shapeable waves. You can set your line before the wave even gets to your takeoff zone. The ride is longer because the wave face is stable. Ground swell also works better with reef breaks because the fixed underwater structure channels organized energy into clean peeling lines.</p><p>Wind swell rarely produces good rides because waves collapse fast and chaotically. Catching them is harder because they don't have a clear peak—energy comes from multiple directions. Even a very big wind swell (8 feet) will usually be inferior to a small ground swell (2 feet). The swell type (period) determines ridability far more than the height. This is why surfers obsess over forecasting periods and monitor swell charts that show distant storms.</p>`,
+        content: `<p>Ground swell, almost always. Organized energy creates predictable, shapeable waves — you can set your line before the wave reaches your takeoff zone, and the ride lasts because the face is stable. Wind swell collapses fast with no clear peak, making waves harder to catch and shorter to ride. Even an 8-foot wind swell is usually inferior to a 2-foot ground swell. The swell type (period) determines rideability far more than height. That's why surfers obsess over tracking distant storms.</p>`,
         keyTakeaway:
           "Ground swell produces better waves than wind swell because organized distant energy creates predictable, shapeable rides.",
+        image: {
+          src: "/images/activities/reef-breaks.webp",
+          alt: "Well-organized ground swell hitting a reef break",
+          position: "left",
+        },
       },
       {
         id: "when-wind-swell-is-fun",
         heading: "When Wind Swell Can Actually Be Good",
-        content: `<p>Wind swell has advantages on small days and for advanced shortboarders. When ground swell is 1-2 feet and looks dead, a 3-4 foot wind swell can provide more waves and more action. Experienced shortboarders sometimes prefer wind swell because you catch more opportunities and can practice quick maneuvers. For beginners and mellow waves, wind swell is frustrating. For advanced freestyle and shortboarding, it's playful.</p><p>Wind swell also works better at certain breaks. Fast beach breaks with A-frames sometimes turn wind swell into fun peaks, even if the energy is short-period. Reef breaks struggle with wind swell because disorganized energy doesn't focus onto the reef structure. If you're comparing a 1-foot ground swell to a 4-foot wind swell at a point break, the wind swell might actually be more rideable because of the volume of waves, despite inferior quality per wave.</p>`,
+        content: `<p>Wind swell has its place. When ground swell is 1-2 feet and the ocean looks dead, a 3-4 foot wind swell provides more waves and more action. Advanced shortboarders sometimes prefer it — more opportunities, quicker reps, playful sessions. Fast beach breaks with A-frames can turn wind swell into fun peaks even at short periods. Reef breaks struggle with it because disorganized energy doesn't focus onto the structure. If you're choosing between a 1-foot ground swell and a 4-foot wind swell at a beach break, the wind swell might actually be more rideable — just lower quality per wave.</p>`,
         keyTakeaway:
           "Wind swell can be fun for advanced shortboarders on small days or at beach breaks, but ground swell is almost always better for wave quality.",
       },
       {
         id: "reading-both",
         heading: "Reading Both Swells in a Forecast",
-        content: `<p>When a forecast shows "3 feet at 14 seconds + 2 feet at 7 seconds," interpret it as: 3-foot ground swell (the good stuff) plus 2-foot wind swell (local noise). The ground swell will produce the rideable waves. The wind swell will add mushy texture but won't be the waves you want to catch. If the forecast flips to "2 feet at 7 seconds only," all you have is wind swell—it'll be choppy and less organized.</p><p>Focus on the longest-period component in your forecast. That's always the best swell. If you have a choice between catching the ground swell or the wind swell, choose the ground swell every time. As you build forecasting skills, you'll start tracking distant storms on charts and predicting when they'll send ground swells to your coast 5-7 days out. This forward-thinking is how local surfers always seem to know when the next good swell is coming.</p>`,
+        content: `<p>When a forecast shows "3 feet at 14 seconds + 2 feet at 7 seconds," read it as: 3-foot ground swell (the rideable waves) plus 2-foot wind swell (local texture). If it flips to "2 feet at 7 seconds only," all you've got is chop. Always focus on the longest-period component — that's the best swell. As you build forecasting skills, you'll start tracking distant storms on charts and predicting when ground swells will arrive 5-7 days out. That forward-thinking is how locals always seem to know when the next good swell is coming.</p>`,
         keyTakeaway:
           "In a forecast with multiple swells, the longest-period component is ground swell and produces the best waves; short-period is wind swell and local chop.",
       },
@@ -492,7 +551,7 @@ export const learnArticles: LearnArticle[] = [
     slug: "how-surf-forecasts-work",
     title: "How Surf Forecasts Work",
     description: "From weather satellites to your phone: NOAA models, buoy networks, and ML corrections that power accurate wave predictions.",
-    readingTimeMin: 9,
+    readingTimeMin: 5,
     heroImage: "/images/hero/hero-5-aerial-ocean.webp",
     thumbnailImage: "/images/hero/hero-5-aerial-ocean.webp",
     keywords: [
@@ -506,49 +565,60 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "overview",
         heading: "From Satellites to Your Phone: The Complete Picture",
-        content: `<p>A surf forecast is a pipeline: weather satellites measure wind patterns across the ocean, global computers run wind data through wave equations, buoys verify predictions in real-time, and machine learning corrects for local effects that global models miss. Every 6 hours, this happens again, refining forecasts for the next 10 days. The forecast you see in Quiver is the output of this entire system.</p><p>No single model is perfect. NOAA's WaveWatch III is accurate to about ±1-2 feet for height and ±2-3 seconds for period, 3-5 days out. Accuracy drops beyond that window. Local bathymetry, underwater canyons, and weather microclimates make the last mile unpredictable. This is why buoy observations matter: they ground-truth the model. And why Quiver adds ML corrections trained on buoy data: to fix the systematic errors the global model makes at your specific break.</p>`,
+        content: `<p>A surf forecast is a pipeline: satellites measure ocean wind, global computers run that data through wave equations, buoys verify predictions in real-time, and machine learning corrects for local effects the models miss. This cycles every 6 hours, refining the next 10 days of predictions. No single model is perfect — WaveWatch III is accurate to about <strong>±1-2 feet</strong> for height and <strong>±2-3 seconds</strong> for period, 3-5 days out. Buoys ground-truth the model, and Quiver's ML layer fixes the systematic errors at your specific break.</p>`,
         keyTakeaway:
           "Surf forecasts combine NOAA weather models, satellite wind data, buoy observations, and ML corrections to predict waves 6-10 days out.",
+        image: { src: "/images/learn/learn-misty-lineup.jpg", alt: "Surfer in misty conditions — forecast models predict what you'll find", position: "right" },
       },
       {
         id: "global-models",
         heading: "Global Wave Models: WaveWatch III and WAM",
-        content: `<p><strong>WaveWatch III</strong> is NOAA's global wave model. It runs on weather predictions from the GFS (Global Forecast System) and outputs wave height, period, and direction every 3 hours across the entire globe at 0.5-degree resolution (roughly 30 miles per grid point). <strong>ECMWF's WAM</strong> (Wave Analysis and Modelling) is the European alternative—similarly accurate, slightly different physics. Both models use identical inputs: wind speed, wind direction, and fetch (distance wind can blow).</p><p>These models solve wave equations across ocean basins. Wind generates waves; existing swells travel and decay; swell interacts with bathymetry at continental shelves. The models track multiple swell components separately (ground swell, wind swell, etc.) and output them as combined forecasts. WaveWatch III is updated every 6 hours with new weather data. Quiver displays WaveWatch III primarily because it's publicly available and accurate for North America, with European models as comparison.</p>`,
+        content: `<p><strong>WaveWatch III</strong> is NOAA's global wave model — it takes wind predictions from GFS and outputs wave height, period, and direction every 3 hours at 0.5-degree resolution (roughly 30 miles per grid point). <strong>ECMWF's WAM</strong> is the European alternative with similar accuracy, slightly different physics. Both solve wave equations across ocean basins: wind generates waves, swells travel and decay, energy interacts with bathymetry. They track ground swell and wind swell as separate components. Quiver primarily displays WaveWatch III because it's publicly available and accurate for North America.</p>`,
         keyTakeaway:
           "WaveWatch III is NOAA's global model predicting waves at 0.5-degree resolution every 3 hours using satellite wind data.",
       },
       {
         id: "buoy-networks",
         heading: "Buoy Networks: NDBC and CDIP Ground-Truth the Models",
-        content: `<p><strong>NDBC</strong> (National Data Buoy Center) maintains roughly 80 buoys offshore along US coasts. These measure wave height, period, direction, wind, and temperature every hour. <strong>CDIP</strong> (Coastal Data Information Program) operates denser networks near Southern California, Hawaii, and other key areas with directional wave sensors giving finer detail. Buoys are the ground truth: if WaveWatch III predicts 4 feet at 12 seconds but the nearest buoy shows 2.5 feet at 10 seconds, the model is wrong at that location.</p><p>Quiver and every major surf forecast pulls NDBC data in real-time. You see both the model prediction (WaveWatch III) and the actual observation (buoy) side-by-side on the forecast card. This comparison tells you how accurate the model is being at your break. If the model consistently over-predicts, you know to discount it slightly. If a CDIP buoy sits right at your break, use that observation as ground truth—ignore the global model if they disagree.</p>`,
+        content: `<p><strong>NDBC</strong> maintains roughly 80 buoys along US coasts measuring wave height, period, direction, wind, and temperature every hour. <strong>CDIP</strong> runs denser networks near Southern California and Hawaii with directional wave sensors for finer detail. Buoys are the ground truth — if WaveWatch III predicts 4 feet at 12 seconds but the nearest buoy shows 2.5 feet at 10 seconds, the model is wrong at that location. Quiver shows both model predictions and buoy observations side-by-side so you can see how accurate the forecast is being at your break.</p>`,
         keyTakeaway:
           "NDBC and CDIP buoys measure real waves every hour across US coasts, providing ground-truth observations that verify and correct global models.",
+        image: {
+          src: "/images/buoy.png",
+          alt: "NOAA ocean buoy measuring wave conditions",
+          position: "right",
+        },
       },
       {
         id: "nearshore-problem",
         heading: "The Nearshore Problem: Why Models Miss the Last Mile",
-        content: `<p>Global models run at 0.5-degree resolution (roughly 30 miles per grid point). Your local beach is much smaller than 30 miles. WaveWatch III's grid point might be 20 miles offshore and misses crucial local details: underwater canyons that focus swell, headlands that block it, beach slope that changes how waves break, and coastal wind patterns that differ from open-ocean wind. This is the "last mile problem"—the model is good across ocean basins but not good at your specific break.</p><p>A swell approaching perpendicular to a coast gets the full energy. The same swell hitting at an angle gets partially shadowed by headlands. A deep canyon offshore focuses energy and amplifies waves locally. A shallow bar kills them. WaveWatch III doesn't see these—it just knows wind and general bathymetry. This is why global models are frequently off at your break, sometimes by 1-2 feet or entire wave quality. Buoys help, but buoys are sparse. Quiver's ML system is designed specifically to learn these local patterns.</p>`,
+        content: `<p>WaveWatch III runs at 30-mile grid resolution. Your local beach is way smaller than that. The model doesn't see underwater canyons that focus swell, headlands that block it, beach slope that changes how waves break, or coastal wind patterns that differ from open-ocean wind. A deep canyon offshore amplifies waves locally. A headland shadows certain swell angles. Sandbars shift week to week. The model misses all of it — sometimes by 1-2 feet or entire wave quality grades. This is the "last mile problem," and it's why buoys and ML corrections exist.</p>`,
         keyTakeaway:
           "Global models miss local bathymetry, underwater canyons, and coastal wind effects because they operate at 30-mile resolution; buoys and ML corrections fix this.",
       },
       {
         id: "ml-corrections",
         heading: "How Quiver Improves Accuracy: ML Trained on Real Observations",
-        content: `<p>Quiver's ML system trains on years of historical buoy observations and WaveWatch III predictions. It learns: when WaveWatch III predicts 4 feet at your break, actual observations show 3.5 feet on average (the model over-predicts by 0.5 feet). It learns: during offshore wind, model predictions are more accurate; during onshore, less accurate. It learns: certain swell directions interact with your local bathymetry to amplify or reduce height.</p><p>These patterns are unique to each break. Rincon's underwater topography means certain swells get focused and amplified. Malibu's reef breaks down swell differently. The ML system builds a location-specific correction layer that adjusts the global model based on what actually happens at that spot. This is why Quiver's forecast is often more accurate than pure WaveWatch III: it combines global physics with local observations.</p>`,
+        content: `<p>Quiver's ML trains on years of historical buoy observations alongside WaveWatch III predictions. It learns the patterns: when the model predicts 4 feet at your break, observations average 3.5 feet. During offshore wind, model accuracy improves. Certain swell directions interact with local bathymetry to amplify or reduce height. These corrections are unique per break — Rincon's underwater topography focuses swell differently than Malibu's reef. The result is a location-specific correction layer that makes Quiver's forecast more accurate than raw WaveWatch III at your spot.</p>`,
         keyTakeaway:
           "Quiver uses machine learning trained on historical buoy observations to correct WaveWatch III predictions for local bathymetry and coastal effects.",
+        image: {
+          src: "/surfer-wave-sample.jpg",
+          alt: "Surfer riding a wave with ML-corrected forecast conditions",
+          position: "left",
+        },
       },
       {
         id: "accuracy-timeline",
         heading: "Forecast Accuracy by Timeline",
-        content: `<p>WaveWatch III is accurate to ±1-2 feet height and ±2-3 seconds period for 0-3 days out. That's the sweet spot—weather is relatively predictable. 3-5 days out, accuracy degrades to ±2-3 feet and ±3-5 seconds. Beyond 7 days, weather chaos means forecasts are rough estimates. No model reliably predicts exact conditions more than 10 days out. This is why the best sessions are usually booked by checking the 3-5 day window, not looking 10 days ahead.</p><p>When a forecast shows 10 days of predictions, the far ones are educated guesses. Use them to track storm systems and upcoming swell trends (is a big swell coming?), not to book a session. Quiver shows forecasts out to 10 days for trend planning but highlights the 0-3 day confident window. Check the forecast every day—by day 3, you'll have much better detail on whether that predicted swell is really coming.</p>`,
+        content: `<p>The sweet spot is <strong>0-3 days out</strong>: accuracy within ±1-2 feet height and ±2-3 seconds period. At <strong>3-5 days</strong>, it degrades to ±2-3 feet and ±3-5 seconds. Beyond <strong>7 days</strong>, forecasts are rough estimates — weather chaos takes over. Use the 10-day view to track incoming storm systems and swell trends, but book your sessions from the 3-day window. Check the forecast daily as your session approaches — by day 3, you'll have much better detail on whether that predicted swell is actually coming.</p>`,
         keyTakeaway:
           "Wave model accuracy is ±1-2 feet for 0-3 days out, ±2-3 feet for 3-7 days, and rough estimates beyond 7 days.",
       },
       {
         id: "where-models-struggle",
         heading: "Where Forecasts Still Struggle and How to Account for It",
-        content: `<p>Models struggle with: extreme coastal wind effects (sea breezes, katabatic winds), microscale topography (small headlands, rock outcrops), rapid weather changes (cold fronts moving faster than modeled), and human-scale bathymetry (sandbars shifting week-to-week). If your forecast predicts offshore wind but a cold front is moving through faster than modeled, you might get onshore instead. If a sandbar shifted this week, the wave break zone changed but the model doesn't know.</p><p>Account for these by: (1) checking NDBC buoys 1-3 hours before your session (real-time data trumps forecast), (2) watching for buoy observations that diverge from forecast (red flag that something local is different), (3) learning your break's seasonal patterns (winter bar shape vs summer), (4) talking to locals who paddle daily and know the recent shifts. A forecast is a guide, not truth. Ground-truth it against real observations before committing to a session.</p>`,
+        content: `<p>Models miss: extreme coastal winds (sea breezes, katabatic flow), microscale topography (small headlands, rock outcrops), fast-moving cold fronts, and sandbars that shift week to week. A forecast might call offshore but a faster-than-modeled cold front gives you onshore instead.</p><p>Account for it: (1) check NDBC buoys 1-3 hours before your session, (2) watch for buoy data diverging from the forecast, (3) learn your break's seasonal patterns, (4) talk to locals who paddle daily. A forecast is a guide, not gospel. Ground-truth it before committing.</p>`,
         keyTakeaway:
           "Forecasts miss coastal wind effects and sandbar migrations; always check real-time buoy observations 1-3 hours before your session.",
       },

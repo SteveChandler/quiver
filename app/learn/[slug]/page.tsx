@@ -125,7 +125,7 @@ export default async function LearnArticlePage({ params }: Props) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
         {/* ---------------------------------------------------------------- */}
         {/* Table of Contents                                                */}
         {/* ---------------------------------------------------------------- */}
@@ -186,7 +186,7 @@ export default async function LearnArticlePage({ params }: Props) {
         {/* ---------------------------------------------------------------- */}
         {article.sections.map((section, i) => (
           <ScrollReveal key={section.id}>
-            <section className="mb-12" id={section.id}>
+            <section className="mb-14" id={section.id}>
               {/* Section number + heading */}
               <div className="mb-4 flex items-baseline gap-3">
                 <span className="font-mono text-xs text-[#F78E42]/50 select-none">
@@ -197,11 +197,38 @@ export default async function LearnArticlePage({ params }: Props) {
                 </h2>
               </div>
 
-              {/* Section content */}
-              <div
-                className="prose prose-invert prose-gray max-w-none text-gray-300 [&_p]:mb-4 [&_p]:leading-relaxed [&_strong]:text-white"
-                dangerouslySetInnerHTML={{ __html: section.content }}
-              />
+              {/* Section body — split layout when image present, full-width otherwise */}
+              {section.image ? (
+                <div
+                  className={`flex flex-col gap-6 md:flex-row md:items-start md:gap-8 ${
+                    section.image.position === "left" ? "md:flex-row-reverse" : ""
+                  }`}
+                >
+                  {/* Text side */}
+                  <div
+                    className="prose prose-invert prose-gray max-w-none flex-1 text-gray-300 [&_p]:mb-4 [&_p]:leading-relaxed [&_strong]:text-white"
+                    dangerouslySetInnerHTML={{ __html: section.content }}
+                  />
+                  {/* Image side — constrained height so it stays proportional to text */}
+                  <div className="w-full shrink-0 md:w-1/3">
+                    <div className="relative h-48 overflow-hidden rounded-xl border border-white/10 sm:h-52">
+                      <Image
+                        src={section.image.src}
+                        alt={section.image.alt}
+                        width={400}
+                        height={260}
+                        className="absolute inset-0 h-full w-full object-cover"
+                      />
+                      <div className="absolute inset-0 rounded-xl ring-1 ring-inset ring-white/10" />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className="prose prose-invert prose-gray max-w-none text-gray-300 [&_p]:mb-4 [&_p]:leading-relaxed [&_strong]:text-white"
+                  dangerouslySetInnerHTML={{ __html: section.content }}
+                />
+              )}
             </section>
 
             {/* Pull quote after every odd section (index 1, 3, 5...) with a keyTakeaway */}
