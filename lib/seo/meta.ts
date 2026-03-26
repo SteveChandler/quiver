@@ -527,13 +527,16 @@ export function buildDynamicTideMetadata({
   const now = new Date();
   const monthYear = now.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 
-  // Title: decision-making framing to target "best time to surf" intent.
-  // Tier 1: "Best Tide to Surf {Beach} | {Mon YYYY}" (if <=60 chars)
-  // Tier 2: "Best Tide to Surf {Beach}" (drop date, if <=60 chars)
-  // Tier 3: "{Beach} Tide & Surf Windows" (very long names)
-  const tier1 = `Best Tide to Surf ${beach.name} | ${monthYear}`;
-  const tier2 = `Best Tide to Surf ${beach.name}`;
-  const tier3 = `${beach.name} Tide & Surf Windows`;
+  // Title: match the dominant query pattern ("tide chart") while signaling
+  // surf-specific value. GSC data shows top queries are "{beach} tide chart
+  // today" — previous titles ("Best Tide to Surf {Beach}") had 0% CTR on
+  // 1,200+ impressions because they didn't match the query intent.
+  // Tier 1: "{Beach} Tide Chart & Surf Windows | {Mon YYYY}" (if <=60 chars)
+  // Tier 2: "{Beach} Tide Chart & Surf Windows" (drop date, if <=60 chars)
+  // Tier 3: "{Beach} Tide Chart" (very long names)
+  const tier1 = `${beach.name} Tide Chart & Surf Windows | ${monthYear}`;
+  const tier2 = `${beach.name} Tide Chart & Surf Windows`;
+  const tier3 = `${beach.name} Tide Chart`;
   let title: string;
   if (tier1.length <= MAX_TITLE_LENGTH) {
     title = tier1;
@@ -588,13 +591,16 @@ export function buildDynamicWaterTempMetadata({
   const now = new Date();
   const monthYear = now.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 
-  // Title: gear-planning framing to target "what wetsuit" intent.
-  // Tier 1: "What Wetsuit for {Beach}? | {Mon YYYY}" (if <=60 chars)
-  // Tier 2: "What Wetsuit for {Beach}?" (drop date, if <=60 chars)
-  // Tier 3: "{Beach} Water Temp & Wetsuit Rec" (very long names)
-  const tier1 = `What Wetsuit for ${beach.name}? | ${monthYear}`;
-  const tier2 = `What Wetsuit for ${beach.name}?`;
-  const tier3 = `${beach.name} Water Temp & Wetsuit Rec`;
+  // Title: match the dominant query pattern ("water temp" / "sea temperature")
+  // while signaling the wetsuit guide value-add. GSC data shows top queries
+  // are "{beach} water temp" — previous titles ("What Wetsuit for {Beach}?")
+  // had 0% CTR on 766+ impressions because they didn't match query intent.
+  // Tier 1: "{Beach} Water Temp & Wetsuit Guide | {Mon YYYY}" (if <=60 chars)
+  // Tier 2: "{Beach} Water Temp & Wetsuit Guide" (drop date, if <=60 chars)
+  // Tier 3: "{Beach} Water Temperature" (very long names)
+  const tier1 = `${beach.name} Water Temp & Wetsuit Guide | ${monthYear}`;
+  const tier2 = `${beach.name} Water Temp & Wetsuit Guide`;
+  const tier3 = `${beach.name} Water Temperature`;
   let title: string;
   if (tier1.length <= MAX_TITLE_LENGTH) {
     title = tier1;

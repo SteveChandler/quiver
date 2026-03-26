@@ -33,7 +33,7 @@ export const dynamic = "force-dynamic";
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Sitemap protocol limit: 50,000 URLs / 50 MB per file.
-  // Current estimate: ~8,500 URLs — well under the limit.
+  // Current estimate: ~9,100 URLs (incl. ~558 beach subpages) — well under limit.
 
   // Combine all route generators into a single flat sitemap
   const [
@@ -101,10 +101,11 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
 }
 
 /**
- * Beach detail pages.
+ * Beach detail pages + tides/water-temp subpages.
  *
- * NOTE: Tides/water-temp sub-pages are excluded to reduce thin content signals.
- * These are discoverable via internal links on beach detail pages.
+ * Subpages are included because they have robust metadata, FAQs, structured
+ * data, and CTAs. Google already crawls and ranks them via internal links —
+ * adding them to the sitemap formalizes discoverability.
  */
 async function getBeachRoutes(): Promise<MetadataRoute.Sitemap> {
   const beachesResponse = await getBeaches();
@@ -116,23 +117,38 @@ async function getBeachRoutes(): Promise<MetadataRoute.Sitemap> {
   const beaches = beachesResponse.data;
   const fallbackDate = "2026-02-10";
 
+  const subPageTypes = ["tides", "water-temp"] as const;
+
   return beaches
     .filter((b) => b.slug && b.city && b.state) // Only include beaches with complete location data
-    .map((beach) => {
-      const beachUrl = `${baseUrl}${buildBeachUrl(beach)}`;
+    .flatMap((beach) => {
+      const beachPath = buildBeachUrl(beach);
+      const beachUrl = `${baseUrl}${beachPath}`;
 
       const lastModifiedDate =
         (beach as { updated_at?: string | null }).updated_at ||
         beach.created_at ||
         fallbackDate;
 
-      // Main beach page only
-      return {
-        url: beachUrl,
-        lastModified: lastModifiedDate,
-        changeFrequency: "weekly" as const,
-        priority: 0.7,
-      };
+      // Main beach page + tides and water-temp subpages.
+      // Subpages have robust metadata, FAQs, structured data, and CTAs —
+      // Google is already crawling them via internal links and ranking them
+      // (e.g., T-Street /tides: 1,209 impressions). Adding to sitemap
+      // formalizes discoverability for these high-intent queries.
+      return [
+        {
+          url: beachUrl,
+          lastModified: lastModifiedDate,
+          changeFrequency: "weekly" as const,
+          priority: 0.7,
+        },
+        ...subPageTypes.map((subPage) => ({
+          url: `${beachUrl}/${subPage}`,
+          lastModified: lastModifiedDate,
+          changeFrequency: "weekly" as const,
+          priority: 0.65,
+        })),
+      ];
     });
 }
 

@@ -650,14 +650,14 @@ describe("SEO Meta Builder", () => {
       state: "CA",
     };
 
-    describe("title — decision-making framing (best tide to surf)", () => {
-      it("should contain 'Best Tide to Surf' and beach name in title (tier 1)", () => {
+    describe("title — query-matching framing (tide chart)", () => {
+      it("should contain 'Tide Chart' and beach name in title (tier 1)", () => {
         const result = buildDynamicTideMetadata({
           beach: mockBeach,
           tideData: { nextHighTime: "2:30 PM", nextLowTime: "8:45 AM" },
         });
         expect(result.title).toContain("Ocean Beach");
-        expect(result.title).toContain("Best Tide to Surf");
+        expect(result.title).toContain("Tide Chart");
       });
 
       it("should NOT put raw tide times in title (avoids giving away the answer Google shows)", () => {
@@ -680,7 +680,7 @@ describe("SEO Meta Builder", () => {
           beach: mockBeach,
           tideData: null,
         });
-        // "Best Tide to Surf Ocean Beach | Mar 2026" — month+year suffix present
+        // "Ocean Beach Tide Chart & Surf Windows | Mar 2026" — month+year suffix present
         expect(result.title).toMatch(/\|\s+\w+ \d{4}$/);
       });
 
@@ -706,11 +706,10 @@ describe("SEO Meta Builder", () => {
       });
 
       it("medium-length beach name gets tier 2 (no date) when tier 1 exceeds 60 chars", () => {
-        // "Best Tide to Surf Rincon De La Paloma | Mar 2026" = 49 chars — fits tier 1
         // Use a beach name where tier1 > 60 but tier2 <= 60
         const mediumBeach = { name: "Rincon De La Paloma Que Es Larga" };
-        const tier1 = `Best Tide to Surf ${mediumBeach.name} | Mar 2026`;
-        const tier2 = `Best Tide to Surf ${mediumBeach.name}`;
+        const tier1 = `${mediumBeach.name} Tide Chart & Surf Windows | Mar 2026`;
+        const tier2 = `${mediumBeach.name} Tide Chart & Surf Windows`;
         if (tier1.length > 60 && tier2.length <= 60) {
           const result = buildDynamicTideMetadata({ beach: mediumBeach, tideData: null });
           expect(result.title).toBe(tier2);
@@ -771,22 +770,22 @@ describe("SEO Meta Builder", () => {
     });
 
     describe("without tide data", () => {
-      it("should use decision-making fallback title when tideData is null", () => {
+      it("should use query-matching fallback title when tideData is null", () => {
         const result = buildDynamicTideMetadata({
           beach: mockBeach,
           tideData: null,
         });
         expect(result.title).toContain("Ocean Beach");
-        expect(result.title).toContain("Best Tide to Surf");
+        expect(result.title).toContain("Tide Chart");
       });
 
-      it("should use decision-making fallback title when nextHighTime is null", () => {
+      it("should use query-matching fallback title when nextHighTime is null", () => {
         const result = buildDynamicTideMetadata({
           beach: mockBeach,
           tideData: { nextHighTime: null, nextLowTime: null },
         });
         expect(result.title).toContain("Ocean Beach");
-        expect(result.title).toContain("Best Tide to Surf");
+        expect(result.title).toContain("Tide Chart");
         expect(result.title).not.toContain("Next High");
       });
     });
@@ -814,14 +813,14 @@ describe("SEO Meta Builder", () => {
       state: "CA",
     };
 
-    describe("title — gear-planning framing (what wetsuit)", () => {
-      it("should contain 'What Wetsuit for' and beach name in title (tier 1)", () => {
+    describe("title — query-matching framing (water temp)", () => {
+      it("should contain 'Water Temp' and beach name in title (tier 1)", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
         });
         expect(result.title).toContain("Ocean Beach");
-        expect(result.title).toContain("What Wetsuit for");
+        expect(result.title).toContain("Water Temp");
       });
 
       it("should NOT put raw temperature in title (avoids giving away answer Google shows)", () => {
@@ -839,7 +838,7 @@ describe("SEO Meta Builder", () => {
           beach: mockBeach,
           waterTempData: null,
         });
-        // "What Wetsuit for Ocean Beach? | Mar 2026" — month+year suffix present
+        // "Ocean Beach Water Temp & Wetsuit Guide | Mar 2026" — month+year suffix present
         expect(result.title).toMatch(/\|\s+\w+ \d{4}$/);
       });
 
@@ -873,8 +872,8 @@ describe("SEO Meta Builder", () => {
       it("medium-length beach name gets tier 2 (no date) when tier 1 exceeds 60 chars", () => {
         // Use a beach name where tier1 > 60 but tier2 <= 60
         const mediumBeach = { name: "La Jolla Shores At The Cove" };
-        const tier1 = `What Wetsuit for ${mediumBeach.name}? | Mar 2026`;
-        const tier2 = `What Wetsuit for ${mediumBeach.name}?`;
+        const tier1 = `${mediumBeach.name} Water Temp & Wetsuit Guide | Mar 2026`;
+        const tier2 = `${mediumBeach.name} Water Temp & Wetsuit Guide`;
         if (tier1.length > 60 && tier2.length <= 60) {
           const result = buildDynamicWaterTempMetadata({ beach: mediumBeach, waterTempData: null });
           expect(result.title).toBe(tier2);
@@ -933,16 +932,16 @@ describe("SEO Meta Builder", () => {
     });
 
     describe("without water temp data", () => {
-      it("should use gear-planning fallback title when waterTempData is null", () => {
+      it("should use query-matching fallback title when waterTempData is null", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: null,
         });
         expect(result.title).toContain("Ocean Beach");
-        expect(result.title).toContain("What Wetsuit for");
+        expect(result.title).toContain("Water Temp");
       });
 
-      it("should use gear-planning fallback title when tempF is null", () => {
+      it("should use query-matching fallback title when tempF is null", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: { tempF: null, wetsuitRec: null },
