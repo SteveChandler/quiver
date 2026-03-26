@@ -15,6 +15,7 @@ import {
 import { slugifyAscii } from "@/lib/utils/text-utils";
 import { buildCitySlug } from "@/lib/seo/city-slug-utils";
 import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
+import { learnArticles } from "@/lib/data/learn-articles";
 
 const baseUrl = (
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
@@ -45,6 +46,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     forecastRoutes,
     camRoutes,
     bestTimeRoutes,
+    learnRoutes,
   ] = await Promise.all([
     Promise.resolve(getStaticRoutes()),
     getBeachRoutes(),
@@ -54,6 +56,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     Promise.resolve(getForecastRoutes()),
     Promise.resolve(getCamRoutes()),
     getBestTimeToSurfRoutes(),
+    Promise.resolve(getLearnRoutes()),
   ]);
 
   return [
@@ -65,6 +68,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...forecastRoutes,
     ...camRoutes,
     ...bestTimeRoutes,
+    ...learnRoutes,
   ];
 }
 
@@ -470,4 +474,26 @@ async function getBestTimeToSurfRoutes(): Promise<MetadataRoute.Sitemap> {
     console.error("Sitemap: Failed to generate best-time-to-surf routes", error);
     return routes;
   }
+}
+
+/**
+ * Learn hub and article pages — educational content for AI citability.
+ */
+function getLearnRoutes(): MetadataRoute.Sitemap {
+  const learnDate = "2026-03-26";
+
+  return [
+    {
+      url: `${baseUrl}/learn`,
+      lastModified: learnDate,
+      changeFrequency: "weekly",
+      priority: 0.85,
+    },
+    ...learnArticles.map((article) => ({
+      url: `${baseUrl}/learn/${article.slug}`,
+      lastModified: learnDate,
+      changeFrequency: "monthly" as const,
+      priority: 0.8,
+    })),
+  ];
 }
