@@ -270,7 +270,7 @@ export const CONTENT = {
   hero: {
     title: "Know what the swell means before you paddle out.",
     subtitle: "Conditions at your beach, explained clearly. The more you surf, the sharper it gets.",
-    cta: "Start surfing smarter",
+    cta: "Check your forecast",
     secondaryCta: "Explore Features",
     benefits: [
       "🏄‍♀️ Connect with local surfers",
@@ -287,7 +287,7 @@ export const CONTENT = {
       title: "Upgrade your next Session",
       subtitle:
         "Whether you want to explore new breaks or plan your next session, Quiver helps you make the most of every minute in the water.",
-      primaryCta: "Start surfing smarter",
+      primaryCta: "Check your forecast",
     },
     social: {
       title: "Join the surf community that's growing every day",
@@ -311,9 +311,9 @@ export const CONTENT = {
         "From finding surf buddies to sharing epic sessions, your complete surf community platform",
     },
     cta: {
-      title: "Ready to surf smarter?",
+      title: "See today's conditions at your beach",
       subtitle:
-        "Conditions at your beach, explained clearly. Sessions logged. Your forecast gets sharper the more you surf.",
+        "Free surf reports. Session tracking. Your forecast gets sharper the more you surf.",
     },
   },
 } as const;

@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Quick-log session flow — 2-tap session logging (beach + rating) with progressive disclosure for details; auto-detects nearest beach via URL params, localStorage, or GPS
+- Intent-driven homepage CTA copy — "Check your forecast" replaces generic "Start surfing smarter" on the only CTA converting real users
 - Conditions-reactive Oracle greeting — dynamic greetings based on surf score, swell period, wind, time of day, and user absence
 - Session celebration overlay — "Session #N in the books" with condition-reactive subtitle, auto-dismiss, and XP badge
 - OG share card preview in post-session celebration — users see the beautiful share card before deciding to share

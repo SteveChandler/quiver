@@ -76,7 +76,7 @@ jest.mock("@/lib/constants/features", () => ({
     hero: {
       title: "Every session makes your next forecast smarter.",
       subtitle: "Test subtitle",
-      cta: "Start surfing smarter",
+      cta: "Check your forecast",
     },
   },
 }));
@@ -99,7 +99,7 @@ describe("HeroSection", () => {
   it("renders the primary CTA button with correct text", () => {
     render(<HeroSection />);
     const cta = screen.getByRole("button", {
-      name: /start surfing smarter/i,
+      name: /check your forecast/i,
     });
     expect(cta).toBeInTheDocument();
   });
@@ -116,7 +116,7 @@ describe("HeroSection", () => {
     render(<HeroSection />);
 
     const cta = screen.getByRole("button", {
-      name: /start surfing smarter/i,
+      name: /check your forecast/i,
     });
     await user.click(cta);
 
@@ -131,7 +131,7 @@ describe("HeroSection", () => {
     render(<HeroSection />);
 
     const cta = screen.getByRole("button", {
-      name: /start surfing smarter/i,
+      name: /check your forecast/i,
     });
     await user.click(cta);
 
