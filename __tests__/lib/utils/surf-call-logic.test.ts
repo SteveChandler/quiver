@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { computeSurfCall } from '@/lib/utils/surf-call-logic';
 import type { PersonalizedForecastWindow } from '@/types/personalization';
 import type { EnhancedForecastEntity } from '@/types/forecast';
@@ -78,17 +81,17 @@ describe('computeSurfCall', () => {
       expect(result.whySentence).toBe('No forecast data available');
     });
 
-    it('returns NO when max wave height is below minimum rideable', () => {
+    it('returns NO when max wave height is below minimum rideable and no window', () => {
       const forecasts = [makeForecast({ wave_height: '0.5 ft' })];
-      const result = computeSurfCall(makeWindow(), forecasts, makeBeach());
+      const result = computeSurfCall(null, forecasts, makeBeach());
       expect(result.verdict).toBe('NO');
       expect(result.whySentence).toBe('Waves too small for this spot.');
     });
 
-    it('uses higher minimum for reef breaks', () => {
+    it('uses higher minimum for reef breaks (no window → hard NO)', () => {
       const beach = makeBeach({ break_type: 'reef break' } as any);
       const forecasts = [makeForecast({ wave_height: '1.8 ft' })];
-      const result = computeSurfCall(makeWindow(), forecasts, beach);
+      const result = computeSurfCall(null, forecasts, beach);
       expect(result.verdict).toBe('NO');
       expect(result.whySentence).toBe('Waves too small for this spot.');
     });
@@ -767,9 +770,10 @@ describe('computeSurfCall', () => {
         expect(result.nextTideAt).toBeNull();
       });
 
-      it('selects first forecast with tide_status among multiple when none has qualifying next_tide_at', () => {
+      it('selects first forecast with tide_status among multiple when none has qualifying next_tide_at (tomorrow mode)', () => {
         // Multiple forecasts, none with next_tide_at >= windowStart.
-        // Fallback should pick the FIRST one that has tide_status.
+        // Using isTomorrow: true so the fallback picks the FIRST one with tide_status
+        // (current-time logic is disabled for tomorrow).
         const forecasts = [
           makeForecast({
             forecast_at: '2026-01-22T08:00:00Z',
@@ -791,7 +795,7 @@ describe('computeSurfCall', () => {
           } as any),
         ];
         const window = makeWindow({ score: 80 });
-        const result = computeSurfCall(window, forecasts, makeBeach());
+        const result = computeSurfCall(window, forecasts, makeBeach(), { isTomorrow: true });
 
         // Should use the second forecast (first with tide_status), not the third
         expect(result.tidePhase).toBe('falling');
@@ -923,25 +927,25 @@ describe('computeSurfCall', () => {
   });
 
   describe('break type minimums', () => {
-    it('uses 1.5 ft for beach break', () => {
+    it('uses 1.5 ft for beach break (no window → hard NO)', () => {
       const beach = makeBeach({ break_type: 'beach break' } as any);
       const forecasts = [makeForecast({ wave_height: '1.4 ft' })];
-      const result = computeSurfCall(makeWindow(), forecasts, beach);
+      const result = computeSurfCall(null, forecasts, beach);
       expect(result.verdict).toBe('NO');
       expect(result.whySentence).toBe('Waves too small for this spot.');
     });
 
-    it('uses 2.0 ft for point break', () => {
+    it('uses 2.0 ft for point break (no window → hard NO)', () => {
       const beach = makeBeach({ break_type: 'point break' } as any);
       const forecasts = [makeForecast({ wave_height: '1.9 ft' })];
-      const result = computeSurfCall(makeWindow(), forecasts, beach);
+      const result = computeSurfCall(null, forecasts, beach);
       expect(result.verdict).toBe('NO');
     });
 
-    it('uses 1.5 ft default for unknown break type', () => {
+    it('uses 1.5 ft default for unknown break type (no window → hard NO)', () => {
       const beach = makeBeach({ break_type: 'jetty' } as any);
       const forecasts = [makeForecast({ wave_height: '1.4 ft' })];
-      const result = computeSurfCall(makeWindow(), forecasts, beach);
+      const result = computeSurfCall(null, forecasts, beach);
       expect(result.verdict).toBe('NO');
     });
 
@@ -1096,17 +1100,25 @@ describe('computeSurfCall', () => {
       expect(result.verdict).toBe('YES'); // 2.5 > 1.5
     });
 
-    it('handles "Unknown" wave height', () => {
+    it('handles "Unknown" wave height — normal verdict (no soft gate for unknown heights)', () => {
       const forecasts = [makeForecast({ wave_height: 'Unknown' })];
+      // Unknown wave heights → maxWave is null → wavesBelowMin is false
+      // Falls through to normal verdict logic using window.score
       const result = computeSurfCall(makeWindow(), forecasts, makeBeach());
-      // All forecasts have Unknown → maxWave is -Infinity → below minRideable → NO
-      expect(result.verdict).toBe('NO');
+      expect(result.verdict).toBe('YES'); // default window score=75 → YES
+      // Without window → "No viable surf window"
+      const resultNoWindow = computeSurfCall(null, forecasts, makeBeach());
+      expect(resultNoWindow.verdict).toBe('NO');
+      expect(resultNoWindow.whySentence).toBe('No viable surf window today.');
     });
 
-    it('handles null wave height', () => {
+    it('handles null wave height — normal verdict (no soft gate for unknown heights)', () => {
       const forecasts = [makeForecast({ wave_height: null })];
       const result = computeSurfCall(makeWindow(), forecasts, makeBeach());
-      expect(result.verdict).toBe('NO');
+      expect(result.verdict).toBe('YES'); // default window score=75 → YES
+      const resultNoWindow = computeSurfCall(null, forecasts, makeBeach());
+      expect(resultNoWindow.verdict).toBe('NO');
+      expect(resultNoWindow.whySentence).toBe('No viable surf window today.');
     });
 
     it('uses max wave from multiple forecasts', () => {
@@ -1122,13 +1134,21 @@ describe('computeSurfCall', () => {
   });
 
   describe('skill-level-aware minimums', () => {
-    it('rejects 1.5ft waves at advanced beach break (min=2.0)', () => {
+    it('hard-NOs 1.5ft waves at advanced beach break when no window', () => {
       const forecasts = [makeForecast({ wave_height: '1.5 ft' })];
-      const window = makeWindow({ waveHeight: '1.5 ft', score: 75 });
       const beach = makeBeach({ skill_level: 'advanced', break_type: 'beach break' } as Partial<Beach>);
-      const result = computeSurfCall(window, forecasts, beach);
+      const result = computeSurfCall(null, forecasts, beach);
       expect(result.verdict).toBe('NO');
       expect(result.whySentence).toMatch(/too small/i);
+    });
+
+    it('soft-gates 1.5ft waves at advanced beach break to MAYBE when score >= 40', () => {
+      const forecasts = [makeForecast({ wave_height: '1.5 ft' })];
+      const window = makeWindow({ waveHeight: '1.5 ft', score: 55 });
+      const beach = makeBeach({ skill_level: 'advanced', break_type: 'beach break' } as Partial<Beach>);
+      const result = computeSurfCall(window, forecasts, beach);
+      expect(result.verdict).toBe('MAYBE');
+      expect(result.whySentence).toMatch(/small for this break/i);
     });
 
     it('accepts 1.5ft waves at beginner beach break (min=1.5)', () => {
@@ -1140,13 +1160,21 @@ describe('computeSurfCall', () => {
       expect(result.whySentence).not.toMatch(/too small/i);
     });
 
-    it('rejects 1.8ft waves at expert reef break (min=2.5)', () => {
+    it('soft-gates 1.8ft waves at expert reef break to MAYBE when score >= 40', () => {
       const forecasts = [makeForecast({ wave_height: '1.8 ft' })];
-      const window = makeWindow({ waveHeight: '1.8 ft', score: 75 });
+      const window = makeWindow({ waveHeight: '1.8 ft', score: 60 });
+      const beach = makeBeach({ skill_level: 'expert', break_type: 'reef break' } as Partial<Beach>);
+      const result = computeSurfCall(window, forecasts, beach);
+      expect(result.verdict).toBe('MAYBE');
+      expect(result.whySentence).toMatch(/small for this break/i);
+    });
+
+    it('hard-NOs 1.8ft waves at expert reef break when score < 40', () => {
+      const forecasts = [makeForecast({ wave_height: '1.8 ft' })];
+      const window = makeWindow({ waveHeight: '1.8 ft', score: 30 });
       const beach = makeBeach({ skill_level: 'expert', break_type: 'reef break' } as Partial<Beach>);
       const result = computeSurfCall(window, forecasts, beach);
       expect(result.verdict).toBe('NO');
-      expect(result.whySentence).toMatch(/too small/i);
     });
 
     it('falls back to break_type minimum when skill_level is null', () => {
@@ -1159,29 +1187,135 @@ describe('computeSurfCall', () => {
       expect(result.whySentence).not.toMatch(/too small/i);
     });
 
-    it('uses skill_level minimum when higher than break_type minimum', () => {
+    it('soft-gates expert beach break with 2.0ft waves to MAYBE when score >= 40', () => {
       // Expert at beach break: max(1.5 break, 2.5 expert) = 2.5
       const forecasts = [makeForecast({ wave_height: '2.0 ft' })];
-      const window = makeWindow({ waveHeight: '2.0 ft', score: 75 });
+      const window = makeWindow({ waveHeight: '2.0 ft', score: 55 });
       const beach = makeBeach({ skill_level: 'expert', break_type: 'beach break' } as Partial<Beach>);
       const result = computeSurfCall(window, forecasts, beach);
-      expect(result.verdict).toBe('NO');
-      expect(result.whySentence).toMatch(/too small/i);
+      expect(result.verdict).toBe('MAYBE');
+      expect(result.whySentence).toMatch(/small for this break/i);
+    });
+  });
+
+  // ============================================================================
+  // isTomorrow: tide phase reflects current time vs. window-start time
+  // ============================================================================
+  describe('isTomorrow flag — tide phase selection', () => {
+    // Window: 06:00–09:00 UTC on 2026-01-22
+    // Forecast at 06:00 → tide_status "Rising"
+    // Forecast at 08:00 → tide_status "Falling"
+    // Current time mocked to 08:00 UTC (tide has already switched)
+
+    const windowStart = new Date('2026-01-22T06:00:00Z');
+    const windowEnd = new Date('2026-01-22T09:00:00Z');
+
+    function makeTideForecasts() {
+      return [
+        makeForecast({
+          forecast_at: '2026-01-22T06:00:00Z',
+          tide_status: 'Rising',
+          next_tide_type: null,
+          next_tide_at: null,
+        } as any),
+        makeForecast({
+          forecast_at: '2026-01-22T08:00:00Z',
+          tide_status: 'Falling',
+          next_tide_type: null,
+          next_tide_at: null,
+        } as any),
+      ];
+    }
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      // Current time is 08:00 UTC — within the window but past the window start
+      jest.setSystemTime(new Date('2026-01-22T08:00:00Z'));
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it("uses forecast closest to NOW for today's surf call (isTomorrow=false)", () => {
+      // At 08:00 the tide has switched to Falling — the surf call should reflect that.
+      const forecasts = makeTideForecasts();
+      const window = makeWindow({ start: windowStart, end: windowEnd, score: 80 });
+      const result = computeSurfCall(window, forecasts, makeBeach(), { isTomorrow: false });
+
+      expect(result.tidePhase).toBe('falling');
+      expect(result.tideDescription).toBe('falling');
+    });
+
+    it("defaults to today behavior (nearest to now) when isTomorrow option is omitted", () => {
+      const forecasts = makeTideForecasts();
+      const window = makeWindow({ start: windowStart, end: windowEnd, score: 80 });
+      // No options argument — should behave as isTomorrow=false
+      const result = computeSurfCall(window, forecasts, makeBeach());
+
+      expect(result.tidePhase).toBe('falling');
+      expect(result.tideDescription).toBe('falling');
+    });
+
+    it("uses forecast at window-start for tomorrow's surf call (isTomorrow=true)", () => {
+      // For tomorrow we cannot use "now" — use the original window-start fallback.
+      // No forecast has next_tide_at >= windowStart, so getWindowTide falls back
+      // to the first forecast with tide_status, which is the 06:00 "Rising" row.
+      const forecasts = makeTideForecasts();
+      const window = makeWindow({ start: windowStart, end: windowEnd, score: 80 });
+      const result = computeSurfCall(window, forecasts, makeBeach(), { isTomorrow: true });
+
+      expect(result.tidePhase).toBe('rising');
+      expect(result.tideDescription).toBe('rising');
+    });
+
+    it('now outside window (past window end) still picks closest forecast for today', () => {
+      // Override: current time is 10:00, past the window end (09:00).
+      // Closest forecast to 10:00 within the window set is the 08:00 "Falling" row.
+      jest.setSystemTime(new Date('2026-01-22T10:00:00Z'));
+
+      const forecasts = makeTideForecasts();
+      const window = makeWindow({ start: windowStart, end: windowEnd, score: 80 });
+      const result = computeSurfCall(window, forecasts, makeBeach(), { isTomorrow: false });
+
+      expect(result.tidePhase).toBe('falling');
+    });
+
+    it('now before window start picks closest forecast (window-start row) for today', () => {
+      // Current time is 05:00, before the window. Closest forecast is 06:00 "Rising".
+      jest.setSystemTime(new Date('2026-01-22T05:00:00Z'));
+
+      const forecasts = makeTideForecasts();
+      const window = makeWindow({ start: windowStart, end: windowEnd, score: 80 });
+      const result = computeSurfCall(window, forecasts, makeBeach(), { isTomorrow: false });
+
+      expect(result.tidePhase).toBe('rising');
     });
   });
 
   describe('window wave height check', () => {
-    it('rejects when daily max passes gate but window waves are too small', () => {
+    it('soft-gates to MAYBE when daily max passes but window waves are below min (score >= 40)', () => {
       // Daily max is 3.0 (passes advanced gate of 2.0), but window has 1.3 ft
       const forecasts = [
         makeForecast({ wave_height: '1.3 ft', forecast_at: '2026-01-22T08:00:00Z' }),
         makeForecast({ wave_height: '3.0 ft', forecast_at: '2026-01-22T22:00:00Z' }),
       ];
-      const window = makeWindow({ waveHeight: '1.3 ft', score: 75 });
+      const window = makeWindow({ waveHeight: '1.3 ft', score: 55 });
+      const beach = makeBeach({ skill_level: 'advanced', break_type: 'beach break' } as Partial<Beach>);
+      const result = computeSurfCall(window, forecasts, beach);
+      expect(result.verdict).toBe('MAYBE');
+      expect(result.whySentence).toMatch(/small for this break/i);
+    });
+
+    it('NO when daily max passes but window waves below min and score < 40', () => {
+      const forecasts = [
+        makeForecast({ wave_height: '1.3 ft', forecast_at: '2026-01-22T08:00:00Z' }),
+        makeForecast({ wave_height: '3.0 ft', forecast_at: '2026-01-22T22:00:00Z' }),
+      ];
+      const window = makeWindow({ waveHeight: '1.3 ft', score: 30 });
       const beach = makeBeach({ skill_level: 'advanced', break_type: 'beach break' } as Partial<Beach>);
       const result = computeSurfCall(window, forecasts, beach);
       expect(result.verdict).toBe('NO');
-      expect(result.whySentence).toBe('Best window waves too small for this spot.');
     });
 
     it('passes when window waves meet the minimum', () => {
@@ -1199,6 +1333,75 @@ describe('computeSurfCall', () => {
       const result = computeSurfCall(window, forecasts, beach);
       // parseMaxWaveHeight('Unknown') returns null → skip check
       expect(result.whySentence).not.toBe('Best window waves too small for this spot.');
+    });
+  });
+
+  // ============================================================================
+  // Soft gate: waves below min but valid window with decent score → MAYBE
+  // ============================================================================
+  describe('soft wave-height gate', () => {
+    it('MAYBE when reef break waves below min but window score >= 40', () => {
+      // Reef min = 2.0, waves = 1.8, score = 57 (like the Blacks scenario)
+      const forecasts = [makeForecast({ wave_height: '1.8 ft' })];
+      const window = makeWindow({ waveHeight: '1.8 ft', score: 57 });
+      const beach = makeBeach({ break_type: 'reef break' } as any);
+      const result = computeSurfCall(window, forecasts, beach);
+      expect(result.verdict).toBe('MAYBE');
+      expect(result.whySentence).toMatch(/small for this break/i);
+      // Still includes window data
+      expect(result.bestWindowStart).not.toBeNull();
+      expect(result.bestWindowEnd).not.toBeNull();
+    });
+
+    it('NO when waves below min and window score < 40', () => {
+      const forecasts = [makeForecast({ wave_height: '1.8 ft' })];
+      const window = makeWindow({ waveHeight: '1.8 ft', score: 35 });
+      const beach = makeBeach({ break_type: 'reef break' } as any);
+      const result = computeSurfCall(window, forecasts, beach);
+      expect(result.verdict).toBe('NO');
+    });
+
+    it('MAYBE at exact score=40 boundary with waves below min', () => {
+      const forecasts = [makeForecast({ wave_height: '1.8 ft' })];
+      const window = makeWindow({ waveHeight: '1.8 ft', score: 40 });
+      const beach = makeBeach({ break_type: 'reef break' } as any);
+      const result = computeSurfCall(window, forecasts, beach);
+      expect(result.verdict).toBe('MAYBE');
+    });
+
+    it('hard NO when waves below min and no window exists', () => {
+      const forecasts = [makeForecast({ wave_height: '1.8 ft' })];
+      const beach = makeBeach({ break_type: 'reef break' } as any);
+      const result = computeSurfCall(null, forecasts, beach);
+      expect(result.verdict).toBe('NO');
+      expect(result.whySentence).toBe('Waves too small for this spot.');
+    });
+
+    it('caps at MAYBE even with YES-level score when waves below min', () => {
+      // Score=85 would normally be YES, but waves below min caps at MAYBE
+      const forecasts = [makeForecast({ wave_height: '1.8 ft' })];
+      const window = makeWindow({ waveHeight: '1.8 ft', score: 85 });
+      const beach = makeBeach({ break_type: 'reef break' } as any);
+      const result = computeSurfCall(window, forecasts, beach);
+      expect(result.verdict).toBe('MAYBE');
+    });
+
+    it('normal verdict when waves are above min (no soft gate)', () => {
+      const forecasts = [makeForecast({ wave_height: '3-4 ft' })];
+      const window = makeWindow({ waveHeight: '3-4 ft', score: 75 });
+      const beach = makeBeach({ break_type: 'reef break' } as any);
+      const result = computeSurfCall(window, forecasts, beach);
+      expect(result.verdict).toBe('YES');
+      expect(result.whySentence).not.toMatch(/small for this break/i);
+    });
+
+    it('whySentence mentions clean winds for offshore/glassy conditions', () => {
+      const forecasts = [makeForecast({ wave_height: '1.8 ft', wind_speed: '3' })];
+      const window = makeWindow({ waveHeight: '1.8 ft', score: 50 });
+      const beach = makeBeach({ break_type: 'reef break' } as any);
+      const result = computeSurfCall(window, forecasts, beach);
+      expect(result.verdict).toBe('MAYBE');
+      expect(result.whySentence).toMatch(/clean winds/i);
     });
   });
 });
