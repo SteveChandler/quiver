@@ -43,6 +43,8 @@ const customJestConfig = {
     "^supercluster$": "<rootDir>/__tests__/__mocks__/supercluster.ts",
     // Mock jose (ESM-only module)
     "^jose$": "<rootDir>/__tests__/__mocks__/jose.ts",
+    // Mock http-proxy-agent to avoid @tootallnate/once ESM incompatibility in jsdom
+    "^http-proxy-agent$": "<rootDir>/__tests__/__mocks__/http-proxy-agent.ts",
   },
   // Add transformIgnorePatterns to handle ESM modules
   transformIgnorePatterns: [

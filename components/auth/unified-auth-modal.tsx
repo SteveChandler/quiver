@@ -42,7 +42,7 @@ import {
 } from "@/lib/analytics/auth-events";
 import { useLocationSafe } from "@/context/location-context";
 import { getAttributionFromCookies } from "@/lib/attribution";
-import { signInWithApple } from "@/lib/mobile/apple-sign-in";
+import { signInWithApple } from "@/lib/auth/apple-sign-in";
 import {
   AuthProviders,
   EmailPasswordForm,

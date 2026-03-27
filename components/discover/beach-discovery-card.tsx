@@ -3,6 +3,7 @@
 import React, { useEffect } from "react";
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import type { ConditionCharacter } from "@/lib/scoring/types";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -56,6 +57,7 @@ export function BeachDiscoveryCard({
     window,
     distanceMiles,
     forecast,
+    character,
   } = recommendation;
 
   const { user } = useAuth();
@@ -98,12 +100,13 @@ export function BeachDiscoveryCard({
     ? `${baseUrl}&from=surf_discovery`
     : `${baseUrl}?from=surf_discovery`;
 
-  // Match quality colors
-  const matchQualityColors = {
+  // Match quality colors — includes 'minimal' from updated MatchQuality type
+  const matchQualityColors: Record<typeof matchQuality, string> = {
     perfect: "bg-green-500 text-white",
     excellent: "bg-blue-500 text-white",
     good: "bg-yellow-500 text-white",
     fair: "bg-gray-500 text-white",
+    minimal: "bg-stone-400 text-white",
   };
 
   return (
@@ -141,6 +144,10 @@ export function BeachDiscoveryCard({
                   score={personalization.data.score}
                   breakdown={personalization.data.breakdown}
                   size="sm"
+                  // Pass character from discovery data when available.
+                  // Cast is safe: SurfDiscoveryRecommendation.character uses the
+                  // same shape as ConditionCharacter — category is a string union.
+                  character={character as ConditionCharacter | undefined}
                 />
               ) : !user ? (
                 <MatchScoreTeaser beachId={beach.id} beachName={beach.name} />

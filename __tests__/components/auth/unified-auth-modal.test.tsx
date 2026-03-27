@@ -41,14 +41,14 @@ jest.mock("@/lib/analytics/auth-events", () => ({
   extractEmailDomain: jest.fn((email) => email.split("@")[1] || "unknown"),
 }));
 
-jest.mock("@/lib/mobile/apple-sign-in", () => ({
+jest.mock("@/lib/auth/apple-sign-in", () => ({
   signInWithApple: jest.fn(),
 }));
 
 import { useAuth } from "@/context/auth-context";
 import * as authUtils from "@/lib/auth/auth-utils";
 import * as authEvents from "@/lib/analytics/auth-events";
-import * as appleSignIn from "@/lib/mobile/apple-sign-in";
+import * as appleSignIn from "@/lib/auth/apple-sign-in";
 import { useRouter } from "next/navigation";
 
 describe("UnifiedAuthModal", () => {

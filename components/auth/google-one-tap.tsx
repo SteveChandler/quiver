@@ -3,7 +3,6 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/context/auth-context";
 import { createClient } from "@/lib/supabase/client";
-import { isNativeApp } from "@/lib/mobile/platform";
 import {
   trackAuthMethodSelected,
   trackSignupStarted,
@@ -72,7 +71,6 @@ const ONE_TAP_DELAY_MS = 3000; // 3 second delay before showing
  * `signInWithIdToken`.
  *
  * Behavior:
- * - Only shows on web (not Capacitor native apps)
  * - Only shows for unauthenticated users
  * - Delays 3 seconds after mount to avoid disrupting initial page load
  * - Remembers dismissal for 24 hours via localStorage
@@ -140,10 +138,9 @@ export function GoogleOneTap() {
   );
 
   useEffect(() => {
-    // Guard: only on web, only for anonymous users, only after auth resolves
+    // Guard: only for anonymous users, only after auth resolves
     if (isLoading) return;
     if (user) return;
-    if (isNativeApp()) return;
     if (promptShownRef.current) return;
 
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID;

@@ -16,6 +16,10 @@ import {
 } from "@/components/ui/collapsible";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import type {
+  ConditionCharacter,
+  ConditionCharacterCategory,
+} from "@/lib/scoring/types";
 
 export interface PersonalizedBadgeProps {
   /** Whether the recommendation is personalized */
@@ -51,8 +55,112 @@ export interface PersonalizedBadgeProps {
   /** Base score before personalization (for delta calculation) */
   baseScore?: number;
 
+  /**
+   * Condition character from the scoring system.
+   * When provided, shows the qualitative character label below the score.
+   */
+  character?: ConditionCharacter;
+
   /** Additional CSS classes */
   className?: string;
+}
+
+// ------------------------------------------------------------------
+// Character category helpers
+// ------------------------------------------------------------------
+
+/**
+ * Abbreviated one or two-word label for compact mode.
+ * Keeps it terse — these show on beach cards where space is tight.
+ */
+function getCompactCharacterLabel(
+  category: ConditionCharacterCategory
+): string {
+  switch (category) {
+    case "flat":
+      return "Flat";
+    case "small-weak":
+      return "Weak";
+    case "small-quality":
+      return "Powerful";
+    case "small-clean":
+      return "Clean";
+    case "medium-clean":
+      return "Dialed";
+    case "medium-mixed":
+      return "Mixed";
+    case "large-clean":
+      return "Firing";
+    case "large-rough":
+      return "Rough";
+    case "skip":
+      return "Skip";
+    default:
+      return "";
+  }
+}
+
+/**
+ * Border / accent color classes derived from condition character category.
+ * These are subtle — they accent, not overwhelm.
+ * Colors are inline Tailwind classes that exist in the design system.
+ */
+function getCharacterAccentClasses(category: ConditionCharacterCategory): {
+  border: string;
+  labelColor: string;
+} {
+  switch (category) {
+    case "small-quality":
+      // Long-period small wave — warm amber, Charming Orange family
+      return {
+        border: "border-amber-400/60",
+        labelColor: "text-amber-600 dark:text-amber-400",
+      };
+    case "small-clean":
+      // Clean small day — softer golden
+      return {
+        border: "border-yellow-400/50",
+        labelColor: "text-yellow-600 dark:text-yellow-400",
+      };
+    case "medium-clean":
+      // Primary blue — solid conditions
+      return {
+        border: "border-blue-500/60",
+        labelColor: "text-blue-600 dark:text-blue-400",
+      };
+    case "medium-mixed":
+      // Muted blue
+      return {
+        border: "border-blue-400/40",
+        labelColor: "text-blue-500 dark:text-blue-400",
+      };
+    case "large-clean":
+      // Primary blue with a hint of glow in the label
+      return {
+        border: "border-blue-500/70",
+        labelColor: "text-blue-700 dark:text-blue-300",
+      };
+    case "large-rough":
+      // Orange warning — still surfable but rowdy
+      return {
+        border: "border-orange-400/60",
+        labelColor: "text-orange-600 dark:text-orange-400",
+      };
+    case "flat":
+    case "small-weak":
+      // Muted — don't draw the eye here
+      return {
+        border: "border-gray-300/50 dark:border-gray-600/50",
+        labelColor: "text-gray-500 dark:text-gray-400",
+      };
+    case "skip":
+    default:
+      // Outline only, desaturated
+      return {
+        border: "border-gray-300/40 dark:border-gray-700/40",
+        labelColor: "text-gray-400 dark:text-gray-500",
+      };
+  }
 }
 
 /**
@@ -61,17 +169,19 @@ export interface PersonalizedBadgeProps {
  * Displays visual indicators when beach recommendations are personalized for the user.
  * Enhanced version with:
  * - Numeric score display with color coding
+ * - Condition character label (sticker-style, inline with the score)
  * - Mobile-responsive interactions (tooltip on desktop, collapsible on mobile)
  * - Multiple display modes and size variants
  * - Optional delta indicator showing improvement over base score
  * - Full accessibility support
  *
- * @example Score mode (default)
+ * @example Score mode with character
  * ```tsx
  * <PersonalizedBadge
  *   personalized={true}
- *   score={92}
- *   breakdown={{ base: 75, onboardingPrefs: 10, learnedPrefs: 5, affinity: 2 }}
+ *   score={52}
+ *   character={{ label: "Small but powerful — long-period energy", category: "small-quality" }}
+ *   breakdown={{ base: 48, onboardingPrefs: 4, learnedPrefs: 0, affinity: 0, multiplier: 1 }}
  * />
  * ```
  *
@@ -80,16 +190,7 @@ export interface PersonalizedBadgeProps {
  * <PersonalizedBadge
  *   personalized={true}
  *   displayMode="compact"
- * />
- * ```
- *
- * @example With delta indicator
- * ```tsx
- * <PersonalizedBadge
- *   personalized={true}
- *   score={88}
- *   baseScore={75}
- *   showDelta={true}
+ *   character={{ label: "Small but powerful — long-period energy", category: "small-quality" }}
  * />
  * ```
  */
@@ -102,6 +203,7 @@ function PersonalizedBadgeComponent({
   size = "md",
   showDelta = false,
   baseScore,
+  character,
   className,
 }: PersonalizedBadgeProps) {
   const isMobile = useIsMobile();
@@ -119,11 +221,11 @@ function PersonalizedBadgeComponent({
    * Score 50-69: Secondary/muted
    * Score < 50: Outline only
    */
-  const getScoreVariant = (score?: number) => {
-    if (!score) return "secondary";
-    if (score >= 85) return "default"; // Primary variant
-    if (score >= 70) return "blue";
-    if (score >= 50) return "secondary";
+  const getScoreVariant = (s?: number) => {
+    if (!s) return "secondary";
+    if (s >= 85) return "default"; // Primary variant
+    if (s >= 70) return "blue";
+    if (s >= 50) return "secondary";
     return "outline";
   };
 
@@ -141,6 +243,13 @@ function PersonalizedBadgeComponent({
     sm: "h-3 w-3",
     md: "h-3.5 w-3.5",
     lg: "h-4 w-4",
+  };
+
+  // Character label font sizes
+  const characterLabelSizes = {
+    sm: "text-xs",
+    md: "text-xs",
+    lg: "text-sm",
   };
 
   // Helper to format breakdown items (hide zero values)
@@ -175,6 +284,11 @@ function PersonalizedBadgeComponent({
       ? score - baseScore
       : null;
 
+  // Character accent classes for border/label coloring
+  const characterAccent = character
+    ? getCharacterAccentClasses(character.category)
+    : null;
+
   // Construct badge text based on display mode
   const getBadgeText = () => {
     if (displayMode === "compact") {
@@ -192,10 +306,15 @@ function PersonalizedBadgeComponent({
 
   // Accessibility: Screen reader text for score breakdown
   const getAriaLabel = () => {
-    if (score !== undefined) {
-      return `${Math.round(score)}% personalization match`;
+    const base =
+      score !== undefined
+        ? `${Math.round(score)}% personalization match`
+        : "This recommendation is personalized for you";
+
+    if (character) {
+      return `${base}. Condition character: ${character.label}`;
     }
-    return "This recommendation is personalized for you";
+    return base;
   };
 
   const getBreakdownAriaDescription = () => {
@@ -244,20 +363,39 @@ function PersonalizedBadgeComponent({
 
   /**
    * Render compact mode (just icon + text, no score)
+   * When a character is provided, show the abbreviated keyword below.
    */
   if (displayMode === "compact") {
     return (
       <div className={className} data-testid="personalized-badge-container">
-        <Badge
-          variant={variant}
-          className={cn(sizeClasses[size], className)}
-          data-testid="personalized-badge"
-          role="status"
-          aria-label={getAriaLabel()}
-        >
-          <Sparkles className={iconSizes[size]} aria-hidden="true" />
-          <span>{badgeText}</span>
-        </Badge>
+        <div className="flex flex-col items-start gap-0.5">
+          <Badge
+            variant={variant}
+            className={cn(
+              sizeClasses[size],
+              characterAccent && `border ${characterAccent.border}`,
+              className
+            )}
+            data-testid="personalized-badge"
+            role="status"
+            aria-label={getAriaLabel()}
+          >
+            <Sparkles className={iconSizes[size]} aria-hidden="true" />
+            <span>{badgeText}</span>
+          </Badge>
+          {character && (
+            <span
+              className={cn(
+                "font-mono leading-tight tracking-tight",
+                characterLabelSizes[size],
+                characterAccent?.labelColor ?? "text-muted-foreground"
+              )}
+              aria-hidden="true"
+            >
+              {getCompactCharacterLabel(character.category)}
+            </span>
+          )}
+        </div>
       </div>
     );
   }
@@ -266,6 +404,9 @@ function PersonalizedBadgeComponent({
    * Render score mode with mobile-responsive interactions
    * Desktop: Tooltip
    * Mobile: Collapsible
+   *
+   * Character label renders below the badge as a sticker-style tag line.
+   * It uses Space Mono (font-mono) for that technical-but-surf-culture feel.
    */
   const ScoreBadge = () => {
     // Add glow effect for high scores (>= 85)
@@ -280,6 +421,7 @@ function PersonalizedBadgeComponent({
         className={cn(
           sizeClasses[size],
           glowClass,
+          characterAccent && `border ${characterAccent.border}`,
           isMobile && breakdownItems.length > 0 && "cursor-pointer",
           !isMobile && breakdownItems.length > 0 && "cursor-help",
           className
@@ -301,7 +443,7 @@ function PersonalizedBadgeComponent({
         {isMobile && breakdownItems.length > 0 && (
           <ChevronDown
             className={cn(
-              "h-3 w-3 ml-0.5 transition-transform",
+              "h-3 w-3 ml-0.5 motion-safe:transition-transform",
               isOpen && "rotate-180"
             )}
             aria-hidden="true"
@@ -317,42 +459,80 @@ function PersonalizedBadgeComponent({
     );
   };
 
+  /**
+   * Character label renders beneath the badge in score/detailed mode.
+   * Sticker aesthetic: Space Mono font, slight informal vibe.
+   * The detailed displayMode shows the full label; score mode shows it too
+   * (both are non-compact).
+   */
+  const CharacterLabel = () => {
+    if (!character) return null;
+
+    const fullLabel =
+      displayMode === "detailed"
+        ? character.label
+        : // In score mode, show full label — it's concise enough already
+          character.label;
+
+    return (
+      <p
+        className={cn(
+          "font-mono leading-snug tracking-tight mt-0.5",
+          characterLabelSizes[size],
+          characterAccent?.labelColor ?? "text-muted-foreground"
+        )}
+        aria-hidden="true"
+      >
+        {fullLabel}
+      </p>
+    );
+  };
+
   return (
     <div className={className} data-testid="personalized-badge-container">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-start gap-2">
         {/* Mobile: Collapsible */}
         {isMobile && breakdownItems.length > 0 ? (
-          <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-            <CollapsibleTrigger asChild>
-              <div>{ScoreBadge()}</div>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-2">
-              <div
-                className="rounded-lg border border-border bg-card p-3 shadow-sm"
-                data-testid="personalized-breakdown-mobile"
-              >
-                <BreakdownContent />
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+          <div className="flex flex-col items-start">
+            <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+              <CollapsibleTrigger asChild>
+                <div>{ScoreBadge()}</div>
+              </CollapsibleTrigger>
+              <CharacterLabel />
+              <CollapsibleContent className="mt-2">
+                <div
+                  className="rounded-lg border border-border bg-card p-3 shadow-sm"
+                  data-testid="personalized-breakdown-mobile"
+                >
+                  <BreakdownContent />
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
         ) : breakdownItems.length > 0 ? (
           /* Desktop: Tooltip */
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>{ScoreBadge()}</div>
-              </TooltipTrigger>
-              <TooltipContent
-                className="max-w-xs"
-                data-testid="personalized-tooltip"
-              >
-                <BreakdownContent />
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <div className="flex flex-col items-start">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>{ScoreBadge()}</div>
+                </TooltipTrigger>
+                <TooltipContent
+                  className="max-w-xs"
+                  data-testid="personalized-tooltip"
+                >
+                  <BreakdownContent />
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <CharacterLabel />
+          </div>
         ) : (
           /* No breakdown available */
-          ScoreBadge()
+          <div className="flex flex-col items-start">
+            {ScoreBadge()}
+            <CharacterLabel />
+          </div>
         )}
 
         {/* Affinity Badge (if user has surfed here before) */}
@@ -378,7 +558,7 @@ function PersonalizedBadgeComponent({
 
 /**
  * Custom comparison function for PersonalizedBadge memoization
- * Handles all props including complex objects (breakdown, affinityData)
+ * Handles all props including complex objects (breakdown, affinityData, character)
  */
 const arePersonalizedBadgePropsEqual = (
   prev: PersonalizedBadgeProps,
@@ -392,6 +572,18 @@ const arePersonalizedBadgePropsEqual = (
   if (prev.showDelta !== next.showDelta) return false;
   if (prev.baseScore !== next.baseScore) return false;
   if (prev.className !== next.className) return false;
+
+  // Character object — compare shallowly (label + category are both primitives)
+  if (prev.character && next.character) {
+    if (
+      prev.character.label !== next.character.label ||
+      prev.character.category !== next.character.category
+    ) {
+      return false;
+    }
+  } else if (prev.character !== next.character) {
+    return false;
+  }
 
   // Breakdown object - compare deeply
   if (prev.breakdown && next.breakdown) {

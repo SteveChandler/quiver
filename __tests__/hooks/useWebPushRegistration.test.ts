@@ -33,11 +33,6 @@ jest.mock("@/lib/web/push-notifications", () => ({
   })),
 }));
 
-// Mock mobile platform detection
-jest.mock("@/lib/mobile/platform", () => ({
-  isNativeApp: jest.fn(() => false),
-}));
-
 describe("useWebPushRegistration", () => {
   // Store original Notification
   const originalNotification = global.Notification;
@@ -243,21 +238,17 @@ describe("useWebPushRegistration", () => {
   });
 
   describe("unsupported environments", () => {
-    it("should handle native app environment", async () => {
-      const { isNativeApp } = require("@/lib/mobile/platform");
-      isNativeApp.mockReturnValue(true);
+    it("should return unsupported when serviceWorker is missing", async () => {
+      Object.defineProperty(navigator, "serviceWorker", {
+        value: undefined,
+        writable: true,
+        configurable: true,
+      });
 
       const { result } = renderHook(() => useWebPushRegistration());
 
       expect(result.current.isSupported).toBe(false);
       expect(result.current.canPrompt).toBe(false);
-
-      let response: { status: string };
-      await act(async () => {
-        response = await result.current.requestPushOptIn();
-      });
-
-      expect(response!.status).toBe("unsupported");
     });
   });
 });

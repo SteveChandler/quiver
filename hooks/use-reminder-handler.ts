@@ -4,10 +4,8 @@ import { useCallback } from "react";
 
 import { useToast } from "@/hooks/use-toast";
 import { useWebPushRegistration } from "@/hooks/useWebPushRegistration";
-import { useNativePushRegistration } from "@/hooks/use-native-push-registration";
 import { updateProfile } from "@/actions/profile-actions";
 import { track } from "@/lib/analytics";
-import { isNativeApp } from "@/lib/mobile/platform";
 
 /**
  * Result of attempting to enable reminders
@@ -55,10 +53,9 @@ export function useReminderHandler({
   const { toast } = useToast();
   const { requestPushOptIn: requestWebPush, isSupported: webPushSupported } =
     useWebPushRegistration();
-  const { requestPushOptIn: requestNativePush } = useNativePushRegistration();
 
   /**
-   * Handle push registration for the current platform
+   * Handle push registration for web browsers
    * Returns null if successful, or a ReminderResult on failure
    */
   const handlePushRegistration = useCallback(
@@ -66,23 +63,20 @@ export function useReminderHandler({
       beachId: string,
       beachName: string
     ): Promise<ReminderResult | null> => {
-      const platform = isNativeApp() ? "native" : "web";
-      const requestPush = isNativeApp() ? requestNativePush : requestWebPush;
+      const platform = "web";
 
-      // Skip web push if not supported (native handles this internally)
-      if (!isNativeApp() && !webPushSupported) {
+      // Skip web push if not supported
+      if (!webPushSupported) {
         console.warn("Web push not supported, continuing with profile update only");
         return null;
       }
 
-      const pushResult = await requestPush();
+      const pushResult = await requestWebPush();
 
       if (pushResult.status === "denied") {
         toast({
           title: "Push notifications blocked",
-          description: isNativeApp()
-            ? "Enable notifications in your device settings to get alerts."
-            : "Enable notifications in browser settings to get alerts.",
+          description: "Enable notifications in browser settings to get alerts.",
           variant: "destructive",
         });
         track("first_win_reminder_declined", {
@@ -114,15 +108,13 @@ export function useReminderHandler({
       }
 
       if (pushResult.status === "unsupported") {
-        console.warn(
-          `${platform} push not supported, continuing with profile update only`
-        );
+        console.warn("Web push not supported, continuing with profile update only");
       }
 
       // Success or unsupported (continue with profile update)
       return null;
     },
-    [requestWebPush, requestNativePush, webPushSupported, toast]
+    [requestWebPush, webPushSupported, toast]
   );
 
   /**
@@ -135,7 +127,7 @@ export function useReminderHandler({
    */
   const enableReminder = useCallback(
     async (beachId: string, beachName: string): Promise<ReminderResult> => {
-      const platform = isNativeApp() ? "native" : "web";
+      const platform = "web";
 
       try {
         // Step 1: Handle push registration

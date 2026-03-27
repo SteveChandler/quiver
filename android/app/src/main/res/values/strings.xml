@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">Quiver</string>
-    <string name="title_activity_main">Quiver</string>
-    <string name="package_name">app.quiversurf.mobile</string>
-    <string name="custom_url_scheme">app.quiversurf.mobile</string>
-</resources>

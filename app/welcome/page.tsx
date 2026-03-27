@@ -2,12 +2,10 @@ import type { Metadata } from "next";
 import { WelcomeScreen } from "@/components/welcome/welcome-screen";
 
 /**
- * /welcome — Mobile app first-run onboarding screen.
+ * /welcome — First-run onboarding screen for unauthenticated users.
  *
- * This route is primarily served inside the Capacitor shell as the
- * initial page for unauthenticated users. It is also accessible on
- * web for direct-link scenarios. It should never be indexed by search
- * engines or surfaced in public navigation.
+ * Accessible via direct link but not indexed by search engines or
+ * surfaced in public navigation.
  */
 export const metadata: Metadata = {
   title: "Welcome to Quiver",

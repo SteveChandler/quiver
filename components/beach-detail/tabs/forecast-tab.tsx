@@ -17,6 +17,7 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BestSurfWindow } from "@/components/beach-detail/best-surf-window";
+import { useConditionIntelligence } from "@/hooks/use-condition-intelligence";
 import { slugify } from "@/lib/utils/text-utils";
 import { formatTimeInBeachTimezone } from "@/lib/utils/date-time";
 import { resolveBeachTimezone, getLocalDateString } from "@/lib/utils/timezone-utils";
@@ -136,6 +137,10 @@ export function ForecastTab({
     },
     [forecasts, todayStr, beachTimezone]
   );
+
+  // Condition Intelligence: scored windows, board pick, relative context
+  // Passing full forecasts so the hook can group by date and compute weekly context
+  const conditionIntel = useConditionIntelligence(forecasts, beach, beachTimezone);
 
   // Dynamic tide computation (always fresh, relative to now)
   const dynamicTide = useDynamicTide(forecasts, beachTimezone);
@@ -456,6 +461,40 @@ export function ForecastTab({
                 forecasts={todaysForecasts}
                 surfCall={surfCall}
                 surfCallIsTomorrow={surfCallIsTomorrow}
+                windows={conditionIntel.windows.map((w) => ({
+                  start: w.start.toISOString(),
+                  end: w.end.toISOString(),
+                  avgScore: w.avgScore ?? 0,
+                  character: w.character
+                    ? { label: w.character.label, category: w.character.category }
+                    : undefined,
+                  reasons: [],
+                }))}
+                boardPick={
+                  conditionIntel.boardPick
+                    ? {
+                        boardName: conditionIntel.boardPick.boardName,
+                        boardType: conditionIntel.boardPick.boardType,
+                        reason: conditionIntel.boardPick.reason,
+                      }
+                    : null
+                }
+                relativeContext={
+                  conditionIntel.relativeContext
+                    ? {
+                        isBestOfWeek: conditionIntel.relativeContext.isBestOfWeek,
+                        trend: conditionIntel.relativeContext.trend,
+                        incomingSwell:
+                          conditionIntel.relativeContext.incomingSwell
+                            ? {
+                                date: conditionIntel.relativeContext.incomingSwell.date,
+                                description:
+                                  conditionIntel.relativeContext.incomingSwell.description,
+                              }
+                            : null,
+                      }
+                    : undefined
+                }
               />
             );
 

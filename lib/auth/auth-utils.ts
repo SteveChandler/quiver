@@ -15,9 +15,6 @@ import {
   safeSetItem,
   safeRemoveItem,
 } from "@/lib/utils/safe-storage";
-import { isNativeApp } from "@/lib/mobile/platform";
-import { ensureSocialLoginReady } from "@/lib/mobile/social-login";
-import * as Sentry from "@sentry/nextjs";
 
 // Constants for storage keys and configuration
 const REDIRECT_STORAGE_KEY = "auth_redirect_path";
@@ -114,104 +111,7 @@ export async function initiateOAuthFlow(
       sessionStorage.setItem(PENDING_SIGNUP_METADATA_KEY, JSON.stringify(metadata));
     }
 
-    if (isNativeApp()) {
-      // Native (Capacitor): use native Google Sign-In via the OS-level account
-      // picker (Google Play Services on Android, Google Sign-In SDK on iOS).
-      // This bypasses Chrome Custom Tabs entirely, avoiding the Chromium bug
-      // where 302 redirects to custom URL schemes are silently dropped.
-      try {
-        // Wait for SocialLogin.initialize() (started in auth-context.tsx on mount)
-        await ensureSocialLoginReady();
-
-        const { SocialLogin } = await import("@capgo/capacitor-social-login");
-        const result = await SocialLogin.login({
-          provider: "google",
-          options: {},
-        });
-
-        const googleResult = result.result;
-        // GoogleLoginResponse is a discriminated union: online (has idToken) vs offline
-        const idToken =
-          googleResult && "idToken" in googleResult
-            ? googleResult.idToken
-            : null;
-
-        // Log JWT claims for debugging auth issues (dev only — contains PII)
-        if (
-          process.env.NODE_ENV === "development" &&
-          idToken &&
-          typeof idToken === "string"
-        ) {
-          try {
-            const parts = idToken.split(".");
-            if (parts.length === 3) {
-              const payload = JSON.parse(atob(parts[1]));
-              console.log("[auth-utils] ID token claims:", {
-                aud: payload.aud,
-                iss: payload.iss,
-                sub: payload.sub,
-                exp: payload.exp,
-                azp: payload.azp,
-              });
-            }
-          } catch (e) {
-            console.error("[auth-utils] Failed to decode idToken:", e);
-          }
-        }
-
-        if (!idToken) {
-          clearAuthRedirect();
-          sessionStorage.removeItem(PENDING_SIGNUP_METADATA_KEY);
-          return { error: "Google sign-in was cancelled or failed." };
-        }
-
-        // Extract accessToken if available (returned by native Google Sign-In)
-        const rawToken =
-          googleResult &&
-          "accessToken" in googleResult &&
-          googleResult.accessToken &&
-          typeof googleResult.accessToken === "object" &&
-          "token" in googleResult.accessToken
-            ? (googleResult.accessToken as { token: string }).token
-            : undefined;
-        const accessTokenStr =
-          typeof rawToken === "string" ? rawToken : undefined;
-
-        const { error: tokenError } = await sb.auth.signInWithIdToken({
-          provider: "google",
-          token: idToken,
-          ...(accessTokenStr ? { access_token: accessTokenStr } : {}),
-        });
-
-        if (tokenError) {
-          console.error("[auth-utils] Native signInWithIdToken error:", tokenError);
-          clearAuthRedirect();
-          sessionStorage.removeItem(PENDING_SIGNUP_METADATA_KEY);
-          return {
-            error: "Unable to sign in with Google. Please try another method.",
-          };
-        }
-
-        return {};
-      } catch (nativeError) {
-        const errorMessage =
-          nativeError instanceof Error
-            ? nativeError.message
-            : String(nativeError);
-        console.error("[auth-utils] Native Google Sign-In exception:", nativeError);
-        Sentry.captureException(nativeError, {
-          tags: { context: "native_google_signin" },
-          extra: { errorMessage },
-        });
-        clearAuthRedirect();
-        sessionStorage.removeItem(PENDING_SIGNUP_METADATA_KEY);
-        return {
-          error: `Google sign-in failed: ${errorMessage}`,
-        };
-      }
-    }
-
-    // Web: standard redirect flow (unchanged)
+    // Web: standard redirect flow
     const redirectTo = `${origin}/auth/callback?redirect=${encodeURIComponent(returnTo)}`;
     const { error: oauthError } = await sb.auth.signInWithOAuth({
       provider,

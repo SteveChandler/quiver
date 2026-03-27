@@ -95,37 +95,11 @@
     "geocode:beaches": "tsx scripts/geocodeBeaches.ts",
     "seed:beaches:dry": "node scripts/seed_beaches_from_csv.mjs --file ./docs/quiver_owner_cams_seed_CA_HI_WA_OR.csv --dry-run",
     "seed:beaches": "node scripts/seed_beaches_from_csv.mjs --file ./docs/quiver_owner_cams_seed_CA_HI_WA_OR.csv",
-    "mobile:sync": "cap sync",
-    "mobile:sync:dev": "NODE_ENV=development cap sync",
-    "mobile:sync:local": "CAPACITOR_CONFIG=capacitor.config.dev.ts cap sync",
-    "mobile:sync:prod": "CAPACITOR_CONFIG=capacitor.config.prod.ts cap sync",
-    "tunnel:start": "bash scripts/dev-tunnel.sh",
-    "tunnel:ios": "bash scripts/dev-tunnel.sh --sync-ios",
-    "tunnel:ios:open": "bash scripts/dev-tunnel.sh --sync-ios --open-xcode",
-    "tunnel:stop": "bash scripts/tunnel-stop.sh",
-    "tunnel:status": "bash scripts/tunnel-status.sh",
-    "mobile:dev:tunnel": "bash scripts/dev-tunnel.sh",
-    "mobile:build:ios": "CAPACITOR_CONFIG=capacitor.config.prod.ts cap sync ios && cap open ios",
-    "mobile:build:ios:local": "CAPACITOR_CONFIG=capacitor.config.dev.ts cap sync ios && cap open ios",
-    "mobile:build:android": "CAPACITOR_CONFIG=capacitor.config.prod.ts cap sync android && cap open android",
-    "mobile:build:android:local": "CAPACITOR_CONFIG=capacitor.config.dev.ts cap sync android && cap open android",
-    "mobile:release:ios": "bash scripts/release-ios.sh",
-    "mobile:release:android": "bash scripts/release-android.sh",
-    "mobile:assets": "capacitor-assets generate --config mobile/capacitor-assets.config.ts",
     "terrain:analyze": "tsx scripts/terrain-analysis.ts",
     "terrain:validate": "tsx scripts/terrain/validate-golden-beaches.ts",
     "dev-note": "node scripts/dev-note.mjs"
   },
   "dependencies": {
-    "@capacitor-community/apple-sign-in": "^7.1.0",
-    "@capacitor/android": "^8.0.0",
-    "@capacitor/app": "^8.0.0",
-    "@capacitor/core": "^8.0.0",
-    "@capacitor/filesystem": "^8.0.0",
-    "@capacitor/ios": "^8.0.0",
-    "@capacitor/push-notifications": "^8.0.0",
-    "@capacitor/share": "^8.0.0",
-    "@capgo/capacitor-social-login": "^8.3.5",
     "@ducanh2912/next-pwa": "^10.2.9",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "1.2.2",
@@ -194,8 +168,6 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
-    "@capacitor/assets": "^3.0.5",
-    "@capacitor/cli": "^8.0.0",
     "@jest/globals": "^29.7.0",
     "@lhci/cli": "^0.15.1",
     "@next/swc-darwin-arm64": "16.1.6",
@@ -261,8 +233,7 @@
     "@ducanh2912/next-pwa/**/rollup": "2.80.0",
     "@sentry/nextjs/rollup": "4.59.0",
     "@types/mapbox__point-geometry": "0.1.4",
-    "@capacitor/assets/**/minimatch": "^3.1.3",
     "serialize-javascript": "^7.0.3",
-    "@tootallnate/once": "^3.0.1"
+    "@tootallnate/once": "2"
   }
 }

@@ -173,7 +173,7 @@ export interface DetailedScore {
     distancePenalty: number;
   };
   /** Overall match quality category */
-  matchQuality: 'perfect' | 'excellent' | 'good' | 'fair';
+  matchQuality: 'perfect' | 'excellent' | 'good' | 'fair' | 'minimal';
   /** Human-readable reasons (3-5 specific factors) */
   reasons: string[];
   /** Warnings about conditions, skill level, or crowding */
@@ -202,7 +202,16 @@ export interface SurfDiscoveryRecommendation {
   /** Final match score (0-100) */
   score: number;
   /** Match quality category */
-  matchQuality: 'perfect' | 'excellent' | 'good' | 'fair';
+  matchQuality: 'perfect' | 'excellent' | 'good' | 'fair' | 'minimal';
+  /**
+   * Qualitative character of the conditions from the scoring engine.
+   * When present, can be passed to PersonalizedBadge and AnimatedScoreGauge
+   * for richer condition descriptions on beach cards.
+   */
+  character?: {
+    label: string;
+    category: string;
+  };
   /** Morning Intel style recommendation label */
   recommendationLabel?: 'Worth it' | 'Maybe' | 'Skip';
   /** Detailed scoring breakdown */

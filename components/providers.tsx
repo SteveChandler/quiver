@@ -55,7 +55,6 @@ const PageTracker = dynamic(
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { AppHeader } from "@/components/app-header";
-import { NativeAuthGuard } from "@/components/native-auth-guard";
 
 /**
  * EmbedBodyOverride - Sets body styles for embed routes and cleans up on unmount.
@@ -179,8 +178,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <Suspense fallback={null}>
             <GoogleOneTap />
           </Suspense>
-          {/* Redirect native app users to sign-in on expired sessions */}
-          <NativeAuthGuard />
           {/* Page view tracking for engagement analytics */}
           <Suspense fallback={null}>
             <PageTracker />

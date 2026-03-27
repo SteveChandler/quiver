@@ -90,33 +90,10 @@ export default function PWAAndPushListeners() {
     return () => window.removeEventListener("appinstalled", onInstalled);
   }, []);
 
-  // Mobile push notifications setup
-  useEffect(() => {
-    if (!user) return;
-
-    // Dynamically import mobile push notifications
-    // This won't load on web, only on native mobile platforms
-    import("@/lib/mobile/push-notifications")
-      .then(({ setupPushNotificationListeners, registerPushNotifications }) => {
-        // Set up listeners once
-        setupPushNotificationListeners();
-
-        // Register for push notifications
-        void registerPushNotifications();
-      })
-      .catch(() => {
-        // Silent fail - mobile modules may not be available on web
-      });
-  }, [user]);
-
   // Web push notifications setup
   useEffect(() => {
     if (!user) return;
     if (typeof window === "undefined") return;
-
-    // Check if running on web (not Capacitor mobile app)
-    const isWebPlatform = !window.Capacitor;
-    if (!isWebPlatform) return;
 
     // Defer push registration by 2 seconds to avoid blocking page load
     // and give service worker time to initialize

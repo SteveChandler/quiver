@@ -17,7 +17,6 @@ import {
   downloadImage,
   copyToClipboard,
 } from "@/lib/share/share-image";
-import { isNativeApp } from "@/lib/mobile/platform";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 
@@ -159,16 +158,7 @@ export function ShareSheet({
     setActionState("save", "loading");
 
     try {
-      // Native: open native share sheet so user can save to Photos
-      if (isNativeApp()) {
-        await shareImage(imageUrl, filename, { title, text });
-        setActionState("save", "success");
-        track("share_image_saved", { type });
-        resetActionAfter("save", 1500);
-        return;
-      }
-
-      // Web: download directly
+      // Download directly
       const blob = blobRef.current ?? (await fetchImageAsBlob(imageUrl));
       downloadImage(blob, filename);
       setActionState("save", "success");
