@@ -229,6 +229,12 @@ test.describe('Session Form - Log Mode', () => {
 
       await expect(beachOption).toBeVisible({ timeout: 15000 });
       await beachOption.click();
+    } else {
+      // QuickLogView auto-detected a beach — confirm if prompted (low confidence shows "Yeah" button)
+      const confirmButton = page.getByRole('button', { name: /yeah/i });
+      if (await isVisibleSafe(confirmButton, { timeout: 3000 })) {
+        await confirmButton.click();
+      }
     }
 
     // Select a time preset (QuickLogView uses chip buttons, not date/time inputs)
@@ -248,6 +254,12 @@ test.describe('Session Form - Log Mode', () => {
     await expect(page.locator('body')).not.toContainText('NaN', {
       timeout: 10000,
     });
+
+    // Also check the forecast accuracy section specifically for NaN
+    const forecastSection = page.getByText(/was our forecast right/i).locator('..');
+    if (await isVisibleSafe(forecastSection, { timeout: 3000 })) {
+      await expect(forecastSection).not.toContainText('NaN');
+    }
   });
 });
 
@@ -388,29 +400,44 @@ test.describe('Session Form - Forecast Snapshot Creation', () => {
     await page.goto('/sessions/new?mode=log');
     await waitForPageLoad(page);
 
-    // Select beach — always visible in scroll form, no step navigation needed
+    // Select beach — QuickLogView may auto-detect or show search input
     const beachInput = page.getByTestId('beach-search-input');
-    await expect(beachInput).toBeVisible({ timeout: 10000 });
+    const hasBeachInput = await isVisibleSafe(beachInput, { timeout: 5000 });
 
-    await beachInput.fill('Black');
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for search input debounce
-    await page.waitForTimeout(1000);
+    if (hasBeachInput) {
+      await beachInput.fill('Black');
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for search input debounce
+      await page.waitForTimeout(1000);
 
-    const beachSelectorRoot = beachInput.locator('..');
-    const beachOption = beachSelectorRoot.locator('ul').locator('button').filter({ hasText: /black/i }).first();
-    const hasOption = await isVisibleSafe(beachOption);
+      const beachSelectorRoot = beachInput.locator('..');
+      const beachOption = beachSelectorRoot.locator('ul').locator('button').filter({ hasText: /black/i }).first();
+      const hasOption = await isVisibleSafe(beachOption);
 
-    if (hasOption) {
-      await beachOption.click();
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for beach selection to apply
-      await page.waitForTimeout(500);
+      if (hasOption) {
+        await beachOption.click();
+        // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for beach selection to apply
+        await page.waitForTimeout(500);
+      }
+    } else {
+      // QuickLogView auto-detected a beach — confirm if prompted
+      const confirmButton = page.getByRole('button', { name: /yeah/i });
+      if (await isVisibleSafe(confirmButton, { timeout: 3000 })) {
+        await confirmButton.click();
+      }
     }
 
-    // Fill date — always visible in scroll form
-    const dateInput = page.getByTestId('session-date-input').or(page.locator('input[type="date"]')).first();
-    const hasDate = await isVisibleSafe(dateInput);
-    if (hasDate) {
-      await dateInput.fill(new Date().toISOString().split('T')[0]);
+    // Select time — QuickLogView uses time preset buttons, standard form uses date input
+    const morningPreset = page.getByRole('button', { name: /morning/i });
+    const hasMorningPreset = await isVisibleSafe(morningPreset, { timeout: 3000 });
+    if (hasMorningPreset) {
+      await morningPreset.click();
+    } else {
+      // Fallback: standard form with date input
+      const dateInput = page.getByTestId('session-date-input').or(page.locator('input[type="date"]')).first();
+      const hasDate = await isVisibleSafe(dateInput);
+      if (hasDate) {
+        await dateInput.fill(new Date().toISOString().split('T')[0]);
+      }
     }
 
     // Submit — the sticky-footer Save Session button is always visible

@@ -114,29 +114,38 @@ export async function createTestSession(
     await beachOption.click();
     await page.waitForTimeout(300);
 
-    // Fill date/time on same Where & When step
-    const dateInput = page.getByTestId("session-date-input");
-    const hasDate = await dateInput.isVisible({ timeout: 10000 }).catch(() => false);
-    if (hasDate) {
-      const today = new Date().toISOString().split("T")[0];
-      await dateInput.fill(today);
-    }
+    // Fill date/time — QuickLogView uses time preset buttons, standard form uses date/time inputs
+    const morningPreset = page.getByRole("button", { name: /morning/i });
+    const hasMorningPreset = await morningPreset.isVisible({ timeout: 3000 }).catch(() => false);
 
-    const timeInput = page.getByTestId("session-time-input");
-    const hasTime = await timeInput.isVisible({ timeout: 10000 }).catch(() => false);
-    if (hasTime) {
-      await timeInput.fill("06:00");
-    }
+    if (hasMorningPreset) {
+      // QuickLogView: select time preset (date defaults to today)
+      await morningPreset.click();
+    } else {
+      // Standard form: fill date/time inputs
+      const dateInput = page.getByTestId("session-date-input");
+      const hasDate = await dateInput.isVisible({ timeout: 10000 }).catch(() => false);
+      if (hasDate) {
+        const today = new Date().toISOString().split("T")[0];
+        await dateInput.fill(today);
+      }
 
-    // Advance to Session Details (step 2)
-    const nextButton = page
-      .getByRole("button", { name: /next/i })
-      .first();
-    const hasNext = await nextButton.isVisible().catch(() => false);
+      const timeInput = page.getByTestId("session-time-input");
+      const hasTime = await timeInput.isVisible({ timeout: 10000 }).catch(() => false);
+      if (hasTime) {
+        await timeInput.fill("06:00");
+      }
 
-    if (hasNext) {
-      await nextButton.click();
-      await page.waitForTimeout(500);
+      // Advance to Session Details (step 2) if standard wizard
+      const nextButton = page
+        .getByRole("button", { name: /next/i })
+        .first();
+      const hasNext = await nextButton.isVisible().catch(() => false);
+
+      if (hasNext) {
+        await nextButton.click();
+        await page.waitForTimeout(500);
+      }
     }
 
     // Set rating (stars or slider)
