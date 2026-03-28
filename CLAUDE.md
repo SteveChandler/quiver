@@ -23,7 +23,6 @@ Full roster: `docs/AGENT_ROSTER.md`
 **Stack:**
 - **Frontend:** Next.js 16 (App Router), React 19, TypeScript (strict), Tailwind CSS, Radix UI, Framer Motion, Mapbox GL
 - **Backend:** Supabase (PostgreSQL 15+ with PostGIS, RLS, Edge Functions, Realtime, Storage), Next.js API Routes
-- **Mobile (Web Wrapper):** Capacitor 8 (iOS/Android), Firebase Cloud Messaging
 - **Mobile (Native):** Expo 55 / React Native 0.83 — separate repo `../quiver-native` (see its own `CLAUDE.md`)
 - **Testing:** Playwright (E2E), Jest (unit/integration), Testing Library
 - **Infra:** Vercel, Sentry, Firebase | **Build:** Yarn, `next.config.mjs`

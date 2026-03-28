@@ -1,4 +1,6 @@
 /**
+ * @jest-environment node
+ *
  * Integration tests for the unified scoring module.
  *
  * These tests verify the full flow works correctly end-to-end,

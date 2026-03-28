@@ -10,6 +10,7 @@ import type {
   ForecastForScoring,
   ConditionScore,
   ConditionSubscores,
+  ConditionCharacter,
   MatchQuality,
   RecommendationLabel,
   UserScoringPreferences,
@@ -37,17 +38,104 @@ const THRESHOLD_PERFECT = 85;
 const THRESHOLD_EXCELLENT = 70;
 const THRESHOLD_GOOD = 55;
 const THRESHOLD_FAIR = 40;
+const THRESHOLD_MINIMAL = 30; // New: between fair and skip — marginal but not hopeless
 
 /**
  * Calculate angular difference between two directions (in degrees)
  * Returns value between 0 and 180
  */
-function angleDifference(angle1: number, angle2: number): number {
+export function angleDifference(angle1: number, angle2: number): number {
   let diff = Math.abs(angle1 - angle2) % 360;
   if (diff > 180) {
     diff = 360 - diff;
   }
   return diff;
+}
+
+/**
+ * Calculate how well the swell direction fits the beach's preferred swell window.
+ * Uses swell_window_center_deg + swell_window_halfwidth_deg from beach config.
+ *
+ * @param swellDirection - Swell direction in degrees, or null if unknown
+ * @param beach - Beach configuration with optional swell window fields
+ * @returns Fit score from 0.0 (worst) to 1.0 (ideal)
+ */
+export function calculateSwellDirectionFit(
+  swellDirection: number | null | undefined,
+  beach: BeachWithThresholds
+): number {
+  // No swell direction data — use neutral fallback
+  if (swellDirection == null) return 0.5;
+
+  const center = beach.swell_window_center_deg;
+  const halfwidth = beach.swell_window_halfwidth_deg;
+
+  // No beach swell window configured — use neutral fallback
+  if (center == null || halfwidth == null) {
+    trackFallback({
+      domain: 'scoring',
+      field: 'swell_window_center_deg',
+      fallbackValue: 0.5,
+      context: { beachId: beach.id },
+    });
+    return 0.5;
+  }
+
+  const diff = angleDifference(swellDirection, center);
+
+  // Perfect fit: within halfwidth → 1.0
+  // Beyond halfwidth: linearly decay to 0 at 75° past halfwidth
+  if (diff <= halfwidth) {
+    return 1.0;
+  }
+
+  const decayRange = 75; // degrees of decay past halfwidth (steeper than 90°)
+  const excess = diff - halfwidth;
+  const fit = Math.max(0, 1.0 - excess / decayRange);
+  return parseFloat(fit.toFixed(4));
+}
+
+/**
+ * Calculate the swell quality boost for small waves.
+ *
+ * Only applies when waveHeight < 2ft. Long-period groundswell with ideal
+ * swell direction earns up to 12 additional points, rewarding quality
+ * over raw wave height.
+ *
+ * @param forecast - Forecast data including wave height, period, and swell direction
+ * @param beach - Beach configuration with swell window preferences
+ * @returns Boost points (0–12)
+ */
+export function calculateSwellQualityBoost(
+  forecast: ForecastForScoring,
+  beach: BeachWithThresholds
+): number {
+  // Only boost small waves (< 2ft)
+  if (forecast.waveHeight >= 2) return 0;
+
+  // Period factor: long period = more energy even at small heights
+  // ≥14s = excellent groundswell, 10-14s = moderate, 8-10s = marginal, <8s = wind chop (no boost)
+  let periodFactor: number;
+  if (forecast.wavePeriod >= 14) {
+    periodFactor = 1.0;
+  } else if (forecast.wavePeriod >= 10) {
+    periodFactor = 0.6;
+  } else if (forecast.wavePeriod >= 8) {
+    periodFactor = 0.2;
+  } else {
+    periodFactor = 0.05; // Near-zero for short-period wind chop
+  }
+
+  // Direction factor: how well the swell aligns with beach's ideal window
+  const directionFactor = calculateSwellDirectionFit(forecast.swellDirection, beach);
+
+  // Small wave multiplier: scales from 0 (at 0.5ft or below) to 1.0 (approaching 2ft)
+  // This ensures very flat days don't get a big boost
+  const clampedHeight = Math.max(0, Math.min(2, forecast.waveHeight));
+  const smallWaveMultiplier = Math.max(0, (clampedHeight - 0.5) / 1.5);
+
+  const boost = periodFactor * directionFactor * smallWaveMultiplier * 12;
+  return parseFloat(boost.toFixed(4));
 }
 
 /**
@@ -299,6 +387,7 @@ function getMatchQuality(score: number): MatchQuality {
   if (score >= THRESHOLD_EXCELLENT) return 'excellent';
   if (score >= THRESHOLD_GOOD) return 'good';
   if (score >= THRESHOLD_FAIR) return 'fair';
+  if (score >= THRESHOLD_MINIMAL) return 'minimal';
   return 'skip';
 }
 
@@ -313,9 +402,118 @@ function getRecommendationLabel(quality: MatchQuality): RecommendationLabel {
     case 'good':
     case 'fair':
       return 'Maybe';
+    case 'minimal':
+      return 'Maybe'; // Minimal: worth considering for quality chasers
     case 'skip':
       return 'Skip';
   }
+}
+
+/**
+ * Check if wind is onshore for condition character classification.
+ * Reuses beach offshore direction and tolerance.
+ */
+function isWindOnshoreForCharacter(
+  windSpeed: number,
+  windDirection: number | null,
+  beach: BeachWithThresholds
+): boolean {
+  if (windDirection === null) return false;
+  const offshoreDir = beach.wind_offshore_deg ?? 90;
+  const onshoreDir = (offshoreDir + 180) % 360;
+  const tolerance = beach.wind_offshore_tol_deg ?? DEFAULT_WIND_OFFSHORE_TOL_DEG;
+  return windSpeed > 0 && angleDifference(windDirection, onshoreDir) <= tolerance;
+}
+
+/**
+ * Determine the qualitative condition character.
+ *
+ * Priority-ordered decision tree: first matching rule wins.
+ * Categories: skip → flat → small-quality/clean/weak → medium-clean/mixed → large-clean/rough
+ *
+ * @param forecast - The forecast data
+ * @param beach - Beach configuration
+ * @param subscores - Already-computed subscores for context
+ * @param totalScore - Final capped score (0-100)
+ * @returns ConditionCharacter with label and category
+ */
+export function getConditionCharacter(
+  forecast: ForecastForScoring,
+  beach: BeachWithThresholds,
+  subscores: ConditionSubscores,
+  totalScore: number
+): ConditionCharacter {
+  const { waveHeight, wavePeriod, windSpeed, windDirection } = forecast;
+  const maxWindAny = beach.max_wind_any_mph ?? DEFAULT_MAX_WIND_ANY_MPH;
+  const maxWindOnshore = beach.max_wind_onshore_mph ?? DEFAULT_MAX_WIND_ONSHORE_MPH;
+  const isOnshore = isWindOnshoreForCharacter(windSpeed, windDirection, beach);
+
+  // 1. Skip conditions — blown out or dominated by onshore wind
+  if (windSpeed > maxWindAny) {
+    return { category: 'skip', label: 'Blown out — too much wind' };
+  }
+  if (isOnshore && windSpeed > maxWindOnshore) {
+    return { category: 'skip', label: 'Onshore wind — conditions blown out' };
+  }
+
+  // 2. Flat — barely anything to surf
+  if (waveHeight < 0.5) {
+    return { category: 'flat', label: 'Flat — rest day' };
+  }
+
+  // 3. Small waves (0.5–2ft)
+  if (waveHeight < 2) {
+    // Small-weak: onshore or very short period wind chop (checked early)
+    if (wavePeriod < 8) {
+      // Short period always = weak, regardless of wind
+      if (isOnshore && windSpeed > 5) {
+        return { category: 'small-weak', label: 'Small & choppy — onshore wind' };
+      }
+      return { category: 'small-weak', label: 'Weak swell — minimal energy' };
+    }
+
+    // Small-quality: long period + good direction alignment
+    if (wavePeriod >= 12) {
+      const directionFit = calculateSwellDirectionFit(forecast.swellDirection, beach);
+      if (directionFit >= 0.85) {
+        return { category: 'small-quality', label: 'Small but powerful — long-period energy' };
+      }
+      // Moderate direction alignment with good period — still has push
+      if (directionFit >= 0.4) {
+        return { category: 'small-quality', label: 'Small with some push — angled swell' };
+      }
+    }
+
+    // Small-clean: light wind, not onshore (8s+ period)
+    if (windSpeed <= 5 && !isOnshore) {
+      return { category: 'small-clean', label: 'Small & clean — glassy conditions' };
+    }
+
+    // Small-weak: onshore wind (8-11s period)
+    if (isOnshore && windSpeed > 5) {
+      return { category: 'small-weak', label: 'Small & choppy — onshore wind' };
+    }
+
+    // Catch-all small fallback
+    return { category: 'small-weak', label: 'Small — marginal conditions' };
+  }
+
+  // 4. Medium waves (2–5ft)
+  if (waveHeight < 5) {
+    const windIsGood = subscores.windAlignment >= Math.round(MAX_WIND_ALIGNMENT * 0.7);
+    const tideIsGood = subscores.tideFit >= Math.round(MAX_TIDE_FIT * 0.7);
+    if (windIsGood && tideIsGood && wavePeriod >= 10) {
+      return { category: 'medium-clean', label: 'Dialed — everything\'s lining up' };
+    }
+    return { category: 'medium-mixed', label: 'Decent — some quality in the mix' };
+  }
+
+  // 5. Large waves (5ft+)
+  const windIsClean = subscores.windAlignment >= Math.round(MAX_WIND_ALIGNMENT * 0.6);
+  if (windIsClean && wavePeriod >= 10) {
+    return { category: 'large-clean', label: 'Firing — overhead and clean' };
+  }
+  return { category: 'large-rough', label: 'Big and rough — experts only' };
 }
 
 /**
@@ -410,15 +608,18 @@ export function scoreConditions(
 ): ConditionScore {
   // Water quality closure overrides all scoring — site is unsafe
   if (options?.waterQuality?.status === 'closure') {
+    const closureSubscores: ConditionSubscores = { waveHeightFit: 0, periodEnergy: 0, windAlignment: 0, tideFit: 0 };
     return {
       total: 0,
-      subscores: { waveHeightFit: 0, periodEnergy: 0, windAlignment: 0, tideFit: 0 },
+      subscores: closureSubscores,
       matchQuality: 'skip',
       recommendationLabel: 'Skip',
       reasons: [],
       warnings: ['Water quality closure — health advisory active'],
       message: 'Skip — Water quality closure, health advisory active',
       waterQualityWarning: 'Water quality closure — health advisory active',
+      character: getConditionCharacter(forecast, beach, closureSubscores, 0),
+      swellQualityBoost: 0,
     };
   }
 
@@ -426,19 +627,17 @@ export function scoreConditions(
   const skipCheck = checkSkipConditions(forecast, beach);
 
   if (skipCheck.skip) {
+    const skipSubscores: ConditionSubscores = { waveHeightFit: 0, periodEnergy: 0, windAlignment: 0, tideFit: 0 };
     return {
       total: 0,
-      subscores: {
-        waveHeightFit: 0,
-        periodEnergy: 0,
-        windAlignment: 0,
-        tideFit: 0,
-      },
+      subscores: skipSubscores,
       matchQuality: 'skip',
       recommendationLabel: 'Skip',
       reasons: [],
       warnings: [skipCheck.reason!],
       message: buildMessage('skip', 'Skip', [], [skipCheck.reason!], skipCheck.reason),
+      character: getConditionCharacter(forecast, beach, skipSubscores, 0),
+      swellQualityBoost: 0,
     };
   }
 
@@ -450,6 +649,7 @@ export function scoreConditions(
   const windResult = scoreWindAlignment(forecast.windSpeed, forecast.windDirection, beach);
   const tideResult = scoreTideFit(forecast.tideHeight, beach);
 
+  // Calculate base subscores (kept pure for transparency and existing test compatibility)
   const subscores: ConditionSubscores = {
     waveHeightFit: waveResult.score,
     periodEnergy: periodResult.score,
@@ -457,18 +657,30 @@ export function scoreConditions(
     tideFit: tideResult.score,
   };
 
-  // Calculate normalized total (0-100)
-  const rawTotal = subscores.waveHeightFit + subscores.periodEnergy + subscores.windAlignment + subscores.tideFit;
+  // Apply swell quality boost separately (adds to raw total but not subscores)
+  // Only applies when waveHeight < 2ft — rewards groundswell quality at small sizes
+  const swellBoostRaw = calculateSwellQualityBoost(forecast, beach);
+  const swellQualityBoost = Math.round(swellBoostRaw);
+
+  // Calculate normalized total (0-100), applying boost capped at MAX_WAVE_HEIGHT_FIT headroom
+  const baseRawTotal = subscores.waveHeightFit + subscores.periodEnergy + subscores.windAlignment + subscores.tideFit;
+  // Boost is applied before normalization, capped so total waveHeightFit contribution ≤ MAX_WAVE_HEIGHT_FIT
+  const cappedBoost = Math.min(swellQualityBoost, MAX_WAVE_HEIGHT_FIT - subscores.waveHeightFit);
+  const rawTotal = baseRawTotal + cappedBoost;
   const normalizedTotal = Math.round((rawTotal / MAX_RAW_POINTS) * 100);
 
   // Apply wave-height ceiling based on beach skill level
   const parsedSkill = parseSkillLevel(beach.skill_level);
   const skillRanges = SKILL_WAVE_RANGES[parsedSkill ?? 'intermediate'];
-  const ceiling = getWaveHeightCeiling(
+  const baseCeiling = getWaveHeightCeiling(
     forecast.waveHeight,
     skillRanges.ideal.min,
     skillRanges.ideal.max
   );
+  // Swell quality boost can raise the ceiling for small-but-quality days
+  // (a 14s groundswell at 1.5ft is more surfable than flat wind chop at 1.5ft)
+  const qualityCeilingBonus = cappedBoost > 0 ? Math.round((cappedBoost / MAX_WAVE_HEIGHT_FIT) * 20) : 0;
+  const ceiling = Math.min(100, baseCeiling + qualityCeilingBonus);
   const cappedTotal = Math.min(normalizedTotal, ceiling);
 
   // Determine quality and label
@@ -490,6 +702,9 @@ export function scoreConditions(
   // Build message
   const message = buildMessage(matchQuality, recommendationLabel, reasons, warnings, null);
 
+  // Classify condition character (qualitative label for UI)
+  const character = getConditionCharacter(forecast, beach, subscores, cappedTotal);
+
   const result: ConditionScore = {
     total: cappedTotal,
     subscores,
@@ -498,6 +713,8 @@ export function scoreConditions(
     reasons,
     warnings,
     message,
+    character,
+    swellQualityBoost,
   };
 
   // Inject advisory warning without overriding the score

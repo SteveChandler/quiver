@@ -11,9 +11,14 @@ import {
   ArrowRight,
   CalendarDays,
 } from "lucide-react";
-import { stateToSlug, buildCityUrl } from "@/lib/utils/beach-url-utils";
+import {
+  stateToSlug,
+  buildCityUrl,
+  isValidStateSlug,
+} from "@/lib/utils/beach-url-utils";
 import { buildCitySlug } from "@/lib/seo/city-slug-utils";
 import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
+import { createPublicReadClient } from "@/lib/supabase/server";
 import type { Beach } from "@/types/database";
 
 const INTENT_GUIDES = [
@@ -72,7 +77,7 @@ interface RelatedGuidesSectionProps {
  * Helps reduce orphan pages by creating internal links to tide, dawn-patrol,
  * sunset, beginner, longboard, least-crowded, and water-temp pages.
  */
-export function RelatedGuidesSection({
+export async function RelatedGuidesSection({
   beach,
   className = "",
   bestTimeToSurfUrl,
@@ -86,10 +91,38 @@ export function RelatedGuidesSection({
   // Simple cities: "San Diego" → "san-diego"
   // Collision cities: "Newport, OR" → "newport-or" (avoids ambiguity with Newport, CA etc.)
   const stateSlug = stateToSlug(beach.state);
+
+  // Suppress all intent links for international beaches (e.g. Mexico).
+  // Intent pages only exist for US states.
+  if (!isValidStateSlug(stateSlug)) {
+    return null;
+  }
+
   const intentSlug = buildCitySlug(beach.city, stateSlug || beach.state || "", COLLISION_CITY_MAP);
   if (!intentSlug) {
     return null;
   }
+
+  // Check if any beach in this city has light/moderate crowd level so we can
+  // decide whether to include the least-crowded intent link. Without this
+  // guard the /least-crowded/{city} page returns 404 for cities that have no
+  // qualifying beaches.
+  const supabase = createPublicReadClient();
+  const { data: crowdData, error: crowdError } = await supabase
+    .from("beaches")
+    .select("id")
+    .ilike("city", beach.city)
+    .eq("state", beach.state?.toUpperCase() || "")
+    .or("crowd_level.ilike.light,crowd_level.ilike.moderate")
+    .limit(1);
+  if (crowdError) {
+    console.warn("Failed to check crowd data for least-crowded filter:", crowdError.message);
+  }
+  const hasLeastCrowded = crowdData && crowdData.length > 0;
+
+  const visibleGuides = hasLeastCrowded
+    ? INTENT_GUIDES
+    : INTENT_GUIDES.filter((g) => g.key !== "least-crowded");
 
   return (
     <section className={`${className}`}>
@@ -110,7 +143,7 @@ export function RelatedGuidesSection({
         <ArrowRight className="h-4 w-4 text-sky-400 group-hover:translate-x-0.5 transition-transform" />
       </Link>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        {INTENT_GUIDES.map(({ key, label, icon: Icon, description }) => (
+        {visibleGuides.map(({ key, label, icon: Icon, description }) => (
           <Link
             key={key}
             href={`/${key}/${intentSlug}`}

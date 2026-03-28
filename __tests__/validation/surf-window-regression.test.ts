@@ -1,4 +1,6 @@
 /**
+ * @jest-environment node
+ *
  * Regression test for surf window bug: "Best Window (Passed 6:00 AM – 6:00 AM)"
  *
  * This test validates that the multi-layer fix prevents identical start/end times:

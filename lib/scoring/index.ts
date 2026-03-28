@@ -35,3 +35,8 @@ export {
   type WindowBoundaryReason,
   type WindowCalculatorOptions,
 } from './types';
+export { calculateMultipleWindows } from './window-calculator';
+export { getConditionBoardPick, type BoardForPick, type BoardPickResult } from './board-pick';
+export { calculateRelativeContext, type DailyScore } from './relative-context';
+export { getConditionCharacter, angleDifference } from './surf-conditions-scorer';
+export { type ConditionCharacter, type ConditionCharacterCategory, type MultiWindowResult, type RelativeContext } from './types';

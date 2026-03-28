@@ -1,12 +1,9 @@
 /**
- * Cross-Platform Image Share Utility
+ * Image Share Utility
  *
- * Shares images across Web and Capacitor (iOS/Android).
- * Uses native share sheets on mobile, Web Share API on desktop,
+ * Shares images using the Web Share API on supported browsers,
  * with download fallback when share APIs are unavailable.
  */
-
-import { isNativeApp, getNativePlatform } from "@/lib/mobile/platform";
 
 export interface ShareImageOptions {
   /** Optional title for the share dialog */
@@ -19,7 +16,7 @@ export interface ShareImageOptions {
 
 export interface ShareImageResult {
   success: boolean;
-  method: "native-share" | "web-share" | "download";
+  method: "web-share" | "download";
   error?: string;
 }
 
@@ -32,7 +29,6 @@ export class ShareImageError extends Error {
     public readonly code:
       | "FETCH_FAILED"
       | "BLOB_CONVERSION_FAILED"
-      | "FILESYSTEM_ERROR"
       | "SHARE_CANCELLED"
       | "SHARE_FAILED"
       | "UNSUPPORTED"
@@ -87,23 +83,6 @@ export async function fetchImageAsBlob(imageUrl: string): Promise<Blob> {
 }
 
 /**
- * Converts a Blob to base64 string (without data URL prefix)
- */
-async function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      // Remove the data URL prefix (e.g., "data:image/png;base64,")
-      const base64 = result.split(",")[1];
-      resolve(base64);
-    };
-    reader.onerror = () => reject(new Error("Failed to convert blob to base64"));
-    reader.readAsDataURL(blob);
-  });
-}
-
-/**
  * Gets file extension from MIME type
  */
 function getExtensionFromMime(mimeType: string): string {
@@ -115,85 +94,6 @@ function getExtensionFromMime(mimeType: string): string {
     "image/webp": "webp",
   };
   return mimeToExt[mimeType] || "png";
-}
-
-/**
- * Shares image using Capacitor native plugins
- */
-async function shareNative(
-  blob: Blob,
-  filename: string,
-  options: ShareImageOptions
-): Promise<ShareImageResult> {
-  try {
-    // Dynamic imports for Capacitor plugins
-    const [{ Filesystem, Directory }, { Share }] = await Promise.all([
-      import("@capacitor/filesystem"),
-      import("@capacitor/share"),
-    ]);
-
-    // Ensure filename has extension
-    const ext = getExtensionFromMime(blob.type);
-    const fullFilename = filename.includes(".") ? filename : `${filename}.${ext}`;
-
-    // Convert blob to base64
-    const base64Data = await blobToBase64(blob);
-
-    // Write to cache directory
-    const writeResult = await Filesystem.writeFile({
-      path: fullFilename,
-      data: base64Data,
-      directory: Directory.Cache,
-    });
-
-    // Share the file
-    const platform = getNativePlatform();
-    const fileUri = writeResult.uri;
-
-    await Share.share({
-      title: options.title,
-      text: options.text,
-      files: [fileUri],
-      dialogTitle: options.title || "Share Image",
-    });
-
-    // Clean up cached file after a delay (non-blocking)
-    setTimeout(async () => {
-      try {
-        await Filesystem.deleteFile({
-          path: fullFilename,
-          directory: Directory.Cache,
-        });
-      } catch {
-        // Ignore cleanup errors
-      }
-    }, 30000);
-
-    return { success: true, method: "native-share" };
-  } catch (error) {
-    // Check if user cancelled the share
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    if (
-      errorMessage.includes("cancel") ||
-      errorMessage.includes("Cancel") ||
-      errorMessage.includes("dismissed")
-    ) {
-      throw new ShareImageError("Share cancelled by user", "SHARE_CANCELLED");
-    }
-
-    // Check for filesystem errors
-    if (errorMessage.includes("Filesystem") || errorMessage.includes("file")) {
-      throw new ShareImageError(
-        `Filesystem error: ${errorMessage}`,
-        "FILESYSTEM_ERROR"
-      );
-    }
-
-    throw new ShareImageError(
-      `Native share failed: ${errorMessage}`,
-      "SHARE_FAILED"
-    );
-  }
 }
 
 /**
@@ -319,11 +219,6 @@ export async function shareImage(
     // Fetch and convert image to blob
     const blob = await fetchImageAsBlob(imageUrl);
 
-    // Try native share first (Capacitor)
-    if (isNativeApp()) {
-      return await shareNative(blob, filename, options);
-    }
-
     // Try Web Share API
     try {
       return await shareWeb(blob, filename, options);
@@ -348,10 +243,9 @@ function isShareSupported(): boolean {
 }
 
 /**
- * Checks if native share sheet is available
+ * Checks if the Web Share API is available
  */
 function isNativeShareAvailable(): boolean {
-  if (isNativeApp()) return true;
   if (typeof navigator === "undefined") return false;
   return typeof navigator.share === "function" && typeof navigator.canShare === "function";
 }

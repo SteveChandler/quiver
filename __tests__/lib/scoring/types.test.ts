@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 import {
   toForecastForScoring,
   type ForecastForScoring,
@@ -197,8 +201,8 @@ describe('toForecastForScoring', () => {
 
 describe('Type definitions', () => {
   it('MatchQuality has correct values', () => {
-    const values: MatchQuality[] = ['perfect', 'excellent', 'good', 'fair', 'skip'];
-    expect(values).toHaveLength(5);
+    const values: MatchQuality[] = ['perfect', 'excellent', 'good', 'fair', 'minimal', 'skip'];
+    expect(values).toHaveLength(6);
   });
 
   it('RecommendationLabel has correct values', () => {
@@ -220,11 +224,15 @@ describe('Type definitions', () => {
       reasons: ['Good swell direction', 'Clean wind'],
       warnings: ['Watch for afternoon wind'],
       message: 'Great morning conditions expected',
+      character: { category: 'medium-clean', label: 'Dialed — everything\'s lining up' },
+      swellQualityBoost: 0,
     };
 
     expect(score.total).toBe(85);
     expect(score.subscores.waveHeightFit).toBe(20);
     expect(score.matchQuality).toBe('excellent');
+    expect(score.character.category).toBe('medium-clean');
+    expect(score.swellQualityBoost).toBe(0);
   });
 
   it('OptimalWindow interface is correctly shaped', () => {

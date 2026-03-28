@@ -414,6 +414,10 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
       // Remove route interception to restore normal operation
       await page.unroute("**/api/**");
 
+      // Clear errors captured during intentional API abort — these are expected
+      errorCapture.consoleErrors.length = 0;
+      errorCapture.networkErrors.length = 0;
+
       // Should recover
       await page.reload();
       await waitForPageLoad(page);

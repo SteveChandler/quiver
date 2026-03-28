@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 // Mock date-fns submodule paths for ESM compat (before any imports)
 jest.mock('date-fns/format', () => {
   return (date: Date, pattern: string) => {

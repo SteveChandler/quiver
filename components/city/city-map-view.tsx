@@ -192,17 +192,20 @@ export function CityMapView({
     [spots, cityName, stateSlug]
   );
 
-  // Generate URL for each spot (memoized for performance)
+  // Generate URL for each spot (memoized for performance).
+  // Use each spot's own city (populated from DB) so La Jolla beaches on a San Diego
+  // hub page get /ca/la-jolla/<slug> rather than /ca/san-diego/<slug>.
+  // Fall back to the page's citySlug only when the spot has no city of its own.
   const spotUrls = useMemo(() => {
     const urls: Record<string, string> = {};
     spots.forEach((spot) => {
       const beachForUrl = {
         slug: spot.slug,
-        city: citySlug,
+        city: spot.city || citySlug,
         state: stateSlug,
         country: countrySlug,
       };
-      urls[spot.slug] = getBeachUrlSafe(beachForUrl) || `/spots/${spot.slug}`;
+      urls[spot.slug] = getBeachUrlSafe(beachForUrl) ?? `/beach/${spot.slug}`;
     });
     return urls;
   }, [spots, citySlug, stateSlug, countrySlug]);

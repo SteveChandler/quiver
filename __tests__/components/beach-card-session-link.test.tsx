@@ -128,7 +128,7 @@ describe("BeachCard - session link (Task 8B)", () => {
     expect(modal).toHaveAttribute("data-context-title", "Track Your Sessions");
     expect(modal).toHaveAttribute(
       "data-context-description",
-      `Track your sessions at ${defaultProps.name} and get personalized recommendations`
+      `Track your sessions at ${defaultProps.name} and see conditions explained clearly`
     );
   });
 

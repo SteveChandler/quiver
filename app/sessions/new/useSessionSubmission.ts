@@ -14,6 +14,7 @@ import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { buildSessionPayload } from "@/lib/utils/session-data-builder";
 import { buildSessionShareUrl } from "@/lib/share/build-share-card-url";
+import { saveLastBeach } from "@/hooks/use-nearest-beach";
 
 interface UseSessionSubmissionOptions {
   mode: SessionFormMode;
@@ -226,6 +227,14 @@ export function useSessionSubmission({
         // Save session data for sharing
         setSavedSessionData(sessionData);
         setCreatedSessionId(result.data.id);
+
+        // Persist last-used beach for quick-log auto-detection
+        if (sessionData.selectedBeachId && sessionData.selectedBeach) {
+          saveLastBeach({
+            id: sessionData.selectedBeachId,
+            name: sessionData.selectedBeach,
+          });
+        }
 
         // Analytics: session_log_submit (mark as conversion in GA UI)
         try {

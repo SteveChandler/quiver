@@ -12,6 +12,7 @@ import { getBeachesByState } from "@/actions/beach/beach-query-actions";
 import type { Beach } from "@/types/database";
 import { HubRegionClient } from "./hub-region-client";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
+import { ArticleSchema } from "@/components/seo/article-schema";
 
 export const revalidate = 3600; // Revalidate every hour
 
@@ -158,6 +159,13 @@ export default async function HubRegionPage(
       <WebPageSchema
         name={region.title}
         url={`${baseUrl}/guides/surfing-${region.slug}`}
+      />
+      <ArticleSchema
+        title={region.title}
+        description={region.description}
+        url={`/guides/surfing-${region.slug}`}
+        imageUrl={`/api/og/guide?title=${encodeURIComponent(region.title)}&region=${encodeURIComponent(region.name)}`}
+        datePublished="2026-03-26"
       />
       <HubRegionClient region={region} beaches={allBeaches} stats={stats} />
     </>

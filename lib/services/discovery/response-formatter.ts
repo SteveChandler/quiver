@@ -116,7 +116,9 @@ export function generateDiscoverySummary(
         ? 'Excellent match'
         : score.matchQuality === 'good'
           ? 'Good match'
-          : 'Fair conditions';
+          : score.matchQuality === 'minimal'
+            ? 'Minimal conditions'
+            : 'Fair conditions';
 
   const preferredSizeWarning = score.warnings.find(
     (w) =>

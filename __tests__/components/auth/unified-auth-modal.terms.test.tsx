@@ -54,7 +54,7 @@ jest.mock("@/lib/analytics/auth-events", () => ({
   extractEmailDomain: jest.fn(),
 }));
 
-jest.mock("@/lib/mobile/apple-sign-in", () => ({
+jest.mock("@/lib/auth/apple-sign-in", () => ({
   signInWithApple: jest.fn(),
 }));
 

@@ -5,10 +5,12 @@ import type { BeginnerBeachWithEditorial } from "@/types/beginner";
 
 interface BeginnerSpotListProps {
   cityName: string;
+  stateSlug: string;
+  citySlug: string;
   beaches: BeginnerBeachWithEditorial[];
 }
 
-export function BeginnerSpotList({ cityName, beaches }: BeginnerSpotListProps) {
+export function BeginnerSpotList({ cityName, stateSlug, citySlug, beaches }: BeginnerSpotListProps) {
   return (
     <section data-testid="beginner-spot-list">
       <h2 className="text-2xl font-semibold text-gray-800 mb-4">
@@ -49,7 +51,7 @@ export function BeginnerSpotList({ cityName, beaches }: BeginnerSpotListProps) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-lg font-semibold text-gray-800">
                         <Link
-                          href={`/spots/${beach.slug}`}
+                          href={`/${stateSlug}/${citySlug}/${beach.slug}`}
                           className="hover:text-ocean-blue hover:underline underline-offset-2"
                         >
                           {beach.name}

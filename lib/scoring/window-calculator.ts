@@ -11,8 +11,9 @@ import type {
   OptimalWindow,
   WindowCalculatorOptions,
   WindowBoundaryReason,
+  MultiWindowResult,
 } from './types';
-import { scoreConditions } from './surf-conditions-scorer';
+import { scoreConditions, getConditionCharacter } from './surf-conditions-scorer';
 import { generateWindowMessage } from './message-generator';
 
 // Default configuration
@@ -456,4 +457,251 @@ function findPeakTime(
   }
 
   return scoredForecasts[peakIndex].forecast.forecastTime;
+}
+
+// Threshold for multi-window viability (lower than single-window to surface more options)
+const MULTI_WINDOW_MIN_SCORE = 30;
+// Minimum window duration in hours
+const MULTI_WINDOW_MIN_DURATION_HOURS = 1.5;
+// Minimum gap between windows in hours (closer windows get merged)
+const MULTI_WINDOW_MIN_GAP_HOURS = 2;
+// Default maximum windows to return
+const MULTI_WINDOW_DEFAULT_MAX = 3;
+
+/**
+ * Contiguous block of viable forecast indices
+ */
+interface ViableBlock {
+  startIndex: number;
+  endIndex: number;
+  avgScore: number;
+}
+
+/**
+ * Finds all contiguous blocks where avg score >= threshold.
+ * Does not enforce minimum duration — that is filtered separately.
+ */
+function findAllViableBlocks(
+  scoredForecasts: ScoredForecast[],
+  minScore: number
+): ViableBlock[] {
+  const blocks: ViableBlock[] = [];
+  let blockStart = -1;
+  let runningSum = 0;
+
+  for (let i = 0; i < scoredForecasts.length; i++) {
+    const sf = scoredForecasts[i];
+
+    if (sf.score >= minScore) {
+      if (blockStart === -1) {
+        blockStart = i;
+        runningSum = 0;
+      }
+      runningSum += sf.score;
+    } else {
+      if (blockStart !== -1) {
+        const count = i - blockStart;
+        blocks.push({
+          startIndex: blockStart,
+          endIndex: i - 1,
+          avgScore: runningSum / count,
+        });
+        blockStart = -1;
+        runningSum = 0;
+      }
+    }
+  }
+
+  // Close any open block at end of array
+  if (blockStart !== -1) {
+    const count = scoredForecasts.length - blockStart;
+    blocks.push({
+      startIndex: blockStart,
+      endIndex: scoredForecasts.length - 1,
+      avgScore: runningSum / count,
+    });
+  }
+
+  return blocks;
+}
+
+/**
+ * Returns the number of hours between two forecast indices.
+ * Uses actual forecast timestamps for accuracy.
+ */
+function hoursBetweenBlocks(
+  scoredForecasts: ScoredForecast[],
+  endIndex: number,
+  startIndex: number
+): number {
+  const endTime = scoredForecasts[endIndex].forecast.forecastTime;
+  const startTime = scoredForecasts[startIndex].forecast.forecastTime;
+  return (startTime.getTime() - endTime.getTime()) / (1000 * 60 * 60);
+}
+
+/**
+ * Returns the duration of a block in hours using actual timestamps.
+ */
+function blockDurationHours(
+  scoredForecasts: ScoredForecast[],
+  block: ViableBlock
+): number {
+  const startTime = scoredForecasts[block.startIndex].forecast.forecastTime;
+  const endTime = scoredForecasts[block.endIndex].forecast.forecastTime;
+  return (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+}
+
+/**
+ * Merges blocks that are less than minGapHours apart.
+ * The merged block spans both original blocks (including the gap).
+ * avgScore is recalculated across all forecasts in the merged span.
+ */
+function mergeCloseBlocks(
+  blocks: ViableBlock[],
+  scoredForecasts: ScoredForecast[],
+  minGapHours: number
+): ViableBlock[] {
+  if (blocks.length <= 1) return blocks;
+
+  const merged: ViableBlock[] = [{ ...blocks[0] }];
+
+  for (let i = 1; i < blocks.length; i++) {
+    const prev = merged[merged.length - 1];
+    const curr = blocks[i];
+
+    const gap = hoursBetweenBlocks(scoredForecasts, prev.endIndex, curr.startIndex);
+
+    if (gap <= minGapHours) {
+      // Merge: extend previous block to include current
+      const newEnd = curr.endIndex;
+      const count = newEnd - prev.startIndex + 1;
+      const sum = scoredForecasts
+        .slice(prev.startIndex, newEnd + 1)
+        .reduce((acc, sf) => acc + sf.score, 0);
+      prev.endIndex = newEnd;
+      prev.avgScore = sum / count;
+    } else {
+      merged.push({ ...curr });
+    }
+  }
+
+  return merged;
+}
+
+/**
+ * Converts a ViableBlock into an OptimalWindow, filling in all required fields.
+ */
+function buildWindowFromBlock(
+  block: ViableBlock,
+  scoredForecasts: ScoredForecast[],
+  beach: BeachWithThresholds,
+  minScore: number
+): OptimalWindow {
+  const startInfo = calculateWindowStart(scoredForecasts, block.startIndex, minScore);
+  const endInfo = calculateWindowEnd(scoredForecasts, block.endIndex, minScore);
+
+  const peakTime = findPeakTime(scoredForecasts, block.startIndex, block.endIndex);
+  const message = generateWindowMessage(startInfo.reason, endInfo.reason);
+
+  // Get condition character from the peak forecast (most representative moment)
+  const peakIndex = scoredForecasts
+    .slice(block.startIndex, block.endIndex + 1)
+    .reduce<number>(
+      (bestI, sf, i) =>
+        sf.score > scoredForecasts[block.startIndex + bestI].score ? i : bestI,
+      0
+    );
+  const peakForecast = scoredForecasts[block.startIndex + peakIndex].forecast;
+  const peakScore = scoredForecasts[block.startIndex + peakIndex].score;
+
+  // Build subscores proxy using the scorer output for the peak forecast
+  const peakScoreResult = scoreConditions(peakForecast, beach);
+  const character = getConditionCharacter(
+    peakForecast,
+    beach,
+    peakScoreResult.subscores,
+    peakScore
+  );
+
+  return {
+    start: startInfo.time,
+    end: endInfo.time,
+    startReason: startInfo.reason,
+    endReason: endInfo.reason,
+    message,
+    peakTime,
+    avgScore: parseFloat(block.avgScore.toFixed(1)),
+    character,
+  };
+}
+
+/**
+ * Calculates multiple viable surf windows from a day's forecast data.
+ *
+ * Unlike `calculateOptimalWindow()` which finds the single best window,
+ * this function:
+ * - Uses a lower viability threshold (30 vs 40) to surface more options
+ * - Returns up to 3 (or maxWindows) windows, each ≥1.5 hours long
+ * - Merges windows that are <2 hours apart
+ * - Ranks windows by average score (best first)
+ * - Attaches condition character to each window
+ *
+ * The existing `calculateOptimalWindow()` is unchanged for backwards compatibility.
+ *
+ * @param forecasts - Array of forecast data points for the day
+ * @param beach - Beach configuration with wind/tide thresholds
+ * @param options - Optional configuration (inherits WindowCalculatorOptions + maxWindows)
+ * @returns MultiWindowResult with ranked windows and bestWindow reference
+ */
+export function calculateMultipleWindows(
+  forecasts: ForecastForScoring[],
+  beach: BeachWithThresholds,
+  options: WindowCalculatorOptions & { maxWindows?: number } = {}
+): MultiWindowResult {
+  const empty: MultiWindowResult = { windows: [], bestWindow: null };
+
+  if (forecasts.length === 0) return empty;
+
+  const minScore = options.minScoreThreshold ?? MULTI_WINDOW_MIN_SCORE;
+  const maxWindows = options.maxWindows ?? MULTI_WINDOW_DEFAULT_MAX;
+
+  // Score all forecasts
+  const scoredForecasts: ScoredForecast[] = forecasts.map(forecast => {
+    const result = scoreConditions(forecast, beach);
+    return {
+      forecast,
+      score: result.total,
+      isViable: result.total >= minScore,
+    };
+  });
+
+  // Find all contiguous blocks above threshold
+  let blocks = findAllViableBlocks(scoredForecasts, minScore);
+
+  if (blocks.length === 0) return empty;
+
+  // Merge blocks that are too close together
+  blocks = mergeCloseBlocks(blocks, scoredForecasts, MULTI_WINDOW_MIN_GAP_HOURS);
+
+  // Filter blocks that are too short
+  blocks = blocks.filter(
+    block => blockDurationHours(scoredForecasts, block) >= MULTI_WINDOW_MIN_DURATION_HOURS
+  );
+
+  if (blocks.length === 0) return empty;
+
+  // Sort by avg score descending
+  blocks.sort((a, b) => b.avgScore - a.avgScore);
+
+  // Take top N windows
+  const topBlocks = blocks.slice(0, maxWindows);
+
+  // Build OptimalWindow objects
+  const windows: OptimalWindow[] = topBlocks.map(block =>
+    buildWindowFromBlock(block, scoredForecasts, beach, minScore)
+  );
+
+  const bestWindow = windows.length > 0 ? windows[0] : null;
+
+  return { windows, bestWindow };
 }

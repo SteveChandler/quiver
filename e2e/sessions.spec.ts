@@ -69,17 +69,22 @@ test.describe('Sessions Page', () => {
   });
 
   test('should allow clicking on session to view details', async ({ page }) => {
-    // Check if there are sessions
-    const sessionLinks = page.locator('a[href^="/sessions/"]');
+    // Find session detail links (exclude /sessions/new links)
+    const sessionLinks = page.locator('a[href^="/sessions/"]:not([href*="/sessions/new"])');
     const count = await sessionLinks.count();
 
     if (count > 0) {
-      // Click first session
+      const href = await sessionLinks.first().getAttribute('href');
       await sessionLinks.first().click();
+
+      // Wait for navigation to the session detail page
+      if (href) {
+        await page.waitForURL(new RegExp(href.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), { timeout: 15000 });
+      }
       await waitForPageLoad(page);
 
-      // Should navigate to session detail
-      expect(page.url()).toContain('/sessions/');
+      // URL should contain /sessions/ followed by an ID (not just /sessions)
+      expect(page.url()).toMatch(/\/sessions\/[^/]+/);
     } else {
       test.skip(true, 'No sessions available to test navigation');
       return;

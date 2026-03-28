@@ -1,4 +1,6 @@
 /**
+ * @jest-environment node
+ *
  * Tests for natural language message generation utilities
  */
 

@@ -128,7 +128,7 @@ export function BeginnerPageContent({
 
           {/* Module 3: Curated Spot Cards */}
           <SectionFadeUp delay={0.15}>
-            <BeginnerSpotList cityName={cityName} beaches={beaches} />
+            <BeginnerSpotList cityName={cityName} stateSlug={stateSlug} citySlug={citySlug} beaches={beaches} />
           </SectionFadeUp>
 
           {/* Inline Signup CTA */}

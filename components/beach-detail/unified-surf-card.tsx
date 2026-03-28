@@ -1,13 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock, AlertCircle, Share2 } from "lucide-react";
+import { Clock, AlertCircle, Share2, TrendingUp, TrendingDown, Waves, Zap } from "lucide-react";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import type { TrendTag } from "@/lib/scoring";
+import type { ConditionCharacterCategory } from "@/lib/scoring/types";
 import { formatTimeInTimezone, formatTimeCasual } from "@/lib/utils/date-time";
 import { ShareSheet } from "@/components/share/share-sheet";
 import { buildSurfCallShareUrl } from "@/lib/share/build-share-card-url";
+import { cn } from "@/lib/utils";
 
 const TREND_TAG_STYLES: Record<TrendTag, { bg: string; text: string }> = {
   "Winds Dropping": { bg: "bg-green-100", text: "text-green-700" },
@@ -18,12 +20,104 @@ const TREND_TAG_STYLES: Record<TrendTag, { bg: string; text: string }> = {
   "Clean Swell": { bg: "bg-purple-100", text: "text-purple-700" },
 };
 
+// ------------------------------------------------------------------
+// Character category → color mapping
+// Mirrors the same mapping in PersonalizedBadge for consistency.
+// ------------------------------------------------------------------
+
+function getCharacterLabelColor(category: ConditionCharacterCategory): string {
+  switch (category) {
+    case "small-quality":
+      return "text-amber-600 dark:text-amber-400";
+    case "small-clean":
+      return "text-yellow-600 dark:text-yellow-400";
+    case "medium-clean":
+    case "medium-mixed":
+      return "text-blue-600 dark:text-blue-400";
+    case "large-clean":
+      return "text-blue-700 dark:text-blue-300";
+    case "large-rough":
+      return "text-orange-600 dark:text-orange-400";
+    case "flat":
+    case "small-weak":
+      return "text-gray-500 dark:text-gray-400";
+    case "skip":
+    default:
+      return "text-gray-400 dark:text-gray-500";
+  }
+}
+
+// ------------------------------------------------------------------
+// ContextChip — sticker-style relative context badge.
+// Replicates the same component in best-surf-window.tsx for use here.
+// Rotation uses inline style (not dynamic Tailwind) to avoid purging.
+// ------------------------------------------------------------------
+
+type ContextChipVariant = "gold" | "up" | "down" | "stable" | "swell" | "neutral";
+
+const CONTEXT_CHIP_VARIANT_CLASSES: Record<ContextChipVariant, string> = {
+  gold: "bg-amber-100/80 text-amber-800 border border-amber-300/60 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700/40",
+  up: "bg-emerald-100/80 text-emerald-800 border border-emerald-300/60 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700/40",
+  down: "bg-rose-100/80 text-rose-800 border border-rose-300/60 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-700/40",
+  stable: "bg-gray-100/80 text-gray-700 border border-gray-300/60 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-600/40",
+  swell: "bg-blue-100/80 text-blue-800 border border-blue-300/60 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700/40",
+  neutral: "bg-gray-100/60 text-gray-600 border border-gray-200/60 dark:bg-gray-800/30 dark:text-gray-400 dark:border-gray-700/40",
+};
+
+function ContextChip({
+  children,
+  variant = "neutral",
+  rotate = 0,
+  className,
+}: {
+  children: React.ReactNode;
+  variant?: ContextChipVariant;
+  rotate?: number;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-[6px_10px_8px_10px] px-2.5 py-1 text-xs font-medium",
+        CONTEXT_CHIP_VARIANT_CLASSES[variant],
+        // Cancel rotation for users who prefer reduced motion
+        "motion-reduce:!transform-none",
+        className
+      )}
+      // Inline style for rotation — avoids dynamic Tailwind class purging.
+      style={rotate !== 0 ? { transform: `rotate(${rotate}deg)` } : undefined}
+    >
+      {children}
+    </span>
+  );
+}
+
 interface UnifiedSurfCardProps {
   surfCall: SurfCallResult;
   beachTimezone?: string | null;
   beachName: string;
   beachSlug?: string;
   isTomorrow?: boolean;
+  /**
+   * Qualitative character of the conditions, e.g. "Small but powerful — long-period energy".
+   * Rendered below the window time in Space Mono with category-appropriate color.
+   */
+  character?: { label: string; category: string };
+  /**
+   * Board recommendation from the user's quiver.
+   * Shown as a subtle callout: "Grab your [boardName]".
+   */
+  boardPick?: { boardName: string; boardType: string; reason: string } | null;
+  /**
+   * Relative context: best-of-week flag, trend, and incoming swell.
+   * Shown as sticker-style chips (max 2) below the main card content.
+   * Priority: isBestOfWeek > incomingSwell > trend.
+   */
+  relativeContext?: {
+    isBestOfWeek: boolean;
+    trend: "improving" | "declining" | "stable";
+    incomingSwell?: { date: string; description: string } | null;
+  };
 }
 
 export function UnifiedSurfCard({
@@ -32,6 +126,9 @@ export function UnifiedSurfCard({
   beachName,
   beachSlug,
   isTomorrow,
+  character,
+  boardPick,
+  relativeContext,
 }: UnifiedSurfCardProps) {
   const [shareOpen, setShareOpen] = useState(false);
 
@@ -39,6 +136,83 @@ export function UnifiedSurfCard({
     () => formatTimeInTimezone(surfCall.updatedAt, beachTimezone),
     [surfCall.updatedAt, beachTimezone]
   );
+
+  // Build relative context badges (max 2), priority: best-of-week > swell > trend
+  const contextBadges = useMemo(() => {
+    if (!relativeContext) return [];
+
+    const badges: Array<{
+      key: string;
+      variant: ContextChipVariant;
+      rotate: number;
+      content: React.ReactNode;
+    }> = [];
+
+    if (relativeContext.isBestOfWeek) {
+      badges.push({
+        key: "best-week",
+        variant: "gold",
+        rotate: -1,
+        content: (
+          <>
+            <Zap className="h-3 w-3" aria-hidden="true" />
+            Best conditions this week
+          </>
+        ),
+      });
+    }
+
+    if (relativeContext.incomingSwell) {
+      const swellDate = (() => {
+        try {
+          return new Date(relativeContext.incomingSwell.date).toLocaleDateString([], {
+            weekday: "short",
+          });
+        } catch {
+          return relativeContext.incomingSwell.date;
+        }
+      })();
+      badges.push({
+        key: "swell-incoming",
+        variant: "swell",
+        rotate: 1,
+        content: (
+          <>
+            <Waves className="h-3 w-3" aria-hidden="true" />
+            Swell incoming {swellDate}
+          </>
+        ),
+      });
+    } else if (badges.length < 2) {
+      if (relativeContext.trend === "improving") {
+        badges.push({
+          key: "trend-up",
+          variant: "up",
+          rotate: 0,
+          content: (
+            <>
+              <TrendingUp className="h-3 w-3" aria-hidden="true" />
+              Conditions improving
+            </>
+          ),
+        });
+      } else if (relativeContext.trend === "declining") {
+        badges.push({
+          key: "trend-down",
+          variant: "down",
+          rotate: 0,
+          content: (
+            <>
+              <TrendingDown className="h-3 w-3" aria-hidden="true" />
+              Conditions declining
+            </>
+          ),
+        });
+      }
+    }
+
+    return badges.slice(0, 2);
+  }, [relativeContext]);
 
   // Handle NO verdict or missing window
   if (
@@ -113,7 +287,35 @@ export function UnifiedSurfCard({
           {showBestAtTag && (
             <p className="text-sm text-blue-700">Best at {peakTimeCasual}</p>
           )}
+
+          {/* Condition character label — sticker aesthetic, Space Mono, category-colored */}
+          {character && (
+            <p
+              className={cn(
+                "font-mono text-sm leading-snug tracking-tight mt-2",
+                getCharacterLabelColor(character.category as ConditionCharacterCategory)
+              )}
+            >
+              {character.label}
+            </p>
+          )}
         </div>
+
+        {/* Board pick — subtle callout, only when available */}
+        {boardPick && (
+          <div className="flex items-center gap-2 rounded-lg border border-amber-200/60 bg-amber-50/60 dark:border-amber-800/40 dark:bg-amber-900/10 px-3 py-2">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200 truncate">
+                Grab your {boardPick.boardName}
+              </p>
+              {boardPick.reason && (
+                <p className="text-xs text-amber-700/80 dark:text-amber-400/80 truncate">
+                  {boardPick.reason}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Trend Tags */}
         {surfCall.trendTags.length > 0 && (
@@ -154,6 +356,23 @@ export function UnifiedSurfCard({
             {surfCall.whySentence}
           </p>
         </div>
+
+        {/* Relative context chips — max 2, sticker-style */}
+        {contextBadges.length > 0 && (
+          <div
+            className="flex flex-wrap gap-2"
+            role="list"
+            aria-label="Condition context"
+          >
+            {contextBadges.map((badge) => (
+              <div key={badge.key} role="listitem">
+                <ContextChip variant={badge.variant} rotate={badge.rotate}>
+                  {badge.content}
+                </ContextChip>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Low Confidence Badge */}
         {surfCall.lowForecastConfidence && (

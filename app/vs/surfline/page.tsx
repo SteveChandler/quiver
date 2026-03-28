@@ -759,11 +759,11 @@ export default function VsSurflinePage() {
           <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {[
               { name: "Blacks Beach", href: "/ca/san-diego/blacks" },
-              { name: "Huntington Beach", href: "/ca/huntington-beach/huntington-beach" },
-              { name: "Trestles", href: "/ca/san-clemente/trestles" },
-              { name: "Pipeline", href: "/hi/north-shore/pipeline" },
-              { name: "Rincon", href: "/ca/santa-barbara/rincon" },
-              { name: "Ocean Beach SF", href: "/ca/san-francisco/ocean-beach" },
+              { name: "Huntington Beach", href: "/ca/huntington-beach" },
+              { name: "Lower Trestles", href: "/ca/san-onofre/lower-trestles" },
+              { name: "Pipeline", href: "/hi/haleiwa/pipeline" },
+              { name: "Rincon", href: "/ca/carpinteria/rincon-carpinteria-ca" },
+              { name: "Ocean Beach SF", href: "/ca/san-francisco/ocean-beach-middle-san-francisco-ca" },
             ].map((beach) => (
               <Link
                 key={beach.href}

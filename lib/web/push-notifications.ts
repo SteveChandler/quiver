@@ -1,7 +1,6 @@
 /**
  * Web Push Notifications Client
  * Handles FCM token registration and notification handling for web browsers
- * Mirrors the structure of lib/mobile/push-notifications.ts
  */
 
 import { getToken, onMessage, type Unsubscribe } from "firebase/messaging";

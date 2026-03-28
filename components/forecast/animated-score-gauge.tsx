@@ -6,6 +6,14 @@
  * Radial progress gauge for displaying surf condition scores.
  * Features animated arc fill, count-up number, and glow effects.
  *
+ * Score color thresholds align with MatchQuality from the scoring system:
+ *   ≥85  perfect  → green
+ *   ≥70  excellent → blue
+ *   ≥55  good     → teal/cyan
+ *   ≥40  fair     → amber/yellow
+ *   ≥30  minimal  → warm gray  (NEW — replaces previous single gray bucket)
+ *   <30  skip     → cool gray
+ *
  * @module components/forecast/animated-score-gauge
  */
 
@@ -16,6 +24,7 @@ import {
   getScoreColorClasses,
   SCORE_THRESHOLDS,
 } from "@/lib/utils/score-color-utils";
+import type { ConditionCharacter } from "@/lib/scoring/types";
 
 /**
  * Props for the AnimatedScoreGauge component
@@ -27,6 +36,11 @@ export interface AnimatedScoreGaugeProps {
   size?: "sm" | "md" | "lg" | "xl";
   /** Whether to show the quality label below the gauge */
   showLabel?: boolean;
+  /**
+   * Optional condition character to show below the gauge number.
+   * Only rendered when size is "lg" or "xl" and showLabel is true.
+   */
+  character?: ConditionCharacter;
   /** Animation duration in milliseconds (default: 1200) */
   duration?: number;
   /** Whether to enable glow effect on high scores (default: true) */
@@ -46,44 +60,94 @@ const SIZE_CONFIG = {
     strokeWidth: 4,
     fontSize: "text-sm",
     labelSize: "text-xs",
+    showCharacter: false,
   },
   md: {
     size: 64,
     strokeWidth: 5,
     fontSize: "text-lg",
     labelSize: "text-xs",
+    showCharacter: false,
   },
   lg: {
     size: 96,
     strokeWidth: 6,
     fontSize: "text-2xl",
     labelSize: "text-sm",
+    showCharacter: true,
   },
   xl: {
     size: 128,
     strokeWidth: 8,
     fontSize: "text-4xl",
     labelSize: "text-base",
+    showCharacter: true,
   },
 } as const;
 
 /**
- * Get stroke color based on score
+ * Extended score thresholds that include the new 'minimal' band (30-39).
+ *
+ * The existing SCORE_THRESHOLDS from score-color-utils uses a coarser
+ * 4-bucket system (80/60/40/0). The gauge uses a finer 6-bucket system
+ * that maps directly to MatchQuality values from the scoring engine.
+ */
+const GAUGE_THRESHOLDS = {
+  PERFECT: 85,    // green
+  EXCELLENT: 70,  // blue
+  GOOD: 55,       // teal/cyan
+  FAIR: 40,       // amber/yellow
+  MINIMAL: 30,    // warm gray (new)
+  // below 30 → skip → cool gray
+} as const;
+
+/**
+ * Get stroke color based on score, using the fine-grained gauge thresholds.
  */
 function getStrokeColor(score: number): string {
-  if (score >= SCORE_THRESHOLDS.EPIC) return "#22c55e"; // green-500
-  if (score >= SCORE_THRESHOLDS.GOOD) return "#3b82f6"; // blue-500
-  if (score >= SCORE_THRESHOLDS.FAIR) return "#eab308"; // yellow-500
-  return "#9ca3af"; // gray-400
+  if (score >= GAUGE_THRESHOLDS.PERFECT)   return "#22c55e"; // green-500
+  if (score >= GAUGE_THRESHOLDS.EXCELLENT) return "#3b82f6"; // blue-500
+  if (score >= GAUGE_THRESHOLDS.GOOD)      return "#14b8a6"; // teal-500
+  if (score >= GAUGE_THRESHOLDS.FAIR)      return "#f59e0b"; // amber-500
+  if (score >= GAUGE_THRESHOLDS.MINIMAL)   return "#a8a29e"; // warm stone-400
+  return "#9ca3af";                                          // cool gray-400
 }
 
 /**
- * Get glow color based on score
+ * Get glow color based on score.
+ * Only high-quality scores get a glow — sparse accents hit harder.
  */
 function getGlowColor(score: number): string {
-  if (score >= SCORE_THRESHOLDS.EPIC) return "rgba(34, 197, 94, 0.4)";
-  if (score >= SCORE_THRESHOLDS.GOOD) return "rgba(59, 130, 246, 0.3)";
+  if (score >= GAUGE_THRESHOLDS.PERFECT)   return "rgba(34, 197, 94, 0.4)";  // green glow
+  if (score >= GAUGE_THRESHOLDS.EXCELLENT) return "rgba(59, 130, 246, 0.3)"; // blue glow
+  if (score >= GAUGE_THRESHOLDS.GOOD)      return "rgba(20, 184, 166, 0.25)"; // teal glow
   return "transparent";
+}
+
+/**
+ * Quality label that maps to MatchQuality names from the scoring engine.
+ * Used when showLabel is true and no character is provided.
+ */
+function getQualityLabel(score: number): string {
+  if (score >= GAUGE_THRESHOLDS.PERFECT)   return "Perfect";
+  if (score >= GAUGE_THRESHOLDS.EXCELLENT) return "Excellent";
+  if (score >= GAUGE_THRESHOLDS.GOOD)      return "Good";
+  if (score >= GAUGE_THRESHOLDS.FAIR)      return "Fair";
+  if (score >= GAUGE_THRESHOLDS.MINIMAL)   return "Minimal";
+  return "Skip";
+}
+
+/**
+ * Text color class for the quality label, matching the stroke color palette.
+ */
+function getLabelTextClass(score: number, isHero: boolean): string {
+  if (isHero) return "text-white";
+  if (score >= GAUGE_THRESHOLDS.PERFECT)   return "text-green-700 dark:text-green-400";
+  if (score >= GAUGE_THRESHOLDS.EXCELLENT) return "text-blue-700 dark:text-blue-400";
+  if (score >= GAUGE_THRESHOLDS.GOOD)      return "text-teal-600 dark:text-teal-400";
+  if (score >= GAUGE_THRESHOLDS.FAIR)      return "text-amber-600 dark:text-amber-400";
+  if (score >= GAUGE_THRESHOLDS.MINIMAL)   return "text-stone-500 dark:text-stone-400";
+  return "text-gray-500 dark:text-gray-400";
 }
 
 /**
@@ -97,18 +161,29 @@ function easeOutCubic(t: number): number {
  * AnimatedScoreGauge Component
  *
  * Displays a score as an animated radial gauge with color-coded
- * fill based on quality thresholds. High scores (80+) feature
+ * fill based on quality thresholds. High scores (≥70) feature
  * a subtle glow effect.
  *
- * @example
+ * On lg/xl sizes with showLabel=true, also renders the condition
+ * character label below the quality label for richer context.
+ *
+ * @example Basic usage
  * ```tsx
- * // Basic usage
  * <AnimatedScoreGauge score={85} />
+ * ```
  *
- * // Large gauge with label
- * <AnimatedScoreGauge score={72} size="lg" showLabel />
+ * @example Large gauge with label and character
+ * ```tsx
+ * <AnimatedScoreGauge
+ *   score={52}
+ *   size="lg"
+ *   showLabel
+ *   character={{ label: "Small but powerful — long-period energy", category: "small-quality" }}
+ * />
+ * ```
  *
- * // Extra large hero gauge
+ * @example Extra large hero gauge
+ * ```tsx
  * <AnimatedScoreGauge score={90} size="xl" showLabel />
  * ```
  */
@@ -116,6 +191,7 @@ export function AnimatedScoreGauge({
   score,
   size = "md",
   showLabel = false,
+  character,
   duration = 1200,
   enableGlow = true,
   variant = "default",
@@ -134,6 +210,7 @@ export function AnimatedScoreGauge({
   const circumference = 2 * Math.PI * radius;
   const strokeColor = isHero ? "#ffffff" : getStrokeColor(score);
   const glowColor = isHero ? "rgba(255,255,255,0.3)" : getGlowColor(score);
+  // scoreColors from the shared utility (4-bucket) is still used for number text colour
   const scoreColors = getScoreColorClasses(score);
 
   // Calculate target offset (0 = full, circumference = empty)
@@ -201,8 +278,14 @@ export function AnimatedScoreGauge({
     };
   }, [animate, hasAnimated]);
 
-  // Should show glow effect
-  const showGlow = enableGlow && score >= SCORE_THRESHOLDS.GOOD && hasAnimated;
+  // Show glow only for excellent+ scores to keep accents sparse
+  const showGlow = enableGlow && score >= GAUGE_THRESHOLDS.EXCELLENT && hasAnimated;
+
+  // Whether to show character — only on detail-page-sized gauges
+  const shouldShowCharacter =
+    showLabel && character && config.showCharacter && !isHero;
+
+  const labelTextClass = getLabelTextClass(score, isHero);
 
   return (
     <div
@@ -213,7 +296,7 @@ export function AnimatedScoreGauge({
       <div
         className={cn(
           "relative",
-          showGlow && "animate-pulse-glow"
+          showGlow && !reducedMotion && "animate-pulse-glow"
         )}
         style={{
           width: config.size,
@@ -226,6 +309,7 @@ export function AnimatedScoreGauge({
           height={config.size}
           viewBox={`0 0 ${config.size} ${config.size}`}
           className="transform -rotate-90"
+          aria-hidden="true"
         >
           {/* Background circle */}
           <circle
@@ -261,25 +345,48 @@ export function AnimatedScoreGauge({
               config.fontSize,
               isHero ? "text-white" : scoreColors.text
             )}
+            aria-label={`Score: ${score}`}
           >
             {displayScore}
           </span>
         </div>
       </div>
 
-      {/* Quality label */}
+      {/* Quality label — always shows when showLabel is true */}
       {showLabel && (
-        <span
-          className={cn(
-            "font-medium",
-            config.labelSize,
-            isHero ? "text-high" : scoreColors.text,
-            !hasAnimated && !reducedMotion && "opacity-0",
-            hasAnimated && "animate-fade-in"
+        <div className="flex flex-col items-center gap-0.5">
+          <span
+            className={cn(
+              "font-medium",
+              config.labelSize,
+              labelTextClass,
+              !hasAnimated && !reducedMotion && "opacity-0",
+              hasAnimated && "motion-safe:animate-fade-in"
+            )}
+          >
+            {getQualityLabel(score)}
+          </span>
+
+          {/*
+           * Condition character label — lg/xl sizes only, non-hero variant.
+           * Uses font-mono for that surf-shop-window sticker look.
+           * Fades in after the quality label so it doesn't compete.
+           */}
+          {shouldShowCharacter && (
+            <span
+              className={cn(
+                "font-mono text-center leading-snug tracking-tight",
+                size === "xl" ? "text-sm" : "text-xs",
+                labelTextClass,
+                "opacity-80", // slightly recede behind the quality label
+                !hasAnimated && !reducedMotion && "opacity-0",
+                hasAnimated && "motion-safe:animate-fade-in"
+              )}
+            >
+              {character!.label}
+            </span>
           )}
-        >
-          {scoreColors.label}
-        </span>
+        </div>
       )}
     </div>
   );

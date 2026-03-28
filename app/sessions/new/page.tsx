@@ -14,6 +14,7 @@ import { FormErrorBoundary } from "@/components/error-boundaries";
 import { useSessionSubmission } from "./useSessionSubmission";
 import { PostSessionShare } from "@/components/session/post-session-share";
 import { ShareSheet } from "@/components/share/share-sheet";
+import { useNearestBeach } from "@/hooks/use-nearest-beach";
 
 interface NewSessionPageContentProps {
   initialFormState?: Partial<SessionFormState>;
@@ -28,6 +29,13 @@ function NewSessionPageContent({
 }: NewSessionPageContentProps) {
   const router = useRouter();
   const { user, isLoading } = useAuth();
+
+  // Auto-detect nearest beach for quick-log mode
+  const nearestBeach = useNearestBeach({
+    urlBeachId: initialFormState?.selectedBeachId,
+    urlBeachName: initialFormState?.selectedBeach,
+    skipGps: mode !== "log",
+  });
 
   // Session submission hook - manages all post-save flows
   const submission = useSessionSubmission({
@@ -74,7 +82,20 @@ function NewSessionPageContent({
           onComplete={submission.handleSessionComplete}
           onCancel={handleCancel}
           className="min-h-screen"
-          initialFormState={initialFormState}
+          initialFormState={
+            // Pre-fill beach from auto-detection when high confidence
+            nearestBeach.confidence === "high" && nearestBeach.beach
+              ? {
+                  ...initialFormState,
+                  selectedBeachId: initialFormState?.selectedBeachId || nearestBeach.beach.id,
+                  selectedBeach: initialFormState?.selectedBeach || nearestBeach.beach.name,
+                }
+              : initialFormState
+          }
+          quickMode={mode === "log"}
+          detectedBeach={nearestBeach.beach}
+          detectedSource={nearestBeach.source}
+          detectedConfidence={nearestBeach.confidence}
         />
       </FormErrorBoundary>
 

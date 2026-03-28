@@ -1,4 +1,6 @@
 /**
+ * @jest-environment node
+ *
  * Tests for window calculator - finds optimal surf windows
  */
 

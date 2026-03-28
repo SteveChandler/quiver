@@ -208,50 +208,58 @@ test.describe('Session Form - Log Mode', () => {
     }
   });
 
-  test('should show "Forecast from Your Session" and never render NaN @smoke', async ({
+  test('should allow filling quick-log form and never render NaN @smoke', async ({
     page,
   }) => {
-    // Select beach and fill date/time — all fields are visible without step navigation
+    // Log mode now renders QuickLogView with time presets instead of date/time inputs.
+    // Select beach via search input
     const beachInput = page.getByTestId('beach-search-input');
-    await expect(beachInput).toBeVisible({ timeout: 10000 });
 
-    await beachInput.fill('Black');
+    // QuickLogView may auto-detect a beach — if not, the manual search is shown
+    const hasSearch = await isVisibleSafe(beachInput, { timeout: 5000 });
+    if (hasSearch) {
+      await beachInput.fill('Black');
 
-    // Select from the dropdown list rendered by BeachSelector
-    const beachSelectorRoot = beachInput.locator('..');
-    const beachOption = beachSelectorRoot
-      .locator('ul')
-      .locator('button')
-      .filter({ hasText: /black/i })
-      .first();
+      const beachSelectorRoot = beachInput.locator('..');
+      const beachOption = beachSelectorRoot
+        .locator('ul')
+        .locator('button')
+        .filter({ hasText: /black/i })
+        .first();
 
-    await expect(beachOption).toBeVisible({ timeout: 15000 });
-    await beachOption.click();
+      await expect(beachOption).toBeVisible({ timeout: 15000 });
+      await beachOption.click();
+    } else {
+      // QuickLogView auto-detected a beach — confirm if prompted (low confidence shows "Yeah" button)
+      const confirmButton = page.getByRole('button', { name: /yeah/i });
+      if (await isVisibleSafe(confirmButton, { timeout: 3000 })) {
+        await confirmButton.click();
+      }
+    }
 
-    // Fill date and time — both are always visible in the scroll form
-    const dateInput = page.getByTestId('session-date-input');
-    await expect(dateInput).toBeVisible({ timeout: 15000 });
+    // Select a time preset (QuickLogView uses chip buttons, not date/time inputs)
+    const morningPreset = page.getByRole('button', { name: /morning/i });
+    await expect(morningPreset).toBeVisible({ timeout: 10000 });
+    await morningPreset.click();
 
-    const today = new Date().toISOString().split('T')[0];
-    await dateInput.fill(today);
+    // Set overall rating via the slider
+    const slider = page.getByRole('slider').first();
+    if (await isVisibleSafe(slider, { timeout: 5000 })) {
+      await slider.focus();
+      await page.keyboard.press('ArrowRight');
+    }
 
-    const timeInput = page.getByTestId('session-time-input');
-    await expect(timeInput).toBeVisible({ timeout: 15000 });
-    await timeInput.fill('06:00');
-
-    // Forecast card renders inline in the scroll form after beach + date/time are set
-    const forecastHeading = page.getByRole('heading', {
-      name: /forecast from your session/i,
-    });
-    await expect(forecastHeading).toBeVisible({ timeout: 20000 });
-
-    // Assert no NaN appears anywhere in the forecast card or page body.
-    // This specifically guards against the prior NaNNaNNaN regression.
-    const forecastCard = forecastHeading.locator('..');
-    await expect(forecastCard).not.toContainText('NaN', { timeout: 20000 });
+    // Assert no NaN appears anywhere on the page.
+    // This guards against the prior NaNNaNNaN regression in session form rendering.
     await expect(page.locator('body')).not.toContainText('NaN', {
-      timeout: 20000,
+      timeout: 10000,
     });
+
+    // Also check the forecast accuracy section specifically for NaN
+    const forecastSection = page.getByText(/was our forecast right/i).locator('..');
+    if (await isVisibleSafe(forecastSection, { timeout: 3000 })) {
+      await expect(forecastSection).not.toContainText('NaN');
+    }
   });
 });
 
@@ -392,29 +400,44 @@ test.describe('Session Form - Forecast Snapshot Creation', () => {
     await page.goto('/sessions/new?mode=log');
     await waitForPageLoad(page);
 
-    // Select beach — always visible in scroll form, no step navigation needed
+    // Select beach — QuickLogView may auto-detect or show search input
     const beachInput = page.getByTestId('beach-search-input');
-    await expect(beachInput).toBeVisible({ timeout: 10000 });
+    const hasBeachInput = await isVisibleSafe(beachInput, { timeout: 5000 });
 
-    await beachInput.fill('Black');
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for search input debounce
-    await page.waitForTimeout(1000);
+    if (hasBeachInput) {
+      await beachInput.fill('Black');
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for search input debounce
+      await page.waitForTimeout(1000);
 
-    const beachSelectorRoot = beachInput.locator('..');
-    const beachOption = beachSelectorRoot.locator('ul').locator('button').filter({ hasText: /black/i }).first();
-    const hasOption = await isVisibleSafe(beachOption);
+      const beachSelectorRoot = beachInput.locator('..');
+      const beachOption = beachSelectorRoot.locator('ul').locator('button').filter({ hasText: /black/i }).first();
+      const hasOption = await isVisibleSafe(beachOption);
 
-    if (hasOption) {
-      await beachOption.click();
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for beach selection to apply
-      await page.waitForTimeout(500);
+      if (hasOption) {
+        await beachOption.click();
+        // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for beach selection to apply
+        await page.waitForTimeout(500);
+      }
+    } else {
+      // QuickLogView auto-detected a beach — confirm if prompted
+      const confirmButton = page.getByRole('button', { name: /yeah/i });
+      if (await isVisibleSafe(confirmButton, { timeout: 3000 })) {
+        await confirmButton.click();
+      }
     }
 
-    // Fill date — always visible in scroll form
-    const dateInput = page.getByTestId('session-date-input').or(page.locator('input[type="date"]')).first();
-    const hasDate = await isVisibleSafe(dateInput);
-    if (hasDate) {
-      await dateInput.fill(new Date().toISOString().split('T')[0]);
+    // Select time — QuickLogView uses time preset buttons, standard form uses date input
+    const morningPreset = page.getByRole('button', { name: /morning/i });
+    const hasMorningPreset = await isVisibleSafe(morningPreset, { timeout: 3000 });
+    if (hasMorningPreset) {
+      await morningPreset.click();
+    } else {
+      // Fallback: standard form with date input
+      const dateInput = page.getByTestId('session-date-input').or(page.locator('input[type="date"]')).first();
+      const hasDate = await isVisibleSafe(dateInput);
+      if (hasDate) {
+        await dateInput.fill(new Date().toISOString().split('T')[0]);
+      }
     }
 
     // Submit — the sticky-footer Save Session button is always visible

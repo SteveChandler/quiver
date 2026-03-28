@@ -7,7 +7,6 @@ import {
   registerWebPushNotifications,
   checkNotificationPermissions,
 } from "@/lib/web/push-notifications";
-import { isNativeApp } from "@/lib/mobile/platform";
 import { track } from "@/lib/analytics";
 
 const WEB_PUSH_REGISTRATION_FLAG = "quiver-web-push-registered";
@@ -53,8 +52,6 @@ export function useWebPushRegistration() {
 
   const canPrompt = useMemo(() => {
     if (typeof window === "undefined") return false;
-    // Don't show for native apps - they use useNativePushRegistration
-    if (isNativeApp()) return false;
     // Check browser support
     if (!isPushSupported()) return false;
     // Don't show if we're already in a pending/completed state
@@ -70,7 +67,6 @@ export function useWebPushRegistration() {
 
   const isSupported = useMemo(() => {
     if (typeof window === "undefined") return false;
-    if (isNativeApp()) return false;
     return isPushSupported();
   }, []);
 
@@ -81,12 +77,6 @@ export function useWebPushRegistration() {
   const requestPushOptIn = useCallback(async (): Promise<WebPushResult> => {
     if (typeof window === "undefined") {
       return { status: "unsupported" };
-    }
-
-    // Skip for native apps
-    if (isNativeApp()) {
-      setStatus("unsupported");
-      return { status: "unsupported", detail: "Use native push for mobile apps" };
     }
 
     // Check browser support

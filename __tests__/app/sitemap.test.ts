@@ -462,8 +462,8 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
 
-      // NOTE: Tides/water-temp sub-pages are excluded from sitemap to reduce thin content signals
-      // They are discoverable via internal links on beach detail pages
+      // Tides/water-temp sub-pages are included in sitemap — they have robust
+      // metadata, FAQs, structured data, and GSC shows Google already ranks them
       const tidesRoute = result.find((r) =>
         r.url.includes("/ca/san-diego/sunset-cliffs/tides")
       );
@@ -471,8 +471,8 @@ describe("Sitemap Generation", () => {
         r.url.includes("/ca/san-diego/sunset-cliffs/water-temp")
       );
 
-      expect(tidesRoute).toBeUndefined();
-      expect(waterTempRoute).toBeUndefined();
+      expect(tidesRoute).toBeTruthy();
+      expect(waterTempRoute).toBeTruthy();
     });
 
     it("should exclude beaches without hierarchical URLs entirely", async () => {
@@ -601,7 +601,7 @@ describe("Sitemap Generation", () => {
       expect(beachRoute?.priority).toBe(0.7);
     });
 
-    it("should set priority 0.55 for beach tides/water-temp routes", async () => {
+    it("should set priority 0.65 for beach tides/water-temp routes", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [
@@ -617,7 +617,6 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
 
-      // NOTE: Tides/water-temp sub-pages are excluded from sitemap to reduce thin content signals
       const tidesRoute = result.find((r) =>
         r.url.includes("/ca/san-diego/sunset-cliffs/tides")
       );
@@ -625,8 +624,10 @@ describe("Sitemap Generation", () => {
         r.url.includes("/ca/san-diego/sunset-cliffs/water-temp")
       );
 
-      expect(tidesRoute).toBeUndefined();
-      expect(waterTempRoute).toBeUndefined();
+      expect(tidesRoute).toBeTruthy();
+      expect(tidesRoute?.priority).toBe(0.65);
+      expect(waterTempRoute).toBeTruthy();
+      expect(waterTempRoute?.priority).toBe(0.65);
     });
 
     it("should use beach updated_at for lastModified", async () => {

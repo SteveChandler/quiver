@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Quick-log session flow — 2-tap session logging (beach + rating) with progressive disclosure for details; auto-detects nearest beach via URL params, localStorage, or GPS
+- Intent-driven homepage CTA copy — "Check your forecast" replaces generic "Start surfing smarter" on the only CTA converting real users
 - Conditions-reactive Oracle greeting — dynamic greetings based on surf score, swell period, wind, time of day, and user absence
 - Session celebration overlay — "Session #N in the books" with condition-reactive subtitle, auto-dismiss, and XP badge
 - OG share card preview in post-session celebration — users see the beautiful share card before deciding to share
@@ -17,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--youtube-live-check` flag for `validate-cameras.ts` to verify YouTube streams are actually live via Data API
 - Rideable waves per hour metric on beach detail page — predicts catchable wave frequency from swell, break type, and conditions; displayed in ConditionsTicker as "~N waves/hr"
 - Landing page "Show spots near me" button — contextual geolocation prompt in surf highlights section upgrades IP-based location to precise browser coordinates for regionally relevant beach results
+- Bluesky social link in site footer
 
 ### Changed
 - Reduced anonymous beach page CTAs from 7-9 to 1 hero CTA — restyled dark theme to prevent ad-blindness
@@ -27,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Microcopy upgrades: "Checking the lineup..." loading states, "Intel board's empty" activity feed, "Lock in your local" contextual CTA, "Paddling out..." auth loading
 
 ### Fixed
+- Surf call tide phase now reflects current conditions instead of conditions at window start — `getWindowTide` selects the forecast row closest to `Date.now()` for today's call; tomorrow's call retains window-start behaviour via `isTomorrow` option on `computeSurfCall`
 - Nulled out 3 dead YouTube cam URLs (Ala Moana Bowls, Waikiki, Higgins Beach) that were showing "stream not available"
 - Landing page "Popular surf spots" no longer shows CA-only beaches for non-CA users — progressively expands search radius (300→500→1000mi) before falling back to global list
 - Security: restored `security_invoker = true` on `ten_day_enhanced_forecasts` view (was lost when view was recreated without it)

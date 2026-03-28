@@ -29,6 +29,9 @@ export interface SurfSpot {
   slug: string;
   name: string;
   citySlug: SurfCitySlug;
+  /** The beach's own city name (e.g. "La Jolla"). Used for hierarchical URL generation.
+   * Falls back to the page's citySlug when absent. */
+  city?: string;
   region: string;
   coordinates: { lat: number; lon: number };
   overview: string;

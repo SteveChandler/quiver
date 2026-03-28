@@ -4,7 +4,18 @@
  */
 
 import { getAttributionForAnalytics } from "@/lib/attribution";
-import { currentPlatform } from "@/lib/mobile/platform";
+
+/**
+ * Detect current platform for analytics purposes based on user agent.
+ * @returns "ios" | "android" | "desktop"
+ */
+function currentPlatform(): "ios" | "android" | "desktop" {
+  if (typeof navigator === "undefined") return "desktop";
+  const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
+  if (/android/i.test(ua)) return "android";
+  if (/iPad|iPhone|iPod/.test(ua)) return "ios";
+  return "desktop";
+}
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID || "";
 

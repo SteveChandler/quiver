@@ -12,6 +12,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { BeachConditionSummary } from "@/lib/utils/regional-forecast-utils";
+import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getScoreColorClasses } from "@/lib/utils/score-color-utils";
 import { formatWaveHeightDecimal as formatWaveHeight } from "@/lib/utils/wave-formatters";
 import { ScoreBadge } from "./score-badge";
@@ -117,7 +118,7 @@ function BeachConditionRow({
     >
       <TableCell className="font-medium">
         <Link
-          href={`/beach/${beach.beachSlug}`}
+          href={buildBeachUrl({ slug: beach.beachSlug, city: beach.city, state: beach.state, country: beach.country })}
           className="text-foreground hover:text-primary hover:underline transition-colors"
         >
           {beach.beachName}
@@ -195,7 +196,7 @@ function BeachConditionCard({
             <div className="flex-1 min-w-0">
               {/* Beach Name */}
               <Link
-                href={`/beach/${beach.beachSlug}`}
+                href={buildBeachUrl({ slug: beach.beachSlug, city: beach.city, state: beach.state, country: beach.country })}
                 className="font-semibold text-foreground hover:text-primary hover:underline transition-colors line-clamp-1"
               >
                 {beach.beachName}

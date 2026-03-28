@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { signInWithApple } from "@/lib/mobile/apple-sign-in";
+import { signInWithApple } from "@/lib/auth/apple-sign-in";
 import { initiateOAuthFlow } from "@/lib/auth/auth-utils";
 
 interface AuthMethodPickerProps {

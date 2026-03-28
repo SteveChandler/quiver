@@ -1,11 +1,11 @@
-import * as Sentry from "@sentry/nextjs";
+import { init, captureRouterTransitionStart } from "@sentry/nextjs";
 
 /**
  * Next.js will call this hook (when present) to instrument router
  * transitions. We simply forward to Sentry's helper so the existing
- * client-side `Sentry.init` configuration handles the heavy lifting.
+ * client-side `init` configuration handles the heavy lifting.
  */
-export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
+export const onRouterTransitionStart = captureRouterTransitionStart;
 
 /**
  * Detect environment based on hostname.
@@ -47,7 +47,7 @@ function detectEnvironment(): string {
  * Turbopack will no longer load `sentry.client.config.ts`.
  */
 export async function register(): Promise<void> {
-  Sentry.init({
+  init({
     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
     // Setting this option to true will print useful information to the console while you're setting up Sentry.
@@ -60,12 +60,10 @@ export async function register(): Promise<void> {
     // Setting this option to true will disable Sentry in development
     enabled: process.env.NODE_ENV === "production",
 
-    // You can remove this option if you're not planning to use the Sentry Session Replay feature:
-    replaysSessionSampleRate: 0.1,
-
-    // This sets the sample rate to be 10%. You may want this to be 100% while
-    // in development and sample at a lower rate in production
-    replaysOnErrorSampleRate: 1.0,
+    // Replay is lazy-loaded after hydration to save ~200KB from initial bundle.
+    // Sample rates are set to 0 here and enabled via addIntegration() below.
+    replaysSessionSampleRate: 0,
+    replaysOnErrorSampleRate: 0,
 
     // Override environment based on actual hostname, not just NODE_ENV
     // This prevents localhost errors from polluting production error tracking
@@ -101,14 +99,31 @@ export async function register(): Promise<void> {
       return event;
     },
 
-    // If the entire session is not sampled, use the below sample rate to sample
-    // sessions when an error occurs.
-    integrations: [
-      Sentry.replayIntegration({
-        // Additional Replay configuration goes in here, for example:
-        maskAllText: true,
-        blockAllMedia: true,
-      }),
-    ],
+    // Replay is lazy-loaded below — keep integrations empty at init time
+    integrations: [],
   });
+
+  // Lazy-load Session Replay after hydration to save ~200KB from initial bundle
+  if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
+    const loadReplay = async () => {
+      try {
+        const { replayIntegration, getClient } = await import("@sentry/nextjs");
+        const client = getClient();
+        if (client) {
+          client.addIntegration(replayIntegration({
+            maskAllText: true,
+            blockAllMedia: true,
+          }));
+        }
+      } catch {
+        // Swallow replay loading errors — non-critical
+      }
+    };
+
+    if ("requestIdleCallback" in window) {
+      requestIdleCallback(() => loadReplay());
+    } else {
+      setTimeout(loadReplay, 3000);
+    }
+  }
 }

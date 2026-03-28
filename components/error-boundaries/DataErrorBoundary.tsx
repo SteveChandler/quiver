@@ -1,7 +1,6 @@
 'use client';
 
 import React, { Component, ReactNode, ErrorInfo } from 'react';
-import * as Sentry from '@sentry/nextjs';
 import { NetworkErrorFallback } from './NetworkErrorFallback';
 import { DataLoadErrorFallback } from './DataLoadErrorFallback';
 import { retryWithBackoff, RetryStrategy } from './utils/retry-strategies';
@@ -105,20 +104,25 @@ export class DataErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log to Sentry
-    Sentry.withScope((scope) => {
-      scope.setTag('error_boundary_type', 'data_fetching');
-      scope.setTag('error_category', this.state.errorCategory || 'unknown');
-      scope.setTag('retry_attempted', 'true');
+    // Log to Sentry (lazy-loaded to defer ~555KB from initial bundle)
+    const errorCategory = this.state.errorCategory;
+    const componentName = this.props.componentName || 'Unknown';
+    const dataType = this.props.dataType;
+    import('@sentry/nextjs').then(Sentry => {
+      Sentry.withScope((scope) => {
+        scope.setTag('error_boundary_type', 'data_fetching');
+        scope.setTag('error_category', errorCategory || 'unknown');
+        scope.setTag('retry_attempted', 'true');
 
-      scope.setContext('component', {
-        name: this.props.componentName || 'Unknown',
-        data_type: this.props.dataType,
-        stack: errorInfo.componentStack,
+        scope.setContext('component', {
+          name: componentName,
+          data_type: dataType,
+          stack: errorInfo.componentStack,
+        });
+
+        Sentry.captureException(error);
       });
-
-      Sentry.captureException(error);
-    });
+    }).catch(() => {});
 
     this.setState({ errorInfo });
 

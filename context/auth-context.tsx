@@ -15,7 +15,6 @@ import {
 import type { User, Session, AuthChangeEvent } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { z } from "zod";
-import { isNativeApp } from "@/lib/mobile/platform";
 import * as Sentry from "@sentry/nextjs";
 import {
   safeGetItem,
@@ -508,91 +507,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       document.addEventListener("visibilitychange", handleVisibilityChange);
     }
 
-    // For Capacitor native apps - handle app resume and initialize plugins
-    let appStateListener: { remove: () => Promise<void> } | null = null;
-    if (isNativeApp()) {
-      // Initialize native Google Sign-In plugin (must complete before login calls).
-      // Uses a shared promise so auth-utils.ts can await readiness.
-      const webClientId = process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-      const iosClientId =
-        process.env.NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID || webClientId;
-      if (process.env.NODE_ENV === "development") {
-        console.log("[AuthContext] Native app detected. Google client IDs:", {
-          webClientId: webClientId
-            ? `${webClientId.substring(0, 10)}...`
-            : "MISSING",
-          iosClientId: iosClientId
-            ? `${iosClientId.substring(0, 10)}...`
-            : "MISSING",
-        });
-      }
-      if (webClientId) {
-        import("@/lib/mobile/social-login")
-          .then(({ initializeSocialLogin }) => {
-            if (!mounted) return;
-            return initializeSocialLogin(webClientId, iosClientId);
-          })
-          .catch((err) => {
-            if (process.env.NODE_ENV === "development") {
-              console.error(
-                "AuthContext: Failed to initialize SocialLogin:",
-                err,
-              );
-            }
-            Sentry.captureException(err, {
-              tags: { context: "social_login_init" },
-            });
-          });
-      } else {
-        console.warn(
-          "AuthContext: NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID not set, native Google Sign-In will not work",
-        );
-      }
-
-      import("@capacitor/app").then(({ App }) => {
-        if (!mounted) return; // Component unmounted during import
-
-        // Handle app resume from background
-        App.addListener("appStateChange", async ({ isActive }) => {
-          if (isActive && !initializingRef.current && mounted) {
-            try {
-              const {
-                data: { session: resumedSession },
-                error,
-              } = await supabase.auth.getSession();
-
-              if (error) {
-                if (process.env.NODE_ENV === "development") {
-                  console.error(
-                    "AuthContext: Error refreshing session on app resume:",
-                    error,
-                  );
-                }
-                return;
-              }
-
-              if (mounted) {
-                updateAuthState(resumedSession);
-              }
-            } catch (error) {
-              if (process.env.NODE_ENV === "development") {
-                console.error(
-                  "AuthContext: Exception refreshing session on app resume:",
-                  error,
-                );
-              }
-            }
-          }
-        }).then((listener) => {
-          if (mounted) {
-            appStateListener = listener;
-          } else {
-            listener.remove();
-          }
-        });
-      });
-    }
-
     // Cleanup function to prevent memory leaks
     return () => {
       mounted = false;
@@ -608,9 +522,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           "visibilitychange",
           handleVisibilityChange,
         );
-      }
-      if (appStateListener) {
-        appStateListener.remove();
       }
       initializingRef.current = false;
     };

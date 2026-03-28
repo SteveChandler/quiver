@@ -234,27 +234,54 @@ interface TideData {
 }
 
 /**
- * Extract tide data from the forecast closest to window start,
- * finding the next tide event >= windowStart.
+ * Extract tide data from the window forecasts.
+ *
+ * When useCurrentTime is true (today's surf call): selects the forecast row
+ * closest to Date.now() so the tide phase reflects current conditions rather
+ * than the conditions at window start time.
+ *
+ * When useCurrentTime is false (tomorrow's surf call): keeps the original
+ * window-start behaviour — finds the first forecast whose next_tide_at is at or
+ * after the window start.
  */
 function getWindowTide(
   windowForecasts: EnhancedForecastEntity[],
-  windowStartMs: number
+  windowStartMs: number,
+  useCurrentTime: boolean = true
 ): TideData {
   if (windowForecasts.length === 0) {
     return { description: 'Unknown', phase: null, nextType: null, nextAt: null, height: null };
   }
 
-  // Find first forecast with next_tide_at >= windowStart
   let tideForecast: EnhancedForecastEntity | null = null;
-  for (const f of windowForecasts) {
-    if (f.next_tide_at && new Date(f.next_tide_at).getTime() >= windowStartMs) {
-      tideForecast = f;
-      break;
+
+  if (useCurrentTime) {
+    // For today: find the forecast row closest to the current moment so that the
+    // tide phase shown matches what the tide is doing right now, not at window start.
+    const nowMs = Date.now();
+    let minDist = Infinity;
+    for (const f of windowForecasts) {
+      if (!f.forecast_at) continue;
+      const dist = Math.abs(new Date(f.forecast_at).getTime() - nowMs);
+      if (dist < minDist && f.tide_status) {
+        minDist = dist;
+        tideForecast = f;
+      }
     }
   }
 
-  // Fallback: use first forecast with tide_status
+  if (!tideForecast) {
+    // Tomorrow mode (or no tide_status found above): use the first forecast
+    // whose next_tide_at is at or after window start — original behaviour.
+    for (const f of windowForecasts) {
+      if (f.next_tide_at && new Date(f.next_tide_at).getTime() >= windowStartMs) {
+        tideForecast = f;
+        break;
+      }
+    }
+  }
+
+  // Final fallback: use first forecast with tide_status
   if (!tideForecast) {
     tideForecast = windowForecasts.find(f => f.tide_status) || null;
   }
@@ -429,13 +456,17 @@ function determineVerdict(
  * @param window - The best window from selectBestWindow (null if none)
  * @param forecasts - Today's forecast entries for the beach
  * @param beach - Beach entity with break_type and wind_offshore_deg
+ * @param options.isTomorrow - When true, tide phase uses window-start logic
+ *   (current time is irrelevant for tomorrow). Defaults to false.
  * @returns SurfCallResult with verdict, conditions, and explanation
  */
 export function computeSurfCall(
   window: PersonalizedForecastWindow | null,
   forecasts: EnhancedForecastEntity[],
-  beach: Beach
+  beach: Beach,
+  options: { isTomorrow?: boolean } = {}
 ): SurfCallResult {
+  const { isTomorrow = false } = options;
   const now = new Date();
   const updatedAt = now.toISOString();
   const baseResult: SurfCallResult = {
@@ -471,22 +502,29 @@ export function computeSurfCall(
     };
   }
 
-  // Hard NO: max wave height below minimum rideable
+  // Soft gate: wave height below minimum rideable
+  // If a valid window exists with a decent score (which includes user preference
+  // adjustments and swell quality boost), we downgrade to MAYBE instead of hard NO.
+  // This prevents the surf call from contradicting the discovery system's assessment.
   const minRideable = getMinRideable(beach);
-  const maxWave = Math.max(
-    ...forecasts
-      .map((f) => parseMaxWaveHeight(f.wave_height))
-      .filter((h): h is number => h !== null)
-  );
-  if (maxWave < minRideable) {
+  const parsedHeights = forecasts
+    .map((f) => parseMaxWaveHeight(f.wave_height))
+    .filter((h): h is number => h !== null);
+  const maxWave = parsedHeights.length > 0 ? Math.max(...parsedHeights) : null;
+  // When wave heights are unknown (all null/Unknown), don't trigger the small-wave gate —
+  // let the scoring system's verdict stand unmodified.
+  const wavesBelowMin = maxWave !== null && maxWave < minRideable;
+
+  // If waves below min AND no valid window → hard NO (both signals agree)
+  if (wavesBelowMin && !window) {
     return {
       ...baseResult,
-      waveHeight: maxWave > 0 ? formatWaveHeight(maxWave) : null,
+      waveHeight: maxWave != null && maxWave > 0 ? formatWaveHeight(maxWave) : null,
       whySentence: 'Waves too small for this spot.',
     };
   }
 
-  // Hard NO: no viable window
+  // No viable window (but waves are adequate)
   if (!window) {
     return {
       ...baseResult,
@@ -494,16 +532,9 @@ export function computeSurfCall(
     };
   }
 
-  // Hard NO: window wave height below minimum rideable
-  // The daily max may pass the gate above, but the best window can have smaller waves
+  // Check window-specific wave height
   const windowWave = parseMaxWaveHeight(window.waveHeight);
-  if (windowWave !== null && windowWave < minRideable) {
-    return {
-      ...baseResult,
-      waveHeight: formatWaveHeight(windowWave),
-      whySentence: 'Best window waves too small for this spot.',
-    };
-  }
+  const windowWavesBelowMin = windowWave !== null && windowWave < minRideable;
 
   // Compute window duration
   const windowMs = new Date(window.end).getTime() - new Date(window.start).getTime();
@@ -528,7 +559,7 @@ export function computeSurfCall(
   const trendTags = computeTrendTags(effectiveForecasts, beach);
 
   const wind = getWindowWind(effectiveForecasts, beach);
-  const tide = getWindowTide(effectiveForecasts, windowStartMs);
+  const tide = getWindowTide(effectiveForecasts, windowStartMs, !isTomorrow);
   const waveHeight = window.waveHeight !== 'Unknown' ? window.waveHeight : null;
 
   // Short window gate - reject if too short
@@ -557,8 +588,27 @@ export function computeSurfCall(
   }
 
   // Determine verdict based on score, window duration, and confidence
-  const verdict = determineVerdict(score, windowMinutes, forecastConfidence);
-  const whySentence = buildWhySentence(verdict, wind, waveHeight, tide, shortWindow);
+  let verdict = determineVerdict(score, windowMinutes, forecastConfidence);
+
+  // Soft gate override: when waves are below the break's minimum but the score
+  // (which includes user preference adjustments and swell quality boost) says
+  // conditions are surfable, allow MAYBE instead of forcing NO.
+  // Cap at MAYBE — never promote to YES for below-minimum waves.
+  // Note: this intentionally overrides confidence-gate downgrades — when the
+  // small-wave gate is the dominant signal, we trust the score threshold directly.
+  if (wavesBelowMin || windowWavesBelowMin) {
+    if (score >= SCORE_MAYBE_THRESHOLD) {
+      verdict = 'MAYBE';
+    } else {
+      verdict = 'NO';
+    }
+  }
+
+  // Build explanation — override for small-wave MAYBE to explain the nuance
+  const smallWaveOverride = (wavesBelowMin || windowWavesBelowMin) && verdict === 'MAYBE'
+    ? `Small for this break but conditions look fun — ${waveHeight ?? 'modest swell'} with ${wind.type === 'glassy' || wind.type === 'offshore' ? 'clean winds' : 'manageable wind'}.`
+    : undefined;
+  const whySentence = buildWhySentence(verdict, wind, waveHeight, tide, shortWindow, smallWaveOverride);
   const peakTime = window.peakTime instanceof Date && !isNaN(window.peakTime.getTime())
     ? window.peakTime.toISOString()
     : null;

@@ -25,7 +25,7 @@ import { StateMapView } from "@/components/state/state-map-view";
 import { findCityBySlug, getCityMetadata, getCityBeachEditorialData, type CityMetadata } from "@/actions/city/city-metadata-actions";
 import { buildIntentPageContent } from "@/lib/seo/intent-content-templates";
 import { buildLocationPlaceStructuredData } from "@/lib/seo/location-structured-data";
-import { getTopCitiesInState } from "@/actions/beach/beach-location-actions";
+import { getTopCitiesInState, getTopCitiesInStateForIntent } from "@/actions/beach/beach-location-actions";
 import { buildCitySlug } from "@/lib/seo/city-slug-utils";
 import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import {
@@ -72,8 +72,6 @@ import {
 import { BeginnerPageContent } from "@/components/beginner/BeginnerPageContent";
 import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
-import { TideDatasetSchema } from "@/components/seo/tide-dataset-schema";
-import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-schema";
 
 export const revalidate = 3600;
 
@@ -367,7 +365,11 @@ export default async function IntentPage(props: IntentPageParams) {
     // Fetch all cities in this state for PopularCitiesForIntent component.
     // No explicit limit — uses default of 100 so all qualifying cities are
     // server-rendered for crawl discovery (two-tier display handles visual hierarchy).
-    const topCities = await getTopCitiesInState(params.city);
+    // For skill/crowd intents, filter to cities that actually have matching beaches
+    // to prevent linking to city pages that would 404.
+    const topCities = ["least-crowded", "beginner", "longboard"].includes(params.intent)
+      ? await getTopCitiesInStateForIntent(params.city, params.intent)
+      : await getTopCitiesInState(params.city);
 
     // Render state-level intent page (with empty state if no beaches)
     const statePageUrl = `${baseUrl.replace(/\/$/, "")}/${params.intent}/${params.city}`;
@@ -617,26 +619,6 @@ export default async function IntentPage(props: IntentPageParams) {
             name={tidePageContent.title}
             url={tidePageUrl}
           />
-          {/* Dataset JSON-LD — enables Google Dataset rich snippets for tide pages */}
-          <TideDatasetSchema
-            cityOrBeachName={cityMetadata.cityName}
-            state={cityMetadata.stateName}
-            url={tidePageUrl}
-            latitude={cityMetadata.centerLat ?? undefined}
-            longitude={cityMetadata.centerLon ?? undefined}
-            nextHighTime={expandedTideData.sevenDayExtrema
-              .flatMap((d) => d.events)
-              .find((e) => e.type === "high")?.timeFormatted ?? null}
-            nextHighHeight={expandedTideData.sevenDayExtrema
-              .flatMap((d) => d.events)
-              .find((e) => e.type === "high")?.height ?? null}
-            nextLowTime={expandedTideData.sevenDayExtrema
-              .flatMap((d) => d.events)
-              .find((e) => e.type === "low")?.timeFormatted ?? null}
-            nextLowHeight={expandedTideData.sevenDayExtrema
-              .flatMap((d) => d.events)
-              .find((e) => e.type === "low")?.height ?? null}
-          />
           <TidePageContent
             cityName={cityMetadata.cityName}
             citySlug={params.city}
@@ -721,16 +703,6 @@ export default async function IntentPage(props: IntentPageParams) {
           <WebPageSchema
             name={waterTempPageContent.title}
             url={waterTempPageUrl}
-          />
-          {/* Dataset JSON-LD — enables Google Dataset rich snippets for water-temp pages */}
-          <WaterTempDatasetSchema
-            cityOrBeachName={cityMetadata.cityName}
-            state={cityMetadata.stateName}
-            url={waterTempPageUrl}
-            latitude={cityMetadata.centerLat ?? undefined}
-            longitude={cityMetadata.centerLon ?? undefined}
-            tempF={expandedWaterTempData.currentTemp}
-            wetsuitRec={expandedWaterTempData.wetsuitRecommendation.thickness}
           />
           <WaterTempPageContent
             cityName={cityMetadata.cityName}

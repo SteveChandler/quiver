@@ -18,6 +18,26 @@ export interface CamBeachWithRegion extends CamBeach {
 }
 
 /**
+ * Get the camera URL for a single beach, if one exists.
+ * Used for VideoObject structured data on beach pages.
+ */
+export async function getBeachCameraUrl(
+  beachId: string
+): Promise<string | null> {
+  const supabase = createPublicReadClient();
+  const { data } = await supabase
+    .from("beach_sources")
+    .select("camera_url")
+    .eq("beach_id", beachId)
+    .not("camera_url", "is", null)
+    .neq("camera_url", "")
+    .limit(1)
+    .single();
+
+  return data?.camera_url ?? null;
+}
+
+/**
  * Fetch all beaches that have a camera_url in beach_sources.
  * Results are cached for 1 hour since camera URLs change infrequently.
  */

@@ -5,6 +5,7 @@ import {
   createSuccessResponse,
 } from '@/lib/api-utils';
 import { createServiceRoleClient } from '@/lib/supabase';
+import { updateFlyMachineEnvVars, waitForModelVersion } from '@/lib/services/fly-deploy';
 
 // Allow extended timeout for training orchestration
 // Note: Actual training happens on ML service, but data extraction
@@ -580,16 +581,10 @@ function computeTrainingStats(data: any[], beachIds: string[]): TrainingStats {
  * 1. Upload model artifact to Supabase Storage (accessible by ML service)
  *    - Prefers inline model_data (base64) to avoid ephemeral storage 404 issues
  *    - Falls back to modelUrl fetch for backwards compatibility
- * 2. Use Fly.io GraphQL API to set secrets (MODEL_VERSION, MODEL_PATH)
- *    - Secrets override env vars baked into Docker images
- *    - Setting secrets triggers automatic rolling redeployment
+ * 2. Use Fly.io Machines API to update machine-level env vars
+ *    - Updates env vars directly on each machine via REST API
+ *    - Machines API handles stop/restart automatically
  * 3. Poll health endpoint until new model version is confirmed
- *
- * NOTE: Previous approach used Fly Machines API to update env vars, but these
- * don't reliably propagate due to Docker image layer caching. Secrets always
- * override other env var sources and trigger proper redeployment.
- *
- * Timeout: 2.5 minutes for entire deployment process (secrets trigger redeploy)
  */
 async function deployToFly(
   modelVersion: string,
@@ -597,24 +592,6 @@ async function deployToFly(
   modelDataB64?: string,  // Base64 encoded model data (preferred over URL)
   mode: 'deploy' | 'candidate' = 'deploy'  // 'candidate' sets CANDIDATE_VERSION/CANDIDATE_PATH for shadow scoring
 ): Promise<{ success: boolean; error?: string }> {
-  const FLY_API_TOKEN = process.env.FLY_API_TOKEN;
-  const FLY_APP_NAME = process.env.FLY_APP_NAME || 'quiver-ml';
-  const HEALTH_URL = process.env.ML_SERVICE_URL
-    ? `${process.env.ML_SERVICE_URL}/health`
-    : 'https://quiver-ml.fly.dev/health';
-  const DEPLOYMENT_TIMEOUT = 150000; // 2.5 minutes (secrets trigger rolling redeploy)
-  const HEALTH_CHECK_INTERVAL = 5000; // 5 seconds (machines need time to restart)
-  const HEALTH_CHECK_TIMEOUT = 90000; // 1.5 minutes for health checks (rolling deploy takes time)
-
-  // Validate required environment variables
-  if (!FLY_API_TOKEN) {
-    console.error('[deployToFly] FLY_API_TOKEN not configured');
-    return {
-      success: false,
-      error: 'FLY_API_TOKEN environment variable not set',
-    };
-  }
-
   // Validate we have either inline model data or a URL
   if (!modelDataB64 && !modelUrl) {
     console.error('[deployToFly] No model data or URL provided');
@@ -718,210 +695,41 @@ async function deployToFly(
     console.log(`[deployToFly] Model uploaded to: ${publicModelUrl}`);
 
     // =======================================================================
-    // STEP 2: Set Fly.io Secrets via GraphQL API
+    // STEP 2: Update Fly.io Machine Env Vars via Machines API
     // =======================================================================
-    // Using secrets instead of machine env vars because:
-    // - Secrets always override env vars baked into Docker images
-    // - Setting secrets triggers automatic rolling redeployment
-    // - Previous approach with Machines API env vars didn't reliably propagate
-    console.log('[deployToFly] Step 2: Setting Fly.io secrets via GraphQL...');
+    console.log(`[deployToFly] Step 2: Updating Fly.io machine env vars (${mode} mode)...`);
 
-    const FLY_GRAPHQL_URL = 'https://api.fly.io/graphql';
+    const envUpdates: Record<string, string> = mode === 'candidate'
+      ? { CANDIDATE_VERSION: modelVersion, CANDIDATE_PATH: publicModelUrl }
+      : { MODEL_VERSION: modelVersion, MODEL_PATH: publicModelUrl };
 
-    // GraphQL mutation to set secrets
-    // This triggers an automatic rolling deployment of all machines
-    const setSecretsMutation = `
-      mutation SetSecrets($appId: ID!, $secrets: [SecretInput!]!) {
-        setSecrets(input: {appId: $appId, secrets: $secrets}) {
-          app {
-            name
-          }
-        }
-      }
-    `;
+    console.log(`[deployToFly] Setting env vars: ${Object.entries(envUpdates).map(([k, v]) => `${k}=${v}`).join(', ')}`);
 
-    // In candidate mode, set CANDIDATE_VERSION/CANDIDATE_PATH instead of
-    // MODEL_VERSION/MODEL_PATH. The ML service will score with both models
-    // during the shadow scoring period.
-    const secrets = mode === 'candidate'
-      ? [
-          { key: 'CANDIDATE_VERSION', value: modelVersion },
-          { key: 'CANDIDATE_PATH', value: publicModelUrl },
-        ]
-      : [
-          { key: 'MODEL_VERSION', value: modelVersion },
-          { key: 'MODEL_PATH', value: publicModelUrl },
-        ];
+    const updateResult = await updateFlyMachineEnvVars(envUpdates);
+    if (!updateResult.success) {
+      console.error('[deployToFly] Failed to update machine env vars:', updateResult.error);
+      return {
+        success: false,
+        error: `Failed to update Fly.io machine env vars: ${updateResult.error}`,
+      };
+    }
 
-    const secretsPayload = {
-      query: setSecretsMutation,
-      variables: {
-        appId: FLY_APP_NAME,
-        secrets,
-      },
-    };
+    console.log(`[deployToFly] ${updateResult.machinesUpdated} machine(s) updated`);
 
-    console.log(`[deployToFly] Setting secrets (${mode} mode): ${secrets.map(s => `${s.key}=${s.value}`).join(', ')}`);
+    // =======================================================================
+    // STEP 3: Poll Health Endpoint for New Model Version
+    // =======================================================================
+    console.log('[deployToFly] Step 3: Polling health endpoint...');
 
-    const secretsResponse = await fetch(FLY_GRAPHQL_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${FLY_API_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(secretsPayload),
-      signal: AbortSignal.timeout(30000), // 30 second timeout
+    const healthResult = await waitForModelVersion(modelVersion, {
+      candidateOnly: mode === 'candidate',
     });
 
-    if (!secretsResponse.ok) {
-      const errorText = await secretsResponse.text();
-      console.error('[deployToFly] GraphQL request failed:', errorText);
+    if (!healthResult.success) {
+      console.error('[deployToFly] Health check failed:', healthResult.error);
       return {
         success: false,
-        error: `Failed to set Fly.io secrets: ${secretsResponse.status} - ${errorText}`,
-      };
-    }
-
-    const secretsResult = await secretsResponse.json();
-
-    // Check for GraphQL errors
-    if (secretsResult.errors && secretsResult.errors.length > 0) {
-      const errorMessages = secretsResult.errors.map((e: any) => e.message).join('; ');
-      console.error('[deployToFly] GraphQL errors:', secretsResult.errors);
-      return {
-        success: false,
-        error: `GraphQL errors setting secrets: ${errorMessages}`,
-      };
-    }
-
-    console.log('[deployToFly] Secrets set successfully, rolling deployment triggered');
-    console.log('[deployToFly] GraphQL response:', JSON.stringify(secretsResult.data));
-
-    // =======================================================================
-    // STEP 3: Wait for Rolling Deployment
-    // =======================================================================
-    console.log('[deployToFly] Step 3: Waiting for rolling deployment to complete...');
-
-    // Setting secrets triggers automatic rolling redeployment
-    // Give machines time to restart before polling health endpoint
-    // Typical restart time is 20-40 seconds for rolling deploy
-    await new Promise(resolve => setTimeout(resolve, 15000));
-
-    // =======================================================================
-    // STEP 4: Poll Health Endpoint for New Model Version
-    // =======================================================================
-    if (mode === 'candidate') {
-      console.log('[deployToFly] Step 4: Polling health endpoint for candidate model...');
-
-      const healthCheckStartTime = Date.now();
-      let healthCheckSuccess = false;
-      let lastHealthError = '';
-
-      while (Date.now() - healthCheckStartTime < HEALTH_CHECK_TIMEOUT) {
-        if (Date.now() - deploymentStartTime > DEPLOYMENT_TIMEOUT) {
-          return {
-            success: false,
-            error: `Candidate deployment timed out after ${DEPLOYMENT_TIMEOUT / 1000} seconds`,
-          };
-        }
-
-        try {
-          const healthResponse = await fetch(HEALTH_URL, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' },
-            signal: AbortSignal.timeout(5000),
-          });
-
-          if (healthResponse.ok) {
-            const healthData = await healthResponse.json();
-            console.log('[deployToFly] Candidate health check:', healthData);
-
-            if (healthData.candidate_loaded && healthData.candidate_version === modelVersion) {
-              healthCheckSuccess = true;
-              console.log(`[deployToFly] Health check confirmed candidate loaded: ${modelVersion}`);
-              break;
-            } else {
-              lastHealthError = `candidate_loaded=${healthData.candidate_loaded}, candidate_version=${healthData.candidate_version}`;
-              console.log(`[deployToFly] ${lastHealthError}, retrying...`);
-            }
-          } else {
-            lastHealthError = `Health check returned ${healthResponse.status}`;
-            console.log(`[deployToFly] ${lastHealthError}, retrying...`);
-          }
-        } catch (error) {
-          lastHealthError = error instanceof Error ? error.message : 'Unknown error';
-          console.log(`[deployToFly] ${lastHealthError}, retrying...`);
-        }
-
-        await new Promise(resolve => setTimeout(resolve, HEALTH_CHECK_INTERVAL));
-      }
-
-      if (!healthCheckSuccess) {
-        return {
-          success: false,
-          error: `Failed to confirm candidate model after ${HEALTH_CHECK_TIMEOUT / 1000}s: ${lastHealthError}`,
-        };
-      }
-
-      const deploymentDuration = ((Date.now() - deploymentStartTime) / 1000).toFixed(1);
-      console.log(`[deployToFly] Candidate deployment verified in ${deploymentDuration}s`);
-      return { success: true };
-    }
-
-    console.log('[deployToFly] Step 4: Polling health endpoint...');
-
-    const healthCheckStartTime = Date.now();
-    let healthCheckSuccess = false;
-    let lastHealthError = '';
-
-    while (Date.now() - healthCheckStartTime < HEALTH_CHECK_TIMEOUT) {
-      // Check overall deployment timeout
-      if (Date.now() - deploymentStartTime > DEPLOYMENT_TIMEOUT) {
-        return {
-          success: false,
-          error: `Deployment timed out after ${DEPLOYMENT_TIMEOUT / 1000} seconds`,
-        };
-      }
-
-      try {
-        const healthResponse = await fetch(HEALTH_URL, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-          },
-          signal: AbortSignal.timeout(5000),
-        });
-
-        if (healthResponse.ok) {
-          const healthData = await healthResponse.json();
-          console.log('[deployToFly] Health check response:', healthData);
-
-          // Check if the new model version is active
-          if (healthData.model_version === modelVersion) {
-            healthCheckSuccess = true;
-            console.log(`[deployToFly] Health check confirmed new model version: ${modelVersion}`);
-            break;
-          } else {
-            lastHealthError = `Model version mismatch: expected ${modelVersion}, got ${healthData.model_version}`;
-            console.log(`[deployToFly] ${lastHealthError}, retrying...`);
-          }
-        } else {
-          lastHealthError = `Health check returned ${healthResponse.status}`;
-          console.log(`[deployToFly] ${lastHealthError}, retrying...`);
-        }
-      } catch (error) {
-        lastHealthError = error instanceof Error ? error.message : 'Unknown error';
-        console.log(`[deployToFly] Health check failed: ${lastHealthError}, retrying...`);
-      }
-
-      // Wait before next health check
-      await new Promise(resolve => setTimeout(resolve, HEALTH_CHECK_INTERVAL));
-    }
-
-    if (!healthCheckSuccess) {
-      return {
-        success: false,
-        error: `Health check failed to confirm new model version after ${HEALTH_CHECK_TIMEOUT / 1000}s: ${lastHealthError}`,
+        error: healthResult.error || 'Health check failed to confirm model version',
       };
     }
 

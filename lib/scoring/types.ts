@@ -30,6 +30,11 @@ export interface BeachWithThresholds {
   max_wind_any_mph?: number | null;
   // Beach skill level for wave-height ceiling
   skill_level?: string | null;
+  // Swell direction window (exist in DB, used for quality scoring)
+  swell_window_center_deg?: number | null;
+  swell_window_halfwidth_deg?: number | null;
+  swell_window_min_deg?: number | null;
+  swell_window_max_deg?: number | null;
 }
 
 /**
@@ -43,9 +48,33 @@ export interface ConditionSubscores {
 }
 
 /**
+ * Condition character categories — used to classify the qualitative nature
+ * of conditions beyond a simple numeric score.
+ */
+export type ConditionCharacterCategory =
+  | 'flat'
+  | 'small-weak'
+  | 'small-quality'
+  | 'small-clean'
+  | 'medium-clean'
+  | 'medium-mixed'
+  | 'large-clean'
+  | 'large-rough'
+  | 'skip';
+
+/**
+ * Human-readable condition character with category and display label
+ */
+export interface ConditionCharacter {
+  /** Short descriptive label, e.g. "Small but powerful — long-period energy" */
+  label: string;
+  category: ConditionCharacterCategory;
+}
+
+/**
  * Match quality levels
  */
-export type MatchQuality = 'perfect' | 'excellent' | 'good' | 'fair' | 'skip';
+export type MatchQuality = 'perfect' | 'excellent' | 'good' | 'fair' | 'minimal' | 'skip';
 
 /**
  * Recommendation label for Morning Intel
@@ -72,6 +101,10 @@ export interface ConditionScore {
   message: string;
   /** Water quality warning if advisory or closure */
   waterQualityWarning?: string;
+  /** Qualitative condition character (category + label) */
+  character: ConditionCharacter;
+  /** Points added by swell quality (period + direction) for small waves */
+  swellQualityBoost: number;
 }
 
 /**
@@ -95,6 +128,20 @@ export interface OptimalWindow {
   message: string;
   /** Peak score time within window */
   peakTime?: Date;
+  /** Average score across all forecasts within this window (0-100) */
+  avgScore?: number;
+  /** Qualitative character of conditions during this window */
+  character?: ConditionCharacter;
+}
+
+/**
+ * Result of multi-window calculation — multiple viable windows ranked by score
+ */
+export interface MultiWindowResult {
+  /** Up to 3 windows (or maxWindows), ranked by average score descending */
+  windows: OptimalWindow[];
+  /** The highest-scored window, or null if no viable windows */
+  bestWindow: OptimalWindow | null;
 }
 
 /**
@@ -122,6 +169,24 @@ export interface ForecastForScoring {
   windDirection: number | null;
   tideHeight: number;
   tideStatus: string | null;
+  /** Primary swell direction in degrees (0-360) */
+  swellDirection?: number | null;
+}
+
+/**
+ * Relative context for today's conditions vs the rest of the week
+ */
+export interface RelativeContext {
+  isBestOfWeek: boolean;
+  trend: 'improving' | 'declining' | 'stable';
+  /** Score difference from yesterday (positive = improving) */
+  trendDelta: number;
+  incomingSwell?: {
+    /** ISO date string */
+    date: string;
+    description: string;
+    estimatedScore: number;
+  } | null;
 }
 
 /**
@@ -138,6 +203,9 @@ export function toForecastForScoring(
 ): ForecastForScoring {
   const forecastTime = resolveForecastTime(forecast, beachTz);
 
+  // Parse primary swell direction from swell_1_direction (cardinal or degrees)
+  const swellDirection = parseSwellDirection(forecast.swell_1_direction);
+
   return {
     forecastTime,
     waveHeight: parseFloat(forecast.wave_height || '0'),
@@ -146,7 +214,27 @@ export function toForecastForScoring(
     windDirection: parseWindDirection(forecast.wind_direction_deg, forecast.wind_direction),
     tideHeight: parseFloat(forecast.tide_height || '0') || 0,
     tideStatus: forecast.tide_status?.toLowerCase() || null,
+    swellDirection,
   };
+}
+
+/**
+ * Parse swell direction from a string that may be cardinal ("SW") or degrees ("225")
+ */
+function parseSwellDirection(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  const asNum = Number(trimmed);
+  if (Number.isFinite(asNum)) {
+    return ((asNum % 360) + 360) % 360;
+  }
+  const cardinalMap: Record<string, number> = {
+    N: 0, NNE: 22.5, NE: 45, ENE: 67.5,
+    E: 90, ESE: 112.5, SE: 135, SSE: 157.5,
+    S: 180, SSW: 202.5, SW: 225, WSW: 247.5,
+    W: 270, WNW: 292.5, NW: 315, NNW: 337.5,
+  };
+  return cardinalMap[trimmed.toUpperCase()] ?? null;
 }
 
 export interface UserScoringPreferences {

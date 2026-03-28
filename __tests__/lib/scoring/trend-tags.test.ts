@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 import { computeTrendTags } from '@/lib/scoring/trend-tags';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 
