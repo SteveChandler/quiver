@@ -62,52 +62,62 @@ export default function LearnHubPage() {
       {/* ------------------------------------------------------------------ */}
       {/* 1. Full-bleed hero                                                 */}
       {/* ------------------------------------------------------------------ */}
-      <section className="relative min-h-[28rem] sm:min-h-[34rem] flex items-end overflow-hidden">
-        {/* Background image */}
+      <section className="relative h-[80vh] md:h-[85vh] flex items-center justify-center overflow-hidden bg-[#0A0E27]">
+        {/* 1. Blurred Background layer (fills the wide space) */}
         <Image
-          src="/4groms.jpg"
-          alt="Four young surfers walking toward the ocean on a wide beach at dawn"
-          width={1200}
-          height={800}
-          className="absolute inset-0 h-full w-full object-cover"
+          src="/3sunset_learn_smarter_best.png"
+          alt=""
+          fill
+          className="object-cover blur-3xl opacity-40 scale-110"
+          unoptimized
+          priority
+        />
+        
+        {/* 2. Main Sharp Image (full-width hero) */}
+        <Image
+          src="/learn-hero-16x9.png"
+          alt="Surfers walking toward the ocean at sunset with Learn to Surf Smarter text"
+          fill
+          className="object-cover object-bottom contrast-[1.10] saturate-[1.3] brightness-[1.05] drop-shadow-2xl"
+          quality={100}
+          unoptimized
           priority
         />
 
-        {/* Dark gradient overlay — heavier for text contrast */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#252D6B] via-[#252D6B]/80 to-[#252D6B]/10" />
+        {/* Lighter gradient overlay since text is baked into image */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#252D6B]/60 via-transparent to-transparent" />
 
         {/* Noise texture overlay */}
         <div className="noise-texture-subtle absolute inset-0 pointer-events-none" />
 
-        {/* Hero content */}
-        <div className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-24 pt-20">
-          <ScrollReveal>
-            <p
-              className="mb-4 inline-block rounded-full bg-[#F78E42]/15 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[#F78E42]"
-              style={{ transform: "rotate(-2deg)" }}
-            >
-              Quiver Guides
-            </p>
-            <h1 className="font-display text-5xl font-extrabold uppercase tracking-tight text-white sm:text-6xl lg:text-7xl text-glow-orange">
-              Learn to Surf
-              <br />
-              Smarter
-            </h1>
-            <p className="mt-5 max-w-lg text-base leading-relaxed text-gray-300 sm:text-lg">
-              Understanding the ocean makes every session better. These guides
-              break down surf forecasting, wave science, and conditions — so you
-              know exactly what to look for before you paddle out.
-            </p>
-          </ScrollReveal>
+        {/* Hero content - sr-only since typography is already in the image */}
+        <div className="sr-only">
+          <h1>Learn to Surf Smarter</h1>
         </div>
       </section>
 
       <main>
+        {/* Introduction moved below hero image to prevent text overlap */}
+        <section className="mx-auto max-w-6xl px-4 mt-12 mb-16 sm:mt-16 sm:mb-20">
+          <ScrollReveal>
+            <div className="max-w-3xl">
+              <p className="mb-6 inline-block rounded-full bg-[#F78E42]/15 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[#F78E42]">
+                Quiver Guides
+              </p>
+              <p className="text-xl leading-relaxed text-gray-300 sm:text-2xl font-light">
+                Understanding the ocean makes every session better. These guides
+                break down surf forecasting, wave science, and conditions — so you
+                know exactly what to look for before you paddle out.
+              </p>
+            </div>
+          </ScrollReveal>
+        </section>
+
         {/* ---------------------------------------------------------------- */}
         {/* 2. Featured article — full-width split card                      */}
         {/* ---------------------------------------------------------------- */}
         <ScrollReveal>
-          <div className="-mt-16 relative z-20 mx-auto max-w-6xl px-4">
+          <div className="relative z-20 mx-auto max-w-6xl px-4">
             <Link
               href={`/learn/${featuredArticle.slug}`}
               className="group grid grid-cols-1 md:grid-cols-2 overflow-hidden rounded-xl border border-white/10 bg-[#252D6B]/60 backdrop-blur-sm transition-all duration-300 hover:border-[#F78E42]/40 hover:shadow-2xl hover:shadow-[#F78E42]/10"
@@ -117,10 +127,7 @@ export default function LearnHubPage() {
 
               {/* Left: text content */}
               <div className="flex flex-col justify-center p-8 sm:p-10">
-                <p
-                  className="mb-3 inline-block w-fit rounded-full bg-[#F78E42]/15 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#F78E42]"
-                  style={{ transform: "rotate(-1.5deg)" }}
-                >
+                <p className="mb-3 inline-block w-fit rounded-full bg-[#F78E42]/15 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#F78E42]">
                   Featured
                 </p>
                 <h2 className="font-display text-3xl font-extrabold text-white transition-colors duration-200 group-hover:text-[#F78E42] sm:text-4xl">
@@ -178,10 +185,7 @@ export default function LearnHubPage() {
                   <div className="absolute inset-0 bg-gradient-to-t from-[#252D6B] via-[#252D6B]/50 to-transparent" />
 
                   {/* Sticker-style reading time badge */}
-                  <span
-                    className="absolute top-4 right-4 z-10 rounded-full bg-[#F78E42]/90 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-lg"
-                    style={{ transform: "rotate(2deg)" }}
-                  >
+                  <span className="absolute top-4 right-4 z-10 rounded-full bg-[#F78E42]/90 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-lg">
                     {article.readingTimeMin} min
                   </span>
 
@@ -208,10 +212,7 @@ export default function LearnHubPage() {
         {/* ---------------------------------------------------------------- */}
         <ScrollReveal>
           <section className="mx-auto max-w-6xl px-4 mt-20 mb-20">
-            <p
-              className="mb-2 text-xs font-bold uppercase tracking-widest text-[#F78E42]"
-              style={{ transform: "rotate(-1deg)" }}
-            >
+            <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#F78E42]">
               Keep Going
             </p>
             <h2 className="mb-8 font-display text-2xl font-extrabold text-white sm:text-3xl">
