@@ -149,6 +149,7 @@ export function HeroVideoBackground() {
           autoPlay
           muted
           playsInline
+          preload="metadata"
           poster={POSTER_SRC}
           onEnded={handleVideoEnded}
           onError={handleVideoError}
