@@ -7,8 +7,7 @@
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachFAQSchema, TideFAQSchema, WaterTempFAQSchema } from "@/components/seo/faq-schema";
-import { TideDatasetSchema } from "@/components/seo/tide-dataset-schema";
-import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-schema";
+
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
@@ -127,7 +126,7 @@ export async function renderBeachSubPage({
 
   // Fetch dataset schema data in parallel with nearby beaches — uses React cache()
   // so no extra DB queries when generateBeachSubPageMetadata already called these.
-  const [nearbyBeachesRaw, tideMetaForSchema, waterTempMetaForSchema] = await Promise.all([
+  const [nearbyBeachesRaw, tideMeta, waterTempMeta] = await Promise.all([
     (async (): Promise<Beach[]> => {
       try {
         if (beach.lat && beach.lon) {
@@ -180,39 +179,13 @@ export async function renderBeachSubPage({
         <BeachFAQSchema beachName={beach.name} />
       )}
 
-      {/* Dataset JSON-LD — enables Google Dataset rich snippets for tide/water-temp pages */}
-      {pageType === "tides" && tideMetaForSchema && (
-        <TideDatasetSchema
-          cityOrBeachName={beach.name}
-          state={beach.state || undefined}
-          url={`${baseUrl}${subPagePath}`}
-          latitude={beach.lat || undefined}
-          longitude={beach.lon || undefined}
-          nextHighTime={tideMetaForSchema.nextHighTime}
-          nextHighHeight={tideMetaForSchema.nextHighHeight}
-          nextLowTime={tideMetaForSchema.nextLowTime}
-          nextLowHeight={tideMetaForSchema.nextLowHeight}
-        />
+      {pageType === "tides" && tideMeta && (
+        <TideSummaryHero beachName={beach.name} tideData={tideMeta} />
       )}
-      {pageType === "water-temp" && waterTempMetaForSchema && (
-        <WaterTempDatasetSchema
-          cityOrBeachName={beach.name}
-          state={beach.state || undefined}
-          url={`${baseUrl}${subPagePath}`}
-          latitude={beach.lat || undefined}
-          longitude={beach.lon || undefined}
-          tempF={waterTempMetaForSchema.tempF}
-          wetsuitRec={waterTempMetaForSchema.wetsuitRec}
-        />
-      )}
-
-      {pageType === "tides" && tideMetaForSchema && (
-        <TideSummaryHero beachName={beach.name} tideData={tideMetaForSchema} />
-      )}
-      {pageType === "water-temp" && waterTempMetaForSchema && (
+      {pageType === "water-temp" && waterTempMeta && (
         <WaterTempSummaryHero
           beachName={beach.name}
-          waterTempData={waterTempMetaForSchema}
+          waterTempData={waterTempMeta}
         />
       )}
 

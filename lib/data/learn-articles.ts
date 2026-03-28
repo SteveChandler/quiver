@@ -6,6 +6,10 @@ interface LearnArticle {
   heroImage: string;
   thumbnailImage: string;
   keywords: string[];
+  /** ISO 8601 date string (e.g., "2026-03-26") */
+  datePublished?: string;
+  /** ISO 8601 date string. Defaults to datePublished if omitted. */
+  dateModified?: string;
   sections: {
     id: string;
     heading: string;
@@ -36,6 +40,7 @@ export const learnArticles: LearnArticle[] = [
     title: "How to Read a Surf Forecast",
     description: "Learn what each metric means on a surf forecast: wave height, period, direction, wind, and tide. Master the data to find better sessions.",
     readingTimeMin: 5,
+    datePublished: "2026-03-26",
     heroImage: "/beginnerWhiteWater.jpg",
     thumbnailImage: "/beginnerWhiteWater.jpg",
     keywords: [
@@ -167,6 +172,7 @@ export const learnArticles: LearnArticle[] = [
     slug: "swell-period-explained",
     title: "Swell Period Explained",
     description: "Understand swell period, why 14 seconds feels completely different than 6 seconds, and how to read it on your forecast.",
+    datePublished: "2026-03-26",
     readingTimeMin: 4,
     heroImage: "/point-break.webp",
     thumbnailImage: "/point-break.webp",
@@ -295,6 +301,7 @@ export const learnArticles: LearnArticle[] = [
     title: "Best Surf Conditions for Beginners",
     description: "Ideal wave size, period, wind, and tide for learning to surf. Master conditions to learn faster and safer.",
     readingTimeMin: 5,
+    datePublished: "2026-03-26",
     heroImage: "/4groms.jpg",
     thumbnailImage: "/4groms.jpg",
     keywords: [
@@ -427,6 +434,7 @@ export const learnArticles: LearnArticle[] = [
     title: "Wind Swell vs Ground Swell",
     description: "Learn the difference between locally generated wind swells and distant ground swells, and why ground swell produces better waves.",
     readingTimeMin: 4,
+    datePublished: "2026-03-26",
     heroImage: "/offShore.jpeg",
     thumbnailImage: "/offShore.jpeg",
     keywords: [
@@ -552,6 +560,7 @@ export const learnArticles: LearnArticle[] = [
     title: "How Surf Forecasts Work",
     description: "From weather satellites to your phone: NOAA models, buoy networks, and ML corrections that power accurate wave predictions.",
     readingTimeMin: 5,
+    datePublished: "2026-03-26",
     heroImage: "/images/hero/hero-5-aerial-ocean.webp",
     thumbnailImage: "/images/hero/hero-5-aerial-ocean.webp",
     keywords: [

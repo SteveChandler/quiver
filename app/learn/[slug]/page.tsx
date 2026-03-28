@@ -7,6 +7,7 @@ import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
+import { ArticleSchema } from "@/components/seo/article-schema";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
@@ -67,6 +68,14 @@ export default async function LearnArticlePage({ params }: Props) {
         name={article.title}
         description={article.description}
         url={`/learn/${article.slug}`}
+      />
+      <ArticleSchema
+        title={article.title}
+        description={article.description}
+        url={`/learn/${article.slug}`}
+        imageUrl={article.heroImage}
+        datePublished={article.datePublished || "2026-03-26"}
+        dateModified={article.dateModified}
       />
 
       {/* ------------------------------------------------------------------ */}
