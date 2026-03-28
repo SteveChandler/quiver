@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { updateFlyMachineEnvVars, waitForModelVersion } from '@/lib/services/fly-deploy';
 
 // Candidate promotion runs quickly - just queries metrics and updates registry
 export const maxDuration = 30;
@@ -208,13 +209,11 @@ export async function GET(request: Request) {
         })
         .eq('id', candidate.id);
 
-      // Clear candidate secrets on Fly.io
-      if (process.env.FLY_API_TOKEN) {
-        try {
-          await clearCandidateOnFly();
-        } catch (flyError) {
-          console.error('[Promote Candidate] Failed to clear candidate on Fly.io:', flyError);
-        }
+      // Clear candidate env vars on Fly.io
+      try {
+        await updateFlyMachineEnvVars({}, ['CANDIDATE_VERSION', 'CANDIDATE_PATH']);
+      } catch (flyError) {
+        console.error('[Promote Candidate] Failed to clear candidate on Fly.io:', flyError);
       }
 
       failed++;
@@ -234,88 +233,27 @@ export async function GET(request: Request) {
 // HELPER: Promote candidate to primary model on Fly.io
 // =============================================================================
 async function promoteCandidateOnFly(modelVersion: string): Promise<void> {
-  const FLY_API_TOKEN = process.env.FLY_API_TOKEN!;
-  const FLY_APP_NAME = process.env.FLY_APP_NAME || 'quiver-ml';
-  const FLY_GRAPHQL_URL = 'https://api.fly.io/graphql';
-
-  // Construct the model storage URL. The retrain pipeline uploads models to
-  // Supabase Storage at ml-artifacts/ml-models/{version}.json with a public URL.
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!supabaseUrl) {
     throw new Error('NEXT_PUBLIC_SUPABASE_URL not configured');
   }
   const modelPath = `${supabaseUrl}/storage/v1/object/public/ml-artifacts/ml-models/${modelVersion}.json`;
 
-  const setSecretsMutation = `
-    mutation SetSecrets($appId: ID!, $secrets: [SecretInput!]!) {
-      setSecrets(input: {appId: $appId, secrets: $secrets}) {
-        app { name }
-      }
-    }
-  `;
+  console.log(`[Promote Candidate] Updating Fly.io machines: MODEL_VERSION=${modelVersion}, clearing CANDIDATE_*`);
 
-  const response = await fetch(FLY_GRAPHQL_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${FLY_API_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      query: setSecretsMutation,
-      variables: {
-        appId: FLY_APP_NAME,
-        secrets: [
-          { key: 'MODEL_VERSION', value: modelVersion },
-          { key: 'MODEL_PATH', value: modelPath },
-        ],
-      },
-    }),
-    signal: AbortSignal.timeout(30000),
-  });
+  const result = await updateFlyMachineEnvVars(
+    { MODEL_VERSION: modelVersion, MODEL_PATH: modelPath },
+    ['CANDIDATE_VERSION', 'CANDIDATE_PATH']
+  );
 
-  if (!response.ok) {
-    throw new Error(`Failed to set MODEL_VERSION/MODEL_PATH: ${response.status}`);
+  if (!result.success) {
+    throw new Error(`Failed to update Fly.io machines: ${result.error}`);
   }
 
-  // Clear candidate secrets
-  await clearCandidateOnFly();
-
-  console.log(`[Promote Candidate] Fly.io secrets updated: MODEL_VERSION=${modelVersion}, MODEL_PATH=${modelPath}, CANDIDATE_* cleared`);
-}
-
-// =============================================================================
-// HELPER: Clear candidate secrets on Fly.io
-// =============================================================================
-async function clearCandidateOnFly(): Promise<void> {
-  const FLY_API_TOKEN = process.env.FLY_API_TOKEN!;
-  const FLY_APP_NAME = process.env.FLY_APP_NAME || 'quiver-ml';
-  const FLY_GRAPHQL_URL = 'https://api.fly.io/graphql';
-
-  const unsetSecretsMutation = `
-    mutation UnsetSecrets($appId: ID!, $keys: [String!]!) {
-      unsetSecrets(input: {appId: $appId, keys: $keys}) {
-        app { name }
-      }
-    }
-  `;
-
-  const response = await fetch(FLY_GRAPHQL_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${FLY_API_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      query: unsetSecretsMutation,
-      variables: {
-        appId: FLY_APP_NAME,
-        keys: ['CANDIDATE_VERSION', 'CANDIDATE_PATH'],
-      },
-    }),
-    signal: AbortSignal.timeout(30000),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to clear candidate secrets: ${response.status}`);
+  const health = await waitForModelVersion(modelVersion);
+  if (!health.success) {
+    throw new Error(`Health check failed after promotion: ${health.error}`);
   }
+
+  console.log(`[Promote Candidate] Fly.io machines updated: MODEL_VERSION=${modelVersion}, MODEL_PATH=${modelPath}, CANDIDATE_* cleared`);
 }
