@@ -122,6 +122,8 @@ export async function getNearbyIntelPosts(
         emoji_rating: null,
         photo_storage_path: null,
         report_count: 0,
+        vibe: post.vibe ?? null,
+        wave_size_range: post.wave_size_range ?? null,
         user: {
           full_name: profile?.full_name || post.user_name || "Anonymous",
           avatar_url: profile?.avatar_url || null,
@@ -231,6 +233,8 @@ export async function getPublicIntelPosts(
         emoji_rating: null,
         photo_storage_path: null,
         report_count: 0,
+        vibe: post.vibe ?? null,
+        wave_size_range: post.wave_size_range ?? null,
         user: {
           full_name: profile?.full_name || post.user_name || "Anonymous",
           avatar_url: profile?.avatar_url || null,

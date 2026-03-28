@@ -299,6 +299,8 @@ export async function createIntelPost(
 
       const enrichedPost: IntelPostWithUser = {
         ...createdIntelPost,
+        vibe: null,
+        wave_size_range: null,
         user: {
           full_name: profile?.full_name || "Anonymous",
           avatar_url: profile?.avatar_url || null,

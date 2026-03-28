@@ -22,6 +22,8 @@ import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import type { LocalActivityItem } from "@/actions/oracle-actions";
 import { isFutureDayInTimezone } from "@/lib/utils/condition-tier-utils";
 import { getHourInTimezone, getMinuteInTimezone } from "@/lib/utils/date-time";
+import { track } from "@/lib/analytics";
+import { updateProfile } from "@/actions/profile-actions";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -321,50 +323,8 @@ export function OracleHomeScreen() {
     [router]
   );
 
-  const handleInviteFriend = useCallback(() => {
-    // Open sheet immediately — referral code loads in the background
-    setInviteOpen(true);
-
-    if (!referralCode) {
-      import("@/actions/referral-actions")
-        .then(({ getOrCreateReferralCode }) => getOrCreateReferralCode())
-        .then((result) => {
-          if (result?.data?.code) setReferralCode(result.data.code);
-        })
-        .catch(() => {
-          // Silently fail — invite still works without code
-        });
-    }
-  }, [referralCode]);
-
-  const handleSetAlarm = useCallback(() => {
-    // TODO: Wire to native alarm / notification scheduling
-    if (typeof window !== "undefined") {
-      import("sonner").then(({ toast }) =>
-        toast("Coming soon. We'll ping you when sets are rolling in.", { description: "Alarm notifications are on the way." })
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleShareSession = useCallback(() => {
-    setShareOpen(true);
-  }, []);
-
-  const handleViewSpot = useCallback(
-    (spotId: string) => {
-      const spot = oracle.discovery?.recommendations?.find((r) => r.beach.id === spotId);
-      if (!spot?.beach.slug) return;
-
-      const city = spot.beach.city?.toLowerCase().replace(/\s+/g, "-") ?? "";
-      const state = spot.beach.state?.toLowerCase() ?? "";
-      router.push(`/${state}/${city}/${spot.beach.slug}`);
-    },
-    [router, oracle.discovery?.recommendations]
-  );
-
   // ------------------------------------------------------------------
-  // Extract top-level data
+  // Extract top-level data (must come before handlers that reference these)
   // ------------------------------------------------------------------
   const { topRecommendation: topRec, profile, homeBeach } = oracle;
 
@@ -377,6 +337,85 @@ export function OracleHomeScreen() {
   }, [homeBeach?.id, oracle.discovery?.recommendations]);
 
   const heroRec = homeBeachRec ?? topRec;
+
+  // Build share data for the session share sheet (needed by handleShareSession below)
+  const shareData = useMemo(() => {
+    if (!heroRec) return null;
+    return buildSurfCallShareData({ recommendation: heroRec });
+  }, [heroRec]);
+
+  // ------------------------------------------------------------------
+  // Action handlers
+  // ------------------------------------------------------------------
+  const handleInviteFriend = useCallback(() => {
+    track("invite_friend_clicked");
+    // Open sheet immediately — referral code loads in the background
+    setInviteOpen(true);
+
+    if (!referralCode) {
+      import("@/actions/referral-actions")
+        .then(({ getOrCreateReferralCode }) => getOrCreateReferralCode())
+        .then((result) => {
+          if (result?.data?.code) {
+            setReferralCode(result.data.code);
+            track("referral_code_generated", { code: result.data.code });
+          }
+        })
+        .catch((err) => {
+          console.warn("[InviteFriend] Referral code generation failed:", err);
+          track("referral_code_failed");
+        });
+    }
+  }, [referralCode]);
+
+  const handleSetAlarm = useCallback(async () => {
+    track("set_alarm_clicked", { beach_id: homeBeach?.id });
+
+    if (!homeBeach) {
+      const { toast } = await import("sonner");
+      toast("Set your home beach first", {
+        description: "Go to a beach page and tap 'Set Home Beach' to enable alerts.",
+      });
+      return;
+    }
+
+    const result = await updateProfile({
+      notif_email_enabled: true,
+      notif_forecast_alerts: true,
+    });
+    const { toast } = await import("sonner");
+    if (result && "error" in result && result.error) {
+      toast.error("Failed to enable alerts. Try again.");
+    } else {
+      toast("Forecast alerts enabled!", {
+        description: "We'll email you when conditions line up at " + homeBeach.name + ".",
+      });
+      track("forecast_alerts_enabled", { beach_id: homeBeach.id });
+    }
+  }, [homeBeach]);
+
+  const handleShareSession = useCallback(() => {
+    track("share_session_clicked", { beach_id: heroRec?.beach?.id });
+    if (!shareData) {
+      import("sonner").then(({ toast }) =>
+        toast("No session data to share yet.", { description: "Check back once we have conditions loaded." })
+      );
+      return;
+    }
+    setShareOpen(true);
+  }, [shareData, heroRec?.beach?.id]);
+
+  const handleViewSpot = useCallback(
+    (spotId: string) => {
+      const spot = oracle.discovery?.recommendations?.find((r) => r.beach.id === spotId);
+      if (!spot?.beach.slug) return;
+
+      const city = spot.beach.city?.toLowerCase().replace(/\s+/g, "-") ?? "";
+      const state = spot.beach.state?.toLowerCase() ?? "";
+      router.push(`/${state}/${city}/${spot.beach.slug}`);
+    },
+    [router, oracle.discovery?.recommendations]
+  );
 
   const forecast = heroRec?.forecast;
   const window = heroRec?.window;
@@ -438,12 +477,6 @@ export function OracleHomeScreen() {
     () => transformActivityItems(activityRaw ?? []),
     [activityRaw]
   );
-
-  // Build share data for the session share sheet
-  const shareData = useMemo(() => {
-    if (!heroRec) return null;
-    return buildSurfCallShareData({ recommendation: heroRec });
-  }, [heroRec]);
 
   // Build forecast deep-link for the hero beach
   const heroBeach = heroRec?.beach ?? homeBeach;
