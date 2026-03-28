@@ -5,24 +5,11 @@ import { isVisibleSafe } from "./utils/strict-helpers";
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 /**
- * Session Form Auto-Forecast Autofill Tests
+ * Session Form QuickLogView Tests
  *
- * Tests the auto-forecast autofill feature that automatically populates
- * condition fields (waves, wind, water temp, tide) when users select
- * a spot and date/time during session logging.
- *
- * The multi-step wizard has been replaced with a single scrollable form
- * (SessionScrollForm). Condition fields are always visible — there is no
- * "navigate to Session Details step" required before interacting with them.
- *
- * Key behaviors tested:
- * 1. Auto-prefill after selecting beach + date/time (NEW sessions only)
- * 2. User edits are preserved over auto-prefilled values
- * 3. NO auto-prefill when editing existing sessions
- * 4. Placeholder examples shown when forecast data is missing
- * 5. All condition fields persist correctly to database
- *
- * Post-save flow: toast confirmation → redirect to /profile?highlight=<id>
+ * Tests the QuickLogView session logging flow (beach → time preset → rating).
+ * ConditionsSection auto-prefill tests were removed — those fields are not
+ * rendered in QuickLogView which is now the default for mode=log.
  *
  * @project auth
  */
@@ -39,37 +26,6 @@ test.describe('Session Form - Auto-Forecast Autofill', () => {
 
   test.afterEach(async ({ page }) => {
     await assertNoErrors(page, errorCapture, { context: 'Session Form Autofill' });
-  });
-
-  test.fixme('should auto-prefill condition fields after selecting beach and date/time', async ({ page }) => {
-    // ConditionsSection (wave height, wind speed, water temp, tide height) is not rendered
-    // in QuickLogView which is now the default for mode=log. These condition fields are only
-    // available in the standard (non-quick) form path, which is currently unreachable via URL.
-    // Re-enable when condition fields are added to QuickLogView's DetailsExpander or when
-    // a URL param is added to bypass quick mode.
-  });
-
-  test.fixme('should preserve user edits over auto-prefilled values', async ({ page }) => {
-    // ConditionsSection (wave height, wind speed inputs) is not rendered in QuickLogView
-    // which is now the default for mode=log. This test requires condition field inputs to
-    // be visible for editing. Re-enable when condition fields return to the log mode UI.
-  });
-
-  test.fixme('should NOT auto-prefill when editing existing session', async ({ page }) => {
-    // Edit mode not built yet — requires session creation flow, edit endpoint, and
-    // state management to verify forecast data does not override existing manual values
-  });
-
-  test.fixme('should display placeholder examples when forecast data is missing', async ({ page }) => {
-    // Placeholder examples not implemented — requires UI to show example values
-    // (e.g., "3.5 ft") when historical forecast data is unavailable for past sessions
-  });
-
-  test.fixme('should persist all condition fields to database after submission', async ({ page }) => {
-    // ConditionsSection (wave height, wind speed, water temp, tide height) is not rendered
-    // in QuickLogView which is now the default for mode=log. This test filled condition
-    // fields and verified persistence. Re-enable when condition fields return to the log
-    // mode UI or convert to an API integration test.
   });
 
   test('should handle evening session without recommendation language', async ({ page }) => {
