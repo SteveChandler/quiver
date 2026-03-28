@@ -28,8 +28,8 @@ test.describe('Smoke: Critical Pages', () => {
   test('Beach detail page loads without errors @smoke', async ({ page }) => {
     await gotoWithErrorCheck(page, errorCapture, buildBeachUrl(TEST_BEACHES.blacks), { timeout: 15000 });
 
-    // Beach name heading should be visible
-    const heading = page.getByRole('heading', { name: /blacks/i });
+    // Beach name heading should be visible (use .first() — page has multiple headings matching)
+    const heading = page.getByRole('heading', { name: /blacks/i }).first();
     await expect(heading).toBeVisible({ timeout: 10000 });
 
     // Conditions ticker or stats grid should render (matches actual testids on the page)
