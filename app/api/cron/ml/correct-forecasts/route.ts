@@ -37,6 +37,42 @@ export async function GET(request: Request) {
   }
   console.log('ML service is awake');
 
+  // Auto-repair candidate model for shadow scoring
+  // The candidate may fail to load on Fly.io machine restarts; this ensures
+  // shadow scoring works on every correction cycle
+  try {
+    const healthResponse = await fetch(`${ML_SERVICE_URL}/health`, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (healthResponse.ok) {
+      const health = await healthResponse.json();
+
+      if (health.candidate_loaded) {
+        console.log(`[correct-forecasts] Candidate model loaded: ${health.candidate_version}`);
+      } else {
+        // Attempt reload — endpoint returns quickly if no CANDIDATE_PATH env var is set
+        const reloadResponse = await fetch(`${ML_SERVICE_URL}/reload-candidate`, {
+          method: 'POST',
+          headers: { 'X-Internal-Secret': ML_INTERNAL_SECRET },
+          signal: AbortSignal.timeout(30000),
+        });
+
+        if (reloadResponse.ok) {
+          const reloadResult = await reloadResponse.json();
+          if (reloadResult.success) {
+            console.log(`[correct-forecasts] Candidate model reloaded: ${reloadResult.version}`);
+          }
+          // Don't log "No candidate path configured" — that's normal between retrains
+        }
+      }
+    }
+  } catch (candidateError) {
+    // Never block primary correction pipeline for candidate repair
+    console.warn('[correct-forecasts] Candidate health check failed (non-fatal):', candidateError instanceof Error ? candidateError.message : candidateError);
+  }
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
