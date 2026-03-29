@@ -368,6 +368,8 @@ export const POST = withAuth(
 
     const enrichedPost: IntelPostWithUser = {
       ...intelPost,
+      vibe: null,
+      wave_size_range: null,
       user: {
         full_name: profile?.full_name || "Anonymous",
         avatar_url: profile?.avatar_url || null,

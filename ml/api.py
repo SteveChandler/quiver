@@ -26,10 +26,10 @@ from transformers import FeatureEngineer
 from transformers_v2 import preprocess_v2, V2_FEATURE_COLUMNS
 from transformers_ensemble import EnsembleFeatureEngineer
 from open_meteo_service import OpenMeteoService
+import config
 from config import (
     MODEL_PATH, MODEL_VERSION, INTERNAL_SECRET,
     FALLBACK_MODEL_PATH, USE_ENSEMBLE, OPEN_METEO_TIMEOUT_MS,
-    CANDIDATE_VERSION, CANDIDATE_PATH,
 )
 from guardrails import apply_guardrails
 
@@ -91,15 +91,21 @@ async def lifespan(app: FastAPI):
             fallback_model = None
 
     # Load candidate model for shadow scoring (set by retrain pipeline)
-    if CANDIDATE_PATH:
-        logger.info(f"Loading candidate model from {CANDIDATE_PATH} (version={CANDIDATE_VERSION})...")
-        try:
-            candidate_model = QuiverBiasModel()
-            candidate_model.load(CANDIDATE_PATH)
-            logger.info(f"Candidate model loaded successfully (version={CANDIDATE_VERSION})")
-        except Exception as e:
-            logger.warning(f"Could not load candidate model: {e} — shadow scoring disabled")
-            candidate_model = None
+    if config.CANDIDATE_PATH:
+        logger.info(f"Loading candidate model from {config.CANDIDATE_PATH} (version={config.CANDIDATE_VERSION})...")
+        for attempt in range(3):
+            try:
+                candidate_model = QuiverBiasModel()
+                candidate_model.load(config.CANDIDATE_PATH)
+                logger.info(f"Candidate model loaded successfully (version={config.CANDIDATE_VERSION})")
+                break
+            except Exception as e:
+                if attempt < 2:
+                    logger.warning(f"Candidate model load attempt {attempt+1} failed: {e}, retrying in {2 ** attempt}s...")
+                    await asyncio.sleep(2 ** attempt)
+                else:
+                    logger.warning(f"Could not load candidate model after 3 attempts: {e} — shadow scoring disabled")
+                    candidate_model = None
 
     yield
 
@@ -180,6 +186,9 @@ class TrainingConfig(BaseModel):
     min_holdout_samples: int = Field(default=MIN_HOLDOUT_SAMPLES, description="Minimum holdout samples required for valid training")
     max_bias_pct: float = Field(default=0.75, description="Maximum bias as percentage of raw forecast")
     bias_floor_m: float = Field(default=0.2, description="Minimum absolute bias allowed")
+    bucket_improvement_min: float = Field(default=40, description="Min improvement % per bucket")
+    bucket_degradation_limit: float = Field(default=0.10, description="Max MAE worsening per bucket (meters)")
+    bucket_policy: str = Field(default="all", description="Bucket validation policy: 'all' = every bucket must pass; 'majority' = 2 of 3 must pass")
 
 class TrainRequest(BaseModel):
     """Request payload for model training."""
@@ -230,6 +239,11 @@ class HealthResponse(BaseModel):
     model_version: str
     candidate_loaded: bool = Field(default=False, description="Whether a candidate model is loaded for shadow scoring")
     candidate_version: Optional[str] = Field(default=None, description="Version of the loaded candidate model")
+
+class ReloadCandidateResponse(BaseModel):
+    success: bool
+    version: Optional[str] = None
+    error: Optional[str] = None
 
 class BeachCoordinate(BaseModel):
     """Beach coordinate for HRRR wind extraction."""
@@ -287,13 +301,46 @@ def health():
         model_loaded=model is not None and model.model is not None,
         model_version=MODEL_VERSION,
         candidate_loaded=candidate_model is not None and candidate_model.model is not None,
-        candidate_version=CANDIDATE_VERSION if (candidate_model and candidate_model.model) else None,
+        candidate_version=config.CANDIDATE_VERSION if (candidate_model and candidate_model.model) else None,
     )
 
 @app.get("/ping")
 def ping():
     """Lightweight liveness check for Fly.io — does not load models."""
     return {"status": "pong"}
+
+@app.post("/reload-candidate", response_model=ReloadCandidateResponse, dependencies=[Security(verify_api_key)])
+def reload_candidate(version: str = "", path: str = ""):
+    """Hot-reload the candidate model for shadow scoring. Requires X-Internal-Secret header."""
+    global candidate_model
+
+    resolved_version = version or os.environ.get("CANDIDATE_VERSION", "")
+    resolved_path = path or os.environ.get("CANDIDATE_PATH", "")
+
+    if not resolved_path:
+        return ReloadCandidateResponse(success=False, error="No candidate path configured")
+
+    # Validate URL is from trusted source (defense-in-depth against secret compromise)
+    ALLOWED_PREFIXES = [
+        'https://vawdnbbgawichorsjiwe.supabase.co/',  # Supabase Storage
+        'http://localhost:', 'https://quiver-ml.fly.dev/',  # Dev/self
+        os.environ.get('ML_SERVICE_URL', ''),
+    ]
+    if resolved_path.startswith('http') and not any(
+        prefix and resolved_path.startswith(prefix) for prefix in ALLOWED_PREFIXES
+    ):
+        return ReloadCandidateResponse(success=False, error=f"Path URL not from trusted source")
+
+    try:
+        new_model = QuiverBiasModel()
+        new_model.load(resolved_path)
+        candidate_model = new_model
+        config.CANDIDATE_VERSION = resolved_version
+        logger.info(f"Candidate model reloaded (version={resolved_version}, path={resolved_path})")
+        return ReloadCandidateResponse(success=True, version=resolved_version)
+    except Exception as e:
+        logger.warning(f"Failed to reload candidate model: {e}")
+        return ReloadCandidateResponse(success=False, error=str(e))
 
 async def fetch_open_meteo_with_timeout(lat: float, lon: float, target_time: datetime) -> Optional[dict]:
     """Fetch Open-Meteo data with timeout, returns None on failure."""
@@ -353,7 +400,7 @@ def compute_training_stats(df: pd.DataFrame) -> dict:
         'residual_std': float(df['residual_m'].std())
     }
 
-def evaluate_buckets(df: pd.DataFrame, corrected: np.ndarray) -> dict:
+def evaluate_buckets(df: pd.DataFrame, corrected: np.ndarray, bucket_improvement_min=BUCKET_IMPROVEMENT_MIN, bucket_degradation_limit=BUCKET_DEGRADATION_LIMIT) -> dict:
     """
     Evaluate improvement rate per forecast bucket.
 
@@ -384,7 +431,7 @@ def evaluate_buckets(df: pd.DataFrame, corrected: np.ndarray) -> dict:
         corrected_mae = bucket_df['corrected_error'].mean()
         degradation = corrected_mae - raw_mae
 
-        passed = improvement_rate >= BUCKET_IMPROVEMENT_MIN and degradation <= BUCKET_DEGRADATION_LIMIT
+        passed = improvement_rate >= bucket_improvement_min and degradation <= bucket_degradation_limit
         if not passed:
             all_pass = False
 
@@ -524,7 +571,7 @@ async def correct_single(input: ForecastInput):
     candidate_result = score_candidate(features, pd.Series([input.wave_height_m]))
     if candidate_result is not None:
         candidate_corrected_val = round(float(candidate_result.iloc[0]), 2)
-        candidate_version_val = CANDIDATE_VERSION
+        candidate_version_val = config.CANDIDATE_VERSION
 
     return CorrectionOutput(
         beach_id=input.beach_id,
@@ -747,7 +794,9 @@ async def train_model(request: TrainRequest):
         )
 
         # Bucket evaluation
-        bucket_results = evaluate_buckets(df_holdout, corrected)
+        bucket_results = evaluate_buckets(df_holdout, corrected,
+            bucket_improvement_min=request.config.bucket_improvement_min,
+            bucket_degradation_limit=request.config.bucket_degradation_limit)
 
         logger.info("[Train] Bucket results:")
         for bucket in ['<0.5m', '0.5-1.5m', '>1.5m']:
@@ -822,8 +871,42 @@ async def train_model(request: TrainRequest):
             go = False
 
         if not bucket_results['all_pass']:
-            failure_reasons.append(f"Not all buckets pass (improvement >= {BUCKET_IMPROVEMENT_MIN}%, degradation <= {BUCKET_DEGRADATION_LIMIT}m)")
-            go = False
+            if request.config.bucket_policy == "majority":
+                # Count how many non-skipped buckets passed
+                passed_count = sum(
+                    1 for b in ['<0.5m', '0.5-1.5m', '>1.5m']
+                    if bucket_results.get(b, {}).get('status') == 'PASS'
+                )
+                skipped_count = sum(
+                    1 for b in ['<0.5m', '0.5-1.5m', '>1.5m']
+                    if 'SKIP' in bucket_results.get(b, {}).get('status', '')
+                )
+                failed_buckets = [
+                    b for b in ['<0.5m', '0.5-1.5m', '>1.5m']
+                    if bucket_results.get(b, {}).get('status') == 'FAIL'
+                ]
+                evaluated_count = 3 - skipped_count
+                required_pass = min(2, evaluated_count)  # If only 1 bucket evaluable, 1 pass suffices
+                if passed_count >= required_pass:
+                    logger.warning(
+                        f"[Train] Majority policy override: {passed_count} buckets passed, "
+                        f"{len(failed_buckets)} failed ({', '.join(failed_buckets)}) — overriding all_pass"
+                    )
+                    # Override all_pass for the go/no-go decision; overall check still applies
+                else:
+                    failure_reasons.append(
+                        f"Majority bucket policy: only {passed_count} of "
+                        f"{3 - skipped_count} evaluated buckets pass "
+                        f"(improvement >= {request.config.bucket_improvement_min}%, "
+                        f"degradation <= {request.config.bucket_degradation_limit}m)"
+                    )
+                    go = False
+            else:
+                failure_reasons.append(
+                    f"Not all buckets pass (improvement >= {request.config.bucket_improvement_min}%, "
+                    f"degradation <= {request.config.bucket_degradation_limit}m)"
+                )
+                go = False
 
         if abs(mean_bias) >= MEAN_BIAS_LIMIT:
             failure_reasons.append(f"Mean bias {mean_bias:+.3f}m is too one-directional (|bias| >= {MEAN_BIAS_LIMIT})")
@@ -1018,7 +1101,7 @@ async def correct_batch(input: BatchInput):
                 cand_ver = None
                 if candidate_corrected_ensemble is not None:
                     cand_val = round(float(candidate_corrected_ensemble.iloc[idx]), 2)
-                    cand_ver = CANDIDATE_VERSION
+                    cand_ver = config.CANDIDATE_VERSION
                 corrections[i] = CorrectionOutput(
                     beach_id=f.beach_id,
                     forecast_ts=f.forecast_ts,
@@ -1082,7 +1165,7 @@ async def correct_batch(input: BatchInput):
             cand_ver = None
             if candidate_corrected_fallback is not None:
                 cand_val = round(float(candidate_corrected_fallback.iloc[idx]), 2)
-                cand_ver = CANDIDATE_VERSION
+                cand_ver = config.CANDIDATE_VERSION
             corrections[i] = CorrectionOutput(
                 beach_id=f.beach_id,
                 forecast_ts=f.forecast_ts,

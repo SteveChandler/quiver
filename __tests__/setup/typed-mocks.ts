@@ -323,6 +323,7 @@ export function createMockSession(overrides: Partial<Session> = {}): Session {
     skill_ratings: null,
     tide_height_ft: null,
     tide_status: null,
+    source: null,
     ...overrides,
   };
 }
@@ -405,6 +406,8 @@ export function createMockIntelPost(
     helpful_count: 0,
     off_count: 0,
     confirmed_count: 0,
+    vibe: null,
+    wave_size_range: null,
     ...overrides,
   };
 }

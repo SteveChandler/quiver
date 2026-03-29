@@ -10,6 +10,7 @@ import {
   type Vibe,
 } from "@/types/conditions-report";
 import { cn } from "@/lib/utils";
+import { track } from "@/lib/analytics";
 
 interface ConditionsReportCardProps {
   beachId: string;
@@ -73,17 +74,21 @@ export function ConditionsReportCard({
       if (!inner.success) {
         if (inner.error === "ALREADY_REPORTED_TODAY") {
           setFormState("already_reported");
+          track("conditions_report_duplicate", { beach_id: beachId });
         } else {
           setFormState("error");
+          track("conditions_report_failed", { beach_id: beachId, error: inner.error });
           setErrorMessage(inner.error ?? "Something went wrong. Please try again.");
         }
         return;
       }
 
       setFormState("success");
+      track("conditions_report_submitted", { beach_id: beachId, wave_size_range: waveSizeRange, vibe });
       onSubmitSuccess?.();
     } catch {
       setFormState("error");
+      track("conditions_report_failed", { beach_id: beachId, error: "unexpected_error" });
       setErrorMessage("Something went wrong. Please try again.");
     }
   }, [publicMode, onAuthRequired, beachId, waveSizeRange, vibe, note, onSubmitSuccess]);

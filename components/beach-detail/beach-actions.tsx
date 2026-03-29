@@ -8,6 +8,7 @@ import { HomeBeachBanner } from "@/components/home/HomeBeachBanner";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { ConditionsReportCard } from "@/components/beach-detail/conditions-report-card";
 import type { Beach } from "@/types/database";
+import { track } from "@/lib/analytics";
 
 interface BeachActionsProps {
   beach: Beach;
@@ -41,13 +42,14 @@ export function BeachActions({
   const [reportCardOpen, setReportCardOpen] = useState(false);
 
   const handleReportConditions = useCallback(() => {
+    track("report_conditions_opened", { beach_id: beach.id });
     if (publicMode) {
       setAuthModalOpen(true);
       onAuthRequired?.();
       return;
     }
     setReportCardOpen(true);
-  }, [publicMode, onAuthRequired]);
+  }, [beach.id, publicMode, onAuthRequired]);
 
   const handleReportSuccess = useCallback(() => {
     setReportCardOpen(false);

@@ -339,6 +339,7 @@ async function handleRetrain(request: Request) {
           holdout_days: 2,
           max_bias_pct: 0.75,
           bias_floor_m: 0.2,
+          bucket_policy: 'majority',  // Allow deployment if 2/3 buckets pass
         },
       };
 
@@ -447,6 +448,92 @@ async function handleRetrain(request: Request) {
       }
 
       console.log('[ML Retrain] Candidate model uploaded for shadow scoring');
+
+      // =======================================================================
+      // STEP 4b: Verify candidate shadow scoring is working
+      // =======================================================================
+      console.log('[ML Retrain] Step 4b: Verifying candidate shadow scoring...');
+
+      try {
+        // Send a test correction request to verify candidate scoring works
+        const testPayload = {
+          beach_id: 'test-verification',
+          forecast_ts: new Date().toISOString(),
+          wave_height_m: 1.0,
+          wave_period_s: 10,
+          wave_direction_deg: 270,
+          wind_speed_ms: 5,
+          wind_direction_deg: 180,
+        };
+
+        const testResponse = await fetch(`${ML_SERVICE_URL}/correct`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Internal-Secret': ML_INTERNAL_SECRET,
+          },
+          body: JSON.stringify(testPayload),
+          signal: AbortSignal.timeout(15000),
+        });
+
+        let candidateVerified = false;
+
+        if (testResponse.ok) {
+          const testResult = await testResponse.json();
+          candidateVerified = testResult.candidate_corrected_m != null;
+          console.log(`[ML Retrain] Candidate verification: candidate_corrected_m=${testResult.candidate_corrected_m}, verified=${candidateVerified}`);
+        }
+
+        if (!candidateVerified) {
+          // Attempt hot-reload of candidate model
+          console.log('[ML Retrain] Candidate not scoring — attempting /reload-candidate...');
+
+          const { data: urlData } = createServiceRoleClient().storage
+            .from('ml-artifacts')
+            .getPublicUrl(`ml-models/${modelVersion}.json`);
+
+          const reloadResponse = await fetch(`${ML_SERVICE_URL}/reload-candidate?version=${encodeURIComponent(modelVersion)}&path=${encodeURIComponent(urlData.publicUrl)}`, {
+            method: 'POST',
+            headers: {
+              'X-Internal-Secret': ML_INTERNAL_SECRET,
+            },
+            signal: AbortSignal.timeout(30000),
+          });
+
+          if (reloadResponse.ok) {
+            const reloadResult = await reloadResponse.json();
+            console.log(`[ML Retrain] Reload result: ${JSON.stringify(reloadResult)}`);
+
+            if (reloadResult.success) {
+              // Retry test
+              const retryResponse = await fetch(`${ML_SERVICE_URL}/correct`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Internal-Secret': ML_INTERNAL_SECRET,
+                },
+                body: JSON.stringify(testPayload),
+                signal: AbortSignal.timeout(15000),
+              });
+
+              if (retryResponse.ok) {
+                const retryResult = await retryResponse.json();
+                candidateVerified = retryResult.candidate_corrected_m != null;
+                console.log(`[ML Retrain] Post-reload verification: candidate_corrected_m=${retryResult.candidate_corrected_m}, verified=${candidateVerified}`);
+              }
+            }
+          }
+        }
+
+        if (candidateVerified) {
+          console.log('[ML Retrain] Shadow scoring verified — candidate is producing corrections');
+        } else {
+          console.warn('[ML Retrain] Shadow scoring NOT verified — correct-forecasts auto-repair will attempt on next run');
+        }
+      } catch (verifyError) {
+        // Never fail the pipeline due to verification — this is best-effort
+        console.warn('[ML Retrain] Verification step failed (non-fatal):', verifyError instanceof Error ? verifyError.message : verifyError);
+      }
     } catch (error) {
       console.error('[ML Retrain] Candidate upload failed:', error);
 

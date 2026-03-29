@@ -60,6 +60,8 @@ describe("useIntelData", () => {
     helpful_count: 0,
     off_count: 0,
     confirmed_count: 0,
+    vibe: null,
+    wave_size_range: null,
     user: {
       full_name: "Test User",
       avatar_url: null,

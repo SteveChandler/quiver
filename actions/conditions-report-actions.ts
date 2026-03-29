@@ -137,7 +137,7 @@ export const submitConditionsReport = makeAuthenticatedAction(
         // Conditions reports expire after 24 hours — stale conditions data
         // is misleading rather than informative.
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      } as any)
+      })
       .select("id")
       .single();
 
@@ -160,7 +160,7 @@ export const submitConditionsReport = makeAuthenticatedAction(
         source: "conditions_report",
         notes: content,
         duration_minutes: 0,
-      } as any)
+      })
       .select("id")
       .single();
 
@@ -206,28 +206,15 @@ export async function getRecentConditionsReports(
 
     // Fetch recent intel posts that have the wave_size_range field set
     // (i.e. were submitted via the Report Conditions feature).
-    // Use `as any` on the client because the generated types don't include
-    // wave_size_range / vibe until the migration is applied and types are regenerated.
-    type RecentPost = {
-      id: string;
-      user_id: string;
-      beach_id: string | null;
-      wave_size_range: string;
-      vibe: string;
-      description: string;
-      created_at: string;
-    };
-    const postsResult: { data: RecentPost[] | null; error: unknown } =
-      await (supabase as any)
-        .from("intel_posts")
-        .select("id, user_id, beach_id, wave_size_range, vibe, description, created_at")
-        .eq("beach_id", beachId)
-        .eq("is_active", true)
-        .not("wave_size_range", "is", null)
-        .gte("created_at", since)
-        .order("created_at", { ascending: false })
-        .limit(3);
-    const { data: posts, error: postsError } = postsResult;
+    const { data: posts, error: postsError } = await supabase
+      .from("intel_posts")
+      .select("id, user_id, beach_id, wave_size_range, vibe, description, created_at")
+      .eq("beach_id", beachId)
+      .eq("is_active", true)
+      .not("wave_size_range", "is", null)
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(3);
 
     if (postsError) {
       console.error("[getRecentConditionsReports] Query failed:", postsError);
