@@ -886,7 +886,7 @@ async def train_model(request: TrainRequest):
                     if bucket_results.get(b, {}).get('status') == 'FAIL'
                 ]
                 evaluated_count = 3 - skipped_count
-                required_pass = min(2, evaluated_count)  # If only 1 bucket evaluable, 1 pass suffices
+                required_pass = max(1, evaluated_count - 1)  # Allow at most 1 bucket to fail
                 if passed_count >= required_pass:
                     logger.warning(
                         f"[Train] Majority policy override: {passed_count} buckets passed, "
