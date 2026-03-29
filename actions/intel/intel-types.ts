@@ -67,6 +67,8 @@ export interface IntelPostRPCResult {
   distance_miles: number;
   user_name: string;
   surf_conditions: import("@/types/database.generated").Json | null;
+  vibe: string | null;
+  wave_size_range: string | null;
 }
 
 export type TrackXPFn = (

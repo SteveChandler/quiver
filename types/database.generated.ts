@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -2852,6 +2877,8 @@ export type Database = {
           title: string
           updated_at: string
           user_id: string
+          vibe: string | null
+          wave_size_range: string | null
         }
         Insert: {
           beach_id?: string | null
@@ -2876,6 +2903,8 @@ export type Database = {
           title: string
           updated_at?: string
           user_id: string
+          vibe?: string | null
+          wave_size_range?: string | null
         }
         Update: {
           beach_id?: string | null
@@ -2900,6 +2929,8 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string
+          vibe?: string | null
+          wave_size_range?: string | null
         }
         Relationships: [
           {
@@ -4590,6 +4621,7 @@ export type Database = {
           rating: number | null
           share_count: number
           skill_ratings: Json | null
+          source: string | null
           status: string | null
           tide_height_ft: number | null
           tide_status: string | null
@@ -4625,6 +4657,7 @@ export type Database = {
           rating?: number | null
           share_count?: number
           skill_ratings?: Json | null
+          source?: string | null
           status?: string | null
           tide_height_ft?: number | null
           tide_status?: string | null
@@ -4660,6 +4693,7 @@ export type Database = {
           rating?: number | null
           share_count?: number
           skill_ratings?: Json | null
+          source?: string | null
           status?: string | null
           tide_height_ft?: number | null
           tide_status?: string | null
@@ -8422,6 +8456,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       intel_post_tag: [
