@@ -39,6 +39,11 @@ const CROSS_LINKS = [
     label: "Best Time to Surf",
     desc: "Monthly surf quality by city",
   },
+  {
+    href: "/vs/surfline",
+    label: "Quiver vs Surfline",
+    desc: "See how we compare, feature by feature",
+  },
 ];
 
 export default function LearnHubPage() {
@@ -218,7 +223,7 @@ export default function LearnHubPage() {
             <h2 className="mb-8 font-display text-2xl font-extrabold text-white sm:text-3xl">
               More from Quiver
             </h2>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {CROSS_LINKS.map((link) => (
                 <Link
                   key={link.href}

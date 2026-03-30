@@ -189,6 +189,12 @@ export default async function ForecastAccuracyPage() {
               >
                 Browse All Beaches
               </Link>
+              <Link
+                href="/vs/surfline"
+                className="inline-flex items-center px-5 py-2.5 rounded-lg bg-white/10 text-white font-semibold text-sm hover:bg-white/20 transition-colors border border-white/30"
+              >
+                Quiver vs Surfline
+              </Link>
             </div>
           </section>
         </ScrollReveal>
