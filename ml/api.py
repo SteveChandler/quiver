@@ -189,6 +189,7 @@ class TrainingConfig(BaseModel):
     bucket_improvement_min: float = Field(default=40, description="Min improvement % per bucket")
     bucket_degradation_limit: float = Field(default=0.10, description="Max MAE worsening per bucket (meters)")
     bucket_policy: str = Field(default="all", description="Bucket validation policy: 'all' = every bucket must pass; 'majority' = 2 of 3 must pass")
+    overall_improvement_min: float = Field(default=OVERALL_IMPROVEMENT_MIN, description="Min overall improvement % to pass validation")
     exclude_wind: bool = Field(default=False, description="Exclude wind features from training (use when wind data coverage is insufficient)")
 
 class TrainRequest(BaseModel):
@@ -401,7 +402,7 @@ def compute_training_stats(df: pd.DataFrame) -> dict:
         'residual_std': float(df['residual_m'].std())
     }
 
-def evaluate_buckets(df: pd.DataFrame, corrected: np.ndarray, bucket_improvement_min=BUCKET_IMPROVEMENT_MIN, bucket_degradation_limit=BUCKET_DEGRADATION_LIMIT) -> dict:
+def evaluate_buckets(df: pd.DataFrame, corrected: np.ndarray, bucket_improvement_min=BUCKET_IMPROVEMENT_MIN, bucket_degradation_limit=BUCKET_DEGRADATION_LIMIT, overall_improvement_min=OVERALL_IMPROVEMENT_MIN) -> dict:
     """
     Evaluate improvement rate per forecast bucket.
 
@@ -454,7 +455,7 @@ def evaluate_buckets(df: pd.DataFrame, corrected: np.ndarray, bucket_improvement
         'corrected_mae': df_eval['corrected_error'].mean(),
     }
 
-    results['all_pass'] = all_pass and overall_improvement > OVERALL_IMPROVEMENT_MIN
+    results['all_pass'] = all_pass and overall_improvement > overall_improvement_min
     return results
 
 
@@ -805,7 +806,8 @@ async def train_model(request: TrainRequest):
         # Bucket evaluation
         bucket_results = evaluate_buckets(df_holdout, corrected,
             bucket_improvement_min=request.config.bucket_improvement_min,
-            bucket_degradation_limit=request.config.bucket_degradation_limit)
+            bucket_degradation_limit=request.config.bucket_degradation_limit,
+            overall_improvement_min=request.config.overall_improvement_min)
 
         logger.info("[Train] Bucket results:")
         for bucket in ['<0.5m', '0.5-1.5m', '>1.5m']:
@@ -875,8 +877,8 @@ async def train_model(request: TrainRequest):
         go = True
         failure_reasons = []
 
-        if overall['improvement_rate'] <= OVERALL_IMPROVEMENT_MIN:
-            failure_reasons.append(f"Overall improvement {overall['improvement_rate']:.1f}% <= {OVERALL_IMPROVEMENT_MIN}%")
+        if overall['improvement_rate'] <= request.config.overall_improvement_min:
+            failure_reasons.append(f"Overall improvement {overall['improvement_rate']:.1f}% <= {request.config.overall_improvement_min}%")
             go = False
 
         if not bucket_results['all_pass']:
