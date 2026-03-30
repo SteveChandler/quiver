@@ -11,7 +11,7 @@ import { saveOnboardingData } from '@/actions/onboarding-actions';
 import { data as dataClient } from '@/lib/data/client';
 import { getLocalDateString } from '@/lib/utils/timezone-utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Loader2, MapPin, Sparkles, Waves, Wind } from 'lucide-react';
+import { Loader2, MapPin, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { LEVEL_THRESHOLDS } from '@/lib/gamification/constants';
@@ -283,7 +283,7 @@ export function PayoffStep() {
               animate={{ scale: [1, 1.1, 1] }}
               transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
             >
-              <Waves className="h-10 w-10 text-[#F78E42]/60" />
+              <span className="text-4xl">🌊</span>
             </motion.div>
           </div>
           <Skeleton className="h-6 w-48 bg-white/[0.06]" />
@@ -334,16 +334,16 @@ export function PayoffStep() {
 
                   <div className="flex items-center gap-4 text-sm">
                     {intel.surf_min_ft !== null && intel.surf_max_ft !== null && (
-                      <div className="flex items-center gap-1">
-                        <Waves className="h-4 w-4 text-white/50" />
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-base leading-none">🌊</span>
                         <span className="text-white">
                           {intel.surf_min_ft}-{intel.surf_max_ft} ft
                         </span>
                       </div>
                     )}
                     {intel.wind_quality && intel.wind_speed_mph !== null && (
-                      <div className="flex items-center gap-1">
-                        <Wind className="h-4 w-4 text-white/50" />
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-base leading-none">🌬️</span>
                         <span className="text-white">
                           {intel.wind_quality} {intel.wind_speed_mph}mph
                         </span>
@@ -369,13 +369,13 @@ export function PayoffStep() {
                   <div className="space-y-2">
                     {forecastPreview.wave_height && (
                       <div className="flex items-center gap-2 text-sm">
-                        <Waves className="h-4 w-4 text-white/50" />
+                        <span className="text-base leading-none">🌊</span>
                         <span className="text-white">{forecastPreview.wave_height}</span>
                       </div>
                     )}
                     {(forecastPreview.wind_speed || forecastPreview.wind_direction) && (
                       <div className="flex items-center gap-2 text-sm">
-                        <Wind className="h-4 w-4 text-white/50" />
+                        <span className="text-base leading-none">🌬️</span>
                         <span className="text-white">
                           {forecastPreview.wind_speed}{' '}
                           {forecastPreview.wind_direction}
@@ -430,7 +430,7 @@ export function PayoffStep() {
                   +100 XP &middot; {kookTitle}
                 </p>
                 <p className="text-xs text-white/50">
-                  Welcome to the surf community
+                  Log sessions to train your beach&apos;s forecast — every report makes it sharper
                 </p>
               </div>
             </motion.div>
