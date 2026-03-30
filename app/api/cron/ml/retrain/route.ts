@@ -340,6 +340,7 @@ async function handleRetrain(request: Request) {
           max_bias_pct: 0.75,
           bias_floor_m: 0.2,
           bucket_policy: 'majority',  // Allow deployment if 2/3 buckets pass
+          exclude_wind: true,  // Wind data coverage insufficient until mid-April 2026 — re-enable once retrains are ~100% wind data
         },
       };
 
