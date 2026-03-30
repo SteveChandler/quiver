@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   homeBeachSchema,
   HomeBeachFormData,
@@ -36,6 +36,7 @@ export function HomeBeachStep() {
   const [celebratingBeachId, setCelebratingBeachId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [isLocating, setIsLocating] = useState(false);
+  const [showSearch, setShowSearch] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(
     null
@@ -140,6 +141,13 @@ export function HomeBeachStep() {
     [nearbyBeachesData]
   );
 
+  // Switch to nearby mode when results arrive
+  useEffect(() => {
+    if (nearbyBeaches.length > 0) {
+      setShowSearch(false);
+    }
+  }, [nearbyBeaches.length]);
+
   const handleSkipForNow = () => {
     if (user?.id) {
       const result = handleOnboardingDismiss(user.id);
@@ -219,23 +227,7 @@ export function HomeBeachStep() {
     // refetchNearby is stable (empty-dep useCallback inside useDataFetcher).
   }, [refetchNearby]);
 
-  // Background geolocation: if permission already granted, silently fetch nearby beaches.
-  // handleUseLocation is memoized so it is safe to list as a dep here.
-  useEffect(() => {
-    let cancelled = false;
-    try {
-      navigator.permissions?.query({ name: 'geolocation' }).then((result) => {
-        if (!cancelled && result.state === 'granted') {
-          handleUseLocation();
-        }
-      }).catch(() => {
-        // Permissions API not supported - no-op
-      });
-    } catch {
-      // Permissions API not supported - no-op
-    }
-    return () => { cancelled = true; };
-  }, [handleUseLocation]);
+  // Background geolocation removed — only fetch nearby when user taps "Find me"
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -256,10 +248,10 @@ export function HomeBeachStep() {
           className="w-full px-4 py-2.5 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-sm font-medium hover:bg-white/10 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
         >
           <MapPin className="h-4 w-4" />
-          {isLocating ? "Finding nearby beaches..." : "Use my location"}
+          {isLocating ? "Finding nearby beaches..." : nearbyBeaches.length > 0 ? "Nearby spots" : "Find me"}
         </button>
 
-        {(nearbyLoading || nearbyError || locationError) && (
+        {(nearbyLoading || nearbyError || locationError || (coords && !nearbyLoading && nearbyBeaches.length === 0)) && (
           <div className="rounded-lg border border-white/[0.12] bg-white/[0.04] p-3 text-sm">
             {locationError ? (
               <p className="text-red-400" role="alert">
@@ -269,116 +261,136 @@ export function HomeBeachStep() {
               <p className="text-red-400" role="alert">
                 {nearbyError}
               </p>
-            ) : (
+            ) : nearbyLoading ? (
               <p className="text-white/50">Loading nearby beaches...</p>
+            ) : (
+              <p className="text-white/50">No beaches found nearby — try searching by name</p>
             )}
-          </div>
-        )}
-
-        {nearbyBeaches.length > 0 && (
-          <div className="space-y-2">
-            <Label className="text-white/50 text-xs uppercase tracking-wide">Nearby beaches</Label>
-            <div className="grid grid-cols-1 gap-2">
-              {nearbyBeaches.slice(0, 6).map((beach) => {
-                const isCelebrating = celebratingBeachId === beach.id;
-                return (
-                  <button
-                    key={beach.id}
-                    type="button"
-                    onClick={() => selectBeach(beach)}
-                    className={`w-full px-4 py-3 text-left rounded-lg flex items-center gap-3 transition-colors ${
-                      isCelebrating
-                        ? "border border-[#F78E42] bg-[#F78E42]/10"
-                        : "bg-white/[0.06] border border-white/[0.12] hover:bg-white/10"
-                    }`}
-                  >
-                    <MapPin className="h-4 w-4 text-white/50 flex-shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium text-white truncate">{beach.name}</div>
-                      {(beach.city || beach.state || beach.region) && (
-                        <div className="text-sm text-white/50 truncate">
-                          {[beach.city, beach.state || beach.region]
-                            .filter(Boolean)
-                            .join(", ")}
-                        </div>
-                      )}
-                    </div>
-                    {isCelebrating && (
-                      <motion.div
-                        initial={reducedMotion ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ type: "spring", ...HOME_HEADER_MOTION.spring }}
-                      >
-                        <CheckCircle className="h-5 w-5 text-[#F78E42] flex-shrink-0" />
-                      </motion.div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
           </div>
         )}
       </div>
 
-
-      <div>
-        <Label htmlFor="beachSearch" className="text-white/50 text-xs uppercase tracking-wide">
-          Search for your beach
-        </Label>
-        <div className="relative mt-1">
-          <input
-            id="beachSearch"
-            placeholder="e.g., Malibu, Pipeline, Rincon..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            autoComplete="off"
-            className="w-full px-4 py-2.5 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white placeholder:text-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-[#F78E42]/40 focus:border-[#F78E42]/40"
-          />
-          {isSearching && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <div className="animate-spin h-4 w-4 border-2 border-white/30 border-t-white/70 rounded-full" />
-            </div>
-          )}
-          {searchResults.length > 0 && (
-            <div className="absolute z-10 w-full mt-1 bg-[#1A3A5C] border border-white/[0.12] rounded-lg shadow-xl max-h-60 overflow-y-auto">
-              {searchResults.map((beach) => (
+      <AnimatePresence mode="wait">
+        {!showSearch && nearbyBeaches.length > 0 ? (
+          <motion.div
+            key="nearby"
+            initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+            transition={reducedMotion ? { duration: 0 } : { duration: 0.2 }}
+            className="space-y-2"
+          >
+            {nearbyBeaches.slice(0, 4).map((beach) => {
+              const isCelebrating = celebratingBeachId === beach.id;
+              return (
                 <button
                   key={beach.id}
                   type="button"
                   onClick={() => selectBeach(beach)}
-                  className="w-full px-4 py-3 text-left hover:bg-white/[0.08] flex items-center gap-3 border-b border-white/[0.08] last:border-b-0 transition-colors"
+                  className={`w-full px-4 py-3 text-left rounded-lg flex items-center gap-3 transition-colors ${
+                    isCelebrating
+                      ? "border border-[#F78E42] bg-[#F78E42]/10"
+                      : "bg-white/[0.06] border border-white/[0.12] hover:bg-white/10"
+                  }`}
                 >
                   <MapPin className="h-4 w-4 text-white/50 flex-shrink-0" />
-                  <div>
-                    <div className="font-medium text-white">{beach.name}</div>
-                    {(beach.region || beach.country) && (
-                      <div className="text-sm text-white/50">
-                        {[beach.region, beach.country].filter(Boolean).join(", ")}
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-white truncate">{beach.name}</div>
+                    {(beach.city || beach.state || beach.region) && (
+                      <div className="text-sm text-white/50 truncate">
+                        {[beach.city, beach.state || beach.region]
+                          .filter(Boolean)
+                          .join(", ")}
                       </div>
                     )}
                   </div>
+                  {isCelebrating && (
+                    <motion.div
+                      initial={reducedMotion ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: "spring", ...HOME_HEADER_MOTION.spring }}
+                    >
+                      <CheckCircle className="h-5 w-5 text-[#F78E42] flex-shrink-0" />
+                    </motion.div>
+                  )}
                 </button>
-              ))}
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setShowSearch(true)}
+              className="w-full text-sm text-white/40 hover:text-white/60 transition-colors pt-1"
+            >
+              Not here? Search by name
+            </button>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="search"
+            initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+            transition={reducedMotion ? { duration: 0 } : { duration: 0.2 }}
+          >
+            <Label htmlFor="beachSearch" className="text-white/50 text-xs uppercase tracking-wide">
+              Search for your beach
+            </Label>
+            <div className="relative mt-1">
+              <input
+                id="beachSearch"
+                placeholder="e.g., Malibu, Pipeline, Rincon..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                autoComplete="off"
+                className="w-full px-4 py-2.5 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white placeholder:text-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-[#F78E42]/40 focus:border-[#F78E42]/40"
+              />
+              {isSearching && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div className="animate-spin h-4 w-4 border-2 border-white/30 border-t-white/70 rounded-full" />
+                </div>
+              )}
+              {searchResults.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-[#1A3A5C] border border-white/[0.12] rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                  {searchResults.map((beach) => (
+                    <button
+                      key={beach.id}
+                      type="button"
+                      onClick={() => selectBeach(beach)}
+                      className="w-full px-4 py-3 text-left hover:bg-white/[0.08] flex items-center gap-3 border-b border-white/[0.08] last:border-b-0 transition-colors"
+                    >
+                      <MapPin className="h-4 w-4 text-white/50 flex-shrink-0" />
+                      <div>
+                        <div className="font-medium text-white">{beach.name}</div>
+                        {(beach.region || beach.country) && (
+                          <div className="text-sm text-white/50">
+                            {[beach.region, beach.country].filter(Boolean).join(", ")}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        {searchError && (
-          <p className="text-sm text-red-400 mt-2" role="alert">
-            {searchError}
-          </p>
+            {searchError && (
+              <p className="text-sm text-red-400 mt-2" role="alert">
+                {searchError}
+              </p>
+            )}
+            {selectedBeach && (
+              <div className="mt-3 p-3 bg-[#F78E42]/10 border border-[#F78E42]/30 rounded-lg flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-[#F78E42]" />
+                <span className="font-medium text-white">{selectedBeach.name}</span>
+              </div>
+            )}
+            {errors.homeBeachId && (
+              <p className="text-sm text-red-400 mt-1" role="alert">
+                {errors.homeBeachId.message}
+              </p>
+            )}
+          </motion.div>
         )}
-        {selectedBeach && (
-          <div className="mt-3 p-3 bg-[#F78E42]/10 border border-[#F78E42]/30 rounded-lg flex items-center gap-2">
-            <CheckCircle className="h-4 w-4 text-[#F78E42]" />
-            <span className="font-medium text-white">{selectedBeach.name}</span>
-          </div>
-        )}
-        {errors.homeBeachId && (
-          <p className="text-sm text-red-400 mt-1" role="alert">
-            {errors.homeBeachId.message}
-          </p>
-        )}
-      </div>
+      </AnimatePresence>
 
       <div className="space-y-3">
         <button

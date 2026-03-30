@@ -36,6 +36,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Sitemap protocol limit: 50,000 URLs / 50 MB per file.
   // Current estimate: ~9,100 URLs (incl. ~558 beach subpages) — well under limit.
 
+  // Fetch beaches first — shared between beach routes and location route validation.
+  // Location routes are cross-validated against this set to exclude cities whose
+  // scoring RPC returns no results (which would 307 redirect to /map, wasting crawl budget).
+  const beachesResponse = await getBeaches();
+  const allBeaches =
+    beachesResponse.success && beachesResponse.data ? beachesResponse.data : [];
+
+  // Build set of city+state combos that have at least one valid beach
+  const validCitySlugs = new Set<string>();
+  for (const beach of allBeaches) {
+    if (beach.slug && beach.city && beach.state) {
+      const st = stateToSlug(beach.state);
+      const ct = slugifyAscii(beach.city);
+      if (st && ct) validCitySlugs.add(`${st}/${ct}`);
+    }
+  }
+
   // Combine all route generators into a single flat sitemap
   const [
     staticRoutes,
@@ -49,8 +66,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     learnRoutes,
   ] = await Promise.all([
     Promise.resolve(getStaticRoutes()),
-    getBeachRoutes(),
-    getLocationRoutes(),
+    Promise.resolve(buildBeachRoutes(allBeaches)),
+    getLocationRoutes(validCitySlugs),
     getIntentRoutes(),
     Promise.resolve(getGuideRoutes()),
     Promise.resolve(getForecastRoutes()),
@@ -110,15 +127,11 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
  * Subpages are included because they have robust metadata, FAQs, structured
  * data, and CTAs. Google already crawls and ranks them via internal links —
  * adding them to the sitemap formalizes discoverability.
+ *
+ * Accepts pre-fetched beach data to avoid duplicate DB calls (the main
+ * sitemap function shares this data with location route validation).
  */
-async function getBeachRoutes(): Promise<MetadataRoute.Sitemap> {
-  const beachesResponse = await getBeaches();
-  if (!beachesResponse.success || !beachesResponse.data) {
-    console.error("Sitemap: Failed to fetch beaches");
-    return [];
-  }
-
-  const beaches = beachesResponse.data;
+function buildBeachRoutes(beaches: NonNullable<Awaited<ReturnType<typeof getBeaches>>["data"]>): MetadataRoute.Sitemap {
   const fallbackDate = "2026-02-10";
 
   const subPageTypes = ["tides", "water-temp"] as const;
@@ -159,7 +172,7 @@ async function getBeachRoutes(): Promise<MetadataRoute.Sitemap> {
 /**
  * Location pages - city and state listing pages.
  */
-async function getLocationRoutes(): Promise<MetadataRoute.Sitemap> {
+async function getLocationRoutes(validCitySlugs: Set<string>): Promise<MetadataRoute.Sitemap> {
   const response = await getAllBeachLocations();
   if (!response.success || !response.data) {
     console.error("Sitemap: Failed to load beach locations");
@@ -171,6 +184,7 @@ async function getLocationRoutes(): Promise<MetadataRoute.Sitemap> {
 
   const usaStates = new Set<string>();
   const locationRoutes: MetadataRoute.Sitemap = [];
+  let filteredCount = 0;
 
   for (const location of response.data) {
     const isUsa =
@@ -211,6 +225,12 @@ async function getLocationRoutes(): Promise<MetadataRoute.Sitemap> {
       const stateSlug = stateToSlug(location.state);
       const citySlug = slugifyAscii(location.city);
       if (stateSlug && citySlug) {
+        // Only include cities that have valid beaches in the sitemap.
+        // Cities without scored beaches redirect to /map, wasting crawl budget.
+        if (!validCitySlugs.has(`${stateSlug}/${citySlug}`)) {
+          filteredCount++;
+          continue;
+        }
         usaStates.add(stateSlug);
         locationRoutes.push({
           url: `${baseUrl}/${stateSlug}/${citySlug}`,
@@ -232,6 +252,10 @@ async function getLocationRoutes(): Promise<MetadataRoute.Sitemap> {
         });
       }
     }
+  }
+
+  if (filteredCount > 0) {
+    console.log(`Sitemap: Filtered ${filteredCount} city routes without valid beaches`);
   }
 
   // Add state-level pages

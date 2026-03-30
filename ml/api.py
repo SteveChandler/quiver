@@ -189,6 +189,7 @@ class TrainingConfig(BaseModel):
     bucket_improvement_min: float = Field(default=40, description="Min improvement % per bucket")
     bucket_degradation_limit: float = Field(default=0.10, description="Max MAE worsening per bucket (meters)")
     bucket_policy: str = Field(default="all", description="Bucket validation policy: 'all' = every bucket must pass; 'majority' = 2 of 3 must pass")
+    exclude_wind: bool = Field(default=False, description="Exclude wind features from training (use when wind data coverage is insufficient)")
 
 class TrainRequest(BaseModel):
     """Request payload for model training."""
@@ -737,6 +738,14 @@ async def train_model(request: TrainRequest):
         X_holdout = preprocess_v2(df_holdout)
         y_train = df_train['residual_m']
         y_holdout = df_holdout['residual_m']
+
+        # Optionally exclude wind features (when wind data coverage is insufficient)
+        if request.config.exclude_wind:
+            wind_cols = ['wind_speed_ms', 'wind_direction_sin', 'wind_direction_cos', 'wind_missing']
+            drop_cols = [c for c in wind_cols if c in X_train.columns]
+            X_train = X_train.drop(columns=drop_cols)
+            X_holdout = X_holdout.drop(columns=drop_cols)
+            logger.info(f"[Train] Excluded wind features: {drop_cols}. Remaining: {list(X_train.columns)}")
 
         # Cross-validation on training set
         logger.info("[Train] Running 5-fold cross-validation...")

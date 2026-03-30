@@ -230,7 +230,7 @@ export function OnboardingDialog() {
       role="dialog"
       aria-modal="true"
       aria-label="Set up your surf profile"
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto formgrid-onboarding"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto py-4 sm:py-8 formgrid-onboarding"
     >
       <h2 className="sr-only">Set up your surf profile</h2>
 
@@ -245,7 +245,7 @@ export function OnboardingDialog() {
             {/* Floating spray particles across the whole card */}
             <FloatingParticles />
             {/* Hero image — persistent across steps */}
-            <HeroImageSlot className="h-[30vh] sm:h-[35vh] lg:h-[40vh]" />
+            <HeroImageSlot className="h-[20vh] sm:h-[25vh] lg:h-[30vh]" />
 
             {/* Progress dots — overlaid at the bottom of the hero */}
             <div className="relative -mt-8 z-10 pb-2">

@@ -43,7 +43,7 @@ export function useOnboardingTracking() {
             step_name: "completed",
             completed: true,
           },
-          debounceMs: 100,
+          debounceMs: 0, // Must be 0 — fires right after payoff step event with same debounce key
         });
       }
     });
