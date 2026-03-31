@@ -96,7 +96,7 @@ export default async function SwellAnalyzerPage({ searchParams }: Props) {
       <BreadcrumbStructuredData
         items={[
           { name: "Home", url: SITE_URL },
-          { name: "Free Tools", url: `${SITE_URL}/tools` },
+          { name: "Surfer's Toolkit", url: `${SITE_URL}/tools` },
           {
             name: "Swell Quality Analyzer",
             url: `${SITE_URL}/tools/swell-analyzer`,

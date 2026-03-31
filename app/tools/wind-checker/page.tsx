@@ -90,7 +90,7 @@ export default async function WindCheckerPage({ searchParams }: Props) {
       <BreadcrumbStructuredData
         items={[
           { name: "Home", url: SITE_URL },
-          { name: "Free Tools", url: `${SITE_URL}/tools` },
+          { name: "Surfer's Toolkit", url: `${SITE_URL}/tools` },
           { name: "Offshore Wind Checker", url: `${SITE_URL}/tools/wind-checker` },
         ]}
       />

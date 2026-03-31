@@ -160,7 +160,7 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
       <BreadcrumbStructuredData
         items={[
           { name: "Quiver", url: `${SITE_ORIGIN}/` },
-          { name: "Free Tools", url: `${SITE_ORIGIN}/tools` },
+          { name: "Surfer's Toolkit", url: `${SITE_ORIGIN}/tools` },
           { name: "Water Quality Check", url: `${SITE_ORIGIN}/tools/water-quality` },
         ]}
       />
