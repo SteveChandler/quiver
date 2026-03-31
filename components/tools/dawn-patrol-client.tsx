@@ -195,7 +195,7 @@ function DayTimeline({
   const sunsetX = day.sunset ? xPct(day.sunset) : null;
 
   return (
-    <div className="relative pt-8 pb-2">
+    <div className="relative pt-10 pb-6">
       {/* Track */}
       <div
         className="relative h-3 rounded-full overflow-visible"
@@ -224,9 +224,10 @@ function DayTimeline({
           />
         )}
 
-        {/* Markers */}
-        {markers.map((m) => {
+        {/* Markers — even indices above, odd indices below to avoid overlap */}
+        {markers.map((m, i) => {
           const x = xPct(m.iso);
+          const above = i % 2 === 0;
           return (
             <div
               key={m.label}
@@ -237,19 +238,34 @@ function DayTimeline({
                 className="w-3 h-3 rounded-full border-2 border-[#0F1535]"
                 style={{ background: m.color }}
               />
-              {/* Label above */}
               <div
-                className="absolute bottom-6 left-1/2 -translate-x-1/2 text-center whitespace-nowrap"
+                className={`absolute left-1/2 -translate-x-1/2 text-center whitespace-nowrap ${above ? "bottom-6" : "top-6"}`}
               >
-                <p
-                  className="font-mono text-xs font-semibold"
-                  style={{ color: m.color }}
-                >
-                  {formatTime(m.iso, timezone)}
-                </p>
-                <p className="font-mono text-[10px] text-[#7A8CC0]">
-                  {m.label}
-                </p>
+                {above ? (
+                  <>
+                    <p
+                      className="font-mono text-xs font-semibold"
+                      style={{ color: m.color }}
+                    >
+                      {formatTime(m.iso, timezone)}
+                    </p>
+                    <p className="font-mono text-[10px] text-[#7A8CC0]">
+                      {m.label}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-mono text-[10px] text-[#7A8CC0]">
+                      {m.label}
+                    </p>
+                    <p
+                      className="font-mono text-xs font-semibold"
+                      style={{ color: m.color }}
+                    >
+                      {formatTime(m.iso, timezone)}
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           );
@@ -412,7 +428,7 @@ export function DawnPatrolClient() {
                           idx === 0
                             ? "rgba(247, 142, 66, 0.35)"
                             : "rgba(64, 76, 146, 0.4)",
-                        transform: idx === 0 ? "rotate(-0.5deg)" : "rotate(0.5deg)",
+                        transform: "none",
                       }}
                     >
                       <div className="flex items-center justify-between">

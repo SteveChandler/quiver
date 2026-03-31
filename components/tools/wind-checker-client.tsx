@@ -16,6 +16,17 @@ import { BeachSearchAutocomplete } from "@/components/beach/beach-search-autocom
 import { ToolHero } from "@/components/tools/tool-hero";
 import { TOOL_IMAGES } from "@/lib/constants/tool-images";
 
+const POPULAR_BEACH_SLUGS = [
+  { slug: "la-jolla", name: "La Jolla", state: "CA" },
+  { slug: "pipeline", name: "Pipeline", state: "HI" },
+  { slug: "trestles", name: "Trestles", state: "CA" },
+  { slug: "rincon", name: "Rincon", state: "CA" },
+  { slug: "rockaway", name: "Rockaway", state: "NY" },
+  { slug: "huntington-beach", name: "Huntington Beach", state: "CA" },
+  { slug: "ocean-beach", name: "Ocean Beach", state: "CA" },
+  { slug: "montauk", name: "Montauk", state: "NY" },
+];
+
 interface WindCheckerClientProps {
   initialData?: WindCheckerData;
   initialBeachSlug?: string;
@@ -145,22 +156,60 @@ export function WindCheckerClient({
           </div>
         )}
 
-        {/* Empty state */}
+        {/* Empty state — popular beaches */}
         {!data && !isPending && !error && (
-          <div
-            className="noise-texture rounded-2xl border p-12 text-center"
-            style={{
-              background: "linear-gradient(135deg, rgba(37,45,107,0.9) 0%, rgba(26,33,88,0.95) 100%)",
-              borderColor: "rgba(64,76,146,0.4)",
-            }}
-          >
-            <Wind className="h-12 w-12 mx-auto mb-4 text-[#404C92]" />
-            <p className="text-[#7A8CC0] font-mono text-sm">
-              Search for a beach to check wind conditions
-            </p>
-            <p className="text-[#404C92] font-mono text-xs mt-1">
-              48-hour forecast · updated hourly
-            </p>
+          <div className="space-y-8">
+            <div>
+              <h2 className="font-heading text-lg font-semibold text-white mb-4">
+                Popular Beaches
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {POPULAR_BEACH_SLUGS.map((b) => (
+                  <button
+                    key={b.slug}
+                    onClick={() => loadBeach(b.slug)}
+                    className="noise-texture rounded-xl border p-4 text-left transition-all hover:border-[rgba(247,142,66,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]"
+                    style={{
+                      background: "rgba(37,45,107,0.5)",
+                      borderColor: "rgba(64,76,146,0.4)",
+                      minHeight: "44px",
+                    }}
+                  >
+                    <p className="font-heading font-semibold text-white text-sm truncate">
+                      {b.name}
+                    </p>
+                    <p className="font-mono text-xs text-[#7A8CC0] mt-0.5">
+                      {b.state}
+                    </p>
+                  </button>
+                ))}
+              </div>
+              <p className="font-mono text-xs text-[#404C92] mt-3 text-center">
+                48-hour forecast · updated hourly
+              </p>
+            </div>
+
+            <div
+              className="rounded-xl border px-5 py-4"
+              style={{
+                background: "rgba(37, 45, 107, 0.3)",
+                borderColor: "rgba(64, 76, 146, 0.35)",
+              }}
+            >
+              <p className="font-heading text-sm font-semibold text-white mb-1">
+                Check live tides
+              </p>
+              <p className="text-xs text-[#7A8CC0] mb-2">
+                Real-time tide height and 24-hour chart for this beach
+              </p>
+              <Link
+                href="/tools/tide-clock"
+                className="font-mono text-xs font-semibold hover:underline"
+                style={{ color: "#F78E42" }}
+              >
+                Tide Clock &rarr;
+              </Link>
+            </div>
           </div>
         )}
 
