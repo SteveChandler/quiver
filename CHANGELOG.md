@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Optimal Conditions section on beach detail pages — server-rendered grid (best wind, best swell, preferred tide, best months) with optional hero photo for SEO crawlability; targets compound queries like "best wind direction [beach name]"
 - Two new FAQ items (best wind direction, best months to surf) added to beach FAQ schema for rich snippet eligibility
+- 21 new NJ surf beaches across 8 cities (Belmar, Spring Lake, Long Branch, Ocean City, Cape May, Sea Isle City, Bradley Beach, plus Bay Head, Seaside Park, Toms River) — unlocks 49 city intent pages including uncontested longboard niche
 
 ### Changed
 - `trackSignupStarted` and `trackSignupSuccess` now accept optional `source` and `landing_page` parameters, closing the attribution gap between CTA clicks and signup completion events

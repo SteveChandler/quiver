@@ -1,7 +1,6 @@
 import Image from "next/image";
 import { Wind, Waves, Gauge, CalendarDays } from "lucide-react";
 import type { Beach } from "@/types/database";
-import { degreeToCardinal } from "@/lib/utils/geo-utils";
 import { degreeWindowToCardinal } from "@/lib/utils/direction-utils";
 import { formatMonthRange } from "@/lib/utils/date-time";
 import { getOptimizedImageUrl } from "@/lib/image-proxy";
@@ -65,16 +64,8 @@ export function OptimalConditionsSection({
           />
           {photo.license_code && photo.creator_name && (
             <figcaption className="mt-2 text-xs text-white/40">
-              {photo.attribution_html ? (
-                <span
-                  dangerouslySetInnerHTML={{ __html: photo.attribution_html }}
-                />
-              ) : (
-                <span>
-                  Photo by {photo.creator_name}
-                  {photo.license_code ? ` (${photo.license_code})` : ""}
-                </span>
-              )}
+              Photo by {photo.creator_name}
+              {photo.license_code ? ` (${photo.license_code})` : ""}
             </figcaption>
           )}
         </figure>
