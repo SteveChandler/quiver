@@ -81,14 +81,13 @@ export function BeachAlertCta({ beachId, beachName, compact, className, onOpenAl
           className={className}
         >
           {hasAlerts ? (
-            <BellRing className="h-4 w-4" style={{ color: "#F78E42" }} />
+            <BellRing className="h-4 w-4 text-[#F78E42]" />
           ) : (
-            <Bell className="h-4 w-4" style={{ color: "#F78E42" }} />
+            <Bell className="h-4 w-4 text-[#F78E42]" />
           )}
           {hasAlerts && (
             <span
-              className="ml-1 inline-flex items-center justify-center rounded-full text-xs font-semibold leading-none w-4 h-4 text-white"
-              style={{ backgroundColor: "#F78E42", fontSize: "10px" }}
+              className="ml-1 inline-flex items-center justify-center rounded-full text-[11px] font-semibold leading-none w-4 h-4 text-white bg-[#F78E42]"
             >
               {ruleCount}
             </span>
@@ -119,7 +118,7 @@ export function BeachAlertCta({ beachId, beachName, compact, className, onOpenAl
           variant="outline"
           onClick={handleClick}
           aria-label={hasAlerts ? `Manage alerts (${ruleCount} active)` : "Get alerts"}
-          className={`h-12 w-full px-6 text-base font-semibold rounded-md active:scale-[0.98] transition-all border-2 ${
+          className={`h-12 w-full px-6 text-base font-semibold rounded-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 transition-all border-2 ${
             hasAlerts
               ? "bg-[#F78E42] border-[#F78E42] text-white hover:bg-[#F78E42]/90 motion-safe:animate-[alertBreath_3s_ease-in-out_infinite] alert-breath"
               : "border-[#F78E42] text-[#F78E42] hover:bg-[#F78E42]/10"
@@ -128,24 +127,23 @@ export function BeachAlertCta({ beachId, beachName, compact, className, onOpenAl
           {hasAlerts ? (
             <BellRing className="h-5 w-5 mr-2" />
           ) : (
-            <Bell className="h-5 w-5 mr-2" style={{ color: "#F78E42" }} />
+            <Bell className="h-5 w-5 mr-2 text-[#F78E42]" />
           )}
           {hasAlerts ? (
             <span className="flex items-center gap-1.5">
-              Alerts Active
+              Alerts active
               <span
-                className="inline-flex items-center justify-center rounded-full font-bold leading-none w-5 h-5 bg-white/20 text-white"
-                style={{ fontSize: "11px" }}
+                className="inline-flex items-center justify-center rounded-full font-bold leading-none w-5 h-5 bg-white/20 text-white text-[11px]"
               >
                 {ruleCount}
               </span>
             </span>
           ) : (
-            "Get Alerts"
+            "Get alerts"
           )}
         </Button>
-        <p className="text-xs text-muted-foreground text-center">
-          {hasAlerts ? "Tap to manage your alert rules" : "Notify me when conditions are ideal"}
+        <p className="text-xs text-gray-400 text-center">
+          {hasAlerts ? "Tap to manage your alerts" : "Notify me when conditions are ideal"}
         </p>
       </div>
 

@@ -31,7 +31,7 @@ interface AlertRuleCardProps {
 export function AlertRuleCard({ rule, onToggle, onDelete }: AlertRuleCardProps) {
   const [loading, setLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const confirmTimer = useRef<ReturnType<typeof setTimeout>>();
+  const confirmTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     return () => {
@@ -81,13 +81,13 @@ export function AlertRuleCard({ rule, onToggle, onDelete }: AlertRuleCardProps) 
           <div className="text-sm text-white font-medium truncate">{rule.name}</div>
           <div className="flex items-center gap-2 mt-0.5">
             {rule.notify_email && (
-              <span className="text-[10px] text-gray-500 font-mono">Email</span>
+              <span className="text-[11px] text-gray-400 font-mono">Email</span>
             )}
             {rule.notify_push && (
-              <span className="text-[10px] text-gray-500 font-mono">Push</span>
+              <span className="text-[11px] text-gray-400 font-mono">Push</span>
             )}
             {isStale && (
-              <span className="text-[10px] text-yellow-500/70">
+              <span className="text-[11px] text-yellow-500/70">
                 {staleDays === null ? "Never matched" : `${staleDays}d since match`}
               </span>
             )}
@@ -98,7 +98,8 @@ export function AlertRuleCard({ rule, onToggle, onDelete }: AlertRuleCardProps) 
         <button
           onClick={handleToggle}
           disabled={loading}
-          className={`p-1.5 rounded transition-colors text-xs ${
+          aria-label={rule.enabled ? "Disable alert" : "Enable alert"}
+          className={`p-1.5 rounded transition-all text-xs hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 active:scale-95 disabled:opacity-50 ${
             rule.enabled ? "text-[#F78E42]" : "text-gray-500"
           }`}
         >
@@ -109,7 +110,7 @@ export function AlertRuleCard({ rule, onToggle, onDelete }: AlertRuleCardProps) 
         </button>
         <button
           onClick={handleDelete}
-          className={`p-1.5 rounded transition-all text-xs ${
+          className={`p-1.5 rounded transition-all text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50 active:scale-95 ${
             confirmDelete
               ? "text-red-400 bg-red-400/10"
               : "text-gray-500 hover:text-red-400"
@@ -117,7 +118,7 @@ export function AlertRuleCard({ rule, onToggle, onDelete }: AlertRuleCardProps) 
           aria-label={confirmDelete ? "Click again to confirm delete" : "Delete alert"}
         >
           {confirmDelete ? (
-            <span className="text-[10px] font-semibold">Delete?</span>
+            <span className="text-[11px] font-semibold">Delete?</span>
           ) : (
             <Trash2 className="w-3.5 h-3.5" />
           )}

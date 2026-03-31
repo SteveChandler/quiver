@@ -29,7 +29,8 @@ export function PresetCard({ preset, onSelect, disabled, prominent }: PresetCard
     <button
       onClick={() => onSelect(preset)}
       disabled={disabled}
-      className={`w-full text-left rounded-lg border-l-[3px] border border-[#404C92] transition-all disabled:opacity-50 disabled:cursor-not-allowed motion-safe:hover:rotate-[0.8deg] motion-safe:hover:scale-[1.015] hover:bg-[#354090] ${config.accentClass} ${
+      aria-label={`${preset.name}: ${preset.description}`}
+      className={`w-full text-left rounded-lg border-l-[3px] border border-[#404C92] transition-all disabled:opacity-50 disabled:cursor-not-allowed motion-safe:hover:rotate-[0.8deg] motion-safe:hover:scale-[1.015] hover:bg-[#354090] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 ${config.accentClass} ${
         prominent
           ? "p-4 bg-[#354090]/60"
           : "p-3 bg-[#354090]/40"
@@ -51,10 +52,10 @@ export function PresetCard({ preset, onSelect, disabled, prominent }: PresetCard
           >
             {preset.name}
           </div>
-          <div className="text-gray-400 text-xs mt-0.5 leading-snug">
+          <div className="text-gray-300 text-xs mt-0.5 leading-snug">
             {preset.description}
           </div>
-          <div className="text-gray-500 text-[11px] mt-1.5 font-mono tracking-tight">
+          <div className="text-gray-400 text-[11px] mt-1.5 font-mono tracking-tight">
             {preset.conditionsSummary}
           </div>
         </div>

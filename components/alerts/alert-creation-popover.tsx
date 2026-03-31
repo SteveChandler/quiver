@@ -76,14 +76,14 @@ export function AlertCreationPopover({
       });
       const json = await res.json();
       if (!res.ok) {
-        toast.error(json.message ?? json.error ?? "Failed to create alert");
+        toast.error(json.message ?? json.error ?? "Couldn't create alert");
         return;
       }
       toast.success(`Alert created: ${preset.name}`);
       onRuleCreated?.();
       handleClose();
     } catch {
-      toast.error("Failed to create alert");
+      toast.error("Couldn't create alert");
     } finally {
       setSaving(false);
     }
@@ -104,7 +104,7 @@ export function AlertCreationPopover({
       name.trim() ||
       (currentStage.step === "customize"
         ? `${currentStage.preset.name} — ${beachName}`
-        : `Custom Alert — ${beachName}`);
+        : `Custom alert — ${beachName}`);
 
     setSaving(true);
     try {
@@ -125,14 +125,14 @@ export function AlertCreationPopover({
       });
       const json = await res.json();
       if (!res.ok) {
-        toast.error(json.message ?? json.error ?? "Failed to create alert");
+        toast.error(json.message ?? json.error ?? "Couldn't create alert");
         return;
       }
       toast.success("Alert created");
       onRuleCreated?.();
       handleClose();
     } catch {
-      toast.error("Failed to create alert");
+      toast.error("Couldn't create alert");
     } finally {
       setSaving(false);
     }
@@ -148,29 +148,31 @@ export function AlertCreationPopover({
 
   const isEditing = stage.step === "customize" || stage.step === "custom";
   const currentConditions = isEditing ? stage.conditions : {};
+  const hasConditions = isEditing && Object.keys(currentConditions).length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-[#1E2660] border border-[#404C92] text-white max-w-md w-full p-0 overflow-hidden bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC44IiBudW1PY3RhdmVzPSI0IiBzdGl0Y2hUaWxlcz0ic3RpdGNoIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbHRlcj0idXJsKCNuKSIgb3BhY2l0eT0iMC4wMyIvPjwvc3ZnPg==')]">
         <DialogHeader className="px-5 pt-5 pb-0">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-base font-bold font-[family-name:var(--font-space-grotesk)] text-white tracking-tight">
+            <DialogTitle className="text-base font-bold font-[family-name:var(--font-space-grotesk)] text-white tracking-tight truncate">
               {stage.step === "presets"
                 ? `Alerts for ${beachName}`
                 : stage.step === "customize"
                   ? `Customize: ${stage.preset.name}`
-                  : "Custom Alert"}
+                  : "Custom alert"}
             </DialogTitle>
             {isEditing && (
               <button
                 onClick={() => setStage({ step: "presets" })}
-                className="text-xs text-gray-400 hover:text-white transition-colors"
+                aria-label="Back to presets"
+                className="text-xs text-gray-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 focus-visible:rounded transition-colors shrink-0 ml-2"
               >
-                ← Back
+                Back
               </button>
             )}
           </div>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-gray-300 mt-1">
             {stage.step === "presets"
               ? "Pick a preset or build your own conditions"
               : "Customize your alert conditions and channels"}
@@ -197,12 +199,12 @@ export function AlertCreationPopover({
               />
               <button
                 onClick={() => {
-                  setName(`Custom Alert — ${beachName}`);
+                  setName(`Custom alert — ${beachName}`);
                   setStage({ step: "custom", conditions: {} });
                 }}
-                className="w-full text-sm font-semibold font-[family-name:var(--font-space-grotesk)] text-[#F78E42] hover:text-white hover:bg-[#F78E42] py-3 border-2 border-[#F78E42]/40 hover:border-[#F78E42] rounded-lg transition-all"
+                className="w-full text-sm font-semibold font-[family-name:var(--font-space-grotesk)] text-[#F78E42] hover:text-white hover:bg-[#F78E42] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 py-3 border-2 border-[#F78E42]/40 hover:border-[#F78E42] rounded-lg transition-all"
               >
-                + Build Custom Alert
+                + Build custom alert
               </button>
             </>
           )}
@@ -210,22 +212,22 @@ export function AlertCreationPopover({
           {isEditing && (
             <>
               {/* Name input */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase tracking-widest text-gray-500 font-[family-name:var(--font-space-grotesk)]">
-                  Alert Name
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-widest text-gray-400 font-[family-name:var(--font-space-grotesk)]">
+                  Alert name
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Name your alert..."
+                  placeholder="name your alert..."
                   className="w-full bg-[#252D6B] text-white text-sm rounded-lg px-3 py-2 border border-[#404C92] placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#F78E42]/50 focus:border-[#F78E42] transition-colors"
                 />
               </div>
 
               {/* Condition builder */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase tracking-widest text-gray-500 font-[family-name:var(--font-space-grotesk)]">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-widest text-gray-400 font-[family-name:var(--font-space-grotesk)]">
                   Conditions
                 </label>
                 <ConditionBuilder
@@ -236,7 +238,7 @@ export function AlertCreationPopover({
 
               {/* Channel toggles */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-widest text-gray-500 font-[family-name:var(--font-space-grotesk)]">
+                <label className="text-[11px] font-bold uppercase tracking-widest text-gray-400 font-[family-name:var(--font-space-grotesk)]">
                   Notify via
                 </label>
                 <div className="flex gap-3">
@@ -258,13 +260,13 @@ export function AlertCreationPopover({
               {/* Save button */}
               <Button
                 onClick={handleSave}
-                disabled={saving || (!notifyEmail && !notifyPush)}
-                className="w-full bg-[#F78E42] hover:bg-[#F78E42]/90 text-white font-semibold"
+                disabled={saving || !hasConditions || (!notifyEmail && !notifyPush)}
+                className="w-full bg-[#F78E42] hover:bg-[#F78E42]/90 active:scale-[0.98] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 {saving ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : null}
-                Save Alert
+                Save alert
               </Button>
             </>
           )}
@@ -291,7 +293,7 @@ function PresetGroup({
 }) {
   return (
     <div className="space-y-2">
-      <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 font-[family-name:var(--font-space-grotesk)]">
+      <div className="text-[11px] font-bold uppercase tracking-widest text-gray-400 font-[family-name:var(--font-space-grotesk)]">
         {label}
       </div>
       <div className="space-y-1.5">
@@ -313,7 +315,8 @@ function PresetGroup({
                 onCustomize(preset);
               }}
               disabled={disabled}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-500 hover:text-[#F78E42] opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0"
+              aria-label={`Customize ${preset.name}`}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-gray-400 hover:text-[#F78E42] focus-visible:text-[#F78E42] focus-visible:opacity-100 focus-visible:outline-none opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0"
             >
               Customize
             </button>
@@ -338,10 +341,12 @@ function ToggleChip({
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all ${
+      aria-pressed={active}
+      aria-label={`${label} notifications ${active ? "enabled" : "disabled"}`}
+      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 active:scale-95 ${
         active
           ? "bg-[#F78E42]/20 border-[#F78E42] text-[#F78E42]"
-          : "bg-transparent border-[#404C92] text-gray-500 hover:border-gray-400"
+          : "bg-transparent border-[#404C92] text-gray-400 hover:border-gray-300"
       }`}
     >
       {icon}

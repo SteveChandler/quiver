@@ -190,7 +190,7 @@ const windowBox: React.CSSProperties = {
 };
 const windowLabelStyle: React.CSSProperties = {
   color: "#F78E42",
-  fontSize: "10px",
+  fontSize: "11px",
   fontWeight: "700",
   textTransform: "uppercase",
   letterSpacing: "0.1em",
