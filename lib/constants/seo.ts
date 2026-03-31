@@ -7,7 +7,7 @@ export const SEO_CONFIG = {
   title:
     "Quiver — Free Surf Reports, Forecasts & Conditions for 279+ Beaches",
   description:
-    "Surf reports and forecasts updated every 3 hours with live buoy data. Tide charts, crowd levels & best-time-to-surf windows for California, Hawaii, Florida, East Coast & more. Always free.",
+    "Free surf reports updated every 3 hours from live buoy data. Tide charts, crowd intel & best windows for 279+ beaches in California, Hawaii, Florida & more.",
   keywords: [
     "surf report",
     "surf forecast",
@@ -39,6 +39,16 @@ export const SEO_CONFIG = {
     "Puerto Rico surf report",
     "New Jersey surf report",
     "Oregon surf forecast",
+    "South Carolina surf report",
+    "Texas surf report",
+    "Washington surf report",
+    "Maine surf report",
+    "Georgia surf report",
+    "Massachusetts surf report",
+    "New Hampshire surf report",
+    "Rhode Island surf report",
+    "tide chart today",
+    "surf conditions near me",
   ],
 
   // Open Graph enhanced
@@ -145,6 +155,41 @@ export const SEO_CONFIG = {
           "@type": "AdministrativeArea",
           name: "Baja California",
           containedInPlace: { "@type": "Country", name: "Mexico" },
+        },
+        {
+          "@type": "State",
+          name: "Maine",
+          containedInPlace: { "@type": "Country", name: "United States" },
+        },
+        {
+          "@type": "State",
+          name: "New Hampshire",
+          containedInPlace: { "@type": "Country", name: "United States" },
+        },
+        {
+          "@type": "State",
+          name: "Massachusetts",
+          containedInPlace: { "@type": "Country", name: "United States" },
+        },
+        {
+          "@type": "State",
+          name: "Rhode Island",
+          containedInPlace: { "@type": "Country", name: "United States" },
+        },
+        {
+          "@type": "State",
+          name: "South Carolina",
+          containedInPlace: { "@type": "Country", name: "United States" },
+        },
+        {
+          "@type": "State",
+          name: "Georgia",
+          containedInPlace: { "@type": "Country", name: "United States" },
+        },
+        {
+          "@type": "State",
+          name: "Texas",
+          containedInPlace: { "@type": "Country", name: "United States" },
         },
       ],
     },

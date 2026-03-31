@@ -26,7 +26,7 @@ import { ItemListSchema } from "@/components/seo/item-list-schema";
 import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
 import { AnimatedScoreGauge } from "@/components/forecast/animated-score-gauge";
 import { MonthlySurfChart } from "@/components/best-time-to-surf/monthly-chart";
-import { MonthlyGrid } from "@/components/best-time-to-surf/monthly-grid";
+import { MonthlyViewToggle } from "@/components/best-time-to-surf/monthly-view-toggle";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
@@ -263,18 +263,19 @@ export default async function BestTimeToSurfPage(props: PageParams) {
           </section>
         </ScrollReveal>
 
-        {/* Monthly Breakdown Grid */}
+        {/* Monthly Breakdown Grid / Heatmap */}
         <section className="mb-12">
           <h2 className="text-2xl font-semibold text-gray-900 mb-4">
             Monthly Breakdown
           </h2>
-          <MonthlyGrid
+          <MonthlyViewToggle
             monthly={data.monthly}
             waterTempRange={data.waterTempRange}
             summerWetsuit={data.summerWetsuit}
             winterWetsuit={data.winterWetsuit}
             stateMonthly={stateProfile?.monthly}
             peakMonths={stateProfile?.peakMonths}
+            stateName={stateName}
           />
         </section>
 

@@ -8,9 +8,12 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { ArticleSchema } from "@/components/seo/article-schema";
+import { SITE_URL } from "@/lib/constants/seo";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+
+export const revalidate = 604800; // 1 week — learn articles are static content from a constant
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -48,9 +51,9 @@ export default async function LearnArticlePage({ params }: Props) {
   const nextArticle = getNextArticle(slug);
 
   const breadcrumbs = [
-    { name: "Home", url: "/" },
-    { name: "Learn", url: "/learn" },
-    { name: article.title, url: `/learn/${article.slug}` },
+    { name: "Home", url: SITE_URL },
+    { name: "Learn", url: `${SITE_URL}/learn` },
+    { name: article.title, url: `${SITE_URL}/learn/${article.slug}` },
   ];
 
   const toc = article.sections.map((s) => ({
@@ -67,12 +70,12 @@ export default async function LearnArticlePage({ params }: Props) {
       <WebPageSchema
         name={article.title}
         description={article.description}
-        url={`/learn/${article.slug}`}
+        url={`${SITE_URL}/learn/${article.slug}`}
       />
       <ArticleSchema
         title={article.title}
         description={article.description}
-        url={`/learn/${article.slug}`}
+        url={`${SITE_URL}/learn/${article.slug}`}
         imageUrl={article.heroImage}
         datePublished={article.datePublished || "2026-03-26"}
         dateModified={article.dateModified}

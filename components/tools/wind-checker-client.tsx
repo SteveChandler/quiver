@@ -1,0 +1,528 @@
+"use client";
+
+import { useState, useCallback, useTransition } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Wind, RefreshCw, MapPin, ExternalLink } from "lucide-react";
+import { WindCompass } from "@/components/tools/wind-compass";
+import {
+  getWindCheckerData,
+  type WindCheckerData,
+} from "@/actions/tools/wind-checker-actions";
+import { classifyWindQuality } from "@/lib/utils/wind-quality";
+import { degreesToCardinal } from "@/lib/utils/geo-utils";
+import type { Beach } from "@/types/database";
+import { BeachToolSearch } from "@/components/tools/beach-tool-search";
+
+interface WindCheckerClientProps {
+  initialData?: WindCheckerData;
+  initialBeachSlug?: string;
+}
+
+export function WindCheckerClient({
+  initialData,
+  initialBeachSlug: _initialBeachSlug,
+}: WindCheckerClientProps) {
+  const router = useRouter();
+  const [data, setData] = useState<WindCheckerData | null>(initialData ?? null);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const loadBeach = useCallback((slug: string) => {
+    startTransition(async () => {
+      setError(null);
+      const result = await getWindCheckerData(slug);
+      if (result.success && result.data) {
+        setData(result.data);
+        router.replace(`?beach=${encodeURIComponent(slug)}`, { scroll: false });
+      } else {
+        setError(result.error ?? "Failed to load wind data");
+      }
+    });
+  }, [router]);
+
+  const handleBeachSelect = useCallback(
+    (beach: Beach) => {
+      if (beach.slug) loadBeach(beach.slug);
+    },
+    [loadBeach]
+  );
+
+  const currentWind = data?.wind[0] ?? null;
+  const beach = data?.beach ?? null;
+
+  const windDir = currentWind?.wind_direction_deg ?? 0;
+  const windSpeed = currentWind?.wind_speed_mph ?? 0;
+  const windCardinal = windDir != null ? degreesToCardinal(windDir) : "—";
+
+  const offshoreQuality =
+    beach?.wind_offshore_deg != null &&
+    beach?.wind_offshore_tol_deg != null &&
+    currentWind?.wind_direction_deg != null
+      ? classifyWindQuality(
+          currentWind.wind_direction_deg,
+          beach.wind_offshore_deg,
+          beach.wind_offshore_tol_deg
+        )
+      : null;
+
+  const verdictStyle =
+    offshoreQuality?.color === "green"
+      ? {
+          background: "rgba(34,197,94,0.12)",
+          borderColor: "rgba(34,197,94,0.35)",
+          color: "#4ade80",
+        }
+      : offshoreQuality?.color === "yellow"
+        ? {
+            background: "rgba(234,179,8,0.12)",
+            borderColor: "rgba(234,179,8,0.35)",
+            color: "#facc15",
+          }
+        : offshoreQuality?.color === "red"
+          ? {
+              background: "rgba(239,68,68,0.12)",
+              borderColor: "rgba(239,68,68,0.35)",
+              color: "#f87171",
+            }
+          : {
+              background: "rgba(122,140,192,0.12)",
+              borderColor: "rgba(122,140,192,0.25)",
+              color: "#B8C7E0",
+            };
+
+  return (
+    <div className="min-h-screen" style={{ background: "#0F1535" }}>
+      {/* Header band */}
+      <section
+        className="noise-texture border-b"
+        style={{
+          background: "linear-gradient(180deg, #1E2558 0%, #252D6B 100%)",
+          borderColor: "rgba(64,76,146,0.4)",
+        }}
+      >
+        <div className="container mx-auto max-w-4xl px-4 py-10 sm:py-14">
+          <div className="text-center mb-8">
+            <div
+              className="inline-flex items-center gap-2 rounded-full border px-3 py-1 font-mono text-xs font-semibold uppercase tracking-widest mb-4"
+              style={{
+                background: "rgba(247,142,66,0.12)",
+                borderColor: "rgba(247,142,66,0.35)",
+                color: "#F78E42",
+              }}
+            >
+              <Wind className="h-3.5 w-3.5" aria-hidden="true" />
+              Live Wind
+            </div>
+            <h1 className="font-heading text-3xl sm:text-4xl font-bold text-white mb-3">
+              Offshore Wind Checker
+            </h1>
+            <p className="text-[#B8C7E0] text-base sm:text-lg max-w-xl mx-auto">
+              Is the wind offshore at your break? Check in one tap.
+            </p>
+          </div>
+          <div className="max-w-md mx-auto">
+            <BeachToolSearch
+              onSelect={handleBeachSelect}
+              placeholder="Find your beach..."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Body */}
+      <div className="container mx-auto max-w-4xl px-4 py-8 space-y-6">
+        {/* Loading */}
+        {isPending && (
+          <div className="flex items-center justify-center py-20 gap-3 text-[#7A8CC0]">
+            <RefreshCw className="h-5 w-5 animate-spin" />
+            <span className="font-mono text-sm">Loading wind data...</span>
+          </div>
+        )}
+
+        {/* Error */}
+        {error && !isPending && (
+          <div
+            className="rounded-xl border p-6 text-center"
+            style={{
+              background: "rgba(30,37,88,0.7)",
+              borderColor: "rgba(64,76,146,0.4)",
+            }}
+          >
+            <p className="text-[#B8C7E0] font-mono text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!data && !isPending && !error && (
+          <div
+            className="noise-texture rounded-2xl border p-12 text-center"
+            style={{
+              background: "linear-gradient(135deg, rgba(37,45,107,0.9) 0%, rgba(26,33,88,0.95) 100%)",
+              borderColor: "rgba(64,76,146,0.4)",
+            }}
+          >
+            <Wind className="h-12 w-12 mx-auto mb-4 text-[#404C92]" />
+            <p className="text-[#7A8CC0] font-mono text-sm">
+              Search for a beach to check wind conditions
+            </p>
+            <p className="text-[#404C92] font-mono text-xs mt-1">
+              48-hour forecast · updated hourly
+            </p>
+          </div>
+        )}
+
+        {/* Wind display */}
+        {data && beach && currentWind && !isPending && (
+          <div className="space-y-5">
+            {/* Beach name */}
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-2 min-w-0">
+                <MapPin className="h-4 w-4 text-[#F78E42] shrink-0" aria-hidden="true" />
+                <h2 className="font-heading text-2xl font-bold text-white truncate">
+                  {beach.name}
+                </h2>
+              </div>
+              {beach.slug && (
+                <Link
+                  href={`/beach/${beach.slug}`}
+                  className="flex items-center gap-1 font-mono text-xs shrink-0 hover:underline"
+                  style={{ color: "#F78E42" }}
+                >
+                  Full forecast <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                </Link>
+              )}
+            </div>
+
+            {/* Compass + stats */}
+            <div className="flex flex-col md:flex-row gap-5 items-start">
+              <div
+                className="noise-texture rounded-2xl border flex items-center justify-center p-5 w-full md:w-auto"
+                style={{
+                  background: "linear-gradient(135deg, rgba(37,45,107,0.9) 0%, rgba(26,33,88,0.95) 100%)",
+                  borderColor: "rgba(64,76,146,0.5)",
+                }}
+              >
+                <WindCompass
+                  windDirectionDeg={windDir}
+                  windSpeedMph={windSpeed}
+                  offshoreDeg={beach.wind_offshore_deg}
+                  toleranceDeg={beach.wind_offshore_tol_deg}
+                  windCardinal={windCardinal}
+                  size={280}
+                />
+              </div>
+
+              <div className="flex-1 space-y-3 w-full">
+                <div className="grid grid-cols-2 gap-3">
+                  <div
+                    className="noise-texture rounded-2xl border p-4"
+                    style={{
+                      background: "linear-gradient(135deg, rgba(47,57,120,0.9) 0%, rgba(37,45,107,0.95) 100%)",
+                      borderColor: "rgba(64,76,146,0.5)",
+                    }}
+                  >
+                    <p className="font-mono text-xs font-semibold uppercase tracking-widest text-[#7A8CC0] mb-1">
+                      Speed
+                    </p>
+                    <p className="font-heading text-3xl font-bold text-white leading-none">
+                      {windSpeed != null ? Math.round(windSpeed) : "—"}
+                      <span className="text-base text-[#B8C7E0] ml-1">mph</span>
+                    </p>
+                  </div>
+                  <div
+                    className="noise-texture rounded-2xl border p-4"
+                    style={{
+                      background: "linear-gradient(135deg, rgba(47,57,120,0.9) 0%, rgba(37,45,107,0.95) 100%)",
+                      borderColor: "rgba(64,76,146,0.5)",
+                    }}
+                  >
+                    <p className="font-mono text-xs font-semibold uppercase tracking-widest text-[#7A8CC0] mb-1">
+                      Direction
+                    </p>
+                    <p className="font-heading text-3xl font-bold text-white leading-none">
+                      {windCardinal}
+                      <span className="text-base text-[#B8C7E0] ml-1">
+                        {windDir != null ? `${Math.round(windDir)}°` : ""}
+                      </span>
+                    </p>
+                  </div>
+                  {currentWind.wind_gust_mph != null && (
+                    <div
+                      className="noise-texture rounded-2xl border p-4 col-span-2"
+                      style={{
+                        background: "linear-gradient(135deg, rgba(47,57,120,0.9) 0%, rgba(37,45,107,0.95) 100%)",
+                        borderColor: "rgba(64,76,146,0.5)",
+                      }}
+                    >
+                      <p className="font-mono text-xs font-semibold uppercase tracking-widest text-[#7A8CC0] mb-1">
+                        Gusts
+                      </p>
+                      <p className="font-heading text-2xl font-bold text-white leading-none">
+                        {Math.round(currentWind.wind_gust_mph)}
+                        <span className="text-base text-[#B8C7E0] ml-1">mph</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {offshoreQuality ? (
+                  <div
+                    className="noise-texture rounded-2xl border px-4 py-3"
+                    style={verdictStyle}
+                  >
+                    <p className="font-mono text-xs font-semibold uppercase tracking-widest opacity-70 mb-1">
+                      Wind quality
+                    </p>
+                    <p className="text-sm font-medium leading-snug">
+                      {offshoreQuality.verdict} at {Math.round(windSpeed)} mph
+                    </p>
+                  </div>
+                ) : (
+                  <div
+                    className="rounded-2xl border px-4 py-3 flex items-start gap-2"
+                    style={{
+                      background: "rgba(122,140,192,0.08)",
+                      borderColor: "rgba(122,140,192,0.2)",
+                    }}
+                  >
+                    <Wind className="h-4 w-4 mt-0.5 shrink-0 text-[#7A8CC0]" aria-hidden="true" />
+                    <p className="text-sm text-[#B8C7E0]">
+                      Wind is {Math.round(windSpeed)} mph from the {windCardinal}.
+                      We don&apos;t have shore orientation data for this beach yet.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {data.wind.length > 1 && (
+              <WindTimeline
+                wind={data.wind}
+                offshoreDeg={beach.wind_offshore_deg}
+                toleranceDeg={beach.wind_offshore_tol_deg}
+              />
+            )}
+
+            {data.hasOrientationData && (
+              <div className="flex flex-wrap gap-4 font-mono text-xs text-[#7A8CC0]">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-green-500/30 border border-green-500/60 inline-block" />
+                  Offshore — clean
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-yellow-500/30 border border-yellow-500/60 inline-block" />
+                  Cross-shore — some chop
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-red-500/30 border border-red-500/60 inline-block" />
+                  Onshore — choppy
+                </div>
+              </div>
+            )}
+
+            {beach.slug && (
+              <div
+                className="noise-texture rounded-2xl border p-5"
+                style={{
+                  background: "linear-gradient(135deg, rgba(37,45,107,0.9) 0%, rgba(26,33,88,0.95) 100%)",
+                  borderColor: "rgba(247,142,66,0.25)",
+                }}
+              >
+                <p className="text-[#B8C7E0] text-sm mb-3">
+                  Wind is just one piece. Get the full picture — waves, tides, crowd
+                  levels, and more.
+                </p>
+                <Link
+                  href={`/beach/${beach.slug}`}
+                  className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 font-mono text-sm font-semibold transition-opacity hover:opacity-90 min-h-[44px]"
+                  style={{ background: "#F78E42", color: "#0F1535" }}
+                >
+                  Full forecast for {beach.name}
+                  <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Explainer + FAQ */}
+        <section
+          className="noise-texture rounded-2xl border p-6 space-y-4"
+          style={{
+            background: "linear-gradient(135deg, rgba(37,45,107,0.9) 0%, rgba(26,33,88,0.95) 100%)",
+            borderColor: "rgba(64,76,146,0.4)",
+          }}
+        >
+          <h2 className="font-heading text-lg font-bold text-white">
+            What is offshore wind?
+          </h2>
+          <div className="space-y-3 text-sm text-[#B8C7E0] leading-relaxed">
+            <p>
+              <strong className="text-white">Offshore wind</strong> blows from land toward
+              the ocean — it grooms incoming waves into clean, well-defined lines. A light
+              offshore at 5–15 mph is ideal. Above 20 mph it hollows waves but makes
+              paddling out difficult.
+            </p>
+            <p>
+              <strong className="text-white">Onshore wind</strong> blows from ocean toward
+              land — it chops up the wave surface. The stronger the onshore, the messier
+              the conditions.
+            </p>
+            <p>
+              <strong className="text-white">Cross-shore wind</strong> runs parallel to
+              the beach — creates some chop on one side but is usually more rideable than
+              onshore.
+            </p>
+          </div>
+
+          <div className="space-y-2 pt-2">
+            {FAQ.map((item) => (
+              <details key={item.q} className="group">
+                <summary
+                  className="flex cursor-pointer items-center justify-between rounded-xl px-4 py-3 font-mono text-sm font-semibold list-none"
+                  style={{
+                    background: "rgba(64,76,146,0.25)",
+                    color: "#B8C7E0",
+                  }}
+                >
+                  {item.q}
+                  <span className="ml-2 text-[#7A8CC0] group-open:rotate-180 transition-transform shrink-0">
+                    ▾
+                  </span>
+                </summary>
+                <div className="px-4 pt-2 pb-3 text-sm text-[#B8C7E0] leading-relaxed">
+                  {item.a}
+                </div>
+              </details>
+            ))}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+interface WindTimelineProps {
+  wind: WindCheckerData["wind"];
+  offshoreDeg: number | null;
+  toleranceDeg: number | null;
+}
+
+function WindTimeline({ wind, offshoreDeg, toleranceDeg }: WindTimelineProps) {
+  const hours = wind.slice(0, 24);
+
+  const barColor = (dir: number | null, speed: number | null): string => {
+    if (dir == null || speed == null) return "bg-[#2A3070]";
+    if (offshoreDeg == null || toleranceDeg == null) return "bg-[#404C92]";
+    const quality = classifyWindQuality(dir, offshoreDeg, toleranceDeg);
+    if (quality.color === "green") return "bg-green-500";
+    if (quality.color === "yellow") return "bg-yellow-500";
+    return "bg-red-500";
+  };
+
+  const formatHour = (ts: string) => {
+    const h = new Date(ts).getUTCHours();
+    if (h === 0) return "12a";
+    if (h === 12) return "12p";
+    return h < 12 ? `${h}a` : `${h - 12}p`;
+  };
+
+  const bestWindows: string[] = [];
+  let inGoodWindow = false;
+  let windowStart = "";
+  for (let i = 0; i < hours.length; i++) {
+    const h = hours[i];
+    const isGood =
+      h.wind_direction_deg != null &&
+      h.wind_speed_mph != null &&
+      offshoreDeg != null &&
+      toleranceDeg != null &&
+      classifyWindQuality(h.wind_direction_deg, offshoreDeg, toleranceDeg).color === "green";
+
+    if (isGood && !inGoodWindow) {
+      inGoodWindow = true;
+      windowStart = formatHour(h.ts);
+    } else if (!isGood && inGoodWindow) {
+      inGoodWindow = false;
+      bestWindows.push(`${windowStart}–${formatHour(hours[i].ts)}`);
+      if (bestWindows.length >= 2) break;
+    }
+  }
+  if (inGoodWindow && hours.length > 0) {
+    bestWindows.push(`${windowStart}–${formatHour(hours[hours.length - 1].ts)}`);
+  }
+
+  return (
+    <div
+      className="noise-texture rounded-2xl border p-5"
+      style={{
+        background: "linear-gradient(135deg, rgba(37,45,107,0.9) 0%, rgba(26,33,88,0.95) 100%)",
+        borderColor: "rgba(64,76,146,0.4)",
+      }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-mono text-xs font-semibold uppercase tracking-widest text-[#7A8CC0]">
+          24-Hour Wind Forecast
+        </h3>
+        {bestWindows.length > 0 && offshoreDeg != null && (
+          <span className="font-mono text-xs font-semibold" style={{ color: "#4ade80" }}>
+            Best: {bestWindows.join(", ")}
+          </span>
+        )}
+      </div>
+
+      <div className="overflow-x-auto">
+        <div className="flex gap-0.5 min-w-max pb-1">
+          {hours.map((h, i) => {
+            const maxBarH = 40;
+            const speed = h.wind_speed_mph ?? 0;
+            const barH = Math.max(4, Math.min(maxBarH, (speed / 30) * maxBarH));
+            const color = barColor(h.wind_direction_deg, h.wind_speed_mph);
+            const label = formatHour(h.ts);
+            const showLabel = i % 3 === 0;
+
+            return (
+              <div key={h.ts} className="flex flex-col items-center gap-0.5 w-8">
+                <div
+                  className="flex flex-col justify-end"
+                  style={{ height: maxBarH }}
+                  title={`${label}: ${Math.round(speed)} mph from ${h.wind_direction_deg != null ? degreesToCardinal(h.wind_direction_deg) : "?"}`}
+                >
+                  <div
+                    className={`w-full rounded-sm opacity-80 ${color}`}
+                    style={{ height: barH }}
+                  />
+                </div>
+                {showLabel && (
+                  <span className="font-mono text-[9px] text-[#404C92] leading-none">
+                    {label}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const FAQ = [
+  {
+    q: "How do I know which direction is offshore for my beach?",
+    a: "Offshore direction depends on which way your beach faces. A beach that faces west has offshore wind from the east. Quiver calculates this from each beach's shore orientation data.",
+  },
+  {
+    q: "What wind speed is ideal for surfing?",
+    a: "Light offshore winds of 5–15 mph are ideal. They clean up the wave face without making paddling out too difficult. Winds over 20 mph (even offshore) can cause issues, and winds over 30 mph are dangerous for most surfers.",
+  },
+  {
+    q: "Why does wind change throughout the day?",
+    a: "As the land heats up, air flows from the cooler ocean toward land — onshore breeze. At night and early morning, the land cools faster, often creating light offshore winds. This is why dawn patrol sessions often have the cleanest conditions.",
+  },
+  {
+    q: "How accurate is the wind forecast?",
+    a: "Wind data comes from the Open-Meteo weather model, updated hourly. Near-shore forecasts are generally accurate within 2–5 mph for the next 12 hours. Local terrain can cause deviations.",
+  },
+];

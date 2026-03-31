@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 import { BestRightNow } from "@/components/forecast/best-right-now";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import type { TopBeachEntry } from "@/lib/utils/forecast-hub-utils";
@@ -42,6 +42,18 @@ jest.mock("lucide-react", () => ({
   Trophy: ({ className }: { className?: string }) => (
     <svg data-testid="trophy-icon" className={className} />
   ),
+}));
+
+// Mock ip-location utilities
+jest.mock("@/lib/location/ip-location", () => ({
+  getIPLocationCookieName: jest.fn(() => "quiver_ip_region"),
+  parseIPLocationCookie: jest.fn((value: string) => {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }),
 }));
 
 describe("BestRightNow", () => {
@@ -120,6 +132,8 @@ describe("BestRightNow", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Clear cookies between tests
+    document.cookie = "quiver_ip_region=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
   });
 
   describe("Loading State", () => {
@@ -166,6 +180,82 @@ describe("BestRightNow", () => {
       skeletonRows.forEach((row) => {
         expect(row).toHaveClass("animate-pulse");
       });
+    });
+  });
+
+  describe("Cookie-based Personalization", () => {
+    it("shows 'Best Right Now' heading when no cookie is set", () => {
+      (useDataFetcher as jest.Mock).mockReturnValue({
+        data: null,
+        loading: true,
+        error: null,
+      });
+
+      render(<BestRightNow />);
+
+      expect(screen.getByText("Best Right Now")).toBeInTheDocument();
+    });
+
+    it("shows 'Best Near You' heading when cookie provides valid coords", async () => {
+      const ipLocation = JSON.stringify({
+        city: "San Diego",
+        region: "CA",
+        country: "US",
+        latitude: 32.7157,
+        longitude: -117.1611,
+      });
+      document.cookie = `quiver_ip_region=${encodeURIComponent(ipLocation)}`;
+
+      (useDataFetcher as jest.Mock).mockReturnValue({
+        data: null,
+        loading: true,
+        error: null,
+      });
+
+      await act(async () => {
+        render(<BestRightNow />);
+      });
+
+      expect(screen.getByText("Best Near You")).toBeInTheDocument();
+    });
+
+    it("falls back to 'Best Right Now' when cookie has no coordinates", async () => {
+      const ipLocation = JSON.stringify({
+        city: "Unknown",
+        region: null,
+        country: null,
+        latitude: null,
+        longitude: null,
+      });
+      document.cookie = `quiver_ip_region=${encodeURIComponent(ipLocation)}`;
+
+      (useDataFetcher as jest.Mock).mockReturnValue({
+        data: null,
+        loading: true,
+        error: null,
+      });
+
+      await act(async () => {
+        render(<BestRightNow />);
+      });
+
+      expect(screen.getByText("Best Right Now")).toBeInTheDocument();
+    });
+
+    it("falls back to 'Best Right Now' when cookie value is malformed", async () => {
+      document.cookie = "quiver_ip_region=not-valid-json";
+
+      (useDataFetcher as jest.Mock).mockReturnValue({
+        data: null,
+        loading: true,
+        error: null,
+      });
+
+      await act(async () => {
+        render(<BestRightNow />);
+      });
+
+      expect(screen.getByText("Best Right Now")).toBeInTheDocument();
     });
   });
 

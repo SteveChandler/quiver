@@ -38,9 +38,10 @@ export const learnArticles: LearnArticle[] = [
   {
     slug: "how-to-read-a-surf-forecast",
     title: "How to Read a Surf Forecast",
-    description: "Learn what each metric means on a surf forecast: wave height, period, direction, wind, and tide. Master the data to find better sessions.",
+    description: "A surf forecast shows five metrics you read together: wave height (size), swell period (power and quality), swell direction (where waves originate), wind speed and direction (surface texture), and tide (water depth timing). Height alone is misleading — a 4-foot swell at 14 seconds with offshore wind is excellent; the same 4 feet at 6 seconds with onshore wind is junk.",
     readingTimeMin: 5,
     datePublished: "2026-03-26",
+    dateModified: "2026-03-30",
     heroImage: "/beginnerWhiteWater.jpg",
     thumbnailImage: "/beginnerWhiteWater.jpg",
     keywords: [
@@ -52,6 +53,13 @@ export const learnArticles: LearnArticle[] = [
       "swell direction",
     ],
     sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>A surf forecast shows five metrics you read together: <strong>wave height</strong> (size), <strong>swell period</strong> (power and quality), <strong>swell direction</strong> (where waves originate), <strong>wind speed and direction</strong> (surface texture), and <strong>tide</strong> (water depth timing). These come from NOAA's WaveWatch III model, verified by NDBC and CDIP buoy observations. Height alone is misleading — a 4-foot swell at 14 seconds with offshore wind is excellent; the same 4 feet at 6 seconds with onshore wind is junk. Always read all five.</p>`,
+        keyTakeaway:
+          "A surf forecast combines wave height, swell period, direction, wind, and tide from NOAA models — read all five together to judge conditions.",
+      },
       {
         id: "overview",
         heading: "What a Surf Forecast Actually Tells You",
@@ -171,8 +179,9 @@ export const learnArticles: LearnArticle[] = [
   {
     slug: "swell-period-explained",
     title: "Swell Period Explained",
-    description: "Understand swell period, why 14 seconds feels completely different than 6 seconds, and how to read it on your forecast.",
+    description: "Swell period is the time in seconds between consecutive wave crests at a buoy. It reveals wave quality better than height: under 9 seconds means local wind chop, above 12 seconds means powerful distant-storm energy. A 3-foot swell at 14 seconds outperforms a 6-foot swell at 6 seconds every time.",
     datePublished: "2026-03-26",
+    dateModified: "2026-03-30",
     readingTimeMin: 4,
     heroImage: "/point-break.webp",
     thumbnailImage: "/point-break.webp",
@@ -185,6 +194,13 @@ export const learnArticles: LearnArticle[] = [
       "short period swell",
     ],
     sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Swell period is the time in seconds between consecutive wave crests passing a fixed point, typically measured by NDBC and CDIP buoys. It's the single best indicator of wave quality on any forecast. Waves with periods <strong>under 9 seconds</strong> come from local wind and break mushy and chaotic. Waves with periods <strong>above 12 seconds</strong> come from distant storms — like North Pacific or Southern Ocean systems — and break clean, powerful, and organized. A 3-foot swell at 14 seconds at Rincon will always outperform a 6-foot swell at 6 seconds. Check period on every forecast.</p>`,
+        keyTakeaway:
+          "Swell period (seconds between waves) is the best wave quality indicator: under 9 seconds means local chop, over 12 seconds means powerful distant-storm energy.",
+      },
       {
         id: "definition",
         heading: "What Swell Period Actually Is",
@@ -432,9 +448,10 @@ export const learnArticles: LearnArticle[] = [
   {
     slug: "wind-swell-vs-ground-swell",
     title: "Wind Swell vs Ground Swell",
-    description: "Learn the difference between locally generated wind swells and distant ground swells, and why ground swell produces better waves.",
+    description: "Ground swell comes from distant storms with 12+ second period, travels thousands of miles, and produces clean organized waves. Wind swell comes from local wind with 5-9 second period, is chaotic and short-lived. A 2-foot ground swell at 14 seconds typically rides better than a 6-foot wind swell at 7 seconds.",
     readingTimeMin: 4,
     datePublished: "2026-03-26",
+    dateModified: "2026-03-30",
     heroImage: "/offShore.jpeg",
     thumbnailImage: "/offShore.jpeg",
     keywords: [
@@ -445,6 +462,13 @@ export const learnArticles: LearnArticle[] = [
       "ground swell definition",
     ],
     sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p><strong>Ground swell</strong> comes from distant storms (12+ second period), travels thousands of miles across ocean basins, and produces clean, organized, powerful waves. <strong>Wind swell</strong> comes from local wind (5-9 second period), is chaotic and short-lived, and produces mushy, disorganized surf. Your forecast from NOAA's WaveWatch III shows both as separate components — always prioritize the longest-period component. A 2-foot ground swell at 14 seconds at Trestles typically rides better than a 6-foot wind swell at 7 seconds because the energy is organized and predictable.</p>`,
+        keyTakeaway:
+          "Ground swell (12+ sec period, distant storms) makes organized powerful waves; wind swell (5-9 sec, local wind) makes chaotic mushy surf — always ride the longer period.",
+      },
       {
         id: "definitions",
         heading: "Two Types of Ocean Swells: Definitions",
@@ -683,6 +707,1451 @@ export const learnArticles: LearnArticle[] = [
         href: "https://www.ndbc.noaa.gov/",
         description:
           "Real-time wave observations from NOAA buoys around US coasts.",
+      },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // AEO-optimized answer articles (added 2026-03-30)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  {
+    slug: "offshore-vs-onshore-wind-surfing",
+    title: "What Does Offshore vs Onshore Wind Mean for Surfing?",
+    description:
+      "Offshore wind blows from land to sea, holding up wave faces and creating clean, organized lines. Onshore wind blows sea to land, pushing waves down and adding chop. Most breaks surf best with under 10 knots of offshore wind. Dawn patrol exists because overnight land cooling creates natural offshore flow that reverses by midday.",
+    readingTimeMin: 3,
+    datePublished: "2026-03-30",
+    heroImage: "/images/activities/offshore-winds.webp",
+    thumbnailImage: "/images/activities/offshore-winds.webp",
+    keywords: [
+      "offshore wind surfing",
+      "onshore wind surfing",
+      "wind direction waves",
+      "offshore vs onshore",
+      "best wind for surfing",
+      "how wind affects surf",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p><strong>Offshore wind</strong> blows from land to sea, holding up wave faces and creating clean, organized lines at breaks like Rincon and Malibu. <strong>Onshore wind</strong> blows sea to land, pushing waves down and adding chop. Most breaks measured by NDBC anemometers surf best with under <strong>10 knots</strong> of offshore wind. Dawn patrol exists because overnight land cooling creates natural offshore flow that reverses by midday.</p>`,
+        keyTakeaway:
+          "Offshore wind (land to sea) cleans up waves; onshore (sea to land) destroys them. Under 10 knots offshore is ideal.",
+      },
+      {
+        id: "detail",
+        heading: "How Wind Direction Changes Wave Shape",
+        content: `<p>Offshore wind pushes against the wave face as it steepens, slowing the break and holding the lip up longer. This creates <strong>cleaner, more hollow waves</strong> with defined shoulders — ideal for surfing. Even 5 knots of offshore can transform a mushy wave into a rideable one. At <strong>15-20 knots offshore</strong>, spray blows back over the crest (the classic "offshore mist" shot), but paddling out becomes difficult and drops are harder because the wind pushes you up the face.</p><p>Onshore wind does the opposite: it pushes the wave forward, collapsing the lip before it can form a clean face. Waves break inconsistently with no defined shoulder. The surface gets choppy, making it hard to paddle, hard to read the wave, and hard to generate speed. Even <strong>8-10 knots onshore</strong> can ruin an otherwise solid swell. Cross-shore wind (blowing parallel to the beach) is in between — not ideal but surfable.</p>`,
+        keyTakeaway:
+          "Offshore holds up wave lips for cleaner breaks; onshore collapses them. Even 5 knots offshore helps, while 8-10 knots onshore ruins a session.",
+        image: {
+          src: "/images/activities/offshore-winds.webp",
+          alt: "Offshore wind creating clean spray off wave lips",
+          position: "right",
+        },
+      },
+      {
+        id: "practical",
+        heading: "What This Means for Your Session",
+        content: `<p>Check wind forecast before swell forecast — wind determines whether a good swell produces good waves. On Quiver, the wind overlay shows speed and direction for every 3-hour window. Target the <strong>early morning slot</strong> (5:30-9 AM) when thermal offshore is strongest. If your forecast shows onshore by 10 AM, be in the water by 7. If it's onshore all day, check a different break that faces the opposite direction — one beach's onshore is another's cross-shore or sideshore. Headlands and points can create localized wind shadows even when the regional wind is onshore.</p>`,
+        keyTakeaway:
+          "Check wind before swell. Target early morning for offshore. If onshore all day, try a break facing a different direction.",
+      },
+    ],
+    faqs: [
+      {
+        question: "How much offshore wind is too much?",
+        answer:
+          "Above 20 knots offshore, paddling becomes exhausting and takeoffs are hard because wind pushes you up the wave face. The sweet spot is 5-12 knots offshore — enough to clean up faces without making paddling miserable.",
+      },
+      {
+        question: "Why does wind change direction during the day?",
+        answer:
+          "Thermal cycling. Land heats faster than ocean during the day, pulling onshore flow. At night, land cools faster, creating offshore flow. This is why mornings are offshore and afternoons are onshore in most coastal areas.",
+      },
+      {
+        question: "Can you surf in onshore wind?",
+        answer:
+          "Yes, but quality drops significantly. Under 8 knots onshore is manageable — waves are choppy but rideable. Above 12 knots onshore, most breaks become unsurfable for all but advanced shortboarders who enjoy the challenge.",
+      },
+      {
+        question: "What is glass-off?",
+        answer:
+          "Glass-off happens in late afternoon when onshore wind dies before sunset. The ocean surface smooths out — 'glassy' conditions. It's often the second-best window after dawn patrol, lasting 30-90 minutes.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "How to Read a Surf Forecast",
+        href: "/learn/how-to-read-a-surf-forecast",
+        description: "Wind is one of five forecast metrics — learn them all.",
+      },
+      {
+        label: "Best Time of Day to Surf",
+        href: "/learn/best-time-of-day-to-surf",
+        description:
+          "Why dawn patrol and glass-off are the best windows for clean waves.",
+      },
+      {
+        label: "Check Your Forecast",
+        href: "/forecast",
+        description: "See wind speed and direction for every 3-hour window.",
+      },
+    ],
+  },
+
+  {
+    slug: "best-tide-for-surfing",
+    title: "What Is the Best Tide for Surfing?",
+    description:
+      "Most beach breaks work best at mid-tide on an incoming (rising) tide. Low tide exposes sandbars and reefs, creating hollow fast waves. High tide floods the bottom contour, producing slower mushy waves. Every break has a preferred tidal window. NWS tide predictions are accurate to the minute.",
+    readingTimeMin: 3,
+    datePublished: "2026-03-30",
+    heroImage: "/images/learn/learn-tide-pools.jpg",
+    thumbnailImage: "/images/learn/learn-tide-pools.jpg",
+    keywords: [
+      "best tide for surfing",
+      "surf tide chart",
+      "low tide surfing",
+      "high tide surfing",
+      "mid tide",
+      "tide and waves",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Most beach breaks work best at <strong>mid-tide on an incoming (rising) tide</strong>. Low tide exposes sandbars and reefs, creating hollow, fast, often dangerous waves. High tide floods the bottom contour, producing slower, mushier waves. Reef breaks like Pipeline often prefer higher tide for safety. Every break has a preferred tidal window — learn it by surfing different tides at your spot. NWS tide predictions (shown on Quiver's tide charts) are accurate to the minute.</p>`,
+        keyTakeaway:
+          "Mid-tide incoming is the safest bet for most beach breaks. Every spot has a preferred tidal window — learn yours.",
+        image: {
+          src: "/images/learn/learn-tide-pools.jpg",
+          alt: "Exposed reef and tide pools at low tide",
+          position: "right",
+        },
+      },
+      {
+        id: "detail",
+        heading: "How Tide Changes Wave Shape at Different Break Types",
+        content: `<p><strong>Beach breaks</strong> (sand bottom, shifting peaks): Mid-tide balances water depth over sandbars. Low tide makes bars too shallow — waves jack up fast and close out. High tide puts too much water over bars — waves don't break cleanly. The <strong>incoming tide</strong> is slightly better than outgoing because water pushes toward shore, adding energy.</p><p><strong>Reef breaks</strong>: Many prefer <strong>mid-to-high tide</strong> because the reef needs water coverage for safety and to shape the wave correctly. Pipeline, for example, is most rideable at 3-5 feet of tide. At extreme low tide, the reef is dangerously exposed.</p><p><strong>Point breaks</strong>: Typically less tide-sensitive because the bottom contour is rock, not sand. Rincon works across most tides but fires best on a <strong>dropping mid-tide</strong> when the swell wraps perfectly along the point.</p>`,
+        keyTakeaway:
+          "Beach breaks favor mid-tide, reef breaks need higher tide for safety, and point breaks are less sensitive but still have sweet spots.",
+      },
+      {
+        id: "practical",
+        heading: "What This Means for Your Session",
+        content: `<p>Check Quiver's tide chart before every session — it shows exact high/low times and a visual curve so you can time your paddle-out to hit the <strong>mid-tide window</strong>. A typical tidal cycle is ~6 hours from low to high. If high tide is at noon, mid-tide (the best window) is roughly <strong>9-10 AM and 2-3 PM</strong>. Pair this with wind: if offshore dies by 10 AM but mid-tide is at 9 AM, you've got a one-hour golden window. The best surfers plan around both tide and wind, not just swell. After 10-15 sessions at the same break, you'll know its tidal sweet spot instinctively.</p>`,
+        keyTakeaway:
+          "Use tide charts to time your session within the mid-tide window. Pair tide timing with wind to find the golden hour at your break.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Is incoming or outgoing tide better for surfing?",
+        answer:
+          "Incoming (rising) tide is slightly better at most beach breaks because water pushes toward shore, adding energy to breaking waves. But the difference is subtle — the absolute tide height matters more than the direction.",
+      },
+      {
+        question: "Can you surf at dead low or dead high tide?",
+        answer:
+          "Yes, but conditions are usually worst at the extremes. Dead low exposes hazards and makes waves close out. Dead high drowns the break. The hour before and after the extremes is the worst window. Stick to the middle third of the tidal range.",
+      },
+      {
+        question: "Do tides affect all beaches the same way?",
+        answer:
+          "No. Steep beaches with deep water close to shore are less tide-sensitive. Shallow, flat beaches change dramatically with tide. Reef breaks depend on reef depth. You need to learn your specific break's response to tide.",
+      },
+      {
+        question: "How much does tidal range matter?",
+        answer:
+          "Large tidal ranges (6+ feet, common in Northern California and Pacific Northwest) amplify the effect — the break changes dramatically between low and high. Small ranges (2-3 feet, common in Southern California) mean tide matters less.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "How Do Tides Work?",
+        href: "/learn/how-do-tides-work",
+        description:
+          "Moon, sun, and gravity — the science behind tidal cycles.",
+      },
+      {
+        label: "How to Read a Surf Forecast",
+        href: "/learn/how-to-read-a-surf-forecast",
+        description: "Tide is one of five forecast metrics you need to read.",
+      },
+      {
+        label: "Check Tide Charts",
+        href: "/forecast",
+        description:
+          "See today's tide curve and optimal surf windows at your beach.",
+      },
+    ],
+  },
+
+  {
+    slug: "how-are-waves-measured",
+    title: "What Does 3-5 Ft Surf Mean? How Waves Are Measured",
+    description:
+      "Surf forecast height is significant wave height (Hs) — the average of the tallest third of waves measured by NDBC buoys. Face height (what you see) runs 1.5-2x the forecast number. So a '3-5 ft' forecast means 4.5-10 ft wave faces. Hawaiian scale uses roughly half of face height, adding further confusion.",
+    readingTimeMin: 3,
+    datePublished: "2026-03-30",
+    heroImage: "/images/hero/hero-2-barrel-wave.webp",
+    thumbnailImage: "/images/hero/hero-2-barrel-wave.webp",
+    keywords: [
+      "wave height measurement",
+      "significant wave height",
+      "how big is 3 foot surf",
+      "face height vs forecast height",
+      "hawaiian scale waves",
+      "surf forecast height explained",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Surf forecast height is <strong>significant wave height (Hs)</strong> — the average of the tallest third of waves measured by NDBC and CDIP buoys. Face height (what you actually see at the beach) runs <strong>1.5-2x</strong> the forecast number. So a "3-5 ft" forecast means roughly <strong>4.5-10 ft wave faces</strong>. Hawaiian scale uses roughly half of face height, adding further confusion. Always ask: which scale is being used?</p>`,
+        keyTakeaway:
+          "Forecast height (Hs) is 60-70% of face height. Multiply the forecast by 1.5-2x to estimate what you'll actually see.",
+        image: {
+          src: "/images/hero/hero-2-barrel-wave.webp",
+          alt: "Barrel wave demonstrating face height vs forecast height",
+          position: "right",
+        },
+      },
+      {
+        id: "detail",
+        heading: "The Three Wave Measurement Scales",
+        content: `<p><strong>Significant wave height (Hs)</strong>: Used by NOAA, WaveWatch III, and most forecast models. It's a statistical measure from buoys — the mean of the highest third of waves over a 20-minute sampling window. This is what you see on Quiver and most forecasting apps.</p><p><strong>Face height</strong>: What surfers actually see standing on the beach. A 3-foot Hs reading from a CDIP buoy translates to roughly 4.5-6 foot faces, depending on the break's bathymetry. Sandy beach breaks tend toward the higher multiplier; deep-water reefs toward the lower.</p><p><strong>Hawaiian scale</strong>: Used in Hawaii and by some old-school surfers. Roughly half of face height (or close to Hs). A "6-foot Hawaiian" wave has a 10-12 foot face. If someone in Hawaii says "it's 4 feet," prepare for 8-foot faces.</p>`,
+        keyTakeaway:
+          "Three scales exist: significant height (buoy/forecast), face height (what you see, 1.5-2x Hs), and Hawaiian scale (~0.5x face height).",
+      },
+      {
+        id: "practical",
+        heading: "What This Means for Your Session",
+        content: `<p>When Quiver shows "4 ft at 14 sec," expect <strong>6-8 foot faces</strong> at most beach breaks. Beginners comfortable in 3-foot faces should look for forecasts of <strong>1.5-2 ft Hs</strong>. Don't compare numbers across apps without checking their measurement convention — Surfline, Quiver, and Windguru may use different scales or conversions. The best calibration: surf your local break at a known forecast, compare what you see, and build your personal conversion factor. After 10 sessions, you'll know that "3 feet on Quiver" means exactly what at your spot.</p>`,
+        keyTakeaway:
+          "Calibrate forecast numbers to your local break by comparing predictions to what you actually see over several sessions.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Why don't forecasts just use face height?",
+        answer:
+          "Significant wave height (Hs) is a standardized measurement from buoys. Face height varies by beach — the same swell produces different face heights at different breaks due to bottom contour, refraction, and focusing effects. Hs is the objective, comparable number.",
+      },
+      {
+        question: "Is a 6-foot wave dangerous for beginners?",
+        answer:
+          "If that's 6-foot face height, yes — that's overhead and can hold you under. If it's 6-foot Hs, it means 9-12 foot faces, which is very large surf. Beginners should stay in 1-3 foot face height (roughly 0.5-2 ft Hs).",
+      },
+      {
+        question: "Why do Hawaiians measure waves differently?",
+        answer:
+          "Historical tradition from the 1960s-70s surf culture. Hawaiian surfers measured from the back of the wave, not the face. The convention stuck. When a Hawaiian says '10 foot,' they mean a 15-20 foot face — it's not modesty, it's a different ruler.",
+      },
+      {
+        question: "What's the biggest wave ever measured by a buoy?",
+        answer:
+          "NDBC buoy 46005 recorded significant wave heights over 50 feet during North Pacific storms. The largest individual waves in those events likely exceeded 90-100 feet face height. These are open-ocean measurements, not surfable coastline waves.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "How to Read a Surf Forecast",
+        href: "/learn/how-to-read-a-surf-forecast",
+        description:
+          "Height is one of five metrics — learn what they all mean.",
+      },
+      {
+        label: "Swell Period Explained",
+        href: "/learn/swell-period-explained",
+        description: "Period matters more than height for wave quality.",
+      },
+      {
+        label: "Check Wave Heights Now",
+        href: "/forecast",
+        description:
+          "See current significant wave height at 279+ beaches.",
+      },
+    ],
+  },
+
+  {
+    slug: "how-swell-direction-affects-surf",
+    title: "How Does Swell Direction Affect Surf at Your Beach?",
+    description:
+      "Swell direction is the compass heading waves arrive from — 300 degrees means northwest. Every beach has a swell window determined by its coastline orientation and exposure. A 45-degree mismatch between swell direction and beach facing loses 10-15% wave energy. A 90-degree mismatch loses 50-70%.",
+    readingTimeMin: 3,
+    datePublished: "2026-03-30",
+    heroImage: "/images/learn/learn-aerial-shore.jpg",
+    thumbnailImage: "/images/learn/learn-aerial-shore.jpg",
+    keywords: [
+      "swell direction surfing",
+      "how swell direction affects waves",
+      "best swell direction",
+      "swell window",
+      "wave direction beach",
+      "swell angle surf",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Swell direction is the compass heading waves arrive from — <strong>300° means northwest</strong>, 180° means south. Every beach has a <strong>swell window</strong> determined by its coastline orientation. Malibu faces south and needs south swells (170-210°). Rincon faces southwest. Ocean Beach SF faces west and catches everything from 250-320°. A <strong>45° mismatch</strong> between swell direction and beach exposure loses 10-15% wave energy. A <strong>90° mismatch</strong> means 50-70% loss — and often no rideable waves.</p>`,
+        keyTakeaway:
+          "Your beach needs the swell to face it directly. Check your break's swell window and compare against the forecast direction before driving.",
+        image: {
+          src: "/images/learn/learn-aerial-shore.jpg",
+          alt: "Aerial view of swell lines approaching the coast at an angle",
+          position: "right",
+        },
+      },
+      {
+        id: "detail",
+        heading: "Swell Windows and Coastal Geometry",
+        content: `<p>Every beach has a <strong>swell window</strong> — the range of compass degrees that deliver waves. A west-facing beach (facing 270°) receives swells from roughly 240-300°, depending on how much headland protection exists on either side. Islands, headlands, and underwater canyons all modify which swell angles reach the lineup. Scripps Canyon in La Jolla <strong>focuses southwest swells</strong>, amplifying them at nearby breaks like Windansea. Point Conception in Santa Barbara <strong>blocks northwest swells</strong> from reaching most of Southern California, which is why SoCal needs south or southwest swells while NorCal fires on northwest.</p><p>WaveWatch III forecasts report swell direction as the bearing the swell travels <strong>from</strong> — a "300° swell" comes from the northwest heading southeast. Quiver displays this for every forecast period so you can match direction to your break's window.</p>`,
+        keyTakeaway:
+          "Headlands, islands, and canyons shape which swell angles reach your break. NorCal catches NW swells; SoCal needs S or SW swells because Point Conception blocks NW energy.",
+      },
+      {
+        id: "practical",
+        heading: "What This Means for Your Session",
+        content: `<p>Before driving to the beach, compare the forecast swell direction to your break's exposure. If the forecast shows 310° (NW) and your break faces south, save the gas. Check Quiver's surf map — it shows which breaks are <strong>receiving the current swell direction</strong> so you can pick the best option. Nearby breaks often face very different directions. In San Diego, Blacks Beach faces west-northwest while La Jolla Shores faces southwest — they fire on completely different swells. A 20-minute drive can mean the difference between flat and firing. Build a mental list of which breaks work for which swell directions, and you'll always have a backup when your primary spot is shadowed.</p>`,
+        keyTakeaway:
+          "Use Quiver's map to see which breaks catch the current swell direction. Nearby breaks can face different directions — always have a backup.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Can swell wrap around a headland?",
+        answer:
+          "Yes. Swell bends (refracts) around obstacles like headlands and islands. A south swell can wrap into a west-facing cove if there's enough energy. But wrapping reduces wave size significantly — typically 30-50% loss compared to direct exposure.",
+      },
+      {
+        question: "Why does SoCal need south swells but NorCal doesn't?",
+        answer:
+          "Point Conception at Santa Barbara blocks northwest swells from reaching most of Southern California. SoCal sits in its 'shadow.' NorCal faces the open North Pacific directly and catches NW swells unobstructed. SoCal relies on south and southwest swells that pass under Point Conception.",
+      },
+      {
+        question: "Does swell direction change during a swell event?",
+        answer:
+          "Yes. As a storm moves, the swell angle shifts. A NW swell at 300° on Monday might rotate to 280° (more westerly) by Wednesday as the storm tracks east. This can cause different breaks to turn on and off over several days.",
+      },
+      {
+        question: "How do I find my break's swell window?",
+        answer:
+          "Open a map and look at which direction your beach faces — that's the center of its swell window. Add ±30-45° depending on headland protection. Or just surf it across different forecasted directions and note which ones produce the best waves.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "How to Read a Surf Forecast",
+        href: "/learn/how-to-read-a-surf-forecast",
+        description:
+          "Direction is one of five metrics you need to check.",
+      },
+      {
+        label: "Wind Swell vs Ground Swell",
+        href: "/learn/wind-swell-vs-ground-swell",
+        description:
+          "Ground swell travels in organized directions; wind swell is scattered.",
+      },
+      {
+        label: "Surf Map",
+        href: "/map",
+        description:
+          "See which breaks are catching the current swell direction.",
+      },
+    ],
+  },
+
+  {
+    slug: "how-accurate-are-surf-forecasts",
+    title: "How Accurate Are Surf Forecasts?",
+    description:
+      "NOAA's WaveWatch III model is accurate within ±1-2 feet for wave height and ±2-3 seconds for period, 0-3 days out. Accuracy degrades beyond 5 days. Quiver's per-beach ML corrections — trained on 30,000+ buoy observations from CDIP and NDBC — achieve a 90.4% directional match rate and 59% improvement over raw NOAA output.",
+    readingTimeMin: 3,
+    datePublished: "2026-03-30",
+    heroImage: "/images/learn/learn-misty-lineup.jpg",
+    thumbnailImage: "/images/learn/learn-misty-lineup.jpg",
+    keywords: [
+      "surf forecast accuracy",
+      "how accurate are surf forecasts",
+      "wave forecast reliability",
+      "NOAA wave model accuracy",
+      "surf prediction accuracy",
+      "ML surf forecast",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>NOAA's WaveWatch III global wave model is accurate within <strong>±1-2 feet</strong> for significant wave height and <strong>±2-3 seconds</strong> for period, 0-3 days out. Beyond 5 days, accuracy drops to ±3+ feet. Quiver's per-beach XGBoost ML corrections — trained on <strong>30,000+ buoy observations</strong> from CDIP and NDBC — achieve a <strong>90.4% directional match rate</strong> and <strong>59% improvement</strong> over raw NOAA baseline. No forecast is perfect; buoys are always the ground truth.</p>`,
+        keyTakeaway:
+          "Surf forecasts are ±1-2 feet accurate for 0-3 days. Quiver's ML corrections improve raw NOAA output by 59% at specific beaches.",
+        image: {
+          src: "/images/learn/learn-misty-lineup.jpg",
+          alt: "Surfer in misty conditions — forecast vs reality",
+          position: "right",
+        },
+      },
+      {
+        id: "detail",
+        heading: "Where Forecasts Are Accurate — and Where They Fail",
+        content: `<p>WaveWatch III runs at <strong>0.5° resolution (~30 miles per grid cell)</strong>. It captures open-ocean swells well but misses the "last mile" — local bathymetry (underwater canyons, reefs, sandbars), coastal wind patterns, and swell refraction around headlands. That's why buoy readings at La Jolla's Scripps Pier can differ from WaveWatch III by 1-3 feet: the Scripps Canyon focuses and amplifies certain swell angles in ways the global model can't resolve.</p><p>Quiver's ML layer fixes this. Per-beach XGBoost models learn the <strong>systematic bias</strong> at each break — when the model consistently over-predicts at your spot, ML corrects it. This is evaluated against holdout data (data the model never saw during training) to prevent overfitting. The public accuracy dashboard at <strong>quiversurf.app/forecast-accuracy</strong> shows real-time metrics by region and beach.</p>`,
+        keyTakeaway:
+          "Global models miss local effects. Quiver's ML learns each beach's systematic biases and corrects for them — see live metrics at /forecast-accuracy.",
+      },
+      {
+        id: "practical",
+        heading: "What This Means for Your Session",
+        content: `<p>Trust the <strong>0-3 day forecast window</strong> for planning sessions. Use the 5-7 day view to track incoming swell systems, but don't commit to plans based on it — too much can change. Always <strong>cross-check the forecast against real-time buoy data</strong> 1-3 hours before your session. If the nearest NDBC buoy shows 3 feet but the forecast says 5 feet, the swell hasn't arrived yet or the model over-predicted. Build local knowledge: after 20+ sessions comparing Quiver's forecast to what you actually see, you'll develop an intuitive calibration for your break that no model can replace.</p>`,
+        keyTakeaway:
+          "Plan sessions from the 3-day window. Always cross-check the forecast against buoy data before paddling out.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Why are some forecasts more accurate than others?",
+        answer:
+          "Accuracy depends on data density. Beaches near CDIP or NDBC buoys get more ML training data and better corrections. Remote breaks far from buoys rely more on the global model, which misses local effects. Quiver's accuracy dashboard shows per-beach metrics.",
+      },
+      {
+        question: "How does Quiver's ML correction work?",
+        answer:
+          "Per-beach XGBoost models trained on 30,000+ buoy observations learn systematic forecast errors at each spot — when the model over-predicts height or misreads direction due to local bathymetry. The correction layer runs every 3 hours with fresh buoy data.",
+      },
+      {
+        question: "Is Quiver more accurate than Surfline?",
+        answer:
+          "Quiver publishes its accuracy metrics publicly at /forecast-accuracy. Surfline does not publish comparable metrics. Quiver's ML achieves a 90.4% match rate vs. observed buoy readings and 59% improvement over raw NOAA — judge for yourself.",
+      },
+      {
+        question: "Should I trust a 10-day forecast?",
+        answer:
+          "No. Use it to spot incoming swell systems and general trends. Weather chaos makes anything beyond 7 days unreliable. By 3 days out, the forecast is much more accurate — check again then before committing.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Forecast Accuracy Dashboard",
+        href: "/forecast-accuracy",
+        description:
+          "See real-time accuracy metrics by region and beach.",
+      },
+      {
+        label: "How Surf Forecasts Work",
+        href: "/learn/how-surf-forecasts-work",
+        description:
+          "From satellites to ML: the full forecasting pipeline.",
+      },
+      {
+        label: "Check Your Forecast",
+        href: "/forecast",
+        description: "ML-corrected forecasts for 279+ beaches.",
+      },
+    ],
+  },
+
+  {
+    slug: "best-time-of-day-to-surf",
+    title: "When Is the Best Time of Day to Surf?",
+    description:
+      "Early morning (dawn patrol, 5:30-8 AM) and late afternoon (4-6 PM glass-off) produce the cleanest waves. Land cools overnight, pulling wind offshore. Solar heating reverses it midday, bringing onshore chop. Wind is the number one session-quality variable after swell size and period.",
+    readingTimeMin: 2,
+    datePublished: "2026-03-30",
+    heroImage: "/images/learn/learn-dawn-patrol.jpg",
+    thumbnailImage: "/images/learn/learn-dawn-patrol.jpg",
+    keywords: [
+      "best time to surf",
+      "dawn patrol surfing",
+      "when to surf",
+      "glass off surfing",
+      "morning surf vs afternoon",
+      "best time of day waves",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Early morning (<strong>dawn patrol, 5:30-8 AM</strong>) and late afternoon (<strong>4-6 PM glass-off</strong>) produce the cleanest waves at most breaks. Land cools overnight, creating natural <strong>offshore wind flow</strong> that holds up wave faces. By mid-morning, solar heating reverses the gradient, bringing onshore chop. This thermal cycle — measured by NDBC coastal anemometers — repeats daily along every US coast from Malibu to Montauk.</p>`,
+        keyTakeaway:
+          "Dawn patrol (5:30-8 AM) and glass-off (4-6 PM) are the best windows because thermal wind patterns create offshore conditions at those times.",
+        image: {
+          src: "/images/learn/learn-dawn-patrol.jpg",
+          alt: "Surfers heading out at golden hour during dawn patrol",
+          position: "right",
+        },
+      },
+      {
+        id: "detail",
+        heading: "The Thermal Wind Cycle That Drives Surf Quality",
+        content: `<p>At night, land loses heat faster than the ocean. By dawn, land is cooler, creating a <strong>pressure gradient</strong> that pulls air from land to sea — offshore wind. This smooths the ocean surface ("glassy") and holds up wave faces. Between <strong>9-11 AM</strong>, solar heating warms the land, equalizing temperatures. By midday, land is hotter, pulling air from sea to land — <strong>onshore wind</strong>. Waves turn choppy and blown out. In late afternoon (4-6 PM), heating fades and onshore wind dies — the <strong>glass-off</strong> window. It's shorter and less reliable than dawn patrol (30-90 minutes vs. 2-3 hours), but can produce stunning conditions.</p><p>Exceptions: cold fronts, marine layers, and strong synoptic winds can override the thermal cycle. Always check the wind forecast — some days are offshore all day, and some are onshore from dawn.</p>`,
+        keyTakeaway:
+          "Overnight cooling creates 2-3 hours of morning offshore. Midday heating flips it onshore. Late-afternoon glass-off gives a second shorter window.",
+      },
+      {
+        id: "practical",
+        heading: "What This Means for Your Session",
+        content: `<p>Check Quiver's 3-hour wind forecast the night before. If offshore is predicted until 10 AM, set your alarm for first light. If the forecast shows offshore all day (cold front or persistent high pressure), you can afford to sleep in. On <strong>classic thermal days</strong>, be in the water by 6:30-7 AM and plan to surf 1.5-2 hours. The crowd peaks at 8-9 AM — getting in 30 minutes earlier means more waves with fewer people. For the glass-off window, check if onshore wind is forecast to die before sunset — if it persists until dark, skip it. Weekday dawn patrol is the ultimate cheat code: best conditions, fewest people.</p>`,
+        keyTakeaway:
+          "Check wind the night before. On thermal days, paddle out by 6:30 AM. Weekday dawn patrol gives best conditions with fewest crowds.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Is dawn patrol always the best time?",
+        answer:
+          "Usually, but not always. Some days a cold front keeps wind offshore all day. Other days, marine fog locks in glassy conditions until noon. And occasionally dawn brings strong offshore that's actually too strong. Check the forecast — don't just assume dawn is best.",
+      },
+      {
+        question: "What is glass-off?",
+        answer:
+          "Glass-off is when afternoon onshore wind dies before sunset, leaving the ocean surface smooth ('glassy'). It typically lasts 30-90 minutes. Conditions can be excellent but the window is shorter and less predictable than dawn patrol.",
+      },
+      {
+        question: "Does time of day affect wave size?",
+        answer:
+          "No. Swell size is determined by ocean storms, not time of day. But wave quality changes dramatically — the same 4-foot swell looks completely different with offshore wind at 7 AM versus onshore wind at 2 PM.",
+      },
+      {
+        question: "Why do crowds peak at 8-9 AM?",
+        answer:
+          "Most surfers work 9-5 and want to squeeze in a session before the office. By arriving 30-60 minutes before the crowd peak, you get clean waves with open peaks. The pre-dawn hardcore crowd is small and usually respectful.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Offshore vs Onshore Wind",
+        href: "/learn/offshore-vs-onshore-wind-surfing",
+        description: "Why wind direction matters more than wind speed.",
+      },
+      {
+        label: "Why Waves Are Better in the Morning",
+        href: "/learn/why-waves-better-in-morning",
+        description: "The thermal physics behind dawn patrol.",
+      },
+      {
+        label: "Check Wind Forecast",
+        href: "/forecast",
+        description:
+          "See the 3-hour wind forecast for your break tonight.",
+      },
+    ],
+  },
+
+  {
+    slug: "why-waves-better-in-morning",
+    title: "Why Are Waves Better in the Morning?",
+    description:
+      "Overnight, land cools faster than the ocean, creating a temperature gradient that pulls wind offshore (from land to sea). This offshore flow holds up wave faces and smooths the surface — 'glassy' conditions. By mid-morning, solar heating reverses the gradient, bringing onshore wind and chop. This thermal cycle repeats daily.",
+    readingTimeMin: 2,
+    datePublished: "2026-03-30",
+    heroImage: "/images/hero/hero-4-beach-sunset.webp",
+    thumbnailImage: "/images/hero/hero-4-beach-sunset.webp",
+    keywords: [
+      "why waves better morning",
+      "morning surf better",
+      "glassy conditions",
+      "thermal wind surfing",
+      "dawn patrol why",
+      "offshore morning",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Overnight, land cools faster than the ocean, creating a <strong>temperature gradient</strong> that pulls wind from land to sea — <strong>offshore flow</strong>. This holds up wave faces and smooths the surface into <strong>"glassy" conditions</strong>. By mid-morning (9-11 AM), solar heating reverses the gradient, pulling air from the cooler sea to the warmer land — <strong>onshore wind</strong>. This adds chop and destroys wave shape. The thermal cycle repeats daily at nearly every coastal location monitored by NDBC stations.</p>`,
+        keyTakeaway:
+          "Morning waves are cleaner because overnight cooling creates offshore wind that holds up wave faces. Solar heating reverses this by midday.",
+      },
+      {
+        id: "detail",
+        heading: "The Physics: Land-Sea Thermal Circulation",
+        content: `<p>This is the <strong>land-sea breeze cycle</strong>, a well-studied meteorological phenomenon. Land has lower heat capacity than water — it heats and cools <strong>2-3x faster</strong>. By dawn, coastal land may be 10-15°F cooler than the adjacent ocean surface. Cool air sinks over land, flows seaward at the surface (offshore), and warm air rises over the ocean to complete the circulation cell.</p><p>The offshore component is typically <strong>3-8 knots</strong> at dawn, enough to smooth the surface without making paddling difficult. As the sun rises, land heats rapidly. By 10-11 AM, land and ocean temperatures equalize — a brief calm period. By noon, land is significantly warmer, and the circulation reverses: onshore flow at <strong>8-15+ knots</strong>. This is why NDBC coastal wind stations consistently show offshore readings before 8 AM and onshore by midday along the California, Florida, and East Coast shorelines.</p>`,
+        keyTakeaway:
+          "Land heats and cools 2-3x faster than ocean. Dawn brings 3-8 knot offshore; by noon, 8-15+ knot onshore. NDBC stations confirm this pattern coast-wide.",
+      },
+      {
+        id: "practical",
+        heading: "What This Means for Your Session",
+        content: `<p>The <strong>offshore window</strong> typically lasts from first light until 9-10 AM — roughly 2-3 hours. On clear days with strong solar heating, it's shorter. On overcast or foggy mornings, it can extend past noon. Check Quiver's wind forecast the night before to see exactly when the switch happens at your break. If the forecast shows "offshore 5 kts until 10 AM, onshore 12 kts by noon," your golden window is <strong>6-9:30 AM</strong>. Some breaks benefit from specific wind directions — a NE wind is offshore for west-facing beaches but onshore for east-facing ones. Know your break's orientation.</p>`,
+        keyTakeaway:
+          "The offshore window lasts 2-3 hours from dawn. Check the wind forecast to know exactly when it switches at your break.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Are waves ever better in the afternoon?",
+        answer:
+          "Yes. Glass-off (4-6 PM) can produce excellent conditions when onshore dies before sunset. Also, some days have cold fronts or high pressure that keep wind offshore all day. And strong synoptic wind patterns can override the thermal cycle entirely.",
+      },
+      {
+        question: "Does this happen everywhere in the world?",
+        answer:
+          "The land-sea breeze cycle occurs at almost every coastline globally. It's strongest in tropical and subtropical regions with strong solar heating. In polar regions or during winter at high latitudes, synoptic wind patterns often dominate over thermal effects.",
+      },
+      {
+        question: "Why are some mornings still choppy?",
+        answer:
+          "Strong weather systems override the thermal cycle. A passing cold front or sustained low-pressure system creates synoptic-scale winds that overpower the gentle land breeze. Always check the broader weather pattern, not just assume mornings will be glassy.",
+      },
+      {
+        question: "Does fog extend the offshore window?",
+        answer:
+          "Yes. Fog and marine layers block solar radiation from heating the land, delaying the thermal reversal. On foggy mornings common in Northern California and the Pacific Northwest, offshore conditions can persist past noon.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Best Time of Day to Surf",
+        href: "/learn/best-time-of-day-to-surf",
+        description: "Dawn patrol and glass-off — the two best windows.",
+      },
+      {
+        label: "Offshore vs Onshore Wind",
+        href: "/learn/offshore-vs-onshore-wind-surfing",
+        description: "How wind direction shapes wave quality.",
+      },
+    ],
+  },
+
+  {
+    slug: "is-it-safe-to-surf-after-rain",
+    title: "Is It Safe to Surf After It Rains?",
+    description:
+      "The standard recommendation is wait 72 hours after rain before surfing near urban runoff. Storm drains flush bacteria (fecal coliform, Enterococcus), chemicals, and debris into the ocean. A Surfrider Foundation study found 12 extra illness cases per 1,000 surfers in wet-weather conditions.",
+    readingTimeMin: 2,
+    datePublished: "2026-03-30",
+    heroImage: "/images/learn/learn-choppy-sea.jpg",
+    thumbnailImage: "/images/learn/learn-choppy-sea.jpg",
+    keywords: [
+      "surfing after rain",
+      "is it safe to surf after rain",
+      "ocean water quality after rain",
+      "72 hour rule surfing",
+      "storm drain runoff surfing",
+      "surfrider water quality",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>The standard recommendation from the <strong>Surfrider Foundation</strong> and public health agencies is wait <strong>72 hours</strong> after rain before surfing near urban areas. Storm drains flush bacteria (fecal coliform, Enterococcus), chemicals, oil, pesticides, and debris into the ocean. A Surfrider study found <strong>12 extra illness cases per 1,000 surfers</strong> exposed to wet-weather runoff. Risk varies by location, rainfall intensity, and proximity to storm drain outfalls and river mouths.</p>`,
+        keyTakeaway:
+          "Wait 72 hours after rain near urban areas. Storm drains flush bacteria and chemicals. Risk increases near river mouths and storm drain outfalls.",
+      },
+      {
+        id: "detail",
+        heading: "What's Actually in the Water After Rain",
+        content: `<p>Urban runoff carries <strong>fecal indicator bacteria</strong> (from pet waste, sewage overflows, and homeless encampments), <strong>heavy metals</strong> (from road surfaces), <strong>pesticides and herbicides</strong> (from lawns and agriculture), and <strong>oil and grease</strong> (from parking lots). The EPA's BEACH Act requires monitoring at popular swimming beaches, but surf breaks often fall outside monitored zones.</p><p>Risk factors: <strong>proximity to a storm drain outfall or river mouth</strong> (highest risk — bacteria counts spike 10-100x), <strong>rainfall intensity</strong> (heavy rain overwhelms treatment systems), and <strong>water circulation</strong> (enclosed bays flush slower than exposed coastline). Open-coast point breaks far from rivers clear faster than enclosed beach breaks near harbors. The <strong>San Diego River mouth</strong>, <strong>Malibu Creek</strong>, and <strong>Tijuana River</strong> are notoriously polluted after rain.</p>`,
+        keyTakeaway:
+          "Storm drains near surf breaks spike bacteria 10-100x after rain. Highest risk: near river mouths and in enclosed bays. Open coast clears faster.",
+      },
+      {
+        id: "practical",
+        heading: "What This Means for Your Session",
+        content: `<p>After rain, <strong>avoid breaks near storm drains, river mouths, and harbors for 72 hours</strong>. Check local water quality reports — Heal the Bay (California) and Surfrider publish near-real-time beach grades. If you must surf sooner, choose an <strong>open-coast break far from runoff sources</strong> with good water circulation. Avoid getting water in your mouth, eyes, and open cuts. Shower immediately after. Ear plugs reduce ear infection risk. If you develop <strong>fever, gastrointestinal symptoms, or ear/sinus infection</strong> within 72 hours of surfing post-rain, see a doctor and mention ocean exposure.</p>`,
+        keyTakeaway:
+          "Check Heal the Bay or Surfrider water quality reports. Choose open-coast breaks far from drains. Shower immediately after surfing post-rain.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Is the 72-hour rule always necessary?",
+        answer:
+          "It depends on location. Open coastline far from rivers clears in 24-48 hours. Near river mouths or harbors, 72 hours is the minimum. After major storms, some areas like the Tijuana River zone can stay contaminated for a week or more.",
+      },
+      {
+        question: "Can rain actually improve surf conditions?",
+        answer:
+          "Yes — storms that bring rain also bring swell. The irony of surfing is that the same weather system producing great waves also contaminates the water. Many surfers accept the risk for a pumping storm swell, but it's a personal health decision.",
+      },
+      {
+        question: "What illness symptoms come from contaminated water?",
+        answer:
+          "Most common: gastroenteritis (nausea, diarrhea, cramps) from swallowing water, ear infections (otitis externa), sinus infections, and skin rashes. Symptoms typically appear 12-72 hours after exposure. Serious infections are rare but possible with open wounds.",
+      },
+      {
+        question: "Where can I check water quality before surfing?",
+        answer:
+          "Heal the Bay (healthebay.org/beach-report-card) covers California. Surfrider Foundation (surfrider.org) covers national beaches. Many counties post advisories at beaches after rain. Check before you paddle — especially near urban areas.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Best Time of Day to Surf",
+        href: "/learn/best-time-of-day-to-surf",
+        description:
+          "Time your session around conditions, not just swell.",
+      },
+      {
+        label: "What Equipment Do I Need?",
+        href: "/learn/what-equipment-to-start-surfing",
+        description: "Earplugs and rash guards reduce post-rain risk.",
+      },
+    ],
+  },
+
+  {
+    slug: "what-wetsuit-thickness-do-i-need",
+    title: "What Wetsuit Thickness Do I Need?",
+    description:
+      "Match wetsuit thickness to water temperature. Above 72°F: boardshorts or rashguard. 65-72°F: 2mm spring suit. 60-65°F: 3/2mm full suit. 55-60°F: 4/3mm full suit with optional boots. Below 55°F: 5/4mm full suit with boots, gloves, and hood. Check real-time water temps on Quiver.",
+    readingTimeMin: 2,
+    datePublished: "2026-03-30",
+    heroImage: "/images/hero/hero-1-la-jolla.webp",
+    thumbnailImage: "/images/hero/hero-1-la-jolla.webp",
+    keywords: [
+      "wetsuit thickness guide",
+      "what wetsuit do i need",
+      "wetsuit temperature chart",
+      "3/2 vs 4/3 wetsuit",
+      "wetsuit for cold water surfing",
+      "surf wetsuit guide",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Match wetsuit thickness to water temperature: <strong>Above 72°F</strong>: boardshorts or rashguard. <strong>65-72°F</strong>: 2mm spring suit or shorty. <strong>60-65°F</strong>: 3/2mm full suit (standard California suit). <strong>55-60°F</strong>: 4/3mm full suit with optional boots. <strong>Below 55°F</strong>: 5/4mm+ with boots, gloves, and hood. Check real-time water temperature on Quiver's beach pages — it varies significantly by region and season across NOAA monitoring stations.</p>`,
+        keyTakeaway:
+          "Wetsuit thickness maps directly to water temperature. A 3/2mm fits most of California year-round. Below 55°F, add boots, gloves, and hood.",
+        image: {
+          src: "/images/hero/hero-1-la-jolla.webp",
+          alt: "Surfers at La Jolla — water temperature determines wetsuit choice",
+          position: "right",
+        },
+      },
+      {
+        id: "detail",
+        heading: "The Complete Temperature-to-Thickness Chart",
+        content: `<p><strong>72°F+ (Hawaii, summer Florida, Puerto Rico)</strong>: Boardshorts and rash guard. A 1mm top if windy.</p><p><strong>65-72°F (SoCal summer, warm East Coast)</strong>: 2mm spring suit (short arms, short legs) or 2mm full suit. You won't overheat or freeze.</p><p><strong>60-65°F (SoCal winter, NorCal summer)</strong>: 3/2mm full suit — <strong>3mm torso, 2mm arms/legs</strong>. This is the standard California wetsuit. Most surfers own this as their primary suit.</p><p><strong>55-60°F (NorCal winter, Pacific Northwest, winter NJ/NY)</strong>: 4/3mm full suit with <strong>3mm boots</strong> for thermal protection and reef safety. Some surfers add gloves below 58°F.</p><p><strong>Below 55°F (Maine, Great Lakes, deep NorCal winter)</strong>: 5/4mm+ hooded suit with <strong>5mm boots, 4mm gloves</strong>, and integrated or separate hood. Ice cream headaches are real at 50°F.</p>`,
+        keyTakeaway:
+          "72°F+ = trunks, 65-72°F = 2mm, 60-65°F = 3/2mm, 55-60°F = 4/3mm + boots, below 55°F = 5/4mm + full accessories.",
+      },
+      {
+        id: "practical",
+        heading: "What This Means for Your Session",
+        content: `<p>Check Quiver's water temperature on your beach page before packing — temperatures can swing <strong>5-10°F within a few weeks</strong> during spring and fall transitions. San Diego water ranges from <strong>57°F in February to 72°F in August</strong>. Santa Cruz ranges from <strong>50°F to 62°F</strong>. The wrong suit ruins a session: too thin and you'll be shivering after 20 minutes, too thick and you'll overheat and lose flexibility. If you surf one region year-round, you typically need <strong>two suits</strong> — a thinner one for summer and a thicker one for winter. Brands like O'Neill, Xcel, Patagonia, and Rip Curl all make quality suits. Budget $200-400 for a good 3/2mm full suit.</p>`,
+        keyTakeaway:
+          "Check water temp before packing. Most surfers need two suits — summer and winter. Budget $200-400 for a quality full suit.",
+      },
+    ],
+    faqs: [
+      {
+        question: "What does 3/2mm mean?",
+        answer:
+          "3mm neoprene on the torso (where you need warmth most) and 2mm on the arms and legs (where you need flexibility). The first number is always the thickest panel. A 4/3mm is 4mm torso, 3mm limbs.",
+      },
+      {
+        question: "Do I need a wetsuit in Hawaii?",
+        answer:
+          "Usually no. Hawaii water temperatures range from 74-80°F year-round. Boardshorts and a rash guard are standard. On windy winter days at North Shore spots, a 1-2mm vest or jacket can help with wind chill.",
+      },
+      {
+        question: "How long does a wetsuit last?",
+        answer:
+          "With proper care (rinse after every session, hang dry out of sun), a quality wetsuit lasts 2-3 years of regular use. Seam integrity degrades first — if water seeps through seams, it's time to replace it.",
+      },
+      {
+        question: "Is a more expensive wetsuit worth it?",
+        answer:
+          "Yes, for warmth and flexibility. Premium suits ($300-500) use lighter, stretchier neoprene and better seam construction. Budget suits ($100-200) work but are stiffer and less warm. If you surf 2+ times per week, invest in quality.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "What Equipment Do I Need?",
+        href: "/learn/what-equipment-to-start-surfing",
+        description: "Full beginner gear list with budget estimates.",
+      },
+      {
+        label: "Best Conditions for Beginners",
+        href: "/learn/best-surf-conditions-for-beginners",
+        description: "Ideal wave size, period, and conditions to learn in.",
+      },
+      {
+        label: "Check Water Temperature",
+        href: "/forecast",
+        description: "Real-time water temps at 279+ beaches.",
+      },
+    ],
+  },
+
+  {
+    slug: "what-size-surfboard-should-i-get",
+    title: "What Size Surfboard Should I Get?",
+    description:
+      "Beginners: 8-9 foot soft-top foamie with 60-80 liters of volume, roughly 1-3 feet taller than you. Volume determines paddle ease and stability. After 50+ sessions of consistent wave-catching, size down to a 7-foot funboard. Shortboards (5'8\"-6'4\") are for intermediate surfers with 100+ sessions.",
+    readingTimeMin: 3,
+    datePublished: "2026-03-30",
+    heroImage: "/images/activities/longboarding.webp",
+    thumbnailImage: "/images/activities/longboarding.webp",
+    keywords: [
+      "what size surfboard",
+      "beginner surfboard size",
+      "surfboard volume guide",
+      "foamie surfboard",
+      "first surfboard",
+      "surfboard size chart",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Beginners need an <strong>8-9 foot soft-top (foamie)</strong> with <strong>60-80 liters</strong> of volume — roughly 1-3 feet taller than you. Volume (in liters) determines paddle ease and stability, not length alone. Brands like Wavestorm, Catch Surf, and ISLE make quality beginner boards for <strong>$200-400</strong>. After 50+ sessions of consistent wave-catching, size down to a <strong>7-foot funboard</strong>. Shortboards (5'8"-6'4", 25-35 liters) are for intermediate surfers with <strong>100+ sessions</strong> and strong paddle fitness.</p>`,
+        keyTakeaway:
+          "Start with an 8-9 ft foamie (60-80 liters). Volume determines paddle ease. Size down only after 50+ sessions of consistent wave-catching.",
+        image: {
+          src: "/images/activities/longboarding.webp",
+          alt: "Longboarder riding a mellow wave — bigger boards catch more waves",
+          position: "right",
+        },
+      },
+      {
+        id: "detail",
+        heading: "Why Volume Matters More Than Length",
+        content: `<p><strong>Volume (liters)</strong> measures how much the board floats. More float = easier paddling = more waves caught = faster learning. A 180-lb beginner needs roughly <strong>70-80 liters</strong>. That same person on a shortboard at 28 liters will catch almost nothing for months. The formula: <strong>body weight (kg) × 0.4-0.5 = starting volume in liters</strong> for beginners.</p><p>Foamies are specifically designed for learning: soft foam top won't cut you or others, wide nose catches waves easily, and thick rails provide stability for pop-ups. Don't listen to anyone who says "start on a shortboard to learn faster" — this is the single most common bad advice in surfing. It's like learning to drive in a race car. You'll spend months frustration-paddling and catching nothing when a foamie would have you riding 10+ waves per session from day one.</p>`,
+        keyTakeaway:
+          "Volume (liters) = float = wave-catching ability. Beginners: body weight (kg) × 0.4-0.5. Never start on a shortboard — it delays learning by months.",
+      },
+      {
+        id: "practical",
+        heading: "What This Means for Your Session",
+        content: `<p><strong>Board progression path</strong>: Foamie (0-50 sessions) → Funboard/Mid-length (50-150 sessions) → Shortboard (150+ sessions). Each step down costs 15-20 liters of volume, so expect a learning curve at each transition. You'll go from catching 15 waves per session on the foamie to catching 5 on the funboard until your paddle fitness adapts. Buy your first foamie <strong>used if possible</strong> — Craigslist, Facebook Marketplace, and local surf shops sell used Wavestorms for $50-100. You'll outgrow it in 6-12 months. Your second board (funboard) is worth investing in new ($400-600) because you'll ride it longer.</p>`,
+        keyTakeaway:
+          "Foamie → funboard → shortboard over 12-24 months. Buy first foamie used ($50-100). Invest in a quality funboard for your second board.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Can a bigger person start on a smaller board?",
+        answer:
+          "No. Board size should match your weight, not your athletic background. A 220-lb athlete needs a 9-foot foamie just like a 220-lb beginner. The physics of paddling and wave-catching don't care about your gym fitness — ocean fitness is different.",
+      },
+      {
+        question: "Are Wavestorms actually good?",
+        answer:
+          "Yes. The Costco Wavestorm 8-foot foamie is the best-selling surfboard in history for a reason. It's stable, forgiving, catches waves easily, and costs $100-150. Many experienced surfers keep one for small-wave fun days. It's the correct first board.",
+      },
+      {
+        question: "When should I switch to a shortboard?",
+        answer:
+          "When you can consistently catch unbroken green waves, ride down the line, and generate speed on a funboard. This typically takes 100-200 sessions over 1-2 years. If you're still struggling to catch waves on your funboard, you're not ready for a shortboard.",
+      },
+      {
+        question: "Does board shape matter for beginners?",
+        answer:
+          "Width and thickness matter more than shape details. Wider = more stable. Thicker = more float. For beginners, anything over 21 inches wide and 3 inches thick works. Ignore rocker profiles, tail shapes, and fin setups until intermediate level.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "What Equipment Do I Need?",
+        href: "/learn/what-equipment-to-start-surfing",
+        description: "Full gear list including board, wetsuit, and accessories.",
+      },
+      {
+        label: "How Long to Learn to Surf",
+        href: "/learn/how-long-to-learn-to-surf",
+        description: "Realistic timeline for progression milestones.",
+      },
+      {
+        label: "Best Conditions for Beginners",
+        href: "/learn/best-surf-conditions-for-beginners",
+        description: "Ideal waves for learning on your new board.",
+      },
+    ],
+  },
+
+  {
+    slug: "how-long-to-learn-to-surf",
+    title: "How Long Does It Take to Learn to Surf?",
+    description:
+      "Standing on whitewater: 1-3 sessions. Catching unbroken green waves: 2-4 weeks of regular practice. Riding down the line confidently: 3-6 months. Intermediate turns and wave reading: 1-2 years at 2-3 sessions per week. Fitness, ocean comfort, and coaching accelerate every milestone.",
+    readingTimeMin: 2,
+    datePublished: "2026-03-30",
+    heroImage: "/images/activities/beginner-friendly.webp",
+    thumbnailImage: "/images/activities/beginner-friendly.webp",
+    keywords: [
+      "how long to learn to surf",
+      "learning to surf timeline",
+      "beginner surfer progression",
+      "surf lessons",
+      "how hard is surfing",
+      "learn to surf time",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Standing on whitewater: <strong>1-3 sessions</strong>. Catching unbroken green waves: <strong>2-4 weeks</strong> of regular practice. Riding down the line confidently: <strong>3-6 months</strong>. Intermediate level (reading waves, generating speed, basic turns): <strong>1-2 years</strong> at 2-3 sessions per week. These timelines assume an 8-9 ft foamie board, proper conditions (1-3 ft waves, offshore wind), and basic swimming fitness. Coaching from a surf school accelerates the first two milestones by 50% or more.</p>`,
+        keyTakeaway:
+          "Expect 3-6 months to ride green waves confidently. 1-2 years for intermediate skills. Proper equipment and coaching accelerate everything.",
+      },
+      {
+        id: "detail",
+        heading: "The Four Milestones of Learning to Surf",
+        content: `<p><strong>Milestone 1 — Standing on foam (1-3 sessions)</strong>: Catching whitewater and popping up. Most people achieve this in their first lesson. The key is paddling technique and committing to the pop-up motion.</p><p><strong>Milestone 2 — Green waves (2-4 weeks)</strong>: Paddling into unbroken waves, angling the takeoff, and riding the face. This requires reading wave shapes, positioning in the lineup, and stronger paddle fitness. This is where most people stall — the jump from foam to green waves is the biggest hurdle.</p><p><strong>Milestone 3 — Down the line (3-6 months)</strong>: Consistently catching green waves and riding along the wave face with speed and control. You can now surf most 1-4 foot breaks safely.</p><p><strong>Milestone 4 — Intermediate (1-2 years)</strong>: Reading wave sections, generating speed through pumping, bottom turns, cutbacks. You understand forecasts, know your local breaks' moods, and can handle 4-6 foot surf.</p>`,
+        keyTakeaway:
+          "Four milestones: foam standing (days), green waves (weeks), down-the-line riding (months), intermediate turns (1-2 years).",
+      },
+      {
+        id: "practical",
+        heading: "What This Means for Your Session",
+        content: `<p><strong>Accelerators</strong>: Take 2-3 professional lessons to nail the pop-up technique correctly. Bad habits formed in the first month take 6 months to fix. Surf <strong>2-3 times per week minimum</strong> — once a week isn't enough for muscle memory. Use a foamie until Milestone 3. Check Quiver's forecast and target <strong>1-3 foot days with long period and offshore wind</strong> — you'll catch 3x more waves in good conditions than in 5-foot onshore chop. Track your sessions in Quiver to see progression over time. <strong>The single biggest accelerator is water time</strong> — no substitute for hours in the ocean.</p>`,
+        keyTakeaway:
+          "Take lessons early, surf 2-3x per week, use a foamie, target small clean days. Water time is the #1 accelerator.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Can athletic people learn faster?",
+        answer:
+          "Somewhat. Swimmers and skateboarders have transferable balance and water comfort. But ocean fitness is unique — everyone needs time to build paddle endurance and wave-reading instincts. Athletic background helps with Milestone 1 but less with Milestones 3-4.",
+      },
+      {
+        question: "Should I take surf lessons?",
+        answer:
+          "Yes, at least 2-3 lessons. A good instructor teaches proper pop-up technique, wave selection, and safety in a few hours. Self-teaching these takes weeks and often builds bad habits. Lessons are the highest-ROI investment in learning to surf.",
+      },
+      {
+        question: "Is surfing harder than other board sports?",
+        answer:
+          "The entry barrier is higher because the 'terrain' (waves) moves and is never the same twice. Snowboarding or skateboarding have consistent surfaces. But once you catch green waves, progression is similar. The reading-the-ocean part is what takes years.",
+      },
+      {
+        question: "Can I learn to surf at 40 or 50 years old?",
+        answer:
+          "Absolutely. Many adults learn in their 40s-60s. Fitness and flexibility matter more than age. Start on a large foamie, take lessons, and be patient. Longboarding is particularly accessible for older beginners — less paddling, more glide.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Best Conditions for Beginners",
+        href: "/learn/best-surf-conditions-for-beginners",
+        description: "Ideal waves for accelerating your learning curve.",
+      },
+      {
+        label: "What Size Surfboard?",
+        href: "/learn/what-size-surfboard-should-i-get",
+        description: "Why your board choice determines learning speed.",
+      },
+      {
+        label: "Surf Etiquette Rules",
+        href: "/learn/surf-etiquette-rules",
+        description: "Know the rules before you paddle into the lineup.",
+      },
+    ],
+  },
+
+  {
+    slug: "surf-etiquette-rules",
+    title: "What Are the Rules of Surf Etiquette?",
+    description:
+      "The cardinal rule: the surfer closest to the peak (breaking part of the wave) has priority. Never drop in (take off on someone else's wave). Don't snake (paddle around someone to steal priority). Paddle wide around the lineup. Control your board. Respect locals. These prevent collisions and injuries.",
+    readingTimeMin: 3,
+    datePublished: "2026-03-30",
+    heroImage: "/images/learn/learn-surfer-watching.jpg",
+    thumbnailImage: "/images/learn/learn-surfer-watching.jpg",
+    keywords: [
+      "surf etiquette",
+      "surfing rules",
+      "right of way surfing",
+      "drop in surfing",
+      "surf lineup rules",
+      "beginner surf etiquette",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>The cardinal rule: the surfer <strong>closest to the peak</strong> (the breaking part of the wave) has <strong>right of way</strong>. Never <strong>"drop in"</strong> — don't take off on a wave someone else is already riding. Don't <strong>"snake"</strong> — don't paddle around someone to steal priority. Paddle <strong>wide around</strong> the lineup, not through it. Control your board at all times. Respect locals. Apologize for mistakes. These aren't suggestions — they prevent collisions that cause real injuries at breaks from Malibu to Pipeline.</p>`,
+        keyTakeaway:
+          "Closest to the peak has priority. Never drop in. Don't snake. Paddle wide. Control your board. Respect locals.",
+      },
+      {
+        id: "detail",
+        heading: "The Six Rules Every Surfer Must Know",
+        content: `<p><strong>1. Right of way</strong>: Whoever is closest to the peak (where the wave first breaks) has priority. If someone is deeper than you, the wave is theirs. On a peak that breaks both ways (an A-frame), one person goes left and one goes right — communicate.</p><p><strong>2. Don't drop in</strong>: If someone is already up and riding, do not take off in front of them. This is the most dangerous violation — it causes collisions and broken boards.</p><p><strong>3. Don't snake</strong>: Paddling around someone to get closer to the peak and steal priority. Even if technically closer, it's aggressive and disrespectful.</p><p><strong>4. Paddle wide</strong>: When returning to the lineup, paddle around the breaking zone, not through it. Paddling through puts you in the path of riding surfers.</p><p><strong>5. Control your board</strong>: Never ditch your board when a wave comes. Use duck dives or turtle rolls. A loose board is a projectile that can injure others.</p><p><strong>6. Respect the lineup</strong>: Wait your turn. Don't paddle straight to the peak and take the first wave. Locals who surf the spot daily have earned respect through years of commitment.</p>`,
+        keyTakeaway:
+          "Six rules: right of way (closest to peak), no drop-ins, no snaking, paddle wide, control your board, respect the lineup order.",
+      },
+      {
+        id: "practical",
+        heading: "What This Means for Your Session",
+        content: `<p>As a beginner, <strong>start at the shoulder</strong> (the less critical part of the wave), not the peak. Watch the lineup for 10 minutes before paddling out to understand the hierarchy and wave patterns. Catch waves that others don't want — inside reforms, smaller sets, wide shoulders. This builds your skills without creating conflict. If you accidentally drop in, <strong>kick out immediately and apologize</strong>. Everyone makes mistakes — own them. As you progress and earn respect, you'll naturally move closer to the peak. Surf <strong>less crowded breaks</strong> when possible — fewer people means more waves and less etiquette stress.</p>`,
+        keyTakeaway:
+          "Start at the shoulder, watch 10 minutes before paddling out, catch the leftovers, apologize for mistakes, choose less crowded breaks.",
+      },
+    ],
+    faqs: [
+      {
+        question: "What happens if two people take off at the same time?",
+        answer:
+          "The person closer to the peak has priority. If you're farther from the peak, pull off the wave immediately. If it's genuinely simultaneous on an A-frame, communicate — one goes left, one goes right. A quick 'going left!' while paddling prevents collisions.",
+      },
+      {
+        question: "What is localism and how do I deal with it?",
+        answer:
+          "Localism is territorial behavior by regular surfers at specific breaks. It ranges from cold shoulders to verbal aggression. Handle it by being respectful: don't take set waves, don't paddle to the peak immediately, surf the shoulder, and be friendly. Most locals warm up to respectful visitors.",
+      },
+      {
+        question: "Is it okay to surf near surf schools?",
+        answer:
+          "Yes, but give them space. Lesson groups use whitewater zones and may have beginners with poor board control. Stay well outside their area. If you're a beginner yourself, join a lesson rather than learning solo in their zone.",
+      },
+      {
+        question: "What do I do if I get dropped in on?",
+        answer:
+          "Stay calm. If they didn't see you, a simple 'hey, I was on that one' is fine. Most people apologize immediately. If it keeps happening, they're either oblivious or aggressive — move to a different peak rather than escalating.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Best Conditions for Beginners",
+        href: "/learn/best-surf-conditions-for-beginners",
+        description: "Learn in the right conditions with less crowd pressure.",
+      },
+      {
+        label: "How Long to Learn to Surf",
+        href: "/learn/how-long-to-learn-to-surf",
+        description: "Realistic timeline for when you'll be lineup-ready.",
+      },
+      {
+        label: "Beach Break vs Reef Break vs Point Break",
+        href: "/learn/beach-break-vs-reef-break-vs-point-break",
+        description: "Different break types have different lineup dynamics.",
+      },
+    ],
+  },
+
+  {
+    slug: "beach-break-vs-reef-break-vs-point-break",
+    title: "What Is a Beach Break vs Reef Break vs Point Break?",
+    description:
+      "Beach breaks: waves break over shifting sandbars, peaks move around, falls are forgiving. Best for beginners. Reef breaks: waves break over rock or coral, consistent shape, shallow and dangerous. Point breaks: waves peel along a headland or jetty, long rides, consistent direction. Examples: Huntington Beach (beach), Pipeline (reef), Rincon (point).",
+    readingTimeMin: 3,
+    datePublished: "2026-03-30",
+    heroImage: "/images/activities/reef-breaks.webp",
+    thumbnailImage: "/images/activities/reef-breaks.webp",
+    keywords: [
+      "beach break vs reef break",
+      "types of surf breaks",
+      "point break surfing",
+      "reef break",
+      "beach break",
+      "surf break types explained",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p><strong>Beach breaks</strong>: waves break over shifting sandbars. Peaks move around, falls land on sand — forgiving and best for beginners. Example: Huntington Beach, CA. <strong>Reef breaks</strong>: waves break over rock or coral. Consistent shape but shallow and dangerous when you fall. Example: Pipeline, Oahu. <strong>Point breaks</strong>: waves peel along a headland, jetty, or rocky point. Long, predictable rides. Example: Rincon, Santa Barbara. Most surfers start on beach breaks and progress to reef and point breaks as skills develop.</p>`,
+        keyTakeaway:
+          "Three types: beach break (sand, shifting, forgiving), reef break (rock/coral, consistent, dangerous), point break (headland, long rides).",
+        image: {
+          src: "/images/activities/reef-breaks.webp",
+          alt: "Wave breaking over a shallow reef — consistent but dangerous",
+          position: "right",
+        },
+      },
+      {
+        id: "detail",
+        heading: "How Each Break Type Works",
+        content: `<p><strong>Beach breaks</strong> form when swell hits sandbars. Bars shift weekly with tides and currents, so peaks move — you might surf a different spot every session. Waves tend to close out (break all at once) more often. Wipeouts are low-risk because you land on sand. They work across more tide ranges and swell directions. Examples: Huntington Beach, Ocean Beach SF, New Jersey shore breaks.</p><p><strong>Reef breaks</strong> form over permanent underwater structure. The fixed bottom creates a <strong>consistent wave shape</strong> — the peak breaks in the same spot with the same geometry every time. This produces high-quality, predictable waves but is dangerous: falls land on sharp, shallow reef. Depth matters hugely — most reef breaks need <strong>mid-to-high tide</strong> for safety. Examples: Pipeline (Oahu), Uluwatu (Bali), Cloudbreak (Fiji).</p><p><strong>Point breaks</strong> form where swell wraps around a headland, jetty, or rocky point. The wave peels consistently in one direction, creating <strong>long rides</strong> (100+ yards at good point breaks). Paddling out is usually easier because there's a channel alongside the point. Examples: Rincon (CA), Malibu (CA), J-Bay (South Africa).</p>`,
+        keyTakeaway:
+          "Beach breaks shift and close out but are safe. Reef breaks are consistent but dangerous. Point breaks give long rides with easy paddle-outs.",
+      },
+      {
+        id: "practical",
+        heading: "What This Means for Your Session",
+        content: `<p>As a beginner, <strong>start exclusively on beach breaks</strong> — the forgiving sand bottom and shifting peaks mean you can practice without injury risk. Once you're riding green waves confidently (3-6 months), try a <strong>mellow point break</strong> on a small day — the long rides accelerate your turns and speed generation. Save reef breaks for when you're intermediate (1+ year, confident duck diving, solid wave reading). Use Quiver's break-type filter on the surf map to find beaches matched to your level. When surfing reef breaks, <strong>always check tide</strong> — many become dangerous at low tide when the reef is exposed. Reef booties protect your feet and build confidence.</p>`,
+        keyTakeaway:
+          "Start on beach breaks, progress to mellow point breaks, save reef breaks for intermediate level. Check tide before reef sessions.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Can beach breaks produce quality waves?",
+        answer:
+          "Yes. Sandy beach breaks like Hossegor (France), Puerto Escondido (Mexico), and Supertubos (Portugal) produce world-class barrels. It depends on bar formation, swell quality, and sand composition. But consistency is lower than reef or point breaks — the bars shift.",
+      },
+      {
+        question: "Why are reef breaks more dangerous?",
+        answer:
+          "Falls can land you on sharp coral or rock in 2-3 feet of water. Cuts, broken bones, and head injuries are possible. At low tide, the reef may be barely submerged. Reef breaks demand experience, awareness, and ideally a helmet for heavy waves.",
+      },
+      {
+        question: "What about jetty breaks and rivermouth breaks?",
+        answer:
+          "Jetty breaks form where sand accumulates against a man-made structure — they behave like point breaks but can be dangerous due to rocks and currents. Rivermouth breaks form where river deposits create shifting bars — they can be excellent but are often polluted after rain.",
+      },
+      {
+        question: "Which break type is best for longboarding?",
+        answer:
+          "Point breaks are ideal for longboarding — the long, mellow peeling waves give you time for cross-stepping and noseriding. Malibu, First Point and Rincon are classic longboard waves. Beach breaks work too, especially on small, clean days.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Best Conditions for Beginners",
+        href: "/learn/best-surf-conditions-for-beginners",
+        description: "Ideal conditions at beach breaks for learning.",
+      },
+      {
+        label: "Best Tide for Surfing",
+        href: "/learn/best-tide-for-surfing",
+        description:
+          "How tide affects each break type differently.",
+      },
+      {
+        label: "Surf Map",
+        href: "/map",
+        description: "Filter breaks by type and skill level.",
+      },
+    ],
+  },
+
+  {
+    slug: "what-equipment-to-start-surfing",
+    title: "What Equipment Do I Need to Start Surfing?",
+    description:
+      "Essential gear: soft-top surfboard (8-9 ft foamie, $200-400), leash (6-9 ft matched to board length), wetsuit (thickness matched to water temperature), and wax (temperature-specific). Optional: rash guard, earplugs, reef booties. Total starter budget: $300-600. Skip the shortboard.",
+    readingTimeMin: 2,
+    datePublished: "2026-03-30",
+    heroImage: "/images/learn/learn-surfer-walks.jpg",
+    thumbnailImage: "/images/learn/learn-surfer-walks.jpg",
+    keywords: [
+      "surfing equipment list",
+      "what do i need to start surfing",
+      "beginner surf gear",
+      "surfing starter kit",
+      "surfboard leash wax wetsuit",
+      "how much does surfing cost",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p><strong>Essential</strong>: soft-top surfboard (8-9 ft foamie, <strong>$200-400</strong>), leash (6-9 ft, matched to board length, <strong>$20-35</strong>), wetsuit (thickness per water temp, <strong>$150-350</strong>), and wax (temperature-specific, <strong>$3-5</strong>). <strong>Optional but recommended</strong>: rash guard ($25-40, sun and chafe protection), earplugs ($15-30, prevents surfer's ear), reef booties ($30-60, rocky entries). Total starter budget: <strong>$300-600</strong>. Buy the foamie used if possible — Wavestorm on Craigslist for $50-100.</p>`,
+        keyTakeaway:
+          "Four essentials: foamie board, leash, wetsuit, wax. Total budget $300-600. Buy the board used to save money.",
+      },
+      {
+        id: "detail",
+        heading: "The Essential Gear Breakdown",
+        content: `<p><strong>Board</strong>: 8-9 ft soft-top foamie. Wavestorm, Catch Surf, or ISLE. Soft foam won't cut you or others. Wide and thick for stability. This is non-negotiable for beginners — shortboards delay learning by months.</p><p><strong>Leash</strong>: Attaches your ankle to the board. Match length to board length (8 ft board = 8-9 ft leash). Buy a quality one from FCS, Dakine, or Creatures — a broken leash means a lost board and a dangerous swim. Replace annually.</p><p><strong>Wetsuit</strong>: Matched to water temperature. See our <a href="/learn/what-wetsuit-thickness-do-i-need">wetsuit thickness guide</a>. Check real-time water temp on Quiver before buying. O'Neill, Xcel, Rip Curl, and Patagonia are reliable brands.</p><p><strong>Wax</strong>: Applied to the deck for grip. Use temperature-specific wax — cold water wax in warm water melts off. Basecoat first, then topcoat. Sex Wax and Sticky Bumps are the standards. $3-5 per bar, lasts several sessions.</p>`,
+        keyTakeaway:
+          "Foamie board (non-negotiable), leash matched to board length, wetsuit matched to water temp, temperature-specific wax. Quality leash is a safety item.",
+      },
+      {
+        id: "practical",
+        heading: "What This Means for Your Session",
+        content: `<p><strong>Budget strategy</strong>: Buy the foamie used ($50-100), invest in a new wetsuit (your body, your fit — $150-350), buy leash and wax new (cheap and important). Total: <strong>$225-450</strong>. Skip everything else until you're surfing regularly. After 50+ sessions, invest in a funboard ($400-600) as your second board. The foamie becomes your small-wave fun board — you'll keep it forever. <strong>Don't buy</strong>: a shortboard (too small), a hard top (too dangerous for beginners), expensive fins (you won't notice the difference), a board bag (yet — store it in the garage). Prioritize water time over gear — an experienced surfer on a Wavestorm outperforms a beginner on a $800 custom board every time.</p>`,
+        keyTakeaway:
+          "Buy foamie used, wetsuit new. Skip shortboards and extras. Prioritize water time over gear investment.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Do I need surf lessons or just gear?",
+        answer:
+          "Both. Gear gets you in the water; lessons teach you technique. 2-3 lessons ($80-150 each) save months of self-teaching and prevent bad habits. Most surf schools include board and wetsuit rental, so you can try before buying your own gear.",
+      },
+      {
+        question: "Can I rent gear instead of buying?",
+        answer:
+          "Yes, rentals run $20-40/session at most beach shops. Rent for your first 3-5 sessions to confirm you enjoy surfing before investing. But buying a used foamie pays for itself after 5 rental sessions.",
+      },
+      {
+        question: "Do I need fins for a foamie?",
+        answer:
+          "Most foamies come with soft flexible fins pre-installed. These are fine for learning. Don't upgrade fins until you're on a fiberglass board. The stock fins on a Wavestorm work perfectly for beginners.",
+      },
+      {
+        question: "What about sunscreen?",
+        answer:
+          "Yes — reef-safe zinc sunscreen (SPF 50) on face, ears, and neck. Reapply every 90 minutes. Water reflection intensifies UV exposure. A rash guard provides more reliable sun protection than sunscreen alone for your torso and arms.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "What Size Surfboard?",
+        href: "/learn/what-size-surfboard-should-i-get",
+        description: "Detailed board sizing guide by weight and level.",
+      },
+      {
+        label: "What Wetsuit Thickness?",
+        href: "/learn/what-wetsuit-thickness-do-i-need",
+        description:
+          "Match your wetsuit to water temperature.",
+      },
+      {
+        label: "How Long to Learn to Surf",
+        href: "/learn/how-long-to-learn-to-surf",
+        description: "Realistic timeline for your investment.",
+      },
+    ],
+  },
+
+  {
+    slug: "what-is-a-rip-current",
+    title: "What Is a Rip Current and How Do I Escape One?",
+    description:
+      "A rip current is a narrow channel of water flowing from shore back out to sea at 1-8 feet per second. It pulls you OUT, not under. Escape: don't fight it — swim parallel to shore until free of the current, then swim back in. If exhausted, float and signal for help. NOAA reports roughly 100 rip current drownings per year in the US.",
+    readingTimeMin: 3,
+    datePublished: "2026-03-30",
+    heroImage: "/images/learn/learn-aerial-shore.jpg",
+    thumbnailImage: "/images/learn/learn-aerial-shore.jpg",
+    keywords: [
+      "rip current",
+      "how to escape rip current",
+      "rip tide",
+      "rip current safety",
+      "ocean safety surfing",
+      "rip current signs",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>A rip current is a narrow channel of water flowing from shore back out to sea at <strong>1-8 feet per second</strong> — faster than an Olympic swimmer. It pulls you <strong>OUT, not under</strong>. To escape: <strong>don't fight it</strong>. Swim parallel to shore (perpendicular to the rip) until you're out of the current, then swim back in with the breaking waves. If exhausted, <strong>float and signal for help</strong>. NOAA and the United States Lifesaving Association report roughly <strong>100 rip current drownings per year</strong> in the US — more than hurricanes, tornadoes, and lightning combined.</p>`,
+        keyTakeaway:
+          "Rip currents pull you out, not under. Swim parallel to shore to escape. Never fight the current — it's faster than you.",
+        image: {
+          src: "/images/learn/learn-aerial-shore.jpg",
+          alt: "Aerial view of coastline showing water channels where rip currents form",
+          position: "right",
+        },
+      },
+      {
+        id: "detail",
+        heading: "How to Spot a Rip Current From Shore",
+        content: `<p>Rip currents are visible once you know what to look for: <strong>a channel of darker, calmer water</strong> between areas of breaking whitewater. The calm patch isn't safe — it's the outflow channel. Other signs: <strong>choppy, discolored water</strong> moving seaward, foam or debris flowing steadily offshore, and a <strong>gap in the breaking waves</strong> where the rip carves through the sandbar.</p><p>Rips form where water pushed onshore by waves finds a low point in the sandbar to flow back out. They're <strong>most common at beach breaks</strong> near jetties, piers, and between sandbars. They intensify with larger surf and stronger longshore currents. A beach with uniform waves breaking everywhere is generally safer than one with obvious channels and gaps in the whitewater — those gaps are rips.</p>`,
+        keyTakeaway:
+          "Spot rips from shore: darker calm water between breaking waves, debris flowing seaward, gaps in the whitewater. Rips form at sandbar low points.",
+      },
+      {
+        id: "practical",
+        heading: "What This Means for Your Session",
+        content: `<p>Before every session, <strong>spend 5 minutes watching the water from an elevated position</strong>. Look for channels, gaps in whitewater, and debris movement. Experienced surfers actually <strong>use rip currents as a free ride</strong> to paddle out — the outflow carries you past the break zone without fighting whitewater. But beginners should avoid them entirely until comfortable in the ocean.</p><p>If caught in a rip: <strong>stay calm</strong> (panic causes drowning, not the current). Don't try to swim directly to shore against the flow. Swim <strong>parallel to the beach</strong> for 50-100 feet until you feel the pull weaken, then angle toward shore. If you can't swim out of it, <strong>float on your back</strong> — most rips dissipate 100-200 yards offshore. Wave your arms to signal lifeguards. Surf near lifeguard stations, especially as a beginner.</p>`,
+        keyTakeaway:
+          "Watch the water 5 minutes before entering. If caught: stay calm, swim parallel to shore, float if exhausted. Surf near lifeguards.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Is a rip current the same as a riptide?",
+        answer:
+          "People use 'riptide' colloquially, but oceanographers distinguish them. A rip current is caused by wave-driven water flowing back through a channel in the sandbar. A true riptide is driven by tidal flow through inlets. For safety purposes, the escape technique is the same: swim parallel to shore.",
+      },
+      {
+        question: "Can a rip current pull me underwater?",
+        answer:
+          "No. Rip currents flow horizontally along the surface and just below it. They pull you away from shore, not down. Drowning happens because people panic and exhaust themselves fighting the current, not because they're pulled under.",
+      },
+      {
+        question: "Are rip currents more dangerous at certain tides?",
+        answer:
+          "Yes. Rips intensify during low-to-mid incoming tide as water volume increases over the bars. They're also stronger during bigger swells because more water is being pushed onshore and needs to flow back out. Check both tide and swell before entering.",
+      },
+      {
+        question: "Do surfers really use rip currents to paddle out?",
+        answer:
+          "Yes. Experienced surfers identify rip channels and use them as a conveyor belt to get past the break zone without exhausting themselves duck-diving through whitewater. It's an advanced technique that requires rip identification skills.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Best Conditions for Beginners",
+        href: "/learn/best-surf-conditions-for-beginners",
+        description: "Learn to read conditions and choose safer beaches.",
+      },
+      {
+        label: "Surf Etiquette Rules",
+        href: "/learn/surf-etiquette-rules",
+        description: "Safety rules for being in the lineup.",
+      },
+      {
+        label: "Beach Break vs Reef Break",
+        href: "/learn/beach-break-vs-reef-break-vs-point-break",
+        description: "Rip currents are most common at beach breaks.",
+      },
+    ],
+  },
+
+  {
+    slug: "how-are-ocean-waves-formed",
+    title: "How Are Ocean Waves Formed?",
+    description:
+      "Wind transfers energy to the ocean surface through friction. Three factors determine wave size: wind speed, wind duration, and fetch (the uninterrupted distance wind blows over open water). Stronger wind over a larger fetch for a longer duration creates bigger waves. Waves then organize into swells that travel thousands of miles, arriving at coastlines days later.",
+    readingTimeMin: 2,
+    datePublished: "2026-03-30",
+    heroImage: "/images/hero/hero-5-aerial-ocean.webp",
+    thumbnailImage: "/images/hero/hero-5-aerial-ocean.webp",
+    keywords: [
+      "how are waves formed",
+      "ocean wave formation",
+      "what causes waves",
+      "wave generation",
+      "fetch wind waves",
+      "how swells form",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Wind transfers energy to the ocean surface through friction. Three factors determine wave size: <strong>wind speed</strong>, <strong>wind duration</strong> (how long it blows), and <strong>fetch</strong> (the uninterrupted distance wind blows over open water). Stronger wind + longer duration + greater fetch = bigger waves. Once formed, waves organize into <strong>swells</strong> that travel thousands of miles across ocean basins — a North Pacific storm can send swell to Hawaii in 2-3 days and California in 4-5 days. NOAA's WaveWatch III models this entire process globally every 6 hours.</p>`,
+        keyTakeaway:
+          "Waves form from wind friction on the ocean. Speed, duration, and fetch determine size. Swells then travel thousands of miles to coastlines.",
+        image: {
+          src: "/images/hero/hero-5-aerial-ocean.webp",
+          alt: "Aerial view of open ocean swell lines traveling toward shore",
+          position: "right",
+        },
+      },
+      {
+        id: "detail",
+        heading: "From Storm to Swell: The Formation Process",
+        content: `<p>Inside a storm at sea, wind creates <strong>chaotic, short-period waves</strong> in all directions — called a "wind sea." As this energy radiates outward from the storm center, it undergoes <strong>dispersion</strong>: longer-period waves travel faster than shorter ones. Over hundreds or thousands of miles, the chaos sorts itself into organized bands of energy grouped by period — this is a <strong>swell</strong>.</p><p>Short-period energy (5-8 seconds) dissipates fastest through friction with the ocean surface. Long-period energy (12-20 seconds) loses very little and can cross entire ocean basins. A major Southern Ocean storm near Antarctica generates waves that arrive at California, Hawaii, and Japan as clean 16-18 second ground swell 7-10 days later. The <strong>fetch</strong> in the Southern Ocean is enormous — wind can blow uninterrupted for thousands of miles — which is why it produces the world's most powerful swells.</p>`,
+        keyTakeaway:
+          "Storm wind creates chaotic waves that sort by period over distance. Long-period energy crosses ocean basins; short-period energy dissipates through friction.",
+      },
+      {
+        id: "practical",
+        heading: "What This Means for Your Session",
+        content: `<p>Understanding wave formation helps you read forecasts: when you see a <strong>16-second swell at 4 feet</strong> on Quiver, you know a powerful distant storm generated it days ago. That energy will be clean, organized, and powerful at your break. A <strong>7-second swell at 4 feet</strong> means local wind right now — chaotic and weaker. Track storm systems on weather maps to anticipate swells 3-7 days out. Follow the <strong>North Pacific storm track</strong> in winter (produces NW swells for California) and <strong>South Pacific / Southern Ocean systems</strong> in summer (produces S-SW swells). Quiver's 7-day forecast shows these incoming swells so you can plan sessions around the best energy.</p>`,
+        keyTakeaway:
+          "Track distant storms to anticipate quality swell. North Pacific sends NW swells in winter; South Pacific sends SW swells in summer.",
+      },
+    ],
+    faqs: [
+      {
+        question: "What is fetch and why does it matter?",
+        answer:
+          "Fetch is the uninterrupted distance wind blows over open water. More fetch = bigger, longer-period waves. The Southern Ocean has the world's longest fetch (wind circles the globe unobstructed by land), which is why it produces the planet's most powerful swells.",
+      },
+      {
+        question: "Can earthquakes create surfable waves?",
+        answer:
+          "Earthquakes create tsunamis, which are fundamentally different from wind waves. Tsunamis have periods of 10-60 minutes (vs. 5-20 seconds for surf). They're not surfable — they're walls of water with no shape. Despite the name, 'tidal waves' (tsunamis) have nothing to do with tides or surfing.",
+      },
+      {
+        question: "Why are some oceans wavier than others?",
+        answer:
+          "Storm frequency and fetch. The North Pacific and Southern Ocean are the stormiest bodies of water with the longest fetch, producing the world's best surf. The Mediterranean and Caribbean have limited fetch and fewer powerful storms, producing smaller, shorter-period waves.",
+      },
+      {
+        question: "How far can ocean waves travel?",
+        answer:
+          "Thousands of miles. Southern Ocean swells have been tracked traveling 10,000+ miles from Antarctica to Alaska. Energy loss is minimal for long-period swells — a 16-second swell loses only about 10-15% of its energy per 1,000 miles traveled.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Swell Period Explained",
+        href: "/learn/swell-period-explained",
+        description: "Period reveals how far waves traveled and their quality.",
+      },
+      {
+        label: "Wind Swell vs Ground Swell",
+        href: "/learn/wind-swell-vs-ground-swell",
+        description: "How formation distance determines swell type.",
+      },
+      {
+        label: "How Surf Forecasts Work",
+        href: "/learn/how-surf-forecasts-work",
+        description: "How NOAA models predict wave formation globally.",
+      },
+    ],
+  },
+
+  {
+    slug: "how-do-tides-work",
+    title: "How Do Tides Work?",
+    description:
+      "Tides are the rise and fall of sea level caused by gravitational pull from the moon (primary force) and the sun (secondary). Most US coastlines experience semidiurnal tides — two highs and two lows every 24 hours 50 minutes. Spring tides (new and full moon) produce the largest tidal range. Neap tides (quarter moons) produce the smallest.",
+    readingTimeMin: 3,
+    datePublished: "2026-03-30",
+    heroImage: "/images/learn/learn-tide-pools.jpg",
+    thumbnailImage: "/images/learn/learn-tide-pools.jpg",
+    keywords: [
+      "how do tides work",
+      "what causes tides",
+      "spring tide neap tide",
+      "tidal range",
+      "moon tides",
+      "semidiurnal tides",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Tides are the rise and fall of sea level caused by <strong>gravitational pull from the moon</strong> (primary force, ~2/3 of tidal effect) <strong>and the sun</strong> (secondary, ~1/3). Most US coastlines experience <strong>semidiurnal tides</strong> — two highs and two lows every <strong>24 hours 50 minutes</strong> (the extra 50 minutes is because the moon orbits Earth, shifting the cycle daily). <strong>Spring tides</strong> (new and full moon, when sun-moon-earth align) produce the largest tidal range. <strong>Neap tides</strong> (quarter moons) produce the smallest. NWS predictions are accurate to within minutes.</p>`,
+        keyTakeaway:
+          "Moon's gravity drives tides. Two highs and two lows per day. Spring tides (full/new moon) have the biggest range; neap tides the smallest.",
+        image: {
+          src: "/images/learn/learn-tide-pools.jpg",
+          alt: "Tide pools exposed at low tide showing the dramatic effect of tidal range",
+          position: "right",
+        },
+      },
+      {
+        id: "detail",
+        heading: "The Lunar Cycle and Tidal Range",
+        content: `<p>The moon's gravity creates a <strong>tidal bulge</strong> — water is pulled toward the moon on the near side of Earth, and centrifugal force creates a second bulge on the far side. As Earth rotates, coastlines pass through these bulges, experiencing <strong>two high tides and two low tides daily</strong>.</p><p><strong>Spring tides</strong> happen twice per month (new moon and full moon) when sun and moon align. Their combined gravity produces tidal ranges <strong>20-30% larger</strong> than average. In San Francisco, spring tidal range can exceed <strong>7 feet</strong>. <strong>Neap tides</strong> happen at quarter moons when sun and moon pull at right angles, partially canceling each other. Neap ranges are <strong>20-30% smaller</strong> than average. For surfing, spring tides mean bigger swings between low and high — which can expose more reef at low tide or flood breaks more at high tide. Neap tides produce more moderate, stable conditions.</p>`,
+        keyTakeaway:
+          "Spring tides (full/new moon) swing 20-30% more than average. Neap tides (quarter moon) swing 20-30% less. Both affect wave shape at your break.",
+      },
+      {
+        id: "practical",
+        heading: "What This Means for Your Session",
+        content: `<p>Check Quiver's tide chart before every session — it shows the exact curve with high/low times and heights. <strong>Plan around the mid-tide window</strong> for most beach breaks (see our <a href="/learn/best-tide-for-surfing">Best Tide for Surfing</a> guide). During <strong>spring tides</strong>, be extra cautious at reef breaks — extreme low tides expose hazards. During <strong>neap tides</strong>, conditions are more forgiving because the tidal swing is smaller. The <strong>tidal cycle shifts ~50 minutes later each day</strong>, so if high tide is at 8 AM today, it's at 8:50 AM tomorrow. Plan your week around this shift — sometimes the mid-tide window aligns perfectly with dawn patrol, and sometimes it doesn't. Moon phase calendars help you anticipate spring vs. neap weeks ahead of time.</p>`,
+        keyTakeaway:
+          "Check tide charts daily. High tide shifts 50 min later each day. Spring tides amplify effects at your break; neap tides moderate them.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Why does high tide shift 50 minutes each day?",
+        answer:
+          "Because the moon orbits Earth, advancing about 12.2 degrees per day. Earth has to rotate an extra 50 minutes to 'catch up' to the moon's new position, which delays each tidal cycle. This is why tide times are different every day.",
+      },
+      {
+        question: "Do all coastlines have two tides per day?",
+        answer:
+          "Most US coastlines have semidiurnal tides (two highs, two lows). But the Gulf Coast (Texas, Louisiana, parts of Florida) has mixed or diurnal tides — sometimes just one high and one low per day. Coastal geometry and basin shape affect the tidal pattern.",
+      },
+      {
+        question: "How do I know if it's a spring or neap tide?",
+        answer:
+          "Check the moon phase. Full moon and new moon = spring tide (big swings). First quarter and third quarter = neap tide (small swings). Spring tides happen about every 2 weeks. Most tide apps and Quiver's charts show this information.",
+      },
+      {
+        question: "Can tides create currents?",
+        answer:
+          "Yes. Tidal currents flow as water moves to fill or drain coastal areas during tide changes. These are especially strong near inlets, harbors, and narrow bays. In open coastline surf, tidal currents are weaker but can affect rip current strength.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Best Tide for Surfing",
+        href: "/learn/best-tide-for-surfing",
+        description: "Which tide stage produces the best waves at your break.",
+      },
+      {
+        label: "How to Read a Surf Forecast",
+        href: "/learn/how-to-read-a-surf-forecast",
+        description: "Tide is one of five metrics you need to check.",
+      },
+      {
+        label: "Check Tide Charts",
+        href: "/forecast",
+        description: "See today's tide curve at your local beach.",
       },
     ],
   },

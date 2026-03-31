@@ -13,8 +13,6 @@ import {
   getRegionalSummaries,
   getBestRegionForUser,
 } from "@/lib/utils/forecast-hub-utils";
-import { extractIPLocation } from "@/lib/location/ip-location";
-import { headers } from "next/headers";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import {
@@ -28,9 +26,8 @@ import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 
-// Force dynamic rendering - database calls use no-store fetch
-// Note: revalidate is not used with force-dynamic; caching is handled by the database layer
-export const dynamic = "force-dynamic";
+// ISR: revalidate every hour — forecasts update every ~3 hours, this is conservative
+export const revalidate = 3600;
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Surf Forecast - 7 Day Regional Surf Conditions",
@@ -64,21 +61,9 @@ export default async function ForecastHubPage() {
   const summaries = await getRegionalSummaries();
   const regions = Object.values(FORECAST_REGIONS);
 
-  // Extract user location from Vercel IP headers
-  const reqHeaders = await headers();
-  const ipLocation = extractIPLocation(reqHeaders);
-  let userCoords: { lat: number; lon: number } | null = null;
-  if (ipLocation.latitude !== null && ipLocation.longitude !== null) {
-    userCoords = { lat: ipLocation.latitude, lon: ipLocation.longitude };
-  } else if (process.env.DEV_IP_LAT && process.env.DEV_IP_LON) {
-    // Dev fallback for local testing without Vercel headers
-    userCoords = {
-      lat: parseFloat(process.env.DEV_IP_LAT),
-      lon: parseFloat(process.env.DEV_IP_LON),
-    };
-  }
-
-  const bestResult = getBestRegionForUser(summaries, userCoords);
+  // Server always renders global best — client-side personalization via cookie
+  // is handled inside BestRightNow (reads quiver_ip_region cookie on mount).
+  const bestResult = getBestRegionForUser(summaries, null);
 
   const baseUrl =
     process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -227,8 +212,9 @@ export default async function ForecastHubPage() {
         )}
 
         {/* Best Right Now - Top Beaches Leaderboard */}
+        {/* userCoords are read client-side from the quiver_ip_region cookie */}
         <ScrollReveal variant="fadeUp" delay={125}>
-          <BestRightNow userLat={userCoords?.lat} userLon={userCoords?.lon} />
+          <BestRightNow />
         </ScrollReveal>
 
         {/* Regional Forecast Cards - Grouped */}

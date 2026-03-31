@@ -20,6 +20,10 @@ import { buildCityIntentUrl } from "@/lib/constants/intent-definitions";
 import { ExpandableCityList } from "@/components/state/expandable-city-list";
 import { buildCitySlug } from "@/lib/seo/city-slug-utils";
 import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
+import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
+import { WebPageSchema } from "@/components/seo/web-page-schema";
+import { ItemListSchema } from "@/components/seo/item-list-schema";
+import { SITE_URL } from "@/lib/constants/seo";
 
 /** Intent quick-links shown per city for crawler discovery */
 const CITY_INTENT_PILLS = [
@@ -161,8 +165,33 @@ export default async function UsaStatePage(
     cityCount: cities.length,
   });
 
+  const statePageUrl = `${SITE_URL}/beaches/usa/${stateSlug}`;
+  const cityItemListItems = cities.map((c, i) => ({
+    name: c.cityName,
+    url: `${SITE_URL}/${stateSlug}/${c.citySlug}`,
+    position: i + 1,
+  }));
+
   return (
-    <div className="container mx-auto px-4 py-10 max-w-7xl">
+    <>
+      <BreadcrumbStructuredData
+        items={[
+          { name: "Home", url: SITE_URL },
+          { name: "Beaches", url: `${SITE_URL}/beaches` },
+          { name: "USA", url: `${SITE_URL}/beaches/usa` },
+          { name: stateName, url: statePageUrl },
+        ]}
+      />
+      <WebPageSchema
+        name={`Surf Beaches in ${stateName} — Every City & Break`}
+        url={statePageUrl}
+        description={`Explore every surf city and beach break in ${stateName} with real-time conditions, AI-powered forecasts, and community reviews.`}
+      />
+      <ItemListSchema
+        items={cityItemListItems}
+        name={`Surf Cities in ${stateName}`}
+      />
+      <div className="container mx-auto px-4 py-10 max-w-7xl">
       <header className="mb-8">
         <nav aria-label="breadcrumb" className="text-sm text-gray-600 mb-4">
           <Link href="/" className="hover:underline text-ocean-blue">
@@ -247,6 +276,7 @@ export default async function UsaStatePage(
         locationName={stateName}
         locationType="state"
       />
-    </div>
+      </div>
+    </>
   );
 }

@@ -64,7 +64,7 @@ export function EmbedTideWidget({
       {/* Attribution */}
       <div className={`flex items-center justify-end px-3 py-1.5 border-t min-h-[44px] ${isDark ? "border-slate-700/50" : "border-slate-200/50"}`}>
         <a
-          href={beachUrl}
+          href={`${beachUrl}?utm_source=embed&utm_medium=widget&utm_campaign=tides_widget`}
           target="_blank"
           rel="noopener" // noreferrer intentionally omitted to preserve Referer header for embed analytics
           className={`text-xs font-medium hover:underline flex items-center ${

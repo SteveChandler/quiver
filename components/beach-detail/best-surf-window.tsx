@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { data } from "@/lib/data/client";
 import { resolveBeachTimezone, getLocalDateString } from "@/lib/utils/timezone-utils";
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
 import { UnifiedSurfCard } from "./unified-surf-card";
+import { ShareSheet } from "@/components/share/share-sheet";
 import { cn } from "@/lib/utils";
 import {
   Clock,
@@ -217,6 +218,20 @@ export function BestSurfWindow({
   relativeContext,
 }: BestSurfWindowProps) {
   const pathname = usePathname();
+  const [shareOpen, setShareOpen] = useState(false);
+
+  // Build UTM-tagged share URL once so it can be passed as a prop to ShareSheet
+  const shareUrlWithUtm = useMemo(() => {
+    const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
+    const url = new URL(`${base}${pathname}`);
+    url.searchParams.set("utm_source", "quiver");
+    url.searchParams.set("utm_medium", "share");
+    url.searchParams.set("utm_campaign", "surf_intel_share");
+    return url.toString();
+  }, [pathname]);
+
+  // Derive beach slug from the pathname (last path segment)
+  const beachSlug = pathname?.split("/").pop() ?? "";
 
   // Format time helper (legacy HH:MM string format)
   const formatTime = (time: string | null) => {
@@ -567,23 +582,7 @@ export function BestSurfWindow({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => {
-              // Share functionality - use native share if available
-              if (navigator.share) {
-                // eslint-disable-next-line no-restricted-properties -- Web Share API requires full URL with origin
-                const shareUrl = new URL(`${window.location.origin}${pathname}`);
-                shareUrl.searchParams.set("utm_source", "quiver");
-                shareUrl.searchParams.set("utm_medium", "share");
-                shareUrl.searchParams.set("utm_campaign", "surf_intel_share");
-                navigator.share({
-                  title: `Surf Intel for ${beachName}`,
-                  text: `Best surf window: ${formatTime(intel.best_window_start)} - ${formatTime(intel.best_window_end)}`,
-                  url: shareUrl.toString(),
-                }).catch(() => {
-                  // User cancelled or share failed silently
-                });
-              }
-            }}
+            onClick={() => setShareOpen(true)}
             className="h-8 w-8 p-0 flex-shrink-0"
             title="Share surf intel"
           >
@@ -836,6 +835,16 @@ export function BestSurfWindow({
           </div>
         )}
       </CardContent>
+
+      <ShareSheet
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        imageUrl={`/api/og/beach?slug=${beachSlug}`}
+        type="wave"
+        title={`Surf Intel for ${beachName}`}
+        text={`Best surf window: ${formatTime(intel.best_window_start)} - ${formatTime(intel.best_window_end)}`}
+        shareUrl={shareUrlWithUtm}
+      />
     </Card>
   );
 }

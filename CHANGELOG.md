@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+- `/forecast` hub converted from `force-dynamic` to ISR (`revalidate = 3600`) — eliminates 4.82s TTFB by removing `headers()` call; IP geolocation personalization moved to client-side cookie read in `BestRightNow` (`quiver_ip_region` cookie, set by middleware, `httpOnly: false`)
+
 ### Added
+- Answer Engine Optimization (AEO) content hub — 17 new learn articles + 3 retrofitted existing articles targeting the top 20 questions surfers ask on Google; answer-capsule structure optimized for AI citation by Perplexity, ChatGPT, and Google AI Overviews; each article includes FAQPage + Article + Breadcrumb + WebPage schema markup
+- `/learn` hub page category grouping — articles organized into Forecast Fundamentals, Timing & Conditions, Getting Started, and Ocean Science sections (3-column grid)
+- `llms.txt` and `llms-full.txt` updated with 20 learn article URLs and condensed Q&A pairs for AI crawler consumption
+- Scheduled AEO citation monitoring agent — weekly automated audit of 30 queries across search engines tracking quiversurf.app citation rate, competitor presence, and content gap analysis
+- Offshore Wind Checker free tool (`/tools/wind-checker`) — SVG compass showing wind direction vs shore orientation, color-coded offshore/cross-shore/onshore sectors, 24h timeline with best windows highlighted; graceful fallback when no orientation data; Open-Meteo data, server-prefetched with `?beach=slug` URL state
+- Swell Quality Analyzer free tool (`/tools/swell-analyzer`) — interactive sliders (height, period, direction) with real-time period quality rating and SVG wave cross-section animation; beach swell window checker via `analyzeSwellMatch()`; groundswell vs windswell educational content; `beach_daily_intel` data source
+- Water Quality Check free tool (`/tools/water-quality`) — EPA bacteria thresholds, CEDEN (CA) + PacIOOS (HI) data; status badges (Good/Advisory/Closure/Unknown), 30-day trend bars, rain advisory; beach list sortable by status; server action `getBeachWaterQuality(beachSlug)` + `getBeachesWithWaterQuality()`
+- Best Time to Surf enhancements — added 8 new state profiles (NY, NH, MA, RI, SC, GA, ME, PR) expanding coverage from 8 to 16 states; comparison mode (side-by-side heatmaps for up to 3 destinations); "Best Month for Me" personalization (skill level + crowd preference → ranked recommendations); color heatmap upgrade with tap-to-detail on city pages; updated H1 copy
+- Tide Clock free tool (`/tools/tide-clock`) — real-time tide heights, analog 24h clock, next high/low tide, 24h tide curve chart with sunrise/sunset overlay; NOAA CO-OPS data, 52-station mappings + nearest-station fallback; shareable URL state (`?beach=slug`)
+- Dawn Patrol Calculator free tool (`/tools/dawn-patrol`) — first light (civil twilight via SunCalc), sunrise, golden hour, sunset, tide at dawn; 7-day forecast table with simple verdicts; cross-linked to Tide Clock
 - Quick-log session flow — 2-tap session logging (beach + rating) with progressive disclosure for details; auto-detects nearest beach via URL params, localStorage, or GPS
 - Intent-driven homepage CTA copy — "Check your forecast" replaces generic "Start surfing smarter" on the only CTA converting real users
 - Conditions-reactive Oracle greeting — dynamic greetings based on surf score, swell period, wind, time of day, and user absence
@@ -22,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bluesky social link in site footer
 
 ### Changed
+- Sitemap: added `updated_at` to beach list query for accurate `lastModified` dates; added `is_private` and `deleted_at` filters to exclude hidden/deleted beaches; skip tides/water-temp subpages for international (Baja) beaches; lowered city listing page threshold from `beachCount >= 2` to `>= 1` to recover excluded single-beach cities
 - Reduced anonymous beach page CTAs from 7-9 to 1 hero CTA — restyled dark theme to prevent ad-blindness
 - CTA copy rewritten for immediate surfer intent ("See if now is the best time" instead of "Get Alerts")
 - Replaced Terms checkbox in signup with passive consent — OAuth buttons no longer disabled until checkbox checked

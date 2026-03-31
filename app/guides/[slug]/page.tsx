@@ -32,9 +32,13 @@ export async function generateMetadata(
     return {};
   }
 
+  const truncatedDescription = region.description.length > 160
+    ? region.description.slice(0, 157).replace(/\s+\S*$/, '') + '...'
+    : region.description;
+
   return buildPageMetadata({
     title: region.title,
-    description: region.description,
+    description: truncatedDescription,
     path: `/guides/surfing-${region.slug}`,
     keywords: [
       `${region.name} surf guide`,

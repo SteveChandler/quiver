@@ -5,6 +5,7 @@ import {
   EmbedPromoPage,
   type BeachOption,
 } from "@/components/embed-promo/embed-promo-page";
+import { StructuredData } from "@/components/seo/structured-data";
 
 export const revalidate = 86400;
 
@@ -36,5 +37,10 @@ export default async function ForBusinessesPage() {
           }))
       : [];
 
-  return <EmbedPromoPage variant="businesses" beaches={beaches} />;
+  return (
+    <>
+      <StructuredData type="softwareApplication" />
+      <EmbedPromoPage variant="businesses" beaches={beaches} />
+    </>
+  );
 }

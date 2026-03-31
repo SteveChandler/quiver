@@ -54,6 +54,38 @@ Quiver is a free surf forecasting platform that applies per-beach XGBoost bias c
 - Surf Map: https://www.quiversurf.app/map
 - Forecast Accuracy: https://www.quiversurf.app/forecast-accuracy
 
+## Learn: Surf Knowledge Base (20 articles)
+
+### Forecast Fundamentals
+- How to Read a Surf Forecast: https://www.quiversurf.app/learn/how-to-read-a-surf-forecast
+- Swell Period Explained: https://www.quiversurf.app/learn/swell-period-explained
+- Offshore vs Onshore Wind: https://www.quiversurf.app/learn/offshore-vs-onshore-wind-surfing
+- Best Tide for Surfing: https://www.quiversurf.app/learn/best-tide-for-surfing
+- How Waves Are Measured: https://www.quiversurf.app/learn/how-are-waves-measured
+- Ground Swell vs Wind Swell: https://www.quiversurf.app/learn/wind-swell-vs-ground-swell
+- Swell Direction and Surf: https://www.quiversurf.app/learn/how-swell-direction-affects-surf
+- Surf Forecast Accuracy: https://www.quiversurf.app/learn/how-accurate-are-surf-forecasts
+- How Surf Forecasts Work: https://www.quiversurf.app/learn/how-surf-forecasts-work
+
+### Timing & Conditions
+- Best Time of Day to Surf: https://www.quiversurf.app/learn/best-time-of-day-to-surf
+- Why Waves Are Better in the Morning: https://www.quiversurf.app/learn/why-waves-better-in-morning
+- Surfing After Rain Safety: https://www.quiversurf.app/learn/is-it-safe-to-surf-after-rain
+- Wetsuit Thickness Guide: https://www.quiversurf.app/learn/what-wetsuit-thickness-do-i-need
+
+### Getting Started
+- Best Conditions for Beginners: https://www.quiversurf.app/learn/best-surf-conditions-for-beginners
+- Surfboard Size Guide: https://www.quiversurf.app/learn/what-size-surfboard-should-i-get
+- How Long to Learn to Surf: https://www.quiversurf.app/learn/how-long-to-learn-to-surf
+- Surf Etiquette Rules: https://www.quiversurf.app/learn/surf-etiquette-rules
+- Beach Break vs Reef Break vs Point Break: https://www.quiversurf.app/learn/beach-break-vs-reef-break-vs-point-break
+- Surfing Equipment Guide: https://www.quiversurf.app/learn/what-equipment-to-start-surfing
+- Rip Current Safety: https://www.quiversurf.app/learn/what-is-a-rip-current
+
+### Ocean Science
+- How Ocean Waves Form: https://www.quiversurf.app/learn/how-are-ocean-waves-formed
+- How Tides Work: https://www.quiversurf.app/learn/how-do-tides-work
+
 ## Pricing
 
 Free. All features including ML forecasts, session tracking, and community are free with no paywalled tiers.

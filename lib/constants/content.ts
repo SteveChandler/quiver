@@ -303,7 +303,7 @@ export const PRIVACY_CONTENT = {
         {
           subtitle: "Service Provider Locations",
           details:
-            "Our service providers operate globally: Supabase (EU/US), Google Analytics (global), Vercel (global), and Stripe (global). All transfers comply with applicable data protection laws and this Privacy Policy.",
+            "Our service providers operate globally: Supabase (EU/US), Google Analytics (global), Vercel (global), Stripe (global), Sentry (global, error tracking and crash diagnostics), Mapbox (global, mapping and satellite imagery), and Firebase Cloud Messaging (global, push notifications). All transfers comply with applicable data protection laws and this Privacy Policy.",
         },
       ],
     },

@@ -29,7 +29,7 @@ import { MethodologySection } from "@/components/forecast-accuracy/methodology-s
 import { AccuracyFaq } from "@/components/forecast-accuracy/accuracy-faq";
 import { CrowdsourceCta } from "@/components/forecast-accuracy/crowdsource-cta";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 21600; // 6 hours — accuracy data from materialized view updates daily
 
 const SITE_ORIGIN = (
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app"

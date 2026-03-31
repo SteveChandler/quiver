@@ -85,6 +85,14 @@ function log(message: string, data?: any) {
  * Cyclomatic Complexity: Reduced from 37 → 6
  */
 export async function middleware(request: NextRequest) {
+  // Canonical domain redirect: non-www → www with 301 (permanent) for SEO link equity
+  const hostname = request.headers.get("host") || "";
+  if (hostname === "quiversurf.app") {
+    const url = request.nextUrl.clone();
+    url.host = "www.quiversurf.app";
+    return NextResponse.redirect(url, 301);
+  }
+
   const { pathname } = request.nextUrl;
 
   // Deferred rewrite target for city URLs — set below, applied in createSecureResponse()

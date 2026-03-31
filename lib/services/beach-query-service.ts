@@ -24,7 +24,7 @@ import type { Beach } from "@/types/database";
 // Updated after 20251025 migrations: location->city, latitude->lat, longitude->lon, region->state
 // WARNING: Some environments may still use legacy columns (location/region) and may not have updated_at.
 const BEACH_LIST_FIELDS =
-  "id, name, slug, city, lat, lon, state, country, created_at, is_private, break_type, skill_level";
+  "id, name, slug, city, lat, lon, state, country, created_at, updated_at, is_private, break_type, skill_level";
 const BEACH_LIST_FIELDS_LEGACY =
   "id, name, location, region, lat, lon, country, created_at, is_private, break_type, skill_level";
 
@@ -45,10 +45,14 @@ const BEACH_DETAIL_FIELDS = "*";
 export async function getBeachesFromDb(): Promise<ServerActionResponse<Beach[]>> {
   return withServerAction(() =>
     withPublicDatabaseOperation<Beach[]>(async (supabase) => {
-      // Use selective fields instead of * to reduce data transfer
+      // Use selective fields instead of * to reduce data transfer.
+      // Exclude private beaches (is_private = true) and soft-deleted beaches
+      // so they don't appear in the sitemap or other public-facing lists.
       let result: any = await supabase
         .from("beaches")
         .select(BEACH_LIST_FIELDS)
+        .or("is_private.is.null,is_private.eq.false")
+        .is("deleted_at", null)
         .order("name");
 
       // If schema mismatch (unknown column), retry with legacy field set.
@@ -56,6 +60,8 @@ export async function getBeachesFromDb(): Promise<ServerActionResponse<Beach[]>>
         result = (await supabase
           .from("beaches")
           .select(BEACH_LIST_FIELDS_LEGACY)
+          .or("is_private.is.null,is_private.eq.false")
+          .is("deleted_at", null)
           .order("name")) as any;
 
         // Normalize legacy location/region into city/state for downstream match strategies

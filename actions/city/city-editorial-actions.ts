@@ -1,6 +1,6 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createPublicReadClient } from "@/lib/supabase/server";
 import { parseLocationFromSlug } from "@/lib/utils/location-slug";
 import { parseHiIslandCitySlug } from "@/lib/utils/beach-url-utils";
 
@@ -53,7 +53,7 @@ export async function getCityEditorialContent(
   stateSlug: string = "ca",
   countrySlug: string = "usa"
 ): Promise<CityEditorialContent | null> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createPublicReadClient();
 
   const fetchEditorial = async (slug: string) => {
     return await supabase.rpc("get_city_editorial", {
@@ -118,7 +118,7 @@ export async function hasCityEditorialContent(
   stateSlug: string = "ca",
   countrySlug: string = "usa"
 ): Promise<boolean> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createPublicReadClient();
 
   const { data, error } = await supabase
     .from("city_editorial_content")
