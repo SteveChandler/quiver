@@ -119,8 +119,8 @@ export async function getBeachesWithWaterQuality(): Promise<
           slug,
           state,
           city,
-          center_lat,
-          center_lng
+          lat,
+          lon
         )
       `)
       .in("beach.state" as never, ["CA", "HI"]);
@@ -134,12 +134,12 @@ export async function getBeachesWithWaterQuality(): Promise<
       slug: string | null;
       state: string | null;
       city: string | null;
-      center_lat: number;
-      center_lng: number;
+      lat: number;
+      lon: number;
     };
 
     return data
-      .filter((row) => row.beach && (row.beach as unknown as BeachRow).center_lat)
+      .filter((row) => row.beach && (row.beach as unknown as BeachRow).lat)
       .map((row) => {
         const beach = row.beach as unknown as BeachRow;
         return {
@@ -148,8 +148,8 @@ export async function getBeachesWithWaterQuality(): Promise<
           beachSlug: beach.slug ?? "",
           state: beach.state ?? "",
           city: beach.city,
-          lat: beach.center_lat,
-          lon: beach.center_lng,
+          lat: beach.lat,
+          lon: beach.lon,
           status: (row.status as WQStatus) ?? WQ_STATUS.UNKNOWN,
           latestSampleDate: row.latest_sample_date,
         };
