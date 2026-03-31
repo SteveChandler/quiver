@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Optimal Conditions section on beach detail pages — server-rendered grid (best wind, best swell, preferred tide, best months) with optional hero photo for SEO crawlability; targets compound queries like "best wind direction [beach name]"
+- Two new FAQ items (best wind direction, best months to surf) added to beach FAQ schema for rich snippet eligibility
+
+### Changed
+- `trackSignupStarted` and `trackSignupSuccess` now accept optional `source` and `landing_page` parameters, closing the attribution gap between CTA clicks and signup completion events
+
 ### Performance
 - `/forecast` hub converted from `force-dynamic` to ISR (`revalidate = 3600`) — eliminates 4.82s TTFB by removing `headers()` call; IP geolocation personalization moved to client-side cookie read in `BestRightNow` (`quiver_ip_region` cookie, set by middleware, `httpOnly: false`)
 
