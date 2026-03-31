@@ -486,7 +486,7 @@ export default withSentryConfig(pwaConfig(nextConfig), {
 
   // Local builds/dev often don't have SENTRY_AUTH_TOKEN; avoid noisy warnings + uploads.
   authToken: process.env.SENTRY_AUTH_TOKEN,
-  dryRun: !process.env.SENTRY_AUTH_TOKEN || process.env.VERCEL_ENV === "preview",
+  dryRun: !process.env.SENTRY_AUTH_TOKEN || process.env.VERCEL_ENV !== "production",
 
   // Suppress verbose source map listing in build logs (saves ~220 log events on Vercel)
   silent: true,
