@@ -400,6 +400,13 @@ export function TideClockClient() {
         })
       : null;
 
+  // Compute TideChart window from actual data range
+  const dataStartMs = tideData ? new Date(tideData.predictions[0].ts).getTime() : 0;
+  const dataEndMs = tideData ? new Date(tideData.predictions[tideData.predictions.length - 1].ts).getTime() : 0;
+  const dataSpanMs = (dataEndMs - dataStartMs) || 3_600_000;
+  const tideWindowHours = dataSpanMs / 3_600_000;
+  const tideNowBias = Math.max(0.05, Math.min(0.95, (Date.now() - dataStartMs) / dataSpanMs));
+
   return (
     <div className="min-h-screen" style={{ background: "#0F1535" }}>
       <ToolHero
@@ -531,7 +538,6 @@ export function TideClockClient() {
                         background:
                           "linear-gradient(135deg, rgba(47,57,120,0.9) 0%, rgba(37,45,107,0.95) 100%)",
                         borderColor: "rgba(247, 142, 66, 0.35)",
-                        transform: "rotate(-0.75deg)",
                       }}
                     >
                       <div className="flex items-center justify-center gap-1 mb-1">
@@ -555,7 +561,6 @@ export function TideClockClient() {
                         background:
                           "linear-gradient(135deg, rgba(37,45,107,0.9) 0%, rgba(30,37,88,0.95) 100%)",
                         borderColor: "rgba(184, 199, 224, 0.2)",
-                        transform: "rotate(0.75deg)",
                       }}
                     >
                       <div className="flex items-center justify-center gap-1 mb-1">
@@ -611,7 +616,7 @@ export function TideClockClient() {
               }}
             >
               <p className="font-mono text-xs font-semibold uppercase tracking-widest text-[#7A8CC0] mb-4">
-                24-Hour Tide Chart
+                Tide Chart
               </p>
               <TideChart
                 hourly={tideData.predictions.map((p) => ({
@@ -619,7 +624,9 @@ export function TideClockClient() {
                   height_m: p.tide_height_m,
                 }))}
                 compact
-                windowHours={24}
+                windowHours={tideWindowHours}
+                nowBias={tideNowBias}
+                bufferHours={0}
               />
             </div>
 
