@@ -13,14 +13,14 @@ import { TideChart } from "@/components/forecast/tide-chart-recharts";
 
 // Popular beaches for the default hero state
 const POPULAR_BEACH_SLUGS = [
-  { slug: "la-jolla", name: "La Jolla", state: "CA" },
+  { slug: "la-jolla-shores", name: "La Jolla Shores", state: "CA" },
   { slug: "pipeline", name: "Pipeline", state: "HI" },
-  { slug: "trestles", name: "Trestles", state: "CA" },
-  { slug: "rincon", name: "Rincon", state: "CA" },
-  { slug: "rockaway", name: "Rockaway", state: "NY" },
-  { slug: "huntington-beach", name: "Huntington Beach", state: "CA" },
+  { slug: "lower-trestles", name: "Lower Trestles", state: "CA" },
+  { slug: "rincon-carpinteria-ca", name: "Rincon", state: "CA" },
+  { slug: "rockaway-beach-90th-st-queens-ny", name: "Rockaway Beach", state: "NY" },
+  { slug: "huntington-beach-pier", name: "Huntington Beach Pier", state: "CA" },
   { slug: "ocean-beach", name: "Ocean Beach", state: "CA" },
-  { slug: "montauk", name: "Montauk", state: "NY" },
+  { slug: "ditch-plains-montauk-ny", name: "Ditch Plains", state: "NY" },
 ];
 
 interface TidePrediction {
