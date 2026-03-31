@@ -132,6 +132,14 @@
     {
       "path": "/api/cron/resolve-youtube-cams",
       "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/condition-alert-evaluate",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/condition-alert-deliver",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
