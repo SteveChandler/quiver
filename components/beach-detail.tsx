@@ -83,7 +83,7 @@ function AlertNudge({
 
   const [dismissed, setDismissed] = useState(() => {
     if (typeof window === "undefined") return true;
-    return localStorage.getItem(`alert-nudge-dismissed-${beachId}`) === "true"; // eslint-disable-line no-restricted-properties
+    return localStorage.getItem(`alert-nudge-dismissed-${beachId}`) === "true";
   });
 
   const fetchFavorited = useCallback(async (): Promise<boolean> => {
@@ -120,7 +120,7 @@ function AlertNudge({
   if (!user || dismissed || !isFavorited || (ruleCount ?? 0) > 0) return null;
 
   const dismiss = () => {
-    localStorage.setItem(`alert-nudge-dismissed-${beachId}`, "true"); // eslint-disable-line no-restricted-properties
+    localStorage.setItem(`alert-nudge-dismissed-${beachId}`, "true");
     setDismissed(true);
   };
 

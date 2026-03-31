@@ -14,7 +14,6 @@ export async function POST(
   const { ruleId } = await params;
   const supabase = await createSupabaseServiceRoleClient();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any)
     .from("alert_rules")
     .update({ notify_email: false })

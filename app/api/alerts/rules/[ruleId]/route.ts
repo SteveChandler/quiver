@@ -25,7 +25,6 @@ export const PATCH = withAuth(
     if (notify_push !== undefined) updates.notify_push = notify_push;
     if (enabled !== undefined) updates.enabled = enabled;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase as any)
       .from("alert_rules")
       .update(updates)
@@ -50,7 +49,6 @@ export const DELETE = withAuth(
     if ("error" in uuidResult) return uuidResult.error;
     const ruleId = uuidResult.value;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase as any)
       .from("alert_rules")
       .delete()

@@ -13,7 +13,6 @@ import { canCreateRule, getUserEntitlement } from "@/lib/alerts/entitlements";
  */
 export const GET = withAuth(
   async (_request: NextRequest, { user, supabase }: AuthenticatedContext) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase as any)
       .from("alert_rules")
       .select("*, beaches(name, slug, timezone)")
@@ -49,7 +48,6 @@ export const POST = withAuth(
     const homeBeachId = profile?.home_beach_id ?? null;
 
     // Count existing rules and distinct beaches for this user
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: existingRules } = await (supabase as any)
       .from("alert_rules")
       .select("id, beach_id")
@@ -82,7 +80,6 @@ export const POST = withAuth(
       .upsert({ user_id: user.id, beach_id }, { onConflict: "user_id,beach_id", ignoreDuplicates: true });
 
     // Insert the rule
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: rule, error: insertError } = await (supabase as any)
       .from("alert_rules")
       .insert({

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AlertRuleCard } from "./alert-rule-card";
 import { Plus } from "lucide-react";
 
@@ -14,7 +14,7 @@ export function AlertManagementPanel({ beachId, beachName, onAddRule }: AlertMan
   const [rules, setRules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchRules = async () => {
+  const fetchRules = useCallback(async () => {
     try {
       const res = await fetch("/api/alerts/rules");
       const json = await res.json();
@@ -26,9 +26,9 @@ export function AlertManagementPanel({ beachId, beachName, onAddRule }: AlertMan
     } finally {
       setLoading(false);
     }
-  };
+  }, [beachId]);
 
-  useEffect(() => { fetchRules(); }, [beachId]);
+  useEffect(() => { fetchRules(); }, [fetchRules]);
 
   const handleToggle = async (ruleId: string, enabled: boolean) => {
     await fetch(`/api/alerts/rules/${ruleId}`, {

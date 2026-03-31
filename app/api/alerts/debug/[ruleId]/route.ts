@@ -18,7 +18,6 @@ export const GET = withAuth(
     const ruleId = uuidResult.value;
 
     // Use explicit column list to avoid TS type-depth issues with select("*")
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: rule, error } = await (supabase as any)
       .from("alert_rules")
       .select(`
