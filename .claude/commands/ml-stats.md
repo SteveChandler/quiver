@@ -4,11 +4,11 @@ Query the Quiver ML pipeline health metrics from Supabase and present a formatte
 
 ### Step 1: Read credentials from `.env.production.local`
 
-Read the file `/Users/stevenchandler/Desktop/quiver/.env.production.local` and extract:
+Read the file `/Users/stevenchandler/Desktop/dev/quiver/.env.production.local` and extract:
 - `POSTGRES_PASSWORD` — used as `PGPASSWORD` for all psql commands
 - `POSTGRES_URL_NON_POOLING` — the full connection string (e.g. `postgresql://postgres.xxx:PASSWORD@aws-0-us-west-1.pooler.supabase.com:5432/postgres`)
 
-Also read `/Users/stevenchandler/Desktop/quiver/.env` and extract:
+Also read `/Users/stevenchandler/Desktop/dev/seaside/.env.local` and extract:
 - `FLY_API_TOKEN` — used for Fly.io machine status queries
 
 ### Step 2: Run SQL queries in parallel via psql
@@ -106,19 +106,24 @@ SELECT
 
 ### Step 3: Run Fly.io health checks in parallel
 
-Run these two curl commands in parallel (background bash):
+Run these three curl commands in parallel (background bash):
 
 ```bash
 # Health endpoint — no auth required
 curl -s --max-time 10 https://quiver-ml.fly.dev/health
 
-# Machines API — requires FLY_API_TOKEN from .env
+# Cron scheduler status — shows all 7 cron jobs and next run times
+curl -s --max-time 10 https://quiver-ml.fly.dev/crons/status
+
+# Machines API — requires FLY_API_TOKEN from seaside/.env.local
 curl -s --max-time 10 \
   -H "Authorization: Bearer <FLY_API_TOKEN>" \
   "https://api.machines.dev/v1/apps/quiver-ml/machines"
 ```
 
 If `FLY_API_TOKEN` is empty or not found, skip the machines API call and note: "FLY_API_TOKEN not configured — skipping machines check."
+
+> **Note:** The ML pipeline now runs as the Seaside service (`~/Desktop/dev/seaside/`), deployed on Fly.io as `quiver-ml`. Crons are managed by APScheduler inside the service, not Vercel. The `/crons/status` endpoint shows scheduler state and next run times.
 
 ---
 
