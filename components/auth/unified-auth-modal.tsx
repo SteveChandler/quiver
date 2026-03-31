@@ -315,7 +315,11 @@ export function UnifiedAuthModal({
     trackAuthMethodSelected({ method: "apple", mode: activeMode });
     trackAuthProviderSelected({ provider: "apple", mode: activeMode, source });
     if (activeMode === "signup") {
-      trackSignupStarted("apple");
+      trackSignupStarted("apple", {
+        source,
+        // eslint-disable-next-line no-restricted-properties -- Reading pathname for analytics context, not navigation
+        landing_page: typeof window !== "undefined" ? window.location.pathname : undefined,
+      });
     } else {
       trackLoginStarted("apple");
     }
@@ -334,7 +338,13 @@ export function UnifiedAuthModal({
     // the browser navigates away, so setLoading(false) + onClose() are harmless.
     const duration = Date.now() - start;
     if (activeMode === "signup") {
-      trackSignupSuccess({ method: "apple", requires_verification: false });
+      trackSignupSuccess({
+        method: "apple",
+        requires_verification: false,
+        source,
+        // eslint-disable-next-line no-restricted-properties -- Reading pathname for analytics context, not navigation
+        landing_page: typeof window !== "undefined" ? window.location.pathname : undefined,
+      });
     } else {
       trackLoginSuccess({ method: "apple", duration_ms: duration });
     }
@@ -354,7 +364,11 @@ export function UnifiedAuthModal({
     trackAuthMethodSelected({ method: "google", mode: activeMode });
     trackAuthProviderSelected({ provider: "google", mode: activeMode, source });
     if (activeMode === "signup") {
-      trackSignupStarted("google");
+      trackSignupStarted("google", {
+        source,
+        // eslint-disable-next-line no-restricted-properties -- Reading pathname for analytics context, not navigation
+        landing_page: typeof window !== "undefined" ? window.location.pathname : undefined,
+      });
     } else {
       trackLoginStarted("google");
     }
@@ -378,7 +392,13 @@ export function UnifiedAuthModal({
     const duration = Date.now() - start;
     if (activeMode === "signup") {
       // Google OAuth verifies email server-side, so no client-side verification step is needed.
-      trackSignupSuccess({ method: "google", requires_verification: false });
+      trackSignupSuccess({
+        method: "google",
+        requires_verification: false,
+        source,
+        // eslint-disable-next-line no-restricted-properties -- Reading pathname for analytics context, not navigation
+        landing_page: typeof window !== "undefined" ? window.location.pathname : undefined,
+      });
     } else {
       trackLoginSuccess({ method: "google", duration_ms: duration });
     }
@@ -452,14 +472,24 @@ export function UnifiedAuthModal({
     try {
       if (activeMode === "signup") {
         // Signup flow
-        trackSignupStarted("password");
+        trackSignupStarted("password", {
+          source,
+          // eslint-disable-next-line no-restricted-properties -- Reading pathname for analytics context, not navigation
+          landing_page: typeof window !== "undefined" ? window.location.pathname : undefined,
+        });
 
         // Build metadata for signup
         const metadata = buildSignupMetadata("email");
 
         await signUp(email, password, displayName.trim(), metadata, getReturnPath());
 
-        trackSignupSuccess({ method: "password", requires_verification: true });
+        trackSignupSuccess({
+          method: "password",
+          requires_verification: true,
+          source,
+          // eslint-disable-next-line no-restricted-properties -- Reading pathname for analytics context, not navigation
+          landing_page: typeof window !== "undefined" ? window.location.pathname : undefined,
+        });
 
         setLoading(false);
 
