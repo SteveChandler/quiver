@@ -296,7 +296,7 @@ async function getLocationRoutes(validCitySlugs: Set<string>): Promise<MetadataR
  *
  * IMPORTANT: Filters out:
  * 1. Skill-based intent pages (beginner, longboard) for cities without matching beaches
- * 2. Cities with fewer than 2 beaches (thin content)
+ * 2. Single-beach cities unless the state has <20 total beaches AND the beach has editorial content
  * 3. Cities with exactly 2 beaches that lack editorial quality content
  *    (editorial quality = description + at least one of crowd_tips/wave_tips/best_conditions_prose
  *     on both beaches). Cities with 3+ beaches are included without this extra guard.
@@ -340,12 +340,24 @@ async function getIntentRoutes(): Promise<MetadataRoute.Sitemap> {
         }
       }
 
+      // Build per-state beach count for thin-state exemptions
+      const stateBeachCounts = new Map<string, number>();
+      for (const c of usCities) {
+        if (c.state) {
+          const current = stateBeachCounts.get(c.state) ?? 0;
+          stateBeachCounts.set(c.state, current + c.beachCount);
+        }
+      }
+
       for (const cityRecord of usCities) {
         const citySlug = buildCitySlug(cityRecord.city, cityRecord.state, collisionMap);
         if (!citySlug) continue;
 
-        // Filter out cities with fewer than 2 beaches (thin content)
-        if (cityRecord.beachCount < 2) continue;
+        // Single-beach cities: allow only in thin states (<20 beaches) WITH editorial content
+        if (cityRecord.beachCount === 1) {
+          const stateTotal = stateBeachCounts.get(cityRecord.state) ?? 0;
+          if (stateTotal >= 20 || !cityRecord.hasEditorialContent) continue;
+        }
 
         // For cities with exactly 2 beaches, require editorial quality content
         // (description + at least one editorial field on both beaches).
