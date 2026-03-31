@@ -142,6 +142,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl, { status: 301 });
   }
 
+  if (pathname === "/spots/lowers-trestles") {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/spots/lower-trestles";
+    return NextResponse.redirect(redirectUrl, { status: 301 });
+  }
+
   /**
    * Garbage URL cleanup
    * Search Console can surface odd one-off crawls like `/$` (sometimes encoded as `/%24`).

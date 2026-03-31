@@ -2155,4 +2155,228 @@ export const learnArticles: LearnArticle[] = [
       },
     ],
   },
+  {
+    slug: "beginner-breaks-san-diego",
+    title: "Best Beginner Surf Spots in San Diego",
+    description:
+      "San Diego is one of the best places in the world to learn to surf. Year-round mild water temps (57-72°F), consistent small south swells in summer, and a huge variety of forgiving beach breaks make it ideal for first-timers. This guide covers the top beginner-friendly breaks, when to go, and what gear you need.",
+    readingTimeMin: 5,
+    datePublished: "2026-03-30",
+    heroImage: "/beginnerWhiteWater.jpg",
+    thumbnailImage: "/beginnerWhiteWater.jpg",
+    keywords: [
+      "beginner surf spots san diego",
+      "learn to surf san diego",
+      "best beaches for beginners san diego",
+      "san diego surf lessons",
+      "easy surf spots san diego",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Why San Diego Is Perfect for Learning",
+        content:
+          '<p>San Diego delivers what most beginner destinations promise but rarely provide: <strong>consistent, small waves with warm water and easy beach access</strong>. The south-facing coastline catches summer swells that arrive with long periods and manageable size — exactly what you want when you\'re learning to pop up. From La Jolla to Imperial Beach, there\'s a forgiving sand-bottom break within a short drive no matter where you\'re staying.</p><p>Water temps range from 57°F in winter to 72°F in late summer, so a <strong>3/2mm wetsuit</strong> handles most of the year. The consistent sunshine, mellow vibe, and dozens of surf schools make San Diego the default recommendation for anyone asking "where should I learn to surf?"</p>',
+        keyTakeaway:
+          "San Diego offers warm water, consistent small waves, and easy beach access — ideal conditions for learning to surf year-round.",
+      },
+      {
+        id: "top-spots",
+        heading: "Top 5 Beginner Breaks",
+        content:
+          '<p><strong>Tourmaline Surf Park</strong> — The gold standard for San Diego beginners. A mellow point break with soft, rolling waves that peel slowly over sand. No shortboarders allowed (by local custom), so the vibe is relaxed. Parking lot right at the beach.</p><p><strong>La Jolla Shores</strong> — Wide sandy beach with gentle whitewater that\'s perfect for first-timers. Surf schools run lessons here every morning. The waves rarely get overhead, and the sandy bottom means soft landings. Watch for the occasional sea lion.</p><p><strong>Mission Beach (south end)</strong> — Consistent beach break with multiple peaks. The south end near the jetty offers more protection from wind. Easy boardwalk access with rental shops steps away.</p><p><strong>Oceanside Harbor</strong> — The south side of the harbor jetty creates a protected zone where waves break gently over sand. Less crowded than the main beach, and the harbor parking is free on weekdays.</p><p><strong>Del Mar</strong> — A forgiving beach break with a mellow local crowd. Best at mid-tide when the sandbars create predictable, peeling waves. The 15th Street access point is the sweet spot for beginners.</p>',
+        keyTakeaway:
+          "Tourmaline and La Jolla Shores are the go-to beginner spots. Mission Beach, Oceanside Harbor, and Del Mar round out the top five.",
+      },
+      {
+        id: "when-to-go",
+        heading: "Best Time to Surf as a Beginner",
+        content:
+          '<p><strong>Summer (June-September)</strong> is prime beginner season. South swells arrive with long periods, keeping wave faces clean and manageable at 1-3 feet. Water temps peak in the high 60s to low 70s.</p><p><strong>Fall (October-November)</strong> brings the warmest water of the year — often 68-72°F — plus Santa Ana winds that groom the surf into clean, glassy lines. Swell size increases, but protected spots like La Jolla Shores stay manageable.</p><p><strong>Dawn patrol</strong> is your best window any time of year. Winds are typically calm before 10am, creating glassy conditions. By afternoon, onshore westerly winds chop up the surface and make it harder to catch waves.</p><p>Aim for <strong>mid-tide</strong> at sand-bottom breaks. Low tide exposes rocks and creates shore break; high tide makes waves mushy and hard to catch. Check the tide chart and plan your session around the middle of the cycle.</p>',
+        keyTakeaway:
+          "Summer and early fall are best for beginners. Go at dawn for glassy conditions, and time your session around mid-tide.",
+      },
+      {
+        id: "gear-and-lessons",
+        heading: "Gear & Where to Take Lessons",
+        content:
+          '<p>A <strong>3/2mm wetsuit</strong> covers San Diego from April through November. Winter dawn patrols (December-March) call for a <strong>4/3mm</strong> when water dips into the high 50s. Booties are optional — the sand is soft.</p><p>If you\'re renting, grab a <strong>soft-top longboard</strong> (8-9 feet). Foamies are forgiving, stable, and won\'t hurt you or anyone else when you wipe out. Every beach town has rental shops: South Coast Surf Shop in OB, Cheap Rentals near Mission Beach, and Surf Diva in La Jolla are all solid options.</p><p>For lessons, expect to pay <strong>$80-120 for a 2-hour group session</strong>. La Jolla Shores and Tourmaline are the most common lesson spots. Surf Diva, San Diego Surf School, and Menehune Surf School all have good reputations.</p>',
+        keyTakeaway:
+          "A 3/2mm wetsuit and a soft-top longboard are all you need. Group lessons run $80-120 for 2 hours at La Jolla Shores or Tourmaline.",
+      },
+      {
+        id: "safety",
+        heading: "Safety Tips",
+        content:
+          '<p><strong>Do the stingray shuffle.</strong> Stingrays bury in the sand in shallow water, especially in summer. Shuffle your feet when wading out instead of stepping — you\'ll nudge them away before they sting.</p><p><strong>Learn to spot rip currents.</strong> Look for channels of darker, calmer water between breaking waves. If caught in a rip, don\'t fight it — paddle parallel to shore until you\'re out of the current, then ride the whitewater back in.</p><p><strong>Respect the lineup.</strong> Don\'t paddle straight to the peak on your first session. Stay on the shoulder, catch the whitewater, and watch how more experienced surfers position themselves. When you\'re ready to catch green waves, wait your turn.</p><p><strong>Watch for sea lions at La Jolla.</strong> They\'re generally harmless but can be territorial. Give them space and don\'t surf directly through a group of them.</p>',
+        keyTakeaway:
+          "Shuffle your feet for stingrays, learn to spot rip currents, respect the lineup pecking order, and give sea lions space at La Jolla.",
+      },
+    ],
+    faqs: [
+      {
+        question: "What's the best time of year to learn to surf in San Diego?",
+        answer:
+          "Summer (June-September) is ideal — consistent small south swells, warm water in the mid-60s to low 70s, and morning glass almost every day. Early fall (October) is also excellent with the warmest water of the year.",
+      },
+      {
+        question: "What wetsuit do I need for San Diego?",
+        answer:
+          "A 3/2mm wetsuit covers most of the year (April-November). For winter dawn patrols, a 4/3mm is more comfortable. Boardshorts-only sessions happen occasionally in late summer but are rare — even locals usually wear a spring suit.",
+      },
+      {
+        question: "Which San Diego beaches should beginners avoid?",
+        answer:
+          "Avoid Blacks Beach (heavy shore break, long cliff walk), Windansea (shallow reef, locals-heavy), and Sunset Cliffs (rocks, strong currents). Stick to sand-bottom breaks like Tourmaline, La Jolla Shores, and Mission Beach.",
+      },
+      {
+        question: "How much do surf lessons cost in San Diego?",
+        answer:
+          "Group lessons run $80-120 per person for a 2-hour session, including board and wetsuit. Private lessons are $150-200. Most schools operate at La Jolla Shores or Tourmaline.",
+      },
+      {
+        question: "Can I surf year-round in San Diego?",
+        answer:
+          "Yes. San Diego has surf every month of the year. Winter brings bigger northwest swells (better for intermediate+), while summer delivers smaller, gentler south swells that are perfect for beginners.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Best Surf Conditions for Beginners",
+        href: "/learn/best-surf-conditions-for-beginners",
+        description:
+          "Learn the ideal wave size, period, wind, and tide for your first sessions.",
+      },
+      {
+        label: "San Diego Beginner Spots",
+        href: "/beginner/san-diego",
+        description:
+          "Live conditions and crowd data at San Diego's beginner-friendly breaks.",
+      },
+      {
+        label: "San Diego Water Temperature",
+        href: "/water-temp/san-diego",
+        description:
+          "Current water temps and wetsuit recommendations for San Diego.",
+      },
+      {
+        label: "How to Read a Surf Forecast",
+        href: "/learn/how-to-read-a-surf-forecast",
+        description:
+          "Master wave height, swell period, direction, wind, and tide readings.",
+      },
+    ],
+  },
+  {
+    slug: "beginner-breaks-santa-cruz",
+    title: "Best Beginner Surf Spots in Santa Cruz",
+    description:
+      "Santa Cruz is the birthplace of mainland surfing and home to some of California's best beginner waves. The cold water (48-58°F year-round) demands a good wetsuit, but Cowell's Beach and Capitola deliver gentle, predictable waves in a stunning setting. Here's where to go, what to wear, and what to know.",
+    readingTimeMin: 5,
+    datePublished: "2026-03-30",
+    heroImage: "/4groms.jpg",
+    thumbnailImage: "/4groms.jpg",
+    keywords: [
+      "beginner surf spots santa cruz",
+      "learn to surf santa cruz",
+      "best beaches for beginners santa cruz",
+      "santa cruz surf lessons",
+      "cowells beach surfing",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Why Santa Cruz Works for Beginners",
+        content:
+          '<p>Santa Cruz has been a surf town since 1885 — longer than anywhere else on the mainland. That history means <strong>deep infrastructure for learning</strong>: surf schools at every major break, rental shops on Pacific Avenue, and a culture that genuinely welcomes new surfers at the right spots.</p><p>The catch is the water. At <strong>48-58°F year-round</strong>, Santa Cruz is significantly colder than Southern California. You\'ll need a real wetsuit (4/3mm minimum), and winter sessions require booties. But the tradeoff is worth it: consistent NW swell, world-class wave variety within a short drive, and a coastline that\'s genuinely beautiful — kelp forests, cypress trees, and otters floating in the lineup.</p>',
+        keyTakeaway:
+          "Santa Cruz has excellent beginner infrastructure and consistent waves, but the cold water (48-58°F) requires a 4/3mm wetsuit year-round.",
+      },
+      {
+        id: "top-spots",
+        heading: "Top 5 Beginner Breaks",
+        content:
+          '<p><strong>Cowell\'s Beach</strong> — The quintessential Santa Cruz beginner spot. A gentle sand-bottom break right next to the Santa Cruz Wharf with slow, rolling waves that are perfect for learning. Every surf school in town runs lessons here. Parking in the lot above is easy on weekday mornings.</p><p><strong>Capitola Beach</strong> — A sheltered cove that blocks the northwest wind and creates mellow, predictable waves. The water is slightly warmer than open-coast breaks thanks to the protected orientation. Family-friendly village with restaurants and rentals steps from the sand.</p><p><strong>38th Avenue (Pleasure Point area)</strong> — A mellow beach break south of the main Pleasure Point reef. The inside section produces soft whitewater that\'s ideal for practicing pop-ups. Stay inside and let the more experienced surfers have the outside peaks.</p><p><strong>Manresa State Beach</strong> — 20 minutes south of Santa Cruz, Manresa offers <strong>forgiving sandbars and significantly less crowd</strong> than in-town breaks. The waves are gentle and the beach is long — plenty of room to spread out and practice without bumping into other surfers.</p><p><strong>Pleasure Point (beginners area)</strong> — The inside section at 36th Avenue, known locally as "the Hook inside," has a soft breaking wave that works on smaller days. Only attempt this when the swell is small (under 3 feet) — bigger days make this spot too powerful for beginners.</p>',
+        keyTakeaway:
+          "Cowell's Beach is the #1 beginner spot in Santa Cruz. Capitola, 38th Ave, Manresa, and the inside at Pleasure Point round out the top five.",
+      },
+      {
+        id: "when-to-go",
+        heading: "Best Time to Surf as a Beginner",
+        content:
+          '<p><strong>Summer (June-August)</strong> is the best window for beginners. Swell size drops to 1-3 feet, water warms to its peak at 55-58°F, and morning glass is reliable before the afternoon westerly kicks in around noon.</p><p><strong>Early fall (September-October)</strong> can be excellent. Water stays warm from summer, swells are still manageable at sheltered spots, and the crowds thin out when school starts.</p><p><strong>Winter is for watching.</strong> November through March brings powerful NW groundswells that make most breaks too heavy for beginners. Cowell\'s can still work on smaller days, but check the forecast carefully — a 6-foot swell at 16 seconds will close out the whole bay.</p><p>Go at <strong>sunrise</strong>. The wind pattern in Santa Cruz is predictable: calm and glassy at dawn, building westerly by 11am. By 2pm it\'s usually blown out. Set your alarm and get in the water before 8am for the best conditions.</p>',
+        keyTakeaway:
+          "Summer is prime beginner season. Go at dawn for glassy conditions — the westerly wind kills it by noon. Avoid winter swells.",
+      },
+      {
+        id: "gear-and-lessons",
+        heading: "Gear & Where to Take Lessons",
+        content:
+          '<p>Santa Cruz water is <strong>cold</strong>. A <strong>4/3mm wetsuit is the year-round minimum</strong>. From November through April, upgrade to a <strong>5/4mm with booties</strong> — your feet will thank you. Gloves are optional but nice on the coldest mornings.</p><p>For rentals, the shops on Pacific Avenue and along West Cliff Drive have everything: <strong>Cowell\'s Surf Shop</strong>, <strong>O\'Neill Surf Shop</strong> (the original — Jack O\'Neill invented the wetsuit here), and <strong>Freeline Design</strong> all rent soft-tops and wetsuits for $25-40/day.</p><p>Lessons run at Cowell\'s Beach every morning. <strong>Richard Schmidt Surf School</strong> and <strong>Club Ed</strong> are the longest-running operations, with group lessons at $100-130 for a 2-hour session. Most include board and wetsuit rental.</p>',
+        keyTakeaway:
+          "Bring a 4/3mm wetsuit minimum (5/4mm + booties for winter). Cowell's Beach hosts most lessons at $100-130 per session.",
+      },
+      {
+        id: "safety-and-localism",
+        heading: "Safety & Localism",
+        content:
+          '<p><strong>Cold water shock is real.</strong> If you\'re used to warm water, the first plunge into 52°F ocean will take your breath away. Splash water on your face and neck before paddling out to acclimate. Wear the right wetsuit — hypothermia sneaks up on you when you\'re focused on catching waves.</p><p><strong>Watch for kelp.</strong> Kelp beds are everywhere along the Santa Cruz coast. If you get tangled, stay calm and slowly unwrap the strands. Don\'t thrash — it makes it worse. Kelp won\'t pull you under.</p><p><strong>Stay away from Steamer Lane as a beginner.</strong> This is one of California\'s most famous waves with a deeply established local crew. Paddling out at the Lane when you can\'t handle the wave is dangerous and disrespectful. Earn your skills at Cowell\'s first — the locals will notice when you\'re ready.</p><p><strong>Respect the lineup everywhere.</strong> Santa Cruz has a reputation for localism, but it\'s mostly concentrated at high-performance spots. At beginner breaks like Cowell\'s and Capitola, the vibe is welcoming. Be polite, don\'t drop in, and you\'ll be fine.</p>',
+        keyTakeaway:
+          "Prepare for cold water, watch for kelp, and stay away from Steamer Lane until you're experienced. Beginner spots are welcoming — just respect the lineup.",
+      },
+    ],
+    faqs: [
+      {
+        question: "How cold is the water in Santa Cruz?",
+        answer:
+          "Cold year-round: 48-52°F in winter, 55-58°F in summer. A 4/3mm wetsuit is the minimum. Winter sessions need a 5/4mm with booties, and many locals add gloves on the coldest mornings.",
+      },
+      {
+        question: "What's the best beginner beach in Santa Cruz?",
+        answer:
+          "Cowell's Beach, hands down. It's where every surf school operates, the waves are gentle and predictable, the bottom is sandy, and it's right next to the wharf with easy parking and food options.",
+      },
+      {
+        question: "Is localism a problem for beginners in Santa Cruz?",
+        answer:
+          "Not at beginner spots. Cowell's and Capitola are welcoming to new surfers. Localism is concentrated at high-performance breaks like Steamer Lane and Pleasure Point. Stay at appropriate spots for your skill level and you'll have no issues.",
+      },
+      {
+        question: "When is the best time of year to learn to surf in Santa Cruz?",
+        answer:
+          "Summer (June-August) offers the smallest waves and warmest water. September-October is also excellent. Avoid November-March as a beginner — winter swells are too powerful for most learning breaks.",
+      },
+      {
+        question: "How much does it cost to start surfing in Santa Cruz?",
+        answer:
+          "A group lesson at Cowell's runs $100-130 including board and wetsuit. Renting gear on your own costs $25-40/day. If you're committed, a used wetsuit ($50-100) and a foam board ($200-300) pays for itself in a few sessions.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Best Surf Conditions for Beginners",
+        href: "/learn/best-surf-conditions-for-beginners",
+        description:
+          "Learn the ideal wave size, period, wind, and tide for your first sessions.",
+      },
+      {
+        label: "Santa Cruz Beginner Spots",
+        href: "/beginner/santa-cruz",
+        description:
+          "Live conditions and crowd data at Santa Cruz's beginner-friendly breaks.",
+      },
+      {
+        label: "Santa Cruz Water Temperature",
+        href: "/water-temp/santa-cruz",
+        description:
+          "Current water temps and wetsuit recommendations for Santa Cruz.",
+      },
+      {
+        label: "How to Read a Surf Forecast",
+        href: "/learn/how-to-read-a-surf-forecast",
+        description:
+          "Master wave height, swell period, direction, wind, and tide readings.",
+      },
+    ],
+  },
 ];

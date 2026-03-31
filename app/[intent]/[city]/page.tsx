@@ -3,7 +3,6 @@ import { ChevronLeft, MapPin } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { cache } from "react";
-import { createPublicReadClient } from "@/lib/supabase/server";
 
 import {
   SURF_INTENTS,
@@ -22,7 +21,7 @@ import { parseLocationFromSlug } from "@/lib/utils/location-slug";
 import { getBeachesByIntentAndCity, getBeachesByIntentAndState } from "@/actions/beach/beach-query-actions";
 import { transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-transformer";
 import { StateMapView } from "@/components/state/state-map-view";
-import { findCityBySlug, getCityMetadata, getCityBeachEditorialData, type CityMetadata } from "@/actions/city/city-metadata-actions";
+import { findCityBySlug, getCityMetadata, getCityBeachEditorialData, getCityExcludeIntents, type CityMetadata } from "@/actions/city/city-metadata-actions";
 import { buildIntentPageContent } from "@/lib/seo/intent-content-templates";
 import { buildLocationPlaceStructuredData } from "@/lib/seo/location-structured-data";
 import { getTopCitiesInState, getTopCitiesInStateForIntent } from "@/actions/beach/beach-location-actions";
@@ -325,19 +324,6 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
   }
 
   return metadata;
-}
-
-async function getCityExcludeIntents(cityName: string, state: string): Promise<IntentKey[]> {
-  const supabase = createPublicReadClient();
-  const { data } = await supabase
-    .from("beaches")
-    .select("id")
-    .ilike("city", cityName)
-    .ilike("state", state)
-    .or("crowd_level.ilike.light,crowd_level.ilike.moderate")
-    .limit(1);
-
-  return !data || data.length === 0 ? ["least-crowded"] : [];
 }
 
 export default async function IntentPage(props: IntentPageParams) {

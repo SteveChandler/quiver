@@ -46,7 +46,7 @@ export function BeachTempComparison({
           const colorClass = getTempColor(beach.tempF);
           const bgGradient = getTempBgGradient(beach.tempF);
           const href = beach.beachSlug
-            ? `/${stateSlug}/${citySlug}/${beach.beachSlug}`
+            ? `/${stateSlug}/${citySlug}/${beach.beachSlug}/water-temp`
             : undefined;
 
           const content = (

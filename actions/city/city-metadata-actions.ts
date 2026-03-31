@@ -2,6 +2,7 @@
 
 import { createPublicReadClient } from "@/lib/supabase/server";
 import { withServerAction, ServerActionResponse } from "@/lib/server-action-utils";
+import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { resolveCityFromSlug } from "@/lib/seo/city-slug-utils";
 
 // CityMetadata and BeachEditorialItem are defined in @/types/location; re-export for backward compatibility
@@ -323,4 +324,25 @@ export async function getCityBeachEditorialData(
     console.error("[getCityBeachEditorialData] Unexpected error:", error);
     return [];
   }
+}
+
+/**
+ * Check if a city has beaches eligible for the least-crowded intent.
+ * Returns intent keys that should be excluded from cross-linking.
+ *
+ * Mirrors the filtering in getBeachesByIntentAndCity (is_private + crowd_level)
+ * to prevent linking to /least-crowded/{city} pages that would 404.
+ */
+export async function getCityExcludeIntents(cityName: string, state: string): Promise<IntentKey[]> {
+  const supabase = createPublicReadClient();
+  const { data } = await supabase
+    .from("beaches")
+    .select("id")
+    .ilike("city", cityName)
+    .ilike("state", state)
+    .or("is_private.is.null,is_private.eq.false")
+    .or("crowd_level.ilike.light,crowd_level.ilike.moderate")
+    .limit(1);
+
+  return !data || data.length === 0 ? ["least-crowded"] : [];
 }

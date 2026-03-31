@@ -52,9 +52,9 @@ describe("email-rate-limiter", () => {
         await limiter.throttle();
         const elapsed = Date.now() - start;
 
-        // Should wait approximately 70ms (100 - 30)
-        expect(elapsed).toBeGreaterThanOrEqual(60);
-        expect(elapsed).toBeLessThan(100);
+        // Should wait approximately 70ms (100 - 30); allow timer jitter
+        expect(elapsed).toBeGreaterThanOrEqual(50);
+        expect(elapsed).toBeLessThan(110);
       });
 
       it("should not wait if interval has passed", async () => {

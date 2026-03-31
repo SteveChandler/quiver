@@ -16,7 +16,7 @@ import type { Metadata } from "next";
 import {
   getBestTimeToSurfData,
 } from "@/actions/city/best-time-actions";
-import { findCityBySlug } from "@/actions/city/city-metadata-actions";
+import { findCityBySlug, getCityExcludeIntents } from "@/actions/city/city-metadata-actions";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getStateSurfProfile } from "@/lib/data/monthly-surf-data";
@@ -103,7 +103,10 @@ export default async function BestTimeToSurfPage(props: PageParams) {
   const { cityName, state, stateName } = cityResult.data;
   const stateSlug = state.toLowerCase();
 
-  const dataResult = await getBestTimeToSurfData(cityName, state);
+  const [dataResult, excludeIntents] = await Promise.all([
+    getBestTimeToSurfData(cityName, state),
+    getCityExcludeIntents(cityName, state),
+  ]);
   if (!dataResult.success || !dataResult.data) {
     return notFound();
   }
@@ -432,6 +435,7 @@ export default async function BestTimeToSurfPage(props: PageParams) {
           locationName={cityName}
           locationType="city"
           stateAbbrev={state}
+          excludeIntents={excludeIntents.length > 0 ? excludeIntents : undefined}
         />
       </div>
       <StickySignupBar

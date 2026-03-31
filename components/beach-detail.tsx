@@ -11,7 +11,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Navigation, AlertTriangle } from "lucide-react";
+import { Navigation, AlertTriangle, Waves, Thermometer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -149,6 +149,12 @@ function BeachDetailContent({
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
+
+  // US beach pages have 3-segment paths starting with a 2-letter state code (e.g., /ca/san-diego/ocean-beach-pier).
+  // Only these have /tides and /water-temp subpages.
+  const pathSegments = pathname.split("/").filter(Boolean);
+  const isUsBeachPage = pathSegments.length === 3 && /^[a-z]{2}$/.test(pathSegments[0]);
+
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [reviewDialogSource, setReviewDialogSource] =
     useState<ReviewTrackingSource>(REVIEW_TRACKING_SOURCES.OVERVIEW_CTA);
@@ -562,6 +568,26 @@ function BeachDetailContent({
           currentForecast={currentForecast}
           className="mb-6"
         />
+
+        {/* Tide Chart & Water Temp subpage links (US beaches only) */}
+        {isUsBeachPage && (
+          <div className="flex gap-2 mb-6">
+            <Link
+              href={`${pathname}/tides`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700 hover:border-sky-400 hover:text-sky-700 transition-colors"
+            >
+              <Waves className="h-3.5 w-3.5" />
+              Tide Chart
+            </Link>
+            <Link
+              href={`${pathname}/water-temp`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700 hover:border-sky-400 hover:text-sky-700 transition-colors"
+            >
+              <Thermometer className="h-3.5 w-3.5" />
+              Water Temp
+            </Link>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <BeachActions

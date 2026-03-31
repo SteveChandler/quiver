@@ -237,6 +237,7 @@ export default async function UsaStatePage(
                           </span>
                         )}
                       </Link>
+                      {(spotCount ?? 0) >= 2 && (
                       <div className="flex flex-wrap gap-1 px-3 pb-1">
                         {CITY_INTENT_PILLS.map(({ key, label }) => (
                           <Link
@@ -248,6 +249,7 @@ export default async function UsaStatePage(
                           </Link>
                         ))}
                       </div>
+                      )}
                     </li>
                   );
                 })}
