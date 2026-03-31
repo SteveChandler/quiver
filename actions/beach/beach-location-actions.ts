@@ -176,7 +176,7 @@ export interface CityWithSkillCategories {
   hasBeginnerBeaches: boolean;
   hasAdvancedBeaches: boolean;
   hasLeastCrowdedBeaches: boolean;
-  /** TRUE when >= 2 beaches have description + at least one of crowd_tips/wave_tips/best_conditions_prose */
+  /** TRUE when enough beaches have description + at least one of crowd_tips/wave_tips/best_conditions_prose (1 for single-beach cities, 2 for multi-beach) */
   hasEditorialContent: boolean;
 }
 
@@ -300,9 +300,10 @@ async function getAllCitiesWithBeachSkillsFallback(minBeaches: number = 1) {
       }
     }
 
-    // Resolve hasEditorialContent after full aggregation (requires >= 2 quality beaches)
+    // Resolve hasEditorialContent: single-beach cities need 1 quality beach,
+    // 2+ beach cities need 2. Matches RPC LEAST(2, COUNT(*)) logic.
     for (const city of cityMap.values()) {
-      city.hasEditorialContent = city.editorialCount >= 2;
+      city.hasEditorialContent = city.editorialCount >= Math.min(2, city.beachCount);
     }
 
     // Filter by minimum beach count and sort; strip internal editorialCount field
