@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Condition alerts: custom surf condition alert rules with 7 preset templates (Glass-Off, Mellow Session, Dawn Patrol, Big Day, Clean Groundswell, Tide Window, Epic Conditions)
+- Two-phase alert cron system: daily evaluation + 5-minute delivery with timezone-aware scheduling
+- Alert creation flow with preset picker and custom condition builder (7 condition types)
+- Alert management in Profile > Beaches tab with inline rule editing
+- Consolidated daily alert delivery (email + push) 2 hours before matching conditions
+- "Why didn't this match?" debug endpoint for alert rule diagnostics
+- Alert discoverability nudge on favorited beaches without alerts
+- Redesigned bell CTA on beach detail page with visible orange styling
+- `ALERT_PREVIEW_MODE` env flag — all alert features free during preview period
 - Optimal Conditions section on beach detail pages — server-rendered grid (best wind, best swell, preferred tide, best months) with optional hero photo for SEO crawlability; targets compound queries like "best wind direction [beach name]"
 - Two new FAQ items (best wind direction, best months to surf) added to beach FAQ schema for rich snippet eligibility
 - 21 new NJ surf beaches across 8 cities (Belmar, Spring Lake, Long Branch, Ocean City, Cape May, Sea Isle City, Bradley Beach, plus Bay Head, Seaside Park, Toms River) — unlocks 49 city intent pages including uncontested longboard niche
