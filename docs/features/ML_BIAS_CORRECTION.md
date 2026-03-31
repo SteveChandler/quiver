@@ -197,9 +197,15 @@ const windMS = parseWindSpeed('10 mph');
 
 ### Scheduled Jobs
 
-#### Correction Job (Vercel Cron)
+> **Note:** The ML pipeline (retraining, candidate promotion, HRRR wind extraction, forecast
+> correction) has been extracted from the Quiver monorepo into the **Seaside** service,
+> deployed on Fly.io as `quiver-ml` (`~/Desktop/dev/seaside/`). The `app/api/cron/ml/`
+> routes and `ml/` directory no longer contain cron logic — they now delegate to or have
+> been replaced by `seaside/crons/`. See the Seaside repo for operational details.
 
-**File:** `app/api/cron/ml/correct-forecasts/route.ts`
+#### Correction Job (Vercel Cron — delegates to Seaside)
+
+**Former file:** `app/api/cron/ml/correct-forecasts/route.ts`
 - Schedule: Every 3 hours (`0 */3 * * *`)
 - Timeout: 60 seconds (cold start + processing)
 - Processes up to 500 forecasts per run
@@ -294,8 +300,11 @@ yarn test __tests__/lib/ml/parse-wave-height.test.ts
 
 ### ML Service Local Testing
 
+> **Note:** The ML service now lives in the Seaside repo (`~/Desktop/dev/seaside/`).
+> The `ml/` directory in this repo is no longer the source of truth.
+
 ```bash
-cd ml
+cd ~/Desktop/dev/seaside
 
 # Install dependencies
 pip install -r requirements.txt
@@ -343,8 +352,11 @@ LIMIT 10;
 
 ### Fly.io Deployment
 
+> **Note:** The ML pipeline is now deployed from the Seaside repo (`~/Desktop/dev/seaside/`),
+> not from `ml/` in this monorepo.
+
 ```bash
-cd ml
+cd ~/Desktop/dev/seaside
 
 # Deploy (uses fly.toml config)
 fly deploy
@@ -359,7 +371,7 @@ fly status
 ### Deployment Checklist
 
 - [ ] `INTERNAL_SECRET` set in Fly.io secrets and Vercel env vars
-- [ ] Model file exists at `ml/models/bias_model_v1.json`
+- [ ] Model file exists at `seaside/models/bias_model_v3.json`
 - [ ] Database migrations applied
 - [ ] Vercel cron configured for `correct-forecasts`
 - [ ] pg_cron job registered for `ml-backfill-observations`
@@ -409,11 +421,8 @@ WHERE observed_m IS NULL
 
 ## Related Documentation
 
-- [ML Service Architecture](/ml/ARCHITECTURE.md)
-- [ML README](/ml/README.md) - Training data requirements
-- [ML Operations Runbook](/docs/guides/ML_OPERATIONS_RUNBOOK.md)
+- [Seaside Service](~/Desktop/dev/seaside/) - ML pipeline source of truth (Fly.io `quiver-ml`)
 - [TypeScript ML Module](/lib/ml/ARCHITECTURE.md)
-- [Cron Jobs Architecture](/app/api/cron/ml/ARCHITECTURE.md)
 - [Database Schema](/docs/architecture/DATABASE_SCHEMA.md) - Retention policies
 - [Forecast Architecture](/docs/architecture/FORECAST_SCORING.md)
 - [Postmortem: ML Model Regression](/docs/postmortems/2026-01-20-ml-model-regression.md)

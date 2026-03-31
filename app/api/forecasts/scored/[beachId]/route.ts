@@ -12,7 +12,7 @@ import {
   scoreBeachWithEngine,
 } from "@/lib/domains/scoring/discovery-adapter";
 import { calculateRideableWaves } from "@/lib/domains/wave-frequency/calculator";
-import { parseWaveHeight } from "@/lib/ml/parse-wave-height";
+import { parseWaveHeight } from "@/lib/utils/forecast-parsing";
 import {
   parseWindSpeed,
   parseWavePeriod,

@@ -1,4 +1,4 @@
-import { parseWaveHeight, parseWindSpeed } from '@/lib/ml/parse-wave-height';
+import { parseWaveHeight, parseWindSpeed } from '@/lib/utils/forecast-parsing';
 
 describe('parseWaveHeight', () => {
   it('parses range format', () => {

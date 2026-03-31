@@ -1,7 +1,7 @@
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import { parseWavePeriod, parseWindSpeed, getDirectionDegrees } from "@/lib/utils/number-parsing";
-import { parseWaveHeight, FLAT_HEIGHT_METERS } from "@/lib/ml/parse-wave-height";
+import { parseWaveHeight, FLAT_HEIGHT_METERS } from "@/lib/utils/forecast-parsing";
 import {
   BREAK_TYPE_CONFIGS,
   FREQUENCY_CLAMPS,
