@@ -303,6 +303,63 @@ describe("Sitemap Generation", () => {
       expect(result.find((r) => r.url === `${baseUrl}/longboard/beginner-town`)).toBeTruthy();
     });
 
+    it("should include single-beach city intent routes in thin states with editorial content", async () => {
+      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          // NJ has 5 total beaches (< 20 threshold), Cocoa Beach has editorial content
+          { city: "Cocoa Beach", state: "FL", country: "USA", beachCount: 1, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false, hasEditorialContent: true },
+          { city: "Melbourne Beach", state: "FL", country: "USA", beachCount: 2, hasBeginnerBeaches: false, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false, hasEditorialContent: true },
+          // Total FL beaches: 3 (< 20)
+        ],
+      });
+
+      const result = await sitemap();
+
+      // Single-beach city in thin state WITH editorial → included
+      expect(result.find((r) => r.url === `${baseUrl}/tide/cocoa-beach`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/longboard/cocoa-beach`)).toBeTruthy();
+    });
+
+    it("should exclude single-beach city intent routes in large states", async () => {
+      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          // CA has many beaches (>= 20), so single-beach cities are excluded
+          { city: "Tiny Cove", state: "CA", country: "USA", beachCount: 1, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false, hasEditorialContent: true },
+          { city: "San Diego", state: "CA", country: "USA", beachCount: 15, hasBeginnerBeaches: true, hasAdvancedBeaches: true, hasLeastCrowdedBeaches: true, hasEditorialContent: true },
+          { city: "Encinitas", state: "CA", country: "USA", beachCount: 5, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: true, hasEditorialContent: true },
+          // Total CA beaches: 21 (>= 20)
+        ],
+      });
+
+      const result = await sitemap();
+
+      // Single-beach city in large state → excluded even with editorial content
+      expect(result.find((r) => r.url === `${baseUrl}/tide/tiny-cove`)).toBeUndefined();
+      // Multi-beach cities still included
+      expect(result.find((r) => r.url === `${baseUrl}/tide/san-diego`)).toBeTruthy();
+    });
+
+    it("should exclude single-beach city intent routes without editorial content", async () => {
+      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          // Thin state but no editorial content → excluded
+          { city: "No Content Beach", state: "ME", country: "USA", beachCount: 1, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false, hasEditorialContent: false },
+          { city: "Quality Beach", state: "ME", country: "USA", beachCount: 1, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false, hasEditorialContent: true },
+          // Total ME beaches: 2 (< 20)
+        ],
+      });
+
+      const result = await sitemap();
+
+      // No editorial → excluded
+      expect(result.find((r) => r.url === `${baseUrl}/tide/no-content-beach`)).toBeUndefined();
+      // Has editorial in thin state → included
+      expect(result.find((r) => r.url === `${baseUrl}/tide/quality-beach`)).toBeTruthy();
+    });
+
     it("should exclude non-US cities from intent routes", async () => {
       (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
         success: true,
