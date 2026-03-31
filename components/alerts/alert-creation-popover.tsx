@@ -202,7 +202,8 @@ export function AlertCreationPopover({
                   setName(`Custom alert — ${beachName}`);
                   setStage({ step: "custom", conditions: {} });
                 }}
-                className="w-full text-sm font-semibold font-[family-name:var(--font-space-grotesk)] text-[#F78E42] hover:text-white hover:bg-[#F78E42] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 py-3 border-2 border-[#F78E42]/40 hover:border-[#F78E42] rounded-lg transition-all"
+                disabled={saving}
+                className="w-full text-sm font-semibold font-[family-name:var(--font-space-grotesk)] text-[#F78E42] hover:text-white hover:bg-[#F78E42] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 py-3 border-2 border-[#F78E42]/40 hover:border-[#F78E42] rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 + Build custom alert
               </button>
@@ -220,7 +221,8 @@ export function AlertCreationPopover({
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="name your alert..."
+                  placeholder="optional — auto-generated if blank"
+                  maxLength={100}
                   className="w-full bg-[#252D6B] text-white text-sm rounded-lg px-3 py-2 border border-[#404C92] placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#F78E42]/50 focus:border-[#F78E42] transition-colors"
                 />
               </div>
@@ -316,7 +318,7 @@ function PresetGroup({
               }}
               disabled={disabled}
               aria-label={`Customize ${preset.name}`}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-gray-400 hover:text-[#F78E42] focus-visible:text-[#F78E42] focus-visible:opacity-100 focus-visible:outline-none opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0"
+              className="absolute right-1 top-1/2 -translate-y-1/2 text-[11px] text-gray-400 hover:text-[#F78E42] focus-visible:text-[#F78E42] focus-visible:opacity-100 focus-visible:outline-none opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0 min-w-[44px] min-h-[44px] flex items-center justify-center"
             >
               Customize
             </button>

@@ -49,19 +49,38 @@ export function AlertRuleCard({ rule, onToggle, onDelete }: AlertRuleCardProps) 
     : null;
 
   const handleToggle = async () => {
+    if (loading) return;
     setLoading(true);
-    await onToggle(rule.id, !rule.enabled);
-    setLoading(false);
+    try {
+      await onToggle(rule.id, !rule.enabled);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDelete = () => {
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (deleting) return;
     if (!confirmDelete) {
       setConfirmDelete(true);
       confirmTimer.current = setTimeout(() => setConfirmDelete(false), 3000);
       return;
     }
-    onDelete(rule.id);
+    if (confirmTimer.current) clearTimeout(confirmTimer.current);
+    setDeleting(true);
+    await onDelete(rule.id);
   };
+
+  // Escape key cancels delete confirmation
+  useEffect(() => {
+    if (!confirmDelete) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setConfirmDelete(false);
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [confirmDelete]);
 
   return (
     <div
@@ -94,12 +113,12 @@ export function AlertRuleCard({ rule, onToggle, onDelete }: AlertRuleCardProps) 
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 shrink-0">
         <button
           onClick={handleToggle}
           disabled={loading}
           aria-label={rule.enabled ? "Disable alert" : "Enable alert"}
-          className={`p-1.5 rounded transition-all text-xs hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 active:scale-95 disabled:opacity-50 ${
+          className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded transition-all text-xs hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 active:scale-95 disabled:opacity-50 ${
             rule.enabled ? "text-[#F78E42]" : "text-gray-500"
           }`}
         >
@@ -110,7 +129,8 @@ export function AlertRuleCard({ rule, onToggle, onDelete }: AlertRuleCardProps) 
         </button>
         <button
           onClick={handleDelete}
-          className={`p-1.5 rounded transition-all text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50 active:scale-95 ${
+          disabled={deleting}
+          className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded transition-all text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50 active:scale-95 disabled:opacity-50 ${
             confirmDelete
               ? "text-red-400 bg-red-400/10"
               : "text-gray-500 hover:text-red-400"

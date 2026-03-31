@@ -82,7 +82,7 @@ export function ConditionBuilder({ conditions, onChange }: ConditionBuilderProps
   const [showPicker, setShowPicker] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
 
-  // Click-outside-to-close for the condition picker dropdown
+  // Click-outside and Escape to close the condition picker dropdown
   useEffect(() => {
     if (!showPicker) return;
     function handleClickOutside(e: MouseEvent) {
@@ -90,8 +90,15 @@ export function ConditionBuilder({ conditions, onChange }: ConditionBuilderProps
         setShowPicker(false);
       }
     }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setShowPicker(false);
+    }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, [showPicker]);
 
   const activeKeys = CONDITION_TYPES.filter((ct) =>
@@ -227,6 +234,7 @@ function ConditionRow({
               placeholder="min ft"
               className={`w-16 ${inputClasses}`}
               step="0.5"
+              min="0"
             />
             <span className="text-gray-400 text-xs">to</span>
             <input
@@ -239,8 +247,15 @@ function ConditionRow({
                 )
               }
               placeholder="max ft"
-              className={`w-16 ${inputClasses}`}
+              className={`w-16 ${inputClasses} ${
+                conditions.swell_height_min != null &&
+                conditions.swell_height_max != null &&
+                conditions.swell_height_max < conditions.swell_height_min
+                  ? "border-red-400/60"
+                  : ""
+              }`}
               step="0.5"
+              min="0"
             />
           </>
         )}
@@ -256,6 +271,7 @@ function ConditionRow({
             }
             placeholder="min sec"
             className={`w-20 ${inputClasses}`}
+            min="0"
           />
         )}
         {conditionKey === "swell_direction" && (
@@ -301,6 +317,7 @@ function ConditionRow({
             }
             placeholder="max kt"
             className={`w-20 ${inputClasses}`}
+            min="0"
           />
         )}
         {conditionKey === "tide_height" && (
@@ -317,6 +334,7 @@ function ConditionRow({
               placeholder="min ft"
               className={`w-16 ${inputClasses}`}
               step="0.5"
+              min="0"
             />
             <span className="text-gray-400 text-xs">to</span>
             <input
@@ -329,8 +347,15 @@ function ConditionRow({
                 )
               }
               placeholder="max ft"
-              className={`w-16 ${inputClasses}`}
+              className={`w-16 ${inputClasses} ${
+                conditions.tide_height_min_ft != null &&
+                conditions.tide_height_max_ft != null &&
+                conditions.tide_height_max_ft < conditions.tide_height_min_ft
+                  ? "border-red-400/60"
+                  : ""
+              }`}
               step="0.5"
+              min="0"
             />
           </>
         )}
@@ -351,7 +376,7 @@ function ConditionRow({
       </div>
       <button
         onClick={onRemove}
-        className="text-gray-500 hover:text-red-400 focus-visible:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50 focus-visible:rounded active:scale-95 transition-all p-0.5"
+        className="text-gray-500 hover:text-red-400 focus-visible:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50 focus-visible:rounded active:scale-95 transition-all min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0 -mr-2"
         aria-label={`Remove ${ct.label} condition`}
       >
         <X className="w-3.5 h-3.5" />
@@ -375,7 +400,7 @@ function CompassSelector({
           onClick={() => onChange(dir.label)}
           aria-label={`${dir.label} direction`}
           aria-pressed={value === dir.label}
-          className={`w-8 h-8 rounded-md text-[11px] font-mono font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 active:scale-95 ${
+          className={`w-9 h-9 rounded-md text-[11px] font-mono font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 active:scale-95 touch-action-manipulation ${
             value === dir.label
               ? "bg-[#F78E42]/20 border border-[#F78E42] text-[#F78E42]"
               : "bg-[#252D6B] border border-[#404C92] text-gray-400 hover:border-gray-300 hover:text-white"

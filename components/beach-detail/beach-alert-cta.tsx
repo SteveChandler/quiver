@@ -37,17 +37,20 @@ export function BeachAlertCta({ beachId, beachName, compact, className, onOpenAl
     return (json.data ?? []) as AlertRule[];
   }, []);
 
-  const { data: allRules } = useDataFetcher(fetchRules, {
+  const { data: allRules, loading: rulesLoading } = useDataFetcher(fetchRules, {
     skip: !user,
     cacheKey: user ? `alert-rules-${user.id}` : undefined,
   });
 
+  // null while loading, 0+ once fetched
   const ruleCount = useMemo(
-    () => (allRules ?? []).filter((r) => r.beach_id === beachId).length,
+    () => allRules === null ? null : allRules.filter((r) => r.beach_id === beachId).length,
     [allRules, beachId]
   );
 
-  const hasAlerts = ruleCount > 0;
+  const hasAlerts = ruleCount != null && ruleCount > 0;
+  // Don't flash "no alerts" while rules are still loading
+  const showAlertCount = !rulesLoading && ruleCount != null;
 
   // Deferred action: after sign-in, open alert flow if pending action matches
   useEffect(() => {
@@ -85,7 +88,7 @@ export function BeachAlertCta({ beachId, beachName, compact, className, onOpenAl
           ) : (
             <Bell className="h-4 w-4 text-[#F78E42]" />
           )}
-          {hasAlerts && (
+          {showAlertCount && hasAlerts && (
             <span
               className="ml-1 inline-flex items-center justify-center rounded-full text-[11px] font-semibold leading-none w-4 h-4 text-white bg-[#F78E42]"
             >
@@ -119,7 +122,7 @@ export function BeachAlertCta({ beachId, beachName, compact, className, onOpenAl
           onClick={handleClick}
           aria-label={hasAlerts ? `Manage alerts (${ruleCount} active)` : "Get alerts"}
           className={`h-12 w-full px-6 text-base font-semibold rounded-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 transition-all border-2 ${
-            hasAlerts
+            showAlertCount && hasAlerts
               ? "bg-[#F78E42] border-[#F78E42] text-white hover:bg-[#F78E42]/90 motion-safe:animate-[alertBreath_3s_ease-in-out_infinite] alert-breath"
               : "border-[#F78E42] text-[#F78E42] hover:bg-[#F78E42]/10"
           } ${className ?? ""}`}
@@ -129,7 +132,7 @@ export function BeachAlertCta({ beachId, beachName, compact, className, onOpenAl
           ) : (
             <Bell className="h-5 w-5 mr-2 text-[#F78E42]" />
           )}
-          {hasAlerts ? (
+          {showAlertCount && hasAlerts ? (
             <span className="flex items-center gap-1.5">
               Alerts active
               <span
@@ -143,7 +146,7 @@ export function BeachAlertCta({ beachId, beachName, compact, className, onOpenAl
           )}
         </Button>
         <p className="text-xs text-gray-400 text-center">
-          {hasAlerts ? "Tap to manage your alerts" : "Notify me when conditions are ideal"}
+          {showAlertCount && hasAlerts ? "Tap to manage your alerts" : "Notify me when conditions are ideal"}
         </p>
       </div>
 
