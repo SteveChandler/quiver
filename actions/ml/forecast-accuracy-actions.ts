@@ -22,6 +22,13 @@ export interface RegionalAccuracyRow {
   beachCount: number;
 }
 
+export interface DailyAccuracyPoint {
+  date: string;
+  rawMae: number;
+  correctedMae: number;
+  count: number;
+}
+
 export interface TopBeachRow {
   beachId: string;
   beachName: string;
@@ -261,4 +268,58 @@ export async function getTopBeaches(): Promise<TopBeachRow[]> {
       predictionsMatched: row.predictions_matched,
     };
   });
+}
+
+/**
+ * Daily MAE time-series from ml_predictions_log over the last 30 days.
+ * Groups by date, returning average raw and corrected error per day.
+ * Only includes rows where an observation was recorded (observed_m > 0).
+ */
+export async function getDailyAccuracyTimeSeries(): Promise<DailyAccuracyPoint[]> {
+  const supabase = createSupabaseServiceRoleClient();
+
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const { data, error } = await supabase
+    .from("ml_predictions_log")
+    .select("predicted_at, raw_error_m, corrected_error_m")
+    .gt("observed_m", 0)
+    .gte("predicted_at", thirtyDaysAgo.toISOString())
+    .order("predicted_at", { ascending: true });
+
+  if (error || !data || data.length === 0) {
+    if (error) {
+      console.error("[forecast-accuracy] getDailyAccuracyTimeSeries error:", error);
+    }
+    return [];
+  }
+
+  // Group by date in JS
+  const byDate = new Map<string, { rawSum: number; correctedSum: number; count: number }>();
+
+  for (const row of data as {
+    predicted_at: string;
+    raw_error_m: number | null;
+    corrected_error_m: number | null;
+  }[]) {
+    const date = row.predicted_at.split("T")[0];
+    const existing = byDate.get(date) ?? { rawSum: 0, correctedSum: 0, count: 0 };
+    existing.rawSum += Math.abs(row.raw_error_m ?? 0);
+    existing.correctedSum += Math.abs(row.corrected_error_m ?? 0);
+    existing.count += 1;
+    byDate.set(date, existing);
+  }
+
+  const result: DailyAccuracyPoint[] = [];
+  for (const [date, agg] of byDate.entries()) {
+    result.push({
+      date,
+      rawMae: agg.rawSum / agg.count,
+      correctedMae: agg.correctedSum / agg.count,
+      count: agg.count,
+    });
+  }
+
+  return result.sort((a, b) => a.date.localeCompare(b.date));
 }

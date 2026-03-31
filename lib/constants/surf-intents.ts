@@ -76,8 +76,8 @@ export const SURF_INTENTS: Record<SurfIntentSlug, SurfIntentDefinition> = {
       "Forecast cues that trigger locals-only surges",
       "Nearby alternates when the primary target turns into a zoo",
     ],
-    ctaHeadline: "A crowd-aware forecast that learns your go-tos",
-    ctaDescription: "Quick post-session note → fewer crowds next time.",
+    ctaHeadline: "Skip the pack with real-time crowd data",
+    ctaDescription: "See which peaks are emptiest right now — no guessing, just data.",
     ctaButton: "See your surf call",
   },
   tide: {
@@ -86,7 +86,7 @@ export const SURF_INTENTS: Record<SurfIntentSlug, SurfIntentDefinition> = {
     titleTemplate: ({ cityName }) =>
       `${cityName} Tide Chart & Best Tidal Windows for Surfing`,
     heading: ({ cityName }) =>
-      `${cityName} tide guide for faster wave selection`,
+      `${cityName} tide charts — today's highs, lows & surf windows`,
     metaDescription: ({ cityName, topSpots }) =>
       `Dial in the tide for ${cityName} surf spots like ${topSpots
         .slice(0, 3)

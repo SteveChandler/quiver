@@ -11,7 +11,7 @@ import { hasViewportChanged as checkViewportChanged } from "@/lib/utils/map-util
 import { CACHE_TTL } from "@/lib/constants/ui";
 import { useBeachClustering, type ClusterPoint } from "@/hooks/use-beach-clustering";
 import { loadFavoriteBeaches } from "@/components/map/map-favorites-loader";
-import { createWaveHeightBadge, type MarkerBuilderDeps } from "@/components/map/map-marker-builder";
+import { createWaveHeightBadge, type MarkerBuilderDeps, type MapDisplayMode } from "@/components/map/map-marker-builder";
 import { loadBeachesAndWaveHeights } from "@/components/map/map-beach-loader";
 import { createClusterMapMarker, type ClusterRendererDeps } from "@/components/map/map-cluster-renderer";
 import { useTrackEvent } from "@/hooks/use-track-event";
@@ -36,6 +36,7 @@ interface InteractiveMapProps {
   } | null;
   beaches?: Beach[]; // Filtered beaches to display on map (if provided, skips API fetch)
   autoNavigateOnMarkerClick?: boolean; // Whether marker clicks auto-navigate to beach page (default: true)
+  displayMode?: MapDisplayMode; // What data to show in markers: 'wave-height' (default) or 'water-temp'
 }
 
 const SAN_DIEGO: [number, number] = [32.7157, -117.1611];
@@ -52,6 +53,7 @@ export function InteractiveMap({
   regionViewport,
   beaches,
   autoNavigateOnMarkerClick = true,
+  displayMode = "wave-height",
 }: InteractiveMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -76,6 +78,7 @@ export function InteractiveMap({
   } | null>(null);
   const [currentZoom, setCurrentZoom] = useState(initialZoom);
   const [waveHeightMap, setWaveHeightMap] = useState<Map<string, number | undefined>>(new Map());
+  const [waterTempMap, setWaterTempMap] = useState<Map<string, string | undefined>>(new Map());
   const isMapReadyRef = useRef(false);
   const favoriteBeachIdsRef = useRef<Set<string>>(new Set());
   const selectedBeachIdRef = useRef<string | null>(null);
@@ -215,10 +218,12 @@ export function InteractiveMap({
         },
         router,
         autoNavigate: autoNavigateOnMarkerClick,
+        displayMode,
+        waterTemp: waterTempMap.get(location.id),
       };
       return createWaveHeightBadge(location, waveHeight, deps);
     },
-    [onLocationClick, router, autoNavigateOnMarkerClick, track]
+    [onLocationClick, router, autoNavigateOnMarkerClick, track, displayMode, waterTempMap]
   );
 
   // Create cluster marker using extracted module with deps from refs
@@ -231,10 +236,12 @@ export function InteractiveMap({
         flyTo: (center, zoom) => {
           mapRef.current?.flyTo({ center, zoom, duration: 500 });
         },
+        displayMode,
+        waterTempMap,
       };
       return createClusterMapMarker(cluster, deps);
     },
-    [getExpansionZoom]
+    [getExpansionZoom, displayMode, waterTempMap]
   );
 
   /** Populate beach markers with enhanced forecast data */
@@ -267,8 +274,9 @@ export function InteractiveMap({
           { fetchNearbyBeaches: fetchNearbyBeaches.current }
         );
 
-        // Store wave heights for clustering
+        // Store wave heights and water temps for clustering
         setWaveHeightMap(result.waveHeightMap);
+        setWaterTempMap(result.waterTempMap);
         onWaveHeightsChangeRef.current?.(result.waveHeightMap);
       } catch (e) {
         lastPopulateKeyRef.current = null;

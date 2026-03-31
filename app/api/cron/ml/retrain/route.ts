@@ -331,17 +331,26 @@ async function handleRetrain(request: Request) {
         wind_exposure_factors: record.wind_exposure_factors || null,
       }));
 
+      // Auto-enable wind features when coverage is sufficient
+      const windCoverage = mappedData.filter(
+        (d) => d.wind_speed_ms !== null && d.wind_speed_ms !== undefined
+      ).length / mappedData.length;
+      const excludeWind = windCoverage < 0.85;
+      console.log(
+        `[ML Retrain] Wind data coverage: ${(windCoverage * 100).toFixed(1)}% (exclude_wind=${excludeWind})`
+      );
+
       const trainingPayload = {
         version: modelVersion,
         training_data: mappedData,
         config: {
           recency_weight_days: 14,
-          holdout_days: 2,
+          holdout_days: 7,
           max_bias_pct: 0.75,
           bias_floor_m: 0.2,
           bucket_policy: 'majority',  // Allow deployment if 2/3 buckets pass
-          overall_improvement_min: 45,  // Lowered from 50% while wind features excluded
-          exclude_wind: true,  // Wind data coverage insufficient until mid-April 2026 — re-enable once retrains are ~100% wind data
+          overall_improvement_min: excludeWind ? 45 : 50,  // Lower threshold while wind features excluded
+          exclude_wind: excludeWind,
         },
       };
 

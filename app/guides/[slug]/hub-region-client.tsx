@@ -50,11 +50,11 @@ const CATEGORY_LINKS: CategoryLink[] = [
     description: "Find gentle waves perfect for learning",
     icon: TrendingUp,
     colors: {
-      bg: "bg-green-100",
-      bgHover: "group-hover:bg-green-200",
-      icon: "text-green-600",
-      hoverGradient: "hover:from-green-50 hover:to-emerald-50",
-      border: "hover:border-green-300",
+      bg: "bg-emerald-500/20",
+      bgHover: "group-hover:bg-emerald-500/30",
+      icon: "text-emerald-400",
+      hoverGradient: "",
+      border: "hover:border-white/20",
     },
   },
   {
@@ -64,11 +64,11 @@ const CATEGORY_LINKS: CategoryLink[] = [
     description: "Escape the crowds at hidden gems",
     icon: Compass,
     colors: {
-      bg: "bg-blue-100",
-      bgHover: "group-hover:bg-blue-200",
-      icon: "text-blue-600",
-      hoverGradient: "hover:from-blue-50 hover:to-sky-50",
-      border: "hover:border-blue-300",
+      bg: "bg-[#4A70D9]/20",
+      bgHover: "group-hover:bg-[#4A70D9]/30",
+      icon: "text-[#4A70D9]",
+      hoverGradient: "",
+      border: "hover:border-white/20",
     },
   },
   {
@@ -78,11 +78,11 @@ const CATEGORY_LINKS: CategoryLink[] = [
     description: "Check optimal tide windows",
     icon: Clock,
     colors: {
-      bg: "bg-sky-100",
-      bgHover: "group-hover:bg-sky-200",
-      icon: "text-sky-600",
-      hoverGradient: "hover:from-sky-50 hover:to-cyan-50",
-      border: "hover:border-sky-300",
+      bg: "bg-sky-500/20",
+      bgHover: "group-hover:bg-sky-500/30",
+      icon: "text-sky-400",
+      hoverGradient: "",
+      border: "hover:border-white/20",
     },
   },
   {
@@ -92,11 +92,11 @@ const CATEGORY_LINKS: CategoryLink[] = [
     description: "See current water temperatures",
     icon: Thermometer,
     colors: {
-      bg: "bg-orange-100",
-      bgHover: "group-hover:bg-orange-200",
-      icon: "text-orange-600",
-      hoverGradient: "hover:from-orange-50 hover:to-amber-50",
-      border: "hover:border-orange-300",
+      bg: "bg-[#F78E42]/20",
+      bgHover: "group-hover:bg-[#F78E42]/30",
+      icon: "text-[#F78E42]",
+      hoverGradient: "",
+      border: "hover:border-white/20",
     },
   },
 ];
@@ -116,7 +116,7 @@ function CategoryLinkCard({
   return (
     <Link
       href={`${category.pathPrefix}/${stateSlug}`}
-      className={`group block p-5 rounded-xl border border-gray-200/50 bg-white/60 backdrop-blur-sm shadow-md hover:shadow-lg hover:-translate-y-1 hover:bg-gradient-to-br ${category.colors.hoverGradient} ${category.colors.border} transition-all duration-300`}
+      className={`group block p-5 rounded-xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-md shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] hover:bg-white/[0.08] hover:-translate-y-1 ${category.colors.border} transition-all duration-300`}
     >
       <div className="flex items-center gap-3 mb-2">
         <div
@@ -124,9 +124,9 @@ function CategoryLinkCard({
         >
           <Icon className={`h-5 w-5 ${category.colors.icon}`} />
         </div>
-        <h3 className="font-semibold text-gray-900">{category.title}</h3>
+        <h3 className="font-semibold text-white">{category.title}</h3>
       </div>
-      <p className="text-sm text-gray-600 pl-11">{category.description}</p>
+      <p className="text-sm text-white/60 pl-11">{category.description}</p>
     </Link>
   );
 }
@@ -151,10 +151,10 @@ export function HubRegionClient({ region, beaches, stats }: HubRegionClientProps
               </Link>
             </nav>
 
-            <h1 className="text-3xl md:text-5xl font-bold text-gray-900 mb-4">
+            <h1 className="text-3xl md:text-5xl font-bold text-white mb-4">
               {region.title}
             </h1>
-            <p className="text-lg md:text-xl text-gray-600 max-w-3xl">
+            <p className="text-lg md:text-xl text-white/60 max-w-3xl">
               {region.description}
             </p>
           </header>
@@ -163,54 +163,54 @@ export function HubRegionClient({ region, beaches, stats }: HubRegionClientProps
         {/* Stats Cards */}
         <section className="mb-12">
           <ScrollReveal stagger staggerDelay={100} className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-sky-100/80 to-blue-100/80 backdrop-blur-sm rounded-xl p-5 border border-sky-200/50 shadow-lg hover:-translate-y-1 transition-transform duration-300">
+            <div className="bg-white/[0.04] backdrop-blur-md rounded-xl p-5 border border-white/[0.08] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] hover:-translate-y-1 transition-transform duration-300">
               <div className="flex items-center gap-2 mb-3">
-                <div className="p-2 rounded-lg bg-sky-500/10">
-                  <Waves className="h-5 w-5 text-sky-600" />
+                <div className="p-2 rounded-lg bg-[#4A70D9]/20">
+                  <Waves className="h-5 w-5 text-[#4A70D9]" />
                 </div>
-                <h3 className="text-sm font-medium text-gray-700">
+                <h3 className="text-sm font-medium text-white/70">
                   Total Spots
                 </h3>
               </div>
-              <p className="text-3xl font-bold text-gray-900">
+              <p className="text-3xl font-bold text-white">
                 <AnimatedCounter value={stats.total} duration={1000} />
               </p>
             </div>
 
-            <div className="bg-gradient-to-br from-green-100/80 to-emerald-100/80 backdrop-blur-sm rounded-xl p-5 border border-green-200/50 shadow-lg hover:-translate-y-1 transition-transform duration-300">
+            <div className="bg-white/[0.04] backdrop-blur-md rounded-xl p-5 border border-white/[0.08] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] hover:-translate-y-1 transition-transform duration-300">
               <div className="flex items-center gap-2 mb-3">
-                <div className="p-2 rounded-lg bg-green-500/10">
-                  <TrendingUp className="h-5 w-5 text-green-600" />
+                <div className="p-2 rounded-lg bg-emerald-500/20">
+                  <TrendingUp className="h-5 w-5 text-emerald-400" />
                 </div>
-                <h3 className="text-sm font-medium text-gray-700">Beginner</h3>
+                <h3 className="text-sm font-medium text-white/70">Beginner</h3>
               </div>
-              <p className="text-3xl font-bold text-gray-900">
+              <p className="text-3xl font-bold text-white">
                 <AnimatedCounter value={stats.beginner} duration={1000} />
               </p>
             </div>
 
-            <div className="bg-gradient-to-br from-blue-100/80 to-indigo-100/80 backdrop-blur-sm rounded-xl p-5 border border-blue-200/50 shadow-lg hover:-translate-y-1 transition-transform duration-300">
+            <div className="bg-white/[0.04] backdrop-blur-md rounded-xl p-5 border border-white/[0.08] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] hover:-translate-y-1 transition-transform duration-300">
               <div className="flex items-center gap-2 mb-3">
-                <div className="p-2 rounded-lg bg-blue-500/10">
-                  <Users className="h-5 w-5 text-blue-600" />
+                <div className="p-2 rounded-lg bg-[#F78E42]/20">
+                  <Users className="h-5 w-5 text-[#F78E42]" />
                 </div>
-                <h3 className="text-sm font-medium text-gray-700">
+                <h3 className="text-sm font-medium text-white/70">
                   Intermediate
                 </h3>
               </div>
-              <p className="text-3xl font-bold text-gray-900">
+              <p className="text-3xl font-bold text-white">
                 <AnimatedCounter value={stats.intermediate} duration={1000} />
               </p>
             </div>
 
-            <div className="bg-gradient-to-br from-slate-100/80 to-gray-100/80 backdrop-blur-sm rounded-xl p-5 border border-slate-200/50 shadow-lg hover:-translate-y-1 transition-transform duration-300">
+            <div className="bg-white/[0.04] backdrop-blur-md rounded-xl p-5 border border-white/[0.08] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] hover:-translate-y-1 transition-transform duration-300">
               <div className="flex items-center gap-2 mb-3">
-                <div className="p-2 rounded-lg bg-slate-500/10">
-                  <Mountain className="h-5 w-5 text-slate-600" />
+                <div className="p-2 rounded-lg bg-red-500/20">
+                  <Mountain className="h-5 w-5 text-red-400" />
                 </div>
-                <h3 className="text-sm font-medium text-gray-700">Advanced</h3>
+                <h3 className="text-sm font-medium text-white/70">Advanced</h3>
               </div>
-              <p className="text-3xl font-bold text-gray-900">
+              <p className="text-3xl font-bold text-white">
                 <AnimatedCounter value={stats.advanced} duration={1000} />
               </p>
             </div>
@@ -220,15 +220,15 @@ export function HubRegionClient({ region, beaches, stats }: HubRegionClientProps
         {/* Interactive Map */}
         <ScrollReveal variant="fadeUp" delay={200}>
           <section className="mb-12">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+            <h2 className="text-2xl font-semibold text-white mb-4">
               Explore Surf Spots
             </h2>
-            <p className="text-gray-600 mb-4">
+            <p className="text-white/60 mb-4">
               Click any marker to view spot details. Markers are color-coded by
               skill level: green for beginner, blue for intermediate, dark for
               advanced.
             </p>
-            <div className="h-[500px] rounded-2xl overflow-hidden border border-gray-200/50 shadow-xl">
+            <div className="h-[500px] rounded-2xl overflow-hidden border border-white/[0.08] shadow-xl">
               <HubMapClient
                 beaches={beaches}
                 centerLatitude={region.centerLat}
@@ -242,7 +242,7 @@ export function HubRegionClient({ region, beaches, stats }: HubRegionClientProps
         {/* Quick Links Section */}
         <ScrollReveal variant="fadeUp" delay={300}>
           <section className="mb-12">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">
+            <h2 className="text-2xl font-semibold text-white mb-6">
               Browse by Category
             </h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -260,16 +260,11 @@ export function HubRegionClient({ region, beaches, stats }: HubRegionClientProps
         {/* About Section */}
         <ScrollReveal variant="fadeUp" delay={400}>
           <section className="prose prose-slate max-w-none">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+            <h2 className="text-2xl font-semibold text-white mb-4">
               About {region.name} Surfing
             </h2>
-            <div className="bg-white/70 backdrop-blur-sm rounded-xl p-6 border border-slate-200/50 shadow-lg">
-              <p className="text-gray-700 mb-4">{region.description}</p>
-              <p className="text-gray-700">
-                Use Quiver to track conditions, plan sessions, and connect with
-                the local surf community. Get real-time forecasts, tide charts,
-                and crowd predictions for every spot in {region.name}.
-              </p>
+            <div className="bg-white/[0.04] backdrop-blur-md rounded-xl p-6 border border-white/[0.08]">
+              <p className="text-white/70">{region.description}</p>
             </div>
           </section>
         </ScrollReveal>

@@ -7,15 +7,23 @@ export const maxDuration = 30;
 // Candidate can be up to 2% worse than champion to be promoted
 const PROMOTION_THRESHOLD = -2; // percent
 
+// Candidate's mean absolute error must not exceed champion's by more than 10%
+const MAE_REGRESSION_THRESHOLD = 10; // percent
+
+// Candidate must not be worse than raw NOAA (doing nothing)
+const CANDIDATE_VS_RAW_MAE_THRESHOLD = 5; // percent
+
 /**
  * GET /api/cron/ml/promote-candidate
  *
  * Checks for validated candidate models that have completed 24h shadow scoring.
  * Compares candidate vs champion corrections against ground truth from
- * ml_predictions_log. Promotes if candidate outperforms, otherwise marks failed.
+ * ml_predictions_log. Promotes only if all three gates pass, otherwise marks failed.
  *
- * Promotion gate:
- *   candidate_improvement > champion_improvement - 2%
+ * Promotion gates (all must pass):
+ *   Gate 1 — Win rate: candidate_improvement >= champion_improvement - 2%
+ *   Gate 2 — MAE regression: candidate MAE not more than 10% worse than champion MAE
+ *   Gate 3 — vs raw NOAA: candidate MAE not more than 5% worse than raw NOAA MAE
  *
  * Run on schedule (e.g., every 6 hours) to evaluate shadow scoring results.
  */
@@ -129,10 +137,13 @@ export async function GET(request: Request) {
       continue;
     }
 
-    // Calculate improvement percentages
+    // Calculate improvement percentages and MAE accumulators
     // Champion improvement: % of predictions where corrected is closer to observed than raw
     let championImproved = 0;
     let candidateImproved = 0;
+    let championTotalError = 0;
+    let candidateTotalError = 0;
+    let rawTotalError = 0;
 
     for (const row of candidateMetrics) {
       const rawError = Math.abs(row.raw_error_m);
@@ -141,20 +152,49 @@ export async function GET(request: Request) {
 
       if (championError < rawError) championImproved++;
       if (candidateError < rawError) candidateImproved++;
+
+      championTotalError += championError;
+      candidateTotalError += candidateError;
+      rawTotalError += rawError;
     }
 
     const totalSamples = candidateMetrics.length;
     const championImprovementPct = (championImproved / totalSamples) * 100;
     const candidateImprovementPct = (candidateImproved / totalSamples) * 100;
 
+    const championMAE = championTotalError / totalSamples;
+    const candidateMAE = candidateTotalError / totalSamples;
+    const rawMAE = rawTotalError / totalSamples;
+
     console.log(`[Promote Candidate] ${candidate.version}: champion=${championImprovementPct.toFixed(1)}%, candidate=${candidateImprovementPct.toFixed(1)}% (${totalSamples} samples)`);
+    console.log(`[Promote Candidate] ${candidate.version} MAE: candidate=${candidateMAE.toFixed(3)}m, champion=${championMAE.toFixed(3)}m, raw=${rawMAE.toFixed(3)}m`);
 
     // =========================================================================
-    // STEP 4: Promotion decision
+    // STEP 4: Promotion decision — all three gates must pass
     // =========================================================================
     const improvementDelta = candidateImprovementPct - championImprovementPct;
+    const passesWinRate = improvementDelta >= PROMOTION_THRESHOLD;
 
-    if (improvementDelta >= PROMOTION_THRESHOLD) {
+    const maeRegressionPct = championMAE > 0
+      ? ((candidateMAE - championMAE) / championMAE) * 100
+      : 0;
+    const passesMAE = maeRegressionPct <= MAE_REGRESSION_THRESHOLD;
+
+    const candidateVsRawPct = rawMAE > 0
+      ? ((candidateMAE - rawMAE) / rawMAE) * 100
+      : 0;
+    const passesRawCheck = candidateVsRawPct <= CANDIDATE_VS_RAW_MAE_THRESHOLD;
+
+    const shouldPromote = passesWinRate && passesMAE && passesRawCheck;
+
+    console.log(
+      `[Promote Candidate] ${candidate.version} gates: ` +
+      `win_rate=${passesWinRate ? 'PASS' : 'FAIL'} (delta: ${improvementDelta.toFixed(1)}%, threshold: >=${PROMOTION_THRESHOLD}%) | ` +
+      `mae_regression=${passesMAE ? 'PASS' : 'FAIL'} (${maeRegressionPct.toFixed(1)}%, threshold: <=${MAE_REGRESSION_THRESHOLD}%) | ` +
+      `vs_raw=${passesRawCheck ? 'PASS' : 'FAIL'} (${candidateVsRawPct.toFixed(1)}%, threshold: <=${CANDIDATE_VS_RAW_MAE_THRESHOLD}%)`
+    );
+
+    if (shouldPromote) {
       console.log(`[Promote Candidate] Promoting ${candidate.version} (delta: ${improvementDelta.toFixed(1)}%)`);
 
       // Demote current champion if exists
@@ -175,7 +215,7 @@ export async function GET(request: Request) {
           status: 'deployed',
           deployed_at: new Date().toISOString(),
           production_improvement_pct: candidateImprovementPct,
-          notes: `Promoted after shadow scoring. Improvement: ${candidateImprovementPct.toFixed(1)}% (champion was ${championImprovementPct.toFixed(1)}%, delta: ${improvementDelta.toFixed(1)}%)`,
+          notes: `Promoted. Win rate: ${candidateImprovementPct.toFixed(1)}% vs champion ${championImprovementPct.toFixed(1)}% (delta: ${improvementDelta.toFixed(1)}%). MAE: candidate=${candidateMAE.toFixed(3)}m, champion=${championMAE.toFixed(3)}m, raw=${rawMAE.toFixed(3)}m.`,
         })
         .eq('id', candidate.id);
 
@@ -198,14 +238,20 @@ export async function GET(request: Request) {
 
       promoted++;
     } else {
-      console.log(`[Promote Candidate] Rejecting ${candidate.version} (delta: ${improvementDelta.toFixed(1)}%, threshold: ${PROMOTION_THRESHOLD}%)`);
+      const failedGates = [
+        !passesWinRate && `win_rate (delta: ${improvementDelta.toFixed(1)}%, needed >=${PROMOTION_THRESHOLD}%)`,
+        !passesMAE && `mae_regression (${maeRegressionPct.toFixed(1)}% worse, max ${MAE_REGRESSION_THRESHOLD}%)`,
+        !passesRawCheck && `vs_raw (${candidateVsRawPct.toFixed(1)}% worse than raw, max ${CANDIDATE_VS_RAW_MAE_THRESHOLD}%)`,
+      ].filter(Boolean).join(', ');
+
+      console.log(`[Promote Candidate] Rejecting ${candidate.version} — failed gates: ${failedGates}`);
 
       await supabase
         .from('ml_model_registry')
         .update({
           status: 'failed',
           production_improvement_pct: candidateImprovementPct,
-          notes: `Failed production validation. Improvement: ${candidateImprovementPct.toFixed(1)}% vs champion ${championImprovementPct.toFixed(1)}% (delta: ${improvementDelta.toFixed(1)}%, needed >= ${PROMOTION_THRESHOLD}%)`,
+          notes: `Failed production validation. Failed gates: ${failedGates}`,
         })
         .eq('id', candidate.id);
 

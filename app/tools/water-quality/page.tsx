@@ -8,7 +8,7 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, CheckCircle, XCircle, HelpCircle, Droplets } from "lucide-react";
+import { AlertTriangle, CheckCircle, XCircle, HelpCircle } from "lucide-react";
 
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { getBeachWaterQuality, getBeachesWithWaterQuality } from "@/actions/tools/water-quality-actions";
@@ -17,7 +17,9 @@ import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
-import { WaterQualityBeachSearch } from "@/components/tools/water-quality-beach-search";
+import { ToolHero } from "@/components/tools/tool-hero";
+import { TOOL_IMAGES } from "@/lib/constants/tool-images";
+import { WaterQualitySearch } from "./water-quality-search";
 import { WaterQualityMapList } from "@/components/tools/water-quality-map-list";
 import type { WQStatus } from "@/lib/constants/water-quality";
 
@@ -33,6 +35,7 @@ export async function generateMetadata(): Promise<Metadata> {
     description:
       "Check bacteria levels before you paddle out. Real water quality data from EPA monitoring stations for California and Hawaii beaches.",
     path: "/tools/water-quality",
+    image: "/images/tools/kelp-forest.jpg",
     keywords: [
       "water quality beach",
       "is it safe to swim",
@@ -152,7 +155,7 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
   const allBeaches = allBeachesResult.success ? (allBeachesResult.data ?? []) : [];
 
   return (
-    <div className="bg-[#252D6B] min-h-screen">
+    <div className="min-h-screen" style={{ background: "#0F1535" }}>
       <FAQSchema items={FAQ_ITEMS} />
       <BreadcrumbStructuredData
         items={[
@@ -161,32 +164,34 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
           { name: "Water Quality Check", url: `${SITE_ORIGIN}/tools/water-quality` },
         ]}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebApplication",
+            name: "Quiver Water Quality Check",
+            url: `${SITE_ORIGIN}/tools/water-quality`,
+            description: "Check bacteria levels before you paddle out. Real water quality data from EPA monitoring stations for California and Hawaii beaches.",
+            applicationCategory: "SportsApplication",
+            operatingSystem: "Any",
+            offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+            publisher: { "@type": "Organization", name: "Quiver", url: SITE_ORIGIN },
+          }),
+        }}
+      />
+
+      <ToolHero
+        imageSrc={TOOL_IMAGES["water-quality"]}
+        title="Water Quality Check"
+        description="Check bacteria levels before you paddle out. Updated from EPA monitoring stations. Currently covers CA & HI."
+      />
 
       <div className="container mx-auto px-4 py-10 max-w-4xl">
-        {/* Hero */}
-        <ScrollReveal>
-          <header className="mb-8 text-center">
-            <div className="inline-flex items-center gap-2 bg-[#F78E42]/20 text-[#F78E42] text-xs font-semibold uppercase tracking-widest px-3 py-1.5 rounded-full mb-4">
-              <Droplets className="h-3.5 w-3.5" />
-              Free Tool
-            </div>
-            <h1 className="text-3xl md:text-4xl font-bold text-white mb-3 font-space-grotesk">
-              Water Quality Check
-            </h1>
-            <p className="text-slate-300 text-lg max-w-xl mx-auto">
-              Check bacteria levels before you paddle out. Updated from EPA monitoring stations.
-            </p>
-            <p className="text-[#F78E42] text-sm font-medium mt-2">
-              Currently covers California and Hawaii beaches
-            </p>
-          </header>
-        </ScrollReveal>
-
         {/* Beach Search */}
         <ScrollReveal>
           <div className="mb-8">
-            <WaterQualityBeachSearch
-              currentSlug={beachSlug}
+            <WaterQualitySearch
               placeholder="Search for a CA or HI beach..."
             />
           </div>

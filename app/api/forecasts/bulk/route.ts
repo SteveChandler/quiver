@@ -36,7 +36,7 @@ async function bulkForecastHandler(request: NextRequest) {
 
     // Return empty forecasts for missing/empty beachIds (not an error)
     if (!beachIdsParam || !beachIdsParam.trim()) {
-      return createSuccessResponse({ forecasts: {} });
+      return createSuccessResponse({ forecasts: {}, waterTemps: {} });
     }
 
     // Parse beach IDs and filter out empty strings
@@ -46,7 +46,7 @@ async function bulkForecastHandler(request: NextRequest) {
       .filter(Boolean);
 
     if (beachIds.length === 0) {
-      return createSuccessResponse({ forecasts: {} });
+      return createSuccessResponse({ forecasts: {}, waterTemps: {} });
     }
 
     // Limit to prevent abuse
@@ -75,7 +75,28 @@ async function bulkForecastHandler(request: NextRequest) {
       }
     });
 
-    return createSuccessResponse({ forecasts: waveHeightMap });
+    // Fetch water temps from the same forecast rows
+    // Use a direct query since the RPC doesn't return water_temp
+    const waterTempMap: Record<string, string | undefined> = {};
+    if (limitedBeachIds.length > 0) {
+      const now = new Date().toISOString();
+      const { data: tempData } = await supabase
+        .from("enhanced_forecasts")
+        .select("beach_id, water_temp")
+        .in("beach_id", limitedBeachIds)
+        .gte("forecast_at", now)
+        .not("water_temp", "is", null)
+        .order("forecast_at", { ascending: true });
+
+      // Keep only the first (most current) water_temp per beach
+      (tempData || []).forEach((row: { beach_id: string; water_temp: string | null }) => {
+        if (row.water_temp !== null && !waterTempMap[row.beach_id]) {
+          waterTempMap[row.beach_id] = row.water_temp;
+        }
+      });
+    }
+
+    return createSuccessResponse({ forecasts: waveHeightMap, waterTemps: waterTempMap });
   } catch (error) {
     console.error("Unexpected error in bulk forecast API:", error);
     return handleApiError(error instanceof Error ? error : new Error(String(error)), "Unexpected error fetching forecasts");

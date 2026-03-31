@@ -12,7 +12,9 @@ import {
 import { classifyWindQuality } from "@/lib/utils/wind-quality";
 import { degreesToCardinal } from "@/lib/utils/geo-utils";
 import type { Beach } from "@/types/database";
-import { BeachToolSearch } from "@/components/tools/beach-tool-search";
+import { BeachSearchAutocomplete } from "@/components/beach/beach-search-autocomplete";
+import { ToolHero } from "@/components/tools/tool-hero";
+import { TOOL_IMAGES } from "@/lib/constants/tool-images";
 
 interface WindCheckerClientProps {
   initialData?: WindCheckerData;
@@ -92,43 +94,33 @@ export function WindCheckerClient({
             };
 
   return (
-    <div className="min-h-screen" style={{ background: "#0F1535" }}>
-      {/* Header band */}
-      <section
-        className="noise-texture border-b"
-        style={{
-          background: "linear-gradient(180deg, #1E2558 0%, #252D6B 100%)",
-          borderColor: "rgba(64,76,146,0.4)",
-        }}
+    <>
+      <ToolHero
+        imageSrc={TOOL_IMAGES["wind-checker"]}
+        title="Offshore Wind Checker"
+        description="Is the wind offshore at your break? Check in one tap."
+        badge={
+          <div
+            className="inline-flex items-center gap-2 rounded-full border px-3 py-1 font-mono text-xs font-semibold uppercase tracking-widest"
+            style={{
+              background: "rgba(247,142,66,0.12)",
+              borderColor: "rgba(247,142,66,0.35)",
+              color: "#F78E42",
+            }}
+          >
+            <Wind className="h-3.5 w-3.5" aria-hidden="true" />
+            Live Wind
+          </div>
+        }
       >
-        <div className="container mx-auto max-w-4xl px-4 py-10 sm:py-14">
-          <div className="text-center mb-8">
-            <div
-              className="inline-flex items-center gap-2 rounded-full border px-3 py-1 font-mono text-xs font-semibold uppercase tracking-widest mb-4"
-              style={{
-                background: "rgba(247,142,66,0.12)",
-                borderColor: "rgba(247,142,66,0.35)",
-                color: "#F78E42",
-              }}
-            >
-              <Wind className="h-3.5 w-3.5" aria-hidden="true" />
-              Live Wind
-            </div>
-            <h1 className="font-heading text-3xl sm:text-4xl font-bold text-white mb-3">
-              Offshore Wind Checker
-            </h1>
-            <p className="text-[#B8C7E0] text-base sm:text-lg max-w-xl mx-auto">
-              Is the wind offshore at your break? Check in one tap.
-            </p>
-          </div>
-          <div className="max-w-md mx-auto">
-            <BeachToolSearch
-              onSelect={handleBeachSelect}
-              placeholder="Find your beach..."
-            />
-          </div>
+        <div className="max-w-md mx-auto">
+          <BeachSearchAutocomplete
+            onSelect={handleBeachSelect}
+            placeholder="Search for a beach..."
+            maxResults={6}
+          />
         </div>
-      </section>
+      </ToolHero>
 
       {/* Body */}
       <div className="container mx-auto max-w-4xl px-4 py-8 space-y-6">
@@ -346,60 +338,8 @@ export function WindCheckerClient({
           </div>
         )}
 
-        {/* Explainer + FAQ */}
-        <section
-          className="noise-texture rounded-2xl border p-6 space-y-4"
-          style={{
-            background: "linear-gradient(135deg, rgba(37,45,107,0.9) 0%, rgba(26,33,88,0.95) 100%)",
-            borderColor: "rgba(64,76,146,0.4)",
-          }}
-        >
-          <h2 className="font-heading text-lg font-bold text-white">
-            What is offshore wind?
-          </h2>
-          <div className="space-y-3 text-sm text-[#B8C7E0] leading-relaxed">
-            <p>
-              <strong className="text-white">Offshore wind</strong> blows from land toward
-              the ocean — it grooms incoming waves into clean, well-defined lines. A light
-              offshore at 5–15 mph is ideal. Above 20 mph it hollows waves but makes
-              paddling out difficult.
-            </p>
-            <p>
-              <strong className="text-white">Onshore wind</strong> blows from ocean toward
-              land — it chops up the wave surface. The stronger the onshore, the messier
-              the conditions.
-            </p>
-            <p>
-              <strong className="text-white">Cross-shore wind</strong> runs parallel to
-              the beach — creates some chop on one side but is usually more rideable than
-              onshore.
-            </p>
-          </div>
-
-          <div className="space-y-2 pt-2">
-            {FAQ.map((item) => (
-              <details key={item.q} className="group">
-                <summary
-                  className="flex cursor-pointer items-center justify-between rounded-xl px-4 py-3 font-mono text-sm font-semibold list-none"
-                  style={{
-                    background: "rgba(64,76,146,0.25)",
-                    color: "#B8C7E0",
-                  }}
-                >
-                  {item.q}
-                  <span className="ml-2 text-[#7A8CC0] group-open:rotate-180 transition-transform shrink-0">
-                    ▾
-                  </span>
-                </summary>
-                <div className="px-4 pt-2 pb-3 text-sm text-[#B8C7E0] leading-relaxed">
-                  {item.a}
-                </div>
-              </details>
-            ))}
-          </div>
-        </section>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -508,21 +448,3 @@ function WindTimeline({ wind, offshoreDeg, toleranceDeg }: WindTimelineProps) {
   );
 }
 
-const FAQ = [
-  {
-    q: "How do I know which direction is offshore for my beach?",
-    a: "Offshore direction depends on which way your beach faces. A beach that faces west has offshore wind from the east. Quiver calculates this from each beach's shore orientation data.",
-  },
-  {
-    q: "What wind speed is ideal for surfing?",
-    a: "Light offshore winds of 5–15 mph are ideal. They clean up the wave face without making paddling out too difficult. Winds over 20 mph (even offshore) can cause issues, and winds over 30 mph are dangerous for most surfers.",
-  },
-  {
-    q: "Why does wind change throughout the day?",
-    a: "As the land heats up, air flows from the cooler ocean toward land — onshore breeze. At night and early morning, the land cools faster, often creating light offshore winds. This is why dawn patrol sessions often have the cleanest conditions.",
-  },
-  {
-    q: "How accurate is the wind forecast?",
-    a: "Wind data comes from the Open-Meteo weather model, updated hourly. Near-shore forecasts are generally accurate within 2–5 mph for the next 12 hours. Local terrain can cause deviations.",
-  },
-];

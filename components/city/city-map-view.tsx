@@ -79,6 +79,8 @@ interface CityMapViewProps {
   citySlug: string;
   stateSlug?: string;
   countrySlug?: string;
+  /** Controls what data map markers display: 'wave-height' (default) or 'water-temp' */
+  displayMode?: "wave-height" | "water-temp";
 }
 
 /**
@@ -177,6 +179,7 @@ export function CityMapView({
   citySlug,
   stateSlug = "ca",
   countrySlug = "usa",
+  displayMode,
 }: CityMapViewProps) {
   const [selectedSpot, setSelectedSpot] = useState<SurfSpot | null>(null);
   const [hoveredSpot, setHoveredSpot] = useState<SurfSpot | null>(null);
@@ -307,6 +310,7 @@ export function CityMapView({
               beaches={beaches}
               onLocationClick={handleMapBeachClick}
               className="h-full w-full"
+              displayMode={displayMode}
             />
           </Suspense>
         </MapErrorBoundary>

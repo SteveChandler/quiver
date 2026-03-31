@@ -29,6 +29,27 @@ export function formatClusterWaveRange(
 }
 
 /**
+ * Format water temperature range for cluster display
+ * @param temps Array of water temperature strings (e.g., "52", "58")
+ * @returns Formatted range string (e.g., "52-58°F") or "—" if no data
+ */
+export function formatClusterWaterTempRange(
+  temps: (string | undefined | null)[]
+): string {
+  const validTemps = temps
+    .map((t) => (t != null ? parseFloat(t) : NaN))
+    .filter((t) => !isNaN(t) && isFinite(t));
+
+  if (validTemps.length === 0) return "—";
+
+  const min = Math.round(Math.min(...validTemps));
+  const max = Math.round(Math.max(...validTemps));
+
+  if (min === max) return `${min}°F`;
+  return `${min}-${max}°F`;
+}
+
+/**
  * Get cluster marker background color
  * @param hasFavorite Whether cluster contains a favorite beach
  * @returns CSS gradient string

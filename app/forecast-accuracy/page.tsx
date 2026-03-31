@@ -20,6 +20,7 @@ import {
   getOverallAccuracyStats,
   getRegionalAccuracy,
   getTopBeaches,
+  getDailyAccuracyTimeSeries,
 } from "@/actions/ml/forecast-accuracy-actions";
 import { AccuracyHero } from "@/components/forecast-accuracy/accuracy-hero";
 import { NOAAComparisonBar } from "@/components/forecast-accuracy/noaa-comparison-bar";
@@ -59,10 +60,11 @@ const MIN_BEACH_THRESHOLD = 5;
 
 export default async function ForecastAccuracyPage() {
   // Fetch all data in parallel
-  const [overallStats, regionalData, topBeaches] = await Promise.all([
+  const [overallStats, regionalData, topBeaches, dailyTimeSeries] = await Promise.all([
     getOverallAccuracyStats(),
     getRegionalAccuracy(),
     getTopBeaches(),
+    getDailyAccuracyTimeSeries(),
   ]);
 
   const hasEnoughData =
@@ -103,6 +105,7 @@ export default async function ForecastAccuracyPage() {
                 <NOAAComparisonBar
                   rawMae={overallStats.avgRawMae}
                   correctedMae={overallStats.avgCorrectedMae}
+                  timeSeries={dailyTimeSeries}
                 />
               </div>
             </ScrollReveal>

@@ -4,7 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, RefreshCw, Sun, Moon, Sunrise } from "lucide-react";
-import { BeachToolSearch } from "@/components/tools/beach-tool-search";
+import { BeachSearchAutocomplete } from "@/components/beach/beach-search-autocomplete";
+import { ToolHero } from "@/components/tools/tool-hero";
+import { TOOL_IMAGES } from "@/lib/constants/tool-images";
 import type { Beach } from "@/types/database";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 
@@ -334,33 +336,19 @@ export function DawnPatrolClient() {
 
   return (
     <div className="min-h-screen" style={{ background: "#0F1535" }}>
-      {/* Header */}
-      <section
-        className="noise-texture border-b"
-        style={{
-          background: "linear-gradient(180deg, #1E2558 0%, #252D6B 100%)",
-          borderColor: "rgba(64,76,146,0.4)",
-        }}
+      <ToolHero
+        imageSrc={TOOL_IMAGES["dawn-patrol"]}
+        title="Dawn Patrol Calculator"
+        description="Know exactly when to be in the water. First light, sunrise, golden hour — plus tide at dawn."
       >
-        <div className="container mx-auto max-w-4xl px-4 py-10 sm:py-14">
-          <div className="text-center mb-8">
-            <h1 className="font-heading text-3xl sm:text-4xl font-bold text-white mb-3">
-              Dawn Patrol Calculator
-            </h1>
-            <p className="text-[#B8C7E0] text-base sm:text-lg max-w-xl mx-auto">
-              Know exactly when to be in the water. First light, sunrise, golden
-              hour — plus tide at dawn.
-            </p>
-          </div>
-
-          <div className="max-w-md mx-auto">
-            <BeachToolSearch
-              onSelect={handleBeachSelect}
-              placeholder="Find your beach..."
-            />
-          </div>
+        <div className="max-w-md mx-auto">
+          <BeachSearchAutocomplete
+            onSelect={handleBeachSelect}
+            placeholder="Search for a beach..."
+            maxResults={6}
+          />
         </div>
-      </section>
+      </ToolHero>
 
       <div className="container mx-auto max-w-4xl px-4 py-8">
         {/* Loading */}

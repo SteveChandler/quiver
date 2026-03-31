@@ -1,6 +1,7 @@
 import mapboxgl from "mapbox-gl";
 import { createClusterMarkerElement } from "@/components/map/cluster-marker";
 import type { ClusterPoint } from "@/hooks/use-beach-clustering";
+import type { MapDisplayMode } from "@/components/map/map-marker-builder";
 
 /**
  * Dependencies injected into createClusterMapMarker so the function
@@ -15,6 +16,10 @@ export interface ClusterRendererDeps {
   getExpansionZoom: (clusterId: number) => number;
   /** Fly the map to a location at a given zoom level */
   flyTo: (center: [number, number], zoom: number) => void;
+  /** Display mode: wave-height (default) or water-temp */
+  displayMode?: MapDisplayMode;
+  /** Map from beach ID to water temperature string */
+  waterTempMap?: Map<string, string | undefined>;
 }
 
 /**
@@ -37,12 +42,19 @@ export function createClusterMapMarker(
   const hasFavorite =
     cluster.beachIds?.some((id) => deps.favoriteBeachIds.has(id)) || false;
 
+  // Collect water temps for beaches in this cluster
+  const waterTemps = deps.waterTempMap && cluster.beachIds
+    ? cluster.beachIds.map((id) => deps.waterTempMap!.get(id))
+    : [];
+
   const { element, cleanup } = createClusterMarkerElement({
     waveHeights: cluster.waveHeights || [],
     pointCount: cluster.pointCount || 0,
     hasFavorite,
     onHover: () => {},
     onLeave: () => {},
+    displayMode: deps.displayMode,
+    waterTemps,
   });
 
   // Store cleanup function

@@ -24,9 +24,9 @@ import type { Beach } from "@/types/database";
 // Updated after 20251025 migrations: location->city, latitude->lat, longitude->lon, region->state
 // WARNING: Some environments may still use legacy columns (location/region) and may not have updated_at.
 const BEACH_LIST_FIELDS =
-  "id, name, slug, city, lat, lon, state, country, created_at, updated_at, is_private, break_type, skill_level";
+  "id, name, slug, city, lat, lon, state, country, created_at, is_private, break_type, skill_level, average_rating, review_count";
 const BEACH_LIST_FIELDS_LEGACY =
-  "id, name, location, region, lat, lon, country, created_at, is_private, break_type, skill_level";
+  "id, name, location, region, lat, lon, country, created_at, is_private, break_type, skill_level, average_rating, review_count";
 
 // Full beach detail fields for single beach queries
 const BEACH_DETAIL_FIELDS = "*";

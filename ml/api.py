@@ -919,6 +919,15 @@ async def train_model(request: TrainRequest):
                 )
                 go = False
 
+        logger.info(f"[Train] MAE check: corrected={overall['corrected_mae']:.3f}m vs raw={overall['raw_mae']:.3f}m ({'PASS' if overall['corrected_mae'] < overall['raw_mae'] else 'FAIL'})")
+        # MAE sanity check — model must reduce average error
+        if overall['corrected_mae'] >= overall['raw_mae']:
+            failure_reasons.append(
+                f"Corrected MAE ({overall['corrected_mae']:.3f}m) >= raw MAE "
+                f"({overall['raw_mae']:.3f}m) — model makes predictions worse on average"
+            )
+            go = False
+
         if abs(mean_bias) >= MEAN_BIAS_LIMIT:
             failure_reasons.append(f"Mean bias {mean_bias:+.3f}m is too one-directional (|bias| >= {MEAN_BIAS_LIMIT})")
             go = False

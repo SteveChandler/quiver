@@ -17,7 +17,9 @@ import { FAQSchema } from "@/components/seo/faq-schema";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { HowToWaveConverterSchema } from "@/components/seo/how-to-wave-converter-schema";
 import { WaveHeightConverter } from "@/components/tools/wave-height-converter";
+import { ToolHero } from "@/components/tools/tool-hero";
 import { SITE_URL } from "@/lib/constants/seo";
+import { TOOL_IMAGES } from "@/lib/constants/tool-images";
 
 export const revalidate = 86400;
 
@@ -26,6 +28,7 @@ export const metadata: Metadata = buildPageMetadata({
   description:
     "Convert wave heights between feet, meters, and Hawaiian scale instantly. Includes a reference table and explanation of how waves are measured.",
   path: "/tools/wave-converter",
+  image: "/images/tools/wave-converter-screenshot.jpg",
   keywords: [
     "wave height converter",
     "hawaiian scale waves",
@@ -76,25 +79,29 @@ export default function WaveConverterPage() {
           { name: "Wave Height Converter", url: `${SITE_URL}/tools/wave-converter` },
         ]}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebApplication",
+            name: "Quiver Wave Height Converter",
+            url: `${SITE_URL}/tools/wave-converter`,
+            description: "Convert wave heights between feet, meters, and Hawaiian scale instantly. Includes a reference table and explanation of how waves are measured.",
+            applicationCategory: "SportsApplication",
+            operatingSystem: "Any",
+            offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+            publisher: { "@type": "Organization", name: "Quiver", url: SITE_URL },
+          }),
+        }}
+      />
 
       <div className="min-h-screen" style={{ background: "#0F1535" }}>
-        {/* Header */}
-        <section
-          className="noise-texture border-b"
-          style={{
-            background: "linear-gradient(180deg, #1E2558 0%, #252D6B 100%)",
-            borderColor: "rgba(64,76,146,0.4)",
-          }}
-        >
-          <div className="container mx-auto max-w-3xl px-4 py-10 sm:py-14">
-            <h1 className="font-heading text-3xl sm:text-4xl font-bold text-white mb-3">
-              Wave Height Converter
-            </h1>
-            <p className="text-[#B8C7E0] text-base sm:text-lg">
-              Convert between feet, meters, and Hawaiian scale instantly.
-            </p>
-          </div>
-        </section>
+        <ToolHero
+          imageSrc={TOOL_IMAGES["wave-converter"]}
+          title="Wave Height Converter"
+          description="Convert between feet, meters, and Hawaiian scale instantly."
+        />
 
         <div className="container mx-auto max-w-3xl px-4 py-8 sm:py-12">
           {/* Calculator — wrapped in Suspense for useSearchParams */}

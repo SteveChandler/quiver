@@ -364,7 +364,7 @@ export function WaveHeightConverter() {
             <strong className="text-white">Face height</strong> is the
             most common measurement in modern surf forecasting. It measures the
             height of the wave face — what you see as you paddle toward it.
-            Most US surf forecasts (Surfline, Magic Seaweed, Quiver) use face
+            Most US surf forecasts (Surfline, Buoyweather, Quiver) use face
             height in feet.
           </p>
           <p>

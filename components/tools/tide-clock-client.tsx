@@ -4,9 +4,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { TrendingUp, TrendingDown, ArrowRight, RefreshCw } from "lucide-react";
-import { BeachToolSearch } from "@/components/tools/beach-tool-search";
+import { BeachSearchAutocomplete } from "@/components/beach/beach-search-autocomplete";
+import { ToolHero } from "@/components/tools/tool-hero";
+import { TOOL_IMAGES } from "@/lib/constants/tool-images";
 import type { Beach } from "@/types/database";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { TideChart } from "@/components/forecast/tide-chart-recharts";
 
 // Popular beaches for the default hero state
 const POPULAR_BEACH_SLUGS = [
@@ -121,9 +124,11 @@ interface TideClockProps {
   predictions: TidePrediction[];
   sunriseUtc: string | null;
   sunsetUtc: string | null;
+  timezone: string | null;
+  currentHeight: number | null;
 }
 
-function TideClock({ predictions, sunriseUtc, sunsetUtc }: TideClockProps) {
+function TideClock({ predictions, sunriseUtc, sunsetUtc, timezone, currentHeight }: TideClockProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
 
@@ -137,7 +142,7 @@ function TideClock({ predictions, sunriseUtc, sunsetUtc }: TideClockProps) {
     const H = canvas.height;
     const cx = W / 2;
     const cy = H / 2;
-    const r = Math.min(W, H) / 2 - 8;
+    const r = Math.min(W, H) / 2 - 36;
 
     ctx.clearRect(0, 0, W, H);
 
@@ -219,6 +224,26 @@ function TideClock({ predictions, sunriseUtc, sunsetUtc }: TideClockProps) {
       ctx.stroke();
     }
 
+    // Time labels at 6-hour intervals
+    const tz = timezone || "America/Los_Angeles";
+    for (let i = 0; i < 4; i++) {
+      const hourIndex = i * 6;
+      const angle = (hourIndex / 24) * Math.PI * 2 - Math.PI / 2;
+      const ms = startMs + (hourIndex / 24) * totalMs;
+      const label = new Date(ms)
+        .toLocaleTimeString("en-US", { hour: "numeric", hour12: true, timeZone: tz })
+        .replace(/ AM$/i, "a")
+        .replace(/ PM$/i, "p");
+      const labelR = r + 24;
+      const lx = cx + Math.cos(angle) * labelR;
+      const ly = cy + Math.sin(angle) * labelR;
+      ctx.fillStyle = "#7A8CC0";
+      ctx.font = "bold 11px monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(label, lx, ly);
+    }
+
     // Current time needle
     if (nowMs >= startMs && nowMs <= endMs) {
       const nowAngle = ((nowMs - startMs) / totalMs) * Math.PI * 2 - Math.PI / 2;
@@ -243,15 +268,26 @@ function TideClock({ predictions, sunriseUtc, sunsetUtc }: TideClockProps) {
       ctx.fill();
     }
 
-    // Center circle
+    // Center: current height display
     ctx.beginPath();
-    ctx.arc(cx, cy, 8, 0, Math.PI * 2);
-    ctx.fillStyle = "#252D6B";
+    ctx.arc(cx, cy, 28, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(37, 45, 107, 0.95)";
     ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,0.3)";
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
     ctx.lineWidth = 1;
     ctx.stroke();
-  }, [predictions, sunriseUtc, sunsetUtc]);
+
+    if (currentHeight !== null) {
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "bold 18px monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(`${currentHeight}`, cx, cy - 5);
+      ctx.fillStyle = "#7A8CC0";
+      ctx.font = "10px monospace";
+      ctx.fillText("ft", cx, cy + 12);
+    }
+  }, [predictions, sunriseUtc, sunsetUtc, timezone, currentHeight]);
 
   useEffect(() => {
     const loop = () => {
@@ -276,211 +312,11 @@ function TideClock({ predictions, sunriseUtc, sunsetUtc }: TideClockProps) {
   return (
     <canvas
       ref={canvasRef}
-      width={280}
-      height={280}
-      className="w-full max-w-[280px] mx-auto"
-      aria-label="Analog tide clock showing 24-hour tide cycle"
+      width={400}
+      height={400}
+      className="w-full max-w-[300px] mx-auto"
+      aria-label="Analog tide clock showing current tide height and 24-hour cycle"
     />
-  );
-}
-
-// ---------------------------------------------------------------------------
-// 24-hour tide curve chart (SVG)
-// ---------------------------------------------------------------------------
-
-function TideCurveChart({
-  predictions,
-  sunriseUtc,
-  sunsetUtc,
-  timezone,
-}: {
-  predictions: TidePrediction[];
-  sunriseUtc: string | null;
-  sunsetUtc: string | null;
-  timezone: string | null;
-}) {
-  if (predictions.length < 2) return null;
-
-  const W = 600;
-  const H = 120;
-  const PAD_X = 32;
-  const PAD_Y = 12;
-
-  const heights = predictions.map((p) => mToFt(p.tide_height_m));
-  const minH = Math.min(...heights);
-  const maxH = Math.max(...heights);
-  const rangeH = maxH - minH || 1;
-
-  const startMs = new Date(predictions[0].ts).getTime();
-  const endMs = new Date(predictions[predictions.length - 1].ts).getTime();
-  const totalMs = endMs - startMs || 1;
-  const nowMs = Date.now();
-
-  const xScale = (ms: number) =>
-    PAD_X + ((ms - startMs) / totalMs) * (W - PAD_X * 2);
-  const yScale = (h: number) =>
-    H - PAD_Y - ((h - minH) / rangeH) * (H - PAD_Y * 2);
-
-  // Build SVG path for the tide curve
-  const points = predictions.map((p, i) => {
-    const x = xScale(new Date(p.ts).getTime());
-    const y = yScale(mToFt(p.tide_height_m));
-    return `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
-  });
-
-  // Gradient fill
-  const fillPoints = [
-    ...points,
-    `L ${xScale(endMs).toFixed(1)} ${(H - PAD_Y).toFixed(1)}`,
-    `L ${PAD_X} ${(H - PAD_Y).toFixed(1)}`,
-    "Z",
-  ];
-
-  // Now marker x position
-  const nowX = nowMs >= startMs && nowMs <= endMs ? xScale(nowMs) : null;
-
-  // Sunrise/sunset x positions
-  const sunriseX = sunriseUtc
-    ? xScale(new Date(sunriseUtc).getTime())
-    : null;
-  const sunsetX = sunsetUtc ? xScale(new Date(sunsetUtc).getTime()) : null;
-
-  // Hour labels at 0, 6, 12, 18, 24
-  const hourLabels: { x: number; label: string }[] = [];
-  const tzStr = timezone || "America/Los_Angeles";
-  for (let h = 0; h <= 24; h += 6) {
-    const ms = startMs + (h / 24) * totalMs;
-    if (ms > endMs) break;
-    const x = xScale(ms);
-    const label = new Date(ms).toLocaleTimeString("en-US", {
-      hour: "numeric",
-      hour12: true,
-      timeZone: tzStr,
-    });
-    hourLabels.push({ x, label });
-  }
-
-  return (
-    <div className="w-full overflow-x-auto -mx-1">
-      <svg
-        viewBox={`0 0 ${W} ${H + 24}`}
-        className="w-full min-w-[320px]"
-        aria-label="24-hour tide curve"
-        role="img"
-      >
-        <defs>
-          <linearGradient id="tideGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3B6BD4" stopOpacity="0.5" />
-            <stop offset="100%" stopColor="#3B6BD4" stopOpacity="0.05" />
-          </linearGradient>
-        </defs>
-
-        {/* Daylight zone */}
-        {sunriseX !== null && sunsetX !== null && (
-          <rect
-            x={Math.max(PAD_X, sunriseX)}
-            y={PAD_Y}
-            width={Math.min(W - PAD_X, sunsetX) - Math.max(PAD_X, sunriseX)}
-            height={H - PAD_Y * 2}
-            fill="rgba(247, 142, 66, 0.08)"
-          />
-        )}
-
-        {/* Tide fill */}
-        <path d={fillPoints.join(" ")} fill="url(#tideGradient)" />
-
-        {/* Tide curve line */}
-        <path
-          d={points.join(" ")}
-          fill="none"
-          stroke="#3B6BD4"
-          strokeWidth="2"
-          strokeLinejoin="round"
-        />
-
-        {/* Sunrise marker */}
-        {sunriseX !== null && sunriseX >= PAD_X && sunriseX <= W - PAD_X && (
-          <line
-            x1={sunriseX}
-            y1={PAD_Y}
-            x2={sunriseX}
-            y2={H - PAD_Y}
-            stroke="#F78E42"
-            strokeWidth="1.5"
-            strokeDasharray="4 3"
-            opacity="0.7"
-          />
-        )}
-
-        {/* Sunset marker */}
-        {sunsetX !== null && sunsetX >= PAD_X && sunsetX <= W - PAD_X && (
-          <line
-            x1={sunsetX}
-            y1={PAD_Y}
-            x2={sunsetX}
-            y2={H - PAD_Y}
-            stroke="#F78E42"
-            strokeWidth="1.5"
-            strokeDasharray="4 3"
-            opacity="0.7"
-          />
-        )}
-
-        {/* Now line */}
-        {nowX !== null && (
-          <>
-            <line
-              x1={nowX}
-              y1={PAD_Y}
-              x2={nowX}
-              y2={H - PAD_Y}
-              stroke="#F78E42"
-              strokeWidth="2"
-            />
-            <circle cx={nowX} cy={H - PAD_Y} r="4" fill="#F78E42" />
-          </>
-        )}
-
-        {/* Hour labels */}
-        {hourLabels.map(({ x, label }) => (
-          <text
-            key={label}
-            x={x}
-            y={H + 16}
-            textAnchor="middle"
-            fontSize="10"
-            fill="#7A8CC0"
-            fontFamily="monospace"
-          >
-            {label}
-          </text>
-        ))}
-
-        {/* Y-axis labels */}
-        <text
-          x={PAD_X - 4}
-          y={yScale(maxH)}
-          textAnchor="end"
-          fontSize="9"
-          fill="#7A8CC0"
-          fontFamily="monospace"
-          dominantBaseline="middle"
-        >
-          {maxH.toFixed(1)}ft
-        </text>
-        <text
-          x={PAD_X - 4}
-          y={yScale(minH)}
-          textAnchor="end"
-          fontSize="9"
-          fill="#7A8CC0"
-          fontFamily="monospace"
-          dominantBaseline="middle"
-        >
-          {minH.toFixed(1)}ft
-        </text>
-      </svg>
-    </div>
   );
 }
 
@@ -566,34 +402,19 @@ export function TideClockClient() {
 
   return (
     <div className="min-h-screen" style={{ background: "#0F1535" }}>
-      {/* Header */}
-      <section
-        className="noise-texture border-b"
-        style={{
-          background:
-            "linear-gradient(180deg, #1E2558 0%, #252D6B 100%)",
-          borderColor: "rgba(64,76,146,0.4)",
-        }}
+      <ToolHero
+        imageSrc={TOOL_IMAGES["tide-clock"]}
+        title="Tide Clock"
+        description="Real-time tide heights for any beach."
       >
-        <div className="container mx-auto max-w-4xl px-4 py-10 sm:py-14">
-          <div className="text-center mb-8">
-            <h1 className="font-heading text-3xl sm:text-4xl font-bold text-white mb-3">
-              Tide Clock
-            </h1>
-            <p className="text-[#B8C7E0] text-base sm:text-lg max-w-xl mx-auto">
-              Real-time tide heights for 279+ beaches. Always free.
-            </p>
-          </div>
-
-          {/* Search */}
-          <div className="max-w-md mx-auto">
-            <BeachToolSearch
-              onSelect={handleBeachSelect}
-              placeholder="Find your beach..."
-            />
-          </div>
+        <div className="max-w-md mx-auto">
+          <BeachSearchAutocomplete
+            onSelect={handleBeachSelect}
+            placeholder="Search for a beach..."
+            maxResults={6}
+          />
         </div>
-      </section>
+      </ToolHero>
 
       <div className="container mx-auto max-w-4xl px-4 py-8">
         {/* Loading */}
@@ -674,6 +495,8 @@ export function TideClockClient() {
                   predictions={tideData.predictions}
                   sunriseUtc={tideData.sunTimes?.sunrise_utc ?? null}
                   sunsetUtc={tideData.sunTimes?.sunset_utc ?? null}
+                  timezone={tideData.beach.timezone}
+                  currentHeight={currentHeight}
                 />
               </div>
 
@@ -790,22 +613,14 @@ export function TideClockClient() {
               <p className="font-mono text-xs font-semibold uppercase tracking-widest text-[#7A8CC0] mb-4">
                 24-Hour Tide Chart
               </p>
-              <TideCurveChart
-                predictions={tideData.predictions}
-                sunriseUtc={tideData.sunTimes?.sunrise_utc ?? null}
-                sunsetUtc={tideData.sunTimes?.sunset_utc ?? null}
-                timezone={tideData.beach.timezone}
+              <TideChart
+                hourly={tideData.predictions.map((p) => ({
+                  ts: p.ts,
+                  height_m: p.tide_height_m,
+                }))}
+                compact
+                windowHours={24}
               />
-              <div className="flex items-center gap-4 mt-3 text-xs font-mono text-[#7A8CC0]">
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block w-4 h-0.5 bg-[#F78E42]" />
-                  Now
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block w-4 h-0.5 border-t border-dashed border-[#F78E42] opacity-70" />
-                  Sunrise / Sunset
-                </span>
-              </div>
             </div>
 
             {/* CTA */}

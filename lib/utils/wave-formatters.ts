@@ -87,6 +87,22 @@ const MIN_EXPECTED_TRANSFORM_RATIO = 0.9;
 const MIN_HEIGHT_FOR_TRANSFORM_DEBUG = 1.5;
 
 // ============================================================================
+// Water Temperature Formatting
+// ============================================================================
+
+/**
+ * Format a water temperature for display.
+ * @param temp Temperature in Fahrenheit (number, string, or null/undefined)
+ * @returns Formatted string (e.g., "52°F") or "—" if no data
+ */
+export function formatWaterTemp(temp?: number | string | null): string {
+  if (temp === null || temp === undefined || temp === "") return "—";
+  const numTemp = typeof temp === "string" ? parseFloat(temp) : temp;
+  if (isNaN(numTemp)) return "—";
+  return `${Math.round(numTemp)}°F`;
+}
+
+// ============================================================================
 // Human-readable size labels (from original wave-formatters.ts)
 // ============================================================================
 
