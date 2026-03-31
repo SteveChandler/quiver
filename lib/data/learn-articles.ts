@@ -419,16 +419,16 @@ export const learnArticles: LearnArticle[] = [
     ],
     relatedLinks: [
       {
-        label: "Beginner Breaks: San Diego",
-        href: "/learn/beginner-breaks-san-diego",
+        label: "What Size Surfboard Should I Get?",
+        href: "/learn/what-size-surfboard-should-i-get",
         description:
-          "Best beginner-friendly breaks in San Diego with forecast guidance.",
+          "Board sizing guide — why foamies accelerate learning.",
       },
       {
-        label: "Beginner Breaks: Santa Cruz",
-        href: "/learn/beginner-breaks-santa-cruz",
+        label: "Surf Etiquette Rules",
+        href: "/learn/surf-etiquette-rules",
         description:
-          "Beginner spots around Santa Cruz with tide and wind patterns.",
+          "Know the lineup rules before you paddle out.",
       },
       {
         label: "How to Read a Surf Forecast",

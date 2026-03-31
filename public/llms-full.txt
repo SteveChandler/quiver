@@ -34,7 +34,7 @@ A: Quiver displays live video streams from third-party camera providers at selec
 Q: Is Quiver available outside the United States?
 A: Quiver currently focuses on US coastal areas (California, Oregon, Washington, Hawaii, Florida, East Coast states, Puerto Rico) and Baja California, Mexico. International expansion is planned but not yet available. If you surf primarily outside these regions, Surfline currently offers broader international coverage.
 
-## Surf Knowledge Base (20 Answers)
+## Surf Knowledge Base
 
 Q: How do you read a surf report?
 A: Read five metrics together: wave height (size), swell period (quality — 12+ seconds means clean distant-storm energy), swell direction (must face your beach), wind direction (offshore = clean, onshore = choppy), and tide (mid-tide usually best). Quiver displays all five from NOAA WaveWatch III, corrected with real-time NDBC and CDIP buoy data. Learn more: https://www.quiversurf.app/learn/how-to-read-a-surf-forecast
@@ -61,40 +61,40 @@ Q: How accurate are surf forecasts?
 A: NOAA's WaveWatch III is accurate within ±1-2 ft height and ±2-3 sec period, 0-3 days out. Accuracy degrades beyond 5 days. Quiver's ML corrections (trained on 30,000+ buoy observations from CDIP/NDBC) achieve a 90.4% match rate and 59% improvement over raw NOAA baseline. Learn more: https://www.quiversurf.app/learn/how-accurate-are-surf-forecasts
 
 Q: When is the best time of day to surf?
-A: Early morning (dawn patrol, 5:30-8 AM) and late afternoon (4-6 PM). Land cools overnight creating offshore wind flow. Solar heating reverses it midday. Evening "glass-off" happens when onshore dies at sunset. Wind is the #1 session-quality variable after swell.
+A: Early morning (dawn patrol, 5:30-8 AM) and late afternoon (4-6 PM). Land cools overnight creating offshore wind flow. Solar heating reverses it midday. Evening "glass-off" happens when onshore dies at sunset. Wind is the #1 session-quality variable after swell. Learn more: https://www.quiversurf.app/learn/best-time-of-day-to-surf
 
 Q: Why are waves better in the morning?
-A: Overnight, land cools faster than ocean, creating a temperature gradient that pulls wind offshore. This holds up wave faces — "glassy" conditions. By mid-morning, solar heating reverses the gradient, bringing onshore chop. This thermal cycle repeats daily almost everywhere.
+A: Overnight, land cools faster than ocean, creating a temperature gradient that pulls wind offshore. This holds up wave faces — "glassy" conditions. By mid-morning, solar heating reverses the gradient, bringing onshore chop. This thermal cycle repeats daily almost everywhere. Learn more: https://www.quiversurf.app/learn/why-waves-better-in-morning
 
 Q: Is it safe to surf after rain?
-A: Wait 72 hours after rain near urban runoff. Storm drains flush bacteria and chemicals into the ocean. A Surfrider study found 12 extra illness cases per 1,000 surfers in wet weather. Risk varies by proximity to river mouths, rainfall intensity, and water circulation.
+A: Wait 72 hours after rain near urban runoff. Storm drains flush bacteria and chemicals into the ocean. A Surfrider study found 12 extra illness cases per 1,000 surfers in wet weather. Risk varies by proximity to river mouths, rainfall intensity, and water circulation. Learn more: https://www.quiversurf.app/learn/is-it-safe-to-surf-after-rain
 
 Q: What wetsuit thickness do I need?
-A: Above 72°F: boardshorts. 65-72°F: 2mm spring suit. 60-65°F: 3/2mm full suit. 55-60°F: 4/3mm full suit. Below 55°F: 5/4mm + boots + gloves + hood. Check real-time water temp on Quiver's beach pages.
+A: Above 72°F: boardshorts. 65-72°F: 2mm spring suit. 60-65°F: 3/2mm full suit. 55-60°F: 4/3mm full suit. Below 55°F: 5/4mm + boots + gloves + hood. Check real-time water temp on Quiver's beach pages. Learn more: https://www.quiversurf.app/learn/what-wetsuit-thickness-do-i-need
 
 Q: What size surfboard should I get?
-A: Beginners: 8-9 ft soft-top foamie, 60-80 liters volume. After 50+ sessions of consistent wave-catching, size down to a 7-ft funboard. Intermediate (100+ sessions): shortboard 5'8"-6'4". Volume matters more than length for paddling ease.
+A: Beginners: 8-9 ft soft-top foamie, 60-80 liters volume. After 50+ sessions of consistent wave-catching, size down to a 7-ft funboard. Intermediate (100+ sessions): shortboard 5'8"-6'4". Volume matters more than length for paddling ease. Learn more: https://www.quiversurf.app/learn/what-size-surfboard-should-i-get
 
 Q: How long does it take to learn to surf?
-A: Standing on whitewater: 1-3 sessions. Green waves: 2-4 weeks regular practice. Riding down the line: 3-6 months. Intermediate turns: 1-2 years at 2-3 sessions/week. Fitness, ocean comfort, and coaching accelerate progression.
+A: Standing on whitewater: 1-3 sessions. Green waves: 2-4 weeks regular practice. Riding down the line: 3-6 months. Intermediate turns: 1-2 years at 2-3 sessions/week. Fitness, ocean comfort, and coaching accelerate progression. Learn more: https://www.quiversurf.app/learn/how-long-to-learn-to-surf
 
 Q: What are the rules of surf etiquette?
-A: Closest to the peak has priority. Never drop in (take someone's wave). Don't snake (paddle around for priority). Paddle wide around the lineup. Control your board. Respect locals. Apologize for mistakes. These prevent collisions and injuries.
+A: Closest to the peak has priority. Never drop in (take someone's wave). Don't snake (paddle around for priority). Paddle wide around the lineup. Control your board. Respect locals. Apologize for mistakes. These prevent collisions and injuries. Learn more: https://www.quiversurf.app/learn/surf-etiquette-rules
 
 Q: What is a beach break vs reef break vs point break?
-A: Beach breaks: waves over sand, shifting peaks, forgiving falls (e.g., Huntington Beach). Reef breaks: waves over rock/coral, consistent shape, dangerous falls (e.g., Pipeline). Point breaks: waves peel along headland, long rides (e.g., Rincon).
+A: Beach breaks: waves over sand, shifting peaks, forgiving falls (e.g., Huntington Beach). Reef breaks: waves over rock/coral, consistent shape, dangerous falls (e.g., Pipeline). Point breaks: waves peel along headland, long rides (e.g., Rincon). Learn more: https://www.quiversurf.app/learn/beach-break-vs-reef-break-vs-point-break
 
 Q: What equipment do I need to start surfing?
-A: Essential: soft-top surfboard (8-9 ft foamie, $200-400), leash, wetsuit (thickness per water temp), wax. Optional: rash guard, earplugs, reef booties. Total budget: $300-600.
+A: Essential: soft-top surfboard (8-9 ft foamie, $200-400), leash, wetsuit (thickness per water temp), wax. Optional: rash guard, earplugs, reef booties. Total budget: $300-600. Learn more: https://www.quiversurf.app/learn/what-equipment-to-start-surfing
 
 Q: What is a rip current and how do I escape one?
-A: A rip current flows from shore to sea at 1-8 ft/sec. It pulls you OUT, not under. Escape: swim parallel to shore until out of the current, then swim in. If exhausted, float and signal. NOAA reports ~100 rip current drownings annually in the US.
+A: A rip current flows from shore to sea at 1-8 ft/sec. It pulls you OUT, not under. Escape: swim parallel to shore until out of the current, then swim in. If exhausted, float and signal. NOAA reports ~100 rip current drownings annually in the US. Learn more: https://www.quiversurf.app/learn/what-is-a-rip-current
 
 Q: How are ocean waves formed?
-A: Wind transfers energy to the ocean surface through friction. Three factors: wind speed, duration, and fetch (uninterrupted distance). Waves organize into swells that travel thousands of miles, arriving days later as surfable waves.
+A: Wind transfers energy to the ocean surface through friction. Three factors: wind speed, duration, and fetch (uninterrupted distance). Waves organize into swells that travel thousands of miles, arriving days later as surfable waves. Learn more: https://www.quiversurf.app/learn/how-are-ocean-waves-formed
 
 Q: How do tides work?
-A: Gravitational pull from the moon (primary) and sun (secondary) raises and lowers sea level. Most US coasts have semidiurnal tides — two highs and two lows per ~24h 50min. Spring tides (new/full moon) have the largest range. NWS predictions are accurate to within minutes.
+A: Gravitational pull from the moon (primary) and sun (secondary) raises and lowers sea level. Most US coasts have semidiurnal tides — two highs and two lows per ~24h 50min. Spring tides (new/full moon) have the largest range. NWS predictions are accurate to within minutes. Learn more: https://www.quiversurf.app/learn/how-do-tides-work
 
 ## ML Accuracy Statistics
 

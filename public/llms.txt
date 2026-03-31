@@ -54,7 +54,7 @@ Quiver is a free surf forecasting platform that applies per-beach XGBoost bias c
 - Surf Map: https://www.quiversurf.app/map
 - Forecast Accuracy: https://www.quiversurf.app/forecast-accuracy
 
-## Learn: Surf Knowledge Base (20 articles)
+## Learn: Surf Knowledge Base (22 articles)
 
 ### Forecast Fundamentals
 - How to Read a Surf Forecast: https://www.quiversurf.app/learn/how-to-read-a-surf-forecast
