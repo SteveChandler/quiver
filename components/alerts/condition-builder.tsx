@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { X } from "lucide-react";
 import type { AlertConditions } from "@/lib/alerts/types";
 
 const CONDITION_TYPES = [
@@ -39,6 +40,39 @@ const CONDITION_TYPES = [
 
 type ConditionKey = (typeof CONDITION_TYPES)[number]["key"];
 
+const COMPASS_DIRECTIONS = [
+  { label: "N", min: 337.5, max: 22.5 },
+  { label: "NE", min: 22.5, max: 67.5 },
+  { label: "E", min: 67.5, max: 112.5 },
+  { label: "SE", min: 112.5, max: 157.5 },
+  { label: "S", min: 157.5, max: 202.5 },
+  { label: "SW", min: 202.5, max: 247.5 },
+  { label: "W", min: 247.5, max: 292.5 },
+  { label: "NW", min: 292.5, max: 337.5 },
+] as const;
+
+function degreesToCompass(minDeg?: number, maxDeg?: number): string {
+  if (minDeg == null || maxDeg == null) return "";
+  // Find the closest matching compass direction
+  const midpoint = minDeg <= maxDeg
+    ? (minDeg + maxDeg) / 2
+    : ((minDeg + maxDeg + 360) / 2) % 360;
+  for (const dir of COMPASS_DIRECTIONS) {
+    if (dir.label === "N") {
+      if (midpoint >= 337.5 || midpoint < 22.5) return "N";
+    } else if (midpoint >= dir.min && midpoint < dir.max) {
+      return dir.label;
+    }
+  }
+  return "";
+}
+
+const inputClasses =
+  "bg-[#252D6B] text-white text-xs rounded-lg px-2.5 py-1.5 border border-[#404C92] focus:outline-none focus:ring-2 focus:ring-[#F78E42]/50 focus:border-[#F78E42] transition-colors font-mono";
+
+const selectClasses =
+  "bg-[#252D6B] text-white text-xs rounded-lg px-2.5 py-1.5 border border-[#404C92] focus:outline-none focus:ring-2 focus:ring-[#F78E42]/50 focus:border-[#F78E42] transition-colors";
+
 interface ConditionBuilderProps {
   conditions: AlertConditions;
   onChange: (conditions: AlertConditions) => void;
@@ -59,6 +93,10 @@ export function ConditionBuilder({ conditions, onChange }: ConditionBuilderProps
         break;
       case "swell_period":
         updates.swell_period_min = 10;
+        break;
+      case "swell_direction":
+        updates.swell_direction_min_deg = 180;
+        updates.swell_direction_max_deg = 270;
         break;
       case "wind_direction":
         updates.wind_direction = "offshore";
@@ -89,7 +127,7 @@ export function ConditionBuilder({ conditions, onChange }: ConditionBuilderProps
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {activeKeys.map((key) => (
         <ConditionRow
           key={key}
@@ -104,19 +142,19 @@ export function ConditionBuilder({ conditions, onChange }: ConditionBuilderProps
         <div className="relative">
           <button
             onClick={() => setShowPicker(!showPicker)}
-            className="text-sm text-[#F78E42] hover:text-[#F78E42]/80 font-medium"
+            className="text-sm text-[#F78E42] hover:text-[#F78E42]/80 font-semibold font-[family-name:var(--font-space-grotesk)] py-1"
           >
             + Add Condition
           </button>
           {showPicker && (
-            <div className="absolute z-10 mt-1 w-48 bg-[#2D357D] border border-[#404C92] rounded-lg shadow-lg p-1">
+            <div className="absolute z-10 mt-1 w-52 bg-[#2D357D] border border-[#404C92] rounded-lg shadow-xl p-1.5">
               {CONDITION_TYPES.filter(
                 (ct) => !(activeKeys as readonly string[]).includes(ct.key)
               ).map((ct) => (
                 <button
                   key={ct.key}
                   onClick={() => addCondition(ct.key)}
-                  className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#354090] rounded"
+                  className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#354090] rounded-md font-medium transition-colors"
                 >
                   {ct.label}
                 </button>
@@ -147,8 +185,10 @@ function ConditionRow({
   };
 
   return (
-    <div className="flex items-center gap-2 bg-[#354090]/30 rounded-lg p-2">
-      <span className="text-xs text-gray-400 min-w-[80px]">{ct.label}</span>
+    <div className="flex items-center gap-2 bg-[#354090]/30 border border-[#404C92]/60 rounded-lg px-3 py-2">
+      <span className="text-xs text-gray-300 font-semibold font-[family-name:var(--font-space-grotesk)] min-w-[80px]">
+        {ct.label}
+      </span>
       <div className="flex-1 flex items-center gap-2">
         {conditionKey === "swell_height" && (
           <>
@@ -162,7 +202,7 @@ function ConditionRow({
                 )
               }
               placeholder="Min ft"
-              className="w-16 bg-[#252D6B] text-white text-xs rounded px-2 py-1 border border-[#404C92]"
+              className={`w-16 ${inputClasses}`}
               step="0.5"
             />
             <span className="text-gray-500 text-xs">to</span>
@@ -176,7 +216,7 @@ function ConditionRow({
                 )
               }
               placeholder="Max ft"
-              className="w-16 bg-[#252D6B] text-white text-xs rounded px-2 py-1 border border-[#404C92]"
+              className={`w-16 ${inputClasses}`}
               step="0.5"
             />
           </>
@@ -191,42 +231,27 @@ function ConditionRow({
                 e.target.value ? Number(e.target.value) : undefined
               )
             }
-            placeholder="Min seconds"
-            className="w-20 bg-[#252D6B] text-white text-xs rounded px-2 py-1 border border-[#404C92]"
+            placeholder="Min sec"
+            className={`w-20 ${inputClasses}`}
           />
         )}
         {conditionKey === "swell_direction" && (
-          <>
-            <input
-              type="number"
-              value={conditions.swell_direction_min_deg ?? ""}
-              onChange={(e) =>
-                updateField(
-                  "swell_direction_min_deg",
-                  e.target.value ? Number(e.target.value) : undefined
-                )
+          <CompassSelector
+            value={degreesToCompass(
+              conditions.swell_direction_min_deg,
+              conditions.swell_direction_max_deg
+            )}
+            onChange={(dir) => {
+              const compass = COMPASS_DIRECTIONS.find((d) => d.label === dir);
+              if (compass) {
+                onChange({
+                  ...conditions,
+                  swell_direction_min_deg: compass.min,
+                  swell_direction_max_deg: compass.max,
+                });
               }
-              placeholder="From °"
-              className="w-16 bg-[#252D6B] text-white text-xs rounded px-2 py-1 border border-[#404C92]"
-              min="0"
-              max="360"
-            />
-            <span className="text-gray-500 text-xs">to</span>
-            <input
-              type="number"
-              value={conditions.swell_direction_max_deg ?? ""}
-              onChange={(e) =>
-                updateField(
-                  "swell_direction_max_deg",
-                  e.target.value ? Number(e.target.value) : undefined
-                )
-              }
-              placeholder="To °"
-              className="w-16 bg-[#252D6B] text-white text-xs rounded px-2 py-1 border border-[#404C92]"
-              min="0"
-              max="360"
-            />
-          </>
+            }}
+          />
         )}
         {conditionKey === "wind_direction" && (
           <select
@@ -234,7 +259,7 @@ function ConditionRow({
             onChange={(e) =>
               updateField("wind_direction", e.target.value || undefined)
             }
-            className="bg-[#252D6B] text-white text-xs rounded px-2 py-1 border border-[#404C92]"
+            className={selectClasses}
           >
             <option value="offshore">Offshore</option>
             <option value="onshore">Onshore</option>
@@ -251,8 +276,8 @@ function ConditionRow({
                 e.target.value ? Number(e.target.value) : undefined
               )
             }
-            placeholder="Max knots"
-            className="w-20 bg-[#252D6B] text-white text-xs rounded px-2 py-1 border border-[#404C92]"
+            placeholder="Max kt"
+            className={`w-20 ${inputClasses}`}
           />
         )}
         {conditionKey === "tide_height" && (
@@ -267,7 +292,7 @@ function ConditionRow({
                 )
               }
               placeholder="Min ft"
-              className="w-16 bg-[#252D6B] text-white text-xs rounded px-2 py-1 border border-[#404C92]"
+              className={`w-16 ${inputClasses}`}
               step="0.5"
             />
             <span className="text-gray-500 text-xs">to</span>
@@ -281,7 +306,7 @@ function ConditionRow({
                 )
               }
               placeholder="Max ft"
-              className="w-16 bg-[#252D6B] text-white text-xs rounded px-2 py-1 border border-[#404C92]"
+              className={`w-16 ${inputClasses}`}
               step="0.5"
             />
           </>
@@ -292,7 +317,7 @@ function ConditionRow({
             onChange={(e) =>
               updateField("tide_direction", e.target.value || undefined)
             }
-            className="bg-[#252D6B] text-white text-xs rounded px-2 py-1 border border-[#404C92]"
+            className={selectClasses}
           >
             <option value="rising">Rising</option>
             <option value="falling">Falling</option>
@@ -303,11 +328,37 @@ function ConditionRow({
       </div>
       <button
         onClick={onRemove}
-        className="text-gray-500 hover:text-red-400 text-xs"
+        className="text-gray-500 hover:text-red-400 transition-colors p-0.5"
         aria-label={`Remove ${ct.label} condition`}
       >
-        ×
+        <X className="w-3.5 h-3.5" />
       </button>
+    </div>
+  );
+}
+
+function CompassSelector({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (dir: string) => void;
+}) {
+  return (
+    <div className="flex gap-1 flex-wrap">
+      {COMPASS_DIRECTIONS.map((dir) => (
+        <button
+          key={dir.label}
+          onClick={() => onChange(dir.label)}
+          className={`w-8 h-8 rounded-md text-[11px] font-mono font-semibold transition-all ${
+            value === dir.label
+              ? "bg-[#F78E42]/20 border border-[#F78E42] text-[#F78E42]"
+              : "bg-[#252D6B] border border-[#404C92] text-gray-400 hover:border-gray-300 hover:text-white"
+          }`}
+        >
+          {dir.label}
+        </button>
+      ))}
     </div>
   );
 }

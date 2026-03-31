@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, X } from "lucide-react";
+import { Loader2, Mail, Bell as BellIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { PresetCard } from "./preset-card";
 import { ConditionBuilder } from "./condition-builder";
-import { PRESETS, getPresetsForGroup } from "@/lib/alerts/presets";
+import { getPresetsForGroup } from "@/lib/alerts/presets";
 import type { AlertConditions, BeachAlertMeta, PresetDefinition } from "@/lib/alerts/types";
 
 interface AlertCreationPopoverProps {
@@ -40,7 +40,7 @@ export function AlertCreationPopover({
   const [stage, setStage] = useState<Stage>({ step: "presets" });
   const [name, setName] = useState("");
   const [notifyEmail, setNotifyEmail] = useState(true);
-  const [notifyPush, setNotifyPush] = useState(false);
+  const [notifyPush, setNotifyPush] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const popularPresets = getPresetsForGroup("popular");
@@ -53,7 +53,7 @@ export function AlertCreationPopover({
       setStage({ step: "presets" });
       setName("");
       setNotifyEmail(true);
-      setNotifyPush(false);
+      setNotifyPush(true);
     }, 200);
   }
 
@@ -151,10 +151,10 @@ export function AlertCreationPopover({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#1E2660] border border-[#404C92] text-white max-w-md w-full p-0 overflow-hidden">
+      <DialogContent className="bg-[#1E2660] border border-[#404C92] text-white max-w-md w-full p-0 overflow-hidden bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC44IiBudW1PY3RhdmVzPSI0IiBzdGl0Y2hUaWxlcz0ic3RpdGNoIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbHRlcj0idXJsKCNuKSIgb3BhY2l0eT0iMC4wMyIvPjwvc3ZnPg==')]">
         <DialogHeader className="px-5 pt-5 pb-0">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-base font-semibold font-[family-name:var(--font-space-grotesk)] text-white">
+            <DialogTitle className="text-base font-bold font-[family-name:var(--font-space-grotesk)] text-white tracking-tight">
               {stage.step === "presets"
                 ? `Alerts for ${beachName}`
                 : stage.step === "customize"
@@ -186,6 +186,7 @@ export function AlertCreationPopover({
                 onSelect={handlePresetSelect}
                 onCustomize={handleCustomize}
                 disabled={saving}
+                prominent
               />
               <PresetGroup
                 label="Specific"
@@ -199,7 +200,7 @@ export function AlertCreationPopover({
                   setName(`Custom Alert — ${beachName}`);
                   setStage({ step: "custom", conditions: {} });
                 }}
-                className="w-full text-sm text-[#F78E42] hover:text-[#F78E42]/80 font-medium py-2 border border-dashed border-[#404C92] rounded-lg transition-colors"
+                className="w-full text-sm font-semibold font-[family-name:var(--font-space-grotesk)] text-[#F78E42] hover:text-white hover:bg-[#F78E42] py-3 border-2 border-[#F78E42]/40 hover:border-[#F78E42] rounded-lg transition-all"
               >
                 + Build Custom Alert
               </button>
@@ -210,19 +211,23 @@ export function AlertCreationPopover({
             <>
               {/* Name input */}
               <div className="space-y-1">
-                <label className="text-xs text-gray-400">Alert Name</label>
+                <label className="text-xs font-semibold uppercase tracking-widest text-gray-500 font-[family-name:var(--font-space-grotesk)]">
+                  Alert Name
+                </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Name your alert..."
-                  className="w-full bg-[#252D6B] text-white text-sm rounded px-3 py-2 border border-[#404C92] placeholder:text-gray-600"
+                  className="w-full bg-[#252D6B] text-white text-sm rounded-lg px-3 py-2 border border-[#404C92] placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#F78E42]/50 focus:border-[#F78E42] transition-colors"
                 />
               </div>
 
               {/* Condition builder */}
               <div className="space-y-1">
-                <label className="text-xs text-gray-400">Conditions</label>
+                <label className="text-xs font-semibold uppercase tracking-widest text-gray-500 font-[family-name:var(--font-space-grotesk)]">
+                  Conditions
+                </label>
                 <ConditionBuilder
                   conditions={currentConditions}
                   onChange={handleConditionsChange}
@@ -231,15 +236,19 @@ export function AlertCreationPopover({
 
               {/* Channel toggles */}
               <div className="space-y-2">
-                <label className="text-xs text-gray-400">Notify via</label>
+                <label className="text-xs font-semibold uppercase tracking-widest text-gray-500 font-[family-name:var(--font-space-grotesk)]">
+                  Notify via
+                </label>
                 <div className="flex gap-3">
                   <ToggleChip
                     label="Email"
+                    icon={<Mail className="w-3 h-3" />}
                     active={notifyEmail}
                     onClick={() => setNotifyEmail(!notifyEmail)}
                   />
                   <ToggleChip
                     label="Push"
+                    icon={<BellIcon className="w-3 h-3" />}
                     active={notifyPush}
                     onClick={() => setNotifyPush(!notifyPush)}
                   />
@@ -271,22 +280,33 @@ function PresetGroup({
   onSelect,
   onCustomize,
   disabled,
+  prominent,
 }: {
   label: string;
   presets: PresetDefinition[];
   onSelect: (preset: PresetDefinition) => void;
   onCustomize: (preset: PresetDefinition) => void;
   disabled: boolean;
+  prominent?: boolean;
 }) {
   return (
     <div className="space-y-2">
-      <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 font-[family-name:var(--font-space-grotesk)]">
+      <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 font-[family-name:var(--font-space-grotesk)]">
         {label}
       </div>
       <div className="space-y-1.5">
-        {presets.map((preset) => (
-          <div key={preset.type} className="relative group">
-            <PresetCard preset={preset} onSelect={onSelect} disabled={disabled} />
+        {presets.map((preset, index) => (
+          <div
+            key={preset.type}
+            className="relative group motion-safe:animate-[fadeSlideIn_0.2s_ease-out_both]"
+            style={{ animationDelay: `${index * 50}ms` }}
+          >
+            <PresetCard
+              preset={preset}
+              onSelect={onSelect}
+              disabled={disabled}
+              prominent={prominent}
+            />
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -306,22 +326,25 @@ function PresetGroup({
 
 function ToggleChip({
   label,
+  icon,
   active,
   onClick,
 }: {
   label: string;
+  icon: React.ReactNode;
   active: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all ${
         active
           ? "bg-[#F78E42]/20 border-[#F78E42] text-[#F78E42]"
           : "bg-transparent border-[#404C92] text-gray-500 hover:border-gray-400"
       }`}
     >
+      {icon}
       {label}
     </button>
   );
