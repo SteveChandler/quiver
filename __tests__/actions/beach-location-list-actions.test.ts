@@ -3,9 +3,11 @@
  */
 
 import type { BeachWithMetrics } from "@/types/location";
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(),
+  createPublicReadClient: jest.fn(),
 }));
 
 function createThenableQuery<T>(result: {
@@ -38,7 +40,7 @@ describe("beach-location-list-actions", () => {
   });
 
   test("getLocationPageData: metro path ranks beaches and returns stats", async () => {
-    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const { createSupabaseServerClient, createPublicReadClient } = await import("@/lib/supabase/server");
 
     const beaches: BeachWithMetrics[] = [
       {
@@ -99,6 +101,7 @@ describe("beach-location-list-actions", () => {
     };
 
     (createSupabaseServerClient as unknown as jest.Mock).mockResolvedValue(mockSupabase);
+    (createPublicReadClient as unknown as jest.Mock).mockReturnValue(mockSupabase);
 
     const { getLocationPageData } = await import(
       "@/actions/beach/beach-location-list-actions"
@@ -114,7 +117,7 @@ describe("beach-location-list-actions", () => {
   });
 
   test('getLocationPageData: metro path with no beaches returns error "CITY_EXISTS_NO_DATA"', async () => {
-    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const { createSupabaseServerClient, createPublicReadClient } = await import("@/lib/supabase/server");
 
     const mockSupabase = {
       rpc: jest.fn(async (fn: string) => {
@@ -130,6 +133,7 @@ describe("beach-location-list-actions", () => {
     };
 
     (createSupabaseServerClient as unknown as jest.Mock).mockResolvedValue(mockSupabase);
+    (createPublicReadClient as unknown as jest.Mock).mockReturnValue(mockSupabase);
 
     const { getLocationPageData } = await import(
       "@/actions/beach/beach-location-list-actions"
@@ -139,10 +143,11 @@ describe("beach-location-list-actions", () => {
 
     expect(res.success).toBe(false);
     expect(res.error).toBe("CITY_EXISTS_NO_DATA");
+    expectConsoleErrors([/CITY_EXISTS_NO_DATA/]);
   });
 
   test("getLocationPageData: city path ranks beaches", async () => {
-    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const { createSupabaseServerClient, createPublicReadClient } = await import("@/lib/supabase/server");
 
     const beaches: BeachWithMetrics[] = [
       {
@@ -186,6 +191,7 @@ describe("beach-location-list-actions", () => {
     };
 
     (createSupabaseServerClient as unknown as jest.Mock).mockResolvedValue(mockSupabase);
+    (createPublicReadClient as unknown as jest.Mock).mockReturnValue(mockSupabase);
 
     const { getLocationPageData } = await import(
       "@/actions/beach/beach-location-list-actions"
@@ -199,7 +205,7 @@ describe("beach-location-list-actions", () => {
   });
 
   test("getLocationPageData: city path retries using slug→DB-city resolution when initial RPC returns empty", async () => {
-    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const { createSupabaseServerClient, createPublicReadClient } = await import("@/lib/supabase/server");
 
     const beachesResolved: BeachWithMetrics[] = [
       {
@@ -254,6 +260,7 @@ describe("beach-location-list-actions", () => {
     };
 
     (createSupabaseServerClient as unknown as jest.Mock).mockResolvedValue(mockSupabase);
+    (createPublicReadClient as unknown as jest.Mock).mockReturnValue(mockSupabase);
 
     const { getLocationPageData } = await import(
       "@/actions/beach/beach-location-list-actions"

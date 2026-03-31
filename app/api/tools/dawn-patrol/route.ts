@@ -5,6 +5,7 @@ import {
   getNearestTideStation,
 } from "@/lib/services/noaa-tide-service";
 import { COOPS_STATIONS } from "@/lib/services/noaa-coops/constants/station-mappings";
+import { withRateLimit } from "@/lib/middleware/api-wrappers";
 import SunCalc from "suncalc";
 
 export const dynamic = "force-dynamic";
@@ -47,7 +48,7 @@ function computeSunTimes(
  * - Tide state at civil twilight for each day
  * - Wind direction at dawn (not yet — requires open-meteo integration)
  */
-export async function GET(request: NextRequest) {
+async function dawnPatrolHandler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const beachSlug = searchParams.get("beachSlug");
   const beachId = searchParams.get("beachId");
@@ -157,3 +158,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withRateLimit(dawnPatrolHandler, "public-default");

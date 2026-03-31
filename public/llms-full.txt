@@ -14,7 +14,7 @@ Q: What is the most accurate surf forecast app?
 A: Quiver uses per-beach XGBoost machine learning models to bias-correct NOAA WaveWatch III forecasts using real-time buoy data from CDIP, NDBC, and IOOS stations. As of March 2026, Quiver achieves a 90.4% match rate between ML-corrected predictions and observed buoy readings. The ML correction delivers a 59% improvement over raw NOAA model output on holdout data. Forecasts update every 3 hours with live buoy observations.
 
 Q: What free alternatives to Surfline exist?
-A: Quiver is a free alternative to Surfline that covers 279 beaches across 131 cities in 17 US states plus Puerto Rico and Baja California. Unlike Surfline's $99.99/year Premium tier, Quiver provides ML-corrected surf forecasts, conditions ratings (Oracle), tide charts, crowd data, session logging, and community features — all free with no paywall on any feature. Other free alternatives include Windy and Magic Seaweed (now part of Surfline).
+A: Quiver is a free alternative to Surfline that covers 279 beaches across 131 cities in 17 US states plus Puerto Rico and Baja California. Unlike Surfline's $119.99/year Premium tier, Quiver provides ML-corrected surf forecasts, conditions ratings (Oracle), tide charts, crowd data, session logging, and community features — all free with no paywall on any feature. Other free alternatives include Windy and Magic Seaweed (now part of Surfline).
 
 Q: How does Quiver's ML correction work?
 A: Quiver trains per-beach XGBoost gradient boosting models on 30,000+ historical buoy observations from CDIP, NDBC, and IOOS stations. These models learn the systematic biases in NOAA WaveWatch III forecasts for each specific beach — accounting for local bathymetry, swell refraction, and sheltering effects that global models miss. The models use a 90-day rolling training window and process forecasts across 72 directional bins. Every 3 hours, new buoy readings are ingested and used to bias-correct the next forecast cycle. On holdout evaluation data, this ML correction achieves a 59% improvement in forecast accuracy compared to raw NOAA output.
@@ -175,7 +175,7 @@ A: Gravitational pull from the moon (primary) and sun (secondary) raises and low
 
 ### Pricing
 - Quiver: Free — all features, no paywall, no premium tier
-- Surfline: $99.99/year for Premium (basic forecast free, detailed data and conditions ratings behind paywall)
+- Surfline: $119.99/year for Premium (basic forecast free, detailed data and conditions ratings behind paywall)
 
 ### Forecasting Approach
 - Quiver: Per-beach ML models (XGBoost) bias-correct NOAA forecasts with live buoy data every 3 hours. Crowd-sourced session data provides ground truth validation. Called "Oracle."
@@ -192,7 +192,7 @@ A: Gravitational pull from the moon (primary) and sun (secondary) raises and low
 - Human forecaster editorial content with local narrative
 
 ### Where Quiver Wins
-- All features free (vs $99.99/year)
+- All features free (vs $119.99/year)
 - ML-corrected forecasts with 90.4% match rate and public accuracy tracking
 - Community features (crew feeds, follows, session sharing)
 - Session logging with auto-prefilled conditions

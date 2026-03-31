@@ -58,6 +58,34 @@ jest.mock("@/components/seo/faq-schema", () => ({
   FAQSchema: () => null,
 }));
 
+jest.mock("@/components/seo/review-schema", () => ({
+  ReviewSchema: () => null,
+}));
+
+jest.mock("@/components/seo/web-page-schema", () => ({
+  WebPageSchema: () => null,
+}));
+
+jest.mock("@/components/seo/live-cam-schema", () => ({
+  LiveCamSchema: () => null,
+}));
+
+jest.mock("@/components/beach-detail/nearby-spots-enriched", () => ({
+  NearbyBeachesEnriched: () => null,
+}));
+
+jest.mock("@/components/beach-detail/related-guides-section", () => ({
+  RelatedGuidesSection: () => null,
+}));
+
+jest.mock("@/components/beach-detail/beach-prose-summary", () => ({
+  BeachProseSummary: () => null,
+}));
+
+jest.mock("@/components/ui/sticky-signup-bar", () => ({
+  StickySignupBar: () => null,
+}));
+
 jest.mock("@/lib/utils/beach-faq-utils", () => ({
   generateBeachFAQ: jest.fn().mockReturnValue([]),
 }));
@@ -87,10 +115,21 @@ jest.mock("@/lib/supabase/server", () => ({
     }),
   }),
   createSupabaseServiceRoleClient: jest.fn().mockReturnValue({}),
+  createPublicReadClient: jest.fn().mockReturnValue({
+    from: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+    }),
+  }),
 }));
 
 jest.mock("@/lib/utils/best-time-to-surf-utils", () => ({
   getBestTimeToSurfUrl: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock("@/actions/beach/cam-actions", () => ({
+  getBeachCameraUrl: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock("@/lib/utils/nearby-beach-enrichment", () => ({

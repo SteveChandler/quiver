@@ -300,9 +300,9 @@ describe("getBeginnerSeasonalData", () => {
       expect(dataSource).toBe("state-profile");
     });
 
-    it('PR returns dataSource "regional" (Tier 2)', () => {
+    it('PR returns dataSource "state-profile" (Tier 1)', () => {
       const { dataSource } = getBeginnerSeasonalData("pr");
-      expect(dataSource).toBe("regional");
+      expect(dataSource).toBe("state-profile");
     });
 
     it('unknown state "zz" returns dataSource "generic" (Tier 3)', () => {

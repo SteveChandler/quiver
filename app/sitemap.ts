@@ -247,7 +247,9 @@ async function getLocationRoutes(validCitySlugs: Set<string>): Promise<MetadataR
       if (stateSlug && citySlug) {
         // Only include cities that have valid beaches in the sitemap.
         // Cities without scored beaches redirect to /map, wasting crawl budget.
-        if (!validCitySlugs.has(`${stateSlug}/${citySlug}`)) {
+        // Metro areas are exempt — their content is aggregated from constituent
+        // cities at runtime, so they won't appear in the per-beach validCitySlugs set.
+        if (!(location as any).isMetro && !validCitySlugs.has(`${stateSlug}/${citySlug}`)) {
           filteredCount++;
           continue;
         }

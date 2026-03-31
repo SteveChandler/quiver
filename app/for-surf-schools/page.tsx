@@ -12,7 +12,7 @@ export const revalidate = 86400;
 export const metadata: Metadata = buildPageMetadata({
   title: "Free Surf Conditions Widget for Surf Schools",
   description:
-    "Embed real-time wave, wind, and tide data on your surf school website. Always current, no code needed, free forever. Powered by Quiver.",
+    "Embed real-time wave, wind, and tide data on your surf school website. Always current, no code needed. Powered by Quiver.",
   path: "/for-surf-schools",
   keywords: [
     "surf school widget",

@@ -166,7 +166,7 @@ function mockDataFetcherWithBoards(
   error: string | null = null
 ) {
   mockUseDataFetcher.mockReturnValue({
-    data: { success: true, data: boards },
+    data: boards,
     loading,
     error,
     refetch: jest.fn(),
@@ -271,6 +271,15 @@ describe("useConditionIntelligence", () => {
 
   it("returns null boardPick when user is not authenticated", () => {
     mockUseAuth.mockReturnValue({ user: null });
+    // When skip=true (no user), useDataFetcher returns null data
+    mockUseDataFetcher.mockReturnValue({
+      data: null,
+      loading: false,
+      error: null,
+      refetch: jest.fn(),
+      retry: jest.fn(),
+      reset: jest.fn(),
+    });
 
     const { result } = renderHook(() =>
       useConditionIntelligence(mockForecasts, mockBeach, mockBeachTimezone)

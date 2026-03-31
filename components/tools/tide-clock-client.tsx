@@ -15,7 +15,7 @@ const POPULAR_BEACH_SLUGS = [
   { slug: "trestles", name: "Trestles", state: "CA" },
   { slug: "rincon", name: "Rincon", state: "CA" },
   { slug: "rockaway", name: "Rockaway", state: "NY" },
-  { slug: "hunting-beach", name: "Huntington Beach", state: "CA" },
+  { slug: "huntington-beach", name: "Huntington Beach", state: "CA" },
   { slug: "ocean-beach", name: "Ocean Beach", state: "CA" },
   { slug: "montauk", name: "Montauk", state: "NY" },
 ];
@@ -826,7 +826,7 @@ export function TideClockClient() {
                   </p>
                 </div>
                 <Link
-                  href={`${beachUrl}/tides`}
+                  href={beachUrl}
                   className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 font-mono text-sm font-semibold text-white transition-all min-w-max"
                   style={{ background: "#F78E42" }}
                 >

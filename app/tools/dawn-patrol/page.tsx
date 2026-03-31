@@ -5,6 +5,7 @@
  * 7-day forecast table with simple good/skip verdicts.
  */
 
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
@@ -115,7 +116,9 @@ export default function DawnPatrolPage() {
         }}
       />
 
-      <DawnPatrolClient />
+      <Suspense>
+        <DawnPatrolClient />
+      </Suspense>
     </>
   );
 }

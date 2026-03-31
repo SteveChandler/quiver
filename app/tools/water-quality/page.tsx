@@ -379,9 +379,9 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
         >
           <div className="rounded-2xl" style={{ background: "#1A2158" }}>
             <InlineSignupCta
-              title="Stay Safe — Get Water Quality Alerts"
-              description="Get notified when your local beach has a water quality advisory or closure."
-              primaryButtonText="Get Alerts — Free"
+              title="Track Conditions at Your Local Break"
+              description="Log sessions, check ML-corrected forecasts, and see what other surfers are reporting."
+              primaryButtonText="Sign Up — Free"
               source="water-quality-tool-inline"
             />
           </div>

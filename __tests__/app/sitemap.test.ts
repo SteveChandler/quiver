@@ -465,10 +465,10 @@ describe("Sitemap Generation", () => {
       // Tides/water-temp sub-pages are included in sitemap — they have robust
       // metadata, FAQs, structured data, and GSC shows Google already ranks them
       const tidesRoute = result.find((r) =>
-        r.url.includes("/ca/san-diego/sunset-cliffs/tides")
+        r.url.includes("/ca/san-diego/sunset-cliffs-garbage/tides")
       );
       const waterTempRoute = result.find((r) =>
-        r.url.includes("/ca/san-diego/sunset-cliffs/water-temp")
+        r.url.includes("/ca/san-diego/sunset-cliffs-garbage/water-temp")
       );
 
       expect(tidesRoute).toBeTruthy();
@@ -550,9 +550,9 @@ describe("Sitemap Generation", () => {
       expect(result.find((r) => r.url.includes("/mexico/baja-california/rosarito/teresas/water-temp"))).toBeUndefined();
 
       // US beach: main page AND subpages present
-      expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs") && !r.url.includes("/tides") && !r.url.includes("/water-temp"))).toBeTruthy();
-      expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs/tides"))).toBeTruthy();
-      expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs/water-temp"))).toBeTruthy();
+      expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs-garbage") && !r.url.includes("/tides") && !r.url.includes("/water-temp"))).toBeTruthy();
+      expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs-garbage/tides"))).toBeTruthy();
+      expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs-garbage/water-temp"))).toBeTruthy();
     });
 
     it("should filter out beaches without slug from beach entries", async () => {
@@ -654,10 +654,10 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       const tidesRoute = result.find((r) =>
-        r.url.includes("/ca/san-diego/sunset-cliffs/tides")
+        r.url.includes("/ca/san-diego/sunset-cliffs-garbage/tides")
       );
       const waterTempRoute = result.find((r) =>
-        r.url.includes("/ca/san-diego/sunset-cliffs/water-temp")
+        r.url.includes("/ca/san-diego/sunset-cliffs-garbage/water-temp")
       );
 
       expect(tidesRoute).toBeTruthy();

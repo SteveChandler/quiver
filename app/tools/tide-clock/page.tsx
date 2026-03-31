@@ -5,6 +5,7 @@
  * Data: NOAA CO-OPS hourly predictions via tide-clock API route.
  */
 
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
@@ -115,7 +116,9 @@ export default function TideClockPage() {
         }}
       />
 
-      <TideClockClient />
+      <Suspense>
+        <TideClockClient />
+      </Suspense>
     </>
   );
 }

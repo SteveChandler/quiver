@@ -437,7 +437,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText(/Welcome to the surf community/i)
+          screen.getByText(/Log sessions to train your beach/i)
         ).toBeInTheDocument();
       });
     });
