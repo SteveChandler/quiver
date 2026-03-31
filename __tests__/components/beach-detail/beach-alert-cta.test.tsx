@@ -13,16 +13,6 @@ jest.mock("@/components/auth/unified-auth-modal", () => ({
     ) : null,
 }));
 
-const mockEnableFavoriteAlerts = jest.fn();
-jest.mock("@/actions/beach/beach-favorite-actions", () => ({
-  enableFavoriteAlerts: (...args: any[]) => mockEnableFavoriteAlerts(...args),
-}));
-
-const mockToast = jest.fn();
-jest.mock("@/components/ui/use-toast", () => ({
-  toast: (...args: any[]) => mockToast(...args),
-}));
-
 const mockSetPendingAction = jest.fn();
 const mockClearPendingAction = jest.fn();
 let mockPendingAction: any = null;
@@ -32,6 +22,17 @@ jest.mock("@/hooks/use-pending-action", () => ({
     pendingAction: mockPendingAction,
     setPendingAction: mockSetPendingAction,
     clearPendingAction: mockClearPendingAction,
+  }),
+}));
+
+// Mock useDataFetcher — control rule data per test
+let mockRules: any[] = [];
+jest.mock("@/hooks/use-data-fetcher", () => ({
+  useDataFetcher: (_fetchFn: any, _opts: any) => ({
+    data: mockRules,
+    loading: false,
+    error: null,
+    refetch: jest.fn(),
   }),
 }));
 
@@ -68,6 +69,7 @@ describe("BeachAlertCta", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockPendingAction = null;
+    mockRules = [];
   });
 
   describe("renders Bell icon and Get Alerts text", () => {
@@ -133,139 +135,67 @@ describe("BeachAlertCta", () => {
       mockUseAuth.mockReturnValue(authenticatedAuth);
     });
 
-    it("calls enableFavoriteAlerts with beachId when button is clicked", async () => {
-      mockEnableFavoriteAlerts.mockResolvedValue({
-        success: true,
-        data: { alerts_enabled: true, was_already_favorited: false },
-      });
-
-      render(<BeachAlertCta {...defaultProps} />);
+    it("calls onOpenAlerts when button is clicked", () => {
+      const onOpenAlerts = jest.fn();
+      render(<BeachAlertCta {...defaultProps} onOpenAlerts={onOpenAlerts} />);
       const btn = screen.getByRole("button", { name: /get alerts/i });
-
-      await act(async () => {
-        fireEvent.click(btn);
-      });
-
-      expect(mockEnableFavoriteAlerts).toHaveBeenCalledWith(defaultProps.beachId);
+      fireEvent.click(btn);
+      expect(onOpenAlerts).toHaveBeenCalledTimes(1);
     });
 
-    it("shows success message after enableFavoriteAlerts resolves", async () => {
-      mockEnableFavoriteAlerts.mockResolvedValue({
-        success: true,
-        data: { alerts_enabled: true, was_already_favorited: false },
-      });
-
+    it("does not open auth modal for authenticated users", () => {
       render(<BeachAlertCta {...defaultProps} />);
       const btn = screen.getByRole("button", { name: /get alerts/i });
-
-      await act(async () => {
-        fireEvent.click(btn);
-      });
-
-      await waitFor(() => {
-        expect(
-          screen.getByText(/alerts enabled for Blacks Beach/i)
-        ).toBeInTheDocument();
-      });
-    });
-
-    it("does not open auth modal for authenticated users", async () => {
-      mockEnableFavoriteAlerts.mockResolvedValue({
-        success: true,
-        data: { alerts_enabled: true, was_already_favorited: false },
-      });
-
-      render(<BeachAlertCta {...defaultProps} />);
-      const btn = screen.getByRole("button", { name: /get alerts/i });
-
-      await act(async () => {
-        fireEvent.click(btn);
-      });
-
+      fireEvent.click(btn);
       expect(screen.queryByTestId("auth-modal")).not.toBeInTheDocument();
     });
+  });
 
-    it("shows loading state (disabled button) while enableFavoriteAlerts is in progress", async () => {
-      let resolveAction!: (value: any) => void;
-      mockEnableFavoriteAlerts.mockReturnValue(
-        new Promise((resolve) => {
-          resolveAction = resolve;
-        })
-      );
-
-      render(<BeachAlertCta {...defaultProps} />);
-      const btn = screen.getByRole("button", { name: /get alerts/i });
-
-      act(() => {
-        fireEvent.click(btn);
-      });
-
-      // Button should be disabled while the action is in flight
-      await waitFor(() => {
-        expect(screen.getByRole("button")).toBeDisabled();
-      });
-
-      // Resolve the action so cleanup is tidy
-      await act(async () => {
-        resolveAction({
-          success: true,
-          data: { alerts_enabled: true, was_already_favorited: false },
-        });
-      });
+  describe("alert state display", () => {
+    beforeEach(() => {
+      mockUseAuth.mockReturnValue(authenticatedAuth);
     });
 
-    it("shows error toast when enableFavoriteAlerts returns success: false", async () => {
-      mockEnableFavoriteAlerts.mockResolvedValue({
-        success: false,
-        error: "Network error",
-      });
-
-      render(<BeachAlertCta {...defaultProps} />);
-      const btn = screen.getByRole("button", { name: /get alerts/i });
-
-      await act(async () => {
-        fireEvent.click(btn);
-      });
-
-      await waitFor(() => {
-        expect(mockToast).toHaveBeenCalledWith(
-          expect.objectContaining({
-            title: "Failed to enable alerts",
-            variant: "destructive",
-          })
-        );
-      });
+    it("shows BellRing icon and badge when rules exist for this beach", () => {
+      mockRules = [
+        { id: "r1", beach_id: "beach-123" },
+        { id: "r2", beach_id: "beach-123" },
+      ];
+      const { container } = render(<BeachAlertCta {...defaultProps} />);
+      // BellRing icon should be present
+      const bellRing = container.querySelector(".lucide-bell-ring");
+      expect(bellRing).toBeInTheDocument();
+      // Count badge shows 2
+      expect(screen.getByText("2")).toBeInTheDocument();
+      // Button label shows active state via aria-label
+      expect(
+        screen.getByRole("button", { name: /manage alerts/i })
+      ).toBeInTheDocument();
     });
 
-    it("shows error toast when enableFavoriteAlerts throws", async () => {
-      mockEnableFavoriteAlerts.mockRejectedValue(new Error("Unexpected failure"));
+    it("shows plain Bell icon when no rules exist for this beach", () => {
+      mockRules = [{ id: "r1", beach_id: "other-beach-456" }];
+      const { container } = render(<BeachAlertCta {...defaultProps} />);
+      const bell = container.querySelector(".lucide-bell");
+      expect(bell).toBeInTheDocument();
+      const bellRing = container.querySelector(".lucide-bell-ring");
+      expect(bellRing).not.toBeInTheDocument();
+    });
 
+    it("only counts rules matching the current beach_id", () => {
+      mockRules = [
+        { id: "r1", beach_id: "beach-123" },
+        { id: "r2", beach_id: "other-beach" },
+        { id: "r3", beach_id: "beach-123" },
+      ];
       render(<BeachAlertCta {...defaultProps} />);
-      const btn = screen.getByRole("button", { name: /get alerts/i });
-
-      await act(async () => {
-        fireEvent.click(btn);
-      });
-
-      await waitFor(() => {
-        expect(mockToast).toHaveBeenCalledWith(
-          expect.objectContaining({
-            title: "Failed to enable alerts",
-            variant: "destructive",
-          })
-        );
-      });
+      expect(screen.getByText("2")).toBeInTheDocument();
     });
   });
 
   describe("deferred action after sign-in", () => {
-    it("auto-triggers enableFavoriteAlerts when user signs in with a matching pending alert", async () => {
-      mockEnableFavoriteAlerts.mockResolvedValue({
-        success: true,
-        data: { alerts_enabled: true, was_already_favorited: false },
-      });
-
-      // Pending action for this exact beach is already stored
+    it("auto-triggers onOpenAlerts and clears pending action when user signs in with a matching pending alert", async () => {
+      const onOpenAlerts = jest.fn();
       mockPendingAction = {
         type: "alert",
         beachId: defaultProps.beachId,
@@ -276,15 +206,17 @@ describe("BeachAlertCta", () => {
       mockUseAuth.mockReturnValue(authenticatedAuth);
 
       await act(async () => {
-        render(<BeachAlertCta {...defaultProps} />);
+        render(<BeachAlertCta {...defaultProps} onOpenAlerts={onOpenAlerts} />);
       });
 
       await waitFor(() => {
-        expect(mockEnableFavoriteAlerts).toHaveBeenCalledWith(defaultProps.beachId);
+        expect(mockClearPendingAction).toHaveBeenCalled();
+        expect(onOpenAlerts).toHaveBeenCalledTimes(1);
       });
     });
 
     it("does NOT auto-trigger when pending action beachId differs", async () => {
+      const onOpenAlerts = jest.fn();
       mockPendingAction = {
         type: "alert",
         beachId: "different-beach-999",
@@ -295,13 +227,38 @@ describe("BeachAlertCta", () => {
       mockUseAuth.mockReturnValue(authenticatedAuth);
 
       await act(async () => {
-        render(<BeachAlertCta {...defaultProps} />);
+        render(<BeachAlertCta {...defaultProps} onOpenAlerts={onOpenAlerts} />);
       });
 
-      // Give React a tick to run any effects
       await waitFor(() => {
-        expect(mockEnableFavoriteAlerts).not.toHaveBeenCalled();
+        expect(onOpenAlerts).not.toHaveBeenCalled();
+        expect(mockClearPendingAction).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe("compact mode", () => {
+    beforeEach(() => {
+      mockUseAuth.mockReturnValue(unauthenticatedAuth);
+    });
+
+    it("renders in compact mode without full text", () => {
+      render(<BeachAlertCta {...defaultProps} compact />);
+      // compact mode shows aria-label not text
+      expect(
+        screen.getByRole("button", { name: /set up alerts/i })
+      ).toBeInTheDocument();
+      // Should not render the subtitle text
+      expect(
+        screen.queryByText(/notify me when conditions are ideal/i)
+      ).not.toBeInTheDocument();
+    });
+
+    it("compact mode shows badge count when alerts are active", () => {
+      mockUseAuth.mockReturnValue(authenticatedAuth);
+      mockRules = [{ id: "r1", beach_id: "beach-123" }];
+      render(<BeachAlertCta {...defaultProps} compact />);
+      expect(screen.getByText("1")).toBeInTheDocument();
     });
   });
 });

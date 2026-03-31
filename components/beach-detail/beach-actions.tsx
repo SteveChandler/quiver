@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { HomeBeachBanner } from "@/components/home/HomeBeachBanner";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { ConditionsReportCard } from "@/components/beach-detail/conditions-report-card";
+import { BeachAlertCta } from "@/components/beach-detail/beach-alert-cta";
 import type { Beach } from "@/types/database";
 import { track } from "@/lib/analytics";
 
@@ -19,6 +20,8 @@ interface BeachActionsProps {
   onAuthRequired?: () => void;
   /** Called after a successful conditions report so parent can refresh RecentReports */
   onConditionsReportSuccess?: () => void;
+  /** Called when user clicks the alert bell to open the alert creation/management flow */
+  onOpenAlerts?: () => void;
 }
 
 export function BeachActions({
@@ -29,6 +32,7 @@ export function BeachActions({
   publicMode,
   onAuthRequired,
   onConditionsReportSuccess,
+  onOpenAlerts,
 }: BeachActionsProps) {
   const hasCoordinates = Boolean(beach.lat && beach.lon);
   const directionsEnabled = canGetDirections ?? hasCoordinates;
@@ -68,7 +72,7 @@ export function BeachActions({
 
   return (
     <div data-testid="beach-actions" className={`space-y-4 ${className || ""}`}>
-      {/* Primary Action Buttons — 2-button layout */}
+      {/* Primary Action Buttons — 3-button layout */}
       {/* Flex row: equal-width buttons, 12px gap, 20px vertical margin */}
       <div className="flex gap-3 my-5">
         {/* Report Conditions — primary community CTA */}
@@ -101,6 +105,13 @@ export function BeachActions({
             Get Directions
           </Button>
         </div>
+
+        {/* Alert CTA — Charming Orange bell, shows rule count badge when active */}
+        <BeachAlertCta
+          beachId={beach.id}
+          beachName={beach.name}
+          onOpenAlerts={onOpenAlerts}
+        />
       </div>
 
       {/* Inline Report Conditions card — expands in place when button is clicked */}

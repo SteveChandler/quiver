@@ -27,7 +27,6 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getYesterdayAccuracy } from "@/actions/accuracy-actions";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
-import { BeachAlertCta } from "@/components/beach-detail/beach-alert-cta";
 import { BeachReviewForm } from "@/components/beach/beach-review-form";
 import {
   REVIEW_TRACKING_SOURCES,
@@ -465,12 +464,6 @@ function BeachDetailContent({
         <span className="hidden sm:inline">Get directions</span>
         <span className="sm:hidden">Directions</span>
       </Button>
-      <BeachAlertCta
-        beachId={beach.id}
-        beachName={beach.name}
-        compact
-        className="flex-1 bg-transparent shadow-none rounded-none border-0 border-b-2 border-transparent -mb-0.5 px-2 py-2 sm:px-6 sm:py-3 text-xs sm:text-base font-medium text-gray-600 transition-all duration-300 ease-out hover:bg-gray-50 dark:hover:bg-[#354090]/50 hover:text-gray-900 h-auto"
-      />
     </>
   );
 
