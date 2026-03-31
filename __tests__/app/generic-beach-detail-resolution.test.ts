@@ -82,6 +82,10 @@ jest.mock("@/components/beach-detail/beach-prose-summary", () => ({
   BeachProseSummary: () => null,
 }));
 
+jest.mock("@/components/beach-detail/optimal-conditions-section", () => ({
+  OptimalConditionsSection: () => null,
+}));
+
 jest.mock("@/components/ui/sticky-signup-bar", () => ({
   StickySignupBar: () => null,
 }));
@@ -119,6 +123,11 @@ jest.mock("@/lib/supabase/server", () => ({
     from: jest.fn().mockReturnValue({
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
+      is: jest.fn().mockReturnThis(),
+      or: jest.fn().mockReturnThis(),
+      ilike: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
       maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
     }),
   }),
