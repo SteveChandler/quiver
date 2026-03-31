@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useTransition } from "react";
+import { useState, useCallback, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Wind, RefreshCw, MapPin, ExternalLink } from "lucide-react";
@@ -15,16 +15,17 @@ import type { Beach } from "@/types/database";
 import { BeachSearchAutocomplete } from "@/components/beach/beach-search-autocomplete";
 import { ToolHero } from "@/components/tools/tool-hero";
 import { TOOL_IMAGES } from "@/lib/constants/tool-images";
+import { WindForecastChart } from "@/components/tools/wind-forecast-chart";
 
 const POPULAR_BEACH_SLUGS = [
-  { slug: "la-jolla", name: "La Jolla", state: "CA" },
+  { slug: "la-jolla-shores", name: "La Jolla Shores", state: "CA" },
   { slug: "pipeline", name: "Pipeline", state: "HI" },
-  { slug: "trestles", name: "Trestles", state: "CA" },
-  { slug: "rincon", name: "Rincon", state: "CA" },
-  { slug: "rockaway", name: "Rockaway", state: "NY" },
-  { slug: "huntington-beach", name: "Huntington Beach", state: "CA" },
+  { slug: "lower-trestles", name: "Lower Trestles", state: "CA" },
+  { slug: "rincon-carpinteria-ca", name: "Rincon", state: "CA" },
+  { slug: "rockaway-beach-90th-st-queens-ny", name: "Rockaway Beach", state: "NY" },
+  { slug: "huntington-beach-pier", name: "Huntington Beach Pier", state: "CA" },
   { slug: "ocean-beach", name: "Ocean Beach", state: "CA" },
-  { slug: "montauk", name: "Montauk", state: "NY" },
+  { slug: "ditch-plains-montauk-ny", name: "Ditch Plains", state: "NY" },
 ];
 
 interface WindCheckerClientProps {
@@ -78,6 +79,39 @@ export function WindCheckerClient({
           beach.wind_offshore_tol_deg
         )
       : null;
+
+  const bestWindows = useMemo(() => {
+    if (!data?.wind?.length || !beach?.wind_offshore_deg || !beach?.wind_offshore_tol_deg) return [];
+    const hours = data.wind.slice(0, 24);
+    const windows: string[] = [];
+    let inGoodWindow = false;
+    let windowStart = "";
+    const fmtHour = (ts: string) => {
+      const h = new Date(ts).getHours();
+      if (h === 0) return "12a";
+      if (h === 12) return "12p";
+      return h < 12 ? `${h}a` : `${h - 12}p`;
+    };
+    for (let i = 0; i < hours.length; i++) {
+      const h = hours[i];
+      const isGood =
+        h.wind_direction_deg != null &&
+        h.wind_speed_mph != null &&
+        classifyWindQuality(h.wind_direction_deg, beach.wind_offshore_deg, beach.wind_offshore_tol_deg).color === "green";
+      if (isGood && !inGoodWindow) {
+        inGoodWindow = true;
+        windowStart = fmtHour(h.ts);
+      } else if (!isGood && inGoodWindow) {
+        inGoodWindow = false;
+        windows.push(`${windowStart}\u2013${fmtHour(hours[i].ts)}`);
+        if (windows.length >= 2) break;
+      }
+    }
+    if (inGoodWindow && hours.length > 0) {
+      windows.push(`${windowStart}\u2013${fmtHour(hours[hours.length - 1].ts)}`);
+    }
+    return windows;
+  }, [data?.wind, beach?.wind_offshore_deg, beach?.wind_offshore_tol_deg]);
 
   const verdictStyle =
     offshoreQuality?.color === "green"
@@ -338,11 +372,29 @@ export function WindCheckerClient({
             </div>
 
             {data.wind.length > 1 && (
-              <WindTimeline
-                wind={data.wind}
-                offshoreDeg={beach.wind_offshore_deg}
-                toleranceDeg={beach.wind_offshore_tol_deg}
-              />
+              <div
+                className="noise-texture rounded-2xl border p-5"
+                style={{
+                  background: "linear-gradient(135deg, rgba(37,45,107,0.9) 0%, rgba(26,33,88,0.95) 100%)",
+                  borderColor: "rgba(64,76,146,0.4)",
+                }}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-mono text-xs font-semibold uppercase tracking-widest text-[#7A8CC0]">
+                    24-Hour Wind Forecast
+                  </h3>
+                  {bestWindows.length > 0 && beach.wind_offshore_deg != null && (
+                    <span className="font-mono text-xs font-semibold" style={{ color: "#4ade80" }}>
+                      Best: {bestWindows.join(", ")}
+                    </span>
+                  )}
+                </div>
+                <WindForecastChart
+                  wind={data.wind}
+                  offshoreDeg={beach.wind_offshore_deg}
+                  toleranceDeg={beach.wind_offshore_tol_deg}
+                />
+              </div>
             )}
 
             {data.hasOrientationData && (
@@ -389,111 +441,6 @@ export function WindCheckerClient({
 
       </div>
     </>
-  );
-}
-
-interface WindTimelineProps {
-  wind: WindCheckerData["wind"];
-  offshoreDeg: number | null;
-  toleranceDeg: number | null;
-}
-
-function WindTimeline({ wind, offshoreDeg, toleranceDeg }: WindTimelineProps) {
-  const hours = wind.slice(0, 24);
-
-  const barColor = (dir: number | null, speed: number | null): string => {
-    if (dir == null || speed == null) return "bg-[#2A3070]";
-    if (offshoreDeg == null || toleranceDeg == null) return "bg-[#404C92]";
-    const quality = classifyWindQuality(dir, offshoreDeg, toleranceDeg);
-    if (quality.color === "green") return "bg-green-500";
-    if (quality.color === "yellow") return "bg-yellow-500";
-    return "bg-red-500";
-  };
-
-  const formatHour = (ts: string) => {
-    const h = new Date(ts).getUTCHours();
-    if (h === 0) return "12a";
-    if (h === 12) return "12p";
-    return h < 12 ? `${h}a` : `${h - 12}p`;
-  };
-
-  const bestWindows: string[] = [];
-  let inGoodWindow = false;
-  let windowStart = "";
-  for (let i = 0; i < hours.length; i++) {
-    const h = hours[i];
-    const isGood =
-      h.wind_direction_deg != null &&
-      h.wind_speed_mph != null &&
-      offshoreDeg != null &&
-      toleranceDeg != null &&
-      classifyWindQuality(h.wind_direction_deg, offshoreDeg, toleranceDeg).color === "green";
-
-    if (isGood && !inGoodWindow) {
-      inGoodWindow = true;
-      windowStart = formatHour(h.ts);
-    } else if (!isGood && inGoodWindow) {
-      inGoodWindow = false;
-      bestWindows.push(`${windowStart}–${formatHour(hours[i].ts)}`);
-      if (bestWindows.length >= 2) break;
-    }
-  }
-  if (inGoodWindow && hours.length > 0) {
-    bestWindows.push(`${windowStart}–${formatHour(hours[hours.length - 1].ts)}`);
-  }
-
-  return (
-    <div
-      className="noise-texture rounded-2xl border p-5"
-      style={{
-        background: "linear-gradient(135deg, rgba(37,45,107,0.9) 0%, rgba(26,33,88,0.95) 100%)",
-        borderColor: "rgba(64,76,146,0.4)",
-      }}
-    >
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="font-mono text-xs font-semibold uppercase tracking-widest text-[#7A8CC0]">
-          24-Hour Wind Forecast
-        </h3>
-        {bestWindows.length > 0 && offshoreDeg != null && (
-          <span className="font-mono text-xs font-semibold" style={{ color: "#4ade80" }}>
-            Best: {bestWindows.join(", ")}
-          </span>
-        )}
-      </div>
-
-      <div className="overflow-x-auto">
-        <div className="flex gap-0.5 min-w-max pb-1">
-          {hours.map((h, i) => {
-            const maxBarH = 40;
-            const speed = h.wind_speed_mph ?? 0;
-            const barH = Math.max(4, Math.min(maxBarH, (speed / 30) * maxBarH));
-            const color = barColor(h.wind_direction_deg, h.wind_speed_mph);
-            const label = formatHour(h.ts);
-            const showLabel = i % 3 === 0;
-
-            return (
-              <div key={h.ts} className="flex flex-col items-center gap-0.5 w-8">
-                <div
-                  className="flex flex-col justify-end"
-                  style={{ height: maxBarH }}
-                  title={`${label}: ${Math.round(speed)} mph from ${h.wind_direction_deg != null ? degreesToCardinal(h.wind_direction_deg) : "?"}`}
-                >
-                  <div
-                    className={`w-full rounded-sm opacity-80 ${color}`}
-                    style={{ height: barH }}
-                  />
-                </div>
-                {showLabel && (
-                  <span className="font-mono text-[9px] text-[#404C92] leading-none">
-                    {label}
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
   );
 }
 
