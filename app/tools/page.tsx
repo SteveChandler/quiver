@@ -155,16 +155,9 @@ export default function ToolsIndexPage() {
                 <Link
                   key={tool.slug}
                   href={href}
-                  className="group rounded-xl border p-5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]"
+                  className="group rounded-xl border border-[rgba(64,76,146,0.4)] hover:border-[rgba(247,142,66,0.5)] p-5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]"
                   style={{
                     background: "rgba(30, 37, 88, 0.7)",
-                    borderColor: "rgba(64, 76, 146, 0.4)",
-                  }}
-                  onMouseOver={(e) => {
-                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(247, 142, 66, 0.5)";
-                  }}
-                  onMouseOut={(e) => {
-                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(64, 76, 146, 0.4)";
                   }}
                 >
                   <div
