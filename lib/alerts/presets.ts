@@ -8,8 +8,8 @@ import type {
 export const PRESETS: PresetDefinition[] = [
   {
     type: "glass_off",
-    name: "Glass-Off",
-    description: "Light wind and clean waves — perfect morning glass",
+    name: "Glassy",
+    description: "Light wind and clean waves — smooth as glass",
     conditionsSummary: "Offshore or <5kt wind, 2ft+ swell",
     group: "popular",
     buildConditions: (): AlertConditions => ({
