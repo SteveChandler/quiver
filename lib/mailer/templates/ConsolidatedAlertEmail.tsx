@@ -39,7 +39,8 @@ export function ConsolidatedAlertEmail({
             const snap = match.conditions_snapshot;
             const conditionsLine = buildConditionsLine(snap);
             const beachUrl = `${baseUrl}/surf/${match.beach_name.toLowerCase().replace(/\s+/g, "-")}`;
-            const disableUrl = `${baseUrl}/api/alerts/rules/${match.rule_id}/disable-email`;
+            const tokenParam = match.disable_token ? `?token=${match.disable_token}` : "";
+            const disableUrl = `${baseUrl}/api/alerts/rules/${match.rule_id}/disable-email${tokenParam}`;
 
             return (
               <div

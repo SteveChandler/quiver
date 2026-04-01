@@ -9,6 +9,7 @@ import {
 import { evaluateConditions } from "@/lib/alerts/condition-evaluator";
 import { filterToDaylight } from "@/lib/alerts/sunrise";
 import { resolveWindDirection } from "@/lib/alerts/degree-utils";
+import { getUtcDayBounds } from "@/lib/alerts/timezone-utils";
 import type { AlertConditions, BeachAlertMeta, ForecastHour } from "@/lib/alerts/types";
 
 export const GET = withAuth(
@@ -35,6 +36,7 @@ export const GET = withAuth(
     const beach = rule.beaches as BeachAlertMeta;
     const conditions = rule.conditions as AlertConditions;
     const today = new Date().toLocaleDateString("en-CA", { timeZone: beach.timezone });
+    const { start: todayStart, end: todayEnd } = getUtcDayBounds(today, beach.timezone);
 
     const { data: forecasts } = await supabase
       .from("enhanced_forecasts")
@@ -42,8 +44,8 @@ export const GET = withAuth(
         "forecast_at, wave_height, wave_period, swell_1_height, swell_1_period, swell_1_direction, wind_speed, wind_direction_deg, tide_height, tide_status"
       )
       .eq("beach_id", rule.beach_id)
-      .gte("forecast_at", `${today}T00:00:00Z`)
-      .lt("forecast_at", `${today}T23:59:59Z`)
+      .gte("forecast_at", todayStart)
+      .lt("forecast_at", todayEnd)
       .order("forecast_at", { ascending: true });
 
     if (!forecasts || forecasts.length === 0) {

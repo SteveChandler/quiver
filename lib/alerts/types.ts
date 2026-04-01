@@ -72,6 +72,8 @@ export interface MatchingWindow {
   conditions_snapshot: Record<string, unknown>;
   notify_email: boolean;
   notify_push: boolean;
+  /** HMAC token for the one-click disable-email link. Set during delivery. */
+  disable_token?: string;
 }
 
 export interface ConsolidatedAlertPayload {

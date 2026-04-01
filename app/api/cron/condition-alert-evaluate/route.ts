@@ -5,6 +5,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { findMatchingWindows } from "@/lib/alerts/window-finder";
 import { filterToDaylight, getDaylightWindow } from "@/lib/alerts/sunrise";
 import { getUserEntitlement, CAPS } from "@/lib/alerts/entitlements";
+import { getUtcDayBounds } from "@/lib/alerts/timezone-utils";
 import type { AlertConditions, BeachAlertMeta, ForecastHour } from "@/lib/alerts/types";
 
 export const revalidate = 0;
@@ -86,8 +87,7 @@ export async function GET(request: Request) {
           const beach = rule.beaches as unknown as BeachAlertMeta;
           const conditions = rule.conditions as AlertConditions;
 
-          const todayStart = `${userLocalDate}T00:00:00Z`;
-          const todayEnd = `${userLocalDate}T23:59:59Z`;
+          const { start: todayStart, end: todayEnd } = getUtcDayBounds(userLocalDate, beach.timezone);
 
           const { data: forecasts } = await supabase
             .from("enhanced_forecasts")
@@ -127,17 +127,22 @@ export async function GET(request: Request) {
             const clampedSendAt = sendAtDate < sunrise ? sunrise : sendAtDate;
             const sendAt = clampedSendAt < new Date() ? new Date() : clampedSendAt;
 
-            const { error: insertError } = await supabase.from("alert_queue").insert({
-              user_id: userId,
-              rule_id: rule.id,
-              beach_id: rule.beach_id,
-              alert_date: userLocalDate,
-              send_at: sendAt.toISOString(),
-              window_start: window.window_start,
-              window_end: window.window_end,
-              best_hour: window.best_hour,
-              conditions_snapshot: window.conditions_snapshot,
-            });
+            const { error: insertError } = await (supabase as any)
+              .from("alert_queue")
+              .upsert(
+                {
+                  user_id: userId,
+                  rule_id: rule.id,
+                  beach_id: rule.beach_id,
+                  alert_date: userLocalDate,
+                  send_at: sendAt.toISOString(),
+                  window_start: window.window_start,
+                  window_end: window.window_end,
+                  best_hour: window.best_hour,
+                  conditions_snapshot: window.conditions_snapshot,
+                },
+                { onConflict: "rule_id,alert_date,window_start", ignoreDuplicates: true }
+              );
 
             if (insertError) {
               console.error(`${CONTEXT_TAG} Failed to queue alert:`, insertError);

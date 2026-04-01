@@ -14,6 +14,7 @@ import { consolidateQueueItems } from "@/lib/alerts/payload-builder";
 import type { QueueItemWithMeta } from "@/lib/alerts/payload-builder";
 import { formatPushNotification } from "@/lib/alerts/push-formatter";
 import { sendPushNotifications } from "@/lib/alerts/push-sender";
+import { generateDisableToken } from "@/lib/alerts/email-token";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -107,7 +108,9 @@ export async function GET(request: Request): Promise<NextResponse> {
 
       try {
         // 5a. Email delivery
-        const emailMatches = payload.matches.filter((m) => m.notify_email);
+        const emailMatches = payload.matches
+          .filter((m) => m.notify_email)
+          .map((m) => ({ ...m, disable_token: generateDisableToken(m.rule_id) }));
         const shouldEmail = emailMatches.length > 0 && profile.notif_email_enabled;
 
         if (shouldEmail) {
