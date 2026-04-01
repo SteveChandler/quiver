@@ -131,10 +131,10 @@ describe("useOnboardingTracking", () => {
         debounceMs: 100,
       });
 
-      // Second call: final completion
+      // Second call: final completion (debounceMs: 0 — fires right after payoff step event with same debounce key)
       expect(mockTrack).toHaveBeenNthCalledWith(2, "onboarding_step", {
         metadata: { step: 6, step_name: "completed", completed: true },
-        debounceMs: 100,
+        debounceMs: 0,
       });
     });
 

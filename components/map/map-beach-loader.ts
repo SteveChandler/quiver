@@ -19,6 +19,8 @@ export interface BeachLoaderResult {
   locations: Beach[];
   /** Map from beach ID to wave height (includes interpolated values) */
   waveHeightMap: Map<string, number | undefined>;
+  /** Map from beach ID to water temperature string (e.g., "52") */
+  waterTempMap: Map<string, string | undefined>;
 }
 
 /**
@@ -95,6 +97,7 @@ export async function loadBeachesAndWaveHeights(
 
   // Fetch wave heights for ALL beaches that clustering will use
   const waveHeightMap = new Map<string, number | undefined>();
+  const waterTempMap = new Map<string, string | undefined>();
   const beachesForWaveData = providedBeaches?.length
     ? providedBeaches
     : locations;
@@ -138,6 +141,13 @@ export async function loadBeachesAndWaveHeights(
             waveHeightMap.set(beachId, parsed);
           }
         });
+
+        const waterTemps = data?.data?.waterTemps || {};
+        Object.entries(waterTemps).forEach(([beachId, temp]) => {
+          if (temp !== null && temp !== undefined) {
+            waterTempMap.set(beachId, temp as string);
+          }
+        });
       });
     } catch (error) {
       console.warn("Failed to fetch bulk forecasts:", error);
@@ -147,7 +157,7 @@ export async function loadBeachesAndWaveHeights(
   // Fill missing wave heights from nearest beach with data
   interpolateMissingWaveHeights(beachesForWaveData, waveHeightMap);
 
-  return { locations, waveHeightMap };
+  return { locations, waveHeightMap, waterTempMap };
 }
 
 /**

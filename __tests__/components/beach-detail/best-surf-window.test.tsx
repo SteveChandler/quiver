@@ -15,6 +15,10 @@ jest.mock("@/lib/utils/window-status");
 jest.mock("next/navigation", () => ({
   usePathname: jest.fn(() => "/beach/123"),
 }));
+jest.mock("@/components/share/share-sheet", () => ({
+  ShareSheet: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="share-sheet" /> : null,
+}));
 // Mock timezone-utils so forecastDate is always "2024-01-15" (matching mockIntel/mockForecasts)
 jest.mock("@/lib/utils/timezone-utils", () => ({
   DEFAULT_TIMEZONE: "America/Los_Angeles",
@@ -650,14 +654,8 @@ describe("BestSurfWindow", () => {
       expect(shareButton).toBeInTheDocument();
     });
 
-    it("should call navigator.share when share button clicked", async () => {
+    it("should open ShareSheet when share button clicked", async () => {
       const user = userEvent.setup();
-      const mockShare = jest.fn().mockResolvedValue(undefined);
-      Object.defineProperty(navigator, "share", {
-        value: mockShare,
-        writable: true,
-        configurable: true,
-      });
 
       mockUseDataFetcher.mockReturnValue({
         data: mockIntel,
@@ -668,14 +666,12 @@ describe("BestSurfWindow", () => {
 
       render(<BestSurfWindow {...defaultProps} />);
 
+      expect(screen.queryByTestId("share-sheet")).not.toBeInTheDocument();
+
       const shareButton = screen.getByTitle(/Share surf intel/i);
       await user.click(shareButton);
 
-      expect(mockShare).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: expect.stringContaining("Test Beach"),
-        })
-      );
+      expect(screen.getByTestId("share-sheet")).toBeInTheDocument();
     });
   });
 

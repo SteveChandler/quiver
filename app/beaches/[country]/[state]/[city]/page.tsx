@@ -38,8 +38,7 @@ import { StandardLayout } from "./standard-layout";
 
 // Re-export Next.js named exports from extracted modules
 export { generateMetadata } from "./city-page-metadata";
-// NOTE: generateStaticParams removed — this page uses force-dynamic (line 127).
-// Pages are rendered on-demand via ISR.
+// NOTE: generateStaticParams removed — pages are rendered on-demand via ISR.
 
 export default async function LocationPage(props: LocationPageProps) {
   const params = await props.params;
@@ -125,4 +124,4 @@ export default async function LocationPage(props: LocationPageProps) {
   );
 }
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;

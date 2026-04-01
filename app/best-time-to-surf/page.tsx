@@ -20,6 +20,7 @@ import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { BestTimeEnhancements } from "@/components/best-time-to-surf/best-time-enhancements";
 
 export const revalidate = 86400;
 
@@ -31,8 +32,8 @@ const currentYear = new Date().getFullYear();
 
 export async function generateMetadata(): Promise<Metadata> {
   return buildPageMetadata({
-    title: `Best Time to Surf in the US (${currentYear}) | Month-by-Month Guide`,
-    description: `Find the best months to surf across the US. State-by-state surf calendars with wave heights, water temps, wetsuit guides, and crowd levels. Updated for ${currentYear}.`,
+    title: `Best Time to Surf — Month-by-Month Guide for Every Coast (${currentYear})`,
+    description: `Find the perfect surf trip window. Monthly wave heights, water temps, wetsuit recommendations, and crowd levels for 16 states. Updated for ${currentYear}.`,
     path: "/best-time-to-surf",
     keywords: [
       "best time to surf",
@@ -62,6 +63,11 @@ export default async function BestTimeToSurfHubPage() {
   const stateSlugs = getAvailableStateProfiles();
   const collisionMap = COLLISION_CITY_MAP;
 
+  // Build all profiles for client-side enhancements
+  const allProfiles = stateSlugs
+    .map((slug) => getStateSurfProfile(slug))
+    .filter(Boolean) as NonNullable<ReturnType<typeof getStateSurfProfile>>[];
+
   return (
     <div className="bg-gradient-to-b from-sky-50 via-blue-50/30 to-white min-h-screen">
       <BreadcrumbStructuredData
@@ -72,22 +78,29 @@ export default async function BestTimeToSurfHubPage() {
       />
       {/* WebPage JSON-LD with dateModified signals content freshness to Google */}
       <WebPageSchema
-        name={`Best Time to Surf in the US (${currentYear}) | Month-by-Month Guide`}
+        name={`Best Time to Surf — Month-by-Month Guide for Every Coast (${currentYear})`}
         url={`${SITE_ORIGIN}/best-time-to-surf`}
       />
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Hero Section */}
         <ScrollReveal>
-          <header className="mb-12 text-center">
+          <header className="mb-8 text-center">
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
-              Best Time to Surf in the US ({currentYear})
+              Best Time to Surf — Month-by-Month Guide for Every Coast
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              State-by-state surf season calendars with wave heights, water temperatures,
-              wetsuit recommendations, and crowd levels. Find your ideal surf window.
+              Find the perfect surf trip window. Monthly wave heights, water temps, wetsuit
+              recommendations, and crowd levels for 16 states.
             </p>
           </header>
+        </ScrollReveal>
+
+        {/* Interactive Enhancements: Comparison + Personalization */}
+        <ScrollReveal>
+          <div className="mb-12">
+            <BestTimeEnhancements stateProfiles={allProfiles} />
+          </div>
         </ScrollReveal>
 
         {/* State Cards Grid */}

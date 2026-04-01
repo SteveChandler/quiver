@@ -5,7 +5,7 @@
  * Pulls from the beach_ml_performance_baseline materialized view via service role.
  *
  * URL: /forecast-accuracy
- * ISR: 6 hours (21600s)
+ * Rendering: force-dynamic (requires service role key at runtime)
  */
 
 import Link from "next/link";
@@ -20,6 +20,7 @@ import {
   getOverallAccuracyStats,
   getRegionalAccuracy,
   getTopBeaches,
+  getDailyAccuracyTimeSeries,
 } from "@/actions/ml/forecast-accuracy-actions";
 import { AccuracyHero } from "@/components/forecast-accuracy/accuracy-hero";
 import { NOAAComparisonBar } from "@/components/forecast-accuracy/noaa-comparison-bar";
@@ -59,10 +60,11 @@ const MIN_BEACH_THRESHOLD = 5;
 
 export default async function ForecastAccuracyPage() {
   // Fetch all data in parallel
-  const [overallStats, regionalData, topBeaches] = await Promise.all([
+  const [overallStats, regionalData, topBeaches, dailyTimeSeries] = await Promise.all([
     getOverallAccuracyStats(),
     getRegionalAccuracy(),
     getTopBeaches(),
+    getDailyAccuracyTimeSeries(),
   ]);
 
   const hasEnoughData =
@@ -103,6 +105,7 @@ export default async function ForecastAccuracyPage() {
                 <NOAAComparisonBar
                   rawMae={overallStats.avgRawMae}
                   correctedMae={overallStats.avgCorrectedMae}
+                  timeSeries={dailyTimeSeries}
                 />
               </div>
             </ScrollReveal>
@@ -188,6 +191,12 @@ export default async function ForecastAccuracyPage() {
                 className="inline-flex items-center px-5 py-2.5 rounded-lg bg-white/10 text-white font-semibold text-sm hover:bg-white/20 transition-colors border border-white/30"
               >
                 Browse All Beaches
+              </Link>
+              <Link
+                href="/vs/surfline"
+                className="inline-flex items-center px-5 py-2.5 rounded-lg bg-white/10 text-white font-semibold text-sm hover:bg-white/20 transition-colors border border-white/30"
+              >
+                Quiver vs Surfline
               </Link>
             </div>
           </section>

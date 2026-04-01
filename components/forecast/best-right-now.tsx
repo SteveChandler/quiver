@@ -10,7 +10,7 @@
  * @module components/forecast/best-right-now
  */
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Waves, Trophy } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -18,6 +18,10 @@ import { getTopBeachesNow } from "@/actions/forecast/get-top-beaches-now";
 import type { TopBeachEntry } from "@/lib/utils/forecast-hub-utils";
 import { getScoreColorClasses } from "@/lib/utils/score-color-utils";
 import { formatWaveHeightRange as formatWaveHeight } from "@/lib/formatters/surf-data";
+import {
+  parseIPLocationCookie,
+  getIPLocationCookieName,
+} from "@/lib/location/ip-location";
 import { ForecastSectionContainer } from "./forecast-section-container";
 
 function BestRightNowSkeleton() {
@@ -53,22 +57,36 @@ function RankBadge({ rank }: RankBadgeProps) {
   );
 }
 
-interface BestRightNowProps {
-  userLat?: number;
-  userLon?: number;
-}
+export function BestRightNow() {
+  const [userCoords, setUserCoords] = useState<{
+    lat: number;
+    lon: number;
+  } | null>(null);
 
-export function BestRightNow({ userLat, userLon }: BestRightNowProps = {}) {
+  useEffect(() => {
+    const cookieName = getIPLocationCookieName();
+    const cookieEntry = document.cookie
+      .split("; ")
+      .find((c) => c.startsWith(`${cookieName}=`));
+    if (cookieEntry) {
+      const rawValue = cookieEntry.split("=").slice(1).join("=");
+      const ipLocation = parseIPLocationCookie(decodeURIComponent(rawValue));
+      if (
+        ipLocation?.latitude != null &&
+        ipLocation?.longitude != null
+      ) {
+        setUserCoords({ lat: ipLocation.latitude, lon: ipLocation.longitude });
+      }
+    }
+  }, []);
+
   const fetchTopBeaches = useCallback(
-    () => getTopBeachesNow(5, userLat, userLon),
-    [userLat, userLon]
+    () => getTopBeachesNow(5, userCoords?.lat, userCoords?.lon),
+    [userCoords]
   );
   const { data, loading } = useDataFetcher<TopBeachEntry[]>(fetchTopBeaches);
 
-  const heading =
-    userLat !== undefined && userLon !== undefined
-      ? "Best Near You"
-      : "Best Right Now";
+  const heading = userCoords !== null ? "Best Near You" : "Best Right Now";
 
   if (loading) {
     return (

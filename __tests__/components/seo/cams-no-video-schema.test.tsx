@@ -23,23 +23,22 @@ describe("Cams pages structured data", () => {
       expect(fs.existsSync(filePath)).toBe(false);
     });
 
-    it("/cams hub page does not import CamSchema", () => {
+    it("/cams hub page does not import the old CamSchema component", () => {
       const source = fs.readFileSync(
         path.resolve(__dirname, "../../../app/cams/page.tsx"),
         "utf-8"
       );
-      expect(source).not.toContain("CamSchema");
-      expect(source).not.toContain("cam-schema");
-      expect(source).not.toContain("VideoObject");
+      // Ensure the old cam-schema import path is gone (LiveCamSchema from live-cam-schema is fine)
+      expect(source).not.toMatch(/from\s+["'].*\/cam-schema["']/);
     });
 
-    it("/cams/[region] page does not import CamSchema", () => {
+    it("/cams/[region] page does not import the old CamSchema component", () => {
       const source = fs.readFileSync(
         path.resolve(__dirname, "../../../app/cams/[region]/page.tsx"),
         "utf-8"
       );
-      expect(source).not.toContain("CamSchema");
-      expect(source).not.toContain("cam-schema");
+      // Ensure the old cam-schema import path is gone (LiveCamSchema from live-cam-schema is fine)
+      expect(source).not.toMatch(/from\s+["'].*\/cam-schema["']/);
       expect(source).not.toContain("VideoObject");
     });
   });

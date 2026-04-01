@@ -123,10 +123,9 @@ export function TideSummaryHero({ beachName, tideData }: TideSummaryHeroProps) {
         {/* Heading row */}
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="font-heading text-2xl font-bold leading-tight text-high sm:text-3xl">
-              Tide Times Today
-            </h2>
-            <p className="mt-0.5 text-sm text-medium">{beachName}</p>
+            <h1 className="font-heading text-2xl font-bold leading-tight text-high sm:text-3xl">
+              {beachName} Tide Chart & Surf Windows
+            </h1>
           </div>
 
           {/* Tide status badge */}

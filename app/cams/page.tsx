@@ -5,7 +5,9 @@ import { Video } from "lucide-react";
 import { getBeachesWithCameras } from "@/actions/beach/cam-actions";
 import { CAM_REGIONS } from "@/lib/data/cam-regions";
 import { buildPageMetadata } from "@/lib/seo/meta";
+import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
+import { LiveCamSchema } from "@/components/seo/live-cam-schema";
 import { CamGrid } from "@/components/cams/cam-grid";
 import { CamsShareButton } from "@/components/cams/cams-share-button";
 import { OceanBackground } from "@/components/ui/ocean-background";
@@ -78,6 +80,15 @@ export default async function CamsHubPage() {
         name={`Live Surf Cams — ${camCount}+ Cameras Across ${stateCount} States`}
         url={`${baseUrl}/cams`}
       />
+      {/* VideoObject schema for a representative sample of cams (capped at 20) */}
+      {beaches.slice(0, 20).map((beach) => (
+        <LiveCamSchema
+          key={beach.slug}
+          beachName={beach.name}
+          cameraUrl={beach.camera_url}
+          pageUrl={buildBeachUrl({ slug: beach.slug, city: beach.city, state: beach.state })}
+        />
+      ))}
       {/* Visible breadcrumbs */}
       <div className="px-4 pt-6 md:pt-8">
         <div className="mx-auto max-w-6xl">

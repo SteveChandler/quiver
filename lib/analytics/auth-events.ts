@@ -186,11 +186,18 @@ export function trackLoginFailed(params: {
 /**
  * Track when a signup attempt starts
  * @param method - The auth method being used
+ * @param options.source - The CTA source string (e.g., "intent-longboard-torrance")
+ * @param options.landing_page - The pathname at the time of signup
  */
-export function trackSignupStarted(method: string) {
+export function trackSignupStarted(
+  method: string,
+  options?: { source?: string; landing_page?: string }
+) {
   const eventParams = {
     method,
     timestamp: Date.now(),
+    ...(options?.source && { source: options.source }),
+    ...(options?.landing_page && { landing_page: options.landing_page }),
   };
   track("signup_started", eventParams);
   fireToUserEvents("signup_started", eventParams);
@@ -200,14 +207,20 @@ export function trackSignupStarted(method: string) {
  * Track successful signup completion
  * @param params.method - The auth method used
  * @param params.requires_verification - Whether email verification is required
+ * @param params.source - The CTA source string (e.g., "intent-longboard-torrance")
+ * @param params.landing_page - The pathname at the time of signup
  */
 export function trackSignupSuccess(params: {
   method: string;
   requires_verification: boolean;
+  source?: string;
+  landing_page?: string;
 }) {
   const eventParams = {
     method: params.method,
     requires_verification: params.requires_verification,
+    ...(params.source && { source: params.source }),
+    ...(params.landing_page && { landing_page: params.landing_page }),
   };
   track("signup_success", eventParams);
   fireToUserEvents("signup_success", eventParams);

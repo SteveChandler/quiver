@@ -138,6 +138,7 @@ export function WaterTempPageContent({
                 citySlug={citySlug}
                 stateSlug={stateSlug}
                 countrySlug="usa"
+                displayMode="water-temp"
               />
             </section>
           )}

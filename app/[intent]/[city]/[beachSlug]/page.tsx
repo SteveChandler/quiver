@@ -37,6 +37,7 @@ import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { LiveCamSchema } from "@/components/seo/live-cam-schema";
 import { getBeachCameraUrl } from "@/actions/beach/cam-actions";
 import { BeachProseSummary } from "@/components/beach-detail/beach-prose-summary";
+import { OptimalConditionsSection } from "@/components/beach-detail/optimal-conditions-section";
 
 // NOTE: ISR is partially effective here — getSpotSurfReport() still calls
 // cookies() for auth-aware scoring, which opts into dynamic rendering.
@@ -113,7 +114,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
         : null;
 
     // Fetch surf report, nearby beaches, reviews, best time to surf URL, amenities, and water quality in parallel
-    const [surfReportResult, nearbyResult, reviewsResult, bestTimeToSurfUrl, amenitiesResult, waterQualityResult, cameraUrl] = await Promise.all([
+    const [surfReportResult, nearbyResult, reviewsResult, bestTimeToSurfUrl, amenitiesResult, waterQualityResult, cameraUrl, beachPhoto] = await Promise.all([
       getSpotSurfReport(beach),
       beach.lat && beach.lon
         ? getNearbyBeaches(beach.lat, beach.lon, 25)
@@ -151,6 +152,23 @@ export default async function GenericBeachDetailPage(props: PageProps) {
         }
       })(),
       getBeachCameraUrl(beach.id),
+      (async () => {
+        try {
+          const supabase = createPublicReadClient();
+          const { data } = await supabase
+            .from("beach_photos")
+            .select("image_url, thumb_url, source, creator_name, license_code, attribution_html")
+            .eq("beach_id", beach.id)
+            .eq("approved", true)
+            .is("deleted_at", null)
+            .order("source", { ascending: true }) // google_places sorts before openverse
+            .limit(1)
+            .maybeSingle();
+          return data;
+        } catch {
+          return null;
+        }
+      })(),
     ]);
 
     const surfCallReport = surfReportResult?.report || null;
@@ -293,6 +311,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
 
         {/* SSR sections below tabs for SEO crawlability */}
         <div className="container mx-auto px-4 pb-8 space-y-8">
+          <OptimalConditionsSection beach={beach} photo={beachPhoto} />
           <NearbyBeachesEnriched
               beaches={nearbyBeaches}
               sourceBeachName={beach.name}

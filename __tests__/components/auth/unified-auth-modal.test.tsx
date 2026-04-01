@@ -454,6 +454,8 @@ describe("UnifiedAuthModal", () => {
       expect(authEvents.trackSignupSuccess).toHaveBeenCalledWith({
         method: "apple",
         requires_verification: false,
+        source: "unknown",
+        landing_page: "/",
       });
     });
   });
@@ -529,6 +531,8 @@ describe("UnifiedAuthModal", () => {
       expect(authEvents.trackSignupSuccess).toHaveBeenCalledWith({
         method: "google",
         requires_verification: false,
+        source: "unknown",
+        landing_page: "/",
       });
     });
 
@@ -671,6 +675,8 @@ describe("UnifiedAuthModal", () => {
       expect(authEvents.trackSignupSuccess).toHaveBeenCalledWith({
         method: "password",
         requires_verification: true,
+        source: "unknown",
+        landing_page: "/",
       });
 
       // Email/password signup requires email confirmation; we redirect to landing

@@ -11,14 +11,6 @@
     "vercel": {
       "type": "http",
       "url": "https://mcp.vercel.com"
-    },
-    "playwright": {
-      "type": "stdio",
-      "command": "/Users/stevenchandler/.nvm/versions/node/v22.8.0/bin/npx",
-      "args": [
-        "@playwright/mcp@latest"
-      ],
-      "env": {}
     }
   }
 }

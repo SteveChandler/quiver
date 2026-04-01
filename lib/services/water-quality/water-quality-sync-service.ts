@@ -31,6 +31,12 @@ import type { SupabaseServiceClient } from "@/types/supabase";
 const UPSERT_BATCH_SIZE = 100;
 const LOG_PREFIX = "[WQ]";
 
+/** Maximum radius (km) for proxy station matching on UNKNOWN beaches */
+const PROXY_STATION_RADIUS_KM = 2;
+
+/** Batch size for Supabase .in() queries (limit ~1000) */
+const IN_BATCH_SIZE = 500;
+
 /** Safety limit for CSV stream parsing (50 MB) */
 const MAX_RESPONSE_BYTES = 50 * 1024 * 1024;
 
@@ -89,6 +95,7 @@ interface WaterQualityUpsertRow {
   latest_sample_date: string | null;
   total_samples_30d: number;
   exceedance_count_30d: number;
+  monitoring_station_id: string | null;
   status_reason: string | null;
   status_changed_at: string | null;
   updated_at: string;
@@ -902,7 +909,7 @@ export async function evaluateWaterQuality(
     // Get all stations that have a linked beach
     const { data: linkedStations, error: stationError } = await supabase
       .from("wq_monitoring_stations")
-      .select("id, station_id, nearest_beach_id")
+      .select("id, station_id, nearest_beach_id, lat, lon, name")
       .not("nearest_beach_id", "is", null);
 
     if (stationError) {
@@ -955,36 +962,54 @@ export async function evaluateWaterQuality(
       `${LOG_PREFIX} Evaluation window: ${cutoffISO} to ${anchorDate.toISOString().split("T")[0]} (anchored to latest sample)`
     );
 
-    // Fetch existing statuses to detect changes
+    // Fetch existing statuses to detect changes (batched to stay within .in() limit)
     const beachIds = Array.from(beachStations.keys());
-    const { data: existingStatuses } = await supabase
-      .from("beach_water_quality")
-      .select("beach_id, status")
-      .in("beach_id", beachIds);
-
     const previousStatus = new Map<string, WQStatus>();
-    if (existingStatuses) {
-      for (const row of existingStatuses) {
-        previousStatus.set(row.beach_id, row.status as WQStatus);
+    for (let i = 0; i < beachIds.length; i += IN_BATCH_SIZE) {
+      const batch = beachIds.slice(i, i + IN_BATCH_SIZE);
+      const { data: existingStatuses } = await supabase
+        .from("beach_water_quality")
+        .select("beach_id, status")
+        .in("beach_id", batch);
+
+      if (existingStatuses) {
+        for (const row of existingStatuses) {
+          previousStatus.set(row.beach_id, row.status as WQStatus);
+        }
       }
     }
 
     const evaluations: WaterQualityUpsertRow[] = [];
 
-    // Fetch ALL samples for all linked stations in one query (avoids N+1 pattern).
-    // Supabase .in() supports up to 1000 values; linkedStations is typically <500.
+    // Fetch ALL samples for all linked stations, batching to stay within
+    // Supabase .in() limit of ~1000 values per query.
     const allStationUuids = linkedStations.map((s) => s.id);
-    const { data: allSamples, error: allSamplesError } = await supabase
-      .from("wq_samples")
-      .select("station_id, characteristic, value, detection_condition, sample_date")
-      .in("station_id", allStationUuids)
-      .gte("sample_date", cutoffISO)
-      .order("sample_date", { ascending: false });
+    const allSamples: Array<{
+      station_id: string;
+      characteristic: string;
+      value: number | null;
+      detection_condition: string | null;
+      sample_date: string;
+    }> = [];
 
-    if (allSamplesError) {
-      result.errors.push(`Failed to fetch evaluation samples: ${allSamplesError.message}`);
-      result.duration_ms = Date.now() - startTime;
-      return result;
+    for (let i = 0; i < allStationUuids.length; i += IN_BATCH_SIZE) {
+      const batch = allStationUuids.slice(i, i + IN_BATCH_SIZE);
+      const { data: batchSamples, error: batchError } = await supabase
+        .from("wq_samples")
+        .select("station_id, characteristic, value, detection_condition, sample_date")
+        .in("station_id", batch)
+        .gte("sample_date", cutoffISO)
+        .order("sample_date", { ascending: false });
+
+      if (batchError) {
+        result.errors.push(`Failed to fetch evaluation samples (batch ${Math.floor(i / IN_BATCH_SIZE) + 1}): ${batchError.message}`);
+        result.duration_ms = Date.now() - startTime;
+        return result;
+      }
+
+      if (batchSamples) {
+        allSamples.push(...batchSamples);
+      }
     }
 
     // Build station_id -> beach_id lookup from linkedStations
@@ -993,19 +1018,27 @@ export async function evaluateWaterQuality(
       stationToBeach.set(station.id, station.nearest_beach_id as string);
     }
 
-    // Group samples by beach_id
+    // Group samples by beach_id AND by station UUID (for proxy fallback)
     const samplesByBeach = new Map<string, SampleRow[]>();
-    for (const sample of allSamples ?? []) {
-      const beachId = stationToBeach.get(sample.station_id);
-      if (!beachId) continue;
-      const existing = samplesByBeach.get(beachId) ?? [];
-      existing.push({
+    const samplesByStation = new Map<string, SampleRow[]>();
+    for (const sample of allSamples) {
+      const row: SampleRow = {
         characteristic: sample.characteristic,
         value: sample.value,
         detection_condition: sample.detection_condition,
         sample_date: sample.sample_date,
-      });
-      samplesByBeach.set(beachId, existing);
+      };
+
+      const beachId = stationToBeach.get(sample.station_id);
+      if (beachId) {
+        const existing = samplesByBeach.get(beachId) ?? [];
+        existing.push(row);
+        samplesByBeach.set(beachId, existing);
+      }
+
+      const stationSamples = samplesByStation.get(sample.station_id) ?? [];
+      stationSamples.push(row);
+      samplesByStation.set(sample.station_id, stationSamples);
     }
 
     // Evaluate each beach using the pre-fetched grouped samples
@@ -1026,6 +1059,97 @@ export async function evaluateWaterQuality(
         result.errors.push(
           `Beach ${beachId} evaluation error: ${error instanceof Error ? error.message : "unknown"}`
         );
+      }
+    }
+
+    // ------------------------------------------------------------------
+    // Second pass: resolve UNKNOWN beaches via nearest proxy station
+    // ------------------------------------------------------------------
+    const evalIndex = new Map<string, number>();
+    const unknownBeachIds: string[] = [];
+    for (let i = 0; i < evaluations.length; i++) {
+      evalIndex.set(evaluations[i].beach_id, i);
+      if (evaluations[i].status === WQ_STATUS.UNKNOWN) {
+        unknownBeachIds.push(evaluations[i].beach_id);
+      }
+    }
+
+    if (unknownBeachIds.length > 0) {
+      const { data: unknownBeaches, error: unknownBeachError } = await supabase
+        .from("beaches")
+        .select("id, lat, lon")
+        .in("id", unknownBeachIds);
+
+      if (unknownBeachError) {
+        result.errors.push(
+          `Failed to fetch UNKNOWN beach coordinates: ${unknownBeachError.message}`
+        );
+      } else if (unknownBeaches && unknownBeaches.length > 0) {
+        const stationsWithSamples = linkedStations.filter(
+          (s) => (samplesByStation.get(s.id)?.length ?? 0) > 0
+        );
+
+        let proxyCount = 0;
+
+        for (const beach of unknownBeaches) {
+          if (beach.lat == null || beach.lon == null) continue;
+
+          let nearestStationId: string | null = null;
+          let nearestStationName: string | null = null;
+          let nearestDistKm = Infinity;
+
+          for (const station of stationsWithSamples) {
+            if (station.lat == null || station.lon == null) continue;
+            const distKm = haversineDistance(
+              beach.lat,
+              beach.lon,
+              station.lat,
+              station.lon
+            );
+            if (distKm <= PROXY_STATION_RADIUS_KM && distKm < nearestDistKm) {
+              nearestDistKm = distKm;
+              nearestStationId = station.id;
+              nearestStationName = station.name ?? station.station_id;
+            }
+          }
+
+          if (nearestStationId) {
+            const proxySamples = samplesByStation.get(nearestStationId) ?? [];
+            const proxyEval = buildEvaluation(
+              beach.id,
+              proxySamples,
+              previousStatus,
+              nearestStationId
+            );
+
+            const distM = Math.round(nearestDistKm * 1000);
+            const proxyNote = `Based on nearby station ${nearestStationName} (${distM}m away)`;
+            proxyEval.status_reason = proxyEval.status_reason
+              ? `${proxyNote}. ${proxyEval.status_reason}`
+              : proxyNote;
+
+            const idx = evalIndex.get(beach.id);
+            if (idx !== undefined) {
+              result.statusCounts[WQ_STATUS.UNKNOWN]--;
+              result.statusCounts[proxyEval.status]++;
+
+              const prevSt = previousStatus.get(beach.id);
+              const oldWasChange = prevSt !== undefined && prevSt !== WQ_STATUS.UNKNOWN;
+              const newIsChange = prevSt !== undefined && prevSt !== proxyEval.status;
+              if (oldWasChange && !newIsChange) result.statusChanges--;
+              if (!oldWasChange && newIsChange) result.statusChanges++;
+
+              evaluations[idx] = proxyEval;
+              proxyCount++;
+            }
+          }
+        }
+
+        if (proxyCount > 0) {
+          console.log(
+            `${LOG_PREFIX} Proxy station fallback: resolved ${proxyCount} of ${unknownBeachIds.length} UNKNOWN beaches`
+          );
+        }
       }
     }
 
@@ -1085,7 +1209,8 @@ interface SampleRow {
 function buildEvaluation(
   beachId: string,
   samples: SampleRow[],
-  previousStatus: Map<string, WQStatus>
+  previousStatus: Map<string, WQStatus>,
+  monitoringStationId?: string | null
 ): WaterQualityUpsertRow {
   const now = new Date().toISOString();
 
@@ -1101,6 +1226,7 @@ function buildEvaluation(
       latest_sample_date: null,
       total_samples_30d: 0,
       exceedance_count_30d: 0,
+      monitoring_station_id: monitoringStationId ?? null,
       status_reason: null,
       status_changed_at: prevStatus && prevStatus !== WQ_STATUS.UNKNOWN ? now : null,
       updated_at: now,
@@ -1185,6 +1311,7 @@ function buildEvaluation(
     latest_sample_date: latestSampleDate,
     total_samples_30d: samples.length,
     exceedance_count_30d: exceedanceCount,
+    monitoring_station_id: monitoringStationId ?? null,
     status_reason: reasons.length > 0 ? reasons.join('; ') : null,
     status_changed_at: statusChanged ? now : null,
     updated_at: now,

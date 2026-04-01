@@ -62,7 +62,7 @@ function ComparisonStructuredData() {
     "@type": "SoftwareApplication",
     name: "Quiver Surf App",
     applicationCategory: "SportsApplication",
-    operatingSystem: "Web, iOS, Android",
+    operatingSystem: "Web",
     url: SITE_ORIGIN,
     description:
       "Crowd-sourced surf forecast app with tide charts, session logging, and community features for 279+ beaches.",
@@ -128,6 +128,31 @@ const FAQ_ITEMS = [
     answer:
       "This is Quiver's website, so yes, we have a perspective. But we've tried to be honest about where Surfline wins — they have more cameras, more international coverage, and decades of brand trust. We believe the best way to earn your trust is transparency, not spin. All Surfline pricing and feature information is sourced from their public website as of March 2026.",
   },
+  {
+    question: "How accurate is Quiver compared to Surfline?",
+    answer:
+      "Quiver builds a separate forecast model for each beach, trained on local buoy data and checked against real session reports from surfers. You can see the live accuracy stats — broken down by beach — on our forecast accuracy page.",
+  },
+  {
+    question: "Does Quiver have surf cams?",
+    answer:
+      "Quiver has a cam directory that links to live streams for beaches that have them. Surfline has a much larger proprietary camera network with HD streams — that's one area where they have a clear advantage. Browse available cams on our surf cams page.",
+  },
+  {
+    question: "What happened to Magic Seaweed? Is Quiver a replacement?",
+    answer:
+      "Magic Seaweed (MSW) merged into Surfline in May 2023, and many of its free features moved behind Surfline's paywall. Quiver isn't a direct MSW clone, but if you liked MSW's free, data-first approach to surf forecasting, Quiver shares that philosophy — beach-specific forecasts, tide charts, and crowd data without a premium subscription.",
+  },
+  {
+    question: "Does Quiver work for East Coast and Gulf surfers?",
+    answer:
+      "Yes. Quiver covers beaches across Florida, the Carolinas, New Jersey, New York, and other East Coast states, plus Gulf spots in Texas. Every beach gets the same ML-corrected forecasts, tide charts, and water temperature data as our West Coast spots.",
+  },
+  {
+    question: "Can I use Quiver on my phone?",
+    answer:
+      "Quiver works on any phone browser, no app store download needed. It's optimized for checking conditions before dawn: fast load times, dark theme, and the data you need at a glance. Add it to your home screen for an app-like experience.",
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -173,10 +198,10 @@ const COMPARISON_FEATURES: FeatureRow[] = [
   {
     feature: "Surf Cams",
     description: "Live camera streams from beach locations",
-    quiver: "none",
-    quiverNote: "Not available",
+    quiver: "partial",
+    quiverNote: "Cam directory — links to live streams",
     surfline: "partial",
-    surflineNote: "700+ cams, ad-free requires Premium",
+    surflineNote: "700+ proprietary cams, ad-free requires Premium",
   },
   {
     feature: "Session Logging",
@@ -825,7 +850,7 @@ export default function VsSurflinePage() {
           </div>
 
           <p className="mt-6 text-xs text-muted-foreground">
-            279 beaches. Free forecasts. Available on iOS.
+            279 beaches. Free forecasts. Works on any phone.
           </p>
         </FadeInSection>
       </section>

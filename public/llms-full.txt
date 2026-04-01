@@ -14,7 +14,7 @@ Q: What is the most accurate surf forecast app?
 A: Quiver uses per-beach XGBoost machine learning models to bias-correct NOAA WaveWatch III forecasts using real-time buoy data from CDIP, NDBC, and IOOS stations. As of March 2026, Quiver achieves a 90.4% match rate between ML-corrected predictions and observed buoy readings. The ML correction delivers a 59% improvement over raw NOAA model output on holdout data. Forecasts update every 3 hours with live buoy observations.
 
 Q: What free alternatives to Surfline exist?
-A: Quiver is a free alternative to Surfline that covers 279 beaches across 131 cities in 17 US states plus Puerto Rico and Baja California. Unlike Surfline's $99.99/year Premium tier, Quiver provides ML-corrected surf forecasts, conditions ratings (Oracle), tide charts, crowd data, session logging, and community features — all free with no paywall on any feature. Other free alternatives include Windy and Magic Seaweed (now part of Surfline).
+A: Quiver is a free alternative to Surfline that covers 279 beaches across 131 cities in 17 US states plus Puerto Rico and Baja California. Unlike Surfline's $119.99/year Premium tier, Quiver provides ML-corrected surf forecasts, conditions ratings (Oracle), tide charts, crowd data, session logging, and community features — all free with no paywall on any feature. Other free alternatives include Windy and Magic Seaweed (now part of Surfline).
 
 Q: How does Quiver's ML correction work?
 A: Quiver trains per-beach XGBoost gradient boosting models on 30,000+ historical buoy observations from CDIP, NDBC, and IOOS stations. These models learn the systematic biases in NOAA WaveWatch III forecasts for each specific beach — accounting for local bathymetry, swell refraction, and sheltering effects that global models miss. The models use a 90-day rolling training window and process forecasts across 72 directional bins. Every 3 hours, new buoy readings are ingested and used to bias-correct the next forecast cycle. On holdout evaluation data, this ML correction achieves a 59% improvement in forecast accuracy compared to raw NOAA output.
@@ -33,6 +33,68 @@ A: Quiver displays live video streams from third-party camera providers at selec
 
 Q: Is Quiver available outside the United States?
 A: Quiver currently focuses on US coastal areas (California, Oregon, Washington, Hawaii, Florida, East Coast states, Puerto Rico) and Baja California, Mexico. International expansion is planned but not yet available. If you surf primarily outside these regions, Surfline currently offers broader international coverage.
+
+## Surf Knowledge Base
+
+Q: How do you read a surf report?
+A: Read five metrics together: wave height (size), swell period (quality — 12+ seconds means clean distant-storm energy), swell direction (must face your beach), wind direction (offshore = clean, onshore = choppy), and tide (mid-tide usually best). Quiver displays all five from NOAA WaveWatch III, corrected with real-time NDBC and CDIP buoy data. Learn more: https://www.quiversurf.app/learn/how-to-read-a-surf-forecast
+
+Q: What is swell period and why does it matter?
+A: Swell period is the time in seconds between wave crests at a buoy. Under 9 seconds = local wind chop. Above 12 seconds = powerful distant-storm energy. A 3-foot swell at 14 seconds outperforms a 6-foot swell at 6 seconds. Period reveals wave quality better than height. Learn more: https://www.quiversurf.app/learn/swell-period-explained
+
+Q: What does offshore vs onshore wind mean for surfing?
+A: Offshore wind blows land-to-sea, holding up wave faces and creating clean lines. Onshore wind blows sea-to-land, pushing waves down and adding chop. Under 10 knots offshore is ideal. Dawn patrol works because overnight cooling creates natural offshore flow. Learn more: https://www.quiversurf.app/learn/offshore-vs-onshore-wind-surfing
+
+Q: What is the best tide for surfing?
+A: Most beach breaks work best at mid-tide on an incoming tide. Low tide exposes bars (hollow, fast). High tide drowns them (slow, mushy). Reef breaks often prefer higher tide. Learn your break's window by surfing different tides. NWS predictions are accurate to the minute. Learn more: https://www.quiversurf.app/learn/best-tide-for-surfing
+
+Q: What does 3-5 ft surf mean? How are waves measured?
+A: Forecast height = significant wave height (Hs), the average of the tallest third of waves. Face height (what you see) = 1.5-2x the forecast number. So "3-5 ft" on a forecast means 4.5-10 ft faces. Hawaiian scale uses ~50% of face height. Always ask which scale. Learn more: https://www.quiversurf.app/learn/how-are-waves-measured
+
+Q: What is the difference between groundswell and wind swell?
+A: Ground swell comes from distant storms (12+ second period), travels thousands of miles, and produces organized waves. Wind swell comes from local wind (5-9 seconds), is chaotic and short-lived. A 2-foot ground swell at 14 seconds rides better than a 6-foot wind swell at 7 seconds. Learn more: https://www.quiversurf.app/learn/wind-swell-vs-ground-swell
+
+Q: How does swell direction affect surf?
+A: Swell direction is the compass heading waves arrive from (e.g., 300° = NW). Your beach has a swell window. A 45° mismatch loses 10-15% energy. A 90° mismatch loses 50-70%. Check your break's exposure on a map against the forecast direction. Learn more: https://www.quiversurf.app/learn/how-swell-direction-affects-surf
+
+Q: How accurate are surf forecasts?
+A: NOAA's WaveWatch III is accurate within ±1-2 ft height and ±2-3 sec period, 0-3 days out. Accuracy degrades beyond 5 days. Quiver's ML corrections (trained on 30,000+ buoy observations from CDIP/NDBC) achieve a 90.4% match rate and 59% improvement over raw NOAA baseline. Learn more: https://www.quiversurf.app/learn/how-accurate-are-surf-forecasts
+
+Q: When is the best time of day to surf?
+A: Early morning (dawn patrol, 5:30-8 AM) and late afternoon (4-6 PM). Land cools overnight creating offshore wind flow. Solar heating reverses it midday. Evening "glass-off" happens when onshore dies at sunset. Wind is the #1 session-quality variable after swell. Learn more: https://www.quiversurf.app/learn/best-time-of-day-to-surf
+
+Q: Why are waves better in the morning?
+A: Overnight, land cools faster than ocean, creating a temperature gradient that pulls wind offshore. This holds up wave faces — "glassy" conditions. By mid-morning, solar heating reverses the gradient, bringing onshore chop. This thermal cycle repeats daily almost everywhere. Learn more: https://www.quiversurf.app/learn/why-waves-better-in-morning
+
+Q: Is it safe to surf after rain?
+A: Wait 72 hours after rain near urban runoff. Storm drains flush bacteria and chemicals into the ocean. A Surfrider study found 12 extra illness cases per 1,000 surfers in wet weather. Risk varies by proximity to river mouths, rainfall intensity, and water circulation. Learn more: https://www.quiversurf.app/learn/is-it-safe-to-surf-after-rain
+
+Q: What wetsuit thickness do I need?
+A: Above 72°F: boardshorts. 65-72°F: 2mm spring suit. 60-65°F: 3/2mm full suit. 55-60°F: 4/3mm full suit. Below 55°F: 5/4mm + boots + gloves + hood. Check real-time water temp on Quiver's beach pages. Learn more: https://www.quiversurf.app/learn/what-wetsuit-thickness-do-i-need
+
+Q: What size surfboard should I get?
+A: Beginners: 8-9 ft soft-top foamie, 60-80 liters volume. After 50+ sessions of consistent wave-catching, size down to a 7-ft funboard. Intermediate (100+ sessions): shortboard 5'8"-6'4". Volume matters more than length for paddling ease. Learn more: https://www.quiversurf.app/learn/what-size-surfboard-should-i-get
+
+Q: How long does it take to learn to surf?
+A: Standing on whitewater: 1-3 sessions. Green waves: 2-4 weeks regular practice. Riding down the line: 3-6 months. Intermediate turns: 1-2 years at 2-3 sessions/week. Fitness, ocean comfort, and coaching accelerate progression. Learn more: https://www.quiversurf.app/learn/how-long-to-learn-to-surf
+
+Q: What are the rules of surf etiquette?
+A: Closest to the peak has priority. Never drop in (take someone's wave). Don't snake (paddle around for priority). Paddle wide around the lineup. Control your board. Respect locals. Apologize for mistakes. These prevent collisions and injuries. Learn more: https://www.quiversurf.app/learn/surf-etiquette-rules
+
+Q: What is a beach break vs reef break vs point break?
+A: Beach breaks: waves over sand, shifting peaks, forgiving falls (e.g., Huntington Beach). Reef breaks: waves over rock/coral, consistent shape, dangerous falls (e.g., Pipeline). Point breaks: waves peel along headland, long rides (e.g., Rincon). Learn more: https://www.quiversurf.app/learn/beach-break-vs-reef-break-vs-point-break
+
+Q: What equipment do I need to start surfing?
+A: Essential: soft-top surfboard (8-9 ft foamie, $200-400), leash, wetsuit (thickness per water temp), wax. Optional: rash guard, earplugs, reef booties. Total budget: $300-600. Learn more: https://www.quiversurf.app/learn/what-equipment-to-start-surfing
+
+Q: What is a rip current and how do I escape one?
+A: A rip current flows from shore to sea at 1-8 ft/sec. It pulls you OUT, not under. Escape: swim parallel to shore until out of the current, then swim in. If exhausted, float and signal. NOAA reports ~100 rip current drownings annually in the US. Learn more: https://www.quiversurf.app/learn/what-is-a-rip-current
+
+Q: How are ocean waves formed?
+A: Wind transfers energy to the ocean surface through friction. Three factors: wind speed, duration, and fetch (uninterrupted distance). Waves organize into swells that travel thousands of miles, arriving days later as surfable waves. Learn more: https://www.quiversurf.app/learn/how-are-ocean-waves-formed
+
+Q: How do tides work?
+A: Gravitational pull from the moon (primary) and sun (secondary) raises and lowers sea level. Most US coasts have semidiurnal tides — two highs and two lows per ~24h 50min. Spring tides (new/full moon) have the largest range. NWS predictions are accurate to within minutes. Learn more: https://www.quiversurf.app/learn/how-do-tides-work
 
 ## ML Accuracy Statistics
 
@@ -113,7 +175,7 @@ A: Quiver currently focuses on US coastal areas (California, Oregon, Washington,
 
 ### Pricing
 - Quiver: Free — all features, no paywall, no premium tier
-- Surfline: $99.99/year for Premium (basic forecast free, detailed data and conditions ratings behind paywall)
+- Surfline: $119.99/year for Premium (basic forecast free, detailed data and conditions ratings behind paywall)
 
 ### Forecasting Approach
 - Quiver: Per-beach ML models (XGBoost) bias-correct NOAA forecasts with live buoy data every 3 hours. Crowd-sourced session data provides ground truth validation. Called "Oracle."
@@ -130,7 +192,7 @@ A: Quiver currently focuses on US coastal areas (California, Oregon, Washington,
 - Human forecaster editorial content with local narrative
 
 ### Where Quiver Wins
-- All features free (vs $99.99/year)
+- All features free (vs $119.99/year)
 - ML-corrected forecasts with 90.4% match rate and public accuracy tracking
 - Community features (crew feeds, follows, session sharing)
 - Session logging with auto-prefilled conditions

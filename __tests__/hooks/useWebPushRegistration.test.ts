@@ -239,16 +239,19 @@ describe("useWebPushRegistration", () => {
 
   describe("unsupported environments", () => {
     it("should return unsupported when serviceWorker is missing", async () => {
-      Object.defineProperty(navigator, "serviceWorker", {
-        value: undefined,
-        writable: true,
-        configurable: true,
-      });
+      // Must delete the property — setting to undefined still passes "in" check
+      const descriptor = Object.getOwnPropertyDescriptor(navigator, "serviceWorker");
+      delete (navigator as any).serviceWorker;
 
       const { result } = renderHook(() => useWebPushRegistration());
 
       expect(result.current.isSupported).toBe(false);
       expect(result.current.canPrompt).toBe(false);
+
+      // Restore for subsequent tests
+      if (descriptor) {
+        Object.defineProperty(navigator, "serviceWorker", descriptor);
+      }
     });
   });
 });

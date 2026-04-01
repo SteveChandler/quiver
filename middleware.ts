@@ -85,6 +85,14 @@ function log(message: string, data?: any) {
  * Cyclomatic Complexity: Reduced from 37 → 6
  */
 export async function middleware(request: NextRequest) {
+  // Canonical domain redirect: non-www → www with 301 (permanent) for SEO link equity
+  const hostname = request.headers.get("host") || "";
+  if (hostname === "quiversurf.app") {
+    const url = request.nextUrl.clone();
+    url.host = "www.quiversurf.app";
+    return NextResponse.redirect(url, 301);
+  }
+
   const { pathname } = request.nextUrl;
 
   // Deferred rewrite target for city URLs — set below, applied in createSecureResponse()
@@ -131,6 +139,12 @@ export async function middleware(request: NextRequest) {
   if (pathname === "/hi/waimea") {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/hi/waimea-kauai";
+    return NextResponse.redirect(redirectUrl, { status: 301 });
+  }
+
+  if (pathname === "/spots/lowers-trestles") {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/spots/lower-trestles";
     return NextResponse.redirect(redirectUrl, { status: 301 });
   }
 

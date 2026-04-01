@@ -1,8 +1,25 @@
 import type { Beach } from "@/types/database";
-import { formatWaveHeightBucket as formatWaveHeight } from "@/lib/utils/wave-formatters";
+import { formatWaveHeightBucket as formatWaveHeight, formatWaterTemp } from "@/lib/utils/wave-formatters";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
+
+/** Controls what data the map markers display */
+export type MapDisplayMode = "wave-height" | "water-temp";
+
+/**
+ * Get badge background color for water temperature display.
+ * Uses a warm→cold color scale.
+ */
+function getWaterTempBadgeColor(temp?: string | null): string {
+  if (!temp) return "linear-gradient(to right, #93B4D8, #7FA3C9)"; // cold default
+  const num = parseFloat(temp);
+  if (isNaN(num)) return "linear-gradient(to right, #93B4D8, #7FA3C9)";
+  if (num >= 75) return "linear-gradient(to right, #F78E42, #D57835)"; // warm orange
+  if (num >= 65) return "linear-gradient(to right, #FDB84B, #E5A63E)"; // mild amber
+  if (num >= 55) return "linear-gradient(to right, #B8C7E0, #A3B5D1)"; // cool light blue
+  return "linear-gradient(to right, #93B4D8, #7FA3C9)"; // cold steel blue
+}
 
 /**
  * Dependencies injected into createWaveHeightBadge so that the function
@@ -25,6 +42,10 @@ export interface MarkerBuilderDeps {
   router: { push: (url: string) => void };
   /** Whether to auto-navigate to beach page after marker click */
   autoNavigate: boolean;
+  /** Display mode: wave-height (default) or water-temp */
+  displayMode?: MapDisplayMode;
+  /** Water temperature string for this beach (used when displayMode is water-temp) */
+  waterTemp?: string | null;
 }
 
 /**
@@ -49,7 +70,10 @@ export function createWaveHeightBadge(
 ): HTMLElement {
   try {
     const isFavorite = deps.favoriteBeachIds.has(location.id);
-    const waveText = formatWaveHeight(waveHeight);
+    const displayMode = deps.displayMode ?? "wave-height";
+    const badgeText = displayMode === "water-temp"
+      ? formatWaterTemp(deps.waterTemp)
+      : formatWaveHeight(waveHeight);
     const isSelected = deps.selectedBeachId === location.id;
     const isHovered = deps.hoveredBeachId === location.id;
 
@@ -100,10 +124,12 @@ export function createWaveHeightBadge(
       transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
       transform: scale(${isSelected ? "1.4" : isHovered ? "1.2" : "1"});
       background: ${
-        isFavorite
-          ? "linear-gradient(to right, #3b82f6, #2563eb)"
-          : isSelected
+        isSelected
           ? "linear-gradient(to right, #F78E42, #D57835)"
+          : displayMode === "water-temp"
+          ? getWaterTempBadgeColor(deps.waterTemp)
+          : isFavorite
+          ? "linear-gradient(to right, #3b82f6, #2563eb)"
           : "linear-gradient(to right, #fbbf24, #f59e0b)"
       };
       box-shadow: ${
@@ -114,7 +140,7 @@ export function createWaveHeightBadge(
           : "0 4px 12px rgba(0, 0, 0, 0.3)"
       };
     `;
-    badge.innerHTML = waveText;
+    badge.innerHTML = badgeText;
 
     // Enhanced hover effects with motion
     badge.addEventListener("mouseenter", () => {

@@ -234,7 +234,7 @@
     "@sentry/nextjs/rollup": "4.59.0",
     "@types/mapbox__point-geometry": "0.1.4",
     "serialize-javascript": "^7.0.5",
-    "@tootallnate/once": "^3.0.1",
+    "@tootallnate/once": "2",
     "node-forge": "^1.4.0",
     "picomatch": "^2.3.2",
     "flatted": "^3.3.3",

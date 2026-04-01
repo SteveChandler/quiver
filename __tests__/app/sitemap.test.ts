@@ -303,6 +303,63 @@ describe("Sitemap Generation", () => {
       expect(result.find((r) => r.url === `${baseUrl}/longboard/beginner-town`)).toBeTruthy();
     });
 
+    it("should include single-beach city intent routes in thin states with editorial content", async () => {
+      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          // NJ has 5 total beaches (< 20 threshold), Cocoa Beach has editorial content
+          { city: "Cocoa Beach", state: "FL", country: "USA", beachCount: 1, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false, hasEditorialContent: true },
+          { city: "Melbourne Beach", state: "FL", country: "USA", beachCount: 2, hasBeginnerBeaches: false, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false, hasEditorialContent: true },
+          // Total FL beaches: 3 (< 20)
+        ],
+      });
+
+      const result = await sitemap();
+
+      // Single-beach city in thin state WITH editorial → included
+      expect(result.find((r) => r.url === `${baseUrl}/tide/cocoa-beach`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/longboard/cocoa-beach`)).toBeTruthy();
+    });
+
+    it("should exclude single-beach city intent routes in large states", async () => {
+      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          // CA has many beaches (>= 20), so single-beach cities are excluded
+          { city: "Tiny Cove", state: "CA", country: "USA", beachCount: 1, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false, hasEditorialContent: true },
+          { city: "San Diego", state: "CA", country: "USA", beachCount: 15, hasBeginnerBeaches: true, hasAdvancedBeaches: true, hasLeastCrowdedBeaches: true, hasEditorialContent: true },
+          { city: "Encinitas", state: "CA", country: "USA", beachCount: 5, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: true, hasEditorialContent: true },
+          // Total CA beaches: 21 (>= 20)
+        ],
+      });
+
+      const result = await sitemap();
+
+      // Single-beach city in large state → excluded even with editorial content
+      expect(result.find((r) => r.url === `${baseUrl}/tide/tiny-cove`)).toBeUndefined();
+      // Multi-beach cities still included
+      expect(result.find((r) => r.url === `${baseUrl}/tide/san-diego`)).toBeTruthy();
+    });
+
+    it("should exclude single-beach city intent routes without editorial content", async () => {
+      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          // Thin state but no editorial content → excluded
+          { city: "No Content Beach", state: "ME", country: "USA", beachCount: 1, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false, hasEditorialContent: false },
+          { city: "Quality Beach", state: "ME", country: "USA", beachCount: 1, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false, hasEditorialContent: true },
+          // Total ME beaches: 2 (< 20)
+        ],
+      });
+
+      const result = await sitemap();
+
+      // No editorial → excluded
+      expect(result.find((r) => r.url === `${baseUrl}/tide/no-content-beach`)).toBeUndefined();
+      // Has editorial in thin state → included
+      expect(result.find((r) => r.url === `${baseUrl}/tide/quality-beach`)).toBeTruthy();
+    });
+
     it("should exclude non-US cities from intent routes", async () => {
       (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
         success: true,
@@ -465,10 +522,10 @@ describe("Sitemap Generation", () => {
       // Tides/water-temp sub-pages are included in sitemap — they have robust
       // metadata, FAQs, structured data, and GSC shows Google already ranks them
       const tidesRoute = result.find((r) =>
-        r.url.includes("/ca/san-diego/sunset-cliffs/tides")
+        r.url.includes("/ca/san-diego/sunset-cliffs-garbage/tides")
       );
       const waterTempRoute = result.find((r) =>
-        r.url.includes("/ca/san-diego/sunset-cliffs/water-temp")
+        r.url.includes("/ca/san-diego/sunset-cliffs-garbage/water-temp")
       );
 
       expect(tidesRoute).toBeTruthy();
@@ -517,6 +574,42 @@ describe("Sitemap Generation", () => {
       );
 
       expect(beachRoute).toBeTruthy();
+    });
+
+    it("should NOT include tides/water-temp subpages for international beaches", async () => {
+      // International beaches use a 4-segment URL pattern and have no dedicated
+      // tides/water-temp subpage routes — only US beaches get those subpages.
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          {
+            id: "beach-1",
+            slug: "teresas",
+            city: "Rosarito",
+            state: "Baja California",
+            country: "Mexico",
+          },
+          {
+            id: "beach-2",
+            slug: "sunset-cliffs-garbage",
+            city: "San Diego",
+            state: "CA",
+            country: "USA",
+          },
+        ],
+      });
+
+      const result = await sitemap();
+
+      // International beach: main page present, subpages absent
+      expect(result.find((r) => r.url.includes("/mexico/baja-california/rosarito/teresas"))).toBeTruthy();
+      expect(result.find((r) => r.url.includes("/mexico/baja-california/rosarito/teresas/tides"))).toBeUndefined();
+      expect(result.find((r) => r.url.includes("/mexico/baja-california/rosarito/teresas/water-temp"))).toBeUndefined();
+
+      // US beach: main page AND subpages present
+      expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs-garbage") && !r.url.includes("/tides") && !r.url.includes("/water-temp"))).toBeTruthy();
+      expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs-garbage/tides"))).toBeTruthy();
+      expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs-garbage/water-temp"))).toBeTruthy();
     });
 
     it("should filter out beaches without slug from beach entries", async () => {
@@ -618,10 +711,10 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       const tidesRoute = result.find((r) =>
-        r.url.includes("/ca/san-diego/sunset-cliffs/tides")
+        r.url.includes("/ca/san-diego/sunset-cliffs-garbage/tides")
       );
       const waterTempRoute = result.find((r) =>
-        r.url.includes("/ca/san-diego/sunset-cliffs/water-temp")
+        r.url.includes("/ca/san-diego/sunset-cliffs-garbage/water-temp")
       );
 
       expect(tidesRoute).toBeTruthy();
@@ -674,6 +767,15 @@ describe("Sitemap Generation", () => {
 
   describe("Location Routes", () => {
     it("should include location routes from getAllBeachLocations", async () => {
+      // Populate validCitySlugs so US cities pass the scored-beach cross-validation.
+      // International cities (Mexico) bypass this check so no beach entry needed for Rosarito.
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          { id: "b1", slug: "childrens-pool", city: "La Jolla", state: "CA", country: "USA" },
+          { id: "b2", slug: "swamis", city: "Encinitas", state: "CA", country: "USA" },
+        ],
+      });
       (getAllBeachLocations as jest.Mock).mockResolvedValue({
         success: true,
         data: [
@@ -697,6 +799,15 @@ describe("Sitemap Generation", () => {
     });
 
     it("should include USA state index routes under /beaches/usa/{state}", async () => {
+      // Populate validCitySlugs for US cities — state index pages are derived from
+      // cities that pass the scored-beach cross-validation.
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          { id: "b1", slug: "windansea", city: "La Jolla", state: "CA", country: "USA" },
+          { id: "b2", slug: "haleiwa-ali", city: "Haleiwa", state: "HI", country: "USA" },
+        ],
+      });
       (getAllBeachLocations as jest.Mock).mockResolvedValue({
         success: true,
         data: [
@@ -722,6 +833,7 @@ describe("Sitemap Generation", () => {
     });
 
     it("should emit both island-specific canonical URLs for HI Waimea (waimea-kauai + waimea-big-island)", async () => {
+      // Waimea is handled specially (island-specific pages emitted directly, bypassing validCitySlugs)
       (getAllBeachLocations as jest.Mock).mockResolvedValue({
         success: true,
         data: [{ city: "Waimea", state: "HI", country: "USA", beachCount: 5 }],
@@ -743,6 +855,13 @@ describe("Sitemap Generation", () => {
     });
 
     it("should emit ASCII-normalized canonical slugs for diacritics (Rincón -> rincon)", async () => {
+      // Populate validCitySlugs so Rincón passes the scored-beach cross-validation.
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          { id: "b1", slug: "domes", city: "Rincón", state: "PR", country: "USA" },
+        ],
+      });
       (getAllBeachLocations as jest.Mock).mockResolvedValue({
         success: true,
         data: [{ city: "Rincón", state: "PR", country: "USA", beachCount: 6 }],
@@ -758,6 +877,10 @@ describe("Sitemap Generation", () => {
     });
 
     it("should set priority 0.75 for location routes", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{ id: "b1", slug: "la-jolla-cove", city: "La Jolla", state: "CA", country: "USA" }],
+      });
       (getAllBeachLocations as jest.Mock).mockResolvedValue({
         success: true,
         data: [{ city: "La Jolla", state: "CA", country: "USA", beachCount: 5 }],
@@ -772,6 +895,10 @@ describe("Sitemap Generation", () => {
     });
 
     it("should set changeFrequency to weekly for location routes", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{ id: "b1", slug: "la-jolla-cove", city: "La Jolla", state: "CA", country: "USA" }],
+      });
       (getAllBeachLocations as jest.Mock).mockResolvedValue({
         success: true,
         data: [{ city: "La Jolla", state: "CA", country: "USA", beachCount: 5 }],
@@ -785,22 +912,45 @@ describe("Sitemap Generation", () => {
       expect(locationRoute?.changeFrequency).toBe("weekly");
     });
 
-    it("should exclude thin-content locations with fewer than 2 beaches", async () => {
+    it("should include single-beach city pages (beachCount >= 1) but exclude zero-beach cities", async () => {
+      // Mock getBeaches so validCitySlugs is populated for "big-city" and "tiny-town".
+      // Both need a matching beach entry to pass the scored-beach cross-validation.
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          { id: "b1", slug: "main-peak", city: "Big City", state: "CA", country: "USA" },
+          { id: "b2", slug: "lone-break", city: "Tiny Town", state: "CA", country: "USA" },
+        ],
+      });
       (getAllBeachLocations as jest.Mock).mockResolvedValue({
         success: true,
         data: [
+          // beachCount: 5 — well above threshold
           { city: "Big City", state: "CA", country: "USA", beachCount: 5 },
+          // beachCount: 1 — single-beach cities are now included (threshold lowered from 2 to 1)
           { city: "Tiny Town", state: "CA", country: "USA", beachCount: 1 },
+          // beachCount: 0 — no beaches, should be excluded (non-metro)
+          { city: "Ghost Town", state: "CA", country: "USA", beachCount: 0 },
         ],
       });
 
       const result = await sitemap();
 
+      // Both big-city and tiny-town have beachCount >= 1 AND a valid beach entry
       expect(result.find((r) => r.url.endsWith("/ca/big-city"))).toBeTruthy();
-      expect(result.find((r) => r.url.endsWith("/ca/tiny-town"))).toBeUndefined();
+      expect(result.find((r) => r.url.endsWith("/ca/tiny-town"))).toBeTruthy();
+      // ghost-town has no beaches — excluded even though it has no valid beach entry
+      expect(result.find((r) => r.url.endsWith("/ca/ghost-town"))).toBeUndefined();
     });
 
     it("should include metro areas even though they have beachCount 0", async () => {
+      // Mock getBeaches so validCitySlugs is populated for "encinitas".
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          { id: "b1", slug: "swamis", city: "Encinitas", state: "CA", country: "USA" },
+        ],
+      });
       (getAllBeachLocations as jest.Mock).mockResolvedValue({
         success: true,
         data: [
@@ -862,10 +1012,12 @@ describe("Sitemap Generation", () => {
 
   describe("Combined Sitemap", () => {
     it("should include all route types in single sitemap", async () => {
+      // Beach is in "San Diego" — add a La Jolla beach so validCitySlugs includes it
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [
           { id: "beach-1", slug: "sunset-cliffs-garbage", city: "San Diego", state: "CA" },
+          { id: "beach-2", slug: "la-jolla-cove", city: "La Jolla", state: "CA", country: "USA" },
         ],
       });
       (getAllBeachLocations as jest.Mock).mockResolvedValue({

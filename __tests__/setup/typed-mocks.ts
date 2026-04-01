@@ -343,7 +343,6 @@ export function createMockForecast(overrides: Partial<Forecast> = {}): Forecast 
     wave_period: "12s",
     wind_speed: "5-10mph",
     wind_direction: "NW",
-    wind_direction_deg: null,
     wind_source: null,
     weather_condition: "sunny",
     confidence_score: 0.8,
@@ -373,6 +372,7 @@ export function createMockForecast(overrides: Partial<Forecast> = {}): Forecast 
     next_tide_time: "14:00:00",
     next_tide_type: "high",
     raw_forecast: null,
+    wind_direction_deg: null,
     ...overrides,
   };
 }

@@ -58,18 +58,6 @@
       "schedule": "0 14,16,18,20,22,0,2,4 * * *"
     },
     {
-      "path": "/api/cron/ml/extract-hrrr-wind",
-      "schedule": "15 * * * *"
-    },
-    {
-      "path": "/api/cron/ml/correct-forecasts",
-      "schedule": "0 */3 * * *"
-    },
-    {
-      "path": "/api/cron/ml/backfill-observations",
-      "schedule": "30 * * * *"
-    },
-    {
       "path": "/api/cron/sync-buoys?maxDistanceKm=250",
       "schedule": "0 4 * * 0"
     },
@@ -102,24 +90,12 @@
       "schedule": "0 18 * * 1,3,5"
     },
     {
-      "path": "/api/cron/ml/retrain",
-      "schedule": "0 6 * * 0"
-    },
-    {
       "path": "/api/cron/conditions-alert-email",
       "schedule": "30 14 * * *"
     },
     {
       "path": "/api/cron/session-prompt-email",
       "schedule": "30 18 * * *"
-    },
-    {
-      "path": "/api/cron/ml/promote-candidate",
-      "schedule": "0 */6 * * *"
-    },
-    {
-      "path": "/api/cron/ml/check-drift",
-      "schedule": "0 12 * * *"
     },
     {
       "path": "/api/cron/first-session-nudge",
@@ -156,6 +132,14 @@
     {
       "path": "/api/cron/resolve-youtube-cams",
       "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/condition-alert-evaluate",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/condition-alert-deliver",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

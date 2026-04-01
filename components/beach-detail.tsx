@@ -11,7 +11,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Navigation, AlertTriangle } from "lucide-react";
+import { Navigation, AlertTriangle, Waves, Thermometer, Bell, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,13 +21,13 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
+import { useAuth } from "@/context/auth-context";
 import { useBeachDetailData } from "@/hooks/use-beach-detail-data";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getYesterdayAccuracy } from "@/actions/accuracy-actions";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
-import { BeachAlertCta } from "@/components/beach-detail/beach-alert-cta";
 import { BeachReviewForm } from "@/components/beach/beach-review-form";
 import {
   REVIEW_TRACKING_SOURCES,
@@ -65,7 +65,89 @@ import { TrustStrip } from "@/components/beach-detail/trust-strip";
 import { ForecastConfidenceBadge } from "@/components/beach-detail/forecast-confidence-badge";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
+import { AlertCreationPopover } from "@/components/alerts/alert-creation-popover";
+import type { BeachAlertMeta } from "@/lib/alerts/types";
 // trackSignupCtaClick, trackAuthModalOpened, and motion removed — only needed for removed CTAs
+
+// Alert discoverability nudge — shows for favorited beaches with no alert rules
+function AlertNudge({
+  beachId,
+  beachName,
+  onSetupAlerts,
+}: {
+  beachId: string;
+  beachName: string;
+  onSetupAlerts: () => void;
+}) {
+  const { user } = useAuth();
+
+  const [dismissed, setDismissed] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem(`alert-nudge-dismissed-${beachId}`) === "true";
+  });
+
+  const fetchFavorited = useCallback(async (): Promise<boolean> => {
+    if (!user) return false;
+    const res = await fetch("/api/beaches/favorites", {
+      headers: { "content-type": "application/json" },
+      cache: "no-store",
+    });
+    if (!res.ok) return false;
+    const body = await res.json().catch(() => ({}));
+    const beaches: Array<{ id: string }> = body?.data?.beaches || body?.beaches || [];
+    return beaches.some((b) => b.id === beachId);
+  }, [user, beachId]);
+
+  const { data: isFavorited } = useDataFetcher(fetchFavorited, {
+    skip: !user || dismissed,
+    initialData: false,
+  });
+
+  const fetchAlertRules = useCallback(async (): Promise<number> => {
+    if (!user) return 0;
+    const res = await fetch("/api/alerts/rules");
+    if (!res.ok) return 0;
+    const json = await res.json();
+    const rules: Array<{ beach_id: string }> = json.data ?? [];
+    return rules.filter((r) => r.beach_id === beachId).length;
+  }, [user, beachId]);
+
+  const { data: ruleCount } = useDataFetcher(fetchAlertRules, {
+    skip: !user || dismissed,
+    initialData: 0,
+  });
+
+  if (!user || dismissed || !isFavorited || (ruleCount ?? 0) > 0) return null;
+
+  const dismiss = () => {
+    localStorage.setItem(`alert-nudge-dismissed-${beachId}`, "true");
+    setDismissed(true);
+  };
+
+  return (
+    <div className="flex items-center justify-between px-4 py-2 bg-[#354090]/30 rounded-lg mx-4 mt-2 mb-4">
+      <div className="flex items-center gap-2 text-sm text-gray-300">
+        <Bell className="w-4 h-4 shrink-0 text-[#F78E42]" />
+        <span>Get notified when {beachName} has your ideal conditions</span>
+      </div>
+      <div className="flex items-center gap-2 ml-3 shrink-0">
+        <button
+          onClick={onSetupAlerts}
+          className="text-xs text-[#F78E42] font-medium hover:underline"
+        >
+          Set Up Alert
+        </button>
+        <button
+          onClick={dismiss}
+          aria-label="Dismiss"
+          className="text-gray-500 hover:text-gray-400"
+        >
+          <X className="w-3 h-3" />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // PERFORMANCE OPTIMIZATION: Lazy load tab content to reduce initial bundle size
 // Only load the active tab's code on-demand
@@ -149,6 +231,12 @@ function BeachDetailContent({
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
+
+  // US beach pages have 3-segment paths starting with a 2-letter state code (e.g., /ca/san-diego/ocean-beach-pier).
+  // Only these have /tides and /water-temp subpages.
+  const pathSegments = pathname.split("/").filter(Boolean);
+  const isUsBeachPage = pathSegments.length === 3 && /^[a-z]{2}$/.test(pathSegments[0]);
+
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [reviewDialogSource, setReviewDialogSource] =
     useState<ReviewTrackingSource>(REVIEW_TRACKING_SOURCES.OVERVIEW_CTA);
@@ -162,6 +250,7 @@ function BeachDetailContent({
     "log" | "plan"
   >("log");
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [alertCreationOpen, setAlertCreationOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<BeachTabValue>(
     defaultTab || "forecast",
   );
@@ -393,6 +482,10 @@ function BeachDetailContent({
     setAuthModalOpen(true);
   }, []);
 
+  const handleOpenAlerts = useCallback(() => {
+    setAlertCreationOpen(true);
+  }, []);
+
   // PERFORMANCE OPTIMIZATION: Progressive rendering
   // Show hero section immediately with beach data, load tab content progressively
   // Only show full page loader if we don't have beach data yet
@@ -459,12 +552,6 @@ function BeachDetailContent({
         <span className="hidden sm:inline">Get directions</span>
         <span className="sm:hidden">Directions</span>
       </Button>
-      <BeachAlertCta
-        beachId={beach.id}
-        beachName={beach.name}
-        compact
-        className="flex-1 bg-transparent shadow-none rounded-none border-0 border-b-2 border-transparent -mb-0.5 px-2 py-2 sm:px-6 sm:py-3 text-xs sm:text-base font-medium text-gray-600 transition-all duration-300 ease-out hover:bg-gray-50 dark:hover:bg-[#354090]/50 hover:text-gray-900 h-auto"
-      />
     </>
   );
 
@@ -551,6 +638,15 @@ function BeachDetailContent({
         )}
       </div>
 
+      {/* Alert discoverability nudge — only for authenticated favorited beaches with no alerts */}
+      {!publicMode && beach && (
+        <AlertNudge
+          beachId={beach.id}
+          beachName={beach.name}
+          onSetupAlerts={handleOpenAlerts}
+        />
+      )}
+
       {/* Main Content Container */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         {/* Surf report slot — authenticated users only */}
@@ -563,6 +659,26 @@ function BeachDetailContent({
           className="mb-6"
         />
 
+        {/* Tide Chart & Water Temp subpage links (US beaches only) */}
+        {isUsBeachPage && (
+          <div className="flex gap-2 mb-6">
+            <Link
+              href={`${pathname}/tides`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700 hover:border-sky-400 hover:text-sky-700 transition-colors"
+            >
+              <Waves className="h-3.5 w-3.5" />
+              Tide Chart
+            </Link>
+            <Link
+              href={`${pathname}/water-temp`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700 hover:border-sky-400 hover:text-sky-700 transition-colors"
+            >
+              <Thermometer className="h-3.5 w-3.5" />
+              Water Temp
+            </Link>
+          </div>
+        )}
+
         {/* Action Buttons */}
         <BeachActions
           beach={beach}
@@ -570,6 +686,7 @@ function BeachDetailContent({
           canGetDirections={canGetDirections}
           publicMode={publicMode}
           onAuthRequired={handleAuthRequired}
+          onOpenAlerts={handleOpenAlerts}
           className="mb-8"
         />
 
@@ -684,6 +801,32 @@ function BeachDetailContent({
           </BeachTabContent>
         </BeachTabs>
       </div>
+
+      {/* Alert Creation Dialog */}
+      {!publicMode && alertCreationOpen && (
+        <AlertCreationPopover
+          beachId={beach.id}
+          beachName={beach.name}
+          beach={{
+            id: beach.id,
+            name: beach.name,
+            slug: (beach as any).slug ?? null,
+            lat: beach.lat ?? 0,
+            lon: beach.lon ?? 0,
+            timezone: (beach as any).timezone ?? "UTC",
+            wind_offshore_deg: (beach as any).wind_offshore_deg ?? null,
+            wind_offshore_tol_deg: (beach as any).wind_offshore_tol_deg ?? null,
+            aspect_deg: (beach as any).aspect_deg ?? null,
+            preferred_tide_ft_min: (beach as any).preferred_tide_ft_min ?? null,
+            preferred_tide_ft_max: (beach as any).preferred_tide_ft_max ?? null,
+            preferred_tide_direction: (beach as any).preferred_tide_direction ?? null,
+            swell_window_center_deg: (beach as any).swell_window_center_deg ?? null,
+            swell_window_halfwidth_deg: (beach as any).swell_window_halfwidth_deg ?? null,
+          } satisfies BeachAlertMeta}
+          open={alertCreationOpen}
+          onOpenChange={setAlertCreationOpen}
+        />
+      )}
 
       {/* Session Planning Modal */}
       <SessionPlanningModal

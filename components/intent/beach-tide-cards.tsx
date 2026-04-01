@@ -70,7 +70,7 @@ export function BeachTideCards({
             beach.preferredTideMin != null && beach.preferredTideMax != null;
 
           const beachHref = beach.beachSlug
-            ? `/${stateSlug}/${citySlug}/${beach.beachSlug}`
+            ? `/${stateSlug}/${citySlug}/${beach.beachSlug}/tides`
             : null;
 
           const cardContent = (

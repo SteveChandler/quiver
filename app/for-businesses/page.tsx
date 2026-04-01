@@ -5,13 +5,14 @@ import {
   EmbedPromoPage,
   type BeachOption,
 } from "@/components/embed-promo/embed-promo-page";
+import { StructuredData } from "@/components/seo/structured-data";
 
 export const revalidate = 86400;
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Free Surf Conditions Widget for Coastal Businesses",
   description:
-    "Add live wave, wind, and tide data to your business website. Perfect for hotels, restaurants, and vacation rentals. Free forever, no code needed.",
+    "Add live wave, wind, and tide data to your business website. Perfect for hotels, restaurants, and vacation rentals. No code needed.",
   path: "/for-businesses",
   keywords: [
     "surf conditions widget",
@@ -36,5 +37,10 @@ export default async function ForBusinessesPage() {
           }))
       : [];
 
-  return <EmbedPromoPage variant="businesses" beaches={beaches} />;
+  return (
+    <>
+      <StructuredData type="softwareApplication" />
+      <EmbedPromoPage variant="businesses" beaches={beaches} />
+    </>
+  );
 }

@@ -1,7 +1,9 @@
 import {
   formatClusterWaveRange,
+  formatClusterWaterTempRange,
   getClusterColor,
 } from "@/lib/utils/cluster-formatter";
+import type { MapDisplayMode } from "@/components/map/map-marker-builder";
 
 interface ClusterMarkerOptions {
   waveHeights: (number | undefined)[];
@@ -9,6 +11,10 @@ interface ClusterMarkerOptions {
   hasFavorite: boolean;
   onHover: () => void;
   onLeave: () => void;
+  /** Display mode: wave-height (default) or water-temp */
+  displayMode?: MapDisplayMode;
+  /** Water temperature strings for beaches in this cluster */
+  waterTemps?: (string | undefined | null)[];
 }
 
 interface ClusterMarkerResult {
@@ -26,8 +32,12 @@ export function createClusterMarkerElement({
   hasFavorite,
   onHover,
   onLeave,
+  displayMode = "wave-height",
+  waterTemps,
 }: ClusterMarkerOptions): ClusterMarkerResult {
-  const waveRange = formatClusterWaveRange(waveHeights);
+  const waveRange = displayMode === "water-temp"
+    ? formatClusterWaterTempRange(waterTemps || [])
+    : formatClusterWaveRange(waveHeights);
   const bgColor = getClusterColor(hasFavorite);
 
   // Create wrapper

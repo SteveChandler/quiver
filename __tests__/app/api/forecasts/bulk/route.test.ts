@@ -13,6 +13,7 @@ import {
 // Type for bulk forecast response
 interface BulkForecastResponse {
   forecasts: Record<string, number | undefined>;
+  waterTemps: Record<string, string | undefined>;
 }
 
 // Mock the Supabase server client
@@ -67,7 +68,7 @@ describe("/api/forecasts/bulk", () => {
       const response = await GET(request);
 
       const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
-      expect(data.data).toEqual({ forecasts: {} });
+      expect(data.data).toEqual({ forecasts: {}, waterTemps: {} });
       expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
     });
 
@@ -76,7 +77,7 @@ describe("/api/forecasts/bulk", () => {
       const response = await GET(request);
 
       const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
-      expect(data.data).toEqual({ forecasts: {} });
+      expect(data.data).toEqual({ forecasts: {}, waterTemps: {} });
       expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
     });
 
@@ -85,7 +86,7 @@ describe("/api/forecasts/bulk", () => {
       const response = await GET(request);
 
       const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
-      expect(data.data).toEqual({ forecasts: {} });
+      expect(data.data).toEqual({ forecasts: {}, waterTemps: {} });
       expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
     });
 
@@ -182,7 +183,7 @@ describe("/api/forecasts/bulk", () => {
       const response = await GET(request);
 
       const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
-      expect(data.data).toEqual({ forecasts: {} });
+      expect(data.data).toEqual({ forecasts: {}, waterTemps: {} });
     });
 
     it("should handle null data from database", async () => {
@@ -195,7 +196,7 @@ describe("/api/forecasts/bulk", () => {
       const response = await GET(request);
 
       const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
-      expect(data.data).toEqual({ forecasts: {} });
+      expect(data.data).toEqual({ forecasts: {}, waterTemps: {} });
     });
 
     it("should handle beaches with no matching forecasts in the result set", async () => {

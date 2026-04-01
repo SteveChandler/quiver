@@ -7,6 +7,8 @@
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachFAQSchema, TideFAQSchema, WaterTempFAQSchema } from "@/components/seo/faq-schema";
+import { TideDatasetSchema } from "@/components/seo/tide-dataset-schema";
+import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-schema";
 
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
@@ -177,6 +179,32 @@ export async function renderBeachSubPage({
         <WaterTempFAQSchema beachName={beach.name} />
       ) : (
         <BeachFAQSchema beachName={beach.name} />
+      )}
+
+      {pageType === "tides" && (
+        <TideDatasetSchema
+          cityOrBeachName={beach.name}
+          state={beach.state || undefined}
+          url={`${baseUrl}${subPagePath}`}
+          latitude={beach.lat ?? undefined}
+          longitude={beach.lon ?? undefined}
+          nextHighTime={tideMeta?.nextHighTime ?? null}
+          nextHighHeight={tideMeta?.nextHighHeight ?? null}
+          nextLowTime={tideMeta?.nextLowTime ?? null}
+          nextLowHeight={tideMeta?.nextLowHeight ?? null}
+        />
+      )}
+
+      {pageType === "water-temp" && (
+        <WaterTempDatasetSchema
+          cityOrBeachName={beach.name}
+          state={beach.state || undefined}
+          url={`${baseUrl}${subPagePath}`}
+          latitude={beach.lat ?? undefined}
+          longitude={beach.lon ?? undefined}
+          tempF={waterTempMeta?.tempF ?? null}
+          wetsuitRec={waterTempMeta?.wetsuitRec ?? null}
+        />
       )}
 
       {pageType === "tides" && tideMeta && (

@@ -407,8 +407,8 @@ export async function matchCCCToBeaches(
     for (const beach of beaches) {
       for (const ccc of cccLocations) {
         const distanceKm = haversineDistance(
-          beach.lat,
-          beach.lon,
+          beach.lat ?? 0,
+          beach.lon ?? 0,
           ccc.lat,
           ccc.lon
         );

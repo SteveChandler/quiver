@@ -1,6 +1,7 @@
 import type { Beach } from '@/types/database';
 import { formatMonthRange } from '@/lib/utils/date-time';
 import { degreeToCardinal } from '@/lib/utils/geo-utils';
+import { degreeWindowToCardinal } from '@/lib/utils/direction-utils';
 
 export interface FAQItem {
   question: string;
@@ -16,6 +17,8 @@ export function generateBeachFAQ(beach: Beach): FAQItem[] {
     generateBestTimeFAQ(name, beach),
     generateHazardsFAQ(name, beach),
     generateSwellFAQ(name, beach),
+    generateWindDirectionFAQ(name, beach),
+    generateBestMonthsFAQ(name, beach),
   ];
 }
 
@@ -142,5 +145,53 @@ function generateSwellFAQ(name: string, beach: Beach): FAQItem {
   return {
     question,
     answer: `Swell direction preferences at ${name} depend on the coastline orientation. Check the forecast for today's swell direction and how it lines up.`,
+  };
+}
+
+function generateWindDirectionFAQ(name: string, beach: Beach): FAQItem {
+  const question = `What is the best wind direction for ${name}?`;
+
+  if (beach.wind_offshore_deg != null && beach.wind_offshore_tol_deg != null) {
+    const cardinal = degreeWindowToCardinal(
+      beach.wind_offshore_deg - beach.wind_offshore_tol_deg,
+      beach.wind_offshore_deg + beach.wind_offshore_tol_deg,
+    );
+    if (cardinal) {
+      return {
+        question,
+        answer: `Offshore winds at ${name} blow from the ${cardinal} (${beach.wind_offshore_deg}° ±${beach.wind_offshore_tol_deg}°). These clean up the wave face and create the best conditions.`,
+      };
+    }
+  }
+
+  if (beach.wind_offshore_deg != null) {
+    const cardinal = degreeToCardinal(beach.wind_offshore_deg);
+    return {
+      question,
+      answer: `The best wind at ${name} is offshore from the ${cardinal} (${beach.wind_offshore_deg}°).`,
+    };
+  }
+
+  return {
+    question,
+    answer: `The ideal wind direction at ${name} depends on the coastline orientation. Generally, offshore winds that blow from land toward the ocean produce the cleanest conditions.`,
+  };
+}
+
+function generateBestMonthsFAQ(name: string, beach: Beach): FAQItem {
+  const question = `What are the best months to surf ${name}?`;
+
+  if (beach.best_months && beach.best_months.length > 0) {
+    const range = formatMonthRange(beach.best_months);
+    const prose = beach.best_conditions_prose ? ` ${beach.best_conditions_prose}` : '';
+    return {
+      question,
+      answer: `The best months to surf ${name} are ${range}.${prose}`,
+    };
+  }
+
+  return {
+    question,
+    answer: `${name} can be surfed year-round depending on swell patterns. Check the seasonal forecast to find the best windows.`,
   };
 }

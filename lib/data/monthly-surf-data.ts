@@ -222,8 +222,201 @@ const TX: StateSurfProfile = {
   ],
 };
 
+/**
+ * New York — Best Sep-Nov (hurricanes + nor'easters). Water 40-72°F.
+ */
+const NY: StateSurfProfile = {
+  stateSlug: "ny",
+  stateName: "New York",
+  peakSeason: "September through November",
+  peakMonths: [9, 10, 11],
+  monthly: [
+    { month: MONTHS[0], waveHeightRange: "3-6 ft", waterTemp: 42, wetsuit: "5/4mm + boots/gloves/hood", crowdLevel: "low", overallScore: 52, bestFor: "Nor'easter swells, dedicated locals only" },
+    { month: MONTHS[1], waveHeightRange: "3-5 ft", waterTemp: 40, wetsuit: "5/4mm + boots/gloves/hood", crowdLevel: "low", overallScore: 50, bestFor: "Winter storm swells, iciest water" },
+    { month: MONTHS[2], waveHeightRange: "2-5 ft", waterTemp: 42, wetsuit: "5/4mm + boots/gloves/hood", crowdLevel: "low", overallScore: 48, bestFor: "Late winter swells, water slowly warms" },
+    { month: MONTHS[3], waveHeightRange: "2-4 ft", waterTemp: 50, wetsuit: "4/3mm + boots", crowdLevel: "low", overallScore: 40, bestFor: "Spring transitions, cleaner conditions" },
+    { month: MONTHS[4], waveHeightRange: "2-3 ft", waterTemp: 58, wetsuit: "3/2mm", crowdLevel: "moderate", overallScore: 35, bestFor: "Small clean days, Montauk crowd building" },
+    { month: MONTHS[5], waveHeightRange: "1-3 ft", waterTemp: 65, wetsuit: "spring suit", crowdLevel: "high", overallScore: 28, bestFor: "Beach season begins, mostly small" },
+    { month: MONTHS[6], waveHeightRange: "1-2 ft", waterTemp: 70, wetsuit: "spring suit", crowdLevel: "high", overallScore: 22, bestFor: "Flat Hamptons summer, occasional tropical" },
+    { month: MONTHS[7], waveHeightRange: "1-3 ft", waterTemp: 72, wetsuit: "boardshorts", crowdLevel: "high", overallScore: 38, bestFor: "Hurricane season begins, warm water" },
+    { month: MONTHS[8], waveHeightRange: "3-8 ft", waterTemp: 70, wetsuit: "spring suit", crowdLevel: "moderate", overallScore: 85, bestFor: "Peak hurricane swells, warm water" },
+    { month: MONTHS[9], waveHeightRange: "3-6 ft", waterTemp: 63, wetsuit: "3/2mm", crowdLevel: "moderate", overallScore: 80, bestFor: "Fall swells, offshore winds, thinning crowds" },
+    { month: MONTHS[10], waveHeightRange: "3-6 ft", waterTemp: 55, wetsuit: "4/3mm", crowdLevel: "low", overallScore: 72, bestFor: "Nor'easters firing, empty lineups" },
+    { month: MONTHS[11], waveHeightRange: "3-6 ft", waterTemp: 46, wetsuit: "5/4mm + boots/gloves/hood", crowdLevel: "low", overallScore: 58, bestFor: "Winter storms, hardcore crew" },
+  ],
+};
+
+/**
+ * New Hampshire — Best Sep-Nov. Cold year-round 38-68°F. Small coast, big storms.
+ */
+const NH: StateSurfProfile = {
+  stateSlug: "nh",
+  stateName: "New Hampshire",
+  peakSeason: "September through November",
+  peakMonths: [9, 10, 11],
+  monthly: [
+    { month: MONTHS[0], waveHeightRange: "3-6 ft", waterTemp: 38, wetsuit: "5/4mm + boots/gloves/hood", crowdLevel: "low", overallScore: 55, bestFor: "Nor'easters, Hampton Beach deserted" },
+    { month: MONTHS[1], waveHeightRange: "3-5 ft", waterTemp: 36, wetsuit: "5/4mm + boots/gloves/hood", crowdLevel: "low", overallScore: 52, bestFor: "Coldest water, committed surfers only" },
+    { month: MONTHS[2], waveHeightRange: "2-5 ft", waterTemp: 38, wetsuit: "5/4mm + boots/gloves/hood", crowdLevel: "low", overallScore: 48, bestFor: "Late winter storms" },
+    { month: MONTHS[3], waveHeightRange: "2-4 ft", waterTemp: 46, wetsuit: "4/3mm + boots", crowdLevel: "low", overallScore: 40, bestFor: "Spring swells, quiet beaches" },
+    { month: MONTHS[4], waveHeightRange: "1-3 ft", waterTemp: 55, wetsuit: "3/2mm", crowdLevel: "moderate", overallScore: 32, bestFor: "Small swells, warming up" },
+    { month: MONTHS[5], waveHeightRange: "1-2 ft", waterTemp: 62, wetsuit: "spring suit", crowdLevel: "high", overallScore: 25, bestFor: "Summer begins, mostly flat" },
+    { month: MONTHS[6], waveHeightRange: "1-2 ft", waterTemp: 65, wetsuit: "spring suit", crowdLevel: "high", overallScore: 22, bestFor: "Flat season, beach season" },
+    { month: MONTHS[7], waveHeightRange: "1-3 ft", waterTemp: 68, wetsuit: "boardshorts", crowdLevel: "high", overallScore: 32, bestFor: "Late summer, hurricane teasers" },
+    { month: MONTHS[8], waveHeightRange: "3-7 ft", waterTemp: 65, wetsuit: "spring suit", crowdLevel: "moderate", overallScore: 82, bestFor: "Hurricane swells, still warm enough" },
+    { month: MONTHS[9], waveHeightRange: "3-6 ft", waterTemp: 58, wetsuit: "3/2mm", crowdLevel: "low", overallScore: 78, bestFor: "Fall nor'easters, quiet lineups" },
+    { month: MONTHS[10], waveHeightRange: "3-6 ft", waterTemp: 50, wetsuit: "4/3mm + boots", crowdLevel: "low", overallScore: 68, bestFor: "Consistent fall storms" },
+    { month: MONTHS[11], waveHeightRange: "3-5 ft", waterTemp: 42, wetsuit: "5/4mm + boots/gloves/hood", crowdLevel: "low", overallScore: 55, bestFor: "Winter storms return" },
+  ],
+};
+
+/**
+ * Massachusetts — Best Sep-Nov. Water 38-68°F. Cape Cod + South Shore.
+ */
+const MA: StateSurfProfile = {
+  stateSlug: "ma",
+  stateName: "Massachusetts",
+  peakSeason: "September through November",
+  peakMonths: [9, 10, 11],
+  monthly: [
+    { month: MONTHS[0], waveHeightRange: "3-6 ft", waterTemp: 40, wetsuit: "5/4mm + boots/gloves/hood", crowdLevel: "low", overallScore: 55, bestFor: "Nor'easters, Nantucket Sound, Cape Cod" },
+    { month: MONTHS[1], waveHeightRange: "3-6 ft", waterTemp: 38, wetsuit: "5/4mm + boots/gloves/hood", crowdLevel: "low", overallScore: 52, bestFor: "Winter storms, serious cold water surfers" },
+    { month: MONTHS[2], waveHeightRange: "3-5 ft", waterTemp: 40, wetsuit: "5/4mm + boots/gloves/hood", crowdLevel: "low", overallScore: 50, bestFor: "Late winter swells, water starts warming" },
+    { month: MONTHS[3], waveHeightRange: "2-4 ft", waterTemp: 48, wetsuit: "4/3mm + boots", crowdLevel: "low", overallScore: 42, bestFor: "Spring swells, fewer crowds" },
+    { month: MONTHS[4], waveHeightRange: "1-3 ft", waterTemp: 55, wetsuit: "3/2mm", crowdLevel: "moderate", overallScore: 35, bestFor: "Small clean days, Cape Cod wakes up" },
+    { month: MONTHS[5], waveHeightRange: "1-2 ft", waterTemp: 62, wetsuit: "spring suit", crowdLevel: "high", overallScore: 28, bestFor: "Summer tourists, mostly small surf" },
+    { month: MONTHS[6], waveHeightRange: "1-2 ft", waterTemp: 65, wetsuit: "spring suit", crowdLevel: "high", overallScore: 25, bestFor: "Beach season peak, minimal swell" },
+    { month: MONTHS[7], waveHeightRange: "1-3 ft", waterTemp: 68, wetsuit: "boardshorts", crowdLevel: "high", overallScore: 35, bestFor: "Hurricane season building" },
+    { month: MONTHS[8], waveHeightRange: "3-8 ft", waterTemp: 66, wetsuit: "spring suit", crowdLevel: "moderate", overallScore: 85, bestFor: "Hurricane swells, warm water, classic fall" },
+    { month: MONTHS[9], waveHeightRange: "3-6 ft", waterTemp: 60, wetsuit: "3/2mm", crowdLevel: "moderate", overallScore: 80, bestFor: "Fall nor'easters, crowds thin out" },
+    { month: MONTHS[10], waveHeightRange: "3-6 ft", waterTemp: 52, wetsuit: "4/3mm", crowdLevel: "low", overallScore: 72, bestFor: "Consistent fall storms, empty beaches" },
+    { month: MONTHS[11], waveHeightRange: "3-5 ft", waterTemp: 44, wetsuit: "5/4mm + boots/gloves/hood", crowdLevel: "low", overallScore: 58, bestFor: "Winter arrives, committed locals" },
+  ],
+};
+
+/**
+ * Rhode Island — Best Sep-Nov. Water 38-68°F. Narragansett, Ruggles Point.
+ */
+const RI: StateSurfProfile = {
+  stateSlug: "ri",
+  stateName: "Rhode Island",
+  peakSeason: "September through November",
+  peakMonths: [9, 10, 11],
+  monthly: [
+    { month: MONTHS[0], waveHeightRange: "3-6 ft", waterTemp: 40, wetsuit: "5/4mm + boots/gloves/hood", crowdLevel: "low", overallScore: 55, bestFor: "Nor'easters, Narragansett empty" },
+    { month: MONTHS[1], waveHeightRange: "3-5 ft", waterTemp: 38, wetsuit: "5/4mm + boots/gloves/hood", crowdLevel: "low", overallScore: 52, bestFor: "Cold water, consistent NE swells" },
+    { month: MONTHS[2], waveHeightRange: "2-5 ft", waterTemp: 40, wetsuit: "5/4mm + boots/gloves/hood", crowdLevel: "low", overallScore: 48, bestFor: "Late winter, uncrowded Ruggles" },
+    { month: MONTHS[3], waveHeightRange: "2-4 ft", waterTemp: 48, wetsuit: "4/3mm + boots", crowdLevel: "low", overallScore: 42, bestFor: "Spring swells arriving" },
+    { month: MONTHS[4], waveHeightRange: "1-3 ft", waterTemp: 55, wetsuit: "3/2mm", crowdLevel: "moderate", overallScore: 35, bestFor: "Small but clean, warming water" },
+    { month: MONTHS[5], waveHeightRange: "1-2 ft", waterTemp: 62, wetsuit: "spring suit", crowdLevel: "high", overallScore: 28, bestFor: "Summer crowds, minimal swell" },
+    { month: MONTHS[6], waveHeightRange: "1-2 ft", waterTemp: 65, wetsuit: "spring suit", crowdLevel: "high", overallScore: 25, bestFor: "Peak summer, mostly flat" },
+    { month: MONTHS[7], waveHeightRange: "1-3 ft", waterTemp: 68, wetsuit: "boardshorts", crowdLevel: "high", overallScore: 35, bestFor: "Hurricane swells building" },
+    { month: MONTHS[8], waveHeightRange: "3-8 ft", waterTemp: 66, wetsuit: "spring suit", crowdLevel: "moderate", overallScore: 85, bestFor: "Peak hurricane swells, warm water" },
+    { month: MONTHS[9], waveHeightRange: "3-6 ft", waterTemp: 60, wetsuit: "3/2mm", crowdLevel: "moderate", overallScore: 80, bestFor: "Fall nor'easters, offshore winds" },
+    { month: MONTHS[10], waveHeightRange: "3-6 ft", waterTemp: 52, wetsuit: "4/3mm", crowdLevel: "low", overallScore: 72, bestFor: "Consistent storms, empty lineup" },
+    { month: MONTHS[11], waveHeightRange: "3-5 ft", waterTemp: 44, wetsuit: "5/4mm + boots/gloves/hood", crowdLevel: "low", overallScore: 58, bestFor: "Winter sets in, hardcore crew" },
+  ],
+};
+
+/**
+ * South Carolina — Best Sep-Nov. Water 55-82°F. Warmer than NC.
+ */
+const SC: StateSurfProfile = {
+  stateSlug: "sc",
+  stateName: "South Carolina",
+  peakSeason: "September through November",
+  peakMonths: [9, 10, 11],
+  monthly: [
+    { month: MONTHS[0], waveHeightRange: "2-4 ft", waterTemp: 57, wetsuit: "3/2mm", crowdLevel: "low", overallScore: 52, bestFor: "Cold front swells, Folly Beach quiet" },
+    { month: MONTHS[1], waveHeightRange: "2-4 ft", waterTemp: 55, wetsuit: "3/2mm", crowdLevel: "low", overallScore: 48, bestFor: "Winter northeasters" },
+    { month: MONTHS[2], waveHeightRange: "2-3 ft", waterTemp: 60, wetsuit: "3/2mm", crowdLevel: "low", overallScore: 42, bestFor: "Spring transitions" },
+    { month: MONTHS[3], waveHeightRange: "1-3 ft", waterTemp: 65, wetsuit: "spring suit", crowdLevel: "moderate", overallScore: 32, bestFor: "Small clean days" },
+    { month: MONTHS[4], waveHeightRange: "1-2 ft", waterTemp: 72, wetsuit: "boardshorts", crowdLevel: "moderate", overallScore: 22, bestFor: "Mostly flat, warm water" },
+    { month: MONTHS[5], waveHeightRange: "1-3 ft", waterTemp: 78, wetsuit: "boardshorts", crowdLevel: "high", overallScore: 28, bestFor: "Tourist season begins" },
+    { month: MONTHS[6], waveHeightRange: "1-3 ft", waterTemp: 80, wetsuit: "boardshorts", crowdLevel: "high", overallScore: 32, bestFor: "Warm water, occasional tropical" },
+    { month: MONTHS[7], waveHeightRange: "2-4 ft", waterTemp: 82, wetsuit: "boardshorts", crowdLevel: "high", overallScore: 48, bestFor: "Hurricane season building" },
+    { month: MONTHS[8], waveHeightRange: "3-7 ft", waterTemp: 80, wetsuit: "boardshorts", crowdLevel: "moderate", overallScore: 82, bestFor: "Hurricane swells, warm water" },
+    { month: MONTHS[9], waveHeightRange: "3-5 ft", waterTemp: 75, wetsuit: "boardshorts", crowdLevel: "moderate", overallScore: 78, bestFor: "Fall swells, crowds thin" },
+    { month: MONTHS[10], waveHeightRange: "2-5 ft", waterTemp: 65, wetsuit: "spring suit", crowdLevel: "low", overallScore: 68, bestFor: "Nor'easters, fewer crowds" },
+    { month: MONTHS[11], waveHeightRange: "2-4 ft", waterTemp: 58, wetsuit: "3/2mm", crowdLevel: "low", overallScore: 52, bestFor: "Cold fronts, winter surf" },
+  ],
+};
+
+/**
+ * Georgia — Best Sep-Nov. Water 55-82°F. Tybee Island, Brunswick.
+ */
+const GA: StateSurfProfile = {
+  stateSlug: "ga",
+  stateName: "Georgia",
+  peakSeason: "September through November",
+  peakMonths: [9, 10, 11],
+  monthly: [
+    { month: MONTHS[0], waveHeightRange: "2-4 ft", waterTemp: 58, wetsuit: "3/2mm", crowdLevel: "low", overallScore: 48, bestFor: "Cold front swells, Tybee quiet" },
+    { month: MONTHS[1], waveHeightRange: "2-3 ft", waterTemp: 56, wetsuit: "3/2mm", crowdLevel: "low", overallScore: 45, bestFor: "Winter northeasters" },
+    { month: MONTHS[2], waveHeightRange: "1-3 ft", waterTemp: 60, wetsuit: "3/2mm", crowdLevel: "low", overallScore: 38, bestFor: "Spring clean days" },
+    { month: MONTHS[3], waveHeightRange: "1-2 ft", waterTemp: 66, wetsuit: "spring suit", crowdLevel: "moderate", overallScore: 28, bestFor: "Small days, beach crowds arrive" },
+    { month: MONTHS[4], waveHeightRange: "1-2 ft", waterTemp: 72, wetsuit: "boardshorts", crowdLevel: "moderate", overallScore: 20, bestFor: "Flat season, warm water" },
+    { month: MONTHS[5], waveHeightRange: "1-2 ft", waterTemp: 78, wetsuit: "boardshorts", crowdLevel: "high", overallScore: 22, bestFor: "Summer flat, tourist season" },
+    { month: MONTHS[6], waveHeightRange: "1-2 ft", waterTemp: 82, wetsuit: "boardshorts", crowdLevel: "high", overallScore: 25, bestFor: "Hot water, tropical teasers" },
+    { month: MONTHS[7], waveHeightRange: "2-4 ft", waterTemp: 82, wetsuit: "boardshorts", crowdLevel: "high", overallScore: 45, bestFor: "Hurricane season building" },
+    { month: MONTHS[8], waveHeightRange: "3-7 ft", waterTemp: 80, wetsuit: "boardshorts", crowdLevel: "moderate", overallScore: 80, bestFor: "Peak hurricane swells, warm water" },
+    { month: MONTHS[9], waveHeightRange: "2-5 ft", waterTemp: 75, wetsuit: "boardshorts", crowdLevel: "moderate", overallScore: 75, bestFor: "Fall swells, offshore winds" },
+    { month: MONTHS[10], waveHeightRange: "2-4 ft", waterTemp: 65, wetsuit: "spring suit", crowdLevel: "low", overallScore: 62, bestFor: "Nor'easters, uncrowded Tybee" },
+    { month: MONTHS[11], waveHeightRange: "2-4 ft", waterTemp: 60, wetsuit: "3/2mm", crowdLevel: "low", overallScore: 48, bestFor: "Cold fronts, winter surf" },
+  ],
+};
+
+/**
+ * Maine — Best Sep-Nov. Coldest East Coast water 32-65°F. Scarborough, York.
+ */
+const ME: StateSurfProfile = {
+  stateSlug: "me",
+  stateName: "Maine",
+  peakSeason: "September through November",
+  peakMonths: [9, 10, 11],
+  monthly: [
+    { month: MONTHS[0], waveHeightRange: "4-8 ft", waterTemp: 34, wetsuit: "6/5mm + boots/gloves/hood", crowdLevel: "low", overallScore: 55, bestFor: "Massive nor'easters, near-freezing water" },
+    { month: MONTHS[1], waveHeightRange: "4-7 ft", waterTemp: 32, wetsuit: "6/5mm + boots/gloves/hood", crowdLevel: "low", overallScore: 52, bestFor: "Coldest water of year, serious storms" },
+    { month: MONTHS[2], waveHeightRange: "3-6 ft", waterTemp: 34, wetsuit: "6/5mm + boots/gloves/hood", crowdLevel: "low", overallScore: 50, bestFor: "Late winter storms, water starts to rise" },
+    { month: MONTHS[3], waveHeightRange: "2-5 ft", waterTemp: 42, wetsuit: "5/4mm + boots/gloves", crowdLevel: "low", overallScore: 42, bestFor: "Spring transitions, lobster season opens" },
+    { month: MONTHS[4], waveHeightRange: "1-3 ft", waterTemp: 50, wetsuit: "4/3mm + boots", crowdLevel: "low", overallScore: 35, bestFor: "Small swells, long days" },
+    { month: MONTHS[5], waveHeightRange: "1-2 ft", waterTemp: 58, wetsuit: "3/2mm", crowdLevel: "moderate", overallScore: 28, bestFor: "Summer starts, mostly small" },
+    { month: MONTHS[6], waveHeightRange: "1-2 ft", waterTemp: 62, wetsuit: "spring suit", crowdLevel: "moderate", overallScore: 25, bestFor: "Tourist season, flat surf" },
+    { month: MONTHS[7], waveHeightRange: "1-3 ft", waterTemp: 65, wetsuit: "spring suit", crowdLevel: "moderate", overallScore: 32, bestFor: "Warmest water, tropical teasers" },
+    { month: MONTHS[8], waveHeightRange: "3-8 ft", waterTemp: 62, wetsuit: "3/2mm", crowdLevel: "moderate", overallScore: 82, bestFor: "Hurricane swells, still tolerable temps" },
+    { month: MONTHS[9], waveHeightRange: "4-8 ft", waterTemp: 55, wetsuit: "4/3mm", crowdLevel: "low", overallScore: 80, bestFor: "Fall nor'easters, empty Scarborough" },
+    { month: MONTHS[10], waveHeightRange: "4-8 ft", waterTemp: 48, wetsuit: "5/4mm + boots/gloves/hood", crowdLevel: "low", overallScore: 72, bestFor: "Big storms, almost no one out" },
+    { month: MONTHS[11], waveHeightRange: "4-8 ft", waterTemp: 38, wetsuit: "6/5mm + boots/gloves/hood", crowdLevel: "low", overallScore: 58, bestFor: "Winter storms, truly hardcore only" },
+  ],
+};
+
+/**
+ * Puerto Rico — Best Nov-Feb (north swells), Jun-Aug (south swells). Warm year-round 77-84°F.
+ */
+const PR: StateSurfProfile = {
+  stateSlug: "pr",
+  stateName: "Puerto Rico",
+  peakSeason: "November through February",
+  peakMonths: [11, 12, 1, 2],
+  monthly: [
+    { month: MONTHS[0], waveHeightRange: "4-10 ft", waterTemp: 78, wetsuit: "boardshorts", crowdLevel: "moderate", overallScore: 90, bestFor: "Peak north swells, Rincon world-class" },
+    { month: MONTHS[1], waveHeightRange: "4-8 ft", waterTemp: 77, wetsuit: "boardshorts", crowdLevel: "moderate", overallScore: 85, bestFor: "Consistent NW swells, warm water" },
+    { month: MONTHS[2], waveHeightRange: "3-6 ft", waterTemp: 78, wetsuit: "boardshorts", crowdLevel: "moderate", overallScore: 72, bestFor: "Transitional swells, warm water" },
+    { month: MONTHS[3], waveHeightRange: "2-4 ft", waterTemp: 79, wetsuit: "boardshorts", crowdLevel: "low", overallScore: 48, bestFor: "Spring transition, smaller waves" },
+    { month: MONTHS[4], waveHeightRange: "2-4 ft", waterTemp: 80, wetsuit: "boardshorts", crowdLevel: "low", overallScore: 45, bestFor: "Small south swell beginnings" },
+    { month: MONTHS[5], waveHeightRange: "3-6 ft", waterTemp: 81, wetsuit: "boardshorts", crowdLevel: "moderate", overallScore: 68, bestFor: "South swells firing, La Parguera" },
+    { month: MONTHS[6], waveHeightRange: "4-7 ft", waterTemp: 82, wetsuit: "boardshorts", crowdLevel: "moderate", overallScore: 75, bestFor: "Peak south shore, warm water" },
+    { month: MONTHS[7], waveHeightRange: "3-6 ft", waterTemp: 84, wetsuit: "boardshorts", crowdLevel: "moderate", overallScore: 70, bestFor: "South swells, hottest water" },
+    { month: MONTHS[8], waveHeightRange: "2-5 ft", waterTemp: 83, wetsuit: "boardshorts", crowdLevel: "low", overallScore: 55, bestFor: "Transition month, some south swell" },
+    { month: MONTHS[9], waveHeightRange: "2-5 ft", waterTemp: 82, wetsuit: "boardshorts", crowdLevel: "low", overallScore: 58, bestFor: "North swell season teasing" },
+    { month: MONTHS[10], waveHeightRange: "4-10 ft", waterTemp: 80, wetsuit: "boardshorts", crowdLevel: "moderate", overallScore: 88, bestFor: "North shore wakes up, less crowded than Dec-Jan" },
+    { month: MONTHS[11], waveHeightRange: "5-12 ft", waterTemp: 79, wetsuit: "boardshorts", crowdLevel: "high", overallScore: 92, bestFor: "Peak north swells, Rincon contest season" },
+  ],
+};
+
 const STATE_PROFILES: Record<string, StateSurfProfile> = {
   ca: CA, hi: HI, fl: FL, nj: NJ, nc: NC, or: OR, wa: WA, tx: TX,
+  ny: NY, nh: NH, ma: MA, ri: RI, sc: SC, ga: GA, me: ME, pr: PR,
 };
 
 /**

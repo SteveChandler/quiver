@@ -98,6 +98,8 @@ const MAX_TITLE_LENGTH = 60;
 const META_STATE_EXPANSIONS: Record<string, string> = {
   PR: "Puerto Rico",
   HI: "Hawaii",
+  TX: "Texas",
+  MA: "Massachusetts",
 };
 
 export function expandStateForMeta(state: string): string {

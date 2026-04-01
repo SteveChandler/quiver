@@ -10,7 +10,6 @@ The `/lib/services` directory provides comprehensive integration with external A
 lib/services/
 ├── cdip-service.ts                           # CDIP buoy data integration
 ├── enhanced-forecast-service.ts              # Comprehensive forecast generation
-├── fly-deploy.ts                              # Fly.io Machines API for ML deployment
 ├── forecast-alerts.ts                        # Forecast threshold push alerts (home beach)
 ├── implicit-preferences-service.ts           # Implicit preference learning (behavioral)
 ├── inactive-buoy-cleanup.ts                  # Buoy maintenance and cleanup
@@ -662,17 +661,6 @@ Tests should verify:
   - User preference: `profiles.notif_forecast_alerts` (default true)
   - Delivery state: `public.forecast_alert_deliveries`
 
-### **FlyDeployService** (Fly.io Machine Deployment)
-
-- **Purpose**: Fly.io Machines REST API helpers for ML model deployment
-- **Pattern**: Stateless functions (no class needed)
-- **Service Location**: `lib/services/fly-deploy.ts`
-- **Exports**:
-  - `updateFlyMachineEnvVars(envUpdates, envRemovals)` -- Updates env vars on all Fly.io machines, filtering terminal states
-  - `waitForModelVersion(expectedVersion, options)` -- Polls ML health endpoint until the expected version is confirmed
-- **Why it exists**: Fly secrets don't override machine-level env vars; direct Machines API calls are required
-- **Used by**: `app/api/cron/ml/retrain/route.ts`, `app/api/cron/ml/promote-candidate/route.ts`
-
 ### **PersonalizedScoringService** (Preference-Based Scoring)
 
 - **Purpose**: Scores beaches for users by combining base score with personalization
@@ -1273,7 +1261,6 @@ export function calculateUserPreferences(
 | `surf-discovery-service` | Functions | Orchestration, stateless |
 | `preference-learning-service` | Functions | Pure calculations |
 | `personalized-scoring-service` | Functions | Scoring algorithms |
-| `fly-deploy` | Functions | Fly.io Machines API, stateless |
 
 ### Recommended Directory Organization
 
@@ -1283,7 +1270,6 @@ lib/services/
 │   ├── cdip-service.ts
 │   ├── noaa-coops-service.ts
 │   ├── noaa-wavewatch-service.ts
-│   └── fly-deploy.ts
 ├── domain/                # Business logic (function-based)
 │   ├── scoring/
 │   │   └── personalized-scoring-service.ts

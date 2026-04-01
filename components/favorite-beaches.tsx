@@ -18,6 +18,7 @@ import {
   Users,
   Car,
   Accessibility,
+  Bell,
 } from "lucide-react";
 import {
   removeFavoriteBeach,
@@ -30,6 +31,8 @@ import type { Beach } from "@/types/database";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { beachNavigation } from "@/lib/navigation-utils";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
+import { AlertManagementPanel } from "@/components/alerts/alert-management-panel";
+import { AlertCreationPopover } from "@/components/alerts/alert-creation-popover";
 
 export function FavoriteBeaches() {
   const { user } = useAuth();
@@ -37,6 +40,9 @@ export function FavoriteBeaches() {
   const [loading, setLoading] = useState(true);
   const [removing, setRemoving] = useState<string | null>(null);
   const [savingOrder, setSavingOrder] = useState(false);
+  const [alertCounts, setAlertCounts] = useState<Record<string, number>>({});
+  const [expandedAlerts, setExpandedAlerts] = useState<Record<string, boolean>>({});
+  const [addAlertBeach, setAddAlertBeach] = useState<Beach | null>(null);
 
   // Standard data fetching pattern
   const fetchFavorites = useCallback(async () => {
@@ -70,14 +76,40 @@ export function FavoriteBeaches() {
     setLoading(favLoading);
   }, [favorites, favLoading]);
 
-  const handleRemoveFavorite = async (beachId: string) => {
+  // Fetch alert rule counts keyed by beach_id
+  useEffect(() => {
+    if (!user?.id) return;
+    fetch("/api/alerts/rules")
+      .then((res) => res.json())
+      .then((json) => {
+        if (!Array.isArray(json.data)) return;
+        const counts: Record<string, number> = {};
+        for (const rule of json.data) {
+          if (rule.enabled) {
+            counts[rule.beach_id] = (counts[rule.beach_id] ?? 0) + 1;
+          }
+        }
+        setAlertCounts(counts);
+      })
+      .catch(() => {});
+  }, [user?.id]);
+
+  const handleRemoveFavorite = async (beach: Beach) => {
     if (!user) return;
 
-    setRemoving(beachId);
+    const activeRules = alertCounts[beach.id] ?? 0;
+    if (activeRules > 0) {
+      const confirmed = window.confirm(
+        `Removing ${beach.name} from favorites will pause your ${activeRules} alert rule${activeRules === 1 ? "" : "s"} for this beach. Re-favorite to resume them.`
+      );
+      if (!confirmed) return;
+    }
+
+    setRemoving(beach.id);
     try {
-      const result = await removeFavoriteBeach(user.id, beachId);
+      const result = await removeFavoriteBeach(user.id, beach.id);
       if (result.success) {
-        setBeaches((prev) => prev.filter((beach) => beach.id !== beachId));
+        setBeaches((prev) => prev.filter((b) => b.id !== beach.id));
         toast({
           title: "Beach removed",
           description: "Beach removed from favorites.",
@@ -154,6 +186,7 @@ export function FavoriteBeaches() {
   }
 
   return (
+    <>
     <div className="space-y-4">
       <div className="flex justify-end">
         <Button
@@ -199,6 +232,40 @@ export function FavoriteBeaches() {
                 <span>Access: {(beach as any).accessibility_rating?.toFixed(1) ?? "N/A"}/5</span>
               </div>
             </div>
+            {/* Alert status row */}
+            <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/40">
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Bell
+                  className="h-3.5 w-3.5"
+                  fill={(alertCounts[beach.id] ?? 0) > 0 ? "currentColor" : "none"}
+                />
+                <span>
+                  {(alertCounts[beach.id] ?? 0) > 0
+                    ? `${alertCounts[beach.id]} alert rule${alertCounts[beach.id] === 1 ? "" : "s"} active`
+                    : "No alerts set"}
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={() =>
+                  setExpandedAlerts((prev) => ({
+                    ...prev,
+                    [beach.id]: !prev[beach.id],
+                  }))
+                }
+              >
+                {expandedAlerts[beach.id] ? "Hide" : "Manage"}
+              </Button>
+            </div>
+            {expandedAlerts[beach.id] && (
+              <AlertManagementPanel
+                beachId={beach.id}
+                beachName={beach.name}
+                onAddRule={() => setAddAlertBeach(beach)}
+              />
+            )}
           </CardContent>
           <CardFooter className="flex justify-between items-center gap-2 pt-2">
             <div className="flex items-center gap-2">
@@ -225,7 +292,7 @@ export function FavoriteBeaches() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => handleRemoveFavorite(beach.id)}
+              onClick={() => handleRemoveFavorite(beach)}
               disabled={removing === beach.id}
             >
               {removing === beach.id ? (
@@ -238,5 +305,47 @@ export function FavoriteBeaches() {
         </Card>
       ))}
     </div>
+    {addAlertBeach && (
+      <AlertCreationPopover
+        beachId={addAlertBeach.id}
+        beachName={addAlertBeach.name}
+        beach={{
+          id: addAlertBeach.id,
+          name: addAlertBeach.name,
+          slug: addAlertBeach.slug ?? null,
+          lat: (addAlertBeach as any).lat,
+          lon: (addAlertBeach as any).lon,
+          timezone: (addAlertBeach as any).timezone ?? "UTC",
+          wind_offshore_deg: (addAlertBeach as any).wind_offshore_deg ?? null,
+          wind_offshore_tol_deg: (addAlertBeach as any).wind_offshore_tol_deg ?? null,
+          aspect_deg: (addAlertBeach as any).aspect_deg ?? null,
+          preferred_tide_ft_min: (addAlertBeach as any).preferred_tide_ft_min ?? null,
+          preferred_tide_ft_max: (addAlertBeach as any).preferred_tide_ft_max ?? null,
+          preferred_tide_direction: (addAlertBeach as any).preferred_tide_direction ?? null,
+          swell_window_center_deg: (addAlertBeach as any).swell_window_center_deg ?? null,
+          swell_window_halfwidth_deg: (addAlertBeach as any).swell_window_halfwidth_deg ?? null,
+        }}
+        open={true}
+        onOpenChange={(open) => { if (!open) setAddAlertBeach(null); }}
+        onRuleCreated={() => {
+          // Refresh alert counts
+          fetch("/api/alerts/rules")
+            .then((res) => res.json())
+            .then((json) => {
+              if (!Array.isArray(json.data)) return;
+              const counts: Record<string, number> = {};
+              for (const rule of json.data) {
+                if (rule.enabled) {
+                  counts[rule.beach_id] = (counts[rule.beach_id] ?? 0) + 1;
+                }
+              }
+              setAlertCounts(counts);
+            })
+            .catch(() => {});
+          setAddAlertBeach(null);
+        }}
+      />
+    )}
+    </>
   );
 }

@@ -10,6 +10,7 @@ import { getAllCitiesWithBeachSkills } from "@/actions/beach/beach-location-acti
 import {
   buildBeachUrl,
   cityToSlug,
+  isValidStateSlug,
   stateToSlug,
 } from "@/lib/utils/beach-url-utils";
 import { slugifyAscii } from "@/lib/utils/text-utils";
@@ -34,7 +35,10 @@ export const dynamic = "force-dynamic";
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Sitemap protocol limit: 50,000 URLs / 50 MB per file.
-  // Current estimate: ~9,100 URLs (incl. ~558 beach subpages) — well under limit.
+  // Expected URL count range: ~1,400–2,500 URLs depending on DB beach/city completeness.
+  // Breakdown: ~12 static, ~870 beaches (279 × 3 USA + Baja × 1), ~40 city/state locations,
+  //   ~300–600 intent pages, ~11 guides, ~17 forecast, ~9 cams, ~1 best-time hub + cities,
+  //   ~6 learn — all well under the 50,000 limit.
 
   // Fetch beaches first — shared between beach routes and location route validation.
   // Location routes are cross-validated against this set to exclude cities whose
@@ -86,6 +90,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...camRoutes,
     ...bestTimeRoutes,
     ...learnRoutes,
+    ...getToolsRoutes(),
   ];
 }
 
@@ -128,6 +133,10 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
  * data, and CTAs. Google already crawls and ranks them via internal links —
  * adding them to the sitemap formalizes discoverability.
  *
+ * Tides/water-temp subpages are only generated for US beaches (state slug is a
+ * valid 2-letter US state). International beaches (e.g., Baja Mexico) use a
+ * 4-segment URL pattern that does not have dedicated subpage routes.
+ *
  * Accepts pre-fetched beach data to avoid duplicate DB calls (the main
  * sitemap function shares this data with location route validation).
  */
@@ -147,7 +156,13 @@ function buildBeachRoutes(beaches: NonNullable<Awaited<ReturnType<typeof getBeac
         beach.created_at ||
         fallbackDate;
 
-      // Main beach page + tides and water-temp subpages.
+      // Determine whether this is a US beach. Only US beaches have tides/water-temp
+      // subpage routes — international beaches (e.g., /mexico/baja-california/rosarito/teresas)
+      // use a 4-segment URL pattern with no dedicated subpage routes.
+      const stateSlug = stateToSlug(beach.state);
+      const isUsa = isValidStateSlug(stateSlug);
+
+      // Main beach page + tides and water-temp subpages (US only).
       // Subpages have robust metadata, FAQs, structured data, and CTAs —
       // Google is already crawling them via internal links and ranking them
       // (e.g., T-Street /tides: 1,209 impressions). Adding to sitemap
@@ -159,12 +174,14 @@ function buildBeachRoutes(beaches: NonNullable<Awaited<ReturnType<typeof getBeac
           changeFrequency: "weekly" as const,
           priority: 0.7,
         },
-        ...subPageTypes.map((subPage) => ({
-          url: `${beachUrl}/${subPage}`,
-          lastModified: lastModifiedDate,
-          changeFrequency: "weekly" as const,
-          priority: 0.65,
-        })),
+        ...(isUsa
+          ? subPageTypes.map((subPage) => ({
+              url: `${beachUrl}/${subPage}`,
+              lastModified: lastModifiedDate,
+              changeFrequency: "weekly" as const,
+              priority: 0.65,
+            }))
+          : []),
       ];
     });
 }
@@ -216,10 +233,13 @@ async function getLocationRoutes(validCitySlugs: Set<string>): Promise<MetadataR
       continue;
     }
 
-    // Filter out locations with fewer than 2 beaches (thin content).
+    // Filter out locations with no beaches (thin content).
+    // City listing pages with a single beach are valid — they show the beach
+    // with full scoring, a map, and intent quick-links. Requiring 2+ beaches
+    // was overly conservative and excluded many real surf cities.
     // Metro areas (beachCount=0 in the listing) are exempt — their content
     // is aggregated from constituent cities at runtime.
-    if (!(location as any).isMetro && (location.beachCount ?? 0) < 2) continue;
+    if (!(location as any).isMetro && (location.beachCount ?? 0) < 1) continue;
 
     if (isUsa) {
       const stateSlug = stateToSlug(location.state);
@@ -227,7 +247,9 @@ async function getLocationRoutes(validCitySlugs: Set<string>): Promise<MetadataR
       if (stateSlug && citySlug) {
         // Only include cities that have valid beaches in the sitemap.
         // Cities without scored beaches redirect to /map, wasting crawl budget.
-        if (!validCitySlugs.has(`${stateSlug}/${citySlug}`)) {
+        // Metro areas are exempt — their content is aggregated from constituent
+        // cities at runtime, so they won't appear in the per-beach validCitySlugs set.
+        if (!(location as any).isMetro && !validCitySlugs.has(`${stateSlug}/${citySlug}`)) {
           filteredCount++;
           continue;
         }
@@ -274,7 +296,7 @@ async function getLocationRoutes(validCitySlugs: Set<string>): Promise<MetadataR
  *
  * IMPORTANT: Filters out:
  * 1. Skill-based intent pages (beginner, longboard) for cities without matching beaches
- * 2. Cities with fewer than 2 beaches (thin content)
+ * 2. Single-beach cities unless the state has <20 total beaches AND the beach has editorial content
  * 3. Cities with exactly 2 beaches that lack editorial quality content
  *    (editorial quality = description + at least one of crowd_tips/wave_tips/best_conditions_prose
  *     on both beaches). Cities with 3+ beaches are included without this extra guard.
@@ -318,12 +340,24 @@ async function getIntentRoutes(): Promise<MetadataRoute.Sitemap> {
         }
       }
 
+      // Build per-state beach count for thin-state exemptions
+      const stateBeachCounts = new Map<string, number>();
+      for (const c of usCities) {
+        if (c.state) {
+          const current = stateBeachCounts.get(c.state) ?? 0;
+          stateBeachCounts.set(c.state, current + c.beachCount);
+        }
+      }
+
       for (const cityRecord of usCities) {
         const citySlug = buildCitySlug(cityRecord.city, cityRecord.state, collisionMap);
         if (!citySlug) continue;
 
-        // Filter out cities with fewer than 2 beaches (thin content)
-        if (cityRecord.beachCount < 2) continue;
+        // Single-beach cities: allow only in thin states (<20 beaches) WITH editorial content
+        if (cityRecord.beachCount === 1) {
+          const stateTotal = stateBeachCounts.get(cityRecord.state) ?? 0;
+          if (stateTotal >= 20 || !cityRecord.hasEditorialContent) continue;
+        }
 
         // For cities with exactly 2 beaches, require editorial quality content
         // (description + at least one editorial field on both beaches).
@@ -498,6 +532,38 @@ async function getBestTimeToSurfRoutes(): Promise<MetadataRoute.Sitemap> {
     console.error("Sitemap: Failed to generate best-time-to-surf routes", error);
     return routes;
   }
+}
+
+/**
+ * Free surf tools — static routes for all 8 tools.
+ */
+function getToolsRoutes(): MetadataRoute.Sitemap {
+  const toolsDate = "2026-03-30";
+
+  const toolSlugs = [
+    "tide-clock",
+    "wave-converter",
+    "wind-checker",
+    "dawn-patrol",
+    "board-calculator",
+    "swell-analyzer",
+    "water-quality",
+  ];
+
+  return [
+    {
+      url: `${baseUrl}/tools`,
+      lastModified: toolsDate,
+      changeFrequency: "weekly" as const,
+      priority: 0.85,
+    },
+    ...toolSlugs.map((slug) => ({
+      url: `${baseUrl}/tools/${slug}`,
+      lastModified: toolsDate,
+      changeFrequency: "weekly" as const,
+      priority: 0.8,
+    })),
+  ];
 }
 
 /**

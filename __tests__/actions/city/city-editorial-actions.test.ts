@@ -9,7 +9,7 @@ import {
   getCityEditorialContent,
   hasCityEditorialContent,
 } from "@/actions/city/city-editorial-actions";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createPublicReadClient } from "@/lib/supabase/server";
 import {
   mockSanDiegoEditorial,
   mockOrangeCountyEditorial,
@@ -25,7 +25,7 @@ import {
 // Mock the Supabase server client
 jest.mock("@/lib/supabase/server", () => ({
   __esModule: true,
-  createSupabaseServerClient: jest.fn(),
+  createPublicReadClient: jest.fn(),
 }));
 
 // Chain builder for Supabase query mocking
@@ -53,7 +53,7 @@ describe("City Editorial Actions", () => {
       from: jest.fn(() => tableChain),
     };
 
-    (createSupabaseServerClient as jest.Mock).mockResolvedValue(
+    (createPublicReadClient as jest.Mock).mockReturnValue(
       mockSupabaseClient
     );
   });
@@ -471,7 +471,7 @@ describe("City Editorial Actions", () => {
 
       await getCityEditorialContent("san-diego");
 
-      expect(createSupabaseServerClient).toHaveBeenCalled();
+      expect(createPublicReadClient).toHaveBeenCalled();
     });
 
     it("should create Supabase client for hasCityEditorialContent", async () => {
@@ -479,7 +479,7 @@ describe("City Editorial Actions", () => {
 
       await hasCityEditorialContent("san-diego");
 
-      expect(createSupabaseServerClient).toHaveBeenCalled();
+      expect(createPublicReadClient).toHaveBeenCalled();
     });
   });
 });

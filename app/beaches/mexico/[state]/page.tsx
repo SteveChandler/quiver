@@ -6,7 +6,7 @@ import { getAllBeachLocations } from "@/actions/beach/beach-location-list-action
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { generateLocationSlug } from "@/lib/utils/location-slug";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600; // 1 hour — beach location data changes infrequently
 
 type BeachLocationRow = {
   city: string;

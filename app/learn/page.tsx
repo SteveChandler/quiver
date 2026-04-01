@@ -39,6 +39,57 @@ const CROSS_LINKS = [
     label: "Best Time to Surf",
     desc: "Monthly surf quality by city",
   },
+  {
+    href: "/vs/surfline",
+    label: "Quiver vs Surfline",
+    desc: "See how we compare, feature by feature",
+  },
+];
+
+const CATEGORIES: { label: string; desc: string; slugs: string[] }[] = [
+  {
+    label: "Forecast Fundamentals",
+    desc: "Read forecasts like a local — height, period, direction, wind, and tide.",
+    slugs: [
+      "how-to-read-a-surf-forecast",
+      "swell-period-explained",
+      "offshore-vs-onshore-wind-surfing",
+      "best-tide-for-surfing",
+      "how-are-waves-measured",
+      "wind-swell-vs-ground-swell",
+      "how-swell-direction-affects-surf",
+      "how-accurate-are-surf-forecasts",
+      "how-surf-forecasts-work",
+    ],
+  },
+  {
+    label: "Timing & Conditions",
+    desc: "Know when to paddle out and what to wear.",
+    slugs: [
+      "best-time-of-day-to-surf",
+      "why-waves-better-in-morning",
+      "is-it-safe-to-surf-after-rain",
+      "what-wetsuit-thickness-do-i-need",
+    ],
+  },
+  {
+    label: "Getting Started",
+    desc: "Gear, etiquette, and what to expect as a beginner.",
+    slugs: [
+      "best-surf-conditions-for-beginners",
+      "what-size-surfboard-should-i-get",
+      "how-long-to-learn-to-surf",
+      "surf-etiquette-rules",
+      "beach-break-vs-reef-break-vs-point-break",
+      "what-equipment-to-start-surfing",
+      "what-is-a-rip-current",
+    ],
+  },
+  {
+    label: "Ocean Science",
+    desc: "How waves and tides actually work.",
+    slugs: ["how-are-ocean-waves-formed", "how-do-tides-work"],
+  },
 ];
 
 export default function LearnHubPage() {
@@ -48,7 +99,17 @@ export default function LearnHubPage() {
   ];
 
   const featuredArticle = learnArticles[0];
-  const remainingArticles = learnArticles.slice(1, 5);
+
+  // Group articles by category, excluding the featured article
+  const categorized = CATEGORIES.map((cat) => ({
+    ...cat,
+    articles: cat.slugs
+      .map((slug) => learnArticles.find((a) => a.slug === slug))
+      .filter(
+        (a): a is (typeof learnArticles)[number] =>
+          a != null && a.slug !== featuredArticle.slug,
+      ),
+  })).filter((cat) => cat.articles.length > 0);
 
   return (
     <>
@@ -162,50 +223,51 @@ export default function LearnHubPage() {
         </ScrollReveal>
 
         {/* ---------------------------------------------------------------- */}
-        {/* 3. Remaining articles grid (2x2)                                 */}
+        {/* 3. Categorized articles                                          */}
         {/* ---------------------------------------------------------------- */}
-        <div className="mx-auto max-w-6xl px-4 mt-14">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {remainingArticles.map((article, i) => (
-              <ScrollReveal key={article.slug} delay={i * 100}>
-                <Link
-                  href={`/learn/${article.slug}`}
-                  className="group relative flex flex-col justify-end overflow-hidden rounded-xl border border-white/10 min-h-[20rem] sm:min-h-[26rem] transition-all duration-300 hover:border-[#F78E42]/40 hover:-translate-y-2 hover:shadow-2xl hover:shadow-[#F78E42]/10"
-                >
-                  {/* Full-bleed card image */}
-                  <Image
-                    src={article.thumbnailImage}
-                    alt={article.title}
-                    width={600}
-                    height={400}
-                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  />
-
-                  {/* Gradient overlay — branded navy instead of generic black */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#252D6B] via-[#252D6B]/50 to-transparent" />
-
-                  {/* Sticker-style reading time badge */}
-                  <span className="absolute top-4 right-4 z-10 rounded-full bg-[#F78E42]/90 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-lg">
-                    {article.readingTimeMin} min
-                  </span>
-
-                  {/* Text content overlaid at bottom */}
-                  <div className="relative z-10 p-6 sm:p-8">
-                    <h2 className="font-display text-2xl font-extrabold text-white sm:text-3xl drop-shadow-lg">
-                      {article.title}
-                    </h2>
-                    <p className="mt-3 text-sm leading-relaxed text-gray-200/80 line-clamp-2">
-                      {article.description}
-                    </p>
-                    <span className="mt-4 inline-block text-xs font-bold text-[#F78E42] opacity-0 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-1">
-                      Read guide &rarr;
+        {categorized.map((cat) => (
+          <section key={cat.label} className="mx-auto max-w-6xl px-4 mt-16">
+            <ScrollReveal>
+              <p className="mb-1 text-xs font-bold uppercase tracking-widest text-[#F78E42]">
+                {cat.label}
+              </p>
+              <p className="mb-6 text-sm text-gray-400">{cat.desc}</p>
+            </ScrollReveal>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {cat.articles.map((article, i) => (
+                <ScrollReveal key={article.slug} delay={i * 80}>
+                  <Link
+                    href={`/learn/${article.slug}`}
+                    className="group relative flex flex-col justify-end overflow-hidden rounded-xl border border-white/10 min-h-[16rem] sm:min-h-[20rem] transition-all duration-300 hover:border-[#F78E42]/40 hover:-translate-y-1 hover:shadow-xl hover:shadow-[#F78E42]/10"
+                  >
+                    <Image
+                      src={article.thumbnailImage}
+                      alt={article.title}
+                      width={600}
+                      height={400}
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#252D6B] via-[#252D6B]/60 to-transparent" />
+                    <span className="absolute top-3 right-3 z-10 rounded-full bg-[#F78E42]/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-lg">
+                      {article.readingTimeMin} min
                     </span>
-                  </div>
-                </Link>
-              </ScrollReveal>
-            ))}
-          </div>
-        </div>
+                    <div className="relative z-10 p-5 sm:p-6">
+                      <h2 className="font-display text-lg font-extrabold text-white sm:text-xl drop-shadow-lg line-clamp-2">
+                        {article.title}
+                      </h2>
+                      <p className="mt-2 text-xs leading-relaxed text-gray-200/70 line-clamp-2">
+                        {article.description}
+                      </p>
+                      <span className="mt-3 inline-block text-xs font-bold text-[#F78E42] opacity-0 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-1">
+                        Read &rarr;
+                      </span>
+                    </div>
+                  </Link>
+                </ScrollReveal>
+              ))}
+            </div>
+          </section>
+        ))}
 
         {/* ---------------------------------------------------------------- */}
         {/* 4. Cross-links section                                           */}
@@ -218,7 +280,7 @@ export default function LearnHubPage() {
             <h2 className="mb-8 font-display text-2xl font-extrabold text-white sm:text-3xl">
               More from Quiver
             </h2>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {CROSS_LINKS.map((link) => (
                 <Link
                   key={link.href}

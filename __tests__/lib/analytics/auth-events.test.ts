@@ -249,6 +249,28 @@ describe("auth-events", () => {
           timestamp: expect.any(Number),
         });
       });
+
+      it("should include source and landing_page when provided", () => {
+        trackSignupStarted("google", {
+          source: "intent-longboard-torrance",
+          landing_page: "/longboard/torrance/torrance-beach",
+        });
+
+        expect(track).toHaveBeenCalledWith("signup_started", {
+          method: "google",
+          timestamp: expect.any(Number),
+          source: "intent-longboard-torrance",
+          landing_page: "/longboard/torrance/torrance-beach",
+        });
+      });
+
+      it("should omit source and landing_page when not provided", () => {
+        trackSignupStarted("password");
+
+        const callArgs = (track as jest.Mock).mock.calls[0][1];
+        expect(callArgs).not.toHaveProperty("source");
+        expect(callArgs).not.toHaveProperty("landing_page");
+      });
     });
 
     describe("trackSignupSuccess", () => {
@@ -274,6 +296,33 @@ describe("auth-events", () => {
           method: "google",
           requires_verification: false,
         });
+      });
+
+      it("should include source and landing_page when provided", () => {
+        trackSignupSuccess({
+          method: "google",
+          requires_verification: false,
+          source: "beach-detail-blacks",
+          landing_page: "/ca/san-diego/blacks-beach",
+        });
+
+        expect(track).toHaveBeenCalledWith("signup_success", {
+          method: "google",
+          requires_verification: false,
+          source: "beach-detail-blacks",
+          landing_page: "/ca/san-diego/blacks-beach",
+        });
+      });
+
+      it("should omit source and landing_page when not provided", () => {
+        trackSignupSuccess({
+          method: "password",
+          requires_verification: true,
+        });
+
+        const callArgs = (track as jest.Mock).mock.calls[0][1];
+        expect(callArgs).not.toHaveProperty("source");
+        expect(callArgs).not.toHaveProperty("landing_page");
       });
     });
 
@@ -429,6 +478,23 @@ describe("auth-events", () => {
         });
         jest.spyOn(Date, "now").mockRestore();
       });
+
+      it("dual-fires source and landing_page when provided", () => {
+        jest.spyOn(Date, "now").mockReturnValue(1741827600000);
+        trackSignupStarted("google", {
+          source: "hero-cta",
+          landing_page: "/",
+        });
+
+        const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
+        const body = JSON.parse(callArgs[1].body as string);
+        expect(body.metadata).toMatchObject({
+          method: "google",
+          source: "hero-cta",
+          landing_page: "/",
+        });
+        jest.spyOn(Date, "now").mockRestore();
+      });
     });
 
     describe("trackSignupSuccess", () => {
@@ -462,6 +528,24 @@ describe("auth-events", () => {
           metadata: { method: "password", requires_verification: true },
           sessionId: "test-visitor-id",
           viewportWidth: expect.any(Number),
+        });
+      });
+
+      it("dual-fires source and landing_page when provided", () => {
+        trackSignupSuccess({
+          method: "google",
+          requires_verification: false,
+          source: "intent-longboard-torrance",
+          landing_page: "/longboard/torrance/torrance-beach",
+        });
+
+        const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
+        const body = JSON.parse(callArgs[1].body as string);
+        expect(body.metadata).toMatchObject({
+          method: "google",
+          requires_verification: false,
+          source: "intent-longboard-torrance",
+          landing_page: "/longboard/torrance/torrance-beach",
         });
       });
     });

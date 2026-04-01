@@ -83,6 +83,17 @@ const HUB_REGIONS: Record<string, HubRegion> = {
     centerLon: -122.03,
     zoom: 11,
   },
+  "northern-california": {
+    slug: "northern-california",
+    name: "Northern California",
+    title: "Complete Guide to Surfing Northern California",
+    description:
+      "From Half Moon Bay to the Oregon border, Northern California delivers some of the heaviest beach breaks and most dramatic coastline on the West Coast. Ocean Beach San Francisco is the region's flagship — a powerful, shifting peak that punishes weak paddlers and rewards commitment. Mavericks, just south of Half Moon Bay, is one of the premier big wave spots on the planet.\n\nThe water runs cold year-round — 48-58°F means a 4/3mm is the bare minimum and most locals wear a 5/4mm with boots from October through May. Powerful NW groundswells are the bread and butter, with fall and winter delivering the biggest and most consistent surf. Spring offers medium-sized swells with longer daylight.\n\nBeyond the heavy stuff, Pacifica's Linda Mar serves up approachable beach break for beginners, Stinson Beach catches south wrap, and Bolinas hides mellow reef breaks behind its famously unsigned roads. Kelp forests, sea otters, and the occasional great white are part of the scenery — this is raw, wild California surfing.",
+    states: ["ca"],
+    centerLat: 37.6,
+    centerLon: -122.5,
+    zoom: 8,
+  },
   ventura: {
     slug: "ventura",
     name: "Ventura County",
@@ -137,6 +148,17 @@ const HUB_REGIONS: Record<string, HubRegion> = {
     centerLat: 18.22,
     centerLon: -67.15,
     zoom: 9,
+  },
+  oregon: {
+    slug: "oregon",
+    name: "Oregon",
+    title: "Complete Guide to Surfing Oregon",
+    description:
+      "Oregon's 362 miles of rugged coastline deliver some of the most powerful and least crowded surf in the continental US. Short Sands at Oswald West State Park is the jewel — a sheltered cove with a quality beach break surrounded by old-growth forest. Indian Beach, Otter Rock, and Pacific City's Cape Kiwanda offer everything from protected sandbars to exposed reef setups.\n\nThe water stays cold year-round — 48-55°F with minimal seasonal variation. A 5/4mm with boots and gloves is standard kit, and a hooded suit earns its keep from November through March. Powerful NW groundswells barrel down from Gulf of Alaska storms, and the exposed coast amplifies everything the North Pacific generates.\n\nWhat you trade in comfort you gain in solitude. Oregon's breaks see a fraction of the crowds that pack California lineups. Rocky approaches, strong currents, and heavy water keep the tourist count low. Fall and winter are prime season with the biggest and most consistent swells. Summer offers smaller, cleaner windows with longer daylight — the best time for intermediate surfers exploring the coast.",
+    states: ["or"],
+    centerLat: 44.6,
+    centerLon: -124.1,
+    zoom: 7,
   },
 };
 

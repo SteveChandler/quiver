@@ -16,7 +16,7 @@ import type { Metadata } from "next";
 import {
   getBestTimeToSurfData,
 } from "@/actions/city/best-time-actions";
-import { findCityBySlug } from "@/actions/city/city-metadata-actions";
+import { findCityBySlug, getCityExcludeIntents } from "@/actions/city/city-metadata-actions";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getStateSurfProfile } from "@/lib/data/monthly-surf-data";
@@ -26,7 +26,7 @@ import { ItemListSchema } from "@/components/seo/item-list-schema";
 import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
 import { AnimatedScoreGauge } from "@/components/forecast/animated-score-gauge";
 import { MonthlySurfChart } from "@/components/best-time-to-surf/monthly-chart";
-import { MonthlyGrid } from "@/components/best-time-to-surf/monthly-grid";
+import { MonthlyViewToggle } from "@/components/best-time-to-surf/monthly-view-toggle";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
@@ -103,7 +103,10 @@ export default async function BestTimeToSurfPage(props: PageParams) {
   const { cityName, state, stateName } = cityResult.data;
   const stateSlug = state.toLowerCase();
 
-  const dataResult = await getBestTimeToSurfData(cityName, state);
+  const [dataResult, excludeIntents] = await Promise.all([
+    getBestTimeToSurfData(cityName, state),
+    getCityExcludeIntents(cityName, state),
+  ]);
   if (!dataResult.success || !dataResult.data) {
     return notFound();
   }
@@ -263,18 +266,19 @@ export default async function BestTimeToSurfPage(props: PageParams) {
           </section>
         </ScrollReveal>
 
-        {/* Monthly Breakdown Grid */}
+        {/* Monthly Breakdown Grid / Heatmap */}
         <section className="mb-12">
           <h2 className="text-2xl font-semibold text-gray-900 mb-4">
             Monthly Breakdown
           </h2>
-          <MonthlyGrid
+          <MonthlyViewToggle
             monthly={data.monthly}
             waterTempRange={data.waterTempRange}
             summerWetsuit={data.summerWetsuit}
             winterWetsuit={data.winterWetsuit}
             stateMonthly={stateProfile?.monthly}
             peakMonths={stateProfile?.peakMonths}
+            stateName={stateName}
           />
         </section>
 
@@ -431,6 +435,7 @@ export default async function BestTimeToSurfPage(props: PageParams) {
           locationName={cityName}
           locationType="city"
           stateAbbrev={state}
+          excludeIntents={excludeIntents.length > 0 ? excludeIntents : undefined}
         />
       </div>
       <StickySignupBar
