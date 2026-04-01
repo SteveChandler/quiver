@@ -120,7 +120,7 @@ export async function GET(request: Request) {
 
           summary.matched++;
 
-          const { sunrise } = getDaylightWindow(beach.lat, beach.lon, new Date(userLocalDate));
+          const { sunrise } = getDaylightWindow(beach.lat, beach.lon, new Date(todayStart));
 
           for (const window of windows) {
             const sendAtDate = new Date(new Date(window.window_start).getTime() - 2 * 60 * 60 * 1000);
