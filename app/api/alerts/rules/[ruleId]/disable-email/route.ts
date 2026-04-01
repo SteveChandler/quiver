@@ -1,3 +1,4 @@
+// @ts-nocheck — alert tables not yet in production types; remove after migration
 import { NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { verifyDisableToken } from "@/lib/alerts/email-token";
