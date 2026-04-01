@@ -26,7 +26,7 @@ export const revalidate = 86400;
 export const metadata: Metadata = buildPageMetadata({
   title: "Surfboard Volume Calculator — Find Your Perfect Board Size",
   description:
-    "Find the right surfboard volume for your weight, skill level, and the waves you ride. Get board type suggestions and a size chart. Free tool.",
+    "Find the right surfboard volume for your weight, skill level, and the waves you ride. Get board type suggestions and a size chart.",
   path: "/tools/board-calculator",
   image: "/images/tools/board-calculator-screenshot.jpg",
   keywords: [
@@ -75,7 +75,7 @@ export default function BoardCalculatorPage() {
       <BreadcrumbStructuredData
         items={[
           { name: "Quiver", url: `${SITE_URL}/` },
-          { name: "Free Surf Tools", url: `${SITE_URL}/tools` },
+          { name: "Surfer's Toolkit", url: `${SITE_URL}/tools` },
           { name: "Surfboard Volume Calculator", url: `${SITE_URL}/tools/board-calculator` },
         ]}
       />
@@ -123,7 +123,7 @@ export default function BoardCalculatorPage() {
           <div className="mt-10">
             <InlineSignupCta
               title="Found your board? Log your quiver and track your sessions."
-              description="Quiver lets you log your boards, track sessions, and see how conditions matched up. Always free."
+              description="Quiver lets you log your boards, track sessions, and see how conditions matched up."
               primaryButtonText="Start tracking your surf"
               source="board-calculator"
             />

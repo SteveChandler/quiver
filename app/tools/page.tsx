@@ -23,7 +23,7 @@ export const revalidate = 86400;
 export const metadata: Metadata = buildPageMetadata({
   title: "The Surfer's Toolkit — Tide Clock, Wave Converter & More",
   description:
-    "Essential tools every surfer needs: tide clock, wave height converter, offshore wind checker, dawn patrol calculator, surfboard size guide & more. No signup required.",
+    "Essential tools every surfer needs: tide clock, wave height converter, offshore wind checker, dawn patrol calculator, surfboard size guide & more.",
   path: "/tools",
   image: "/images/tools/aerial-coastline.jpg",
   keywords: [
@@ -144,7 +144,7 @@ export default function ToolsIndexPage() {
             "@context": "https://schema.org",
             "@type": "ItemList",
             name: "The Surfer's Toolkit",
-            description: "Essential free tools every surfer needs.",
+            description: "Essential tools every surfer needs.",
             numberOfItems: TOOLS.length,
             itemListElement: TOOLS.map((tool, index) => ({
               "@type": "ListItem",
@@ -160,23 +160,10 @@ export default function ToolsIndexPage() {
         <ToolHero
           imageSrc={TOOL_IMAGES["tools-index"]}
           title="The Surfer's Toolkit"
-          description="Quick answers for the questions every surfer asks. No signup, no paywall — just useful tools powered by real data."
+          description="Quick answers for the questions every surfer asks."
         />
 
         <div className="container mx-auto max-w-6xl px-4 py-10">
-          {/* Intro section for SEO */}
-          <section className="mb-8 max-w-3xl">
-            <p className="text-[#B8C7E0] text-sm leading-relaxed mb-3">
-              Every tool below is free, works on any device, and requires no account. Data is sourced from{" "}
-              <strong className="text-white">NOAA CO-OPS</strong> (tides),{" "}
-              <strong className="text-white">Open-Meteo</strong> (wind forecasts),{" "}
-              <strong className="text-white">EPA monitoring stations</strong> (water quality via CEDEN and PacIOOS), and astronomical calculations (sunrise and civil twilight times).
-            </p>
-            <p className="text-[#B8C7E0] text-sm leading-relaxed">
-              Built for surfers who want quick, reliable answers — whether you&apos;re checking tides before dawn patrol, figuring out if the wind is offshore, or deciding what size board to ride. Each tool covers 279+ beaches across the US, Hawaii, and Puerto Rico.
-            </p>
-          </section>
-
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {TOOLS.map((tool) => {
               const Icon = tool.icon;

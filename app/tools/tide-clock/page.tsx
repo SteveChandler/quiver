@@ -1,7 +1,7 @@
 /**
  * Tide Clock Tool — /tools/tide-clock
  *
- * Real-time tide display for any beach. No signup required.
+ * Real-time tide display for any beach.
  * Data: NOAA CO-OPS hourly predictions via tide-clock API route.
  */
 
@@ -21,7 +21,7 @@ export function generateMetadata(): Metadata {
   return buildPageMetadata({
     title: "Tide Clock — Real-Time Tide Heights for Any Beach",
     description:
-      "Check current tide height, next high tide, and next low tide for 279+ surf beaches. Free real-time tide clock powered by NOAA data.",
+      "Check current tide height, next high tide, and next low tide for any surf beach. Real-time tide clock powered by NOAA data.",
     path: "/tools/tide-clock",
     image: "/images/tools/tide-pools.jpg",
     keywords: [
@@ -65,7 +65,7 @@ export default function TideClockPage() {
       <BreadcrumbStructuredData
         items={[
           { name: "Quiver", url: `${SITE_ORIGIN}/` },
-          { name: "Free Surf Tools", url: `${SITE_ORIGIN}/tools` },
+          { name: "Surfer's Toolkit", url: `${SITE_ORIGIN}/tools` },
           { name: "Tide Clock", url: `${SITE_ORIGIN}/tools/tide-clock` },
         ]}
       />
@@ -79,7 +79,7 @@ export default function TideClockPage() {
             name: "Quiver Tide Clock",
             url: `${SITE_ORIGIN}/tools/tide-clock`,
             description:
-              "Real-time tide heights, next high tide, and 24-hour tide charts for 279+ surf beaches.",
+              "Real-time tide heights, next high tide, and 24-hour tide charts for any surf beach.",
             applicationCategory: "SportsApplication",
             operatingSystem: "Any",
             offers: {

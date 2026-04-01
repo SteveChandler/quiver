@@ -21,7 +21,7 @@ export function generateMetadata(): Metadata {
   return buildPageMetadata({
     title: "Dawn Patrol Calculator — Sunrise & First Light Times",
     description:
-      "Find first light, sunrise, golden hour, and tide at dawn for any surf beach. 7-day dawn patrol forecast. Always free.",
+      "Find first light, sunrise, golden hour, and tide at dawn for any surf beach. 7-day dawn patrol forecast.",
     path: "/tools/dawn-patrol",
     image: "/images/tools/walking-sunset.jpg",
     keywords: [
@@ -65,7 +65,7 @@ export default function DawnPatrolPage() {
       <BreadcrumbStructuredData
         items={[
           { name: "Quiver", url: `${SITE_ORIGIN}/` },
-          { name: "Free Surf Tools", url: `${SITE_ORIGIN}/tools` },
+          { name: "Surfer's Toolkit", url: `${SITE_ORIGIN}/tools` },
           {
             name: "Dawn Patrol Calculator",
             url: `${SITE_ORIGIN}/tools/dawn-patrol`,
@@ -155,7 +155,7 @@ export default function DawnPatrolPage() {
               </p>
               <p>
                 This calculator shows first light, sunrise, sunset, and golden
-                hour times for any of our 279+ monitored beaches, plus the{" "}
+                hour times for any of our monitored beaches, plus the{" "}
                 <strong className="text-white">tide state at dawn</strong> so
                 you know whether conditions will be rising or falling when you
                 hit the water. Data comes from astronomical calculations

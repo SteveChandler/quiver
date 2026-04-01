@@ -75,7 +75,7 @@ export default function WaveConverterPage() {
       <BreadcrumbStructuredData
         items={[
           { name: "Quiver", url: `${SITE_URL}/` },
-          { name: "Free Surf Tools", url: `${SITE_URL}/tools` },
+          { name: "Surfer's Toolkit", url: `${SITE_URL}/tools` },
           { name: "Wave Height Converter", url: `${SITE_URL}/tools/wave-converter` },
         ]}
       />
@@ -131,8 +131,8 @@ export default function WaveConverterPage() {
               Know your wave size — now check the forecast.
             </p>
             <p className="mt-1 text-sm text-[#B8C7E0]">
-              See real-time wave heights, swell periods, and conditions at 279+
-              beaches.
+              See real-time wave heights, swell periods, and conditions at
+              hundreds of beaches.
             </p>
             <Link
               href="/forecast"

@@ -36,7 +36,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   return buildPageMetadata({
     title: "Offshore Wind Checker — Is the Wind Good for Surfing?",
     description:
-      "Check if the wind is offshore at your surf spot. Visual compass showing wind direction vs shore orientation. Free, real-time, no signup.",
+      "Check if the wind is offshore at your surf spot. Visual compass showing wind direction vs shore orientation, updated hourly.",
     path: "/tools/wind-checker",
     image: "/images/tools/wind-checker-screenshot.jpg",
     keywords: [
