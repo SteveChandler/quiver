@@ -856,3 +856,20 @@ body.js-loaded .ssr-beach-section {
   border-color: rgba(247, 142, 66, 0.5) !important;
   box-shadow: 0 0 0 2px rgba(247, 142, 66, 0.2) !important;
 }
+
+/* Alert preset card stagger entrance */
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Alert CTA breathing glow for active state */
+@keyframes alertBreath {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(247, 142, 66, 0); }
+  50% { box-shadow: 0 0 12px 3px rgba(247, 142, 66, 0.2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [style*="animationDelay"] { animation: none !important; }
+  .alert-breath { animation: none !important; }
+}
