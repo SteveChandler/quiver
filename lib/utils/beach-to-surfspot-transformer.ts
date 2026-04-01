@@ -48,8 +48,8 @@ export function transformBeachToSurfSpot(beach: BeachWithMetrics): SurfSpot {
 
     // Coordinates: database and SurfSpot both use lat/lon
     coordinates: {
-      lat: beach.lat,
-      lon: beach.lon,
+      lat: beach.lat ?? 0,
+      lon: beach.lon ?? 0,
     },
 
     // Content fields - sanitize description to strip leading **BeachName** markers

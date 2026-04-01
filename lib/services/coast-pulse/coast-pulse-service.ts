@@ -108,8 +108,8 @@ async function fetchCoastPulseData(
   const beachesCache: BeachCacheEntry[] = (beaches || []).map((b) => ({
     id: b.id,
     name: b.name,
-    lat: b.lat,
-    lon: b.lon,
+    lat: b.lat ?? 0,
+    lon: b.lon ?? 0,
     windOffshoreDeg: b.wind_offshore_deg,
   }));
 
