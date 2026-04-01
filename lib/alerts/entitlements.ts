@@ -20,6 +20,7 @@ interface CanCreateRuleInput {
   targetBeachId: string;
   existingRuleCount: number;
   existingBeachCount: number;
+  isExistingBeach: boolean;
   presetType: PresetType | null;
 }
 
@@ -40,8 +41,8 @@ export function canCreateRule(input: CanCreateRuleInput): CanCreateRuleResult {
   }
 
   // For free tier, beach access is already gated above by the home-beach check.
-  // For premium tier, only block when the target is a new beach beyond the cap.
-  if (input.tier === "premium" && input.existingBeachCount >= caps.beaches) {
+  // For premium tier, only block when the target is a NEW beach beyond the cap.
+  if (input.tier === "premium" && !input.isExistingBeach && input.existingBeachCount >= caps.beaches) {
     return { allowed: false, reason: `Maximum ${caps.beaches} beaches reached.` };
   }
 

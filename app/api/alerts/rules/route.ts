@@ -61,12 +61,14 @@ export const POST = withAuth(
     const existingBeachCount = existingBeachIds.size;
 
     const tier = getUserEntitlement(user.id);
+    const isExistingBeach = existingBeachIds.has(beach_id);
     const entitlementResult = canCreateRule({
       tier,
       homeBeachId,
       targetBeachId: beach_id,
       existingRuleCount,
       existingBeachCount,
+      isExistingBeach,
       presetType: preset_type ?? null,
     });
 
