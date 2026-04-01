@@ -504,14 +504,22 @@ function buildNoForecastTier3(
  * Build dynamic metadata for tide pages using live tide data.
  * Falls back to generic titles when tide data is unavailable.
  *
- * CTR Optimization (updated strategy):
- * - Titles emphasize Quiver's UNIQUE value (interactive chart, surf windows) over
- *   raw tide times that Google already surfaces in its knowledge panel.
- * - Users who see "High 5.2ft at 2:15 PM" in the SERP get their answer and don't click.
- *   Titles like "T-Street Tide Chart & Surf Windows | Mar 2026" highlight what only
- *   Quiver provides: surf-window analysis, 3-hour update cadence, 7-day outlook.
- * - Descriptions keep specific tide data to reinforce relevance and answer intent,
- *   but lead with the value proposition so the click driver is clear.
+ * CTR Optimization — 4th iteration:
+ *
+ * Failed framings (iterations 1-3):
+ * - v1 "Best Tide to Surf {Beach}" — 0% CTR on 1,200+ impressions. Didn't match
+ *   the dominant query pattern "{beach} tide chart today".
+ * - v2 "{Beach} Tide Chart | High 5.2ft at 2:15 PM" — gave away the answer Google
+ *   already surfaces in its knowledge panel; zero click incentive.
+ * - v3 "{Beach} Tide Chart & Surf Windows | {Mon YYYY}" — better query match but
+ *   "Surf Windows" is jargon that doesn't create urgency or curiosity.
+ *
+ * Current strategy (v4): query-match anchor + planning signal
+ * - Keep "Tide Chart" as the anchor term (matches dominant query intent).
+ * - Add planning signal via em dash: "— When to Surf" frames the page as a
+ *   decision-making tool, not just a data display.
+ * - Descriptions lead with an unanswerable question ("Is incoming or outgoing tide
+ *   better for {Beach}?") to create a curiosity gap Google can't resolve in the SERP.
  * - Month+Year date token keeps title fresh without encoding daily-volatile data.
  */
 export function buildDynamicTideMetadata({
@@ -529,15 +537,12 @@ export function buildDynamicTideMetadata({
   const now = new Date();
   const monthYear = now.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 
-  // Title: match the dominant query pattern ("tide chart") while signaling
-  // surf-specific value. GSC data shows top queries are "{beach} tide chart
-  // today" — previous titles ("Best Tide to Surf {Beach}") had 0% CTR on
-  // 1,200+ impressions because they didn't match the query intent.
-  // Tier 1: "{Beach} Tide Chart & Surf Windows | {Mon YYYY}" (if <=60 chars)
-  // Tier 2: "{Beach} Tide Chart & Surf Windows" (drop date, if <=60 chars)
+  // Title: query-match anchor "Tide Chart" + planning signal "When to Surf"
+  // Tier 1: "{Beach} Tide Chart — When to Surf | {Mon YYYY}" (if <=60 chars)
+  // Tier 2: "{Beach} Tide Chart — When to Surf" (drop date, if <=60 chars)
   // Tier 3: "{Beach} Tide Chart" (very long names)
-  const tier1 = `${beach.name} Tide Chart & Surf Windows | ${monthYear}`;
-  const tier2 = `${beach.name} Tide Chart & Surf Windows`;
+  const tier1 = `${beach.name} Tide Chart \u2014 When to Surf | ${monthYear}`;
+  const tier2 = `${beach.name} Tide Chart \u2014 When to Surf`;
   const tier3 = `${beach.name} Tide Chart`;
   let title: string;
   if (tier1.length <= MAX_TITLE_LENGTH) {
@@ -548,19 +553,22 @@ export function buildDynamicTideMetadata({
     title = truncateTitleForSEO(tier3);
   }
 
-  // Description: lead with value proposition, then include live tide data for relevance.
+  // Description: lead with unanswerable question to create curiosity gap,
+  // then include live tide data for relevance signals.
+  const MAX_DESC = 160;
   let description: string;
   if (tideData?.nextHighTime && tideData?.nextLowTime) {
     const highPart = tideData.nextHighHeight != null
-      ? `High ${tideData.nextHighHeight}ft at ${tideData.nextHighTime}`
-      : `High tide at ${tideData.nextHighTime}`;
+      ? `${tideData.nextHighHeight}ft at ${tideData.nextHighTime}`
+      : `at ${tideData.nextHighTime}`;
     const lowPart = tideData.nextLowHeight != null
-      ? `low ${tideData.nextLowHeight}ft at ${tideData.nextLowTime}`
-      : `low at ${tideData.nextLowTime}`;
-    const candidate = `Interactive tide chart with optimal surf windows for ${beach.name}. ${highPart}, ${lowPart}. Updated every 3 hours.`;
-    description = candidate.length <= 160 ? candidate : candidate.slice(0, 157) + "…";
+      ? `${tideData.nextLowHeight}ft at ${tideData.nextLowTime}`
+      : `at ${tideData.nextLowTime}`;
+    const candidate = `Is incoming or outgoing tide better for ${beach.name}? Surf windows show the 2-3hr sweet spots each day. Next high ${highPart}, low ${lowPart}. Updated every 3 hours.`;
+    description = candidate.length <= MAX_DESC ? candidate : candidate.slice(0, MAX_DESC - 1).replace(/\s+\S*$/, "") + "…";
   } else {
-    description = `Interactive tide chart with optimal surf windows for ${beach.name}. Updated every 3 hours with 7-day outlook and best-time-to-go analysis.`;
+    const candidate = `Is incoming or outgoing tide better for ${beach.name}? Interactive chart with surf windows showing the best 2-3hr tide windows. 7-day outlook updated every 3 hours.`;
+    description = candidate.length <= MAX_DESC ? candidate : candidate.slice(0, MAX_DESC - 1).replace(/\s+\S*$/, "") + "…";
   }
 
   return { title, description };
@@ -570,14 +578,22 @@ export function buildDynamicTideMetadata({
  * Build dynamic metadata for water temperature pages.
  * Falls back to generic titles when temperature data is unavailable.
  *
- * CTR Optimization (updated strategy):
- * - Titles emphasize Quiver's UNIQUE value (wetsuit guide, seasonal trends) over
- *   the raw temperature that Google already surfaces in knowledge panels.
- * - "Waikiki Beach Water Temperature: 78°F" → user sees temp and doesn't click.
- *   "Waikiki Beach Water Temp & Wetsuit Guide | Mar 2026" surfaces what only
- *   Quiver provides: wetsuit thickness recommendation, seasonal trend chart, buoy data.
- * - Descriptions remain specific (current temp + wetsuit rec) because they reinforce
- *   that our page has the data — but the click driver is the gear-planning angle.
+ * CTR Optimization — 4th iteration:
+ *
+ * Failed framings (iterations 1-3):
+ * - v1 "What Wetsuit for {Beach}?" — 0% CTR on 766+ impressions. Didn't match
+ *   the dominant query pattern "{beach} water temp".
+ * - v2 "{Beach} Water Temperature: 78°F" — gave away the answer Google already
+ *   surfaces in its knowledge panel; zero click incentive.
+ * - v3 "{Beach} Water Temp & Wetsuit Guide | {Mon YYYY}" — better query match but
+ *   "Wetsuit Guide" is a passive label that doesn't create urgency.
+ *
+ * Current strategy (v4): query-match anchor + planning signal
+ * - Keep "Water Temp" as the anchor term (matches dominant query intent).
+ * - Add planning signal via em dash: "— What Wetsuit Today" frames the page as a
+ *   gear-planning tool, not just a data display. "Today" adds temporal urgency.
+ * - Descriptions lead with an unanswerable question ("What wetsuit for {Beach}
+ *   right now?") to create a curiosity gap Google can't resolve in the SERP.
  * - Month+Year date token keeps title fresh without encoding daily-volatile data.
  */
 export function buildDynamicWaterTempMetadata({
@@ -593,15 +609,12 @@ export function buildDynamicWaterTempMetadata({
   const now = new Date();
   const monthYear = now.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 
-  // Title: match the dominant query pattern ("water temp" / "sea temperature")
-  // while signaling the wetsuit guide value-add. GSC data shows top queries
-  // are "{beach} water temp" — previous titles ("What Wetsuit for {Beach}?")
-  // had 0% CTR on 766+ impressions because they didn't match query intent.
-  // Tier 1: "{Beach} Water Temp & Wetsuit Guide | {Mon YYYY}" (if <=60 chars)
-  // Tier 2: "{Beach} Water Temp & Wetsuit Guide" (drop date, if <=60 chars)
+  // Title: query-match anchor "Water Temp" + planning signal "What Wetsuit Today"
+  // Tier 1: "{Beach} Water Temp — What Wetsuit Today | {Mon YYYY}" (if <=60 chars)
+  // Tier 2: "{Beach} Water Temp — What Wetsuit Today" (drop date, if <=60 chars)
   // Tier 3: "{Beach} Water Temperature" (very long names)
-  const tier1 = `${beach.name} Water Temp & Wetsuit Guide | ${monthYear}`;
-  const tier2 = `${beach.name} Water Temp & Wetsuit Guide`;
+  const tier1 = `${beach.name} Water Temp \u2014 What Wetsuit Today | ${monthYear}`;
+  const tier2 = `${beach.name} Water Temp \u2014 What Wetsuit Today`;
   const tier3 = `${beach.name} Water Temperature`;
   let title: string;
   if (tier1.length <= MAX_TITLE_LENGTH) {
@@ -612,22 +625,16 @@ export function buildDynamicWaterTempMetadata({
     title = truncateTitleForSEO(tier3);
   }
 
-  // Description: consistent value-first pattern regardless of whether we have live data.
-  // The description reinforces what Quiver offers beyond the temperature number Google shows.
-  // For very long beach names we drop the trailing sentence to stay within 160 chars.
+  // Description: lead with unanswerable question to create curiosity gap.
+  // Include live temp data when available for relevance signals.
   const MAX_DESC = 160;
-  const fullDesc = `Current water temperature at ${beach.name} with wetsuit recommendations, seasonal trends, and real-time buoy data. Plan your session with the right gear.`;
-  const shortDesc = `Current water temperature at ${beach.name} with wetsuit recommendations, seasonal trends, and real-time buoy data.`;
   let description: string;
-  if (fullDesc.length <= MAX_DESC) {
-    description = fullDesc;
-  } else if (shortDesc.length <= MAX_DESC) {
-    description = shortDesc;
+  if (waterTempData?.tempF != null) {
+    const candidate = `What wetsuit for ${beach.name} right now? Current temp ${waterTempData.tempF}°F, thickness rec, and seasonal trends from NOAA buoys. Plan your session gear.`;
+    description = candidate.length <= MAX_DESC ? candidate : candidate.slice(0, MAX_DESC - 1).replace(/\s+\S*$/, "") + "…";
   } else {
-    // Last resort: hard truncate at word boundary
-    const cut = fullDesc.slice(0, MAX_DESC - 1);
-    const lastSpace = cut.lastIndexOf(" ");
-    description = (lastSpace > MAX_DESC * 0.5 ? cut.slice(0, lastSpace) : cut) + "…";
+    const candidate = `What wetsuit for ${beach.name} right now? Current temp, thickness recommendation, and month-by-month seasonal trends. Plan your session gear.`;
+    description = candidate.length <= MAX_DESC ? candidate : candidate.slice(0, MAX_DESC - 1).replace(/\s+\S*$/, "") + "…";
   }
 
   return { title, description };

@@ -28,8 +28,12 @@ import { SITE_URL } from "@/lib/constants/seo";
 /** Intent quick-links shown per city for crawler discovery */
 const CITY_INTENT_PILLS = [
   { key: "beginner" as const, label: "Beginner" },
+  { key: "longboard" as const, label: "Longboard" },
+  { key: "least-crowded" as const, label: "Less Crowded" },
   { key: "tide" as const, label: "Tides" },
   { key: "water-temp" as const, label: "Water Temp" },
+  { key: "dawn-patrol" as const, label: "Dawn Patrol" },
+  { key: "sunset" as const, label: "Sunset" },
 ];
 
 export const revalidate = 86400;

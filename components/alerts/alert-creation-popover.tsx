@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Loader2, Mail, Bell as BellIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { PresetCard } from "./preset-card";
 import { ConditionBuilder } from "./condition-builder";
-import { getPresetsForGroup } from "@/lib/alerts/presets";
+import { getPresetsForGroup, getPreset } from "@/lib/alerts/presets";
 import type { AlertConditions, BeachAlertMeta, PresetDefinition } from "@/lib/alerts/types";
 
 interface AlertCreationPopoverProps {
@@ -22,6 +22,8 @@ interface AlertCreationPopoverProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRuleCreated?: () => void;
+  /** When provided, auto-select this preset instead of showing the presets grid */
+  initialPreset?: string;
 }
 
 type Stage =
@@ -36,12 +38,26 @@ export function AlertCreationPopover({
   open,
   onOpenChange,
   onRuleCreated,
+  initialPreset,
 }: AlertCreationPopoverProps) {
   const [stage, setStage] = useState<Stage>({ step: "presets" });
+  const initialPresetApplied = useRef(false);
   const [name, setName] = useState("");
   const [notifyEmail, setNotifyEmail] = useState(true);
   const [notifyPush, setNotifyPush] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Auto-select initialPreset when popover opens
+  useEffect(() => {
+    if (!open || !initialPreset || initialPresetApplied.current) return;
+
+    const preset = getPreset(initialPreset as Parameters<typeof getPreset>[0]);
+    if (preset) {
+      initialPresetApplied.current = true;
+      handlePresetSelect(preset);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialPreset]);
 
   const popularPresets = getPresetsForGroup("popular");
   const specificPresets = getPresetsForGroup("specific");
@@ -54,6 +70,7 @@ export function AlertCreationPopover({
       setName("");
       setNotifyEmail(true);
       setNotifyPush(true);
+      initialPresetApplied.current = false;
     }, 200);
   }
 

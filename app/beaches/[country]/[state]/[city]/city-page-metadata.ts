@@ -92,10 +92,23 @@ export async function generateMetadata(props: LocationPageProps) {
     const breakTypes = aggregateBreakTypes(response.data.beaches);
     const skillRange = getSkillRange(response.data.beaches);
     const n = stats.totalBeaches;
+    const isUsa = params.country === "usa";
 
     // Build title with 3-tier fallback for non-metro cities
     let title: string;
-    if (metroConfig) {
+
+    // For USA cities with 3+ beaches, target "[city] surf report today" queries
+    if (isUsa && !metroConfig && n >= 3) {
+      const surfReportTier1 = `${displayCityName} Surf Report Today: Conditions at ${n} Beaches`;
+      const surfReportTier2 = `${displayCityName} Surf Report Today | ${n} Beaches`;
+      if (surfReportTier1.length <= 60) {
+        title = surfReportTier1;
+      } else if (surfReportTier2.length <= 60) {
+        title = surfReportTier2;
+      } else {
+        title = truncateTitleForSEO(surfReportTier2);
+      }
+    } else if (metroConfig) {
       // For metro areas, prefer an enriched title with beach count and break types
       // which gives Google more indexable keywords and a more descriptive snippet.
       if (breakTypes !== null) {
@@ -136,7 +149,18 @@ export async function generateMetadata(props: LocationPageProps) {
 
     const MAX_DESC_LENGTH = 160;
     let description: string;
-    if (metroConfig?.description) {
+    if (isUsa && !metroConfig && n >= 3) {
+      // Surf-report-today description targeting freshness signals
+      const base = `Today's surf report for ${displayCityName}. Live wave height, wind, and tide conditions across ${n} beaches. Updated hourly.`;
+      if (base.length <= MAX_DESC_LENGTH) {
+        // Append top beach names if room
+        const names = topBeaches.length > 0 ? ` Including ${topBeaches.join(", ")}.` : "";
+        const withNames = `${base}${names}`;
+        description = withNames.length <= MAX_DESC_LENGTH ? withNames : base;
+      } else {
+        description = base.slice(0, MAX_DESC_LENGTH - 1) + ".";
+      }
+    } else if (metroConfig?.description) {
       const ratingSnippet =
         stats.totalReviews >= 5
           ? ` Rated ${stats.averageRating.toFixed(1)}/5.`

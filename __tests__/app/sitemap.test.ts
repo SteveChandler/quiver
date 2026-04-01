@@ -66,7 +66,7 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
       const homeRoute = result.find((r) => r.url === `${baseUrl}/`);
 
-      expect(homeRoute).toBeTruthy();
+      expect(homeRoute).not.toBeUndefined();
       expect(homeRoute?.priority).toBe(1);
     });
 
@@ -74,7 +74,7 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
       const route = result.find((r) => r.url === `${baseUrl}/features`);
 
-      expect(route).toBeTruthy();
+      expect(route).not.toBeUndefined();
       expect(route?.priority).toBe(0.7);
     });
 
@@ -82,28 +82,28 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
       const route = result.find((r) => r.url === `${baseUrl}/about`);
 
-      expect(route).toBeTruthy();
+      expect(route).not.toBeUndefined();
     });
 
     it("should include /privacy route", async () => {
       const result = await sitemap();
       const route = result.find((r) => r.url === `${baseUrl}/privacy`);
 
-      expect(route).toBeTruthy();
+      expect(route).not.toBeUndefined();
     });
 
     it("should include /map route", async () => {
       const result = await sitemap();
       const route = result.find((r) => r.url === `${baseUrl}/map`);
 
-      expect(route).toBeTruthy();
+      expect(route).not.toBeUndefined();
     });
 
     it("should include /beaches/usa route", async () => {
       const result = await sitemap();
       const route = result.find((r) => r.url === `${baseUrl}/beaches/usa`);
 
-      expect(route).toBeTruthy();
+      expect(route).not.toBeUndefined();
     });
 
     it("should set changeFrequency to daily for static routes", async () => {
@@ -132,13 +132,13 @@ describe("Sitemap Generation", () => {
       const sanDiegoIntentRoute = result.find(
         (r) => r.url === `${baseUrl}/beginner/san-diego`
       );
-      expect(sanDiegoIntentRoute).toBeTruthy();
+      expect(sanDiegoIntentRoute).not.toBeUndefined();
 
       // Encinitas should also have intent routes
       const encinitasIntentRoute = result.find(
         (r) => r.url === `${baseUrl}/beginner/encinitas`
       );
-      expect(encinitasIntentRoute).toBeTruthy();
+      expect(encinitasIntentRoute).not.toBeUndefined();
     });
 
     it("should call getAllCitiesWithBeachSkills with minimum beach count", async () => {
@@ -155,7 +155,7 @@ describe("Sitemap Generation", () => {
         const route = result.find(
           (r) => r.url === `${baseUrl}/${intent}/san-diego`
         );
-        expect(route).toBeTruthy();
+        expect(route).not.toBeUndefined();
       });
     });
 
@@ -171,8 +171,8 @@ describe("Sitemap Generation", () => {
       expect(result.find((r) => r.url === `${baseUrl}/beginner/san-diego`)).toBeUndefined();
 
       // Unfiltered state-level intent routes should still be present (tide, water-temp, etc.)
-      expect(result.find((r) => r.url === `${baseUrl}/tide/ca`)).toBeTruthy();
-      expect(result.find((r) => r.url === `${baseUrl}/water-temp/ca`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/tide/ca`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/water-temp/ca`)).not.toBeUndefined();
 
       // Filtered state-level intents (beginner, longboard, least-crowded) are now excluded
       // when city data is unavailable — fail-closed to avoid indexing empty pages.
@@ -191,20 +191,20 @@ describe("Sitemap Generation", () => {
       for (const state of usStates) {
         for (const intent of unFilteredIntents) {
           const route = result.find((r) => r.url === `${baseUrl}/${intent}/${state}`);
-          expect(route).toBeTruthy();
+          expect(route).not.toBeUndefined();
         }
       }
 
       // Skill-based intents only for states with beginner beaches (CA from default mock)
       for (const intent of skillIntents) {
-        expect(result.find((r) => r.url === `${baseUrl}/${intent}/ca`)).toBeTruthy();
+        expect(result.find((r) => r.url === `${baseUrl}/${intent}/ca`)).not.toBeUndefined();
         // States without beginner data should be excluded
         expect(result.find((r) => r.url === `${baseUrl}/${intent}/ga`)).toBeUndefined();
       }
 
       // least-crowded is now filtered: only states with hasLeastCrowdedBeaches get it.
       // Default mock has CA cities with hasLeastCrowdedBeaches: true → CA gets the route.
-      expect(result.find((r) => r.url === `${baseUrl}/least-crowded/ca`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/least-crowded/ca`)).not.toBeUndefined();
       // GA has no cities in the mock → least-crowded/ga should be excluded.
       expect(result.find((r) => r.url === `${baseUrl}/least-crowded/ga`)).toBeUndefined();
     });
@@ -261,7 +261,7 @@ describe("Sitemap Generation", () => {
       const stateTideRoute = result.find(
         (r) => r.url === `${baseUrl}/tide/ca`
       );
-      expect(stateTideRoute).toBeTruthy();
+      expect(stateTideRoute).not.toBeUndefined();
     });
 
     it("should exclude beginner/longboard intents for cities without beginner beaches", async () => {
@@ -279,13 +279,13 @@ describe("Sitemap Generation", () => {
       expect(result.find((r) => r.url === `${baseUrl}/longboard/advanced-city`)).toBeUndefined();
 
       // Should still include non-filtered intents
-      expect(result.find((r) => r.url === `${baseUrl}/tide/advanced-city`)).toBeTruthy();
-      expect(result.find((r) => r.url === `${baseUrl}/water-temp/advanced-city`)).toBeTruthy();
-      expect(result.find((r) => r.url === `${baseUrl}/dawn-patrol/advanced-city`)).toBeTruthy();
-      expect(result.find((r) => r.url === `${baseUrl}/sunset/advanced-city`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/tide/advanced-city`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/water-temp/advanced-city`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/dawn-patrol/advanced-city`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/sunset/advanced-city`)).not.toBeUndefined();
 
       // least-crowded is included because hasLeastCrowdedBeaches is true
-      expect(result.find((r) => r.url === `${baseUrl}/least-crowded/advanced-city`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/least-crowded/advanced-city`)).not.toBeUndefined();
     });
 
     it("should include beginner/longboard intents for cities WITH beginner beaches", async () => {
@@ -299,8 +299,8 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       // Should include beginner and longboard
-      expect(result.find((r) => r.url === `${baseUrl}/beginner/beginner-town`)).toBeTruthy();
-      expect(result.find((r) => r.url === `${baseUrl}/longboard/beginner-town`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/beginner/beginner-town`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/longboard/beginner-town`)).not.toBeUndefined();
     });
 
     it("should include single-beach city intent routes in thin states with editorial content", async () => {
@@ -317,8 +317,8 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       // Single-beach city in thin state WITH editorial → included
-      expect(result.find((r) => r.url === `${baseUrl}/tide/cocoa-beach`)).toBeTruthy();
-      expect(result.find((r) => r.url === `${baseUrl}/longboard/cocoa-beach`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/tide/cocoa-beach`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/longboard/cocoa-beach`)).not.toBeUndefined();
     });
 
     it("should exclude single-beach city intent routes in large states", async () => {
@@ -338,7 +338,7 @@ describe("Sitemap Generation", () => {
       // Single-beach city in large state → excluded even with editorial content
       expect(result.find((r) => r.url === `${baseUrl}/tide/tiny-cove`)).toBeUndefined();
       // Multi-beach cities still included
-      expect(result.find((r) => r.url === `${baseUrl}/tide/san-diego`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/tide/san-diego`)).not.toBeUndefined();
     });
 
     it("should exclude single-beach city intent routes without editorial content", async () => {
@@ -357,7 +357,7 @@ describe("Sitemap Generation", () => {
       // No editorial → excluded
       expect(result.find((r) => r.url === `${baseUrl}/tide/no-content-beach`)).toBeUndefined();
       // Has editorial in thin state → included
-      expect(result.find((r) => r.url === `${baseUrl}/tide/quality-beach`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/tide/quality-beach`)).not.toBeUndefined();
     });
 
     it("should exclude non-US cities from intent routes", async () => {
@@ -373,7 +373,7 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       // US city should be present
-      expect(result.find((r) => r.url === `${baseUrl}/tide/san-diego`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/tide/san-diego`)).not.toBeUndefined();
 
       // Non-US cities should NOT have intent routes
       expect(result.find((r) => r.url === `${baseUrl}/tide/rosarito`)).toBeUndefined();
@@ -394,18 +394,18 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       // "newport" is in COLLISION_CITY_SLUGS → gets state suffix
-      expect(result.find((r) => r.url === `${baseUrl}/tide/newport-or`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/tide/newport-or`)).not.toBeUndefined();
       expect(result.find((r) => r.url === `${baseUrl}/tide/newport`)).toBeUndefined();
 
       // "newport-beach" is NOT in collision list → no suffix
-      expect(result.find((r) => r.url === `${baseUrl}/tide/newport-beach`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/tide/newport-beach`)).not.toBeUndefined();
 
       // "koloa" is in COLLISION_CITY_SLUGS → gets state suffix
-      expect(result.find((r) => r.url === `${baseUrl}/tide/koloa-hi`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/tide/koloa-hi`)).not.toBeUndefined();
       expect(result.find((r) => r.url === `${baseUrl}/tide/koloa`)).toBeUndefined();
 
       // "waikoloa" is NOT in collision list → no suffix
-      expect(result.find((r) => r.url === `${baseUrl}/tide/waikoloa`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/tide/waikoloa`)).not.toBeUndefined();
     });
 
     it("should still include non-filtered intents for all cities regardless of skill/crowd flags", async () => {
@@ -419,10 +419,10 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       // Unfiltered intents always included (no state suffix since not in collision list)
-      expect(result.find((r) => r.url === `${baseUrl}/tide/no-skill-data`)).toBeTruthy();
-      expect(result.find((r) => r.url === `${baseUrl}/water-temp/no-skill-data`)).toBeTruthy();
-      expect(result.find((r) => r.url === `${baseUrl}/dawn-patrol/no-skill-data`)).toBeTruthy();
-      expect(result.find((r) => r.url === `${baseUrl}/sunset/no-skill-data`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/tide/no-skill-data`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/water-temp/no-skill-data`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/dawn-patrol/no-skill-data`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/sunset/no-skill-data`)).not.toBeUndefined();
 
       // Filtered intents excluded (no beginner beaches, no least-crowded beaches)
       expect(result.find((r) => r.url === `${baseUrl}/beginner/no-skill-data`)).toBeUndefined();
@@ -451,7 +451,7 @@ describe("Sitemap Generation", () => {
       const hierarchicalRoute = result.find((r) =>
         r.url.includes("/ca/san-diego/sunset-cliffs")
       );
-      expect(hierarchicalRoute).toBeTruthy();
+      expect(hierarchicalRoute).not.toBeUndefined();
     });
 
     it("should exclude beaches missing location data (no /spots/ fallback)", async () => {
@@ -500,7 +500,7 @@ describe("Sitemap Generation", () => {
         r.url.includes("/ca/san-diego/sunset-cliffs")
       );
 
-      expect(beachRoute).toBeTruthy();
+      expect(beachRoute).not.toBeUndefined();
     });
 
     it("should include tides and water-temp pages for beaches with hierarchical URLs", async () => {
@@ -528,8 +528,8 @@ describe("Sitemap Generation", () => {
         r.url.includes("/ca/san-diego/sunset-cliffs-garbage/water-temp")
       );
 
-      expect(tidesRoute).toBeTruthy();
-      expect(waterTempRoute).toBeTruthy();
+      expect(tidesRoute).not.toBeUndefined();
+      expect(waterTempRoute).not.toBeUndefined();
     });
 
     it("should exclude beaches without hierarchical URLs entirely", async () => {
@@ -573,7 +573,7 @@ describe("Sitemap Generation", () => {
         r.url.includes("/mexico/baja-california/rosarito/teresas")
       );
 
-      expect(beachRoute).toBeTruthy();
+      expect(beachRoute).not.toBeUndefined();
     });
 
     it("should NOT include tides/water-temp subpages for international beaches", async () => {
@@ -602,14 +602,14 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       // International beach: main page present, subpages absent
-      expect(result.find((r) => r.url.includes("/mexico/baja-california/rosarito/teresas"))).toBeTruthy();
+      expect(result.find((r) => r.url.includes("/mexico/baja-california/rosarito/teresas"))).not.toBeUndefined();
       expect(result.find((r) => r.url.includes("/mexico/baja-california/rosarito/teresas/tides"))).toBeUndefined();
       expect(result.find((r) => r.url.includes("/mexico/baja-california/rosarito/teresas/water-temp"))).toBeUndefined();
 
       // US beach: main page AND subpages present
-      expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs-garbage") && !r.url.includes("/tides") && !r.url.includes("/water-temp"))).toBeTruthy();
-      expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs-garbage/tides"))).toBeTruthy();
-      expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs-garbage/water-temp"))).toBeTruthy();
+      expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs-garbage") && !r.url.includes("/tides") && !r.url.includes("/water-temp"))).not.toBeUndefined();
+      expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs-garbage/tides"))).not.toBeUndefined();
+      expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs-garbage/water-temp"))).not.toBeUndefined();
     });
 
     it("should filter out beaches without slug from beach entries", async () => {
@@ -717,9 +717,9 @@ describe("Sitemap Generation", () => {
         r.url.includes("/ca/san-diego/sunset-cliffs-garbage/water-temp")
       );
 
-      expect(tidesRoute).toBeTruthy();
+      expect(tidesRoute).not.toBeUndefined();
       expect(tidesRoute?.priority).toBe(0.65);
-      expect(waterTempRoute).toBeTruthy();
+      expect(waterTempRoute).not.toBeUndefined();
       expect(waterTempRoute?.priority).toBe(0.65);
     });
 
@@ -758,7 +758,7 @@ describe("Sitemap Generation", () => {
 
       // Should still return other routes (static, locations, intents, guides, forecasts)
       expect(result.length).toBeGreaterThan(0);
-      expect(result.find((r) => r.url === `${baseUrl}/`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/`)).not.toBeUndefined();
       // Should not have any beach routes
       expect(result.find((r) => r.url.includes("/spots/"))).toBeUndefined();
       consoleSpy.mockRestore();
@@ -790,12 +790,12 @@ describe("Sitemap Generation", () => {
       const laJollaRoute = result.find((r) =>
         r.url.endsWith("/ca/la-jolla")
       );
-      expect(laJollaRoute).toBeTruthy();
+      expect(laJollaRoute).not.toBeUndefined();
 
       const rosaritoRoute = result.find((r) =>
         r.url.endsWith("/mexico/baja-california/rosarito")
       );
-      expect(rosaritoRoute).toBeTruthy();
+      expect(rosaritoRoute).not.toBeUndefined();
     });
 
     it("should include USA state index routes under /beaches/usa/{state}", async () => {
@@ -820,10 +820,10 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       const caStateIndex = result.find((r) => r.url === `${baseUrl}/beaches/usa/ca`);
-      expect(caStateIndex).toBeTruthy();
+      expect(caStateIndex).not.toBeUndefined();
 
       const hiStateIndex = result.find((r) => r.url === `${baseUrl}/beaches/usa/hi`);
-      expect(hiStateIndex).toBeTruthy();
+      expect(hiStateIndex).not.toBeUndefined();
 
       // Ensure we don't create a USA state index for non-USA locations
       const bajaStateIndex = result.find((r) =>
@@ -842,12 +842,12 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       const kauai = result.find((r) => r.url === `${baseUrl}/hi/waimea-kauai`);
-      expect(kauai).toBeTruthy();
+      expect(kauai).not.toBeUndefined();
 
       const bigIsland = result.find(
         (r) => r.url === `${baseUrl}/hi/waimea-big-island`
       );
-      expect(bigIsland).toBeTruthy();
+      expect(bigIsland).not.toBeUndefined();
 
       // Ensure ambiguous /waimea is not emitted
       const ambiguous = result.find((r) => r.url === `${baseUrl}/hi/waimea`);
@@ -870,7 +870,7 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       const canonical = result.find((r) => r.url.endsWith("/pr/rincon"));
-      expect(canonical).toBeTruthy();
+      expect(canonical).not.toBeUndefined();
 
       const redirecting = result.find((r) => r.url.endsWith("/pr/rinc-n"));
       expect(redirecting).toBeUndefined();
@@ -891,7 +891,7 @@ describe("Sitemap Generation", () => {
         r.url.endsWith("/ca/la-jolla")
       );
 
-      expect(locationRoute?.priority).toBe(0.75);
+      expect(locationRoute?.priority).toBe(0.85);
     });
 
     it("should set changeFrequency to weekly for location routes", async () => {
@@ -909,7 +909,7 @@ describe("Sitemap Generation", () => {
         r.url.endsWith("/ca/la-jolla")
       );
 
-      expect(locationRoute?.changeFrequency).toBe("weekly");
+      expect(locationRoute?.changeFrequency).toBe("hourly");
     });
 
     it("should include single-beach city pages (beachCount >= 1) but exclude zero-beach cities", async () => {
@@ -937,8 +937,8 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       // Both big-city and tiny-town have beachCount >= 1 AND a valid beach entry
-      expect(result.find((r) => r.url.endsWith("/ca/big-city"))).toBeTruthy();
-      expect(result.find((r) => r.url.endsWith("/ca/tiny-town"))).toBeTruthy();
+      expect(result.find((r) => r.url.endsWith("/ca/big-city"))).not.toBeUndefined();
+      expect(result.find((r) => r.url.endsWith("/ca/tiny-town"))).not.toBeUndefined();
       // ghost-town has no beaches — excluded even though it has no valid beach entry
       expect(result.find((r) => r.url.endsWith("/ca/ghost-town"))).toBeUndefined();
     });
@@ -962,8 +962,8 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       // Metro area should still be included despite beachCount: 0
-      expect(result.find((r) => r.url.endsWith("/ca/orange-county"))).toBeTruthy();
-      expect(result.find((r) => r.url.endsWith("/ca/encinitas"))).toBeTruthy();
+      expect(result.find((r) => r.url.endsWith("/ca/orange-county"))).not.toBeUndefined();
+      expect(result.find((r) => r.url.endsWith("/ca/encinitas"))).not.toBeUndefined();
     });
 
     it("should handle getAllBeachLocations failure gracefully", async () => {
@@ -977,7 +977,7 @@ describe("Sitemap Generation", () => {
 
       // Should still return other routes (static, beaches, intents, guides, forecasts)
       expect(result.length).toBeGreaterThan(0);
-      expect(result.find((r) => r.url === `${baseUrl}/`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/`)).not.toBeUndefined();
       // Should not have any state-level or city-level location routes from the failed generator
       // (though cities are still used for intent routes from a different data source)
       consoleSpy.mockRestore();
@@ -989,10 +989,10 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       // Check for expected hub regions
-      expect(result.find((r) => r.url === `${baseUrl}/guides/surfing-southern-california`)).toBeTruthy();
-      expect(result.find((r) => r.url === `${baseUrl}/guides/surfing-san-diego`)).toBeTruthy();
-      expect(result.find((r) => r.url === `${baseUrl}/guides/surfing-orange-county`)).toBeTruthy();
-      expect(result.find((r) => r.url === `${baseUrl}/guides/surfing-hawaii`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/guides/surfing-southern-california`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/guides/surfing-san-diego`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/guides/surfing-orange-county`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/guides/surfing-hawaii`)).not.toBeUndefined();
     });
 
     it("should set priority 0.9 for guide routes", async () => {
@@ -1028,23 +1028,23 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       // Static routes
-      expect(result.find((r) => r.url === `${baseUrl}/`)).toBeTruthy();
-      expect(result.find((r) => r.url === `${baseUrl}/features`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/features`)).not.toBeUndefined();
 
       // Beach routes
-      expect(result.find((r) => r.url.includes("sunset-cliffs"))).toBeTruthy();
+      expect(result.find((r) => r.url.includes("sunset-cliffs"))).not.toBeUndefined();
 
       // Location routes
-      expect(result.find((r) => r.url.endsWith("/ca/la-jolla"))).toBeTruthy();
+      expect(result.find((r) => r.url.endsWith("/ca/la-jolla"))).not.toBeUndefined();
 
       // Intent routes
-      expect(result.find((r) => r.url.includes("/beginner/"))).toBeTruthy();
+      expect(result.find((r) => r.url.includes("/beginner/"))).not.toBeUndefined();
 
       // Guide routes
-      expect(result.find((r) => r.url.includes("/guides/surfing-"))).toBeTruthy();
+      expect(result.find((r) => r.url.includes("/guides/surfing-"))).not.toBeUndefined();
 
       // Forecast routes
-      expect(result.find((r) => r.url === `${baseUrl}/forecast`)).toBeTruthy();
+      expect(result.find((r) => r.url === `${baseUrl}/forecast`)).not.toBeUndefined();
 
       // Sanity check: flat sitemap should contain a meaningful number of URLs
       expect(result.length).toBeGreaterThan(10);
@@ -1105,7 +1105,7 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
       const forecastHub = result.find((r) => r.url === `${baseUrl}/forecast`);
 
-      expect(forecastHub).toBeTruthy();
+      expect(forecastHub).not.toBeUndefined();
       expect(forecastHub?.priority).toBe(0.9);
       expect(forecastHub?.changeFrequency).toBe("daily");
     });
@@ -1114,7 +1114,7 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
       const regionalForecast = result.find((r) => r.url.includes("/forecast/southern-california"));
 
-      expect(regionalForecast).toBeTruthy();
+      expect(regionalForecast).not.toBeUndefined();
       expect(regionalForecast?.priority).toBe(0.8);
       expect(regionalForecast?.changeFrequency).toBe("daily");
     });

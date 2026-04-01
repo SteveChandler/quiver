@@ -5,7 +5,7 @@ import { FAQSection } from "@/components/seo/faq-schema";
 import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
 import { CityMapView } from "@/components/city/city-map-view";
 import { CTASection } from "@/components/landing-page/cta-section";
-import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { SurfSpot } from "@/lib/data/surf-spots";
 import type { CitySunTimesData } from "@/actions/forecast/intent-forecast-actions";
@@ -117,10 +117,11 @@ export function DawnPatrolPageContent({
           {/* Module 2: 7-day sun schedule */}
           <SevenDaySunTimesTable days={sunTimesData.sevenDayTimes} />
 
-          {/* Inline Signup CTA */}
-          <InlineSignupCta
-            title={`Never Miss Dawn Patrol in ${cityName}`}
-            description="Get sunrise alerts and early morning surf conditions delivered to your inbox."
+          {/* Alert Capture CTA */}
+          <AlertCaptureCta
+            pageContext="dawn-patrol"
+            beachId={spots[0]?.id ?? ""}
+            beachName={cityName}
             source={`intent-dawn-patrol-${citySlug}`}
             className="my-8"
           />
@@ -197,7 +198,13 @@ export function DawnPatrolPageContent({
       <CTASection />
 
       {/* Mobile Sticky Signup Bar */}
-      <StickySignupBar source={`intent-dawn-patrol-${citySlug}`} />
+      <StickySignupBar
+        source={`intent-dawn-patrol-${citySlug}`}
+        searchReferralCta={{
+          ctaText: "Dawn Patrol Alerts",
+          supportingText: "Find out by 5 AM if it's worth it",
+        }}
+      />
     </div>
   );
 }

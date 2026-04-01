@@ -5,7 +5,7 @@ import { FAQSection } from "@/components/seo/faq-schema";
 import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
 import { CityMapView } from "@/components/city/city-map-view";
 import { CTASection } from "@/components/landing-page/cta-section";
-import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { SurfSpot } from "@/lib/data/surf-spots";
 import type { CityTideDataExpanded } from "@/actions/forecast/intent-forecast-actions";
@@ -137,11 +137,12 @@ export function TidePageContent({
             />
           </SectionFadeUp>
 
-          {/* Inline Signup CTA */}
+          {/* Alert Capture CTA */}
           <SectionFadeUp>
-            <InlineSignupCta
-              title={`Track Your ${cityName} Sessions`}
-              description="Log your sessions, save your favorite breaks, and get personalized spot recommendations."
+            <AlertCaptureCta
+              pageContext="tides"
+              beachId={spots[0]?.id ?? ""}
+              beachName={cityName}
               source={`intent-tide-${citySlug}`}
               className="my-8"
             />
@@ -212,7 +213,13 @@ export function TidePageContent({
       <CTASection />
 
       {/* Mobile Sticky Signup Bar */}
-      <StickySignupBar source={`intent-tide-${citySlug}`} />
+      <StickySignupBar
+        source={`intent-tide-${citySlug}`}
+        searchReferralCta={{
+          ctaText: "Get Tide Alerts",
+          supportingText: `Know when the tide is right in ${cityName}`,
+        }}
+      />
     </div>
   );
 }

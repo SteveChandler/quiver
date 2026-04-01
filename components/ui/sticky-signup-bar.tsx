@@ -7,9 +7,16 @@ import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useAuth } from "@/context/auth-context";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { usePersistedDismissal } from "@/hooks/use-persisted-dismissal";
+import { useSearchReferrer } from "@/hooks/use-search-referrer";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import { trackSignupCtaClick, trackSignupCtaView } from "@/lib/analytics/signup-conversion-tracking";
 import { cn } from "@/lib/utils";
+
+interface SearchReferralCta {
+  ctaText: string;
+  supportingText: string;
+  contextMessage?: { title: string; description: string };
+}
 
 interface StickySignupBarProps {
   /** Analytics source tracking identifier */
@@ -22,6 +29,8 @@ interface StickySignupBarProps {
   scrollThreshold?: number;
   /** Custom context message for the auth modal */
   contextMessage?: { title: string; description: string };
+  /** Override copy for visitors arriving from search engines */
+  searchReferralCta?: SearchReferralCta;
 }
 
 /**
@@ -42,9 +51,21 @@ export function StickySignupBar({
   supportingText = "Log sessions, save your spots",
   scrollThreshold = 300,
   contextMessage,
+  searchReferralCta,
 }: StickySignupBarProps) {
   const { user, isLoading } = useAuth();
   const reducedMotion = useReducedMotion();
+  const { isSearchReferral } = useSearchReferrer();
+
+  // Override copy for search-referred visitors
+  const resolvedCtaText =
+    isSearchReferral && searchReferralCta ? searchReferralCta.ctaText : ctaText;
+  const resolvedSupportingText =
+    isSearchReferral && searchReferralCta ? searchReferralCta.supportingText : supportingText;
+  const resolvedContextMessage =
+    isSearchReferral && searchReferralCta?.contextMessage
+      ? searchReferralCta.contextMessage
+      : contextMessage;
   const [isVisible, setIsVisible] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
@@ -71,7 +92,7 @@ export function StickySignupBar({
         wasVisible.current = visible;
         setIsVisible(visible);
         if (visible && !hasTrackedView.current) {
-          trackSignupCtaView({ source, cta_type: "sticky_bar" });
+          trackSignupCtaView({ source, cta_type: "sticky_bar", is_search_referral: isSearchReferral });
           hasTrackedView.current = true;
         }
       }
@@ -82,20 +103,21 @@ export function StickySignupBar({
 
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [scrollThreshold, source]);
+  }, [scrollThreshold, source, isSearchReferral]);
 
   const handleCtaClick = useCallback(() => {
     trackSignupCtaClick({
       source,
       cta_type: "sticky_bar",
-      cta_text: ctaText,
+      cta_text: resolvedCtaText,
+      is_search_referral: isSearchReferral,
     });
     trackAuthModalOpened({
       mode: "signup",
       source: `sticky-bar-${source}`,
     });
     setAuthModalOpen(true);
-  }, [source, ctaText]);
+  }, [source, resolvedCtaText, isSearchReferral]);
 
   // Don't render for authenticated users or while loading
   if (user || isLoading) {
@@ -135,7 +157,7 @@ export function StickySignupBar({
       >
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex-1 min-w-0 mr-3">
-            <p className="text-sm text-white/80 truncate">{supportingText}</p>
+            <p className="text-sm text-white/80 truncate">{resolvedSupportingText}</p>
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -145,7 +167,7 @@ export function StickySignupBar({
               className="bg-[#F78E42] text-white hover:bg-[#F78E42]/90 font-semibold px-4 rounded-full shadow-sm"
               data-testid="sticky-signup-cta"
             >
-              {ctaText}
+              {resolvedCtaText}
             </Button>
 
             <button
@@ -165,7 +187,7 @@ export function StickySignupBar({
         onClose={() => setAuthModalOpen(false)}
         mode="signup"
         source={`sticky-bar-${source}`}
-        contextMessage={contextMessage ?? {
+        contextMessage={resolvedContextMessage ?? {
           title: "See Your Forecast",
           description: "Conditions explained clearly in 30 seconds",
         }}

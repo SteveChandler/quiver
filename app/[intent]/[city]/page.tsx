@@ -42,7 +42,8 @@ import {
   ConditionsStateOverview,
 } from "@/components/intent";
 import { CTASection } from "@/components/landing-page/cta-section";
-import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
+import type { AlertPageContext } from "@/lib/alerts/preset-context-map";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { isConditionsIntent } from "@/lib/constants/intent-definitions";
@@ -73,6 +74,17 @@ import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 
 export const revalidate = 3600;
+
+/** Maps surf intent slugs to AlertPageContext for alert-centric CTAs */
+const INTENT_TO_ALERT_CONTEXT: Record<string, AlertPageContext> = {
+  beginner: "beginner",
+  "least-crowded": "least-crowded",
+  tide: "tides",
+  "water-temp": "water-temp",
+  longboard: "longboard",
+  "dawn-patrol": "dawn-patrol",
+  sunset: "sunset",
+};
 
 /**
  * Try to resolve a city slug with automatic state suffix detection.
@@ -1068,11 +1080,11 @@ export default async function IntentPage(props: IntentPageParams) {
           <WaterTempOverviewSection data={waterTempData} />
         )}
 
-        {/* Intent-specific CTA - positioned before map for conversion */}
-        <InlineSignupCta
-          title={definition.ctaHeadline || `Track Your ${cityMetadata.cityName} Sessions`}
-          description={definition.ctaDescription || "Log your sessions, save your favorite breaks, and get personalized spot recommendations."}
-          primaryButtonText={definition.ctaButton || "See Your Surf Call"}
+        {/* Intent-specific alert CTA - positioned before map for conversion */}
+        <AlertCaptureCta
+          pageContext={INTENT_TO_ALERT_CONTEXT[params.intent as SurfIntentSlug] ?? "city-surf-report"}
+          beachId={beachesResult.data[0]?.id ?? ""}
+          beachName={cityMetadata.cityName}
           source={`intent-${params.intent}-${params.city}`}
           className="my-8"
         />
@@ -1160,6 +1172,10 @@ export default async function IntentPage(props: IntentPageParams) {
       {/* Mobile Sticky Signup Bar */}
       <StickySignupBar
         source={`intent-${params.intent}-${params.city}`}
+        searchReferralCta={{
+          ctaText: "Get Surf Alerts",
+          supportingText: "Conditions sent before dawn patrol",
+        }}
       />
     </div>
   );
