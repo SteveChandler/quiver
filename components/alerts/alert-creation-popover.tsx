@@ -197,16 +197,6 @@ export function AlertCreationPopover({
                 onCustomize={handleCustomize}
                 disabled={saving}
               />
-              <button
-                onClick={() => {
-                  setName(`Custom alert — ${beachName}`);
-                  setStage({ step: "custom", conditions: {} });
-                }}
-                disabled={saving}
-                className="w-full text-sm font-semibold font-[family-name:var(--font-space-grotesk)] text-[#F78E42] hover:text-white hover:bg-[#F78E42] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 py-3 border-2 border-[#F78E42]/40 hover:border-[#F78E42] rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                + Build custom alert
-              </button>
             </>
           )}
 
