@@ -5,7 +5,7 @@
  * Pulls from the beach_ml_performance_baseline materialized view via service role.
  *
  * URL: /forecast-accuracy
- * ISR: 6 hours (21600s)
+ * Rendering: force-dynamic (requires service role key at runtime)
  */
 
 import Link from "next/link";
@@ -30,7 +30,7 @@ import { MethodologySection } from "@/components/forecast-accuracy/methodology-s
 import { AccuracyFaq } from "@/components/forecast-accuracy/accuracy-faq";
 import { CrowdsourceCta } from "@/components/forecast-accuracy/crowdsource-cta";
 
-export const revalidate = 21600; // 6 hours — accuracy data from materialized view updates daily
+export const dynamic = "force-dynamic";
 
 const SITE_ORIGIN = (
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app"
