@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ToolShareButton } from "@/components/tools/tool-share-button";
 
 type SkillLevel = "beginner" | "intermediate" | "advanced" | "expert";
 type FitnessLevel = "normal" | "athletic" | "veryFit";
@@ -393,20 +394,28 @@ export function SurfboardVolumeCalculator() {
               borderColor: "rgba(247, 142, 66, 0.4)",
             }}
           >
-            <div className="text-xs font-mono font-medium text-[#7A8CC0] mb-1 uppercase tracking-wide">
-              Recommended board volume
-            </div>
-            <div className="text-5xl font-bold text-white tabular-nums">
-              {volume}
-              <span className="text-2xl font-medium text-[#B8C7E0] ml-2">
-                liters
-              </span>
-            </div>
-            <div className="mt-2 text-sm text-[#B8C7E0] font-mono">
-              Acceptable range:{" "}
-              <span className="font-semibold text-white">
-                {volumeMin}–{volumeMax}L
-              </span>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-xs font-mono font-medium text-[#7A8CC0] mb-1 uppercase tracking-wide">
+                  Recommended board volume
+                </div>
+                <div className="text-5xl font-bold text-white tabular-nums">
+                  {volume}
+                  <span className="text-2xl font-medium text-[#B8C7E0] ml-2">
+                    liters
+                  </span>
+                </div>
+                <div className="mt-2 text-sm text-[#B8C7E0] font-mono">
+                  Acceptable range:{" "}
+                  <span className="font-semibold text-white">
+                    {volumeMin}–{volumeMax}L
+                  </span>
+                </div>
+              </div>
+              <ToolShareButton
+                toolName="Surfboard Volume Calculator"
+                shareText={`My ideal surfboard volume is ${volume}L (${volumeMin}–${volumeMax}L range) — calculated on Quiver`}
+              />
             </div>
           </div>
 

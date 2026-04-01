@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ToolShareButton } from "@/components/tools/tool-share-button";
 
 type Unit = "face_ft" | "face_m" | "hawaiian" | "back_ft";
 
@@ -205,9 +206,24 @@ export function WaveHeightConverter() {
         </div>
 
         {description && (
-          <p className="mt-3 text-sm font-mono font-semibold" style={{ color: "#F78E42" }}>
-            {description}
-          </p>
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <p className="text-sm font-mono font-semibold" style={{ color: "#F78E42" }}>
+              {description}
+            </p>
+            <ToolShareButton
+              toolName="Wave Height Converter"
+              shareText={
+                clampedValue > 0
+                  ? `${clampedValue} ${UNIT_SHORT[selectedUnit]} waves = ${description.toLowerCase()}`
+                  : undefined
+              }
+            />
+          </div>
+        )}
+        {!description && (
+          <div className="mt-3 flex justify-end">
+            <ToolShareButton toolName="Wave Height Converter" />
+          </div>
         )}
       </div>
 

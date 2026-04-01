@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, RefreshCw, Sun, Moon, Sunrise } from "lucide-react";
+import { ToolShareButton } from "@/components/tools/tool-share-button";
 import { BeachSearchAutocomplete } from "@/components/beach/beach-search-autocomplete";
 import { ToolHero } from "@/components/tools/tool-hero";
 import { TOOL_IMAGES } from "@/lib/constants/tool-images";
@@ -392,15 +393,26 @@ export function DawnPatrolClient() {
         {data && !loading && (
           <div className="space-y-6">
             {/* Beach name */}
-            <div>
-              <h2 className="font-heading text-2xl font-bold text-white">
-                {data.beach.name}
-              </h2>
-              {data.beach.city && data.beach.state && (
-                <p className="text-[#7A8CC0] font-mono text-sm mt-0.5">
-                  {data.beach.city}, {data.beach.state}
-                </p>
-              )}
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="font-heading text-2xl font-bold text-white">
+                  {data.beach.name}
+                </h2>
+                {data.beach.city && data.beach.state && (
+                  <p className="text-[#7A8CC0] font-mono text-sm mt-0.5">
+                    {data.beach.city}, {data.beach.state}
+                  </p>
+                )}
+              </div>
+              <ToolShareButton
+                toolName="Dawn Patrol Calculator"
+                beachName={data.beach.name}
+                shareText={
+                  today?.civilTwilight
+                    ? `First light at ${data.beach.name} is ${formatTime(today.civilTwilight, timezone)} — dawn patrol time`
+                    : undefined
+                }
+              />
             </div>
 
             {/* Today/Tomorrow hero cards */}

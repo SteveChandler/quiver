@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { TrendingUp, TrendingDown, ArrowRight, RefreshCw } from "lucide-react";
+import { ToolShareButton } from "@/components/tools/tool-share-button";
 import { BeachSearchAutocomplete } from "@/components/beach/beach-search-autocomplete";
 import { ToolHero } from "@/components/tools/tool-hero";
 import { TOOL_IMAGES } from "@/lib/constants/tool-images";
@@ -464,6 +465,16 @@ export function TideClockClient() {
                   </p>
                 )}
               </div>
+              <div className="flex items-center gap-2">
+                <ToolShareButton
+                  toolName="Tide Clock"
+                  beachName={tideData.beach.name}
+                  shareText={
+                    currentHeight !== null
+                      ? `Tide is ${currentHeight}ft${rising !== null ? (rising ? " and rising" : " and falling") : ""} at ${tideData.beach.name} right now`
+                      : undefined
+                  }
+                />
               {rising !== null && (
                 <span
                   className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-mono text-xs font-semibold uppercase tracking-wider"
@@ -485,6 +496,7 @@ export function TideClockClient() {
                   {rising ? "Rising" : "Falling"}
                 </span>
               )}
+              </div>
             </div>
 
             {/* Main tide display: clock + stats */}

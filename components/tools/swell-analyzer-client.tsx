@@ -4,6 +4,7 @@ import { useState, useCallback, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Waves, RefreshCw, MapPin, ExternalLink, Gauge } from "lucide-react";
+import { ToolShareButton } from "@/components/tools/tool-share-button";
 import { SwellWaveViz } from "@/components/tools/swell-wave-viz";
 import { SwellCompass } from "@/components/tools/swell-compass";
 import {
@@ -291,15 +292,26 @@ export function SwellAnalyzerClient({ initialData }: SwellAnalyzerClientProps) {
                     {beachData.beach.name}
                   </h3>
                 </div>
-                {beachData.beach.slug && (
-                  <Link
-                    href={`/beach/${beachData.beach.slug}`}
-                    className="flex items-center gap-1 font-mono text-xs shrink-0 hover:underline"
-                    style={{ color: "#F78E42" }}
-                  >
-                    Full forecast <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                  </Link>
-                )}
+                <div className="flex items-center gap-2 shrink-0">
+                  <ToolShareButton
+                    toolName="Swell Quality Analyzer"
+                    beachName={beachData.beach.name}
+                    shareText={
+                      beachSwellMatch
+                        ? `Swell is ${beachSwellMatch.status} at ${beachData.beach.name} right now`
+                        : undefined
+                    }
+                  />
+                  {beachData.beach.slug && (
+                    <Link
+                      href={`/beach/${beachData.beach.slug}`}
+                      className="flex items-center gap-1 font-mono text-xs shrink-0 hover:underline"
+                      style={{ color: "#F78E42" }}
+                    >
+                      Full forecast <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                    </Link>
+                  )}
+                </div>
               </div>
 
               <div className="flex flex-col md:flex-row gap-5 items-start">

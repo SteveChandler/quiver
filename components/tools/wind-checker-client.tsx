@@ -4,6 +4,7 @@ import { useState, useCallback, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Wind, RefreshCw, MapPin, ExternalLink } from "lucide-react";
+import { ToolShareButton } from "@/components/tools/tool-share-button";
 import { WindCompass } from "@/components/tools/wind-compass";
 import {
   getWindCheckerData,
@@ -258,15 +259,26 @@ export function WindCheckerClient({
                   {beach.name}
                 </h2>
               </div>
-              {beach.slug && (
-                <Link
-                  href={`/beach/${beach.slug}`}
-                  className="flex items-center gap-1 font-mono text-xs shrink-0 hover:underline"
-                  style={{ color: "#F78E42" }}
-                >
-                  Full forecast <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                </Link>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                <ToolShareButton
+                  toolName="Offshore Wind Checker"
+                  beachName={beach.name}
+                  shareText={
+                    offshoreQuality
+                      ? `Wind is ${offshoreQuality.verdict.toLowerCase()} at ${beach.name} right now`
+                      : `Check wind at ${beach.name} on Quiver`
+                  }
+                />
+                {beach.slug && (
+                  <Link
+                    href={`/beach/${beach.slug}`}
+                    className="flex items-center gap-1 font-mono text-xs shrink-0 hover:underline"
+                    style={{ color: "#F78E42" }}
+                  >
+                    Full forecast <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                  </Link>
+                )}
+              </div>
             </div>
 
             {/* Compass + stats */}

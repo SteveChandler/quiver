@@ -14,6 +14,7 @@ import { buildPageMetadata } from "@/lib/seo/meta";
 import { getBeachWaterQuality, getBeachesWithWaterQuality } from "@/actions/tools/water-quality-actions";
 import { WQ_STATUS, EPA_BEACH_CRITERIA } from "@/lib/constants/water-quality";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
+import { ToolShareButton } from "@/components/tools/tool-share-button";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
@@ -220,7 +221,22 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
                       <p className="text-slate-400 text-sm">{wq.city}, {wq.state}</p>
                     )}
                   </div>
-                  <StatusBadge status={wq.status} />
+                  <div className="flex items-center gap-3">
+                    <ToolShareButton
+                      toolName="Water Quality Check"
+                      beachName={wq.beachName}
+                      shareText={
+                        wq.status === WQ_STATUS.GOOD
+                          ? `Water quality is good at ${wq.beachName} — safe to paddle out`
+                          : wq.status === WQ_STATUS.ADVISORY
+                            ? `Water quality advisory at ${wq.beachName} — check before you paddle out`
+                            : wq.status === WQ_STATUS.CLOSURE
+                              ? `Water quality closure at ${wq.beachName} — avoid water contact`
+                              : `Check water quality at ${wq.beachName} on Quiver`
+                      }
+                    />
+                    <StatusBadge status={wq.status} />
+                  </div>
                 </div>
                 <div className="mt-4">
                   <StatusMessage status={wq.status} beachName={wq.beachName} date={wq.latestSampleDate} />
