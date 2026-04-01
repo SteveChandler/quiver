@@ -44,7 +44,7 @@ export function PresetCard({ preset, onSelect, disabled, prominent }: PresetCard
         >
           {config.icon}
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 pr-16">
           <div
             className={`font-semibold text-white font-[family-name:var(--font-space-grotesk)] ${
               prominent ? "text-sm" : "text-[13px]"

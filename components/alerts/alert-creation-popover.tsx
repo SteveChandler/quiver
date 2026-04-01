@@ -153,8 +153,17 @@ export function AlertCreationPopover({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-[#1E2660] border border-[#404C92] text-white max-w-md w-full p-0 overflow-hidden bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC44IiBudW1PY3RhdmVzPSI0IiBzdGl0Y2hUaWxlcz0ic3RpdGNoIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbHRlcj0idXJsKCNuKSIgb3BhY2l0eT0iMC4wMyIvPjwvc3ZnPg==')]">
-        <DialogHeader className="px-5 pt-5 pb-0">
-          <div className="flex items-center justify-between">
+        <DialogHeader className="px-5 pt-5 pb-0 pr-12">
+          <div className="flex items-center gap-2">
+            {isEditing && (
+              <button
+                onClick={() => setStage({ step: "presets" })}
+                aria-label="Back to presets"
+                className="text-xs text-gray-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 focus-visible:rounded transition-colors shrink-0"
+              >
+                &larr; Back
+              </button>
+            )}
             <DialogTitle className="text-base font-bold font-[family-name:var(--font-space-grotesk)] text-white tracking-tight truncate">
               {stage.step === "presets"
                 ? `Alerts for ${beachName}`
@@ -162,15 +171,6 @@ export function AlertCreationPopover({
                   ? `Customize: ${stage.preset.name}`
                   : "Custom alert"}
             </DialogTitle>
-            {isEditing && (
-              <button
-                onClick={() => setStage({ step: "presets" })}
-                aria-label="Back to presets"
-                className="text-xs text-gray-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 focus-visible:rounded transition-colors shrink-0 ml-2"
-              >
-                Back
-              </button>
-            )}
           </div>
           <p className="text-xs text-gray-300 mt-1">
             {stage.step === "presets"
