@@ -195,6 +195,26 @@ const config: Config = {
           "80%": { opacity: "0.3" },
           "100%": { transform: "translateY(-20%) scale(1)", opacity: "0" },
         },
+        // Container personality system keyframes
+        containerWaveScroll: {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-200px)" },
+        },
+        containerTopoDrift: {
+          "0%": { transform: "translate(0, 0) rotate(0deg)" },
+          "33%": { transform: "translate(15px, -10px) rotate(1deg)" },
+          "66%": { transform: "translate(-10px, 12px) rotate(-0.5deg)" },
+          "100%": { transform: "translate(0, 0) rotate(0deg)" },
+        },
+        containerGradientShift: {
+          "0%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" },
+          "100%": { backgroundPosition: "0% 50%" },
+        },
+        containerFadeSlideUp: {
+          from: { opacity: "0", transform: "translateY(10px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -218,6 +238,11 @@ const config: Config = {
         "formgrid-ken-burns": "formgridKenBurns 20s ease-in-out infinite alternate",
         "formgrid-cta-sweep": "formgridCtaSweep 3s ease-in-out infinite",
         "formgrid-sticker-slap": "formgridStickerSlap 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
+        // Container personality system animations
+        "container-wave-scroll": "containerWaveScroll 12s linear infinite",
+        "container-topo-drift": "containerTopoDrift 24s ease-in-out infinite",
+        "container-gradient-shift": "containerGradientShift 8s ease-in-out infinite",
+        "container-fade-slide-up": "containerFadeSlideUp 0.5s ease-out both",
       },
     },
   },
