@@ -320,9 +320,7 @@ test.describe("Board Recommendations - Error Handling", () => {
     });
 
     await page.goto("/");
-
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for page to stabilize after navigation
-    await page.waitForTimeout(3000);
+    await page.waitForLoadState('load', { timeout: 10000 }).catch(() => {});
 
     // Page should load without crashing
     const body = page.locator("body");

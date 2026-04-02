@@ -49,6 +49,8 @@ export default defineConfig({
   reporter: [["list"], ["html", { open: "never" }]],
   // Grep to skip data-dependent tests in local dev (when SKIP_DATA_TESTS=true)
   grep: process.env.SKIP_DATA_TESTS === 'true' ? /^(?!.*@requires-data)/ : undefined,
+  // Exclude @infra tests by default unless RUN_INFRA_TESTS=true
+  grepInvert: process.env.RUN_INFRA_TESTS !== 'true' ? /@infra/ : undefined,
   use: {
     baseURL: process.env.BASE_URL || "http://localhost:3000",
     locale: 'en-US',

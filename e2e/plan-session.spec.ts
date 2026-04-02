@@ -37,9 +37,6 @@ async function waitForScrollForm(page: Page) {
     page.locator('input[placeholder*="beach" i]').first()
   ).first();
   await expect(beachInput).toBeVisible({ timeout: TIMEOUTS.long });
-
-  // eslint-disable-next-line playwright/no-wait-for-timeout -- allow initial render to settle
-  await page.waitForTimeout(500);
 }
 
 /**
@@ -289,13 +286,12 @@ test.describe('Direct URL Navigation with Prefill', () => {
 });
 
 test.describe('Form Navigation with Prefill', () => {
-  test.fixme('should allow user to edit prefilled data', async ({ page }) => {
-    // Not implemented: test for editing prefilled beach/date values in the scroll form
+  test('should allow user to edit prefilled data', async ({ page }) => {
+    throw new Error('Not implemented: test for editing prefilled beach/date values in the scroll form');
   });
 
-  test.fixme('should not re-populate prefill data after user edits', async ({ page }) => {
-    // Not implemented: test that URL param changes do not override user edits
-    // once the form has been interacted with
+  test('should not re-populate prefill data after user edits', async ({ page }) => {
+    throw new Error('Not implemented: test that URL param changes do not override user edits');
   });
 
   test('should validate required fields before allowing save', async ({ page }) => {

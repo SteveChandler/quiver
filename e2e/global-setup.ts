@@ -159,7 +159,7 @@ async function globalSetup(config: FullConfig) {
 
       if (emailButtonVisible) {
         await emailButton.click();
-        await page.waitForTimeout(1000);
+        await page.getByPlaceholder(/email/i).waitFor({ state: 'visible', timeout: 5000 });
         console.log('[Global Setup] Clicked "Continue with Email"');
       }
 
@@ -211,6 +211,7 @@ async function globalSetup(config: FullConfig) {
 
       if (attempt < maxAttempts) {
         console.log(`[Global Setup] Retrying in 2 seconds...`);
+        // eslint-disable-next-line playwright/no-wait-for-timeout -- retry backoff between login attempts
         await page.waitForTimeout(2000);
       }
     }

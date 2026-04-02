@@ -49,8 +49,7 @@ test.describe("Hub Region Guides", () => {
       await page.emulateMedia({ reducedMotion: "reduce" });
       await page.goto(GUIDE_URL, { timeout: 20000, waitUntil: "domcontentloaded" });
 
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for React hydration
-      await page.waitForTimeout(1000);
+      await page.waitForLoadState('load', { timeout: 10000 }).catch(() => {});
 
       // Scroll stats section into view to trigger any remaining IntersectionObserver
       const statsSection = page.locator("section").filter({ hasText: "Total Spots" });
@@ -104,8 +103,7 @@ test.describe("Hub Region Guides", () => {
       await page.emulateMedia({ reducedMotion: "reduce" });
       await page.goto(GUIDE_URL, { timeout: 20000, waitUntil: "domcontentloaded" });
 
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for React hydration
-      await page.waitForTimeout(1000);
+      await page.waitForLoadState('load', { timeout: 10000 }).catch(() => {});
 
       // Browse by Category section
       await expect(
@@ -132,8 +130,7 @@ test.describe("Hub Region Guides", () => {
       await page.emulateMedia({ reducedMotion: "reduce" });
       await page.goto(GUIDE_URL, { timeout: 20000, waitUntil: "domcontentloaded" });
 
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for React hydration
-      await page.waitForTimeout(1000);
+      await page.waitForLoadState('load', { timeout: 10000 }).catch(() => {});
 
       // Back link should be present
       const backLink = page.getByRole("link", { name: /back to surf guides/i });
@@ -146,8 +143,7 @@ test.describe("Hub Region Guides", () => {
       await page.emulateMedia({ reducedMotion: "reduce" });
       await page.goto(GUIDE_URL, { timeout: 20000, waitUntil: "domcontentloaded" });
 
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for React hydration
-      await page.waitForTimeout(1000);
+      await page.waitForLoadState('load', { timeout: 10000 }).catch(() => {});
 
       // About section heading
       const aboutHeading = page.getByRole("heading", {
@@ -191,8 +187,7 @@ test.describe("Hub Region Guides", () => {
         waitUntil: "domcontentloaded",
       });
 
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for React hydration
-      await page.waitForTimeout(1000);
+      await page.waitForLoadState('load', { timeout: 10000 }).catch(() => {});
 
       // Back link should be focusable
       const backLink = page.getByRole("link", { name: /back to surf guides/i });

@@ -11,6 +11,26 @@ import { buildBeachUrl } from '@/lib/utils/beach-url-utils';
  */
 
 /**
+ * Wait for an API response matching a URL pattern, triggered by an action.
+ * Sets up the response listener BEFORE the action executes to avoid races.
+ */
+export async function waitForApiResponse(
+  page: Page,
+  urlPattern: string | RegExp,
+  action: () => Promise<void>,
+  options?: { timeout?: number }
+): Promise<void> {
+  const responsePromise = page.waitForResponse(
+    (resp) => typeof urlPattern === 'string'
+      ? resp.url().includes(urlPattern)
+      : urlPattern.test(resp.url()),
+    { timeout: options?.timeout ?? 15000 }
+  );
+  await action();
+  await responsePromise;
+}
+
+/**
  * Wait for network to be idle
  */
 export async function waitForNetwork(page: Page, timeout = 5000) {
@@ -74,7 +94,7 @@ export async function login(page: Page, email: string, password: string) {
 
   if (emailButtonVisible) {
     await emailButton.click();
-    await page.waitForTimeout(1000);
+    await page.getByPlaceholder(/email/i).waitFor({ state: 'visible', timeout: 5000 });
   }
 
   // Fill credentials
@@ -104,7 +124,7 @@ export async function logout(page: Page) {
     await logoutButton.click();
 
     // Wait for logout to complete
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('load', { timeout: 5000 });
   }
 }
 
@@ -175,7 +195,7 @@ export async function dismissOnboardingWizard(page: Page): Promise<void> {
       const closeButton = dialog.locator('button:has-text("Close")');
       await closeButton.click({ timeout: 5000 });
       // Wait for dialog to close
-      await page.waitForTimeout(500);
+      await dialog.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
     }
   } catch (error) {
     // Onboarding wizard not present or already closed - this is fine
@@ -334,6 +354,7 @@ export async function waitForModal(
 
       // Wait a bit before retrying
       console.log(`[Retry] Modal not found on attempt ${attempt + 1}, retrying...`);
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- retry backoff between modal detection attempts
       await page.waitForTimeout(1000);
     }
   }

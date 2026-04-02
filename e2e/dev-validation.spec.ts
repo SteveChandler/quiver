@@ -83,12 +83,9 @@ test.describe('Critical Page Loads @dev', () => {
     // Verify we're on the map page
     expect(page.url()).toContain('/map');
 
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for page render completion
-    await page.waitForTimeout(2000);
-
     // Check for any map-related content (map container, canvas, or map controls)
     const mapContent = page.locator('.mapboxgl-map, .mapboxgl-canvas, canvas, [class*="map"]').first();
-    const hasMap = await isVisibleSafe(mapContent, { timeout: TIMEOUTS.medium });
+    const hasMap = await isVisibleSafe(mapContent, { timeout: TIMEOUTS.long });
 
     // Either map loads or page content is present (map may be lazy loaded)
     const pageContent = page.locator('main, [role="main"], body').first();
@@ -138,8 +135,7 @@ test.describe('Core Navigation @dev', () => {
     // Direct navigation - most reliable approach
     // Don't use networkidle as Mapbox keeps connections open
     await page.goto('/map', { timeout: TIMEOUTS.long, waitUntil: 'domcontentloaded' });
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
-    await page.waitForTimeout(2000);
+    await page.locator('.mapboxgl-canvas, canvas, [class*="map"]').first().waitFor({ state: 'visible', timeout: TIMEOUTS.long }).catch(() => {});
     expect(page.url()).toContain('/map');
   });
 
@@ -537,8 +533,11 @@ test.describe('User Interactions @dev', () => {
 
     if (isVisible) {
       await searchInput.fill('Black');
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for search input debounce
-      await page.waitForTimeout(1500);
+      // Wait for search debounce and results
+      await page.waitForResponse(
+        (resp) => resp.url().includes('/api/beaches/search') || resp.url().includes('/api/beaches'),
+        { timeout: 10000 }
+      ).catch(() => {});
 
       // Search results or input value
       const inputValue = await searchInput.inputValue().catch(() => '');
@@ -685,8 +684,7 @@ test.describe('Data Integrity @dev', () => {
     // Use regular goto - Mapbox has CORS issues in test environment
     // Don't use networkidle as Mapbox keeps connections open
     await page.goto('/map', { timeout: TIMEOUTS.long, waitUntil: 'domcontentloaded' });
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
-    await page.waitForTimeout(2000);
+    await page.locator('.mapboxgl-canvas, canvas, [class*="map"]').first().waitFor({ state: 'visible', timeout: TIMEOUTS.long }).catch(() => {});
 
     // Verify we're on map page
     expect(page.url()).toContain('/map');
@@ -724,8 +722,7 @@ test.describe('Data Integrity @dev', () => {
     await page.goto('/', { timeout: TIMEOUTS.medium });
     // Use domcontentloaded instead of networkidle to avoid timeout
     await page.waitForLoadState('domcontentloaded', { timeout: TIMEOUTS.medium });
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for page to settle after navigation
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('load', { timeout: TIMEOUTS.medium }).catch(() => {});
 
     // Filter out known non-critical errors (common in production/dev environments)
     const criticalErrors = consoleErrors.filter(error => {
@@ -759,8 +756,7 @@ test.describe('Performance Basics @dev', () => {
     const startTime = Date.now();
 
     await page.goto('/', { timeout: TIMEOUTS.medium, waitUntil: 'domcontentloaded' });
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for initial page render
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('load', { timeout: TIMEOUTS.medium }).catch(() => {});
 
     const loadTime = Date.now() - startTime;
 

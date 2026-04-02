@@ -451,7 +451,8 @@ export async function setViewportAndVerify(
   viewport: { width: number; height: number }
 ): Promise<void> {
   await page.setViewportSize(viewport);
-  await page.waitForTimeout(500); // Allow layout to adjust
+  // eslint-disable-next-line playwright/no-wait-for-timeout -- allow CSS layout reflow after viewport resize
+  await page.waitForTimeout(500);
 
   // Verify key elements are still visible
   await expect(page.locator("h1")).toBeVisible();

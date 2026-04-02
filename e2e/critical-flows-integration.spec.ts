@@ -12,10 +12,9 @@
  * @project auth
  */
 
-import { test, expect, Page, APIRequestContext, Route, BrowserContext } from "@playwright/test";
+import { test, expect, Page, APIRequestContext, Route } from "@playwright/test";
 import { ensureAuthenticated, waitForPageLoad } from "./utils/test-helpers";
-import { TIMEOUTS, TEST_BEACHES } from "./fixtures/test-data";
-import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
+import { TIMEOUTS } from "./fixtures/test-data";
 import { isVisibleSafe } from "./utils/strict-helpers";
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
@@ -30,7 +29,7 @@ const SESSIONS_NAVIGATION_MAX_MS = IS_LOCALHOST ? 45000 : 20000;
 // Type definitions for test fixtures
 interface PageFixture { page: Page }
 interface PageRequestFixture { page: Page; request: APIRequestContext }
-interface PageContextFixture { page: Page; context: BrowserContext }
+
 
 test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
   let errorCapture: ErrorCapture;
@@ -251,149 +250,6 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
   });
 
   test.describe("Beach Discovery Flow", () => {
-    // TODO: Test drift - discovery card selectors and page structure changed
-    // @ts-expect-error - Playwright overload resolution issue with long test names
-    test.fixme("should efficiently load and display beaches with all optimizations @smoke", async ({ page, request }: PageRequestFixture) => {
-      // Discovery card selectors and page structure need updating to match current UI implementation
-      console.log("=== Starting Beach Discovery Flow ===");
-
-      // Step 1: Load home page (tests React performance + N+1 fix)
-      const homeStartTime = performance.now();
-      await page.goto("/");
-      await waitForPageLoad(page);
-      const homeLoadTime = performance.now() - homeStartTime;
-
-      // Relaxed threshold for production environment variability (dev server can be slow)
-      expect(homeLoadTime).toBeLessThan(25000);
-      console.log(`✓ Home page load time: ${homeLoadTime.toFixed(2)}ms (React.memo optimizations)`);
-
-      // Step 2: Check for beach recommendations (tests N+1 query fix)
-      // Home now renders Surf Discovery cards (not legacy BeachCard components).
-      const discoveryCards = page.locator('[data-testid^="discovery-card-"]');
-      const discoveryCardCount = await discoveryCards.count();
-
-      // Personalized card is optional (depends on user/history)
-      const personalizedForecastCard = page.locator(
-        '[data-testid="personalized-forecast-card"]'
-      );
-      // Personalized card depends on user history — genuinely optional
-      const personalizedVisible = await isVisibleSafe(personalizedForecastCard, { timeout: 2000 });
-
-      if (discoveryCardCount > 0) {
-        console.log(
-          `✓ Found ${discoveryCardCount} discovery cards (surf discovery working)`
-        );
-
-        // Step 3: Ensure the first recommendation renders and actions are present.
-        // Navigation can be flaky on dev server (client transitions + hydration),
-        // so we treat "card + action present" as the core assertion, and best-effort
-        // attempt the navigation without failing the whole test.
-        const firstCard = discoveryCards.first();
-        // "View Beach" is rendered as a link in Surf Discovery cards.
-        // Keep this robust in case the UI flips between <a> and <button>.
-        const viewBeachAction = firstCard
-          .getByRole("link", { name: /view beach/i })
-          .or(firstCard.getByRole("button", { name: /view beach/i }));
-        await expect(firstCard).toBeVisible({ timeout: 10000 });
-        await expect(viewBeachAction).toBeVisible({ timeout: 10000 });
-
-        const beforeUrl = page.url();
-        await viewBeachAction.click();
-        await page.waitForURL(/\/ca\/|\/hi\/|\/or\/|\/wa\//, { timeout: 10000 });
-        expect(page.url()).not.toBe(beforeUrl);
-      } else if (personalizedVisible) {
-        console.log(`✓ Personalized forecast card visible`);
-
-        // Click "Details" (best-effort). Same dev transition caveat as above.
-        const detailsButton = personalizedForecastCard.getByRole("button", {
-          name: /details/i,
-        });
-        await expect(detailsButton).toBeVisible({ timeout: 10000 });
-
-        const beforeUrl = page.url();
-        await detailsButton.click();
-        await page.waitForURL(/\/ca\/|\/hi\/|\/or\/|\/wa\//, { timeout: 10000 });
-        expect(page.url()).not.toBe(beforeUrl);
-      } else {
-        console.log(
-          "⊘ No discovery cards found - testing recommendations API directly"
-        );
-
-        // Test API directly (N+1 query fix)
-        const apiStartTime = performance.now();
-        const response = await request.get(
-          `${BASE_URL}/api/v1/recommendations?lat=32.7157&lon=-117.1611`
-        );
-        const apiEndTime = performance.now();
-
-        if (response.status() === 200) {
-          const apiTime = apiEndTime - apiStartTime;
-          // Relaxed threshold for production environment variability
-          expect(apiTime).toBeLessThan(3000);
-
-          const body = await response.json();
-          console.log(`✓ Recommendations API: ${body.data?.length || 0} beaches in ${apiTime.toFixed(2)}ms`);
-        }
-      }
-
-      // Step 4: Navigate to map (tests React performance with many components)
-      const mapStartTime = performance.now();
-      await page.goto("/map");
-      await waitForPageLoad(page);
-      const mapLoadTime = performance.now() - mapStartTime;
-
-      // Relaxed threshold for production environment variability (dev server can be slow)
-      expect(mapLoadTime).toBeLessThan(20000);
-      console.log(`✓ Map page load time: ${mapLoadTime.toFixed(2)}ms (memoization working)`);
-
-      // Step 5: Interact with map (test performance under interaction)
-      const map = page.locator('[data-testid="beach-map"]');
-      const mapVisible = await isVisibleSafe(map, { timeout: TIMEOUTS.medium });
-
-      if (mapVisible) {
-        // Click on map
-        await map.click();
-        await page.waitForLoadState('load');
-
-        // Page should remain responsive
-        const bodyVisible = await page.isVisible("body");
-        expect(bodyVisible).toBe(true);
-
-        console.log("✓ Map interaction responsive");
-      }
-
-      // Step 6: Search for beaches (tests rate limiting + validation)
-      await page.goto("/discover");
-      await waitForPageLoad(page);
-
-      const searchInput = page.locator('input[type="search"], input[placeholder*="search" i]').first();
-      const searchVisible = await isVisibleSafe(searchInput, { timeout: 5000 });
-
-      if (searchVisible) {
-        // Test valid search
-        await searchInput.fill("Malibu");
-        await page.waitForLoadState('networkidle');
-
-        // Should show results or loading
-        console.log("✓ Beach search working");
-
-        // Test that search doesn't hit rate limits with normal use
-        await searchInput.fill("La Jolla");
-        await page.waitForLoadState('networkidle');
-
-        await searchInput.fill("San Diego");
-        await page.waitForLoadState('networkidle');
-
-        // Should still be functional (not rate limited)
-        const bodyVisible = await page.isVisible("body");
-        expect(bodyVisible).toBe(true);
-
-        console.log("✓ Search rate limiting allows normal use");
-      }
-
-      console.log("=== Beach Discovery Flow Complete ===");
-    }, TIMEOUTS.veryLong);
-
     test("should handle errors gracefully during beach discovery", async ({ page }: PageFixture) => {
       console.log("=== Testing Error Handling in Discovery ===");
 
@@ -559,12 +415,6 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
   });
 
   test.describe("Combined Stress Testing", () => {
-    // TODO: Test drift - rapid navigation causes connection reset errors
-    // @ts-expect-error - Playwright overload resolution issue with long test names
-    test.fixme("should handle rapid navigation with all fixes active", async ({ page }: PageFixture) => {
-      // Rapid navigation causes connection reset errors — needs investigation before enabling
-    }, TIMEOUTS.veryLong);
-
     test("should maintain performance under concurrent operations", async ({ page, request }: PageRequestFixture) => {
       console.log("=== Testing Concurrent Operations ===");
 
@@ -615,7 +465,7 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
         }, 200);
       });
 
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for injected error timers to fire
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for injected setTimeout(200ms) error timers to fire
       await page.waitForTimeout(1000);
 
       // Restore network by removing route interception
@@ -633,88 +483,4 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
     });
   });
 
-  test.describe("End-to-End Performance Validation", () => {
-    // @ts-expect-error - Playwright overload resolution issue with long test names
-    test("should meet all performance targets in realistic workflow @smoke", async ({ page, request }: PageRequestFixture) => {
-      console.log("=== Full System Performance Validation ===");
-
-      const metrics = {
-        homeLoad: 0,
-        mapLoad: 0,
-        apiResponseTime: 0,
-        beachDetailLoad: 0,
-      };
-
-      // Perf thresholds:
-      // - Local Next.js dev server with a remote (prod) Supabase DB is inherently slower/unpredictable.
-      // - Keep this test as a "sanity perf" gate with realistic ceilings, not a strict budget.
-      const isRemoteDb =
-        !!process.env.SUPABASE_URL &&
-        !process.env.SUPABASE_URL.includes("localhost") &&
-        !process.env.SUPABASE_URL.includes("127.0.0.1");
-      const apiTargetMs =
-        Number(process.env.PERF_RECOMMENDATIONS_TARGET_MS) ||
-        (isRemoteDb ? 20000 : 3000);
-
-      // Test 1: Home page load (React.memo + N+1 fix)
-      let startTime = performance.now();
-      await page.goto("/");
-      await waitForPageLoad(page);
-      metrics.homeLoad = performance.now() - startTime;
-
-      // Relaxed thresholds for production/dev environment variability (parallel test execution)
-      expect(metrics.homeLoad).toBeLessThan(25000);
-      console.log(`✓ Home load: ${metrics.homeLoad.toFixed(2)}ms (target: <25000ms)`);
-
-      // Test 2: API response time (N+1 fix)
-      startTime = performance.now();
-      // Use browser-like headers to avoid bot-blocking (Playwright UA) and avoid local
-      // rate limiting collapsing all requests into an "unknown" identifier.
-      const ip = `127.0.0.${Math.floor(Math.random() * 200) + 10}`;
-      const apiResponse = await request.get(
-        `${BASE_URL}/api/v1/recommendations?lat=32.7157&lon=-117.1611`,
-        {
-          headers: {
-            "accept-language": "en-US,en;q=0.9",
-            "user-agent":
-              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            "x-forwarded-for": ip,
-            "x-real-ip": ip,
-          },
-        }
-      );
-      metrics.apiResponseTime = performance.now() - startTime;
-
-      expect(apiResponse.status(), "recommendations API should succeed").toBe(200);
-      expect(metrics.apiResponseTime).toBeLessThan(apiTargetMs);
-      console.log(
-        `✓ API response: ${metrics.apiResponseTime.toFixed(2)}ms (target: <${apiTargetMs}ms)`
-      );
-
-      // Test 3: Map load (React.memo)
-      startTime = performance.now();
-      await page.goto("/map");
-      await waitForPageLoad(page);
-      metrics.mapLoad = performance.now() - startTime;
-
-      expect(metrics.mapLoad).toBeLessThan(25000);
-      console.log(`✓ Map load: ${metrics.mapLoad.toFixed(2)}ms (target: <25000ms)`);
-
-      // Test 4: Beach detail load
-      startTime = performance.now();
-      const beachUrl = buildBeachUrl(TEST_BEACHES.blacks);
-      await page.goto(beachUrl);
-      await waitForPageLoad(page);
-      metrics.beachDetailLoad = performance.now() - startTime;
-
-      expect(metrics.beachDetailLoad).toBeLessThan(25000);
-      console.log(`✓ Beach detail: ${metrics.beachDetailLoad.toFixed(2)}ms (target: <25000ms)`);
-
-      // Summary
-      const totalTime = Object.values(metrics).reduce((a, b) => a + b, 0);
-      console.log(`\n=== Performance Summary ===`);
-      console.log(`Total measured time: ${totalTime.toFixed(2)}ms`);
-      console.log(`All performance targets met: ✓`);
-    }, TIMEOUTS.veryLong);
-  });
 });

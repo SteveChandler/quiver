@@ -70,20 +70,17 @@ test.describe('Session Form - Auto-Forecast Autofill', () => {
     expect(hasShouldText).toBe(false);
   });
 
-  test.fixme('should show forecast snapshot on session detail after logging', async ({ page }) => {
-    // Forecast snapshot display on session detail not yet implemented —
-    // requires storing and displaying forecast-at-time-of-session data on the detail view
+  test('should show forecast snapshot on session detail after logging', async ({ page }) => {
+    throw new Error('Not implemented: forecast snapshot display on session detail not yet implemented');
   });
 });
 
 test.describe('Session Form Autofill - Edge Cases', () => {
-  test.fixme('should handle beach change after conditions are prefilled', async ({ page }) => {
-    // Requires scroll-form state management to clear previous forecast values
-    // when beach changes and re-fetch forecast for new beach selection — not yet implemented
+  test('should handle beach change after conditions are prefilled', async ({ page }) => {
+    throw new Error('Not implemented: scroll-form state management to clear previous forecast values when beach changes');
   });
 
-  test.fixme('should handle partial forecast data gracefully', async ({ page }) => {
-    // Requires graceful degradation when forecast API returns incomplete data
-    // (e.g., null wind or tide values) with helpful placeholders — not yet implemented
+  test('should handle partial forecast data gracefully', async ({ page }) => {
+    throw new Error('Not implemented: graceful degradation when forecast API returns incomplete data');
   });
 });

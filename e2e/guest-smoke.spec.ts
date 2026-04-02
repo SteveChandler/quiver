@@ -155,4 +155,25 @@ test.describe('Guest Smoke: SEO Infrastructure', () => {
     const contentType = response.headers()['content-type'];
     expect(contentType).toMatch(/image\/(png|jpeg|webp)/);
   });
+
+  test('Thin-content pages have noindex meta or valid content @smoke', async ({ page }) => {
+    // Use a valid skill-intent + city route that exercises the thin-content logic.
+    // The noindex mechanism triggers for skill intents (beginner, longboard) when
+    // a city has no matching beaches. Either outcome validates the infrastructure:
+    // - noindex present -> thin-content protection is working
+    // - noindex absent + content visible -> page has matching beaches and renders
+    await page.goto('/longboard/san-diego', {
+      timeout: 10000,
+      waitUntil: 'domcontentloaded',
+    });
+
+    const noindexMeta = page.locator('meta[name="robots"][content*="noindex"]');
+    const hasNoindex = await noindexMeta.count().then(c => c > 0);
+
+    if (!hasNoindex) {
+      // No noindex -> page should render meaningful content
+      const h1 = page.locator('h1');
+      await expect(h1).toBeVisible({ timeout: 5000 });
+    }
+  });
 });

@@ -245,8 +245,12 @@ test.describe('Edit Profile - Preferences Fields', () => {
 
     // Save and wait for the server action to complete
     await dialog.getByTestId('save-profile').click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for server action + modal close callback chain
-    await page.waitForTimeout(5000);
+    await page.waitForResponse(
+      (resp) => resp.url().includes('/api/profile') || resp.url().includes('/profile'),
+      { timeout: 15000 }
+    ).catch(() => {});
+    // Wait for dialog to close indicating save completed
+    await dialog.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
 
     // Verify saved values in the database
     const profile = await getCurrentUserProfile(TEST_USER.email);
@@ -270,8 +274,6 @@ test.describe('Edit Profile - Preferences Fields', () => {
     await saveButton.click();
 
     // Should show validation error (form shouldn't submit)
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for validation feedback
-    await page.waitForTimeout(1000);
     // Use the specific Edit Profile dialog to avoid matching the onboarding overlay
     // which may also be present as role="dialog" on some test-user configurations.
     const dialog = page.getByRole('dialog', { name: /edit profile/i });
@@ -282,8 +284,9 @@ test.describe('Edit Profile - Preferences Fields', () => {
 
     // Now preferences can be optional (saving should work)
     await saveButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for form save API call
-    await page.waitForTimeout(2000);
+    // Wait for dialog to close indicating save completed
+    const editDialog = page.getByRole('dialog', { name: /edit profile/i });
+    await editDialog.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
 
     // Success - should be able to save even without preferences filled
   });
@@ -348,8 +351,11 @@ test.describe('Edit Profile - Preferences Fields', () => {
 
     // Save and wait for server action to complete
     await dialog.getByTestId('save-profile').click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for server action + modal close callback chain
-    await page.waitForTimeout(5000);
+    await page.waitForResponse(
+      (resp) => resp.url().includes('/api/profile') || resp.url().includes('/profile'),
+      { timeout: 15000 }
+    ).catch(() => {});
+    await dialog.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
 
     // Verify the final values persisted (not intermediate ones)
     const profile = await getCurrentUserProfile(TEST_USER.email);
@@ -370,8 +376,7 @@ test.describe('Edit Profile - Preferences Fields', () => {
 
     // Click Cancel instead of Save
     await dialog.getByRole('button', { name: /cancel/i }).click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for dialog to close
-    await page.waitForTimeout(1000);
+    await dialog.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
 
     // Verify database was NOT modified (still has null/empty values)
     const profile = await getCurrentUserProfile(TEST_USER.email);
@@ -397,8 +402,9 @@ test.describe('Edit Profile - Preferences Fields', () => {
     const saveButton = page.getByTestId('save-profile');
     await saveButton.click();
 
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for form save API call
-    await page.waitForTimeout(2000);
+    // Wait for dialog to close indicating save completed
+    const editProfileDialog = page.getByRole('dialog', { name: /edit profile/i });
+    await editProfileDialog.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
 
     // Verify preferences are still null/empty
     const profile = await getCurrentUserProfile(TEST_USER.email);

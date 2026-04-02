@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 import { waitForPageLoad, ensureAuthenticated, waitForAuthenticatedHome } from '../utils/test-helpers';
 import { VIEWPORTS, TIMEOUTS } from '../fixtures/test-data';
 import {
@@ -8,6 +8,16 @@ import {
   ErrorCapture,
 } from '../utils/error-detection';
 import { isVisibleSafe } from '../utils/strict-helpers';
+
+/** Click a time-slot filter and wait for the discover API response */
+async function clickFilterAndWait(page: Page, button: ReturnType<Page['getByRole']>): Promise<void> {
+  const responsePromise = page.waitForResponse(
+    (resp) => resp.url().includes('/api/surf/discover') || resp.url().includes('/api/v1/recommendations'),
+    { timeout: 15000 }
+  );
+  await button.click();
+  await responsePromise;
+}
 
 /**
  * Time Slot Filter E2E Tests
@@ -112,17 +122,13 @@ test.describe('Time Slot Filter - Home Screen', () => {
 
   test.describe('2. Dawn Patrol Filter (6am-11am)', () => {
     test('should update recommendations when Dawn patrol selected', async ({ page }) => {
-      // Click Dawn patrol filter
+      // Click Dawn patrol filter and wait for API response
       const dawnPatrolButton = page.getByRole('button', { name: 'Dawn patrol' });
-      await dawnPatrolButton.click();
+      await clickFilterAndWait(page, dawnPatrolButton);
 
       // Verify selection updated
       const ariaPressed = await dawnPatrolButton.getAttribute('aria-pressed');
       expect(ariaPressed).toBe('true');
-
-      // Wait for recommendations to update (debounce + API call)
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- debounce delay + API call
-      await page.waitForTimeout(2000); // Debounce is 300ms, allow for API call
 
       // Check for hero recommendation, loading state, or empty state
       // Dawn patrol might have no results depending on current time
@@ -151,13 +157,9 @@ test.describe('Time Slot Filter - Home Screen', () => {
     });
 
     test('should display capped window times ending at or before 11am', async ({ page }) => {
-      // Click Dawn patrol filter
+      // Click Dawn patrol filter and wait for API response
       const dawnPatrolButton = page.getByRole('button', { name: 'Dawn patrol' });
-      await dawnPatrolButton.click();
-
-      // Wait for recommendations to load
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- debounce delay + API call
-      await page.waitForTimeout(1500);
+      await clickFilterAndWait(page, dawnPatrolButton);
       const heroRecommendation = page.getByTestId('hero-recommendation');
       const heroVisible = await isVisibleSafe(heroRecommendation, { timeout: TIMEOUTS.long });
 
@@ -204,10 +206,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
 
     test('should NOT show windows extending beyond 11am', async ({ page }) => {
       const dawnPatrolButton = page.getByRole('button', { name: 'Dawn patrol' });
-      await dawnPatrolButton.click();
-
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- debounce delay + API call
-      await page.waitForTimeout(1500);
+      await clickFilterAndWait(page, dawnPatrolButton);
       const heroRecommendation = page.getByTestId('hero-recommendation');
       const heroVisible = await isVisibleSafe(heroRecommendation, { timeout: TIMEOUTS.long });
 
@@ -228,13 +227,10 @@ test.describe('Time Slot Filter - Home Screen', () => {
   test.describe('3. Lunch Session Filter (11am-2pm)', () => {
     test('should update recommendations when Lunch session selected', async ({ page }) => {
       const lunchSessionButton = page.getByRole('button', { name: 'Lunch session' });
-      await lunchSessionButton.click();
+      await clickFilterAndWait(page, lunchSessionButton);
 
       const ariaPressed = await lunchSessionButton.getAttribute('aria-pressed');
       expect(ariaPressed).toBe('true');
-
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- debounce delay + API call
-      await page.waitForTimeout(1500);
 
       const heroRecommendation = page.getByTestId('hero-recommendation');
       const heroVisible = await isVisibleSafe(heroRecommendation, { timeout: TIMEOUTS.long });
@@ -249,10 +245,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
 
     test('should display window times within 11am-2pm range', async ({ page }) => {
       const lunchSessionButton = page.getByRole('button', { name: 'Lunch session' });
-      await lunchSessionButton.click();
-
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- debounce delay + API call
-      await page.waitForTimeout(1500);
+      await clickFilterAndWait(page, lunchSessionButton);
       const heroRecommendation = page.getByTestId('hero-recommendation');
       const heroVisible = await isVisibleSafe(heroRecommendation, { timeout: TIMEOUTS.long });
 
@@ -295,13 +288,10 @@ test.describe('Time Slot Filter - Home Screen', () => {
   test.describe('4. Afternoon Filter (2pm-6pm)', () => {
     test('should update recommendations when Afternoon selected', async ({ page }) => {
       const afternoonButton = page.getByRole('button', { name: 'Afternoon' });
-      await afternoonButton.click();
+      await clickFilterAndWait(page, afternoonButton);
 
       const ariaPressed = await afternoonButton.getAttribute('aria-pressed');
       expect(ariaPressed).toBe('true');
-
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- debounce delay + API call
-      await page.waitForTimeout(1500);
 
       const heroRecommendation = page.getByTestId('hero-recommendation');
       const heroVisible = await isVisibleSafe(heroRecommendation, { timeout: TIMEOUTS.long });
@@ -316,10 +306,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
 
     test('should display window times starting at 2pm or later', async ({ page }) => {
       const afternoonButton = page.getByRole('button', { name: 'Afternoon' });
-      await afternoonButton.click();
-
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- debounce delay + API call
-      await page.waitForTimeout(1500);
+      await clickFilterAndWait(page, afternoonButton);
       const heroRecommendation = page.getByTestId('hero-recommendation');
       const heroVisible = await isVisibleSafe(heroRecommendation, { timeout: TIMEOUTS.long });
 
@@ -360,10 +347,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
 
     test('should display window times ending by 6pm', async ({ page }) => {
       const afternoonButton = page.getByRole('button', { name: 'Afternoon' });
-      await afternoonButton.click();
-
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- debounce delay + API call
-      await page.waitForTimeout(1500);
+      await clickFilterAndWait(page, afternoonButton);
       const heroRecommendation = page.getByTestId('hero-recommendation');
       const heroVisible = await isVisibleSafe(heroRecommendation, { timeout: TIMEOUTS.long });
 
@@ -428,19 +412,10 @@ test.describe('Time Slot Filter - Home Screen', () => {
 
       // Click with delays that respect the debounce but still test switching behavior
       await dawnPatrolButton.click();
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- debounce delay between rapid filter switches
-      await page.waitForTimeout(500);
       await lunchSessionButton.click();
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- debounce delay between rapid filter switches
-      await page.waitForTimeout(500);
       await afternoonButton.click();
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- debounce delay between rapid filter switches
-      await page.waitForTimeout(500);
-      await anyTimeButton.click();
-
-      // Wait for final request to complete
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- debounce delay + API call
-      await page.waitForTimeout(2000);
+      // Only wait for the response from the final click (debounce cancels earlier requests)
+      await clickFilterAndWait(page, anyTimeButton);
 
       // Check for rate limit errors specifically from surf discovery
       expect(filterErrors.length).toBe(0);
@@ -453,23 +428,17 @@ test.describe('Time Slot Filter - Home Screen', () => {
     test('should show loading state during filter transition', async ({ page }) => {
       const dawnPatrolButton = page.getByRole('button', { name: 'Dawn patrol' });
 
-      // Click and immediately check for loading state
-      await dawnPatrolButton.click();
-
-      // Wait for debounce (1000ms)
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for 1000ms debounce to expire
-      await page.waitForTimeout(1100);
+      // Click and wait for API response
+      await clickFilterAndWait(page, dawnPatrolButton);
 
       // Check if loading state appears (may be brief)
       const heroLoading = page.getByTestId('hero-recommendation-loading');
       const topSpotsLoading = page.locator('[data-testid="top-spots-carousel"]').locator('text=Loading');
 
-      // At least one loading indicator should have appeared
+      // At least one loading indicator should have appeared or content loaded immediately
       const loadingAppeared = await Promise.race([
         isVisibleSafe(heroLoading, { timeout: 2000 }),
         isVisibleSafe(topSpotsLoading, { timeout: 2000 }),
-        // eslint-disable-next-line playwright/no-wait-for-timeout -- Promise.race timeout for loading state detection
-        page.waitForTimeout(2000).then(() => false),
       ]);
 
       // We expect loading state to appear or content to load immediately
@@ -478,17 +447,13 @@ test.describe('Time Slot Filter - Home Screen', () => {
     });
 
     test('should preserve filter selection after page reload', async ({ page }) => {
-      // Select Lunch session filter
+      // Select Lunch session filter and wait for API response
       const lunchSessionButton = page.getByRole('button', { name: 'Lunch session' });
-      await lunchSessionButton.click();
+      await clickFilterAndWait(page, lunchSessionButton);
 
       // Verify selection
       let ariaPressed = await lunchSessionButton.getAttribute('aria-pressed');
       expect(ariaPressed).toBe('true');
-
-      // Wait for state to settle
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- debounce delay + API call
-      await page.waitForTimeout(1500);
 
       // Reload page
       await page.reload();
@@ -512,10 +477,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
       // Try a filter that might have no results
       // This is time-dependent, so we'll check gracefully
       const afternoonButton = page.getByRole('button', { name: 'Afternoon' });
-      await afternoonButton.click();
-
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- debounce delay + API call
-      await page.waitForTimeout(1500);
+      await clickFilterAndWait(page, afternoonButton);
 
       // Check for hero recommendation or empty state
       const heroRecommendation = page.getByTestId('hero-recommendation');
@@ -546,17 +508,11 @@ test.describe('Time Slot Filter - Home Screen', () => {
     test('should allow switching to "Any time" from empty state', async ({ page }) => {
       // Select a potentially empty filter
       const dawnPatrolButton = page.getByRole('button', { name: 'Dawn patrol' });
-      await dawnPatrolButton.click();
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- debounce delay + API call
-      await page.waitForTimeout(2000);
+      await clickFilterAndWait(page, dawnPatrolButton);
 
-      // Switch back to Any time
+      // Switch back to Any time and wait for API response
       const anyTimeButton = page.getByRole('button', { name: 'Any time' });
-      await anyTimeButton.click();
-
-      // Wait for recommendations to load (debounce + API call + rendering)
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- debounce delay + API call + rendering
-      await page.waitForTimeout(2500);
+      await clickFilterAndWait(page, anyTimeButton);
 
       // Should show recommendations again - check for hero or fallback actions
       const heroRecommendation = page.getByTestId('hero-recommendation');
@@ -594,11 +550,9 @@ test.describe('Time Slot Filter - Home Screen', () => {
       const initialSpots = page.locator('[data-testid="top-spots-carousel"] [data-testid="compact-spot-card"]');
       const initialCount = await initialSpots.count();
 
-      // Select Lunch session filter
+      // Select Lunch session filter and wait for API response
       const lunchSessionButton = page.getByRole('button', { name: 'Lunch session' });
-      await lunchSessionButton.click();
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- debounce delay + API call
-      await page.waitForTimeout(1500);
+      await clickFilterAndWait(page, lunchSessionButton);
 
       // Wait for carousel to update - section should still be visible
       await expect(spotsSection).toBeVisible({ timeout: TIMEOUTS.long });
@@ -625,9 +579,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
     test('should show capped times in carousel beach cards', async ({ page }) => {
       // Select Dawn patrol for most restrictive window
       const dawnPatrolButton = page.getByRole('button', { name: 'Dawn patrol' });
-      await dawnPatrolButton.click();
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- debounce delay + API call
-      await page.waitForTimeout(1500);
+      await clickFilterAndWait(page, dawnPatrolButton);
 
       // Wait for spots section to exist first
       const spotsSection = page.getByRole('region', { name: /top spots/i });

@@ -40,12 +40,15 @@ test.describe('Coast Pulse Infinite Scroll', () => {
       const coastPulse = page.locator('[data-testid="coast-pulse-section"]');
       await expect(coastPulse).toBeVisible({ timeout: TIMEOUTS.medium });
 
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for timeline data to load
-      await page.waitForTimeout(3000);
-
       // Check if either timeline or empty state is shown
       const timeline = coastPulse.locator('[role="list"]');
       const emptyState = coastPulse.locator('text=No nearby data available');
+
+      // Wait for timeline data or empty state to render
+      await Promise.race([
+        timeline.waitFor({ state: 'visible', timeout: 10000 }),
+        emptyState.waitFor({ state: 'visible', timeout: 10000 }),
+      ]).catch(() => {});
 
       const timelineVisible = await isVisibleSafe(timeline);
       const emptyStateVisible = await isVisibleSafe(emptyState);
@@ -114,8 +117,14 @@ test.describe('Coast Pulse Infinite Scroll', () => {
         }
       });
 
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for infinite scroll load more
-      await page.waitForTimeout(2000);
+      // Wait for load more response or end message
+      await Promise.race([
+        page.waitForResponse(
+          (resp) => resp.url().includes('/api/') && resp.url().includes('coast'),
+          { timeout: 5000 }
+        ),
+        coastPulse.getByText("No older updates").waitFor({ state: 'visible', timeout: 5000 }),
+      ]).catch(() => {});
 
       // Check if loading indicator appeared or items increased
       // Note: In production, this depends on having enough intel posts

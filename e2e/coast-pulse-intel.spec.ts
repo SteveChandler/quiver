@@ -142,12 +142,15 @@ test.describe('Coast Pulse Intel Features', () => {
       const coastPulse = page.locator('[data-testid="coast-pulse-section"]');
       await expect(coastPulse).toBeVisible({ timeout: TIMEOUTS.medium });
 
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for async data load or empty state render
-      await page.waitForTimeout(2000);
-
       // Check if either timeline or empty state is shown
       const timeline = coastPulse.locator('[role="list"]');
       const emptyState = coastPulse.locator('text=No nearby data available');
+
+      // Wait for timeline data or empty state to render
+      await Promise.race([
+        timeline.waitFor({ state: 'visible', timeout: 10000 }),
+        emptyState.waitFor({ state: 'visible', timeout: 10000 }),
+      ]).catch(() => {});
 
       const timelineVisible = await isVisibleSafe(timeline);
       const emptyStateVisible = await isVisibleSafe(emptyState);

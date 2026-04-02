@@ -230,7 +230,11 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
   });
 
   // TODO: Error recovery tests require specific error states that are hard to trigger locally
-  test.describe.skip("Error Recovery Mechanisms", () => {
+  test.describe("Error Recovery Mechanisms @infra", () => {
+    test.beforeEach(async () => {
+      test.skip(process.env.RUN_INFRA_TESTS !== 'true', 'Requires infrastructure: network simulation for error recovery');
+    });
+
     test("should provide clear recovery actions for different error types", async ({ page }) => {
       // Test 404 error
       await page.goto("/nonexistent-12345");
@@ -331,8 +335,8 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
     });
 
     // TODO: Test drift - rapid navigation causes connection reset
-    test.fixme("should handle rapid error recovery cycles", async ({ page }) => {
-      // TODO: Implement when feature is ready
+    test("should handle rapid error recovery cycles", async ({ page }) => {
+      throw new Error('Not implemented: rapid navigation causes connection reset');
     });
   });
 });

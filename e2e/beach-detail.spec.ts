@@ -117,10 +117,13 @@ test.describe('Beach Detail Page', () => {
     const hasFavorite = await isVisibleSafe(favoriteButton);
 
     if (hasFavorite) {
-      // Click to favorite
+      // Click to favorite and wait for API response
+      const favoriteResponse = page.waitForResponse(
+        (resp) => resp.url().includes('/api/') && resp.url().includes('favorite'),
+        { timeout: 5000 }
+      ).catch(() => {});
       await favoriteButton.click();
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for favorite toggle API call
-      await page.waitForTimeout(1000);
+      await favoriteResponse;
 
       // State should change (button text or icon)
       // This is a smoke test - actual verification depends on implementation
@@ -243,8 +246,6 @@ test.describe('Beach Detail - Forecast Tab', () => {
       const tabpanel = page.getByRole('tabpanel').first();
       await expect(tabpanel).toBeVisible();
 
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab content to load
-      await page.waitForTimeout(500);
     }
 
     // Verify final state - Overview should be active again

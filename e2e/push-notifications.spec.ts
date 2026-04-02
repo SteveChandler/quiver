@@ -168,10 +168,12 @@ function generateDeviceToken(platform: string): string {
 // TODO: Push notification tests require Firebase/FCM setup and database RLS policies
 // Skip in local dev - run in CI/staging with proper Firebase configuration
 // Specific failures are due to: concurrent registrations, RLS policies, performance timing
-test.describe.skip('Push Notification Device Registration - API Tests', () => {
+test.describe('Push Notification Device Registration - API Tests @infra', () => {
   let userId: string;
 
   test.beforeEach(async ({ request }) => {
+    test.skip(process.env.RUN_INFRA_TESTS !== 'true', 'Requires infrastructure: Firebase FCM setup and database RLS policies');
+
     // Get authenticated user ID
     // Since we're using storageState, the request context has auth cookies
     const response = await request.get('/');
@@ -581,10 +583,12 @@ test.describe('Push Notification Device Removal - API Tests', () => {
   });
 });
 
-test.describe.skip('Push Notification Device Registration - Database Validation', () => {
+test.describe('Push Notification Device Registration - Database Validation @infra', () => {
   let userId: string;
 
   test.beforeEach(async ({ request }) => {
+    test.skip(process.env.RUN_INFRA_TESTS !== 'true', 'Requires infrastructure: Firebase FCM setup and database RLS policies');
+
     const testUserEmail = process.env.TEST_USER_EMAIL || 'test@quiver.com';
     const admin = getAdminClient();
     const { data, error } = await admin
@@ -783,10 +787,12 @@ test.describe.skip('Push Notification Device Registration - Database Validation'
   });
 });
 
-test.describe.skip('Push Notification Device Registration - Edge Cases', () => {
+test.describe('Push Notification Device Registration - Edge Cases @infra', () => {
   let userId: string;
 
   test.beforeEach(async ({ request }) => {
+    test.skip(process.env.RUN_INFRA_TESTS !== 'true', 'Requires infrastructure: Firebase FCM setup and database RLS policies');
+
     const testUserEmail = process.env.TEST_USER_EMAIL || 'test@quiver.com';
     const admin = getAdminClient();
     const { data, error } = await admin
@@ -982,10 +988,12 @@ test.describe.skip('Push Notification Device Registration - Edge Cases', () => {
   });
 });
 
-test.describe.skip('Push Notification Device Registration - RLS Policy Tests', () => {
+test.describe('Push Notification Device Registration - RLS Policy Tests @infra', () => {
   let userId: string;
 
   test.beforeEach(async ({ request }) => {
+    test.skip(process.env.RUN_INFRA_TESTS !== 'true', 'Requires infrastructure: Firebase FCM setup and database RLS policies');
+
     const testUserEmail = process.env.TEST_USER_EMAIL || 'test@quiver.com';
     const admin = getAdminClient();
     const { data, error } = await admin
@@ -1064,10 +1072,12 @@ test.describe.skip('Push Notification Device Registration - RLS Policy Tests', (
   });
 });
 
-test.describe.skip('Push Notification Device Registration - Performance Tests', () => {
+test.describe('Push Notification Device Registration - Performance Tests @infra', () => {
   let userId: string;
 
   test.beforeEach(async ({ request }) => {
+    test.skip(process.env.RUN_INFRA_TESTS !== 'true', 'Requires infrastructure: Firebase FCM setup and database RLS policies');
+
     const testUserEmail = process.env.TEST_USER_EMAIL || 'test@quiver.com';
     const admin = getAdminClient();
     const { data, error } = await admin

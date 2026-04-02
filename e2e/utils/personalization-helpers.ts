@@ -126,7 +126,7 @@ export async function waitForPersonalizationData(
       return true;
     }
 
-    // Wait 2 seconds before checking again
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- polling interval between auth state checks
     await page.waitForTimeout(2000);
   }
 

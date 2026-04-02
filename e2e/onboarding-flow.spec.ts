@@ -71,11 +71,8 @@ test.describe("Onboarding - close + view full forecast", () => {
     await expect(firstBeachOption).toBeVisible({ timeout: TIMEOUTS.long });
     await firstBeachOption.click();
 
-    // Beach celebration: 500ms pause before auto-advancing
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- deliberate UX celebration delay
-    await page.waitForTimeout(800);
-
     // Step 2: Level + Time (copy: "What kind of surfer are you?")
+    // Auto-advances after celebration animation
     await expect(page.getByTestId("level-and-time-step")).toBeVisible({
       timeout: TIMEOUTS.long,
     });

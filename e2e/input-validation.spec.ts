@@ -566,13 +566,13 @@ test.describe("Input Validation - Phase 2 Fixes", () => {
     });
 
     // TODO: Test drift - session comments API behavior changed
-    test.fixme("should accept correct Content-Type", async ({ request }) => {
-      // Session comments API behavior changed — needs investigation before re-enabling
+    test("should accept correct Content-Type", async ({ request }) => {
+      throw new Error('Not implemented: session comments API behavior changed');
     });
 
     // TODO: Test drift - session comments API may not parse JSON body in expected way
-    test.fixme("should reject malformed JSON", async ({ request }) => {
-      // Session comments API JSON body parsing behavior changed — needs investigation
+    test("should reject malformed JSON", async ({ request }) => {
+      throw new Error('Not implemented: session comments API JSON body parsing behavior changed');
     });
 
   test.describe("Edge Cases and Error Messages", () => {
@@ -603,8 +603,8 @@ test.describe("Input Validation - Phase 2 Fixes", () => {
     });
 
     // TODO: Test drift - intel API endpoint behavior changed
-    test.fixme("should handle missing required fields", async ({ request }) => {
-      // Intel API endpoint behavior changed — needs investigation before re-enabling
+    test("should handle missing required fields", async ({ request }) => {
+      throw new Error('Not implemented: intel API endpoint behavior changed');
     });
 
     test("should handle null values appropriately", async ({ request }) => {

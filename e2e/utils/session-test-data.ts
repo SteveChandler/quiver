@@ -94,7 +94,11 @@ export async function createTestSession(
 
     // Use partial match (e.g. "Black" matches "Blacks")
     await beachSearch.fill(beachName);
-    await page.waitForTimeout(800);
+    // Wait for search debounce and results
+    await page.waitForResponse(
+      (resp) => resp.url().includes('/api/beaches/search') || resp.url().includes('/api/beaches'),
+      { timeout: 10000 }
+    ).catch(() => {});
 
     // Select beach from dropdown list (BeachSelector renders <ul><button>…</button></ul>)
     const beachSelectorRoot = beachSearch.locator("..");
@@ -112,7 +116,6 @@ export async function createTestSession(
     }
 
     await beachOption.click();
-    await page.waitForTimeout(300);
 
     // Fill date/time — QuickLogView uses time preset buttons, standard form uses date/time inputs
     const morningPreset = page.getByRole("button", { name: /morning/i });
@@ -144,7 +147,6 @@ export async function createTestSession(
 
       if (hasNext) {
         await nextButton.click();
-        await page.waitForTimeout(500);
       }
     }
 
@@ -157,10 +159,8 @@ export async function createTestSession(
 
     if (starCount > 0) {
       await stars.nth(rating - 1).click();
-      await page.waitForTimeout(500);
     } else if (hasSlider) {
       await ratingSlider.fill(rating.toString());
-      await page.waitForTimeout(500);
     }
 
     // Add photos if requested
@@ -173,7 +173,6 @@ export async function createTestSession(
 
       if (isVisible) {
         await fileInput.setInputFiles(imagePaths);
-        await page.waitForTimeout(1000);
       }
     }
 
@@ -190,7 +189,7 @@ export async function createTestSession(
     await submitButton.click();
 
     // Wait for success indication (celebration or redirect)
-    await page.waitForTimeout(3000);
+    await page.waitForURL(/\/profile|\/sessions\//, { timeout: 15000 }).catch(() => {});
 
     // Try to extract session ID from URL (might redirect to /profile)
     const url = page.url();
@@ -267,15 +266,16 @@ export async function uploadPhotosToSession(
       await fileInput.setInputFiles(imagePaths);
     }
 
-    await page.waitForTimeout(1000);
-
     // Look for upload button
     const uploadButton = page.getByRole("button", { name: /upload/i });
     const hasUploadButton = await uploadButton.isVisible().catch(() => false);
 
     if (hasUploadButton) {
       await uploadButton.click();
-      await page.waitForTimeout(2000);
+      await page.waitForResponse(
+        (resp) => resp.url().includes('/api/') && resp.status() < 500,
+        { timeout: 15000 }
+      ).catch(() => {});
     }
 
     return true;
@@ -335,6 +335,7 @@ export async function ensureSessionsWithPhotos(
 
         // Wait between creations to avoid rate limits
         if (i < sessionsToCreate - 1) {
+          // eslint-disable-next-line playwright/no-wait-for-timeout -- rate limit backoff between session creations
           await page.waitForTimeout(1000);
         }
       }

@@ -533,16 +533,13 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       const todayTab = page.getByRole('tab', { name: /today/i }).first();
 
       await tidesTab.click();
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- collecting console errors between tab switches
-      await page.waitForTimeout(500);
+      await expect(tidesTab).toHaveAttribute('data-state', 'active', { timeout: 2000 });
 
       await conditionsTab.click();
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- collecting console errors between tab switches
-      await page.waitForTimeout(500);
+      await expect(conditionsTab).toHaveAttribute('data-state', 'active', { timeout: 2000 });
 
       await todayTab.click();
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- collecting console errors between tab switches
-      await page.waitForTimeout(500);
+      await expect(todayTab).toHaveAttribute('data-state', 'active', { timeout: 2000 });
 
       // Should have no critical errors
       if (errors.length > 0) {
