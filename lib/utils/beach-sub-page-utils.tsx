@@ -12,7 +12,7 @@ import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-sche
 
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
-import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { TideSummaryHero } from "@/components/beach-detail/tide-summary-hero";
 import { WaterTempSummaryHero } from "@/components/beach-detail/water-temp-summary-hero";
@@ -226,10 +226,10 @@ export async function renderBeachSubPage({
       />
 
       <div className="container mx-auto px-4 py-8">
-        <InlineSignupCta
-          title={ctaConfig.inlineTitle(beach.name)}
-          description={ctaConfig.inlineDescription(beach.name)}
-          primaryButtonText="Get Alerts — Free"
+        <AlertCaptureCta
+          pageContext={pageType}
+          beachId={beach.id}
+          beachName={beach.name}
           source={`${ctaSource}-inline`}
         />
       </div>
@@ -247,6 +247,17 @@ export async function renderBeachSubPage({
         source={ctaSource}
         ctaText={ctaConfig.ctaText}
         supportingText={ctaConfig.supportingText(beach.name)}
+        searchReferralCta={
+          pageType === "tides"
+            ? {
+                ctaText: "Get Tide Alerts",
+                supportingText: `Know when the tide is right at ${beach.name}`,
+              }
+            : {
+                ctaText: "Wetsuit Alert",
+                supportingText: `Get gear recs for ${beach.name}`,
+              }
+        }
       />
     </>
   );

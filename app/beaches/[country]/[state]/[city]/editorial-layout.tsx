@@ -23,6 +23,8 @@ import { generateCityRichContent } from "@/lib/seo/city-content-generator";
 import { getUsStateDisplayNameFromSlug } from "@/lib/utils/beach-url-utils";
 import type { LocationStats, BeachWithMetrics } from "@/types/location";
 import type { TopCityInState } from "@/actions/beach/beach-location-actions";
+import type { CitySurfReportSummary } from "@/actions/city/city-conditions-actions";
+import { CityConditionsHero } from "@/components/city/city-conditions-hero";
 import { resolveIslandDisplayName, buildCanonicalCityPath } from "./city-page-utils";
 import type { LocationPageParams } from "./city-page-utils";
 import { SITE_ORIGIN } from "./city-page-utils";
@@ -38,6 +40,7 @@ interface EditorialLayoutProps {
   itemListItems: { name: string; url: string; position: number }[];
   bestTimeToSurfUrl?: string;
   siblingCities?: TopCityInState[];
+  surfReport?: CitySurfReportSummary | null;
 }
 
 export function EditorialLayout({
@@ -50,6 +53,7 @@ export function EditorialLayout({
   itemListItems,
   bestTimeToSurfUrl,
   siblingCities,
+  surfReport,
 }: EditorialLayoutProps) {
   const surfSpots = transformBeachesToSurfSpots(beaches);
   const topSpot = beaches[0];
@@ -159,6 +163,16 @@ export function EditorialLayout({
             )}
           </div>
         </header>
+
+        {/* Surf Report Today — live conditions hero */}
+        {surfReport && surfReport.beaches.length > 0 && (
+          <CityConditionsHero
+            cityName={displayCityName}
+            stateSlug={params.state}
+            citySlug={params.city}
+            report={surfReport}
+          />
+        )}
 
         {/* Full-width Interactive Map with Beach List */}
         <CityMapView

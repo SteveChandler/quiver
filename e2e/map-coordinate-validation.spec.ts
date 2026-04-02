@@ -49,8 +49,8 @@ test.describe('Map Coordinate Validation', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
-    await page.waitForTimeout(3000);
+    // Wait for Mapbox map canvas to render
+    await page.locator('.mapboxgl-canvas, canvas').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
     // Check for coordinate-related errors
     const hasCoordinateErrors = consoleErrors.some(
@@ -92,8 +92,8 @@ test.describe('Map Coordinate Validation', () => {
     const mapContainer = page.locator('.mapboxgl-map, [class*="mapbox"]').first();
     await expect(mapContainer).toBeVisible({ timeout: TIMEOUTS.long });
 
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox markers to render
-    await page.waitForTimeout(3000);
+    // Wait for markers to render
+    await page.locator('.mapboxgl-marker').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
     // Get all Mapbox markers
     const markers = await page.locator('.mapboxgl-marker').all();
@@ -157,8 +157,8 @@ test.describe('Map Coordinate Validation', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
-    await page.waitForTimeout(3000);
+    // Wait for Mapbox map canvas to render
+    await page.locator('.mapboxgl-canvas, canvas').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
     // Execute JavaScript to check marker positions
     const markerData = await page.evaluate(() => {
@@ -196,8 +196,8 @@ test.describe('Map Coordinate Validation', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox markers to render
-    await page.waitForTimeout(3000);
+    // Wait for markers to render
+    await page.locator('.mapboxgl-marker').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
     const markers = await page.locator('.mapboxgl-marker').all();
 
@@ -210,9 +210,6 @@ test.describe('Map Coordinate Validation', () => {
     // Click the first marker
     const firstMarker = markers[0];
     await firstMarker.click();
-
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for beach info popup animation
-    await page.waitForTimeout(1000);
 
     // Look for beach detail card or popup
     const beachCard = page.locator(
@@ -243,8 +240,8 @@ test.describe('Map Coordinate Validation', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
-    await page.waitForTimeout(3000);
+    // Wait for Mapbox map canvas to render
+    await page.locator('.mapboxgl-canvas, canvas').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
     // Check map bounds using Mapbox API
     const boundsCheck = await page.evaluate(() => {
@@ -276,9 +273,7 @@ test.describe('Map Coordinate Validation', () => {
 
     if ('error' in boundsCheck) {
       console.log('[Map Bounds] Could not access map instance:', boundsCheck.error);
-      // Map instance not accessible — test.fixme until map exposes instance reliably
-      test.fixme(true, 'Map bounds validation requires accessible Mapbox map instance');
-      return;
+      throw new Error('Not implemented: Map bounds validation requires accessible Mapbox map instance');
     }
 
     const { bounds, center } = boundsCheck as any;
@@ -319,8 +314,8 @@ test.describe('Map Coordinate Validation', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
-    await page.waitForTimeout(3000);
+    // Wait for Mapbox map canvas to render
+    await page.locator('.mapboxgl-canvas, canvas').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
     const zoomLevel = await page.evaluate(() => {
       const map = (window as any).__quiverMapInstance ||
@@ -333,9 +328,7 @@ test.describe('Map Coordinate Validation', () => {
     });
 
     if (zoomLevel === null) {
-      console.log('[Map Zoom] Map instance not accessible — skipping zoom validation');
-      test.fixme(true, 'Map zoom validation requires accessible Mapbox map instance');
-      return;
+      throw new Error('Not implemented: Map zoom validation requires accessible Mapbox map instance');
     }
 
     // Zoom should be a valid number
@@ -353,8 +346,8 @@ test.describe('Map Coordinate Validation', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
-    await page.waitForTimeout(3000);
+    // Wait for Mapbox map canvas to render
+    await page.locator('.mapboxgl-canvas, canvas').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
     // Get initial marker count
     const initialMarkerCount = await page.locator('.mapboxgl-marker').count();
@@ -366,10 +359,10 @@ test.describe('Map Coordinate Validation', () => {
     if (hasZoomControl) {
       // Click zoom out 2 times
       await zoomOutButton.click();
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox zoom animation
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- Mapbox zoom animation settling
       await page.waitForTimeout(500);
       await zoomOutButton.click();
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox zoom animation
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- Mapbox zoom animation settling
       await page.waitForTimeout(1000);
 
       // Marker count may change with zoom (clustering)
@@ -391,8 +384,8 @@ test.describe('Map Coordinate Validation', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
-    await page.waitForTimeout(3000);
+    // Wait for Mapbox map canvas to render
+    await page.locator('.mapboxgl-canvas, canvas').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
     // Check for beaches near coordinate boundaries
     const edgeCaseCheck = await page.evaluate(() => {
@@ -447,8 +440,9 @@ test.describe('Map Coordinate Validation - Data Quality', () => {
     // Navigate to a page that loads beach data
     await page.goto('/map');
     await waitForPageLoad(page);
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
-    await page.waitForTimeout(3000);
+
+    // Wait for Mapbox map canvas to render
+    await page.locator('.mapboxgl-canvas, canvas').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
     // Check beach data quality via API
     const beachDataCheck = await page.evaluate(async () => {
@@ -483,9 +477,7 @@ test.describe('Map Coordinate Validation - Data Quality', () => {
 
     if ('error' in beachDataCheck) {
       console.log('[Data Quality] Could not fetch beach data:', beachDataCheck.error);
-      // /api/beaches endpoint not accessible or returning invalid data — skip gracefully
-      test.fixme(true, 'Beach data API validation requires /api/beaches endpoint');
-      return;
+      throw new Error('Not implemented: Beach data API validation requires /api/beaches endpoint');
     }
 
     const { totalBeaches, invalidCount, invalidBeaches } = beachDataCheck as any;
@@ -507,8 +499,9 @@ test.describe('Map Coordinate Validation - Data Quality', () => {
   test('all beaches in database have valid longitude', async ({ page }) => {
     await page.goto('/map');
     await waitForPageLoad(page);
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
-    await page.waitForTimeout(3000);
+
+    // Wait for Mapbox map canvas to render
+    await page.locator('.mapboxgl-canvas, canvas').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
     const beachDataCheck = await page.evaluate(async () => {
       try {
@@ -542,8 +535,7 @@ test.describe('Map Coordinate Validation - Data Quality', () => {
 
     if ('error' in beachDataCheck) {
       console.log('[Data Quality] Could not fetch beach data for longitude check:', beachDataCheck.error);
-      test.fixme(true, 'Beach longitude validation requires /api/beaches endpoint');
-      return;
+      throw new Error('Not implemented: Beach longitude validation requires /api/beaches endpoint');
     }
 
     const { totalBeaches, invalidCount, invalidBeaches } = beachDataCheck as any;
@@ -641,8 +633,8 @@ test.describe('Map Coordinate Validation - Mobile', () => {
   test('markers render correctly on mobile viewport', async ({ page }) => {
     await page.goto('/map');
     await waitForPageLoad(page);
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
-    await page.waitForTimeout(3000);
+    // Wait for Mapbox map canvas to render
+    await page.locator('.mapboxgl-canvas, canvas').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
     const markers = await page.locator('.mapboxgl-marker').all();
     const markerCount = markers.length;

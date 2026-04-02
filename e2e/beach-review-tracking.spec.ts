@@ -128,8 +128,11 @@ test.describe('Beach Review Tracking', () => {
       // Wait for dialog to appear
       await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
 
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for async tracking event to fire
-      await page.waitForTimeout(1500);
+      // Wait for tracking event to fire
+      await page.waitForFunction(
+        () => (window as any).__capturedTrackingEvents?.some((e: any) => e.eventType === 'review_form_open'),
+        { timeout: 5000 }
+      ).catch(() => {});
 
       // Verify tracking event was captured
       const events = await getCapturedEvents(page);
@@ -156,8 +159,8 @@ test.describe('Beach Review Tracking', () => {
       await reviewsTab.click();
       await expect(reviewsTab).toHaveAttribute('data-state', 'active');
 
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for reviews content to load
-      await page.waitForTimeout(2000);
+      // Wait for reviews content to load
+      await page.getByRole('tabpanel').first().waitFor({ state: 'visible', timeout: 5000 });
 
       // Find and click write review button in reviews section
       const writeReviewButton = page.getByRole('button', { name: /write.*review/i }).first();
@@ -167,8 +170,11 @@ test.describe('Beach Review Tracking', () => {
       // Wait for dialog to appear
       await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
 
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for async tracking event to fire
-      await page.waitForTimeout(1500);
+      // Wait for tracking event to fire
+      await page.waitForFunction(
+        () => (window as any).__capturedTrackingEvents?.some((e: any) => e.eventType === 'review_form_open'),
+        { timeout: 5000 }
+      ).catch(() => {});
 
       // Verify tracking event was captured with reviews_tab source
       const events = await getCapturedEvents(page);
@@ -209,8 +215,11 @@ test.describe('Beach Review Tracking', () => {
       const submitButton = page.getByRole('button', { name: /post review/i });
       await submitButton.click();
 
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for validation error tracking event
-      await page.waitForTimeout(1500);
+      // Wait for validation error tracking event to fire
+      await page.waitForFunction(
+        () => (window as any).__capturedTrackingEvents?.some((e: any) => e.eventType === 'review_validation_error'),
+        { timeout: 5000 }
+      ).catch(() => {});
 
       // Verify validation error was tracked
       const events = await getCapturedEvents(page);
@@ -254,8 +263,11 @@ test.describe('Beach Review Tracking', () => {
       const submitButton = page.getByRole('button', { name: /post review/i });
       await submitButton.click();
 
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for validation error tracking event
-      await page.waitForTimeout(1500);
+      // Wait for validation error tracking event to fire
+      await page.waitForFunction(
+        () => (window as any).__capturedTrackingEvents?.some((e: any) => e.eventType === 'review_validation_error'),
+        { timeout: 5000 }
+      ).catch(() => {});
 
       // Verify validation error was tracked
       const events = await getCapturedEvents(page);
@@ -291,15 +303,18 @@ test.describe('Beach Review Tracking', () => {
       // Start filling the form
       await page.getByPlaceholder(/summarize your experience/i).fill('Partial Review');
 
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- accumulating duration for abandon tracking
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- accumulating duration_ms for abandon tracking assertion
       await page.waitForTimeout(2000);
 
       // Click cancel button
       const cancelButton = page.getByRole('button', { name: /cancel/i });
       await cancelButton.click();
 
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for abandon tracking event to fire
-      await page.waitForTimeout(1500);
+      // Wait for abandon tracking event to fire
+      await page.waitForFunction(
+        () => (window as any).__capturedTrackingEvents?.some((e: any) => e.eventType === 'review_form_abandon'),
+        { timeout: 5000 }
+      ).catch(() => {});
 
       // Verify abandon event was tracked
       const events = await getCapturedEvents(page);

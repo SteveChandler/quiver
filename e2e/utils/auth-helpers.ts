@@ -192,6 +192,7 @@ export async function waitForAuthCompletion(page: Page, timeout = 10000): Promis
       return;
     }
 
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- polling interval for auth state verification
     await page.waitForTimeout(pollInterval);
   }
 
@@ -303,6 +304,7 @@ export async function waitForSupabaseSession(page: Page, timeout = 10000): Promi
       return;
     }
 
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- polling interval for auth state verification
     await page.waitForTimeout(pollInterval);
   }
 

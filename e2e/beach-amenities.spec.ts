@@ -33,8 +33,7 @@ test.describe('Beach Amenities - CA beach (CCC data path)', () => {
     const isTabVisible = await isVisibleSafe(overviewTab, { timeout: 10000 });
     if (isTabVisible) {
       await overviewTab.click();
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab panel transition
-      await page.waitForTimeout(500);
+      await page.getByRole('tabpanel').first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
     }
   });
 
@@ -200,8 +199,7 @@ test.describe('Beach Amenities - non-CA beach (fallback path)', () => {
     const isTabVisible = await isVisibleSafe(overviewTab, { timeout: 10000 });
     if (isTabVisible) {
       await overviewTab.click();
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab panel transition
-      await page.waitForTimeout(500);
+      await page.getByRole('tabpanel').first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
     }
   });
 
@@ -268,8 +266,7 @@ test.describe('Beach Amenities - known badge labels', () => {
     const isTabVisible = await isVisibleSafe(overviewTab, { timeout: 10000 });
     if (isTabVisible) {
       await overviewTab.click();
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab panel transition
-      await page.waitForTimeout(500);
+      await page.getByRole('tabpanel').first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
     }
   });
 

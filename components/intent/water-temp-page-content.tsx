@@ -5,7 +5,7 @@ import { FAQSection } from "@/components/seo/faq-schema";
 import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
 import { CityMapView } from "@/components/city/city-map-view";
 import { CTASection } from "@/components/landing-page/cta-section";
-import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { SurfSpot } from "@/lib/data/surf-spots";
 import type { CityWaterTempExpanded } from "@/actions/forecast/intent-forecast-actions";
@@ -118,10 +118,11 @@ export function WaterTempPageContent({
             stateSlug={stateSlug}
           />
 
-          {/* Inline Signup CTA */}
-          <InlineSignupCta
-            title={`Track Water Temps in ${cityName}`}
-            description="Get wetsuit recommendations and temperature alerts for your favorite breaks."
+          {/* Alert Capture CTA */}
+          <AlertCaptureCta
+            pageContext="water-temp"
+            beachId={spots[0]?.id ?? ""}
+            beachName={cityName}
             source={`intent-water-temp-${citySlug}`}
             className="my-8"
           />
@@ -199,7 +200,13 @@ export function WaterTempPageContent({
       <CTASection />
 
       {/* Mobile Sticky Signup Bar */}
-      <StickySignupBar source={`intent-water-temp-${citySlug}`} />
+      <StickySignupBar
+        source={`intent-water-temp-${citySlug}`}
+        searchReferralCta={{
+          ctaText: "Wetsuit Alert",
+          supportingText: `Get gear recs for ${cityName}`,
+        }}
+      />
     </div>
   );
 }

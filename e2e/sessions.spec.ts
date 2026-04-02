@@ -91,7 +91,7 @@ test.describe('Sessions Page', () => {
     }
   });
 
-  test.fixme('should filter or sort sessions if available', async ({ page }) => {
-    // Filter/sort UI not yet built on sessions page
+  test('should filter or sort sessions if available', async ({ page }) => {
+    throw new Error('Not implemented: filter/sort UI not yet built on sessions page');
   });
 });

@@ -249,7 +249,7 @@ export async function waitForPageLoadWithErrorCheck(
     // Ignore timeout - some pages have long-polling
   });
 
-  // Small delay to let error UI render
+  // eslint-disable-next-line playwright/no-wait-for-timeout -- brief delay to let error UI render before assertion
   await page.waitForTimeout(500);
 
   await assertNoErrors(page, capture, { context });
@@ -288,7 +288,7 @@ export async function clickWithErrorCheck(
 
   await page.locator(selector).click({ timeout });
 
-  // Wait for any error UI to appear
+  // eslint-disable-next-line playwright/no-wait-for-timeout -- brief delay to let error UI render after click
   await page.waitForTimeout(500);
 
   await assertNoErrors(page, capture, { context: `After clicking ${description}` });

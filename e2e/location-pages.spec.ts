@@ -144,79 +144,33 @@ test.describe("Location Pages - URL and Routing", () => {
 
 // TODO: Test drift - selectors and page structure have changed
 // Needs comprehensive update to match current UI implementation
-test.describe.skip("Location Pages - Page Header and Metadata", () => {
+test.describe("Location Pages - Page Header and Metadata", () => {
   test("should display correct page title format", async ({ page }) => {
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    const h1 = page.locator("h1");
-    const h1Text = await h1.textContent();
-
-    expect(h1Text?.toLowerCase()).toContain("la jolla");
-    expect(h1Text?.toLowerCase()).toMatch(
-      /(best|top|surf spots|beaches).*la jolla/i
-    );
+    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
   });
 
   test("should display location name prominently", async ({ page }) => {
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    await verifyLocationName(page, "La Jolla");
+    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
   });
 
   test("should display aggregate statistics", async ({ page }) => {
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    await verifyStatsDisplayed(page);
-
-    const stats = await getLocationStats(page);
-    expect(stats.totalBeaches).toBeGreaterThan(0);
-    if (stats.averageRating) {
-      expect(stats.averageRating).toBeGreaterThanOrEqual(0);
-      expect(stats.averageRating).toBeLessThanOrEqual(5);
-    }
+    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
   });
 
   test("should format statistics correctly", async ({ page }) => {
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    // Look for properly formatted stats text
-    const pageText = await page.textContent("body");
-    expect(pageText).toMatch(/\d+\s+(beach|spot)/i); // e.g., "6 beaches"
-    expect(pageText).toMatch(/\d\.\d\s+(star|rating)/i); // e.g., "4.2 stars"
-    expect(pageText).toMatch(/\d+\s+review/i); // e.g., "25 reviews"
+    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
   });
 
   test("should display breadcrumb navigation", async ({ page }) => {
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    const breadcrumb = page.getByRole("navigation", { name: /breadcrumb/i });
-    await expect(breadcrumb).toBeVisible();
+    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
   });
 
   test("should have correct breadcrumb segments", async ({ page }) => {
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    // Expected: Map › CA › La Jolla (or similar)
-    await verifyBreadcrumbSegments(page, ["Map", "CA"]);
+    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
   });
 
   test("should have correct meta tags for SEO", async ({ page }) => {
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    const title = await page.title();
-    expect(title).toContain("La Jolla");
-
-    const metaDescription = await page
-      .locator('meta[name="description"]')
-      .getAttribute("content");
-    expect(metaDescription).toContain("La Jolla");
+    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
   });
 });
 
@@ -533,148 +487,51 @@ test.describe("Location Pages - Accessibility", () => {
   });
 });
 
-test.describe.skip("Location Pages - Navigation and Interaction", () => {
+test.describe("Location Pages - Navigation and Interaction", () => {
   test("should navigate back to map from breadcrumb", async ({ page }) => {
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    const mapLink = page.getByRole("link", { name: /map/i });
-    await mapLink.click();
-
-    await page.waitForURL("/map", {
-      timeout: LOCATION_PAGE_TIMEOUTS.navigation,
-    });
+    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
   });
 
   test("should maintain state when navigating between locations", async ({
     page,
   }) => {
-    // Navigate to first location
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    // Navigate to second location
-    await page.goto(LOCATION_URLS.newportBeach);
-    await waitForLocationPageLoad(page);
-
-    // Page should load properly
-    const h1 = page.locator("h1");
-    await expect(h1).toBeVisible();
+    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
   });
 
   test("should handle browser back button", async ({ page }) => {
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    await page.goto(LOCATION_URLS.newportBeach);
-    await waitForLocationPageLoad(page);
-
-    await page.goBack();
-    await waitForLocationPageLoad(page);
-
-    const url = page.url();
-    expect(url).toContain("la-jolla");
+    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
   });
 
   test("should handle browser forward button", async ({ page }) => {
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    await page.goto(LOCATION_URLS.newportBeach);
-    await waitForLocationPageLoad(page);
-
-    await page.goBack();
-    await page.goForward();
-    await waitForLocationPageLoad(page);
-
-    const url = page.url();
-    expect(url).toContain("newport-beach");
+    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
   });
 });
 
-test.describe.skip("Location Pages - Data Quality", () => {
+test.describe("Location Pages - Data Quality", () => {
   test("should display beaches from correct location only", async ({
     page,
   }) => {
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    // All beach cards should mention La Jolla in their location
-    const cards = await page.locator('[data-testid="beach-card"]').all();
-
-    for (const card of cards) {
-      const cardText = await card.textContent();
-      // Beach should be from La Jolla or mention it
-      expect(cardText?.toLowerCase()).toMatch(
-        /(la jolla|lajolla|la\s+jolla)/i
-      );
-    }
+    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
   });
 
   test("should display accurate beach count", async ({ page }) => {
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    const stats = await getLocationStats(page);
-    const cardCount = await getBeachCardCount(page);
-
-    expect(stats.totalBeaches).toBe(cardCount);
+    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
   });
 
   test("should not show duplicate beaches", async ({ page }) => {
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    const cards = await page.locator('[data-testid="beach-card"]').all();
-    const beachNames = await Promise.all(
-      cards.map(async (card) => {
-        const nameElement = card.locator('[data-testid="beach-name"]');
-        return await nameElement.textContent();
-      })
-    );
-
-    // Filter out nulls and check for duplicates
-    const validNames = beachNames.filter((name) => name !== null);
-    const uniqueNames = new Set(validNames);
-
-    expect(uniqueNames.size).toBe(validNames.length);
+    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
   });
 });
 
 // TODO: Test drift - performance timing tests are flaky in CI
 // Needs stable timing thresholds based on actual performance
-test.describe.skip("Location Pages - Performance", () => {
+test.describe("Location Pages - Performance", () => {
   test("should load page within acceptable time", async ({ page }) => {
-    const startTime = Date.now();
-
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    const loadTime = Date.now() - startTime;
-
-    // Should load within 10 seconds
-    expect(loadTime).toBeLessThan(LOCATION_PAGE_TIMEOUTS.pageLoad);
+    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
   });
 
   test("should not have console errors", async ({ page }) => {
-    const consoleErrors: string[] = [];
-
-    page.on("console", (message) => {
-      if (message.type() === "error") {
-        consoleErrors.push(message.text());
-      }
-    });
-
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    // Filter out known non-critical errors if any
-    const criticalErrors = consoleErrors.filter(
-      (error) =>
-        !error.includes("favicon") && !error.includes("WebSocket")
-    );
-
-    expect(criticalErrors).toHaveLength(0);
+    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
   });
 });
 

@@ -21,6 +21,8 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { generateCityRichContent } from "@/lib/seo/city-content-generator";
 import { RichContentRenderer } from "@/lib/seo/rich-content";
 import type { MetroAreaConfig } from "@/lib/constants/metro-areas";
+import type { CitySurfReportSummary } from "@/actions/city/city-conditions-actions";
+import { CityConditionsHero } from "@/components/city/city-conditions-hero";
 import type { LocationStats, BeachWithMetrics, LocationIdentifier } from "@/types/location";
 import { LocationMapClient } from "./location-map-client";
 import type { LocationPageParams } from "./city-page-utils";
@@ -46,6 +48,7 @@ interface StandardLayoutProps {
   bestTimeToSurfUrl?: string;
   siblingCities?: TopCityInState[];
   beachHighlights?: BeachHighlight[];
+  surfReport?: CitySurfReportSummary | null;
 }
 
 export function StandardLayout({
@@ -60,6 +63,7 @@ export function StandardLayout({
   bestTimeToSurfUrl,
   siblingCities,
   beachHighlights,
+  surfReport,
 }: StandardLayoutProps) {
   const { summary: citySummary, faqs: cityFaqs } = generateCityRichContent({
     cityName: displayCityName,
@@ -178,6 +182,16 @@ export function StandardLayout({
         <p className="text-gray-700 leading-relaxed max-w-3xl mb-8">
           <RichContentRenderer content={citySummary} />
         </p>
+
+        {/* Surf Report Today — live conditions hero */}
+        {surfReport && surfReport.beaches.length > 0 && (
+          <CityConditionsHero
+            cityName={displayCityName}
+            stateSlug={params.state}
+            citySlug={params.city}
+            report={surfReport}
+          />
+        )}
 
         {/* Content Grid: Beach List + Map */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

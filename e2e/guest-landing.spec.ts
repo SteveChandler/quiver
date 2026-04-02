@@ -78,7 +78,7 @@ test.describe('Guest Landing Page', () => {
   });
 
   test('should open auth modal when clicking signup', async ({ page }) => {
-    const signupButton = page.getByRole('button', { name: /sign up|get started|check your forecast/i }).first();
+    const signupButton = page.getByRole('button', { name: /sign up|get started|check your forecast|start surfing smarter/i }).first();
     const isVisible = await isVisibleSafe(signupButton);
 
     if (!isVisible) {

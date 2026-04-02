@@ -5,7 +5,7 @@ import { FAQSection } from "@/components/seo/faq-schema";
 import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
 import { CityMapView } from "@/components/city/city-map-view";
 import { CTASection } from "@/components/landing-page/cta-section";
-import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { SurfSpot } from "@/lib/data/surf-spots";
 import type { CitySunTimesData } from "@/actions/forecast/intent-forecast-actions";
@@ -116,10 +116,11 @@ export function SunsetPageContent({
           {/* Module 2: 7-day sun schedule */}
           <SevenDaySunTimesTable days={sunTimesData.sevenDayTimes} />
 
-          {/* Inline Signup CTA */}
-          <InlineSignupCta
-            title={`Catch Every Golden Hour in ${cityName}`}
-            description="Get sunset alerts and evening surf conditions delivered to your inbox."
+          {/* Alert Capture CTA */}
+          <AlertCaptureCta
+            pageContext="sunset"
+            beachId={spots[0]?.id ?? ""}
+            beachName={cityName}
             source={`intent-sunset-${citySlug}`}
             className="my-8"
           />

@@ -76,8 +76,11 @@ test.describe('Session Form - Plan Mode', () => {
     await expect(beachInput).toBeVisible({ timeout: 10000 });
 
     await beachInput.fill('Black');
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for search input debounce
-    await page.waitForTimeout(1000);
+    // Wait for search debounce and results
+    await page.waitForResponse(
+      (resp) => resp.url().includes('/api/beaches/search') || resp.url().includes('/api/beaches'),
+      { timeout: 10000 }
+    ).catch(() => {});
 
     // Should show beach suggestions in the dropdown list
     const beachOption = page.getByText(/black/i).first();
@@ -190,7 +193,7 @@ test.describe('Session Form - Log Mode', () => {
     //
     // SessionSlider renders a Radix SliderPrimitive which exposes role="slider".
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- allow lazy rendering after scroll
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- allow lazy rendering after scroll-to-bottom
     await page.waitForTimeout(500);
 
     const sliders = page.getByRole('slider');
@@ -283,8 +286,11 @@ test.describe('Session Form - Complete Flow', () => {
     await expect(beachInput).toBeVisible({ timeout: 10000 });
 
     await beachInput.fill('Black');
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for search input debounce
-    await page.waitForTimeout(1000);
+    // Wait for search debounce and results
+    await page.waitForResponse(
+      (resp) => resp.url().includes('/api/beaches/search') || resp.url().includes('/api/beaches'),
+      { timeout: 10000 }
+    ).catch(() => {});
 
     // Select first beach option from dropdown
     const beachSelectorRoot = beachInput.locator('..');
@@ -406,8 +412,11 @@ test.describe('Session Form - Forecast Snapshot Creation', () => {
 
     if (hasBeachInput) {
       await beachInput.fill('Black');
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for search input debounce
-      await page.waitForTimeout(1000);
+      // Wait for search debounce and results
+      await page.waitForResponse(
+        (resp) => resp.url().includes('/api/beaches/search') || resp.url().includes('/api/beaches'),
+        { timeout: 10000 }
+      ).catch(() => {});
 
       const beachSelectorRoot = beachInput.locator('..');
       const beachOption = beachSelectorRoot.locator('ul').locator('button').filter({ hasText: /black/i }).first();
@@ -415,8 +424,6 @@ test.describe('Session Form - Forecast Snapshot Creation', () => {
 
       if (hasOption) {
         await beachOption.click();
-        // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for beach selection to apply
-        await page.waitForTimeout(500);
       }
     } else {
       // QuickLogView auto-detected a beach — confirm if prompted

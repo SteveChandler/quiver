@@ -521,6 +521,48 @@ const verification = await verifyLoggedInAsPersona(page, 'rookie');
 expect(verification.isCorrectPersona).toBe(true);
 ```
 
+### API Response Waiting
+
+**Location:** `e2e/utils/test-helpers.ts`
+
+Use `waitForApiResponse` instead of `waitForTimeout` when waiting for debounced or async API calls:
+
+```typescript
+import { waitForApiResponse } from './utils/test-helpers';
+
+// Sets up waitForResponse BEFORE the action, then awaits both
+await waitForApiResponse(page, '/api/surf/discover', async () => {
+  await filterButton.click();
+});
+
+// With regex pattern
+await waitForApiResponse(page, /\/api\/beaches\/search/, async () => {
+  await searchInput.fill('Ocean Beach');
+});
+```
+
+For direct use without the helper (e.g., when the response isn't guaranteed):
+
+```typescript
+const responsePromise = page.waitForResponse(
+  resp => resp.url().includes('/api/profile') && resp.status() === 200,
+  { timeout: 15000 }
+);
+await saveButton.click();
+await responsePromise;
+```
+
+### Infrastructure Tests (@infra)
+
+Tests requiring infrastructure not available locally (Firebase FCM, rate limiting middleware, network simulation) are tagged `@infra` in their describe block name. They are excluded by default via `grepInvert` in `playwright.config.ts`.
+
+To run infrastructure tests:
+```bash
+RUN_INFRA_TESTS=true npx playwright test --grep @infra
+```
+
+Files with `@infra` tests: `push-notifications.spec.ts`, `rate-limiting.spec.ts`, `error-boundaries.spec.ts`.
+
 ---
 
 ## Testing Patterns

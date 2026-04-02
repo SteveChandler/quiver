@@ -175,8 +175,8 @@ test.describe("Push Notification Deeplink Routing", () => {
     await page.goto("/beach/ocean-beach");
     await waitForPageLoad(page);
 
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for forecast data to load
-    await page.waitForTimeout(2000);
+    // Wait for page content to render
+    await page.locator('h1').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
     // Check if page has loaded content (either forecast or placeholder)
     const hasContent =

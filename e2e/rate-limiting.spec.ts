@@ -15,7 +15,11 @@ const BASE_URL =
 
 // TODO: Rate limiting tests require rate limiting middleware to be enabled locally
 // Skip in local dev - run in CI/staging where rate limiting is configured
-test.describe.skip("API Rate Limiting", () => {
+test.describe("API Rate Limiting @infra", () => {
+  test.beforeEach(async () => {
+    test.skip(process.env.RUN_INFRA_TESTS !== 'true', 'Requires infrastructure: rate limiting middleware');
+  });
+
   test.describe("Image Proxy Rate Limiting (CRITICAL)", () => {
     test("should rate limit image proxy requests", async ({ request }) => {
       const imageUrl = encodeURIComponent(

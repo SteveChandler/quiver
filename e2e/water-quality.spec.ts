@@ -45,8 +45,7 @@ test.describe('Water Quality Badge - graceful absence', () => {
     const isTabVisible = await isVisibleSafe(overviewTab, { timeout: 10000 });
     if (isTabVisible) {
       await overviewTab.click();
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab panel transition
-      await page.waitForTimeout(500);
+      await page.getByRole('tabpanel').first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
     }
   });
 
@@ -94,8 +93,7 @@ test.describe('Water Quality Badge - graceful absence', () => {
     const isTabVisible = await isVisibleSafe(overviewTab, { timeout: 5000 });
     if (isTabVisible) {
       await overviewTab.click();
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab panel transition
-      await page.waitForTimeout(300);
+      await page.getByRole('tabpanel').first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
     }
 
     const wqTitle = page.getByText('Water Quality').first();
@@ -151,8 +149,7 @@ test.describe('Water Quality Badge - card rendering when data is present', () =>
     const isTabVisible = await isVisibleSafe(overviewTab, { timeout: 10000 });
     if (isTabVisible) {
       await overviewTab.click();
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab panel transition
-      await page.waitForTimeout(500);
+      await page.getByRole('tabpanel').first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
     }
 
     // Workaround: Next.js dev server can serve stale SSR responses that
@@ -167,8 +164,7 @@ test.describe('Water Quality Badge - card rendering when data is present', () =>
       const tabVisible = await isVisibleSafe(overviewTabAfterReload, { timeout: 10000 });
       if (tabVisible) {
         await overviewTabAfterReload.click();
-        // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab panel transition
-        await page.waitForTimeout(500);
+        await page.getByRole('tabpanel').first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
       }
     }
   });
@@ -224,8 +220,7 @@ test.describe('Water Quality Badge - card rendering when data is present', () =>
 
     const toggleButton = page.locator('button[aria-label*="Click to"][aria-label*="details"]').first();
     await toggleButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for expand animation to settle
-    await page.waitForTimeout(300);
+    await expect(toggleButton).toHaveAttribute('aria-expanded', 'true', { timeout: 3000 });
 
     const disclaimer = page.getByText(/Data may be 1.{1,3}5 days delayed/i).first();
     await expect(disclaimer).toBeVisible({ timeout: 3000 });
@@ -237,8 +232,7 @@ test.describe('Water Quality Badge - card rendering when data is present', () =>
 
     const toggleButton = page.locator('button[aria-label*="Click to"][aria-label*="details"]').first();
     await toggleButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for expand animation
-    await page.waitForTimeout(300);
+    await expect(toggleButton).toHaveAttribute('aria-expanded', 'true', { timeout: 3000 });
 
     const sourceLink = page.getByRole('link', { name: /Source:.*(?:CEDEN|Clean Water Branch)/i });
     await expect(sourceLink).toBeVisible({ timeout: 3000 });

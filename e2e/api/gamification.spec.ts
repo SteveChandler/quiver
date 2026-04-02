@@ -409,9 +409,8 @@ test.describe('Gamification API', () => {
         });
 
         // TODO: Test drift - POST endpoint may not exist or returns different status
-        test.fixme('POST should require authentication', async ({ playwright }, testInfo) => {
-          // Missing auth check in backend — POST endpoint may not exist or returns wrong status
-          // Needs backend fix before this test can be enabled
+        test('POST should require authentication', async ({ playwright }, testInfo) => {
+          throw new Error('Not implemented: POST endpoint may not exist or returns wrong status');
         });
       });
     });

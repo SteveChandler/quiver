@@ -15,6 +15,8 @@ export interface PendingAction {
   beachId: string;
   beachName: string;
   timestamp: number;
+  /** Preset type key for alert auto-creation after signup (avoids circular dep on PresetType) */
+  presetType?: string;
 }
 
 interface UsePendingActionReturn {

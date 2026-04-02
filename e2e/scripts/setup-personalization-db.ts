@@ -223,6 +223,7 @@ async function main() {
 
         // Small delay between sessions to avoid rate limiting
         if (i < SESSION_PLAN.length - 1) {
+          // eslint-disable-next-line playwright/no-wait-for-timeout -- rate limit backoff between session creations
           await page.waitForTimeout(1500);
         }
       } catch (error) {

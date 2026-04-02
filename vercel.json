@@ -140,6 +140,10 @@
     {
       "path": "/api/cron/condition-alert-deliver",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/indexnow-submit",
+      "schedule": "0 6 * * 1"
     }
   ]
 }

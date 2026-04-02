@@ -296,8 +296,7 @@ test.describe('Home Page - Layout', () => {
             } else {
               await page.keyboard.press('Escape');
             }
-            // eslint-disable-next-line playwright/no-wait-for-timeout -- wait for dialog to close
-            await page.waitForTimeout(300);
+            await page.locator('[role="dialog"]').first().waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
           }
 
           const urlBefore = page.url();

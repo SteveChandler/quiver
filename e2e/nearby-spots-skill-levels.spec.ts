@@ -51,8 +51,8 @@ test.describe('Nearby Spots Skill Levels', () => {
 
     // Scroll heading into view to ensure cards are rendered
     await nearbyHeading.scrollIntoViewIfNeeded();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- wait for cards to hydrate
-    await page.waitForTimeout(2000);
+    // Wait for nearby spot cards to render after scroll
+    await page.locator('[data-testid="surf-spot-card"], [class*="SurfSpotCard"]').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
     // Get the full text content of the nearby section and look for skill levels.
     // SurfSpotCard renders skill levels as text spans like "Advanced", "Intermediate", etc.

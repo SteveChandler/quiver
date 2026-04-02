@@ -9,9 +9,10 @@ import type {
 import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSection } from "@/components/seo/faq-schema";
+import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
 import { CTASection } from "@/components/landing-page/cta-section";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
-import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
 import { BeginnerHero } from "./BeginnerHero";
 import { RightNowConditions } from "./RightNowConditions";
 import { BeginnerSpotList } from "./BeginnerSpotList";
@@ -54,28 +55,12 @@ export function BeginnerPageContent({
   bestTimeToSurfUrl,
   excludeIntents,
 }: BeginnerPageContentProps) {
-  const faqItems = [
-    {
-      question: `What size waves are good for beginners in ${cityName}?`,
-      answer: `1-3 foot waves are ideal for beginners in ${cityName}. Most beginner spots here consistently have these conditions, especially during summer months.`,
-    },
-    {
-      question: `Do I need a wetsuit to surf in ${cityName}?`,
-      answer: `It depends on the season. Water temperatures in ${cityName} range throughout the year. Check the current conditions above for today's water temperature and wetsuit recommendation.`,
-    },
-    {
-      question: `Where can I take surf lessons in ${cityName}?`,
-      answer: `${cityName} has multiple surf schools operating at beginner-friendly beaches. Look for schools near the top-rated beginner spots listed above.`,
-    },
-    {
-      question: `What is the best time of year to learn to surf in ${cityName}?`,
-      answer: `Summer typically offers the most beginner-friendly conditions in ${cityName} with smaller, cleaner waves and warmer water. Spring and fall can also be good on smaller swell days.`,
-    },
-    {
-      question: `What board should I use as a beginner in ${cityName}?`,
-      answer: `Start with a soft-top foam board, 8-9 feet long for adults. These boards provide maximum stability and are forgiving for learning. Most rental shops near ${cityName} beaches carry them.`,
-    },
-  ];
+  const faqItems = generateIntentFAQ(
+    "beginner",
+    cityName,
+    beaches.slice(0, 3).map((b) => b.name),
+    stateSlug
+  );
 
   return (
     <div className="bg-gradient-to-b from-white via-gray-50/30 to-white">
@@ -131,11 +116,12 @@ export function BeginnerPageContent({
             <BeginnerSpotList cityName={cityName} stateSlug={stateSlug} citySlug={citySlug} beaches={beaches} />
           </SectionFadeUp>
 
-          {/* Inline Signup CTA */}
+          {/* Alert Capture CTA */}
           <SectionFadeUp delay={0.1}>
-            <InlineSignupCta
-              title={`Track Your ${cityName} Sessions`}
-              description="Log your sessions, save your favorite breaks, and get personalized spot recommendations."
+            <AlertCaptureCta
+              pageContext="beginner"
+              beachId={beaches[0]?.id ?? ""}
+              beachName={cityName}
               source={`intent-beginner-${citySlug}`}
               className="my-8"
             />
@@ -208,7 +194,13 @@ export function BeginnerPageContent({
       </div>
 
       <CTASection />
-      <StickySignupBar source={`intent-beginner-${citySlug}`} />
+      <StickySignupBar
+        source={`intent-beginner-${citySlug}`}
+        searchReferralCta={{
+          ctaText: "Mellow Session Alerts",
+          supportingText: "Get notified when conditions are gentle",
+        }}
+      />
     </div>
   );
 }

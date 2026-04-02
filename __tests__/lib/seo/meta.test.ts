@@ -650,14 +650,29 @@ describe("SEO Meta Builder", () => {
       state: "CA",
     };
 
-    describe("title — query-matching framing (tide chart)", () => {
-      it("should contain 'Tide Chart' and beach name in title (tier 1)", () => {
+    describe("title — query-match anchor + planning signal (v4)", () => {
+      it("should contain 'Tide Chart' query-match anchor in title", () => {
+        const result = buildDynamicTideMetadata({
+          beach: mockBeach,
+          tideData: { nextHighTime: "2:30 PM", nextLowTime: "8:45 AM" },
+        });
+        expect(result.title).toContain("Tide Chart");
+      });
+
+      it("should contain beach name in title", () => {
         const result = buildDynamicTideMetadata({
           beach: mockBeach,
           tideData: { nextHighTime: "2:30 PM", nextLowTime: "8:45 AM" },
         });
         expect(result.title).toContain("Ocean Beach");
-        expect(result.title).toContain("Tide Chart");
+      });
+
+      it("should contain planning signal 'When to Surf' with em dash", () => {
+        const result = buildDynamicTideMetadata({
+          beach: mockBeach,
+          tideData: null,
+        });
+        expect(result.title).toContain("\u2014 When to Surf");
       });
 
       it("should NOT put raw tide times in title (avoids giving away the answer Google shows)", () => {
@@ -680,7 +695,6 @@ describe("SEO Meta Builder", () => {
           beach: mockBeach,
           tideData: null,
         });
-        // "Ocean Beach Tide Chart & Surf Windows | Mar 2026" — month+year suffix present
         expect(result.title).toMatch(/\|\s+\w+ \d{4}$/);
       });
 
@@ -696,31 +710,35 @@ describe("SEO Meta Builder", () => {
         expect(withData.title).toBe(withoutData.title);
       });
 
-      it("long beach name falls back to tier 2 (no date)", () => {
+      it("long beach name falls back to tier 3 (no date, no planning signal)", () => {
         const longBeach = { name: "Super Long Beach Name That Goes On And On Forever" };
         const result = buildDynamicTideMetadata({ beach: longBeach, tideData: null });
-        // tier 1 with date exceeds 60 chars; tier 2 without date is also too long here — truncated tier 3
         expect(result.title.length).toBeLessThanOrEqual(60);
-        // Should not contain the date token when name is very long
         expect(result.title).not.toMatch(/\|\s+\w+ \d{4}$/);
       });
 
       it("medium-length beach name gets tier 2 (no date) when tier 1 exceeds 60 chars", () => {
-        // Use a beach name where tier1 > 60 but tier2 <= 60
-        const mediumBeach = { name: "Rincon De La Paloma Que Es Larga" };
-        const tier1 = `${mediumBeach.name} Tide Chart & Surf Windows | Mar 2026`;
-        const tier2 = `${mediumBeach.name} Tide Chart & Surf Windows`;
+        const mediumBeach = { name: "Rincon De La Paloma" };
+        const tier1 = `${mediumBeach.name} Tide Chart \u2014 When to Surf | Apr 2026`;
+        const tier2 = `${mediumBeach.name} Tide Chart \u2014 When to Surf`;
         if (tier1.length > 60 && tier2.length <= 60) {
           const result = buildDynamicTideMetadata({ beach: mediumBeach, tideData: null });
           expect(result.title).toBe(tier2);
         } else {
-          // Beach name chosen doesn't exercise tier 2 — pass trivially to avoid flakiness
           expect(true).toBe(true);
         }
       });
     });
 
-    describe("description — includes tide data for relevance signals", () => {
+    describe("description — question-leading format with tide data", () => {
+      it("should lead description with unanswerable question", () => {
+        const result = buildDynamicTideMetadata({
+          beach: mockBeach,
+          tideData: { nextHighTime: "2:30 PM", nextLowTime: "8:45 AM" },
+        });
+        expect(result.description).toMatch(/^Is incoming or outgoing tide better for/);
+      });
+
       it("should include both tide times in description when available", () => {
         const result = buildDynamicTideMetadata({
           beach: mockBeach,
@@ -744,7 +762,7 @@ describe("SEO Meta Builder", () => {
         expect(result.description).toContain("0.8ft");
       });
 
-      it("should lead description with 'Interactive tide chart' value proposition", () => {
+      it("should mention surf windows and sweet spots", () => {
         const result = buildDynamicTideMetadata({
           beach: mockBeach,
           tideData: {
@@ -754,8 +772,8 @@ describe("SEO Meta Builder", () => {
             nextLowHeight: 0.8,
           },
         });
-        expect(result.description).toContain("Interactive tide chart");
-        expect(result.description).toContain("surf windows");
+        expect(result.description).toContain("Surf windows");
+        expect(result.description).toContain("sweet spots");
       });
 
       it("should use 7-day outlook fallback description when no tide data", () => {
@@ -763,9 +781,17 @@ describe("SEO Meta Builder", () => {
           beach: mockBeach,
           tideData: null,
         });
-        expect(result.description).toContain("Interactive tide chart");
+        expect(result.description).toMatch(/^Is incoming or outgoing tide better for/);
         expect(result.description).toContain("7-day outlook");
-        expect(result.description).toContain("best-time-to-go");
+        expect(result.description).toContain("surf windows");
+      });
+
+      it("description length never exceeds 160 chars", () => {
+        const result = buildDynamicTideMetadata({
+          beach: { name: "A Very Long Named Surf Beach Near The Pier And The Boardwalk" },
+          tideData: { nextHighTime: "2:30 PM", nextLowTime: "8:45 AM", nextHighHeight: 5.2, nextLowHeight: 0.8 },
+        });
+        expect(result.description.length).toBeLessThanOrEqual(160);
       });
     });
 
@@ -813,14 +839,29 @@ describe("SEO Meta Builder", () => {
       state: "CA",
     };
 
-    describe("title — query-matching framing (water temp)", () => {
-      it("should contain 'Water Temp' and beach name in title (tier 1)", () => {
+    describe("title — query-match anchor + planning signal (v4)", () => {
+      it("should contain 'Water Temp' query-match anchor in title", () => {
+        const result = buildDynamicWaterTempMetadata({
+          beach: mockBeach,
+          waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
+        });
+        expect(result.title).toContain("Water Temp");
+      });
+
+      it("should contain beach name in title", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
         });
         expect(result.title).toContain("Ocean Beach");
-        expect(result.title).toContain("Water Temp");
+      });
+
+      it("should contain planning signal 'What Wetsuit Today' with em dash", () => {
+        const result = buildDynamicWaterTempMetadata({
+          beach: mockBeach,
+          waterTempData: null,
+        });
+        expect(result.title).toContain("\u2014 What Wetsuit Today");
       });
 
       it("should NOT put raw temperature in title (avoids giving away answer Google shows)", () => {
@@ -838,7 +879,6 @@ describe("SEO Meta Builder", () => {
           beach: mockBeach,
           waterTempData: null,
         });
-        // "Ocean Beach Water Temp & Wetsuit Guide | Mar 2026" — month+year suffix present
         expect(result.title).toMatch(/\|\s+\w+ \d{4}$/);
       });
 
@@ -865,15 +905,13 @@ describe("SEO Meta Builder", () => {
           waterTempData: null,
         });
         expect(result.title.length).toBeLessThanOrEqual(60);
-        // Should not have date or question mark from tier 1/2 when name is too long
         expect(result.title).not.toMatch(/\|\s+\w+ \d{4}$/);
       });
 
       it("medium-length beach name gets tier 2 (no date) when tier 1 exceeds 60 chars", () => {
-        // Use a beach name where tier1 > 60 but tier2 <= 60
         const mediumBeach = { name: "La Jolla Shores At The Cove" };
-        const tier1 = `${mediumBeach.name} Water Temp & Wetsuit Guide | Mar 2026`;
-        const tier2 = `${mediumBeach.name} Water Temp & Wetsuit Guide`;
+        const tier1 = `${mediumBeach.name} Water Temp \u2014 What Wetsuit Today | Apr 2026`;
+        const tier2 = `${mediumBeach.name} Water Temp \u2014 What Wetsuit Today`;
         if (tier1.length > 60 && tier2.length <= 60) {
           const result = buildDynamicWaterTempMetadata({ beach: mediumBeach, waterTempData: null });
           expect(result.title).toBe(tier2);
@@ -883,22 +921,29 @@ describe("SEO Meta Builder", () => {
       });
     });
 
-    describe("description — consistent value proposition pattern", () => {
-      it("should include wetsuit recommendations in description", () => {
+    describe("description — question-leading format with temp data", () => {
+      it("should lead description with unanswerable question", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
         });
-        expect(result.description).toContain("wetsuit recommendations");
+        expect(result.description).toMatch(/^What wetsuit for/);
       });
 
-      it("should mention seasonal trends and real-time buoy data", () => {
+      it("should include current temp in description when available", () => {
+        const result = buildDynamicWaterTempMetadata({
+          beach: mockBeach,
+          waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
+        });
+        expect(result.description).toContain("64°F");
+      });
+
+      it("should mention seasonal trends", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
         });
         expect(result.description).toContain("seasonal trends");
-        expect(result.description).toContain("real-time buoy data");
       });
 
       it("should include beach name in description", () => {
@@ -917,17 +962,21 @@ describe("SEO Meta Builder", () => {
         expect(result.description.length).toBeLessThanOrEqual(160);
       });
 
-      it("description is consistent with or without live data", () => {
-        const withData = buildDynamicWaterTempMetadata({
-          beach: mockBeach,
-          waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
-        });
-        const withoutData = buildDynamicWaterTempMetadata({
+      it("description without data still leads with question and mentions session gear", () => {
+        const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: null,
         });
-        expect(withData.description).toContain("wetsuit recommendations");
-        expect(withoutData.description).toContain("wetsuit recommendations");
+        expect(result.description).toMatch(/^What wetsuit for/);
+        expect(result.description).toContain("Plan your session gear");
+      });
+
+      it("description with data mentions NOAA buoys", () => {
+        const result = buildDynamicWaterTempMetadata({
+          beach: mockBeach,
+          waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
+        });
+        expect(result.description).toContain("NOAA buoys");
       });
     });
 

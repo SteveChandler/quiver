@@ -38,6 +38,7 @@ import { DataErrorBoundary } from "@/components/error-boundaries";
 // PersonalizedForecastTeaser and useAuth removed — Phase 1A CTA reduction.
 import { TideStatusStrip } from "@/components/beach-detail/tide-status-strip";
 import { TideChartSection } from "@/components/beach-detail/tide-chart-section";
+import { TextureOverlay } from "@/components/ui/texture-overlay";
 
 const ConditionsOverview = dynamic(
   () =>
@@ -339,13 +340,14 @@ export function ForecastTab({
         <TabsContent value="today" className="space-y-6 mt-6">
           {/* Current Forecast Snapshot */}
           {currentForecast && (
-            <section className="rounded-3xl border border-blue-100/60 bg-white/95 p-4 md:p-6 shadow-lg backdrop-blur">
+            <section className="rounded-2xl border border-white/10 bg-[#141937] p-4 md:p-6 shadow-lg relative overflow-hidden">
+              <TextureOverlay variant="topo" />
               <div className="flex flex-col gap-6">
                 <div className="flex flex-wrap items-center justify-between gap-4">
-                  <h2 className="text-xl font-heading font-semibold text-dark-grey">
+                  <h2 className="text-xl font-heading font-semibold text-white/90 relative">
                     Current Conditions
                   </h2>
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-white/60 relative">
                     Right now
                   </span>
                 </div>
@@ -356,50 +358,50 @@ export function ForecastTab({
                 )}
 
                 <div className="grid grid-cols-3 gap-2 sm:gap-4 md:gap-6">
-                  <div className="flex flex-col items-center gap-1 sm:gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-ocean-blue/5 to-white p-3 sm:p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex h-10 w-10 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-ocean-blue/10 sm:order-last">
-                      <TideIcon className="h-5 w-5 sm:h-8 sm:w-8 text-ocean-blue" />
+                  <div className="flex flex-col items-center gap-1 sm:gap-4 rounded-[8px_16px_16px_8px] border-l-[3px] border-l-[#F78E42] bg-[#141937] p-3 sm:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.25)] sm:flex-row sm:items-center sm:justify-between relative">
+                    <div className="flex h-10 w-10 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-[rgba(247,142,66,0.1)] border border-[rgba(247,142,66,0.15)] sm:order-last">
+                      <TideIcon className="h-5 w-5 sm:h-8 sm:w-8 text-[#F78E42]" />
                     </div>
                     <div className="text-center sm:text-left sm:flex-1">
-                      <div className="text-[10px] sm:text-xs uppercase tracking-wider sm:tracking-[0.2em] text-ocean-blue">
+                      <div className="text-xs uppercase tracking-wider sm:tracking-[0.2em] text-[#FFA559]">
                         Tide
                       </div>
-                      <div className="mt-0.5 sm:mt-2 text-base sm:text-2xl font-bold text-dark-grey">
+                      <div className="mt-0.5 sm:mt-2 text-base sm:text-2xl font-bold text-white">
                         {getCurrentTideDisplay()}
                       </div>
-                      <div className="hidden sm:block text-sm text-muted-foreground">
+                      <div className="hidden sm:block text-sm text-white/60">
                         Next: {heroNextTideType} @ {getNextTideTimeDisplay()}
                       </div>
                     </div>
                   </div>
-                  <div className="flex flex-col items-center gap-1 sm:gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-100/40 to-white p-3 sm:p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex h-10 w-10 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-ocean-blue/10 sm:order-last">
-                      <Wind className="h-5 w-5 sm:h-8 sm:w-8 text-ocean-blue" />
+                  <div className="flex flex-col items-center gap-1 sm:gap-4 rounded-[8px_16px_16px_8px] border-l-[3px] border-l-[#6CB4EE] bg-[#141937] p-3 sm:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.25)] sm:flex-row sm:items-center sm:justify-between relative">
+                    <div className="flex h-10 w-10 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-[rgba(108,180,238,0.1)] border border-[rgba(108,180,238,0.15)] sm:order-last">
+                      <Wind className="h-5 w-5 sm:h-8 sm:w-8 text-[#6CB4EE]" />
                     </div>
                     <div className="text-center sm:text-left sm:flex-1">
-                      <div className="text-[10px] sm:text-xs uppercase tracking-wider sm:tracking-[0.2em] text-ocean-blue">
+                      <div className="text-xs uppercase tracking-wider sm:tracking-[0.2em] text-[#8DC8F5]">
                         Wind
                       </div>
-                      <div className="mt-0.5 sm:mt-2 text-base sm:text-2xl font-bold text-dark-grey">
+                      <div className="mt-0.5 sm:mt-2 text-base sm:text-2xl font-bold text-white">
                         {currentForecast?.wind_speed ?? "—"}
                       </div>
-                      <div className="text-xs sm:text-sm text-muted-foreground uppercase">
+                      <div className="text-xs sm:text-sm text-white/60 uppercase">
                         {currentForecast?.wind_direction ?? "—"}
                       </div>
                     </div>
                   </div>
-                  <div className="flex flex-col items-center gap-1 sm:gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-100/30 to-white p-3 sm:p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex h-10 w-10 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-ocean-blue/10 sm:order-last">
-                      <Waves className="h-5 w-5 sm:h-8 sm:w-8 text-ocean-blue" />
+                  <div className="flex flex-col items-center gap-1 sm:gap-4 rounded-[8px_16px_16px_8px] border-l-[3px] border-l-[#FDB84B] bg-[#141937] p-3 sm:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.25)] sm:flex-row sm:items-center sm:justify-between relative">
+                    <div className="flex h-10 w-10 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-[rgba(253,184,75,0.1)] border border-[rgba(253,184,75,0.15)] sm:order-last">
+                      <Waves className="h-5 w-5 sm:h-8 sm:w-8 text-[#FDB84B]" />
                     </div>
                     <div className="text-center sm:text-left sm:flex-1">
-                      <div className="text-[10px] sm:text-xs uppercase tracking-wider sm:tracking-[0.2em] text-ocean-blue">
+                      <div className="text-xs uppercase tracking-wider sm:tracking-[0.2em] text-[#FDCA7B]">
                         Swell
                       </div>
-                      <div className="mt-0.5 sm:mt-2 text-base sm:text-2xl font-bold text-dark-grey">
+                      <div className="mt-0.5 sm:mt-2 text-base sm:text-2xl font-bold text-white">
                         {heroWaveHeight} ft
                       </div>
-                      <div className="text-xs sm:text-sm text-muted-foreground">
+                      <div className="text-xs sm:text-sm text-white/60">
                         {snapshotSwellDetails}
                       </div>
                     </div>
@@ -409,33 +411,33 @@ export function ForecastTab({
                 {/* Secondary Conditions */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 mt-3 sm:mt-4">
                   {/* Swell Direction */}
-                  <div className="rounded-xl bg-gray-50/80 p-2 sm:p-3 border border-gray-100">
-                    <div className="text-xs text-muted-foreground mb-1">Swell Direction</div>
-                    <div className="text-sm font-semibold text-dark-grey">
+                  <div className="rounded-xl bg-white/5 p-2 sm:p-3 border border-white/10 relative">
+                    <div className="text-xs text-white/60 mb-1">Swell Direction</div>
+                    <div className="text-sm font-semibold text-white">
                       {currentForecast?.swell_1_direction ?? "—"}
                     </div>
                   </div>
 
                   {/* Water Temp */}
-                  <div className="rounded-xl bg-gray-50/80 p-2 sm:p-3 border border-gray-100">
-                    <div className="text-xs text-muted-foreground mb-1">Water Temp</div>
-                    <div className="text-sm font-semibold text-dark-grey">
+                  <div className="rounded-xl bg-white/5 p-2 sm:p-3 border border-white/10 relative">
+                    <div className="text-xs text-white/60 mb-1">Water Temp</div>
+                    <div className="text-sm font-semibold text-white">
                       {currentForecast?.water_temp ? `${String(currentForecast.water_temp).replace(/°F$/, "")}°F` : "—"}
                     </div>
                   </div>
 
                   {/* Next Tide */}
-                  <div className="rounded-xl bg-gray-50/80 p-2 sm:p-3 border border-gray-100">
-                    <div className="text-xs text-muted-foreground mb-1">Next Tide</div>
-                    <div className="text-sm font-semibold text-dark-grey">
+                  <div className="rounded-xl bg-white/5 p-2 sm:p-3 border border-white/10 relative">
+                    <div className="text-xs text-white/60 mb-1">Next Tide</div>
+                    <div className="text-sm font-semibold text-white">
                       {heroNextTideType} @ {getNextTideTimeDisplay()}
                     </div>
                   </div>
 
                   {/* Sunrise/Sunset */}
-                  <div className="rounded-xl bg-gray-50/80 p-2 sm:p-3 border border-gray-100">
-                    <div className="text-xs text-muted-foreground mb-1">Daylight</div>
-                    <div className="text-sm font-semibold text-dark-grey">
+                  <div className="rounded-xl bg-white/5 p-2 sm:p-3 border border-white/10 relative">
+                    <div className="text-xs text-white/60 mb-1">Daylight</div>
+                    <div className="text-sm font-semibold text-white">
                       {sunrise && sunset
                         ? `${formatSunTime(sunrise)} - ${formatSunTime(sunset)}`
                         : "—"}

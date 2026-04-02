@@ -220,14 +220,14 @@ async function getLocationRoutes(validCitySlugs: Set<string>): Promise<MetadataR
         {
           url: `${baseUrl}/hi/waimea-kauai`,
           lastModified: locationPageDate,
-          changeFrequency: "weekly",
-          priority: 0.75,
+          changeFrequency: "hourly",
+          priority: 0.85,
         },
         {
           url: `${baseUrl}/hi/waimea-big-island`,
           lastModified: locationPageDate,
-          changeFrequency: "weekly",
-          priority: 0.75,
+          changeFrequency: "hourly",
+          priority: 0.85,
         }
       );
       continue;
@@ -257,8 +257,8 @@ async function getLocationRoutes(validCitySlugs: Set<string>): Promise<MetadataR
         locationRoutes.push({
           url: `${baseUrl}/${stateSlug}/${citySlug}`,
           lastModified: locationPageDate,
-          changeFrequency: "weekly",
-          priority: 0.75,
+          changeFrequency: "hourly",
+          priority: 0.85,
         });
       }
     } else {

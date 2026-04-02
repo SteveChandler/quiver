@@ -501,7 +501,7 @@ export async function signInTestUser(
 
   if (emailButtonVisible) {
     await emailButton.click();
-    await page.waitForTimeout(1000);
+    await page.getByPlaceholder(/email/i).waitFor({ state: 'visible', timeout: 5000 });
     console.log('[Profile Helper] Clicked "Continue with Email"');
   }
 
