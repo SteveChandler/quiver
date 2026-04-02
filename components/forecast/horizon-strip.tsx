@@ -87,7 +87,7 @@ function DayCard({
         // Transitions
         "transition-all duration-200 ease-out",
         // Entry animation
-        "animate-container-fade-slide-up",
+        "animate-container-fade-slide-up motion-reduce:animate-none",
         // Selected state
         isSelected && [
           "ring-2 ring-offset-2 ring-ocean-blue",

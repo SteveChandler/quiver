@@ -363,7 +363,7 @@ export function ForecastTab({
                       <TideIcon className="h-5 w-5 sm:h-8 sm:w-8 text-[#F78E42]" />
                     </div>
                     <div className="text-center sm:text-left sm:flex-1">
-                      <div className="text-[10px] sm:text-xs uppercase tracking-wider sm:tracking-[0.2em] text-[#FFA559]">
+                      <div className="text-xs uppercase tracking-wider sm:tracking-[0.2em] text-[#FFA559]">
                         Tide
                       </div>
                       <div className="mt-0.5 sm:mt-2 text-base sm:text-2xl font-bold text-white">
@@ -379,7 +379,7 @@ export function ForecastTab({
                       <Wind className="h-5 w-5 sm:h-8 sm:w-8 text-[#6CB4EE]" />
                     </div>
                     <div className="text-center sm:text-left sm:flex-1">
-                      <div className="text-[10px] sm:text-xs uppercase tracking-wider sm:tracking-[0.2em] text-[#8DC8F5]">
+                      <div className="text-xs uppercase tracking-wider sm:tracking-[0.2em] text-[#8DC8F5]">
                         Wind
                       </div>
                       <div className="mt-0.5 sm:mt-2 text-base sm:text-2xl font-bold text-white">
@@ -395,7 +395,7 @@ export function ForecastTab({
                       <Waves className="h-5 w-5 sm:h-8 sm:w-8 text-[#FDB84B]" />
                     </div>
                     <div className="text-center sm:text-left sm:flex-1">
-                      <div className="text-[10px] sm:text-xs uppercase tracking-wider sm:tracking-[0.2em] text-[#FDCA7B]">
+                      <div className="text-xs uppercase tracking-wider sm:tracking-[0.2em] text-[#FDCA7B]">
                         Swell
                       </div>
                       <div className="mt-0.5 sm:mt-2 text-base sm:text-2xl font-bold text-white">

@@ -47,7 +47,7 @@ export function OptimalConditionsSection({
   const locationLabel = [beach.city, beach.state].filter(Boolean).join(", ");
 
   return (
-    <section className="rounded-2xl border border-white/10 p-6 relative overflow-hidden bg-[length:200%_200%] animate-container-gradient-shift" style={{ backgroundImage: 'linear-gradient(160deg, #1a1f4a 0%, #0F1A2E 40%, #1a1f4a 100%)' }}>
+    <section className="rounded-2xl border border-white/10 p-6 relative overflow-hidden bg-[length:200%_200%] animate-container-gradient-shift motion-reduce:animate-none" style={{ backgroundImage: 'linear-gradient(160deg, #1a1f4a 0%, #0F1A2E 40%, #1a1f4a 100%)' }}>
       <TextureOverlay variant="topo-static" />
       <h2 className="font-heading text-xl font-semibold text-white/90 mb-5 relative">
         Optimal Surf Conditions for {beach.name}

@@ -205,7 +205,7 @@ const BeachCardComponent = function BeachCard({
         </motion.div>
         <CardContent className="p-3 relative overflow-hidden border-t-2 border-[rgba(247,142,66,0.3)]">
           <TextureOverlay variant="wave" />
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center relative">
             <motion.div
               className="flex items-center cursor-pointer"
               onClick={handleReviewsClick}
@@ -267,7 +267,7 @@ const BeachCardComponent = function BeachCard({
           {user ? (
             <Link
               href={`/sessions/new?beach=${id}`}
-              className="block mt-2 text-xs text-white/50 underline-offset-4 hover:underline text-center"
+              className="block mt-2 text-xs text-white/60 underline-offset-4 hover:underline text-center relative"
             >
               Log a session here
             </Link>
@@ -275,7 +275,7 @@ const BeachCardComponent = function BeachCard({
             <button
               type="button"
               onClick={() => setSessionAuthModalOpen(true)}
-              className="block w-full mt-2 text-xs text-white/50 underline-offset-4 hover:underline text-center cursor-pointer"
+              className="block w-full mt-2 text-xs text-white/60 underline-offset-4 hover:underline text-center relative cursor-pointer"
             >
               Log a session here
             </button>
