@@ -247,7 +247,7 @@ export function UnifiedSurfCard({
   const showBestAtTag = surfCall.windowMinutes != null && surfCall.windowMinutes > 180 && peakTimeCasual;
 
   return (
-    <Card data-tier="hero" className="noise-texture overflow-hidden rounded-3xl border-blue-100/60 bg-gradient-to-br from-blue-50/50 to-white shadow-lg">
+    <Card data-tier="hero" className="noise-texture overflow-hidden rounded-3xl border-blue-100/60 bg-gradient-to-br from-blue-50/50 to-white shadow-lg animate-container-fade-slide-up motion-reduce:animate-none">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">

@@ -75,6 +75,8 @@ export function NearbyBeachesEnriched({
           {beaches.map((beach, index) => (
             <div
               key={beach.id}
+              className="animate-container-fade-slide-up motion-reduce:animate-none"
+              style={{ animationDelay: `${index * 0.08}s` }}
               onClick={() =>
                 trackNearbyBeachClick(
                   beach.name,
@@ -106,7 +108,8 @@ export function NearbyBeachesEnriched({
             {beaches.map((beach, index) => (
               <div
                 key={beach.id}
-                className="snap-start min-w-[280px] max-w-[300px]"
+                className="snap-start min-w-[280px] max-w-[300px] animate-container-fade-slide-up motion-reduce:animate-none"
+                style={{ animationDelay: `${index * 0.08}s` }}
                 onClick={() =>
                   trackNearbyBeachClick(
                     beach.name,
