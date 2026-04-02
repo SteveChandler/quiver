@@ -89,11 +89,27 @@ export async function GET(request: NextRequest): Promise<Response> {
         const liveVideos = await findLiveStreams(channelId, apiKey);
 
         if (liveVideos.length === 0) {
-          // Channel is temporarily offline — don't touch camera_url or youtube_last_resolved_at.
-          // Leaving last_resolved_at stale lets the staleness query detect channels that have
-          // been offline for extended periods.
+          // Channel is temporarily offline.  If it's been offline for >48 hours,
+          // clear the camera_url so users see the "No live cam" fallback instead
+          // of YouTube's broken player.  The URL will be restored automatically
+          // on the next run once the channel goes live again.
+          const STALE_THRESHOLD_MS = 48 * 60 * 60 * 1000; // 48 hours
+
           for (const beach of beaches) {
-            results.push({ beachId: beach.beach_id, channelHandle: handle, action: "skipped", reason: "No live streams" });
+            const lastResolved = beach.youtube_last_resolved_at
+              ? new Date(beach.youtube_last_resolved_at).getTime()
+              : 0;
+            const isStale = Date.now() - lastResolved > STALE_THRESHOLD_MS;
+
+            if (isStale && beach.camera_url) {
+              await supabase
+                .from("beach_sources")
+                .update({ camera_url: null })
+                .eq("beach_id", beach.beach_id);
+              results.push({ beachId: beach.beach_id, channelHandle: handle, action: "cleared", reason: "No live streams for >48h" });
+            } else {
+              results.push({ beachId: beach.beach_id, channelHandle: handle, action: "skipped", reason: "No live streams" });
+            }
           }
           continue;
         }
@@ -155,12 +171,14 @@ export async function GET(request: NextRequest): Promise<Response> {
     const updated = results.filter((r) => r.action === "updated").length;
     const unchanged = results.filter((r) => r.action === "unchanged").length;
     const skipped = results.filter((r) => r.action === "skipped").length;
+    const cleared = results.filter((r) => r.action === "cleared").length;
 
     return createSuccessResponse({
       processed: results.length,
       updated,
       unchanged,
       skipped,
+      cleared,
       results,
       duration: `${Date.now() - startTime}ms`,
     });

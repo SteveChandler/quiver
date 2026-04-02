@@ -41,7 +41,7 @@ export interface YouTubeCamRow {
 export interface CamUpdateResult {
   beachId: string;
   channelHandle: string;
-  action: "updated" | "unchanged" | "skipped";
+  action: "updated" | "unchanged" | "skipped" | "cleared";
   oldVideoId?: string;
   newVideoId?: string;
   reason?: string;
