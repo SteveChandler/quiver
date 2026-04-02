@@ -4,6 +4,7 @@ import { useState, memo } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
+import { TextureOverlay } from "@/components/ui/texture-overlay";
 import { MapPin, Star, ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
 import { MapImage } from "@/components/map-image";
@@ -119,17 +120,12 @@ const BeachCardComponent = function BeachCard({
 
   return (
     <motion.div
-      whileHover={{
-        scale: 1.02,
-        y: -4,
-        boxShadow: "0 8px 25px rgba(0,0,0,0.15)",
-        transition: { duration: 0.3 },
-      }}
+      className="transition-transform duration-300 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-[0_8px_25px_rgba(0,0,0,0.15)]"
       whileTap={{ scale: 0.98 }}
       layout
     >
       <Card
-        className="overflow-hidden"
+        className="overflow-hidden bg-gradient-to-br from-[#1a1f4a] to-[#2D357D] border border-[rgba(247,142,66,0.2)]"
         data-testid="beach-card"
         data-beach-id={id}
       >
@@ -207,7 +203,8 @@ const BeachCardComponent = function BeachCard({
             ) : null}
           </motion.div>
         </motion.div>
-        <CardContent className="p-3">
+        <CardContent className="p-3 relative overflow-hidden border-t-2 border-[rgba(247,142,66,0.3)]">
+          <TextureOverlay variant="wave" />
           <div className="flex justify-between items-center">
             <motion.div
               className="flex items-center cursor-pointer"
@@ -216,10 +213,10 @@ const BeachCardComponent = function BeachCard({
               whileTap={{ scale: 0.95 }}
             >
               <Star className="h-4 w-4 text-yellow-500 mr-1 fill-yellow-500" />
-              <span className="font-medium">
+              <span className="font-medium text-white">
                 {formatRatingSimple(rating)}
               </span>
-              <span className="text-muted-foreground text-sm ml-1 hidden sm:inline">
+              <span className="text-white/60 text-sm ml-1 hidden sm:inline">
                 ({reviewCount} {reviewCount === 1 ? "review" : "reviews"})
               </span>
             </motion.div>
@@ -228,7 +225,7 @@ const BeachCardComponent = function BeachCard({
               {/* Expand/Collapse Button */}
               <motion.button
                 onClick={toggleExpanded}
-                className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100"
+                className="text-white/50 hover:text-white/80 p-1 rounded-full hover:bg-white/10"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 aria-label={isExpanded ? "Collapse details" : "Expand details"}
@@ -244,7 +241,7 @@ const BeachCardComponent = function BeachCard({
               {beachUrl ? (
                 <Link
                   href={beachUrl}
-                  className="text-primary text-sm font-medium"
+                  className="text-ocean-blue text-sm font-medium"
                 >
                   <motion.span
                     whileHover={{ scale: 1.05 }}
@@ -256,7 +253,7 @@ const BeachCardComponent = function BeachCard({
               ) : (
                 <motion.button
                   onClick={onViewDetails}
-                  className="text-primary text-sm font-medium"
+                  className="text-ocean-blue text-sm font-medium"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
@@ -270,7 +267,7 @@ const BeachCardComponent = function BeachCard({
           {user ? (
             <Link
               href={`/sessions/new?beach=${id}`}
-              className="block mt-2 text-xs text-muted-foreground underline-offset-4 hover:underline text-center"
+              className="block mt-2 text-xs text-white/50 underline-offset-4 hover:underline text-center"
             >
               Log a session here
             </Link>
@@ -278,7 +275,7 @@ const BeachCardComponent = function BeachCard({
             <button
               type="button"
               onClick={() => setSessionAuthModalOpen(true)}
-              className="block w-full mt-2 text-xs text-muted-foreground underline-offset-4 hover:underline text-center cursor-pointer"
+              className="block w-full mt-2 text-xs text-white/50 underline-offset-4 hover:underline text-center cursor-pointer"
             >
               Log a session here
             </button>
@@ -303,7 +300,7 @@ const BeachCardComponent = function BeachCard({
           <AnimatePresence>
             {(showForecastPreview || isExpanded) && (
               <motion.div
-                className="mt-3 pt-3 border-t"
+                className="mt-3 pt-3 border-t border-white/10"
                 data-testid="expanded-content"
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
@@ -317,7 +314,7 @@ const BeachCardComponent = function BeachCard({
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.1, duration: 0.3 }}
                 >
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                  <h4 className="text-sm font-semibold text-white/80 mb-2">
                     Current Conditions
                   </h4>
                   <ForecastPreview
@@ -334,19 +331,19 @@ const BeachCardComponent = function BeachCard({
                   transition={{ delay: 0.2, duration: 0.3 }}
                 >
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="bg-blue-50 p-2 rounded">
-                      <div className="text-blue-600 font-medium">
+                    <div className="bg-white/5 p-2 rounded">
+                      <div className="text-white/60 font-medium">
                         Wave Height
                       </div>
-                      <div className="text-blue-800">
+                      <div className="text-white">
                         {forecastPreview?.wave_height || "N/A"}
                       </div>
                     </div>
-                    <div className="bg-green-50 p-2 rounded">
-                      <div className="text-green-600 font-medium">
+                    <div className="bg-white/5 p-2 rounded">
+                      <div className="text-white/60 font-medium">
                         Wind Speed
                       </div>
-                      <div className="text-green-800">
+                      <div className="text-white">
                         {forecastPreview?.wind_speed || "N/A"}
                       </div>
                     </div>
