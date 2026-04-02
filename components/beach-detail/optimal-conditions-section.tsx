@@ -4,6 +4,7 @@ import type { Beach } from "@/types/database";
 import { degreeWindowToCardinal } from "@/lib/utils/direction-utils";
 import { formatMonthRange } from "@/lib/utils/date-time";
 import { getOptimizedImageUrl } from "@/lib/image-proxy";
+import { TextureOverlay } from "@/components/ui/texture-overlay";
 
 interface BeachPhoto {
   image_url: string;
@@ -46,8 +47,9 @@ export function OptimalConditionsSection({
   const locationLabel = [beach.city, beach.state].filter(Boolean).join(", ");
 
   return (
-    <section className="bg-white/5 rounded-2xl border border-white/10 p-6">
-      <h2 className="font-heading text-xl font-semibold text-white/90 mb-5">
+    <section className="rounded-2xl border border-white/10 p-6 relative overflow-hidden bg-[length:200%_200%] animate-container-gradient-shift" style={{ backgroundImage: 'linear-gradient(160deg, #1a1f4a 0%, #0F1A2E 40%, #1a1f4a 100%)' }}>
+      <TextureOverlay variant="topo-static" />
+      <h2 className="font-heading text-xl font-semibold text-white/90 mb-5 relative">
         Optimal Surf Conditions for {beach.name}
       </h2>
 
@@ -74,9 +76,9 @@ export function OptimalConditionsSection({
       {/* Conditions grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {windCardinal && (
-          <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-            <Wind className="h-5 w-5 text-sky-400 mb-2" />
-            <span className="text-sm text-white/50 uppercase tracking-wider block">
+          <div className="bg-white/5 rounded-xl p-4 border border-white/5 transition-colors hover:bg-white/[0.07] relative">
+            <Wind className="h-5 w-5 text-white/50 mb-2" />
+            <span className="text-xs text-white/60 uppercase tracking-wider block">
               Best Wind
             </span>
             <h3 className="text-lg font-semibold text-white">{windCardinal}</h3>
@@ -84,9 +86,9 @@ export function OptimalConditionsSection({
         )}
 
         {swellCardinal && (
-          <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-            <Waves className="h-5 w-5 text-sky-400 mb-2" />
-            <span className="text-sm text-white/50 uppercase tracking-wider block">
+          <div className="bg-white/5 rounded-xl p-4 border border-white/5 transition-colors hover:bg-white/[0.07] relative">
+            <Waves className="h-5 w-5 text-white/50 mb-2" />
+            <span className="text-xs text-white/60 uppercase tracking-wider block">
               Best Swell
             </span>
             <h3 className="text-lg font-semibold text-white">{swellCardinal}</h3>
@@ -94,9 +96,9 @@ export function OptimalConditionsSection({
         )}
 
         {tidePref && (
-          <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-            <Gauge className="h-5 w-5 text-sky-400 mb-2" />
-            <span className="text-sm text-white/50 uppercase tracking-wider block">
+          <div className="bg-white/5 rounded-xl p-4 border border-white/5 transition-colors hover:bg-white/[0.07] relative">
+            <Gauge className="h-5 w-5 text-white/50 mb-2" />
+            <span className="text-xs text-white/60 uppercase tracking-wider block">
               Preferred Tide
             </span>
             <h3 className="text-lg font-semibold text-white">{tidePref}</h3>
@@ -104,9 +106,9 @@ export function OptimalConditionsSection({
         )}
 
         {bestMonths && (
-          <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-            <CalendarDays className="h-5 w-5 text-sky-400 mb-2" />
-            <span className="text-sm text-white/50 uppercase tracking-wider block">
+          <div className="bg-white/5 rounded-xl p-4 border border-white/5 transition-colors hover:bg-white/[0.07] relative">
+            <CalendarDays className="h-5 w-5 text-white/50 mb-2" />
+            <span className="text-xs text-white/60 uppercase tracking-wider block">
               Best Months
             </span>
             <h3 className="text-lg font-semibold text-white">{bestMonths}</h3>
@@ -116,7 +118,7 @@ export function OptimalConditionsSection({
 
       {/* Prose & tips */}
       {beach.best_conditions_prose && (
-        <p className="mt-5 text-sm text-white/70 leading-relaxed">
+        <p className="mt-5 text-sm text-white/70 leading-relaxed relative">
           {beach.best_conditions_prose}
         </p>
       )}
@@ -124,8 +126,8 @@ export function OptimalConditionsSection({
       {(beach.wave_tips || beach.crowd_tips) && (
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
           {beach.wave_tips && (
-            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-              <span className="text-sm text-white/50 uppercase tracking-wider block mb-1">
+            <div className="bg-white/5 rounded-xl p-4 border border-white/10 relative">
+              <span className="text-xs text-white/60 uppercase tracking-wider block mb-1">
                 Wave Tips
               </span>
               <p className="text-sm text-white/80 leading-relaxed">
@@ -134,8 +136,8 @@ export function OptimalConditionsSection({
             </div>
           )}
           {beach.crowd_tips && (
-            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-              <span className="text-sm text-white/50 uppercase tracking-wider block mb-1">
+            <div className="bg-white/5 rounded-xl p-4 border border-white/10 relative">
+              <span className="text-xs text-white/60 uppercase tracking-wider block mb-1">
                 Crowd Tips
               </span>
               <p className="text-sm text-white/80 leading-relaxed">
