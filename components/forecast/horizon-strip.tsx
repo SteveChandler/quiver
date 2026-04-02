@@ -61,10 +61,12 @@ function DayCard({
   day,
   isSelected,
   onClick,
+  index,
 }: {
   day: DaySummary;
   isSelected: boolean;
   onClick: () => void;
+  index: number;
 }) {
   const colors = TIER_COLORS[day.tier];
   const waveRange = formatWaveRange(day.minHeight, day.maxHeight);
@@ -75,7 +77,7 @@ function DayCard({
       onClick={onClick}
       className={cn(
         // Base layout
-        "relative snap-start",
+        "relative snap-start overflow-hidden",
         "w-full h-[88px] rounded-xl border-2",
         "flex flex-col items-center justify-between p-2",
         // Tier colors
@@ -84,6 +86,8 @@ function DayCard({
         colors.text,
         // Transitions
         "transition-all duration-200 ease-out",
+        // Entry animation
+        "animate-container-fade-slide-up",
         // Selected state
         isSelected && [
           "ring-2 ring-offset-2 ring-ocean-blue",
@@ -97,9 +101,22 @@ function DayCard({
         // Focus state
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2"
       )}
+      style={{ animationDelay: `${index * 0.05}s` }}
       aria-label={`${day.dayName}, ${day.date}: ${waveRange}, ${getTierLabel(day.tier)}${isSelected ? ' (selected)' : ''}`}
       aria-pressed={isSelected}
     >
+      {/* Wave texture at bottom */}
+      <div
+        className="absolute bottom-0 left-0 right-0 h-[20px] opacity-[0.08] pointer-events-none"
+        style={{
+          backgroundImage: `url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 20%22><path d=%22M0 10 Q25 0 50 10 T100 10%22 fill=%22none%22 stroke=%22white%22 stroke-width=%222%22/></svg>')`,
+          backgroundSize: '100px 20px',
+          backgroundRepeat: 'repeat-x',
+          backgroundPosition: 'bottom',
+        }}
+        aria-hidden="true"
+      />
+
       {/* Tier indicator */}
       <TierBadge tier={day.tier} />
 
@@ -222,12 +239,13 @@ export function HorizonStrip({
         role="listbox"
         aria-label="Forecast days - select a day to view details"
       >
-        {days.map((day) => (
+        {days.map((day, index) => (
           <div key={day.fullDate} data-day-card className="flex-shrink-0 w-[88px] sm:flex-1 sm:min-w-0">
             <DayCard
               day={day}
               isSelected={day.fullDate === selectedDate}
               onClick={() => handleDayClick(day)}
+              index={index}
             />
           </div>
         ))}
