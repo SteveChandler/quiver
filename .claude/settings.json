@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(yarn dev)",
+      "Bash(yarn build)",
+      "Bash(yarn typecheck)",
+      "Bash(yarn lint)",
+      "Bash(yarn test*)",
+      "Bash(npx playwright test*)",
+      "Bash(yarn db:types*)",
+      "Bash(git *)",
+      "Bash(gh *)",
+      "Bash(ls *)",
+      "Bash(cat package.json)",
+      "Bash(supabase *)"
+    ]
+  }
+}
