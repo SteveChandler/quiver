@@ -73,9 +73,12 @@ export async function getSwellAnalyzerData(slug: string): Promise<{
 
   const beach = beachResult.data;
 
-  // Fetch latest daily intel for this beach (most recent forecast date)
+  // Fetch latest daily intel — use Pacific time for "today" since forecasts
+  // are date-keyed and our users are on the US coasts
   const supabase = createPublicReadClient();
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Los_Angeles",
+  }).format(new Date());
 
   const { data: intel } = await supabase
     .from("beach_daily_intel")
