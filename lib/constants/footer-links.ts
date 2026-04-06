@@ -25,6 +25,7 @@ export const FOOTER_LINKS = {
     { name: "Sunset Sessions", href: "/sunset/ca" },
     { name: "Less Crowded", href: "/least-crowded/ca" },
     { name: "Longboard Spots", href: "/longboard/ca" },
+    { name: "Surfer's Toolkit", href: "/tools" },
   ],
   legal: [
     { name: "Privacy Policy", href: "/privacy" },
