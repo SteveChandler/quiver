@@ -515,7 +515,9 @@ export function ForecastTab({
               }
               const formatTeaser = (t: string) => {
                 try {
-                  return new Date(`2000-01-01T${t}`).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+                  const d = new Date(t);
+                  if (isNaN(d.getTime())) return t;
+                  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
                 } catch { return t; }
               };
               const start = formatTeaser(surfCall.bestWindowStart);
