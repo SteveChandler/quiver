@@ -488,15 +488,54 @@ export class ForecastBuilder {
     useCDIPData: boolean
   ): string | null {
 
+    // CDIP peak period already reflects the dominant energy band
     if (useCDIPData && cdipPoint?.peakWavePeriod != null)
       return formatPeriodSeconds(cdipPoint.peakWavePeriod);
     if (useCDIPData && cdipPoint?.swellPeriod != null)
       return formatPeriodSeconds(cdipPoint.swellPeriod);
-    if (wavePoint?.swell_1_period != null) return formatPeriodSeconds(wavePoint.swell_1_period);
+
+    // For model data, pick the period from the tallest swell component
+    // so wave_period matches the dominant energy the surfer actually sees
+    if (wavePoint) {
+      const period = this.getDominantSwellPeriod(wavePoint);
+      if (period != null) return formatPeriodSeconds(period);
+    }
+
     if (buoyData?.wave_period != null) return formatPeriodSeconds(buoyData.wave_period);
     if (wavePoint?.peak_wave_period != null)
       return formatPeriodSeconds(wavePoint.peak_wave_period);
     return null;
+  }
+
+  /**
+   * Return the period of whichever swell component (swell_1, swell_2, wind_wave)
+   * has the greatest height. This ensures wave_period reflects the dominant
+   * energy rather than always defaulting to swell_1.
+   *
+   * When multiple components are within 20% of the tallest, prefer the longer
+   * period — surfers feel longer-period swells more even at similar heights.
+   */
+  private getDominantSwellPeriod(wavePoint: WaveWatchData): number | null {
+    const components: { height: number; period: number }[] = [];
+
+    if (wavePoint.swell_1_height > 0 && wavePoint.swell_1_period > 0) {
+      components.push({ height: wavePoint.swell_1_height, period: wavePoint.swell_1_period });
+    }
+    if (wavePoint.swell_2_height > 0 && wavePoint.swell_2_period > 0) {
+      components.push({ height: wavePoint.swell_2_height, period: wavePoint.swell_2_period });
+    }
+    if (wavePoint.wind_wave_height > 0 && wavePoint.wind_wave_period > 0) {
+      components.push({ height: wavePoint.wind_wave_height, period: wavePoint.wind_wave_period });
+    }
+
+    if (components.length === 0) return null;
+
+    const maxHeight = Math.max(...components.map(c => c.height));
+    const dominant = components
+      .filter(c => c.height >= maxHeight * 0.8)
+      .sort((a, b) => b.period - a.period);
+
+    return dominant[0].period;
   }
 
   private getWaveDirection(cdipPoint: CDIPDataPoint | null, wavePoint: WaveWatchData | null, useCDIPData: boolean): string | null {

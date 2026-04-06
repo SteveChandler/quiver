@@ -3,6 +3,7 @@
 import { createPublicReadClient } from "@/lib/supabase/server";
 import { analyzeSwellMatch } from "@/lib/analyzers/swell-analyzer";
 import { degreesToCardinal } from "@/lib/utils/geo-utils";
+import { cardinalToDegrees } from "@/lib/services/forecast/forecast-transformer";
 import type { ConditionEvaluation } from "@/types/morning-intel";
 
 export interface SwellAnalyzerBeach {
@@ -73,9 +74,12 @@ export async function getSwellAnalyzerData(slug: string): Promise<{
 
   const beach = beachResult.data;
 
-  // Fetch latest daily intel for this beach (most recent forecast date)
+  // Fetch latest daily intel — use Pacific time for "today" since forecasts
+  // are date-keyed and our users are on the US coasts
   const supabase = createPublicReadClient();
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Los_Angeles",
+  }).format(new Date());
 
   const { data: intel } = await supabase
     .from("beach_daily_intel")
@@ -107,6 +111,37 @@ export async function getSwellAnalyzerData(slug: string): Promise<{
           : null),
       forecastAt: f.forecast_date,
     };
+  }
+
+  // Fallback to enhanced_forecasts when beach_daily_intel has no data
+  if (!currentSwell) {
+    const now = new Date().toISOString();
+    const { data: forecast } = await supabase
+      .from("enhanced_forecasts")
+      .select(
+        "forecast_at, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction"
+      )
+      .eq("beach_id", beach.id)
+      .gte("forecast_at", now)
+      .order("forecast_at", { ascending: true })
+      .limit(1);
+
+    if (forecast && forecast.length > 0) {
+      const f = forecast[0];
+      const dir = cardinalToDegrees(f.swell_1_direction);
+      const secDir = cardinalToDegrees(f.swell_2_direction);
+      currentSwell = {
+        height: f.swell_1_height ? parseFloat(f.swell_1_height) : null,
+        period: f.swell_1_period ? parseFloat(f.swell_1_period) : null,
+        direction: dir,
+        cardinal: f.swell_1_direction ?? (dir != null ? degreesToCardinal(dir) : null),
+        secondaryHeight: f.swell_2_height ? parseFloat(f.swell_2_height) : null,
+        secondaryPeriod: f.swell_2_period ? parseFloat(f.swell_2_period) : null,
+        secondaryDirection: secDir,
+        secondaryCardinal: f.swell_2_direction ?? (secDir != null ? degreesToCardinal(secDir) : null),
+        forecastAt: f.forecast_at,
+      };
+    }
   }
 
   // Evaluate swell match against beach's preferred window

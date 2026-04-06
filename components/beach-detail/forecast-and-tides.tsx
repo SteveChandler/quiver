@@ -141,7 +141,9 @@ export function ForecastAndTides({
                 surfCall?.bestWindowStart
                   ? `Best window starts at ${(() => {
                       try {
-                        return new Date(`2000-01-01T${surfCall.bestWindowStart}`).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+                        const d = new Date(surfCall.bestWindowStart);
+                        if (isNaN(d.getTime())) return surfCall.bestWindowStart;
+                        return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
                       } catch { return surfCall.bestWindowStart; }
                     })()}${surfCall.waveHeight ? ` at ${surfCall.waveHeight}` : ""} -- sign up to see the full breakdown`
                   : "Sign up to see when to paddle out, explained clearly for your level"

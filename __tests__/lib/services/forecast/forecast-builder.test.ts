@@ -297,4 +297,82 @@ describe("ForecastBuilder", () => {
     expect(tempF).toBeGreaterThanOrEqual(69);
     expect(tempF).toBeLessThanOrEqual(81);
   });
+
+  it("wave_period reflects the tallest swell component, not always swell_1", async () => {
+    // Scenario: small 14s groundswell + larger 6s windswell
+    // wave_period should report 6s (the dominant energy), not 14s
+    const windDominantWaveData = {
+      ...mockWaveData,
+      forecast: [
+        {
+          timestamp: new Date().toISOString(),
+          significant_wave_height: 1.2,
+          peak_wave_period: 14,
+          peak_wave_direction: 225,
+          swell_1_height: 0.4, // small groundswell
+          swell_1_period: 14,
+          swell_1_direction: 220,
+          swell_2_height: 0,
+          swell_2_period: 0,
+          swell_2_direction: 0,
+          wind_wave_height: 0.9, // larger windswell
+          wind_wave_period: 6,
+          wind_wave_direction: 200,
+          data_source: "NOAA_NWS" as const,
+        },
+      ],
+    };
+
+    const forecasts = await builder.buildForecasts({
+      beach: mockBeach,
+      waveData: windDominantWaveData,
+      tideData: mockTideData,
+      weatherData: [],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+    });
+
+    expect(forecasts[0].wave_period).toBe("6s");
+  });
+
+  it("wave_period prefers longer period when swell heights are close", async () => {
+    // When two swells are within 20% height, prefer the longer period
+    const closeHeightsWaveData = {
+      ...mockWaveData,
+      forecast: [
+        {
+          timestamp: new Date().toISOString(),
+          significant_wave_height: 1.2,
+          peak_wave_period: 14,
+          peak_wave_direction: 225,
+          swell_1_height: 0.8, // groundswell
+          swell_1_period: 14,
+          swell_1_direction: 220,
+          swell_2_height: 0,
+          swell_2_period: 0,
+          swell_2_direction: 0,
+          wind_wave_height: 0.85, // nearly same height windswell
+          wind_wave_period: 6,
+          wind_wave_direction: 200,
+          data_source: "NOAA_NWS" as const,
+        },
+      ],
+    };
+
+    const forecasts = await builder.buildForecasts({
+      beach: mockBeach,
+      waveData: closeHeightsWaveData,
+      tideData: mockTideData,
+      weatherData: [],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+    });
+
+    // Heights within 20% → prefer the 14s period
+    expect(forecasts[0].wave_period).toBe("14s");
+  });
 });

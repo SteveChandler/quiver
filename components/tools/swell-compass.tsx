@@ -175,7 +175,7 @@ export function SwellCompass({
       )}
 
       {/* Center */}
-      <circle cx={cx} cy={cy} r={28} fill="white" stroke="#e2e8f0" strokeWidth={1} />
+      <circle cx={cx} cy={cy} r={28} fill="#1E2558" stroke="rgba(64,76,146,0.5)" strokeWidth={1} />
       {swellDirectionDeg != null ? (
         <>
           <text
@@ -185,7 +185,7 @@ export function SwellCompass({
             dominantBaseline="central"
             fontSize={14}
             fontWeight="700"
-            fill="#0f172a"
+            fill="#B8C7E0"
             fontFamily="var(--font-sans, sans-serif)"
           >
             {swellCardinal}
@@ -196,7 +196,7 @@ export function SwellCompass({
             textAnchor="middle"
             dominantBaseline="central"
             fontSize={10}
-            fill="#64748b"
+            fill="#7A8CC0"
             fontFamily="var(--font-mono, monospace)"
           >
             {Math.round(swellDirectionDeg)}°

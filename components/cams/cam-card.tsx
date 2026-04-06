@@ -13,7 +13,7 @@ interface CamCardProps {
 }
 
 export function CamCard({ beach }: CamCardProps) {
-  const thumbnailUrl = getCamThumbnailUrl(beach.camera_url);
+  const thumbnailUrl = beach.thumbnail_url || getCamThumbnailUrl(beach.camera_url);
   const [imgError, setImgError] = useState(false);
   const showThumbnail = thumbnailUrl && !imgError;
 
@@ -38,7 +38,6 @@ export function CamCard({ beach }: CamCardProps) {
               fill
               className="object-cover"
               sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-              unoptimized
               onError={() => setImgError(true)}
             />
             {/* Dark gradient overlay at bottom for beach name readability */}

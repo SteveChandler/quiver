@@ -29,13 +29,13 @@ export function SwellWaveViz({
   heightFt,
   periodSeconds,
   qualityColor,
-  width = 320,
-  height = 120,
+  width = 640,
+  height = 180,
 }: SwellWaveVizProps) {
   const waveColor = COLOR_MAP[qualityColor];
 
   const { wavePath, flatPath, waterLinePath } = useMemo(() => {
-    const amplitude = Math.min(45, Math.max(8, (heightFt / 20) * 50));
+    const amplitude = Math.min(70, Math.max(10, (heightFt / 20) * 75));
     const wavelength = Math.max(30, Math.min(200, periodSeconds * 10));
     const baseY = height * 0.65;
 

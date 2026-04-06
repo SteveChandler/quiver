@@ -371,6 +371,83 @@ export type Database = {
           },
         ]
       }
+      beach_dioramas: {
+        Row: {
+          beach_id: string
+          condition_key: string
+          created_at: string | null
+          id: string
+          thumbnail_url: string | null
+          video_url: string
+        }
+        Insert: {
+          beach_id: string
+          condition_key: string
+          created_at?: string | null
+          id?: string
+          thumbnail_url?: string | null
+          video_url: string
+        }
+        Update: {
+          beach_id?: string
+          condition_key?: string
+          created_at?: string | null
+          id?: string
+          thumbnail_url?: string | null
+          video_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beach_dioramas_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beach_dioramas_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_dioramas_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beach_dioramas_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_dioramas_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_dioramas_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_dioramas_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+        ]
+      }
       beach_editorial_content: {
         Row: {
           beach_id: string
@@ -1081,6 +1158,7 @@ export type Database = {
           created_at: string
           forecast_source_id: string | null
           ndbc_buoy_ids: string[]
+          thumbnail_url: string | null
           youtube_channel_handle: string | null
           youtube_channel_id: string | null
           youtube_last_resolved_at: string | null
@@ -1092,6 +1170,7 @@ export type Database = {
           created_at?: string
           forecast_source_id?: string | null
           ndbc_buoy_ids?: string[]
+          thumbnail_url?: string | null
           youtube_channel_handle?: string | null
           youtube_channel_id?: string | null
           youtube_last_resolved_at?: string | null
@@ -1103,6 +1182,7 @@ export type Database = {
           created_at?: string
           forecast_source_id?: string | null
           ndbc_buoy_ids?: string[]
+          thumbnail_url?: string | null
           youtube_channel_handle?: string | null
           youtube_channel_id?: string | null
           youtube_last_resolved_at?: string | null

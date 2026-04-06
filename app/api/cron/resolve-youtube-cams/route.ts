@@ -134,11 +134,12 @@ export async function GET(request: NextRequest): Promise<Response> {
               .eq("beach_id", beach.beach_id);
             results.push({ beachId: beach.beach_id, channelHandle: handle, action: "unchanged" });
           } else {
-            // Video ID changed — update camera_url
+            // Video ID changed — update camera_url + thumbnail
             await supabase
               .from("beach_sources")
               .update({
                 camera_url: newUrl,
+                thumbnail_url: `https://img.youtube.com/vi/${match.videoId}/hqdefault.jpg`,
                 youtube_last_resolved_at: new Date().toISOString(),
               })
               .eq("beach_id", beach.beach_id);

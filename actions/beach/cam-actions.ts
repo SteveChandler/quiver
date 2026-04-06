@@ -11,6 +11,7 @@ export interface CamBeach {
   city: string;
   state: string;
   camera_url: string;
+  thumbnail_url: string | null;
 }
 
 export interface CamBeachWithRegion extends CamBeach {
@@ -50,6 +51,7 @@ export const getBeachesWithCameras = unstable_cache(
       .select(
         `
         camera_url,
+        thumbnail_url,
         beaches!inner (
           id,
           name,
@@ -82,6 +84,7 @@ export const getBeachesWithCameras = unstable_cache(
         city: beach.city,
         state: beach.state,
         camera_url: row.camera_url!,
+        thumbnail_url: row.thumbnail_url ?? null,
         regionSlug: getRegionForBeach(beach.state, beach.city),
       });
     }

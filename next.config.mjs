@@ -253,6 +253,17 @@ const nextConfig = {
         hostname: "i2.wp.com",
         pathname: "/**",
       },
+      // Camera thumbnails (HDOnTap snapshots + YouTube)
+      {
+        protocol: "https",
+        hostname: "storage.hdontap.com",
+        pathname: "/wowza_stream_thumbnails/**",
+      },
+      {
+        protocol: "https",
+        hostname: "img.youtube.com",
+        pathname: "/vi/**",
+      },
       // Add specific Supabase hostname if available
       ...(supabaseHostname
         ? [
@@ -273,12 +284,6 @@ const nextConfig = {
         protocol: "https",
         hostname: "*.supabase.co",
         pathname: "/storage/v1/object/**",
-      },
-      // YouTube thumbnails for camera cards
-      {
-        protocol: "https",
-        hostname: "img.youtube.com",
-        pathname: "/vi/**",
       },
     ],
     // Security for SVGs
