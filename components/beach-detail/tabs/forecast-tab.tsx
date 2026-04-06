@@ -161,15 +161,23 @@ export function ForecastTab({
 
   // Tide alert based on direction match
   const tideAlert = useMemo(() => {
+    // Fall back to forecast tide_status when dynamic tide hasn't computed yet
+    let effectiveDirection = dynamicTide.currentDirection;
+    if (!effectiveDirection && currentForecast?.tide_status) {
+      const status = currentForecast.tide_status.toLowerCase();
+      if (status.includes("rising")) effectiveDirection = "rising";
+      else if (status.includes("falling")) effectiveDirection = "falling";
+    }
     return getTideAlert(
       beach.preferred_tide_direction,
-      dynamicTide.currentDirection,
+      effectiveDirection,
       dynamicTide.minutesToDirectionChange
     );
   }, [
     beach.preferred_tide_direction,
     dynamicTide.currentDirection,
     dynamicTide.minutesToDirectionChange,
+    currentForecast?.tide_status,
   ]);
 
   const formatMetric = (
