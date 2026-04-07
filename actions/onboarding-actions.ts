@@ -1,7 +1,6 @@
 'use server';
 
 import { withAuthenticatedAction } from '@/lib/server-action-utils';
-import { track } from '@/lib/analytics';
 
 interface OnboardingData {
   fullName?: string;
@@ -20,8 +19,116 @@ interface OnboardingData {
 }
 
 /**
+ * Lazily infer the user's home break from the first beach they view.
+ *
+ * Called fire-and-forget from the beach-detail client. Idempotent: only writes
+ * if home_beach_id is currently NULL. This lets users who skipped onboarding
+ * get personalized forecasts without ever setting a preference explicitly.
+ *
+ * Users can still change their home break explicitly via /profile → Edit.
+ * See Fix 5 in plans/majestic-squishing-newell.md.
+ */
+export async function inferHomeBreakFromView(beachId: string) {
+  return withAuthenticatedAction(async (user, supabase) => {
+    if (!beachId) {
+      return { success: false, skipped: true };
+    }
+
+    // Read current home_beach_id — only set it if NULL (idempotent).
+    const { data: profile, error: fetchError } = await supabase
+      .from('profiles')
+      .select('home_beach_id')
+      .eq('id', user.id)
+      .single();
+
+    if (fetchError) {
+      console.warn('inferHomeBreakFromView: failed to read profile:', fetchError);
+      return { success: false, skipped: true };
+    }
+
+    if (profile?.home_beach_id) {
+      // Already set — respect the user's explicit or prior choice.
+      return { success: true, skipped: true };
+    }
+
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ home_beach_id: beachId })
+      .eq('id', user.id);
+
+    if (updateError) {
+      console.warn('inferHomeBreakFromView: failed to update profile:', updateError);
+      return { success: false, skipped: true };
+    }
+
+    // Log for telemetry — lets us distinguish "explicit home break" from
+    // "inferred home break" when debugging the post-skip funnel.
+    const { error: eventError } = await supabase.from('user_events').insert({
+      user_id: user.id,
+      event_type: 'onboarding_step',
+      beach_id: beachId,
+      metadata: {
+        step: 'home_break_inferred',
+        step_name: 'home_break_inferred',
+        source: 'server',
+      },
+    });
+
+    if (eventError) {
+      console.warn('inferHomeBreakFromView: failed to log event:', eventError);
+    }
+
+    return { success: true, inferred: true };
+  });
+}
+
+/**
+ * Re-open onboarding by clearing onboarding_completed_at.
+ * Called from the /profile "Set up your home break" CTA when a user who
+ * previously tapped "Maybe later" wants to configure their profile.
+ *
+ * The caller is responsible for refreshing the profile context and resetting
+ * the onboarding store's isCompleted state so the dialog will actually render.
+ * See components/profile/set-home-break-cta.tsx.
+ */
+export async function reopenOnboarding() {
+  return withAuthenticatedAction(async (user, supabase) => {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ onboarding_completed_at: null })
+      .eq('id', user.id);
+
+    if (error) {
+      console.error('Failed to reopen onboarding:', error);
+      throw error;
+    }
+
+    // Log the re-entry event for funnel analysis. Reuses 'onboarding_step' for
+    // the same reason as the skip/complete events (DB CHECK constraint).
+    const { error: eventError } = await supabase.from('user_events').insert({
+      user_id: user.id,
+      event_type: 'onboarding_step',
+      metadata: {
+        step: 'reopened_from_profile',
+        step_name: 'reopened_from_profile',
+        source: 'server',
+      },
+    });
+
+    if (eventError) {
+      console.warn('Failed to log onboarding_reopened event:', eventError);
+    }
+
+    return { success: true };
+  });
+}
+
+/**
  * Skip onboarding permanently by setting onboarding_completed_at.
- * Called when user dismisses the onboarding dialog.
+ * Called when user taps "Maybe later" on any step of the onboarding dialog.
+ *
+ * Users who skip can re-open the dialog from /profile via the "Set up your
+ * home break" CTA (see Fix 4 in plans/majestic-squishing-newell.md).
  */
 export async function skipOnboarding() {
   return withAuthenticatedAction(async (user, supabase) => {
@@ -37,9 +144,28 @@ export async function skipOnboarding() {
       throw error;
     }
 
-    track('onboarding_skipped', {
+    // Log a server-confirmed skip event to user_events. Reuses the existing
+    // 'onboarding_step' event type (the table CHECK constraint only allows the
+    // existing enum values), with metadata.step = 'skipped' to distinguish from
+    // step transitions. This is NOT the same as lib/analytics.track() — that
+    // function is a browser-only no-op when called from server actions, so the
+    // previous track('onboarding_skipped') call never fired anywhere.
+    // See project_server_analytics_noop.md for the diagnosis.
+    const { error: eventError } = await supabase.from('user_events').insert({
       user_id: user.id,
+      event_type: 'onboarding_step',
+      metadata: {
+        step: 'skipped',
+        step_name: 'skipped',
+        source: 'server',
+      },
     });
+
+    if (eventError) {
+      // Don't fail the skip if telemetry insert fails — the profile update
+      // already succeeded and is the user-visible outcome.
+      console.warn('Failed to log onboarding_skipped event:', eventError);
+    }
 
     return { success: true };
   });
@@ -160,15 +286,33 @@ export async function saveOnboardingData(data: OnboardingData) {
         console.log('XP tracking not available:', xpError);
       }
 
-      // Track analytics
-      track('onboarding_completed', {
-        user_id: user.id,
-        has_home_beach: !!data.homeBeachId,
-        experience_level: data.experienceLevel,
-        surf_styles_count: data.surfStyles?.length || 0,
-        push_enabled: data.pushEnabled || false,
-        email_enabled: data.emailEnabled !== false,
-      });
+      // Log a server-confirmed completion event to user_events. The client also
+      // fires onboarding_step with metadata.step='completed' via useOnboardingTracking
+      // on the ONBOARDING_COMPLETION_SIGNAL transition, but that only runs if
+      // handleFinish actually executes. The server-side insert is the authoritative
+      // audit trail that the profile save + onboarding_completed_at commit actually
+      // happened. Uses source: 'server' metadata to distinguish from the client
+      // event in analytics queries if dedupe is needed.
+      // See project_server_analytics_noop.md for why the old track() call was dead.
+      try {
+        await supabase.from('user_events').insert({
+          user_id: user.id,
+          event_type: 'onboarding_step',
+          metadata: {
+            step: 'completed',
+            step_name: 'completed',
+            source: 'server',
+            has_home_beach: !!data.homeBeachId,
+            experience_level: data.experienceLevel ?? null,
+            preferred_time: data.preferredTime ?? null,
+            surf_styles_count: data.surfStyles?.length || 0,
+            push_enabled: data.pushEnabled || false,
+            email_enabled: data.emailEnabled !== false,
+          },
+        });
+      } catch (evtErr) {
+        console.warn('Failed to log onboarding_completed event:', evtErr);
+      }
 
       return { success: true, profile: updatedProfile };
     } catch (error: unknown) {

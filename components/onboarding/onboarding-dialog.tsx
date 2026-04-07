@@ -3,8 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { X } from "lucide-react";
-import { useOnboardingStore } from "@/store/onboarding-store";
+import { useOnboardingStore, ONBOARDING_STEP_NAMES } from "@/store/onboarding-store";
 import { HomeBeachStep } from "./steps/home-beach-step";
 import { LevelAndTimeStep } from "./steps/level-and-time-step";
 import { PayoffStep } from "./steps/payoff-step";
@@ -13,8 +12,8 @@ import { HeroImageSlot } from "./hero-image-slot";
 import { FloatingParticles } from "./floating-particles";
 import { useAuth } from "@/context/auth-context";
 import { useProfileContext } from "@/context/profile-context";
-import { skipOnboarding } from "@/actions/onboarding-actions";
 import { useOnboardingTracking } from "@/hooks/use-onboarding-tracking";
+import { useTrackEvent } from "@/hooks/use-track-event";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { Profile } from "@/types/database";
 
@@ -33,24 +32,6 @@ function isProfileSubstantiallyComplete(
   profile: Profile | null
 ): profile is Profile {
   return Boolean(profile && profile.home_beach_id);
-}
-
-/** Safe localStorage access - returns null on error (private browsing, quota exceeded) */
-function safeGetLocalStorage(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-/** Safe localStorage set - no-op on error (private browsing, quota exceeded) */
-function safeSetLocalStorage(key: string, value: string): void {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // no-op
-  }
 }
 
 export function OnboardingDialog() {
@@ -77,6 +58,12 @@ export function OnboardingDialog() {
   // Set up step tracking for engagement analytics
   useOnboardingTracking();
 
+  // Dialog lifecycle instrumentation (Fix 6). Reuses the 'onboarding_step' event
+  // type because the user_events CHECK constraint doesn't include dedicated
+  // dialog-lifecycle event types. Distinguished via metadata.step.
+  // See project_onboarding_payoff_step_bug.md for why observability matters here.
+  const { track } = useTrackEvent();
+
   const isTesting = searchParams?.get("showOnboarding") === "1";
   const hasCompletedOnboarding = !!profile?.onboarding_completed_at;
   const substantiallyComplete = isProfileSubstantiallyComplete(profile);
@@ -98,6 +85,27 @@ export function OnboardingDialog() {
       prevStepRef.current = currentStep;
     }
   }, [currentStep]);
+
+  // Telemetry: fire 'dialog_opened' exactly once when isOpen flips to true.
+  // This lets analytics count how many users actually saw the dialog (distinct
+  // from how many users the open-effect ATTEMPTED to open — the latter can fail
+  // silently due to render races and was the reason we couldn't detect Bug B).
+  const dialogOpenedFiredRef = useRef(false);
+  useEffect(() => {
+    if (isOpen && !dialogOpenedFiredRef.current) {
+      dialogOpenedFiredRef.current = true;
+      track("onboarding_step", {
+        metadata: {
+          step: "dialog_opened",
+          step_name: "dialog_opened",
+        },
+        debounceMs: 0,
+      });
+    }
+    if (!isOpen) {
+      dialogOpenedFiredRef.current = false;
+    }
+  }, [isOpen, track]);
 
   // Focus trap: set inert on <main> when overlay is open
   useEffect(() => {
@@ -144,20 +152,15 @@ export function OnboardingDialog() {
     // while the profile context refreshes `onboarding_completed_at`.
     if (isCompleted) return;
 
-    const dismissedUntilKey = `onboarding_dismissed_until_${user.id}`;
-    const dismissedUntilRaw = safeGetLocalStorage(dismissedUntilKey);
-    if (dismissedUntilRaw) {
-      const dismissedUntil = Number(dismissedUntilRaw);
-      if (Number.isFinite(dismissedUntil) && Date.now() < dismissedUntil) {
-        return;
-      }
-      // Expired or invalid; clear it so onboarding can show again.
-      safeSetLocalStorage(dismissedUntilKey, "");
-    }
-
     // Show onboarding if:
     // 1. No profile exists yet (brand new user)
     // 2. Profile exists but onboarding not completed AND profile is not already complete
+    //
+    // Users who previously tapped "Maybe later" have `onboarding_completed_at` set
+    // via skipOnboarding() — they won't re-enter this flow automatically. They can
+    // re-open the dialog explicitly from /profile via the "Set up your home break" CTA.
+    // (No more localStorage-based snooze ladder — the previous escalating snooze was
+    // invisible to users and effectively the same permanent lockout as the X button.)
     const needsOnboarding =
       !profile ||
       (!profile.onboarding_completed_at &&
@@ -182,11 +185,30 @@ export function OnboardingDialog() {
 
   // Keep store/UI consistent: if the store says "open" but render conditions
   // no longer allow onboarding (e.g., profile loads as complete), close it.
+  //
+  // IMPORTANT: do NOT fire this effect while the user is on PayoffStep. When
+  // PayoffStep calls saveOnboardingData → updateProfile, hasCompletedOnboarding
+  // flips to true and shouldRender flips to false — but we need the dialog to
+  // stay visible so the user can see the celebration UI and actively dismiss via
+  // handleFinish. The completeOnboarding() store action handles closing the
+  // dialog explicitly; this effect must not race it. See
+  // `project_onboarding_payoff_step_bug.md` for the full diagnosis.
   useEffect(() => {
-    if (isOpen && !shouldRender) {
+    if (isOpen && !shouldRender && currentStep !== STEPS.length - 1) {
+      // Fire telemetry before closing so we can distinguish stale-close from
+      // intentional dismiss (which fires 'maybe_later_clicked' from the step).
+      track("onboarding_step", {
+        metadata: {
+          step: "auto_closed",
+          step_name: "auto_closed",
+          current_step: currentStep,
+          current_step_name: ONBOARDING_STEP_NAMES[currentStep] ?? `step_${currentStep}`,
+        },
+        debounceMs: 0,
+      });
       closeDialog();
     }
-  }, [isOpen, shouldRender, closeDialog]);
+  }, [isOpen, shouldRender, closeDialog, currentStep, track]);
 
   // Ensure store is reset on logout
   useEffect(() => {
@@ -199,13 +221,6 @@ export function OnboardingDialog() {
 
   if (!CurrentStepComponent || !shouldRender) {
     return null;
-  }
-
-  function handleSkip() {
-    if (user?.id && !isTesting) {
-      skipOnboarding(); // Fire and forget - persists to database
-    }
-    closeDialog();
   }
 
   const slideVariants = {
@@ -222,8 +237,6 @@ export function OnboardingDialog() {
       opacity: 0,
     }),
   };
-
-  const isPayoffStep = currentStep === STEPS.length - 1;
 
   return (
     <div
@@ -271,18 +284,13 @@ export function OnboardingDialog() {
                 }}
               />
 
-              {/* Skip button — hidden on payoff step */}
-              {!isPayoffStep && (
-                <button
-                  onClick={handleSkip}
-                  aria-label="Skip onboarding"
-                  className="absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-full text-white/50 transition-colors hover:text-white hover:bg-white/10"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-
-              {/* Step content with slide transitions */}
+              {/* Step content with slide transitions
+                  NOTE: the old absolute-positioned X button was removed because it
+                  was a reflex-tap magnet in the top-right corner — ~33% of new users
+                  were reflex-tapping it within ~6 seconds of the dialog appearing
+                  and getting permanently locked out. Dismissal now lives inside each
+                  step as an explicit "Maybe later" button with clear intent.
+                  See project_onboarding_payoff_step_bug.md. */}
               <div className="relative z-10">
                 <AnimatePresence mode="wait" custom={direction}>
                   <motion.div

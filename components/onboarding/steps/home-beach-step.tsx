@@ -12,7 +12,7 @@ import { useOnboardingStore } from "@/store/onboarding-store";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useAuth } from "@/context/auth-context";
 import { skipOnboarding } from "@/actions/onboarding-actions";
-import { handleOnboardingDismiss } from "../onboarding-utils";
+import { useTrackEvent } from "@/hooks/use-track-event";
 import { Label } from "@/components/ui/label";
 import { CheckCircle, MapPin } from "lucide-react";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
@@ -31,6 +31,7 @@ interface Beach {
 export function HomeBeachStep() {
   const { data, updateData, nextStep, closeDialog } = useOnboardingStore();
   const { user } = useAuth();
+  const { track } = useTrackEvent();
   const reducedMotion = useReducedMotion();
   const [selectedBeach, setSelectedBeach] = useState<Beach | null>(null);
   const [celebratingBeachId, setCelebratingBeachId] = useState<string | null>(null);
@@ -148,12 +149,22 @@ export function HomeBeachStep() {
     }
   }, [nearbyBeaches.length]);
 
-  const handleSkipForNow = () => {
+  // "Maybe later" — dismiss the dialog with an explicit, permanent skip.
+  // No escalating snooze: if the user doesn't want onboarding right now,
+  // respect that. They can re-open the dialog from /profile via the
+  // "Set up your home break" CTA when they're ready.
+  const handleMaybeLater = () => {
+    // Telemetry: distinguish intentional dismiss from stale-close auto-dismiss.
+    track("onboarding_step", {
+      metadata: {
+        step: "maybe_later_clicked",
+        step_name: "maybe_later_clicked",
+        source_step: "home_beach",
+      },
+      debounceMs: 0,
+    });
     if (user?.id) {
-      const result = handleOnboardingDismiss(user.id);
-      if (result === 'permanent') {
-        skipOnboarding();
-      }
+      skipOnboarding(); // fire and forget — sets onboarding_completed_at
     }
     closeDialog();
   };
@@ -402,10 +413,10 @@ export function HomeBeachStep() {
         </button>
         <button
           type="button"
-          onClick={handleSkipForNow}
+          onClick={handleMaybeLater}
           className="w-full text-sm text-white/40 hover:text-white/60 transition-colors"
         >
-          Skip for now
+          Maybe later
         </button>
       </div>
     </form>

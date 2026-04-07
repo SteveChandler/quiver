@@ -344,6 +344,17 @@ export interface ProfileUpdateMetadata {
 
 /**
  * Metadata for onboarding_step events
+ *
+ * NOTE: this metadata shape is shared between three kinds of events that all
+ * reuse the 'onboarding_step' event type:
+ *   1. Step transitions (step: 'home_beach' | 'level_and_time' | 'payoff' | 'completed')
+ *   2. Dialog lifecycle events (step: 'dialog_opened' | 'auto_closed' | 'maybe_later_clicked' | 'save_failed')
+ *   3. Server-confirmed events from onboarding-actions.ts (step: 'completed' | 'skipped' with source: 'server')
+ *
+ * They all reuse 'onboarding_step' because the user_events CHECK constraint
+ * doesn't include dedicated event types for each variant. Distinguish them
+ * via metadata.step. See project_onboarding_payoff_step_bug.md and
+ * project_server_analytics_noop.md for context.
  */
 export interface OnboardingStepMetadata {
   /** Named step identifier (not numeric) */
@@ -356,6 +367,34 @@ export interface OnboardingStepMetadata {
   direction?: 'forward' | 'back' | 'skip';
   /** Time spent on the step in milliseconds */
   time_on_step_ms?: number;
+
+  // -- Dialog lifecycle fields (added for Fix 6 / dialog instrumentation) --
+
+  /** The step the user was on when they tapped "Maybe later" (e.g., 'home_beach') */
+  source_step?: string;
+  /** The origin of the event — 'server' for onboarding-actions-inserted rows */
+  source?: 'client' | 'server';
+  /** Numeric current step index, for auto_closed events */
+  current_step?: number;
+  /** Human-readable current step name, for auto_closed events */
+  current_step_name?: string;
+  /** Failure reason, for save_failed events */
+  reason?: string;
+
+  // -- Server-confirmed completion fields (added for Fix 3 / server-side telemetry) --
+
+  /** Whether the user set a home beach during this completion */
+  has_home_beach?: boolean;
+  /** The experience level the user selected, if any */
+  experience_level?: string | null;
+  /** The time-of-day preference the user selected, if any */
+  preferred_time?: string | null;
+  /** Number of surf styles the user selected */
+  surf_styles_count?: number;
+  /** Whether push notifications were enabled */
+  push_enabled?: boolean;
+  /** Whether email notifications were enabled */
+  email_enabled?: boolean;
 }
 
 /**
