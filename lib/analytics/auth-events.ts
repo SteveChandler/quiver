@@ -85,41 +85,61 @@ export function trackAuthModalClosedWithoutAction(params: {
 }
 
 /**
- * Track when user selects an auth method (GA4 only).
+ * @deprecated Use {@link trackAuthProviderSelected} instead. This helper is a
+ * no-op retained only so existing call sites compile while we migrate dashboards
+ * off the redundant `auth_method_selected` event. The event type remains in the
+ * union (`types/implicit-preferences.ts`) for backwards compatibility with SQL
+ * dashboards, but no new events will be emitted from the client.
+ *
  * @param params.method - The auth method selected (apple/google/password/magic_link)
  * @param params.mode - The current mode (login/signup)
  */
-export function trackAuthMethodSelected(params: {
+export function trackAuthMethodSelected(_params: {
   method: "apple" | "google" | "password" | "magic_link";
   mode: "login" | "signup";
-}) {
-  const eventParams = {
-    method: params.method,
-    mode: params.mode,
-  };
-  track("auth_method_selected", eventParams);
-  fireToUserEvents("auth_method_selected", eventParams);
+}): void {
+  if (process.env.NODE_ENV === "development") {
+    // eslint-disable-next-line no-console
+    console.warn(
+      "[deprecated] trackAuthMethodSelected: use trackAuthProviderSelected instead"
+    );
+  }
 }
 
 /**
  * Track when user clicks a specific auth provider button (Google, Apple, Email).
  * Dual-fires to GA4 and /api/events for internal funnel measurement.
- * @param params.provider - The provider that was selected
+ *
+ * The `provider` value is narrowed to the three user-visible provider buckets
+ * ('apple' | 'google' | 'email') to match AuthProviderSelectedMetadata and
+ * keep the signup funnel groupable. Email-based sub-methods (password vs.
+ * magic_link) are preserved in the GA4-only `email_method` field; the
+ * internal user_events payload only carries the normalized provider.
+ *
+ * @param params.provider - The provider bucket that was selected
  * @param params.mode - The current mode (login/signup)
  * @param params.source - Where the modal was triggered from
+ * @param params.email_method - For provider='email', which sub-flow was used
  */
 export function trackAuthProviderSelected(params: {
-  provider: "apple" | "google" | "email_password" | "magic_link";
+  provider: "apple" | "google" | "email";
   mode: "login" | "signup";
   source: string;
+  email_method?: "password" | "magic_link";
 }) {
-  const payload = {
+  const ga4Payload = {
+    provider: params.provider,
+    mode: params.mode,
+    source: params.source,
+    ...(params.email_method && { email_method: params.email_method }),
+  };
+  const userEventsPayload = {
     provider: params.provider,
     mode: params.mode,
     source: params.source,
   };
-  track("auth_provider_selected", payload);
-  fireToUserEvents("auth_provider_selected", payload);
+  track("auth_provider_selected", ga4Payload);
+  fireToUserEvents("auth_provider_selected", userEventsPayload);
 }
 
 /**

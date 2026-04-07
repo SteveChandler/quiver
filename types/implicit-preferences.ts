@@ -96,7 +96,29 @@ export type ImplicitEventType =
   | 'social_intel_confirm'
   // Tab and map engagement events
   | 'tab_view'
-  | 'map_interaction';
+  | 'map_interaction'
+  // Map engagement
+  | 'map_ready'
+  | 'map_load_failed'
+  // Forecast reliability
+  | 'forecast_ready'
+  // Session log funnel
+  | 'session_log_beach_selected'
+  | 'session_log_rating_set'
+  | 'session_log_photo_added'
+  | 'session_log_abandon'
+  // Search
+  | 'beach_search_result_click'
+  // Growth markers
+  | 'first_beach_view_post_signup'
+  // Empty states & impressions
+  | 'empty_state_shown'
+  | 'cta_impression'
+  // Reliability
+  | 'client_error'
+  // Engagement depth (anon + auth)
+  | 'scroll_depth'
+  | 'time_on_page';
 
 /**
  * Weight multipliers for each event type, determining how much
@@ -186,6 +208,28 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   // Tab and map engagement events
   tab_view: 0,
   map_interaction: 0,
+  // Map engagement
+  map_ready: 0,
+  map_load_failed: 0,
+  // Forecast reliability
+  forecast_ready: 0,
+  // Session log funnel
+  session_log_beach_selected: 0,
+  session_log_rating_set: 0,
+  session_log_photo_added: 0,
+  session_log_abandon: 0,
+  // Search
+  beach_search_result_click: 0,
+  // Growth markers
+  first_beach_view_post_signup: 0,
+  // Empty states & impressions
+  empty_state_shown: 0,
+  cta_impression: 0,
+  // Reliability
+  client_error: 0,
+  // Engagement depth (anon + auth)
+  scroll_depth: 0,
+  time_on_page: 0,
 } as const;
 
 // -----------------------------------------------------------------------------
@@ -302,12 +346,16 @@ export interface ProfileUpdateMetadata {
  * Metadata for onboarding_step events
  */
 export interface OnboardingStepMetadata {
-  /** Step number (1-4) */
-  step: number;
+  /** Named step identifier (not numeric) */
+  step: string;
   /** Human-readable step name */
-  step_name: string;
+  step_name?: string;
   /** Whether the step was completed or skipped */
   completed?: boolean;
+  /** Direction of step transition */
+  direction?: 'forward' | 'back' | 'skip';
+  /** Time spent on the step in milliseconds */
+  time_on_step_ms?: number;
 }
 
 /**
@@ -346,6 +394,16 @@ export interface ReviewFormMetadata {
   error_type?: 'missing_ratings' | 'missing_content';
   /** Whether user was editing an existing review */
   is_edit?: boolean;
+  /** How the form was abandoned (for abandon events only) */
+  abandon_via?: 'cancel_button' | 'unmount';
+  /** Count of rating categories the user filled in (0-5) — for abandon events */
+  stars_filled?: number;
+  /** Length of the title field at time of event — for abandon events */
+  title_length?: number;
+  /** Length of the content field at time of event — for abandon events */
+  content_length?: number;
+  /** The deepest field the user engaged with before leaving — for abandon events */
+  max_field_touched?: 'none' | 'rating' | 'title' | 'content' | 'date';
 }
 
 // -----------------------------------------------------------------------------
@@ -372,6 +430,22 @@ export interface MapInteractionMetadata {
   zoom_level?: number;
   /** Filter value if changing filters */
   filter?: string;
+  /** Map center latitude (rounded to 4 decimals) */
+  latitude?: number;
+  /** Map center longitude (rounded to 4 decimals) */
+  longitude?: number;
+  /** Viewport west bound */
+  bounds_west?: number;
+  /** Viewport south bound */
+  bounds_south?: number;
+  /** Viewport east bound */
+  bounds_east?: number;
+  /** Viewport north bound */
+  bounds_north?: number;
+  /** Count of beach markers currently visible in the viewport */
+  beaches_in_viewport?: number;
+  /** Count of cluster markers currently visible in the viewport */
+  visible_cluster_count?: number;
 }
 
 // -----------------------------------------------------------------------------
@@ -426,6 +500,142 @@ export interface SocialIntelConfirmMetadata {
   action: 'confirm' | 'unconfirm';
 }
 
+// -----------------------------------------------------------------------------
+// Auth Tracking Metadata Interfaces
+// -----------------------------------------------------------------------------
+
+/** Metadata for auth_provider_selected events */
+export interface AuthProviderSelectedMetadata {
+  provider: 'apple' | 'google' | 'email';
+  /** login vs signup flow — matches the existing auth-events.ts helper shape */
+  mode?: 'login' | 'signup';
+  /** Origin of the auth attempt (e.g., 'google_one_tap', 'auth_modal', CTA source id) */
+  source?: string;
+}
+
+// -----------------------------------------------------------------------------
+// Phase 2 Tracking Metadata Interfaces
+// -----------------------------------------------------------------------------
+
+/** Metadata for beach_search events */
+export interface BeachSearchMetadata {
+  /** Number of results returned */
+  result_count: number;
+  /** Length of the query string (we deliberately don't store the query itself — PII concerns) */
+  query_length: number;
+  /** True when no results matched */
+  zero_results: boolean;
+  /** Source of the search (e.g., 'header', 'discovery', 'map') */
+  source?: string;
+}
+
+/** Metadata for beach_search_result_click events */
+export interface BeachSearchResultClickMetadata {
+  beach_id: string;
+  /** Zero-indexed position of the clicked result in the list */
+  position: number;
+  result_count: number;
+  query_length: number;
+  source?: string;
+}
+
+/** Metadata for session_log_* events */
+export interface SessionLogMetadata {
+  /** Beach ID selected for the session (if already chosen) */
+  beach_id?: string;
+  /** For session_log_abandon: how the form exited */
+  abandon_via?: 'cancel_button' | 'unmount' | 'route_change';
+  /** For session_log_abandon: milliseconds since session_log_start */
+  duration_ms?: number;
+  /** For session_log_abandon: the deepest step the user reached */
+  max_step_reached?: 'beach_select' | 'rating' | 'photo' | 'details' | 'review';
+  /** For session_log_rating_set: the rating value 1-5 */
+  rating?: number;
+  /** For session_log_photo_added: count of photos attached at time of event */
+  photo_count?: number;
+}
+
+/** Metadata for map_ready events */
+export interface MapReadyMetadata {
+  /** Time from component mount to map 'load' event firing, in ms */
+  load_time_ms: number;
+  /** Count of tile load failures during initial load */
+  tiles_failed_count?: number;
+}
+
+/** Metadata for map_load_failed events */
+export interface MapLoadFailedMetadata {
+  /** Short error category — do not include user-provided strings */
+  error_type: 'token_invalid' | 'network' | 'webgl_unsupported' | 'tile_error' | 'unknown';
+  /** Time from mount to failure, in ms */
+  time_to_failure_ms?: number;
+}
+
+/** Metadata for forecast_ready events */
+export interface ForecastReadyMetadata {
+  beach_id: string;
+  /** Time from fetch start to first render, in ms */
+  load_time_ms: number;
+  /** Source of the forecast data (e.g., 'enhanced', 'marine', 'cached') */
+  source?: string;
+  /** True if data came from cache (no network hit) */
+  cached?: boolean;
+}
+
+/** Metadata for empty_state_shown events */
+export interface EmptyStateShownMetadata {
+  /** Identifier for which empty state surface rendered (e.g., 'beach_reviews', 'map_no_beaches_in_viewport', 'intel_feed', 'session_list') */
+  surface: string;
+  beach_id?: string;
+}
+
+/** Metadata for cta_impression events */
+export interface CtaImpressionMetadata {
+  /** Stable identifier for the CTA (e.g., 'inline_signup_beach_detail', 'review_cta_reviews_tab') */
+  cta_id: string;
+  /** Page/surface the CTA lives on */
+  surface: string;
+  /** Percent of the CTA visible at time of impression (0-100) */
+  viewport_pct?: number;
+}
+
+/** Metadata for client_error events */
+export interface ClientErrorMetadata {
+  /** Error class + first line of message, truncated to 200 chars to keep metadata small */
+  message: string;
+  /** First frame of the stack trace, if available */
+  stack_top_frame?: string;
+  /** Pathname at time of error (no query/hash to avoid PII) */
+  route: string;
+  /** Source: which capture path fired the event */
+  source: 'window_onerror' | 'unhandled_rejection';
+}
+
+/** Metadata for scroll_depth events */
+export interface ScrollDepthMetadata {
+  /** Page/surface the scroll happened on (e.g., 'beach_detail', 'home') */
+  surface: string;
+  /** Deepest bucket reached for this page view */
+  depth_pct: 25 | 50 | 75 | 100;
+}
+
+/** Metadata for time_on_page events */
+export interface TimeOnPageMetadata {
+  surface: string;
+  duration_ms: number;
+  /** Whether the user was authenticated at time of event */
+  authenticated: boolean;
+  /** How the page was exited */
+  exit_via: 'visibility_hidden' | 'beforeunload' | 'route_change';
+}
+
+/** Metadata for first_beach_view_post_signup events */
+export interface FirstBeachViewPostSignupMetadata {
+  beach_id: string;
+  /** Minutes between signup and first beach view (for activation cohort slicing) */
+  minutes_since_signup: number;
+}
+
 /**
  * Union type of all possible event metadata
  */
@@ -449,7 +659,20 @@ export type EventMetadata =
   | SocialInviteRespondMetadata
   | SocialIntelConfirmMetadata
   | TabViewMetadata
-  | MapInteractionMetadata;
+  | MapInteractionMetadata
+  | AuthProviderSelectedMetadata
+  | BeachSearchMetadata
+  | BeachSearchResultClickMetadata
+  | SessionLogMetadata
+  | MapReadyMetadata
+  | MapLoadFailedMetadata
+  | ForecastReadyMetadata
+  | EmptyStateShownMetadata
+  | CtaImpressionMetadata
+  | ClientErrorMetadata
+  | ScrollDepthMetadata
+  | TimeOnPageMetadata
+  | FirstBeachViewPostSignupMetadata;
 
 /**
  * Full user event record as stored in the database
