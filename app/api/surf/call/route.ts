@@ -41,9 +41,21 @@ async function surfCallHandler(
 
   const { beachId } = validation.data;
 
+  // Narrow column list — only what getSpotSurfReport, selectBestWindow, and
+  // computeSurfCall actually read. Skips the heavy text/jsonb columns
+  // (description, terrain_*, access_tips, geog, etc.) that the surf-call
+  // chain doesn't touch but `select('*')` would otherwise pull on every
+  // 5-min refetch from the native client.
   const { data: beach, error: beachError } = await supabase
     .from('beaches')
-    .select('*')
+    .select(
+      'id, name, slug, lat, lon, city, state, country, region, ' +
+      'timezone, break_type, skill_level, cdip_station, cdip_eligible, ' +
+      'wind_offshore_deg, swell_window_center_deg, swell_access_factors, ' +
+      'wind_exposure_factors, preferred_tide_direction, preferred_tide_ft_min, ' +
+      'preferred_tide_ft_max, tide_direction_sensitivity, preference_model, ' +
+      'features, hazards, average_rating, review_count, deleted_at',
+    )
     .eq('id', beachId)
     .is('deleted_at', null)
     .single();
