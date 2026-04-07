@@ -161,6 +161,7 @@ export function SwellAnalyzerClient({ initialData }: SwellAnalyzerClientProps) {
               onSelect={handleBeachSelect}
               placeholder="Search for a beach..."
               maxResults={6}
+              source="tool_swell_analyzer"
             />
           </div>
 

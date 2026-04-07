@@ -164,6 +164,7 @@ export function WindCheckerClient({
             onSelect={handleBeachSelect}
             placeholder="Search for a beach..."
             maxResults={6}
+            source="tool_wind_checker"
           />
         </div>
       </ToolHero>

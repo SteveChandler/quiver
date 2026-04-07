@@ -420,6 +420,7 @@ export function TideClockClient() {
             onSelect={handleBeachSelect}
             placeholder="Search for a beach..."
             maxResults={6}
+            source="tool_tide_clock"
           />
         </div>
       </ToolHero>

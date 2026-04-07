@@ -363,6 +363,7 @@ export function DawnPatrolClient() {
             onSelect={handleBeachSelect}
             placeholder="Search for a beach..."
             maxResults={6}
+            source="tool_dawn_patrol"
           />
         </div>
       </ToolHero>
