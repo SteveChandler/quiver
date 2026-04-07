@@ -265,7 +265,7 @@ export function WindCheckerClient({
                   beachName={beach.name}
                   shareText={
                     offshoreQuality
-                      ? `Wind is ${offshoreQuality.verdict.toLowerCase()} at ${beach.name} right now`
+                      ? `Wind is ${offshoreQuality.label} at ${beach.name} right now`
                       : `Check wind at ${beach.name} on Quiver`
                   }
                 />
