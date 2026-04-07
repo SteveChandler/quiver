@@ -69,6 +69,68 @@ export function BeachReviewForm({
   const formOpenTimeRef = useRef<number>(Date.now());
   // Prevent duplicate open tracking
   const hasTrackedOpenRef = useRef(false);
+  // Marks a successful submission so the unmount cleanup doesn't fire abandon
+  const hasSubmittedRef = useRef(false);
+  // Single-fire guard shared by handleCancel and the unmount cleanup
+  const hasTrackedAbandonRef = useRef(false);
+
+  // Refs that mirror the latest values used by the unmount cleanup. The cleanup
+  // runs with empty deps so it can detect actual unmount (not every prop change),
+  // which means it would otherwise read stale closure values.
+  const trackRef = useRef(track);
+  const beachIdRef = useRef(beachId);
+  const beachNameRef = useRef(beachName);
+  const trackingSourceRef = useRef(trackingSource);
+  const isEditRef = useRef(Boolean(existingReview));
+  // Tracks the deepest field the user has engaged with. Promoted monotonically
+  // (never regresses) as the user interacts with fields.
+  const maxFieldTouchedRef = useRef<'none' | 'rating' | 'title' | 'content' | 'date'>('none');
+  // Mirror ref for the abandon snapshot so the unmount cleanup (empty deps) can
+  // read fresh formData-derived values without closing over stale state.
+  const abandonSnapshotRef = useRef<{
+    stars_filled: number;
+    title_length: number;
+    content_length: number;
+    max_field_touched: 'none' | 'rating' | 'title' | 'content' | 'date';
+  }>({ stars_filled: 0, title_length: 0, content_length: 0, max_field_touched: 'none' });
+
+  const [formData, setFormData] = useState<ReviewFormData>({
+    overall_rating: existingReview?.overall_rating || 0,
+    wave_quality_rating: existingReview?.wave_quality_rating || 0,
+    crowd_density_rating: existingReview?.crowd_density_rating || 0,
+    parking_rating: existingReview?.parking_rating || 0,
+    accessibility_rating: existingReview?.accessibility_rating || 0,
+    title: existingReview?.title || "",
+    content: existingReview?.content || "",
+    visit_date: existingReview?.visit_date
+      ? new Date(existingReview.visit_date)
+      : undefined,
+  });
+
+  const FIELD_ORDER: Array<'none' | 'rating' | 'title' | 'content' | 'date'> = ['none', 'rating', 'title', 'content', 'date'];
+  function promoteField(
+    current: typeof FIELD_ORDER[number],
+    next: typeof FIELD_ORDER[number]
+  ): typeof FIELD_ORDER[number] {
+    return FIELD_ORDER.indexOf(next) > FIELD_ORDER.indexOf(current) ? next : current;
+  }
+
+  const buildAbandonFieldSnapshot = () => {
+    const ratingsFilled = [
+      formData.overall_rating,
+      formData.wave_quality_rating,
+      formData.crowd_density_rating,
+      formData.parking_rating,
+      formData.accessibility_rating,
+    ].filter((r) => r > 0).length;
+
+    return {
+      stars_filled: ratingsFilled,
+      title_length: formData.title.length,
+      content_length: formData.content.length,
+      max_field_touched: maxFieldTouchedRef.current,
+    };
+  };
 
   // Track form open on mount (only once)
   useEffect(() => {
@@ -87,28 +149,57 @@ export function BeachReviewForm({
     });
   }, [user, beachId, beachName, existingReview, trackingSource, track]);
 
-  const [formData, setFormData] = useState<ReviewFormData>({
-    overall_rating: existingReview?.overall_rating || 0,
-    wave_quality_rating: existingReview?.wave_quality_rating || 0,
-    crowd_density_rating: existingReview?.crowd_density_rating || 0,
-    parking_rating: existingReview?.parking_rating || 0,
-    accessibility_rating: existingReview?.accessibility_rating || 0,
-    title: existingReview?.title || "",
-    content: existingReview?.content || "",
-    visit_date: existingReview?.visit_date
-      ? new Date(existingReview.visit_date)
-      : undefined,
+  // Sync the latest values into refs every render so the unmount cleanup reads fresh data.
+  useEffect(() => {
+    trackRef.current = track;
+    beachIdRef.current = beachId;
+    beachNameRef.current = beachName;
+    trackingSourceRef.current = trackingSource;
+    isEditRef.current = Boolean(existingReview);
+    abandonSnapshotRef.current = buildAbandonFieldSnapshot();
   });
+
+  // Fire review_form_abandon on unmount when the user closes the dialog via X,
+  // outside-click, or back navigation (anything that isn't Cancel or Submit).
+  // Empty deps ensure the cleanup runs only on actual unmount.
+  useEffect(() => {
+    return () => {
+      if (
+        !hasTrackedOpenRef.current ||
+        hasSubmittedRef.current ||
+        hasTrackedAbandonRef.current
+      ) {
+        return;
+      }
+      hasTrackedAbandonRef.current = true;
+      trackRef.current('review_form_abandon', {
+        beachId: beachIdRef.current,
+        metadata: {
+          source: trackingSourceRef.current,
+          beach_id: beachIdRef.current,
+          beach_name: beachNameRef.current,
+          is_edit: isEditRef.current,
+          duration_ms: Date.now() - formOpenTimeRef.current,
+          abandon_via: 'unmount',
+          ...abandonSnapshotRef.current,
+        } as ReviewFormMetadata,
+      });
+    };
+    // Empty deps intentional: cleanup must run only on real unmount. All values
+    // read in the cleanup come from refs that are synced in a separate effect.
+  }, []);
 
   const handleRatingChange = (
     category: keyof ReviewFormData,
     rating: number
   ) => {
+    maxFieldTouchedRef.current = promoteField(maxFieldTouchedRef.current, 'rating');
     setFormData((prev) => ({ ...prev, [category]: rating }));
   };
 
   const handleCancel = () => {
-    // Track form abandon
+    // Track form abandon (single-fire guard prevents double-tracking with the unmount cleanup)
+    hasTrackedAbandonRef.current = true;
     track('review_form_abandon', {
       beachId,
       metadata: {
@@ -117,6 +208,8 @@ export function BeachReviewForm({
         beach_name: beachName,
         is_edit: Boolean(existingReview),
         duration_ms: Date.now() - formOpenTimeRef.current,
+        abandon_via: 'cancel_button',
+        ...buildAbandonFieldSnapshot(),
       } as ReviewFormMetadata,
     });
 
@@ -201,6 +294,8 @@ export function BeachReviewForm({
       }
 
       if (result.success) {
+        // Mark as submitted so the unmount cleanup doesn't fire abandon
+        hasSubmittedRef.current = true;
         // Track successful submit
         track('review_submit', {
           beachId,
@@ -352,6 +447,7 @@ export function BeachReviewForm({
               mode="single"
               selected={formData.visit_date}
               onSelect={(date) => {
+                maxFieldTouchedRef.current = promoteField(maxFieldTouchedRef.current, 'date');
                 setFormData((prev) => ({
                   ...prev,
                   visit_date: date || undefined,
@@ -390,9 +486,10 @@ export function BeachReviewForm({
           id="title"
           placeholder="Summarize your experience..."
           value={formData.title}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, title: e.target.value }))
-          }
+          onChange={(e) => {
+            maxFieldTouchedRef.current = promoteField(maxFieldTouchedRef.current, 'title');
+            setFormData((prev) => ({ ...prev, title: e.target.value }));
+          }}
           maxLength={200}
         />
       </div>
@@ -404,9 +501,10 @@ export function BeachReviewForm({
           id="content"
           placeholder="Share your detailed experience at this beach..."
           value={formData.content}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, content: e.target.value }))
-          }
+          onChange={(e) => {
+            maxFieldTouchedRef.current = promoteField(maxFieldTouchedRef.current, 'content');
+            setFormData((prev) => ({ ...prev, content: e.target.value }));
+          }}
           className="min-h-[120px]"
         />
       </div>
