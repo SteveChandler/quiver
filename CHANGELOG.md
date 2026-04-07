@@ -10,6 +10,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Cam thumbnails for 12 previously-blank cards on `/cams` (coverage now 70/76, 92%): 6 Surfline cams (Blacks, Tourmaline, Ventura Point, 3× Sunset Cliffs) via `camstills.cdn-surfline.com` live stills, 2 Waikiki cams via EarthCam snapshot endpoint, plus Westport (Squarespace CDN), San Onofre + Seabrook (YouTube embeds extracted from page), and Ocean Shores (redstone.net). Surfline and EarthCam URLs are live CDN endpoints that auto-refresh; the rest are stable static URLs scraped from the source pages. Note: EarthCam URL format is opaque (`?img=<base64>`) and could break if EarthCam rotates internal cam IDs — no public API exists for this.
 - `next.config.mjs` `images.remotePatterns` now allows `camstills.cdn-surfline.com`, `www.earthcam.com/cams/includes/image.php`, `images.squarespace-cdn.com` (scoped to Experience Westport's site ID), and `static-1.redstone.net/images/cameras/**`.
+- Map interaction events now include viewport center, bounds, `beaches_in_viewport`, and `visible_cluster_count` metadata for geographic cohort analysis; `map_interaction` now distinguishes `pan` from `zoom` actions.
+- New map reliability events: `map_ready` (load time) and `map_load_failed` (classified error type) on `interactive-map.tsx`.
+- New `empty_state_shown` event fires for: map viewport with zero beaches at zoom ≥ 9, beach detail tabs with empty reviews/intel/sessions.
+- New `forecast_ready` event on beach detail page tracks forecast load timing per beach.
+- New engagement depth events on beach detail: `scroll_depth` (25/50/75/100% buckets, single-fire per page mount) and `time_on_page` (fires on visibility hidden / beforeunload / unmount, tags `authenticated` state and `exit_via`).
+- New `cta_impression` event + reusable `useCtaImpression` hook (IntersectionObserver-based, single-fire) applied to the signup hero CTA and reviews/intel/sessions tab CTAs on beach detail pages.
+- New `first_beach_view_post_signup` one-shot event (localStorage-guarded, 7-day activation window) captures `minutes_since_signup` for activation cohort analysis.
+- New session log funnel events on `SessionScrollForm`: `session_log_beach_selected`, `session_log_rating_set` (debounced), `session_log_photo_added`, `session_log_abandon` (with `abandon_via: 'cancel_button' | 'unmount'`, `max_step_reached`, and `duration_ms`).
+- New `beach_search_result_click` event fires before navigation with result position, count, and query length; `beach_search` enriched with `result_count`, `query_length`, `zero_results`, and `source` (7 surfaces: home, landing hero, 5 tools). Centralized in `BeachSearchAutocomplete` as single source of truth. Raw query strings deliberately omitted for PII/cardinality reasons.
+- New `client_error` event via `ClientErrorTracker` mounted in `components/providers.tsx` — captures `window.onerror` + `unhandledrejection` with rate limiting (10 events per 10s window) and truncated messages. Complements Sentry for correlation against the event stream.
+- Review form abandon events now include field progression telemetry: `stars_filled`, `title_length`, `content_length`, and `max_field_touched` (`none` → `rating` → `title` → `content` → `date`).
+- Onboarding step events now use named step identifiers (`home_beach`, `level_and_time`, `payoff`, `completed`) instead of brittle numeric indices, plus `direction: 'forward' | 'back'`.
+- `auth_provider_selected` now consistently emits `provider: 'apple' | 'google' | 'email'` (email sub-flows distinguished via `email_method: 'password' | 'magic_link'` in GA4 only). Google One-Tap signups now also fire `auth_provider_selected` — previously only `auth_method_selected` fired, causing Google to be undercounted.
+- `session_log_start` and `session_log_submit` now fire to `/api/events` (Supabase) in addition to GA — previously only GA received them, leaving the funnel bookends absent from `user_events` and making SQL funnel queries misleading.
+- `/api/beaches/[id]` now guarantees `review_count` on the response via a live COUNT fallback when the denormalized column is null — `beach_reviews_empty` event now fires reliably.
+- Forecast API (`/api/forecasts/update-enhanced`) now emits `X-Quiver-Source` and `X-Quiver-Cached` response headers; `useBeachDetailData` surfaces them as `forecastSource`/`forecastCached`; `forecast_ready` event now carries `source` (`enhanced | fallback`) and `cached` metadata fields.
+- `onboarding_step` events now include `time_on_step_ms` — computed via a hook-side ref that tracks step entry timestamps, no store refactor required.
+
+### Changed
+- `trackAuthMethodSelected` is now a deprecated no-op (emits a dev-mode console warning). Previously every auth button click fired both `auth_method_selected` AND `auth_provider_selected` with overlapping data, inflating the auth funnel. `auth_provider_selected` is now the single source of truth.
 - Condition alerts: custom surf condition alert rules with 7 preset templates (Glass-Off, Mellow Session, Dawn Patrol, Big Day, Clean Groundswell, Tide Window, Epic Conditions)
 - Two-phase alert cron system: daily evaluation + 5-minute delivery with timezone-aware scheduling
 - Alert creation flow with preset picker and custom condition builder (7 condition types)
@@ -65,6 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Microcopy upgrades: "Checking the lineup..." loading states, "Intel board's empty" activity feed, "Lock in your local" contextual CTA, "Paddling out..." auth loading
 
 ### Fixed
+- Review form abandon events now fire when the dialog is closed via the X button or outside-click, not just the Cancel button.
 - Surf call tide phase now reflects current conditions instead of conditions at window start — `getWindowTide` selects the forecast row closest to `Date.now()` for today's call; tomorrow's call retains window-start behaviour via `isTomorrow` option on `computeSurfCall`
 - Nulled out 3 dead YouTube cam URLs (Ala Moana Bowls, Waikiki, Higgins Beach) that were showing "stream not available"
 - Landing page "Popular surf spots" no longer shows CA-only beaches for non-CA users — progressively expands search radius (300→500→1000mi) before falling back to global list
