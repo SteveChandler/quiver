@@ -226,6 +226,26 @@ export async function GET(request: NextRequest) {
       response.headers.set("Cache-Control", "no-store");
     }
 
+    // Instrumentation headers for forecast_ready event metadata.
+    // Source resolves to one of: 'enhanced' | 'fallback' | 'stale' | 'missing'
+    // based on the data path that produced this response.
+    let source: "enhanced" | "fallback" | "stale" | "missing";
+    if (metadata.missing) {
+      source = "missing";
+    } else if (metadata.stale) {
+      source = "stale";
+    } else if (hasData) {
+      const dataSource = forecasts[0]?.data_source;
+      source = dataSource && dataSource !== "FALLBACK" ? "enhanced" : "fallback";
+    } else {
+      source = "missing";
+    }
+    response.headers.set("X-Quiver-Source", source);
+    response.headers.set(
+      "X-Quiver-Cached",
+      metadata.cached ? "true" : "false"
+    );
+
     return response;
   } catch (error) {
     console.error("❌ Error fetching enhanced forecasts:", error);
