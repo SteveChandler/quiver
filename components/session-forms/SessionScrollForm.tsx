@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -23,6 +23,30 @@ import { FORECAST_ACCURACY_OPTIONS } from "./shared/constants";
 import { SessionCelebration } from "@/components/session/session-celebration";
 import { QuickLogView } from "./QuickLogView";
 import type { BeachSource } from "@/hooks/use-nearest-beach";
+import { useTrackEvent } from "@/hooks/use-track-event";
+import type { SessionLogMetadata } from "@/types/implicit-preferences";
+
+type SessionLogStep =
+  | "none"
+  | "beach_select"
+  | "rating"
+  | "photo"
+  | "details"
+  | "review";
+const STEP_ORDER: SessionLogStep[] = [
+  "none",
+  "beach_select",
+  "rating",
+  "photo",
+  "details",
+  "review",
+];
+function promoteStep(
+  current: SessionLogStep,
+  next: SessionLogStep
+): SessionLogStep {
+  return STEP_ORDER.indexOf(next) > STEP_ORDER.indexOf(current) ? next : current;
+}
 
 interface SessionScrollFormProps {
   initialMode: SessionFormMode;
@@ -64,13 +88,189 @@ export function SessionScrollForm({
 
   const canSave = Boolean(formState.selectedBeachId && formState.selectedDate);
 
+  // ── Session log funnel instrumentation (log mode only) ──
+  const { track: trackEvent } = useTrackEvent();
+  const openedAtRef = useRef<number>(Date.now());
+  const hasTrackedOpenRef = useRef(false);
+  const hasTrackedStartRef = useRef(false);
+  const hasSubmittedRef = useRef(false);
+  const hasTrackedAbandonRef = useRef(false);
+  const maxStepReachedRef = useRef<SessionLogStep>("none");
+  const trackedBeachIdRef = useRef<string | null>(null);
+  const lastPhotoCountRef = useRef<number>(0);
+  const ratingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTrackedRatingRef = useRef<string>("");
+
+  // Mirror refs for unmount cleanup (empty-deps effect can't close over fresh state)
+  const trackRef = useRef(trackEvent);
+  const isLogRef = useRef(isLog);
+  const currentBeachIdRef = useRef<string | undefined>(formState.selectedBeachId);
+
+  // Mark this mount as "form opened" for log mode. Single-fire.
+  useEffect(() => {
+    if (!isLog || hasTrackedOpenRef.current) return;
+    hasTrackedOpenRef.current = true;
+    openedAtRef.current = Date.now();
+  }, [isLog]);
+
+  // session_log_beach_selected: fire once when the first non-empty beach id
+  // appears (covers both prefilled/auto-detected beaches and user picks).
+  // Also fires session_log_start as the funnel bookend (parallel to the
+  // existing GA emission in LocationStep — Supabase needs its own anchor for
+  // funnel queries against user_events).
+  useEffect(() => {
+    if (!isLog) return;
+    const beachId = formState.selectedBeachId;
+    if (!beachId) return;
+    if (trackedBeachIdRef.current === beachId) return;
+    trackedBeachIdRef.current = beachId;
+    maxStepReachedRef.current = promoteStep(
+      maxStepReachedRef.current,
+      "beach_select"
+    );
+    if (!hasTrackedStartRef.current) {
+      hasTrackedStartRef.current = true;
+      trackEvent("session_log_start", {
+        beachId,
+        metadata: { beach_id: beachId } as SessionLogMetadata,
+      });
+    }
+    trackEvent("session_log_beach_selected", {
+      beachId,
+      metadata: { beach_id: beachId } as SessionLogMetadata,
+    });
+  }, [isLog, formState.selectedBeachId, trackEvent]);
+
+  // session_log_rating_set: fire on overallRating change with 500ms debounce.
+  // Only the primary rating — wave quality / crowd sliders are excluded by design.
+  useEffect(() => {
+    if (!isLog) return;
+    const rating = formState.overallRating;
+    if (!rating) return;
+    if (rating === lastTrackedRatingRef.current) return;
+
+    if (ratingDebounceRef.current) clearTimeout(ratingDebounceRef.current);
+    ratingDebounceRef.current = setTimeout(() => {
+      const ratingNum = parseInt(rating, 10);
+      if (!Number.isFinite(ratingNum)) return;
+      lastTrackedRatingRef.current = rating;
+      maxStepReachedRef.current = promoteStep(
+        maxStepReachedRef.current,
+        "rating"
+      );
+      trackEvent("session_log_rating_set", {
+        beachId: formState.selectedBeachId,
+        metadata: {
+          rating: ratingNum,
+          beach_id: formState.selectedBeachId,
+        } as SessionLogMetadata,
+      });
+    }, 500);
+
+    return () => {
+      if (ratingDebounceRef.current) clearTimeout(ratingDebounceRef.current);
+    };
+  }, [isLog, formState.overallRating, formState.selectedBeachId, trackEvent]);
+
+  // session_log_photo_added: fire when photo count increases (never on remove).
+  // Batch adds (multi-select / drag-drop of N files) fire a single event with
+  // the final count — one event per add action, not per file.
+  useEffect(() => {
+    if (!isLog) return;
+    const count = formState.photos.length;
+    if (count > lastPhotoCountRef.current) {
+      lastPhotoCountRef.current = count;
+      maxStepReachedRef.current = promoteStep(
+        maxStepReachedRef.current,
+        "photo"
+      );
+      trackEvent("session_log_photo_added", {
+        beachId: formState.selectedBeachId,
+        metadata: {
+          photo_count: count,
+          beach_id: formState.selectedBeachId,
+        } as SessionLogMetadata,
+        // Disable debounce so rapid successive adds each land
+        debounceMs: 0,
+      });
+    } else if (count < lastPhotoCountRef.current) {
+      // Keep counter in sync on removal (but do not fire)
+      lastPhotoCountRef.current = count;
+    }
+  }, [isLog, formState.photos, formState.selectedBeachId, trackEvent]);
+
+  // Sync mirror refs every render so the unmount cleanup reads fresh values.
+  useEffect(() => {
+    trackRef.current = trackEvent;
+    isLogRef.current = isLog;
+    currentBeachIdRef.current = formState.selectedBeachId;
+  });
+
+  // Unmount cleanup: fire session_log_abandon if the form was opened in log
+  // mode and the user neither submitted nor already cancelled via button.
+  useEffect(() => {
+    return () => {
+      if (
+        !isLogRef.current ||
+        !hasTrackedOpenRef.current ||
+        hasSubmittedRef.current ||
+        hasTrackedAbandonRef.current
+      ) {
+        return;
+      }
+      hasTrackedAbandonRef.current = true;
+      trackRef.current("session_log_abandon", {
+        beachId: currentBeachIdRef.current,
+        metadata: {
+          beach_id: currentBeachIdRef.current,
+          abandon_via: "unmount",
+          duration_ms: Date.now() - openedAtRef.current,
+          max_step_reached:
+            maxStepReachedRef.current === "none"
+              ? undefined
+              : maxStepReachedRef.current,
+        } as SessionLogMetadata,
+      });
+    };
+    // Empty deps intentional: cleanup must run only on real unmount. All values
+    // read in the cleanup come from refs that are synced in a separate effect.
+  }, []);
+
   // Celebration overlay state — only shown for logged sessions
   const [pendingFormState, setPendingFormState] = useState<SessionFormState | null>(null);
+
+  const handleCancel = useCallback(() => {
+    if (
+      isLog &&
+      hasTrackedOpenRef.current &&
+      !hasSubmittedRef.current &&
+      !hasTrackedAbandonRef.current
+    ) {
+      hasTrackedAbandonRef.current = true;
+      trackEvent("session_log_abandon", {
+        beachId: formState.selectedBeachId,
+        metadata: {
+          beach_id: formState.selectedBeachId,
+          abandon_via: "cancel_button",
+          duration_ms: Date.now() - openedAtRef.current,
+          max_step_reached:
+            maxStepReachedRef.current === "none"
+              ? undefined
+              : maxStepReachedRef.current,
+        } as SessionLogMetadata,
+      });
+    }
+    onCancel();
+  }, [isLog, formState.selectedBeachId, trackEvent, onCancel]);
 
   const handleSave = useCallback(() => {
     if (!canSave) return;
     // Only show celebration for log mode; plan mode completes immediately
     if (isLog) {
+      maxStepReachedRef.current = promoteStep(
+        maxStepReachedRef.current,
+        "review"
+      );
       setPendingFormState(formState);
     } else {
       onComplete(formState);
@@ -81,6 +281,9 @@ export function SessionScrollForm({
     if (pendingFormState) {
       const captured = pendingFormState;
       setPendingFormState(null);
+      // Mark as submitted so unmount cleanup does not fire abandon when the
+      // parent navigates away after the server action succeeds.
+      hasSubmittedRef.current = true;
       onComplete(captured);
     }
   }, [pendingFormState, onComplete]);
@@ -100,7 +303,7 @@ export function SessionScrollForm({
           <button
             type="button"
             aria-label="Cancel"
-            onClick={onCancel}
+            onClick={handleCancel}
             className="p-1 rounded-full text-[#8B9EC2] hover:text-[#A8B8D0] transition-colors"
           >
             <X className="w-5 h-5" />
