@@ -25,6 +25,15 @@ const RATE_LIMIT_MAX_EVENTS = 10;
 // Module-scoped so the window survives React strict-mode double-effect runs.
 const recentErrorTimestamps: number[] = [];
 
+const UUID_RE =
+  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+
+// Replace UUID-shaped path segments with [id] so errors captured on pages
+// like /user/<uuid> don't leak that other user's identifier into telemetry.
+function sanitizeRoute(pathname: string): string {
+  return pathname.replace(UUID_RE, "[id]");
+}
+
 function truncate(str: string, max: number): string {
   return str.length > max ? str.slice(0, max) : str;
 }
@@ -75,7 +84,7 @@ export function ClientErrorTracker(): null {
         message: combined,
         stack_top_frame: firstStackFrame(event.error?.stack),
         // eslint-disable-next-line no-restricted-properties -- error tracker runs outside React, cannot use useRouter/usePathname
-        route: window.location.pathname,
+        route: sanitizeRoute(window.location.pathname),
         source: "window_onerror",
       });
     };
@@ -97,7 +106,7 @@ export function ClientErrorTracker(): null {
         message: combined,
         stack_top_frame: firstStackFrame(reason?.stack),
         // eslint-disable-next-line no-restricted-properties -- error tracker runs outside React, cannot use useRouter/usePathname
-        route: window.location.pathname,
+        route: sanitizeRoute(window.location.pathname),
         source: "unhandled_rejection",
       });
     };
