@@ -249,8 +249,12 @@ export function InteractiveMap({
       beaches_in_viewport?: number;
       visible_cluster_count?: number;
     } = {
-      latitude: Number(center.lat.toFixed(4)),
-      longitude: Number(center.lng.toFixed(4)),
+      // 2 decimals (~1.1km) deliberately defeats home-address inference from
+      // accumulated center points. Bounds retain 4-decimal precision below
+      // because viewport shape is less personally identifying than the
+      // exact point a user centers on.
+      latitude: Number(center.lat.toFixed(2)),
+      longitude: Number(center.lng.toFixed(2)),
     };
     if (bounds) {
       meta.bounds_west = Number(bounds.getWest().toFixed(4));
@@ -425,14 +429,19 @@ export function InteractiveMap({
         // it once and zoom is the more informative signal.
         const prevZoom = prevZoomRef.current;
         const prevCenter = prevCenterRef.current;
+        // First idle after mount has no prior tracked state — seed the refs
+        // and skip emission so we don't fire a spurious zoom event for a
+        // viewport the user never actually moved.
+        const isInitialIdle = prevZoom == null && prevCenter == null;
         const ZOOM_EPS = 0.01;
         const CENTER_EPS = 0.0001; // ~11m at the equator
         const zoomChanged =
-          prevZoom == null || Math.abs(zoom - prevZoom) > ZOOM_EPS;
+          !isInitialIdle && Math.abs(zoom - (prevZoom as number)) > ZOOM_EPS;
         const centerChanged =
-          prevCenter == null ||
-          Math.abs(center.lat - prevCenter.lat) > CENTER_EPS ||
-          Math.abs(center.lng - prevCenter.lng) > CENTER_EPS;
+          !isInitialIdle &&
+          prevCenter != null &&
+          (Math.abs(center.lat - prevCenter.lat) > CENTER_EPS ||
+            Math.abs(center.lng - prevCenter.lng) > CENTER_EPS);
         const action: 'zoom' | 'pan' | null = zoomChanged
           ? 'zoom'
           : centerChanged
@@ -457,9 +466,11 @@ export function InteractiveMap({
 
         // Emit empty_state_shown when user has zoomed in past the threshold
         // and the current viewport contains zero beaches. Dedupe on a rounded
-        // viewport key so we don't fire repeatedly for tiny nudges.
+        // viewport key so we don't fire repeatedly for tiny nudges. Skip on
+        // the first idle so we don't fire for a viewport the user hasn't
+        // actually engaged with yet.
         const currentBeaches = beachesRef.current;
-        if (currentBeaches !== undefined && zoom >= 9) {
+        if (!isInitialIdle && currentBeaches !== undefined && zoom >= 9) {
           const meta = getMapViewportMetadata();
           const beachesInViewport =
             'beaches_in_viewport' in meta ? meta.beaches_in_viewport : undefined;
