@@ -253,7 +253,7 @@ const nextConfig = {
         hostname: "i2.wp.com",
         pathname: "/**",
       },
-      // Camera thumbnails (HDOnTap snapshots + YouTube)
+      // Camera thumbnails (HDOnTap snapshots + YouTube + Surfline)
       {
         protocol: "https",
         hostname: "storage.hdontap.com",
@@ -263,6 +263,26 @@ const nextConfig = {
         protocol: "https",
         hostname: "img.youtube.com",
         pathname: "/vi/**",
+      },
+      {
+        protocol: "https",
+        hostname: "camstills.cdn-surfline.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "www.earthcam.com",
+        pathname: "/cams/includes/image.php",
+      },
+      {
+        protocol: "https",
+        hostname: "images.squarespace-cdn.com",
+        pathname: "/content/v1/5ca78ffcd745624ff5378568/**",
+      },
+      {
+        protocol: "https",
+        hostname: "static-1.redstone.net",
+        pathname: "/images/cameras/**",
       },
       // Add specific Supabase hostname if available
       ...(supabaseHostname

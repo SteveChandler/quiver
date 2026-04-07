@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Cam thumbnails for 12 previously-blank cards on `/cams` (coverage now 70/76, 92%): 6 Surfline cams (Blacks, Tourmaline, Ventura Point, 3× Sunset Cliffs) via `camstills.cdn-surfline.com` live stills, 2 Waikiki cams via EarthCam snapshot endpoint, plus Westport (Squarespace CDN), San Onofre + Seabrook (YouTube embeds extracted from page), and Ocean Shores (redstone.net). Surfline and EarthCam URLs are live CDN endpoints that auto-refresh; the rest are stable static URLs scraped from the source pages. Note: EarthCam URL format is opaque (`?img=<base64>`) and could break if EarthCam rotates internal cam IDs — no public API exists for this.
+- `next.config.mjs` `images.remotePatterns` now allows `camstills.cdn-surfline.com`, `www.earthcam.com/cams/includes/image.php`, `images.squarespace-cdn.com` (scoped to Experience Westport's site ID), and `static-1.redstone.net/images/cameras/**`.
 - Condition alerts: custom surf condition alert rules with 7 preset templates (Glass-Off, Mellow Session, Dawn Patrol, Big Day, Clean Groundswell, Tide Window, Epic Conditions)
 - Two-phase alert cron system: daily evaluation + 5-minute delivery with timezone-aware scheduling
 - Alert creation flow with preset picker and custom condition builder (7 condition types)
