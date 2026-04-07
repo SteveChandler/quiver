@@ -592,7 +592,11 @@ function BeachDetailContent({
     // sessions endpoint and an intel listing endpoint directly.
     const safeFetchJson = async (url: string) => {
       try {
-        const res = await fetch(url, { cache: "no-store", signal });
+        // Default cache behavior is fine — a stale "is this empty?" count
+        // is acceptable because the worst case is a dropped telemetry signal,
+        // not wrong data. cache: "no-store" forced 2 uncached HTTP requests
+        // per beach detail mount for every visitor.
+        const res = await fetch(url, { signal });
         if (!res.ok) return null;
         return await res.json();
       } catch {
