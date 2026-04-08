@@ -235,6 +235,7 @@ export function createMockProfile(overrides: Partial<Profile> = {}): Profile {
     bio: null,
     created_at: new Date().toISOString(),
     updated_at: null,
+    deleted_at: null,
     email: "test@example.com",
     display_name: null,
     experience_level: "intermediate",
