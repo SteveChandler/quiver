@@ -14,6 +14,7 @@ import {
 interface BulkForecastResponse {
   forecasts: Record<string, number | undefined>;
   waterTemps: Record<string, string | undefined>;
+  isCalibrated: Record<string, boolean>;
 }
 
 // Mock the Supabase server client
@@ -68,7 +69,7 @@ describe("/api/forecasts/bulk", () => {
       const response = await GET(request);
 
       const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
-      expect(data.data).toEqual({ forecasts: {}, waterTemps: {} });
+      expect(data.data).toEqual({ forecasts: {}, waterTemps: {}, isCalibrated: {} });
       expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
     });
 
@@ -77,7 +78,7 @@ describe("/api/forecasts/bulk", () => {
       const response = await GET(request);
 
       const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
-      expect(data.data).toEqual({ forecasts: {}, waterTemps: {} });
+      expect(data.data).toEqual({ forecasts: {}, waterTemps: {}, isCalibrated: {} });
       expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
     });
 
@@ -86,7 +87,7 @@ describe("/api/forecasts/bulk", () => {
       const response = await GET(request);
 
       const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
-      expect(data.data).toEqual({ forecasts: {}, waterTemps: {} });
+      expect(data.data).toEqual({ forecasts: {}, waterTemps: {}, isCalibrated: {} });
       expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
     });
 
@@ -183,7 +184,7 @@ describe("/api/forecasts/bulk", () => {
       const response = await GET(request);
 
       const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
-      expect(data.data).toEqual({ forecasts: {}, waterTemps: {} });
+      expect(data.data).toEqual({ forecasts: {}, waterTemps: {}, isCalibrated: {} });
     });
 
     it("should handle null data from database", async () => {
@@ -196,7 +197,7 @@ describe("/api/forecasts/bulk", () => {
       const response = await GET(request);
 
       const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
-      expect(data.data).toEqual({ forecasts: {}, waterTemps: {} });
+      expect(data.data).toEqual({ forecasts: {}, waterTemps: {}, isCalibrated: {} });
     });
 
     it("should handle beaches with no matching forecasts in the result set", async () => {
@@ -233,6 +234,117 @@ describe("/api/forecasts/bulk", () => {
 
       // Should not include beach when wave_height is null
       expect(data.data.forecasts).toEqual({});
+    });
+  });
+
+  describe("isCalibrated envelope field", () => {
+    // Helper: stub `from()` so the `beaches` call returns the given rows
+    // while other tables fall through to the default empty chain.
+    function stubBeachesQuery(
+      rows: Array<{ id: string; shoaling_factors: unknown }> | null,
+      error: { message: string } | null = null,
+    ) {
+      const defaultFrom = (mockSupabaseClient as any).from;
+      (mockSupabaseClient as any).from = jest.fn((table: string) => {
+        if (table === "beaches") {
+          const chain: any = {
+            select: jest.fn(),
+            in: jest.fn(),
+            then: jest.fn((onResolve: any) =>
+              Promise.resolve(onResolve({ data: rows, error })),
+            ),
+          };
+          chain.select.mockReturnValue(chain);
+          chain.in.mockReturnValue(chain);
+          return chain;
+        }
+        // Fall through to the shared default chain factory
+        return defaultFrom(table);
+      });
+    }
+
+    it("returns is_calibrated=true for beaches with shoaling_factors set", async () => {
+      (mockSupabaseClient as any).rpc = jest.fn().mockResolvedValue({
+        data: [{ beach_id: "beach-calibrated", wave_height: "2.5" }],
+        error: null,
+      });
+      stubBeachesQuery([
+        { id: "beach-calibrated", shoaling_factors: { "180": 0.9 } },
+      ]);
+
+      const request = createMockRequest(
+        "GET",
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-calibrated",
+      );
+      const response = await GET(request);
+      const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+
+      expect(data.data.isCalibrated).toEqual({ "beach-calibrated": true });
+    });
+
+    it("returns is_calibrated=false for beaches with shoaling_factors null", async () => {
+      (mockSupabaseClient as any).rpc = jest.fn().mockResolvedValue({
+        data: [{ beach_id: "beach-ml-only", wave_height: "1.8" }],
+        error: null,
+      });
+      stubBeachesQuery([
+        { id: "beach-ml-only", shoaling_factors: null },
+      ]);
+
+      const request = createMockRequest(
+        "GET",
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-ml-only",
+      );
+      const response = await GET(request);
+      const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+
+      expect(data.data.isCalibrated).toEqual({ "beach-ml-only": false });
+    });
+
+    it("mixes calibrated and uncalibrated beaches in a single response", async () => {
+      (mockSupabaseClient as any).rpc = jest.fn().mockResolvedValue({
+        data: [
+          { beach_id: "beach-a", wave_height: "2.5" },
+          { beach_id: "beach-b", wave_height: "3.1" },
+        ],
+        error: null,
+      });
+      stubBeachesQuery([
+        { id: "beach-a", shoaling_factors: { "270": 1.05 } },
+        { id: "beach-b", shoaling_factors: null },
+      ]);
+
+      const request = createMockRequest(
+        "GET",
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-a,beach-b",
+      );
+      const response = await GET(request);
+      const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+
+      expect(data.data.isCalibrated).toEqual({
+        "beach-a": true,
+        "beach-b": false,
+      });
+    });
+
+    it("defaults to empty isCalibrated map when beaches query errors", async () => {
+      (mockSupabaseClient as any).rpc = jest.fn().mockResolvedValue({
+        data: [{ beach_id: "beach-1", wave_height: "2.5" }],
+        error: null,
+      });
+      stubBeachesQuery(null, { message: "rls denied" });
+
+      const request = createMockRequest(
+        "GET",
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1",
+      );
+      const response = await GET(request);
+      const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+
+      // Wave heights still flow through; calibration map is empty so
+      // clients treat the beach as uncalibrated by default.
+      expect(data.data.forecasts).toHaveProperty("beach-1");
+      expect(data.data.isCalibrated).toEqual({});
     });
   });
 });
