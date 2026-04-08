@@ -7,6 +7,7 @@ import confetti from 'canvas-confetti';
 import { useOnboardingStore } from '@/store/onboarding-store';
 import { useProfileContext } from '@/context/profile-context';
 import { useForecastPreview } from '@/hooks/use-forecast-preview';
+import { useTrackEvent } from '@/hooks/use-track-event';
 import { saveOnboardingData } from '@/actions/onboarding-actions';
 import { data as dataClient } from '@/lib/data/client';
 import { getLocalDateString } from '@/lib/utils/timezone-utils';
@@ -55,10 +56,10 @@ export function PayoffStep() {
   const searchParams = useSearchParams();
   const { data, completeOnboarding } = useOnboardingStore();
   const { updateProfile } = useProfileContext();
+  const { track } = useTrackEvent();
   const reducedMotion = useReducedMotion();
 
-  const [isSaving, setIsSaving] = useState(true);
-  const [saveSucceeded, setSaveSucceeded] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [intel, setIntel] = useState<ClientBeachDailyIntel | null>(null);
   const [intelLoading, setIntelLoading] = useState(true);
 
@@ -85,18 +86,38 @@ export function PayoffStep() {
     return match ? decodeURIComponent(match[1]) : null;
   }
 
-  // Shared save logic — returns true on success
+  // Save logic — invoked from handleFinish when the user commits to finishing.
+  // NOTE: do NOT call this on mount. Saving on mount triggers updateProfile() which
+  // flows through ProfileContext and races the onboarding dialog's stale-close effect,
+  // dismissing the dialog before the user can see the celebration UI or click this button.
+  // See `project_onboarding_payoff_step_bug.md`.
   const attemptSave = async (): Promise<boolean> => {
     try {
       const referralCode = getReferralCodeFromCookie() ?? undefined;
       const result = await saveOnboardingData({ ...data, referralCode });
 
       if (!result.success) {
+        track("onboarding_step", {
+          metadata: {
+            step: "save_failed",
+            step_name: "save_failed",
+            reason: result.error || "wrapper_failed",
+          },
+          debounceMs: 0,
+        });
         toast.error(result.error || 'Failed to save your preferences. Please try again.');
         return false;
       }
 
       if (!result.data?.success) {
+        track("onboarding_step", {
+          metadata: {
+            step: "save_failed",
+            step_name: "save_failed",
+            reason: result.data?.error || "inner_failed",
+          },
+          debounceMs: 0,
+        });
         toast.error(result.data?.error || 'Failed to save your preferences. Please try again.');
         return false;
       }
@@ -105,33 +126,34 @@ export function PayoffStep() {
         updateProfile(result.data.profile as Profile);
       }
 
-      setSaveSucceeded(true);
       return true;
     } catch (error) {
       console.error('Failed to save onboarding data:', error);
+      track("onboarding_step", {
+        metadata: {
+          step: "save_failed",
+          step_name: "save_failed",
+          reason: error instanceof Error ? error.message : "exception",
+        },
+        debounceMs: 0,
+      });
       toast.error('Failed to save your preferences. Please try again.');
       return false;
     }
   };
 
-  // On mount: save onboarding data and fetch daily intel
+  // On mount: fetch daily intel for the home beach the user just picked (from the
+  // Zustand store, not from the profile — the profile isn't saved until handleFinish).
   useEffect(() => {
     if (hasRun.current) return;
     hasRun.current = true;
 
-    async function saveAndFetch() {
-      // Debug mode: skip save
+    async function fetchIntel() {
       if (isDebugOnboarding) {
-        setIsSaving(false);
-        setSaveSucceeded(true);
         setIntelLoading(false);
         return;
       }
 
-      const saved = await attemptSave();
-      setIsSaving(false);
-
-      // Fetch daily intel regardless of save outcome
       if (data.homeBeachId) {
         try {
           const todayDate = getLocalDateString(new Date());
@@ -147,11 +169,11 @@ export function PayoffStep() {
       setIntelLoading(false);
     }
 
-    saveAndFetch();
+    fetchIntel();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const isLoading = isSaving || intelLoading || forecastLoading;
+  const isLoading = intelLoading || forecastLoading;
 
   // Start reveal beats once content is loaded — enhanced 3-beat reveal
   useEffect(() => {
@@ -224,31 +246,27 @@ export function PayoffStep() {
   }, [isLoading, reducedMotion]);
 
   const handleFinish = async () => {
-    // If save hasn't succeeded yet, retry
-    if (!saveSucceeded && !isDebugOnboarding) {
+    // Save onboarding data now (not on mount — see attemptSave comment).
+    // Debug mode skips the server round-trip entirely.
+    if (!isDebugOnboarding) {
       setIsSaving(true);
       const saved = await attemptSave();
+      if (!saved) {
+        setIsSaving(false);
+        return;
+      }
       setIsSaving(false);
-      if (!saved) return;
     }
 
-    // Complete onboarding
+    // Close the dialog and signal completion. The OnboardingDialog's stale-close
+    // effect is guarded to not fire on PayoffStep, so we drive the close explicitly
+    // via completeOnboarding() here.
     completeOnboarding();
-
-    // Dispatch completion event
     window.dispatchEvent(new CustomEvent('onboarding_completed'));
 
-    // Redirect to home beach page if we have enough data to build a URL,
-    // otherwise fall back to the home screen forecast tab.
-    const slug = data.homeBeachSlug;
-    const city = data.homeBeachCity?.toLowerCase().replace(/\s+/g, '-');
-    const state = data.homeBeachState?.toLowerCase();
-
-    if (slug && city && state) {
-      router.push(`/${state}/${city}/${slug}`);
-    } else {
-      router.push('/?tab=forecast');
-    }
+    // Refresh cached forecasts so they pick up the new profile context, but DO NOT
+    // navigate away from the page the user signed up on. Product intent: keep the
+    // user on /map, /beach/:slug, or wherever they were when the dialog appeared.
     router.refresh();
 
     toast.success('Welcome to Quiver!');
@@ -460,7 +478,7 @@ export function PayoffStep() {
                     Setting up...
                   </span>
                 ) : (
-                  'See your full forecast \u2192'
+                  "Let's go"
                 )}
               </button>
             </motion.div>

@@ -26,6 +26,11 @@ interface TrackingEvent {
     duration_ms?: number;
     error_type?: string;
     is_edit?: boolean;
+    abandon_via?: 'cancel_button' | 'unmount';
+    stars_filled?: number;
+    title_length?: number;
+    content_length?: number;
+    max_field_touched?: 'none' | 'rating' | 'title' | 'content' | 'date';
   };
 }
 
@@ -300,7 +305,11 @@ test.describe('Beach Review Tracking', () => {
       await reviewCTA.click();
       await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
 
-      // Start filling the form
+      // Engage with a star rating first (proves rating progression)
+      const overallStar3 = page.locator('button[aria-label*="Rate Overall Experience 3"]');
+      await overallStar3.click();
+
+      // Then type in the title (proves title progression takes over as deepest field)
       await page.getByPlaceholder(/summarize your experience/i).fill('Partial Review');
 
       // eslint-disable-next-line playwright/no-wait-for-timeout -- accumulating duration_ms for abandon tracking assertion
@@ -316,12 +325,90 @@ test.describe('Beach Review Tracking', () => {
         { timeout: 5000 }
       ).catch(() => {});
 
+      // Give the unmount cleanup a chance to also fire (it should NOT — the cancel
+      // path sets hasTrackedAbandonRef so the cleanup short-circuits)
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- verifying single-fire guard suppresses duplicate
+      await page.waitForTimeout(500);
+
       // Verify abandon event was tracked
       const events = await getCapturedEvents(page);
-      const abandonEvent = events.find(e => e.eventType === 'review_form_abandon');
-      expect(abandonEvent).toBeDefined();
+      const abandonEvents = events.filter(e => e.eventType === 'review_form_abandon');
+      expect(abandonEvents).toHaveLength(1);
+      const abandonEvent = abandonEvents[0];
       expect(abandonEvent?.metadata?.source).toBe('overview_cta');
       expect(abandonEvent?.metadata?.duration_ms).toBeGreaterThan(0);
+      expect(abandonEvent?.metadata?.abandon_via).toBe('cancel_button');
+      // Field progression snapshot: one star rating + title typed
+      expect(abandonEvent?.metadata?.stars_filled).toBe(1);
+      expect(abandonEvent?.metadata?.title_length).toBe('Partial Review'.length);
+      expect(abandonEvent?.metadata?.content_length).toBe(0);
+      expect(abandonEvent?.metadata?.max_field_touched).toBe('title');
+    });
+
+    test('should track review_form_abandon when dialog is closed via X button', async ({ page }) => {
+      await ensureAuthenticated(page);
+
+      // Inject fetch interceptor before navigation (captures keepalive requests)
+      await setupTrackingCapture(page);
+
+      await navigateToBeach(page, TEST_BEACHES.blacks);
+      await waitForTrackingReady(page);
+      // Clear events from page load (beach_view) so we only capture test interactions
+      await page.evaluate(() => { (window as any).__capturedTrackingEvents = []; });
+
+      // Open the review dialog from the reviews tab
+      const reviewsTab = page.getByRole('tab', { name: /reviews/i });
+      await reviewsTab.click();
+      await expect(reviewsTab).toHaveAttribute('data-state', 'active');
+
+      await page.getByRole('tabpanel').first().waitFor({ state: 'visible', timeout: 5000 });
+
+      const writeReviewButton = page.getByRole('button', { name: /write.*review/i }).first();
+      await expect(writeReviewButton).toBeVisible({ timeout: 10000 });
+      await writeReviewButton.click();
+
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toBeVisible({ timeout: 5000 });
+
+      // Wait for the form_open event so we know hasTrackedOpenRef is set
+      await page.waitForFunction(
+        () => (window as any).__capturedTrackingEvents?.some((e: any) => e.eventType === 'review_form_open'),
+        { timeout: 5000 }
+      );
+
+      // Engage with at least one field before dismissing so we can assert
+      // that the abandon snapshot captures field progression via unmount path
+      const overallStar2 = dialog.locator('button[aria-label*="Rate Overall Experience 2"]');
+      await overallStar2.click();
+
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- accumulating duration_ms for abandon tracking assertion
+      await page.waitForTimeout(500);
+
+      // Click the Radix DialogContent close button (default aria-label="Close")
+      const closeButton = dialog.locator('button[aria-label="Close"]');
+      await closeButton.click();
+
+      // Dialog should unmount
+      await expect(dialog).not.toBeVisible({ timeout: 5000 });
+
+      // Wait for the unmount cleanup to fire abandon
+      await page.waitForFunction(
+        () => (window as any).__capturedTrackingEvents?.some((e: any) => e.eventType === 'review_form_abandon'),
+        { timeout: 5000 }
+      ).catch(() => {});
+
+      const events = await getCapturedEvents(page);
+      const abandonEvents = events.filter(e => e.eventType === 'review_form_abandon');
+      expect(abandonEvents).toHaveLength(1);
+      const abandonEvent = abandonEvents[0];
+      expect(abandonEvent?.metadata?.source).toBe('reviews_tab');
+      expect(abandonEvent?.metadata?.abandon_via).toBe('unmount');
+      expect(abandonEvent?.metadata?.duration_ms).toBeGreaterThan(0);
+      // Field progression snapshot: one star rating, no title/content
+      expect(abandonEvent?.metadata?.stars_filled).toBe(1);
+      expect(abandonEvent?.metadata?.title_length).toBe(0);
+      expect(abandonEvent?.metadata?.content_length).toBe(0);
+      expect(abandonEvent?.metadata?.max_field_touched).toBe('rating');
     });
   });
 

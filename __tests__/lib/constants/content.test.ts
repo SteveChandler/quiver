@@ -54,7 +54,10 @@ describe("lib/constants/content invariants", () => {
     expect(typeof ABOUT_CONTENT.cta.primaryHref).toBe("string");
     expect(typeof ABOUT_CONTENT.cta.secondaryLabel).toBe("string");
     expect(typeof ABOUT_CONTENT.cta.secondaryHref).toBe("string");
-    expect(ABOUT_CONTENT.cta.secondaryHref).toMatch(/^mailto:/);
+    expect(ABOUT_CONTENT.cta.secondaryHref).toMatch(/^\//);
+    expect(typeof ABOUT_CONTENT.cta.tertiaryLabel).toBe("string");
+    expect(typeof ABOUT_CONTENT.cta.tertiaryHref).toBe("string");
+    expect(ABOUT_CONTENT.cta.tertiaryHref).toMatch(/^mailto:/);
   });
 
   test("PRIVACY_CONTENT sections have unique ids and basic contact sanity", () => {

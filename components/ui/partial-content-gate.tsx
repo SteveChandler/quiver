@@ -11,6 +11,10 @@ import {
   trackPartialGateSignupClick,
 } from "@/lib/analytics/engagement-tracking";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
+import {
+  trackSigninCtaClick,
+  trackSignupCtaClick,
+} from "@/lib/analytics/signup-conversion-tracking";
 
 interface PartialContentGateProps {
   /** Content type label for CTA text and tracking */
@@ -69,6 +73,11 @@ export function PartialContentGate({
 
   const handleSignUpClick = () => {
     trackPartialGateSignupClick(contentType);
+    trackSignupCtaClick({
+      source: `partial-gate-${contentType}`,
+      surface: "partial-gate",
+      content_type: contentType,
+    });
     setAuthMode("signup");
     setAuthModalOpen(true);
     trackAuthModalOpened({
@@ -78,6 +87,11 @@ export function PartialContentGate({
   };
 
   const handleLoginClick = () => {
+    trackSigninCtaClick({
+      source: `partial-gate-${contentType}`,
+      surface: "partial-gate",
+      content_type: contentType,
+    });
     setAuthMode("login");
     setAuthModalOpen(true);
     trackAuthModalOpened({

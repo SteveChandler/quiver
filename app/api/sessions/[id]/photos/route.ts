@@ -22,16 +22,12 @@ export async function GET(
     }
 
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
 
-    if (userError || !user) {
-      return createAuthError();
-    }
-
-    // Allow access for: owner, or public sessions (so feeds can show photos).
+    // Fetch the session first so we can decide whether auth is required.
+    // Public sessions are viewable by anyone (for guest-mode beach page feeds),
+    // private sessions require the viewer to be the owner. Previously this
+    // handler rejected all unauthenticated requests with 401 before checking
+    // `is_public`, which broke the anonymous session carousel on beach detail.
     const { data: existing, error: existingError } = await supabase
       .from("sessions")
       .select("id, user_id, is_public")
@@ -52,17 +48,43 @@ export async function GET(
       throw existingError;
     }
 
-    if (!existing || (!existing.is_public && existing.user_id !== user.id)) {
+    if (!existing) {
       return NextResponse.json(
         {
           success: false,
-          error: "Forbidden",
+          error: "Session not found",
           timestamp: new Date().toISOString(),
         },
-        { status: 403, headers: DEFAULT_SECURITY_HEADERS }
+        { status: 404, headers: DEFAULT_SECURITY_HEADERS }
       );
     }
 
+    // Private session — require an authenticated viewer who owns it.
+    if (!existing.is_public) {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        return createAuthError();
+      }
+
+      if (existing.user_id !== user.id) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Forbidden",
+            timestamp: new Date().toISOString(),
+          },
+          { status: 403, headers: DEFAULT_SECURITY_HEADERS }
+        );
+      }
+    }
+
+    // Public session (or authenticated owner) — return photos.
+    // RLS policy "Public can view media from public sessions" on session_media
+    // gates the data access for anonymous callers.
     const photos = await getSessionPhotos(sessionId, supabase);
     return createSuccessResponse({ photos });
   } catch (error) {

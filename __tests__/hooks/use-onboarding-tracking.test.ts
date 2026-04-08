@@ -19,8 +19,21 @@ jest.mock("@/hooks/use-track-event", () => ({
 }));
 
 describe("useOnboardingTracking", () => {
+  let nowSpy: jest.SpyInstance<number, []>;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    // Deterministic Date.now: starts at 1_000_000 and advances by 5_000ms per call.
+    let current = 1_000_000;
+    nowSpy = jest.spyOn(Date, "now").mockImplementation(() => {
+      const value = current;
+      current += 5_000;
+      return value;
+    });
+  });
+
+  afterEach(() => {
+    nowSpy.mockRestore();
   });
 
   describe("callback setup", () => {
@@ -53,16 +66,19 @@ describe("useOnboardingTracking", () => {
       const stepChangeCallback = mockSetOnStepChange.mock.calls[0][0];
 
       // Simulate step change from step 0 to step 1
+      // Date.now mock: hook mount captures 1_000_000, callback fires at 1_005_000 → 5_000ms on step
       act(() => {
-        stepChangeCallback(0, 1, "welcome");
+        stepChangeCallback(0, 1, "home_beach");
       });
 
       await waitFor(() => {
         expect(mockTrack).toHaveBeenCalledWith("onboarding_step", {
           metadata: {
-            step: 1, // 1-indexed for human readability
-            step_name: "welcome",
+            step: "home_beach", // Named identifier, not numeric
+            step_name: "home_beach",
             completed: true,
+            direction: "forward",
+            time_on_step_ms: 5_000,
           },
           debounceMs: 100,
         });
@@ -74,38 +90,58 @@ describe("useOnboardingTracking", () => {
 
       const stepChangeCallback = mockSetOnStepChange.mock.calls[0][0];
 
-      // Simulate multiple step changes
+      // Simulate multiple step changes through the real onboarding step names
       act(() => {
-        stepChangeCallback(0, 1, "welcome");
+        stepChangeCallback(0, 1, "home_beach");
       });
 
       act(() => {
-        stepChangeCallback(1, 2, "home_beach");
+        stepChangeCallback(1, 2, "level_and_time");
       });
 
       act(() => {
-        stepChangeCallback(2, 3, "profile");
+        stepChangeCallback(2, 1, "payoff");
       });
 
       await waitFor(() => {
         expect(mockTrack).toHaveBeenCalledTimes(3);
       });
 
-      // Verify each call
+      // Verify each call. Date.now mock advances 5_000ms per call:
+      // mount=1_000_000, callback1=1_005_000, callback2=1_010_000, callback3=1_015_000.
       expect(mockTrack).toHaveBeenNthCalledWith(1, "onboarding_step", {
-        metadata: { step: 1, step_name: "welcome", completed: true },
+        metadata: { step: "home_beach", step_name: "home_beach", completed: true, direction: "forward", time_on_step_ms: 5_000 },
         debounceMs: 100,
       });
 
       expect(mockTrack).toHaveBeenNthCalledWith(2, "onboarding_step", {
-        metadata: { step: 2, step_name: "home_beach", completed: true },
+        metadata: { step: "level_and_time", step_name: "level_and_time", completed: true, direction: "forward", time_on_step_ms: 5_000 },
         debounceMs: 100,
       });
 
+      // Back transition (toStep < fromStep)
       expect(mockTrack).toHaveBeenNthCalledWith(3, "onboarding_step", {
-        metadata: { step: 3, step_name: "profile", completed: true },
+        metadata: { step: "payoff", step_name: "payoff", completed: true, direction: "back", time_on_step_ms: 5_000 },
         debounceMs: 100,
       });
+    });
+
+    it("emits a numeric time_on_step_ms for sequential transitions", async () => {
+      renderHook(() => useOnboardingTracking());
+      const stepChangeCallback = mockSetOnStepChange.mock.calls[0][0];
+
+      act(() => {
+        stepChangeCallback(0, 1, "home_beach");
+      });
+
+      await waitFor(() => {
+        expect(mockTrack).toHaveBeenCalledTimes(1);
+      });
+
+      const trackCall = mockTrack.mock.calls[0];
+      const metadata = trackCall[1].metadata;
+      expect(typeof metadata.time_on_step_ms).toBe("number");
+      expect(metadata.time_on_step_ms).toBeGreaterThanOrEqual(0);
     });
   });
 
@@ -115,9 +151,9 @@ describe("useOnboardingTracking", () => {
 
       const stepChangeCallback = mockSetOnStepChange.mock.calls[0][0];
 
-      // Simulate completion (toStep = -1)
+      // Simulate completion from the payoff step (toStep = -1)
       act(() => {
-        stepChangeCallback(5, ONBOARDING_COMPLETION_SIGNAL, "completion");
+        stepChangeCallback(2, ONBOARDING_COMPLETION_SIGNAL, "payoff");
       });
 
       await waitFor(() => {
@@ -127,13 +163,13 @@ describe("useOnboardingTracking", () => {
 
       // First call: step completion
       expect(mockTrack).toHaveBeenNthCalledWith(1, "onboarding_step", {
-        metadata: { step: 6, step_name: "completion", completed: true },
+        metadata: { step: "payoff", step_name: "payoff", completed: true, direction: "forward" },
         debounceMs: 100,
       });
 
       // Second call: final completion (debounceMs: 0 — fires right after payoff step event with same debounce key)
       expect(mockTrack).toHaveBeenNthCalledWith(2, "onboarding_step", {
-        metadata: { step: 6, step_name: "completed", completed: true },
+        metadata: { step: "completed", step_name: "completed", completed: true, direction: "forward" },
         debounceMs: 0,
       });
     });
@@ -145,7 +181,7 @@ describe("useOnboardingTracking", () => {
 
       // Simulate regular step change (not completion)
       act(() => {
-        stepChangeCallback(2, 3, "profile");
+        stepChangeCallback(1, 2, "level_and_time");
       });
 
       await waitFor(() => {
@@ -154,7 +190,7 @@ describe("useOnboardingTracking", () => {
 
       // Should only have one call, not two
       expect(mockTrack).toHaveBeenCalledWith("onboarding_step", {
-        metadata: { step: 3, step_name: "profile", completed: true },
+        metadata: { step: "level_and_time", step_name: "level_and_time", completed: true, direction: "forward" },
         debounceMs: 100,
       });
     });

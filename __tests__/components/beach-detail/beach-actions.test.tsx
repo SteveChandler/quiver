@@ -156,13 +156,18 @@ describe('BeachActions', () => {
       expect(screen.getByTestId('auth-modal')).toHaveAttribute('data-source', 'conditions-report-cta');
     });
 
-    test('calls onAuthRequired when guest clicks Report Conditions', () => {
+    test('does NOT call onAuthRequired when guest clicks Report Conditions (own modal handles auth)', () => {
+      // BeachActions owns its own auth modal with source="conditions-report-cta"
+      // for accurate funnel attribution. It MUST NOT also bubble onAuthRequired
+      // to the parent — that would render a second modal in beach-detail.tsx and
+      // double-fire auth_modal_opened. The parent's modal is reserved for
+      // HomeBeachBanner's "Set Home Beach" CTA.
       const mockAuthRequired = jest.fn();
       render(<BeachActions beach={mockBeach} publicMode={true} onAuthRequired={mockAuthRequired} />);
 
       fireEvent.click(screen.getByRole('button', { name: /report conditions/i }));
 
-      expect(mockAuthRequired).toHaveBeenCalledTimes(1);
+      expect(mockAuthRequired).not.toHaveBeenCalled();
     });
 
     test('always shows Report Conditions subtitle', () => {

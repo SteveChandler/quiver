@@ -5,6 +5,7 @@ import { useAuth } from "@/context/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import {
   trackAuthMethodSelected,
+  trackAuthProviderSelected,
   trackSignupStarted,
   trackSignupSuccess,
   trackLoginSuccess,
@@ -87,6 +88,11 @@ export function GoogleOneTap() {
       const start = startTimeRef.current || Date.now();
 
       trackAuthMethodSelected({ method: "google", mode: "signup" });
+      trackAuthProviderSelected({
+        provider: "google",
+        mode: "signup",
+        source: "google_one_tap",
+      });
       trackSignupStarted("google_one_tap");
 
       try {

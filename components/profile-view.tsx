@@ -45,6 +45,7 @@ import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
 import { track } from "@/lib/analytics";
 
 import { FeedHighlight } from "@/components/profile/FeedHighlight";
+import { SetHomeBreakCta } from "@/components/profile/set-home-break-cta";
 
 // Lazy load the referral leaderboard
 const ReferralLeaderboard = lazy(() =>
@@ -429,6 +430,19 @@ function ProfileViewContent() {
                 </Card>
               </div>
             </motion.section>
+
+            {/* Set up your home break CTA — only visible when home_beach_id is NULL.
+                Re-opens the OnboardingDialog so users who tapped "Maybe later" during
+                signup have a clear path back into the setup flow.
+                See Fix 4 in plans/majestic-squishing-newell.md. */}
+            {profile && !profile.home_beach_id && (
+              <motion.section
+                {...ANIMATION_VARIANTS.fadeUpWithDelay(0.15)}
+                className="max-w-6xl mx-auto px-2 sm:px-4"
+              >
+                <SetHomeBreakCta />
+              </motion.section>
+            )}
 
             {/* Enhanced User Stats */}
             <motion.section

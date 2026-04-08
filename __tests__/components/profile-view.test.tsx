@@ -51,6 +51,15 @@ jest.mock("@/components/profile/FeedHighlight", () => ({
   ),
 }));
 
+// Mock SetHomeBreakCta — uses useProfileContext/useOnboardingStore which would
+// require a provider wrapping the test render. Renders nothing when mocked;
+// the component's own unit tests cover its behavior.
+jest.mock("@/components/profile/set-home-break-cta", () => ({
+  SetHomeBreakCta: () => (
+    <div data-testid="set-home-break-cta">Set up your home break</div>
+  ),
+}));
+
 // Mock lazy-loaded components
 jest.mock("@/components/favorite-beaches", () => ({
   FavoriteBeaches: () => <div data-testid="favorite-beaches">Favorite Beaches</div>,

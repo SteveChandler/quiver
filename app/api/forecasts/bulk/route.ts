@@ -25,6 +25,12 @@ export const dynamic = 'force-dynamic';
  *   data: {
  *     forecasts: {
  *       [beachId]: number | undefined
+ *     },
+ *     waterTemps: {
+ *       [beachId]: string | undefined
+ *     },
+ *     isCalibrated: {
+ *       [beachId]: boolean
  *     }
  *   }
  * }
@@ -36,7 +42,7 @@ async function bulkForecastHandler(request: NextRequest) {
 
     // Return empty forecasts for missing/empty beachIds (not an error)
     if (!beachIdsParam || !beachIdsParam.trim()) {
-      return createSuccessResponse({ forecasts: {}, waterTemps: {} });
+      return createSuccessResponse({ forecasts: {}, waterTemps: {}, isCalibrated: {} });
     }
 
     // Parse beach IDs and filter out empty strings
@@ -46,7 +52,7 @@ async function bulkForecastHandler(request: NextRequest) {
       .filter(Boolean);
 
     if (beachIds.length === 0) {
-      return createSuccessResponse({ forecasts: {}, waterTemps: {} });
+      return createSuccessResponse({ forecasts: {}, waterTemps: {}, isCalibrated: {} });
     }
 
     // Limit to prevent abuse
@@ -75,6 +81,26 @@ async function bulkForecastHandler(request: NextRequest) {
       }
     });
 
+    // Fetch calibration status for each beach. We expose only the boolean —
+    // `shoaling_factors` is ~4KB of JSONB per beach and the client only needs
+    // to know whether the displayed wave height came from the empirically
+    // calibrated pipeline. Beaches missing from this query (errors, soft
+    // deletes) default to `false`.
+    const isCalibratedMap: Record<string, boolean> = {};
+    const { data: beachRows, error: beachError } = await supabase
+      .from("beaches")
+      .select("id, shoaling_factors")
+      .in("id", limitedBeachIds);
+
+    if (beachError) {
+      console.error("Error fetching beach calibration status:", beachError);
+      // Non-fatal: leave map empty, clients default to `false`.
+    } else {
+      (beachRows || []).forEach((row: { id: string; shoaling_factors: unknown }) => {
+        isCalibratedMap[row.id] = row.shoaling_factors !== null;
+      });
+    }
+
     // Fetch water temps from the same forecast rows
     // Use a direct query since the RPC doesn't return water_temp
     const waterTempMap: Record<string, string | undefined> = {};
@@ -96,7 +122,11 @@ async function bulkForecastHandler(request: NextRequest) {
       });
     }
 
-    return createSuccessResponse({ forecasts: waveHeightMap, waterTemps: waterTempMap });
+    return createSuccessResponse({
+      forecasts: waveHeightMap,
+      waterTemps: waterTempMap,
+      isCalibrated: isCalibratedMap,
+    });
   } catch (error) {
     console.error("Unexpected error in bulk forecast API:", error);
     return handleApiError(error instanceof Error ? error : new Error(String(error)), "Unexpected error fetching forecasts");

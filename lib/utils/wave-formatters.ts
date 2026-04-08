@@ -15,6 +15,7 @@ import {
   transformToFaceHeight,
   SET_WAVE_VARIANCE,
   type BeachTerrainConfig,
+  type WaveHeightSourceTag,
   BASE_SHOALING,
   calculatePeriodFactor,
   calculateDirectionFactor,
@@ -424,8 +425,13 @@ export interface WaveHeightSourceParams {
 export interface WaveHeightSource {
   /** Raw height in feet */
   heightFt: number;
-  /** Source identifier for debugging/logging */
-  source: 'cdip_sig' | 'model_swell' | 'cdip_swell' | 'model_hs' | 'ndbc_buoy';
+  /**
+   * Source identifier. Used downstream by `transformToFaceHeight` to gate
+   * the per-beach `shoaling_factors` short-circuit (only valid when source
+   * === 'cdip_sig'). Type imported from wave-height-transformer to keep the
+   * two files in sync.
+   */
+  source: WaveHeightSourceTag;
 }
 
 /**
@@ -518,12 +524,17 @@ export function toFaceHeightFeet(params: FaceHeightParams): string | null {
   const periodFactor = calculatePeriodFactor(params.periodS ?? null);
   const directionFactor = calculateDirectionFactor(params.swellDirectionDeg ?? null, params.beach ?? null);
 
-  // Transform using beach-specific factors
+  // Transform using beach-specific factors.
+  // `source.source` is forwarded so the transformer can gate its per-beach
+  // shoaling_factors short-circuit: the bucket multiplier is only valid when
+  // the input came from CDIP Hs, not when selectWaveHeightSource fell back
+  // to model swell / model Hs / NDBC buoy.
   const faceHeight = transformToFaceHeight({
     rawHeightFt: source.heightFt,
     periodS: params.periodS ?? null,
     swellDirectionDeg: params.swellDirectionDeg ?? null,
     beach: params.beach ?? null,
+    source: source.source,
   });
 
   // Clamp and round

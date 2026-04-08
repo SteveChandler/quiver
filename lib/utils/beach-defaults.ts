@@ -104,6 +104,10 @@ function getBeachDefaults(): Omit<
     // CDIP buoy integration
     cdip_station: null,
 
+    // Empirically calibrated per-beach shoaling factor lookup (period-keyed).
+    // See migration 20260407134519. Null for uncalibrated beaches.
+    shoaling_factors: null,
+
     // Terrain analysis
     terrain_analysis_debug: null,
     terrain_analyzed_at: null,

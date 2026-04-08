@@ -43,13 +43,12 @@ test.describe("Onboarding - close + view full forecast", () => {
       timeout: TIMEOUTS.long,
     });
 
-    // Skip (X) button dismisses the overlay.
-    // The sticky app header shares z-50 with the onboarding overlay and can intercept
-    // pointer events at the top of the viewport where the skip button lives.
-    // force:true bypasses the pointer-event interception check since the button IS
-    // visible and functional — only the hit-test is confused by the overlapping header.
-    const closeButton = dialog.getByRole("button", { name: /skip onboarding/i });
-    await closeButton.click({ force: true });
+    // "Maybe later" button dismisses the overlay.
+    // The old absolute-positioned X button (aria-label="Skip onboarding") was
+    // removed because it was a reflex-tap magnet. Dismissal is now an explicit
+    // in-step button labeled "Maybe later".
+    const maybeLaterButton = dialog.getByRole("button", { name: /maybe later/i });
+    await maybeLaterButton.click();
     await expect(dialog).toBeHidden({ timeout: TIMEOUTS.long });
 
     // Re-open and run through steps.
@@ -89,11 +88,12 @@ test.describe("Onboarding - close + view full forecast", () => {
       timeout: TIMEOUTS.long,
     });
 
-    // Debug harness bypasses save — CTA text is now "See your full forecast →"
+    // Debug harness bypasses save — CTA text is now "Let's go".
+    // handleFinish calls completeOnboarding() which closes the dialog but does NOT
+    // navigate — product intent is to keep the user on the page they signed up on.
     await page.getByTestId("complete-onboarding-button").click();
 
-    // After completing onboarding, router.push does a soft navigation.
-    // Wait for the overlay to close and home page content to appear.
+    // Wait for the overlay to close. We stay on the same URL (no router.push).
     await expect(page.getByRole("dialog")).toBeHidden({ timeout: TIMEOUTS.long });
 
     // Home screen content should be present - check for new UI elements

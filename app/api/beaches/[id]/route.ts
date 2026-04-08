@@ -21,9 +21,23 @@ async function fetchBeachById(beachId: string): Promise<NextResponse> {
       return handleApiError(new Error("Beach not found"), "Beach not found");
     }
 
+    // Ensure review_count is always populated. The denormalized
+    // beaches.review_count column is sometimes null/stale, which breaks the
+    // beach_reviews_empty instrumentation. Recompute live when missing.
+    let reviewCount = (data as { review_count?: number | null }).review_count;
+    if (typeof reviewCount !== "number") {
+      const { count } = await supabase
+        .from("beach_reviews")
+        .select("id", { count: "exact", head: true })
+        .eq("beach_id", beachId)
+        .is("deleted_at", null);
+      reviewCount = count ?? 0;
+    }
+    const beachWithCount = { ...data, review_count: reviewCount };
+
     // PERFORMANCE OPTIMIZATION: Cache beach data for 1 hour (3600s)
     // Beach metadata rarely changes
-    const response = createSuccessResponse({ beach: data });
+    const response = createSuccessResponse({ beach: beachWithCount });
     response.headers.set(
       "Cache-Control",
       "public, s-maxage=3600, stale-while-revalidate=86400"

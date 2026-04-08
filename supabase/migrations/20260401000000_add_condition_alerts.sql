@@ -106,10 +106,15 @@ CREATE POLICY "Users can read own alert deliveries"
   ON alert_deliveries FOR SELECT
   USING (auth.uid() = user_id);
 
--- Updated_at trigger for alert_rules
+-- Updated_at trigger for alert_rules.
+-- Uses the codebase-standard public.set_updated_at() function (see
+-- 20251224160000_add_forecast_alerts.sql and 20250922100001_create_push_devices_table_fixed.sql).
+-- The original version of this migration referenced moddatetime(updated_at),
+-- which relies on a Postgres contrib extension that was never installed on
+-- this project. That bug prevented the migration from applying successfully.
 CREATE TRIGGER set_alert_rules_updated_at
   BEFORE UPDATE ON alert_rules
   FOR EACH ROW
-  EXECUTE FUNCTION moddatetime(updated_at);
+  EXECUTE FUNCTION public.set_updated_at();
 
 COMMIT;

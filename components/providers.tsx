@@ -50,6 +50,13 @@ const PageTracker = dynamic(
     })),
   { ssr: false }
 );
+const ClientErrorTracker = dynamic(
+  () =>
+    import("@/components/providers/client-error-tracker").then((mod) => ({
+      default: mod.ClientErrorTracker,
+    })),
+  { ssr: false }
+);
 
 // Toast systems
 import { Toaster } from "@/components/ui/toaster";
@@ -181,6 +188,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
           {/* Page view tracking for engagement analytics */}
           <Suspense fallback={null}>
             <PageTracker />
+          </Suspense>
+          {/* Captures window.onerror + unhandledrejection as client_error events */}
+          <Suspense fallback={null}>
+            <ClientErrorTracker />
           </Suspense>
           <ProfileProvider>
             {/* Auth-only overlays (do not mount when logged out) */}

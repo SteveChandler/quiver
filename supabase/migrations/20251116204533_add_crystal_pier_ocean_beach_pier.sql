@@ -38,7 +38,7 @@ SELECT
   32.7992,  -- Crystal Pier coordinates
   -117.2564,
   'beach break',
-  'beginner_to_intermediate',
+  'beginner-intermediate',
   'crowded',
   '**Crystal Pier** in Pacific Beach offers a classic San Diego beach break with multiple peaks. The pier creates unique wave dynamics, with peaks forming on both sides. Best on west to northwest swells with offshore east winds.',
   200,  -- Swell window min

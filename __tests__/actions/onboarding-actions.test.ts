@@ -1,10 +1,5 @@
 import { saveOnboardingData } from "@/actions/onboarding-actions";
 
-// Mock analytics
-jest.mock("@/lib/analytics", () => ({
-  track: jest.fn(),
-}));
-
 // Mock gamification actions
 jest.mock("@/lib/gamification", () => ({
   trackXP: jest.fn().mockResolvedValue({ success: true, data: { xp_gained: 100 } }),
@@ -13,6 +8,7 @@ jest.mock("@/lib/gamification", () => ({
 // Track last operations for assertions
 let lastProfileUpdate: any = null;
 let lastXPTrackCalls: any[] = [];
+let lastUserEventInsert: any = null;
 
 // Mock server action utils
 jest.mock("@/lib/server-action-utils", () => {
@@ -97,6 +93,15 @@ jest.mock("@/lib/server-action-utils", () => {
         };
       }
 
+      if (table === 'user_events') {
+        return {
+          insert: (row: any) => {
+            lastUserEventInsert = row;
+            return Promise.resolve({ error: null });
+          },
+        };
+      }
+
       return {};
     },
     rpc: (fn: string, _args?: any) => {
@@ -119,6 +124,7 @@ describe("saveOnboardingData", () => {
     jest.clearAllMocks();
     lastProfileUpdate = null;
     lastXPTrackCalls = [];
+    lastUserEventInsert = null;
   });
 
   describe("Profile Updates", () => {
@@ -308,9 +314,7 @@ describe("saveOnboardingData", () => {
   });
 
   describe("Analytics Tracking", () => {
-    it("should track onboarding_completed event with all metadata", async () => {
-      const { track } = require("@/lib/analytics");
-
+    it("should insert a server-confirmed onboarding_step 'completed' event into user_events", async () => {
       const onboardingData = {
         fullName: "Test User",
         displayName: "test_user",
@@ -324,19 +328,29 @@ describe("saveOnboardingData", () => {
       const result = await saveOnboardingData(onboardingData);
 
       expect(result.success).toBe(true);
-      expect(track).toHaveBeenCalledWith('onboarding_completed', {
+
+      // lib/analytics.track() was a no-op on the server; we now insert directly
+      // into user_events. Reuses the existing 'onboarding_step' event type because
+      // the user_events_event_type_check constraint doesn't include 'onboarding_completed'.
+      // See project_server_analytics_noop.md for background.
+      expect(lastUserEventInsert).toEqual({
         user_id: 'user-123',
-        has_home_beach: true,
-        experience_level: 'intermediate',
-        surf_styles_count: 2,
-        push_enabled: true,
-        email_enabled: false,
+        event_type: 'onboarding_step',
+        metadata: {
+          step: 'completed',
+          step_name: 'completed',
+          source: 'server',
+          has_home_beach: true,
+          experience_level: 'intermediate',
+          preferred_time: null,
+          surf_styles_count: 2,
+          push_enabled: true,
+          email_enabled: false,
+        },
       });
     });
 
-    it("should track with default values when optional fields omitted", async () => {
-      const { track } = require("@/lib/analytics");
-
+    it("should insert event with default values when optional fields are omitted", async () => {
       const onboardingData = {
         fullName: "Test User",
         displayName: "test_user",
@@ -346,13 +360,20 @@ describe("saveOnboardingData", () => {
       const result = await saveOnboardingData(onboardingData);
 
       expect(result.success).toBe(true);
-      expect(track).toHaveBeenCalledWith('onboarding_completed', {
+      expect(lastUserEventInsert).toEqual({
         user_id: 'user-123',
-        has_home_beach: true,
-        experience_level: undefined,
-        surf_styles_count: 0,
-        push_enabled: false,
-        email_enabled: true, // Default true when not provided
+        event_type: 'onboarding_step',
+        metadata: {
+          step: 'completed',
+          step_name: 'completed',
+          source: 'server',
+          has_home_beach: true,
+          experience_level: null,
+          preferred_time: null,
+          surf_styles_count: 0,
+          push_enabled: false,
+          email_enabled: true, // Default true when not provided
+        },
       });
     });
   });

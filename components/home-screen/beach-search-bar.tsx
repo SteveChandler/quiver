@@ -1,15 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Loader2, Search } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { searchBeachesByName } from "@/lib/utils/beach-search-utils";
+import { motion } from "framer-motion";
 import { BeachSearchAutocomplete } from "@/components/beach/beach-search-autocomplete";
-import { track } from "@/lib/analytics";
 import { MAP_MOTION } from "@/lib/constants/animations";
 import type { Beach } from "@/types/database";
 
@@ -19,19 +12,8 @@ interface BeachSearchBarProps {
 }
 
 export function BeachSearchBar({ onSelect, className }: BeachSearchBarProps) {
-  const handleSelect = useCallback(
-    (beach: Beach) => {
-      // Track beach search outcome (home)
-      track("beach_search", {
-        query: beach.name,
-        result_count: 1,
-        source: "home",
-      });
-      onSelect(beach);
-    },
-    [onSelect]
-  );
-
+  // Note: beach_search + beach_search_result_click events are emitted
+  // centrally from BeachSearchAutocomplete via useTrackEvent.
   return (
     <motion.section
       className={className}
@@ -47,10 +29,11 @@ export function BeachSearchBar({ onSelect, className }: BeachSearchBarProps) {
         <Card className="w-full mx-auto">
           <CardContent className="p-4">
             <BeachSearchAutocomplete
-              onSelect={handleSelect}
+              onSelect={onSelect}
               placeholder="Search by beach, spot, or region"
               showCurrentConditions={true}
               className="w-full border-none shadow-none"
+              source="home"
             />
           </CardContent>
         </Card>

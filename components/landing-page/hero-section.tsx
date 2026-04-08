@@ -1,12 +1,17 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import Link from "next/link";
 import { CONTENT } from "@/lib/constants/features";
 import { Button } from "@/components/ui/button";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
+import {
+  trackSignupCtaClick,
+  trackSignupCtaView,
+} from "@/lib/analytics/signup-conversion-tracking";
+import { useAuth } from "@/context/auth-context";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { HeroVideoBackground } from "./hero-video-background";
 
@@ -30,6 +35,18 @@ export function HeroSection() {
   const sectionRef = useRef<HTMLElement>(null);
   const isInView = useInView(sectionRef, { once: true, amount: 0.2 });
   const reducedMotion = useReducedMotion();
+  const { user } = useAuth();
+  const hasTrackedView = useRef(false);
+
+  // Track hero CTA view on mount for unauthenticated users.
+  useEffect(() => {
+    if (user || hasTrackedView.current) return;
+    hasTrackedView.current = true;
+    trackSignupCtaView({
+      source: "hero-cta",
+      surface: "landing-page",
+    });
+  }, [user]);
 
   return (
     <section
@@ -69,6 +86,10 @@ export function HeroSection() {
         >
           <Button
             onClick={() => {
+              trackSignupCtaClick({
+                source: "hero-cta",
+                surface: "landing-page",
+              });
               setAuthMode("signup");
               setAuthModalOpen(true);
               trackAuthModalOpened({ mode: "signup", source: "hero-cta" });

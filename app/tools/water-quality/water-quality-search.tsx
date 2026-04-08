@@ -28,6 +28,7 @@ export function WaterQualitySearch({
       onSelect={handleSelect}
       placeholder={placeholder}
       maxResults={6}
+      source="tool_water_quality"
     />
   );
 }

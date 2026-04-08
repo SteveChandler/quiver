@@ -10,6 +10,10 @@ import {
   safeSetItem,
 } from "@/lib/utils/safe-storage";
 import { track } from "@/lib/analytics";
+import {
+  trackSignupCtaClick,
+  trackSignupCtaView,
+} from "@/lib/analytics/signup-conversion-tracking";
 
 const DISMISSED_KEY = "qvr_map_signup_dismissed";
 
@@ -43,7 +47,7 @@ export function MapSignupPrompt({ beachName, source }: MapSignupPromptProps) {
   useEffect(() => {
     if (!user && !isLoading && !dismissed && !viewTrackedRef.current) {
       viewTrackedRef.current = true;
-      track("signup_cta_view", {
+      trackSignupCtaView({
         source,
         surface: "map",
       });
@@ -53,6 +57,7 @@ export function MapSignupPrompt({ beachName, source }: MapSignupPromptProps) {
   const handleDismiss = useCallback(() => {
     setDismissed(true);
     safeSetItem(DISMISSED_KEY, "1");
+    // GA4-only: signup_cta_dismiss is not in the Supabase user_events funnel.
     track("signup_cta_dismiss", {
       source,
       surface: "map",
@@ -60,12 +65,12 @@ export function MapSignupPrompt({ beachName, source }: MapSignupPromptProps) {
   }, [source]);
 
   const handleCtaClick = useCallback(() => {
-    setAuthModalOpen(true);
-    track("signup_cta_click", {
+    trackSignupCtaClick({
       source,
       surface: "map",
       beach_name: beachName ?? undefined,
     });
+    setAuthModalOpen(true);
   }, [source, beachName]);
 
   // Don't render for authenticated users or while loading

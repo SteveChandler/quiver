@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { motion, useInView } from "framer-motion";
 import { Sliders, Brain, Target } from "lucide-react";
@@ -8,6 +8,10 @@ import { SectionWrapper } from "./section-wrapper";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
+import {
+  trackSignupCtaClick,
+  trackSignupCtaView,
+} from "@/lib/analytics/signup-conversion-tracking";
 
 // ---------------------------------------------------------------------------
 // Step data
@@ -97,6 +101,25 @@ export function HowItWorksSection() {
   const [showAuth, setShowAuth] = useState(false);
   const { user } = useAuth();
   const pathname = usePathname();
+  const hasTrackedView = useRef(false);
+
+  // Track CTA view when the section enters viewport for unauthenticated users.
+  useEffect(() => {
+    if (user || !isInView || hasTrackedView.current) return;
+    hasTrackedView.current = true;
+    trackSignupCtaView({
+      source: "how-it-works-section",
+      surface: "landing-page",
+    });
+  }, [user, isInView]);
+
+  const handleCtaClick = () => {
+    trackSignupCtaClick({
+      source: "how-it-works-section",
+      surface: "landing-page",
+    });
+    setShowAuth(true);
+  };
 
   return (
     <SectionWrapper
@@ -137,7 +160,7 @@ export function HowItWorksSection() {
           transition={{ duration: 0.5, delay: 0.6 }}
         >
           <Button
-            onClick={() => setShowAuth(true)}
+            onClick={handleCtaClick}
             size="lg"
             className="rounded-full px-8"
           >

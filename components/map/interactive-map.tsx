@@ -92,6 +92,18 @@ export function InteractiveMap({
   // Typed broadly; handleMoveEnd & populateLocations are assigned via sync effects below
   const handleMoveEndRef = useRef<((...args: any[]) => any) | null>(null);
   const populateLocationsRef = useRef<((lat: number, lng: number) => Promise<void>) | null>(null);
+  // Instrumentation refs for pan/zoom classification and single-fire events
+  const prevCenterRef = useRef<{ lat: number; lng: number } | null>(null);
+  const prevZoomRef = useRef<number | null>(null);
+  const mountedAtRef = useRef<number>(
+    typeof performance !== "undefined" ? performance.now() : 0
+  );
+  const hasEmittedReadyRef = useRef(false);
+  const emittedFailureTypesRef = useRef<Set<string>>(new Set());
+  const lastEmptyStateKeyRef = useRef<string | null>(null);
+  // Mirror latest clusters/beaches so emission helpers can read them synchronously
+  const clustersRef = useRef<ClusterPoint[]>([]);
+  const beachesRef = useRef<Beach[] | undefined>(beaches);
 
   const { user } = useAuth();
   const { track } = useTrackEvent();
@@ -129,6 +141,10 @@ export function InteractiveMap({
     onMapClickRef.current = onMapClick;
   }, [onMapClick]);
 
+  useEffect(() => {
+    beachesRef.current = beaches;
+  }, [beaches]);
+
   // Use clustering hook
   const { clusters, getExpansionZoom } = useBeachClustering({
     beaches: beaches || [],
@@ -137,6 +153,12 @@ export function InteractiveMap({
     zoom: currentZoom,
     favoriteBeachIds,
   });
+
+  // Mirror the latest cluster output so instrumentation can read counts
+  // synchronously inside debounced handlers and marker callbacks.
+  useEffect(() => {
+    clustersRef.current = clusters;
+  }, [clusters]);
 
   // Create cached fetch functions for map APIs
   const fetchNearbyBeaches = useRef(
@@ -200,6 +222,86 @@ export function InteractiveMap({
     mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
   }, []);
 
+  // Capture current viewport (center + bounds + visible counts) for
+  // map_interaction metadata. Returns empty object when map ref is not yet
+  // ready, so callers can spread safely.
+  const getMapViewportMetadata = useCallback((): {
+    latitude: number;
+    longitude: number;
+    bounds_west?: number;
+    bounds_south?: number;
+    bounds_east?: number;
+    bounds_north?: number;
+    beaches_in_viewport?: number;
+    visible_cluster_count?: number;
+  } | Record<string, never> => {
+    const map = mapRef.current;
+    if (!map) return {};
+    const center = map.getCenter();
+    const bounds = map.getBounds();
+    const meta: {
+      latitude: number;
+      longitude: number;
+      bounds_west?: number;
+      bounds_south?: number;
+      bounds_east?: number;
+      bounds_north?: number;
+      beaches_in_viewport?: number;
+      visible_cluster_count?: number;
+    } = {
+      // 2 decimals (~1.1km) deliberately defeats home-address inference from
+      // accumulated center points. Bounds retain 4-decimal precision below
+      // because viewport shape is less personally identifying than the
+      // exact point a user centers on.
+      latitude: Number(center.lat.toFixed(2)),
+      longitude: Number(center.lng.toFixed(2)),
+    };
+    if (bounds) {
+      meta.bounds_west = Number(bounds.getWest().toFixed(4));
+      meta.bounds_south = Number(bounds.getSouth().toFixed(4));
+      meta.bounds_east = Number(bounds.getEast().toFixed(4));
+      meta.bounds_north = Number(bounds.getNorth().toFixed(4));
+    }
+    // Derive visible counts from the latest clustering output. `clusters`
+    // already reflects current bounds + zoom, so individual-beach entries
+    // are the in-viewport beaches and cluster entries contribute both to
+    // the visible cluster count and (via point_count) to beaches_in_viewport.
+    const currentClusters = clustersRef.current;
+    if (currentClusters && currentClusters.length > 0) {
+      let clusterCount = 0;
+      let beachCount = 0;
+      for (const c of currentClusters) {
+        if (c.isCluster) {
+          clusterCount += 1;
+          beachCount += c.pointCount ?? 0;
+        } else {
+          beachCount += 1;
+        }
+      }
+      meta.visible_cluster_count = clusterCount;
+      meta.beaches_in_viewport = beachCount;
+    } else if (bounds && beachesRef.current) {
+      // Fallback: clustering hasn't run yet (e.g., first pin_click before
+      // the first moveend) — filter beaches by bounds directly.
+      const west = bounds.getWest();
+      const east = bounds.getEast();
+      const south = bounds.getSouth();
+      const north = bounds.getNorth();
+      let beachCount = 0;
+      for (const b of beachesRef.current) {
+        const lat = b.lat;
+        const lng = b.lon;
+        if (lat == null || lng == null) continue;
+        if (lat >= south && lat <= north && lng >= west && lng <= east) {
+          beachCount += 1;
+        }
+      }
+      meta.beaches_in_viewport = beachCount;
+      meta.visible_cluster_count = 0;
+    }
+    return meta;
+  }, []);
+
   // Create wave height badge using extracted module with deps from refs
   const buildWaveHeightBadge = useCallback(
     (location: Beach, waveHeight?: number | string): HTMLElement => {
@@ -211,7 +313,11 @@ export function InteractiveMap({
         onSelectChange: setSelectedBeachId,
         onLocationClick: (beach: Beach) => {
           track('map_interaction', {
-            metadata: { action: 'pin_click', beach_id: beach.id },
+            metadata: {
+              action: 'pin_click',
+              beach_id: beach.id,
+              ...getMapViewportMetadata(),
+            },
             debounceMs: 500,
           });
           onLocationClick?.(beach);
@@ -223,7 +329,7 @@ export function InteractiveMap({
       };
       return createWaveHeightBadge(location, waveHeight, deps);
     },
-    [onLocationClick, router, autoNavigateOnMarkerClick, track, displayMode, waterTempMap]
+    [onLocationClick, router, autoNavigateOnMarkerClick, track, displayMode, waterTempMap, getMapViewportMetadata]
   );
 
   // Create cluster marker using extracted module with deps from refs
@@ -318,11 +424,71 @@ export function InteractiveMap({
         }
         setCurrentZoom(zoom);
 
-        // Track zoom changes
-        trackRef.current('map_interaction', {
-          metadata: { action: 'zoom', zoom_level: Math.round(zoom) },
-          debounceMs: 3000,
-        });
+        // Classify interaction: compare against previously tracked center/zoom.
+        // Zoom dominates — pinch-zoom can also pan, but we only want to count
+        // it once and zoom is the more informative signal.
+        const prevZoom = prevZoomRef.current;
+        const prevCenter = prevCenterRef.current;
+        // First idle after mount has no prior tracked state — seed the refs
+        // and skip emission so we don't fire a spurious zoom event for a
+        // viewport the user never actually moved.
+        const isInitialIdle = prevZoom == null && prevCenter == null;
+        const ZOOM_EPS = 0.01;
+        const CENTER_EPS = 0.0001; // ~11m at the equator
+        const zoomChanged =
+          !isInitialIdle && Math.abs(zoom - (prevZoom as number)) > ZOOM_EPS;
+        const centerChanged =
+          !isInitialIdle &&
+          prevCenter != null &&
+          (Math.abs(center.lat - prevCenter.lat) > CENTER_EPS ||
+            Math.abs(center.lng - prevCenter.lng) > CENTER_EPS);
+        const action: 'zoom' | 'pan' | null = zoomChanged
+          ? 'zoom'
+          : centerChanged
+            ? 'pan'
+            : null;
+        prevZoomRef.current = zoom;
+        prevCenterRef.current = { lat: center.lat, lng: center.lng };
+
+        // Track zoom/pan (include viewport center, bounds, and visible counts
+        // for geographic cohort analysis). Skip if nothing meaningful changed
+        // (e.g., first idle after mount with no movement).
+        if (action) {
+          trackRef.current('map_interaction', {
+            metadata: {
+              action,
+              zoom_level: Math.round(zoom),
+              ...getMapViewportMetadata(),
+            },
+            debounceMs: 3000,
+          });
+        }
+
+        // Emit empty_state_shown when user has zoomed in past the threshold
+        // and the current viewport contains zero beaches. Dedupe on a rounded
+        // viewport key so we don't fire repeatedly for tiny nudges. Skip on
+        // the first idle so we don't fire for a viewport the user hasn't
+        // actually engaged with yet.
+        const currentBeaches = beachesRef.current;
+        if (!isInitialIdle && currentBeaches !== undefined && zoom >= 9) {
+          const meta = getMapViewportMetadata();
+          const beachesInViewport =
+            'beaches_in_viewport' in meta ? meta.beaches_in_viewport : undefined;
+          if (beachesInViewport === 0) {
+            const key = `${center.lat.toFixed(2)}:${center.lng.toFixed(2)}:${Math.round(zoom)}`;
+            if (lastEmptyStateKeyRef.current !== key) {
+              lastEmptyStateKeyRef.current = key;
+              trackRef.current('empty_state_shown', {
+                metadata: {
+                  surface: 'map_no_beaches_in_viewport',
+                },
+              });
+            }
+          } else {
+            // Non-empty viewport — reset so the next empty viewport fires.
+            lastEmptyStateKeyRef.current = null;
+          }
+        }
 
         // Only fetch if viewport has significantly changed
         if (!hasViewportChanged(center.lat, center.lng, zoom)) {
@@ -333,7 +499,7 @@ export function InteractiveMap({
         // Only populate locations with enhanced forecast data
         await populateLocations(center.lat, center.lng);
       }, 1500), // Increased debounce time since we're caching aggressively
-    [populateLocations, hasViewportChanged]
+    [populateLocations, hasViewportChanged, getMapViewportMetadata]
   );
 
   useEffect(() => {
@@ -345,6 +511,12 @@ export function InteractiveMap({
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
+    // Capture mount timestamp for load_time_ms / time_to_failure_ms metadata.
+    mountedAtRef.current =
+      typeof performance !== "undefined" ? performance.now() : 0;
+    hasEmittedReadyRef.current = false;
+    emittedFailureTypesRef.current = new Set();
+
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
       style: "mapbox://styles/mapbox/streets-v11",
@@ -355,6 +527,19 @@ export function InteractiveMap({
     mapRef.current = map;
 
     map.on("load", async () => {
+      // Emit map_ready exactly once per mount.
+      if (!hasEmittedReadyRef.current) {
+        hasEmittedReadyRef.current = true;
+        const loadTimeMs =
+          typeof performance !== "undefined"
+            ? Math.round(performance.now() - mountedAtRef.current)
+            : 0;
+        trackRef.current('map_ready', {
+          metadata: {
+            load_time_ms: loadTimeMs,
+          },
+        });
+      }
       setIsMapReady(true);
       // Expose map instance in dev/test mode for E2E tests
       if (process.env.NODE_ENV !== 'production') {
@@ -377,6 +562,72 @@ export function InteractiveMap({
 
     map.on("error", (e) => {
       console.error("Map error:", e);
+
+      // Classify the error into a coarse category. We intentionally do NOT
+      // forward the raw message (PII + payload bloat) — only the bucket.
+      // Mapbox's error event exposes `error` (Error) and optionally
+      // `sourceId`/`tile`, so we inspect the Error to decide.
+      const err: unknown = (e as { error?: unknown })?.error;
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'string'
+            ? err
+            : '';
+      const lower = message.toLowerCase();
+
+      let errorType:
+        | 'token_invalid'
+        | 'network'
+        | 'webgl_unsupported'
+        | 'tile_error'
+        | 'unknown' = 'unknown';
+      if (
+        lower.includes('access token') ||
+        lower.includes('accesstoken') ||
+        lower.includes('unauthorized') ||
+        lower.includes('401')
+      ) {
+        errorType = 'token_invalid';
+      } else if (lower.includes('webgl')) {
+        errorType = 'webgl_unsupported';
+      } else if (
+        // Mapbox signals tile failures via a `tile` or `source` field on the
+        // event — plus the message often mentions tile/source/sprite/glyph.
+        (e as { tile?: unknown })?.tile !== undefined ||
+        (e as { sourceId?: unknown })?.sourceId !== undefined ||
+        lower.includes('tile') ||
+        lower.includes('sprite') ||
+        lower.includes('glyph')
+      ) {
+        errorType = 'tile_error';
+      } else if (
+        lower.includes('network') ||
+        lower.includes('fetch') ||
+        lower.includes('cors') ||
+        lower.includes('failed to load') ||
+        lower.includes('load failed')
+      ) {
+        errorType = 'network';
+      }
+
+      // Dedupe: one emission per category per mount.
+      if (emittedFailureTypesRef.current.has(errorType)) return;
+      emittedFailureTypesRef.current.add(errorType);
+
+      const timeToFailureMs =
+        typeof performance !== "undefined"
+          ? Math.round(performance.now() - mountedAtRef.current)
+          : undefined;
+
+      trackRef.current('map_load_failed', {
+        metadata: {
+          error_type: errorType,
+          ...(timeToFailureMs !== undefined
+            ? { time_to_failure_ms: timeToFailureMs }
+            : {}),
+        },
+      });
     });
 
     // Stable wrapper — delegates to the latest debounced handler via ref
