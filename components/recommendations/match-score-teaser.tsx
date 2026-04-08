@@ -1,15 +1,19 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useAuth } from "@/context/auth-context";
+import {
+  trackSignupCtaClick,
+  trackSignupCtaView,
+} from "@/lib/analytics/signup-conversion-tracking";
 
 export interface MatchScoreTeaserProps {
-  /** Beach identifier (used for future deferred actions if needed) */
+  /** Beach identifier — included in tracking metadata */
   beachId: string;
   /** Beach name shown in the auth modal context message */
   beachName: string;
@@ -20,7 +24,7 @@ export interface MatchScoreTeaserProps {
 }
 
 export function MatchScoreTeaser({
-  beachId: _beachId,
+  beachId,
   beachName,
   className,
   variant = "badge",
@@ -28,6 +32,32 @@ export function MatchScoreTeaser({
   const { user } = useAuth();
   const [showAuth, setShowAuth] = useState(false);
   const pathname = usePathname();
+  const hasTrackedView = useRef(false);
+
+  // Track view once per beach for unauthenticated users.
+  // Session-level dedup inside trackSignupCtaView keys on `source`, so we
+  // include beachId in the source to prevent collapsing across beach pages
+  // (e.g., a user browsing Blacks → Swamis → Trestles should fire 3 view events).
+  useEffect(() => {
+    if (user || hasTrackedView.current) return;
+    hasTrackedView.current = true;
+    trackSignupCtaView({
+      source: `match-score-teaser-${beachId}`,
+      surface: "beach-detail",
+      variant,
+      beach_id: beachId,
+    });
+  }, [user, variant, beachId]);
+
+  const handleCtaClick = () => {
+    trackSignupCtaClick({
+      source: `match-score-teaser-${beachId}`,
+      surface: "beach-detail",
+      variant,
+      beach_id: beachId,
+    });
+    setShowAuth(true);
+  };
 
   // Don't show teaser for authenticated users
   if (user) return null;
@@ -37,7 +67,7 @@ export function MatchScoreTeaser({
       <>
         <button
           data-testid="match-score-teaser-card"
-          onClick={() => setShowAuth(true)}
+          onClick={handleCtaClick}
           className={cn(
             "w-full rounded-xl border border-amber-200/30 bg-gradient-to-r from-amber-50/10 to-amber-100/10",
             "px-4 py-3 flex items-center gap-3 text-left",
@@ -85,7 +115,7 @@ export function MatchScoreTeaser({
           "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100",
           className
         )}
-        onClick={() => setShowAuth(true)}
+        onClick={handleCtaClick}
         role="button"
         aria-label="Sign up to see your forecast"
       >

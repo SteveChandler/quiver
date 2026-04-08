@@ -97,15 +97,17 @@ export function BeachHeroCompact({
       beach_slug: slugify(beach.name),
     });
     trackSignupCtaClick({
-      source: "match-score-teaser",
+      source: `beach-hero-match-teaser-${beach.id}`,
+      surface: "beach-detail",
       cta_title: "forecast-teaser",
+      beach_id: beach.id,
     });
     trackAuthModalOpened({
       mode: "signup",
-      source: "match-score-teaser",
+      source: "beach-hero-match-teaser",
     });
     setAuthModalOpen(true);
-  }, [beach.name]);
+  }, [beach.id, beach.name]);
 
   const teaserRef = useRef<HTMLDivElement>(null);
   const hasTrackedView = useRef(false);
@@ -119,14 +121,21 @@ export function BeachHeroCompact({
         if (entry.isIntersecting && !hasTrackedView.current) {
           hasTrackedView.current = true;
           track("match_score_teaser_view", { beach_slug: slugify(beach.name) });
-          trackSignupCtaView({ source: "match-score-teaser", cta_title: "forecast-teaser" });
+          // Per-beach source to prevent session-level dedup from collapsing
+          // views across different beach pages.
+          trackSignupCtaView({
+            source: `beach-hero-match-teaser-${beach.id}`,
+            surface: "beach-detail",
+            cta_title: "forecast-teaser",
+            beach_id: beach.id,
+          });
         }
       },
       { threshold: 0.5 }
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [publicMode, personalizationScore, isLoadingPersonalization, beach.name]);
+  }, [publicMode, personalizationScore, isLoadingPersonalization, beach.id, beach.name]);
 
   // Build benefit-driven teaser copy for anonymous users.
   // Focus on what surfers actually want at 5:30am: community intel and the best window.

@@ -30,6 +30,11 @@ import { useSessionInvitationsSubscription } from "@/hooks/use-session-invitatio
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import {
+  trackSignupCtaClick,
+  trackSigninCtaClick,
+} from "@/lib/analytics/signup-conversion-tracking";
+import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -49,6 +54,20 @@ import {
 interface Invitation {
   status: string;
   seen_at: string | null;
+}
+
+/**
+ * Detect whether the current pathname is a beach-context page (a covered
+ * US state slug, Puerto Rico, or a Mexico beach route). Source of truth
+ * for both the header CTA label and the signup source attribution so
+ * the two can't drift apart.
+ *
+ * Previously this was a hardcoded regex `/^\/(ca|hi|or|wa|pr|mx)\//`
+ * which missed every east-coast state and used a wrong `/mx/` prefix.
+ */
+function isBeachContextPath(pathname: string): boolean {
+  const firstSegment = pathname.split("/")[1] ?? "";
+  return firstSegment === "mexico" || isValidStateSlug(firstSegment);
 }
 
 export function AppHeader() {
@@ -144,15 +163,14 @@ export function AppHeader() {
   }
 
   const getSignupCta = (path: string) => {
-    // Match any 2-letter state/territory code or /mexico/ beach routes
-    if (path.match(/^\/([a-z]{2}|mexico)\//)) return "See Your Forecast";
+    if (isBeachContextPath(path)) return "See Your Forecast";
     if (path.startsWith("/forecast")) return "Full Forecast";
     if (path.match(/^\/(beginner|longboard|dawn-patrol|tide|water-temp)\//)) return "Find Your Spot";
     return "Get Started";
   };
 
   const getSignupContext = (path: string): { title: string; description: string } => {
-    if (path.match(/^\/([a-z]{2}|mexico)\//))
+    if (isBeachContextPath(path))
       return { title: "See Your Forecast", description: "Conditions explained clearly in 30 seconds" };
     if (path.startsWith("/forecast"))
       return { title: "See the Full Forecast", description: "Get the complete 12-day outlook" };
@@ -495,6 +513,10 @@ export function AppHeader() {
                       size="lg"
                       className="w-full justify-start h-12 px-4 text-base font-medium"
                       onClick={() => {
+                        trackSigninCtaClick({
+                          source: "app-header-mobile",
+                          surface: "header",
+                        });
                         setMobileMenuOpen(false);
                         setAuthMode("login");
                         setAuthModalOpen(true);
@@ -511,6 +533,10 @@ export function AppHeader() {
                       size="lg"
                       className="w-full h-12 text-base font-semibold"
                       onClick={() => {
+                        trackSignupCtaClick({
+                          source: "app-header-mobile",
+                          surface: "header",
+                        });
                         setMobileMenuOpen(false);
                         setAuthMode("signup");
                         setAuthModalOpen(true);
@@ -596,6 +622,10 @@ export function AppHeader() {
                   size="sm"
                   className="hidden lg:inline-flex focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                   onClick={() => {
+                    trackSigninCtaClick({
+                      source: "app-header",
+                      surface: "header",
+                    });
                     setAuthMode("login");
                     setAuthModalOpen(true);
                     trackAuthModalOpened({
@@ -610,11 +640,16 @@ export function AppHeader() {
                   size="sm"
                   className="bg-gradient-to-b from-primary to-primary/90 text-primary-foreground rounded-full px-3 lg:px-5 h-10 font-semibold shadow-sm hover:shadow-md hover:from-primary/95 hover:to-primary/85 active:scale-[0.98] transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                   onClick={() => {
+                    const headerSource = `app-header-${isBeachContextPath(pathname) ? "beach" : pathname.startsWith("/forecast") ? "forecast" : "general"}`;
+                    trackSignupCtaClick({
+                      source: headerSource,
+                      surface: "header",
+                    });
                     setAuthMode("signup");
                     setAuthModalOpen(true);
                     trackAuthModalOpened({
                       mode: "signup",
-                      source: `app-header-${pathname.match(/^\/(ca|hi|or|wa|pr|mx)\//) ? "beach" : pathname.startsWith("/forecast") ? "forecast" : "general"}`,
+                      source: headerSource,
                     });
                   }}
                 >

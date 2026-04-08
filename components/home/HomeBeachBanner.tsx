@@ -14,6 +14,7 @@ interface HomeBeachBannerProps {
 }
 
 import { track } from "@/lib/analytics";
+import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
 import { slugify } from "@/lib/utils/text-utils";
 
 export function HomeBeachBanner({
@@ -27,6 +28,12 @@ export function HomeBeachBanner({
 
   async function onSet() {
     if (publicMode && onAuthRequired) {
+      trackSignupCtaClick({
+        source: "set-home-beach",
+        surface: "beach-detail",
+        beach_id: selectedBeachId,
+        beach_name: selectedBeachName,
+      });
       onAuthRequired();
       return;
     }

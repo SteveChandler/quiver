@@ -8,7 +8,9 @@ Query Vercel Web Analytics for the Quiver production site and present a formatte
 
 **Important:** Vercel Web Analytics is client-side only. Embed routes (`/embed/*`) are NOT tracked because the Analytics JS is excluded from those pages. For embed tracking, use the app-stats dashboard or check server logs.
 
-Run these 6 curl commands **in parallel** using the Vercel API. Set the date range to the **last 7 days** (use `$(date -v-7d +%Y-%m-%dT00:00:00)` for `from` and `$(date +%Y-%m-%dT23:59:59)` for `to`).
+**Bot traffic exclusion:** An uptime monitor hits a fixed set of URLs at a steady cadence (~12-17 views/day each), inflating overall pageviews. The `BOT_PATHS` list below identifies these URLs so we can subtract them from the totals in post-processing. **Update `BOT_PATHS` if the monitor's target list changes.** Vercel's API only supports the `eq` filter operator, so exclusion has to happen client-side.
+
+Run these 6 main curl commands **in parallel** with the 5 bot-path subtraction queries (Query 0 below). Set the date range to the **last 7 days** (use `$(date -v-7d +%Y-%m-%dT00:00:00)` for `from` and `$(date +%Y-%m-%dT23:59:59)` for `to`).
 
 Read the auth token first:
 ```bash
@@ -17,7 +19,25 @@ PROJECT_ID="prj_z7DDSIF65y1EbOfuDrZfYsx9Mmbx"
 FROM=$(date -v-7d +%Y-%m-%dT00:00:00)
 TO=$(date +%Y-%m-%dT23:59:59)
 BASE="https://vercel.com/api/web-analytics"
+# Bot URLs to subtract from totals (uptime monitor targets).
+# Update this list if the monitor configuration changes.
+BOT_PATHS=("/" "/map" "/features" "/ca/san-diego/blacks" "/ca/encinitas/swamis")
 ```
+
+### Query 0: Bot Path Subtraction (run in parallel with the 6 main queries)
+
+For each path in `BOT_PATHS`, fetch the per-path overview using the `eq` filter. Run these 5 queries **in parallel** with Queries 1-6:
+```bash
+# Repeat for each BOT_PATH — these 5 calls run alongside the main 6 in the same parallel batch.
+FILTER=$(python3 -c "import urllib.parse,json,sys; print(urllib.parse.quote(json.dumps({'path':{'operator':'eq','values':[sys.argv[1]]}})))" "/")
+curl -s -H "Authorization: Bearer $VERCEL_TOKEN" \
+  "$BASE/overview?projectId=$PROJECT_ID&environment=production&from=$FROM&to=$TO&filter=$FILTER"
+# ... repeat for /map, /features, /ca/san-diego/blacks, /ca/encinitas/swamis
+```
+
+Sum the `total` field across all 5 responses to get `bot_total`. Compute:
+- `adjusted_total = raw_total - bot_total`
+- `bot_share_pct = round(100 * bot_total / raw_total, 1)`
 
 ### Query 1: Traffic Overview (7d)
 ```bash
@@ -79,7 +99,7 @@ To get totals per group, sum the `total` field across all daily entries.
 
 ## Output Format
 
-Present results as a markdown dashboard:
+Present results as a markdown dashboard. **Always show both raw and bot-adjusted totals** in the Overview so the bot contamination is visible.
 
 ```
 ## Vercel Analytics Dashboard (7d)
@@ -87,9 +107,13 @@ Present results as a markdown dashboard:
 ### Overview
 | Metric | Value |
 |--------|-------|
-| Total Page Views | {total} |
+| Raw Page Views | {raw_total} |
+| Adjusted (humans) | {adjusted_total} |
+| Bot Traffic (excluded) | {bot_total} across {len(BOT_PATHS)} URLs ({bot_share_pct}%) |
 | Unique Visitors | {devices} |
 | Bounce Rate | {bounceRate}% |
+
+> Bot traffic is identified by a hardcoded list of URLs hit by an uptime monitor. The 5 URLs in `BOT_PATHS` are subtracted from the raw total. Visitors and bounce rate are NOT adjusted (Vercel API doesn't expose per-path device counts in `overview`).
 
 ### Daily Traffic
 | Date | Views | Visitors | Bounce Rate |
@@ -100,8 +124,11 @@ Present results as a markdown dashboard:
 ### Top Pages
 | Page | Views |
 |------|-------|
+| {path} 🤖 | {total} |
 | {path} | {total} |
 | ... | ... |
+
+> Mark any path matching `BOT_PATHS` with a 🤖 emoji so bot rows are visually distinct from real human traffic.
 
 ### Top Referrers
 | Referrer | Views |

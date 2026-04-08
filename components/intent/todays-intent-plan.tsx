@@ -8,6 +8,7 @@ import { useAuth } from "@/context/auth-context";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { track } from "@/lib/analytics";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
+import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
 import type { IntentForecastSummary } from "@/actions/forecast/intent-forecast-actions";
 import type { SurfIntentSlug } from "@/lib/constants/surf-intents";
 
@@ -75,7 +76,13 @@ export function TodaysIntentPlan({
 
   const handleUnlockClick = () => {
     sessionStorage.setItem("scroll-to-plan", "1");
+    // GA4-only: not a Supabase funnel event.
     track("plan_unlock_click", { intent: intentSlug });
+    trackSignupCtaClick({
+      source: `plan-unlock-${intentSlug}`,
+      surface: "intent-page",
+      intent: intentSlug,
+    });
     trackAuthModalOpened({ mode: "signup", source: `plan-unlock-${intentSlug}` });
     setAuthModalOpen(true);
   };

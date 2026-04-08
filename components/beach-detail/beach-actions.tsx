@@ -10,6 +10,7 @@ import { ConditionsReportCard } from "@/components/beach-detail/conditions-repor
 import { BeachAlertCta } from "@/components/beach-detail/beach-alert-cta";
 import type { Beach } from "@/types/database";
 import { track } from "@/lib/analytics";
+import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
 
 interface BeachActionsProps {
   beach: Beach;
@@ -48,12 +49,20 @@ export function BeachActions({
   const handleReportConditions = useCallback(() => {
     track("report_conditions_opened", { beach_id: beach.id });
     if (publicMode) {
+      trackSignupCtaClick({
+        source: "conditions-report-cta",
+        surface: "beach-detail",
+        beach_id: beach.id,
+      });
+      // Open BeachActions' own modal (source: "conditions-report-cta") only.
+      // Previously also called onAuthRequired?.() which opened a SECOND modal
+      // in the parent (source: "beach-action-buttons"), double-firing
+      // auth_modal_opened and stacking two modals on top of each other.
       setAuthModalOpen(true);
-      onAuthRequired?.();
       return;
     }
     setReportCardOpen(true);
-  }, [beach.id, publicMode, onAuthRequired]);
+  }, [beach.id, publicMode]);
 
   const handleReportSuccess = useCallback(() => {
     setReportCardOpen(false);

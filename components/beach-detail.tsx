@@ -1178,13 +1178,15 @@ function BeachDetailContent({
         </DialogContent>
       </Dialog>
 
-      {/* Auth Modal for unauthenticated action button clicks */}
+      {/* Auth modal for HomeBeachBanner "Set Home Beach" click in publicMode.
+          BeachActions' Report Conditions and BeachAlertCta have their own
+          inline modals with more specific source attribution. */}
       {publicMode && (
         <UnifiedAuthModal
           isOpen={authModalOpen}
           onClose={() => setAuthModalOpen(false)}
           mode="signup"
-          source="beach-action-buttons"
+          source="set-home-beach"
         />
       )}
     </div>
