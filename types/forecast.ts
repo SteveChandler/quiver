@@ -172,6 +172,14 @@ export interface EnhancedForecastEntity {
   is_ml_calibrated?: boolean;
   /** ML model version used for correction (e.g., "xgboost_v1") */
   ml_model_version?: string | null;
+  /**
+   * True when the beach has an empirical shoaling calibration
+   * (`beaches.shoaling_factors IS NOT NULL`), meaning displayed face heights
+   * came from the calibrated pipeline. False for ML-only / forecast-only
+   * beaches. Populated server-side by forecast API routes; never derived on
+   * the client. Used by WaveHeightDisplay to render the honesty-layer state.
+   */
+  isCalibrated?: boolean;
 
   // Optional raw forecast payload for transparency/debugging
   raw_forecast?: {

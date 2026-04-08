@@ -187,7 +187,39 @@ export async function GET(request: NextRequest) {
     // Merge ML bias corrections into forecasts
     // This adds ml_corrected_height, is_ml_calibrated, ml_model_version
     // to forecasts that have ML corrections available
-    const forecasts = await mergeMLCorrections(result.forecasts, beachId);
+    const mlMergedForecasts = await mergeMLCorrections(result.forecasts, beachId);
+
+    // Stamp empirical shoaling calibration status onto each forecast entity.
+    // We expose only the boolean — `shoaling_factors` is ~4KB of JSONB per
+    // beach and the client only needs to know whether the displayed wave
+    // height came from the calibrated pipeline. Errors default to `false`
+    // (safer conservative render in the honesty UI). Skip the query entirely
+    // when there are no forecasts to stamp.
+    let isCalibrated = false;
+    if (mlMergedForecasts.length > 0) {
+      try {
+        const beachClient = await createSupabaseServiceRoleClient();
+        const { data: beachRow, error: beachError } = await beachClient
+          .from("beaches")
+          .select("shoaling_factors")
+          .eq("id", beachId)
+          .maybeSingle();
+        if (beachError) {
+          console.warn(
+            `⚠️ Failed to fetch calibration status for beach ${beachId}:`,
+            beachError.message
+          );
+        } else if (beachRow) {
+          isCalibrated = beachRow.shoaling_factors !== null;
+        }
+      } catch (err) {
+        console.warn(
+          `⚠️ Error fetching calibration status for beach ${beachId}:`,
+          err
+        );
+      }
+    }
+    const forecasts = mlMergedForecasts.map((f) => ({ ...f, isCalibrated }));
     const hasData = forecasts.length > 0;
 
     // Build response with consistent shape

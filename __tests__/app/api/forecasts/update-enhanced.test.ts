@@ -24,6 +24,49 @@ jest.mock("@/lib/auth/admin", () => ({
   authenticateAdmin: jest.fn(() => Promise.resolve({ success: false, status: 401, error: "Unauthorized" })),
 }));
 
+// Service-role client mock. The route calls this client in two places:
+//   1. mergeMLCorrections → .from("corrected_forecasts").select().eq().gte().lte()
+//   2. calibration lookup → .from("beaches").select().eq().maybeSingle()
+// We route on table name so each chain returns the right terminal method.
+// Tests override `mockBeachShoalingFactors`: a value = calibrated,
+// `null` = forecast-only, `undefined` = beach row not found.
+let mockBeachShoalingFactors: unknown | undefined = null;
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServiceRoleClient: jest.fn(() => ({
+    from: jest.fn((table: string) => {
+      if (table === "beaches") {
+        return {
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              maybeSingle: jest.fn(() =>
+                Promise.resolve({
+                  data:
+                    mockBeachShoalingFactors === undefined
+                      ? null
+                      : { shoaling_factors: mockBeachShoalingFactors },
+                  error: null,
+                })
+              ),
+            })),
+          })),
+        };
+      }
+      // corrected_forecasts (mergeMLCorrections) — return no corrections
+      return {
+        select: jest.fn(() => ({
+          eq: jest.fn(() => ({
+            gte: jest.fn(() => ({
+              lte: jest.fn(() =>
+                Promise.resolve({ data: [], error: null })
+              ),
+            })),
+          })),
+        })),
+      };
+    }),
+  })),
+}));
+
 describe("GET /api/forecasts/update-enhanced", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -171,6 +214,88 @@ describe("GET /api/forecasts/update-enhanced", () => {
 
     // 5 days * 24 hours = 120 hours
     expect(mockGetFreshForecastFromCache).toHaveBeenCalledWith("test-beach", 120);
+  });
+
+  describe("isCalibrated honesty-layer envelope", () => {
+    const freshMockCache = (forecasts: any[]) => ({
+      forecasts,
+      metadata: {
+        cached: true,
+        stale: false,
+        missing: false,
+        reason: null,
+        stalenessDetails: {
+          hoursSinceUpdate: 1,
+          threshold: 12,
+          isStale: false,
+          reason: "fresh",
+        },
+      },
+    });
+
+    const mockForecast = {
+      id: "1",
+      beach_id: "test-beach-id",
+      forecast_at: "2025-01-01T12:00:00Z",
+      forecast_date: "2025-01-01",
+      forecast_time: "12:00:00",
+      wave_height: "3 ft",
+      data_source: "NOAA_NWS",
+    };
+
+    it("stamps isCalibrated=true when shoaling_factors is present", async () => {
+      mockBeachShoalingFactors = { site_id: "foo", factors: [1, 2, 3] };
+      mockGetFreshForecastFromCache.mockResolvedValueOnce(
+        freshMockCache([mockForecast])
+      );
+
+      const { GET } = await import("@/app/api/forecasts/update-enhanced/route");
+      const res = await GET(
+        new Request(
+          "http://localhost:3000/api/forecasts/update-enhanced?beachId=test-beach-id"
+        ) as any
+      );
+      const json = await res.json();
+
+      expect(json.data.forecasts).toHaveLength(1);
+      expect(json.data.forecasts[0].isCalibrated).toBe(true);
+      // shoaling_factors itself must never be exposed in the envelope
+      expect(json.data.forecasts[0].shoaling_factors).toBeUndefined();
+    });
+
+    it("stamps isCalibrated=false when shoaling_factors is null", async () => {
+      mockBeachShoalingFactors = null;
+      mockGetFreshForecastFromCache.mockResolvedValueOnce(
+        freshMockCache([mockForecast])
+      );
+
+      const { GET } = await import("@/app/api/forecasts/update-enhanced/route");
+      const res = await GET(
+        new Request(
+          "http://localhost:3000/api/forecasts/update-enhanced?beachId=test-beach-id"
+        ) as any
+      );
+      const json = await res.json();
+
+      expect(json.data.forecasts[0].isCalibrated).toBe(false);
+    });
+
+    it("defaults isCalibrated=false when beach row is not found", async () => {
+      mockBeachShoalingFactors = undefined; // maybeSingle → { data: null }
+      mockGetFreshForecastFromCache.mockResolvedValueOnce(
+        freshMockCache([mockForecast])
+      );
+
+      const { GET } = await import("@/app/api/forecasts/update-enhanced/route");
+      const res = await GET(
+        new Request(
+          "http://localhost:3000/api/forecasts/update-enhanced?beachId=test-beach-id"
+        ) as any
+      );
+      const json = await res.json();
+
+      expect(json.data.forecasts[0].isCalibrated).toBe(false);
+    });
   });
 });
 
