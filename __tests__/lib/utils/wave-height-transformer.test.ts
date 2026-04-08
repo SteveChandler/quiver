@@ -4,6 +4,7 @@ import {
   calculatePeriodFactor,
   calculateDirectionFactor,
   getTransformationFactors,
+  lookupShoalingBucket,
   BASE_SHOALING,
   PERIOD_REF,
   PERIOD_MULT,
@@ -13,6 +14,7 @@ import {
   DIRECTION_FACTOR_RANGE,
   SET_WAVE_VARIANCE,
   type BeachTerrainConfig,
+  type ShoalingFactors,
   type TransformParams,
 } from '@/lib/utils/wave-height-transformer';
 import { TERRAIN_BINS } from '@/types/terrain';
@@ -166,6 +168,69 @@ describe('Wave Height Transformer', () => {
       expect(calculateDirectionFactor(180, beach)).toBe(1.0);
       // Clamped -0.5 -> 0.0: 0.6 + 0.0 * 0.4 = 0.6
       expect(calculateDirectionFactor(0, beach)).toBe(0.6);
+    });
+  });
+
+  describe('lookupShoalingBucket', () => {
+    const factors: ShoalingFactors = {
+      version: 1,
+      type: 'period_lookup',
+      buckets: [
+        { tp_min_s: 0, tp_max_s: 8, factor: 1.6 },
+        { tp_min_s: 8, tp_max_s: 12, factor: 1.7 },
+        { tp_min_s: 12, tp_max_s: 16, factor: 2.1 },
+        { tp_min_s: 16, tp_max_s: 999, factor: 2.4 },
+      ],
+    };
+
+    it('should return null for null factors', () => {
+      expect(lookupShoalingBucket(10, null)).toBeNull();
+      expect(lookupShoalingBucket(10, undefined)).toBeNull();
+    });
+
+    it('should return null for null or invalid period', () => {
+      expect(lookupShoalingBucket(null, factors)).toBeNull();
+      expect(lookupShoalingBucket(undefined, factors)).toBeNull();
+      expect(lookupShoalingBucket(NaN, factors)).toBeNull();
+      expect(lookupShoalingBucket(-1, factors)).toBeNull();
+      // 0 is treated as a CDIP NaN sentinel, not a real short-period reading.
+      expect(lookupShoalingBucket(0, factors)).toBeNull();
+      expect(lookupShoalingBucket(Infinity, factors)).toBeNull();
+      expect(lookupShoalingBucket(-Infinity, factors)).toBeNull();
+    });
+
+    it('should return the matching bucket factor', () => {
+      expect(lookupShoalingBucket(4, factors)).toBe(1.6);
+      expect(lookupShoalingBucket(10, factors)).toBe(1.7);
+      expect(lookupShoalingBucket(14, factors)).toBe(2.1);
+      expect(lookupShoalingBucket(20, factors)).toBe(2.4);
+    });
+
+    it('should use half-open intervals [min, max)', () => {
+      // 8 is in the 8-12 bucket, not the <8 bucket.
+      expect(lookupShoalingBucket(8, factors)).toBe(1.7);
+      // 12 is in the 12-16 bucket, not the 8-12 bucket.
+      expect(lookupShoalingBucket(12, factors)).toBe(2.1);
+      // 16 is in the ≥16 bucket, not the 12-16 bucket.
+      expect(lookupShoalingBucket(16, factors)).toBe(2.4);
+    });
+
+    it('should return null when wrong type tag', () => {
+      const badFactors: ShoalingFactors = {
+        version: 1,
+        type: 'something_else' as unknown as 'period_lookup',
+        buckets: factors.buckets,
+      };
+      expect(lookupShoalingBucket(10, badFactors)).toBeNull();
+    });
+
+    it('should return null when buckets is not an array', () => {
+      const badFactors: ShoalingFactors = {
+        version: 1,
+        type: 'period_lookup',
+        buckets: null as unknown as typeof factors.buckets,
+      };
+      expect(lookupShoalingBucket(10, badFactors)).toBeNull();
     });
   });
 
@@ -337,6 +402,215 @@ describe('Wave Height Transformer', () => {
           beach: createMockBeach(0.0),
         });
         expect(result).toBeCloseTo(0.8, 1);
+      });
+    });
+
+    describe('Shoaling factors short-circuit (empirically calibrated beaches)', () => {
+      // Blacks Beach factors as seeded in 20260407134519 migration.
+      // Calibrated from 8757 paired Surfline/CDIP records over 1 year.
+      const blacksFactors: ShoalingFactors = {
+        version: 1,
+        type: 'period_lookup',
+        buckets: [
+          { tp_min_s: 0, tp_max_s: 8, factor: 1.6 },
+          { tp_min_s: 8, tp_max_s: 12, factor: 1.7 },
+          { tp_min_s: 12, tp_max_s: 16, factor: 2.1 },
+          { tp_min_s: 16, tp_max_s: 999, factor: 2.4 },
+        ],
+      };
+
+      it('should resolve the original Blacks bug scenario: 1.7 ft Hs on groundswell → ~3.6 ft face', () => {
+        // User-reported symptom: Blacks displayed 1.7 ft when Surfline showed 3-5 ft
+        // With calibrated factors on a 14s groundswell:
+        // 1.7 * 2.1 = 3.57 → rounds to 3.6
+        const result = transformToFaceHeight({
+          rawHeightFt: 1.7,
+          periodS: 14,
+          swellDirectionDeg: 270,
+          beach: { shoaling_factors: blacksFactors },
+          source: 'cdip_sig',
+        });
+        expect(result).toBe(3.6);
+      });
+
+      it('should look up the correct bucket for each period range', () => {
+        // Same 2 ft input, four different periods — all buckets
+        expect(
+          transformToFaceHeight({
+            rawHeightFt: 2.0,
+            periodS: 6, // <8 bucket, factor 1.6
+            swellDirectionDeg: null,
+            beach: { shoaling_factors: blacksFactors },
+            source: 'cdip_sig',
+          })
+        ).toBe(3.2);
+
+        expect(
+          transformToFaceHeight({
+            rawHeightFt: 2.0,
+            periodS: 10, // 8-12 bucket, factor 1.7
+            swellDirectionDeg: null,
+            beach: { shoaling_factors: blacksFactors },
+            source: 'cdip_sig',
+          })
+        ).toBe(3.4);
+
+        expect(
+          transformToFaceHeight({
+            rawHeightFt: 2.0,
+            periodS: 14, // 12-16 bucket, factor 2.1
+            swellDirectionDeg: null,
+            beach: { shoaling_factors: blacksFactors },
+            source: 'cdip_sig',
+          })
+        ).toBe(4.2);
+
+        expect(
+          transformToFaceHeight({
+            rawHeightFt: 2.0,
+            periodS: 18, // ≥16 bucket, factor 2.4
+            swellDirectionDeg: null,
+            beach: { shoaling_factors: blacksFactors },
+            source: 'cdip_sig',
+          })
+        ).toBe(4.8);
+      });
+
+      it('should bypass direction factor even when terrain_enabled is true', () => {
+        // The empirical ratio already subsumes direction effects for calibrated beaches.
+        // Same buoy input should produce the same face height regardless of swell direction.
+        const baseParams = {
+          rawHeightFt: 2.0,
+          periodS: 14,
+          beach: {
+            ...createMockBeach(0.0), // fully blocked terrain
+            shoaling_factors: blacksFactors,
+          },
+          source: 'cdip_sig' as const,
+        };
+        // Without shoaling_factors, poor access would multiply by 0.6, giving 2.88 → 2.9.
+        // With shoaling_factors, it's 2.0 * 2.1 = 4.2 regardless of direction.
+        expect(
+          transformToFaceHeight({ ...baseParams, swellDirectionDeg: 270 })
+        ).toBe(4.2);
+        expect(
+          transformToFaceHeight({ ...baseParams, swellDirectionDeg: 180 })
+        ).toBe(4.2);
+      });
+
+      it('should fall through to legacy pipeline when periodS is null', () => {
+        // No period → can't look up a bucket → legacy pipeline takes over.
+        // Legacy at periodS=null defaults to PERIOD_REF (10s), factor 1.0.
+        // 2.0 * 1.0 (base) * 1.0 (period) * 1.0 (no direction) = 2.0
+        const result = transformToFaceHeight({
+          rawHeightFt: 2.0,
+          periodS: null,
+          swellDirectionDeg: null,
+          beach: { shoaling_factors: blacksFactors },
+        });
+        expect(result).toBe(2.0);
+      });
+
+      it('should fall through to legacy pipeline when factors is null (uncalibrated beach)', () => {
+        // ~190 CDIP-override beaches that haven't been calibrated yet stay on the legacy path.
+        // 1.7 ft @ 14s, no terrain: 1.7 * 1.0 * 1.2 (capped) * 1.0 = 2.04 → rounds to 2.0
+        const result = transformToFaceHeight({
+          rawHeightFt: 1.7,
+          periodS: 14,
+          swellDirectionDeg: null,
+          beach: { shoaling_factors: null },
+        });
+        expect(result).toBe(2.0);
+      });
+
+      it('should handle period exactly at bucket boundary using half-open intervals', () => {
+        // tp_min_s=8 is inclusive, tp_max_s=8 is exclusive.
+        // Period=8.0 should land in the 8-12 bucket (factor 1.7), not the <8 bucket (1.6).
+        const result = transformToFaceHeight({
+          rawHeightFt: 2.0,
+          periodS: 8.0,
+          swellDirectionDeg: null,
+          beach: { shoaling_factors: blacksFactors },
+          source: 'cdip_sig',
+        });
+        expect(result).toBe(3.4); // 2.0 * 1.7
+      });
+
+      // =============================================================
+      // Regression tests for source-gating of the shoaling short-circuit
+      // (Phase 1.4 Critical #1/#2 — reviewer found that applying the
+      //  CDIP-calibrated factor to a model_swell input produced wrong
+      //  answers on XL days where selectWaveHeightSource fell back.)
+      // =============================================================
+
+      it('should SKIP short-circuit when source is model_swell (not cdip_sig)', () => {
+        // Same beach, same factors, same period, same inputs — but the
+        // upstream source was model_swell (e.g. CDIP was rejected as an
+        // outlier or exceeded MAX_TRUSTED_CDIP_FT). The bucket factor is
+        // measured as surfline_face_ft / cdip_hs_ft — applying it to a
+        // model height is a units/semantics mismatch. Must fall through
+        // to the legacy base × period × direction pipeline instead.
+        const result = transformToFaceHeight({
+          rawHeightFt: 1.7,
+          periodS: 14,
+          swellDirectionDeg: 270,
+          beach: { shoaling_factors: blacksFactors },
+          source: 'model_swell',
+        });
+        // Legacy: 1.7 * 1.0 (base) * 1.2 (capped period at 14s) * 1.0 (no direction)
+        //       = 2.04 → rounds to 2.0
+        expect(result).toBe(2.0);
+      });
+
+      it('should SKIP short-circuit for every non-cdip_sig source tag', () => {
+        const baseParams = {
+          rawHeightFt: 2.0,
+          periodS: 14, // would hit 12-16 bucket (factor 2.1) if short-circuit fired
+          swellDirectionDeg: null,
+          beach: { shoaling_factors: blacksFactors },
+        };
+        // Each non-cdip_sig source must land in the legacy pipeline:
+        // 2.0 * 1.0 * 1.2 * 1.0 = 2.4 (not 2.0 * 2.1 = 4.2)
+        for (const src of ['model_swell', 'cdip_swell', 'model_hs', 'ndbc_buoy'] as const) {
+          expect(transformToFaceHeight({ ...baseParams, source: src })).toBe(2.4);
+        }
+        // And cdip_sig correctly fires the short-circuit
+        expect(
+          transformToFaceHeight({ ...baseParams, source: 'cdip_sig' })
+        ).toBe(4.2);
+      });
+
+      it('should SKIP short-circuit when source is omitted (safe default)', () => {
+        // Defensive: if a caller forgets to pass source, the short-circuit
+        // must not fire. Undefined is treated as non-cdip — the transformer
+        // has no way to know the input provenance and must not guess.
+        const result = transformToFaceHeight({
+          rawHeightFt: 2.0,
+          periodS: 14,
+          swellDirectionDeg: null,
+          beach: { shoaling_factors: blacksFactors },
+          // source omitted
+        });
+        // Legacy pipeline: 2.0 * 1.0 * 1.2 * 1.0 = 2.4
+        expect(result).toBe(2.4);
+      });
+
+      it('should fall through when period is out of range of all buckets', () => {
+        // Contrived factors with a gap — period 100s won't match any bucket.
+        const gappedFactors: ShoalingFactors = {
+          version: 1,
+          type: 'period_lookup',
+          buckets: [{ tp_min_s: 0, tp_max_s: 20, factor: 2.0 }],
+        };
+        // periodS=25 → no bucket match → legacy pipeline
+        // 2.0 * 1.0 * 1.2 (capped) * 1.0 = 2.4
+        const result = transformToFaceHeight({
+          rawHeightFt: 2.0,
+          periodS: 25,
+          swellDirectionDeg: null,
+          beach: { shoaling_factors: gappedFactors },
+        });
+        expect(result).toBe(2.4);
       });
     });
 

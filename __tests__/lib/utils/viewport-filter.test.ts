@@ -42,6 +42,7 @@ function makeBeach(overrides: Partial<Beach> & { id: string; name: string }): Be
     real_takeaways: null,
     region: null,
     review_count: null,
+    shoaling_factors: null,
     skill_level: null,
     slug: null,
     state: null,

@@ -18,12 +18,68 @@
 import { toBin5, TERRAIN_BINS } from '@/types/terrain';
 
 /**
+ * One bucket in a period-keyed shoaling factor lookup table.
+ * Matches on `tp_min_s <= periodS < tp_max_s`.
+ */
+export interface ShoalingBucket {
+  tp_min_s: number;
+  tp_max_s: number;
+  factor: number;
+}
+
+/**
+ * Empirically calibrated shoaling factor lookup for a specific beach.
+ *
+ * When a beach has this configured, the wave-height transformer short-circuits
+ * the generic `BASE_SHOALING × period × direction` pipeline and multiplies raw
+ * Hs by the bucket factor directly. This is how we represent the true ratio of
+ * face height to raw CDIP buoy Hs on breaks where the generic pipeline's 1.2x
+ * period cap is far too low.
+ *
+ * Matches the shape stored in the `beaches.shoaling_factors` JSONB column.
+ */
+export interface ShoalingFactors {
+  version: 1;
+  type: 'period_lookup';
+  buckets: ShoalingBucket[];
+  /** Provenance metadata for the calibration — not used at runtime */
+  calibration?: Record<string, unknown>;
+}
+
+/**
  * Beach terrain configuration needed for wave height transformation
  */
 export interface BeachTerrainConfig {
   swell_access_factors?: number[] | null;
   terrain_enabled?: boolean;
+  /**
+   * Optional per-beach empirically calibrated shoaling lookup.
+   * When present, short-circuits the generic period/direction factor pipeline.
+   */
+  shoaling_factors?: ShoalingFactors | null;
 }
+
+/**
+ * Identifies which upstream feed produced `rawHeightFt`. Must match the
+ * string union in `wave-formatters.ts::WaveHeightSource['source']` — the two
+ * type definitions are intentionally colocated with their consumers instead
+ * of shared to avoid a circular import. Adding a new source here requires
+ * the same addition in wave-formatters.ts and (if applicable) gating below.
+ *
+ * Critical: the per-beach `shoaling_factors` calibration in the Phase 1.4
+ * migration was measured as `surfline_face_ft / cdip_hs_ft`, meaning the
+ * bucket multiplier is ONLY valid when rawHeightFt came from a CDIP
+ * significant-height reading for the beach's assigned cdip_station. For
+ * every other source (model swell, model Hs, NDBC buoy, CDIP swell
+ * component) the denominator semantics differ and the bucket factor would
+ * produce the wrong answer. `transformToFaceHeight` enforces this gate.
+ */
+export type WaveHeightSourceTag =
+  | 'cdip_sig'
+  | 'model_swell'
+  | 'cdip_swell'
+  | 'model_hs'
+  | 'ndbc_buoy';
 
 /**
  * Parameters for wave height transformation
@@ -37,6 +93,14 @@ export interface TransformParams {
   swellDirectionDeg: number | null;
   /** Beach terrain configuration (optional) */
   beach?: BeachTerrainConfig | null;
+  /**
+   * Which upstream source produced rawHeightFt. Required to gate the
+   * empirically calibrated `shoaling_factors` short-circuit: the calibration
+   * was measured against CDIP Hs specifically, so applying it to a model
+   * height or buoy swell would produce a wrong answer. When omitted, the
+   * short-circuit is skipped and the legacy pipeline runs (safe default).
+   */
+  source?: WaveHeightSourceTag;
 }
 
 // ===================================================
@@ -172,10 +236,58 @@ export function calculateDirectionFactor(
 }
 
 /**
+ * Look up the shoaling factor for a given period from a calibrated lookup table.
+ *
+ * Returns null when the period is missing/invalid or when no bucket matches.
+ * Callers fall back to the generic `base × period × direction` pipeline when
+ * the lookup yields null.
+ *
+ * @param periodS Wave period in seconds
+ * @param factors Calibrated shoaling factor lookup
+ * @returns Bucket factor or null if no match
+ */
+export function lookupShoalingBucket(
+  periodS: number | null | undefined,
+  factors: ShoalingFactors | null | undefined
+): number | null {
+  if (!factors || factors.type !== 'period_lookup' || !Array.isArray(factors.buckets)) {
+    return null;
+  }
+  // A period of exactly 0 almost always indicates a CDIP NaN sentinel or an
+  // uninitialized field — not a real short-wind-chop reading. Reject it along
+  // with negative and non-finite values so we fall through to the legacy
+  // pipeline where PERIOD_REF=10s provides a safe default.
+  if (periodS == null || !Number.isFinite(periodS) || periodS <= 0) {
+    return null;
+  }
+  for (const bucket of factors.buckets) {
+    if (periodS >= bucket.tp_min_s && periodS < bucket.tp_max_s) {
+      return bucket.factor;
+    }
+  }
+  return null;
+}
+
+/**
  * Transform raw buoy significant wave height to estimated face height
  *
  * Applies shoaling, period amplification, and direction factors to convert
  * raw Hs measurements to face heights that match surfer expectations.
+ *
+ * When the beach has empirically calibrated `shoaling_factors` AND the
+ * caller indicates the input came from CDIP significant height (`source ===
+ * 'cdip_sig'`), the transform short-circuits the generic pipeline:
+ * `face = raw × bucket_factor(periodS)`. The calibration was measured as
+ * `surfline_face_ft / cdip_hs_ft` for each beach's reference buoy, so the
+ * bucket multiplier is ONLY valid against that specific input. For model
+ * swell, model Hs, or NDBC buoy inputs, the short-circuit is skipped and
+ * the legacy `base × period × direction` pipeline runs instead. This matters
+ * on XL days where `selectWaveHeightSource` falls back from CDIP to model
+ * swell (CDIP > 10 ft or CDIP is an outlier vs model): without the gate we
+ * would multiply a model height by a CDIP-denominated factor and produce
+ * nonsense. The generic pipeline's `PERIOD_FACTOR_MAX=1.2` cap is the
+ * correct treatment for model inputs; only raw CDIP Hs at calibrated beaches
+ * gets the larger empirical multipliers (1.6-2.4x).
  *
  * @param params Transformation parameters
  * @returns Face height in feet, rounded to 1 decimal place
@@ -191,16 +303,49 @@ export function calculateDirectionFactor(
  *   swellDirectionDeg: 225,
  *   beach: { terrain_enabled: true, swell_access_factors: [...] }
  * })
+ *
+ * // 1.7ft @ 14s at Blacks with shoaling_factors, input is CDIP Hs:
+ * //   1.7 × 2.1 = 3.57ft (rounded 3.6) — short-circuit fires
+ * transformToFaceHeight({
+ *   rawHeightFt: 1.7,
+ *   periodS: 14,
+ *   swellDirectionDeg: 270,
+ *   beach: { shoaling_factors: { version: 1, type: 'period_lookup', buckets: [...] } },
+ *   source: 'cdip_sig',
+ * })
+ *
+ * // Same beach, same period, but input came from model swell instead:
+ * //   1.7 × 1.0 × 1.2 × 1.0 = 2.04 → 2.0ft — legacy pipeline runs
+ * transformToFaceHeight({
+ *   rawHeightFt: 1.7,
+ *   periodS: 14,
+ *   swellDirectionDeg: 270,
+ *   beach: { shoaling_factors: blacksFactors },
+ *   source: 'model_swell',
+ * })
  */
 export function transformToFaceHeight(params: TransformParams): number {
-  const { rawHeightFt, periodS, swellDirectionDeg, beach } = params;
+  const { rawHeightFt, periodS, swellDirectionDeg, beach, source } = params;
 
   // Validate input - return 0 for invalid values
   if (!Number.isFinite(rawHeightFt) || rawHeightFt < 0) {
     return 0;
   }
 
-  // Calculate component factors
+  // Short-circuit: empirically calibrated per-beach shoaling lookup.
+  // GATED on source === 'cdip_sig' because the bucket factor is measured as
+  // `surfline_face_ft / cdip_hs_ft` — applying it to a model-derived height
+  // when CDIP has been rejected (>10ft, outlier, or null) produces the wrong
+  // answer. When source is anything else (or omitted), fall through to the
+  // generic pipeline which is the correct treatment for model inputs.
+  if (source === 'cdip_sig') {
+    const bucketFactor = lookupShoalingBucket(periodS, beach?.shoaling_factors);
+    if (bucketFactor != null) {
+      return Math.round(rawHeightFt * bucketFactor * 10) / 10;
+    }
+  }
+
+  // Legacy path: generic base × period × direction for uncalibrated beaches.
   const periodFactor = calculatePeriodFactor(periodS);
   const dirFactor = calculateDirectionFactor(swellDirectionDeg, beach);
 

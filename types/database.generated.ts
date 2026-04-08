@@ -1380,6 +1380,7 @@ export type Database = {
           real_takeaways: string[] | null
           region: string | null
           review_count: number | null
+          shoaling_factors: Json | null
           skill_level: string | null
           slug: string | null
           state: string | null
@@ -1441,6 +1442,7 @@ export type Database = {
           real_takeaways?: string[] | null
           region?: string | null
           review_count?: number | null
+          shoaling_factors?: Json | null
           skill_level?: string | null
           slug?: string | null
           state?: string | null
@@ -1502,6 +1504,7 @@ export type Database = {
           real_takeaways?: string[] | null
           region?: string | null
           review_count?: number | null
+          shoaling_factors?: Json | null
           skill_level?: string | null
           slug?: string | null
           state?: string | null

@@ -11,6 +11,7 @@
 import { createContextLogger } from "@/lib/logger";
 import { calculateConfidenceScore } from "./confidence-scorer";
 import { toFaceHeightFeet } from "@/lib/utils/wave-formatters";
+import type { ShoalingFactors } from "@/lib/utils/wave-height-transformer";
 import { cardinalToDegrees } from "./forecast-transformer";
 import { formatWaterTemp } from "@/lib/formatters/surf-data";
 import { formatPeriodSeconds } from "@/lib/formatters/surf-data";
@@ -459,10 +460,14 @@ export class ForecastBuilder {
       cardinalToDegrees(wavePoint?.peak_wave_direction) ??
       null;
 
-    // Build beach terrain config for transformation
+    // Build beach terrain config for transformation.
+    // `shoaling_factors` (when present) short-circuits the generic transform
+    // in favor of an empirically calibrated period-keyed lookup for that beach.
+    // See migration 20260407134519_add_shoaling_factors_to_beaches.sql.
     const beachTerrain = {
       swell_access_factors: beach.swell_access_factors ?? null,
       terrain_enabled: beach.terrain_enabled ?? false,
+      shoaling_factors: (beach.shoaling_factors ?? null) as ShoalingFactors | null,
     };
 
     // Use toFaceHeightFeet with all available sources - it handles source priority
