@@ -45,11 +45,24 @@ describe("GET /api/sessions/[id]/photos", () => {
   });
 
   describe("Authentication", () => {
-    it("requires authentication", async () => {
+    it("requires authentication for PRIVATE sessions", async () => {
       mockAuthGetUser.mockResolvedValue({
         data: { user: null },
         error: new Error("Not authenticated"),
       });
+
+      // Private session — anonymous viewer must be rejected.
+      const mockSingle = jest.fn().mockResolvedValue({
+        data: {
+          id: validSessionId,
+          user_id: sessionOwnerId,
+          is_public: false,
+        },
+        error: null,
+      });
+      const mockEq = jest.fn().mockReturnValue({ single: mockSingle });
+      const mockSelect = jest.fn().mockReturnValue({ eq: mockEq });
+      mockFrom.mockReturnValue({ select: mockSelect });
 
       const request = new NextRequest(
         `http://localhost:3000/api/sessions/${validSessionId}/photos`,
@@ -62,6 +75,55 @@ describe("GET /api/sessions/[id]/photos", () => {
       expect(response.status).toBe(401);
       expect(data.success).toBe(false);
       expect(data.error).toContain("Authentication required");
+    });
+
+    it("allows ANONYMOUS viewers to read photos for PUBLIC sessions", async () => {
+      // Guest mode: beach detail page's RecentSessionsSection carousel
+      // renders SessionCardWrapper for public sessions, which calls
+      // useSessionPhotos for each. Previously the route rejected every
+      // unauthenticated request with 401, breaking the guest feed.
+      mockAuthGetUser.mockResolvedValue({
+        data: { user: null },
+        error: new Error("Not authenticated"),
+      });
+
+      const mockSingle = jest.fn().mockResolvedValue({
+        data: {
+          id: validSessionId,
+          user_id: sessionOwnerId,
+          is_public: true,
+        },
+        error: null,
+      });
+      const mockEq = jest.fn().mockReturnValue({ single: mockSingle });
+      const mockSelect = jest.fn().mockReturnValue({ eq: mockEq });
+      mockFrom.mockReturnValue({ select: mockSelect });
+
+      const mockPhotos = [
+        {
+          id: "photo-1",
+          url: "https://example.com/photo1.jpg",
+          created_at: "2024-01-01T12:00:00Z",
+        },
+      ];
+      (mockGetSessionPhotos as jest.Mock).mockResolvedValue(mockPhotos);
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/sessions/${validSessionId}/photos`,
+        { method: "GET" }
+      );
+
+      const response = await GET(request, { params: Promise.resolve({ id: validSessionId }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.data.photos).toHaveLength(1);
+      // Critical: supabase.auth.getUser() must NOT be called for public
+      // sessions — the RLS policy "Public can view media from public sessions"
+      // handles authorization at the DB layer. Calling getUser would add
+      // unnecessary latency and block anonymous callers.
+      expect(mockAuthGetUser).not.toHaveBeenCalled();
     });
   });
 
