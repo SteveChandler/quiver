@@ -1,5 +1,6 @@
 import {
   transformToFaceHeight,
+  transformToFaceHeightWithMetadata,
   transformToFaceHeightRange,
   calculatePeriodFactor,
   calculateDirectionFactor,
@@ -16,6 +17,7 @@ import {
   type BeachTerrainConfig,
   type ShoalingFactors,
   type TransformParams,
+  type WaveHeightSourceTag,
 } from '@/lib/utils/wave-height-transformer';
 import { TERRAIN_BINS } from '@/types/terrain';
 import {
@@ -815,6 +817,200 @@ describe('Wave Height Transformer', () => {
       // 1.6 * 1.5 = 2.4ft sets
       expect(result.low).toBe(1.6);
       expect(result.high).toBe(2.4);
+    });
+  });
+
+  describe('transformToFaceHeightWithMetadata', () => {
+    // Blacks-style calibration factors, modeled on the 20260407 migration.
+    // bucket at 12-16s = 2.1x → 1.7ft CDIP Hs × 2.1 = 3.57 → rounds to 3.6.
+    const BLACKS_SHOALING_FACTORS: ShoalingFactors = {
+      version: 1,
+      type: 'period_lookup',
+      buckets: [
+        { tp_min_s: 0, tp_max_s: 8, factor: 1.6 },
+        { tp_min_s: 8, tp_max_s: 12, factor: 1.7 },
+        { tp_min_s: 12, tp_max_s: 16, factor: 2.1 },
+        { tp_min_s: 16, tp_max_s: 999, factor: 2.4 },
+      ],
+    };
+
+    const createCalibratedBeach = (): BeachTerrainConfig => ({
+      ...createMockBeach(1.0),
+      shoaling_factors: BLACKS_SHOALING_FACTORS,
+    });
+
+    const createMlOnlyBeach = (): BeachTerrainConfig => ({
+      ...createMockBeach(1.0),
+      shoaling_factors: null,
+    });
+
+    it('returns isCalibrated true for cdip_sig with shoaling factors', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 1.7,
+        periodS: 14,
+        swellDirectionDeg: 270,
+        beach: createCalibratedBeach(),
+        source: 'cdip_sig',
+      });
+      expect(result.faceHeightFt).toBe(3.6);
+      expect(result.isCalibrated).toBe(true);
+    });
+
+    it('returns isCalibrated false for cdip_sig without shoaling factors', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 1.7,
+        periodS: 14,
+        swellDirectionDeg: 270,
+        beach: createMlOnlyBeach(),
+        source: 'cdip_sig',
+      });
+      // legacy pipeline: 1.7 * 1.0 * 1.2 * 1.0 = 2.04 → 2.0
+      expect(result.faceHeightFt).toBe(2.0);
+      expect(result.isCalibrated).toBe(false);
+    });
+
+    it('returns isCalibrated false for model_swell even with factors', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 1.7,
+        periodS: 14,
+        swellDirectionDeg: 270,
+        beach: createCalibratedBeach(),
+        source: 'model_swell',
+      });
+      expect(result.faceHeightFt).toBe(2.0);
+      expect(result.isCalibrated).toBe(false);
+    });
+
+    it('returns isCalibrated false for cdip_swell with factors', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 1.7,
+        periodS: 14,
+        swellDirectionDeg: 270,
+        beach: createCalibratedBeach(),
+        source: 'cdip_swell',
+      });
+      expect(result.isCalibrated).toBe(false);
+    });
+
+    it('returns isCalibrated false for model_hs with factors', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 1.7,
+        periodS: 14,
+        swellDirectionDeg: 270,
+        beach: createCalibratedBeach(),
+        source: 'model_hs',
+      });
+      expect(result.isCalibrated).toBe(false);
+    });
+
+    it('returns isCalibrated false for ndbc_buoy with factors', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 1.7,
+        periodS: 14,
+        swellDirectionDeg: 270,
+        beach: createCalibratedBeach(),
+        source: 'ndbc_buoy',
+      });
+      expect(result.isCalibrated).toBe(false);
+    });
+
+    it('returns isCalibrated false when source is omitted (legacy caller path)', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 1.7,
+        periodS: 14,
+        swellDirectionDeg: 270,
+        beach: createCalibratedBeach(),
+        // source omitted
+      });
+      expect(result.isCalibrated).toBe(false);
+    });
+
+    it('returns isCalibrated false when period is out of bucket range', () => {
+      // Factors only cover 0-20s; period 25 falls through → legacy pipeline
+      const bounded: ShoalingFactors = {
+        version: 1,
+        type: 'period_lookup',
+        buckets: [{ tp_min_s: 0, tp_max_s: 20, factor: 2.0 }],
+      };
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 2.0,
+        periodS: 25,
+        swellDirectionDeg: null,
+        beach: { shoaling_factors: bounded },
+        source: 'cdip_sig',
+      });
+      // legacy: 2.0 * 1.0 * 1.2 (clamped) * 1.0 = 2.4
+      expect(result.faceHeightFt).toBe(2.4);
+      expect(result.isCalibrated).toBe(false);
+    });
+
+    it('returns isCalibrated false when period is null', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 1.7,
+        periodS: null,
+        swellDirectionDeg: null,
+        beach: createCalibratedBeach(),
+        source: 'cdip_sig',
+      });
+      // legacy: 1.7 * 1.0 * 1.0 (PERIOD_REF) * 1.0 = 1.7
+      expect(result.faceHeightFt).toBe(1.7);
+      expect(result.isCalibrated).toBe(false);
+    });
+
+    it('returns isCalibrated false when period is zero (CDIP NaN sentinel)', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 1.7,
+        periodS: 0,
+        swellDirectionDeg: null,
+        beach: createCalibratedBeach(),
+        source: 'cdip_sig',
+      });
+      expect(result.isCalibrated).toBe(false);
+    });
+
+    it('returns { 0, false } for invalid rawHeightFt', () => {
+      expect(
+        transformToFaceHeightWithMetadata({
+          rawHeightFt: -1,
+          periodS: 14,
+          swellDirectionDeg: null,
+          beach: createCalibratedBeach(),
+          source: 'cdip_sig',
+        })
+      ).toEqual({ faceHeightFt: 0, isCalibrated: false });
+
+      expect(
+        transformToFaceHeightWithMetadata({
+          rawHeightFt: NaN,
+          periodS: 14,
+          swellDirectionDeg: null,
+          beach: createCalibratedBeach(),
+          source: 'cdip_sig',
+        })
+      ).toEqual({ faceHeightFt: 0, isCalibrated: false });
+    });
+
+    it('faceHeightFt matches transformToFaceHeight for all source gates', () => {
+      const sources: WaveHeightSourceTag[] = [
+        'cdip_sig',
+        'model_swell',
+        'cdip_swell',
+        'model_hs',
+        'ndbc_buoy',
+      ];
+      const beach = createCalibratedBeach();
+      for (const source of sources) {
+        const params: TransformParams = {
+          rawHeightFt: 1.7,
+          periodS: 14,
+          swellDirectionDeg: 270,
+          beach,
+          source,
+        };
+        const legacy = transformToFaceHeight(params);
+        const meta = transformToFaceHeightWithMetadata(params);
+        expect(meta.faceHeightFt).toBe(legacy);
+      }
     });
   });
 });

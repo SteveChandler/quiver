@@ -325,11 +325,43 @@ export function lookupShoalingBucket(
  * })
  */
 export function transformToFaceHeight(params: TransformParams): number {
+  return transformToFaceHeightWithMetadata(params).faceHeightFt;
+}
+
+/**
+ * Result of a face-height transform with calibration metadata.
+ *
+ * `isCalibrated` is `true` only when the empirical shoaling short-circuit
+ * actually fired for this specific render — i.e. the beach has a
+ * `shoaling_factors` lookup, the source is `cdip_sig`, and the period
+ * resolved to a valid bucket. A beach with factors in the DB can still
+ * render `isCalibrated: false` for a specific reading when its period
+ * falls outside the bucket table, the source fell back to model swell,
+ * or the raw height is invalid.
+ */
+export interface FaceHeightWithMetadata {
+  faceHeightFt: number;
+  isCalibrated: boolean;
+}
+
+/**
+ * Transform raw Hs to face height AND report whether the calibration
+ * short-circuit actually fired. Used by the display layer to qualify the
+ * wave-height number with a visual honesty marker for ML-only pipelines.
+ *
+ * The `faceHeightFt` value is guaranteed to equal `transformToFaceHeight`
+ * for the same params — the two functions share the exact same math path,
+ * this one just surfaces the gate decision as a boolean alongside.
+ */
+export function transformToFaceHeightWithMetadata(
+  params: TransformParams
+): FaceHeightWithMetadata {
   const { rawHeightFt, periodS, swellDirectionDeg, beach, source } = params;
 
-  // Validate input - return 0 for invalid values
+  // Validate input - return 0 for invalid values (not calibrated: a
+  // meaningless number cannot be "calibrated").
   if (!Number.isFinite(rawHeightFt) || rawHeightFt < 0) {
-    return 0;
+    return { faceHeightFt: 0, isCalibrated: false };
   }
 
   // Short-circuit: empirically calibrated per-beach shoaling lookup.
@@ -341,7 +373,10 @@ export function transformToFaceHeight(params: TransformParams): number {
   if (source === 'cdip_sig') {
     const bucketFactor = lookupShoalingBucket(periodS, beach?.shoaling_factors);
     if (bucketFactor != null) {
-      return Math.round(rawHeightFt * bucketFactor * 10) / 10;
+      return {
+        faceHeightFt: Math.round(rawHeightFt * bucketFactor * 10) / 10,
+        isCalibrated: true,
+      };
     }
   }
 
@@ -353,7 +388,10 @@ export function transformToFaceHeight(params: TransformParams): number {
   const faceHeight = rawHeightFt * BASE_SHOALING * periodFactor * dirFactor;
 
   // Round to 1 decimal place
-  return Math.round(faceHeight * 10) / 10;
+  return {
+    faceHeightFt: Math.round(faceHeight * 10) / 10,
+    isCalibrated: false,
+  };
 }
 
 /**
