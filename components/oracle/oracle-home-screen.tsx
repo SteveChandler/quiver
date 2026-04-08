@@ -147,6 +147,10 @@ function transformToTimeWindows(
   const bestScore = topRec.score / 100; // normalise 0-100 → 0-1
   const waveHeight = topRec.waveHeightBadge ?? topRec.forecast.wave_height ?? "—";
   const topConditions = extractConditions(topRec.forecast);
+  // Calibration is keyed on the SOURCE forecast (top rec or matched rec), not
+  // the slot. Synthetic fallback slots inherit the top rec's calibration
+  // because the displayed height comes from its slotForecasts or waveHeight.
+  const topIsCalibrated = topRec.forecast.isCalibrated;
 
   return TIME_SLOT_HOURS.map(({ time, hour, label }) => {
     // Check if this slot covers the top rec's window start
@@ -157,6 +161,7 @@ function transformToTimeWindows(
     let slotLabel: string;
     let height: string;
     let conditions = topConditions;
+    let isCalibrated: boolean | undefined = topIsCalibrated;
 
     if (isBest) {
       quality = bestScore;
@@ -174,6 +179,7 @@ function transformToTimeWindows(
         height = matchedRec.waveHeightBadge ?? matchedRec.forecast.wave_height ?? "—";
         slotLabel = label;
         conditions = extractConditions(matchedRec.forecast);
+        isCalibrated = matchedRec.forecast.isCalibrated;
       } else {
         // Synthetic fallback: quality degrades away from the best slot
         const hourDiff = Math.abs(hour - bestHour);
@@ -195,7 +201,7 @@ function transformToTimeWindows(
       }
     }
 
-    return { time, label: slotLabel, height, quality, isBest, ...conditions };
+    return { time, label: slotLabel, height, quality, isBest, isCalibrated, ...conditions };
   });
 }
 
