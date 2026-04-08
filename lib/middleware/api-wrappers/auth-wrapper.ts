@@ -27,9 +27,13 @@ import { withErrorHandler } from "./error-handler";
  * Extracts a Bearer token from the Authorization header.
  * Returns null when the header is missing or not a Bearer scheme.
  * Requires a non-whitespace token — `Bearer    ` alone is rejected.
+ *
+ * Uses optional chaining on `request.headers` because some existing route
+ * tests stub the request as `{}` and rely on mocked auth — the Bearer path
+ * must degrade to "no token" rather than throwing on such shapes.
  */
 function extractBearerToken(request: NextRequest): string | null {
-  const authHeader = request.headers.get("authorization");
+  const authHeader = request.headers?.get("authorization");
   if (!authHeader) return null;
   const match = authHeader.match(/^Bearer\s+(\S+)\s*$/i);
   return match ? match[1] : null;
