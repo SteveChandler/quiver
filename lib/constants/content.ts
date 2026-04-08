@@ -43,10 +43,12 @@ export const ABOUT_CONTENT = {
     title: "Come check it out.",
     subtitle:
       "Free. No credit card. No spam. Just better data for your next session.",
-    primaryLabel: "Check the forecast",
-    primaryHref: "/",
-    secondaryLabel: "Drop me a line",
-    secondaryHref: "mailto:support@quiversurf.app",
+    primaryLabel: "Try the Swell Analyzer",
+    primaryHref: "/tools/swell-analyzer",
+    secondaryLabel: "Check your home break",
+    secondaryHref: "/beaches",
+    tertiaryLabel: "Or drop me a line",
+    tertiaryHref: "mailto:support@quiversurf.app",
   },
 } as const;
 
