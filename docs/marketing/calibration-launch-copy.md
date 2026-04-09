@@ -9,35 +9,32 @@
 ## CHANGELOG entry
 
 ### Added
-- **Calibration honesty layer on wave-height numbers** — beaches where the displayed height comes from a raw buoy forecast (not a calibrated face-height estimate) now render with a leading `~`, a dotted underline under the digits, and a "Forecast height" label instead of "Face height". Hover reveals one line: "Buoy forecast. Haven't surfed this one enough to call face height." A Waimea local doesn't call Rincon with the same confidence — the app shouldn't either. No warning colors, no beta badges, no modal; the typography does the work. 117 of 180 beaches render as face height today; the remaining 63 get the honesty treatment until they're dialed in.
-
-### Changed
-- **Shoaling calibration extended to [N] more breaks** — [Beach A], [Beach B], [Beach C, ...and the rest]. These beaches moved from the ML-only forecast pipeline to the per-period shoaling pipeline calibrated against a year of paired face-height observations, which means the displayed number is now what you'd actually see paddling out, not what the buoy sees offshore. Same wave-height component, same number format — the `~` and the "Forecast height" label just quietly drop off these spots. Calibration pipeline at `seaside/scripts/shoaling_calibration_pipeline/`.
+- **Calibration honesty layer on wave-height numbers** — every wave-height number in Quiver now tells you whether it's a calibrated face-height estimate or a raw buoy forecast. Beaches we've dialed in keep rendering the same way under a "Face height" label. Beaches we haven't surfed enough to call get a leading `~`, a dotted underline under the digits, and a "Forecast height" label. Hover reveals one line: "Buoy forecast. Haven't surfed this one enough to call face height." No warning colors, no beta badges, no modal — the typography does the work. A Waimea local doesn't call Rincon with the same confidence, and the app shouldn't either; showing you which breaks we know cold and which ones we don't is the point. 117 of 180 beaches render as face height today; the remaining 63 get the honesty treatment until they're dialed in.
 
 ## Push notification variants
 
-### Variant 1: Minimal
-- Title: `[N] more breaks just got dialed in`
-- Body: `Face heights for [N] spots moved from forecast to calibrated. Open Quiver to check your home break.`
+### Variant 1: Direct
+- Title: `Which heights are dialed in, which aren't`
+- Body: `Quiver now shows you which wave-height numbers we've actually calibrated and which ones are still a raw buoy forecast. Open the app and check your home break.`
 
-### Variant 2: Specific name-drop
-- Title: `We know [Beach A] now`
-- Body: `[Beach A], [Beach B], and [N-2] more breaks just got dialed in. Face heights are calibrated to what you actually see at the break.`
+### Variant 2: Surfer-vocab
+- Title: `Face height vs. forecast height`
+- Body: `117 breaks we've surfed enough to call. 63 we haven't yet. Those ones render with a tilde and a dotted underline now, so you always know what you're reading.`
 
-### Variant 3: Philosophical
-- Title: `Face heights got more honest`
-- Body: `[N] more breaks now show face height instead of a buoy forecast. A local doesn't call every spot with the same confidence — neither should the app.`
+### Variant 3: Brand-philosophy
+- Title: `Some breaks we know cold. Some we don't.`
+- Body: `A local doesn't call every spot with the same confidence. Quiver doesn't either. Every wave-height number now shows you which side of that line it's on.`
 
 ## Tweet thread
 
 **Tweet 1**
-Wave-height numbers in Quiver now tell you which ones we've actually dialed in. Calibrated breaks render like always. The ones we haven't surfed enough to call face height show a `~` and a dotted underline. One extra character, zero warning colors. That's the whole thing.
+A Waimea local doesn't call Rincon with the same confidence. Quiver shouldn't either. Every wave-height number in the app now tells you whether it's a break we've actually dialed in, or one we haven't surfed enough yet to call face height. That's the whole update.
 
 **Tweet 2**
-And today [N] more breaks moved from forecast to calibrated: [Beach A], [Beach B], [Beach C, ...]. Face heights at these spots are now scaled against a year of paired observations instead of a raw buoy signal. The `~` quietly comes off.
+The calibrated breaks render like always, under a "Face height" label. The ones we haven't dialed in get a leading `~`, a dotted underline, and "Forecast height" instead. One extra character, zero warning colors. No beta badges, no modal, no apology — just the number and what it is.
 
 **Tweet 3**
-We don't know every break equally. A local doesn't either. Showing that distinction is the point — not a disclaimer, just honesty. Open the app and check your home break.
+117 of 180 breaks are calibrated against a year of paired face-height observations. The other 63 are honest about being a raw buoy signal until they aren't. Knowing which is which is more useful than pretending every number means the same thing. Check your home break.
 
 ## Voice notes / alternates
 
@@ -48,3 +45,23 @@ We don't know every break equally. A local doesn't either. Showing that distinct
 - **Rejected push variant**: "Title: 'New: calibrated face heights' / Body: 'N breaks updated.'" — "New:" is product-launch voice, not surf voice. Cut.
 - **Rejected philosophical push body**: "A Waimea local wouldn't call Rincon the same way. Now the app admits it too." — too cute, and "admits" frames it as an apology, which is exactly what the spec warns against. Softened to "a local doesn't call every spot with the same confidence — neither should the app."
 - **Tweet 3 almost ended** with "Your home break is probably already dialed in." — cut because it risks reading like a reassurance for people whose home break *isn't* dialed in. The current ending is neutral and trusts the reader to check.
+- **Why tweet 1 leads with Waimea/Rincon** in the reframe: the honesty layer is the whole launch now, so the brand-defining analogy earns the opener. It puts the philosophy in front and lets the mechanic (tweet 2) and the receipts (tweet 3) back it up, instead of burying the point in tweet 3 like the original draft did.
+- **Why "117 of 180" is stated explicitly** in tweet 3: with no "N new breaks" hook, the proof that we've actually done the work has to live somewhere. The raw count is the receipt — it makes "we've dialed in the ones we've dialed in" a provable claim instead of a posture.
+
+## Why the "N new breaks dialed in" angle was dropped
+
+Original Day 1 plan included a Workstream B that would run the shoaling
+calibration pipeline against the 63 observable ML-only beaches and produce
+a "N new breaks just got dialed in" launch hook. SQL audit on launch eve
+showed that ALL 183 uncalibrated beaches (63 observable + 120 not) have
+`cdip_station IS NULL` — the calibration pipeline cannot run on them
+without first assigning CDIP stations, which is a manual analyst task
+(multi-hour spike) that's now deferred to a follow-up.
+
+So the launch is the honesty layer alone. The existing 117 calibrated
+beaches still get the "Face height" label (no change), the 63 ML-only
+beaches get the new ~ + dotted underline + "Forecast height" treatment.
+
+Future launches can pull the "N new breaks dialed in" angle back in
+once the analyst spike has produced new cdip_station assignments and
+a fresh shoaling pipeline run has populated their factors.
