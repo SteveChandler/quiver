@@ -183,6 +183,28 @@ const VALID_EVENTS: ImplicitEventType[] = [
   // Tab and map engagement events
   'tab_view',
   'map_interaction',
+  // Map engagement
+  'map_ready',
+  'map_load_failed',
+  // Forecast reliability
+  'forecast_ready',
+  // Session log funnel
+  'session_log_beach_selected',
+  'session_log_rating_set',
+  'session_log_photo_added',
+  'session_log_abandon',
+  // Search
+  'beach_search_result_click',
+  // Growth markers
+  'first_beach_view_post_signup',
+  // Empty states & impressions
+  'empty_state_shown',
+  'cta_impression',
+  // Reliability
+  'client_error',
+  // Engagement depth (anon + auth)
+  'scroll_depth',
+  'time_on_page',
 ];
 
 const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
@@ -195,9 +217,19 @@ const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
   'signup_started', 'signup_success', 'login_success', 'signup_form_submitted',
   // Engagement signals from anonymous visitors
   'forecast_interaction', 'forecast_tab_click', 'horizon_strip_day_selected',
-  'beach_search', 'map_interaction', 'map_marker_click',
+  'beach_search', 'beach_search_result_click', 'map_interaction', 'map_marker_click',
   'share_started', 'share_completed', 'share_link_copied',
   'match_score_teaser_view', 'match_score_teaser_click',
+  // Map reliability (anon visitors hit the map immediately)
+  'map_ready', 'map_load_failed',
+  // Forecast reliability
+  'forecast_ready',
+  // Empty states + CTA impressions
+  'empty_state_shown', 'cta_impression',
+  // Client error capture
+  'client_error',
+  // Engagement depth
+  'scroll_depth', 'time_on_page',
 ];
 
 const ANON_RATE_LIMIT = 30; // Lower rate limit for anonymous users

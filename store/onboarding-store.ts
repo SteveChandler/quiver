@@ -93,9 +93,20 @@ export const useOnboardingStore = create<OnboardingStore>()(
         set({ currentStep: toStep });
       },
 
-      prevStep: () => set((state) => ({
-        currentStep: Math.max(state.currentStep - 1, 0)
-      })),
+      prevStep: () => {
+        const state = get();
+        const fromStep = state.currentStep;
+        const toStep = Math.max(fromStep - 1, 0);
+
+        // Notify callback before state change so direction: 'back' lands in
+        // the event stream. Mirrors nextStep's pattern.
+        if (state.onStepChange && fromStep !== toStep) {
+          const stepName = ONBOARDING_STEP_NAMES[fromStep] || `step_${fromStep}`;
+          state.onStepChange(fromStep, toStep, stepName);
+        }
+
+        set({ currentStep: toStep });
+      },
 
       updateData: (partial) => set((state) => ({
         data: { ...state.data, ...partial }

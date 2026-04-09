@@ -203,6 +203,7 @@ export default function HeroSearchLazy({
         onFallback={onFallback}
         onQueryChange={onQueryChange}
         onSelect={onSelect}
+        source="landing_hero"
       />
     </Suspense>
   );

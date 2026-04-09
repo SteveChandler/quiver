@@ -420,7 +420,7 @@ export function UnifiedAuthModal({
 
     authActionTakenRef.current = true;
     trackAuthMethodSelected({ method: "magic_link", mode: "login" });
-    trackAuthProviderSelected({ provider: "magic_link", mode: "login", source });
+    trackAuthProviderSelected({ provider: "email", mode: "login", source, email_method: "magic_link" });
     trackLoginStarted("magic_link");
 
     const result = await sendMagicLink(email, getReturnPath());
@@ -463,7 +463,7 @@ export function UnifiedAuthModal({
     setLoading(true);
     authActionTakenRef.current = true;
     trackAuthMethodSelected({ method: "password", mode: activeMode });
-    trackAuthProviderSelected({ provider: "email_password", mode: activeMode, source });
+    trackAuthProviderSelected({ provider: "email", mode: activeMode, source, email_method: "password" });
     if (!user) {
       trackSignupFormSubmitted({ mode: activeMode, source });
     }

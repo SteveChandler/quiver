@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { motion, useInView, useReducedMotion } from "framer-motion";
 import { Brain, Radio, Waves, Droplets, Users } from "lucide-react";
@@ -9,6 +9,10 @@ import { MatchScoreRing } from "./match-score-ring";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
+import {
+  trackSignupCtaClick,
+  trackSignupCtaView,
+} from "@/lib/analytics/signup-conversion-tracking";
 
 const EASE_OUT_QUART: [number, number, number, number] = [0.25, 1, 0.5, 1];
 
@@ -140,8 +144,27 @@ export function MLPipelineShowcase() {
   const { user } = useAuth();
   const pathname = usePathname();
   const shouldReduceMotion = useReducedMotion() ?? false;
+  const hasTrackedView = useRef(false);
 
   const stepInitial = shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 };
+
+  // Track CTA view when the section enters viewport for unauthenticated users.
+  useEffect(() => {
+    if (user || !isInView || hasTrackedView.current) return;
+    hasTrackedView.current = true;
+    trackSignupCtaView({
+      source: "ml-pipeline-showcase",
+      surface: "landing-page",
+    });
+  }, [user, isInView]);
+
+  const handleCtaClick = () => {
+    trackSignupCtaClick({
+      source: "ml-pipeline-showcase",
+      surface: "landing-page",
+    });
+    setShowAuth(true);
+  };
 
   return (
     <SectionWrapper
@@ -205,7 +228,7 @@ export function MLPipelineShowcase() {
           transition={{ duration: 0.6, delay: 1.3, ease: EASE_OUT_QUART }}
         >
           <Button
-            onClick={() => setShowAuth(true)}
+            onClick={handleCtaClick}
             size="lg"
             className="rounded-full px-8"
           >

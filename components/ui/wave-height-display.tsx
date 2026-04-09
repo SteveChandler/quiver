@@ -14,6 +14,14 @@ import {
   extractNumericWaveHeight,
 } from "@/lib/utils/wave-formatters";
 
+/**
+ * Tooltip microcopy for the uncalibrated (honesty layer) state.
+ * Marketer's final pick — do not paraphrase. See
+ * `docs/marketing/calibration-launch-copy.md`.
+ */
+export const UNCALIBRATED_TOOLTIP_COPY =
+  "Buoy forecast. Haven't surfed this one enough to call face height.";
+
 interface WaveHeightDisplayProps {
   height: string | null | undefined;
   showTooltip?: boolean;
@@ -22,6 +30,14 @@ interface WaveHeightDisplayProps {
   confidenceScore?: number | null;
   /** Whether this forecast has ML bias correction applied */
   isMlCalibrated?: boolean;
+  /**
+   * True when this beach's wave height came from the empirically calibrated
+   * shoaling pipeline (face height at the break). False when it came from the
+   * raw buoy forecast (Hs) — the honesty layer applies: `~` prefix, dotted
+   * underline, and a different tooltip body. `undefined` = backward-compat:
+   * render as today, do not apply the honesty layer.
+   */
+  isCalibrated?: boolean;
 }
 
 export function WaveHeightDisplay({
@@ -31,6 +47,7 @@ export function WaveHeightDisplay({
   dataSource = null,
   confidenceScore = null,
   isMlCalibrated = false,
+  isCalibrated,
 }: WaveHeightDisplayProps) {
   // Compute wave height range (average to set waves)
   const displayHeight = useMemo(() => {
@@ -78,8 +95,48 @@ export function WaveHeightDisplay({
     </span>
   ) : null;
 
+  // -----------------------------------------------------------------
+  // Honesty layer (State B): uncalibrated beaches get a ~ prefix,
+  // dotted underline on the digits, and a single-line tooltip.
+  // Spec: docs/design/calibration-honesty-spec.md §4.
+  // -----------------------------------------------------------------
+  if (isCalibrated === false) {
+    const uncalibratedContent = (
+      <span
+        className={`${className} inline-flex items-baseline gap-[0.5em]`}
+        data-testid="primary-wave-height"
+      >
+        <span aria-hidden="true" className="text-current">
+          ~
+        </span>
+        <span className="border-b border-dotted border-muted-foreground/60">
+          {displayHeight}
+        </span>
+        {mlBadge}
+      </span>
+    );
+
+    if (!showTooltip) {
+      return uncalibratedContent;
+    }
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>{uncalibratedContent}</TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs">
+            <p className="text-xs">{UNCALIBRATED_TOOLTIP_COPY}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
   const content = (
-    <span className={`${className} flex items-center`}>
+    <span
+      className={`${className} flex items-center`}
+      data-testid="primary-wave-height"
+    >
       {displayHeight}
       {mlBadge}
     </span>
@@ -140,7 +197,10 @@ export function WaveHeightDisplay({
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className={`${className} cursor-help flex items-center gap-1`}>
+          <span
+            className={`${className} cursor-help flex items-center gap-1`}
+            data-testid="primary-wave-height"
+          >
             {displayHeight}
             {mlBadge}
             <InfoIcon className="w-3 h-3 text-muted-foreground" />

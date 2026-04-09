@@ -94,12 +94,43 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(() => Promise.resolve(mockSupabaseClient)),
 }));
 
+// Separate mock for the bearer-token client so withAuth's Bearer branch can
+// be tested independently of the cookie path.
+const mockBearerSupabaseClient = {
+  auth: {
+    getUser: jest.fn(),
+    getSession: jest.fn(),
+  },
+  from: jest.fn(),
+};
+
+jest.mock("@/lib/supabase/bearer-client", () => ({
+  createBearerTokenClient: jest.fn(() => mockBearerSupabaseClient),
+}));
+
 // Helper to create mock request
 function createTestRequest(method = "GET", body?: any) {
   return {
     url: "http://localhost:3000/api/test",
     method,
     headers: new Map([["content-type", "application/json"]]),
+    json: jest.fn().mockResolvedValue(body || {}),
+    nextUrl: {
+      pathname: "/api/test",
+      searchParams: new URLSearchParams(),
+    },
+  };
+}
+
+// Helper to create a mock request that carries an Authorization: Bearer header
+function createBearerRequest(token: string, method = "GET", body?: any) {
+  return {
+    url: "http://localhost:3000/api/test",
+    method,
+    headers: new Map([
+      ["content-type", "application/json"],
+      ["authorization", `Bearer ${token}`],
+    ]),
     json: jest.fn().mockResolvedValue(body || {}),
     nextUrl: {
       pathname: "/api/test",
@@ -299,6 +330,85 @@ describe("API Wrappers", () => {
           params: { id: "session-123", commentId: "comment-456" },
         })
       );
+    });
+
+    describe("Bearer token auth (native clients)", () => {
+      it("should use the bearer-scoped client when Authorization: Bearer is present", async () => {
+        const mockUser = createMockUser();
+        mockBearerSupabaseClient.auth.getUser.mockResolvedValue({
+          data: { user: mockUser },
+          error: null,
+        });
+
+        const handler = jest.fn().mockResolvedValue(
+          NextResponse.json({ success: true, data: { userId: mockUser.id } })
+        );
+
+        const wrappedHandler = withAuth(handler);
+        const request = createBearerRequest("valid-jwt");
+
+        const response = await wrappedHandler(request as any, { params: {} });
+        const data = await response.json();
+
+        expect(data.success).toBe(true);
+        expect(mockBearerSupabaseClient.auth.getUser).toHaveBeenCalledWith("valid-jwt");
+        // Handler must receive the bearer-scoped client so its RLS-protected
+        // queries are scoped to the correct user, not the anon cookie client.
+        expect(handler).toHaveBeenCalledWith(
+          request,
+          expect.objectContaining({
+            user: mockUser,
+            supabase: mockBearerSupabaseClient,
+          })
+        );
+        // Cookie path must not be consulted when a Bearer token is present.
+        expect(mockSupabaseClient.auth.getUser).not.toHaveBeenCalled();
+      });
+
+      it("should return 401 when Bearer token is invalid and auth is required", async () => {
+        mockBearerSupabaseClient.auth.getUser.mockResolvedValue({
+          data: { user: null },
+          error: { name: "AuthError", message: "invalid JWT" } as any,
+        });
+
+        const handler = jest.fn();
+
+        const wrappedHandler = withAuth(handler);
+        const request = createBearerRequest("forged-jwt");
+
+        const response = await wrappedHandler(request as any);
+
+        expect(response.status).toBe(401);
+        expect(handler).not.toHaveBeenCalled();
+      });
+
+      it("should run handler with user: null when Bearer is invalid but auth is optional", async () => {
+        mockBearerSupabaseClient.auth.getUser.mockResolvedValue({
+          data: { user: null },
+          error: { name: "AuthError", message: "expired JWT" } as any,
+        });
+
+        const handler = jest.fn().mockResolvedValue(
+          NextResponse.json({ success: true, data: { isLoggedIn: false } })
+        );
+
+        const wrappedHandler = withAuth(handler, { optional: true });
+        const request = createBearerRequest("stale-jwt");
+
+        const response = await wrappedHandler(request as any);
+        const data = await response.json();
+
+        expect(data.success).toBe(true);
+        expect(handler).toHaveBeenCalledWith(
+          request,
+          expect.objectContaining({
+            user: null,
+            // Still uses the bearer-scoped client even with a bad token —
+            // the handler decides what it can do anonymously.
+            supabase: mockBearerSupabaseClient,
+          })
+        );
+      });
     });
   });
 

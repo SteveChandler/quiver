@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import { buildPageMetadata } from "@/lib/seo/meta";
-import { Button } from "@/components/ui/button";
 import { ABOUT_CONTENT } from "@/lib/constants/content";
 import { SectionFadeUp } from "@/components/shared/section-fade-up";
+import { AboutCtaButtons } from "./about-cta-buttons";
 
 // ISR: Revalidate every 1 hour (static content, rarely changes)
 export const revalidate = 3600;
@@ -121,28 +119,14 @@ export default function AboutPage() {
           <SectionFadeUp delay={0.15}>
             <p className="text-lg text-high font-sans mb-8">{cta.subtitle}</p>
           </SectionFadeUp>
-          <SectionFadeUp delay={0.3}>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button
-                size="lg"
-                className="bg-white text-[#252D6B] hover:bg-gray-50 px-8 py-4 text-lg font-heading font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
-                asChild
-              >
-                <Link href={cta.primaryHref}>
-                  {cta.primaryLabel}
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
-              <Button
-                size="lg"
-                variant="ghost"
-                className="border border-white/30 text-white hover:bg-white/10 px-8 py-4 text-lg font-heading font-semibold rounded-full transition-all duration-300"
-                asChild
-              >
-                <a href={cta.secondaryHref}>{cta.secondaryLabel}</a>
-              </Button>
-            </div>
-          </SectionFadeUp>
+          <AboutCtaButtons
+            primaryLabel={cta.primaryLabel}
+            primaryHref={cta.primaryHref}
+            secondaryLabel={cta.secondaryLabel}
+            secondaryHref={cta.secondaryHref}
+            tertiaryLabel={cta.tertiaryLabel}
+            tertiaryHref={cta.tertiaryHref}
+          />
         </div>
       </section>
     </div>

@@ -5,6 +5,7 @@ import { useAuth } from "@/context/auth-context";
 import { useEffect, useState, useRef, type ReactNode } from "react";
 import { trackPublicPageView } from "@/lib/analytics";
 import { useTrackEvent } from "@/hooks/use-track-event";
+import { inferHomeBreakFromView } from "@/actions/onboarding-actions";
 import type { Beach } from "@/types/database";
 
 import type { PersonalizedScore } from "@/lib/services/personalized-scoring-service";
@@ -70,6 +71,21 @@ export function BeachDetailClient({
     }
 
     // beach_view tracking is handled by BeachDetailContent via useTrackEvent
+
+    // Lazy home-break inference: if the user is signed in and hasn't picked a
+    // home break yet, claim this beach as their home. Idempotent server-side —
+    // only writes if home_beach_id IS NULL. Fire-and-forget so it never blocks
+    // the page render. Reads beach.id via beachIdRef to match the existing
+    // pattern used for duration tracking below and avoid an exhaustive-deps
+    // warning without re-firing the effect on prop churn.
+    // See Fix 5 in plans/majestic-squishing-newell.md.
+    const inferBeachId = beachIdRef.current;
+    if (user && inferBeachId) {
+      void inferHomeBreakFromView(inferBeachId).catch((err) => {
+        // Non-fatal — the user's session still works without a home break.
+        console.warn("inferHomeBreakFromView failed:", err);
+      });
+    }
 
     // Capture mount time for cleanup function
     const startTime = mountTime.current;

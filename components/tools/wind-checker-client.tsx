@@ -164,6 +164,7 @@ export function WindCheckerClient({
             onSelect={handleBeachSelect}
             placeholder="Search for a beach..."
             maxResults={6}
+            source="tool_wind_checker"
           />
         </div>
       </ToolHero>
@@ -265,7 +266,7 @@ export function WindCheckerClient({
                   beachName={beach.name}
                   shareText={
                     offshoreQuality
-                      ? `Wind is ${offshoreQuality.verdict.toLowerCase()} at ${beach.name} right now`
+                      ? `Wind is ${offshoreQuality.label} at ${beach.name} right now`
                       : `Check wind at ${beach.name} on Quiver`
                   }
                 />

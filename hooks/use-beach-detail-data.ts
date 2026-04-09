@@ -7,7 +7,7 @@ import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 export interface BeachSources {
   camera_url?: string | null;
   embed_allowed?: boolean | null;
-  // Add other source fields as needed
+  diorama_url?: string | null;
 }
 
 interface UseBeachDetailDataOptions {
@@ -55,7 +55,23 @@ export function useBeachDetailData({
       }
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
+    const json = await res.json();
+    // Surface instrumentation headers for forecast_ready event metadata.
+    // See app/api/forecasts/update-enhanced/route.ts for header semantics.
+    const sourceHeader = res.headers.get("X-Quiver-Source");
+    const cachedHeader = res.headers.get("X-Quiver-Cached");
+    return {
+      ...json,
+      _meta: {
+        source: sourceHeader ?? undefined,
+        cached:
+          cachedHeader === "true"
+            ? true
+            : cachedHeader === "false"
+              ? false
+              : undefined,
+      },
+    };
   }, [beachId, forecastDays]);
 
   const {
@@ -101,6 +117,17 @@ export function useBeachDetailData({
     }
     return data as EnhancedForecastEntity[];
   }, [forecastRawData, forecastError]);
+
+  // Forecast cache instrumentation surfaced from response headers
+  // (X-Quiver-Source / X-Quiver-Cached). Consumed by forecast_ready event.
+  const forecastSource = useMemo<string | undefined>(
+    () => forecastRawData?._meta?.source,
+    [forecastRawData],
+  );
+  const forecastCached = useMemo<boolean | undefined>(
+    () => forecastRawData?._meta?.cached,
+    [forecastRawData],
+  );
 
   useEffect(() => {
     if (forecastError)
@@ -164,6 +191,8 @@ export function useBeachDetailData({
   return {
     beach,
     forecasts,
+    forecastSource,
+    forecastCached,
     sources,
     loading,
     errors,

@@ -8,6 +8,7 @@ import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { buildQuickLogUrl } from "@/components/home-screen/first-session-cta";
 import { track } from "@/lib/analytics";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
+import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
 
 const BOARD_OPTIONS = [
   "Shortboard",
@@ -68,12 +69,18 @@ export function MiniLogTeaser({
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
   const handleSaveClick = () => {
+    // GA4-only: not a Supabase funnel event.
     track("mini_log_teaser_click", {
       intent: intentSlug,
       authenticated: !!user,
     });
 
     if (!user) {
+      trackSignupCtaClick({
+        source: "mini-log-teaser",
+        surface: "intent-page",
+        intent: intentSlug,
+      });
       trackAuthModalOpened({
         mode: "signup",
         source: "mini-log-teaser",

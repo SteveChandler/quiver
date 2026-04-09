@@ -4,6 +4,9 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
 import { useOnboardingStore } from "@/store/onboarding-store";
+import { useAuth } from "@/context/auth-context";
+import { skipOnboarding } from "@/actions/onboarding-actions";
+import { useTrackEvent } from "@/hooks/use-track-event";
 import { cn } from "@/lib/utils";
 import {
   EXPERIENCE_LEVELS,
@@ -15,7 +18,9 @@ import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
 
 export function LevelAndTimeStep() {
-  const { data, updateData, nextStep, prevStep } = useOnboardingStore();
+  const { data, updateData, nextStep, prevStep, closeDialog } = useOnboardingStore();
+  const { user } = useAuth();
+  const { track } = useTrackEvent();
   const reducedMotion = useReducedMotion();
 
   const [selectedLevel, setSelectedLevel] = useState<ExperienceLevel | null>(
@@ -35,8 +40,22 @@ export function LevelAndTimeStep() {
     nextStep();
   };
 
-  const handleSkip = () => {
-    nextStep();
+  // "Maybe later" — dismiss the dialog entirely (not just skip to the next step).
+  // Users who want to advance without selecting level/time can click Continue
+  // with no selection — that already falls through to nextStep.
+  const handleMaybeLater = () => {
+    track("onboarding_step", {
+      metadata: {
+        step: "maybe_later_clicked",
+        step_name: "maybe_later_clicked",
+        source_step: "level_and_time",
+      },
+      debounceMs: 0,
+    });
+    if (user?.id) {
+      skipOnboarding(); // fire and forget — sets onboarding_completed_at
+    }
+    closeDialog();
   };
 
   return (
@@ -187,10 +206,10 @@ export function LevelAndTimeStep() {
         </button>
         <button
           type="button"
-          onClick={handleSkip}
+          onClick={handleMaybeLater}
           className="flex-1 py-3 text-white/40 hover:text-white/60 text-sm transition-colors"
         >
-          Skip
+          Maybe later
         </button>
         <button
           type="button"

@@ -5,6 +5,7 @@ import {
   useCallback,
   useMemo,
   useEffect,
+  useRef,
   lazy,
   Suspense,
   type ReactNode,
@@ -35,6 +36,7 @@ import {
 } from "@/lib/constants/review-tracking";
 import { track } from "@/lib/analytics";
 import { useTrackEvent } from "@/hooks/use-track-event";
+import { useCtaImpression } from "@/hooks/use-cta-impression";
 import { slugify } from "@/lib/utils/text-utils";
 import { buildCamEmbed } from "@/lib/media/cam-embed";
 import { FullPageLoader } from "@/components/ui/loading-states";
@@ -231,6 +233,7 @@ function BeachDetailContent({
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const { user } = useAuth();
 
   // US beach pages have 3-segment paths starting with a 2-letter state code (e.g., /ca/san-diego/ocean-beach-pier).
   // Only these have /tides and /water-temp subpages.
@@ -255,6 +258,47 @@ function BeachDetailContent({
     defaultTab || "forecast",
   );
   const { track: trackEvent } = useTrackEvent();
+
+  // -------------------------------------------------------------------------
+  // Surgical instrumentation refs (forecast_ready, scroll_depth, time_on_page,
+  // empty_state_shown, first_beach_view_post_signup). See the individual
+  // effects below for the behavior contract each ref supports.
+  // -------------------------------------------------------------------------
+  const fetchStartRef = useRef<number>(
+    typeof performance !== "undefined" ? performance.now() : 0,
+  );
+  const forecastReadyFiredForBeachRef = useRef<string | null>(null);
+  const scrollBucketsFiredRef = useRef<Set<number>>(new Set());
+  const pageStartRef = useRef<number>(
+    typeof performance !== "undefined" ? performance.now() : 0,
+  );
+  const timeOnPageFiredRef = useRef(false);
+  const emptyStateFiredRef = useRef<Set<string>>(new Set());
+  const firstBeachViewCheckedRef = useRef(false);
+
+  // CTA impression refs — scoped to the beach detail surface.
+  // - Signup CTA is anonymous-only; disable for authed users to avoid work.
+  // - Review/intel/session CTAs are authed-only display; disable for anon.
+  const signupCtaRef = useCtaImpression<HTMLDivElement>({
+    ctaId: "inline_signup_beach_detail",
+    surface: "beach_detail",
+    enabled: publicMode && !user,
+  });
+  const reviewCtaRef = useCtaImpression<HTMLDivElement>({
+    ctaId: "review_cta_reviews_tab",
+    surface: "beach_detail",
+    enabled: !publicMode && !!user,
+  });
+  const intelCtaRef = useCtaImpression<HTMLDivElement>({
+    ctaId: "intel_cta_intel_tab",
+    surface: "beach_detail",
+    enabled: !publicMode && !!user,
+  });
+  const sessionCtaRef = useCtaImpression<HTMLDivElement>({
+    ctaId: "session_log_cta_beach_detail",
+    surface: "beach_detail",
+    enabled: !publicMode && !!user,
+  });
 
   // Track whether we've already synced the tab from URL params
   // If defaultTab is provided (e.g., from tides/water-temp pages), mark as synced
@@ -322,6 +366,8 @@ function BeachDetailContent({
   const {
     beach,
     forecasts = EMPTY_FORECASTS,
+    forecastSource,
+    forecastCached,
     sources,
     loading,
     errors,
@@ -392,6 +438,273 @@ function BeachDetailContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [beach?.id]);
 
+  // Reset forecast-ready timing on beach change so navigating to a new beach
+  // re-fires. useBeachDetailData kicks off fetches on mount / when beachId
+  // changes, so anchoring the start timestamp on beachId transition is a
+  // best-effort proxy for the true fetch start.
+  useEffect(() => {
+    fetchStartRef.current =
+      typeof performance !== "undefined" ? performance.now() : 0;
+    forecastReadyFiredForBeachRef.current = null;
+  }, [id]);
+
+  // forecast_ready — fire once per beach when forecasts first become available
+  useEffect(() => {
+    if (!forecasts || forecasts.length === 0) return;
+    if (forecastReadyFiredForBeachRef.current === id) return;
+    forecastReadyFiredForBeachRef.current = id;
+    try {
+      trackEvent("forecast_ready", {
+        beachId: id,
+        metadata: {
+          beach_id: id,
+          load_time_ms: Math.round(
+            performance.now() - fetchStartRef.current,
+          ),
+          // Surfaced from X-Quiver-Source / X-Quiver-Cached headers on
+          // /api/forecasts/update-enhanced. Omit when undefined to avoid
+          // shipping fabricated values.
+          ...(forecastSource ? { source: forecastSource } : {}),
+          ...(typeof forecastCached === "boolean"
+            ? { cached: forecastCached }
+            : {}),
+        },
+      });
+    } catch {}
+  }, [forecasts, id, trackEvent, forecastSource, forecastCached]);
+
+  // scroll_depth — fire one event per bucket (25/50/75/100) per page mount.
+  // Throttled to one measurement per ~250ms via a simple time gate.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    scrollBucketsFiredRef.current = new Set();
+    let lastRun = 0;
+    const buckets: Array<25 | 50 | 75 | 100> = [25, 50, 75, 100];
+
+    const measure = () => {
+      const now = Date.now();
+      if (now - lastRun < 250) return;
+      lastRun = now;
+
+      const doc = document.scrollingElement || document.documentElement;
+      if (!doc) return;
+      const viewportHeight = window.innerHeight;
+      const scrollY = window.scrollY;
+      const docHeight = doc.scrollHeight;
+      if (docHeight <= 0) return;
+      const pct = ((scrollY + viewportHeight) / docHeight) * 100;
+
+      for (const bucket of buckets) {
+        if (pct >= bucket && !scrollBucketsFiredRef.current.has(bucket)) {
+          scrollBucketsFiredRef.current.add(bucket);
+          try {
+            trackEvent("scroll_depth", {
+              beachId: id,
+              metadata: { surface: "beach_detail", depth_pct: bucket },
+              // scrollBucketsFiredRef already guarantees one emission per bucket per mount.
+              // Default 1s debounce would silently drop events for users who flick through
+              // 25/50/75/100 in the same second.
+              debounceMs: 0,
+            });
+          } catch {}
+        }
+      }
+    };
+
+    // Fire an initial measurement in case the page is already scrolled or the
+    // full content fits in the viewport (counts as 100% seen).
+    measure();
+    window.addEventListener("scroll", measure, { passive: true });
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("scroll", measure);
+      window.removeEventListener("resize", measure);
+    };
+  }, [id, trackEvent]);
+
+  // time_on_page — fire exactly once per page view via the first of:
+  // visibilitychange (hidden), beforeunload, or component unmount.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    pageStartRef.current = performance.now();
+    timeOnPageFiredRef.current = false;
+    const wasAuthenticated = Boolean(user);
+
+    const fire = (
+      exitVia: "visibility_hidden" | "beforeunload" | "route_change",
+    ) => {
+      if (timeOnPageFiredRef.current) return;
+      timeOnPageFiredRef.current = true;
+      try {
+        trackEvent("time_on_page", {
+          beachId: id,
+          metadata: {
+            surface: "beach_detail",
+            duration_ms: Math.round(
+              performance.now() - pageStartRef.current,
+            ),
+            authenticated: wasAuthenticated,
+            exit_via: exitVia,
+          },
+        });
+      } catch {}
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") fire("visibility_hidden");
+    };
+    const onBeforeUnload = () => fire("beforeunload");
+
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("beforeunload", onBeforeUnload);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      fire("route_change");
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // empty_state_shown — lightweight parallel count fetches so we can fire the
+  // event when the user lands on (or switches to) a tab whose content is
+  // confirmed-empty. This intentionally duplicates a small amount of work
+  // rather than plumbing callbacks through the tab wrapper components.
+  const [tabCounts, setTabCounts] = useState<{
+    reviews: number | null;
+    intel: number | null;
+    sessions: number | null;
+  }>({ reviews: null, intel: null, sessions: null });
+
+  useEffect(() => {
+    if (!beach) return;
+    let cancelled = false;
+    emptyStateFiredRef.current = new Set();
+    setTabCounts({ reviews: null, intel: null, sessions: null });
+
+    const controller =
+      typeof AbortController !== "undefined" ? new AbortController() : null;
+    const signal = controller?.signal;
+
+    // Reviews — use /api/beaches/{id} summary if it ever exposes a count,
+    // otherwise fall back to the summary server action via a light endpoint.
+    // We don't want to import server actions client-side here, so we hit the
+    // sessions endpoint and an intel listing endpoint directly.
+    const safeFetchJson = async (url: string) => {
+      try {
+        // Default cache behavior is fine — a stale "is this empty?" count
+        // is acceptable because the worst case is a dropped telemetry signal,
+        // not wrong data. cache: "no-store" forced 2 uncached HTTP requests
+        // per beach detail mount for every visitor.
+        const res = await fetch(url, { signal });
+        if (!res.ok) return null;
+        return await res.json();
+      } catch {
+        return null;
+      }
+    };
+
+    // Reviews count: reuse the public beach stats endpoint if present, else
+    // just read the aggregate review_count already on the beach row when
+    // available. If neither is available, leave as null (which disables the
+    // empty-state event for reviews — acceptable fallback).
+    const reviewCountFromBeach =
+      typeof (beach as { review_count?: number }).review_count === "number"
+        ? (beach as { review_count?: number }).review_count ?? null
+        : null;
+
+    Promise.all([
+      Promise.resolve(reviewCountFromBeach),
+      safeFetchJson(
+        `/api/intel?lat=${beach.lat}&lon=${beach.lon}&radius=2&limit=1`,
+      ),
+      safeFetchJson(`/api/beaches/${beach.id}/sessions?limit=1`),
+    ]).then(([reviews, intelJson, sessionsJson]) => {
+      if (cancelled) return;
+      const intelPosts =
+        intelJson?.data?.posts ??
+        intelJson?.posts ??
+        intelJson?.data ??
+        null;
+      const sessionsList =
+        sessionsJson?.data?.sessions ??
+        sessionsJson?.sessions ??
+        sessionsJson?.data ??
+        null;
+      setTabCounts({
+        reviews: typeof reviews === "number" ? reviews : null,
+        intel: Array.isArray(intelPosts) ? intelPosts.length : null,
+        sessions: Array.isArray(sessionsList) ? sessionsList.length : null,
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      controller?.abort();
+    };
+  }, [beach]);
+
+  // Fire empty_state_shown when the active tab is confirmed-empty.
+  // One event per tab per beach mount (Set ref).
+  useEffect(() => {
+    if (!beach) return;
+    const surfaceByTab: Record<string, string> = {
+      reviews: "beach_reviews_empty",
+      intel: "beach_intel_empty",
+      sessions: "beach_sessions_empty",
+    };
+    const surface = surfaceByTab[activeTab];
+    if (!surface) return;
+
+    const count =
+      activeTab === "reviews"
+        ? tabCounts.reviews
+        : activeTab === "intel"
+          ? tabCounts.intel
+          : tabCounts.sessions;
+
+    if (count !== 0) return; // null = still loading, >0 = not empty
+    if (emptyStateFiredRef.current.has(surface)) return;
+    emptyStateFiredRef.current.add(surface);
+    try {
+      trackEvent("empty_state_shown", {
+        beachId: beach.id,
+        metadata: { surface, beach_id: beach.id },
+        // emptyStateFiredRef guarantees one emission per surface per mount.
+        // Sibling-tab empty states share the same beachId and would otherwise
+        // collapse into a single event under the default 1s debounce.
+        debounceMs: 0,
+      });
+    } catch {}
+  }, [activeTab, tabCounts, beach, trackEvent]);
+
+  // first_beach_view_post_signup — one-shot per browser, gated on localStorage.
+  // Only fires within 7 days of signup so we measure activation, not resurrection.
+  useEffect(() => {
+    if (firstBeachViewCheckedRef.current) return;
+    if (!user || !beach) return;
+    firstBeachViewCheckedRef.current = true;
+    try {
+      const key = `quiver_first_beach_view_${user.id}`;
+      if (typeof window === "undefined") return;
+      if (localStorage.getItem(key)) return;
+      if (!user.created_at) return;
+      const minutesSinceSignup = Math.round(
+        (Date.now() - new Date(user.created_at).getTime()) / 60000,
+      );
+      if (minutesSinceSignup < 0) return;
+      if (minutesSinceSignup >= 7 * 24 * 60) return;
+      trackEvent("first_beach_view_post_signup", {
+        beachId: id,
+        metadata: {
+          beach_id: id,
+          minutes_since_signup: minutesSinceSignup,
+        },
+      });
+      localStorage.setItem(key, "1");
+    } catch {}
+  }, [user, beach, id, trackEvent]);
+
   // Select the best forecast using the same time-aware logic as home page
   const currentForecast = useMemo(() => {
     if (!forecasts || forecasts.length === 0) return null;
@@ -435,8 +748,9 @@ function BeachDetailContent({
   ]);
 
   const showCamHero =
-    Boolean(sources?.camera_url) &&
-    buildCamEmbed(sources?.camera_url).kind !== "none";
+    (Boolean(sources?.camera_url) &&
+      buildCamEmbed(sources?.camera_url).kind !== "none") ||
+    Boolean(sources?.diorama_url);
 
   // Horizon strip data for the hero teaser copy (firstHiddenDayName, peakHiddenWaveHeight)
   const horizonDaySummaries = useMemo(() => {
@@ -613,18 +927,20 @@ function BeachDetailContent({
         {!showCamHero && (
           <div className="absolute inset-x-0 bottom-0 px-4 sm:px-6 pb-4 z-[6]">
             <div className="mx-auto max-w-7xl">
-              <BeachHeroCompact
-                beach={beach as any}
-                publicMode={publicMode}
-                personalizationScore={personalizationData?.score}
-                affinityData={personalizationData?.affinityData}
-                baseScore={beach.base_score}
-                isLoadingPersonalization={personalizationData?.isLoading}
-                currentForecast={currentForecast}
-                overlayMode={true}
-                firstHiddenDayName={firstHiddenDayName}
-                peakHiddenWaveHeight={peakHiddenWaveHeight}
-              />
+              <div ref={signupCtaRef}>
+                <BeachHeroCompact
+                  beach={beach as any}
+                  publicMode={publicMode}
+                  personalizationScore={personalizationData?.score}
+                  affinityData={personalizationData?.affinityData}
+                  baseScore={beach.base_score}
+                  isLoadingPersonalization={personalizationData?.isLoading}
+                  currentForecast={currentForecast}
+                  overlayMode={true}
+                  firstHiddenDayName={firstHiddenDayName}
+                  peakHiddenWaveHeight={peakHiddenWaveHeight}
+                />
+              </div>
               {currentForecast && (
                 <ConditionsTicker
                   data={forecastToConditionsData(currentForecast, beach)}
@@ -758,17 +1074,19 @@ function BeachDetailContent({
             {tabDataLoading ? (
               <TabLoadingSkeleton />
             ) : (
-              <Suspense fallback={<TabLoadingSkeleton />}>
-                <ReviewsTab
-                  beach={beach}
-                  onWriteReview={() =>
-                    handleWriteReview(REVIEW_TRACKING_SOURCES.REVIEWS_TAB)
-                  }
-                  reviewRefreshTrigger={reviewRefreshTrigger}
-                  publicMode={publicMode}
-                  previewCount={3}
-                />
-              </Suspense>
+              <div ref={reviewCtaRef}>
+                <Suspense fallback={<TabLoadingSkeleton />}>
+                  <ReviewsTab
+                    beach={beach}
+                    onWriteReview={() =>
+                      handleWriteReview(REVIEW_TRACKING_SOURCES.REVIEWS_TAB)
+                    }
+                    reviewRefreshTrigger={reviewRefreshTrigger}
+                    publicMode={publicMode}
+                    previewCount={3}
+                  />
+                </Suspense>
+              </div>
             )}
           </BeachTabContent>
 
@@ -777,27 +1095,31 @@ function BeachDetailContent({
             {tabDataLoading ? (
               <TabLoadingSkeleton />
             ) : (
-              <Suspense fallback={<TabLoadingSkeleton />}>
-                <IntelTab
-                  beach={beach}
-                  initialShowAll={searchParams?.get("show") === "all"}
-                  publicMode={publicMode}
-                  previewCount={1}
-                />
-              </Suspense>
+              <div ref={intelCtaRef}>
+                <Suspense fallback={<TabLoadingSkeleton />}>
+                  <IntelTab
+                    beach={beach}
+                    initialShowAll={searchParams?.get("show") === "all"}
+                    publicMode={publicMode}
+                    previewCount={1}
+                  />
+                </Suspense>
+              </div>
             )}
           </BeachTabContent>
 
           {/* Sessions Tab */}
           <BeachTabContent value="sessions">
-            <Suspense fallback={<TabLoadingSkeleton />}>
-              <SessionsTab
-                beach={beach}
-                sessionSnapshots={sessionSnapshots}
-                publicMode={publicMode}
-                previewCount={2}
-              />
-            </Suspense>
+            <div ref={sessionCtaRef}>
+              <Suspense fallback={<TabLoadingSkeleton />}>
+                <SessionsTab
+                  beach={beach}
+                  sessionSnapshots={sessionSnapshots}
+                  publicMode={publicMode}
+                  previewCount={2}
+                />
+              </Suspense>
+            </div>
           </BeachTabContent>
         </BeachTabs>
       </div>
@@ -856,13 +1178,15 @@ function BeachDetailContent({
         </DialogContent>
       </Dialog>
 
-      {/* Auth Modal for unauthenticated action button clicks */}
+      {/* Auth modal for HomeBeachBanner "Set Home Beach" click in publicMode.
+          BeachActions' Report Conditions and BeachAlertCta have their own
+          inline modals with more specific source attribution. */}
       {publicMode && (
         <UnifiedAuthModal
           isOpen={authModalOpen}
           onClose={() => setAuthModalOpen(false)}
           mode="signup"
-          source="beach-action-buttons"
+          source="set-home-beach"
         />
       )}
     </div>

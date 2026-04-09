@@ -7,7 +7,7 @@ import { PayoffStep } from "@/components/onboarding/steps/payoff-step";
 import { useOnboardingStore } from "@/store/onboarding-store";
 import { useProfileContext } from "@/context/profile-context";
 import { useForecastPreview } from "@/hooks/use-forecast-preview";
-import { saveOnboardingData } from "@/actions/onboarding-actions";
+import { saveOnboardingData, skipOnboarding } from "@/actions/onboarding-actions";
 import { data as dataClient } from "@/lib/data/client";
 import { getLocalDateString } from "@/lib/utils/timezone-utils";
 import { toast } from "sonner";
@@ -35,6 +35,7 @@ const mockUseForecastPreview = useForecastPreview as jest.Mock;
 
 jest.mock("@/actions/onboarding-actions");
 const mockSaveOnboardingData = saveOnboardingData as jest.Mock;
+const mockSkipOnboarding = skipOnboarding as jest.Mock;
 
 jest.mock("@/lib/data/client", () => ({
   data: {
@@ -114,13 +115,17 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       ).toBeInTheDocument();
     });
 
-    it("calls closeDialog when skip for now button is clicked", async () => {
+    it("calls skipOnboarding + closeDialog when Maybe later button is clicked", async () => {
       const user = userEvent.setup();
       render(<HomeBeachStep />);
 
-      const skipBtn = screen.getByRole("button", { name: /Skip for now/i });
+      const skipBtn = screen.getByRole("button", { name: /Maybe later/i });
       await user.click(skipBtn);
 
+      // Maybe later must commit the skip server-side (sets onboarding_completed_at)
+      // AND close the dialog. No escalating snooze anymore — first tap is permanent
+      // until the user re-opens from /profile.
+      expect(mockSkipOnboarding).toHaveBeenCalled();
       expect(mockCloseDialog).toHaveBeenCalled();
     });
 
@@ -156,24 +161,30 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       expect(screen.getByText("Weekends")).toBeInTheDocument();
     });
 
-    it("renders Back, Skip, and Continue buttons", () => {
+    it("renders Back, Maybe later, and Continue buttons", () => {
       render(<LevelAndTimeStep />);
 
       expect(screen.getByRole("button", { name: /Back/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /Skip/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Maybe later/i })
+      ).toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: /Continue/i })
       ).toBeInTheDocument();
     });
 
-    it("clicking Skip calls nextStep without calling updateData", async () => {
+    it("clicking Maybe later dismisses the dialog (not just the step)", async () => {
       const user = userEvent.setup();
       render(<LevelAndTimeStep />);
 
-      const skipBtn = screen.getByRole("button", { name: /Skip/i });
-      await user.click(skipBtn);
+      const maybeLaterBtn = screen.getByRole("button", { name: /Maybe later/i });
+      await user.click(maybeLaterBtn);
 
-      expect(mockNextStep).toHaveBeenCalled();
+      // Maybe later must commit skip server-side AND close the dialog entirely.
+      // It must NOT advance to the next step (that's what Continue does).
+      expect(mockSkipOnboarding).toHaveBeenCalled();
+      expect(mockCloseDialog).toHaveBeenCalled();
+      expect(mockNextStep).not.toHaveBeenCalled();
       expect(mockUpdateData).not.toHaveBeenCalled();
     });
 
@@ -300,7 +311,18 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       expect(screen.getByTestId("payoff-step")).toBeInTheDocument();
     });
 
-    it("shows loading skeleton initially", () => {
+    it("shows loading skeleton while intel is loading", () => {
+      // Never resolve the intel promise — keeps intelLoading true on first render
+      mockGetDaily.mockReturnValue(new Promise(() => {}));
+
+      mockUseOnboardingStore.mockReturnValue({
+        ...defaultStore,
+        data: {
+          homeBeachId: "beach-123",
+          homeBeachName: "Malibu",
+        },
+      });
+
       render(<PayoffStep />);
 
       // Check for loading skeletons (animated pulse divs)
@@ -455,12 +477,12 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByRole("button", { name: /See your full forecast/i })
+          screen.getByRole("button", { name: /Let's go/i })
         ).toBeInTheDocument();
       });
     });
 
-    it("calls saveOnboardingData on mount", async () => {
+    it("does NOT call saveOnboardingData on mount — save is deferred to handleFinish", async () => {
       mockUseOnboardingStore.mockReturnValue({
         ...defaultStore,
         data: {
@@ -470,6 +492,40 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       });
 
       render(<PayoffStep />);
+
+      // Wait for the component to finish all initial async work (intel fetch)
+      await waitFor(() => {
+        expect(
+          screen.getByRole("button", { name: /Let's go/i })
+        ).toBeInTheDocument();
+      });
+
+      // Save must NOT have fired on mount — it would race the dialog stale-close
+      // effect and dismiss the dialog before the user sees this button.
+      // See project_onboarding_payoff_step_bug.md.
+      expect(mockSaveOnboardingData).not.toHaveBeenCalled();
+    });
+
+    it("calls saveOnboardingData when the user clicks the finish button", async () => {
+      mockUseOnboardingStore.mockReturnValue({
+        ...defaultStore,
+        data: {
+          homeBeachId: "beach-123",
+          homeBeachName: "Malibu",
+        },
+      });
+
+      const user = userEvent.setup();
+      render(<PayoffStep />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole("button", { name: /Let's go/i })
+        ).toBeInTheDocument();
+      });
+
+      const ctaButton = screen.getByRole("button", { name: /Let's go/i });
+      await user.click(ctaButton);
 
       await waitFor(() => {
         expect(mockSaveOnboardingData).toHaveBeenCalledWith({
@@ -497,7 +553,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       });
     });
 
-    it("shows error toast when save fails", async () => {
+    it("shows error toast when save fails after clicking finish", async () => {
       mockSaveOnboardingData.mockResolvedValue({
         success: false,
         error: "Database error",
@@ -511,13 +567,26 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
         },
       });
 
+      const user = userEvent.setup();
       render(<PayoffStep />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole("button", { name: /Let's go/i })
+        ).toBeInTheDocument();
+      });
+
+      const ctaButton = screen.getByRole("button", { name: /Let's go/i });
+      await user.click(ctaButton);
 
       await waitFor(() => {
         expect(toast.error).toHaveBeenCalledWith(
           expect.stringContaining("Database error")
         );
       });
+
+      // Onboarding should NOT be marked complete when save fails
+      expect(mockCompleteOnboarding).not.toHaveBeenCalled();
     });
 
     it("fetches daily intel with correct parameters", async () => {
@@ -561,7 +630,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       });
     });
 
-    it("completes onboarding and navigates to home beach when slug data available", async () => {
+    it("completes onboarding and stays on the current page (no navigation)", async () => {
       const mockPush = jest.fn();
       const mockRefresh = jest.fn();
 
@@ -586,21 +655,15 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByRole("button", { name: /See your full forecast/i })
+          screen.getByRole("button", { name: /Let's go/i })
         ).toBeInTheDocument();
       });
 
-      const ctaButton = screen.getByRole("button", {
-        name: /See your full forecast/i,
-      });
+      const ctaButton = screen.getByRole("button", { name: /Let's go/i });
       await user.click(ctaButton);
 
       await waitFor(() => {
         expect(mockCompleteOnboarding).toHaveBeenCalled();
-      });
-
-      await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith("/ca/malibu/malibu-surfrider");
       });
 
       await waitFor(() => {
@@ -610,51 +673,12 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       await waitFor(() => {
         expect(toast.success).toHaveBeenCalledWith("Welcome to Quiver!");
       });
-    });
 
-    it("falls back to home forecast tab when beach slug data is missing", async () => {
-      const mockPush = jest.fn();
-      const mockRefresh = jest.fn();
-
-      jest.spyOn(require("next/navigation"), "useRouter").mockReturnValue({
-        push: mockPush,
-        refresh: mockRefresh,
-      });
-
-      mockUseOnboardingStore.mockReturnValue({
-        ...defaultStore,
-        data: {
-          homeBeachId: "beach-123",
-          homeBeachName: "Malibu",
-          // No slug/city/state — should fall back
-        },
-      });
-
-      const user = userEvent.setup();
-      render(<PayoffStep />);
-
-      await waitFor(() => {
-        expect(
-          screen.getByRole("button", { name: /See your full forecast/i })
-        ).toBeInTheDocument();
-      });
-
-      const ctaButton = screen.getByRole("button", {
-        name: /See your full forecast/i,
-      });
-      await user.click(ctaButton);
-
-      await waitFor(() => {
-        expect(mockCompleteOnboarding).toHaveBeenCalled();
-      });
-
-      await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith("/?tab=forecast");
-      });
-
-      await waitFor(() => {
-        expect(toast.success).toHaveBeenCalledWith("Welcome to Quiver!");
-      });
+      // Product intent: keep the user on whatever page they signed up on.
+      // handleFinish must NOT call router.push with any URL — not the home break,
+      // not /?tab=forecast, not anything. See project_onboarding_payoff_step_bug.md
+      // for why the previous navigation behavior was a bug.
+      expect(mockPush).not.toHaveBeenCalled();
     });
   });
 });

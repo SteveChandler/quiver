@@ -156,41 +156,13 @@ describe("OnboardingDialog Logic", () => {
     jest.useRealTimers();
   });
 
-  it("does not open dialog if dismissed for current user", () => {
-    // OnboardingDialog uses a TTL-based dismissal key:
-    // `onboarding_dismissed_until_${userId}` stores a future timestamp (ms).
-    localStorage.setItem(
-      "onboarding_dismissed_until_user-123",
-      String(Date.now() + 24 * 60 * 60 * 1000)
-    );
-
-    jest.useFakeTimers();
-    render(<OnboardingDialog />);
-
-    act(() => {
-      jest.runAllTimers();
-    });
-
-    expect(mockOpenDialog).not.toHaveBeenCalled();
-    jest.useRealTimers();
-  });
-
-  it("opens dialog if dismissed for different user", () => {
-    localStorage.setItem(
-      "onboarding_dismissed_until_other-user",
-      String(Date.now() + 24 * 60 * 60 * 1000)
-    );
-
-    jest.useFakeTimers();
-    render(<OnboardingDialog />);
-
-    act(() => {
-      jest.runAllTimers();
-    });
-
-    expect(mockOpenDialog).toHaveBeenCalled();
-    jest.useRealTimers();
-  });
+  // NOTE: the previous escalating-snooze logic (`onboarding_dismissed_until_${userId}`
+  // in localStorage) was removed. Users who tap "Maybe later" now have
+  // `onboarding_completed_at` set on their profile via skipOnboarding(), and the
+  // normal `hasCompletedOnboarding` check in `shouldRender` gates future showings.
+  // Users who want to re-open onboarding do so explicitly from /profile.
+  // This is tested by the existing "does not open dialog if profile is loaded and
+  // onboarding completed" case above.
 
   it("calls checkUserId on mount", () => {
     render(<OnboardingDialog />);
@@ -219,8 +191,11 @@ describe("OnboardingDialog Logic", () => {
     expect(dialog).toHaveAttribute("aria-label", "Set up your surf profile");
   });
 
-  it("renders skip button that is hidden on payoff step", () => {
-    // Step 0 - skip button visible
+  it("does NOT render the old dialog-level X button (replaced by in-step Maybe later)", () => {
+    // The absolute-positioned X button in the top-right corner of the dialog was a
+    // reflex-tap magnet — ~33% of new users were tapping it within 6 seconds and
+    // getting permanently locked out. It's been replaced by explicit "Maybe later"
+    // buttons inside HomeBeachStep and LevelAndTimeStep (tested separately).
     (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
       isOpen: true,
       isCompleted: false,
@@ -235,22 +210,7 @@ describe("OnboardingDialog Logic", () => {
       get: (key: string) => (key === "showOnboarding" ? "1" : null),
     });
 
-    const { rerender } = render(<OnboardingDialog />);
-    expect(screen.getByLabelText("Skip onboarding")).toBeInTheDocument();
-
-    // Step 2 (payoff) - skip button hidden
-    (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
-      isOpen: true,
-      isCompleted: false,
-      currentStep: 2,
-      openDialog: mockOpenDialog,
-      reset: mockReset,
-      checkUserId: mockCheckUserId,
-      closeDialog: jest.fn(),
-      setCurrentStep: jest.fn(),
-    });
-
-    rerender(<OnboardingDialog />);
+    render(<OnboardingDialog />);
     expect(screen.queryByLabelText("Skip onboarding")).not.toBeInTheDocument();
   });
 });

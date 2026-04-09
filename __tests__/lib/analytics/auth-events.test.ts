@@ -171,31 +171,113 @@ describe("auth-events", () => {
       });
     });
 
-    describe("trackAuthMethodSelected", () => {
-      it("should track Google OAuth selection", () => {
+    describe("trackAuthMethodSelected (deprecated no-op)", () => {
+      let warnSpy: jest.SpyInstance;
+      let originalNodeEnv: string | undefined;
+
+      beforeEach(() => {
+        warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+        originalNodeEnv = process.env.NODE_ENV;
+      });
+
+      afterEach(() => {
+        warnSpy.mockRestore();
+        if (originalNodeEnv === undefined) {
+          delete (process.env as Record<string, string | undefined>).NODE_ENV;
+        } else {
+          (process.env as Record<string, string | undefined>).NODE_ENV =
+            originalNodeEnv;
+        }
+      });
+
+      it("should not call track() or fetch (no-op)", () => {
+        trackAuthMethodSelected({ method: "google", mode: "login" });
+        trackAuthMethodSelected({ method: "password", mode: "signup" });
+        trackAuthMethodSelected({ method: "magic_link", mode: "login" });
+        trackAuthMethodSelected({ method: "apple", mode: "signup" });
+
+        expect(track).not.toHaveBeenCalled();
+        expect(mockFetch).not.toHaveBeenCalled();
+      });
+
+      it("should warn in development", () => {
+        (process.env as Record<string, string | undefined>).NODE_ENV =
+          "development";
+
         trackAuthMethodSelected({ method: "google", mode: "login" });
 
-        expect(track).toHaveBeenCalledWith("auth_method_selected", {
-          method: "google",
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining("[deprecated] trackAuthMethodSelected")
+        );
+      });
+
+      it("should not warn outside development", () => {
+        (process.env as Record<string, string | undefined>).NODE_ENV = "test";
+
+        trackAuthMethodSelected({ method: "google", mode: "login" });
+
+        expect(warnSpy).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("trackAuthProviderSelected (covers former trackAuthMethodSelected provider paths)", () => {
+      it("should track Google provider selection", () => {
+        trackAuthProviderSelected({
+          provider: "google",
           mode: "login",
+          source: "auth-modal",
+        });
+
+        expect(track).toHaveBeenCalledWith("auth_provider_selected", {
+          provider: "google",
+          mode: "login",
+          source: "auth-modal",
         });
       });
 
-      it("should track password selection", () => {
-        trackAuthMethodSelected({ method: "password", mode: "signup" });
-
-        expect(track).toHaveBeenCalledWith("auth_method_selected", {
-          method: "password",
+      it("should track Apple provider selection", () => {
+        trackAuthProviderSelected({
+          provider: "apple",
           mode: "signup",
+          source: "auth-modal",
+        });
+
+        expect(track).toHaveBeenCalledWith("auth_provider_selected", {
+          provider: "apple",
+          mode: "signup",
+          source: "auth-modal",
         });
       });
 
-      it("should track magic link selection", () => {
-        trackAuthMethodSelected({ method: "magic_link", mode: "login" });
+      it("should track email/password provider selection", () => {
+        trackAuthProviderSelected({
+          provider: "email",
+          mode: "signup",
+          source: "auth-modal",
+          email_method: "password",
+        });
 
-        expect(track).toHaveBeenCalledWith("auth_method_selected", {
-          method: "magic_link",
+        expect(track).toHaveBeenCalledWith("auth_provider_selected", {
+          provider: "email",
+          mode: "signup",
+          source: "auth-modal",
+          email_method: "password",
+        });
+      });
+
+      it("should track email/magic-link provider selection", () => {
+        trackAuthProviderSelected({
+          provider: "email",
           mode: "login",
+          source: "auth-modal",
+          email_method: "magic_link",
+        });
+
+        expect(track).toHaveBeenCalledWith("auth_provider_selected", {
+          provider: "email",
+          mode: "login",
+          source: "auth-modal",
+          email_method: "magic_link",
         });
       });
     });
@@ -434,20 +516,29 @@ describe("auth-events", () => {
       });
     });
 
-    describe("trackAuthMethodSelected", () => {
+    describe("trackAuthProviderSelected dual-fire", () => {
       it("calls both track() and fetch('/api/events')", () => {
-        trackAuthMethodSelected({ method: "google", mode: "signup" });
-
-        expect(track).toHaveBeenCalledWith("auth_method_selected", {
-          method: "google",
+        trackAuthProviderSelected({
+          provider: "google",
           mode: "signup",
+          source: "landing-cta",
+        });
+
+        expect(track).toHaveBeenCalledWith("auth_provider_selected", {
+          provider: "google",
+          mode: "signup",
+          source: "landing-cta",
         });
         expect(mockFetch).toHaveBeenCalledWith("/api/events", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            eventType: "auth_method_selected",
-            metadata: { method: "google", mode: "signup" },
+            eventType: "auth_provider_selected",
+            metadata: {
+              provider: "google",
+              mode: "signup",
+              source: "landing-cta",
+            },
             sessionId: "test-visitor-id",
             viewportWidth: 375,
           }),

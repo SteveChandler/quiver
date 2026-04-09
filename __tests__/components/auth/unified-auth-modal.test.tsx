@@ -395,9 +395,12 @@ describe("UnifiedAuthModal", () => {
       });
 
       expect(mockOnClose).toHaveBeenCalled();
-      expect(authEvents.trackAuthMethodSelected).toHaveBeenCalledWith({
-        method: "apple",
+      // trackAuthMethodSelected is a deprecated no-op; auth_provider_selected
+      // is now the canonical funnel event for provider selection.
+      expect(authEvents.trackAuthProviderSelected).toHaveBeenCalledWith({
+        provider: "apple",
         mode: "login",
+        source: "unknown",
       });
       expect(authEvents.trackLoginStarted).toHaveBeenCalledWith("apple");
       expect(authEvents.trackLoginSuccess).toHaveBeenCalledWith(
@@ -482,9 +485,12 @@ describe("UnifiedAuthModal", () => {
         );
       });
 
-      expect(authEvents.trackAuthMethodSelected).toHaveBeenCalledWith({
-        method: "google",
+      // trackAuthMethodSelected is a deprecated no-op; auth_provider_selected
+      // is now the canonical funnel event for provider selection.
+      expect(authEvents.trackAuthProviderSelected).toHaveBeenCalledWith({
+        provider: "google",
         mode: "login",
+        source: "unknown",
       });
       expect(authEvents.trackLoginStarted).toHaveBeenCalledWith("google");
     });

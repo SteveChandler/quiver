@@ -143,6 +143,7 @@ export function useBeachAutocomplete(options: UseBeachAutocompleteOptions = {}) 
 
   return {
     query,
+    debouncedQuery,
     suggestions: suggestions || [],
     loading,
     error,

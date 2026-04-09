@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Command,
@@ -13,7 +13,12 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, ChevronRight, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useBeachAutocomplete } from "@/hooks/use-beach-autocomplete";
+import { useTrackEvent } from "@/hooks/use-track-event";
 import type { Beach } from "@/types/database";
+import type {
+  BeachSearchMetadata,
+  BeachSearchResultClickMetadata,
+} from "@/types/implicit-preferences";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 import { beachNavigation } from "@/lib/navigation-utils";
 
@@ -52,6 +57,12 @@ interface BeachSearchAutocompleteProps {
    * can mirror the current search string for secondary actions.
    */
   onQueryChange?: (query: string) => void;
+  /**
+   * Analytics surface identifier for beach_search / beach_search_result_click
+   * events (e.g., "home", "landing_hero", "tool_dawn_patrol"). Best-effort —
+   * used to distinguish where a search originated.
+   */
+  source?: string;
 }
 
 /**
@@ -75,10 +86,13 @@ export function BeachSearchAutocomplete({
   requireExplicitSelection = false,
   autoNavigateSingleResult = true,
   onQueryChange,
+  source = "unknown",
 }: BeachSearchAutocompleteProps) {
   const router = useRouter();
+  const { track } = useTrackEvent();
   const {
     query,
+    debouncedQuery,
     suggestions,
     loading,
     isOpen,
@@ -87,6 +101,32 @@ export function BeachSearchAutocomplete({
     handleKeyDown,
     handleSelect,
   } = useBeachAutocomplete({ maxResults, initialQuery: initialValue });
+
+  // Fire beach_search AFTER the debounced fetch resolves (not on every keystroke).
+  // We track prev loading state and emit when loading transitions true -> false
+  // for any query of minimum length.
+  const prevLoadingRef = useRef<boolean>(false);
+  const lastEmittedQueryRef = useRef<string>("");
+  useEffect(() => {
+    const wasLoading = prevLoadingRef.current;
+    prevLoadingRef.current = loading;
+
+    if (!wasLoading || loading) return;
+    if (debouncedQuery.length < 2) return;
+    // Debounce-identical emissions: don't re-fire for the same resolved query
+    if (lastEmittedQueryRef.current === debouncedQuery) return;
+    lastEmittedQueryRef.current = debouncedQuery;
+
+    const resultCount = suggestions.length;
+    const metadata: BeachSearchMetadata = {
+      result_count: resultCount,
+      query_length: debouncedQuery.length,
+      zero_results: resultCount === 0,
+      source,
+    };
+    // Raw query is deliberately NOT included (PII concerns)
+    void track("beach_search", { metadata });
+  }, [loading, debouncedQuery, suggestions, source, track]);
 
   const handleQueryChange = useCallback(
     (value: string) => {
@@ -97,7 +137,22 @@ export function BeachSearchAutocomplete({
   );
 
   const handleBeachSelect = useCallback(
-    (beach: Beach) => {
+    (beach: Beach, position: number) => {
+      // Emit result click BEFORE navigation so the event isn't cancelled by
+      // page unload. beach_view fires separately when the user lands on the
+      // target beach page — these are distinct events.
+      const metadata: BeachSearchResultClickMetadata = {
+        beach_id: beach.id,
+        position,
+        result_count: suggestions.length,
+        query_length: debouncedQuery.length,
+        source,
+      };
+      void track("beach_search_result_click", {
+        beachId: beach.id,
+        metadata,
+      });
+
       handleSelect(beach);
 
       if (onSelect) {
@@ -107,7 +162,15 @@ export function BeachSearchAutocomplete({
         beachNavigation.navigateToBeach(router, beach);
       }
     },
-    [handleSelect, onSelect, router]
+    [
+      debouncedQuery.length,
+      handleSelect,
+      onSelect,
+      router,
+      source,
+      suggestions.length,
+      track,
+    ]
   );
 
   const handleEnterKey = useCallback(
@@ -130,7 +193,7 @@ export function BeachSearchAutocomplete({
       // Exactly one result: optionally auto-navigate for smooth flows.
       if (suggestions.length === 1 && autoNavigateSingleResult) {
         e.preventDefault();
-        handleBeachSelect(suggestions[0]);
+        handleBeachSelect(suggestions[0], 0);
         return;
       }
 
@@ -138,7 +201,7 @@ export function BeachSearchAutocomplete({
       // When requireExplicitSelection is true (landing page), still allow
       // Enter key navigation to provide better UX
       e.preventDefault();
-      handleBeachSelect(suggestions[selectedIndex]);
+      handleBeachSelect(suggestions[selectedIndex], selectedIndex);
     },
     [
       autoNavigateSingleResult,
@@ -193,7 +256,7 @@ export function BeachSearchAutocomplete({
                 {suggestions.map((beach, index) => (
                   <CommandItem
                     key={beach.id}
-                    onSelect={() => handleBeachSelect(beach)}
+                    onSelect={() => handleBeachSelect(beach, index)}
                     className={cn(
                       "cursor-pointer",
                       index === selectedIndex && "bg-accent"

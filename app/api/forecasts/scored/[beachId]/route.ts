@@ -332,12 +332,19 @@ export const GET = withErrorHandler(
     // Identify golden windows
     const goldenWindows = identifyGoldenWindows(timeSlots);
 
+    // Calibration status — true when beach has an empirical shoaling
+    // calibration, false for ML-only beaches. Derived here (not exposed as
+    // raw JSONB) so the client can distinguish calibrated face heights from
+    // forecast-only sig-wave heights in the UI.
+    const isCalibrated = beach.shoaling_factors !== null;
+
     return createSuccessResponse({
       timeSlots,
       goldenWindows,
       beach: {
         aspectDeg: beach.aspect_deg ?? null,
         breakType: beach.break_type ?? null,
+        isCalibrated,
       },
     });
   },

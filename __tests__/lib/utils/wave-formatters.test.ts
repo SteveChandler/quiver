@@ -16,6 +16,7 @@ import {
   clampWaveHeight,
   WAVE_HEIGHT_NUMBER_PATTERN,
 } from "@/lib/utils/wave-formatters";
+import type { ShoalingFactors } from "@/lib/utils/wave-height-transformer";
 import { TERRAIN_BINS } from "@/types/terrain";
 
 describe("wave-formatters", () => {
@@ -236,8 +237,7 @@ describe("wave-formatters", () => {
       ];
 
       for (const size of sizes) {
-        expect(WAVE_SIZE_LABELS[size]).toBeDefined();
-        expect(typeof WAVE_SIZE_LABELS[size]).toBe("string");
+        expect(WAVE_SIZE_LABELS[size]).toEqual(expect.any(String));
       }
     });
   });
@@ -486,6 +486,136 @@ describe("wave-formatters", () => {
         });
         // Should fall back to model swell (Infinity fails isFinite check)
         expect(result).toMatch(/\d+\.?\d* ft/);
+      });
+    });
+
+    // =======================================================================
+    // shoaling_factors source-gating (Phase 1.4 Critical #1/#2 regression)
+    //
+    // The per-beach shoaling bucket factor is measured as
+    // `surfline_face_ft / cdip_hs_ft` during Phase 1.4 calibration. It is
+    // ONLY valid when the transformer's input came from CDIP significant
+    // height for the beach's assigned reference buoy. On XL days or data
+    // gaps, `selectWaveHeightSource` falls back to model_swell / model_hs /
+    // ndbc_buoy — in those cases the bucket multiplier must NOT fire. These
+    // tests drive the full toFaceHeightFeet path end-to-end and assert the
+    // correct gating at each fallback boundary.
+    // =======================================================================
+    describe("shoaling_factors source gating", () => {
+      // Blacks Beach factors from migration 20260407134519
+      const blacksFactors: ShoalingFactors = {
+        version: 1,
+        type: "period_lookup",
+        buckets: [
+          { tp_min_s: 0, tp_max_s: 8, factor: 1.6 },
+          { tp_min_s: 8, tp_max_s: 12, factor: 1.7 },
+          { tp_min_s: 12, tp_max_s: 16, factor: 2.1 },
+          { tp_min_s: 16, tp_max_s: 999, factor: 2.4 },
+        ],
+      };
+      const blacksBeach = { shoaling_factors: blacksFactors };
+
+      it("fires short-circuit when source is CDIP sig (happy path)", () => {
+        // 1.7 ft CDIP Hs @ 14s at Blacks → short-circuit applies 2.1x
+        // → 3.57 → "3.6 ft". This is the Phase 1.1 user-reported regression.
+        const result = toFaceHeightFeet({
+          cdipSigFt: 1.7,
+          periodS: 14,
+          beach: blacksBeach,
+        });
+        expect(result).toBe("3.6 ft");
+      });
+
+      it("SKIPS short-circuit when CDIP > MAX_TRUSTED_CDIP_FT (falls back to model_swell)", () => {
+        // XL day: CDIP reports 12 ft, which exceeds the 10 ft trust threshold.
+        // selectWaveHeightSource falls back to model_swell (3.0m = 9.84 ft raw).
+        // The transformer MUST use the legacy pipeline on the model input,
+        // not multiply the model height by Blacks's CDIP-denominated 2.1x
+        // factor (which would display ~20.7 ft — wildly wrong).
+        const result = toFaceHeightFeet({
+          cdipSigFt: 12.0, // outside MAX_TRUSTED_CDIP_FT
+          modelSwellM: 3.0, // 9.84 ft raw
+          periodS: 14,
+          beach: blacksBeach,
+        });
+        // Legacy: 9.84 * 1.0 (base) * 1.2 (capped period at 14s) * 1.0 = 11.808 → 11.8 ft
+        expect(result).toBe("11.8 ft");
+        // Guard against a regression that applies the CDIP bucket factor here:
+        const numeric = parseFloat(result!);
+        expect(numeric).toBeLessThan(15);
+      });
+
+      it("SKIPS short-circuit when CDIP is an outlier vs model swell", () => {
+        // CDIP 8 ft vs model 1m (3.28 ft): 8 > 1.8 * 3.28 = 5.9 → outlier.
+        // selectWaveHeightSource returns model_swell. Shoaling short-circuit
+        // must not fire against the model input.
+        const result = toFaceHeightFeet({
+          cdipSigFt: 8.0,
+          modelSwellM: 1.0, // 3.28 ft
+          periodS: 14,
+          beach: blacksBeach,
+        });
+        // Legacy: 3.28 * 1.0 * 1.2 * 1.0 = 3.94 → 3.9 ft
+        const numeric = parseFloat(result!);
+        expect(numeric).toBeLessThan(5); // not 3.28 * 2.1 = 6.9
+      });
+
+      it("SKIPS short-circuit when cdipSigFt is null (model_swell takes over)", () => {
+        // CDIP data gap at a calibrated beach. Must fall back cleanly to
+        // the model pipeline without applying the CDIP-only bucket factor.
+        const result = toFaceHeightFeet({
+          cdipSigFt: null,
+          modelSwellM: 0.6, // 1.97 ft
+          periodS: 14,
+          beach: blacksBeach,
+        });
+        // Legacy: 1.97 * 1.0 * 1.2 * 1.0 = 2.36 → 2.4 ft
+        expect(result).toBe("2.4 ft");
+      });
+
+      it("SKIPS short-circuit when falling back to cdip_swell component", () => {
+        // CDIP swell height (a derived per-component value) is not the same
+        // as CDIP Hs — the calibration was measured against Hs. Must not
+        // apply the bucket factor to a cdip_swell input either.
+        const result = toFaceHeightFeet({
+          cdipSigFt: null,
+          modelSwellM: null,
+          cdipSwellFt: 1.7,
+          periodS: 14,
+          beach: blacksBeach,
+        });
+        // Legacy: 1.7 * 1.0 * 1.2 * 1.0 = 2.04 → 2 ft
+        const numeric = parseFloat(result!);
+        expect(numeric).toBeLessThan(3); // not 1.7 * 2.1 = 3.57
+      });
+
+      it("SKIPS short-circuit when falling back to NDBC buoy", () => {
+        // NDBC buoy is a completely different instrument from CDIP. Same rule.
+        const result = toFaceHeightFeet({
+          cdipSigFt: null,
+          modelSwellM: null,
+          cdipSwellFt: null,
+          modelHsM: null,
+          ndbcBuoyM: 0.5, // 1.64 ft
+          periodS: 14,
+          beach: blacksBeach,
+        });
+        // Legacy: 1.64 * 1.0 * 1.2 * 1.0 = 1.97 → 2 ft
+        const numeric = parseFloat(result!);
+        expect(numeric).toBeLessThan(3);
+      });
+
+      it("uncalibrated beach (shoaling_factors=null) follows legacy path regardless of source", () => {
+        // Sanity: an uncalibrated beach with CDIP sig input uses the legacy
+        // pipeline, no short-circuit. Confirms the 190-ish non-Phase-1.4
+        // beaches behave identically to pre-migration.
+        const result = toFaceHeightFeet({
+          cdipSigFt: 1.7,
+          periodS: 14,
+          beach: { shoaling_factors: null },
+        });
+        // 1.7 * 1.0 * 1.2 * 1.0 = 2.04 → 2 ft
+        expect(result).toBe("2 ft");
       });
     });
   });

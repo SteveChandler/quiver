@@ -9,6 +9,10 @@ import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useAuth } from "@/context/auth-context";
 import { track } from "@/lib/analytics";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
+import {
+  trackSignupCtaClick,
+  trackSignupCtaView,
+} from "@/lib/analytics/signup-conversion-tracking";
 
 /**
  * Scroll depth tracking wrapper for the features page.
@@ -34,6 +38,7 @@ export function FeaturesScrollTracker({ children }: { children: ReactNode }) {
             !scrollMilestones.current.has(milestone)
           ) {
             scrollMilestones.current.add(milestone);
+            // GA4-only: scroll_depth is not in the Supabase user_events funnel.
             track("scroll_depth", {
               page: "/features",
               depth_percent: milestone,
@@ -65,9 +70,26 @@ export function FeaturesSignupButton({
   const pathname = usePathname();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authSource, setAuthSource] = useState("features-hero");
+  const hasTrackedView = useRef(false);
+
+  // Track view once per mount for unauthenticated users.
+  // Session-level dedup happens inside trackSignupCtaView.
+  useEffect(() => {
+    if (user || hasTrackedView.current) return;
+    hasTrackedView.current = true;
+    trackSignupCtaView({
+      source: `features-${ctaLocation}`,
+      surface: "features-page",
+      cta_type: ctaLocation,
+    });
+  }, [user, ctaLocation]);
 
   const handleSignupClick = useCallback(() => {
-    track("signup_cta_click", { source: "features", cta_type: ctaLocation });
+    trackSignupCtaClick({
+      source: `features-${ctaLocation}`,
+      surface: "features-page",
+      cta_type: ctaLocation,
+    });
     trackAuthModalOpened({
       mode: "signup",
       source: `features-${ctaLocation}`,

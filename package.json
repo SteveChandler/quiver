@@ -216,8 +216,8 @@
     "webpack-bundle-analyzer": "^4.10.2"
   },
   "resolutions": {
-    "lodash": "^4.17.23",
-    "lodash-es": "^4.17.23",
+    "lodash": "^4.18.0",
+    "lodash-es": "^4.18.0",
     "tar": "^7.5.11",
     "xmlbuilder": "^15.1.1",
     "tmp": "^0.2.5",

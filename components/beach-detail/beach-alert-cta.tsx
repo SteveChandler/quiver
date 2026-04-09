@@ -8,6 +8,7 @@ import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { usePendingAction } from "@/hooks/use-pending-action";
 import { usePathname } from "next/navigation";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
 
 interface AlertRule {
   id: string;
@@ -66,6 +67,12 @@ export function BeachAlertCta({ beachId, beachName, compact, className, onOpenAl
 
   function handleClick() {
     if (!user) {
+      trackSignupCtaClick({
+        source: "beach-alert-cta",
+        surface: "beach-detail",
+        beach_id: beachId,
+        beach_name: beachName,
+      });
       setPendingAction({ type: "alert", beachId, beachName });
       setAuthModalOpen(true);
       return;

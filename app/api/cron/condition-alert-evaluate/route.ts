@@ -1,4 +1,8 @@
-// @ts-nocheck — alert tables not yet in production types; remove after migration
+// @ts-nocheck — PostgREST resolves alert_rules→auth.users→profiles at runtime
+// via an explicit `profiles!inner(...)` hint, but TypeScript can't follow the
+// two-hop FK chain, so the generated types report
+// `could not find the relation between alert_rules and profiles` even though
+// the query works at runtime. See 20260401000000_add_condition_alerts.sql.
 // app/api/cron/condition-alert-evaluate/route.ts
 import { NextResponse } from "next/server";
 import { validateCronRequest } from "@/lib/api-utils";
