@@ -1404,4 +1404,69 @@ describe('computeSurfCall', () => {
       expect(result.whySentence).toMatch(/clean winds/i);
     });
   });
+
+  // ==========================================================================
+  // Calibration honesty layer — isCalibrated flag
+  // ==========================================================================
+  //
+  // The surf call report surfaces a population-level `isCalibrated` flag on
+  // every result shape, sourced from `beach.shoaling_factors != null`. The
+  // honesty layer consumers (SpotSurfReport, UnifiedSurfCard, ForecastTab) use
+  // this to render the "Face height" / "Forecast height" label and the
+  // ~-prefix + dotted underline visual markers. See
+  // docs/design/calibration-honesty-spec.md.
+  describe('isCalibrated', () => {
+    it('returns false when beach.shoaling_factors is null', () => {
+      const beach = makeBeach({ shoaling_factors: null } as any);
+      const forecasts = [makeForecast()];
+      const window = makeWindow({ score: 80 });
+      const result = computeSurfCall(window, forecasts, beach);
+      expect(result.isCalibrated).toBe(false);
+    });
+
+    it('returns false when beach.shoaling_factors is undefined (missing column)', () => {
+      const beach = makeBeach();
+      const forecasts = [makeForecast()];
+      const window = makeWindow({ score: 80 });
+      const result = computeSurfCall(window, forecasts, beach);
+      expect(result.isCalibrated).toBe(false);
+    });
+
+    it('returns true when beach.shoaling_factors is a populated record', () => {
+      const beach = makeBeach({
+        shoaling_factors: { '10s': 1.2, '12s': 1.35 },
+      } as any);
+      const forecasts = [makeForecast()];
+      const window = makeWindow({ score: 80 });
+      const result = computeSurfCall(window, forecasts, beach);
+      expect(result.isCalibrated).toBe(true);
+    });
+
+    it('preserves isCalibrated on hard-NO no-forecasts path', () => {
+      const beach = makeBeach({
+        shoaling_factors: { '10s': 1.2 },
+      } as any);
+      const result = computeSurfCall(null, [], beach);
+      expect(result.verdict).toBe('NO');
+      expect(result.isCalibrated).toBe(true);
+    });
+
+    it('preserves isCalibrated on waves-too-small path', () => {
+      const beach = makeBeach({
+        shoaling_factors: { '10s': 1.2 },
+      } as any);
+      const forecasts = [makeForecast({ wave_height: '0.5 ft' })];
+      const result = computeSurfCall(null, forecasts, beach);
+      expect(result.verdict).toBe('NO');
+      expect(result.isCalibrated).toBe(true);
+    });
+
+    it('preserves isCalibrated on no-viable-window path', () => {
+      const beach = makeBeach({ shoaling_factors: null } as any);
+      const forecasts = [makeForecast({ wave_height: '3-4 ft' })];
+      const result = computeSurfCall(null, forecasts, beach);
+      expect(result.verdict).toBe('NO');
+      expect(result.isCalibrated).toBe(false);
+    });
+  });
 });
