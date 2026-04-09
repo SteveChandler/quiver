@@ -31,11 +31,22 @@ interface WaveHeightDisplayProps {
   /** Whether this forecast has ML bias correction applied */
   isMlCalibrated?: boolean;
   /**
-   * True when this beach's wave height came from the empirically calibrated
-   * shoaling pipeline (face height at the break). False when it came from the
-   * raw buoy forecast (Hs) — the honesty layer applies: `~` prefix, dotted
-   * underline, and a different tooltip body. `undefined` = backward-compat:
-   * render as today, do not apply the honesty layer.
+   * **Beach-level** calibration flag. `true` means this beach has an
+   * empirical shoaling calibration as a population (`beaches.shoaling_factors
+   * IS NOT NULL`) — the honesty layer renders the calibrated state with a
+   * "Face height" label. `false` means the beach is ML-only / forecast-only
+   * — the honesty layer applies `~` prefix, dotted underline, the
+   * "Forecast height" label, and a single-line tooltip. `undefined` =
+   * backward-compat: render as today, do not apply the honesty layer and
+   * do not render any label.
+   *
+   * This is a population-level signal, not a per-reading claim. A
+   * calibrated beach can still ship a specific reading whose number came
+   * from the generic pipeline (period outside the bucket table, CDIP
+   * fallback). That's an acceptable trade-off — see
+   * `types/forecast.ts::EnhancedForecastEntity.isCalibrated` and
+   * `lib/utils/wave-height-transformer.ts::transformToFaceHeightWithMetadata`
+   * for the full semantic.
    */
   isCalibrated?: boolean;
 }
