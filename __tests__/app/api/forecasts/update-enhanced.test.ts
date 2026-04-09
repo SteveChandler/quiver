@@ -24,46 +24,48 @@ jest.mock("@/lib/auth/admin", () => ({
   authenticateAdmin: jest.fn(() => Promise.resolve({ success: false, status: 401, error: "Unauthorized" })),
 }));
 
-// Service-role client mock. The route calls this client in two places:
-//   1. mergeMLCorrections → .from("corrected_forecasts").select().eq().gte().lte()
-//   2. calibration lookup → .from("beaches").select().eq().maybeSingle()
-// We route on table name so each chain returns the right terminal method.
+// Supabase client mocks. The route uses two distinct clients:
+//   1. createSupabaseServiceRoleClient — mergeMLCorrections →
+//      .from("corrected_forecasts").select().eq().gte().lte()
+//   2. createPublicReadClient (anon, no cookies) — calibration lookup →
+//      .from("beaches").select().eq().maybeSingle()
+// Public read is used for the beaches row because `shoaling_factors` is
+// publicly readable via RLS; the route no longer escalates to service-role
+// just to read that column.
 // Tests override `mockBeachShoalingFactors`: a value = calibrated,
 // `null` = forecast-only, `undefined` = beach row not found.
 let mockBeachShoalingFactors: unknown | undefined = null;
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(() => ({
-    from: jest.fn((table: string) => {
-      if (table === "beaches") {
-        return {
-          select: jest.fn(() => ({
-            eq: jest.fn(() => ({
-              maybeSingle: jest.fn(() =>
-                Promise.resolve({
-                  data:
-                    mockBeachShoalingFactors === undefined
-                      ? null
-                      : { shoaling_factors: mockBeachShoalingFactors },
-                  error: null,
-                })
-              ),
-            })),
-          })),
-        };
-      }
+    from: jest.fn((_table: string) => ({
       // corrected_forecasts (mergeMLCorrections) — return no corrections
-      return {
-        select: jest.fn(() => ({
-          eq: jest.fn(() => ({
-            gte: jest.fn(() => ({
-              lte: jest.fn(() =>
-                Promise.resolve({ data: [], error: null })
-              ),
-            })),
+      select: jest.fn(() => ({
+        eq: jest.fn(() => ({
+          gte: jest.fn(() => ({
+            lte: jest.fn(() =>
+              Promise.resolve({ data: [], error: null })
+            ),
           })),
         })),
-      };
-    }),
+      })),
+    })),
+  })),
+  createPublicReadClient: jest.fn(() => ({
+    from: jest.fn((_table: string) => ({
+      select: jest.fn(() => ({
+        eq: jest.fn(() => ({
+          maybeSingle: jest.fn(() =>
+            Promise.resolve({
+              data:
+                mockBeachShoalingFactors === undefined
+                  ? null
+                  : { shoaling_factors: mockBeachShoalingFactors },
+              error: null,
+            })
+          ),
+        })),
+      })),
+    })),
   })),
 }));
 

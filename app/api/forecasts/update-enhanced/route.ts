@@ -9,7 +9,10 @@ import {
   getFreshForecastFromCache,
 } from "@/lib/utils/forecast-server-utils";
 import { withAdminAuth } from "@/lib/middleware/api-wrappers";
-import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import {
+  createSupabaseServiceRoleClient,
+  createPublicReadClient,
+} from "@/lib/supabase/server";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 /**
@@ -195,10 +198,16 @@ export async function GET(request: NextRequest) {
     // height came from the calibrated pipeline. Errors default to `false`
     // (safer conservative render in the honesty UI). Skip the query entirely
     // when there are no forecasts to stamp.
+    //
+    // This is a PUBLIC GET route and `beaches.shoaling_factors` is readable
+    // by the anon role via RLS. Use `createPublicReadClient` (cookie-free
+    // anon) instead of the service-role client — no privilege escalation is
+    // warranted for this read. If RLS ever hides `shoaling_factors` from
+    // anon, fix the RLS policy; do NOT re-escalate here.
     let isCalibrated = false;
     if (mlMergedForecasts.length > 0) {
       try {
-        const beachClient = await createSupabaseServiceRoleClient();
+        const beachClient = createPublicReadClient();
         const { data: beachRow, error: beachError } = await beachClient
           .from("beaches")
           .select("shoaling_factors")

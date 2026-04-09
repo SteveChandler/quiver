@@ -148,8 +148,11 @@ function transformToTimeWindows(
   const waveHeight = topRec.waveHeightBadge ?? topRec.forecast.wave_height ?? "—";
   const topConditions = extractConditions(topRec.forecast);
   // Calibration is keyed on the SOURCE forecast (top rec or matched rec), not
-  // the slot. Synthetic fallback slots inherit the top rec's calibration
-  // because the displayed height comes from its slotForecasts or waveHeight.
+  // the slot. Only the top-rec slot and matched-rec slots have a known
+  // calibration state; synthetic fallback slots represent a different
+  // population and must render with `isCalibrated: undefined` so
+  // WaveHeightDisplay falls back to the backward-compat (no marker) path
+  // rather than misattributing the top rec's state.
   const topIsCalibrated = topRec.forecast.isCalibrated;
 
   return TIME_SLOT_HOURS.map(({ time, hour, label }) => {
@@ -161,12 +164,13 @@ function transformToTimeWindows(
     let slotLabel: string;
     let height: string;
     let conditions = topConditions;
-    let isCalibrated: boolean | undefined = topIsCalibrated;
+    let isCalibrated: boolean | undefined;
 
     if (isBest) {
       quality = bestScore;
       slotLabel = topRec.summary.length > 0 ? topRec.summary : label;
       height = waveHeight;
+      isCalibrated = topIsCalibrated;
     } else {
       // Check if another recommendation lands in this slot
       const matchedRec = recommendations.find((r) => {
@@ -181,7 +185,11 @@ function transformToTimeWindows(
         conditions = extractConditions(matchedRec.forecast);
         isCalibrated = matchedRec.forecast.isCalibrated;
       } else {
-        // Synthetic fallback: quality degrades away from the best slot
+        // Synthetic fallback: quality degrades away from the best slot.
+        // The slot is NOT backed by a real forecast for a matched beach, so
+        // its calibration state is unknown — leave `isCalibrated` undefined
+        // so WaveHeightDisplay renders the backward-compat (no marker) path
+        // rather than misattributing the top rec's state to a different slot.
         const hourDiff = Math.abs(hour - bestHour);
         quality = Math.max(0.1, bestScore - hourDiff * 0.15);
         slotLabel = label;
