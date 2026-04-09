@@ -147,12 +147,18 @@ function transformToTimeWindows(
   const bestScore = topRec.score / 100; // normalise 0-100 → 0-1
   const waveHeight = topRec.waveHeightBadge ?? topRec.forecast.wave_height ?? "—";
   const topConditions = extractConditions(topRec.forecast);
-  // Calibration is keyed on the SOURCE forecast (top rec or matched rec), not
-  // the slot. Only the top-rec slot and matched-rec slots have a known
-  // calibration state; synthetic fallback slots represent a different
-  // population and must render with `isCalibrated: undefined` so
-  // WaveHeightDisplay falls back to the backward-compat (no marker) path
-  // rather than misattributing the top rec's state.
+  // Calibration is keyed on the SOURCE BEACH. The top rec, every synthetic
+  // fallback slot, and any slot using `topRec.slotForecasts[hour]` ALL
+  // render data from the top rec's same beach (see
+  // surf-discovery-orchestrator.ts:758 — slotForecasts is built from
+  // `forecastsByBeachId.get(topRec.beach.id)`, i.e. hourly forecasts for the
+  // same beach at different times of day). So they share the top rec's
+  // calibration state. Only matched-rec slots — windows that found a
+  // DIFFERENT recommendation for that hour — get their own per-rec
+  // calibration. Earlier code review (I4) incorrectly assumed synthetic
+  // slots were for different beaches and stamped them undefined; that
+  // produced an asymmetric label render in TodaysWindows where some cards
+  // showed "Face height" and others showed nothing.
   const topIsCalibrated = topRec.forecast.isCalibrated;
 
   return TIME_SLOT_HOURS.map(({ time, hour, label }) => {
@@ -186,10 +192,10 @@ function transformToTimeWindows(
         isCalibrated = matchedRec.forecast.isCalibrated;
       } else {
         // Synthetic fallback: quality degrades away from the best slot.
-        // The slot is NOT backed by a real forecast for a matched beach, so
-        // its calibration state is unknown — leave `isCalibrated` undefined
-        // so WaveHeightDisplay renders the backward-compat (no marker) path
-        // rather than misattributing the top rec's state to a different slot.
+        // The slot data — when present — is hourly forecast data from the
+        // top rec's SAME beach (see comment on topIsCalibrated above). So
+        // calibration matches the top rec.
+        isCalibrated = topIsCalibrated;
         const hourDiff = Math.abs(hour - bestHour);
         quality = Math.max(0.1, bestScore - hourDiff * 0.15);
         slotLabel = label;
