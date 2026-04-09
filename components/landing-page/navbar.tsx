@@ -18,6 +18,11 @@ import { REGION_GROUPS } from "@/lib/data/region-groups";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
+import {
+  trackSigninCtaClick,
+  trackSignupCtaClick,
+  trackSignupCtaView,
+} from "@/lib/analytics/signup-conversion-tracking";
 import { useLandingLocation } from "@/hooks/use-landing-location";
 import HeroSearchLazy from "@/components/landing-page/hero-search-lazy";
 import { useRouter } from "next/navigation";
@@ -78,6 +83,12 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
   // Prevent hydration mismatch from Radix UI components generating different IDs
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  // Fire a single landing-navbar CTA view per browser session.
+  // Session-level dedup inside trackSignupCtaView keys on source.
+  useEffect(() => {
+    trackSignupCtaView({ source: "landing-navbar", cta_type: "nav_button" });
   }, []);
 
   // Auto-open login modal for returning users (once per mount)
@@ -201,6 +212,10 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
             <div className="flex items-center gap-4 ml-2">
               <button
                 onClick={() => {
+                  trackSigninCtaClick({
+                    source: "landing-navbar",
+                    cta_type: "nav_button",
+                  });
                   setAuthMode("login");
                   setAuthModalOpen(true);
                   trackAuthModalOpened({
@@ -214,6 +229,10 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
               </button>
               <Button
                 onClick={() => {
+                  trackSignupCtaClick({
+                    source: "landing-navbar",
+                    cta_type: "nav_button",
+                  });
                   setAuthMode("signup");
                   setAuthModalOpen(true);
                   trackAuthModalOpened({
@@ -328,6 +347,10 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                       size="lg"
                       className="w-full bg-ocean-blue hover:bg-ocean-blue/90 text-white font-semibold"
                       onClick={() => {
+                        trackSignupCtaClick({
+                          source: "landing-navbar-mobile",
+                          cta_type: "nav_button",
+                        });
                         setMobileMenuOpen(false);
                         setAuthMode("signup");
                         setAuthModalOpen(true);
@@ -344,6 +367,10 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                       size="lg"
                       className="w-full text-gray-600"
                       onClick={() => {
+                        trackSigninCtaClick({
+                          source: "landing-navbar-mobile",
+                          cta_type: "nav_button",
+                        });
                         setMobileMenuOpen(false);
                         setAuthMode("login");
                         setAuthModalOpen(true);

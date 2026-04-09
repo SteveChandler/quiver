@@ -81,7 +81,7 @@ export function PublicContentGate({
     setAuthModalOpen(true);
     trackAuthModalOpened({
       mode: "signup",
-      source: `public-content-gate-${source}`,
+      source,
     });
   };
 
@@ -94,7 +94,7 @@ export function PublicContentGate({
     setAuthModalOpen(true);
     trackAuthModalOpened({
       mode: "login",
-      source: `public-content-gate-${source}`,
+      source,
     });
   };
 
