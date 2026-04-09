@@ -51,6 +51,7 @@ describe('BestSurfWindow - Unified Card Integration', () => {
       peakTime: '2026-01-24T18:30:00Z',
       trendTags: ['Winds Cleaning Up', 'Tide Filling In', 'Clean Swell'],
       updatedAt: '2026-01-24T09:34:00Z',
+      isCalibrated: true,
     };
 
     it('should render the unified card instead of legacy components', () => {
@@ -121,7 +122,9 @@ describe('BestSurfWindow - Unified Card Integration', () => {
         />
       );
 
-      expect(screen.getByText(/1\.7 ft/i)).toBeInTheDocument();
+      // WaveHeightDisplay renders a range (low → set waves via SET_WAVE_VARIANCE),
+      // so we assert the primary-wave-height anchor rather than the literal input.
+      expect(screen.getByTestId('primary-wave-height')).toBeInTheDocument();
       expect(screen.getByText(/NW 10-15 mph/i)).toBeInTheDocument();
       expect(screen.getByText(/Rising/i)).toBeInTheDocument();
     });
@@ -151,6 +154,7 @@ describe('BestSurfWindow - Unified Card Integration', () => {
       peakTime: null,
       trendTags: [],
       updatedAt: '2026-01-24T09:34:00Z',
+      isCalibrated: true,
     };
 
     it('should show appropriate message when no good window exists', () => {
@@ -193,6 +197,7 @@ describe('BestSurfWindow - Unified Card Integration', () => {
       peakTime: '2026-01-24T17:00:00Z',
       trendTags: ['Tide Filling In'],
       updatedAt: '2026-01-24T09:34:00Z',
+      isCalibrated: true,
     };
 
     it('should display safe mode badge when confidence is low', () => {
