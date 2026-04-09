@@ -95,6 +95,39 @@ export function WaveHeightDisplay({
     </span>
   ) : null;
 
+  // Auto-rendered micro-label below the number. Only appears when the caller
+  // has opted into the honesty layer by passing `isCalibrated` explicitly —
+  // when undefined, we preserve the pre-honesty-layer render exactly.
+  //
+  // Screen readers pick up this label as the primary semantic signal for the
+  // calibrated/uncalibrated distinction (the `~` prefix is aria-hidden and
+  // the dotted underline is a CSS border that ATs ignore). See
+  // docs/design/calibration-honesty-spec.md §9.
+  const honestyLabel =
+    isCalibrated === undefined
+      ? null
+      : (
+          <span
+            className="text-[11px] leading-tight text-muted-foreground/80"
+            data-testid="wave-height-label"
+          >
+            {isCalibrated ? "Face height" : "Forecast height"}
+          </span>
+        );
+
+  // Wraps a number-row node with a column-stacked label when the honesty
+  // layer is active. When `honestyLabel` is null (isCalibrated === undefined)
+  // the number row is returned untouched — backward-compat lock-in.
+  const withLabel = (numberRow: React.ReactNode) => {
+    if (!honestyLabel) return numberRow;
+    return (
+      <span className="inline-flex flex-col items-start">
+        {numberRow}
+        {honestyLabel}
+      </span>
+    );
+  };
+
   // -----------------------------------------------------------------
   // Honesty layer (State B): uncalibrated beaches get a ~ prefix,
   // dotted underline on the digits, and a single-line tooltip.
@@ -117,10 +150,10 @@ export function WaveHeightDisplay({
     );
 
     if (!showTooltip) {
-      return uncalibratedContent;
+      return withLabel(uncalibratedContent);
     }
 
-    return (
+    return withLabel(
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>{uncalibratedContent}</TooltipTrigger>
@@ -143,7 +176,7 @@ export function WaveHeightDisplay({
   );
 
   if (!showTooltip) {
-    return content;
+    return withLabel(content);
   }
 
   // Determine data source display info
@@ -193,7 +226,7 @@ export function WaveHeightDisplay({
     approximate: "text-yellow-600",
   }[sourceInfo.quality];
 
-  return (
+  return withLabel(
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
