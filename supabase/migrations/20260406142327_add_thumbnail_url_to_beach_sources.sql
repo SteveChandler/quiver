@@ -2,4 +2,8 @@
 -- to reconcile drift from a parallel branch that applied directly to prod.
 -- This migration was already applied to prod on 2026-04-06 14:23:27 UTC.
 
+BEGIN;
+
 ALTER TABLE beach_sources ADD COLUMN IF NOT EXISTS thumbnail_url text;
+
+COMMIT;

@@ -5,6 +5,8 @@
 -- deleted as part of this drift fix (the original used moddatetime which
 -- isn't installed on this project; this version uses public.set_updated_at()).
 
+BEGIN;
+
 -- Alert rules: one row per user-defined alert on a beach
 CREATE TABLE alert_rules (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -121,3 +123,5 @@ CREATE TRIGGER set_alert_rules_updated_at
   BEFORE UPDATE ON alert_rules
   FOR EACH ROW
   EXECUTE FUNCTION public.set_updated_at();
+
+COMMIT;
