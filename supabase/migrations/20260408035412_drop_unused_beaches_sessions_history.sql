@@ -1,3 +1,7 @@
+-- Backfilled from remote supabase_migrations.schema_migrations on 2026-04-08
+-- to reconcile drift from a parallel branch that applied directly to prod.
+-- This migration was already applied to prod on 2026-04-08 03:54:12 UTC.
+
 -- Migration: Drop unused beaches_history and sessions_history audit tables
 --
 -- Why this exists:

@@ -150,28 +150,36 @@ Semi-custom spots use the same format but with `"custom": false` and rely on `br
 
 ### Prompt Template (Gemini)
 
-Base template generates the isometric miniature diorama. Variables injected per spot and condition:
+**Style: "Diorama Light"** — photorealistic cinematic surf photography with BUCK studio material/texture cues that give it a crafted, tactile feel. NOT full miniature-on-a-display-base. The Surfline-style landscape angle (camera from bluff/beach looking out toward ocean) solved the wave direction problem that plagued the isometric top-down approach.
+
+Base template — variables injected per spot and condition:
 
 ```
 A hyper-detailed miniature diorama of {spot.name}, rendered as a handcrafted
-architectural model on a rectangular display base. Isometric 3/4 elevated view
-looking down at 35 degrees.
+architectural model. Camera positioned {spot.camera_position} — a scenic
+landscape view, NOT top-down, NOT a display box with walls.
 
-The scene features: {spot.landmarks}
+Foreground: {spot.foreground_description}. Mid-ground: {spot.midground_description}
+with surfers and beachgoers. Waves rolling in from the ocean toward shore with
+white foam lines. Background: {spot.background_description}.
 
-Break type: {spot.break_type} with {spot.sand_color} sand.
-{condition.wave_description}
-{condition.lighting_description}
+{spot.extra_details}
 
-Surfers in the water on both sides of the break. Beachgoers on the sand.
-Miniature figurines with chunky proportions like hand-painted model railway figures.
+Materials: {spot.materials_list}.
 
-Materials: laser-cut balsa wood, poured translucent epoxy resin for water,
-real fine craft sand, polymer clay figurines, brass wire railings.
-
-BUCK design studio stop-motion aesthetic. Warm, nostalgic Southern California feel.
-Studio product photography on a clean warm-to-cool gradient background.
+BUCK design studio stop-motion aesthetic. NOT a cross-section, cutaway, or
+shadowbox. Photorealistic cinematic quality. The scene sits on a clean solid
+dark navy background (#252D6B) so the diorama appears to float.
 ```
+
+**Key prompt learnings (validated on Black's, Scripps, Rincon):**
+- Surfline-style bluff/overlook angle completely solves wave direction problem
+- Keeping "miniature diorama" + "handcrafted architectural model" steers Gemini toward crafted feel even though output reads as photorealistic
+- BUCK studio + material descriptions (epoxy resin, polymer clay, balsa wood) add the "diorama light" quality
+- "NOT a cross-section or cutaway" still needed to prevent geological cutaway views
+- "NOT a display box with walls" prevents Gemini from adding shadowbox frames
+- Don't over-specify wave direction — natural landscape perspective handles it
+- Navy #252D6B background makes diorama float in the app's dark UI
 
 Condition modifiers:
 

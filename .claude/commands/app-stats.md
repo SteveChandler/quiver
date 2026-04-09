@@ -6,7 +6,7 @@ p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT L
 ```
 This filters out test accounts, local dev accounts, and seed/demo data (`@example.invalid`).
 
-Run these 23 SQL queries **in parallel** against project `vawdnbbgawichorsjiwe` using the Supabase MCP `execute_sql` tool directly from the main session (do NOT delegate to subagents — they cannot access MCP tools):
+Run these 24 SQL queries **in parallel** against project `vawdnbbgawichorsjiwe` using the Supabase MCP `execute_sql` tool directly from the main session (do NOT delegate to subagents — they cannot access MCP tools):
 
 ### Query 1: Users
 ```sql
@@ -481,6 +481,13 @@ GROUP BY data_source
 ORDER BY beach_count DESC;
 ```
 
+### Query 14b: Corrected Forecasts Freshness
+```sql
+SELECT max(corrected_at) as latest_correction,
+  count(*) FILTER (WHERE corrected_at > now() - interval '24 hours') as corrections_24h
+FROM corrected_forecasts;
+```
+
 ### Query 15: Signup Funnel Breakdown (7d)
 ```sql
 SELECT
@@ -665,6 +672,12 @@ Add to the dashboard output:
 | Source | Beaches | Avg Age | Critical |
 |--------|---------|---------|----------|
 | {data_source} | {beach_count} | {avg_age_hours}h | {critical_count} |
+
+### Corrected Forecasts
+| Metric | Value |
+|--------|-------|
+| Latest Correction | {latest_correction} |
+| Corrections (24h) | {corrections_24h} |
 ```
 
 ## Anomaly Flags
@@ -683,6 +696,7 @@ After the dashboard, flag any of these conditions:
 - **Enhanced forecasts all stale** (Query 13: avg_age_hours > 16 for enhanced source) — "All enhanced forecasts avg {n}h old — discovery will show stale/empty results"
 - **Marine forecasts stale** (Query 13: critical_stale > 50 for marine source) — "Marine forecasts: {n} beaches >6h stale"
 - **Low forecast coverage** (Query 13: coverage_pct < 90 for enhanced source) — "Forecast coverage at {n}% — {missing} beaches have no data"
+- **Corrected forecasts stale** (Query 14b: latest_correction older than 48h or corrections_24h = 0) — "No forecast corrections in 24h+ — correction pipeline may be down"
 - **Zero social activity** (Query 19: new_follows_7d = 0 AND total_follows > 0) — "No new follows in 7 days — social features may be stale"
 - **Zero session engagement** (Query 20: likes_7d + comments_7d + shares_7d = 0) — "No likes, comments, or shares in 7 days"
 - **Referral stall** (Query 21: total_referrals > 0 AND referrals_7d = 0) — "No new referrals in 7 days"

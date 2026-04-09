@@ -33,6 +33,7 @@ import { HorizonStrip } from "@/components/forecast/horizon-strip";
 import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
 import { formatTideHeight } from "@/lib/formatters/surf-data";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
+import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
 import { EmbedCodeButton } from "@/components/beach-detail/embed-code-modal";
 import { DataErrorBoundary } from "@/components/error-boundaries";
 // PersonalizedForecastTeaser and useAuth removed — Phase 1A CTA reduction.
@@ -253,6 +254,14 @@ export function ForecastTab({
 
   const heroWaveHeight = formatMetric(currentForecast?.wave_height);
 
+  // Population-level calibration flag: true when this beach has an empirical
+  // shoaling calibration (`beaches.shoaling_factors IS NOT NULL`). Used by the
+  // honesty layer to switch wave-height displays between "Face height" and
+  // "Forecast height". See docs/design/calibration-honesty-spec.md and the
+  // matching convention in app/api/forecasts/update-enhanced/route.ts.
+  const beachIsCalibrated =
+    (beach as Beach & { shoaling_factors?: unknown })?.shoaling_factors != null;
+
   // Dynamic tide display with fallback to static forecast values
   const heroNextTideType = dynamicTide.nextTide
     ? dynamicTide.nextTide.type === "high"
@@ -407,7 +416,16 @@ export function ForecastTab({
                         Swell
                       </div>
                       <div className="mt-0.5 sm:mt-2 text-base sm:text-2xl font-bold text-white">
-                        {heroWaveHeight} ft
+                        {heroWaveHeight === "—" ? (
+                          "— ft"
+                        ) : (
+                          <WaveHeightDisplay
+                            height={`${heroWaveHeight} ft`}
+                            isCalibrated={beachIsCalibrated}
+                            showTooltip={true}
+                            className="text-base sm:text-2xl font-bold text-white"
+                          />
+                        )}
                       </div>
                       <div className="text-xs sm:text-sm text-white/60">
                         {snapshotSwellDetails}

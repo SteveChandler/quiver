@@ -1,3 +1,4 @@
+// TODO: needs envelope test — cover isCalibrated stamping (true/false/batch mixed)
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
@@ -58,7 +59,7 @@ const QuerySchema = z.object({
  */
 async function surfDiscoveryHandler(
   request: NextRequest,
-  { user }: AuthenticatedContext
+  { user, supabase }: AuthenticatedContext
 ): Promise<NextResponse> {
   // 1. Parse and validate query parameters
   const { searchParams } = new URL(request.url);
@@ -106,6 +107,44 @@ async function surfDiscoveryHandler(
     maxResults,
     timeSlot,
   });
+
+  // 3a. Stamp empirical shoaling calibration status onto each recommendation's
+  // forecast so the honesty-layer UI can distinguish calibrated face heights
+  // from forecast-only sig-wave heights. Only the boolean is exposed; the raw
+  // ~4KB shoaling_factors JSONB stays server-side. One batch query keyed on
+  // the recommended beach IDs. Errors default every entry to `false` (safer
+  // conservative render).
+  if (discovery.recommendations.length > 0) {
+    const beachIds = Array.from(
+      new Set(discovery.recommendations.map((r) => r.beach.id))
+    );
+    const calibratedMap = new Map<string, boolean>();
+    try {
+      const { data: beachRows, error: beachError } = await supabase
+        .from('beaches')
+        .select('id, shoaling_factors')
+        .in('id', beachIds);
+      if (beachError) {
+        console.warn(
+          '[surf/discover] Failed to fetch calibration status:',
+          beachError.message
+        );
+      } else {
+        (beachRows || []).forEach((row: { id: string; shoaling_factors: unknown }) => {
+          calibratedMap.set(row.id, row.shoaling_factors !== null);
+        });
+      }
+    } catch (err) {
+      console.warn('[surf/discover] Error fetching calibration status:', err);
+    }
+    discovery.recommendations = discovery.recommendations.map((rec) => ({
+      ...rec,
+      forecast: {
+        ...rec.forecast,
+        isCalibrated: calibratedMap.get(rec.beach.id) ?? false,
+      },
+    }));
+  }
 
   // 4. Generate ETag for conditional request support
   const responseData = { success: true, data: discovery };

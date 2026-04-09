@@ -5,6 +5,7 @@ import { getSpotSurfReport } from '@/actions/spot/spot-surf-report-actions';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { formatTimeInTimezone, formatTimeCasual } from '@/lib/utils/date-time';
 import { PublicContentGate } from '@/components/ui/public-content-gate';
+import { WaveHeightDisplay } from '@/components/ui/wave-height-display';
 
 
 interface SpotSurfReportProps {
@@ -130,7 +131,20 @@ export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false 
                     );
                   }
                   if (report.waveHeight) {
-                    items.push(<span key="wave" className="font-heading font-semibold text-dark-grey">{report.waveHeight}</span>);
+                    // Calibration honesty layer: renders ~ prefix, dotted
+                    // underline, and Face/Forecast height label based on the
+                    // beach-level isCalibrated flag plumbed through the
+                    // SurfCallResult from computeSurfCall(). See
+                    // docs/design/calibration-honesty-spec.md.
+                    items.push(
+                      <WaveHeightDisplay
+                        key="wave"
+                        height={report.waveHeight}
+                        isCalibrated={report.isCalibrated}
+                        showTooltip={true}
+                        className="font-heading font-semibold text-dark-grey"
+                      />
+                    );
                   }
                   if (windDisplay) {
                     items.push(<span key="wind" className="font-heading text-sm text-dark-grey">{windDisplay}</span>);

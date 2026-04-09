@@ -27,6 +27,13 @@ export interface TimeWindow {
   tideHeight?: string;
   /** Tide status, e.g. "Rising" or "Falling" */
   tideStatus?: string;
+  /**
+   * True when this window's source beach has an empirical shoaling
+   * calibration (`beaches.shoaling_factors IS NOT NULL`). Drives the
+   * WaveHeightDisplay honesty-layer render (~ prefix + dotted underline).
+   * Undefined for synthetic/fallback slots that have no backing forecast.
+   */
+  isCalibrated?: boolean;
 }
 
 export interface TodaysWindowsProps {
@@ -164,16 +171,20 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow 
                     )}
                   </div>
 
-                  {/* Wave height — 48px fixed width */}
+                  {/* Wave height — 64px fixed width, nowrap so decimal
+                      ranges like "1.5-2.5ft" don't wrap. The wider column
+                      keeps visual rhythm consistent across all 5 cards
+                      regardless of which range string the slot displays. */}
                   {window.height === "—" && !window.isBest ? (
-                    <span className="w-12 shrink-0 text-right text-sm font-semibold text-white/30">
+                    <span className="w-16 shrink-0 whitespace-nowrap text-right text-sm font-semibold text-white/30">
                       —
                     </span>
                   ) : (
                     <WaveHeightDisplay
                       height={window.height}
                       showTooltip={false}
-                      className="w-12 shrink-0 text-right text-sm font-semibold text-high"
+                      className="w-16 shrink-0 whitespace-nowrap text-right text-sm font-semibold text-high"
+                      isCalibrated={window.isCalibrated}
                     />
                   )}
                 </div>

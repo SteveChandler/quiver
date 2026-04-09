@@ -26,6 +26,7 @@ function makeReport(overrides: Partial<SurfCallResult> = {}): SurfCallResult {
     peakTime: null,
     trendTags: [],
     updatedAt: "2025-01-15T10:00:00Z",
+    isCalibrated: true,
     ...overrides,
   };
 }
@@ -158,7 +159,7 @@ describe("SpotSurfReport", () => {
             verdict: "NO",
             bestWindowStart: null,
             bestWindowEnd: null,
-            waveHeight: "3 ft",
+            waveHeight: "3-4 ft",
             windSpeed: null,
             windDescription: "Unknown",
             tidePhase: null,
@@ -167,7 +168,10 @@ describe("SpotSurfReport", () => {
         />
       );
 
-      expect(screen.getByText("3 ft")).toBeInTheDocument();
+      // WaveHeightDisplay preserves existing range strings unchanged
+      expect(screen.getByTestId("primary-wave-height")).toHaveTextContent(
+        "3-4 ft"
+      );
       expect(screen.queryByText("·")).not.toBeInTheDocument();
     });
 
@@ -178,7 +182,7 @@ describe("SpotSurfReport", () => {
             verdict: "NO",
             bestWindowStart: null,
             bestWindowEnd: null,
-            waveHeight: "3 ft",
+            waveHeight: "3-4 ft",
             windSpeed: "10 mph",
             windCompass: "N",
             windType: null,
@@ -188,7 +192,9 @@ describe("SpotSurfReport", () => {
         />
       );
 
-      expect(screen.getByText("3 ft")).toBeInTheDocument();
+      expect(screen.getByTestId("primary-wave-height")).toHaveTextContent(
+        "3-4 ft"
+      );
       expect(screen.getByText("N 10 mph")).toBeInTheDocument();
       expect(screen.getAllByText("·")).toHaveLength(1);
     });
@@ -309,6 +315,46 @@ describe("SpotSurfReport", () => {
       // Only heading and verdict should exist, no conditions row
       expect(screen.queryByText("Best window")).not.toBeInTheDocument();
       expect(screen.queryByText("·")).not.toBeInTheDocument();
+    });
+  });
+
+  // ==========================================================================
+  // Calibration honesty layer
+  // ==========================================================================
+  //
+  // SpotSurfReport is the anonymous landing surface for /{state}/{city}/{beachSlug}
+  // beach detail pages. The isCalibrated flag flows from
+  // `beach.shoaling_factors != null` through computeSurfCall into the report,
+  // and the conditions row uses WaveHeightDisplay to render the honesty layer
+  // visuals. Spec: docs/design/calibration-honesty-spec.md.
+  describe("calibration honesty layer", () => {
+    it("renders 'Face height' label when report.isCalibrated is true", () => {
+      render(
+        <SpotSurfReport
+          report={makeReport({ isCalibrated: true, waveHeight: "3-4 ft" })}
+          spotName="Blacks"
+        />
+      );
+
+      const label = screen.getByTestId("wave-height-label");
+      expect(label).toHaveTextContent("Face height");
+      expect(screen.queryByText("Forecast height")).toBeNull();
+    });
+
+    it("renders 'Forecast height' label + ~ prefix when report.isCalibrated is false", () => {
+      const { container } = render(
+        <SpotSurfReport
+          report={makeReport({ isCalibrated: false, waveHeight: "3-4 ft" })}
+          spotName="Bolinas"
+        />
+      );
+
+      const label = screen.getByTestId("wave-height-label");
+      expect(label).toHaveTextContent("Forecast height");
+      // ~ prefix is rendered as an aria-hidden sibling of the number
+      expect(screen.getByText("~")).toBeInTheDocument();
+      // Dotted underline is the load-bearing visual marker
+      expect(container.querySelector(".border-dotted")).not.toBeNull();
     });
   });
 });

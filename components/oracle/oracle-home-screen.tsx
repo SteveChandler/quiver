@@ -147,6 +147,19 @@ function transformToTimeWindows(
   const bestScore = topRec.score / 100; // normalise 0-100 → 0-1
   const waveHeight = topRec.waveHeightBadge ?? topRec.forecast.wave_height ?? "—";
   const topConditions = extractConditions(topRec.forecast);
+  // Calibration is keyed on the SOURCE BEACH. The top rec, every synthetic
+  // fallback slot, and any slot using `topRec.slotForecasts[hour]` ALL
+  // render data from the top rec's same beach (see
+  // surf-discovery-orchestrator.ts:758 — slotForecasts is built from
+  // `forecastsByBeachId.get(topRec.beach.id)`, i.e. hourly forecasts for the
+  // same beach at different times of day). So they share the top rec's
+  // calibration state. Only matched-rec slots — windows that found a
+  // DIFFERENT recommendation for that hour — get their own per-rec
+  // calibration. Earlier code review (I4) incorrectly assumed synthetic
+  // slots were for different beaches and stamped them undefined; that
+  // produced an asymmetric label render in TodaysWindows where some cards
+  // showed "Face height" and others showed nothing.
+  const topIsCalibrated = topRec.forecast.isCalibrated;
 
   return TIME_SLOT_HOURS.map(({ time, hour, label }) => {
     // Check if this slot covers the top rec's window start
@@ -157,11 +170,13 @@ function transformToTimeWindows(
     let slotLabel: string;
     let height: string;
     let conditions = topConditions;
+    let isCalibrated: boolean | undefined;
 
     if (isBest) {
       quality = bestScore;
       slotLabel = topRec.summary.length > 0 ? topRec.summary : label;
       height = waveHeight;
+      isCalibrated = topIsCalibrated;
     } else {
       // Check if another recommendation lands in this slot
       const matchedRec = recommendations.find((r) => {
@@ -174,8 +189,13 @@ function transformToTimeWindows(
         height = matchedRec.waveHeightBadge ?? matchedRec.forecast.wave_height ?? "—";
         slotLabel = label;
         conditions = extractConditions(matchedRec.forecast);
+        isCalibrated = matchedRec.forecast.isCalibrated;
       } else {
-        // Synthetic fallback: quality degrades away from the best slot
+        // Synthetic fallback: quality degrades away from the best slot.
+        // The slot data — when present — is hourly forecast data from the
+        // top rec's SAME beach (see comment on topIsCalibrated above). So
+        // calibration matches the top rec.
+        isCalibrated = topIsCalibrated;
         const hourDiff = Math.abs(hour - bestHour);
         quality = Math.max(0.1, bestScore - hourDiff * 0.15);
         slotLabel = label;
@@ -195,7 +215,7 @@ function transformToTimeWindows(
       }
     }
 
-    return { time, label: slotLabel, height, quality, isBest, ...conditions };
+    return { time, label: slotLabel, height, quality, isBest, isCalibrated, ...conditions };
   });
 }
 

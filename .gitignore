@@ -27,6 +27,7 @@
 /*.png
 /*.jpeg
 /*.jpg
+/screenshots/
 
 # debug
 npm-debug.log*

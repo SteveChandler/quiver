@@ -9,7 +9,10 @@ import {
   getFreshForecastFromCache,
 } from "@/lib/utils/forecast-server-utils";
 import { withAdminAuth } from "@/lib/middleware/api-wrappers";
-import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import {
+  createSupabaseServiceRoleClient,
+  createPublicReadClient,
+} from "@/lib/supabase/server";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 /**
@@ -187,7 +190,45 @@ export async function GET(request: NextRequest) {
     // Merge ML bias corrections into forecasts
     // This adds ml_corrected_height, is_ml_calibrated, ml_model_version
     // to forecasts that have ML corrections available
-    const forecasts = await mergeMLCorrections(result.forecasts, beachId);
+    const mlMergedForecasts = await mergeMLCorrections(result.forecasts, beachId);
+
+    // Stamp empirical shoaling calibration status onto each forecast entity.
+    // We expose only the boolean — `shoaling_factors` is ~4KB of JSONB per
+    // beach and the client only needs to know whether the displayed wave
+    // height came from the calibrated pipeline. Errors default to `false`
+    // (safer conservative render in the honesty UI). Skip the query entirely
+    // when there are no forecasts to stamp.
+    //
+    // This is a PUBLIC GET route and `beaches.shoaling_factors` is readable
+    // by the anon role via RLS. Use `createPublicReadClient` (cookie-free
+    // anon) instead of the service-role client — no privilege escalation is
+    // warranted for this read. If RLS ever hides `shoaling_factors` from
+    // anon, fix the RLS policy; do NOT re-escalate here.
+    let isCalibrated = false;
+    if (mlMergedForecasts.length > 0) {
+      try {
+        const beachClient = createPublicReadClient();
+        const { data: beachRow, error: beachError } = await beachClient
+          .from("beaches")
+          .select("shoaling_factors")
+          .eq("id", beachId)
+          .maybeSingle();
+        if (beachError) {
+          console.warn(
+            `⚠️ Failed to fetch calibration status for beach ${beachId}:`,
+            beachError.message
+          );
+        } else if (beachRow) {
+          isCalibrated = beachRow.shoaling_factors !== null;
+        }
+      } catch (err) {
+        console.warn(
+          `⚠️ Error fetching calibration status for beach ${beachId}:`,
+          err
+        );
+      }
+    }
+    const forecasts = mlMergedForecasts.map((f) => ({ ...f, isCalibrated }));
     const hasData = forecasts.length > 0;
 
     // Build response with consistent shape

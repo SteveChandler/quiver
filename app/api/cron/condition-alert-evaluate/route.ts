@@ -2,7 +2,7 @@
 // via an explicit `profiles!inner(...)` hint, but TypeScript can't follow the
 // two-hop FK chain, so the generated types report
 // `could not find the relation between alert_rules and profiles` even though
-// the query works at runtime. See 20260401000000_add_condition_alerts.sql.
+// the query works at runtime. See 20260408163000_add_condition_alerts.sql.
 // app/api/cron/condition-alert-evaluate/route.ts
 import { NextResponse } from "next/server";
 import { validateCronRequest } from "@/lib/api-utils";

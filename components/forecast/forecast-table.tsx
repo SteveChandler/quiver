@@ -280,6 +280,7 @@ function ForecastDayTable({
                         dataSource={forecast.data_source}
                         confidenceScore={forecast.confidence_score}
                         isMlCalibrated={forecast.is_ml_calibrated}
+                        isCalibrated={forecast.isCalibrated}
                       />
                     </div>
                   </td>

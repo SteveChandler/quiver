@@ -3491,6 +3491,7 @@ export type Database = {
           production_improvement_pct: number | null
           status: string
           training_completed_at: string | null
+          training_diagnostics: Json | null
           training_samples: number
           training_started_at: string | null
           training_window_days: number
@@ -3508,6 +3509,7 @@ export type Database = {
           production_improvement_pct?: number | null
           status?: string
           training_completed_at?: string | null
+          training_diagnostics?: Json | null
           training_samples: number
           training_started_at?: string | null
           training_window_days: number
@@ -3525,6 +3527,7 @@ export type Database = {
           production_improvement_pct?: number | null
           status?: string
           training_completed_at?: string | null
+          training_diagnostics?: Json | null
           training_samples?: number
           training_started_at?: string | null
           training_window_days?: number
