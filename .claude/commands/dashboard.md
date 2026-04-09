@@ -15,9 +15,9 @@ Launch these 4 bash commands **in parallel** using `run_in_background: true`:
 
 ### Step 2: Run all SQL queries via MCP execute_sql (in parallel with Step 1)
 
-Run **all 27 SQL queries** (17 from app-stats + 10 from growth-metrics) directly in the main session using the Supabase MCP `execute_sql` tool against project `vawdnbbgawichorsjiwe`.
+Run **all 34 SQL queries** (24 from app-stats + 10 from growth-metrics) directly in the main session using the Supabase MCP `execute_sql` tool against project `vawdnbbgawichorsjiwe`.
 
-Fire all 27 `execute_sql` calls in a **single parallel batch** — they are fully independent. This completes in seconds, not minutes.
+Fire all 34 `execute_sql` calls in a **single parallel batch** — they are fully independent. This completes in seconds, not minutes.
 
 **Do NOT:**
 - Dispatch subagents for SQL queries (they can't access MCP tools)
