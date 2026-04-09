@@ -43,6 +43,19 @@ export interface SurfCallResult {
   peakTime: string | null;
   trendTags: TrendTag[];
   updatedAt: string;
+  /**
+   * **Beach-level** calibration flag. `true` means this beach has an empirical
+   * shoaling calibration (`beaches.shoaling_factors IS NOT NULL`) — the surf
+   * report consumers render the honesty layer's calibrated state ("Face height"
+   * label). `false` means the beach is ML-only / forecast-only — consumers apply
+   * the `~` prefix, dotted underline, "Forecast height" label, and tooltip.
+   *
+   * This is a population-level signal, not a per-reading claim. Matches the
+   * semantic on `EnhancedForecastEntity.isCalibrated` and the WaveHeightDisplay
+   * `isCalibrated` prop. Source: `beach.shoaling_factors !== null` at the call
+   * site that owns the Beach record.
+   */
+  isCalibrated: boolean;
 }
 
 // ============================================================================
@@ -469,6 +482,11 @@ export function computeSurfCall(
   const { isTomorrow = false } = options;
   const now = new Date();
   const updatedAt = now.toISOString();
+  // Population-level honesty signal: true when this beach has an empirical
+  // shoaling calibration. Mirrors the API envelope semantic stamped by
+  // /api/forecasts/update-enhanced and friends.
+  const isCalibrated =
+    (beach as Beach & { shoaling_factors?: unknown })?.shoaling_factors != null;
   const baseResult: SurfCallResult = {
     verdict: 'NO',
     bestWindowStart: null,
@@ -492,6 +510,7 @@ export function computeSurfCall(
     peakTime: null,
     trendTags: [],
     updatedAt,
+    isCalibrated,
   };
 
   // Hard NO: no forecasts
@@ -636,5 +655,6 @@ export function computeSurfCall(
     peakTime,
     trendTags,
     updatedAt,
+    isCalibrated,
   };
 }

@@ -302,7 +302,10 @@ describe("ForecastTab", () => {
       render(<ForecastTab {...defaultProps} />);
 
       expect(screen.getByText("Swell")).toBeInTheDocument();
-      expect(screen.getByText("4.5 ft")).toBeInTheDocument();
+      // Swell pill now renders via WaveHeightDisplay (calibration honesty layer).
+      // The numeric range is expanded internally (low → set waves) so we assert
+      // the anchor testid rather than the literal input string.
+      expect(screen.getByTestId("primary-wave-height")).toBeInTheDocument();
     });
 
   });

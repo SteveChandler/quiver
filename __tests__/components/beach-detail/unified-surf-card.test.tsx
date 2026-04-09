@@ -42,6 +42,34 @@ jest.mock("lucide-react", () => ({
   Clock: () => <svg data-testid="clock-icon" />,
   AlertCircle: () => <svg data-testid="alert-circle-icon" />,
   Share2: () => <svg data-testid="share2-icon" />,
+  Waves: () => <svg data-testid="waves-icon" />,
+  Zap: () => <svg data-testid="zap-icon" />,
+  TrendingUp: () => <svg data-testid="trending-up-icon" />,
+  TrendingDown: () => <svg data-testid="trending-down-icon" />,
+  InfoIcon: () => <svg data-testid="info-icon" />,
+}));
+
+// Mock WaveHeightDisplay so tests focus on UnifiedSurfCard wiring without
+// pulling in Radix tooltip + transformer internals. The calibration-honesty
+// layer is exercised by wave-height-display's own test suite; here we just
+// verify the right props are forwarded.
+jest.mock("@/components/ui/wave-height-display", () => ({
+  WaveHeightDisplay: ({
+    height,
+    isCalibrated,
+  }: {
+    height: string | null;
+    isCalibrated?: boolean;
+  }) => (
+    <span
+      data-testid="wave-height-display"
+      data-is-calibrated={
+        isCalibrated === undefined ? "undefined" : String(isCalibrated)
+      }
+    >
+      {height}
+    </span>
+  ),
 }));
 
 describe("UnifiedSurfCard", () => {
@@ -71,6 +99,7 @@ describe("UnifiedSurfCard", () => {
     trendTags: [],
     whySentence: "Clean conditions with light offshore winds.",
     updatedAt: "2026-02-10T06:00:00",
+    isCalibrated: true,
     ...overrides,
   });
 
@@ -573,6 +602,47 @@ describe("UnifiedSurfCard", () => {
       expect(
         screen.getByText("Conditions are marginal but potentially surfable.")
       ).toBeInTheDocument();
+    });
+  });
+
+  // ==========================================================================
+  // Calibration honesty layer
+  // ==========================================================================
+  //
+  // UnifiedSurfCard is the "Best Time to Surf" hero shown on the beach detail
+  // forecast tab. It renders the Conditions pill through WaveHeightDisplay so
+  // the calibration honesty layer flows end-to-end: server action stamps
+  // isCalibrated from beach.shoaling_factors → threaded through SurfCallResult
+  // → forwarded to WaveHeightDisplay.
+  describe("calibration honesty layer", () => {
+    it("forwards isCalibrated=true from surfCall into WaveHeightDisplay", () => {
+      const surfCall = createMockSurfCall({ isCalibrated: true });
+
+      render(
+        <UnifiedSurfCard
+          surfCall={surfCall}
+          beachName="Blacks"
+          beachTimezone="America/Los_Angeles"
+        />
+      );
+
+      const display = screen.getByTestId("wave-height-display");
+      expect(display).toHaveAttribute("data-is-calibrated", "true");
+    });
+
+    it("forwards isCalibrated=false from surfCall into WaveHeightDisplay", () => {
+      const surfCall = createMockSurfCall({ isCalibrated: false });
+
+      render(
+        <UnifiedSurfCard
+          surfCall={surfCall}
+          beachName="Bolinas"
+          beachTimezone="America/Los_Angeles"
+        />
+      );
+
+      const display = screen.getByTestId("wave-height-display");
+      expect(display).toHaveAttribute("data-is-calibrated", "false");
     });
   });
 });

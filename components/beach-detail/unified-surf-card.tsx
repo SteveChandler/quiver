@@ -9,6 +9,7 @@ import type { ConditionCharacterCategory } from "@/lib/scoring/types";
 import { formatTimeInTimezone, formatTimeCasual } from "@/lib/utils/date-time";
 import { ShareSheet } from "@/components/share/share-sheet";
 import { buildSurfCallShareUrl } from "@/lib/share/build-share-card-url";
+import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
 import { cn } from "@/lib/utils";
 
 const TREND_TAG_STYLES: Record<TrendTag, { bg: string; text: string }> = {
@@ -341,13 +342,31 @@ export function UnifiedSurfCard({
         {/* Key Conditions */}
         <div className="bg-white/80 dark:bg-[#354090]/50 rounded-xl p-3 border border-gray-200/60 dark:border-[#404C92]/60">
           <p className="text-sm text-gray-700 font-medium mb-1">Conditions</p>
-          <p className="text-sm text-gray-600">
-            {surfCall.waveHeight && `${surfCall.waveHeight} · `}
-            {surfCall.windDescription && `${surfCall.windDescription} · `}
-            {surfCall.tidePhase &&
-              surfCall.tidePhase.charAt(0).toUpperCase() +
-                surfCall.tidePhase.slice(1)}
-          </p>
+          <div className="flex flex-wrap items-baseline gap-x-1 text-sm text-gray-600">
+            {surfCall.waveHeight && (
+              <>
+                <WaveHeightDisplay
+                  height={surfCall.waveHeight}
+                  isCalibrated={surfCall.isCalibrated}
+                  showTooltip={true}
+                  className="text-sm text-gray-600"
+                />
+                <span>·</span>
+              </>
+            )}
+            {surfCall.windDescription && (
+              <>
+                <span>{surfCall.windDescription}</span>
+                <span>·</span>
+              </>
+            )}
+            {surfCall.tidePhase && (
+              <span>
+                {surfCall.tidePhase.charAt(0).toUpperCase() +
+                  surfCall.tidePhase.slice(1)}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Why Sentence */}
