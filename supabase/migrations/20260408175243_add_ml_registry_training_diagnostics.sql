@@ -1,5 +1,8 @@
+-- Backfilled from remote supabase_migrations.schema_migrations on 2026-04-08
+-- to reconcile drift from a parallel branch that applied directly to prod.
+-- This migration was already applied to prod on 2026-04-08 17:52:43 UTC.
+
 -- Add training_diagnostics column to ml_model_registry
---
 -- Stores feature importances, bucket pass/fail, exclude_wind flag, and other
 -- metadata from the retrain pipeline. Currently this data is only written to
 -- Fly logs (short retention) and is lost between sessions, making post-mortems
@@ -8,8 +11,6 @@
 --
 -- See: seaside/training.py:344 (training_diagnostics dict construction)
 -- See: seaside/crons/retrain.py STEP 4 (registry update that writes this column)
-
-BEGIN;
 
 ALTER TABLE public.ml_model_registry
   ADD COLUMN IF NOT EXISTS training_diagnostics JSONB;
@@ -21,13 +22,3 @@ COMMENT ON COLUMN public.ml_model_registry.training_diagnostics IS
 -- (e.g. "show models where wind_speed importance > 0.05")
 CREATE INDEX IF NOT EXISTS idx_ml_model_registry_diagnostics
   ON public.ml_model_registry USING gin (training_diagnostics);
-
-COMMIT;
-
--- =============================================================================
--- ROLLBACK INSTRUCTIONS
--- =============================================================================
--- BEGIN;
--- DROP INDEX IF EXISTS public.idx_ml_model_registry_diagnostics;
--- ALTER TABLE public.ml_model_registry DROP COLUMN IF EXISTS training_diagnostics;
--- COMMIT;

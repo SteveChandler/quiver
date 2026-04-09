@@ -1,4 +1,9 @@
-BEGIN;
+-- Backfilled from remote supabase_migrations.schema_migrations on 2026-04-08
+-- to reconcile drift from a parallel branch that applied directly to prod.
+-- This migration was already applied to prod on 2026-04-08 16:30:00 UTC.
+-- Supersedes the earlier 20260401000000_add_condition_alerts.sql which was
+-- deleted as part of this drift fix (the original used moddatetime which
+-- isn't installed on this project; this version uses public.set_updated_at()).
 
 -- Alert rules: one row per user-defined alert on a beach
 CREATE TABLE alert_rules (
@@ -116,5 +121,3 @@ CREATE TRIGGER set_alert_rules_updated_at
   BEFORE UPDATE ON alert_rules
   FOR EACH ROW
   EXECUTE FUNCTION public.set_updated_at();
-
-COMMIT;
