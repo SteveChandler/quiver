@@ -37,6 +37,13 @@ describe("WaveHeightDisplay", () => {
       const { container } = renderDisplay({ showTooltip: false });
       expect(container.querySelector(".border-dotted")).toBeNull();
     });
+
+    it("renders no Face height / Forecast height label", () => {
+      renderDisplay({ showTooltip: false });
+      expect(screen.queryByText("Face height")).toBeNull();
+      expect(screen.queryByText("Forecast height")).toBeNull();
+      expect(screen.queryByTestId("wave-height-label")).toBeNull();
+    });
   });
 
   describe("isCalibrated === true (happy path)", () => {
@@ -56,6 +63,15 @@ describe("WaveHeightDisplay", () => {
     it("renders the primary-wave-height testid anchor", () => {
       renderDisplay({ isCalibrated: true, showTooltip: false });
       expect(screen.getByTestId("primary-wave-height")).toBeInTheDocument();
+    });
+
+    it("auto-renders the 'Face height' label below the number", () => {
+      renderDisplay({ isCalibrated: true, showTooltip: false });
+      const label = screen.getByTestId("wave-height-label");
+      expect(label).toBeInTheDocument();
+      expect(label).toHaveTextContent("Face height");
+      // 'Forecast height' must NOT be present
+      expect(screen.queryByText("Forecast height")).toBeNull();
     });
   });
 
@@ -133,6 +149,15 @@ describe("WaveHeightDisplay", () => {
       );
       // And the trigger wrapper is still present
       expect(screen.getByTestId("primary-wave-height")).toBeInTheDocument();
+    });
+
+    it("auto-renders the 'Forecast height' label below the number", () => {
+      renderDisplay({ isCalibrated: false, showTooltip: false });
+      const label = screen.getByTestId("wave-height-label");
+      expect(label).toBeInTheDocument();
+      expect(label).toHaveTextContent("Forecast height");
+      // 'Face height' must NOT be present
+      expect(screen.queryByText("Face height")).toBeNull();
     });
   });
 });

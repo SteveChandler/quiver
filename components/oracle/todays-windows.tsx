@@ -27,6 +27,13 @@ export interface TimeWindow {
   tideHeight?: string;
   /** Tide status, e.g. "Rising" or "Falling" */
   tideStatus?: string;
+  /**
+   * True when this window's source beach has an empirical shoaling
+   * calibration (`beaches.shoaling_factors IS NOT NULL`). Drives the
+   * WaveHeightDisplay honesty-layer render (~ prefix + dotted underline).
+   * Undefined for synthetic/fallback slots that have no backing forecast.
+   */
+  isCalibrated?: boolean;
 }
 
 export interface TodaysWindowsProps {
@@ -174,6 +181,7 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow 
                       height={window.height}
                       showTooltip={false}
                       className="w-12 shrink-0 text-right text-sm font-semibold text-high"
+                      isCalibrated={window.isCalibrated}
                     />
                   )}
                 </div>

@@ -371,3 +371,231 @@ test.describe("Regional Forecast - Error Handling", () => {
     ).toBeVisible();
   });
 });
+
+test.describe("calibration honesty layer", () => {
+  // Exact copy from marketing spec (docs/marketing/calibration-launch-copy.md).
+  // Any drift in the tooltip string should fail the assertion — this is
+  // the whole point of the honesty layer.
+  const UNCALIBRATED_TOOLTIP =
+    "Buoy forecast. Haven't surfed this one enough to call face height.";
+
+  // Beach fixtures for this suite. Not in TEST_BEACHES because these are
+  // calibration-state-specific anchors (two with shoaling_factors, two
+  // without). Verified in production DB as of branch feature/calibration-honesty.
+  const CALIBRATED_BLACKS = {
+    slug: "blacks",
+    city: "San Diego",
+    state: "CA",
+    country: "USA",
+  };
+  const CALIBRATED_LA_JOLLA_SHORES = {
+    slug: "la-jolla-shores",
+    city: "La Jolla",
+    state: "CA",
+    country: "USA",
+  };
+  const UNCALIBRATED_BOLINAS = {
+    slug: "bolinas-bolinas-ca",
+    city: "Bolinas",
+    state: "CA",
+    country: "USA",
+  };
+  const UNCALIBRATED_COCOA = {
+    slug: "cocoa-beach-pier-cocoa-beach-fl",
+    city: "Cocoa Beach",
+    state: "FL",
+    country: "USA",
+  };
+
+  const MOBILE_VIEWPORT = { width: 375, height: 667 };
+  const DESKTOP_VIEWPORT = { width: 1280, height: 800 };
+
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, {
+      context: "calibration honesty layer",
+    });
+  });
+
+  // Scoped locator: the numeric span inside the primary wave-height display.
+  // The component renders face-height digits inside a child <span>, and the
+  // testid is on the outer wrapper. Using `.locator("span").first()` gives us
+  // the dotted-underline span for class assertions.
+  const primaryWaveHeight = (page: import("@playwright/test").Page) =>
+    page.locator('[data-testid="primary-wave-height"]').first();
+
+  test("calibrated beach (Blacks) on desktop shows Face height label and no tilde", async ({
+    page,
+  }) => {
+    await page.setViewportSize(DESKTOP_VIEWPORT);
+    await page.goto(`/california/san-diego/${CALIBRATED_BLACKS.slug}`);
+    await page.waitForLoadState("load");
+    await dismissOnboardingWizard(page);
+
+    const waveHeight = primaryWaveHeight(page);
+    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.medium });
+
+    const text = (await waveHeight.innerText()).trim();
+    expect(text).not.toContain("~");
+
+    // Label "Face height" should render alongside (case-insensitive to
+    // survive typographic styling).
+    await expect(page.getByText(/Face height/i).first()).toBeVisible();
+  });
+
+  test("calibrated beach (Blacks) on mobile shows Face height label and no tilde", async ({
+    page,
+  }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.goto(`/california/san-diego/${CALIBRATED_BLACKS.slug}`);
+    await page.waitForLoadState("load");
+    await dismissOnboardingWizard(page);
+
+    const waveHeight = primaryWaveHeight(page);
+    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.medium });
+
+    const text = (await waveHeight.innerText()).trim();
+    expect(text).not.toContain("~");
+
+    await expect(page.getByText(/Face height/i).first()).toBeVisible();
+  });
+
+  test("uncalibrated beach (Bolinas) on desktop shows tilde and Forecast height label", async ({
+    page,
+  }) => {
+    await page.setViewportSize(DESKTOP_VIEWPORT);
+    await page.goto(`/california/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
+    await page.waitForLoadState("load");
+    await dismissOnboardingWizard(page);
+
+    const waveHeight = primaryWaveHeight(page);
+    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.medium });
+
+    const text = (await waveHeight.innerText()).trim();
+    expect(text).toContain("~");
+
+    await expect(page.getByText(/Forecast height/i).first()).toBeVisible();
+  });
+
+  test("uncalibrated beach (Bolinas) on mobile shows tilde and Forecast height label", async ({
+    page,
+  }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.goto(`/california/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
+    await page.waitForLoadState("load");
+    await dismissOnboardingWizard(page);
+
+    const waveHeight = primaryWaveHeight(page);
+    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.medium });
+
+    const text = (await waveHeight.innerText()).trim();
+    expect(text).toContain("~");
+
+    await expect(page.getByText(/Forecast height/i).first()).toBeVisible();
+  });
+
+  test("uncalibrated beach renders dotted-underline class on numeric span", async ({
+    page,
+  }) => {
+    await page.setViewportSize(DESKTOP_VIEWPORT);
+    await page.goto(`/california/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
+    await page.waitForLoadState("load");
+    await dismissOnboardingWizard(page);
+
+    const waveHeight = primaryWaveHeight(page);
+    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.medium });
+
+    // The uncalibrated render wraps digits in a span with
+    // `border-b border-dotted border-muted-foreground/60`. Prefer asserting
+    // on `border-dotted` — it's the stable marker across Tailwind versions.
+    const dottedSpan = waveHeight.locator("span.border-dotted").first();
+    await expect(dottedSpan).toBeVisible();
+  });
+
+  test("tooltip content appears on hover at uncalibrated beach (desktop)", async ({
+    page,
+  }) => {
+    await page.setViewportSize(DESKTOP_VIEWPORT);
+    await page.goto(`/california/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
+    await page.waitForLoadState("load");
+    await dismissOnboardingWizard(page);
+
+    const waveHeight = primaryWaveHeight(page);
+    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.medium });
+
+    await waveHeight.hover();
+
+    // Radix renders tooltip content in a portal with role="tooltip".
+    const tooltip = page.getByRole("tooltip", {
+      name: UNCALIBRATED_TOOLTIP,
+    });
+    await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.short });
+  });
+
+  test("tooltip content appears on tap at uncalibrated beach (mobile)", async ({
+    page,
+  }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.goto(`/california/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
+    await page.waitForLoadState("load");
+    await dismissOnboardingWizard(page);
+
+    const waveHeight = primaryWaveHeight(page);
+    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.medium });
+
+    // Radix tooltip on mobile opens on focus/tap. Click works in Chromium
+    // mobile emulation and preserves the hover signal.
+    await waveHeight.click();
+
+    const tooltip = page.getByRole("tooltip", {
+      name: UNCALIBRATED_TOOLTIP,
+    });
+    await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.short });
+  });
+
+  test("calibrated beach does NOT show uncalibrated tooltip copy on hover", async ({
+    page,
+  }) => {
+    await page.setViewportSize(DESKTOP_VIEWPORT);
+    await page.goto(`/california/san-diego/${CALIBRATED_BLACKS.slug}`);
+    await page.waitForLoadState("load");
+    await dismissOnboardingWizard(page);
+
+    const waveHeight = primaryWaveHeight(page);
+    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.medium });
+
+    await waveHeight.hover();
+
+    // The uncalibrated tooltip string must NOT appear at a calibrated beach.
+    // Any other tooltip (e.g. swell breakdown) is fine — we only assert on
+    // the honesty-layer copy's absence.
+    const uncalibratedTooltip = page.getByRole("tooltip", {
+      name: UNCALIBRATED_TOOLTIP,
+    });
+    await expect(uncalibratedTooltip).toHaveCount(0);
+  });
+
+  test("second calibrated beach (La Jolla Shores) sanity check on desktop", async ({
+    page,
+  }) => {
+    await page.setViewportSize(DESKTOP_VIEWPORT);
+    await page.goto(
+      `/california/la-jolla/${CALIBRATED_LA_JOLLA_SHORES.slug}`
+    );
+    await page.waitForLoadState("load");
+    await dismissOnboardingWizard(page);
+
+    const waveHeight = primaryWaveHeight(page);
+    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.medium });
+
+    const text = (await waveHeight.innerText()).trim();
+    expect(text).not.toContain("~");
+
+    await expect(page.getByText(/Face height/i).first()).toBeVisible();
+  });
+});

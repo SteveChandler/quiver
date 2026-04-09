@@ -346,12 +346,33 @@ export interface FaceHeightWithMetadata {
 
 /**
  * Transform raw Hs to face height AND report whether the calibration
- * short-circuit actually fired. Used by the display layer to qualify the
- * wave-height number with a visual honesty marker for ML-only pipelines.
+ * short-circuit actually fired. Used internally when a caller needs to
+ * know whether THIS specific reading flowed through the empirical
+ * bucket lookup.
  *
  * The `faceHeightFt` value is guaranteed to equal `transformToFaceHeight`
  * for the same params — the two functions share the exact same math path,
  * this one just surfaces the gate decision as a boolean alongside.
+ *
+ * **Beach-level vs per-reading.** This function returns the **per-reading**
+ * state — `isCalibrated: true` means the short-circuit actually fired for
+ * THIS particular call with THIS particular period/source combination. The
+ * API envelope `EnhancedForecastEntity.isCalibrated` exposed to the client
+ * is **beach-level** (`beaches.shoaling_factors IS NOT NULL`), and the UI
+ * (`WaveHeightDisplay`) consumes that beach-level signal directly. The
+ * two values can diverge: a calibrated beach with a period outside the
+ * bucket table, or a reading that fell back to model swell instead of
+ * CDIP Hs, will return `isCalibrated: false` from this function but still
+ * ship with `isCalibrated: true` on the envelope (because the beach as a
+ * population is still calibrated). This is an intentional trade-off
+ * documented in `types/forecast.ts` — the honesty layer makes a
+ * population-level brand claim ("we've dialed this beach in"), not a
+ * per-reading claim.
+ *
+ * If a future call site needs the true per-reading state (e.g. a data-
+ * quality dashboard, a pipeline audit log), hand the result of this
+ * function through directly rather than trying to thread a new field
+ * through the API envelope.
  */
 export function transformToFaceHeightWithMetadata(
   params: TransformParams

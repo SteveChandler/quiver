@@ -172,6 +172,32 @@ export interface EnhancedForecastEntity {
   is_ml_calibrated?: boolean;
   /** ML model version used for correction (e.g., "xgboost_v1") */
   ml_model_version?: string | null;
+  /**
+   * **Beach-level** calibration flag: `true` when
+   * `beaches.shoaling_factors IS NOT NULL` (the beach has been empirically
+   * calibrated against face-height observations as a population). `false`
+   * when the beach is ML-only / forecast-only.
+   *
+   * Does **not** guarantee that the specific reading on this response was
+   * produced by the calibrated short-circuit in
+   * `transformToFaceHeightWithMetadata` — edge cases like periods outside
+   * the bucket table, CDIP fallbacks to model swell, or model-Hs paths can
+   * produce a calibrated-flagged response whose actual number came from
+   * the generic pipeline. This is an acceptable trade-off for the honesty
+   * layer: the user-facing distinction is "this beach is dialed in (Face
+   * height)" vs "this beach is forecast-only (Forecast height)" as a
+   * population statement, not a per-reading claim. Per-reading state is
+   * available via `transformToFaceHeightWithMetadata().isCalibrated` if a
+   * future consumer needs it — do NOT try to thread per-reading state
+   * through this envelope field, the semantic here is locked as
+   * beach-level.
+   *
+   * Populated server-side by forecast API routes; never derived on the
+   * client. Consumed by `WaveHeightDisplay` to drive the honesty-layer
+   * render (Face height label vs Forecast height label + `~` prefix +
+   * dotted underline).
+   */
+  isCalibrated?: boolean;
 
   // Optional raw forecast payload for transparency/debugging
   raw_forecast?: {

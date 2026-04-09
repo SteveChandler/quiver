@@ -31,11 +31,22 @@ interface WaveHeightDisplayProps {
   /** Whether this forecast has ML bias correction applied */
   isMlCalibrated?: boolean;
   /**
-   * True when this beach's wave height came from the empirically calibrated
-   * shoaling pipeline (face height at the break). False when it came from the
-   * raw buoy forecast (Hs) — the honesty layer applies: `~` prefix, dotted
-   * underline, and a different tooltip body. `undefined` = backward-compat:
-   * render as today, do not apply the honesty layer.
+   * **Beach-level** calibration flag. `true` means this beach has an
+   * empirical shoaling calibration as a population (`beaches.shoaling_factors
+   * IS NOT NULL`) — the honesty layer renders the calibrated state with a
+   * "Face height" label. `false` means the beach is ML-only / forecast-only
+   * — the honesty layer applies `~` prefix, dotted underline, the
+   * "Forecast height" label, and a single-line tooltip. `undefined` =
+   * backward-compat: render as today, do not apply the honesty layer and
+   * do not render any label.
+   *
+   * This is a population-level signal, not a per-reading claim. A
+   * calibrated beach can still ship a specific reading whose number came
+   * from the generic pipeline (period outside the bucket table, CDIP
+   * fallback). That's an acceptable trade-off — see
+   * `types/forecast.ts::EnhancedForecastEntity.isCalibrated` and
+   * `lib/utils/wave-height-transformer.ts::transformToFaceHeightWithMetadata`
+   * for the full semantic.
    */
   isCalibrated?: boolean;
 }
@@ -95,6 +106,39 @@ export function WaveHeightDisplay({
     </span>
   ) : null;
 
+  // Auto-rendered micro-label below the number. Only appears when the caller
+  // has opted into the honesty layer by passing `isCalibrated` explicitly —
+  // when undefined, we preserve the pre-honesty-layer render exactly.
+  //
+  // Screen readers pick up this label as the primary semantic signal for the
+  // calibrated/uncalibrated distinction (the `~` prefix is aria-hidden and
+  // the dotted underline is a CSS border that ATs ignore). See
+  // docs/design/calibration-honesty-spec.md §9.
+  const honestyLabel =
+    isCalibrated === undefined
+      ? null
+      : (
+          <span
+            className="text-[11px] leading-tight text-muted-foreground/80"
+            data-testid="wave-height-label"
+          >
+            {isCalibrated ? "Face height" : "Forecast height"}
+          </span>
+        );
+
+  // Wraps a number-row node with a column-stacked label when the honesty
+  // layer is active. When `honestyLabel` is null (isCalibrated === undefined)
+  // the number row is returned untouched — backward-compat lock-in.
+  const withLabel = (numberRow: React.ReactNode) => {
+    if (!honestyLabel) return numberRow;
+    return (
+      <span className="inline-flex flex-col items-start">
+        {numberRow}
+        {honestyLabel}
+      </span>
+    );
+  };
+
   // -----------------------------------------------------------------
   // Honesty layer (State B): uncalibrated beaches get a ~ prefix,
   // dotted underline on the digits, and a single-line tooltip.
@@ -117,10 +161,10 @@ export function WaveHeightDisplay({
     );
 
     if (!showTooltip) {
-      return uncalibratedContent;
+      return withLabel(uncalibratedContent);
     }
 
-    return (
+    return withLabel(
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>{uncalibratedContent}</TooltipTrigger>
@@ -143,7 +187,7 @@ export function WaveHeightDisplay({
   );
 
   if (!showTooltip) {
-    return content;
+    return withLabel(content);
   }
 
   // Determine data source display info
@@ -193,7 +237,7 @@ export function WaveHeightDisplay({
     approximate: "text-yellow-600",
   }[sourceInfo.quality];
 
-  return (
+  return withLabel(
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>

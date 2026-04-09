@@ -538,6 +538,7 @@ export function BeachesEnhancedForecast({
                           }
                           showTooltip={false}
                           isMlCalibrated={todayForecast.is_ml_calibrated}
+                          isCalibrated={todayForecast.isCalibrated}
                         />
                       </div>
                       <div className="text-sm text-slate-500">face</div>
