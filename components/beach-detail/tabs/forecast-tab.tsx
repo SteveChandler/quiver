@@ -526,29 +526,36 @@ export function ForecastTab({
               />
             );
 
-            // Build dynamic teaser from surf call data
-            const gateDescription = (() => {
+            // Lead with the actual best window as the hook — the value goes
+            // on-screen unblurred, then the gate promises what signing up unlocks.
+            // Previous copy ("See today's surf call") was generic and buried the
+            // real value in the description; 275 views → 0 clicks on 2026-04-09.
+            const { ctaTitle: gateTitle, ctaDescription: gateDescription } = (() => {
               if (!surfCall?.bestWindowStart) {
-                return "We score every hour by tide, wind, and swell -- sign up to see today's optimal window";
+                return {
+                  ctaTitle: `Daily surf call for ${beach.name}`,
+                  ctaDescription:
+                    "We score every hour by tide, wind, and swell. Sign up free to see today's optimal window and tomorrow's call.",
+                };
               }
-              const formatTeaser = (t: string) => {
-                try {
-                  const d = new Date(t);
-                  if (isNaN(d.getTime())) return t;
-                  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-                } catch { return t; }
+              const d = new Date(surfCall.bestWindowStart);
+              const timeStr = isNaN(d.getTime())
+                ? surfCall.bestWindowStart
+                : d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+              const waveInfo = surfCall.waveHeight ? ` · ${surfCall.waveHeight}` : "";
+              return {
+                ctaTitle: `Best window today: ${timeStr}${waveInfo}`,
+                ctaDescription:
+                  "Sign up free to unlock the full hour-by-hour breakdown, paddle alerts, and the 7-day call.",
               };
-              const start = formatTeaser(surfCall.bestWindowStart);
-              const waveInfo = surfCall.waveHeight ? ` at ${surfCall.waveHeight}` : "";
-              return `Best window starts at ${start}${waveInfo} -- sign up to see the full breakdown`;
             })();
 
             return publicMode ? (
               <PublicContentGate
-                ctaTitle={`See today's surf call for ${beach.name}`}
+                ctaTitle={gateTitle}
                 ctaDescription={gateDescription}
-                ctaButtonText="When to paddle out today"
-                blurLevel="md"
+                ctaButtonText="Unlock the full breakdown"
+                blurLevel="sm"
                 source="best-window-gate"
                 className="min-h-[200px]"
               >

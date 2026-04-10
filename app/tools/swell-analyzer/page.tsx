@@ -14,6 +14,8 @@ import { capitalize } from "@/lib/utils/text-utils";
 import { SwellAnalyzerClient } from "@/components/tools/swell-analyzer-client";
 import { getSwellAnalyzerData } from "@/actions/tools/swell-analyzer-actions";
 
+const DEFAULT_DEMO_SLUG = "swamis";
+
 export const revalidate = 3600;
 
 interface Props {
@@ -55,12 +57,13 @@ export default async function SwellAnalyzerPage({ searchParams }: Props) {
   const params = await searchParams;
   const beachSlug = params.beach;
 
+  const targetSlug = beachSlug || DEFAULT_DEMO_SLUG;
+  const isDemo = !beachSlug;
+
   let initialData = undefined;
-  if (beachSlug) {
-    const result = await getSwellAnalyzerData(beachSlug);
-    if (result.success) {
-      initialData = result.data;
-    }
+  const result = await getSwellAnalyzerData(targetSlug);
+  if (result.success) {
+    initialData = result.data;
   }
 
   const SWELL_FAQ_ITEMS = [
@@ -126,7 +129,7 @@ export default async function SwellAnalyzerPage({ searchParams }: Props) {
         }}
       />
       <div className="min-h-screen" style={{ background: "#0F1535" }}>
-        <SwellAnalyzerClient initialData={initialData} />
+        <SwellAnalyzerClient initialData={initialData} isDemo={isDemo} />
 
         <div className="container mx-auto max-w-4xl px-4 pb-12">
           <section>

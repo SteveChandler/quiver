@@ -19,6 +19,7 @@ import type {
   ScoringEngineConfig,
 } from './types';
 import { DEFAULT_SCORING_CONFIG } from './types';
+import { waveHeightCeiling } from './wave-height-ceiling';
 
 /**
  * Scoring engine that orchestrates multiple scorer plugins.
@@ -119,7 +120,24 @@ export class ScoringEngine {
       allWarnings.push(...result.warnings);
     }
 
-    const total = Math.round(weightedSum);
+    const rawTotal = Math.round(weightedSum);
+
+    // Apply a wave-height ceiling post-composite. A clean, well-aligned spot
+    // with ankle-high waves is still unsurfable -- the underlying subscores
+    // (alignment, wind, tide) should remain transparent but the composite
+    // total must be capped so downstream UI does not mislead users.
+    const ceiling = waveHeightCeiling(input.snapshot.waveHeight);
+    const total = Math.min(rawTotal, ceiling);
+
+    if (total < rawTotal) {
+      const heightStr = Number.isFinite(input.snapshot.waveHeight)
+        ? input.snapshot.waveHeight.toFixed(1)
+        : 'unknown';
+      const capMessage = `Small wave (${heightStr}ft) caps score at ${ceiling}`;
+      allReasons.push(capMessage);
+      allWarnings.push(capMessage);
+    }
+
     const matchQuality = this.classifyScore(total);
 
     // Get confidence from input snapshot

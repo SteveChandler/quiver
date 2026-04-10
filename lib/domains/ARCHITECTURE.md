@@ -121,7 +121,7 @@ Bridges the new scoring architecture with the existing `surf-discovery-service.t
 **Key Functions:**
 - `createDiscoveryScoringEngine()` - Pre-configured engine with all standard scorers
 - `beachToSpotProfile(beach)` - Convert Beach → SpotProfile
-- `forecastToSnapshot(forecast)` - Convert EnhancedForecastEntity → ConditionsSnapshot
+- `forecastToSnapshot(forecast, beach)` - Convert EnhancedForecastEntity → ConditionsSnapshot (applies shoaling transform using beach's calibration data)
 - `scoreBeachWithEngine(engine, beach, forecast, options)` - Full scoring pipeline
 
 **Migration Path:**

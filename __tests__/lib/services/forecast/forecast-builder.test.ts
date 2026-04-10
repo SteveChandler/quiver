@@ -18,6 +18,8 @@ jest.mock("@/lib/logger", () => ({
 
 jest.mock("@/lib/utils/wave-formatters", () => ({
   toFaceHeightFeet: jest.fn(() => "3.5 ft"),
+  toFaceHeightFeetDecomposed: jest.fn(() => "3.5 ft"),
+  METERS_TO_FEET: 3.28084,
 }));
 
 describe("ForecastBuilder", () => {

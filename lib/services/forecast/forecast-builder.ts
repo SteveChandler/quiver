@@ -10,8 +10,11 @@
 
 import { createContextLogger } from "@/lib/logger";
 import { calculateConfidenceScore } from "./confidence-scorer";
-import { toFaceHeightFeet } from "@/lib/utils/wave-formatters";
-import type { ShoalingFactors } from "@/lib/utils/wave-height-transformer";
+import { toFaceHeightFeet, toFaceHeightFeetDecomposed, METERS_TO_FEET } from "@/lib/utils/wave-formatters";
+import type {
+  ShoalingFactors,
+  SwellComponentInput,
+} from "@/lib/utils/wave-height-transformer";
 import { cardinalToDegrees } from "./forecast-transformer";
 import { formatWaterTemp } from "@/lib/formatters/surf-data";
 import { formatPeriodSeconds } from "@/lib/formatters/surf-data";
@@ -463,18 +466,67 @@ export class ForecastBuilder {
     // Build beach terrain config for transformation.
     // `shoaling_factors` (when present) short-circuits the generic transform
     // in favor of an empirically calibrated period-keyed lookup for that beach.
-    // See migration 20260407134519_add_shoaling_factors_to_beaches.sql.
+    // `swell_window_*` drive per-component alignment weighting in the
+    // decomposed pipeline; null on uncalibrated beaches (degrades to 1.0).
+    // See migration 20260407134519_add_shoaling_factors_to_beaches.sql and
+    // 20260211120000_comprehensive_swell_window_fix.sql.
     const beachTerrain = {
       swell_access_factors: beach.swell_access_factors ?? null,
       terrain_enabled: beach.terrain_enabled ?? false,
       shoaling_factors: (beach.shoaling_factors ?? null) as ShoalingFactors | null,
+      swell_window_center_deg: beach.swell_window_center_deg ?? null,
+      swell_window_halfwidth_deg: beach.swell_window_halfwidth_deg ?? null,
     };
 
-    // Use toFaceHeightFeet with all available sources - it handles source priority
-    // and applies transformation to whichever source it selects.
+    // Build per-component inputs for the decomposed pipeline when WW3 data
+    // is available. Heights arrive from WaveWatch in METERS, so we convert
+    // before handing them to the transformer (the scalar source heights are
+    // converted internally, but the decomposed path takes feet directly so
+    // its inputs are unambiguous).
+    //
+    // WaveWatchData exposes three physical components: swell_1, swell_2,
+    // and wind_wave. We treat all three as "swell components" for decomposition
+    // purposes — the short-period cutoff inside `alignmentFactor` will zero
+    // out wind-wave energy regardless of direction, which is exactly the
+    // Tourmaline mixed-day failure mode we're fixing.
+    const components: Array<SwellComponentInput | null> = wavePoint
+      ? [
+          wavePoint.swell_1_height > 0 && wavePoint.swell_1_period > 0
+            ? {
+                heightFt: wavePoint.swell_1_height * METERS_TO_FEET,
+                periodS: wavePoint.swell_1_period,
+                directionDeg:
+                  cardinalToDegrees(wavePoint.swell_1_direction) ?? null,
+              }
+            : null,
+          wavePoint.swell_2_height > 0 && wavePoint.swell_2_period > 0
+            ? {
+                heightFt: wavePoint.swell_2_height * METERS_TO_FEET,
+                periodS: wavePoint.swell_2_period,
+                directionDeg:
+                  cardinalToDegrees(wavePoint.swell_2_direction) ?? null,
+              }
+            : null,
+          wavePoint.wind_wave_height > 0 && wavePoint.wind_wave_period > 0
+            ? {
+                heightFt: wavePoint.wind_wave_height * METERS_TO_FEET,
+                periodS: wavePoint.wind_wave_period,
+                directionDeg:
+                  cardinalToDegrees(wavePoint.wind_wave_direction) ?? null,
+              }
+            : null,
+        ]
+      : [null, null, null];
+
+    // Use toFaceHeightFeet(Decomposed) with all available sources - it handles
+    // source priority and applies transformation to whichever source it selects.
     // IMPORTANT: Never return raw untransformed heights - all heights must go through
     // the transformer to convert Hs to face height.
-    return toFaceHeightFeet({
+    //
+    // The decomposed variant falls back to the scalar path internally when no
+    // component slots are populated, so it is always safe to call even when
+    // wavePoint is null.
+    return toFaceHeightFeetDecomposed({
       cdipSigFt: cdipPoint?.significantWaveHeight ?? undefined,
       cdipSwellFt: cdipPoint?.swellHeight ?? undefined,
       modelSwellM: wavePoint?.swell_1_height ?? undefined,
@@ -483,6 +535,7 @@ export class ForecastBuilder {
       beach: beachTerrain,
       periodS,
       swellDirectionDeg,
+      components,
     });
   }
 

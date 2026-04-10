@@ -13,9 +13,11 @@
 
 import {
   transformToFaceHeight,
+  transformToFaceHeightDecomposed,
   SET_WAVE_VARIANCE,
   type BeachTerrainConfig,
   type WaveHeightSourceTag,
+  type SwellComponentInput,
   BASE_SHOALING,
   calculatePeriodFactor,
   calculateDirectionFactor,
@@ -562,6 +564,58 @@ export function toFaceHeightFeet(params: FaceHeightParams): string | null {
     });
   }
 
+  return `${rounded} ft`;
+}
+
+/**
+ * Parameters for decomposed face-height transformation.
+ *
+ * Extends `FaceHeightParams` with an explicit per-component slot so the
+ * forecast builder (and anywhere that has raw WW3 components on hand) can
+ * run the alignment-weighted decomposition pipeline instead of the
+ * single-bucket short-circuit. When `components` is empty or all null,
+ * behavior is identical to `toFaceHeightFeet`.
+ */
+export interface DecomposedFaceHeightParams extends FaceHeightParams {
+  /**
+   * Per-swell-component inputs (heights in feet, not meters). Caller is
+   * responsible for the unit conversion so this API stays consistent with
+   * the scalar `toFaceHeightFeet` path. Null slots are permitted and mean
+   * "no data" for that component.
+   */
+  components: Array<SwellComponentInput | null>;
+}
+
+/**
+ * Decomposed face-height variant of `toFaceHeightFeet`.
+ *
+ * Applies per-component alignment weighting + short-period cutoff + RMS
+ * sum via `transformToFaceHeightDecomposed`. Falls back to the scalar
+ * pipeline when no components are populated (bad/missing WW3 data) — in
+ * that case the return value is byte-identical to `toFaceHeightFeet`.
+ *
+ * Introduced as part of the Workstream A shoaling decomposition fix; the
+ * forecast builder uses this path for rows where it has WW3 component
+ * data on hand, falling through to `toFaceHeightFeet` otherwise. Scalar
+ * callers (scoring, discovery) keep using `toFaceHeightFeet` unchanged.
+ */
+export function toFaceHeightFeetDecomposed(
+  params: DecomposedFaceHeightParams,
+): string | null {
+  const source = selectWaveHeightSource(params);
+  if (!source) return null;
+
+  const result = transformToFaceHeightDecomposed({
+    components: params.components,
+    beach: params.beach ?? {},
+    source: source.source,
+    rawHeightFt: source.heightFt,
+    periodS: params.periodS ?? null,
+    swellDirectionDeg: params.swellDirectionDeg ?? null,
+  });
+
+  const clamped = clampWaveHeight(result.faceHeightFt);
+  const rounded = roundWaveHeight(clamped);
   return `${rounded} ft`;
 }
 

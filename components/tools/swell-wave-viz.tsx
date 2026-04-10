@@ -34,15 +34,16 @@ export function SwellWaveViz({
 }: SwellWaveVizProps) {
   const waveColor = COLOR_MAP[qualityColor];
 
-  const { wavePath, flatPath, waterLinePath } = useMemo(() => {
+  const { wavePath, flatPath, waterLinePath, wavelength } = useMemo(() => {
     const amplitude = Math.min(70, Math.max(10, (heightFt / 20) * 75));
     const wavelength = Math.max(30, Math.min(200, periodSeconds * 10));
+    const renderWidth = width + wavelength;
     const baseY = height * 0.65;
 
     const points: [number, number][] = [];
-    const steps = Math.ceil(width / 2);
+    const steps = Math.ceil(renderWidth / 2);
     for (let i = 0; i <= steps; i++) {
-      const x = (i / steps) * width;
+      const x = (i / steps) * renderWidth;
       const y = baseY - amplitude * Math.sin((x / wavelength) * 2 * Math.PI);
       points.push([x, y]);
     }
@@ -51,15 +52,19 @@ export function SwellWaveViz({
       .map(([x, y], i) => (i === 0 ? `M ${x},${y}` : `L ${x},${y}`))
       .join(" ");
 
-    const filledPath = `${waveParts} L ${width},${height} L 0,${height} Z`;
+    const filledPath = `${waveParts} L ${renderWidth},${height} L 0,${height} Z`;
 
     // Static flat-water path for reduced-motion fallback
     const flatPath = `M 0,${baseY} L ${width},${baseY} L ${width},${height} L 0,${height} Z`;
 
     const waterLinePath = `M 0,${baseY} L ${width},${baseY}`;
 
-    return { wavePath: filledPath, flatPath, waterLinePath };
+    return { wavePath: filledPath, flatPath, waterLinePath, wavelength };
   }, [heightFt, periodSeconds, width, height]);
+
+  const rawDuration = 2 + ((periodSeconds - 4) / 18) * 6;
+  const animDuration = Number.isFinite(rawDuration) ? rawDuration : 4;
+  const safeWavelength = Number.isFinite(wavelength) ? wavelength : 120;
 
   // Reduced-motion: render a simple height bar instead of the wave shape
   const reducedMotionBar = (
@@ -103,6 +108,7 @@ export function SwellWaveViz({
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
+      overflow="hidden"
       role="img"
       aria-label={`Wave cross-section: ${Math.round(heightFt)} ft at ${Math.round(periodSeconds)}s period`}
       style={{ maxWidth: "100%", height: "auto" }}
@@ -119,13 +125,21 @@ export function SwellWaveViz({
       <style>{`
         .wave-shape { display: block; }
         .reduced-shape { display: none; }
+        .wave-animate {
+          animation: wave-scroll ${animDuration}s linear infinite;
+        }
+        @keyframes wave-scroll {
+          from { transform: translateX(0); }
+          to { transform: translateX(-${safeWavelength}px); }
+        }
         @media (prefers-reduced-motion: reduce) {
           .wave-shape { display: none; }
           .reduced-shape { display: block; }
+          .wave-animate { animation: none; }
         }
       `}</style>
 
-      <g className="wave-shape">{waveAnimation}</g>
+      <g className="wave-shape wave-animate">{waveAnimation}</g>
       <g className="reduced-shape">{reducedMotionBar}</g>
 
       {/* Labels always visible */}

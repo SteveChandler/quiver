@@ -262,4 +262,92 @@ describe('Scoring Engine', () => {
       expect(result.subscores.size).toBe(3);
     });
   });
+
+  describe('wave-height ceiling (Workstream C)', () => {
+    it('caps composite total at 55 for a 1.7ft otherwise-perfect snapshot', () => {
+      const engine = new ScoringEngine();
+      // High-confidence mock subscores simulating perfect alignment, wind,
+      // and tide. Without the ceiling this would total ~100.
+      engine.registerAll([
+        createMockScorer('swellAlignment', 100, 0.15),
+        createMockScorer('swellInterference', 100, 0.15),
+        createMockScorer('windQuality', 100, 0.15),
+        createMockScorer('tideDirection', 100, 0.15),
+        createMockScorer('baseConditions', 100, 0.25),
+        createMockScorer('tideFit', 100, 0.05),
+        createMockScorer('windowStability', 100, 0.05),
+        createMockScorer('trendPreference', 100, 0.05),
+      ]);
+
+      const input = createInput({ waveHeight: 1.7 });
+      const result = engine.score(input);
+
+      // 1.7ft falls in [1.5, 2.0) -> ceiling of 55
+      expect(result.total).toBeLessThanOrEqual(55);
+      // Subscores are preserved -- only the total is capped
+      expect(result.subscores.get('swellAlignment')).toBe(100);
+      expect(result.subscores.get('baseConditions')).toBe(100);
+    });
+
+    it('surfaces a "small wave caps score" reason when the ceiling applies', () => {
+      const engine = new ScoringEngine();
+      engine.register(createMockScorer('perfect', 100, 1));
+
+      const input = createInput({ waveHeight: 1.7 });
+      const result = engine.score(input);
+
+      expect(
+        result.reasons.some((r) => /caps score at 55/.test(r))
+      ).toBe(true);
+    });
+
+    it('leaves large-wave composite totals unchanged', () => {
+      const engine = new ScoringEngine();
+      engine.registerAll([
+        createMockScorer('swellAlignment', 95, 0.15),
+        createMockScorer('swellInterference', 95, 0.15),
+        createMockScorer('windQuality', 95, 0.15),
+        createMockScorer('tideDirection', 90, 0.15),
+        createMockScorer('baseConditions', 90, 0.25),
+        createMockScorer('tideFit', 85, 0.05),
+        createMockScorer('windowStability', 85, 0.05),
+        createMockScorer('trendPreference', 85, 0.05),
+      ]);
+
+      const input = createInput({ waveHeight: 5.0 });
+      const result = engine.score(input);
+
+      // 5ft is uncapped (ceiling = 100). Composite should remain > 85.
+      expect(result.total).toBeGreaterThan(85);
+      expect(
+        result.reasons.some((r) => /caps score/.test(r))
+      ).toBe(false);
+    });
+
+    it('does not cap when waveHeight is NaN (preserves legacy behavior)', () => {
+      const engine = new ScoringEngine();
+      engine.register(createMockScorer('perfect', 100, 1));
+
+      const input = createInput({ waveHeight: Number.NaN });
+      const result = engine.score(input);
+
+      expect(result.total).toBe(100);
+      expect(
+        result.reasons.some((r) => /caps score/.test(r))
+      ).toBe(false);
+    });
+
+    it('applies the 75 ceiling to waist-high 2.5ft waves', () => {
+      const engine = new ScoringEngine();
+      engine.register(createMockScorer('perfect', 100, 1));
+
+      const input = createInput({ waveHeight: 2.5 });
+      const result = engine.score(input);
+
+      expect(result.total).toBeLessThanOrEqual(75);
+      expect(
+        result.reasons.some((r) => /caps score at 75/.test(r))
+      ).toBe(true);
+    });
+  });
 });
