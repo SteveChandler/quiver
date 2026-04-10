@@ -1399,5 +1399,56 @@ describe('Wave Height Transformer', () => {
       });
       expect(legacy.path).toBe('legacy');
     });
+
+    it('non-CDIP source skips calibrated bucket factors, uses generic period factor', () => {
+      // OPEN_METEO source with Tourmaline's calibrated factors — the bucket
+      // lookup should NOT fire because it was calibrated on CDIP Hs, not model
+      // data. Using it on model data produces overshoot (raw 3.3 → face 4.3).
+      const result = transformToFaceHeightDecomposed({
+        components: [
+          { heightFt: 2.5, periodS: 14, directionDeg: 247.5 },
+          { heightFt: 1.5, periodS: 17, directionDeg: 250 },
+          null,
+        ],
+        beach: TOURMALINE_BEACH,
+        source: undefined, // non-CDIP (OPEN_METEO, NOAA_NWS, etc.)
+        rawHeightFt: 3.3,
+        periodS: 14,
+        swellDirectionDeg: 247.5,
+      });
+
+      // Generic period factor is capped at 1.2 (PERIOD_FACTOR_MAX). Both
+      // components are well-aligned (near window center). Face should be
+      // roughly: sqrt((2.5×1.2×1.0)² + (1.5×1.2×~1.0)²) ≈ sqrt(9+3.2) ≈ 3.5
+      // NOT the 4.3+ that the old bucket factors would produce.
+      expect(result.faceHeightFt).toBeLessThan(4.0);
+      expect(result.faceHeightFt).toBeGreaterThan(2.0);
+      expect(result.path).toBe('decomposed');
+      // Not calibrated because source is not CDIP.
+      expect(result.isCalibrated).toBe(false);
+    });
+
+    it('falls back to legacy when all components are zeroed by period cutoff', () => {
+      // All components have period ≤ 8s (short-period wind-swell day).
+      // The alignment cutoff zeros every component → sumOfSquares=0.
+      // Should fall back to legacy, not return 0.
+      const result = transformToFaceHeightDecomposed({
+        components: [
+          { heightFt: 1.3, periodS: 7, directionDeg: 200 },
+          { heightFt: 0.9, periodS: 6, directionDeg: 220 },
+          { heightFt: 0.3, periodS: 3.75, directionDeg: 274 },
+        ],
+        beach: TOURMALINE_BEACH,
+        source: 'cdip_sig',
+        rawHeightFt: 1.9,
+        periodS: 7,
+        swellDirectionDeg: 200,
+      });
+
+      // Legacy fallback: raw 1.9 × bucket(7s)=1.03 = 1.957 → rounds to 2.0.
+      expect(result.path).toBe('legacy');
+      expect(result.faceHeightFt).toBeGreaterThan(0);
+      expect(result.faceHeightFt).toBeLessThanOrEqual(2.5);
+    });
   });
 });

@@ -698,12 +698,29 @@ export function transformToFaceHeightDecomposed(params: {
     );
     if (alignment === 0) continue;
 
-    const bucketFactor = lookupShoalingBucket(component.periodS, shoalingFactors);
+    // Only use calibrated bucket factors for CDIP sources — the buckets are
+    // measured as surfline_face / cdip_hs and produce overshoot on model data.
+    const bucketFactor = source === 'cdip_sig'
+      ? lookupShoalingBucket(component.periodS, shoalingFactors)
+      : null;
     const perComponentFactor =
       bucketFactor ?? BASE_SHOALING * calculatePeriodFactor(component.periodS);
 
     const faceI = component.heightFt * perComponentFactor * alignment;
     sumOfSquares += faceI * faceI;
+  }
+
+  // If every component was zeroed (e.g. all periods ≤ 8s on a short-period
+  // wind-swell day), fall back to legacy rather than displaying 0 ft.
+  if (sumOfSquares === 0) {
+    const legacy = transformToFaceHeightWithMetadata({
+      rawHeightFt, periodS, swellDirectionDeg, beach, source,
+    });
+    return {
+      faceHeightFt: legacy.faceHeightFt,
+      isCalibrated: legacy.isCalibrated,
+      path: 'legacy',
+    };
   }
 
   const faceHs = Math.sqrt(sumOfSquares);
