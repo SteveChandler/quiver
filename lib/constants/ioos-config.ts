@@ -217,11 +217,19 @@ export const IOOS_VARIABLE_ALIASES: Record<CanonicalVar, readonly string[]> = {
  * Network priority weights for station ranking
  * Higher = more trusted/preferred
  */
+/**
+ * NDBC station types that typically report wave data.
+ * Used by the NDBC direct sync cron to filter station discovery.
+ * Stations with empty/unknown types are also included (many buoys lack type metadata).
+ */
+export const NDBC_WAVE_CAPABLE_TYPES = new Set(["buoy", "dart", "oilrig"]);
+
 export const IOOS_NETWORK_PRIORITY: Record<string, number> = {
   CDIP: 0.30,      // Wave-focused, lots of nearshore buoys
   NDBC: 0.15,      // Reliable, broad coverage, often more offshore
   CeNCOOS: 0.05,   // Regional IOOS networks
   SCCOOS: 0.05,
+  NANOOS: 0.05,
   NERACOOS: 0.05,
   PacIOOS: 0.05,
   SECOORA: 0.05,
