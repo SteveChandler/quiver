@@ -244,7 +244,8 @@ function calculateDistance(
  * Generate a primary recommendation reason based on skill match and conditions.
  * This becomes the hero subtitle in the Oracle UI.
  */
-function generatePrimaryReason(
+/** @internal Exported for testing */
+export function generatePrimaryReason(
   beach: Beach,
   forecast: EnhancedForecastEntity,
   userSkillLevel: SkillLevel | null
