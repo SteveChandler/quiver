@@ -137,10 +137,13 @@ Before committing, identify test files that import or reference changed modules.
 
 ### Running Tests
 
+- **`yarn test` runs Playwright (E2E), `yarn test:unit` runs Jest** — don't confuse them
 - Run tests after every change. If tests don't run, the update is not complete.
 - Always run a **subset** of Playwright tests (not the full suite): `npx playwright test path/to/spec.spec.ts`
 - Prefer **Playwright MCP** for quick UI validation before shelling out to CLI
 - Test across mobile AND desktop breakpoints
+- **`yarn lint` OOMs without `NODE_OPTIONS="--max-old-space-size=8192"`** — scope lint to your files with `npx eslint --max-warnings=0 <files>` instead
+- `.worktrees/` is not excluded from eslint — pre-existing lint errors there are not your problem
 
 ### E2E Required Patterns
 

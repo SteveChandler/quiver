@@ -1,0 +1,449 @@
+{
+  "description": "Hand-curated regression fixtures for shoaling decomposition + wave-height ceiling fix. Inputs are realistic snapshots drawn from the 20260211120000 swell_window_fix and 20260407134519 shoaling_factors migrations. Gate B (Tourmaline/TSP/Windansea) uses the canonical 2026-04-09 bimodal reading (1ft 14s groundswell + 2.5ft 7s wind-swell) that triggered the fix.",
+  "asOf": "2026-04-09T21:00:00Z",
+  "beaches": {
+    "lower-trestles": {
+      "id": "193a3f9a-66d0-4362-bf55-d25bb831dae4",
+      "name": "Lower Trestles",
+      "shoaling_factors": {
+        "version": 1,
+        "type": "period_lookup",
+        "buckets": [
+          {"tp_min_s": 0, "tp_max_s": 8, "factor": 1.07},
+          {"tp_min_s": 8, "tp_max_s": 12, "factor": 1.22},
+          {"tp_min_s": 12, "tp_max_s": 16, "factor": 1.50},
+          {"tp_min_s": 16, "tp_max_s": 999, "factor": 1.62}
+        ]
+      },
+      "swell_window_center_deg": 220,
+      "swell_window_halfwidth_deg": 105,
+      "terrain_enabled": true,
+      "swell_access_factors": null,
+      "forecast": {
+        "wave_height": "4.0",
+        "wave_period": "14s",
+        "swell_1_height": "4.0",
+        "swell_1_period": "14s",
+        "swell_1_direction": "220",
+        "swell_2_height": null,
+        "swell_2_period": null,
+        "swell_2_direction": null,
+        "wind_wave_height": null,
+        "wind_wave_period": null,
+        "wind_wave_direction": null,
+        "data_source": "CDIP",
+        "wind_speed": "6",
+        "wind_direction": "E",
+        "wind_direction_deg": 90,
+        "tide_height": "3.0",
+        "tide_status": "rising"
+      }
+    },
+    "blacks": {
+      "id": "01330afc-00d3-461b-88f3-b173774766f4",
+      "name": "Blacks Beach",
+      "shoaling_factors": {
+        "version": 1,
+        "type": "period_lookup",
+        "buckets": [
+          {"tp_min_s": 0, "tp_max_s": 8, "factor": 1.57},
+          {"tp_min_s": 8, "tp_max_s": 12, "factor": 1.70},
+          {"tp_min_s": 12, "tp_max_s": 16, "factor": 2.13},
+          {"tp_min_s": 16, "tp_max_s": 999, "factor": 2.40}
+        ]
+      },
+      "swell_window_center_deg": 275,
+      "swell_window_halfwidth_deg": 80,
+      "terrain_enabled": true,
+      "swell_access_factors": null,
+      "forecast": {
+        "wave_height": "4.0",
+        "wave_period": "14s",
+        "swell_1_height": "4.0",
+        "swell_1_period": "14s",
+        "swell_1_direction": "275",
+        "swell_2_height": null,
+        "swell_2_period": null,
+        "swell_2_direction": null,
+        "wind_wave_height": null,
+        "wind_wave_period": null,
+        "wind_wave_direction": null,
+        "data_source": "CDIP",
+        "wind_speed": "5",
+        "wind_direction": "ENE",
+        "wind_direction_deg": 75,
+        "tide_height": "2.5",
+        "tide_status": "rising"
+      }
+    },
+    "rincon": {
+      "id": "bec2d595-ed20-4c2b-93c7-4b880406332f",
+      "name": "Rincon",
+      "shoaling_factors": {
+        "version": 1,
+        "type": "period_lookup",
+        "buckets": [
+          {"tp_min_s": 0, "tp_max_s": 8, "factor": 0.24},
+          {"tp_min_s": 8, "tp_max_s": 12, "factor": 0.22},
+          {"tp_min_s": 12, "tp_max_s": 16, "factor": 0.28},
+          {"tp_min_s": 16, "tp_max_s": 999, "factor": 0.36}
+        ]
+      },
+      "swell_window_center_deg": 255,
+      "swell_window_halfwidth_deg": 55,
+      "terrain_enabled": true,
+      "swell_access_factors": null,
+      "forecast": {
+        "wave_height": "4.0",
+        "wave_period": "14s",
+        "swell_1_height": "4.0",
+        "swell_1_period": "14s",
+        "swell_1_direction": "255",
+        "swell_2_height": null,
+        "swell_2_period": null,
+        "swell_2_direction": null,
+        "wind_wave_height": null,
+        "wind_wave_period": null,
+        "wind_wave_direction": null,
+        "data_source": "CDIP",
+        "wind_speed": "5",
+        "wind_direction": "E",
+        "wind_direction_deg": 90,
+        "tide_height": "2.5",
+        "tide_status": "rising"
+      }
+    },
+    "malibu-first-point": {
+      "id": "9841bdd0-e70f-4c10-bc54-135575006298",
+      "name": "Malibu First Point",
+      "shoaling_factors": {
+        "version": 1,
+        "type": "period_lookup",
+        "buckets": [
+          {"tp_min_s": 0, "tp_max_s": 8, "factor": 0.71},
+          {"tp_min_s": 8, "tp_max_s": 12, "factor": 0.72},
+          {"tp_min_s": 12, "tp_max_s": 16, "factor": 0.60},
+          {"tp_min_s": 16, "tp_max_s": 999, "factor": 0.71}
+        ]
+      },
+      "swell_window_center_deg": 175,
+      "swell_window_halfwidth_deg": 130,
+      "terrain_enabled": true,
+      "swell_access_factors": null,
+      "forecast": {
+        "wave_height": "4.0",
+        "wave_period": "14s",
+        "swell_1_height": "4.0",
+        "swell_1_period": "14s",
+        "swell_1_direction": "175",
+        "swell_2_height": null,
+        "swell_2_period": null,
+        "swell_2_direction": null,
+        "wind_wave_height": null,
+        "wind_wave_period": null,
+        "wind_wave_direction": null,
+        "data_source": "CDIP",
+        "wind_speed": "4",
+        "wind_direction": "NE",
+        "wind_direction_deg": 45,
+        "tide_height": "3.5",
+        "tide_status": "falling"
+      }
+    },
+    "tourmaline-beach": {
+      "id": "17628f35-9ed1-4257-aad6-070c4bd73bb8",
+      "name": "Tourmaline Beach",
+      "shoaling_factors": {
+        "version": 1,
+        "type": "period_lookup",
+        "buckets": [
+          {"tp_min_s": 0, "tp_max_s": 8, "factor": 1.03},
+          {"tp_min_s": 8, "tp_max_s": 12, "factor": 1.13},
+          {"tp_min_s": 12, "tp_max_s": 16, "factor": 1.45},
+          {"tp_min_s": 16, "tp_max_s": 999, "factor": 1.62}
+        ]
+      },
+      "swell_window_center_deg": 195,
+      "swell_window_halfwidth_deg": 120,
+      "terrain_enabled": true,
+      "swell_access_factors": null,
+      "forecast": {
+        "wave_height": "3.0",
+        "wave_period": "14s",
+        "swell_1_height": "1.0",
+        "swell_1_period": "14s",
+        "swell_1_direction": "200",
+        "swell_2_height": "2.5",
+        "swell_2_period": "7s",
+        "swell_2_direction": "274",
+        "wind_wave_height": null,
+        "wind_wave_period": null,
+        "wind_wave_direction": null,
+        "data_source": "CDIP",
+        "wind_speed": "10",
+        "wind_direction": "E",
+        "wind_direction_deg": 90,
+        "tide_height": "3.0",
+        "tide_status": "rising"
+      }
+    },
+    "tourmaline-surf-park": {
+      "id": "91df193c-f2c8-4e6c-984e-b859bd741061",
+      "name": "Tourmaline Surf Park",
+      "shoaling_factors": {
+        "version": 1,
+        "type": "period_lookup",
+        "buckets": [
+          {"tp_min_s": 0, "tp_max_s": 8, "factor": 1.03},
+          {"tp_min_s": 8, "tp_max_s": 12, "factor": 1.13},
+          {"tp_min_s": 12, "tp_max_s": 16, "factor": 1.45},
+          {"tp_min_s": 16, "tp_max_s": 999, "factor": 1.62}
+        ]
+      },
+      "swell_window_center_deg": 217.5,
+      "swell_window_halfwidth_deg": 142.5,
+      "terrain_enabled": true,
+      "swell_access_factors": null,
+      "forecast": {
+        "wave_height": "3.0",
+        "wave_period": "14s",
+        "swell_1_height": "1.0",
+        "swell_1_period": "14s",
+        "swell_1_direction": "200",
+        "swell_2_height": "2.5",
+        "swell_2_period": "7s",
+        "swell_2_direction": "274",
+        "wind_wave_height": null,
+        "wind_wave_period": null,
+        "wind_wave_direction": null,
+        "data_source": "CDIP",
+        "wind_speed": "10",
+        "wind_direction": "E",
+        "wind_direction_deg": 90,
+        "tide_height": "3.0",
+        "tide_status": "rising"
+      }
+    },
+    "windansea": {
+      "id": "6f42d47d-215b-47cb-ac14-b83bf8c2a797",
+      "name": "Windansea",
+      "shoaling_factors": {
+        "version": 1,
+        "type": "period_lookup",
+        "buckets": [
+          {"tp_min_s": 0, "tp_max_s": 8, "factor": 1.48},
+          {"tp_min_s": 8, "tp_max_s": 12, "factor": 1.59},
+          {"tp_min_s": 12, "tp_max_s": 16, "factor": 2.03},
+          {"tp_min_s": 16, "tp_max_s": 999, "factor": 2.26}
+        ]
+      },
+      "swell_window_center_deg": 265,
+      "swell_window_halfwidth_deg": 115,
+      "terrain_enabled": true,
+      "swell_access_factors": null,
+      "forecast": {
+        "wave_height": "3.0",
+        "wave_period": "14s",
+        "swell_1_height": "1.0",
+        "swell_1_period": "14s",
+        "swell_1_direction": "265",
+        "swell_2_height": "2.5",
+        "swell_2_period": "7s",
+        "swell_2_direction": "200",
+        "wind_wave_height": null,
+        "wind_wave_period": null,
+        "wind_wave_direction": null,
+        "data_source": "CDIP",
+        "wind_speed": "10",
+        "wind_direction": "E",
+        "wind_direction_deg": 90,
+        "tide_height": "3.0",
+        "tide_status": "rising"
+      }
+    },
+    "hb-pier-southside": {
+      "id": "025cfc18-8357-49d6-994e-e0abf0a16f6d",
+      "name": "Huntington Beach Pier Southside",
+      "shoaling_factors": null,
+      "swell_window_center_deg": 202.5,
+      "swell_window_halfwidth_deg": 107.5,
+      "terrain_enabled": true,
+      "swell_access_factors": null,
+      "forecast": {
+        "wave_height": "3.0",
+        "wave_period": "9s",
+        "swell_1_height": "3.0",
+        "swell_1_period": "9s",
+        "swell_1_direction": "200",
+        "swell_2_height": null,
+        "swell_2_period": null,
+        "swell_2_direction": null,
+        "wind_wave_height": null,
+        "wind_wave_period": null,
+        "wind_wave_direction": null,
+        "data_source": "NOAA_NWS",
+        "wind_speed": "7",
+        "wind_direction": "WSW",
+        "wind_direction_deg": 247,
+        "tide_height": "3.0",
+        "tide_status": "rising"
+      }
+    },
+    "the-wedge": {
+      "id": "c2c7cc01-4920-4fd9-941c-68df6b46ced0",
+      "name": "The Wedge",
+      "shoaling_factors": null,
+      "swell_window_center_deg": 207.5,
+      "swell_window_halfwidth_deg": 82.5,
+      "terrain_enabled": true,
+      "swell_access_factors": null,
+      "forecast": {
+        "wave_height": "2.5",
+        "wave_period": "10s",
+        "swell_1_height": "2.5",
+        "swell_1_period": "10s",
+        "swell_1_direction": "210",
+        "swell_2_height": null,
+        "swell_2_period": null,
+        "swell_2_direction": null,
+        "wind_wave_height": null,
+        "wind_wave_period": null,
+        "wind_wave_direction": null,
+        "data_source": "NOAA_NWS",
+        "wind_speed": "6",
+        "wind_direction": "W",
+        "wind_direction_deg": 270,
+        "tide_height": "3.0",
+        "tide_status": "slack-high"
+      }
+    },
+    "hb-pier": {
+      "id": "071db1df-b5ee-4af6-a022-ea8a09667cbe",
+      "name": "Huntington Beach Pier (Uncalibrated Gate D)",
+      "shoaling_factors": null,
+      "swell_window_center_deg": 212.5,
+      "swell_window_halfwidth_deg": 122.5,
+      "terrain_enabled": false,
+      "swell_access_factors": null,
+      "forecast": {
+        "wave_height": "2.5",
+        "wave_period": "11s",
+        "swell_1_height": null,
+        "swell_1_period": null,
+        "swell_1_direction": null,
+        "swell_2_height": null,
+        "swell_2_period": null,
+        "swell_2_direction": null,
+        "wind_wave_height": null,
+        "wind_wave_period": null,
+        "wind_wave_direction": null,
+        "data_source": "NOAA_NWS",
+        "wind_speed": "6",
+        "wind_direction": "E",
+        "wind_direction_deg": 90,
+        "tide_height": "3.0",
+        "tide_status": "rising"
+      }
+    },
+    "hb-pier-northside": {
+      "id": "72726bcb-bed0-4b76-8336-f90d7fb57159",
+      "name": "Huntington Beach Pier Northside (Uncalibrated Gate D)",
+      "shoaling_factors": null,
+      "swell_window_center_deg": 257.5,
+      "swell_window_halfwidth_deg": 52.5,
+      "terrain_enabled": false,
+      "swell_access_factors": null,
+      "forecast": {
+        "wave_height": "3.0",
+        "wave_period": "12s",
+        "swell_1_height": null,
+        "swell_1_period": null,
+        "swell_1_direction": null,
+        "swell_2_height": null,
+        "swell_2_period": null,
+        "swell_2_direction": null,
+        "wind_wave_height": null,
+        "wind_wave_period": null,
+        "wind_wave_direction": null,
+        "data_source": "NOAA_NWS",
+        "wind_speed": "5",
+        "wind_direction": "E",
+        "wind_direction_deg": 90,
+        "tide_height": "3.0",
+        "tide_status": "rising"
+      }
+    },
+    "crystal-cove": {
+      "id": "0e557ec4-355a-4176-8352-6ea50e379c13",
+      "name": "Crystal Cove (Uncalibrated Gate D)",
+      "shoaling_factors": null,
+      "swell_window_center_deg": 220,
+      "swell_window_halfwidth_deg": 100,
+      "terrain_enabled": false,
+      "swell_access_factors": null,
+      "forecast": {
+        "wave_height": "3.5",
+        "wave_period": "13s",
+        "swell_1_height": null,
+        "swell_1_period": null,
+        "swell_1_direction": null,
+        "swell_2_height": null,
+        "swell_2_period": null,
+        "swell_2_direction": null,
+        "wind_wave_height": null,
+        "wind_wave_period": null,
+        "wind_wave_direction": null,
+        "data_source": "NOAA_NWS",
+        "wind_speed": "5",
+        "wind_direction": "E",
+        "wind_direction_deg": 90,
+        "tide_height": "2.5",
+        "tide_status": "falling"
+      }
+    },
+    "swamis": {
+      "id": "b24c6fa9-9f82-4a1e-afcd-0d1fb0ce69d0",
+      "name": "Swami's",
+      "shoaling_factors": {
+        "version": 1,
+        "type": "period_lookup",
+        "buckets": [
+          {"tp_min_s": 0, "tp_max_s": 8, "factor": 1.01},
+          {"tp_min_s": 8, "tp_max_s": 12, "factor": 1.06},
+          {"tp_min_s": 12, "tp_max_s": 16, "factor": 1.21},
+          {"tp_min_s": 16, "tp_max_s": 999, "factor": 1.12}
+        ]
+      },
+      "swell_window_center_deg": 247.5,
+      "swell_window_halfwidth_deg": 42.5,
+      "terrain_enabled": true,
+      "swell_access_factors": null,
+      "forecast": {
+        "wave_height": "3.0",
+        "wave_period": "14s",
+        "swell_1_height": "3.0",
+        "swell_1_period": "14s",
+        "swell_1_direction": "250",
+        "swell_2_height": null,
+        "swell_2_period": null,
+        "swell_2_direction": null,
+        "wind_wave_height": null,
+        "wind_wave_period": null,
+        "wind_wave_direction": null,
+        "data_source": "CDIP",
+        "wind_speed": "5",
+        "wind_direction": "E",
+        "wind_direction_deg": 90,
+        "tide_height": "3.0",
+        "tide_status": "rising"
+      }
+    }
+  },
+  "gates": {
+    "A": ["lower-trestles", "blacks", "rincon", "malibu-first-point"],
+    "B": ["tourmaline-beach", "tourmaline-surf-park", "windansea"],
+    "C": ["hb-pier-southside", "the-wedge"],
+    "D": ["hb-pier", "hb-pier-northside", "crystal-cove"],
+    "E": ["tourmaline-beach", "blacks", "lower-trestles", "swamis", "hb-pier-southside", "the-wedge"]
+  }
+}

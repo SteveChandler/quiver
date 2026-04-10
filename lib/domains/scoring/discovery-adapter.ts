@@ -18,6 +18,12 @@ import type { ScorerInput, CompositeScore } from './types';
 import { getDirectionDegrees } from '@/lib/utils/number-parsing';
 import { trackFallback } from '@/lib/monitoring/fallback-tracker';
 import { resolveConfidence } from '@/lib/monitoring/fallback-helpers';
+import {
+  transformToFaceHeightDecomposed,
+  type ShoalingFactors,
+  type SwellComponentInput,
+  type WaveHeightSourceTag,
+} from '@/lib/utils/wave-height-transformer';
 import type { SpotProfile } from '../spot-profile/types';
 import type { ConditionsSnapshot, ConditionsWindow } from '../conditions/types';
 import type { UserPreferences } from '../user-preferences/types';
@@ -63,17 +69,123 @@ export function beachToSpotProfile(beach: Beach): SpotProfile {
 }
 
 /**
- * Convert EnhancedForecastEntity to ConditionsSnapshot.
+ * Infer the upstream wave-height source tag from an already-persisted
+ * `EnhancedForecastEntity` row.
+ *
+ * `transformToFaceHeight` gates its per-beach `shoaling_factors` short-circuit
+ * on `source === 'cdip_sig'` because the bucket multipliers were calibrated as
+ * `surfline_face_ft / cdip_hs_ft`. The upstream live path
+ * (`selectWaveHeightSource` in `wave-formatters.ts`) has access to the raw
+ * CDIP/WW3/NDBC feeds and picks the tag dynamically. At read time through the
+ * discovery adapter we only have `forecast.data_source`, which `forecast-builder`
+ * writes as one of `"CDIP" | "NOAA_BUOY" | "FALLBACK"` or a per-entry wave
+ * model label (e.g. `"NOAA_NWS"`, `"OPEN_METEO"`, `"MODEL_WAVE_WATCH"`).
+ *
+ * Strategy:
+ * - `"CDIP"` (or anything starting with `CDIP`) maps to `'cdip_sig'` so calibrated
+ *   beaches get the empirical bucket factor when the writer chose CDIP.
+ * - Everything else returns `undefined`, which makes `transformToFaceHeight`
+ *   run the legacy `base × period × direction` pipeline — the safe default,
+ *   because applying the CDIP-denominated bucket factor to a model-derived
+ *   height would produce the wrong answer.
  */
-export function forecastToSnapshot(forecast: EnhancedForecastEntity): ConditionsSnapshot {
+function inferWaveHeightSource(
+  forecast: EnhancedForecastEntity,
+): WaveHeightSourceTag | undefined {
+  const ds = forecast.data_source?.toUpperCase() ?? '';
+  if (ds === 'CDIP' || ds.startsWith('CDIP')) return 'cdip_sig';
+  return undefined;
+}
+
+/**
+ * Convert EnhancedForecastEntity to ConditionsSnapshot.
+ *
+ * Applies the same `transformToFaceHeightDecomposed` the display path uses so
+ * the score engine ingests the same face-height number the UI renders. The
+ * display-path equivalent lives in `forecast-builder.getWaveHeight`. Without
+ * the decomposition, calibrated beaches like Tourmaline on a mixed-period day
+ * (1 ft 14s SSW + 2.5 ft 7s W wind-swell) would have the short-period wind
+ * component smuggled through the 12–16s bucket factor because the scalar path
+ * only sees CDIP combined Hs + peak period. Per-component alignment +
+ * short-period cutoff zeroes the W wind-swell contribution and fixes the
+ * Tourmaline 3-5 ft / 9.3 bug on 2026-04-09.
+ *
+ * Unit note: `enhanced_forecasts.swell_1_height`, `swell_2_height`, and
+ * `wind_wave_height` are stored as formatted feet strings (e.g. `"3.5 ft"`)
+ * by `forecast-builder.metersToFeet`, so `parseFloat` on the raw string
+ * yields feet directly — no meters→feet conversion needed here.
+ */
+export function forecastToSnapshot(
+  forecast: EnhancedForecastEntity,
+  beach: Beach,
+): ConditionsSnapshot {
   // Parse wave data
-  const waveHeight = parseFloat(forecast.wave_height || '0');
+  const rawHeight = parseFloat(forecast.wave_height || '0');
   const wavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
   // Use getDirectionDegrees to handle both numeric ("280") and cardinal ("WNW") strings
   const waveDirection = getDirectionDegrees(
     forecast.swell_1_direction,
     forecast.swell_1_direction
   );
+
+  // Build per-component inputs from the persisted WW3 columns. Heights are
+  // already in feet (see unit note above). Any slot missing height or period
+  // is passed as null and the decomposed transform skips it. If ALL slots
+  // are null the transform falls back to its internal legacy scalar path
+  // using `rawHeightFt`/`periodS`/`swellDirectionDeg` below.
+  const parseComponent = (
+    heightStr: string | null | undefined,
+    periodStr: string | null | undefined,
+    directionStr: string | null | undefined,
+  ): SwellComponentInput | null => {
+    if (heightStr == null || periodStr == null) return null;
+    const heightFt = parseFloat(heightStr);
+    const periodS = parseFloat(periodStr.replace('s', ''));
+    if (!Number.isFinite(heightFt) || heightFt <= 0) return null;
+    if (!Number.isFinite(periodS) || periodS <= 0) return null;
+    return {
+      heightFt,
+      periodS,
+      directionDeg: getDirectionDegrees(directionStr, directionStr) ?? null,
+    };
+  };
+
+  const components: Array<SwellComponentInput | null> = [
+    parseComponent(
+      forecast.swell_1_height,
+      forecast.swell_1_period,
+      forecast.swell_1_direction,
+    ),
+    parseComponent(
+      forecast.swell_2_height,
+      forecast.swell_2_period,
+      forecast.swell_2_direction,
+    ),
+    parseComponent(
+      forecast.wind_wave_height,
+      forecast.wind_wave_period,
+      forecast.wind_wave_direction,
+    ),
+  ];
+
+  // Apply the same decomposed shoaling transform the display uses so score
+  // and UI agree. `inferWaveHeightSource` returns `'cdip_sig'` only for
+  // `data_source: 'CDIP'` rows; the decomposed path threads it through for
+  // the legacy scalar fallback branch when all component slots are null.
+  const { faceHeightFt: waveHeight } = transformToFaceHeightDecomposed({
+    components,
+    beach: {
+      swell_access_factors: beach.swell_access_factors ?? null,
+      terrain_enabled: beach.terrain_enabled ?? false,
+      shoaling_factors: (beach.shoaling_factors ?? null) as ShoalingFactors | null,
+      swell_window_center_deg: beach.swell_window_center_deg ?? null,
+      swell_window_halfwidth_deg: beach.swell_window_halfwidth_deg ?? null,
+    },
+    source: inferWaveHeightSource(forecast),
+    rawHeightFt: rawHeight,
+    periodS: Number.isFinite(wavePeriod) && wavePeriod > 0 ? wavePeriod : null,
+    swellDirectionDeg: waveDirection ?? null,
+  });
 
   // Parse wind data
   const windSpeed = parseFloat(forecast.wind_speed || '0');
@@ -204,7 +316,7 @@ export function scoreBeachWithEngine(
   options?: DiscoveryScoringOptions
 ): DetailedScore {
   const profile = beachToSpotProfile(beach);
-  const snapshot = forecastToSnapshot(forecast);
+  const snapshot = forecastToSnapshot(forecast, beach);
 
   const input: ScorerInput = {
     profile,

@@ -57,6 +57,19 @@ export interface BeachTerrainConfig {
    * When present, short-circuits the generic period/direction factor pipeline.
    */
   shoaling_factors?: ShoalingFactors | null;
+  /**
+   * Swell-window center in compass degrees (bearing the open ocean lies from
+   * the break). When present together with `swell_window_halfwidth_deg`,
+   * `transformToFaceHeightDecomposed` uses it to alignment-weight each swell
+   * component so cross-shore / blocked components don't contribute to face
+   * height. Null on uncalibrated beaches — decomposition then degrades
+   * gracefully to alignment = 1.0. The legacy `transformToFaceHeight` path
+   * ignores these fields entirely; they exist on this shape so the new
+   * decomposed path and other callers can share one beach descriptor.
+   */
+  swell_window_center_deg?: number | null;
+  /** Half-width of the swell window in degrees (see `swell_window_center_deg`). */
+  swell_window_halfwidth_deg?: number | null;
 }
 
 /**
@@ -461,4 +474,247 @@ export function transformToFaceHeightRange(params: TransformParams): WaveHeightR
   const low = transformToFaceHeight(params);
   const high = Math.round(low * SET_WAVE_VARIANCE * 10) / 10;
   return { low, high };
+}
+
+// ===================================================
+// PER-COMPONENT DECOMPOSITION (W-A)
+// ===================================================
+
+/**
+ * Short-period cutoff used by `alignmentFactor`. Any swell component with
+ * period strictly less than this value contributes zero face height, on the
+ * grounds that sub-8s energy is wind-swell / sea-state that doesn't produce
+ * organized surf regardless of direction. Exposed as a constant so tests
+ * and regression scripts can reference the same threshold.
+ */
+export const SHORT_PERIOD_CUTOFF_S = 8;
+
+/**
+ * Compute the alignment weight for a single swell component against a beach's
+ * swell window.
+ *
+ * Returns a value in [0, 1] that `transformToFaceHeightDecomposed` multiplies
+ * into the component's face-height contribution. Semantics:
+ *
+ * - `0` when `periodS <= shortPeriodCutoffS` (default 8s). Sub-8s energy is
+ *   treated as wind-swell regardless of direction — a west wind-swell that
+ *   happens to fall inside Tourmaline's 180-315° window still contributes
+ *   zero because the waves simply don't organize into clean faces at the
+ *   break. **The cutoff value itself is excluded** (exactly 8.0s returns 0,
+ *   8.01s returns positive) so the gate only admits genuine groundswell.
+ * - `0` when the component direction lies outside the window
+ *   `[center - halfwidth, center + halfwidth]` (angular, so the short arc).
+ * - `cos²` falloff inside the window: `cos²(distance / halfwidth × π/2)`.
+ *   At the center → 1.0. At the edge → 0.0. Halfway between → 0.5.
+ * - `1.0` when `windowCenterDeg` or `windowHalfwidthDeg` is null. This is
+ *   the "graceful degradation" path for uncalibrated beaches: we don't want
+ *   to fabricate an alignment signal we can't measure, so the component
+ *   passes through at full weight and the bucket factor alone does the work.
+ * - `1.0` when `componentDirDeg` is null — we can't compute angular distance
+ *   without a direction, so degrade open rather than zero out. The bucket
+ *   factor is still applied by the caller.
+ *
+ * Angular distance is the short-arc delta normalized to `[0, 180]`.
+ */
+export function alignmentFactor(
+  componentDirDeg: number | null | undefined,
+  periodS: number | null | undefined,
+  windowCenterDeg: number | null | undefined,
+  windowHalfwidthDeg: number | null | undefined,
+  opts?: { shortPeriodCutoffS?: number },
+): number {
+  const cutoff = opts?.shortPeriodCutoffS ?? SHORT_PERIOD_CUTOFF_S;
+
+  // Short-period gate: wind-swell never contributes face height. The cutoff
+  // value itself is excluded — only periods strictly greater than 8s count
+  // as groundswell.
+  if (periodS == null || !Number.isFinite(periodS) || periodS <= cutoff) {
+    return 0;
+  }
+
+  // Graceful degradation when the window is uncalibrated.
+  if (
+    windowCenterDeg == null ||
+    windowHalfwidthDeg == null ||
+    !Number.isFinite(windowCenterDeg) ||
+    !Number.isFinite(windowHalfwidthDeg) ||
+    windowHalfwidthDeg <= 0
+  ) {
+    return 1.0;
+  }
+
+  // Graceful degradation when the component direction is missing.
+  if (componentDirDeg == null || !Number.isFinite(componentDirDeg)) {
+    return 1.0;
+  }
+
+  // Short-arc angular distance in [0, 180].
+  const rawDelta = ((componentDirDeg - windowCenterDeg) % 360 + 540) % 360 - 180;
+  const distance = Math.abs(rawDelta);
+
+  if (distance >= windowHalfwidthDeg) {
+    return 0;
+  }
+
+  const normalized = distance / windowHalfwidthDeg; // [0, 1)
+  const cosValue = Math.cos((normalized * Math.PI) / 2);
+  return cosValue * cosValue;
+}
+
+/**
+ * Single swell-component input for `transformToFaceHeightDecomposed`.
+ * Heights must already be in feet; callers converting from meters should
+ * do that upstream (typically via `metersToFeet`). A null slot signals
+ * "no data" — pass nulls for absent components rather than omitting them.
+ */
+export interface SwellComponentInput {
+  heightFt: number;
+  periodS: number;
+  directionDeg: number | null;
+}
+
+/**
+ * Result of `transformToFaceHeightDecomposed`.
+ *
+ * `path` reports which branch fired:
+ * - `'decomposed'`: at least one component had usable data and the RMS
+ *   sum was computed per-component.
+ * - `'legacy'`: all components were absent/invalid so we fell back to
+ *   `transformToFaceHeight` with the raw Hs input. Result is identical
+ *   to what the existing transform would return — this path exists so
+ *   callers can log/telemetry which rows decomposed vs which didn't.
+ *
+ * `isCalibrated` is `true` only when both conditions hold: `source ===
+ * 'cdip_sig'` and `beach.shoaling_factors` is populated. Mirrors the
+ * semantics of `transformToFaceHeightWithMetadata` so downstream consumers
+ * can treat the two metadata flags identically.
+ */
+export interface DecomposedFaceHeightResult {
+  faceHeightFt: number;
+  isCalibrated: boolean;
+  path: 'decomposed' | 'legacy';
+}
+
+/**
+ * Per-component, alignment-weighted face-height transform.
+ *
+ * Motivation — Tourmaline 2026-04-09 blowout: CDIP 201 combined Hs was ~3 ft
+ * with peak period 14s, but the reading was a bimodal stack of a ~1 ft 14s
+ * SSW groundswell and a ~2.5 ft 7s W wind-swell. The legacy single-bucket
+ * transform multiplied 3 × 1.45 = 4.35 ft ("3-5 ft") because it applied the
+ * 12-16s calibrated factor to the whole Hs without noticing the short-period
+ * component. Reality was ~1.7 ft face because the 7s W energy doesn't reach
+ * the protected break.
+ *
+ * Fix: decompose the swell into the WW3 components the model already
+ * reports, weight each by (bucket factor × alignment to the beach's swell
+ * window × short-period gate), and RMS-sum the resulting face heights.
+ * RMS is physically correct for significant-height sums (variance adds
+ * linearly; Hs scales with the square root), so an N-component decomposition
+ * never exceeds the naive linear sum and converges to the single-component
+ * case when only one component is populated.
+ *
+ * Fallback policy:
+ * - **All slots null or invalid** → delegate to `transformToFaceHeight` with
+ *   the legacy inputs. The result is byte-identical to current behavior.
+ *   This is the safety valve for rows where WW3 components are missing
+ *   (older snapshots, fallback providers, etc.).
+ * - **Partial nulls** → skip the null slots and decompose the populated
+ *   ones. This is the common case: a beach might only have one dominant
+ *   swell component on a flat day. Do NOT full-fallback on partial data,
+ *   because doing so would lose the per-component alignment signal for the
+ *   component that is populated.
+ * - **Null shoaling_factors (uncalibrated beach)** → use
+ *   `calculatePeriodFactor × BASE_SHOALING` as each component's bucket
+ *   factor. The alignment gate and RMS sum still apply, so the decomposed
+ *   path is still physically meaningful even without empirical calibration.
+ * - **Null swell window** → `alignmentFactor` returns 1.0 for every
+ *   component, so decomposition becomes "bucket factor × raw height"
+ *   RMS-summed. No direction gating. Preserves the old pipeline's behavior
+ *   on beaches that haven't had their window measured yet.
+ *
+ * `isCalibrated` is returned on the `'decomposed'` path iff
+ * `source === 'cdip_sig'` AND `beach.shoaling_factors` is populated. On the
+ * `'legacy'` path it mirrors whatever `transformToFaceHeightWithMetadata`
+ * would have returned for the raw Hs input.
+ */
+export function transformToFaceHeightDecomposed(params: {
+  components: Array<SwellComponentInput | null>;
+  beach: BeachTerrainConfig;
+  source?: WaveHeightSourceTag;
+  // Legacy fallback inputs (used when no components are populated).
+  rawHeightFt: number;
+  periodS: number | null;
+  swellDirectionDeg: number | null;
+}): DecomposedFaceHeightResult {
+  const {
+    components,
+    beach,
+    source,
+    rawHeightFt,
+    periodS,
+    swellDirectionDeg,
+  } = params;
+
+  // Filter to genuinely populated components. We treat any slot with a
+  // non-finite or zero period as "no data" because the shoaling bucket
+  // lookup rejects those anyway, and a component with no period carries
+  // no usable energy signal.
+  const populated = components.filter(
+    (c): c is SwellComponentInput =>
+      c != null &&
+      Number.isFinite(c.heightFt) &&
+      c.heightFt > 0 &&
+      Number.isFinite(c.periodS) &&
+      c.periodS > 0,
+  );
+
+  if (populated.length === 0) {
+    const legacy = transformToFaceHeightWithMetadata({
+      rawHeightFt,
+      periodS,
+      swellDirectionDeg,
+      beach,
+      source,
+    });
+    return {
+      faceHeightFt: legacy.faceHeightFt,
+      isCalibrated: legacy.isCalibrated,
+      path: 'legacy',
+    };
+  }
+
+  const windowCenter = beach.swell_window_center_deg ?? null;
+  const windowHalfwidth = beach.swell_window_halfwidth_deg ?? null;
+  const shoalingFactors = beach.shoaling_factors ?? null;
+
+  let sumOfSquares = 0;
+  for (const component of populated) {
+    const alignment = alignmentFactor(
+      component.directionDeg,
+      component.periodS,
+      windowCenter,
+      windowHalfwidth,
+    );
+    if (alignment === 0) continue;
+
+    const bucketFactor = lookupShoalingBucket(component.periodS, shoalingFactors);
+    const perComponentFactor =
+      bucketFactor ?? BASE_SHOALING * calculatePeriodFactor(component.periodS);
+
+    const faceI = component.heightFt * perComponentFactor * alignment;
+    sumOfSquares += faceI * faceI;
+  }
+
+  const faceHs = Math.sqrt(sumOfSquares);
+  const rounded = Math.round(faceHs * 10) / 10;
+
+  return {
+    faceHeightFt: rounded,
+    // Calibrated iff the short-circuit would have fired for the combined
+    // reading: source is CDIP sig AND the beach has a lookup table. Per-
+    // component bucket misses don't invalidate the beach-level claim.
+    isCalibrated: source === 'cdip_sig' && shoalingFactors != null,
+    path: 'decomposed',
+  };
 }

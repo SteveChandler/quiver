@@ -2,10 +2,13 @@ import {
   transformToFaceHeight,
   transformToFaceHeightWithMetadata,
   transformToFaceHeightRange,
+  transformToFaceHeightDecomposed,
+  alignmentFactor,
   calculatePeriodFactor,
   calculateDirectionFactor,
   getTransformationFactors,
   lookupShoalingBucket,
+  SHORT_PERIOD_CUTOFF_S,
   BASE_SHOALING,
   PERIOD_REF,
   PERIOD_MULT,
@@ -16,6 +19,7 @@ import {
   SET_WAVE_VARIANCE,
   type BeachTerrainConfig,
   type ShoalingFactors,
+  type SwellComponentInput,
   type TransformParams,
   type WaveHeightSourceTag,
 } from '@/lib/utils/wave-height-transformer';
@@ -1011,6 +1015,389 @@ describe('Wave Height Transformer', () => {
         const meta = transformToFaceHeightWithMetadata(params);
         expect(meta.faceHeightFt).toBe(legacy);
       }
+    });
+  });
+
+  // ==========================================================================
+  // Workstream A: per-component decomposition + alignment weighting
+  // ==========================================================================
+
+  describe('alignmentFactor', () => {
+    // Tourmaline swell window per 20260211120000_comprehensive_swell_window_fix:
+    // center 247.5°, halfwidth 67.5° (spans 180° – 315°).
+    const TOURMALINE_CENTER = 247.5;
+    const TOURMALINE_HALFWIDTH = 67.5;
+
+    it('returns 1.0 at the window center', () => {
+      expect(
+        alignmentFactor(TOURMALINE_CENTER, 14, TOURMALINE_CENTER, TOURMALINE_HALFWIDTH),
+      ).toBeCloseTo(1.0, 6);
+    });
+
+    it('returns 0 exactly at the window edge', () => {
+      // Distance === halfwidth: cos²(π/2) = 0
+      const atEdge = alignmentFactor(
+        TOURMALINE_CENTER + TOURMALINE_HALFWIDTH,
+        14,
+        TOURMALINE_CENTER,
+        TOURMALINE_HALFWIDTH,
+      );
+      expect(atEdge).toBe(0);
+
+      // Approaching the edge — strictly positive but near zero.
+      const nearEdge = alignmentFactor(
+        TOURMALINE_CENTER + TOURMALINE_HALFWIDTH - 1,
+        14,
+        TOURMALINE_CENTER,
+        TOURMALINE_HALFWIDTH,
+      );
+      expect(nearEdge).toBeGreaterThan(0);
+      expect(nearEdge).toBeLessThan(0.01);
+    });
+
+    it('returns 0 for components outside the window', () => {
+      // 20° N — nowhere near the SSW window
+      expect(
+        alignmentFactor(20, 14, TOURMALINE_CENTER, TOURMALINE_HALFWIDTH),
+      ).toBe(0);
+    });
+
+    it('returns 0 for short-period components regardless of direction', () => {
+      // 7s wind-swell from the window center should still zero out.
+      expect(
+        alignmentFactor(TOURMALINE_CENTER, 7, TOURMALINE_CENTER, TOURMALINE_HALFWIDTH),
+      ).toBe(0);
+      // 5s even stronger gate.
+      expect(
+        alignmentFactor(TOURMALINE_CENTER, 5, TOURMALINE_CENTER, TOURMALINE_HALFWIDTH),
+      ).toBe(0);
+    });
+
+    it('treats exactly the cutoff period as short-period (strict less-than)', () => {
+      // The cutoff is exclusive: 8.0s returns 0, 8.01s returns positive.
+      // SHORT_PERIOD_CUTOFF_S is 8.
+      expect(SHORT_PERIOD_CUTOFF_S).toBe(8);
+      expect(
+        alignmentFactor(TOURMALINE_CENTER, 8.0, TOURMALINE_CENTER, TOURMALINE_HALFWIDTH),
+      ).toBe(0);
+      expect(
+        alignmentFactor(TOURMALINE_CENTER, 8.01, TOURMALINE_CENTER, TOURMALINE_HALFWIDTH),
+      ).toBeGreaterThan(0);
+    });
+
+    it('returns 1.0 when the swell window is unknown (graceful degradation)', () => {
+      expect(alignmentFactor(200, 14, null, null)).toBe(1.0);
+      expect(alignmentFactor(200, 14, TOURMALINE_CENTER, null)).toBe(1.0);
+      expect(alignmentFactor(200, 14, null, TOURMALINE_HALFWIDTH)).toBe(1.0);
+    });
+
+    it('returns 1.0 when the component direction is unknown', () => {
+      // Can't compute angular distance — degrade open rather than zero out.
+      expect(
+        alignmentFactor(null, 14, TOURMALINE_CENTER, TOURMALINE_HALFWIDTH),
+      ).toBe(1.0);
+    });
+
+    it('wraps correctly across the 0°/360° seam', () => {
+      // Window center at 10°, halfwidth 30°. Component at 350° is 20° away
+      // via the short arc — should match a symmetric component at 30°.
+      expect(alignmentFactor(350, 14, 10, 30)).toBeCloseTo(
+        alignmentFactor(30, 14, 10, 30),
+        6,
+      );
+    });
+  });
+
+  describe('transformToFaceHeightDecomposed', () => {
+    // Tourmaline factors from 20260407134519_add_shoaling_factors_to_beaches.sql
+    const TOURMALINE_FACTORS: ShoalingFactors = {
+      version: 1,
+      type: 'period_lookup',
+      buckets: [
+        { tp_min_s: 0, tp_max_s: 8, factor: 1.03 },
+        { tp_min_s: 8, tp_max_s: 12, factor: 1.13 },
+        { tp_min_s: 12, tp_max_s: 16, factor: 1.45 },
+        { tp_min_s: 16, tp_max_s: 999, factor: 1.62 },
+      ],
+    };
+
+    // Blacks factors, same migration.
+    const BLACKS_FACTORS: ShoalingFactors = {
+      version: 1,
+      type: 'period_lookup',
+      buckets: [
+        { tp_min_s: 0, tp_max_s: 8, factor: 1.57 },
+        { tp_min_s: 8, tp_max_s: 12, factor: 1.7 },
+        { tp_min_s: 12, tp_max_s: 16, factor: 2.13 },
+        { tp_min_s: 16, tp_max_s: 999, factor: 2.4 },
+      ],
+    };
+
+    const TOURMALINE_BEACH: BeachTerrainConfig = {
+      terrain_enabled: false,
+      swell_access_factors: null,
+      shoaling_factors: TOURMALINE_FACTORS,
+      swell_window_center_deg: 247.5,
+      swell_window_halfwidth_deg: 67.5,
+    };
+
+    // Blacks center=275, halfwidth=80 per 20260211120000_comprehensive_swell_window_fix.
+    const BLACKS_BEACH: BeachTerrainConfig = {
+      terrain_enabled: false,
+      swell_access_factors: null,
+      shoaling_factors: BLACKS_FACTORS,
+      swell_window_center_deg: 275,
+      swell_window_halfwidth_deg: 80,
+    };
+
+    it('Tourmaline 2026-04-09 scenario — short-period W wind-swell is zeroed', () => {
+      // Real inputs: 1 ft 14s SSW primary + 2.5 ft 7s W wind-swell.
+      // Legacy pipeline multiplied combined CDIP Hs (≈3 ft) by the 12-16s
+      // bucket factor 1.45 → 4.35 ft, displayed "3-5 ft / 9.3/10".
+      // The decomposed pipeline should zero the 7s component (period < 8s)
+      // and alignment-weight the 14s SSW component down to a small fraction
+      // of its raw multiplier, producing a face height well under 2 ft.
+      const result = transformToFaceHeightDecomposed({
+        components: [
+          { heightFt: 1.0, periodS: 14, directionDeg: 200 },
+          { heightFt: 2.5, periodS: 7, directionDeg: 274 },
+          null,
+        ],
+        beach: TOURMALINE_BEACH,
+        source: 'cdip_sig',
+        rawHeightFt: 3.0,
+        periodS: 14,
+        swellDirectionDeg: 200,
+      });
+
+      // Hard assertion from the plan: face <= 2 ft.
+      expect(result.faceHeightFt).toBeLessThanOrEqual(2.0);
+      expect(result.path).toBe('decomposed');
+      expect(result.isCalibrated).toBe(true);
+      // Sanity: it should be substantially smaller than the legacy 4.35.
+      expect(result.faceHeightFt).toBeLessThan(2.0);
+      // And strictly positive — we don't want to zero out a real 14s SSW
+      // reading just because alignment is imperfect.
+      expect(result.faceHeightFt).toBeGreaterThan(0);
+    });
+
+    it('Blacks clean-day scenario — matches legacy within 5%', () => {
+      // Single 5 ft 16s SSW primary approximately aligned with the Blacks
+      // swell window. The decomposed path should closely agree with the
+      // legacy short-circuit because one well-aligned component dominates.
+      const legacy = transformToFaceHeight({
+        rawHeightFt: 5.0,
+        periodS: 16,
+        swellDirectionDeg: 270,
+        beach: BLACKS_BEACH,
+        source: 'cdip_sig',
+      });
+
+      const result = transformToFaceHeightDecomposed({
+        components: [
+          { heightFt: 5.0, periodS: 16, directionDeg: 270 },
+          null,
+          null,
+        ],
+        beach: BLACKS_BEACH,
+        source: 'cdip_sig',
+        rawHeightFt: 5.0,
+        periodS: 16,
+        swellDirectionDeg: 270,
+      });
+
+      expect(result.path).toBe('decomposed');
+      expect(result.isCalibrated).toBe(true);
+      // Within +/- 5% of the current production value.
+      const delta = Math.abs(result.faceHeightFt - legacy) / legacy;
+      expect(delta).toBeLessThan(0.05);
+    });
+
+    it('uncalibrated beach (null shoaling_factors) still decomposes via calculatePeriodFactor', () => {
+      const uncalibrated: BeachTerrainConfig = {
+        terrain_enabled: false,
+        swell_access_factors: null,
+        shoaling_factors: null,
+        swell_window_center_deg: 247.5,
+        swell_window_halfwidth_deg: 67.5,
+      };
+
+      const result = transformToFaceHeightDecomposed({
+        components: [
+          { heightFt: 3.0, periodS: 14, directionDeg: 247.5 },
+          null,
+          null,
+        ],
+        beach: uncalibrated,
+        source: 'model_swell',
+        rawHeightFt: 3.0,
+        periodS: 14,
+        swellDirectionDeg: 247.5,
+      });
+
+      // 3.0 × BASE_SHOALING × calculatePeriodFactor(14) × alignment(1.0)
+      // BASE_SHOALING=1.0, period factor at 14s = 1.2 (clamped).
+      // RMS of single component = face_1 = 3.6.
+      expect(result.path).toBe('decomposed');
+      expect(result.isCalibrated).toBe(false);
+      expect(result.faceHeightFt).toBeCloseTo(3.6, 1);
+    });
+
+    it('falls back to legacy when every component is null', () => {
+      const result = transformToFaceHeightDecomposed({
+        components: [null, null, null],
+        beach: TOURMALINE_BEACH,
+        source: 'cdip_sig',
+        rawHeightFt: 3.0,
+        periodS: 14,
+        swellDirectionDeg: 200,
+      });
+
+      // Legacy Tourmaline short-circuit: 3.0 × 1.45 = 4.35 → 4.3 rounded.
+      const legacy = transformToFaceHeight({
+        rawHeightFt: 3.0,
+        periodS: 14,
+        swellDirectionDeg: 200,
+        beach: TOURMALINE_BEACH,
+        source: 'cdip_sig',
+      });
+      expect(result.path).toBe('legacy');
+      expect(result.faceHeightFt).toBe(legacy);
+      // Calibration metadata should match what transformToFaceHeightWithMetadata reports.
+      expect(result.isCalibrated).toBe(true);
+    });
+
+    it('falls back to legacy when every component has invalid period', () => {
+      // Zero periods are treated as "no data" and skipped — all three slots
+      // invalid → legacy fallback.
+      const result = transformToFaceHeightDecomposed({
+        components: [
+          { heightFt: 1.0, periodS: 0, directionDeg: 200 },
+          { heightFt: 2.0, periodS: NaN, directionDeg: 220 },
+          null,
+        ],
+        beach: TOURMALINE_BEACH,
+        source: 'cdip_sig',
+        rawHeightFt: 3.0,
+        periodS: 14,
+        swellDirectionDeg: 200,
+      });
+
+      expect(result.path).toBe('legacy');
+    });
+
+    it('partial nulls decompose the populated components only', () => {
+      // One populated component + two null slots — should decompose, not fall back.
+      const result = transformToFaceHeightDecomposed({
+        components: [
+          { heightFt: 2.0, periodS: 14, directionDeg: 247.5 },
+          null,
+          null,
+        ],
+        beach: TOURMALINE_BEACH,
+        source: 'cdip_sig',
+        rawHeightFt: 2.0,
+        periodS: 14,
+        swellDirectionDeg: 247.5,
+      });
+
+      // Exactly aligned: alignment = 1.0.
+      // face_1 = 2.0 × 1.45 × 1.0 = 2.9 → rounds to 2.9.
+      expect(result.path).toBe('decomposed');
+      expect(result.faceHeightFt).toBeCloseTo(2.9, 1);
+    });
+
+    it('null swell window allows decomposition to proceed at full alignment', () => {
+      const noWindow: BeachTerrainConfig = {
+        terrain_enabled: false,
+        swell_access_factors: null,
+        shoaling_factors: TOURMALINE_FACTORS,
+        swell_window_center_deg: null,
+        swell_window_halfwidth_deg: null,
+      };
+
+      const result = transformToFaceHeightDecomposed({
+        components: [
+          { heightFt: 2.0, periodS: 14, directionDeg: 200 },
+          null,
+          null,
+        ],
+        beach: noWindow,
+        source: 'cdip_sig',
+        rawHeightFt: 2.0,
+        periodS: 14,
+        swellDirectionDeg: 200,
+      });
+
+      // alignment = 1.0 (graceful degradation), face_1 = 2.0 × 1.45 = 2.9.
+      expect(result.path).toBe('decomposed');
+      expect(result.faceHeightFt).toBeCloseTo(2.9, 1);
+    });
+
+    it('RMS sum never exceeds the linear sum of face contributions', () => {
+      // Quadrature (RMS) sum is always <= linear sum. Exercise a few
+      // multi-component mixes to guard the invariant.
+      const mixes: Array<SwellComponentInput[]> = [
+        [
+          { heightFt: 3.0, periodS: 14, directionDeg: 247.5 },
+          { heightFt: 2.0, periodS: 12, directionDeg: 220 },
+          { heightFt: 1.0, periodS: 10, directionDeg: 260 },
+        ],
+        [
+          { heightFt: 4.0, periodS: 16, directionDeg: 240 },
+          { heightFt: 2.5, periodS: 13, directionDeg: 255 },
+        ],
+      ];
+
+      for (const components of mixes) {
+        // Linear sum: add per-component face heights directly.
+        let linearSum = 0;
+        for (const c of components) {
+          const a = alignmentFactor(c.directionDeg, c.periodS, 247.5, 67.5);
+          const b = lookupShoalingBucket(c.periodS, TOURMALINE_FACTORS) ?? 1.0;
+          linearSum += c.heightFt * b * a;
+        }
+
+        const slots: Array<SwellComponentInput | null> = [
+          components[0] ?? null,
+          components[1] ?? null,
+          components[2] ?? null,
+        ];
+
+        const result = transformToFaceHeightDecomposed({
+          components: slots,
+          beach: TOURMALINE_BEACH,
+          source: 'cdip_sig',
+          rawHeightFt: components.reduce((s, c) => s + c.heightFt, 0),
+          periodS: components[0].periodS,
+          swellDirectionDeg: components[0].directionDeg,
+        });
+
+        // 0.05 ft slack for rounding (1-decimal output vs unrounded sum).
+        expect(result.faceHeightFt).toBeLessThanOrEqual(linearSum + 0.05);
+      }
+    });
+
+    it('path metadata distinguishes decomposed vs legacy', () => {
+      const decomposed = transformToFaceHeightDecomposed({
+        components: [{ heightFt: 2.0, periodS: 14, directionDeg: 247.5 }, null, null],
+        beach: TOURMALINE_BEACH,
+        source: 'cdip_sig',
+        rawHeightFt: 2.0,
+        periodS: 14,
+        swellDirectionDeg: 247.5,
+      });
+      expect(decomposed.path).toBe('decomposed');
+
+      const legacy = transformToFaceHeightDecomposed({
+        components: [null, null, null],
+        beach: TOURMALINE_BEACH,
+        source: 'cdip_sig',
+        rawHeightFt: 2.0,
+        periodS: 14,
+        swellDirectionDeg: 247.5,
+      });
+      expect(legacy.path).toBe('legacy');
     });
   });
 });
