@@ -1620,6 +1620,7 @@ export type Database = {
           created_at: string
           crowd_level: string | null
           crowd_tips: string | null
+          deepwater_decay_factor: number | null
           deleted_at: string | null
           description: string | null
           features: string[] | null
@@ -1633,6 +1634,7 @@ export type Database = {
           name: string
           owner_id: string | null
           parking_tips: string | null
+          persona: Database["public"]["Enums"]["beach_persona"] | null
           preference_model: Json | null
           preferred_tide_direction: string | null
           preferred_tide_ft_max: number | null
@@ -1682,6 +1684,7 @@ export type Database = {
           created_at?: string
           crowd_level?: string | null
           crowd_tips?: string | null
+          deepwater_decay_factor?: number | null
           deleted_at?: string | null
           description?: string | null
           features?: string[] | null
@@ -1695,6 +1698,7 @@ export type Database = {
           name: string
           owner_id?: string | null
           parking_tips?: string | null
+          persona?: Database["public"]["Enums"]["beach_persona"] | null
           preference_model?: Json | null
           preferred_tide_direction?: string | null
           preferred_tide_ft_max?: number | null
@@ -1744,6 +1748,7 @@ export type Database = {
           created_at?: string
           crowd_level?: string | null
           crowd_tips?: string | null
+          deepwater_decay_factor?: number | null
           deleted_at?: string | null
           description?: string | null
           features?: string[] | null
@@ -1757,6 +1762,7 @@ export type Database = {
           name?: string
           owner_id?: string | null
           parking_tips?: string | null
+          persona?: Database["public"]["Enums"]["beach_persona"] | null
           preference_model?: Json | null
           preferred_tide_direction?: string | null
           preferred_tide_ft_max?: number | null
@@ -8326,6 +8332,12 @@ export type Database = {
       }
     }
     Enums: {
+      beach_persona:
+        | "sheltered_reef"
+        | "exposed_beach_break"
+        | "canyon_amplified"
+        | "point_break"
+        | "jetty_harbor"
       intel_post_tag:
         | "parking"
         | "hazard"
@@ -8472,6 +8484,13 @@ export const Constants = {
   },
   public: {
     Enums: {
+      beach_persona: [
+        "sheltered_reef",
+        "exposed_beach_break",
+        "canyon_amplified",
+        "point_break",
+        "jetty_harbor",
+      ],
       intel_post_tag: [
         "parking",
         "hazard",
