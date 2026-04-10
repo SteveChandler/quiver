@@ -98,41 +98,25 @@ function inferWaveHeightSource(
 }
 
 /**
- * Convert EnhancedForecastEntity to ConditionsSnapshot.
+ * Compute the decomposed face height for a forecast at a given beach.
  *
- * Applies the same `transformToFaceHeightDecomposed` the display path uses so
- * the score engine ingests the same face-height number the UI renders. The
- * display-path equivalent lives in `forecast-builder.getWaveHeight`. Without
- * the decomposition, calibrated beaches like Tourmaline on a mixed-period day
- * (1 ft 14s SSW + 2.5 ft 7s W wind-swell) would have the short-period wind
- * component smuggled through the 12–16s bucket factor because the scalar path
- * only sees CDIP combined Hs + peak period. Per-component alignment +
- * short-period cutoff zeroes the W wind-swell contribution and fixes the
- * Tourmaline 3-5 ft / 9.3 bug on 2026-04-09.
- *
- * Unit note: `enhanced_forecasts.swell_1_height`, `swell_2_height`, and
- * `wind_wave_height` are stored as formatted feet strings (e.g. `"3.5 ft"`)
- * by `forecast-builder.metersToFeet`, so `parseFloat` on the raw string
- * yields feet directly — no meters→feet conversion needed here.
+ * Extracts swell_1/swell_2/wind_wave components from the forecast, runs
+ * `transformToFaceHeightDecomposed`, and returns the face height in feet
+ * along with the beach-level calibration flag. Shared by `forecastToSnapshot`
+ * (scoring path) and the update-enhanced API route (display path) so both
+ * always agree on the number.
  */
-export function forecastToSnapshot(
+export function computeFaceHeight(
   forecast: EnhancedForecastEntity,
   beach: Beach,
-): ConditionsSnapshot {
-  // Parse wave data
+): { faceHeightFt: number; isCalibrated: boolean } {
   const rawHeight = parseFloat(forecast.wave_height || '0');
   const wavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
-  // Use getDirectionDegrees to handle both numeric ("280") and cardinal ("WNW") strings
   const waveDirection = getDirectionDegrees(
     forecast.swell_1_direction,
     forecast.swell_1_direction
   );
 
-  // Build per-component inputs from the persisted WW3 columns. Heights are
-  // already in feet (see unit note above). Any slot missing height or period
-  // is passed as null and the decomposed transform skips it. If ALL slots
-  // are null the transform falls back to its internal legacy scalar path
-  // using `rawHeightFt`/`periodS`/`swellDirectionDeg` below.
   const parseComponent = (
     heightStr: string | null | undefined,
     periodStr: string | null | undefined,
@@ -168,11 +152,7 @@ export function forecastToSnapshot(
     ),
   ];
 
-  // Apply the same decomposed shoaling transform the display uses so score
-  // and UI agree. `inferWaveHeightSource` returns `'cdip_sig'` only for
-  // `data_source: 'CDIP'` rows; the decomposed path threads it through for
-  // the legacy scalar fallback branch when all component slots are null.
-  const { faceHeightFt: waveHeight } = transformToFaceHeightDecomposed({
+  const { faceHeightFt } = transformToFaceHeightDecomposed({
     components,
     beach: {
       swell_access_factors: beach.swell_access_factors ?? null,
@@ -186,6 +166,43 @@ export function forecastToSnapshot(
     periodS: Number.isFinite(wavePeriod) && wavePeriod > 0 ? wavePeriod : null,
     swellDirectionDeg: waveDirection ?? null,
   });
+
+  const isCalibrated = (beach.shoaling_factors ?? null) !== null;
+
+  return { faceHeightFt, isCalibrated };
+}
+
+/**
+ * Convert EnhancedForecastEntity to ConditionsSnapshot.
+ *
+ * Applies the same `transformToFaceHeightDecomposed` the display path uses so
+ * the score engine ingests the same face-height number the UI renders. The
+ * display-path equivalent lives in `forecast-builder.getWaveHeight`. Without
+ * the decomposition, calibrated beaches like Tourmaline on a mixed-period day
+ * (1 ft 14s SSW + 2.5 ft 7s W wind-swell) would have the short-period wind
+ * component smuggled through the 12–16s bucket factor because the scalar path
+ * only sees CDIP combined Hs + peak period. Per-component alignment +
+ * short-period cutoff zeroes the W wind-swell contribution and fixes the
+ * Tourmaline 3-5 ft / 9.3 bug on 2026-04-09.
+ *
+ * Unit note: `enhanced_forecasts.swell_1_height`, `swell_2_height`, and
+ * `wind_wave_height` are stored as formatted feet strings (e.g. `"3.5 ft"`)
+ * by `forecast-builder.metersToFeet`, so `parseFloat` on the raw string
+ * yields feet directly — no meters→feet conversion needed here.
+ */
+export function forecastToSnapshot(
+  forecast: EnhancedForecastEntity,
+  beach: Beach,
+): ConditionsSnapshot {
+  // Parse wave data
+  const wavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
+  // Use getDirectionDegrees to handle both numeric ("280") and cardinal ("WNW") strings
+  const waveDirection = getDirectionDegrees(
+    forecast.swell_1_direction,
+    forecast.swell_1_direction
+  );
+
+  const { faceHeightFt: waveHeight } = computeFaceHeight(forecast, beach);
 
   // Parse wind data
   const windSpeed = parseFloat(forecast.wind_speed || '0');

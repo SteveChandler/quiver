@@ -61,9 +61,11 @@ export function BeachHeroCompact({
 
   // Board recommendation based on current conditions
   // Parse wave_height and wind_speed from strings to numbers
-  const waveHeightNum = currentForecast?.wave_height
-    ? parseFloat(String(currentForecast.wave_height))
-    : null;
+  const waveHeightNum = currentForecast?.faceHeightFt != null
+    ? currentForecast.faceHeightFt
+    : (currentForecast?.wave_height
+        ? parseFloat(String(currentForecast.wave_height))
+        : null);
   const windSpeedNum = currentForecast?.wind_speed
     ? parseFloat(String(currentForecast.wind_speed))
     : null;

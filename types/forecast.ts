@@ -198,6 +198,8 @@ export interface EnhancedForecastEntity {
    * dotted underline).
    */
   isCalibrated?: boolean;
+  /** Decomposed face height in feet. Only present when returned by /api/forecasts/update-enhanced. */
+  faceHeightFt?: number;
 
   // Optional raw forecast payload for transparency/debugging
   raw_forecast?: {

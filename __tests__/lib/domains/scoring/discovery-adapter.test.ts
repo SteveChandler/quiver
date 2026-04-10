@@ -8,6 +8,7 @@ import {
   createDiscoveryScoringEngine,
   beachToSpotProfile,
   forecastToSnapshot,
+  computeFaceHeight,
   compositeToDetailedScore,
   scoreBeachWithEngine,
 } from '@/lib/domains/scoring';
@@ -480,6 +481,88 @@ describe('Discovery Adapter', () => {
 
         expect(snapshot.waveHeight).toBeCloseTo(displayHeight, 1);
       });
+    });
+  });
+
+  describe('computeFaceHeight', () => {
+    const tourmalineShoalingFactors = {
+      version: 1 as const,
+      type: 'period_lookup' as const,
+      buckets: [
+        { tp_min_s: 0, tp_max_s: 8, factor: 1.03 },
+        { tp_min_s: 8, tp_max_s: 12, factor: 1.13 },
+        { tp_min_s: 12, tp_max_s: 16, factor: 1.45 },
+        { tp_min_s: 16, tp_max_s: 99, factor: 1.62 },
+      ],
+    };
+
+    it('returns decomposed face height for a calibrated beach with components', () => {
+      const beach = createBeach({
+        shoaling_factors: tourmalineShoalingFactors,
+        swell_window_center_deg: 247.5,
+        swell_window_halfwidth_deg: 67.5,
+      });
+      const forecast = createForecast({
+        wave_height: '3',
+        wave_period: '14s',
+        data_source: 'CDIP',
+        swell_1_height: '1',
+        swell_1_period: '14s',
+        swell_1_direction: '200',
+        swell_2_height: '2.5',
+        swell_2_period: '7s',
+        swell_2_direction: '274',
+      });
+
+      const result = computeFaceHeight(forecast, beach);
+
+      // Same value forecastToSnapshot uses internally
+      const snapshot = forecastToSnapshot(forecast, beach);
+      expect(result.faceHeightFt).toBeCloseTo(snapshot.waveHeight, 5);
+      expect(result.isCalibrated).toBe(true);
+      expect(result.faceHeightFt).toBeLessThan(2.0);
+    });
+
+    it('returns legacy-path face height for an uncalibrated beach', () => {
+      const beach = createBeach({ shoaling_factors: null });
+      const forecast = createForecast({
+        wave_height: '3',
+        wave_period: '14s',
+        data_source: 'NOAA_NWS',
+        swell_1_height: '3',
+        swell_1_period: '14s',
+        swell_1_direction: '270',
+      });
+
+      const result = computeFaceHeight(forecast, beach);
+
+      expect(result.isCalibrated).toBe(false);
+      expect(Number.isFinite(result.faceHeightFt)).toBe(true);
+      expect(result.faceHeightFt).toBeGreaterThan(0);
+    });
+
+    it('falls back to legacy when all component slots are null', () => {
+      const beach = createBeach({ shoaling_factors: null });
+      const forecast = createForecast({
+        wave_height: '3',
+        wave_period: '14s',
+        data_source: 'CDIP',
+        swell_1_height: null,
+        swell_1_period: null,
+        swell_1_direction: null,
+        swell_2_height: null,
+        swell_2_period: null,
+        swell_2_direction: null,
+        wind_wave_height: null,
+        wind_wave_period: null,
+        wind_wave_direction: null,
+      });
+
+      const result = computeFaceHeight(forecast, beach);
+
+      // Legacy: 3 * 1.0 * periodFactor(14)=1.2 * 1.0 = 3.6
+      expect(result.faceHeightFt).toBeCloseTo(3.6, 1);
+      expect(result.isCalibrated).toBe(false);
     });
   });
 
