@@ -52,8 +52,6 @@ describe('BestSurfWindow - Unified Card Integration', () => {
       trendTags: ['Winds Cleaning Up', 'Tide Filling In', 'Clean Swell'],
       updatedAt: '2026-01-24T09:34:00Z',
       isCalibrated: true,
-      setFrequency: null,
-      setFrequencyShort: null,
     };
 
     it('should render the unified card instead of legacy components', () => {
@@ -157,8 +155,6 @@ describe('BestSurfWindow - Unified Card Integration', () => {
       trendTags: [],
       updatedAt: '2026-01-24T09:34:00Z',
       isCalibrated: true,
-      setFrequency: null,
-      setFrequencyShort: null,
     };
 
     it('should show appropriate message when no good window exists', () => {
@@ -202,8 +198,6 @@ describe('BestSurfWindow - Unified Card Integration', () => {
       trendTags: ['Tide Filling In'],
       updatedAt: '2026-01-24T09:34:00Z',
       isCalibrated: true,
-      setFrequency: null,
-      setFrequencyShort: null,
     };
 
     it('should display safe mode badge when confidence is low', () => {

@@ -40,7 +40,6 @@ import { DataErrorBoundary } from "@/components/error-boundaries";
 import { TideStatusStrip } from "@/components/beach-detail/tide-status-strip";
 import { TideChartSection } from "@/components/beach-detail/tide-chart-section";
 import { TextureOverlay } from "@/components/ui/texture-overlay";
-import { estimateSetFrequency, formatSetFrequencyShort } from "@/lib/utils/wave-frequency";
 
 const ConditionsOverview = dynamic(
   () =>
@@ -294,15 +293,6 @@ export function ForecastTab({
       ? `— · ${snapshotDirection}`
       : `${snapshotSwellPeriod} s · ${snapshotDirection}`;
 
-  // Set wave frequency derived from dominant period
-  const setFrequencyShort = useMemo(() => {
-    const raw = currentForecast?.wave_period;
-    if (raw == null) return null;
-    const periodNum = typeof raw === "string" ? parseFloat(raw.replace(/s$/i, "")) : Number(raw);
-    const estimate = estimateSetFrequency(periodNum);
-    return formatSetFrequencyShort(estimate);
-  }, [currentForecast?.wave_period]);
-
   return (
     <DataErrorBoundary dataType="forecast" componentName="ForecastTab">
     <div className="space-y-6 py-6">
@@ -445,50 +435,40 @@ export function ForecastTab({
                 </div>
 
                 {/* Secondary Conditions */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-1.5 sm:gap-2 mt-3 sm:mt-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 mt-3 sm:mt-4">
                   {/* Swell Direction */}
-                  <div className="rounded-lg bg-white/5 px-2 py-1.5 border border-white/10">
-                    <div className="text-[10px] text-white/50 leading-tight">Swell</div>
-                    <div className="text-xs font-semibold text-white">
+                  <div className="rounded-xl bg-white/5 p-2 sm:p-3 border border-white/10 relative">
+                    <div className="text-xs text-white/60 mb-1">Swell Direction</div>
+                    <div className="text-sm font-semibold text-white">
                       {currentForecast?.swell_1_direction ?? "—"}
                     </div>
                   </div>
 
                   {/* Water Temp */}
-                  <div className="rounded-lg bg-white/5 px-2 py-1.5 border border-white/10">
-                    <div className="text-[10px] text-white/50 leading-tight">Water</div>
-                    <div className="text-xs font-semibold text-white">
+                  <div className="rounded-xl bg-white/5 p-2 sm:p-3 border border-white/10 relative">
+                    <div className="text-xs text-white/60 mb-1">Water Temp</div>
+                    <div className="text-sm font-semibold text-white">
                       {currentForecast?.water_temp ? `${String(currentForecast.water_temp).replace(/°F$/, "")}°F` : "—"}
                     </div>
                   </div>
 
                   {/* Next Tide */}
-                  <div className="rounded-lg bg-white/5 px-2 py-1.5 border border-white/10">
-                    <div className="text-[10px] text-white/50 leading-tight">Next Tide</div>
-                    <div className="text-xs font-semibold text-white">
+                  <div className="rounded-xl bg-white/5 p-2 sm:p-3 border border-white/10 relative">
+                    <div className="text-xs text-white/60 mb-1">Next Tide</div>
+                    <div className="text-sm font-semibold text-white">
                       {heroNextTideType} @ {getNextTideTimeDisplay()}
                     </div>
                   </div>
 
                   {/* Sunrise/Sunset */}
-                  <div className="rounded-lg bg-white/5 px-2 py-1.5 border border-white/10">
-                    <div className="text-[10px] text-white/50 leading-tight">Daylight</div>
-                    <div className="text-xs font-semibold text-white">
+                  <div className="rounded-xl bg-white/5 p-2 sm:p-3 border border-white/10 relative">
+                    <div className="text-xs text-white/60 mb-1">Daylight</div>
+                    <div className="text-sm font-semibold text-white">
                       {sunrise && sunset
                         ? `${formatSunTime(sunrise)} - ${formatSunTime(sunset)}`
                         : "—"}
                     </div>
                   </div>
-
-                  {/* Set Frequency */}
-                  {setFrequencyShort && (
-                    <div className="rounded-lg bg-white/5 px-2 py-1.5 border border-white/10">
-                      <div className="text-[10px] text-white/50 leading-tight">Sets</div>
-                      <div className="text-xs font-semibold text-white">
-                        {setFrequencyShort}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             </section>

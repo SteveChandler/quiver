@@ -99,8 +99,6 @@ interface UnifiedSurfCardProps {
   beachName: string;
   beachSlug?: string;
   isTomorrow?: boolean;
-  /** Pre-formatted set frequency string, e.g. "Sets every 12-15 min (15-20/hr)" */
-  setFrequency?: string | null;
   /**
    * Qualitative character of the conditions, e.g. "Small but powerful — long-period energy".
    * Rendered below the window time in Space Mono with category-appropriate color.
@@ -129,7 +127,6 @@ export function UnifiedSurfCard({
   beachName,
   beachSlug,
   isTomorrow,
-  setFrequency,
   character,
   boardPick,
   relativeContext,
@@ -354,12 +351,6 @@ export function UnifiedSurfCard({
                   showTooltip={true}
                   className="text-sm text-gray-600"
                 />
-                {setFrequency ? (
-                  <>
-                    <span>·</span>
-                    <span>{setFrequency}</span>
-                  </>
-                ) : null}
                 <span>·</span>
               </>
             )}

@@ -27,8 +27,6 @@ function makeReport(overrides: Partial<SurfCallResult> = {}): SurfCallResult {
     trendTags: [],
     updatedAt: "2025-01-15T10:00:00Z",
     isCalibrated: true,
-    setFrequency: null,
-    setFrequencyShort: null,
     ...overrides,
   };
 }

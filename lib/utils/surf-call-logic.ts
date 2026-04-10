@@ -13,7 +13,6 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
 import { computeTrendTags, type TrendTag } from '@/lib/scoring';
 import { formatTideHeight, formatWaveHeightRange as formatWaveHeight } from '@/lib/formatters/surf-data';
 import { parseSkillLevel, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences/skill-level';
-import { estimateSetFrequency, formatSetFrequency, formatSetFrequencyShort } from '@/lib/utils/wave-frequency';
 
 // ============================================================================
 // Types
@@ -57,10 +56,6 @@ export interface SurfCallResult {
    * site that owns the Beach record.
    */
   isCalibrated: boolean;
-  /** Set wave interval in minutes, e.g. "12-15 min". null if no organized sets. */
-  setFrequency: string | null;
-  /** Short form for compact display, e.g. "Sets ~12 min" */
-  setFrequencyShort: string | null;
 }
 
 // ============================================================================
@@ -516,8 +511,6 @@ export function computeSurfCall(
     trendTags: [],
     updatedAt,
     isCalibrated,
-    setFrequency: null,
-    setFrequencyShort: null,
   };
 
   // Hard NO: no forecasts
@@ -639,14 +632,6 @@ export function computeSurfCall(
     ? window.peakTime.toISOString()
     : null;
 
-  // Parse wave period from window data (e.g. "13s" → 13)
-  const periodS = window.wavePeriod
-    ? parseFloat(window.wavePeriod.replace(/s$/i, ''))
-    : null;
-  const freqEstimate = estimateSetFrequency(periodS);
-  const setFrequency = formatSetFrequency(freqEstimate);
-  const setFrequencyShort = formatSetFrequencyShort(freqEstimate);
-
   return {
     verdict,
     bestWindowStart: new Date(window.start).toISOString(),
@@ -671,7 +656,5 @@ export function computeSurfCall(
     trendTags,
     updatedAt,
     isCalibrated,
-    setFrequency,
-    setFrequencyShort,
   };
 }
