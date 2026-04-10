@@ -234,7 +234,7 @@ async function fetchCitySurfReport(
         beachId: forecast.beach.id,
         beachName: forecast.beach.name,
         beachSlug: forecast.beach.slug ?? "",
-        citySlug: stateSlug, // used for URL building — stateSlug from params
+        citySlug: forecast.beach.city ?? "",
         stateSlug,
         waveHeight: forecast.wave_height,
         windDescription: describeWind(forecast.wind_speed),

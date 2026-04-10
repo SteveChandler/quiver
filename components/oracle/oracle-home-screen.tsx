@@ -91,7 +91,7 @@ function getBestWindowTitle(
   const hour = getHourInTimezone(window.start, window.timezone || "America/Los_Angeles");
 
   if (hour < 8) return "Dawn patrol is your move";
-  if (hour < 12) return "Morning glass is calling";
+  if (hour < 12) return "Morning is looking glassy";
   if (hour < 14) return "Lunchtime waves are on";
   if (hour < 17) return "Afternoon session lined up";
   return "Evening session incoming";

@@ -273,7 +273,8 @@ function generatePrimaryReason(
     return `${beach.name} is an ${label} spot, but today's${heightDisplay} conditions are manageable`;
   }
 
-  return `Heads up: ${beach.name} is pumping today — waves are well above your comfort zone`;
+  const heightDisplay = waveHeight > 0 ? `${Math.round(waveHeight * 10) / 10}ft` : '';
+  return `Heads up: ${beach.name} is pumping today —${heightDisplay ? ` ${heightDisplay}` : ''} waves are above your usual range`;
 }
 
 /**
