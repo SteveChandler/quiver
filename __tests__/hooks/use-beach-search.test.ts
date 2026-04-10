@@ -624,6 +624,74 @@ describe("useBeachSearch", () => {
     });
   });
 
+  describe("search ranking", () => {
+    const rankingBeaches = [
+      { id: "r-1", name: "7th Street Beach", city: "Ocean City", state: "NJ", lat: 39.27, lon: -74.57 },
+      { id: "r-2", name: "Ocean Beach", city: "San Diego", state: "CA", lat: 32.75, lon: -117.25 },
+      { id: "r-3", name: "Ocean Park Beach", city: "Santa Monica", state: "CA", lat: 34.0, lon: -118.49 },
+      { id: "r-4", name: "Waverly Beach", city: "Ocean City", state: "NJ", lat: 39.28, lon: -74.58 },
+    ] as any[];
+
+    beforeEach(() => {
+      (mockGetBeaches as any).mockResolvedValue({
+        success: true,
+        data: rankingBeaches,
+      });
+    });
+
+    it("should rank exact name match above cross-field matches", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      act(() => {
+        result.current.setSearchQuery("ocean beach");
+      });
+
+      const names = result.current.filteredBeaches.map((b: any) => b.name);
+      // Ocean Beach (exact name match) must be first
+      expect(names[0]).toBe("Ocean Beach");
+      // Cross-field matches (ocean in city, beach in name) should rank last
+      expect(names).toContain("7th Street Beach");
+      expect(names.indexOf("Ocean Beach")).toBeLessThan(names.indexOf("7th Street Beach"));
+    });
+
+    it("should rank all-tokens-in-name above tokens split across name and city", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      act(() => {
+        result.current.setSearchQuery("ocean beach");
+      });
+
+      const names = result.current.filteredBeaches.map((b: any) => b.name);
+      // Ocean Park Beach has both "ocean" and "beach" in its name
+      expect(names.indexOf("Ocean Park Beach")).toBeLessThan(names.indexOf("7th Street Beach"));
+    });
+
+    it("should still return all matching beaches (no results dropped)", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      act(() => {
+        result.current.setSearchQuery("ocean beach");
+      });
+
+      // All 3 match: Ocean Beach, Ocean Park Beach, 7th Street Beach
+      // Waverly Beach doesn't have "ocean" in name, only in city, and doesn't have "beach" wait —
+      // Waverly Beach + Ocean City NJ → hay = "waverly beach ocean city nj" → has "ocean" and "beach" → matches
+      expect(result.current.filteredBeaches).toHaveLength(4);
+    });
+  });
+
   describe("loading states", () => {
     it("should show loading state during beach loading", async () => {
       let resolvePromise: (value: any) => void;

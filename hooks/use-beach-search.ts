@@ -127,27 +127,48 @@ export function useBeachSearch() {
 
       // Fuzzy search with punctuation-insensitive normalization and alias support
       const searchVariants = expandSearchWithAliases(query);
-      
+
       // If no normalized query, return all filtered beaches
       if (searchVariants.length === 0 || !searchVariants[0]) {
         return working;
       }
 
-      const result = working.filter((beach) => {
+      // Score and filter beaches by relevance
+      const scored: { beach: Beach; score: number }[] = [];
+
+      for (const beach of working) {
         const normalizedName = normalizeSearchText(beach.name);
         const normalizedLocation = normalizeSearchText(
           [beach.city, beach.state].filter(Boolean).join(" ")
         );
         const hay = `${normalizedName} ${normalizedLocation}`;
 
-        // Match if ANY search variant matches
-        return searchVariants.some(variant => {
+        let bestScore = 0;
+        for (const variant of searchVariants) {
           const tokens = variant.split(/\s+/g).filter(Boolean);
-          return tokens.every((t) => hay.includes(t));
-        });
-      });
+          if (!tokens.every((t) => hay.includes(t))) continue;
 
-      return result;
+          // All tokens match somewhere — now score by WHERE they match
+          let score = 1;
+          const allInName = tokens.every((t) => normalizedName.includes(t));
+          if (allInName) {
+            score = normalizedName === variant ? 1000 // exact name match
+              : normalizedName.startsWith(variant) ? 800 // name starts with query
+              : normalizedName.includes(variant) ? 600 // name contains full query as substring
+              : 400; // all tokens in name but not contiguous
+          }
+          // tokens split across name and location get score = 1
+
+          bestScore = Math.max(bestScore, score);
+        }
+
+        if (bestScore > 0) {
+          scored.push({ beach, score: bestScore });
+        }
+      }
+
+      scored.sort((a, b) => b.score - a.score);
+      return scored.map((s) => s.beach);
     },
     []
   );
