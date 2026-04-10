@@ -29,30 +29,31 @@ export function estimateSetFrequency(periodS: number | null): SetFrequencyEstima
     };
   }
 
-  // Group factor: how many wave periods between set arrivals.
-  // Empirical values from surf science — longer period swells travel
-  // in tighter groups with more spacing between groups.
+  // Group factor: number of individual wave CYCLES between set arrivals.
+  // A narrow-banded swell produces groups of 3-7 rideable waves separated
+  // by lulls of 30-70+ wave cycles. Longer period = tighter spectral
+  // bandwidth = longer lulls between sets.
   let groupFactorLow: number;
   let groupFactorHigh: number;
   let wavesPerSetLow: number;
   let wavesPerSetHigh: number;
 
   if (periodS >= 16) {
-    // Long-period groundswell: very organized, long waits
-    groupFactorLow = 9;
-    groupFactorHigh = 12;
+    // Long-period groundswell: very organized, long waits (12-18 min)
+    groupFactorLow = 45;
+    groupFactorHigh = 70;
     wavesPerSetLow = 3;
     wavesPerSetHigh = 4;
   } else if (periodS >= 12) {
-    // Standard groundswell
-    groupFactorLow = 7;
-    groupFactorHigh = 10;
+    // Standard groundswell (8-14 min)
+    groupFactorLow = 40;
+    groupFactorHigh = 60;
     wavesPerSetLow = 4;
     wavesPerSetHigh = 5;
   } else {
-    // 8-12s: medium period, less organized
-    groupFactorLow = 5;
-    groupFactorHigh = 8;
+    // 8-12s: medium period, less organized (5-10 min)
+    groupFactorLow = 35;
+    groupFactorHigh = 55;
     wavesPerSetLow = 5;
     wavesPerSetHigh = 7;
   }
