@@ -366,6 +366,12 @@ export function UnifiedSurfCard({
                   surfCall.tidePhase.slice(1)}
               </span>
             )}
+            {surfCall.rideableWavesPerHour != null && surfCall.rideableWavesPerHour > 0 && (
+              <>
+                <span>·</span>
+                <span>~{surfCall.rideableWavesPerHour} waves/hr</span>
+              </>
+            )}
           </div>
         </div>
 
