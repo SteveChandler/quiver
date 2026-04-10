@@ -445,6 +445,7 @@ export function BestSurfWindow({
         beachName={beachName}
         beachSlug={pathname?.split("/").pop() || undefined}
         isTomorrow={surfCallIsTomorrow}
+        setFrequency={surfCall.setFrequency}
       />
     );
   }

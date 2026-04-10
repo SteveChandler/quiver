@@ -100,6 +100,8 @@ describe("UnifiedSurfCard", () => {
     whySentence: "Clean conditions with light offshore winds.",
     updatedAt: "2026-02-10T06:00:00",
     isCalibrated: true,
+    setFrequency: null,
+    setFrequencyShort: null,
     ...overrides,
   });
 

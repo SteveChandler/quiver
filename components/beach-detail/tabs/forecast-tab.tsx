@@ -40,6 +40,7 @@ import { DataErrorBoundary } from "@/components/error-boundaries";
 import { TideStatusStrip } from "@/components/beach-detail/tide-status-strip";
 import { TideChartSection } from "@/components/beach-detail/tide-chart-section";
 import { TextureOverlay } from "@/components/ui/texture-overlay";
+import { estimateSetFrequency, formatSetFrequencyShort } from "@/lib/utils/wave-frequency";
 
 const ConditionsOverview = dynamic(
   () =>
@@ -293,6 +294,15 @@ export function ForecastTab({
       ? `— · ${snapshotDirection}`
       : `${snapshotSwellPeriod} s · ${snapshotDirection}`;
 
+  // Set wave frequency derived from dominant period
+  const setFrequencyShort = useMemo(() => {
+    const raw = currentForecast?.wave_period;
+    if (raw == null) return null;
+    const periodNum = typeof raw === "string" ? parseFloat(raw.replace(/s$/i, "")) : Number(raw);
+    const estimate = estimateSetFrequency(periodNum);
+    return formatSetFrequencyShort(estimate);
+  }, [currentForecast?.wave_period]);
+
   return (
     <DataErrorBoundary dataType="forecast" componentName="ForecastTab">
     <div className="space-y-6 py-6">
@@ -469,6 +479,16 @@ export function ForecastTab({
                         : "—"}
                     </div>
                   </div>
+
+                  {/* Set Frequency */}
+                  {setFrequencyShort && (
+                    <div className="rounded-xl bg-white/5 p-2 sm:p-3 border border-white/10 relative">
+                      <div className="text-xs text-white/60 mb-1">Set Frequency</div>
+                      <div className="text-sm font-semibold text-white">
+                        {setFrequencyShort}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </section>
