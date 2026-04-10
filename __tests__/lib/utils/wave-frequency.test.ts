@@ -99,7 +99,7 @@ describe('formatSetFrequency', () => {
     const estimate = estimateSetFrequency(13)!;
     const formatted = formatSetFrequency(estimate);
     expect(formatted).not.toBeNull();
-    expect(formatted).toMatch(/^Sets every \d+(-\d+)? min \(\d+(-\d+)?\/hr\)$/);
+    expect(formatted).toMatch(/sets\/hr .* waves\/hr/);
   });
 
   it('returns null for null estimate', () => {
@@ -116,7 +116,7 @@ describe('formatSetFrequency', () => {
     const estimate = estimateSetFrequency(10)!;
     const formatted = formatSetFrequency(estimate)!;
     // Just verify it's a valid format — range or single
-    expect(formatted).toMatch(/^Sets every/);
+    expect(formatted).toMatch(/sets\/hr/);
   });
 });
 
@@ -125,7 +125,7 @@ describe('formatSetFrequencyShort', () => {
     const estimate = estimateSetFrequency(13)!;
     const formatted = formatSetFrequencyShort(estimate);
     expect(formatted).not.toBeNull();
-    expect(formatted).toMatch(/^Sets ~\d+ min$/);
+    expect(formatted).toMatch(/sets\/hr .* waves\/hr/);
   });
 
   it('returns null for null estimate', () => {

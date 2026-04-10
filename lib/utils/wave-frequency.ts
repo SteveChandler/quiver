@@ -90,16 +90,22 @@ export function formatSetFrequency(estimate: SetFrequencyEstimate | null): strin
   if (!estimate || !estimate.hasSets) return null;
 
   const [iLow, iHigh] = estimate.setIntervalMin;
+  const setsPerHourLow = Math.round(60 / iHigh);
+  const setsPerHourHigh = Math.round(60 / iLow);
   const [wLow, wHigh] = estimate.wavesPerHour;
 
-  const interval = iLow === iHigh ? `${iLow}` : `${iLow}-${iHigh}`;
+  const sets = setsPerHourLow === setsPerHourHigh
+    ? `${setsPerHourLow}` : `${setsPerHourLow}-${setsPerHourHigh}`;
   const waves = wLow === wHigh ? `${wLow}` : `${wLow}-${wHigh}`;
 
-  return `Sets every ${interval} min (${waves}/hr)`;
+  return `${sets} sets/hr · ${waves} waves/hr`;
 }
 
 export function formatSetFrequencyShort(estimate: SetFrequencyEstimate | null): string | null {
   if (!estimate || !estimate.hasSets) return null;
-  const [iLow] = estimate.setIntervalMin;
-  return `Sets ~${iLow} min`;
+  const [, iHigh] = estimate.setIntervalMin;
+  const [wLow, wHigh] = estimate.wavesPerHour;
+  const waves = wLow === wHigh ? `${wLow}` : `${wLow}-${wHigh}`;
+  const setsPerHour = Math.round(60 / iHigh);
+  return `${setsPerHour}-${Math.round(60 / estimate.setIntervalMin[0])} sets/hr · ${waves} waves/hr`;
 }
