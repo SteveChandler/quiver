@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useTransition } from "react";
+import React, { useState, useCallback, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Waves, RefreshCw, MapPin, ExternalLink, Gauge, SlidersHorizontal } from "lucide-react";
@@ -18,6 +18,7 @@ import { BeachSearchAutocomplete } from "@/components/beach/beach-search-autocom
 import type { Beach } from "@/types/database";
 import { ToolHero } from "@/components/tools/tool-hero";
 import { TOOL_IMAGES } from "@/lib/constants/tool-images";
+import * as SliderPrimitive from "@radix-ui/react-slider";
 
 const CARDINAL_DIRECTIONS = [
   { label: "N", deg: 0 },
@@ -32,12 +33,13 @@ const CARDINAL_DIRECTIONS = [
 
 interface SwellAnalyzerClientProps {
   initialData?: SwellAnalyzerData;
+  isDemo?: boolean;
 }
 
-export function SwellAnalyzerClient({ initialData }: SwellAnalyzerClientProps) {
+export function SwellAnalyzerClient({ initialData, isDemo = false }: SwellAnalyzerClientProps) {
   const router = useRouter();
   const [mode, setMode] = useState<"current" | "explore">(
-    initialData ? "current" : "explore"
+    initialData && !isDemo ? "current" : "explore"
   );
   const [swellHeight, setSwellHeight] = useState(initialData?.currentSwell?.height ?? 6);
   const [swellPeriod, setSwellPeriod] = useState(initialData?.currentSwell?.period ?? 12);
@@ -48,6 +50,7 @@ export function SwellAnalyzerClient({ initialData }: SwellAnalyzerClientProps) {
   );
   const [beachError, setBeachError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [showDemoBanner, setShowDemoBanner] = useState(isDemo);
 
   // Values displayed depend on mode
   const displayHeight = mode === "current" && beachData?.currentSwell?.height != null
@@ -75,6 +78,7 @@ export function SwellAnalyzerClient({ initialData }: SwellAnalyzerClientProps) {
       if (!beach.slug) return;
       const slug = beach.slug;
       startTransition(async () => {
+        setShowDemoBanner(false);
         setBeachError(null);
         const result = await getSwellAnalyzerData(slug);
         if (result.success && result.data) {
@@ -116,11 +120,6 @@ export function SwellAnalyzerClient({ initialData }: SwellAnalyzerClientProps) {
       : beachSwellMatch?.status === "acceptable"
         ? { background: "rgba(234,179,8,0.12)", borderColor: "rgba(234,179,8,0.35)", color: "#facc15" }
         : { background: "rgba(239,68,68,0.12)", borderColor: "rgba(239,68,68,0.35)", color: "#f87171" };
-
-  const cardStyle = {
-    background: "linear-gradient(135deg, rgba(47,57,120,0.9) 0%, rgba(37,45,107,0.95) 100%)",
-    borderColor: "rgba(64,76,146,0.5)",
-  };
 
   const hasCurrentSwell = beachData?.currentSwell != null;
 
@@ -164,6 +163,21 @@ export function SwellAnalyzerClient({ initialData }: SwellAnalyzerClientProps) {
               source="tool_swell_analyzer"
             />
           </div>
+
+          {showDemoBanner && beachData && !isPending && (
+            <div
+              className="flex items-center gap-2 rounded-lg px-3 py-2 font-mono text-xs"
+              style={{
+                background: "rgba(247,142,66,0.08)",
+                borderLeft: "3px solid #F78E42",
+                color: "#B8C7E0",
+              }}
+            >
+              <span>
+                Showing <strong className="text-white">{beachData.beach.name}</strong> — search above to check your break
+              </span>
+            </div>
+          )}
 
           {beachError && (
             <p className="font-mono text-sm text-red-400">{beachError}</p>
@@ -252,92 +266,50 @@ export function SwellAnalyzerClient({ initialData }: SwellAnalyzerClientProps) {
                     windowMinDeg={beachData?.beach.swell_window_min_deg ?? null}
                     windowMaxDeg={beachData?.beach.swell_window_max_deg ?? null}
                     swellCardinal={cardinal}
-                    size={220}
+                    size={280}
                   />
                 </div>
 
                 {/* Right: Mode-dependent content */}
                 <div className="flex-1 space-y-3 w-full">
-                  {mode === "current" && hasCurrentSwell ? (
+                  {mode === "current" && beachData?.currentSwell ? (
                     <>
                       {/* Stats grid */}
-                      <div className="grid grid-cols-3 gap-2">
-                        <div
-                          className="noise-texture rounded-2xl border p-3 text-center"
-                          style={cardStyle}
-                        >
+                      <div className="grid grid-cols-3 divide-x" style={{ "--tw-divide-color": "rgba(64,76,146,0.3)" } as React.CSSProperties}>
+                        <div className="p-3 text-center">
                           <p className="font-mono text-xs font-semibold uppercase tracking-widest text-[#7A8CC0] mb-1">
                             Height
                           </p>
                           <p className="font-heading text-2xl font-bold text-white leading-none">
-                            {beachData!.currentSwell!.height != null
-                              ? beachData!.currentSwell!.height.toFixed(1)
+                            {beachData.currentSwell.height != null
+                              ? beachData.currentSwell.height.toFixed(1)
                               : "—"}
                           </p>
                           <p className="font-mono text-xs text-[#7A8CC0]">ft</p>
                         </div>
-                        <div
-                          className="noise-texture rounded-2xl border p-3 text-center"
-                          style={cardStyle}
-                        >
+                        <div className="p-3 text-center">
                           <p className="font-mono text-xs font-semibold uppercase tracking-widest text-[#7A8CC0] mb-1">
                             Period
                           </p>
                           <p className="font-heading text-2xl font-bold text-white leading-none">
-                            {beachData!.currentSwell!.period ?? "—"}
+                            {beachData.currentSwell.period ?? "—"}
                           </p>
                           <p className="font-mono text-xs text-[#7A8CC0]">sec</p>
                         </div>
-                        <div
-                          className="noise-texture rounded-2xl border p-3 text-center"
-                          style={cardStyle}
-                        >
+                        <div className="p-3 text-center">
                           <p className="font-mono text-xs font-semibold uppercase tracking-widest text-[#7A8CC0] mb-1">
                             Dir
                           </p>
                           <p className="font-heading text-2xl font-bold text-white leading-none">
-                            {beachData!.currentSwell!.cardinal ?? "—"}
+                            {beachData.currentSwell.cardinal ?? "—"}
                           </p>
                           <p className="font-mono text-xs text-[#7A8CC0]">
-                            {beachData!.currentSwell!.direction != null
-                              ? `${Math.round(beachData!.currentSwell!.direction)}°`
+                            {beachData.currentSwell.direction != null
+                              ? `${Math.round(beachData.currentSwell.direction)}°`
                               : ""}
                           </p>
                         </div>
                       </div>
-
-                      {/* Period quality badge */}
-                      <div
-                        className="noise-texture rounded-2xl border px-4 py-3 flex items-start justify-between gap-3"
-                        style={periodStyle}
-                      >
-                        <div>
-                          <div className="font-mono text-xs font-semibold uppercase tracking-widest opacity-70 mb-1">
-                            Period quality
-                          </div>
-                          <div className="font-heading text-base font-bold">{periodRating.label}</div>
-                          <div className="text-sm opacity-80 mt-0.5">{periodRating.description}</div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <div className="font-heading text-3xl font-bold">{displayPeriod}s</div>
-                          <div className="font-mono text-xs opacity-70">period</div>
-                        </div>
-                      </div>
-
-                      {/* Swell window match */}
-                      {beachSwellMatch && (
-                        <div
-                          className="noise-texture rounded-2xl border px-3 py-2.5"
-                          style={matchStyle}
-                        >
-                          <p className="font-mono text-xs font-semibold uppercase tracking-widest opacity-70 mb-1">
-                            Swell window match
-                          </p>
-                          <p className="text-sm font-medium leading-snug">
-                            {beachSwellMatch.message}
-                          </p>
-                        </div>
-                      )}
                     </>
                   ) : mode === "current" && !hasCurrentSwell && beachData ? (
                     <div className="space-y-3">
@@ -351,21 +323,25 @@ export function SwellAnalyzerClient({ initialData }: SwellAnalyzerClientProps) {
                       {/* Height slider */}
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <label htmlFor="swell-height" className="font-mono text-xs font-semibold uppercase tracking-widest text-[#7A8CC0]">
+                          <span className="font-mono text-xs font-semibold uppercase tracking-widest text-[#7A8CC0]">
                             Swell height
-                          </label>
+                          </span>
                           <span className="font-mono text-sm font-bold text-white">{swellHeight} ft</span>
                         </div>
-                        <input
-                          id="swell-height"
-                          type="range"
+                        <SliderPrimitive.Root
+                          className="relative flex w-full touch-none select-none items-center"
                           min={1}
                           max={20}
                           step={0.5}
-                          value={swellHeight}
-                          onChange={(e) => setSwellHeight(Number(e.target.value))}
-                          className="w-full h-2 cursor-pointer accent-[#F78E42]"
-                        />
+                          value={[swellHeight]}
+                          onValueChange={([val]) => setSwellHeight(val)}
+                          aria-label="Swell height"
+                        >
+                          <SliderPrimitive.Track className="relative h-2 w-full grow overflow-hidden rounded-full bg-[#404C92]/40">
+                            <SliderPrimitive.Range className="absolute h-full rounded-full bg-[#F78E42]" />
+                          </SliderPrimitive.Track>
+                          <SliderPrimitive.Thumb className="block h-5 w-5 rounded-full border-2 border-[#F78E42] bg-[#0F1535] shadow-md transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 motion-safe:active:scale-110" />
+                        </SliderPrimitive.Root>
                         <div className="flex justify-between font-mono text-xs text-[#404C92] mt-0.5">
                           <span>1 ft</span>
                           <span>20 ft</span>
@@ -375,21 +351,25 @@ export function SwellAnalyzerClient({ initialData }: SwellAnalyzerClientProps) {
                       {/* Period slider */}
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <label htmlFor="swell-period" className="font-mono text-xs font-semibold uppercase tracking-widest text-[#7A8CC0]">
+                          <span className="font-mono text-xs font-semibold uppercase tracking-widest text-[#7A8CC0]">
                             Swell period
-                          </label>
+                          </span>
                           <span className="font-mono text-sm font-bold text-white">{swellPeriod}s</span>
                         </div>
-                        <input
-                          id="swell-period"
-                          type="range"
+                        <SliderPrimitive.Root
+                          className="relative flex w-full touch-none select-none items-center"
                           min={4}
                           max={22}
                           step={1}
-                          value={swellPeriod}
-                          onChange={(e) => setSwellPeriod(Number(e.target.value))}
-                          className="w-full h-2 cursor-pointer accent-[#F78E42]"
-                        />
+                          value={[swellPeriod]}
+                          onValueChange={([val]) => setSwellPeriod(val)}
+                          aria-label="Swell period"
+                        >
+                          <SliderPrimitive.Track className="relative h-2 w-full grow overflow-hidden rounded-full bg-[#404C92]/40">
+                            <SliderPrimitive.Range className="absolute h-full rounded-full bg-[#F78E42]" />
+                          </SliderPrimitive.Track>
+                          <SliderPrimitive.Thumb className="block h-5 w-5 rounded-full border-2 border-[#F78E42] bg-[#0F1535] shadow-md transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 motion-safe:active:scale-110" />
+                        </SliderPrimitive.Root>
                         <div className="flex justify-between font-mono text-xs text-[#404C92] mt-0.5">
                           <span>4s</span>
                           <span>22s</span>
@@ -421,42 +401,43 @@ export function SwellAnalyzerClient({ initialData }: SwellAnalyzerClientProps) {
                         </div>
                       </div>
 
-                      {/* Period quality badge (explore mode) */}
-                      <div
-                        className="noise-texture rounded-2xl border px-4 py-3 flex items-start justify-between gap-3"
-                        style={periodStyle}
-                      >
-                        <div>
-                          <div className="font-mono text-xs font-semibold uppercase tracking-widest opacity-70 mb-1">
-                            Period quality
-                          </div>
-                          <div className="font-heading text-base font-bold">{periodRating.label}</div>
-                          <div className="text-sm opacity-80 mt-0.5">{periodRating.description}</div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <div className="font-heading text-3xl font-bold">{displayPeriod}s</div>
-                          <div className="font-mono text-xs opacity-70">period</div>
-                        </div>
-                      </div>
-
-                      {/* Swell window match (explore mode) */}
-                      {beachSwellMatch && (
-                        <div
-                          className="noise-texture rounded-2xl border px-3 py-2.5"
-                          style={matchStyle}
-                        >
-                          <p className="font-mono text-xs font-semibold uppercase tracking-widest opacity-70 mb-1">
-                            Swell window match
-                          </p>
-                          <p className="text-sm font-medium leading-snug">
-                            {beachSwellMatch.message}
-                          </p>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
               </div>
+
+              {/* Period quality badge — shared across modes */}
+              <div
+                className="noise-texture rounded-2xl border px-4 py-3 flex items-start justify-between gap-3"
+                style={periodStyle}
+              >
+                <div>
+                  <div className="font-mono text-xs font-semibold uppercase tracking-widest opacity-70 mb-1">
+                    Period quality
+                  </div>
+                  <div className="font-heading text-base font-bold">{periodRating.label}</div>
+                  <div className="text-sm opacity-80 mt-0.5">{periodRating.description}</div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="font-heading text-3xl font-bold">{displayPeriod}s</div>
+                  <div className="font-mono text-xs opacity-70">period</div>
+                </div>
+              </div>
+
+              {/* Swell window match — shared across modes */}
+              {beachSwellMatch && (
+                <div
+                  className="px-3 py-2.5"
+                  style={{ borderLeft: `3px solid ${matchStyle.color}`, color: matchStyle.color }}
+                >
+                  <p className="font-mono text-xs font-semibold uppercase tracking-widest opacity-70 mb-1">
+                    Swell window match
+                  </p>
+                  <p className="text-sm font-medium leading-snug">
+                    {beachSwellMatch.message}
+                  </p>
+                </div>
+              )}
 
               {/* Wave visualization — full width, prominent */}
               <div className="rounded-xl overflow-hidden">
@@ -488,17 +469,6 @@ export function SwellAnalyzerClient({ initialData }: SwellAnalyzerClientProps) {
             </div>
           )}
 
-          {/* Empty state — no beach, no explore */}
-          {!beachData && !isPending && !beachError && mode !== "explore" && (
-            <div className="rounded-2xl border border-dashed p-10 text-center"
-              style={{ borderColor: "rgba(64,76,146,0.4)" }}
-            >
-              <Waves className="h-10 w-10 mx-auto mb-3 text-[#2A3070]" />
-              <p className="text-[#7A8CC0] font-mono text-sm">
-                Search for a beach to check if the current swell is in the sweet spot.
-              </p>
-            </div>
-          )}
         </section>
 
       </div>
