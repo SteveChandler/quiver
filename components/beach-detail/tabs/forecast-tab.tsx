@@ -252,9 +252,7 @@ export function ForecastTab({
     }
   };
 
-  const heroWaveHeight = currentForecast?.faceHeightFt != null
-    ? currentForecast.faceHeightFt.toFixed(1)
-    : formatMetric(currentForecast?.wave_height);
+  const heroWaveHeight = formatMetric(currentForecast?.wave_height);
 
   // Population-level calibration flag: true when this beach has an empirical
   // shoaling calibration (`beaches.shoaling_factors IS NOT NULL`). Used by the

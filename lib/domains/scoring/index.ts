@@ -42,7 +42,6 @@ export {
   createDiscoveryScoringEngine,
   beachToSpotProfile,
   forecastToSnapshot,
-  computeFaceHeight,
   compositeToDetailedScore,
   scoreBeachWithEngine,
   // Wave size scoring configuration and helper functions

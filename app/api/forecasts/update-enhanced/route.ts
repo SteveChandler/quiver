@@ -14,8 +14,6 @@ import {
   createPublicReadClient,
 } from "@/lib/supabase/server";
 import type { EnhancedForecastEntity } from "@/types/forecast";
-import { computeFaceHeight } from "@/lib/domains/scoring/discovery-adapter";
-import type { Beach } from "@/types/database";
 
 /**
  * Feature flag to disable ML corrections.
@@ -207,13 +205,12 @@ export async function GET(request: NextRequest) {
     // warranted for this read. If RLS ever hides `shoaling_factors` from
     // anon, fix the RLS policy; do NOT re-escalate here.
     let isCalibrated = false;
-    let beachRow: Record<string, unknown> | null = null;
     if (mlMergedForecasts.length > 0) {
       try {
         const beachClient = createPublicReadClient();
-        const { data: row, error: beachError } = await beachClient
+        const { data: beachRow, error: beachError } = await beachClient
           .from("beaches")
-          .select("shoaling_factors, swell_window_center_deg, swell_window_halfwidth_deg, swell_access_factors, terrain_enabled")
+          .select("shoaling_factors")
           .eq("id", beachId)
           .maybeSingle();
         if (beachError) {
@@ -221,9 +218,8 @@ export async function GET(request: NextRequest) {
             `⚠️ Failed to fetch calibration status for beach ${beachId}:`,
             beachError.message
           );
-        } else if (row) {
-          beachRow = row;
-          isCalibrated = row.shoaling_factors !== null;
+        } else if (beachRow) {
+          isCalibrated = beachRow.shoaling_factors !== null;
         }
       } catch (err) {
         console.warn(
@@ -232,13 +228,7 @@ export async function GET(request: NextRequest) {
         );
       }
     }
-    const forecasts = mlMergedForecasts.map((f) => ({
-      ...f,
-      isCalibrated,
-      faceHeightFt: beachRow
-        ? computeFaceHeight(f, beachRow as Beach).faceHeightFt
-        : undefined,
-    }));
+    const forecasts = mlMergedForecasts.map((f) => ({ ...f, isCalibrated }));
     const hasData = forecasts.length > 0;
 
     // Build response with consistent shape

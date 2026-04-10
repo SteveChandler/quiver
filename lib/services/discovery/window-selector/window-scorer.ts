@@ -160,7 +160,7 @@ export function scoreWindowWithEngine(
 ): number {
   const engine = getScoringEngine();
   const profile = beachToSpotProfile(beach);
-  const snapshot = forecastToSnapshot(forecast, beach);
+  const snapshot = forecastToSnapshot(forecast);
 
   const result = engine.score({
     profile,
