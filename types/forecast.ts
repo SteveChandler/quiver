@@ -198,6 +198,7 @@ export interface EnhancedForecastEntity {
    * dotted underline).
    */
   isCalibrated?: boolean;
+
   // Optional raw forecast payload for transparency/debugging
   raw_forecast?: {
     cdip_data?: any;
