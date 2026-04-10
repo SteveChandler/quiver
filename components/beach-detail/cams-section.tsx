@@ -69,9 +69,24 @@ export function CamsSection({ sources, variant = "default" }: CamsSectionProps) 
     setPlayerKey((k) => k + 1);
   };
 
+  const dioramaUrl = sources?.diorama_url ?? undefined;
+
   let visual: React.ReactNode;
 
-  if (!cameraUrl) {
+  if (dioramaUrl) {
+    visual = (
+      <div className="relative aspect-video w-full overflow-hidden bg-[#252D6B]">
+        <video
+          src={dioramaUrl}
+          autoPlay
+          loop
+          playsInline
+          muted
+          className="h-full w-full object-cover"
+        />
+      </div>
+    );
+  } else if (!cameraUrl) {
     visual = (
       <div className="flex h-64 flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-100/80 via-white to-blue-50 text-center">
         <CameraOff className="h-10 w-10 text-ocean-blue" />
