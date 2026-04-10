@@ -201,8 +201,8 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       // Verify CDIP data is used in forecasts
       const firstForecast = forecasts[0];
       expect(firstForecast.data_source).toBe("CDIP");
-      // Calibrated face height: CDIP significant height may be adjusted; assert calibrated output
-      expect(firstForecast.wave_height).toBe("2.4 ft");
+      // Decomposed pipeline uses WW3 component heights (swell_1: 1.2m→3.94ft) with CDIP-calibrated factors
+      expect(firstForecast.wave_height).toBe("4.3 ft");
       expect(firstForecast.wave_period).toBe("13s");
     });
 
@@ -233,8 +233,8 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
 
       // Should use CDIP wave data but NOAA weather/tide data
       expect(forecasts[0].data_source).toBe("CDIP");
-      // Calibrated face height from CDIP
-      expect(forecasts[0].wave_height).toBe("2.4 ft");
+      // Decomposed pipeline uses WW3 component heights with CDIP-calibrated factors
+      expect(forecasts[0].wave_height).toBe("4.3 ft");
       expect(forecasts[0].weather_condition).toBe("Partly Cloudy"); // From NOAA
     });
 
