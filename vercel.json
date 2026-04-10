@@ -78,6 +78,14 @@
       "schedule": "0 5 * * 0"
     },
     {
+      "path": "/api/cron/ndbc-direct-sync?phase=observations",
+      "schedule": "30 */2 * * *"
+    },
+    {
+      "path": "/api/cron/ndbc-direct-sync?phase=stations",
+      "schedule": "0 6 * * 0"
+    },
+    {
       "path": "/api/cron/welcome-email",
       "schedule": "0 */6 * * *"
     },

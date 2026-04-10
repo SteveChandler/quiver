@@ -70,6 +70,15 @@ export interface BeachTerrainConfig {
   swell_window_center_deg?: number | null;
   /** Half-width of the swell window in degrees (see `swell_window_center_deg`). */
   swell_window_halfwidth_deg?: number | null;
+  /**
+   * Multiplicative decay factor for deep-water model data at sheltered beaches.
+   * Applied to raw component heights before shoaling/alignment math when the
+   * source is NOT `cdip_sig` (CDIP buoy data already reflects nearshore
+   * conditions — decaying it would double-correct). A value of 0.4 means only
+   * 40% of the deep-water energy reaches the break. Null or undefined defaults
+   * to 1.0 (no attenuation).
+   */
+  deepwater_decay_factor?: number | null;
 }
 
 /**
@@ -418,8 +427,15 @@ export function transformToFaceHeightWithMetadata(
   const periodFactor = calculatePeriodFactor(periodS);
   const dirFactor = calculateDirectionFactor(swellDirectionDeg, beach);
 
+  // Apply deepwater decay for model data sources.
+  // CDIP buoy data already reflects nearshore conditions — decay would double-correct.
+  // Model data (Open-Meteo, WW3) predicts deep-water energy that may not reach sheltered beaches.
+  const decay = (source !== 'cdip_sig' && beach?.deepwater_decay_factor != null)
+    ? beach.deepwater_decay_factor
+    : 1.0;
+
   // Apply transformation
-  const faceHeight = rawHeightFt * BASE_SHOALING * periodFactor * dirFactor;
+  const faceHeight = rawHeightFt * decay * BASE_SHOALING * periodFactor * dirFactor;
 
   // Round to 1 decimal place
   return {
@@ -688,6 +704,13 @@ export function transformToFaceHeightDecomposed(params: {
   const windowHalfwidth = beach.swell_window_halfwidth_deg ?? null;
   const shoalingFactors = beach.shoaling_factors ?? null;
 
+  // Apply deepwater decay for model data sources.
+  // CDIP buoy data already reflects nearshore conditions — decay would double-correct.
+  // Model data (Open-Meteo, WW3) predicts deep-water energy that may not reach sheltered beaches.
+  const decay = (source !== 'cdip_sig' && beach.deepwater_decay_factor != null)
+    ? beach.deepwater_decay_factor
+    : 1.0;
+
   let sumOfSquares = 0;
   for (const component of populated) {
     const alignment = alignmentFactor(
@@ -706,7 +729,7 @@ export function transformToFaceHeightDecomposed(params: {
     const perComponentFactor =
       bucketFactor ?? BASE_SHOALING * calculatePeriodFactor(component.periodS);
 
-    const faceI = component.heightFt * perComponentFactor * alignment;
+    const faceI = component.heightFt * decay * perComponentFactor * alignment;
     sumOfSquares += faceI * faceI;
   }
 

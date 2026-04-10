@@ -476,6 +476,10 @@ export class ForecastBuilder {
       shoaling_factors: (beach.shoaling_factors ?? null) as ShoalingFactors | null,
       swell_window_center_deg: beach.swell_window_center_deg ?? null,
       swell_window_halfwidth_deg: beach.swell_window_halfwidth_deg ?? null,
+      // deepwater_decay_factor is added by a pending migration; the Beach type
+      // may not include it yet, so we read it via bracket notation to avoid a
+      // TS error until `yarn db:types` is re-run post-migration.
+      deepwater_decay_factor: ((beach as Record<string, unknown>)['deepwater_decay_factor'] as number | null) ?? null,
     };
 
     // Build per-component inputs for the decomposed pipeline when WW3 data

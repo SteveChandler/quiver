@@ -175,6 +175,7 @@ export const PRIORITY_NETWORKS: IOOSNetwork[] = [
   "NDBC",      // National Data Buoy Center - primary source of wave data
   "CeNCOOS",   // Central/Northern California (includes CDIP stations)
   "SCCOOS",    // Southern California (includes CDIP stations)
+  "NANOOS",    // Oregon/Washington
   "PacIOOS",   // Hawaii
   "SECOORA",   // Southeast (FL, GA, SC, NC)
   "MARACOOS",  // Mid-Atlantic (VA, MD, DE, NJ, NY)

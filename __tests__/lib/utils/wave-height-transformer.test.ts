@@ -1428,6 +1428,192 @@ describe('Wave Height Transformer', () => {
       expect(result.isCalibrated).toBe(false);
     });
 
+    describe('deepwater decay factor', () => {
+      it('applies decay to model data sources (decomposed path)', () => {
+        const result = transformToFaceHeightDecomposed({
+          components: [{ heightFt: 3.1, periodS: 13, directionDeg: 200 }],
+          beach: {
+            swell_window_center_deg: 195,
+            swell_window_halfwidth_deg: 120,
+            deepwater_decay_factor: 0.4,
+          },
+          source: 'model_swell',
+          rawHeightFt: 3.1,
+          periodS: 13,
+          swellDirectionDeg: 200,
+        });
+        // 3.1 * 0.4 (decay) * 1.15 (period factor at 13s) * ~1.0 (alignment near center)
+        // ≈ 1.43
+        expect(result.faceHeightFt).toBeCloseTo(1.4, 0);
+        expect(result.path).toBe('decomposed');
+      });
+
+      it('does NOT apply decay to CDIP data (decomposed path)', () => {
+        const result = transformToFaceHeightDecomposed({
+          components: [{ heightFt: 3.1, periodS: 13, directionDeg: 200 }],
+          beach: {
+            swell_window_center_deg: 195,
+            swell_window_halfwidth_deg: 120,
+            deepwater_decay_factor: 0.4,
+          },
+          source: 'cdip_sig',
+          rawHeightFt: 3.1,
+          periodS: 13,
+          swellDirectionDeg: 200,
+        });
+        // No decay for CDIP: 3.1 * 1.15 * ~1.0 ≈ 3.57
+        expect(result.faceHeightFt).toBeCloseTo(3.6, 0);
+      });
+
+      it('defaults to 1.0 when decay factor is null (decomposed path)', () => {
+        const result = transformToFaceHeightDecomposed({
+          components: [{ heightFt: 3.1, periodS: 13, directionDeg: 200 }],
+          beach: {
+            swell_window_center_deg: 195,
+            swell_window_halfwidth_deg: 120,
+            deepwater_decay_factor: null,
+          },
+          source: 'model_swell',
+          rawHeightFt: 3.1,
+          periodS: 13,
+          swellDirectionDeg: 200,
+        });
+        // No decay (null defaults to 1.0): 3.1 * 1.15 * ~1.0 ≈ 3.57
+        expect(result.faceHeightFt).toBeCloseTo(3.6, 0);
+      });
+
+      it('applies decay in the legacy scalar path (transformToFaceHeight)', () => {
+        const result = transformToFaceHeight({
+          rawHeightFt: 3.1,
+          periodS: 13,
+          swellDirectionDeg: null,
+          beach: {
+            deepwater_decay_factor: 0.4,
+          },
+          source: 'model_swell',
+        });
+        // 3.1 * 0.4 (decay) * 1.0 (base) * 1.15 (period) * 1.0 (no direction)
+        // = 1.426 → rounds to 1.4
+        expect(result).toBeCloseTo(1.4, 1);
+      });
+
+      it('does NOT apply decay to CDIP data in legacy scalar path', () => {
+        const result = transformToFaceHeight({
+          rawHeightFt: 3.1,
+          periodS: 13,
+          swellDirectionDeg: null,
+          beach: {
+            deepwater_decay_factor: 0.4,
+          },
+          source: 'cdip_sig',
+        });
+        // No decay for CDIP: 3.1 * 1.0 * 1.15 * 1.0 = 3.565 → 3.6
+        expect(result).toBeCloseTo(3.6, 1);
+      });
+
+      it('defaults to 1.0 when decay factor is undefined in legacy path', () => {
+        const result = transformToFaceHeight({
+          rawHeightFt: 3.1,
+          periodS: 13,
+          swellDirectionDeg: null,
+          beach: {},
+          source: 'model_swell',
+        });
+        // No decay (undefined defaults to 1.0): 3.1 * 1.15 = 3.565 → 3.6
+        expect(result).toBeCloseTo(3.6, 1);
+      });
+
+      it('applies decay when source is undefined (safe default)', () => {
+        const result = transformToFaceHeightDecomposed({
+          components: [{ heightFt: 3.1, periodS: 13, directionDeg: 200 }],
+          beach: {
+            swell_window_center_deg: 195,
+            swell_window_halfwidth_deg: 120,
+            deepwater_decay_factor: 0.4,
+          },
+          source: undefined,
+          rawHeightFt: 3.1,
+          periodS: 13,
+          swellDirectionDeg: 200,
+        });
+        // undefined !== 'cdip_sig' → decay applies: 3.1 * 0.4 * 1.15 * ~1.0 ≈ 1.43
+        expect(result.faceHeightFt).toBeCloseTo(1.4, 0);
+      });
+
+      it('zeros out height when decay factor is 0', () => {
+        const result = transformToFaceHeightDecomposed({
+          components: [{ heightFt: 3.1, periodS: 13, directionDeg: 200 }],
+          beach: {
+            swell_window_center_deg: 195,
+            swell_window_halfwidth_deg: 120,
+            deepwater_decay_factor: 0,
+          },
+          source: 'model_swell',
+          rawHeightFt: 3.1,
+          periodS: 13,
+          swellDirectionDeg: 200,
+        });
+        // decay=0 zeros all components → sumOfSquares=0 → falls back to legacy
+        expect(result.path).toBe('legacy');
+      });
+
+      it('amplifies height when decay factor > 1.0 (canyon effect)', () => {
+        const withoutCanyon = transformToFaceHeightDecomposed({
+          components: [{ heightFt: 2.0, periodS: 16, directionDeg: 200 }],
+          beach: {
+            swell_window_center_deg: 195,
+            swell_window_halfwidth_deg: 120,
+            deepwater_decay_factor: 1.0,
+          },
+          source: 'model_swell',
+          rawHeightFt: 2.0,
+          periodS: 16,
+          swellDirectionDeg: 200,
+        });
+        const withCanyon = transformToFaceHeightDecomposed({
+          components: [{ heightFt: 2.0, periodS: 16, directionDeg: 200 }],
+          beach: {
+            swell_window_center_deg: 195,
+            swell_window_halfwidth_deg: 120,
+            deepwater_decay_factor: 1.15,
+          },
+          source: 'model_swell',
+          rawHeightFt: 2.0,
+          periodS: 16,
+          swellDirectionDeg: 200,
+        });
+        // Canyon amplification: 1.15x decay should produce 15% more face height
+        expect(withCanyon.faceHeightFt).toBeGreaterThan(withoutCanyon.faceHeightFt);
+        expect(withCanyon.faceHeightFt / withoutCanyon.faceHeightFt).toBeCloseTo(1.15, 1);
+      });
+
+      it('skips decay for CDIP even when beach has both decay and shoaling_factors', () => {
+        const result = transformToFaceHeightDecomposed({
+          components: [{ heightFt: 2.0, periodS: 14, directionDeg: 200 }],
+          beach: {
+            swell_window_center_deg: 195,
+            swell_window_halfwidth_deg: 120,
+            deepwater_decay_factor: 0.4,
+            shoaling_factors: {
+              version: 1,
+              type: 'period_lookup' as const,
+              buckets: [
+                { tp_min_s: 12, tp_max_s: 16, factor: 1.45 },
+              ],
+            },
+          },
+          source: 'cdip_sig',
+          rawHeightFt: 2.0,
+          periodS: 14,
+          swellDirectionDeg: 200,
+        });
+        // CDIP: no decay, uses calibrated bucket factor 1.45
+        // 2.0 * 1.45 * ~1.0 alignment ≈ 2.9
+        expect(result.faceHeightFt).toBeCloseTo(2.9, 0);
+        expect(result.isCalibrated).toBe(true);
+      });
+    });
+
     it('falls back to legacy when all components are zeroed by period cutoff', () => {
       // All components have period ≤ 8s (short-period wind-swell day).
       // The alignment cutoff zeros every component → sumOfSquares=0.
