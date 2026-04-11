@@ -383,12 +383,17 @@ function applySunsetCap(
 function buildResult(
   bestWindow: CandidateWindow,
   filteredForecasts: ScoredForecast[],
-  beachTz: string
+  beachTz: string,
+  now: Date
 ): PersonalizedForecastWindow {
+  // Pass `now` through so findPeakWithinWindow can clamp past peaks to the
+  // current time — a still-open window must never report a best time that
+  // has already elapsed. See peak-finder.ts for the full rationale.
   const peakTime = findPeakWithinWindow(
     bestWindow.start,
     bestWindow.end,
-    filteredForecasts
+    filteredForecasts,
+    now
   );
 
   return {
@@ -721,7 +726,7 @@ export function selectBestWindow(
     return null;
   }
 
-  return buildResult(bestWindow, filteredForecasts, beachTz);
+  return buildResult(bestWindow, filteredForecasts, beachTz, now);
 }
 
 /**
