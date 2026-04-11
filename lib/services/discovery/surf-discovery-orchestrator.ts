@@ -31,7 +31,6 @@ import type { ConditionBadge } from '@/types/personalization';
 import {
   createDiscoveryScoringEngine,
   scoreBeachWithEngine,
-  type DiscoveryScoringOptions,
 } from '@/lib/domains/scoring';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
@@ -320,7 +319,6 @@ async function scoreBeachForDiscovery(args: {
   beach: Beach;
   forecast: EnhancedForecastEntity;
   userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null;
-  preferredWaveSize: string | null;
   /** Pre-parsed and validated skill level from candidate pool builder */
   userSkillLevel: SkillLevel | null;
   distanceMiles?: number;
@@ -328,8 +326,7 @@ async function scoreBeachForDiscovery(args: {
   personalizationBonus?: number;
   personalizationReasons?: string[];
 }): Promise<DetailedScore> {
-  const { beach, forecast, userPrefs, preferredWaveSize, userSkillLevel, distanceMiles } =
-    args;
+  const { beach, forecast, userSkillLevel, distanceMiles } = args;
 
   // Use the new domain-driven scoring engine
   const engine = getDiscoveryScoringEngine();
@@ -351,20 +348,11 @@ async function scoreBeachForDiscovery(args: {
     }
   }
 
-  // Map preferredWaveSize to engine option
-  const normalizedWaveSize = (preferredWaveSize || '').toLowerCase();
-  const preferredWaveSizeOption: DiscoveryScoringOptions['preferredWaveSize'] =
-    normalizedWaveSize === 'small' ? 'small' :
-    normalizedWaveSize === 'medium' ? 'medium' :
-    normalizedWaveSize === 'large' ? 'large' :
-    'any';
-
   // userSkillLevel is now pre-parsed as SkillLevel | null from candidate pool builder
   // No mapping needed - pass directly to scoring engine
   const detailedScore = scoreBeachWithEngine(engine, beach, forecast, {
     affinityBonus,
     distancePenalty,
-    preferredWaveSize: preferredWaveSizeOption,
     userSkillLevel,
     beachSkillLevel: beach.skill_level,
   });
@@ -434,7 +422,7 @@ async function discoverSurfSpotsInner(
   log.debug(`Discovering surf spots for user ${userId} (maxResults: ${maxResults})`);
 
   // 1. Build candidate pool (GPS-based, sorted by distance)
-  const { candidates, preferredWaveSize, userSkillLevel, preferredBreakType } = await buildCandidatePool(userId, {
+  const { candidates, userSkillLevel } = await buildCandidatePool(userId, {
     userLocation,
     radiusMiles,
   });
@@ -552,7 +540,7 @@ async function discoverSurfSpotsInner(
       .from('beach_water_quality')
       .select('beach_id, status')
       .in('beach_id', candidateBeachIds),
-    fetchPersonalizationContext(userId, candidateBeachIds, preferredBreakType, userPrefs),
+    fetchPersonalizationContext(userId, candidateBeachIds, userPrefs),
   ]);
 
   const wqMap = new Map<string, string>();
@@ -619,7 +607,6 @@ async function discoverSurfSpotsInner(
       beach,
       forecast: bestWindowForecast,
       userPrefs,
-      preferredWaveSize,
       userSkillLevel,
       distanceMiles,
       affinityBonus: persResult.affinityBonus,

@@ -315,55 +315,6 @@ describe('Discovery Adapter', () => {
       expect(withPenalty.subscores.distancePenalty).toBe(-15);
     });
 
-    it('should apply preferred wave size penalty when waves too small', () => {
-      const engine = createDiscoveryScoringEngine();
-      const beach = createBeach();
-      const forecast = createForecast({ wave_height: '2' }); // Small waves
-
-      const withoutPref = scoreBeachWithEngine(engine, beach, forecast);
-      const withLargePref = scoreBeachWithEngine(engine, beach, forecast, {
-        preferredWaveSize: 'large', // Wants 6+ ft
-      });
-
-      // Should penalize small waves when user prefers large
-      expect(withLargePref.total).toBeLessThan(withoutPref.total);
-      expect(withLargePref.warnings.some(w => w.includes('smaller'))).toBe(true);
-    });
-
-    it('should apply preferred wave size penalty when waves are outside preferred range', () => {
-      const engine = createDiscoveryScoringEngine();
-      const beach = createBeach();
-      // Use 5ft waves - above small preference (1-3ft ideal, 0.5-4ft acceptable)
-      // Set skill level to 'intermediate' (6ft acceptable max) so skill ceiling doesn't interfere
-      const forecast = createForecast({ wave_height: '5' });
-
-      const withSmallPref = scoreBeachWithEngine(engine, beach, forecast, {
-        preferredWaveSize: 'small', // Wants 1-3 ft (acceptable: 0.5-4 ft)
-        userSkillLevel: 'intermediate', // Can handle up to 6ft
-      });
-
-      // Should get penalty for waves outside preference acceptable range
-      const withoutPref = scoreBeachWithEngine(engine, beach, forecast, {
-        userSkillLevel: 'intermediate',
-      });
-      expect(withSmallPref.total).toBeLessThan(withoutPref.total);
-      expect(withSmallPref.warnings.some(w => w.includes('larger than preferred'))).toBe(true);
-    });
-
-    it('should give bonus when waves match preferred size', () => {
-      const engine = createDiscoveryScoringEngine();
-      const beach = createBeach();
-      const forecast = createForecast({ wave_height: '4' }); // Medium waves
-
-      const withoutPref = scoreBeachWithEngine(engine, beach, forecast);
-      const withMediumPref = scoreBeachWithEngine(engine, beach, forecast, {
-        preferredWaveSize: 'medium', // Wants 3-6 ft (ideal range match = +5 bonus)
-      });
-
-      // Now gives +5 bonus when waves match preferred ideal range
-      expect(withMediumPref.total).toBeGreaterThanOrEqual(withoutPref.total);
-    });
-
     it('should return valid DetailedScore structure', () => {
       const engine = createDiscoveryScoringEngine();
       const beach = createBeach();

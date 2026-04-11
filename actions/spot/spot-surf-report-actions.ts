@@ -11,7 +11,7 @@ import { extractForecastDate } from '@/lib/utils/forecast-at-adapter';
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getBatchSunTimes } from '@/lib/services/discovery';
 import { getUserSurfPreferences, type UserSurfPreferences } from '@/lib/services/preference-learning-service';
-import { calculatePreferenceAdjustment, checkSkillCeiling } from '@/lib/domains/scoring/discovery-adapter';
+import { checkSkillCeiling } from '@/lib/domains/scoring/discovery-adapter';
 import { parseSkillLevel } from '@/lib/domains/user-preferences';
 import type { PersonalizedForecastWindow } from '@/types/personalization';
 
@@ -68,21 +68,16 @@ export async function getSpotSurfReport(beach: Beach): Promise<SpotSurfReportRes
       }
     }
 
-    // Fetch explicit wave size preference and skill level from profile
-    let preferredWaveSize: 'small' | 'medium' | 'large' | null = null;
+    // Fetch skill level from profile
     let userSkillLevel: ReturnType<typeof parseSkillLevel> = null;
     if (user) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('preferred_wave_size, experience_level')
+        .select('experience_level')
         .eq('id', user.id)
         .single();
 
       if (profile) {
-        const waveSize = (profile as Record<string, unknown>)?.preferred_wave_size;
-        const waveSizeStr = typeof waveSize === 'string' ? waveSize.toLowerCase() : '';
-        preferredWaveSize = (waveSizeStr === 'small' || waveSizeStr === 'medium' || waveSizeStr === 'large')
-          ? waveSizeStr : null;
         userSkillLevel = parseSkillLevel((profile as Record<string, unknown>)?.experience_level as string | null | undefined);
       }
     }
@@ -90,7 +85,7 @@ export async function getSpotSurfReport(beach: Beach): Promise<SpotSurfReportRes
     // Generate stable preference key for cache (avoids object serialization issues)
     const prefsKey = getPrefsKey(userPrefs);
 
-    return await getCachedSurfReport(beach.id, beach, userId, prefsKey, userPrefs, preferredWaveSize, userSkillLevel);
+    return await getCachedSurfReport(beach.id, beach, userId, prefsKey, userPrefs, userSkillLevel);
   } catch (error) {
     console.error('[getSpotSurfReport] Error:', {
       beachId: beach.id,
@@ -101,37 +96,23 @@ export async function getSpotSurfReport(beach: Beach): Promise<SpotSurfReportRes
 }
 
 /**
- * Apply user preference adjustments to a window's score.
- * Returns a new window object with the adjusted score, or the original if no adjustments apply.
+ * Apply skill-ceiling adjustment to a window's score.
+ * Returns a new window object with the adjusted score, or the original if no adjustment applies.
  *
- * Priority matches discovery-adapter: skill ceiling checked first — if waves exceed
- * the user's skill level, that penalty is applied and preference adjustment is skipped.
+ * Safety-first: if waves exceed the user's skill level, that penalty is applied.
  */
 function applyPreferenceAdjustments(
   window: PersonalizedForecastWindow,
-  preferredWaveSize: 'small' | 'medium' | 'large' | null,
   userSkillLevel: ReturnType<typeof parseSkillLevel>
 ): PersonalizedForecastWindow {
-  if (!preferredWaveSize && !userSkillLevel) return window;
+  if (!userSkillLevel) return window;
 
   const waveHeight = parseFloat(window.waveHeight || '0');
 
-  // Safety first: skill ceiling takes priority (matches discovery-adapter pattern)
-  if (userSkillLevel) {
-    const skillResult = checkSkillCeiling(waveHeight, userSkillLevel);
-    if (skillResult.penalty > 0) {
-      const adjustedScore = Math.max(0, (window.score ?? 0) - skillResult.penalty);
-      return { ...window, score: adjustedScore };
-    }
-  }
-
-  // Apply preference adjustment only when within skill range
-  if (preferredWaveSize) {
-    const prefResult = calculatePreferenceAdjustment(waveHeight, preferredWaveSize);
-    if (prefResult.adjustment !== 0) {
-      const adjustedScore = Math.max(0, Math.min(100, (window.score ?? 0) + prefResult.adjustment));
-      return { ...window, score: adjustedScore };
-    }
+  const skillResult = checkSkillCeiling(waveHeight, userSkillLevel);
+  if (skillResult.penalty > 0) {
+    const adjustedScore = Math.max(0, (window.score ?? 0) - skillResult.penalty);
+    return { ...window, score: adjustedScore };
   }
 
   return window;
@@ -161,7 +142,6 @@ const getCachedSurfReport = unstable_cache(
     userId: string,
     prefsKey: string,
     userPrefs: UserSurfPreferences | null,
-    preferredWaveSize: 'small' | 'medium' | 'large' | null,
     userSkillLevel: ReturnType<typeof parseSkillLevel>
   ): Promise<SpotSurfReportResult | null> => {
     // 1. Determine beach timezone
@@ -223,7 +203,7 @@ const getCachedSurfReport = unstable_cache(
 
       if (window) {
         delete window.sourceForecast;
-        const adjustedWindow = applyPreferenceAdjustments(window, preferredWaveSize, userSkillLevel);
+        const adjustedWindow = applyPreferenceAdjustments(window, userSkillLevel);
         return { report: computeSurfCall(adjustedWindow, todayForecasts, beach, { isTomorrow: false }), isTomorrow: false };
       }
     }
@@ -240,7 +220,7 @@ const getCachedSurfReport = unstable_cache(
 
       if (window) {
         delete window.sourceForecast;
-        const adjustedWindow = applyPreferenceAdjustments(window, preferredWaveSize, userSkillLevel);
+        const adjustedWindow = applyPreferenceAdjustments(window, userSkillLevel);
         return { report: computeSurfCall(adjustedWindow, tomorrowForecasts, beach, { isTomorrow: true }), isTomorrow: true };
       }
       return { report: computeSurfCall(null, tomorrowForecasts, beach, { isTomorrow: true }), isTomorrow: true };

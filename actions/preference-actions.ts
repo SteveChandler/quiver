@@ -30,9 +30,6 @@ export interface UserPreferencesData {
   onboarding: {
     experience_level?: string;
     surf_styles?: string[];
-    preferred_wave_size?: string;
-    preferred_break_type?: string;
-    crowd_preference?: string;
   };
 }
 
@@ -58,9 +55,7 @@ export async function getUserLearnedPreferences() {
     // Fetch onboarding preferences from profiles table
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select(
-        'experience_level, surf_styles, preferred_wave_size, preferred_break_type, crowd_preference'
-      )
+      .select('experience_level, surf_styles')
       .eq('id', user.id)
       .single();
 

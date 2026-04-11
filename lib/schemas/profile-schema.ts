@@ -2,17 +2,11 @@ import { z } from "zod";
 import {
   EXPERIENCE_LEVELS,
   SURF_STYLES,
-  WAVE_SIZES,
-  BREAK_TYPES,
-  CROWD_PREFERENCES,
 } from "@/lib/constants/user-preferences";
 
 // Extract valid values from constants for enum validation
 const experienceLevelValues = EXPERIENCE_LEVELS.map((level) => level.value) as [string, ...string[]];
 const surfStyleValues = SURF_STYLES.map((style) => style.value) as [string, ...string[]];
-const waveSizeValues = WAVE_SIZES.map((size) => size.value) as [string, ...string[]];
-const breakTypeValues = BREAK_TYPES.map((type) => type.value) as [string, ...string[]];
-const crowdPreferenceValues = CROWD_PREFERENCES.map((pref) => pref.value) as [string, ...string[]];
 
 /**
  * Shared profile form schema used across all profile editing interfaces
@@ -43,18 +37,6 @@ export const profileFormSchema = z.object({
       z.enum(surfStyleValues, { message: "Please select valid surf styles" })
     )
     .optional(),
-  preferred_wave_size: z
-    .enum(waveSizeValues, { message: "Please select a valid wave size" })
-    .optional()
-    .or(z.literal("")),
-  preferred_break_type: z
-    .enum(breakTypeValues, { message: "Please select a valid break type" })
-    .optional()
-    .or(z.literal("")),
-  crowd_preference: z
-    .enum(crowdPreferenceValues, { message: "Please select a valid crowd preference" })
-    .optional()
-    .or(z.literal("")),
 
   // Social Media
   instagram: z

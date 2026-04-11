@@ -183,8 +183,6 @@ export interface DiscoveryScoringOptions {
   preferences?: UserPreferences | null;
   affinityBonus?: number;
   distancePenalty?: number;
-  /** User's preferred wave size category */
-  preferredWaveSize?: 'small' | 'medium' | 'large' | 'any' | null;
   /** User's experience/skill level */
   userSkillLevel?: SkillLevel | null;
   /** Beach's static skill level from database */
@@ -215,14 +213,12 @@ export function scoreBeachWithEngine(
 
   const composite = engine.score(input);
 
-  // Apply preferred wave size adjustment WITH skill level
-  // Now applies if there's a preference OR a skill level (for skill ceiling checks)
+  // Apply skill-level adjustments (ceiling check + condition-aware bonus)
   let adjustedComposite = composite;
-  if (options?.preferredWaveSize !== 'any' || options?.userSkillLevel || options?.beachSkillLevel) {
-    adjustedComposite = applyPreferredWaveSizeAdjustment(
+  if (options?.userSkillLevel || options?.beachSkillLevel) {
+    adjustedComposite = applySkillBasedAdjustment(
       composite,
       snapshot.waveHeight,
-      options?.preferredWaveSize || 'any',
       options?.userSkillLevel,
       options?.beachSkillLevel
     );
@@ -248,12 +244,6 @@ export const WAVE_SIZE_SCORING_CONFIG = {
   skillCeilingPenaltyPerFoot: 8,
   /** Bonus points for waves in skill ideal range */
   skillIdealBonus: 3,
-  /** Bonus points for waves matching preference */
-  preferenceMatchBonus: 5,
-  /** Penalty points per foot outside preference range */
-  preferenceOutsidePenaltyPerFoot: 5,
-  /** Maximum penalty for preference mismatch */
-  preferenceOutsideMaxPenalty: 15,
   /** Warning thresholds */
   warnings: {
     /** Feet over limit for "dangerous" warning */
@@ -270,15 +260,6 @@ export const WAVE_SIZE_SCORING_CONFIG = {
  */
 export type { SkillWaveRanges };
 export const SKILL_WAVE_RANGES = SKILL_WAVE_RANGES_SOURCE;
-
-/**
- * Preference-based wave height ranges.
- */
-export const PREF_WAVE_RANGES = {
-  small: { ideal: { min: 1, max: 3 }, acceptable: { min: 0.5, max: 4 } },
-  medium: { ideal: { min: 3, max: 6 }, acceptable: { min: 2, max: 8 } },
-  large: { ideal: { min: 5, max: 12 }, acceptable: { min: 4, max: 15 } },
-} as const;
 
 // =============================================================================
 // Skill Level Scoring Helper Functions
@@ -416,64 +397,6 @@ export function calculateBeachSkillMatchBonus(
 }
 
 /**
- * Result of calculating preference-based adjustment.
- */
-export interface PreferenceAdjustmentResult {
-  /** Score adjustment (positive = bonus, negative = penalty) */
-  adjustment: number;
-  /** Reason string for positive adjustments */
-  reason: string | null;
-  /** Warning string for negative adjustments */
-  warning: string | null;
-}
-
-/**
- * Calculate score adjustment based on user's wave size preference.
- *
- * @param waveHeight - Current wave height in feet
- * @param preferredSize - User's preferred wave size
- * @returns Adjustment, reason, and warning (as applicable)
- */
-export function calculatePreferenceAdjustment(
-  waveHeight: number,
-  preferredSize: 'small' | 'medium' | 'large'
-): PreferenceAdjustmentResult {
-  const prefRange = PREF_WAVE_RANGES[preferredSize];
-
-  // Perfect match - bonus
-  if (waveHeight >= prefRange.ideal.min && waveHeight <= prefRange.ideal.max) {
-    return {
-      adjustment: WAVE_SIZE_SCORING_CONFIG.preferenceMatchBonus,
-      reason: 'Waves match your preferred size',
-      warning: null,
-    };
-  }
-
-  // Within acceptable range - no change
-  if (waveHeight >= prefRange.acceptable.min && waveHeight <= prefRange.acceptable.max) {
-    return { adjustment: 0, reason: null, warning: null };
-  }
-
-  // Outside acceptable - soft penalty
-  const distanceOutside =
-    waveHeight < prefRange.acceptable.min
-      ? prefRange.acceptable.min - waveHeight
-      : waveHeight - prefRange.acceptable.max;
-
-  const penalty = Math.min(
-    WAVE_SIZE_SCORING_CONFIG.preferenceOutsideMaxPenalty,
-    Math.round(distanceOutside * WAVE_SIZE_SCORING_CONFIG.preferenceOutsidePenaltyPerFoot)
-  );
-
-  const warning =
-    waveHeight < prefRange.acceptable.min
-      ? 'Waves may be smaller than preferred'
-      : 'Waves may be larger than preferred';
-
-  return { adjustment: -penalty, reason: null, warning };
-}
-
-/**
  * Apply a score adjustment consistently to a composite score.
  * Handles clamping and array updates.
  */
@@ -496,24 +419,21 @@ function applyScoreAdjustment(
 }
 
 /**
- * Apply preferred wave size adjustment to composite score.
- * Now skill-level-aware with softer penalties.
+ * Apply skill-level-based adjustment to composite score.
  *
  * Priority:
  * 1. Check skill ceiling first - waves too big for skill level get penalized
- * 2. Apply preference-based bonus/penalty if preference is set
- * 3. If no preference, check skill-based ideal range for small bonus
+ * 2. Apply condition-aware skill-based bonus/penalty
  *
  * @param composite - The composite score to adjust
  * @param waveHeight - Current wave height in feet
- * @param preferredSize - User's preferred wave size (or 'any')
  * @param userSkillLevel - User's skill level (defaults to beginner for safety)
+ * @param beachSkillLevel - Beach's static skill level from DB
  * @returns Adjusted composite score
  */
-function applyPreferredWaveSizeAdjustment(
+function applySkillBasedAdjustment(
   composite: CompositeScore,
   waveHeight: number,
-  preferredSize: 'small' | 'medium' | 'large' | 'any',
   userSkillLevel?: SkillLevel | null,
   beachSkillLevel?: string | null
 ): CompositeScore {
@@ -530,16 +450,7 @@ function applyPreferredWaveSizeAdjustment(
     };
   }
 
-  // 2. Apply preference adjustment if set
-  if (preferredSize && preferredSize !== 'any') {
-    const { adjustment, reason, warning } = calculatePreferenceAdjustment(
-      waveHeight,
-      preferredSize
-    );
-    return applyScoreAdjustment(composite, adjustment, reason, warning);
-  }
-
-  // 3. Fall back to condition-aware skill-based scoring
+  // 2. Condition-aware skill-based scoring
   const { adjustment, reason, warning } = calculateBeachSkillMatchBonus(
     waveHeight, beachSkillLevel ?? null, skillLevel
   );

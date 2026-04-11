@@ -6,15 +6,13 @@ import { makeAuthenticatedAction } from "@/lib/server-action-utils";
  * Calculate profile completion percentage with weighted fields.
  * Server action using makeAuthenticatedAction pattern.
  *
- * Weighted fields:
- * - home_beach_id: 20
- * - experience_level: 15
- * - surf_styles: 15
- * - preferred_wave_size: 10
- * - preferred_break_type: 10
- * - crowd_preference: 10
- * - full_name: 10
- * - boards (count > 0): 10
+ * Weighted fields (redistributed from the original 8-field layout after
+ * preferred_wave_size/preferred_break_type/crowd_preference were removed):
+ * - home_beach_id: 29
+ * - experience_level: 21
+ * - surf_styles: 22
+ * - full_name: 14
+ * - boards (count > 0): 14
  * Total: 100
  *
  * @returns { percent: number, missing: string[] }
@@ -24,7 +22,7 @@ export const getProfileStrength = makeAuthenticatedAction(
     // Fetch profile data - select only needed fields for profile strength calculation
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("id, home_beach_id, experience_level, surf_styles, preferred_wave_size, preferred_break_type, crowd_preference, full_name")
+      .select("id, home_beach_id, experience_level, surf_styles, full_name")
       .eq("id", user.id)
       .single();
 
@@ -44,14 +42,11 @@ export const getProfileStrength = makeAuthenticatedAction(
 
     // Calculate completion with weighted fields
     const weights = {
-      home_beach_id: 20,
-      experience_level: 15,
-      surf_styles: 15,
-      preferred_wave_size: 10,
-      preferred_break_type: 10,
-      crowd_preference: 10,
-      full_name: 10,
-      boards: 10,
+      home_beach_id: 29,
+      experience_level: 21,
+      surf_styles: 22,
+      full_name: 14,
+      boards: 14,
     };
 
     let totalPoints = 0;
@@ -74,24 +69,6 @@ export const getProfileStrength = makeAuthenticatedAction(
       totalPoints += weights.surf_styles;
     } else {
       missing.push("surf_styles");
-    }
-
-    if (profile.preferred_wave_size) {
-      totalPoints += weights.preferred_wave_size;
-    } else {
-      missing.push("preferred_wave_size");
-    }
-
-    if (profile.preferred_break_type) {
-      totalPoints += weights.preferred_break_type;
-    } else {
-      missing.push("preferred_break_type");
-    }
-
-    if (profile.crowd_preference) {
-      totalPoints += weights.crowd_preference;
-    } else {
-      missing.push("crowd_preference");
     }
 
     if (profile.full_name) {

@@ -53,9 +53,6 @@ interface EditProfileFormProps {
     home_beach_id?: string;
     homeBeachName?: string | null;
     surf_styles?: string[];
-    preferred_wave_size?: string;
-    preferred_break_type?: string;
-    crowd_preference?: string;
     notif_push_enabled?: boolean;
     notif_email_enabled?: boolean;
     notif_inapp_enabled?: boolean;
@@ -107,9 +104,6 @@ export function EditProfileForm({
       instagram: initialData?.instagram || "",
       home_beach_id: initialData?.home_beach_id ?? null,
       surf_styles: initialData?.surf_styles || [],
-      preferred_wave_size: initialData?.preferred_wave_size || "",
-      preferred_break_type: initialData?.preferred_break_type || "",
-      crowd_preference: initialData?.crowd_preference || "",
       // Notification preferences - default to true if not set
       notif_push_enabled: initialData?.notif_push_enabled ?? true,
       notif_email_enabled: initialData?.notif_email_enabled ?? true,

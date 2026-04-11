@@ -7,9 +7,7 @@ import { Edit } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   EXPERIENCE_LEVELS,
-  WAVE_SIZES,
   SURF_STYLES,
-  CROWD_PREFERENCES,
 } from "@/lib/constants/user-preferences";
 import type { ProfilePageProfile, ProfilePagePreferences } from "@/types/profile-page";
 
@@ -21,12 +19,10 @@ interface PreferencesQuickGlanceProps {
 /**
  * PreferencesQuickGlance - Compact horizontal badge row
  *
- * Shows 5 key preferences at a glance:
+ * Shows 3 key preferences at a glance:
  * 1. Experience Level (profile.experience_level)
- * 2. Preferred Wave Size (profile.preferred_wave_size)
- * 3. Surf Styles (profile.surf_styles)
- * 4. Learned Wave Range (preferences.wave_min_ft/wave_max_ft)
- * 5. Crowd Preference (profile.crowd_preference)
+ * 2. Surf Styles (profile.surf_styles)
+ * 3. Learned Wave Range (preferences.wave_min_ft/wave_max_ft)
  *
  * Uses muted styling for unset values.
  * "Edit" button navigates to surf-profile tab.
@@ -46,12 +42,6 @@ export function PreferencesQuickGlance({
       return item ? `${item.emoji} ${item.label}` : value;
     };
 
-    const getWaveSizeLabel = (value: string | null) => {
-      if (!value) return null;
-      const item = WAVE_SIZES.find((s) => s.value === value);
-      return item ? `${item.emoji} ${item.label}` : value;
-    };
-
     const getSurfStylesLabel = (styles: string[] | null) => {
       if (!styles || styles.length === 0) return null;
       const labels = styles.slice(0, 2).map((s) => {
@@ -62,12 +52,6 @@ export function PreferencesQuickGlance({
         return `${labels.join(", ")} +${styles.length - 2}`;
       }
       return labels.join(", ");
-    };
-
-    const getCrowdLabel = (value: string | null) => {
-      if (!value) return null;
-      const item = CROWD_PREFERENCES.find((c) => c.value === value);
-      return item ? `${item.emoji} ${item.label}` : value;
     };
 
     const getLearnedWaveRange = () => {
@@ -91,11 +75,6 @@ export function PreferencesQuickGlance({
         category: "Experience",
       },
       {
-        label: getWaveSizeLabel(profile.preferred_wave_size) || "Wave size not set",
-        isSet: !!profile.preferred_wave_size,
-        category: "Waves",
-      },
-      {
         label: getSurfStylesLabel(profile.surf_styles) || "Style not set",
         isSet: !!(profile.surf_styles && profile.surf_styles.length > 0),
         category: "Style",
@@ -104,11 +83,6 @@ export function PreferencesQuickGlance({
         label: learnedWaveRange || "Log 5+ sessions",
         isSet: !!learnedWaveRange,
         category: "Learned",
-      },
-      {
-        label: getCrowdLabel(profile.crowd_preference) || "Crowd pref not set",
-        isSet: !!profile.crowd_preference,
-        category: "Crowd",
       },
     ];
   }, [profile, preferences]);

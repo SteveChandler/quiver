@@ -22,9 +22,6 @@ interface ProfileDetails {
   instagram: string | null;
   onboarding_completed_at: string | null;
   surf_styles: string[] | null;
-  preferred_wave_size: string | null;
-  preferred_break_type: string | null;
-  crowd_preference: string | null;
   notif_push_enabled: boolean | null;
   notif_forecast_alerts: boolean | null;
   notif_email_enabled: boolean | null;
@@ -129,9 +126,6 @@ async function fetchProfileById(userId: string): Promise<NextResponse> {
       home_beach: details?.home_beach ?? null,
       // Surf preferences
       surf_styles: details?.surf_styles ?? null,
-      preferred_wave_size: details?.preferred_wave_size ?? null,
-      preferred_break_type: details?.preferred_break_type ?? null,
-      crowd_preference: details?.crowd_preference ?? null,
       // Notification preferences
       notif_push_enabled: details?.notif_push_enabled ?? true,
       notif_forecast_alerts: details?.notif_forecast_alerts ?? true,

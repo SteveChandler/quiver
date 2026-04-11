@@ -22,9 +22,6 @@ describe('profile constants', () => {
   describe('PROFILE_PREFERENCE_FIELDS', () => {
     it('should include surf style preferences', () => {
       expect(PROFILE_PREFERENCE_FIELDS).toContain('surf_styles');
-      expect(PROFILE_PREFERENCE_FIELDS).toContain('preferred_wave_size');
-      expect(PROFILE_PREFERENCE_FIELDS).toContain('preferred_break_type');
-      expect(PROFILE_PREFERENCE_FIELDS).toContain('crowd_preference');
     });
   });
 

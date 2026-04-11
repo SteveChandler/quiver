@@ -57,9 +57,6 @@ describe("Dashboard Actions", () => {
         home_beach_id: "beach-456",
         experience_level: "intermediate",
         surf_styles: ["longboard", "shortboard"],
-        preferred_wave_size: "3-5ft",
-        preferred_break_type: "beach_break",
-        crowd_preference: "moderate",
         full_name: "John Doe",
       };
 
@@ -87,9 +84,6 @@ describe("Dashboard Actions", () => {
         home_beach_id: "beach-456",
         experience_level: "intermediate",
         surf_styles: null,
-        preferred_wave_size: null,
-        preferred_break_type: null,
-        crowd_preference: null,
         full_name: null,
       };
 
@@ -107,13 +101,10 @@ describe("Dashboard Actions", () => {
       const result = await getProfileStrength();
 
       expect(result.success).toBe(true);
-      // home_beach_id: 20 + experience_level: 15 = 35
-      expect(result.data?.percent).toBe(35);
+      // home_beach_id: 29 + experience_level: 21 = 50
+      expect(result.data?.percent).toBe(50);
       expect(result.data?.missing).toEqual([
         "surf_styles",
-        "preferred_wave_size",
-        "preferred_break_type",
-        "crowd_preference",
         "full_name",
         "boards",
       ]);
@@ -125,9 +116,6 @@ describe("Dashboard Actions", () => {
         home_beach_id: null,
         experience_level: null,
         surf_styles: null,
-        preferred_wave_size: null,
-        preferred_break_type: null,
-        crowd_preference: null,
         full_name: null,
       };
 
@@ -150,9 +138,6 @@ describe("Dashboard Actions", () => {
         "home_beach_id",
         "experience_level",
         "surf_styles",
-        "preferred_wave_size",
-        "preferred_break_type",
-        "crowd_preference",
         "full_name",
         "boards",
       ]);
@@ -164,9 +149,6 @@ describe("Dashboard Actions", () => {
         home_beach_id: "beach-456",
         experience_level: "intermediate",
         surf_styles: [], // Empty array should be treated as incomplete
-        preferred_wave_size: "3-5ft",
-        preferred_break_type: "beach_break",
-        crowd_preference: "moderate",
         full_name: "John Doe",
       };
 
@@ -184,8 +166,8 @@ describe("Dashboard Actions", () => {
       const result = await getProfileStrength();
 
       expect(result.success).toBe(true);
-      // All fields except surf_styles: 20+15+10+10+10+10+10 = 85
-      expect(result.data?.percent).toBe(85);
+      // All fields except surf_styles: 29+21+14+14 = 78
+      expect(result.data?.percent).toBe(78);
       expect(result.data?.missing).toContain("surf_styles");
     });
 
@@ -195,9 +177,6 @@ describe("Dashboard Actions", () => {
         home_beach_id: null,
         experience_level: null,
         surf_styles: null,
-        preferred_wave_size: null,
-        preferred_break_type: null,
-        crowd_preference: null,
         full_name: null,
       };
 
@@ -215,16 +194,13 @@ describe("Dashboard Actions", () => {
       const result = await getProfileStrength();
 
       expect(result.success).toBe(true);
-      // Only boards: 10
-      expect(result.data?.percent).toBe(10);
+      // Only boards: 14
+      expect(result.data?.percent).toBe(14);
       expect(result.data?.missing).not.toContain("boards");
       expect(result.data?.missing).toEqual([
         "home_beach_id",
         "experience_level",
         "surf_styles",
-        "preferred_wave_size",
-        "preferred_break_type",
-        "crowd_preference",
         "full_name",
       ]);
     });
@@ -235,9 +211,6 @@ describe("Dashboard Actions", () => {
         home_beach_id: "beach-456",
         experience_level: null,
         surf_styles: null,
-        preferred_wave_size: null,
-        preferred_break_type: null,
-        crowd_preference: null,
         full_name: null,
       };
 
@@ -255,7 +228,7 @@ describe("Dashboard Actions", () => {
       const result = await getProfileStrength();
 
       expect(result.success).toBe(true);
-      expect(result.data?.percent).toBe(20); // Only home_beach_id
+      expect(result.data?.percent).toBe(29); // Only home_beach_id
       expect(result.data?.missing).toContain("boards");
     });
 
@@ -265,9 +238,6 @@ describe("Dashboard Actions", () => {
         home_beach_id: "beach-456",
         experience_level: null,
         surf_styles: null,
-        preferred_wave_size: null,
-        preferred_break_type: null,
-        crowd_preference: null,
         full_name: null,
       };
 
@@ -285,7 +255,7 @@ describe("Dashboard Actions", () => {
       const result = await getProfileStrength();
 
       expect(result.success).toBe(true);
-      expect(result.data?.percent).toBe(20); // Only home_beach_id
+      expect(result.data?.percent).toBe(29); // Only home_beach_id
       expect(result.data?.missing).toContain("boards");
     });
 
@@ -307,9 +277,6 @@ describe("Dashboard Actions", () => {
         home_beach_id: "beach-456",
         experience_level: "intermediate",
         surf_styles: ["longboard"],
-        preferred_wave_size: "3-5ft",
-        preferred_break_type: "beach_break",
-        crowd_preference: "moderate",
         full_name: "John Doe",
       };
 
@@ -345,13 +312,10 @@ describe("Dashboard Actions", () => {
     it("calculates correctly with mixed complete and incomplete fields", async () => {
       const mockProfile = {
         id: "user-123",
-        home_beach_id: "beach-456", // 20 points
-        experience_level: "intermediate", // 15 points
-        surf_styles: ["longboard"], // 15 points
-        preferred_wave_size: null, // 0 points
-        preferred_break_type: "beach_break", // 10 points
-        crowd_preference: null, // 0 points
-        full_name: "John Doe", // 10 points
+        home_beach_id: "beach-456", // 29 points
+        experience_level: "intermediate", // 21 points
+        surf_styles: ["longboard"], // 22 points
+        full_name: null, // 0 points
       };
 
       profilesChain.select().eq().single.mockResolvedValueOnce({
@@ -361,19 +325,16 @@ describe("Dashboard Actions", () => {
 
       boardsChain.select.mockReturnValueOnce(boardsChain);
       boardsChain.eq.mockResolvedValueOnce({
-        count: 1, // 10 points
+        count: 1, // 14 points
         error: null,
       });
 
       const result = await getProfileStrength();
 
       expect(result.success).toBe(true);
-      // 20 + 15 + 15 + 10 + 10 + 10 = 80
-      expect(result.data?.percent).toBe(80);
-      expect(result.data?.missing).toEqual([
-        "preferred_wave_size",
-        "crowd_preference",
-      ]);
+      // 29 + 21 + 22 + 14 = 86
+      expect(result.data?.percent).toBe(86);
+      expect(result.data?.missing).toEqual(["full_name"]);
     });
   });
 

@@ -33,12 +33,6 @@ jest.mock("@/lib/server-action-utils", () => {
                       error: { message: 'duplicate key value violates unique constraint "profiles_display_name_key"', code: '23505' }
                     });
                   }
-                  if (data.preferred_wave_size === 'invalid') {
-                    return Promise.resolve({
-                      data: null,
-                      error: { message: 'new row for relation "profiles" violates check constraint "profiles_preferred_wave_size_check"', code: '23514' }
-                    });
-                  }
                   // Return updated profile data
                   return Promise.resolve({
                     data: {
@@ -135,9 +129,6 @@ describe("saveOnboardingData", () => {
         homeBeachId: "beach-123",
         experienceLevel: "intermediate" as const,
         surfStyles: ["shortboard", "longboard"],
-        preferredWaveSize: "medium" as const,
-        preferredBreakType: "point" as const,
-        crowdPreference: "moderate" as const,
         pushEnabled: true,
         emailEnabled: false,
       };
@@ -151,9 +142,6 @@ describe("saveOnboardingData", () => {
         home_beach_id: "beach-123",
         experience_level: "intermediate",
         surf_styles: ["shortboard", "longboard"],
-        preferred_wave_size: "medium",
-        preferred_break_type: "point",
-        crowd_preference: "moderate",
         notif_push_enabled: true,
         notif_email_enabled: false,
         onboarding_completed_at: expect.any(String),
@@ -192,9 +180,6 @@ describe("saveOnboardingData", () => {
       const result = await saveOnboardingData(onboardingData);
 
       expect(result.success).toBe(true);
-      expect(lastProfileUpdate.preferred_wave_size).toBeUndefined();
-      expect(lastProfileUpdate.preferred_break_type).toBeUndefined();
-      expect(lastProfileUpdate.crowd_preference).toBeUndefined();
       expect(lastProfileUpdate.home_beach_id).toBe("beach-123");
       expect(lastProfileUpdate.experience_level).toBeUndefined();
     });
@@ -265,19 +250,6 @@ describe("saveOnboardingData", () => {
       expect(result.error).toContain('Display name is already taken');
     });
 
-    it("should reject invalid enum values", async () => {
-      const onboardingData = {
-        fullName: "Test User",
-        displayName: "test_user",
-        homeBeachId: "beach-123",
-        preferredWaveSize: "invalid" as any, // This triggers the check constraint
-      };
-
-      const result = await saveOnboardingData(onboardingData);
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('check constraint');
-    });
   });
 
   describe("XP Awarding", () => {
@@ -393,22 +365,6 @@ describe("saveOnboardingData", () => {
       expect(lastProfileUpdate.surf_styles).toBeUndefined();
     });
 
-    it("should handle all preference fields as 'any'", async () => {
-      const onboardingData = {
-        fullName: "Test User",
-        displayName: "test_user",
-        homeBeachId: "beach-123",
-        preferredWaveSize: "any" as const,
-        preferredBreakType: "any" as const,
-      };
-
-      const result = await saveOnboardingData(onboardingData);
-
-      expect(result.success).toBe(true);
-      expect(lastProfileUpdate.preferred_wave_size).toBe("any");
-      expect(lastProfileUpdate.preferred_break_type).toBe("any");
-    });
-
     it("should reject minimal onboarding data when home beach is missing", async () => {
       const onboardingData = {
         fullName: "Test User",
@@ -430,9 +386,6 @@ describe("saveOnboardingData", () => {
         homeBeachName: "Ocean Beach", // Display only
         experienceLevel: "advanced" as const,
         surfStyles: ["shortboard", "fish", "gun"],
-        preferredWaveSize: "large" as const,
-        preferredBreakType: "reef" as const,
-        crowdPreference: "solitude" as const,
         pushEnabled: true,
         emailEnabled: true,
       };

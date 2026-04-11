@@ -44,9 +44,6 @@ const profileUpdateSchema = z.object({
   // Surf preferences
   experience_level: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).nullable().optional(),
   surf_styles: z.array(z.string()).nullable().optional(),
-  preferred_wave_size: z.enum(['small', 'medium', 'large', 'any']).nullable().optional(),
-  preferred_break_type: z.enum(['beach', 'point', 'reef', 'any']).nullable().optional(),
-  crowd_preference: z.enum(['social', 'moderate', 'solitude']).nullable().optional(),
   // Session invite preferences
   digest_session_invites: z.boolean().optional(),
   inapp_session_invites: z.boolean().optional(),
@@ -277,7 +274,7 @@ export async function updateProfile(
     const updateData = Array.isArray(profileData) ? profileData[0] : profileData;
 
     // Transform empty strings to null for enum fields (client sends "" for unselected options)
-    const enumFields = ['experience_level', 'preferred_wave_size', 'preferred_break_type', 'crowd_preference'] as const;
+    const enumFields = ['experience_level'] as const;
     const sanitizedData = { ...updateData };
     for (const field of enumFields) {
       if ((sanitizedData as Record<string, unknown>)[field] === '') {

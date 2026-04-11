@@ -152,7 +152,6 @@ function makeContext(overrides?: Partial<PersonalizationContext>): Personalizati
     implicitPrefs: null,
     learnedPrefs: null,
     affinityMap: new Map(),
-    preferredBreakType: null,
     implicitWeight: 0,
     ...overrides,
   };
@@ -223,51 +222,6 @@ describe('calculatePersonalizationBonus', () => {
       expect(result.affinityBonus).toBe(0);
       expect(result.personalizationBonus).toBe(0);
       expect(result.reasons).toHaveLength(0);
-    });
-  });
-
-  describe('break type matching', () => {
-    it('adds +8 and reason when break type matches preferredBreakType', () => {
-      const beach = makeBeach({ break_type: 'point' });
-      const forecast = makeForecast();
-      const context = makeContext({ preferredBreakType: 'point' });
-
-      const result = calculatePersonalizationBonus(beach, forecast, context);
-
-      expect(result.personalizationBonus).toBe(8);
-      expect(result.reasons).toContain('Matches your preferred break type');
-    });
-
-    it('adds 0 when break type does not match preferredBreakType', () => {
-      const beach = makeBeach({ break_type: 'beach' });
-      const forecast = makeForecast();
-      const context = makeContext({ preferredBreakType: 'reef' });
-
-      const result = calculatePersonalizationBonus(beach, forecast, context);
-
-      expect(result.personalizationBonus).toBe(0);
-      expect(result.reasons).not.toContain('Matches your preferred break type');
-    });
-
-    it('adds 0 when preferredBreakType is "any"', () => {
-      const beach = makeBeach({ break_type: 'beach' });
-      const forecast = makeForecast();
-      const context = makeContext({ preferredBreakType: 'any' });
-
-      const result = calculatePersonalizationBonus(beach, forecast, context);
-
-      expect(result.personalizationBonus).toBe(0);
-      expect(result.reasons).not.toContain('Matches your preferred break type');
-    });
-
-    it('adds 0 when preferredBreakType is null', () => {
-      const beach = makeBeach({ break_type: 'beach' });
-      const forecast = makeForecast();
-      const context = makeContext({ preferredBreakType: null });
-
-      const result = calculatePersonalizationBonus(beach, forecast, context);
-
-      expect(result.personalizationBonus).toBe(0);
     });
   });
 
@@ -648,7 +602,7 @@ describe('calculatePersonalizationBonus', () => {
   });
 
   describe('combined scenarios', () => {
-    it('sums all bonuses correctly when break type match + wave range + affinity all apply', () => {
+    it('sums learned bonuses with affinity correctly', () => {
       const learned = makeLearnedPrefs({ confidence: 0.8 });
       mockMatchesLearnedWaveRange.mockReturnValue(true);
       mockMatchesLearnedWindPrefs.mockReturnValue(false);
@@ -659,20 +613,17 @@ describe('calculatePersonalizationBonus', () => {
       const beach = makeBeach({ id: 'beach-1', break_type: 'point' });
       const forecast = makeForecast({ wave_height: '3' });
       const context = makeContext({
-        preferredBreakType: 'point',
         learnedPrefs: learned,
         affinityMap,
       });
 
       const result = calculatePersonalizationBonus(beach, forecast, context);
 
-      // break type: +8
       // wave range: +15 * 0.8 = +12
       // affinity: min(80 * 0.15, 15) = 12
-      expect(result.personalizationBonus).toBeCloseTo(20); // 8 + 12
+      expect(result.personalizationBonus).toBeCloseTo(12);
       expect(result.affinityBonus).toBeCloseTo(12);
-      expect(result.total).toBeCloseTo(32);
-      expect(result.reasons).toContain('Matches your preferred break type');
+      expect(result.total).toBeCloseTo(24);
       expect(result.reasons).toContain('Wave size matches your sweet spot');
       expect(result.reasons).toContain("One of your go-to spots");
     });
@@ -706,7 +657,6 @@ describe('calculatePersonalizationBonus', () => {
       const beach = makeBeach({ id: 'beach-1', break_type: 'point' });
       const forecast = makeForecast();
       const context = makeContext({
-        preferredBreakType: 'point',
         learnedPrefs: learned,
         affinityMap,
       });
@@ -783,16 +733,14 @@ describe('calculatePersonalizationBonus', () => {
       matchTide.mockReturnValue(true);
 
       const context = makeContext({
-        preferredBreakType: 'reef',
-        learnedPrefs: { confidence: 0.8 } as any,
+        learnedPrefs: makeLearnedPrefs({ confidence: 0.8 }),
         affinityMap: new Map([['beach-1', 80]]),
       });
 
       const result = calculatePersonalizationBonus(beach, forecast, context);
 
-      // Should have 5 reasons: break type + 3 learned + affinity
-      expect(result.reasons.length).toBe(5);
-      expect(result.reasons).toContain('Matches your preferred break type');
+      // Should have 4 reasons: 3 learned + affinity
+      expect(result.reasons.length).toBe(4);
       expect(result.reasons).toContain('Wave size matches your sweet spot');
       expect(result.reasons).toContain('Wind conditions match your preferences');
       expect(result.reasons).toContain('Tide matches your preferred conditions');
@@ -836,7 +784,7 @@ describe('score arithmetic edge cases', () => {
     const beach = makeBeach();
     const forecast = makeForecast();
     const context = makeContext({
-      learnedPrefs: { confidence: 0.8 } as any,
+      learnedPrefs: makeLearnedPrefs({ confidence: 0.8 }),
       affinityMap: new Map([['beach-1', 50]]),
     });
 
@@ -864,22 +812,20 @@ describe('score arithmetic edge cases', () => {
     const beach = makeBeach({ break_type: 'reef' });
     const forecast = makeForecast();
     const context = makeContext({
-      preferredBreakType: 'reef',
-      learnedPrefs: { confidence: 1.0 } as any,
-      implicitPrefs: { confidence: 0.8 } as any,
+      learnedPrefs: makeLearnedPrefs({ confidence: 1.0 }),
+      implicitPrefs: makeImplicitPrefs({ confidence: 0.8 }),
       implicitWeight: 0.5,
       affinityMap: new Map([['beach-1', 100]]),
     });
 
     const result = calculatePersonalizationBonus(beach, forecast, context);
 
-    // break type: 8
     // learned: 15 + 10 + 8 = 33
     // implicit: 20
     // affinity: min(100 * 0.15, 15) = 15
-    expect(result.personalizationBonus).toBe(8 + 33 + 20);
+    expect(result.personalizationBonus).toBe(33 + 20);
     expect(result.affinityBonus).toBe(15);
-    expect(result.total).toBe(76);
+    expect(result.total).toBe(68);
   });
 });
 
@@ -911,7 +857,7 @@ describe('fetchPersonalizationContext', () => {
       mockGetUserSurfPreferences.mockResolvedValue(learned);
       resetChain({ data: [], error: null });
 
-      await fetchPersonalizationContext(testUserId, testBeachIds, 'beach');
+      await fetchPersonalizationContext(testUserId, testBeachIds);
 
       expect(mockGetImplicitPreferences).toHaveBeenCalledWith(testUserId);
       expect(mockGetUserSurfPreferences).toHaveBeenCalledWith(testUserId);
@@ -921,25 +867,25 @@ describe('fetchPersonalizationContext', () => {
     it('uses pre-fetched learnedPrefs and skips getUserSurfPreferences call', async () => {
       const prefetched = makeLearnedPrefs({ confidence: 0.9 });
 
-      await fetchPersonalizationContext(testUserId, testBeachIds, 'reef', prefetched);
+      await fetchPersonalizationContext(testUserId, testBeachIds, prefetched);
 
       expect(mockGetUserSurfPreferences).not.toHaveBeenCalled();
     });
 
     it('calls getUserSurfPreferences when learnedPrefs is not provided', async () => {
-      await fetchPersonalizationContext(testUserId, testBeachIds, null);
+      await fetchPersonalizationContext(testUserId, testBeachIds);
 
       expect(mockGetUserSurfPreferences).toHaveBeenCalledWith(testUserId);
     });
 
     it('calls getUserSurfPreferences when learnedPrefs is explicitly undefined', async () => {
-      await fetchPersonalizationContext(testUserId, testBeachIds, null, undefined);
+      await fetchPersonalizationContext(testUserId, testBeachIds, undefined);
 
       expect(mockGetUserSurfPreferences).toHaveBeenCalledWith(testUserId);
     });
 
     it('skips getUserSurfPreferences when learnedPrefs is explicitly null', async () => {
-      await fetchPersonalizationContext(testUserId, testBeachIds, null, null);
+      await fetchPersonalizationContext(testUserId, testBeachIds, null);
 
       expect(mockGetUserSurfPreferences).not.toHaveBeenCalled();
     });
@@ -947,7 +893,7 @@ describe('fetchPersonalizationContext', () => {
 
   describe('empty beachIds', () => {
     it('skips affinity query and returns empty affinityMap when beachIds is empty', async () => {
-      const result = await fetchPersonalizationContext(testUserId, [], null);
+      const result = await fetchPersonalizationContext(testUserId, []);
 
       expect(mockFrom).not.toHaveBeenCalled();
       expect(result.affinityMap.size).toBe(0);
@@ -962,7 +908,7 @@ describe('fetchPersonalizationContext', () => {
       ];
       resetChain({ data: affinityData, error: null });
 
-      const result = await fetchPersonalizationContext(testUserId, testBeachIds, null);
+      const result = await fetchPersonalizationContext(testUserId, testBeachIds);
 
       expect(result.affinityMap.get('beach-1')).toBe(80);
       expect(result.affinityMap.get('beach-2')).toBe(40);
@@ -972,7 +918,7 @@ describe('fetchPersonalizationContext', () => {
     it('returns empty affinityMap when affinity query returns empty data', async () => {
       resetChain({ data: [], error: null });
 
-      const result = await fetchPersonalizationContext(testUserId, testBeachIds, null);
+      const result = await fetchPersonalizationContext(testUserId, testBeachIds);
 
       expect(result.affinityMap.size).toBe(0);
     });
@@ -980,24 +926,10 @@ describe('fetchPersonalizationContext', () => {
     it('returns empty affinityMap and continues when affinity query returns error', async () => {
       resetChain({ data: null, error: { message: 'DB error', code: '500' } });
 
-      const result = await fetchPersonalizationContext(testUserId, testBeachIds, null);
+      const result = await fetchPersonalizationContext(testUserId, testBeachIds);
 
       expect(result.affinityMap.size).toBe(0);
       // Should not throw
-    });
-  });
-
-  describe('preferredBreakType passthrough', () => {
-    it('passes preferredBreakType through to the context unchanged', async () => {
-      const result = await fetchPersonalizationContext(testUserId, testBeachIds, 'point');
-
-      expect(result.preferredBreakType).toBe('point');
-    });
-
-    it('passes null preferredBreakType through', async () => {
-      const result = await fetchPersonalizationContext(testUserId, testBeachIds, null);
-
-      expect(result.preferredBreakType).toBeNull();
     });
   });
 
@@ -1008,7 +940,7 @@ describe('fetchPersonalizationContext', () => {
       mockGetImplicitPreferences.mockResolvedValue(implicit);
       mockGetUserSurfPreferences.mockResolvedValue(learned);
 
-      const result = await fetchPersonalizationContext(testUserId, testBeachIds, null);
+      const result = await fetchPersonalizationContext(testUserId, testBeachIds);
 
       // 0.6 * (1 - 0.3) = 0.6 * 0.7 = 0.42
       expect(result.implicitWeight).toBeCloseTo(0.42);
@@ -1019,7 +951,7 @@ describe('fetchPersonalizationContext', () => {
       mockGetImplicitPreferences.mockResolvedValue(implicit);
       mockGetUserSurfPreferences.mockResolvedValue(null); // explicitConf = 0
 
-      const result = await fetchPersonalizationContext(testUserId, testBeachIds, null);
+      const result = await fetchPersonalizationContext(testUserId, testBeachIds);
 
       // 0.05 * (1 - 0) = 0.05 < 0.1 → 0
       expect(result.implicitWeight).toBe(0);
@@ -1028,7 +960,7 @@ describe('fetchPersonalizationContext', () => {
     it('sets implicitWeight to 0 when implicitPrefs is null', async () => {
       mockGetImplicitPreferences.mockResolvedValue(null);
 
-      const result = await fetchPersonalizationContext(testUserId, testBeachIds, null);
+      const result = await fetchPersonalizationContext(testUserId, testBeachIds);
 
       expect(result.implicitWeight).toBe(0);
     });
@@ -1038,7 +970,7 @@ describe('fetchPersonalizationContext', () => {
       mockGetImplicitPreferences.mockResolvedValue(implicit);
       mockGetUserSurfPreferences.mockResolvedValue(null);
 
-      const result = await fetchPersonalizationContext(testUserId, testBeachIds, null);
+      const result = await fetchPersonalizationContext(testUserId, testBeachIds);
 
       expect(result.implicitWeight).toBe(0);
     });
@@ -1048,7 +980,7 @@ describe('fetchPersonalizationContext', () => {
       const prefetched = makeLearnedPrefs({ confidence: 0.5 });
       mockGetImplicitPreferences.mockResolvedValue(implicit);
 
-      const result = await fetchPersonalizationContext(testUserId, testBeachIds, null, prefetched);
+      const result = await fetchPersonalizationContext(testUserId, testBeachIds, prefetched);
 
       // 0.8 * (1 - 0.5) = 0.4
       expect(result.implicitWeight).toBeCloseTo(0.4);
@@ -1058,7 +990,7 @@ describe('fetchPersonalizationContext', () => {
       const implicit = makeImplicitPrefs({ confidence: 0.7 });
       mockGetImplicitPreferences.mockResolvedValue(implicit);
       // Pre-fetch null learnedPrefs → explicitConf = 0
-      const result = await fetchPersonalizationContext(testUserId, testBeachIds, null, null);
+      const result = await fetchPersonalizationContext(testUserId, testBeachIds, null);
 
       // 0.7 * (1 - 0) = 0.7
       expect(result.implicitWeight).toBeCloseTo(0.7);
@@ -1066,11 +998,11 @@ describe('fetchPersonalizationContext', () => {
 
     it('fully suppresses implicit signal when explicitConf is 1.0', async () => {
       // When explicit confidence is at maximum, implicit should be completely suppressed
-      mockGetImplicitPreferences.mockResolvedValue({ confidence: 0.8 } as any);
-      mockGetUserSurfPreferences.mockResolvedValue({ confidence: 1.0 } as any);
+      mockGetImplicitPreferences.mockResolvedValue(makeImplicitPrefs({ confidence: 0.8 }));
+      mockGetUserSurfPreferences.mockResolvedValue(makeLearnedPrefs({ confidence: 1.0 }));
       resetChain({ data: [], error: null });
 
-      const ctx = await fetchPersonalizationContext('u1', ['b1'], null);
+      const ctx = await fetchPersonalizationContext('u1', ['b1']);
 
       // implicitWeight = 0.8 * (1 - 1.0) = 0.0, which is below 0.1 threshold
       expect(ctx.implicitWeight).toBe(0);
@@ -1081,7 +1013,7 @@ describe('fetchPersonalizationContext', () => {
     it('returns null implicitPrefs and continues when getImplicitPreferences throws', async () => {
       mockGetImplicitPreferences.mockRejectedValue(new Error('Network timeout'));
 
-      const result = await fetchPersonalizationContext(testUserId, testBeachIds, null);
+      const result = await fetchPersonalizationContext(testUserId, testBeachIds);
 
       expect(result.implicitPrefs).toBeNull();
       expect(result.implicitWeight).toBe(0);
@@ -1090,7 +1022,7 @@ describe('fetchPersonalizationContext', () => {
     it('returns null learnedPrefs and continues when getUserSurfPreferences throws', async () => {
       mockGetUserSurfPreferences.mockRejectedValue(new Error('DB connection failed'));
 
-      const result = await fetchPersonalizationContext(testUserId, testBeachIds, null);
+      const result = await fetchPersonalizationContext(testUserId, testBeachIds);
 
       expect(result.learnedPrefs).toBeNull();
     });
@@ -1100,10 +1032,9 @@ describe('fetchPersonalizationContext', () => {
       mockGetImplicitPreferences.mockRejectedValue(new Error('Timeout'));
       mockGetUserSurfPreferences.mockResolvedValue(learned);
 
-      const result = await fetchPersonalizationContext(testUserId, testBeachIds, 'beach');
+      const result = await fetchPersonalizationContext(testUserId, testBeachIds);
 
       expect(result.learnedPrefs).toEqual(learned);
-      expect(result.preferredBreakType).toBe('beach');
       expect(result.implicitPrefs).toBeNull();
     });
   });
@@ -1117,12 +1048,11 @@ describe('fetchPersonalizationContext', () => {
       mockGetUserSurfPreferences.mockResolvedValue(learned);
       resetChain({ data: affinityData, error: null });
 
-      const result = await fetchPersonalizationContext(testUserId, testBeachIds, 'reef');
+      const result = await fetchPersonalizationContext(testUserId, testBeachIds);
 
       expect(result).toMatchObject({
         implicitPrefs: implicit,
         learnedPrefs: learned,
-        preferredBreakType: 'reef',
       });
       expect(result.affinityMap).toBeInstanceOf(Map);
       expect(result.affinityMap.get('beach-1')).toBe(55);

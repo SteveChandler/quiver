@@ -3,10 +3,9 @@
  *
  * Scores beaches for specific users by combining:
  * 1. Base algorithmic score (from coach picks)
- * 2. Onboarding preferences (explicit user choices)
- * 3. Learned preferences (implicit from session history)
- * 4. Implicit preferences (inferred from engagement patterns)
- * 5. Beach affinity (familiarity from past sessions)
+ * 2. Learned preferences (implicit from session history)
+ * 3. Implicit preferences (inferred from engagement patterns)
+ * 4. Beach affinity (familiarity from past sessions)
  *
  * Scoring uses a multiplicative approach to prevent score inflation:
  * - Individual bonus components are calculated the same way (additive pts)
@@ -18,8 +17,6 @@
  * inflating mediocre scores into artificially high ratings.
  *
  * Bonus components (accumulated into totalBonus, max ~50):
- * - Onboarding wave size match: 10 pts
- * - Onboarding break type match: 8 pts
  * - Learned wave range match: 15 pts * confidence
  * - Learned wind preferences match: 10 pts * confidence
  * - Learned tide preferences match: 8 pts * confidence
@@ -71,8 +68,8 @@ export interface PersonalizedScore {
 /**
  * Score a beach for a specific user by combining base score with personalization
  *
- * Queries user's onboarding preferences, learned preferences, and beach affinity
- * to boost the base score for beaches that match user's demonstrated preferences.
+ * Queries user's learned preferences and beach affinity to boost the base
+ * score for beaches that match user's demonstrated preferences.
  *
  * @param userId - The user ID
  * @param beachId - The beach ID to score
@@ -105,37 +102,6 @@ export async function scoreBeachForUser(
   };
 
   try {
-    // 1. Get user profile (onboarding preferences)
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('preferred_wave_size, preferred_break_type, crowd_preference')
-      .eq('id', userId)
-      .single();
-
-    if (profile) {
-      // Match wave size preference
-      if (profile.preferred_wave_size && profile.preferred_wave_size !== 'any') {
-        if (matchesWaveSize(forecast, profile.preferred_wave_size)) {
-          breakdown.onboardingPrefs += 10;
-          personalized = true;
-        }
-      }
-
-      // Match break type preference
-      if (profile.preferred_break_type && profile.preferred_break_type !== 'any') {
-        const { data: beach } = await supabase
-          .from('beaches')
-          .select('break_type')
-          .eq('id', beachId)
-          .single();
-
-        if (beach?.break_type === profile.preferred_break_type) {
-          breakdown.onboardingPrefs += 8;
-          personalized = true;
-        }
-      }
-    }
-
     // 2. Get learned preferences
     const learnedPrefs = await getUserSurfPreferences(userId);
 
@@ -240,39 +206,6 @@ export async function scoreBeachForUser(
 // ============================================================================
 // Helper Functions
 // ============================================================================
-
-/**
- * Check if forecast matches onboarding wave size preference
- *
- * Wave size ranges:
- * - small: 1-3 ft
- * - medium: 3-6 ft
- * - large: 6+ ft
- *
- * @param forecast - The forecast to check
- * @param pref - User's wave size preference
- * @returns True if forecast matches preference
- *
- * @example
- * matchesWaveSize(forecast, 'medium') // Returns true if wave_height is 3-6 ft
- */
-export function matchesWaveSize(
-  forecast: EnhancedForecastEntity,
-  pref: string
-): boolean {
-  const height = parseFloat(forecast.wave_height || '0');
-
-  switch (pref) {
-    case 'small':
-      return height >= 1 && height <= 3;
-    case 'medium':
-      return height > 3 && height <= 6;
-    case 'large':
-      return height > 6;
-    default:
-      return false;
-  }
-}
 
 /**
  * Check if forecast matches learned wave range

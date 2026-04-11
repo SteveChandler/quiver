@@ -31,9 +31,6 @@ export interface ProfilePagePreferences {
   onboarding: {
     experience_level?: string;
     surf_styles?: string[];
-    preferred_wave_size?: string;
-    preferred_break_type?: string;
-    crowd_preference?: string;
   };
 }
 
@@ -51,9 +48,6 @@ export interface ProfilePageProfile {
   home_beach_id: string | null;
   experience_level: string | null;
   surf_styles: string[] | null;
-  preferred_wave_size: string | null;
-  preferred_break_type: string | null;
-  crowd_preference: string | null;
   homeBeachName: string | null;
   // Notification settings (used by ProfilePreferences)
   notif_reminders: boolean | null;

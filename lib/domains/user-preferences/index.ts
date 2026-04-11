@@ -6,7 +6,6 @@
 
 export type {
   WaveSizePreference,
-  CrowdPreference,
   OnboardingPreferences,
   LearnedPreferences,
   BeachAffinity,

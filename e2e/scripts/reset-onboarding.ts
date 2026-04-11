@@ -92,9 +92,6 @@ async function resetOnboarding() {
     console.log(`   Onboarding Completed: ${profile.onboarding_completed_at || '(not completed)'}`);
     console.log(`   Experience Level: ${profile.experience_level || '(not set)'}`);
     console.log(`   Surf Styles: ${profile.surf_styles?.join(', ') || '(not set)'}`);
-    console.log(`   Wave Size Pref: ${profile.preferred_wave_size || '(not set)'}`);
-    console.log(`   Break Type Pref: ${profile.preferred_break_type || '(not set)'}`);
-    console.log(`   Crowd Pref: ${profile.crowd_preference || '(not set)'}`);
 
     // Step 3: Reset onboarding state
     console.log('\n🔄 Resetting onboarding state...');
@@ -124,9 +121,6 @@ async function resetOnboarding() {
         .update({
           experience_level: null,
           surf_styles: [],
-          preferred_wave_size: null,
-          preferred_break_type: null,
-          crowd_preference: null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);

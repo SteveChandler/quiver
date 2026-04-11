@@ -11,10 +11,6 @@
  *   2. For each beach/forecast pair, call `calculatePersonalizationBonus`
  *      (zero DB calls, pure computation).
  *
- * This is intentionally decoupled from the wave-size preference bonus that
- * the discovery adapter already handles via `preferredWaveSize`, so no
- * dimension is double-counted.
- *
  * @module lib/services/discovery/personalization-layer
  */
 
@@ -49,8 +45,6 @@ export interface PersonalizationContext {
   learnedPrefs: UserSurfPreferences | null;
   /** Map of beachId -> affinity_score from user_beach_affinity table */
   affinityMap: Map<string, number>;
-  /** User's preferred break type from onboarding profile */
-  preferredBreakType: string | null;
   /**
    * Pre-computed implicit weight — a confidence blend that lets implicit
    * preferences fill the gap left by explicit preferences:
@@ -69,7 +63,7 @@ export interface PersonalizationBonusResult {
   total: number;
   /** Affinity bonus component (0–15 pts), based on user_beach_affinity.affinity_score */
   affinityBonus: number;
-  /** Combined bonus for break type, learned preferences, and implicit preferences */
+  /** Combined bonus from learned and implicit preferences */
   personalizationBonus: number;
   /** Human-readable reasons, suitable for the recommendation card UI */
   reasons: string[];
@@ -92,14 +86,12 @@ export interface PersonalizationBonusResult {
  *
  * @param userId - The authenticated user ID
  * @param beachIds - All candidate beach IDs in the discovery pool
- * @param preferredBreakType - User's onboarding break type preference (may be null or "any")
  * @param learnedPrefs - Optional pre-fetched surf preferences; re-fetched if omitted
  * @returns Populated PersonalizationContext for use with calculatePersonalizationBonus
  */
 export async function fetchPersonalizationContext(
   userId: string,
   beachIds: string[],
-  preferredBreakType: string | null,
   learnedPrefs?: UserSurfPreferences | null
 ): Promise<PersonalizationContext> {
   const supabase = createSupabaseServiceRoleClient();
@@ -163,7 +155,6 @@ export async function fetchPersonalizationContext(
     implicitPrefs,
     learnedPrefs: resolvedLearnedPrefs,
     affinityMap,
-    preferredBreakType,
     implicitWeight,
   };
 }
@@ -179,16 +170,11 @@ export async function fetchPersonalizationContext(
  * All input data comes from a pre-fetched `PersonalizationContext`.
  *
  * Bonus sources (in order):
- *   1. Break type match (+8 pts) — onboarding explicit preference
- *   2. Learned wave range match (+15 * confidence) — from session history
- *   3. Learned wind preference match (+10 * confidence) — from session history
- *   4. Learned tide preference match (+8 * confidence) — from session history
- *   5. Implicit behavior bonus — from engagement patterns, blended by implicitWeight
- *   6. Beach affinity bonus (0–15 pts) — from user_beach_affinity.affinity_score
- *
- * NOTE: The wave-size onboarding preference (+10 pts) is intentionally excluded
- * here because the discovery adapter already scores it via `preferredWaveSize`.
- * Including it here would double-count that dimension.
+ *   1. Learned wave range match (+15 * confidence) — from session history
+ *   2. Learned wind preference match (+10 * confidence) — from session history
+ *   3. Learned tide preference match (+8 * confidence) — from session history
+ *   4. Implicit behavior bonus — from engagement patterns, blended by implicitWeight
+ *   5. Beach affinity bonus (0–15 pts) — from user_beach_affinity.affinity_score
  *
  * @param beach - The beach being evaluated
  * @param forecast - The forecast entry selected for scoring (best window)
@@ -204,18 +190,7 @@ export function calculatePersonalizationBonus(
   let affinityBonus = 0;
   const reasons: string[] = [];
 
-  // ── 1. Break type match ────────────────────────────────────────────────────
-  // Onboarding explicit preference. Excluded: wave size (handled by adapter).
-  if (
-    context.preferredBreakType &&
-    context.preferredBreakType !== 'any' &&
-    beach.break_type === context.preferredBreakType
-  ) {
-    personalizationBonus += 8;
-    reasons.push('Matches your preferred break type');
-  }
-
-  // ── 2–4. Learned preferences (session history) ────────────────────────────
+  // ── 1–3. Learned preferences (session history) ────────────────────────────
   // Only apply when there is sufficient confidence to trust the learned model.
   const learned = context.learnedPrefs;
   if (learned && learned.confidence > 0.5) {
@@ -240,7 +215,7 @@ export function calculatePersonalizationBonus(
     }
   }
 
-  // ── 5. Implicit behavioral preferences ────────────────────────────────────
+  // ── 4. Implicit behavioral preferences ────────────────────────────────────
   // Blended with explicit confidence to avoid redundancy.
   if (context.implicitWeight > 0 && context.implicitPrefs !== null) {
     const forecastData = {
@@ -264,7 +239,7 @@ export function calculatePersonalizationBonus(
     }
   }
 
-  // ── 6. Beach affinity ──────────────────────────────────────────────────────
+  // ── 5. Beach affinity ──────────────────────────────────────────────────────
   // Up to 15 bonus points for beaches the user frequents.
   // Threshold at 10 matches the same guard in personalized-scoring-service.ts.
   const affinityScore = context.affinityMap.get(beach.id) ?? 0;
