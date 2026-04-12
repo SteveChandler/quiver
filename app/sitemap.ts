@@ -200,10 +200,15 @@ async function getLocationRoutes(validCitySlugs: Set<string>): Promise<MetadataR
   const locationPageDate = "2026-02-01";
 
   const usaStates = new Set<string>();
+  const emittedUrls = new Set<string>();
   const locationRoutes: MetadataRoute.Sitemap = [];
   let filteredCount = 0;
 
-  for (const location of response.data) {
+  // Process metros first so their URLs take priority over individual cities
+  const metros = response.data.filter((l: any) => l.isMetro);
+  const nonMetros = response.data.filter((l: any) => !l.isMetro);
+
+  for (const location of [...metros, ...nonMetros]) {
     const isUsa =
       !location.country ||
       String(location.country).toLowerCase() === "usa" ||
@@ -253,9 +258,12 @@ async function getLocationRoutes(validCitySlugs: Set<string>): Promise<MetadataR
           filteredCount++;
           continue;
         }
+        const locationUrl = `${baseUrl}/${stateSlug}/${citySlug}`;
+        if (emittedUrls.has(locationUrl)) continue;
+        emittedUrls.add(locationUrl);
         usaStates.add(stateSlug);
         locationRoutes.push({
-          url: `${baseUrl}/${stateSlug}/${citySlug}`,
+          url: locationUrl,
           lastModified: locationPageDate,
           changeFrequency: "hourly",
           priority: 0.85,
@@ -266,8 +274,11 @@ async function getLocationRoutes(validCitySlugs: Set<string>): Promise<MetadataR
       const regionSlug = slugifyAscii(location.state);
       const citySlug = slugifyAscii(location.city);
       if (countrySlug && regionSlug && citySlug) {
+        const intlUrl = `${baseUrl}/${countrySlug}/${regionSlug}/${citySlug}`;
+        if (emittedUrls.has(intlUrl)) continue;
+        emittedUrls.add(intlUrl);
         locationRoutes.push({
-          url: `${baseUrl}/${countrySlug}/${regionSlug}/${citySlug}`,
+          url: intlUrl,
           lastModified: locationPageDate,
           changeFrequency: "weekly",
           priority: 0.75,
