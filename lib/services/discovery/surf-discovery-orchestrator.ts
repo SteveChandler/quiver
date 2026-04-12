@@ -26,6 +26,7 @@ import type {
   SurfDiscoveryResponse,
   SurfDiscoveryOptions,
   DetailedScore,
+  EveningTransition,
 } from '@/types/personalization';
 import type { ConditionBadge } from '@/types/personalization';
 import {
@@ -50,6 +51,10 @@ import {
 } from './response-formatter';
 import { fetchPersonalizationContext, calculatePersonalizationBonus } from './personalization-layer';
 import { scoreConditions, toForecastForScoring } from '@/lib/scoring';
+import { assignStrategyTags } from '@/lib/services/discovery/strategy-tags';
+import { generateRegionalCall } from '@/lib/services/discovery/regional-call';
+import type { WindSnapshot } from '@/lib/services/discovery/regional-call';
+import { isAfterSunset, buildRestOfToday } from '@/lib/services/discovery/evening-transition';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
 
@@ -838,6 +843,92 @@ async function discoverSurfSpotsInner(
     }
   }
 
+  // 7. Compute sleep-in scores and assign strategy tags
+  const sleepInScores = new Map<string, number>();
+  if (enrichedRanked.length > 1) {
+    for (const rec of enrichedRanked.slice(1)) {
+      const beachForecasts_ = forecastsByBeachId.get(rec.beach.id);
+      if (!beachForecasts_) continue;
+
+      const lateWindow = selectBestWindow(
+        beachForecasts_,
+        rec.beach,
+        userPrefs,
+        horizonHours,
+        sunTimesCache,
+        'late-morning',
+      );
+      if (!lateWindow) continue;
+
+      const lateForecast = lateWindow.sourceForecast
+        ?? beachForecasts_.reduce((closest, f) => {
+             const fTime = new Date(f.forecast_at).getTime();
+             const closestTime = new Date(closest.forecast_at).getTime();
+             const target = lateWindow.start.getTime();
+             return Math.abs(fTime - target) < Math.abs(closestTime - target) ? f : closest;
+           }, beachForecasts_[0]);
+
+      const distMiles = rec.distanceMiles;
+      const lateScore = await scoreBeachForDiscovery({
+        beach: rec.beach,
+        forecast: lateForecast,
+        userPrefs,
+        userSkillLevel,
+        distanceMiles: distMiles,
+      });
+      sleepInScores.set(rec.beach.id, lateScore.total);
+    }
+    assignStrategyTags(enrichedRanked, sleepInScores);
+  }
+
+  // 8. Generate regional call from hero's slot forecasts
+  let regionalCall = '';
+  if (enrichedRanked.length > 0) {
+    const heroSlots = enrichedRanked[0].slotForecasts;
+    let dawnWind: WindSnapshot | undefined;
+    let middayWind: WindSnapshot | undefined;
+
+    if (heroSlots) {
+      const dawn = heroSlots[5];
+      if (dawn?.windSpeed && dawn?.windDirection) {
+        dawnWind = { speed: dawn.windSpeed, direction: dawn.windDirection };
+      }
+      const midday = heroSlots[11];
+      if (midday?.windSpeed && midday?.windDirection) {
+        middayWind = { speed: midday.windSpeed, direction: midday.windDirection };
+      }
+    }
+
+    regionalCall = generateRegionalCall(enrichedRanked, { dawnWind, middayWind });
+  }
+
+  // 9. Build evening transition
+  let eveningTransition: EveningTransition | undefined;
+  if (enrichedRanked.length > 0) {
+    const heroBeachId = enrichedRanked[0].beach.id;
+    if (isAfterSunset(heroBeachId, now, sunTimesCache)) {
+      const heroBeach = enrichedRanked[0].beach;
+      const heroTz = getTimezoneFromCoords(heroBeach.lat || 0, heroBeach.lon || 0);
+      const heroForecasts = forecastsByBeachId.get(heroBeachId) ?? [];
+
+      // Find remaining best window for today (no time slot filter — any remaining daylight)
+      const remainingWindow = selectBestWindow(
+        heroForecasts,
+        heroBeach,
+        userPrefs,
+        horizonHours,
+        sunTimesCache,
+      );
+      const restOfToday = buildRestOfToday(remainingWindow, heroTz);
+
+      eveningTransition = {
+        active: true,
+        restOfToday,
+        tomorrowRegionalCall: regionalCall,
+      };
+    }
+  }
+
   const duration = Date.now() - startTime;
   log.debug(
     `Discovery complete in ${duration}ms: ${enrichedRanked.length} recommendations from ${finalCandidates.length} candidates`
@@ -859,7 +950,8 @@ async function discoverSurfSpotsInner(
       usingStaleData,
       generated_at: new Date().toISOString(),
     },
-    regionalCall: '',
+    regionalCall,
+    eveningTransition,
   };
 }
 
