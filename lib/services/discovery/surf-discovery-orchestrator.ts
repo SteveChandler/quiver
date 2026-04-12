@@ -294,6 +294,7 @@ function emptyResponse(maxResults: number): SurfDiscoveryResponse {
       staleBeaches: 0,
       generated_at: new Date().toISOString(),
     },
+    regionalCall: '',
   };
 }
 
@@ -858,6 +859,7 @@ async function discoverSurfSpotsInner(
       usingStaleData,
       generated_at: new Date().toISOString(),
     },
+    regionalCall: '',
   };
 }
 

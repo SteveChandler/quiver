@@ -89,6 +89,7 @@ describe("useSurfDiscovery", () => {
       partialSuccess: false,
       generated_at: "2025-12-16T14:00:00Z",
     },
+    regionalCall: '',
   };
 
   beforeEach(() => {

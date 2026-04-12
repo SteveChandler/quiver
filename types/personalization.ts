@@ -24,7 +24,7 @@ import type { PersonalizedScore } from "@/lib/services/personalized-scoring-serv
  * - 'lunch-session': Lunch session (11am-2pm)
  * - 'afternoon': Afternoon session (2pm-6pm)
  */
-export type TimeSlot = 'any' | 'lunch-session' | 'afternoon' | 'dawn-patrol';
+export type TimeSlot = 'any' | 'lunch-session' | 'afternoon' | 'dawn-patrol' | 'late-morning';
 
 /**
  * Hour ranges for each time slot
@@ -35,6 +35,7 @@ export type TimeSlot = 'any' | 'lunch-session' | 'afternoon' | 'dawn-patrol';
 export const TIME_SLOT_RANGES: Record<TimeSlot, { startHour: number; endHour: number }> = {
   'any': { startHour: 6, endHour: 21 },
   'dawn-patrol': { startHour: 6, endHour: 11 },
+  'late-morning': { startHour: 9, endHour: 12 },
   'lunch-session': { startHour: 11, endHour: 14 },
   'afternoon': { startHour: 14, endHour: 18 },
 };
@@ -146,6 +147,24 @@ export interface BeachForecastCandidate {
   baseScore: number;
 }
 
+export type StrategyTagType = 'biggest_waves' | 'cleanest' | 'sleep_in' | 'low_crowd' | 'skip';
+
+export interface StrategyTag {
+  type: StrategyTagType;
+  label: string;
+  reason: string;
+}
+
+export interface EveningTransition {
+  active: boolean;
+  restOfToday: {
+    summary: string;
+    conditions: string;
+    waveHeight: string;
+  };
+  tomorrowRegionalCall: string;
+}
+
 /**
  * Detailed scoring breakdown for discovery recommendations
  *
@@ -226,6 +245,8 @@ export interface SurfDiscoveryRecommendation {
   warnings: string[];
   /** Top condition badges explaining why conditions are good */
   conditionBadges?: ConditionBadge[];
+  /** Strategy tag for this recommendation */
+  strategyTag?: StrategyTag;
   /** Wave height display badge (e.g., "2-3ft") */
   waveHeightBadge?: string;
   /**
@@ -282,6 +303,8 @@ export interface SurfDiscoveryResponse {
     /** ISO timestamp when generated */
     generated_at: string;
   };
+  regionalCall: string;
+  eveningTransition?: EveningTransition;
 }
 
 /**
