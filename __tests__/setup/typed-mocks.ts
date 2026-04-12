@@ -247,16 +247,10 @@ export function createMockProfile(overrides: Partial<Profile> = {}): Profile {
     location: null,
     activity_level: null,
     allow_implicit_tracking: false,
-    crowd_preference: null,
     personality_type: null,
     posting_window: null,
-    preferred_break_type: null,
     preferred_session_time: null,
-    preferred_wave_size: null,
     surf_styles: null,
-    // NOTE: crowd_preference, preferred_break_type, preferred_wave_size are kept here
-    // because `Profile` type (from types/database.generated.ts) still declares them.
-    // See chore/remove-user-preferences — these DB columns will be dropped in a follow-up.
     followers_count: 0,
     following_count: 0,
     instagram: null,
