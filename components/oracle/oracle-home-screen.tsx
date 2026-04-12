@@ -541,6 +541,7 @@ export function OracleHomeScreen() {
         levelTitle={oracleProfile?.level_title ?? null}
         xpTotal={oracleProfile?.xp_total ?? null}
         timezone={heroTz}
+        regionalCall={oracle.discovery?.regionalCall}
       />
 
       {/* Inline session time selector — only shows when preference is not yet set */}
@@ -577,6 +578,7 @@ export function OracleHomeScreen() {
               preferredTime={preferredTime}
               forecastUrl={forecastUrl}
               isTomorrow={isTomorrow}
+              eveningTransition={oracle.discovery?.eveningTransition}
             />
           </div>
         </div>
