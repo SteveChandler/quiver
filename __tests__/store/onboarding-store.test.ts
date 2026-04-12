@@ -378,18 +378,5 @@ describe('useOnboardingStore', () => {
       expect(result.current.data.experienceLevel).toBe('expert');
     });
 
-    it('accepts boolean values for notification preferences', () => {
-      const { result } = renderHook(() => useOnboardingStore());
-
-      act(() => {
-        result.current.updateData({
-          preferredWaveSize: 'small',
-          preferredBreakType: 'reef',
-        });
-      });
-
-      expect(result.current.data.preferredWaveSize).toBe('small');
-      expect(result.current.data.preferredBreakType).toBe('reef');
-    });
   });
 });

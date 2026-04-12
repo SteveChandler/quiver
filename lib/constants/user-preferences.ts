@@ -19,32 +19,9 @@ export const SURF_STYLES = [
   { value: 'foil', label: 'Foil', emoji: '✨' },
 ] as const;
 
-export const WAVE_SIZES = [
-  { value: 'small', label: 'Small', emoji: '🌊', description: '1-3 feet' },
-  { value: 'medium', label: 'Medium', emoji: '🌊🌊', description: '3-6 feet' },
-  { value: 'large', label: 'Large', emoji: '🌊🌊🌊', description: '6+ feet' },
-  { value: 'any', label: 'Any Size', emoji: '🤙', description: "I'll surf anything" },
-] as const;
-
-export const BREAK_TYPES = [
-  { value: 'beach', label: 'Beach Break', emoji: '🏖️', description: 'Sandy bottom' },
-  { value: 'point', label: 'Point Break', emoji: '🪨', description: 'Rocky point' },
-  { value: 'reef', label: 'Reef Break', emoji: '🪸', description: 'Coral or rock reef' },
-  { value: 'any', label: 'Any Type', emoji: '✨', description: "I'll surf anywhere" },
-] as const;
-
-export const CROWD_PREFERENCES = [
-  { value: 'social', label: 'Love the crew', emoji: '👥', description: 'Enjoy surfing with others' },
-  { value: 'moderate', label: 'A few people is fine', emoji: '🧘', description: 'Small crowds are okay' },
-  { value: 'solitude', label: 'Prefer solitude', emoji: '🏝️', description: 'Like uncrowded spots' },
-] as const;
-
 // Type exports for TypeScript
 export type ExperienceLevel = typeof EXPERIENCE_LEVELS[number]['value'];
 export type SurfStyle = typeof SURF_STYLES[number]['value'];
-export type WaveSize = typeof WAVE_SIZES[number]['value'];
-export type BreakType = typeof BREAK_TYPES[number]['value'];
-export type CrowdPreference = typeof CROWD_PREFERENCES[number]['value'];
 
 export const TIME_PREFERENCES = [
   { value: 'dawn', label: 'Dawn Patrol', emoji: '🌅', description: 'Early morning sessions' },

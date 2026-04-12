@@ -2,10 +2,9 @@
  * Personalized Scoring Service
  *
  * Scores beaches for specific users by combining:
- * 1. Base algorithmic score (from coach picks)
- * 2. Learned preferences (implicit from session history)
- * 3. Implicit preferences (inferred from engagement patterns)
- * 4. Beach affinity (familiarity from past sessions)
+ * 1. Learned preferences (implicit from session history)
+ * 2. Implicit preferences (inferred from engagement patterns)
+ * 3. Beach affinity (familiarity from past sessions)
  *
  * Scoring uses a multiplicative approach to prevent score inflation:
  * - Individual bonus components are calculated the same way (additive pts)
@@ -102,7 +101,7 @@ export async function scoreBeachForUser(
   };
 
   try {
-    // 2. Get learned preferences
+    // 1. Get learned preferences
     const learnedPrefs = await getUserSurfPreferences(userId);
 
     if (learnedPrefs && learnedPrefs.confidence > 0.5) {
@@ -128,7 +127,7 @@ export async function scoreBeachForUser(
       }
     }
 
-    // 3. Get implicit preferences and calculate blend weight
+    // 2. Get implicit preferences and calculate blend weight
     const implicitPrefs = await getImplicitPreferences(userId);
 
     if (implicitPrefs && implicitPrefs.confidence > 0.1) {
@@ -166,7 +165,7 @@ export async function scoreBeachForUser(
       }
     }
 
-    // 4. Beach affinity bonus
+    // 3. Beach affinity bonus
     const { data: affinity } = await supabase
       .from('user_beach_affinity')
       .select('affinity_score, session_count')
