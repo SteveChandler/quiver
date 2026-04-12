@@ -15,6 +15,11 @@ export interface NearbySpot {
   score?: number;
   /** True when beach skill level exceeds user level AND conditions are significant */
   skillMismatch?: boolean;
+  strategyTag?: {
+    type: string;
+    label: string;
+    reason: string;
+  };
 }
 
 export interface NearbySpotsProps {
@@ -22,6 +27,14 @@ export interface NearbySpotsProps {
   onViewSpot: (spotId: string) => void;
   loading?: boolean;
 }
+
+const STRATEGY_TAG_COLORS: Record<string, string> = {
+  biggest_waves: '#F78E42',
+  cleanest: '#22C55E',
+  sleep_in: '#8B5CF6',
+  low_crowd: '#06B6D4',
+  skip: '#EF4444',
+};
 
 function SpotCard({
   spot,
@@ -34,7 +47,7 @@ function SpotCard({
     <div
       role="button"
       tabIndex={0}
-      className="bg-[#2D357D] border border-[#404C92] noise-texture rounded-xl w-[280px] min-w-[280px] flex-shrink-0 snap-start cursor-pointer"
+      className={`bg-[#2D357D] border border-[#404C92] noise-texture rounded-xl w-[280px] min-w-[280px] flex-shrink-0 snap-start cursor-pointer${spot.strategyTag?.type === 'skip' ? ' opacity-60' : ''}`}
       onClick={() => onViewSpot(spot.id)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -43,7 +56,7 @@ function SpotCard({
         }
       }}
     >
-      <div className="h-[90px] rounded-t-xl overflow-hidden">
+      <div className="relative h-[90px] rounded-t-xl overflow-hidden">
         {spot.photoUrl ? (
           <Image
             src={spot.photoUrl}
@@ -54,6 +67,14 @@ function SpotCard({
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-[#1a3a4a] to-[#2a5a6a]" />
+        )}
+        {spot.strategyTag && (
+          <span
+            className="absolute top-1.5 left-1.5 text-[10px] font-bold text-white px-2 py-0.5 rounded-full uppercase tracking-wide"
+            style={{ backgroundColor: STRATEGY_TAG_COLORS[spot.strategyTag.type] ?? '#6B7280' }}
+          >
+            {spot.strategyTag.label}
+          </span>
         )}
       </div>
       <div className="p-3">
@@ -70,7 +91,7 @@ function SpotCard({
             </span>
           )}
         </div>
-        <p className="text-medium text-xs line-clamp-1">{spot.conditions}</p>
+        <p className="text-medium text-xs line-clamp-1">{spot.strategyTag?.reason ?? spot.conditions}</p>
         <p className="text-[#4A70D9] text-base font-bold">{spot.height}</p>
       </div>
     </div>

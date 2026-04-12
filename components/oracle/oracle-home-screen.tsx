@@ -250,6 +250,7 @@ function transformToNearbySpots(
       photoUrl: rec.beach.photo_url ?? null,
       score: rec.score,
       skillMismatch,
+      strategyTag: rec.strategyTag,
     };
   });
 }
