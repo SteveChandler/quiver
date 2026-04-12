@@ -8,6 +8,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
+import type { EveningTransition } from "@/types/personalization";
 
 export interface TimeWindow {
   time: string;
@@ -41,6 +42,7 @@ export interface TodaysWindowsProps {
   preferredTime: string | null;
   forecastUrl?: string;
   isTomorrow?: boolean;
+  eveningTransition?: EveningTransition;
 }
 
 const PREFERRED_TIME_TO_HOUR: Record<string, string> = {
@@ -83,7 +85,7 @@ function buildConditionSegments(w: TimeWindow): string[] {
   return segments;
 }
 
-export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow }: TodaysWindowsProps) {
+export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow, eveningTransition }: TodaysWindowsProps) {
   const preferredHour = preferredTime ? PREFERRED_TIME_TO_HOUR[preferredTime] ?? null : null;
 
   return (
@@ -111,6 +113,21 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow 
           </Link>
         )}
       </div>
+
+      {eveningTransition?.active && eveningTransition.restOfToday.summary !== 'Done for today' && (
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-medium mb-2">Rest of Today</h3>
+          <div className="noise-texture rounded-lg border border-[#404C92] bg-[#2D357D] px-4 py-3 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-white">{eveningTransition.restOfToday.summary}</p>
+              <p className="text-xs text-medium mt-0.5">{eveningTransition.restOfToday.conditions}</p>
+            </div>
+            <span className="text-sm font-bold text-[#4A70D9] shrink-0 ml-3">
+              {eveningTransition.restOfToday.waveHeight}
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="noise-texture rounded-xl border border-[#404C92] bg-[#2D357D] p-5">
         <div className="flex flex-col gap-2">
