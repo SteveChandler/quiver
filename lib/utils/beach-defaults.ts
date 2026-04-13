@@ -108,6 +108,10 @@ function getBeachDefaults(): Omit<
     // See migration 20260407134519. Null for uncalibrated beaches.
     shoaling_factors: null,
 
+    // Beach persona and deepwater decay
+    persona: null,
+    deepwater_decay_factor: null,
+
     // Terrain analysis
     terrain_analysis_debug: null,
     terrain_analyzed_at: null,
