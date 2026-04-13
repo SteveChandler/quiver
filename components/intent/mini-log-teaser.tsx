@@ -7,7 +7,6 @@ import { useAuth } from "@/context/auth-context";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { buildQuickLogUrl } from "@/components/home-screen/first-session-cta";
 import { track } from "@/lib/analytics";
-import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
 
 const BOARD_OPTIONS = [
@@ -80,10 +79,6 @@ export function MiniLogTeaser({
         source: "mini-log-teaser",
         surface: "intent-page",
         intent: intentSlug,
-      });
-      trackAuthModalOpened({
-        mode: "signup",
-        source: "mini-log-teaser",
       });
       setAuthModalOpen(true);
       return;

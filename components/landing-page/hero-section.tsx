@@ -6,7 +6,6 @@ import Link from "next/link";
 import { CONTENT } from "@/lib/constants/features";
 import { Button } from "@/components/ui/button";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
-import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import {
   trackSignupCtaClick,
   trackSignupCtaView,
@@ -92,7 +91,6 @@ export function HeroSection() {
               });
               setAuthMode("signup");
               setAuthModalOpen(true);
-              trackAuthModalOpened({ mode: "signup", source: "hero-cta" });
             }}
             className="bg-ocean-blue text-white rounded-full px-8 py-4 font-semibold text-lg shadow-lg hover:bg-ocean-blue/90 hover:shadow-xl hover:shadow-ocean-blue/20 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
             size="lg"

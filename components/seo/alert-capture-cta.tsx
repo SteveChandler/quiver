@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useAuth } from "@/context/auth-context";
 import { usePendingAction } from "@/hooks/use-pending-action";
-import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import {
   trackSignupCtaClick,
   trackSignupCtaView,
@@ -80,10 +79,6 @@ export function AlertCaptureCta({
       cta_text: config.buttonText,
       page_context: pageContext,
       preset_types: config.presets,
-    });
-    trackAuthModalOpened({
-      mode: "signup",
-      source: `alert-cta-${source}`,
     });
 
     // Store pending action so post-signup can auto-create the alert

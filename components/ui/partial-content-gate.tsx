@@ -10,7 +10,6 @@ import {
   trackPartialGateViewed,
   trackPartialGateSignupClick,
 } from "@/lib/analytics/engagement-tracking";
-import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import {
   trackSigninCtaClick,
   trackSignupCtaClick,
@@ -80,10 +79,6 @@ export function PartialContentGate({
     });
     setAuthMode("signup");
     setAuthModalOpen(true);
-    trackAuthModalOpened({
-      mode: "signup",
-      source: `partial-gate-${contentType}`,
-    });
   };
 
   const handleLoginClick = () => {
@@ -94,10 +89,6 @@ export function PartialContentGate({
     });
     setAuthMode("login");
     setAuthModalOpen(true);
-    trackAuthModalOpened({
-      mode: "login",
-      source: `partial-gate-${contentType}`,
-    });
   };
 
   return (

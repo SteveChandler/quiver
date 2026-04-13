@@ -10,7 +10,6 @@ import { BoardRecommendationBadge } from "@/components/recommendations/board-rec
 import { useBoardRecommendation } from "@/hooks/use-board-recommendation";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { track } from "@/lib/analytics";
-import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import { trackSignupCtaClick, trackSignupCtaView } from "@/lib/analytics/signup-conversion-tracking";
 import type { Beach } from "@/types/database";
 import type { PersonalizedScore } from "@/lib/services/personalized-scoring-service";
@@ -101,10 +100,6 @@ export function BeachHeroCompact({
       surface: "beach-detail",
       cta_title: "forecast-teaser",
       beach_id: beach.id,
-    });
-    trackAuthModalOpened({
-      mode: "signup",
-      source: "beach-hero-match-teaser",
     });
     setAuthModalOpen(true);
   }, [beach.id, beach.name]);

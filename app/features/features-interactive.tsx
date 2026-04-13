@@ -8,7 +8,6 @@ import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useAuth } from "@/context/auth-context";
 import { track } from "@/lib/analytics";
-import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import {
   trackSignupCtaClick,
   trackSignupCtaView,
@@ -89,10 +88,6 @@ export function FeaturesSignupButton({
       source: `features-${ctaLocation}`,
       surface: "features-page",
       cta_type: ctaLocation,
-    });
-    trackAuthModalOpened({
-      mode: "signup",
-      source: `features-${ctaLocation}`,
     });
     setAuthSource(`features-${ctaLocation}`);
     setAuthModalOpen(true);

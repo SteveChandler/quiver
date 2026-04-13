@@ -125,7 +125,7 @@ describe("HeroSection", () => {
     expect(modal).toHaveAttribute("data-mode", "signup");
   });
 
-  it("tracks auth modal opened event when CTA is clicked", async () => {
+  it("does not call trackAuthModalOpened from click handler (canonical fire is in modal useEffect)", async () => {
     const { trackAuthModalOpened } = require("@/lib/analytics/auth-events");
     const user = userEvent.setup();
     render(<HeroSection />);
@@ -135,10 +135,7 @@ describe("HeroSection", () => {
     });
     await user.click(cta);
 
-    expect(trackAuthModalOpened).toHaveBeenCalledWith({
-      mode: "signup",
-      source: "hero-cta",
-    });
+    expect(trackAuthModalOpened).not.toHaveBeenCalled();
   });
 
   it("does not render HeroCarousel or HeroMatchDemo", () => {
