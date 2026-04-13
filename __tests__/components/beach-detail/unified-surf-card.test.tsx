@@ -100,6 +100,8 @@ describe("UnifiedSurfCard", () => {
     whySentence: "Clean conditions with light offshore winds.",
     updatedAt: "2026-02-10T06:00:00",
     isCalibrated: true,
+    rideableWavesPerHour: null,
+    dominantBeatIntervalS: null,
     ...overrides,
   });
 
@@ -643,6 +645,44 @@ describe("UnifiedSurfCard", () => {
 
       const display = screen.getByTestId("wave-height-display");
       expect(display).toHaveAttribute("data-is-calibrated", "false");
+    });
+  });
+
+  describe("Wave frequency display", () => {
+    it("renders waves/hr when rideableWavesPerHour > 0", () => {
+      const surfCall = createMockSurfCall({ rideableWavesPerHour: 25 });
+      render(
+        <UnifiedSurfCard
+          surfCall={surfCall}
+          beachName="Blacks Beach"
+          beachTimezone="America/Los_Angeles"
+        />
+      );
+      expect(screen.getByText("~25 waves/hr")).toBeInTheDocument();
+    });
+
+    it("does not render waves/hr when rideableWavesPerHour is null", () => {
+      const surfCall = createMockSurfCall({ rideableWavesPerHour: null });
+      render(
+        <UnifiedSurfCard
+          surfCall={surfCall}
+          beachName="Blacks Beach"
+          beachTimezone="America/Los_Angeles"
+        />
+      );
+      expect(screen.queryByText(/waves\/hr/)).not.toBeInTheDocument();
+    });
+
+    it("does not render waves/hr when rideableWavesPerHour is 0", () => {
+      const surfCall = createMockSurfCall({ rideableWavesPerHour: 0 });
+      render(
+        <UnifiedSurfCard
+          surfCall={surfCall}
+          beachName="Blacks Beach"
+          beachTimezone="America/Los_Angeles"
+        />
+      );
+      expect(screen.queryByText(/waves\/hr/)).not.toBeInTheDocument();
     });
   });
 });

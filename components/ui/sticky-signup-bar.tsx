@@ -8,7 +8,6 @@ import { useAuth } from "@/context/auth-context";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { usePersistedDismissal } from "@/hooks/use-persisted-dismissal";
 import { useSearchReferrer } from "@/hooks/use-search-referrer";
-import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import { trackSignupCtaClick, trackSignupCtaView } from "@/lib/analytics/signup-conversion-tracking";
 import { cn } from "@/lib/utils";
 
@@ -111,10 +110,6 @@ export function StickySignupBar({
       cta_type: "sticky_bar",
       cta_text: resolvedCtaText,
       is_search_referral: isSearchReferral,
-    });
-    trackAuthModalOpened({
-      mode: "signup",
-      source: `sticky-bar-${source}`,
     });
     setAuthModalOpen(true);
   }, [source, resolvedCtaText, isSearchReferral]);

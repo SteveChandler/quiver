@@ -26,11 +26,6 @@ export const WAVE_SIZE_RANGES: Record<
 };
 
 /**
- * Crowd preference from onboarding.
- */
-export type CrowdPreference = 'empty' | 'some' | 'any';
-
-/**
  * Preferences set during user onboarding.
  * These are explicit user choices.
  */
@@ -39,8 +34,6 @@ export interface OnboardingPreferences {
   readonly waveSize: WaveSizePreference | null;
   /** Preferred break type (beach, point, reef, etc.) */
   readonly breakType: string | null;
-  /** Crowd tolerance */
-  readonly crowdPreference: CrowdPreference | null;
 }
 
 /**
@@ -155,7 +148,6 @@ export const USER_PREFERENCES_DEFAULTS = {
   onboarding: {
     waveSize: null,
     breakType: null,
-    crowdPreference: null,
   } as OnboardingPreferences,
 
   learned: null,

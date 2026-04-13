@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useAuth } from "@/context/auth-context";
-import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import { trackSignupCtaClick, trackSignupCtaView } from "@/lib/analytics/signup-conversion-tracking";
 import { cn } from "@/lib/utils";
 
@@ -54,10 +53,6 @@ export function InlineSignupCta({
       source,
       cta_type: "inline",
       cta_text: primaryButtonText,
-    });
-    trackAuthModalOpened({
-      mode: "signup",
-      source: `inline-cta-${source}`,
     });
     setAuthModalOpen(true);
   }, [source, primaryButtonText]);

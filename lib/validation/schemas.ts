@@ -204,9 +204,6 @@ export const ProfileUpdateSchema = z.object({
   bio: z.string()
     .max(500, 'Bio cannot exceed 500 characters')
     .optional(),
-  preferred_wave_size: z.enum(['small', 'medium', 'large', 'any']).optional(),
-  preferred_break_type: z.enum(['beach', 'point', 'reef', 'any']).optional(),
-  crowd_preference: z.enum(['quiet', 'moderate', 'social', 'any']).optional(),
 });
 
 export type ProfileUpdateInput = z.infer<typeof ProfileUpdateSchema>;

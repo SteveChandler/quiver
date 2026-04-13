@@ -1,5 +1,12 @@
 # Implementation Plan: Personalization Engine & Forecast Transparency
 
+> **DEPRECATED 2026-04-10:** `preferred_wave_size`, `preferred_break_type`, and
+> `crowd_preference` have been removed. Scoring now relies on learned, implicit,
+> and affinity preferences only. The onboarding-pref examples below (wave size /
+> break type / crowd selectors, zod schemas, and server writes referencing these
+> columns) are historical and no longer represent current behavior. DB columns
+> will be dropped in a follow-up migration.
+
 **Version:** 2.0 (Simplified for small user base)
 **Timeline:** 4 weeks
 **Rollout:** Direct deployment (no feature flags needed)

@@ -34,6 +34,10 @@ export interface OracleHeroProps {
   windCondition?: string | null;
   /** Days since user's last visit. Drives the "Missed you out there" greeting. */
   daysAbsent?: number;
+  /** Regional surf call from the discovery orchestrator. When present, overrides the default greeting. */
+  regionalCall?: string;
+  /** When true, the best window is for tomorrow */
+  isTomorrow?: boolean;
 }
 
 // Animated wave height: count up from "0" to the actual numeric prefix.
@@ -123,6 +127,8 @@ export function OracleHero({
   timezone,
   windCondition,
   daysAbsent = 0,
+  regionalCall,
+  isTomorrow,
 }: OracleHeroProps) {
   const animatedWaveHeight = useWaveHeightAnimation(waveHeight, shouldAnimate);
 
@@ -135,7 +141,7 @@ export function OracleHero({
 
   const hasGreeting = userName || levelTitle || xpTotal != null;
 
-  const greeting = (() => {
+  const greeting = regionalCall ?? (() => {
     const hour = getHourInTimezone(new Date(), timezone || "America/Los_Angeles");
     return getOracleGreeting({
       score,
@@ -246,6 +252,7 @@ export function OracleHero({
         bestWindowTime={bestWindowTime}
         shouldAnimate={shouldAnimate}
         animatedWaveHeight={animatedWaveHeight}
+        isTomorrow={isTomorrow}
       />
     </section>
   );

@@ -95,6 +95,7 @@ export function PageTracker() {
     track("page_view", {
       metadata: {
         page,
+        pathname,
         referrer: prevPathname.current || "",
         browser_session_id: sessionId,
       },

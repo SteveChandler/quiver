@@ -19,12 +19,16 @@ import {
 /**
  * Score breakdown shape used by PersonalizedBadge and recommendation scorer.
  * Mirrors the `breakdown` prop from `PersonalizedBadgeProps`.
+ *
+ * `onboardingPrefs` is tolerated on the input shape for backwards compatibility
+ * with callers that pass full breakdowns, but it no longer contributes to any
+ * messaging decision — the onboarding wave/break preference fields were removed.
  */
 export interface PersonalizationBreakdown {
   base: number;
-  onboardingPrefs: number;
   learnedPrefs: number;
   affinity: number;
+  onboardingPrefs?: number;
 }
 
 /**
@@ -70,35 +74,33 @@ export interface MilestoneMetadata {
 /**
  * Returns a one-liner explanation based on the dominant personalization factor.
  *
- * Priority order: learned > onboarding > affinity > fallback.
+ * Priority order: learned > affinity > fallback. When no bonus source has
+ * contributed (e.g. degraded state for new users with no session history)
+ * the helper returns an honest, factual fallback that makes no preference claim.
  *
  * @param breakdown - Score component breakdown
  * @returns Human-readable explanation string
  *
  * @example
  * ```ts
- * getPersonalizationExplanation({ base: 60, onboardingPrefs: 5, learnedPrefs: 12, affinity: 3 })
+ * getPersonalizationExplanation({ base: 60, learnedPrefs: 12, affinity: 3 })
  * // "Tuned to your session history"
  * ```
  */
 export function getPersonalizationExplanation(
   breakdown: PersonalizationBreakdown
 ): string {
-  const { onboardingPrefs, learnedPrefs, affinity } = breakdown;
+  const { learnedPrefs, affinity } = breakdown;
 
   // Determine dominant non-base factor
-  const max = Math.max(learnedPrefs, onboardingPrefs, affinity);
+  const max = Math.max(learnedPrefs, affinity);
 
   if (max <= 0) {
-    return "Personalized for you";
+    return "Based on current conditions nearby";
   }
 
-  if (learnedPrefs >= onboardingPrefs && learnedPrefs >= affinity) {
+  if (learnedPrefs >= affinity) {
     return "Tuned to your session history";
-  }
-
-  if (onboardingPrefs >= affinity) {
-    return "Matched to your wave and break preferences";
   }
 
   return "One of your go-to spots";
@@ -107,41 +109,28 @@ export function getPersonalizationExplanation(
 /**
  * Returns a more specific source label for the dominant personalization factor.
  *
- * Produces contextual labels like "Matches your 2-4ft preference" or
- * "Based on 8 past sessions here". Falls back to a generic label when
- * the breakdown has no dominant non-base factor.
+ * Produces contextual labels like "Similar to sessions you rated highly" or
+ * "One of your go-to spots at Blacks". Falls back to a truthful non-preference
+ * line when the breakdown has no dominant non-base factor.
  *
  * @param breakdown - Score component breakdown
  * @param beachName - Optional beach name for affinity labels
  * @returns Human-readable source label
- *
- * @example
- * ```ts
- * getPersonalizationSourceLabel(
- *   { base: 60, onboardingPrefs: 10, learnedPrefs: 2, affinity: 0 },
- *   "Blacks"
- * )
- * // "Matched to your wave and break preferences"
- * ```
  */
 function getPersonalizationSourceLabel(
   breakdown: PersonalizationBreakdown,
   beachName?: string
 ): string {
-  const { onboardingPrefs, learnedPrefs, affinity } = breakdown;
+  const { learnedPrefs, affinity } = breakdown;
 
-  const max = Math.max(learnedPrefs, onboardingPrefs, affinity);
+  const max = Math.max(learnedPrefs, affinity);
 
   if (max <= 0) {
-    return "Personalized for you";
+    return "Based on current conditions nearby";
   }
 
-  if (learnedPrefs >= onboardingPrefs && learnedPrefs >= affinity) {
+  if (learnedPrefs >= affinity) {
     return "Similar to sessions you rated highly";
-  }
-
-  if (onboardingPrefs >= affinity) {
-    return "Matched to your wave and break preferences";
   }
 
   if (beachName) {

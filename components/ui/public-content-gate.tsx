@@ -7,7 +7,6 @@ import { usePathname } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
-import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import {
   trackSignupCtaView,
   trackSignupCtaClick,
@@ -79,10 +78,6 @@ export function PublicContentGate({
     });
     setAuthMode("signup");
     setAuthModalOpen(true);
-    trackAuthModalOpened({
-      mode: "signup",
-      source,
-    });
   };
 
   const handleSignInClick = () => {
@@ -92,10 +87,6 @@ export function PublicContentGate({
     });
     setAuthMode("login");
     setAuthModalOpen(true);
-    trackAuthModalOpened({
-      mode: "login",
-      source,
-    });
   };
 
   // Entrance choreography easing — exponential ease-out

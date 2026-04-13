@@ -31,9 +31,6 @@ import { BeachSelector } from "@/components/BeachSelector";
 import {
   ExperienceLevelField,
   SurfStylesField,
-  PreferredWaveSizeField,
-  PreferredBreakTypeField,
-  CrowdPreferenceField,
 } from "@/components/profile/shared/preference-fields";
 import { createClient } from "@/lib/supabase/client";
 import type { Beach, Profile } from "@/types/database";
@@ -46,18 +43,6 @@ const preferencesFormSchema = z.object({
     .nullable()
     .optional(),
   surf_styles: z.array(z.string()).nullable().optional(),
-  preferred_wave_size: z
-    .enum(["small", "medium", "large", "any"])
-    .nullable()
-    .optional(),
-  preferred_break_type: z
-    .enum(["beach", "point", "reef", "any"])
-    .nullable()
-    .optional(),
-  crowd_preference: z
-    .enum(["social", "moderate", "solitude"])
-    .nullable()
-    .optional(),
   preferred_session_time: z
     .enum(["dawn_patrol", "morning", "lunch", "afternoon", "evening", "any"])
     .nullable()
@@ -104,26 +89,6 @@ export function ProfilePreferences({
           | "expert"
           | null) ?? null,
       surf_styles: profile?.surf_styles ?? [],
-      preferred_wave_size:
-        (profile?.preferred_wave_size as
-          | "small"
-          | "medium"
-          | "large"
-          | "any"
-          | null) ?? null,
-      preferred_break_type:
-        (profile?.preferred_break_type as
-          | "beach"
-          | "point"
-          | "reef"
-          | "any"
-          | null) ?? null,
-      crowd_preference:
-        (profile?.crowd_preference as
-          | "social"
-          | "moderate"
-          | "solitude"
-          | null) ?? null,
       preferred_session_time: (profile as any)?.preferred_session_time ?? null,
       // Notification preferences
       notif_reminders: profile?.notif_reminders || false,
@@ -177,9 +142,6 @@ export function ProfilePreferences({
         // Surf preferences
         experience_level: data.experience_level ?? null,
         surf_styles: data.surf_styles ?? [],
-        preferred_wave_size: data.preferred_wave_size ?? null,
-        preferred_break_type: data.preferred_break_type ?? null,
-        crowd_preference: data.crowd_preference ?? null,
         preferred_session_time: data.preferred_session_time ?? null,
         // Notification preferences
         notif_reminders: data.notif_reminders,
@@ -268,24 +230,6 @@ export function ProfilePreferences({
               <SurfStylesField
                 control={form.control as any}
                 name="surf_styles"
-                disabled={isSubmitting}
-              />
-
-              <PreferredWaveSizeField
-                control={form.control as any}
-                name="preferred_wave_size"
-                disabled={isSubmitting}
-              />
-
-              <PreferredBreakTypeField
-                control={form.control as any}
-                name="preferred_break_type"
-                disabled={isSubmitting}
-              />
-
-              <CrowdPreferenceField
-                control={form.control as any}
-                name="crowd_preference"
                 disabled={isSubmitting}
               />
 

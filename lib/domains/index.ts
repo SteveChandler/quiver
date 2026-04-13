@@ -92,7 +92,6 @@ export {
 // User Preferences Domain
 export type {
   WaveSizePreference,
-  CrowdPreference,
   OnboardingPreferences,
   LearnedPreferences,
   BeachAffinity,

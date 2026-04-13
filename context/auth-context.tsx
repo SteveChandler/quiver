@@ -1,5 +1,28 @@
 "use client";
 
+/**
+ * iOS Safari OAuth investigation (2026-04-12):
+ *
+ * `onAuthStateChange` DOES handle `SIGNED_IN` (line ~276). Two mitigations
+ * already exist for the iOS Safari cookie-race where `onAuthStateChange`
+ * doesn't fire because cross-origin redirect cookies aren't immediately
+ * visible to the JS client:
+ *
+ *   1. Init-time fallback (lines ~230-244): if `getSession()` returns null
+ *      but `sb-*` auth cookies or `pending_signup_metadata` exist in storage,
+ *      a second `getSession()` call is attempted.
+ *
+ *   2. Callback marker cookie (lines ~249-263): `app/auth/callback/route.ts`
+ *      sets a short-lived `auth_callback_completed` cookie (maxAge 30s). On
+ *      init, if that cookie exists and session is still null, another
+ *      `getSession()` retry is performed.
+ *
+ * These mitigations address the known iOS Safari race but rely on the auth
+ * cookies becoming readable within the retry window. If Safari defers
+ * cookie writes further (e.g., under aggressive ITP), users could still
+ * land on the app without a session. No additional fix applied here.
+ */
+
 import type React from "react";
 
 import {

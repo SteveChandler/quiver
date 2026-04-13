@@ -36,7 +36,6 @@ export type {
   DiscoveryScoringOptions,
   SkillCeilingResult,
   BeachSkillMatchResult,
-  PreferenceAdjustmentResult,
 } from './discovery-adapter';
 export {
   createDiscoveryScoringEngine,
@@ -47,8 +46,6 @@ export {
   // Wave size scoring configuration and helper functions
   WAVE_SIZE_SCORING_CONFIG,
   SKILL_WAVE_RANGES,
-  PREF_WAVE_RANGES,
   checkSkillCeiling,
   calculateBeachSkillMatchBonus,
-  calculatePreferenceAdjustment,
 } from './discovery-adapter';

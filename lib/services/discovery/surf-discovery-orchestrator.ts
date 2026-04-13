@@ -26,18 +26,19 @@ import type {
   SurfDiscoveryResponse,
   SurfDiscoveryOptions,
   DetailedScore,
+  EveningTransition,
 } from '@/types/personalization';
 import type { ConditionBadge } from '@/types/personalization';
 import {
   createDiscoveryScoringEngine,
   scoreBeachWithEngine,
-  type DiscoveryScoringOptions,
 } from '@/lib/domains/scoring';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
 import { SET_WAVE_VARIANCE } from '@/lib/utils/wave-height-transformer';
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
+import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
 
 // Import from other discovery modules
 import { buildCandidatePool } from './candidate-pool-builder';
@@ -51,6 +52,10 @@ import {
 } from './response-formatter';
 import { fetchPersonalizationContext, calculatePersonalizationBonus } from './personalization-layer';
 import { scoreConditions, toForecastForScoring } from '@/lib/scoring';
+import { assignStrategyTags } from '@/lib/services/discovery/strategy-tags';
+import { generateRegionalCall } from '@/lib/services/discovery/regional-call';
+import type { WindSnapshot } from '@/lib/services/discovery/regional-call';
+import { isAfterSunset, buildRestOfToday } from '@/lib/services/discovery/evening-transition';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
 
@@ -295,6 +300,7 @@ function emptyResponse(maxResults: number): SurfDiscoveryResponse {
       staleBeaches: 0,
       generated_at: new Date().toISOString(),
     },
+    regionalCall: '',
   };
 }
 
@@ -320,7 +326,6 @@ async function scoreBeachForDiscovery(args: {
   beach: Beach;
   forecast: EnhancedForecastEntity;
   userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null;
-  preferredWaveSize: string | null;
   /** Pre-parsed and validated skill level from candidate pool builder */
   userSkillLevel: SkillLevel | null;
   distanceMiles?: number;
@@ -328,8 +333,7 @@ async function scoreBeachForDiscovery(args: {
   personalizationBonus?: number;
   personalizationReasons?: string[];
 }): Promise<DetailedScore> {
-  const { beach, forecast, userPrefs, preferredWaveSize, userSkillLevel, distanceMiles } =
-    args;
+  const { beach, forecast, userSkillLevel, distanceMiles } = args;
 
   // Use the new domain-driven scoring engine
   const engine = getDiscoveryScoringEngine();
@@ -351,20 +355,11 @@ async function scoreBeachForDiscovery(args: {
     }
   }
 
-  // Map preferredWaveSize to engine option
-  const normalizedWaveSize = (preferredWaveSize || '').toLowerCase();
-  const preferredWaveSizeOption: DiscoveryScoringOptions['preferredWaveSize'] =
-    normalizedWaveSize === 'small' ? 'small' :
-    normalizedWaveSize === 'medium' ? 'medium' :
-    normalizedWaveSize === 'large' ? 'large' :
-    'any';
-
   // userSkillLevel is now pre-parsed as SkillLevel | null from candidate pool builder
   // No mapping needed - pass directly to scoring engine
   const detailedScore = scoreBeachWithEngine(engine, beach, forecast, {
     affinityBonus,
     distancePenalty,
-    preferredWaveSize: preferredWaveSizeOption,
     userSkillLevel,
     beachSkillLevel: beach.skill_level,
   });
@@ -434,7 +429,7 @@ async function discoverSurfSpotsInner(
   log.debug(`Discovering surf spots for user ${userId} (maxResults: ${maxResults})`);
 
   // 1. Build candidate pool (GPS-based, sorted by distance)
-  const { candidates, preferredWaveSize, userSkillLevel, preferredBreakType } = await buildCandidatePool(userId, {
+  const { candidates, userSkillLevel } = await buildCandidatePool(userId, {
     userLocation,
     radiusMiles,
   });
@@ -552,7 +547,7 @@ async function discoverSurfSpotsInner(
       .from('beach_water_quality')
       .select('beach_id, status')
       .in('beach_id', candidateBeachIds),
-    fetchPersonalizationContext(userId, candidateBeachIds, preferredBreakType, userPrefs),
+    fetchPersonalizationContext(userId, candidateBeachIds, userPrefs),
   ]);
 
   const wqMap = new Map<string, string>();
@@ -619,7 +614,6 @@ async function discoverSurfSpotsInner(
       beach,
       forecast: bestWindowForecast,
       userPrefs,
-      preferredWaveSize,
       userSkillLevel,
       distanceMiles,
       affinityBonus: persResult.affinityBonus,
@@ -850,6 +844,90 @@ async function discoverSurfSpotsInner(
     }
   }
 
+  // 7. Compute sleep-in scores and assign strategy tags
+  const sleepInScores = new Map<string, number>();
+  if (enrichedRanked.length > 1) {
+    for (const rec of enrichedRanked.slice(1)) {
+      const beachForecasts_ = forecastsByBeachId.get(rec.beach.id);
+      if (!beachForecasts_) continue;
+
+      const lateWindow = selectBestWindow(
+        beachForecasts_,
+        rec.beach,
+        userPrefs,
+        horizonHours,
+        sunTimesCache,
+        'late-morning',
+      );
+      if (!lateWindow) continue;
+
+      const lateForecast = lateWindow.sourceForecast
+        ?? beachForecasts_.reduce((closest, f) => {
+             const fTime = new Date(f.forecast_at).getTime();
+             const closestTime = new Date(closest.forecast_at).getTime();
+             const target = lateWindow.start.getTime();
+             return Math.abs(fTime - target) < Math.abs(closestTime - target) ? f : closest;
+           }, beachForecasts_[0]);
+
+      const distMiles = rec.distanceMiles;
+      const lateScore = await scoreBeachForDiscovery({
+        beach: rec.beach,
+        forecast: lateForecast,
+        userPrefs,
+        userSkillLevel,
+        distanceMiles: distMiles,
+      });
+      sleepInScores.set(rec.beach.id, lateScore.total);
+    }
+    assignStrategyTags(enrichedRanked, sleepInScores);
+  }
+
+  // 8. Generate regional call from hero's slot forecasts
+  let regionalCall = '';
+  if (enrichedRanked.length > 0) {
+    const heroSlots = enrichedRanked[0].slotForecasts;
+    let dawnWind: WindSnapshot | undefined;
+    let middayWind: WindSnapshot | undefined;
+
+    if (heroSlots) {
+      const dawn = heroSlots[5];
+      if (dawn?.windSpeed && dawn?.windDirection) {
+        dawnWind = { speed: dawn.windSpeed, direction: dawn.windDirection };
+      }
+      const midday = heroSlots[11];
+      if (midday?.windSpeed && midday?.windDirection) {
+        middayWind = { speed: midday.windSpeed, direction: midday.windDirection };
+      }
+    }
+
+    regionalCall = generateRegionalCall(enrichedRanked, { dawnWind, middayWind });
+  }
+
+  // 9. Build evening transition
+  let eveningTransition: EveningTransition | undefined;
+  if (enrichedRanked.length > 0) {
+    const heroBeachId = enrichedRanked[0].beach.id;
+    if (isAfterSunset(heroBeachId, now, sunTimesCache)) {
+      const heroBeach = enrichedRanked[0].beach;
+      const heroTz = getTimezoneFromCoords(heroBeach.lat || 0, heroBeach.lon || 0);
+
+      // Use the hero's already-scored window if it's still today — selectBestWindow
+      // rejects post-sunset windows so re-querying would always return null after sunset.
+      const heroWindow = enrichedRanked[0].window;
+      const heroWindowIsToday = heroWindow?.start
+        ? !isFutureDayInTimezone(heroWindow.start, heroTz)
+        : false;
+      const remainingWindow = heroWindowIsToday ? heroWindow : null;
+      const restOfToday = buildRestOfToday(remainingWindow, heroTz);
+
+      eveningTransition = {
+        active: true,
+        restOfToday,
+        tomorrowRegionalCall: regionalCall,
+      };
+    }
+  }
+
   const duration = Date.now() - startTime;
   log.debug(
     `Discovery complete in ${duration}ms: ${enrichedRanked.length} recommendations from ${finalCandidates.length} candidates`
@@ -871,6 +949,8 @@ async function discoverSurfSpotsInner(
       usingStaleData,
       generated_at: new Date().toISOString(),
     },
+    regionalCall,
+    eveningTransition,
   };
 }
 

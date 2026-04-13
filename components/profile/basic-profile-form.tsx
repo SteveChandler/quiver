@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { updateProfile } from "@/actions/profile-actions";
+import { useTrackEvent } from "@/hooks/use-track-event";
 import type { Profile } from "@/types/database";
 import { data as gateway } from "@/lib/data/client";
 import {
@@ -43,6 +44,7 @@ export function BasicProfileForm({
   profile,
 }: BasicProfileFormProps) {
   const router = useRouter();
+  const { track: trackEvent } = useTrackEvent();
   const { avatarUrl, setAvatarUrl, isSubmitting, setIsSubmitting } =
     useProfileFormState({
       initialAvatarUrl: profile?.avatar_url || "",
@@ -89,6 +91,22 @@ export function BasicProfileForm({
 
       if (!result.success) {
         throw new Error(result.error || "Failed to update profile");
+      }
+
+      // Track which fields changed
+      const changedFields = Object.keys(data).filter((key) => {
+        const original = profile?.[key as keyof typeof profile] ?? "";
+        const current = data[key as keyof typeof data] ?? "";
+        return String(original) !== String(current);
+      });
+
+      if (changedFields.length > 0) {
+        trackEvent("profile_update", {
+          metadata: {
+            fields_changed: changedFields,
+            email_changed: emailChanged,
+          },
+        });
       }
 
       // Show appropriate success toast

@@ -34,9 +34,6 @@ describe("PreferencesQuickGlance", () => {
     home_beach_id: "beach-1",
     experience_level: "intermediate",
     surf_styles: ["shortboard", "longboard"],
-    preferred_wave_size: "medium",
-    preferred_break_type: "beach",
-    crowd_preference: "moderate",
     homeBeachName: "La Jolla Shores",
     notif_reminders: null,
     notif_forecast_alerts: null,
@@ -61,8 +58,6 @@ describe("PreferencesQuickGlance", () => {
     onboarding: {
       experience_level: "intermediate",
       surf_styles: ["shortboard", "longboard"],
-      preferred_wave_size: "medium",
-      crowd_preference: "moderate",
     },
   };
 
@@ -104,17 +99,6 @@ describe("PreferencesQuickGlance", () => {
       expect(screen.getByText(/Intermediate/i)).toBeInTheDocument();
     });
 
-    it("should display preferred wave size", () => {
-      render(
-        <PreferencesQuickGlance
-          profile={mockProfile}
-          preferences={mockPreferencesWithLearned}
-        />
-      );
-
-      expect(screen.getByText(/Medium/i)).toBeInTheDocument();
-    });
-
     it("should display surf styles", () => {
       render(
         <PreferencesQuickGlance
@@ -125,20 +109,6 @@ describe("PreferencesQuickGlance", () => {
 
       // Should show shortboard and longboard
       expect(screen.getByText(/Shortboard.*Longboard/i)).toBeInTheDocument();
-    });
-
-    it("should display crowd preference", () => {
-      render(
-        <PreferencesQuickGlance
-          profile={mockProfile}
-          preferences={mockPreferencesWithLearned}
-        />
-      );
-
-      // Check aria-label contains the crowd preference label
-      // "moderate" maps to "A few people is fine" in CROWD_PREFERENCES
-      const crowdBadge = screen.getByLabelText(/Crowd:.*few people/i);
-      expect(crowdBadge).toBeInTheDocument();
     });
   });
 
@@ -194,22 +164,6 @@ describe("PreferencesQuickGlance", () => {
       expect(screen.getByText(/Level not set/i)).toBeInTheDocument();
     });
 
-    it("should show 'not set' for missing wave size", () => {
-      const profileWithoutWaveSize = {
-        ...mockProfile,
-        preferred_wave_size: null,
-      };
-
-      render(
-        <PreferencesQuickGlance
-          profile={profileWithoutWaveSize}
-          preferences={mockPreferencesWithoutLearned}
-        />
-      );
-
-      expect(screen.getByText(/Wave size not set/i)).toBeInTheDocument();
-    });
-
     it("should show 'not set' for empty surf styles", () => {
       const profileWithoutStyles = {
         ...mockProfile,
@@ -226,21 +180,6 @@ describe("PreferencesQuickGlance", () => {
       expect(screen.getByText(/Style not set/i)).toBeInTheDocument();
     });
 
-    it("should show 'not set' for missing crowd preference", () => {
-      const profileWithoutCrowd = {
-        ...mockProfile,
-        crowd_preference: null,
-      };
-
-      render(
-        <PreferencesQuickGlance
-          profile={profileWithoutCrowd}
-          preferences={mockPreferencesWithoutLearned}
-        />
-      );
-
-      expect(screen.getByText(/Crowd pref not set/i)).toBeInTheDocument();
-    });
   });
 
   describe("Edit Button", () => {
@@ -297,7 +236,6 @@ describe("PreferencesQuickGlance", () => {
 
       // Check a few badges have aria-labels
       expect(screen.getByLabelText(/Experience:/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Waves:/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Style:/i)).toBeInTheDocument();
     });
   });

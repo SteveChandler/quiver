@@ -1,6 +1,5 @@
 import {
   scoreBeachForUser,
-  matchesWaveSize,
   matchesLearnedWaveRange,
   matchesLearnedWindPrefs,
   matchesLearnedTidePrefs,
@@ -109,57 +108,6 @@ describe('personalized-scoring-service', () => {
   // ============================================================================
   // Helper Functions Tests
   // ============================================================================
-
-  describe('matchesWaveSize', () => {
-    it('should match small waves (1-3 ft)', () => {
-      const forecast = createMockForecast('2.5', '5', '180', 'rising');
-      expect(matchesWaveSize(forecast, 'small')).toBe(true);
-    });
-
-    it('should match medium waves (3-6 ft)', () => {
-      const forecast = createMockForecast('4.5', '5', '180', 'rising');
-      expect(matchesWaveSize(forecast, 'medium')).toBe(true);
-    });
-
-    it('should match large waves (6+ ft)', () => {
-      const forecast = createMockForecast('7.5', '5', '180', 'rising');
-      expect(matchesWaveSize(forecast, 'large')).toBe(true);
-    });
-
-    it('should not match when wave size is out of range', () => {
-      const forecast = createMockForecast('2.5', '5', '180', 'rising');
-      expect(matchesWaveSize(forecast, 'medium')).toBe(false);
-      expect(matchesWaveSize(forecast, 'large')).toBe(false);
-    });
-
-    it('should handle boundary values correctly', () => {
-      // Small: 1-3 ft
-      expect(matchesWaveSize(createMockForecast('1.0', '5', '180', 'rising'), 'small')).toBe(
-        true
-      );
-      expect(matchesWaveSize(createMockForecast('3.0', '5', '180', 'rising'), 'small')).toBe(
-        true
-      );
-
-      // Medium: 3-6 ft (exclusive lower bound)
-      expect(matchesWaveSize(createMockForecast('3.1', '5', '180', 'rising'), 'medium')).toBe(
-        true
-      );
-      expect(matchesWaveSize(createMockForecast('6.0', '5', '180', 'rising'), 'medium')).toBe(
-        true
-      );
-
-      // Large: 6+ ft (exclusive lower bound)
-      expect(matchesWaveSize(createMockForecast('6.1', '5', '180', 'rising'), 'large')).toBe(
-        true
-      );
-    });
-
-    it('should return false for invalid preference', () => {
-      const forecast = createMockForecast('4.5', '5', '180', 'rising');
-      expect(matchesWaveSize(forecast, 'invalid')).toBe(false);
-    });
-  });
 
   describe('matchesLearnedWaveRange', () => {
     it('should match wave height within learned range', () => {
@@ -359,9 +307,8 @@ describe('personalized-scoring-service', () => {
 
   describe('scoreBeachForUser', () => {
     it('should return base score when no personalization data exists', async () => {
-      // No profile data, no affinity
+      // No affinity
       mockQueryResults = [
-        { data: null, error: null }, // Profile query
         { data: null, error: null }, // Affinity query
       ];
 
@@ -377,53 +324,9 @@ describe('personalized-scoring-service', () => {
       expect(result.breakdown.multiplier).toBe(1.0);
     });
 
-    it('should apply onboarding wave size bonus multiplicatively', async () => {
-      // Mock profile with wave size preference, no affinity
-      mockQueryResults = [
-        {
-          data: { preferred_wave_size: 'medium', preferred_break_type: null },
-          error: null,
-        },
-        { data: null, error: null }, // Affinity query
-      ];
-
-      const forecast = createMockForecast('4.5', '10', '180', 'rising'); // Medium waves
-      const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 75);
-
-      // multiplier = 1.0 + (10/50)*0.15 = 1.03, score = round(75*1.03) = 77
-      expect(result.score).toBe(77);
-      expect(result.personalized).toBe(true);
-      expect(result.breakdown.onboardingPrefs).toBe(10);
-      expect(result.breakdown.multiplier).toBeCloseTo(1.03, 4);
-    });
-
-    it('should apply onboarding break type bonus multiplicatively', async () => {
-      // First query: profile with break type preference
-      // Second query: beach with matching break type
-      // Third query: affinity
-      mockQueryResults = [
-        {
-          data: { preferred_wave_size: 'any', preferred_break_type: 'beach' },
-          error: null,
-        },
-        { data: { break_type: 'beach' }, error: null },
-        { data: null, error: null }, // Affinity query
-      ];
-
-      const forecast = createMockForecast('4.0', '10', '180', 'rising');
-      const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 75);
-
-      // multiplier = 1.0 + (8/50)*0.15 = 1.024, score = round(75*1.024) = 77
-      expect(result.score).toBe(77);
-      expect(result.personalized).toBe(true);
-      expect(result.breakdown.onboardingPrefs).toBe(8);
-      expect(result.breakdown.multiplier).toBeCloseTo(1.024, 4);
-    });
-
     it('should apply learned preferences bonus multiplicatively', async () => {
-      // No onboarding prefs, no affinity
+      // No affinity
       mockQueryResults = [
-        { data: { preferred_wave_size: 'any' }, error: null },
         { data: null, error: null }, // Affinity
       ];
 
@@ -457,8 +360,7 @@ describe('personalized-scoring-service', () => {
 
     it('should not apply learned preferences when confidence is low', async () => {
       mockQueryResults = [
-        { data: null, error: null },
-        { data: null, error: null },
+        { data: null, error: null }, // Affinity
       ];
 
       // Low confidence preferences
@@ -482,9 +384,7 @@ describe('personalized-scoring-service', () => {
     });
 
     it('should apply beach affinity bonus multiplicatively', async () => {
-      // Profile query, then affinity query
       mockQueryResults = [
-        { data: { preferred_wave_size: 'any' }, error: null },
         { data: { affinity_score: 80, session_count: 15 }, error: null },
       ];
 
@@ -502,7 +402,6 @@ describe('personalized-scoring-service', () => {
 
     it('should cap affinity bonus at 15 points', async () => {
       mockQueryResults = [
-        { data: { preferred_wave_size: 'any' }, error: null },
         { data: { affinity_score: 100, session_count: 20 }, error: null },
       ];
 
@@ -516,14 +415,8 @@ describe('personalized-scoring-service', () => {
       expect(result.score).toBe(78);
     });
 
-    it('should combine all bonuses multiplicatively', async () => {
-      // Profile with both preferences, beach query, affinity query
+    it('should combine learned + affinity bonuses multiplicatively', async () => {
       mockQueryResults = [
-        {
-          data: { preferred_wave_size: 'medium', preferred_break_type: 'beach' },
-          error: null,
-        },
-        { data: { break_type: 'beach' }, error: null },
         { data: { affinity_score: 60, session_count: 10 }, error: null },
       ];
 
@@ -545,25 +438,16 @@ describe('personalized-scoring-service', () => {
 
       expect(result.personalized).toBe(true);
       expect(result.breakdown.base).toBe(70);
-      expect(result.breakdown.onboardingPrefs).toBe(18); // 10 + 8
       expect(result.breakdown.learnedPrefs).toBeCloseTo(29.7, 0); // (15+10+8)*0.9
       expect(result.breakdown.affinity).toBeCloseTo(9, 0); // 60*0.15
 
-      // totalBonus = 18 + 29.7 + 9 = 56.7, capped at 50 for ratio
-      // multiplier = 1.0 + min(56.7/50, 1.0)*0.15 = 1.15 (max)
-      // score = round(70 * 1.15) = round(80.5) = 81
-      expect(result.breakdown.multiplier).toBe(1.15);
-      expect(result.score).toBe(81);
+      // totalBonus = 29.7 + 9 = 38.7
+      // multiplier = 1.0 + (38.7/50)*0.15 = 1.1161
+      expect(result.breakdown.multiplier).toBeCloseTo(1.1161, 3);
     });
 
     it('should cap final score at 100', async () => {
-      // Setup perfect match with high base score
       mockQueryResults = [
-        {
-          data: { preferred_wave_size: 'medium', preferred_break_type: 'beach' },
-          error: null,
-        },
-        { data: { break_type: 'beach' }, error: null },
         { data: { affinity_score: 100, session_count: 20 }, error: null },
       ];
 
@@ -580,17 +464,18 @@ describe('personalized-scoring-service', () => {
       };
 
       const forecast = createMockForecast('4.5', '10', '180', 'rising');
-      const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 90); // High base
+      const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 95); // High base
 
-      // With multiplicative scoring: 90 * 1.15 = 103.5 -> capped at 100
+      // totalBonus = learned (15+10+8) + affinity (15) = 48
+      // multiplier = 1.0 + (48/50)*0.15 ≈ 1.144
+      // 95 * 1.144 ≈ 108.68 -> capped at 100
       expect(result.score).toBe(100);
       expect(result.score).toBeLessThanOrEqual(100);
-      expect(result.breakdown.multiplier).toBe(1.15);
+      expect(result.breakdown.multiplier).toBeCloseTo(1.144, 3);
     });
 
     it('should ignore low affinity scores (< 10)', async () => {
       mockQueryResults = [
-        { data: { preferred_wave_size: 'any' }, error: null },
         { data: { affinity_score: 8, session_count: 2 }, error: null },
       ];
 
@@ -646,11 +531,10 @@ describe('personalized-scoring-service', () => {
         breakdown: { waveRange: 6.4, breakType: 5.12, topEngaged: 0 },
       });
 
-      // Set up queries: Profile, Affinity, Beach break type
+      // Set up queries: Beach break type (implicit lookup), Affinity
       mockQueryResults = [
-        { data: { preferred_wave_size: 'any' }, error: null }, // Profile
-        { data: null, error: null }, // Affinity
         { data: { break_type: 'beach' }, error: null }, // Beach query for break type
+        { data: null, error: null }, // Affinity
       ];
 
       const forecast = createMockForecast('4.0', '10', '180', 'rising'); // Matches implicit wave range
@@ -668,7 +552,6 @@ describe('personalized-scoring-service', () => {
       // Setup: high explicit confidence (0.9), high implicit confidence (0.8)
       // Expected: implicitWeight = 0.8 * (1 - 0.9) = 0.08 (below 0.1 threshold)
       mockQueryResults = [
-        { data: { preferred_wave_size: 'any' }, error: null }, // Profile
         { data: null, error: null }, // Affinity
       ];
 
@@ -712,7 +595,6 @@ describe('personalized-scoring-service', () => {
     it('skips implicit bonus when implicit confidence is too low', async () => {
       // Setup: implicit confidence = 0.05 (< 0.1 threshold)
       mockQueryResults = [
-        { data: { preferred_wave_size: 'any' }, error: null }, // Profile
         { data: null, error: null }, // Affinity
       ];
 
@@ -794,9 +676,8 @@ describe('personalized-scoring-service', () => {
       });
 
       mockQueryResults = [
-        { data: { preferred_wave_size: 'any' }, error: null }, // Profile
-        { data: null, error: null }, // Affinity
         { data: { break_type: 'beach' }, error: null }, // Beach query for break type
+        { data: null, error: null }, // Affinity
       ];
 
       const forecast = createMockForecast('4.0', '10', '180', 'rising');
@@ -837,7 +718,6 @@ describe('personalized-scoring-service', () => {
       mockImplicitPreferences = null;
 
       mockQueryResults = [
-        { data: { preferred_wave_size: 'any' }, error: null }, // Profile
         { data: null, error: null }, // Affinity
       ];
 
@@ -854,8 +734,6 @@ describe('personalized-scoring-service', () => {
       // Setup: both explicit and implicit available with good matches
       // Explicit should be weighted more heavily
       mockQueryResults = [
-        { data: { preferred_wave_size: 'medium', preferred_break_type: 'beach' }, error: null }, // Profile
-        { data: { break_type: 'beach' }, error: null }, // Beach query
         { data: { affinity_score: 50, session_count: 10 }, error: null }, // Affinity
       ];
 
@@ -897,8 +775,8 @@ describe('personalized-scoring-service', () => {
       expect(result.breakdown.learnedPrefs).toBeGreaterThan(0);
       expect(result.breakdown.implicitPrefs).toBe(0); // Should be below threshold
 
-      // Onboarding prefs also apply
-      expect(result.breakdown.onboardingPrefs).toBe(18); // 10 (wave) + 8 (break type)
+      // Onboarding prefs no longer contribute
+      expect(result.breakdown.onboardingPrefs).toBe(0);
 
       // Total should use multiplicative scoring
       const totalBonus = result.breakdown.onboardingPrefs + result.breakdown.learnedPrefs + result.breakdown.implicitPrefs + result.breakdown.affinity;

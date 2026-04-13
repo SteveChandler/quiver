@@ -126,8 +126,8 @@ describe("POST /api/beach/personalized-score", () => {
         personalized: true,
         breakdown: {
           base: 75,
-          onboardingPrefs: 10,
-          learnedPrefs: 0,
+          onboardingPrefs: 0,
+          learnedPrefs: 10,
           implicitPrefs: 0,
           affinity: 0,
         },
@@ -229,18 +229,18 @@ describe("POST /api/beach/personalized-score", () => {
       const beachId = "beach-123";
       const baseScore = 75;
 
-      // totalBonus = 10+5+3+2 = 20, multiplier = 1.0+(20/50)*0.15 = 1.06
-      // score = round(75*1.06) = 80
+      // totalBonus = 5+3+2 = 10, multiplier = 1.0+(10/50)*0.15 = 1.03
+      // score = round(75*1.03) = 77
       const mockPersonalizedScore = {
-        score: 80,
+        score: 77,
         personalized: true,
         breakdown: {
           base: 75,
-          onboardingPrefs: 10,
+          onboardingPrefs: 0,
           learnedPrefs: 5,
           implicitPrefs: 3,
           affinity: 2,
-          multiplier: 1.06,
+          multiplier: 1.03,
         },
       };
 
@@ -265,7 +265,7 @@ describe("POST /api/beach/personalized-score", () => {
       );
 
       expect(result.data).toEqual(mockPersonalizedScore);
-      expect(result.data.score).toBe(80);
+      expect(result.data.score).toBe(77);
       expect(result.data.personalized).toBe(true);
     });
 
@@ -300,18 +300,18 @@ describe("POST /api/beach/personalized-score", () => {
     });
 
     it("includes score breakdown", async () => {
-      // totalBonus = 10+5+2+1 = 18, multiplier = 1.0+(18/50)*0.15 = 1.054
-      // score = round(70*1.054) = 74
+      // totalBonus = 5+2+1 = 8, multiplier = 1.0+(8/50)*0.15 = 1.024
+      // score = round(70*1.024) = 72
       const mockScore = {
-        score: 74,
+        score: 72,
         personalized: true,
         breakdown: {
           base: 70,
-          onboardingPrefs: 10,
+          onboardingPrefs: 0,
           learnedPrefs: 5,
           implicitPrefs: 2,
           affinity: 1,
-          multiplier: 1.054,
+          multiplier: 1.024,
         },
       };
 
@@ -330,11 +330,11 @@ describe("POST /api/beach/personalized-score", () => {
 
       expect(result.data.breakdown).toEqual({
         base: 70,
-        onboardingPrefs: 10,
+        onboardingPrefs: 0,
         learnedPrefs: 5,
         implicitPrefs: 2,
         affinity: 1,
-        multiplier: 1.054,
+        multiplier: 1.024,
       });
 
       // Verify multiplicative scoring: score = min(100, round(base * multiplier))
@@ -351,66 +351,6 @@ describe("POST /api/beach/personalized-score", () => {
   describe("User Preferences Integration", () => {
     beforeEach(() => {
       // withAuth mock already provides authenticated context
-    });
-
-    it("respects user wave size preferences in scoring", async () => {
-      // Mock user with preferred wave size
-      const mockScore = {
-        score: 85,
-        personalized: true,
-        breakdown: {
-          base: 75,
-          onboardingPrefs: 10, // Bonus from wave size match
-          learnedPrefs: 0,
-          implicitPrefs: 0,
-          affinity: 0,
-        },
-      };
-
-      mockScoreBeachForUser.mockResolvedValue(mockScore);
-
-      const request = createMockRequest("POST", "http://localhost:3000/api/beach/personalized-score", {
-        body: {
-          beachId: "beach-123",
-          baseScore: 75,
-          forecast: mockForecast,
-        },
-      });
-
-      const response = await POST(request);
-      const result = await expectPersonalizedScoreResponse(response);
-
-      // Verify wave size preference was considered
-      expect(result.data.breakdown.onboardingPrefs).toBeGreaterThan(0);
-    });
-
-    it("respects user break type preferences in scoring", async () => {
-      const mockScore = {
-        score: 83,
-        personalized: true,
-        breakdown: {
-          base: 75,
-          onboardingPrefs: 8, // Bonus from break type match
-          learnedPrefs: 0,
-          implicitPrefs: 0,
-          affinity: 0,
-        },
-      };
-
-      mockScoreBeachForUser.mockResolvedValue(mockScore);
-
-      const request = createMockRequest("POST", "http://localhost:3000/api/beach/personalized-score", {
-        body: {
-          beachId: "beach-123",
-          baseScore: 75,
-          forecast: mockForecast,
-        },
-      });
-
-      const response = await POST(request);
-      const result = await expectPersonalizedScoreResponse(response);
-
-      expect(result.data.breakdown.onboardingPrefs).toBeGreaterThan(0);
     });
 
     it("applies learned preferences bonus", async () => {
@@ -513,10 +453,10 @@ describe("POST /api/beach/personalized-score", () => {
         personalized: true,
         breakdown: {
           base: 90,
-          onboardingPrefs: 10,
-          learnedPrefs: 15,
+          onboardingPrefs: 0,
+          learnedPrefs: 25,
           implicitPrefs: 5,
-          affinity: 10, // Total would be 130, but capped
+          affinity: 10, // Total bonus drives multiplier, result capped at 100
         },
       };
 
@@ -611,8 +551,8 @@ describe("POST /api/beach/personalized-score", () => {
         personalized: true,
         breakdown: {
           base: 75,
-          onboardingPrefs: 10, // Bonus for matching small wave preference
-          learnedPrefs: 0,
+          onboardingPrefs: 0,
+          learnedPrefs: 10,
           implicitPrefs: 0,
           affinity: 0,
         },
@@ -643,8 +583,8 @@ describe("POST /api/beach/personalized-score", () => {
         personalized: true,
         breakdown: {
           base: 80,
-          onboardingPrefs: 10, // Bonus for matching large wave preference
-          learnedPrefs: 0,
+          onboardingPrefs: 0,
+          learnedPrefs: 10,
           implicitPrefs: 0,
           affinity: 0,
         },
@@ -713,8 +653,8 @@ describe("POST /api/beach/personalized-score", () => {
         personalized: true,
         breakdown: {
           base: 82,
-          onboardingPrefs: 8,
-          learnedPrefs: 0,
+          onboardingPrefs: 0,
+          learnedPrefs: 8,
           implicitPrefs: 0,
           affinity: 0,
         },
@@ -753,8 +693,8 @@ describe("POST /api/beach/personalized-score", () => {
           personalized: true,
           breakdown: {
             base: beach.score,
-            onboardingPrefs: 10,
-            learnedPrefs: 0,
+            onboardingPrefs: 0,
+            learnedPrefs: 10,
             implicitPrefs: 0,
             affinity: 0,
           },

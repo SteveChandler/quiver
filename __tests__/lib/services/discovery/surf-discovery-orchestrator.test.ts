@@ -759,7 +759,6 @@ describe('discoverSurfSpots - Personalization Integration', () => {
 
   test('calls fetchPersonalizationContext with correct arguments', async () => {
     const { fetchPersonalizationContext } = require('@/lib/services/discovery/personalization-layer');
-    mockState.candidatePoolResponse.preferredBreakType = 'reef';
 
     await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
 
@@ -768,9 +767,8 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     expect(args[0]).toBe(testUserId);
     // beachIds should be the IDs from the forecasted beaches
     expect(args[1]).toEqual(expect.arrayContaining(['beach-1', 'beach-2', 'beach-3', 'beach-4']));
-    expect(args[2]).toBe('reef'); // preferredBreakType
-    // 4th arg is userPrefs (null from our mock)
-    expect(args[3]).toBeNull();
+    // 3rd arg is userPrefs (null from our mock)
+    expect(args[2]).toBeNull();
   });
 
   test('calls calculatePersonalizationBonus for each beach', async () => {

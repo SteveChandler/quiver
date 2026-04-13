@@ -13,6 +13,7 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
 import { computeTrendTags, type TrendTag } from '@/lib/scoring';
 import { formatTideHeight, formatWaveHeightRange as formatWaveHeight } from '@/lib/formatters/surf-data';
 import { parseSkillLevel, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences/skill-level';
+import { calculateRideableWaves } from '@/lib/domains/wave-frequency/calculator';
 
 // ============================================================================
 // Types
@@ -56,6 +57,8 @@ export interface SurfCallResult {
    * site that owns the Beach record.
    */
   isCalibrated: boolean;
+  rideableWavesPerHour: number | null;
+  dominantBeatIntervalS: number | null;
 }
 
 // ============================================================================
@@ -511,6 +514,8 @@ export function computeSurfCall(
     trendTags: [],
     updatedAt,
     isCalibrated,
+    rideableWavesPerHour: null,
+    dominantBeatIntervalS: null,
   };
 
   // Hard NO: no forecasts
@@ -581,6 +586,10 @@ export function computeSurfCall(
   const tide = getWindowTide(effectiveForecasts, windowStartMs, !isTomorrow);
   const waveHeight = window.waveHeight !== 'Unknown' ? window.waveHeight : null;
 
+  // Wave frequency — use first window forecast as representative input
+  const freqForecast = effectiveForecasts[0];
+  const freqResult = freqForecast ? calculateRideableWaves(freqForecast, beach) : null;
+
   // Short window gate - reject if too short
   if (windowMinutes < MINIMUM_VIABLE_WINDOW_MINUTES) {
     return {
@@ -603,6 +612,8 @@ export function computeSurfCall(
       lowForecastConfidence,
       score,
       whySentence: 'No viable window long enough to surf.',
+      rideableWavesPerHour: freqResult?.rideableWavesPerHour ?? null,
+      dominantBeatIntervalS: freqResult?.dominantBeatIntervalS ?? null,
     };
   }
 
@@ -656,5 +667,7 @@ export function computeSurfCall(
     trendTags,
     updatedAt,
     isCalibrated,
+    rideableWavesPerHour: freqResult?.rideableWavesPerHour ?? null,
+    dominantBeatIntervalS: freqResult?.dominantBeatIntervalS ?? null,
   };
 }

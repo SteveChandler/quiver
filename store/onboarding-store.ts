@@ -33,9 +33,6 @@ interface OnboardingData {
   fullName?: string;
   displayName?: string;
   surfStyles?: string[];
-  preferredWaveSize?: 'small' | 'medium' | 'large' | 'any';
-  preferredBreakType?: 'beach' | 'point' | 'reef' | 'any';
-  crowdPreference?: 'social' | 'moderate' | 'solitude';
 }
 
 /** Callback for tracking step transitions */

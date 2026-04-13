@@ -7,7 +7,6 @@ import { Clock, Wind, Lock } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { track } from "@/lib/analytics";
-import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
 import type { IntentForecastSummary } from "@/actions/forecast/intent-forecast-actions";
 import type { SurfIntentSlug } from "@/lib/constants/surf-intents";
@@ -83,7 +82,6 @@ export function TodaysIntentPlan({
       surface: "intent-page",
       intent: intentSlug,
     });
-    trackAuthModalOpened({ mode: "signup", source: `plan-unlock-${intentSlug}` });
     setAuthModalOpen(true);
   };
 

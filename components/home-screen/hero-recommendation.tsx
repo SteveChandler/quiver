@@ -289,7 +289,6 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
         <p className="text-xs text-medium" data-testid="hero-personalization-context">
           {getPersonalizationExplanation({
             base: 0,
-            onboardingPrefs: insights.state === "degraded" ? 1 : 0,
             learnedPrefs: insights.state === "ready" ? insights.matchPercent : 0,
             affinity: subscores?.affinityBonus ?? 0,
           })}

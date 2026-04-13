@@ -7,9 +7,6 @@ import type { ProfileFormValues } from "@/lib/schemas/profile-schema";
 import {
   ExperienceLevelField,
   SurfStylesField,
-  PreferredWaveSizeField,
-  PreferredBreakTypeField,
-  CrowdPreferenceField,
 } from "@/components/profile/shared/preference-fields";
 import { FormInput } from "@/components/ui/form-fields";
 
@@ -80,24 +77,6 @@ export function SurfInfoFields({
       />
 
       <SurfStylesField control={control} name="surf_styles" error={undefined} />
-
-      <PreferredWaveSizeField
-        control={control}
-        name="preferred_wave_size"
-        error={undefined}
-      />
-
-      <PreferredBreakTypeField
-        control={control}
-        name="preferred_break_type"
-        error={undefined}
-      />
-
-      <CrowdPreferenceField
-        control={control}
-        name="crowd_preference"
-        error={undefined}
-      />
 
       {showInstagram && (
         <>

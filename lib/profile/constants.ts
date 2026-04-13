@@ -25,9 +25,6 @@ export const PROFILE_CORE_FIELDS = [
 /** Surf preference fields */
 export const PROFILE_PREFERENCE_FIELDS = [
   'surf_styles',
-  'preferred_wave_size',
-  'preferred_break_type',
-  'crowd_preference',
 ] as const;
 
 /** Notification preference fields */

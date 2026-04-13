@@ -10,9 +10,6 @@ interface OnboardingData {
   experienceLevel?: 'beginner' | 'intermediate' | 'advanced' | 'expert';
   preferredTime?: 'dawn' | 'after_work' | 'weekends';
   surfStyles?: string[];
-  preferredWaveSize?: 'small' | 'medium' | 'large' | 'any';
-  preferredBreakType?: 'beach' | 'point' | 'reef' | 'any';
-  crowdPreference?: 'social' | 'moderate' | 'solitude';
   pushEnabled?: boolean;
   emailEnabled?: boolean;
   referralCode?: string;
@@ -217,9 +214,6 @@ export async function saveOnboardingData(data: OnboardingData) {
       if (data.displayName) profileUpdate.display_name = data.displayName;
       if (data.experienceLevel) profileUpdate.experience_level = data.experienceLevel;
       if (data.surfStyles?.length) profileUpdate.surf_styles = data.surfStyles;
-      if (data.preferredWaveSize) profileUpdate.preferred_wave_size = data.preferredWaveSize;
-      if (data.preferredBreakType) profileUpdate.preferred_break_type = data.preferredBreakType;
-      if (data.crowdPreference) profileUpdate.crowd_preference = data.crowdPreference;
 
       // Map onboarding time bucket to oracle preferred_session_time
       const SESSION_TIME_MAP: Record<string, string> = {

@@ -28,7 +28,6 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { Badge } from "@/components/ui/badge";
 import { useSessionInvitationsSubscription } from "@/hooks/use-session-invitations-subscription";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
-import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import {
   trackSignupCtaClick,
   trackSigninCtaClick,
@@ -520,10 +519,6 @@ export function AppHeader() {
                         setMobileMenuOpen(false);
                         setAuthMode("login");
                         setAuthModalOpen(true);
-                        trackAuthModalOpened({
-                          mode: "login",
-                          source: "app-header-mobile",
-                        });
                       }}
                       data-testid="mobile-nav-login"
                     >
@@ -540,10 +535,6 @@ export function AppHeader() {
                         setMobileMenuOpen(false);
                         setAuthMode("signup");
                         setAuthModalOpen(true);
-                        trackAuthModalOpened({
-                          mode: "signup",
-                          source: "app-header-mobile",
-                        });
                       }}
                       data-testid="mobile-nav-signup"
                     >
@@ -628,10 +619,6 @@ export function AppHeader() {
                     });
                     setAuthMode("login");
                     setAuthModalOpen(true);
-                    trackAuthModalOpened({
-                      mode: "login",
-                      source: "app-header",
-                    });
                   }}
                 >
                   Log in
@@ -647,10 +634,6 @@ export function AppHeader() {
                     });
                     setAuthMode("signup");
                     setAuthModalOpen(true);
-                    trackAuthModalOpened({
-                      mode: "signup",
-                      source: headerSource,
-                    });
                   }}
                 >
                   <span className="lg:hidden">Sign Up</span>

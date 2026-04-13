@@ -6,7 +6,4 @@ export { SurfProfileSection } from './surf-profile-section';
 export {
   ExperienceLevelField,
   SurfStylesField,
-  PreferredWaveSizeField,
-  PreferredBreakTypeField,
-  CrowdPreferenceField,
 } from './shared/preference-fields';

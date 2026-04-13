@@ -104,8 +104,6 @@ export const TEST_HOME_BEACHES = {
 export interface TestUserProfileUpdate {
   home_beach_id?: string | null;
   experience_level?: string | null;
-  preferred_wave_size?: string | null;
-  preferred_break_type?: string | null;
 }
 
 /**

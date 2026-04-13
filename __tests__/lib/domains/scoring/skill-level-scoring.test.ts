@@ -1,10 +1,9 @@
 /**
  * Tests for Skill Level Wave Scoring
  *
- * Tests the helper functions extracted from applyPreferredWaveSizeAdjustment:
+ * Tests the helper functions for skill-based wave scoring:
  * - checkSkillCeiling
- * - calculateBeachSkillMatchBonus (condition-aware, replaces calculateSkillBonus)
- * - calculatePreferenceAdjustment
+ * - calculateBeachSkillMatchBonus (condition-aware)
  *
  * Also tests safety defaults and priority order.
  */
@@ -12,10 +11,8 @@
 import {
   checkSkillCeiling,
   calculateBeachSkillMatchBonus,
-  calculatePreferenceAdjustment,
   WAVE_SIZE_SCORING_CONFIG,
   SKILL_WAVE_RANGES,
-  PREF_WAVE_RANGES,
 } from '@/lib/domains/scoring/discovery-adapter';
 import { getSkillLevelOrDefault, type SkillLevel } from '@/lib/domains/user-preferences';
 
@@ -226,83 +223,6 @@ describe('Skill Level Wave Scoring', () => {
     });
   });
 
-  describe('calculatePreferenceAdjustment', () => {
-    describe('small preference (ideal 1-3ft, acceptable 0.5-4ft)', () => {
-      it('should bonus matching preference in ideal range', () => {
-        const result = calculatePreferenceAdjustment(2, 'small');
-        expect(result.adjustment).toBe(5);
-        expect(result.reason).toBe('Waves match your preferred size');
-        expect(result.warning).toBeNull();
-      });
-
-      it('should give no adjustment for acceptable range', () => {
-        const result = calculatePreferenceAdjustment(3.5, 'small');
-        expect(result.adjustment).toBe(0);
-        expect(result.reason).toBeNull();
-        expect(result.warning).toBeNull();
-      });
-
-      it('should penalize waves smaller than acceptable', () => {
-        const result = calculatePreferenceAdjustment(0.2, 'small'); // 0.3ft under 0.5 min
-        expect(result.adjustment).toBeLessThan(0);
-        expect(result.warning).toBe('Waves may be smaller than preferred');
-      });
-
-      it('should penalize waves larger than acceptable', () => {
-        const result = calculatePreferenceAdjustment(6, 'small'); // 2ft over 4ft max
-        expect(result.adjustment).toBe(-10); // 2 * 5
-        expect(result.warning).toBe('Waves may be larger than preferred');
-      });
-    });
-
-    describe('medium preference (ideal 3-6ft, acceptable 2-8ft)', () => {
-      it('should bonus matching preference at 4ft', () => {
-        const result = calculatePreferenceAdjustment(4, 'medium');
-        expect(result.adjustment).toBe(5);
-        expect(result.reason).toBe('Waves match your preferred size');
-      });
-
-      it('should give no adjustment at 7ft (acceptable but not ideal)', () => {
-        const result = calculatePreferenceAdjustment(7, 'medium');
-        expect(result.adjustment).toBe(0);
-      });
-
-      it('should penalize waves below acceptable', () => {
-        const result = calculatePreferenceAdjustment(0.9, 'medium'); // 1.1ft under 2ft min
-        expect(result.adjustment).toBe(-6); // round(1.1 * 5) = 6
-        expect(result.warning).toBe('Waves may be smaller than preferred');
-      });
-
-      it('should cap penalty at max', () => {
-        const result = calculatePreferenceAdjustment(15, 'medium'); // 7ft over 8ft max
-        expect(result.adjustment).toBe(-15); // capped at 15
-      });
-    });
-
-    describe('large preference (ideal 5-12ft, acceptable 4-15ft)', () => {
-      it('should bonus matching preference at 8ft', () => {
-        const result = calculatePreferenceAdjustment(8, 'large');
-        expect(result.adjustment).toBe(5);
-      });
-
-      it('should penalize waves smaller than acceptable', () => {
-        const result = calculatePreferenceAdjustment(2, 'large'); // 2ft under 4ft min
-        expect(result.adjustment).toBe(-10);
-        expect(result.warning).toBe('Waves may be smaller than preferred');
-      });
-    });
-
-    describe('penalty cap', () => {
-      it('should respect max penalty from config', () => {
-        expect(WAVE_SIZE_SCORING_CONFIG.preferenceOutsideMaxPenalty).toBe(15);
-
-        // 10ft outside acceptable = should be capped at 15
-        const result = calculatePreferenceAdjustment(15, 'small'); // 11ft over 4ft max
-        expect(result.adjustment).toBe(-15);
-      });
-    });
-  });
-
   describe('Safety Defaults', () => {
     it('should default to beginner when skill level is null', () => {
       expect(getSkillLevelOrDefault(null)).toBe('beginner');
@@ -327,37 +247,9 @@ describe('Skill Level Wave Scoring', () => {
   });
 
   describe('Priority Order', () => {
-    it('should verify skill ceiling check happens before preference', () => {
-      // For beginner seeing 12ft waves with "large" preference:
-      // - Skill ceiling: 12ft - 4ft = 8ft over = 64pt penalty
-      // - Should NOT get large preference bonus
-
-      const skillResult = checkSkillCeiling(12, 'beginner');
-      expect(skillResult.penalty).toBe(64);
-
-      // Even though preference would give bonus, skill ceiling should take precedence
-      const prefResult = calculatePreferenceAdjustment(12, 'large');
-      expect(prefResult.adjustment).toBe(5); // Would give bonus
-
-      // But in actual use, skill ceiling penalty > 0 means we don't check preference
-    });
-
-    it('should verify preference only applies when skill ceiling passes', () => {
-      // Expert seeing 8ft waves with "medium" preference:
-      // - Skill ceiling: 8ft <= 20ft (expert max), no penalty
-      // - Preference: 8ft in acceptable range (2-8ft for medium), no adjustment
-
-      const skillResult = checkSkillCeiling(8, 'expert');
-      expect(skillResult.penalty).toBe(0);
-
-      const prefResult = calculatePreferenceAdjustment(8, 'medium');
-      expect(prefResult.adjustment).toBe(0);
-    });
-
-    it('should give beach skill match bonus when no preference is set', () => {
+    it('should give beach skill match bonus when within skill ceiling', () => {
       // Intermediate user at intermediate beach, 3ft waves:
       // - Skill ceiling: passes (3ft <= 6ft)
-      // - No preference to check
       // - Beach skill match: beach matches user level, waves in ideal range → +3
 
       const skillResult = checkSkillCeiling(3, 'intermediate');
@@ -376,18 +268,6 @@ describe('Skill Level Wave Scoring', () => {
     it('should have correct skill ideal bonus', () => {
       expect(WAVE_SIZE_SCORING_CONFIG.skillIdealBonus).toBe(3);
     });
-
-    it('should have correct preference match bonus', () => {
-      expect(WAVE_SIZE_SCORING_CONFIG.preferenceMatchBonus).toBe(5);
-    });
-
-    it('should have correct preference penalty per foot', () => {
-      expect(WAVE_SIZE_SCORING_CONFIG.preferenceOutsidePenaltyPerFoot).toBe(5);
-    });
-
-    it('should have correct max preference penalty', () => {
-      expect(WAVE_SIZE_SCORING_CONFIG.preferenceOutsideMaxPenalty).toBe(15);
-    });
   });
 
   describe('Wave Range Constants', () => {
@@ -396,12 +276,6 @@ describe('Skill Level Wave Scoring', () => {
       expect(SKILL_WAVE_RANGES.intermediate).toBeDefined();
       expect(SKILL_WAVE_RANGES.advanced).toBeDefined();
       expect(SKILL_WAVE_RANGES.expert).toBeDefined();
-    });
-
-    it('should have preference ranges for all sizes', () => {
-      expect(PREF_WAVE_RANGES.small).toBeDefined();
-      expect(PREF_WAVE_RANGES.medium).toBeDefined();
-      expect(PREF_WAVE_RANGES.large).toBeDefined();
     });
 
     it('should have progressively larger ranges for higher skill levels', () => {
@@ -425,10 +299,6 @@ describe('Skill Level Wave Scoring', () => {
       // 0ft waves, beginner beach, beginner user — not in ideal range (1-3ft)
       const bonusResult = calculateBeachSkillMatchBonus(0, 'beginner', 'beginner');
       expect(bonusResult.adjustment).toBe(0);
-
-      const prefResult = calculatePreferenceAdjustment(0, 'small');
-      // 0ft is 0.5ft below acceptable min of 0.5ft
-      expect(prefResult.adjustment).toBe(-3); // round(0.5 * 5) = 3
     });
 
     it('should handle fractional wave heights', () => {

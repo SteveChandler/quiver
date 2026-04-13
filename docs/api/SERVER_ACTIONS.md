@@ -262,7 +262,7 @@ async function updateProfile(
 
 **Updatable Fields:**
 - Basic: `full_name`, `bio`, `avatar_url`, `website_url`, `instagram`, `location`
-- Surf: `skill_level`, `experience_years`, `board_types`, `surf_styles`, `preferred_wave_size`, `preferred_break_type`, `crowd_preference`
+- Surf: `skill_level`, `experience_years`, `board_types`, `surf_styles`
 - Settings: `home_beach_id`, `privacy_level`, `share_sessions`, `show_stats`
 - Notifications: `notif_push_enabled`, `notif_email_enabled`, `notif_inapp_enabled`, `notif_session_invites`, `notif_likes`, `notif_follows`
 

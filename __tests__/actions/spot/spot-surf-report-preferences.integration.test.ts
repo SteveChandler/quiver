@@ -34,7 +34,6 @@ jest.mock("@/lib/services/preference-learning-service", () => ({
 }));
 
 jest.mock("@/lib/domains/scoring/discovery-adapter", () => ({
-  calculatePreferenceAdjustment: jest.fn(() => ({ adjustment: 0, reason: null, warning: null })),
   checkSkillCeiling: jest.fn(() => ({ penalty: 0, warning: null })),
 }));
 

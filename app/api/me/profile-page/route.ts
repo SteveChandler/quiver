@@ -55,9 +55,6 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
         home_beach_id,
         experience_level,
         surf_styles,
-        preferred_wave_size,
-        preferred_break_type,
-        crowd_preference,
         notif_reminders,
         notif_forecast_alerts,
         digest_session_invites,
@@ -192,9 +189,6 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
   const onboarding = {
     experience_level: profileData.experience_level ?? undefined,
     surf_styles: profileData.surf_styles ?? undefined,
-    preferred_wave_size: profileData.preferred_wave_size ?? undefined,
-    preferred_break_type: profileData.preferred_break_type ?? undefined,
-    crowd_preference: profileData.crowd_preference ?? undefined,
   };
 
   const preferences: ProfilePagePreferences = {
@@ -213,9 +207,6 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
     home_beach_id: profileData.home_beach_id ?? null,
     experience_level: profileData.experience_level ?? null,
     surf_styles: profileData.surf_styles ?? null,
-    preferred_wave_size: profileData.preferred_wave_size ?? null,
-    preferred_break_type: profileData.preferred_break_type ?? null,
-    crowd_preference: profileData.crowd_preference ?? null,
     homeBeachName,
     // Notification settings for ProfilePreferences
     notif_reminders: profileData.notif_reminders ?? null,

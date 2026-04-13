@@ -5,9 +5,6 @@
  * Shows:
  * - Experience Level (with emoji)
  * - Surf Styles (as emoji badges, multiple values)
- * - Preferred Wave Size (emoji + text)
- * - Preferred Break Type (emoji + text)
- * - Crowd Preference (emoji + text)
  *
  * Features:
  * - Graceful null/empty state handling
@@ -39,9 +36,6 @@ import type { Profile } from '@/types/database';
 import {
   EXPERIENCE_LEVELS,
   SURF_STYLES,
-  WAVE_SIZES,
-  BREAK_TYPES,
-  CROWD_PREFERENCES,
 } from '@/lib/constants/user-preferences';
 
 interface PreferencesDisplayCardProps {
@@ -66,30 +60,11 @@ export function PreferencesDisplayCard({
       .filter((style): style is NonNullable<typeof style> => style !== null && style !== undefined);
   };
 
-  const getWaveSize = () => {
-    if (!profile.preferred_wave_size) return null;
-    return WAVE_SIZES.find((size) => size.value === profile.preferred_wave_size);
-  };
-
-  const getBreakType = () => {
-    if (!profile.preferred_break_type) return null;
-    return BREAK_TYPES.find((type) => type.value === profile.preferred_break_type);
-  };
-
-  const getCrowdPreference = () => {
-    if (!profile.crowd_preference) return null;
-    return CROWD_PREFERENCES.find((pref) => pref.value === profile.crowd_preference);
-  };
-
   const experienceLevel = getExperienceLevel();
   const surfStyles = getSurfStyles();
-  const waveSize = getWaveSize();
-  const breakType = getBreakType();
-  const crowdPreference = getCrowdPreference();
 
   // Check if any preferences are set
-  const hasAnyPreferences =
-    experienceLevel || surfStyles || waveSize || breakType || crowdPreference;
+  const hasAnyPreferences = experienceLevel || surfStyles;
 
   return (
     <Card>
@@ -150,51 +125,6 @@ export function PreferencesDisplayCard({
                       {style.label}
                     </Badge>
                   ))}
-                </div>
-              </div>
-            )}
-
-            {/* Preferred Wave Size */}
-            {waveSize && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-gray-900">
-                  Preferred Wave Size
-                </h4>
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{waveSize.emoji}</span>
-                  <span className="text-base text-gray-700">
-                    {waveSize.label} - {waveSize.description}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Preferred Break Type */}
-            {breakType && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-gray-900">
-                  Preferred Break Type
-                </h4>
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{breakType.emoji}</span>
-                  <span className="text-base text-gray-700">
-                    {breakType.label} - {breakType.description}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Crowd Preference */}
-            {crowdPreference && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-gray-900">
-                  Crowd Preference
-                </h4>
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{crowdPreference.emoji}</span>
-                  <span className="text-base text-gray-700">
-                    {crowdPreference.label} - {crowdPreference.description}
-                  </span>
                 </div>
               </div>
             )}

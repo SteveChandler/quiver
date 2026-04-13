@@ -24,6 +24,7 @@ import {
   trackSignupCtaView,
 } from "@/lib/analytics/signup-conversion-tracking";
 import { useLandingLocation } from "@/hooks/use-landing-location";
+import { useAuth } from "@/context/auth-context";
 import HeroSearchLazy from "@/components/landing-page/hero-search-lazy";
 import { useRouter } from "next/navigation";
 
@@ -69,6 +70,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const { regionName } = useLandingLocation();
+  const { user } = useAuth();
   const router = useRouter();
 
   const navigateToMap = (query?: string) => {
@@ -88,8 +90,9 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
   // Fire a single landing-navbar CTA view per browser session.
   // Session-level dedup inside trackSignupCtaView keys on source.
   useEffect(() => {
+    if (user) return;
     trackSignupCtaView({ source: "landing-navbar", cta_type: "nav_button" });
-  }, []);
+  }, [user]);
 
   // Auto-open login modal for returning users (once per mount)
   const hasAutoOpened = useRef(false);
@@ -218,10 +221,6 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                   });
                   setAuthMode("login");
                   setAuthModalOpen(true);
-                  trackAuthModalOpened({
-                    mode: "login",
-                    source: "landing-navbar",
-                  });
                 }}
                 className="text-medium hover:text-white text-sm font-medium transition-colors"
               >
@@ -235,10 +234,6 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                   });
                   setAuthMode("signup");
                   setAuthModalOpen(true);
-                  trackAuthModalOpened({
-                    mode: "signup",
-                    source: "landing-navbar",
-                  });
                 }}
                 className="bg-ocean-blue text-white rounded-full px-6 py-3 font-sans font-semibold shadow-sm hover:bg-ocean-blue/90"
               >
@@ -354,10 +349,6 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                         setMobileMenuOpen(false);
                         setAuthMode("signup");
                         setAuthModalOpen(true);
-                        trackAuthModalOpened({
-                          mode: "signup",
-                          source: "landing-navbar-mobile",
-                        });
                       }}
                     >
                       See your forecast
@@ -374,10 +365,6 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                         setMobileMenuOpen(false);
                         setAuthMode("login");
                         setAuthModalOpen(true);
-                        trackAuthModalOpened({
-                          mode: "login",
-                          source: "landing-navbar-mobile",
-                        });
                       }}
                     >
                       Log in

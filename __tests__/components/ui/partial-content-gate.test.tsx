@@ -342,7 +342,7 @@ describe("PartialContentGate", () => {
       expect(trackPartialGateSignupClick).toHaveBeenCalledWith("beaches");
     });
 
-    it("tracks auth modal opened event", () => {
+    it("does not call trackAuthModalOpened from click handler (canonical fire is in modal useEffect)", () => {
       render(
         <PartialContentGate
           contentType="beaches"
@@ -354,10 +354,7 @@ describe("PartialContentGate", () => {
       const signUpButton = screen.getByText("Sign Up Free");
       fireEvent.click(signUpButton);
 
-      expect(trackAuthModalOpened).toHaveBeenCalledWith({
-        mode: "signup",
-        source: "partial-gate-beaches",
-      });
+      expect(trackAuthModalOpened).not.toHaveBeenCalled();
     });
 
     it("auth modal has correct source", () => {
@@ -443,7 +440,7 @@ describe("PartialContentGate", () => {
       expect(trackPartialGateSignupClick).not.toHaveBeenCalled();
     });
 
-    it("tracks auth modal opened event for login", () => {
+    it("does not call trackAuthModalOpened from login click handler (canonical fire is in modal useEffect)", () => {
       render(
         <PartialContentGate
           contentType="beaches"
@@ -455,10 +452,7 @@ describe("PartialContentGate", () => {
       const loginLink = screen.getByText("Log in");
       fireEvent.click(loginLink);
 
-      expect(trackAuthModalOpened).toHaveBeenCalledWith({
-        mode: "login",
-        source: "partial-gate-beaches",
-      });
+      expect(trackAuthModalOpened).not.toHaveBeenCalled();
     });
   });
 

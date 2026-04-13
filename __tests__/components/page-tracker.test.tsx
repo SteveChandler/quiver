@@ -71,6 +71,7 @@ describe("PageTracker", () => {
         expect(mockTrack).toHaveBeenCalledWith("page_view", {
           metadata: {
             page: "home",
+            pathname: "/home",
             referrer: "",
             browser_session_id: expect.any(String),
           },
@@ -99,6 +100,7 @@ describe("PageTracker", () => {
         expect(mockTrack).toHaveBeenLastCalledWith("page_view", {
           metadata: {
             page: "discover",
+            pathname: "/discover",
             referrer: "/home",
             browser_session_id: expect.any(String),
           },
@@ -213,6 +215,7 @@ describe("PageTracker", () => {
           expect(mockTrack).toHaveBeenCalledWith("page_view", {
             metadata: {
               page: expected,
+              pathname,
               referrer: expect.any(String),
               browser_session_id: expect.any(String),
             },

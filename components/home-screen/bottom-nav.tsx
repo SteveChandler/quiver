@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Home, Map, BookOpen, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTrackEvent } from "@/hooks/use-track-event";
 
 /**
  * Navigation item configuration
@@ -47,6 +48,7 @@ const navItems: NavItem[] = [
 export function BottomNav() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { track } = useTrackEvent();
 
   // Hide on scroll-down, show on scroll-up to reclaim screen real estate on
   // content-dense mobile layouts. Always visible at the top of the page.
@@ -123,6 +125,17 @@ export function BottomNav() {
                   : "text-[#7B83B5] hover:text-[#A0A8D0] active:text-[#C0C8E0]"
               )}
               aria-current={active ? "page" : undefined}
+              onClick={() => {
+                if (!active) {
+                  track("tab_view", {
+                    metadata: {
+                      tab: item.label.toLowerCase(),
+                      source: "bottom_nav",
+                    },
+                    debounceMs: 300,
+                  });
+                }
+              }}
             >
               <item.icon
                 className={cn(

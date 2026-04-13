@@ -1469,4 +1469,49 @@ describe('computeSurfCall', () => {
       expect(result.isCalibrated).toBe(false);
     });
   });
+
+  describe('rideableWavesPerHour', () => {
+    it('returns non-null rideableWavesPerHour for valid window with swell data', () => {
+      const beach = makeBeach({ break_type: 'beach break' });
+      const forecasts = [makeForecast({
+        wave_height: '3-4 ft',
+        wave_period: '12s',
+        swell_1_period: '12s',
+        swell_1_height: '3',
+        swell_1_direction: 'W',
+      })];
+      const result = computeSurfCall(makeWindow({ score: 75 }), forecasts, beach);
+      expect(result.rideableWavesPerHour).not.toBeNull();
+      expect(result.rideableWavesPerHour).toBeGreaterThan(0);
+    });
+
+    it('returns null rideableWavesPerHour when no forecasts', () => {
+      const result = computeSurfCall(null, [], makeBeach());
+      expect(result.rideableWavesPerHour).toBeNull();
+    });
+
+    it('returns null rideableWavesPerHour when no window and waves too small', () => {
+      const forecasts = [makeForecast({ wave_height: '0.5 ft' })];
+      const result = computeSurfCall(null, forecasts, makeBeach());
+      expect(result.rideableWavesPerHour).toBeNull();
+    });
+
+    it('populates rideableWavesPerHour on short-window early-return', () => {
+      const shortWindow = makeWindow({
+        start: new Date('2026-01-22T08:00:00Z'),
+        end: new Date('2026-01-22T08:20:00Z'), // 20 min — below minimum
+        score: 75,
+      });
+      const forecasts = [makeForecast({
+        wave_height: '3-4 ft',
+        wave_period: '12s',
+        swell_1_period: '12s',
+        swell_1_height: '3',
+        swell_1_direction: 'W',
+      })];
+      const result = computeSurfCall(shortWindow, forecasts, makeBeach());
+      expect(result.verdict).toBe('NO');
+      expect(result.rideableWavesPerHour).not.toBeNull();
+    });
+  });
 });

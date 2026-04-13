@@ -308,6 +308,7 @@ describe("discovery-cache-utils", () => {
             staleBeaches: 0,
             generated_at: now.toISOString(),
           },
+          regionalCall: '',
         },
         timestamp: Date.now() - 5 * 60 * 1000, // 5 minutes ago
         optionsHash: "abc123",
@@ -478,5 +479,6 @@ function createMockDiscoveryResponse(): SurfDiscoveryResponse {
       staleBeaches: 0,
       generated_at: now.toISOString(),
     },
+    regionalCall: '',
   };
 }

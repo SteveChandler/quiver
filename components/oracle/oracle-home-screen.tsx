@@ -84,11 +84,20 @@ function formatTimeAgo(dateStr: string): string {
  * Generate a personalized best window title based on preferred session time.
  */
 function getBestWindowTitle(
-  window: SurfDiscoveryRecommendation["window"] | undefined
+  window: SurfDiscoveryRecommendation["window"] | undefined,
+  isTomorrow: boolean
 ): string {
   if (!window) return "Surf's looking good";
 
   const hour = getHourInTimezone(window.start, window.timezone || "America/Los_Angeles");
+
+  if (isTomorrow) {
+    if (hour < 8) return "Tomorrow's dawn patrol";
+    if (hour < 12) return "Tomorrow morning looks glassy";
+    if (hour < 14) return "Tomorrow's lunchtime waves";
+    if (hour < 17) return "Tomorrow afternoon lined up";
+    return "Tomorrow evening lined up";
+  }
 
   if (hour < 8) return "Dawn patrol is your move";
   if (hour < 12) return "Morning is looking glassy";
@@ -250,6 +259,7 @@ function transformToNearbySpots(
       photoUrl: rec.beach.photo_url ?? null,
       score: rec.score,
       skillMismatch,
+      strategyTag: rec.strategyTag,
     };
   });
 }
@@ -469,17 +479,17 @@ export function OracleHomeScreen() {
   const oracleProfile = profile as unknown as ProfileWithOracle | undefined;
   const preferredTime = oracleProfile?.preferred_session_time ?? null;
 
-  // Best window data
-  const bestWindowTime = window?.start ? formatWindowTime(window.start, heroTz) : "—";
-  const bestWindowTitle = getBestWindowTitle(window);
-  const bestWindowSubtitle =
-    heroRec?.reasons?.[0] ?? "Check the forecast for details";
-
   // Check if the top recommendation is for tomorrow (timezone-aware)
   const isTomorrow = useMemo(() => {
     if (!window?.start) return false;
     return isFutureDayInTimezone(window.start, heroTz);
   }, [window?.start, heroTz]);
+
+  // Best window data
+  const bestWindowTime = window?.start ? formatWindowTime(window.start, heroTz) : "—";
+  const bestWindowTitle = getBestWindowTitle(window, isTomorrow);
+  const bestWindowSubtitle =
+    heroRec?.reasons?.[0] ?? "Check the forecast for details";
 
   // Transformed sub-component data (memoised to avoid child re-renders)
   const timeWindows = useMemo(
@@ -533,6 +543,7 @@ export function OracleHomeScreen() {
         bestWindowTitle={bestWindowTitle}
         bestWindowSubtitle={bestWindowSubtitle}
         bestWindowTime={bestWindowTime}
+        isTomorrow={isTomorrow}
         shouldAnimate={oracle.shouldAnimate}
         onAnimationComplete={oracle.markAnimationPlayed}
         userName={profile?.display_name ?? profile?.full_name}
@@ -541,6 +552,7 @@ export function OracleHomeScreen() {
         levelTitle={oracleProfile?.level_title ?? null}
         xpTotal={oracleProfile?.xp_total ?? null}
         timezone={heroTz}
+        regionalCall={oracle.discovery?.regionalCall}
       />
 
       {/* Inline session time selector — only shows when preference is not yet set */}
@@ -577,6 +589,7 @@ export function OracleHomeScreen() {
               preferredTime={preferredTime}
               forecastUrl={forecastUrl}
               isTomorrow={isTomorrow}
+              eveningTransition={oracle.discovery?.eveningTransition}
             />
           </div>
         </div>

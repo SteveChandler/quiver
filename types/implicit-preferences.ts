@@ -257,7 +257,11 @@ export interface DiscoveryClickMetadata {
   /** The personalization score shown to the user */
   score_shown: number;
   /** How many alternatives were available */
-  alternatives_count: number;
+  alternatives_count?: number;
+  /** The action taken (e.g., 'plan_session', 'view_beach') */
+  action?: string;
+  /** Quality of the match (e.g., 'perfect', 'good', 'fair') */
+  match_quality?: string;
 }
 
 /**
@@ -304,6 +308,8 @@ export interface LocationUpdateMetadata {
 export interface PageViewMetadata {
   /** Page identifier (home, discover, beach, profile, etc.) */
   page: string;
+  /** Full pathname for landing page attribution */
+  pathname?: string;
   /** Previous page URL or path */
   referrer?: string;
   /** Browser session identifier for grouping page views (tab-scoped, distinct from DB session_id column) */
@@ -339,7 +345,11 @@ export interface SessionActionMetadata {
  */
 export interface ProfileUpdateMetadata {
   /** Field that was updated */
-  field: 'home_beach' | 'experience' | 'preferences' | 'board' | 'avatar' | 'name' | 'other';
+  field?: 'home_beach' | 'experience' | 'preferences' | 'board' | 'avatar' | 'name' | 'other';
+  /** List of fields that changed */
+  fields_changed?: string[];
+  /** Whether the email address was changed */
+  email_changed?: boolean;
 }
 
 /**
@@ -454,9 +464,11 @@ export interface TabViewMetadata {
   /** Tab that was switched to */
   tab: string;
   /** Tab that was switched from */
-  previous_tab: string;
+  previous_tab?: string;
   /** Time spent on the previous tab in milliseconds */
-  time_on_previous_ms: number;
+  time_on_previous_ms?: number;
+  /** Source of the tab switch (e.g., 'bottom_nav') */
+  source?: string;
 }
 
 /** Metadata for map_interaction events */
@@ -863,6 +875,7 @@ export function isBeachViewMetadata(
 
 /**
  * Type guard to check if metadata is DiscoveryClickMetadata
+ * Discriminates from DiscoverySkipMetadata by absence of chosen_beach_id
  */
 export function isDiscoveryClickMetadata(
   metadata: EventMetadata | null
@@ -871,12 +884,13 @@ export function isDiscoveryClickMetadata(
   return (
     'position' in metadata &&
     'score_shown' in metadata &&
-    'alternatives_count' in metadata
+    !('chosen_beach_id' in metadata)
   );
 }
 
 /**
  * Type guard to check if metadata is DiscoverySkipMetadata
+ * Discriminates from DiscoveryClickMetadata by presence of chosen_beach_id
  */
 export function isDiscoverySkipMetadata(
   metadata: EventMetadata | null
@@ -885,7 +899,7 @@ export function isDiscoverySkipMetadata(
   return (
     'position' in metadata &&
     'score_shown' in metadata &&
-    !('alternatives_count' in metadata)
+    'chosen_beach_id' in metadata
   );
 }
 
