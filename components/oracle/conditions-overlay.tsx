@@ -17,6 +17,8 @@ interface ConditionsOverlayProps {
   shouldAnimate: boolean;
   /** Animated wave height display value — controlled by parent for count-up */
   animatedWaveHeight?: string;
+  /** When true, the best window is for tomorrow — adjusts the "Best time" label */
+  isTomorrow?: boolean;
 }
 
 // Score badge background is Paradise Gold; text is deep twilight for contrast.
@@ -76,6 +78,7 @@ export function ConditionsOverlay({
   bestWindowTime,
   shouldAnimate,
   animatedWaveHeight,
+  isTomorrow,
 }: ConditionsOverlayProps) {
   const displayWaveHeight = animatedWaveHeight ?? waveHeight;
   const tideDirectionLabel = tideDirection === "rising" ? "Rising" : "Falling";
@@ -133,7 +136,7 @@ export function ConditionsOverlay({
           </div>
           <div className="shrink-0 text-right">
             <p className="text-medium text-[10px] uppercase tracking-wider">
-              Best time
+              {isTomorrow ? "Best time tomorrow" : "Best time"}
             </p>
             <p className="text-high font-medium">{bestWindowTime}</p>
           </div>
