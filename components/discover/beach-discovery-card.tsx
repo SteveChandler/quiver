@@ -23,6 +23,7 @@ import { useBeachPersonalization } from "@/hooks/use-beach-personalization";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
 import { MatchScoreTeaser } from "@/components/recommendations/match-score-teaser";
 import { track } from "@/lib/analytics";
+import { useTrackEvent } from "@/hooks/use-track-event";
 import { FavoriteButton } from "@/components/favorite-button";
 import { useAuth } from "@/context/auth-context";
 
@@ -61,6 +62,7 @@ export function BeachDiscoveryCard({
   } = recommendation;
 
   const { user } = useAuth();
+  const { track: trackEvent } = useTrackEvent();
 
   // Fetch personalized score for this beach
   const personalization = useBeachPersonalization({
@@ -251,7 +253,18 @@ export function BeachDiscoveryCard({
             variant="default"
             size="sm"
             className="flex-1"
-            onClick={() => onPlanSession(beach.id)}
+            onClick={() => {
+              trackEvent("discovery_click", {
+                beachId: beach.id,
+                metadata: {
+                  position: rank,
+                  score_shown: displayScore,
+                  action: "plan_session",
+                  match_quality: matchQuality,
+                },
+              });
+              onPlanSession(beach.id);
+            }}
           >
             Plan Session
           </Button>
@@ -261,6 +274,17 @@ export function BeachDiscoveryCard({
               buttonVariants({ variant: "outline", size: "sm" }),
               "flex-1 text-center"
             )}
+            onClick={() => {
+              trackEvent("discovery_click", {
+                beachId: beach.id,
+                metadata: {
+                  position: rank,
+                  score_shown: displayScore,
+                  action: "view_beach",
+                  match_quality: matchQuality,
+                },
+              });
+            }}
           >
             View Beach
           </Link>
