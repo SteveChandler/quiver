@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { StrategyTag } from "@/types/personalization";
 
 export interface NearbySpot {
   id: string;
@@ -15,11 +16,7 @@ export interface NearbySpot {
   score?: number;
   /** True when beach skill level exceeds user level AND conditions are significant */
   skillMismatch?: boolean;
-  strategyTag?: {
-    type: string;
-    label: string;
-    reason: string;
-  };
+  strategyTag?: StrategyTag;
 }
 
 export interface NearbySpotsProps {

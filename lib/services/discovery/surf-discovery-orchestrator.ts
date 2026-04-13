@@ -38,6 +38,7 @@ import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/li
 import { SET_WAVE_VARIANCE } from '@/lib/utils/wave-height-transformer';
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
+import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
 
 // Import from other discovery modules
 import { buildCandidatePool } from './candidate-pool-builder';
@@ -909,16 +910,14 @@ async function discoverSurfSpotsInner(
     if (isAfterSunset(heroBeachId, now, sunTimesCache)) {
       const heroBeach = enrichedRanked[0].beach;
       const heroTz = getTimezoneFromCoords(heroBeach.lat || 0, heroBeach.lon || 0);
-      const heroForecasts = forecastsByBeachId.get(heroBeachId) ?? [];
 
-      // Find remaining best window for today (no time slot filter — any remaining daylight)
-      const remainingWindow = selectBestWindow(
-        heroForecasts,
-        heroBeach,
-        userPrefs,
-        horizonHours,
-        sunTimesCache,
-      );
+      // Use the hero's already-scored window if it's still today — selectBestWindow
+      // rejects post-sunset windows so re-querying would always return null after sunset.
+      const heroWindow = enrichedRanked[0].window;
+      const heroWindowIsToday = heroWindow?.start
+        ? !isFutureDayInTimezone(heroWindow.start, heroTz)
+        : false;
+      const remainingWindow = heroWindowIsToday ? heroWindow : null;
       const restOfToday = buildRestOfToday(remainingWindow, heroTz);
 
       eveningTransition = {

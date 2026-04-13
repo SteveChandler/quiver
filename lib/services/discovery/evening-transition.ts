@@ -19,12 +19,7 @@ export function isAfterSunset(
     return diff > 0 && diff < 12 * 60 * 60 * 1000;
   });
 
-  if (!todaySunset) {
-    // Fallback: any sunset in the past
-    return sunTimes.sunsets.some(s => s.getTime() < now.getTime());
-  }
-
-  return now.getTime() > todaySunset.getTime();
+  return todaySunset != null && now.getTime() > todaySunset.getTime();
 }
 
 /**
@@ -46,7 +41,6 @@ export function buildRestOfToday(
 
   const conditionParts = [hour];
   if (remainingWindow.wind) conditionParts.push(remainingWindow.wind);
-  if (remainingWindow.waveHeight) conditionParts.push(remainingWindow.waveHeight);
   if (remainingWindow.tide) conditionParts.push(remainingWindow.tide);
 
   return {

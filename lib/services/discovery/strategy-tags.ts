@@ -55,7 +55,7 @@ export function assignStrategyTags(
     .filter(r => {
       if (taggedBeaches.has(r.beach.id)) return false;
       if (r.score < 40) return false;
-      const crowd = (r.beach as any).crowd_level as string | undefined;
+      const crowd = r.beach.crowd_level;
       return crowd === 'light' || crowd === 'moderate';
     })
     .sort((a, b) => b.score - a.score)[0];
@@ -109,7 +109,7 @@ function buildReason(rec: SurfDiscoveryRecommendation): string {
   const forecast = rec.forecast;
 
   if (forecast.wind_speed) {
-    if (/^0\s*(mph|kn)/i.test(forecast.wind_speed)) {
+    if (/^0(\s|$|[^.])/i.test(forecast.wind_speed ?? '')) {
       parts.push('Glassy');
     } else if (forecast.wind_direction) {
       parts.push(`${forecast.wind_speed} ${forecast.wind_direction}`);

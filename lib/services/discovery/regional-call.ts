@@ -130,7 +130,7 @@ function buildSwellClause(recs: SurfDiscoveryRecommendation[]): string | null {
 function buildAspectClause(recs: SurfDiscoveryRecommendation[]): string | null {
   const top5 = recs.slice(0, 5);
   const aspects = top5
-    .map(r => (r.beach as any).aspect_deg)
+    .map(r => r.beach.aspect_deg)
     .filter((d): d is number => typeof d === 'number' && !isNaN(d));
 
   if (aspects.length === 0) return null;
@@ -157,14 +157,11 @@ function buildWindTrendClause(options: RegionalCallOptions): string | null {
   if (!dawnWind && !middayWind) return null;
 
   const dawnCalm = dawnWind ? isCalm(dawnWind.speed) : false;
-  const middaySpeed = middayWind ? parseSpeed(middayWind.speed) : 0;
   const middayCalm = middayWind ? isCalm(middayWind.speed) : false;
 
   // Glassy at dawn, onshore by midday
   if (dawnWind && middayWind && dawnCalm && !middayCalm) {
-    const dir = middayWind.direction ? middayWind.direction : '';
-    const onshoreLabel = dir ? `onshore by midday` : 'onshore by midday';
-    return `Glassy at dawn, ${onshoreLabel}`;
+    return `Glassy at dawn, onshore by midday`;
   }
 
   // Both calm

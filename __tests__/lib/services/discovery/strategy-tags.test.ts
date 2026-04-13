@@ -176,4 +176,20 @@ describe('assignStrategyTags', () => {
     expect(result[0].strategyTag).toBeUndefined();
     expect(result).toHaveLength(1);
   });
+
+  it('assigns sleep_in when late-morning score retains >= 70% of original', () => {
+    const hero = mockRec({ beachId: 'hero-si', score: 80 });
+    const steady = mockRec({ beachId: 'steady', score: 60, waveHeightBadge: '2-3ft' });
+    const sleepInScores = new Map([['steady', 45]]); // 45/60 = 75% >= 70%
+    const result = assignStrategyTags([hero, steady], sleepInScores);
+    expect(result[1].strategyTag?.type).toBe('sleep_in');
+  });
+
+  it('does not assign sleep_in when score retention is below 70%', () => {
+    const hero = mockRec({ beachId: 'hero-si2', score: 80 });
+    const dawnOnly = mockRec({ beachId: 'dawn-only', score: 60 });
+    const sleepInScores = new Map([['dawn-only', 30]]); // 30/60 = 50% < 70%
+    const result = assignStrategyTags([hero, dawnOnly], sleepInScores);
+    expect(result[1].strategyTag?.type).not.toBe('sleep_in');
+  });
 });
