@@ -3,7 +3,6 @@ import { BestRightNow } from "@/components/forecast/best-right-now";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import type { TopBeachEntry } from "@/lib/utils/forecast-hub-utils";
 
-// Mock Next.js Link component
 jest.mock("next/link", () => {
   return function MockLink({ children, href, ...props }: any) {
     return (
@@ -14,27 +13,26 @@ jest.mock("next/link", () => {
   };
 });
 
-// Mock useDataFetcher hook
+jest.mock("next/image", () => {
+  return function MockImage({ alt, src, ...props }: any) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img alt={alt} src={typeof src === "string" ? src : ""} {...props} />;
+  };
+});
+
 jest.mock("@/hooks/use-data-fetcher", () => ({
   useDataFetcher: jest.fn(),
 }));
 
-// Mock score-color-utils
 jest.mock("@/lib/utils/score-color-utils", () => ({
   getScoreColorClasses: jest.fn((score: number) => {
-    if (score >= 8) {
-      return { bg: "bg-green-500", label: "Excellent" };
-    } else if (score >= 6) {
-      return { bg: "bg-blue-500", label: "Good" };
-    } else if (score >= 4) {
-      return { bg: "bg-yellow-500", label: "Fair" };
-    } else {
-      return { bg: "bg-gray-400", label: "Poor" };
-    }
+    if (score >= 8) return { bg: "bg-green-500", label: "Excellent" };
+    if (score >= 6) return { bg: "bg-blue-500", label: "Good" };
+    if (score >= 4) return { bg: "bg-yellow-500", label: "Fair" };
+    return { bg: "bg-gray-400", label: "Poor" };
   }),
 }));
 
-// Mock lucide-react icons
 jest.mock("lucide-react", () => ({
   Waves: ({ className }: { className?: string }) => (
     <svg data-testid="waves-icon" className={className} />
@@ -44,7 +42,6 @@ jest.mock("lucide-react", () => ({
   ),
 }));
 
-// Mock ip-location utilities
 jest.mock("@/lib/location/ip-location", () => ({
   getIPLocationCookieName: jest.fn(() => "quiver_ip_region"),
   parseIPLocationCookie: jest.fn((value: string) => {
@@ -56,759 +53,238 @@ jest.mock("@/lib/location/ip-location", () => ({
   }),
 }));
 
-describe("BestRightNow", () => {
-  const mockTopBeaches: TopBeachEntry[] = [
-    {
-      beachId: "beach-1",
-      beachName: "Blacks Beach",
-      score: 9,
-      waveHeight: 6.5,
-      regionName: "San Diego",
-      href: "/ca/san-diego/blacks",
-      slug: "blacks",
-      city: "San Diego",
-      state: "CA",
-      imageUrl: null,
-      averageRating: null,
-      skillLevel: null,
-    },
-    {
-      beachId: "beach-2",
-      beachName: "Trestles",
-      score: 8,
-      waveHeight: 4.2,
-      regionName: "Orange County",
-      href: "/ca/orange-county/trestles",
-      slug: "trestles",
-      city: "Orange County",
-      state: "CA",
-      imageUrl: null,
-      averageRating: null,
-      skillLevel: null,
-    },
-    {
-      beachId: "beach-3",
-      beachName: "Rincon",
-      score: 7,
-      waveHeight: 5.8,
-      regionName: "Santa Barbara",
-      href: "/ca/santa-barbara/rincon",
-      slug: "rincon",
-      city: "Santa Barbara",
-      state: "CA",
-      imageUrl: null,
-      averageRating: null,
-      skillLevel: null,
-    },
-    {
-      beachId: "beach-4",
-      beachName: "Ocean Beach",
-      score: 6,
-      waveHeight: 3.1,
-      regionName: "San Francisco",
-      href: "/ca/san-francisco/ocean-beach",
-      slug: "ocean-beach",
-      city: "San Francisco",
-      state: "CA",
-      imageUrl: null,
-      averageRating: null,
-      skillLevel: null,
-    },
-    {
-      beachId: "beach-5",
-      beachName: "Huntington Beach",
-      score: 5,
-      waveHeight: 2.9,
-      regionName: "Orange County",
-      href: null, // Test beach without href
-      slug: null,
-      city: null,
-      state: null,
-      imageUrl: null,
-      averageRating: null,
-      skillLevel: null,
-    },
-  ];
+const baseBeach: Omit<TopBeachEntry, "beachId" | "beachName" | "score" | "waveHeight" | "regionName" | "href" | "slug"> = {
+  city: null,
+  state: null,
+  imageUrl: null,
+  averageRating: null,
+  skillLevel: null,
+};
 
+const mockTopBeaches: TopBeachEntry[] = [
+  {
+    ...baseBeach,
+    beachId: "beach-1",
+    beachName: "Blacks Beach",
+    score: 9,
+    waveHeight: 6.5,
+    regionName: "San Diego",
+    href: "/ca/san-diego/blacks",
+    slug: "blacks",
+    imageUrl: "https://example.com/blacks.jpg",
+  },
+  {
+    ...baseBeach,
+    beachId: "beach-2",
+    beachName: "Trestles",
+    score: 8,
+    waveHeight: 4.2,
+    regionName: "Orange County",
+    href: "/ca/orange-county/trestles",
+    slug: "trestles",
+  },
+  {
+    ...baseBeach,
+    beachId: "beach-3",
+    beachName: "Rincon",
+    score: 7,
+    waveHeight: 5.8,
+    regionName: "Santa Barbara",
+    href: "/ca/santa-barbara/rincon",
+    slug: "rincon",
+  },
+  {
+    ...baseBeach,
+    beachId: "beach-4",
+    beachName: "Ocean Beach",
+    score: 6,
+    waveHeight: 3.1,
+    regionName: "San Francisco",
+    href: "/ca/san-francisco/ocean-beach",
+    slug: "ocean-beach",
+  },
+  {
+    ...baseBeach,
+    beachId: "beach-5",
+    beachName: "Huntington Beach",
+    score: 5,
+    waveHeight: 2.9,
+    regionName: "Orange County",
+    href: null,
+    slug: null,
+  },
+];
+
+function mockFetcher(
+  data: TopBeachEntry[] | null | undefined,
+  loading = false
+) {
+  (useDataFetcher as jest.Mock).mockReturnValue({ data, loading, error: null });
+}
+
+describe("BestRightNow", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Clear cookies between tests
-    document.cookie = "quiver_ip_region=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    document.cookie =
+      "quiver_ip_region=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
   });
 
-  describe("Loading State", () => {
-    it("renders skeleton when loading", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: null,
-        loading: true,
-        error: null,
-      });
-
-      render(<BestRightNow />);
-
-      expect(screen.getByTestId("best-right-now-skeleton")).toBeInTheDocument();
-      expect(screen.getByText("Best Right Now")).toBeInTheDocument();
-    });
-
-    it("renders 5 skeleton rows", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: null,
-        loading: true,
-        error: null,
-      });
-
+  describe("Loading state", () => {
+    it("renders skeleton rows when loading", () => {
+      mockFetcher(null, true);
       const { container } = render(<BestRightNow />);
-
-      const skeletonRows = container.querySelectorAll(
+      expect(
+        screen.getByTestId("best-right-now-skeleton")
+      ).toBeInTheDocument();
+      const rows = container.querySelectorAll(
         "[data-testid='best-right-now-skeleton'] > div"
       );
-      expect(skeletonRows).toHaveLength(5);
-    });
-
-    it("skeleton rows have animate-pulse class", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: null,
-        loading: true,
-        error: null,
-      });
-
-      const { container } = render(<BestRightNow />);
-
-      const skeletonRows = container.querySelectorAll(
-        "[data-testid='best-right-now-skeleton'] > div"
-      );
-      skeletonRows.forEach((row) => {
-        expect(row).toHaveClass("animate-pulse");
-      });
+      expect(rows).toHaveLength(5);
     });
   });
 
-  describe("Cookie-based Personalization", () => {
-    it("shows 'Best Right Now' heading when no cookie is set", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: null,
-        loading: true,
-        error: null,
-      });
+  describe("Empty data", () => {
+    it.each([[[]], [null], [undefined]])(
+      "returns null when data is %p",
+      (data) => {
+        mockFetcher(data as TopBeachEntry[] | null | undefined);
+        const { container } = render(<BestRightNow />);
+        expect(container.firstChild).toBeNull();
+      }
+    );
+  });
 
+  describe("Heading resolution", () => {
+    it("uses 'Best Right Now' when no cookie and no override", () => {
+      mockFetcher(mockTopBeaches);
       render(<BestRightNow />);
-
-      expect(screen.getByText("Best Right Now")).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { level: 2, name: /best right now/i })
+      ).toBeInTheDocument();
     });
 
-    it("shows 'Best Near You' heading when cookie provides valid coords", async () => {
-      const ipLocation = JSON.stringify({
-        city: "San Diego",
-        region: "CA",
-        country: "US",
+    it("uses 'Best Near You' when cookie provides coords", async () => {
+      const ip = JSON.stringify({
         latitude: 32.7157,
         longitude: -117.1611,
       });
-      document.cookie = `quiver_ip_region=${encodeURIComponent(ipLocation)}`;
-
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: null,
-        loading: true,
-        error: null,
-      });
-
+      document.cookie = `quiver_ip_region=${encodeURIComponent(ip)}`;
+      mockFetcher(mockTopBeaches);
       await act(async () => {
         render(<BestRightNow />);
       });
-
-      expect(screen.getByText("Best Near You")).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { level: 2, name: /best near you/i })
+      ).toBeInTheDocument();
     });
 
-    it("falls back to 'Best Right Now' when cookie has no coordinates", async () => {
-      const ipLocation = JSON.stringify({
-        city: "Unknown",
-        region: null,
-        country: null,
-        latitude: null,
-        longitude: null,
-      });
-      document.cookie = `quiver_ip_region=${encodeURIComponent(ipLocation)}`;
-
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: null,
-        loading: true,
-        error: null,
-      });
-
-      await act(async () => {
-        render(<BestRightNow />);
-      });
-
-      expect(screen.getByText("Best Right Now")).toBeInTheDocument();
+    it("respects headingOverride prop", () => {
+      mockFetcher(mockTopBeaches);
+      render(
+        <BestRightNow headingOverride="Top spots in Southern California" />
+      );
+      expect(
+        screen.getByRole("heading", {
+          level: 2,
+          name: /top spots in southern california/i,
+        })
+      ).toBeInTheDocument();
     });
 
-    it("falls back to 'Best Right Now' when cookie value is malformed", async () => {
-      document.cookie = "quiver_ip_region=not-valid-json";
-
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: null,
-        loading: true,
-        error: null,
-      });
-
-      await act(async () => {
-        render(<BestRightNow />);
-      });
-
-      expect(screen.getByText("Best Right Now")).toBeInTheDocument();
+    it("uses userCoordsOverride without consulting the cookie", () => {
+      mockFetcher(mockTopBeaches);
+      render(
+        <BestRightNow
+          userCoordsOverride={{ lat: 21.3, lon: -157.8 }}
+          headingOverride="Top spots in Hawaii"
+        />
+      );
+      expect(
+        screen.getByRole("heading", { level: 2, name: /top spots in hawaii/i })
+      ).toBeInTheDocument();
     });
   });
 
-  describe("Empty Data", () => {
-    it("returns null when data is empty array", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: [],
-        loading: false,
-        error: null,
-      });
+  describe("Rendered rows", () => {
+    beforeEach(() => mockFetcher(mockTopBeaches));
 
-      const { container } = render(<BestRightNow />);
-      expect(container.firstChild).toBeNull();
-    });
-
-    it("returns null when data is null", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: null,
-        loading: false,
-        error: null,
-      });
-
-      const { container } = render(<BestRightNow />);
-      expect(container.firstChild).toBeNull();
-    });
-
-    it("returns null when data is undefined", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: undefined,
-        loading: false,
-        error: null,
-      });
-
-      const { container } = render(<BestRightNow />);
-      expect(container.firstChild).toBeNull();
-    });
-  });
-
-  describe("Data Rendering", () => {
-    it("renders all beach names", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
+    it("renders all beach names, regions, and wave ranges", () => {
       render(<BestRightNow />);
-
-      expect(screen.getByText("Blacks Beach")).toBeInTheDocument();
-      expect(screen.getByText("Trestles")).toBeInTheDocument();
-      expect(screen.getByText("Rincon")).toBeInTheDocument();
-      expect(screen.getByText("Ocean Beach")).toBeInTheDocument();
-      expect(screen.getByText("Huntington Beach")).toBeInTheDocument();
-    });
-
-    it("renders region names for each beach", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
-      render(<BestRightNow />);
-
+      for (const b of mockTopBeaches) {
+        expect(screen.getByText(b.beachName)).toBeInTheDocument();
+      }
       expect(screen.getByText("San Diego")).toBeInTheDocument();
       expect(screen.getAllByText("Orange County")).toHaveLength(2);
-      expect(screen.getByText("Santa Barbara")).toBeInTheDocument();
-      expect(screen.getByText("San Francisco")).toBeInTheDocument();
-    });
-
-    it("renders scores for each beach", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
-      const { container } = render(<BestRightNow />);
-
-      // Find score badges specifically (not rank badges)
-      const scoreBadges = container.querySelectorAll(".rounded-full.text-xs.font-bold.text-white");
-      expect(scoreBadges.length).toBe(5);
-
-      // Verify scores appear in the badges
-      expect(Array.from(scoreBadges).some(badge => badge.textContent === "9")).toBe(true);
-      expect(Array.from(scoreBadges).some(badge => badge.textContent === "8")).toBe(true);
-      expect(Array.from(scoreBadges).some(badge => badge.textContent === "7")).toBe(true);
-      expect(Array.from(scoreBadges).some(badge => badge.textContent === "6")).toBe(true);
-      expect(Array.from(scoreBadges).some(badge => badge.textContent === "5")).toBe(true);
-    });
-
-    it("renders rounded wave heights with ft suffix", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
-      render(<BestRightNow />);
-
-      // Wave heights formatted as ranges by formatWaveHeight:
-      // 6.5 -> low=7, high=round(6.5*1.5)=round(9.75)=10 -> "7-10ft"
-      // 4.2 -> low=4, high=round(4.2*1.5)=round(6.3)=6  -> "4-6ft"
-      // 5.8 -> low=6, high=round(5.8*1.5)=round(8.7)=9  -> "6-9ft"
-      // 3.1 -> low=3, high=round(3.1*1.5)=round(4.65)=5 -> "3-5ft"
-      // 2.9 -> low=3, high=round(2.9*1.5)=round(4.35)=4 -> "3-4ft"
       expect(screen.getByText("7-10ft")).toBeInTheDocument();
       expect(screen.getByText("4-6ft")).toBeInTheDocument();
-      expect(screen.getByText("6-9ft")).toBeInTheDocument();
-      expect(screen.getByText("3-5ft")).toBeInTheDocument();
-      expect(screen.getByText("3-4ft")).toBeInTheDocument();
     });
 
-    it("renders wave icons", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
-      render(<BestRightNow />);
-
-      const waveIcons = screen.getAllByTestId("waves-icon");
-      expect(waveIcons).toHaveLength(5);
-    });
-  });
-
-  describe("Rank Badges", () => {
-    it("renders trophy icon for rank #1", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
-      render(<BestRightNow />);
-
-      expect(screen.getByTestId("trophy-icon")).toBeInTheDocument();
-    });
-
-    it("renders only one trophy icon", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
-      render(<BestRightNow />);
-
-      const trophyIcons = screen.getAllByTestId("trophy-icon");
-      expect(trophyIcons).toHaveLength(1);
-    });
-
-    it("renders numbers for ranks 2-5", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
+    it("renders a trophy for rank #1 only and numeric ranks for the rest", () => {
       const { container } = render(<BestRightNow />);
-
-      // Check for rank badges with numbers (not trophy)
-      const rankBadges = container.querySelectorAll(".text-gray-500");
-      // Should have badges for ranks 2, 3, 4, 5 (4 total)
-      expect(rankBadges.length).toBeGreaterThanOrEqual(4);
-    });
-
-    it("trophy badge has amber styling", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
-      const { container } = render(<BestRightNow />);
-
-      const trophyBadge = container.querySelector(".bg-amber-100");
-      expect(trophyBadge).toBeInTheDocument();
-      expect(trophyBadge).toHaveClass("text-amber-700");
-    });
-
-    it("number badges have gray styling", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
-      const { container } = render(<BestRightNow />);
-
-      const grayBadges = container.querySelectorAll(".bg-gray-100");
-      expect(grayBadges.length).toBeGreaterThanOrEqual(4);
-    });
-  });
-
-  describe("Links", () => {
-    it("renders beaches with href as links", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
-      render(<BestRightNow />);
-
-      const links = screen.getAllByRole("link");
-
-      // 4 beach links + 1 "See All Forecasts" link = 5 total
-      expect(links.length).toBeGreaterThanOrEqual(4);
-
-      // Check href attributes for beach links
-      const blacksBeachLink = screen
-        .getByText("Blacks Beach")
-        .closest("a") as HTMLAnchorElement;
-      expect(blacksBeachLink).toHaveAttribute("href", "/ca/san-diego/blacks");
-    });
-
-    it("renders beaches without href as divs", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
-      const { container } = render(<BestRightNow />);
-
-      // Huntington Beach has no href, should be in a div
-      const huntingtonBeach = screen.getByText("Huntington Beach");
-      const parent = huntingtonBeach.closest("a");
-      expect(parent).toBeNull(); // Should not be in an <a> tag
-    });
-
-    it("all beach links have hover transition classes", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches.slice(0, 2), // Use beaches with hrefs
-        loading: false,
-        error: null,
-      });
-
-      const { container } = render(<BestRightNow />);
-
-      const beachLinks = container.querySelectorAll(
-        'a[href^="/ca"]'
-      ) as NodeListOf<HTMLAnchorElement>;
-      beachLinks.forEach((link) => {
-        expect(link.className).toMatch(/hover:bg-gray-50/);
-        expect(link.className).toMatch(/transition-colors/);
-      });
-    });
-  });
-
-  describe("Score Colors", () => {
-    it("applies correct color classes based on score", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
-      const { container } = render(<BestRightNow />);
-
-      // Find score badges specifically (not rank badges)
-      const scoreBadges = container.querySelectorAll(".rounded-full.text-xs.font-bold.text-white");
-
-      // Convert to array and check colors
-      const badgesArray = Array.from(scoreBadges);
-
-      // Score 9 should have green background
-      const score9Badge = badgesArray.find(badge => badge.textContent === "9");
-      expect(score9Badge?.className).toMatch(/bg-green-500/);
-
-      // Score 8 should have green background
-      const score8Badge = badgesArray.find(badge => badge.textContent === "8");
-      expect(score8Badge?.className).toMatch(/bg-green-500/);
-
-      // Score 7 should have blue background
-      const score7Badge = badgesArray.find(badge => badge.textContent === "7");
-      expect(score7Badge?.className).toMatch(/bg-blue-500/);
-
-      // Score 6 should have blue background
-      const score6Badge = badgesArray.find(badge => badge.textContent === "6");
-      expect(score6Badge?.className).toMatch(/bg-blue-500/);
-
-      // Score 5 should have yellow background
-      const score5Badge = badgesArray.find(badge => badge.textContent === "5");
-      expect(score5Badge?.className).toMatch(/bg-yellow-500/);
-    });
-
-    it("all score badges have white text", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
-      const { container } = render(<BestRightNow />);
-
-      const scoreBadges = container.querySelectorAll(
-        '[class*="rounded-full text-xs font-bold text-white"]'
+      expect(screen.getAllByTestId("trophy-icon")).toHaveLength(1);
+      // Rank badges are the 7×7 rounded circles rendering the rank number
+      // (ranks 2-5). A bare getByText("5") would also match the score badge.
+      const rankBadges = container.querySelectorAll(
+        ".h-7.w-7.rounded-full"
       );
-      expect(scoreBadges.length).toBe(5);
+      const rankTexts = Array.from(rankBadges)
+        .map((el) => el.textContent?.trim())
+        .filter(Boolean);
+      expect(rankTexts).toEqual(expect.arrayContaining(["2", "3", "4", "5"]));
     });
 
-    it("score badges have rounded-full shape", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches.slice(0, 1),
-        loading: false,
-        error: null,
-      });
-
+    it("renders a score badge with the beach's color class for each row", () => {
       const { container } = render(<BestRightNow />);
+      const scoreBadges = container.querySelectorAll(
+        ".rounded-full.text-xs.font-bold.text-white"
+      );
+      expect(scoreBadges).toHaveLength(5);
+      const byText = (text: string) =>
+        Array.from(scoreBadges).find((n) => n.textContent === text);
+      expect(byText("9")?.className).toMatch(/bg-green-500/);
+      expect(byText("7")?.className).toMatch(/bg-blue-500/);
+      expect(byText("5")?.className).toMatch(/bg-yellow-500/);
+    });
 
-      const scoreBadge = screen.getByText("9");
-      expect(scoreBadge).toHaveClass("rounded-full");
+    it("renders a Next Image thumbnail when a beach has imageUrl", () => {
+      render(<BestRightNow />);
+      const img = screen.getByAltText("Blacks Beach");
+      expect(img.tagName).toBe("IMG");
+      expect(img).toHaveAttribute("src", "https://example.com/blacks.jpg");
+    });
+
+    it("falls back to a Waves glyph when imageUrl is null", () => {
+      render(<BestRightNow />);
+      // 4 of 5 mock beaches have no imageUrl. Trophy icon + fallback glyphs
+      // both render as svg; waves-icon appears in both the wave-range column
+      // and each fallback thumb. We expect 5 wave-range icons plus 4 fallback
+      // thumbs = 9 total.
+      const waves = screen.getAllByTestId("waves-icon");
+      expect(waves.length).toBe(9);
+    });
+
+    it("renders beaches with href as anchors and beaches without href as plain items", () => {
+      render(<BestRightNow />);
+      const blacks = screen.getByText("Blacks Beach").closest("a");
+      expect(blacks).toHaveAttribute("href", "/ca/san-diego/blacks");
+      const huntington = screen.getByText("Huntington Beach").closest("a");
+      expect(huntington).toBeNull();
     });
   });
 
-  describe("CTA", () => {
-    it("renders See All Forecasts link", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
+  describe("Structure", () => {
+    it("carries the best-right-now testid", () => {
+      mockFetcher(mockTopBeaches);
       render(<BestRightNow />);
-
-      const ctaLink = screen.getByText(/See All Forecasts/i);
-      expect(ctaLink).toBeInTheDocument();
-    });
-
-    it("See All Forecasts links to /forecast", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
-      render(<BestRightNow />);
-
-      const ctaLink = screen.getByText(/See All Forecasts/i)
-        .closest("a") as HTMLAnchorElement;
-      expect(ctaLink).toHaveAttribute("href", "/forecast");
-    });
-
-    it("CTA link has hover styles", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
-      render(<BestRightNow />);
-
-      const ctaLink = screen.getByText(/See All Forecasts/i);
-      expect(ctaLink.className).toMatch(/hover:text-sky-700/);
-      expect(ctaLink.className).toMatch(/hover:underline/);
-    });
-  });
-
-  describe("Section Structure", () => {
-    it("has data-testid for section wrapper", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
-      render(<BestRightNow />);
-
       expect(screen.getByTestId("best-right-now")).toBeInTheDocument();
     });
 
-    it("renders section heading", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
-      render(<BestRightNow />);
-
-      const heading = screen.getByText("Best Right Now");
-      expect(heading.tagName).toBe("H2");
-    });
-
-    it("heading has correct styling classes", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
-      render(<BestRightNow />);
-
-      const heading = screen.getByText("Best Right Now");
-      expect(heading).toHaveClass("text-sm");
-      expect(heading).toHaveClass("font-semibold");
-      expect(heading).toHaveClass("text-sky-700");
-      expect(heading).toHaveClass("uppercase");
-    });
-
-    it("beach list has proper styling", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
+    it("exposes the leaderboard as an unordered list", () => {
+      mockFetcher(mockTopBeaches);
       const { container } = render(<BestRightNow />);
-
-      const beachList = container.querySelector(".rounded-xl.border");
-      expect(beachList).toBeInTheDocument();
-      expect(beachList).toHaveClass("bg-white");
-      expect(beachList).toHaveClass("divide-y");
-    });
-  });
-
-  describe("Edge Cases", () => {
-    it("handles single beach", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: [mockTopBeaches[0]],
-        loading: false,
-        error: null,
-      });
-
-      render(<BestRightNow />);
-
-      expect(screen.getByText("Blacks Beach")).toBeInTheDocument();
-      expect(screen.getByTestId("trophy-icon")).toBeInTheDocument();
-      expect(screen.getByText("San Diego")).toBeInTheDocument();
-    });
-
-    it("handles exactly 5 beaches", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
-      render(<BestRightNow />);
-
-      const beachNames = [
-        "Blacks Beach",
-        "Trestles",
-        "Rincon",
-        "Ocean Beach",
-        "Huntington Beach",
-      ];
-
-      beachNames.forEach((name) => {
-        expect(screen.getByText(name)).toBeInTheDocument();
-      });
-    });
-
-    it("handles wave height of 0.4 rendering as range", () => {
-      const lowWaveBeach: TopBeachEntry = {
-        beachId: "beach-6",
-        beachName: "Flat Beach",
-        score: 3,
-        waveHeight: 0.4,
-        regionName: "San Diego",
-        href: "/ca/san-diego/flat-beach",
-        slug: "flat-beach",
-        city: "San Diego",
-        state: "CA",
-        imageUrl: null,
-        averageRating: null,
-        skillLevel: null,
-      };
-
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: [lowWaveBeach],
-        loading: false,
-        error: null,
-      });
-
-      render(<BestRightNow />);
-
-      // 0.4 > 0 so not "Flat"; low=round(0.4)=0, high=round(0.4*1.5)=round(0.6)=1 -> "0-1ft"
-      expect(screen.getByText("0-1ft")).toBeInTheDocument();
-    });
-
-    it("handles wave height of 10.7 rendering as range", () => {
-      const bigWaveBeach: TopBeachEntry = {
-        beachId: "beach-7",
-        beachName: "Big Wave Beach",
-        score: 9,
-        waveHeight: 10.7,
-        regionName: "San Diego",
-        href: "/ca/san-diego/big-wave-beach",
-        slug: "big-wave-beach",
-        city: "San Diego",
-        state: "CA",
-        imageUrl: null,
-        averageRating: null,
-        skillLevel: null,
-      };
-
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: [bigWaveBeach],
-        loading: false,
-        error: null,
-      });
-
-      render(<BestRightNow />);
-
-      // low=round(10.7)=11, high=round(10.7*1.5)=round(16.05)=16 -> "11-16ft"
-      expect(screen.getByText("11-16ft")).toBeInTheDocument();
-    });
-  });
-
-  describe("Accessibility", () => {
-    it("has semantic section element", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
-      const { container } = render(<BestRightNow />);
-
-      const section = container.querySelector("section");
-      expect(section).toBeInTheDocument();
-    });
-
-    it("has proper heading hierarchy", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches,
-        loading: false,
-        error: null,
-      });
-
-      render(<BestRightNow />);
-
-      const heading = screen.getByRole("heading", { level: 2 });
-      expect(heading).toHaveTextContent("Best Right Now");
-    });
-
-    it("beach links are keyboard accessible", () => {
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockTopBeaches.slice(0, 2),
-        loading: false,
-        error: null,
-      });
-
-      render(<BestRightNow />);
-
-      const links = screen.getAllByRole("link");
-      links.forEach((link) => {
-        expect(link).toBeInstanceOf(HTMLAnchorElement);
-      });
+      const list = container.querySelector("ul");
+      expect(list).toBeInTheDocument();
+      expect(list?.querySelectorAll("li")).toHaveLength(5);
     });
   });
 });

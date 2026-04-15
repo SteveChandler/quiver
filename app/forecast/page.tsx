@@ -1,33 +1,31 @@
 import { Metadata } from "next";
 import Link from "next/link";
-import { Calendar, MapPin, TrendingUp } from "lucide-react";
 
 import {
   FORECAST_REGIONS,
   getGuideSlugForRegion,
+  getForecastRegionForCity,
   hasHubGuide,
 } from "@/lib/data/forecast-regions";
-import { REGION_GROUPS } from "@/lib/data/region-groups";
-import { formatFullDateWithYear } from "@/lib/utils/date-time";
-import {
-  getRegionalSummaries,
-  getBestRegionForUser,
-} from "@/lib/utils/forecast-hub-utils";
+import { getRegionalSummaries } from "@/lib/utils/forecast-hub-utils";
+import { resolveActiveRegion } from "@/lib/utils/resolve-active-region";
+import { getCurrentUser } from "@/lib/auth/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
-import {
-  RegionalForecastCard,
-  RegionalForecastCardGrid,
-  AnimatedScoreGauge,
-  BestRightNow,
-} from "@/components/forecast";
-import { OceanBackground } from "@/components/ui/ocean-background";
-import { ScrollReveal } from "@/components/ui/scroll-reveal";
+import { BestRightNow } from "@/components/forecast";
+import { RegionalCallHero } from "@/components/forecast/regional-call-hero";
+import { SevenDayOutlook } from "@/components/forecast/seven-day-outlook";
+import { OtherRegionsStrip } from "@/components/forecast/other-regions-strip";
+import { RegionalGuidesStrip } from "@/components/forecast/regional-guides-strip";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 
-// ISR: revalidate every hour — forecasts update every ~3 hours, this is conservative
-export const revalidate = 3600;
+// Reading cookies via `resolveActiveRegion` opts this route out of static ISR.
+// The heavy data work (`getRegionalSummaries`) is identical across every
+// region variant and gets memoized by the request-time fetch cache, so
+// per-region rendering stays cheap.
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Surf Forecast - 7 Day Regional Surf Conditions",
@@ -51,30 +49,117 @@ export const metadata: Metadata = buildPageMetadata({
 });
 
 /**
- * Forecast Hub Landing Page
- *
- * Main forecast index page linking to all regional forecasts.
- * Displays summary cards for each region with best days, wave heights,
- * and conditions quality. Enhanced with ocean background and animations.
+ * Look up the authed user's home-beach region slug by joining
+ * `profiles.home_beach_id → beaches.(city,state)`. Tries city-based mapping
+ * first (granular sub-regions like `san-diego`), falls back to a state-based
+ * match (`region.states.includes(state)`) so authed users whose home city
+ * isn't explicitly listed don't silently lose to the IP cookie path.
+ * Returns null on any failure — never throws the page.
  */
-export default async function ForecastHubPage() {
-  const summaries = await getRegionalSummaries();
-  const regions = Object.values(FORECAST_REGIONS);
+async function getAuthedUserHomeRegionSlug(userId: string): Promise<string | null> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("home_beach:beaches!profiles_home_beach_id_fkey(city, state)")
+      .eq("id", userId)
+      .maybeSingle();
+    if (error || !data) return null;
+    const homeBeach = (data as { home_beach: { city?: string | null; state?: string | null } | null })
+      .home_beach;
+    if (!homeBeach) return null;
 
-  // Server always renders global best — client-side personalization via cookie
-  // is handled inside BestRightNow (reads quiver_ip_region cookie on mount).
-  const bestResult = getBestRegionForUser(summaries, null);
+    // 1. Prefer an exact city match — surfaces the most specific sub-region
+    //    (e.g. `san-diego` over the broader `southern-california`).
+    if (homeBeach.city) {
+      const bySlug = getForecastRegionForCity(homeBeach.city);
+      if (bySlug) return bySlug;
+    }
+
+    // 2. Fall back to a state match. Prefer sub-regions (regions that declare
+    //    `cities`) when multiple regions share the same state, so a California
+    //    beach with an unlisted city doesn't always collapse to the SoCal
+    //    parent. Tie-break by sub-region ordering in FORECAST_REGIONS.
+    if (homeBeach.state) {
+      const state = homeBeach.state.toLowerCase();
+      const matches = Object.values(FORECAST_REGIONS).filter((r) =>
+        r.states.some((s) => s.toLowerCase() === state)
+      );
+      if (matches.length > 0) {
+        const subRegion = matches.find((r) => r.cities && r.cities.length > 0);
+        return (subRegion ?? matches[0]).slug;
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Forecast Hub — Anonymous Regional Oracle
+ *
+ * Narrows the page to ONE region (the visitor's) instead of listing all 17.
+ * Region resolution: `?region=` override → authed home beach → IP cookie →
+ * default `southern-california`. Below the single-region call, a compact
+ * "Going elsewhere?" strip preserves browse intent and SEO mass.
+ */
+export default async function ForecastHubPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ region?: string | string[] }>;
+}) {
+  const resolvedSearchParams = await searchParams;
+
+  // Parallelize: auth read, summaries fetch, and cookie-based region resolution.
+  const [user, summaries] = await Promise.all([
+    getCurrentUser(),
+    getRegionalSummaries(),
+  ]);
+
+  const isAuthed = user !== null;
+  const authedUserHomeRegionSlug = user
+    ? await getAuthedUserHomeRegionSlug(user.id)
+    : null;
+
+  const region = await resolveActiveRegion({
+    searchParams: resolvedSearchParams,
+    authedUserHomeRegionSlug,
+  });
+  const activeSummary = summaries[region.slug];
+
+  const allRegions = Object.values(FORECAST_REGIONS);
 
   const baseUrl =
     process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
-  // Get today's date for display
-  const today = new Date();
-  const todayFormatted = formatFullDateWithYear(today);
+  // Deduplicated guide cross-links (multiple regions can share a guide).
+  // Prefer the active region as the mapped source for its guide slug (so the
+  // featured card surfaces the visitor's region when possible and the photo
+  // lookup uses the active region's summary).
+  const guideLinks = (() => {
+    const seen = new Set<string>();
+    const ordered = [
+      ...allRegions.filter((r) => r.slug === region.slug),
+      ...allRegions.filter((r) => r.slug !== region.slug),
+    ];
+    return ordered
+      .filter((r) => {
+        if (!hasHubGuide(r.slug)) return false;
+        const guideSlug = getGuideSlugForRegion(r.slug);
+        if (seen.has(guideSlug)) return false;
+        seen.add(guideSlug);
+        return true;
+      })
+      .map((r) => ({
+        region: r,
+        guideSlug: getGuideSlugForRegion(r.slug),
+      }));
+  })();
 
   return (
-    <OceanBackground variant="ocean" showWaves animated={false}>
-      {/* Structured Data */}
+    <div className="min-h-screen bg-[#252D6B] noise-texture-subtle">
       <BreadcrumbStructuredData
         items={[
           { name: "Quiver", url: baseUrl },
@@ -82,7 +167,6 @@ export default async function ForecastHubPage() {
         ]}
       />
 
-      {/* JSON-LD for WebPage */}
       <WebPageSchema
         name="Surf Forecast - 7 Day Regional Surf Conditions"
         url={`${baseUrl}/forecast`}
@@ -113,244 +197,120 @@ export default async function ForecastHubPage() {
         }}
       />
 
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Hero Section */}
-        <ScrollReveal variant="fadeUp">
-          <header className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 text-sm text-muted-foreground mb-4">
-              <Calendar className="h-4 w-4" />
-              <time dateTime={today.toISOString()}>{todayFormatted}</time>
-            </div>
+      <div className="container mx-auto max-w-5xl px-4 py-8">
+        <RegionalCallHero
+          region={region}
+          summary={activeSummary}
+          isAuthed={isAuthed}
+        />
 
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Surf Forecast
-            </h1>
-            <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto">
-              7-day forecasts for every region. Find the best waves, track swell
-              events, and plan your sessions.
-            </p>
-          </header>
-        </ScrollReveal>
+        <SevenDayOutlook summary={activeSummary} regionName={region.name} />
 
-        {/* Best Today Section - Enhanced Hero */}
-        {bestResult && bestResult.summary.days[0] && (
-          <ScrollReveal variant="scale" delay={100}>
-            <section className="mb-10 bg-gradient-to-br from-sky-50 via-blue-50 to-cyan-50 rounded-xl p-6 border border-sky-200 relative overflow-hidden">
-              {/* Subtle wave pattern */}
-              <div className="absolute inset-0 opacity-10 pointer-events-none">
-                <svg
-                  className="absolute bottom-0 left-0 w-full h-16"
-                  viewBox="0 0 1440 60"
-                  preserveAspectRatio="none"
-                >
-                  <path
-                    d="M0,30 Q360,60 720,30 T1440,30 L1440,60 L0,60 Z"
-                    fill="currentColor"
-                    className="text-sky-500"
-                  />
-                </svg>
-              </div>
-
-              <div className="flex flex-col md:flex-row items-start md:items-center gap-6 relative z-10">
-                {/* Animated Score Gauge */}
-                <div className="flex-shrink-0">
-                  <AnimatedScoreGauge
-                    score={bestResult.summary.days[0].score}
-                    size="lg"
-                    showLabel
-                  />
-                </div>
-
-                {/* Content */}
-                <div className="flex-1">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                    {bestResult.isLocationPersonalized
-                      ? "Your Local Forecast"
-                      : "Best Conditions Today"}
-                  </h2>
-                  <div className="flex flex-wrap items-center gap-4 text-gray-700">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-sky-600" />
-                      <Link
-                        href={`/forecast/${bestResult.region.slug}`}
-                        className="font-medium hover:text-sky-600 hover:underline transition-colors"
-                      >
-                        {bestResult.region.name}
-                      </Link>
-                    </div>
-                    <span className="text-gray-400">|</span>
-                    <span>
-                      {Math.round(bestResult.summary.days[0].avgWaveHeight)}ft{" "}
-                      waves
-                    </span>
-                    <span className="text-gray-400">|</span>
-                    <span>
-                      Score: {bestResult.summary.days[0].score}/100
-                    </span>
-                    {bestResult.summary.upcomingSwells.length > 0 && (
-                      <>
-                        <span className="text-gray-400">|</span>
-                        <span className="text-blue-600 font-medium animate-pulse">
-                          {bestResult.summary.upcomingSwells[0].size} swell incoming
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* CTA */}
-                <Link
-                  href={`/forecast/${bestResult.region.slug}`}
-                  className="hidden md:inline-flex items-center gap-2 px-4 py-2 bg-sky-600 text-white font-medium rounded-lg hover:bg-sky-700 transition-colors"
-                >
-                  <TrendingUp className="h-4 w-4" />
-                  View Forecast
-                </Link>
-              </div>
-            </section>
-          </ScrollReveal>
-        )}
-
-        {/* Best Right Now - Top Beaches Leaderboard */}
-        {/* userCoords are read client-side from the quiver_ip_region cookie */}
-        <ScrollReveal variant="fadeUp" delay={125}>
-          <BestRightNow />
-        </ScrollReveal>
-
-        {/* Regional Forecast Cards - Grouped */}
-        <section className="mb-10">
-          <ScrollReveal variant="fadeUp" delay={150}>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-              Choose Your Region
-            </h2>
-          </ScrollReveal>
-
-          {REGION_GROUPS.map((group, groupIndex) => {
-            const groupRegions = group.slugs
-              .map((slug) => FORECAST_REGIONS[slug])
-              .filter(Boolean);
-            if (groupRegions.length === 0) return null;
-
-            return (
-              <div key={group.label} className="mb-8 last:mb-0">
-                <ScrollReveal variant="fadeUp" delay={175 + groupIndex * 50}>
-                  <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                    {group.label}
-                  </h3>
-                </ScrollReveal>
-                <ScrollReveal variant="fadeUp" delay={200 + groupIndex * 50} stagger staggerDelay={75}>
-                  <RegionalForecastCardGrid>
-                    {groupRegions.map((region) => (
-                      <RegionalForecastCard
-                        key={region.slug}
-                        region={region}
-                        summary={summaries[region.slug]}
-                      />
-                    ))}
-                  </RegionalForecastCardGrid>
-                </ScrollReveal>
-              </div>
-            );
-          })}
+        {/* Top spots scoped to the active region via explicit coords override */}
+        <section className="mb-10" aria-labelledby="top-spots-heading">
+          <h2
+            id="top-spots-heading"
+            className="mb-4 font-[var(--font-heading)] text-2xl font-bold text-white"
+          >
+            Top spots now
+          </h2>
+          <BestRightNow
+            userCoordsOverride={{
+              lat: region.centerLat,
+              lon: region.centerLon,
+            }}
+            headingOverride="Top spots now"
+          />
         </section>
 
-        {/* Cross-Links to Hub Guides */}
-        <ScrollReveal variant="fadeUp" delay={300}>
-          <section className="mb-8">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-              Regional Surf Guides
-            </h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {(() => {
-                // Deduplicate by guide slug (e.g. LA and SoCal both map to southern-california)
-                const seen = new Set<string>();
-                return regions
-                  .filter((region) => {
-                    if (!hasHubGuide(region.slug)) return false;
-                    const guideSlug = getGuideSlugForRegion(region.slug);
-                    if (seen.has(guideSlug)) return false;
-                    seen.add(guideSlug);
-                    return true;
-                  })
-                  .map((region) => {
-                    const guideSlug = getGuideSlugForRegion(region.slug);
+        <OtherRegionsStrip summaries={summaries} excludeSlug={region.slug} />
 
-                    return (
-                      <Link
-                        key={guideSlug}
-                        href={`/guides/surfing-${guideSlug}`}
-                        className="block p-4 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/30 transition-all duration-200 group"
-                      >
-                        <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-                          {region.name} Guide
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          Explore surf spots, local knowledge, and conditions
-                        </p>
-                      </Link>
-                    );
-                  });
-              })()}
-            </div>
-          </section>
-        </ScrollReveal>
+        {/* Regional Surf Guides — asymmetric, photo-backed, sticker rotations */}
+        <RegionalGuidesStrip
+          summaries={summaries}
+          activeRegionSlug={region.slug}
+          guideLinks={guideLinks}
+        />
 
-        {/* Browse Beaches & Guides */}
-        <ScrollReveal variant="fadeUp" delay={350}>
-          <section className="mb-8">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-              Browse Beaches
-            </h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                { href: "/beaches/usa", title: "United States", desc: "All U.S. surf beaches by state" },
-                { href: "/beaches/mexico", title: "Mexico", desc: "Baja, mainland, and island spots" },
-                { href: "/beginner/ca", title: "Beginner Spots", desc: "Gentle waves for learning" },
-                { href: "/tide/san-diego", title: "Tide Charts", desc: "Tidal conditions and timing" },
-              ].map((card) => (
-                <Link
-                  key={card.href}
-                  href={card.href}
-                  className="block p-4 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/30 transition-all duration-200 group"
-                >
-                  <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-                    {card.title}
-                  </h3>
-                  <p className="text-sm text-gray-600">{card.desc}</p>
-                </Link>
-              ))}
-            </div>
-          </section>
-        </ScrollReveal>
-
-        {/* CTA Section */}
-        <ScrollReveal variant="scale" delay={400}>
-          <section className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-slate-700 text-center relative overflow-hidden">
-            {/* Decorative elements */}
-            <div className="absolute top-0 left-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl" />
-            <div className="absolute bottom-0 right-0 w-40 h-40 bg-cyan-500/10 rounded-full blur-3xl" />
-
-            <div className="relative z-10">
-              <h2 className="text-2xl font-semibold text-white mb-4">
-                Track Your Sessions & Spots
-              </h2>
-              <p className="text-slate-300 mb-6 max-w-2xl mx-auto">
-                Sign up to log sessions, save your favorite breaks, and get
-                personalized recommendations.
-              </p>
+        {/* Browse Beaches */}
+        <section className="mb-10">
+          <h2 className="mb-4 font-[var(--font-heading)] text-2xl font-bold text-white">
+            Browse Beaches
+          </h2>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            {[
+              { href: "/beaches/usa", title: "United States", desc: "All U.S. surf beaches by state" },
+              { href: "/beaches/mexico", title: "Mexico", desc: "Baja, mainland, and island spots" },
+              { href: "/beginner/ca", title: "Beginner Spots", desc: "Gentle waves for learning" },
+              { href: "/tide/san-diego", title: "Tide Charts", desc: "Tidal conditions and timing" },
+            ].map((card) => (
               <Link
-                href="/auth/sign-up"
-                className="inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                key={card.href}
+                href={card.href}
+                className="group block rounded-xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-[#F78E42]/40 hover:bg-white/[0.06]"
               >
-                Sign Up for Free
+                <h3 className="mb-1 font-[var(--font-heading)] text-base font-semibold text-white group-hover:text-[#F78E42]">
+                  {card.title}
+                </h3>
+                <p className="text-sm text-white/70">{card.desc}</p>
               </Link>
-            </div>
-          </section>
-        </ScrollReveal>
+            ))}
+          </div>
+        </section>
+
+        {/* Bottom CTA — sign-in-aware, sticker-styled, no glassmorphism */}
+        <section
+          className="relative mb-4 overflow-hidden rounded-2xl bg-[#1b2255] px-6 py-8 sm:px-8"
+          data-testid="forecast-bottom-cta"
+        >
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 opacity-[0.07]"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(90deg, rgba(255,255,255,0.4) 0 1px, transparent 1px 4px)",
+            }}
+          />
+          <div className="relative max-w-2xl">
+            {isAuthed ? (
+              <>
+                <h2 className="mb-2 font-[var(--font-heading)] text-2xl font-bold text-white sm:text-3xl">
+                  Open the Oracle for your home beach
+                </h2>
+                <p className="mb-5 text-sm text-white/75 sm:text-base">
+                  This is the regional call. The Oracle gives you hour-by-hour
+                  windows for your spot.
+                </p>
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-2 rounded-[14px_6px_16px_4px] bg-[#F78E42] px-5 py-3 font-[var(--font-heading)] text-sm font-semibold uppercase tracking-wide text-[#252D6B] shadow-[0_2px_0_rgba(0,0,0,0.25)] transition hover:bg-[#ffa760]"
+                >
+                  Open Oracle →
+                </Link>
+              </>
+            ) : (
+              <>
+                <h2 className="mb-2 font-[var(--font-heading)] text-2xl font-bold text-white sm:text-3xl">
+                  Sign up for your local beach
+                </h2>
+                <p className="mb-5 text-sm text-white/75 sm:text-base">
+                  Sign up to get this call dialed in for YOUR home beach — hour
+                  by hour, with alerts when it lights up.
+                </p>
+                <Link
+                  href="/auth/sign-up"
+                  className="inline-flex items-center gap-2 rounded-[14px_6px_16px_4px] bg-[#F78E42] px-5 py-3 font-[var(--font-heading)] text-sm font-semibold uppercase tracking-wide text-[#252D6B] shadow-[0_2px_0_rgba(0,0,0,0.25)] transition hover:bg-[#ffa760]"
+                >
+                  Sign up for YOUR home beach →
+                </Link>
+              </>
+            )}
+          </div>
+        </section>
       </div>
 
-      {/* Mobile Sticky Signup Bar */}
+      {/* Mobile Sticky Signup Bar (self-guards for authed users) */}
       <StickySignupBar source="forecast-hub" />
-    </OceanBackground>
+    </div>
   );
 }

@@ -79,10 +79,10 @@ export function MapSignupPrompt({ beachName, source }: MapSignupPromptProps) {
   // Contextual copy based on whether a beach is selected
   const headline = beachName
     ? `Get alerts for ${beachName}`
-    : "Save your favorite spots";
+    : "Get alerts";
   const description = beachName
     ? "Sign up to get notified when conditions are firing."
-    : "Create a free account to save spots and see conditions explained clearly.";
+    : "Know when conditions fire at your spots";
 
   return (
     <>
@@ -122,7 +122,7 @@ export function MapSignupPrompt({ beachName, source }: MapSignupPromptProps) {
           size="sm"
           className="w-full mt-3 bg-[#F78E42] hover:bg-[#F78E42]/90 text-white font-heading font-semibold text-xs rounded-lg h-8"
         >
-          Sign up free
+          Get alerts
         </Button>
       </div>
 
@@ -136,10 +136,10 @@ export function MapSignupPrompt({ beachName, source }: MapSignupPromptProps) {
         contextMessage={{
           title: beachName
             ? `Get alerts for ${beachName}`
-            : "Join the Quiver crew",
+            : "Get Alerts",
           description: beachName
             ? "Create a free account to save this spot and get condition alerts."
-            : "Sign up to save spots, track conditions, and connect with local surfers.",
+            : "We'll let you know when conditions are right at your spots.",
         }}
       />
     </>

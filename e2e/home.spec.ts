@@ -1013,8 +1013,13 @@ test.describe('Home Page - Navigation', () => {
     }
   });
 
-  test('navigates to set home beach when CTA is clicked (no home beach)', async ({ page }) => {
-    // When user has no home beach set, primary CTA is "Set your home beach"
+  test('opens onboarding dialog when Set Home Beach CTA is clicked (no home beach)', async ({ page }) => {
+    // When user has no home beach set, primary CTA is "Set your home beach".
+    // As of plan vast-dancing-whale (Apr 2026) this CTA opens the OnboardingDialog
+    // in place instead of navigating to /profile?tab=preferences. The dialog
+    // auto-open was removed the same day, so this CTA is now the primary entry
+    // point for signups to set their home beach. See
+    // components/oracle/oracle-home-screen.tsx:handleSetHomeBeach.
     const setHomeBeachBtn = page.getByRole('button', { name: /set your home beach/i });
     const hasSetHome = await isVisibleSafe(setHomeBeachBtn, { timeout: 30_000 });
 
@@ -1024,9 +1029,10 @@ test.describe('Home Page - Navigation', () => {
       await setHomeBeachBtn.scrollIntoViewIfNeeded();
       await setHomeBeachBtn.click({ force: true });
 
-      // Navigates to /profile?tab=preferences
-      await page.waitForURL(/\/profile.*tab=preferences/, { timeout: 20_000 });
-      await expect(page).toHaveURL(/\/profile.*tab=preferences/);
+      // Dialog opens in place; URL stays on "/"
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toBeVisible({ timeout: TIMEOUTS.long });
+      await expect(page).toHaveURL(/\/(\?.*)?$/);
     } else {
       // User may have a home beach set — look for other CTA buttons
       const paddleOutBtn = page.getByRole('button', { name: /paddle out/i });

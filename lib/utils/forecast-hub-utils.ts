@@ -88,7 +88,91 @@ export async function getRegionalSummaries(
     );
   }
 
+  // Attach one approved photo per region (from the region's highest-scored
+  // beach). Single batched query across all regions keeps the cost flat.
+  await attachRegionPhotos(summaries);
+
   return summaries;
+}
+
+/**
+ * Attach representative approved photos to each region summary (mutates in place).
+ *
+ * Picks the top TWO scoring beaches per region so the hero backdrop
+ * (`photoUrl`) and the hero polaroid inset (`secondaryPhotoUrl`) render
+ * different images. Batch-fetches approved photos for every candidate in a
+ * single Supabase query. Beach-level failures never throw; regions without
+ * any approved photo simply retain null fields.
+ */
+async function attachRegionPhotos(
+  summaries: Record<string, RegionalForecastSummary>
+): Promise<void> {
+  // For each beach id, remember which region(s) want it and at which rank
+  // (0 = primary, 1 = secondary). A single beach can legitimately be the
+  // primary pick for region A and the secondary for region B.
+  type Role = "primary" | "secondary";
+  const beachAssignments = new Map<
+    string,
+    Array<{ slug: string; role: Role }>
+  >();
+  const beachIdToName = new Map<string, string>();
+
+  for (const [slug, summary] of Object.entries(summaries)) {
+    const top = summary.beachConditions[0];
+    const second = summary.beachConditions[1];
+    if (top) {
+      const list = beachAssignments.get(top.beachId) ?? [];
+      list.push({ slug, role: "primary" });
+      beachAssignments.set(top.beachId, list);
+      beachIdToName.set(top.beachId, top.beachName);
+    }
+    if (second && second.beachId !== top?.beachId) {
+      const list = beachAssignments.get(second.beachId) ?? [];
+      list.push({ slug, role: "secondary" });
+      beachAssignments.set(second.beachId, list);
+      beachIdToName.set(second.beachId, second.beachName);
+    }
+  }
+
+  if (beachAssignments.size === 0) return;
+
+  try {
+    const supabase = createSupabaseServiceRoleClient();
+    const baseQuery = supabase
+      .from("beach_photos")
+      .select("beach_id, image_url")
+      .in("beach_id", Array.from(beachAssignments.keys()))
+      .order("fetched_at", { ascending: false });
+    const { data: photos } = await withApprovedPhotos(baseQuery);
+    if (!Array.isArray(photos) || photos.length === 0) return;
+
+    // Keep the first (most recent) approved photo per beach.
+    const firstPhotoByBeach = new Map<string, string>();
+    for (const p of photos) {
+      if (!firstPhotoByBeach.has(p.beach_id)) {
+        firstPhotoByBeach.set(p.beach_id, p.image_url);
+      }
+    }
+
+    for (const [beachId, url] of firstPhotoByBeach.entries()) {
+      const assignments = beachAssignments.get(beachId);
+      if (!assignments) continue;
+      const beachName = beachIdToName.get(beachId) ?? null;
+      for (const { slug, role } of assignments) {
+        const summary = summaries[slug];
+        if (!summary) continue;
+        if (role === "primary") {
+          summary.photoUrl = url;
+          summary.photoBeachName = beachName;
+        } else {
+          summary.secondaryPhotoUrl = url;
+          summary.secondaryPhotoBeachName = beachName;
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Failed to attach region photos:", err);
+  }
 }
 
 /**

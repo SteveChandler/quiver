@@ -11,6 +11,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Waves, Trophy } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -24,14 +25,27 @@ import {
 } from "@/lib/location/ip-location";
 import { ForecastSectionContainer } from "./forecast-section-container";
 
+// Sticker shapes + rotations cycle per row so the list reads hand-cut,
+// not templated. Indexing by position keeps SSR/CSR output stable.
+const THUMB_SHAPES = [
+  "rounded-[18px_6px_20px_8px]",
+  "rounded-[8px_20px_6px_18px]",
+  "rounded-[22px_10px_6px_16px]",
+  "rounded-[10px_18px_20px_8px]",
+  "rounded-[16px_8px_18px_22px]",
+];
+const THUMB_ROTATIONS = ["-rotate-1", "rotate-1", "-rotate-[0.5deg]", "rotate-[1.5deg]", "-rotate-[1.25deg]"];
+
 function BestRightNowSkeleton() {
   return (
     <div className="space-y-3" data-testid="best-right-now-skeleton">
       {Array.from({ length: 5 }).map((_, i) => (
         <div key={i} className="flex items-center gap-3 animate-pulse">
-          <div className="h-6 w-6 rounded-full bg-sky-200/60" />
-          <div className="flex-1 h-4 bg-sky-200/60 rounded" />
-          <div className="h-6 w-10 rounded-full bg-sky-200/60" />
+          <div
+            className={`h-12 w-12 shrink-0 bg-white/[0.08] ${THUMB_SHAPES[i % THUMB_SHAPES.length]}`}
+          />
+          <div className="flex-1 h-4 bg-white/[0.08] rounded" />
+          <div className="h-6 w-10 rounded-full bg-white/[0.08]" />
         </div>
       ))}
     </div>
@@ -45,25 +59,76 @@ interface RankBadgeProps {
 function RankBadge({ rank }: RankBadgeProps) {
   if (rank === 1) {
     return (
-      <div className="flex items-center justify-center h-7 w-7 rounded-full bg-amber-100 text-amber-700">
+      <div className="flex items-center justify-center h-7 w-7 rounded-full bg-[#F78E42]/20 text-[#F78E42] border border-[#F78E42]/40">
         <Trophy className="h-3.5 w-3.5" />
       </div>
     );
   }
   return (
-    <div className="flex items-center justify-center h-7 w-7 rounded-full bg-gray-100 text-gray-500 text-xs font-semibold">
+    <div className="flex items-center justify-center h-7 w-7 rounded-full bg-white/[0.08] text-white/60 text-xs font-semibold">
       {rank}
     </div>
   );
 }
 
-export function BestRightNow() {
+interface BeachThumbProps {
+  imageUrl: string | null;
+  beachName: string;
+  index: number;
+}
+
+function BeachThumb({ imageUrl, beachName, index }: BeachThumbProps) {
+  const shape = THUMB_SHAPES[index % THUMB_SHAPES.length];
+  const rotation = THUMB_ROTATIONS[index % THUMB_ROTATIONS.length];
+  const common = `relative h-12 w-12 shrink-0 overflow-hidden ${shape} ${rotation} shadow-[0_2px_0_rgba(0,0,0,0.3)] motion-reduce:rotate-0`;
+
+  if (imageUrl) {
+    return (
+      <div className={`${common} bg-[#1b2255]`}>
+        <Image
+          src={imageUrl}
+          alt={beachName}
+          fill
+          sizes="48px"
+          className="object-cover"
+        />
+      </div>
+    );
+  }
+  return (
+    <div
+      className={`${common} flex items-center justify-center bg-[#F78E42]/20 border border-[#F78E42]/40 text-[#F78E42]`}
+    >
+      <Waves className="h-5 w-5" aria-hidden="true" />
+    </div>
+  );
+}
+
+export interface BestRightNowProps {
+  /**
+   * Optional explicit coordinates to scope the leaderboard to the closest
+   * region. When provided, bypasses the client-side cookie lookup — used by
+   * the /forecast hub to pin results to the active region.
+   */
+  userCoordsOverride?: { lat: number; lon: number } | null;
+  /** Optional heading override (e.g. "Top spots in Southern California"). */
+  headingOverride?: string;
+}
+
+export function BestRightNow({
+  userCoordsOverride,
+  headingOverride,
+}: BestRightNowProps = {}) {
   const [userCoords, setUserCoords] = useState<{
     lat: number;
     lon: number;
-  } | null>(null);
+  } | null>(userCoordsOverride ?? null);
 
   useEffect(() => {
+    if (userCoordsOverride) {
+      setUserCoords(userCoordsOverride);
+      return;
+    }
     const cookieName = getIPLocationCookieName();
     const cookieEntry = document.cookie
       .split("; ")
@@ -78,7 +143,7 @@ export function BestRightNow() {
         setUserCoords({ lat: ipLocation.latitude, lon: ipLocation.longitude });
       }
     }
-  }, []);
+  }, [userCoordsOverride]);
 
   const fetchTopBeaches = useCallback(
     () => getTopBeachesNow(5, userCoords?.lat, userCoords?.lon),
@@ -86,16 +151,15 @@ export function BestRightNow() {
   );
   const { data, loading } = useDataFetcher<TopBeachEntry[]>(fetchTopBeaches);
 
-  const heading = userCoords !== null ? "Best Near You" : "Best Right Now";
+  const heading =
+    headingOverride ?? (userCoords !== null ? "Best Near You" : "Best Right Now");
 
   if (loading) {
     return (
-      <ForecastSectionContainer testId="best-right-now">
-        <h2 className="text-sm font-semibold text-sky-700 uppercase tracking-wide mb-4">
-          {heading}
-        </h2>
+      <div data-testid="best-right-now" className="sr-heading">
+        <h2 className="sr-only">{heading}</h2>
         <BestRightNowSkeleton />
-      </ForecastSectionContainer>
+      </div>
     );
   }
 
@@ -104,12 +168,10 @@ export function BestRightNow() {
   }
 
   return (
-    <ForecastSectionContainer testId="best-right-now">
-      <h2 className="text-sm font-semibold text-sky-700 uppercase tracking-wide mb-4">
-        {heading}
-      </h2>
+    <div data-testid="best-right-now">
+      <h2 className="sr-only">{heading}</h2>
 
-      <div className="rounded-xl border border-gray-200 bg-white divide-y divide-gray-100">
+      <ul className="divide-y divide-white/[0.06] rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
         {data.map((beach, index) => {
           const scoreColors = getScoreColorClasses(beach.score);
           const waveDisplay = formatWaveHeight(beach.waveHeight);
@@ -118,18 +180,24 @@ export function BestRightNow() {
             <div className="flex items-center gap-3 px-4 py-3">
               <RankBadge rank={index + 1} />
 
+              <BeachThumb
+                imageUrl={beach.imageUrl}
+                beachName={beach.beachName}
+                index={index}
+              />
+
               <div className="flex-1 min-w-0">
-                <span className="font-medium text-gray-900 truncate block">
+                <span className="block truncate font-medium text-white">
                   {beach.beachName}
                 </span>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-white/55">
                   {beach.regionName}
                 </span>
               </div>
 
               <div className="flex items-center gap-3 flex-shrink-0">
-                <span className="flex items-center gap-1 text-sm text-gray-600">
-                  <Waves className="h-3.5 w-3.5" />
+                <span className="flex items-center gap-1 text-sm text-white/70">
+                  <Waves className="h-3.5 w-3.5" aria-hidden="true" />
                   {waveDisplay}
                 </span>
                 <span
@@ -143,32 +211,20 @@ export function BestRightNow() {
 
           if (beach.href) {
             return (
-              <Link
-                key={beach.beachId}
-                href={beach.href}
-                className="block hover:bg-gray-50 transition-colors first:rounded-t-xl last:rounded-b-xl"
-              >
-                {content}
-              </Link>
+              <li key={beach.beachId}>
+                <Link
+                  href={beach.href}
+                  className="block transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:bg-white/[0.08]"
+                >
+                  {content}
+                </Link>
+              </li>
             );
           }
 
-          return (
-            <div key={beach.beachId} className="first:rounded-t-xl last:rounded-b-xl">
-              {content}
-            </div>
-          );
+          return <li key={beach.beachId}>{content}</li>;
         })}
-      </div>
-
-      <div className="mt-3 text-center">
-        <Link
-          href="/forecast"
-          className="text-sm font-medium text-sky-600 hover:text-sky-700 hover:underline transition-colors"
-        >
-          See All Forecasts &rarr;
-        </Link>
-      </div>
-    </ForecastSectionContainer>
+      </ul>
+    </div>
   );
 }

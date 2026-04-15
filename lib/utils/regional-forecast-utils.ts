@@ -112,6 +112,23 @@ export interface RegionalForecastSummary {
   upcomingSwells: SwellEvent[];
   /** Individual beach condition summaries */
   beachConditions: BeachConditionSummary[];
+  /**
+   * Approved photo representing the region (from `beach_photos` table).
+   * Attached by `getRegionalSummaries` — null when no top beach has an
+   * approved photo on file. Used as the hero backdrop and guide-card art.
+   */
+  photoUrl: string | null;
+  /** Beach name for the attached photo — used for alt text. */
+  photoBeachName: string | null;
+  /**
+   * Second approved photo (from the region's second-highest-scored beach).
+   * Used by the hero polaroid inset so the backdrop and polaroid aren't the
+   * same image. Null when the region only has one approved beach photo —
+   * callers should fall back to `photoUrl` for graceful degradation.
+   */
+  secondaryPhotoUrl: string | null;
+  /** Beach name for the secondary photo. */
+  secondaryPhotoBeachName: string | null;
   /** Regional statistics */
   stats: {
     totalBeaches: number;
@@ -620,6 +637,10 @@ export function aggregateRegionalForecast(
     bestDay,
     upcomingSwells,
     beachConditions,
+    photoUrl: null,
+    photoBeachName: null,
+    secondaryPhotoUrl: null,
+    secondaryPhotoBeachName: null,
     stats: {
       totalBeaches: beaches.length,
       beachesWithData,

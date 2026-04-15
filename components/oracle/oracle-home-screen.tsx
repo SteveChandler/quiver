@@ -24,6 +24,7 @@ import { isFutureDayInTimezone } from "@/lib/utils/condition-tier-utils";
 import { getHourInTimezone, getMinuteInTimezone } from "@/lib/utils/date-time";
 import { track } from "@/lib/analytics";
 import { updateProfile } from "@/actions/profile-actions";
+import { useOnboardingStore } from "@/store/onboarding-store";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -343,10 +344,16 @@ export function OracleHomeScreen() {
   // ------------------------------------------------------------------
   // Navigation handlers
   // ------------------------------------------------------------------
-  const handleSetHomeBeach = useCallback(
-    () => router.push("/profile?tab=preferences"),
-    [router]
-  );
+  const { reset: resetOnboarding, openDialog: openOnboardingDialog } =
+    useOnboardingStore();
+  const handleSetHomeBeach = useCallback(() => {
+    // Open the onboarding dialog in-place. Brand-new users have no
+    // onboarding_completed_at set, so reset() + openDialog() suffices
+    // (no reopenOnboarding() server action needed — that's only for users
+    // who previously tapped "Maybe later"). See plan vast-dancing-whale.
+    resetOnboarding();
+    openOnboardingDialog();
+  }, [resetOnboarding, openOnboardingDialog]);
 
   const handleLogSession = useCallback(
     () => router.push("/sessions/new?mode=log"),

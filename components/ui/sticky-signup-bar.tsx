@@ -46,8 +46,8 @@ interface StickySignupBarProps {
  */
 export function StickySignupBar({
   source,
-  ctaText = "Join Free",
-  supportingText = "Log sessions, save your spots",
+  ctaText = "Get alerts",
+  supportingText = "Know when conditions fire at your spots",
   scrollThreshold = 300,
   contextMessage,
   searchReferralCta,
@@ -183,8 +183,8 @@ export function StickySignupBar({
         mode="signup"
         source={`sticky-bar-${source}`}
         contextMessage={resolvedContextMessage ?? {
-          title: "See Your Forecast",
-          description: "Conditions explained clearly in 30 seconds",
+          title: "Get Alerts",
+          description: "Know when conditions fire at your spots",
         }}
       />
     </>

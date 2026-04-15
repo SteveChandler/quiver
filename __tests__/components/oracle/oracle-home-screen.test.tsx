@@ -80,6 +80,18 @@ jest.mock("@/actions/oracle-actions", () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Mock the onboarding store (used by handleSetHomeBeach)
+// ---------------------------------------------------------------------------
+const mockOnboardingReset = jest.fn();
+const mockOnboardingOpenDialog = jest.fn();
+jest.mock("@/store/onboarding-store", () => ({
+  useOnboardingStore: () => ({
+    reset: mockOnboardingReset,
+    openDialog: mockOnboardingOpenDialog,
+  }),
+}));
+
+// ---------------------------------------------------------------------------
 // Mock next/image (used inside NearbySpots)
 // ---------------------------------------------------------------------------
 jest.mock("next/image", () => ({
@@ -363,8 +375,12 @@ describe("OracleHomeScreen", () => {
     expect(screen.getByRole("banner")).toBeInTheDocument();
   });
 
-  it("navigates to preferences page when Set Home Beach is clicked", async () => {
-    // No home beach → primary CTA is "Set your home beach"
+  it("opens the onboarding dialog when Set Home Beach is clicked", async () => {
+    // No home beach → primary CTA is "Set your home beach". The handler now
+    // opens the OnboardingDialog in place (reset + openDialog on the store)
+    // rather than navigating to /profile?tab=preferences. See plan
+    // vast-dancing-whale — the dialog auto-open was removed and this CTA
+    // became the explicit entry point for brand-new signups.
     mockOracleData = {
       ...mockOracleData,
       homeBeach: null,
@@ -376,7 +392,9 @@ describe("OracleHomeScreen", () => {
       name: /set your home beach/i,
     });
     await userEvent.click(setHomeBeachBtn);
-    expect(mockRouterPush).toHaveBeenCalledWith("/profile?tab=preferences");
+    expect(mockOnboardingReset).toHaveBeenCalled();
+    expect(mockOnboardingOpenDialog).toHaveBeenCalled();
+    expect(mockRouterPush).not.toHaveBeenCalledWith("/profile?tab=preferences");
   });
 
   it("navigates to sessions tab when Log Session is clicked", async () => {
