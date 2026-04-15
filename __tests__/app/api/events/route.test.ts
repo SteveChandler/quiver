@@ -742,7 +742,8 @@ describe('POST /api/events', () => {
         'share_intel_signin_prompt',
         'surf_plan_share',
         // Signup/auth conversion events (pre-auth-only events excluded — tested separately)
-        'signin_cta_click',
+        // Note: signin_cta_click moved to PRE_AUTH_ONLY_EVENTS, tested in
+        // "pre-auth-only events" describe block below.
         // Auth modal funnel events (pre-auth-only events excluded — tested separately)
         'auth_provider_selected',
         // Home screen events
@@ -821,6 +822,64 @@ describe('POST /api/events', () => {
 
       jest.spyOn(Date, 'now').mockRestore();
     });
+  });
+
+  describe('pre-auth-only events', () => {
+    // PRE_AUTH_ONLY_EVENTS are pre-auth funnel events that should be silently
+    // dropped when fired by an authenticated user (shared device, stale tab,
+    // nav ghost-render, etc.). Dropping them keeps the funnel measurements
+    // honest. See plan vast-dancing-whale for the 584% mismatch this closes.
+    const PRE_AUTH_ONLY_EVENTS = [
+      'signup_cta_view',
+      'signup_cta_click',
+      'signin_cta_click',
+      'signup_form_submitted',
+      'auth_modal_opened',
+      'auth_modal_closed_without_action',
+    ];
+
+    it.each(PRE_AUTH_ONLY_EVENTS)(
+      'drops %s for authenticated users (returns 200, no insert)',
+      async (eventType) => {
+        mockSupabase.auth.getUser.mockResolvedValue({
+          data: { user: { id: 'user-pre-auth' } },
+          error: null,
+        });
+
+        const mockInsert = jest.fn().mockResolvedValue({ error: null });
+        mockSupabase.from.mockImplementation((table: string) => {
+          if (table === 'profiles') {
+            return {
+              select: jest.fn(() => ({
+                eq: jest.fn(() => ({
+                  single: jest.fn().mockResolvedValue({
+                    data: { allow_implicit_tracking: true },
+                    error: null,
+                  }),
+                })),
+              })),
+              insert: jest.fn(() => ({ error: null })),
+            };
+          }
+          return { insert: mockInsert, select: jest.fn() };
+        });
+
+        const request = new Request('http://localhost/api/events', {
+          method: 'POST',
+          headers: BROWSER_HEADERS,
+          body: JSON.stringify({ eventType }),
+        });
+
+        const response = await POST(request);
+        expect(response.status).toBe(200);
+        const body = await response.json();
+        expect(body).toMatchObject({
+          success: true,
+          data: { ok: true, skipped: true },
+        });
+        expect(mockInsert).not.toHaveBeenCalled();
+      }
+    );
   });
 
   describe('metadata handling', () => {

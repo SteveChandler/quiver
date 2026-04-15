@@ -23,9 +23,8 @@ const STEPS = [
   PayoffStep,
 ];
 
-// Delays for dialog opening (ms)
-const DIALOG_OPEN_DELAY = 500; // Let page settle before showing onboarding
-const TESTING_OPEN_DELAY = 100; // Shorter delay for test mode
+// Delay for the ?showOnboarding=1 test-mode open (ms)
+const TESTING_OPEN_DELAY = 100;
 
 /** Check if profile has enough data to skip onboarding (e.g., filled via Edit Profile) */
 function isProfileSubstantiallyComplete(
@@ -36,11 +35,7 @@ function isProfileSubstantiallyComplete(
 
 export function OnboardingDialog() {
   const { user } = useAuth();
-  const {
-    profile,
-    isLoading: profileLoading,
-    error: profileError,
-  } = useProfileContext();
+  const { profile } = useProfileContext();
   const searchParams = useSearchParams();
   const {
     isOpen,
@@ -138,40 +133,15 @@ export function OnboardingDialog() {
     }
   }, [user?.id, checkUserId]);
 
-  // Auto-open for new users who haven't completed onboarding
-  // Uses profile from context instead of API call
-  useEffect(() => {
-    // Wait for profile fetch to complete
-    if (!user || profileLoading) return;
-
-    // Don't show onboarding if profile failed to load - user may have already completed it
-    // This prevents existing users from seeing onboarding when API errors occur
-    if (profileError) return;
-
-    // If the user just completed onboarding in this session, avoid re-opening
-    // while the profile context refreshes `onboarding_completed_at`.
-    if (isCompleted) return;
-
-    // Show onboarding if:
-    // 1. No profile exists yet (brand new user)
-    // 2. Profile exists but onboarding not completed AND profile is not already complete
-    //
-    // Users who previously tapped "Maybe later" have `onboarding_completed_at` set
-    // via skipOnboarding() — they won't re-enter this flow automatically. They can
-    // re-open the dialog explicitly from /profile via the "Set up your home break" CTA.
-    // (No more localStorage-based snooze ladder — the previous escalating snooze was
-    // invisible to users and effectively the same permanent lockout as the X button.)
-    const needsOnboarding =
-      !profile ||
-      (!profile.onboarding_completed_at &&
-        !isProfileSubstantiallyComplete(profile));
-
-    if (needsOnboarding) {
-      const timeoutId = setTimeout(() => openDialog(), DIALOG_OPEN_DELAY);
-      // Cleanup: cancel timeout if effect re-runs (e.g., profile loads with onboarding_completed_at)
-      return () => clearTimeout(timeoutId);
-    }
-  }, [user, profile, profileLoading, profileError, isCompleted, openDialog]);
+  // Onboarding is no longer auto-opened. Surfaces that need to prompt the user
+  // to set a home beach open the dialog explicitly via useOnboardingStore():
+  // - OracleHomeScreen's ContextualCTA (fresh signups without a home beach)
+  // - /profile's SetHomeBreakCta (reopen flow via reopenOnboarding server action)
+  // - The ?showOnboarding=1 URL param (testing, below)
+  //
+  // Prior auto-open behaviour ambushed brand-new signups with a blocking dialog
+  // over a still-loading home screen, which they bailed on. See plan
+  // vast-dancing-whale for the diagnosis.
 
   // Allow forcing the dialog with query param for testing
   useEffect(() => {

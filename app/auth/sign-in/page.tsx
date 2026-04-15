@@ -9,6 +9,15 @@ function SignInPageContent() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") || searchParams.get("redirectUrl") || undefined;
 
+  // A redirectTo param means the user landed here via a protected-route redirect
+  // (middleware.ts RouteGuard.buildSignInRedirect or admin/layout.tsx). Tag the
+  // modal-open event with source='redirect' so the auth funnel can distinguish
+  // redirect-driven opens from clicks on "Sign In" CTAs. Without this, the
+  // modal's canonical fire would label everything as 'auth-page' and inflate
+  // auth_modal_opened_login far above signin_cta_click. See plan
+  // vast-dancing-whale for the 584% funnel mismatch this addresses.
+  const source = redirectTo ? "redirect" : "auth-page";
+
   // Handle modal close - redirect to intended destination or home
   const handleClose = () => {
     if (!redirectTo || redirectTo === "/") {
@@ -24,7 +33,8 @@ function SignInPageContent() {
         isOpen={true}
         onClose={handleClose}
         mode="login"
-        source="auth-page"
+        source={source}
+        modalContext={redirectTo}
         showCloseButton={true}
         returnTo={redirectTo}
       />

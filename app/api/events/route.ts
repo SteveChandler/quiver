@@ -366,6 +366,7 @@ export async function POST(request: Request) {
     const PRE_AUTH_ONLY_EVENTS = [
       'signup_cta_view',
       'signup_cta_click',
+      'signin_cta_click',
       'signup_form_submitted',
       'auth_modal_opened',
       'auth_modal_closed_without_action',

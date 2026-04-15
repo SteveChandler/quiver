@@ -88,6 +88,8 @@ export interface UnifiedAuthModalProps {
   returnTo?: string;
   /** Source identifier for analytics (e.g., 'landing-navbar', 'content-gate') */
   source?: string;
+  /** Optional analytics context (e.g., the redirectTo path that triggered this modal) */
+  modalContext?: string;
 
   /** UI customization */
   dismissible?: boolean;
@@ -123,6 +125,7 @@ export function UnifiedAuthModal({
   initialView = "providers",
   returnTo,
   source = "unknown",
+  modalContext,
   dismissible = true,
   showCloseButton = true,
   contextMessage,
@@ -237,9 +240,9 @@ export function UnifiedAuthModal({
   // Track modal open event — only for anonymous users (pre-auth funnel)
   useEffect(() => {
     if (isOpen && !user) {
-      trackAuthModalOpened({ mode, source });
+      trackAuthModalOpened({ mode, source, context: modalContext });
     }
-  }, [isOpen, mode, source, user]);
+  }, [isOpen, mode, source, modalContext, user]);
 
   // Store returnTo in localStorage when provided
   useEffect(() => {

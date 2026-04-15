@@ -86,29 +86,27 @@ describe("OnboardingDialog Logic", () => {
     (useSearchParams as jest.Mock).mockReturnValue({ get: jest.fn() });
   });
 
-  it("opens dialog for new user (no profile)", () => {
+  // Auto-open behaviour was removed in plan vast-dancing-whale. The dialog now
+  // only opens via explicit user action: the Oracle home screen's
+  // ContextualCTA, the profile page's SetHomeBreakCta, or the
+  // ?showOnboarding=1 URL param. The tests below pin that contract.
+
+  it("does NOT auto-open for a brand-new user (no profile)", () => {
     jest.useFakeTimers();
     render(<OnboardingDialog />);
 
-    // Fast-forward timers for setTimeout
     act(() => {
       jest.runAllTimers();
     });
 
-    expect(mockOpenDialog).toHaveBeenCalled();
+    expect(mockOpenDialog).not.toHaveBeenCalled();
     jest.useRealTimers();
   });
 
-  it("does not auto-open dialog if onboarding was completed in this session", () => {
-    (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
-      isOpen: false,
-      isCompleted: true,
-      currentStep: 0,
-      openDialog: mockOpenDialog,
-      reset: mockReset,
-      checkUserId: mockCheckUserId,
-      closeDialog: jest.fn(),
-      setCurrentStep: jest.fn(),
+  it("does NOT auto-open for a user with incomplete profile", () => {
+    (useProfileContext as jest.Mock).mockReturnValue({
+      profile: { onboarding_completed_at: null },
+      isLoading: false,
     });
 
     jest.useFakeTimers();
@@ -122,24 +120,7 @@ describe("OnboardingDialog Logic", () => {
     jest.useRealTimers();
   });
 
-  it("opens dialog for user with incomplete profile", () => {
-    (useProfileContext as jest.Mock).mockReturnValue({
-      profile: { onboarding_completed_at: null },
-      isLoading: false,
-    });
-
-    jest.useFakeTimers();
-    render(<OnboardingDialog />);
-
-    act(() => {
-      jest.runAllTimers();
-    });
-
-    expect(mockOpenDialog).toHaveBeenCalled();
-    jest.useRealTimers();
-  });
-
-  it("does not open dialog if profile is loaded and onboarding completed", () => {
+  it("does NOT auto-open when onboarding already completed", () => {
     (useProfileContext as jest.Mock).mockReturnValue({
       profile: { onboarding_completed_at: "2023-01-01" },
       isLoading: false,
@@ -156,13 +137,21 @@ describe("OnboardingDialog Logic", () => {
     jest.useRealTimers();
   });
 
-  // NOTE: the previous escalating-snooze logic (`onboarding_dismissed_until_${userId}`
-  // in localStorage) was removed. Users who tap "Maybe later" now have
-  // `onboarding_completed_at` set on their profile via skipOnboarding(), and the
-  // normal `hasCompletedOnboarding` check in `shouldRender` gates future showings.
-  // Users who want to re-open onboarding do so explicitly from /profile.
-  // This is tested by the existing "does not open dialog if profile is loaded and
-  // onboarding completed" case above.
+  it("opens dialog when ?showOnboarding=1 URL param is set", () => {
+    (useSearchParams as jest.Mock).mockReturnValue({
+      get: (key: string) => (key === "showOnboarding" ? "1" : null),
+    });
+
+    jest.useFakeTimers();
+    render(<OnboardingDialog />);
+
+    act(() => {
+      jest.runAllTimers();
+    });
+
+    expect(mockOpenDialog).toHaveBeenCalled();
+    jest.useRealTimers();
+  });
 
   it("calls checkUserId on mount", () => {
     render(<OnboardingDialog />);
