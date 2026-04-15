@@ -10,6 +10,7 @@ import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { TideClockClient } from "@/components/tools/tide-clock-client";
+import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 
 export const revalidate = 300; // 5 minutes
 
@@ -190,6 +191,12 @@ export default function TideClockPage() {
           </section>
         </div>
       </div>
+
+      <StickySignupBar
+        source="tools-tide-clock"
+        ctaText="Get tide alerts"
+        supportingText="Know when the tide is right at your spots"
+      />
     </>
   );
 }

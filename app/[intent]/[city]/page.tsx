@@ -1172,6 +1172,8 @@ export default async function IntentPage(props: IntentPageParams) {
       {/* Mobile Sticky Signup Bar */}
       <StickySignupBar
         source={`intent-${params.intent}-${params.city}`}
+        ctaText="Get condition alerts"
+        supportingText="Know before you drive"
         searchReferralCta={{
           ctaText: "Get Surf Alerts",
           supportingText: "Conditions sent before dawn patrol",

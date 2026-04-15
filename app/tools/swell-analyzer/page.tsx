@@ -13,6 +13,7 @@ import { SITE_URL } from "@/lib/constants/seo";
 import { capitalize } from "@/lib/utils/text-utils";
 import { SwellAnalyzerClient } from "@/components/tools/swell-analyzer-client";
 import { getSwellAnalyzerData } from "@/actions/tools/swell-analyzer-actions";
+import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 
 const DEFAULT_DEMO_SLUG = "swamis";
 
@@ -164,6 +165,12 @@ export default async function SwellAnalyzerPage({ searchParams }: Props) {
           </section>
         </div>
       </div>
+
+      <StickySignupBar
+        source="tools-swell-analyzer"
+        ctaText="Get swell alerts"
+        supportingText="We'll ping you when a swell like this is incoming"
+      />
     </>
   );
 }
