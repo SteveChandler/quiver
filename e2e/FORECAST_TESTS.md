@@ -167,16 +167,17 @@ yarn test:e2e:ui e2e/forecast-hub.spec.ts
 
 The test suite successfully covers all requirements from the task specification:
 
-### Forecast Hub Page Requirements
-- [x] Page renders with correct title and hero
-- [x] Regional forecast cards are displayed
-- [x] Cards show score badges and wave info
-- [x] Clicking a card navigates to regional page
-- [x] Cross-links to guides work
-- [x] SEO metadata is correct
-- [x] JSON-LD structured data exists
-- [x] Mobile responsive layout works
-- [x] "Best Conditions Today" section shows data
+### Forecast Hub Page Requirements (repositioned 2026-04-15 — Regional Oracle)
+- [x] Page renders with correct title and computed regional hero
+- [x] `?region=` URL override drives hero copy + primary CTA href
+- [x] Default region (no cookie) falls back to `southern-california`
+- [x] Seven-day outlook section renders for the active region
+- [x] "Top spots in {Region}" leaderboard scoped to active region
+- [x] "Going elsewhere?" strip lists OTHER regions with peak scores
+- [x] Cross-links to regional guides use hand-written subtitles
+- [x] SEO metadata + JSON-LD structured data unchanged
+- [x] Mobile responsive layout works (hero stacks, chips wrap)
+- [x] Anonymous visitor sees signup CTA; authed sees Oracle CTA
 
 ### Regional Forecast Page Requirements
 - [x] Page renders with correct region title

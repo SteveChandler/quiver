@@ -187,6 +187,10 @@ function createMockRegionalSummary(
     },
     upcomingSwells: [],
     beachConditions,
+    photoUrl: null,
+    photoBeachName: null,
+    secondaryPhotoUrl: null,
+    secondaryPhotoBeachName: null,
     stats: {
       totalBeaches: 2,
       beachesWithData: 2,
