@@ -230,7 +230,7 @@
     "firebase-admin/google-auth-library/jws": "4.0.1",
     "firebase-admin/google-auth-library/gtoken/jws": "4.0.1",
     "fast-xml-parser": "^5.5.7",
-    "basic-ftp": "^5.2.0",
+    "basic-ftp": "^5.2.2",
     "@ducanh2912/next-pwa/**/rollup": "2.80.0",
     "@sentry/nextjs/rollup": "4.59.0",
     "@types/mapbox__point-geometry": "0.1.4",
