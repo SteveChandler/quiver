@@ -143,20 +143,10 @@ export function getPrevailingWaveDirection(lat: number, lon: number): number {
  *
  * @param meters - Wave height in meters
  * @returns Wave height in feet
- * @deprecated Import from @/lib/utils/unit-conversions instead
  */
-export function metersToFeetLocal(meters: number): number {
+export function metersToFeet(meters: number): number {
   return meters * METERS_TO_FEET;
 }
-
-// Re-export for backward compatibility
-export { METERS_TO_FEET as metersToFeetFactor };
-
-/**
- * Convert wave height from meters to feet
- * @deprecated Import metersToFeetStrict from @/lib/utils/unit-conversions instead
- */
-export const metersToFeet = metersToFeetLocal;
 
 /**
  * Convert wave height from feet to meters
