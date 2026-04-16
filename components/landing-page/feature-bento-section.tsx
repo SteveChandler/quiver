@@ -24,7 +24,7 @@ const ILLUSTRATIONS: ComponentType<{ className?: string }>[] = [
   SignalRipples,        // 2 — What's Happening Now
   CompassPin,           // 3 — Spot Discovery
   ChartTrend,           // 4 — Session Tracking
-  PhoneNotification,    // 5 — Mobile Apps
+  PhoneNotification,    // 5 — Join the Beta
   CommunityPeople,      // 6 — Community
 ];
 
