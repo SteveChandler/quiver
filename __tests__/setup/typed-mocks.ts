@@ -371,6 +371,14 @@ export function createMockForecast(overrides: Partial<Forecast> = {}): Forecast 
     next_tide_type: "high",
     raw_forecast: null,
     wind_direction_deg: null,
+    wave_height_om: null,
+    wave_period_om: null,
+    wave_direction_om: null,
+    swell_height_om: null,
+    swell_period_om: null,
+    swell_direction_om: null,
+    wind_wave_height_om: null,
+    om_fetched_at: null,
     ...overrides,
   };
 }
