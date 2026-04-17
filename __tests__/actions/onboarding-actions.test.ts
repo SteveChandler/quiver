@@ -148,22 +148,20 @@ describe("saveOnboardingData", () => {
       });
     });
 
-    it.each([
-      ['dawn', 'dawn_patrol'],
-      ['after_work', 'evening'],
-      ['weekends', 'any'],
-    ] as const)("should map preferredTime '%s' to preferred_session_time '%s'", async (preferredTime, expectedSessionTime) => {
+    // preferredTime → preferred_session_time mapping tests removed in
+    // plan E2. Onboarding no longer captures time-bucket; Oracle's
+    // SessionTimeSelector owns `profiles.preferred_session_time`
+    // exclusively now. The regression guard is: saveOnboardingData
+    // does NOT write `preferred_session_time` even when a legacy
+    // `preferredTime` field is passed in (the profile upsert simply
+    // ignores it).
+    it("does not write preferred_session_time even if a legacy preferredTime is passed", async () => {
+      // `preferredTime` is kept on the store interface as a legacy
+      // field (for backwards-compat with persisted localStorage from
+      // older onboarding versions), but the server action ignores it.
       await saveOnboardingData({
         homeBeachId: "beach-123",
-        preferredTime,
-      });
-
-      expect(lastProfileUpdate.preferred_session_time).toBe(expectedSessionTime);
-    });
-
-    it("should not set preferred_session_time when preferredTime is absent", async () => {
-      await saveOnboardingData({
-        homeBeachId: "beach-123",
+        preferredTime: "dawn",
       });
 
       expect(lastProfileUpdate.preferred_session_time).toBeUndefined();
@@ -227,6 +225,7 @@ describe("saveOnboardingData", () => {
       const afterTime = new Date().toISOString();
 
       expect(result.success).toBe(true);
+      // eslint-disable-next-line jest/no-restricted-matchers -- asserting presence; specific shape checked on next line
       expect(lastProfileUpdate.onboarding_completed_at).toBeDefined();
       expect(lastProfileUpdate.onboarding_completed_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
 
@@ -407,6 +406,7 @@ describe("saveOnboardingData", () => {
       const result = await saveOnboardingData(onboardingData);
 
       expect(result.success).toBe(true);
+      /* eslint-disable jest/no-conditional-expect -- narrowing result type; assertions only run when profile shape is present */
       if (result.success && "profile" in result && result.profile) {
         const profile = result.profile as { id: string; full_name: string; display_name: string; home_beach_id: string };
         expect(profile.id).toBe("user-123");
@@ -414,6 +414,7 @@ describe("saveOnboardingData", () => {
         expect(profile.display_name).toBe("test_user");
         expect(profile.home_beach_id).toBe("beach-123");
       }
+      /* eslint-enable jest/no-conditional-expect */
     });
   });
 });

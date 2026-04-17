@@ -10,7 +10,7 @@ export const ONBOARDING_COMPLETION_SIGNAL = -1;
 // Step names for analytics tracking
 export const ONBOARDING_STEP_NAMES: Record<number, string> = {
   0: 'home_beach',
-  1: 'level_and_time',
+  1: 'experience_level',
   2: 'payoff',
 };
 
@@ -23,13 +23,15 @@ interface OnboardingData {
   homeBeachState?: string;
   homeBeachCountry?: string;
 
-  // Step 2: Level + Time
+  // Step 2: Experience level
   experienceLevel?: 'beginner' | 'intermediate' | 'advanced' | 'expert';
-  preferredTime?: 'dawn' | 'after_work' | 'weekends';
 
   // Step 3: Payoff (no data stored)
 
-  // Legacy fields (kept for backwards compatibility with persisted localStorage)
+  // Legacy fields (kept for backwards compatibility with persisted localStorage
+  // from old onboarding versions — including `preferredTime` which was dropped
+  // in plan E2).
+  preferredTime?: 'dawn' | 'after_work' | 'weekends';
   fullName?: string;
   displayName?: string;
   surfStyles?: string[];
@@ -55,6 +57,10 @@ interface OnboardingStore {
   closeDialog: () => void;
   completeOnboarding: () => void;
   reset: () => void;
+  /** Clear progress + open dialog, preserving userId so the checkUserId
+   *  effect doesn't immediately undo this reopen. See implementation
+   *  for why reset() is the wrong call for the force-reopen path. */
+  reopenFresh: (currentUserId?: string | null) => void;
   checkUserId: (currentUserId: string) => void;
 
   // Step change callback (set by useOnboardingTracking hook)
@@ -133,6 +139,32 @@ export const useOnboardingStore = create<OnboardingStore>()(
         isCompleted: false,
         userId: null,
         // Keep onStepChange callback
+      }),
+
+      /**
+       * Reopen the dialog "fresh" — clears progress (currentStep, data,
+       * isCompleted) and opens the dialog, BUT preserves userId so the
+       * `checkUserId` effect in OnboardingDialog doesn't immediately
+       * treat the null userId as a user-change event and reset the
+       * store back to isOpen=false.
+       *
+       * This is the action `?onboarding=required` and any other
+       * force-reopen surface should use. Prior code called
+       * `reset()` + `openDialog()` — reset() clears userId → the
+       * subsequent strict-mode second-pass of the checkUserId effect
+       * sees state.userId=null !== user.id → resets everything and
+       * closes the dialog before the first paint.
+       *
+       * Plan: abstract-exploring-phoenix (Commit E1).
+       */
+      reopenFresh: (currentUserId) => set({
+        currentStep: 0,
+        isOpen: true,
+        data: {},
+        isCompleted: false,
+        // Preserve userId (either the caller-provided id or whatever
+        // was already in the store). Intentionally do NOT set to null.
+        userId: currentUserId ?? get().userId,
       }),
 
       checkUserId: (currentUserId) => {

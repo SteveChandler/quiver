@@ -215,15 +215,9 @@ export async function saveOnboardingData(data: OnboardingData) {
       if (data.experienceLevel) profileUpdate.experience_level = data.experienceLevel;
       if (data.surfStyles?.length) profileUpdate.surf_styles = data.surfStyles;
 
-      // Map onboarding time bucket to oracle preferred_session_time
-      const SESSION_TIME_MAP: Record<string, string> = {
-        dawn: 'dawn_patrol',
-        after_work: 'evening',
-        weekends: 'any',
-      };
-      if (data.preferredTime) {
-        profileUpdate.preferred_session_time = SESSION_TIME_MAP[data.preferredTime] ?? 'any';
-      }
+      // `preferred_session_time` is no longer captured during onboarding —
+      // users set it post-onboarding via Oracle's in-app SessionTimeSelector,
+      // which is the source of truth. Plan: abstract-exploring-phoenix (E2).
 
       const { data: updatedProfile, error: profileError } = await supabase
         .from('profiles')
@@ -254,8 +248,14 @@ export async function saveOnboardingData(data: OnboardingData) {
         console.warn('[onboarding] Referral handling error (non-blocking):', refErr);
       }
 
-      // Create default email preferences (non-blocking)
-      // This ensures users receive forecast-digest-email (Mon/Thu)
+      // Create default email preferences (non-blocking).
+      // `pref_time_bucket` removed in plan E2 — nothing in the codebase
+      // reads it (audited 2026-04-17: no cron, lib, or `.select()`
+      // consumes it), and the onboarding question that fed it was
+      // dropped. Other fields (skill_level, email_frequency,
+      // min_good_score, timezone, home_beach_id) are kept because
+      // `user_email_prefs` is still the row the forecast-digest-email
+      // cron filters on for `email_frequency` and `home_beach_id`.
       if (data.homeBeachId && data.emailEnabled !== false) {
         try {
           await supabase.from('user_email_prefs').upsert({
@@ -263,7 +263,6 @@ export async function saveOnboardingData(data: OnboardingData) {
             email_frequency: 'daily',
             min_good_score: 6.0,
             skill_level: data.experienceLevel === 'expert' ? 'advanced' : (data.experienceLevel || 'beginner'),
-            pref_time_bucket: data.preferredTime || 'dawn',
             timezone: 'America/Los_Angeles',
             home_beach_id: data.homeBeachId,
           }, { onConflict: 'user_id' });
