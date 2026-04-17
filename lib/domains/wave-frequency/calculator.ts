@@ -118,9 +118,9 @@ export function calculateRideableWaves(
   const T1 = parseWavePeriod(forecast.swell_1_period || forecast.wave_period);
   if (T1 <= 0) return { rideableWavesPerHour: 0, confidence: "low", swellTrains: 0, dominantBeatIntervalS: null };
 
-  // Step 1: Height gate — use RSS of swell components when available
-  // RSS combines independent swell trains: sqrt(h1² + h2² + h3²)
-  // This matches how surf height is derived from offshore swell components.
+  // Step 1: Height gate — read forecast.wave_height directly so the gate
+  // authority matches the value the surf-call card displays to the user.
+  // See getGateHeightFt above for the reason this is not RSS of components.
   const breakType = (beach.break_type?.toLowerCase() as BreakType) || "other";
   const config = BREAK_TYPE_CONFIGS[breakType] || BREAK_TYPE_CONFIGS.other;
 
