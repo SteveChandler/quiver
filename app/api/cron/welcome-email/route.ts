@@ -124,9 +124,32 @@ export async function GET(request: Request) {
         // Rate limit before sending
         await rateLimiter.throttle();
 
+        // Plan abstract-exploring-phoenix (Commit C): look up the home
+        // beach name + slug so the rewritten welcome template can deep-
+        // link directly to the beach page. Unactivated users (no home
+        // beach yet) fall through to the "pick your home beach" variant
+        // that points at /?onboarding=required.
+        let homeBeachName: string | null = null;
+        let homeBeachSlug: string | null = null;
+        if (candidate.home_beach_id) {
+          const { data: beach } = await supabase
+            .from("beaches")
+            .select("name, slug")
+            .eq("id", candidate.home_beach_id)
+            .maybeSingle();
+          homeBeachName = beach?.name ?? null;
+          homeBeachSlug = beach?.slug ?? null;
+        }
+
         // Generate welcome email
         const { subject, html, text } = await generateWelcomeEmail(
-          { userId: candidate.user_id, userEmail: candidate.email, baseUrl },
+          {
+            userId: candidate.user_id,
+            userEmail: candidate.email,
+            baseUrl,
+            homeBeachName,
+            homeBeachSlug,
+          },
           secret
         );
 

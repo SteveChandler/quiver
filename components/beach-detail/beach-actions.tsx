@@ -8,6 +8,7 @@ import { HomeBeachBanner } from "@/components/home/HomeBeachBanner";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { ConditionsReportCard } from "@/components/beach-detail/conditions-report-card";
 import { BeachAlertCta } from "@/components/beach-detail/beach-alert-cta";
+import { ShareBeachButton } from "@/components/beach-detail/share-beach-button";
 import type { Beach } from "@/types/database";
 import { track } from "@/lib/analytics";
 import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
@@ -81,6 +82,15 @@ export function BeachActions({
 
   return (
     <div data-testid="beach-actions" className={`space-y-4 ${className || ""}`}>
+      {/* Secondary action row — share sits here, not competing with the
+          three primary action buttons below. Dark-themed, low-emphasis.
+          Plan: abstract-exploring-phoenix (Commit C). */}
+      {beach.slug && (
+        <div className="flex items-center justify-end pt-1">
+          <ShareBeachButton beachSlug={beach.slug} beachName={beach.name} />
+        </div>
+      )}
+
       {/* Primary Action Buttons — 3-button layout */}
       {/* Flex row: equal-width buttons, 12px gap, 20px vertical margin */}
       <div className="flex gap-3 my-5">

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
 import { MatchScoreEducation } from "@/components/recommendations/match-score-education";
 import { BoardRecommendationBadge } from "@/components/recommendations/board-recommendation-badge";
+import { BeachWatchersBadge } from "@/components/beach-detail/beach-watchers-badge";
 import { useBoardRecommendation } from "@/hooks/use-board-recommendation";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { track } from "@/lib/analytics";
@@ -275,6 +276,11 @@ export function BeachHeroCompact({
 
         {/* Location */}
         <span className={`text-sm ${overlayMode ? "text-medium" : "text-gray-600"}`}>{location}</span>
+
+        {/* Social-proof watchers pill — renders iff >=5 distinct viewers
+            in the last 7d. Silent-fail on fetch error. See plan
+            abstract-exploring-phoenix (Commit C). */}
+        <BeachWatchersBadge beachId={beach.id} className="ml-1" />
       </div>
 
       {publicMode && (

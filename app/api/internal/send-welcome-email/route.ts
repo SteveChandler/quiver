@@ -79,8 +79,28 @@ async function handler(request: NextRequest) {
     const baseUrl = getBaseUrl();
     const secret = getEmailTokenSecret();
 
+    // Plan abstract-exploring-phoenix (Commit C): deep-link the welcome
+    // CTA directly to the user's home beach when one is set. Immediate-
+    // signup path may race the profile insert, so tolerate a null read.
+    let homeBeachName: string | null = null;
+    let homeBeachSlug: string | null = null;
+    const { data: profile } = await serviceSupabase
+      .from("profiles")
+      .select("home_beach_id")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profile?.home_beach_id) {
+      const { data: beach } = await serviceSupabase
+        .from("beaches")
+        .select("name, slug")
+        .eq("id", profile.home_beach_id)
+        .maybeSingle();
+      homeBeachName = beach?.name ?? null;
+      homeBeachSlug = beach?.slug ?? null;
+    }
+
     const { subject, html, text } = await generateWelcomeEmail(
-      { userId: user.id, userEmail, baseUrl },
+      { userId: user.id, userEmail, baseUrl, homeBeachName, homeBeachSlug },
       secret
     );
 

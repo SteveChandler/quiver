@@ -28,7 +28,7 @@ export interface ShareSheetProps {
   /** URL of the image to share */
   imageUrl: string;
   /** Type of content being shared (for analytics) */
-  type: "wave" | "session";
+  type: "wave" | "session" | "beach" | "forecast";
   /** Filename for the shared image (extension added automatically) */
   filename?: string;
   /** Optional title for the share dialog */

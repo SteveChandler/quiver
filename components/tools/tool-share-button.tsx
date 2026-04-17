@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { Share2, Check } from "lucide-react";
+import { track } from "@/lib/analytics";
 
 interface ToolShareButtonProps {
   /** Tool display name, e.g. "Offshore Wind Checker" */
@@ -15,6 +16,11 @@ interface ToolShareButtonProps {
 /**
  * Compact share button for tool pages.
  * Uses Web Share API on mobile, falls back to clipboard copy with brief feedback.
+ *
+ * Fires `share_started` / `share_completed` / `share_link_copied` events for
+ * the /app-stats dashboard. Previously the button shipped with zero tracking
+ * — 0 events in the 7d ending 2026-04-17 despite real tool-page traffic.
+ * Plan: abstract-exploring-phoenix (Commit C).
  */
 export function ToolShareButton({
   toolName,
@@ -32,9 +38,17 @@ export function ToolShareButton({
         ? `Check ${toolName.toLowerCase()} at ${beachName} on Quiver`
         : `${toolName} on Quiver`);
 
+    const trackingMeta = {
+      surface: "tool",
+      tool_name: toolName,
+      beach_name: beachName ?? undefined,
+    };
+
     if (navigator.share) {
+      track("share_started", trackingMeta);
       try {
         await navigator.share({ title: toolName, text, url });
+        track("share_completed", trackingMeta);
       } catch (err) {
         // User cancelled share — not an error
         if (err instanceof Error && err.name !== "AbortError") {
@@ -48,6 +62,7 @@ export function ToolShareButton({
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
+      track("share_link_copied", trackingMeta);
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // Last resort: prompt-based copy
