@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useOnboardingStore, ONBOARDING_STEP_NAMES } from "@/store/onboarding-store";
 import { HomeBeachStep } from "./steps/home-beach-step";
@@ -36,6 +36,8 @@ function isProfileSubstantiallyComplete(
 export function OnboardingDialog() {
   const { user } = useAuth();
   const { profile } = useProfileContext();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const {
     isOpen,
@@ -152,6 +154,41 @@ export function OnboardingDialog() {
       return () => clearTimeout(timeoutId);
     }
   }, [openDialog, reset, searchParams]);
+
+  // `?onboarding=required` entry path — new signups redirected here from
+  // /auth/callback after a successful signup when their profile has no
+  // home_beach_id and no onboarding_completed_at. Opens the dialog once,
+  // then strips the query param so a refresh doesn't re-trigger.
+  //
+  // This is deliberately NOT the removed 500ms auto-open `useEffect` from
+  // plan vast-dancing-whale. Returning users never hit this path because
+  // /auth/callback only sets the param on fresh signups. Existing users
+  // without a home beach still open the dialog via the Oracle CTA or the
+  // /profile SetHomeBreakCta — that invariant is preserved.
+  //
+  // Plan: abstract-exploring-phoenix (Commit B).
+  const hasProcessedRequiredParam = useRef(false);
+  useEffect(() => {
+    if (hasProcessedRequiredParam.current) return;
+    if (searchParams?.get("onboarding") !== "required") return;
+    // Wait until the profile has loaded before deciding to open the dialog —
+    // opening on a phantom "no home beach" when profile is still null would
+    // flash the dialog for authed users who already have a home beach.
+    if (!user || !profile) return;
+    hasProcessedRequiredParam.current = true;
+
+    if (!profile.home_beach_id && !profile.onboarding_completed_at) {
+      reset();
+      openDialog();
+    }
+
+    // Strip the query param whether or not we opened the dialog, so
+    // refreshes don't re-enter this path and the URL stays clean.
+    const next = new URLSearchParams(searchParams?.toString() ?? "");
+    next.delete("onboarding");
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchParams, user, profile, openDialog, reset, router, pathname]);
 
   // Keep store/UI consistent: if the store says "open" but render conditions
   // no longer allow onboarding (e.g., profile loads as complete), close it.

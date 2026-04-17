@@ -115,18 +115,22 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       ).toBeInTheDocument();
     });
 
-    it("calls skipOnboarding + closeDialog when Maybe later button is clicked", async () => {
-      const user = userEvent.setup();
+    it("does NOT render a Maybe later skip button — HomeBeachStep is required", () => {
+      // Plan abstract-exploring-phoenix (Commit B): HomeBeachStep is the
+      // single required activation gate. Continue is disabled until a beach
+      // is selected; there is no skip affordance on this step. The dialog
+      // as a whole is still dismissable via the ESC key / browser back, but
+      // not via an in-step Maybe later button.
       render(<HomeBeachStep />);
+      expect(
+        screen.queryByRole("button", { name: /Maybe later/i })
+      ).not.toBeInTheDocument();
+    });
 
-      const skipBtn = screen.getByRole("button", { name: /Maybe later/i });
-      await user.click(skipBtn);
-
-      // Maybe later must commit the skip server-side (sets onboarding_completed_at)
-      // AND close the dialog. No escalating snooze anymore — first tap is permanent
-      // until the user re-opens from /profile.
-      expect(mockSkipOnboarding).toHaveBeenCalled();
-      expect(mockCloseDialog).toHaveBeenCalled();
+    it("Continue button is disabled until a beach is selected", () => {
+      render(<HomeBeachStep />);
+      const continueBtn = screen.getByRole("button", { name: /Continue/i });
+      expect(continueBtn).toBeDisabled();
     });
 
     // Note: Search and selection tests involve complex async interactions
