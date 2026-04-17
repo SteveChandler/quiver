@@ -1336,6 +1336,84 @@ describe('selectBestWindow with tide-driven boundaries', () => {
       expect(startHour).toBeLessThan(21);
     }
   });
+
+  it('should reject tide boundary when it lands on a different calendar day than source forecast', () => {
+    // Regression for the 2026-04-17 OB Pier screenshot bug: when today has no
+    // qualifying tide rise, calculateDirectionBasedWindow walks forward in the
+    // tide_schedule and returns a tide window entirely on tomorrow. That leaves
+    // bestWindow.start on tomorrow while bestWindow.forecast stays today, and
+    // the UI renders today's wave/wind/tide numbers under a "Tomorrow's Windows"
+    // label. The selector must reject a tide window whose start date differs
+    // from the source forecast's date in beach TZ.
+    const tideSchedule = [
+      // Today's only tide events: high at 4am PT, low at 10am PT.
+      // With preferred_tide_direction='rising' and afterTime = today 8am PT,
+      // the direction-based fallback walks past today's 10am low and today's
+      // afternoon high into tomorrow's low (simulating the OB Pier scenario).
+      { time: Math.floor(new Date('2024-01-15T12:00:00Z').getTime() / 1000), height: 5.5, type: 'high' as const }, // 4am PT today
+      { time: Math.floor(new Date('2024-01-15T18:00:00Z').getTime() / 1000), height: 0.8, type: 'low' as const },  // 10am PT today
+      { time: Math.floor(new Date('2024-01-15T23:00:00Z').getTime() / 1000), height: 4.5, type: 'high' as const }, // 3pm PT today
+      { time: Math.floor(new Date('2024-01-16T14:00:00Z').getTime() / 1000), height: -0.5, type: 'low' as const }, // 6am PT TOMORROW
+      { time: Math.floor(new Date('2024-01-16T20:00:00Z').getTime() / 1000), height: 5.2, type: 'high' as const }, // 12pm PT TOMORROW
+    ];
+
+    const todayForecast = createForecast({
+      id: 'today-8am',
+      forecast_at: '2024-01-15T16:00:00Z', // 8am PT today = 16:00 UTC
+      forecast_date: '2024-01-15',
+      forecast_time: '08:00',
+      wave_height: '4',
+      wave_period: '12s',
+      tide_height: '3.0',
+      tide_status: 'Falling',
+      confidence_score: 80,
+      raw_forecast: {
+        tide_schedule: tideSchedule,
+        data_sources: ['NOAA_NWS'],
+      },
+    } as any);
+
+    jest.setSystemTime(new Date('2024-01-15T14:23:00Z')); // 6:23am PT today
+
+    const beachWithTidePrefs = {
+      ...mockBeach,
+      preferred_tide_ft_min: 0,
+      preferred_tide_ft_max: 4,
+      preferred_tide_direction: 'rising', // OB Pier preference
+    } as Beach;
+
+    const sunTimesCache = new Map([
+      ['beach-1', {
+        sunrises: [
+          new Date('2024-01-15T14:30:00Z'), // 6:30am PT today
+          new Date('2024-01-16T14:30:00Z'), // 6:30am PT tomorrow
+        ],
+        sunsets: [
+          new Date('2024-01-16T01:00:00Z'), // 5pm PT today
+          new Date('2024-01-17T01:00:00Z'), // 5pm PT tomorrow
+        ],
+      }],
+    ]);
+
+    const result = selectBestWindow({
+      forecasts: [todayForecast],
+      beach: beachWithTidePrefs,
+      sunTimesCache,
+      userPrefs: null,
+    });
+
+    expect(result).not.toBeNull();
+
+    // bestWindow.start must be on the SAME calendar day as the source forecast
+    // in the beach TZ. Without the fix, start would be tomorrow 6am PT.
+    const startDateInBeachTz = new Intl.DateTimeFormat('en-CA', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      timeZone: 'America/Los_Angeles',
+    }).format(result!.start);
+    expect(startDateInBeachTz).toBe('2024-01-15');
+  });
 });
 
 describe('getTimeSlotRange', () => {
