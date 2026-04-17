@@ -1,0 +1,104 @@
+/**
+ * Pipeline test: Open-Meteo raw values co-locate on every merged slot where
+ * OM has data — regardless of whether NOAA or OM wins the primary merge.
+ *
+ * Covers the contract that Seaside ML depends on: `enhanced_forecasts` rows
+ * with `wave_height_om` etc. populated from the RAW OM API response, never
+ * from synthesized defaults.
+ */
+
+import { processOpenMeteoData } from "@/lib/services/noaa-wavewatch/data-processors";
+import type { OpenMeteoMarineResponse } from "@/lib/services/noaa-wavewatch/types";
+
+describe("processOpenMeteoData: om_values capture", () => {
+  const baseResponse = (): OpenMeteoMarineResponse => {
+    // Build 24 hourly entries (8 3-hour steps) starting now rounded down to hour.
+    const start = new Date();
+    start.setMinutes(0, 0, 0);
+    const time: string[] = [];
+    const wave_height: number[] = [];
+    const wave_period: number[] = [];
+    const wave_direction: number[] = [];
+    const swell_wave_height: number[] = [];
+    const swell_wave_period: number[] = [];
+    const swell_wave_direction: number[] = [];
+    const wind_wave_height: number[] = [];
+    for (let h = 0; h < 24; h += 1) {
+      const d = new Date(start.getTime() + h * 3600000);
+      time.push(d.toISOString());
+      wave_height.push(1.0 + h * 0.05);
+      wave_period.push(10 + h * 0.1);
+      wave_direction.push(220 + h);
+      swell_wave_height.push(0.7 + h * 0.03);
+      swell_wave_period.push(12 + h * 0.1);
+      swell_wave_direction.push(215 + h);
+      wind_wave_height.push(0.3);
+    }
+    return {
+      hourly: {
+        time,
+        wave_height,
+        wave_period,
+        wave_direction,
+        swell_wave_height,
+        swell_wave_period,
+        swell_wave_direction,
+        wind_wave_height,
+      },
+    };
+  };
+
+  it("attaches om_values with raw numeric API values to every forecast", () => {
+    const resp = baseResponse();
+    const forecasts = processOpenMeteoData(resp, 1);
+
+    expect(forecasts.length).toBeGreaterThan(0);
+    forecasts.forEach((fc, idx) => {
+      expect(fc.om_values).toEqual(expect.any(Object));
+      // Step index in the source hourly arrays is idx * 3.
+      const i = idx * 3;
+      expect(fc.om_values?.wave_height_om).toBe(resp.hourly!.wave_height![i]);
+      expect(fc.om_values?.wave_period_om).toBe(resp.hourly!.wave_period![i]);
+      expect(fc.om_values?.wave_direction_om).toBe(
+        resp.hourly!.wave_direction![i]
+      );
+      expect(fc.om_values?.swell_height_om).toBe(
+        resp.hourly!.swell_wave_height![i]
+      );
+      expect(fc.om_values?.swell_period_om).toBe(
+        resp.hourly!.swell_wave_period![i]
+      );
+      expect(fc.om_values?.swell_direction_om).toBe(
+        resp.hourly!.swell_wave_direction![i]
+      );
+      expect(fc.om_values?.wind_wave_height_om).toBe(
+        resp.hourly!.wind_wave_height![i]
+      );
+    });
+  });
+
+  it("records null in om_values for fields the API did not return", () => {
+    const resp = baseResponse();
+    // Simulate OM returning only wave_height + wave_period — no swell or wind arrays.
+    delete resp.hourly!.swell_wave_height;
+    delete resp.hourly!.swell_wave_period;
+    delete resp.hourly!.swell_wave_direction;
+    delete resp.hourly!.wind_wave_height;
+    delete resp.hourly!.wave_direction;
+
+    const forecasts = processOpenMeteoData(resp, 1);
+
+    forecasts.forEach((fc) => {
+      expect(fc.om_values).toEqual(expect.any(Object));
+      // Fields the API returned: recorded as numbers.
+      expect(typeof fc.om_values?.wave_height_om).toBe("number");
+      expect(typeof fc.om_values?.wave_period_om).toBe("number");
+      // Fields the API didn't return: recorded as null (never synthesized).
+      expect(fc.om_values?.wave_direction_om).toBeNull();
+      expect(fc.om_values?.swell_height_om).toBeNull();
+      expect(fc.om_values?.swell_period_om).toBeNull();
+      expect(fc.om_values?.swell_direction_om).toBeNull();
+      expect(fc.om_values?.wind_wave_height_om).toBeNull();
+    });
+  });
+});

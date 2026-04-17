@@ -69,6 +69,24 @@ export interface NOAAGridData {
 }
 
 /**
+ * Raw Open-Meteo wave values for a forecast slot.
+ *
+ * Stored alongside the primary merged values so `enhanced_forecasts` can
+ * co-locate NOAA + OM data on a single row. Values are the unmodified
+ * numeric quantities returned by Open-Meteo (meters / seconds / degrees)
+ * — never synthesized defaults.
+ */
+export interface OpenMeteoSlotValues {
+  wave_height_om: number | null;
+  wave_period_om: number | null;
+  wave_direction_om: number | null;
+  swell_height_om: number | null;
+  swell_period_om: number | null;
+  swell_direction_om: number | null;
+  wind_wave_height_om: number | null;
+}
+
+/**
  * Wave forecast data point
  */
 export interface WaveWatchData {
@@ -100,6 +118,13 @@ export interface WaveWatchData {
   wind_wave_direction: number;
   /** Data source indicator */
   data_source: "NOAA_NWS" | "OPEN_METEO" | "FALLBACK";
+  /**
+   * Raw Open-Meteo values for this slot when OM data was available
+   * at fetch time (horizon ≤168h). Carried through regardless of which
+   * source wins the merge so `enhanced_forecasts` can co-locate NOAA +
+   * OM values on the same row.
+   */
+  om_values?: OpenMeteoSlotValues;
 }
 
 /**

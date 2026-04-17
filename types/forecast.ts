@@ -145,6 +145,35 @@ export interface EnhancedForecastEntity {
   wind_wave_height?: string | null;
   wind_wave_period?: string | null;
   wind_wave_direction?: string | null;
+
+  // ------------------------------------------------------------------
+  // Open-Meteo raw values (co-located from Open-Meteo Marine API).
+  // These are the unmodified numeric quantities from Open-Meteo, stored
+  // alongside the primary NOAA-merged TEXT fields above. Populated on
+  // every slot where OM had data at fetch time (horizon ≤168h). NULL
+  // outside OM horizon or when OM fetch failed. Consumed by the Seaside
+  // ML service (to avoid its current live-fetch mid-correction).
+  //
+  // Corresponding DB columns added by
+  // supabase/migrations/20260417*_add_om_columns_to_enhanced_forecasts.sql.
+  // ------------------------------------------------------------------
+  /** Raw Open-Meteo significant wave height (meters). */
+  wave_height_om?: number | null;
+  /** Raw Open-Meteo wave period (seconds). */
+  wave_period_om?: number | null;
+  /** Raw Open-Meteo wave direction (degrees, 0-360). */
+  wave_direction_om?: number | null;
+  /** Raw Open-Meteo swell wave height (meters). */
+  swell_height_om?: number | null;
+  /** Raw Open-Meteo swell wave period (seconds). */
+  swell_period_om?: number | null;
+  /** Raw Open-Meteo swell wave direction (degrees, 0-360). */
+  swell_direction_om?: number | null;
+  /** Raw Open-Meteo wind-wave height (meters). */
+  wind_wave_height_om?: number | null;
+  /** ISO 8601 timestamp when Open-Meteo values were fetched. */
+  om_fetched_at?: string | null;
+
   water_temp: string | null;
   air_temperature?: string | null;
   wind_speed?: string | null;

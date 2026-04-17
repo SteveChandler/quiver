@@ -158,8 +158,20 @@ export class NOAAWaveWatchService {
         return this.mergeForecasts(noaaData, openMeteoData, latitude, longitude);
       }
 
-      // If only one source, use it
-      if (noaaData?.forecast.length) return noaaData;
+      // If only one source, use it. When OM is unavailable but NOAA is not,
+      // the downstream rows will be written with NULL _om columns — expected.
+      if (noaaData?.forecast.length) {
+        if (!openMeteoData?.forecast.length) {
+          trackFallback({
+            domain: "noaa-wavewatch",
+            field: "open_meteo_values",
+            fallbackValue: "null",
+            reason: "open_meteo_unavailable",
+            context: { latitude, longitude },
+          });
+        }
+        return noaaData;
+      }
       if (openMeteoData?.forecast.length) return openMeteoData;
 
       log.debug(
@@ -201,14 +213,15 @@ export class NOAAWaveWatchService {
       const ts = new Date(fc.timestamp).getTime();
       const hoursAhead = (ts - now) / 3600000;
       const slot = Math.round(ts / (3 * 3600000)) * (3 * 3600000);
+      const omFc = openMeteoMap.get(slot);
 
       if (hoursAhead <= NOAA_CUTOFF_HOURS) {
-        // Days 1-3: use NOAA
-        merged.push(fc);
+        // Days 1-3: use NOAA as the primary values, but still co-locate
+        // Open-Meteo raw values when available for the slot.
+        merged.push(omFc?.om_values ? { ...fc, om_values: omFc.om_values } : fc);
         matchedSlots.add(slot);
       } else {
         // Days 4+: prefer Open-Meteo, fall back to NOAA
-        const omFc = openMeteoMap.get(slot);
         if (omFc) {
           merged.push({ ...omFc, data_source: "OPEN_METEO" });
           matchedSlots.add(slot);

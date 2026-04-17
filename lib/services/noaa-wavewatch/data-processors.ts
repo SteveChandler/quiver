@@ -14,9 +14,20 @@ import {
   getTimestampForIndex,
   getValueAtIndex,
 } from "./wave-analysis";
-import type { NOAAGridData, OpenMeteoMarineResponse, WaveWatchData } from "./types";
+import type {
+  NOAAGridData,
+  OpenMeteoMarineResponse,
+  OpenMeteoSlotValues,
+  WaveWatchData,
+} from "./types";
 
 const log = createContextLogger("NOAAWaveWatch:DataProcessors");
+
+/** Return a finite number or null — guards against undefined/NaN in OM payloads. */
+function numberOrNull(value: number | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  return Number.isFinite(value) ? value : null;
+}
 
 /**
  * Process NOAA NWS grid data into wave forecasts
@@ -176,6 +187,20 @@ export function processOpenMeteoData(
     const windWaveDirection =
       data.hourly.wind_wave_direction?.[i] ?? peakWaveDirection;
 
+    // Capture RAW Open-Meteo values (no synthesized defaults) so they can
+    // be co-located on the enhanced_forecasts row regardless of which source
+    // wins the merge downstream. A value is only recorded when Open-Meteo
+    // actually returned it for this index — otherwise the column stays NULL.
+    const rawOm: OpenMeteoSlotValues = {
+      wave_height_om: numberOrNull(data.hourly.wave_height?.[i]),
+      wave_period_om: numberOrNull(data.hourly.wave_period?.[i]),
+      wave_direction_om: numberOrNull(data.hourly.wave_direction?.[i]),
+      swell_height_om: numberOrNull(data.hourly.swell_wave_height?.[i]),
+      swell_period_om: numberOrNull(data.hourly.swell_wave_period?.[i]),
+      swell_direction_om: numberOrNull(data.hourly.swell_wave_direction?.[i]),
+      wind_wave_height_om: numberOrNull(data.hourly.wind_wave_height?.[i]),
+    };
+
     const forecast: WaveWatchData = {
       timestamp: timestamp.toISOString(),
       significant_wave_height: significantWaveHeight,
@@ -191,6 +216,7 @@ export function processOpenMeteoData(
       wind_wave_period: windWavePeriod,
       wind_wave_direction: windWaveDirection,
       data_source: "OPEN_METEO" as const,
+      om_values: rawOm,
     };
 
     forecasts.push(forecast);

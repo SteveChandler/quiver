@@ -174,7 +174,6 @@ describe("ForecastBuilder", () => {
     });
 
     const forecast = forecasts[0];
-    expect(forecast.forecast_at).toBeDefined();
     expect(forecast.forecast_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:00:00Z$/);
   });
 
@@ -376,5 +375,101 @@ describe("ForecastBuilder", () => {
 
     // Heights within 20% → prefer the 14s period
     expect(forecasts[0].wave_period).toBe("14s");
+  });
+
+  describe("Open-Meteo co-located values", () => {
+    const waveDataWithOm = {
+      lat: 32.7,
+      lng: -117.2,
+      data_source: "NOAA_NWS" as const,
+      forecast: [
+        {
+          timestamp: new Date().toISOString(),
+          significant_wave_height: 1.2,
+          peak_wave_period: 12,
+          peak_wave_direction: 225,
+          swell_1_height: 0.8,
+          swell_1_period: 14,
+          swell_1_direction: 220,
+          swell_2_height: 0,
+          swell_2_period: 0,
+          swell_2_direction: 0,
+          wind_wave_height: 0.3,
+          wind_wave_period: 6,
+          wind_wave_direction: 200,
+          data_source: "NOAA_NWS" as const,
+          om_values: {
+            wave_height_om: 1.05,
+            wave_period_om: 11.4,
+            wave_direction_om: 231,
+            swell_height_om: 0.72,
+            swell_period_om: 13.1,
+            swell_direction_om: 224,
+            wind_wave_height_om: 0.34,
+          },
+        },
+      ],
+    };
+
+    it("populates *_om columns on rows where OM data is available", async () => {
+      const forecasts = await builder.buildForecasts({
+        beach: mockBeach,
+        waveData: waveDataWithOm,
+        tideData: mockTideData,
+        weatherData: [],
+        buoyData: null,
+        cdipData: null,
+        ioosWaterTempC: null,
+        coopsWaterTempC: null,
+      });
+
+      const f = forecasts[0];
+      expect(f.wave_height_om).toBe(1.05);
+      expect(f.wave_period_om).toBe(11.4);
+      expect(f.wave_direction_om).toBe(231);
+      expect(f.swell_height_om).toBe(0.72);
+      expect(f.swell_period_om).toBe(13.1);
+      expect(f.swell_direction_om).toBe(224);
+      expect(f.wind_wave_height_om).toBe(0.34);
+      expect(f.om_fetched_at).toEqual(expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/));
+    });
+
+    it("preserves NOAA-side string wave fields alongside *_om numeric fields", async () => {
+      const forecasts = await builder.buildForecasts({
+        beach: mockBeach,
+        waveData: waveDataWithOm,
+        tideData: mockTideData,
+        weatherData: [],
+        buoyData: null,
+        cdipData: null,
+        ioosWaterTempC: null,
+        coopsWaterTempC: null,
+      });
+
+      const f = forecasts[0];
+      // NOAA-side wave_height remains a TEXT-style string produced by the
+      // face-height transformer — see toFaceHeightFeetDecomposed mock.
+      expect(typeof f.wave_height).toBe("string");
+      // OM-side is numeric (meters), completely independent of the TEXT.
+      expect(typeof f.wave_height_om).toBe("number");
+    });
+
+    it("leaves *_om columns undefined when wave point has no om_values", async () => {
+      // mockWaveData contains no om_values (pre-migration NOAA-only shape).
+      const forecasts = await builder.buildForecasts({
+        beach: mockBeach,
+        waveData: mockWaveData,
+        tideData: mockTideData,
+        weatherData: [],
+        buoyData: null,
+        cdipData: null,
+        ioosWaterTempC: null,
+        coopsWaterTempC: null,
+      });
+
+      const f = forecasts[0];
+      expect(f.wave_height_om).toBeUndefined();
+      expect(f.om_fetched_at).toBeUndefined();
+    });
   });
 });
