@@ -77,16 +77,33 @@ function fireToUserEvents(eventType: string, params: Record<string, any>) {
   }
 }
 
+const VIEW_DWELL_MS = 500;
+
 export function trackSignupCtaView(params: Record<string, any>) {
   // Deduplicate view events per source per browser session.
   // Without this, scroll-triggered IntersectionObservers and page navigations
   // fire thousands of events per day, drowning out real behavioral signals.
   const sourceKey = String(params.source ?? "unknown");
   if (hasViewedInSession(sourceKey)) return;
-  markViewedInSession(sourceKey);
 
-  track("signup_cta_view", params);
-  fireToUserEvents("signup_cta_view", params);
+  // Delay fire by VIEW_DWELL_MS and verify the tab is still visible.
+  // Filters out fast-bouncers and background-tab prefetches that would
+  // otherwise inflate the denominator of the CTA conversion rate.
+  const fire = () => {
+    if (
+      typeof document !== "undefined" &&
+      document.visibilityState !== "visible"
+    ) {
+      return;
+    }
+    if (hasViewedInSession(sourceKey)) return;
+    markViewedInSession(sourceKey);
+    track("signup_cta_view", params);
+    fireToUserEvents("signup_cta_view", params);
+  };
+
+  if (typeof window === "undefined") return;
+  window.setTimeout(fire, VIEW_DWELL_MS);
 }
 
 export function trackSignupCtaClick(params: Record<string, any>) {

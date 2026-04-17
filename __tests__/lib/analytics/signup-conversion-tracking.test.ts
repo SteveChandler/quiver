@@ -21,10 +21,20 @@ const mockFetch = jest.fn(() =>
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.useFakeTimers();
   global.fetch = mockFetch;
   Object.defineProperty(window, "innerWidth", { value: 375, writable: true });
+  Object.defineProperty(document, "visibilityState", {
+    value: "visible",
+    configurable: true,
+    writable: true,
+  });
   // Reset module-level deduplication Set so tests are isolated
   _resetViewedSourcesForTesting();
+});
+
+afterEach(() => {
+  jest.useRealTimers();
 });
 
 // ---------------------------------------------------------------------------
@@ -34,7 +44,7 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("trackSignupCtaView", () => {
-  it("fires GA4 track and POST /api/events on first call", () => {
+  it("fires GA4 track and POST /api/events after dwell delay", () => {
     let freshTrackView!: typeof trackSignupCtaView;
 
     jest.isolateModules(() => {
@@ -44,6 +54,12 @@ describe("trackSignupCtaView", () => {
 
     const params = { source: "test-page", cta_title: "Sign Up" };
     freshTrackView(params);
+
+    // Fire is delayed — nothing should happen yet
+    expect(track).not.toHaveBeenCalled();
+    expect(mockFetch).not.toHaveBeenCalled();
+
+    jest.runOnlyPendingTimers();
 
     expect(track).toHaveBeenCalledWith("signup_cta_view", params);
     expect(mockFetch).toHaveBeenCalledWith("/api/events", {
@@ -59,12 +75,31 @@ describe("trackSignupCtaView", () => {
     });
   });
 
+  it("does not fire when tab is hidden when dwell timer elapses", () => {
+    const params = { source: "bg-tab", cta_title: "Sign Up" };
+
+    trackSignupCtaView(params);
+
+    Object.defineProperty(document, "visibilityState", {
+      value: "hidden",
+      configurable: true,
+      writable: true,
+    });
+
+    jest.runOnlyPendingTimers();
+
+    expect(track).not.toHaveBeenCalled();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it("deduplicates: only fires once per source per page load", () => {
     const params = { source: "cam-hero", cta_title: "Watch Live Cam" };
 
     trackSignupCtaView(params);
     trackSignupCtaView(params);
     trackSignupCtaView(params);
+
+    jest.runOnlyPendingTimers();
 
     // Despite being called 3 times, only one GA4 + one fetch event should fire
     expect(track).toHaveBeenCalledTimes(1);
@@ -75,6 +110,8 @@ describe("trackSignupCtaView", () => {
     trackSignupCtaView({ source: "cam-hero", cta_title: "Watch Cam" });
     trackSignupCtaView({ source: "inline-cta", cta_title: "Get Forecast" });
 
+    jest.runOnlyPendingTimers();
+
     expect(track).toHaveBeenCalledTimes(2);
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
@@ -82,6 +119,8 @@ describe("trackSignupCtaView", () => {
   it("treats missing source as 'unknown' for dedup key", () => {
     trackSignupCtaView({ cta_title: "Sign Up" });
     trackSignupCtaView({ cta_title: "Sign Up Again" });
+
+    jest.runOnlyPendingTimers();
 
     // Both have source=undefined → same dedup key "unknown" → only fires once
     expect(track).toHaveBeenCalledTimes(1);
