@@ -30,6 +30,9 @@ interface StickySignupBarProps {
   contextMessage?: { title: string; description: string };
   /** Override copy for visitors arriving from search engines */
   searchReferralCta?: SearchReferralCta;
+  /** Copy-variant label passed into signup_cta_view/_click metadata for
+   *  per-variant conversion measurement in user_events. */
+  ctaCopyVariant?: string;
 }
 
 /**
@@ -51,6 +54,7 @@ export function StickySignupBar({
   scrollThreshold = 300,
   contextMessage,
   searchReferralCta,
+  ctaCopyVariant,
 }: StickySignupBarProps) {
   const { user, isLoading } = useAuth();
   const reducedMotion = useReducedMotion();
@@ -91,7 +95,12 @@ export function StickySignupBar({
         wasVisible.current = visible;
         setIsVisible(visible);
         if (visible && !hasTrackedView.current) {
-          trackSignupCtaView({ source, cta_type: "sticky_bar", is_search_referral: isSearchReferral });
+          trackSignupCtaView({
+            source,
+            cta_type: "sticky_bar",
+            is_search_referral: isSearchReferral,
+            cta_copy_variant: ctaCopyVariant,
+          });
           hasTrackedView.current = true;
         }
       }
@@ -102,7 +111,7 @@ export function StickySignupBar({
 
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [scrollThreshold, source, isSearchReferral]);
+  }, [scrollThreshold, source, isSearchReferral, ctaCopyVariant]);
 
   const handleCtaClick = useCallback(() => {
     trackSignupCtaClick({
@@ -110,9 +119,10 @@ export function StickySignupBar({
       cta_type: "sticky_bar",
       cta_text: resolvedCtaText,
       is_search_referral: isSearchReferral,
+      cta_copy_variant: ctaCopyVariant,
     });
     setAuthModalOpen(true);
-  }, [source, resolvedCtaText, isSearchReferral]);
+  }, [source, resolvedCtaText, isSearchReferral, ctaCopyVariant]);
 
   // Don't render for authenticated users or while loading
   if (user || isLoading) {

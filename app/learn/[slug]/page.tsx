@@ -257,9 +257,11 @@ export default async function LearnArticlePage({ params }: Props) {
             {/* CTA after 3rd section -- natural reading break */}
             {i === 2 && (
               <InlineSignupCta
-                title="Track Your Sessions"
-                description="Log your surf sessions and get personalized forecasts based on the conditions you love."
+                title="Stop guessing. Start scoring."
+                description="Pick your home beach. We score every hour by tide, wind, and swell and tell you when to paddle out."
+                primaryButtonText="Pick your home beach"
                 source="learn_article"
+                ctaCopyVariant="learn_article_v1"
                 className="my-10"
               />
             )}

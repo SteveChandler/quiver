@@ -145,10 +145,11 @@ export default async function CamsRegionPage({ params }: PageProps) {
       <div className="px-4 pb-12">
         <div className="mx-auto max-w-3xl">
           <InlineSignupCta
-            title="Never Miss a Session"
-            description="Get alerts when conditions line up at your favorite breaks. Free condition reports, 12-day outlooks, and your surf call."
-            primaryButtonText="Get Alerts — Free"
+            title={`Watching ${region.name}? Track the break.`}
+            description={`The cam shows what's happening now. We score every hour at ${region.name} breaks so you know when to paddle out — free.`}
+            primaryButtonText={`Track ${region.name}`}
             source={`cams-${region.slug}-inline`}
+            ctaCopyVariant="region_specific_v1"
           />
         </div>
       </div>

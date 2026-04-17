@@ -387,10 +387,11 @@ export default async function BestTimeToSurfPage(props: PageParams) {
         )}
 
         <InlineSignupCta
-          title={`Get Alerts for ${cityName}`}
-          description={`Get notified when conditions are ideal in ${cityName}. Your surf call, 12-day outlooks, and condition alerts.`}
-          primaryButtonText="Get Alerts — Free"
+          title={`Your best ${cityName} window, delivered`}
+          description={`Dawn patrol, after work, weekends — we'll ping you when ${cityName} lines up for your session. Free.`}
+          primaryButtonText={`Track ${cityName}`}
           source={`best-time-${citySlug}-inline`}
+          ctaCopyVariant="city_specific_v1"
           className="mb-8"
         />
 

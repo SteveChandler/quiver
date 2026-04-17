@@ -323,12 +323,13 @@ export default async function GenericBeachDetailPage(props: PageProps) {
 
         <StickySignupBar
           source={`beach-detail-${beachSlug}`}
-          ctaText="Get Alerts"
-          supportingText={`Know when it's firing at ${beach.name}`}
+          ctaText={`Save ${beach.name}`}
+          supportingText={`Alerts when ${beach.name} is firing — free`}
           contextMessage={{
-            title: `Get Alerts for ${beach.name}`,
+            title: `Save ${beach.name} to your quiver`,
             description: "Condition alerts, 12-day outlook, and your personal match score",
           }}
+          ctaCopyVariant="beach_specific_v1"
         />
       </div>
     );

@@ -21,6 +21,9 @@ interface PublicContentGateProps {
   blurLevel?: "sm" | "md" | "lg";
   className?: string;
   source?: string; // For tracking where the CTA was clicked
+  /** Copy-variant label passed into signup_cta_view/_click metadata for
+   *  per-variant conversion measurement in user_events. */
+  ctaCopyVariant?: string;
 }
 
 export function PublicContentGate({
@@ -31,6 +34,7 @@ export function PublicContentGate({
   blurLevel = "md",
   className = "",
   source = "unknown",
+  ctaCopyVariant,
 }: PublicContentGateProps) {
   const { user, isLoading } = useAuth();
   const pathname = usePathname();
@@ -53,10 +57,11 @@ export function PublicContentGate({
       trackSignupCtaView({
         source,
         cta_title: ctaTitle,
+        cta_copy_variant: ctaCopyVariant,
       });
       hasTrackedView.current = true;
     }
-  }, [user, isLoading, source, ctaTitle]);
+  }, [user, isLoading, source, ctaTitle, ctaCopyVariant]);
 
   // If user is authenticated, still loading auth, or not yet mounted (hydration safety),
   // show full content without blur
@@ -75,6 +80,7 @@ export function PublicContentGate({
     trackSignupCtaClick({
       source,
       cta_title: ctaTitle,
+      cta_copy_variant: ctaCopyVariant,
     });
     setAuthMode("signup");
     setAuthModalOpen(true);
@@ -84,6 +90,7 @@ export function PublicContentGate({
     trackSigninCtaClick({
       source,
       cta_title: ctaTitle,
+      cta_copy_variant: ctaCopyVariant,
     });
     setAuthMode("login");
     setAuthModalOpen(true);

@@ -170,10 +170,11 @@ export default async function CamsHubPage() {
       <div className="px-4 pb-12">
         <div className="mx-auto max-w-3xl">
           <InlineSignupCta
-            title="Never Miss a Session"
-            description="Get alerts when conditions line up at your favorite breaks. Free condition reports, 12-day outlooks, and your surf call."
-            primaryButtonText="Get Alerts — Free"
+            title="Watch a cam? Track the break."
+            description="The cam tells you what's happening now. We tell you when to paddle out tomorrow — free."
+            primaryButtonText="Pick your home beach"
             source="cams-hub-inline"
+            ctaCopyVariant="cams_hub_v1"
           />
         </div>
       </div>

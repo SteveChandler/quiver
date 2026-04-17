@@ -16,6 +16,9 @@ interface InlineSignupCtaProps {
   primaryButtonText?: string;
   /** Analytics source tracking identifier */
   source: string;
+  /** Copy-variant label — passed into signup_cta_view/_click metadata so we can
+   *  measure per-variant conversion rate in user_events without a flag SDK. */
+  ctaCopyVariant?: string;
   /** Additional CSS classes */
   className?: string;
 }
@@ -35,6 +38,7 @@ export function InlineSignupCta({
   description,
   primaryButtonText = "See your surf call",
   source,
+  ctaCopyVariant,
   className,
 }: InlineSignupCtaProps) {
   const { user, isLoading } = useAuth();
@@ -43,19 +47,20 @@ export function InlineSignupCta({
 
   useEffect(() => {
     if (!user && !isLoading && !hasTrackedView.current) {
-      trackSignupCtaView({ source, cta_type: "inline" });
+      trackSignupCtaView({ source, cta_type: "inline", cta_copy_variant: ctaCopyVariant });
       hasTrackedView.current = true;
     }
-  }, [user, isLoading, source]);
+  }, [user, isLoading, source, ctaCopyVariant]);
 
   const handleSignupClick = useCallback(() => {
     trackSignupCtaClick({
       source,
       cta_type: "inline",
       cta_text: primaryButtonText,
+      cta_copy_variant: ctaCopyVariant,
     });
     setAuthModalOpen(true);
-  }, [source, primaryButtonText]);
+  }, [source, primaryButtonText, ctaCopyVariant]);
 
   // Don't render for authenticated users or while loading
   if (user || isLoading) {

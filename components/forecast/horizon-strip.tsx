@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useEffect } from "react";
+import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   type DaySummary,
@@ -11,6 +12,10 @@ import {
 } from "@/lib/utils/horizon-strip-utils";
 import { HorizonStripSkeleton } from "./horizon-strip-skeleton";
 import { track } from "@/lib/analytics";
+import {
+  trackSignupCtaClick,
+  trackSignupCtaView,
+} from "@/lib/analytics/signup-conversion-tracking";
 import { formatSwellPeriod } from "@/lib/formatters/surf-data";
 
 export interface HorizonStripProps {
@@ -24,6 +29,18 @@ export interface HorizonStripProps {
   isLoading?: boolean;
   /** Beach slug for analytics */
   beachSlug?: string;
+  /**
+   * Index from which cards render as gated (blurred, lock overlay). Clicks on
+   * gated cards fire `onGatedClick` instead of `onSelectDate`.
+   *
+   * When set, visible cards 0..gateIndex-1 behave normally; cards gateIndex..N
+   * are rendered blurred to create a loss-aversion signal for anonymous users
+   * ("there's a 12-day outlook I could see if I signed up"). Pass `undefined`
+   * (or don't pass) to disable gating entirely.
+   */
+  publicGateFromIndex?: number;
+  /** Invoked when a gated (blurred) card is clicked. Typically opens auth. */
+  onGatedClick?: () => void;
 }
 
 /**
@@ -62,11 +79,13 @@ function DayCard({
   isSelected,
   onClick,
   index,
+  gated = false,
 }: {
   day: DaySummary;
   isSelected: boolean;
   onClick: () => void;
   index: number;
+  gated?: boolean;
 }) {
   const colors = TIER_COLORS[day.tier];
   const waveRange = formatWaveRange(day.minHeight, day.maxHeight);
@@ -75,6 +94,7 @@ function DayCard({
     <button
       type="button"
       onClick={onClick}
+      aria-disabled={gated || undefined}
       className={cn(
         // Base layout
         "relative snap-start overflow-hidden",
@@ -89,12 +109,12 @@ function DayCard({
         // Entry animation
         "animate-container-fade-slide-up motion-reduce:animate-none",
         // Selected state
-        isSelected && [
+        isSelected && !gated && [
           "ring-2 ring-offset-2 ring-ocean-blue",
           "scale-105 shadow-lg z-10",
         ],
         // Hover state (when not selected)
-        !isSelected && [
+        !isSelected && !gated && [
           "hover:scale-102 hover:shadow-md",
           "active:scale-100",
         ],
@@ -102,8 +122,12 @@ function DayCard({
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2"
       )}
       style={{ animationDelay: `${index * 0.05}s` }}
-      aria-label={`${day.dayName}, ${day.date}: ${waveRange}, ${getTierLabel(day.tier)}${isSelected ? ' (selected)' : ''}`}
-      aria-pressed={isSelected}
+      aria-label={
+        gated
+          ? `${day.dayName}, ${day.date}: locked — sign up to unlock`
+          : `${day.dayName}, ${day.date}: ${waveRange}, ${getTierLabel(day.tier)}${isSelected ? ' (selected)' : ''}`
+      }
+      aria-pressed={!gated && isSelected}
     >
       {/* Wave texture at bottom */}
       <div
@@ -117,35 +141,68 @@ function DayCard({
         aria-hidden="true"
       />
 
-      {/* Tier indicator */}
-      <TierBadge tier={day.tier} />
-
-      {/* Day name */}
-      <span
+      {/* Inner card contents — blur the data itself (tier badge, wave range,
+          date) when gated so users can see there's a forecast, but can't read
+          the value. Keep the day name legible so the strip still feels like
+          a calendar. */}
+      <div
         className={cn(
-          "text-xs font-semibold uppercase tracking-wide",
-          day.isToday && "underline decoration-2 underline-offset-2"
+          "contents",
+          gated && "[&>*]:opacity-100"
         )}
       >
-        {day.dayName}
-      </span>
+        {/* Tier indicator — hidden when gated so we don't leak the quality signal */}
+        {!gated && <TierBadge tier={day.tier} />}
 
-      {/* Wave height */}
-      <div className="flex flex-col items-center -mt-0.5">
-        <span className="text-lg font-bold leading-tight">
-          {waveRange}
+        {/* Day name (always crisp so the calendar still reads) */}
+        <span
+          className={cn(
+            "text-xs font-semibold uppercase tracking-wide",
+            day.isToday && "underline decoration-2 underline-offset-2"
+          )}
+        >
+          {day.dayName}
         </span>
-        {day.period && (
-          <span className="text-[11px] opacity-90 leading-tight">
-            {formatSwellPeriod(day.period)}
+
+        {/* Wave height — blurred when gated */}
+        <div
+          className={cn(
+            "flex flex-col items-center -mt-0.5 transition-[filter] duration-200",
+            gated && "blur-[4px] select-none"
+          )}
+          aria-hidden={gated || undefined}
+        >
+          <span className="text-lg font-bold leading-tight">
+            {waveRange}
           </span>
-        )}
+          {day.period && (
+            <span className="text-[11px] opacity-90 leading-tight">
+              {formatSwellPeriod(day.period)}
+            </span>
+          )}
+        </div>
+
+        {/* Date — blurred when gated */}
+        <span
+          className={cn(
+            "text-[11px] opacity-90 transition-[filter] duration-200",
+            gated && "blur-[3px] select-none"
+          )}
+          aria-hidden={gated || undefined}
+        >
+          {day.date}
+        </span>
       </div>
 
-      {/* Date */}
-      <span className="text-[11px] opacity-90">
-        {day.date}
-      </span>
+      {/* Lock overlay for gated cards */}
+      {gated && (
+        <span
+          className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-black/40 text-white/90"
+          aria-hidden="true"
+        >
+          <Lock className="h-2.5 w-2.5" />
+        </span>
+      )}
     </button>
   );
 }
@@ -163,15 +220,26 @@ export function HorizonStrip({
   onSelectDate,
   isLoading = false,
   beachSlug,
+  publicGateFromIndex,
+  onGatedClick,
 }: HorizonStripProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const hasTrackedGateView = useRef(false);
 
-  // Scroll selected card into view on mount and when selection changes
+  const gateActive =
+    typeof publicGateFromIndex === "number" &&
+    publicGateFromIndex < days.length;
+
+  // Scroll selected card into view on mount and when selection changes.
+  // Do NOT scroll to a gated card — selectedDate may refer to a gated future
+  // day that no data is actually rendered for; scrolling past the free window
+  // would defeat the loss-aversion hint.
   useEffect(() => {
     if (!scrollContainerRef.current) return;
 
     const selectedIndex = days.findIndex((d) => d.fullDate === selectedDate);
     if (selectedIndex === -1) return;
+    if (gateActive && selectedIndex >= (publicGateFromIndex as number)) return;
 
     // Find the selected card element
     const container = scrollContainerRef.current;
@@ -190,10 +258,43 @@ export function HorizonStrip({
         behavior: 'smooth',
       });
     }
-  }, [selectedDate, days]);
+  }, [selectedDate, days, gateActive, publicGateFromIndex]);
+
+  // Fire a single signup_cta_view when the gated strip is mounted (dedup is
+  // session-per-source, so navigating between beaches re-tracks per beach
+  // because source includes beachSlug).
+  useEffect(() => {
+    if (!gateActive || hasTrackedGateView.current) return;
+    hasTrackedGateView.current = true;
+    trackSignupCtaView({
+      source: beachSlug
+        ? `horizon-strip-gated-days-${beachSlug}`
+        : "horizon-strip-gated-days",
+      cta_copy_variant: "horizon_blur_v1",
+      gated_from_index: publicGateFromIndex,
+      total_days: days.length,
+    });
+  }, [gateActive, beachSlug, publicGateFromIndex, days.length]);
 
   const handleDayClick = useCallback(
-    (day: DaySummary) => {
+    (day: DaySummary, index: number) => {
+      const isGated =
+        typeof publicGateFromIndex === "number" &&
+        index >= publicGateFromIndex;
+
+      if (isGated) {
+        trackSignupCtaClick({
+          source: beachSlug
+            ? `horizon-strip-gated-days-${beachSlug}`
+            : "horizon-strip-gated-days",
+          cta_copy_variant: "horizon_blur_v1",
+          gated_day: day.fullDate,
+          gated_day_index: index,
+        });
+        onGatedClick?.();
+        return;
+      }
+
       onSelectDate(day.fullDate);
 
       // Track analytics
@@ -207,7 +308,7 @@ export function HorizonStrip({
         });
       }
     },
-    [onSelectDate, beachSlug]
+    [onSelectDate, beachSlug, publicGateFromIndex, onGatedClick]
   );
 
   // Show skeleton while loading
@@ -239,16 +340,22 @@ export function HorizonStrip({
         role="listbox"
         aria-label="Forecast days - select a day to view details"
       >
-        {days.map((day, index) => (
-          <div key={day.fullDate} data-day-card className="flex-shrink-0 w-[88px] sm:flex-1 sm:min-w-0">
-            <DayCard
-              day={day}
-              isSelected={day.fullDate === selectedDate}
-              onClick={() => handleDayClick(day)}
-              index={index}
-            />
-          </div>
-        ))}
+        {days.map((day, index) => {
+          const isGated =
+            typeof publicGateFromIndex === "number" &&
+            index >= publicGateFromIndex;
+          return (
+            <div key={day.fullDate} data-day-card className="flex-shrink-0 w-[88px] sm:flex-1 sm:min-w-0">
+              <DayCard
+                day={day}
+                isSelected={day.fullDate === selectedDate}
+                onClick={() => handleDayClick(day, index)}
+                index={index}
+                gated={isGated}
+              />
+            </div>
+          );
+        })}
 
         {/* Right spacer for mobile scroll */}
         <div className="shrink-0 w-3 sm:hidden" aria-hidden="true" />
