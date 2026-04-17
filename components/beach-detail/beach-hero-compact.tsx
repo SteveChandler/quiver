@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
 import { MatchScoreEducation } from "@/components/recommendations/match-score-education";
 import { BoardRecommendationBadge } from "@/components/recommendations/board-recommendation-badge";
-import { BeachWatchersBadge } from "@/components/beach-detail/beach-watchers-badge";
+import { BeachAttributionCluster } from "@/components/beach-detail/beach-attribution-cluster";
 import { useBoardRecommendation } from "@/hooks/use-board-recommendation";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { track } from "@/lib/analytics";
@@ -160,6 +160,21 @@ export function BeachHeroCompact({
         </h1>
       )}
 
+      {/* Attribution cluster — watchers badge + share pill as a matched
+          sticker pair directly below the beach name. Plan: D2. Cam
+          beaches render BeachHeroCompact in overlayMode on a dark hero
+          photo, so the cluster lives here for non-cam beaches; cam
+          beaches get their own share-pill mount as a follow-up (flagged
+          in CHANGELOG). */}
+      {!overlayMode && (
+        <BeachAttributionCluster
+          beachId={beach.id}
+          beachSlug={beach.slug}
+          beachName={beach.name}
+          className="mb-3"
+        />
+      )}
+
       {/* Personalization Badge - Show after title for authenticated users */}
       {isLoadingPersonalization && (
         <div className={`flex items-center gap-2 mb-3 ${overlayMode ? "text-medium" : "text-muted-foreground"}`}>
@@ -277,10 +292,8 @@ export function BeachHeroCompact({
         {/* Location */}
         <span className={`text-sm ${overlayMode ? "text-medium" : "text-gray-600"}`}>{location}</span>
 
-        {/* Social-proof watchers pill — renders iff >=5 distinct viewers
-            in the last 7d. Silent-fail on fetch error. See plan
-            abstract-exploring-phoenix (Commit C). */}
-        <BeachWatchersBadge beachId={beach.id} className="ml-1" />
+        {/* Watchers badge moved to BeachAttributionCluster above (below
+            beach name) alongside the share pill. Plan: D2. */}
       </div>
 
       {publicMode && (

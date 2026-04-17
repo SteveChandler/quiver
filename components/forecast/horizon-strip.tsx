@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useRef, useEffect } from "react";
-import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   type DaySummary,
@@ -44,6 +43,32 @@ export interface HorizonStripProps {
 }
 
 /**
+ * Cycling sticker treatments applied to gated cards so the 9-card run
+ * reads as tilted stickers instead of a Netflix-style paywall grid.
+ * Rotations stay within ±1.25° so horizontal-scroll containers don't
+ * overlap neighbors at narrower breakpoints. Radii cycle through three
+ * asymmetric shapes (shared vocabulary with the sticker pills in
+ * `lib/ui/sticker-pill.ts`). Plan: D1.
+ */
+const GATED_ROTATIONS = [
+  "rotate-[-1deg]",
+  "rotate-[0.5deg]",
+  "rotate-[-0.75deg]",
+  "rotate-[1deg]",
+  "rotate-[-1.25deg]",
+  "rotate-[0.75deg]",
+  "rotate-[-0.5deg]",
+  "rotate-[1.25deg]",
+  "rotate-[-1deg]",
+] as const;
+
+const GATED_RADII = [
+  "rounded-[10px_14px_11px_13px]",
+  "rounded-[13px_10px_14px_11px]",
+  "rounded-[11px_13px_10px_14px]",
+] as const;
+
+/**
  * Tier badge styling - subtle indicator in the card
  */
 function TierBadge({ tier }: { tier: ConditionTier }) {
@@ -80,15 +105,30 @@ function DayCard({
   onClick,
   index,
   gated = false,
+  gatedIndex,
 }: {
   day: DaySummary;
   isSelected: boolean;
   onClick: () => void;
   index: number;
   gated?: boolean;
+  /** Position within the gated run (0-indexed). Drives the cycling
+   *  rotation + asymmetric-radius so the 9 gated cards read as tilted
+   *  stickers instead of an aligned paywall grid. Undefined for
+   *  ungated cards. */
+  gatedIndex?: number;
 }) {
   const colors = TIER_COLORS[day.tier];
   const waveRange = formatWaveRange(day.minHeight, day.maxHeight);
+
+  const gatedRotation =
+    gated && typeof gatedIndex === "number"
+      ? GATED_ROTATIONS[gatedIndex % GATED_ROTATIONS.length]
+      : undefined;
+  const gatedRadius =
+    gated && typeof gatedIndex === "number"
+      ? GATED_RADII[gatedIndex % GATED_RADII.length]
+      : undefined;
 
   return (
     <button
@@ -103,16 +143,26 @@ function DayCard({
       className={cn(
         // Base layout
         "relative snap-start overflow-hidden",
-        "w-full h-[88px] rounded-xl border-2",
+        "w-full h-[88px] border-2",
         "flex flex-col items-center justify-between p-2",
-        // Tier colors
+        // Radius — ungated cards use the stock shape; gated cards pick
+        // from the sticker vocabulary.
+        !gated && "rounded-xl",
+        gated && gatedRadius,
+        // Tier colors (kept for both states so the quality signal still
+        // bleeds through the blur on gated cards).
         colors.bg,
         colors.border,
         colors.text,
         // Transitions
         "transition-all duration-200 ease-out",
-        // Entry animation
-        "animate-container-fade-slide-up motion-reduce:animate-none",
+        // Entry animation — on gated cards the rotation already makes
+        // the row feel lively, so skip the staggered slide-up that
+        // looked chaotic when stacked on top of tilt.
+        !gated && "animate-container-fade-slide-up motion-reduce:animate-none",
+        // Per-card tilt for gated cards (motion-safe — the static
+        // rotation does not animate, so prefers-reduced-motion is fine).
+        gatedRotation,
         // Selected state
         isSelected && !gated && [
           "ring-2 ring-offset-2 ring-ocean-blue",
@@ -126,7 +176,7 @@ function DayCard({
         // Focus state
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2"
       )}
-      style={{ animationDelay: `${index * 0.05}s` }}
+      style={!gated ? { animationDelay: `${index * 0.05}s` } : undefined}
       aria-label={
         gated
           ? `${day.dayName}, ${day.date}: locked — sign up to unlock`
@@ -169,11 +219,13 @@ function DayCard({
           {day.dayName}
         </span>
 
-        {/* Wave height — blurred when gated */}
+        {/* Wave height — blurred when gated. Blur reduced from 4px to
+            3px (D1) so the digit shape hints through — gives a "this
+            data exists" signal without leaking the value. */}
         <div
           className={cn(
             "flex flex-col items-center -mt-0.5 transition-[filter] duration-200",
-            gated && "blur-[4px] select-none"
+            gated && "blur-[3px] select-none"
           )}
           aria-hidden={gated || undefined}
         >
@@ -187,11 +239,12 @@ function DayCard({
           )}
         </div>
 
-        {/* Date — blurred when gated */}
+        {/* Date — blurred when gated. Blur reduced from 3px to 2px
+            (D1) so the date silhouette still hints at progression. */}
         <span
           className={cn(
             "text-[11px] opacity-90 transition-[filter] duration-200",
-            gated && "blur-[3px] select-none"
+            gated && "blur-[2px] select-none"
           )}
           aria-hidden={gated || undefined}
         >
@@ -199,15 +252,11 @@ function DayCard({
         </span>
       </div>
 
-      {/* Lock overlay for gated cards */}
-      {gated && (
-        <span
-          className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-black/40 text-white/90"
-          aria-hidden="true"
-        >
-          <Lock className="h-2.5 w-2.5" />
-        </span>
-      )}
+      {/* Corner Lock icon removed in D1. The handwritten overlay at
+          the strip level (HorizonStrip below) now owns the "later this
+          week" affordance, and the per-card tilt + asymmetric radius
+          communicates "sticker cluster" rather than "aligned paywall
+          grid". */}
     </button>
   );
 }
@@ -349,6 +398,9 @@ export function HorizonStrip({
           const isGated =
             typeof publicGateFromIndex === "number" &&
             index >= publicGateFromIndex;
+          const gatedIndex = isGated
+            ? index - (publicGateFromIndex as number)
+            : undefined;
           return (
             <div key={day.fullDate} data-day-card className="flex-shrink-0 w-[88px] sm:flex-1 sm:min-w-0">
               <DayCard
@@ -357,6 +409,7 @@ export function HorizonStrip({
                 onClick={() => handleDayClick(day, index)}
                 index={index}
                 gated={isGated}
+                gatedIndex={gatedIndex}
               />
             </div>
           );
@@ -365,6 +418,29 @@ export function HorizonStrip({
         {/* Right spacer for mobile scroll */}
         <div className="shrink-0 w-3 sm:hidden" aria-hidden="true" />
       </div>
+
+      {/* Handwritten "later this week →" sticker — floats over the
+          center of the gated card run. Decorative only (aria-hidden);
+          per-card aria-labels already announce "locked — sign up to
+          unlock". Positioned absolute + pointer-events-none so each
+          card's tap target continues to route to onGatedClick. Plan: D1. */}
+      {gateActive && (
+        <span
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute",
+            "top-1/2 -translate-y-1/2",
+            "left-1/2 -translate-x-1/4",
+            "font-handwritten text-[#F78E42]",
+            "text-xl sm:text-2xl",
+            "rotate-[2deg]",
+            "drop-shadow-[0_1px_0_rgba(255,255,255,0.7)]",
+            "select-none"
+          )}
+        >
+          later this week →
+        </span>
+      )}
 
       {/* Right fade indicator (mobile only) */}
       {days.length > 4 && (

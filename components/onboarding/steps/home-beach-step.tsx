@@ -398,9 +398,10 @@ export function HomeBeachStep() {
         >
           Continue
         </button>
-        <p className="text-[11px] text-white/30 text-center">
-          Pick your home break to continue — we&apos;ll dial your forecast to it.
-        </p>
+        {/* No footer microcopy. The subtitle above already says
+            "Pick your home break — we'll dial your forecast to it."
+            and the disabled Continue button communicates the
+            requirement. Repeating it here read as nagging. Plan: D3. */}
       </div>
     </form>
   );

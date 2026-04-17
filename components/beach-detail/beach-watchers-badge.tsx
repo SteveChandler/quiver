@@ -4,6 +4,10 @@ import { useCallback, useMemo } from "react";
 import { Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import {
+  STICKER_PILL_BASE,
+  STICKER_ROTATIONS,
+} from "@/lib/ui/sticker-pill";
 
 interface BeachWatchersBadgeProps {
   beachId: string;
@@ -54,28 +58,50 @@ export function BeachWatchersBadge({
 
   const label = useMemo(() => {
     if (watchers < minThreshold) return null;
-    // Intentionally no exact-count precision — "47 surfers" feels honest,
-    // whereas "47.3 surfers" or "47/week" would read as engineering noise.
-    return `${watchers} surfers watching this week`;
+    // Past-tense copy. The underlying query counts distinct viewers
+    // over the last 7 days — some of those sessions ended days ago, so
+    // "watching" (present-continuous) would fib liveness. A compact
+    // past-tense tally with an explicit window reads as honest social
+    // proof and matches Quiver's "data is sacred" brand stance.
+    return `${watchers} surfers · last 7 days`;
   }, [watchers, minThreshold]);
 
-  if (loading || error || !label) return null;
+  if (error || (!loading && !label)) return null;
+
+  // Reserve space during fetch so the attribution cluster doesn't pop
+  // in when the count lands. Same size + shape as the rendered pill,
+  // just zero opacity — no CLS, no flicker.
+  if (loading) {
+    return (
+      <span
+        aria-hidden="true"
+        className={cn(
+          STICKER_PILL_BASE,
+          STICKER_ROTATIONS.watchers,
+          "opacity-0 select-none transition-opacity duration-200",
+          // Override the base text color so the placeholder doesn't
+          // leak the Charming Orange under any screen reader that
+          // inspects computed styles.
+          "[&]:text-transparent [&]:border-transparent",
+          className
+        )}
+      >
+        <Eye className="h-3 w-3 opacity-0" aria-hidden="true" />
+        <span>000 surfers · last 7 days</span>
+      </span>
+    );
+  }
 
   return (
     <span
       className={cn(
-        // Sticker aesthetic: slight rotation, asymmetric corners,
-        // Charming Orange copy on a subtle muted pill.
-        "inline-flex items-center gap-1 px-2 py-0.5",
-        "rounded-[6px_4px_6px_4px]",
-        "bg-[#F78E42]/10 border border-[#F78E42]/25",
-        "text-[11px] font-medium text-[#F78E42]",
-        "rotate-[-1deg]",
-        "whitespace-nowrap",
+        STICKER_PILL_BASE,
+        STICKER_ROTATIONS.watchers,
+        "transition-opacity duration-200",
         className
       )}
       data-testid="beach-watchers-badge"
-      aria-label={label}
+      aria-label={label!}
     >
       <Eye className="h-3 w-3" aria-hidden="true" />
       <span>{label}</span>

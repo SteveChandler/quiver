@@ -104,6 +104,15 @@ export function generateWelcomeEmailHtml(params: WelcomeEmailParams): string {
   <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body style="font-family: ${FONT_FAMILY}; max-width: 560px; margin: 0 auto; padding: 24px; color: ${COLORS.text}; background: #ffffff;">
+  <!-- Handwritten-style pre-header — single-line brand signature that
+       differentiates the email from generic "welcome to our platform"
+       templates in a Gmail preview. Uses a web-safe cursive stack so
+       every major mail client (Gmail, Apple Mail, Outlook) renders
+       something handwritten-feeling without requiring a webfont.
+       Plan: D5. -->
+  <p style="font-family: 'Caveat', 'Bradley Hand', 'Comic Sans MS', cursive; font-size: 18px; line-height: 1; color: ${COLORS.primary}; margin: 0 0 20px; transform: rotate(-0.5deg); display: inline-block;">
+    From the crew at quiversurf.app —
+  </p>
   <p style="font-size: 22px; line-height: 1.3; color: ${COLORS.heading}; font-weight: 700; margin: 0 0 12px;">
     ${headline}
   </p>
@@ -154,6 +163,8 @@ export function generateWelcomeEmailText(params: WelcomeEmailParams): string {
     : `Pick your home beach: ${ctaHref}`;
 
   return `
+From the crew at quiversurf.app —
+
 ${headline}
 
 ${body}

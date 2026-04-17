@@ -53,7 +53,7 @@ export function ShareBeachButton({
       <button
         type="button"
         onClick={handleOpen}
-        aria-label={`Share ${beachName}`}
+        aria-label={`Share the stoke: ${beachName}`}
         data-testid="share-beach-button"
         className={cn(
           "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors",
@@ -63,7 +63,7 @@ export function ShareBeachButton({
         )}
       >
         <Share2 className="h-4 w-4" aria-hidden="true" />
-        Share
+        Share the stoke
       </button>
 
       <ShareSheet
