@@ -51,7 +51,11 @@ export function StickySignupBar({
   source,
   ctaText = "Get alerts",
   supportingText = "Know when conditions fire at your spots",
-  scrollThreshold = 300,
+  // Default lowered from 300 → 150 (live note 2026-04-17): the bar was
+  // appearing too deep in the page. 150px ≈ "once the user has started
+  // reading," which is the right moment to offer a save-the-beach CTA
+  // without ambushing them mid-hero.
+  scrollThreshold = 150,
   contextMessage,
   searchReferralCta,
   ctaCopyVariant,

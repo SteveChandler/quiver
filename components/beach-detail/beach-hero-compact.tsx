@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
 import { MatchScoreEducation } from "@/components/recommendations/match-score-education";
 import { BoardRecommendationBadge } from "@/components/recommendations/board-recommendation-badge";
-import { BeachAttributionCluster } from "@/components/beach-detail/beach-attribution-cluster";
+// BeachAttributionCluster import removed — cluster is now mounted in
+// beach-detail.tsx so it's visible on both cam and non-cam pages.
 import { useBoardRecommendation } from "@/hooks/use-board-recommendation";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { track } from "@/lib/analytics";
@@ -160,20 +161,12 @@ export function BeachHeroCompact({
         </h1>
       )}
 
-      {/* Attribution cluster — watchers badge + share pill as a matched
-          sticker pair directly below the beach name. Plan: D2. Cam
-          beaches render BeachHeroCompact in overlayMode on a dark hero
-          photo, so the cluster lives here for non-cam beaches; cam
-          beaches get their own share-pill mount as a follow-up (flagged
-          in CHANGELOG). */}
-      {!overlayMode && (
-        <BeachAttributionCluster
-          beachId={beach.id}
-          beachSlug={beach.slug}
-          beachName={beach.name}
-          className="mb-3"
-        />
-      )}
+      {/* Attribution cluster was formerly mounted here — moved to
+          `beach-detail.tsx` where it renders for every beach page
+          (cam + non-cam). BeachHeroCompact is ONLY ever rendered in
+          overlayMode (inside the bottom of the hero on non-cam pages)
+          and is not rendered at all on cam pages, so neither user saw
+          the cluster. Plan: D2 follow-up. */}
 
       {/* Personalization Badge - Show after title for authenticated users */}
       {isLoadingPersonalization && (
