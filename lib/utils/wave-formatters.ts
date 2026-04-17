@@ -391,18 +391,24 @@ function formatWaveHeightValue(n: number, useHalfFootPrecision: boolean): string
  * @returns Formatted range like "3-5ft" or "4ft"
  *
  * @example
- * formatWaveHeightRangeString(3.2, 4.8) // "3-5ft"
- * formatWaveHeightRangeString(1.2, 1.8) // "1-2ft"
+ * formatWaveHeightRangeString(3.2, 4.8) // "3-5ft sets"
+ * formatWaveHeightRangeString(1.2, 1.8) // "1-2ft sets"
  * formatWaveHeightRangeString(0.8, 1.2) // "1ft" (both round to same)
+ *
+ * The "sets" suffix labels the upper bound as projected set waves (the
+ * bigger waves that come through in groups, typically 1.5x the average)
+ * rather than reading as a flat average range. Prevents users from
+ * interpreting "3-5ft" as "every wave is 3-5ft" on a 3ft-avg day.
  */
 export function formatWaveHeightRangeString(low: number, high: number): string {
   const useHalfFoot = isSmallRange(low, high);
   const lowStr = formatWaveHeightValue(low, useHalfFoot);
   const highStr = formatWaveHeightValue(high, useHalfFoot);
 
-  // If they round to the same value, just show single value
+  // If they round to the same value, just show single value — no projected
+  // set variance to disclose.
   if (lowStr === highStr) return `${lowStr}ft`;
-  return `${lowStr}-${highStr}ft`;
+  return `${lowStr}-${highStr}ft sets`;
 }
 
 // ============================================================================

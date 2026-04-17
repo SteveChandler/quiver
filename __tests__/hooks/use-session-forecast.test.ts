@@ -56,7 +56,7 @@ describe("useSessionForecast", () => {
     });
     expect(result.current.forecastData).toEqual({
       wave_height: 5,
-      wave_height_range: "5-8ft",
+      wave_height_range: "5-8ft sets",
       wind_speed: 10,
       wind_direction: "W",
       water_temp: 61,
@@ -118,7 +118,7 @@ describe("useSessionForecast", () => {
 
     expect(result.current.forecastData).toEqual({
       wave_height: 3.5,
-      wave_height_range: "4-5ft",
+      wave_height_range: "4-5ft sets",
       wind_speed: 5,
       wind_direction: "SW",
       water_temp: 58,
@@ -230,7 +230,7 @@ describe("useSessionForecast", () => {
 
       expect(result.current.forecastData).toEqual({
         wave_height: 3,
-        wave_height_range: "3-5ft",
+        wave_height_range: "3-5ft sets",
         wind_speed: 7,
         wind_direction: "E",
         water_temp: 62,
@@ -665,7 +665,7 @@ describe("useSessionForecast", () => {
 
       expect(result.current.forecastData).toEqual({
         wave_height: 3,
-        wave_height_range: "3-5ft",
+        wave_height_range: "3-5ft sets",
         wind_speed: 8,
         wind_direction: "offshore",
         water_temp: 60,
@@ -701,7 +701,7 @@ describe("useSessionForecast", () => {
 
       expect(result.current.forecastData).toEqual({
         wave_height: 4,
-        wave_height_range: "4-6ft",
+        wave_height_range: "4-6ft sets",
         wind_speed: 6,
         wind_direction: "NW",
         water_temp: 58,
@@ -737,7 +737,7 @@ describe("useSessionForecast", () => {
 
       // 3ft avg * 1.5 = 4.5ft sets → "3-5ft"
       expect(result.current.forecastData?.wave_height).toBe(3);
-      expect(result.current.forecastData?.wave_height_range).toBe("3-5ft");
+      expect(result.current.forecastData?.wave_height_range).toBe("3-5ft sets");
     });
 
     it("computes range for small waves", async () => {
@@ -763,7 +763,7 @@ describe("useSessionForecast", () => {
       await waitFor(() => expect(result.current.loading).toBe(false));
 
       // 1ft avg * 1.5 = 1.5ft sets → "1-1.5ft" (half-foot precision, range < 1ft)
-      expect(result.current.forecastData?.wave_height_range).toBe("1-1.5ft");
+      expect(result.current.forecastData?.wave_height_range).toBe("1-1.5ft sets");
     });
 
     it("computes range for large waves", async () => {
@@ -789,7 +789,7 @@ describe("useSessionForecast", () => {
       await waitFor(() => expect(result.current.loading).toBe(false));
 
       // 8ft avg * 1.5 = 12ft sets → "8-12ft"
-      expect(result.current.forecastData?.wave_height_range).toBe("8-12ft");
+      expect(result.current.forecastData?.wave_height_range).toBe("8-12ft sets");
     });
 
     it("returns undefined wave_height_range when wave_height is 0", async () => {
@@ -866,9 +866,9 @@ describe("useSessionForecast", () => {
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
-      // 2.5ft avg * 1.5 = 3.75ft sets → "3-4ft"
+      // 2.5ft avg * 1.5 = 3.75ft sets → "3-4ft sets"
       expect(result.current.forecastData?.wave_height).toBe(2.5);
-      expect(result.current.forecastData?.wave_height_range).toBe("3-4ft");
+      expect(result.current.forecastData?.wave_height_range).toBe("3-4ft sets");
     });
   });
 });

@@ -215,8 +215,8 @@ describe("BestRightNow", () => {
       }
       expect(screen.getByText("San Diego")).toBeInTheDocument();
       expect(screen.getAllByText("Orange County")).toHaveLength(2);
-      expect(screen.getByText("7-10ft")).toBeInTheDocument();
-      expect(screen.getByText("4-6ft")).toBeInTheDocument();
+      expect(screen.getByText("7-10ft sets")).toBeInTheDocument();
+      expect(screen.getByText("4-6ft sets")).toBeInTheDocument();
     });
 
     it("renders a trophy for rank #1 only and numeric ranks for the rest", () => {

@@ -62,8 +62,12 @@ describe("TodaysWindows", () => {
 
   it("renders wave heights for each window", () => {
     render(<TodaysWindows windows={SAMPLE_WINDOWS} preferredTime={null} />);
+    // Pre-formatted range strings pass through unchanged (no "sets" suffix
+    // because the caller has already made a range assertion).
     expect(screen.getByText("4-5ft")).toBeInTheDocument();
-    expect(screen.getByText("4-6ft")).toBeInTheDocument(); // "4 ft" point value → range via WaveHeightDisplay
+    // Single-value input runs through the formatter, which labels the set
+    // projection explicitly.
+    expect(screen.getByText("4-6ft sets")).toBeInTheDocument();
     expect(screen.getByText("3-4ft")).toBeInTheDocument();
   });
 

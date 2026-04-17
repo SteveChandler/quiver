@@ -70,20 +70,20 @@ describe("formatWaveHeightRange", () => {
   });
 
   describe("standard ranges", () => {
-    it("formats 1ft as '1-2ft' (1 * 1.5 = 1.5, rounds to 2)", () => {
-      expect(formatWaveHeightRange(1)).toBe("1-2ft");
+    it("formats 1ft as '1-2ft sets' (1 * 1.5 = 1.5, rounds to 2)", () => {
+      expect(formatWaveHeightRange(1)).toBe("1-2ft sets");
     });
 
-    it("formats 3ft as '3-5ft' (3 * 1.5 = 4.5, rounds to 5)", () => {
-      expect(formatWaveHeightRange(3)).toBe("3-5ft");
+    it("formats 3ft as '3-5ft sets' (3 * 1.5 = 4.5, rounds to 5)", () => {
+      expect(formatWaveHeightRange(3)).toBe("3-5ft sets");
     });
 
-    it("formats 6ft as '6-9ft' (6 * 1.5 = 9.0)", () => {
-      expect(formatWaveHeightRange(6)).toBe("6-9ft");
+    it("formats 6ft as '6-9ft sets' (6 * 1.5 = 9.0)", () => {
+      expect(formatWaveHeightRange(6)).toBe("6-9ft sets");
     });
 
-    it("formats 10ft as '10-15ft' (10 * 1.5 = 15.0)", () => {
-      expect(formatWaveHeightRange(10)).toBe("10-15ft");
+    it("formats 10ft as '10-15ft sets' (10 * 1.5 = 15.0)", () => {
+      expect(formatWaveHeightRange(10)).toBe("10-15ft sets");
     });
   });
 
@@ -94,9 +94,9 @@ describe("formatWaveHeightRange", () => {
       expect(typeof formatWaveHeightRange(10)).toBe("string");
     });
 
-    it("returned string ends with 'ft' for positive heights", () => {
-      expect(formatWaveHeightRange(3)).toMatch(/ft$/);
-      expect(formatWaveHeightRange(6)).toMatch(/ft$/);
+    it("returned string ends with 'ft' or 'ft sets' for positive heights", () => {
+      expect(formatWaveHeightRange(3)).toMatch(/ft( sets)?$/);
+      expect(formatWaveHeightRange(6)).toMatch(/ft( sets)?$/);
     });
   });
 });
