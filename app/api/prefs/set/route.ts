@@ -1,121 +1,53 @@
 /**
- * GET /prefs/set
+ * GET /api/prefs/set  (legacy email-action-link endpoint)
  *
- * Handles 1-tap preference updates from email buttons.
- * Query params: token (required), time/level/frequency (one required)
+ * Historical behavior: the old welcome email shipped 8 preference
+ * buttons that deep-linked here with `?time=`, `?level=`, or
+ * `?frequency=` params, which this route wrote to `user_email_prefs`
+ * (pref_time_bucket / skill_level / email_frequency).
  *
- * Returns an HTML page showing success or error.
+ * Current behavior: graceful no-op. The welcome email no longer links
+ * here (Commit C rewrote the template to a single value-first CTA);
+ * `user_email_prefs` writes are gone (plan cleanup) because nothing
+ * in the app reads that table. But emails in user inboxes from before
+ * the rewrite might still have these buttons, and we don't want those
+ * clicks to land on a 404 or a "your click did something silent" UX.
+ *
+ * So we keep the route, verify the token to give a polite response
+ * for bad/expired tokens, and render a "link expired" success page
+ * with a link back to the app. Zero DB writes.
+ *
+ * Plan: abstract-exploring-phoenix cleanup.
  */
 
 import { NextRequest } from 'next/server';
-import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { renderEmailActionPage } from '@/lib/email/html-response';
 import { verifyEmailActionToken } from '@/lib/email/verify-email-action';
-import { SKILL_LEVELS, type SkillLevel } from '@/lib/domains/user-preferences';
-
-// Valid values for each preference
-const VALID_TIME_BUCKETS = ['dawn', 'after_work', 'weekends'] as const;
-const VALID_SKILL_LEVELS = SKILL_LEVELS;
-const VALID_FREQUENCIES = ['daily', 'only_good'] as const;
-
-type TimeBucket = (typeof VALID_TIME_BUCKETS)[number];
-type Frequency = (typeof VALID_FREQUENCIES)[number];
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const token = searchParams.get('token');
-  const time = searchParams.get('time') as TimeBucket | null;
-  const level = searchParams.get('level') as SkillLevel | null;
-  const frequency = searchParams.get('frequency') as Frequency | null;
 
-  // Verify token
+  // Still verify the token so bad/expired links get a correct error
+  // page instead of a generic success. The response doesn't actually
+  // depend on the verification — the endpoint is a no-op either way —
+  // but giving a user with a tampered/expired token a "link expired"
+  // message is kinder than pretending it worked.
   const verification = await verifyEmailActionToken(token, 'prefs');
   if (!verification.success) {
     return renderEmailActionPage({
-      title: verification.errorType === 'config' ? 'Configuration Error' : 'Invalid Link',
-      message: verification.error,
+      title: verification.errorType === 'config' ? 'Configuration Error' : 'Link Expired',
+      message:
+        verification.errorType === 'config'
+          ? verification.error
+          : "This preference link has expired. Open the app to manage your settings.",
       isError: true,
     });
-  }
-  const userId = verification.userId;
-
-  // Validate at least one preference is being set
-  if (!time && !level && !frequency) {
-    return renderEmailActionPage({
-      title: 'No Preference',
-      message: 'No preference specified to update.',
-      isError: true,
-    });
-  }
-
-  // Validate preference values
-  if (time && !VALID_TIME_BUCKETS.includes(time)) {
-    return renderEmailActionPage({
-      title: 'Invalid Value',
-      message: `Invalid time value: ${time}`,
-      isError: true,
-    });
-  }
-  if (level && !VALID_SKILL_LEVELS.includes(level)) {
-    return renderEmailActionPage({
-      title: 'Invalid Value',
-      message: `Invalid level value: ${level}`,
-      isError: true,
-    });
-  }
-  if (frequency && !VALID_FREQUENCIES.includes(frequency)) {
-    return renderEmailActionPage({
-      title: 'Invalid Value',
-      message: `Invalid frequency value: ${frequency}`,
-      isError: true,
-    });
-  }
-
-  // Build update object
-  const updates: Record<string, string> = {
-    user_id: userId,
-  };
-
-  if (time) updates.pref_time_bucket = time;
-  if (level) updates.skill_level = level;
-  if (frequency) updates.email_frequency = frequency;
-
-  // Update database - use service role client since email links are clicked without auth session
-  const supabase = createSupabaseServiceRoleClient();
-  const { error } = await supabase
-    .from('user_email_prefs')
-    .upsert(updates as any, { onConflict: 'user_id' });
-
-  if (error) {
-    console.error('Failed to update email prefs:', error);
-    return renderEmailActionPage({
-      title: 'Update Failed',
-      message: 'Failed to save your preference. Please try again.',
-      isError: true,
-    });
-  }
-
-  // Success message based on what was updated
-  let successMessage = 'Your preference has been saved.';
-  if (time) {
-    const timeLabels: Record<TimeBucket, string> = {
-      dawn: 'Dawn patrol',
-      after_work: 'After work',
-      weekends: 'Weekends',
-    };
-    successMessage = `Surf time set to "${timeLabels[time]}"`;
-  } else if (level) {
-    successMessage = `Skill level set to "${level}"`;
-  } else if (frequency) {
-    const freqLabels: Record<Frequency, string> = {
-      daily: 'Daily (even if flat)',
-      only_good: "Only when it's good",
-    };
-    successMessage = `Email frequency set to "${freqLabels[frequency]}"`;
   }
 
   return renderEmailActionPage({
-    title: 'Saved',
-    message: successMessage,
+    title: 'Link retired',
+    message:
+      "This email-preference link isn't wired up anymore — it came from an older version of our welcome email. Open the app to set your home beach and notification preferences.",
   });
 }

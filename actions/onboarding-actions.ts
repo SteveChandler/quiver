@@ -248,28 +248,17 @@ export async function saveOnboardingData(data: OnboardingData) {
         console.warn('[onboarding] Referral handling error (non-blocking):', refErr);
       }
 
-      // Create default email preferences (non-blocking).
-      // `pref_time_bucket` removed in plan E2 — nothing in the codebase
-      // reads it (audited 2026-04-17: no cron, lib, or `.select()`
-      // consumes it), and the onboarding question that fed it was
-      // dropped. Other fields (skill_level, email_frequency,
-      // min_good_score, timezone, home_beach_id) are kept because
-      // `user_email_prefs` is still the row the forecast-digest-email
-      // cron filters on for `email_frequency` and `home_beach_id`.
-      if (data.homeBeachId && data.emailEnabled !== false) {
-        try {
-          await supabase.from('user_email_prefs').upsert({
-            user_id: user.id,
-            email_frequency: 'daily',
-            min_good_score: 6.0,
-            skill_level: data.experienceLevel === 'expert' ? 'advanced' : (data.experienceLevel || 'beginner'),
-            timezone: 'America/Los_Angeles',
-            home_beach_id: data.homeBeachId,
-          }, { onConflict: 'user_id' });
-        } catch (prefsErr) {
-          console.warn('[onboarding] Email prefs creation error (non-blocking):', prefsErr);
-        }
-      }
+      // `user_email_prefs` upsert removed — verified dead-table write.
+      // Earlier comment ("forecast-digest-email cron filters on
+      // user_email_prefs.email_frequency / home_beach_id") was wrong;
+      // re-audit on 2026-04-17 confirmed the cron reads `profiles`
+      // directly (`notif_email_enabled`, `notif_forecast_alerts`,
+      // `home_beach_id`). No cron, lib, hook, or component reads any
+      // column of `user_email_prefs`. Writing to it on every onboard
+      // was pure dead weight. If a future email-preference surface
+      // needs this, give it a new table with readers, or add the
+      // columns to `profiles` alongside the existing notif flags.
+      // Plan: abstract-exploring-phoenix cleanup.
 
       // Award welcome XP for completing onboarding
       try {

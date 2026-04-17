@@ -23,17 +23,18 @@ export async function saveHomeBeach(
   }
   const userId = verification.userId;
 
-  // Update database
+  // Write to `profiles.home_beach_id` — the column Oracle + every
+  // downstream read path actually consumes. Previous implementation
+  // wrote to `user_email_prefs.home_beach_id`, which no code reads;
+  // users clicking the email link to "set their home beach" were
+  // hitting a dead column. Routing the write to `profiles` makes the
+  // click do what the user expected (and has always expected).
+  // Plan: abstract-exploring-phoenix cleanup.
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase
-    .from('user_email_prefs')
-    .upsert(
-      {
-        user_id: userId,
-        home_beach_id: beachId,
-      },
-      { onConflict: 'user_id' }
-    );
+    .from('profiles')
+    .update({ home_beach_id: beachId })
+    .eq('id', userId);
 
   if (error) {
     console.error('Failed to save home beach:', error);
