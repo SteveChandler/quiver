@@ -319,8 +319,11 @@ export function ForecastTab({
       {forecasts.length > 0 && (
         <section className="space-y-2">
           <div className="flex items-center justify-between px-4 sm:px-6">
+            {/* Heading uses the total horizon length regardless of publicMode —
+                the blur on days 4-12 is itself the loss-aversion signal; the
+                heading doesn't need to repeat it. */}
             <h2 className="text-sm font-medium text-muted-foreground">
-              {publicMode ? horizonDaySummaries.length : horizonDaySummaries.length}-Day Outlook
+              {horizonDaySummaries.length}-Day Outlook
             </h2>
             <span className="text-xs text-muted-foreground">
               Tap a day to view details

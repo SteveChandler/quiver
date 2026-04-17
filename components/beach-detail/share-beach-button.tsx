@@ -16,9 +16,13 @@ interface ShareBeachButtonProps {
 
 /**
  * Share button for beach detail pages. Opens the existing `ShareSheet`
- * with the `/api/og/beach?slug=...` image as the preview. Fires
- * `share_started` / `share_completed` / `share_link_copied` /
- * `share_image_saved` via the ShareSheet's internal tracking.
+ * with the `/api/og/beach?slug=...` image as the preview. The ShareSheet
+ * itself fires `share_started` / `share_completed` (native share path),
+ * `share_link_copied` (clipboard path), and `share_image_saved` (save
+ * path) — we do NOT fire `share_started` here to avoid double-counting
+ * against the ShareSheet's own native-share funnel. We fire a distinct
+ * `share_sheet_opened` event so we can still measure "user clicked the
+ * share button" independently of which action they ultimately picked.
  *
  * Previously there was no share surface on beach pages despite a ready
  * OG image route — 0 beach-share events in 7d ending 2026-04-17. Plan:
@@ -38,7 +42,9 @@ export function ShareBeachButton({
   );
 
   const handleOpen = () => {
-    track("share_started", { surface: "beach", beach_slug: beachSlug });
+    // Distinct event name avoids inflating `share_started` 2x on the
+    // native-share path (ShareSheet.handleMore also fires share_started).
+    track("share_sheet_opened", { surface: "beach", beach_slug: beachSlug });
     setOpen(true);
   };
 

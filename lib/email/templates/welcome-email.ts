@@ -21,8 +21,11 @@ export interface WelcomeEmailProps {
   baseUrl: string;
   /** Home beach name, when the profile has one. Drives the CTA path. */
   homeBeachName?: string | null;
-  /** Home beach slug, when the profile has one. */
-  homeBeachSlug?: string | null;
+  /** Pre-built canonical URL path for the home beach (e.g.
+   *  "/ca/san-diego/blacks"). Callers should produce this via
+   *  `buildBeachUrl` from the beach's slug + city + state. Required
+   *  alongside `homeBeachName` for the "check your forecast" variant. */
+  homeBeachUrl?: string | null;
 }
 
 export async function generateWelcomeEmail(
@@ -32,10 +35,10 @@ export async function generateWelcomeEmail(
   // param would force every caller to change in the same commit.
   _secret: string
 ): Promise<{ subject: string; html: string; text: string }> {
-  const { baseUrl, homeBeachName, homeBeachSlug } = props;
+  const { baseUrl, homeBeachName, homeBeachUrl } = props;
 
-  const html = generateWelcomeEmailHtml({ baseUrl, homeBeachName, homeBeachSlug });
-  const text = generateWelcomeEmailText({ baseUrl, homeBeachName, homeBeachSlug });
+  const html = generateWelcomeEmailHtml({ baseUrl, homeBeachName, homeBeachUrl });
+  const text = generateWelcomeEmailText({ baseUrl, homeBeachName, homeBeachUrl });
 
   return {
     subject: WELCOME_EMAIL_SUBJECT,

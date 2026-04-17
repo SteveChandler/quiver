@@ -94,7 +94,12 @@ function DayCard({
     <button
       type="button"
       onClick={onClick}
-      aria-disabled={gated || undefined}
+      // NOTE: do NOT set aria-disabled here. The gated card is still
+      // fully clickable — tapping it opens the signup auth modal — so
+      // declaring it "disabled" to screen readers would be semantically
+      // wrong and misleading (user hears "disabled, dimmed" then the
+      // button actually works). The aria-label below already announces
+      // "locked — sign up to unlock", which is the correct affordance.
       className={cn(
         // Base layout
         "relative snap-start overflow-hidden",

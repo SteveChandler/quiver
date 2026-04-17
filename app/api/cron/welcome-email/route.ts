@@ -24,6 +24,7 @@ import {
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { resend, MAIL_FROM, MAIL_REPLY_TO } from "@/lib/mailer/client";
 import { generateWelcomeEmail } from "@/lib/email/templates/welcome-email";
+import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getEmailTokenSecret } from "@/lib/utils/email-token";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
@@ -125,20 +126,32 @@ export async function GET(request: Request) {
         await rateLimiter.throttle();
 
         // Plan abstract-exploring-phoenix (Commit C): look up the home
-        // beach name + slug so the rewritten welcome template can deep-
-        // link directly to the beach page. Unactivated users (no home
-        // beach yet) fall through to the "pick your home beach" variant
-        // that points at /?onboarding=required.
+        // beach name + canonical URL so the rewritten welcome template
+        // can deep-link directly to the beach page. We fetch city +
+        // state alongside name + slug so we can build the hierarchical
+        // URL (`/{state}/{city}/{slug}`) — landing on that URL skips
+        // the `/beach/{slug}` → 308 redirect hop that would otherwise
+        // drop the UTM query string from the URL seen by client-side
+        // analytics (middleware still captures UTMs into cookies on
+        // the first hit, but URL-reading analytics don't). Unactivated
+        // users (no home beach yet) fall through to the "pick your
+        // home beach" variant that points at /?onboarding=required.
         let homeBeachName: string | null = null;
-        let homeBeachSlug: string | null = null;
+        let homeBeachUrl: string | null = null;
         if (candidate.home_beach_id) {
           const { data: beach } = await supabase
             .from("beaches")
-            .select("name, slug")
+            .select("name, slug, city, state")
             .eq("id", candidate.home_beach_id)
             .maybeSingle();
-          homeBeachName = beach?.name ?? null;
-          homeBeachSlug = beach?.slug ?? null;
+          if (beach?.name && beach?.slug && beach?.city && beach?.state) {
+            homeBeachName = beach.name;
+            homeBeachUrl = buildBeachUrl({
+              slug: beach.slug,
+              city: beach.city,
+              state: beach.state,
+            });
+          }
         }
 
         // Generate welcome email
@@ -148,7 +161,7 @@ export async function GET(request: Request) {
             userEmail: candidate.email,
             baseUrl,
             homeBeachName,
-            homeBeachSlug,
+            homeBeachUrl,
           },
           secret
         );

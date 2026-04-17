@@ -26,10 +26,13 @@ export interface WelcomeEmailParams {
    *  beach detail page. When absent, the CTA nudges the user to the
    *  onboarding dialog. */
   homeBeachName?: string | null;
-  /** Home beach slug (for URL construction). Required together with
-   *  homeBeachName — when one is missing we fall back to the
-   *  no-home-beach copy. */
-  homeBeachSlug?: string | null;
+  /** Pre-built canonical beach URL path (e.g. "/ca/san-diego/blacks").
+   *  Required together with homeBeachName — when either is missing we
+   *  fall back to the no-home-beach copy. Must be the hierarchical URL
+   *  (from `buildBeachUrl`), NOT the legacy `/beach/{slug}` shape, so
+   *  clicks don't take an extra 308 redirect hop that drops the UTM
+   *  query string from the URL that client-side analytics see. */
+  homeBeachUrl?: string | null;
 }
 
 const COLORS = {
@@ -63,16 +66,22 @@ const PRIMARY_BUTTON_STYLE = `
  * Edge Functions.
  */
 export function generateWelcomeEmailHtml(params: WelcomeEmailParams): string {
-  const { baseUrl: rawBaseUrl, homeBeachName, homeBeachSlug } = params;
+  const { baseUrl: rawBaseUrl, homeBeachName, homeBeachUrl } = params;
   const baseUrl = rawBaseUrl.trim();
 
-  const hasHomeBeach = Boolean(homeBeachName && homeBeachSlug);
+  const hasHomeBeach = Boolean(homeBeachName && homeBeachUrl);
 
   // Variant-specific copy. Both paths lead with a single clear CTA;
   // neither asks for preferences. Variant markers flow into UTM tags so
   // the /app-stats email dashboard can attribute future clicks.
+  //
+  // `homeBeachUrl` is the canonical hierarchical URL path (e.g.
+  // "/ca/san-diego/blacks") — emitted directly instead of
+  // `/beach/{slug}` so the click doesn't bounce through a 308 redirect
+  // that drops the UTM query string from the URL that client-side
+  // analytics observe.
   const ctaHref = hasHomeBeach
-    ? `${baseUrl}/beach/${encodeURIComponent(homeBeachSlug!)}?utm_source=email&utm_medium=welcome&utm_campaign=home_beach_set`
+    ? `${baseUrl}${homeBeachUrl}?utm_source=email&utm_medium=welcome&utm_campaign=home_beach_set`
     : `${baseUrl}/?onboarding=required&utm_source=email&utm_medium=welcome&utm_campaign=no_home_beach`;
 
   const ctaLabel = hasHomeBeach
@@ -124,12 +133,12 @@ export function generateWelcomeEmailHtml(params: WelcomeEmailParams): string {
  * Generates the welcome email plain text version.
  */
 export function generateWelcomeEmailText(params: WelcomeEmailParams): string {
-  const { baseUrl: rawBaseUrl, homeBeachName, homeBeachSlug } = params;
+  const { baseUrl: rawBaseUrl, homeBeachName, homeBeachUrl } = params;
   const baseUrl = rawBaseUrl.trim();
-  const hasHomeBeach = Boolean(homeBeachName && homeBeachSlug);
+  const hasHomeBeach = Boolean(homeBeachName && homeBeachUrl);
 
   const ctaHref = hasHomeBeach
-    ? `${baseUrl}/beach/${encodeURIComponent(homeBeachSlug!)}?utm_source=email&utm_medium=welcome&utm_campaign=home_beach_set`
+    ? `${baseUrl}${homeBeachUrl}?utm_source=email&utm_medium=welcome&utm_campaign=home_beach_set`
     : `${baseUrl}/?onboarding=required&utm_source=email&utm_medium=welcome&utm_campaign=no_home_beach`;
 
   const headline = hasHomeBeach
