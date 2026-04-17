@@ -312,44 +312,28 @@ describe("OracleHomeScreen", () => {
     expect(screen.queryByText("Activity")).not.toBeInTheDocument();
   });
 
-  it("shows session time selector when preferred_session_time is not set", () => {
-    // profile without preferred_session_time (null)
+  // Session-time-selector prompt on the Oracle home screen was removed
+  // in plan abstract-exploring-phoenix E2. Users with no
+  // preferred_session_time no longer see a "When do you usually
+  // paddle out?" prompt above the primary CTA — that question was a
+  // zero-value capture that wrote to profiles.preferred_session_time
+  // which in turn only influenced which forecast window got top
+  // billing, a signal the user hadn't earned the right to demand. The
+  // `SessionTimeSelector` component + `updatePreferredSessionTime`
+  // server action remain available for a future settings surface but
+  // are no longer wired to the home screen. The three tests that
+  // previously covered this UI (positive render, hidden-when-set,
+  // click handler wiring) are replaced by a single negative assertion
+  // that pins the removal.
+  it("does NOT render the session-time-selector prompt regardless of preferred_session_time", () => {
     mockOracleData = {
       ...mockOracleData,
       profile: { ...mockOracleData.profile, preferred_session_time: null } as any,
-    };
-    render(<OracleHomeScreen />);
-    expect(
-      screen.getByText("When do you usually paddle out?")
-    ).toBeInTheDocument();
-  });
-
-  it("hides session time selector when preferred_session_time is set", () => {
-    mockOracleData = {
-      ...mockOracleData,
-      profile: { ...mockOracleData.profile, preferred_session_time: "dawn_patrol" } as any,
     };
     render(<OracleHomeScreen />);
     expect(
       screen.queryByText("When do you usually paddle out?")
     ).not.toBeInTheDocument();
-  });
-
-  it("calls updatePreferredSessionTime and refreshProfile when session time is selected", async () => {
-    const { updatePreferredSessionTime } = await import("@/actions/oracle-actions");
-    mockOracleData = {
-      ...mockOracleData,
-      profile: { ...mockOracleData.profile, preferred_session_time: null } as any,
-    };
-    render(<OracleHomeScreen />);
-
-    const dawnPatrolButton = screen.getByRole("button", { name: /dawn patrol/i });
-    await userEvent.click(dawnPatrolButton);
-
-    await waitFor(() => {
-      expect(updatePreferredSessionTime).toHaveBeenCalledWith("dawn_patrol");
-    });
-    expect(mockOracleData.refreshProfile).toHaveBeenCalledTimes(1);
   });
 
   it("shows loading skeleton when discovery is loading and no topRecommendation", () => {
