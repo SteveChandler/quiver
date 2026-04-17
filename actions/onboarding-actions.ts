@@ -235,6 +235,35 @@ export async function saveOnboardingData(data: OnboardingData) {
         throw new Error('Profile not found. Please ensure your account is fully set up.');
       }
 
+      // Seed a default alert rule on the user's home beach so they get a
+      // retention hook ("you were right, I would've surfed") within their
+      // first days. Skipped when experience_level is null — we don't guess.
+      // Non-blocking: failures here must never fail onboarding.
+      try {
+        const { seedDefaultRuleForUser } = await import('@/lib/alerts/seed-default-rule');
+        const seedResult = await seedDefaultRuleForUser({
+          supabase,
+          userId: user.id,
+          beachId: data.homeBeachId,
+          experienceLevel: data.experienceLevel ?? null,
+          notifyEmail: updatedProfile.notif_email_enabled ?? true,
+          notifyPush: updatedProfile.notif_push_enabled ?? false,
+        });
+
+        await supabase.from('user_events').insert({
+          user_id: user.id,
+          event_type: 'onboarding_step',
+          metadata: {
+            step: 'alert_rule_seeded',
+            step_name: 'alert_rule_seeded',
+            source: 'server',
+            ...seedResult,
+          },
+        });
+      } catch (seedErr) {
+        console.warn('[onboarding] alert rule seed error (non-blocking):', seedErr);
+      }
+
       // Generate referral code for new user and claim referral if provided (non-blocking)
       try {
         const { getOrCreateReferralCode, claimReferral } = await import('@/actions/referral-actions');

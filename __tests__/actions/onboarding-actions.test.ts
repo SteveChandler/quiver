@@ -5,10 +5,18 @@ jest.mock("@/lib/gamification", () => ({
   trackXP: jest.fn().mockResolvedValue({ success: true, data: { xp_gained: 100 } }),
 }));
 
+// Mock the seed helper so we can assert it's invoked with the right params.
+// Defaults to a no-op success; individual tests can override to simulate errors.
+const mockSeedDefaultRuleForUser = jest.fn();
+jest.mock("@/lib/alerts/seed-default-rule", () => ({
+  seedDefaultRuleForUser: (...args: unknown[]) => mockSeedDefaultRuleForUser(...args),
+}));
+
 // Track last operations for assertions
 let lastProfileUpdate: any = null;
 let lastXPTrackCalls: any[] = [];
 let lastUserEventInsert: any = null;
+let allUserEventInserts: any[] = [];
 
 // Mock server action utils
 jest.mock("@/lib/server-action-utils", () => {
@@ -91,6 +99,7 @@ jest.mock("@/lib/server-action-utils", () => {
         return {
           insert: (row: any) => {
             lastUserEventInsert = row;
+            allUserEventInserts.push(row);
             return Promise.resolve({ error: null });
           },
         };
@@ -119,6 +128,13 @@ describe("saveOnboardingData", () => {
     lastProfileUpdate = null;
     lastXPTrackCalls = [];
     lastUserEventInsert = null;
+    allUserEventInserts = [];
+    mockSeedDefaultRuleForUser.mockReset();
+    mockSeedDefaultRuleForUser.mockResolvedValue({
+      seeded: true,
+      ruleId: "rule-1",
+      presetType: "mellow_session",
+    });
   });
 
   describe("Profile Updates", () => {
@@ -346,6 +362,94 @@ describe("saveOnboardingData", () => {
           email_enabled: true, // Default true when not provided
         },
       });
+    });
+  });
+
+  describe("Default Alert Rule Seeding", () => {
+    it("invokes seedDefaultRuleForUser with experienceLevel and beach from onboarding data", async () => {
+      await saveOnboardingData({
+        fullName: "Test User",
+        displayName: "test_user",
+        homeBeachId: "beach-123",
+        experienceLevel: "beginner" as const,
+        emailEnabled: true,
+        pushEnabled: false,
+      });
+
+      expect(mockSeedDefaultRuleForUser).toHaveBeenCalledTimes(1);
+      const call = mockSeedDefaultRuleForUser.mock.calls[0][0];
+      expect(call.userId).toBe("user-123");
+      expect(call.beachId).toBe("beach-123");
+      expect(call.experienceLevel).toBe("beginner");
+      expect(call.notifyEmail).toBe(true);
+      expect(call.notifyPush).toBe(false);
+    });
+
+    it("passes null experienceLevel through when not provided (helper handles skip)", async () => {
+      await saveOnboardingData({
+        homeBeachId: "beach-123",
+      });
+
+      expect(mockSeedDefaultRuleForUser).toHaveBeenCalledTimes(1);
+      expect(mockSeedDefaultRuleForUser.mock.calls[0][0].experienceLevel).toBeNull();
+    });
+
+    it("logs an alert_rule_seeded user_events row with the seed result", async () => {
+      mockSeedDefaultRuleForUser.mockResolvedValueOnce({
+        seeded: true,
+        ruleId: "rule-xyz",
+        presetType: "clean_groundswell",
+      });
+
+      await saveOnboardingData({
+        homeBeachId: "beach-123",
+        experienceLevel: "expert" as const,
+      });
+
+      const seededEvent = allUserEventInserts.find(
+        (e) => e.metadata?.step === "alert_rule_seeded"
+      );
+      expect(seededEvent).toMatchObject({
+        event_type: "onboarding_step",
+        metadata: {
+          step: "alert_rule_seeded",
+          step_name: "alert_rule_seeded",
+          source: "server",
+          seeded: true,
+          ruleId: "rule-xyz",
+          presetType: "clean_groundswell",
+        },
+      });
+    });
+
+    it("does not fail onboarding when the seed helper throws", async () => {
+      mockSeedDefaultRuleForUser.mockRejectedValueOnce(new Error("boom"));
+
+      const result = await saveOnboardingData({
+        homeBeachId: "beach-123",
+        experienceLevel: "intermediate" as const,
+      });
+
+      expect(result.success).toBe(true);
+    });
+
+    it("does not fail onboarding when the seed helper returns an error result", async () => {
+      mockSeedDefaultRuleForUser.mockResolvedValueOnce({
+        seeded: false,
+        reason: "error",
+        error: "db down",
+      });
+
+      const result = await saveOnboardingData({
+        homeBeachId: "beach-123",
+        experienceLevel: "beginner" as const,
+      });
+
+      expect(result.success).toBe(true);
+      const seededEvent = allUserEventInserts.find(
+        (e) => e.metadata?.step === "alert_rule_seeded"
+      );
+      expect(seededEvent.metadata.reason).toBe("error");
     });
   });
 
