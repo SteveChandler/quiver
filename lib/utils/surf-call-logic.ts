@@ -586,8 +586,21 @@ export function computeSurfCall(
   const tide = getWindowTide(effectiveForecasts, windowStartMs, !isTomorrow);
   const waveHeight = window.waveHeight !== 'Unknown' ? window.waveHeight : null;
 
-  // Wave frequency — use first window forecast as representative input
-  const freqForecast = effectiveForecasts[0];
+  // Wave frequency — pass the peak-wave-height hour in the window so the
+  // calculator's height view matches the waveHeight we render on the card
+  // (window.waveHeight is the peak across the window, not hour 0). Without
+  // this, a window that peaks at 3ft mid-way through could be gated against
+  // hour 0's 1.9ft forecast and score 0 waves/hr under an "EPIC" badge.
+  const freqForecast = effectiveForecasts.reduce<EnhancedForecastEntity | null>(
+    (best, f) => {
+      const fMax = parseMaxWaveHeight(f.wave_height);
+      if (fMax == null) return best;
+      if (best == null) return f;
+      const bestMax = parseMaxWaveHeight(best.wave_height) ?? 0;
+      return fMax > bestMax ? f : best;
+    },
+    null,
+  ) ?? effectiveForecasts[0] ?? null;
   const freqResult = freqForecast ? calculateRideableWaves(freqForecast, beach) : null;
 
   // Short window gate - reject if too short
