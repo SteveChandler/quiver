@@ -266,8 +266,7 @@ beforeEach(() => {
 
 describe("OracleHomeScreen", () => {
   it("exports an OracleHomeScreen component", () => {
-    expect(OracleHomeScreen).toBeDefined();
-    expect(typeof OracleHomeScreen).toBe("function");
+    expect(typeof OracleHomeScreen).toEqual("function");
   });
 
   it("renders the hero section with beach data", () => {
