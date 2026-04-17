@@ -58,7 +58,12 @@ export class ForecastStorageService {
     this.config = {
       chunkSize: config.chunkSize ?? 100,
       verboseLogging: config.verboseLogging ?? this.isVerboseLoggingEnabled(),
-      maxRetries: config.maxRetries ?? 5,
+      // Bumped from 5 to 16 so schema-strip retries can accommodate the
+      // 8 newly added Open-Meteo columns (wave_height_om, wave_period_om,
+      // wave_direction_om, swell_height_om, swell_period_om,
+      // swell_direction_om, wind_wave_height_om, om_fetched_at) pre-migration.
+      // After the migration is applied this budget is never spent.
+      maxRetries: config.maxRetries ?? 16,
     };
   }
 

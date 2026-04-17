@@ -343,7 +343,7 @@ describe('calculatePersonalizationBonus', () => {
 
       // 10 * 0.8 = 8
       expect(result.personalizationBonus).toBeCloseTo(8);
-      expect(result.reasons).toContain('Wind conditions match your preferences');
+      expect(result.reasons).toContain('Wind matches your usual sessions');
     });
 
     it('adds 0 from wind when wind conditions do not match', () => {
@@ -361,7 +361,7 @@ describe('calculatePersonalizationBonus', () => {
       const result = calculatePersonalizationBonus(beach, forecast, context);
 
       expect(result.personalizationBonus).toBe(0);
-      expect(result.reasons).not.toContain('Wind conditions match your preferences');
+      expect(result.reasons).not.toContain('Wind matches your usual sessions');
     });
   });
 
@@ -383,7 +383,7 @@ describe('calculatePersonalizationBonus', () => {
 
       // 8 * 0.8 = 6.4
       expect(result.personalizationBonus).toBeCloseTo(6.4);
-      expect(result.reasons).toContain('Tide matches your preferred conditions');
+      expect(result.reasons).toContain('Tide matches your usual sessions');
     });
 
     it('adds 0 from tide when tide status does not match', () => {
@@ -400,7 +400,7 @@ describe('calculatePersonalizationBonus', () => {
       const result = calculatePersonalizationBonus(beach, forecast, context);
 
       expect(result.personalizationBonus).toBe(0);
-      expect(result.reasons).not.toContain('Tide matches your preferred conditions');
+      expect(result.reasons).not.toContain('Tide matches your usual sessions');
     });
   });
 
@@ -643,8 +643,8 @@ describe('calculatePersonalizationBonus', () => {
       // 15*0.8 + 10*0.8 + 8*0.8 = 12 + 8 + 6.4 = 26.4
       expect(result.personalizationBonus).toBeCloseTo(26.4);
       expect(result.reasons).toContain('Wave size matches your sweet spot');
-      expect(result.reasons).toContain('Wind conditions match your preferences');
-      expect(result.reasons).toContain('Tide matches your preferred conditions');
+      expect(result.reasons).toContain('Wind matches your usual sessions');
+      expect(result.reasons).toContain('Tide matches your usual sessions');
     });
 
     it('total equals affinityBonus + personalizationBonus', () => {
@@ -742,8 +742,8 @@ describe('calculatePersonalizationBonus', () => {
       // Should have 4 reasons: 3 learned + affinity
       expect(result.reasons.length).toBe(4);
       expect(result.reasons).toContain('Wave size matches your sweet spot');
-      expect(result.reasons).toContain('Wind conditions match your preferences');
-      expect(result.reasons).toContain('Tide matches your preferred conditions');
+      expect(result.reasons).toContain('Wind matches your usual sessions');
+      expect(result.reasons).toContain('Tide matches your usual sessions');
       expect(result.reasons).toContain("One of your go-to spots");
     });
 

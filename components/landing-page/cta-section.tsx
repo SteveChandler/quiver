@@ -91,7 +91,7 @@ export function CTASection() {
           className="text-white/50 text-sm font-sans"
           {...motionProps(400)}
         >
-          Free. No paywall. No catch.
+          Free iOS &amp; Android beta. Always freemium.
         </motion.p>
       </div>
     </section>

@@ -1,19 +1,14 @@
 "use client";
 
 import { useState, useCallback, KeyboardEvent } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { SectionWrapper } from "./section-wrapper";
 import { CONTENT } from "@/lib/constants/features";
-import {
-  BestSpotMock,
-  SessionJournalMock,
-  LocalIntelMock,
-} from "./phone-mocks";
 
-// Feature type definition
 type FeatureId = "forecast" | "journal" | "intel";
 
 interface Feature {
@@ -23,10 +18,10 @@ interface Feature {
   body: string;
   ctaLabel: string;
   ctaHref: string;
-  PhoneMockComponent: React.ComponentType;
+  imageSrc: string;
+  imageAlt: string;
 }
 
-// Features configuration
 const FEATURES: Feature[] = [
   {
     id: "forecast",
@@ -35,7 +30,8 @@ const FEATURES: Feature[] = [
     body: CONTENT.sections.forecast.subtitle,
     ctaLabel: CONTENT.sections.forecast.primaryCta,
     ctaHref: "/map",
-    PhoneMockComponent: BestSpotMock,
+    imageSrc: "/images/app-screenshots/verdict.png",
+    imageAlt: "Quiver app showing a Trestles 4-6ft EPIC surf call with AI-powered verdict, swell, tide, and water temperature.",
   },
   {
     id: "journal",
@@ -44,7 +40,8 @@ const FEATURES: Feature[] = [
     body: "Log sessions. Unlock better forecasts.",
     ctaLabel: "Start your journal",
     ctaHref: "/sessions/new",
-    PhoneMockComponent: SessionJournalMock,
+    imageSrc: "/images/app-screenshots/session.png",
+    imageAlt: "Quiver Log Session screen with board picker, duration, rating, and wave conditions.",
   },
   {
     id: "intel",
@@ -53,15 +50,15 @@ const FEATURES: Feature[] = [
     body: "Real-time posts, photos, and crowd reports from surfers at your local breaks.",
     ctaLabel: "Explore the map",
     ctaHref: "/map",
-    PhoneMockComponent: LocalIntelMock,
+    imageSrc: "/images/app-screenshots/forecast.png",
+    imageAlt: "Quiver hour-by-hour forecast screen showing 4-6ft NW swell, 5kt wind, rising tide, and a 300-break hourly outlook.",
   },
 ];
 
 export function ForecastSection() {
   const [activeFeatureId, setActiveFeatureId] = useState<FeatureId>("forecast");
-  
+
   const activeFeature = FEATURES.find((f) => f.id === activeFeatureId) || FEATURES[0];
-  const ActivePhoneMock = activeFeature.PhoneMockComponent;
 
   // Navigation handlers
   const handlePrevious = useCallback(() => {
@@ -224,51 +221,34 @@ export function ForecastSection() {
               </div>
             </div>
 
-            {/* Center: phone mock with animation */}
+            {/* Center: app screenshot with cross-fade */}
             <div className="flex justify-center shrink-0">
               <div className="relative w-[260px] sm:w-[300px] md:w-[340px] lg:w-[360px]">
-                {/* Device frame - iPhone-style with visible bezel */}
-                <div className="relative aspect-[9/19.5] rounded-[48px] bg-slate-900 p-3 shadow-2xl shadow-slate-900/30 ring-[3px] ring-slate-800">
-                  {/* Bezel highlight - subtle metallic effect */}
-                  <div className="pointer-events-none absolute inset-0 rounded-[48px] bg-gradient-to-br from-slate-700/30 via-transparent to-slate-950/50" />
-
-                  {/* Side buttons */}
-                  <div className="pointer-events-none absolute -left-[4px] top-[20%] h-8 w-[4px] rounded-l-sm bg-slate-700" />
-                  <div className="pointer-events-none absolute -left-[4px] top-[28%] h-14 w-[4px] rounded-l-sm bg-slate-700" />
-                  <div className="pointer-events-none absolute -left-[4px] top-[38%] h-14 w-[4px] rounded-l-sm bg-slate-700" />
-                  <div className="pointer-events-none absolute -right-[4px] top-[30%] h-20 w-[4px] rounded-r-sm bg-slate-700" />
-
-                  {/* Dynamic Island */}
-                  <div className="pointer-events-none absolute left-1/2 top-4 -translate-x-1/2 z-10">
-                    <div className="h-7 w-28 rounded-full bg-black shadow-inner flex items-center justify-end pr-3">
-                      <div className="h-2.5 w-2.5 rounded-full bg-slate-800 ring-1 ring-slate-700" />
-                    </div>
-                  </div>
-
-                  {/* Screen with animated phone mock */}
-                  <div
-                    role="tabpanel"
-                    id="phone-mock-panel"
-                    aria-labelledby={`tab-${activeFeatureId}`}
-                    className="relative h-full w-full overflow-hidden rounded-[36px] bg-[#f8f9fa]"
-                    data-testid="phone-screen"
-                  >
-                    <AnimatePresence mode="wait">
-                      <motion.div
-                        key={activeFeatureId}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.25, ease: "easeInOut" }}
-                        className="h-full w-full"
-                      >
-                        <ActivePhoneMock />
-                      </motion.div>
-                    </AnimatePresence>
-
-                    {/* Home indicator */}
-                    <div className="pointer-events-none absolute bottom-2 left-1/2 h-1.5 w-28 -translate-x-1/2 rounded-full bg-slate-900" />
-                  </div>
+                <div
+                  role="tabpanel"
+                  id="phone-mock-panel"
+                  aria-labelledby={`tab-${activeFeatureId}`}
+                  className="relative aspect-[9/19.5] overflow-hidden rounded-[32px] shadow-2xl shadow-slate-900/50 ring-1 ring-white/10"
+                  data-testid="phone-screen"
+                >
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeFeatureId}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.25, ease: "easeInOut" }}
+                      className="absolute inset-0"
+                    >
+                      <Image
+                        src={activeFeature.imageSrc}
+                        alt={activeFeature.imageAlt}
+                        fill
+                        sizes="(min-width: 1024px) 360px, (min-width: 768px) 340px, (min-width: 640px) 300px, 260px"
+                        className="object-cover"
+                      />
+                    </motion.div>
+                  </AnimatePresence>
                 </div>
               </div>
             </div>

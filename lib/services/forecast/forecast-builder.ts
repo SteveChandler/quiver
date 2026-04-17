@@ -237,6 +237,22 @@ export class ForecastBuilder {
       wind_wave_period: this.getWindWavePeriod(cdipPoint, wavePoint, useCDIPData),
       wind_wave_direction: this.getWindWaveDirection(cdipPoint, wavePoint, useCDIPData),
 
+      // Raw Open-Meteo values co-located on this row (when OM had data for
+      // this slot at fetch time). NULL when outside OM's 168h horizon or
+      // when OM fetch failed. The Seaside ML service reads these directly.
+      ...(wavePoint?.om_values
+        ? {
+            wave_height_om: wavePoint.om_values.wave_height_om,
+            wave_period_om: wavePoint.om_values.wave_period_om,
+            wave_direction_om: wavePoint.om_values.wave_direction_om,
+            swell_height_om: wavePoint.om_values.swell_height_om,
+            swell_period_om: wavePoint.om_values.swell_period_om,
+            swell_direction_om: wavePoint.om_values.swell_direction_om,
+            wind_wave_height_om: wavePoint.om_values.wind_wave_height_om,
+            om_fetched_at: now.toISOString(),
+          }
+        : {}),
+
       // Water temperature
       water_temp: this.getWaterTemperature(buoyData, beach, forecastTime, ioosWaterTempC, coopsWaterTempC),
 

@@ -203,15 +203,19 @@ export function calculatePersonalizationBonus(
     }
 
     // Wind preferences match: +10 * confidence
+    // Copy note: onboarding never asks the user for a wind preference. This
+    // signal is learned from session history, so the reason must be framed
+    // as observation — not a preference they declared.
     if (matchesLearnedWindPrefs(forecast, learned)) {
       personalizationBonus += 10 * conf;
-      reasons.push('Wind conditions match your preferences');
+      reasons.push('Wind matches your usual sessions');
     }
 
     // Tide preferences match: +8 * confidence
+    // Same as above — tide isn't asked in onboarding, so frame as observation.
     if (matchesLearnedTidePrefs(forecast, learned)) {
       personalizationBonus += 8 * conf;
-      reasons.push('Tide matches your preferred conditions');
+      reasons.push('Tide matches your usual sessions');
     }
   }
 

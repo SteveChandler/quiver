@@ -15,6 +15,8 @@ import {
   Brain,
   Star,
   Smartphone,
+  Apple,
+  Zap,
 } from "lucide-react";
 
 export const FEATURE_CARDS = [
@@ -145,26 +147,26 @@ export const FEATURE_CARDS = [
   },
   {
     icon: Smartphone,
-    title: "Mobile Apps",
+    title: "Join the Beta",
     description:
-      "Native iOS and Android apps with push alerts, camera integration, and location-aware recommendations.",
-    iconBgColor: "bg-teal-500/10",
-    iconColor: "text-teal-600",
+      "Free access to the iOS and Android beta. Sign up to help dial in the forecast for your breaks.",
+    iconBgColor: "bg-[#F78E42]/10",
+    iconColor: "text-[#F78E42]",
     features: [
       {
-        icon: AlertTriangle,
-        text: "Push condition alerts",
-        color: "text-teal-600",
+        icon: Apple,
+        text: "Early iOS access",
+        color: "text-[#F78E42]",
       },
       {
-        icon: Eye,
-        text: "Native camera integration",
-        color: "text-teal-600",
+        icon: Smartphone,
+        text: "Early Android access",
+        color: "text-[#F78E42]",
       },
       {
-        icon: MapPin,
-        text: "GPS-based suggestions",
-        color: "text-teal-600",
+        icon: Zap,
+        text: "Vote on what ships next",
+        color: "text-[#F78E42]",
       },
     ],
   },

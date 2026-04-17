@@ -110,73 +110,17 @@ The prop originates from `app/client-app.tsx`, which reads the `quiver_returning
    - Bundle reduction: ~400KB
    - Better performance (GPU-accelerated CSS)
 
-## Phone Mock Components
+## Phone Screenshots
 
-**Directory:** `components/landing-page/phone-mocks/`
+**Directory:** `public/images/app-screenshots/`
 
-Code-based phone mockups that render app UI without requiring static images:
+The ForecastSection renders real App Store screenshots (1290×2796 PNGs with phone chrome and headline poster text baked in) instead of code-based mockups. Source of truth lives in the native app's worktree at `quiver-native/.worktrees/app-store-screenshots/scripts/app-store-screenshots/output/6.7/`.
 
-### BestSpotMock
+- `verdict.png` — Your Surf Call tab: Trestles 4–6ft EPIC verdict with swell / tide / water temp.
+- `forecast.png` — Local Intel tab: hourly 4–6ft forecast, 5kt NW wind, rising tide, tide chart.
+- `session.png` — Session Journal tab: Log Session form with board picker, ratings, wave conditions.
 
-**File:** `phone-mocks/best-spot-mock.tsx`
-
-Renders the "Your Best Spot Today" personalized forecast view:
-- App header with Quiver logo, search/bell icons, user avatar
-- Main card with spot recommendation and 94% match badge
-- Current date display
-- Beach name and location (Marine Street Beach, La Jolla)
-- Best Window section with pastel tiles:
-  - Time window (4:00 PM - 7:00 PM)
-  - Tide status (Rising)
-  - Wind conditions (5 mph NE)
-  - Confidence score (88% High)
-- Bottom stats grid (wave height, match percentage)
-- Summary footer with conditions note
-
-### SessionJournalMock
-
-**File:** `phone-mocks/session-journal-mock.tsx`
-
-Renders the session journal/tracking view:
-- App header with menu navigation
-- "Surf Journal+" title with subtitle
-- Stats grid showing:
-  - 52 completed sessions
-  - 19 planned sessions
-  - 76 hours surfed
-  - 2.6 average rating
-- Favorite beach card (Ocean Beach)
-- Sessions/Insights tab navigation
-- List/Calendar view toggle
-- Session feed with user cards showing ratings and photos
-
-### LocalIntelMock
-
-**File:** `phone-mocks/local-intel-mock.tsx`
-
-Renders the local intel community feed:
-- App header with Quiver branding
-- "Local Intel" title with post count badge (10)
-- "Add Intel" CTA button
-- Intel post cards showing:
-  - User avatars and names
-  - Post titles and preview text
-  - Beach location tags
-  - Timestamps (relative time)
-  - Confirm buttons with interaction counts
-  - "Show more" expansion controls
-- Bottom CTA to view all intel posts
-
-### Design Principles
-
-All phone mocks follow consistent patterns:
-- iPhone-style dimensions and safe areas (Dynamic Island spacing)
-- Matching color palette (teal-600 for branding, pastel tiles)
-- Consistent typography scales (10px-18px for phone UI)
-- Rounded corners and subtle shadows
-- Icon usage from lucide-react library
-- No external image dependencies
-- Testable with data-testid attributes
+`ForecastSection` lazy-loads each via `next/image` with `fill` + `object-cover` inside an `aspect-[9/19.5]` `rounded-[32px]` container; `AnimatePresence` cross-fades on tab switch. Re-render new App Store screenshots in the native worktree (`npm run screenshots` inside `quiver-native`) and copy the three files back into `public/images/app-screenshots/` when the app UI changes.
 
 ## Component Patterns
 
@@ -1033,10 +977,10 @@ Interactive feature switcher showcasing three core app features with smooth tran
 **Architecture:**
 
 - **State Management**: React `useState` for active feature tracking (`forecast | journal | intel`)
-- **Component Structure**: Three phone mock components in `phone-mocks/` directory
-  - `BestSpotMock` - Personalized forecast view
-  - `SessionJournalMock` - Session tracking/journal view
-  - `LocalIntelMock` - Community intel feed view
+- **Media**: Three App Store screenshot PNGs in `public/images/app-screenshots/`
+  - `verdict.png` - Your Surf Call (verdict/hero)
+  - `session.png` - Session Journal (Log Session form)
+  - `forecast.png` - Local Intel (hourly forecast)
 - **Configuration**: `FEATURES` array with feature metadata (labels, copy, CTAs, components)
 
 **Layout:**
