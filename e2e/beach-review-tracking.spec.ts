@@ -384,8 +384,10 @@ test.describe('Beach Review Tracking', () => {
       // eslint-disable-next-line playwright/no-wait-for-timeout -- accumulating duration_ms for abandon tracking assertion
       await page.waitForTimeout(500);
 
-      // Click the Radix DialogContent close button (default aria-label="Close")
-      const closeButton = dialog.locator('button[aria-label="Close"]');
+      // Click the Radix DialogContent close button. Dialog renders both an
+      // aria-label="Close" and an sr-only "Close" span; role-based locator works
+      // without coupling to either.
+      const closeButton = dialog.getByRole("button", { name: /close/i });
       await closeButton.click();
 
       // Dialog should unmount
