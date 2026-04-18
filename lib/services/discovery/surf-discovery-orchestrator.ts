@@ -567,23 +567,33 @@ async function discoverSurfSpotsInner(
       getLocalDateStr(new Date(f.forecast_at), beachTz) === todayStr
     );
 
+    // If today has any forecasts, trust selectBestWindow's internal fallback to
+    // return today's best remaining window. Only reach into tomorrow's data when
+    // today is actually gone (e.g. post-sunset, todayForecasts empty) — otherwise
+    // we flip the hero to "Tomorrow's dawn patrol" while today's dawn is still
+    // minutes away.
     let bestWindow = todayForecasts.length > 0
       ? selectBestWindow(todayForecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot)
-      : null;
+      : selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
 
-    // Fall back to all forecasts (includes tomorrow) only if today has no viable window
-    if (!bestWindow) {
-      const reason = todayForecasts.length === 0
-        ? `no today forecasts (total=${forecasts.length})`
-        : `today's ${todayForecasts.length} forecasts failed window selection`;
-      log.warn(`[discoverSurfSpots] ${beach.name}: falling back to all-day forecasts — ${reason}`);
-      bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
+    if (!bestWindow && todayForecasts.length === 0) {
+      log.warn(`[discoverSurfSpots] ${beach.name}: no today forecasts (total=${forecasts.length}), tomorrow fallback returned null`);
     }
 
     if (!bestWindow) {
       beachesWithNoWindow.push(beach.name);
       log.debug(`[discoverSurfSpots] ${beach.name}: selectBestWindow returned null (forecasts=${forecasts.length})`);
       continue;
+    }
+
+    // Diagnostic: capture tomorrow-flip events so we can debug cases where the
+    // selector returns a next-day window even though today has viable data.
+    // Expected to be quiet after the today-first no-fallback guard above.
+    if (isFutureDayInTimezone(bestWindow.start, beachTz)) {
+      log.info(
+        `[tomorrow-flip-diag] ${beach.name}: bestWindow.start=${bestWindow.start.toISOString()} ` +
+        `beachTz=${beachTz} todayStr=${todayStr} todayForecasts=${todayForecasts.length}/${forecasts.length}`
+      );
     }
 
     // Use the exact forecast entity that the window selector scored.

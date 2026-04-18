@@ -81,6 +81,10 @@ export function BeachActions({
 
   return (
     <div data-testid="beach-actions" className={`space-y-4 ${className || ""}`}>
+      {/* Share moved to BeachAttributionCluster under the beach name
+          (Plan D2). This component now owns only the primary action
+          row — Report Conditions, Get Directions, Alert. */}
+
       {/* Primary Action Buttons — 3-button layout */}
       {/* Flex row: equal-width buttons, 12px gap, 20px vertical margin */}
       <div className="flex gap-3 my-5">

@@ -4,67 +4,97 @@
  * CANONICAL SOURCE for welcome email template HTML.
  * Used by the /api/cron/welcome-email cron job.
  *
- * The template includes:
- * - Surf time preference buttons (dawn, after work, weekends)
- * - Skill level buttons (beginner, intermediate, advanced)
- * - Email frequency buttons (daily, only when good)
- * - Home beach link
+ * Plan abstract-exploring-phoenix (Commit C): the previous version shipped
+ * 8 preference buttons ("Dawn patrol / After work / Weekends", 3 skill
+ * levels, 2 frequency options, "Set home break") linking to
+ * /api/prefs/set, which writes to `user_email_prefs`. Audit on
+ * 2026-04-17 confirmed NOTHING in the codebase reads `user_email_prefs`
+ * — it's written by this email and by onboarding-actions.ts:260-268 but
+ * no `.select()` query, cron, or lib consumes it. The 7d email click
+ * rate was 0% (7 opens / 0 clicks). Users were clicking buttons that
+ * wrote to a dead table.
+ *
+ * The new template leads with forecast value:
+ * - When home beach is set: deep-link "Check your {beach} forecast →"
+ * - When home beach is unset: "Pick your home beach →" deep-links to
+ *   `/?onboarding=required` (Commit B entry path).
  */
 
 export interface WelcomeEmailParams {
   baseUrl: string;
-  token: string;
+  /** Home beach display name; when present, the CTA deep-links to the
+   *  beach detail page. When absent, the CTA nudges the user to the
+   *  onboarding dialog. */
+  homeBeachName?: string | null;
+  /** Pre-built canonical beach URL path (e.g. "/ca/san-diego/blacks").
+   *  Required together with homeBeachName — when either is missing we
+   *  fall back to the no-home-beach copy. Must be the hierarchical URL
+   *  (from `buildBeachUrl`), NOT the legacy `/beach/{slug}` shape, so
+   *  clicks don't take an extra 308 redirect hop that drops the UTM
+   *  query string from the URL that client-side analytics see. */
+  homeBeachUrl?: string | null;
 }
 
-// Inline style constants (no imports to keep this pure)
 const COLORS = {
-  primary: '#0077B6',
-  text: '#333333',
-  textSecondary: '#666666',
-  textTertiary: '#999999',
-  heading: '#1e40af',
-  border: '#eeeeee',
+  primary: "#F78E42", // Charming Orange — hits the brand accent, contrasts with the Twilight Navy header
+  text: "#1a1a1a",
+  textSecondary: "#555555",
+  textTertiary: "#888888",
+  heading: "#252D6B", // Twilight Navy
+  border: "#eeeeee",
 } as const;
 
-const FONT_FAMILY = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+const FONT_FAMILY =
+  "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 
-const BUTTON_STYLE = `
+const PRIMARY_BUTTON_STYLE = `
   display: inline-block;
-  padding: 12px 20px;
-  margin: 4px;
+  padding: 14px 28px;
   background: ${COLORS.primary};
-  color: white;
+  color: #ffffff;
   text-decoration: none;
-  border-radius: 8px;
-  font-weight: 500;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: 0.01em;
 `.trim();
-
-const TIME_BUTTONS = [
-  { label: 'Dawn patrol', value: 'dawn' },
-  { label: 'After work', value: 'after_work' },
-  { label: 'Weekends', value: 'weekends' },
-] as const;
-
-const LEVEL_BUTTONS = [
-  { label: 'Beginner', value: 'beginner' },
-  { label: 'Intermediate', value: 'intermediate' },
-  { label: 'Advanced', value: 'advanced' },
-] as const;
-
-const FREQUENCY_BUTTONS = [
-  { label: 'Daily (even if flat)', value: 'daily' },
-  { label: "Only when it's good", value: 'only_good' },
-] as const;
 
 /**
  * Generates the welcome email HTML.
  *
- * This is a pure function with no external dependencies.
- * It can be safely copied to Deno Edge Functions.
+ * Pure function with no external dependencies — safe to port to Deno
+ * Edge Functions.
  */
 export function generateWelcomeEmailHtml(params: WelcomeEmailParams): string {
-  const { baseUrl: rawBaseUrl, token } = params;
+  const { baseUrl: rawBaseUrl, homeBeachName, homeBeachUrl } = params;
   const baseUrl = rawBaseUrl.trim();
+
+  const hasHomeBeach = Boolean(homeBeachName && homeBeachUrl);
+
+  // Variant-specific copy. Both paths lead with a single clear CTA;
+  // neither asks for preferences. Variant markers flow into UTM tags so
+  // the /app-stats email dashboard can attribute future clicks.
+  //
+  // `homeBeachUrl` is the canonical hierarchical URL path (e.g.
+  // "/ca/san-diego/blacks") — emitted directly instead of
+  // `/beach/{slug}` so the click doesn't bounce through a 308 redirect
+  // that drops the UTM query string from the URL that client-side
+  // analytics observe.
+  const ctaHref = hasHomeBeach
+    ? `${baseUrl}${homeBeachUrl}?utm_source=email&utm_medium=welcome&utm_campaign=home_beach_set`
+    : `${baseUrl}/?onboarding=required&utm_source=email&utm_medium=welcome&utm_campaign=no_home_beach`;
+
+  const ctaLabel = hasHomeBeach
+    ? `Check your ${homeBeachName} forecast →`
+    : "Pick your home beach →";
+
+  const headline = hasHomeBeach
+    ? `Your ${homeBeachName} forecast is dialed`
+    : "Your forecast is live";
+
+  const body = hasHomeBeach
+    ? `You know that 5 a.m. moment — alarm goes off, still not sure if it's worth it. Quiver just tells you. Yes or no. Best window. That's it.<br/><br/>Every session you log sharpens the call.`
+    : `One thing left — pick your home beach so we can dial the forecast to it.<br/><br/>You know that 5 a.m. moment — alarm goes off, still not sure if it's worth it. Once your home break is set, Quiver just tells you. Yes or no. Best window. That's it.`;
 
   return `
 <!DOCTYPE html>
@@ -73,49 +103,35 @@ export function generateWelcomeEmailHtml(params: WelcomeEmailParams): string {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
-<body style="font-family: ${FONT_FAMILY}; max-width: 600px; margin: 0 auto; padding: 20px; color: ${COLORS.text};">
-  <p style="font-size: 16px; color: ${COLORS.text}; margin-bottom: 8px;">
-    Your Quiver account is live — you're officially a Level 1 Kook.
+<body style="font-family: ${FONT_FAMILY}; max-width: 560px; margin: 0 auto; padding: 24px; color: ${COLORS.text}; background: #ffffff;">
+  <!-- Handwritten-style pre-header — single-line brand signature that
+       differentiates the email from generic "welcome to our platform"
+       templates in a Gmail preview. Uses a web-safe cursive stack so
+       every major mail client (Gmail, Apple Mail, Outlook) renders
+       something handwritten-feeling without requiring a webfont.
+       Plan: D5. -->
+  <p style="font-family: 'Caveat', 'Bradley Hand', 'Comic Sans MS', cursive; font-size: 18px; line-height: 1; color: ${COLORS.primary}; margin: 0 0 20px; transform: rotate(-0.5deg); display: inline-block;">
+    From the crew at quiversurf.app —
+  </p>
+  <p style="font-size: 22px; line-height: 1.3; color: ${COLORS.heading}; font-weight: 700; margin: 0 0 12px;">
+    ${headline}
   </p>
 
-  <p style="font-size: 16px; color: ${COLORS.text}; margin-bottom: 8px;">
-    Your home beach forecast is waiting. Every session you log levels you up and makes it smarter.
+  <p style="font-size: 16px; line-height: 1.55; color: ${COLORS.text}; margin: 0 0 24px;">
+    ${body}
   </p>
 
-  <p style="font-size: 16px; color: ${COLORS.text}; margin-bottom: 24px;">
-    You know that 5am moment — alarm goes off, and you're still not sure if it's actually worth it. Quiver just tells you. Yes or no. Best window. That's it.
+  <p style="margin: 8px 0 28px;">
+    <a href="${ctaHref}" style="${PRIMARY_BUTTON_STYLE}">${ctaLabel}</a>
   </p>
 
-  <p style="font-size: 14px; color: ${COLORS.textSecondary}; margin-bottom: 20px;">
-    Help me dial in your forecast:
+  <p style="font-size: 14px; line-height: 1.5; color: ${COLORS.textSecondary}; margin: 0 0 8px;">
+    Every session you log levels you up and makes the forecast smarter.
   </p>
 
-  <div style="margin-bottom: 24px;">
-    <h2 style="font-size: 14px; color: ${COLORS.text}; margin-bottom: 12px;">When do you usually surf?</h2>
-    ${TIME_BUTTONS.map(b => `<a href="${baseUrl}/api/prefs/set?time=${b.value}&token=${token}" style="${BUTTON_STYLE}">${b.label}</a>`).join('')}
-  </div>
-
-  <div style="margin-bottom: 24px;">
-    <h2 style="font-size: 14px; color: ${COLORS.text}; margin-bottom: 12px;">What's your level?</h2>
-    ${LEVEL_BUTTONS.map(b => `<a href="${baseUrl}/api/prefs/set?level=${b.value}&token=${token}" style="${BUTTON_STYLE}">${b.label}</a>`).join('')}
-  </div>
-
-  <div style="margin-bottom: 24px;">
-    <h2 style="font-size: 14px; color: ${COLORS.text}; margin-bottom: 12px;">How often should I email?</h2>
-    ${FREQUENCY_BUTTONS.map(b => `<a href="${baseUrl}/api/prefs/set?frequency=${b.value}&token=${token}" style="${BUTTON_STYLE}">${b.label}</a>`).join('')}
-  </div>
-
-  <div style="margin-bottom: 24px;">
-    <h2 style="font-size: 14px; color: ${COLORS.text}; margin-bottom: 12px;">Home break?</h2>
-    <a href="${baseUrl}/prefs/home-beach?token=${token}" style="${BUTTON_STYLE}">Set it here →</a>
-  </div>
-
-  <p style="color: ${COLORS.textTertiary}; font-size: 14px; margin-top: 24px;">
-    Or just <a href="${baseUrl}" style="color: ${COLORS.primary}; text-decoration: none;">check your forecast now →</a>
-  </p>
-
-  <p style="color: ${COLORS.text}; font-size: 14px; margin-top: 32px;">
-    — Steven
+  <p style="margin-top: 36px; padding-top: 20px; border-top: 1px solid ${COLORS.border}; color: ${COLORS.textTertiary}; font-size: 13px; line-height: 1.5;">
+    — Steven<br/>
+    <a href="${baseUrl}" style="color: ${COLORS.textTertiary}; text-decoration: underline;">quiversurf.app</a>
   </p>
 </body>
 </html>
@@ -126,38 +142,39 @@ export function generateWelcomeEmailHtml(params: WelcomeEmailParams): string {
  * Generates the welcome email plain text version.
  */
 export function generateWelcomeEmailText(params: WelcomeEmailParams): string {
-  const { baseUrl: rawBaseUrl, token } = params;
+  const { baseUrl: rawBaseUrl, homeBeachName, homeBeachUrl } = params;
   const baseUrl = rawBaseUrl.trim();
+  const hasHomeBeach = Boolean(homeBeachName && homeBeachUrl);
+
+  const ctaHref = hasHomeBeach
+    ? `${baseUrl}${homeBeachUrl}?utm_source=email&utm_medium=welcome&utm_campaign=home_beach_set`
+    : `${baseUrl}/?onboarding=required&utm_source=email&utm_medium=welcome&utm_campaign=no_home_beach`;
+
+  const headline = hasHomeBeach
+    ? `Your ${homeBeachName} forecast is dialed`
+    : "Your forecast is live";
+
+  const body = hasHomeBeach
+    ? `You know that 5 a.m. moment — alarm goes off, still not sure if it's worth it. Quiver just tells you. Yes or no. Best window. That's it.\n\nEvery session you log sharpens the call.`
+    : `One thing left — pick your home beach so we can dial the forecast to it.\n\nYou know that 5 a.m. moment — alarm goes off, still not sure if it's worth it. Once your home break is set, Quiver just tells you. Yes or no. Best window. That's it.`;
+
+  const cta = hasHomeBeach
+    ? `Check your ${homeBeachName} forecast: ${ctaHref}`
+    : `Pick your home beach: ${ctaHref}`;
 
   return `
-Your Quiver account is live — you're officially a Level 1 Kook.
+From the crew at quiversurf.app —
 
-Your home beach forecast is waiting. Every session you log levels you up and makes it smarter.
+${headline}
 
-You know that 5am moment — alarm goes off, and you're still not sure if it's actually worth it. Quiver just tells you. Yes or no. Best window. That's it.
+${body}
 
-Help me dial in your forecast:
+${cta}
 
-When do you usually surf?
-- Dawn patrol: ${baseUrl}/api/prefs/set?time=dawn&token=${token}
-- After work: ${baseUrl}/api/prefs/set?time=after_work&token=${token}
-- Weekends: ${baseUrl}/api/prefs/set?time=weekends&token=${token}
-
-What's your level?
-- Beginner: ${baseUrl}/api/prefs/set?level=beginner&token=${token}
-- Intermediate: ${baseUrl}/api/prefs/set?level=intermediate&token=${token}
-- Advanced: ${baseUrl}/api/prefs/set?level=advanced&token=${token}
-
-How often should I email?
-- Daily: ${baseUrl}/api/prefs/set?frequency=daily&token=${token}
-- Only when it's good: ${baseUrl}/api/prefs/set?frequency=only_good&token=${token}
-
-Home break?
-${baseUrl}/prefs/home-beach?token=${token}
-
-Or check your forecast now: ${baseUrl}
+Every session you log levels you up and makes the forecast smarter.
 
 — Steven
+${baseUrl}
   `.trim();
 }
 

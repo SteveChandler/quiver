@@ -40,6 +40,7 @@ function createThenableQuery<T>(result: {
   self.limit = jest.fn((_n?: any) => self);
   self.single = jest.fn(() => Promise.resolve(result));
   self.upsert = jest.fn((_data?: any, _opts?: any) => Promise.resolve(result));
+  self.update = jest.fn((_data?: any) => self);
 
   self.then = (onFulfilled: any, onRejected: any) =>
     Promise.resolve(result).then(onFulfilled, onRejected);
@@ -123,15 +124,15 @@ describe('home-beach actions', () => {
       const result = await saveHomeBeach('valid-token', 'beach-123');
 
       expect(result.success).toBe(true);
-      expect(result.error).toBeUndefined();
-      expect(mockSupabase.from).toHaveBeenCalledWith('user_email_prefs');
-      expect(mockQuery.upsert).toHaveBeenCalledWith(
-        {
-          user_id: 'user-123',
-          home_beach_id: 'beach-123',
-        },
-        { onConflict: 'user_id' }
-      );
+      expect(typeof result.error).toBe('undefined');
+      // saveHomeBeach now writes to `profiles.home_beach_id` instead
+      // of the dead `user_email_prefs` column. Plan:
+      // abstract-exploring-phoenix cleanup.
+      expect(mockSupabase.from).toHaveBeenCalledWith('profiles');
+      expect(mockQuery.update).toHaveBeenCalledWith({
+        home_beach_id: 'beach-123',
+      });
+      expect(mockQuery.eq).toHaveBeenCalledWith('id', 'user-123');
       expect(revalidatePath).toHaveBeenCalledWith('/prefs/home-beach');
     });
 

@@ -16,30 +16,16 @@ import type { BreakType, WaveFrequencyResult } from "./types";
 
 const METERS_TO_FEET = 1 / 0.3048;
 
-/**
- * Compute combined surf height (ft) from swell components using root-sum-of-squares.
- * Falls back to wave_height if no individual components are available.
- */
-function getCombinedHeightFt(forecast: EnhancedForecastEntity): number {
-  const components: number[] = [];
-
-  for (const field of [forecast.swell_1_height, forecast.swell_2_height, forecast.wind_wave_height]) {
-    const meters = parseWaveHeight(field, { useLowerBound: true });
-    if (meters != null && meters > FLAT_HEIGHT_METERS) {
-      components.push(meters * METERS_TO_FEET);
-    }
-  }
-
-  if (components.length > 0) {
-    return Math.sqrt(components.reduce((sum, h) => sum + h * h, 0));
-  }
-
-  // Fall back to wave_height field
+// Gate the threshold on forecast.wave_height — the authoritative shoaled,
+// ML-corrected, range-aware height that surfaces to the user on the card.
+// RSS of individually-shoaled swell components double-counts attenuation and
+// produces a view of height the user never sees (e.g. RSS = 1.9 ft while the
+// card badge reads "3-4 ft"), so a beach that reads "EPIC" can silently score
+// 0 waves/hr. Returns feet.
+function getGateHeightFt(forecast: EnhancedForecastEntity): number {
   const meters = parseWaveHeight(forecast.wave_height, { useLowerBound: true });
-  if (meters != null && meters > FLAT_HEIGHT_METERS) {
-    return meters * METERS_TO_FEET;
-  }
-  return 0;
+  if (meters == null || meters <= FLAT_HEIGHT_METERS) return 0;
+  return meters * METERS_TO_FEET;
 }
 
 /**
@@ -132,13 +118,13 @@ export function calculateRideableWaves(
   const T1 = parseWavePeriod(forecast.swell_1_period || forecast.wave_period);
   if (T1 <= 0) return { rideableWavesPerHour: 0, confidence: "low", swellTrains: 0, dominantBeatIntervalS: null };
 
-  // Step 1: Height gate — use RSS of swell components when available
-  // RSS combines independent swell trains: sqrt(h1² + h2² + h3²)
-  // This matches how surf height is derived from offshore swell components.
+  // Step 1: Height gate — read forecast.wave_height directly so the gate
+  // authority matches the value the surf-call card displays to the user.
+  // See getGateHeightFt above for the reason this is not RSS of components.
   const breakType = (beach.break_type?.toLowerCase() as BreakType) || "other";
   const config = BREAK_TYPE_CONFIGS[breakType] || BREAK_TYPE_CONFIGS.other;
 
-  const heightFt = getCombinedHeightFt(forecast);
+  const heightFt = getGateHeightFt(forecast);
 
   if (heightFt < config.thresholdFt) {
     return { rideableWavesPerHour: 0, confidence: resolveConfidence(forecast), swellTrains: 0, dominantBeatIntervalS: null };

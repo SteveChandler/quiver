@@ -48,9 +48,16 @@ mockSelect.mockReturnValue({
   eq: mockEq,
 });
 
+// Added plan abstract-exploring-phoenix (Commit C): the route now also
+// does a direct .from(profiles).select().eq().maybeSingle() lookup to
+// fetch home_beach_id (no .limit() in that chain). Return `maybeSingle`
+// at the `.eq()` terminal so both the email_send_log existing-check
+// chain and the new profile fetch succeed without the tests having to
+// model the full query surface.
 mockEq.mockImplementation(() => ({
   eq: mockEq,
   limit: mockLimit,
+  maybeSingle: mockMaybeSingle,
 }));
 
 mockLimit.mockReturnValue({
@@ -164,7 +171,7 @@ describe("POST /api/internal/send-welcome-email", () => {
       expect(response.status).toBe(401);
       const data = await response.json();
       expect(data.success).toBe(false);
-      expect(data.error).toBeDefined();
+      expect(typeof data.error).toBe("string");
     });
 
     it("returns 401 when auth check fails", async () => {
@@ -258,7 +265,7 @@ describe("POST /api/internal/send-welcome-email", () => {
       expect(response.status).toBe(400);
       const data = await response.json();
       expect(data.success).toBe(false);
-      expect(data.error).toBeDefined();
+      expect(typeof data.error).toBe("string");
     });
 
     it("returns 500 when email send fails", async () => {

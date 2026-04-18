@@ -63,7 +63,7 @@ export function SessionPromptEmail({
         <p style={{ fontSize: 16, margin: "0 0 20px 0", color: "#333333" }}>
           Conditions were looking <strong>{conditionLabel.toLowerCase()}</strong> at{" "}
           <strong>{beachName}</strong> yesterday ({conditionsScore}/10).
-          {surfDescription && ` ${surfDescription}.`} If you got out there, we&apos;d love to hear how it was!
+          {surfDescription && ` ${surfDescription}.`}{" "}If you got out there, we&apos;d love to hear how it was!
         </p>
 
         {/* Motivational Line */}

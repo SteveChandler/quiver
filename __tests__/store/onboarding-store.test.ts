@@ -270,6 +270,64 @@ describe('useOnboardingStore', () => {
     });
   });
 
+  describe('reopenFresh (force-reopen path)', () => {
+    // Regression guard for plan abstract-exploring-phoenix E1. The
+    // `?onboarding=required` entry path previously called
+    // `reset() + openDialog()` — but reset() nulls userId, and the
+    // dialog's subsequent strict-mode pass of the checkUserId effect
+    // then saw state.userId !== user.id and force-reset the store
+    // (closing isOpen) before the dialog ever painted. reopenFresh()
+    // is the correct action for force-reopen: it clears progress but
+    // preserves userId so checkUserId stays a no-op.
+    it('preserves userId so checkUserId does not re-reset the store', () => {
+      const { result } = renderHook(() => useOnboardingStore());
+
+      act(() => {
+        result.current.checkUserId('user-123');
+        result.current.completeOnboarding();
+      });
+      expect(result.current.isCompleted).toBe(true);
+      expect(result.current.userId).toBe('user-123');
+
+      // Caller force-reopens the dialog via the query-param path.
+      act(() => {
+        result.current.reopenFresh('user-123');
+      });
+
+      expect(result.current.isOpen).toBe(true);
+      expect(result.current.isCompleted).toBe(false);
+      expect(result.current.currentStep).toBe(0);
+      expect(result.current.data).toEqual({});
+      // Critical: userId MUST be preserved. Nulling it would cause the
+      // dialog's `checkUserId` effect to force-reset the store on its
+      // next pass (see JSDoc on reopenFresh).
+      expect(result.current.userId).toBe('user-123');
+
+      // Simulate the dialog's next checkUserId pass — should be a
+      // no-op because userId matches.
+      act(() => {
+        result.current.checkUserId('user-123');
+      });
+      expect(result.current.isOpen).toBe(true);
+      expect(result.current.userId).toBe('user-123');
+    });
+
+    it('falls back to existing userId when caller omits it', () => {
+      const { result } = renderHook(() => useOnboardingStore());
+
+      act(() => {
+        result.current.checkUserId('user-456');
+      });
+
+      act(() => {
+        result.current.reopenFresh();
+      });
+
+      expect(result.current.isOpen).toBe(true);
+      expect(result.current.userId).toBe('user-456');
+    });
+  });
+
   describe('Reset Functionality', () => {
     it('reset clears all state to initial values', () => {
       const { result } = renderHook(() => useOnboardingStore());

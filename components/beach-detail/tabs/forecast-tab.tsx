@@ -36,6 +36,7 @@ import { PublicContentGate } from "@/components/ui/public-content-gate";
 import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
 import { EmbedCodeButton } from "@/components/beach-detail/embed-code-modal";
 import { DataErrorBoundary } from "@/components/error-boundaries";
+import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 // PersonalizedForecastTeaser and useAuth removed — Phase 1A CTA reduction.
 import { TideStatusStrip } from "@/components/beach-detail/tide-status-strip";
 import { TideChartSection } from "@/components/beach-detail/tide-chart-section";
@@ -102,8 +103,20 @@ export function ForecastTab({
     });
   }, [forecasts, beach, beachTimezone]);
 
-  // Public mode: limit horizon to 3 days
-  const publicHorizonDays = publicMode ? horizonDaySummaries.slice(0, 3) : horizonDaySummaries;
+  // Public mode: the first 3 days are the free window shown to anonymous
+  // users. The horizon strip now renders ALL 12 days (with days 4-12 blurred
+  // as a loss-aversion signal), but the conditions tab still only receives
+  // the free window so no forecast detail leaks. See Change 3 in
+  // plans/abstract-exploring-phoenix.md.
+  const PUBLIC_FREE_DAYS = 3;
+  const publicHorizonDays = publicMode
+    ? horizonDaySummaries.slice(0, PUBLIC_FREE_DAYS)
+    : horizonDaySummaries;
+
+  // Gated-horizon state — opens auth modal when an anonymous user taps a
+  // blurred day card (days 4-12 in public mode). Uses the same UnifiedAuthModal
+  // as other beach-page signup surfaces.
+  const [gatedAuthOpen, setGatedAuthOpen] = useState(false);
 
   // Forecasts filtered by horizon strip selection
   const selectedDateForecasts = useMemo(() => {
@@ -296,24 +309,49 @@ export function ForecastTab({
   return (
     <DataErrorBoundary dataType="forecast" componentName="ForecastTab">
     <div className="space-y-6 py-6">
-      {/* 12-Day Horizon Strip */}
+      {/* 12-Day Horizon Strip
+          Anonymous users see all 12 days; cards beyond PUBLIC_FREE_DAYS are
+          rendered blurred with a lock overlay. Clicking a blurred card opens
+          the auth modal via onGatedClick — this reuses the existing
+          signup-tracking funnel (source: horizon-strip-gated-days) so we can
+          measure conversion from the loss-aversion signal without adding a
+          banner (which Phase 1A/1B explicitly removed). */}
       {forecasts.length > 0 && (
         <section className="space-y-2">
           <div className="flex items-center justify-between px-4 sm:px-6">
+            {/* Heading uses the total horizon length regardless of publicMode —
+                the blur on days 4-12 is itself the loss-aversion signal; the
+                heading doesn't need to repeat it. */}
             <h2 className="text-sm font-medium text-muted-foreground">
-              {publicHorizonDays.length}-Day Outlook
+              {horizonDaySummaries.length}-Day Outlook
             </h2>
             <span className="text-xs text-muted-foreground">
               Tap a day to view details
             </span>
           </div>
           <HorizonStrip
-            days={publicHorizonDays}
+            days={horizonDaySummaries}
             selectedDate={horizonSelectedDate}
             onSelectDate={handleHorizonDaySelect}
             beachSlug={slugify(beach.name)}
+            publicGateFromIndex={publicMode ? PUBLIC_FREE_DAYS : undefined}
+            onGatedClick={publicMode ? () => setGatedAuthOpen(true) : undefined}
           />
         </section>
+      )}
+
+      {publicMode && (
+        <UnifiedAuthModal
+          isOpen={gatedAuthOpen}
+          onClose={() => setGatedAuthOpen(false)}
+          mode="signup"
+          source="horizon-strip-gated-days"
+          contextMessage={{
+            title: `See the full 12-day call for ${beach.name}`,
+            description:
+              "Free — pick your home beach and we'll score every hour so you know when to paddle out.",
+          }}
+        />
       )}
 
       {/* Tabbed Content */}

@@ -64,8 +64,13 @@ export function WaveHeightDisplay({
   const displayHeight = useMemo(() => {
     if (!height) return null;
 
-    // If height is already a range string (e.g., "1-2ft", "3-4 ft"), pass through unchanged
-    if (/\d+(?:\.\d+)?-\d+(?:\.\d+)?\s*ft/i.test(height)) return height;
+    // If height is already a range string (e.g., "1-2ft", "3-4 ft"), pass it
+    // through but ensure the "sets" suffix is applied so pre-formatted
+    // ranges don't render side-by-side with formatter-produced ranges
+    // missing the label (e.g. "4-5ft" next to "4-6ft sets" in the same row).
+    if (/\d+(?:\.\d+)?-\d+(?:\.\d+)?\s*ft/i.test(height)) {
+      return /\bsets\b/i.test(height) ? height : `${height.trimEnd()} sets`;
+    }
 
     // Extract numeric value using shared utility
     const low = extractNumericWaveHeight(height);

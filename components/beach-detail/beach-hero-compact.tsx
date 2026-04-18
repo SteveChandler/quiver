@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
 import { MatchScoreEducation } from "@/components/recommendations/match-score-education";
 import { BoardRecommendationBadge } from "@/components/recommendations/board-recommendation-badge";
+// BeachAttributionCluster import removed — cluster is now mounted in
+// beach-detail.tsx so it's visible on both cam and non-cam pages.
 import { useBoardRecommendation } from "@/hooks/use-board-recommendation";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { track } from "@/lib/analytics";
@@ -159,6 +161,13 @@ export function BeachHeroCompact({
         </h1>
       )}
 
+      {/* Attribution cluster was formerly mounted here — moved to
+          `beach-detail.tsx` where it renders for every beach page
+          (cam + non-cam). BeachHeroCompact is ONLY ever rendered in
+          overlayMode (inside the bottom of the hero on non-cam pages)
+          and is not rendered at all on cam pages, so neither user saw
+          the cluster. Plan: D2 follow-up. */}
+
       {/* Personalization Badge - Show after title for authenticated users */}
       {isLoadingPersonalization && (
         <div className={`flex items-center gap-2 mb-3 ${overlayMode ? "text-medium" : "text-muted-foreground"}`}>
@@ -275,6 +284,9 @@ export function BeachHeroCompact({
 
         {/* Location */}
         <span className={`text-sm ${overlayMode ? "text-medium" : "text-gray-600"}`}>{location}</span>
+
+        {/* Watchers badge moved to BeachAttributionCluster above (below
+            beach name) alongside the share pill. Plan: D2. */}
       </div>
 
       {publicMode && (

@@ -411,7 +411,11 @@ export function SessionDetailsSection({
               {Number.isFinite(forecastData.wave_height) && (
                 <div className="flex items-center gap-2">
                   <span role="img" aria-label="Wave height" className="text-base leading-none">🌊</span>
-                  <span>{forecastData.wave_height_range || `${forecastData.wave_height}ft`} waves</span>
+                  <span>
+                    {forecastData.wave_height_range
+                      ? forecastData.wave_height_range
+                      : `${forecastData.wave_height}ft waves`}
+                  </span>
                 </div>
               )}
               {Number.isFinite(forecastData.wind_speed) && (

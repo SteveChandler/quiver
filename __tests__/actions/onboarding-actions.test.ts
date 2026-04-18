@@ -5,10 +5,18 @@ jest.mock("@/lib/gamification", () => ({
   trackXP: jest.fn().mockResolvedValue({ success: true, data: { xp_gained: 100 } }),
 }));
 
+// Mock the seed helper so we can assert it's invoked with the right params.
+// Defaults to a no-op success; individual tests can override to simulate errors.
+const mockSeedDefaultRuleForUser = jest.fn();
+jest.mock("@/lib/alerts/seed-default-rule", () => ({
+  seedDefaultRuleForUser: (...args: unknown[]) => mockSeedDefaultRuleForUser(...args),
+}));
+
 // Track last operations for assertions
 let lastProfileUpdate: any = null;
 let lastXPTrackCalls: any[] = [];
 let lastUserEventInsert: any = null;
+let allUserEventInserts: any[] = [];
 
 // Mock server action utils
 jest.mock("@/lib/server-action-utils", () => {
@@ -91,6 +99,7 @@ jest.mock("@/lib/server-action-utils", () => {
         return {
           insert: (row: any) => {
             lastUserEventInsert = row;
+            allUserEventInserts.push(row);
             return Promise.resolve({ error: null });
           },
         };
@@ -119,6 +128,13 @@ describe("saveOnboardingData", () => {
     lastProfileUpdate = null;
     lastXPTrackCalls = [];
     lastUserEventInsert = null;
+    allUserEventInserts = [];
+    mockSeedDefaultRuleForUser.mockReset();
+    mockSeedDefaultRuleForUser.mockResolvedValue({
+      seeded: true,
+      ruleId: "rule-1",
+      presetType: "mellow_session",
+    });
   });
 
   describe("Profile Updates", () => {
@@ -148,22 +164,20 @@ describe("saveOnboardingData", () => {
       });
     });
 
-    it.each([
-      ['dawn', 'dawn_patrol'],
-      ['after_work', 'evening'],
-      ['weekends', 'any'],
-    ] as const)("should map preferredTime '%s' to preferred_session_time '%s'", async (preferredTime, expectedSessionTime) => {
+    // preferredTime → preferred_session_time mapping tests removed in
+    // plan E2. Onboarding no longer captures time-bucket; Oracle's
+    // SessionTimeSelector owns `profiles.preferred_session_time`
+    // exclusively now. The regression guard is: saveOnboardingData
+    // does NOT write `preferred_session_time` even when a legacy
+    // `preferredTime` field is passed in (the profile upsert simply
+    // ignores it).
+    it("does not write preferred_session_time even if a legacy preferredTime is passed", async () => {
+      // `preferredTime` is kept on the store interface as a legacy
+      // field (for backwards-compat with persisted localStorage from
+      // older onboarding versions), but the server action ignores it.
       await saveOnboardingData({
         homeBeachId: "beach-123",
-        preferredTime,
-      });
-
-      expect(lastProfileUpdate.preferred_session_time).toBe(expectedSessionTime);
-    });
-
-    it("should not set preferred_session_time when preferredTime is absent", async () => {
-      await saveOnboardingData({
-        homeBeachId: "beach-123",
+        preferredTime: "dawn",
       });
 
       expect(lastProfileUpdate.preferred_session_time).toBeUndefined();
@@ -227,6 +241,7 @@ describe("saveOnboardingData", () => {
       const afterTime = new Date().toISOString();
 
       expect(result.success).toBe(true);
+      // eslint-disable-next-line jest/no-restricted-matchers -- asserting presence; specific shape checked on next line
       expect(lastProfileUpdate.onboarding_completed_at).toBeDefined();
       expect(lastProfileUpdate.onboarding_completed_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
 
@@ -350,6 +365,94 @@ describe("saveOnboardingData", () => {
     });
   });
 
+  describe("Default Alert Rule Seeding", () => {
+    it("invokes seedDefaultRuleForUser with experienceLevel and beach from onboarding data", async () => {
+      await saveOnboardingData({
+        fullName: "Test User",
+        displayName: "test_user",
+        homeBeachId: "beach-123",
+        experienceLevel: "beginner" as const,
+        emailEnabled: true,
+        pushEnabled: false,
+      });
+
+      expect(mockSeedDefaultRuleForUser).toHaveBeenCalledTimes(1);
+      const call = mockSeedDefaultRuleForUser.mock.calls[0][0];
+      expect(call.userId).toBe("user-123");
+      expect(call.beachId).toBe("beach-123");
+      expect(call.experienceLevel).toBe("beginner");
+      expect(call.notifyEmail).toBe(true);
+      expect(call.notifyPush).toBe(false);
+    });
+
+    it("passes null experienceLevel through when not provided (helper handles skip)", async () => {
+      await saveOnboardingData({
+        homeBeachId: "beach-123",
+      });
+
+      expect(mockSeedDefaultRuleForUser).toHaveBeenCalledTimes(1);
+      expect(mockSeedDefaultRuleForUser.mock.calls[0][0].experienceLevel).toBeNull();
+    });
+
+    it("logs an alert_rule_seeded user_events row with the seed result", async () => {
+      mockSeedDefaultRuleForUser.mockResolvedValueOnce({
+        seeded: true,
+        ruleId: "rule-xyz",
+        presetType: "clean_groundswell",
+      });
+
+      await saveOnboardingData({
+        homeBeachId: "beach-123",
+        experienceLevel: "expert" as const,
+      });
+
+      const seededEvent = allUserEventInserts.find(
+        (e) => e.metadata?.step === "alert_rule_seeded"
+      );
+      expect(seededEvent).toMatchObject({
+        event_type: "onboarding_step",
+        metadata: {
+          step: "alert_rule_seeded",
+          step_name: "alert_rule_seeded",
+          source: "server",
+          seeded: true,
+          ruleId: "rule-xyz",
+          presetType: "clean_groundswell",
+        },
+      });
+    });
+
+    it("does not fail onboarding when the seed helper throws", async () => {
+      mockSeedDefaultRuleForUser.mockRejectedValueOnce(new Error("boom"));
+
+      const result = await saveOnboardingData({
+        homeBeachId: "beach-123",
+        experienceLevel: "intermediate" as const,
+      });
+
+      expect(result.success).toBe(true);
+    });
+
+    it("does not fail onboarding when the seed helper returns an error result", async () => {
+      mockSeedDefaultRuleForUser.mockResolvedValueOnce({
+        seeded: false,
+        reason: "error",
+        error: "db down",
+      });
+
+      const result = await saveOnboardingData({
+        homeBeachId: "beach-123",
+        experienceLevel: "beginner" as const,
+      });
+
+      expect(result.success).toBe(true);
+      const seededEvent = allUserEventInserts.find(
+        (e) => e.metadata?.step === "alert_rule_seeded"
+      );
+      expect(seededEvent.metadata.reason).toBe("error");
+    });
+  });
+
   describe("Edge Cases", () => {
     it("should handle empty surf_styles array", async () => {
       const onboardingData = {
@@ -407,6 +510,7 @@ describe("saveOnboardingData", () => {
       const result = await saveOnboardingData(onboardingData);
 
       expect(result.success).toBe(true);
+      /* eslint-disable jest/no-conditional-expect -- narrowing result type; assertions only run when profile shape is present */
       if (result.success && "profile" in result && result.profile) {
         const profile = result.profile as { id: string; full_name: string; display_name: string; home_beach_id: string };
         expect(profile.id).toBe("user-123");
@@ -414,6 +518,7 @@ describe("saveOnboardingData", () => {
         expect(profile.display_name).toBe("test_user");
         expect(profile.home_beach_id).toBe("beach-123");
       }
+      /* eslint-enable jest/no-conditional-expect */
     });
   });
 });

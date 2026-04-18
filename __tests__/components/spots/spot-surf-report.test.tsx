@@ -43,7 +43,7 @@ describe("SpotSurfReport", () => {
         />
       );
 
-      expect(screen.getByText("3-5 ft")).toBeInTheDocument();
+      expect(screen.getByText("3-5 ft sets")).toBeInTheDocument();
     });
 
     it("does not render conditions row when no conditions data exists", () => {
@@ -122,7 +122,7 @@ describe("SpotSurfReport", () => {
         />
       );
 
-      expect(screen.getByText("1-2 ft")).toBeInTheDocument();
+      expect(screen.getByText("1-2 ft sets")).toBeInTheDocument();
     });
 
     it("still shows wind info when verdict is NO", () => {

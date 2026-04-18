@@ -17,6 +17,11 @@ jest.mock("@/components/forecast/horizon-strip", () => ({
     <div
       data-testid="horizon-strip"
       data-days={JSON.stringify(props.days?.length)}
+      data-gate-from={
+        props.publicGateFromIndex === undefined
+          ? undefined
+          : String(props.publicGateFromIndex)
+      }
     />
   ),
 }));
@@ -347,11 +352,13 @@ describe("ForecastTab", () => {
   });
 
   describe("Public Mode", () => {
-    it("shows 3-Day Outlook instead of 5-Day Outlook in public mode", () => {
+    it("passes publicGateFromIndex=3 in public mode so days 4-12 render blurred", () => {
+      // Commit A loss-aversion gate: instead of slicing to 3, the strip now
+      // receives all 12 days and gates days 4-12 visually via publicGateFromIndex.
       render(<ForecastTab {...defaultProps} publicMode={true} />);
 
-      expect(screen.getAllByText("3-Day Outlook").length).toBeGreaterThanOrEqual(1);
-      expect(screen.queryByText("5-Day Outlook")).not.toBeInTheDocument();
+      const horizonStrip = screen.getByTestId("horizon-strip");
+      expect(horizonStrip).toHaveAttribute("data-gate-from", "3");
     });
 
     it("shows BestSurfWindow behind a PublicContentGate in public mode", () => {
@@ -370,10 +377,9 @@ describe("ForecastTab", () => {
       expect(screen.getByTestId("best-surf-window")).toBeInTheDocument();
     });
 
-    it("limits HorizonStrip to 3 days in public mode even when more day summaries exist", () => {
-      // The horizon strip upsell ("Conditions shift on Day 4 / See outlook") has been moved
-      // to beach-detail.tsx (above the tab bar) so all beach viewers see it, not just
-      // Forecast tab visitors. ForecastTab only renders the 3-day strip itself.
+    it("passes all day summaries to HorizonStrip with gate at index 3 in public mode", () => {
+      // Commit A loss-aversion gate: previously sliced to 3; now passes all days
+      // and sets publicGateFromIndex=3 so the component can blur days 4+.
       const mockDaySummaries = [
         { date: "2026-02-10", waveHeight: 4.5 },
         { date: "2026-02-11", waveHeight: 5.0 },
@@ -385,11 +391,11 @@ describe("ForecastTab", () => {
 
       render(<ForecastTab {...defaultProps} publicMode={true} />);
 
-      // Shows 3-Day Outlook label (capped to 3 days)
-      expect(screen.getAllByText("3-Day Outlook").length).toBeGreaterThanOrEqual(1);
       const horizonStrip = screen.getByTestId("horizon-strip");
-      // HorizonStrip receives only the first 3 days
-      expect(horizonStrip).toHaveAttribute("data-days", "3");
+      expect(horizonStrip).toHaveAttribute("data-days", "5");
+      expect(horizonStrip).toHaveAttribute("data-gate-from", "3");
+      // Heading reflects full horizon length — the blur itself is the loss-aversion signal
+      expect(screen.getByText("5-Day Outlook")).toBeInTheDocument();
     });
 
     it("does not show lock message when horizonDaySummaries.length <= 3", () => {

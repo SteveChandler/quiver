@@ -1100,7 +1100,7 @@ describe('discoverSurfSpots - Time Slot Scoring Differentiation', () => {
   });
 });
 
-describe('discoverSurfSpots - Today Fallback Warning Log', () => {
+describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
   const testUserId = 'test-user-123';
   const defaultUserLocation = { lat: 32.7157, lon: -117.1611 };
 
@@ -1145,7 +1145,7 @@ describe('discoverSurfSpots - Today Fallback Warning Log', () => {
     mockState.userPrefs = null;
   });
 
-  test('logs warning with falling-back message when today forecasts fail window selection', async () => {
+  test('logs warning (no today forecasts) and uses tomorrow-fallback only when today is empty', async () => {
     const { selectBestWindow: mockSelectBestWindow } = require('@/lib/services/discovery/window-selector');
     const { createContextLogger } = require('@/lib/logger');
 
@@ -1280,11 +1280,188 @@ describe('discoverSurfSpots - Today Fallback Warning Log', () => {
 
     await freshDiscover(testUserId, { userLocation: defaultUserLocation });
 
-    // The warn spy should have been called with the fallback message
+    // When todayForecasts is empty (test uses 2024-dated rows that don't match
+    // the runtime "today"), the orchestrator must: (a) still call selectBestWindow
+    // once — directly against the full forecast set — and (b) warn only when that
+    // tomorrow-fallback itself returns null.
+    expect(mockSelectBestWindow).toHaveBeenCalledTimes(1);
+
     const warnCalls = warnSpy.mock.calls.map((args: any[]) => args[0]);
-    const fallbackCall = warnCalls.find((msg: string) =>
+    const noTodayWarn = warnCalls.find((msg: string) =>
+      typeof msg === 'string'
+      && msg.includes('no today forecasts')
+      && msg.includes('tomorrow fallback returned null')
+    );
+    expect(noTodayWarn).toBeDefined();
+
+    const staleFallbackWarn = warnCalls.find((msg: string) =>
       typeof msg === 'string' && msg.includes('falling back to all-day forecasts')
     );
-    expect(fallbackCall).toBeDefined();
+    expect(staleFallbackWarn).toBeUndefined();
+  });
+
+  test('does NOT fall back to tomorrow when today has forecasts that fail window selection', async () => {
+    // Regression for the 6:23 AM "Tomorrow's dawn patrol" bug: when today's
+    // forecasts are present but selectBestWindow returns null (e.g. scores
+    // below threshold), the orchestrator must drop the beach rather than
+    // silently re-running selectBestWindow against the full forecast set,
+    // which would let tomorrow's window win and flip the hero to "Tomorrow's".
+    const { selectBestWindow: mockSelectBestWindow } = require('@/lib/services/discovery/window-selector');
+    const { createContextLogger } = require('@/lib/logger');
+
+    const warnSpy = jest.fn();
+    createContextLogger.mockReturnValue({
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: warnSpy,
+      error: jest.fn(),
+    });
+
+    // Runtime "today" in the mocked getLocalDateStr is the UTC date of
+    // new Date(). Build forecasts that land on today and tomorrow relative
+    // to the test run so todayForecasts.length > 0.
+    const now = new Date();
+    const todayIso = now.toISOString();
+    const tomorrowIso = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+
+    const todayForecast: Partial<EnhancedForecastEntity> = {
+      beach_id: 'beach-1',
+      forecast_at: todayIso,
+      forecast_date: todayIso.split('T')[0],
+      forecast_time: '06:00:00',
+      wave_height: '2.0',
+      wave_period: '13s',
+      wind_speed: '6',
+      wind_direction_deg: 135,
+      tide_status: 'Rising',
+      data_source: 'CDIP',
+    };
+    const tomorrowForecast: Partial<EnhancedForecastEntity> = {
+      beach_id: 'beach-1',
+      forecast_at: tomorrowIso,
+      forecast_date: tomorrowIso.split('T')[0],
+      forecast_time: '06:00:00',
+      wave_height: '4.0',
+      wave_period: '13s',
+      wind_speed: '5',
+      wind_direction_deg: 270,
+      tide_status: 'Rising',
+      data_source: 'CDIP',
+    };
+
+    mockState.forecastBatchResponse = {
+      successful: [{ beach: mockBeach1, forecasts: [todayForecast, tomorrowForecast] }],
+      failed: [],
+      staleCount: 0,
+    };
+
+    // First call (today-only) returns null; a second call (full set) WOULD
+    // return a tomorrow-dated window if the orchestrator incorrectly fell
+    // back. The assertions below prove the second call never happens.
+    // Reset first — the prior test in this suite left a queued return on
+    // the shared mock that would otherwise leak into call #1 here.
+    mockSelectBestWindow.mockReset();
+    const tomorrowWindow = {
+      start: new Date(tomorrowIso),
+      end: new Date(new Date(tomorrowIso).getTime() + 3 * 60 * 60 * 1000),
+      tide: 'Rising',
+      wind: '5 mph W',
+      waveHeight: '4 ft',
+      wavePeriod: '13s',
+      dataSource: 'CDIP',
+      confidence: 85,
+      timezone: 'America/Los_Angeles',
+      sourceForecast: tomorrowForecast,
+    };
+    mockSelectBestWindow
+      .mockReturnValueOnce(null)
+      .mockReturnValueOnce(tomorrowWindow);
+
+    jest.resetModules();
+    jest.doMock('@/lib/logger', () => ({
+      createContextLogger: jest.fn(() => ({
+        debug: jest.fn(),
+        info: jest.fn(),
+        warn: warnSpy,
+        error: jest.fn(),
+      })),
+    }));
+    jest.doMock('@/lib/services/discovery/window-selector', () => ({
+      selectBestWindow: mockSelectBestWindow,
+      getLocalDateStr: jest.fn((date: Date, _tz: string) => date.toISOString().split('T')[0]),
+      getLocalHour: jest.fn((date: Date, _tz: string) => date.getUTCHours()),
+    }));
+    jest.doMock('@/lib/services/discovery/candidate-pool-builder', () => ({
+      buildCandidatePool: jest.fn(async () => mockState.candidatePoolResponse),
+    }));
+    jest.doMock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
+      batchFetchForecasts: jest.fn(async () => mockState.forecastBatchResponse),
+    }));
+    jest.doMock('@/lib/services/discovery/response-formatter', () => ({
+      enrichWithPhotos: jest.fn(async (recs: any[]) => recs),
+      generateDiscoverySummary: jest.fn(() => 'Good conditions'),
+      getRecommendationLabel: jest.fn(() => 'Worth it'),
+      buildDiscoveryMessage: jest.fn(() => 'Worth it — Good conditions'),
+    }));
+    jest.doMock('@/lib/services/preference-learning-service', () => ({
+      getUserSurfPreferences: jest.fn(async () => null),
+    }));
+    jest.doMock('@/lib/services/beach-query-service', () => ({
+      getFavoriteBeachesFromDb: jest.fn(async () => ({ success: true, data: [] })),
+    }));
+    jest.doMock('@/lib/supabase/server', () => ({
+      createSupabaseServiceRoleClient: jest.fn(() => ({
+        from: jest.fn(() => ({
+          select: jest.fn(() => ({
+            in: jest.fn(() => ({
+              in: jest.fn(() => ({
+                order: jest.fn(() => Promise.resolve({ data: [], error: null })),
+              })),
+            })),
+            eq: jest.fn(() => ({
+              in: jest.fn(() => Promise.resolve({ data: [], error: null })),
+            })),
+          })),
+        })),
+      })),
+    }));
+    jest.doMock('@/lib/domains/scoring', () => ({
+      createDiscoveryScoringEngine: jest.fn(() => ({})),
+      scoreBeachWithEngine: jest.fn(() => ({
+        total: 75,
+        subscores: { waveHeightFit: 20, periodEnergyScore: 15, windAlignment: 15, tideFit: 12, affinityBonus: 0, personalizationBonus: 0, distancePenalty: 0 },
+        matchQuality: 'excellent',
+        reasons: ['Good wave size'],
+        warnings: [],
+        conditionBadges: [],
+      })),
+    }));
+    jest.doMock('@/lib/utils/timezone-utils.server', () => ({
+      getTimezoneFromCoords: jest.fn(() => 'America/Los_Angeles'),
+    }));
+    jest.doMock('@/lib/services/discovery/personalization-layer', () => ({
+      fetchPersonalizationContext: jest.fn(async () => ({
+        implicitPrefs: null, learnedPrefs: null, affinityMap: new Map(), preferredBreakType: null, implicitWeight: 0,
+      })),
+      calculatePersonalizationBonus: jest.fn(() => ({ total: 0, affinityBonus: 0, personalizationBonus: 0, reasons: [] })),
+    }));
+
+    const { discoverSurfSpots: freshDiscover } = require('@/lib/services/discovery/surf-discovery-orchestrator');
+    const result = await freshDiscover(testUserId, { userLocation: defaultUserLocation });
+
+    // selectBestWindow must have been called exactly ONCE (today-only).
+    // A second call would mean the orchestrator reached for tomorrow's data.
+    expect(mockSelectBestWindow).toHaveBeenCalledTimes(1);
+    expect(mockSelectBestWindow.mock.calls[0][0]).toEqual([todayForecast]);
+
+    // No recommendation should have leaked through from the tomorrow fallback.
+    expect(result.recommendations).toEqual([]);
+
+    // The obsolete "falling back to all-day forecasts" warning must not fire.
+    const warnCalls = warnSpy.mock.calls.map((args: any[]) => args[0]);
+    const staleFallbackWarn = warnCalls.find((msg: string) =>
+      typeof msg === 'string' && msg.includes('falling back to all-day forecasts')
+    );
+    expect(staleFallbackWarn).toBeUndefined();
   });
 });

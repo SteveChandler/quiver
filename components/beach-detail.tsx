@@ -49,6 +49,7 @@ import type { WaterQuality } from "@/components/beach-detail/water-quality-badge
 // New AllTrails-style components
 import { BeachBreadcrumb } from "@/components/beach-detail/beach-breadcrumb";
 import { BeachHeroCompact } from "@/components/beach-detail/beach-hero-compact";
+import { BeachAttributionCluster } from "@/components/beach-detail/beach-attribution-cluster";
 import { BeachPhotoGallery } from "@/components/beach-detail/beach-photo-gallery";
 import { BeachStatsGrid } from "@/components/beach-detail/beach-stats-grid";
 import { ConditionsTicker } from "@/components/conditions/conditions-ticker";
@@ -965,6 +966,19 @@ function BeachDetailContent({
 
       {/* Main Content Container */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        {/* Attribution cluster — watchers badge + share pill mounted
+            here (rather than inside BeachHeroCompact) so it renders
+            uniformly on cam AND non-cam beach pages. BeachHeroCompact
+            is always in overlayMode on beach pages (or not rendered at
+            all on cam pages), which previously prevented the cluster
+            from ever showing. Plan: D2 follow-up. */}
+        <BeachAttributionCluster
+          beachId={beach.id}
+          beachSlug={beach.slug}
+          beachName={beach.name}
+          className="mb-4"
+        />
+
         {/* Surf report slot — authenticated users only */}
         {!publicMode && surfReportSlot}
 

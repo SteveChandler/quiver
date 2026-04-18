@@ -124,10 +124,11 @@ export default function FeaturesPage() {
 
             <div className="max-w-4xl mx-auto">
               <InlineSignupCta
-                title="Sounds good?"
-                description="Join surfers who check Quiver before every session."
-                primaryButtonText="See Your Surf Call"
+                title="Ready? Pick your home beach."
+                description="We'll score every hour by tide, wind, and swell and tell you when to paddle out — free."
+                primaryButtonText="Pick your home beach"
                 source="features-mid-page"
+                ctaCopyVariant="features_mid_v1"
               />
             </div>
           </div>

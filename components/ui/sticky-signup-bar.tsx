@@ -30,6 +30,9 @@ interface StickySignupBarProps {
   contextMessage?: { title: string; description: string };
   /** Override copy for visitors arriving from search engines */
   searchReferralCta?: SearchReferralCta;
+  /** Copy-variant label passed into signup_cta_view/_click metadata for
+   *  per-variant conversion measurement in user_events. */
+  ctaCopyVariant?: string;
 }
 
 /**
@@ -48,23 +51,38 @@ export function StickySignupBar({
   source,
   ctaText = "Get alerts",
   supportingText = "Know when conditions fire at your spots",
-  scrollThreshold = 300,
+  // Default lowered from 300 → 150 (live note 2026-04-17): the bar was
+  // appearing too deep in the page. 150px ≈ "once the user has started
+  // reading," which is the right moment to offer a save-the-beach CTA
+  // without ambushing them mid-hero.
+  scrollThreshold = 150,
   contextMessage,
   searchReferralCta,
+  ctaCopyVariant,
 }: StickySignupBarProps) {
   const { user, isLoading } = useAuth();
   const reducedMotion = useReducedMotion();
   const { isSearchReferral } = useSearchReferrer();
 
   // Override copy for search-referred visitors
+  const isSearchOverride = Boolean(isSearchReferral && searchReferralCta);
   const resolvedCtaText =
-    isSearchReferral && searchReferralCta ? searchReferralCta.ctaText : ctaText;
+    isSearchOverride ? searchReferralCta!.ctaText : ctaText;
   const resolvedSupportingText =
-    isSearchReferral && searchReferralCta ? searchReferralCta.supportingText : supportingText;
+    isSearchOverride ? searchReferralCta!.supportingText : supportingText;
   const resolvedContextMessage =
-    isSearchReferral && searchReferralCta?.contextMessage
+    isSearchOverride && searchReferralCta?.contextMessage
       ? searchReferralCta.contextMessage
       : contextMessage;
+  // When the search-referral override is active the rendered copy
+  // differs from the beach/page-specific variant, so the tracked
+  // `cta_copy_variant` must differ too — otherwise per-variant CTR in
+  // /app-stats silently conflates two unrelated creatives under the
+  // same label. Append a stable suffix so dashboards can still roll up
+  // by base variant with a LIKE query if desired.
+  const resolvedCtaCopyVariant = isSearchOverride
+    ? `${ctaCopyVariant ?? "unknown"}__search_referral`
+    : ctaCopyVariant;
   const [isVisible, setIsVisible] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
@@ -91,7 +109,12 @@ export function StickySignupBar({
         wasVisible.current = visible;
         setIsVisible(visible);
         if (visible && !hasTrackedView.current) {
-          trackSignupCtaView({ source, cta_type: "sticky_bar", is_search_referral: isSearchReferral });
+          trackSignupCtaView({
+            source,
+            cta_type: "sticky_bar",
+            is_search_referral: isSearchReferral,
+            cta_copy_variant: resolvedCtaCopyVariant,
+          });
           hasTrackedView.current = true;
         }
       }
@@ -102,7 +125,7 @@ export function StickySignupBar({
 
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [scrollThreshold, source, isSearchReferral]);
+  }, [scrollThreshold, source, isSearchReferral, resolvedCtaCopyVariant]);
 
   const handleCtaClick = useCallback(() => {
     trackSignupCtaClick({
@@ -110,9 +133,10 @@ export function StickySignupBar({
       cta_type: "sticky_bar",
       cta_text: resolvedCtaText,
       is_search_referral: isSearchReferral,
+      cta_copy_variant: resolvedCtaCopyVariant,
     });
     setAuthModalOpen(true);
-  }, [source, resolvedCtaText, isSearchReferral]);
+  }, [source, resolvedCtaText, isSearchReferral, resolvedCtaCopyVariant]);
 
   // Don't render for authenticated users or while loading
   if (user || isLoading) {

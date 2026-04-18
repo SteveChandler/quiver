@@ -9,6 +9,8 @@ import { METERS_TO_FEET } from '@/lib/utils/unit-conversions';
  * Returns "Flat" for zero, negative, NaN, or Infinity values.
  * Uses integer rounding for both average and set heights via SET_WAVE_VARIANCE;
  * collapses to a single value when both round to the same integer.
+ * Ranges are suffixed with "sets" to make it explicit that the upper bound
+ * is projected set waves (≈1.5x average), not a flat average range.
  */
 export function formatWaveHeightRange(ft: number): string {
   if (!Number.isFinite(ft)) return 'Flat';
@@ -16,7 +18,7 @@ export function formatWaveHeightRange(ft: number): string {
   const low = Math.round(ft);
   const high = Math.round(ft * SET_WAVE_VARIANCE);
   if (low === high) return `${low}ft`;
-  return `${low}-${high}ft`;
+  return `${low}-${high}ft sets`;
 }
 
 /**

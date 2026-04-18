@@ -4,13 +4,16 @@ import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOracleData } from "@/hooks/use-oracle-data";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { getLocalActivity, updatePreferredSessionTime } from "@/actions/oracle-actions";
+import { getLocalActivity } from "@/actions/oracle-actions";
 import { OracleHero } from "@/components/oracle/oracle-hero";
 import { ContextualCTA } from "@/components/oracle/contextual-cta";
 import { TodaysWindows } from "@/components/oracle/todays-windows";
 import { NearbySpots } from "@/components/oracle/nearby-spots";
 import { ActivityFeed } from "@/components/oracle/activity-feed";
-import { SessionTimeSelector } from "@/components/oracle/session-time-selector";
+// SessionTimeSelector + updatePreferredSessionTime import removed in
+// plan E2 — the inline home-screen prompt is gone. The selector
+// component + server action remain available for a future settings
+// surface but are no longer wired to the Oracle home screen.
 import { BottomNav } from "@/components/home-screen/bottom-nav";
 import { InviteSheet } from "@/components/oracle/invite-sheet";
 import { ShareSheet } from "@/components/share/share-sheet";
@@ -330,16 +333,10 @@ export function OracleHomeScreen() {
     skip: !activityBeachId,
   });
 
-  // ------------------------------------------------------------------
-  // Session time handler
-  // ------------------------------------------------------------------
-  const handleSessionTimeSelect = useCallback(
-    async (time: string) => {
-      await updatePreferredSessionTime(time);
-      refreshProfile();
-    },
-    [refreshProfile]
-  );
+  // Session time handler removed with the inline SessionTimeSelector
+  // mount — plan E2. `updatePreferredSessionTime` (in actions/oracle-
+  // actions.ts) is still exported for a future settings surface; see
+  // git history for the useCallback wrapper pattern used here.
 
   // ------------------------------------------------------------------
   // Navigation handlers
@@ -562,12 +559,18 @@ export function OracleHomeScreen() {
         regionalCall={oracle.discovery?.regionalCall}
       />
 
-      {/* Inline session time selector — only shows when preference is not yet set */}
-      {preferredTime === null && (
-        <div className="px-6 py-4">
-          <SessionTimeSelector onSelect={handleSessionTimeSelect} currentValue={null} />
-        </div>
-      )}
+      {/* Inline SessionTimeSelector prompt removed in plan E2. Asking
+          users "When do you usually paddle out?" on the home screen
+          was the same zero-value capture as the onboarding step we
+          dropped — it wrote to `profiles.preferred_session_time` but
+          the question itself was friction without an obvious payoff
+          for a user just trying to see their forecast. Downstream
+          logic (TodaysWindows, ContextualCTA) already handles
+          `preferredTime === null` gracefully; windows just aren't
+          pre-filtered by the user's usual paddle time. If/when we
+          want this as a preference again it should live in a quieter
+          settings surface, not as a full-width prompt above the
+          primary CTA. Plan: abstract-exploring-phoenix (E2). */}
 
       {/* 2-column at md+: left = CTA + Windows, right = Nearby + Activity.
           On mobile this falls back to a single stacked column automatically. */}

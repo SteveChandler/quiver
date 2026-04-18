@@ -283,10 +283,11 @@ export default async function BestTimeToSurfHubPage() {
         )}
 
         <InlineSignupCta
-          title="Know When to Paddle Out"
-          description="Get personalized alerts when conditions match your skill level, preferred breaks, and schedule"
-          primaryButtonText="Get Alerts — Free"
+          title="Your best window, every day"
+          description="Pick your home beach. We score every hour by tide, wind, and swell, then tell you when to paddle out."
+          primaryButtonText="Pick your home beach"
           source="best-time-hub-inline"
+          ctaCopyVariant="best_time_hub_v1"
           className="mb-8"
         />
 

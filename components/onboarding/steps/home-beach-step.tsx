@@ -10,9 +10,6 @@ import {
 } from "@/lib/schemas/onboarding-schemas";
 import { useOnboardingStore } from "@/store/onboarding-store";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { useAuth } from "@/context/auth-context";
-import { skipOnboarding } from "@/actions/onboarding-actions";
-import { useTrackEvent } from "@/hooks/use-track-event";
 import { Label } from "@/components/ui/label";
 import { CheckCircle, MapPin } from "lucide-react";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
@@ -29,9 +26,7 @@ interface Beach {
 }
 
 export function HomeBeachStep() {
-  const { data, updateData, nextStep, closeDialog } = useOnboardingStore();
-  const { user } = useAuth();
-  const { track } = useTrackEvent();
+  const { data, updateData, nextStep } = useOnboardingStore();
   const reducedMotion = useReducedMotion();
   const [selectedBeach, setSelectedBeach] = useState<Beach | null>(null);
   const [celebratingBeachId, setCelebratingBeachId] = useState<string | null>(null);
@@ -149,25 +144,17 @@ export function HomeBeachStep() {
     }
   }, [nearbyBeaches.length]);
 
-  // "Maybe later" — dismiss the dialog with an explicit, permanent skip.
-  // No escalating snooze: if the user doesn't want onboarding right now,
-  // respect that. They can re-open the dialog from /profile via the
-  // "Set up your home break" CTA when they're ready.
-  const handleMaybeLater = () => {
-    // Telemetry: distinguish intentional dismiss from stale-close auto-dismiss.
-    track("onboarding_step", {
-      metadata: {
-        step: "maybe_later_clicked",
-        step_name: "maybe_later_clicked",
-        source_step: "home_beach",
-      },
-      debounceMs: 0,
-    });
-    if (user?.id) {
-      skipOnboarding(); // fire and forget — sets onboarding_completed_at
-    }
-    closeDialog();
-  };
+  // "Maybe later" removed — plan abstract-exploring-phoenix (Commit B).
+  // HomeBeachStep is the required activation gate. Real-activation rate
+  // (home_beach_id set) was 25% of new signups for the 7d ending
+  // 2026-04-17, driven by users tapping Maybe later before picking a
+  // beach. Keeping this step non-skippable forces the single action that
+  // actually makes the product work. Subsequent steps (LevelAndTime,
+  // Payoff) keep their skip affordances — home beach is the only
+  // non-negotiable. The dialog as a whole remains manually opened
+  // (vast-dancing-whale invariant preserved for existing users); new
+  // signups hit it via the `?onboarding=required` redirect path wired
+  // from /auth/callback.
 
   const selectBeach = (beach: Beach) => {
     setSelectedBeach(beach);
@@ -411,13 +398,10 @@ export function HomeBeachStep() {
         >
           Continue
         </button>
-        <button
-          type="button"
-          onClick={handleMaybeLater}
-          className="w-full text-sm text-white/40 hover:text-white/60 transition-colors"
-        >
-          Maybe later
-        </button>
+        {/* No footer microcopy. The subtitle above already says
+            "Pick your home break — we'll dial your forecast to it."
+            and the disabled Continue button communicates the
+            requirement. Repeating it here read as nagging. Plan: D3. */}
       </div>
     </form>
   );

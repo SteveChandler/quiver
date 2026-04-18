@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useOnboardingStore, ONBOARDING_STEP_NAMES } from "@/store/onboarding-store";
 import { HomeBeachStep } from "./steps/home-beach-step";
-import { LevelAndTimeStep } from "./steps/level-and-time-step";
+import { ExperienceLevelStep } from "./steps/experience-level-step";
 import { PayoffStep } from "./steps/payoff-step";
 import { OnboardingProgress } from "./onboarding-progress";
 import { HeroImageSlot } from "./hero-image-slot";
@@ -19,7 +19,7 @@ import type { Profile } from "@/types/database";
 
 const STEPS = [
   HomeBeachStep,
-  LevelAndTimeStep,
+  ExperienceLevelStep,
   PayoffStep,
 ];
 
@@ -36,6 +36,8 @@ function isProfileSubstantiallyComplete(
 export function OnboardingDialog() {
   const { user } = useAuth();
   const { profile } = useProfileContext();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const {
     isOpen,
@@ -45,6 +47,7 @@ export function OnboardingDialog() {
     openDialog,
     closeDialog,
     reset,
+    reopenFresh,
     checkUserId,
   } = useOnboardingStore();
 
@@ -59,16 +62,41 @@ export function OnboardingDialog() {
   // See project_onboarding_payoff_step_bug.md for why observability matters here.
   const { track } = useTrackEvent();
 
-  const isTesting = searchParams?.get("showOnboarding") === "1";
+  // Both `?showOnboarding=1` (testing) and `?onboarding=required`
+  // (new-signup post-auth redirect from /auth/callback) act as
+  // "force-open" signals that bypass the substantiallyComplete /
+  // onboarding_completed_at gates below. This is deliberate — the
+  // query param carries the server-side authorization to show the
+  // dialog, and double-gating on client-side profile state caused a
+  // race where fresh signups whose profile row hadn't materialized yet
+  // saw nothing.
+  //
+  // `forceOpenLatched` persists the force-open state across the
+  // param-strip that the effect below runs (router.replace removes
+  // the param so refresh doesn't re-trigger). Without the latch, the
+  // sequence was: effect calls openDialog → param strips → next
+  // render isForceOpenParam=false → shouldRender drops to false
+  // (when the user's profile has a home_beach_id) → auto-close effect
+  // fires and undoes openDialog before the dialog ever painted.
+  const isForceOpenParamCurrent =
+    searchParams?.get("showOnboarding") === "1" ||
+    searchParams?.get("onboarding") === "required";
+  const [forceOpenLatched, setForceOpenLatched] = useState(false);
+  useEffect(() => {
+    if (isForceOpenParamCurrent) setForceOpenLatched(true);
+  }, [isForceOpenParamCurrent]);
+  const isForceOpen = isForceOpenParamCurrent || forceOpenLatched;
+
   const hasCompletedOnboarding = !!profile?.onboarding_completed_at;
   const substantiallyComplete = isProfileSubstantiallyComplete(profile);
 
-  // Ensure we only render if user is logged in (unless testing)
-  // This prevents showing the dialog on the landing page after logout
+  // Ensure we only render if user is logged in (unless force-opened via
+  // a URL param). This prevents showing the dialog on the landing page
+  // after logout.
   const shouldRender =
     isOpen &&
     !isCompleted &&
-    (isTesting || (user && !hasCompletedOnboarding && !substantiallyComplete));
+    (isForceOpen || (user && !hasCompletedOnboarding && !substantiallyComplete));
 
   // Track direction for slide animations by comparing to previous step
   const prevStepRef = useRef(currentStep);
@@ -152,6 +180,54 @@ export function OnboardingDialog() {
       return () => clearTimeout(timeoutId);
     }
   }, [openDialog, reset, searchParams]);
+
+  // `?onboarding=required` entry path — new signups redirected here from
+  // /auth/callback after a successful signup when their profile has no
+  // home_beach_id and no onboarding_completed_at. Opens the dialog once,
+  // then strips the query param so a refresh doesn't re-trigger.
+  //
+  // This is deliberately NOT the removed 500ms auto-open `useEffect` from
+  // plan vast-dancing-whale. Returning users never hit this path because
+  // /auth/callback only sets the param on fresh signups. Existing users
+  // without a home beach still open the dialog via the Oracle CTA or the
+  // /profile SetHomeBreakCta — that invariant is preserved.
+  //
+  // We intentionally do NOT re-check `profile.home_beach_id` client-side
+  // before opening. The server-side gate at /auth/callback is the source
+  // of truth for "is this user unactivated" — that check has already
+  // happened by the time the redirect lands us here. A client-side
+  // re-check introduces a race: if the profile row hasn't been created
+  // yet (common for fresh signups — the handle_new_user trigger may lag
+  // the session exchange by a tick), `useProfileContext` returns null
+  // and the effect bails forever.
+  //
+  // The `shouldRender` gate below still acts as a belt-and-suspenders
+  // check — if the profile eventually loads and shows the user is
+  // activated, the auto-close effect closes the dialog.
+  //
+  // Plan: abstract-exploring-phoenix (Commit B, with live fix from a
+  // test run that found the profile-race bailout).
+  const hasProcessedRequiredParam = useRef(false);
+  useEffect(() => {
+    if (hasProcessedRequiredParam.current) return;
+    if (searchParams?.get("onboarding") !== "required") return;
+    if (!user) return;
+    hasProcessedRequiredParam.current = true;
+
+    // Use `reopenFresh` instead of `reset() + openDialog()`. `reset()`
+    // nulls `userId` in the store, which makes the next strict-mode
+    // pass of the `checkUserId` effect see state.userId !== user.id
+    // → the effect force-resets the store (including isOpen=false),
+    // silently undoing our openDialog before the first paint. See the
+    // store action's JSDoc and plan abstract-exploring-phoenix E1.
+    reopenFresh(user.id);
+
+    // Strip the query param so a refresh doesn't re-trigger.
+    const next = new URLSearchParams(searchParams?.toString() ?? "");
+    next.delete("onboarding");
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchParams, user, reopenFresh, router, pathname]);
 
   // Keep store/UI consistent: if the store says "open" but render conditions
   // no longer allow onboarding (e.g., profile loads as complete), close it.

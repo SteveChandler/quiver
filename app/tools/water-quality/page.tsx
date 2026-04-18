@@ -400,10 +400,11 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
         >
           <div className="rounded-2xl" style={{ background: "#1A2158" }}>
             <InlineSignupCta
-              title="Track Conditions at Your Local Break"
-              description="Log sessions, check ML-corrected forecasts, and see what other surfers are reporting."
-              primaryButtonText="Sign Up — Free"
+              title="Clean water + the right window"
+              description="You just checked the water. Pick your home beach and we'll score every hour by tide, wind, and swell — free."
+              primaryButtonText="Pick your home beach"
               source="water-quality-tool-inline"
+              ctaCopyVariant="tool_specific_v1"
             />
           </div>
         </div>

@@ -12,12 +12,18 @@ jest.mock("@/context/profile-context");
 jest.mock("@/store/onboarding-store");
 jest.mock("next/navigation", () => ({
   useSearchParams: jest.fn(),
+  // Added for plan abstract-exploring-phoenix (Commit B): the dialog now
+  // uses useRouter + usePathname to strip ?onboarding=required from the URL
+  // after opening. Tests don't assert the replace() call — the e2e spec
+  // covers that invariant — so lightweight jest.fn stubs are sufficient.
+  useRouter: () => ({ replace: jest.fn(), push: jest.fn(), refresh: jest.fn() }),
+  usePathname: () => "/",
 }));
 jest.mock("@/components/onboarding/steps/home-beach-step", () => ({
   HomeBeachStep: () => <div data-testid="home-beach-step" />,
 }));
-jest.mock("@/components/onboarding/steps/level-and-time-step", () => ({
-  LevelAndTimeStep: () => <div data-testid="level-and-time-step" />,
+jest.mock("@/components/onboarding/steps/experience-level-step", () => ({
+  ExperienceLevelStep: () => <div data-testid="level-and-time-step" />,
 }));
 jest.mock("@/components/onboarding/steps/payoff-step", () => ({
   PayoffStep: () => <div data-testid="payoff-step" />,

@@ -215,15 +215,9 @@ export async function saveOnboardingData(data: OnboardingData) {
       if (data.experienceLevel) profileUpdate.experience_level = data.experienceLevel;
       if (data.surfStyles?.length) profileUpdate.surf_styles = data.surfStyles;
 
-      // Map onboarding time bucket to oracle preferred_session_time
-      const SESSION_TIME_MAP: Record<string, string> = {
-        dawn: 'dawn_patrol',
-        after_work: 'evening',
-        weekends: 'any',
-      };
-      if (data.preferredTime) {
-        profileUpdate.preferred_session_time = SESSION_TIME_MAP[data.preferredTime] ?? 'any';
-      }
+      // `preferred_session_time` is no longer captured during onboarding —
+      // users set it post-onboarding via Oracle's in-app SessionTimeSelector,
+      // which is the source of truth. Plan: abstract-exploring-phoenix (E2).
 
       const { data: updatedProfile, error: profileError } = await supabase
         .from('profiles')
@@ -241,6 +235,35 @@ export async function saveOnboardingData(data: OnboardingData) {
         throw new Error('Profile not found. Please ensure your account is fully set up.');
       }
 
+      // Seed a default alert rule on the user's home beach so they get a
+      // retention hook ("you were right, I would've surfed") within their
+      // first days. Skipped when experience_level is null — we don't guess.
+      // Non-blocking: failures here must never fail onboarding.
+      try {
+        const { seedDefaultRuleForUser } = await import('@/lib/alerts/seed-default-rule');
+        const seedResult = await seedDefaultRuleForUser({
+          supabase,
+          userId: user.id,
+          beachId: data.homeBeachId,
+          experienceLevel: data.experienceLevel ?? null,
+          notifyEmail: updatedProfile.notif_email_enabled ?? true,
+          notifyPush: updatedProfile.notif_push_enabled ?? false,
+        });
+
+        await supabase.from('user_events').insert({
+          user_id: user.id,
+          event_type: 'onboarding_step',
+          metadata: {
+            step: 'alert_rule_seeded',
+            step_name: 'alert_rule_seeded',
+            source: 'server',
+            ...seedResult,
+          },
+        });
+      } catch (seedErr) {
+        console.warn('[onboarding] alert rule seed error (non-blocking):', seedErr);
+      }
+
       // Generate referral code for new user and claim referral if provided (non-blocking)
       try {
         const { getOrCreateReferralCode, claimReferral } = await import('@/actions/referral-actions');
@@ -254,23 +277,17 @@ export async function saveOnboardingData(data: OnboardingData) {
         console.warn('[onboarding] Referral handling error (non-blocking):', refErr);
       }
 
-      // Create default email preferences (non-blocking)
-      // This ensures users receive forecast-digest-email (Mon/Thu)
-      if (data.homeBeachId && data.emailEnabled !== false) {
-        try {
-          await supabase.from('user_email_prefs').upsert({
-            user_id: user.id,
-            email_frequency: 'daily',
-            min_good_score: 6.0,
-            skill_level: data.experienceLevel === 'expert' ? 'advanced' : (data.experienceLevel || 'beginner'),
-            pref_time_bucket: data.preferredTime || 'dawn',
-            timezone: 'America/Los_Angeles',
-            home_beach_id: data.homeBeachId,
-          }, { onConflict: 'user_id' });
-        } catch (prefsErr) {
-          console.warn('[onboarding] Email prefs creation error (non-blocking):', prefsErr);
-        }
-      }
+      // `user_email_prefs` upsert removed — verified dead-table write.
+      // Earlier comment ("forecast-digest-email cron filters on
+      // user_email_prefs.email_frequency / home_beach_id") was wrong;
+      // re-audit on 2026-04-17 confirmed the cron reads `profiles`
+      // directly (`notif_email_enabled`, `notif_forecast_alerts`,
+      // `home_beach_id`). No cron, lib, hook, or component reads any
+      // column of `user_email_prefs`. Writing to it on every onboard
+      // was pure dead weight. If a future email-preference surface
+      // needs this, give it a new table with readers, or add the
+      // columns to `profiles` alongside the existing notif flags.
+      // Plan: abstract-exploring-phoenix cleanup.
 
       // Award welcome XP for completing onboarding
       try {

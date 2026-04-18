@@ -122,10 +122,11 @@ export default function BoardCalculatorPage() {
           {/* CTA — InlineSignupCta self-guards: renders null for authenticated users */}
           <div className="mt-10">
             <InlineSignupCta
-              title="Found your board? Log your quiver and track your sessions."
-              description="Quiver lets you log your boards, track sessions, and see how conditions matched up."
-              primaryButtonText="Start tracking your surf"
+              title="Found your board? Log your quiver."
+              description="Track which board you rode, what conditions you scored, and what worked. Free."
+              primaryButtonText="Start your quiver"
               source="board-calculator"
+              ctaCopyVariant="tool_specific_v1"
             />
           </div>
 

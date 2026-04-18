@@ -2,7 +2,7 @@ import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HomeBeachStep } from "@/components/onboarding/steps/home-beach-step";
-import { LevelAndTimeStep } from "@/components/onboarding/steps/level-and-time-step";
+import { ExperienceLevelStep } from "@/components/onboarding/steps/experience-level-step";
 import { PayoffStep } from "@/components/onboarding/steps/payoff-step";
 import { useOnboardingStore } from "@/store/onboarding-store";
 import { useProfileContext } from "@/context/profile-context";
@@ -115,18 +115,22 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       ).toBeInTheDocument();
     });
 
-    it("calls skipOnboarding + closeDialog when Maybe later button is clicked", async () => {
-      const user = userEvent.setup();
+    it("does NOT render a Maybe later skip button — HomeBeachStep is required", () => {
+      // Plan abstract-exploring-phoenix (Commit B): HomeBeachStep is the
+      // single required activation gate. Continue is disabled until a beach
+      // is selected; there is no skip affordance on this step. The dialog
+      // as a whole is still dismissable via the ESC key / browser back, but
+      // not via an in-step Maybe later button.
       render(<HomeBeachStep />);
+      expect(
+        screen.queryByRole("button", { name: /Maybe later/i })
+      ).not.toBeInTheDocument();
+    });
 
-      const skipBtn = screen.getByRole("button", { name: /Maybe later/i });
-      await user.click(skipBtn);
-
-      // Maybe later must commit the skip server-side (sets onboarding_completed_at)
-      // AND close the dialog. No escalating snooze anymore — first tap is permanent
-      // until the user re-opens from /profile.
-      expect(mockSkipOnboarding).toHaveBeenCalled();
-      expect(mockCloseDialog).toHaveBeenCalled();
+    it("Continue button is disabled until a beach is selected", () => {
+      render(<HomeBeachStep />);
+      const continueBtn = screen.getByRole("button", { name: /Continue/i });
+      expect(continueBtn).toBeDisabled();
     });
 
     // Note: Search and selection tests involve complex async interactions
@@ -134,18 +138,28 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
     // Full flow tested in E2E (e2e/onboarding.spec.ts).
   });
 
-  describe("LevelAndTimeStep", () => {
-    it("renders both sections (experience level and time)", () => {
-      render(<LevelAndTimeStep />);
+  describe("ExperienceLevelStep", () => {
+    // Plan E2: this step previously rendered two columns (experience +
+    // time-bucket). The "When do you surf?" question + preferredTime
+    // capture were dropped — nothing downstream reads pref_time_bucket
+    // (the dead-table write), and profiles.preferred_session_time is
+    // now set exclusively by Oracle's SessionTimeSelector. Tests below
+    // cover only the remaining experience-level + navigation behavior.
+
+    it("renders the experience-level question only (no time question)", () => {
+      render(<ExperienceLevelStep />);
 
       expect(
         screen.getByText(/What kind of surfer\??/i)
       ).toBeInTheDocument();
-      expect(screen.getByText(/When do you surf\?/i)).toBeInTheDocument();
+      // The former "When do you surf?" prompt must be gone.
+      expect(screen.queryByText(/When do you surf\?/i)).not.toBeInTheDocument();
+      expect(screen.queryByText("Dawn Patrol")).not.toBeInTheDocument();
+      expect(screen.queryByText("After Work")).not.toBeInTheDocument();
     });
 
     it("renders all 4 experience level options", () => {
-      render(<LevelAndTimeStep />);
+      render(<ExperienceLevelStep />);
 
       expect(screen.getByText("Beginner")).toBeInTheDocument();
       expect(screen.getByText("Intermediate")).toBeInTheDocument();
@@ -153,16 +167,8 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       expect(screen.getByText("Expert")).toBeInTheDocument();
     });
 
-    it("renders all 3 time preference options", () => {
-      render(<LevelAndTimeStep />);
-
-      expect(screen.getByText("Dawn Patrol")).toBeInTheDocument();
-      expect(screen.getByText("After Work")).toBeInTheDocument();
-      expect(screen.getByText("Weekends")).toBeInTheDocument();
-    });
-
     it("renders Back, Maybe later, and Continue buttons", () => {
-      render(<LevelAndTimeStep />);
+      render(<ExperienceLevelStep />);
 
       expect(screen.getByRole("button", { name: /Back/i })).toBeInTheDocument();
       expect(
@@ -175,13 +181,11 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
 
     it("clicking Maybe later dismisses the dialog (not just the step)", async () => {
       const user = userEvent.setup();
-      render(<LevelAndTimeStep />);
+      render(<ExperienceLevelStep />);
 
       const maybeLaterBtn = screen.getByRole("button", { name: /Maybe later/i });
       await user.click(maybeLaterBtn);
 
-      // Maybe later must commit skip server-side AND close the dialog entirely.
-      // It must NOT advance to the next step (that's what Continue does).
       expect(mockSkipOnboarding).toHaveBeenCalled();
       expect(mockCloseDialog).toHaveBeenCalled();
       expect(mockNextStep).not.toHaveBeenCalled();
@@ -190,7 +194,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
 
     it("clicking Back calls prevStep", async () => {
       const user = userEvent.setup();
-      render(<LevelAndTimeStep />);
+      render(<ExperienceLevelStep />);
 
       const backBtn = screen.getByRole("button", { name: /Back/i });
       await user.click(backBtn);
@@ -198,98 +202,42 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       expect(mockPrevStep).toHaveBeenCalled();
     });
 
-    it("selecting a level and clicking Continue calls updateData with experienceLevel then nextStep", async () => {
+    it("selecting a level and clicking Continue updates experienceLevel then nextStep", async () => {
       const user = userEvent.setup();
-      render(<LevelAndTimeStep />);
+      render(<ExperienceLevelStep />);
 
-      // Select intermediate level
       const intermediateBtn = screen.getByText("Intermediate").closest("button");
-      if (intermediateBtn) {
-        await user.click(intermediateBtn);
-      }
+      if (intermediateBtn) await user.click(intermediateBtn);
 
       const continueBtn = screen.getByRole("button", { name: /Continue/i });
       await user.click(continueBtn);
 
+      // Only experienceLevel is captured — no preferredTime key.
       expect(mockUpdateData).toHaveBeenCalledWith({
         experienceLevel: "intermediate",
-        preferredTime: undefined,
       });
       expect(mockNextStep).toHaveBeenCalled();
     });
 
-    it("selecting a time and clicking Continue calls updateData with preferredTime then nextStep", async () => {
-      const user = userEvent.setup();
-      render(<LevelAndTimeStep />);
-
-      // Select dawn patrol
-      const dawnBtn = screen.getByText("Dawn Patrol").closest("button");
-      if (dawnBtn) {
-        await user.click(dawnBtn);
-      }
-
-      const continueBtn = screen.getByRole("button", { name: /Continue/i });
-      await user.click(continueBtn);
-
-      expect(mockUpdateData).toHaveBeenCalledWith({
-        experienceLevel: undefined,
-        preferredTime: "dawn",
-      });
-      expect(mockNextStep).toHaveBeenCalled();
-    });
-
-    it("pre-fills from store data", () => {
+    it("pre-fills experienceLevel from store data", () => {
       mockUseOnboardingStore.mockReturnValue({
         ...defaultStore,
-        data: {
-          experienceLevel: "intermediate",
-          preferredTime: "dawn",
-        },
+        data: { experienceLevel: "intermediate" },
       });
 
-      render(<LevelAndTimeStep />);
+      render(<ExperienceLevelStep />);
 
-      // Check that selected items have the ocean-blue border class
       const intermediateBtn = screen.getByText("Intermediate").closest("button");
-      const dawnBtn = screen.getByText("Dawn Patrol").closest("button");
-
       expect(intermediateBtn?.className).toContain("border-[#F78E42]");
-      expect(dawnBtn?.className).toContain("border-[#F78E42]");
     });
 
     it("Continue without any selection still calls nextStep (acts like skip)", async () => {
       const user = userEvent.setup();
-      render(<LevelAndTimeStep />);
+      render(<ExperienceLevelStep />);
 
       const continueBtn = screen.getByRole("button", { name: /Continue/i });
       await user.click(continueBtn);
 
-      expect(mockNextStep).toHaveBeenCalled();
-    });
-
-    it("selecting both level and time then clicking Continue updates both", async () => {
-      const user = userEvent.setup();
-      render(<LevelAndTimeStep />);
-
-      // Select advanced level
-      const advancedBtn = screen.getByText("Advanced").closest("button");
-      if (advancedBtn) {
-        await user.click(advancedBtn);
-      }
-
-      // Select weekends
-      const weekendsBtn = screen.getByText("Weekends").closest("button");
-      if (weekendsBtn) {
-        await user.click(weekendsBtn);
-      }
-
-      const continueBtn = screen.getByRole("button", { name: /Continue/i });
-      await user.click(continueBtn);
-
-      expect(mockUpdateData).toHaveBeenCalledWith({
-        experienceLevel: "advanced",
-        preferredTime: "weekends",
-      });
       expect(mockNextStep).toHaveBeenCalled();
     });
   });

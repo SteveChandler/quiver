@@ -2107,6 +2107,7 @@ export type Database = {
           forecast_ts: string
           id: string
           model_version: string
+          primary_source: string
           raw_height_m: number | null
           valid_time_utc: string
         }
@@ -2118,6 +2119,7 @@ export type Database = {
           forecast_ts: string
           id?: string
           model_version: string
+          primary_source?: string
           raw_height_m?: number | null
           valid_time_utc: string
         }
@@ -2129,6 +2131,7 @@ export type Database = {
           forecast_ts?: string
           id?: string
           model_version?: string
+          primary_source?: string
           raw_height_m?: number | null
           valid_time_utc?: string
         }
@@ -2468,6 +2471,7 @@ export type Database = {
           next_tide_height: string | null
           next_tide_time: string | null
           next_tide_type: string | null
+          om_fetched_at: string | null
           raw_forecast: Json | null
           swell_1_direction: string | null
           swell_1_height: string | null
@@ -2475,13 +2479,19 @@ export type Database = {
           swell_2_direction: string | null
           swell_2_height: string | null
           swell_2_period: string | null
+          swell_direction_om: number | null
+          swell_height_om: number | null
+          swell_period_om: number | null
           tide_height: string | null
           tide_status: string | null
           updated_at: string
           water_temp: string | null
           wave_direction: string | null
+          wave_direction_om: number | null
           wave_height: string | null
+          wave_height_om: number | null
           wave_period: string | null
+          wave_period_om: number | null
           weather_condition: string | null
           wind_direction: string | null
           wind_direction_deg: number | null
@@ -2489,6 +2499,7 @@ export type Database = {
           wind_speed: string | null
           wind_wave_direction: string | null
           wind_wave_height: string | null
+          wind_wave_height_om: number | null
           wind_wave_period: string | null
         }
         Insert: {
@@ -2506,6 +2517,7 @@ export type Database = {
           next_tide_height?: string | null
           next_tide_time?: string | null
           next_tide_type?: string | null
+          om_fetched_at?: string | null
           raw_forecast?: Json | null
           swell_1_direction?: string | null
           swell_1_height?: string | null
@@ -2513,13 +2525,19 @@ export type Database = {
           swell_2_direction?: string | null
           swell_2_height?: string | null
           swell_2_period?: string | null
+          swell_direction_om?: number | null
+          swell_height_om?: number | null
+          swell_period_om?: number | null
           tide_height?: string | null
           tide_status?: string | null
           updated_at?: string
           water_temp?: string | null
           wave_direction?: string | null
+          wave_direction_om?: number | null
           wave_height?: string | null
+          wave_height_om?: number | null
           wave_period?: string | null
+          wave_period_om?: number | null
           weather_condition?: string | null
           wind_direction?: string | null
           wind_direction_deg?: number | null
@@ -2527,6 +2545,7 @@ export type Database = {
           wind_speed?: string | null
           wind_wave_direction?: string | null
           wind_wave_height?: string | null
+          wind_wave_height_om?: number | null
           wind_wave_period?: string | null
         }
         Update: {
@@ -2544,6 +2563,7 @@ export type Database = {
           next_tide_height?: string | null
           next_tide_time?: string | null
           next_tide_type?: string | null
+          om_fetched_at?: string | null
           raw_forecast?: Json | null
           swell_1_direction?: string | null
           swell_1_height?: string | null
@@ -2551,13 +2571,19 @@ export type Database = {
           swell_2_direction?: string | null
           swell_2_height?: string | null
           swell_2_period?: string | null
+          swell_direction_om?: number | null
+          swell_height_om?: number | null
+          swell_period_om?: number | null
           tide_height?: string | null
           tide_status?: string | null
           updated_at?: string
           water_temp?: string | null
           wave_direction?: string | null
+          wave_direction_om?: number | null
           wave_height?: string | null
+          wave_height_om?: number | null
           wave_period?: string | null
+          wave_period_om?: number | null
           weather_condition?: string | null
           wind_direction?: string | null
           wind_direction_deg?: number | null
@@ -2565,6 +2591,7 @@ export type Database = {
           wind_speed?: string | null
           wind_wave_direction?: string | null
           wind_wave_height?: string | null
+          wind_wave_height_om?: number | null
           wind_wave_period?: string | null
         }
         Relationships: [
@@ -3555,6 +3582,7 @@ export type Database = {
           id: string
           model_version: string
           observed_m: number | null
+          om_passthrough_m: number | null
           predicted_at: string
           raw_error_m: number | null
           raw_forecast_m: number | null
@@ -3584,6 +3612,7 @@ export type Database = {
           id?: string
           model_version: string
           observed_m?: number | null
+          om_passthrough_m?: number | null
           predicted_at: string
           raw_error_m?: number | null
           raw_forecast_m?: number | null
@@ -3613,6 +3642,7 @@ export type Database = {
           id?: string
           model_version?: string
           observed_m?: number | null
+          om_passthrough_m?: number | null
           predicted_at?: string
           raw_error_m?: number | null
           raw_forecast_m?: number | null

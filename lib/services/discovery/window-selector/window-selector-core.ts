@@ -617,11 +617,18 @@ export function selectBestWindow(
         }
       }
 
-      // Check overnight span
+      // Reject tide boundaries that leave the source forecast's calendar day.
+      // The original overnight-span check caught start/end straddling midnight,
+      // but a window living entirely on the NEXT day (e.g. direction-based
+      // fallback in tide-interpolation.ts walks forward to tomorrow's low when
+      // today has no qualifying rise) passes that check and produces a
+      // start/forecast day mismatch downstream — the UI then renders today's
+      // forecast numbers under a "Tomorrow's…" label.
       if (useTideBoundaries && !skipThisForecast) {
+        const forecastDateStr = getLocalDateStrForBeach(startTime);
         const tideStartDate = getLocalDateStrForBeach(tideBoundaries.start);
         const tideEndDate = getLocalDateStrForBeach(tideBoundaries.end);
-        if (tideStartDate !== tideEndDate) {
+        if (tideStartDate !== forecastDateStr || tideStartDate !== tideEndDate) {
           useTideBoundaries = false;
         }
       }

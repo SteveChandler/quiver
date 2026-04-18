@@ -21,6 +21,7 @@ import {
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
 import { generateWelcomeEmail } from "@/lib/email/templates/welcome-email";
+import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getEmailTokenSecret } from "@/lib/utils/email-token";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { withRateLimit } from "@/lib/middleware/api-wrappers/rate-limit-wrapper";
@@ -79,8 +80,38 @@ async function handler(request: NextRequest) {
     const baseUrl = getBaseUrl();
     const secret = getEmailTokenSecret();
 
+    // Plan abstract-exploring-phoenix (Commit C): deep-link the welcome
+    // CTA directly to the user's home beach when one is set. Immediate-
+    // signup path may race the profile insert, so tolerate a null read.
+    // Fetch city + state alongside name + slug so the emitted URL is
+    // the canonical hierarchical path (/{state}/{city}/{slug}) — using
+    // /beach/{slug} would 308 and drop the UTM query string from the
+    // URL that client-side analytics observe.
+    let homeBeachName: string | null = null;
+    let homeBeachUrl: string | null = null;
+    const { data: profile } = await serviceSupabase
+      .from("profiles")
+      .select("home_beach_id")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profile?.home_beach_id) {
+      const { data: beach } = await serviceSupabase
+        .from("beaches")
+        .select("name, slug, city, state")
+        .eq("id", profile.home_beach_id)
+        .maybeSingle();
+      if (beach?.name && beach?.slug && beach?.city && beach?.state) {
+        homeBeachName = beach.name;
+        homeBeachUrl = buildBeachUrl({
+          slug: beach.slug,
+          city: beach.city,
+          state: beach.state,
+        });
+      }
+    }
+
     const { subject, html, text } = await generateWelcomeEmail(
-      { userId: user.id, userEmail, baseUrl },
+      { userId: user.id, userEmail, baseUrl, homeBeachName, homeBeachUrl },
       secret
     );
 

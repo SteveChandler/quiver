@@ -266,8 +266,7 @@ beforeEach(() => {
 
 describe("OracleHomeScreen", () => {
   it("exports an OracleHomeScreen component", () => {
-    expect(OracleHomeScreen).toBeDefined();
-    expect(typeof OracleHomeScreen).toBe("function");
+    expect(typeof OracleHomeScreen).toEqual("function");
   });
 
   it("renders the hero section with beach data", () => {
@@ -312,44 +311,28 @@ describe("OracleHomeScreen", () => {
     expect(screen.queryByText("Activity")).not.toBeInTheDocument();
   });
 
-  it("shows session time selector when preferred_session_time is not set", () => {
-    // profile without preferred_session_time (null)
+  // Session-time-selector prompt on the Oracle home screen was removed
+  // in plan abstract-exploring-phoenix E2. Users with no
+  // preferred_session_time no longer see a "When do you usually
+  // paddle out?" prompt above the primary CTA — that question was a
+  // zero-value capture that wrote to profiles.preferred_session_time
+  // which in turn only influenced which forecast window got top
+  // billing, a signal the user hadn't earned the right to demand. The
+  // `SessionTimeSelector` component + `updatePreferredSessionTime`
+  // server action remain available for a future settings surface but
+  // are no longer wired to the home screen. The three tests that
+  // previously covered this UI (positive render, hidden-when-set,
+  // click handler wiring) are replaced by a single negative assertion
+  // that pins the removal.
+  it("does NOT render the session-time-selector prompt regardless of preferred_session_time", () => {
     mockOracleData = {
       ...mockOracleData,
       profile: { ...mockOracleData.profile, preferred_session_time: null } as any,
-    };
-    render(<OracleHomeScreen />);
-    expect(
-      screen.getByText("When do you usually paddle out?")
-    ).toBeInTheDocument();
-  });
-
-  it("hides session time selector when preferred_session_time is set", () => {
-    mockOracleData = {
-      ...mockOracleData,
-      profile: { ...mockOracleData.profile, preferred_session_time: "dawn_patrol" } as any,
     };
     render(<OracleHomeScreen />);
     expect(
       screen.queryByText("When do you usually paddle out?")
     ).not.toBeInTheDocument();
-  });
-
-  it("calls updatePreferredSessionTime and refreshProfile when session time is selected", async () => {
-    const { updatePreferredSessionTime } = await import("@/actions/oracle-actions");
-    mockOracleData = {
-      ...mockOracleData,
-      profile: { ...mockOracleData.profile, preferred_session_time: null } as any,
-    };
-    render(<OracleHomeScreen />);
-
-    const dawnPatrolButton = screen.getByRole("button", { name: /dawn patrol/i });
-    await userEvent.click(dawnPatrolButton);
-
-    await waitFor(() => {
-      expect(updatePreferredSessionTime).toHaveBeenCalledWith("dawn_patrol");
-    });
-    expect(mockOracleData.refreshProfile).toHaveBeenCalledTimes(1);
   });
 
   it("shows loading skeleton when discovery is loading and no topRecommendation", () => {
@@ -480,10 +463,11 @@ describe("OracleHomeScreen", () => {
     } as unknown as OracleData;
     render(<OracleHomeScreen />);
 
-    // 5am slot should show "1-2ft" from slotForecasts
-    expect(screen.getByText("1-2ft")).toBeInTheDocument();
-    // 11am slot should show "2-3ft" from slotForecasts
-    expect(screen.getAllByText("2-3ft").length).toBeGreaterThanOrEqual(1);
+    // 5am slot should show "1-2ft sets" from slotForecasts (pre-formatted
+    // ranges get the "sets" suffix applied for consistency).
+    expect(screen.getByText("1-2ft sets")).toBeInTheDocument();
+    // 11am slot should show "2-3ft sets" from slotForecasts
+    expect(screen.getAllByText("2-3ft sets").length).toBeGreaterThanOrEqual(1);
   });
 
   it("prefers current-slot tide/wind data over forecast entity values when slotForecasts is populated", () => {
