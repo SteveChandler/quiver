@@ -347,6 +347,68 @@ export async function ensureAuthenticated(page: Page): Promise<void> {
 }
 
 /**
+ * Read the authenticated user's id from the page context.
+ *
+ * Tries localStorage first (works on localhost). Falls back to decoding the
+ * Supabase auth cookie via Playwright's cookie API — necessary when running
+ * against external domains like dev.quiversurf.app where localStorage is blocked.
+ *
+ * Supabase SSR splits the session JSON across two chunked cookies:
+ *   sb-{ref}-auth-token.0  → "base64-" + first half of base64(sessionJSON)
+ *   sb-{ref}-auth-token.1  → second half of base64(sessionJSON)
+ * Reassemble → base64-decode → parse → read user.id.
+ */
+export async function getCurrentUserId(page: Page): Promise<string | null> {
+  // 1. Try localStorage (works on localhost)
+  const fromStorage = await page.evaluate((): string | null => {
+    try {
+      const keys = Object.keys(localStorage).filter((k) =>
+        k.startsWith('sb-') && k.includes('auth-token')
+      );
+      for (const k of keys) {
+        try {
+          const raw = localStorage.getItem(k);
+          if (!raw) continue;
+          const parsed = JSON.parse(raw);
+          const sub = parsed?.user?.id ?? parsed?.currentSession?.user?.id;
+          if (typeof sub === 'string') return sub;
+        } catch {
+          // continue
+        }
+      }
+    } catch {
+      // localStorage blocked — fall through to cookie method
+    }
+    return null;
+  });
+
+  if (fromStorage) return fromStorage;
+
+  // 2. Decode the Supabase SSR chunked cookie (works cross-domain via Playwright API).
+  const cookies = await page.context().cookies();
+  const authCookies = cookies
+    .filter((c) => c.name.startsWith('sb-') && c.name.includes('auth-token'))
+    .sort((a, b) => a.name.localeCompare(b.name)); // .0 before .1
+
+  if (authCookies.length === 0) return null;
+
+  try {
+    // Strip the "base64-" prefix from chunk 0, concatenate remaining chunks.
+    const raw = authCookies
+      .map((c, i) => (i === 0 ? c.value.replace(/^base64-/, '') : c.value))
+      .join('');
+    const decoded = Buffer.from(raw, 'base64').toString('utf-8');
+    const parsed = JSON.parse(decoded);
+    const sub = parsed?.user?.id ?? parsed?.currentSession?.user?.id;
+    if (typeof sub === 'string') return sub;
+  } catch {
+    // Could not decode
+  }
+
+  return null;
+}
+
+/**
  * Get Supabase project reference from auth tokens
  *
  * Extracts the project reference from Supabase auth token cookie names.

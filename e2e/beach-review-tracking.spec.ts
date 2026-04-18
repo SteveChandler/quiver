@@ -2,6 +2,8 @@ import { test, expect, Page } from '@playwright/test';
 import { TEST_BEACHES } from './fixtures/test-data';
 import { navigateToBeach, ensureAuthenticated } from './utils/test-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
+import { deleteReviewsForUser } from './utils/test-data-cleanup';
+import { getCurrentUserId } from './utils/auth-helpers';
 
 /**
  * Beach Review Tracking E2E Tests
@@ -546,5 +548,71 @@ test.describe('Review Form UI', () => {
     const contentTextarea = page.locator('textarea');
     await contentTextarea.fill('The waves were epic today!');
     await expect(contentTextarea).toHaveValue('The waves were epic today!');
+  });
+});
+
+test.describe('Successful Submit Tracking', () => {
+  let errorCapture: ErrorCapture;
+  let testUserId: string | null = null;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    // Clean up the review this test inserted, regardless of pass/fail.
+    if (testUserId) {
+      await deleteReviewsForUser(testUserId, "E2E happy-path title").catch((err) => {
+        console.warn(`Review cleanup failed for user ${testUserId}:`, err);
+      });
+      testUserId = null;
+    }
+    await assertNoErrors(page, errorCapture, { context: 'Successful Submit Tracking' });
+  });
+
+  test('fires review_submit and writes row on valid submit', async ({ page }) => {
+    await ensureAuthenticated(page);
+    await setupTrackingCapture(page);
+
+    await navigateToBeach(page, TEST_BEACHES.blacks);
+    await waitForTrackingReady(page);
+    testUserId = await getCurrentUserId(page);
+    await page.evaluate(() => { (window as any).__capturedTrackingEvents = []; });
+
+    // Default tab is Forecast — switch to Overview where the review CTA lives.
+    await page.getByRole('tab', { name: /overview/i }).click();
+    await page.getByRole('button', { name: /write a review/i }).first().click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible({ timeout: 5000 });
+
+    // Fill all 5 rating categories with star 4.
+    const starButtons = dialog.locator('button[aria-label*="Rate"]');
+    for (let category = 0; category < 5; category++) {
+      await starButtons.nth(category * 5 + 3).click();
+    }
+
+    // Fill title + content.
+    await dialog.getByPlaceholder(/summarize your experience/i).fill('E2E happy-path title');
+    await dialog.locator('textarea').fill('E2E happy-path content body for verification.');
+
+    // Submit.
+    await dialog.getByRole('button', { name: /post review/i }).click();
+
+    // Dialog should close on success.
+    await expect(dialog).not.toBeVisible({ timeout: 10000 });
+
+    // Wait for review_submit event.
+    await page.waitForFunction(
+      () => (window as any).__capturedTrackingEvents?.some((e: any) => e.eventType === 'review_submit'),
+      { timeout: 5000 }
+    );
+
+    const events = await getCapturedEvents(page);
+    const submitEvent = events.find((e) => e.eventType === 'review_submit');
+    expect(submitEvent).toBeDefined();
+    expect(submitEvent?.metadata?.source).toBe('overview_cta');
+    expect(submitEvent?.metadata?.duration_ms).toBeGreaterThan(0);
+    expect(submitEvent?.metadata?.is_edit).toBe(false);
   });
 });
