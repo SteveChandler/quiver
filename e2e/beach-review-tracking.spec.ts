@@ -560,12 +560,16 @@ test.describe('Successful Submit Tracking', () => {
   });
 
   test.afterEach(async ({ page }) => {
-    // Clean up the review this test inserted, regardless of pass/fail.
+    // Clean up the review this test inserted. Only clear testUserId on confirmed
+    // success so a failed cleanup leaves the signal visible in test logs.
     if (testUserId) {
-      await deleteReviewsForUser(testUserId, "E2E happy-path title").catch((err) => {
+      try {
+        await deleteReviewsForUser(testUserId, "E2E happy-path title");
+        testUserId = null;
+      } catch (err) {
         console.warn(`Review cleanup failed for user ${testUserId}:`, err);
-      });
-      testUserId = null;
+        // Intentionally leave testUserId set so the failure is visible.
+      }
     }
     await assertNoErrors(page, errorCapture, { context: 'Successful Submit Tracking' });
   });
@@ -586,10 +590,20 @@ test.describe('Successful Submit Tracking', () => {
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible({ timeout: 5000 });
 
-    // Fill all 5 rating categories with star 4.
-    const starButtons = dialog.locator('button[aria-label*="Rate"]');
-    for (let category = 0; category < 5; category++) {
-      await starButtons.nth(category * 5 + 3).click();
+    // Fill all 5 rating categories with star 4. Use aria-label text rather than
+    // positional nth() so reordering categories or adding a new one doesn't
+    // silently click the wrong star.
+    const categories = [
+      "Overall Experience",
+      "Wave Quality",
+      "Crowd Level",
+      "Parking",
+      "Accessibility",
+    ];
+    for (const category of categories) {
+      await dialog
+        .getByRole("button", { name: new RegExp(`^Rate ${category} 4 out of 5 stars`) })
+        .click();
     }
 
     // Fill title + content.

@@ -177,7 +177,7 @@ export function BeachReviewForm({
       const elapsed = Date.now() - formOpenTimeRef.current;
       const isStrictModeFakeUnmount =
         process.env.NODE_ENV !== 'production' &&
-        cycleAtMount === 1 && mountCycleRef.current === 1 && elapsed < 50;
+        cycleAtMount === 1 && mountCycleRef.current === 1 && elapsed < 10;
       if (
         !hasTrackedOpenRef.current ||
         hasSubmittedRef.current ||
@@ -218,16 +218,20 @@ export function BeachReviewForm({
       return;
     }
     hasTrackedAbandonRef.current = true;
-    track('review_form_abandon', {
-      beachId,
+    // Read payload values from refs for consistency with the unmount cleanup.
+    // Closure reads would work today (props are stable for the dialog's lifetime)
+    // but diverge from the cleanup path if the form is ever mounted in a prop-
+    // swapping container.
+    trackRef.current('review_form_abandon', {
+      beachId: beachIdRef.current,
       metadata: {
-        source: trackingSource,
-        beach_id: beachId,
-        beach_name: beachName,
-        is_edit: Boolean(existingReview),
+        source: trackingSourceRef.current,
+        beach_id: beachIdRef.current,
+        beach_name: beachNameRef.current,
+        is_edit: isEditRef.current,
         duration_ms: Date.now() - formOpenTimeRef.current,
         abandon_via: 'cancel_button',
-        ...buildAbandonFieldSnapshot(),
+        ...abandonSnapshotRef.current,
       } as ReviewFormMetadata,
     });
 
