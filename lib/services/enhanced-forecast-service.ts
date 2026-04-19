@@ -40,6 +40,8 @@ import {
   type EnhancedForecastWithRawData,
 } from "@/types/forecast";
 import { toFaceHeightFeet } from "@/lib/utils/wave-formatters";
+import { fetchNowcastAnchors } from "@/lib/services/observations/nowcast-anchor";
+import type { NowcastAnchor } from "@/lib/services/observations/nowcast-anchor.types";
 import {
   ForecastError,
   ForecastErrorCode,
@@ -71,9 +73,17 @@ export class EnhancedForecastService {
 
   /**
    * Generate comprehensive 12-day forecast for a beach
+   *
+   * @param nowcastAnchor Optional buoy observation anchor (see
+   *   fetchNowcastAnchors). When set and the beach opts into the
+   *   `observation_anchor` feature flag, ForecastBuilder uses it as
+   *   the Hs input for rows within the ±1.5h nowcast window. Cron
+   *   paths fetch the batch once per invocation and pass the relevant
+   *   entry per beach; single-beach admin paths may pass null.
    */
   async generateComprehensiveForecast(
-    beach: Beach
+    beach: Beach,
+    nowcastAnchor: NowcastAnchor | null = null,
   ): Promise<EnhancedForecastEntity[]> {
     return withErrorHandling(
       async () => {
@@ -111,6 +121,7 @@ export class EnhancedForecastService {
           cdipData: cdipData.status === "fulfilled" ? cdipData.value : null,
           ioosWaterTempC: ioosWaterTempResult.status === "fulfilled" ? ioosWaterTempResult.value : null,
           coopsWaterTempC: coopsWaterTempResult.status === "fulfilled" ? coopsWaterTempResult.value : null,
+          nowcastAnchor,
         };
 
         // Log any data source failures
@@ -385,6 +396,7 @@ export class EnhancedForecastService {
     cdipData,
     ioosWaterTempC,
     coopsWaterTempC,
+    nowcastAnchor,
   }: {
     beach: Beach;
     waveData: any;
@@ -394,6 +406,7 @@ export class EnhancedForecastService {
     cdipData: CDIPBuoyData | null;
     ioosWaterTempC: number | null;
     coopsWaterTempC: number | null;
+    nowcastAnchor: NowcastAnchor | null;
   }): Promise<EnhancedForecastWithRawData[]> {
     // Use ForecastBuilder to build forecasts
     const builder = new ForecastBuilder({
@@ -418,6 +431,7 @@ export class EnhancedForecastService {
       cdipData,
       ioosWaterTempC,
       coopsWaterTempC,
+      nowcastAnchor,
     });
 
     return forecasts;
@@ -465,12 +479,19 @@ export class EnhancedForecastService {
         `selectedMissing: ${beaches.stats.selectedMissing}, max ${config.maxBeachesPerRun} per run, batch size: ${config.batchSize})`
       );
 
+      // Fetch nowcast observation anchors once per cron invocation. Failure
+      // returns an empty Map (service logs warning + swallows error), so the
+      // downstream per-beach builds fall through to the forecast-only path.
+      const supabase = await createSupabaseServiceRoleClient();
+      const nowcastAnchors = await fetchNowcastAnchors(supabase);
+      log.info(`Loaded ${nowcastAnchors.size} nowcast anchors for this run`);
+
       const result = await processBeachesInBatches({
         beaches: beaches.selected,
         config,
         deadlineTracker,
         processBeach: createBeachProcessor(
-          (beach) => this.generateComprehensiveForecast(beach),
+          (beach) => this.generateComprehensiveForecast(beach, nowcastAnchors.get(beach.id) ?? null),
           (beach, forecasts) => this.storeEnhancedForecasts(beach, forecasts)
         ),
         prefetchCallback: (beaches) => this.prefetchTideStations(beaches),

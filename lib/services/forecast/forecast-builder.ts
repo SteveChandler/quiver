@@ -28,6 +28,35 @@ import {
   type EnhancedForecastWithRawData,
   type CDIPBuoyData,
 } from "@/types/forecast";
+import type { NowcastAnchor } from "@/lib/services/observations/nowcast-anchor.types";
+import { isNowcastAnchorEnabled } from "@/lib/services/observations/nowcast-anchor.types";
+
+/**
+ * Nowcast-anchor design (see plan golden-sleeping-steele.md):
+ *  - NOWCAST_WINDOW_MS: forecast rows within ±1.5h of now may be anchored.
+ *  - ANCHOR_FRESHNESS_MS: observations up to 6h old count as valid anchors.
+ * The freshness cap is wider than the forecast window to accommodate CDIP-via-IOOS
+ * ingestion lag (2h sync cron + up-to-3h source staleness). A 4h-old buoy reading
+ * still beats a hallucinated NOAA forecast — swells don't swing 100% in 6h.
+ */
+const NOWCAST_WINDOW_MS = 1.5 * 60 * 60 * 1000;
+const ANCHOR_FRESHNESS_MS = 6 * 60 * 60 * 1000;
+
+export function shouldApplyNowcastAnchor(args: {
+  beachFeatures: string[] | null | undefined;
+  anchor: NowcastAnchor | undefined;
+  forecastAtMs: number;
+  nowMs: number;
+}): boolean {
+  if (!isNowcastAnchorEnabled(args.beachFeatures)) return false;
+  if (!args.anchor) return false;
+  if (Math.abs(args.forecastAtMs - args.nowMs) > NOWCAST_WINDOW_MS) return false;
+  const observedMs = Date.parse(args.anchor.observedAt);
+  if (Number.isNaN(observedMs)) return false;
+  const age = args.nowMs - observedMs;
+  if (age < 0 || age > ANCHOR_FRESHNESS_MS) return false;
+  return true;
+}
 import type { TideStatus } from "@/lib/services/noaa-coops/types";
 import type {
   WaveWatchForecast,
@@ -63,6 +92,14 @@ export interface ForecastInputs {
   cdipData: CDIPBuoyData | null;
   ioosWaterTempC: number | null;
   coopsWaterTempC: number | null;
+  /**
+   * Optional single-row buoy observation anchor for THIS beach, produced by
+   * fetchNowcastAnchors() once per cron invocation. When the beach opts in
+   * via `features: ['observation_anchor']` and nowcast-window gates pass,
+   * getWaveHeight swaps this observation in as the Hs input. Missing = use
+   * forecast-only path (current behavior).
+   */
+  nowcastAnchor?: NowcastAnchor | null;
 }
 
 const log = createContextLogger("ForecastBuilder");
@@ -83,7 +120,7 @@ export class ForecastBuilder {
    * Build forecasts from raw data sources
    */
   async buildForecasts(inputs: ForecastInputs): Promise<EnhancedForecastWithRawData[]> {
-    const { beach, waveData, tideData, weatherData, buoyData, cdipData, ioosWaterTempC, coopsWaterTempC } = inputs;
+    const { beach, waveData, tideData, weatherData, buoyData, cdipData, ioosWaterTempC, coopsWaterTempC, nowcastAnchor } = inputs;
     const forecasts: EnhancedForecastWithRawData[] = [];
     const now = new Date();
 
@@ -140,6 +177,17 @@ export class ForecastBuilder {
         processedDates.add(dateString);
       }
 
+      // Resolve the active nowcast anchor for THIS forecast row (if any).
+      // Gate: beach opted into feature flag, observation is fresh enough
+      // (≤6h), and the forecast row is within the ±1.5h nowcast window.
+      const applyAnchor = shouldApplyNowcastAnchor({
+        beachFeatures: beach.features ?? null,
+        anchor: nowcastAnchor ?? undefined,
+        forecastAtMs: forecastTime.getTime(),
+        nowMs: now.getTime(),
+      });
+      const effectiveAnchor = applyAnchor ? (nowcastAnchor ?? null) : null;
+
       // Build the forecast entity
       const forecast = this.buildSingleForecast({
         beach,
@@ -160,6 +208,7 @@ export class ForecastBuilder {
         now,
         ioosWaterTempC,
         coopsWaterTempC,
+        nowcastAnchor: effectiveAnchor,
       });
 
       forecasts.push(forecast);
@@ -190,6 +239,7 @@ export class ForecastBuilder {
     now: Date;
     ioosWaterTempC: number | null;
     coopsWaterTempC: number | null;
+    nowcastAnchor: NowcastAnchor | null;
   }): EnhancedForecastWithRawData {
     const {
       beach,
@@ -210,6 +260,7 @@ export class ForecastBuilder {
       now,
       ioosWaterTempC,
       coopsWaterTempC,
+      nowcastAnchor,
     } = params;
 
     return {
@@ -219,7 +270,7 @@ export class ForecastBuilder {
       forecast_at: getNormalizedForecastAt(forecastTime),
 
       // Wave data
-      wave_height: this.getWaveHeight(cdipPoint, wavePoint, buoyData, useCDIPData, beach),
+      wave_height: this.getWaveHeight(cdipPoint, wavePoint, buoyData, useCDIPData, beach, nowcastAnchor),
       wave_period: this.getWavePeriod(cdipPoint, wavePoint, buoyData, useCDIPData),
       wave_direction: this.getWaveDirection(cdipPoint, wavePoint, useCDIPData),
 
@@ -459,10 +510,12 @@ export class ForecastBuilder {
     wavePoint: WaveWatchData | null,
     buoyData: NDBCBuoyRow | null,
     useCDIPData: boolean,
-    beach: Beach
+    beach: Beach,
+    nowcastAnchor: NowcastAnchor | null = null,
   ): string | null {
-    // Extract period: prefer CDIP peak period, then model swell period, then buoy period
+    // Extract period: prefer anchor period when anchored, else CDIP peak, model swell, buoy.
     const periodS =
+      nowcastAnchor?.wavePeriodS ??
       cdipPoint?.peakWavePeriod ??
       cdipPoint?.swellPeriod ??
       wavePoint?.swell_1_period ??
@@ -470,9 +523,9 @@ export class ForecastBuilder {
       buoyData?.wave_period ??
       null;
 
-    // Extract swell direction: prefer CDIP peak direction, then model swell direction
-    // CDIP provides degrees, model may provide degrees or cardinal (handled by cardinalToDegrees)
+    // Extract swell direction: prefer anchor direction when anchored, else CDIP, else model.
     const swellDirectionDeg =
+      nowcastAnchor?.waveDirectionDeg ??
       cdipPoint?.peakWaveDirection ??
       cdipPoint?.swellDirection ??
       cardinalToDegrees(wavePoint?.swell_1_direction) ??
@@ -543,6 +596,27 @@ export class ForecastBuilder {
     // The decomposed variant falls back to the scalar path internally when no
     // component slots are populated, so it is always safe to call even when
     // wavePoint is null.
+    // When a nowcast anchor is active, swap in the observation Hs via the
+    // ndbcBuoyM slot AND pass empty components. The decomposed branch sums
+    // over populated components and never reads `rawHeightFt` when any are
+    // present — so keeping NOAA's components would silently discard the
+    // anchor height. Empty components forces the legacy scalar path, which
+    // runs `rawHeightFt` through the period+alignment shoaling transform
+    // using anchor-provided period/direction. See plan golden-sleeping-steele.md.
+    if (nowcastAnchor) {
+      return toFaceHeightFeetDecomposed({
+        cdipSigFt: undefined,
+        cdipSwellFt: undefined,
+        modelSwellM: undefined,
+        modelHsM: undefined,
+        ndbcBuoyM: nowcastAnchor.waveHeightM,
+        beach: beachTerrain,
+        periodS,
+        swellDirectionDeg,
+        components: [null, null, null],
+      });
+    }
+
     return toFaceHeightFeetDecomposed({
       cdipSigFt: cdipPoint?.significantWaveHeight ?? undefined,
       cdipSwellFt: cdipPoint?.swellHeight ?? undefined,
