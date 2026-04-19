@@ -459,39 +459,10 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
   };
 }
 
-/**
- * Pre-render the top 50 beach pages at build time (SSG) so Google crawls land
- * on cached HTML rather than paying full SSR + Supabase RTT.  Capped at 50 to
- * keep build times predictable — remaining pages are served via ISR on first
- * request (revalidate = 3600).  Raise the cap only after validating bundle
- * impact on a staging build.
- */
-export async function generateStaticParams(): Promise<
-  Array<{ intent: string; city: string; beachSlug: string }>
-> {
-  try {
-    const supabase = createPublicReadClient();
-    const { data, error } = await supabase
-      .from('beaches')
-      .select('slug, city, state')
-      .not('slug', 'is', null)
-      .not('city', 'is', null)
-      .not('state', 'is', null)
-      .order('review_count', { ascending: false, nullsFirst: false })
-      .limit(50);
-
-    if (error || !data) return [];
-
-    return data
-      .map((beach) => {
-        const stateSlug = stateToSlug(beach.state);
-        const citySlug = cityToSlug(beach.city);
-        if (!stateSlug || !citySlug || !beach.slug || !isValidStateSlug(stateSlug)) return null;
-        return { intent: stateSlug, city: citySlug, beachSlug: beach.slug };
-      })
-      .filter((p): p is { intent: string; city: string; beachSlug: string } => p !== null);
-  } catch {
-    // Build must not fail if DB is unreachable — ISR handles all pages anyway.
-    return [];
-  }
-}
+// generateStaticParams deferred: the beach page has additional no-store fetches
+// (enrichBeachesWithConditions, getBeachForecastPreview, getBestTimeToSurfUrl) and a
+// useSearchParams() call without Suspense that prevent full SSG prerendering.
+// Fixing those is a follow-up task. All pages are served via ISR on first request
+// (revalidate = 3600). The primary ISR unlock from this workstream is decoupling
+// getSpotSurfReport from cookies() — that removes the force-dynamic constraint for
+// on-demand (non-prerendered) requests.

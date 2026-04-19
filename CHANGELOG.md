@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 - **Beach page ISR unlocked (revalidate=3600 now effective).** `getSpotSurfReport` called `createSupabaseServerClient` → `cookies()`, forcing the beach route into dynamic rendering despite `export const revalidate = 3600`. New `getSpotSurfReportPublic` variant uses the service-role client directly (no cookie reads), so the page renders as ISR. Personalised data (user prefs, alerts) continues to load client-side in `BeachDetailClient` post-hydration.
-- **Top-50 beach pages now pre-rendered at build time (SSG).** Added `generateStaticParams` to `app/[intent]/[city]/[beachSlug]/page.tsx` querying the top 50 beaches by `review_count`. Intentionally capped at 50 to keep build times predictable; remaining pages served via ISR on first request.
+- **Beach page ISR now effective for on-demand requests.** Removing `cookies()` from the SSR data path means Next.js no longer force-opts the route into dynamic rendering — the `revalidate=3600` ISR window is now respected. `generateStaticParams` (SSG prerender for top-50 beaches) is deferred pending Suspense wrap of `useSearchParams` and removal of `no-store` fetches in `enrichBeachesWithConditions` and `getBestTimeToSurfUrl`.
 
 ### Fixed
 - **`formatCrowdSignal` now handles all crowd levels.** `very_heavy` returned `null` (so Malibu's SERP description had no crowd phrase). Added `very_heavy → "Packed"`, `heavy → "Crowded"`, `moderate → "Busy"` to complement the existing `light → "Uncrowded"` mapping. Function exported for unit testing.
