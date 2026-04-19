@@ -38,22 +38,10 @@ test.describe("Onboarding - close + view full forecast", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible({ timeout: TIMEOUTS.long });
 
-    // Confirm first step (Home Beach) is visible.
-    await expect(page.getByText(/where do you surf/i)).toBeVisible({
-      timeout: TIMEOUTS.long,
-    });
-
-    // "Maybe later" button dismisses the overlay.
-    // The old absolute-positioned X button (aria-label="Skip onboarding") was
-    // removed because it was a reflex-tap magnet. Dismissal is now an explicit
-    // in-step button labeled "Maybe later".
-    const maybeLaterButton = dialog.getByRole("button", { name: /maybe later/i });
-    await maybeLaterButton.click();
-    await expect(dialog).toBeHidden({ timeout: TIMEOUTS.long });
-
-    // Re-open and run through steps.
-    await page.goto("/?showOnboarding=1&debugOnboarding=1");
-    await waitForPageLoad(page);
+    // Confirm first step (Home Beach) is visible. HomeBeachStep is intentionally
+    // non-skippable (no "Maybe later") per plan abstract-exploring-phoenix —
+    // adding a soft-out dropped activation by ~25%. The dialog is dismissable
+    // only via completing the step or via Escape on subsequent steps.
     await expect(page.getByText(/where do you surf/i)).toBeVisible({
       timeout: TIMEOUTS.long,
     });

@@ -118,6 +118,10 @@ export function CamsSection({ sources, variant = "default", beachName }: CamsSec
   );
 
   let visual: React.ReactNode;
+  // Shared accessible label used across iframe / hdontap / hls / video branches
+  // so screen readers hear the spot name instead of a generic "Live Cam" for
+  // every beach.
+  const camLabel = beachName ? `Live cam of ${beachName}` : "Live Cam";
 
   if (allowIframe && intent) {
     visual = (
@@ -125,7 +129,7 @@ export function CamsSection({ sources, variant = "default", beachName }: CamsSec
         <iframe
           ref={iframeRef}
           src={intent.src}
-          title={intent.title || "Live Cam"}
+          title={intent.title || camLabel}
           allow={intent.allow}
           className="h-full w-full object-cover"
           loading="lazy"
@@ -137,7 +141,7 @@ export function CamsSection({ sources, variant = "default", beachName }: CamsSec
     visual = hlsError ? (
       dioramaVisual ?? streamUnavailableVisual
     ) : resolvedHlsUrl ? (
-      <HLSVideoPlayer key={playerKey} src={resolvedHlsUrl} title="Live Cam" onError={() => setHlsError(true)} />
+      <HLSVideoPlayer key={playerKey} src={resolvedHlsUrl} title={camLabel} onError={() => setHlsError(true)} />
     ) : (
       <div className="flex h-64 flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-100/70 via-white to-blue-50 text-muted-foreground">
         <Loader2 className="h-6 w-6 animate-spin text-ocean-blue" />
@@ -145,12 +149,10 @@ export function CamsSection({ sources, variant = "default", beachName }: CamsSec
       </div>
     );
   } else if (intent?.kind === "hls") {
-    const hlsLabel = beachName ? `Live cam of ${beachName}` : "Live cam";
     visual = hlsError
       ? (dioramaVisual ?? streamUnavailableVisual)
-      : <HLSVideoPlayer key={playerKey} src={intent.src} title={hlsLabel} onError={() => setHlsError(true)} />;
+      : <HLSVideoPlayer key={playerKey} src={intent.src} title={camLabel} onError={() => setHlsError(true)} />;
   } else if (intent?.kind === "video") {
-    const camLabel = beachName ? `Live cam of ${beachName}` : "Live cam";
     visual = (
       <div key={playerKey} className="relative aspect-video w-full overflow-hidden bg-black">
         <video

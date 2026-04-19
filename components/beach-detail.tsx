@@ -884,7 +884,7 @@ function BeachDetailContent({
               />
             }
           >
-            <CamsSection sources={sources} variant="hero" />
+            <CamsSection sources={sources} variant="hero" beachName={beach.name} />
           </Suspense>
         ) : (
           /* Photo gallery background */
@@ -921,6 +921,28 @@ function BeachDetailContent({
             >
               {beach.name} Surf Report
             </h1>
+            {/* Cam-hero NowBlock: on cam beaches the bottom forecast overlay is
+                hidden so the live cam can fill the frame. Mirror the SERP-promise
+                wave height in a thin strip under the title so Google bots and
+                first-paint mobile users still see the answer above the fold. */}
+            {showCamHero && surfCallReport?.waveHeight && (
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
+                <span
+                  className="font-mono text-xl font-bold leading-none text-ocean-blue-decorative"
+                  style={{ textShadow: "0 1px 8px rgba(0,0,0,0.7)" }}
+                >
+                  {surfCallReport.waveHeight}
+                </span>
+                {surfCallReport.windSpeed && surfCallReport.windCompass && (
+                  <span
+                    className="text-white/90 text-sm font-medium"
+                    style={{ textShadow: "0 1px 8px rgba(0,0,0,0.7)" }}
+                  >
+                    · {surfCallReport.windSpeed} {surfCallReport.windCompass} wind
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -934,10 +956,7 @@ function BeachDetailContent({
                   mobile without removing the diorama hero. */}
               {surfCallReport?.waveHeight && (
                 <div className="mb-2 flex items-center gap-2 flex-wrap">
-                  <span
-                    className="font-mono text-2xl font-bold leading-none"
-                    style={{ color: "#F78E42" }}
-                  >
+                  <span className="font-mono text-2xl font-bold leading-none text-ocean-blue-decorative">
                     {surfCallReport.waveHeight}
                   </span>
                   {surfCallReport.windSpeed && surfCallReport.windCompass && (

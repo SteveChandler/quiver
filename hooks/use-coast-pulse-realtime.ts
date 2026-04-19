@@ -87,7 +87,10 @@ export function useCoastPulseRealtime({
     return () => {
       clearInterval(interval);
     };
-  }, [channelKey, nearbyBeachIds.length]);
+    // channelKey already encodes the full beach-id set; nearbyBeachIds.length
+    // can't change without channelKey changing, so the lint hint is wrong.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelKey]);
 
   // --- Realtime channels: intel_posts + sessions ---
   useEffect(() => {

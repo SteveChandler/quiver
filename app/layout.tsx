@@ -262,9 +262,10 @@ export default function RootLayout({
         >
           Skip to content
         </a>
-        <div id="main-content">
-          <Providers>{children}</Providers>
-        </div>
+        {/* Skip-link target lives on the canonical <main id="main-content">
+            inside components/providers.tsx so screen-reader Tab + Enter lands
+            below the nav, not above it. Don't re-declare the id here. */}
+        <Providers>{children}</Providers>
 
         {/* HideOnRoutes client gate handles footer visibility via usePathname() */}
         <HideOnRoutes exact={["/"]} prefixes={hideFooterPrefixes}>
