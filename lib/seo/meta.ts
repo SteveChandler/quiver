@@ -168,13 +168,21 @@ function extractWaveCharacter(waveTips: string | null | undefined): string | nul
 
 /**
  * Converts crowd_level into a concise SERP signal.
- * "moderate" is not a differentiator — returns null.
+ * Exported for unit testing.
+ *
+ * Phrases chosen for inline SERP readability ("0.8 ft · Packed"):
+ * - very_heavy → "Packed"   (avoidance signal for crowd-sensitive surfers)
+ * - heavy      → "Crowded"  (honest surf-culture term)
+ * - moderate   → "Busy"     (soft warning, not a deterrent)
+ * - light      → "Uncrowded" (positive differentiator)
  */
-function formatCrowdSignal(crowdLevel: string | null | undefined): string | null {
+export function formatCrowdSignal(crowdLevel: string | null | undefined): string | null {
   if (!crowdLevel) return null;
   const lvl = crowdLevel.toLowerCase();
   if (lvl === "light") return "Uncrowded";
-  if (lvl === "heavy") return "Popular";
+  if (lvl === "moderate") return "Busy";
+  if (lvl === "heavy") return "Crowded";
+  if (lvl === "very_heavy") return "Packed";
   return null;
 }
 
