@@ -25,6 +25,29 @@ jest.mock("@/lib/utils/beach-url-utils");
 jest.mock("@/lib/utils/regional-forecast-utils");
 jest.mock("@/lib/utils/distance-utils");
 
+// attachRegionPhotos + getTopBeachesRightNow hit the service-role Supabase
+// client to fetch approved beach photos. CI has no SUPABASE_SERVICE_ROLE_KEY,
+// so the real client init throws and pollutes console.error. Stub both so
+// photo attachment silently no-ops (summaries retain null photoUrl fields,
+// which matches the photos-unavailable branch the callers already handle).
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServiceRoleClient: () => ({
+    from: () => ({
+      select: () => ({
+        in: () => ({
+          order: () => Promise.resolve({ data: [], error: null }),
+        }),
+      }),
+    }),
+  }),
+}));
+jest.mock("@/lib/supabase/query-builders", () => ({
+  withApprovedPhotos: async (query: unknown) => {
+    const result = await (query as Promise<{ data: unknown; error: unknown }>);
+    return result ?? { data: [], error: null };
+  },
+}));
+
 import { getBeachesFromDb } from "@/lib/services/beach-query-service";
 import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-utils";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
