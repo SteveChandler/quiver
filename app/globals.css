@@ -452,10 +452,11 @@ body.js-loaded .ssr-beach-section {
 /* Muted foreground — used by shadcn components */
 .theme-retro-dark .text-muted-foreground { color: #B0BFDA !important; }
 
-/* Brand color remaps — Charming Orange takes over ocean-blue */
+/* Brand color remaps — text/border keep decorative orange (5.34:1 on navy bg);
+   bg uses the WCAG-AA CTA variant #9E5010 (5.82:1 with white text). */
 .theme-retro-dark .text-ocean-blue { color: #F78E42 !important; }
 .theme-retro-dark .border-ocean-blue { border-color: #F78E42 !important; }
-.theme-retro-dark .bg-ocean-blue { background-color: #F78E42 !important; }
+.theme-retro-dark .bg-ocean-blue { background-color: #9E5010 !important; }
 .theme-retro-dark .text-blue-500 { color: #8AB5FF !important; }
 .theme-retro-dark .text-blue-600 { color: #8AB5FF !important; }
 .theme-retro-dark .text-blue-700 { color: #8AB5FF !important; }
@@ -579,7 +580,7 @@ body.js-loaded .ssr-beach-section {
   background-color: rgba(74, 112, 217, 0.08) !important;
 }
 
-/* ---- Buttons — Charming Orange fill, slightly hand-cut radius ---- */
+/* ---- Buttons — CTA orange fill (WCAG AA), slightly hand-cut radius ---- */
 .theme-retro-dark .bg-primary,
 .theme-retro-dark button.bg-primary,
 .theme-retro-dark a.bg-primary,
@@ -587,7 +588,7 @@ body.js-loaded .ssr-beach-section {
 .theme-retro-dark a[class*="bg-ocean-blue"],
 .theme-retro-dark button[class*="bg-pink"],
 .theme-retro-dark a[class*="bg-pink"] {
-  background-color: #F78E42 !important;
+  background-color: #9E5010 !important;
   border-radius: 12px 14px 11px 13px !important;
 }
 /* ---- Card hover glow ---- */
