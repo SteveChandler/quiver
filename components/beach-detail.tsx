@@ -928,6 +928,28 @@ function BeachDetailContent({
         {!showCamHero && (
           <div className="absolute inset-x-0 bottom-0 px-4 sm:px-6 pb-4 z-[6]">
             <div className="mx-auto max-w-7xl">
+              {/* NowBlock: SSR'd wave height answer — visible to Google bots and
+                  first-paint users. surfCallReport is SSR'd from the server component.
+                  Keeps the SERP promise ("0.8 ft") visible within the first 280px on
+                  mobile without removing the diorama hero. */}
+              {surfCallReport?.waveHeight && (
+                <div className="mb-2 flex items-center gap-2 flex-wrap">
+                  <span
+                    className="font-mono text-2xl font-bold leading-none"
+                    style={{ color: "#F78E42" }}
+                  >
+                    {surfCallReport.waveHeight}
+                  </span>
+                  {surfCallReport.windSpeed && surfCallReport.windCompass && (
+                    <span className="text-white/80 text-sm font-medium">
+                      · {surfCallReport.windSpeed} {surfCallReport.windCompass} wind
+                    </span>
+                  )}
+                  {surfCallIsTomorrow && (
+                    <span className="text-white/60 text-xs">Tomorrow</span>
+                  )}
+                </div>
+              )}
               <div ref={signupCtaRef}>
                 <BeachHeroCompact
                   beach={beach as any}

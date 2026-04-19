@@ -40,6 +40,30 @@ function getPrefsKey(prefs: UserSurfPreferences | null): string {
  * Cache is keyed per-user so authenticated users get personalized verdicts
  * based on their learned surf preferences.
  */
+/**
+ * Cookie-free surf report for ISR/SSG beach pages.
+ *
+ * Uses the service-role client directly (no cookies()) so Next.js can honour
+ * the page-level `revalidate = 3600` export without being forced into dynamic
+ * rendering.  Returns the anonymous-user report — personalisation happens
+ * client-side inside BeachDetailClient after hydration.
+ *
+ * Keep `getSpotSurfReport` for authenticated/personalised callers.
+ */
+export async function getSpotSurfReportPublic(beach: Beach): Promise<SpotSurfReportResult | null> {
+  if (!beach.id) return null;
+
+  try {
+    return await getCachedSurfReport(beach.id, beach, 'anonymous', 'default', null, null);
+  } catch (error) {
+    console.error('[getSpotSurfReportPublic] Error:', {
+      beachId: beach.id,
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+    return null;
+  }
+}
+
 export async function getSpotSurfReport(beach: Beach): Promise<SpotSurfReportResult | null> {
   if (!beach.id) return null;
 
