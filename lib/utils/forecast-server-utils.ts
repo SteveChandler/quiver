@@ -6,6 +6,7 @@
  */
 
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
+import { fetchNowcastAnchors } from "@/lib/services/observations/nowcast-anchor";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
 // Re-export from forecast-service-utils for convenience
@@ -56,8 +57,14 @@ export async function updateBeachForecast(beachId: string) {
 
   const service = getEnhancedForecastService();
 
+  // Fetch this beach's nowcast anchor (if any). Single-beach path — the
+  // batch cron does its own bulk fetch. Non-observable beaches get an
+  // empty map; anchor is null and behavior is unchanged.
+  const anchorsMap = await fetchNowcastAnchors(supabase);
+  const nowcastAnchor = anchorsMap.get(beachId) ?? null;
+
   // Generate comprehensive forecast
-  const forecasts = await service.generateComprehensiveForecast(beach);
+  const forecasts = await service.generateComprehensiveForecast(beach, nowcastAnchor);
 
   // Store enhanced forecasts
   const result = await service.storeEnhancedForecasts(beach, forecasts);
