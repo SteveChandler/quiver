@@ -146,6 +146,36 @@ export function OnboardingDialog() {
     };
   }, [shouldRender]);
 
+  // Focus management: capture the element that triggered the dialog so we
+  // can restore focus when it closes; move focus into the dialog on open.
+  const triggerRef = useRef<Element | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (shouldRender) {
+      // Capture the currently-focused element so we can restore on close.
+      triggerRef.current = document.activeElement;
+
+      // Move focus into the first focusable element inside the dialog.
+      // setTimeout defers until after the framer-motion enter animation
+      // has started, ensuring the dialog is in the DOM.
+      const id = setTimeout(() => {
+        if (!dialogRef.current) return;
+        const focusable = dialogRef.current.querySelector<HTMLElement>(
+          'input, button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        focusable?.focus();
+      }, 50);
+      return () => clearTimeout(id);
+    } else {
+      // Restore focus to the trigger element when the dialog closes.
+      if (triggerRef.current && triggerRef.current instanceof HTMLElement) {
+        triggerRef.current.focus();
+        triggerRef.current = null;
+      }
+    }
+  }, [shouldRender]);
+
   // Guard against stale persisted step indexes from older onboarding versions.
   // If currentStep is out of bounds, clamp to step 0 so we still render reliably.
   useEffect(() => {
@@ -286,6 +316,7 @@ export function OnboardingDialog() {
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label="Set up your surf profile"
