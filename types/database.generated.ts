@@ -7579,6 +7579,17 @@ export type Database = {
           wind_speed: number
         }[]
       }
+      get_nowcast_anchors: {
+        Args: { max_age_hours?: number }
+        Returns: {
+          beach_id: string
+          observed_at: string
+          station_id: string
+          wave_direction_deg: number
+          wave_height_m: number
+          wave_period_s: number
+        }[]
+      }
       get_observations_for_beach: {
         Args: { p_beach_id: string; p_hours_back?: number }
         Returns: {
