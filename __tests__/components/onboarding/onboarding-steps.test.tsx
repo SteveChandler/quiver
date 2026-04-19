@@ -115,24 +115,16 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       ).toBeInTheDocument();
     });
 
-    it("renders a Maybe later soft-out link", () => {
-      // W1 Fix 2: soft escape hatch so users aren't trapped in the dialog.
-      // Lower-emphasis text button, intentionally less prominent than Continue.
+    it("does NOT render a Maybe later skip button — HomeBeachStep is required", () => {
+      // Plan abstract-exploring-phoenix (Commit B): HomeBeachStep is the
+      // single required activation gate. Continue is disabled until a beach
+      // is selected; there is no skip affordance on this step. The dialog
+      // as a whole is still dismissable via the ESC key / browser back, but
+      // not via an in-step Maybe later button.
       render(<HomeBeachStep />);
       expect(
-        screen.getByRole("button", { name: /Maybe later/i })
-      ).toBeInTheDocument();
-    });
-
-    it("clicking Maybe later calls skipOnboarding and closes the dialog", async () => {
-      const user = userEvent.setup();
-      render(<HomeBeachStep />);
-
-      const maybeLaterBtn = screen.getByRole("button", { name: /Maybe later/i });
-      await user.click(maybeLaterBtn);
-
-      expect(mockSkipOnboarding).toHaveBeenCalled();
-      expect(mockCloseDialog).toHaveBeenCalled();
+        screen.queryByRole("button", { name: /Maybe later/i })
+      ).not.toBeInTheDocument();
     });
 
     it("Continue button is disabled until a beach is selected", () => {
