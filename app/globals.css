@@ -12,7 +12,11 @@
     --card-foreground: 0 0% 94%;
     --popover: 233 49% 33%;
     --popover-foreground: 0 0% 94%;
-    --primary: 25 92% 61%;          /* #F78E42 Charming Orange */
+    /* #F78E42 Charming Orange — kept for decorative/hero use as --color-brand-orange */
+    --color-brand-orange: 25 92% 61%;
+    /* CTA primary: darker orange #9E5010 — 5.82:1 on white (WCAG AA ≥ 4.5:1).
+       Hover at /90 opacity = 4.73:1, also passes. Decorative use stays --color-brand-orange. */
+    --primary: 27 82% 34%;          /* #9E5010 CTA Orange — WCAG AA compliant */
     --primary-foreground: 0 0% 100%;
     --secondary: 233 47% 38%;       /* ~#354090 elevated */
     --secondary-foreground: 0 0% 94%;

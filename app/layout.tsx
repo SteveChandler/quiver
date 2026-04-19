@@ -253,7 +253,18 @@ export default function RootLayout({
         />
       </head>
       <body className={`${dmSans.className} font-sans antialiased theme-retro-dark noise-texture-subtle`}>
-        <Providers>{children}</Providers>
+        {/* Skip link — must be the first focusable element in the DOM.
+            sr-only hides it visually until focused (keyboard/screen-reader users).
+            Targets #main-content which wraps all page content below the nav. */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[100] focus:rounded focus:bg-[#9E5010] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:outline-none focus:ring-2 focus:ring-white"
+        >
+          Skip to content
+        </a>
+        <div id="main-content">
+          <Providers>{children}</Providers>
+        </div>
 
         {/* HideOnRoutes client gate handles footer visibility via usePathname() */}
         <HideOnRoutes exact={["/"]} prefixes={hideFooterPrefixes}>

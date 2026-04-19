@@ -14,9 +14,11 @@ const HLSVideoPlayer = dynamic(() => import("./hls-video-player"), {
 interface CamsSectionProps {
   sources?: BeachSources | null;
   variant?: "default" | "hero";
+  /** Beach name used for accessible video labels, e.g. "Live cam of Malibu Surfrider" */
+  beachName?: string;
 }
 
-export function CamsSection({ sources, variant = "default" }: CamsSectionProps) {
+export function CamsSection({ sources, variant = "default", beachName }: CamsSectionProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeBlocked, setIframeBlocked] = useState(false);
   const [hlsError, setHlsError] = useState(false);
@@ -73,12 +75,15 @@ export function CamsSection({ sources, variant = "default" }: CamsSectionProps) 
 
   const dioramaVisual = dioramaUrl ? (
     <div className="relative aspect-video w-full overflow-hidden bg-[#252D6B]">
+      {/* Diorama is a decorative AI-generated loop — no informational content */}
       <video
         src={dioramaUrl}
         autoPlay
         loop
         playsInline
         muted
+        role="presentation"
+        aria-hidden="true"
         className="h-full w-full object-cover"
       />
     </div>
@@ -140,10 +145,12 @@ export function CamsSection({ sources, variant = "default" }: CamsSectionProps) 
       </div>
     );
   } else if (intent?.kind === "hls") {
+    const hlsLabel = beachName ? `Live cam of ${beachName}` : "Live cam";
     visual = hlsError
       ? (dioramaVisual ?? streamUnavailableVisual)
-      : <HLSVideoPlayer key={playerKey} src={intent.src} title="Live Cam" onError={() => setHlsError(true)} />;
+      : <HLSVideoPlayer key={playerKey} src={intent.src} title={hlsLabel} onError={() => setHlsError(true)} />;
   } else if (intent?.kind === "video") {
+    const camLabel = beachName ? `Live cam of ${beachName}` : "Live cam";
     visual = (
       <div key={playerKey} className="relative aspect-video w-full overflow-hidden bg-black">
         <video
@@ -152,6 +159,7 @@ export function CamsSection({ sources, variant = "default" }: CamsSectionProps) 
           autoPlay
           playsInline
           muted
+          aria-label={camLabel}
           className="h-full w-full object-cover"
         />
       </div>
