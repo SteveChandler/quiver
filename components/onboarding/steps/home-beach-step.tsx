@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { CheckCircle, MapPin } from "lucide-react";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
+import { skipOnboarding } from "@/actions/onboarding-actions";
 
 interface Beach {
   id: string;
@@ -26,7 +27,7 @@ interface Beach {
 }
 
 export function HomeBeachStep() {
-  const { data, updateData, nextStep } = useOnboardingStore();
+  const { data, updateData, nextStep, closeDialog } = useOnboardingStore();
   const reducedMotion = useReducedMotion();
   const [selectedBeach, setSelectedBeach] = useState<Beach | null>(null);
   const [celebratingBeachId, setCelebratingBeachId] = useState<string | null>(null);
@@ -144,17 +145,18 @@ export function HomeBeachStep() {
     }
   }, [nearbyBeaches.length]);
 
-  // "Maybe later" removed — plan abstract-exploring-phoenix (Commit B).
-  // HomeBeachStep is the required activation gate. Real-activation rate
-  // (home_beach_id set) was 25% of new signups for the 7d ending
-  // 2026-04-17, driven by users tapping Maybe later before picking a
-  // beach. Keeping this step non-skippable forces the single action that
-  // actually makes the product work. Subsequent steps (LevelAndTime,
-  // Payoff) keep their skip affordances — home beach is the only
-  // non-negotiable. The dialog as a whole remains manually opened
-  // (vast-dancing-whale invariant preserved for existing users); new
-  // signups hit it via the `?onboarding=required` redirect path wired
-  // from /auth/callback.
+  // Soft escape hatch — lower-emphasis text link, not a button.
+  // Users who click "Maybe later" mark onboarding complete (so the dialog
+  // doesn't resurface on refresh) but leave home_beach_id null. They'll
+  // see a SetHomeBreakCta prompt on /profile instead.
+  // The gate is intentionally soft: most users who see this still pick a
+  // beach (the Continue CTA leads them). We removed the hard block after
+  // the UX audit found that a fully trapped user bails from the app
+  // entirely — a worse outcome than onboarding without home_beach_id.
+  const handleMaybeLater = useCallback(async () => {
+    await skipOnboarding();
+    closeDialog();
+  }, [closeDialog]);
 
   const selectBeach = (beach: Beach) => {
     setSelectedBeach(beach);
@@ -398,10 +400,16 @@ export function HomeBeachStep() {
         >
           Continue
         </button>
-        {/* No footer microcopy. The subtitle above already says
-            "Pick your home break — we'll dial your forecast to it."
-            and the disabled Continue button communicates the
-            requirement. Repeating it here read as nagging. Plan: D3. */}
+        {/* Lower-emphasis soft-out. Intentionally a text link, not a
+            button-shaped element — lower visual weight keeps the beach
+            selection as the primary action. */}
+        <button
+          type="button"
+          onClick={handleMaybeLater}
+          className="w-full text-sm text-white/40 hover:text-white/60 transition-colors py-1"
+        >
+          Maybe later
+        </button>
       </div>
     </form>
   );
