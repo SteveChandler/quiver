@@ -23,6 +23,10 @@ import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { ItemListSchema } from "@/components/seo/item-list-schema";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- used in next task (T3/T4)
+import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- used in next task (T3/T4)
+import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { SITE_URL } from "@/lib/constants/seo";
 
 /** Intent quick-links shown per city for crawler discovery */
@@ -149,6 +153,22 @@ export default async function UsaStatePage(
   if (cities.length === 0) notFound();
 
   const beaches = beachesResponse.success && beachesResponse.data ? beachesResponse.data : [];
+
+  const beachCount = beaches.length;
+  const useConcreteCopy = beachCount >= 20;
+
+  const stickySupportingText = useConcreteCopy
+    ? `When any of ${stateName}'s ${beachCount} breaks fire`
+    : "Know when conditions fire at your spots";
+  const inlineTitle = useConcreteCopy
+    ? `Which of ${stateName}'s ${beachCount} breaks is firing right now?`
+    : `Your next ${stateName} session, delivered`;
+  const inlineDescription = useConcreteCopy
+    ? "Track any of them. We ping you when yours lights up. Free."
+    : `Dawn patrol, after work, weekends — we'll ping you when ${stateName} lines up. Free.`;
+  const inlineButtonText = `Track ${stateName}`;
+  const ctaSource = `state-hub-${stateSlug}`;
+  const ctaCopyVariant = useConcreteCopy ? "v1-breaks-count" : "v1-generic";
 
   // Compute per-city beach counts from extended beach data
   const cityBeachCounts = new Map<string, number>();
