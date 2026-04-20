@@ -57,36 +57,88 @@ function getSupabaseProjectRef(): string | null {
 function parseShardParams(url: URL): { shard?: number; shardCount?: number } {
   const shardRaw = url.searchParams.get("shard");
   const shardCountRaw = url.searchParams.get("shardCount");
-  
+
   let shard: number | undefined;
   let shardCount: number | undefined;
-  
+
   if (shardCountRaw != null) {
     const parsed = parseInt(shardCountRaw, 10);
     if (!Number.isNaN(parsed) && parsed > 0) {
       shardCount = parsed;
     }
   }
-  
+
   if (shardRaw != null && shardCount != null) {
     const parsed = parseInt(shardRaw, 10);
     if (!Number.isNaN(parsed) && parsed >= 0 && parsed < shardCount) {
       shard = parsed;
     }
   }
-  
+
   return { shard, shardCount };
 }
 
+/**
+ * Time-based shard resolver used by the consolidated dispatch route
+ * (`enhanced-forecast-sync-dispatch`), which fires at `0,30 * * * *`
+ * and picks the shard from the current UTC hour/minute.
+ *
+ * The four original `vercel.json` shard schedules were:
+ *   shard 0: every even hour at :00
+ *   shard 1: every even hour at :30
+ *   shard 2: every odd hour at :00
+ *   shard 3: every odd hour at :30
+ *
+ * This preserves the same per-shard firing cadence (every 2h) while
+ * collapsing four cron entries into one, freeing slots below the 40/40
+ * Vercel Pro cap. Vercel cron schedules in UTC.
+ */
+export function resolveShardFromTime(
+  now: Date,
+  shardCount = 4,
+): { shard: number; shardCount: number } {
+  if (shardCount !== 4) {
+    // Keep the math explicit to the 4-shard layout. If shardCount ever
+    // changes, revisit both the schedule and this formula together.
+    throw new Error(
+      `resolveShardFromTime only supports shardCount=4 (got ${shardCount})`,
+    );
+  }
+  const hour = now.getUTCHours();
+  const minute = now.getUTCMinutes();
+  // Map (hourParity, minuteHalf) → shard index to match the original offsets.
+  const shard = (hour % 2) * 2 + (minute >= 30 ? 1 : 0);
+  return { shard, shardCount };
+}
+
+export interface RunEnhancedForecastSyncOptions {
+  /**
+   * When true and URL has no shard query params, fall back to
+   * time-based shard resolution (the consolidated dispatch entry-point).
+   * Existing URL-parameterised callers keep working unchanged.
+   */
+  resolveShardFromTime?: boolean;
+}
+
 export async function runEnhancedForecastSync(
-  request: NextRequest
+  request: NextRequest,
+  options: RunEnhancedForecastSyncOptions = {},
 ): Promise<Response> {
   const startTime = Date.now();
   const executionId = crypto.randomUUID();
 
-  // Parse shard parameters from URL
+  // Parse shard parameters from URL first. Time-based resolution is a
+  // fallback so manual `?shard=N&shardCount=M` invocations still work
+  // (preserved for the existing test suite + ad-hoc debugging).
   const url = new URL(request.url);
-  const { shard, shardCount } = parseShardParams(url);
+  let { shard, shardCount } = parseShardParams(url);
+  if (
+    shard === undefined &&
+    shardCount === undefined &&
+    options.resolveShardFromTime
+  ) {
+    ({ shard, shardCount } = resolveShardFromTime(new Date()));
+  }
   const isSharded = shard !== undefined && shardCount !== undefined;
 
   // Log cron job start
