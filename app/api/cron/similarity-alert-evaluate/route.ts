@@ -27,7 +27,8 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { filterToDaylight, getDaylightWindow } from "@/lib/alerts/sunrise";
 import { getUserEntitlement, CAPS } from "@/lib/alerts/entitlements";
 import { getUtcDayBounds } from "@/lib/alerts/timezone-utils";
-import { SIMILARITY_ALERT_DEFAULT_THRESHOLD } from "@/lib/alerts/presets";
+import { resolveSimilarityThreshold } from "@/lib/alerts/presets";
+import { consolidateMatchedHours } from "@/lib/alerts/consolidate";
 import type { BeachAlertMeta, ForecastHour } from "@/lib/alerts/types";
 
 export const revalidate = 0;
@@ -36,6 +37,22 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const CONTEXT_TAG = "[similarity-alert-evaluate]";
+
+// Deployment contract — read before changing entitlement wiring.
+//
+// This cron's matching path is blocked upstream: canCreateRule in
+// lib/alerts/entitlements.ts rejects similarity_alert for the free tier, and
+// getUserEntitlement is currently a stub that returns "free" unless the env
+// var ALERT_PREVIEW_MODE === "true". Until a real entitlement source (the
+// user_entitlements Supabase mirror backed by RevenueCat, specced in
+// quiver-native/docs/superpowers/specs/2026-04-16-subscription-paywall-design.md)
+// lands and getUserEntitlement reads from it, no similarity_alert rule can be
+// created in a non-preview prod, so this cron is a no-op.
+//
+// To test in prod ahead of the paywall: set ALERT_PREVIEW_MODE=true in the
+// Vercel cron runtime environment. Do NOT ship that to end-user runtimes —
+// every alert preset becomes "premium" for every user and the free-tier gate
+// collapses across the entire alerts system.
 
 interface SimilarityRpcResult {
   score: number;
@@ -134,10 +151,7 @@ export async function GET(request: Request) {
           const conditions = (rule.conditions ?? {}) as {
             similarity_threshold?: number;
           };
-          const threshold =
-            typeof conditions.similarity_threshold === "number"
-              ? conditions.similarity_threshold
-              : SIMILARITY_ALERT_DEFAULT_THRESHOLD;
+          const threshold = resolveSimilarityThreshold(conditions);
 
           const { start: todayStart, end: todayEnd } = getUtcDayBounds(
             userLocalDate,
@@ -182,6 +196,15 @@ export async function GET(request: Request) {
           // from condition-alert-evaluate: we don't have a static
           // condition envelope; the "match" is a personalized score against
           // the user's rated session history at this beach.
+          //
+          // Service-role auth note: compute_spot_similarity_score has an
+          // `IF p_user_id <> auth.uid() THEN RAISE` guard. Under the
+          // service-role client used here, auth.uid() returns NULL — and
+          // `<uuid> <> NULL` evaluates to NULL (not TRUE), so the guard does
+          // not raise. We rely on this implicit bypass to impersonate each
+          // user at cron time. If the RPC's guard is ever tightened to
+          // `IF auth.uid() IS NOT NULL AND p_user_id <> auth.uid()`, the
+          // cron path here MUST be updated too.
           const matchedHours: Array<{
             hour: ForecastHour;
             result: SimilarityRpcResult;
@@ -297,70 +320,3 @@ export async function GET(request: Request) {
   }
 }
 
-interface MatchedWindow {
-  window_start: string;
-  window_end: string;
-  best_hour: string;
-  conditions_snapshot: Record<string, unknown>;
-}
-
-// Collapses a time-ordered list of matched hours into contiguous windows.
-// A "contiguous" run is one where each hour is exactly +1h from the prior.
-// The conditions_snapshot of the window is the RPC result of its peak-score
-// hour (the delivery cron surfaces it as the single headline for the window).
-export function consolidateMatchedHours(
-  matched: Array<{
-    hour: ForecastHour;
-    result: SimilarityRpcResult;
-  }>,
-): MatchedWindow[] {
-  if (matched.length === 0) return [];
-
-  // Ensure chronological ordering — caller passes daylight order which is
-  // already chronological, but the invariant is load-bearing here.
-  const sorted = [...matched].sort(
-    (a, b) =>
-      new Date(a.hour.forecast_at).getTime() -
-      new Date(b.hour.forecast_at).getTime(),
-  );
-
-  const windows: MatchedWindow[] = [];
-  let runStart = 0;
-  for (let i = 1; i <= sorted.length; i++) {
-    const isRunBreak =
-      i === sorted.length ||
-      new Date(sorted[i].hour.forecast_at).getTime() -
-        new Date(sorted[i - 1].hour.forecast_at).getTime() >
-        60 * 60 * 1000 + 5 * 60 * 1000; // >65 minutes = gap
-    if (!isRunBreak) continue;
-
-    const run = sorted.slice(runStart, i);
-    const peak = run.reduce((best, curr) =>
-      curr.result.score > best.result.score ? curr : best,
-    );
-    windows.push({
-      window_start: run[0].hour.forecast_at,
-      window_end: new Date(
-        new Date(run[run.length - 1].hour.forecast_at).getTime() +
-          60 * 60 * 1000,
-      ).toISOString(),
-      best_hour: peak.hour.forecast_at,
-      conditions_snapshot: {
-        similarity_score: peak.result.score,
-        match_percent: peak.result.match_percent,
-        label: peak.result.label,
-        reason_bullets: peak.result.reason_bullets ?? [],
-        board_tip: peak.result.board_tip ?? null,
-        wave_height: peak.hour.wave_height,
-        wave_period: peak.hour.wave_period,
-        wind_speed: peak.hour.wind_speed,
-        wind_direction_deg: peak.hour.wind_direction_deg,
-        tide_height: peak.hour.tide_height,
-      },
-    });
-
-    runStart = i;
-  }
-
-  return windows;
-}

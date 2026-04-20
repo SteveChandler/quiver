@@ -8,6 +8,22 @@ import type {
 /** Default similarity score threshold (0–10 scale from compute_spot_similarity_score). */
 export const SIMILARITY_ALERT_DEFAULT_THRESHOLD = 7.5;
 
+/**
+ * Resolves the similarity-alert threshold from a rule's conditions jsonb.
+ * Uses `Number.isFinite` rather than `typeof === "number"` so NaN, +Infinity,
+ * and -Infinity fall back to the default — `score < NaN` is always false, so
+ * a malformed threshold would otherwise silently prevent every rule match
+ * with no error to diagnose.
+ */
+export function resolveSimilarityThreshold(
+  conditions: { similarity_threshold?: unknown } | null | undefined,
+): number {
+  const raw = conditions?.similarity_threshold;
+  return Number.isFinite(raw)
+    ? (raw as number)
+    : SIMILARITY_ALERT_DEFAULT_THRESHOLD;
+}
+
 export const PRESETS: PresetDefinition[] = [
   {
     type: "glass_off",
