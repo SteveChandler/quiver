@@ -54,6 +54,10 @@ interface RCPayload {
 }
 
 function verifyAuth(req: Request): boolean {
+  // REVENUECAT_WEBHOOK_SECRET must be set in Vercel env (all environments:
+  // Development, Preview, Production) AND match the RC dashboard's
+  // "Authorization header value" field byte-for-byte. Env var changes in
+  // Vercel only take effect on a new deployment — redeploy after editing.
   const expected = process.env.REVENUECAT_WEBHOOK_SECRET;
   if (!expected) {
     console.error(`${CONTEXT_TAG} REVENUECAT_WEBHOOK_SECRET not set`);
