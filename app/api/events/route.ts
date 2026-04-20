@@ -139,6 +139,7 @@ const VALID_EVENTS: ImplicitEventType[] = [
   'signup_success',
   'login_success',
   'signup_form_submitted',
+  'login_form_submitted',
   // Home screen events
   'home_at_beach_click',
   'home_plan_weekend_click',
@@ -214,7 +215,12 @@ const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
   // Auth funnel events (fire before user is authenticated — must be anonymous-allowed)
   'auth_modal_opened', 'auth_modal_closed_without_action',
   'auth_method_selected', 'auth_provider_selected',
+  // Auth-transition events — legitimately fire for both anon and authed users
+  // (e.g. signup success fires after auth completes). Not on PRE_AUTH_ONLY_EVENTS.
   'signup_started', 'signup_success', 'login_success',
+  // Form-submitted events — pre-auth only; the form can only be submitted by
+  // an anonymous user. Authed fires are ghost-triggers and dropped server-side
+  // via PRE_AUTH_ONLY_EVENTS.
   'signup_form_submitted', 'login_form_submitted',
   // Engagement signals from anonymous visitors
   'forecast_interaction', 'forecast_tab_click', 'horizon_strip_day_selected',

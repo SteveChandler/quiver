@@ -472,9 +472,11 @@ export function UnifiedAuthModal({
       // Emit the mode-specific event so dashboards don't have to filter by
       // metadata.mode. Before 2026-04-20 this fired `signup_form_submitted`
       // for both modes and inflated the signup funnel denominator (F3 fix).
+      // Exhaustive by mode; if AuthMode ever gains a third variant add a new
+      // branch here so the new mode doesn't silently bucket as login.
       if (activeMode === "signup") {
         trackSignupFormSubmitted({ source });
-      } else {
+      } else if (activeMode === "login") {
         trackLoginFormSubmitted({ source });
       }
     }
