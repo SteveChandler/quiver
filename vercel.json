@@ -146,6 +146,10 @@
       "schedule": "0 9 * * *"
     },
     {
+      "path": "/api/cron/similarity-alert-evaluate",
+      "schedule": "0 8 * * *"
+    },
+    {
       "path": "/api/cron/condition-alert-deliver",
       "schedule": "*/5 * * * *"
     },
