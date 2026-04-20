@@ -2,6 +2,7 @@ import {
   getUserEntitlement,
   canCreateRule,
   entitlementFromRow,
+  resolveEntitlement,
   CAPS,
 } from "@/lib/alerts/entitlements";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -91,10 +92,26 @@ describe("getUserEntitlement", () => {
       "stale-user": {
         is_pro: true,
         is_trialing: false,
+        billing_issue: false,
         expires_at: new Date(Date.now() - 86_400_000).toISOString(),
       },
     });
     expect(await getUserEntitlement("stale-user", supabase)).toBe("free");
+  });
+
+  it("preserves premium during billing grace window (is_pro=true, billing_issue=true, expires_at past)", async () => {
+    // Apple up to 60d / Google up to 30d retry window. During that grace,
+    // expires_at is in the past but we don't want to downgrade — the whole
+    // point of the grace state is keeping access while payment retries.
+    const supabase = makeSupabaseStub({
+      "grace-user": {
+        is_pro: true,
+        is_trialing: false,
+        billing_issue: true,
+        expires_at: new Date(Date.now() - 86_400_000).toISOString(),
+      },
+    });
+    expect(await getUserEntitlement("grace-user", supabase)).toBe("premium");
   });
 
   it("returns free when is_pro=false and is_trialing=false", async () => {
@@ -132,6 +149,28 @@ describe("entitlementFromRow (pure)", () => {
     expect(
       entitlementFromRow({
         is_pro: true,
+        expires_at: new Date(Date.now() - 60_000).toISOString(),
+      }),
+    ).toBe("free");
+  });
+
+  it("preserves premium when billing_issue=true even if expires_at is past", () => {
+    // Carve-out for Apple/Google billing retry grace window — see
+    // staleness-guard comment in entitlementFromRow.
+    expect(
+      entitlementFromRow({
+        is_pro: true,
+        billing_issue: true,
+        expires_at: new Date(Date.now() - 86_400_000).toISOString(),
+      }),
+    ).toBe("premium");
+  });
+
+  it("staleness guard applies when billing_issue=false explicitly", () => {
+    expect(
+      entitlementFromRow({
+        is_pro: true,
+        billing_issue: false,
         expires_at: new Date(Date.now() - 60_000).toISOString(),
       }),
     ).toBe("free");
@@ -185,6 +224,53 @@ describe("canCreateRule", () => {
   it("allows premium user at beach cap on existing beach", () => {
     const result = canCreateRule({ tier: "premium", homeBeachId: "beach-1", targetBeachId: "beach-5", existingRuleCount: 10, existingBeachCount: 10, isExistingBeach: true, presetType: null });
     expect(result.allowed).toBe(true);
+  });
+});
+
+describe("resolveEntitlement (sync cron-friendly wrapper)", () => {
+  const origPreview = process.env.ALERT_PREVIEW_MODE;
+  const origBeta = process.env.ALERT_BETA_USER_IDS;
+  afterEach(() => {
+    process.env.ALERT_PREVIEW_MODE = origPreview;
+    process.env.ALERT_BETA_USER_IDS = origBeta;
+  });
+
+  it("honors ALERT_PREVIEW_MODE bypass over a null row", () => {
+    delete process.env.ALERT_BETA_USER_IDS;
+    process.env.ALERT_PREVIEW_MODE = "true";
+    expect(resolveEntitlement("user-x", null)).toBe("premium");
+  });
+
+  it("honors ALERT_BETA_USER_IDS bypass over a free row", () => {
+    delete process.env.ALERT_PREVIEW_MODE;
+    process.env.ALERT_BETA_USER_IDS = "user-x";
+    expect(
+      resolveEntitlement("user-x", { is_pro: false, is_trialing: false }),
+    ).toBe("premium");
+  });
+
+  it("falls through to entitlementFromRow when no env bypass applies", () => {
+    delete process.env.ALERT_PREVIEW_MODE;
+    delete process.env.ALERT_BETA_USER_IDS;
+    expect(
+      resolveEntitlement("user-x", {
+        is_pro: true,
+        expires_at: new Date(Date.now() + 86_400_000).toISOString(),
+      }),
+    ).toBe("premium");
+    expect(resolveEntitlement("user-x", null)).toBe("free");
+  });
+
+  it("preserves billing-grace premium via the pure helper path", () => {
+    delete process.env.ALERT_PREVIEW_MODE;
+    delete process.env.ALERT_BETA_USER_IDS;
+    expect(
+      resolveEntitlement("user-x", {
+        is_pro: true,
+        billing_issue: true,
+        expires_at: new Date(Date.now() - 86_400_000).toISOString(),
+      }),
+    ).toBe("premium");
   });
 });
 

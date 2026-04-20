@@ -33,17 +33,42 @@ export async function getUserEntitlement(
   userId: string,
   supabase: SupabaseClient,
 ): Promise<Tier> {
-  if (process.env.ALERT_PREVIEW_MODE === "true") return "premium";
-
-  if (userId && isBetaUser(userId)) return "premium";
+  const bypass = envBypassTier(userId);
+  if (bypass) return bypass;
 
   const { data } = await supabase
     .from("user_entitlements")
-    .select("is_pro, is_trialing, expires_at")
+    .select("is_pro, is_trialing, billing_issue, expires_at")
     .eq("user_id", userId)
     .maybeSingle();
 
   return entitlementFromRow(data);
+}
+
+/**
+ * Cron-friendly variant: skips the DB round-trip by taking a pre-joined
+ * user_entitlements row. Honors the same ALERT_PREVIEW_MODE + beta-user
+ * bypasses as getUserEntitlement. Use this when the caller has already
+ * selected the row via a join to avoid N+1 queries.
+ */
+export function resolveEntitlement(
+  userId: string,
+  row: Parameters<typeof entitlementFromRow>[0],
+): Tier {
+  const bypass = envBypassTier(userId);
+  if (bypass) return bypass;
+  return entitlementFromRow(row);
+}
+
+/**
+ * Returns `"premium"` if an env-var bypass applies, otherwise null. Centralizes
+ * the ALERT_PREVIEW_MODE + ALERT_BETA_USER_IDS logic so the sync (resolveEntitlement)
+ * and async (getUserEntitlement) entry points share one source of truth.
+ */
+function envBypassTier(userId: string): Tier | null {
+  if (process.env.ALERT_PREVIEW_MODE === "true") return "premium";
+  if (userId && isBetaUser(userId)) return "premium";
+  return null;
 }
 
 /**
@@ -55,13 +80,22 @@ export function entitlementFromRow(
   row: {
     is_pro?: boolean | null;
     is_trialing?: boolean | null;
+    billing_issue?: boolean | null;
     expires_at?: string | null;
   } | null
   | undefined,
 ): Tier {
   if (!row) return "free";
   if (!row.is_pro && !row.is_trialing) return "free";
-  if (row.expires_at && new Date(row.expires_at).getTime() < Date.now()) {
+  // Staleness guard with billing-issue carve-out: during Apple's ≤60d /
+  // Google's ≤30d retry window expires_at can legitimately be in the past
+  // while billing_issue=true. The mirror intentionally keeps is_pro=true
+  // in that window — downgrading would defeat the grace-period design.
+  if (
+    row.expires_at &&
+    !row.billing_issue &&
+    new Date(row.expires_at).getTime() < Date.now()
+  ) {
     // Mirror is stale — RC hasn't delivered the EXPIRATION webhook yet.
     // Treating as free is safer than extending paid access past expiry.
     return "free";

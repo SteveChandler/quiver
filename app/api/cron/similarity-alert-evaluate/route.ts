@@ -25,7 +25,7 @@ import { NextResponse } from "next/server";
 import { validateCronRequest } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { filterToDaylight, getDaylightWindow } from "@/lib/alerts/sunrise";
-import { getUserEntitlement, CAPS } from "@/lib/alerts/entitlements";
+import { CAPS, resolveEntitlement } from "@/lib/alerts/entitlements";
 import { getUtcDayBounds } from "@/lib/alerts/timezone-utils";
 import { resolveSimilarityThreshold } from "@/lib/alerts/presets";
 import { consolidateMatchedHours } from "@/lib/alerts/consolidate";
@@ -87,7 +87,8 @@ export async function GET(request: Request) {
         beaches!inner(id, name, slug, lat, lon, timezone, wind_offshore_deg, wind_offshore_tol_deg, aspect_deg,
           preferred_tide_ft_min, preferred_tide_ft_max, preferred_tide_direction,
           swell_window_center_deg, swell_window_halfwidth_deg),
-        profiles!inner(id, home_beach_id, notif_forecast_alerts, notif_email_enabled, notif_push_enabled)
+        profiles!inner(id, home_beach_id, notif_forecast_alerts, notif_email_enabled, notif_push_enabled),
+        user_entitlements(is_pro, is_trialing, billing_issue, expires_at)
       `,
       )
       .eq("enabled", true)
@@ -134,9 +135,12 @@ export async function GET(request: Request) {
           continue;
         }
 
-        // Entitlement cap — same pattern as condition-alert-evaluate.
-        // Newest rules are dropped first when a user exceeds their tier cap.
-        const tier = await getUserEntitlement(userId, supabase);
+        // Entitlement cap — reads from the user_entitlements row joined into
+        // the rules select above, avoiding an N+1 query per user.
+        // resolveEntitlement honors ALERT_PREVIEW_MODE + ALERT_BETA_USER_IDS
+        // env bypasses too, matching getUserEntitlement semantics exactly.
+        const entitlementRow = userRules[0].user_entitlements ?? null;
+        const tier = resolveEntitlement(userId, entitlementRow);
         const caps = CAPS[tier];
         const sortedRules = [...userRules].sort(
           (a, b) =>

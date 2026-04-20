@@ -9,7 +9,7 @@ import { validateCronRequest } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { findMatchingWindows } from "@/lib/alerts/window-finder";
 import { filterToDaylight, getDaylightWindow } from "@/lib/alerts/sunrise";
-import { getUserEntitlement, CAPS } from "@/lib/alerts/entitlements";
+import { CAPS, resolveEntitlement } from "@/lib/alerts/entitlements";
 import { getUtcDayBounds } from "@/lib/alerts/timezone-utils";
 import type { AlertConditions, BeachAlertMeta, ForecastHour } from "@/lib/alerts/types";
 
@@ -29,7 +29,9 @@ export async function GET(request: Request) {
   const summary = { evaluated: 0, matched: 0, queued: 0, skipped: 0, errors: 0 };
 
   try {
-    // 1. Fetch all enabled rules with user + beach data
+    // 1. Fetch all enabled rules with user + beach data. user_entitlements
+    //    is joined so resolveEntitlement can read entitlement without an
+    //    N+1 query per user (previously 1 DB round-trip per user per tick).
     const { data: rules, error: rulesError } = await supabase
       .from("alert_rules")
       .select(`
@@ -37,7 +39,8 @@ export async function GET(request: Request) {
         beaches!inner(id, name, slug, lat, lon, timezone, wind_offshore_deg, wind_offshore_tol_deg, aspect_deg,
           preferred_tide_ft_min, preferred_tide_ft_max, preferred_tide_direction,
           swell_window_center_deg, swell_window_halfwidth_deg),
-        profiles!inner(id, home_beach_id, notif_forecast_alerts, notif_email_enabled, notif_push_enabled)
+        profiles!inner(id, home_beach_id, notif_forecast_alerts, notif_email_enabled, notif_push_enabled),
+        user_entitlements(is_pro, is_trialing, billing_issue, expires_at)
       `)
       .eq("enabled", true);
 
@@ -79,8 +82,11 @@ export async function GET(request: Request) {
           continue;
         }
 
-        // Apply entitlement caps — skip newest rules first
-        const tier = await getUserEntitlement(userId, supabase);
+        // Apply entitlement caps — skip newest rules first. resolveEntitlement
+        // reads from the user_entitlements row joined above (no N+1) and
+        // honors ALERT_PREVIEW_MODE + ALERT_BETA_USER_IDS bypasses.
+        const entitlementRow = userRules[0].user_entitlements ?? null;
+        const tier = resolveEntitlement(userId, entitlementRow);
         const caps = CAPS[tier];
         const sortedRules = [...userRules].sort(
           (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()

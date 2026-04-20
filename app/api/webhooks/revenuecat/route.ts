@@ -22,6 +22,8 @@
 // reserved for transient infra problems so RC backs off and retries.
 
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
+import * as Sentry from "@sentry/nextjs";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
 export const revalidate = 0;
@@ -61,7 +63,15 @@ function verifyAuth(req: Request): boolean {
   // Accept both "Bearer <token>" and the bare token form, matching how
   // the RC dashboard lets you configure either.
   const token = header.startsWith("Bearer ") ? header.slice(7) : header;
-  return token === expected;
+  // timingSafeEqual requires equal-length buffers — short-circuit unequal
+  // lengths up front (leaks length but not content, which is acceptable
+  // since the expected secret is a fixed-length generated value).
+  if (token.length !== expected.length) return false;
+  try {
+    return timingSafeEqual(Buffer.from(token), Buffer.from(expected));
+  } catch {
+    return false;
+  }
 }
 
 export async function POST(request: Request) {
@@ -94,6 +104,17 @@ export async function POST(request: Request) {
   const userId = event.app_user_id ?? event.original_app_user_id;
   if (!userId) {
     return recordFailure(event, "Missing app_user_id");
+  }
+
+  // TRANSFER requires admin re-identification of app_user_id (a user
+  // switching devices/accounts). We can't mirror it automatically — route
+  // it to the DLQ for manual reconciliation rather than silently dropping.
+  if (event.type === "TRANSFER") {
+    return recordFailure(
+      event,
+      "TRANSFER event requires manual app_user_id reassignment",
+      userId,
+    );
   }
 
   const supabase = await createSupabaseServiceRoleClient();
@@ -203,10 +224,9 @@ function buildEntitlementUpdate(event: RCEvent): EntitlementUpdate | null {
         expires_at: expiresAt,
       };
 
-    case "TRANSFER":
-      // Requires admin review to reassign app_user_id — skip automatic
-      // handling, log to DLQ for manual reconciliation.
-      return null;
+    // TRANSFER is intercepted earlier in the POST handler and routed to
+    // the DLQ — it should never reach this switch. Leaving no case here
+    // so a future refactor that removes the early intercept fails loudly.
 
     default:
       return null;
@@ -234,7 +254,21 @@ async function recordFailure(
         error_message: errorMessage,
       });
   } catch (dlqErr) {
-    // DLQ table may not exist yet. Log loudly + return 500 so RC retries.
+    // DLQ table may not exist yet (migration pending apply). Page via
+    // Sentry rather than only console.error — RC retries ~3x then gives
+    // up, and if the DLQ is permanently missing we need to know before
+    // events are silently dropped past the retry budget.
+    Sentry.captureException(dlqErr, {
+      tags: {
+        feature: "rc-webhook",
+        step: "dlq-write-failed",
+      },
+      extra: {
+        event_type: event.type,
+        user_id: userId,
+        original_error: errorMessage,
+      },
+    });
     console.error(
       `${CONTEXT_TAG} DLQ write failed — returning 500 to trigger RC retry. Event: ${event.type}, user: ${userId}, original error: ${errorMessage}`,
       dlqErr,
