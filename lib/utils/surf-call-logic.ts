@@ -420,6 +420,32 @@ function capitalize(s: string): string {
 }
 
 /**
+ * Narrow a "best window" to peakTime ± 1h, clamped to the original window bounds.
+ * Used when the verdict is MAYBE — a wide daylight span is useless noise, but a
+ * concrete 2-hour span around the peak is the actionable answer.
+ */
+const ONE_HOUR_MS = 60 * 60 * 1000;
+
+export function narrowWindowAroundPeak(
+  peakTime: Date,
+  windowStart: Date,
+  windowEnd: Date,
+): { start: Date; end: Date } {
+  const startMs = Math.max(peakTime.getTime() - ONE_HOUR_MS, windowStart.getTime());
+  const endMs = Math.min(peakTime.getTime() + ONE_HOUR_MS, windowEnd.getTime());
+  // Defensive: if peakTime falls outside [windowStart, windowEnd] (clock
+  // skew, upstream regression), the naive clamp returns end < start. Pin
+  // to the nearest bound so callers never see an inverted interval.
+  if (endMs < startMs) {
+    const pinnedMs = peakTime.getTime() < windowStart.getTime()
+      ? windowStart.getTime()
+      : windowEnd.getTime();
+    return { start: new Date(pinnedMs), end: new Date(pinnedMs) };
+  }
+  return { start: new Date(startMs), end: new Date(endMs) };
+}
+
+/**
  * Determine surf call verdict based on score, window duration, and confidence.
  */
 function determineVerdict(
@@ -603,12 +629,13 @@ export function computeSurfCall(
   ) ?? effectiveForecasts[0] ?? null;
   const freqResult = freqForecast ? calculateRideableWaves(freqForecast, beach) : null;
 
-  // Short window gate - reject if too short
+  // Short window gate - reject if too short. Verdict is NO → suppress the
+  // "Best window" so the UI doesn't contradict itself.
   if (windowMinutes < MINIMUM_VIABLE_WINDOW_MINUTES) {
     return {
       ...baseResult,
-      bestWindowStart: new Date(window.start).toISOString(),
-      bestWindowEnd: new Date(window.end).toISOString(),
+      bestWindowStart: null,
+      bestWindowEnd: null,
       windowMinutes,
       shortWindow: true,
       waveHeight,
@@ -656,10 +683,34 @@ export function computeSurfCall(
     ? window.peakTime.toISOString()
     : null;
 
+  // Verdict-gate the "Best window":
+  //  YES   → wide window (unchanged)
+  //  MAYBE → narrow to peakTime ± 1h, clamped to the original window
+  //  NO    → suppress (null) so the UI hides the row
+  const rawStart = new Date(window.start);
+  const rawEnd = new Date(window.end);
+  let bestWindowStartOut: string | null;
+  let bestWindowEndOut: string | null;
+  if (verdict === 'NO') {
+    bestWindowStartOut = null;
+    bestWindowEndOut = null;
+  } else if (
+    verdict === 'MAYBE' &&
+    window.peakTime instanceof Date &&
+    !isNaN(window.peakTime.getTime())
+  ) {
+    const narrow = narrowWindowAroundPeak(window.peakTime, rawStart, rawEnd);
+    bestWindowStartOut = narrow.start.toISOString();
+    bestWindowEndOut = narrow.end.toISOString();
+  } else {
+    bestWindowStartOut = rawStart.toISOString();
+    bestWindowEndOut = rawEnd.toISOString();
+  }
+
   return {
     verdict,
-    bestWindowStart: new Date(window.start).toISOString(),
-    bestWindowEnd: new Date(window.end).toISOString(),
+    bestWindowStart: bestWindowStartOut,
+    bestWindowEnd: bestWindowEndOut,
     windowMinutes,
     shortWindow,
     waveHeight,
