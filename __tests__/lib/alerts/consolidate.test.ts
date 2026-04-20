@@ -1,4 +1,4 @@
-import { consolidateMatchedHours } from "@/app/api/cron/similarity-alert-evaluate/route";
+import { consolidateMatchedHours } from "@/lib/alerts/consolidate";
 import type { ForecastHour } from "@/lib/alerts/types";
 
 function hour(ts: string, overrides: Partial<ForecastHour> = {}): ForecastHour {
