@@ -64,11 +64,14 @@ async function main() {
 
   const preview = await previewCleanup(VERBOSE);
 
-  if (preview.testUserIds.length === 0) {
+  // Ephemeral smoke users are queried independently of testUserIds, so don't
+  // early-exit just because no is_mock/TEST_USER_EMAIL users were found.
+  if (preview.testUserIds.length === 0 && preview.ephemeralUsers.count === 0) {
     console.log('No test users found. Nothing to clean up.\n');
     console.log('Test users are identified by:');
     console.log('  - TEST_USER_EMAIL environment variable');
     console.log('  - Profiles with is_mock = true');
+    console.log('  - auth.users with email matching smoke+%@quiversurf.test');
     process.exit(0);
   }
 
@@ -76,6 +79,7 @@ async function main() {
   console.log(`\nItems that ${DRY_RUN ? 'would be' : 'will be'} soft-deleted:`);
   console.log(`  - Sessions: ${preview.sessions.count}`);
   console.log(`  - Intel Posts: ${preview.intelPosts.count}`);
+  console.log(`  - Ephemeral smoke users: ${preview.ephemeralUsers.count}`);
   console.log(`  - Total: ${preview.totalCleaned}\n`);
 
   if (preview.sessions.error) {
@@ -83,6 +87,9 @@ async function main() {
   }
   if (preview.intelPosts.error) {
     console.warn(`Warning (intel_posts): ${preview.intelPosts.error}`);
+  }
+  if (preview.ephemeralUsers.error) {
+    console.warn(`Warning (ephemeral_users): ${preview.ephemeralUsers.error}`);
   }
 
   if (preview.totalCleaned === 0) {
@@ -113,6 +120,7 @@ async function main() {
   console.log('\n=== Cleanup Summary ===\n');
   console.log(`Sessions soft-deleted: ${result.sessions.count}`);
   console.log(`Intel posts soft-deleted: ${result.intelPosts.count}`);
+  console.log(`Ephemeral smoke users deleted: ${result.ephemeralUsers.count}`);
   console.log(`Total items cleaned: ${result.totalCleaned}`);
   console.log(`Duration: ${result.durationMs}ms\n`);
 
@@ -121,6 +129,9 @@ async function main() {
   }
   if (result.intelPosts.error) {
     console.error(`Error (intel_posts): ${result.intelPosts.error}`);
+  }
+  if (result.ephemeralUsers.error) {
+    console.error(`Error (ephemeral_users): ${result.ephemeralUsers.error}`);
   }
 
   console.log('Done!');

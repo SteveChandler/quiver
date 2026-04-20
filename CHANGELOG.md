@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Tests
+- **Smoke-test expansion for auth, onboarding, and API plumbing** (`e2e/auth-smoke.spec.ts`, `e2e/onboarding-smoke.spec.ts`, `e2e/api-smoke.spec.ts`, `e2e/helpers/onboarding-flow.ts`). Closes the P0 gaps surfaced by the smoke review: ephemeral signup/login/logout/persistence, onboarding dialog entry-path invariants + PayoffStep race guard + navigation-gate stability, and direct request-level coverage of `/api/forecasts/bulk`, `/api/profile`, `/api/events` (including the short-UA bot-filter insert-absence check). All 15 tests tagged `@smoke`; existing CI grep picks them up. Ephemeral users (`smoke+<uuid>@quiversurf.test`) are created via Supabase admin API with `is_mock: true` so `global-teardown`'s cleanup sweeps them.
+- **Ephemeral smoke user cleanup** (`e2e/utils/test-data-cleanup.ts`). New `cleanupEphemeralSmokeUsers()` hard-deletes `auth.users` rows matching `smoke+%@quiversurf.test` at teardown. Profiles + user_events cascade via existing FKs. Capped at 1000 users per sweep; logged via `global-teardown` + `e2e/scripts/cleanup-test-data.ts`.
+
 ### Infrastructure
 - **Server-side Firebase Admin env vars added to Vercel production.** `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` were only present in local `quiver/.env` (gitignored), so Vercel-deployed serverless functions had them undefined and `getFirebaseAdminMessaging()` returned `null` on every invocation. That silently no-op'd `POST /api/admin/test-push`, `sendPushNotification()` in `lib/services/push-notifications.ts`, and the FCM branch of `sendPushNotifications()` in `lib/alerts/push-sender.ts` used by `condition-alert-deliver`. PR #196 triggered a Vercel production redeploy so already-warm serverless instances are recycled and pick up the newly-added env vars.
 
