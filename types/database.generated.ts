@@ -5415,6 +5415,27 @@ export type Database = {
           },
         ]
       }
+      trial_ending_push_log: {
+        Row: {
+          user_id: string
+          sent_at: string
+          trial_ends_at: string | null
+          meta: Json
+        }
+        Insert: {
+          user_id: string
+          sent_at?: string
+          trial_ends_at?: string | null
+          meta?: Json
+        }
+        Update: {
+          user_id?: string
+          sent_at?: string
+          trial_ends_at?: string | null
+          meta?: Json
+        }
+        Relationships: []
+      }
       user_activities: {
         Row: {
           activity_type: string

@@ -156,6 +156,10 @@
     {
       "path": "/api/cron/indexnow-submit",
       "schedule": "0 6 * * 1"
+    },
+    {
+      "path": "/api/cron/trial-ending-push-deliver",
+      "schedule": "0 17 * * *"
     }
   ]
 }
