@@ -63,4 +63,33 @@ test.describe("State hub signup CTAs", () => {
     // Concrete copy MUST NOT appear
     await expect(page.getByText(/North Carolina's \d+ breaks is firing/)).toHaveCount(0);
   });
+
+  test("/ca sticky bar tap fires signup_cta_click with correct source + variant", async ({ page }) => {
+    await page.setViewportSize({ width: 412, height: 915 });
+
+    const eventsCaptured: any[] = [];
+    await page.route("**/api/events", async (route) => {
+      const req = route.request();
+      if (req.method() === "POST") {
+        try {
+          eventsCaptured.push(JSON.parse(req.postData() || "{}"));
+        } catch {}
+      }
+      await route.continue();
+    });
+
+    await page.goto("/beaches/usa/ca");
+    await page.waitForLoadState("load");
+    await page.evaluate(() => window.scrollTo(0, 400));
+
+    await page.locator("[data-testid='sticky-signup-cta']").click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- wait for fire-and-forget fetch to /api/events
+    await page.waitForTimeout(500);
+
+    const click = eventsCaptured.find((e) => e.eventType === "signup_cta_click");
+    expect(click).toBeDefined();
+    expect(click.metadata.source).toBe("state-hub-ca");
+    expect(click.metadata.cta_copy_variant).toBe("v1-breaks-count");
+    expect(click.metadata.cta_type).toBe("sticky_bar");
+  });
 });
