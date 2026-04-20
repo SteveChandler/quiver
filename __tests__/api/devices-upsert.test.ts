@@ -8,22 +8,29 @@ jest.mock("next/server", () => require("@/__tests__/setup/mock-next-server"));
 import { NextRequest } from "next/server";
 import { POST, DELETE } from "@/app/api/devices/upsert/route";
 
-// Mock API utilities
+// Mock API utilities — match real signatures in lib/api-utils.ts
 jest.mock("@/lib/api-utils", () => ({
   createSuccessResponse: jest.fn((data) => ({
     status: 200,
     json: async () => ({ success: true, data }),
   })),
-  handleApiError: jest.fn((error, status = 500) => ({
-    status,
+  handleApiError: jest.fn((error, _errorMessage?: string) => ({
+    status: 500,
     json: async () => ({
       success: false,
       error: error instanceof Error ? error.message : String(error),
     }),
   })),
+  createAuthError: jest.fn((message = "Authentication required") => ({
+    status: 401,
+    json: async () => ({
+      success: false,
+      error: message,
+    }),
+  })),
 }));
 
-// Mock Supabase client
+// Mock Supabase client — shared by bearer and cookie auth paths in withAuth
 const mockUpsert = jest.fn();
 const mockDelete = jest.fn();
 const mockSupabase = {
@@ -43,6 +50,9 @@ const mockSupabase = {
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(() => mockSupabase),
+}));
+jest.mock("@/lib/supabase/bearer-client", () => ({
+  createBearerTokenClient: jest.fn(() => mockSupabase),
 }));
 
 describe("Device Token API", () => {

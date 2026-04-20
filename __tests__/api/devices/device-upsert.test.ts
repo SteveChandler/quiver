@@ -22,27 +22,41 @@ import {
   type MockSupabaseClient,
 } from "@/test-utils/api-test-helpers";
 
-// Mock API utilities
+// Mock API utilities — signatures must match real ones in lib/api-utils.ts:
+// - handleApiError(error, errorMessage?) always returns 500
+// - createAuthError(message?) returns 401
+// - createSuccessResponse(data) returns 200
 jest.mock("@/lib/api-utils", () => ({
   createSuccessResponse: jest.fn((data) => ({
     status: 200,
     json: async () => ({ success: true, data, timestamp: new Date().toISOString() }),
   })),
-  handleApiError: jest.fn((error, status = 500) => ({
-    status,
+  handleApiError: jest.fn((error, _errorMessage?: string) => ({
+    status: 500,
     json: async () => ({
       success: false,
       error: error instanceof Error ? error.message : String(error),
       timestamp: new Date().toISOString(),
     }),
   })),
+  createAuthError: jest.fn((message = "Authentication required") => ({
+    status: 401,
+    json: async () => ({
+      success: false,
+      error: message,
+      timestamp: new Date().toISOString(),
+    }),
+  })),
 }));
 
-// Mock Supabase client
+// Mock Supabase client — used by both bearer and cookie auth paths in withAuth
 let mockSupabase: MockSupabaseClient;
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(() => mockSupabase),
+}));
+jest.mock("@/lib/supabase/bearer-client", () => ({
+  createBearerTokenClient: jest.fn(() => mockSupabase),
 }));
 
 describe("Device Token API - POST /api/devices/upsert", () => {
