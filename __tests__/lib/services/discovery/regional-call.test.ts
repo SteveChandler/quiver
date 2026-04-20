@@ -147,4 +147,84 @@ describe('generateRegionalCall', () => {
     const result = generateRegionalCall(recs);
     expect(result.toLowerCase()).toContain('south');
   });
+
+  describe('tight copy (post-clarify)', () => {
+    it('drops "swell at" — uses "<dir> <n>s" format', () => {
+      const recs = [
+        mockRec({ swell_1_direction: 'SSW', swell_1_period: '11' }),
+        mockRec({ swell_1_direction: 'SSW', swell_1_period: '11' }),
+        mockRec({ swell_1_direction: 'SSW', swell_1_period: '11' }),
+      ];
+      const result = generateRegionalCall(recs);
+      expect(result).not.toContain('swell at');
+      expect(result).toContain('SSW 11s');
+    });
+
+    it('drops "favoring" and "breaks" — uses "hits <dir>-facing"', () => {
+      const recs = [
+        mockRec({ swell_1_direction: 'SSW', swell_1_period: '11', aspect_deg: 270 }),
+        mockRec({ swell_1_direction: 'SSW', swell_1_period: '11', aspect_deg: 270 }),
+        mockRec({ swell_1_direction: 'SSW', swell_1_period: '11', aspect_deg: 270 }),
+      ];
+      const result = generateRegionalCall(recs);
+      expect(result).not.toContain('favoring');
+      expect(result).not.toContain('breaks');
+      expect(result).toContain('hits west-facing');
+    });
+
+    it('uses " · " separator between swell and aspect clauses', () => {
+      const recs = [
+        mockRec({ swell_1_direction: 'SSW', swell_1_period: '11', aspect_deg: 270 }),
+        mockRec({ swell_1_direction: 'SSW', swell_1_period: '11', aspect_deg: 270 }),
+        mockRec({ swell_1_direction: 'SSW', swell_1_period: '11', aspect_deg: 270 }),
+      ];
+      const result = generateRegionalCall(recs);
+      expect(result).toBe('SSW 11s · hits west-facing');
+    });
+
+    it('drops "hits" when a wind trend also appends — avoid 3× "·" noise', () => {
+      const recs = [
+        mockRec({ swell_1_direction: 'SSW', swell_1_period: '11', aspect_deg: 270 }),
+        mockRec({ swell_1_direction: 'SSW', swell_1_period: '11', aspect_deg: 270 }),
+        mockRec({ swell_1_direction: 'SSW', swell_1_period: '11', aspect_deg: 270 }),
+      ];
+      const result = generateRegionalCall(recs, {
+        dawnWind: { speed: '0 mph', direction: '' },
+        middayWind: { speed: '10 mph', direction: 'SW' },
+      });
+      expect(result).toContain('SSW 11s');
+      expect(result).toContain('west-facing');
+      expect(result).not.toContain('hits');
+      expect(result.toLowerCase()).toContain('glassy');
+    });
+
+    it('anchors period to the top rec (recs[0]) so it does not flicker between refreshes', () => {
+      // Top rec (Tamarack) has 12s. The other 4 cluster at 10s — so the
+      // median of top-5 would be 10s. But a tiny reshuffle of the next 4
+      // could flip the displayed number between 10s and 11s between
+      // refreshes, while the top rec stays stable. Anchor on recs[0] so
+      // what the greeting reports tracks the beach being shown in the hero.
+      const recs = [
+        mockRec({ swell_1_direction: 'SSW', swell_1_period: '12', aspect_deg: 270 }),
+        mockRec({ swell_1_direction: 'SSW', swell_1_period: '10', aspect_deg: 270 }),
+        mockRec({ swell_1_direction: 'SSW', swell_1_period: '10', aspect_deg: 270 }),
+        mockRec({ swell_1_direction: 'SSW', swell_1_period: '10', aspect_deg: 270 }),
+        mockRec({ swell_1_direction: 'SSW', swell_1_period: '10', aspect_deg: 270 }),
+      ];
+      const result = generateRegionalCall(recs);
+      expect(result).toContain('SSW 12s');
+      expect(result).not.toContain('SSW 10s');
+    });
+
+    it('falls back gracefully when the top rec has no period', () => {
+      const recs = [
+        mockRec({ swell_1_direction: 'SSW', swell_1_period: null, aspect_deg: 270 }),
+        mockRec({ swell_1_direction: 'SSW', swell_1_period: '11', aspect_deg: 270 }),
+        mockRec({ swell_1_direction: 'SSW', swell_1_period: '11', aspect_deg: 270 }),
+      ];
+      const result = generateRegionalCall(recs);
+      // Fall back to median of available periods
+      expect(result).toContain('SSW 11s');
+    });
+  });
 });
