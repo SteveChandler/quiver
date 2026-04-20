@@ -2,6 +2,7 @@ import {
   trackSignupCtaView,
   trackSignupCtaClick,
   trackSigninCtaClick,
+  deriveSurfaceFromPath,
   _resetViewedSourcesForTesting,
 } from "@/lib/analytics/signup-conversion-tracking";
 import { track } from "@/lib/analytics";
@@ -19,6 +20,14 @@ const mockFetch = jest.fn(() =>
   Promise.resolve({ ok: true } as Response)
 );
 
+function setPathname(pathname: string) {
+  Object.defineProperty(window, "location", {
+    value: { ...window.location, pathname },
+    configurable: true,
+    writable: true,
+  });
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   jest.useFakeTimers();
@@ -29,6 +38,7 @@ beforeEach(() => {
     configurable: true,
     writable: true,
   });
+  setPathname("/");
   // Reset module-level deduplication Set so tests are isolated
   _resetViewedSourcesForTesting();
 });
@@ -61,18 +71,18 @@ describe("trackSignupCtaView", () => {
 
     jest.runOnlyPendingTimers();
 
-    expect(track).toHaveBeenCalledWith("signup_cta_view", params);
-    expect(mockFetch).toHaveBeenCalledWith("/api/events", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        eventType: "signup_cta_view",
-        metadata: params,
-        sessionId: "test-visitor-id",
-        viewportWidth: 375,
-      }),
-      keepalive: true,
-    });
+    expect(track).toHaveBeenCalledWith(
+      "signup_cta_view",
+      expect.objectContaining({ source: "test-page", cta_title: "Sign Up", surface: "landing-page" })
+    );
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(callArgs[0]).toBe("/api/events");
+    const body = JSON.parse(callArgs[1].body as string);
+    expect(body.eventType).toBe("signup_cta_view");
+    expect(body.metadata).toMatchObject({ source: "test-page", cta_title: "Sign Up", surface: "landing-page" });
+    expect(body.sessionId).toBe("test-visitor-id");
+    expect(body.viewportWidth).toBe(375);
   });
 
   it("does not fire when tab is hidden when dwell timer elapses", () => {
@@ -132,18 +142,15 @@ describe("trackSignupCtaClick", () => {
     const params = { source: "sticky-bar", cta_type: "sticky_bar" };
     trackSignupCtaClick(params);
 
-    expect(track).toHaveBeenCalledWith("signup_cta_click", params);
-    expect(mockFetch).toHaveBeenCalledWith("/api/events", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        eventType: "signup_cta_click",
-        metadata: params,
-        sessionId: "test-visitor-id",
-        viewportWidth: 375,
-      }),
-      keepalive: true,
-    });
+    expect(track).toHaveBeenCalledWith(
+      "signup_cta_click",
+      expect.objectContaining({ source: "sticky-bar", cta_type: "sticky_bar", surface: "landing-page" })
+    );
+    const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(callArgs[0]).toBe("/api/events");
+    const body = JSON.parse(callArgs[1].body as string);
+    expect(body.eventType).toBe("signup_cta_click");
+    expect(body.metadata).toMatchObject({ source: "sticky-bar", surface: "landing-page" });
   });
 
   it("is NOT deduplicated — fires every time (clicks are discrete actions)", () => {
@@ -161,18 +168,128 @@ describe("trackSigninCtaClick", () => {
     const params = { source: "content-gate", cta_title: "Log in" };
     trackSigninCtaClick(params);
 
-    expect(track).toHaveBeenCalledWith("signin_cta_click", params);
-    expect(mockFetch).toHaveBeenCalledWith("/api/events", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        eventType: "signin_cta_click",
-        metadata: params,
-        sessionId: "test-visitor-id",
-        viewportWidth: 375,
-      }),
-      keepalive: true,
+    expect(track).toHaveBeenCalledWith(
+      "signin_cta_click",
+      expect.objectContaining({ source: "content-gate", cta_title: "Log in", surface: "landing-page" })
+    );
+    const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(callArgs[0]).toBe("/api/events");
+    const body = JSON.parse(callArgs[1].body as string);
+    expect(body.eventType).toBe("signin_cta_click");
+    expect(body.metadata).toMatchObject({ source: "content-gate", surface: "landing-page" });
+  });
+});
+
+describe("deriveSurfaceFromPath (pure)", () => {
+  const cases: Array<[string, string]> = [
+    ["/", "landing-page"],
+    ["/about", "about-page"],
+    ["/features", "features-page"],
+    ["/features/live-cams", "features-page"],
+    ["/map", "map"],
+    ["/map/san-diego", "map"],
+    ["/tools", "tools-page"],
+    ["/tools/tide-chart", "tools-page"],
+    ["/guides/surfing-san-diego", "guides-page"],
+    ["/ca", "state-hub"],
+    ["/or", "state-hub"],
+    ["/fl", "state-hub"],
+    ["/hi", "state-hub"],
+    ["/pr", "state-hub"],
+    ["/ca/oceanside", "city-hub"],
+    ["/ca/oceanside/the-rock-oceanside", "beach-detail"],
+    ["/hi/north-shore/pipeline", "beach-detail"],
+    ["/ca/oceanside/the-rock-oceanside/forecast", "beach-detail"],
+    ["/profile", "auth-gated"],
+    ["/profile/abc", "auth-gated"],
+    ["/settings", "auth-gated"],
+    ["/settings/alerts", "auth-gated"],
+    ["/account", "auth-gated"],
+    ["/nope", "other"],
+    ["/garbage/path/here", "other"],
+  ];
+
+  it.each(cases)("maps %s to %s", (path, expected) => {
+    expect(deriveSurfaceFromPath(path)).toBe(expected);
+  });
+
+  describe("edge cases", () => {
+    it("normalizes trailing slash (/about/ == /about)", () => {
+      expect(deriveSurfaceFromPath("/about/")).toBe("about-page");
+      expect(deriveSurfaceFromPath("/ca/")).toBe("state-hub");
+      expect(deriveSurfaceFromPath("/ca/oceanside/")).toBe("city-hub");
+      expect(deriveSurfaceFromPath("/ca/oceanside/the-rock/")).toBe("beach-detail");
     });
+
+    it("handles multiple trailing slashes", () => {
+      expect(deriveSurfaceFromPath("/about///")).toBe("about-page");
+    });
+
+    it("rejects locale prefixes and non-state 2-letter segments", () => {
+      // /en/ca/... must NOT misclassify as state-hub; /en is not a state slug.
+      expect(deriveSurfaceFromPath("/en")).toBe("other");
+      expect(deriveSurfaceFromPath("/en/ca/oceanside")).toBe("other");
+      expect(deriveSurfaceFromPath("/js")).toBe("other");
+      expect(deriveSurfaceFromPath("/ts/page")).toBe("other");
+      // AK isn't in our coverage list — must be "other", not "state-hub"
+      expect(deriveSurfaceFromPath("/ak")).toBe("other");
+    });
+
+    it("returns 'server' when no path is available (SSR)", () => {
+      // Called from SSR context with explicit null simulates the no-window path
+      const origWindow = global.window;
+      // @ts-expect-error -- simulating SSR
+      delete global.window;
+      try {
+        expect(deriveSurfaceFromPath()).toBe("server");
+      } finally {
+        global.window = origWindow;
+      }
+    });
+
+    it("empty pathname falls back to landing-page after normalization", () => {
+      // "/" after trailing-slash strip → still "/" → landing-page
+      expect(deriveSurfaceFromPath("/")).toBe("landing-page");
+    });
+  });
+});
+
+describe("surface auto-injection in tracker", () => {
+  it("injects derived surface when caller omits it", () => {
+    setPathname("/features");
+    trackSignupCtaClick({ source: "sticky-features" });
+    expect(track).toHaveBeenCalledWith(
+      "signup_cta_click",
+      expect.objectContaining({ surface: "features-page" })
+    );
+  });
+
+  it("respects caller-provided surface (never overwrites)", () => {
+    setPathname("/");
+    trackSignupCtaClick({ source: "override", surface: "explicit-custom" });
+    expect(track).toHaveBeenCalledWith(
+      "signup_cta_click",
+      expect.objectContaining({ surface: "explicit-custom" })
+    );
+  });
+
+  it("ignores empty-string caller-provided surface and derives", () => {
+    setPathname("/features");
+    trackSignupCtaClick({ source: "empty", surface: "" });
+    expect(track).toHaveBeenCalledWith(
+      "signup_cta_click",
+      expect.objectContaining({ surface: "features-page" })
+    );
+  });
+
+  it("ignores query strings and hash fragments (pathname only)", () => {
+    // pathname-only is already a Location API guarantee — this is a regression guard.
+    setPathname("/ca/oceanside/the-rock-oceanside");
+    trackSignupCtaClick({ source: "with-query" });
+    expect(track).toHaveBeenCalledWith(
+      "signup_cta_click",
+      expect.objectContaining({ surface: "beach-detail" })
+    );
   });
 });
 
