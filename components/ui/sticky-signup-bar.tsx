@@ -33,6 +33,9 @@ interface StickySignupBarProps {
   /** Copy-variant label passed into signup_cta_view/_click metadata for
    *  per-variant conversion measurement in user_events. */
   ctaCopyVariant?: string;
+  /** Optional className merged into the primary CTA button. Use for per-caller
+   *  tap-target / sizing overrides without changing the component default. */
+  buttonClassName?: string;
 }
 
 /**
@@ -59,6 +62,7 @@ export function StickySignupBar({
   contextMessage,
   searchReferralCta,
   ctaCopyVariant,
+  buttonClassName,
 }: StickySignupBarProps) {
   const { user, isLoading } = useAuth();
   const reducedMotion = useReducedMotion();
@@ -183,7 +187,10 @@ export function StickySignupBar({
             <Button
               onClick={handleCtaClick}
               size="sm"
-              className="bg-[#F78E42] text-white hover:bg-[#F78E42]/90 font-semibold px-4 rounded-full shadow-sm"
+              className={cn(
+                "bg-[#F78E42] text-white hover:bg-[#F78E42]/90 font-semibold px-4 rounded-full shadow-sm",
+                buttonClassName
+              )}
               data-testid="sticky-signup-cta"
             >
               {resolvedCtaText}
