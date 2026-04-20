@@ -73,7 +73,10 @@ export function BeachReviewForm({
   const hasSubmittedRef = useRef(false);
   // Single-fire guard shared by handleCancel and the unmount cleanup
   const hasTrackedAbandonRef = useRef(false);
-
+  // Count how many times the mount effect has run. StrictMode re-runs mount in
+  // dev — we use this to distinguish the fake-unmount (cycle 1, nothing after)
+  // from a real unmount (cycle > 1, or cycle 1 in production).
+  const mountCycleRef = useRef(0);
   // Refs that mirror the latest values used by the unmount cleanup. The cleanup
   // runs with empty deps so it can detect actual unmount (not every prop change),
   // which means it would otherwise read stale closure values.
@@ -162,12 +165,24 @@ export function BeachReviewForm({
   // Fire review_form_abandon on unmount when the user closes the dialog via X,
   // outside-click, or back navigation (anything that isn't Cancel or Submit).
   // Empty deps ensure the cleanup runs only on actual unmount.
+  //
+  // React 19 StrictMode fake-unmount only runs in dev. Suppress that specific
+  // firing via a compound check (first mount cycle + ref still at 1 + short
+  // elapsed) gated behind NODE_ENV !== 'production'. Production bundles skip
+  // the entire branch — a fast real-user dismiss always fires abandon.
   useEffect(() => {
+    mountCycleRef.current += 1;
+    const cycleAtMount = mountCycleRef.current;
     return () => {
+      const elapsed = Date.now() - formOpenTimeRef.current;
+      const isStrictModeFakeUnmount =
+        process.env.NODE_ENV !== 'production' &&
+        cycleAtMount === 1 && mountCycleRef.current === 1 && elapsed < 10;
       if (
         !hasTrackedOpenRef.current ||
         hasSubmittedRef.current ||
-        hasTrackedAbandonRef.current
+        hasTrackedAbandonRef.current ||
+        isStrictModeFakeUnmount
       ) {
         return;
       }
@@ -179,14 +194,13 @@ export function BeachReviewForm({
           beach_id: beachIdRef.current,
           beach_name: beachNameRef.current,
           is_edit: isEditRef.current,
-          duration_ms: Date.now() - formOpenTimeRef.current,
+          duration_ms: elapsed,
           abandon_via: 'unmount',
           ...abandonSnapshotRef.current,
         } as ReviewFormMetadata,
       });
     };
-    // Empty deps intentional: cleanup must run only on real unmount. All values
-    // read in the cleanup come from refs that are synced in a separate effect.
+    // Empty deps intentional: cleanup must run only on real unmount.
   }, []);
 
   const handleRatingChange = (
@@ -198,18 +212,26 @@ export function BeachReviewForm({
   };
 
   const handleCancel = () => {
-    // Track form abandon (single-fire guard prevents double-tracking with the unmount cleanup)
+    // Single-fire guard: bail if cleanup already fired abandon.
+    if (hasTrackedAbandonRef.current) {
+      onCancel?.();
+      return;
+    }
     hasTrackedAbandonRef.current = true;
-    track('review_form_abandon', {
-      beachId,
+    // Read payload values from refs for consistency with the unmount cleanup.
+    // Closure reads would work today (props are stable for the dialog's lifetime)
+    // but diverge from the cleanup path if the form is ever mounted in a prop-
+    // swapping container.
+    trackRef.current('review_form_abandon', {
+      beachId: beachIdRef.current,
       metadata: {
-        source: trackingSource,
-        beach_id: beachId,
-        beach_name: beachName,
-        is_edit: Boolean(existingReview),
+        source: trackingSourceRef.current,
+        beach_id: beachIdRef.current,
+        beach_name: beachNameRef.current,
+        is_edit: isEditRef.current,
         duration_ms: Date.now() - formOpenTimeRef.current,
         abandon_via: 'cancel_button',
-        ...buildAbandonFieldSnapshot(),
+        ...abandonSnapshotRef.current,
       } as ReviewFormMetadata,
     });
 

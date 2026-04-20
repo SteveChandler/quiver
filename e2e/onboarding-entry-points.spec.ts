@@ -143,6 +143,33 @@ test.describe("Onboarding dialog entry points (regression smoke)", () => {
     });
   });
 
+  test("?onboarding=required on a beach page opens dialog and strips the param", async ({
+    page,
+  }) => {
+    // Plan F2: /auth/callback now appends ?onboarding=required to ANY
+    // fresh-signup redirect target (not just '/'), so a user who signs up
+    // via PublicContentGate on a beach page lands there with the dialog
+    // open instead of bypassing activation. The OnboardingDialog is mounted
+    // globally (components/providers.tsx → AuthOverlays) and its handler
+    // (onboarding-dialog.tsx:210-230) opens once then strips the param via
+    // router.replace, preserving other query params (UTM survival).
+    await page.goto(
+      "/ca/oceanside/the-rock-oceanside?onboarding=required&foo=bar"
+    );
+    await waitForPageLoad(page);
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible({ timeout: TIMEOUTS.long });
+    await expect(page.getByText(/where do you surf/i)).toBeVisible({
+      timeout: TIMEOUTS.long,
+    });
+
+    await expect(page).toHaveURL(
+      /^https?:\/\/[^/]+\/ca\/oceanside\/the-rock-oceanside\?foo=bar$/,
+      { timeout: TIMEOUTS.long }
+    );
+  });
+
   test("HomeBeachStep does NOT render a Maybe later button (required step)", async ({
     page,
   }) => {

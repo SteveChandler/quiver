@@ -75,23 +75,16 @@ export async function GET(request: NextRequest) {
   }
 
   // Detect "fresh signup without an activated profile" and steer them
-  // through the required onboarding path. We only rewrite the redirect
-  // when the caller left the redirect at the default ('/'): if they
-  // provided an explicit redirect (e.g. coming back from a gated route),
-  // honor it — the dialog can still be re-opened from the Oracle CTA
-  // later, and hijacking an explicit deep-link would feel broken.
+  // through the required onboarding path on ANY redirect target — the
+  // dialog is globally mounted and listens for ?onboarding=required, so
+  // a user signing up from a gated beach page lands on that page with
+  // the onboarding dialog open instead of bypassing activation entirely.
   //
   // We fetch the profile (home_beach_id + onboarding_completed_at) via
   // the authenticated session we just exchanged. The supabase-js client
   // handles RLS correctly for auth.users → public.profiles self-reads.
-  //
-  // Plan: abstract-exploring-phoenix (Commit B). This is NOT a revert
-  // of vast-dancing-whale's auto-open removal — the dialog still does
-  // not auto-open on plain / loads. The query param is the only new
-  // explicit entry path; existing users without a home beach still
-  // follow the Oracle CTA path.
   let finalRedirect = redirectUrl;
-  if (supabase && redirectUrl === '/') {
+  if (supabase) {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const { data: profile } = await supabase
@@ -106,7 +99,7 @@ export async function GET(request: NextRequest) {
         !profile.onboarding_completed_at;
 
       if (isUnactivated) {
-        finalRedirect = '/?onboarding=required';
+        finalRedirect = appendOnboardingRequired(redirectUrl, request.url);
       }
     }
   }
@@ -131,4 +124,20 @@ export async function GET(request: NextRequest) {
   });
 
   return response;
+}
+
+// Append `onboarding=required` to a redirect target without clobbering
+// existing query params or the hash fragment. Falls back to '/' if the
+// target can't be parsed against the request origin.
+function appendOnboardingRequired(target: string, requestUrl: string): string {
+  try {
+    const parsed = new URL(target, requestUrl);
+    if (parsed.searchParams.get('onboarding') === 'required') {
+      return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    }
+    parsed.searchParams.set('onboarding', 'required');
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return '/?onboarding=required';
+  }
 }

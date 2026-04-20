@@ -146,6 +146,23 @@ export const submitConditionsReport = makeAuthenticatedAction(
       return { success: false, error: "Failed to submit conditions report" };
     }
 
+    // Fire-and-forget: emit to user_events for retention analytics. Failures are
+    // logged but never fail the user-visible submission.
+    void (async () => {
+      const { error: evtErr } = await supabase.from("user_events").insert({
+        user_id: user.id,
+        event_type: "intel_post_created",
+        beach_id: beachId,
+        metadata: {
+          source: "web-conditions-report",
+          wave_size_range: waveSizeRange,
+          vibe,
+          intel_post_id: intelPost.id,
+        },
+      });
+      if (evtErr) console.warn("[submitConditionsReport] user_events intel insert failed:", evtErr);
+    })();
+
     // --- Create minimal session record (fire-and-forget for ML) ---
     let sessionId: string | null = null;
 
@@ -169,6 +186,18 @@ export const submitConditionsReport = makeAuthenticatedAction(
       console.warn("[submitConditionsReport] Session insert failed (non-fatal):", sessionError);
     } else {
       sessionId = session?.id ?? null;
+      void (async () => {
+        const { error: evtErr } = await supabase.from("user_events").insert({
+          user_id: user.id,
+          event_type: "session_log_submit",
+          beach_id: beachId,
+          metadata: {
+            source: "web-conditions-report",
+            session_id: sessionId,
+          },
+        });
+        if (evtErr) console.warn("[submitConditionsReport] user_events session insert failed:", evtErr);
+      })();
     }
 
     revalidatePath(`/beach/${beachId}`);

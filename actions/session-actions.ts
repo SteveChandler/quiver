@@ -399,6 +399,22 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
       throw new Error(`Session creation failed: ${error.message || 'Unknown database error'}`);
     }
 
+    // Fire-and-forget: emit to user_events for retention analytics.
+    void (async () => {
+      const { error: evtErr } = await writeClient.from("user_events").insert({
+        user_id: user.id,
+        event_type: "session_log_submit",
+        beach_id: session.beach_id ?? null,
+        metadata: {
+          source: "web-session-form",
+          session_id: session.id,
+          duration_minutes: session.duration_minutes ?? null,
+          rating: session.rating ?? null,
+        },
+      });
+      if (evtErr) console.warn("[createLoggedSession] user_events insert failed:", evtErr);
+    })();
+
     // Track XP (fire-and-forget — failure is non-fatal, already logged internally)
     trackXPOptional("plan_session", session.id, "session").catch(() => {});
 

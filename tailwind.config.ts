@@ -21,7 +21,15 @@ const config: Config = {
         handwritten: ["var(--font-handwritten)", "cursive"],
       },
       colors: {
-        "ocean-blue": "#F78E42",
+        // ocean-blue is the primary interactive CTA token used across buttons.
+        // Updated to #9E5010 (27° 82% 34%) — WCAG AA compliant: 5.82:1 on white.
+        // White text on this background also passes at 5.82:1.
+        // Previous value #F78E42 was 2.36:1 (WCAG AA fail for normal text).
+        "ocean-blue": "#9E5010",
+        // Decorative brand orange: use for non-interactive accents, badges, glows,
+        // loading spinners, and text on dark navy (#252D6B) backgrounds (5.34:1).
+        // NEVER use as button background with white text — 2.36:1 fails WCAG AA.
+        "ocean-blue-decorative": "#F78E42",
         "sunset-orange": "#FDB84B",
         "sandy-beige": "#2D357D",
         "dark-grey": "#333333",

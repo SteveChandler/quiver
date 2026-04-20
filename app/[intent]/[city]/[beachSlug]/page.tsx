@@ -28,7 +28,7 @@ import { FAQSchema } from "@/components/seo/faq-schema";
 import { ReviewSchema } from "@/components/seo/review-schema";
 import { pickBestUsaBeachMatch } from "@/lib/utils/beach-matching-utils";
 import { generateBeachFAQ } from "@/lib/utils/beach-faq-utils";
-import { getSpotSurfReport } from "@/actions/spot/spot-surf-report-actions";
+import { getSpotSurfReportPublic } from "@/actions/spot/spot-surf-report-actions";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { getBeachReviews } from "@/actions/beach-review-actions";
 import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
@@ -39,10 +39,10 @@ import { getBeachCameraUrl } from "@/actions/beach/cam-actions";
 import { BeachProseSummary } from "@/components/beach-detail/beach-prose-summary";
 import { OptimalConditionsSection } from "@/components/beach-detail/optimal-conditions-section";
 
-// NOTE: ISR is partially effective here — getSpotSurfReport() still calls
-// cookies() for auth-aware scoring, which opts into dynamic rendering.
-// Sub-pages (tides, water-temp) and other page types fully benefit from ISR.
-// TODO: Move surf report to client-side fetch to unlock full ISR on this page.
+// ISR: revalidate every hour. getSpotSurfReportPublic() uses the service-role
+// client with no cookie reads, so this route stays in ISR (not forced dynamic).
+// Personalised data (user prefs, alerts, favourites) loads client-side in
+// BeachDetailClient after hydration.
 export const revalidate = 3600;
 
 const getCachedBeachCandidates = cache(async (slug: string) => {
@@ -115,7 +115,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
 
     // Fetch surf report, nearby beaches, reviews, best time to surf URL, amenities, and water quality in parallel
     const [surfReportResult, nearbyResult, reviewsResult, bestTimeToSurfUrl, amenitiesResult, waterQualityResult, cameraUrl, beachPhoto] = await Promise.all([
-      getSpotSurfReport(beach),
+      getSpotSurfReportPublic(beach),
       beach.lat && beach.lon
         ? getNearbyBeaches(beach.lat, beach.lon, 25)
         : Promise.resolve(null),
@@ -459,4 +459,10 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
   };
 }
 
-// NOTE: generateStaticParams not used — pages are rendered on-demand with ISR (revalidate = 3600).
+// generateStaticParams deferred: the beach page has additional no-store fetches
+// (enrichBeachesWithConditions, getBeachForecastPreview, getBestTimeToSurfUrl) and a
+// useSearchParams() call without Suspense that prevent full SSG prerendering.
+// Fixing those is a follow-up task. All pages are served via ISR on first request
+// (revalidate = 3600). The primary ISR unlock from this workstream is decoupling
+// getSpotSurfReport from cookies() — that removes the force-dynamic constraint for
+// on-demand (non-prerendered) requests.

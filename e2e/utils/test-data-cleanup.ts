@@ -332,3 +332,24 @@ export async function previewCleanup(verbose: boolean = true): Promise<FullClean
 export async function executeCleanup(verbose: boolean = false): Promise<FullCleanupResult> {
   return cleanupAllTestData({ dryRun: false, verbose });
 }
+
+/**
+ * Hard-delete beach_reviews rows owned by the given user. Used by happy-path
+ * review submit tests to clean up after themselves. Uses the service-role key
+ * so RLS doesn't block; requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in env.
+ *
+ * If `titleFilter` is provided, only deletes rows with that exact title —
+ * safer for shared test accounts that may hold other seeded reviews.
+ */
+export async function deleteReviewsForUser(
+  userId: string,
+  titleFilter?: string
+): Promise<void> {
+  const supabase = createServiceClient();
+  let query = supabase.from('beach_reviews').delete().eq('user_id', userId);
+  if (titleFilter) {
+    query = query.eq('title', titleFilter);
+  }
+  const { error } = await query;
+  if (error) throw new Error(`cleanup failed: ${error.message}`);
+}

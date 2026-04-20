@@ -13,7 +13,7 @@ import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { consolidateQueueItems } from "@/lib/alerts/payload-builder";
 import type { QueueItemWithMeta } from "@/lib/alerts/payload-builder";
 import { formatPushNotification } from "@/lib/alerts/push-formatter";
-import { sendPushNotifications } from "@/lib/alerts/push-sender";
+import { sendPushNotifications } from "@/lib/services/push-notifications";
 import { generateDisableToken } from "@/lib/alerts/email-token";
 
 export const revalidate = 0;

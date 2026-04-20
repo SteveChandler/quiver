@@ -84,7 +84,7 @@ export function ConditionsReportCard({
       }
 
       setFormState("success");
-      track("conditions_report_submitted", { beach_id: beachId, wave_size_range: waveSizeRange, vibe });
+      track("intel_post_created", { beach_id: beachId, wave_size_range: waveSizeRange, vibe });
       onSubmitSuccess?.();
     } catch {
       setFormState("error");
