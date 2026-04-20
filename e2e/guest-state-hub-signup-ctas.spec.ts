@@ -26,7 +26,7 @@ test.describe("State hub signup CTAs", () => {
     await page.waitForLoadState("load");
 
     const inlineCta = page.locator("[data-testid='inline-signup-cta']");
-    await expect(inlineCta).toContainText(/California's \d+ breaks is firing right now/);
+    await expect(inlineCta).toContainText(/California's \d+ breaks are firing right now/);
   });
 
   test("/ca sticky bar renders on mobile scroll with ≥48px tap target", async ({ page }) => {
@@ -61,7 +61,7 @@ test.describe("State hub signup CTAs", () => {
     await expect(inline).toContainText("Your next North Carolina session, delivered");
 
     // Concrete copy MUST NOT appear
-    await expect(page.getByText(/North Carolina's \d+ breaks is firing/)).toHaveCount(0);
+    await expect(page.getByText(/North Carolina's \d+ breaks are firing/)).toHaveCount(0);
   });
 
   test("/ca sticky bar tap fires signup_cta_click with correct source + variant", async ({ page }) => {

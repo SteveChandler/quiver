@@ -166,7 +166,7 @@ export default async function UsaStatePage(
     ? `When any of ${stateName}'s ${beachCount} breaks fire`
     : "Know when conditions fire at your spots";
   const inlineTitle = useConcreteCopy
-    ? `Which of ${stateName}'s ${beachCount} breaks is firing right now?`
+    ? `Which of ${stateName}'s ${beachCount} breaks are firing right now?`
     : `Your next ${stateName} session, delivered`;
   const inlineDescription = useConcreteCopy
     ? "Track any of them. We ping you when yours lights up. Free."
