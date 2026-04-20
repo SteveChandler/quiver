@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Conversion: wired `StickySignupBar` + `InlineSignupCta` onto `/beaches/usa/[state]`** — the only route in the sister-page cluster (`/best-time-to-surf/[city]`, `/cams/[region]`, `/tide/[city]`, etc.) missing them. Ships to every US state hub. State-specific concrete copy ("Which of California's 157 breaks is firing right now?") for states with ≥20 beaches, generic fallback otherwise (threshold: `CONCRETE_COPY_BREAK_THRESHOLD`). Fixes the mobile dead-zone where `/ca` — 44% of anonymous traffic — had a 40px navbar button as its only conversion surface. Primary CTA button uses the new optional `buttonClassName` prop on `StickySignupBar` to enforce 48dp Android tap target at this call site only (measured 48×100.6px at 412×915 viewport). Analytics: `source=state-hub-{stateSlug}`, `cta_copy_variant=v1-breaks-count | v1-generic`.
+
 ### Infrastructure
 - **Server-side Firebase Admin env vars added to Vercel production.** `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` were only present in local `quiver/.env` (gitignored), so Vercel-deployed serverless functions had them undefined and `getFirebaseAdminMessaging()` returned `null` on every invocation. That silently no-op'd `POST /api/admin/test-push`, `sendPushNotification()` in `lib/services/push-notifications.ts`, and the FCM branch of `sendPushNotifications()` in `lib/alerts/push-sender.ts` used by `condition-alert-deliver`. PR #196 triggered a Vercel production redeploy so already-warm serverless instances are recycled and pick up the newly-added env vars.
 
