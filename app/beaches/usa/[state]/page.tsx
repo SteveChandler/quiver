@@ -23,9 +23,8 @@ import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { ItemListSchema } from "@/components/seo/item-list-schema";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- used in next task (T3/T4)
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- used in next task (T3/T4)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- used in next task (T4)
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { SITE_URL } from "@/lib/constants/seo";
 
@@ -296,6 +295,16 @@ export default async function UsaStatePage(
 
       {/* FAQ Section for SEO */}
       <FAQSection items={stateFaqs} locationName={stateName} />
+
+      <div className="my-8">
+        <InlineSignupCta
+          title={inlineTitle}
+          description={inlineDescription}
+          primaryButtonText={inlineButtonText}
+          source={ctaSource}
+          ctaCopyVariant={ctaCopyVariant}
+        />
+      </div>
 
       <IntentGuidesGrid
         locationSlug={stateSlug}
