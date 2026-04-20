@@ -30,6 +30,7 @@ export interface CleanupResult {
 export interface FullCleanupResult {
   sessions: CleanupResult;
   intelPosts: CleanupResult;
+  ephemeralUsers: CleanupResult;
   totalCleaned: number;
   durationMs: number;
   testUserIds: string[];
@@ -239,6 +240,96 @@ async function cleanupTestIntelPosts(
 }
 
 /**
+ * Hard-delete ephemeral smoke-test users (email matching `smoke+%@quiversurf.test`).
+ *
+ * These are provisioned by `signUpEphemeral()` in e2e/helpers/onboarding-flow.ts
+ * for the auth-smoke + onboarding-smoke specs. Per-test `cleanupEphemeralUser`
+ * is best-effort — if a run crashes before teardown, rows accumulate in
+ * `auth.users`, `profiles`, and `user_events`. This sweep catches those orphans.
+ *
+ * Relies on FK cascade from `auth.users`:
+ *   - `profiles.id` → `auth.users(id)` (Supabase-managed FK, verified present
+ *     via the `handle_new_user` trigger setup)
+ *   - `user_events.user_id` → `auth.users(id) ON DELETE CASCADE` (explicit)
+ *
+ * Orthogonal to `cleanupTestSessions` / `cleanupTestIntelPosts` — those
+ * soft-delete mutable content from the main test user; this deletes the
+ * throwaway auth records themselves.
+ */
+export async function cleanupEphemeralSmokeUsers(
+  supabase: SupabaseClient,
+  dryRun: boolean,
+  verbose: boolean
+): Promise<CleanupResult> {
+  try {
+    // auth.admin.listUsers paginates at 1000 by default — that's 10x any
+    // realistic leak size for this cohort, so a single page is safe.
+    const { data, error } = await supabase.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000,
+    });
+
+    if (error) {
+      return { table: 'ephemeral_users', count: 0, error: error.message };
+    }
+
+    const ephemeralUsers = (data?.users ?? []).filter((user) =>
+      user.email?.toLowerCase().startsWith('smoke+') &&
+      user.email?.toLowerCase().endsWith('@quiversurf.test')
+    );
+
+    if (ephemeralUsers.length === 0) {
+      if (verbose) {
+        console.log('[Cleanup] No ephemeral smoke users found');
+      }
+      return { table: 'ephemeral_users', count: 0 };
+    }
+
+    if (dryRun) {
+      if (verbose) {
+        console.log(
+          `[Cleanup] Would delete ${ephemeralUsers.length} ephemeral smoke user(s)`
+        );
+        for (const user of ephemeralUsers) {
+          console.log(`[Cleanup]   - ${user.email} (${user.id})`);
+        }
+      }
+      return { table: 'ephemeral_users', count: ephemeralUsers.length };
+    }
+
+    // Actually delete. Loop sequentially to keep admin-API load predictable —
+    // at leak sizes of <100 this is fast enough and avoids concurrent 429s.
+    let deleted = 0;
+    const errors: string[] = [];
+    for (const user of ephemeralUsers) {
+      // eslint-disable-next-line no-await-in-loop
+      const { error: deleteError } = await supabase.auth.admin.deleteUser(user.id);
+      if (deleteError) {
+        errors.push(`${user.email}: ${deleteError.message}`);
+      } else {
+        deleted += 1;
+      }
+    }
+
+    if (verbose) {
+      console.log(`[Cleanup] Deleted ${deleted} ephemeral smoke user(s)`);
+      if (errors.length > 0) {
+        console.log(`[Cleanup] ${errors.length} deletion error(s):`);
+        for (const msg of errors) console.log(`[Cleanup]   - ${msg}`);
+      }
+    }
+
+    return {
+      table: 'ephemeral_users',
+      count: deleted,
+      error: errors.length > 0 ? errors.join('; ') : undefined,
+    };
+  } catch (err) {
+    return { table: 'ephemeral_users', count: 0, error: String(err) };
+  }
+}
+
+/**
  * Main entry point - clean up all test data
  *
  * @param options - Cleanup options (dryRun, verbose, etc.)
@@ -265,6 +356,7 @@ export async function cleanupAllTestData(
     return {
       sessions: { table: 'sessions', count: 0, error: errorMsg },
       intelPosts: { table: 'intel_posts', count: 0, error: errorMsg },
+      ephemeralUsers: { table: 'ephemeral_users', count: 0, error: errorMsg },
       totalCleaned: 0,
       durationMs: Date.now() - startTime,
       testUserIds: [],
@@ -272,34 +364,26 @@ export async function cleanupAllTestData(
     };
   }
 
-  // Get test user IDs
+  // Get test user IDs (main test user + is_mock profiles). This does NOT
+  // include the smoke+<uuid>@quiversurf.test ephemeral cohort — those are
+  // swept independently by cleanupEphemeralSmokeUsers, which queries auth.users
+  // directly so it catches users whose profile rows were already deleted.
   const testUserIds = await getTestUserIds(supabase, verbose);
-
-  if (testUserIds.length === 0) {
-    if (verbose) {
-      console.log('[Cleanup] No test users found, nothing to clean up');
-    }
-    return {
-      sessions: { table: 'sessions', count: 0 },
-      intelPosts: { table: 'intel_posts', count: 0 },
-      totalCleaned: 0,
-      durationMs: Date.now() - startTime,
-      testUserIds: [],
-      dryRun,
-    };
-  }
 
   if (verbose) {
     console.log(`[Cleanup] Found ${testUserIds.length} test user(s)`);
   }
 
-  // Clean up sessions and intel posts
-  const [sessions, intelPosts] = await Promise.all([
+  // Clean up sessions, intel posts, and orphaned ephemeral users in parallel.
+  // The ephemeral sweep runs regardless of testUserIds (it's an independent
+  // query against auth.users), so a missing TEST_USER_EMAIL doesn't skip it.
+  const [sessions, intelPosts, ephemeralUsers] = await Promise.all([
     cleanupTestSessions(supabase, testUserIds, dryRun, verbose),
     cleanupTestIntelPosts(supabase, testUserIds, dryRun, verbose),
+    cleanupEphemeralSmokeUsers(supabase, dryRun, verbose),
   ]);
 
-  const totalCleaned = sessions.count + intelPosts.count;
+  const totalCleaned = sessions.count + intelPosts.count + ephemeralUsers.count;
   const durationMs = Date.now() - startTime;
 
   if (verbose) {
@@ -312,6 +396,7 @@ export async function cleanupAllTestData(
   return {
     sessions,
     intelPosts,
+    ephemeralUsers,
     totalCleaned,
     durationMs,
     testUserIds,
