@@ -5417,22 +5417,22 @@ export type Database = {
       }
       trial_ending_push_log: {
         Row: {
-          user_id: string
+          meta: Json
           sent_at: string
           trial_ends_at: string | null
-          meta: Json
+          user_id: string
         }
         Insert: {
-          user_id: string
+          meta?: Json
           sent_at?: string
           trial_ends_at?: string | null
-          meta?: Json
+          user_id: string
         }
         Update: {
-          user_id?: string
+          meta?: Json
           sent_at?: string
           trial_ends_at?: string | null
-          meta?: Json
+          user_id?: string
         }
         Relationships: []
       }
