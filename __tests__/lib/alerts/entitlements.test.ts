@@ -43,6 +43,17 @@ describe("canCreateRule", () => {
     expect(result.reason).toContain("premium");
   });
 
+  it("rejects free user using similarity_alert", () => {
+    const result = canCreateRule({ tier: "free", homeBeachId: "beach-1", targetBeachId: "beach-1", existingRuleCount: 0, existingBeachCount: 1, isExistingBeach: true, presetType: "similarity_alert" });
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toContain("premium");
+  });
+
+  it("allows premium user creating similarity_alert on their home beach", () => {
+    const result = canCreateRule({ tier: "premium", homeBeachId: "beach-1", targetBeachId: "beach-1", existingRuleCount: 0, existingBeachCount: 1, isExistingBeach: true, presetType: "similarity_alert" });
+    expect(result.allowed).toBe(true);
+  });
+
   it("allows premium user on any beach within caps", () => {
     const result = canCreateRule({ tier: "premium", homeBeachId: "beach-1", targetBeachId: "beach-5", existingRuleCount: 10, existingBeachCount: 5, isExistingBeach: false, presetType: "epic_conditions" });
     expect(result.allowed).toBe(true);

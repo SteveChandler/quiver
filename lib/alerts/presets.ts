@@ -5,6 +5,9 @@ import type {
   PresetType,
 } from "./types";
 
+/** Default similarity score threshold (0–10 scale from compute_spot_similarity_score). */
+export const SIMILARITY_ALERT_DEFAULT_THRESHOLD = 7.5;
+
 export const PRESETS: PresetDefinition[] = [
   {
     type: "glass_off",
@@ -121,6 +124,20 @@ export const PRESETS: PresetDefinition[] = [
           ? (beach.swell_window_center_deg + beach.swell_window_halfwidth_deg) %
             360
           : undefined,
+    }),
+  },
+  {
+    type: "similarity_alert",
+    name: "Similar to your best sessions",
+    description:
+      "Notify when conditions match your highest-rated sessions at this break",
+    conditionsSummary: "Personalized — requires 5+ rated sessions at the spot",
+    group: "specific",
+    // similarity_alert stores only a score threshold; the evaluator cron calls
+    // compute_spot_similarity_score per forecast hour and enqueues when the
+    // returned score is >= this value. No static swell/wind/tide envelope.
+    buildConditions: (): AlertConditions => ({
+      similarity_threshold: SIMILARITY_ALERT_DEFAULT_THRESHOLD,
     }),
   },
 ];

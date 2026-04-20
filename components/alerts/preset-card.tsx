@@ -13,6 +13,7 @@ const PRESET_CONFIG: Record<
   clean_groundswell: { icon: "\u{1F4A0}", accentClass: "border-l-violet-400" },
   tide_window: { icon: "\u{23F1}\u{FE0F}", accentClass: "border-l-cyan-400" },
   epic_conditions: { icon: "\u{1F525}", accentClass: "border-l-[#F78E42]" },
+  similarity_alert: { icon: "\u{1F9E0}", accentClass: "border-l-fuchsia-400" },
 };
 
 interface PresetCardProps {
