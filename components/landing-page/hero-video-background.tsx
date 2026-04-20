@@ -142,7 +142,7 @@ export function HeroVideoBackground() {
 
   return (
     <div className="absolute inset-0 z-0 overflow-hidden">
-      {/* Video layer */}
+      {/* Video layer — purely decorative background loop, no informational content */}
       {!videoError && (
         <video
           ref={videoRef}
@@ -153,6 +153,8 @@ export function HeroVideoBackground() {
           poster={POSTER_SRC}
           onEnded={handleVideoEnded}
           onError={handleVideoError}
+          role="presentation"
+          aria-hidden="true"
           className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[1500ms] ${
             phase === "video" ? "opacity-100" : "opacity-0"
           }`}

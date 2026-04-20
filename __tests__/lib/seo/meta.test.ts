@@ -11,6 +11,7 @@ import {
   buildDynamicTideMetadata,
   buildDynamicWaterTempMetadata,
   extractDescriptionSnippet,
+  formatCrowdSignal,
 } from "@/lib/seo/meta";
 import { SEO_CONFIG } from "@/lib/constants/seo";
 
@@ -640,6 +641,41 @@ describe("SEO Meta Builder", () => {
     it("only uses first sentence when multiple sentences exist", () => {
       const result = extractDescriptionSnippet("First sentence. Second sentence. Third.", 60);
       expect(result).toBe("First sentence");
+    });
+  });
+
+  describe("formatCrowdSignal", () => {
+    it("returns 'Uncrowded' for light", () => {
+      expect(formatCrowdSignal("light")).toBe("Uncrowded");
+    });
+
+    it("returns 'Busy' for moderate", () => {
+      expect(formatCrowdSignal("moderate")).toBe("Busy");
+    });
+
+    it("returns 'Crowded' for heavy", () => {
+      expect(formatCrowdSignal("heavy")).toBe("Crowded");
+    });
+
+    it("returns 'Packed' for very_heavy", () => {
+      expect(formatCrowdSignal("very_heavy")).toBe("Packed");
+    });
+
+    it("returns null for unknown level", () => {
+      expect(formatCrowdSignal("unknown_level")).toBeNull();
+    });
+
+    it("returns null for null input", () => {
+      expect(formatCrowdSignal(null)).toBeNull();
+    });
+
+    it("returns null for undefined input", () => {
+      expect(formatCrowdSignal(undefined)).toBeNull();
+    });
+
+    it("is case-insensitive", () => {
+      expect(formatCrowdSignal("VERY_HEAVY")).toBe("Packed");
+      expect(formatCrowdSignal("Light")).toBe("Uncrowded");
     });
   });
 

@@ -13,15 +13,27 @@ interface UseCoastPulseRealtimeOptions {
   onSessionEvent: (payload: SessionPayload) => void;
 }
 
+// Supabase Realtime `in.` filter caps at 100 values (Postgres ANY limit).
+const REALTIME_IN_FILTER_MAX = 100;
+
+// Poll enhanced_forecasts changes every 5 minutes instead of realtime.
+// Rationale: forecasts update once per cron run (not user-driven), and realtime
+// subscriptions for this table consumed 93% of total DB time (REALTIME_OPTIMIZATION_GUIDE.md).
+const FORECAST_POLL_MS = 5 * 60 * 1000;
+
 /**
  * Subscribes to Supabase Realtime channels for Coast Pulse updates.
  *
- * 3 channels:
- * - intel: INSERT on intel_posts (immediate callback)
- * - forecasts: INSERT on enhanced_forecasts (debounced)
- * - sessions: INSERT on sessions (debounced)
+ * 2 channels (previously 3):
+ * - intel: INSERT on intel_posts, server-side filtered by beach_id=in.(...)
+ * - sessions: INSERT on sessions, server-side filtered by beach_id=in.(...)
  *
- * Uses beach_id Set for O(1) client-side filtering.
+ * enhanced_forecasts is intentionally NOT subscribed via realtime.
+ * It polls onConditionsChanged every 5 minutes instead.
+ * See docs/REALTIME_OPTIMIZATION_GUIDE.md for the DB cost rationale.
+ *
+ * Filters: Supabase Realtime supports `in.` with up to 100 values.
+ * We cap the list at REALTIME_IN_FILTER_MAX; callers should pass nearby IDs only.
  */
 export function useCoastPulseRealtime({
   nearbyBeachIds,
@@ -31,14 +43,17 @@ export function useCoastPulseRealtime({
 }: UseCoastPulseRealtimeOptions) {
   const supabase = useMemo(() => createClient(), []);
 
-  // Callback refs to prevent resubscription when callbacks change
+  // Callback refs prevent resubscription when callbacks change identity
   const onIntelPostRef = useRef(onIntelPost);
   const onConditionsChangedRef = useRef(onConditionsChanged);
   const onSessionEventRef = useRef(onSessionEvent);
 
-  // Debounce timer refs
-  const forecastDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Debounce timer ref for session events
   const sessionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // isStale promoted to ref so cleanup reliably gates in-flight async callbacks
+  // (a `let` captured in a closure can't be observed by callbacks after re-renders)
+  const isStaleRef = useRef(false);
 
   useEffect(() => {
     onIntelPostRef.current = onIntelPost;
@@ -52,22 +67,46 @@ export function useCoastPulseRealtime({
     onSessionEventRef.current = onSessionEvent;
   }, [onSessionEvent]);
 
-  // Stable channel key from sorted beach IDs
+  // Stable channel key from sorted, capped beach IDs
   const channelKey = useMemo(() => {
     if (nearbyBeachIds.length === 0) return "";
     const sorted = [...nearbyBeachIds].sort();
     return sorted.join(",").slice(0, 50);
   }, [nearbyBeachIds]);
 
+  // --- 5-minute poll for forecast/conditions changes ---
+  // clearInterval is the authoritative cleanup here; no need for isStaleRef guard
+  // since the interval itself is torn down on unmount.
   useEffect(() => {
     if (!channelKey || nearbyBeachIds.length === 0) return;
 
-    // O(1) lookup set for filtering
+    const interval = setInterval(() => {
+      onConditionsChangedRef.current();
+    }, FORECAST_POLL_MS);
+
+    return () => {
+      clearInterval(interval);
+    };
+    // channelKey already encodes the full beach-id set; nearbyBeachIds.length
+    // can't change without channelKey changing, so the lint hint is wrong.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelKey]);
+
+  // --- Realtime channels: intel_posts + sessions ---
+  useEffect(() => {
+    if (!channelKey || nearbyBeachIds.length === 0) return;
+
+    isStaleRef.current = false;
+
+    // Cap to Supabase's max for in. filter
+    const filteredIds = nearbyBeachIds.slice(0, REALTIME_IN_FILTER_MAX);
+    const beachFilter = `beach_id=in.(${filteredIds.join(",")})`;
+
+    // Retain a Set for O(1) client-side cross-check (guards non-indexed rows)
     const beachIdSet = new Set(nearbyBeachIds);
     const channels: RealtimeChannel[] = [];
-    let isStale = false;
 
-    // Channel 1: Intel posts (immediate)
+    // Channel 1: Intel posts (immediate callback)
     const intelChannel = supabase
       .channel(`coast-pulse-intel-${channelKey}`)
       .on(
@@ -76,11 +115,12 @@ export function useCoastPulseRealtime({
           event: "INSERT",
           schema: "public",
           table: "intel_posts",
+          filter: beachFilter,
         },
         (payload: RealtimePostgresInsertPayload<Record<string, any>>) => {
-          if (isStale) return;
+          if (isStaleRef.current) return;
           const record = payload.new;
-          // Filter: must have beach_id in our set, or be geographically nearby (handled by caller)
+          // Secondary client-side guard for IDs beyond the cap
           if (record.beach_id && !beachIdSet.has(record.beach_id)) return;
 
           const intelPayload: IntelPostPayload = {
@@ -102,32 +142,7 @@ export function useCoastPulseRealtime({
       .subscribe();
     channels.push(intelChannel);
 
-    // Channel 2: Forecast/conditions changes (500ms debounce)
-    const forecastChannel = supabase
-      .channel(`coast-pulse-forecasts-${channelKey}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "enhanced_forecasts",
-        },
-        (payload: RealtimePostgresInsertPayload<Record<string, any>>) => {
-          if (isStale) return;
-          const record = payload.new;
-          if (record.beach_id && !beachIdSet.has(record.beach_id)) return;
-
-          if (forecastDebounceRef.current) clearTimeout(forecastDebounceRef.current);
-          forecastDebounceRef.current = setTimeout(() => {
-            if (!isStale) onConditionsChangedRef.current();
-            forecastDebounceRef.current = null;
-          }, REALTIME.FORECAST_DEBOUNCE_MS);
-        }
-      )
-      .subscribe();
-    channels.push(forecastChannel);
-
-    // Channel 3: Sessions (debounced)
+    // Channel 2: Sessions (debounced)
     const sessionChannel = supabase
       .channel(`coast-pulse-sessions-${channelKey}`)
       .on(
@@ -136,15 +151,17 @@ export function useCoastPulseRealtime({
           event: "INSERT",
           schema: "public",
           table: "sessions",
+          filter: beachFilter,
         },
         (payload: RealtimePostgresInsertPayload<Record<string, any>>) => {
-          if (isStale) return;
+          if (isStaleRef.current) return;
           const record = payload.new;
+          // Secondary client-side guard for IDs beyond the cap
           if (record.beach_id && !beachIdSet.has(record.beach_id)) return;
 
           if (sessionDebounceRef.current) clearTimeout(sessionDebounceRef.current);
           sessionDebounceRef.current = setTimeout(() => {
-            if (isStale) return;
+            if (isStaleRef.current) return;
             const sessionPayload: SessionPayload = {
               id: record.id,
               beach_id: record.beach_id,
@@ -161,25 +178,19 @@ export function useCoastPulseRealtime({
     channels.push(sessionChannel);
 
     return () => {
-      isStale = true;
-      if (forecastDebounceRef.current) {
-        clearTimeout(forecastDebounceRef.current);
-        forecastDebounceRef.current = null;
-      }
+      isStaleRef.current = true;
       if (sessionDebounceRef.current) {
         clearTimeout(sessionDebounceRef.current);
         sessionDebounceRef.current = null;
       }
-      // Delayed cleanup to prevent WebSocket race conditions
-      setTimeout(() => {
-        channels.forEach((channel) => {
-          supabase.removeChannel(channel).catch(() => {
-            if (process.env.NODE_ENV === "development") {
-              console.debug("Coast Pulse channel cleanup completed");
-            }
-          });
+      // Remove channels directly — supabase.removeChannel() returns a Promise
+      // and is safe to call immediately. The previous setTimeout wrapper caused
+      // a cleanup leak: the delay meant channels persisted past component unmount.
+      channels.forEach((channel) => {
+        supabase.removeChannel(channel).catch(() => {
+          // Silently ignore — channel may already be closed by the server
         });
-      }, REALTIME.CLEANUP_DELAY_MS);
+      });
     };
   }, [supabase, channelKey, nearbyBeachIds]);
 }

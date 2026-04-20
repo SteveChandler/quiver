@@ -31,6 +31,10 @@ jest.mock("@/actions/spot/spot-surf-report-actions", () => ({
     report: null,
     isTomorrow: false,
   }),
+  getSpotSurfReportPublic: jest.fn().mockResolvedValue({
+    report: null,
+    isTomorrow: false,
+  }),
 }));
 
 jest.mock("@/lib/utils/timezone-utils.server", () => ({

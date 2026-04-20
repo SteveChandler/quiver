@@ -14,9 +14,11 @@ const HLSVideoPlayer = dynamic(() => import("./hls-video-player"), {
 interface CamsSectionProps {
   sources?: BeachSources | null;
   variant?: "default" | "hero";
+  /** Beach name used for accessible video labels, e.g. "Live cam of Malibu Surfrider" */
+  beachName?: string;
 }
 
-export function CamsSection({ sources, variant = "default" }: CamsSectionProps) {
+export function CamsSection({ sources, variant = "default", beachName }: CamsSectionProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeBlocked, setIframeBlocked] = useState(false);
   const [hlsError, setHlsError] = useState(false);
@@ -71,49 +73,63 @@ export function CamsSection({ sources, variant = "default" }: CamsSectionProps) 
 
   const dioramaUrl = sources?.diorama_url ?? undefined;
 
-  let visual: React.ReactNode;
+  const dioramaVisual = dioramaUrl ? (
+    <div className="relative aspect-video w-full overflow-hidden bg-[#252D6B]">
+      {/* Diorama is a decorative AI-generated loop — no informational content */}
+      <video
+        src={dioramaUrl}
+        autoPlay
+        loop
+        playsInline
+        muted
+        role="presentation"
+        aria-hidden="true"
+        className="h-full w-full object-cover"
+      />
+    </div>
+  ) : null;
 
-  if (dioramaUrl) {
-    visual = (
-      <div className="relative aspect-video w-full overflow-hidden bg-[#252D6B]">
-        <video
-          src={dioramaUrl}
-          autoPlay
-          loop
-          playsInline
-          muted
-          className="h-full w-full object-cover"
-        />
+  const noCamVisual = (
+    <div className="flex h-64 flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-100/80 via-white to-blue-50 text-center">
+      <CameraOff className="h-10 w-10 text-ocean-blue" />
+      <div className="max-w-sm text-sm text-muted-foreground">
+        No live cam available yet. Know a good angle? Let the crew know.
       </div>
-    );
-  } else if (!cameraUrl) {
-    visual = (
-      <div className="flex h-64 flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-100/80 via-white to-blue-50 text-center">
-        <CameraOff className="h-10 w-10 text-ocean-blue" />
-        <div className="max-w-sm text-sm text-muted-foreground">
-          No live cam available yet. Know a good angle? Let the crew know.
-        </div>
-        <Button
-          asChild
-          size="sm"
-          className="bg-ocean-blue text-white hover:bg-ocean-blue/90"
+      <Button
+        asChild
+        size="sm"
+        className="bg-ocean-blue text-white hover:bg-ocean-blue/90"
+      >
+        <a
+          href="mailto:support@quiversurf.app?subject=Cam%20suggestion"
+          rel="noopener noreferrer"
         >
-          <a
-            href="mailto:support@quiversurf.app?subject=Cam%20suggestion"
-            rel="noopener noreferrer"
-          >
-            Suggest a cam
-          </a>
-        </Button>
-      </div>
-    );
-  } else if (allowIframe && intent) {
+          Suggest a cam
+        </a>
+      </Button>
+    </div>
+  );
+
+  const streamUnavailableVisual = (
+    <div className="flex h-64 flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-100/70 via-white to-blue-50 text-center">
+      <CameraOff className="h-10 w-10 text-muted-foreground" />
+      <p className="text-sm text-muted-foreground">Live stream unavailable right now</p>
+    </div>
+  );
+
+  let visual: React.ReactNode;
+  // Shared accessible label used across iframe / hdontap / hls / video branches
+  // so screen readers hear the spot name instead of a generic "Live Cam" for
+  // every beach.
+  const camLabel = beachName ? `Live cam of ${beachName}` : "Live Cam";
+
+  if (allowIframe && intent) {
     visual = (
       <div key={playerKey} className="relative aspect-video w-full overflow-hidden bg-black">
         <iframe
           ref={iframeRef}
           src={intent.src}
-          title={intent.title || "Live Cam"}
+          title={intent.title || camLabel}
           allow={intent.allow}
           className="h-full w-full object-cover"
           loading="lazy"
@@ -123,12 +139,9 @@ export function CamsSection({ sources, variant = "default" }: CamsSectionProps) 
     );
   } else if (intent?.kind === "hdontap") {
     visual = hlsError ? (
-      <div className="flex h-64 flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-100/70 via-white to-blue-50 text-center">
-        <CameraOff className="h-10 w-10 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">Live stream unavailable right now</p>
-      </div>
+      dioramaVisual ?? streamUnavailableVisual
     ) : resolvedHlsUrl ? (
-      <HLSVideoPlayer key={playerKey} src={resolvedHlsUrl} title="Live Cam" onError={() => setHlsError(true)} />
+      <HLSVideoPlayer key={playerKey} src={resolvedHlsUrl} title={camLabel} onError={() => setHlsError(true)} />
     ) : (
       <div className="flex h-64 flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-100/70 via-white to-blue-50 text-muted-foreground">
         <Loader2 className="h-6 w-6 animate-spin text-ocean-blue" />
@@ -136,14 +149,9 @@ export function CamsSection({ sources, variant = "default" }: CamsSectionProps) 
       </div>
     );
   } else if (intent?.kind === "hls") {
-    visual = hlsError ? (
-      <div className="flex h-64 flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-100/70 via-white to-blue-50 text-center">
-        <CameraOff className="h-10 w-10 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">Live stream unavailable right now</p>
-      </div>
-    ) : (
-      <HLSVideoPlayer key={playerKey} src={intent.src} title="Live Cam" onError={() => setHlsError(true)} />
-    );
+    visual = hlsError
+      ? (dioramaVisual ?? streamUnavailableVisual)
+      : <HLSVideoPlayer key={playerKey} src={intent.src} title={camLabel} onError={() => setHlsError(true)} />;
   } else if (intent?.kind === "video") {
     visual = (
       <div key={playerKey} className="relative aspect-video w-full overflow-hidden bg-black">
@@ -153,12 +161,18 @@ export function CamsSection({ sources, variant = "default" }: CamsSectionProps) 
           autoPlay
           playsInline
           muted
+          aria-label={camLabel}
           className="h-full w-full object-cover"
         />
       </div>
     );
+  } else if (dioramaVisual) {
+    // No embeddable camera (either no camera_url, or intent.kind === "none") — fall back to diorama
+    visual = dioramaVisual;
+  } else if (!cameraUrl) {
+    visual = noCamVisual;
   } else {
-    // Camera exists but can't be embedded — hide section entirely
+    // Camera exists but can't be embedded and no diorama fallback — hide section entirely
     return null;
   }
 

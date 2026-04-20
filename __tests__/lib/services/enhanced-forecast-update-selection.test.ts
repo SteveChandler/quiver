@@ -65,6 +65,10 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
 
         throw new Error(`Unexpected table: ${table}`);
       },
+      rpc: (_fn: string, _args: any) =>
+        // fetchNowcastAnchors calls get_nowcast_anchors once per run.
+        // Return empty so the per-beach builds fall through to forecast-only.
+        Promise.resolve({ data: [], error: null }),
     };
 
     jest.doMock("@/lib/supabase/server", () => ({

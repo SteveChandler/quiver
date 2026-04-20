@@ -234,6 +234,43 @@ describe("submitConditionsReport", () => {
       expect(inner.data?.sessionId).toBe("session-xyz");
     });
 
+    test("emits user_events rows for intel_post_created and session_log_submit", async () => {
+      const supabase = createSupabaseMock();
+      supabase.auth.getUser.mockResolvedValue({ data: { user: mockUser }, error: null } as any);
+      mockSupabaseClient(supabase);
+
+      supabase.limit.mockResolvedValueOnce(noExistingReports);
+      supabase.single
+        .mockResolvedValueOnce({ data: mockBeach, error: null })
+        .mockResolvedValueOnce({ data: mockIntelPost, error: null })
+        .mockResolvedValueOnce({ data: mockSession, error: null });
+
+      await submitConditionsReport({
+        beachId: "beach-1",
+        waveSizeRange: "3-4ft",
+        vibe: "firing",
+      });
+
+      // Flush microtasks so fire-and-forget IIFEs complete before assertions.
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(supabase.from).toHaveBeenCalledWith("user_events");
+      expect(supabase.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: mockUser.id,
+          event_type: "intel_post_created",
+          beach_id: "beach-1",
+        })
+      );
+      expect(supabase.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: mockUser.id,
+          event_type: "session_log_submit",
+          beach_id: "beach-1",
+        })
+      );
+    });
+
     test("succeeds even when session insert fails", async () => {
       const supabase = createSupabaseMock();
       supabase.auth.getUser.mockResolvedValue({ data: { user: mockUser }, error: null } as any);

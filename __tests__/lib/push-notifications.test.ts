@@ -6,9 +6,9 @@
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 
 // Mock Firebase Admin SDK
-const mockSendEachForMulticast = jest.fn<any>();
+const mockSendEach = jest.fn<any>();
 const mockMessaging = {
-  sendEachForMulticast: mockSendEachForMulticast,
+  sendEach: mockSendEach,
 };
 
 jest.mock("@/lib/services/firebase-admin", () => ({
@@ -48,18 +48,9 @@ describe("Push Notifications Service", () => {
     });
 
     it("should fetch device tokens and send push notifications", async () => {
-      // Mock device tokens from database
       const mockDevices = [
-        {
-          device_token: "token-1",
-          platform: "ios",
-          user_id: "user-1",
-        },
-        {
-          device_token: "token-2",
-          platform: "android",
-          user_id: "user-2",
-        },
+        { device_token: "token-1", platform: "ios", user_id: "user-1" },
+        { device_token: "token-2", platform: "android", user_id: "user-2" },
       ];
 
       mockSupabaseFrom.mockReturnValue({
@@ -71,14 +62,10 @@ describe("Push Notifications Service", () => {
         }),
       });
 
-      // Mock FCM response
-      mockSendEachForMulticast.mockResolvedValue({
+      mockSendEach.mockResolvedValue({
         successCount: 2,
         failureCount: 0,
-        responses: [
-          { success: true },
-          { success: true },
-        ],
+        responses: [{ success: true }, { success: true }],
       });
 
       const { sendSessionInvitePush } = await import(
@@ -96,19 +83,45 @@ describe("Push Notifications Service", () => {
 
       expect(result).toEqual({ success: 2, failed: 0 });
       expect(mockSupabaseFrom).toHaveBeenCalledWith("user_devices");
-      expect(mockSendEachForMulticast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          tokens: ["token-1", "token-2"],
-          notification: expect.objectContaining({
-            title: "New Surf Session Invite",
-            body: expect.stringContaining("John Doe"),
-          }),
-          data: expect.objectContaining({
-            type: "session_invite",
-            session_id: "session-123",
-          }),
-        })
-      );
+      expect(mockSendEach).toHaveBeenCalledTimes(1);
+
+      const sentMessages = mockSendEach.mock.calls[0][0] as any[];
+      expect(sentMessages).toHaveLength(2);
+      expect(sentMessages[0]).toMatchObject({
+        token: "token-1",
+        notification: {
+          title: "New Surf Session Invite",
+          body: expect.stringContaining("John Doe"),
+        },
+        data: expect.objectContaining({
+          type: "session_invite",
+          session_id: "session-123",
+        }),
+      });
+      // Assert platform-specific blocks survive the PushMessage → FCM Message
+      // mapping. These were the exact fields flagged as at-risk during the
+      // sendEachForMulticast → sendEach consolidation — if a future refactor
+      // drops them, session-invite pushes lose high-priority FCM routing and
+      // iOS badge/sound.
+      expect(sentMessages[0].android).toMatchObject({
+        priority: "high",
+        notification: {
+          channelId: "session_invites",
+          priority: "high",
+        },
+      });
+      expect(sentMessages[0].apns).toMatchObject({
+        payload: {
+          aps: {
+            sound: "default",
+            badge: 1,
+            alert: {
+              title: "New Surf Session Invite",
+              body: expect.stringContaining("John Doe"),
+            },
+          },
+        },
+      });
     });
 
     it("should prune invalid device tokens", async () => {
@@ -117,9 +130,8 @@ describe("Push Notifications Service", () => {
         { device_token: "invalid-token", platform: "ios", user_id: "user-2" },
       ];
 
-      const mockDelete = jest.fn<any>().mockReturnValue({
-        in: jest.fn<any>().mockResolvedValue({ error: null }),
-      });
+      const mockDeleteIn = jest.fn<any>().mockResolvedValue({ error: null });
+      const mockDelete = jest.fn<any>().mockReturnValue({ in: mockDeleteIn });
 
       mockSupabaseFrom.mockImplementation((table: string) => {
         if (table === "user_devices") {
@@ -136,8 +148,7 @@ describe("Push Notifications Service", () => {
         return {};
       });
 
-      // Mock FCM response with one invalid token
-      mockSendEachForMulticast.mockResolvedValue({
+      mockSendEach.mockResolvedValue({
         successCount: 1,
         failureCount: 1,
         responses: [
@@ -159,11 +170,8 @@ describe("Push Notifications Service", () => {
         sessionId: "session-123",
       });
 
-      // Verify invalid token was deleted
       expect(mockDelete).toHaveBeenCalled();
-      expect((mockDelete as any)().in).toHaveBeenCalledWith("device_token", [
-        "invalid-token",
-      ]);
+      expect(mockDeleteIn).toHaveBeenCalledWith("device_token", ["invalid-token"]);
     });
 
     it("should handle errors gracefully", async () => {
@@ -210,7 +218,7 @@ describe("Push Notifications Service", () => {
         }),
       });
 
-      mockSendEachForMulticast.mockResolvedValue({
+      mockSendEach.mockResolvedValue({
         successCount: 2,
         failureCount: 0,
         responses: [{ success: true }, { success: true }],
@@ -228,17 +236,116 @@ describe("Push Notifications Service", () => {
       });
 
       expect(result).toEqual({ success: 2, failed: 0 });
-      expect(mockSendEachForMulticast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          tokens: ["token-1", "token-2"],
-          notification: {
-            title: "Test Notification",
-            body: "This is a test",
-          },
-          data: { custom: "data" },
-        })
+      expect(mockSendEach).toHaveBeenCalledTimes(1);
+
+      const sentMessages = mockSendEach.mock.calls[0][0] as any[];
+      expect(sentMessages).toHaveLength(2);
+      expect(sentMessages[0]).toMatchObject({
+        token: "token-1",
+        notification: { title: "Test Notification", body: "This is a test" },
+        data: { custom: "data" },
+      });
+    });
+  });
+
+  describe("sendPushNotifications (pre-built messages)", () => {
+    it("is a no-op when given an empty array", async () => {
+      const { sendPushNotifications } = await import(
+        "@/lib/services/push-notifications"
       );
+
+      await sendPushNotifications([]);
+
+      expect(mockSendEach).not.toHaveBeenCalled();
+      expect(mockSupabaseFrom).not.toHaveBeenCalled();
+    });
+
+    it("sends raw FCM tokens through firebase-admin sendEach", async () => {
+      mockSendEach.mockResolvedValue({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      });
+
+      const { sendPushNotifications } = await import(
+        "@/lib/services/push-notifications"
+      );
+
+      await sendPushNotifications([
+        { to: "fcm-token-xyz", title: "Wave Alert", body: "Perfect conditions" },
+      ]);
+
+      expect(mockSendEach).toHaveBeenCalledTimes(1);
+      const messages = mockSendEach.mock.calls[0][0] as any[];
+      expect(messages).toHaveLength(1);
+      expect(messages[0]).toMatchObject({
+        token: "fcm-token-xyz",
+        notification: { title: "Wave Alert", body: "Perfect conditions" },
+      });
+    });
+
+    it("serializes non-string data payload entries for FCM", async () => {
+      mockSendEach.mockResolvedValue({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      });
+
+      const { sendPushNotifications } = await import(
+        "@/lib/services/push-notifications"
+      );
+
+      await sendPushNotifications([
+        {
+          to: "fcm-token-abc",
+          title: "Alert",
+          body: "Check it",
+          data: { count: 42, nested: { foo: "bar" }, flag: true },
+        },
+      ]);
+
+      const messages = mockSendEach.mock.calls[0][0] as any[];
+      expect(messages[0].data).toEqual({
+        count: "42",
+        nested: '{"foo":"bar"}',
+        flag: "true",
+      });
+    });
+
+    it("prunes invalid tokens from user_devices", async () => {
+      const mockDeleteIn = jest.fn<any>().mockResolvedValue({ error: null });
+      const mockDelete = jest.fn<any>().mockReturnValue({ in: mockDeleteIn });
+
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === "user_devices") {
+          return { delete: mockDelete };
+        }
+        return {};
+      });
+
+      mockSendEach.mockResolvedValue({
+        successCount: 1,
+        failureCount: 1,
+        responses: [
+          { success: true },
+          {
+            success: false,
+            error: { code: "messaging/invalid-registration-token" },
+          },
+        ],
+      });
+
+      const { sendPushNotifications } = await import(
+        "@/lib/services/push-notifications"
+      );
+
+      await sendPushNotifications([
+        { to: "good-token", title: "T", body: "B" },
+        { to: "stale-token", title: "T", body: "B" },
+      ]);
+
+      expect(mockDelete).toHaveBeenCalled();
+      expect(mockDeleteIn).toHaveBeenCalledWith("device_token", ["stale-token"]);
     });
   });
 });
-

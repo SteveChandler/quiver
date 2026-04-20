@@ -2,6 +2,8 @@ import { test, expect, Page } from '@playwright/test';
 import { TEST_BEACHES } from './fixtures/test-data';
 import { navigateToBeach, ensureAuthenticated } from './utils/test-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
+import { deleteReviewsForUser } from './utils/test-data-cleanup';
+import { getCurrentUserId } from './utils/auth-helpers';
 
 /**
  * Beach Review Tracking E2E Tests
@@ -384,8 +386,10 @@ test.describe('Beach Review Tracking', () => {
       // eslint-disable-next-line playwright/no-wait-for-timeout -- accumulating duration_ms for abandon tracking assertion
       await page.waitForTimeout(500);
 
-      // Click the Radix DialogContent close button (default aria-label="Close")
-      const closeButton = dialog.locator('button[aria-label="Close"]');
+      // Click the Radix DialogContent close button. Dialog renders both an
+      // aria-label="Close" and an sr-only "Close" span; role-based locator works
+      // without coupling to either.
+      const closeButton = dialog.getByRole("button", { name: /close/i });
       await closeButton.click();
 
       // Dialog should unmount
@@ -544,5 +548,85 @@ test.describe('Review Form UI', () => {
     const contentTextarea = page.locator('textarea');
     await contentTextarea.fill('The waves were epic today!');
     await expect(contentTextarea).toHaveValue('The waves were epic today!');
+  });
+});
+
+test.describe('Successful Submit Tracking', () => {
+  let errorCapture: ErrorCapture;
+  let testUserId: string | null = null;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    // Clean up the review this test inserted. Only clear testUserId on confirmed
+    // success so a failed cleanup leaves the signal visible in test logs.
+    if (testUserId) {
+      try {
+        await deleteReviewsForUser(testUserId, "E2E happy-path title");
+        testUserId = null;
+      } catch (err) {
+        console.warn(`Review cleanup failed for user ${testUserId}:`, err);
+        // Intentionally leave testUserId set so the failure is visible.
+      }
+    }
+    await assertNoErrors(page, errorCapture, { context: 'Successful Submit Tracking' });
+  });
+
+  test('fires review_submit and writes row on valid submit', async ({ page }) => {
+    await ensureAuthenticated(page);
+    await setupTrackingCapture(page);
+
+    await navigateToBeach(page, TEST_BEACHES.blacks);
+    await waitForTrackingReady(page);
+    testUserId = await getCurrentUserId(page);
+    await page.evaluate(() => { (window as any).__capturedTrackingEvents = []; });
+
+    // Default tab is Forecast — switch to Overview where the review CTA lives.
+    await page.getByRole('tab', { name: /overview/i }).click();
+    await page.getByRole('button', { name: /write a review/i }).first().click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible({ timeout: 5000 });
+
+    // Fill all 5 rating categories with star 4. Use aria-label text rather than
+    // positional nth() so reordering categories or adding a new one doesn't
+    // silently click the wrong star.
+    const categories = [
+      "Overall Experience",
+      "Wave Quality",
+      "Crowd Level",
+      "Parking",
+      "Accessibility",
+    ];
+    for (const category of categories) {
+      await dialog
+        .getByRole("button", { name: new RegExp(`^Rate ${category} 4 out of 5 stars`) })
+        .click();
+    }
+
+    // Fill title + content.
+    await dialog.getByPlaceholder(/summarize your experience/i).fill('E2E happy-path title');
+    await dialog.locator('textarea').fill('E2E happy-path content body for verification.');
+
+    // Submit.
+    await dialog.getByRole('button', { name: /post review/i }).click();
+
+    // Dialog should close on success.
+    await expect(dialog).not.toBeVisible({ timeout: 10000 });
+
+    // Wait for review_submit event.
+    await page.waitForFunction(
+      () => (window as any).__capturedTrackingEvents?.some((e: any) => e.eventType === 'review_submit'),
+      { timeout: 5000 }
+    );
+
+    const events = await getCapturedEvents(page);
+    const submitEvent = events.find((e) => e.eventType === 'review_submit');
+    expect(submitEvent).toBeDefined();
+    expect(submitEvent?.metadata?.source).toBe('overview_cta');
+    expect(submitEvent?.metadata?.duration_ms).toBeGreaterThan(0);
+    expect(submitEvent?.metadata?.is_edit).toBe(false);
   });
 });
