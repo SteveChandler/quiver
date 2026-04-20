@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Split `login_form_submitted` out of `signup_form_submitted`.** The `trackSignupFormSubmitted` helper (`components/auth/unified-auth-modal.tsx:471`) fired for BOTH login and signup email-form submits, guarded only by `if (!user)`. In the 7-day window before this fix, ~96% of `signup_form_submitted` rows were `metadata.mode='login'` — they inflated the signup-funnel denominator and produced a false "92% of form submits never produce accounts" alarm. Real signup health: 3 submits → 4 starts → 4 successes (near 1:1). The helper now hardcodes `mode='signup'` and accepts only `{ source }`; a parallel `trackLoginFormSubmitted` helper fires the new `login_form_submitted` event for login submits. Modal branches on `activeMode` before calling either. CHECK constraint on `user_events` extended via migration `20260420154937_add_login_form_submitted_event_type.sql`; allowlist entries added to `app/api/events/route.ts` `ANONYMOUS_ALLOWED_EVENTS` + `PRE_AUTH_ONLY_EVENTS`; type union in `types/implicit-preferences.ts`. Historical `signup_form_submitted` rows with `mode='login'` stay in the DB for continuity.
+
 ### Infrastructure
 - **Server-side Firebase Admin env vars added to Vercel production.** `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` were only present in local `quiver/.env` (gitignored), so Vercel-deployed serverless functions had them undefined and `getFirebaseAdminMessaging()` returned `null` on every invocation. That silently no-op'd `POST /api/admin/test-push`, `sendPushNotification()` in `lib/services/push-notifications.ts`, and the FCM branch of `sendPushNotifications()` in `lib/alerts/push-sender.ts` used by `condition-alert-deliver`. PR #196 triggered a Vercel production redeploy so already-warm serverless instances are recycled and pick up the newly-added env vars.
 

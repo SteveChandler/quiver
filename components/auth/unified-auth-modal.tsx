@@ -37,6 +37,7 @@ import {
   trackSignupFailed,
   trackMagicLinkSent,
   trackSignupFormSubmitted,
+  trackLoginFormSubmitted,
   categorizeAuthError,
   extractEmailDomain,
 } from "@/lib/analytics/auth-events";
@@ -468,7 +469,14 @@ export function UnifiedAuthModal({
     trackAuthMethodSelected({ method: "password", mode: activeMode });
     trackAuthProviderSelected({ provider: "email", mode: activeMode, source, email_method: "password" });
     if (!user) {
-      trackSignupFormSubmitted({ mode: activeMode, source });
+      // Emit the mode-specific event so dashboards don't have to filter by
+      // metadata.mode. Before 2026-04-20 this fired `signup_form_submitted`
+      // for both modes and inflated the signup funnel denominator (F3 fix).
+      if (activeMode === "signup") {
+        trackSignupFormSubmitted({ source });
+      } else {
+        trackLoginFormSubmitted({ source });
+      }
     }
     const start = Date.now();
 

@@ -53,6 +53,7 @@ export type ImplicitEventType =
   | 'signup_success'
   | 'login_success'
   | 'signup_form_submitted'
+  | 'login_form_submitted'
   // Home screen events
   | 'home_at_beach_click'
   | 'home_plan_weekend_click'
@@ -164,6 +165,7 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   signup_success: 0,
   login_success: 0,
   signup_form_submitted: 0,
+  login_form_submitted: 0,
   // Home screen events
   home_at_beach_click: 0,
   home_plan_weekend_click: 0,

@@ -214,7 +214,8 @@ const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
   // Auth funnel events (fire before user is authenticated — must be anonymous-allowed)
   'auth_modal_opened', 'auth_modal_closed_without_action',
   'auth_method_selected', 'auth_provider_selected',
-  'signup_started', 'signup_success', 'login_success', 'signup_form_submitted',
+  'signup_started', 'signup_success', 'login_success',
+  'signup_form_submitted', 'login_form_submitted',
   // Engagement signals from anonymous visitors
   'forecast_interaction', 'forecast_tab_click', 'horizon_strip_day_selected',
   'beach_search', 'beach_search_result_click', 'map_interaction', 'map_marker_click',
@@ -368,6 +369,7 @@ export async function POST(request: Request) {
       'signup_cta_click',
       'signin_cta_click',
       'signup_form_submitted',
+      'login_form_submitted',
       'auth_modal_opened',
       'auth_modal_closed_without_action',
     ];

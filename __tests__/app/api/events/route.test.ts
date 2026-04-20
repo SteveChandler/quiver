@@ -834,6 +834,7 @@ describe('POST /api/events', () => {
       'signup_cta_click',
       'signin_cta_click',
       'signup_form_submitted',
+      'login_form_submitted',
       'auth_modal_opened',
       'auth_modal_closed_without_action',
     ];

@@ -21,6 +21,7 @@ import {
   trackAuthWallShown,
   trackAuthWallDismissed,
   trackSignupFormSubmitted,
+  trackLoginFormSubmitted,
   categorizeAuthError,
   extractEmailDomain,
 } from "@/lib/analytics/auth-events";
@@ -135,8 +136,8 @@ describe("auth-events", () => {
     });
 
     describe("trackSignupFormSubmitted", () => {
-      it("should track form submission with mode and source", () => {
-        trackSignupFormSubmitted({ mode: "signup", source: "landing-cta" });
+      it("should track form submission with hardcoded signup mode and source", () => {
+        trackSignupFormSubmitted({ source: "landing-cta" });
 
         expect(track).toHaveBeenCalledWith("signup_form_submitted", {
           mode: "signup",
@@ -145,13 +146,36 @@ describe("auth-events", () => {
       });
 
       it("should dual-fire to /api/events", () => {
-        trackSignupFormSubmitted({ mode: "login", source: "auth-gate" });
+        trackSignupFormSubmitted({ source: "auth-gate" });
 
         expect(mockFetch).toHaveBeenCalledWith(
           "/api/events",
           expect.objectContaining({
             method: "POST",
             body: expect.stringContaining("signup_form_submitted"),
+          })
+        );
+      });
+    });
+
+    describe("trackLoginFormSubmitted", () => {
+      it("should track form submission with hardcoded login mode and source", () => {
+        trackLoginFormSubmitted({ source: "landing-navbar" });
+
+        expect(track).toHaveBeenCalledWith("login_form_submitted", {
+          mode: "login",
+          source: "landing-navbar",
+        });
+      });
+
+      it("should dual-fire to /api/events", () => {
+        trackLoginFormSubmitted({ source: "app-header" });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          "/api/events",
+          expect.objectContaining({
+            method: "POST",
+            body: expect.stringContaining("login_form_submitted"),
           })
         );
       });
