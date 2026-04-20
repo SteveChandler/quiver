@@ -36,6 +36,7 @@ jest.mock("@/lib/analytics/auth-events", () => ({
   trackSignupSuccess: jest.fn(),
   trackSignupFailed: jest.fn(),
   trackSignupFormSubmitted: jest.fn(),
+  trackLoginFormSubmitted: jest.fn(),
   trackMagicLinkSent: jest.fn(),
   categorizeAuthError: jest.fn(() => "unknown_error"),
   extractEmailDomain: jest.fn((email) => email.split("@")[1] || "unknown"),
