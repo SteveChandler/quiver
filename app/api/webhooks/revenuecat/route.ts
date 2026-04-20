@@ -240,11 +240,10 @@ async function recordFailure(
 ): Promise<NextResponse> {
   try {
     const supabase = await createSupabaseServiceRoleClient();
-    // `user_entitlements_failed_webhooks` migration is pending user approval
-    // (see supabase/migrations/20260420233100_create_user_entitlements_failed_webhooks.sql).
-    // Until it lands, the insert will fail at runtime; the console.error
-    // below + 500 fallback ensures we never silently drop a failed event.
-    // Cast is intentional: type-generator hasn't picked the table up yet.
+    // `as any` on the client: payload is a jsonb column and the generated
+    // Insert type requires a strict Json recursive type which RCEvent's
+    // `[k: string]: unknown` index signature can't satisfy. Same boundary
+    // as the user_entitlements upsert above.
     await (supabase as any)
       .from("user_entitlements_failed_webhooks")
       .insert({

@@ -5733,6 +5733,39 @@ export type Database = {
         }
         Relationships: []
       }
+      user_entitlements_failed_webhooks: {
+        Row: {
+          error_message: string | null
+          event_type: string | null
+          id: string
+          last_retried_at: string | null
+          payload: Json
+          received_at: string
+          retry_count: number
+          user_id: string | null
+        }
+        Insert: {
+          error_message?: string | null
+          event_type?: string | null
+          id?: string
+          last_retried_at?: string | null
+          payload: Json
+          received_at?: string
+          retry_count?: number
+          user_id?: string | null
+        }
+        Update: {
+          error_message?: string | null
+          event_type?: string | null
+          id?: string
+          last_retried_at?: string | null
+          payload?: Json
+          received_at?: string
+          retry_count?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       user_events: {
         Row: {
           beach_id: string | null
