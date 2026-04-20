@@ -1,202 +1,121 @@
 /**
  * Device Token Management API
- * Handles registration and removal of FCM device tokens
- * Following patterns from app/api/session-planner/invitations/route.ts
+ * Handles registration and removal of FCM device tokens.
+ *
+ * Accepts both cookie-based SSR auth (web) and Authorization: Bearer <jwt>
+ * (native clients) via withAuth — the previous createSupabaseServerClient()
+ * path only read cookies, causing all native device registrations to 401.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { withAuth, createSuccessResponse } from "@/lib/middleware/api-wrappers";
 
 /**
  * POST /api/devices/upsert
  * Register or update a device token for push notifications
  */
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { platform, device_token } = body;
+export const POST = withAuth(async (request: NextRequest, { user, supabase }) => {
+  const body = await request.json();
+  const { platform, device_token } = body;
 
-    // Validate input
-    if (!platform || !device_token) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Platform and device_token are required",
-          timestamp: new Date().toISOString(),
-        },
-        { status: 400 }
-      );
-    }
-
-    // Validate device token length (max 512 characters)
-    if (device_token.length > 512) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Device token exceeds maximum length of 512 characters",
-          timestamp: new Date().toISOString(),
-        },
-        { status: 400 }
-      );
-    }
-
-    // Validate device token is not empty string
-    if (device_token.trim().length === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Device token cannot be empty",
-          timestamp: new Date().toISOString(),
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!["ios", "android", "web"].includes(platform)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid platform. Must be "ios", "android", or "web"',
-          timestamp: new Date().toISOString(),
-        },
-        { status: 400 }
-      );
-    }
-
-    // Authenticate user
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Authentication required",
-          timestamp: new Date().toISOString(),
-        },
-        { status: 401 }
-      );
-    }
-
-    // Upsert device token (insert or update if exists)
-    const { error: upsertError } = await supabase
-      .from("user_devices")
-      .upsert(
-        {
-          user_id: user.id,
-          platform,
-          device_token,
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "user_id,device_token",
-        }
-      );
-
-    if (upsertError) {
-      console.error("Device token upsert failed:", upsertError);
-      throw upsertError;
-    }
-
-    return createSuccessResponse({
-      message: "Device registered successfully",
-      platform,
-    });
-  } catch (error) {
-    console.error("Device upsert error:", error);
-    return handleApiError(error);
+  if (!platform || !device_token) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Platform and device_token are required",
+        timestamp: new Date().toISOString(),
+      },
+      { status: 400 }
+    );
   }
-}
+
+  if (device_token.length > 512) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Device token exceeds maximum length of 512 characters",
+        timestamp: new Date().toISOString(),
+      },
+      { status: 400 }
+    );
+  }
+
+  if (device_token.trim().length === 0) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Device token cannot be empty",
+        timestamp: new Date().toISOString(),
+      },
+      { status: 400 }
+    );
+  }
+
+  if (!["ios", "android", "web"].includes(platform)) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Invalid platform. Must be "ios", "android", or "web"',
+        timestamp: new Date().toISOString(),
+      },
+      { status: 400 }
+    );
+  }
+
+  const { error: upsertError } = await supabase
+    .from("user_devices")
+    .upsert(
+      {
+        user_id: user.id,
+        platform,
+        device_token,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: "user_id,device_token",
+      }
+    );
+
+  if (upsertError) {
+    console.error("Device token upsert failed:", upsertError);
+    throw upsertError;
+  }
+
+  return createSuccessResponse({
+    message: "Device registered successfully",
+    platform,
+  });
+}, { errorMessage: "Failed to register device" });
 
 /**
  * DELETE /api/devices/upsert
  * Remove a device token (e.g., on logout or token refresh)
  */
-export async function DELETE(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { device_token } = body;
+export const DELETE = withAuth(async (request: NextRequest, { user, supabase }) => {
+  const body = await request.json();
+  const { device_token } = body;
 
-    if (!device_token) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "device_token is required",
-          timestamp: new Date().toISOString(),
-        },
-        { status: 400 }
-      );
-    }
-
-    // Authenticate user
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Authentication required",
-          timestamp: new Date().toISOString(),
-        },
-        { status: 401 }
-      );
-    }
-
-    // Delete device token
-    const { error: deleteError } = await supabase
-      .from("user_devices")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("device_token", device_token);
-
-    if (deleteError) {
-      console.error("Device token deletion failed:", deleteError);
-      throw deleteError;
-    }
-
-    return createSuccessResponse({ message: "Device removed successfully" });
-  } catch (error) {
-    console.error("Device deletion error:", error);
-    return handleApiError(error);
+  if (!device_token) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "device_token is required",
+        timestamp: new Date().toISOString(),
+      },
+      { status: 400 }
+    );
   }
-}
 
+  const { error: deleteError } = await supabase
+    .from("user_devices")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("device_token", device_token);
 
+  if (deleteError) {
+    console.error("Device token deletion failed:", deleteError);
+    throw deleteError;
+  }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  return createSuccessResponse({ message: "Device removed successfully" });
+}, { errorMessage: "Failed to remove device" });
