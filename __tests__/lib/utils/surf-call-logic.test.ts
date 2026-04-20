@@ -162,6 +162,10 @@ describe('computeSurfCall', () => {
       const result = computeSurfCall(window, forecasts, makeBeach());
       expect(result.verdict).toBe('NO');
       expect(result.whySentence).toBe('No viable window long enough to surf.');
+      // Short-window NO must suppress the "Best window" row — a verdict NO
+      // with a concrete window range contradicts itself in the UI.
+      expect(result.bestWindowStart).toBeNull();
+      expect(result.bestWindowEnd).toBeNull();
     });
 
     it('returns NO for window exactly 29 minutes', () => {
@@ -171,6 +175,8 @@ describe('computeSurfCall', () => {
       const result = computeSurfCall(window, forecasts, makeBeach());
       expect(result.verdict).toBe('NO');
       expect(result.whySentence).toBe('No viable window long enough to surf.');
+      expect(result.bestWindowStart).toBeNull();
+      expect(result.bestWindowEnd).toBeNull();
     });
 
     it('caps YES to MAYBE for window between 30-44 minutes', () => {
