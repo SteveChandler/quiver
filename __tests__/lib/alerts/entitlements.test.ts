@@ -1,22 +1,140 @@
-import { getUserEntitlement, canCreateRule, CAPS } from "@/lib/alerts/entitlements";
+import {
+  getUserEntitlement,
+  canCreateRule,
+  entitlementFromRow,
+  CAPS,
+} from "@/lib/alerts/entitlements";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+/**
+ * Minimal Supabase client stub that exposes only the chain the real impl
+ * uses (`from().select().eq().maybeSingle()`) and returns a caller-provided
+ * row. Lets each test control the user_entitlements lookup without a real
+ * network roundtrip.
+ */
+function makeSupabaseStub(rowByUserId: Record<string, unknown>): SupabaseClient {
+  return {
+    from: () => ({
+      select: () => ({
+        eq: (_col: string, userId: string) => ({
+          maybeSingle: async () => ({
+            data: rowByUserId[userId] ?? null,
+            error: null,
+          }),
+        }),
+      }),
+    }),
+  } as unknown as SupabaseClient;
+}
 
 describe("getUserEntitlement", () => {
-  const origEnv = process.env.ALERT_PREVIEW_MODE;
-  afterEach(() => { process.env.ALERT_PREVIEW_MODE = origEnv; });
+  const origPreview = process.env.ALERT_PREVIEW_MODE;
+  const origBeta = process.env.ALERT_BETA_USER_IDS;
+  afterEach(() => {
+    process.env.ALERT_PREVIEW_MODE = origPreview;
+    process.env.ALERT_BETA_USER_IDS = origBeta;
+  });
 
-  it("returns premium when preview mode is on", () => {
+  it("returns premium when ALERT_PREVIEW_MODE=true (no DB read)", async () => {
     process.env.ALERT_PREVIEW_MODE = "true";
-    expect(getUserEntitlement("any-user")).toBe("premium");
+    delete process.env.ALERT_BETA_USER_IDS;
+    const supabase = makeSupabaseStub({});
+    expect(await getUserEntitlement("any-user", supabase)).toBe("premium");
   });
 
-  it("returns free when preview mode is off", () => {
-    process.env.ALERT_PREVIEW_MODE = "false";
-    expect(getUserEntitlement("any-user")).toBe("free");
-  });
-
-  it("returns free when preview mode is undefined", () => {
+  it("returns premium for a user in ALERT_BETA_USER_IDS", async () => {
     delete process.env.ALERT_PREVIEW_MODE;
-    expect(getUserEntitlement("any-user")).toBe("free");
+    process.env.ALERT_BETA_USER_IDS = "user-a, user-b ,user-c";
+    const supabase = makeSupabaseStub({});
+    expect(await getUserEntitlement("user-b", supabase)).toBe("premium");
+  });
+
+  it("does not match substrings in ALERT_BETA_USER_IDS", async () => {
+    process.env.ALERT_BETA_USER_IDS = "user-a,user-b";
+    const supabase = makeSupabaseStub({});
+    expect(await getUserEntitlement("user-apricot", supabase)).toBe("free");
+  });
+
+  it("returns free when mirror row is missing", async () => {
+    delete process.env.ALERT_PREVIEW_MODE;
+    delete process.env.ALERT_BETA_USER_IDS;
+    const supabase = makeSupabaseStub({});
+    expect(await getUserEntitlement("unknown", supabase)).toBe("free");
+  });
+
+  it("returns premium when mirror row has is_pro=true and future expires_at", async () => {
+    const supabase = makeSupabaseStub({
+      "active-user": {
+        is_pro: true,
+        is_trialing: false,
+        expires_at: new Date(Date.now() + 86_400_000).toISOString(),
+      },
+    });
+    expect(await getUserEntitlement("active-user", supabase)).toBe("premium");
+  });
+
+  it("returns premium when mirror row has is_trialing=true", async () => {
+    const supabase = makeSupabaseStub({
+      "trialing-user": {
+        is_pro: true,
+        is_trialing: true,
+        expires_at: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+      },
+    });
+    expect(await getUserEntitlement("trialing-user", supabase)).toBe("premium");
+  });
+
+  it("returns free when is_pro=true but expires_at is in the past (stale mirror)", async () => {
+    // RC EXPIRATION webhook hasn't landed yet — treat as free rather than
+    // extend paid access past expiry.
+    const supabase = makeSupabaseStub({
+      "stale-user": {
+        is_pro: true,
+        is_trialing: false,
+        expires_at: new Date(Date.now() - 86_400_000).toISOString(),
+      },
+    });
+    expect(await getUserEntitlement("stale-user", supabase)).toBe("free");
+  });
+
+  it("returns free when is_pro=false and is_trialing=false", async () => {
+    const supabase = makeSupabaseStub({
+      "lapsed-user": {
+        is_pro: false,
+        is_trialing: false,
+        expires_at: new Date(Date.now() + 86_400_000).toISOString(),
+      },
+    });
+    expect(await getUserEntitlement("lapsed-user", supabase)).toBe("free");
+  });
+});
+
+describe("entitlementFromRow (pure)", () => {
+  it("returns free for null/undefined", () => {
+    expect(entitlementFromRow(null)).toBe("free");
+    expect(entitlementFromRow(undefined)).toBe("free");
+  });
+
+  it("returns free when neither flag is set", () => {
+    expect(entitlementFromRow({ is_pro: false, is_trialing: false })).toBe("free");
+  });
+
+  it("returns premium when is_pro=true without expires_at", () => {
+    // expires_at missing means no staleness check applies.
+    expect(entitlementFromRow({ is_pro: true })).toBe("premium");
+  });
+
+  it("returns premium when is_trialing=true", () => {
+    expect(entitlementFromRow({ is_trialing: true })).toBe("premium");
+  });
+
+  it("returns free when is_pro=true but expires_at is past", () => {
+    expect(
+      entitlementFromRow({
+        is_pro: true,
+        expires_at: new Date(Date.now() - 60_000).toISOString(),
+      }),
+    ).toBe("free");
   });
 });
 
@@ -67,5 +185,13 @@ describe("canCreateRule", () => {
   it("allows premium user at beach cap on existing beach", () => {
     const result = canCreateRule({ tier: "premium", homeBeachId: "beach-1", targetBeachId: "beach-5", existingRuleCount: 10, existingBeachCount: 10, isExistingBeach: true, presetType: null });
     expect(result.allowed).toBe(true);
+  });
+});
+
+// Sanity: CAPS has the expected shape and no regressions.
+describe("CAPS", () => {
+  it("free tier is narrower than premium", () => {
+    expect(CAPS.free.totalRules).toBeLessThan(CAPS.premium.totalRules);
+    expect(CAPS.free.beaches).toBeLessThan(CAPS.premium.beaches);
   });
 });

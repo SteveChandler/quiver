@@ -136,7 +136,7 @@ export async function GET(request: Request) {
 
         // Entitlement cap — same pattern as condition-alert-evaluate.
         // Newest rules are dropped first when a user exceeds their tier cap.
-        const tier = getUserEntitlement(userId);
+        const tier = await getUserEntitlement(userId, supabase);
         const caps = CAPS[tier];
         const sortedRules = [...userRules].sort(
           (a, b) =>

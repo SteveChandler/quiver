@@ -80,7 +80,7 @@ export async function GET(request: Request) {
         }
 
         // Apply entitlement caps — skip newest rules first
-        const tier = getUserEntitlement(userId);
+        const tier = await getUserEntitlement(userId, supabase);
         const caps = CAPS[tier];
         const sortedRules = [...userRules].sort(
           (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()

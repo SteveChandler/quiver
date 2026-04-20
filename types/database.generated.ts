@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       account_deletions: {
@@ -3555,6 +3580,7 @@ export type Database = {
           created_at: string | null
           forecast_horizon_hours: number | null
           id: string
+          ml_skipped: boolean
           model_version: string
           observed_m: number | null
           om_passthrough_m: number | null
@@ -3585,6 +3611,7 @@ export type Database = {
           created_at?: string | null
           forecast_horizon_hours?: number | null
           id?: string
+          ml_skipped?: boolean
           model_version: string
           observed_m?: number | null
           om_passthrough_m?: number | null
@@ -3615,6 +3642,7 @@ export type Database = {
           created_at?: string | null
           forecast_horizon_hours?: number | null
           id?: string
+          ml_skipped?: boolean
           model_version?: string
           observed_m?: number | null
           om_passthrough_m?: number | null
@@ -5656,6 +5684,54 @@ export type Database = {
             referencedColumns: ["beach_id"]
           },
         ]
+      }
+      user_entitlements: {
+        Row: {
+          billing_issue: boolean
+          created_at: string
+          expires_at: string | null
+          is_pro: boolean
+          is_trialing: boolean
+          lapsed_at: string | null
+          previous_product_id: string | null
+          product_id: string | null
+          rc_raw: Json | null
+          trial_ends_at: string | null
+          updated_at: string
+          user_id: string
+          will_renew: boolean
+        }
+        Insert: {
+          billing_issue?: boolean
+          created_at?: string
+          expires_at?: string | null
+          is_pro?: boolean
+          is_trialing?: boolean
+          lapsed_at?: string | null
+          previous_product_id?: string | null
+          product_id?: string | null
+          rc_raw?: Json | null
+          trial_ends_at?: string | null
+          updated_at?: string
+          user_id: string
+          will_renew?: boolean
+        }
+        Update: {
+          billing_issue?: boolean
+          created_at?: string
+          expires_at?: string | null
+          is_pro?: boolean
+          is_trialing?: boolean
+          lapsed_at?: string | null
+          previous_product_id?: string | null
+          product_id?: string | null
+          rc_raw?: Json | null
+          trial_ends_at?: string | null
+          updated_at?: string
+          user_id?: string
+          will_renew?: boolean
+        }
+        Relationships: []
       }
       user_events: {
         Row: {
@@ -8598,6 +8674,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       beach_persona: [
