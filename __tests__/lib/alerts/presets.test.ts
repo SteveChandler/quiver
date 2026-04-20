@@ -1,4 +1,9 @@
-import { PRESETS, getPreset, getPresetsForGroup } from "@/lib/alerts/presets";
+import {
+  PRESETS,
+  getPreset,
+  getPresetsForGroup,
+  SIMILARITY_ALERT_DEFAULT_THRESHOLD,
+} from "@/lib/alerts/presets";
 import type { BeachAlertMeta } from "@/lib/alerts/types";
 
 const mockBeach: BeachAlertMeta = {
@@ -19,13 +24,13 @@ const mockBeach: BeachAlertMeta = {
 };
 
 describe("presets", () => {
-  it("defines exactly 7 presets", () => {
-    expect(PRESETS).toHaveLength(7);
+  it("defines exactly 8 presets", () => {
+    expect(PRESETS).toHaveLength(8);
   });
 
-  it("has 3 popular and 4 specific presets", () => {
+  it("has 3 popular and 5 specific presets", () => {
     expect(getPresetsForGroup("popular")).toHaveLength(3);
-    expect(getPresetsForGroup("specific")).toHaveLength(4);
+    expect(getPresetsForGroup("specific")).toHaveLength(5);
   });
 
   it("each preset has required fields", () => {
@@ -76,5 +81,24 @@ describe("presets", () => {
 
   it("getPreset returns undefined for invalid type", () => {
     expect(getPreset("nonexistent" as any)).toBeUndefined();
+  });
+
+  it("similarity_alert is registered and emits only a score threshold", () => {
+    const preset = getPreset("similarity_alert");
+    expect(preset).toBeDefined();
+    expect(preset!.group).toBe("specific");
+    const conditions = preset!.buildConditions(mockBeach);
+    // similarity_alert intentionally stores NO static swell/wind/tide envelope.
+    // The evaluator cron calls compute_spot_similarity_score per forecast hour;
+    // the stored threshold is the only matching input the rule row needs.
+    expect(conditions.similarity_threshold).toBe(SIMILARITY_ALERT_DEFAULT_THRESHOLD);
+    expect(conditions.swell_height_min).toBeUndefined();
+    expect(conditions.wind_speed_max_kt).toBeUndefined();
+    expect(conditions.tide_height_min_ft).toBeUndefined();
+  });
+
+  it("SIMILARITY_ALERT_DEFAULT_THRESHOLD is in the RPC's 0–10 range", () => {
+    expect(SIMILARITY_ALERT_DEFAULT_THRESHOLD).toBeGreaterThanOrEqual(0);
+    expect(SIMILARITY_ALERT_DEFAULT_THRESHOLD).toBeLessThanOrEqual(10);
   });
 });
