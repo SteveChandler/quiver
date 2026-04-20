@@ -72,6 +72,27 @@ export type Database = {
         }
         Relationships: []
       }
+      activation_push_log: {
+        Row: {
+          metadata: Json
+          nudge_type: string
+          sent_at: string
+          user_id: string
+        }
+        Insert: {
+          metadata?: Json
+          nudge_type: string
+          sent_at?: string
+          user_id: string
+        }
+        Update: {
+          metadata?: Json
+          nudge_type?: string
+          sent_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       admin_audit_log: {
         Row: {
           action: string

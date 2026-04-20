@@ -301,9 +301,7 @@ export async function GET(request: Request) {
     const windowUserIds = windowProfiles.map((p) => p.id);
 
     // 2. Idempotency filter — anyone already nudged is out.
-    // Cast: activation_push_log migration lands in the same deploy — typegen
-    // hasn't caught it yet, so narrow via `as any` until yarn db:types regenerates.
-    const { data: alreadyLogged, error: logError } = await (supabase as any)
+    const { data: alreadyLogged, error: logError } = await supabase
       .from("activation_push_log")
       .select("user_id")
       .in("user_id", windowUserIds)
@@ -549,7 +547,7 @@ export async function GET(request: Request) {
 
         await sendPushNotifications(messages);
 
-        const { error: insertError } = await (supabase as any)
+        const { error: insertError } = await supabase
           .from("activation_push_log")
           .insert({
             user_id: candidate.user_id,
