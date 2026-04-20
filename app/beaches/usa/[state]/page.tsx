@@ -24,7 +24,6 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { ItemListSchema } from "@/components/seo/item-list-schema";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- used in next task (T4)
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { SITE_URL } from "@/lib/constants/seo";
 
@@ -312,6 +311,14 @@ export default async function UsaStatePage(
         locationType="state"
       />
       </div>
+
+      <StickySignupBar
+        source={ctaSource}
+        ctaText="Get Alerts"
+        supportingText={stickySupportingText}
+        ctaCopyVariant={ctaCopyVariant}
+        buttonClassName="min-h-[48px]"
+      />
     </>
   );
 }
