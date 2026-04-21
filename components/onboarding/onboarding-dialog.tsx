@@ -242,6 +242,25 @@ export function OnboardingDialog() {
     if (hasProcessedRequiredParam.current) return;
     if (searchParams?.get("onboarding") !== "required") return;
     if (!user) return;
+
+    const stripParam = () => {
+      const next = new URLSearchParams(searchParams?.toString() ?? "");
+      next.delete("onboarding");
+      const qs = next.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    };
+
+    // Defense-in-depth against stale welcome-email links, bookmarks, and
+    // browser autocomplete: if the profile has loaded and already shows
+    // onboarding_completed_at, do NOT force-reopen the dialog. Still strip
+    // the param so refreshes settle on a clean URL. The profile-race case
+    // (profile still null for a fresh signup) falls through to reopenFresh.
+    if (profile?.onboarding_completed_at) {
+      hasProcessedRequiredParam.current = true;
+      stripParam();
+      return;
+    }
+
     hasProcessedRequiredParam.current = true;
 
     // Use `reopenFresh` instead of `reset() + openDialog()`. `reset()`
@@ -252,12 +271,8 @@ export function OnboardingDialog() {
     // store action's JSDoc and plan abstract-exploring-phoenix E1.
     reopenFresh(user.id);
 
-    // Strip the query param so a refresh doesn't re-trigger.
-    const next = new URLSearchParams(searchParams?.toString() ?? "");
-    next.delete("onboarding");
-    const qs = next.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [searchParams, user, reopenFresh, router, pathname]);
+    stripParam();
+  }, [searchParams, user, profile, reopenFresh, router, pathname]);
 
   // Keep store/UI consistent: if the store says "open" but render conditions
   // no longer allow onboarding (e.g., profile loads as complete), close it.

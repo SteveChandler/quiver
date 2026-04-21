@@ -143,31 +143,35 @@ test.describe("Onboarding dialog entry points (regression smoke)", () => {
     });
   });
 
-  test("?onboarding=required on a beach page opens dialog and strips the param", async ({
+  test("?onboarding=required for an already-activated user does NOT open the dialog, strips the param", async ({
     page,
   }) => {
-    // Plan F2: /auth/callback now appends ?onboarding=required to ANY
-    // fresh-signup redirect target (not just '/'), so a user who signs up
-    // via PublicContentGate on a beach page lands there with the dialog
-    // open instead of bypassing activation. The OnboardingDialog is mounted
-    // globally (components/providers.tsx → AuthOverlays) and its handler
-    // (onboarding-dialog.tsx:210-230) opens once then strips the param via
-    // router.replace, preserving other query params (UTM survival).
+    // The standard auth fixture (`e2e/.auth/state.json`) has
+    // `onboarding_completed_at` set. A stale welcome-email link, bookmark,
+    // or browser autocomplete can still land an activated user on
+    // /?onboarding=required — the dialog must NOT re-open for them, and
+    // the param must still be stripped so a subsequent refresh settles on
+    // a clean URL. Plan: in-quiverweb-app-on-prod-happy-nebula (2026-04-21).
     await page.goto(
       "/ca/oceanside/the-rock-oceanside?onboarding=required&foo=bar"
     );
     await waitForPageLoad(page);
 
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible({ timeout: TIMEOUTS.long });
-    await expect(page.getByText(/where do you surf/i)).toBeVisible({
-      timeout: TIMEOUTS.long,
-    });
-
+    // Param strip: URL settles with ?foo=bar preserved but no onboarding=required.
     await expect(page).toHaveURL(
       /^https?:\/\/[^/]+\/ca\/oceanside\/the-rock-oceanside\?foo=bar$/,
       { timeout: TIMEOUTS.long }
     );
+
+    // Dialog invariant: the onboarding dialog (aria-label "Set up your surf
+    // profile") must NOT appear for the already-completed fixture user.
+    const onboardingDialog = page.getByRole("dialog", {
+      name: /set up your surf profile/i,
+    });
+    const dialogVisible = await isVisibleSafe(onboardingDialog, {
+      timeout: 2000,
+    });
+    expect(dialogVisible).toBe(false);
   });
 
   test("HomeBeachStep does NOT render a Maybe later button (required step)", async ({
