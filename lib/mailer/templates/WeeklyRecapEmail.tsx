@@ -6,6 +6,22 @@ interface SessionSummary {
   topSpot: string; // e.g., "Blacks Beach"
 }
 
+/**
+ * One upcoming forecast slot surfaced in the "Best days this week" section.
+ *
+ * The weekly-recap cron queries compute_user_match_score across each user's
+ * subscribed beaches for the next 7 days, filters to score >= 6 (looser than
+ * the 7.0 alerts threshold since this is a digest, not a time-sensitive push),
+ * sorts by score desc, and picks the top N slots.
+ */
+export interface BestDaySlot {
+  beach_name: string;
+  score: number; // 0–10, rendered to one decimal
+  label: string; // EPIC | GOOD | FAIR | RIDEABLE | MEH
+  weekday: string; // e.g., "Thursday"
+  time: string; // e.g., "6am"
+}
+
 export interface WeeklyRecapEmailProps {
   userName: string | null;
   startDate: string; // e.g., "Jan 20"
@@ -13,6 +29,12 @@ export interface WeeklyRecapEmailProps {
   stats: SessionSummary;
   ctaUrl: string;
   unsubscribeUrl: string;
+  /**
+   * Top upcoming similarity-match slots across the user's subscribed beaches.
+   * Optional — when empty or undefined the section is omitted entirely, we
+   * don't render an empty "Best days this week" block.
+   */
+  bestDays?: BestDaySlot[];
 }
 
 export function WeeklyRecapEmail({
@@ -22,7 +44,9 @@ export function WeeklyRecapEmail({
   stats,
   ctaUrl,
   unsubscribeUrl,
+  bestDays,
 }: WeeklyRecapEmailProps) {
+  const showBestDays = Array.isArray(bestDays) && bestDays.length > 0;
   const greeting = userName ? `Nice work, ${userName}.` : "Nice work!";
 
   return (
@@ -168,6 +192,49 @@ export function WeeklyRecapEmail({
               </div>
             </div>
           </div>
+
+          {/* Best days this week — Phase 2 similarity-match section */}
+          {showBestDays ? (
+            <div
+              style={{
+                backgroundColor: "#354090",
+                borderRadius: "8px",
+                padding: "20px",
+                marginBottom: "24px",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 12,
+                  textTransform: "uppercase" as const,
+                  color: "rgba(255,255,255,0.6)",
+                  fontWeight: "bold",
+                  marginBottom: 12,
+                  letterSpacing: "0.5px",
+                }}
+              >
+                Best days this week
+              </div>
+              {bestDays!.map((slot, idx) => (
+                <div
+                  key={`${slot.beach_name}-${slot.weekday}-${slot.time}-${idx}`}
+                  style={{
+                    fontSize: 14,
+                    color: "#ffffff",
+                    padding: "6px 0",
+                    borderTop:
+                      idx === 0 ? "none" : "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
+                  {slot.weekday} {slot.time} — {slot.beach_name} ·{" "}
+                  <span style={{ fontWeight: "bold" }}>
+                    {slot.score.toFixed(1)}
+                  </span>{" "}
+                  <span style={{ color: "#FDB84B" }}>{slot.label}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
 
           {/* Divider */}
           <div
