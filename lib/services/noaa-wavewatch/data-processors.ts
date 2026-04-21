@@ -247,9 +247,13 @@ export function processOpenMeteoData(
       swell_1_height: swell1Height,
       swell_1_period: swell1Period,
       swell_1_direction: swell1Direction,
-      swell_2_height: swell1Height * 0.6, // Secondary swell estimate
-      swell_2_period: swell1Period * 1.2,
-      swell_2_direction: (swell1Direction + 45) % 360,
+      // Open-Meteo only exposes a single swell partition. Never synthesize
+      // a secondary from swell_1 — emit the `0` sentinel so downstream
+      // `swell_2_height > 0 && swell_2_period > 0` guards treat this as
+      // "no second swell train," not as "small second swell."
+      swell_2_height: 0,
+      swell_2_period: 0,
+      swell_2_direction: 0,
       wind_wave_height: windWaveHeight,
       wind_wave_period: windWavePeriod,
       wind_wave_direction: windWaveDirection,
