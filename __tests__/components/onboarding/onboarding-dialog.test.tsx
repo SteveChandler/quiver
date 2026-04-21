@@ -10,13 +10,14 @@ import { useSearchParams } from "next/navigation";
 jest.mock("@/context/auth-context");
 jest.mock("@/context/profile-context");
 jest.mock("@/store/onboarding-store");
+// Shared router-replace spy so tests can assert the param strip fires without
+// opening the dialog. Must be `mock`-prefixed for jest.mock hoisting.
+const mockRouterReplace = jest.fn();
 jest.mock("next/navigation", () => ({
   useSearchParams: jest.fn(),
-  // Added for plan abstract-exploring-phoenix (Commit B): the dialog now
-  // uses useRouter + usePathname to strip ?onboarding=required from the URL
-  // after opening. Tests don't assert the replace() call — the e2e spec
-  // covers that invariant — so lightweight jest.fn stubs are sufficient.
-  useRouter: () => ({ replace: jest.fn(), push: jest.fn(), refresh: jest.fn() }),
+  // Added for plan abstract-exploring-phoenix (Commit B): the dialog uses
+  // useRouter + usePathname to strip ?onboarding=required from the URL.
+  useRouter: () => ({ replace: mockRouterReplace, push: jest.fn(), refresh: jest.fn() }),
   usePathname: () => "/",
 }));
 jest.mock("@/components/onboarding/steps/home-beach-step", () => ({
@@ -68,6 +69,7 @@ describe("OnboardingDialog Logic", () => {
   const mockOpenDialog = jest.fn();
   const mockReset = jest.fn();
   const mockCheckUserId = jest.fn();
+  const mockReopenFresh = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -86,10 +88,14 @@ describe("OnboardingDialog Logic", () => {
       openDialog: mockOpenDialog,
       reset: mockReset,
       checkUserId: mockCheckUserId,
+      reopenFresh: mockReopenFresh,
       closeDialog: jest.fn(),
       setCurrentStep: jest.fn(),
     });
-    (useSearchParams as jest.Mock).mockReturnValue({ get: jest.fn() });
+    (useSearchParams as jest.Mock).mockReturnValue({
+      get: jest.fn(),
+      toString: () => "",
+    });
   });
 
   // Auto-open behaviour was removed in plan vast-dancing-whale. The dialog now
@@ -141,6 +147,30 @@ describe("OnboardingDialog Logic", () => {
 
     expect(mockOpenDialog).not.toHaveBeenCalled();
     jest.useRealTimers();
+  });
+
+  it("does NOT re-open when ?onboarding=required is set AND onboarding already completed", () => {
+    // Guards the activated-user case: a stale welcome-email link, bookmark,
+    // or browser autocomplete must not force-reopen the dialog for a user
+    // whose profile already shows onboarding_completed_at. The param must
+    // still be stripped so a refresh settles on a clean URL.
+    (useProfileContext as jest.Mock).mockReturnValue({
+      profile: {
+        onboarding_completed_at: "2026-04-20T18:42:44Z",
+        home_beach_id: "b1",
+      },
+      isLoading: false,
+    });
+    (useSearchParams as jest.Mock).mockReturnValue({
+      get: (key: string) => (key === "onboarding" ? "required" : null),
+      toString: () => "onboarding=required",
+    });
+
+    render(<OnboardingDialog />);
+
+    expect(mockReopenFresh).not.toHaveBeenCalled();
+    expect(mockOpenDialog).not.toHaveBeenCalled();
+    expect(mockRouterReplace).toHaveBeenCalledWith("/", { scroll: false });
   });
 
   it("opens dialog when ?showOnboarding=1 URL param is set", () => {
