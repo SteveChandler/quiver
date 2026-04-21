@@ -91,19 +91,57 @@ export function processNOAAGridData(
     const peakWaveDirection =
       waveDirection ?? getPrevailingWaveDirection(latitude, longitude);
 
-    // Extract swell data (if available)
+    // Extract swell data — prefer the real primary partition when NOAA
+    // provides it (NWS gridpoints that resolve over the ocean include
+    // `primarySwellHeight` / `primarySwellDirection`). Fall back to the
+    // generic `swellHeight` / `swellDirection` / `swellPeriod` fields for
+    // coastal-land grids that don't carry partitioned values.
+    const primarySwellHeight = getValueAtIndex(
+      props.primarySwellHeight?.values,
+      i
+    );
+    const primarySwellDirection = getValueAtIndex(
+      props.primarySwellDirection?.values,
+      i
+    );
     const swellHeight = getValueAtIndex(props.swellHeight?.values, i);
     const swellPeriod = getValueAtIndex(props.swellPeriod?.values, i);
     const swellDirection = getValueAtIndex(props.swellDirection?.values, i);
 
-    // Generate swell components based on available data
-    const swell1Height = swellHeight ?? significantWaveHeight * 0.7;
+    const swell1Height =
+      primarySwellHeight ?? swellHeight ?? significantWaveHeight * 0.7;
+    // Primary-partition period: wavePeriod IS the peak period, which for the
+    // primary partition equals the primary swell period. No separate
+    // `primarySwellPeriod` field exists in NOAA gridpoints.
     const swell1Period = swellPeriod ?? peakWavePeriod * 1.3;
-    const swell1Direction = swellDirection ?? peakWaveDirection;
+    const swell1Direction =
+      primarySwellDirection ?? swellDirection ?? peakWaveDirection;
 
-    const swell2Height = significantWaveHeight * 0.4;
-    const swell2Period = swell1Period * 1.1;
-    const swell2Direction = (swell1Direction + 30) % 360;
+    // Secondary partition — REAL values from NOAA or zero sentinel. Never
+    // synthesize. NOAA returns 0 (not null) for absent partitions in some
+    // cases; we normalize both to `0` so downstream consumers using the
+    // `swell_2_height > 0 && swell_2_period > 0` guard treat them as "no
+    // second swell train."
+    const secondarySwellHeightRaw = getValueAtIndex(
+      props.secondarySwellHeight?.values,
+      i
+    );
+    const secondarySwellDirectionRaw = getValueAtIndex(
+      props.secondarySwellDirection?.values,
+      i
+    );
+    const wavePeriod2Raw = getValueAtIndex(props.wavePeriod2?.values, i);
+    const hasSecondary =
+      secondarySwellHeightRaw !== null && secondarySwellHeightRaw > 0;
+    const swell2Height = hasSecondary ? secondarySwellHeightRaw : 0;
+    const swell2Period =
+      hasSecondary && wavePeriod2Raw !== null && wavePeriod2Raw > 0
+        ? wavePeriod2Raw
+        : 0;
+    const swell2Direction =
+      hasSecondary && secondarySwellDirectionRaw !== null
+        ? secondarySwellDirectionRaw
+        : 0;
 
     // Generate wind wave component
     const windWaveHeight = significantWaveHeight * 0.5;
