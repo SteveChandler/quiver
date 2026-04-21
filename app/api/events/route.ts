@@ -98,7 +98,7 @@ function checkRateLimit(userId: string, limit: number = RATE_LIMIT): { allowed: 
 // Event Configuration
 // =============================================================================
 
-const VALID_EVENTS: ImplicitEventType[] = [
+export const VALID_EVENTS: ImplicitEventType[] = [
   // Implicit preference learning events
   'beach_view',
   'discovery_click',
@@ -206,9 +206,16 @@ const VALID_EVENTS: ImplicitEventType[] = [
   // Engagement depth (anon + auth)
   'scroll_depth',
   'time_on_page',
+  // Phase 2 match-feature events (authenticated only)
+  'match_card_rendered',
+  'match_strip_tap',
+  'for_you_tap',
+  'unlock_toast_shown',
+  'session_decomposition_selected',
+  'match_alert_toggle',
 ];
 
-const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
+export const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
   'page_view', 'beach_view', 'tab_view', 'onboarding_step',
   // Conversion tracking (critical for understanding anon→authed funnel)
   'signup_cta_click', 'signup_cta_view', 'signin_cta_click', 'cta_click',
@@ -237,6 +244,21 @@ const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
   'client_error',
   // Engagement depth
   'scroll_depth', 'time_on_page',
+];
+
+/**
+ * Pre-auth funnel events should not be recorded for authenticated users.
+ * These events are only meaningful when tracking anon → authed conversion.
+ * Exported so tests can verify the invariant alongside VALID_EVENTS.
+ */
+export const PRE_AUTH_ONLY_EVENTS: ImplicitEventType[] = [
+  'signup_cta_view',
+  'signup_cta_click',
+  'signin_cta_click',
+  'signup_form_submitted',
+  'login_form_submitted',
+  'auth_modal_opened',
+  'auth_modal_closed_without_action',
 ];
 
 const ANON_RATE_LIMIT = 30; // Lower rate limit for anonymous users
@@ -369,17 +391,6 @@ export async function POST(request: Request) {
     }
 
     // Pre-auth funnel events should not be recorded for authenticated users
-    // These events are only meaningful when tracking anon → authed conversion
-    const PRE_AUTH_ONLY_EVENTS = [
-      'signup_cta_view',
-      'signup_cta_click',
-      'signin_cta_click',
-      'signup_form_submitted',
-      'login_form_submitted',
-      'auth_modal_opened',
-      'auth_modal_closed_without_action',
-    ];
-
     if (PRE_AUTH_ONLY_EVENTS.includes(eventType)) {
       return createSuccessResponse({ ok: true, skipped: true });
     }
