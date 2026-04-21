@@ -133,6 +133,82 @@ describe('processNOAAGridData — real partition parsing', () => {
     expect(result[0].swell_2_direction).toBe(0);
   });
 
+  it('reorders partitions by period descending (long-period groundswell wins swell_1 slot)', () => {
+    // Real-world live NOAA capture for offshore Oceanside (2026-04-22T13:00Z):
+    // NOAA primary = 2 ft 5s WSW (wind-sea), secondary = 2 ft 13s SSW (groundswell).
+    // NOAA ranks by height, ties are arbitrary — the long-period groundswell
+    // must land in swell_1 so downstream UI shows it as "the one that matters."
+    const gridData: NOAAGridData = {
+      properties: {
+        waveHeight: series([0.8]),
+        wavePeriod: series([5]),
+        waveDirection: series([240]),
+        primarySwellHeight: series([0.61]),
+        primarySwellDirection: series([240]),
+        swellPeriod: series([5]),
+        secondarySwellHeight: series([0.61]),
+        secondarySwellDirection: series([200]),
+        wavePeriod2: series([13]),
+      },
+    };
+
+    const result = processNOAAGridData(gridData, 1, LAT, LON);
+    // Long-period 13s SSW should land in swell_1
+    expect(result[0].swell_1_period).toBeCloseTo(13, 1);
+    expect(result[0].swell_1_direction).toBe(200);
+    expect(result[0].swell_1_height).toBeCloseTo(0.61, 2);
+    // Short-period 5s WSW wind-sea demoted to swell_2
+    expect(result[0].swell_2_period).toBeCloseTo(5, 1);
+    expect(result[0].swell_2_direction).toBe(240);
+    expect(result[0].swell_2_height).toBeCloseTo(0.61, 2);
+  });
+
+  it('preserves order when primary period >= secondary period', () => {
+    // Primary is already the longer-period train — no swap needed.
+    const gridData: NOAAGridData = {
+      properties: {
+        waveHeight: series([1.5]),
+        wavePeriod: series([15]),
+        waveDirection: series([270]),
+        primarySwellHeight: series([0.61]),
+        primarySwellDirection: series([270]),
+        swellPeriod: series([15]),
+        secondarySwellHeight: series([0.3]),
+        secondarySwellDirection: series([200]),
+        wavePeriod2: series([10]),
+      },
+    };
+
+    const result = processNOAAGridData(gridData, 1, LAT, LON);
+    expect(result[0].swell_1_period).toBeCloseTo(15, 1);
+    expect(result[0].swell_1_direction).toBe(270);
+    expect(result[0].swell_1_height).toBeCloseTo(0.61, 2);
+    expect(result[0].swell_2_period).toBeCloseTo(10, 1);
+    expect(result[0].swell_2_direction).toBe(200);
+    expect(result[0].swell_2_height).toBeCloseTo(0.3, 2);
+  });
+
+  it('handles null secondary correctly after sort (no swap, swell_2 stays 0 sentinel)', () => {
+    // Primary populated, secondary absent — behavior unchanged from pre-sort.
+    const gridData: NOAAGridData = {
+      properties: {
+        waveHeight: series([1.5]),
+        wavePeriod: series([14]),
+        waveDirection: series([270]),
+        primarySwellHeight: series([1.2]),
+        primarySwellDirection: series([265]),
+        // secondarySwellHeight, secondarySwellDirection, wavePeriod2 absent
+      },
+    };
+
+    const result = processNOAAGridData(gridData, 1, LAT, LON);
+    expect(result[0].swell_1_height).toBeCloseTo(1.2, 2);
+    expect(result[0].swell_1_direction).toBe(265);
+    expect(result[0].swell_2_height).toBe(0);
+    expect(result[0].swell_2_period).toBe(0);
+    expect(result[0].swell_2_direction).toBe(0);
+  });
+
   it('never synthesizes swell_2 from swell_1 * magic (regression guard)', () => {
     // Historical bug: swell_2_height = significantWaveHeight * 0.4
     // and swell_2_period = swell_1_period * 1.1. Neither should ever appear

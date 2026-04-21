@@ -108,20 +108,10 @@ export function processNOAAGridData(
     const swellPeriod = getValueAtIndex(props.swellPeriod?.values, i);
     const swellDirection = getValueAtIndex(props.swellDirection?.values, i);
 
-    const swell1Height =
-      primarySwellHeight ?? swellHeight ?? significantWaveHeight * 0.7;
-    // Primary-partition period: wavePeriod IS the peak period, which for the
-    // primary partition equals the primary swell period. No separate
-    // `primarySwellPeriod` field exists in NOAA gridpoints.
-    const swell1Period = swellPeriod ?? peakWavePeriod * 1.3;
-    const swell1Direction =
-      primarySwellDirection ?? swellDirection ?? peakWaveDirection;
-
-    // Secondary partition — REAL values from NOAA or zero sentinel. Never
-    // synthesize. NOAA returns 0 (not null) for absent partitions in some
-    // cases; we normalize both to `0` so downstream consumers using the
-    // `swell_2_height > 0 && swell_2_period > 0` guard treat them as "no
-    // second swell train."
+    // Secondary partition raw values — NOAA returns 0 (not null) for absent
+    // partitions in some cases; we normalize to `0` sentinel so downstream
+    // `swell_2_height > 0 && swell_2_period > 0` guards treat them as
+    // "no second swell train."
     const secondarySwellHeightRaw = getValueAtIndex(
       props.secondarySwellHeight?.values,
       i
@@ -133,15 +123,50 @@ export function processNOAAGridData(
     const wavePeriod2Raw = getValueAtIndex(props.wavePeriod2?.values, i);
     const hasSecondary =
       secondarySwellHeightRaw !== null && secondarySwellHeightRaw > 0;
-    const swell2Height = hasSecondary ? secondarySwellHeightRaw : 0;
-    const swell2Period =
+
+    // NOAA-primary partition (ranked by NOAA's height-based ordering).
+    // Fall back to generic swell fields for coastal-land grids.
+    const noaaPrimaryHeight =
+      primarySwellHeight ?? swellHeight ?? significantWaveHeight * 0.7;
+    // Primary-partition period: wavePeriod IS the peak period, which for the
+    // primary partition equals the primary swell period. No separate
+    // `primarySwellPeriod` field exists in NOAA gridpoints.
+    const noaaPrimaryPeriod = swellPeriod ?? peakWavePeriod * 1.3;
+    const noaaPrimaryDirection =
+      primarySwellDirection ?? swellDirection ?? peakWaveDirection;
+
+    const noaaSecondaryHeight = hasSecondary ? secondarySwellHeightRaw : 0;
+    const noaaSecondaryPeriod =
       hasSecondary && wavePeriod2Raw !== null && wavePeriod2Raw > 0
         ? wavePeriod2Raw
         : 0;
-    const swell2Direction =
+    const noaaSecondaryDirection =
       hasSecondary && secondarySwellDirectionRaw !== null
         ? secondarySwellDirectionRaw
         : 0;
+
+    // Re-rank by period descending. NOAA ranks partitions by HEIGHT, so on
+    // mixed-swell days the short-period wind-sea can land in the "primary"
+    // slot while the real long-period groundswell lands in "secondary."
+    // Downstream UI treats swell_1 as "the one that matters most," which for
+    // surfers is the longer period (more organized, more energy in the face).
+    // When tied, preserve NOAA order. Missing period (null/0) loses — any
+    // real period sorts ahead. Height + direction + period travel as a unit.
+    const shouldSwap =
+      hasSecondary &&
+      noaaSecondaryPeriod > 0 &&
+      noaaSecondaryPeriod > noaaPrimaryPeriod;
+
+    const swell1Height = shouldSwap ? noaaSecondaryHeight : noaaPrimaryHeight;
+    const swell1Period = shouldSwap ? noaaSecondaryPeriod : noaaPrimaryPeriod;
+    const swell1Direction = shouldSwap
+      ? noaaSecondaryDirection
+      : noaaPrimaryDirection;
+    const swell2Height = shouldSwap ? noaaPrimaryHeight : noaaSecondaryHeight;
+    const swell2Period = shouldSwap ? noaaPrimaryPeriod : noaaSecondaryPeriod;
+    const swell2Direction = shouldSwap
+      ? noaaPrimaryDirection
+      : noaaSecondaryDirection;
 
     // Generate wind wave component
     const windWaveHeight = significantWaveHeight * 0.5;
