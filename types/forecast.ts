@@ -394,6 +394,26 @@ export interface CDIPDataPoint {
   windWaveHeight?: number; // feet (derived from significantWaveHeight in cdip/data-parser)
   windWavePeriod?: number; // seconds
   windWaveDirection?: number; // degrees
+  /**
+   * Primary swell partition from CDIP when exposed (height in meters — CDIP's
+   * native unit; conversion happens at the forecast-builder layer). Null or
+   * omitted when no primary partition is available for the observation.
+   */
+  primarySwell?: {
+    heightM: number;
+    periodS: number;
+    directionDeg: number;
+  } | null;
+  /**
+   * Secondary swell partition from CDIP when exposed (height in meters — CDIP's
+   * native unit; conversion happens at the forecast-builder layer). Null or
+   * omitted when no secondary partition is available for the observation.
+   */
+  secondarySwell?: {
+    heightM: number;
+    periodS: number;
+    directionDeg: number;
+  } | null;
 }
 
 export interface CDIPBuoyData {
