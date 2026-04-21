@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`?onboarding=required` no longer re-opens dialog for already-completed users** (`components/onboarding/onboarding-dialog.tsx`). The force-open branch of `shouldRender` intentionally bypassed `hasCompletedOnboarding` to dodge a fresh-signup profile-materialization race — which meant a stale welcome-email link, bookmark, or browser autocomplete could land an activated user on `/?onboarding=required` and force the dialog open every visit. Observed in prod on `omg.its.thefuture@gmail.com` (user `73040cff-...`): three `dialog_opened` events in under 3 minutes after legitimate completion on Apr 20. Strip effect now checks `profile?.onboarding_completed_at` before calling `reopenFresh` — if profile has loaded and shows completion, the param is stripped without opening the dialog. The profile-race case (profile still `null` for fresh signups) falls through to the existing `reopenFresh` path, so the `/auth/callback` entry path is unaffected. 1 new unit test + 1 updated E2E test pin the invariant.
+
 ### Infrastructure
 - **Server-side Firebase Admin env vars added to Vercel production.** `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` were only present in local `quiver/.env` (gitignored), so Vercel-deployed serverless functions had them undefined and `getFirebaseAdminMessaging()` returned `null` on every invocation. That silently no-op'd `POST /api/admin/test-push`, `sendPushNotification()` in `lib/services/push-notifications.ts`, and the FCM branch of `sendPushNotifications()` in `lib/alerts/push-sender.ts` used by `condition-alert-deliver`. PR #196 triggered a Vercel production redeploy so already-warm serverless instances are recycled and pick up the newly-added env vars.
 
