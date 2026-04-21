@@ -98,23 +98,27 @@ export interface WaveWatchData {
    *
    * Holds a REAL secondary-partition value from NOAA (`secondarySwellHeight`)
    * or CDIP when available. No longer derived from `swell_1_height * magic`.
-   * May be 0/NULL downstream when no real secondary partition exists for the
-   * slot — downstream consumers must treat missing secondaries as "no second
-   * swell train," not as "small second swell."
+   * `0` when no real secondary partition exists for the slot — downstream
+   * consumers must treat `swell_2_height === 0` (or `swell_2_period === 0`)
+   * as "no second swell train," not as "small second swell." This is the
+   * pipeline-level sentinel; persisted/DB-level values are nullable at the
+   * `EnhancedForecastEntity` layer.
    */
   swell_2_height: number;
   /**
    * Secondary swell period in seconds.
    *
    * Real NOAA `wavePeriod2` or CDIP secondary-partition period. Not synthetic.
-   * May be 0/NULL when no real secondary partition exists for the slot.
+   * `0` when no real secondary partition exists for the slot (sentinel; see
+   * `swell_2_height` note).
    */
   swell_2_period: number;
   /**
    * Secondary swell direction in degrees.
    *
    * Real NOAA `secondarySwellDirection` or CDIP secondary-partition direction.
-   * Not synthetic. May be 0/NULL when no real secondary partition exists.
+   * Not synthetic. `0` when no real secondary partition exists (sentinel; see
+   * `swell_2_height` note).
    */
   swell_2_direction: number;
   /** Wind wave height in meters */
