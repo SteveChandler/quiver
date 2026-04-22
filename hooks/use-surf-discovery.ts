@@ -247,10 +247,6 @@ export function useSurfDiscovery(
     const hasResults = (discoveryData?.recommendations?.length ?? 0) > 0;
     if (cacheKey && hasResults) {
       writeToCache(cacheKey, discoveryData, optionsHash);
-    } else if (!hasResults) {
-      console.warn(
-        "[useSurfDiscovery] empty recommendations — skipping cache write"
-      );
     }
 
     setIsCached(false);
