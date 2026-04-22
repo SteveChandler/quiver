@@ -9,9 +9,6 @@ export interface AlertConditions {
   tide_height_min_ft?: number;
   tide_height_max_ft?: number;
   tide_direction?: "rising" | "falling" | "high" | "low";
-  // similarity_alert preset: score threshold (0–10) from compute_spot_similarity_score.
-  // Rule matches a forecast hour when the RPC's score is >= this value.
-  similarity_threshold?: number;
 }
 
 export type PresetType =
@@ -21,8 +18,7 @@ export type PresetType =
   | "mellow_session"
   | "tide_window"
   | "dawn_patrol"
-  | "epic_conditions"
-  | "similarity_alert";
+  | "epic_conditions";
 
 export interface PresetDefinition {
   type: PresetType;

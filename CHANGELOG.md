@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **Phase 1 similarity infrastructure retired.** Deleted the `/api/cron/similarity-alert-evaluate` daily cron (+ its `vercel.json` slot `0 8 * * *`), the `similarity_alert` preset wiring (`lib/alerts/presets.ts`, `lib/alerts/types.ts`, `components/alerts/preset-card.tsx`, `components/alerts/alert-rule-card.tsx`), and the orphaned `lib/alerts/consolidate.ts` helper it was the sole consumer of. The Phase 2 `/api/cron/similarity-alerts` hourly cron + `similarity_match` preset supersede them. A companion DB migration drops the `compute_spot_similarity_score` RPC and strips `similarity_alert` from the `alert_rules.preset_type` CHECK constraint — applied via MCP once this code change ships. Vercel cron slot count: 38 → 37 / 40.
+
 ### Fixed
 - **`?onboarding=required` no longer re-opens dialog for already-completed users** (`components/onboarding/onboarding-dialog.tsx`). The force-open branch of `shouldRender` intentionally bypassed `hasCompletedOnboarding` to dodge a fresh-signup profile-materialization race — which meant a stale welcome-email link, bookmark, or browser autocomplete could land an activated user on `/?onboarding=required` and force the dialog open every visit. Observed in prod on `omg.its.thefuture@gmail.com` (user `73040cff-...`): three `dialog_opened` events in under 3 minutes after legitimate completion on Apr 20. Strip effect now checks `profile?.onboarding_completed_at` before calling `reopenFresh` — if profile has loaded and shows completion, the param is stripped without opening the dialog. The profile-race case (profile still `null` for fresh signups) falls through to the existing `reopenFresh` path, so the `/auth/callback` entry path is unaffected. 1 new unit test + 1 updated E2E test pin the invariant.
 
