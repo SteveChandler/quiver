@@ -79,31 +79,29 @@ describe("condition-alert-deliver: profiles embedded join resolves at runtime", 
   });
 
   it("does NOT throw PGRST200 on the alert_queue -> profiles embedding", async () => {
-    // Simulate the prod PostgREST behavior: when the query includes
-    // `profiles!inner(...)` but no FK exists from alert_queue.user_id ->
-    // profiles.id, PostgREST returns error code PGRST200. The supabase-js
-    // client surfaces that as { data: null, error } — and the route's
-    // `if (queueError) throw queueError` path then returns HTTP 500 with
-    // `processed: 0`. That is exactly what the prod invocation produced.
+    // Post-fix behavior: the route no longer embeds `profiles!inner(...)` in
+    // the alert_queue SELECT, so PostgREST no longer returns PGRST200. This
+    // mock models the fixed code path — an empty alert_queue returns a
+    // successful { data: [], error: null } response, and the route exits
+    // cleanly with a 200 "No items due". Pre-fix, the same query shape
+    // (with the profiles embed) would 500 on PGRST200.
+    //
+    // We assert the negative: the route must NOT return 500.
+    const alertQueueSelectSpy = jest.fn((_columns: string) => ({
+      eq: () => ({
+        lte: () => ({
+          order: () => Promise.resolve({ data: [], error: null }),
+        }),
+      }),
+    }));
     mockFrom.mockImplementation((table: string) => {
       if (table === "alert_queue") {
+        return { select: alertQueueSelectSpy };
+      }
+      if (table === "profiles") {
         return {
           select: () => ({
-            eq: () => ({
-              lte: () => ({
-                order: () =>
-                  Promise.resolve({
-                    data: null,
-                    error: {
-                      code: "PGRST200",
-                      message:
-                        "Could not find a relationship between 'alert_queue' and 'profiles' in the schema cache",
-                      details:
-                        "Searched for a foreign key relationship between 'alert_queue' and 'profiles' in the schema 'public', but no matches were found.",
-                    },
-                  }),
-              }),
-            }),
+            in: () => Promise.resolve({ data: [], error: null }),
           }),
         };
       }
@@ -116,14 +114,18 @@ describe("condition-alert-deliver: profiles embedded join resolves at runtime", 
     );
     const res = await GET(req);
 
-    // Clear the known fatal-error console.error the route emits pre-fix.
-    // Done BEFORE the assertion so the afterEach guard doesn't double-fail.
-    // Once the fix lands and the route no longer 500s, this call becomes a
-    // no-op (the tracked array is empty).
+    // Drain any fatal-error console.error the route may have emitted (this
+    // becomes a no-op once the fix is in place).
     expectConsoleErrors([/\[condition-alert-deliver\] Fatal error/]);
 
     // EXPECTED (post-fix): 200 with a no-op "No items due" or a resolved
     // delivery. ACTUAL (pre-fix): 500 with { error: "Internal error" }.
     expect(res.status).not.toBe(500);
+
+    // Regression guard: the alert_queue SELECT must not embed `profiles(...)`.
+    // If a future refactor re-introduces the bad embed, this fails loudly.
+    expect(alertQueueSelectSpy).toHaveBeenCalled();
+    const selectArg = String(alertQueueSelectSpy.mock.calls[0]?.[0] ?? "");
+    expect(selectArg).not.toMatch(/profiles\s*!/);
   });
 });
