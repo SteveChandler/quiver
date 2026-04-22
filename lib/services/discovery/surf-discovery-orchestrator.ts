@@ -568,19 +568,31 @@ async function discoverSurfSpotsInner(
     );
 
     // Try today's forecasts first so we don't flip the hero to "Tomorrow's
-    // dawn patrol" while today's dawn is still minutes away. If today has
-    // no viable window (e.g. post-sunset when all remaining today rows are
-    // nighttime/pre-dawn), fall through to the full forecast set so tomorrow
-    // morning still surfaces — otherwise every beach returns null on post-
-    // sunset traffic and the UI shows a phantom empty state.
+    // dawn patrol" while today's dawn is still minutes away (the 6:23 AM
+    // regression guarded by the no-fall-through test in this suite). Fall
+    // through to the full forecast set in two cases:
+    //   1. todayForecasts was empty (data only starts tomorrow)
+    //   2. today-only returned null AND we're already post-sunset for this
+    //      beach, so "today" is genuinely over and holding the line would
+    //      return zero recommendations for the whole evening.
+    const nowForFallback = new Date();
+    const beachSunTimes = sunTimesCache.get(beach.id);
+    const beachSameDaySunset = beachSunTimes?.sunsets.find(
+      (s: Date) => getLocalDateStr(s, beachTz) === todayStr
+    );
+    const isPostSunsetForBeach =
+      !!beachSameDaySunset && nowForFallback.getTime() > beachSameDaySunset.getTime();
+
     let bestWindow = todayForecasts.length > 0
       ? selectBestWindow(todayForecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot)
       : null;
 
-    if (!bestWindow) {
+    if (!bestWindow && (todayForecasts.length === 0 || isPostSunsetForBeach)) {
       bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
-      if (!bestWindow) {
-        log.warn(`[discoverSurfSpots] ${beach.name}: no viable window in today (${todayForecasts.length}) or full set (${forecasts.length})`);
+      if (!bestWindow && todayForecasts.length === 0) {
+        log.warn(`[discoverSurfSpots] ${beach.name}: no today forecasts (total=${forecasts.length}), tomorrow fallback returned null`);
+      } else if (!bestWindow) {
+        log.warn(`[discoverSurfSpots] ${beach.name}: post-sunset fall-through failed (today=${todayForecasts.length}, total=${forecasts.length})`);
       }
     }
 
