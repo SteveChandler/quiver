@@ -6,9 +6,64 @@ interface PushContent {
   data: { type: string; beach_id: string };
 }
 
+/**
+ * Phase 2 similarity-alerts dispatch branch.
+ *
+ * A queued alert is a similarity_match when the evaluator stamped
+ * conditions_snapshot.alert_type = 'similarity_match' at enqueue time (see
+ * app/api/cron/similarity-alerts/route.ts). In that case the push copy comes
+ * from the stamped score + label, and the body stays generic because the
+ * evaluator does not snapshot wind/wave context.
+ */
+function formatSimilarityPush(match: MatchingWindow): PushContent {
+  const snap = match.conditions_snapshot as {
+    alert_type?: string;
+    score?: number;
+    label?: string;
+    forecast_at?: string;
+  };
+  const score = typeof snap.score === "number" ? snap.score.toFixed(1) : "";
+  const label = typeof snap.label === "string" ? snap.label : "";
+  const forecastAt =
+    typeof snap.forecast_at === "string" ? snap.forecast_at : match.best_hour;
+  const weekday = new Date(forecastAt).toLocaleDateString("en-US", {
+    weekday: "long",
+    timeZone: match.beach_timezone,
+  });
+  const time = new Date(forecastAt).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    timeZone: match.beach_timezone,
+  });
+
+  const scoreLabel = [score, label].filter(Boolean).join(" ");
+  const titleParts = [match.beach_name];
+  if (scoreLabel) titleParts.push(scoreLabel);
+  titleParts.push(`${weekday} ${time}`);
+
+  return {
+    title: titleParts.join(" · "),
+    // Intentionally generic — don't fabricate wind/wave details the cron
+    // didn't capture at enqueue time.
+    body: "Conditions match your profile today.",
+    data: { type: "similarity_match", beach_id: match.beach_id },
+  };
+}
+
 export function formatPushNotification(matches: MatchingWindow[]): PushContent {
-  const title = "Conditions lining up today";
   const topMatch = matches[0];
+  const topSnap = (topMatch.conditions_snapshot ?? {}) as {
+    alert_type?: string;
+  };
+
+  // Similarity-match push copy: only apply when the single top match is the
+  // similarity_match variant. If a user has both a similarity_match and
+  // condition-alert queued for the same day, fall through to the consolidated
+  // copy so we don't silently drop the other matches from the notification.
+  if (matches.length === 1 && topSnap.alert_type === "similarity_match") {
+    return formatSimilarityPush(topMatch);
+  }
+
+  const title = "Conditions lining up today";
 
   if (matches.length === 1) {
     const snap = topMatch.conditions_snapshot;

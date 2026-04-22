@@ -28,6 +28,7 @@ import { WeeklyRecapEmail } from "@/lib/mailer/templates/WeeklyRecapEmail";
 import { subDays, format, startOfDay, endOfDay } from "date-fns";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
+import { computeBestDaysForUser } from "@/lib/alerts/best-days";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -223,6 +224,19 @@ export async function GET(request: Request) {
         // Calculate stats
         const stats = calculateStats(userSessions);
 
+        // Phase 2: compute top similarity-match slots for the next 7 days
+        // across the user's subscribed beaches. Errors here must not abort
+        // the digest — on failure we simply omit the section.
+        let bestDays: Awaited<ReturnType<typeof computeBestDaysForUser>> = [];
+        try {
+          bestDays = await computeBestDaysForUser(supabase, profile.id);
+        } catch (bestDaysErr) {
+          console.warn(
+            `${CONTEXT_TAG} best-days query failed for user ${profile.id}:`,
+            bestDaysErr,
+          );
+        }
+
         const ctaUrl = `${baseUrl}/profile/analytics`;
         const unsubscribeUrl = `${baseUrl}/settings`;
 
@@ -244,6 +258,7 @@ export async function GET(request: Request) {
               stats,
               ctaUrl,
               unsubscribeUrl,
+              bestDays,
             }),
           });
 

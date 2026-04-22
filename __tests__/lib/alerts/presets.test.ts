@@ -1,4 +1,8 @@
-import { PRESETS, getPreset, getPresetsForGroup } from "@/lib/alerts/presets";
+import {
+  PRESETS,
+  getPreset,
+  getPresetsForGroup,
+} from "@/lib/alerts/presets";
 import type { BeachAlertMeta } from "@/lib/alerts/types";
 
 const mockBeach: BeachAlertMeta = {
