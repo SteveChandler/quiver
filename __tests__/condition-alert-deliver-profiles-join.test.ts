@@ -20,8 +20,8 @@
  * pipeline has never successfully written a row to `alert_deliveries` (zero
  * rows in prod as of 2026-04-21).
  *
- * The sibling evaluator at /api/cron/similarity-alert-evaluate documents the
- * same issue at its top-of-file @ts-nocheck comment for a different join path
+ * The sibling evaluator at /api/cron/similarity-alerts documents the same
+ * issue at its top-of-file @ts-nocheck comment for a different join path
  * (alert_rules -> profiles) — that one works at runtime because alert_rules
  * DOES have a user_id FK that PostgREST can follow. alert_queue doesn't have
  * the same escape hatch.
