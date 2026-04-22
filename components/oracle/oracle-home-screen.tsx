@@ -572,7 +572,7 @@ export function OracleHomeScreen() {
       <OracleHeroEmpty
         beachName={homeBeach?.name ?? "Your Surf"}
         reason={reason}
-        onRetry={() => window.location.reload()}
+        onRetry={() => globalThis.location.reload()}
       />
     );
   }
