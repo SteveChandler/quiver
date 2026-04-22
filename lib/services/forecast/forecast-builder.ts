@@ -697,10 +697,6 @@ export class ForecastBuilder {
     return null;
   }
 
-  // Swell 1 needs no 0-sentinel guard: data-processors.ts always populates
-  // swell_1_height with a real value (NOAA primary partition, generic swell
-  // fallback, or `significantWaveHeight * 0.7`), never the 0 sentinel used for
-  // absent secondary partitions.
   private getSwell1Height(cdipPoint: CDIPDataPoint | null, wavePoint: WaveWatchData | null, useCDIPData: boolean): string | null {
     const formatWaveFeet = (meters: number | null | undefined): string | null => {
       if (meters == null) return null;
@@ -741,24 +737,19 @@ export class ForecastBuilder {
   }
 
   private getSwell2Height(wavePoint: WaveWatchData | null): string | null {
-    // 0 is the pipeline sentinel from data-processors.ts meaning "no real
-    // secondary swell" (see the Phase 1 note in that file). Treat it as absent
-    // instead of rendering "0 ft" downstream.
-    if (wavePoint?.swell_2_height == null || wavePoint.swell_2_height === 0) return null;
+    if (wavePoint?.swell_2_height == null) return null;
     if (!isFinite(wavePoint.swell_2_height)) return null;
     if (wavePoint.swell_2_height < 0 || wavePoint.swell_2_height > 10) return null;
     return this.metersToFeet(wavePoint.swell_2_height);
   }
 
   private getSwell2Period(wavePoint: WaveWatchData | null): string | null {
-    if (wavePoint?.swell_2_period == null || wavePoint.swell_2_period === 0) return null;
+    if (wavePoint?.swell_2_period == null) return null;
     return formatPeriodSeconds(wavePoint.swell_2_period);
   }
 
   private getSwell2Direction(wavePoint: WaveWatchData | null): string | null {
-    // Gate on height: 0° is a legitimate direction on its own, but if the
-    // secondary-swell height is the 0 sentinel the direction is meaningless.
-    if (!wavePoint || wavePoint.swell_2_height == null || wavePoint.swell_2_height === 0) return null;
+    if (!wavePoint) return null;
     return this.services.getWaveDirectionText(wavePoint.swell_2_direction);
   }
 

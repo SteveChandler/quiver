@@ -401,43 +401,6 @@
         "tide_status": "falling"
       }
     },
-    "oceanside-pier": {
-      "id": "cceecad1-7668-4ad8-88ff-ade893c605cd",
-      "name": "Oceanside Pier",
-      "shoaling_factors": {
-        "version": 1,
-        "type": "period_lookup",
-        "buckets": [
-          {"tp_min_s": 0, "tp_max_s": 8, "factor": 0.99},
-          {"tp_min_s": 8, "tp_max_s": 12, "factor": 1.10},
-          {"tp_min_s": 12, "tp_max_s": 16, "factor": 1.18},
-          {"tp_min_s": 16, "tp_max_s": 999, "factor": 1.14}
-        ]
-      },
-      "swell_window_center_deg": 205,
-      "swell_window_halfwidth_deg": 120,
-      "terrain_enabled": true,
-      "swell_access_factors": null,
-      "forecast": {
-        "wave_height": "2.5",
-        "wave_period": "13s",
-        "swell_1_height": "2.0",
-        "swell_1_period": "13s",
-        "swell_1_direction": "200",
-        "swell_2_height": "2.0",
-        "swell_2_period": "5s",
-        "swell_2_direction": "240",
-        "wind_wave_height": "0.5",
-        "wind_wave_period": "3s",
-        "wind_wave_direction": "290",
-        "data_source": "NOAA_NWS",
-        "wind_speed": "9",
-        "wind_direction": "NNW",
-        "wind_direction_deg": 340,
-        "tide_height": "3.0",
-        "tide_status": "rising"
-      }
-    },
     "swamis": {
       "id": "b24c6fa9-9f82-4a1e-afcd-0d1fb0ce69d0",
       "name": "Swami's",

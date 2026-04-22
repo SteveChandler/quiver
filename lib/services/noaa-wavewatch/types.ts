@@ -19,41 +19,52 @@ export interface NOAAWavePoint {
 }
 
 /**
- * Shared shape for NOAA NWS gridpoint time-series values.
- *
- * Every quantity in a `gridpoints` response (waveHeight, wavePeriod, etc.)
- * follows the same `{ uom, values: [{ validTime, value }] }` envelope. Extracted
- * so new partition fields (primary/secondary swell, wavePeriod2) can reuse it.
- */
-export interface NOAAValueSeries {
-  uom?: string;
-  values: Array<{
-    validTime: string;
-    value: number;
-  }>;
-}
-
-/**
  * NOAA NWS Grid Data API response structure
  */
 export interface NOAAGridData {
   properties: {
-    waveHeight?: NOAAValueSeries;
-    wavePeriod?: NOAAValueSeries;
-    waveDirection?: NOAAValueSeries;
-    swellHeight?: NOAAValueSeries;
-    swellPeriod?: NOAAValueSeries;
-    swellDirection?: NOAAValueSeries;
-    /** Primary swell partition height (meters). */
-    primarySwellHeight?: NOAAValueSeries;
-    /** Primary swell partition direction (degrees). */
-    primarySwellDirection?: NOAAValueSeries;
-    /** Secondary swell partition height (meters). */
-    secondarySwellHeight?: NOAAValueSeries;
-    /** Secondary swell partition direction (degrees). */
-    secondarySwellDirection?: NOAAValueSeries;
-    /** Secondary-partition wave period (seconds). */
-    wavePeriod2?: NOAAValueSeries;
+    waveHeight?: {
+      uom: string;
+      values: Array<{
+        validTime: string;
+        value: number;
+      }>;
+    };
+    wavePeriod?: {
+      uom: string;
+      values: Array<{
+        validTime: string;
+        value: number;
+      }>;
+    };
+    waveDirection?: {
+      uom: string;
+      values: Array<{
+        validTime: string;
+        value: number;
+      }>;
+    };
+    swellHeight?: {
+      uom: string;
+      values: Array<{
+        validTime: string;
+        value: number;
+      }>;
+    };
+    swellPeriod?: {
+      uom: string;
+      values: Array<{
+        validTime: string;
+        value: number;
+      }>;
+    };
+    swellDirection?: {
+      uom: string;
+      values: Array<{
+        validTime: string;
+        value: number;
+      }>;
+    };
   };
 }
 
@@ -93,33 +104,11 @@ export interface WaveWatchData {
   swell_1_period: number;
   /** Primary swell direction in degrees */
   swell_1_direction: number;
-  /**
-   * Secondary swell height in meters.
-   *
-   * Holds a REAL secondary-partition value from NOAA (`secondarySwellHeight`)
-   * or CDIP when available. No longer derived from `swell_1_height * magic`.
-   * `0` when no real secondary partition exists for the slot — downstream
-   * consumers must treat `swell_2_height === 0` (or `swell_2_period === 0`)
-   * as "no second swell train," not as "small second swell." This is the
-   * pipeline-level sentinel; persisted/DB-level values are nullable at the
-   * `EnhancedForecastEntity` layer.
-   */
+  /** Secondary swell height in meters */
   swell_2_height: number;
-  /**
-   * Secondary swell period in seconds.
-   *
-   * Real NOAA `wavePeriod2` or CDIP secondary-partition period. Not synthetic.
-   * `0` when no real secondary partition exists for the slot (sentinel; see
-   * `swell_2_height` note).
-   */
+  /** Secondary swell period in seconds */
   swell_2_period: number;
-  /**
-   * Secondary swell direction in degrees.
-   *
-   * Real NOAA `secondarySwellDirection` or CDIP secondary-partition direction.
-   * Not synthetic. `0` when no real secondary partition exists (sentinel; see
-   * `swell_2_height` note).
-   */
+  /** Secondary swell direction in degrees */
   swell_2_direction: number;
   /** Wind wave height in meters */
   wind_wave_height: number;
