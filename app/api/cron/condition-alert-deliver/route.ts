@@ -32,15 +32,18 @@ export async function GET(request: Request): Promise<NextResponse> {
   const summary = { processed: 0, emailSent: 0, pushSent: 0, queueMarked: 0, errors: 0 };
 
   try {
-    // 1. Fetch due, unsent queue items joined with rule + beach + profile data
+    // 1. Fetch due, unsent queue items with rule + beach embeddings.
+    //    Profiles are fetched in a separate query because `alert_queue.user_id`
+    //    has a FK to `auth.users(id)` — not `profiles(id)` — so PostgREST
+    //    cannot resolve a `profiles!inner(...)` embedding and returns PGRST200,
+    //    500ing the whole cron (blocks all alert types, including similarity).
     const { data: rawItems, error: queueError } = await supabase
       .from("alert_queue")
       .select(`
         id, user_id, rule_id, beach_id, alert_date, send_at,
         window_start, window_end, best_hour, conditions_snapshot, sent,
         alert_rules!inner(name, notify_email, notify_push),
-        beaches!inner(name, timezone),
-        profiles!inner(email, display_name, notif_email_enabled, notif_push_enabled)
+        beaches!inner(name, timezone)
       `)
       .eq("sent", false)
       .lte("send_at", new Date().toISOString())
@@ -80,13 +83,26 @@ export async function GET(request: Request): Promise<NextResponse> {
       };
     });
 
-    // 3. Group profile data by user_id for fast lookup
-    const profilesByUser = new Map<string, { email: string; display_name: string | null; notif_email_enabled: boolean; notif_push_enabled: boolean }>();
-    for (const row of rawItems) {
-      if (!profilesByUser.has(row.user_id)) {
-        const profile = row.profiles as unknown as { email: string; display_name: string | null; notif_email_enabled: boolean; notif_push_enabled: boolean };
-        profilesByUser.set(row.user_id, profile);
-      }
+    // 3. Fetch profile data for the queue's user set in a single query.
+    //    profiles.id is a 1:1 mirror of auth.users.id, so we can key by user_id.
+    type ProfileRow = {
+      id: string;
+      email: string;
+      display_name: string | null;
+      notif_email_enabled: boolean;
+      notif_push_enabled: boolean;
+    };
+    const userIds = Array.from(new Set(rawItems.map((r) => r.user_id)));
+    const { data: profileRows, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id, email, display_name, notif_email_enabled, notif_push_enabled")
+      .in("id", userIds);
+
+    if (profilesError) throw profilesError;
+
+    const profilesByUser = new Map<string, ProfileRow>();
+    for (const row of (profileRows ?? []) as ProfileRow[]) {
+      profilesByUser.set(row.id, row);
     }
 
     // 4. Consolidate per user
