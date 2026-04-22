@@ -298,21 +298,17 @@ function ForecastDayTable({
                     </div>
                   </td>
                   <td className="p-3">
-                    {forecast.swell_2_height ? (
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm text-foreground">
-                          {formatHeight(forecast.swell_2_height)}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatPeriod(forecast.swell_2_period)}
-                        </span>
-                        <span className="text-lg">
-                          {getDirectionArrow(forecast.swell_2_direction)}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm text-foreground">
+                        {formatHeight(forecast.swell_2_height)}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatPeriod(forecast.swell_2_period)}
+                      </span>
+                      <span className="text-lg">
+                        {getDirectionArrow(forecast.swell_2_direction)}
+                      </span>
+                    </div>
                   </td>
                   <td className="p-3">
                     <div className="flex items-center gap-2">

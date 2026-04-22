@@ -100,20 +100,6 @@ describe('Discovery Adapter', () => {
       expect(snapshot.secondarySwell?.directionDeg).toBe(180);
     });
 
-    it('should leave secondarySwell null when swell_2_height is null', () => {
-      // Post real-partition pipeline: when NOAA has no secondary partition we
-      // null the swell_2_* fields rather than fabricating them. The scoring
-      // snapshot must treat that as "no second swell train," not error.
-      const forecast = createForecast({
-        swell_2_height: null,
-        swell_2_period: null,
-        swell_2_direction: null,
-      });
-      const snapshot = forecastToSnapshot(forecast);
-
-      expect(snapshot.secondarySwell).toBeNull();
-    });
-
     it('should handle missing wind direction gracefully', () => {
       const forecast = createForecast({
         wind_direction_deg: null,

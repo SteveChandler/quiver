@@ -63,9 +63,11 @@ function generateSingleFallbackSlot(
   const swell1Direction =
     (peakWaveDirection + (Math.random() - 0.5) * 20 + 360) % 360; // Less directional variance
 
-  // Secondary swell: no synthesized value — offline fallback doesn't know
-  // whether a real second swell train exists, and inventing one misleads
-  // downstream consumers. `null` means "no second swell train for this slot."
+  // Secondary swell: Smaller, different direction, shorter period
+  const swell2Height = significantWaveHeight * (0.2 + Math.random() * 0.15); // 20-35% of total
+  const swell2Period = swell1Period * (0.8 + Math.random() * 0.15); // Shorter than primary
+  const swell2Direction =
+    (swell1Direction + 45 + (Math.random() - 0.5) * 30 + 360) % 360; // Different direction
 
   // Wind waves: Typically much smaller than swells and have short periods
   const windWaveHeight =
@@ -85,9 +87,9 @@ function generateSingleFallbackSlot(
     swell_1_height: Math.round(swell1Height * 100) / 100,
     swell_1_period: Math.round(swell1Period * 10) / 10,
     swell_1_direction: Math.round(swell1Direction),
-    swell_2_height: 0,
-    swell_2_period: 0,
-    swell_2_direction: 0,
+    swell_2_height: Math.round(swell2Height * 100) / 100,
+    swell_2_period: Math.round(swell2Period * 10) / 10,
+    swell_2_direction: Math.round(swell2Direction),
     wind_wave_height: Math.round(windWaveHeight * 100) / 100,
     wind_wave_period: Math.round(windWavePeriod * 10) / 10,
     wind_wave_direction: Math.round(windWaveDirection),
