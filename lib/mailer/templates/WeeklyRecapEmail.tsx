@@ -1,5 +1,7 @@
 import * as React from "react";
 
+import { colorForScore } from "@/lib/mailer/colors";
+
 interface SessionSummary {
   totalSessions: number;
   totalHours: string; // e.g., "4.5"
@@ -230,7 +232,9 @@ export function WeeklyRecapEmail({
                   <span style={{ fontWeight: "bold" }}>
                     {slot.score.toFixed(1)}
                   </span>{" "}
-                  <span style={{ color: "#FDB84B" }}>{slot.label}</span>
+                  <span style={{ color: colorForScore(slot.score) }}>
+                    {slot.label}
+                  </span>
                 </div>
               ))}
             </div>
