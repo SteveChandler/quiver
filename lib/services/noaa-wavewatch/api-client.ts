@@ -8,23 +8,60 @@
 
 import { createContextLogger } from "@/lib/logger";
 import { API_ENDPOINTS, FORECAST_CONFIG, HTTP_CONFIG } from "./constants";
+import { getOceanGridPoint } from "./grid-utils";
 import type { NOAAWavePoint, NOAAGridData, OpenMeteoMarineResponse } from "./types";
 
 const log = createContextLogger("NOAAWaveWatch:APIClient");
 
 /**
- * Fetch NOAA NWS grid point data for a location
+ * In-memory cache of resolved NOAA grid points, keyed by original beach
+ * coordinate. NOAA grids are stable over 24h+, and a single beach may
+ * fetch forecasts many times a day across the web + cron pipelines — caching
+ * the resolved `NOAAWavePoint` avoids repeated `/points/{lat},{lon}` calls.
+ */
+const POINT_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+const pointCache = new Map<
+  string,
+  { value: NOAAWavePoint; expiresAt: number }
+>();
+
+function cacheKey(lat: number, lon: number): string {
+  // Round to 4 decimals (~11m) so tiny floating-point drift on repeat
+  // callers still hits the same cache entry.
+  return `${lat.toFixed(4)},${lon.toFixed(4)}`;
+}
+
+/**
+ * Fetch NOAA NWS grid point data for a location.
  *
- * @param latitude - Latitude in decimal degrees
- * @param longitude - Longitude in decimal degrees
+ * Before hitting the NWS `/points/{lat},{lon}` endpoint, we shift coastal
+ * beach coordinates ~0.05° toward deeper water via `getOceanGridPoint` so
+ * the resolved grid sits over the ocean — inland / coastal-land grid points
+ * return zeroed `primarySwellHeight` / `secondarySwellHeight` / `wavePeriod2`
+ * partitions even when the offshore neighbor grid carries real values.
+ *
+ * Results are cached per original beach coordinate for 24h.
+ *
+ * @param latitude - Latitude in decimal degrees (beach coordinate)
+ * @param longitude - Longitude in decimal degrees (beach coordinate)
  * @returns Grid point information or null if unavailable
  */
 export async function fetchNOAAPointData(
   latitude: number,
   longitude: number
 ): Promise<NOAAWavePoint | null> {
+  const key = cacheKey(latitude, longitude);
+  const cached = pointCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+
   try {
-    const pointsUrl = `${API_ENDPOINTS.NWS_POINTS_BASE}/${latitude},${longitude}`;
+    const { lat: oceanLat, lon: oceanLon } = getOceanGridPoint(
+      latitude,
+      longitude
+    );
+    const pointsUrl = `${API_ENDPOINTS.NWS_POINTS_BASE}/${oceanLat},${oceanLon}`;
     log.debug(`Fetching NOAA NWS grid point data from: ${pointsUrl}`);
 
     const response = await fetch(pointsUrl, {
@@ -57,6 +94,7 @@ export async function fetchNOAAPointData(
       forecastGridData: data.properties.forecastGridData,
     });
 
+    pointCache.set(key, { value: data, expiresAt: Date.now() + POINT_CACHE_TTL_MS });
     return data;
   } catch (error) {
     log.error("Error fetching NOAA point data:", error);
