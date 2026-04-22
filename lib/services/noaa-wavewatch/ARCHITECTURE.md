@@ -212,24 +212,38 @@ Each forecast point contains comprehensive wave information:
   peak_wave_period: 14.5,        // seconds
   peak_wave_direction: 270,      // degrees
 
-  // Primary swell (dominant component)
+  // Primary swell — longest-period real partition (dominant by period, not by NOAA's height-based label)
   swell_1_height: 0.9,           // meters
   swell_1_period: 16.0,          // seconds
   swell_1_direction: 265,        // degrees
 
-  // Secondary swell (cross swell)
-  swell_2_height: 0.3,           // meters
-  swell_2_period: 13.0,          // seconds
-  swell_2_direction: 310,        // degrees
+  // Secondary swell — real second partition, or 0 sentinel when no second train exists
+  swell_2_height: 0.3,           // meters (or 0 sentinel)
+  swell_2_period: 13.0,          // seconds (or 0 sentinel)
+  swell_2_direction: 310,        // degrees (or 0 sentinel)
 
   // Wind waves (local chop)
   wind_wave_height: 0.2,         // meters
   wind_wave_period: 6.0,         // seconds
   wind_wave_direction: 280,      // degrees
 
-  data_source: "NOAA_NWS"        // or "FALLBACK"
+  data_source: "NOAA_NWS"        // or "OPEN_METEO" or "FALLBACK"
 }
 ```
+
+### Swell partition parsing (real, not synthesized)
+
+The NOAA branch of `data-processors.ts` parses real partition fields from NWS gridpoints:
+
+- `primarySwellHeight` / `primarySwellDirection`
+- `secondarySwellHeight` / `secondarySwellDirection`
+- `wavePeriod` (paired with primary) / `wavePeriod2` (paired with secondary)
+
+**Period-descending canonical order.** NOAA ranks partitions by height, which can land short-period wind-sea in the "primary" slot and real groundswell in "secondary" when heights are tied. The parser sorts by period descending before assigning to `swell_1_*` / `swell_2_*` so the longer-period component always wins the primary slot. Downstream consumers treat `swell_1` as "the swell that matters most" — period, not NOAA's height-based label, drives that.
+
+**Offshore grid offset.** Beach coordinates often resolve to coastal-land NWS grids that return zeroed partitions. `grid-utils.ts:getOceanGridPoint` shifts the query coordinate ~0.05° (~5 km) toward deeper water (Pacific W, Atlantic E, Gulf S, HI W) before calling `/points/{lat},{lon}`. Per-beach 24h in-memory cache (`api-client.ts:pointCache`) avoids repeated metadata lookups.
+
+**No fabrication.** When a secondary partition is absent, the OM branch only returns one partition, or the fallback-generator fires, `swell_2_height/period/direction` emit a `0` sentinel (never synthesized as `swell_1 * magic_numbers`). `forecast-builder.ts:getSwell2*` treats `swell_2_height === 0` as absent and returns `null` to the DB. The web forecast table renders an em-dash when `swell_2_height` is null.
 
 ## Geographic Regions
 
