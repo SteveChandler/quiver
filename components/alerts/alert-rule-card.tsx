@@ -12,7 +12,6 @@ const PRESET_ICONS: Record<PresetType, string> = {
   clean_groundswell: "\u{1F4A0}",
   tide_window: "\u{23F1}\u{FE0F}",
   epic_conditions: "\u{1F525}",
-  similarity_alert: "\u{1F9E0}",
 };
 
 interface AlertRuleCardProps {
