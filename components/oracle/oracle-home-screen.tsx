@@ -303,6 +303,41 @@ function LoadingSkeleton() {
 }
 
 // ============================================================================
+// Empty / error state — renders when discovery resolved with no usable data
+// ============================================================================
+
+function OracleHeroEmpty({
+  beachName,
+  reason,
+  onRetry,
+}: {
+  beachName: string;
+  reason: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="min-h-screen bg-[#252D6B]">
+      <div className="mx-auto max-w-3xl md:max-w-6xl px-6 py-24">
+        <div className="rounded-2xl border border-white/10 bg-[#2D357D] p-8 text-center">
+          <h1 className="font-space-grotesk text-2xl text-white mb-2">
+            {beachName}
+          </h1>
+          <p className="text-white/60 text-sm mb-6">{reason}</p>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex items-center gap-2 rounded-full border border-[#F78E42] bg-[#F78E42]/10 px-5 py-2 text-sm font-semibold text-[#F78E42] hover:bg-[#F78E42]/20 transition-colors"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+      <BottomNav />
+    </div>
+  );
+}
+
+// ============================================================================
 // OracleHomeScreen
 // ============================================================================
 
@@ -524,6 +559,22 @@ export function OracleHomeScreen() {
   // ------------------------------------------------------------------
   if (oracle.discoveryLoading && !heroRec) {
     return <LoadingSkeleton />;
+  }
+
+  // Empty / error state — discovery resolved but returned no usable data.
+  // Render an honest empty card with a retry affordance instead of letting
+  // `parseNumeric(undefined) → 0` leak phantom zeros into the hero UI.
+  if (!heroRec) {
+    const reason = oracle.discovery
+      ? "We couldn't find any surf spots near you right now."
+      : "We couldn't load conditions for your area.";
+    return (
+      <OracleHeroEmpty
+        beachName={homeBeach?.name ?? "Your Surf"}
+        reason={reason}
+        onRetry={() => window.location.reload()}
+      />
+    );
   }
 
   // ------------------------------------------------------------------

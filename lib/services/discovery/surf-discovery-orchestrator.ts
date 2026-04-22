@@ -567,17 +567,21 @@ async function discoverSurfSpotsInner(
       getLocalDateStr(new Date(f.forecast_at), beachTz) === todayStr
     );
 
-    // If today has any forecasts, trust selectBestWindow's internal fallback to
-    // return today's best remaining window. Only reach into tomorrow's data when
-    // today is actually gone (e.g. post-sunset, todayForecasts empty) — otherwise
-    // we flip the hero to "Tomorrow's dawn patrol" while today's dawn is still
-    // minutes away.
+    // Try today's forecasts first so we don't flip the hero to "Tomorrow's
+    // dawn patrol" while today's dawn is still minutes away. If today has
+    // no viable window (e.g. post-sunset when all remaining today rows are
+    // nighttime/pre-dawn), fall through to the full forecast set so tomorrow
+    // morning still surfaces — otherwise every beach returns null on post-
+    // sunset traffic and the UI shows a phantom empty state.
     let bestWindow = todayForecasts.length > 0
       ? selectBestWindow(todayForecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot)
-      : selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
+      : null;
 
-    if (!bestWindow && todayForecasts.length === 0) {
-      log.warn(`[discoverSurfSpots] ${beach.name}: no today forecasts (total=${forecasts.length}), tomorrow fallback returned null`);
+    if (!bestWindow) {
+      bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
+      if (!bestWindow) {
+        log.warn(`[discoverSurfSpots] ${beach.name}: no viable window in today (${todayForecasts.length}) or full set (${forecasts.length})`);
+      }
     }
 
     if (!bestWindow) {

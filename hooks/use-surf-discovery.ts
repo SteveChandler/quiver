@@ -239,9 +239,18 @@ export function useSurfDiscovery(
 
     const discoveryData = result.data as SurfDiscoveryResponse;
 
-    // Save to localStorage cache using shared utility
-    if (cacheKey) {
+    // Save to localStorage cache using shared utility.
+    // Don't cache empty responses — otherwise a transient empty result
+    // (cold start, auth blip, deploy flip) poisons the cache for up to
+    // 30 min and the UI keeps rendering phantom zeros even after the
+    // server recovers.
+    const hasResults = (discoveryData?.recommendations?.length ?? 0) > 0;
+    if (cacheKey && hasResults) {
       writeToCache(cacheKey, discoveryData, optionsHash);
+    } else if (!hasResults) {
+      console.warn(
+        "[useSurfDiscovery] empty recommendations — skipping cache write"
+      );
     }
 
     setIsCached(false);
