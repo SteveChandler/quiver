@@ -339,58 +339,18 @@ describe("DetailCard", () => {
     });
   });
 
-  // ─── ML corrected height ──────────────────────────────────────
+  // ─── ML corrected height (row removed by OM-primary selector) ───
 
-  describe("ML corrected height", () => {
-    it("shows ML adjusted height when available and calibrated", () => {
+  describe("ML corrected height row", () => {
+    // Wave height is now chosen at the write site by the OM-primary
+    // selector (lib/utils/wave-height-selector.ts). The "ML Adjusted"
+    // row was removed from the embed detail card since there's no
+    // separate ml_corrected_height to surface.
+    it("never renders the 'ML Adjusted' row, even when calibrated data is present", () => {
       render(
         <DetailCard
           forecast={makeForecast({
             ml_corrected_height: "4.2 ft",
-            is_ml_calibrated: true,
-          })}
-          {...DEFAULT_PROPS}
-        />
-      );
-      expect(screen.getByText("ML Adjusted")).toBeInTheDocument();
-      expect(screen.getByText("4.2 ft")).toBeInTheDocument();
-    });
-
-    it("applies accent styling to ML adjusted value", () => {
-      render(
-        <DetailCard
-          forecast={makeForecast({
-            ml_corrected_height: "4.2 ft",
-            is_ml_calibrated: true,
-          })}
-          {...DEFAULT_PROPS}
-        />
-      );
-      // Find the ML Adjusted row value span
-      const mlLabel = screen.getByText("ML Adjusted");
-      const mlRow = mlLabel.closest("div");
-      const valueSpan = mlRow?.querySelector(".text-\\[\\#4A70D9\\]");
-      expect(valueSpan).toBeInTheDocument();
-    });
-
-    it("does not show ML adjusted when is_ml_calibrated is false", () => {
-      render(
-        <DetailCard
-          forecast={makeForecast({
-            ml_corrected_height: "4.2 ft",
-            is_ml_calibrated: false,
-          })}
-          {...DEFAULT_PROPS}
-        />
-      );
-      expect(screen.queryByText("ML Adjusted")).not.toBeInTheDocument();
-    });
-
-    it("does not show ML adjusted when ml_corrected_height is null", () => {
-      render(
-        <DetailCard
-          forecast={makeForecast({
-            ml_corrected_height: null,
             is_ml_calibrated: true,
           })}
           {...DEFAULT_PROPS}
