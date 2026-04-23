@@ -274,7 +274,7 @@ function ForecastDayTable({
                   <td className="p-3">
                     <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-md font-bold text-center min-w-[60px] text-sm">
                       <WaveHeightDisplay
-                        height={forecast.ml_corrected_height || forecast.wave_height}
+                        height={forecast.wave_height}
                         showTooltip={true}
                         className="text-inherit"
                         dataSource={forecast.data_source}
