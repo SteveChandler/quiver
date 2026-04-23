@@ -294,7 +294,7 @@ export function clampWaveHeight(ft: number): number {
  * @param m Height in meters
  * @returns Height in feet or undefined if invalid
  */
-function metersToFeet(m?: number | null): number | undefined {
+export function metersToFeet(m?: number | null): number | undefined {
   return m == null || !isFinite(m) ? undefined : m * METERS_TO_FEET;
 }
 

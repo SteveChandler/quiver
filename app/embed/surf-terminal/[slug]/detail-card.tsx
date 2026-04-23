@@ -65,13 +65,6 @@ export const DetailCard = memo(function DetailCard({
         {/* Waves */}
         <Section title="Waves" isDark={isDark}>
           <Row label="Height" value={display(forecast.wave_height)} />
-          {forecast.ml_corrected_height && forecast.is_ml_calibrated && (
-            <Row
-              label="ML Adjusted"
-              value={display(forecast.ml_corrected_height)}
-              accent
-            />
-          )}
           <Row label="Period" value={display(forecast.wave_period)} />
           <Row label="Direction" value={display(forecast.wave_direction)} />
         </Section>

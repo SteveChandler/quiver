@@ -490,7 +490,10 @@ describe("transformForecastsToChartData", () => {
     expect(result.waveHeight[0].value).toBe(3);
   });
 
-  it("includes ML-corrected height only when is_ml_calibrated is true", () => {
+  it("never populates mlCorrectedHeight after the OM-primary selector write-site swap", () => {
+    // Wave height is now chosen at the forecast-builder write site
+    // (lib/utils/wave-height-selector.ts) rather than in display code.
+    // The ml_corrected_height column is no longer consumed by this transform.
     const forecasts = [
       makeForecast({
         forecast_at: "2026-02-18T13:00:00Z",
@@ -502,16 +505,10 @@ describe("transformForecastsToChartData", () => {
         ml_corrected_height: "4.0 ft",
         is_ml_calibrated: false,
       }),
-      makeForecast({
-        forecast_at: "2026-02-18T15:00:00Z",
-        ml_corrected_height: "5.0 ft",
-        // is_ml_calibrated defaults to undefined → falsy
-      }),
     ];
 
     const result = transformForecastsToChartData(forecasts, DEFAULT_CONFIG, 48);
-    expect(result.mlCorrectedHeight).toHaveLength(1);
-    expect(result.mlCorrectedHeight[0].value).toBe(3.2);
+    expect(result.mlCorrectedHeight).toEqual([]);
   });
 
   it("time values are shifted to local timezone for chart display", () => {
@@ -572,7 +569,8 @@ describe("transformForecastsToChartData", () => {
 
     // Smoothed series: 2 raw points → 7 interpolated
     expect(result.waveHeight).toHaveLength(7);
-    expect(result.mlCorrectedHeight).toHaveLength(7);
+    // mlCorrectedHeight is retired — OM-primary selector now handles height at the write site
+    expect(result.mlCorrectedHeight).toEqual([]);
     expect(result.tideHeight).toHaveLength(7);
     expect(result.swellPeriod).toHaveLength(7);
     // Wind is NOT smoothed (histogram)
@@ -583,14 +581,12 @@ describe("transformForecastsToChartData", () => {
     expect(result.windSpeed[0].color).toBe(WIND_COLORS.offshore);
     expect(result.tideHeight[0].value).toBe(4.2);
     expect(result.swellPeriod[0].value).toBe(14);
-    expect(result.mlCorrectedHeight[0].value).toBe(3.8);
 
     // Last point values
     expect(result.waveHeight[result.waveHeight.length - 1].value).toBe(4);
     expect(result.windSpeed[1].color).toBe(WIND_COLORS.onshore);
     expect(result.tideHeight[result.tideHeight.length - 1].value).toBe(2.1);
     expect(result.swellPeriod[result.swellPeriod.length - 1].value).toBe(12);
-    expect(result.mlCorrectedHeight[result.mlCorrectedHeight.length - 1].value).toBe(3.5);
   });
 
   it("excludes forecasts older than 6h lookback", () => {
