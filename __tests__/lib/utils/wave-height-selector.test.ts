@@ -25,6 +25,22 @@ describe("selectWaveHeightFormatted", () => {
     ).toBe("4.9 ft");
   });
 
+  // Format parity with SQL ROUND(..., 1)::text in supabase/migrations/
+  // 20260423204959_om_primary_bulk_current_forecasts.sql — JavaScript
+  // number→string drops trailing zeros ("5" vs "5.0"), so we must use
+  // toFixed(1) to match the bulk-RPC string exactly.
+  it("formats a whole-foot boundary with one decimal (1.524m = 5.0 ft)", () => {
+    expect(
+      selectWaveHeightFormatted({ om_m: 1.524, fallback_ft_string: null }),
+    ).toBe("5.0 ft");
+  });
+
+  it("formats just-under-boundary with one decimal (1.5m = 4.9 ft)", () => {
+    expect(
+      selectWaveHeightFormatted({ om_m: 1.5, fallback_ft_string: null }),
+    ).toBe("4.9 ft");
+  });
+
   it("falls back when om_m is NaN", () => {
     expect(
       selectWaveHeightFormatted({
