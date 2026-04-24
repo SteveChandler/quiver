@@ -9,12 +9,15 @@
  * Response: { ok: boolean, status?: 'tracking_disabled' | 'rate_limited' }
  */
 
-import { createAPIServerClient } from '@/lib/supabase/api-server-client';
 import {
   createSuccessResponse,
   createAuthError,
   createErrorResponse,
 } from '@/lib/api-utils';
+import {
+  withAuth,
+  type OptionalAuthContext,
+} from '@/lib/middleware/api-wrappers';
 import type {
   ImplicitEventType,
   TrackEventRequest,
@@ -270,7 +273,7 @@ import { isValidUUID } from '@/lib/utils/validation';
  * Uses 5-minute in-memory cache to reduce database queries
  */
 async function isTrackingAllowed(
-  supabase: Awaited<ReturnType<typeof createAPIServerClient>>,
+  supabase: OptionalAuthContext['supabase'],
   userId: string
 ): Promise<boolean> {
   // Check cache first (using LRU-aware getter)
@@ -298,7 +301,21 @@ async function isTrackingAllowed(
   return allowed;
 }
 
-export async function POST(request: Request) {
+/**
+ * POST /api/events
+ *
+ * Authentication: OPTIONAL via withAuth({ optional: true }). Two flows:
+ *   • Authenticated (cookie OR Bearer) — writes user-scoped event via
+ *     request-scoped supabase client. Native Bearer callers previously
+ *     dropped silently because the route ignored Authorization headers.
+ *   • Anonymous — requires body.sessionId, writes nullable user_id event
+ *     via the service-role client (bypassing RLS). Unchanged.
+ */
+export const POST = withAuth(
+  async (
+    request,
+    { user, supabase }: OptionalAuthContext
+  ) => {
   // 1. Bot filtering — silent 200 OK so bots don't learn they're detected
   const ua = request.headers.get('user-agent') || '';
   const acceptLanguage = request.headers.get('accept-language');
@@ -321,7 +338,7 @@ export async function POST(request: Request) {
     return createSuccessResponse({ ok: true, status: 'bot_filtered' });
   }
 
-  // 2. Parse request body first (before auth check, needed for anonymous flow)
+  // 2. Parse request body (needed for anonymous flow + fingerprint check)
   let body: TrackEventRequest;
   try {
     body = await request.json();
@@ -343,16 +360,8 @@ export async function POST(request: Request) {
 
   const { eventType, beachId } = body;
 
-  // 4. Try auth
-  const supabase = await createAPIServerClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (!authError && user) {
-    // Authenticated flow
-
+  // 4. Authenticated flow (user resolved by withAuth from cookie OR Bearer)
+  if (user) {
     // Rate limiting check
     const rateLimit = checkRateLimit(user.id);
     if (!rateLimit.allowed) {
@@ -502,4 +511,6 @@ export async function POST(request: Request) {
 
   // 6. Neither authenticated nor anonymous sessionId
   return createAuthError('Unauthorized');
-}
+  },
+  { optional: true, errorMessage: 'Failed to record event' }
+);
