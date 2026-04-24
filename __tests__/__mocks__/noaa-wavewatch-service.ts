@@ -7,7 +7,6 @@ export class NOAAWaveWatchService {
   fetchWaveWatchForecast = jest.fn().mockResolvedValue({
     lat: 32.7,
     lng: -117.2,
-    data_source: "FALLBACK",
     forecast: [],
   });
 
