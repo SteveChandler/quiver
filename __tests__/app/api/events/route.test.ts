@@ -7,7 +7,10 @@
  * It respects user privacy settings (allow_implicit_tracking).
  */
 
-import { POST } from '@/app/api/events/route';
+import { POST as _POST } from '@/app/api/events/route';
+// Tests call POST with a plain Request for brevity; the real signature is
+// NextRequest. Cast to loosen for the test harness only.
+const POST = _POST as unknown as (req: Request, ctx?: any) => Promise<Response>;
 import { __clearTrackingCache } from '@/lib/services/tracking-cache';
 import { createServiceRoleClient } from '@/lib/supabase';
 

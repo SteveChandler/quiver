@@ -9,6 +9,7 @@
  * Response: { ok: boolean, status?: 'tracking_disabled' | 'rate_limited' }
  */
 
+import { NextResponse } from 'next/server';
 import {
   createSuccessResponse,
   createAuthError,
@@ -16,8 +17,8 @@ import {
 } from '@/lib/api-utils';
 import {
   withAuth,
-  type OptionalAuthContext,
 } from '@/lib/middleware/api-wrappers';
+import type { OptionalAuthContext } from '@/lib/middleware/api-wrappers/types';
 import type {
   ImplicitEventType,
   TrackEventRequest,
@@ -365,16 +366,15 @@ export const POST = withAuth(
     // Rate limiting check
     const rateLimit = checkRateLimit(user.id);
     if (!rateLimit.allowed) {
-      return new Response(
-        JSON.stringify({
+      return NextResponse.json(
+        {
           ok: false,
           status: 'rate_limited',
           error: 'Too many requests. Please try again later.',
-        }),
+        },
         {
           status: 429,
           headers: {
-            'Content-Type': 'application/json',
             'X-RateLimit-Limit': RATE_LIMIT.toString(),
             'X-RateLimit-Remaining': '0',
             'X-RateLimit-Reset': Math.ceil(rateLimit.resetAt / 1000).toString(),
@@ -405,7 +405,7 @@ export const POST = withAuth(
     }
 
     // Insert event
-    const { error: insertError } = await supabase.from('user_events').insert({
+    const { error: insertError } = await (supabase as any).from('user_events').insert({
       user_id: user.id,
       event_type: eventType,
       beach_id: beachId || null,
@@ -436,16 +436,15 @@ export const POST = withAuth(
 
     const anonRateLimit = checkRateLimit(`anon:${body.sessionId}`, ANON_RATE_LIMIT);
     if (!anonRateLimit.allowed) {
-      return new Response(
-        JSON.stringify({
+      return NextResponse.json(
+        {
           ok: false,
           status: 'rate_limited',
           error: 'Too many requests. Please try again later.',
-        }),
+        },
         {
           status: 429,
           headers: {
-            'Content-Type': 'application/json',
             'X-RateLimit-Limit': ANON_RATE_LIMIT.toString(),
             'X-RateLimit-Remaining': '0',
             'X-RateLimit-Reset': Math.ceil(anonRateLimit.resetAt / 1000).toString(),

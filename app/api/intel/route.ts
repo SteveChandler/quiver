@@ -14,8 +14,8 @@ import { normalizeCoordinates } from "@/lib/types/coordinates";
 import {
   withAuth,
   type AuthenticatedContext,
-  type OptionalAuthContext,
 } from "@/lib/middleware/api-wrappers";
+import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
 
 export const dynamic = "force-dynamic";
 
@@ -168,7 +168,9 @@ const intelGetHandler = withAuth(
     }
 
     // Combine data
-    const profilesMap = new Map(profiles?.map((p) => [p.id, p]) || []);
+    const profilesMap = new Map<string, { id: string; full_name: string | null; avatar_url: string | null }>(
+      profiles?.map((p: { id: string; full_name: string | null; avatar_url: string | null }) => [p.id, p]) || []
+    );
     const confirmationsSet = new Set(
       userConfirmations.map((c) => c.intel_post_id)
     );

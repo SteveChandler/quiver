@@ -4,8 +4,8 @@ import { getProfileDTOById, getProfileWithHomeBeachById } from "@/lib/profile/fe
 import {
   withAuth,
   withBotBlockingAndRateLimit,
-  type OptionalAuthContext,
 } from "@/lib/middleware/api-wrappers";
+import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
 import { PROFILE_FULL_SELECT } from "@/lib/profile/constants";
 import type { ProfileDTO } from "@/types/profile";
 
@@ -94,12 +94,18 @@ const profileHandler = withAuth(
       };
 
       if (!sessionsError && sessions) {
-        const completedSessions = sessions.filter(s => s.status === "completed");
+        const completedSessions = sessions.filter(
+          (s: { status: string | null }) => s.status === "completed"
+        );
         sessionStats.session_count = completedSessions.length;
 
         if (completedSessions.length > 0) {
-          const totalRating = completedSessions.reduce((sum, s) => sum + (s.rating || 0), 0);
-          sessionStats.average_rating = Math.round((totalRating / completedSessions.length) * 10) / 10;
+          const totalRating = completedSessions.reduce(
+            (sum: number, s: { rating: number | null }) => sum + (s.rating || 0),
+            0,
+          );
+          sessionStats.average_rating =
+            Math.round((totalRating / completedSessions.length) * 10) / 10;
         }
       }
 
