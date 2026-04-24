@@ -17,6 +17,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { StorageError } from "@/lib/errors/forecast-errors";
+// NOTE: the legacy ML-correction merge path was removed alongside the
+// OM-primary scalar override (migration
+// 20260424182324_remove_om_primary_override_from_bulk.sql). Display height
+// comes from the per-component face-Hs transformer at write time. Seaside
+// still writes to corrected_forecasts; that table is read by the ML
+// pipeline only, not by this service.
 
 /**
  * Configuration for storage operations
@@ -402,101 +408,5 @@ export class ForecastStorageService {
     }
   }
 
-  /**
-   * Fetch ML bias corrections for a beach's forecasts
-   *
-   * Returns a Map keyed by "forecast_date|forecast_time" for O(1) lookup
-   * when merging with enhanced forecasts.
-   *
-   * @param beachId - Beach ID to fetch corrections for
-   * @param startDate - Start date (YYYY-MM-DD format)
-   * @param endDate - Optional end date (defaults to startDate + 14 days)
-   * @returns Map of correction key to correction data
-   *
-   * @example
-   * ```typescript
-   * const storage = new ForecastStorageService();
-   * const corrections = await storage.fetchMlCorrections(beachId, '2026-01-15');
-   * const key = `2026-01-15|09:00`;
-   * if (corrections.has(key)) {
-   *   const correction = corrections.get(key);
-   *   // Use correction.corrected_height, correction.model_version
-   * }
-   * ```
-   */
-  async fetchMlCorrections(
-    beachId: string,
-    startDate: string,
-    endDate?: string
-  ): Promise<Map<string, MlCorrectionData>> {
-    const supabase = await createSupabaseServiceRoleClient();
-    const corrections = new Map<string, MlCorrectionData>();
-
-    try {
-      // Default to 14 days if no end date provided
-      const effectiveEndDate = endDate || this.addDays(startDate, 14);
-
-      // corrected_forecasts uses forecast_ts (timestamp) not separate date/time columns
-      const minTs = `${startDate}T00:00:00Z`;
-      const maxTs = `${effectiveEndDate}T23:59:59Z`;
-
-      const { data, error } = await supabase
-        .from("corrected_forecasts")
-        .select("forecast_ts, corrected_height_m, model_version, corrected_at")
-        .eq("beach_id", beachId)
-        .gte("forecast_ts", minTs)
-        .lte("forecast_ts", maxTs);
-
-      if (error) {
-        console.warn(`⚠️ Failed to fetch ML corrections for beach ${beachId}:`, error.message);
-        return corrections; // Return empty map, don't fail
-      }
-
-      if (data && data.length > 0) {
-        data.forEach((row) => {
-          // Convert forecast_ts to date|time key format
-          const ts = new Date(row.forecast_ts);
-          const date = ts.toISOString().split("T")[0];
-          const hours = ts.getUTCHours().toString().padStart(2, "0");
-          const key = `${date}|${hours}:00`;
-          corrections.set(key, {
-            corrected_height: row.corrected_height_m ?? 0,
-            model_version: row.model_version,
-            created_at: row.corrected_at ?? new Date().toISOString(),
-          });
-        });
-
-        if (this.config.verboseLogging) {
-          console.log(`🤖 Found ${corrections.size} ML corrections for beach ${beachId}`);
-        }
-      }
-
-      return corrections;
-    } catch (error) {
-      console.warn(`⚠️ Error fetching ML corrections for beach ${beachId}:`, error);
-      return corrections; // Return empty map, don't fail
-    }
-  }
-
-  /**
-   * Add days to a date string
-   */
-  private addDays(dateStr: string, days: number): string {
-    const date = new Date(dateStr);
-    date.setDate(date.getDate() + days);
-    return date.toISOString().split("T")[0];
-  }
-}
-
-/**
- * ML correction data from corrected_forecasts table
- */
-export interface MlCorrectionData {
-  /** Corrected wave height in meters */
-  corrected_height: number;
-  /** ML model version (e.g., "xgboost_v1") */
-  model_version: string;
-  /** When the correction was generated */
-  created_at: string;
 }
 
