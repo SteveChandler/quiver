@@ -60,6 +60,9 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
         { error: "Method not allowed" },
         { status: 405, headers: { Allow: allowed.join(", ") } },
       ),
+    // Pass-through: the rate-limit behavior is covered by the shared
+    // rate-limit tests; here we just need the wrapper to not block.
+    withRateLimit: (handler: any, _key: any) => handler,
   };
 });
 

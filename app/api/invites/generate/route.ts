@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import {
   withAuth,
+  withRateLimit,
   createSuccessResponse,
   methodNotAllowed,
   type AuthenticatedContext,
@@ -17,9 +18,10 @@ import {
  * token embeds the inviter's `user_id` + `purpose: 'invite'` and expires in
  * 7 days. Returns the token and a fully-qualified invite URL for sharing.
  *
- * Used by both web and native callers via Bearer-aware `withAuth`.
+ * Used by both web and native callers via Bearer-aware `withAuth`. Wrapped in
+ * `withRateLimit` so a compromised account can't mint unlimited invite tokens.
  */
-export const POST = withAuth(
+const generateHandler = withAuth(
   async (_request: NextRequest, { user }: AuthenticatedContext) => {
     const token = await signEmailToken(
       { user_id: user.id, purpose: "invite" },
@@ -34,6 +36,8 @@ export const POST = withAuth(
   },
   { errorMessage: "Failed to generate invite" },
 );
+
+export const POST = withRateLimit(generateHandler, "authenticated-default");
 
 export function GET() {
   return methodNotAllowed(["POST"]);
