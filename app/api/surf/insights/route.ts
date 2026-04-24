@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
 import {
   createSuccessResponse,
-  createAuthError,
-  handleApiError,
   validateOrError,
 } from '@/lib/api-utils';
-import { withRateLimit } from '@/lib/middleware/api-wrappers';
+import {
+  withAuth,
+  withRateLimit,
+  type OptionalAuthContext,
+} from '@/lib/middleware/api-wrappers';
 import { computeSimilarityInsights } from '@/lib/services/similarity-insights-service';
 
 export const dynamic = 'force-dynamic';
@@ -47,49 +48,20 @@ const QuerySchema = z.object({
  * user's historical high-rated sessions. Powered by bucket-based similarity
  * scoring algorithm.
  *
- * @param request - Next.js request with query params
- * @returns PersonalizedInsights with match quality and recommendations
- *
- * Query Parameters (Required):
- * - beachId: Beach UUID
- * - beachName: Beach name
- * - waveHeight: Wave height in feet
- * - wavePeriod: Wave period in seconds
- * - windSpeed: Wind speed in mph
- *
- * Query Parameters (Optional):
- * - windDirection: Wind direction in degrees (0-360)
- * - tideHeight: Tide height in feet
- * - tideStatus: Tide status (e.g., "Rising", "High Slack")
- * - windowStart: ISO timestamp for forecast window
- *
- * Authentication: Required (user session)
+ * Authentication: Optional. Anonymous callers receive a degraded/onboarding
+ * response that signals the data is unavailable without their session
+ * history — this avoids 401-ing native Bearer callers before we know if we
+ * can compute, and lets the shared client reuse the "needs more sessions"
+ * UI for the no-auth case.
  * Rate Limit: 10 requests/minute
- * Cache: Private, 5 minutes
- *
- * Response States:
- * - ready: Insights computed successfully
- * - onboarding: <3 rated sessions, user needs to log more sessions
- * - degraded: No sessions with forecast snapshots, data unavailable
- *
- * @example
- * GET /api/surf/insights?beachId=123&beachName=Ocean%20Beach&waveHeight=4.5&wavePeriod=12&windSpeed=8
- * GET /api/surf/insights?beachId=123&beachName=Ocean%20Beach&waveHeight=4.5&wavePeriod=12&windSpeed=8&windDirection=270&tideHeight=4.2
+ * Cache: Private, 5 minutes (60s for the anon degraded response)
  */
-async function insightsHandler(request: NextRequest): Promise<NextResponse> {
-  try {
-    // 1. Authenticate user
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return createAuthError('Authentication required');
-    }
-
-    // 2. Parse and validate query parameters
+const insightsHandler = withAuth(
+  async (
+    request: NextRequest,
+    { user }: OptionalAuthContext
+  ): Promise<NextResponse> => {
+    // Parse and validate query parameters
     const { searchParams } = new URL(request.url);
     const queryData = {
       beachId: searchParams.get('beachId') || undefined,
@@ -120,10 +92,19 @@ async function insightsHandler(request: NextRequest): Promise<NextResponse> {
       windowStart,
     } = validationResult.data;
 
-    // Request received - process insights
-    // Note: Using console.warn for production logging (console.log blocked by ESLint)
+    // Anonymous callers can't have session history; return the onboarding-style
+    // degraded response the client already knows how to render.
+    if (!user) {
+      const response = createSuccessResponse({
+        status: 'onboarding',
+        message:
+          'Sign in to see personalized insights based on your sessions.',
+      });
+      response.headers.set('Cache-Control', 'private, max-age=60');
+      return response;
+    }
 
-    // 3. Call similarity insights service
+    // Call similarity insights service
     const insights = await computeSimilarityInsights(user.id, {
       beachId,
       beachName,
@@ -136,21 +117,16 @@ async function insightsHandler(request: NextRequest): Promise<NextResponse> {
       windowStart,
     });
 
-    // Insights computed successfully - return to client
-
-    // 4. Return success response with private caching
+    // Return success response with private caching (5 minutes)
     const response = createSuccessResponse(insights);
-
-    // Add private cache header (5 minutes)
-    // Private cache ensures insights are user-specific and not shared
     response.headers.set('Cache-Control', 'private, max-age=300');
-
     return response;
-  } catch (error) {
-    console.error('❌ [InsightsAPI] Error computing insights:', error);
-    return handleApiError(error, 'Error computing personalized insights');
+  },
+  {
+    optional: true,
+    errorMessage: 'Error computing personalized insights',
   }
-}
+);
 
 // Apply rate limiting (10 req/min, same as surf discovery)
 export const GET = withRateLimit(insightsHandler, 'surf-insights');

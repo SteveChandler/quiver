@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { createSuccessResponse, handleApiError, validateOrError, createValidationError } from "@/lib/api-utils";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { createSuccessResponse, validateOrError, createValidationError } from "@/lib/api-utils";
 import { INTEL_CONFIG } from "@/lib/constants/intel";
 import type { IntelPostTag, IntelPostWithUser } from "@/types/database";
 import {
@@ -9,9 +9,13 @@ import {
 } from "@/lib/utils/intel-dedupe";
 import { parseAndValidateJson } from "@/lib/validation/middleware";
 import { IntelPostCreateSchema } from "@/lib/validation/schemas";
-import { withBotBlockingAndRateLimit, withErrorHandler } from "@/lib/middleware/api-wrappers";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
 import { normalizeCoordinates } from "@/lib/types/coordinates";
-import { withAuth, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
+import {
+  withAuth,
+  type AuthenticatedContext,
+  type OptionalAuthContext,
+} from "@/lib/middleware/api-wrappers";
 
 export const dynamic = "force-dynamic";
 
@@ -52,79 +56,139 @@ interface CreateIntelPostData {
  * GET /api/intel
  * Returns nearby intel posts with user data and confirmation status
  * Query params: lat/lon (preferred), lat/lng (legacy), radius (miles), tag, limit
+ *
+ * Authentication: Optional. Anonymous callers still get the posts; the
+ * `user_confirmed` flag is only populated for authenticated viewers.
  */
-async function intelGetHandler(request: NextRequest): Promise<NextResponse> {
-  const { searchParams } = new URL(request.url);
+const intelGetHandler = withAuth(
+  async (
+    request: NextRequest,
+    { user, supabase }: OptionalAuthContext
+  ): Promise<NextResponse> => {
+    const { searchParams } = new URL(request.url);
 
-  const coords = normalizeCoordinates(
-    {
-      lat: searchParams.get("lat"),
-      lon: searchParams.get("lon"),
-      lng: searchParams.get("lng"),
-      latitude: searchParams.get("latitude"),
-      longitude: searchParams.get("longitude"),
-    },
-    { context: "GET /api/intel" }
-  );
-  const radius = parseFloat(
-    searchParams.get("radius") || INTEL_CONFIG.DEFAULT_RADIUS_MILES.toString()
-  );
-  const tag = searchParams.get("tag") as IntelPostTag | "all" | null;
-  const limit = Math.min(
-    parseInt(
-      searchParams.get("limit") || INTEL_CONFIG.DEFAULT_LIMIT.toString()
-    ),
-    INTEL_CONFIG.MAX_LIMIT
-  );
-
-  // Validate required parameters
-  if (!coords) {
-    return createValidationError("Latitude and longitude are required", {
-      required: ["lat", "lon"],
-      accepted_legacy: ["lng", "latitude", "longitude"],
-    });
-  }
-
-  // Validate radius
-  if (radius > INTEL_CONFIG.MAX_RADIUS_MILES) {
-    return createValidationError(
-      `Radius cannot exceed ${INTEL_CONFIG.MAX_RADIUS_MILES} miles`,
+    const coords = normalizeCoordinates(
       {
-        providedRadiusMiles: radius,
-        maxRadiusMiles: INTEL_CONFIG.MAX_RADIUS_MILES,
+        lat: searchParams.get("lat"),
+        lon: searchParams.get("lon"),
+        lng: searchParams.get("lng"),
+        latitude: searchParams.get("latitude"),
+        longitude: searchParams.get("longitude"),
+      },
+      { context: "GET /api/intel" }
+    );
+    const radius = parseFloat(
+      searchParams.get("radius") || INTEL_CONFIG.DEFAULT_RADIUS_MILES.toString()
+    );
+    const tag = searchParams.get("tag") as IntelPostTag | "all" | null;
+    const limit = Math.min(
+      parseInt(
+        searchParams.get("limit") || INTEL_CONFIG.DEFAULT_LIMIT.toString()
+      ),
+      INTEL_CONFIG.MAX_LIMIT
+    );
+
+    // Validate required parameters
+    if (!coords) {
+      return createValidationError("Latitude and longitude are required", {
+        required: ["lat", "lon"],
+        accepted_legacy: ["lng", "latitude", "longitude"],
+      });
+    }
+
+    // Validate radius
+    if (radius > INTEL_CONFIG.MAX_RADIUS_MILES) {
+      return createValidationError(
+        `Radius cannot exceed ${INTEL_CONFIG.MAX_RADIUS_MILES} miles`,
+        {
+          providedRadiusMiles: radius,
+          maxRadiusMiles: INTEL_CONFIG.MAX_RADIUS_MILES,
+        }
+      );
+    }
+
+    const currentUserId = user?.id;
+
+    // Use the database function for geo-query
+    const { data: intelPosts, error: intelError } = await supabase.rpc(
+      "get_nearby_intel_posts",
+      {
+        center_lat: coords.lat,
+        center_lng: coords.lon,
+        radius_miles: radius,
+        tag_filter: (tag === "all" || tag == null) ? undefined : tag,
+        limit_count: limit,
       }
     );
-  }
 
-  const supabase = await createSupabaseServerClient();
-
-  // Get current user for confirmation status
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const currentUserId = user?.id;
-
-  // Use the database function for geo-query
-  const { data: intelPosts, error: intelError } = await supabase.rpc(
-    "get_nearby_intel_posts",
-    {
-      center_lat: coords.lat,
-      center_lng: coords.lon,
-      radius_miles: radius,
-      tag_filter: (tag === "all" || tag == null) ? undefined : tag,
-      limit_count: limit,
+    if (intelError) {
+      console.error("Error fetching intel posts:", intelError);
+      throw intelError;
     }
-  );
 
-  if (intelError) {
-    console.error("Error fetching intel posts:", intelError);
-    throw intelError;
-  }
+    if (!intelPosts || intelPosts.length === 0) {
+      return createSuccessResponse({
+        posts: [],
+        total: 0,
+        filters: {
+          latitude: coords.lat,
+          longitude: coords.lon,
+          radius,
+          tag: tag || "all",
+          limit,
+        },
+      });
+    }
 
-  if (!intelPosts || intelPosts.length === 0) {
+    // Get user details for posts
+    const userIds = [...new Set(intelPosts.map((post: any) => post.user_id))];
+    const { data: profiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url")
+      .in("id", userIds);
+
+    // If profile lookup fails (RLS or other), continue with fallback names from RPC
+    if (profilesError) {
+      console.warn("Profiles lookup failed; continuing with fallback usernames from RPC", profilesError);
+    }
+
+    // Get user confirmations if authenticated
+    let userConfirmations: any[] = [];
+    if (currentUserId) {
+      const postIds = intelPosts.map((post: any) => post.id);
+      const { data: confirmations, error: confirmationsError } = await supabase
+        .from("intel_post_confirmations")
+        .select("intel_post_id")
+        .eq("user_id", currentUserId)
+        .in("intel_post_id", postIds);
+
+      if (!confirmationsError && confirmations) {
+        userConfirmations = confirmations;
+      }
+    }
+
+    // Combine data
+    const profilesMap = new Map(profiles?.map((p) => [p.id, p]) || []);
+    const confirmationsSet = new Set(
+      userConfirmations.map((c) => c.intel_post_id)
+    );
+
+    const enrichedPosts: IntelPostWithUser[] = intelPosts.map((post: any) => {
+      const profile = profilesMap.get(post.user_id);
+      return {
+        ...post,
+        user: {
+          id: post.user_id,
+          full_name: profile?.full_name || (post as any).user_name || "Anonymous",
+          avatar_url: profile?.avatar_url || null,
+        },
+        user_confirmed: confirmationsSet.has(post.id),
+      };
+    });
+
     return createSuccessResponse({
-      posts: [],
-      total: 0,
+      posts: enrichedPosts,
+      total: enrichedPosts.length,
       filters: {
         latitude: coords.lat,
         longitude: coords.lon,
@@ -133,70 +197,13 @@ async function intelGetHandler(request: NextRequest): Promise<NextResponse> {
         limit,
       },
     });
-  }
+  },
+  { optional: true, errorMessage: "Failed to fetch intel posts" }
+);
 
-  // Get user details for posts
-  const userIds = [...new Set(intelPosts.map((post: any) => post.user_id))];
-  const { data: profiles, error: profilesError } = await supabase
-    .from("profiles")
-    .select("id, full_name, avatar_url")
-    .in("id", userIds);
-
-  // If profile lookup fails (RLS or other), continue with fallback names from RPC
-  if (profilesError) {
-    console.warn("Profiles lookup failed; continuing with fallback usernames from RPC", profilesError);
-  }
-
-  // Get user confirmations if authenticated
-  let userConfirmations: any[] = [];
-  if (currentUserId) {
-    const postIds = intelPosts.map((post: any) => post.id);
-    const { data: confirmations, error: confirmationsError } = await supabase
-      .from("intel_post_confirmations")
-      .select("intel_post_id")
-      .eq("user_id", currentUserId)
-      .in("intel_post_id", postIds);
-
-    if (!confirmationsError && confirmations) {
-      userConfirmations = confirmations;
-    }
-  }
-
-  // Combine data
-  const profilesMap = new Map(profiles?.map((p) => [p.id, p]) || []);
-  const confirmationsSet = new Set(
-    userConfirmations.map((c) => c.intel_post_id)
-  );
-
-  const enrichedPosts: IntelPostWithUser[] = intelPosts.map((post: any) => {
-    const profile = profilesMap.get(post.user_id);
-    return {
-      ...post,
-      user: {
-        id: post.user_id,
-        full_name: profile?.full_name || (post as any).user_name || "Anonymous",
-        avatar_url: profile?.avatar_url || null,
-      },
-      user_confirmed: confirmationsSet.has(post.id),
-    };
-  });
-
-  return createSuccessResponse({
-    posts: enrichedPosts,
-    total: enrichedPosts.length,
-    filters: {
-      latitude: coords.lat,
-      longitude: coords.lon,
-      radius,
-      tag: tag || "all",
-      limit,
-    },
-  });
-}
-
-// Apply bot blocking, rate limiting, and error handling to public GET endpoint
+// Compose: bot blocking + rate limit → optional-auth handler.
 export const GET = withBotBlockingAndRateLimit(
-  withErrorHandler(intelGetHandler, { errorMessage: "Failed to fetch intel posts" }),
+  intelGetHandler,
   "public-default"
 );
 
