@@ -491,9 +491,10 @@ describe("transformForecastsToChartData", () => {
   });
 
   it("never populates mlCorrectedHeight after the OM-primary selector write-site swap", () => {
-    // Wave height is now chosen at the forecast-builder write site
-    // (lib/utils/wave-height-selector.ts) rather than in display code.
-    // The ml_corrected_height column is no longer consumed by this transform.
+    // Wave height is now chosen at the forecast-builder write site by the
+    // per-component face-Hs transformer (lib/utils/wave-height-transformer.ts)
+    // rather than in display code. The ml_corrected_height column is no
+    // longer consumed by this transform.
     const forecasts = [
       makeForecast({
         forecast_at: "2026-02-18T13:00:00Z",

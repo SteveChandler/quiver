@@ -342,10 +342,10 @@ describe("DetailCard", () => {
   // ─── ML corrected height (row removed by OM-primary selector) ───
 
   describe("ML corrected height row", () => {
-    // Wave height is now chosen at the write site by the OM-primary
-    // selector (lib/utils/wave-height-selector.ts). The "ML Adjusted"
-    // row was removed from the embed detail card since there's no
-    // separate ml_corrected_height to surface.
+    // Wave height is now chosen at the write site by the per-component
+    // face-Hs transformer (lib/utils/wave-height-transformer.ts). The
+    // "ML Adjusted" row was removed from the embed detail card since
+    // there's no separate ml_corrected_height to surface.
     it("never renders the 'ML Adjusted' row, even when calibrated data is present", () => {
       render(
         <DetailCard

@@ -11,7 +11,6 @@
 import { createContextLogger } from "@/lib/logger";
 import { calculateConfidenceScore } from "./confidence-scorer";
 import { toFaceHeightFeet, toFaceHeightFeetDecomposed, METERS_TO_FEET } from "@/lib/utils/wave-formatters";
-import { selectWaveHeightFormatted } from "@/lib/utils/wave-height-selector";
 import type {
   ShoalingFactors,
   SwellComponentInput,
@@ -269,13 +268,11 @@ export class ForecastBuilder {
       forecast_time: getNormalizedTimeString(forecastTime),
       forecast_at: getNormalizedForecastAt(forecastTime),
 
-      // Wave data — OM-primary selector: raw OM Hs >=0.95m wins over the
-      // v3-corrected/NOAA/CDIP fallback by ~35% MAE in production matches.
-      // See lib/utils/wave-height-selector.ts for the gate rationale.
-      wave_height: selectWaveHeightFormatted({
-        om_m: wavePoint?.om_values?.wave_height_om ?? null,
-        fallback_ft_string: this.getWaveHeight(cdipPoint, wavePoint, buoyData, useCDIPData, beach, nowcastAnchor),
-      }),
+      // Honest face-height from the per-component transformer. The raw OM Hs is
+      // still co-located on this row in `wave_height_om` for the Seaside ML
+      // pipeline. The OM-primary scalar override (now removed) was inflating
+      // display by ~2× because raw deep-water Hs is not face height.
+      wave_height: this.getWaveHeight(cdipPoint, wavePoint, buoyData, useCDIPData, beach, nowcastAnchor),
       wave_period: this.getWavePeriod(cdipPoint, wavePoint, buoyData, useCDIPData),
       wave_direction: this.getWaveDirection(cdipPoint, wavePoint, useCDIPData),
 
