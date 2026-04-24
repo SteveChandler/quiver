@@ -43,7 +43,7 @@ import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
 // Import from other discovery modules
 import { buildCandidatePool } from './candidate-pool-builder';
 import { batchFetchForecasts } from './forecast-batch-fetcher';
-import { selectBestWindow, getLocalDateStr, getLocalHour } from './window-selector';
+import { selectBestWindow, getLocalDateStr, getLocalHour, MIN_SESSION_HOURS } from './window-selector';
 import {
   enrichWithPhotos,
   generateDiscoverySummary,
@@ -572,27 +572,34 @@ async function discoverSurfSpotsInner(
     // regression guarded by the no-fall-through test in this suite). Fall
     // through to the full forecast set in two cases:
     //   1. todayForecasts was empty (data only starts tomorrow)
-    //   2. today-only returned null AND we're already post-sunset for this
-    //      beach, so "today" is genuinely over and holding the line would
-    //      return zero recommendations for the whole evening.
+    //   2. today-only returned null AND today is physically over for surf —
+    //      either past sunset, OR within MIN_SESSION_HOURS of it so no
+    //      remaining forecast can form a viable window. Mirrors the
+    //      window-selector's own pre-sunset reject at
+    //      window-selector-core.ts:565, closing the dead-zone where
+    //      today-only returns null but we aren't technically past sunset
+    //      yet (e.g. 19:21 PDT with sunset 19:31).
     const nowForFallback = new Date();
     const beachSunTimes = sunTimesCache.get(beach.id);
     const beachSameDaySunset = beachSunTimes?.sunsets.find(
       (s: Date) => getLocalDateStr(s, beachTz) === todayStr
     );
-    const isPostSunsetForBeach =
-      !!beachSameDaySunset && nowForFallback.getTime() > beachSameDaySunset.getTime();
+    const hoursUntilSunset = beachSameDaySunset
+      ? (beachSameDaySunset.getTime() - nowForFallback.getTime()) / (60 * 60 * 1000)
+      : null;
+    const todayIsEffectivelyOver =
+      hoursUntilSunset !== null && hoursUntilSunset < MIN_SESSION_HOURS;
 
     let bestWindow = todayForecasts.length > 0
       ? selectBestWindow(todayForecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot)
       : null;
 
-    if (!bestWindow && (todayForecasts.length === 0 || isPostSunsetForBeach)) {
+    if (!bestWindow && (todayForecasts.length === 0 || todayIsEffectivelyOver)) {
       bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
       if (!bestWindow && todayForecasts.length === 0) {
         log.warn(`[discoverSurfSpots] ${beach.name}: no today forecasts (total=${forecasts.length}), tomorrow fallback returned null`);
       } else if (!bestWindow) {
-        log.warn(`[discoverSurfSpots] ${beach.name}: post-sunset fall-through failed (today=${todayForecasts.length}, total=${forecasts.length})`);
+        log.warn(`[discoverSurfSpots] ${beach.name}: pre/post-sunset fall-through failed (today=${todayForecasts.length}, total=${forecasts.length}, hoursUntilSunset=${hoursUntilSunset?.toFixed(2)})`);
       }
     }
 
