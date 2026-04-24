@@ -1,91 +1,71 @@
-import { NextRequest } from "next/server";
-import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
+import type { NextRequest } from "next/server";
+import {
+  withAuth,
+  createSuccessResponse,
+  createNotFoundError,
+  type AuthenticatedContext,
+} from "@/lib/middleware/api-wrappers";
 import { fetchProfile as defaultFetchProfile } from "@/actions/profile-actions";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getProfileWithHomeBeachById } from "@/lib/profile/fetchers";
 
+export const dynamic = "force-dynamic";
+
 /**
- * GET /api/me/profile - Get current user's profile (cached with tags)
- * This route provides the canonical API for client-side profile fetching
- * and is tagged with "profile" for cache invalidation
+ * GET /api/me/profile - Get current user's profile.
+ *
+ * Uses `withAuth` so both cookie (web) and Bearer (native) auth resolve
+ * the user. The prior handler used a cookie-only `createSupabaseServerClient`
+ * and returned 401 for every native caller.
  */
+
+// Legacy DI type kept for test compatibility. New callers should not pass
+// deps — the real auth path goes through withAuth.
 export type GetDeps = {
   fetchProfileFn?: typeof defaultFetchProfile;
-  getUserFn?: () => Promise<{ user: { id: string } | null; error: any }>;
 };
 
-// Internal handler that accepts DI deps for testing
-export async function handleGet(request: NextRequest, deps?: GetDeps) {
-  try {
-    
-    // Get current user (allow DI for tests)
-    const getUser = deps?.getUserFn
-      ? deps.getUserFn
-      : async () => {
-          const supabase = await createSupabaseServerClient();
-          const { data: { user }, error } = await supabase.auth.getUser();
-          return { user, error } as any;
-        };
-    const { user, error: authError } = await getUser();
-    
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
-      );
-    }
-    
-    // Get profile data using tagged fetch for better caching
-    // Preserve DI for tests: if a custom fetch is provided, use it
-    if (deps?.fetchProfileFn) {
-      const profileData = await deps.fetchProfileFn(user.id);
-      if (!profileData) {
-        return new Response(
-          JSON.stringify({ error: "Profile not found" }),
-          { status: 404, headers: { "Content-Type": "application/json" } }
-        );
-      }
-      const response = {
-        id: profileData.id,
-        home_beach_id: profileData.home_beach_id,
-        full_name: profileData.full_name,
-        avatar_url: (profileData as any).avatar_url ?? null,
-        bio: (profileData as any).bio ?? null,
-        location: (profileData as any).location ?? null,
-      };
-      return createSuccessResponse(response);
-    }
+export async function handleGet(
+  _request: NextRequest,
+  context: AuthenticatedContext,
+  deps?: GetDeps,
+) {
+  const { user, supabase } = context;
 
-    const supabase = await createSupabaseServerClient();
-    const { profile, homeBeachName } = await getProfileWithHomeBeachById(user.id, supabase);
-
-    if (!profile) {
-      return new Response(
-        JSON.stringify({ error: "Profile not found" }),
-        { status: 404, headers: { "Content-Type": "application/json" } }
-      );
+  if (deps?.fetchProfileFn) {
+    const profileData = await deps.fetchProfileFn(user.id);
+    if (!profileData) {
+      return createNotFoundError("Profile not found");
     }
-    
-    // Return profile with specific fields for home beach functionality
-    const response = {
-      id: profile.id,
-      home_beach_id: profile.home_beach_id,
-      full_name: profile.full_name,
-      homeBeachName,
-      // Light additional details so client UIs (like avatar) render correctly
-      avatar_url: (profile as any).avatar_url ?? null,
-      bio: (profile as any).bio ?? null,
-      location: (profile as any).location ?? null,
-    };
-    
-    return createSuccessResponse(response);
-  } catch (error) {
-    console.error("Error in GET /api/me/profile:", error);
-    return handleApiError(error);
+    return createSuccessResponse({
+      id: profileData.id,
+      home_beach_id: profileData.home_beach_id,
+      full_name: profileData.full_name,
+      avatar_url: (profileData as { avatar_url?: string | null }).avatar_url ?? null,
+      bio: (profileData as { bio?: string | null }).bio ?? null,
+      location: (profileData as { location?: string | null }).location ?? null,
+    });
   }
+
+  const { profile, homeBeachName } = await getProfileWithHomeBeachById(
+    user.id,
+    supabase,
+  );
+
+  if (!profile) {
+    return createNotFoundError("Profile not found");
+  }
+
+  return createSuccessResponse({
+    id: profile.id,
+    home_beach_id: profile.home_beach_id,
+    full_name: profile.full_name,
+    homeBeachName,
+    avatar_url: (profile as { avatar_url?: string | null }).avatar_url ?? null,
+    bio: (profile as { bio?: string | null }).bio ?? null,
+    location: (profile as { location?: string | null }).location ?? null,
+  });
 }
 
-// Next.js route handler - delegates to handleGet
-export async function GET(request: NextRequest) {
-  return handleGet(request);
-}
+export const GET = withAuth(handleGet, {
+  errorMessage: "Failed to load profile",
+});
