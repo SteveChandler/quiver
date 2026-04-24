@@ -162,7 +162,7 @@ async function main(): Promise<void> {
   const { data: efRows, error: efErr } = await supabase
     .from("enhanced_forecasts")
     .select(
-      "forecast_at, data_source, wave_height, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, wind_wave_height, wind_wave_period, wind_wave_direction",
+      "forecast_at, data_source, wave_height, wave_height_om, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, wind_wave_height, wind_wave_period, wind_wave_direction",
     )
     .eq("beach_id", BEACH_ID)
     .gte("forecast_at", targetHourFloor.toISOString())
@@ -426,6 +426,38 @@ async function main(): Promise<void> {
         "INVERTED: stored is lower than transformer — likely a different (older) write that hasn't been refreshed",
       );
     }
+  }
+
+  // --- 9b. Pre-fix vs post-fix demonstration ------------------------------
+  // Reconstructs the now-deleted selectWaveHeightFormatted logic inline using
+  // the actual stored wave_height_om for this hour. Proves the fix flips the
+  // broken case to honest face-Hs locally, without needing a fresh DB write.
+  console.log("\n=== Pre-fix vs post-fix demonstration (this hour, OB Pier) ===");
+  const omM = stored && typeof (stored as { wave_height_om?: number | null }).wave_height_om === "number"
+    ? (stored as { wave_height_om?: number | null }).wave_height_om!
+    : null;
+  const SMALL_WAVE_GATE_M = 0.95;
+  const postFixFt = transformResult.faceHeightFt;
+  const postFixString = `${postFixFt.toFixed(1)} ft`;
+  let preFixString: string;
+  let preFixSource: string;
+  if (omM != null && Number.isFinite(omM) && omM >= SMALL_WAVE_GATE_M) {
+    const omFt = omM * M_TO_FT;
+    preFixString = `${omFt.toFixed(1)} ft`;
+    preFixSource = `OM-primary override (om_m=${omM.toFixed(2)} >= ${SMALL_WAVE_GATE_M})`;
+  } else {
+    preFixString = postFixString;
+    preFixSource =
+      omM == null
+        ? "transformer (om_m null — gate would not have fired)"
+        : `transformer (om_m=${omM.toFixed(2)} < ${SMALL_WAVE_GATE_M} — gate did not fire)`;
+  }
+  console.log(`  Pre-fix wave_height (simulated): ${preFixString}  via ${preFixSource}`);
+  console.log(`  Post-fix wave_height (this PR):  ${postFixString}  via transformer face-Hs`);
+  if (preFixString !== postFixString) {
+    console.log(`  RESULT: fix flips this hour from ${preFixString} → ${postFixString} ✅`);
+  } else {
+    console.log(`  RESULT: this hour was NOT being amplified (gate didn't fire) — fix is a no-op here.`);
   }
 
   // --- 10. NOAA partition order check -----------------------------------
