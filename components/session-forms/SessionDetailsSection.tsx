@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { useSessionForecast } from "@/hooks/use-session-forecast";
 import { formatWaveHeightRangeString } from "@/lib/utils/wave-formatters";
-import { SET_WAVE_VARIANCE } from "@/lib/utils/wave-height-transformer";
 import { SimpleCardLayout } from "@/components/ui/form-layout";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -499,7 +498,7 @@ export function SessionDetailsSection({
                   Estimated range:{" "}
                   {formatWaveHeightRangeString(
                     formState.waveHeight,
-                    formState.waveHeight * SET_WAVE_VARIANCE
+                    formState.waveHeight
                   )}
                 </p>
               )}

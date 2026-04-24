@@ -1,11 +1,12 @@
 /**
  * Wave Height Badge Formatting Tests
  *
- * Tests the formatWaveHeightRange function which converts average wave heights
- * to range strings showing average to set waves (1.5x multiplier).
+ * Tests the formatWaveHeightRange function which converts a face Hs (and an
+ * optional set of forecasts to derive an actual min/max from) into a
+ * Surfline-style range string. Format: floor(low)-ceil(high) ft, no "sets"
+ * suffix and no × 1.5 expansion.
  */
 
-// Import the function once it exists
 import { formatWaveHeightRange } from "@/lib/services/discovery/surf-discovery-orchestrator";
 
 describe("formatWaveHeightRange", () => {
@@ -15,28 +16,28 @@ describe("formatWaveHeightRange", () => {
     expect(formatWaveHeightRange(0.49)).toBeNull();
   });
 
-  it("formats very small waves with half-foot precision", () => {
-    // 0.5ft avg × 1.5 = 0.75ft sets
-    expect(formatWaveHeightRange(0.5)).toBe("0.5-1ft sets");
-    // 0.7ft avg × 1.5 = 1.05ft sets
-    expect(formatWaveHeightRange(0.7)).toBe("0.5-1ft sets");
+  it("formats very small waves as a floor/ceil bracket", () => {
+    // floor(0.5)=0, ceil(0.5)=1 → "0-1ft"
+    expect(formatWaveHeightRange(0.5)).toBe("0-1ft");
+    expect(formatWaveHeightRange(0.7)).toBe("0-1ft");
   });
 
-  it("formats typical wave heights as ranges", () => {
-    // 1.5ft avg × 1.5 = 2.25ft sets, rounds to 2.5
-    expect(formatWaveHeightRange(1.5)).toBe("1.5-2.5ft sets");
-    // 2ft avg × 1.5 = 3ft sets
-    expect(formatWaveHeightRange(2)).toBe("2-3ft sets");
-    // 2.3ft avg × 1.5 = 3.45ft sets
-    expect(formatWaveHeightRange(2.3)).toBe("2-3ft sets");
-    // 3ft avg × 1.5 = 4.5ft sets
-    expect(formatWaveHeightRange(3)).toBe("3-5ft sets");
+  it("formats typical wave heights as Surfline-style face brackets", () => {
+    // floor(1.5)=1, ceil(1.5)=2 → "1-2ft"
+    expect(formatWaveHeightRange(1.5)).toBe("1-2ft");
+    // floor(2)=2, ceil(2)=2 → collapsed "2ft"
+    expect(formatWaveHeightRange(2)).toBe("2ft");
+    // floor(2.3)=2, ceil(2.3)=3 → "2-3ft"
+    expect(formatWaveHeightRange(2.3)).toBe("2-3ft");
+    // Whole-number 3 collapses to "3ft" (no × 1.5 expansion)
+    expect(formatWaveHeightRange(3)).toBe("3ft");
   });
 
-  it("formats larger waves correctly", () => {
-    // 5ft avg × 1.5 = 7.5ft sets
-    expect(formatWaveHeightRange(5)).toBe("5-8ft sets");
-    // 8ft avg × 1.5 = 12ft sets
-    expect(formatWaveHeightRange(8)).toBe("8-12ft sets");
+  it("formats larger waves as floor/ceil bracket", () => {
+    // Whole-number collapses to single value
+    expect(formatWaveHeightRange(5)).toBe("5ft");
+    expect(formatWaveHeightRange(8)).toBe("8ft");
+    // Fractional values keep the bracket
+    expect(formatWaveHeightRange(5.4)).toBe("5-6ft");
   });
 });

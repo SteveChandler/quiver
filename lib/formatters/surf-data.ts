@@ -1,24 +1,20 @@
-import { SET_WAVE_VARIANCE } from '@/lib/utils/wave-height-transformer';
 import { METERS_TO_FEET } from '@/lib/utils/unit-conversions';
-// Cross-platform note: Wave range formatting also exists in quiver-native/src/lib/format-wave-height.ts
-// (different algorithm — takes string input like "2.6 ft" and uses floor/ceil rounding)
+// Cross-platform note: web now matches quiver-native/src/lib/format-wave-height.ts —
+// floor/ceil bracket on face Hs, no "sets" expansion, no "sets" suffix.
 
 /**
  * Format wave height as a surfer-friendly range string.
- * (Previously named `formatWaveHeight` — renamed to `formatWaveHeightRange` to avoid collision.)
  * Returns "Flat" for zero, negative, NaN, or Infinity values.
- * Uses integer rounding for both average and set heights via SET_WAVE_VARIANCE;
- * collapses to a single value when both round to the same integer.
- * Ranges are suffixed with "sets" to make it explicit that the upper bound
- * is projected set waves (≈1.5x average), not a flat average range.
+ * Uses Surfline-style floor/ceil bracket on face Hs (no × 1.5 set expansion);
+ * collapses to a single value when floor and ceil are equal.
  */
 export function formatWaveHeightRange(ft: number): string {
   if (!Number.isFinite(ft)) return 'Flat';
   if (ft <= 0) return 'Flat';
-  const low = Math.round(ft);
-  const high = Math.round(ft * SET_WAVE_VARIANCE);
+  const low = Math.floor(ft);
+  const high = Math.ceil(ft);
   if (low === high) return `${low}ft`;
-  return `${low}-${high}ft sets`;
+  return `${low}-${high}ft`;
 }
 
 /**
