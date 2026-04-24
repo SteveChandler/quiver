@@ -63,27 +63,31 @@ describe("formatWaveHeightRange", () => {
   });
 
   describe("small ranges that collapse to a single value", () => {
-    it("collapses 0.5ft (set=0.75) to a single value '1ft'", () => {
-      // low=0.5 rounds to 1, high=0.75 rounds to 1 → same → "1ft"
-      expect(formatWaveHeightRange(0.5)).toBe("1ft");
+    it("collapses 0.5ft to '0-1ft' (floor=0, ceil=1)", () => {
+      // floor(0.5)=0, ceil(0.5)=1 → "0-1ft"
+      expect(formatWaveHeightRange(0.5)).toBe("0-1ft");
     });
   });
 
-  describe("standard ranges", () => {
-    it("formats 1ft as '1-2ft sets' (1 * 1.5 = 1.5, rounds to 2)", () => {
-      expect(formatWaveHeightRange(1)).toBe("1-2ft sets");
+  describe("standard ranges (Surfline-style floor/ceil bracket on face Hs)", () => {
+    it("formats whole-number 1ft as '1ft'", () => {
+      expect(formatWaveHeightRange(1)).toBe("1ft");
     });
 
-    it("formats 3ft as '3-5ft sets' (3 * 1.5 = 4.5, rounds to 5)", () => {
-      expect(formatWaveHeightRange(3)).toBe("3-5ft sets");
+    it("formats 3ft as '3ft' (floor=ceil=3, no × 1.5 expansion)", () => {
+      expect(formatWaveHeightRange(3)).toBe("3ft");
     });
 
-    it("formats 6ft as '6-9ft sets' (6 * 1.5 = 9.0)", () => {
-      expect(formatWaveHeightRange(6)).toBe("6-9ft sets");
+    it("formats 6ft as '6ft'", () => {
+      expect(formatWaveHeightRange(6)).toBe("6ft");
     });
 
-    it("formats 10ft as '10-15ft sets' (10 * 1.5 = 15.0)", () => {
-      expect(formatWaveHeightRange(10)).toBe("10-15ft sets");
+    it("formats 10ft as '10ft'", () => {
+      expect(formatWaveHeightRange(10)).toBe("10ft");
+    });
+
+    it("formats 3.4ft as '3-4ft' (Surfline-style face bracket)", () => {
+      expect(formatWaveHeightRange(3.4)).toBe("3-4ft");
     });
   });
 
@@ -94,9 +98,11 @@ describe("formatWaveHeightRange", () => {
       expect(typeof formatWaveHeightRange(10)).toBe("string");
     });
 
-    it("returned string ends with 'ft' or 'ft sets' for positive heights", () => {
-      expect(formatWaveHeightRange(3)).toMatch(/ft( sets)?$/);
-      expect(formatWaveHeightRange(6)).toMatch(/ft( sets)?$/);
+    it("returned string ends with 'ft' (no 'sets' suffix)", () => {
+      expect(formatWaveHeightRange(3)).toMatch(/ft$/);
+      expect(formatWaveHeightRange(3.5)).toMatch(/ft$/);
+      expect(formatWaveHeightRange(6)).toMatch(/ft$/);
+      expect(formatWaveHeightRange(3)).not.toMatch(/sets/);
     });
   });
 });

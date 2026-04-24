@@ -60,14 +60,14 @@ describe("TodaysWindows", () => {
     expect(screen.getByText("Onshore")).toBeInTheDocument();
   });
 
-  it("renders wave heights for each window with consistent sets labeling", () => {
+  it("renders wave heights as Surfline-style face brackets (no 'sets' suffix)", () => {
     render(<TodaysWindows windows={SAMPLE_WINDOWS} preferredTime={null} />);
-    // Every range gets the "sets" suffix — including pre-formatted inputs
-    // that bypass the formatter. Consistency across the list matters more
-    // than preserving the caller's original string verbatim.
-    expect(screen.getByText("4-5ft sets")).toBeInTheDocument();
-    expect(screen.getByText("4-6ft sets")).toBeInTheDocument(); // "4 ft" point value → range
-    expect(screen.getByText("3-4ft sets")).toBeInTheDocument();
+    // Pre-formatted ranges pass through unchanged. Single-point inputs go
+    // through the formatter, which uses floor/ceil on face Hs (no × 1.5
+    // expansion) — so "4 ft" → "4ft", not "4-6ft sets".
+    expect(screen.getByText("4-5ft")).toBeInTheDocument();
+    expect(screen.getByText("4ft")).toBeInTheDocument();
+    expect(screen.getByText("3-4ft")).toBeInTheDocument();
   });
 
   it("applies preferred time ring to the matching time slot", () => {

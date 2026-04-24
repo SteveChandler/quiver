@@ -463,11 +463,11 @@ describe("OracleHomeScreen", () => {
     } as unknown as OracleData;
     render(<OracleHomeScreen />);
 
-    // 5am slot should show "1-2ft sets" from slotForecasts (pre-formatted
-    // ranges get the "sets" suffix applied for consistency).
-    expect(screen.getByText("1-2ft sets")).toBeInTheDocument();
-    // 11am slot should show "2-3ft sets" from slotForecasts
-    expect(screen.getAllByText("2-3ft sets").length).toBeGreaterThanOrEqual(1);
+    // 5am slot should show "1-2ft" from slotForecasts (pre-formatted ranges
+    // pass through unchanged; the " sets" suffix has been retired).
+    expect(screen.getByText("1-2ft")).toBeInTheDocument();
+    // 11am slot should show "2-3ft" from slotForecasts
+    expect(screen.getAllByText("2-3ft").length).toBeGreaterThanOrEqual(1);
   });
 
   it("prefers current-slot tide/wind data over forecast entity values when slotForecasts is populated", () => {
