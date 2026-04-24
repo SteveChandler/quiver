@@ -119,6 +119,21 @@ export function useCachedProfile() {
     refetch();
   }, [clearCache, refetch]);
 
+  // Invalidate cache on onboarding completion. Mirrors ProfileContext's
+  // listener so the Oracle home screen (which reads via this legacy hook)
+  // picks up the newly-set home_beach_id instead of serving stale null.
+  // Without this, fresh signups land on "We couldn't find any surf spots"
+  // after completing onboarding.
+  useEffect(() => {
+    const handleOnboardingComplete = () => {
+      refreshProfile();
+    };
+    window.addEventListener("onboarding_completed", handleOnboardingComplete);
+    return () => {
+      window.removeEventListener("onboarding_completed", handleOnboardingComplete);
+    };
+  }, [refreshProfile]);
+
   return {
     profile,
     homeBeach,
