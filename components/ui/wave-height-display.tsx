@@ -8,7 +8,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { SET_WAVE_VARIANCE } from "@/lib/utils/wave-height-transformer";
 import {
   formatWaveHeightRangeString,
   extractNumericWaveHeight,
@@ -65,19 +64,17 @@ export function WaveHeightDisplay({
     if (!height) return null;
 
     // If height is already a range string (e.g., "1-2ft", "3-4 ft"), pass it
-    // through but ensure the "sets" suffix is applied so pre-formatted
-    // ranges don't render side-by-side with formatter-produced ranges
-    // missing the label (e.g. "4-5ft" next to "4-6ft sets" in the same row).
+    // through unchanged. Surfline-parity format omits the " sets" suffix.
     if (/\d+(?:\.\d+)?-\d+(?:\.\d+)?\s*ft/i.test(height)) {
-      return /\bsets\b/i.test(height) ? height : `${height.trimEnd()} sets`;
+      return height.replace(/\s*sets\s*$/i, '').trimEnd();
     }
 
     // Extract numeric value using shared utility
     const low = extractNumericWaveHeight(height);
     if (low === null) return height;
 
-    // Calculate high (set waves)
-    const high = low * SET_WAVE_VARIANCE;
+    // Single-point face Hs → floor/ceil bracket via shared formatter.
+    const high = low;
     const result = formatWaveHeightRangeString(low, high);
 
     // Debug logging to trace "X-Xft" bug where low and high show identical values

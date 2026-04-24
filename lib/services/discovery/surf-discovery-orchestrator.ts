@@ -35,7 +35,6 @@ import {
 } from '@/lib/domains/scoring';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
-import { SET_WAVE_VARIANCE } from '@/lib/utils/wave-height-transformer';
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
@@ -75,12 +74,12 @@ const DEFAULT_OVERALL_TIMEOUT_MS = 12000; // Increased from 8s for more beaches
 /**
  * Format wave height as a range string for badge display.
  * Uses actual min/max from a set of forecasts when provided.
- * Falls back to the 1.5x multiplier when no forecasts are available.
+ * Falls back to a floor/ceil bracket of the single-point face Hs otherwise.
  * Returns null for flat conditions (< 0.5ft average).
  *
- * @param waveHeight - Average wave height in feet (used for flat check and fallback)
+ * @param waveHeight - Face wave height in feet (used for flat check and fallback)
  * @param forecasts - Optional hourly forecasts to derive actual min/max from
- * @returns Range string like "3-5ft" or null if flat
+ * @returns Range string like "3-4ft" or null if flat
  */
 export function formatWaveHeightRange(
   waveHeight: number,
@@ -102,8 +101,8 @@ export function formatWaveHeightRange(
     }
   }
 
-  // Fallback: single-point estimate using 1.5x variance
-  return formatWaveHeightRangeString(waveHeight, waveHeight * SET_WAVE_VARIANCE);
+  // Fallback: single-point face Hs, bracketed floor/ceil for Surfline parity.
+  return formatWaveHeightRangeString(waveHeight, waveHeight);
 }
 
 /**
