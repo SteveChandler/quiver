@@ -8,13 +8,38 @@ import {
   expectSuccessResponse,
 } from "@/test-utils/api-test-helpers";
 
-jest.mock("@/lib/middleware/api-wrappers", () => ({
-  withBotBlockingAndRateLimit: (handler: any) => handler,
-  withErrorHandler: (handler: any) => handler,
-  withRateLimit: (handler: any) => handler,
-}));
-
 const mockSupabaseClient = createMockSupabaseClient();
+
+jest.mock("@/lib/middleware/api-wrappers", () => {
+  return {
+    withBotBlockingAndRateLimit: (handler: any) => handler,
+    withErrorHandler: (handler: any) => handler,
+    withRateLimit: (handler: any) => handler,
+    withAuth:
+      (handler: any, options: any = {}) =>
+      async (request: any, context: any) => {
+        const result = await mockSupabaseClient.auth.getUser();
+        const user = result?.error ? null : result?.data?.user ?? null;
+        if (!options.optional && !user) {
+          const { NextResponse } = require("next/server");
+          return NextResponse.json(
+            { error: options.authErrorMessage ?? "Authentication required" },
+            { status: 401 },
+          );
+        }
+        const resolvedParams = context?.params
+          ? typeof context.params === "object" && "then" in context.params
+            ? await context.params
+            : context.params
+          : {};
+        return handler(request, {
+          params: resolvedParams,
+          user,
+          supabase: mockSupabaseClient,
+        });
+      },
+  };
+});
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(() => mockSupabaseClient),
