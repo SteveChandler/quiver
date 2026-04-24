@@ -1,24 +1,20 @@
 import { NextRequest } from "next/server";
-import { createSuccessResponse, handleApiError, createAuthError, createValidationError, methodNotAllowed, isValidUuid } from "@/lib/api-utils";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createValidationError, isValidUuid } from "@/lib/api-utils";
+import {
+  withAuth,
+  createSuccessResponse,
+  methodNotAllowed,
+  type AuthenticatedContext,
+} from "@/lib/middleware/api-wrappers";
 
-export async function DELETE(
-  _request: NextRequest,
-  context: { params: Promise<{ commentId: string }> }
-) {
-  try {
-    const { commentId } = (await context.params);
+export const DELETE = withAuth(
+  async (
+    _request: NextRequest,
+    { user, supabase, params }: AuthenticatedContext
+  ) => {
+    const commentId = params.commentId;
     if (!commentId || !isValidUuid(commentId)) {
       return createValidationError("Invalid comment id format");
-    }
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-
-    if (error || !user) {
-      return createAuthError();
     }
 
     const { error: deleteError } = await supabase
@@ -30,13 +26,10 @@ export async function DELETE(
     if (deleteError) throw deleteError;
 
     return createSuccessResponse({ message: "Comment deleted successfully" });
-  } catch (error) {
-    return handleApiError(error, "Failed to delete comment");
-  }
-}
+  },
+  { errorMessage: "Failed to delete comment" }
+);
 
 export function GET() {
   return methodNotAllowed(["DELETE"]);
 }
-
-

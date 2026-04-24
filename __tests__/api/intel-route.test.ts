@@ -59,20 +59,31 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(() => mockServiceRoleClient),
 }));
 
-// Mock middleware wrappers to pass through and provide context
+// Mock middleware wrappers to pass through and provide context.
+// `withAuth` honours the current mockSupabaseClient.auth.getUser() result so
+// GET (optional auth) can see a null user, and POST (required auth) 401s
+// unless mockAuthenticatedUser() was called first.
 jest.mock("@/lib/middleware/api-wrappers", () => {
   const actual = jest.requireActual("@/lib/middleware/api-wrappers");
+  const { NextResponse } = require("next/server");
   return {
     ...actual,
-    withAuth: (handler: any, options: any) => async (request: any) => {
+    withAuth: (handler: any, options: any = {}) => async (request: any) => {
       try {
+        const { data, error } = await mockSupabaseClient.auth.getUser();
+        const user = error ? null : data?.user ?? null;
+        if (!options.optional && !user) {
+          return NextResponse.json(
+            { error: options.authErrorMessage ?? "Authentication required" },
+            { status: 401 },
+          );
+        }
         const context = {
-          user: { id: "test-user-123" },
+          user,
           supabase: mockSupabaseClient,
         };
         return await handler(request, context);
       } catch (error: any) {
-        // Mimic actual withAuth error handling
         const { handleApiError } = jest.requireActual("@/lib/api-utils");
         return handleApiError(error, options?.errorMessage || "Request failed");
       }
@@ -82,7 +93,6 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
       try {
         return await handler(request);
       } catch (error: any) {
-        // Mimic actual withErrorHandler error handling
         const { handleApiError } = jest.requireActual("@/lib/api-utils");
         return handleApiError(error, options?.errorMessage || "Request failed");
       }
@@ -522,6 +532,9 @@ describe("POST /api/intel", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     delete process.env.ALLOW_E2E_MUTATIONS_DEV;
+    // POST is withAuth(required). Default to authed; individual tests can
+    // override via mockUnauthenticatedUser() to assert 401 behavior.
+    mockAuthenticatedUser("test-user-123");
   });
 
   describe("Authentication", () => {
