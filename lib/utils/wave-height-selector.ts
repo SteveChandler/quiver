@@ -20,8 +20,7 @@ export function selectWaveHeightFormatted(
   if (om_m != null && Number.isFinite(om_m) && om_m >= SMALL_WAVE_GATE_M) {
     const feet = metersToFeet(om_m);
     if (feet == null) return fallback_ft_string;
-    const ft = Math.round(feet * 10) / 10;
-    return `${ft} ft`;
+    return `${feet.toFixed(1)} ft`;
   }
   return fallback_ft_string;
 }
