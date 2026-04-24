@@ -24,32 +24,17 @@ jest.mock("@/lib/auth/admin", () => ({
   authenticateAdmin: jest.fn(() => Promise.resolve({ success: false, status: 401, error: "Unauthorized" })),
 }));
 
-// Supabase client mocks. The route uses two distinct clients:
-//   1. createSupabaseServiceRoleClient — mergeMLCorrections →
-//      .from("corrected_forecasts").select().eq().gte().lte()
-//   2. createPublicReadClient (anon, no cookies) — calibration lookup →
-//      .from("beaches").select().eq().maybeSingle()
+// Supabase client mock. The route uses one client:
+//   createPublicReadClient (anon, no cookies) — calibration lookup →
+//   .from("beaches").select().eq().maybeSingle()
 // Public read is used for the beaches row because `shoaling_factors` is
 // publicly readable via RLS; the route no longer escalates to service-role
-// just to read that column.
+// just to read that column. The legacy mergeMLCorrections path was removed
+// alongside the OM-primary scalar override (Apr 2026).
 // Tests override `mockBeachShoalingFactors`: a value = calibrated,
 // `null` = forecast-only, `undefined` = beach row not found.
 let mockBeachShoalingFactors: unknown | undefined = null;
 jest.mock("@/lib/supabase/server", () => ({
-  createSupabaseServiceRoleClient: jest.fn(() => ({
-    from: jest.fn((_table: string) => ({
-      // corrected_forecasts (mergeMLCorrections) — return no corrections
-      select: jest.fn(() => ({
-        eq: jest.fn(() => ({
-          gte: jest.fn(() => ({
-            lte: jest.fn(() =>
-              Promise.resolve({ data: [], error: null })
-            ),
-          })),
-        })),
-      })),
-    })),
-  })),
   createPublicReadClient: jest.fn(() => ({
     from: jest.fn((_table: string) => ({
       select: jest.fn(() => ({
