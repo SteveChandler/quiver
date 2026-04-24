@@ -153,13 +153,26 @@ const nextConfig = {
           },
         ],
       },
-      // API route caching
+      // API route caching — default blanket.
+      //
+      // `private` (not `public`) because many /api/* routes return per-user
+      // data (follow status, likedByMe enrichment, friends feed, etc.) and
+      // this header applies to ALL matching routes, overriding any route-
+      // level Cache-Control the handler sets. Shared caches (CDN, corporate
+      // proxy) MUST NOT store these responses or they leak user A's state
+      // to user B. Browsers / NSURLCache can still cache within session.
+      //
+      // Routes that are intentionally public and benefit from shared caches
+      // (OG images, forecasts) should set `Cache-Control: public, ...`
+      // explicitly — but be aware that header precedence is a Next.js-
+      // version-dependent behavior, so prefer moving truly-cacheable routes
+      // to a more specific source pattern here if you need CDN caching.
       {
         source: "/api/(.*)",
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=60, stale-while-revalidate=120",
+            value: "private, max-age=60, stale-while-revalidate=120",
           },
         ],
       },
