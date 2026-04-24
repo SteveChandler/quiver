@@ -9,107 +9,7 @@ import {
   getFreshForecastFromCache,
 } from "@/lib/utils/forecast-server-utils";
 import { withAdminAuth } from "@/lib/middleware/api-wrappers";
-import {
-  createSupabaseServiceRoleClient,
-  createPublicReadClient,
-} from "@/lib/supabase/server";
-import type { EnhancedForecastEntity } from "@/types/forecast";
-
-/**
- * Feature flag to disable ML corrections.
- * Set ML_CORRECTIONS_ENABLED=false in environment to disable.
- * Use this when ML model is degraded and making forecasts worse.
- */
-const ML_CORRECTIONS_ENABLED = process.env.ML_CORRECTIONS_ENABLED !== 'false';
-
-/** Conversion factor: meters to feet */
-const METERS_TO_FEET = 3.28084;
-
-/**
- * Merge ML bias corrections into forecast entities
- *
- * Fetches ML corrections from corrected_forecasts table and
- * adds ml_corrected_height, is_ml_calibrated, ml_model_version
- * to matching forecast objects.
- */
-async function mergeMLCorrections(
-  forecasts: EnhancedForecastEntity[],
-  beachId: string
-): Promise<EnhancedForecastEntity[]> {
-  // Feature flag to disable ML corrections when model is degraded
-  if (!ML_CORRECTIONS_ENABLED) {
-    console.log('[ML] Corrections disabled via ML_CORRECTIONS_ENABLED=false');
-    return forecasts;
-  }
-
-  if (forecasts.length === 0) return forecasts;
-
-  try {
-    const supabase = await createSupabaseServiceRoleClient();
-
-    // Get date range from forecasts (convert to timestamps for corrected_forecasts query)
-    const dates = forecasts.map(f => f.forecast_date);
-    const minDate = dates.reduce((a, b) => (a < b ? a : b));
-    const maxDate = dates.reduce((a, b) => (a > b ? a : b));
-
-    // corrected_forecasts uses forecast_ts (timestamp) not separate date/time columns
-    const minTs = `${minDate}T00:00:00Z`;
-    const maxTs = `${maxDate}T23:59:59Z`;
-
-    // Fetch ML corrections for this beach and date range
-    const { data: corrections, error } = await supabase
-      .from("corrected_forecasts")
-      .select("forecast_ts, corrected_height_m, model_version")
-      .eq("beach_id", beachId)
-      .gte("forecast_ts", minTs)
-      .lte("forecast_ts", maxTs);
-
-    if (error) {
-      console.warn(`⚠️ Failed to fetch ML corrections for beach ${beachId}:`, error.message);
-      return forecasts; // Return original forecasts without ML data
-    }
-
-    if (!corrections || corrections.length === 0) {
-      return forecasts; // No ML corrections available
-    }
-
-    // Build lookup map for O(1) access
-    // Key format: "YYYY-MM-DD|HH:00" to match enhanced_forecasts format
-    const correctionMap = new Map<string, { corrected_height_m: number; model_version: string }>();
-    corrections.forEach((c) => {
-      const ts = new Date(c.forecast_ts);
-      const date = ts.toISOString().split("T")[0];
-      const hours = ts.getUTCHours().toString().padStart(2, "0");
-      const key = `${date}|${hours}:00`;
-      correctionMap.set(key, {
-        corrected_height_m: c.corrected_height_m ?? 0,
-        model_version: c.model_version,
-      });
-    });
-
-    // Merge corrections into forecasts
-    return forecasts.map((forecast) => {
-      const key = `${forecast.forecast_date}|${forecast.forecast_time}`;
-      const correction = correctionMap.get(key);
-
-      if (correction) {
-        // Convert corrected_height from meters to feet and format
-        const correctedFeet = correction.corrected_height_m * METERS_TO_FEET;
-        return {
-          ...forecast,
-          ml_corrected_height: `${correctedFeet.toFixed(1)} ft`,
-          is_ml_calibrated: true,
-          ml_model_version: correction.model_version,
-        };
-      }
-
-      return forecast;
-    });
-  } catch (error) {
-    console.warn(`⚠️ Error merging ML corrections:`, error);
-    return forecasts; // Return original forecasts on error
-  }
-}
+import { createPublicReadClient } from "@/lib/supabase/server";
 
 /**
  * Enhanced Forecast Update API Endpoint
@@ -187,11 +87,6 @@ export async function GET(request: NextRequest) {
 
     const { metadata } = result;
 
-    // Merge ML bias corrections into forecasts
-    // This adds ml_corrected_height, is_ml_calibrated, ml_model_version
-    // to forecasts that have ML corrections available
-    const mlMergedForecasts = await mergeMLCorrections(result.forecasts, beachId);
-
     // Stamp empirical shoaling calibration status onto each forecast entity.
     // We expose only the boolean — `shoaling_factors` is ~4KB of JSONB per
     // beach and the client only needs to know whether the displayed wave
@@ -205,7 +100,7 @@ export async function GET(request: NextRequest) {
     // warranted for this read. If RLS ever hides `shoaling_factors` from
     // anon, fix the RLS policy; do NOT re-escalate here.
     let isCalibrated = false;
-    if (mlMergedForecasts.length > 0) {
+    if (result.forecasts.length > 0) {
       try {
         const beachClient = createPublicReadClient();
         const { data: beachRow, error: beachError } = await beachClient
@@ -228,7 +123,7 @@ export async function GET(request: NextRequest) {
         );
       }
     }
-    const forecasts = mlMergedForecasts.map((f) => ({ ...f, isCalibrated }));
+    const forecasts = result.forecasts.map((f) => ({ ...f, isCalibrated }));
     const hasData = forecasts.length > 0;
 
     // Build response with consistent shape
