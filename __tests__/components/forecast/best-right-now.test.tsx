@@ -215,8 +215,9 @@ describe("BestRightNow", () => {
       }
       expect(screen.getByText("San Diego")).toBeInTheDocument();
       expect(screen.getAllByText("Orange County")).toHaveLength(2);
-      expect(screen.getByText("7-10ft sets")).toBeInTheDocument();
-      expect(screen.getByText("4-6ft sets")).toBeInTheDocument();
+      // Surfline-parity: floor(6.5)=6, ceil(6.5)=7 → "6-7ft"; floor(4.2)=4, ceil(4.2)=5 → "4-5ft".
+      expect(screen.getByText("6-7ft")).toBeInTheDocument();
+      expect(screen.getByText("4-5ft")).toBeInTheDocument();
     });
 
     it("renders a trophy for rank #1 only and numeric ranks for the rest", () => {

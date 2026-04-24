@@ -624,51 +624,41 @@ describe("wave-formatters", () => {
   // formatWaveHeightRangeString (merged from wave-height-formatter.test.ts)
   // =========================================================================
   describe("formatWaveHeightRangeString", () => {
-    it("should format typical wave ranges with integers and label the upper bound as sets", () => {
-      // 3.2ft avg, 4.8ft sets -> "3-5ft sets"
-      expect(formatWaveHeightRangeString(3.2, 4.8)).toBe("3-5ft sets");
-      // 2.0ft avg, 3.0ft sets -> "2-3ft sets"
-      expect(formatWaveHeightRangeString(2.0, 3.0)).toBe("2-3ft sets");
-      // 4.5ft avg, 6.75ft sets -> "5-7ft sets"
-      expect(formatWaveHeightRangeString(4.5, 6.75)).toBe("5-7ft sets");
+    it("should format typical wave ranges as floor(low)-ceil(high) ft (Surfline parity)", () => {
+      // floor(3.2)=3, ceil(4.8)=5 -> "3-5ft"
+      expect(formatWaveHeightRangeString(3.2, 4.8)).toBe("3-5ft");
+      // floor(2.0)=2, ceil(3.0)=3 -> "2-3ft"
+      expect(formatWaveHeightRangeString(2.0, 3.0)).toBe("2-3ft");
+      // floor(4.5)=4, ceil(6.75)=7 -> "4-7ft"
+      expect(formatWaveHeightRangeString(4.5, 6.75)).toBe("4-7ft");
     });
 
-    it("should use half-foot precision for small ranges", () => {
-      // When range < 1ft, use half-foot precision
-      // 1.2 rounds to 1, 1.8 rounds to 2
-      expect(formatWaveHeightRangeString(1.2, 1.8)).toBe("1-2ft sets");
-      // 0.8 and 1.2 both round to 1, so single value (no "sets" suffix when there's no range to disclose)
-      expect(formatWaveHeightRangeString(0.8, 1.2)).toBe("1ft");
-    });
-
-    it("should return single value when low and high round to same (no sets label needed)", () => {
-      // Both are exactly 2
+    it("collapses to a single value when floor and ceil match", () => {
+      // floor(0.8)=0, ceil(1.2)=2 -> "0-2ft" (range still meaningful)
+      expect(formatWaveHeightRangeString(0.8, 1.2)).toBe("0-2ft");
+      // Both bounds collapse to 2
       expect(formatWaveHeightRangeString(2.0, 2.0)).toBe("2ft");
-      // 1.8 rounds to 2, 2.2 rounds to 2
-      expect(formatWaveHeightRangeString(1.8, 2.2)).toBe("2ft");
+      // floor(1.8)=1, ceil(2.2)=3 -> "1-3ft"
+      expect(formatWaveHeightRangeString(1.8, 2.2)).toBe("1-3ft");
     });
 
-    it("should handle small waves with half-foot precision and label sets", () => {
-      // 0.5 stays 0.5, 0.75 rounds to 1
-      expect(formatWaveHeightRangeString(0.5, 0.75)).toBe("0.5-1ft sets");
-      // 1.0 stays 1, 1.5 stays 1.5
-      expect(formatWaveHeightRangeString(1.0, 1.5)).toBe("1-1.5ft sets");
+    it("handles small waves without a 'sets' label", () => {
+      // floor(0.5)=0, ceil(0.75)=1 -> "0-1ft"
+      expect(formatWaveHeightRangeString(0.5, 0.75)).toBe("0-1ft");
+      // floor(1.0)=1, ceil(1.5)=2 -> "1-2ft"
+      expect(formatWaveHeightRangeString(1.0, 1.5)).toBe("1-2ft");
     });
 
-    it("should handle large waves with integers and label sets", () => {
-      // 8ft avg, 12ft sets -> "8-12ft sets"
-      expect(formatWaveHeightRangeString(8, 12)).toBe("8-12ft sets");
-      // 10ft avg, 15ft sets -> "10-15ft sets"
-      expect(formatWaveHeightRangeString(10, 15)).toBe("10-15ft sets");
+    it("handles large waves with integer bracket", () => {
+      expect(formatWaveHeightRangeString(8, 12)).toBe("8-12ft");
+      expect(formatWaveHeightRangeString(10, 15)).toBe("10-15ft");
     });
 
-    it("should handle realistic Surfline-style ranges", () => {
-      // Real example: 3.2ft average × 1.5 = 4.8ft sets
-      expect(formatWaveHeightRangeString(3.2, 3.2 * 1.5)).toBe("3-5ft sets");
-      // 2.5ft average × 1.5 = 3.75ft sets
-      expect(formatWaveHeightRangeString(2.5, 2.5 * 1.5)).toBe("3-4ft sets");
-      // 5ft average × 1.5 = 7.5ft sets
-      expect(formatWaveHeightRangeString(5, 5 * 1.5)).toBe("5-8ft sets");
+    it("matches Surfline-style face brackets when callers pass single-point face Hs as both bounds", () => {
+      // Single-point face Hs idiom: pass low === high, get floor/ceil bracket.
+      expect(formatWaveHeightRangeString(3.2, 3.2)).toBe("3-4ft");
+      expect(formatWaveHeightRangeString(2.5, 2.5)).toBe("2-3ft");
+      expect(formatWaveHeightRangeString(5, 5)).toBe("5ft");
     });
   });
 
@@ -892,8 +882,8 @@ describe("wave-formatters", () => {
         cdipSigFt: 2.0,
         periodS: 10,
       });
-      // 2.0 * 1.0 = 2.0ft average, × 1.5 = 3.0ft sets -> "2-3ft sets"
-      expect(result).toBe("2-3ft sets");
+      // 2.0 * 1.0 = 2.0ft face → floor/ceil bracket collapses to "2ft" (Surfline parity, no × 1.5).
+      expect(result).toBe("2ft");
     });
 
     it("should return null when no data available", () => {

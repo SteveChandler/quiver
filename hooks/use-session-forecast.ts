@@ -4,7 +4,6 @@ import { useMemo, useCallback } from "react";
 import { useDataFetcher } from "./use-data-fetcher";
 import { isNightHour } from "@/lib/utils/timezone-utils";
 import { formatWaveHeightRangeString } from "@/lib/utils/wave-formatters";
-import { SET_WAVE_VARIANCE } from "@/lib/utils/wave-height-transformer";
 import { extractForecastDate, extractLocalHour } from "@/lib/utils/forecast-at-adapter";
 
 interface SessionForecastData {
@@ -129,13 +128,11 @@ export function useSessionForecast(
     const forecastHour = bestForecast.forecastHour ?? 0;
     const isNightSession = isNightHour(Math.floor(forecastHour));
 
-    // Compute wave height range string (e.g., "2-3ft")
+    // Compute wave height range string (e.g., "2-3ft") — Surfline parity:
+    // floor/ceil bracket on the single-point face Hs, no × 1.5 set expansion.
     const waveHeightRange =
       parsedWaveHeight !== undefined && parsedWaveHeight > 0
-        ? formatWaveHeightRangeString(
-            parsedWaveHeight,
-            parsedWaveHeight * SET_WAVE_VARIANCE
-          )
+        ? formatWaveHeightRangeString(parsedWaveHeight, parsedWaveHeight)
         : undefined;
 
     return {
