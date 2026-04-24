@@ -40,6 +40,19 @@ describe("ForecastDataSourceIndicator", () => {
       expect(indicator).toHaveClass("bg-yellow-50", "border-yellow-200");
     });
 
+    it("should display Open-Meteo data source", () => {
+      render(
+        <ForecastDataSourceIndicator
+          dataSource="OPEN_METEO"
+          confidenceScore={60}
+          dataSources={["OPEN_METEO"]}
+        />
+      );
+
+      expect(screen.getByText(/Open-Meteo Forecast/)).toBeInTheDocument();
+      expect(screen.getByText(/60% confidence/)).toBeInTheDocument();
+    });
+
     it("should display fallback data with low confidence warning", () => {
       render(
         <ForecastDataSourceIndicator

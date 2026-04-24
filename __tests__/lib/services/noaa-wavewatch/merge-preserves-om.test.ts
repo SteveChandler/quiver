@@ -131,6 +131,9 @@ describe("NOAAWaveWatchService.mergeForecasts: OM co-location", () => {
     const result = await service.fetchWaveWatchForecast(32.7, -117.2, 7);
 
     expect(result).not.toBeNull();
+    // Wrapper-level data_source must NOT exist — per-slot is canonical.
+    // A merged response can mix NOAA + OM slots; any wrapper label hides that.
+    expect(result).not.toHaveProperty("data_source");
     const merged = result!.forecast;
     // Both slots must carry om_values populated from the raw OM mock.
     const early = merged.find((m) => m.timestamp === earlySlot);
