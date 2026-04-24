@@ -126,7 +126,11 @@ export type ImplicitEventType =
   | 'for_you_tap'
   | 'unlock_toast_shown'
   | 'session_decomposition_selected'
-  | 'match_alert_toggle';
+  | 'match_alert_toggle'
+  // Roadmap events (added 2026-04-25)
+  | 'roadmap_vote_cast'
+  | 'roadmap_item_submitted'
+  | 'roadmap_item_status_changed';
 
 /**
  * Weight multipliers for each event type, determining how much
@@ -246,6 +250,10 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   unlock_toast_shown: 0,
   session_decomposition_selected: 0,
   match_alert_toggle: 0,
+  // Roadmap events (added 2026-04-25)
+  roadmap_vote_cast: 0,
+  roadmap_item_submitted: 0,
+  roadmap_item_status_changed: 0,
 } as const;
 
 // -----------------------------------------------------------------------------

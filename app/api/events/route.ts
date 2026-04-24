@@ -213,6 +213,10 @@ export const VALID_EVENTS: ImplicitEventType[] = [
   'unlock_toast_shown',
   'session_decomposition_selected',
   'match_alert_toggle',
+  // Roadmap events
+  'roadmap_vote_cast',
+  'roadmap_item_submitted',
+  'roadmap_item_status_changed',
 ];
 
 export const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
