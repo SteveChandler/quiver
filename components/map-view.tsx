@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { useBeachSearch } from "@/hooks/use-beach-search";
@@ -20,6 +20,7 @@ import type { Beach } from "@/types/database";
 export function MapView() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const pathname = usePathname();
   const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
   const [showRecovery, setShowRecovery] = useState(false);
@@ -95,13 +96,13 @@ export function MapView() {
     loadNearbyBeaches(userLocation.lat, userLocation.lon);
   }, [userLocation, locationLoading, loadNearbyBeaches]);
 
-  // Read search query from URL params (from global header search)
+  // URL is the source of truth for the search query.
+  // Syncing both directions (state → URL via router.replace in clearers; URL → state here)
+  // prevents snap-back when Clear all strips ?search= while state also clears.
   useEffect(() => {
-    const searchFromUrl = searchParams.get("search");
-    if (searchFromUrl && searchFromUrl !== searchQuery) {
-      setSearchQuery(searchFromUrl);
-    }
-  }, [searchParams, searchQuery, setSearchQuery]);
+    const searchFromUrl = searchParams.get("search") ?? "";
+    setSearchQuery(searchFromUrl);
+  }, [searchParams, setSearchQuery]);
 
   // Apply filters from URL params on initial mount (e.g. /map?type=reef or /map?level=beginner)
   const VALID_BREAK_TYPES = new Set(["beach", "point", "reef", "longboard", "bodyboard"]);
@@ -144,15 +145,43 @@ export function MapView() {
     [router]
   );
 
+  const stripMapUrlParams = useCallback(
+    (keys: readonly string[]) => {
+      const params = new URLSearchParams(searchParams.toString());
+      let mutated = false;
+      for (const key of keys) {
+        if (params.has(key)) {
+          params.delete(key);
+          mutated = true;
+        }
+      }
+      if (mutated) {
+        const qs = params.toString();
+        router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      }
+    },
+    [pathname, router, searchParams]
+  );
+
+  // Both clearers write state directly (immediate visual reset) AND strip the URL param.
+  // The URL→state effect above will re-sync searchQuery="" on the next tick when the URL
+  // update lands — same value, React bails — but skipping the direct hook write would
+  // introduce a one-tick window where the UI still shows filtered results.
   const handleClearSearch = useCallback(() => {
     clearSearch();
+    stripMapUrlParams(["search"]);
     // Reset to nearby beaches when clearing search
     if (userLocation) {
       loadNearbyBeaches(userLocation.lat, userLocation.lon);
     } else {
       getUserLocation();
     }
-  }, [clearSearch, userLocation, loadNearbyBeaches, getUserLocation]);
+  }, [clearSearch, stripMapUrlParams, userLocation, loadNearbyBeaches, getUserLocation]);
+
+  const handleClearAll = useCallback(() => {
+    clearAllFilters();
+    stripMapUrlParams(["search", "type", "level"]);
+  }, [clearAllFilters, stripMapUrlParams]);
 
   // Distance calculation function using centralized utility
   // Uses userLocation from closure - child components call with (beachLat, beachLng) only
@@ -320,13 +349,16 @@ export function MapView() {
               {t}
             </Badge>
           ))}
-          <Badge
-            variant="secondary"
-            className="cursor-pointer"
-            onClick={() => clearAllFilters()}
-          >
-            Clear filters
-          </Badge>
+          {(searchQuery || filters.beginnerFriendly || filters.breakTypes.size > 0) && (
+            <Badge
+              variant="secondary"
+              className="cursor-pointer"
+              onClick={handleClearAll}
+              data-testid="map-clear-all"
+            >
+              Clear all
+            </Badge>
+          )}
         </div>
       </div>
 
