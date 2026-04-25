@@ -91,7 +91,7 @@ const nextConfig = {
   compress: true,
 
   // External packages for server components (moved from experimental)
-  serverExternalPackages: ["@supabase/supabase-js", "geo-tz", "firebase-admin"],
+  serverExternalPackages: ["@supabase/supabase-js", "geo-tz"],
 
   // Power pack optimizations
   poweredByHeader: false, // Remove X-Powered-By header
@@ -514,10 +514,7 @@ const pwaConfig = withPWA({
   ],
 });
 
-// Sentry options — only applied to Production builds.
-// Skipping the entire wrap on Preview deployments removes ~19–20s of
-// post-compile sourcemap bundling that runs even when dryRun is true.
-const sentryOptions = {
+export default withSentryConfig(pwaConfig(nextConfig), {
   // For all available options, see:
   // https://www.npmjs.com/package/@sentry/webpack-plugin#options
 
@@ -532,10 +529,16 @@ const sentryOptions = {
   // Suppress verbose source map listing in build logs (saves ~220 log events on Vercel)
   silent: true,
 
+  // For all available options, see:
+  // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
+
   // Reduced source map upload for faster builds (set to true for prettier stack traces)
   widenClientFileUpload: false,
 
   // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
+  // This can increase your server load as well as your hosting bill.
+  // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-
+  // side errors will fail.
   tunnelRoute: "/monitoring",
 
   // Automatically tree-shake Sentry logger statements to reduce bundle size
@@ -552,10 +555,9 @@ const sentryOptions = {
     excludeReplayWorker: true,
   },
 
-  // Enables automatic instrumentation of Vercel Cron Monitors.
+  // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
+  // See the following for more information:
+  // https://docs.sentry.io/product/crons/
+  // https://vercel.com/docs/cron-jobs
   automaticVercelMonitors: false,
-};
-
-export default isProd
-  ? withSentryConfig(pwaConfig(nextConfig), sentryOptions)
-  : pwaConfig(nextConfig);
+});
