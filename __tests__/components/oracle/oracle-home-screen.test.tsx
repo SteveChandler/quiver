@@ -177,8 +177,51 @@ const MOCK_BEACH = {
   country: "US",
   center_lat: 32.88,
   center_lng: -117.25,
+  // Canonical lat/lon — the regional-best hero (drive subtitle) reads
+  // these. Matches `types/database.generated.ts` Beach.Row.
+  lat: 32.88,
+  lon: -117.25,
   skill_level: "advanced",
   photo_url: null,
+};
+
+// A second beach used in tests that exercise the "home != topRec" path
+// (drive subtitle + HomeBeachCard + hero-first activity feed).
+const MOCK_HOME_BEACH = {
+  id: "ob",
+  name: "Ocean Beach Pier",
+  slug: "ocean-beach-pier",
+  city: "San Diego",
+  state: "CA",
+  country: "US",
+  center_lat: 32.749,
+  center_lng: -117.252,
+  lat: 32.749,
+  lon: -117.252,
+  skill_level: "intermediate",
+  photo_url: null,
+};
+
+const MOCK_HOME_FORECAST = {
+  id: "f-ob",
+  beach_id: "ob",
+  forecast_at: new Date().toISOString(),
+  forecast_date: "2026-03-11",
+  forecast_time: "06:00:00",
+  wave_height: "1-2ft",
+  wave_period: "10s",
+  wave_direction: "WSW",
+  swell_1_period: "11s",
+  swell_1_direction: "WSW",
+  water_temp: "60",
+  wind_speed: "6",
+  wind_direction: "W",
+  tide_height: "2.4",
+  tide_status: "Rising",
+  confidence_score: 70,
+  data_source: "CDIP",
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
 };
 
 const MOCK_TOP_REC = {
@@ -201,6 +244,30 @@ const MOCK_TOP_REC = {
   warnings: [],
   conditionBadges: [],
   waveHeightBadge: "3-4ft",
+  generated_at: new Date().toISOString(),
+};
+
+// Recommendation row for the home beach (lower-scored than topRec).
+const MOCK_HOME_REC = {
+  beach: MOCK_HOME_BEACH,
+  window: MOCK_WINDOW,
+  forecast: MOCK_HOME_FORECAST,
+  score: 60,
+  matchQuality: "fair" as const,
+  subscores: {
+    waveHeightFit: 14,
+    periodEnergyScore: 12,
+    windAlignment: 14,
+    tideFit: 10,
+    affinityBonus: 8,
+    personalizationBonus: 0,
+    distancePenalty: -2,
+  },
+  summary: "Soft and small at the pier",
+  reasons: ["Small WSW swell"],
+  warnings: [],
+  conditionBadges: [],
+  waveHeightBadge: "1-2ft",
   generated_at: new Date().toISOString(),
 };
 
@@ -606,5 +673,94 @@ describe("OracleHomeScreen", () => {
     } as unknown as OracleData;
     render(<OracleHomeScreen />);
     expect(screen.getByText("Tomorrow's Windows")).toBeInTheDocument();
+  });
+
+  // ===========================================================================
+  // Regional-best hero — home != topRec path
+  // ===========================================================================
+  describe("regional-best hero (home != topRec)", () => {
+    function setupHomeNeqTopRec() {
+      mockOracleData = {
+        ...mockOracleData,
+        homeBeach: MOCK_HOME_BEACH,
+        profile: {
+          ...mockOracleData.profile,
+          home_beach_id: MOCK_HOME_BEACH.id,
+        },
+        topRecommendation: MOCK_TOP_REC,
+        discovery: {
+          ...mockOracleData.discovery!,
+          recommendations: [MOCK_TOP_REC, MOCK_HOME_REC],
+        },
+      } as unknown as OracleData;
+    }
+
+    it("renders the topRec in the hero (not the home beach)", () => {
+      setupHomeNeqTopRec();
+      render(<OracleHomeScreen />);
+      // Hero <h1> shows the topRec wave height (3-4ft from MOCK_TOP_REC),
+      // NOT the home beach wave height (1-2ft from MOCK_HOME_REC).
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("3-4ft");
+      // Beach name in the conditions overlay is the topRec's name.
+      expect(screen.getByText("Blacks Beach")).toBeInTheDocument();
+    });
+
+    it("renders the drive subtitle with rounded miles + cardinal word", () => {
+      setupHomeNeqTopRec();
+      render(<OracleHomeScreen />);
+      const subtitle = screen.getByTestId("hero-drive-subtitle");
+      // OB Pier (32.749, -117.252) -> Blacks Beach (32.88, -117.25) is
+      // ~9 mi due north. Assert the subtitle contains a mile count + a
+      // cardinal word + the home beach name. Uses a permissive regex so
+      // small bearing/distance changes don't break the test.
+      expect(subtitle).toHaveTextContent(
+        /\d+ mi (north|northeast|northwest|south|southeast|southwest|east|west) of Ocean Beach Pier/i
+      );
+    });
+
+    it("renders the HomeBeachCard with 'Your home' label", () => {
+      setupHomeNeqTopRec();
+      render(<OracleHomeScreen />);
+      const card = screen.getByTestId("home-beach-card");
+      expect(card).toBeInTheDocument();
+      expect(card).toHaveTextContent("Your home");
+      expect(card).toHaveTextContent("Ocean Beach Pier");
+    });
+
+    it("activity feed follows the hero (calls getLocalActivity with topRec id)", async () => {
+      setupHomeNeqTopRec();
+      const { getLocalActivity } = jest.requireMock(
+        "@/actions/oracle-actions"
+      ) as { getLocalActivity: jest.Mock };
+      getLocalActivity.mockClear();
+      render(<OracleHomeScreen />);
+      await waitFor(() => {
+        expect(getLocalActivity).toHaveBeenCalled();
+      });
+      // First call's first arg is the beach id.
+      expect(getLocalActivity).toHaveBeenCalledWith(MOCK_TOP_REC.beach.id);
+      expect(getLocalActivity).not.toHaveBeenCalledWith(MOCK_HOME_BEACH.id);
+    });
+  });
+
+  describe("regional-best hero (home == topRec)", () => {
+    it("hides the drive subtitle and HomeBeachCard", () => {
+      // Default fixture has homeBeach.id === topRec.beach.id ("b1").
+      render(<OracleHomeScreen />);
+      expect(screen.queryByTestId("hero-drive-subtitle")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("home-beach-card")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("regional-best hero (no home beach)", () => {
+    it("hides the drive subtitle and HomeBeachCard when homeBeach is null", () => {
+      mockOracleData = {
+        ...mockOracleData,
+        homeBeach: null,
+      } as unknown as OracleData;
+      render(<OracleHomeScreen />);
+      expect(screen.queryByTestId("hero-drive-subtitle")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("home-beach-card")).not.toBeInTheDocument();
+    });
   });
 });

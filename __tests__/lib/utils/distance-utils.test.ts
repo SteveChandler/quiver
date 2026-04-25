@@ -5,6 +5,9 @@ import {
   calculateDistanceLegacy,
   toRadians,
   formatDistanceDisplay,
+  bearingFromTo,
+  compassPointToWord,
+  type CompassPoint,
 } from "@/lib/utils/distance-utils";
 import type { Coordinates } from "@/lib/types/coordinates";
 
@@ -197,5 +200,78 @@ describe("formatDistanceDisplay", () => {
       expect(formatDistanceDisplay(15.7, "full")).toBe("16 miles away");
       expect(formatDistanceDisplay(0.6, "full")).toBe("1 miles away");
     });
+  });
+});
+
+describe("bearingFromTo", () => {
+  // San Diego coast as origin
+  const origin = { lat: 32.75, lon: -117.25 };
+
+  it("returns N for due north", () => {
+    expect(bearingFromTo(origin, { lat: origin.lat + 1, lon: origin.lon })).toBe("N");
+  });
+
+  it("returns S for due south", () => {
+    expect(bearingFromTo(origin, { lat: origin.lat - 1, lon: origin.lon })).toBe("S");
+  });
+
+  it("returns E for due east", () => {
+    expect(bearingFromTo(origin, { lat: origin.lat, lon: origin.lon + 1 })).toBe("E");
+  });
+
+  it("returns W for due west", () => {
+    expect(bearingFromTo(origin, { lat: origin.lat, lon: origin.lon - 1 })).toBe("W");
+  });
+
+  it("returns NE for northeast quadrant", () => {
+    expect(bearingFromTo(origin, { lat: origin.lat + 1, lon: origin.lon + 1 })).toBe("NE");
+  });
+
+  it("returns NW for northwest quadrant", () => {
+    expect(bearingFromTo(origin, { lat: origin.lat + 1, lon: origin.lon - 1 })).toBe("NW");
+  });
+
+  it("returns SE for southeast quadrant", () => {
+    expect(bearingFromTo(origin, { lat: origin.lat - 1, lon: origin.lon + 1 })).toBe("SE");
+  });
+
+  it("returns SW for southwest quadrant", () => {
+    expect(bearingFromTo(origin, { lat: origin.lat - 1, lon: origin.lon - 1 })).toBe("SW");
+  });
+
+  it("returns N when target equals origin (deterministic same-point)", () => {
+    expect(bearingFromTo(origin, origin)).toBe("N");
+  });
+
+  it("handles antimeridian crossing (E across 180 lon)", () => {
+    // From slightly west of antimeridian to slightly east — short arc is east.
+    expect(bearingFromTo({ lat: 0, lon: 179 }, { lat: 0, lon: -179 })).toBe("E");
+  });
+
+  it("handles antimeridian crossing (W across 180 lon)", () => {
+    expect(bearingFromTo({ lat: 0, lon: -179 }, { lat: 0, lon: 179 })).toBe("W");
+  });
+
+  it("snaps a real-world OB Pier -> The Rock vector to N quadrant", () => {
+    // Ocean Beach Pier (San Diego) to The Rock (Oceanside) — ~ due north along coast
+    const obPier = { lat: 32.749, lon: -117.252 };
+    const theRock = { lat: 33.205, lon: -117.395 };
+    const bearing = bearingFromTo(obPier, theRock);
+    expect(["N", "NW", "NNW"].includes(bearing as string) || bearing === "NW" || bearing === "N").toBe(true);
+  });
+});
+
+describe("compassPointToWord", () => {
+  it.each<[CompassPoint, string]>([
+    ["N", "north"],
+    ["NE", "northeast"],
+    ["E", "east"],
+    ["SE", "southeast"],
+    ["S", "south"],
+    ["SW", "southwest"],
+    ["W", "west"],
+    ["NW", "northwest"],
+  ])("maps %s to %s", (input, expected) => {
+    expect(compassPointToWord(input)).toBe(expected);
   });
 });
