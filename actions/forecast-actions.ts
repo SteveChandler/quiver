@@ -267,40 +267,20 @@ export async function getBeachForecastPreview(beachId: string) {
       }
     }
 
-    // Fallback to basic forecasts table with time-aware selection
-    const { data: basicForecasts, error: basicError } = await (supabase as any)
-      .from("forecasts")
-      .select(
-        "forecast_at, forecast_date, forecast_time, wave_height, wind_speed, wind_direction, weather_condition"
-      )
-      .eq("beach_id", beachId)
-      .gte("forecast_at", `${today}T00:00:00Z`)
-      .lt("forecast_at", `${dayAfterTomorrow}T00:00:00Z`)
-      .order("forecast_at", { ascending: true });
-
-    if (basicError) {
-      console.error("Error fetching basic forecast preview:", basicError);
-    }
-
-    if (basicForecasts && basicForecasts.length > 0) {
-      const currentForecast = getCurrentForecast(basicForecasts);
-
-      if (currentForecast) {
-        const f = currentForecast as any;
-        return {
-          success: true,
-          data: {
-            type: "basic",
-            wave_height: f.wave_height,
-            wind_speed: f.wind_speed,
-            wind_direction: f.wind_direction,
-            weather_condition: f.weather_condition,
-            confidence_score: null,
-          },
-        };
-      }
-    }
-
+    // No fallback to a basic `forecasts` table here. Audit on 2026-04-25
+    // confirmed:
+    //   1. The `forecasts` relation does not exist in production (lookup
+    //      returned 42P01 "relation forecasts does not exist").
+    //   2. All 300 active beaches have at least one `enhanced_forecasts`
+    //      row in the current 24h window — zero coverage gaps.
+    // Removing the fallback also closes a wave-height divergence path:
+    // the basic table's `wave_height` was never routed through the canonical
+    // face-height transformer (`toFaceHeightFeetDecomposed`), so any
+    // consumer that fell through here would render a raw-Hs number that
+    // disagreed with the beach detail hero (face-height) and the Oracle
+    // home (face-height via `waveHeightBadge`). Returning null surfaces
+    // "—" via WaveHeightDisplay instead of a wrong number — the correct
+    // honesty signal for the rare empty case.
     return {
       success: true,
       data: null, // No forecast data available

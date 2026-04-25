@@ -431,19 +431,12 @@ describe("Forecast Actions", () => {
       });
     });
 
-    it("should fallback to basic forecasts when enhanced not available", async () => {
-      const mockBasicForecasts = [
-        {
-          forecast_date: today,
-          forecast_time: "12:00:00",
-          wave_height: "3-4 ft",
-          wind_speed: "10 mph",
-          wind_direction: "SW",
-          weather_condition: "Cloudy",
-        },
-      ];
-
-      // Enhanced fails
+    it("should return null data when enhanced forecasts query errors", async () => {
+      // The basic `forecasts` table fallback was removed 2026-04-25 — it
+      // didn't exist in prod (42P01) and only served to render raw,
+      // non-face-height numbers that disagreed with every other surface.
+      // When enhanced fails, we now surface null and let WaveHeightDisplay
+      // render "—" rather than fabricating a wrong number.
       const mockEnhancedChain = {
         then: jest.fn((resolve) => resolve({ data: null, error: { message: "No enhanced data" } })),
       };
@@ -453,29 +446,16 @@ describe("Forecast Actions", () => {
       enhancedForecastsChain.lt.mockReturnValueOnce(enhancedForecastsChain);
       enhancedForecastsChain.order.mockReturnValueOnce(mockEnhancedChain);
 
-      // Basic succeeds
-      const mockBasicChain = {
-        then: jest.fn((resolve) => resolve({ data: mockBasicForecasts, error: null })),
-      };
-      forecastsChain.select.mockReturnValueOnce(forecastsChain);
-      forecastsChain.eq.mockReturnValueOnce(forecastsChain);
-      forecastsChain.gte.mockReturnValueOnce(forecastsChain);
-      forecastsChain.lt.mockReturnValueOnce(forecastsChain);
-      forecastsChain.order.mockReturnValueOnce(mockBasicChain);
-
       const result = await getBeachForecastPreview("beach-123");
 
       expect(result.success).toBe(true);
-      expect(result.data).toMatchObject({
-        type: "basic",
-        wave_height: "3-4 ft",
-        wind_speed: "10 mph",
-        confidence_score: null,
-      });
+      expect(result.data).toBeNull();
+      // Defense-in-depth: confirm we did NOT query the dropped `forecasts`
+      // relation. (Calling it would hit a 42P01 in prod.)
+      expect(forecastsChain.select).not.toHaveBeenCalled();
     });
 
     it("should return null data when no forecasts available", async () => {
-      // Enhanced returns empty
       const mockEnhancedChain = {
         then: jest.fn((resolve) => resolve({ data: [], error: null })),
       };
@@ -485,20 +465,11 @@ describe("Forecast Actions", () => {
       enhancedForecastsChain.lt.mockReturnValueOnce(enhancedForecastsChain);
       enhancedForecastsChain.order.mockReturnValueOnce(mockEnhancedChain);
 
-      // Basic also returns empty
-      const mockBasicChain = {
-        then: jest.fn((resolve) => resolve({ data: [], error: null })),
-      };
-      forecastsChain.select.mockReturnValueOnce(forecastsChain);
-      forecastsChain.eq.mockReturnValueOnce(forecastsChain);
-      forecastsChain.gte.mockReturnValueOnce(forecastsChain);
-      forecastsChain.lt.mockReturnValueOnce(forecastsChain);
-      forecastsChain.order.mockReturnValueOnce(mockBasicChain);
-
       const result = await getBeachForecastPreview("beach-123");
 
       expect(result.success).toBe(true);
       expect(result.data).toBeNull();
+      expect(forecastsChain.select).not.toHaveBeenCalled();
     });
   });
 
