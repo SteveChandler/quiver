@@ -69,13 +69,14 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
       try {
         // Check if user is authenticated
         const { data: authData } = await mockSupabaseClient.auth.getUser();
-        if (!authData.user) {
+        // Honor `optional: true` — anonymous callers still proceed with user=null.
+        if (!authData.user && !options?.optional) {
           const { createAuthError } = jest.requireActual("@/lib/api-utils");
           return createAuthError(options?.authErrorMessage || "Authentication required");
         }
 
         const authContext = {
-          user: authData.user,
+          user: authData.user ?? null,
           supabase: mockSupabaseClient,
           params: context?.params || { id: "12345678-1234-1234-8234-123456789012" },
         };

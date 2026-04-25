@@ -30,7 +30,7 @@ export function RoadmapSection({ title, status, items, authed, onSignInRequired 
             ~ ~ ~
           </div>
           <p className="font-[var(--font-mono)] text-sm uppercase tracking-wider text-white/40">
-            // Nothing here yet.
+            {"// Nothing here yet."}
           </p>
         </div>
       ) : (

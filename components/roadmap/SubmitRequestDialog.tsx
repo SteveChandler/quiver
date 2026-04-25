@@ -168,7 +168,7 @@ export function SubmitRequestDialog({ open, onOpenChange }: Props) {
           </button>
 
           <p className="font-[var(--font-mono)] text-[11px] uppercase tracking-wider text-white/50">
-            // We read every one. Live within 48h if approved, or a reply if not.
+            {"// We read every one. Live within 48h if approved, or a reply if not."}
           </p>
         </div>
       </DialogContent>

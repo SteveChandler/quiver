@@ -102,10 +102,10 @@ function RoadmapDivider({ label }: { label: string }) {
       aria-hidden="true"
       className="my-2 flex items-center gap-2 overflow-hidden font-[var(--font-mono)] text-[10px] uppercase tracking-[0.4em] text-white/20"
     >
-      <span className="shrink-0 text-[#F78E42]/40">//</span>
+      <span className="shrink-0 text-[#F78E42]/40">{"//"}</span>
       <span className="shrink-0">{label}</span>
       <span className="h-px flex-1 bg-[#2D357D]/40" />
-      <span className="shrink-0 text-[#F78E42]/40">//</span>
+      <span className="shrink-0 text-[#F78E42]/40">{"//"}</span>
     </div>
   );
 }
@@ -186,7 +186,7 @@ export default async function RoadmapPage() {
           <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div className="max-w-3xl">
               <div className="mb-3 font-[var(--font-mono)] text-[11px] uppercase tracking-[0.3em] text-[#F78E42] [text-shadow:_0_1px_2px_rgba(0,0,0,0.6)]">
-                // Quiver roadmap // {nowLabel}
+                {`// Quiver roadmap // ${nowLabel}`}
               </div>
               <h1 className="font-[var(--font-heading)] text-[clamp(3.5rem,12vw,9rem)] font-bold leading-[0.88] tracking-tight text-white [text-shadow:_0_2px_12px_rgba(0,0,0,0.55)]">
                 WHAT&apos;S

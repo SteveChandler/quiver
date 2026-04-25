@@ -29,7 +29,7 @@ export function RoadmapFeaturedCard({ item, authed, onSignInRequired }: Props) {
       </span>
 
       <div className="mb-3 mt-2 font-[var(--font-mono)] text-[11px] uppercase tracking-[0.25em] text-[#F78E42]">
-        // {CATEGORY_LABELS[item.category] ?? "OTHER"}
+        {`// ${CATEGORY_LABELS[item.category] ?? "OTHER"}`}
       </div>
 
       <div className="flex flex-col gap-5 md:flex-row md:items-start">
