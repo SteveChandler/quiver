@@ -53,23 +53,42 @@ export default async function RoadmapPage() {
 
   const items = await fetchItems(user?.id ?? null);
   const grouped = groupByStatus(items);
+  const totalVotes = items.reduce((sum, i) => sum + i.vote_count, 0);
+  const nowLabel = new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-12">
-      <header className="mb-8">
-        <div className="flex items-start justify-between gap-4">
+      <header className="mb-12 border-b-2 border-[#2D357D]/50 pb-8">
+        <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-100">Roadmap</h1>
-            <p className="mt-2 text-slate-400">
-              What we&apos;re building, what shipped, and what&apos;s up for vote. Suggest anything.
+            <div className="mb-3 font-[var(--font-mono)] text-[11px] uppercase tracking-[0.3em] text-[#F78E42]">
+              // Quiver roadmap // {nowLabel}
+            </div>
+            <h1 className="font-[var(--font-heading)] text-[clamp(3rem,10vw,6.5rem)] font-bold leading-[0.9] tracking-tight text-white">
+              WHAT&apos;S
+              <br />
+              <span className="text-[#F78E42]">NEXT.</span>
+            </h1>
+            <p className="mt-5 max-w-xl text-base text-white/70">
+              Building in the open. Vote on what ships next — or drop a request if you&apos;ve got one we haven&apos;t thought of.
             </p>
           </div>
           <RoadmapClientControls authed={authed} />
         </div>
+
+        <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 font-[var(--font-mono)] text-[11px] uppercase tracking-widest text-white/60">
+          <span>{items.length} ideas</span>
+          <span className="text-white/30">/</span>
+          <span>{grouped.shipped.length} shipped</span>
+          <span className="text-white/30">/</span>
+          <span>{grouped.in_progress.length} building now</span>
+          <span className="text-white/30">/</span>
+          <span>{totalVotes} votes cast</span>
+        </div>
       </header>
 
       <RoadmapSection
-        title="In Progress"
+        title="Building Now"
         status="in_progress"
         items={grouped.in_progress}
         authed={authed}
@@ -88,12 +107,12 @@ export default async function RoadmapPage() {
       />
       {grouped.declined.length > 0 && (
         <details className="mt-10">
-          <summary className="cursor-pointer text-sm text-slate-500 hover:text-slate-300">
-            {grouped.declined.length} declined — see why
+          <summary className="cursor-pointer font-[var(--font-mono)] text-xs uppercase tracking-widest text-white/50 hover:text-white/80">
+            {grouped.declined.length} passed — see why
           </summary>
           <div className="mt-4">
             <RoadmapSection
-              title="Declined"
+              title="Passed"
               status="declined"
               items={grouped.declined}
               authed={authed}

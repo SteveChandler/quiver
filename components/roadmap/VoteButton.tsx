@@ -57,14 +57,14 @@ export function VoteButton({
       aria-pressed={localVoted}
       disabled={pending}
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm transition disabled:cursor-not-allowed",
+        "inline-flex items-center gap-1.5 rounded-[12px_3px_14px_3px] border px-3 py-1 transition disabled:cursor-not-allowed",
         localVoted
-          ? "border-orange-500 bg-orange-500/10 text-orange-400"
-          : "border-slate-700 bg-slate-800/40 text-slate-300 hover:border-slate-600",
+          ? "border-[#F78E42] bg-[#F78E42]/10 text-[#F78E42]"
+          : "border-[#2D357D]/60 bg-[#1E2558]/60 text-white/70 hover:border-[#F78E42]/60 hover:text-[#F78E42]",
       )}
     >
       <ThumbsUp size={14} aria-hidden="true" />
-      <span>{localCount}</span>
+      <span className="font-[var(--font-mono)] text-sm font-bold">{localCount}</span>
     </button>
   );
 }

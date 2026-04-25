@@ -74,12 +74,16 @@ export function SubmitRequestDialog({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Suggest something</DialogTitle>
+          <DialogTitle className="font-[var(--font-heading)] text-xl font-bold uppercase tracking-tight text-white">
+            Suggest something
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           <label className="block">
-            <span className="text-sm text-slate-400">Title</span>
+            <span className="font-[var(--font-mono)] text-[11px] uppercase tracking-widest text-[#F78E42]">
+              Title
+            </span>
             <input
               id="submit-request-title"
               type="text"
@@ -90,19 +94,21 @@ export function SubmitRequestDialog({ open, onOpenChange }: Props) {
                 setTitle(e.target.value);
                 fetchDuplicates(e.target.value);
               }}
-              className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
+              className="mt-1 w-full rounded-[10px_3px_12px_3px] border border-[#2D357D]/60 bg-[#1E2558]/60 px-3 py-2 text-white placeholder:text-white/30 focus:border-[#F78E42] focus:outline-none"
             />
           </label>
 
           {duplicates.length > 0 && (
-            <div className="rounded border border-slate-800 bg-slate-900/40 p-3">
-              <p className="text-xs text-slate-400">Is this what you mean?</p>
+            <div className="rounded-[10px_3px_12px_3px] border border-[#2D357D]/50 bg-[#1E2558]/60 p-3">
+              <p className="font-[var(--font-mono)] text-[11px] uppercase tracking-widest text-white/60">
+                Is this what you mean?
+              </p>
               <ul className="mt-2 space-y-1">
                 {duplicates.map((d) => (
                   <li key={d.id}>
                     <a
                       href={`/roadmap#item-${d.id}`}
-                      className="text-sm text-orange-400 hover:underline"
+                      className="text-sm text-[#F78E42] hover:underline"
                     >
                       {d.title}
                     </a>
@@ -113,29 +119,33 @@ export function SubmitRequestDialog({ open, onOpenChange }: Props) {
           )}
 
           <label className="block">
-            <span className="text-sm text-slate-400">Description</span>
+            <span className="font-[var(--font-mono)] text-[11px] uppercase tracking-widest text-[#F78E42]">
+              Description
+            </span>
             <textarea
               maxLength={500}
               rows={4}
               value={description}
               aria-label="Description"
               onChange={(e) => setDescription(e.target.value)}
-              className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
+              className="mt-1 w-full rounded-[10px_3px_12px_3px] border border-[#2D357D]/60 bg-[#1E2558]/60 px-3 py-2 text-white placeholder:text-white/30 focus:border-[#F78E42] focus:outline-none"
             />
           </label>
 
           <div>
-            <span className="text-sm text-slate-400">Category</span>
+            <span className="font-[var(--font-mono)] text-[11px] uppercase tracking-widest text-[#F78E42]">
+              Category
+            </span>
             <div className="mt-2 flex flex-wrap gap-2">
               {CATEGORIES.map((c) => (
                 <button
                   key={c.value}
                   type="button"
                   onClick={() => setCategory(c.value)}
-                  className={`rounded-full border px-3 py-1 text-sm ${
+                  className={`rounded-[10px_3px_12px_3px] border px-3 py-1 font-[var(--font-mono)] text-xs uppercase tracking-wider transition ${
                     category === c.value
-                      ? "border-orange-500 bg-orange-500/10 text-orange-400"
-                      : "border-slate-700 text-slate-300 hover:border-slate-600"
+                      ? "border-[#F78E42] bg-[#F78E42]/10 text-[#F78E42]"
+                      : "border-[#2D357D]/60 text-white/70 hover:border-[#F78E42]/60 hover:text-[#F78E42]"
                   }`}
                 >
                   {c.label}
@@ -145,20 +155,20 @@ export function SubmitRequestDialog({ open, onOpenChange }: Props) {
           </div>
 
           {errorMsg && (
-            <p className="text-sm text-rose-400">{errorMsg}</p>
+            <p className="text-sm text-[#F87171]">{errorMsg}</p>
           )}
 
           <button
             type="button"
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="w-full rounded bg-orange-500 px-4 py-2 font-semibold text-slate-950 disabled:opacity-50"
+            className="w-full rounded-[14px_6px_16px_4px] bg-[#F78E42] px-4 py-3 font-[var(--font-heading)] text-sm font-bold uppercase tracking-wide text-[#252D6B] shadow-[0_3px_0_rgba(0,0,0,0.35)] transition hover:bg-[#ffa760] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {pending ? "Sending…" : "Send it"}
           </button>
 
-          <p className="text-xs text-slate-500">
-            We read every one. You&apos;ll see it live within 48h if approved, or a reply if not.
+          <p className="font-[var(--font-mono)] text-[11px] uppercase tracking-wider text-white/50">
+            // We read every one. Live within 48h if approved, or a reply if not.
           </p>
         </div>
       </DialogContent>

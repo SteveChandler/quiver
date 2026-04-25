@@ -12,16 +12,27 @@ interface Props {
 
 export function RoadmapSection({ title, status, items, authed, onSignInRequired }: Props) {
   return (
-    <section className="mb-10">
-      <h2 className="mb-4 text-lg font-semibold text-slate-100">
-        {title} <span className="text-slate-500">({items.length})</span>
-      </h2>
+    <section className="mb-12">
+      <div className="mb-5 flex items-baseline gap-3">
+        <h2 className="font-[var(--font-heading)] text-2xl font-bold uppercase tracking-tight text-white">
+          {title}
+        </h2>
+        <span className="font-[var(--font-mono)] text-sm text-[#F78E42]">
+          ({items.length})
+        </span>
+      </div>
       {items.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-slate-800 p-6 text-center text-sm text-slate-500">
-          Nothing here yet.
+        <p className="rounded-[10px_4px_12px_4px] border border-dashed border-[#2D357D]/50 p-6 text-center font-[var(--font-mono)] text-sm uppercase tracking-wider text-white/40">
+          // Nothing here yet.
         </p>
       ) : (
-        <div className="space-y-3">
+        <div
+          className={
+            status === "shipped"
+              ? "space-y-0 border-t border-[#2D357D]/30"
+              : "space-y-3"
+          }
+        >
           {items.map((item) => (
             <RoadmapItemCard
               key={item.id}
