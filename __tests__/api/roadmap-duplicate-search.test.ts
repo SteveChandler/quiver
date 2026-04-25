@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
+
 const mockServiceRoleClient = {
   from: jest.fn(),
 };
@@ -118,15 +120,16 @@ describe("GET /api/roadmap/submissions/duplicate-search", () => {
     expect(ilikeMock).toHaveBeenCalledWith("title", "%my\\_field%");
   });
 
-  it("9. DB error → 500 with error message", async () => {
+  it("9. DB error → 500 with generic message", async () => {
     const { selectMock } = buildChain({ data: null, error: { message: "db fail" } });
     mockServiceRoleClient.from.mockReturnValue({ select: selectMock });
 
     const res = await GET(makeReq("q=anything"));
     const body = await res.json();
 
+    expectConsoleErrors([/\[roadmap\] duplicate-search query error/]);
     expect(res.status).toBe(500);
-    expect(body.error).toBe("db fail");
+    expect(body.error).toBe("Could not search roadmap items");
   });
 
   it("10. sort order: .order() called before .limit()", async () => {

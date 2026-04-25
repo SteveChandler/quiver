@@ -2,11 +2,23 @@
  * @jest-environment node
  */
 
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
+
 // Mock Supabase clients before any imports.
 // withAuth routes through createSupabaseServerClient (cookie/web) or
 // createBearerTokenClient (native). Tests drive cookie path by omitting
 // the Authorization header; both mocks still need to exist because
 // api-wrappers imports them at module load.
+
+// withRateLimit is a pass-through in test env so rate limiting doesn't
+// interfere with unit test assertions.
+jest.mock("@/lib/middleware/api-wrappers", () => {
+  const actual = jest.requireActual("@/lib/middleware/api-wrappers");
+  return {
+    ...actual,
+    withRateLimit: (handler: Function) => handler,
+  };
+});
 const mockSupabaseClient = {
   auth: {
     getUser: jest.fn(),
@@ -177,7 +189,7 @@ describe("POST /api/roadmap/submissions", () => {
     });
   });
 
-  it("10. DB insert error → 500 with error message", async () => {
+  it("10. DB insert error → 500 with generic message", async () => {
     const mockSingle = jest.fn().mockResolvedValue({
       data: null,
       error: { message: "rls denied" },
@@ -195,8 +207,9 @@ describe("POST /api/roadmap/submissions", () => {
     const res = await POST(makeReq(validBody));
     const body = await res.json();
 
+    expectConsoleErrors([/\[roadmap\] submission insert error/]);
     expect(res.status).toBe(500);
-    expect(body.error).toBe("rls denied");
+    expect(body.error).toBe("Could not save submission");
   });
 
   it("11. title with leading/trailing whitespace is trimmed before insert", async () => {

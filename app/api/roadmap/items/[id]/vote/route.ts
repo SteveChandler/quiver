@@ -22,7 +22,8 @@ export const POST = withAuth(
         .eq("item_id", id)
         .eq("user_id", user.id);
       if (error) {
-        return Response.json({ error: error.message }, { status: 500 });
+        console.error("[roadmap] vote delete error:", error);
+        return Response.json({ error: "Could not record vote" }, { status: 500 });
       }
       return Response.json({ voted: false });
     }
@@ -36,7 +37,8 @@ export const POST = withAuth(
       if ((error as { code?: string }).code === "23505") {
         return Response.json({ voted: true });
       }
-      return Response.json({ error: error.message }, { status: 500 });
+      console.error("[roadmap] vote insert error:", error);
+      return Response.json({ error: "Could not record vote" }, { status: 500 });
     }
     return Response.json({ voted: true });
   },

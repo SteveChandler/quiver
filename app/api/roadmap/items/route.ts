@@ -29,7 +29,8 @@ export async function GET(req: Request): Promise<Response> {
 
   const { data, error } = await query;
   if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error("[roadmap] items query error:", error);
+    return Response.json({ error: "Could not load roadmap items" }, { status: 500 });
   }
 
   let user: { id: string } | null = null;

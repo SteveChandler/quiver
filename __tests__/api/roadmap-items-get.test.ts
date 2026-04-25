@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
+
 // Mock Supabase clients before any imports
 const mockServiceRoleClient = {
   from: jest.fn(),
@@ -160,8 +162,9 @@ describe("GET /api/roadmap/items", () => {
     const res = await GET(req);
     const body = await res.json();
 
+    expectConsoleErrors([/\[roadmap\] items query error/]);
     expect(res.status).toBe(500);
-    expect(body.error).toBe("db fail");
+    expect(body.error).toBe("Could not load roadmap items");
   });
 
   it("calls order chain in correct sequence", async () => {

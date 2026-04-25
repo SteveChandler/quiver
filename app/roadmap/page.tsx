@@ -3,7 +3,7 @@ import type { RoadmapItem, RoadmapStatus } from "@/lib/roadmap/types";
 import { RoadmapSection } from "@/components/roadmap/RoadmapSection";
 import { RoadmapClientControls } from "@/components/roadmap/RoadmapClientControls";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 async function fetchItems(viewerUserId: string | null): Promise<RoadmapItem[]> {
   const service = createSupabaseServiceRoleClient();

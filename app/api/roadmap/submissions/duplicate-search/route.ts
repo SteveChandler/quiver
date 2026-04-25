@@ -23,7 +23,8 @@ export async function GET(req: Request): Promise<Response> {
     .limit(3);
 
   if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error("[roadmap] duplicate-search query error:", error);
+    return Response.json({ error: "Could not search roadmap items" }, { status: 500 });
   }
 
   return Response.json({ matches: data ?? [] });

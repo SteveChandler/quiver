@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
+
 // Mock Supabase clients before any imports.
 // withAuth routes through createSupabaseServerClient (cookie/web) or
 // createBearerTokenClient (native). Tests drive cookie path by omitting
@@ -131,7 +133,7 @@ describe("POST /api/roadmap/items/[id]/vote", () => {
     expect(mockInsert).not.toHaveBeenCalled();
   });
 
-  it("4. insert error (non-23505) → 500 with error message", async () => {
+  it("4. insert error (non-23505) → 500 with generic message", async () => {
     mockSupabaseClient.from.mockImplementation((table: string) => {
       if (table === "roadmap_votes") {
         return {
@@ -153,11 +155,12 @@ describe("POST /api/roadmap/items/[id]/vote", () => {
     const res = await POST(makeReq(), { params: { id: "abc" } });
     const body = await res.json();
 
+    expectConsoleErrors([/\[roadmap\] vote insert error/]);
     expect(res.status).toBe(500);
-    expect(body.error).toBe("fk violation");
+    expect(body.error).toBe("Could not record vote");
   });
 
-  it("5. delete error → 500 with error message", async () => {
+  it("5. delete error → 500 with generic message", async () => {
     mockSupabaseClient.from.mockImplementation((table: string) => {
       if (table === "roadmap_votes") {
         return {
@@ -184,8 +187,9 @@ describe("POST /api/roadmap/items/[id]/vote", () => {
     const res = await POST(makeReq(), { params: { id: "abc" } });
     const body = await res.json();
 
+    expectConsoleErrors([/\[roadmap\] vote delete error/]);
     expect(res.status).toBe(500);
-    expect(body.error).toBe("rls denied");
+    expect(body.error).toBe("Could not record vote");
   });
 
   it("6. getUser throws → treated as anon → 401", async () => {
