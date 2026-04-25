@@ -210,6 +210,73 @@ export function formatMiles(miles?: number, digits = 1): string {
 }
 
 /**
+ * 8-point compass bearing — used by the Oracle hero "drive" subtitle.
+ */
+export type CompassPoint = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";
+
+const COMPASS_POINTS: readonly CompassPoint[] = [
+  "N",
+  "NE",
+  "E",
+  "SE",
+  "S",
+  "SW",
+  "W",
+  "NW",
+];
+
+const COMPASS_WORDS: Record<CompassPoint, string> = {
+  N: "north",
+  NE: "northeast",
+  E: "east",
+  SE: "southeast",
+  S: "south",
+  SW: "southwest",
+  W: "west",
+  NW: "northwest",
+};
+
+/**
+ * Compute the great-circle initial bearing from `from` → `to`, snapped to
+ * the nearest of 8 cardinal compass points (45° buckets).
+ *
+ * Returns `"N"` deterministically when the two points are identical — the
+ * caller is expected to short-circuit before that (e.g. via a < 1 mi
+ * proximity check), but we keep the return type total so NaN can't leak
+ * into UI strings.
+ */
+export function bearingFromTo(
+  from: { lat: number; lon: number },
+  to: { lat: number; lon: number }
+): CompassPoint {
+  const phi1 = toRadians(from.lat);
+  const phi2 = toRadians(to.lat);
+  const dLambda = toRadians(to.lon - from.lon);
+
+  const y = Math.sin(dLambda) * Math.cos(phi2);
+  const x =
+    Math.cos(phi1) * Math.sin(phi2) -
+    Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLambda);
+
+  // atan2(0, 0) = 0 — same-point degenerate case maps to "N".
+  const theta = Math.atan2(y, x);
+  const bearingDeg = ((theta * 180) / Math.PI + 360) % 360;
+
+  // 45° buckets centered on each cardinal: round(deg / 45) mod 8.
+  const idx = Math.round(bearingDeg / 45) % 8;
+  return COMPASS_POINTS[idx];
+}
+
+/**
+ * Map an 8-point compass `CompassPoint` to its lowercase English word
+ * (e.g. `"NE" → "northeast"`). Used in microcopy like
+ * "↗ 18 mi north of OB Pier".
+ */
+export function compassPointToWord(p: CompassPoint): string {
+  return COMPASS_WORDS[p];
+}
+
+/**
  * Format distance for display in UI components
  *
  * @param distanceMiles Distance in miles (undefined/null/0/negative returns null)
