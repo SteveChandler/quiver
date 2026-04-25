@@ -23,6 +23,7 @@ import type { TimeWindow } from "@/components/oracle/todays-windows";
 import type { NearbySpot } from "@/components/oracle/nearby-spots";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import type { LocalActivityItem } from "@/actions/oracle-actions";
+import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import { isFutureDayInTimezone } from "@/lib/utils/condition-tier-utils";
 import { getHourInTimezone, getMinuteInTimezone } from "@/lib/utils/date-time";
 import { track } from "@/lib/analytics";
@@ -37,6 +38,11 @@ interface ProfileWithOracle {
   preferred_session_time: string | null;
   level_title: string | null;
   xp_total: number | null;
+}
+
+interface OracleSurfCallPayload {
+  report: SurfCallResult;
+  isTomorrow: boolean;
 }
 
 // ============================================================================
@@ -108,6 +114,39 @@ function getBestWindowTitle(
   if (hour < 14) return "Lunchtime waves are on";
   if (hour < 17) return "Afternoon session lined up";
   return "Evening session incoming";
+}
+
+function getHeroSurfCallTitle(
+  surfCall: SurfCallResult | null,
+  isTomorrow: boolean,
+  fallbackWindow: SurfDiscoveryRecommendation["window"] | undefined
+): string {
+  if (!surfCall) return getBestWindowTitle(fallbackWindow, isTomorrow);
+
+  if (surfCall.verdict === "YES") {
+    return isTomorrow ? "Tomorrow looks worth it" : "Worth paddling out";
+  }
+
+  if (surfCall.verdict === "MAYBE") {
+    return isTomorrow ? "Tomorrow has a narrow window" : "Small window if you time it";
+  }
+
+  return isTomorrow ? "Tomorrow looks poor" : "Today's a no-go";
+}
+
+function getHeroSurfCallTime(
+  surfCall: SurfCallResult | null,
+  timezone: string,
+  fallbackWindow: SurfDiscoveryRecommendation["window"] | undefined
+): string {
+  if (!surfCall) {
+    return fallbackWindow?.start ? formatWindowTime(fallbackWindow.start, timezone) : "—";
+  }
+
+  if (surfCall.verdict === "NO") return "—";
+
+  const target = surfCall.peakTime ?? surfCall.bestWindowStart;
+  return target ? formatWindowTime(new Date(target), timezone) : "—";
 }
 
 /**
@@ -406,6 +445,33 @@ export function OracleHomeScreen() {
   }, [homeBeach?.id, oracle.discovery?.recommendations]);
 
   const heroRec = homeBeachRec ?? topRec;
+  const heroBeach = heroRec?.beach ?? homeBeach;
+
+  const fetchHeroSurfCall = useCallback(async (): Promise<OracleSurfCallPayload | null> => {
+    if (!heroBeach?.id) return null;
+
+    const response = await fetch(`/api/surf/call?beachId=${heroBeach.id}`, {
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Surf call request failed with ${response.status}`);
+    }
+
+    const payload = await response.json() as {
+      success?: boolean;
+      data?: OracleSurfCallPayload;
+    };
+
+    return payload.success ? (payload.data ?? null) : null;
+  }, [heroBeach?.id]);
+
+  const { data: heroSurfCallData } = useDataFetcher(fetchHeroSurfCall, {
+    skip: !heroBeach?.id,
+    cacheKey: heroBeach?.id ? `oracle-hero-surf-call:${heroBeach.id}` : undefined,
+    cacheTTL: 5 * 60 * 1000,
+  });
+  const heroSurfCall = heroSurfCallData?.report ?? null;
 
   // Build share data for the session share sheet (needed by handleShareSession below)
   const shareData = useMemo(() => {
@@ -491,11 +557,6 @@ export function OracleHomeScreen() {
 
   // Parse numeric forecast values with safe defaults
   const waveHeight = heroRec?.waveHeightBadge ?? forecast?.wave_height ?? "—";
-  const swellDir =
-    forecast?.swell_1_direction ?? forecast?.wave_direction ?? "W";
-  const swellPeriod = parseNumeric(
-    forecast?.swell_1_period ?? forecast?.wave_period
-  );
   // Use per-slot data for current hour (fixes stale tide direction)
   const heroTz = window?.timezone || "America/Los_Angeles";
   const currentHour = getHourInTimezone(new Date(), heroTz);
@@ -504,6 +565,21 @@ export function OracleHomeScreen() {
   ).hour;
   const currentSlot = heroRec?.slotForecasts?.[currentSlotHour];
 
+  // Keep the hero's "current conditions" strip coherent: when we have a
+  // current slot for the beach/day, use that same slot for swell + wind.
+  // The previous implementation mixed slot wind with best-window swell,
+  // which could show conditions from different hours in the same hero.
+  const swellDir =
+    currentSlot?.swellDirection ??
+    forecast?.swell_1_direction ??
+    forecast?.wave_direction ??
+    "W";
+  const swellPeriod = parseNumeric(
+    currentSlot?.swellPeriod ??
+    forecast?.swell_1_period ??
+    forecast?.wave_period
+  );
+
   const tideH = parseNumeric(currentSlot?.tideHeight ?? forecast?.tide_height);
   const tideDir: "rising" | "falling" =
     (currentSlot?.tideStatus ?? forecast?.tide_status)?.toLowerCase().includes("rising")
@@ -511,7 +587,7 @@ export function OracleHomeScreen() {
   const waterTemp = parseNumeric(forecast?.water_temp);
   const windSpd = parseNumeric(currentSlot?.windSpeed ?? forecast?.wind_speed);
   const windDir = currentSlot?.windDirection ?? forecast?.wind_direction ?? "—";
-  const score = heroRec?.score ?? 0;
+  const score = heroSurfCall?.score ?? heroRec?.score ?? 0;
   const beachName = heroRec?.beach?.name ?? homeBeach?.name ?? "Your Beach";
 
   // Cast once for fields not yet in generated Profile type
@@ -520,15 +596,18 @@ export function OracleHomeScreen() {
 
   // Check if the top recommendation is for tomorrow (timezone-aware)
   const isTomorrow = useMemo(() => {
+    if (heroSurfCallData) return heroSurfCallData.isTomorrow;
     if (!window?.start) return false;
     return isFutureDayInTimezone(window.start, heroTz);
-  }, [window?.start, heroTz]);
+  }, [heroSurfCallData, window?.start, heroTz]);
 
   // Best window data
-  const bestWindowTime = window?.start ? formatWindowTime(window.start, heroTz) : "—";
-  const bestWindowTitle = getBestWindowTitle(window, isTomorrow);
+  const bestWindowTime = getHeroSurfCallTime(heroSurfCall, heroTz, window);
+  const bestWindowTitle = getHeroSurfCallTitle(heroSurfCall, isTomorrow, window);
   const bestWindowSubtitle =
-    heroRec?.reasons?.[0] ?? "Check the forecast for details";
+    heroSurfCall?.whySentence ??
+    heroRec?.reasons?.[0] ??
+    "Check the forecast for details";
 
   // Transformed sub-component data (memoised to avoid child re-renders)
   const timeWindows = useMemo(
@@ -548,7 +627,6 @@ export function OracleHomeScreen() {
   );
 
   // Build forecast deep-link for the hero beach
-  const heroBeach = heroRec?.beach ?? homeBeach;
   const forecastUrl =
     heroBeach?.slug && heroBeach.city && heroBeach.state
       ? `/${heroBeach.state.toLowerCase()}/${heroBeach.city.toLowerCase().replace(/\s+/g, "-")}/${heroBeach.slug}`

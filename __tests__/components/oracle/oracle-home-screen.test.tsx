@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { OracleHomeScreen } from "@/components/oracle/oracle-home-screen";
 import type { OracleData } from "@/hooks/use-oracle-data";
+import { apiCache } from "@/lib/utils/request-cache";
 
 // ---------------------------------------------------------------------------
 // Fix Date so greeting always says "Good morning"
@@ -39,6 +40,9 @@ jest.mock("next/navigation", () => ({
   usePathname: () => "/",
   useSearchParams: () => new URLSearchParams(),
 }));
+
+const mockFetch = jest.fn();
+global.fetch = mockFetch as unknown as typeof fetch;
 
 // ---------------------------------------------------------------------------
 // Mock framer-motion (used inside OracleHero and ShareSheet)
@@ -250,6 +254,11 @@ jest.mock("@/hooks/use-oracle-data", () => ({
 // ---------------------------------------------------------------------------
 beforeEach(() => {
   jest.clearAllMocks();
+  apiCache.clear();
+  mockFetch.mockResolvedValue({
+    ok: true,
+    json: async () => ({ success: false }),
+  });
   mockOracleData = {
     ...MOCK_ORACLE_DATA_BASE,
     profile: { ...MOCK_ORACLE_DATA_BASE.profile },
@@ -501,6 +510,55 @@ describe("OracleHomeScreen", () => {
     // is used instead of the stale forecast entity values
     render(<OracleHomeScreen />);
     expect(screen.getByRole("banner")).toBeInTheDocument();
+  });
+
+  it("uses the surf-call API as the hero verdict source when it disagrees with discovery", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          isTomorrow: false,
+          report: {
+            verdict: "NO",
+            bestWindowStart: null,
+            bestWindowEnd: null,
+            windowMinutes: null,
+            shortWindow: false,
+            waveHeight: "0-1ft",
+            windDescription: "Strong onshore wind",
+            windSpeed: "13 mph",
+            windCompass: "W",
+            windType: "onshore",
+            tideDescription: "Falling",
+            tidePhase: "falling",
+            tideHeight: "1.2ft",
+            nextTideType: "low",
+            nextTideAt: "2026-03-11T19:00:00.000Z",
+            whySentence: "Onshore wind all day making conditions choppy.",
+            forecastConfidence: 85,
+            lowForecastConfidence: false,
+            score: 8,
+            peakTime: null,
+            trendTags: [],
+            updatedAt: "2026-03-11T15:23:00.000Z",
+            isCalibrated: true,
+            rideableWavesPerHour: null,
+            dominantBeatIntervalS: 17,
+          },
+        },
+      }),
+    });
+
+    render(<OracleHomeScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Today's a no-go")).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText("Onshore wind all day making conditions choppy.")
+    ).toBeInTheDocument();
+    expect(screen.getByText("—")).toBeInTheDocument();
   });
 
   it("falls back to top rec waveHeight for slots without slotForecasts data", () => {
