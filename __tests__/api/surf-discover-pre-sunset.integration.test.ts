@@ -104,6 +104,7 @@ function getTodaySunset(): Date {
   () => {
     let todaySunset: Date;
     let preSunsetDeadZone: Date;
+    let widerDeadZone: Date;
     let earlyMorning: Date;
     let postSunset: Date;
 
@@ -112,6 +113,12 @@ function getTodaySunset(): Date {
 
       // 10 min before today's sunset — inside the MIN_SESSION_HOURS reject zone
       preSunsetDeadZone = new Date(todaySunset.getTime() - 10 * 60 * 1000);
+
+      // 1h 38min before today's sunset — OUTSIDE the MIN_SESSION_HOURS gate
+      // (1.6h > 1.0h) but inside the 3hr-cadence dead zone: the next forecast
+      // slot lands at-or-after sunset. Reproduces the user-reported 17:52 PDT
+      // empty-home bug fixed in commit 421b3f80.
+      widerDeadZone = new Date(todaySunset.getTime() - 98 * 60 * 1000);
 
       // 06:23 today in PDT (= 13:23 UTC during DST). Anchor to today's sunset's
       // UTC date minus 1 day if sunset is past midnight UTC, so we land on the
@@ -132,6 +139,7 @@ function getTodaySunset(): Date {
         realNowUTC: new Date().toISOString(),
         todaySunsetUTC: todaySunset.toISOString(),
         preSunsetDeadZoneUTC: preSunsetDeadZone.toISOString(),
+        widerDeadZoneUTC: widerDeadZone.toISOString(),
         earlyMorningUTC: earlyMorning.toISOString(),
         postSunsetUTC: postSunset.toISOString(),
       });
@@ -190,6 +198,32 @@ function getTodaySunset(): Date {
         : new Date(top.window.start);
 
       // The fix: window MUST be after today's sunset (i.e., on tomorrow).
+      expect(windowStart.getTime()).toBeGreaterThan(todaySunset.getTime());
+    });
+
+    test("scenario 1b: wider dead zone (1h 38min before sunset, 3hr cadence gap) falls through to TOMORROW", async () => {
+      const result = await runDiscoverAt(widerDeadZone);
+      const top = result.recommendations[0];
+
+      // eslint-disable-next-line no-console
+      console.log("[scenario 1b result]", {
+        recs: result.recommendations.length,
+        top: describeRec(top),
+        metadata: result.metadata,
+      });
+
+      expect(result.recommendations.length).toBeGreaterThan(0);
+      expect(top).toBeDefined();
+      expect(top.window).toBeDefined();
+
+      const windowStart = top.window.start instanceof Date
+        ? top.window.start
+        : new Date(top.window.start);
+
+      // The wider-dead-zone fix: at 1h 38min before sunset, MIN_SESSION_HOURS
+      // gate is closed (1.6h > 1.0h) but no remaining today forecast lands
+      // before sunset (next 3hr slot is post-sunset). Window MUST be on
+      // tomorrow — proving `hasUsableTodayForecast=false` opened the gate.
       expect(windowStart.getTime()).toBeGreaterThan(todaySunset.getTime());
     });
 
