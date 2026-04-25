@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ConfidenceScoreExplanation } from "@/components/forecast/confidence-score-explanation";
 import { ForecastDataSourceIndicator } from "@/components/forecast/forecast-data-source-indicator";
+import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
 import type { ForecastPreview as ForecastPreviewType } from "@/types/forecast";
 
 // Extended data shape required when showTransparency, showDistance, or confidence
@@ -170,7 +171,13 @@ function ForecastPreviewComponent({
               <div className="grid grid-cols-3 gap-2 text-sm">
                 <div className="flex items-center space-x-1">
                   <Waves className="h-3 w-3 text-blue-500" />
-                  <span className="font-medium">{fp.wave_height}</span>
+                  <WaveHeightDisplay
+                    height={fp.wave_height}
+                    dataSource={hasTransparencyData ? fp.data_source : null}
+                    confidenceScore={fp.confidence_score ?? null}
+                    showTooltip={hasTransparencyData}
+                    className="font-medium"
+                  />
                 </div>
                 <div className="flex items-center space-x-1">
                   <Wind className="h-3 w-3 text-gray-500" />
@@ -236,9 +243,13 @@ function ForecastPreviewComponent({
             /* Inline variant */
             <div className={cn("flex items-center space-x-3 justify-between")}>
               <div className="flex items-center space-x-2 text-sm">
-                <span className="font-medium text-blue-600">
-                  {fp.wave_height}
-                </span>
+                <WaveHeightDisplay
+                  height={fp.wave_height}
+                  dataSource={hasTransparencyData ? fp.data_source : null}
+                  confidenceScore={fp.confidence_score ?? null}
+                  showTooltip={hasTransparencyData}
+                  className="font-medium text-blue-600"
+                />
                 <span className="text-gray-600">{fp.wind_speed}</span>
                 {!mobile && (
                   <span className="text-xs text-gray-500">
@@ -304,7 +315,10 @@ function ForecastPreviewComponent({
       <div className={`flex items-center justify-between text-sm ${className}`}>
         <div className="flex items-center text-blue-600">
           <Waves className="h-4 w-4 mr-1" />
-          <span>{forecastPreview.wave_height}</span>
+          <WaveHeightDisplay
+            height={forecastPreview.wave_height}
+            showTooltip={false}
+          />
         </div>
         <div className="flex items-center text-gray-600">
           <Wind className="h-4 w-4 mr-1" />
@@ -330,7 +344,10 @@ function ForecastPreviewComponent({
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center text-blue-600">
           <Waves className="h-4 w-4 mr-1" />
-          <span>{forecastPreview.wave_height}</span>
+          <WaveHeightDisplay
+            height={forecastPreview.wave_height}
+            showTooltip={false}
+          />
         </div>
         <div className="flex items-center text-gray-600">
           <Wind className="h-4 w-4 mr-1" />

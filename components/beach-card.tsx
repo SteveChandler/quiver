@@ -10,6 +10,7 @@ import Link from "next/link";
 import { MapImage } from "@/components/map-image";
 import { useForecastPreview } from "@/hooks/use-forecast-preview";
 import { ForecastPreview } from "@/components/ui/forecast-preview";
+import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { formatRatingSimple } from "@/lib/utils/rating-formatters";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
@@ -336,7 +337,10 @@ const BeachCardComponent = function BeachCard({
                         Wave Height
                       </div>
                       <div className="text-white">
-                        {forecastPreview?.wave_height || "N/A"}
+                        <WaveHeightDisplay
+                          height={forecastPreview?.wave_height ?? null}
+                          showTooltip={false}
+                        />
                       </div>
                     </div>
                     <div className="bg-white/5 p-2 rounded">
