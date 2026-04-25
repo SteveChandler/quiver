@@ -130,8 +130,12 @@ export function processNOAAGridData(
       primarySwellHeight ?? swellHeight ?? significantWaveHeight * 0.7;
     // Primary-partition period: wavePeriod IS the peak period, which for the
     // primary partition equals the primary swell period. No separate
-    // `primarySwellPeriod` field exists in NOAA gridpoints.
-    const noaaPrimaryPeriod = swellPeriod ?? peakWavePeriod * 1.3;
+    // `primarySwellPeriod` field exists in NOAA gridpoints. When NOAA omits
+    // both `swellPeriod` AND `wavePeriod` (common on SD-area gridpoints), the
+    // partition period is genuinely unknown — emit null and let downstream
+    // 0-sentinel logic null out display rather than fabricating a value.
+    const noaaPrimaryPeriod: number | null =
+      swellPeriod ?? wavePeriod ?? null;
     const noaaPrimaryDirection =
       primarySwellDirection ?? swellDirection ?? peakWaveDirection;
 
@@ -152,25 +156,45 @@ export function processNOAAGridData(
     // surfers is the longer period (more organized, more energy in the face).
     // When tied, preserve NOAA order. Missing period (null/0) loses — any
     // real period sorts ahead. Height + direction + period travel as a unit.
+    // Explicitly handle null primary: a real secondary period must always
+    // beat a null primary, regardless of JS's coercion-based comparisons.
+    const primaryPeriodMissing =
+      noaaPrimaryPeriod === null || noaaPrimaryPeriod <= 0;
     const shouldSwap =
       hasSecondary &&
       noaaSecondaryPeriod > 0 &&
-      noaaSecondaryPeriod > noaaPrimaryPeriod;
+      (primaryPeriodMissing || noaaSecondaryPeriod > noaaPrimaryPeriod);
 
     const swell1Height = shouldSwap ? noaaSecondaryHeight : noaaPrimaryHeight;
-    const swell1Period = shouldSwap ? noaaSecondaryPeriod : noaaPrimaryPeriod;
+    const swell1PeriodRaw = shouldSwap ? noaaSecondaryPeriod : noaaPrimaryPeriod;
     const swell1Direction = shouldSwap
       ? noaaSecondaryDirection
       : noaaPrimaryDirection;
     const swell2Height = shouldSwap ? noaaPrimaryHeight : noaaSecondaryHeight;
-    const swell2Period = shouldSwap ? noaaPrimaryPeriod : noaaSecondaryPeriod;
+    const swell2PeriodRaw = shouldSwap ? noaaPrimaryPeriod : noaaSecondaryPeriod;
     const swell2Direction = shouldSwap
       ? noaaPrimaryDirection
       : noaaSecondaryDirection;
 
-    // Generate wind wave component
+    // Coerce nullable periods to the 0 sentinel that the rest of the pipeline
+    // already understands as "no real period." Avoids NaN from `Math.round(null)`
+    // and lets `formatPeriodSeconds` reject 0 (<4s threshold) at display time.
+    const swell1Period = swell1PeriodRaw ?? 0;
+    const swell2Period = swell2PeriodRaw ?? 0;
+
+    // Generate wind wave component.
+    // `windWaveHeight = significantWaveHeight * 0.5` is a height heuristic from
+    // a real Hs value — kept as-is. For period: NOAA gridpoints don't expose a
+    // dedicated wind-wave-period field, so we apply `× 0.7` to the RAW
+    // `wavePeriod` (peak period). We deliberately avoid `peakWavePeriod` here
+    // because `peakWavePeriod` itself is synthesized at line 87 when
+    // `wavePeriod` is null (`Math.max(4, 6 + significantWaveHeight * 1.5)`),
+    // and synthesizing-from-synthesis layers fabrication on fabrication. When
+    // raw `wavePeriod` is null we emit null and let the 0-sentinel coerce at
+    // the write boundary do its job (formatPeriodSeconds rejects <4s).
     const windWaveHeight = significantWaveHeight * 0.5;
-    const windWavePeriod = peakWavePeriod * 0.7;
+    const windWavePeriod: number | null =
+      wavePeriod !== null ? wavePeriod * 0.7 : null;
     const windWaveDirection = peakWaveDirection;
 
     forecasts.push({
@@ -185,7 +209,11 @@ export function processNOAAGridData(
       swell_2_period: Math.round(swell2Period * 10) / 10,
       swell_2_direction: Math.round(swell2Direction),
       wind_wave_height: Math.round(windWaveHeight * 100) / 100,
-      wind_wave_period: Math.round(windWavePeriod * 10) / 10,
+      // Coerce null → 0 sentinel at the write boundary, mirroring swell_1 /
+      // swell_2 period handling above. Downstream `formatPeriodSeconds` rejects
+      // 0 (<4s threshold) so the display gate renders null cleanly.
+      wind_wave_period:
+        windWavePeriod !== null ? Math.round(windWavePeriod * 10) / 10 : 0,
       wind_wave_direction: Math.round(windWaveDirection),
       data_source: "NOAA_NWS" as const,
     });

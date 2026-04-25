@@ -209,6 +209,124 @@ describe('processNOAAGridData — real partition parsing', () => {
     expect(result[0].swell_2_direction).toBe(0);
   });
 
+  it('does not fabricate swell_1_period from peak_wave_period * 1.3 when swellPeriod is null', () => {
+    // Regression: SD-area NWS gridpoints return null `swellPeriod` while
+    // `wavePeriod` is populated. Prior code synthesized
+    // `noaaPrimaryPeriod = peakWavePeriod * 1.3` (e.g. 14 → 18.2 → "18s"),
+    // producing fabricated identical 18s periods across 12+ SoCal beaches.
+    // The honest fallback is `wavePeriod` itself (peak == primary when
+    // partitions agree on dominant band), never multiplied.
+    const gridData: NOAAGridData = {
+      properties: {
+        waveHeight: series([1.5]),
+        wavePeriod: series([14]),
+        waveDirection: series([270]),
+        primarySwellHeight: series([1.2]),
+        primarySwellDirection: series([265]),
+        // swellPeriod intentionally absent — the SD-gridpoint failure mode.
+      },
+    };
+
+    const result = processNOAAGridData(gridData, 1, LAT, LON);
+    expect(result[0].swell_1_period).toBeCloseTo(14, 1); // honest fallback
+    expect(result[0].swell_1_period).not.toBe(18.2); // the fabricated value
+  });
+
+  it('emits 0 sentinel for swell_1_period when both swellPeriod and wavePeriod are null', () => {
+    // When NOAA omits both period fields, the partition period is genuinely
+    // unknown. Pipeline writes the 0 sentinel (same as missing secondary)
+    // so downstream `formatPeriodSeconds` (rejects <4s) renders null.
+    const gridData: NOAAGridData = {
+      properties: {
+        waveHeight: series([1.5]),
+        // wavePeriod absent
+        waveDirection: series([270]),
+        primarySwellHeight: series([1.2]),
+        primarySwellDirection: series([265]),
+        // swellPeriod absent
+      },
+    };
+
+    const result = processNOAAGridData(gridData, 1, LAT, LON);
+    expect(result[0].swell_1_period).toBe(0);
+    // Height + direction still come through — just the period is unknown.
+    expect(result[0].swell_1_height).toBeCloseTo(1.2, 2);
+    // Direction must pair with the primary partition (265°) — not fall to
+    // peak/wave-direction fallback when only the period is null.
+    expect(result[0].swell_1_direction).toBe(265);
+  });
+
+  it('does not synthesize wind_wave_period from synthesized peakWavePeriod when wavePeriod is null', () => {
+    // Regression: previously `windWavePeriod = peakWavePeriod * 0.7`. Because
+    // `peakWavePeriod` itself is synthesized at line 87 when `wavePeriod` is
+    // null (`Math.max(4, 6 + significantWaveHeight * 1.5)`), the wind_wave
+    // period was synthesis-of-synthesis. The honest behavior: apply `× 0.7`
+    // ONLY to the raw `wavePeriod`; emit the 0 sentinel when raw is null.
+    const gridData: NOAAGridData = {
+      properties: {
+        waveHeight: series([1.5]),
+        // wavePeriod absent → synthesized peakWavePeriod ≈ 8.25
+        waveDirection: series([270]),
+        primarySwellHeight: series([1.2]),
+        primarySwellDirection: series([265]),
+      },
+    };
+
+    const result = processNOAAGridData(gridData, 1, LAT, LON);
+    // Sentinel 0 — formatPeriodSeconds rejects <4s and returns null at display.
+    expect(result[0].wind_wave_period).toBe(0);
+    // The fabricated value would have been 8.25 * 0.7 ≈ 5.8s.
+    expect(result[0].wind_wave_period).not.toBeCloseTo(5.8, 1);
+    // Height heuristic still fires (significantWaveHeight * 0.5 is an honest
+    // single-step estimate from a real Hs value).
+    expect(result[0].wind_wave_height).toBeCloseTo(0.75, 2);
+  });
+
+  it('still applies wind_wave_period × 0.7 heuristic when raw wavePeriod is real', () => {
+    // The honest fallback: when NOAA returns a real `wavePeriod`, the `× 0.7`
+    // heuristic is a one-step engineering estimate from a real value (not
+    // fabrication-of-fabrication). Wind waves are shorter than peak by
+    // definition, so this stays in place.
+    const gridData: NOAAGridData = {
+      properties: {
+        waveHeight: series([1.5]),
+        wavePeriod: series([14]), // real value
+        waveDirection: series([270]),
+      },
+    };
+
+    const result = processNOAAGridData(gridData, 1, LAT, LON);
+    expect(result[0].wind_wave_period).toBeCloseTo(9.8, 1); // 14 * 0.7
+  });
+
+  it('swaps real secondary period over null primary period', () => {
+    // Primary period absent (NOAA returned no swellPeriod/wavePeriod), but
+    // secondary partition has a real period. Re-rank must promote the real
+    // period into swell_1 — a real period always beats null.
+    const gridData: NOAAGridData = {
+      properties: {
+        waveHeight: series([1.5]),
+        // wavePeriod absent → noaaPrimaryPeriod becomes null
+        waveDirection: series([270]),
+        primarySwellHeight: series([0.8]),
+        primarySwellDirection: series([270]),
+        secondarySwellHeight: series([0.6]),
+        secondarySwellDirection: series([200]),
+        wavePeriod2: series([12]),
+      },
+    };
+
+    const result = processNOAAGridData(gridData, 1, LAT, LON);
+    // Real 12s secondary should land in swell_1 over null primary
+    expect(result[0].swell_1_period).toBeCloseTo(12, 1);
+    expect(result[0].swell_1_direction).toBe(200);
+    expect(result[0].swell_1_height).toBeCloseTo(0.6, 2);
+    // Demoted primary keeps its height/direction; period is the 0 sentinel
+    expect(result[0].swell_2_height).toBeCloseTo(0.8, 2);
+    expect(result[0].swell_2_period).toBe(0);
+    expect(result[0].swell_2_direction).toBe(270);
+  });
+
   it('never synthesizes swell_2 from swell_1 * magic (regression guard)', () => {
     // Historical bug: swell_2_height = significantWaveHeight * 0.4
     // and swell_2_period = swell_1_period * 1.1. Neither should ever appear
