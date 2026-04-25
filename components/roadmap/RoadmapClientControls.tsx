@@ -13,7 +13,7 @@ export function RoadmapClientControls({ authed }: Props) {
 
   const handleOpen = () => {
     if (!authed) {
-      router.push("/auth?next=/roadmap");
+      router.push("/auth/sign-in?next=/roadmap");
       return;
     }
     setDialogOpen(true);

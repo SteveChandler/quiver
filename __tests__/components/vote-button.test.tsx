@@ -32,6 +32,34 @@ describe("<VoteButton/>", () => {
     await waitFor(() => expect(onSignInRequired).toHaveBeenCalledTimes(1));
   });
 
+  it("renders the anon CTA variant with sign-in label and visible count", () => {
+    render(
+      <VoteButton itemId="abc" voteCount={42} viewerHasVoted={false} authed={false} />,
+    );
+    const btn = screen.getByRole("button", { name: /sign in to vote/i });
+    expect(btn).toBeInTheDocument();
+    // Anon variant is a navigation, not a toggle — no aria-pressed.
+    expect(btn).not.toHaveAttribute("aria-pressed");
+    // Count stays visible alongside the lock label.
+    expect(screen.getByText("42")).toBeInTheDocument();
+  });
+
+  it("falls back to router.push(/auth/sign-in) when anon and no callback is provided", async () => {
+    const { useRouter } = jest.requireMock("next/navigation");
+    const router = useRouter();
+    router.push.mockClear();
+
+    render(
+      <VoteButton itemId="abc-123" voteCount={1} viewerHasVoted={false} authed={false} />,
+    );
+    fireEvent.click(screen.getByRole("button"));
+    await waitFor(() => {
+      expect(router.push).toHaveBeenCalledWith(
+        "/auth/sign-in?next=/roadmap%23item-abc-123",
+      );
+    });
+  });
+
   it("optimistically increments count on click (authed, not yet voted)", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
