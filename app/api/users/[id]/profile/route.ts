@@ -10,7 +10,6 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     const userId = params?.id;
     if (!isValidUuid(userId)) return createValidationError("Invalid user ID");
     // Delegate to canonical route
-    // @ts-expect-error: forward to existing handler signature
     return canonicalGet(request, { params: { id: userId } });
   } catch (error) {
     return handleApiError(error);

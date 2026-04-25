@@ -1464,4 +1464,461 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
     );
     expect(staleFallbackWarn).toBeUndefined();
   });
+
+  test('pre-sunset dead zone: falls through to tomorrow when today-only fails within MIN_SESSION_HOURS of sunset', async () => {
+    // Reproduces the 19:21 PDT / sunset 19:31 dead zone on 2026-04-23:
+    // today has forecasts (pre-sunset), but selectBestWindow rejects them all
+    // because hoursUntilSunset < MIN_SESSION_HOURS (1.0h). The strict
+    // `isPostSunsetForBeach` gate (now > sunset) didn't fire at 19:21, so
+    // the orchestrator never reached for tomorrow and returned 0 recs.
+    const { selectBestWindow: mockSelectBestWindow } = require('@/lib/services/discovery/window-selector');
+
+    // Fake "now" = 10 minutes before sunset. 19:21 PDT on 2026-04-23 == 02:21Z on 2026-04-24.
+    const now = new Date('2026-04-24T02:21:00Z');
+    const sunset = new Date('2026-04-24T02:31:00Z'); // 19:31 PDT, same local day
+    jest.useFakeTimers().setSystemTime(now);
+
+    const todayIso = now.toISOString();
+    const tomorrowDawnIso = '2026-04-24T14:00:00.000Z'; // ~07:00 PDT next morning
+
+    const todayForecast: Partial<EnhancedForecastEntity> = {
+      beach_id: 'beach-1',
+      forecast_at: todayIso,
+      forecast_date: todayIso.split('T')[0],
+      forecast_time: '19:21:00',
+      wave_height: '2.5',
+      wave_period: '12s',
+      wind_speed: '6',
+      wind_direction_deg: 270,
+      tide_status: 'Rising',
+      data_source: 'CDIP',
+    };
+    const tomorrowForecast: Partial<EnhancedForecastEntity> = {
+      beach_id: 'beach-1',
+      forecast_at: tomorrowDawnIso,
+      forecast_date: tomorrowDawnIso.split('T')[0],
+      forecast_time: '14:00:00',
+      wave_height: '3.5',
+      wave_period: '13s',
+      wind_speed: '4',
+      wind_direction_deg: 270,
+      tide_status: 'Rising',
+      data_source: 'CDIP',
+    };
+
+    mockState.forecastBatchResponse = {
+      successful: [{ beach: mockBeach1, forecasts: [todayForecast, tomorrowForecast] }],
+      failed: [],
+      staleCount: 0,
+    };
+
+    // First call (today-only) returns null — window selector rejects all remaining
+    // today forecasts for being too close to sunset.
+    // Second call (full set, post-fix) returns the tomorrow dawn-patrol window.
+    mockSelectBestWindow.mockReset();
+    const tomorrowWindow = {
+      start: new Date(tomorrowDawnIso),
+      end: new Date(new Date(tomorrowDawnIso).getTime() + 3 * 60 * 60 * 1000),
+      tide: 'Rising',
+      wind: '4 mph W',
+      waveHeight: '3-4 ft',
+      wavePeriod: '13s',
+      dataSource: 'CDIP',
+      confidence: 88,
+      timezone: 'America/Los_Angeles',
+      sourceForecast: tomorrowForecast,
+    };
+    mockSelectBestWindow
+      .mockReturnValueOnce(null)
+      .mockReturnValueOnce(tomorrowWindow);
+
+    jest.resetModules();
+    jest.doMock('@/lib/logger', () => ({
+      createContextLogger: jest.fn(() => ({
+        debug: jest.fn(),
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+      })),
+    }));
+    jest.doMock('@/lib/services/discovery/window-selector', () => ({
+      selectBestWindow: mockSelectBestWindow,
+      getLocalDateStr: jest.fn((date: Date, _tz: string) => date.toISOString().split('T')[0]),
+      getLocalHour: jest.fn((date: Date, _tz: string) => date.getUTCHours()),
+      MIN_SESSION_HOURS: 1.0,
+    }));
+    jest.doMock('@/lib/services/discovery/candidate-pool-builder', () => ({
+      buildCandidatePool: jest.fn(async () => mockState.candidatePoolResponse),
+    }));
+    jest.doMock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
+      batchFetchForecasts: jest.fn(async () => mockState.forecastBatchResponse),
+    }));
+    jest.doMock('@/lib/services/discovery/response-formatter', () => ({
+      enrichWithPhotos: jest.fn(async (recs: any[]) => recs),
+      generateDiscoverySummary: jest.fn(() => 'Tomorrow looks better'),
+      getRecommendationLabel: jest.fn(() => 'Worth it tomorrow'),
+      buildDiscoveryMessage: jest.fn(() => 'Worth it tomorrow — Tomorrow looks better'),
+    }));
+    jest.doMock('@/lib/services/preference-learning-service', () => ({
+      getUserSurfPreferences: jest.fn(async () => null),
+    }));
+    jest.doMock('@/lib/services/beach-query-service', () => ({
+      getFavoriteBeachesFromDb: jest.fn(async () => ({ success: true, data: [] })),
+    }));
+    // Supabase mock: return a sun_times row for beach-1 so sunTimesCache.get(beach.id)
+    // resolves to a sunset that matches `todayStr`, which is what drives the
+    // "effectively over" gate.
+    jest.doMock('@/lib/supabase/server', () => ({
+      createSupabaseServiceRoleClient: jest.fn(() => ({
+        from: jest.fn((table: string) => ({
+          select: jest.fn(() => ({
+            in: jest.fn(() => ({
+              in: jest.fn(() => ({
+                order: jest.fn(() => Promise.resolve({
+                  data: table === 'sun_times'
+                    ? [{ beach_id: 'beach-1', sunrise_utc: '2026-04-23T13:07:00Z', sunset_utc: sunset.toISOString() }]
+                    : [],
+                  error: null,
+                })),
+              })),
+            })),
+            eq: jest.fn(() => ({
+              in: jest.fn(() => Promise.resolve({ data: [], error: null })),
+            })),
+          })),
+        })),
+      })),
+    }));
+    jest.doMock('@/lib/domains/scoring', () => ({
+      createDiscoveryScoringEngine: jest.fn(() => ({})),
+      scoreBeachWithEngine: jest.fn(() => ({
+        total: 80,
+        subscores: { waveHeightFit: 22, periodEnergyScore: 18, windAlignment: 16, tideFit: 12, affinityBonus: 0, personalizationBonus: 0, distancePenalty: 0 },
+        matchQuality: 'excellent',
+        reasons: ['Dawn patrol'],
+        warnings: [],
+        conditionBadges: [],
+      })),
+    }));
+    jest.doMock('@/lib/utils/timezone-utils.server', () => ({
+      getTimezoneFromCoords: jest.fn(() => 'America/Los_Angeles'),
+    }));
+    jest.doMock('@/lib/services/discovery/personalization-layer', () => ({
+      fetchPersonalizationContext: jest.fn(async () => ({
+        implicitPrefs: null, learnedPrefs: null, affinityMap: new Map(), preferredBreakType: null, implicitWeight: 0,
+      })),
+      calculatePersonalizationBonus: jest.fn(() => ({ total: 0, affinityBonus: 0, personalizationBonus: 0, reasons: [] })),
+    }));
+
+    try {
+      const { discoverSurfSpots: freshDiscover } = require('@/lib/services/discovery/surf-discovery-orchestrator');
+      const result = await freshDiscover(testUserId, { userLocation: defaultUserLocation });
+
+      // Post-fix: selectBestWindow must have been called TWICE — first today-only
+      // (null), then full set (tomorrow window) — because `todayIsEffectivelyOver`
+      // fires when hoursUntilSunset < MIN_SESSION_HOURS.
+      expect(mockSelectBestWindow).toHaveBeenCalledTimes(2);
+      expect(result.recommendations).toHaveLength(1);
+      expect(result.recommendations[0].window.start.toISOString()).toBe(tomorrowDawnIso);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('wider dead zone: falls through when remaining today forecasts are all post-sunset (3hr cadence gap)', async () => {
+    // The 17:52 PDT / sunset 19:30 case: hoursUntilSunset=1.6h (gate stays
+    // closed under MIN_SESSION_HOURS=1.0h), but the only cached today slots
+    // are 20:00 and 23:00 — both past sunset. Without the
+    // `hasUsableTodayForecast` check, today returns null and tomorrow
+    // fall-through never fires, leaving the home screen empty.
+    const { selectBestWindow: mockSelectBestWindow } = require('@/lib/services/discovery/window-selector');
+
+    // Fake "now" = 17:52 PDT (1.6h before sunset).
+    const now = new Date('2026-04-25T00:52:00Z'); // 17:52 PDT 2026-04-24
+    const sunset = new Date('2026-04-25T02:30:00Z'); // 19:30 PDT 2026-04-24
+    jest.useFakeTimers().setSystemTime(now);
+
+    const todayPostSunset1Iso = '2026-04-25T03:00:00.000Z'; // 20:00 PDT today
+    const todayPostSunset2Iso = '2026-04-25T06:00:00.000Z'; // 23:00 PDT today
+    const tomorrowDawnIso = '2026-04-25T14:00:00.000Z'; // ~07:00 PDT next morning
+
+    const todayPostSunset1: Partial<EnhancedForecastEntity> = {
+      beach_id: 'beach-1',
+      forecast_at: todayPostSunset1Iso,
+      forecast_date: todayPostSunset1Iso.split('T')[0],
+      forecast_time: '20:00:00',
+      wave_height: '2.0', wave_period: '12s', wind_speed: '6',
+      wind_direction_deg: 270, tide_status: 'Rising', data_source: 'CDIP',
+    };
+    const todayPostSunset2: Partial<EnhancedForecastEntity> = {
+      beach_id: 'beach-1',
+      forecast_at: todayPostSunset2Iso,
+      forecast_date: todayPostSunset2Iso.split('T')[0],
+      forecast_time: '23:00:00',
+      wave_height: '2.0', wave_period: '12s', wind_speed: '6',
+      wind_direction_deg: 270, tide_status: 'Rising', data_source: 'CDIP',
+    };
+    const tomorrowForecast: Partial<EnhancedForecastEntity> = {
+      beach_id: 'beach-1',
+      forecast_at: tomorrowDawnIso,
+      forecast_date: tomorrowDawnIso.split('T')[0],
+      forecast_time: '07:00:00',
+      wave_height: '3.5', wave_period: '13s', wind_speed: '4',
+      wind_direction_deg: 270, tide_status: 'Rising', data_source: 'CDIP',
+    };
+
+    mockState.forecastBatchResponse = {
+      successful: [{ beach: mockBeach1, forecasts: [todayPostSunset1, todayPostSunset2, tomorrowForecast] }],
+      failed: [],
+      staleCount: 0,
+    };
+
+    mockSelectBestWindow.mockReset();
+    const tomorrowWindow = {
+      start: new Date(tomorrowDawnIso),
+      end: new Date(new Date(tomorrowDawnIso).getTime() + 3 * 60 * 60 * 1000),
+      tide: 'Rising',
+      wind: '4 mph W',
+      waveHeight: '3-4 ft',
+      wavePeriod: '13s',
+      dataSource: 'CDIP',
+      confidence: 88,
+      timezone: 'America/Los_Angeles',
+      sourceForecast: tomorrowForecast,
+    };
+    mockSelectBestWindow
+      .mockReturnValueOnce(null) // today-only call
+      .mockReturnValueOnce(tomorrowWindow); // full-set fall-through call
+
+    jest.resetModules();
+    jest.doMock('@/lib/logger', () => ({
+      createContextLogger: jest.fn(() => ({
+        debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn(),
+      })),
+    }));
+    jest.doMock('@/lib/services/discovery/window-selector', () => ({
+      selectBestWindow: mockSelectBestWindow,
+      getLocalDateStr: jest.fn((date: Date, _tz: string) => date.toISOString().split('T')[0]),
+      getLocalHour: jest.fn((date: Date, _tz: string) => date.getUTCHours()),
+      MIN_SESSION_HOURS: 1.0,
+    }));
+    jest.doMock('@/lib/services/discovery/candidate-pool-builder', () => ({
+      buildCandidatePool: jest.fn(async () => mockState.candidatePoolResponse),
+    }));
+    jest.doMock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
+      batchFetchForecasts: jest.fn(async () => mockState.forecastBatchResponse),
+    }));
+    jest.doMock('@/lib/services/discovery/response-formatter', () => ({
+      enrichWithPhotos: jest.fn(async (recs: any[]) => recs),
+      generateDiscoverySummary: jest.fn(() => 'Tomorrow looks better'),
+      getRecommendationLabel: jest.fn(() => 'Worth it tomorrow'),
+      buildDiscoveryMessage: jest.fn(() => 'Worth it tomorrow — Tomorrow looks better'),
+    }));
+    jest.doMock('@/lib/services/preference-learning-service', () => ({
+      getUserSurfPreferences: jest.fn(async () => null),
+    }));
+    jest.doMock('@/lib/services/beach-query-service', () => ({
+      getFavoriteBeachesFromDb: jest.fn(async () => ({ success: true, data: [] })),
+    }));
+    jest.doMock('@/lib/supabase/server', () => ({
+      createSupabaseServiceRoleClient: jest.fn(() => ({
+        from: jest.fn((table: string) => ({
+          select: jest.fn(() => ({
+            in: jest.fn(() => ({
+              in: jest.fn(() => ({
+                order: jest.fn(() => Promise.resolve({
+                  data: table === 'sun_times'
+                    ? [{ beach_id: 'beach-1', sunrise_utc: '2026-04-24T13:07:00Z', sunset_utc: sunset.toISOString() }]
+                    : [],
+                  error: null,
+                })),
+              })),
+            })),
+            eq: jest.fn(() => ({
+              in: jest.fn(() => Promise.resolve({ data: [], error: null })),
+            })),
+          })),
+        })),
+      })),
+    }));
+    jest.doMock('@/lib/domains/scoring', () => ({
+      createDiscoveryScoringEngine: jest.fn(() => ({})),
+      scoreBeachWithEngine: jest.fn(() => ({
+        total: 80,
+        subscores: { waveHeightFit: 22, periodEnergyScore: 18, windAlignment: 16, tideFit: 12, affinityBonus: 0, personalizationBonus: 0, distancePenalty: 0 },
+        matchQuality: 'excellent',
+        reasons: ['Dawn patrol'], warnings: [], conditionBadges: [],
+      })),
+    }));
+    jest.doMock('@/lib/utils/timezone-utils.server', () => ({
+      getTimezoneFromCoords: jest.fn(() => 'America/Los_Angeles'),
+    }));
+    jest.doMock('@/lib/services/discovery/personalization-layer', () => ({
+      fetchPersonalizationContext: jest.fn(async () => ({
+        implicitPrefs: null, learnedPrefs: null, affinityMap: new Map(), preferredBreakType: null, implicitWeight: 0,
+      })),
+      calculatePersonalizationBonus: jest.fn(() => ({ total: 0, affinityBonus: 0, personalizationBonus: 0, reasons: [] })),
+    }));
+
+    try {
+      const { discoverSurfSpots: freshDiscover } = require('@/lib/services/discovery/surf-discovery-orchestrator');
+      const result = await freshDiscover(testUserId, { userLocation: defaultUserLocation });
+
+      // Both calls must have happened: today-only (null), then full set
+      // (tomorrow window) — driven by `hasUsableTodayForecast=false`.
+      expect(mockSelectBestWindow).toHaveBeenCalledTimes(2);
+      expect(result.recommendations).toHaveLength(1);
+      expect(result.recommendations[0].window.start.toISOString()).toBe(tomorrowDawnIso);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('wider dead zone with stale-cache: pre-sunset slot is in the past, gate must still open', async () => {
+    // Defensive case: at 17:52 PDT today's cache contains an old 11:00 PDT
+    // slot (still pre-sunset, but stale per window-selector's past tolerance)
+    // plus the same post-sunset 20:00/23:00 slots. Without the past-tolerance
+    // mirror, `hasUsableTodayForecast` would count 11:00 as usable and leave
+    // the gate closed — yet `selectBestWindow` would reject 11:00 as stale,
+    // returning null and producing an empty home. The fix's cutoff
+    // (FORECAST_WINDOW_DURATION + PAST_WINDOW_TOLERANCE = 45min) excludes
+    // 11:00 (~7h old) so the gate opens and tomorrow fall-through fires.
+    const { selectBestWindow: mockSelectBestWindow } = require('@/lib/services/discovery/window-selector');
+
+    const now = new Date('2026-04-25T00:52:00Z'); // 17:52 PDT 2026-04-24
+    const sunset = new Date('2026-04-25T02:30:00Z'); // 19:30 PDT 2026-04-24
+    jest.useFakeTimers().setSystemTime(now);
+
+    const stalePreSunsetIso = '2026-04-24T18:00:00.000Z'; // 11:00 PDT today (stale)
+    const todayPostSunsetIso = '2026-04-25T03:00:00.000Z'; // 20:00 PDT today
+    const tomorrowDawnIso = '2026-04-25T14:00:00.000Z'; // ~07:00 PDT next morning
+
+    const stalePreSunset: Partial<EnhancedForecastEntity> = {
+      beach_id: 'beach-1',
+      forecast_at: stalePreSunsetIso,
+      forecast_date: stalePreSunsetIso.split('T')[0],
+      forecast_time: '11:00:00',
+      wave_height: '2.0', wave_period: '12s', wind_speed: '6',
+      wind_direction_deg: 270, tide_status: 'Rising', data_source: 'CDIP',
+    };
+    const todayPostSunset: Partial<EnhancedForecastEntity> = {
+      beach_id: 'beach-1',
+      forecast_at: todayPostSunsetIso,
+      forecast_date: todayPostSunsetIso.split('T')[0],
+      forecast_time: '20:00:00',
+      wave_height: '2.0', wave_period: '12s', wind_speed: '6',
+      wind_direction_deg: 270, tide_status: 'Rising', data_source: 'CDIP',
+    };
+    const tomorrowForecast: Partial<EnhancedForecastEntity> = {
+      beach_id: 'beach-1',
+      forecast_at: tomorrowDawnIso,
+      forecast_date: tomorrowDawnIso.split('T')[0],
+      forecast_time: '07:00:00',
+      wave_height: '3.5', wave_period: '13s', wind_speed: '4',
+      wind_direction_deg: 270, tide_status: 'Rising', data_source: 'CDIP',
+    };
+
+    mockState.forecastBatchResponse = {
+      successful: [{ beach: mockBeach1, forecasts: [stalePreSunset, todayPostSunset, tomorrowForecast] }],
+      failed: [],
+      staleCount: 0,
+    };
+
+    mockSelectBestWindow.mockReset();
+    const tomorrowWindow = {
+      start: new Date(tomorrowDawnIso),
+      end: new Date(new Date(tomorrowDawnIso).getTime() + 3 * 60 * 60 * 1000),
+      tide: 'Rising', wind: '4 mph W', waveHeight: '3-4 ft', wavePeriod: '13s',
+      dataSource: 'CDIP', confidence: 88, timezone: 'America/Los_Angeles',
+      sourceForecast: tomorrowForecast,
+    };
+    mockSelectBestWindow
+      .mockReturnValueOnce(null) // today-only call (stale + post-sunset all rejected)
+      .mockReturnValueOnce(tomorrowWindow); // full-set fall-through call
+
+    jest.resetModules();
+    jest.doMock('@/lib/logger', () => ({
+      createContextLogger: jest.fn(() => ({
+        debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn(),
+      })),
+    }));
+    jest.doMock('@/lib/services/discovery/window-selector', () => ({
+      selectBestWindow: mockSelectBestWindow,
+      getLocalDateStr: jest.fn((date: Date, _tz: string) => date.toISOString().split('T')[0]),
+      getLocalHour: jest.fn((date: Date, _tz: string) => date.getUTCHours()),
+      MIN_SESSION_HOURS: 1.0,
+      FORECAST_WINDOW_DURATION_MINUTES: 30,
+      PAST_WINDOW_TOLERANCE_MINUTES: 15,
+    }));
+    jest.doMock('@/lib/services/discovery/candidate-pool-builder', () => ({
+      buildCandidatePool: jest.fn(async () => mockState.candidatePoolResponse),
+    }));
+    jest.doMock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
+      batchFetchForecasts: jest.fn(async () => mockState.forecastBatchResponse),
+    }));
+    jest.doMock('@/lib/services/discovery/response-formatter', () => ({
+      enrichWithPhotos: jest.fn(async (recs: any[]) => recs),
+      generateDiscoverySummary: jest.fn(() => 'Tomorrow looks better'),
+      getRecommendationLabel: jest.fn(() => 'Worth it tomorrow'),
+      buildDiscoveryMessage: jest.fn(() => 'Worth it tomorrow — Tomorrow looks better'),
+    }));
+    jest.doMock('@/lib/services/preference-learning-service', () => ({
+      getUserSurfPreferences: jest.fn(async () => null),
+    }));
+    jest.doMock('@/lib/services/beach-query-service', () => ({
+      getFavoriteBeachesFromDb: jest.fn(async () => ({ success: true, data: [] })),
+    }));
+    jest.doMock('@/lib/supabase/server', () => ({
+      createSupabaseServiceRoleClient: jest.fn(() => ({
+        from: jest.fn((table: string) => ({
+          select: jest.fn(() => ({
+            in: jest.fn(() => ({
+              in: jest.fn(() => ({
+                order: jest.fn(() => Promise.resolve({
+                  data: table === 'sun_times'
+                    ? [{ beach_id: 'beach-1', sunrise_utc: '2026-04-24T13:07:00Z', sunset_utc: sunset.toISOString() }]
+                    : [],
+                  error: null,
+                })),
+              })),
+            })),
+            eq: jest.fn(() => ({
+              in: jest.fn(() => Promise.resolve({ data: [], error: null })),
+            })),
+          })),
+        })),
+      })),
+    }));
+    jest.doMock('@/lib/domains/scoring', () => ({
+      createDiscoveryScoringEngine: jest.fn(() => ({})),
+      scoreBeachWithEngine: jest.fn(() => ({
+        total: 80,
+        subscores: { waveHeightFit: 22, periodEnergyScore: 18, windAlignment: 16, tideFit: 12, affinityBonus: 0, personalizationBonus: 0, distancePenalty: 0 },
+        matchQuality: 'excellent',
+        reasons: ['Dawn patrol'], warnings: [], conditionBadges: [],
+      })),
+    }));
+    jest.doMock('@/lib/utils/timezone-utils.server', () => ({
+      getTimezoneFromCoords: jest.fn(() => 'America/Los_Angeles'),
+    }));
+    jest.doMock('@/lib/services/discovery/personalization-layer', () => ({
+      fetchPersonalizationContext: jest.fn(async () => ({
+        implicitPrefs: null, learnedPrefs: null, affinityMap: new Map(), preferredBreakType: null, implicitWeight: 0,
+      })),
+      calculatePersonalizationBonus: jest.fn(() => ({ total: 0, affinityBonus: 0, personalizationBonus: 0, reasons: [] })),
+    }));
+
+    try {
+      const { discoverSurfSpots: freshDiscover } = require('@/lib/services/discovery/surf-discovery-orchestrator');
+      const result = await freshDiscover(testUserId, { userLocation: defaultUserLocation });
+
+      // Past-tolerance mirror should have excluded the 11:00 PDT slot, so
+      // hasUsableTodayForecast=false → gate opens → fall-through fires.
+      expect(mockSelectBestWindow).toHaveBeenCalledTimes(2);
+      expect(result.recommendations).toHaveLength(1);
+      expect(result.recommendations[0].window.start.toISOString()).toBe(tomorrowDawnIso);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });

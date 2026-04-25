@@ -7,19 +7,49 @@
  * It respects user privacy settings (allow_implicit_tracking).
  */
 
-import { POST } from '@/app/api/events/route';
+import { POST as _POST } from '@/app/api/events/route';
+// Tests call POST with a plain Request for brevity; the real signature is
+// NextRequest. Cast to loosen for the test harness only.
+const POST = _POST as unknown as (req: Request, ctx?: any) => Promise<Response>;
 import { __clearTrackingCache } from '@/lib/services/tracking-cache';
-import { createAPIServerClient } from '@/lib/supabase/api-server-client';
 import { createServiceRoleClient } from '@/lib/supabase';
-
-// Mock Supabase client
-jest.mock('@/lib/supabase/api-server-client', () => ({
-  createAPIServerClient: jest.fn(),
-}));
 
 jest.mock('@/lib/supabase', () => ({
   createServiceRoleClient: jest.fn(),
 }));
+
+// Route is now withAuth({ optional: true }). The wrapper reads the user
+// from `mockSupabaseClient.auth.getUser()` and passes the same client
+// into the handler as `supabase`. Insert/profile lookups go through this
+// client, matching the legacy createAPIServerClient-based test shape.
+jest.mock('@/lib/middleware/api-wrappers', () => {
+  const actual = jest.requireActual('@/lib/middleware/api-wrappers');
+  return {
+    ...actual,
+    withAuth:
+      (handler: any, options: any = {}) =>
+      async (request: any, context: any) => {
+        const { data, error } = await mockSupabase.auth.getUser();
+        const user = error ? null : data?.user ?? null;
+        if (!options.optional && !user) {
+          const { createAuthError } = jest.requireActual('@/lib/api-utils');
+          return createAuthError(
+            options.authErrorMessage ?? 'Authentication required'
+          );
+        }
+        const resolvedParams = context?.params
+          ? typeof context.params === 'object' && 'then' in context.params
+            ? await context.params
+            : context.params
+          : {};
+        return await handler(request, {
+          params: resolvedParams,
+          user,
+          supabase: mockSupabase,
+        });
+      },
+  };
+});
 
 const mockSupabase = {
   auth: {
@@ -52,7 +82,6 @@ describe('POST /api/events', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     __clearTrackingCache(); // Clear the in-memory cache between tests
-    (createAPIServerClient as jest.Mock).mockReturnValue(mockSupabase);
   });
 
   it('returns 401 for unauthenticated requests', async () => {

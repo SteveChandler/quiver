@@ -1,33 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  createAuthError,
-  createSuccessResponse,
   createValidationError,
   DEFAULT_SECURITY_HEADERS,
-  handleApiError,
   isValidUuid,
-  methodNotAllowed,
 } from "@/lib/api-utils";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  withAuth,
+  createSuccessResponse,
+  createAuthError,
+  methodNotAllowed,
+} from "@/lib/middleware/api-wrappers";
+import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
 import { getSessionPhotos } from "@/lib/supabase/storage";
 
-export async function GET(
-  _request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id: sessionId } = (await context.params);
+/**
+ * GET /api/sessions/[id]/photos
+ *
+ * Public sessions are viewable by anyone (for guest-mode beach page feeds).
+ * Private sessions require the viewer to be the owner.
+ *
+ * Authentication is OPTIONAL. Public sessions don't require a user; private
+ * sessions require the session owner (cookie-session or Bearer token).
+ */
+export const GET = withAuth(
+  async (
+    _request: NextRequest,
+    { user, supabase, params }: OptionalAuthContext
+  ): Promise<NextResponse> => {
+    const sessionId = params.id;
     if (!sessionId || !isValidUuid(sessionId)) {
       return createValidationError("Invalid session id format");
     }
 
-    const supabase = await createSupabaseServerClient();
-
     // Fetch the session first so we can decide whether auth is required.
-    // Public sessions are viewable by anyone (for guest-mode beach page feeds),
-    // private sessions require the viewer to be the owner. Previously this
-    // handler rejected all unauthenticated requests with 401 before checking
-    // `is_public`, which broke the anonymous session carousel on beach detail.
     const { data: existing, error: existingError } = await supabase
       .from("sessions")
       .select("id, user_id, is_public")
@@ -61,12 +66,7 @@ export async function GET(
 
     // Private session — require an authenticated viewer who owns it.
     if (!existing.is_public) {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
+      if (!user) {
         return createAuthError();
       }
 
@@ -87,10 +87,9 @@ export async function GET(
     // gates the data access for anonymous callers.
     const photos = await getSessionPhotos(sessionId, supabase);
     return createSuccessResponse({ photos });
-  } catch (error) {
-    return handleApiError(error, "Failed to load session photos");
-  }
-}
+  },
+  { optional: true, errorMessage: "Failed to load session photos" }
+);
 
 export function POST() {
   return methodNotAllowed(["GET"]);
@@ -107,5 +106,3 @@ export function PATCH() {
 export function DELETE() {
   return methodNotAllowed(["GET"]);
 }
-
-

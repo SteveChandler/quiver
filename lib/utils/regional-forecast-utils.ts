@@ -12,7 +12,6 @@ import type { ForecastRegion } from "@/lib/data/forecast-regions";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { getWaveSizeDescription } from "@/lib/utils/wave-formatters";
-import { SET_WAVE_VARIANCE } from "@/lib/utils/wave-height-transformer";
 import { classifyWindDirection, getWindScore } from "@/lib/utils/wind-classification";
 
 /**
@@ -371,10 +370,10 @@ export function detectSwellEvents(
       const peak = dateWaveHeights[peakIdx];
       const end = dateWaveHeights[endIdx];
 
-      // Use peak wave height as the "average" face height, then calculate set waves (1.5x)
-      // This ensures we always show a proper range like "4-6ft" instead of "6-6ft"
+      // Surfline-parity: heightRange is the swell event's face Hs at peak.
+      // Downstream formatter brackets via floor/ceil. Don't synthesize a
+      // × 1.5 set expansion here — that would re-inflate the upper bound.
       const avgHeight = peak.avgHeight;
-      const setHeight = avgHeight * SET_WAVE_VARIANCE;
 
       events.push({
         startDate: new Date(current.date + "T00:00:00Z"),
@@ -382,7 +381,7 @@ export function detectSwellEvents(
         endDate: new Date(end.date + "T00:00:00Z"),
         direction: peak.dominantDirection,
         period: peak.avgPeriod,
-        heightRange: [avgHeight, setHeight],
+        heightRange: [avgHeight, avgHeight],
         size: getWaveSizeDescription(avgHeight),
         description: `${getWaveSizeDescription(avgHeight)} ${peak.dominantDirection} swell with ${peak.avgPeriod.toFixed(0)}s period`,
       });

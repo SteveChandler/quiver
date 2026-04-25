@@ -26,6 +26,43 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(() => mockSupabaseClient),
 }));
 
+// Route is now withAuth({ optional: true }): auth.getUser() is consulted,
+// but a null user still reaches the handler. Private-session ownership
+// check is enforced inside the handler.
+jest.mock("@/lib/middleware/api-wrappers", () => {
+  const actual = jest.requireActual("@/lib/middleware/api-wrappers");
+  return {
+    ...actual,
+    withAuth:
+      (handler: any, options: any = {}) =>
+      async (request: any, context: any) => {
+        try {
+          const { data, error } = await mockSupabaseClient.auth.getUser();
+          const user = error ? null : data?.user ?? null;
+          if (!options.optional && !user) {
+            const { createAuthError } = jest.requireActual("@/lib/api-utils");
+            return createAuthError(
+              options.authErrorMessage ?? "Authentication required"
+            );
+          }
+          const resolvedParams = context?.params
+            ? typeof context.params === "object" && "then" in context.params
+              ? await context.params
+              : context.params
+            : {};
+          return await handler(request, {
+            params: resolvedParams,
+            user,
+            supabase: mockSupabaseClient,
+          });
+        } catch (err: any) {
+          const { handleApiError } = jest.requireActual("@/lib/api-utils");
+          return handleApiError(err, options?.errorMessage ?? "Internal error");
+        }
+      },
+  };
+});
+
 // Mock getSessionPhotos helper
 jest.mock("@/lib/supabase/storage", () => ({
   getSessionPhotos: jest.fn(),
@@ -119,11 +156,11 @@ describe("GET /api/sessions/[id]/photos", () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.data.photos).toHaveLength(1);
-      // Critical: supabase.auth.getUser() must NOT be called for public
-      // sessions — the RLS policy "Public can view media from public sessions"
-      // handles authorization at the DB layer. Calling getUser would add
-      // unnecessary latency and block anonymous callers.
-      expect(mockAuthGetUser).not.toHaveBeenCalled();
+      // Route is now `withAuth({ optional: true })`, so auth.getUser() IS
+      // called to determine whether a Bearer/cookie session exists — but a
+      // null user still reaches the handler, and public sessions skip the
+      // ownership check. The assertion that matters is that an anonymous
+      // caller successfully reads photos from a public session.
     });
   });
 

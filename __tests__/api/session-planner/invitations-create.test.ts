@@ -14,7 +14,8 @@ import {
   mockUnauthenticatedUser,
 } from "@/test-utils/api-test-helpers";
 
-// Mock the api-utils functions
+// Mock the api-utils functions. Must include handleApiError + createAuthError
+// because lib/middleware/api-wrappers (which wraps the route) imports them.
 jest.mock("@/lib/api-utils", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => {
     return new Response(
@@ -37,6 +38,28 @@ jest.mock("@/lib/api-utils", () => ({
       { status }
     );
   }),
+  createAuthError: jest.fn((message = "Authentication required") => {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: message,
+        timestamp: new Date().toISOString(),
+      }),
+      { status: 401 }
+    );
+  }),
+  handleApiError: jest.fn((error: any, fallback?: string) => {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: fallback ?? "Internal error",
+        details: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString(),
+      }),
+      { status: 500 }
+    );
+  }),
+  DEFAULT_SECURITY_HEADERS: {},
 }));
 
 // Mock the Supabase server client

@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import {
+  verifyEmailToken,
+  getEmailTokenSecret,
+} from '@/lib/utils/email-token';
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -84,6 +88,8 @@ export async function GET(request: NextRequest) {
   // the authenticated session we just exchanged. The supabase-js client
   // handles RLS correctly for auth.users → public.profiles self-reads.
   let finalRedirect = redirectUrl;
+  let clearInviteCookie = false;
+  let inviteConsumed = false;
   if (supabase) {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -101,7 +107,50 @@ export async function GET(request: NextRequest) {
       if (isUnactivated) {
         finalRedirect = appendOnboardingRequired(redirectUrl, request.url);
       }
+
+      // Consume invite token (if set by /invite/[token] or /auth/sign-up).
+      // Verifies the JWT, inserts the user_follows row (inviter is the
+      // target), and appends ?invited=1 to the redirect so the landing
+      // surface can acknowledge the relationship.
+      const inviteCookie = request.cookies.get('invite_token')?.value;
+      if (inviteCookie) {
+        clearInviteCookie = true;
+        try {
+          const payload = await verifyEmailToken(
+            inviteCookie,
+            getEmailTokenSecret(),
+          );
+          if (
+            payload &&
+            payload.purpose === 'invite' &&
+            payload.user_id !== user.id
+          ) {
+            const { error: insertError } = await supabase
+              .from('user_follows')
+              .insert({
+                follower_id: user.id,
+                following_id: payload.user_id,
+              });
+            // 23505 = unique_violation — row already exists. Treat as a
+            // successful consume so double-redirects stay idempotent.
+            if (!insertError || insertError.code === '23505') {
+              inviteConsumed = true;
+            } else {
+              console.error(
+                '[Auth Callback] invite user_follows insert failed:',
+                insertError,
+              );
+            }
+          }
+        } catch (err) {
+          console.error('[Auth Callback] invite token verify failed:', err);
+        }
+      }
     }
+  }
+
+  if (inviteConsumed) {
+    finalRedirect = appendInvitedFlag(finalRedirect, request.url);
   }
 
   const response = NextResponse.redirect(new URL(finalRedirect, request.url));
@@ -111,6 +160,10 @@ export async function GET(request: NextRequest) {
   // response we're returning needs them set so the client session survives).
   for (const { name, value, options } of cookiePairs) {
     response.cookies.set({ name, value, ...options });
+  }
+
+  if (clearInviteCookie) {
+    response.cookies.delete('invite_token');
   }
 
   // Set a marker cookie so the client knows to force-refresh auth state
@@ -124,6 +177,19 @@ export async function GET(request: NextRequest) {
   });
 
   return response;
+}
+
+// Append `invited=1` to a redirect target without clobbering existing
+// query params. Used when an invite_token cookie was successfully consumed
+// so the landing UI can acknowledge the new follow.
+function appendInvitedFlag(target: string, requestUrl: string): string {
+  try {
+    const parsed = new URL(target, requestUrl);
+    parsed.searchParams.set('invited', '1');
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return '/?invited=1';
+  }
 }
 
 // Append `onboarding=required` to a redirect target without clobbering

@@ -147,17 +147,16 @@ export class ForecastBuilder {
       const weatherPoint = this.getWeatherDataForTime(weatherData, forecastTime);
       const cdipPoint = this.getCDIPDataForTime(cdipData, forecastTime);
 
-      // Determine data source for this time point
+      // Determine data source for this time point.
+      // Per-slot wavePoint.data_source is canonical (NOAA_NWS for days 1-3,
+      // OPEN_METEO for days 4-12 after merge). No wrapper-level fallback —
+      // it would mask one source as the other.
       const useBuoyData = i === 0 && buoyData;
       const useCDIPData = !!cdipPoint;
-      // Use per-entry data_source (e.g. "OPEN_METEO" from merged forecasts)
-      // rather than the top-level waveData.data_source (always "NOAA_NWS").
-      // When wavePoint is null (no wave data for this timepoint), label as FALLBACK
-      // so horizon-strip trimming can remove it.
       const timepointDataSource = useCDIPData
         ? "CDIP"
         : wavePoint
-          ? (wavePoint.data_source || waveData?.data_source || "FALLBACK")
+          ? (wavePoint.data_source ?? "FALLBACK")
           : (useBuoyData ? "NOAA_BUOY" : "FALLBACK");
 
       // Calculate confidence score
@@ -269,7 +268,10 @@ export class ForecastBuilder {
       forecast_time: getNormalizedTimeString(forecastTime),
       forecast_at: getNormalizedForecastAt(forecastTime),
 
-      // Wave data
+      // Honest face-height from the per-component transformer. The raw OM Hs is
+      // still co-located on this row in `wave_height_om` for the Seaside ML
+      // pipeline. The OM-primary scalar override (now removed) was inflating
+      // display by ~2× because raw deep-water Hs is not face height.
       wave_height: this.getWaveHeight(cdipPoint, wavePoint, buoyData, useCDIPData, beach, nowcastAnchor),
       wave_period: this.getWavePeriod(cdipPoint, wavePoint, buoyData, useCDIPData),
       wave_direction: this.getWaveDirection(cdipPoint, wavePoint, useCDIPData),

@@ -276,14 +276,6 @@ export function transformForecastsToChartData(
       result.waveHeight.push({ time: timeSec, value: wh });
     }
 
-    // ML-corrected height (only if calibrated)
-    if (fc.is_ml_calibrated === true) {
-      const mlh = parseNumericValue(fc.ml_corrected_height);
-      if (mlh != null) {
-        result.mlCorrectedHeight.push({ time: timeSec, value: mlh });
-      }
-    }
-
     // Tide height
     const th = parseNumericValue(fc.tide_height);
     if (th != null) {

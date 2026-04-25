@@ -31,6 +31,8 @@ export const runtime = "nodejs";
 const CONTEXT_TAG = "[send-welcome-email]";
 const EMAIL_TYPE = "welcome" as const;
 
+// NOTE: cookie-only auth is intentional — called server-side right after
+// signup when cookies are the authoritative session. Native never calls this.
 async function handler(request: NextRequest) {
   try {
     // Verify the user is authenticated

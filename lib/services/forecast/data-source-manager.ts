@@ -94,9 +94,14 @@ class WaveWatchDataSource implements WaveDataSource {
       data_source: point.data_source,
     }));
 
+    // Source attribution: per-slot is canonical (NOAA for days 1-3, OM for 4+).
+    // Surface the first slot's source — callers that need full attribution
+    // should walk forecast[].data_source rather than rely on this scalar.
+    const firstSource = result.forecast[0]?.data_source ?? "FALLBACK";
+
     return {
       forecast,
-      data_source: result.data_source,
+      data_source: firstSource,
       location: {
         latitude: result.lat,
         longitude: result.lng,

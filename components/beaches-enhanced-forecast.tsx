@@ -532,10 +532,7 @@ export function BeachesEnhancedForecast({
                     <div className="flex items-baseline gap-2">
                       <div className="text-2xl font-semibold text-slate-900">
                         <WaveHeightDisplay
-                          height={
-                            todayForecast.ml_corrected_height ||
-                            todayForecast.wave_height
-                          }
+                          height={todayForecast.wave_height}
                           showTooltip={false}
                           isMlCalibrated={todayForecast.is_ml_calibrated}
                           isCalibrated={todayForecast.isCalibrated}

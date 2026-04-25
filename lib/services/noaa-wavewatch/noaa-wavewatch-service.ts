@@ -97,7 +97,6 @@ export class NOAAWaveWatchService {
         lat: latitude,
         lng: longitude,
         forecast: fallbackData,
-        data_source: "FALLBACK",
       };
     } catch (error) {
       log.error(`Using FALLBACK synthetic data for ${latitude}, ${longitude} due to error:`, error);
@@ -116,7 +115,6 @@ export class NOAAWaveWatchService {
         lat: latitude,
         lng: longitude,
         forecast: fallbackData,
-        data_source: "FALLBACK",
       };
     }
   }
@@ -262,7 +260,6 @@ export class NOAAWaveWatchService {
       lat: latitude,
       lng: longitude,
       forecast: merged,
-      data_source: "NOAA_NWS",
     };
   }
 
@@ -331,7 +328,6 @@ export class NOAAWaveWatchService {
         lat: latitude,
         lng: longitude,
         forecast: waveData,
-        data_source: "NOAA_NWS",
       };
     } catch (error) {
       log.error("Error fetching NOAA NWS data:", error);
@@ -372,7 +368,6 @@ export class NOAAWaveWatchService {
         lat: latitude,
         lng: longitude,
         forecast: waveData,
-        data_source: "OPEN_METEO",
       };
     } catch (error) {
       log.error("Error fetching Open-Meteo data:", error);

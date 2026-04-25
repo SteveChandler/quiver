@@ -139,7 +139,11 @@ export interface WaveWatchData {
 }
 
 /**
- * Wave forecast response containing multiple forecast points
+ * Wave forecast response containing multiple forecast points.
+ *
+ * Source attribution lives per-slot on `forecast[].data_source`. The wrapper
+ * intentionally has no `data_source` field — a merged response can mix NOAA
+ * (days 1-3) and Open-Meteo (days 4-12), and any aggregate label hides that.
  */
 export interface WaveWatchForecast {
   /** Latitude of forecast location */
@@ -148,8 +152,6 @@ export interface WaveWatchForecast {
   lng: number;
   /** Array of wave forecast data points */
   forecast: WaveWatchData[];
-  /** Data source indicator */
-  data_source: "NOAA_NWS" | "OPEN_METEO" | "FALLBACK";
 }
 
 /**

@@ -95,6 +95,13 @@ export function ForecastDataSourceIndicator({
           icon: <Wifi className="h-4 w-4" />,
           quality: "medium",
         };
+      case "OPEN_METEO":
+        return {
+          name: "Open-Meteo Forecast",
+          description: "Open-Meteo marine model (extended horizon)",
+          icon: <Wifi className="h-4 w-4" />,
+          quality: "medium",
+        };
       case "FALLBACK":
         return {
           name: "Fallback Data",
@@ -120,6 +127,7 @@ export function ForecastDataSourceIndicator({
   const hasValidData =
     dataSource === "CDIP" ||
     dataSource === "NOAA_NWS" ||
+    dataSource === "OPEN_METEO" ||
     dataSource === "FALLBACK";
 
   // Get state-specific messaging

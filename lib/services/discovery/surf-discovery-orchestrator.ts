@@ -35,7 +35,6 @@ import {
 } from '@/lib/domains/scoring';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
-import { SET_WAVE_VARIANCE } from '@/lib/utils/wave-height-transformer';
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
@@ -43,7 +42,14 @@ import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
 // Import from other discovery modules
 import { buildCandidatePool } from './candidate-pool-builder';
 import { batchFetchForecasts } from './forecast-batch-fetcher';
-import { selectBestWindow, getLocalDateStr, getLocalHour } from './window-selector';
+import {
+  selectBestWindow,
+  getLocalDateStr,
+  getLocalHour,
+  MIN_SESSION_HOURS,
+  FORECAST_WINDOW_DURATION_MINUTES,
+  PAST_WINDOW_TOLERANCE_MINUTES,
+} from './window-selector';
 import {
   enrichWithPhotos,
   generateDiscoverySummary,
@@ -75,12 +81,12 @@ const DEFAULT_OVERALL_TIMEOUT_MS = 12000; // Increased from 8s for more beaches
 /**
  * Format wave height as a range string for badge display.
  * Uses actual min/max from a set of forecasts when provided.
- * Falls back to the 1.5x multiplier when no forecasts are available.
+ * Falls back to a floor/ceil bracket of the single-point face Hs otherwise.
  * Returns null for flat conditions (< 0.5ft average).
  *
- * @param waveHeight - Average wave height in feet (used for flat check and fallback)
+ * @param waveHeight - Face wave height in feet (used for flat check and fallback)
  * @param forecasts - Optional hourly forecasts to derive actual min/max from
- * @returns Range string like "3-5ft" or null if flat
+ * @returns Range string like "3-4ft" or null if flat
  */
 export function formatWaveHeightRange(
   waveHeight: number,
@@ -102,8 +108,8 @@ export function formatWaveHeightRange(
     }
   }
 
-  // Fallback: single-point estimate using 1.5x variance
-  return formatWaveHeightRangeString(waveHeight, waveHeight * SET_WAVE_VARIANCE);
+  // Fallback: single-point face Hs, bracketed floor/ceil for Surfline parity.
+  return formatWaveHeightRangeString(waveHeight, waveHeight);
 }
 
 /**
@@ -567,17 +573,58 @@ async function discoverSurfSpotsInner(
       getLocalDateStr(new Date(f.forecast_at), beachTz) === todayStr
     );
 
-    // If today has any forecasts, trust selectBestWindow's internal fallback to
-    // return today's best remaining window. Only reach into tomorrow's data when
-    // today is actually gone (e.g. post-sunset, todayForecasts empty) — otherwise
-    // we flip the hero to "Tomorrow's dawn patrol" while today's dawn is still
-    // minutes away.
+    // Try today's forecasts first so we don't flip the hero to "Tomorrow's
+    // dawn patrol" while today's dawn is still minutes away (the 6:23 AM
+    // regression guarded by the no-fall-through test in this suite). Fall
+    // through to the full forecast set in two cases:
+    //   1. todayForecasts was empty (data only starts tomorrow)
+    //   2. today-only returned null AND today is physically over for surf —
+    //      either past sunset, OR within MIN_SESSION_HOURS of it so no
+    //      remaining forecast can form a viable window. Mirrors the
+    //      window-selector's own pre-sunset reject at
+    //      window-selector-core.ts:565, closing the dead-zone where
+    //      today-only returns null but we aren't technically past sunset
+    //      yet (e.g. 19:21 PDT with sunset 19:31).
+    const nowForFallback = new Date();
+    const beachSunTimes = sunTimesCache.get(beach.id);
+    const beachSameDaySunset = beachSunTimes?.sunsets.find(
+      (s: Date) => getLocalDateStr(s, beachTz) === todayStr
+    );
+    const hoursUntilSunset = beachSameDaySunset
+      ? (beachSameDaySunset.getTime() - nowForFallback.getTime()) / (60 * 60 * 1000)
+      : null;
+    // Forecasts arrive at 3-hour cadence, so the dead zone is wider than the
+    // sunset proximity check alone catches: at 17:52 PDT with sunset 19:30,
+    // hoursUntilSunset=1.6 (gate stays closed) but the only remaining today
+    // slots are 20:00/23:00 (both post-sunset). Detect that case explicitly
+    // by checking whether any cached today forecast is still pre-sunset AND
+    // not yet stale per the window selector's own past-tolerance filter
+    // (window-selector-core.ts:103-110). Mirroring that filter keeps this
+    // gate aligned with what selectBestWindow actually accepts.
+    const pastToleranceMs =
+      (FORECAST_WINDOW_DURATION_MINUTES + PAST_WINDOW_TOLERANCE_MINUTES) * 60 * 1000;
+    const usableCutoffMs = nowForFallback.getTime() - pastToleranceMs;
+    const hasUsableTodayForecast = beachSameDaySunset
+      ? todayForecasts.some(f => {
+          const t = new Date(f.forecast_at).getTime();
+          return t <= beachSameDaySunset.getTime() && t >= usableCutoffMs;
+        })
+      : todayForecasts.length > 0;
+    const todayIsEffectivelyOver =
+      (hoursUntilSunset !== null && hoursUntilSunset < MIN_SESSION_HOURS) ||
+      (todayForecasts.length > 0 && !hasUsableTodayForecast);
+
     let bestWindow = todayForecasts.length > 0
       ? selectBestWindow(todayForecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot)
-      : selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
+      : null;
 
-    if (!bestWindow && todayForecasts.length === 0) {
-      log.warn(`[discoverSurfSpots] ${beach.name}: no today forecasts (total=${forecasts.length}), tomorrow fallback returned null`);
+    if (!bestWindow && (todayForecasts.length === 0 || todayIsEffectivelyOver)) {
+      bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
+      if (!bestWindow && todayForecasts.length === 0) {
+        log.warn(`[discoverSurfSpots] ${beach.name}: no today forecasts (total=${forecasts.length}), tomorrow fallback returned null`);
+      } else if (!bestWindow) {
+        log.warn(`[discoverSurfSpots] ${beach.name}: pre/post-sunset fall-through failed (today=${todayForecasts.length}, total=${forecasts.length}, hoursUntilSunset=${hoursUntilSunset?.toFixed(2)})`);
+      }
     }
 
     if (!bestWindow) {

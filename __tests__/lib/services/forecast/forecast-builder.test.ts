@@ -19,6 +19,7 @@ jest.mock("@/lib/logger", () => ({
 jest.mock("@/lib/utils/wave-formatters", () => ({
   toFaceHeightFeet: jest.fn(() => "3.5 ft"),
   toFaceHeightFeetDecomposed: jest.fn(() => "3.5 ft"),
+  metersToFeet: jest.fn((m: number) => m * 3.28084),
   METERS_TO_FEET: 3.28084,
 }));
 
@@ -33,7 +34,6 @@ describe("ForecastBuilder", () => {
   const mockWaveData = {
     lat: 32.7,
     lng: -117.2,
-    data_source: "NOAA_NWS" as const,
     forecast: [
       {
         timestamp: new Date().toISOString(),
@@ -50,6 +50,29 @@ describe("ForecastBuilder", () => {
         wind_wave_period: 6,
         wind_wave_direction: 200,
         data_source: "NOAA_NWS" as const,
+      },
+    ],
+  } satisfies ForecastInputs["waveData"] & {};
+
+  const mockOpenMeteoWaveData = {
+    lat: 32.7,
+    lng: -117.2,
+    forecast: [
+      {
+        timestamp: new Date().toISOString(),
+        significant_wave_height: 1.06,
+        peak_wave_period: 8,
+        peak_wave_direction: 270,
+        swell_1_height: 0.64,
+        swell_1_period: 8,
+        swell_1_direction: 270,
+        swell_2_height: 0.37,
+        swell_2_period: 9,
+        swell_2_direction: 293,
+        wind_wave_height: 0.46,
+        wind_wave_period: 4.2,
+        wind_wave_direction: 270,
+        data_source: "OPEN_METEO" as const,
       },
     ],
   } satisfies ForecastInputs["waveData"] & {};
@@ -125,6 +148,23 @@ describe("ForecastBuilder", () => {
     });
 
     expect(forecasts[0].data_source).toBe("NOAA_NWS");
+  });
+
+  it("propagates per-slot OPEN_METEO data_source without falling back to NWS", async () => {
+    // Regression: previously a hardcoded wrapper-level data_source ("NOAA_NWS")
+    // and the `||` fallback in forecast-builder masked OM-tagged slots as NWS.
+    const forecasts = await builder.buildForecasts({
+      beach: mockBeach,
+      waveData: mockOpenMeteoWaveData,
+      tideData: null,
+      weatherData: [],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+    });
+
+    expect(forecasts[0].data_source).toBe("OPEN_METEO");
   });
 
   it("uses IOOS water temperature when available", async () => {

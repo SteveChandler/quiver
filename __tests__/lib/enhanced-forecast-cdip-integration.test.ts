@@ -55,9 +55,9 @@ jest.mock("@/lib/services/noaa-wavewatch", () => ({
             wind_wave_height: 0.3,
             wind_wave_period: 4.0,
             wind_wave_direction: 270,
+            data_source: "NOAA_NWS",
           },
         ],
-        data_source: "NOAA_NWS",
       })
     ),
     getWaveDirectionText: jest.fn(() => "SW"),

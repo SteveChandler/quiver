@@ -14,7 +14,6 @@
 import {
   transformToFaceHeight,
   transformToFaceHeightDecomposed,
-  SET_WAVE_VARIANCE,
   type BeachTerrainConfig,
   type WaveHeightSourceTag,
   type SwellComponentInput,
@@ -294,7 +293,7 @@ export function clampWaveHeight(ft: number): number {
  * @param m Height in meters
  * @returns Height in feet or undefined if invalid
  */
-function metersToFeet(m?: number | null): number | undefined {
+export function metersToFeet(m?: number | null): number | undefined {
   return m == null || !isFinite(m) ? undefined : m * METERS_TO_FEET;
 }
 
@@ -352,63 +351,27 @@ export function getWaveHeightValue(
 // ============================================================================
 
 /**
- * Determine if wave height range is small (< 1ft difference)
- * Small ranges use half-foot precision for display.
- */
-function isSmallRange(low: number, high: number): boolean {
-  return Math.abs(high - low) < 1;
-}
-
-/**
- * Round to half-foot precision (0.5ft increments)
- */
-function roundToHalfFoot(n: number): number {
-  return Math.round(n * 2) / 2;
-}
-
-/**
- * Format a wave height value with appropriate precision
- * @param n Wave height value
- * @param useHalfFootPrecision Whether to use half-foot (0.5) precision
- * @returns Formatted string (e.g., "3", "2.5")
- */
-function formatWaveHeightValue(n: number, useHalfFootPrecision: boolean): string {
-  if (useHalfFootPrecision) {
-    const rounded = roundToHalfFoot(n);
-    return rounded % 1 === 0 ? rounded.toString() : rounded.toFixed(1);
-  }
-  return Math.round(n).toString();
-}
-
-/**
  * Format a wave height range as a compact string for display.
  *
- * Uses integer format when range is >= 1ft, half-foot precision otherwise.
- * Returns single value if low and high round to the same number.
+ * Surfline-parity format: brackets the input range by floor(low)/ceil(high)
+ * and outputs "X-Yft" (or "Xft" when collapsed). Drops the prior " sets"
+ * suffix so Quiver matches Surfline's surf.min / surf.max convention.
  *
- * @param low Average wave height in feet
- * @param high Set wave height in feet
- * @returns Formatted range like "3-5ft" or "4ft"
+ * Callers that previously synthesized `high = face × 1.5` to render a "sets"
+ * expansion should now pass `high = low` (or use {@link formatWaveHeightRange}
+ * with a single arg) to avoid inflating the upper bound. Callers that pass
+ * a real range (e.g. min/max wave heights across an hour window) get that
+ * range honored.
  *
- * @example
- * formatWaveHeightRangeString(3.2, 4.8) // "3-5ft sets"
- * formatWaveHeightRangeString(1.2, 1.8) // "1-2ft sets"
- * formatWaveHeightRangeString(0.8, 1.2) // "1ft" (both round to same)
- *
- * The "sets" suffix labels the upper bound as projected set waves (the
- * bigger waves that come through in groups, typically 1.5x the average)
- * rather than reading as a flat average range. Prevents users from
- * interpreting "3-5ft" as "every wave is 3-5ft" on a 3ft-avg day.
+ * @param low Lower face wave height in feet
+ * @param high Upper face wave height in feet (pass `low` for single-point inputs)
+ * @returns Formatted range like "3-4ft" or "4ft"
  */
 export function formatWaveHeightRangeString(low: number, high: number): string {
-  const useHalfFoot = isSmallRange(low, high);
-  const lowStr = formatWaveHeightValue(low, useHalfFoot);
-  const highStr = formatWaveHeightValue(high, useHalfFoot);
-
-  // If they round to the same value, just show single value — no projected
-  // set variance to disclose.
-  if (lowStr === highStr) return `${lowStr}ft`;
-  return `${lowStr}-${highStr}ft sets`;
+  const lo = Math.floor(low);
+  const hi = Math.ceil(high);
+  if (lo === hi) return `${lo}ft`;
+  return `${lo}-${hi}ft`;
 }
 
 // ============================================================================
@@ -647,6 +610,6 @@ export function toFaceHeightRangeFeet(params: FaceHeightParams): string | null {
   const low = extractNumericWaveHeight(singleHeight);
   if (low === null) return null;
 
-  // Calculate set wave height and format as range
-  return formatWaveHeightRangeString(low, low * SET_WAVE_VARIANCE);
+  // Surfline-parity: face Hs bracketed by floor/ceil, no × 1.5 expansion.
+  return formatWaveHeightRangeString(low, low);
 }
