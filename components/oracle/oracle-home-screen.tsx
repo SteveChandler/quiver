@@ -10,6 +10,11 @@ import { ContextualCTA } from "@/components/oracle/contextual-cta";
 import { TodaysWindows } from "@/components/oracle/todays-windows";
 import { NearbySpots } from "@/components/oracle/nearby-spots";
 import { ActivityFeed } from "@/components/oracle/activity-feed";
+import { HomeBeachCard } from "@/components/oracle/home-beach-card";
+import {
+  bearingFromTo,
+  calculateDistanceInMiles,
+} from "@/lib/utils/distance-utils";
 // SessionTimeSelector + updatePreferredSessionTime import removed in
 // plan E2 — the inline home-screen prompt is gone. The selector
 // component + server action remain available for a future settings
@@ -393,9 +398,37 @@ export function OracleHomeScreen() {
   const [shareOpen, setShareOpen] = useState(false);
 
   // ------------------------------------------------------------------
-  // Activity fetch — use homeBeach, falling back to topRec's beach
+  // Extract top-level data + derive hero/home semantics
+  //
+  // Hero is ALWAYS the regional best (topRec). The previous behavior —
+  // forcing the hero to the user's home beach whenever home was inside
+  // the discovery radius — suppressed cross-beach ranking ("drive 18 mi
+  // north to The Rock" never surfaced for a SD user with OB Pier as
+  // home). We surface that override-suppressed signal via two pieces of
+  // UI: a "↗ N mi {direction} of {homeBeach}" subtitle on the hero, and
+  // a labeled "Your home" card below the hero. When `topRec` is null the
+  // screen falls through to `OracleHeroEmpty` below — no synthesized
+  // fallback to bare homeBeach.
   // ------------------------------------------------------------------
-  const activityBeachId = oracle.homeBeach?.id ?? oracle.topRecommendation?.beach?.id ?? null;
+  const { topRecommendation: topRec, profile, homeBeach } = oracle;
+
+  const homeBeachRec = useMemo(() => {
+    if (!homeBeach?.id || !oracle.discovery?.recommendations) return null;
+    return oracle.discovery.recommendations.find(r => r.beach.id === homeBeach.id) ?? null;
+  }, [homeBeach?.id, oracle.discovery?.recommendations]);
+
+  const heroRec = topRec;
+  const heroBeach = heroRec?.beach;
+
+  const homeIsTopRec = !!homeBeach?.id && topRec?.beach.id === homeBeach.id;
+  const showHomeCard = !!homeBeach && !!homeBeachRec && !homeIsTopRec;
+
+  // ------------------------------------------------------------------
+  // Activity fetch — follows the hero (per 2026-04-25 product decision,
+  // memory: project_oracle_activity_feed_follows_hero.md). Falls back
+  // to home beach when topRec is null.
+  // ------------------------------------------------------------------
+  const activityBeachId = heroBeach?.id ?? homeBeach?.id ?? null;
 
   const fetchActivity = useCallback(async (): Promise<LocalActivityItem[]> => {
     if (!activityBeachId) return [];
@@ -430,22 +463,6 @@ export function OracleHomeScreen() {
     () => router.push("/sessions/new?mode=log"),
     [router]
   );
-
-  // ------------------------------------------------------------------
-  // Extract top-level data (must come before handlers that reference these)
-  // ------------------------------------------------------------------
-  const { topRecommendation: topRec, profile, homeBeach } = oracle;
-
-  // Find the user's home beach within discovery results for consistent hero data.
-  // If found, use its recommendation so hero name + forecast data match.
-  // If not found (user far from home beach), fall back to topRec for everything.
-  const homeBeachRec = useMemo(() => {
-    if (!homeBeach?.id || !oracle.discovery?.recommendations) return null;
-    return oracle.discovery.recommendations.find(r => r.beach.id === homeBeach.id) ?? null;
-  }, [homeBeach?.id, oracle.discovery?.recommendations]);
-
-  const heroRec = homeBeachRec ?? topRec;
-  const heroBeach = heroRec?.beach ?? homeBeach;
 
   const fetchHeroSurfCall = useCallback(async (): Promise<OracleSurfCallPayload | null> => {
     if (!heroBeach?.id) return null;
@@ -551,6 +568,26 @@ export function OracleHomeScreen() {
     },
     [router, oracle.discovery?.recommendations]
   );
+
+  // Drive subtitle context: "↗ N mi {direction} of {homeBeach}". Only
+  // populated when the hero is a beach OTHER than the user's home beach
+  // and we have valid coords on both sides. The beaches table uses
+  // lat/lon (verified via types/database.generated.ts and existing reads
+  // at hooks/use-oracle-data.ts:108).
+  const driveContext = useMemo(() => {
+    if (!showHomeCard || !homeBeach || !heroBeach) return undefined;
+    if (homeBeach.lat == null || homeBeach.lon == null) return undefined;
+    if (heroBeach.lat == null || heroBeach.lon == null) return undefined;
+    const home = { lat: homeBeach.lat, lon: homeBeach.lon };
+    const hero = { lat: heroBeach.lat, lon: heroBeach.lon };
+    const distanceMiles = calculateDistanceInMiles(home, hero);
+    if (!Number.isFinite(distanceMiles) || distanceMiles < 1) return undefined;
+    return {
+      distanceMiles,
+      bearing: bearingFromTo(home, hero),
+      homeBeachName: homeBeach.name,
+    };
+  }, [showHomeCard, homeBeach, heroBeach]);
 
   const forecast = heroRec?.forecast;
   const window = heroRec?.window;
@@ -686,7 +723,17 @@ export function OracleHomeScreen() {
         xpTotal={oracleProfile?.xp_total ?? null}
         timezone={heroTz}
         regionalCall={oracle.discovery?.regionalCall}
+        driveContext={driveContext}
       />
+
+      {/* Labeled "Your home" card surfaced when the regional best is a
+          different beach than the user's home. Click navigates to beach
+          detail via the same handler NearbySpots uses. */}
+      {showHomeCard && homeBeachRec && (
+        <div className="px-6 pt-4 md:px-6">
+          <HomeBeachCard rec={homeBeachRec} onClick={handleViewSpot} />
+        </div>
+      )}
 
       {/* Inline SessionTimeSelector prompt removed in plan E2. Asking
           users "When do you usually paddle out?" on the home screen

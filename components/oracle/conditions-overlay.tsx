@@ -1,6 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { ArrowUpRight } from "lucide-react";
+import {
+  compassPointToWord,
+  type CompassPoint,
+} from "@/lib/utils/distance-utils";
 
 interface ConditionsOverlayProps {
   beachName: string;
@@ -19,6 +24,17 @@ interface ConditionsOverlayProps {
   animatedWaveHeight?: string;
   /** When true, the best window is for tomorrow — adjusts the "Best time" label */
   isTomorrow?: boolean;
+  /**
+   * Drive context for the regional-best hero. Rendered as a small
+   * "↗ N mi {direction} of {homeBeachName}" subtitle under the swell row.
+   * Hidden when undefined (i.e. hero IS the home beach, or home beach
+   * is unset).
+   */
+  driveContext?: {
+    distanceMiles: number;
+    bearing: CompassPoint;
+    homeBeachName: string;
+  };
 }
 
 // Score badge background is Paradise Gold; text is deep twilight for contrast.
@@ -79,6 +95,7 @@ export function ConditionsOverlay({
   shouldAnimate,
   animatedWaveHeight,
   isTomorrow,
+  driveContext,
 }: ConditionsOverlayProps) {
   const displayWaveHeight = animatedWaveHeight ?? waveHeight;
   const tideDirectionLabel = tideDirection === "rising" ? "Rising" : "Falling";
@@ -115,6 +132,21 @@ export function ConditionsOverlay({
         />
         <SwellStat label="Water" value={`${waterTemp}°F`} />
       </div>
+
+      {/* Drive subtitle — rendered when the hero is NOT the user's home beach. */}
+      {driveContext && (
+        <p
+          data-testid="hero-drive-subtitle"
+          className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-[#FDB84B]/90"
+        >
+          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+          <span>
+            {Math.round(driveContext.distanceMiles)} mi{" "}
+            {compassPointToWord(driveContext.bearing)} of{" "}
+            {driveContext.homeBeachName}
+          </span>
+        </p>
+      )}
 
       {/* Best window card */}
       <motion.div

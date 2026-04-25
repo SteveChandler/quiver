@@ -7,6 +7,7 @@ import { WindIndicator } from "./wind-indicator";
 import { ConditionsOverlay } from "./conditions-overlay";
 import { getHourInTimezone } from "@/lib/utils/date-time";
 import { getOracleGreeting } from "@/lib/oracle/greeting";
+import type { CompassPoint } from "@/lib/utils/distance-utils";
 
 export interface OracleHeroProps {
   beachName: string;
@@ -38,6 +39,17 @@ export interface OracleHeroProps {
   regionalCall?: string;
   /** When true, the best window is for tomorrow */
   isTomorrow?: boolean;
+  /**
+   * Drive context for the regional-best hero. When the hero is a beach
+   * other than the user's home, render a "↗ N mi {direction} of
+   * {homeBeachName}" subtitle inside the conditions overlay. Hidden when
+   * undefined (hero IS the home, or no home beach set).
+   */
+  driveContext?: {
+    distanceMiles: number;
+    bearing: CompassPoint;
+    homeBeachName: string;
+  };
 }
 
 // Animated wave height: count up from "0" to the actual numeric prefix.
@@ -129,6 +141,7 @@ export function OracleHero({
   daysAbsent = 0,
   regionalCall,
   isTomorrow,
+  driveContext,
 }: OracleHeroProps) {
   const animatedWaveHeight = useWaveHeightAnimation(waveHeight, shouldAnimate);
 
@@ -253,6 +266,7 @@ export function OracleHero({
         shouldAnimate={shouldAnimate}
         animatedWaveHeight={animatedWaveHeight}
         isTomorrow={isTomorrow}
+        driveContext={driveContext}
       />
     </section>
   );
