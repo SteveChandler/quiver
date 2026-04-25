@@ -244,6 +244,16 @@ const COMPASS_WORDS: Record<CompassPoint, string> = {
  * caller is expected to short-circuit before that (e.g. via a < 1 mi
  * proximity check), but we keep the return type total so NaN can't leak
  * into UI strings.
+ *
+ * @example
+ * ```ts
+ * // Drive subtitle on Oracle home: "↗ 14 mi northwest of Imperial Beach Pier"
+ * const bearing = bearingFromTo(
+ *   { lat: homeBeach.lat, lon: homeBeach.lon },
+ *   { lat: topRec.beach.lat, lon: topRec.beach.lon },
+ * );
+ * const word = compassPointToWord(bearing); // "northwest"
+ * ```
  */
 export function bearingFromTo(
   from: { lat: number; lon: number },
