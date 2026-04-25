@@ -22,9 +22,17 @@ export function RoadmapSection({ title, status, items, authed, onSignInRequired 
         </span>
       </div>
       {items.length === 0 ? (
-        <p className="rounded-[10px_4px_12px_4px] border border-dashed border-[#2D357D]/50 p-6 text-center font-[var(--font-mono)] text-sm uppercase tracking-wider text-white/40">
-          // Nothing here yet.
-        </p>
+        <div className="rounded-[10px_4px_12px_4px] border border-dashed border-[#2D357D]/50 p-8 text-center">
+          <div
+            aria-hidden="true"
+            className="mb-3 font-[var(--font-mono)] text-2xl tracking-[0.3em] text-white/20"
+          >
+            ~ ~ ~
+          </div>
+          <p className="font-[var(--font-mono)] text-sm uppercase tracking-wider text-white/40">
+            // Nothing here yet.
+          </p>
+        </div>
       ) : (
         <div
           className={
@@ -33,12 +41,13 @@ export function RoadmapSection({ title, status, items, authed, onSignInRequired 
               : "space-y-3"
           }
         >
-          {items.map((item) => (
+          {items.map((item, index) => (
             <RoadmapItemCard
               key={item.id}
               item={item}
               authed={authed}
               onSignInRequired={onSignInRequired}
+              rank={status === "under_consideration" ? index + 1 : undefined}
             />
           ))}
         </div>

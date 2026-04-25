@@ -1,5 +1,5 @@
 "use client";
-import type { RoadmapItem } from "@/lib/roadmap/types";
+import type { RoadmapCategory, RoadmapItem } from "@/lib/roadmap/types";
 import { RoadmapStatusChip } from "./RoadmapStatusChip";
 import { VoteButton } from "./VoteButton";
 
@@ -7,6 +7,24 @@ interface Props {
   item: RoadmapItem;
   authed: boolean;
   onSignInRequired?: () => void;
+  rank?: number;
+}
+
+const CATEGORY_LABELS: Record<RoadmapCategory, string> = {
+  forecasts: "// FORECASTS",
+  logging: "// LOGGING",
+  community: "// COMMUNITY",
+  notifications: "// NOTIFICATIONS",
+  subscription: "// SUBSCRIPTION",
+  other: "// OTHER",
+};
+
+function CategoryEyebrow({ category }: { category: RoadmapCategory }) {
+  return (
+    <div className="mb-2 font-[var(--font-mono)] text-[10px] uppercase tracking-[0.2em] text-[#F78E42]/70">
+      {CATEGORY_LABELS[category]}
+    </div>
+  );
 }
 
 function formatShippedDate(shippedAt: string | null): string {
@@ -27,8 +45,8 @@ function FounderReply({ text }: { text: string }) {
   );
 }
 
-export function RoadmapItemCard({ item, authed, onSignInRequired }: Props) {
-  // Shipped → dense changelog row (not a full card)
+export function RoadmapItemCard({ item, authed, onSignInRequired, rank }: Props) {
+  // Shipped → dense changelog row (not a full card). Category label omitted by design.
   if (item.status === "shipped") {
     return (
       <article
@@ -60,6 +78,7 @@ export function RoadmapItemCard({ item, authed, onSignInRequired }: Props) {
         </span>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
+            <CategoryEyebrow category={item.category} />
             <h3 className="font-[var(--font-heading)] text-lg font-bold text-white">
               {item.title}
             </h3>
@@ -94,6 +113,7 @@ export function RoadmapItemCard({ item, authed, onSignInRequired }: Props) {
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
+            <CategoryEyebrow category={item.category} />
             <h3 className="text-base font-semibold text-white">{item.title}</h3>
             <p className="mt-1 text-sm text-white/70">{item.description}</p>
             {item.founder_reply && <FounderReply text={item.founder_reply} />}
@@ -106,14 +126,20 @@ export function RoadmapItemCard({ item, authed, onSignInRequired }: Props) {
     );
   }
 
-  // under_consideration → standard card with vote button
+  // under_consideration → standard card with vote button + optional rank
   return (
     <article
       id={`item-${item.id}`}
-      className="rounded-[12px_4px_14px_4px] border border-[#2D357D]/60 bg-[#1E2558]/60 p-4"
+      className="relative rounded-[12px_4px_14px_4px] border border-[#2D357D]/60 bg-[#1E2558]/60 p-4"
     >
+      {rank && rank <= 3 && (
+        <span className="absolute -right-2 -top-2 rotate-[2deg] rounded-[6px_2px_8px_2px] border border-[#F78E42]/50 bg-[#252D6B] px-2 py-0.5 font-[var(--font-mono)] text-[11px] font-bold tracking-wider text-[#F78E42] shadow-[0_2px_0_rgba(0,0,0,0.4)]">
+          #0{rank}
+        </span>
+      )}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
+          <CategoryEyebrow category={item.category} />
           <h3 className="text-base font-semibold text-white">{item.title}</h3>
           <p className="mt-1 text-sm text-white/70">{item.description}</p>
           {item.eta_label && (
