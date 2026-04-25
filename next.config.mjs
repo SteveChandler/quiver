@@ -90,8 +90,15 @@ const nextConfig = {
   // Enable compression for better performance
   compress: true,
 
+  // Empty turbopack config silences the Next.js 16 "webpack config without
+  // turbopack config" error when @ducanh2912/next-pwa is wrapping nextConfig
+  // but `withSentryConfig` is gated off (Preview deploys). Sentry's wrapper
+  // injects its own turbopack config in Production, so this is only
+  // load-bearing when the Sentry gate is closed.
+  turbopack: {},
+
   // External packages for server components (moved from experimental)
-  serverExternalPackages: ["@supabase/supabase-js", "geo-tz"],
+  serverExternalPackages: ["@supabase/supabase-js", "geo-tz", "firebase-admin"],
 
   // Power pack optimizations
   poweredByHeader: false, // Remove X-Powered-By header
@@ -514,10 +521,12 @@ const pwaConfig = withPWA({
   ],
 });
 
-export default withSentryConfig(pwaConfig(nextConfig), {
-  // For all available options, see:
-  // https://www.npmjs.com/package/@sentry/webpack-plugin#options
-
+// Sentry options — only applied to Production builds.
+// Skipping the entire wrap on Preview deployments removes ~19–20s of
+// post-compile sourcemap bundling that runs even when dryRun is true.
+// See `turbopack: {}` above — required to silence the Next.js 16 webpack
+// config warning when this gate is closed.
+const sentryOptions = {
   org: "quiver-z4",
 
   project: "javascript-nextjs",
@@ -529,16 +538,10 @@ export default withSentryConfig(pwaConfig(nextConfig), {
   // Suppress verbose source map listing in build logs (saves ~220 log events on Vercel)
   silent: true,
 
-  // For all available options, see:
-  // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
-
   // Reduced source map upload for faster builds (set to true for prettier stack traces)
   widenClientFileUpload: false,
 
   // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
-  // This can increase your server load as well as your hosting bill.
-  // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-
-  // side errors will fail.
   tunnelRoute: "/monitoring",
 
   // Automatically tree-shake Sentry logger statements to reduce bundle size
@@ -555,9 +558,10 @@ export default withSentryConfig(pwaConfig(nextConfig), {
     excludeReplayWorker: true,
   },
 
-  // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
-  // See the following for more information:
-  // https://docs.sentry.io/product/crons/
-  // https://vercel.com/docs/cron-jobs
+  // Enables automatic instrumentation of Vercel Cron Monitors.
   automaticVercelMonitors: false,
-});
+};
+
+export default isProd
+  ? withSentryConfig(pwaConfig(nextConfig), sentryOptions)
+  : pwaConfig(nextConfig);
