@@ -60,7 +60,7 @@ export const POST = withAuth(
     // Only count new beach toward cap if it's not already represented
     const existingBeachCount = existingBeachIds.size;
 
-    const tier = getUserEntitlement(user.id);
+    const tier = await getUserEntitlement(user.id, supabase);
     const isExistingBeach = existingBeachIds.has(beach_id);
     const entitlementResult = canCreateRule({
       tier,

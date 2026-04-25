@@ -9,12 +9,16 @@
  * Response: { ok: boolean, status?: 'tracking_disabled' | 'rate_limited' }
  */
 
-import { createAPIServerClient } from '@/lib/supabase/api-server-client';
+import { NextResponse } from 'next/server';
 import {
   createSuccessResponse,
   createAuthError,
   createErrorResponse,
 } from '@/lib/api-utils';
+import {
+  withAuth,
+} from '@/lib/middleware/api-wrappers';
+import type { OptionalAuthContext } from '@/lib/middleware/api-wrappers/types';
 import type {
   ImplicitEventType,
   TrackEventRequest,
@@ -98,7 +102,7 @@ function checkRateLimit(userId: string, limit: number = RATE_LIMIT): { allowed: 
 // Event Configuration
 // =============================================================================
 
-const VALID_EVENTS: ImplicitEventType[] = [
+export const VALID_EVENTS: ImplicitEventType[] = [
   // Implicit preference learning events
   'beach_view',
   'discovery_click',
@@ -139,6 +143,7 @@ const VALID_EVENTS: ImplicitEventType[] = [
   'signup_success',
   'login_success',
   'signup_form_submitted',
+  'login_form_submitted',
   // Home screen events
   'home_at_beach_click',
   'home_plan_weekend_click',
@@ -205,16 +210,33 @@ const VALID_EVENTS: ImplicitEventType[] = [
   // Engagement depth (anon + auth)
   'scroll_depth',
   'time_on_page',
+  // Phase 2 match-feature events (authenticated only)
+  'match_card_rendered',
+  'match_strip_tap',
+  'for_you_tap',
+  'unlock_toast_shown',
+  'session_decomposition_selected',
+  'match_alert_toggle',
+  // Roadmap events
+  'roadmap_vote_cast',
+  'roadmap_item_submitted',
+  'roadmap_item_status_changed',
 ];
 
-const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
+export const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
   'page_view', 'beach_view', 'tab_view', 'onboarding_step',
   // Conversion tracking (critical for understanding anon→authed funnel)
   'signup_cta_click', 'signup_cta_view', 'signin_cta_click', 'cta_click',
   // Auth funnel events (fire before user is authenticated — must be anonymous-allowed)
   'auth_modal_opened', 'auth_modal_closed_without_action',
   'auth_method_selected', 'auth_provider_selected',
-  'signup_started', 'signup_success', 'login_success', 'signup_form_submitted',
+  // Auth-transition events — legitimately fire for both anon and authed users
+  // (e.g. signup success fires after auth completes). Not on PRE_AUTH_ONLY_EVENTS.
+  'signup_started', 'signup_success', 'login_success',
+  // Form-submitted events — pre-auth only; the form can only be submitted by
+  // an anonymous user. Authed fires are ghost-triggers and dropped server-side
+  // via PRE_AUTH_ONLY_EVENTS.
+  'signup_form_submitted', 'login_form_submitted',
   // Engagement signals from anonymous visitors
   'forecast_interaction', 'forecast_tab_click', 'horizon_strip_day_selected',
   'beach_search', 'beach_search_result_click', 'map_interaction', 'map_marker_click',
@@ -232,6 +254,21 @@ const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
   'scroll_depth', 'time_on_page',
 ];
 
+/**
+ * Pre-auth funnel events should not be recorded for authenticated users.
+ * These events are only meaningful when tracking anon → authed conversion.
+ * Exported so tests can verify the invariant alongside VALID_EVENTS.
+ */
+export const PRE_AUTH_ONLY_EVENTS: ImplicitEventType[] = [
+  'signup_cta_view',
+  'signup_cta_click',
+  'signin_cta_click',
+  'signup_form_submitted',
+  'login_form_submitted',
+  'auth_modal_opened',
+  'auth_modal_closed_without_action',
+];
+
 const ANON_RATE_LIMIT = 30; // Lower rate limit for anonymous users
 
 import { isValidUUID } from '@/lib/utils/validation';
@@ -241,7 +278,7 @@ import { isValidUUID } from '@/lib/utils/validation';
  * Uses 5-minute in-memory cache to reduce database queries
  */
 async function isTrackingAllowed(
-  supabase: Awaited<ReturnType<typeof createAPIServerClient>>,
+  supabase: OptionalAuthContext['supabase'],
   userId: string
 ): Promise<boolean> {
   // Check cache first (using LRU-aware getter)
@@ -269,7 +306,21 @@ async function isTrackingAllowed(
   return allowed;
 }
 
-export async function POST(request: Request) {
+/**
+ * POST /api/events
+ *
+ * Authentication: OPTIONAL via withAuth({ optional: true }). Two flows:
+ *   • Authenticated (cookie OR Bearer) — writes user-scoped event via
+ *     request-scoped supabase client. Native Bearer callers previously
+ *     dropped silently because the route ignored Authorization headers.
+ *   • Anonymous — requires body.sessionId, writes nullable user_id event
+ *     via the service-role client (bypassing RLS). Unchanged.
+ */
+export const POST = withAuth(
+  async (
+    request,
+    { user, supabase }: OptionalAuthContext
+  ) => {
   // 1. Bot filtering — silent 200 OK so bots don't learn they're detected
   const ua = request.headers.get('user-agent') || '';
   const acceptLanguage = request.headers.get('accept-language');
@@ -292,7 +343,7 @@ export async function POST(request: Request) {
     return createSuccessResponse({ ok: true, status: 'bot_filtered' });
   }
 
-  // 2. Parse request body first (before auth check, needed for anonymous flow)
+  // 2. Parse request body (needed for anonymous flow + fingerprint check)
   let body: TrackEventRequest;
   try {
     body = await request.json();
@@ -314,29 +365,20 @@ export async function POST(request: Request) {
 
   const { eventType, beachId } = body;
 
-  // 4. Try auth
-  const supabase = await createAPIServerClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (!authError && user) {
-    // Authenticated flow
-
+  // 4. Authenticated flow (user resolved by withAuth from cookie OR Bearer)
+  if (user) {
     // Rate limiting check
     const rateLimit = checkRateLimit(user.id);
     if (!rateLimit.allowed) {
-      return new Response(
-        JSON.stringify({
+      return NextResponse.json(
+        {
           ok: false,
           status: 'rate_limited',
           error: 'Too many requests. Please try again later.',
-        }),
+        },
         {
           status: 429,
           headers: {
-            'Content-Type': 'application/json',
             'X-RateLimit-Limit': RATE_LIMIT.toString(),
             'X-RateLimit-Remaining': '0',
             'X-RateLimit-Reset': Math.ceil(rateLimit.resetAt / 1000).toString(),
@@ -362,22 +404,12 @@ export async function POST(request: Request) {
     }
 
     // Pre-auth funnel events should not be recorded for authenticated users
-    // These events are only meaningful when tracking anon → authed conversion
-    const PRE_AUTH_ONLY_EVENTS = [
-      'signup_cta_view',
-      'signup_cta_click',
-      'signin_cta_click',
-      'signup_form_submitted',
-      'auth_modal_opened',
-      'auth_modal_closed_without_action',
-    ];
-
     if (PRE_AUTH_ONLY_EVENTS.includes(eventType)) {
       return createSuccessResponse({ ok: true, skipped: true });
     }
 
     // Insert event
-    const { error: insertError } = await supabase.from('user_events').insert({
+    const { error: insertError } = await (supabase as any).from('user_events').insert({
       user_id: user.id,
       event_type: eventType,
       beach_id: beachId || null,
@@ -408,16 +440,15 @@ export async function POST(request: Request) {
 
     const anonRateLimit = checkRateLimit(`anon:${body.sessionId}`, ANON_RATE_LIMIT);
     if (!anonRateLimit.allowed) {
-      return new Response(
-        JSON.stringify({
+      return NextResponse.json(
+        {
           ok: false,
           status: 'rate_limited',
           error: 'Too many requests. Please try again later.',
-        }),
+        },
         {
           status: 429,
           headers: {
-            'Content-Type': 'application/json',
             'X-RateLimit-Limit': ANON_RATE_LIMIT.toString(),
             'X-RateLimit-Remaining': '0',
             'X-RateLimit-Reset': Math.ceil(anonRateLimit.resetAt / 1000).toString(),
@@ -483,4 +514,6 @@ export async function POST(request: Request) {
 
   // 6. Neither authenticated nor anonymous sessionId
   return createAuthError('Unauthorized');
-}
+  },
+  { optional: true, errorMessage: 'Failed to record event' }
+);

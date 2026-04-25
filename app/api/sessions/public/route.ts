@@ -1,4 +1,3 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import {
   createPaginatedResponse,
@@ -6,10 +5,8 @@ import {
   parsePaginationParams,
   createPaginationMeta,
 } from "@/lib/api-utils";
-import {
-  withRateLimit,
-  withErrorHandler,
-} from "@/lib/middleware/api-wrappers";
+import { withAuth, withRateLimit } from "@/lib/middleware/api-wrappers";
+import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
 
 // Mark this route as dynamic to prevent static generation
 export const runtime = "nodejs";
@@ -31,12 +28,31 @@ export const dynamic = "force-dynamic";
  * - beach_id: Filter by specific beach
  * - date_from: Filter sessions from this date (ISO string)
  * - date_to: Filter sessions until this date (ISO string)
+ * - feed_type: "global" (default) | "friends" — friends restricts to sessions
+ *              from users the caller follows (requires auth; returns empty if
+ *              unauthenticated or not following anyone)
  *
  * Returns:
  * - Paginated list of public sessions with beach info, ratings, and author details
  */
-async function publicSessionsHandler(request: NextRequest): Promise<NextResponse> {
-  const supabase = await createSupabaseServerClient();
+async function publicSessionsHandler(
+  request: NextRequest,
+  { user, supabase }: OptionalAuthContext,
+): Promise<NextResponse> {
+  // Per-user `likedByMe` + friend-feed filtering make the response
+  // non-cacheable for authenticated callers — a shared cache (CDN, NSURLCache)
+  // would leak user A's like state to user B. Strip the blanket SHORT cache
+  // to private/no-store when the request is authenticated.
+  const finalize = async (res: NextResponse): Promise<NextResponse> => {
+    if (user) {
+      res.headers.set(
+        "Cache-Control",
+        "private, no-store, no-cache, must-revalidate",
+      );
+    }
+    return res;
+  };
+
   const { searchParams } = new URL(request.url);
   const { page, limit } = parsePaginationParams(searchParams, 10, 50);
   const offset = (page - 1) * limit;
@@ -61,9 +77,29 @@ async function publicSessionsHandler(request: NextRequest): Promise<NextResponse
   const beachId = searchParams.get("beach_id");
   const dateFrom = searchParams.get("date_from");
   const dateTo = searchParams.get("date_to");
+  const feedType = searchParams.get("feed_type");
 
-  // Try to get the current user for like status (optional — endpoint works without auth)
-  const { data: { user } } = await supabase.auth.getUser();
+  // `user` is resolved by withAuth({ optional: true }) — non-null when the
+  // caller provided a valid Bearer token (native) or cookie session (web).
+
+  // Friends feed: restrict to sessions from users the caller follows. Returns
+  // empty when unauthenticated or when the caller follows nobody.
+  let friendIds: string[] | null = null;
+  if (feedType === "friends") {
+    if (!user) {
+      const meta = createPaginationMeta(page, limit, 0);
+      return finalize(await createPaginatedResponse([], meta, CacheDuration.SHORT));
+    }
+    const { data: follows } = await supabase
+      .from("user_follows")
+      .select("following_id")
+      .eq("follower_id", user.id);
+    friendIds = (follows ?? []).map((f) => f.following_id as string);
+    if (friendIds.length === 0) {
+      const meta = createPaginationMeta(page, limit, 0);
+      return finalize(await createPaginatedResponse([], meta, CacheDuration.SHORT));
+    }
+  }
 
   // If location provided, get beach IDs within radius first
   let nearbyBeachIds: string[] | null = null;
@@ -82,7 +118,7 @@ async function publicSessionsHandler(request: NextRequest): Promise<NextResponse
     nearbyBeachIds = nearbyBeaches?.map((b) => b.id) ?? [];
     if (nearbyBeachIds.length === 0) {
       const meta = createPaginationMeta(page, limit, 0);
-      return await createPaginatedResponse([], meta, CacheDuration.SHORT);
+      return finalize(await createPaginatedResponse([], meta, CacheDuration.SHORT));
     }
   }
 
@@ -104,6 +140,9 @@ async function publicSessionsHandler(request: NextRequest): Promise<NextResponse
   }
   if (dateTo) {
     countQuery = countQuery.lt("arrival_time", dateTo);
+  }
+  if (friendIds) {
+    countQuery = countQuery.in("user_id", friendIds);
   }
 
   const { count } = await countQuery;
@@ -160,6 +199,9 @@ async function publicSessionsHandler(request: NextRequest): Promise<NextResponse
   }
   if (dateTo) {
     dataQuery = dataQuery.lt("arrival_time", dateTo);
+  }
+  if (friendIds) {
+    dataQuery = dataQuery.in("user_id", friendIds);
   }
 
   const { data: sessions, error } = await dataQuery
@@ -224,13 +266,21 @@ async function publicSessionsHandler(request: NextRequest): Promise<NextResponse
 
   const meta = createPaginationMeta(page, limit, count || 0);
 
-  // Cache for 2 minutes (public content, updated frequently)
-  return await createPaginatedResponse(publicSessions, meta, CacheDuration.SHORT);
+  // Cache for 2 minutes (public content, updated frequently) for anonymous
+  // callers; overridden to `private, no-store` by `finalize` when the request
+  // is authenticated so per-user `likedByMe` data isn't shared.
+  return finalize(
+    await createPaginatedResponse(publicSessions, meta, CacheDuration.SHORT),
+  );
 }
 
-// Apply rate limiting and error handling (no bot blocking — consumed by mobile apps)
+// Apply rate limiting + optional auth. withAuth({ optional: true }) resolves
+// the caller from Bearer token (native) or cookie session (web), or leaves
+// user=null for unauth access — matching the public nature of this feed.
+// No bot blocking — consumed by mobile apps.
 export const GET = withRateLimit(
-  withErrorHandler(publicSessionsHandler, {
+  withAuth(publicSessionsHandler, {
+    optional: true,
     errorMessage: "Failed to fetch public sessions",
   }),
   "public-default"

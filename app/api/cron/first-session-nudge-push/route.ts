@@ -1,0 +1,597 @@
+/**
+ * GET /api/cron/first-session-nudge-push
+ *
+ * Day-7 habit-formation push cron. Runs daily at 9am Pacific (17:00 UTC).
+ *
+ * Sends ONE push notification to users who signed up 6–8 days ago AND have
+ * fewer than 3 sessions logged. Catches the habit-formation window where
+ * a surfer is making it-or-break-it on "is this app part of my weekly
+ * routine?" — distinct from:
+ *   - Day-1 EMAIL (`/api/cron/first-session-nudge`) — 18–30h-old 0-session users
+ *   - Day-12 PUSH (`/api/cron/trial-ending-push-deliver`) — trial-ending
+ *
+ * The three are additive and non-overlapping on (cohort, channel, lifecycle).
+ *
+ * Cohort branching (5-way):
+ *   - Trialing + home beach             → "Unlock your Quiver"
+ *   - Trialing + no home beach          → "Set your home break"
+ *   - Free + home + conditions>=70      → "✨ {beach} is looking good"
+ *   - Free + home                       → "How was this week?"
+ *   - Free + no home                    → "Been out this week?"
+ *
+ * "Conditions>=70" = first hourly row today at the user's home beach with
+ * `confidence_score >= 70` via `v_enhanced_forecast_latest` → enhanced_forecasts
+ * join. Lookup failure falls back to the non-firing "Free + home" cohort.
+ *
+ * Idempotency: composite PK on activation_push_log(user_id, nudge_type) —
+ * re-runs never double-push. Log row is written ONLY on successful send, so
+ * a user with push disabled today stays eligible if they re-enable within
+ * the 6–8d window.
+ *
+ * Push `data.type = 'log_session_nudge'` routes via native handler to
+ * SessionForm (see quiver-native/src/lib/push-notifications.ts).
+ *
+ * Auth:
+ * - Vercel Cron header (`x-vercel-cron`)
+ * - OR Authorization: Bearer <CRON_SECRET>
+ */
+
+import type { messaging } from "firebase-admin";
+import {
+  createErrorResponse,
+  createSuccessResponse,
+  handleApiError,
+  validateCronRequest,
+} from "@/lib/api-utils";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { sendPushNotifications, type PushMessage } from "@/lib/services/push-notifications";
+
+export const revalidate = 0;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 300;
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const CONTEXT_TAG = "[first-session-nudge-push]";
+const NUDGE_TYPE = "first_session_day7";
+
+// Closed-open signup window: [now - 8d, now - 6d).
+// Mirrors Day-1 cron's off-by-one handling (half-open interval, inclusive
+// on the older boundary, exclusive on the newer boundary).
+const SIGNUP_MIN_DAYS = 6;
+const SIGNUP_MAX_DAYS = 8;
+
+// Session-count cap — anyone at 3+ sessions has already established habit.
+const SESSION_COUNT_THRESHOLD = 3;
+
+// Conditions>=70 threshold for the "firing" cohort branch.
+const CONDITIONS_FIRING_THRESHOLD = 70;
+
+type CohortKey =
+  | "trialing_home"
+  | "trialing_no_home"
+  | "free_home_firing"
+  | "free_home"
+  | "free_no_home";
+
+// ============================================================================
+// Types
+// ============================================================================
+
+interface Candidate {
+  user_id: string;
+  home_beach_id: string | null;
+  is_trialing: boolean;
+  is_pro: boolean;
+  device_tokens: string[];
+}
+
+interface BeachRow {
+  id: string;
+  name: string | null;
+}
+
+interface ResolvedCohort {
+  cohort: CohortKey;
+  title: string;
+  body: string;
+  beach_id: string | null;
+  beach_name: string | null;
+  confidence_score: number | null;
+}
+
+interface RunSummary {
+  total: number;
+  sent: number;
+  skipped: {
+    already_logged: number;
+    at_3_sessions: number;
+    no_email_confirmed: number;
+    no_profile: number;
+    push_disabled: number;
+    no_token: number;
+    send_failed: number;
+    log_failed: number;
+  };
+  cohorts: Record<CohortKey, number>;
+  errors: number;
+  durationMs: number;
+}
+
+// ============================================================================
+// Cohort resolution
+// ============================================================================
+
+async function fetchFiringConfidence(
+  supabase: ReturnType<typeof createSupabaseServiceRoleClient>,
+  beachId: string
+): Promise<number | null> {
+  try {
+    // Today's date boundary in UTC — enhanced_forecasts is hourly, so "today"
+    // = any row with forecast_at >= start-of-UTC-day for this beach.
+    const now = new Date();
+    const startOfDay = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+    ).toISOString();
+    const endOfDay = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
+    ).toISOString();
+
+    const { data, error } = await supabase
+      .from("enhanced_forecasts")
+      .select("confidence_score, forecast_at")
+      .eq("beach_id", beachId)
+      .gte("forecast_at", startOfDay)
+      .lt("forecast_at", endOfDay)
+      .gte("confidence_score", CONDITIONS_FIRING_THRESHOLD)
+      .order("forecast_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.warn(
+        `${CONTEXT_TAG} confidence lookup failed for beach ${beachId}:`,
+        error.message
+      );
+      return null;
+    }
+    if (!data || typeof data.confidence_score !== "number") return null;
+    return data.confidence_score;
+  } catch (err) {
+    console.warn(`${CONTEXT_TAG} confidence lookup threw for beach ${beachId}:`, err);
+    return null;
+  }
+}
+
+async function resolveCohort(
+  supabase: ReturnType<typeof createSupabaseServiceRoleClient>,
+  candidate: Candidate,
+  beachById: Map<string, BeachRow>
+): Promise<ResolvedCohort> {
+  const beach = candidate.home_beach_id
+    ? beachById.get(candidate.home_beach_id) ?? null
+    : null;
+  const beachName = beach?.name ?? null;
+
+  if (candidate.is_trialing) {
+    if (candidate.home_beach_id && beachName) {
+      return {
+        cohort: "trialing_home",
+        title: "Unlock your Quiver",
+        body: `Log today's session at ${beachName} — 7 days left in your trial`,
+        beach_id: candidate.home_beach_id,
+        beach_name: beachName,
+        confidence_score: null,
+      };
+    }
+    return {
+      cohort: "trialing_no_home",
+      title: "Set your home break",
+      body: "Pick a spot and log a session — 7 days left in your trial",
+      beach_id: null,
+      beach_name: null,
+      confidence_score: null,
+    };
+  }
+
+  // Free tier (no entitlement row OR is_pro=false AND is_trialing=false).
+  if (!candidate.home_beach_id || !beachName) {
+    return {
+      cohort: "free_no_home",
+      title: "Been out this week?",
+      body: "Set your home break and log a session to start",
+      beach_id: null,
+      beach_name: null,
+      confidence_score: null,
+    };
+  }
+
+  const confidence = await fetchFiringConfidence(supabase, candidate.home_beach_id);
+  if (confidence !== null && confidence >= CONDITIONS_FIRING_THRESHOLD) {
+    return {
+      cohort: "free_home_firing",
+      title: `✨ ${beachName} is looking good`,
+      body: "Check today's forecast and log your session to start building your score",
+      beach_id: candidate.home_beach_id,
+      beach_name: beachName,
+      confidence_score: confidence,
+    };
+  }
+
+  return {
+    cohort: "free_home",
+    title: "How was this week?",
+    body: `Log a session at ${beachName} to start building your personalized forecast`,
+    beach_id: candidate.home_beach_id,
+    beach_name: beachName,
+    confidence_score: null,
+  };
+}
+
+// ============================================================================
+// Main Handler
+// ============================================================================
+
+export async function GET(request: Request) {
+  const startTime = Date.now();
+
+  try {
+    if (!validateCronRequest(request)) {
+      return createErrorResponse("Unauthorized", "Invalid cron authentication", 401);
+    }
+
+    console.log(`${CONTEXT_TAG} Starting first-session-nudge-push run`);
+
+    const supabase = createSupabaseServiceRoleClient();
+
+    const summary: RunSummary = {
+      total: 0,
+      sent: 0,
+      skipped: {
+        already_logged: 0,
+        at_3_sessions: 0,
+        no_email_confirmed: 0,
+        no_profile: 0,
+        push_disabled: 0,
+        no_token: 0,
+        send_failed: 0,
+        log_failed: 0,
+      },
+      cohorts: {
+        trialing_home: 0,
+        trialing_no_home: 0,
+        free_home_firing: 0,
+        free_home: 0,
+        free_no_home: 0,
+      },
+      errors: 0,
+      durationMs: 0,
+    };
+
+    // 1. Find profiles whose auth.users.created_at lands in [now-8d, now-6d).
+    //    profiles.created_at tracks auth.users.created_at via the on-signup
+    //    trigger, so we can filter there without hitting auth.users directly.
+    const now = new Date();
+    const signupAfter = new Date(
+      now.getTime() - SIGNUP_MAX_DAYS * 24 * 60 * 60 * 1000
+    ).toISOString();
+    const signupBefore = new Date(
+      now.getTime() - SIGNUP_MIN_DAYS * 24 * 60 * 60 * 1000
+    ).toISOString();
+
+    const { data: windowProfiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id, home_beach_id")
+      .gte("created_at", signupAfter)
+      .lt("created_at", signupBefore);
+
+    if (profilesError) {
+      throw new Error(`Failed to query profiles: ${profilesError.message}`);
+    }
+
+    if (!windowProfiles || windowProfiles.length === 0) {
+      summary.durationMs = Date.now() - startTime;
+      console.log(`${CONTEXT_TAG} No profiles in signup window`);
+      return createSuccessResponse({ summary });
+    }
+
+    const windowUserIds = windowProfiles.map((p) => p.id);
+
+    // 2. Idempotency filter — anyone already nudged is out.
+    const { data: alreadyLogged, error: logError } = await supabase
+      .from("activation_push_log")
+      .select("user_id")
+      .in("user_id", windowUserIds)
+      .eq("nudge_type", NUDGE_TYPE);
+
+    if (logError) {
+      throw new Error(`Failed to query activation_push_log: ${logError.message}`);
+    }
+
+    const alreadyLoggedIds = new Set(
+      ((alreadyLogged ?? []) as Array<{ user_id: string }>).map((r) => r.user_id)
+    );
+    summary.skipped.already_logged = alreadyLoggedIds.size;
+
+    const unloggedIds = windowUserIds.filter((id) => !alreadyLoggedIds.has(id));
+    if (unloggedIds.length === 0) {
+      summary.durationMs = Date.now() - startTime;
+      console.log(`${CONTEXT_TAG} All ${windowUserIds.length} candidates already pushed`);
+      return createSuccessResponse({ summary });
+    }
+
+    // 3. Session-count filter — drop anyone at >= SESSION_COUNT_THRESHOLD.
+    //    sessions.user_id is the post-Feb-2026 column name.
+    const { data: sessionRows, error: sessionsError } = await supabase
+      .from("sessions")
+      .select("user_id")
+      .in("user_id", unloggedIds);
+
+    if (sessionsError) {
+      throw new Error(`Failed to query sessions: ${sessionsError.message}`);
+    }
+
+    const sessionCountByUser = new Map<string, number>();
+    for (const s of sessionRows ?? []) {
+      sessionCountByUser.set(s.user_id, (sessionCountByUser.get(s.user_id) ?? 0) + 1);
+    }
+
+    const underThresholdIds = unloggedIds.filter(
+      (id) => (sessionCountByUser.get(id) ?? 0) < SESSION_COUNT_THRESHOLD
+    );
+    summary.skipped.at_3_sessions = unloggedIds.length - underThresholdIds.length;
+
+    if (underThresholdIds.length === 0) {
+      summary.durationMs = Date.now() - startTime;
+      console.log(`${CONTEXT_TAG} No users under ${SESSION_COUNT_THRESHOLD}-session cap`);
+      return createSuccessResponse({ summary });
+    }
+
+    // 4. Email-confirmation gate — skip the "invisible cohort" (confirmed=null).
+    //    Batched via admin API (same pattern as Day-1 cron).
+    const BATCH_SIZE = 5;
+    const confirmedIds: string[] = [];
+    for (let i = 0; i < underThresholdIds.length; i += BATCH_SIZE) {
+      const batch = underThresholdIds.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(
+        batch.map((id) => supabase.auth.admin.getUserById(id))
+      );
+      for (let j = 0; j < results.length; j++) {
+        const authUser = results[j].data?.user;
+        const userId = batch[j];
+        if (!authUser) {
+          summary.skipped.no_profile++;
+          continue;
+        }
+        if (!authUser.email_confirmed_at) {
+          summary.skipped.no_email_confirmed++;
+          continue;
+        }
+        confirmedIds.push(userId);
+      }
+    }
+
+    if (confirmedIds.length === 0) {
+      summary.durationMs = Date.now() - startTime;
+      console.log(`${CONTEXT_TAG} No email-confirmed candidates`);
+      return createSuccessResponse({ summary });
+    }
+
+    // 5. Push-enabled filter via profiles.notif_push_enabled.
+    const { data: pushPrefs, error: prefsError } = await supabase
+      .from("profiles")
+      .select("id, notif_push_enabled")
+      .in("id", confirmedIds);
+
+    if (prefsError) {
+      throw new Error(`Failed to query push prefs: ${prefsError.message}`);
+    }
+
+    const pushEnabledIds = new Set<string>();
+    for (const row of pushPrefs ?? []) {
+      if (row.notif_push_enabled === true) pushEnabledIds.add(row.id);
+    }
+    summary.skipped.push_disabled = confirmedIds.length - pushEnabledIds.size;
+
+    if (pushEnabledIds.size === 0) {
+      summary.durationMs = Date.now() - startTime;
+      console.log(`${CONTEXT_TAG} No push-enabled candidates`);
+      return createSuccessResponse({ summary });
+    }
+
+    // 6. Device tokens — users without one are skipped and NOT logged (so
+    //    re-registration still wins within the window).
+    const { data: devices, error: devicesError } = await supabase
+      .from("user_devices")
+      .select("user_id, device_token")
+      .in("user_id", Array.from(pushEnabledIds));
+
+    if (devicesError) {
+      throw new Error(`Failed to query user_devices: ${devicesError.message}`);
+    }
+
+    const tokensByUser = new Map<string, string[]>();
+    for (const d of devices ?? []) {
+      const list = tokensByUser.get(d.user_id) ?? [];
+      list.push(d.device_token);
+      tokensByUser.set(d.user_id, list);
+    }
+
+    // 7. Entitlement lookup — single batched read, presence = trialing/pro.
+    const { data: entitlements, error: entError } = await supabase
+      .from("user_entitlements")
+      .select("user_id, is_pro, is_trialing")
+      .in("user_id", Array.from(pushEnabledIds));
+
+    if (entError) {
+      throw new Error(`Failed to query user_entitlements: ${entError.message}`);
+    }
+
+    const entitlementByUser = new Map<
+      string,
+      { is_pro: boolean; is_trialing: boolean }
+    >();
+    for (const e of entitlements ?? []) {
+      entitlementByUser.set(e.user_id, {
+        is_pro: Boolean(e.is_pro),
+        is_trialing: Boolean(e.is_trialing),
+      });
+    }
+
+    // 8. Build candidate list — attach tokens + entitlement + profile fields.
+    const profileById = new Map(
+      windowProfiles.map((p) => [
+        p.id,
+        {
+          home_beach_id: p.home_beach_id as string | null,
+        },
+      ])
+    );
+
+    const candidates: Candidate[] = [];
+    for (const userId of pushEnabledIds) {
+      const tokens = tokensByUser.get(userId);
+      if (!tokens || tokens.length === 0) {
+        summary.skipped.no_token++;
+        continue;
+      }
+      const profile = profileById.get(userId);
+      if (!profile) {
+        summary.skipped.no_profile++;
+        continue;
+      }
+      const ent = entitlementByUser.get(userId);
+      candidates.push({
+        user_id: userId,
+        home_beach_id: profile.home_beach_id,
+        is_trialing: ent?.is_trialing ?? false,
+        is_pro: ent?.is_pro ?? false,
+        device_tokens: tokens,
+      });
+    }
+
+    summary.total = candidates.length;
+    console.log(
+      `${CONTEXT_TAG} ${candidates.length} candidates ` +
+        `(${windowProfiles.length} window, ${summary.skipped.already_logged} already logged, ` +
+        `${summary.skipped.at_3_sessions} at cap, ${summary.skipped.no_email_confirmed} unconfirmed, ` +
+        `${summary.skipped.push_disabled} push-disabled, ${summary.skipped.no_token} no token)`
+    );
+
+    if (candidates.length === 0) {
+      summary.durationMs = Date.now() - startTime;
+      return createSuccessResponse({ summary });
+    }
+
+    // 9. Batch-load beach names for cohort copy (only beaches actually in use).
+    const neededBeachIds = Array.from(
+      new Set(
+        candidates
+          .map((c) => c.home_beach_id)
+          .filter((id): id is string => Boolean(id))
+      )
+    );
+
+    const beachById = new Map<string, BeachRow>();
+    if (neededBeachIds.length > 0) {
+      const { data: beaches, error: beachesError } = await supabase
+        .from("beaches")
+        .select("id, name")
+        .in("id", neededBeachIds);
+      if (beachesError) {
+        console.warn(
+          `${CONTEXT_TAG} beach lookup failed:`,
+          beachesError.message
+        );
+      } else {
+        for (const b of beaches ?? []) {
+          beachById.set(b.id, { id: b.id, name: b.name });
+        }
+      }
+    }
+
+    // 10. Resolve cohort + send + log per user.
+    const android: messaging.AndroidConfig = {
+      priority: "high",
+      notification: { channelId: "default", priority: "high" },
+    };
+
+    for (const candidate of candidates) {
+      try {
+        const resolved = await resolveCohort(supabase, candidate, beachById);
+        summary.cohorts[resolved.cohort]++;
+
+        const apns: messaging.ApnsConfig = {
+          payload: {
+            aps: {
+              sound: "default",
+              alert: { title: resolved.title, body: resolved.body },
+            },
+          },
+        };
+
+        const messages: PushMessage[] = candidate.device_tokens.map((token) => ({
+          to: token,
+          title: resolved.title,
+          body: resolved.body,
+          data: {
+            type: "log_session_nudge",
+            beach_id: resolved.beach_id ?? null,
+          },
+          android,
+          apns,
+        }));
+
+        await sendPushNotifications(messages);
+
+        const { error: insertError } = await supabase
+          .from("activation_push_log")
+          .insert({
+            user_id: candidate.user_id,
+            nudge_type: NUDGE_TYPE,
+            metadata: {
+              cohort: resolved.cohort,
+              beach_id: resolved.beach_id,
+              beach_name: resolved.beach_name,
+              confidence_score: resolved.confidence_score,
+              device_count: candidate.device_tokens.length,
+            },
+          });
+
+        if (insertError) {
+          console.error(
+            `${CONTEXT_TAG} log insert failed for ${candidate.user_id}:`,
+            insertError
+          );
+          summary.skipped.log_failed++;
+          // Still counted as sent — push went out. Next tick noops on PK conflict.
+        }
+
+        summary.sent++;
+        console.log(
+          `${CONTEXT_TAG} Sent ${resolved.cohort} to ${candidate.user_id} ` +
+            `(${candidate.device_tokens.length} device${candidate.device_tokens.length === 1 ? "" : "s"})`
+        );
+      } catch (candidateError) {
+        console.error(
+          `${CONTEXT_TAG} Error processing ${candidate.user_id}:`,
+          candidateError
+        );
+        summary.skipped.send_failed++;
+        summary.errors++;
+      }
+    }
+
+    summary.durationMs = Date.now() - startTime;
+    console.log(
+      `${CONTEXT_TAG} Completed: ${summary.sent} sent, ${summary.total} candidates, ${summary.durationMs}ms`
+    );
+
+    return createSuccessResponse({ summary });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}

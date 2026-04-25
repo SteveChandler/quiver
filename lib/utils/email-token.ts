@@ -8,7 +8,7 @@
 
 import { SignJWT, jwtVerify, JWTPayload } from 'jose';
 
-export type EmailTokenPurpose = 'prefs' | 'save_window' | 'log_session';
+export type EmailTokenPurpose = 'prefs' | 'save_window' | 'log_session' | 'invite';
 
 export interface EmailTokenPayload extends JWTPayload {
   user_id: string;

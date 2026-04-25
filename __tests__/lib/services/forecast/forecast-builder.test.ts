@@ -378,6 +378,126 @@ describe("ForecastBuilder", () => {
     expect(forecasts[0].wave_period).toBe("6s");
   });
 
+  it("wave_direction comes from the same component as wave_period (mixed swells)", async () => {
+    // Regression: wave_direction used to always pull `peak_wave_direction`
+    // (the spectral peak — typically the wind-sea on mixed-swell days),
+    // even when wave_period was correctly sourced from the tallest
+    // long-period groundswell. That decoupling produced nonsense like
+    // "13s W" when the 13s component was actually SSW.
+    //
+    // Setup: small W wind-sea (5s, 270°), big S groundswell (13s, 180°),
+    // tiny W secondary (8s, 270°). Tallest = swell_2 (groundswell), so
+    // wave_period must be 13s and wave_direction must reflect 180°.
+    // peak_wave_direction is set to 270° (W) to prove the picker isn't
+    // falling back to it.
+    const directionCapture: number[] = [];
+    const directionAwareBuilder = new ForecastBuilder({
+      getWaveDirectionText: (deg: number) => {
+        directionCapture.push(deg);
+        // Return distinguishable text per cardinal so the assertion can
+        // pin down which component supplied the direction.
+        if (deg >= 157.5 && deg < 202.5) return "S";
+        if (deg >= 247.5 && deg < 292.5) return "W";
+        return "OTHER";
+      },
+      getTideStatusAtTime: () => "Rising",
+      getTideHeightAtTime: () => 3.5,
+      getNextTideFromTime: () => ({
+        time: Math.floor(Date.now() / 1000) + 7200,
+        height: 5.2,
+        type: "high",
+        name: "High",
+      }),
+      getDataQualityScore: () => 85,
+    });
+
+    const mixedSwellWaveData = {
+      lat: 32.7,
+      lng: -117.2,
+      forecast: [
+        {
+          timestamp: new Date().toISOString(),
+          significant_wave_height: 2.2,
+          peak_wave_period: 5,
+          peak_wave_direction: 270, // W spectral peak — the OLD bug source
+          swell_1_height: 1.0, // smaller W swell
+          swell_1_period: 8,
+          swell_1_direction: 270,
+          swell_2_height: 2.0, // tallest — long-period S groundswell
+          swell_2_period: 13,
+          swell_2_direction: 180,
+          wind_wave_height: 0.5,
+          wind_wave_period: 5,
+          wind_wave_direction: 270,
+          data_source: "NOAA_NWS" as const,
+        },
+      ],
+    } satisfies ForecastInputs["waveData"] & {};
+
+    const forecasts = await directionAwareBuilder.buildForecasts({
+      beach: mockBeach,
+      waveData: mixedSwellWaveData,
+      tideData: mockTideData,
+      weatherData: [],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+    });
+
+    // wave_period must come from the tallest (swell_2 at 13s)
+    expect(forecasts[0].wave_period).toBe("13s");
+    // wave_direction must come from THE SAME component (swell_2 at 180°),
+    // NOT from peak_wave_direction (270°).
+    expect(forecasts[0].wave_direction).toBe("S");
+    // Defensive: peak_wave_direction (270 → "W") must never appear as the
+    // wave_direction text — direction must follow the picked component.
+    expect(forecasts[0].wave_direction).not.toBe("W");
+  });
+
+  it("wind_wave_period renders null when source emits the 0 sentinel", async () => {
+    // Regression: previously `getWindWavePeriod` used a raw template-literal
+    // (`${wavePoint.wind_wave_period}s`), bypassing the `formatPeriodSeconds`
+    // 4s floor. The data-processors null-period path coerces to 0 at the
+    // write boundary, and the gate must reject 0 → null.
+    const zeroPeriodWaveData = {
+      ...mockWaveData,
+      forecast: [
+        {
+          timestamp: new Date().toISOString(),
+          significant_wave_height: 1.2,
+          peak_wave_period: 12,
+          peak_wave_direction: 225,
+          swell_1_height: 0.8,
+          swell_1_period: 14,
+          swell_1_direction: 220,
+          swell_2_height: 0,
+          swell_2_period: 0,
+          swell_2_direction: 0,
+          wind_wave_height: 0.3,
+          wind_wave_period: 0, // sentinel from null-period upstream
+          wind_wave_direction: 200,
+          data_source: "NOAA_NWS" as const,
+        },
+      ],
+    };
+
+    const forecasts = await builder.buildForecasts({
+      beach: mockBeach,
+      waveData: zeroPeriodWaveData,
+      tideData: mockTideData,
+      weatherData: [],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+    });
+
+    // The pre-fix output was the literal "0s" string. The gate must null it.
+    expect(forecasts[0].wind_wave_period).toBeNull();
+    expect(forecasts[0].wind_wave_period).not.toBe("0s");
+  });
+
   it("wave_period prefers longer period when swell heights are close", async () => {
     // When two swells are within 20% height, prefer the longer period
     const closeHeightsWaveData = {

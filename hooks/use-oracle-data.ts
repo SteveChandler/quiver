@@ -151,7 +151,7 @@ export function useOracleData(): OracleData {
   // ------------------------------------------------------------------
   // Surf discovery
   // ------------------------------------------------------------------
-  const { discovery, loading: discoveryLoading } = useSurfDiscovery({
+  const { discovery: primaryDiscovery, loading: primaryLoading } = useSurfDiscovery({
     maxResults: 10,
     horizonHours: 24,
     enabled: !!profile && !geoLoading,
@@ -159,6 +159,30 @@ export function useOracleData(): OracleData {
     userLocation,
     userSkillLevel,
   });
+
+  // Fallback: if the user's location returns nothing (e.g. Nazaré, inland US,
+  // anywhere without Quiver coverage), retry with San Diego so they see a hero
+  // instead of an empty state. Skip when the primary query is already SD.
+  const primaryReturnedEmpty =
+    primaryDiscovery !== null &&
+    (primaryDiscovery.recommendations?.length ?? 0) === 0;
+  const alreadySanDiego =
+    userLocation.lat === DEFAULT_LOCATION.lat &&
+    userLocation.lon === DEFAULT_LOCATION.lon;
+
+  const { discovery: fallbackDiscovery, loading: fallbackLoading } = useSurfDiscovery({
+    maxResults: 10,
+    horizonHours: 24,
+    enabled: !!profile && !geoLoading && primaryReturnedEmpty && !alreadySanDiego,
+    immediate: true,
+    userLocation: DEFAULT_LOCATION,
+    userSkillLevel,
+  });
+
+  const discovery = primaryReturnedEmpty && !alreadySanDiego
+    ? fallbackDiscovery
+    : primaryDiscovery;
+  const discoveryLoading = primaryLoading || fallbackLoading;
 
   const topRecommendation = discovery?.recommendations[0] ?? null;
   const remainingSpots = discovery?.recommendations.slice(1) ?? [];

@@ -108,6 +108,7 @@ async function globalTeardown(config: FullConfig) {
         console.log(`[Global Teardown] ✓ Cleaned ${result.totalCleaned} test item(s)`);
         console.log(`  - Sessions: ${result.sessions.count}`);
         console.log(`  - Intel Posts: ${result.intelPosts.count}`);
+        console.log(`  - Ephemeral smoke users: ${result.ephemeralUsers.count}`);
       } else {
         console.log('[Global Teardown] ✓ No test data to clean up');
       }
@@ -117,6 +118,9 @@ async function globalTeardown(config: FullConfig) {
       }
       if (result.intelPosts.error) {
         console.warn(`[Global Teardown] ⚠️  Intel posts cleanup warning: ${result.intelPosts.error}`);
+      }
+      if (result.ephemeralUsers.error) {
+        console.warn(`[Global Teardown] ⚠️  Ephemeral users cleanup warning: ${result.ephemeralUsers.error}`);
       }
     } else {
       console.log(`[Global Teardown] Skipping cleanup (env=${testEnv}, not dev environment)`);

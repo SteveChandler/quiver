@@ -38,13 +38,46 @@ interface UserSearchResponse {
 // Mock the Supabase API server client
 const mockSupabaseClient = createMockSupabaseClient();
 
-jest.mock("@/lib/middleware/api-wrappers", () => ({
-  withBotBlockingAndRateLimit: (handler: any) => handler,
-}));
-
-jest.mock("@/lib/supabase/api-server-client", () => ({
-  createAPIServerClient: jest.fn(() => mockSupabaseClient),
-}));
+jest.mock("@/lib/middleware/api-wrappers", () => {
+  const { NextResponse } = require("next/server");
+  return {
+    withAuth:
+      (handler: any, options: any = {}) =>
+      async (request: any, context: any) => {
+        try {
+          const { data, error } = await mockSupabaseClient.auth.getUser();
+          const user = error ? null : data?.user ?? null;
+          if (!options.optional && !user) {
+            return NextResponse.json(
+              { error: options.authErrorMessage ?? "Authentication required" },
+              { status: 401 },
+            );
+          }
+          const resolvedParams = context?.params
+            ? typeof context.params === "object" && "then" in context.params
+              ? await context.params
+              : context.params
+            : {};
+          return await handler(request, {
+            params: resolvedParams,
+            user,
+            supabase: mockSupabaseClient,
+          });
+        } catch (err: any) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: options.errorMessage ?? err?.message ?? "Internal error",
+              timestamp: Date.now(),
+            },
+            { status: 500 },
+          );
+        }
+      },
+    createSuccessResponse: (data: any) =>
+      NextResponse.json({ success: true, data, timestamp: Date.now() }),
+  };
+});
 
 // Helper function to mock Supabase profiles query chain
 function mockProfilesQuery(mockClient: any, profilesData: any, error: any = null) {
@@ -245,12 +278,7 @@ describe("/api/users/search", () => {
       });
 
       const response = await GET(request);
-      const data = await expectSuccessResponse(response, 200);
-
-      expect(data.data).toEqual({
-        users: [],
-        message: "Authentication required for user search",
-      });
+      expect(response.status).toBe(401);
     });
 
     it("should handle auth errors gracefully", async () => {
@@ -261,12 +289,7 @@ describe("/api/users/search", () => {
       });
 
       const response = await GET(request);
-      const data = await expectSuccessResponse(response, 200);
-
-      expect(data.data).toEqual({
-        users: [],
-        message: "Authentication required for user search",
-      });
+      expect(response.status).toBe(401);
     });
 
     it("should exclude current user from results", async () => {

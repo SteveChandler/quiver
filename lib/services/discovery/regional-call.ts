@@ -106,21 +106,37 @@ function buildSwellClause(recs: SurfDiscoveryRecommendation[]): string | null {
   const directions = top5
     .map(r => r.forecast.swell_1_direction)
     .filter((d): d is string => d !== null && d !== undefined && d.trim() !== '');
-  const periods = top5
-    .map(r => r.forecast.swell_1_period)
-    .filter((p): p is string => p !== null && p !== undefined && p.trim() !== '')
-    .map(p => parseFloat(p))
-    .filter(p => !isNaN(p) && p > 0);
 
   if (directions.length === 0) return null;
 
   const dominantDir = mode(directions);
   if (!dominantDir) return null;
 
-  const medPeriod = median(periods);
-  if (medPeriod === undefined) return `${dominantDir} swell`;
+  // Anchor period to the top rec so a reshuffle of the remaining top-5
+  // (which can happen between refreshes as scores oscillate by fractions)
+  // does not flicker the displayed period between 10s / 11s / 12s. If the
+  // top rec has no period, fall back to the median of what we do have so
+  // we never silently drop the number.
+  const topPeriodRaw = top5[0]?.forecast.swell_1_period;
+  const topPeriod = typeof topPeriodRaw === 'string' && topPeriodRaw.trim() !== ''
+    ? parseFloat(topPeriodRaw)
+    : NaN;
 
-  return `${dominantDir} swell at ${Math.round(medPeriod)}s`;
+  let period: number | undefined;
+  if (!isNaN(topPeriod) && topPeriod > 0) {
+    period = topPeriod;
+  } else {
+    const periods = top5
+      .map(r => r.forecast.swell_1_period)
+      .filter((p): p is string => p !== null && p !== undefined && p.trim() !== '')
+      .map(p => parseFloat(p))
+      .filter(p => !isNaN(p) && p > 0);
+    period = median(periods);
+  }
+
+  if (period === undefined) return dominantDir;
+
+  return `${dominantDir} ${Math.round(period)}s`;
 }
 
 // ============================================================================
@@ -144,7 +160,7 @@ function buildAspectClause(recs: SurfDiscoveryRecommendation[]): string | null {
 
   if (!allClose) return null;
 
-  return `favoring ${aspectToFacing(mean)}-facing breaks`;
+  return `${aspectToFacing(mean)}-facing`;
 }
 
 // ============================================================================
@@ -200,11 +216,17 @@ export function generateRegionalCall(
   const aspectClause = buildAspectClause(recs);
   const windTrendClause = buildWindTrendClause(options);
 
-  const leftParts = [swellClause, aspectClause].filter(Boolean);
-  const left = leftParts.join(' ');
+  // Prepend "hits " to the aspect clause only when there's no wind trend
+  // clause to append. With a wind trend the "·"-joined result becomes three
+  // segments ("<swell> · <aspect> · <wind>"), and the extra verb in the
+  // middle segment reads busy. Keeping the aspect segment as just
+  // "<dir>-facing" keeps the three-segment read scannable.
+  const decoratedAspect =
+    aspectClause && !windTrendClause ? `hits ${aspectClause}` : aspectClause;
 
   const parts: string[] = [];
-  if (left) parts.push(left);
+  if (swellClause) parts.push(swellClause);
+  if (decoratedAspect) parts.push(decoratedAspect);
   if (windTrendClause) parts.push(windTrendClause);
 
   if (parts.length === 0) return 'Small surf, pick your spot for fun.';

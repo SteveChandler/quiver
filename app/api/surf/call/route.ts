@@ -9,6 +9,7 @@ import {
 } from '@/lib/middleware/api-wrappers';
 import { getSpotSurfReport } from '@/actions/spot/spot-surf-report-actions';
 import type { Beach } from '@/types/database';
+import { applyForceVerdict } from '@/lib/utils/dev-force-verdict';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 15;
@@ -67,13 +68,19 @@ async function surfCallHandler(
     );
   }
 
-  const result = await getSpotSurfReport(beach as unknown as Beach);
-  if (!result) {
+  const rawResult = await getSpotSurfReport(beach as unknown as Beach);
+  if (!rawResult) {
     return NextResponse.json(
       { success: false, error: 'Unable to compute surf call' },
       { status: 503 }
     );
   }
+
+  const result = applyForceVerdict(
+    rawResult,
+    searchParams.get('_forceVerdict'),
+    process.env.NODE_ENV !== 'production',
+  );
 
   const response = createSuccessResponse(result);
   response.headers.set('Cache-Control', 'private, max-age=300, stale-while-revalidate=900');

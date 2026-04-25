@@ -162,6 +162,69 @@ describe("Device Token API", () => {
     });
   });
 
+  describe("Bearer token auth path", () => {
+    // These tests pin the invariant that a native Authorization: Bearer request
+    // goes through createBearerTokenClient + supabase.auth.getUser(token), NOT
+    // the cookie-based createSupabaseServerClient. Without this pin, the PR #199
+    // hotfix could silently regress because the existing "should require
+    // authentication" test passes regardless of which path runs.
+    it("routes Authorization: Bearer requests through createBearerTokenClient with the token", async () => {
+      const { createBearerTokenClient } = require("@/lib/supabase/bearer-client");
+      const { createSupabaseServerClient } = require("@/lib/supabase/server");
+
+      (mockSupabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: { id: "user-bearer-42" } },
+        error: null,
+      });
+      mockUpsert.mockResolvedValue({ error: null });
+
+      const request = new NextRequest("http://localhost:3000/api/devices/upsert", {
+        method: "POST",
+        headers: { authorization: "Bearer fake-native-jwt-xyz" },
+        body: JSON.stringify({ platform: "android", device_token: "fcm-abc-123" }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(createBearerTokenClient).toHaveBeenCalledWith("fake-native-jwt-xyz");
+      expect(createSupabaseServerClient).not.toHaveBeenCalled();
+      expect(mockSupabase.auth.getUser).toHaveBeenCalledWith("fake-native-jwt-xyz");
+      expect(mockUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({ user_id: "user-bearer-42", platform: "android" }),
+        { onConflict: "user_id,device_token" }
+      );
+    });
+
+    it("returns 401 with { success, error } shape when Bearer token is rejected", async () => {
+      // Simulates Supabase auth.getUser rejecting an expired/invalid JWT.
+      // The response body must carry an `error` field so the native client's
+      // ApiError.message is informative (see quiver-native api-client.ts).
+      (mockSupabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: null },
+        error: { name: "AuthApiError", message: "JWT expired" },
+      });
+
+      const request = new NextRequest("http://localhost:3000/api/devices/upsert", {
+        method: "POST",
+        headers: { authorization: "Bearer expired-jwt" },
+        body: JSON.stringify({ platform: "android", device_token: "fcm-abc-123" }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(data).toEqual(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+        })
+      );
+      expect(mockUpsert).not.toHaveBeenCalled();
+    });
+  });
+
   describe("DELETE /api/devices/upsert", () => {
     it("should delete a device token", async () => {
       const mockUser = { id: "user-123" };

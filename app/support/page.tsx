@@ -76,6 +76,13 @@ export default function SupportPage() {
       {/* FAQ */}
       <section className="py-10 px-4 border-b border-border">
         <div className="max-w-2xl mx-auto">
+          <p className="mb-6 text-sm text-slate-400">
+            Have a feature request? Drop it on the{" "}
+            <Link href="/roadmap" className="text-orange-400 hover:underline">
+              roadmap
+            </Link>{" "}
+            — we reply to every submission.
+          </p>
           <div className="flex items-center gap-3 mb-6">
             <HelpCircle className="h-5 w-5 text-ocean-blue shrink-0" />
             <h2 className="text-xl font-heading font-semibold text-foreground">

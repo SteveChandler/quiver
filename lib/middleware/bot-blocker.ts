@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { detectBot, BotDetectionResult } from "@/lib/security/bot-detection";
 import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
+import type { RouteContext } from "@/lib/middleware/api-wrappers/types";
 
 /**
  * Log bot blocking event with privacy-safe IP masking
@@ -63,9 +64,9 @@ function logBotBlocked(
  * ```
  */
 export function withBotBlocking<T extends NextRequest>(
-  handler: (req: T) => Promise<NextResponse>
-): (req: T) => Promise<NextResponse> {
-  return async (req: T): Promise<NextResponse> => {
+  handler: (req: T, context?: RouteContext) => Promise<NextResponse>
+): (req: T, context?: RouteContext) => Promise<NextResponse> {
+  return async (req: T, context?: RouteContext): Promise<NextResponse> => {
     const detection = detectBot(req);
 
     if (detection.shouldBlock) {
@@ -84,6 +85,6 @@ export function withBotBlocking<T extends NextRequest>(
       );
     }
 
-    return handler(req);
+    return handler(req, context);
   };
 }

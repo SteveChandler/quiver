@@ -53,6 +53,7 @@ export type ImplicitEventType =
   | 'signup_success'
   | 'login_success'
   | 'signup_form_submitted'
+  | 'login_form_submitted'
   // Home screen events
   | 'home_at_beach_click'
   | 'home_plan_weekend_click'
@@ -118,7 +119,18 @@ export type ImplicitEventType =
   | 'client_error'
   // Engagement depth (anon + auth)
   | 'scroll_depth'
-  | 'time_on_page';
+  | 'time_on_page'
+  // Phase 2 match-feature events (authenticated only)
+  | 'match_card_rendered'
+  | 'match_strip_tap'
+  | 'for_you_tap'
+  | 'unlock_toast_shown'
+  | 'session_decomposition_selected'
+  | 'match_alert_toggle'
+  // Roadmap events (added 2026-04-25)
+  | 'roadmap_vote_cast'
+  | 'roadmap_item_submitted'
+  | 'roadmap_item_status_changed';
 
 /**
  * Weight multipliers for each event type, determining how much
@@ -164,6 +176,7 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   signup_success: 0,
   login_success: 0,
   signup_form_submitted: 0,
+  login_form_submitted: 0,
   // Home screen events
   home_at_beach_click: 0,
   home_plan_weekend_click: 0,
@@ -230,6 +243,17 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   // Engagement depth (anon + auth)
   scroll_depth: 0,
   time_on_page: 0,
+  // Phase 2 match-feature events (authenticated only)
+  match_card_rendered: 0,
+  match_strip_tap: 0,
+  for_you_tap: 0,
+  unlock_toast_shown: 0,
+  session_decomposition_selected: 0,
+  match_alert_toggle: 0,
+  // Roadmap events (added 2026-04-25)
+  roadmap_vote_cast: 0,
+  roadmap_item_submitted: 0,
+  roadmap_item_status_changed: 0,
 } as const;
 
 // -----------------------------------------------------------------------------
