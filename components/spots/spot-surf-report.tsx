@@ -1,7 +1,9 @@
 import React, { Suspense } from 'react';
 import type { SurfCallResult } from '@/lib/utils/surf-call-logic';
 import type { Beach } from '@/types/database';
+import { cookies } from 'next/headers';
 import { getSpotSurfReport } from '@/actions/spot/spot-surf-report-actions';
+import { applyForceVerdict } from '@/lib/utils/dev-force-verdict';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { formatTimeInTimezone, formatTimeCasual } from '@/lib/utils/date-time';
 import { PublicContentGate } from '@/components/ui/public-content-gate';
@@ -198,7 +200,12 @@ interface SpotSurfReportLoaderProps {
 }
 
 async function SpotSurfReportLoader({ beach }: SpotSurfReportLoaderProps) {
-  const result = await getSpotSurfReport(beach);
+  const rawResult = await getSpotSurfReport(beach);
+  const isDev = process.env.NODE_ENV !== 'production';
+  const forceVerdictCookie = isDev
+    ? (await cookies()).get('dev_force_verdict')?.value ?? null
+    : null;
+  const result = applyForceVerdict(rawResult, forceVerdictCookie, isDev);
   if (!result) return null;
 
   const timezone = beach.lat != null && beach.lon != null

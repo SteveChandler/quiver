@@ -149,6 +149,30 @@ describe("OnboardingDialog Logic", () => {
     jest.useRealTimers();
   });
 
+  it("does NOT call reopenFresh while profile is still loading (race guard)", () => {
+    // Fresh-signup race: `user` has loaded but ProfileContext's initial fetch
+    // is still in-flight (isLoading=true, profile=null). Before the guard at
+    // onboarding-dialog.tsx:260, the effect would lock its decision on this
+    // first render and call reopenFresh — then the subsequent profile-loaded
+    // re-render would bail on the one-shot ref, keeping the dialog force-open
+    // even when profile.onboarding_completed_at eventually arrived. Confirmed
+    // live on 2026-04-24 for user 5d7fada5... (4 completions + 3 re-opens in
+    // ~3 min). The guard must defer until ProfileContext settles.
+    (useProfileContext as jest.Mock).mockReturnValue({
+      profile: null,
+      isLoading: true,
+    });
+    (useSearchParams as jest.Mock).mockReturnValue({
+      get: (key: string) => (key === "onboarding" ? "required" : null),
+      toString: () => "onboarding=required",
+    });
+
+    render(<OnboardingDialog />);
+
+    expect(mockReopenFresh).not.toHaveBeenCalled();
+    expect(mockRouterReplace).not.toHaveBeenCalled();
+  });
+
   it("does NOT re-open when ?onboarding=required is set AND onboarding already completed", () => {
     // Guards the activated-user case: a stale welcome-email link, bookmark,
     // or browser autocomplete must not force-reopen the dialog for a user

@@ -142,21 +142,47 @@ export function trackAuthProviderSelected(params: {
 }
 
 /**
- * Track when the email signup form is submitted (before success/failure).
+ * Track when the email SIGNUP form is submitted (before success/failure).
  * Dual-fires to GA4 and /api/events for internal funnel measurement.
- * @param params.mode - The current mode (login/signup)
+ *
+ * Scope: only fires when the auth modal is in signup mode. The parallel
+ * login helper is {@link trackLoginFormSubmitted}. Historically this function
+ * accepted `mode: "login" | "signup"` and callers fired it for both modes;
+ * that conflated 96% of events into the signup funnel and produced a false
+ * 92% dropoff alarm (F3 investigation, 2026-04-20).
+ *
  * @param params.source - Where the modal was triggered from
  */
 export function trackSignupFormSubmitted(params: {
-  mode: "login" | "signup";
   source: string;
 }) {
   const payload = {
-    mode: params.mode,
+    mode: "signup" as const,
     source: params.source,
   };
   track("signup_form_submitted", payload);
   fireToUserEvents("signup_form_submitted", payload);
+}
+
+/**
+ * Track when the email LOGIN form is submitted (before success/failure).
+ * Dual-fires to GA4 and /api/events for internal funnel measurement.
+ *
+ * Split from `trackSignupFormSubmitted` on 2026-04-20 so the login path
+ * stops inflating the signup funnel. Historical `signup_form_submitted` rows
+ * with `metadata.mode='login'` remain in the DB for continuity.
+ *
+ * @param params.source - Where the modal was triggered from
+ */
+export function trackLoginFormSubmitted(params: {
+  source: string;
+}) {
+  const payload = {
+    mode: "login" as const,
+    source: params.source,
+  };
+  track("login_form_submitted", payload);
+  fireToUserEvents("login_form_submitted", payload);
 }
 
 /**

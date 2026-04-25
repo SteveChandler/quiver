@@ -12,9 +12,38 @@ import {
 
 let mockSupabaseClient: any;
 
-jest.mock("@/lib/middleware/api-wrappers", () => ({
-  withBotBlockingAndRateLimit: (handler: any) => handler,
-}));
+jest.mock("@/lib/middleware/api-wrappers", () => {
+  const actual = jest.requireActual("@/lib/middleware/api-wrappers");
+  return {
+    ...actual,
+    withBotBlockingAndRateLimit: (handler: any) => handler,
+    // Mocked withAuth — bypasses real cookie/Bearer auth and injects the
+    // shared mockSupabaseClient. Honors `optional: true` (the profile route
+    // is a public read with optional auth).
+    withAuth: (handler: any, options: any) => async (request: any, context: any) => {
+      try {
+        const { data: authData } = await mockSupabaseClient.auth.getUser();
+        if (!authData.user && !options?.optional) {
+          return actual.createAuthError(
+            options?.authErrorMessage || "Authentication required"
+          );
+        }
+        const resolvedParams = context?.params
+          ? typeof context.params === "object" && "then" in context.params
+            ? await context.params
+            : context.params
+          : {};
+        return await handler(request, {
+          user: authData.user ?? null,
+          supabase: mockSupabaseClient,
+          params: resolvedParams,
+        });
+      } catch (error: any) {
+        return actual.handleApiError(error, options?.errorMessage);
+      }
+    },
+  };
+});
 
 jest.mock("@/lib/supabase/api-server-client", () => ({
   createAPIServerClient: () => mockSupabaseClient,

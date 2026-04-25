@@ -26,15 +26,20 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(() => mockSupabaseClient),
 }));
 
-// Mock the server action
-jest.mock("@/actions/like-actions", () => ({
-  toggleSessionLike: jest.fn(),
+// The toggle route was migrated from delegating to a `"use server"` action
+// (`toggleSessionLike`) to inline DB queries via the Bearer-aware Supabase
+// client returned by withAuth — required so native (Bearer) callers
+// authenticate correctly. Tests mock the supabase chain directly.
+//
+// `creditAuthorWithXP` is fired-and-forgotten on the success path; stub it
+// to avoid hitting the real service-role client during tests.
+jest.mock("@/lib/gamification", () => ({
+  creditAuthorWithXP: jest.fn().mockResolvedValue(undefined),
 }));
 
 // Import route handlers after mocks are set up
 import { GET } from "@/app/api/sessions/[id]/likes/route";
 import { POST } from "@/app/api/sessions/[id]/likes/toggle/route";
-import { toggleSessionLike as mockToggleSessionLike } from "@/actions/like-actions";
 
 describe("Session Likes API", () => {
   const validSessionId = "123e4567-e89b-12d3-a456-426614174000";
@@ -269,10 +274,35 @@ describe("Session Likes API", () => {
         error: null,
       });
 
-      (mockToggleSessionLike as jest.Mock).mockResolvedValue({
-        success: true,
-        liked: true,
-        message: "Session liked",
+      // Custom chain: SELECT returns null (not liked yet) → INSERT path.
+      // The DELETE chain isn't exercised here. The route's INSERT path is
+      // `.from("session_likes").insert(...)` (terminal — no further chain).
+      // Then `.from("sessions").select().eq().single()`.
+      let lastTable = "";
+      mockFrom.mockImplementation((table: string) => {
+        lastTable = table;
+        if (table === "session_likes") {
+          const selectChain: any = {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+          };
+          return {
+            ...selectChain,
+            insert: jest.fn().mockResolvedValue({ error: null }),
+          };
+        }
+        if (table === "sessions") {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({
+              data: { user_id: validUserId },
+              error: null,
+            }),
+          };
+        }
+        return {};
       });
 
       const request = new NextRequest(
@@ -286,7 +316,8 @@ describe("Session Likes API", () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.data.liked).toBe(true);
-      expect(mockToggleSessionLike).toHaveBeenCalledWith(validSessionId);
+      expect(data.data.message).toContain("liked");
+      expect(lastTable).toBeTruthy();
     });
 
     it("toggles unlike when already liked", async () => {
@@ -297,10 +328,32 @@ describe("Session Likes API", () => {
         error: null,
       });
 
-      (mockToggleSessionLike as jest.Mock).mockResolvedValue({
-        success: true,
-        liked: false,
-        message: "Session unliked",
+      // SELECT returns existing row → DELETE path.
+      // The route makes TWO `.from("session_likes")` calls:
+      //   1. .select("id").eq().eq().maybeSingle() → existing
+      //   2. .delete().eq("id", existing.id)        → terminal eq
+      // Each `.from()` invocation returns its own chain so eq's behavior
+      // doesn't have to do double-duty.
+      let fromCall = 0;
+      mockFrom.mockImplementation((table: string) => {
+        if (table !== "session_likes") return {};
+        fromCall++;
+        if (fromCall === 1) {
+          // SELECT chain
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            maybeSingle: jest.fn().mockResolvedValue({
+              data: { id: "like-existing" },
+              error: null,
+            }),
+          };
+        }
+        // DELETE chain — eq is terminal
+        return {
+          delete: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockResolvedValue({ error: null }),
+        };
       });
 
       const request = new NextRequest(
@@ -314,51 +367,7 @@ describe("Session Likes API", () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.data.liked).toBe(false);
-    });
-
-    it("prevents duplicate likes (handled by action)", async () => {
-      mockAuthGetUser.mockResolvedValue({
-        data: {
-          user: { id: validUserId, email: "user@example.com" },
-        },
-        error: null,
-      });
-
-      // First like
-      (mockToggleSessionLike as jest.Mock).mockResolvedValueOnce({
-        success: true,
-        liked: true,
-        message: "Session liked",
-      });
-
-      const request1 = new NextRequest(
-        `http://localhost:3000/api/sessions/${validSessionId}/likes/toggle`,
-        { method: "POST" }
-      );
-
-      const response1 = await POST(request1, { params: { id: validSessionId } });
-      const data1 = await response1.json();
-
-      expect(response1.status).toBe(200);
-      expect(data1.data.liked).toBe(true);
-
-      // Second toggle (unlike)
-      (mockToggleSessionLike as jest.Mock).mockResolvedValueOnce({
-        success: true,
-        liked: false,
-        message: "Session unliked",
-      });
-
-      const request2 = new NextRequest(
-        `http://localhost:3000/api/sessions/${validSessionId}/likes/toggle`,
-        { method: "POST" }
-      );
-
-      const response2 = await POST(request2, { params: { id: validSessionId } });
-      const data2 = await response2.json();
-
-      expect(response2.status).toBe(200);
-      expect(data2.data.liked).toBe(false);
+      expect(data.data.message).toContain("unliked");
     });
 
     it("requires authentication", async () => {
@@ -402,7 +411,7 @@ describe("Session Likes API", () => {
       expect(data.error).toContain("Invalid session format");
     });
 
-    it("rejects like on private non-owned session (via action)", async () => {
+    it("returns 500 when SELECT throws non-PGRST116", async () => {
       mockAuthGetUser.mockResolvedValue({
         data: {
           user: { id: otherUserId, email: "other@example.com" },
@@ -410,10 +419,18 @@ describe("Session Likes API", () => {
         error: null,
       });
 
-      // Mock action returning RLS error
-      (mockToggleSessionLike as jest.Mock).mockResolvedValue({
-        success: false,
-        error: "new row violates row-level security policy",
+      mockFrom.mockImplementation((table: string) => {
+        if (table === "session_likes") {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            maybeSingle: jest.fn().mockResolvedValue({
+              data: null,
+              error: { code: "OTHER", message: "RLS violation" },
+            }),
+          };
+        }
+        return {};
       });
 
       const request = new NextRequest(
@@ -424,13 +441,11 @@ describe("Session Likes API", () => {
       const response = await POST(request, { params: { id: validSessionId } });
       const data = await response.json();
 
-      // RLS policy violations are currently returned as 500, but should ideally be 403
-      // The action error is handled by withAuth error handler which returns 500
       expect(response.status).toBe(500);
       expect(data.success).toBe(false);
     });
 
-    it("handles action errors gracefully", async () => {
+    it("returns 500 when INSERT fails", async () => {
       mockAuthGetUser.mockResolvedValue({
         data: {
           user: { id: validUserId, email: "user@example.com" },
@@ -438,9 +453,18 @@ describe("Session Likes API", () => {
         error: null,
       });
 
-      (mockToggleSessionLike as jest.Mock).mockResolvedValue({
-        success: false,
-        error: "Database connection failed",
+      mockFrom.mockImplementation((table: string) => {
+        if (table === "session_likes") {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+            insert: jest.fn().mockResolvedValue({
+              error: { message: "Database connection failed" },
+            }),
+          };
+        }
+        return {};
       });
 
       const request = new NextRequest(
@@ -451,7 +475,6 @@ describe("Session Likes API", () => {
       const response = await POST(request, { params: { id: validSessionId } });
       const data = await response.json();
 
-      // Database connection errors are genuine server errors - 500 is correct
       expect(response.status).toBe(500);
       expect(data.success).toBe(false);
       expect(data.error).toContain("Failed to toggle like");
@@ -459,7 +482,7 @@ describe("Session Likes API", () => {
   });
 
   describe("Edge Cases", () => {
-    it("handles non-existent session ID gracefully", async () => {
+    it("handles SELECT failures on non-existent session as a 500", async () => {
       mockAuthGetUser.mockResolvedValue({
         data: {
           user: { id: validUserId, email: "user@example.com" },
@@ -467,9 +490,22 @@ describe("Session Likes API", () => {
         error: null,
       });
 
-      (mockToggleSessionLike as jest.Mock).mockResolvedValue({
-        success: false,
-        error: "Session not found",
+      // For non-existent sessions, the route still hits session_likes
+      // (which has no rows for that session_id) and returns the INSERT
+      // path. The INSERT then fails on FK violation. We simulate the
+      // FK error and expect a generic 500.
+      mockFrom.mockImplementation((table: string) => {
+        if (table === "session_likes") {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+            insert: jest.fn().mockResolvedValue({
+              error: { code: "23503", message: "FK violation: sessions" },
+            }),
+          };
+        }
+        return {};
       });
 
       const nonExistentId = "999e9999-e99b-99d9-a999-999999999999";
@@ -481,8 +517,6 @@ describe("Session Likes API", () => {
       const response = await POST(request, { params: { id: nonExistentId } });
       const data = await response.json();
 
-      // Valid UUID format passes validation, so error comes from action
-      // which may return 400 (validation) or 500 (server error)
       expect([400, 500]).toContain(response.status);
       expect(data.success).toBe(false);
     });
@@ -495,45 +529,68 @@ describe("Session Likes API", () => {
         error: null,
       });
 
-      // Simulate rapid toggles
-      (mockToggleSessionLike as jest.Mock)
-        .mockResolvedValueOnce({
-          success: true,
-          liked: true,
-          message: "Session liked",
-        })
-        .mockResolvedValueOnce({
-          success: true,
-          liked: false,
-          message: "Session unliked",
-        })
-        .mockResolvedValueOnce({
-          success: true,
-          liked: true,
-          message: "Session liked",
+      // 3 sequential toggles: like → unlike → like.
+      // Each request is independent; we re-arm `mockFrom` per request and
+      // hand out fresh chain objects per `.from()` call (the SELECT/DELETE/
+      // INSERT chains have different terminal-method semantics for `.eq()`).
+      const states: Array<"like" | "unlike" | "like"> = ["like", "unlike", "like"];
+      const responses: Response[] = [];
+      for (const state of states) {
+        const existing = state === "unlike" ? { id: "like-existing" } : null;
+        let fromCall = 0;
+        mockFrom.mockImplementation((table: string) => {
+          if (table === "session_likes") {
+            fromCall++;
+            if (fromCall === 1) {
+              // SELECT chain
+              return {
+                select: jest.fn().mockReturnThis(),
+                eq: jest.fn().mockReturnThis(),
+                maybeSingle: jest.fn().mockResolvedValue({
+                  data: existing,
+                  error: null,
+                }),
+              };
+            }
+            // Second call: DELETE (unlike) or INSERT (like)
+            if (existing) {
+              return {
+                delete: jest.fn().mockReturnThis(),
+                eq: jest.fn().mockResolvedValue({ error: null }),
+              };
+            }
+            return { insert: jest.fn().mockResolvedValue({ error: null }) };
+          }
+          if (table === "sessions") {
+            return {
+              select: jest.fn().mockReturnThis(),
+              eq: jest.fn().mockReturnThis(),
+              single: jest.fn().mockResolvedValue({
+                data: { user_id: validUserId },
+                error: null,
+              }),
+            };
+          }
+          return {};
         });
 
-      const requests = Array(3)
-        .fill(null)
-        .map(
-          () =>
-            new NextRequest(
-              `http://localhost:3000/api/sessions/${validSessionId}/likes/toggle`,
-              { method: "POST" }
-            )
+        const request = new NextRequest(
+          `http://localhost:3000/api/sessions/${validSessionId}/likes/toggle`,
+          { method: "POST" }
         );
+        responses.push(
+          await POST(request, { params: { id: validSessionId } })
+        );
+      }
 
-      const responses = await Promise.all(
-        requests.map((req) => POST(req, { params: { id: validSessionId } }))
-      );
-
-      const dataArray = await Promise.all(
-        responses.map((res) => res.json())
-      );
+      const dataArray = await Promise.all(responses.map((res) => res.json()));
 
       expect(responses.every((res) => res.status === 200)).toBe(true);
       expect(dataArray.every((d) => d.success === true)).toBe(true);
-      expect(mockToggleSessionLike).toHaveBeenCalledTimes(3);
+      // first and third toggles are likes; second is unlike
+      expect(dataArray[0].data.liked).toBe(true);
+      expect(dataArray[1].data.liked).toBe(false);
+      expect(dataArray[2].data.liked).toBe(true);
     });
 
     it("returns current like status after toggle", async () => {
@@ -544,10 +601,26 @@ describe("Session Likes API", () => {
         error: null,
       });
 
-      (mockToggleSessionLike as jest.Mock).mockResolvedValue({
-        success: true,
-        liked: true,
-        message: "Session liked",
+      mockFrom.mockImplementation((table: string) => {
+        if (table === "session_likes") {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+            insert: jest.fn().mockResolvedValue({ error: null }),
+          };
+        }
+        if (table === "sessions") {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({
+              data: { user_id: validUserId },
+              error: null,
+            }),
+          };
+        }
+        return {};
       });
 
       const request = new NextRequest(

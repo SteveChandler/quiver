@@ -645,11 +645,12 @@ export class ForecastBuilder {
     if (useCDIPData && cdipPoint?.swellPeriod != null)
       return formatPeriodSeconds(cdipPoint.swellPeriod);
 
-    // For model data, pick the period from the tallest swell component
-    // so wave_period matches the dominant energy the surfer actually sees
+    // For model data, pick the dominant component (tallest height; on ties,
+    // longer period wins) so wave_period matches the dominant energy the
+    // surfer actually sees.
     if (wavePoint) {
-      const period = this.getDominantSwellPeriod(wavePoint);
-      if (period != null) return formatPeriodSeconds(period);
+      const dominant = this.getDominantSwellComponent(wavePoint);
+      if (dominant != null) return formatPeriodSeconds(dominant.period);
     }
 
     if (buoyData?.wave_period != null) return formatPeriodSeconds(buoyData.wave_period);
@@ -659,34 +660,54 @@ export class ForecastBuilder {
   }
 
   /**
-   * Return the period of whichever swell component (swell_1, swell_2, wind_wave)
-   * has the greatest height. This ensures wave_period reflects the dominant
-   * energy rather than always defaulting to swell_1.
+   * Return the full identity (height, period, direction) of whichever swell
+   * component (swell_1, swell_2, wind_wave) has the greatest height. This is
+   * the single source of truth for "which partition wins display" — both
+   * `wave_period` and `wave_direction` consume it so they stay paired.
    *
    * When multiple components are within 20% of the tallest, prefer the longer
    * period — surfers feel longer-period swells more even at similar heights.
+   *
+   * Without this pairing, `wave_period` could come from the long-period
+   * groundswell while `wave_direction` came from `peak_wave_direction` (the
+   * spectral peak, often the wind-sea), producing nonsense like "13s W" when
+   * the 13s component is actually SSW.
    */
-  private getDominantSwellPeriod(wavePoint: WaveWatchData): number | null {
-    const components: { height: number; period: number }[] = [];
+  private getDominantSwellComponent(
+    wavePoint: WaveWatchData
+  ): { height: number; period: number; direction: number } | null {
+    const components: { height: number; period: number; direction: number }[] = [];
 
     if (wavePoint.swell_1_height > 0 && wavePoint.swell_1_period > 0) {
-      components.push({ height: wavePoint.swell_1_height, period: wavePoint.swell_1_period });
+      components.push({
+        height: wavePoint.swell_1_height,
+        period: wavePoint.swell_1_period,
+        direction: wavePoint.swell_1_direction,
+      });
     }
     if (wavePoint.swell_2_height > 0 && wavePoint.swell_2_period > 0) {
-      components.push({ height: wavePoint.swell_2_height, period: wavePoint.swell_2_period });
+      components.push({
+        height: wavePoint.swell_2_height,
+        period: wavePoint.swell_2_period,
+        direction: wavePoint.swell_2_direction,
+      });
     }
     if (wavePoint.wind_wave_height > 0 && wavePoint.wind_wave_period > 0) {
-      components.push({ height: wavePoint.wind_wave_height, period: wavePoint.wind_wave_period });
+      components.push({
+        height: wavePoint.wind_wave_height,
+        period: wavePoint.wind_wave_period,
+        direction: wavePoint.wind_wave_direction,
+      });
     }
 
     if (components.length === 0) return null;
 
-    const maxHeight = Math.max(...components.map(c => c.height));
+    const maxHeight = Math.max(...components.map((c) => c.height));
     const dominant = components
-      .filter(c => c.height >= maxHeight * 0.8)
+      .filter((c) => c.height >= maxHeight * 0.8)
       .sort((a, b) => b.period - a.period);
 
-    return dominant[0].period;
+    return dominant[0];
   }
 
   private getWaveDirection(cdipPoint: CDIPDataPoint | null, wavePoint: WaveWatchData | null, useCDIPData: boolean): string | null {
@@ -694,11 +715,23 @@ export class ForecastBuilder {
       return this.services.getWaveDirectionText(cdipPoint.peakWaveDirection);
     }
     if (wavePoint) {
+      // Pair wave_direction with the same component getWavePeriod selected.
+      // Falling back to peak_wave_direction would emit the spectral peak's
+      // direction (usually the wind-sea on mixed days), decoupling it from
+      // the long-period groundswell whose period we just reported.
+      const dominant = this.getDominantSwellComponent(wavePoint);
+      if (dominant != null) {
+        return this.services.getWaveDirectionText(dominant.direction);
+      }
       return this.services.getWaveDirectionText(wavePoint.peak_wave_direction);
     }
     return null;
   }
 
+  // Swell 1 needs no 0-sentinel guard: data-processors.ts always populates
+  // swell_1_height with a real value (NOAA primary partition, generic swell
+  // fallback, or `significantWaveHeight * 0.7`), never the 0 sentinel used for
+  // absent secondary partitions.
   private getSwell1Height(cdipPoint: CDIPDataPoint | null, wavePoint: WaveWatchData | null, useCDIPData: boolean): string | null {
     const formatWaveFeet = (meters: number | null | undefined): string | null => {
       if (meters == null) return null;
@@ -739,19 +772,24 @@ export class ForecastBuilder {
   }
 
   private getSwell2Height(wavePoint: WaveWatchData | null): string | null {
-    if (wavePoint?.swell_2_height == null) return null;
+    // 0 is the pipeline sentinel from data-processors.ts meaning "no real
+    // secondary swell" (see the Phase 1 note in that file). Treat it as absent
+    // instead of rendering "0 ft" downstream.
+    if (wavePoint?.swell_2_height == null || wavePoint.swell_2_height === 0) return null;
     if (!isFinite(wavePoint.swell_2_height)) return null;
     if (wavePoint.swell_2_height < 0 || wavePoint.swell_2_height > 10) return null;
     return this.metersToFeet(wavePoint.swell_2_height);
   }
 
   private getSwell2Period(wavePoint: WaveWatchData | null): string | null {
-    if (wavePoint?.swell_2_period == null) return null;
+    if (wavePoint?.swell_2_period == null || wavePoint.swell_2_period === 0) return null;
     return formatPeriodSeconds(wavePoint.swell_2_period);
   }
 
   private getSwell2Direction(wavePoint: WaveWatchData | null): string | null {
-    if (!wavePoint) return null;
+    // Gate on height: 0° is a legitimate direction on its own, but if the
+    // secondary-swell height is the 0 sentinel the direction is meaningless.
+    if (!wavePoint || wavePoint.swell_2_height == null || wavePoint.swell_2_height === 0) return null;
     return this.services.getWaveDirectionText(wavePoint.swell_2_direction);
   }
 
@@ -770,8 +808,14 @@ export class ForecastBuilder {
   }
 
   private getWindWavePeriod(cdipPoint: CDIPDataPoint | null, wavePoint: WaveWatchData | null, useCDIPData: boolean): string | null {
-    if (useCDIPData && cdipPoint?.windWavePeriod) return `${cdipPoint.windWavePeriod}s`;
-    if (wavePoint) return `${wavePoint.wind_wave_period}s`;
+    // Route both branches through formatPeriodSeconds (4s floor) so the 0
+    // sentinel emitted by data-processors.ts when `wavePeriod` was null —
+    // and any other sub-4s fabricated/sentinel value — renders as null
+    // instead of "0s" / "2.8s". Mirrors getSwell1Period / getWavePeriod.
+    if (useCDIPData && cdipPoint?.windWavePeriod != null)
+      return formatPeriodSeconds(cdipPoint.windWavePeriod);
+    if (wavePoint?.wind_wave_period != null)
+      return formatPeriodSeconds(wavePoint.wind_wave_period);
     return null;
   }
 

@@ -6,20 +6,8 @@
       "schedule": "0 * * * *"
     },
     {
-      "path": "/api/cron/enhanced-forecast-sync?shard=0&shardCount=4",
-      "schedule": "0 */2 * * *"
-    },
-    {
-      "path": "/api/cron/enhanced-forecast-sync?shard=1&shardCount=4",
-      "schedule": "30 */2 * * *"
-    },
-    {
-      "path": "/api/cron/enhanced-forecast-sync?shard=2&shardCount=4",
-      "schedule": "0 1-23/2 * * *"
-    },
-    {
-      "path": "/api/cron/enhanced-forecast-sync?shard=3&shardCount=4",
-      "schedule": "30 1-23/2 * * *"
+      "path": "/api/cron/enhanced-forecast-sync-dispatch",
+      "schedule": "0,30 * * * *"
     },
     {
       "path": "/api/cron/forecasts/refresh?source=marine&maxBeaches=130",
@@ -156,6 +144,14 @@
     {
       "path": "/api/cron/indexnow-submit",
       "schedule": "0 6 * * 1"
+    },
+    {
+      "path": "/api/cron/trial-ending-push-deliver",
+      "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/cron/first-session-nudge-push",
+      "schedule": "0 17 * * *"
     }
   ]
 }

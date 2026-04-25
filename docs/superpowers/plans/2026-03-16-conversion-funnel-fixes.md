@@ -157,6 +157,8 @@ useEffect(() => {
 
 At line 449, `trackSignupFormSubmitted` fires inside `handleEmailPassword()`. Add a guard:
 
+> **Superseded by F3 (2026-04-20):** `trackSignupFormSubmitted` no longer accepts `mode` — it hardcodes `"signup"` and is paired with `trackLoginFormSubmitted` for the login path. See commit `5ae0109c`.
+
 ```typescript
 if (!user) {
   trackSignupFormSubmitted({ mode: activeMode, source });

@@ -90,8 +90,15 @@ const nextConfig = {
   // Enable compression for better performance
   compress: true,
 
+  // Empty turbopack config silences the Next.js 16 "webpack config without
+  // turbopack config" error when @ducanh2912/next-pwa is wrapping nextConfig
+  // but `withSentryConfig` is gated off (Preview deploys). Sentry's wrapper
+  // injects its own turbopack config in Production, so this is only
+  // load-bearing when the Sentry gate is closed.
+  turbopack: {},
+
   // External packages for server components (moved from experimental)
-  serverExternalPackages: ["@supabase/supabase-js", "geo-tz"],
+  serverExternalPackages: ["@supabase/supabase-js", "geo-tz", "firebase-admin"],
 
   // Power pack optimizations
   poweredByHeader: false, // Remove X-Powered-By header
@@ -153,13 +160,26 @@ const nextConfig = {
           },
         ],
       },
-      // API route caching
+      // API route caching — default blanket.
+      //
+      // `private` (not `public`) because many /api/* routes return per-user
+      // data (follow status, likedByMe enrichment, friends feed, etc.) and
+      // this header applies to ALL matching routes, overriding any route-
+      // level Cache-Control the handler sets. Shared caches (CDN, corporate
+      // proxy) MUST NOT store these responses or they leak user A's state
+      // to user B. Browsers / NSURLCache can still cache within session.
+      //
+      // Routes that are intentionally public and benefit from shared caches
+      // (OG images, forecasts) should set `Cache-Control: public, ...`
+      // explicitly — but be aware that header precedence is a Next.js-
+      // version-dependent behavior, so prefer moving truly-cacheable routes
+      // to a more specific source pattern here if you need CDN caching.
       {
         source: "/api/(.*)",
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=60, stale-while-revalidate=120",
+            value: "private, max-age=60, stale-while-revalidate=120",
           },
         ],
       },
@@ -501,10 +521,12 @@ const pwaConfig = withPWA({
   ],
 });
 
-export default withSentryConfig(pwaConfig(nextConfig), {
-  // For all available options, see:
-  // https://www.npmjs.com/package/@sentry/webpack-plugin#options
-
+// Sentry options — only applied to Production builds.
+// Skipping the entire wrap on Preview deployments removes ~19–20s of
+// post-compile sourcemap bundling that runs even when dryRun is true.
+// See `turbopack: {}` above — required to silence the Next.js 16 webpack
+// config warning when this gate is closed.
+const sentryOptions = {
   org: "quiver-z4",
 
   project: "javascript-nextjs",
@@ -516,16 +538,10 @@ export default withSentryConfig(pwaConfig(nextConfig), {
   // Suppress verbose source map listing in build logs (saves ~220 log events on Vercel)
   silent: true,
 
-  // For all available options, see:
-  // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
-
   // Reduced source map upload for faster builds (set to true for prettier stack traces)
   widenClientFileUpload: false,
 
   // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
-  // This can increase your server load as well as your hosting bill.
-  // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-
-  // side errors will fail.
   tunnelRoute: "/monitoring",
 
   // Automatically tree-shake Sentry logger statements to reduce bundle size
@@ -542,9 +558,10 @@ export default withSentryConfig(pwaConfig(nextConfig), {
     excludeReplayWorker: true,
   },
 
-  // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
-  // See the following for more information:
-  // https://docs.sentry.io/product/crons/
-  // https://vercel.com/docs/cron-jobs
+  // Enables automatic instrumentation of Vercel Cron Monitors.
   automaticVercelMonitors: false,
-});
+};
+
+export default isProd
+  ? withSentryConfig(pwaConfig(nextConfig), sentryOptions)
+  : pwaConfig(nextConfig);

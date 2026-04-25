@@ -23,6 +23,8 @@ import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { ItemListSchema } from "@/components/seo/item-list-schema";
+import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { SITE_URL } from "@/lib/constants/seo";
 
 /** Intent quick-links shown per city for crawler discovery */
@@ -35,6 +37,13 @@ const CITY_INTENT_PILLS = [
   { key: "dawn-patrol" as const, label: "Dawn Patrol" },
   { key: "sunset" as const, label: "Sunset" },
 ];
+
+/**
+ * Beach-count threshold for concrete signup-CTA copy. States at or above this
+ * render "Which of {State}'s {N} breaks is firing right now?" — below, they
+ * fall back to generic copy so "Rhode Island's 3 breaks" doesn't read awkwardly.
+ */
+const CONCRETE_COPY_BREAK_THRESHOLD = 20;
 
 export const revalidate = 86400;
 
@@ -149,6 +158,22 @@ export default async function UsaStatePage(
   if (cities.length === 0) notFound();
 
   const beaches = beachesResponse.success && beachesResponse.data ? beachesResponse.data : [];
+
+  const beachCount = beaches.length;
+  const useConcreteCopy = beachCount >= CONCRETE_COPY_BREAK_THRESHOLD;
+
+  const stickySupportingText = useConcreteCopy
+    ? `When any of ${stateName}'s ${beachCount} breaks fire`
+    : "Know when conditions fire at your spots";
+  const inlineTitle = useConcreteCopy
+    ? `Which of ${stateName}'s ${beachCount} breaks are firing right now?`
+    : `Your next ${stateName} session, delivered`;
+  const inlineDescription = useConcreteCopy
+    ? "Track any of them. We ping you when yours lights up. Free."
+    : `Dawn patrol, after work, weekends — we'll ping you when ${stateName} lines up. Free.`;
+  const inlineButtonText = `Track ${stateName}`;
+  const ctaSource = `state-hub-${stateSlug}`;
+  const ctaCopyVariant = useConcreteCopy ? "v1-breaks-count" : "v1-generic";
 
   // Compute per-city beach counts from extended beach data
   const cityBeachCounts = new Map<string, number>();
@@ -277,12 +302,30 @@ export default async function UsaStatePage(
       {/* FAQ Section for SEO */}
       <FAQSection items={stateFaqs} locationName={stateName} />
 
+      <div className="my-8">
+        <InlineSignupCta
+          title={inlineTitle}
+          description={inlineDescription}
+          primaryButtonText={inlineButtonText}
+          source={ctaSource}
+          ctaCopyVariant={ctaCopyVariant}
+        />
+      </div>
+
       <IntentGuidesGrid
         locationSlug={stateSlug}
         locationName={stateName}
         locationType="state"
       />
       </div>
+
+      <StickySignupBar
+        source={ctaSource}
+        ctaText="Get Alerts"
+        supportingText={stickySupportingText}
+        ctaCopyVariant={ctaCopyVariant}
+        buttonClassName="min-h-[48px]"
+      />
     </>
   );
 }

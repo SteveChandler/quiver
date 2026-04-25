@@ -1,5 +1,9 @@
-import { withAuth, createSuccessResponse } from "@/lib/middleware/api-wrappers";
-import { getUserSessions } from "@/actions/session-actions";
+import {
+  withAuth,
+  createSuccessResponse,
+  createValidationError,
+} from "@/lib/middleware/api-wrappers";
+import { addFeaturedPhotoToSessions } from "@/actions/session-actions";
 import { getSessionAnalytics } from "@/actions/analytics-actions";
 import type { ExportOptions, ExportResult } from "@/types/database";
 import { format } from "date-fns";
@@ -13,50 +17,59 @@ export const POST = withAuth(async (request, { user, supabase }) => {
 
   // Validate export options
   if (!exportOptions.type || !exportOptions.format) {
-    return createSuccessResponse(
-      { error: "Export type and format are required" },
-      400
-    );
+    return createValidationError("Export type and format are required");
   }
 
-  // Get user sessions based on export type
-  let sessions = [];
+  // Inline the sessions fetch using the Bearer-aware supabase from withAuth.
+  // The previous `getUserSessions(user.id)` server action created its own
+  // cookie-only client and silently returned empty for native callers.
+  const { data: rawSessions, error: sessionsError } = await supabase
+    .from("sessions")
+    .select(
+      `
+      *,
+      session_date:arrival_time,
+      beach:beaches(*),
+      board:boards(*),
+      user:profiles(*)
+    `,
+    )
+    .eq("user_id", user.id)
+    .order("arrival_time", { ascending: false });
+
+  if (sessionsError) {
+    throw new Error(`Failed to fetch user sessions: ${sessionsError.message}`);
+  }
+
+  const allSessions = await addFeaturedPhotoToSessions(
+    supabase,
+    rawSessions || [],
+  );
+
+  let sessions: typeof allSessions = [];
   let analytics = null;
-
-  const sessionsResult = await getUserSessions(user.id);
-  if (!sessionsResult.success) {
-    throw new Error("Failed to fetch user sessions");
-  }
-
-  const allSessions = sessionsResult.data || [];
 
   // Filter sessions based on export type
   switch (exportOptions.type) {
     case "monthly":
       if (!exportOptions.month) {
-        return createSuccessResponse(
-          { error: "Month is required for monthly export" },
-          400
-        );
+        return createValidationError("Month is required for monthly export");
       }
       sessions = allSessions.filter(
         (session) =>
           format(new Date(session.arrival_time), "yyyy-MM") ===
-          exportOptions.month
+          exportOptions.month,
       );
       break;
 
     case "yearly":
       if (!exportOptions.year) {
-        return createSuccessResponse(
-          { error: "Year is required for yearly export" },
-          400
-        );
+        return createValidationError("Year is required for yearly export");
       }
       sessions = allSessions.filter(
         (session) =>
           new Date(session.arrival_time).getFullYear().toString() ===
-          exportOptions.year
+          exportOptions.year,
       );
       break;
 
@@ -65,21 +78,17 @@ export const POST = withAuth(async (request, { user, supabase }) => {
         !exportOptions.sessionIds ||
         exportOptions.sessionIds.length === 0
       ) {
-        return createSuccessResponse(
-          { error: "Session IDs are required for single session export" },
-          400
+        return createValidationError(
+          "Session IDs are required for single session export",
         );
       }
       sessions = allSessions.filter((session) =>
-        exportOptions.sessionIds!.includes(session.id)
+        exportOptions.sessionIds!.includes(session.id),
       );
       break;
 
     default:
-      return createSuccessResponse(
-        { error: "Invalid export type" },
-        400
-      );
+      return createValidationError("Invalid export type");
   }
 
   // Get analytics if requested

@@ -10,19 +10,69 @@ import {
   expectSuccessResponse,
 } from "@/test-utils/api-test-helpers";
 
-jest.mock("@/lib/middleware/api-wrappers", () => ({
-  withBotBlockingAndRateLimit: (handler: any) => handler,
-}));
-
 // Mock API server client used by route handlers
 const mockSupabaseClient = createMockSupabaseClient();
+
+jest.mock("@/lib/middleware/api-wrappers", () => {
+  const { NextResponse } = require("next/server");
+  return {
+    withBotBlockingAndRateLimit: (handler: any) => handler,
+    withAuth:
+      (handler: any, options: any = {}) =>
+      async (request: any, context: any) => {
+        try {
+          const { data, error } = await mockSupabaseClient.auth.getUser();
+          const user = error ? null : data?.user ?? null;
+          if (!options.optional && !user) {
+            return NextResponse.json(
+              { success: false, error: "Authentication required", timestamp: Date.now() },
+              { status: 401 },
+            );
+          }
+          const resolvedParams = context?.params
+            ? typeof context.params === "object" && "then" in context.params
+              ? await context.params
+              : context.params
+            : {};
+          return await handler(request, {
+            params: resolvedParams,
+            user,
+            supabase: mockSupabaseClient,
+          });
+        } catch (err: any) {
+          return NextResponse.json(
+            { success: false, error: options.errorMessage ?? err?.message ?? "Internal error", timestamp: Date.now() },
+            { status: 500 },
+          );
+        }
+      },
+    createSuccessResponse: (data: any) => {
+      const { NextResponse } = require("next/server");
+      return NextResponse.json({ success: true, data, timestamp: Date.now() });
+    },
+    createValidationError: (message: string) => {
+      const { NextResponse } = require("next/server");
+      return NextResponse.json(
+        { success: false, error: message, timestamp: Date.now() },
+        { status: 400 },
+      );
+    },
+    methodNotAllowed: (allowed: string[]) => {
+      const { NextResponse } = require("next/server");
+      return NextResponse.json(
+        { error: `Method not allowed. Allowed: ${allowed.join(", ")}` },
+        { status: 405 },
+      );
+    },
+  };
+});
 
 jest.mock("@/lib/supabase/api-server-client", () => ({
   createAPIServerClient: jest.fn(() => mockSupabaseClient),
 }));
 
 // Import after mocks
- 
+
 const { GET } = require("@/app/api/users/[id]/sessions/route");
 
 describe("/api/users/[id]/sessions", () => {

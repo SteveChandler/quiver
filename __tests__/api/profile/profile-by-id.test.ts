@@ -24,9 +24,38 @@ import {
 // Mock the Supabase API server client
 const mockSupabaseClient = createMockSupabaseClient();
 
-jest.mock("@/lib/middleware/api-wrappers", () => ({
-  withBotBlockingAndRateLimit: (handler: any) => handler,
-}));
+// withAuth is now optional-auth on this route. Mock it to inspect
+// `mockSupabaseClient.auth.getUser()` so the handler receives the user
+// exactly as the real wrapper would.
+jest.mock("@/lib/middleware/api-wrappers", () => {
+  const actual = jest.requireActual("@/lib/middleware/api-wrappers");
+  return {
+    ...actual,
+    withBotBlockingAndRateLimit: (handler: any) => handler,
+    withAuth:
+      (handler: any, options: any = {}) =>
+      async (request: any, context: any) => {
+        const { data, error } = await mockSupabaseClient.auth.getUser();
+        const user = error ? null : data?.user ?? null;
+        if (!options.optional && !user) {
+          const { createAuthError } = jest.requireActual("@/lib/api-utils");
+          return createAuthError(
+            options.authErrorMessage ?? "Authentication required"
+          );
+        }
+        const resolvedParams = context?.params
+          ? typeof context.params === "object" && "then" in context.params
+            ? await context.params
+            : context.params
+          : {};
+        return await handler(request, {
+          params: resolvedParams,
+          user,
+          supabase: mockSupabaseClient,
+        });
+      },
+  };
+});
 
 jest.mock("@/lib/supabase/api-server-client", () => ({
   createAPIServerClient: jest.fn(() => mockSupabaseClient),

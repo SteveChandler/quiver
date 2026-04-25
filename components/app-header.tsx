@@ -193,6 +193,7 @@ export function AppHeader() {
         { name: "Features", href: "/features" },
         { name: "Live Cams", href: "/cams" },
         { name: "Tools", href: "/tools" },
+        { name: "Roadmap", href: "/roadmap" },
         { name: "About", href: "/about" },
       ];
 

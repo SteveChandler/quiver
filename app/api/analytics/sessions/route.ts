@@ -1,6 +1,11 @@
-import { NextRequest } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
+import type { NextRequest } from "next/server";
+import {
+  withAuth,
+  createSuccessResponse,
+  createValidationError,
+  createErrorResponse,
+  type AuthenticatedContext,
+} from "@/lib/middleware/api-wrappers";
 import {
   getSessionAnalytics,
   getCalendarHeatmapData,
@@ -9,61 +14,44 @@ import {
 export const dynamic = "force-dynamic";
 
 /**
- * Get session analytics for the current user
  * GET /api/analytics/sessions?userId=me&type=analytics|calendar&year=2024&month=1
+ *
+ * Uses `withAuth` so both cookie (web) and Bearer (native) auth resolve the
+ * user. The prior handler's cookie-only client returned 401 for every
+ * native caller. The downstream actions (getSessionAnalytics,
+ * getCalendarHeatmapData) accept the supabase client as an argument, so
+ * they pick up the Bearer-scoped client from the withAuth context directly.
  */
-export async function GET(request: NextRequest) {
-  try {
+export const GET = withAuth(
+  async (request: NextRequest, { user, supabase }: AuthenticatedContext) => {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
     const type = searchParams.get("type") || "analytics";
     const year = searchParams.get("year");
     const month = searchParams.get("month");
 
-    if (!userId)
-      return new Response(
-        JSON.stringify({ error: "User ID is required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
+    if (!userId) return createValidationError("User ID is required");
 
-    const supabase = await createSupabaseServerClient();
-
-    // Get the current user
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user)
-      return new Response(
-        JSON.stringify({ error: "Authentication required" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
-      );
-
-    // Support "me" as userId for current user
+    // "me" → current user
     const targetUserId = userId === "me" ? user.id : userId;
 
-    // Ensure user can only access their own analytics
+    // Users can only read their own analytics.
     if (targetUserId !== user.id) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized access to analytics data" }),
-        { status: 403, headers: { "Content-Type": "application/json" } }
-      );
+      return createErrorResponse("Unauthorized access to analytics data", 403);
     }
 
     if (type === "calendar") {
-      // Calendar heatmap data
-      if (!year || !month)
-        return new Response(
-          JSON.stringify({ error: "Year and month are required for calendar data" }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
+      if (!year || !month) {
+        return createValidationError(
+          "Year and month are required for calendar data",
         );
+      }
 
       const calendarResult = await getCalendarHeatmapData(
         supabase,
         targetUserId,
         parseInt(year),
-        parseInt(month)
+        parseInt(month),
       );
 
       if (!calendarResult.success) {
@@ -78,53 +66,31 @@ export async function GET(request: NextRequest) {
         data: calendarResult.data,
         generatedAt: new Date().toISOString(),
       });
-    } else {
-      // Full analytics data
-      const analyticsResult = await getSessionAnalytics(supabase, targetUserId);
-
-      if (!analyticsResult.success) {
-        throw new Error(analyticsResult.error);
-      }
-
-      return createSuccessResponse(analyticsResult.data);
     }
-  } catch (error) {
-    console.error("Error fetching session analytics:", error);
-    return handleApiError(error);
-  }
-}
+
+    const analyticsResult = await getSessionAnalytics(supabase, targetUserId);
+    if (!analyticsResult.success) {
+      throw new Error(analyticsResult.error);
+    }
+
+    return createSuccessResponse(analyticsResult.data);
+  },
+  { errorMessage: "Failed to fetch session analytics" },
+);
 
 /**
- * Update session privacy settings
- * PATCH /api/analytics/sessions
+ * PATCH /api/analytics/sessions - update session privacy.
  */
-export async function PATCH(request: NextRequest) {
-  try {
+export const PATCH = withAuth(
+  async (request: NextRequest, { user, supabase }: AuthenticatedContext) => {
     const { sessionId, isPrivate } = await request.json();
 
     if (!sessionId || typeof isPrivate !== "boolean") {
-      return new Response(
-        JSON.stringify({ error: "Session ID and privacy flag are required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+      return createValidationError(
+        "Session ID and privacy flag are required",
       );
     }
 
-    const supabase = await createSupabaseServerClient();
-
-    // Get the current user
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Authentication required" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // Update session privacy
     const { data, error } = await supabase
       .from("sessions")
       .update({
@@ -132,20 +98,16 @@ export async function PATCH(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", sessionId)
-      .eq("user_id", user.id) // Ensure user owns this session
+      .eq("user_id", user.id)
       .select()
       .single();
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     return createSuccessResponse({
       message: "Session privacy updated successfully",
       session: data,
     });
-  } catch (error) {
-    console.error("Error updating session privacy:", error);
-    return handleApiError(error);
-  }
-}
+  },
+  { errorMessage: "Failed to update session privacy" },
+);

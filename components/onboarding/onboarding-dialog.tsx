@@ -35,7 +35,7 @@ function isProfileSubstantiallyComplete(
 
 export function OnboardingDialog() {
   const { user } = useAuth();
-  const { profile } = useProfileContext();
+  const { profile, isLoading: profileLoading } = useProfileContext();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -86,6 +86,16 @@ export function OnboardingDialog() {
     if (isForceOpenParamCurrent) setForceOpenLatched(true);
   }, [isForceOpenParamCurrent]);
   const isForceOpen = isForceOpenParamCurrent || forceOpenLatched;
+
+  // Release the latch once the profile confirms completion — stale welcome-email
+  // links for already-onboarded users must not keep the dialog force-open after
+  // the param is stripped. Analytics (2026-04-24) showed a user re-opening the
+  // dialog 4 s after completion because this latch never released.
+  useEffect(() => {
+    if (!profileLoading && profile?.onboarding_completed_at && forceOpenLatched) {
+      setForceOpenLatched(false);
+    }
+  }, [profileLoading, profile?.onboarding_completed_at, forceOpenLatched]);
 
   const hasCompletedOnboarding = !!profile?.onboarding_completed_at;
   const substantiallyComplete = isProfileSubstantiallyComplete(profile);
@@ -242,6 +252,12 @@ export function OnboardingDialog() {
     if (hasProcessedRequiredParam.current) return;
     if (searchParams?.get("onboarding") !== "required") return;
     if (!user) return;
+    // Wait for the profile fetch to settle before locking in the decision.
+    // Without this guard, a mount-time race with user loaded but profile still
+    // null takes the `reopenFresh` branch, then the one-shot ref prevents the
+    // defense from firing when profile eventually resolves with
+    // onboarding_completed_at set — the re-open loop observed in analytics.
+    if (profileLoading) return;
 
     const stripParam = () => {
       const next = new URLSearchParams(searchParams?.toString() ?? "");
@@ -272,7 +288,7 @@ export function OnboardingDialog() {
     reopenFresh(user.id);
 
     stripParam();
-  }, [searchParams, user, profile, reopenFresh, router, pathname]);
+  }, [searchParams, user, profile, profileLoading, reopenFresh, router, pathname]);
 
   // Keep store/UI consistent: if the store says "open" but render conditions
   // no longer allow onboarding (e.g., profile loads as complete), close it.

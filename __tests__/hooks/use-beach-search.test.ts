@@ -622,6 +622,29 @@ describe("useBeachSearch", () => {
       expect(result.current.filters.beginnerFriendly).toBe(false);
       expect(result.current.filters.breakTypes.size).toBe(0);
     });
+
+    it("clearAllFilters also resets searchQuery (used by map Clear all)", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      act(() => {
+        result.current.setSearchQuery("Ocean");
+        result.current.toggleBreakType("reef");
+      });
+
+      expect(result.current.searchQuery).toBe("Ocean");
+
+      act(() => {
+        result.current.clearAllFilters();
+      });
+
+      expect(result.current.searchQuery).toBe("");
+      expect(result.current.filters.breakTypes.size).toBe(0);
+      expect(result.current.filteredBeaches).toHaveLength(5);
+    });
   });
 
   describe("search ranking", () => {

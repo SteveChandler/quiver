@@ -433,6 +433,7 @@ export function useBeachSearch() {
     clearAllFilters: useCallback(() => {
       setState((prev) => ({
         ...prev,
+        searchQuery: "",
         filters: {
           beginnerFriendly: false,
           breakTypes: new Set<string>(),
