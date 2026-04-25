@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       account_deletions: {
@@ -2208,6 +2183,101 @@ export type Database = {
           },
         ]
       }
+      custom_spots: {
+        Row: {
+          break_type: string | null
+          created_at: string
+          deleted_at: string | null
+          id: string
+          lat: number
+          lon: number
+          name: string
+          nearest_beach_distance_mi: number | null
+          nearest_beach_id: string | null
+          updated_at: string
+          user_id: string
+          visibility: string
+        }
+        Insert: {
+          break_type?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          lat: number
+          lon: number
+          name: string
+          nearest_beach_distance_mi?: number | null
+          nearest_beach_id?: string | null
+          updated_at?: string
+          user_id: string
+          visibility?: string
+        }
+        Update: {
+          break_type?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          lat?: number
+          lon?: number
+          name?: string
+          nearest_beach_distance_mi?: number | null
+          nearest_beach_id?: string | null
+          updated_at?: string
+          user_id?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_spots_nearest_beach_id_fkey"
+            columns: ["nearest_beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_spots_nearest_beach_id_fkey"
+            columns: ["nearest_beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "custom_spots_nearest_beach_id_fkey"
+            columns: ["nearest_beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_spots_nearest_beach_id_fkey"
+            columns: ["nearest_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "custom_spots_nearest_beach_id_fkey"
+            columns: ["nearest_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "custom_spots_nearest_beach_id_fkey"
+            columns: ["nearest_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "custom_spots_nearest_beach_id_fkey"
+            columns: ["nearest_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+        ]
+      }
       data_cleanup_audit: {
         Row: {
           backup_data: Json | null
@@ -2275,6 +2345,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      dev_session_mutation_audit: {
+        Row: {
+          application_name: string | null
+          at: string
+          client_addr: unknown
+          current_query: string | null
+          current_user_role: unknown
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          op: string
+          session_id: string | null
+          session_user_role: unknown
+          txid: number
+          user_id: string | null
+        }
+        Insert: {
+          application_name?: string | null
+          at?: string
+          client_addr?: unknown
+          current_query?: string | null
+          current_user_role?: unknown
+          id?: number
+          new_row?: Json | null
+          old_row?: Json | null
+          op: string
+          session_id?: string | null
+          session_user_role?: unknown
+          txid?: number
+          user_id?: string | null
+        }
+        Update: {
+          application_name?: string | null
+          at?: string
+          client_addr?: unknown
+          current_query?: string | null
+          current_user_role?: unknown
+          id?: number
+          new_row?: Json | null
+          old_row?: Json | null
+          op?: string
+          session_id?: string | null
+          session_user_role?: unknown
+          txid?: number
+          user_id?: string | null
+        }
+        Relationships: []
       }
       digest_run_stats: {
         Row: {
@@ -3603,6 +3721,15 @@ export type Database = {
           id: string
           ml_skipped: boolean
           model_version: string
+          noaa_swell_1_direction_deg: number | null
+          noaa_swell_1_height_m: number | null
+          noaa_swell_1_period_s: number | null
+          noaa_swell_2_direction_deg: number | null
+          noaa_swell_2_height_m: number | null
+          noaa_swell_2_period_s: number | null
+          noaa_wind_wave_direction_deg: number | null
+          noaa_wind_wave_height_m: number | null
+          noaa_wind_wave_period_s: number | null
           observed_m: number | null
           om_passthrough_m: number | null
           predicted_at: string
@@ -3634,6 +3761,15 @@ export type Database = {
           id?: string
           ml_skipped?: boolean
           model_version: string
+          noaa_swell_1_direction_deg?: number | null
+          noaa_swell_1_height_m?: number | null
+          noaa_swell_1_period_s?: number | null
+          noaa_swell_2_direction_deg?: number | null
+          noaa_swell_2_height_m?: number | null
+          noaa_swell_2_period_s?: number | null
+          noaa_wind_wave_direction_deg?: number | null
+          noaa_wind_wave_height_m?: number | null
+          noaa_wind_wave_period_s?: number | null
           observed_m?: number | null
           om_passthrough_m?: number | null
           predicted_at: string
@@ -3665,6 +3801,15 @@ export type Database = {
           id?: string
           ml_skipped?: boolean
           model_version?: string
+          noaa_swell_1_direction_deg?: number | null
+          noaa_swell_1_height_m?: number | null
+          noaa_swell_1_period_s?: number | null
+          noaa_swell_2_direction_deg?: number | null
+          noaa_swell_2_height_m?: number | null
+          noaa_swell_2_period_s?: number | null
+          noaa_wind_wave_direction_deg?: number | null
+          noaa_wind_wave_height_m?: number | null
+          noaa_wind_wave_period_s?: number | null
           observed_m?: number | null
           om_passthrough_m?: number | null
           predicted_at?: string
@@ -4351,6 +4496,132 @@ export type Database = {
           },
         ]
       }
+      roadmap_item_submissions: {
+        Row: {
+          category: Database["public"]["Enums"]["roadmap_category"]
+          created_at: string
+          decision: Database["public"]["Enums"]["roadmap_submission_decision"]
+          description: string
+          founder_reply: string | null
+          id: string
+          merged_into_item_id: string | null
+          submitter_user_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["roadmap_category"]
+          created_at?: string
+          decision?: Database["public"]["Enums"]["roadmap_submission_decision"]
+          description: string
+          founder_reply?: string | null
+          id?: string
+          merged_into_item_id?: string | null
+          submitter_user_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["roadmap_category"]
+          created_at?: string
+          decision?: Database["public"]["Enums"]["roadmap_submission_decision"]
+          description?: string
+          founder_reply?: string | null
+          id?: string
+          merged_into_item_id?: string | null
+          submitter_user_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_item_submissions_merged_into_item_id_fkey"
+            columns: ["merged_into_item_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roadmap_item_submissions_merged_into_item_id_fkey"
+            columns: ["merged_into_item_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_items_with_vote_count"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadmap_items: {
+        Row: {
+          category: Database["public"]["Enums"]["roadmap_category"]
+          created_at: string
+          description: string
+          eta_label: string | null
+          founder_reply: string | null
+          id: string
+          shipped_at: string | null
+          status: Database["public"]["Enums"]["roadmap_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["roadmap_category"]
+          created_at?: string
+          description: string
+          eta_label?: string | null
+          founder_reply?: string | null
+          id?: string
+          shipped_at?: string | null
+          status?: Database["public"]["Enums"]["roadmap_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["roadmap_category"]
+          created_at?: string
+          description?: string
+          eta_label?: string | null
+          founder_reply?: string | null
+          id?: string
+          shipped_at?: string | null
+          status?: Database["public"]["Enums"]["roadmap_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      roadmap_votes: {
+        Row: {
+          created_at: string
+          item_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          item_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          item_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_votes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roadmap_votes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_items_with_vote_count"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_windows: {
         Row: {
           beach_id: string
@@ -4958,6 +5229,7 @@ export type Database = {
           comments_count: number
           created_at: string
           crowd_level: number | null
+          custom_spot_id: string | null
           deleted_at: string | null
           description: string | null
           duration_minutes: number
@@ -4972,6 +5244,7 @@ export type Database = {
           notes: string | null
           parking_ease: number | null
           rating: number | null
+          session_decomposition: Json | null
           share_count: number
           skill_ratings: Json | null
           source: string | null
@@ -4994,6 +5267,7 @@ export type Database = {
           comments_count?: number
           created_at?: string
           crowd_level?: number | null
+          custom_spot_id?: string | null
           deleted_at?: string | null
           description?: string | null
           duration_minutes?: number
@@ -5008,6 +5282,7 @@ export type Database = {
           notes?: string | null
           parking_ease?: number | null
           rating?: number | null
+          session_decomposition?: Json | null
           share_count?: number
           skill_ratings?: Json | null
           source?: string | null
@@ -5030,6 +5305,7 @@ export type Database = {
           comments_count?: number
           created_at?: string
           crowd_level?: number | null
+          custom_spot_id?: string | null
           deleted_at?: string | null
           description?: string | null
           duration_minutes?: number
@@ -5044,6 +5320,7 @@ export type Database = {
           notes?: string | null
           parking_ease?: number | null
           rating?: number | null
+          session_decomposition?: Json | null
           share_count?: number
           skill_ratings?: Json | null
           source?: string | null
@@ -5112,6 +5389,13 @@ export type Database = {
             columns: ["board_id"]
             isOneToOne: false
             referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_custom_spot_id_fkey"
+            columns: ["custom_spot_id"]
+            isOneToOne: false
+            referencedRelation: "custom_spots"
             referencedColumns: ["id"]
           },
           {
@@ -5343,6 +5627,86 @@ export type Database = {
           },
           {
             foreignKeyName: "sun_times_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+        ]
+      }
+      surfline_shadow_forecasts: {
+        Row: {
+          beach_id: string
+          fetched_at: string | null
+          forecast_ts: string
+          id: string
+          surfline_spot_id: string
+          wave_height_max_m: number | null
+          wave_height_min_m: number | null
+        }
+        Insert: {
+          beach_id: string
+          fetched_at?: string | null
+          forecast_ts: string
+          id?: string
+          surfline_spot_id: string
+          wave_height_max_m?: number | null
+          wave_height_min_m?: number | null
+        }
+        Update: {
+          beach_id?: string
+          fetched_at?: string | null
+          forecast_ts?: string
+          id?: string
+          surfline_spot_id?: string
+          wave_height_max_m?: number | null
+          wave_height_min_m?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "surfline_shadow_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "surfline_shadow_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "surfline_shadow_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "surfline_shadow_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "surfline_shadow_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "surfline_shadow_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "surfline_shadow_forecasts_beach_id_fkey"
             columns: ["beach_id"]
             isOneToOne: false
             referencedRelation: "v_tide_forecast_latest"
@@ -6626,6 +6990,22 @@ export type Database = {
           },
         ]
       }
+      roadmap_items_with_vote_count: {
+        Row: {
+          category: Database["public"]["Enums"]["roadmap_category"] | null
+          created_at: string | null
+          description: string | null
+          eta_label: string | null
+          founder_reply: string | null
+          id: string | null
+          shipped_at: string | null
+          status: Database["public"]["Enums"]["roadmap_status"] | null
+          title: string | null
+          updated_at: string | null
+          vote_count: number | null
+        }
+        Relationships: []
+      }
       ten_day_enhanced_forecasts: {
         Row: {
           air_temperature: string | null
@@ -7048,6 +7428,18 @@ export type Database = {
       compute_implicit_preferences: {
         Args: { target_user_id?: string }
         Returns: number
+      }
+      compute_user_match_score: {
+        Args: {
+          p_beach_id: string
+          p_tide_height: string
+          p_user_id: string
+          p_wave_height: string
+          p_wave_period: string
+          p_wind_direction: string
+          p_wind_speed: string
+        }
+        Returns: Json
       }
       concat_text_array: { Args: { vals: string[] }; Returns: string }
       create_activity: {
@@ -7804,6 +8196,21 @@ export type Database = {
           unique_sharers: number
         }[]
       }
+      get_user_match_candidates: {
+        Args: {
+          p_device_lat?: number
+          p_device_lon?: number
+          p_exclude_beach_id?: string
+          p_limit?: number
+          p_radius_km?: number
+          p_user_id: string
+        }
+        Returns: {
+          beach: Json
+          label: string
+          score: number
+        }[]
+      }
       get_user_referral_stats: {
         Args: { user_id: string }
         Returns: {
@@ -7902,6 +8309,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      parse_numeric_from_text: { Args: { input: string }; Returns: number }
       populate_geometry_columns:
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
         | { Args: { use_typmod?: boolean }; Returns: string }
@@ -8616,6 +9024,23 @@ export type Database = {
         | "access"
         | "other"
       intel_vote_type: "helpful" | "off" | "confirmed"
+      roadmap_category:
+        | "forecasts"
+        | "logging"
+        | "community"
+        | "notifications"
+        | "subscription"
+        | "other"
+      roadmap_status:
+        | "under_consideration"
+        | "in_progress"
+        | "shipped"
+        | "declined"
+      roadmap_submission_decision:
+        | "pending"
+        | "approved"
+        | "declined"
+        | "merged_into"
     }
     CompositeTypes: {
       geometry_dump: {
@@ -8749,9 +9174,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       beach_persona: [
@@ -8770,6 +9192,26 @@ export const Constants = {
         "other",
       ],
       intel_vote_type: ["helpful", "off", "confirmed"],
+      roadmap_category: [
+        "forecasts",
+        "logging",
+        "community",
+        "notifications",
+        "subscription",
+        "other",
+      ],
+      roadmap_status: [
+        "under_consideration",
+        "in_progress",
+        "shipped",
+        "declined",
+      ],
+      roadmap_submission_decision: [
+        "pending",
+        "approved",
+        "declined",
+        "merged_into",
+      ],
     },
   },
 } as const

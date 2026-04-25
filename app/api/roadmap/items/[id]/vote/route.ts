@@ -1,4 +1,4 @@
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { withAuth, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
 
 export const dynamic = "force-dynamic";
@@ -23,9 +23,9 @@ export const POST = withAuth(
         .eq("user_id", user.id);
       if (error) {
         console.error("[roadmap] vote delete error:", error);
-        return Response.json({ error: "Could not record vote" }, { status: 500 });
+        return NextResponse.json({ error: "Could not record vote" }, { status: 500 });
       }
-      return Response.json({ voted: false });
+      return NextResponse.json({ voted: false });
     }
 
     const { error } = await supabase
@@ -35,11 +35,11 @@ export const POST = withAuth(
       // 23505 = unique_violation. Double-tap races land a duplicate insert
       // attempt; treat as idempotent "already voted".
       if ((error as { code?: string }).code === "23505") {
-        return Response.json({ voted: true });
+        return NextResponse.json({ voted: true });
       }
       console.error("[roadmap] vote insert error:", error);
-      return Response.json({ error: "Could not record vote" }, { status: 500 });
+      return NextResponse.json({ error: "Could not record vote" }, { status: 500 });
     }
-    return Response.json({ voted: true });
+    return NextResponse.json({ voted: true });
   },
 );

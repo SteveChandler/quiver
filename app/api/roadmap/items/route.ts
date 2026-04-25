@@ -24,7 +24,7 @@ export async function GET(req: Request): Promise<Response> {
     .order("created_at", { ascending: false });
 
   if (statusFilter && ALLOWED_STATUSES.includes(statusFilter as RoadmapStatus)) {
-    query = query.eq("status", statusFilter);
+    query = query.eq("status", statusFilter as RoadmapStatus);
   }
 
   const { data, error } = await query;
