@@ -609,7 +609,7 @@ All wrapped in `BEGIN; ... COMMIT;` per `quiver/docs/MIGRATION_SAFETY.md`. None 
 - **2026-04-25 v3** — applied second round of review feedback (6 findings):
   1. Cron premise corrected. Evaluator is daily at `0 9 * * *`, only deliver was `*/5 * * * *`. A0 narrowed to: deliver `*/5` → `*/15` (288/day → 96/day). Evaluator schedule untouched in A0; A4 may retune if A2's diagnosis warrants.
   2. Materialization restructured around a `finalize_anon_alert_capture` Postgres function (RPC) — the only way to get a transaction boundary in the callback flow given `app/auth/callback/route.ts`'s sequential Supabase client architecture. Atomic claim uses `UPDATE...RETURNING` inside a CTE (the form that's actually valid SQL).
-  3. `morning_check_in` renamed to `daily_check_in`. Conditions trimmed to fields that actually exist in `AlertConditions` (`swell_height_min_ft`, `wind_speed_max_kt`). Time-window concept dropped — not supported by `evaluateConditions()` and out of scope for Phase 1.
+  3. `morning_check_in` renamed to `daily_check_in`. Conditions trimmed to fields that actually exist in `AlertConditions` (`swell_height_min` and `wind_speed_max_kt`; note that `swell_height_min` does not have a `_ft` suffix in the existing schema even though the value is in feet). Time-window concept dropped — not supported by `evaluateConditions()` and out of scope for Phase 1.
   4. A2 forensic source corrected — read `enhanced_forecasts` (what the evaluator actually uses), not `v_marine_forecast_latest`.
   5. Added `EVENT_WEIGHTS` as a fifth event-tracking layer. New events get weight 0.
   6. "Expo receipt" replaced with FCM Admin / "actual on-device arrival" — push stack is Firebase Admin, not Expo.
