@@ -2526,3 +2526,24 @@ These steps happen post-merge. They are not implementation tasks; they live here
 - [x] Type consistency: `cooldownDecision` and `weeklyCapDecision` signatures in Task 3 match Task 5's import. `validateAnonCapture` return shape in Task 15 matches Task 17's consumer. `finalize_anon_alert_capture` SQL signature in Task 11 matches Task 18's RPC call.
 - [x] Test code is concrete: every test step has the test code inline.
 - [x] Existing patterns followed: routes use `withErrorHandler` + `withRateLimit` per `lib/middleware/api-wrappers`; client components self-guard with `useAuth()` per CLAUDE.md.
+
+---
+
+## Execution amendment (2026-04-26): mocked-Supabase pivot
+
+Local `supabase db reset` is broken on this branch by ≥4 pre-existing migration-history defects spanning Dec 2025 → Apr 2026 (`20251212193001` stray rollback; `20260331170000` skill_level CHECK + unique-index mismatch; `20260401000001` index references not-yet-created table; `20260410163125` references missing `beaches.updated_at` column; likely more downstream). The first three were patched on this branch (`a7352dd4`, `a8b19f58`) to surface the pattern; the rest are deferred to a dedicated `chore/migration-replay-repair` branch — fixing them inline expands scope without strengthening alerts validation.
+
+**On this branch we therefore:**
+- Continue using the hand-stubbed `alert_delivery_attempts` type in `types/database.generated.ts` (incl. dual `profiles` / `profiles_with_home_beach` relation entries) instead of regenerating from local. The type will be replaced by canonical generated output after the migration-repair branch lands.
+- Convert Task 4 / Task 5 worker tests from integration tests against a live local DB to **unit tests with `jest.mock('@/lib/supabase/service')`**. Coverage target: every kill-switch / allowlist / cooldown / cap branch writes the right `alert_delivery_attempts` shape via the mocked client. SQL semantics of those writes are covered on Vercel Preview in Task 6.
+- Convert Task 17 anon-capture route tests to mocked-Supabase. RPC semantics of `finalize_anon_alert_capture` (Task 11) and `/auth/callback` finalization (Task 18) are likewise validated on Vercel Preview, not locally.
+- **Task 11 honesty bookmark:** mocked unit tests in this branch DO NOT cover the SQL bodies of `finalize_anon_alert_capture`, `preset_default_conditions`, or `preset_default_name`. The PR description (Task 22) MUST call this gap out explicitly so reviewers/operators don't read a green test run as SQL validation. RPC parity (Task 16) becomes a documentation comparison + Preview-side smoke test, not a Jest assertion.
+
+**Not deferred:**
+- All forward migrations Tasks 1, 7, 9, 11, 12, 21 still ship on this branch. They are valid and will apply on Preview.
+- All pure-module tests (Tasks 3, 15) — already passing.
+
+**Deferred to a separate `chore/migration-replay-repair` branch:**
+- Repair of `20260410163125_remove_shoaling_zero_cdip_beaches.sql` and any further downstream migrations exposed once that one is fixed.
+- Regeneration of canonical `types/database.generated.ts` from a clean local replay (replaces hand-stubs).
+- Validation that local migration history is clean end-to-end.
