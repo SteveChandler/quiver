@@ -222,6 +222,21 @@ export const RATE_LIMITS = {
     requestsPerHour: 500,
     burstLimit: 10,
   } as RateLimiterConfig,
+
+  /**
+   * Anon Alert Capture - HIGH abuse risk
+   *
+   * Endpoint: POST /api/alerts/anon-capture
+   * Risk: Email spam / OTP abuse via signInWithOtp
+   * Cost: External Supabase Auth call per request
+   *
+   * Strict 5/hour per IP — anonymous users only need to submit once.
+   */
+  "anon-alert-capture": {
+    requestsPerMinute: 2,
+    requestsPerHour: 5,
+    burstLimit: 2,
+  } as RateLimiterConfig,
 } as const;
 
 /**
@@ -256,6 +271,8 @@ const RATE_LIMIT_MESSAGES = {
     "HLS proxy rate limit exceeded. Please wait before requesting more streams.",
   "cam-resolve":
     "Camera stream resolution rate limit exceeded. Please wait before retrying.",
+  "anon-alert-capture":
+    "Too many alert sign-up attempts. Please wait before retrying.",
 } as const;
 
 /**

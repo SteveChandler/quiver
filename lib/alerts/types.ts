@@ -18,7 +18,8 @@ export type PresetType =
   | "mellow_session"
   | "tide_window"
   | "dawn_patrol"
-  | "epic_conditions";
+  | "epic_conditions"
+  | "daily_check_in";
 
 export interface PresetDefinition {
   type: PresetType;

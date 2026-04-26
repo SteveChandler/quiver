@@ -149,6 +149,68 @@ export type Database = {
         }
         Relationships: []
       }
+      alert_delivery_attempts: {
+        Row: {
+          attempted_at: string
+          channel: string
+          id: string
+          queue_id: string
+          rule_id: string
+          skip_reason: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          attempted_at?: string
+          channel: string
+          id?: string
+          queue_id: string
+          rule_id: string
+          skip_reason?: string | null
+          status: string
+          user_id: string
+        }
+        Update: {
+          attempted_at?: string
+          channel?: string
+          id?: string
+          queue_id?: string
+          rule_id?: string
+          skip_reason?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_delivery_attempts_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "alert_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_delivery_attempts_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "alert_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_delivery_attempts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_delivery_attempts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_with_home_beach"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alert_queue: {
         Row: {
           alert_date: string
@@ -4122,6 +4184,64 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_alert_captures: {
+        Row: {
+          beach_id: string
+          captured_at: string
+          consumed_at: string | null
+          consumed_user_id: string | null
+          email: string
+          expires_at: string
+          id: string
+          preset_type: string
+          return_path: string
+        }
+        Insert: {
+          beach_id: string
+          captured_at?: string
+          consumed_at?: string | null
+          consumed_user_id?: string | null
+          email: string
+          expires_at?: string
+          id?: string
+          preset_type: string
+          return_path: string
+        }
+        Update: {
+          beach_id?: string
+          captured_at?: string
+          consumed_at?: string | null
+          consumed_user_id?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          preset_type?: string
+          return_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_alert_captures_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_alert_captures_consumed_user_id_fkey"
+            columns: ["consumed_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_alert_captures_consumed_user_id_fkey"
+            columns: ["consumed_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_with_home_beach"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       posting_config: {
         Row: {
           cadence_phase: string
@@ -7486,6 +7606,16 @@ export type Database = {
         | { Args: { table_name: string }; Returns: string }
       enablelongtransactions: { Args: never; Returns: string }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      finalize_anon_alert_capture: {
+        Args: { p_email: string; p_user_id: string }
+        Returns: {
+          beach_id: string
+          capture_id: string
+          captured_at: string
+          preset_type: string
+          return_path: string
+        }[]
+      }
       find_cities_by_pattern: {
         Args: { search_pattern: string; state_filter?: string }
         Returns: {
@@ -8350,6 +8480,14 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
+      preset_default_conditions: {
+        Args: { p_beach_id: string; p_preset: string }
+        Returns: Json
+      }
+      preset_default_name: {
+        Args: { p_beach_id: string; p_preset: string }
+        Returns: string
+      }
       prune_forecasts_retention: {
         Args: {
           batch_size?: number

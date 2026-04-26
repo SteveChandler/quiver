@@ -221,6 +221,15 @@ export const VALID_EVENTS: ImplicitEventType[] = [
   'roadmap_vote_cast',
   'roadmap_item_submitted',
   'roadmap_item_status_changed',
+  // Anon alert capture funnel (3 pre-auth + 2 post-auth). Pre-auth events
+  // are also added to ANONYMOUS_ALLOWED_EVENTS and PRE_AUTH_ONLY_EVENTS;
+  // the post-auth events fire only from /auth/callback once the session
+  // exists, so they belong to the authed flow only.
+  'anon_alert_capture_view',
+  'anon_alert_capture_submit',
+  'anon_alert_capture_error',
+  'anon_alert_magic_link_clicked',
+  'anon_alert_signup_success',
 ];
 
 export const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
@@ -252,6 +261,13 @@ export const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
   'client_error',
   // Engagement depth
   'scroll_depth', 'time_on_page',
+  // Anon alert capture (pre-auth only — fired from anonymous SEO landings).
+  // The two post-auth siblings (anon_alert_magic_link_clicked,
+  // anon_alert_signup_success) deliberately omitted; they fire only once
+  // the user is authenticated in /auth/callback.
+  'anon_alert_capture_view',
+  'anon_alert_capture_submit',
+  'anon_alert_capture_error',
 ];
 
 /**
@@ -267,6 +283,13 @@ export const PRE_AUTH_ONLY_EVENTS: ImplicitEventType[] = [
   'login_form_submitted',
   'auth_modal_opened',
   'auth_modal_closed_without_action',
+  // Anon alert capture (pre-auth only). Ghost-authed fires of these
+  // events are silently dropped server-side. The post-auth siblings
+  // (magic_link_clicked, signup_success) intentionally NOT here — they
+  // require an authenticated user.
+  'anon_alert_capture_view',
+  'anon_alert_capture_submit',
+  'anon_alert_capture_error',
 ];
 
 const ANON_RATE_LIMIT = 30; // Lower rate limit for anonymous users
