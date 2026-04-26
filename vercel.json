@@ -139,7 +139,7 @@
     },
     {
       "path": "/api/cron/condition-alert-deliver",
-      "schedule": "*/5 * * * *"
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/cron/indexnow-submit",
