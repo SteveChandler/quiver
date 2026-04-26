@@ -85,6 +85,14 @@ type AttemptRow = {
   status: string;
   skip_reason: string | null;
 };
+type SeededAttemptRow = {
+  queue_id: string;
+  rule_id: string;
+  user_id: string;
+  channel: string;
+  status: string;
+  attempted_at: string; // ISO
+};
 type DeliveryRow = {
   user_id: string;
   alert_date: string;
@@ -101,6 +109,10 @@ interface MockStore {
   attemptInserts: AttemptRow[];
   deliveryInserts: DeliveryRow[];
   queueUpdates: QueueUpdate[];
+  // Pre-existing attempt rows (for cooldown/cap throttle queries).
+  // Worker reads these via SELECT on alert_delivery_attempts where status='sent'
+  // and attempted_at >= sinceWeek. Inserts during the run land in attemptInserts.
+  seededAttempts: SeededAttemptRow[];
 }
 
 const store: MockStore = {
@@ -111,6 +123,7 @@ const store: MockStore = {
   attemptInserts: [],
   deliveryInserts: [],
   queueUpdates: [],
+  seededAttempts: [],
 };
 
 function makeChain(rowsResolver: () => any[], onTerminal?: () => void) {
@@ -126,7 +139,10 @@ function makeChain(rowsResolver: () => any[], onTerminal?: () => void) {
       return chain;
     }),
     lte: jest.fn(() => chain),
-    gte: jest.fn(() => chain),
+    gte: jest.fn((_col: string, _val: any) => {
+      chain._filters[`${_col}__gte`] = _val;
+      return chain;
+    }),
     lt: jest.fn(() => chain),
     is: jest.fn(() => chain),
     not: jest.fn(() => chain),
@@ -181,7 +197,19 @@ function mockFrom(table: string) {
     );
   }
   if (table === "alert_delivery_attempts") {
-    const chain: any = makeChain(() => []);
+    // Reads on this table are the throttle's recent-sent fetch:
+    //   .select("rule_id, user_id, attempted_at")
+    //   .eq("status", "sent")
+    //   .gte("attempted_at", sinceWeek)
+    // Filter the seeded rows accordingly so the worker exercises its real query intent.
+    const chain: any = makeChain(() => {
+      const f = chain._filters;
+      return store.seededAttempts.filter((a) => {
+        if (f.status != null && a.status !== f.status) return false;
+        if (f.attempted_at__gte != null && a.attempted_at < f.attempted_at__gte) return false;
+        return true;
+      });
+    });
     chain.insert = jest.fn((row: AttemptRow) => {
       store.attemptInserts.push(row);
       return Promise.resolve({ error: null });
@@ -252,6 +280,7 @@ beforeEach(() => {
   store.attemptInserts = [];
   store.deliveryInserts = [];
   store.queueUpdates = [];
+  store.seededAttempts = [];
   mockEmailsSend.mockResolvedValue({ data: { id: "msg-1" }, error: null });
   delete process.env.ALERTS_DELIVERY_ENABLED;
   delete process.env.ALERTS_DELIVERY_USER_ALLOWLIST;
@@ -347,6 +376,89 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       rule_id: RULE_1,
       channel: "email",
       status: "sent",
+    });
+
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+  });
+});
+
+describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
+  it("rule cooldown: prior sent attempt 12h ago records skipped_cooldown and skips provider", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    seedQueueRow({
+      alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+
+    // Prior 'sent' attempt 12h ago for the same rule — within the 24h cooldown window.
+    store.seededAttempts.push({
+      queue_id: "00000000-0000-0000-0000-0000000000ff",
+      rule_id: RULE_1,
+      user_id: USER_A,
+      channel: "email",
+      status: "sent",
+      attempted_at: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
+    });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(mockSendPushNotifications).not.toHaveBeenCalled();
+    expect(store.deliveryInserts).toHaveLength(0);
+
+    expect(store.attemptInserts).toHaveLength(1);
+    expect(store.attemptInserts[0]).toMatchObject({
+      queue_id: QUEUE_1,
+      rule_id: RULE_1,
+      user_id: USER_A,
+      channel: "email",
+      status: "skipped_cooldown",
+    });
+
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+  });
+
+  it("weekly cap: 10 prior sent attempts in last 7d records skipped_user_cap and skips provider", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    seedQueueRow({
+      alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+
+    // 10 prior 'sent' attempts for USER_A spread across days 1..6 ago.
+    // Different rule_ids so cooldown doesn't trip first; weekly cap is per-user.
+    for (let i = 0; i < 10; i++) {
+      const dayOffset = (i % 6) + 1; // days 1..6
+      const hourJitter = i; // unique timestamps
+      store.seededAttempts.push({
+        queue_id: `00000000-0000-0000-0000-${String(i).padStart(12, "0")}`,
+        rule_id: `00000000-0000-0000-0000-${String(i).padStart(8, "0")}cap`.slice(0, 36),
+        user_id: USER_A,
+        channel: "email",
+        status: "sent",
+        attempted_at: new Date(
+          Date.now() - dayOffset * 24 * 60 * 60 * 1000 - hourJitter * 60 * 60 * 1000
+        ).toISOString(),
+      });
+    }
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(mockSendPushNotifications).not.toHaveBeenCalled();
+    expect(store.deliveryInserts).toHaveLength(0);
+
+    expect(store.attemptInserts).toHaveLength(1);
+    expect(store.attemptInserts[0]).toMatchObject({
+      queue_id: QUEUE_1,
+      rule_id: RULE_1,
+      user_id: USER_A,
+      channel: "email",
+      status: "skipped_user_cap",
     });
 
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
