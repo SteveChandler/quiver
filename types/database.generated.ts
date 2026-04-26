@@ -149,6 +149,61 @@ export type Database = {
         }
         Relationships: []
       }
+      alert_delivery_attempts: {
+        Row: {
+          attempted_at: string
+          channel: string
+          id: string
+          queue_id: string
+          rule_id: string
+          skip_reason: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          attempted_at?: string
+          channel: string
+          id?: string
+          queue_id: string
+          rule_id: string
+          skip_reason?: string | null
+          status: string
+          user_id: string
+        }
+        Update: {
+          attempted_at?: string
+          channel?: string
+          id?: string
+          queue_id?: string
+          rule_id?: string
+          skip_reason?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_delivery_attempts_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "alert_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_delivery_attempts_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "alert_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_delivery_attempts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       alert_queue: {
         Row: {
           alert_date: string
