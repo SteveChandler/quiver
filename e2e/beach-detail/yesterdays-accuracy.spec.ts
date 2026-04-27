@@ -56,8 +56,10 @@ test.describe("Yesterday's Accuracy Card", () => {
       await expect(card.getByText(/Yesterday[‘’]s Accuracy/i)).toBeVisible();
       await expect(card.getByText(/Predicted/i)).toBeVisible();
       await expect(card.getByText(/Actual/i)).toBeVisible();
-      await expect(card.getByText(/Accuracy/i)).toBeVisible();
-      await expect(card.getByText(/ft/)).toBeVisible();
+      // The card has a heading "Yesterday's Accuracy" AND a small "Accuracy" label;
+      // assert on the small-label exact match so strict mode is satisfied.
+      await expect(card.getByText('Accuracy', { exact: true })).toBeVisible();
+      await expect(card.getByText(/ft/).first()).toBeVisible();
       await expect(card.getByText(/observation/i)).toBeVisible();
 
       // Verify progress bar exists

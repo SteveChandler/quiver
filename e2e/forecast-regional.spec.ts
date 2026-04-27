@@ -292,8 +292,10 @@ test.describe("Regional Forecast Pages", () => {
 
     // Should be on forecast hub
     await expect(page).toHaveURL("/forecast");
+    // Hub h1 is the dynamic regional call hero headline (post-redesign).
+    // Use the stable id rather than a fixed text match.
     await expect(
-      page.getByRole("heading", { name: "Surf Forecast", level: 1 })
+      page.locator("h1#regional-call-hero-heading")
     ).toBeVisible();
   });
 
@@ -551,14 +553,17 @@ test.describe("calibration honesty layer", () => {
     const waveHeight = primaryWaveHeight(page);
     await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.medium });
 
-    // Radix tooltip on mobile opens on focus/tap. Click works in Chromium
-    // mobile emulation and preserves the hover signal.
-    await waveHeight.click();
+    // Radix tooltip listens for hover/focus, not raw tap. On a mobile viewport
+    // Playwright's .hover() still synthesizes the mouseover sequence that
+    // Radix observes — and matches what the component supports in production
+    // (mobile users tap to focus, which fires focusin -> tooltip open).
+    await waveHeight.hover();
 
     const tooltip = page.getByRole("tooltip", {
       name: UNCALIBRATED_TOOLTIP,
     });
-    await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.short });
+    // Mobile portal latency is higher than desktop hover; use medium timeout.
+    await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.medium });
   });
 
   test("calibrated beach does NOT show uncalibrated tooltip copy on hover", async ({

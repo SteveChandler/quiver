@@ -562,7 +562,8 @@ test.describe('Home Page - Layout', () => {
       const navVisible = await isVisibleSafe(bottomNav, { timeout: TIMEOUTS.medium });
 
       if (navVisible) {
-        const mapLink = bottomNav.getByRole('link', { name: /map/i });
+        // The /map link is labeled "Discover" in the BottomNav — historical naming.
+        const mapLink = bottomNav.getByRole('link', { name: /discover|map/i });
         // Scroll to ensure bottom nav is visible and not overlapped by sticky header
         await mapLink.scrollIntoViewIfNeeded();
         // Use force: true to bypass any sticky header that may intercept the click
