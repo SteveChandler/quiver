@@ -156,9 +156,9 @@ describe('window calculator edge cases', () => {
   it('respects minimum session length', () => {
     // Window would be less than 1 hour
     const forecasts = [
-      createForecast(6, { windSpeed: 25 }), // Bad
+      createForecast(6, { windSpeed: 35 }), // Blown out
       createForecast(7, { windSpeed: 5 }),  // Good - but only 30 min before...
-      createForecast(8, { windSpeed: 25 }), // Bad again
+      createForecast(8, { windSpeed: 35 }), // Blown out again
     ];
 
     const result = calculateOptimalWindow(forecasts, baseBeach, { minSessionHours: 2 });
@@ -296,11 +296,13 @@ describe('interpolateTransition', () => {
   });
 
   it('interpolates end time when conditions degrade', () => {
+    // 35 mph offshore is blown-out; tier-based skip replaces legacy
+    // max_wind_any_mph binary gate.
     const forecasts = [
       createForecast(6, 0, { windSpeed: 5 }),
       createForecast(7, 0, { windSpeed: 5 }),
       createForecast(8, 0, { windSpeed: 5 }),
-      createForecast(9, 0, { windSpeed: 25 }), // Bad at 9:00
+      createForecast(9, 0, { windSpeed: 35 }), // Blown out at 9:00
     ];
 
     const result = calculateOptimalWindow(forecasts, baseBeach);
