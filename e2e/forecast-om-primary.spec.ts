@@ -23,7 +23,9 @@ import {
 import { waitForPageLoad } from "./utils/test-helpers";
 
 const LA_JOLLA_SHORES_SLUG = "la-jolla-shores";
-const LA_JOLLA_SHORES_URL = `/california/san-diego/${LA_JOLLA_SHORES_SLUG}`;
+// 2-letter state slug is canonical (per `lib/constants/coverage-areas.ts`);
+// the legacy `/california/...` path returns 404.
+const LA_JOLLA_SHORES_URL = `/ca/san-diego/${LA_JOLLA_SHORES_SLUG}`;
 
 // Match "N ft" or "N-M ft" rendered inside a <WaveHeightDisplay>. The card
 // surfaces face-height feet and we extract the numeric value (or range
@@ -119,6 +121,7 @@ test.describe("OM-primary wave-height selector", () => {
     // Intercept enhanced_forecasts PostgREST calls and return a row with a
     // clearly-big OM Hs (2.1m = ~6.9 ft). The selector should override the
     // legacy wave_height string.
+    throw new Error('Not implemented: PostgREST mock for /enhanced_forecasts/ no longer drives a wave-height render against dev. Either the beach-detail render path moved off enhanced_forecasts as the wave-height source, or the row shape changed and the component falls through to an empty render. Re-instrument with browser_network_requests against dev to confirm the active fetch URL before re-enabling.');
     await page.route(/enhanced_forecasts/i, async (route) => {
       await mockOmPrimaryForecast(route, 2.1, "1.5 ft");
     });
@@ -152,6 +155,7 @@ test.describe("OM-primary wave-height selector", () => {
   }) => {
     // Small-wave path: OM 0.4m is below the 0.95m gate — selector returns
     // the existing NOAA/CDIP-derived wave_height string ("1.8 ft").
+    throw new Error('Not implemented: see the >=2.0m test above — same enhanced_forecasts mock-no-render issue.');
     await page.route(/enhanced_forecasts/i, async (route) => {
       await mockOmPrimaryForecast(route, 0.4, "1.8 ft");
     });
@@ -178,6 +182,7 @@ test.describe("OM-primary wave-height selector", () => {
   }) => {
     // Gate-boundary case: 0.95m -> exactly 3.1 ft. Still above the 2.5 ft
     // threshold that pins the pre-fix "1.5 ft" regression out of the test.
+    throw new Error('Not implemented: see the >=2.0m test above — same enhanced_forecasts mock-no-render issue.');
     await page.route(/enhanced_forecasts/i, async (route) => {
       await mockOmPrimaryForecast(route, 0.95, "1.2 ft");
     });
