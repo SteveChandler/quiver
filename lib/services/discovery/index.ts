@@ -41,6 +41,7 @@ export {
   enrichWithPhotos,
   generateDiscoverySummary,
   getRecommendationLabel,
+  getRecommendationLabelGated,
   buildDiscoveryMessage,
   FALLBACK_IMAGE_BY_NAME,
 } from './response-formatter';

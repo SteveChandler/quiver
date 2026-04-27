@@ -1,11 +1,13 @@
 /**
- * Tests for Wind Quality Scorer
+ * Tests for Wind Quality Scorer (post-PR 4 6-tier rework).
  *
- * Tests wind direction and speed scoring logic.
+ * The legacy break-type-aware divisor scoring was replaced with the research-
+ * cited 6-tier table + wave-height penalty modifier + period modifier. This
+ * file covers the day-to-day behaviour invariants of the new model. The
+ * tier-table edge cases live in `wind-quality-scorer-tier-rework.test.ts`.
  */
 
 import { windQualityScorer } from '@/lib/domains/scoring';
-import type { ScorerInput } from '@/lib/domains/scoring';
 import { createInput } from '../__fixtures__';
 
 describe('Wind Quality Scorer', () => {
@@ -26,35 +28,37 @@ describe('Wind Quality Scorer', () => {
       const input = createInput({ wind: { speedMph: 8, directionDeg: 90 } });
       const result = windQualityScorer.score(input);
 
-      expect(result.score).toBeGreaterThanOrEqual(80);
-      expect(result.reasons).toContain('Offshore wind');
+      expect(result.score).toBeGreaterThanOrEqual(85);
+      expect(result.reasons).toContain('Clean offshore wind');
     });
 
     it('should slightly degrade high offshore wind', () => {
       const input = createInput({ wind: { speedMph: 15, directionDeg: 90 } });
       const result = windQualityScorer.score(input);
 
-      // Still good but not perfect
-      expect(result.score).toBeGreaterThanOrEqual(70);
-      expect(result.score).toBeLessThan(100);
+      // Still in the clean-offshore tier at 15 mph but mildly nudged down
+      expect(result.score).toBeGreaterThanOrEqual(85);
+      expect(result.score).toBeLessThanOrEqual(100);
     });
   });
 
   describe('cross-shore wind', () => {
     it('should score cross-shore wind moderately', () => {
-      // North wind (0°) is cross-shore (90° + 45° to 90° + 105°)
+      // North wind (0°) is cross-shore (sideshore) for west-facing beach
       const input = createInput({ wind: { speedMph: 8, directionDeg: 0 } });
       const result = windQualityScorer.score(input);
 
-      expect(result.score).toBeGreaterThanOrEqual(40);
+      // 8 mph crosses into the textured-fair tier (>= 8 mph onshore-or-cross).
+      // At 4 ft default + 12s default the score lands in the 30-60 band.
+      expect(result.score).toBeGreaterThanOrEqual(30);
       expect(result.score).toBeLessThanOrEqual(70);
     });
 
-    it('should warn about strong cross-shore wind', () => {
+    it('should warn about side-shore wind at 8mph+', () => {
       const input = createInput({ wind: { speedMph: 12, directionDeg: 0 } });
       const result = windQualityScorer.score(input);
 
-      expect(result.warnings).toContain('Cross-shore wind picking up');
+      expect(result.warnings).toContain('Side-shore wind');
     });
   });
 
@@ -64,28 +68,49 @@ describe('Wind Quality Scorer', () => {
       const input = createInput({ wind: { speedMph: 8, directionDeg: 270 } });
       const result = windQualityScorer.score(input);
 
-      expect(result.score).toBeLessThanOrEqual(40);
+      // 8 mph onshore lands at the textured-fair boundary; not great but
+      // not crushed either.
+      expect(result.score).toBeLessThanOrEqual(60);
       expect(result.warnings).toContain('Onshore wind');
     });
 
-    it('should skip strong onshore wind', () => {
+    it('should NOT skip 12 mph onshore (continuous penalty replaces binary gate)', () => {
+      // Pre-PR 4 this skipped because 12 > maxOnshoreMph (10). New tier
+      // table says 12 mph onshore is "Textured/fair" (8-15 mph) — continuous
+      // penalty, not skip.
       const input = createInput({ wind: { speedMph: 12, directionDeg: 270 } });
       const result = windQualityScorer.score(input);
 
-      // 12 mph onshore exceeds maxOnshoreMph (10)
+      expect(result.skip).toBe(false);
+      expect(result.score).toBeGreaterThan(0);
+      expect(result.warnings).toContain('Onshore wind');
+    });
+
+    it('should skip blown-out onshore wind (>= 22 mph)', () => {
+      const input = createInput({ wind: { speedMph: 25, directionDeg: 270 } });
+      const result = windQualityScorer.score(input);
+
       expect(result.skip).toBe(true);
-      expect(result.skipReason).toContain('Strong onshore wind');
+      expect(result.skipReason).toMatch(/blown out/i);
     });
   });
 
   describe('skip conditions', () => {
-    it('should skip when wind exceeds max any speed', () => {
+    it('should skip blown-out offshore wind (>= 30 mph)', () => {
+      const input = createInput({ wind: { speedMph: 32, directionDeg: 90 } });
+      const result = windQualityScorer.score(input);
+
+      expect(result.skip).toBe(true);
+      expect(result.skipReason).toMatch(/blown out/i);
+    });
+
+    it('should NOT skip 25 mph offshore (still in choppy/poor tier)', () => {
+      // Pre-PR 4 the legacy `maxAnyMph=18` gate would have skipped this.
+      // New tier table allows offshore up to 30 mph.
       const input = createInput({ wind: { speedMph: 25, directionDeg: 90 } });
       const result = windQualityScorer.score(input);
 
-      // 25 mph exceeds maxAnyMph (18)
-      expect(result.skip).toBe(true);
-      expect(result.skipReason).toContain('Too windy');
+      expect(result.skip).toBe(false);
     });
   });
 
@@ -109,72 +134,27 @@ describe('Wind Quality Scorer', () => {
     });
   });
 
-  describe('break type awareness', () => {
-    it('should score reef breaks higher than beach breaks for cross-shore wind', () => {
-      // North wind (0°) is cross-shore
-      const beachInput = createInput(
-        { wind: { speedMph: 8, directionDeg: 0 } },
-        { breakType: 'beach' }
+  describe('wave-height awareness (small waves degrade harder)', () => {
+    it('penalises 12 mph cross-shore harder on 1 ft than on 5 ft', () => {
+      const small = windQualityScorer.score(
+        createInput({ wind: { speedMph: 12, directionDeg: 0 }, waveHeight: 1 }),
       );
-      const reefInput = createInput(
-        { wind: { speedMph: 8, directionDeg: 0 } },
-        { breakType: 'reef' }
+      const medium = windQualityScorer.score(
+        createInput({ wind: { speedMph: 12, directionDeg: 0 }, waveHeight: 5 }),
       );
-
-      const beachResult = windQualityScorer.score(beachInput);
-      const reefResult = windQualityScorer.score(reefInput);
-
-      // Reef should handle cross-shore wind better
-      expect(reefResult.score).toBeGreaterThan(beachResult.score);
-    });
-
-    it('should score point breaks higher than beach breaks for cross-shore wind', () => {
-      // North wind (0°) is cross-shore
-      const beachInput = createInput(
-        { wind: { speedMph: 8, directionDeg: 0 } },
-        { breakType: 'beach' }
-      );
-      const pointInput = createInput(
-        { wind: { speedMph: 8, directionDeg: 0 } },
-        { breakType: 'point' }
-      );
-
-      const beachResult = windQualityScorer.score(beachInput);
-      const pointResult = windQualityScorer.score(pointInput);
-
-      // Point breaks (often sheltered) should handle cross-shore wind better
-      expect(pointResult.score).toBeGreaterThan(beachResult.score);
-    });
-
-    it('should score reef breaks higher than beach breaks for onshore wind', () => {
-      // West wind (270°) is onshore for west-facing beach
-      const beachInput = createInput(
-        { wind: { speedMph: 6, directionDeg: 270 } },
-        { breakType: 'beach' }
-      );
-      const reefInput = createInput(
-        { wind: { speedMph: 6, directionDeg: 270 } },
-        { breakType: 'reef' }
-      );
-
-      const beachResult = windQualityScorer.score(beachInput);
-      const reefResult = windQualityScorer.score(reefInput);
-
-      // Reef should handle onshore wind slightly better
-      expect(reefResult.score).toBeGreaterThan(beachResult.score);
+      expect(small.score).toBeLessThan(medium.score);
     });
   });
 
-  describe('softened cross-shore penalty', () => {
-    it('should apply softer cross-shore penalty for light wind', () => {
-      // 5 mph cross-shore wind (North, 0°) should not be heavily penalized
-      const input = createInput({ wind: { speedMph: 5, directionDeg: 0 } });
-      const result = windQualityScorer.score(input);
-
-      // With the softened divisor (25 instead of 20), 5 mph should score well
-      // speedFactor = max(0.5, 1 - (5 - 3) / 25) = max(0.5, 0.92) = 0.92
-      // score = 70 * 0.92 = ~64 for beach (divisor 22), higher for others
-      expect(result.score).toBeGreaterThanOrEqual(55);
+  describe('period awareness (groundswells resist wind)', () => {
+    it('scores 13s+ groundswell higher than 8s wind-swell at the same wind', () => {
+      const windSwell = windQualityScorer.score(
+        createInput({ wind: { speedMph: 12, directionDeg: 0 }, wavePeriod: 8 }),
+      );
+      const groundSwell = windQualityScorer.score(
+        createInput({ wind: { speedMph: 12, directionDeg: 0 }, wavePeriod: 16 }),
+      );
+      expect(groundSwell.score).toBeGreaterThan(windSwell.score);
     });
   });
 
@@ -182,7 +162,7 @@ describe('Wind Quality Scorer', () => {
     it('should handle null breakType gracefully', () => {
       const input = createInput(
         { wind: { speedMph: 8, directionDeg: 0 } },
-        { breakType: null }
+        { breakType: null },
       );
       expect(() => windQualityScorer.score(input)).not.toThrow();
       expect(windQualityScorer.score(input).score).toBeGreaterThan(0);
@@ -191,58 +171,26 @@ describe('Wind Quality Scorer', () => {
     it('should handle undefined breakType gracefully', () => {
       const input = createInput(
         { wind: { speedMph: 8, directionDeg: 0 } },
-        { breakType: undefined }
+        { breakType: undefined },
       );
       expect(() => windQualityScorer.score(input)).not.toThrow();
     });
 
-    it('should handle unexpected breakType values with default behavior', () => {
-      const input = createInput(
+    it('break-type does not affect tier resolution (PR 4: tier table is universal)', () => {
+      // The legacy break-type divisor matrix is gone — tier table applies
+      // uniformly. Reef vs beach should now score identically for the same
+      // wind/wave inputs.
+      const beachInput = createInput(
         { wind: { speedMph: 8, directionDeg: 0 } },
-        { breakType: 'UNKNOWN_TYPE' }
-      );
-      const result = windQualityScorer.score(input);
-      // Should fall back to default behavior
-      expect(result.score).toBeGreaterThan(0);
-    });
-
-    it('should handle compound break type strings', () => {
-      // "reef break" should be recognized as reef
-      const reefBreakInput = createInput(
-        { wind: { speedMph: 8, directionDeg: 0 } },
-        { breakType: 'reef break' }
+        { breakType: 'beach' },
       );
       const reefInput = createInput(
         { wind: { speedMph: 8, directionDeg: 0 } },
-        { breakType: 'reef' }
+        { breakType: 'reef' },
       );
-
-      expect(windQualityScorer.score(reefBreakInput).score)
-        .toBe(windQualityScorer.score(reefInput).score);
-    });
-  });
-
-  describe('regression tests', () => {
-    // Lock in expected behavior to detect unintended changes during refactoring
-    const regressionCases = [
-      // Glassy conditions
-      { wind: { speedMph: 2, directionDeg: 90 }, breakType: 'beach', expected: 100 },
-      // Offshore wind
-      { wind: { speedMph: 8, directionDeg: 90 }, breakType: 'beach', expected: 82 },
-      { wind: { speedMph: 8, directionDeg: 90 }, breakType: 'reef', expected: 85 },
-      { wind: { speedMph: 8, directionDeg: 90 }, breakType: 'point', expected: 86 },
-      // Cross-shore wind (North, 0° is cross-shore for west-facing beach)
-      { wind: { speedMph: 8, directionDeg: 0 }, breakType: 'beach', expected: 54 },
-      { wind: { speedMph: 8, directionDeg: 0 }, breakType: 'reef', expected: 57 },
-      { wind: { speedMph: 8, directionDeg: 0 }, breakType: 'point', expected: 62 },
-    ];
-
-    regressionCases.forEach(({ wind, breakType, expected }) => {
-      it(`should score ${breakType} with ${wind.speedMph}mph wind at ${wind.directionDeg}° as ${expected}`, () => {
-        const input = createInput({ wind }, { breakType });
-        const result = windQualityScorer.score(input);
-        expect(result.score).toBe(expected);
-      });
+      expect(windQualityScorer.score(beachInput).score).toBe(
+        windQualityScorer.score(reefInput).score,
+      );
     });
   });
 });

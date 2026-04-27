@@ -62,7 +62,7 @@ const ONSHORE = 270;       // W
 const CROSS_N = 0;         // N — pure cross-shore
 const CROSS_NW = 315;      // NW — cross-onshore biased (Horseshoe screenshot wind)
 
-describe.skip('Wind Quality Scorer — 6-tier rework (PR 4)', () => {
+describe('Wind Quality Scorer — 6-tier rework (PR 4)', () => {
   // ─── Tier 1: Glassy ────────────────────────────────────────────────────
   describe('Tier 1 — Glassy (≤3 mph, any direction)', () => {
     it.each([

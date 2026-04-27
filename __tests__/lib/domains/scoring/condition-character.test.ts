@@ -84,17 +84,27 @@ const baseSnapshot: ConditionsSnapshot = createSnapshot({
 
 describe('getConditionCharacter (domain engine port)', () => {
   describe('skip conditions', () => {
-    it('classifies blown-out conditions (wind > 25mph) as skip', () => {
+    it('classifies skip when composite carries a blown-out skipReason', () => {
+      // PR 4: skip ownership moved from this classifier to windQualityScorer's
+      // tier table. Composite arrives with skipReason set; classifier reads
+      // it directly instead of re-deriving thresholds.
       const snap = createSnapshot({ ...baseSnapshot, wind: { speedMph: 28, directionDeg: 90 } });
-      const result = getConditionCharacter(snap, profile, baseComposite);
+      const composite: CompositeScore = {
+        ...baseComposite,
+        skipReason: 'Blown out (28 mph offshore)',
+      };
+      const result = getConditionCharacter(snap, profile, composite);
       expect(result.category).toBe('skip');
       expect(result.label).toMatch(/blown out/i);
     });
 
-    it('classifies strong onshore wind (> 10mph) as skip', () => {
-      // W = 270° = onshore relative to E offshore (90°)
-      const snap = createSnapshot({ ...baseSnapshot, wind: { speedMph: 12, directionDeg: 270 } });
-      const result = getConditionCharacter(snap, profile, baseComposite);
+    it('classifies skip when composite carries an onshore-blown-out skipReason', () => {
+      const snap = createSnapshot({ ...baseSnapshot, wind: { speedMph: 25, directionDeg: 270 } });
+      const composite: CompositeScore = {
+        ...baseComposite,
+        skipReason: 'Blown out (25 mph onshore)',
+      };
+      const result = getConditionCharacter(snap, profile, composite);
       expect(result.category).toBe('skip');
       expect(result.label).toMatch(/onshore/i);
     });
@@ -212,6 +222,21 @@ describe('getConditionCharacter (domain engine port)', () => {
       const result = getConditionCharacter(snap, profile, composite);
       expect(result.category).toBe('medium-mixed');
     });
+
+    it('classifies 3ft + bad wind (windQuality < 30) as medium-rough (PR 4)', () => {
+      const snap = createSnapshot({
+        ...baseSnapshot,
+        waveHeight: 3.0,
+        wavePeriod: 8,
+        wind: { speedMph: 18, directionDeg: 270 },
+      });
+      // 18 mph onshore at 3 ft / 8 s lands in choppy/poor tier from the
+      // wind scorer (~22 score). The new medium-rough bucket should fire.
+      const composite = makeComposite({ windQuality: 22, tideFit: 60 });
+      const result = getConditionCharacter(snap, profile, composite);
+      expect(result.category).toBe('medium-rough');
+      expect(result.label).toMatch(/wind-affected|choppy|mixed/i);
+    });
   });
 
   describe('large wave conditions (5ft+)', () => {
@@ -259,6 +284,7 @@ describe('getConditionCharacter (domain engine port)', () => {
         'small-clean',
         'medium-clean',
         'medium-mixed',
+        'medium-rough',
         'large-clean',
         'large-rough',
         'skip',
@@ -313,7 +339,12 @@ describe('getConditionCharacter (domain engine port)', () => {
       expect(result.category).toBe('large-rough');
     });
 
-    it('returns medium-mixed when subscores Map is missing windQuality / tideFit keys', () => {
+    it('returns medium-rough when subscores Map is missing windQuality / tideFit keys', () => {
+      // PR 4: missing windQuality falls back to 0, which is < the new rough
+      // threshold (30). Pre-PR 4 the missing keys meant "unknown — assume
+      // mixed"; the new tier table makes this stricter so a forecast row
+      // that fails to populate windQuality lands in the rough bucket and
+      // gets gated by the recommendation-label character set.
       const snap = createSnapshot({
         ...baseSnapshot,
         waveHeight: 3,
@@ -321,7 +352,7 @@ describe('getConditionCharacter (domain engine port)', () => {
       });
       const composite = makeComposite({}); // empty subscores Map
       const result = getConditionCharacter(snap, profile, composite);
-      expect(result.category).toBe('medium-mixed');
+      expect(result.category).toBe('medium-rough');
     });
   });
 });

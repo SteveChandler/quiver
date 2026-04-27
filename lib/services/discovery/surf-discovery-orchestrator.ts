@@ -36,6 +36,7 @@ import {
   forecastToSnapshot,
   getConditionCharacter,
 } from '@/lib/domains/scoring';
+import type { ConditionCharacterCategory } from '@/lib/domains/scoring';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
@@ -57,6 +58,7 @@ import {
   enrichWithPhotos,
   generateDiscoverySummary,
   getRecommendationLabel,
+  getRecommendationLabelGated,
   buildDiscoveryMessage,
 } from './response-formatter';
 import { fetchPersonalizationContext, calculatePersonalizationBonus } from './personalization-layer';
@@ -725,7 +727,15 @@ async function discoverSurfSpotsInner(
       score: detailedScore.total,
       matchQuality: detailedScore.matchQuality,
       character: conditionCharacter,
-      recommendationLabel: getRecommendationLabel(detailedScore.total),
+      // PR 4: gate "Worth it" on character category — a high score with
+      // medium-rough/medium-mixed character now caps at "Maybe" instead of
+      // promoting NOW FIRING on a windy day. Falls back to score-only when
+      // character is unavailable. The cast is safe because getConditionCharacter
+      // produces values from the ConditionCharacterCategory union by construction.
+      recommendationLabel: getRecommendationLabelGated(
+        detailedScore.total,
+        (conditionCharacter?.category ?? null) as ConditionCharacterCategory | null,
+      ),
       subscores: detailedScore.subscores,
       summary: generateDiscoverySummary(beach, bestWindow, detailedScore),
       message: buildDiscoveryMessage(detailedScore.total, detailedScore.reasons, detailedScore.warnings),

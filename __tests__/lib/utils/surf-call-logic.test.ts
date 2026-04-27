@@ -35,9 +35,16 @@ function makeForecast(overrides: Partial<EnhancedForecastEntity> = {}): Enhanced
     forecast_time: '08:00:00',
     wave_height: '3-4 ft',
     wave_period: '12s',
-    wind_speed: '8',
-    wind_direction: 'NW',
-    wind_direction_deg: 315,
+    // Default to a clean offshore-aligned wind so the PR 4 character gate
+    // (which caps "Worth it" on positive characters only) doesn't downgrade
+    // every YES test below to MAYBE. Tests that exercise wind-quality
+    // gating override these explicitly.
+    wind_speed: '5',
+    wind_direction: 'E',
+    wind_direction_deg: 90,
+    swell_1_height: '4',
+    swell_1_period: '12s',
+    swell_1_direction: '270',
     tide_status: 'Rising',
     confidence_score: 75,
     data_source: 'NOAA_BUOY',
@@ -1118,10 +1125,15 @@ describe('computeSurfCall', () => {
       expect(resultNoWindow.whySentence).toBe('No viable surf window today.');
     });
 
-    it('handles null wave height — normal verdict (no soft gate for unknown heights)', () => {
+    it('handles null wave height — soft-gate skipped, character defaults to flat', () => {
+      // PR 4 nuance: a null wave_height on a single forecast row makes
+      // the character classifier see waveHeight = 0 → `flat`, which is
+      // not in the positive-character set. The character gate caps at
+      // MAYBE. The original "no soft gate" intent still holds — the
+      // small-wave gate isn't firing — but the character gate does.
       const forecasts = [makeForecast({ wave_height: null })];
       const result = computeSurfCall(makeWindow(), forecasts, makeBeach());
-      expect(result.verdict).toBe('YES'); // default window score=75 → YES
+      expect(result.verdict).toBe('MAYBE');
       const resultNoWindow = computeSurfCall(null, forecasts, makeBeach());
       expect(resultNoWindow.verdict).toBe('NO');
       expect(resultNoWindow.whySentence).toBe('No viable surf window today.');
@@ -1408,6 +1420,54 @@ describe('computeSurfCall', () => {
       const result = computeSurfCall(window, forecasts, beach);
       expect(result.verdict).toBe('MAYBE');
       expect(result.whySentence).toMatch(/clean winds/i);
+    });
+  });
+
+  // ==========================================================================
+  // PR 4 character-gated recommendation label
+  // ==========================================================================
+  //
+  // High-score days where the wind has trashed the wave shape no longer
+  // promote to YES. The character classifier reads `windQuality` from the
+  // composite, lands the day in `medium-mixed` / `medium-rough` /
+  // `large-rough`, and the recommendation-label gate caps at MAYBE.
+  describe('character-gated verdict (PR 4)', () => {
+    it('downgrades YES to MAYBE for high-score medium-mixed (Horseshoe scenario)', () => {
+      // 2.3 ft / 13s / NW 10 mph at offshoreDeg=45° (NE-facing). 10 mph
+      // sideshore on long-period 2-3 ft → windQuality ~67, character
+      // medium-mixed (windQuality < 70 → not medium-clean, but
+      // windQuality >= 30 → not medium-rough).
+      const beach = makeBeach({
+        break_type: 'reef break',
+        wind_offshore_deg: 45,
+        wind_offshore_tol_deg: 30,
+      } as any);
+      const forecasts = [
+        makeForecast({
+          wave_height: '2-3 ft',
+          wave_period: '13s',
+          wind_speed: '10',
+          wind_direction: 'NW',
+          wind_direction_deg: 315,
+          swell_1_height: '2.3',
+          swell_1_period: '13s',
+          swell_1_direction: '270',
+        }),
+      ];
+      const window = makeWindow({
+        score: 75,
+        waveHeight: '2-3 ft',
+      });
+      const result = computeSurfCall(window, forecasts, beach);
+      // PR 4 gate: 75 score + medium-mixed character → cap at MAYBE
+      expect(result.verdict).toBe('MAYBE');
+    });
+
+    it('still allows YES on medium-clean (offshore 5 mph, long period)', () => {
+      // Default offshore-aligned forecast (5 mph E, 12s, 3-4ft). At score 75
+      // with a positive character, the gate lets YES through.
+      const result = computeSurfCall(makeWindow({ score: 75 }), [makeForecast()], makeBeach());
+      expect(result.verdict).toBe('YES');
     });
   });
 

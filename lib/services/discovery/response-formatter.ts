@@ -20,6 +20,7 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { withApprovedPhotos } from '@/lib/supabase/query-builders';
 import { FALLBACK_IMAGE_BY_NAME } from '@/lib/constants/featured-beaches-config';
 import type { RecommendationLabel } from '@/lib/scoring';
+import type { ConditionCharacterCategory } from '@/lib/domains/scoring';
 
 // Re-export FALLBACK_IMAGE_BY_NAME for backward compatibility
 export { FALLBACK_IMAGE_BY_NAME };
@@ -155,6 +156,53 @@ export function getRecommendationLabel(score: number): RecommendationLabel {
   if (score >= 70) return 'Worth it';
   if (score >= 40) return 'Maybe';
   return 'Skip';
+}
+
+/**
+ * Character categories whose conditions are positive enough to earn a
+ * "Worth it" recommendation. Anything else (medium-rough, medium-mixed,
+ * small-weak, large-rough, flat) caps at "Maybe" even when the score is
+ * in the perfect/excellent band.
+ *
+ * Closes the PR 4 Horseshoe-screenshot gap: a 75-ish score (excellent
+ * band) with `medium-mixed` character no longer surfaces as "Worth it"
+ * just because the wind subscore is dominated by other factors.
+ */
+const POSITIVE_CHARACTER_CATEGORIES: ReadonlySet<ConditionCharacterCategory> =
+  new Set<ConditionCharacterCategory>([
+    'large-clean',
+    'medium-clean',
+    'small-quality',
+    'small-clean',
+  ]);
+
+/**
+ * Recommendation label gated on the character category, not score alone.
+ *
+ * Score gives the headline number; character gates whether the headline
+ * promotes the day to "Worth it" or caps it at "Maybe". This is the
+ * defensive layer that catches the "high score on a windy day" edge case.
+ *
+ * Falls back to the score-only `getRecommendationLabel` when no character
+ * is available (legacy callers, character-classification failed).
+ *
+ * @param score - Total composite score (0-100)
+ * @param characterCategory - Optional character category from getConditionCharacter
+ * @returns Recommendation label
+ */
+export function getRecommendationLabelGated(
+  score: number,
+  characterCategory: ConditionCharacterCategory | null | undefined
+): RecommendationLabel {
+  const baseLabel = getRecommendationLabel(score);
+
+  // Only the positive label needs gating. Maybe / Skip already match the
+  // bad-character verdict.
+  if (baseLabel !== 'Worth it') return baseLabel;
+
+  if (!characterCategory) return baseLabel;
+
+  return POSITIVE_CHARACTER_CATEGORIES.has(characterCategory) ? 'Worth it' : 'Maybe';
 }
 
 // ============================================================================

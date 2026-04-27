@@ -18,24 +18,18 @@
  *   - Legacy `subscores.windAlignment >= 12` (60% of MAX_WIND_ALIGNMENT=20,
  *     used for the large-clean branch) becomes `... >= 60`.
  *
- * WIND THRESHOLD DEFAULTS — behaviour preservation note:
- *   The legacy classifier hard-coded 25 mph (max wind any) and 10 mph
- *   (max onshore wind) as its skip thresholds because `max_wind_any_mph`
- *   and `max_wind_onshore_mph` are not DB columns — `BeachWithThresholds`
- *   carried them as TS-only fields that always fell back to default.
- *
- *   The new `SpotProfile.windThresholds` derives `maxOnshoreMph` from the
- *   real DB column `wind_onshore_bad_kt` (knots → mph), and `maxAnyMph`
- *   defaults to 18. Both diverge from the legacy 25/10 for many beaches.
- *
- *   To stay behaviour-preserving in PR 2, we deliberately ignore
- *   `profile.windThresholds` for the skip-gate thresholds and use the
- *   legacy 25/10 constants directly. PR 4 (wind tier rework) consolidates
- *   the threshold semantics into the wind-quality scorer and removes
- *   this divergence.
+ * WIND SKIP-GATE OWNERSHIP (PR 4):
+ *   Skip semantics now flow entirely through `windQualityScorer`'s tier
+ *   table — when the scorer returns `skip = true` (Blown-out tier: ≥22 mph
+ *   onshore-or-cross OR ≥30 mph offshore), the composite carries that
+ *   skip reason and the classifier reads `skipReason` directly instead of
+ *   re-deriving thresholds. The legacy 25/10 hard-coded constants from
+ *   `lib/scoring/surf-conditions-scorer.ts` are intentionally NOT mirrored
+ *   here — see PR 4 commit body for the consolidation rationale.
  *
  * Priority-ordered decision tree (first match wins):
- *   skip → flat → small (weak/quality/clean) → medium (clean/mixed)
+ *   skip → flat → small (weak/quality/clean)
+ *        → medium (clean/mixed/rough)
  *        → large (clean/rough)
  */
 
@@ -46,6 +40,12 @@ import { angleDifference } from '../shared';
 
 /**
  * Condition character categories (mirrors legacy `lib/scoring/types.ts`).
+ *
+ * `medium-rough` was introduced in PR 4 — it sits between `medium-mixed` and
+ * `skip` for 2-5 ft days where the wind-quality subscore has cratered the
+ * recommendation but the swell is still rideable on paper. Used to gate
+ * `recommendationLabel` so a 75-ish score in the excellent band can still
+ * downgrade to `Maybe` when the wind is bad.
  */
 export type ConditionCharacterCategory =
   | 'flat'
@@ -54,6 +54,7 @@ export type ConditionCharacterCategory =
   | 'small-clean'
   | 'medium-clean'
   | 'medium-mixed'
+  | 'medium-rough'
   | 'large-clean'
   | 'large-rough'
   | 'skip';
@@ -69,19 +70,18 @@ export interface ConditionCharacter {
 }
 
 /**
- * Legacy skip-gate thresholds — used unconditionally to stay
- * behaviour-preserving with `lib/scoring/surf-conditions-scorer.ts:25-27`.
- * See file header for rationale.
- */
-const LEGACY_MAX_WIND_ANY_MPH = 25;
-const LEGACY_MAX_WIND_ONSHORE_MPH = 10;
-
-/**
  * Subscore thresholds in the new 0-100 space (translated from legacy
  * 0-20/0-15 fractions — see file header for the full mapping).
+ *
+ * `WIND_QUALITY_ROUGH_THRESHOLD` is the PR 4 tier-rework gate that
+ * separates `medium-mixed` from `medium-rough`. Tuned against the
+ * Horseshoe (windQuality ~60 at 10mph cross / 13s / 2.3ft → still
+ * `medium-mixed`) and OB Pier (windQuality ~22 at 12mph onshore / 6s /
+ * 1.4ft → small bucket, never reaches medium classifier) scenarios.
  */
 const WIND_QUALITY_GOOD_THRESHOLD = 70;
 const WIND_QUALITY_CLEAN_THRESHOLD = 60;
+const WIND_QUALITY_ROUGH_THRESHOLD = 30;
 const TIDE_FIT_GOOD_THRESHOLD = 70;
 
 /**
@@ -164,21 +164,22 @@ export function getConditionCharacter(
   const windSpeed = snapshot.wind.speedMph;
   const windDirection = snapshot.wind.directionDeg;
 
-  // Use the legacy 25/10 skip-gate thresholds unconditionally so character
-  // classification stays behaviour-preserving across the migration.
-  // SpotProfile.windThresholds derives maxOnshoreMph from wind_onshore_bad_kt,
-  // which would shift the skip gate for any beach with that column set.
-  const maxWindAny = LEGACY_MAX_WIND_ANY_MPH;
-  const maxWindOnshore = LEGACY_MAX_WIND_ONSHORE_MPH;
-
   const isOnshore = isWindOnshoreForCharacter(windSpeed, windDirection, profile);
 
-  // 1. Skip conditions — blown out or dominated by onshore wind
-  if (windSpeed > maxWindAny) {
-    return { category: 'skip', label: 'Blown out — too much wind' };
-  }
-  if (isOnshore && windSpeed > maxWindOnshore) {
-    return { category: 'skip', label: 'Onshore wind — conditions blown out' };
+  // 1. Skip conditions — read the composite's skip reason directly. The
+  //    `windQualityScorer` (post-PR 4) raises `skip` only at the Blown-out
+  //    tier (≥22 mph onshore-or-cross OR ≥30 mph offshore), which is the
+  //    new single source of truth for "too windy to surf". Skip from any
+  //    other scorer (e.g. `baseConditionsScorer` for >25 ft) also lands
+  //    here — surface a generic blown-out label since wind is the most
+  //    common cause; downstream callers display the composite's actual
+  //    skipReason when more detail is needed.
+  if (composite.skipReason) {
+    const lower = composite.skipReason.toLowerCase();
+    const label = lower.includes('onshore')
+      ? 'Onshore wind — conditions blown out'
+      : 'Blown out — too much wind';
+    return { category: 'skip', label };
   }
 
   // 2. Flat — barely anything to surf
@@ -240,6 +241,12 @@ export function getConditionCharacter(
     const tideIsGood = tideFit >= TIDE_FIT_GOOD_THRESHOLD;
     if (windIsGood && tideIsGood && wavePeriod >= 10) {
       return { category: 'medium-clean', label: "Dialed — everything's lining up" };
+    }
+    if (windQuality < WIND_QUALITY_ROUGH_THRESHOLD) {
+      return {
+        category: 'medium-rough',
+        label: 'Mixed and choppy — wind-affected',
+      };
     }
     return { category: 'medium-mixed', label: 'Decent — some quality in the mix' };
   }

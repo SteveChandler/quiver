@@ -21,7 +21,10 @@ import {
   getConditionCharacter,
   type ConditionCharacter,
 } from '@/lib/domains/scoring';
-import { getRecommendationLabel } from '@/lib/services/discovery/response-formatter';
+import {
+  getRecommendationLabel,
+  getRecommendationLabelGated,
+} from '@/lib/services/discovery/response-formatter';
 import type { ScoringEngine, CompositeScore } from '@/lib/domains/scoring';
 
 // ============================================================================
@@ -495,23 +498,27 @@ export function narrowWindowAroundPeak(
  * `recommendationLabel` translated through `verdictFromRecommendationLabel`,
  * then apply the window-duration and confidence guards.
  *
- * The base label (Worth it / Maybe / Skip) comes from the same score
- * threshold table as the legacy verdict, so behaviour is preserved on
- * the bulk of inputs. Score numbers themselves shift on edge cases —
- * see PR 3 commit body.
+ * Character-gated label (PR 4): when a `ConditionCharacter` is available,
+ * `getRecommendationLabelGated` caps "Worth it" on positive characters
+ * only. This is what closes the Horseshoe-screenshot regression where a
+ * 75-ish score on `medium-mixed` was surfacing as YES / NOW FIRING.
  */
 function determineVerdict(
   score: number,
   windowMinutes: number,
-  forecastConfidence: number
+  forecastConfidence: number,
+  character: ConditionCharacter | null
 ): SurfCallVerdict {
   // Short window gate - cannot be YES regardless of score
   if (windowMinutes < MINIMUM_VIABLE_WINDOW_MINUTES) {
     return 'NO';
   }
 
-  // Base verdict from the discovery engine's label mapping
-  let verdict = verdictFromRecommendationLabel(getRecommendationLabel(score));
+  // Base verdict from the character-gated label mapping (PR 4)
+  const label = character
+    ? getRecommendationLabelGated(score, character.category)
+    : getRecommendationLabel(score);
+  let verdict = verdictFromRecommendationLabel(label);
 
   // Short window cap: downgrade YES to MAYBE for short windows
   if (windowMinutes < SHORT_WINDOW_THRESHOLD_MINUTES && verdict === 'YES') {
@@ -795,8 +802,10 @@ export function computeSurfCall(
     };
   }
 
-  // Determine verdict based on score, window duration, and confidence
-  let verdict = determineVerdict(score, windowMinutes, forecastConfidence);
+  // Determine verdict based on score, window duration, confidence, and
+  // character (PR 4 character-gate prevents high-score windy days from
+  // promoting to YES).
+  let verdict = determineVerdict(score, windowMinutes, forecastConfidence, character);
 
   // Soft gate override: when waves are below the break's minimum but the score
   // (which includes user preference adjustments and swell quality boost) says
