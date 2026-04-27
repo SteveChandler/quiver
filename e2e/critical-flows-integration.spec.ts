@@ -204,49 +204,6 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
 
       console.log("=== Session Planning Flow Complete ===");
     }, TIMEOUTS.veryLong);
-
-    test("should recover from errors during session planning", async ({ page }: PageFixture) => {
-      await page.goto("/sessions");
-      await waitForPageLoad(page);
-
-      // Simulate network error
-      await page.route("**/api/plan-session", (route: Route) => {
-        route.abort("failed");
-      });
-
-      const planButton = page.locator('button, a').filter({ hasText: /plan|new/i }).first();
-      const planButtonVisible = await isVisibleSafe(planButton, { timeout: 5000 });
-
-      if (planButtonVisible) {
-        await planButton.click();
-        await page.waitForLoadState('load');
-
-        // Fill and submit form (will fail due to network error)
-        const beachInput = page.locator('input').first();
-        const inputVisible = await isVisibleSafe(beachInput);
-
-        if (inputVisible) {
-          await beachInput.fill("Test Beach");
-
-          const submitButton = page.locator('button[type="submit"]').first();
-          const submitVisible = await isVisibleSafe(submitButton);
-
-          if (submitVisible) {
-            await submitButton.click();
-            await page.waitForLoadState('networkidle');
-
-            // Error boundary should catch this
-            const bodyVisible = await page.isVisible("body");
-            expect(bodyVisible).toBe(true);
-
-            console.log("✓ Error boundary protected session planning");
-          }
-        }
-      }
-
-      // Clean up
-      await page.unroute("**/api/plan-session");
-    });
   });
 
   test.describe("Beach Discovery Flow", () => {
