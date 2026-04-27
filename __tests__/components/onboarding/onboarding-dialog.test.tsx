@@ -167,10 +167,12 @@ describe("OnboardingDialog Logic", () => {
       toString: () => "onboarding=required",
     });
 
+    const replaceStateSpy = jest.spyOn(window.history, "replaceState");
     render(<OnboardingDialog />);
 
     expect(mockReopenFresh).not.toHaveBeenCalled();
-    expect(mockRouterReplace).not.toHaveBeenCalled();
+    expect(replaceStateSpy).not.toHaveBeenCalled();
+    replaceStateSpy.mockRestore();
   });
 
   it("does NOT re-open when ?onboarding=required is set AND onboarding already completed", () => {
@@ -178,6 +180,11 @@ describe("OnboardingDialog Logic", () => {
     // or browser autocomplete must not force-reopen the dialog for a user
     // whose profile already shows onboarding_completed_at. The param must
     // still be stripped so a refresh settles on a clean URL.
+    //
+    // The strip uses `window.history.replaceState` directly — Next 16's
+    // `router.replace` was silently re-writing the URL back to
+    // ?onboarding=required during the initial RSC streaming window
+    // (confirmed via stack-traced replaceState on dev 2026-04-27).
     (useProfileContext as jest.Mock).mockReturnValue({
       profile: {
         onboarding_completed_at: "2026-04-20T18:42:44Z",
@@ -190,11 +197,26 @@ describe("OnboardingDialog Logic", () => {
       toString: () => "onboarding=required",
     });
 
+    // Simulate the URL having ?onboarding=required so window.location.search
+    // matches what stripParam reads.
+    const originalSearch = window.location.search;
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, search: "?onboarding=required", pathname: "/" },
+      writable: true,
+    });
+
+    const replaceStateSpy = jest.spyOn(window.history, "replaceState");
     render(<OnboardingDialog />);
 
     expect(mockReopenFresh).not.toHaveBeenCalled();
     expect(mockOpenDialog).not.toHaveBeenCalled();
-    expect(mockRouterReplace).toHaveBeenCalledWith("/", { scroll: false });
+    expect(replaceStateSpy).toHaveBeenCalledWith(null, "", "/");
+
+    replaceStateSpy.mockRestore();
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, search: originalSearch },
+      writable: true,
+    });
   });
 
   it("opens dialog when ?showOnboarding=1 URL param is set", () => {
