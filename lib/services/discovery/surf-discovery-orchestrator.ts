@@ -32,6 +32,9 @@ import type { ConditionBadge } from '@/types/personalization';
 import {
   createDiscoveryScoringEngine,
   scoreBeachWithEngine,
+  beachToSpotProfile,
+  forecastToSnapshot,
+  getConditionCharacter,
 } from '@/lib/domains/scoring';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
@@ -57,7 +60,6 @@ import {
   buildDiscoveryMessage,
 } from './response-formatter';
 import { fetchPersonalizationContext, calculatePersonalizationBonus } from './personalization-layer';
-import { scoreConditions, toForecastForScoring } from '@/lib/scoring';
 import { assignStrategyTags } from '@/lib/services/discovery/strategy-tags';
 import { generateRegionalCall } from '@/lib/services/discovery/regional-call';
 import type { WindSnapshot } from '@/lib/services/discovery/regional-call';
@@ -690,29 +692,27 @@ async function discoverSurfSpotsInner(
       detailedScore.warnings.push('Water quality advisory — elevated bacteria levels');
     }
 
-    // Compute condition character using the unified scorer (best-effort — no fallback needed).
-    // max_wind_onshore_mph and max_wind_any_mph are not on the Beach DB type; the scorer
-    // falls back to sensible defaults when these are null.
+    // Compute condition character using the new domain-engine classifier.
+    // Re-runs the engine to obtain a CompositeScore (subscores Map keyed by
+    // 'windQuality' / 'tideFit' on the 0-100 scale that getConditionCharacter
+    // expects). Plugins are pure and the engine instance is a singleton, so
+    // the duplicate score() call is microseconds — cheaper than maintaining
+    // a parallel CompositeScore-bearing return type from scoreBeachForDiscovery
+    // (which still hands back the lossy DetailedScore for the rest of the flow).
     let conditionCharacter: SurfDiscoveryRecommendation['character'] | undefined;
     try {
-      const beachThresholds = {
-        id: beach.id,
-        name: beach.name,
-        wind_offshore_deg: beach.wind_offshore_deg ?? null,
-        wind_offshore_tol_deg: beach.wind_offshore_tol_deg ?? null,
-        preferred_tide_ft_min: beach.preferred_tide_ft_min ?? null,
-        preferred_tide_ft_max: beach.preferred_tide_ft_max ?? null,
-        max_wind_onshore_mph: null, // Not on Beach DB type — scorer uses its default
-        max_wind_any_mph: null,     // Not on Beach DB type — scorer uses its default
-        swell_window_center_deg: beach.swell_window_center_deg ?? null,
-        swell_window_halfwidth_deg: beach.swell_window_halfwidth_deg ?? null,
-        skill_level: beach.skill_level ?? null,
-      };
-      const scoringForecast = toForecastForScoring(bestWindowForecast);
-      const conditionScore = scoreConditions(scoringForecast, beachThresholds);
+      const profile = beachToSpotProfile(beach);
+      const snapshot = forecastToSnapshot(bestWindowForecast);
+      const composite = getDiscoveryScoringEngine().score({
+        profile,
+        snapshot,
+        window: null,
+        preferences: null,
+      });
+      const character = getConditionCharacter(snapshot, profile, composite);
       conditionCharacter = {
-        label: conditionScore.character.label,
-        category: conditionScore.character.category,
+        label: character.label,
+        category: character.category,
       };
     } catch {
       // Non-fatal — character is optional

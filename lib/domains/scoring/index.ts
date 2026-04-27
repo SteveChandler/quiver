@@ -31,6 +31,13 @@ export {
   trendPreferenceScorer,
 } from './scorers';
 
+// Condition character classifier (qualitative category + label)
+export type {
+  ConditionCharacter,
+  ConditionCharacterCategory,
+} from './condition-character';
+export { getConditionCharacter } from './condition-character';
+
 // Discovery adapter (backwards compatibility with surf-discovery-service)
 export type {
   DiscoveryScoringOptions,
