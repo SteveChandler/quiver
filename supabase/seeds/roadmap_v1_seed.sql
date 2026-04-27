@@ -52,7 +52,7 @@ ON CONFLICT (title) DO NOTHING;
 INSERT INTO public.roadmap_items (title, description, category, status, eta_label)
 VALUES
   ('More beaches with diorama videos',
-   'Shipping ~10 new beach diorama videos per week. Veo''s daily quota is the pacing limit, not the queue.',
+   'Shipping ~10 new beach diorama videos per week.',
    'forecasts', 'in_progress', 'Rolling weekly'),
   ('Friends feed + invite deep links',
    'Segmented Friends / Nearby / Roadmap feed, working invite share-links, and the follow-you notifications surface.',
