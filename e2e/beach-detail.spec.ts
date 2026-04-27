@@ -72,10 +72,6 @@ test.describe('Beach Detail Page', () => {
     await expect(currentConditions).toBeVisible({ timeout: 15000 });
   });
 
-  test('should have functional action buttons', async ({ page }) => {
-    throw new Error('Not implemented: Plan/Log Session buttons (BeachQuickActions component) were removed from beach-detail.tsx during Phase 1A CTA reduction. The component file `components/beach-detail/beach-quick-actions.tsx` remains but is not imported. If a replacement action surface is added, update this test to target the new selectors.');
-  });
-
   test('should display tabs for different content sections', async ({ page }) => {
     // Should have tabs (Overview, Forecast, Reviews, etc.)
     // Use .first() — multiple tablists exist (main tabs + forecast sub-tabs)

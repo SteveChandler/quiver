@@ -275,12 +275,3 @@ test.describe('Discover Page - Responsive', () => {
   });
 });
 
-test.describe('Discover Page - Follow Functionality', () => {
-  test('should show follow buttons for search results', async ({ page }) => {
-    throw new Error('Not implemented: social follow feature requires real users in DB');
-  });
-
-  test('should allow following a user from search results', async ({ page }) => {
-    throw new Error('Not implemented: social follow feature requires real users in DB');
-  });
-});

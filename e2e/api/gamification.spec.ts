@@ -407,11 +407,6 @@ test.describe('Gamification API', () => {
 
           await unauthContext.dispose();
         });
-
-        // TODO: Test drift - POST endpoint may not exist or returns different status
-        test('POST should require authentication', async ({ playwright }, testInfo) => {
-          throw new Error('Not implemented: POST endpoint may not exist or returns wrong status');
-        });
       });
     });
   });

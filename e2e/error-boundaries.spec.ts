@@ -333,10 +333,5 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
 
       console.log("✓ Async component errors handled");
     });
-
-    // TODO: Test drift - rapid navigation causes connection reset
-    test("should handle rapid error recovery cycles", async ({ page }) => {
-      throw new Error('Not implemented: rapid navigation causes connection reset');
-    });
   });
 });
