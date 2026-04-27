@@ -50,9 +50,25 @@ jest.mock('date-fns-tz', () => ({
   toZonedTime: (date: Date, _tz: string) => new Date(date),
 }));
 
-// Mock the scorer to avoid complex setup
-jest.mock('@/lib/scoring/surf-conditions-scorer', () => ({
-  scoreConditions: () => ({ total: 50 }),
+// Mock the scoring engine to avoid complex setup. The horizon strip uses
+// the domain engine via `createDiscoveryScoringEngine` + `forecastToSnapshot`;
+// returning a constant total keeps the trim-trailing-null-tail behaviour
+// the focus of the test. Only the symbols the source actually imports are
+// provided to avoid a circular requireActual evaluation.
+jest.mock('@/lib/domains/scoring', () => ({
+  createDiscoveryScoringEngine: () => ({
+    score: () => ({
+      total: 50,
+      subscores: new Map(),
+      matchQuality: 'good',
+      reasons: [],
+      warnings: [],
+      skipReason: null,
+      confidence: 80,
+    }),
+  }),
+  beachToSpotProfile: () => ({}),
+  forecastToSnapshot: () => ({}),
 }));
 
 import { aggregateDayForecasts } from '@/lib/utils/horizon-strip-utils';

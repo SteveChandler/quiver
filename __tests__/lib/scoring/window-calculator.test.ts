@@ -79,10 +79,13 @@ describe('calculateOptimalWindow', () => {
   });
 
   it('returns null when no viable window exists', () => {
+    // Wind ≥30 mph offshore (or ≥22 mph onshore/cross) = blown-out tier in the
+    // new engine — only blown-out skips, replacing the legacy max_wind_any_mph
+    // binary gate.
     const forecasts = createForecasts([
-      { hour: 6, windSpeed: 25, tideHeight: 3.0 }, // All too windy
-      { hour: 7, windSpeed: 25, tideHeight: 3.5 },
-      { hour: 8, windSpeed: 25, tideHeight: 4.0 },
+      { hour: 6, windSpeed: 35, tideHeight: 3.0 },
+      { hour: 7, windSpeed: 35, tideHeight: 3.5 },
+      { hour: 8, windSpeed: 35, tideHeight: 4.0 },
     ]);
 
     const result = calculateOptimalWindow(forecasts, baseBeach);
@@ -91,9 +94,9 @@ describe('calculateOptimalWindow', () => {
   });
 
   it('interpolates transition times when conditions change from bad to good', () => {
-    // Use wind speed that exceeds max_wind_any_mph (18) to create skip condition
+    // 35 mph offshore is blown-out → skip; 5 mph offshore is clean → viable.
     const forecasts = createForecasts([
-      { hour: 6, windSpeed: 25, tideHeight: 3.0 }, // Skip - too windy
+      { hour: 6, windSpeed: 35, tideHeight: 3.0 }, // Skip - blown-out
       { hour: 7, windSpeed: 5, tideHeight: 3.0 },  // Good
       { hour: 8, windSpeed: 5, tideHeight: 3.5 },
       { hour: 9, windSpeed: 5, tideHeight: 4.0 },
@@ -271,8 +274,10 @@ describe('interpolateTransition', () => {
   }
 
   it('interpolates start time when conditions improve', () => {
+    // 35 mph offshore is blown-out (≥30 mph offshore tier) and skips — the
+    // new tier-based skip replaces the legacy max_wind_any_mph binary gate.
     const forecasts = [
-      createForecast(6, 0, { windSpeed: 25 }), // Bad at 6:00
+      createForecast(6, 0, { windSpeed: 35 }), // Bad at 6:00
       createForecast(7, 0, { windSpeed: 5 }),  // Good at 7:00
       createForecast(8, 0, { windSpeed: 5 }),
       createForecast(9, 0, { windSpeed: 5 }),

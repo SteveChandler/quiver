@@ -9,7 +9,7 @@
  */
 
 import type { ForecastForScoring, BeachWithThresholds } from './types';
-import { angleDifference } from './surf-conditions-scorer';
+import { angleDifference } from '@/lib/domains/shared';
 
 // Threshold for "onshore" wind detection (degrees from onshore direction)
 const ONSHORE_TOLERANCE_DEG = 60;
