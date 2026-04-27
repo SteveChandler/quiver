@@ -12,9 +12,36 @@ import {
 
 let mockSupabaseClient: any;
 
-jest.mock("@/lib/middleware/api-wrappers", () => ({
-  withBotBlockingAndRateLimit: (handler: any) => handler,
-}));
+jest.mock("@/lib/middleware/api-wrappers", () => {
+  const actual = jest.requireActual("@/lib/middleware/api-wrappers");
+  return {
+    ...actual,
+    withBotBlockingAndRateLimit: (handler: any) => handler,
+    withAuth:
+      (handler: any, options: any) =>
+      async (request: any, context: any) => {
+        try {
+          const { data: authData } = await mockSupabaseClient.auth.getUser();
+          const user = authData?.user ?? null;
+          if (!user && !options?.optional) {
+            const { createAuthError } = jest.requireActual("@/lib/api-utils");
+            return createAuthError(
+              options?.authErrorMessage || "Authentication required",
+            );
+          }
+          const authContext = {
+            user,
+            supabase: mockSupabaseClient,
+            params: context?.params,
+          };
+          return await handler(request, authContext);
+        } catch (error: any) {
+          const { handleApiError } = jest.requireActual("@/lib/api-utils");
+          return handleApiError(error, options?.errorMessage || "Request failed");
+        }
+      },
+  };
+});
 
 jest.mock("@/lib/supabase/api-server-client", () => ({
   createAPIServerClient: () => mockSupabaseClient,
