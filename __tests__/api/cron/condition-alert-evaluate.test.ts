@@ -41,17 +41,19 @@ jest.mock("@/lib/cron/observability", () => ({
 }));
 
 // Mock window-finder + sunrise + timezone-utils so we control matching behaviour.
-const mockFindMatchingWindows = jest.fn();
-const mockFilterToDaylight = jest.fn((hours: any[]) => hours); // pass-through by default
-const mockGetDaylightWindow = jest.fn(() => ({
+// jest.fn<TReturn, TArgs extends any[]> accepts variadic args so the (...args)
+// spread in the jest.mock factory below typechecks cleanly.
+const mockFindMatchingWindows = jest.fn<any, any[]>();
+const mockFilterToDaylight = jest.fn<any, any[]>((...args: any[]) => args[0]);
+const mockGetDaylightWindow = jest.fn<any, any[]>(() => ({
   sunrise: new Date("2026-04-26T13:00:00Z"),
   sunset: new Date("2026-04-27T02:00:00Z"),
 }));
-const mockGetUtcDayBounds = jest.fn(() => ({
+const mockGetUtcDayBounds = jest.fn<any, any[]>(() => ({
   start: "2026-04-26T00:00:00.000Z",
   end: "2026-04-27T00:00:00.000Z",
 }));
-const mockResolveEntitlement = jest.fn(() => "free" as const);
+const mockResolveEntitlement = jest.fn<any, any[]>(() => "free" as const);
 
 jest.mock("@/lib/alerts/window-finder", () => ({
   findMatchingWindows: (...args: any[]) => mockFindMatchingWindows(...args),
@@ -322,7 +324,7 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     // last_matched_at must be stamped
     expect(store.ruleUpdates).toHaveLength(1);
     expect(store.ruleUpdates[0].id).toBe(RULE_1);
-    expect(store.ruleUpdates[0].last_matched_at).toBeDefined();
+    expect(typeof store.ruleUpdates[0].last_matched_at).toBe("string");
   });
 
   it("2. empty rules: 0 enabled rules => no DB writes after rules query, message returned", async () => {
