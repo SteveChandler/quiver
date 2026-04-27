@@ -97,6 +97,7 @@ const STATE_SLUGS = new Set([
 export function deriveSurfaceFromPath(pathname?: string): string {
   const raw =
     pathname ??
+    // eslint-disable-next-line no-restricted-properties -- pathname-derivation utility, not navigation; gracefully returns null in SSR
     (typeof window === "undefined" ? null : window.location.pathname);
   if (raw === null) return "server";
 

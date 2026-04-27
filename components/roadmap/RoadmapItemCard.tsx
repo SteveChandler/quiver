@@ -38,7 +38,7 @@ function FounderReply({ text }: { text: string }) {
   return (
     <div className="relative mt-4 rotate-[-1deg] rounded-[8px_14px_6px_12px] border border-[#FDB84B]/40 bg-[#252D6B] p-4 shadow-[0_3px_0_rgba(0,0,0,0.35)]">
       <div className="mb-2 font-[var(--font-mono)] text-[10px] font-bold uppercase tracking-[0.2em] text-[#FDB84B]">
-        // Quiver HQ / Steven
+        {"// Quiver HQ / Steven"}
       </div>
       <p className="text-sm text-white/90">{text}</p>
     </div>
