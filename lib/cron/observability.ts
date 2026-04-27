@@ -8,7 +8,14 @@ export async function withCronObservability<T>(
   const start = Date.now();
 
   // cron_runs is not yet in the generated types — cast to any until db:types is regenerated.
-  const db = supabase as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const db = supabase as unknown as {
+    from: (table: "cron_runs") => {
+      insert: (row: Record<string, unknown>) => {
+        select: (cols: string) => { single: () => Promise<{ data: { id: string } | null }> };
+      };
+      update: (row: Record<string, unknown>) => { eq: (col: string, val: string) => Promise<unknown> };
+    };
+  };
 
   let runId: string | null = null;
   try {
