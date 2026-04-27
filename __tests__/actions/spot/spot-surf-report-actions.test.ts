@@ -423,5 +423,100 @@ describe("spot-surf-report-actions", () => {
       const callArgs = mockSelectBestWindow.mock.calls[0][0];
       expect(callArgs.userPrefs).toBeNull();
     });
+
+    // ------------------------------------------------------------------------
+    // Verdict translator integration — PR 3
+    //
+    // The verdict comes from the discovery engine's recommendationLabel
+    // mapping (via `verdictFromRecommendationLabel`). These tests pin the
+    // boundaries (>=70 'Worth it' → 'YES', >=40 'Maybe' → 'MAYBE',
+    // <40 'Skip' → 'NO') so a future engine retune doesn't silently
+    // shift the native verdict.
+    // ------------------------------------------------------------------------
+
+    async function runWithWindowScore(score: number): Promise<{ verdict: string | undefined }> {
+      const { createSupabaseServerClient, createSupabaseServiceRoleClient } = await import(
+        "@/lib/supabase/server"
+      );
+      const { getBatchSunTimes } = await import("@/lib/services/discovery");
+      const { getUserSurfPreferences } = await import("@/lib/services/preference-learning-service");
+
+      (createSupabaseServerClient as jest.Mock).mockReturnValue({
+        auth: {
+          getUser: jest.fn().mockResolvedValue({ data: { user: null } }),
+        },
+        from: jest.fn(() => ({
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              single: jest.fn().mockResolvedValue({ data: null, error: null }),
+            })),
+          })),
+        })),
+      });
+      (getUserSurfPreferences as jest.Mock).mockResolvedValue(null);
+
+      const mockSunTimesCache = new Map([
+        [
+          "beach-123",
+          {
+            sunrises: [new Date("2024-01-15T14:47:00Z")],
+            sunsets: [new Date("2024-01-16T01:00:00Z")],
+          },
+        ],
+      ]);
+      (getBatchSunTimes as jest.Mock).mockResolvedValue(mockSunTimesCache);
+
+      (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              gte: jest.fn(() => ({
+                lt: jest.fn(() => ({
+                  order: jest.fn(() => ({
+                    limit: jest.fn(async () => ({
+                      data: mockForecasts,
+                      error: null,
+                    })),
+                  })),
+                })),
+              })),
+            })),
+          })),
+        })),
+      });
+
+      // Window must be long enough to clear the MINIMUM_VIABLE_WINDOW_MINUTES
+      // and SHORT_WINDOW_THRESHOLD_MINUTES gates so verdict isn't downgraded
+      // by window-duration heuristics.
+      mockSelectBestWindow.mockReturnValue({
+        start: new Date("2024-01-15T22:00:00Z"),
+        end: new Date("2024-01-16T00:00:00Z"), // 2 hours
+        score,
+        waveHeight: "4",
+        confidence: 80,
+        peakTime: new Date("2024-01-15T23:00:00Z"),
+      });
+
+      const { getSpotSurfReport } = await import(
+        "@/actions/spot/spot-surf-report-actions"
+      );
+      const result = await getSpotSurfReport(mockBeach);
+      return { verdict: result?.report.verdict };
+    }
+
+    it("verdict mapping: 'Worth it' (score >= 70) → 'YES'", async () => {
+      const { verdict } = await runWithWindowScore(85);
+      expect(verdict).toBe('YES');
+    });
+
+    it("verdict mapping: 'Maybe' (40 <= score < 70) → 'MAYBE'", async () => {
+      const { verdict } = await runWithWindowScore(55);
+      expect(verdict).toBe('MAYBE');
+    });
+
+    it("verdict mapping: 'Skip' (score < 40) → 'NO'", async () => {
+      const { verdict } = await runWithWindowScore(20);
+      expect(verdict).toBe('NO');
+    });
   });
 });

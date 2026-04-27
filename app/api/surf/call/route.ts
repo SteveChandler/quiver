@@ -53,6 +53,7 @@ async function surfCallHandler(
       'id, name, slug, lat, lon, city, state, country, region, ' +
       'timezone, break_type, skill_level, cdip_station, cdip_eligible, ' +
       'wind_offshore_deg, wind_offshore_tol_deg, ' +
+      'wind_cross_shore_ok_kt, wind_onshore_bad_kt, ' +
       'swell_window_center_deg, swell_window_halfwidth_deg, ' +
       'swell_access_factors, wind_exposure_factors, ' +
       'preferred_tide_direction, preferred_tide_ft_min, ' +
