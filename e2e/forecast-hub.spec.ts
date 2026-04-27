@@ -70,6 +70,9 @@ test.describe("Forecast Hub (Regional Oracle)", () => {
   });
 
   test("anonymous visitor sees the signup CTA", async ({ page }) => {
+    // Spec runs in the [auth] project, but this assertion is anon-only —
+    // clear cookies so the authed-CTA variant doesn't render instead.
+    await page.context().clearCookies();
     await page.goto("/forecast");
     await waitForPageLoad(page);
     await dismissOnboardingWizard(page);
@@ -120,9 +123,10 @@ test.describe("Forecast Hub (Regional Oracle)", () => {
     const outlook = page.getByTestId("seven-day-outlook");
     await expect(outlook).toBeVisible();
 
-    // Heading is always present regardless of data availability.
+    // Heading is always present regardless of data availability. Component
+    // copy is "7-Day Region Outlook" — match the variable middle word.
     await expect(
-      outlook.getByRole("heading", { name: /7-Day Outlook/i })
+      outlook.getByRole("heading", { name: /7-Day.*Outlook/i })
     ).toBeVisible();
 
     // Either day rows render OR the empty-state message renders. We assert
@@ -204,14 +208,18 @@ test.describe("Forecast Hub (Regional Oracle)", () => {
   test("bottom CTA exists with region-aware copy (anonymous variant)", async ({
     page,
   }) => {
+    // Anon-only assertion — see note on the signup CTA test above.
+    await page.context().clearCookies();
     await page.goto("/forecast");
     await waitForPageLoad(page);
     await dismissOnboardingWizard(page);
 
     const bottomCta = page.getByTestId("forecast-bottom-cta");
     await expect(bottomCta).toBeVisible();
-    await expect(bottomCta).toContainText(/regional call/i);
+    // Anon copy was rewritten — "regional call" is gone, but the home-beach
+    // signup framing is the load-bearing assertion.
     await expect(bottomCta).toContainText(/home beach/i);
+    await expect(bottomCta).toContainText(/sign up/i);
 
     const bottomLink = bottomCta.getByRole("link", { name: /home beach/i });
     await expect(bottomLink).toHaveAttribute("href", "/auth/sign-up");
