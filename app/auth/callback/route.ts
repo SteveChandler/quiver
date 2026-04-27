@@ -90,9 +90,40 @@ export async function GET(request: NextRequest) {
   let finalRedirect = redirectUrl;
   let clearInviteCookie = false;
   let inviteConsumed = false;
+  // Anonymous alert-capture finalization. If the user signed in via a magic
+  // link triggered by /api/alerts/anon-capture, materialize any pending
+  // captures into alert_rules. The RPC sets home_beach_id, so the
+  // onboarding-gate logic below correctly skips the onboarding redirect for
+  // capture flows.
+  let captureCount = 0;
+  let firstCaptureReturnPath: string | null = null;
+  let firstCaptureBeachId: string | null = null;
+  let firstCapturePresetType: string | null = null;
+  let captureBeachIds: string[] = [];
   if (supabase) {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
+      const sessionEmail = user.email;
+      const sessionUserId = user.id;
+      if (sessionEmail && sessionUserId) {
+        const { data: captures, error: rpcError } = await supabase.rpc(
+          'finalize_anon_alert_capture',
+          {
+            p_user_id: sessionUserId,
+            p_email: sessionEmail.toLowerCase(),
+          },
+        );
+        if (!rpcError && Array.isArray(captures) && captures.length > 0) {
+          captureCount = captures.length;
+          firstCaptureReturnPath = captures[0].return_path ?? null;
+          firstCaptureBeachId = captures[0].beach_id ?? null;
+          firstCapturePresetType = captures[0].preset_type ?? null;
+          captureBeachIds = captures
+            .map((c: { beach_id: string }) => c.beach_id)
+            .filter(Boolean);
+        }
+      }
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('home_beach_id, onboarding_completed_at')
@@ -106,6 +137,45 @@ export async function GET(request: NextRequest) {
 
       if (isUnactivated) {
         finalRedirect = appendOnboardingRequired(redirectUrl, request.url);
+      }
+
+      // Fire capture events AFTER the onboarding-gate check (which doesn't
+      // depend on them). Non-blocking failures are tolerated — the redirect
+      // still proceeds.
+      if (captureCount > 0) {
+        await supabase.from('user_events').insert({
+          event_type: 'anon_alert_signup_success',
+          user_id: user.id,
+          session_id: crypto.randomUUID(),
+          metadata: {
+            capture_count: captureCount,
+            beach_ids: captureBeachIds,
+          },
+        });
+        await supabase.from('user_events').insert({
+          event_type: 'anon_alert_magic_link_clicked',
+          user_id: user.id,
+          session_id: crypto.randomUUID(),
+          metadata: {
+            beach_id: firstCaptureBeachId,
+            preset_type: firstCapturePresetType,
+          },
+        });
+
+        // Compute the capture-aware redirect target. An explicit `?redirect=`
+        // query param always wins (already validated above into `redirectUrl`).
+        // Otherwise fall back to the first capture's return_path. Append
+        // ?welcome=alert_capture&count=N for the destination toast.
+        const explicitRedirect = url.searchParams.get('redirect');
+        let captureTarget = explicitRedirect
+          ? redirectUrl
+          : firstCaptureReturnPath ?? redirectUrl;
+        captureTarget = appendCaptureWelcome(
+          captureTarget,
+          request.url,
+          captureCount,
+        );
+        finalRedirect = captureTarget;
       }
 
       // Consume invite token (if set by /invite/[token] or /auth/sign-up).
@@ -189,6 +259,24 @@ function appendInvitedFlag(target: string, requestUrl: string): string {
     return `${parsed.pathname}${parsed.search}${parsed.hash}`;
   } catch {
     return '/?invited=1';
+  }
+}
+
+// Append `welcome=alert_capture&count=N` to a redirect target without
+// clobbering existing query params or the hash fragment. Used after the
+// finalize_anon_alert_capture RPC materializes pending captures.
+function appendCaptureWelcome(
+  target: string,
+  requestUrl: string,
+  count: number,
+): string {
+  try {
+    const parsed = new URL(target, requestUrl);
+    parsed.searchParams.set('welcome', 'alert_capture');
+    parsed.searchParams.set('count', String(count));
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return `/?welcome=alert_capture&count=${count}`;
   }
 }
 

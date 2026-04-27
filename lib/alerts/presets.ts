@@ -123,6 +123,20 @@ export const PRESETS: PresetDefinition[] = [
           : undefined,
     }),
   },
+  {
+    type: "daily_check_in",
+    name: "Daily check-in",
+    description:
+      "Validation preset — intentionally loose so it fires on most days at most beaches. " +
+      "Used to prove the alert delivery chain end-to-end during Phase-1 rollout. Not " +
+      "intended for general user creation.",
+    conditionsSummary: "Any rideable surf with non-storm winds",
+    group: "specific",
+    buildConditions: (): AlertConditions => ({
+      swell_height_min: 0.5,
+      wind_speed_max_kt: 25,
+    }),
+  },
 ];
 
 export function getPreset(type: PresetType): PresetDefinition | undefined {

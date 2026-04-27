@@ -10,6 +10,11 @@ import { ContextualCTA } from "@/components/oracle/contextual-cta";
 import { TodaysWindows } from "@/components/oracle/todays-windows";
 import { NearbySpots } from "@/components/oracle/nearby-spots";
 import { ActivityFeed } from "@/components/oracle/activity-feed";
+import { HomeBeachCard } from "@/components/oracle/home-beach-card";
+import {
+  bearingFromTo,
+  calculateDistanceInMiles,
+} from "@/lib/utils/distance-utils";
 // SessionTimeSelector + updatePreferredSessionTime import removed in
 // plan E2 — the inline home-screen prompt is gone. The selector
 // component + server action remain available for a future settings
@@ -23,6 +28,7 @@ import type { TimeWindow } from "@/components/oracle/todays-windows";
 import type { NearbySpot } from "@/components/oracle/nearby-spots";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import type { LocalActivityItem } from "@/actions/oracle-actions";
+import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import { isFutureDayInTimezone } from "@/lib/utils/condition-tier-utils";
 import { getHourInTimezone, getMinuteInTimezone } from "@/lib/utils/date-time";
 import { track } from "@/lib/analytics";
@@ -37,6 +43,11 @@ interface ProfileWithOracle {
   preferred_session_time: string | null;
   level_title: string | null;
   xp_total: number | null;
+}
+
+interface OracleSurfCallPayload {
+  report: SurfCallResult;
+  isTomorrow: boolean;
 }
 
 // ============================================================================
@@ -108,6 +119,39 @@ function getBestWindowTitle(
   if (hour < 14) return "Lunchtime waves are on";
   if (hour < 17) return "Afternoon session lined up";
   return "Evening session incoming";
+}
+
+function getHeroSurfCallTitle(
+  surfCall: SurfCallResult | null,
+  isTomorrow: boolean,
+  fallbackWindow: SurfDiscoveryRecommendation["window"] | undefined
+): string {
+  if (!surfCall) return getBestWindowTitle(fallbackWindow, isTomorrow);
+
+  if (surfCall.verdict === "YES") {
+    return isTomorrow ? "Tomorrow looks worth it" : "Worth paddling out";
+  }
+
+  if (surfCall.verdict === "MAYBE") {
+    return isTomorrow ? "Tomorrow has a narrow window" : "Small window if you time it";
+  }
+
+  return isTomorrow ? "Tomorrow looks poor" : "Today's a no-go";
+}
+
+function getHeroSurfCallTime(
+  surfCall: SurfCallResult | null,
+  timezone: string,
+  fallbackWindow: SurfDiscoveryRecommendation["window"] | undefined
+): string {
+  if (!surfCall) {
+    return fallbackWindow?.start ? formatWindowTime(fallbackWindow.start, timezone) : "—";
+  }
+
+  if (surfCall.verdict === "NO") return "—";
+
+  const target = surfCall.peakTime ?? surfCall.bestWindowStart;
+  return target ? formatWindowTime(new Date(target), timezone) : "—";
 }
 
 /**
@@ -354,9 +398,37 @@ export function OracleHomeScreen() {
   const [shareOpen, setShareOpen] = useState(false);
 
   // ------------------------------------------------------------------
-  // Activity fetch — use homeBeach, falling back to topRec's beach
+  // Extract top-level data + derive hero/home semantics
+  //
+  // Hero is ALWAYS the regional best (topRec). The previous behavior —
+  // forcing the hero to the user's home beach whenever home was inside
+  // the discovery radius — suppressed cross-beach ranking ("drive 18 mi
+  // north to The Rock" never surfaced for a SD user with OB Pier as
+  // home). We surface that override-suppressed signal via two pieces of
+  // UI: a "↗ N mi {direction} of {homeBeach}" subtitle on the hero, and
+  // a labeled "Your home" card below the hero. When `topRec` is null the
+  // screen falls through to `OracleHeroEmpty` below — no synthesized
+  // fallback to bare homeBeach.
   // ------------------------------------------------------------------
-  const activityBeachId = oracle.homeBeach?.id ?? oracle.topRecommendation?.beach?.id ?? null;
+  const { topRecommendation: topRec, profile, homeBeach } = oracle;
+
+  const homeBeachRec = useMemo(() => {
+    if (!homeBeach?.id || !oracle.discovery?.recommendations) return null;
+    return oracle.discovery.recommendations.find(r => r.beach.id === homeBeach.id) ?? null;
+  }, [homeBeach?.id, oracle.discovery?.recommendations]);
+
+  const heroRec = topRec;
+  const heroBeach = heroRec?.beach;
+
+  const homeIsTopRec = !!homeBeach?.id && topRec?.beach.id === homeBeach.id;
+  const showHomeCard = !!homeBeach && !!homeBeachRec && !homeIsTopRec;
+
+  // ------------------------------------------------------------------
+  // Activity fetch — follows the hero (per 2026-04-25 product decision,
+  // memory: project_oracle_activity_feed_follows_hero.md). Falls back
+  // to home beach when topRec is null.
+  // ------------------------------------------------------------------
+  const activityBeachId = heroBeach?.id ?? homeBeach?.id ?? null;
 
   const fetchActivity = useCallback(async (): Promise<LocalActivityItem[]> => {
     if (!activityBeachId) return [];
@@ -392,20 +464,31 @@ export function OracleHomeScreen() {
     [router]
   );
 
-  // ------------------------------------------------------------------
-  // Extract top-level data (must come before handlers that reference these)
-  // ------------------------------------------------------------------
-  const { topRecommendation: topRec, profile, homeBeach } = oracle;
+  const fetchHeroSurfCall = useCallback(async (): Promise<OracleSurfCallPayload | null> => {
+    if (!heroBeach?.id) return null;
 
-  // Find the user's home beach within discovery results for consistent hero data.
-  // If found, use its recommendation so hero name + forecast data match.
-  // If not found (user far from home beach), fall back to topRec for everything.
-  const homeBeachRec = useMemo(() => {
-    if (!homeBeach?.id || !oracle.discovery?.recommendations) return null;
-    return oracle.discovery.recommendations.find(r => r.beach.id === homeBeach.id) ?? null;
-  }, [homeBeach?.id, oracle.discovery?.recommendations]);
+    const response = await fetch(`/api/surf/call?beachId=${heroBeach.id}`, {
+      credentials: "include",
+    });
 
-  const heroRec = homeBeachRec ?? topRec;
+    if (!response.ok) {
+      throw new Error(`Surf call request failed with ${response.status}`);
+    }
+
+    const payload = await response.json() as {
+      success?: boolean;
+      data?: OracleSurfCallPayload;
+    };
+
+    return payload.success ? (payload.data ?? null) : null;
+  }, [heroBeach?.id]);
+
+  const { data: heroSurfCallData } = useDataFetcher(fetchHeroSurfCall, {
+    skip: !heroBeach?.id,
+    cacheKey: heroBeach?.id ? `oracle-hero-surf-call:${heroBeach.id}` : undefined,
+    cacheTTL: 5 * 60 * 1000,
+  });
+  const heroSurfCall = heroSurfCallData?.report ?? null;
 
   // Build share data for the session share sheet (needed by handleShareSession below)
   const shareData = useMemo(() => {
@@ -486,16 +569,31 @@ export function OracleHomeScreen() {
     [router, oracle.discovery?.recommendations]
   );
 
+  // Drive subtitle context: "↗ N mi {direction} of {homeBeach}". Only
+  // populated when the hero is a beach OTHER than the user's home beach
+  // and we have valid coords on both sides. The beaches table uses
+  // lat/lon (verified via types/database.generated.ts and existing reads
+  // at hooks/use-oracle-data.ts:108).
+  const driveContext = useMemo(() => {
+    if (!showHomeCard || !homeBeach || !heroBeach) return undefined;
+    if (homeBeach.lat == null || homeBeach.lon == null) return undefined;
+    if (heroBeach.lat == null || heroBeach.lon == null) return undefined;
+    const home = { lat: homeBeach.lat, lon: homeBeach.lon };
+    const hero = { lat: heroBeach.lat, lon: heroBeach.lon };
+    const distanceMiles = calculateDistanceInMiles(home, hero);
+    if (!Number.isFinite(distanceMiles) || distanceMiles < 1) return undefined;
+    return {
+      distanceMiles,
+      bearing: bearingFromTo(home, hero),
+      homeBeachName: homeBeach.name,
+    };
+  }, [showHomeCard, homeBeach, heroBeach]);
+
   const forecast = heroRec?.forecast;
   const window = heroRec?.window;
 
   // Parse numeric forecast values with safe defaults
   const waveHeight = heroRec?.waveHeightBadge ?? forecast?.wave_height ?? "—";
-  const swellDir =
-    forecast?.swell_1_direction ?? forecast?.wave_direction ?? "W";
-  const swellPeriod = parseNumeric(
-    forecast?.swell_1_period ?? forecast?.wave_period
-  );
   // Use per-slot data for current hour (fixes stale tide direction)
   const heroTz = window?.timezone || "America/Los_Angeles";
   const currentHour = getHourInTimezone(new Date(), heroTz);
@@ -504,6 +602,21 @@ export function OracleHomeScreen() {
   ).hour;
   const currentSlot = heroRec?.slotForecasts?.[currentSlotHour];
 
+  // Keep the hero's "current conditions" strip coherent: when we have a
+  // current slot for the beach/day, use that same slot for swell + wind.
+  // The previous implementation mixed slot wind with best-window swell,
+  // which could show conditions from different hours in the same hero.
+  const swellDir =
+    currentSlot?.swellDirection ??
+    forecast?.swell_1_direction ??
+    forecast?.wave_direction ??
+    "W";
+  const swellPeriod = parseNumeric(
+    currentSlot?.swellPeriod ??
+    forecast?.swell_1_period ??
+    forecast?.wave_period
+  );
+
   const tideH = parseNumeric(currentSlot?.tideHeight ?? forecast?.tide_height);
   const tideDir: "rising" | "falling" =
     (currentSlot?.tideStatus ?? forecast?.tide_status)?.toLowerCase().includes("rising")
@@ -511,7 +624,7 @@ export function OracleHomeScreen() {
   const waterTemp = parseNumeric(forecast?.water_temp);
   const windSpd = parseNumeric(currentSlot?.windSpeed ?? forecast?.wind_speed);
   const windDir = currentSlot?.windDirection ?? forecast?.wind_direction ?? "—";
-  const score = heroRec?.score ?? 0;
+  const score = heroSurfCall?.score ?? heroRec?.score ?? 0;
   const beachName = heroRec?.beach?.name ?? homeBeach?.name ?? "Your Beach";
 
   // Cast once for fields not yet in generated Profile type
@@ -520,15 +633,18 @@ export function OracleHomeScreen() {
 
   // Check if the top recommendation is for tomorrow (timezone-aware)
   const isTomorrow = useMemo(() => {
+    if (heroSurfCallData) return heroSurfCallData.isTomorrow;
     if (!window?.start) return false;
     return isFutureDayInTimezone(window.start, heroTz);
-  }, [window?.start, heroTz]);
+  }, [heroSurfCallData, window?.start, heroTz]);
 
   // Best window data
-  const bestWindowTime = window?.start ? formatWindowTime(window.start, heroTz) : "—";
-  const bestWindowTitle = getBestWindowTitle(window, isTomorrow);
+  const bestWindowTime = getHeroSurfCallTime(heroSurfCall, heroTz, window);
+  const bestWindowTitle = getHeroSurfCallTitle(heroSurfCall, isTomorrow, window);
   const bestWindowSubtitle =
-    heroRec?.reasons?.[0] ?? "Check the forecast for details";
+    heroSurfCall?.whySentence ??
+    heroRec?.reasons?.[0] ??
+    "Check the forecast for details";
 
   // Transformed sub-component data (memoised to avoid child re-renders)
   const timeWindows = useMemo(
@@ -548,7 +664,6 @@ export function OracleHomeScreen() {
   );
 
   // Build forecast deep-link for the hero beach
-  const heroBeach = heroRec?.beach ?? homeBeach;
   const forecastUrl =
     heroBeach?.slug && heroBeach.city && heroBeach.state
       ? `/${heroBeach.state.toLowerCase()}/${heroBeach.city.toLowerCase().replace(/\s+/g, "-")}/${heroBeach.slug}`
@@ -608,7 +723,17 @@ export function OracleHomeScreen() {
         xpTotal={oracleProfile?.xp_total ?? null}
         timezone={heroTz}
         regionalCall={oracle.discovery?.regionalCall}
+        driveContext={driveContext}
       />
+
+      {/* Labeled "Your home" card surfaced when the regional best is a
+          different beach than the user's home. Click navigates to beach
+          detail via the same handler NearbySpots uses. */}
+      {showHomeCard && homeBeachRec && (
+        <div className="px-6 pt-4 md:px-6">
+          <HomeBeachCard rec={homeBeachRec} onClick={handleViewSpot} />
+        </div>
+      )}
 
       {/* Inline SessionTimeSelector prompt removed in plan E2. Asking
           users "When do you usually paddle out?" on the home screen
