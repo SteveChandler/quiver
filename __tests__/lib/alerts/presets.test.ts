@@ -56,8 +56,16 @@ describe("presets", () => {
     const conditions = preset.buildConditions(mockBeach);
     expect(conditions.tide_height_min_ft).toBe(2);
     expect(conditions.tide_height_max_ft).toBe(5);
-    expect(conditions.swell_height_min).toBe(1);
+    expect(conditions.swell_height_min).toBe(1.5);
     expect(conditions.swell_height_max).toBe(4);
+  });
+
+  it("clean_groundswell has 2ft floor + 12s period", () => {
+    const preset = getPreset("clean_groundswell")!;
+    const conditions = preset.buildConditions(mockBeach);
+    expect(conditions.swell_height_min).toBe(2);
+    expect(conditions.swell_period_min).toBe(12);
+    expect(conditions.wind_speed_max_kt).toBe(10);
   });
 
   it("tide_window uses beach preferred tide range and direction", () => {
