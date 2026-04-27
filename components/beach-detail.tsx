@@ -69,6 +69,7 @@ import { ForecastConfidenceBadge } from "@/components/beach-detail/forecast-conf
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
 import { AlertCreationPopover } from "@/components/alerts/alert-creation-popover";
+import { AnonAlertCaptureForm } from "@/components/alerts/anon-alert-capture-form";
 import type { BeachAlertMeta } from "@/lib/alerts/types";
 // trackSignupCtaClick, trackAuthModalOpened, and motion removed — only needed for removed CTAs
 
@@ -1178,6 +1179,18 @@ function BeachDetailContent({
           </BeachTabContent>
         </BeachTabs>
       </div>
+
+      {/* Anonymous email-capture form — beach-detail-only.
+          Self-guards via useAuth() per CLAUDE.md CTA defense-in-depth, so the
+          publicMode parent gate is not strictly required, but we mirror it
+          for symmetry with the popover below. */}
+      {!user && (
+        <AnonAlertCaptureForm
+          beachId={beach.id}
+          beachName={beach.name}
+          returnPath={pathname}
+        />
+      )}
 
       {/* Alert Creation Dialog */}
       {!publicMode && alertCreationOpen && (

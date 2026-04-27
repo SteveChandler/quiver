@@ -139,7 +139,11 @@
     },
     {
       "path": "/api/cron/condition-alert-deliver",
-      "schedule": "*/5 * * * *"
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-pending-alert-captures",
+      "schedule": "30 3 * * *"
     },
     {
       "path": "/api/cron/indexnow-submit",

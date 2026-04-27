@@ -23,13 +23,13 @@ const mockBeach: BeachAlertMeta = {
 };
 
 describe("presets", () => {
-  it("defines exactly 7 presets", () => {
-    expect(PRESETS).toHaveLength(7);
+  it("defines exactly 8 presets", () => {
+    expect(PRESETS).toHaveLength(8);
   });
 
-  it("has 3 popular and 4 specific presets", () => {
+  it("has 3 popular and 5 specific presets", () => {
     expect(getPresetsForGroup("popular")).toHaveLength(3);
-    expect(getPresetsForGroup("specific")).toHaveLength(4);
+    expect(getPresetsForGroup("specific")).toHaveLength(5);
   });
 
   it("each preset has required fields", () => {

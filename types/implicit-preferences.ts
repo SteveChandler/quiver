@@ -130,7 +130,15 @@ export type ImplicitEventType =
   // Roadmap events (added 2026-04-25)
   | 'roadmap_vote_cast'
   | 'roadmap_item_submitted'
-  | 'roadmap_item_status_changed';
+  | 'roadmap_item_status_changed'
+  // Anon alert capture events (added 2026-04-26)
+  // First three are pre-auth only (fire from SEO landings before signup);
+  // last two fire post-auth in /auth/callback when the magic-link finalizes.
+  | 'anon_alert_capture_view'
+  | 'anon_alert_capture_submit'
+  | 'anon_alert_capture_error'
+  | 'anon_alert_magic_link_clicked'
+  | 'anon_alert_signup_success';
 
 /**
  * Weight multipliers for each event type, determining how much
@@ -254,6 +262,12 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   roadmap_vote_cast: 0,
   roadmap_item_submitted: 0,
   roadmap_item_status_changed: 0,
+  // Anon alert capture events (added 2026-04-26) — funnel tracking only, no preference weight
+  anon_alert_capture_view: 0,
+  anon_alert_capture_submit: 0,
+  anon_alert_capture_error: 0,
+  anon_alert_magic_link_clicked: 0,
+  anon_alert_signup_success: 0,
 } as const;
 
 // -----------------------------------------------------------------------------

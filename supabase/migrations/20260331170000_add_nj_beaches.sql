@@ -15,7 +15,7 @@ INSERT INTO beaches (
 SELECT
   '3rd Avenue Jetty', 'Belmar', 'NJ', 'US', 40.1842, -74.0178,
   '3rd-avenue-jetty-belmar-nj', 'Jersey Shore', 'America/New_York',
-  'jetty', 'beginner-intermediate', 'moderate',
+  'jetty', 'beginner', 'moderate',
   'The 3rd Avenue Jetty is at the north end of Belmar''s beach-break stretch, where rock groins create wedgy peaks on both sides. The sand bottom and jetty protection make it more forgiving than the heavy 8th Avenue zone, attracting surf schools and intermediate surfers. Summertime Surf operates lessons here, keeping the vibe mellow and accessible.',
   280, 40,
   70, 180, 120, 55,
@@ -28,7 +28,7 @@ SELECT
   'Metered street parking on Ocean Avenue and side streets. Badge booth at 3rd Avenue boardwalk entrance. Arrive early in summer or bike in.',
   ARRAY['jetty-protected','sandy bottom','beginner-friendly','surf school spot','boardwalk access','consistent'],
   ARRAY['rip currents near jetty','rocks along groin','summer beach badge required']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = '3rd Avenue Jetty' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('3rd Avenue Jetty'));
 
 -- 2. 8th Avenue Jetty (Belmar)
 INSERT INTO beaches (
@@ -43,7 +43,7 @@ INSERT INTO beaches (
 SELECT
   '8th Avenue Jetty', 'Belmar', 'NJ', 'US', 40.1815, -74.0195,
   '8th-avenue-jetty-belmar-nj', 'Jersey Shore', 'America/New_York',
-  'jetty', 'intermediate-advanced', 'crowded',
+  'jetty', 'intermediate', 'crowded',
   'The 8th Avenue Jetty is one of Belmar''s heaviest and most localized peaks. The rock groin focuses swells into hollow, fast-breaking barrels over shallow sandbars. Strong localism and powerful waves make this a spot to earn your place in the lineup rather than casually paddle out.',
   280, 35,
   70, 180, 125, 55,
@@ -56,7 +56,7 @@ SELECT
   'Metered parking along Ocean Avenue. Limited side-street spots. Same Belmar beach badge system applies in summer.',
   ARRAY['hollow','powerful','barrel','jetty-protected','sandy bottom','localized'],
   ARRAY['strong localism','heavy barrels on shallow sandbars','rip currents','rocks along groin','not beginner-friendly']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = '8th Avenue Jetty' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('8th Avenue Jetty'));
 
 -- 3. Belmar Fishing Pier / 19th Avenue (Belmar)
 INSERT INTO beaches (
@@ -84,7 +84,7 @@ SELECT
   'Metered parking on Ocean Avenue near 19th. Less competition for spots than central Belmar. Street parking on side streets.',
   ARRAY['pier break','powerful','barreling sections','sandy bottom','less crowded than central Belmar'],
   ARRAY['pilings present underwater hazard','strong currents near pier structure','fishing lines in water','inconsistent — needs solid swell']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = 'Belmar Fishing Pier' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('Belmar Fishing Pier'));
 
 -- 4. Washington Beach (Spring Lake)
 INSERT INTO beaches (
@@ -112,7 +112,7 @@ SELECT
   'Street parking on Washington Avenue and surrounding blocks. No dedicated lot — limited availability in summer.',
   ARRAY['longboard-friendly','mellow','beginner-friendly','sandy bottom','forgiving','designated surf beach'],
   ARRAY['mushy takeoffs can frustrate shortboarders','rip currents near groins on bigger days','summer beach badge required']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = 'Washington Beach' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('Washington Beach'));
 
 -- 5. Surfer''s Beach / Kook Bay (Spring Lake)
 INSERT INTO beaches (
@@ -127,7 +127,7 @@ INSERT INTO beaches (
 SELECT
   'Surfer''s Beach', 'Spring Lake', 'NJ', 'US', 40.1495, -74.0248,
   'surfers-beach-spring-lake-nj', 'Jersey Shore', 'America/New_York',
-  'beach', 'beginner-intermediate', 'crowded',
+  'beach', 'beginner', 'crowded',
   'Commonly called Surfer''s Beach or Kook Bay, this spot at the south end of Spring Lake is the town''s most popular surfing beach. Drive-up access makes it easy to check conditions, which means it is always crowded when good. On a south swell, the inside corner bowls up and produces a really fun, hollow left. Generally mushy and beginner-friendly, but capable of quality waves.',
   280, 40,
   80, 190, 130, 55,
@@ -140,7 +140,7 @@ SELECT
   'Street parking near the south end; easier to find than central Spring Lake. Drive-up convenience is part of why it is so crowded.',
   ARRAY['consistent','hollow lefts on south swell','sandy bottom','drive-up access','beginner-friendly on small days'],
   ARRAY['always crowded when good','rip currents on bigger swells','mushy on most days','summer beach badge required']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = 'Surfer''s Beach' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('Surfer''s Beach'));
 
 -- 6. Mambo Beach (Spring Lake)
 INSERT INTO beaches (
@@ -168,7 +168,7 @@ SELECT
   'Street parking along Ocean Avenue and side streets. Similar to Washington Beach — limited but manageable outside of peak summer weekends.',
   ARRAY['hollow','punchy','performance wave','sandy bottom','less crowded than Kook Bay'],
   ARRAY['rip currents on bigger days','shallow sandbars at low tide','summer beach badge required','needs solid swell to work']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = 'Mambo Beach' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('Mambo Beach'));
 
 -- 7. South End Jetty (Spring Lake)
 INSERT INTO beaches (
@@ -183,7 +183,7 @@ INSERT INTO beaches (
 SELECT
   'South End Jetty', 'Spring Lake', 'NJ', 'US', 40.1465, -74.0260,
   'south-end-jetty-spring-lake-nj', 'Jersey Shore', 'America/New_York',
-  'jetty', 'upper-intermediate', 'light',
+  'jetty', 'intermediate', 'light',
   'The South End Jetty at Spring Lake is longer than the rest of the groins, pushing the sandbar farther outside. This creates a bigger-wave option when the rest of the town is maxing out. The longer paddle and heavier wave quality keep crowds thin and attract experienced surfers looking for more size. Near Wreck Pond outlet.',
   280, 35,
   70, 180, 120, 55,
@@ -196,7 +196,7 @@ SELECT
   'Street parking along the south end of Ocean Avenue. Less competition for spots due to the remote location.',
   ARRAY['bigger waves','less crowded','jetty-protected','sandy bottom','good on bigger days','longer ride'],
   ARRAY['longer paddle out','powerful waves on solid swells','rip currents near jetty','proximity to Wreck Pond outlet — water quality concern after rain','not for beginners']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = 'South End Jetty' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('South End Jetty'));
 
 -- 8. Seven Presidents Oceanfront Park (Long Branch)
 INSERT INTO beaches (
@@ -211,7 +211,7 @@ INSERT INTO beaches (
 SELECT
   'Seven Presidents Oceanfront Park', 'Long Branch', 'NJ', 'US', 40.2945, -73.9848,
   'seven-presidents-oceanfront-park-long-branch-nj', 'Jersey Shore', 'America/New_York',
-  'beach', 'lower-intermediate', 'light',
+  'beach', 'intermediate', 'light',
   'Seven Presidents Oceanfront Park is a 38-acre county park that was one of the first locations on the Jersey Shore to allow surfing. Named after the seven US presidents who vacationed in Long Branch, the park offers designated surf zones alongside swimming areas, a snack bar, showers, and volleyball courts. The beach break produces mellow peaks over sand with inconsistent but occasionally fun surf.',
   275, 40,
   60, 170, 110, 55,
@@ -224,7 +224,7 @@ SELECT
   'Large pay parking lot within the park. Ample spaces compared to other Jersey Shore spots. Park entrance fee applies in summer.',
   ARRAY['uncrowded','sandy bottom','parking lot','restrooms','showers','snack bar','family-friendly','historic surf spot'],
   ARRAY['inconsistent surf','rocks in some areas','park entrance fee in summer']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = 'Seven Presidents Oceanfront Park' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('Seven Presidents Oceanfront Park'));
 
 -- 9. 7th Street Beach (Ocean City)
 INSERT INTO beaches (
@@ -252,7 +252,7 @@ SELECT
   'Street parking on 7th Street and surrounding blocks. Metered spots fill quickly in summer. Consider biking from further parking areas.',
   ARRAY['consistent','iconic OCNJ surf spot','sandy bottom','surf shop on-site','historic','boardwalk access'],
   ARRAY['three outfall pipes create intense currents','steep drops on rough days','crowded on good swells','summer beach tags required']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = '7th Street Beach' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('7th Street Beach'));
 
 -- 10. Waverly Beach (Ocean City)
 INSERT INTO beaches (
@@ -267,7 +267,7 @@ INSERT INTO beaches (
 SELECT
   'Waverly Beach', 'Ocean City', 'NJ', 'US', 39.2932, -74.5530,
   'waverly-beach-ocean-city-nj', 'Jersey Shore', 'America/New_York',
-  'beach', 'beginner-intermediate', 'light',
+  'beach', 'beginner', 'light',
   'Waverly Beach sits near the northern tip of Ocean City island, just off Waverly Boulevard and East Atlantic Boulevard. As the quietest of OCNJ''s three designated surfing beaches, its hundreds of feet of golden shoreline provide mellow, forgiving waves for surfers of all skill levels. The best surfing conditions typically peak in midsummer around July.',
   290, 40,
   40, 170, 90, 65,
@@ -280,7 +280,7 @@ SELECT
   'Street parking in the north end neighborhood. Generally easier to find spots than central OCNJ.',
   ARRAY['uncrowded','mellow','beginner-friendly','sandy bottom','quiet neighborhood','wide beach'],
   ARRAY['inconsistent — needs right conditions','currents near inlet on big swells','summer beach tags required']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = 'Waverly Beach' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('Waverly Beach'));
 
 -- 11. 1st Street Jetty (Ocean City)
 INSERT INTO beaches (
@@ -308,7 +308,7 @@ SELECT
   'Street parking on 1st Street and surrounding blocks. Easier to find than central OCNJ.',
   ARRAY['jetty-protected','consistent rights','sandy bottom','inlet proximity adds energy','good off-season spot'],
   ARRAY['strong currents near inlet','rocks along jetty','rip currents on bigger swells','not for beginners']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = '1st Street Jetty' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('1st Street Jetty'));
 
 -- 12. Broadway Beach (Cape May)
 INSERT INTO beaches (
@@ -336,7 +336,7 @@ SELECT
   'Street parking on Broadway and surrounding blocks. Metered in summer. More available than central Cape May beaches.',
   ARRAY['consistent left off jetty','variety of waves','sandy bottom','south-facing (unique for NJ)','works on big swells'],
   ARRAY['extremely crowded on good days','surfing restricted to before/after lifeguard hours in summer','aggressive lineup on big days','strong currents']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = 'Broadway Beach' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('Broadway Beach'));
 
 -- 13. The Cove (Cape May)
 INSERT INTO beaches (
@@ -351,7 +351,7 @@ INSERT INTO beaches (
 SELECT
   'The Cove', 'Cape May', 'NJ', 'US', 38.9312, -74.9180,
   'the-cove-cape-may-nj', 'Jersey Shore', 'America/New_York',
-  'point', 'upper-intermediate', 'crowded',
+  'point', 'intermediate', 'crowded',
   'The Cove is the king of Cape May surf spots — a rare NJ point break tucked at the southwest end of town where the coastline wraps south. The south-facing aspect allows it to handle big NE swells that manage to wrap in, producing long left-hand tubes. When good, three below-sea-level left-hand tubes on one wave are not uncommon. Quite reliable surf that works at any time of year.',
   20, 35,
   60, 200, 140, 70,
@@ -364,7 +364,7 @@ SELECT
   'Street parking along the west end of Beach Avenue. The Sunset Pavilion overlooks The Cove.',
   ARRAY['point break','long left-hand walls','barrel sections','south-facing','works when rest of NJ blown out','all-day surfing'],
   ARRAY['rocks','man-made hazards (buoys)','crowded when good','powerful on big swells','unique wind/swell dynamics — study before surfing']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = 'The Cove' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('The Cove'));
 
 -- 14. Poverty Beach (Cape May)
 INSERT INTO beaches (
@@ -392,7 +392,7 @@ SELECT
   'Free street parking near Wilmington Avenue entrance. One of the few Cape May spots with free parking. Showers at the entrance.',
   ARRAY['hollow','A-frame peaks','high-performance','free parking','free access','sandy bottom','expert wave'],
   ARRAY['rocks and submerged pilings','fickle — needs specific conditions','expert-only on bigger days','strong currents','water quality concern after rain']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = 'Poverty Beach' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('Poverty Beach'));
 
 -- 15. 12th Street Jetty (Sea Isle City)
 INSERT INTO beaches (
@@ -407,7 +407,7 @@ INSERT INTO beaches (
 SELECT
   '12th Street Jetty', 'Sea Isle City', 'NJ', 'US', 39.1563, -74.6870,
   '12th-street-jetty-sea-isle-city-nj', 'Jersey Shore', 'America/New_York',
-  'jetty', 'beginner-intermediate', 'light',
+  'jetty', 'beginner', 'light',
   'The 12th Street Jetty in Sea Isle City is a longboarder''s sanctuary — a mellow jetty break that rolls over a sand bottom with easy-to-surf waves. The rock groin provides just enough structure to organize the sandbars without creating intimidating power. Waves break for up to 150 meters providing fun sections for cruising or maneuvers. The relaxed vibe and forgiving nature make it ideal for longboarders and intermediate surfers.',
   280, 40,
   50, 180, 100, 65,
@@ -420,7 +420,7 @@ SELECT
   'Street parking on 12th Street and surrounding blocks. Easier to find than northern NJ shore towns.',
   ARRAY['longboard-friendly','mellow','jetty-protected','sandy bottom','long rides','uncrowded','forgiving'],
   ARRAY['rip currents near jetty on bigger days','summer beach tags required','inconsistent — needs swell to work']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = '12th Street Jetty' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('12th Street Jetty'));
 
 -- 16. 36th-42nd Street (Sea Isle City)
 INSERT INTO beaches (
@@ -448,7 +448,7 @@ SELECT
   'Street parking along the 36th-42nd Street blocks. Ample availability outside summer weekends.',
   ARRAY['quality lefts','multiple peaks','jetty-protected','sandy bottom','consistent on NE swells','performance wave'],
   ARRAY['rip currents near jetties','rocks along groins','currents increase on bigger swells','summer beach tags required']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = '36th-42nd Street' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('36th-42nd Street'));
 
 -- 17. 3rd Avenue Beach (Bradley Beach)
 INSERT INTO beaches (
@@ -463,7 +463,7 @@ INSERT INTO beaches (
 SELECT
   '3rd Avenue Beach', 'Bradley Beach', 'NJ', 'US', 40.2018, -74.0108,
   '3rd-avenue-beach-bradley-beach-nj', 'Jersey Shore', 'America/New_York',
-  'jetty', 'beginner-intermediate', 'moderate',
+  'jetty', 'beginner', 'moderate',
   'The 3rd Avenue surfing beach in Bradley Beach is a designated surf zone extending 400 feet north from the Third Avenue Jetty. A reliable beach/jetty break with consistent surf year-round, Bradley Beach will never have the best surf in the state but always offers something, especially in fall, winter, and spring. The jetty creates defined peaks, and the sand bottom keeps things forgiving.',
   280, 40,
   60, 180, 100, 60,
@@ -476,7 +476,7 @@ SELECT
   'Street parking on 3rd Avenue and surrounding blocks. Beach badge booth nearby. Metered in summer.',
   ARRAY['designated surf zone','jetty-protected','consistent','sandy bottom','longboard-friendly','year-round surf'],
   ARRAY['longboarders hog waves on small days','concentrated surf zone can feel crowded','rip currents near jetty','summer beach badge required']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = '3rd Avenue Beach' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('3rd Avenue Beach'));
 
 -- 18. Brinley Avenue (Bradley Beach)
 INSERT INTO beaches (
@@ -504,7 +504,7 @@ SELECT
   'Street parking on Brinley Avenue and surrounding blocks. Easy to find — fewer visitors than 3rd Avenue area.',
   ARRAY['handles big E swells','jetty-protected','uncrowded','sandy bottom','backup spot when everywhere else is maxed','local knowledge spot'],
   ARRAY['powerful waves when it is working','rip currents near jetty','rocks along groin','needs big swell to be worth checking']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = 'Brinley Avenue' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('Brinley Avenue'));
 
 -- 19. Bay Head Beach (Bay Head)
 INSERT INTO beaches (
@@ -532,7 +532,7 @@ SELECT
   'Street parking throughout Bay Head. Limited availability in summer — the small town means few spots. Consider cycling.',
   ARRAY['fast right-hand barrels','well-defined sandbars','multiple peaks','sandy bottom','consistent','powerful'],
   ARRAY['shallow sandbars — risk of hitting bottom','rip currents','crowded on good swells','tricky takeoffs','summer beach badges required']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = 'Bay Head Beach' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('Bay Head Beach'));
 
 -- 20. Seaside Park (Seaside Park)
 INSERT INTO beaches (
@@ -547,7 +547,7 @@ INSERT INTO beaches (
 SELECT
   'Seaside Park', 'Seaside Park', 'NJ', 'US', 39.9268, -74.0720,
   'seaside-park-seaside-park-nj', 'Jersey Shore', 'America/New_York',
-  'beach', 'lower-intermediate', 'moderate',
+  'beach', 'intermediate', 'moderate',
   'Seaside Park is an exposed beach break on the Barnegat Peninsula with consistent surf that works year-round. Both left and right hand waves break over sand, equally likely from local windswells and distant groundswells. The break quality is not affected by tide, making it a forgiving, accessible option for a range of skill levels. The adjacent Seaside Heights boardwalk adds a fun, carnival-like atmosphere.',
   290, 45,
   50, 180, 110, 65,
@@ -560,7 +560,7 @@ SELECT
   'Street parking throughout Seaside Park. Boardwalk-area lots available in summer for a fee. More parking available than in smaller shore towns.',
   ARRAY['consistent','tide-independent','sandy bottom','works year-round','accessible','boardwalk nearby'],
   ARRAY['rip currents and undertow','must use leash','stay in designated surf areas during guarded hours','summer beach badges required']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = 'Seaside Park' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('Seaside Park'));
 
 -- 21. Ortley Beach (Toms River)
 INSERT INTO beaches (
@@ -575,7 +575,7 @@ INSERT INTO beaches (
 SELECT
   'Ortley Beach', 'Toms River', 'NJ', 'US', 39.9557, -74.0695,
   'ortley-beach-toms-river-nj', 'Jersey Shore', 'America/New_York',
-  'beach', 'lower-intermediate', 'moderate',
+  'beach', 'intermediate', 'moderate',
   'Ortley Beach is an unincorporated community within Toms River, situated on the Barnegat Peninsula between Lavallette and Seaside Heights. The beach break produces both left and right waves over a sandy bottom, with quality heavily dependent on sandbar configuration. When the sandbars are set up right, Ortley delivers fun, surfable peaks. The wide beach stretches from 3rd Avenue to Harding Avenue with multiple access points.',
   280, 45,
   50, 180, 110, 65,
@@ -588,6 +588,6 @@ SELECT
   'Street parking and boardwalk-area lots. Beach badge or pass required for access during guarded season.',
   ARRAY['sandy bottom','long beach stretch','multiple peaks','works on various swells','boardwalk access'],
   ARRAY['sandbar-dependent — inconsistent','rip currents','must use leash','summer beach badges required']
-WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE name = 'Ortley Beach' AND state = 'NJ');
+WHERE NOT EXISTS (SELECT 1 FROM beaches WHERE lower(name) = lower('Ortley Beach'));
 
 COMMIT;
