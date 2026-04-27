@@ -337,7 +337,7 @@ describe("seedDefaultRuleForUser", () => {
     const conditions = state.insertPayload?.conditions as Record<string, number>;
     expect(conditions.tide_height_min_ft).toBe(2);
     expect(conditions.tide_height_max_ft).toBe(5);
-    expect(conditions.swell_height_min).toBe(1);
+    expect(conditions.swell_height_min).toBe(1.5);
     expect(conditions.swell_height_max).toBe(4);
     expect(conditions.wind_speed_max_kt).toBe(8);
   });
