@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useOnboardingStore, ONBOARDING_STEP_NAMES } from "@/store/onboarding-store";
 import { HomeBeachStep } from "./steps/home-beach-step";
@@ -37,7 +37,6 @@ export function OnboardingDialog() {
   const { user } = useAuth();
   const { profile, isLoading: profileLoading } = useProfileContext();
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const {
     isOpen,
@@ -259,11 +258,17 @@ export function OnboardingDialog() {
     // onboarding_completed_at set — the re-open loop observed in analytics.
     if (profileLoading) return;
 
+    // Read from window.location directly — Next 16 + Turbopack's usePathname()/
+    // useSearchParams() snapshots can drift from the live URL on this code path,
+    // causing router.replace to be called with the same `?onboarding=required`
+    // string we're trying to strip (the dev smoke `?onboarding=required opens
+    // the dialog on mount` test caught this in 4/27 runs).
     const stripParam = () => {
-      const next = new URLSearchParams(searchParams?.toString() ?? "");
+      if (typeof window === "undefined") return;
+      const next = new URLSearchParams(window.location.search);
       next.delete("onboarding");
       const qs = next.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      router.replace(qs ? `${window.location.pathname}?${qs}` : window.location.pathname, { scroll: false });
     };
 
     // Defense-in-depth against stale welcome-email links, bookmarks, and
@@ -288,7 +293,7 @@ export function OnboardingDialog() {
     reopenFresh(user.id);
 
     stripParam();
-  }, [searchParams, user, profile, profileLoading, reopenFresh, router, pathname]);
+  }, [searchParams, user, profile, profileLoading, reopenFresh, router]);
 
   // Keep store/UI consistent: if the store says "open" but render conditions
   // no longer allow onboarding (e.g., profile loads as complete), close it.
