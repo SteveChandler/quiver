@@ -236,8 +236,8 @@ WHERE full_name = 'Emma Davis';
 -- Add favorites: mix of near-UTC and farther beaches
 INSERT INTO public.favorite_beaches (user_id, beach_id, rank)
 SELECT
-  (SELECT id FROM public.profiles WHERE full_name = 'Emma Davis' LIMIT 1),
-  b.id,
+  emma.id,
+  beaches.id,
   b.rank_val
 FROM (VALUES
   -- Farther from UTC (~8-10 mi)
@@ -250,6 +250,7 @@ FROM (VALUES
   ('Tourmaline', 6)
 ) AS b(beach_name, rank_val)
 JOIN public.beaches ON beaches.name = b.beach_name
+JOIN (SELECT id FROM public.profiles WHERE full_name = 'Emma Davis' LIMIT 1) emma ON true
 ON CONFLICT DO NOTHING;
 
 -- =============================================================================
