@@ -67,15 +67,18 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
     ...actual,
     withAuth: (handler: any, options: any) => async (request: any, context: any) => {
       try {
-        // Check if user is authenticated
         const { data: authData } = await mockSupabaseClient.auth.getUser();
-        if (!authData.user) {
+        const user = authData?.user ?? null;
+
+        // Honor the { optional: true } flag — when set, unauthenticated
+        // callers proceed with user=null instead of being rejected.
+        if (!user && !options?.optional) {
           const { createAuthError } = jest.requireActual("@/lib/api-utils");
           return createAuthError(options?.authErrorMessage || "Authentication required");
         }
 
         const authContext = {
-          user: authData.user,
+          user,
           supabase: mockSupabaseClient,
           params: context?.params || { id: "12345678-1234-1234-8234-123456789012" },
         };
