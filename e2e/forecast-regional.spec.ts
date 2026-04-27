@@ -168,16 +168,18 @@ test.describe("Regional Forecast Pages", () => {
       page.getByRole("heading", { name: /Beach Conditions/i })
     ).toBeVisible();
 
-    // Get first beach link
+    // Get first beach link. Beach detail pages use the
+    // /[stateSlug]/[city]/[beachSlug] route — the legacy /beach/ prefix
+    // was retired. Match the 2-letter state slug pattern.
     const firstBeachLink = page
-      .locator('a[href^="/beach/"]')
+      .locator('a[href^="/ca/"], a[href^="/fl/"], a[href^="/hi/"]')
       .first();
 
     await expect(firstBeachLink).toBeVisible();
 
-    // Verify href format
+    // Verify href format: /[stateSlug]/[city]/[beachSlug]
     const href = await firstBeachLink.getAttribute("href");
-    expect(href).toMatch(/^\/beach\//);
+    expect(href).toMatch(/^\/[a-z]{2}\/[^/]+\/[^/]+/);
   });
 
   test("should display trend indicators", async ({ page }) => {
@@ -310,10 +312,11 @@ test.describe("Regional Forecast Pages", () => {
       })
     ).toBeVisible();
 
-    // On mobile, beach conditions should use card view (not table)
-    // Cards have specific mobile styling
+    // On mobile, beach conditions should use card view (not table).
+    // Beach detail links use /[stateSlug]/[city]/[beachSlug] (legacy
+    // /beach/ prefix was retired).
     const beachCards = page.locator('[class*="Card"]').filter({
-      has: page.locator('a[href^="/beach/"]'),
+      has: page.locator('a[href^="/ca/"], a[href^="/fl/"], a[href^="/hi/"]'),
     });
 
     if (await beachCards.first().isVisible()) {
@@ -433,7 +436,7 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await page.goto(`/california/san-diego/${CALIBRATED_BLACKS.slug}`);
+    await page.goto(`/ca/san-diego/${CALIBRATED_BLACKS.slug}`);
     await page.waitForLoadState("load");
     await dismissOnboardingWizard(page);
 
@@ -452,7 +455,7 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await page.goto(`/california/san-diego/${CALIBRATED_BLACKS.slug}`);
+    await page.goto(`/ca/san-diego/${CALIBRATED_BLACKS.slug}`);
     await page.waitForLoadState("load");
     await dismissOnboardingWizard(page);
 
@@ -469,7 +472,7 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await page.goto(`/california/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
+    await page.goto(`/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
     await page.waitForLoadState("load");
     await dismissOnboardingWizard(page);
 
@@ -486,7 +489,7 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await page.goto(`/california/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
+    await page.goto(`/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
     await page.waitForLoadState("load");
     await dismissOnboardingWizard(page);
 
@@ -503,7 +506,7 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await page.goto(`/california/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
+    await page.goto(`/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
     await page.waitForLoadState("load");
     await dismissOnboardingWizard(page);
 
@@ -521,7 +524,7 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await page.goto(`/california/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
+    await page.goto(`/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
     await page.waitForLoadState("load");
     await dismissOnboardingWizard(page);
 
@@ -541,7 +544,7 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await page.goto(`/california/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
+    await page.goto(`/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
     await page.waitForLoadState("load");
     await dismissOnboardingWizard(page);
 
@@ -562,7 +565,7 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await page.goto(`/california/san-diego/${CALIBRATED_BLACKS.slug}`);
+    await page.goto(`/ca/san-diego/${CALIBRATED_BLACKS.slug}`);
     await page.waitForLoadState("load");
     await dismissOnboardingWizard(page);
 
@@ -585,7 +588,7 @@ test.describe("calibration honesty layer", () => {
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
     await page.goto(
-      `/california/la-jolla/${CALIBRATED_LA_JOLLA_SHORES.slug}`
+      `/ca/la-jolla/${CALIBRATED_LA_JOLLA_SHORES.slug}`
     );
     await page.waitForLoadState("load");
     await dismissOnboardingWizard(page);

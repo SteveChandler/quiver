@@ -530,12 +530,13 @@ test.describe('Home Page - Layout', () => {
       if (navVisible) {
         await expect(bottomNav).toBeVisible();
 
-        // Should have Home, Map, Log, Profile links
+        // BottomNav links: Home, Discover (/map), Log, Profile.
+        // The /map link is labeled "Discover" — historical naming.
         const homeLink = bottomNav.getByRole('link', { name: /home/i });
-        const mapLink = bottomNav.getByRole('link', { name: /map/i });
+        const discoverLink = bottomNav.getByRole('link', { name: /discover|map/i });
 
         await expect(homeLink).toBeVisible();
-        await expect(mapLink).toBeVisible();
+        await expect(discoverLink).toBeVisible();
       }
     });
 
