@@ -7,6 +7,7 @@ import { findMatchingWindows } from "@/lib/alerts/window-finder";
 import { filterToDaylight, getDaylightWindow } from "@/lib/alerts/sunrise";
 import { CAPS, resolveEntitlement } from "@/lib/alerts/entitlements";
 import { getUtcDayBounds } from "@/lib/alerts/timezone-utils";
+import { parseWindSpeedToKt } from "@/lib/alerts/forecast-parsers";
 import type { AlertConditions, BeachAlertMeta, ForecastHour } from "@/lib/alerts/types";
 import type { Database } from "@/types/database.generated";
 
@@ -189,7 +190,7 @@ export async function GET(request: Request) {
                 swell_1_height: f.swell_1_height ? parseFloat(f.swell_1_height) : null,
                 swell_1_period: f.swell_1_period ? parseFloat(f.swell_1_period.replace("s", "")) : null,
                 swell_1_direction: f.swell_1_direction ? parseFloat(String(f.swell_1_direction)) : null,
-                wind_speed: f.wind_speed ? parseFloat(f.wind_speed) : null,
+                wind_speed: parseWindSpeedToKt(f.wind_speed),
                 wind_direction_deg: f.wind_direction_deg,
                 tide_height: f.tide_height ? parseFloat(f.tide_height) : null,
                 tide_status: f.tide_status,
