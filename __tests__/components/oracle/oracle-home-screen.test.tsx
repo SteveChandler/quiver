@@ -1118,4 +1118,108 @@ describe("OracleHomeScreen", () => {
       expect(screen.getByText(/Surfing's better with friends/i)).toBeInTheDocument();
     });
   });
+
+  // ===========================================================================
+  // Nearby-spot reason personalization
+  //
+  // Personalization happens in `transformToNearbySpots(...)` while the full
+  // `SurfDiscoveryRecommendation` is still in scope. NearbySpot itself does
+  // NOT carry forecast fields, so the renderer cannot recompute hero-relative
+  // copy at render time. These tests exercise the precedence chain:
+  //   buildPersonalizedReason(rec, hero) ?? strategyTag.reason ?? rec.summary
+  // ===========================================================================
+  describe("nearby-spot reason personalization", () => {
+    // A second rec to occupy the Nearby Spots row. Uses a different beach id
+    // than MOCK_TOP_REC (otherwise the filter at the call site drops it).
+    const MOCK_BACKUP_BEACH = {
+      ...MOCK_HOME_BEACH,
+      id: "backup-1",
+      name: "Backup Spot",
+    };
+
+    function recWithStrategy(strategyTag: {
+      type: "biggest_waves" | "cleanest" | "sleep_in" | "low_crowd" | "skip";
+      label: string;
+      reason: string;
+    }) {
+      return {
+        ...MOCK_TOP_REC,
+        beach: MOCK_BACKUP_BEACH,
+        summary: "Generic backup summary",
+        strategyTag,
+      };
+    }
+
+    it("renders personalized reasonText for biggest_waves backup when hero verdict is MAYBE", async () => {
+      const backupRec = recWithStrategy({
+        type: "biggest_waves",
+        label: "Biggest",
+        reason: "Strategy-tag default",
+      });
+      mockOracleData = {
+        ...mockOracleData,
+        discovery: {
+          ...mockOracleData.discovery!,
+          recommendations: [MOCK_TOP_REC, backupRec],
+        },
+      } as unknown as OracleData;
+      // Default mockFetch in beforeEach returns verdict="MAYBE".
+
+      render(<OracleHomeScreen />);
+
+      expect(
+        await screen.findByText("More size than the hero call")
+      ).toBeInTheDocument();
+      // Strategy-tag default reason and the generic summary should be
+      // shadowed by the personalized copy.
+      expect(screen.queryByText("Strategy-tag default")).not.toBeInTheDocument();
+      expect(screen.queryByText("Generic backup summary")).not.toBeInTheDocument();
+    });
+
+    it("falls back to strategyTag.reason when no personalized copy applies", async () => {
+      // `low_crowd` is only personalized when hero verdict is YES. Default
+      // mock verdict is MAYBE, so personalization returns null and the card
+      // should display the strategy-tag's own reason.
+      const backupRec = recWithStrategy({
+        type: "low_crowd",
+        label: "Low crowd",
+        reason: "Locals only at dawn",
+      });
+      mockOracleData = {
+        ...mockOracleData,
+        discovery: {
+          ...mockOracleData.discovery!,
+          recommendations: [MOCK_TOP_REC, backupRec],
+        },
+      } as unknown as OracleData;
+
+      render(<OracleHomeScreen />);
+
+      // Wait for the surf-call fetch to resolve so heroReasonContext is set.
+      await screen.findByText("8.5/10");
+      expect(screen.getByText("Locals only at dawn")).toBeInTheDocument();
+      expect(screen.queryByText("Generic backup summary")).not.toBeInTheDocument();
+    });
+
+    it("falls back to summary when no strategyTag and no personalized copy", async () => {
+      const backupRec = {
+        ...MOCK_TOP_REC,
+        beach: MOCK_BACKUP_BEACH,
+        summary: "Plain summary text",
+        strategyTag: undefined,
+      };
+      mockOracleData = {
+        ...mockOracleData,
+        discovery: {
+          ...mockOracleData.discovery!,
+          recommendations: [MOCK_TOP_REC, backupRec],
+        },
+      } as unknown as OracleData;
+
+      render(<OracleHomeScreen />);
+
+      await screen.findByText("8.5/10");
+      expect(screen.getByText("Plain summary text")).toBeInTheDocument();
+    });
+  });
 });
