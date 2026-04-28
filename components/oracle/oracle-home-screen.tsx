@@ -305,9 +305,6 @@ const SKILL_RANK: Record<string, number> = {
  */
 type HeroReasonContext = {
   verdict?: "YES" | "MAYBE" | "NO";
-  windCompass?: string | null;
-  windSpeed?: string | null;
-  tidePhase?: string | null;
 };
 
 /**
@@ -771,12 +768,7 @@ export function OracleHomeScreen() {
   // Memoised so `nearbySpots`'s useMemo doesn't recompute every render.
   const heroReasonContext = useMemo<HeroReasonContext | undefined>(() => {
     if (!heroSurfCall) return undefined;
-    return {
-      verdict: heroSurfCall.verdict,
-      windCompass: heroSurfCall.windCompass,
-      windSpeed: heroSurfCall.windSpeed,
-      tidePhase: heroSurfCall.tidePhase,
-    };
+    return { verdict: heroSurfCall.verdict };
   }, [heroSurfCall]);
 
   const nearbySpots = useMemo(() => {

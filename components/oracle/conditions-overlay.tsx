@@ -204,6 +204,7 @@ export function ConditionsOverlay({
       {whySentence ? (
         <p
           data-testid="hero-why-sentence"
+          role="note"
           className="mt-2 text-medium text-xs sm:text-sm leading-snug"
         >
           {whySentence}
