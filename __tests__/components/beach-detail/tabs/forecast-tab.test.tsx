@@ -73,8 +73,9 @@ jest.mock("@/hooks/use-sun-times", () => ({
     sunset: new Date("2026-02-10T17:30:00"),
   })),
 }));
+const mockUseAuth = jest.fn(() => ({ user: null as { id: string } | null }));
 jest.mock("@/context/auth-context", () => ({
-  useAuth: jest.fn(() => ({ user: null })),
+  useAuth: () => mockUseAuth(),
 }));
 jest.mock("@/components/beach-detail/personalized-forecast-teaser", () => ({
   PersonalizedForecastTeaser: (props: any) => <div data-testid="personalized-forecast-teaser" />,
@@ -236,6 +237,7 @@ describe("ForecastTab", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockTrackEvent.mockClear();
+    mockUseAuth.mockReturnValue({ user: null });
   });
 
   describe("Tab Rendering", () => {
@@ -281,7 +283,15 @@ describe("ForecastTab", () => {
       expect(screen.getByText("Right now")).toBeInTheDocument();
     });
 
-    it("renders BestSurfWindow component", () => {
+    it("hides BestSurfWindow for anonymous users", () => {
+      mockUseAuth.mockReturnValue({ user: null });
+      render(<ForecastTab {...defaultProps} />);
+
+      expect(screen.queryByTestId("best-surf-window")).not.toBeInTheDocument();
+    });
+
+    it("renders BestSurfWindow for authenticated users", () => {
+      mockUseAuth.mockReturnValue({ user: { id: "u1" } });
       render(<ForecastTab {...defaultProps} />);
 
       expect(screen.getByTestId("best-surf-window")).toBeInTheDocument();
@@ -370,7 +380,8 @@ describe("ForecastTab", () => {
       expect(horizonStrip).not.toHaveAttribute("data-gate-from");
     });
 
-    it("renders BestSurfWindow without PublicContentGate", () => {
+    it("renders BestSurfWindow without PublicContentGate for authenticated users", () => {
+      mockUseAuth.mockReturnValue({ user: { id: "u1" } });
       render(<ForecastTab {...defaultProps} />);
 
       expect(screen.queryByTestId("public-gate")).not.toBeInTheDocument();

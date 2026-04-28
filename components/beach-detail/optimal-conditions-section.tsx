@@ -55,15 +55,16 @@ export function OptimalConditionsSection({
 
       {/* Hero photo */}
       {photo && (
-        <figure className="mb-5 overflow-hidden rounded-xl">
-          <Image
-            src={getOptimizedImageUrl(photo.image_url)}
-            alt={`Surf conditions at ${beach.name}${locationLabel ? `, ${locationLabel}` : ""}`}
-            width={800}
-            height={450}
-            className="w-full h-auto object-cover rounded-xl"
-            sizes="(max-width: 768px) 100vw, 800px"
-          />
+        <figure className="mb-5">
+          <div className="relative aspect-[16/9] overflow-hidden rounded-xl">
+            <Image
+              src={getOptimizedImageUrl(photo.image_url)}
+              alt={`Surf conditions at ${beach.name}${locationLabel ? `, ${locationLabel}` : ""}`}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 800px"
+            />
+          </div>
           {photo.license_code && photo.creator_name && (
             <figcaption className="mt-2 text-xs text-white/40">
               Photo by {photo.creator_name}

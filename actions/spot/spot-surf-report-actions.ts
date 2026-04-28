@@ -3,7 +3,7 @@
 import { unstable_cache } from 'next/cache';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
-import { computeSurfCall, type SurfCallResult } from '@/lib/utils/surf-call-logic';
+import { computeSurfCall, computeSurfCallTiers, type SurfCallResult } from '@/lib/utils/surf-call-logic';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { DEFAULT_TIMEZONE } from '@/lib/utils/timezone-constants';
 import { formatDateInTimezone } from '@/lib/utils/date-time';
@@ -18,6 +18,23 @@ import type { PersonalizedForecastWindow } from '@/types/personalization';
 export interface SpotSurfReportResult {
   report: SurfCallResult;
   isTomorrow: boolean;
+}
+
+/**
+ * Wrap `computeSurfCall` to also attach the per-skill tier verdict ladder and
+ * the viewer's parsed skill level. The wrapper exists so the five return-sites
+ * in `getCachedSurfReport` stay terse.
+ */
+function buildReport(
+  window: PersonalizedForecastWindow | null,
+  forecasts: EnhancedForecastEntity[],
+  beach: Beach,
+  options: { isTomorrow?: boolean },
+  userSkillLevel: ReturnType<typeof parseSkillLevel>,
+): SurfCallResult {
+  const baseline = computeSurfCall(window, forecasts, beach, options);
+  const tiers = computeSurfCallTiers(window, forecasts, beach, options);
+  return { ...baseline, tiers, userTier: userSkillLevel ?? null };
 }
 
 /**
@@ -255,11 +272,11 @@ const getCachedSurfReport = unstable_cache(
         message: error.message,
         code: error.code,
       });
-      return { report: computeSurfCall(null, [], beach), isTomorrow: false };
+      return { report: buildReport(null, [], beach, {}, userSkillLevel), isTomorrow: false };
     }
 
     if (!data || data.length === 0) {
-      return { report: computeSurfCall(null, [], beach), isTomorrow: false };
+      return { report: buildReport(null, [], beach, {}, userSkillLevel), isTomorrow: false };
     }
 
     const forecasts = data as EnhancedForecastEntity[];
@@ -283,7 +300,7 @@ const getCachedSurfReport = unstable_cache(
       if (window) {
         delete window.sourceForecast;
         const adjustedWindow = applyPreferenceAdjustments(window, userSkillLevel);
-        return { report: computeSurfCall(adjustedWindow, todayForecasts, beach, { isTomorrow: false }), isTomorrow: false };
+        return { report: buildReport(adjustedWindow, todayForecasts, beach, { isTomorrow: false }, userSkillLevel), isTomorrow: false };
       }
     }
 
@@ -300,13 +317,13 @@ const getCachedSurfReport = unstable_cache(
       if (window) {
         delete window.sourceForecast;
         const adjustedWindow = applyPreferenceAdjustments(window, userSkillLevel);
-        return { report: computeSurfCall(adjustedWindow, tomorrowForecasts, beach, { isTomorrow: true }), isTomorrow: true };
+        return { report: buildReport(adjustedWindow, tomorrowForecasts, beach, { isTomorrow: true }, userSkillLevel), isTomorrow: true };
       }
-      return { report: computeSurfCall(null, tomorrowForecasts, beach, { isTomorrow: true }), isTomorrow: true };
+      return { report: buildReport(null, tomorrowForecasts, beach, { isTomorrow: true }, userSkillLevel), isTomorrow: true };
     }
 
     // No forecast data for either day
-    return { report: computeSurfCall(null, [], beach), isTomorrow: false };
+    return { report: buildReport(null, [], beach, {}, userSkillLevel), isTomorrow: false };
   },
   ['spot-surf-report'],
   { revalidate: 900 } // 15-minute cache

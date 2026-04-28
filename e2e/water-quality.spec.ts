@@ -63,9 +63,9 @@ test.describe('Water Quality Badge - graceful absence', () => {
     const overviewTab = page.getByRole('tab', { name: /overview/i });
     await expect(overviewTab).toBeVisible({ timeout: 10000 });
 
-    // Spot Summary is always present (not data-conditional)
-    const spotSummary = page.getByText('Spot Summary');
-    await expect(spotSummary).toBeVisible({ timeout: 10000 });
+    // The zine layout's surf-call label is always present (not data-conditional)
+    const callHeader = page.getByText(/TODAY'S SURF CALL/i).first();
+    await expect(callHeader).toBeVisible({ timeout: 10000 });
   });
 
   test('no water quality card is rendered when status is null or unknown', async ({ page }) => {
@@ -76,8 +76,8 @@ test.describe('Water Quality Badge - graceful absence', () => {
 
     if (!hasWQCard) {
       // Correct – no WQ data means no card rendered
-      const spotSummary = page.getByText('Spot Summary');
-      await expect(spotSummary).toBeVisible();
+      const callHeader = page.getByText(/TODAY'S SURF CALL/i).first();
+      await expect(callHeader).toBeVisible();
     } else {
       // Data present – verify the card renders a valid status (not blank)
       const statusButton = page.getByRole('button', { name: /Water Quality|Water Advisory/i }).first();

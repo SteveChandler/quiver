@@ -3,9 +3,8 @@ import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { SpotSurfReportStream } from "@/components/spots/spot-surf-report";
-import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
+import { ZineNearbySpots } from "@/components/beach-detail/zine/zine-nearby-spots";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
-import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-section";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 
 import type { Metadata } from "next";
@@ -37,7 +36,6 @@ import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { LiveCamSchema } from "@/components/seo/live-cam-schema";
 import { getBeachCameraUrl } from "@/actions/beach/cam-actions";
 import { BeachProseSummary } from "@/components/beach-detail/beach-prose-summary";
-import { OptimalConditionsSection } from "@/components/beach-detail/optimal-conditions-section";
 
 // ISR: revalidate every hour. getSpotSurfReportPublic() uses the service-role
 // client with no cookie reads, so this route stays in ISR (not forced dynamic).
@@ -307,18 +305,24 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           surfCallIsTomorrow={surfCallIsTomorrow}
           amenities={amenitiesResult}
           waterQuality={waterQualityResult}
+          beachPhoto={beachPhoto}
         />
 
-        {/* SSR sections below tabs for SEO crawlability */}
-        <div className="container mx-auto px-4 pb-8 space-y-8">
-          <OptimalConditionsSection beach={beach} photo={beachPhoto} />
-          <NearbyBeachesEnriched
-              beaches={nearbyBeaches}
-              sourceBeachName={beach.name}
-              sourceBeachLat={beach.lat}
-              sourceBeachLon={beach.lon}
-            />
-          <RelatedGuidesSection beach={beach} bestTimeToSurfUrl={bestTimeToSurfUrl} />
+        {/* Nearby surf spots — restyled to live inside a continuation of the
+            zine cream paper. OptimalConditionsSection + RelatedGuidesSection
+            were retired in favor of the zine layout (the zine carries spot
+            summary, hazards, and editorial content). */}
+        <div className="zine-tab zine-page-trailer">
+          <div className="zine-stage" style={{ paddingTop: 0 }}>
+            <div className="zine-paper">
+              <ZineNearbySpots
+                beaches={nearbyBeaches}
+                sourceBeachName={beach.name}
+                sourceBeachLat={beach.lat}
+                sourceBeachLon={beach.lon}
+              />
+            </div>
+          </div>
         </div>
 
         <StickySignupBar

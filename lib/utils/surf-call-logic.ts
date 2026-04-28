@@ -12,7 +12,7 @@ import type { PersonalizedForecastWindow } from '@/types/personalization';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import { computeTrendTags, type TrendTag } from '@/lib/scoring';
 import { formatTideHeight, formatWaveHeightRange as formatWaveHeight } from '@/lib/formatters/surf-data';
-import { parseSkillLevel, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences/skill-level';
+import { parseSkillLevel, SKILL_WAVE_RANGES, type SkillLevel } from '@/lib/domains/user-preferences/skill-level';
 import { calculateRideableWaves } from '@/lib/domains/wave-frequency/calculator';
 import {
   beachToSpotProfile,
@@ -79,6 +79,18 @@ export interface SurfCallResult {
    * web/native consumers can adopt the richer label without re-deriving.
    */
   character?: ConditionCharacter | null;
+  /**
+   * Per-skill verdict ladder (BEGINNER / INTERMEDIATE / ADVANCED). Optional —
+   * populated server-side by `computeSurfCallTiers` for the web zine UI; native
+   * clients read only the top-level `verdict` and ignore tiers.
+   */
+  tiers?: SurfCallTiers | null;
+  /**
+   * The viewer's experience level at request time, parsed from
+   * `profiles.experience_level`. `null` for anonymous viewers. Used by the
+   * web UI to highlight which tier row in `tiers` belongs to the user.
+   */
+  userTier?: SkillLevel | null;
 }
 
 /**
@@ -882,4 +894,140 @@ export function computeSurfCall(
     dominantBeatIntervalS: freqResult?.dominantBeatIntervalS ?? null,
     character,
   };
+}
+
+// ============================================================================
+// Per-Skill Tier Verdicts
+// ============================================================================
+
+/**
+ * A per-skill verdict slice. Same shape repeated for beginner / intermediate /
+ * advanced so the UI can render a 3-stamp ladder. The `trail` is the secondary
+ * caption beneath the verdict word ("TRY AT 4:00 PM" / "BEST AT 8:00 AM" /
+ * "WAIT FOR SWELL" / "TOO BIG" / "TOO SMALL").
+ */
+export interface TierVerdict {
+  verdict: SurfCallVerdict;
+  trail: string;
+  bestWindowStart: string | null;
+  bestWindowEnd: string | null;
+}
+
+export interface SurfCallTiers {
+  beginner: TierVerdict;
+  intermediate: TierVerdict;
+  advanced: TierVerdict;
+}
+
+function formatWindowShort(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+function buildTrail(verdict: SurfCallVerdict, windowStart: string | null, override?: string): string {
+  if (override) return override;
+  const t = formatWindowShort(windowStart);
+  if (verdict === 'YES') return t ? `BEST AT ${t}` : 'PADDLE OUT';
+  if (verdict === 'MAYBE') return t ? `TRY AT ${t}` : 'KEEP WATCHING';
+  return 'WAIT FOR SWELL';
+}
+
+/**
+ * Compute three per-skill verdicts (BEGINNER / INTERMEDIATE / ADVANCED) for the
+ * same forecast. The intermediate verdict mirrors the existing `computeSurfCall`
+ * output exactly. Beginner and advanced apply post-call heuristic adjustments
+ * keyed off the wave-height range from `SKILL_WAVE_RANGES`:
+ *
+ * - Beginner: capped to NO when waves exceed `acceptable.max` (4 ft); promoted
+ *   toward YES when waves sit in the `ideal` band (1–3 ft) AND wind is light
+ *   (≤10 mph) or offshore/glassy.
+ * - Advanced: downgraded to NO when waves fall below `acceptable.min` (2 ft);
+ *   promoted to YES when waves exceed 8 ft AND the baseline verdict is at
+ *   least MAYBE.
+ *
+ * The wrapper does not re-run the full domain engine — it derives tier
+ * verdicts from a single `computeSurfCall` baseline + cheap wave/wind
+ * heuristics. That keeps the action's per-page cost flat (one engine call,
+ * not three) while still surfacing the skill-tier nuance the UI needs.
+ */
+export function computeSurfCallTiers(
+  window: PersonalizedForecastWindow | null,
+  forecasts: EnhancedForecastEntity[],
+  beach: Beach,
+  options: { isTomorrow?: boolean } = {},
+): SurfCallTiers {
+  const baseline = computeSurfCall(window, forecasts, beach, options);
+  const intermediate: TierVerdict = {
+    verdict: baseline.verdict,
+    trail: buildTrail(baseline.verdict, baseline.bestWindowStart),
+    bestWindowStart: baseline.bestWindowStart,
+    bestWindowEnd: baseline.bestWindowEnd,
+  };
+
+  const maxWave = parseMaxWaveHeight(baseline.waveHeight);
+  const wind = baseline.windType; // 'glassy' | 'offshore' | 'cross-shore' | 'onshore' | null
+  const windSpeedNum = baseline.windSpeed
+    ? Number(baseline.windSpeed.replace(/[^\d.]/g, ''))
+    : null;
+  const lightWind =
+    wind === 'glassy' || wind === 'offshore' || (windSpeedNum != null && windSpeedNum <= 10);
+
+  const beginnerRange = SKILL_WAVE_RANGES.beginner;
+  const advancedRange = SKILL_WAVE_RANGES.advanced;
+
+  // ── Beginner derivation ─────────────────────────────────────────────────
+  let beginnerVerdict: SurfCallVerdict = baseline.verdict;
+  let beginnerTrailOverride: string | undefined;
+  let beginnerStart = baseline.bestWindowStart;
+  let beginnerEnd = baseline.bestWindowEnd;
+
+  if (maxWave != null && maxWave > beginnerRange.acceptable.max) {
+    beginnerVerdict = 'NO';
+    beginnerTrailOverride = 'TOO BIG';
+    beginnerStart = null;
+    beginnerEnd = null;
+  } else if (
+    maxWave != null &&
+    maxWave >= beginnerRange.ideal.min &&
+    maxWave <= beginnerRange.ideal.max &&
+    lightWind
+  ) {
+    // Conditions are in the beginner sweet spot — upgrade unless baseline already says NO for a different reason
+    if (baseline.verdict === 'MAYBE') beginnerVerdict = 'YES';
+    else if (baseline.verdict === 'NO' && wind !== 'onshore') beginnerVerdict = 'MAYBE';
+  }
+
+  const beginner: TierVerdict = {
+    verdict: beginnerVerdict,
+    trail: buildTrail(beginnerVerdict, beginnerStart, beginnerTrailOverride),
+    bestWindowStart: beginnerStart,
+    bestWindowEnd: beginnerEnd,
+  };
+
+  // ── Advanced derivation ─────────────────────────────────────────────────
+  let advancedVerdict: SurfCallVerdict = baseline.verdict;
+  let advancedTrailOverride: string | undefined;
+  let advancedStart = baseline.bestWindowStart;
+  let advancedEnd = baseline.bestWindowEnd;
+
+  if (maxWave != null && maxWave < advancedRange.acceptable.min) {
+    advancedVerdict = 'NO';
+    advancedTrailOverride = 'TOO SMALL';
+    advancedStart = null;
+    advancedEnd = null;
+  } else if (maxWave != null && maxWave > advancedRange.ideal.max && baseline.verdict !== 'NO') {
+    // Big waves, baseline already at least MAYBE → upgrade to YES for advanced
+    advancedVerdict = 'YES';
+  }
+
+  const advanced: TierVerdict = {
+    verdict: advancedVerdict,
+    trail: buildTrail(advancedVerdict, advancedStart, advancedTrailOverride),
+    bestWindowStart: advancedStart,
+    bestWindowEnd: advancedEnd,
+  };
+
+  return { beginner, intermediate, advanced };
 }

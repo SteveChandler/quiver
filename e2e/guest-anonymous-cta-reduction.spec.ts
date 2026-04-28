@@ -5,19 +5,19 @@ import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error
 import { isVisibleSafe } from './utils/strict-helpers';
 
 /**
- * CTA Reduction Tests — Phase 1A + 1B (revised 2026-04-28)
+ * CTA Reduction Tests — zine layout revision (2026-04-28)
  *
- * Phase 1A removed MatchScoreTeaser, InlineSignupCta, the horizon-strip
- * upsell banner, and PersonalizedForecastTeaser. Lifetime data showed
- * MatchScoreTeaser was actually the strongest-performing CTA in the
- * codebase (1.07% CTR over 1,305 views), so it has been reinstated. The
- * other Phase 1A removals stay removed.
+ * Beach detail page rebuilt around the cream-paper zine. The zine
+ * masthead + Today's Surf Call now act as the primary anonymous CTA
+ * surface. MatchScoreTeaser (Phase 1A reinstatement) was retired again
+ * because it conflicted visually with the zine paper and the user
+ * judged it redundant against the zine's own anonymous CTA flow.
  *
  * Invariants verified here:
- *   - MatchScoreTeaser card IS rendered for anonymous users.
+ *   - MatchScoreTeaser card is NOT rendered for anonymous users.
  *   - InlineSignupCta, horizon-strip upsell banner, and
  *     PersonalizedForecastTeaser are NOT rendered.
- *   - At least one primary CTA is present.
+ *   - At least one primary CTA is present (header signup or sticky bar).
  *
  * @project guest
  */
@@ -36,17 +36,16 @@ test.describe('Anonymous beach page — CTA reduction (Phase 1A + 1B)', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Reinstated CTA — MatchScoreTeaser must render for anonymous users
+  // Retired again — MatchScoreTeaser is NOT rendered (zine layout owns CTA)
   // -------------------------------------------------------------------------
 
-  test('MatchScoreTeaser card IS rendered for anonymous users', async ({ page }) => {
-    // Reinstated 2026-04-28 after lifetime CTR data showed it was the
-    // strongest-performing high-volume CTA in the codebase. Tagged with
-    // cta_copy_variant: "match_score_v2_reinstated" so post-reinstatement
-    // CTR can be compared against the historical baseline.
+  test('MatchScoreTeaser card is NOT rendered for anonymous users', async ({ page }) => {
+    // Retired 2026-04-28 alongside the zine rebuild. The zine masthead +
+    // Today's Surf Call carry the anonymous CTA story now; the dark teaser
+    // card conflicted visually with the cream paper and was judged redundant.
     const teaserCard = page.getByTestId('match-score-teaser-card');
-    const isVisible = await isVisibleSafe(teaserCard, { timeout: 5000 });
-    expect(isVisible).toBe(true);
+    const isVisible = await isVisibleSafe(teaserCard, { timeout: 3000 });
+    expect(isVisible).toBe(false);
   });
 
   // -------------------------------------------------------------------------
@@ -103,16 +102,14 @@ test.describe('Anonymous beach page — CTA reduction (Phase 1A + 1B)', () => {
     const getAlertsActionButton = page.getByRole('button', { name: /get alerts/i });
     const stickySignupBar = page.getByTestId('sticky-signup-bar');
     const headerSignupButton = page.getByRole('button', { name: /see your forecast|sign up/i });
-    const matchScoreTeaserCard = page.getByTestId('match-score-teaser-card');
 
     const teaserVisible = await isVisibleSafe(forecastTeaserButton, { timeout: 3000 });
     const alertsVisible = await isVisibleSafe(getAlertsActionButton.first(), { timeout: 3000 });
     const stickyVisible = await isVisibleSafe(stickySignupBar, { timeout: 1000 });
     const headerVisible = await isVisibleSafe(headerSignupButton.first(), { timeout: 3000 });
-    const matchScoreVisible = await isVisibleSafe(matchScoreTeaserCard, { timeout: 3000 });
 
     expect(
-      teaserVisible || alertsVisible || stickyVisible || headerVisible || matchScoreVisible,
+      teaserVisible || alertsVisible || stickyVisible || headerVisible,
     ).toBe(true);
   });
 
@@ -163,6 +160,34 @@ test.describe('Anonymous beach page — CTA reduction (Phase 1A + 1B)', () => {
   // -------------------------------------------------------------------------
   // Hero teaser copy — benefit-driven, not feature-centric
   // -------------------------------------------------------------------------
+
+  // -------------------------------------------------------------------------
+  // Today's Surf Call — single beginner-default verdict + editorial CTA
+  // -------------------------------------------------------------------------
+
+  test('Today\'s Surf Call renders a single beginner-default stamp + "get your call" link for anonymous users', async ({ page }) => {
+    // The marquee verdict surface should show ONE verdict (the beginner tier),
+    // a handwritten margin scrawl pinned to the stamp ("for beginners — you?"),
+    // and a handwritten editorial link to /auth?mode=signin — never a button-shaped
+    // CTA, and never the prior 3-stamp comparison ladder.
+    const surfCallSection = page.getByRole('region', { name: /today.s surf call/i });
+    await expect(surfCallSection).toBeVisible({ timeout: 10000 });
+
+    // The margin scrawl priming the CTA must be present.
+    await expect(surfCallSection.getByLabel(/beginner call.*not you/i)).toBeVisible();
+    await expect(surfCallSection.getByText(/for beginners/i)).toBeVisible();
+
+    // The CTA link itself — points to /auth?mode=signin and reads as editorial copy.
+    const cta = surfCallSection.getByRole('link', { name: /sign in to see the surf call for your level/i });
+    await expect(cta).toBeVisible();
+    await expect(cta).toHaveAttribute('href', '/auth?mode=signin');
+    await expect(cta).toContainText(/get your call/i);
+
+    // The authed margin scrawl (aria-label starting "Your call —") must NOT be
+    // present for anon users; only the editorial CTA's "get your call" copy
+    // should match anything containing "your call".
+    await expect(surfCallSection.locator('[aria-label^="Your call"]')).toHaveCount(0);
+  });
 
   test('hero forecast teaser copy does NOT say "Get Alerts" (benefit-driven copy only)', async ({ page }) => {
     // Regression check: the hero forecast teaser (when rendered) must use

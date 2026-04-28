@@ -38,6 +38,7 @@ import { DataErrorBoundary } from "@/components/error-boundaries";
 import { TideStatusStrip } from "@/components/beach-detail/tide-status-strip";
 import { TideChartSection } from "@/components/beach-detail/tide-chart-section";
 import { TextureOverlay } from "@/components/ui/texture-overlay";
+import { useAuth } from "@/context/auth-context";
 
 const ConditionsOverview = dynamic(
   () =>
@@ -71,6 +72,7 @@ export function ForecastTab({
 
 
   const { track: trackEvent } = useTrackEvent();
+  const { user } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<
     "today" | "tides" | "conditions"
   >(defaultSubTab || "today");
@@ -456,7 +458,8 @@ export function ForecastTab({
             <YesterdaysAccuracyCard accuracy={yesterdayAccuracy} />
           )}
 
-          {/* Best Surf Window — visible to every user. */}
+          {/* Best Surf Window — authenticated users only. */}
+          {user && (
           <BestSurfWindow
             beachId={beach.id}
             beachName={beach.name}
@@ -499,6 +502,7 @@ export function ForecastTab({
                 : undefined
             }
           />
+          )}
         </TabsContent>
 
         {/* Tides Tab */}

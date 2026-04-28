@@ -10,8 +10,9 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
     const limit = Math.min(parseInt(searchParams.get("limit") || "5", 10) || 5, 25);
+    const publicOnly = searchParams.get("publicOnly") === "true";
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("sessions")
       .select(
         `
@@ -22,7 +23,13 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       `
       )
       .eq("beach_id", params.id)
-      .eq("status", "completed")
+      .eq("status", "completed");
+
+    if (publicOnly) {
+      query = query.eq("is_public", true);
+    }
+
+    const { data, error } = await query
       .order("created_at", { ascending: false })
       .limit(limit);
 
