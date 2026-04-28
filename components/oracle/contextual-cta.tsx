@@ -6,7 +6,14 @@ export interface ContextualCTAProps {
   hasHomeBeach: boolean;
   hasSessionToday: boolean;
   hasFollows: boolean;
-  conditionsGood: boolean; // score > 6
+  /**
+   * Whether the hero score crossed the "good conditions" threshold. Pass
+   * `undefined` while the canonical surf-call is still loading so the
+   * "Paddle out" branch doesn't fire on a phantom score, and the "Set
+   * alarm" branch doesn't fire on a phantom NO either — neutral default
+   * CTA carries the loading window.
+   */
+  conditionsGood?: boolean; // score > 6
   /**
    * Canonical surf-call verdict for the hero beach. When "NO", the
    * "Paddle out — log a session" CTA is suppressed — don't ask users to do
@@ -100,8 +107,9 @@ function resolveCTAs(props: ContextualCTAProps): {
 
   // Only surface the "Paddle out — log a session" CTA when the surf-call
   // verdict isn't NO. On a NO day the hero copy says "don't bother"; the
-  // primary CTA must not contradict that.
-  if (hasHomeBeach && conditionsGood && surfVerdict !== "NO") {
+  // primary CTA must not contradict that. `=== true` is intentional so the
+  // unknown-loading state (undefined) falls through to the neutral default.
+  if (hasHomeBeach && conditionsGood === true && surfVerdict !== "NO") {
     return {
       primary: paddleOut,
       secondary: [setAlarm, inviteFriend],
@@ -111,6 +119,8 @@ function resolveCTAs(props: ContextualCTAProps): {
 
   // NO-verdict day at the home beach: lead with "Set alarm" so the page still
   // offers a useful next step, instead of pretending conditions are good.
+  // Only fires when the surf-call resolved with an explicit NO — undefined
+  // verdict (still loading) must not paint the alarm CTA.
   if (hasHomeBeach && surfVerdict === "NO") {
     return {
       primary: { ...setAlarm, variant: "default" },

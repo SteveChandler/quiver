@@ -48,6 +48,16 @@ interface ProfileWithOracle {
 interface OracleSurfCallPayload {
   report: SurfCallResult;
   isTomorrow: boolean;
+  /**
+   * The beach id this payload was fetched for. Tagged client-side at fetch
+   * time so the consumer can detect a stale response when the hero beach
+   * swaps. `useDataFetcher` preserves `state.data` across the param-change
+   * render (see `hooks/use-data-fetcher.ts:83` — the loading-flip setState
+   * keeps `prev.data`), so without this tag there's a render where
+   * `heroBeach.id` already points to beach B but `heroSurfCallData` still
+   * carries beach A's report/verdict.
+   */
+  forBeachId: string;
 }
 
 // ============================================================================
@@ -465,9 +475,10 @@ export function OracleHomeScreen() {
   );
 
   const fetchHeroSurfCall = useCallback(async (): Promise<OracleSurfCallPayload | null> => {
-    if (!heroBeach?.id) return null;
+    const beachId = heroBeach?.id;
+    if (!beachId) return null;
 
-    const response = await fetch(`/api/surf/call?beachId=${heroBeach.id}`, {
+    const response = await fetch(`/api/surf/call?beachId=${beachId}`, {
       credentials: "include",
     });
 
@@ -477,18 +488,41 @@ export function OracleHomeScreen() {
 
     const payload = await response.json() as {
       success?: boolean;
-      data?: OracleSurfCallPayload;
+      data?: { report: SurfCallResult; isTomorrow: boolean };
     };
 
-    return payload.success ? (payload.data ?? null) : null;
+    if (!payload.success || !payload.data) return null;
+    // Tag the response with the beach id we requested so the consumer can
+    // reject stale data from a previous hero beach.
+    return { ...payload.data, forBeachId: beachId };
   }, [heroBeach?.id]);
 
-  const { data: heroSurfCallData } = useDataFetcher(fetchHeroSurfCall, {
+  const { data: heroSurfCallData, loading: heroSurfCallLoading } = useDataFetcher(fetchHeroSurfCall, {
     skip: !heroBeach?.id,
     cacheKey: heroBeach?.id ? `oracle-hero-surf-call:${heroBeach.id}` : undefined,
     cacheTTL: 5 * 60 * 1000,
   });
-  const heroSurfCall = heroSurfCallData?.report ?? null;
+
+  // Freshness gate: only treat `heroSurfCallData` as authoritative when its
+  // tagged `forBeachId` matches the current `heroBeach.id`. On a hero swap,
+  // `useDataFetcher` keeps the previous response in state for the
+  // param-change render (see hooks/use-data-fetcher.ts:83) — without this
+  // gate, score/verdict from beach A would briefly paint next to beach B's
+  // title/name. When stale, downstream code falls back to discovery-derived
+  // values (`getHeroSurfCallTitle` → `getBestWindowTitle`, neutral CTA
+  // branch, score=null placeholder) until the next response lands.
+  const heroSurfCallFresh: OracleSurfCallPayload | null =
+    heroSurfCallData != null && heroSurfCallData.forBeachId === heroBeach?.id
+      ? heroSurfCallData
+      : null;
+  const heroSurfCall = heroSurfCallFresh?.report ?? null;
+  // True only once the canonical surf-call has resolved AND the response
+  // matches the current hero beach. Used to gate score-derived UI so we
+  // don't paint a phantom 0/10 verdict next to a confident discovery-driven
+  // title during the loading window OR a hero-swap intermediate render.
+  const heroSurfCallReady =
+    !heroSurfCallLoading &&
+    (heroSurfCallData == null || heroSurfCallData.forBeachId === heroBeach?.id);
 
   // Build share data for the session share sheet (needed by handleShareSession below)
   const shareData = useMemo(() => {
@@ -631,19 +665,26 @@ export function OracleHomeScreen() {
   // "feedback_separate_ranking_from_verdict_authority" — hero card and detail
   // page used to disagree at the same minute because hero displayed
   // `topRec.score` (boosted) while detail displayed the unboosted verdict.
-  const score = heroSurfCall?.score ?? 0;
+  //
+  // Null while heroSurfCall is still in flight. Children render neutral
+  // placeholders for score-derived UI in that window — see OracleHero
+  // ScoreBadge and ContextualCTA `conditionsGood === true` gate.
+  const score: number | null = heroSurfCallReady ? (heroSurfCall?.score ?? null) : null;
   const beachName = heroRec?.beach?.name ?? homeBeach?.name ?? "Your Beach";
 
   // Cast once for fields not yet in generated Profile type
   const oracleProfile = profile as unknown as ProfileWithOracle | undefined;
   const preferredTime = oracleProfile?.preferred_session_time ?? null;
 
-  // Check if the top recommendation is for tomorrow (timezone-aware)
+  // Check if the top recommendation is for tomorrow (timezone-aware).
+  // Read from the freshness-gated payload, not raw heroSurfCallData — a
+  // stale response from a previous hero beach must not flip the
+  // "tomorrow"/"today" framing on the new hero.
   const isTomorrow = useMemo(() => {
-    if (heroSurfCallData) return heroSurfCallData.isTomorrow;
+    if (heroSurfCallFresh) return heroSurfCallFresh.isTomorrow;
     if (!window?.start) return false;
     return isFutureDayInTimezone(window.start, heroTz);
-  }, [heroSurfCallData, window?.start, heroTz]);
+  }, [heroSurfCallFresh, window?.start, heroTz]);
 
   // Best window data
   const bestWindowTime = getHeroSurfCallTime(heroSurfCall, heroTz, window);
@@ -725,7 +766,7 @@ export function OracleHomeScreen() {
         beachName={beachName}
         heroPhotoUrl={oracle.heroPhotoUrl}
         waveHeight={waveHeight}
-        score={Math.min(score / 10, 9.9)}
+        score={score == null ? null : Math.min(score / 10, 9.9)}
         swellDirection={swellDir}
         swellPeriod={swellPeriod}
         tideHeight={tideH}
@@ -783,8 +824,8 @@ export function OracleHomeScreen() {
             hasHomeBeach={!!homeBeach}
             hasSessionToday={false}
             hasFollows={false}
-            conditionsGood={score > 60}
-            surfVerdict={heroSurfCall?.verdict ?? null}
+            conditionsGood={score == null ? undefined : score > 60}
+            surfVerdict={heroSurfCallReady ? (heroSurfCall?.verdict ?? null) : undefined}
             preferredTime={preferredTime}
             onSetHomeBeach={handleSetHomeBeach}
             onLogSession={handleLogSession}

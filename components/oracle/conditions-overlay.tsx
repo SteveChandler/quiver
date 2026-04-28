@@ -10,7 +10,8 @@ import {
 interface ConditionsOverlayProps {
   beachName: string;
   waveHeight: string;
-  score: number;
+  /** null while the canonical surf-call is still in flight — render a placeholder. */
+  score: number | null;
   swellDirection: string;
   swellPeriod: number;
   tideHeight: number;
@@ -38,13 +39,17 @@ interface ConditionsOverlayProps {
 }
 
 // Score badge background is Paradise Gold; text is deep twilight for contrast.
+// When score is null (canonical surf-call still in flight), render a neutral
+// placeholder so we don't paint a phantom 0.0/10 verdict next to a confident
+// title sourced from discovery's fallback.
 function ScoreBadge({
   score,
   shouldAnimate,
 }: {
-  score: number;
+  score: number | null;
   shouldAnimate: boolean;
 }) {
+  const isPending = score === null;
   return (
     <motion.div
       initial={shouldAnimate ? { scale: 0 } : false}
@@ -54,11 +59,23 @@ function ScoreBadge({
           ? { duration: 0.4, delay: 1.5, ease: [0.16, 1, 0.3, 1] }
           : { duration: 0 }
       }
-      className="inline-flex items-center gap-1 rounded-full bg-[#FDB84B] px-3 py-1"
-      aria-label={`Surf score ${score} out of 10`}
+      className={
+        isPending
+          ? "inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-3 py-1"
+          : "inline-flex items-center gap-1 rounded-full bg-[#FDB84B] px-3 py-1"
+      }
+      aria-label={isPending ? "Surf score loading" : `Surf score ${score} out of 10`}
+      data-testid="hero-score-badge"
+      data-score-pending={isPending ? "true" : "false"}
     >
-      <span className="font-mono text-sm font-bold text-[#252D6B]">
-        {score.toFixed(1)}/10
+      <span
+        className={
+          isPending
+            ? "font-mono text-sm font-bold text-white/70"
+            : "font-mono text-sm font-bold text-[#252D6B]"
+        }
+      >
+        {isPending ? "—/10" : `${score!.toFixed(1)}/10`}
       </span>
     </motion.div>
   );

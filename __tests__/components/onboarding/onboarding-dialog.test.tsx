@@ -197,13 +197,8 @@ describe("OnboardingDialog Logic", () => {
       toString: () => "onboarding=required",
     });
 
-    // Simulate the URL having ?onboarding=required so window.location.search
-    // matches what stripParam reads.
-    const originalSearch = window.location.search;
-    Object.defineProperty(window, "location", {
-      value: { ...window.location, search: "?onboarding=required", pathname: "/" },
-      writable: true,
-    });
+    // stripParam composes the new URL from useSearchParams().toString() and
+    // usePathname() — mocked at the top of the file. No window.location reads.
 
     const replaceStateSpy = jest.spyOn(window.history, "replaceState");
     render(<OnboardingDialog />);
@@ -213,10 +208,6 @@ describe("OnboardingDialog Logic", () => {
     expect(replaceStateSpy).toHaveBeenCalledWith(null, "", "/");
 
     replaceStateSpy.mockRestore();
-    Object.defineProperty(window, "location", {
-      value: { ...window.location, search: originalSearch },
-      writable: true,
-    });
   });
 
   it("opens dialog when ?showOnboarding=1 URL param is set", () => {
@@ -260,6 +251,69 @@ describe("OnboardingDialog Logic", () => {
     expect(dialog).toBeInTheDocument();
     expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(dialog).toHaveAttribute("aria-label", "Set up your surf profile");
+  });
+
+  // -------------------------------------------------------------------------
+  // ?onboarding=required strip path — lint-safe (no window.location reads)
+  //
+  // Pre-fix, stripParam read window.location.search/pathname, which trips
+  // `no-restricted-properties` (banning window.location to enforce SPA
+  // navigation via the Next router). The fix routes reads through
+  // useSearchParams + usePathname; the write still goes through native
+  // history.replaceState (unrestricted) so Next 16's RSC streaming window
+  // can't silently revert the URL via router.replace.
+  // -------------------------------------------------------------------------
+  it("strips ?onboarding=required for fresh signups while opening dialog (uses router state, not window.location)", () => {
+    // Fresh-signup path: profile row exists with onboarding_completed_at=null,
+    // session is loaded, onboarding=required is on the URL. The effect must
+    // call reopenFresh AND strip the param via history.replaceState. The
+    // strip URL is composed from usePathname() + searchParams.toString(),
+    // NOT from window.location — that's the assertion that pins the lint
+    // fix.
+    (useProfileContext as jest.Mock).mockReturnValue({
+      profile: { onboarding_completed_at: null, home_beach_id: null },
+      isLoading: false,
+    });
+    (useSearchParams as jest.Mock).mockReturnValue({
+      get: (key: string) => (key === "onboarding" ? "required" : null),
+      toString: () => "onboarding=required",
+    });
+
+    const replaceStateSpy = jest.spyOn(window.history, "replaceState");
+    render(<OnboardingDialog />);
+
+    expect(mockReopenFresh).toHaveBeenCalledWith("user-123");
+    // After deleting "onboarding" from the search, qs is empty → newUrl is
+    // just the pathname. usePathname is mocked to "/" at the top of the file.
+    expect(replaceStateSpy).toHaveBeenCalledWith(null, "", "/");
+
+    replaceStateSpy.mockRestore();
+  });
+
+  it("preserves unrelated query params when stripping ?onboarding=required", () => {
+    // Stale welcome-email links sometimes carry analytics params alongside
+    // ?onboarding=required (utm_source, ref, etc). Stripping must ONLY
+    // remove the onboarding key; everything else stays so attribution
+    // doesn't break.
+    (useProfileContext as jest.Mock).mockReturnValue({
+      profile: { onboarding_completed_at: null, home_beach_id: null },
+      isLoading: false,
+    });
+    (useSearchParams as jest.Mock).mockReturnValue({
+      get: (key: string) => (key === "onboarding" ? "required" : key === "utm_source" ? "welcome_email" : null),
+      toString: () => "onboarding=required&utm_source=welcome_email",
+    });
+
+    const replaceStateSpy = jest.spyOn(window.history, "replaceState");
+    render(<OnboardingDialog />);
+
+    expect(replaceStateSpy).toHaveBeenCalledWith(
+      null,
+      "",
+      "/?utm_source=welcome_email"
+    );
+
+    replaceStateSpy.mockRestore();
   });
 
   it("does NOT render the old dialog-level X button (replaced by in-step Maybe later)", () => {

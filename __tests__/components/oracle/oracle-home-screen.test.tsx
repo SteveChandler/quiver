@@ -912,4 +912,130 @@ describe("OracleHomeScreen", () => {
       expect(screen.queryByTestId("home-beach-card")).not.toBeInTheDocument();
     });
   });
+
+  // ===========================================================================
+  // Hero score gate — heroSurfCall pending window
+  //
+  // Pre-fix, the hero painted a phantom 0.0/10 score and a "set alarm" CTA
+  // while the canonical /api/surf/call request was in flight, because:
+  //   - score defaulted to 0 (`heroSurfCall?.score ?? 0`)
+  //   - conditionsGood was `score > 60` → false
+  //   - surfVerdict was `null`, which the old branch treated as "not NO" so
+  //     the `set alarm` branch fired anyway under the cover of a low score
+  // Now `score = null` and `conditionsGood = undefined` while loading. The
+  // hero still renders with the discovery-driven title; only the score
+  // badge and verdict-driven CTA wait.
+  // ===========================================================================
+  describe("hero score gate while /api/surf/call is loading", () => {
+    function setupPendingSurfCall() {
+      // `mockFetch` resolves the surf-call request in beforeEach. Replace it
+      // with a never-resolving promise to pin the loading state.
+      mockFetch.mockImplementation(() => new Promise(() => {}));
+    }
+
+    it("renders a placeholder score badge instead of '0.0/10' while surf-call is loading", () => {
+      setupPendingSurfCall();
+      render(<OracleHomeScreen />);
+      // Hero is visible (not blocked by an outer skeleton — discovery resolved).
+      expect(screen.getByRole("banner")).toBeInTheDocument();
+      // The score badge renders the pending placeholder, NOT a numeric value.
+      const badge = screen.getByTestId("hero-score-badge");
+      expect(badge).toHaveAttribute("data-score-pending", "true");
+      expect(badge).toHaveTextContent("—/10");
+      // No phantom "0.0/10" leaks into the DOM.
+      expect(screen.queryByText("0.0/10")).not.toBeInTheDocument();
+    });
+
+    it("falls through to the neutral default CTA branch while surf-call is loading", () => {
+      setupPendingSurfCall();
+      render(<OracleHomeScreen />);
+      // The "set alarm" lead branch ("Conditions aren't there today…") must NOT
+      // fire on undefined verdict — that copy is reserved for an explicit NO.
+      expect(
+        screen.queryByText(/Conditions aren't there today/i)
+      ).not.toBeInTheDocument();
+      // The "Paddle out" CTA also must NOT fire on undefined conditionsGood.
+      expect(
+        screen.queryByRole("button", { name: /paddle out/i })
+      ).not.toBeInTheDocument();
+      // Falls to the default `inviteFriend` branch — context line + primary CTA.
+      expect(screen.getByText(/Surfing's better with friends/i)).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /invite a friend/i })
+      ).toBeInTheDocument();
+    });
+
+    // -----------------------------------------------------------------------
+    // Hero-swap stale-flash protection
+    //
+    // useDataFetcher (hooks/use-data-fetcher.ts:83) preserves `state.data`
+    // across the param-change render — when a fetchFn change kicks off the
+    // next request, the loading-flip setState keeps `prev.data`. That means
+    // when `heroBeach.id` swaps from A to B, there's a render where the
+    // component reads `{data: dataA, loading: false}` even though heroBeach
+    // already points at B. Pre-fix, `heroSurfCallReady = !loading = true`
+    // happily painted beach A's score and verdict next to beach B's name.
+    //
+    // The freshness gate (`heroSurfCallFresh` / `heroSurfCallReady`) tags
+    // each fetched payload with `forBeachId` and treats a mismatch as
+    // still-loading regardless of `loading`. This test reproduces that
+    // logical state deterministically by pre-populating apiCache with
+    // tagged data whose `forBeachId` doesn't match — the same state the
+    // component sees on the first render after a hero swap.
+    // -----------------------------------------------------------------------
+    it("does not paint stale score/verdict when heroSurfCallData was tagged for a different beach (hero-swap protection)", () => {
+      // Pre-populate the cache for the current heroBeach.id ("b1") with
+      // data tagged for a DIFFERENT beach. useDataFetcher's useState
+      // initializer (use-data-fetcher.ts:55-68) seeds synchronously from
+      // cache, so the first render lands with `{data: STALE, loading:
+      // false}` — bypassing the loading window and isolating the
+      // freshness gate as the only thing protecting the UI.
+      apiCache.set(
+        "oracle-hero-surf-call:b1",
+        {
+          report: {
+            verdict: "MAYBE",
+            score: 85,
+            whySentence: "stale data — should not paint",
+            updatedAt: new Date().toISOString(),
+            bestWindowStart: new Date("2026-03-11T13:00:00.000Z").toISOString(),
+            bestWindowEnd: new Date("2026-03-11T16:00:00.000Z").toISOString(),
+            peakTime: new Date("2026-03-11T14:00:00.000Z").toISOString(),
+            waveHeight: "3-4ft",
+            windDescription: "8 mph NW",
+            tidePhase: "rising",
+            isCalibrated: true,
+            trendTags: [],
+            shortWindow: false,
+            windowMinutes: 180,
+            lowForecastConfidence: false,
+            rideableWavesPerHour: 12,
+          },
+          isTomorrow: false,
+          forBeachId: "different-beach-id",
+        },
+        5 * 60 * 1000
+      );
+
+      render(<OracleHomeScreen />);
+
+      // Score badge must show the pending placeholder, NOT the stale 8.5/10
+      // from the mismatched payload.
+      const badge = screen.getByTestId("hero-score-badge");
+      expect(badge).toHaveAttribute("data-score-pending", "true");
+      expect(screen.queryByText("8.5/10")).not.toBeInTheDocument();
+
+      // Hero subtitle and verdict-driven CTA must also fall back to the
+      // discovery-derived defaults — no stale `whySentence`, no MAYBE
+      // verdict bleeding through to ContextualCTA's "Paddle out" branch.
+      expect(
+        screen.queryByText("stale data — should not paint")
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /paddle out/i })
+      ).not.toBeInTheDocument();
+      // Neutral default CTA branch fires.
+      expect(screen.getByText(/Surfing's better with friends/i)).toBeInTheDocument();
+    });
+  });
 });

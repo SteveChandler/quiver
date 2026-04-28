@@ -13,7 +13,9 @@ export interface OracleHeroProps {
   beachName: string;
   heroPhotoUrl: string;
   waveHeight: string;
-  score: number;
+  /** null while the canonical surf-call is still loading — keeps the hero
+   * visible without painting a phantom 0/10 score in the badge. */
+  score: number | null;
   swellDirection: string;
   swellPeriod: number;
   tideHeight: number;

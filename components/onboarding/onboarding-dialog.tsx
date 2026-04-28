@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useOnboardingStore, ONBOARDING_STEP_NAMES } from "@/store/onboarding-store";
 import { HomeBeachStep } from "./steps/home-beach-step";
@@ -37,6 +37,7 @@ export function OnboardingDialog() {
   const { user } = useAuth();
   const { profile, isLoading: profileLoading } = useProfileContext();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const {
     isOpen,
     isCompleted,
@@ -262,16 +263,18 @@ export function OnboardingDialog() {
     // the initial RSC streaming window (confirmed via stack-traced replaceState
     // calls on dev: both originated from Next router internals, never from our
     // stripParam — see CHANGELOG entry for 2026-04-27 strip fix iteration 2).
-    // `window.history.replaceState` writes the URL bar deterministically; the
-    // next render that reads `useSearchParams()` will reflect the strip
-    // (since `searchParams` is a React state-bound snapshot of the live URL).
+    // We read pathname/search from Next router state (usePathname /
+    // useSearchParams) to keep the implementation lint-clean — direct
+    // `window.location` reads are banned by `no-restricted-properties`. The
+    // write still goes through the native History API (`history.replaceState`),
+    // not Next's router, to preserve the deterministic-write invariant.
     const stripParam = () => {
-      if (typeof window === "undefined") return;
-      const next = new URLSearchParams(window.location.search);
+      if (typeof history === "undefined") return;
+      const next = new URLSearchParams(searchParams?.toString() ?? "");
       next.delete("onboarding");
       const qs = next.toString();
-      const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
-      window.history.replaceState(null, "", newUrl);
+      const newUrl = qs ? `${pathname}?${qs}` : pathname;
+      history.replaceState(null, "", newUrl);
     };
 
     // Defense-in-depth against stale welcome-email links, bookmarks, and
@@ -296,7 +299,7 @@ export function OnboardingDialog() {
     reopenFresh(user.id);
 
     stripParam();
-  }, [searchParams, user, profile, profileLoading, reopenFresh]);
+  }, [searchParams, pathname, user, profile, profileLoading, reopenFresh]);
 
   // Keep store/UI consistent: if the store says "open" but render conditions
   // no longer allow onboarding (e.g., profile loads as complete), close it.
