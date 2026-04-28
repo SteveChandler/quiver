@@ -116,6 +116,7 @@ export function WaterTempPageContent({
             beachTemps={waterTempData.beachTemps}
             citySlug={citySlug}
             stateSlug={stateSlug}
+            cityName={cityName}
           />
 
           {/* Alert Capture CTA */}
@@ -189,6 +190,7 @@ export function WaterTempPageContent({
             locationName={cityName}
             locationType="city"
             currentIntent="water-temp"
+            excludeIntents={excludeIntents}
           />
 
           {/* FAQ Accordion */}

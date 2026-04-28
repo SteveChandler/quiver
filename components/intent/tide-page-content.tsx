@@ -134,6 +134,7 @@ export function TidePageContent({
               beaches={tideData.beachTidePreferences}
               citySlug={citySlug}
               stateSlug={stateSlug}
+              cityName={cityName}
             />
           </SectionFadeUp>
 

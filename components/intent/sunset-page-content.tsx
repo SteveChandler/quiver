@@ -186,6 +186,7 @@ export function SunsetPageContent({
             locationName={cityName}
             locationType="city"
             currentIntent="sunset"
+            excludeIntents={excludeIntents}
           />
 
           {/* FAQ Accordion */}

@@ -1,6 +1,7 @@
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import type { SurfSpot } from "@/lib/data/surf-spots";
+import { cityToSlug } from "@/lib/utils/beach-url-utils";
 
 interface SpotStructuredDataProps {
   spot: SurfSpot;
@@ -20,9 +21,13 @@ export function SpotStructuredData({
 }: SpotStructuredDataProps) {
   const safeBase = baseUrl.replace(/\/$/, "");
 
+  // Beach detail URLs use canonical (non-collision) city slug; the
+  // collision-aware citySlug param applies to /[intent]/[city] only.
+  const beachUrlCitySlug = (cityName && cityToSlug(cityName)) || citySlug;
+
   // Build hierarchical URL when city/state data available, else fall back to /spots/
-  const beachUrl = citySlug && stateSlug
-    ? `${safeBase}/${stateSlug}/${citySlug}/${spot.slug}`
+  const beachUrl = beachUrlCitySlug && stateSlug
+    ? `${safeBase}/${stateSlug}/${beachUrlCitySlug}/${spot.slug}`
     : `${safeBase}/spots/${spot.slug}`;
   const cityUrl = citySlug && stateSlug
     ? `${safeBase}/${stateSlug}/${citySlug}`

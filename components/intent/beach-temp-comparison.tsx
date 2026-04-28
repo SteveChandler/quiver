@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { Thermometer } from "lucide-react";
+import { cityToSlug } from "@/lib/utils/beach-url-utils";
 import type { BeachWaterTemp } from "@/actions/forecast/intent-forecast-actions";
 
 interface BeachTempComparisonProps {
   beachTemps: BeachWaterTemp[];
   citySlug: string;
   stateSlug: string;
+  /** Display city name; used to derive canonical (non-collision) slug for beach links */
+  cityName: string;
 }
 
 /** Color-code temperature: cold blue → warm amber (with dark mode variants) */
@@ -29,8 +32,10 @@ export function BeachTempComparison({
   beachTemps,
   citySlug,
   stateSlug,
+  cityName,
 }: BeachTempComparisonProps) {
   if (beachTemps.length === 0) return null;
+  const beachUrlCitySlug = cityToSlug(cityName) || citySlug;
 
   return (
     <section>
@@ -46,7 +51,7 @@ export function BeachTempComparison({
           const colorClass = getTempColor(beach.tempF);
           const bgGradient = getTempBgGradient(beach.tempF);
           const href = beach.beachSlug
-            ? `/${stateSlug}/${citySlug}/${beach.beachSlug}/water-temp`
+            ? `/${stateSlug}/${beachUrlCitySlug}/${beach.beachSlug}/water-temp`
             : undefined;
 
           const content = (

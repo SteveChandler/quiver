@@ -31,7 +31,7 @@ import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { SITE_URL } from "@/lib/constants/seo";
-import { INTENT_DEFINITIONS, buildCityIntentUrl } from "@/lib/constants/intent-definitions";
+import { INTENT_DEFINITIONS, buildCityIntentUrl, type IntentKey } from "@/lib/constants/intent-definitions";
 
 export const revalidate = 86400;
 
@@ -409,7 +409,9 @@ export default async function BestTimeToSurfPage(props: PageParams) {
                 Back to the {cityName} surf hub
               </Link>
             </li>
-            {INTENT_DEFINITIONS.map((intent) => (
+            {INTENT_DEFINITIONS.filter(
+              (intent) => !excludeIntents.includes(intent.key as IntentKey)
+            ).map((intent) => (
               <li key={intent.key}>
                 <Link
                   href={buildCityIntentUrl(intent.key, citySlug)}

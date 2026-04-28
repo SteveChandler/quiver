@@ -16,10 +16,11 @@ import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
 import { FAQSection } from "@/components/seo/faq-schema";
 import { generateStateRichContent } from "@/lib/seo/state-content-generator";
 import { RichContentRenderer } from "@/lib/seo/rich-content";
-import { buildCityIntentUrl } from "@/lib/constants/intent-definitions";
+import { buildCityIntentUrl, type IntentKey } from "@/lib/constants/intent-definitions";
 import { ExpandableCityList } from "@/components/state/expandable-city-list";
 import { buildCitySlug } from "@/lib/seo/city-slug-utils";
 import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
+import { createPublicReadClient } from "@/lib/supabase/server";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { ItemListSchema } from "@/components/seo/item-list-schema";
@@ -93,6 +94,34 @@ function getStateValuesFromSlug(stateSlug: string): string[] {
   return [upper, displayName, stateSlug];
 }
 
+/**
+ * Fetch the set of city slugs in this state that have at least one
+ * light/moderate-crowd beach. Used to hide the "Less Crowded" pill on
+ * cities where /least-crowded/{city} would 404 (no qualifying beaches).
+ *
+ * Mirrors the filter in getCityExcludeIntents and getBeachesByIntentAndCity.
+ */
+async function getCitiesWithLeastCrowdedSet(
+  stateSlug: string,
+  stateValues: string[]
+): Promise<Set<string>> {
+  const supabase = createPublicReadClient();
+  const { data } = await supabase
+    .from("beaches")
+    .select("city")
+    .in("state", stateValues)
+    .or("is_private.is.null,is_private.eq.false")
+    .or("crowd_level.ilike.light,crowd_level.ilike.moderate");
+  const set = new Set<string>();
+  for (const row of data ?? []) {
+    const cityName = (row as { city: string | null }).city;
+    if (!cityName) continue;
+    const slug = buildCitySlug(cityName, stateSlug.toUpperCase(), COLLISION_CITY_MAP);
+    if (slug) set.add(slug);
+  }
+  return set;
+}
+
 export default async function UsaStatePage(
   props: {
     params: Promise<{ state: string }>;
@@ -107,12 +136,13 @@ export default async function UsaStatePage(
   // Parallelize both data fetches for better performance
   const stateValuesForMap = getStateValuesFromSlug(stateSlug);
 
-  const [locationsResponse, beachesResponse] = await Promise.all([
+  const [locationsResponse, beachesResponse, citiesWithLeastCrowded] = await Promise.all([
     getAllBeachLocations(),
     getStateMapBeaches({
       stateValues: stateValuesForMap,
       limit: 300,
     }),
+    getCitiesWithLeastCrowdedSet(stateSlug, stateValuesForMap),
   ]);
 
   if (!locationsResponse.success || !locationsResponse.data) {
@@ -268,7 +298,9 @@ export default async function UsaStatePage(
                       </Link>
                       {(spotCount ?? 0) >= 2 && (
                       <div className="flex flex-wrap gap-1 px-3 pb-1">
-                        {CITY_INTENT_PILLS.map(({ key, label }) => (
+                        {CITY_INTENT_PILLS.filter(
+                          ({ key }) => key !== "least-crowded" || citiesWithLeastCrowded.has(c.citySlug)
+                        ).map(({ key, label }) => (
                           <Link
                             key={key}
                             href={buildCityIntentUrl(key, c.citySlug)}
@@ -316,6 +348,7 @@ export default async function UsaStatePage(
         locationSlug={stateSlug}
         locationName={stateName}
         locationType="state"
+        excludeIntents={citiesWithLeastCrowded.size === 0 ? (["least-crowded"] as IntentKey[]) : undefined}
       />
       </div>
 

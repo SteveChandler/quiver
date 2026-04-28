@@ -10,6 +10,7 @@ import { track } from "@/lib/analytics";
 import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
 import type { IntentForecastSummary } from "@/actions/forecast/intent-forecast-actions";
 import type { SurfIntentSlug } from "@/lib/constants/surf-intents";
+import { cityToSlug } from "@/lib/utils/beach-url-utils";
 
 interface TodaysIntentPlanProps {
   /** Forecast summary data */
@@ -163,7 +164,7 @@ export function TodaysIntentPlan({
                 {summary.topPicks.map((pick, i) => (
                   <Link
                     key={pick.slug}
-                    href={`/${stateSlug}/${citySlug}/${pick.slug}`}
+                    href={`/${stateSlug}/${cityToSlug(cityName) || citySlug}/${pick.slug}`}
                     className="flex items-center justify-between rounded-lg hover:bg-blue-50/50 transition-colors px-2 py-1.5 -mx-2"
                   >
                     <div className="flex items-center gap-3">
