@@ -233,4 +233,43 @@ describe("OracleHero", () => {
       screen.getByRole("banner", { name: "Ocean Beach surf conditions" })
     ).toBeInTheDocument();
   });
+
+  it("renders whySentence as a distinct prose line under the best-window card", () => {
+    render(
+      <OracleHero
+        {...DEFAULT_PROPS}
+        whySentence="Solid window with offshore winds before the tide drops."
+      />
+    );
+    const sentence = screen.getByTestId("hero-why-sentence");
+    expect(sentence).toBeInTheDocument();
+    expect(sentence).toHaveTextContent(
+      "Solid window with offshore winds before the tide drops."
+    );
+  });
+
+  it("does not render the why-sentence node when whySentence is absent", () => {
+    render(<OracleHero {...DEFAULT_PROPS} />);
+    expect(screen.queryByTestId("hero-why-sentence")).not.toBeInTheDocument();
+    // Subtitle inside the best-window card still renders.
+    expect(screen.getByText("Wind shifts onshore by 10am")).toBeInTheDocument();
+  });
+
+  it("does not duplicate the same sentence when subtitle and whySentence differ", () => {
+    render(
+      <OracleHero
+        {...DEFAULT_PROPS}
+        bestWindowSubtitle="Clean WNW swell"
+        whySentence="Solid window with offshore winds before the tide drops."
+      />
+    );
+    // Both copies appear exactly once in the hero — the subtitle inside the
+    // card and the why-sentence below it must be distinct strings.
+    expect(screen.getAllByText("Clean WNW swell")).toHaveLength(1);
+    expect(
+      screen.getAllByText(
+        "Solid window with offshore winds before the tide drops."
+      )
+    ).toHaveLength(1);
+  });
 });
