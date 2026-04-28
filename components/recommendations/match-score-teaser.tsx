@@ -38,6 +38,9 @@ export function MatchScoreTeaser({
   // Session-level dedup inside trackSignupCtaView keys on `source`, so we
   // include beachId in the source to prevent collapsing across beach pages
   // (e.g., a user browsing Blacks → Swamis → Trestles should fire 3 view events).
+  // cta_copy_variant: "match_score_v2_reinstated" — proves post-reinstatement
+  // CTR matches the historical 1.07% baseline (Phase 1A removed this CTA on
+  // a-priori reasoning; lifetime data showed it was the strongest performer).
   useEffect(() => {
     if (user || hasTrackedView.current) return;
     hasTrackedView.current = true;
@@ -45,6 +48,7 @@ export function MatchScoreTeaser({
       source: `match-score-teaser-${beachId}`,
       surface: "beach-detail",
       variant,
+      cta_copy_variant: "match_score_v2_reinstated",
       beach_id: beachId,
     });
   }, [user, variant, beachId]);
@@ -54,6 +58,7 @@ export function MatchScoreTeaser({
       source: `match-score-teaser-${beachId}`,
       surface: "beach-detail",
       variant,
+      cta_copy_variant: "match_score_v2_reinstated",
       beach_id: beachId,
     });
     setShowAuth(true);

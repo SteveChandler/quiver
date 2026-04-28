@@ -5,12 +5,19 @@ import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error
 import { isVisibleSafe } from './utils/strict-helpers';
 
 /**
- * CTA Reduction Tests — Phase 1A + 1B
+ * CTA Reduction Tests — Phase 1A + 1B (revised 2026-04-28)
  *
- * Verifies that anonymous users on a beach page see exactly 1 CTA
- * (in the hero area), and that the previously-redundant CTAs
- * (MatchScoreTeaser card, InlineSignupCta, horizon-strip upsell,
- * PersonalizedForecastTeaser) are NOT rendered.
+ * Phase 1A removed MatchScoreTeaser, InlineSignupCta, the horizon-strip
+ * upsell banner, and PersonalizedForecastTeaser. Lifetime data showed
+ * MatchScoreTeaser was actually the strongest-performing CTA in the
+ * codebase (1.07% CTR over 1,305 views), so it has been reinstated. The
+ * other Phase 1A removals stay removed.
+ *
+ * Invariants verified here:
+ *   - MatchScoreTeaser card IS rendered for anonymous users.
+ *   - InlineSignupCta, horizon-strip upsell banner, and
+ *     PersonalizedForecastTeaser are NOT rendered.
+ *   - At least one primary CTA is present.
  *
  * @project guest
  */
@@ -29,16 +36,22 @@ test.describe('Anonymous beach page — CTA reduction (Phase 1A + 1B)', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Removed CTAs — none of these should be visible for anonymous users
+  // Reinstated CTA — MatchScoreTeaser must render for anonymous users
   // -------------------------------------------------------------------------
 
-  test('MatchScoreTeaser card is NOT rendered for anonymous users', async ({ page }) => {
-    // The match-score-teaser-card is the prominent card variant rendered above tabs.
-    // After the CTA reduction it should be gone.
+  test('MatchScoreTeaser card IS rendered for anonymous users', async ({ page }) => {
+    // Reinstated 2026-04-28 after lifetime CTR data showed it was the
+    // strongest-performing high-volume CTA in the codebase. Tagged with
+    // cta_copy_variant: "match_score_v2_reinstated" so post-reinstatement
+    // CTR can be compared against the historical baseline.
     const teaserCard = page.getByTestId('match-score-teaser-card');
     const isVisible = await isVisibleSafe(teaserCard, { timeout: 5000 });
-    expect(isVisible).toBe(false);
+    expect(isVisible).toBe(true);
   });
+
+  // -------------------------------------------------------------------------
+  // Removed CTAs — these should still be absent for anonymous users
+  // -------------------------------------------------------------------------
 
   test('InlineSignupCta ("Get Alerts") is NOT rendered for anonymous users', async ({ page }) => {
     // InlineSignupCta with "Get Alerts for …" title was shown below MatchScoreTeaser.
@@ -90,14 +103,16 @@ test.describe('Anonymous beach page — CTA reduction (Phase 1A + 1B)', () => {
     const getAlertsActionButton = page.getByRole('button', { name: /get alerts/i });
     const stickySignupBar = page.getByTestId('sticky-signup-bar');
     const headerSignupButton = page.getByRole('button', { name: /see your forecast|sign up/i });
+    const matchScoreTeaserCard = page.getByTestId('match-score-teaser-card');
 
     const teaserVisible = await isVisibleSafe(forecastTeaserButton, { timeout: 3000 });
     const alertsVisible = await isVisibleSafe(getAlertsActionButton.first(), { timeout: 3000 });
     const stickyVisible = await isVisibleSafe(stickySignupBar, { timeout: 1000 });
     const headerVisible = await isVisibleSafe(headerSignupButton.first(), { timeout: 3000 });
+    const matchScoreVisible = await isVisibleSafe(matchScoreTeaserCard, { timeout: 3000 });
 
     expect(
-      teaserVisible || alertsVisible || stickyVisible || headerVisible,
+      teaserVisible || alertsVisible || stickyVisible || headerVisible || matchScoreVisible,
     ).toBe(true);
   });
 

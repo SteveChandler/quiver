@@ -24,15 +24,6 @@ jest.mock("@/components/forecast/conditions-overview/explore-more-links", () => 
   ),
 }));
 
-jest.mock("@/components/ui/public-content-gate", () => ({
-  PublicContentGate: ({ children, ctaTitle }: any) => (
-    <div data-testid="public-content-gate">
-      <div data-testid="gate-cta">{ctaTitle}</div>
-      <div className="blur-md">{children}</div>
-    </div>
-  ),
-}));
-
 // Mock next/dynamic to return a simple component
 jest.mock("next/dynamic", () => ({
   __esModule: true,
@@ -200,7 +191,7 @@ describe("ConditionsOverview", () => {
     expect(screen.getByTestId("other-good-days-count")).toHaveTextContent("3");
   });
 
-  it("renders OutlookBarChart directly in normal mode", () => {
+  it("renders OutlookBarChart for every viewer (no gate)", () => {
     const enrichedDays = [
       createMockDay({ fullDate: "2026-02-10", score: 70 }),
       createMockDay({ fullDate: "2026-02-11", score: 80 }),
@@ -216,93 +207,6 @@ describe("ConditionsOverview", () => {
       />
     );
 
-    expect(screen.getByTestId("outlook-bar-chart")).toBeInTheDocument();
-    expect(screen.queryByTestId("public-content-gate")).not.toBeInTheDocument();
-  });
-
-  it("in publicMode: limits best day selection to first 3 days", () => {
-    const enrichedDays = [
-      createMockDay({ fullDate: "2026-02-10", score: 60 }),
-      createMockDay({ fullDate: "2026-02-11", score: 65 }),
-      createMockDay({ fullDate: "2026-02-12", score: 70 }),
-      createMockDay({ fullDate: "2026-02-13", score: 95 }), // highest overall
-      createMockDay({ fullDate: "2026-02-14", score: 85 }),
-    ];
-    mockEnrichDaySummaries.mockReturnValue(enrichedDays);
-
-    const beach = createMockBeach();
-    render(
-      <ConditionsOverview
-        horizonDaySummaries={[]}
-        forecasts={mockForecasts}
-        beach={beach}
-        publicMode={true}
-      />
-    );
-
-    // Best day should be from first 3 days (score 70), not day 4 (score 95)
-    // In public mode, there are 2 BestDayHero components (one visible, one gated)
-    const scores = screen.getAllByTestId("best-day-score");
-    const dates = screen.getAllByTestId("best-day-date");
-
-    // First (visible) hero should have the best from first 3 days
-    expect(scores[0]).toHaveTextContent("70");
-    expect(dates[0]).toHaveTextContent("2026-02-12");
-
-    // Second (gated) hero should have the same best day
-    expect(scores[1]).toHaveTextContent("70");
-    expect(dates[1]).toHaveTextContent("2026-02-12");
-  });
-
-  it("in publicMode: passes empty array to otherGoodDays in BestDayHero", () => {
-    const enrichedDays = [
-      createMockDay({ fullDate: "2026-02-10", score: 85 }),
-      createMockDay({ fullDate: "2026-02-11", score: 70 }),
-      createMockDay({ fullDate: "2026-02-12", score: 65 }),
-    ];
-    mockEnrichDaySummaries.mockReturnValue(enrichedDays);
-
-    const beach = createMockBeach();
-    render(
-      <ConditionsOverview
-        horizonDaySummaries={[]}
-        forecasts={mockForecasts}
-        beach={beach}
-        publicMode={true}
-      />
-    );
-
-    // In public mode, there are 2 BestDayHero components
-    const counts = screen.getAllByTestId("other-good-days-count");
-
-    // First (visible) BestDayHero should have empty otherGoodDays
-    expect(counts[0]).toHaveTextContent("0");
-
-    // Second (gated) BestDayHero should have the full list
-    expect(counts[1]).toHaveTextContent("2");
-  });
-
-  it("in publicMode: wraps chart in PublicContentGate", () => {
-    const enrichedDays = [
-      createMockDay({ fullDate: "2026-02-10", score: 70 }),
-      createMockDay({ fullDate: "2026-02-11", score: 80 }),
-    ];
-    mockEnrichDaySummaries.mockReturnValue(enrichedDays);
-
-    const beach = createMockBeach();
-    render(
-      <ConditionsOverview
-        horizonDaySummaries={[]}
-        forecasts={mockForecasts}
-        beach={beach}
-        publicMode={true}
-      />
-    );
-
-    expect(screen.getByTestId("public-content-gate")).toBeInTheDocument();
-    expect(screen.getByTestId("gate-cta")).toHaveTextContent(
-      "See all 12 days of surf conditions"
-    );
     expect(screen.getByTestId("outlook-bar-chart")).toBeInTheDocument();
   });
 

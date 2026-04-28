@@ -29,6 +29,13 @@ jest.mock("@/components/auth/unified-auth-modal", () => ({
     ) : null,
 }));
 
+const mockTrackSignupCtaView = jest.fn();
+const mockTrackSignupCtaClick = jest.fn();
+jest.mock("@/lib/analytics/signup-conversion-tracking", () => ({
+  trackSignupCtaView: (...args: any[]) => mockTrackSignupCtaView(...args),
+  trackSignupCtaClick: (...args: any[]) => mockTrackSignupCtaClick(...args),
+}));
+
 jest.mock("next/navigation", () => ({ usePathname: () => "/ca/san-diego/blacks" }));
 
 describe("MatchScoreTeaser", () => {
@@ -36,6 +43,11 @@ describe("MatchScoreTeaser", () => {
     beachId: "beach-123",
     beachName: "Blacks Beach",
   };
+
+  beforeEach(() => {
+    mockTrackSignupCtaView.mockClear();
+    mockTrackSignupCtaClick.mockClear();
+  });
 
   describe("renders Match: ??? badge with Sparkles icon", () => {
     it("shows the Match: ??? text", () => {
@@ -133,6 +145,48 @@ describe("MatchScoreTeaser", () => {
       render(<MatchScoreTeaser {...defaultProps} className="my-custom-class" />);
       const wrapper = screen.getByTestId("match-score-teaser");
       expect(wrapper.className).toContain("my-custom-class");
+    });
+  });
+
+  describe("tracks cta_copy_variant for post-reinstatement CTR comparison", () => {
+    it("passes cta_copy_variant=match_score_v2_reinstated on view (badge variant)", () => {
+      render(<MatchScoreTeaser {...defaultProps} />);
+      expect(mockTrackSignupCtaView).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: "match-score-teaser-beach-123",
+          surface: "beach-detail",
+          variant: "badge",
+          cta_copy_variant: "match_score_v2_reinstated",
+          beach_id: "beach-123",
+        })
+      );
+    });
+
+    it("passes cta_copy_variant=match_score_v2_reinstated on view (card variant)", () => {
+      render(<MatchScoreTeaser {...defaultProps} variant="card" />);
+      expect(mockTrackSignupCtaView).toHaveBeenCalledWith(
+        expect.objectContaining({
+          variant: "card",
+          cta_copy_variant: "match_score_v2_reinstated",
+        })
+      );
+    });
+
+    it("passes cta_copy_variant=match_score_v2_reinstated on click", async () => {
+      const user = userEvent.setup();
+      render(<MatchScoreTeaser {...defaultProps} variant="card" />);
+
+      await user.click(screen.getByTestId("match-score-teaser-card"));
+
+      expect(mockTrackSignupCtaClick).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: "match-score-teaser-beach-123",
+          surface: "beach-detail",
+          variant: "card",
+          cta_copy_variant: "match_score_v2_reinstated",
+          beach_id: "beach-123",
+        })
+      );
     });
   });
 });

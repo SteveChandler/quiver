@@ -62,8 +62,11 @@ import {
 } from "@/components/beach-detail/beach-tabs";
 import { SessionPlanningModal } from "@/components/beach-detail/session-planning-modal";
 import { TabLoadingSkeleton } from "@/components/beach-detail/tab-loading-skeleton";
-// InlineSignupCta and MatchScoreTeaser removed — Phase 1A CTA reduction.
-// The hero forecast teaser in BeachHeroCompact is now the sole CTA for anonymous users.
+// InlineSignupCta stays removed — Phase 1A CTA reduction.
+// MatchScoreTeaser was removed in Phase 1A but reinstated 2026-04-28 based
+// on lifetime CTR data — it was the strongest-performing high-volume CTA in
+// the system (1.07% over 1,305 views vs ~0% for the gates that replaced it).
+import { MatchScoreTeaser } from "@/components/recommendations";
 import { TrustStrip } from "@/components/beach-detail/trust-strip";
 import { ForecastConfidenceBadge } from "@/components/beach-detail/forecast-confidence-badge";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
@@ -1073,8 +1076,24 @@ function BeachDetailContent({
           </Alert>
         )}
 
-        {/* Horizon strip upsell removed — Phase 1A CTA reduction.
-            The hero forecast teaser is now the sole anonymous CTA. */}
+        {/* Anonymous CTA layout (post-2026-04-28):
+            - The hero forecast teaser inside BeachHeroCompact owns the
+              in-overlay CTA on non-cam beaches; it's hidden on cam beaches.
+            - The MatchScoreTeaser card below is the post-action-row primary
+              and renders on every beach page.
+            Both are intentional after lifetime CTR data (Mar 9 – Apr 28)
+            showed MatchScoreTeaser was the strongest standalone signal at
+            1.07% (1,305v / 14c). The horizon-strip "See 12-day outlook"
+            banner stays removed (Phase 1A invariant pinned by the e2e spec). */}
+        {publicMode && (
+          <div className="mb-6">
+            <MatchScoreTeaser
+              beachId={beach.id}
+              beachName={beach.name}
+              variant="card"
+            />
+          </div>
+        )}
 
         {/* Trust Strip + Confidence Badge — credibility signals for anonymous visitors */}
         <TrustStrip />
@@ -1118,7 +1137,6 @@ function BeachDetailContent({
                   surfCall={surfCallReport}
                   surfCallIsTomorrow={surfCallIsTomorrow}
                   defaultSubTab={defaultSubTab}
-                  publicMode={publicMode}
                   yesterdayAccuracy={yesterdayAccuracy}
                 />
               </Suspense>
