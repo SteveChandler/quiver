@@ -192,8 +192,12 @@ describe('selectBestWindow with sunset', () => {
     // This ensures the 12pm forecast is in the future and standard threshold (50) is used
     jest.setSystemTime(new Date('2026-01-13T19:00:00Z'));
 
-    // Multiple good forecasts followed by a poor one
-    // The window should end when conditions degrade
+    // Multiple good forecasts followed by a poor one.
+    // The window should end when conditions degrade.
+    // Note: wind_speed=30 produces score=0 under the unified scoring engine
+    // (wind > 25 mph cliffs the wind component), guaranteeing the 3pm score
+    // drops below both thresholds (standard 50 and morning 40) regardless
+    // of which is active.
     const forecasts = [
       createMockForecast({
         forecast_date: '2026-01-13',
@@ -213,7 +217,7 @@ describe('selectBestWindow with sunset', () => {
       createMockForecast({
         forecast_date: '2026-01-13',
         forecast_time: '15:00:00', // 3pm PT
-        wind_speed: '25', // Strong wind = poor score ~48 (below 50)
+        wind_speed: '30', // Above-25 wind cliffs score to 0
       }),
     ];
 
@@ -517,7 +521,7 @@ describe('selectBestWindow local date boundary', () => {
         forecast_date: '2026-01-13',
         forecast_time: '17:00:00', // 5pm PT - still Jan 13 local - BAD (triggers interpolation)
         wave_height: '4.0',
-        wind_speed: '25', // Strong wind = poor score below threshold
+        wind_speed: '30', // Above-25 wind cliffs score to 0 (below both standard and morning thresholds)
       }),
     ];
 
