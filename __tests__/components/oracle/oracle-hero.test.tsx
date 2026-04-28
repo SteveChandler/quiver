@@ -243,6 +243,7 @@ describe("OracleHero", () => {
     );
     const sentence = screen.getByTestId("hero-why-sentence");
     expect(sentence).toBeInTheDocument();
+    expect(sentence).toHaveAttribute("role", "note");
     expect(sentence).toHaveTextContent(
       "Solid window with offshore winds before the tide drops."
     );
