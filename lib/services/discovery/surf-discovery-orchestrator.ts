@@ -946,7 +946,9 @@ async function discoverSurfSpotsInner(
       });
       sleepInScores.set(rec.beach.id, lateScore.total);
     }
-    assignStrategyTags(enrichedRanked, sleepInScores);
+    // Pass an explicit `now` so time-of-day-sensitive tags (sleep_in) suppress
+    // themselves once the relevant window is in the past at the candidate beach.
+    assignStrategyTags(enrichedRanked, sleepInScores, new Date());
   }
 
   // 8. Generate regional call from hero's slot forecasts

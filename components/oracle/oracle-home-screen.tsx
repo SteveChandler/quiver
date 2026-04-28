@@ -624,7 +624,14 @@ export function OracleHomeScreen() {
   const waterTemp = parseNumeric(forecast?.water_temp);
   const windSpd = parseNumeric(currentSlot?.windSpeed ?? forecast?.wind_speed);
   const windDir = currentSlot?.windDirection ?? forecast?.wind_direction ?? "—";
-  const score = heroSurfCall?.score ?? heroRec?.score ?? 0;
+  // Displayed score MUST come from the canonical surf-call computation
+  // (`getSpotSurfReport` → `computeSurfCall`), never from discovery's boosted
+  // score. Discovery still picks WHICH beach is the hero; computeSurfCall
+  // decides WHAT TO SAY about it. See feedback memo
+  // "feedback_separate_ranking_from_verdict_authority" — hero card and detail
+  // page used to disagree at the same minute because hero displayed
+  // `topRec.score` (boosted) while detail displayed the unboosted verdict.
+  const score = heroSurfCall?.score ?? 0;
   const beachName = heroRec?.beach?.name ?? homeBeach?.name ?? "Your Beach";
 
   // Cast once for fields not yet in generated Profile type
@@ -670,19 +677,35 @@ export function OracleHomeScreen() {
       : undefined;
 
   // ------------------------------------------------------------------
-  // Loading gate
+  // Loading vs empty gate
+  //
+  // The empty state must only paint after the bootstrap has *converged* —
+  // either discovery has a definitive answer (data or error) OR the upstream
+  // gates that hold discovery off (profileLoading, geoLoading) have settled.
+  // Without this, fresh authenticated users see a "We couldn't find any surf
+  // spots" card flash before discovery even runs, because useSurfDiscovery is
+  // gated by `enabled: !!profile && !geoLoading` — when those are still
+  // pending, discoveryLoading is false AND discovery is null.
   // ------------------------------------------------------------------
-  if (oracle.discoveryLoading && !heroRec) {
+  const hasDefinitiveDiscoveryAnswer =
+    oracle.discovery !== null || !!oracle.discoveryError;
+  const isBootstrapping =
+    oracle.profileLoading ||
+    oracle.geoLoading ||
+    oracle.discoveryLoading ||
+    (!!oracle.profile && !hasDefinitiveDiscoveryAnswer);
+
+  if (!heroRec && isBootstrapping) {
     return <LoadingSkeleton />;
   }
 
-  // Empty / error state — discovery resolved but returned no usable data.
-  // Render an honest empty card with a retry affordance instead of letting
+  // Empty / error state — bootstrap converged but no usable hero. Render an
+  // honest empty card with a retry affordance instead of letting
   // `parseNumeric(undefined) → 0` leak phantom zeros into the hero UI.
   if (!heroRec) {
-    const reason = oracle.discovery
-      ? "We couldn't find any surf spots near you right now."
-      : "We couldn't load conditions for your area.";
+    const reason = oracle.discoveryError
+      ? "We couldn't load conditions for your area."
+      : "We couldn't find any surf spots near you right now.";
     return (
       <OracleHeroEmpty
         beachName={homeBeach?.name ?? "Your Surf"}
@@ -761,6 +784,7 @@ export function OracleHomeScreen() {
             hasSessionToday={false}
             hasFollows={false}
             conditionsGood={score > 60}
+            surfVerdict={heroSurfCall?.verdict ?? null}
             preferredTime={preferredTime}
             onSetHomeBeach={handleSetHomeBeach}
             onLogSession={handleLogSession}

@@ -1,4 +1,5 @@
 import type { SurfDiscoveryRecommendation, StrategyTag, StrategyTagType } from '@/types/personalization';
+import { getHourInTimezone } from '@/lib/utils/date-time';
 
 const TAG_LABELS: Record<StrategyTagType, string> = {
   biggest_waves: 'Biggest waves',
@@ -8,13 +9,20 @@ const TAG_LABELS: Record<StrategyTagType, string> = {
   skip: 'Skip',
 };
 
+/** Hour after which the sleep_in tag becomes meaningless ("Holds past 9am" — once it's 9am, this isn't a useful framing). */
+const SLEEP_IN_CUTOFF_HOUR = 9;
+
 /**
  * Assign at most one strategy tag per non-hero recommendation.
  * Mutates the input array's strategyTag fields and returns it.
+ *
+ * @param now Reference time for time-of-day-sensitive tags (defaults to Date.now()).
+ *            Lets sleep_in suppress itself once it's already past the cutoff hour.
  */
 export function assignStrategyTags(
   recs: SurfDiscoveryRecommendation[],
   sleepInScores?: Map<string, number>,
+  now: Date = new Date(),
 ): SurfDiscoveryRecommendation[] {
   if (recs.length <= 1) return recs;
 
@@ -70,13 +78,18 @@ export function assignStrategyTags(
   }
 
   // --- sleep_in: retains >= 70% score with 9am+ filter ---
+  // Suppress entirely once it's already past 9am at the candidate's beach.
+  // The reason copy ("Holds … past 9am") and badge are both morning-relative;
+  // showing them in the afternoon is the bug Steven reported 2026-04-27.
   if (sleepInScores) {
     const sleepInCandidate = candidates
       .filter(r => {
         if (taggedBeaches.has(r.beach.id)) return false;
         const lateScore = sleepInScores.get(r.beach.id);
         if (lateScore == null) return false;
-        return lateScore >= r.score * 0.7;
+        if (lateScore < r.score * 0.7) return false;
+        const tz = r.window.timezone || 'America/Los_Angeles';
+        return getHourInTimezone(now, tz) < SLEEP_IN_CUTOFF_HOUR;
       })
       .sort((a, b) => b.score - a.score)[0];
 

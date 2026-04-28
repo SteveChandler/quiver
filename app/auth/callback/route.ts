@@ -141,26 +141,30 @@ export async function GET(request: NextRequest) {
 
       // Fire capture events AFTER the onboarding-gate check (which doesn't
       // depend on them). Non-blocking failures are tolerated — the redirect
-      // still proceeds.
+      // still proceeds. Batched into one insert so we make a single DB
+      // roundtrip instead of two for every alert-capture sign-in (~50–100ms
+      // on the auth-callback critical path).
       if (captureCount > 0) {
-        await supabase.from('user_events').insert({
-          event_type: 'anon_alert_signup_success',
-          user_id: user.id,
-          session_id: crypto.randomUUID(),
-          metadata: {
-            capture_count: captureCount,
-            beach_ids: captureBeachIds,
+        await supabase.from('user_events').insert([
+          {
+            event_type: 'anon_alert_signup_success',
+            user_id: user.id,
+            session_id: crypto.randomUUID(),
+            metadata: {
+              capture_count: captureCount,
+              beach_ids: captureBeachIds,
+            },
           },
-        });
-        await supabase.from('user_events').insert({
-          event_type: 'anon_alert_magic_link_clicked',
-          user_id: user.id,
-          session_id: crypto.randomUUID(),
-          metadata: {
-            beach_id: firstCaptureBeachId,
-            preset_type: firstCapturePresetType,
+          {
+            event_type: 'anon_alert_magic_link_clicked',
+            user_id: user.id,
+            session_id: crypto.randomUUID(),
+            metadata: {
+              beach_id: firstCaptureBeachId,
+              preset_type: firstCapturePresetType,
+            },
           },
-        });
+        ]);
 
         // Compute the capture-aware redirect target. An explicit `?redirect=`
         // query param always wins (already validated above into `redirectUrl`).

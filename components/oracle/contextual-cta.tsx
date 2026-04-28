@@ -7,6 +7,14 @@ export interface ContextualCTAProps {
   hasSessionToday: boolean;
   hasFollows: boolean;
   conditionsGood: boolean; // score > 6
+  /**
+   * Canonical surf-call verdict for the hero beach. When "NO", the
+   * "Paddle out — log a session" CTA is suppressed — don't ask users to do
+   * the thing the surf-call copy just told them not to do. "Set alarm"
+   * remains visible since it's still useful on flat days. See feedback
+   * memo "feedback_hide_paddle_out_cta_on_no_verdict".
+   */
+  surfVerdict?: "YES" | "MAYBE" | "NO" | null;
   preferredTime: string | null; // dawn_patrol, morning, etc.
   sunriseTime?: string; // e.g., "5:45a"
   isPreSunrise?: boolean;
@@ -33,6 +41,7 @@ function resolveCTAs(props: ContextualCTAProps): {
     hasSessionToday,
     conditionsGood,
     hasFollows,
+    surfVerdict,
     onSetHomeBeach,
     onLogSession,
     onInviteFriend,
@@ -89,11 +98,24 @@ function resolveCTAs(props: ContextualCTAProps): {
     };
   }
 
-  if (hasHomeBeach && conditionsGood) {
+  // Only surface the "Paddle out — log a session" CTA when the surf-call
+  // verdict isn't NO. On a NO day the hero copy says "don't bother"; the
+  // primary CTA must not contradict that.
+  if (hasHomeBeach && conditionsGood && surfVerdict !== "NO") {
     return {
       primary: paddleOut,
       secondary: [setAlarm, inviteFriend],
       contextLine: "Conditions are lining up at your spot — don't miss it.",
+    };
+  }
+
+  // NO-verdict day at the home beach: lead with "Set alarm" so the page still
+  // offers a useful next step, instead of pretending conditions are good.
+  if (hasHomeBeach && surfVerdict === "NO") {
+    return {
+      primary: { ...setAlarm, variant: "default" },
+      secondary: [inviteFriend],
+      contextLine: "Conditions aren't there today — get a heads-up when they swing in.",
     };
   }
 

@@ -296,6 +296,8 @@ const MOCK_ORACLE_DATA_BASE = {
     },
   },
   discoveryLoading: false,
+  discoveryError: null,
+  profileLoading: false,
   topRecommendation: MOCK_TOP_REC,
   remainingSpots: [],
   shouldAnimate: false,
@@ -322,9 +324,36 @@ jest.mock("@/hooks/use-oracle-data", () => ({
 beforeEach(() => {
   jest.clearAllMocks();
   apiCache.clear();
+  // Default `/api/surf/call` mock — populates heroSurfCall with the canonical
+  // verdict/score, matching production where the hero's displayed values come
+  // from getSpotSurfReport (NOT from discovery's boosted score). Tests that
+  // need a different verdict/score override this mock locally.
   mockFetch.mockResolvedValue({
     ok: true,
-    json: async () => ({ success: false }),
+    json: async () => ({
+      success: true,
+      data: {
+        report: {
+          verdict: "MAYBE",
+          score: 85,
+          whySentence: "Solid window with offshore winds.",
+          updatedAt: new Date().toISOString(),
+          bestWindowStart: new Date("2026-03-11T13:00:00.000Z").toISOString(),
+          bestWindowEnd: new Date("2026-03-11T16:00:00.000Z").toISOString(),
+          peakTime: new Date("2026-03-11T14:00:00.000Z").toISOString(),
+          waveHeight: "3-4ft",
+          windDescription: "8 mph NW",
+          tidePhase: "rising",
+          isCalibrated: true,
+          trendTags: [],
+          shortWindow: false,
+          windowMinutes: 180,
+          lowForecastConfidence: false,
+          rideableWavesPerHour: 12,
+        },
+        isTomorrow: false,
+      },
+    }),
   });
   mockOracleData = {
     ...MOCK_ORACLE_DATA_BASE,
@@ -357,17 +386,65 @@ describe("OracleHomeScreen", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("3-4ft");
   });
 
-  it("renders score in X/10 format", () => {
+  it("renders score in X/10 format", async () => {
+    // Score now comes from the canonical surf-call (fetched via /api/surf/call),
+    // not discovery's boosted score. Async wait for the fetch to resolve.
     render(<OracleHomeScreen />);
-    // score=85 → score/10=8.5
-    expect(screen.getByText("8.5/10")).toBeInTheDocument();
+    expect(await screen.findByText("8.5/10")).toBeInTheDocument();
   });
 
-  it("renders contextual CTA buttons", () => {
+  it("renders contextual CTA buttons", async () => {
+    // With homeBeach set, score>60, and surfVerdict="MAYBE" (not NO),
+    // primary CTA is "Paddle out". Wait for the surf-call fetch to populate.
     render(<OracleHomeScreen />);
-    // With homeBeach set and conditionsGood (85 > 60), primary CTA is "Paddle out"
     expect(
-      screen.getByRole("button", { name: /paddle out/i })
+      await screen.findByRole("button", { name: /paddle out/i })
+    ).toBeInTheDocument();
+  });
+
+  it("hides 'Paddle out' CTA when surf-call verdict is NO", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          report: {
+            verdict: "NO",
+            score: 25,
+            whySentence: "Conditions not favorable for surfing.",
+            updatedAt: new Date().toISOString(),
+            bestWindowStart: null,
+            bestWindowEnd: null,
+            peakTime: null,
+            waveHeight: "1ft",
+            windDescription: "20 mph onshore",
+            tidePhase: "rising",
+            isCalibrated: true,
+            trendTags: [],
+            shortWindow: false,
+            windowMinutes: null,
+            lowForecastConfidence: false,
+            rideableWavesPerHour: 0,
+          },
+          isTomorrow: false,
+        },
+      }),
+    });
+    render(<OracleHomeScreen />);
+    // Wait on the contextLine specifically — "Set alarm" also appears as a
+    // secondary CTA in the default (no-verdict-yet) branch, so a button-name
+    // wait would resolve on the initial pre-fetch render and miss the actual
+    // verdict=NO branch we care about.
+    expect(
+      await screen.findByText(/Conditions aren't there today/i)
+    ).toBeInTheDocument();
+    // Now that the NO branch is active, "Paddle out" must not be present and
+    // "Set alarm" is the primary action.
+    expect(
+      screen.queryByRole("button", { name: /paddle out/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /set alarm/i })
     ).toBeInTheDocument();
   });
 
@@ -434,6 +511,77 @@ describe("OracleHomeScreen", () => {
     expect(screen.getByRole("banner")).toBeInTheDocument();
   });
 
+  it("shows skeleton (NOT empty state) while profileLoading is true and no topRecommendation", () => {
+    // Repro: fresh authenticated user with no cached profile. profileLoading=true,
+    // useSurfDiscovery is gated by `enabled: !!profile && !geoLoading`, so
+    // discoveryLoading=false AND discovery=null. Pre-fix this rendered
+    // OracleHeroEmpty ("We couldn't find any surf spots") before discovery
+    // even ran.
+    mockOracleData = {
+      ...mockOracleData,
+      profileLoading: true,
+      discoveryLoading: false,
+      discovery: null,
+      discoveryError: null,
+      topRecommendation: null,
+    } as unknown as OracleData;
+    render(<OracleHomeScreen />);
+    expect(screen.queryByText(/We couldn't find any surf spots/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/We couldn't load conditions/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+  });
+
+  it("shows skeleton while geoLoading even after profile resolves", () => {
+    mockOracleData = {
+      ...mockOracleData,
+      profileLoading: false,
+      geoLoading: true,
+      discoveryLoading: false,
+      discovery: null,
+      discoveryError: null,
+      topRecommendation: null,
+    } as unknown as OracleData;
+    render(<OracleHomeScreen />);
+    expect(screen.queryByText(/We couldn't find any surf spots/i)).not.toBeInTheDocument();
+  });
+
+  it("shows empty card with 'no spots' reason when discovery resolved with zero recommendations", () => {
+    mockOracleData = {
+      ...mockOracleData,
+      profileLoading: false,
+      discoveryLoading: false,
+      discovery: {
+        recommendations: [],
+        searchCriteria: { maxResults: 6 },
+        metadata: {
+          totalBeachesConsidered: 0,
+          successfulForecasts: 0,
+          partialSuccess: false,
+          failedBeaches: 0,
+          staleBeaches: 0,
+          generated_at: new Date().toISOString(),
+        },
+      },
+      discoveryError: null,
+      topRecommendation: null,
+    } as unknown as OracleData;
+    render(<OracleHomeScreen />);
+    expect(screen.getByText(/We couldn't find any surf spots/i)).toBeInTheDocument();
+  });
+
+  it("shows empty card with 'load failure' reason when discoveryError is set", () => {
+    mockOracleData = {
+      ...mockOracleData,
+      profileLoading: false,
+      discoveryLoading: false,
+      discovery: null,
+      discoveryError: "Discovery API unreachable",
+      topRecommendation: null,
+    } as unknown as OracleData;
+    render(<OracleHomeScreen />);
+    expect(screen.getByText(/We couldn't load conditions/i)).toBeInTheDocument();
+  });
+
   it("opens the onboarding dialog when Set Home Beach is clicked", async () => {
     // No home beach → primary CTA is "Set your home beach". The handler now
     // opens the OnboardingDialog in place (reset + openDialog on the store)
@@ -463,10 +611,11 @@ describe("OracleHomeScreen", () => {
     expect(screen.getByRole("button", { name: /set alarm/i })).toBeInTheDocument();
   });
 
-  it("passes the correct userName from profile to OracleHero", () => {
+  it("passes the correct userName from profile to OracleHero", async () => {
     render(<OracleHomeScreen />);
-    // Score=85 (8.5/10 > 7) at 8am PDT → conditions-reactive greeting for high score
-    expect(screen.getByText(/firing/i)).toBeInTheDocument();
+    // Score=85 (8.5/10 > 7) at 8am PDT → conditions-reactive greeting for high score.
+    // Score now comes from the canonical surf-call fetch — wait for it to resolve.
+    expect(await screen.findByText(/firing/i)).toBeInTheDocument();
   });
 
   it("uses waveHeightBadge from topRecommendation for display", () => {

@@ -29,12 +29,16 @@ export type SessionTimePreference =
 
 export interface OracleData {
   profile: Profile | null;
+  /** True while the profile fetch is in flight (cache may still expose a profile). */
+  profileLoading: boolean;
   homeBeach: Beach | null;
   refreshProfile: () => void;
   heroPhotoUrl: string;
   heroPhotoLoading: boolean;
   discovery: SurfDiscoveryResponse | null;
   discoveryLoading: boolean;
+  /** Hard error from the discovery query, if any. Used to distinguish "still bootstrapping" from "real failure." */
+  discoveryError: string | null;
   topRecommendation: SurfDiscoveryRecommendation | null;
   remainingSpots: SurfDiscoveryRecommendation[];
   shouldAnimate: boolean;
@@ -99,7 +103,7 @@ export function useOracleData(): OracleData {
   // ------------------------------------------------------------------
   // Profile
   // ------------------------------------------------------------------
-  const { profile, homeBeach, refreshProfile } = useCachedProfile();
+  const { profile, homeBeach, refreshProfile, profileLoading } = useCachedProfile();
 
   // ------------------------------------------------------------------
   // Geolocation — fallback chain: GPS > home beach > San Diego default
@@ -151,7 +155,11 @@ export function useOracleData(): OracleData {
   // ------------------------------------------------------------------
   // Surf discovery
   // ------------------------------------------------------------------
-  const { discovery: primaryDiscovery, loading: primaryLoading } = useSurfDiscovery({
+  const {
+    discovery: primaryDiscovery,
+    loading: primaryLoading,
+    error: primaryError,
+  } = useSurfDiscovery({
     maxResults: 10,
     horizonHours: 24,
     enabled: !!profile && !geoLoading,
@@ -170,7 +178,11 @@ export function useOracleData(): OracleData {
     userLocation.lat === DEFAULT_LOCATION.lat &&
     userLocation.lon === DEFAULT_LOCATION.lon;
 
-  const { discovery: fallbackDiscovery, loading: fallbackLoading } = useSurfDiscovery({
+  const {
+    discovery: fallbackDiscovery,
+    loading: fallbackLoading,
+    error: fallbackError,
+  } = useSurfDiscovery({
     maxResults: 10,
     horizonHours: 24,
     enabled: !!profile && !geoLoading && primaryReturnedEmpty && !alreadySanDiego,
@@ -183,6 +195,10 @@ export function useOracleData(): OracleData {
     ? fallbackDiscovery
     : primaryDiscovery;
   const discoveryLoading = primaryLoading || fallbackLoading;
+  // Surface a hard error so the consumer can distinguish "still bootstrapping"
+  // (discovery hasn't run yet because profile/geo isn't ready) from "discovery
+  // failed." Prefer the active query's error.
+  const discoveryError = (primaryReturnedEmpty && !alreadySanDiego ? fallbackError : primaryError) ?? null;
 
   const topRecommendation = discovery?.recommendations[0] ?? null;
   const remainingSpots = discovery?.recommendations.slice(1) ?? [];
@@ -280,12 +296,14 @@ export function useOracleData(): OracleData {
   // ------------------------------------------------------------------
   return {
     profile,
+    profileLoading,
     homeBeach,
     refreshProfile,
     heroPhotoUrl,
     heroPhotoLoading,
     discovery,
     discoveryLoading,
+    discoveryError,
     topRecommendation,
     remainingSpots,
     shouldAnimate: shouldAnimate && !reducedMotion,
