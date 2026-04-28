@@ -1,7 +1,6 @@
 "use client";
 
 import { SidebarBeachCard } from "@/components/map/sidebar-beach-card";
-import { MapSignupPrompt } from "@/components/map/map-signup-prompt";
 import { useBeachListState } from "@/hooks/use-beach-list-state";
 import type { Beach } from "@/types/database";
 
@@ -49,28 +48,7 @@ export function MapSidebar({
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1">
-          {/* Signup prompt for anonymous users — appears after first 3 beaches */}
-          {beaches.slice(0, 3).map((beach) => (
-            <div
-              key={beach.id}
-              ref={(el) => setCardRef(beach.id, el)}
-            >
-              <SidebarBeachCard
-                beach={beach}
-                waveHeight={waveHeightMap.get(beach.id) ?? undefined}
-                isSelected={selectedBeach?.id === beach.id}
-                distance={distanceMap?.get(beach.id)}
-                onSelect={onBeachSelect}
-              />
-            </div>
-          ))}
-
-          <MapSignupPrompt
-            beachName={selectedBeach?.name}
-            source="map-sidebar"
-          />
-
-          {beaches.slice(3).map((beach) => (
+          {beaches.map((beach) => (
             <div
               key={beach.id}
               ref={(el) => setCardRef(beach.id, el)}
