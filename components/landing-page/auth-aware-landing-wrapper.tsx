@@ -4,13 +4,13 @@ import { useAuth } from "@/context/auth-context";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import { AuthLoadingStates } from "@/lib/utils/loading-utils";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
 import { hasSupabaseAuthCookie } from "@/lib/utils/supabase-cookie-utils";
 import { BODY_CLASSES, PERFORMANCE_TIMING } from "@/lib/constants/css-classes";
 import { Navbar } from "@/components/landing-page/navbar";
 import { HeroSection } from "@/components/landing-page/hero-section";
 import { LandingInteractiveSections } from "@/components/landing-page/landing-interactive-sections";
+import { OracleHomeSkeleton } from "@/components/oracle/oracle-home-skeleton";
 import {
   Dialog,
   DialogContent,
@@ -28,7 +28,7 @@ const OracleHomeScreenDynamic = dynamic(
     ),
   {
     ssr: false,
-    loading: () => AuthLoadingStates.checking(),
+    loading: () => <OracleHomeSkeleton />,
   }
 );
 
@@ -122,7 +122,7 @@ export function AuthAwareLandingWrapper() {
     isLoading && hasAuthCookie && !(isConfirmEmailSignup && !user);
 
   if (shouldShowAuthLoading) {
-    return AuthLoadingStates.checking();
+    return <OracleHomeSkeleton />;
   }
 
   // Authenticated users see the Oracle home screen

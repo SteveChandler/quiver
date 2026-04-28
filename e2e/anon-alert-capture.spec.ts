@@ -33,9 +33,14 @@ test.describe("Anonymous alert capture on beach detail", () => {
   });
 
   test("anonymous user submits the form and sees the check-your-email confirmation", async ({ page }) => {
+    // Spec runs in the [auth] project, but `AnonAlertCaptureForm` is
+    // self-gated to `!user` in `components/beach-detail.tsx:1187`. Clear
+    // cookies so the form actually mounts.
+    await page.context().clearCookies();
+
     // Use a known beach in the seeded test DB. The anon form mounts at the
     // bottom of beach-detail.
-    await page.goto("/ca/san-diego/blacks-beach");
+    await page.goto("/ca/san-diego/blacks");
     await page.waitForLoadState("load");
 
     // The form's email input should be visible. Test-id from Task 19 form.
@@ -58,7 +63,7 @@ test.describe("Anonymous alert capture on beach detail", () => {
       expect.objectContaining({
         email,
         preset_type: expect.stringMatching(/^(glass_off|big_day|mellow_session)$/),
-        return_path: expect.stringContaining("/ca/san-diego/blacks-beach"),
+        return_path: expect.stringContaining("/ca/san-diego/blacks"),
         beach_id: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}/),
       }),
     );

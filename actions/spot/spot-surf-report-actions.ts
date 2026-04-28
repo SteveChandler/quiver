@@ -54,7 +54,7 @@ export async function getSpotSurfReportPublic(beach: Beach): Promise<SpotSurfRep
   if (!beach.id) return null;
 
   try {
-    return await getCachedSurfReport(beach.id, beach, 'anonymous', 'default', null, null);
+    return await getCachedSurfReport(beach.id, canonicalizeBeachForSurfCall(beach), 'anonymous', 'default', null, null);
   } catch (error) {
     console.error('[getSpotSurfReportPublic] Error:', {
       beachId: beach.id,
@@ -109,7 +109,7 @@ export async function getSpotSurfReport(beach: Beach): Promise<SpotSurfReportRes
     // Generate stable preference key for cache (avoids object serialization issues)
     const prefsKey = getPrefsKey(userPrefs);
 
-    return await getCachedSurfReport(beach.id, beach, userId, prefsKey, userPrefs, userSkillLevel);
+    return await getCachedSurfReport(beach.id, canonicalizeBeachForSurfCall(beach), userId, prefsKey, userPrefs, userSkillLevel);
   } catch (error) {
     console.error('[getSpotSurfReport] Error:', {
       beachId: beach.id,
@@ -140,6 +140,61 @@ function applyPreferenceAdjustments(
   }
 
   return window;
+}
+
+/**
+ * Canonicalize a beach to the stable subset that surf-call computation
+ * actually reads. Without this, `unstable_cache` would hash the entire beach
+ * object — and since the API route (home hero) selected a narrow column list
+ * while the SSR loader (detail page) passed a fuller beach, the two callers
+ * produced different cache keys for the same beach and could see divergent
+ * verdicts at the same minute (the "MAYBE on home, NO on detail" bug
+ * Steven reported 2026-04-27). Both callers now route through this
+ * canonicalizer before reaching the cached function, so cache keys converge.
+ *
+ * IMPORTANT: the field set below MUST mirror every `beach.*` read inside
+ * `lib/services/discovery/window-selector/*` and `lib/utils/surf-call-logic.ts`.
+ * Adding a new beach-field read in either path without extending this list
+ * silently degrades the canonicalized beach to `undefined` for that field,
+ * which can flip a verdict in production while leaving every test green.
+ * If you add a read, add the column here and to the SQL select in
+ * `app/api/surf/call/route.ts`.
+ */
+function canonicalizeBeachForSurfCall(beach: Beach): Beach {
+  const b = beach as unknown as Record<string, unknown>;
+  return {
+    id: b.id,
+    name: b.name,
+    slug: b.slug,
+    lat: b.lat ?? null,
+    lon: b.lon ?? null,
+    city: b.city ?? null,
+    state: b.state ?? null,
+    country: b.country ?? null,
+    region: b.region ?? null,
+    timezone: b.timezone ?? null,
+    break_type: b.break_type ?? null,
+    skill_level: b.skill_level ?? null,
+    cdip_station: b.cdip_station ?? null,
+    cdip_eligible: b.cdip_eligible ?? null,
+    wind_offshore_deg: b.wind_offshore_deg ?? null,
+    wind_offshore_tol_deg: b.wind_offshore_tol_deg ?? null,
+    wind_cross_shore_ok_kt: b.wind_cross_shore_ok_kt ?? null,
+    wind_onshore_bad_kt: b.wind_onshore_bad_kt ?? null,
+    swell_window_center_deg: b.swell_window_center_deg ?? null,
+    swell_window_halfwidth_deg: b.swell_window_halfwidth_deg ?? null,
+    swell_access_factors: b.swell_access_factors ?? null,
+    wind_exposure_factors: b.wind_exposure_factors ?? null,
+    preferred_tide_direction: b.preferred_tide_direction ?? null,
+    preferred_tide_ft_min: b.preferred_tide_ft_min ?? null,
+    preferred_tide_ft_max: b.preferred_tide_ft_max ?? null,
+    tide_direction_sensitivity: b.tide_direction_sensitivity ?? null,
+    preference_model: b.preference_model ?? null,
+    features: b.features ?? null,
+    hazards: b.hazards ?? null,
+    average_rating: b.average_rating ?? null,
+    review_count: b.review_count ?? null,
+  } as unknown as Beach;
 }
 
 /**

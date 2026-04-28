@@ -353,11 +353,4 @@ test.describe('Social Interactions API', () => {
     });
   });
 
-  test.describe('Rate Limiting', () => {
-    // TODO: Test drift - follow toggle returns 500 for fake user IDs
-    // Needs proper test user setup or mock
-    test('social endpoints should handle rapid requests gracefully', async ({ request }) => {
-      throw new Error('Not implemented: backend returns 500 for invalid input instead of 400/422');
-    });
-  });
 });

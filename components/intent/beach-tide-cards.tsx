@@ -2,12 +2,15 @@ import Link from "next/link";
 import { Waves, ArrowUp, ArrowDown, Minus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatTideHeight } from "@/lib/formatters/surf-data";
+import { cityToSlug } from "@/lib/utils/beach-url-utils";
 import type { BeachTidePreference } from "@/actions/forecast/intent-forecast-actions";
 
 interface BeachTideCardsProps {
   beaches: BeachTidePreference[];
   citySlug: string;
   stateSlug: string;
+  /** Display city name; used to derive canonical (non-collision) slug for beach links */
+  cityName: string;
 }
 
 function DirectionIcon({ direction }: { direction: string | null }) {
@@ -37,10 +40,13 @@ export function BeachTideCards({
   beaches,
   citySlug,
   stateSlug,
+  cityName,
 }: BeachTideCardsProps) {
   if (beaches.length === 0) {
     return null;
   }
+
+  const beachUrlCitySlug = cityToSlug(cityName) || citySlug;
 
   // Only show beaches that have at least some tide preference data
   const beachesWithPrefs = beaches.filter(
@@ -70,7 +76,7 @@ export function BeachTideCards({
             beach.preferredTideMin != null && beach.preferredTideMax != null;
 
           const beachHref = beach.beachSlug
-            ? `/${stateSlug}/${citySlug}/${beach.beachSlug}/tides`
+            ? `/${stateSlug}/${beachUrlCitySlug}/${beach.beachSlug}/tides`
             : null;
 
           const cardContent = (

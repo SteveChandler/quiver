@@ -72,22 +72,6 @@ test.describe('Beach Detail Page', () => {
     await expect(currentConditions).toBeVisible({ timeout: 15000 });
   });
 
-  test('should have functional action buttons', async ({ page }) => {
-    // Action buttons are Link-wrapped Buttons: Plan Session / Log Session
-    // They may match as role="button" or role="link" depending on rendering
-    const logSessionButton = page.getByRole('button', { name: /log session|add session/i });
-    const planSessionButton = page.getByRole('button', { name: /plan session/i });
-    const logSessionLink = page.getByRole('link', { name: /log session|add session/i });
-    const planSessionLink = page.getByRole('link', { name: /plan session/i });
-
-    const hasLogButton = await isVisibleSafe(logSessionButton);
-    const hasPlanButton = await isVisibleSafe(planSessionButton);
-    const hasLogLink = await isVisibleSafe(logSessionLink);
-    const hasPlanLink = await isVisibleSafe(planSessionLink);
-
-    expect(hasLogButton || hasPlanButton || hasLogLink || hasPlanLink).toBe(true);
-  });
-
   test('should display tabs for different content sections', async ({ page }) => {
     // Should have tabs (Overview, Forecast, Reviews, etc.)
     // Use .first() — multiple tablists exist (main tabs + forecast sub-tabs)

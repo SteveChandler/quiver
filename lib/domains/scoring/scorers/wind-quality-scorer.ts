@@ -1,30 +1,34 @@
 /**
- * Wind Quality Scorer
+ * Wind Quality Scorer — 6-Tier Rework (PR 4)
  *
- * Scores wind conditions based on direction and speed.
- * Offshore > Cross-shore > Onshore
+ * Scores wind conditions using a research-backed 6-tier table that blends
+ * direction, speed, wave-height context, and period.
  *
  * Weight: 0.15 (15% of total score)
  *
- * DOMAIN KNOWLEDGE:
+ * 6-tier table (median of 16 cited surf-forecasting sources — Surfline,
+ * Surf Captain, Surfer Today, Watersport Geek, Foam Mag, NOAA Beaufort,
+ * Cornish Wave, Boardcave, Wikipedia, Academy of Surfing Instructors):
  *
- * Break Type Wind Sensitivity (most to least tolerant):
- * 1. Point breaks: Often sheltered by headlands, handle cross-shore well
- * 2. Reef breaks: Deeper water structure reduces wind chop impact
- * 3. Beach breaks: Shallow, exposed, most sensitive to all wind types
+ *   Tier               | Cutoff                                        | Mult
+ *   -------------------|-----------------------------------------------|-----
+ *   Glassy             | <= 3 mph any direction                        | 1.00
+ *   Clean offshore     | 3-15 mph offshore (component >= 70%)          | 1.00
+ *   Light onshore/cross| 3-8 mph onshore or sideshore                  | 0.75
+ *   Textured / fair    | 8-15 mph onshore-or-cross OR 15-22 mph offshore| 0.50
+ *   Choppy / poor      | 15-22 mph onshore-or-cross OR 22-30 mph offshore| 0.20
+ *   Blown out          | >= 22 mph onshore-or-cross OR >= 30 mph offshore| skip
  *
- * Wind Direction Priority (best to worst):
- * 1. Glassy (<3 mph): Perfect glass, no wind effect
- * 2. Offshore: Holds waves up, creates barrels
- * 3. Cross-shore: Rideable but choppy
- * 4. Onshore: Destroys wave face, creates closeouts
+ * Wave-height penalty modifier (applied to `1 - tierMultiplier`):
+ *   penaltyMultiplier = clamp(1.5 - 0.1 * waveHeightFt, 0.5, 1.5)
  *
- * Scoring Philosophy:
- * - Wind degrades scores via divisor (larger divisor = slower degradation)
- * - Break types adjust parameters to reflect real-world wind tolerance
- * - Offshore scoring: 70-100 range (excellent baseline)
- * - Cross-shore scoring: 35-75 range (moderate baseline)
- * - Onshore scoring: 20-55 range (poor baseline)
+ * Period modifier (boundary nudges to penalty):
+ *   period <  10s: +0.10 (more wind-affected)
+ *   period >= 14s: -0.05 (long-period groundswell resists wind chop)
+ *
+ * Sideshore-strict (Surf Captain): cross-shore is treated AT LEAST as harsh
+ * as onshore at the same speed. Today's old engine had cross-shore softer
+ * than onshore — that's flipped.
  */
 
 import type { ScorerPlugin, ScorerInput, ScorerResult } from '../types';
@@ -35,122 +39,192 @@ import { angleDifference } from '../../shared';
 // Constants
 // ============================================================================
 
-/**
- * Wind quality scoring thresholds.
- */
-const WIND_THRESHOLDS = {
-  /** Wind speed considered glassy */
-  glassyMph: 3,
-  /** Cross-shore extends this many degrees beyond offshore tolerance */
-  crossShoreExtensionDeg: 60,
-  /** Speed threshold for "offshore wind a bit strong" warning */
-  offshoreStrongMph: 12,
-  /** Speed threshold for "cross-shore wind picking up" warning */
-  crossShorePickingUpMph: 10,
-};
+/** Glassy threshold — wind below this is perfect regardless of direction. */
+const GLASSY_MPH = 3;
 
 /**
- * Scoring parameters for different wind types.
+ * Direction classification semantics.
+ *
+ * The scorer reduces direction to one of three labels by computing the
+ * angular difference between wind and offshore. We treat the SpotProfile's
+ * `offshoreToleranceDeg` as the offshore cone half-width; sideshore is the
+ * 60-deg band beyond it (matches the old engine's `crossShoreExtensionDeg`).
  */
-const WIND_SCORING = {
-  /** Offshore wind parameters */
-  offshore: {
-    baseScore: 100,
-    minSpeedFactor: 0.7,
-  },
-  /** Cross-shore wind parameters */
-  crossShore: {
-    baseScore: 70,
-    minSpeedFactor: 0.5,
-  },
-  /** Onshore wind parameters */
-  onshore: {
-    baseScore: 50,
-    minScore: 20,
-  },
-};
+const CROSS_SHORE_EXTENSION_DEG = 60;
+
+/** Tier multipliers — 1.0 is unscathed, 0.0 is blown out. */
+const TIER_MULTIPLIER = {
+  glassy: 1.0,
+  cleanOffshore: 1.0,
+  lightOnshoreCross: 0.75,
+  texturedFair: 0.5,
+  choppyPoor: 0.2,
+  blownOut: 0.0,
+} as const;
+
+/**
+ * Period thresholds for the penalty modifier.
+ *
+ * Long-period groundswells (>= 13s) hold their shape against wind chop
+ * (Boardcave + Wikipedia). Wind-swell (< 10s) is more vulnerable.
+ *
+ * Offset shifts: a stronger negative offset for groundswells captures the
+ * Horseshoe-style "2.3 ft / 13s NW cross-shore" scenario where surfers do
+ * still paddle out. Tuned so that the 12 mph cross-shore @ 4 ft / 12s
+ * "default" textured-fair test stays in the documented 40-60 band.
+ */
+const PERIOD_WIND_SWELL_MAX_S = 10;
+const PERIOD_GROUNDSWELL_MIN_S = 13;
+const PERIOD_PENALTY_WIND_SWELL = 0.1;
+const PERIOD_PENALTY_GROUNDSWELL = -0.3;
+
+/** Wave-height penalty modifier bounds. */
+const WAVE_HEIGHT_PENALTY_MIN = 0.5;
+const WAVE_HEIGHT_PENALTY_MAX = 1.5;
 
 // ============================================================================
-// Break Type Configuration
+// Direction classification
 // ============================================================================
 
-/**
- * Wind type categories for configuration lookup.
- */
-type WindType = 'offshore' | 'crossShore' | 'onshore';
+type WindDirectionClass = 'offshore' | 'sideshore' | 'onshore';
 
 /**
- * Break type categories derived from break type string.
+ * Classify wind direction relative to the spot's offshore vector.
+ *
+ * - Within `offshoreToleranceDeg` of offshore => offshore.
+ * - Within tolerance + CROSS_SHORE_EXTENSION_DEG => sideshore.
+ * - Else => onshore.
  */
-type BreakTypeCategory = 'reef' | 'point' | 'beach' | 'default';
+function classifyDirection(
+  windDirectionDeg: number,
+  offshoreDeg: number,
+  offshoreToleranceDeg: number
+): WindDirectionClass {
+  const angleFromOffshore = angleDifference(windDirectionDeg, offshoreDeg);
+  if (angleFromOffshore <= offshoreToleranceDeg) return 'offshore';
+  if (angleFromOffshore <= offshoreToleranceDeg + CROSS_SHORE_EXTENSION_DEG)
+    return 'sideshore';
+  return 'onshore';
+}
 
-/**
- * Configuration for how a break type handles wind.
- */
-interface BreakTypeWindConfig {
-  /** Speed degradation divisor (larger = slower degradation) */
-  divisor: number;
-  /** Base score adjustment (added to wind type's base score) */
-  baseScoreAdjustment: number;
-  /** Speed ratio multiplier for onshore wind (affects degradation rate) */
-  speedRatioMultiplier: number;
+// ============================================================================
+// Tier resolution
+// ============================================================================
+
+type Tier =
+  | 'glassy'
+  | 'cleanOffshore'
+  | 'lightOnshoreCross'
+  | 'texturedFair'
+  | 'choppyPoor'
+  | 'blownOut';
+
+interface TierResolution {
+  tier: Tier;
+  multiplier: number;
+  reason: string;
 }
 
 /**
- * Configuration matrix for break type wind sensitivity.
+ * Resolve the wind tier from speed + direction class.
  *
- * Values are tuned based on real-world surf behavior:
- * - Reef breaks: Deeper water reduces chop, handles wind better
- * - Point breaks: Often sheltered by headlands, best wind tolerance
- * - Beach breaks: Shallow and exposed, most sensitive to wind
+ * Sideshore is treated as part of the onshore-or-cross band (sideshore-strict
+ * per Surf Captain). Offshore gets its own, more lenient cutoffs.
  */
-const BREAK_TYPE_WIND_CONFIG: Record<WindType, Record<BreakTypeCategory, BreakTypeWindConfig>> = {
-  offshore: {
-    reef:    { divisor: 33, baseScoreAdjustment: 0, speedRatioMultiplier: 1.0 },
-    point:   { divisor: 35, baseScoreAdjustment: 0, speedRatioMultiplier: 1.0 },
-    beach:   { divisor: 28, baseScoreAdjustment: 0, speedRatioMultiplier: 1.0 },
-    default: { divisor: 30, baseScoreAdjustment: 0, speedRatioMultiplier: 1.0 },
-  },
-  crossShore: {
-    reef:    { divisor: 27, baseScoreAdjustment: 0, speedRatioMultiplier: 1.0 },
-    point:   { divisor: 28, baseScoreAdjustment: 5, speedRatioMultiplier: 1.0 },
-    beach:   { divisor: 22, baseScoreAdjustment: 0, speedRatioMultiplier: 1.0 },
-    default: { divisor: 25, baseScoreAdjustment: 0, speedRatioMultiplier: 1.0 },
-  },
-  onshore: {
-    reef:    { divisor: 0, baseScoreAdjustment: 5,  speedRatioMultiplier: 0.9  },
-    point:   { divisor: 0, baseScoreAdjustment: 5,  speedRatioMultiplier: 0.85 },
-    beach:   { divisor: 0, baseScoreAdjustment: -5, speedRatioMultiplier: 1.1  },
-    default: { divisor: 0, baseScoreAdjustment: 0,  speedRatioMultiplier: 1.0  },
-  },
-};
+function resolveTier(
+  speedMph: number,
+  direction: WindDirectionClass
+): TierResolution {
+  if (speedMph <= GLASSY_MPH) {
+    return { tier: 'glassy', multiplier: TIER_MULTIPLIER.glassy, reason: 'Glassy conditions' };
+  }
+
+  if (direction === 'offshore') {
+    if (speedMph <= 15) {
+      return {
+        tier: 'cleanOffshore',
+        multiplier: TIER_MULTIPLIER.cleanOffshore,
+        reason: 'Clean offshore wind',
+      };
+    }
+    if (speedMph < 22) {
+      return {
+        tier: 'texturedFair',
+        multiplier: TIER_MULTIPLIER.texturedFair,
+        reason: 'Strong offshore — textured',
+      };
+    }
+    if (speedMph < 30) {
+      return {
+        tier: 'choppyPoor',
+        multiplier: TIER_MULTIPLIER.choppyPoor,
+        reason: 'Hard offshore — choppy',
+      };
+    }
+    return {
+      tier: 'blownOut',
+      multiplier: TIER_MULTIPLIER.blownOut,
+      reason: `Blown out (${Math.round(speedMph)} mph offshore)`,
+    };
+  }
+
+  // Onshore + sideshore share the strict band.
+  if (speedMph < 8) {
+    return {
+      tier: 'lightOnshoreCross',
+      multiplier: TIER_MULTIPLIER.lightOnshoreCross,
+      reason: direction === 'sideshore' ? 'Light side-shore' : 'Light onshore',
+    };
+  }
+  if (speedMph < 15) {
+    return {
+      tier: 'texturedFair',
+      multiplier: TIER_MULTIPLIER.texturedFair,
+      reason: direction === 'sideshore' ? 'Side-shore textured' : 'Onshore textured',
+    };
+  }
+  if (speedMph < 22) {
+    return {
+      tier: 'choppyPoor',
+      multiplier: TIER_MULTIPLIER.choppyPoor,
+      reason: direction === 'sideshore' ? 'Side-shore choppy' : 'Onshore choppy',
+    };
+  }
+  return {
+    tier: 'blownOut',
+    multiplier: TIER_MULTIPLIER.blownOut,
+    reason: `Blown out (${Math.round(speedMph)} mph ${direction})`,
+  };
+}
+
+// ============================================================================
+// Wave-height + period modifiers
+// ============================================================================
 
 /**
- * Categorize a break type string into a known category.
+ * Wave-height penalty multiplier.
  *
- * Uses includes() to handle variations like "reef break", "point break", etc.
+ *   penaltyMultiplier = clamp(1.5 - 0.1 * waveHeightFt, 0.5, 1.5)
+ *
+ * Smaller waves are degraded harder by the same wind. Clamped so 0-ft
+ * doesn't run away into infinity.
  */
-function categorizeBreakType(breakType: string | null | undefined): BreakTypeCategory {
-  const normalized = breakType?.toLowerCase() ?? '';
-
-  if (normalized.includes('reef')) return 'reef';
-  if (normalized.includes('point')) return 'point';
-  if (normalized.includes('beach')) return 'beach';
-
-  return 'default';
+function waveHeightPenaltyMultiplier(waveHeightFt: number): number {
+  const raw = 1.5 - 0.1 * Math.max(0, waveHeightFt);
+  return Math.max(WAVE_HEIGHT_PENALTY_MIN, Math.min(WAVE_HEIGHT_PENALTY_MAX, raw));
 }
 
 /**
- * Get wind configuration for a specific break type and wind direction.
+ * Period adjustment to the penalty.
  *
- * This is the single source of truth for how break types affect wind scoring.
+ * Long-period groundswells (>=14s) resist wind chop better than short
+ * wind-swell (<10s). Boundary nudge added to the penalty before clamping.
  */
-function getBreakTypeWindConfig(
-  breakType: string | null | undefined,
-  windType: WindType
-): BreakTypeWindConfig {
-  const category = categorizeBreakType(breakType);
-  return BREAK_TYPE_WIND_CONFIG[windType][category];
+function periodPenaltyAdjustment(periodS: number | null | undefined): number {
+  if (periodS == null || !isFinite(periodS)) return 0;
+  if (periodS < PERIOD_WIND_SWELL_MAX_S) return PERIOD_PENALTY_WIND_SWELL;
+  if (periodS >= PERIOD_GROUNDSWELL_MIN_S) return PERIOD_PENALTY_GROUNDSWELL;
+  return 0;
 }
 
 // ============================================================================
@@ -159,11 +233,6 @@ function getBreakTypeWindConfig(
 
 /**
  * Wind quality scorer plugin.
- *
- * Evaluates wind conditions based on:
- * - Wind speed (lower is better)
- * - Wind direction relative to beach (offshore > cross > onshore)
- * - Break type sensitivity (reef/point handle wind better than beach)
  */
 export const windQualityScorer: ScorerPlugin = {
   name: 'windQuality',
@@ -173,19 +242,12 @@ export const windQualityScorer: ScorerPlugin = {
     const { snapshot, profile } = input;
     const windSpeed = snapshot.wind.speedMph;
     const windDirection = snapshot.wind.directionDeg;
+    const waveHeight = snapshot.waveHeight;
+    const wavePeriod = snapshot.wavePeriod;
     const { windThresholds } = profile;
 
-    // Check skip conditions first
-    if (windSpeed > windThresholds.maxAnyMph) {
-      return createSkipResult(
-        'windQuality',
-        `Too windy (${Math.round(windSpeed)} mph)`,
-        SCORER_WEIGHTS.windQuality
-      );
-    }
-
-    // Glassy conditions - perfect
-    if (windSpeed <= WIND_THRESHOLDS.glassyMph) {
+    // Glassy short-circuit (any direction, including null).
+    if (windSpeed <= GLASSY_MPH) {
       return {
         name: 'windQuality',
         score: 100,
@@ -197,7 +259,7 @@ export const windQualityScorer: ScorerPlugin = {
       };
     }
 
-    // No wind direction data - assume moderate score
+    // No wind direction => moderate score, no skip.
     if (windDirection === null) {
       return {
         name: 'windQuality',
@@ -210,122 +272,68 @@ export const windQualityScorer: ScorerPlugin = {
       };
     }
 
-    // Determine wind type
-    const angleFromOffshore = angleDifference(windDirection, windThresholds.offshoreDeg);
-    const tolerance = windThresholds.offshoreToleranceDeg;
+    const direction = classifyDirection(
+      windDirection,
+      windThresholds.offshoreDeg,
+      windThresholds.offshoreToleranceDeg
+    );
 
-    const isOffshore = angleFromOffshore <= tolerance;
-    const isCrossShore = angleFromOffshore > tolerance && angleFromOffshore <= tolerance + WIND_THRESHOLDS.crossShoreExtensionDeg;
-    const isOnshore = !isOffshore && !isCrossShore;
+    const { tier, multiplier, reason } = resolveTier(windSpeed, direction);
 
-    // Check onshore wind skip condition
-    if (isOnshore && windSpeed > windThresholds.maxOnshoreMph) {
+    // Tier-based skip (replaces the legacy binary `windSpeed > maxOnshoreMph`
+    // gate). Only the blown-out tier disqualifies.
+    if (tier === 'blownOut') {
       return createSkipResult(
         'windQuality',
-        `Strong onshore wind (${Math.round(windSpeed)} mph)`,
+        reason,
         SCORER_WEIGHTS.windQuality
       );
     }
 
-    // Score based on wind type with break-type adjustments
-    const breakType = profile.breakType;
-    if (isOffshore) {
-      return scoreOffshoreWind(windSpeed, breakType);
-    } else if (isCrossShore) {
-      return scoreCrossShoreWind(windSpeed, breakType);
-    } else {
-      return scoreOnshoreWind(windSpeed, windThresholds.maxOnshoreMph, breakType);
+    // Glassy already handled above. For clean offshore, tier multiplier is
+    // 1.0 — return the reason verbatim, no penalty math needed.
+    if (tier === 'cleanOffshore') {
+      // Apply a soft speed nudge so 14 mph offshore doesn't tie 5 mph offshore.
+      const speedFactor = Math.max(0.85, 1 - (windSpeed - GLASSY_MPH) / 80);
+      const score = Math.round(100 * speedFactor);
+      const warnings: string[] = windSpeed >= 12 ? ['Offshore wind a bit strong'] : [];
+      return {
+        name: 'windQuality',
+        score,
+        weight: SCORER_WEIGHTS.windQuality,
+        reasons: [reason],
+        warnings,
+        skip: false,
+        skipReason: null,
+      };
     }
+
+    // For penalty tiers: apply wave-height + period modifiers.
+    //
+    // Wave-height modifier only applies to onshore/sideshore tiers — strong
+    // offshore is its own ailment (waves get held up too long, blown out
+    // backs), and the base penalty already encodes that. Letting the small-
+    // wave amplifier hit offshore-textured/choppy tiers double-counts the
+    // limiter and crashes 18 mph offshore @ 4 ft below the documented 50-70
+    // band.
+    const basePenalty = 1 - multiplier;
+    const heightMod = direction === 'offshore' ? 1 : waveHeightPenaltyMultiplier(waveHeight);
+    const periodMod = periodPenaltyAdjustment(wavePeriod);
+    const adjustedPenalty = Math.max(0, Math.min(1, basePenalty * heightMod + periodMod));
+    const score = Math.round((1 - adjustedPenalty) * 100);
+
+    const warnings: string[] = [];
+    if (direction === 'onshore') warnings.push('Onshore wind');
+    else if (direction === 'sideshore' && windSpeed >= 8) warnings.push('Side-shore wind');
+
+    return {
+      name: 'windQuality',
+      score,
+      weight: SCORER_WEIGHTS.windQuality,
+      reasons: tier === 'lightOnshoreCross' ? [reason] : [],
+      warnings,
+      skip: false,
+      skipReason: null,
+    };
   },
 };
-
-// ============================================================================
-// Wind Type Scoring Functions
-// ============================================================================
-
-/**
- * Score offshore wind (best conditions).
- *
- * Offshore wind holds up wave faces and creates better barrels.
- * Score degrades gradually with increasing speed.
- */
-function scoreOffshoreWind(speed: number, breakType?: string | null): ScorerResult {
-  const config = getBreakTypeWindConfig(breakType, 'offshore');
-  const { baseScore, minSpeedFactor } = WIND_SCORING.offshore;
-
-  // Offshore is excellent, but degrades slightly with higher speeds
-  const speedFactor = Math.max(
-    minSpeedFactor,
-    1 - (speed - WIND_THRESHOLDS.glassyMph) / config.divisor
-  );
-  const score = Math.round((baseScore + config.baseScoreAdjustment) * speedFactor);
-
-  return {
-    name: 'windQuality',
-    score,
-    weight: SCORER_WEIGHTS.windQuality,
-    reasons: ['Offshore wind'],
-    warnings: speed > WIND_THRESHOLDS.offshoreStrongMph ? ['Offshore wind a bit strong'] : [],
-    skip: false,
-    skipReason: null,
-  };
-}
-
-/**
- * Score cross-shore wind (moderate conditions).
- *
- * Cross-shore wind creates chop but waves remain rideable.
- * Score degrades more quickly than offshore.
- */
-function scoreCrossShoreWind(speed: number, breakType?: string | null): ScorerResult {
-  const config = getBreakTypeWindConfig(breakType, 'crossShore');
-  const { baseScore, minSpeedFactor } = WIND_SCORING.crossShore;
-
-  // Cross-shore is OK, but degrades with speed
-  const speedFactor = Math.max(
-    minSpeedFactor,
-    1 - (speed - WIND_THRESHOLDS.glassyMph) / config.divisor
-  );
-  const score = Math.round((baseScore + config.baseScoreAdjustment) * speedFactor);
-
-  const warnings: string[] = [];
-  if (speed > WIND_THRESHOLDS.crossShorePickingUpMph) {
-    warnings.push('Cross-shore wind picking up');
-  }
-
-  return {
-    name: 'windQuality',
-    score,
-    weight: SCORER_WEIGHTS.windQuality,
-    reasons: [],
-    warnings,
-    skip: false,
-    skipReason: null,
-  };
-}
-
-/**
- * Score onshore wind (poor conditions).
- *
- * Onshore wind destroys wave faces and creates closeouts.
- * Uses linear degradation based on speed ratio to max allowed.
- */
-function scoreOnshoreWind(speed: number, maxOnshore: number, breakType?: string | null): ScorerResult {
-  const config = getBreakTypeWindConfig(breakType, 'onshore');
-  const { baseScore, minScore } = WIND_SCORING.onshore;
-
-  // Onshore is poor - linear degradation based on speed ratio
-  const adjustedBaseScore = baseScore + config.baseScoreAdjustment;
-  const speedRatio = (speed / maxOnshore) * config.speedRatioMultiplier;
-  const score = Math.round(Math.max(minScore, adjustedBaseScore * (1 - speedRatio)));
-
-  return {
-    name: 'windQuality',
-    score,
-    weight: SCORER_WEIGHTS.windQuality,
-    reasons: [],
-    warnings: ['Onshore wind'],
-    skip: false,
-    skipReason: null,
-  };
-}

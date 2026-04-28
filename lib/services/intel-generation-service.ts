@@ -25,8 +25,23 @@ import {
   analyzeConditions,
   getConservativeRecommendation,
 } from "@/lib/utils/morning-intel-utils";
-import { scoreConditions } from "@/lib/scoring";
-import type { ForecastForScoring, BeachWithThresholds } from "@/lib/scoring";
+import {
+  beachToSpotProfile,
+  createDiscoveryScoringEngine,
+  type ScoringEngine,
+} from "@/lib/domains/scoring";
+import { createSwellComponent } from "@/lib/domains/conditions";
+import type { ConditionsSnapshot } from "@/lib/domains/conditions/types";
+import type { Beach } from "@/types/database";
+
+// Singleton engine — created lazily on first call.
+let _engine: ScoringEngine | null = null;
+function getIntelScoringEngine(): ScoringEngine {
+  if (!_engine) {
+    _engine = createDiscoveryScoringEngine();
+  }
+  return _engine;
+}
 
 export class IntelGenerationService {
   private supabase;
@@ -406,19 +421,51 @@ export class IntelGenerationService {
       ? "onshore"
       : "cross-shore";
 
-    // Compute real 0-100 score using the unified scorer
+    // Compute real 0-100 score using the domain-driven scoring engine.
     let unifiedScore: number | null = null;
     if (intel.surf && intel.wind && intel.tide && intel.beachPreferences) {
-      const forecastForScoring: ForecastForScoring = {
-        forecastTime: new Date(),
-        waveHeight: (intel.surf.min + intel.surf.max) / 2,
-        wavePeriod: intel.swells.primary?.period ?? 0,
-        windSpeed: intel.wind.speed,
-        windDirection: intel.wind.direction,
-        tideHeight: intel.tide.height,
-        tideStatus: intel.tide.direction || null,
+      const waveHeight = (intel.surf.min + intel.surf.max) / 2;
+      const wavePeriod = intel.swells.primary?.period ?? 0;
+      const swellDirection = intel.swells.primary?.direction ?? null;
+      const tideDirection = (intel.tide.direction ?? '').toLowerCase();
+      let tideStatus: ConditionsSnapshot['tide']['status'] = 'unknown';
+      let parsedTideDirection: ConditionsSnapshot['tide']['direction'] = 'slack';
+      if (tideDirection.includes('rising')) {
+        tideStatus = 'rising';
+        parsedTideDirection = 'rising';
+      } else if (tideDirection.includes('falling')) {
+        tideStatus = 'falling';
+        parsedTideDirection = 'falling';
+      } else if (tideDirection.includes('high')) {
+        tideStatus = 'slack-high';
+      } else if (tideDirection.includes('low')) {
+        tideStatus = 'slack-low';
+      }
+
+      const snapshot: ConditionsSnapshot = {
+        timestamp: new Date(),
+        waveHeight,
+        wavePeriod,
+        waveDirection: swellDirection,
+        primarySwell:
+          waveHeight > 0 && wavePeriod > 0
+            ? createSwellComponent(waveHeight, wavePeriod, swellDirection ?? 270)
+            : null,
+        secondarySwell: null,
+        windWave: null,
+        wind: {
+          speedMph: intel.wind.speed,
+          directionDeg: intel.wind.direction,
+        },
+        tide: {
+          heightFt: intel.tide.height,
+          status: tideStatus,
+          direction: parsedTideDirection,
+        },
+        confidence: 80,
+        dataSource: 'unknown',
       };
-      const beachForScoring: BeachWithThresholds = {
+      const beachForProfile = {
         id: beachId,
         name: intel.beachPreferences.name,
         wind_offshore_deg: intel.beachPreferences.windOffshoreDeg ?? null,
@@ -427,8 +474,14 @@ export class IntelGenerationService {
         preferred_tide_ft_max: intel.beachPreferences.tideMaxFt ?? null,
         skill_level: intel.beachPreferences.skillLevel ?? null,
       };
-      const scoreResult = scoreConditions(forecastForScoring, beachForScoring);
-      unifiedScore = scoreResult.total;
+      const profile = beachToSpotProfile(beachForProfile as unknown as Beach);
+      const composite = getIntelScoringEngine().score({
+        profile,
+        snapshot,
+        window: null,
+        preferences: null,
+      });
+      unifiedScore = composite.total;
     }
 
     const { error } = await this.supabase

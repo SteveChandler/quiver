@@ -48,6 +48,16 @@ interface ProfileWithOracle {
 interface OracleSurfCallPayload {
   report: SurfCallResult;
   isTomorrow: boolean;
+  /**
+   * The beach id this payload was fetched for. Tagged client-side at fetch
+   * time so the consumer can detect a stale response when the hero beach
+   * swaps. `useDataFetcher` preserves `state.data` across the param-change
+   * render (see `hooks/use-data-fetcher.ts:83` — the loading-flip setState
+   * keeps `prev.data`), so without this tag there's a render where
+   * `heroBeach.id` already points to beach B but `heroSurfCallData` still
+   * carries beach A's report/verdict.
+   */
+  forBeachId: string;
 }
 
 // ============================================================================
@@ -287,11 +297,67 @@ const SKILL_RANK: Record<string, number> = {
 };
 
 /**
+ * Minimal hero-context shape used inside the transform layer to personalize
+ * backup-spot reasons. Built from `heroSurfCall` (a `SurfCallResult`) using
+ * its real field names — `windDirection` and `windSpeedKnots` do NOT exist
+ * on SurfCallResult. Keep this local; nothing outside the transform should
+ * depend on it.
+ */
+type HeroReasonContext = {
+  verdict?: "YES" | "MAYBE" | "NO";
+};
+
+/**
+ * Build a short, hero-relative reason string for a backup spot card.
+ *
+ * Rules — separation of authority (see memory pin
+ * `feedback_separate_ranking_from_verdict_authority`): discovery picks WHICH
+ * beach a card is for; verdict copy is decided here at render-prep time
+ * against the hero call. Strategy-tag classification stays in
+ * `lib/services/discovery/strategy-tags.ts` and is NOT modified.
+ *
+ * Conservative copy ONLY — never claim wind orientation, glassiness, or
+ * "hero closes" unless backed by a real source of truth carried in the
+ * code. Returning `null` lets the caller fall back to the existing
+ * `strategyTag.reason`, then to `rec.summary`.
+ */
+function buildPersonalizedReason(
+  rec: SurfDiscoveryRecommendation,
+  hero?: HeroReasonContext
+): string | null {
+  const tag = rec.strategyTag?.type;
+  if (!tag || !hero) return null;
+
+  if (tag === "biggest_waves" && hero.verdict === "MAYBE") {
+    return "More size than the hero call";
+  }
+  if (tag === "sleep_in") {
+    return "Better if you miss the early window";
+  }
+  if (tag === "low_crowd" && hero.verdict === "YES") {
+    return "Fallback if the hero spot gets crowded";
+  }
+  if (tag === "skip" && hero.verdict === "NO") {
+    return "Likely the same problem as the hero spot";
+  }
+  if (tag === "cleanest") {
+    return "Cleaner backup than the hero spot";
+  }
+  return null;
+}
+
+/**
  * Map remaining spots to the NearbySpot shape.
+ *
+ * `heroContext` is consumed only to derive `reasonText` via
+ * `buildPersonalizedReason`. NearbySpot itself does not carry forecast
+ * fields, so any hero-relative copy must be decided here while the full
+ * `SurfDiscoveryRecommendation` is in scope.
  */
 function transformToNearbySpots(
   remainingSpots: SurfDiscoveryRecommendation[],
-  userSkillLevel: string | null
+  userSkillLevel: string | null,
+  heroContext?: HeroReasonContext
 ): NearbySpot[] {
   const userRank = SKILL_RANK[userSkillLevel ?? ""] ?? -1;
   return remainingSpots.map((rec) => {
@@ -308,6 +374,10 @@ function transformToNearbySpots(
       score: rec.score,
       skillMismatch,
       strategyTag: rec.strategyTag,
+      reasonText:
+        buildPersonalizedReason(rec, heroContext) ??
+        rec.strategyTag?.reason ??
+        rec.summary,
     };
   });
 }
@@ -465,9 +535,10 @@ export function OracleHomeScreen() {
   );
 
   const fetchHeroSurfCall = useCallback(async (): Promise<OracleSurfCallPayload | null> => {
-    if (!heroBeach?.id) return null;
+    const beachId = heroBeach?.id;
+    if (!beachId) return null;
 
-    const response = await fetch(`/api/surf/call?beachId=${heroBeach.id}`, {
+    const response = await fetch(`/api/surf/call?beachId=${beachId}`, {
       credentials: "include",
     });
 
@@ -477,18 +548,41 @@ export function OracleHomeScreen() {
 
     const payload = await response.json() as {
       success?: boolean;
-      data?: OracleSurfCallPayload;
+      data?: { report: SurfCallResult; isTomorrow: boolean };
     };
 
-    return payload.success ? (payload.data ?? null) : null;
+    if (!payload.success || !payload.data) return null;
+    // Tag the response with the beach id we requested so the consumer can
+    // reject stale data from a previous hero beach.
+    return { ...payload.data, forBeachId: beachId };
   }, [heroBeach?.id]);
 
-  const { data: heroSurfCallData } = useDataFetcher(fetchHeroSurfCall, {
+  const { data: heroSurfCallData, loading: heroSurfCallLoading } = useDataFetcher(fetchHeroSurfCall, {
     skip: !heroBeach?.id,
     cacheKey: heroBeach?.id ? `oracle-hero-surf-call:${heroBeach.id}` : undefined,
     cacheTTL: 5 * 60 * 1000,
   });
-  const heroSurfCall = heroSurfCallData?.report ?? null;
+
+  // Freshness gate: only treat `heroSurfCallData` as authoritative when its
+  // tagged `forBeachId` matches the current `heroBeach.id`. On a hero swap,
+  // `useDataFetcher` keeps the previous response in state for the
+  // param-change render (see hooks/use-data-fetcher.ts:83) — without this
+  // gate, score/verdict from beach A would briefly paint next to beach B's
+  // title/name. When stale, downstream code falls back to discovery-derived
+  // values (`getHeroSurfCallTitle` → `getBestWindowTitle`, neutral CTA
+  // branch, score=null placeholder) until the next response lands.
+  const heroSurfCallFresh: OracleSurfCallPayload | null =
+    heroSurfCallData != null && heroSurfCallData.forBeachId === heroBeach?.id
+      ? heroSurfCallData
+      : null;
+  const heroSurfCall = heroSurfCallFresh?.report ?? null;
+  // True only once the canonical surf-call has resolved AND the response
+  // matches the current hero beach. Used to gate score-derived UI so we
+  // don't paint a phantom 0/10 verdict next to a confident discovery-driven
+  // title during the loading window OR a hero-swap intermediate render.
+  const heroSurfCallReady =
+    !heroSurfCallLoading &&
+    (heroSurfCallData == null || heroSurfCallData.forBeachId === heroBeach?.id);
 
   // Build share data for the session share sheet (needed by handleShareSession below)
   const shareData = useMemo(() => {
@@ -624,40 +718,71 @@ export function OracleHomeScreen() {
   const waterTemp = parseNumeric(forecast?.water_temp);
   const windSpd = parseNumeric(currentSlot?.windSpeed ?? forecast?.wind_speed);
   const windDir = currentSlot?.windDirection ?? forecast?.wind_direction ?? "—";
-  const score = heroSurfCall?.score ?? heroRec?.score ?? 0;
+  // Displayed score MUST come from the canonical surf-call computation
+  // (`getSpotSurfReport` → `computeSurfCall`), never from discovery's boosted
+  // score. Discovery still picks WHICH beach is the hero; computeSurfCall
+  // decides WHAT TO SAY about it. See feedback memo
+  // "feedback_separate_ranking_from_verdict_authority" — hero card and detail
+  // page used to disagree at the same minute because hero displayed
+  // `topRec.score` (boosted) while detail displayed the unboosted verdict.
+  //
+  // Null while heroSurfCall is still in flight. Children render neutral
+  // placeholders for score-derived UI in that window — see OracleHero
+  // ScoreBadge and ContextualCTA `conditionsGood === true` gate.
+  const score: number | null = heroSurfCallReady ? (heroSurfCall?.score ?? null) : null;
   const beachName = heroRec?.beach?.name ?? homeBeach?.name ?? "Your Beach";
 
   // Cast once for fields not yet in generated Profile type
   const oracleProfile = profile as unknown as ProfileWithOracle | undefined;
   const preferredTime = oracleProfile?.preferred_session_time ?? null;
 
-  // Check if the top recommendation is for tomorrow (timezone-aware)
+  // Check if the top recommendation is for tomorrow (timezone-aware).
+  // Read from the freshness-gated payload, not raw heroSurfCallData — a
+  // stale response from a previous hero beach must not flip the
+  // "tomorrow"/"today" framing on the new hero.
   const isTomorrow = useMemo(() => {
-    if (heroSurfCallData) return heroSurfCallData.isTomorrow;
+    if (heroSurfCallFresh) return heroSurfCallFresh.isTomorrow;
     if (!window?.start) return false;
     return isFutureDayInTimezone(window.start, heroTz);
-  }, [heroSurfCallData, window?.start, heroTz]);
+  }, [heroSurfCallFresh, window?.start, heroTz]);
 
   // Best window data
   const bestWindowTime = getHeroSurfCallTime(heroSurfCall, heroTz, window);
   const bestWindowTitle = getHeroSurfCallTitle(heroSurfCall, isTomorrow, window);
+  // Supporting line *inside* the best-window card. Must NOT be sourced from
+  // `heroSurfCall?.whySentence` — that sentence renders as its own distinct
+  // prose line under the card (passed separately as `whySentence` below).
+  // Sourcing both from the same signal would render the same sentence twice.
   const bestWindowSubtitle =
-    heroSurfCall?.whySentence ??
-    heroRec?.reasons?.[0] ??
-    "Check the forecast for details";
+    heroRec?.reasons?.[0] ?? "Check the forecast for details";
 
   // Transformed sub-component data (memoised to avoid child re-renders)
   const timeWindows = useMemo(
     () => transformToTimeWindows(oracle.discovery?.recommendations ?? [], heroRec),
     [oracle.discovery?.recommendations, heroRec]
   );
+  // Hero context used to personalize backup-spot reasons in the transform
+  // layer. Built from the freshness-gated `heroSurfCall` (see
+  // `heroSurfCallFresh` above) — never from raw `heroSurfCallData`, or a
+  // stale beach-A response would briefly drive backup copy on beach B.
+  // Memoised so `nearbySpots`'s useMemo doesn't recompute every render.
+  const heroReasonContext = useMemo<HeroReasonContext | undefined>(() => {
+    if (!heroSurfCall) return undefined;
+    return { verdict: heroSurfCall.verdict };
+  }, [heroSurfCall]);
+
   const nearbySpots = useMemo(() => {
     const heroBeachId = heroRec?.beach?.id;
     const spots = (oracle.discovery?.recommendations ?? [])
       .filter(r => r.beach.id !== heroBeachId)
       .sort((a, b) => (a.distanceMiles ?? Infinity) - (b.distanceMiles ?? Infinity));
-    return transformToNearbySpots(spots, oracle.userSkillLevel);
-  }, [oracle.discovery?.recommendations, heroRec?.beach?.id, oracle.userSkillLevel]);
+    return transformToNearbySpots(spots, oracle.userSkillLevel, heroReasonContext);
+  }, [
+    oracle.discovery?.recommendations,
+    heroRec?.beach?.id,
+    oracle.userSkillLevel,
+    heroReasonContext,
+  ]);
   const activityItems = useMemo(
     () => transformActivityItems(activityRaw ?? []),
     [activityRaw]
@@ -670,19 +795,35 @@ export function OracleHomeScreen() {
       : undefined;
 
   // ------------------------------------------------------------------
-  // Loading gate
+  // Loading vs empty gate
+  //
+  // The empty state must only paint after the bootstrap has *converged* —
+  // either discovery has a definitive answer (data or error) OR the upstream
+  // gates that hold discovery off (profileLoading, geoLoading) have settled.
+  // Without this, fresh authenticated users see a "We couldn't find any surf
+  // spots" card flash before discovery even runs, because useSurfDiscovery is
+  // gated by `enabled: !!profile && !geoLoading` — when those are still
+  // pending, discoveryLoading is false AND discovery is null.
   // ------------------------------------------------------------------
-  if (oracle.discoveryLoading && !heroRec) {
+  const hasDefinitiveDiscoveryAnswer =
+    oracle.discovery !== null || !!oracle.discoveryError;
+  const isBootstrapping =
+    oracle.profileLoading ||
+    oracle.geoLoading ||
+    oracle.discoveryLoading ||
+    (!!oracle.profile && !hasDefinitiveDiscoveryAnswer);
+
+  if (!heroRec && isBootstrapping) {
     return <LoadingSkeleton />;
   }
 
-  // Empty / error state — discovery resolved but returned no usable data.
-  // Render an honest empty card with a retry affordance instead of letting
+  // Empty / error state — bootstrap converged but no usable hero. Render an
+  // honest empty card with a retry affordance instead of letting
   // `parseNumeric(undefined) → 0` leak phantom zeros into the hero UI.
   if (!heroRec) {
-    const reason = oracle.discovery
-      ? "We couldn't find any surf spots near you right now."
-      : "We couldn't load conditions for your area.";
+    const reason = oracle.discoveryError
+      ? "We couldn't load conditions for your area."
+      : "We couldn't find any surf spots near you right now.";
     return (
       <OracleHeroEmpty
         beachName={homeBeach?.name ?? "Your Surf"}
@@ -702,7 +843,7 @@ export function OracleHomeScreen() {
         beachName={beachName}
         heroPhotoUrl={oracle.heroPhotoUrl}
         waveHeight={waveHeight}
-        score={Math.min(score / 10, 9.9)}
+        score={score == null ? null : Math.min(score / 10, 9.9)}
         swellDirection={swellDir}
         swellPeriod={swellPeriod}
         tideHeight={tideH}
@@ -713,6 +854,7 @@ export function OracleHomeScreen() {
         bestWindowTitle={bestWindowTitle}
         bestWindowSubtitle={bestWindowSubtitle}
         bestWindowTime={bestWindowTime}
+        whySentence={heroSurfCall?.whySentence}
         isTomorrow={isTomorrow}
         shouldAnimate={oracle.shouldAnimate}
         onAnimationComplete={oracle.markAnimationPlayed}
@@ -760,7 +902,8 @@ export function OracleHomeScreen() {
             hasHomeBeach={!!homeBeach}
             hasSessionToday={false}
             hasFollows={false}
-            conditionsGood={score > 60}
+            conditionsGood={score == null ? undefined : score > 60}
+            surfVerdict={heroSurfCallReady ? (heroSurfCall?.verdict ?? null) : undefined}
             preferredTime={preferredTime}
             onSetHomeBeach={handleSetHomeBeach}
             onLogSession={handleLogSession}

@@ -35,8 +35,23 @@ import type { ConditionsAlertCandidate } from "@/lib/email/email-types";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
-import { scoreConditions } from "@/lib/scoring";
-import type { ForecastForScoring, BeachWithThresholds } from "@/lib/scoring";
+import {
+  beachToSpotProfile,
+  createDiscoveryScoringEngine,
+  forecastToSnapshot,
+  type ScoringEngine,
+} from "@/lib/domains/scoring";
+import type { Beach } from "@/types/database";
+import type { EnhancedForecastEntity } from "@/types/forecast";
+
+// Singleton engine for the cron run — created lazily on first invocation.
+let _engine: ScoringEngine | null = null;
+function getEngine(): ScoringEngine {
+  if (!_engine) {
+    _engine = createDiscoveryScoringEngine();
+  }
+  return _engine;
+}
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -156,30 +171,16 @@ async function processCandidate(
       .single();
 
     if (forecasts?.length && beach) {
-      // Score using the morning window (first available forecast)
-      const f = forecasts[0];
-      const forecastForScoring: ForecastForScoring = {
-        forecastTime: new Date(f.forecast_at),
-        waveHeight: parseFloat(f.wave_height || "0"),
-        wavePeriod: parseFloat(String(f.wave_period || "0").replace("s", "")),
-        windSpeed: parseFloat(f.wind_speed || "0"),
-        windDirection: f.wind_direction_deg
-          ? parseFloat(String(f.wind_direction_deg))
-          : null,
-        tideHeight: parseFloat(f.tide_height || "0"),
-        tideStatus: f.tide_status?.toLowerCase() || null,
-      };
-      const beachForScoring: BeachWithThresholds = {
-        id: beach.id,
-        name: beach.name,
-        wind_offshore_deg: beach.wind_offshore_deg,
-        wind_offshore_tol_deg: beach.wind_offshore_tol_deg,
-        preferred_tide_ft_min: beach.preferred_tide_ft_min,
-        preferred_tide_ft_max: beach.preferred_tide_ft_max,
-        skill_level: beach.skill_level,
-      };
-      const result = scoreConditions(forecastForScoring, beachForScoring);
-      freshScore = result.total;
+      // Score the morning window (first available forecast) via the domain engine.
+      const profile = beachToSpotProfile(beach as unknown as Beach);
+      const snapshot = forecastToSnapshot(forecasts[0] as unknown as EnhancedForecastEntity);
+      const composite = getEngine().score({
+        profile,
+        snapshot,
+        window: null,
+        preferences: null,
+      });
+      freshScore = composite.total;
     }
   } catch (rescoreError) {
     console.warn(

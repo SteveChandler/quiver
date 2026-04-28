@@ -231,7 +231,6 @@ describe("ForecastTab", () => {
     beachTimezone: "America/Los_Angeles",
     surfCall: null,
     surfCallIsTomorrow: false,
-    publicMode: false,
   };
 
   beforeEach(() => {
@@ -351,35 +350,10 @@ describe("ForecastTab", () => {
     });
   });
 
-  describe("Public Mode", () => {
-    it("passes publicGateFromIndex=3 in public mode so days 4-12 render blurred", () => {
-      // Commit A loss-aversion gate: instead of slicing to 3, the strip now
-      // receives all 12 days and gates days 4-12 visually via publicGateFromIndex.
-      render(<ForecastTab {...defaultProps} publicMode={true} />);
-
-      const horizonStrip = screen.getByTestId("horizon-strip");
-      expect(horizonStrip).toHaveAttribute("data-gate-from", "3");
-    });
-
-    it("shows BestSurfWindow behind a PublicContentGate in public mode", () => {
-      render(<ForecastTab {...defaultProps} publicMode={true} />);
-
-      // PublicContentGate wraps BestSurfWindow for unauthenticated users
-      expect(screen.getByTestId("public-gate")).toBeInTheDocument();
-      expect(screen.getByTestId("best-surf-window")).toBeInTheDocument();
-    });
-
-    it("shows BestSurfWindow without PublicContentGate in authenticated mode", () => {
-      render(<ForecastTab {...defaultProps} publicMode={false} />);
-
-      // Gate only wraps in publicMode — authenticated users see BestSurfWindow directly
-      expect(screen.queryByTestId("public-gate")).not.toBeInTheDocument();
-      expect(screen.getByTestId("best-surf-window")).toBeInTheDocument();
-    });
-
-    it("passes all day summaries to HorizonStrip with gate at index 3 in public mode", () => {
-      // Commit A loss-aversion gate: previously sliced to 3; now passes all days
-      // and sets publicGateFromIndex=3 so the component can blur days 4+.
+  describe("Anonymous-friendly forecast (gates removed 2026-04-28)", () => {
+    it("passes all day summaries to HorizonStrip with no gate", () => {
+      // Gates retired 2026-04-28: forecast-tab no longer passes
+      // publicGateFromIndex. Every viewer sees the full N-day strip ungated.
       const mockDaySummaries = [
         { date: "2026-02-10", waveHeight: 4.5 },
         { date: "2026-02-11", waveHeight: 5.0 },
@@ -389,42 +363,18 @@ describe("ForecastTab", () => {
       ];
       (aggregateDayForecasts as jest.Mock).mockReturnValue(mockDaySummaries);
 
-      render(<ForecastTab {...defaultProps} publicMode={true} />);
+      render(<ForecastTab {...defaultProps} />);
 
       const horizonStrip = screen.getByTestId("horizon-strip");
       expect(horizonStrip).toHaveAttribute("data-days", "5");
-      expect(horizonStrip).toHaveAttribute("data-gate-from", "3");
-      // Heading reflects full horizon length — the blur itself is the loss-aversion signal
-      expect(screen.getByText("5-Day Outlook")).toBeInTheDocument();
+      expect(horizonStrip).not.toHaveAttribute("data-gate-from");
     });
 
-    it("does not show lock message when horizonDaySummaries.length <= 3", () => {
-      const mockDaySummaries = [
-        { date: "2026-02-10", waveHeight: 4.5 },
-        { date: "2026-02-11", waveHeight: 5.0 },
-        { date: "2026-02-12", waveHeight: 4.8 },
-      ];
-      (aggregateDayForecasts as jest.Mock).mockReturnValue(mockDaySummaries);
+    it("renders BestSurfWindow without PublicContentGate", () => {
+      render(<ForecastTab {...defaultProps} />);
 
-      render(<ForecastTab {...defaultProps} publicMode={true} />);
-
-      expect(screen.queryByText(/See outlook/i)).not.toBeInTheDocument();
-      expect(screen.queryByText(/Conditions shift on/i)).not.toBeInTheDocument();
-    });
-
-    it("does not show lock message in authenticated mode", () => {
-      const mockDaySummaries = [
-        { date: "2026-02-10", waveHeight: 4.5 },
-        { date: "2026-02-11", waveHeight: 5.0 },
-        { date: "2026-02-12", waveHeight: 4.8 },
-        { date: "2026-02-13", waveHeight: 5.2 },
-      ];
-      (aggregateDayForecasts as jest.Mock).mockReturnValue(mockDaySummaries);
-
-      render(<ForecastTab {...defaultProps} publicMode={false} />);
-
-      expect(screen.queryByText(/See outlook/i)).not.toBeInTheDocument();
-      expect(screen.queryByText(/Conditions shift on/i)).not.toBeInTheDocument();
+      expect(screen.queryByTestId("public-gate")).not.toBeInTheDocument();
+      expect(screen.getByTestId("best-surf-window")).toBeInTheDocument();
     });
   });
 

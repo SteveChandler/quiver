@@ -22,10 +22,10 @@ export const PRESETS: PresetDefinition[] = [
     type: "mellow_session",
     name: "Mellow Session",
     description: "Small, clean, and fun — great for longboarding or learning",
-    conditionsSummary: "1-4ft swell, <8kt wind, favorable tide",
+    conditionsSummary: "1.5-4ft swell, <8kt wind, favorable tide",
     group: "popular",
     buildConditions: (beach: BeachAlertMeta): AlertConditions => ({
-      swell_height_min: 1,
+      swell_height_min: 1.5,
       swell_height_max: 4,
       wind_speed_max_kt: 8,
       tide_height_min_ft: beach.preferred_tide_ft_min ?? undefined,
@@ -59,9 +59,10 @@ export const PRESETS: PresetDefinition[] = [
     name: "Clean Groundswell",
     description:
       "Long-period swell with clean conditions — quality over quantity",
-    conditionsSummary: "12s+ period, <10kt wind, favorable direction",
+    conditionsSummary: "2ft+ swell, 12s+ period, <10kt wind, favorable direction",
     group: "specific",
     buildConditions: (beach: BeachAlertMeta): AlertConditions => ({
+      swell_height_min: 2,
       swell_period_min: 12,
       wind_speed_max_kt: 10,
       swell_direction_min_deg:

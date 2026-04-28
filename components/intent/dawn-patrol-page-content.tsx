@@ -187,6 +187,7 @@ export function DawnPatrolPageContent({
             locationName={cityName}
             locationType="city"
             currentIntent="dawn-patrol"
+            excludeIntents={excludeIntents}
           />
 
           {/* FAQ Accordion */}

@@ -62,7 +62,7 @@ const EXPECTED_TS_CONDITIONS: Record<(typeof ALLOWED_PRESETS)[number], unknown> 
       swell_period_min: 10,
     },
     mellow_session: {
-      swell_height_min: 1,
+      swell_height_min: 1.5,
       swell_height_max: 4,
       wind_speed_max_kt: 8,
       // tide_height_min_ft / max omitted because TEST_BEACH has null preferences

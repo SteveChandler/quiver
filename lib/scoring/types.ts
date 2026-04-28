@@ -47,29 +47,14 @@ export interface ConditionSubscores {
   tideFit: number;
 }
 
-/**
- * Condition character categories — used to classify the qualitative nature
- * of conditions beyond a simple numeric score.
- */
-export type ConditionCharacterCategory =
-  | 'flat'
-  | 'small-weak'
-  | 'small-quality'
-  | 'small-clean'
-  | 'medium-clean'
-  | 'medium-mixed'
-  | 'large-clean'
-  | 'large-rough'
-  | 'skip';
-
-/**
- * Human-readable condition character with category and display label
- */
-export interface ConditionCharacter {
-  /** Short descriptive label, e.g. "Small but powerful — long-period energy" */
-  label: string;
-  category: ConditionCharacterCategory;
-}
+// `ConditionCharacter` + `ConditionCharacterCategory` are owned by the domain
+// engine. Re-exported here so existing `@/lib/scoring` consumers keep working
+// without each one needing to migrate import paths.
+import type {
+  ConditionCharacter,
+  ConditionCharacterCategory,
+} from '@/lib/domains/scoring/condition-character';
+export type { ConditionCharacter, ConditionCharacterCategory };
 
 /**
  * Match quality levels

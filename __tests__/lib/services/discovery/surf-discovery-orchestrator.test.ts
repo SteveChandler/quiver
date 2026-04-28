@@ -126,6 +126,7 @@ jest.mock('@/lib/services/discovery/response-formatter', () => ({
   enrichWithPhotos: jest.fn(async (recs: any[]) => recs),
   generateDiscoverySummary: jest.fn(() => 'Good conditions'),
   getRecommendationLabel: jest.fn(() => 'Worth it'),
+  getRecommendationLabelGated: jest.fn(() => 'Worth it'),
   buildDiscoveryMessage: jest.fn(() => 'Worth it — Good conditions'),
 }));
 
@@ -1231,6 +1232,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       enrichWithPhotos: jest.fn(async (recs: any[]) => recs),
       generateDiscoverySummary: jest.fn(() => 'Good conditions'),
       getRecommendationLabel: jest.fn(() => 'Worth it'),
+      getRecommendationLabelGated: jest.fn(() => 'Worth it'),
       buildDiscoveryMessage: jest.fn(() => 'Worth it — Good conditions'),
     }));
     jest.doMock('@/lib/services/preference-learning-service', () => ({
@@ -1401,6 +1403,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       enrichWithPhotos: jest.fn(async (recs: any[]) => recs),
       generateDiscoverySummary: jest.fn(() => 'Good conditions'),
       getRecommendationLabel: jest.fn(() => 'Worth it'),
+      getRecommendationLabelGated: jest.fn(() => 'Worth it'),
       buildDiscoveryMessage: jest.fn(() => 'Worth it — Good conditions'),
     }));
     jest.doMock('@/lib/services/preference-learning-service', () => ({
@@ -1557,6 +1560,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       enrichWithPhotos: jest.fn(async (recs: any[]) => recs),
       generateDiscoverySummary: jest.fn(() => 'Tomorrow looks better'),
       getRecommendationLabel: jest.fn(() => 'Worth it tomorrow'),
+      getRecommendationLabelGated: jest.fn(() => 'Worth it tomorrow'),
       buildDiscoveryMessage: jest.fn(() => 'Worth it tomorrow — Tomorrow looks better'),
     }));
     jest.doMock('@/lib/services/preference-learning-service', () => ({
@@ -1712,6 +1716,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       enrichWithPhotos: jest.fn(async (recs: any[]) => recs),
       generateDiscoverySummary: jest.fn(() => 'Tomorrow looks better'),
       getRecommendationLabel: jest.fn(() => 'Worth it tomorrow'),
+      getRecommendationLabelGated: jest.fn(() => 'Worth it tomorrow'),
       buildDiscoveryMessage: jest.fn(() => 'Worth it tomorrow — Tomorrow looks better'),
     }));
     jest.doMock('@/lib/services/preference-learning-service', () => ({
@@ -1860,6 +1865,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       enrichWithPhotos: jest.fn(async (recs: any[]) => recs),
       generateDiscoverySummary: jest.fn(() => 'Tomorrow looks better'),
       getRecommendationLabel: jest.fn(() => 'Worth it tomorrow'),
+      getRecommendationLabelGated: jest.fn(() => 'Worth it tomorrow'),
       buildDiscoveryMessage: jest.fn(() => 'Worth it tomorrow — Tomorrow looks better'),
     }));
     jest.doMock('@/lib/services/preference-learning-service', () => ({

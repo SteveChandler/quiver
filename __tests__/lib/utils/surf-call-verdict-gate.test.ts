@@ -68,7 +68,20 @@ function makeWindow(overrides: Partial<PersonalizedForecastWindow> = {}): Person
 describe('computeSurfCall — best-window verdict gating', () => {
   it('leaves the wide window untouched when verdict is YES (high score)', () => {
     const window = makeWindow({ score: 85 }); // triggers YES
-    const forecasts = [makeForecast({ wave_height: '4-5 ft' })];
+    // PR 4: character gate caps "Worth it" on positive characters only.
+    // Use a clean offshore wind so the snapshot lands as medium-clean and
+    // the score-only YES survives the gate.
+    const forecasts = [
+      makeForecast({
+        wave_height: '4-5 ft',
+        wind_speed: '5',
+        wind_direction: 'E',
+        wind_direction_deg: 90,
+        swell_1_height: '4',
+        swell_1_period: '12s',
+        swell_1_direction: '270',
+      }),
+    ];
     const result = computeSurfCall(window, forecasts, makeBeach());
     if (result.verdict !== 'YES') {
       // guard so a future scoring refactor produces a clear failure

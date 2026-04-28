@@ -53,8 +53,7 @@ COMMENT ON COLUMN beaches.deepwater_decay_factor IS
 -- Sheltered reef (decay 0.4) — heavy shadowing from reefs/headlands
 UPDATE beaches
 SET    persona = 'sheltered_reef',
-       deepwater_decay_factor = 0.4,
-       updated_at = NOW()
+       deepwater_decay_factor = 0.4
 WHERE  name IN (
          'Tourmaline Beach',
          'Tourmaline Surf Park',
@@ -66,8 +65,7 @@ WHERE  name IN (
 -- Canyon amplified (decay 1.15) — submarine canyons focus wave energy
 UPDATE beaches
 SET    persona = 'canyon_amplified',
-       deepwater_decay_factor = 1.15,
-       updated_at = NOW()
+       deepwater_decay_factor = 1.15
 WHERE  name IN (
          'Blacks Beach',
          'Scripps',
@@ -79,8 +77,7 @@ WHERE  name IN (
 -- Exposed beach break (decay 1.0) — model ≈ nearshore, no correction needed
 UPDATE beaches
 SET    persona = 'exposed_beach_break',
-       deepwater_decay_factor = 1.0,
-       updated_at = NOW()
+       deepwater_decay_factor = 1.0
 WHERE  name IN (
          'Huntington Beach Pier',
          'Manhattan Beach Pier',
@@ -100,8 +97,7 @@ WHERE  name IN (
 -- Point break (decay 0.6) — direction-critical, moderate sheltering
 UPDATE beaches
 SET    persona = 'point_break',
-       deepwater_decay_factor = 0.6,
-       updated_at = NOW()
+       deepwater_decay_factor = 0.6
 WHERE  name IN (
          'Rincon',
          'Malibu First Point (Surfrider)',
@@ -116,8 +112,7 @@ WHERE  name IN (
 -- Jetty/harbor (decay 0.7) — direction funneling from hard structures
 UPDATE beaches
 SET    persona = 'jetty_harbor',
-       deepwater_decay_factor = 0.7,
-       updated_at = NOW()
+       deepwater_decay_factor = 0.7
 WHERE  name IN (
          'Oceanside Pier',
          'Oceanside Harbor',
@@ -132,8 +127,7 @@ WHERE  name IN (
 --    or cdip_station but no persona assigned above)
 UPDATE beaches
 SET    persona = 'exposed_beach_break',
-       deepwater_decay_factor = 1.0,
-       updated_at = NOW()
+       deepwater_decay_factor = 1.0
 WHERE  persona IS NULL
   AND  (shoaling_factors IS NOT NULL OR cdip_station IS NOT NULL);
 

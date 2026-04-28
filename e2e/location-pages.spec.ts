@@ -142,38 +142,6 @@ test.describe("Location Pages - URL and Routing", () => {
   });
 });
 
-// TODO: Test drift - selectors and page structure have changed
-// Needs comprehensive update to match current UI implementation
-test.describe("Location Pages - Page Header and Metadata", () => {
-  test("should display correct page title format", async ({ page }) => {
-    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
-  });
-
-  test("should display location name prominently", async ({ page }) => {
-    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
-  });
-
-  test("should display aggregate statistics", async ({ page }) => {
-    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
-  });
-
-  test("should format statistics correctly", async ({ page }) => {
-    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
-  });
-
-  test("should display breadcrumb navigation", async ({ page }) => {
-    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
-  });
-
-  test("should have correct breadcrumb segments", async ({ page }) => {
-    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
-  });
-
-  test("should have correct meta tags for SEO", async ({ page }) => {
-    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
-  });
-});
-
 test.describe("Location Pages - Beach Rankings and Cards", () => {
   let errorCapture: ErrorCapture;
 
@@ -484,54 +452,6 @@ test.describe("Location Pages - Accessibility", () => {
     // Check that focused element is visible
     const focused = await page.evaluate(() => document.activeElement);
     expect(focused).toBeTruthy();
-  });
-});
-
-test.describe("Location Pages - Navigation and Interaction", () => {
-  test("should navigate back to map from breadcrumb", async ({ page }) => {
-    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
-  });
-
-  test("should maintain state when navigating between locations", async ({
-    page,
-  }) => {
-    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
-  });
-
-  test("should handle browser back button", async ({ page }) => {
-    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
-  });
-
-  test("should handle browser forward button", async ({ page }) => {
-    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
-  });
-});
-
-test.describe("Location Pages - Data Quality", () => {
-  test("should display beaches from correct location only", async ({
-    page,
-  }) => {
-    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
-  });
-
-  test("should display accurate beach count", async ({ page }) => {
-    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
-  });
-
-  test("should not show duplicate beaches", async ({ page }) => {
-    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
-  });
-});
-
-// TODO: Test drift - performance timing tests are flaky in CI
-// Needs stable timing thresholds based on actual performance
-test.describe("Location Pages - Performance", () => {
-  test("should load page within acceptable time", async ({ page }) => {
-    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
-  });
-
-  test("should not have console errors", async ({ page }) => {
-    throw new Error('Not implemented: selectors and page structure have changed since location pages redesign');
   });
 });
 

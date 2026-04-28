@@ -177,21 +177,46 @@ export async function GET(request: Request): Promise<NextResponse> {
 
         for (const payload of payloads) {
           result.processed++;
+          const contributingItems = items.filter((i) => i.user_id === payload.user_id);
+          const queueIds = contributingItems.map((i) => i.id);
+          const emailItems = contributingItems.filter((i) => i.notify_email);
+          const pushItems = contributingItems.filter((i) => i.notify_push);
           const profile = profilesByUser.get(payload.user_id);
           if (!profile) {
             console.warn(`${CONTEXT_TAG} No profile found for user ${payload.user_id}, skipping`);
-            result.errors++;
+            for (const item of emailItems) {
+              await recordAttempt({
+                queueId: item.id,
+                ruleId: item.rule_id,
+                userId: payload.user_id,
+                channel: "email",
+                status: "failed_internal",
+                skipReason: "profile missing for queued alert user",
+              });
+            }
+            for (const item of pushItems) {
+              await recordAttempt({
+                queueId: item.id,
+                ruleId: item.rule_id,
+                userId: payload.user_id,
+                channel: "push",
+                status: "failed_internal",
+                skipReason: "profile missing for queued alert user",
+              });
+            }
+            const { error: markError } = await supabase
+              .from("alert_queue")
+              .update({ sent: true })
+              .in("id", queueIds);
+            if (markError) {
+              console.error(`${CONTEXT_TAG} Failed to mark orphaned queue items sent for user ${payload.user_id}:`, markError);
+              result.errors++;
+            } else {
+              result.queueMarked += queueIds.length;
+              result.errors++;
+            }
             continue;
           }
-
-          // Per-user contributing queue items, used for per-(queue_id × channel) attempt rows.
-          const contributingItems = items.filter((i) => i.user_id === payload.user_id);
-          const queueIds = contributingItems.map((i) => i.id);
-
-          // Precompute channel-aware contributing items for attempts. Each item
-          // contributes one row per channel that its rule asked for.
-          const emailItems = contributingItems.filter((i) => i.notify_email);
-          const pushItems = contributingItems.filter((i) => i.notify_push);
 
           // Per-rule cooldown decision (cached) and per-user weekly cap decision.
           // Status priority: skipped_disabled > skipped_allowlist >

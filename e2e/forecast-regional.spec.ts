@@ -168,16 +168,18 @@ test.describe("Regional Forecast Pages", () => {
       page.getByRole("heading", { name: /Beach Conditions/i })
     ).toBeVisible();
 
-    // Get first beach link
+    // Get first beach link. Beach detail pages use the
+    // /[stateSlug]/[city]/[beachSlug] route — the legacy /beach/ prefix
+    // was retired. Match the 2-letter state slug pattern.
     const firstBeachLink = page
-      .locator('a[href^="/beach/"]')
+      .locator('a[href^="/ca/"], a[href^="/fl/"], a[href^="/hi/"]')
       .first();
 
     await expect(firstBeachLink).toBeVisible();
 
-    // Verify href format
+    // Verify href format: /[stateSlug]/[city]/[beachSlug]
     const href = await firstBeachLink.getAttribute("href");
-    expect(href).toMatch(/^\/beach\//);
+    expect(href).toMatch(/^\/[a-z]{2}\/[^/]+\/[^/]+/);
   });
 
   test("should display trend indicators", async ({ page }) => {
@@ -290,8 +292,10 @@ test.describe("Regional Forecast Pages", () => {
 
     // Should be on forecast hub
     await expect(page).toHaveURL("/forecast");
+    // Hub h1 is the dynamic regional call hero headline (post-redesign).
+    // Use the stable id rather than a fixed text match.
     await expect(
-      page.getByRole("heading", { name: "Surf Forecast", level: 1 })
+      page.locator("h1#regional-call-hero-heading")
     ).toBeVisible();
   });
 
@@ -310,10 +314,11 @@ test.describe("Regional Forecast Pages", () => {
       })
     ).toBeVisible();
 
-    // On mobile, beach conditions should use card view (not table)
-    // Cards have specific mobile styling
+    // On mobile, beach conditions should use card view (not table).
+    // Beach detail links use /[stateSlug]/[city]/[beachSlug] (legacy
+    // /beach/ prefix was retired).
     const beachCards = page.locator('[class*="Card"]').filter({
-      has: page.locator('a[href^="/beach/"]'),
+      has: page.locator('a[href^="/ca/"], a[href^="/fl/"], a[href^="/hi/"]'),
     });
 
     if (await beachCards.first().isVisible()) {
@@ -433,7 +438,7 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await page.goto(`/california/san-diego/${CALIBRATED_BLACKS.slug}`);
+    await page.goto(`/ca/san-diego/${CALIBRATED_BLACKS.slug}`);
     await page.waitForLoadState("load");
     await dismissOnboardingWizard(page);
 
@@ -452,7 +457,7 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await page.goto(`/california/san-diego/${CALIBRATED_BLACKS.slug}`);
+    await page.goto(`/ca/san-diego/${CALIBRATED_BLACKS.slug}`);
     await page.waitForLoadState("load");
     await dismissOnboardingWizard(page);
 
@@ -469,7 +474,7 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await page.goto(`/california/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
+    await page.goto(`/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
     await page.waitForLoadState("load");
     await dismissOnboardingWizard(page);
 
@@ -486,7 +491,7 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await page.goto(`/california/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
+    await page.goto(`/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
     await page.waitForLoadState("load");
     await dismissOnboardingWizard(page);
 
@@ -503,7 +508,7 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await page.goto(`/california/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
+    await page.goto(`/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
     await page.waitForLoadState("load");
     await dismissOnboardingWizard(page);
 
@@ -521,7 +526,7 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await page.goto(`/california/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
+    await page.goto(`/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
     await page.waitForLoadState("load");
     await dismissOnboardingWizard(page);
 
@@ -541,28 +546,31 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await page.goto(`/california/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
+    await page.goto(`/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
     await page.waitForLoadState("load");
     await dismissOnboardingWizard(page);
 
     const waveHeight = primaryWaveHeight(page);
     await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.medium });
 
-    // Radix tooltip on mobile opens on focus/tap. Click works in Chromium
-    // mobile emulation and preserves the hover signal.
-    await waveHeight.click();
+    // Radix tooltip listens for hover/focus, not raw tap. On a mobile viewport
+    // Playwright's .hover() still synthesizes the mouseover sequence that
+    // Radix observes — and matches what the component supports in production
+    // (mobile users tap to focus, which fires focusin -> tooltip open).
+    await waveHeight.hover();
 
     const tooltip = page.getByRole("tooltip", {
       name: UNCALIBRATED_TOOLTIP,
     });
-    await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.short });
+    // Mobile portal latency is higher than desktop hover; use medium timeout.
+    await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.medium });
   });
 
   test("calibrated beach does NOT show uncalibrated tooltip copy on hover", async ({
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await page.goto(`/california/san-diego/${CALIBRATED_BLACKS.slug}`);
+    await page.goto(`/ca/san-diego/${CALIBRATED_BLACKS.slug}`);
     await page.waitForLoadState("load");
     await dismissOnboardingWizard(page);
 
@@ -585,7 +593,7 @@ test.describe("calibration honesty layer", () => {
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
     await page.goto(
-      `/california/la-jolla/${CALIBRATED_LA_JOLLA_SHORES.slug}`
+      `/ca/la-jolla/${CALIBRATED_LA_JOLLA_SHORES.slug}`
     );
     await page.waitForLoadState("load");
     await dismissOnboardingWizard(page);

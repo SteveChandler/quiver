@@ -515,10 +515,19 @@ describe("Spot Surf Report Preferences Integration", () => {
       // 2. Preferences were fetched for the authenticated user
       expect(getUserSurfPreferences).toHaveBeenCalledWith(userId);
 
-      // 3. Window selector was called with user preferences
+      // 3. Window selector was called with user preferences. Beach is now
+      // canonicalized to a stable cache-key shape (see
+      // canonicalizeBeachForSurfCall in spot-surf-report-actions.ts), so
+      // assert on the identifying fields rather than reference equality.
       expect(mockSelectBestWindow).toHaveBeenCalledWith(
         expect.objectContaining({
-          beach: mockBeach,
+          beach: expect.objectContaining({
+            id: mockBeach.id,
+            name: mockBeach.name,
+            slug: mockBeach.slug,
+            lat: mockBeach.lat,
+            lon: mockBeach.lon,
+          }),
           userPrefs: userPrefs,
         })
       );

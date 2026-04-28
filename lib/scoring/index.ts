@@ -1,20 +1,19 @@
 /**
  * Unified Surf Scoring Module
  *
- * Provides consistent scoring and window calculation for both
- * Morning Intel and Discovery Service.
+ * Window calculation, message generation, and trend utilities for the
+ * Morning Intel and Discovery flows. The numeric scoring API has moved
+ * to `@/lib/domains/scoring` — import the domain engine for new code.
  *
  * @example
  * ```typescript
- * import { scoreConditions, calculateOptimalWindow } from '@/lib/scoring';
+ * import { calculateOptimalWindow } from '@/lib/scoring';
  *
- * const score = scoreConditions(forecast, beach);
  * const window = calculateOptimalWindow(forecasts, beach, { sunsetTime });
  * ```
  */
 
 export { computeTrendTags, type TrendTag } from './trend-tags';
-export { scoreConditions } from './surf-conditions-scorer';
 export { calculateOptimalWindow } from './window-calculator';
 export {
   generateWindowMessage,
@@ -26,7 +25,6 @@ export {
 export {
   toForecastForScoring,
   type BeachWithThresholds,
-  type ConditionScore,
   type ConditionSubscores,
   type ForecastForScoring,
   type MatchQuality,
@@ -38,5 +36,4 @@ export {
 export { calculateMultipleWindows } from './window-calculator';
 export { getConditionBoardPick, type BoardForPick, type BoardPickResult } from './board-pick';
 export { calculateRelativeContext, type DailyScore } from './relative-context';
-export { getConditionCharacter, angleDifference } from './surf-conditions-scorer';
 export { type ConditionCharacter, type ConditionCharacterCategory, type MultiWindowResult, type RelativeContext } from './types';

@@ -345,8 +345,10 @@ function isIgnorableConsoleError(text: string): boolean {
     // error for every 4xx/5xx, but WITHOUT the URL. The actual status+URL is
     // already captured by the networkErrors array (via the 'response' listener).
     // We suppress the console duplicate here so it doesn't double-report.
-    // The 500 IS still caught as a network error and WILL fail the test.
+    // The 4xx/5xx IS still caught as a network error and WILL fail the test
+    // unless the URL appears in `gracefulApis` (see isIgnorableNetworkError).
     'Failed to load resource: the server responded with a status of 400',
+    'Failed to load resource: the server responded with a status of 401',
     'Failed to load resource: the server responded with a status of 500',
     // 404 console noise from optional fallback images (e.g., placeholder.svg in UserAvatar).
     // The network 404 is already suppressed for known optional resources; suppress the
@@ -412,6 +414,7 @@ function isIgnorableNetworkError(url: string, status: number): boolean {
       '/api/beach/personalized-score',
       '/api/user/beach-affinity',
       '/api/session-planner/gear-suggestions', // Optional gear suggestions feature
+      '/api/alerts/rules', // BeachAlertCta is rendered as anon sign-up CTA; rules fetch is skip:!user-gated but a single fetch may surface before useAuth() hydrates
     ];
     if (gracefulApis.some(api => url.includes(api))) {
       return true;

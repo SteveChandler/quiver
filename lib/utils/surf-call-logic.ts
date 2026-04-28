@@ -14,6 +14,18 @@ import { computeTrendTags, type TrendTag } from '@/lib/scoring';
 import { formatTideHeight, formatWaveHeightRange as formatWaveHeight } from '@/lib/formatters/surf-data';
 import { parseSkillLevel, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences/skill-level';
 import { calculateRideableWaves } from '@/lib/domains/wave-frequency/calculator';
+import {
+  beachToSpotProfile,
+  forecastToSnapshot,
+  createDiscoveryScoringEngine,
+  getConditionCharacter,
+  type ConditionCharacter,
+} from '@/lib/domains/scoring';
+import {
+  getRecommendationLabel,
+  getRecommendationLabelGated,
+} from '@/lib/services/discovery/response-formatter';
+import type { ScoringEngine, CompositeScore } from '@/lib/domains/scoring';
 
 // ============================================================================
 // Types
@@ -59,6 +71,36 @@ export interface SurfCallResult {
   isCalibrated: boolean;
   rideableWavesPerHour: number | null;
   dominantBeatIntervalS: number | null;
+  /**
+   * Qualitative condition character from the new domain engine
+   * (`getConditionCharacter`). Optional — present when a composite score
+   * could be computed from a representative forecast in the window. Native
+   * UI does not currently render this directly; it's plumbed through so
+   * web/native consumers can adopt the richer label without re-deriving.
+   */
+  character?: ConditionCharacter | null;
+}
+
+/**
+ * Translate the discovery engine's recommendation label
+ * ('Worth it' | 'Maybe' | 'Skip') into the native verdict shape
+ * ('YES' | 'MAYBE' | 'NO') so the native UI doesn't change.
+ *
+ * Single source of truth for the legacy → unified mapping. Used by
+ * `computeSurfCall` (and its tests) so a future native migration to the
+ * 'Worth it'/'Maybe'/'Skip' shape only needs to flip this helper.
+ */
+export function verdictFromRecommendationLabel(
+  label: 'Worth it' | 'Maybe' | 'Skip'
+): SurfCallVerdict {
+  switch (label) {
+    case 'Worth it':
+      return 'YES';
+    case 'Maybe':
+      return 'MAYBE';
+    case 'Skip':
+      return 'NO';
+  }
 }
 
 // ============================================================================
@@ -108,6 +150,12 @@ const MINIMUM_VIABLE_WINDOW_MINUTES = 30;
 const SHORT_WINDOW_THRESHOLD_MINUTES = 45;
 
 // Score thresholds (0-100 scale)
+//
+// These thresholds mirror `getRecommendationLabel` in
+// `lib/services/discovery/response-formatter.ts` (>=70 'Worth it',
+// >=40 'Maybe', else 'Skip'). Verdict is now translated from
+// `recommendationLabel` via `verdictFromRecommendationLabel`, so these
+// constants only drive confidence-gate proximity checks.
 const SCORE_YES_THRESHOLD = 70;
 const SCORE_MAYBE_THRESHOLD = 40;
 
@@ -446,27 +494,31 @@ export function narrowWindowAroundPeak(
 }
 
 /**
- * Determine surf call verdict based on score, window duration, and confidence.
+ * Determine surf call verdict using the new domain engine's
+ * `recommendationLabel` translated through `verdictFromRecommendationLabel`,
+ * then apply the window-duration and confidence guards.
+ *
+ * Character-gated label (PR 4): when a `ConditionCharacter` is available,
+ * `getRecommendationLabelGated` caps "Worth it" on positive characters
+ * only. This is what closes the Horseshoe-screenshot regression where a
+ * 75-ish score on `medium-mixed` was surfacing as YES / NOW FIRING.
  */
 function determineVerdict(
   score: number,
   windowMinutes: number,
-  forecastConfidence: number
+  forecastConfidence: number,
+  character: ConditionCharacter | null
 ): SurfCallVerdict {
   // Short window gate - cannot be YES regardless of score
   if (windowMinutes < MINIMUM_VIABLE_WINDOW_MINUTES) {
     return 'NO';
   }
 
-  // Base verdict from score thresholds
-  let verdict: SurfCallVerdict;
-  if (score >= SCORE_YES_THRESHOLD) {
-    verdict = 'YES';
-  } else if (score >= SCORE_MAYBE_THRESHOLD) {
-    verdict = 'MAYBE';
-  } else {
-    verdict = 'NO';
-  }
+  // Base verdict from the character-gated label mapping (PR 4)
+  const label = character
+    ? getRecommendationLabelGated(score, character.category)
+    : getRecommendationLabel(score);
+  let verdict = verdictFromRecommendationLabel(label);
 
   // Short window cap: downgrade YES to MAYBE for short windows
   if (windowMinutes < SHORT_WINDOW_THRESHOLD_MINUTES && verdict === 'YES') {
@@ -486,6 +538,86 @@ function determineVerdict(
   }
 
   return verdict;
+}
+
+// ============================================================================
+// Domain Engine Integration
+// ============================================================================
+
+/**
+ * Lazy-initialised scoring engine used by `computeSurfCall` to derive the
+ * `composite` (and from it the `character`) for the chosen window.
+ *
+ * Cached at module scope because the plugin set + weights are stable;
+ * `score()` is pure so concurrent callers cannot interfere.
+ */
+let _engine: ScoringEngine | null = null;
+function getEngine(): ScoringEngine {
+  if (!_engine) {
+    _engine = createDiscoveryScoringEngine();
+  }
+  return _engine;
+}
+
+/**
+ * Pick the representative forecast row inside the chosen window for
+ * composite scoring + character classification. Prefers the row closest
+ * to `peakTime`, falls back to the first window forecast, then to the
+ * first overall forecast — matches the row that drove window scoring.
+ */
+function pickRepresentativeForecast(
+  windowForecasts: EnhancedForecastEntity[],
+  fallbackForecasts: EnhancedForecastEntity[],
+  peakTime: Date | undefined
+): EnhancedForecastEntity | null {
+  const pool = windowForecasts.length > 0 ? windowForecasts : fallbackForecasts;
+  if (pool.length === 0) return null;
+  if (peakTime instanceof Date && !isNaN(peakTime.getTime())) {
+    const peakMs = peakTime.getTime();
+    let best: EnhancedForecastEntity | null = null;
+    let bestDist = Infinity;
+    for (const f of pool) {
+      if (!f.forecast_at) continue;
+      const dist = Math.abs(new Date(f.forecast_at).getTime() - peakMs);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = f;
+      }
+    }
+    if (best) return best;
+  }
+  return pool[0] ?? null;
+}
+
+interface CompositeAndCharacter {
+  composite: CompositeScore;
+  character: ConditionCharacter;
+}
+
+/**
+ * Run the new domain engine + character classifier against a
+ * representative forecast. Returns null if the engine throws — character
+ * is optional on `SurfCallResult`, so the caller falls back gracefully.
+ */
+function computeCompositeAndCharacter(
+  beach: Beach,
+  representativeForecast: EnhancedForecastEntity | null
+): CompositeAndCharacter | null {
+  if (!representativeForecast) return null;
+  try {
+    const profile = beachToSpotProfile(beach);
+    const snapshot = forecastToSnapshot(representativeForecast);
+    const composite = getEngine().score({
+      profile,
+      snapshot,
+      window: null,
+      preferences: null,
+    });
+    const character = getConditionCharacter(snapshot, profile, composite);
+    return { composite, character };
+  } catch {
+    return null;
+  }
 }
 
 // ============================================================================
@@ -542,6 +674,7 @@ export function computeSurfCall(
     isCalibrated,
     rideableWavesPerHour: null,
     dominantBeatIntervalS: null,
+    character: null,
   };
 
   // Hard NO: no forecasts
@@ -629,6 +762,17 @@ export function computeSurfCall(
   ) ?? effectiveForecasts[0] ?? null;
   const freqResult = freqForecast ? calculateRideableWaves(freqForecast, beach) : null;
 
+  // Compute composite + character via the new domain engine using the
+  // window's representative forecast (closest to peakTime). This is what
+  // PR 3 wires up so the native verdict path consumes the unified engine.
+  const representativeForecast = pickRepresentativeForecast(
+    windowForecasts,
+    forecasts,
+    window.peakTime instanceof Date ? window.peakTime : undefined
+  );
+  const compositeResult = computeCompositeAndCharacter(beach, representativeForecast);
+  const character = compositeResult?.character ?? null;
+
   // Short window gate - reject if too short. Verdict is NO → suppress the
   // "Best window" so the UI doesn't contradict itself.
   if (windowMinutes < MINIMUM_VIABLE_WINDOW_MINUTES) {
@@ -654,11 +798,14 @@ export function computeSurfCall(
       whySentence: 'No viable window long enough to surf.',
       rideableWavesPerHour: freqResult?.rideableWavesPerHour ?? null,
       dominantBeatIntervalS: freqResult?.dominantBeatIntervalS ?? null,
+      character,
     };
   }
 
-  // Determine verdict based on score, window duration, and confidence
-  let verdict = determineVerdict(score, windowMinutes, forecastConfidence);
+  // Determine verdict based on score, window duration, confidence, and
+  // character (PR 4 character-gate prevents high-score windy days from
+  // promoting to YES).
+  let verdict = determineVerdict(score, windowMinutes, forecastConfidence, character);
 
   // Soft gate override: when waves are below the break's minimum but the score
   // (which includes user preference adjustments and swell quality boost) says
@@ -733,5 +880,6 @@ export function computeSurfCall(
     isCalibrated,
     rideableWavesPerHour: freqResult?.rideableWavesPerHour ?? null,
     dominantBeatIntervalS: freqResult?.dominantBeatIntervalS ?? null,
+    character,
   };
 }

@@ -156,6 +156,10 @@
     {
       "path": "/api/cron/first-session-nudge-push",
       "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/cron/sitemap-health",
+      "schedule": "15 6 * * *"
     }
   ]
 }

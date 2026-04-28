@@ -26,20 +26,72 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(() => mockSupabaseClient),
 }));
 
-// The toggle route was migrated from delegating to a `"use server"` action
-// (`toggleSessionLike`) to inline DB queries via the Bearer-aware Supabase
-// client returned by withAuth — required so native (Bearer) callers
-// authenticate correctly. Tests mock the supabase chain directly.
-//
-// `creditAuthorWithXP` is fired-and-forgotten on the success path; stub it
-// to avoid hitting the real service-role client during tests.
+// The POST route fires creditAuthorWithXP() (fire-and-forget) after
+// inserting a like. Mock it so it resolves immediately without
+// touching the real gamification path.
 jest.mock("@/lib/gamification", () => ({
-  creditAuthorWithXP: jest.fn().mockResolvedValue(undefined),
+  creditAuthorWithXP: jest.fn(() => Promise.resolve()),
 }));
 
 // Import route handlers after mocks are set up
 import { GET } from "@/app/api/sessions/[id]/likes/route";
 import { POST } from "@/app/api/sessions/[id]/likes/toggle/route";
+import { creditAuthorWithXP as mockCreditAuthorWithXP } from "@/lib/gamification";
+
+/**
+ * Configure `mockFrom` for the POST route. The route does:
+ *   1. supabase.from("session_likes").select("id").eq().eq().maybeSingle()
+ *   2a. supabase.from("session_likes").delete().eq()                       (existing → unlike)
+ *   2b. supabase.from("session_likes").insert({...})                       (no existing → like)
+ *       then supabase.from("sessions").select("user_id").eq().single()    (XP author lookup)
+ */
+function setupSessionLikesScenario(opts: {
+  existing?: { id: string } | null;
+  selectError?: { code: string; message: string } | null;
+  insertError?: { message: string } | null;
+  deleteError?: { message: string } | null;
+  sessionAuthor?: { user_id: string } | null;
+}) {
+  const existing = opts.existing ?? null;
+  const selectError = opts.selectError ?? null;
+  const insertError = opts.insertError ?? null;
+  const deleteError = opts.deleteError ?? null;
+  const sessionAuthor = opts.sessionAuthor ?? null;
+
+  const sessionLikesSelectChain: any = {
+    eq: jest.fn().mockReturnThis(),
+    maybeSingle: jest.fn(() =>
+      Promise.resolve({ data: existing, error: selectError })
+    ),
+  };
+  const sessionLikesDeleteChain: any = {
+    eq: jest.fn(() => Promise.resolve({ error: deleteError })),
+  };
+  const sessionLikesInsertChain: any = Promise.resolve({ error: insertError });
+
+  const sessionsSelectChain: any = {
+    eq: jest.fn().mockReturnThis(),
+    single: jest.fn(() =>
+      Promise.resolve({ data: sessionAuthor, error: null })
+    ),
+  };
+
+  mockFrom.mockImplementation((table: string) => {
+    if (table === "session_likes") {
+      return {
+        select: jest.fn(() => sessionLikesSelectChain),
+        delete: jest.fn(() => sessionLikesDeleteChain),
+        insert: jest.fn(() => sessionLikesInsertChain),
+      };
+    }
+    if (table === "sessions") {
+      return {
+        select: jest.fn(() => sessionsSelectChain),
+      };
+    }
+    throw new Error(`Unexpected supabase.from(${table})`);
+  });
+}
 
 describe("Session Likes API", () => {
   const validSessionId = "123e4567-e89b-12d3-a456-426614174000";
@@ -268,41 +320,13 @@ describe("Session Likes API", () => {
   describe("POST /api/sessions/[id]/likes/toggle - Toggle Like", () => {
     it("toggles like on public session successfully", async () => {
       mockAuthGetUser.mockResolvedValue({
-        data: {
-          user: { id: validUserId, email: "user@example.com" },
-        },
+        data: { user: { id: validUserId, email: "user@example.com" } },
         error: null,
       });
 
-      // Custom chain: SELECT returns null (not liked yet) → INSERT path.
-      // The DELETE chain isn't exercised here. The route's INSERT path is
-      // `.from("session_likes").insert(...)` (terminal — no further chain).
-      // Then `.from("sessions").select().eq().single()`.
-      let lastTable = "";
-      mockFrom.mockImplementation((table: string) => {
-        lastTable = table;
-        if (table === "session_likes") {
-          const selectChain: any = {
-            select: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockReturnThis(),
-            maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
-          };
-          return {
-            ...selectChain,
-            insert: jest.fn().mockResolvedValue({ error: null }),
-          };
-        }
-        if (table === "sessions") {
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockReturnThis(),
-            single: jest.fn().mockResolvedValue({
-              data: { user_id: validUserId },
-              error: null,
-            }),
-          };
-        }
-        return {};
+      setupSessionLikesScenario({
+        existing: null,
+        sessionAuthor: { user_id: otherUserId },
       });
 
       const request = new NextRequest(
@@ -316,45 +340,21 @@ describe("Session Likes API", () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.data.liked).toBe(true);
-      expect(data.data.message).toContain("liked");
-      expect(lastTable).toBeTruthy();
+      expect(data.data.message).toBe("Session liked");
+      expect(mockCreditAuthorWithXP).toHaveBeenCalledWith(
+        otherUserId,
+        "session",
+        validSessionId,
+      );
     });
 
     it("toggles unlike when already liked", async () => {
       mockAuthGetUser.mockResolvedValue({
-        data: {
-          user: { id: validUserId, email: "user@example.com" },
-        },
+        data: { user: { id: validUserId, email: "user@example.com" } },
         error: null,
       });
 
-      // SELECT returns existing row → DELETE path.
-      // The route makes TWO `.from("session_likes")` calls:
-      //   1. .select("id").eq().eq().maybeSingle() → existing
-      //   2. .delete().eq("id", existing.id)        → terminal eq
-      // Each `.from()` invocation returns its own chain so eq's behavior
-      // doesn't have to do double-duty.
-      let fromCall = 0;
-      mockFrom.mockImplementation((table: string) => {
-        if (table !== "session_likes") return {};
-        fromCall++;
-        if (fromCall === 1) {
-          // SELECT chain
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockReturnThis(),
-            maybeSingle: jest.fn().mockResolvedValue({
-              data: { id: "like-existing" },
-              error: null,
-            }),
-          };
-        }
-        // DELETE chain — eq is terminal
-        return {
-          delete: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockResolvedValue({ error: null }),
-        };
-      });
+      setupSessionLikesScenario({ existing: { id: "like-row-1" } });
 
       const request = new NextRequest(
         `http://localhost:3000/api/sessions/${validSessionId}/likes/toggle`,
@@ -367,7 +367,37 @@ describe("Session Likes API", () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.data.liked).toBe(false);
-      expect(data.data.message).toContain("unliked");
+      expect(data.data.message).toBe("Session unliked");
+      // XP must NOT be credited on unlike
+      expect(mockCreditAuthorWithXP).not.toHaveBeenCalled();
+    });
+
+    it("prevents duplicate likes (handled by route)", async () => {
+      mockAuthGetUser.mockResolvedValue({
+        data: { user: { id: validUserId, email: "user@example.com" } },
+        error: null,
+      });
+
+      // Insert raises a unique-constraint violation when a like already exists
+      // and the route's existence check missed it (race condition).
+      setupSessionLikesScenario({
+        existing: null,
+        insertError: {
+          message: "duplicate key value violates unique constraint",
+        },
+      });
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/sessions/${validSessionId}/likes/toggle`,
+        { method: "POST" }
+      );
+
+      const response = await POST(request, { params: { id: validSessionId } });
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data.success).toBe(false);
+      expect(data.error).toContain("Failed to toggle like");
     });
 
     it("requires authentication", async () => {
@@ -391,9 +421,7 @@ describe("Session Likes API", () => {
 
     it("validates session ID format", async () => {
       mockAuthGetUser.mockResolvedValue({
-        data: {
-          user: { id: validUserId, email: "user@example.com" },
-        },
+        data: { user: { id: validUserId, email: "user@example.com" } },
         error: null,
       });
 
@@ -411,26 +439,18 @@ describe("Session Likes API", () => {
       expect(data.error).toContain("Invalid session format");
     });
 
-    it("returns 500 when SELECT throws non-PGRST116", async () => {
+    it("rejects like on private non-owned session via RLS error", async () => {
       mockAuthGetUser.mockResolvedValue({
-        data: {
-          user: { id: otherUserId, email: "other@example.com" },
-        },
+        data: { user: { id: otherUserId, email: "other@example.com" } },
         error: null,
       });
 
-      mockFrom.mockImplementation((table: string) => {
-        if (table === "session_likes") {
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockReturnThis(),
-            maybeSingle: jest.fn().mockResolvedValue({
-              data: null,
-              error: { code: "OTHER", message: "RLS violation" },
-            }),
-          };
-        }
-        return {};
+      // RLS blocks the insert with a row-level-security error.
+      setupSessionLikesScenario({
+        existing: null,
+        insertError: {
+          message: "new row violates row-level security policy",
+        },
       });
 
       const request = new NextRequest(
@@ -441,30 +461,21 @@ describe("Session Likes API", () => {
       const response = await POST(request, { params: { id: validSessionId } });
       const data = await response.json();
 
+      // RLS policy violations are currently returned as 500.
       expect(response.status).toBe(500);
       expect(data.success).toBe(false);
     });
 
-    it("returns 500 when INSERT fails", async () => {
+    it("handles database errors gracefully", async () => {
       mockAuthGetUser.mockResolvedValue({
-        data: {
-          user: { id: validUserId, email: "user@example.com" },
-        },
+        data: { user: { id: validUserId, email: "user@example.com" } },
         error: null,
       });
 
-      mockFrom.mockImplementation((table: string) => {
-        if (table === "session_likes") {
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockReturnThis(),
-            maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
-            insert: jest.fn().mockResolvedValue({
-              error: { message: "Database connection failed" },
-            }),
-          };
-        }
-        return {};
+      // The initial select for an existing like raises a non-PGRST116 error.
+      setupSessionLikesScenario({
+        existing: null,
+        selectError: { code: "P0001", message: "Database connection failed" },
       });
 
       const request = new NextRequest(
@@ -479,36 +490,75 @@ describe("Session Likes API", () => {
       expect(data.success).toBe(false);
       expect(data.error).toContain("Failed to toggle like");
     });
-  });
 
-  describe("Edge Cases", () => {
-    it("handles SELECT failures on non-existent session as a 500", async () => {
+    it("does NOT credit XP when liking own session", async () => {
       mockAuthGetUser.mockResolvedValue({
-        data: {
-          user: { id: validUserId, email: "user@example.com" },
-        },
+        data: { user: { id: validUserId, email: "user@example.com" } },
         error: null,
       });
 
-      // For non-existent sessions, the route still hits session_likes
-      // (which has no rows for that session_id) and returns the INSERT
-      // path. The INSERT then fails on FK violation. We simulate the
-      // FK error and expect a generic 500.
-      mockFrom.mockImplementation((table: string) => {
-        if (table === "session_likes") {
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockReturnThis(),
-            maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
-            insert: jest.fn().mockResolvedValue({
-              error: { code: "23503", message: "FK violation: sessions" },
-            }),
-          };
-        }
-        return {};
+      // sessionAuthor matches the authed user — route should skip crediting.
+      setupSessionLikesScenario({
+        existing: null,
+        sessionAuthor: { user_id: validUserId },
       });
 
-      const nonExistentId = "999e9999-e99b-99d9-a999-999999999999";
+      const request = new NextRequest(
+        `http://localhost:3000/api/sessions/${validSessionId}/likes/toggle`,
+        { method: "POST" }
+      );
+
+      const response = await POST(request, { params: { id: validSessionId } });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.liked).toBe(true);
+      expect(mockCreditAuthorWithXP).not.toHaveBeenCalled();
+    });
+
+    it("does NOT credit XP when the session has been deleted", async () => {
+      mockAuthGetUser.mockResolvedValue({
+        data: { user: { id: validUserId, email: "user@example.com" } },
+        error: null,
+      });
+
+      // Deleted-session edge case: session lookup returns null, route still
+      // succeeds the like but skips XP attribution.
+      setupSessionLikesScenario({
+        existing: null,
+        sessionAuthor: null,
+      });
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/sessions/${validSessionId}/likes/toggle`,
+        { method: "POST" }
+      );
+
+      const response = await POST(request, { params: { id: validSessionId } });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.liked).toBe(true);
+      expect(mockCreditAuthorWithXP).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Edge Cases", () => {
+    it("handles non-existent session ID gracefully", async () => {
+      mockAuthGetUser.mockResolvedValue({
+        data: { user: { id: validUserId, email: "user@example.com" } },
+        error: null,
+      });
+
+      // The like INSERT itself succeeds but the subsequent sessions lookup
+      // returns null (session was deleted before the like landed). The
+      // route returns 200 with liked=true — XP is silently skipped.
+      setupSessionLikesScenario({
+        existing: null,
+        sessionAuthor: null,
+      });
+
+      const nonExistentId = "999e9999-e99b-49d9-a999-999999999999";
       const request = new NextRequest(
         `http://localhost:3000/api/sessions/${nonExistentId}/likes/toggle`,
         { method: "POST" }
@@ -517,110 +567,72 @@ describe("Session Likes API", () => {
       const response = await POST(request, { params: { id: nonExistentId } });
       const data = await response.json();
 
-      expect([400, 500]).toContain(response.status);
-      expect(data.success).toBe(false);
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.data.liked).toBe(true);
     });
 
     it("handles rapid toggle requests", async () => {
       mockAuthGetUser.mockResolvedValue({
-        data: {
-          user: { id: validUserId, email: "user@example.com" },
-        },
+        data: { user: { id: validUserId, email: "user@example.com" } },
         error: null,
       });
 
-      // 3 sequential toggles: like → unlike → like.
-      // Each request is independent; we re-arm `mockFrom` per request and
-      // hand out fresh chain objects per `.from()` call (the SELECT/DELETE/
-      // INSERT chains have different terminal-method semantics for `.eq()`).
-      const states: Array<"like" | "unlike" | "like"> = ["like", "unlike", "like"];
-      const responses: Response[] = [];
-      for (const state of states) {
-        const existing = state === "unlike" ? { id: "like-existing" } : null;
-        let fromCall = 0;
-        mockFrom.mockImplementation((table: string) => {
-          if (table === "session_likes") {
-            fromCall++;
-            if (fromCall === 1) {
-              // SELECT chain
-              return {
-                select: jest.fn().mockReturnThis(),
-                eq: jest.fn().mockReturnThis(),
-                maybeSingle: jest.fn().mockResolvedValue({
-                  data: existing,
-                  error: null,
-                }),
-              };
-            }
-            // Second call: DELETE (unlike) or INSERT (like)
-            if (existing) {
-              return {
-                delete: jest.fn().mockReturnThis(),
-                eq: jest.fn().mockResolvedValue({ error: null }),
-              };
-            }
-            return { insert: jest.fn().mockResolvedValue({ error: null }) };
-          }
-          if (table === "sessions") {
-            return {
-              select: jest.fn().mockReturnThis(),
-              eq: jest.fn().mockReturnThis(),
-              single: jest.fn().mockResolvedValue({
-                data: { user_id: validUserId },
-                error: null,
-              }),
-            };
-          }
-          return {};
-        });
-
-        const request = new NextRequest(
+      // First request: no existing → creates a like.
+      setupSessionLikesScenario({
+        existing: null,
+        sessionAuthor: { user_id: otherUserId },
+      });
+      const r1 = await POST(
+        new NextRequest(
           `http://localhost:3000/api/sessions/${validSessionId}/likes/toggle`,
           { method: "POST" }
-        );
-        responses.push(
-          await POST(request, { params: { id: validSessionId } })
-        );
-      }
+        ),
+        { params: { id: validSessionId } }
+      );
+      const d1 = await r1.json();
+      expect(r1.status).toBe(200);
+      expect(d1.data.liked).toBe(true);
 
-      const dataArray = await Promise.all(responses.map((res) => res.json()));
+      // Second request: existing now found → unlikes.
+      setupSessionLikesScenario({ existing: { id: "like-row-rapid" } });
+      const r2 = await POST(
+        new NextRequest(
+          `http://localhost:3000/api/sessions/${validSessionId}/likes/toggle`,
+          { method: "POST" }
+        ),
+        { params: { id: validSessionId } }
+      );
+      const d2 = await r2.json();
+      expect(r2.status).toBe(200);
+      expect(d2.data.liked).toBe(false);
 
-      expect(responses.every((res) => res.status === 200)).toBe(true);
-      expect(dataArray.every((d) => d.success === true)).toBe(true);
-      // first and third toggles are likes; second is unlike
-      expect(dataArray[0].data.liked).toBe(true);
-      expect(dataArray[1].data.liked).toBe(false);
-      expect(dataArray[2].data.liked).toBe(true);
+      // Third request: no existing again → re-likes.
+      setupSessionLikesScenario({
+        existing: null,
+        sessionAuthor: { user_id: otherUserId },
+      });
+      const r3 = await POST(
+        new NextRequest(
+          `http://localhost:3000/api/sessions/${validSessionId}/likes/toggle`,
+          { method: "POST" }
+        ),
+        { params: { id: validSessionId } }
+      );
+      const d3 = await r3.json();
+      expect(r3.status).toBe(200);
+      expect(d3.data.liked).toBe(true);
     });
 
     it("returns current like status after toggle", async () => {
       mockAuthGetUser.mockResolvedValue({
-        data: {
-          user: { id: validUserId, email: "user@example.com" },
-        },
+        data: { user: { id: validUserId, email: "user@example.com" } },
         error: null,
       });
 
-      mockFrom.mockImplementation((table: string) => {
-        if (table === "session_likes") {
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockReturnThis(),
-            maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
-            insert: jest.fn().mockResolvedValue({ error: null }),
-          };
-        }
-        if (table === "sessions") {
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockReturnThis(),
-            single: jest.fn().mockResolvedValue({
-              data: { user_id: validUserId },
-              error: null,
-            }),
-          };
-        }
-        return {};
+      setupSessionLikesScenario({
+        existing: null,
+        sessionAuthor: { user_id: otherUserId },
       });
 
       const request = new NextRequest(

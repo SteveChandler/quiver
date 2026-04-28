@@ -106,14 +106,6 @@ export function AnonAlertCaptureForm({
         }).catch(() => {});
         return;
       }
-      fetch("/api/events", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          event_type: "anon_alert_capture_submit",
-          metadata: { beach_id: beachId, preset_type: preset },
-        }),
-      }).catch(() => {});
       setSubmitted(true);
     } finally {
       setSubmitting(false);

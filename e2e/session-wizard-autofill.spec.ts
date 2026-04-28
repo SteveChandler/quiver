@@ -69,18 +69,4 @@ test.describe('Session Form - Auto-Forecast Autofill', () => {
     expect(hasRecommendedText).toBe(false);
     expect(hasShouldText).toBe(false);
   });
-
-  test('should show forecast snapshot on session detail after logging', async ({ page }) => {
-    throw new Error('Not implemented: forecast snapshot display on session detail not yet implemented');
-  });
-});
-
-test.describe('Session Form Autofill - Edge Cases', () => {
-  test('should handle beach change after conditions are prefilled', async ({ page }) => {
-    throw new Error('Not implemented: scroll-form state management to clear previous forecast values when beach changes');
-  });
-
-  test('should handle partial forecast data gracefully', async ({ page }) => {
-    throw new Error('Not implemented: graceful degradation when forecast API returns incomplete data');
-  });
 });

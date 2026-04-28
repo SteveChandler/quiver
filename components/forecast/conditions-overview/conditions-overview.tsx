@@ -4,10 +4,7 @@
  * Conditions Overview Component
  *
  * Orchestrates BestDayHero, OutlookBarChart, and ExploreMoreLinks
- * to provide a comprehensive 12-day surf outlook.
- *
- * In public mode, the hero is visible as a teaser, while the full
- * outlook chart and other good days are gated behind authentication.
+ * to provide a comprehensive 12-day surf outlook for every viewer.
  *
  * @module components/forecast/conditions-overview/conditions-overview
  */
@@ -22,7 +19,6 @@ import { CONDITION_TIER_THRESHOLDS } from "@/lib/utils/condition-tier-utils";
 import { ErrorBoundary } from "@/components/error-boundaries";
 import { BestDayHero } from "./best-day-hero";
 import { ExploreMoreLinks } from "./explore-more-links";
-import { PublicContentGate } from "@/components/ui/public-content-gate";
 
 // Dynamic import for chart (code splitting since it's a subtab)
 const OutlookBarChart = dynamic(
@@ -34,7 +30,6 @@ interface ConditionsOverviewProps {
   horizonDaySummaries: DaySummary[];
   forecasts: EnhancedForecastEntity[];
   beach: Beach;
-  publicMode?: boolean;
   /** When set, the hero shows this day instead of the overall best */
   selectedDate?: string;
 }
@@ -43,7 +38,6 @@ export function ConditionsOverview({
   horizonDaySummaries,
   forecasts,
   beach,
-  publicMode = false,
   selectedDate,
 }: ConditionsOverviewProps) {
   const enrichedDays = useMemo(
@@ -60,9 +54,7 @@ export function ConditionsOverview({
     );
   }
 
-  // In public mode, only consider first 3 days for bestDay
-  const daysForBest = publicMode ? enrichedDays.slice(0, 3) : enrichedDays;
-  const overallBest = daysForBest.reduce((prev, curr) =>
+  const overallBest = enrichedDays.reduce((prev, curr) =>
     curr.score > prev.score ? curr : prev
   );
 
@@ -86,31 +78,16 @@ export function ConditionsOverview({
 
   return (
     <div className="space-y-6">
-      {/* Hero - always visible (in public mode, only best from first 3 days) */}
-      <BestDayHero bestDay={heroDay} otherGoodDays={publicMode ? [] : otherGoodDays} isUserSelected={isUserSelected} isPersonalized={heroDay.isPersonalized} />
+      <BestDayHero
+        bestDay={heroDay}
+        otherGoodDays={otherGoodDays}
+        isUserSelected={isUserSelected}
+        isPersonalized={heroDay.isPersonalized}
+      />
 
-      {/* Other good days + chart - gated for public */}
-      {publicMode ? (
-        <PublicContentGate
-          ctaTitle="See all 12 days of surf conditions"
-          ctaDescription="Sign up free to plan your best sessions"
-          blurLevel="md"
-          source="conditions-overview-gate"
-        >
-          <div className="space-y-6">
-            {otherGoodDays.length > 0 && (
-              <BestDayHero bestDay={heroDay} otherGoodDays={otherGoodDays} />
-            )}
-            <ErrorBoundary fallback={() => <p className="text-sm text-muted-foreground py-4">Unable to load chart.</p>}>
-              <OutlookBarChart days={enrichedDays} />
-            </ErrorBoundary>
-          </div>
-        </PublicContentGate>
-      ) : (
-        <ErrorBoundary fallback={() => <p className="text-sm text-muted-foreground py-4">Unable to load chart.</p>}>
-          <OutlookBarChart days={enrichedDays} />
-        </ErrorBoundary>
-      )}
+      <ErrorBoundary fallback={() => <p className="text-sm text-muted-foreground py-4">Unable to load chart.</p>}>
+        <OutlookBarChart days={enrichedDays} />
+      </ErrorBoundary>
 
       <ExploreMoreLinks beach={beach} />
     </div>

@@ -13,7 +13,9 @@ export interface OracleHeroProps {
   beachName: string;
   heroPhotoUrl: string;
   waveHeight: string;
-  score: number;
+  /** null while the canonical surf-call is still loading — keeps the hero
+   * visible without painting a phantom 0/10 score in the badge. */
+  score: number | null;
   swellDirection: string;
   swellPeriod: number;
   tideHeight: number;
@@ -24,6 +26,10 @@ export interface OracleHeroProps {
   bestWindowTitle: string;
   bestWindowSubtitle: string;
   bestWindowTime: string;
+  /** Hero-call reasoning sentence rendered as a distinct prose line under
+   * the best-window card. Sourced from heroSurfCall?.whySentence; omit when
+   * absent so we don't paint placeholder reasoning. */
+  whySentence?: string;
   shouldAnimate: boolean;
   onAnimationComplete?: () => void;
   // Greeting
@@ -131,6 +137,7 @@ export function OracleHero({
   bestWindowTitle,
   bestWindowSubtitle,
   bestWindowTime,
+  whySentence,
   shouldAnimate,
   onAnimationComplete,
   userName,
@@ -263,6 +270,7 @@ export function OracleHero({
         bestWindowTitle={bestWindowTitle}
         bestWindowSubtitle={bestWindowSubtitle}
         bestWindowTime={bestWindowTime}
+        whySentence={whySentence}
         shouldAnimate={shouldAnimate}
         animatedWaveHeight={animatedWaveHeight}
         isTomorrow={isTomorrow}

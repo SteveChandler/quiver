@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Waves } from "lucide-react";
 import type { BeginnerBeachWithEditorial } from "@/types/beginner";
+import { cityToSlug } from "@/lib/utils/beach-url-utils";
 
 interface BeginnerSpotListProps {
   cityName: string;
@@ -11,6 +12,8 @@ interface BeginnerSpotListProps {
 }
 
 export function BeginnerSpotList({ cityName, stateSlug, citySlug, beaches }: BeginnerSpotListProps) {
+  // Beach detail URLs use canonical (non-collision) city slug
+  const beachUrlCitySlug = cityToSlug(cityName) || citySlug;
   return (
     <section data-testid="beginner-spot-list">
       <h2 className="text-2xl font-semibold text-gray-800 mb-4">
@@ -51,7 +54,7 @@ export function BeginnerSpotList({ cityName, stateSlug, citySlug, beaches }: Beg
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-lg font-semibold text-gray-800">
                         <Link
-                          href={`/${stateSlug}/${citySlug}/${beach.slug}`}
+                          href={`/${stateSlug}/${beachUrlCitySlug}/${beach.slug}`}
                           className="hover:text-ocean-blue hover:underline underline-offset-2"
                         >
                           {beach.name}

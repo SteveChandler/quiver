@@ -23,6 +23,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ExpandableText } from "@/components/ui/expandable-text";
 import type { BeachEditorialItem } from "@/types/location";
+import { cityToSlug } from "@/lib/utils/beach-url-utils";
 import type { SurfIntentSlug } from "@/lib/constants/surf-intents";
 
 // ---------------------------------------------------------------------------
@@ -333,6 +334,10 @@ export function BeachEditorialSection({
   const copy = INTENT_SECTION_COPY[intentSlug] ?? DEFAULT_SECTION_COPY;
   const IntentDetails = INTENT_DETAILS[intentSlug] ?? null;
 
+  // Beach detail URLs use canonical (non-collision-aware) city slug; the
+  // collision-aware citySlug param applies to /[intent]/[city] only.
+  const beachUrlCitySlug = cityToSlug(cityName) || citySlug;
+
   return (
     <section aria-label={`Beach guide for ${cityName}`}>
       <h2 className="text-2xl font-semibold text-gray-800 mb-2">
@@ -349,7 +354,7 @@ export function BeachEditorialSection({
             {/* Header: name + badges */}
             <div className="flex items-start justify-between gap-2 mb-2">
               <Link
-                href={`/${stateSlug}/${citySlug}/${beach.slug}`}
+                href={`/${stateSlug}/${beachUrlCitySlug}/${beach.slug}`}
                 className="text-base font-semibold text-gray-900 hover:text-ocean-blue transition-colors"
               >
                 {beach.name}

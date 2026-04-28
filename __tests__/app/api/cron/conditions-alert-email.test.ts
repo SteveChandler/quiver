@@ -99,9 +99,24 @@ jest.mock("@/lib/email/email-formatters", () => ({
   }),
 }));
 
-// Mock scoring module (re-scoring falls back gracefully when supabase.from is not available)
-jest.mock("@/lib/scoring", () => ({
-  scoreConditions: jest.fn(() => ({ total: 0 })),
+// Mock scoring engine — re-scoring falls back gracefully when supabase.from
+// is not available, so the engine should rarely be hit; this keeps the test
+// from instantiating the real plugin chain when it is. Only the symbols the
+// route actually imports are provided to avoid a circular requireActual eval.
+jest.mock("@/lib/domains/scoring", () => ({
+  createDiscoveryScoringEngine: jest.fn(() => ({
+    score: jest.fn(() => ({
+      total: 0,
+      subscores: new Map(),
+      matchQuality: "skip",
+      reasons: [],
+      warnings: [],
+      skipReason: null,
+      confidence: 0,
+    })),
+  })),
+  beachToSpotProfile: jest.fn(() => ({})),
+  forecastToSnapshot: jest.fn(() => ({})),
 }));
 
 // Mock email logging service

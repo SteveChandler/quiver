@@ -410,8 +410,7 @@ export async function clickElement(
  * On dev/production, the auth state from e2e/.auth/state.json may have
  * stale tokens, causing useAuth() to resolve user as null. When that
  * happens, the page shows the guest landing instead of OracleHomeScreen
- * and auth-specific selectors (greeting-section, coast-pulse-section,
- * time-slot-filter) never appear.
+ * and the OracleHero `<section role="banner">` never appears.
  *
  * This helper detects both outcomes quickly and returns false when the
  * authenticated home screen does not load, allowing tests to skip
@@ -420,12 +419,21 @@ export async function clickElement(
  * @returns true if the authenticated home screen rendered, false otherwise
  */
 export async function waitForAuthenticatedHome(page: Page): Promise<boolean> {
-  // Race between authenticated home selectors and guest landing indicators
+  // Race between authenticated home selectors and guest landing indicators.
+  // Post-2026-04-25 oracle refactor: greeting-section / coast-pulse-section /
+  // Time slot filter were removed from the authed home. The OracleHero
+  // <section role="banner" aria-label="… surf conditions"> is the stable
+  // signal that the authenticated home rendered.
   try {
     await Promise.race([
-      page.waitForSelector('[data-testid="greeting-section"]', { state: 'visible', timeout: 15000 }),
-      page.waitForSelector('[data-testid="coast-pulse-section"]', { state: 'visible', timeout: 15000 }),
-      page.waitForSelector('[role="radiogroup"][aria-label="Time slot filter"]', { state: 'visible', timeout: 15000 }),
+      page.waitForSelector(
+        'section[role="banner"][aria-label*="surf conditions"]',
+        { state: 'visible', timeout: 15000 }
+      ),
+      page.waitForSelector('[data-testid="nearby-spots-scroll"]', {
+        state: 'visible',
+        timeout: 15000,
+      }),
     ]);
     return true;
   } catch {

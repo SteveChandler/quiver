@@ -1,7 +1,7 @@
 # E2E Test Debt Documentation
 
-> Updated: 2026-04-01
-> Context: Full suite optimization — removed redundant perf tests, replaced waitForTimeout calls, converted skipped tests to stubs or @infra tags
+> Updated: 2026-04-27
+> Context: Dead `Not implemented:` tests for permanently-removed features deleted outright. Only environment-guard throws remain.
 
 ## Summary
 
@@ -20,34 +20,14 @@ These tests require infrastructure not available in local dev. They are tagged `
 |------|-------|----------|
 | `push-notifications.spec.ts` | 5 describe blocks | Firebase FCM |
 | `rate-limiting.spec.ts` | Full file | Rate limiting middleware |
-| `error-boundaries.spec.ts` | 1 describe block | Network simulation |
 
-## Stubbed Tests (throw new Error)
+## Environment-Guard `throw new Error('Not implemented: ...')`
 
-These tests have been converted from `test.skip`/`test.fixme` to active tests with `throw new Error('Not implemented: ...')`. They will fail loudly if run, making debt visible rather than silently hidden.
+Only environment-guard throws remain. These fire when test infrastructure (Mapbox internals, `/api/beaches` endpoint) isn't accessible — not because the underlying feature is dead.
 
-### High Priority (User-facing features)
-| File | Tests | Issue |
+| File | Tests | Guard |
 |------|-------|-------|
-| `location-pages.spec.ts` | 16 tests (4 blocks) | Selectors changed in location pages redesign |
-| `plan-session.spec.ts` | 2 tests | Wizard navigation behavior changed |
-| `sessions.spec.ts` | 1 test | Session creation button selector changed |
-
-### Medium Priority
-| File | Tests | Issue |
-|------|-------|-------|
-| `personalized-insights.spec.ts` | 10 tests | Personalized forecast card structure changed |
-| `implicit-preference-privacy.spec.ts` | 8 tests | Privacy preference UI changed |
-| `session-wizard-autofill.spec.ts` | 3 tests | Autofill behavior changed |
-| `input-validation.spec.ts` | 3 tests | API endpoint behavior changed |
-| `map-coordinate-validation.spec.ts` | 4 tests | Marker click interaction changed |
-
-### Low Priority
-| File | Tests | Issue |
-|------|-------|-------|
-| `discover.spec.ts` | 2 tests | Social follow feature not yet implemented |
-| `api/social-interactions.spec.ts` | 1 test | Follow toggle returns 500 for fake user IDs |
-| `api/gamification.spec.ts` | 1 test | POST endpoint may not exist |
+| `map-coordinate-validation.spec.ts` | 4 throws | Inaccessible Mapbox map instance / missing `/api/beaches` endpoint |
 
 ## Remaining waitForTimeout Calls
 

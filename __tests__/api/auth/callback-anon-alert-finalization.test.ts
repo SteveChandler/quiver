@@ -108,8 +108,15 @@ const mockSupabaseClient = {
     }
     if (table === "user_events") {
       return {
-        insert: jest.fn(async (row: EventRow) => {
-          state.eventInserts.push(row);
+        // Accept either a single row or an array of rows; the callback now
+        // batches both anon-alert events into one insert call to cut a DB
+        // roundtrip on the auth-callback critical path.
+        insert: jest.fn(async (rowOrRows: EventRow | EventRow[]) => {
+          if (Array.isArray(rowOrRows)) {
+            state.eventInserts.push(...rowOrRows);
+          } else {
+            state.eventInserts.push(rowOrRows);
+          }
           return { error: null };
         }),
       };

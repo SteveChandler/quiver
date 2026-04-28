@@ -13,8 +13,102 @@ import type {
   WindowBoundaryReason,
   MultiWindowResult,
 } from './types';
-import { scoreConditions, getConditionCharacter } from './surf-conditions-scorer';
+import type { Beach } from '@/types/database';
+import type { ConditionsSnapshot } from '@/lib/domains/conditions/types';
+import { createSwellComponent } from '@/lib/domains/conditions';
+import {
+  beachToSpotProfile,
+  createDiscoveryScoringEngine,
+  getConditionCharacter,
+  type ScoringEngine,
+} from '@/lib/domains/scoring';
 import { generateWindowMessage } from './message-generator';
+
+// Singleton engine for performance — created lazily on first call.
+let _engine: ScoringEngine | null = null;
+function getEngine(): ScoringEngine {
+  if (!_engine) {
+    _engine = createDiscoveryScoringEngine();
+  }
+  return _engine;
+}
+
+/**
+ * Convert ForecastForScoring (legacy scoring shape) to a ConditionsSnapshot
+ * the domain engine can consume. Mirrors the field mapping in
+ * `discovery-adapter.forecastToSnapshot` but works from the already-parsed
+ * `ForecastForScoring` rather than a raw `EnhancedForecastEntity`.
+ */
+function forecastForScoringToSnapshot(forecast: ForecastForScoring): ConditionsSnapshot {
+  const swellDirection = forecast.swellDirection ?? null;
+  const primarySwell =
+    forecast.waveHeight > 0 && forecast.wavePeriod > 0
+      ? createSwellComponent(
+          forecast.waveHeight,
+          forecast.wavePeriod,
+          swellDirection ?? 270,
+        )
+      : null;
+
+  const tideStatus = forecast.tideStatus?.toLowerCase() ?? null;
+  let parsedTideStatus: ConditionsSnapshot['tide']['status'] = 'unknown';
+  let parsedTideDirection: ConditionsSnapshot['tide']['direction'] = 'slack';
+  if (tideStatus) {
+    if (tideStatus.includes('rising')) {
+      parsedTideStatus = 'rising';
+      parsedTideDirection = 'rising';
+    } else if (tideStatus.includes('falling')) {
+      parsedTideStatus = 'falling';
+      parsedTideDirection = 'falling';
+    } else if (tideStatus.includes('high')) {
+      parsedTideStatus = 'slack-high';
+    } else if (tideStatus.includes('low')) {
+      parsedTideStatus = 'slack-low';
+    } else if (tideStatus.includes('slack')) {
+      parsedTideStatus = 'slack-high';
+    }
+  }
+
+  return {
+    timestamp: forecast.forecastTime,
+    waveHeight: forecast.waveHeight,
+    wavePeriod: forecast.wavePeriod,
+    waveDirection: swellDirection,
+    primarySwell,
+    secondarySwell: null,
+    windWave: null,
+    wind: {
+      speedMph: forecast.windSpeed,
+      directionDeg: forecast.windDirection,
+    },
+    tide: {
+      heightFt: forecast.tideHeight,
+      status: parsedTideStatus,
+      direction: parsedTideDirection,
+    },
+    confidence: 80,
+    dataSource: 'unknown',
+  };
+}
+
+/**
+ * Score a forecast against a beach using the domain engine.
+ * Returns the same `total` shape as the legacy scorer for downstream use.
+ */
+function scoreForecastTotal(
+  forecast: ForecastForScoring,
+  beach: BeachWithThresholds,
+): number {
+  const profile = beachToSpotProfile(beach as unknown as Beach);
+  const snapshot = forecastForScoringToSnapshot(forecast);
+  const composite = getEngine().score({
+    profile,
+    snapshot,
+    window: null,
+    preferences: null,
+  });
+  return composite.total;
+}
 
 // Default configuration
 const DEFAULT_MIN_SCORE_THRESHOLD = 40;
@@ -144,11 +238,11 @@ function scoreForecasts(
   minScoreThreshold: number
 ): ScoredForecast[] {
   return forecasts.map(forecast => {
-    const result = scoreConditions(forecast, beach);
+    const total = scoreForecastTotal(forecast, beach);
     return {
       forecast,
-      score: result.total,
-      isViable: result.total >= minScoreThreshold,
+      score: total,
+      isViable: total >= minScoreThreshold,
     };
   });
 }
@@ -612,16 +706,19 @@ function buildWindowFromBlock(
       0
     );
   const peakForecast = scoredForecasts[block.startIndex + peakIndex].forecast;
-  const peakScore = scoredForecasts[block.startIndex + peakIndex].score;
 
-  // Build subscores proxy using the scorer output for the peak forecast
-  const peakScoreResult = scoreConditions(peakForecast, beach);
-  const character = getConditionCharacter(
-    peakForecast,
-    beach,
-    peakScoreResult.subscores,
-    peakScore
-  );
+  // Compute condition character via the domain engine (re-scores the peak
+  // forecast to obtain a CompositeScore — plugins are pure and the engine
+  // is a singleton, so this is microseconds).
+  const peakProfile = beachToSpotProfile(beach as unknown as Beach);
+  const peakSnapshot = forecastForScoringToSnapshot(peakForecast);
+  const peakComposite = getEngine().score({
+    profile: peakProfile,
+    snapshot: peakSnapshot,
+    window: null,
+    preferences: null,
+  });
+  const character = getConditionCharacter(peakSnapshot, peakProfile, peakComposite);
 
   return {
     start: startInfo.time,
@@ -667,11 +764,11 @@ export function calculateMultipleWindows(
 
   // Score all forecasts
   const scoredForecasts: ScoredForecast[] = forecasts.map(forecast => {
-    const result = scoreConditions(forecast, beach);
+    const total = scoreForecastTotal(forecast, beach);
     return {
       forecast,
-      score: result.total,
-      isViable: result.total >= minScore,
+      score: total,
+      isViable: total >= minScore,
     };
   });
 

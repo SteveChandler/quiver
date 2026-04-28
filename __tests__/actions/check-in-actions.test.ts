@@ -236,7 +236,14 @@ describe("Check-in Actions", () => {
     });
   });
 
-  describe.skip("updateCheckIn", () => {
+  // Both updateCheckIn and deleteCheckIn are wrapped in makeAuthenticatedAction,
+  // which (a) returns { success: true, data } on success or { success: false, error }
+  // on thrown errors (never throws to the caller), and (b) routes table reads through
+  // checkinsChain because the route calls supabase.from("check_ins"). Earlier tests
+  // wired mocks to the default catch-all chain via mockSupabaseClient.from() with no
+  // argument, which is a different jest.fn() instance than checkinsChain.
+
+  describe("updateCheckIn", () => {
     it("should successfully update user's own check-in", async () => {
       const mockUpdatedCheckIn = {
         id: "checkin-123",
@@ -245,16 +252,10 @@ describe("Check-in Actions", () => {
         forecast_accuracy_rating: "somewhat" as const,
       };
 
-      mockSupabaseClient
-        .from()
-        .update()
-        .eq()
-        .eq()
-        .select()
-        .single.mockResolvedValueOnce({
-          data: mockUpdatedCheckIn,
-          error: null,
-        });
+      checkinsChain.single.mockResolvedValueOnce({
+        data: mockUpdatedCheckIn,
+        error: null,
+      });
 
       const result = await CheckInActionsModule.updateCheckIn(
         "checkin-123",
@@ -264,56 +265,49 @@ describe("Check-in Actions", () => {
         }
       );
 
-      expect(result).toEqual(mockUpdatedCheckIn);
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual(mockUpdatedCheckIn);
       expect(mockSupabaseClient.from).toHaveBeenCalledWith("check_ins");
     });
 
-    it("should throw error if check-in not found", async () => {
-      mockSupabaseClient
-        .from()
-        .update()
-        .eq()
-        .eq()
-        .select()
-        .single.mockResolvedValueOnce({
-          data: null,
-          error: { message: "Not found" },
-        });
+    it("should fail if check-in not found", async () => {
+      checkinsChain.single.mockResolvedValueOnce({
+        data: null,
+        error: { message: "Not found" },
+      });
 
-      await expect(
-        CheckInActionsModule.updateCheckIn("checkin-123", {
-          wave_height: 4.0,
-        })
-      ).rejects.toThrow("Failed to update check-in");
+      const result = await CheckInActionsModule.updateCheckIn("checkin-123", {
+        wave_height: 4.0,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Failed to update check-in");
     });
   });
 
-  describe.skip("deleteCheckIn", () => {
+  describe("deleteCheckIn", () => {
     it("should successfully delete user's own check-in", async () => {
-      mockSupabaseClient.from().delete().eq().eq.mockResolvedValueOnce({
-        error: null,
-      });
+      // The delete chain awaits the second .eq() — make it resolve to no error.
+      checkinsChain.eq.mockReturnValueOnce(checkinsChain);
+      checkinsChain.eq.mockResolvedValueOnce({ error: null });
 
-      const result = await CheckInActionsModule.deleteCheckIn(
-        "checkin-123"
-      );
+      const result = await CheckInActionsModule.deleteCheckIn("checkin-123");
 
-      expect(result).toEqual({ success: true });
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({ success: true });
       expect(mockSupabaseClient.from).toHaveBeenCalledWith("check_ins");
     });
 
-    it("should handle delete errors", async () => {
-      mockSupabaseClient
-        .from()
-        .delete()
-        .eq()
-        .eq.mockResolvedValueOnce({
-          error: { message: "Delete failed" },
-        });
+    it("should fail when delete returns an error", async () => {
+      checkinsChain.eq.mockReturnValueOnce(checkinsChain);
+      checkinsChain.eq.mockResolvedValueOnce({
+        error: { message: "Delete failed" },
+      });
 
-      await expect(CheckInActionsModule.deleteCheckIn("checkin-123")).rejects.toThrow(
-        "Failed to delete check-in"
-      );
+      const result = await CheckInActionsModule.deleteCheckIn("checkin-123");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Failed to delete check-in");
     });
   });
 

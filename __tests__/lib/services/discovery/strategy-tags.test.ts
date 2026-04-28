@@ -177,19 +177,80 @@ describe('assignStrategyTags', () => {
     expect(result).toHaveLength(1);
   });
 
-  it('assigns sleep_in when late-morning score retains >= 70% of original', () => {
+  // 2024-01-15T13:00Z = 5 AM in America/Los_Angeles, before the 9am cutoff.
+  const PRE_DAWN_NOW = new Date('2024-01-15T13:00:00Z');
+  // 2024-01-15T22:00Z = 2 PM in America/Los_Angeles, well past the 9am cutoff.
+  const AFTERNOON_NOW = new Date('2024-01-15T22:00:00Z');
+
+  it('assigns sleep_in when late-morning score retains >= 70% of original (before 9am)', () => {
     const hero = mockRec({ beachId: 'hero-si', score: 80 });
     const steady = mockRec({ beachId: 'steady', score: 60, waveHeightBadge: '2-3ft' });
     const sleepInScores = new Map([['steady', 45]]); // 45/60 = 75% >= 70%
-    const result = assignStrategyTags([hero, steady], sleepInScores);
+    const result = assignStrategyTags([hero, steady], sleepInScores, PRE_DAWN_NOW);
     expect(result[1].strategyTag?.type).toBe('sleep_in');
+    expect(result[1].strategyTag?.reason).toContain('past 9am');
   });
 
   it('does not assign sleep_in when score retention is below 70%', () => {
     const hero = mockRec({ beachId: 'hero-si2', score: 80 });
     const dawnOnly = mockRec({ beachId: 'dawn-only', score: 60 });
     const sleepInScores = new Map([['dawn-only', 30]]); // 30/60 = 50% < 70%
-    const result = assignStrategyTags([hero, dawnOnly], sleepInScores);
+    const result = assignStrategyTags([hero, dawnOnly], sleepInScores, PRE_DAWN_NOW);
     expect(result[1].strategyTag?.type).not.toBe('sleep_in');
+  });
+
+  it('suppresses sleep_in (badge AND reason) once it is past 9am at the candidate beach', () => {
+    // Same scoring as the passing case above — only difference is `now` is afternoon.
+    const hero = mockRec({ beachId: 'hero-si3', score: 80 });
+    const steady = mockRec({ beachId: 'steady-pm', score: 60, waveHeightBadge: '2-3ft' });
+    const sleepInScores = new Map([['steady-pm', 45]]);
+    const result = assignStrategyTags([hero, steady], sleepInScores, AFTERNOON_NOW);
+    expect(result[1].strategyTag).toBeUndefined();
+    // Belt-and-suspenders: the tag-derived reason copy must NOT be present either.
+    // Since the renderer reads `strategyTag.reason`, suppressing the tag drops both.
+    expect(JSON.stringify(result[1])).not.toContain('past 9am');
+  });
+
+  it('uses the candidate beach timezone (not the user/server tz) for the cutoff check', () => {
+    // 2024-01-15T22:00Z is 12 PM Pacific (past cutoff) but 12 PM HST = noon → still
+    // before the 9am cutoff. Wait, that's wrong — 22:00Z is 12:00 HST. To exercise
+    // the international-tz branch with a clean pre-cutoff signal: 2024-01-15T15:00Z
+    // = 7 AM PST (pre-cutoff for a Pacific beach) AND 5 AM HST (pre-cutoff for a
+    // Hawaii beach). Same `now`, both should retain the tag — but we want to
+    // demonstrate the per-beach-tz read, so use a moment when PT is past-cutoff
+    // and HST is pre-cutoff: 2024-01-15T20:00Z = 12 PM PST (past) but 10 AM HST
+    // (past too — not useful). Pick 2024-01-15T18:00Z = 10 AM PST (past) and
+    // 8 AM HST (pre). A Hawaii beach should retain the tag at this `now`.
+    const hawaiiNow = new Date('2024-01-15T18:00:00Z');
+    const hawaiiWindow: PersonalizedForecastWindow = {
+      ...mockWindow,
+      timezone: 'Pacific/Honolulu',
+    };
+    const hero = mockRec({ beachId: 'hero-hi', score: 80, window: hawaiiWindow });
+    const steady = mockRec({
+      beachId: 'steady-hi',
+      score: 60,
+      waveHeightBadge: '2-3ft',
+      window: hawaiiWindow,
+    });
+    const sleepInScores = new Map([['steady-hi', 45]]);
+    const result = assignStrategyTags([hero, steady], sleepInScores, hawaiiNow);
+    // 8 AM HST < 9 AM cutoff → tag retained.
+    expect(result[1].strategyTag?.type).toBe('sleep_in');
+
+    // Same `now`, Pacific timezone: 10 AM PST > 9 AM cutoff → tag suppressed.
+    const pacificHero = mockRec({ beachId: 'hero-pt', score: 80 });
+    const pacificSteady = mockRec({
+      beachId: 'steady-pt',
+      score: 60,
+      waveHeightBadge: '2-3ft',
+    });
+    const pacificScores = new Map([['steady-pt', 45]]);
+    const pacificResult = assignStrategyTags(
+      [pacificHero, pacificSteady],
+      pacificScores,
+      hawaiiNow,
+    );
+    expect(pacificResult[1].strategyTag).toBeUndefined();
   });
 });

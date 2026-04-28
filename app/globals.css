@@ -353,6 +353,15 @@ body.js-loaded .ssr-beach-section {
   display: none;
 }
 
+/* Hide SSR popular-beaches before paint for users with a Supabase auth cookie.
+   The pre-paint script in app/layout.tsx adds .has-auth-cookie to <html> before
+   first paint, so signed-in users never see the legacy "Local surf favorites"
+   grid even on slow networks. They get the OracleHomeSkeleton instead. */
+html.has-auth-cookie .ssr-beach-section,
+html.has-auth-cookie #ssr-beach-links {
+  display: none !important;
+}
+
 /* =============================================================================
    RETRO SURF DARK THEME — Global
    The .theme-retro-dark class on <body> activates these override selectors.

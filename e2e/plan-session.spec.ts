@@ -286,14 +286,6 @@ test.describe('Direct URL Navigation with Prefill', () => {
 });
 
 test.describe('Form Navigation with Prefill', () => {
-  test('should allow user to edit prefilled data', async ({ page }) => {
-    throw new Error('Not implemented: test for editing prefilled beach/date values in the scroll form');
-  });
-
-  test('should not re-populate prefill data after user edits', async ({ page }) => {
-    throw new Error('Not implemented: test that URL param changes do not override user edits');
-  });
-
   test('should validate required fields before allowing save', async ({ page }) => {
     // Navigate with ONLY a step parameter (no beach/time data)
     const url = '/sessions/new?mode=plan&step=2';

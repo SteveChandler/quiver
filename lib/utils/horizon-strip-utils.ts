@@ -10,13 +10,24 @@ import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { Beach } from '@/types/database';
 import {
-  scoreConditions,
-} from '@/lib/scoring/surf-conditions-scorer';
-import {
-  toForecastForScoring,
   type BeachWithThresholds,
   type UserScoringPreferences,
 } from '@/lib/scoring/types';
+import {
+  beachToSpotProfile,
+  createDiscoveryScoringEngine,
+  forecastToSnapshot,
+  type ScoringEngine,
+} from '@/lib/domains/scoring';
+
+// Singleton engine — created lazily on first call.
+let _engine: ScoringEngine | null = null;
+function getEngine(): ScoringEngine {
+  if (!_engine) {
+    _engine = createDiscoveryScoringEngine();
+  }
+  return _engine;
+}
 import { DEFAULT_TIMEZONE } from '@/lib/utils/timezone-utils';
 import {
   type ConditionTier,
@@ -167,25 +178,40 @@ function groupForecastsByDate(
 }
 
 /**
- * Find the best forecast for a day based on condition score
+ * Find the best forecast for a day based on condition score.
+ *
+ * NOTE: `userPreferences.preferredWaveSize` is no longer honored at this
+ * call site — the legacy `scoreWaveHeightFitPersonalized` branch was never
+ * exercised by the only callers (`beach-detail.tsx` and the forecast tab),
+ * which both pass empty options. The signature is preserved for callers
+ * that still pass it; the value is recorded on the DaySummary
+ * (`isPersonalized` flag) but does not influence scoring. See PR 5 of
+ * the scoring consolidation plan.
  */
 function findBestForecast(
   dayForecasts: EnhancedForecastEntity[],
   beach: BeachWithThresholds,
-  beachTz?: string,
-  userPreferences?: UserScoringPreferences
+  _beachTz?: string,
+  _userPreferences?: UserScoringPreferences
 ): { forecast: EnhancedForecastEntity; score: number } | null {
   if (dayForecasts.length === 0) return null;
+
+  const profile = beachToSpotProfile(beach as unknown as Beach);
+  const engine = getEngine();
 
   let bestForecast = dayForecasts[0];
   let bestScore = 0;
 
   for (const forecast of dayForecasts) {
-    const forecastForScoring = toForecastForScoring(forecast, beachTz);
-    const result = scoreConditions(forecastForScoring, beach, { userPreferences });
-
-    if (result.total > bestScore) {
-      bestScore = result.total;
+    const snapshot = forecastToSnapshot(forecast);
+    const composite = engine.score({
+      profile,
+      snapshot,
+      window: null,
+      preferences: null,
+    });
+    if (composite.total > bestScore) {
+      bestScore = composite.total;
       bestForecast = forecast;
     }
   }

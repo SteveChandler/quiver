@@ -190,6 +190,25 @@ export default function RootLayout({
             `,
           }}
         />
+        {/*
+          Pre-paint auth-cookie detection. Adds `has-auth-cookie` to <body> before
+          first paint when a Supabase auth token cookie is present, so CSS can hide
+          the SSR popular-beaches strip for signed-in users without waiting for JS
+          to hydrate. Mirrors the matcher in lib/utils/supabase-cookie-utils.ts.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                try {
+                  if (/(?:^|;\\s*)sb-[^=]+-auth-token\\./.test(document.cookie)) {
+                    document.documentElement.classList.add("has-auth-cookie");
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
         {/* Map-related DNS prefetch removed from root layout. Now loaded in route-specific layouts (map, beaches, forecast). This saves 3-5 connection slots on landing page */}
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#0f172a" />

@@ -32,12 +32,9 @@ import { getTideAlert } from "@/lib/surf/tide-direction";
 import { HorizonStrip } from "@/components/forecast/horizon-strip";
 import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
 import { formatTideHeight } from "@/lib/formatters/surf-data";
-import { PublicContentGate } from "@/components/ui/public-content-gate";
 import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
 import { EmbedCodeButton } from "@/components/beach-detail/embed-code-modal";
 import { DataErrorBoundary } from "@/components/error-boundaries";
-import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
-// PersonalizedForecastTeaser and useAuth removed — Phase 1A CTA reduction.
 import { TideStatusStrip } from "@/components/beach-detail/tide-status-strip";
 import { TideChartSection } from "@/components/beach-detail/tide-chart-section";
 import { TextureOverlay } from "@/components/ui/texture-overlay";
@@ -58,7 +55,6 @@ interface ForecastTabProps {
   surfCall?: SurfCallResult | null;
   surfCallIsTomorrow?: boolean;
   defaultSubTab?: "today" | "tides" | "conditions";
-  publicMode?: boolean;
   yesterdayAccuracy?: YesterdayAccuracy | null;
 }
 
@@ -70,7 +66,6 @@ export function ForecastTab({
   surfCall,
   surfCallIsTomorrow,
   defaultSubTab,
-  publicMode = false,
   yesterdayAccuracy,
 }: ForecastTabProps) {
 
@@ -95,7 +90,7 @@ export function ForecastTab({
     setActiveSubTab("conditions");
   }, [beach.id, trackEvent]); // State setters are stable refs
 
-  // Horizon Strip: aggregated day summaries (12 days)
+  // Horizon Strip: aggregated day summaries (12 days, ungated for all users)
   const horizonDaySummaries = useMemo(() => {
     return aggregateDayForecasts(forecasts, beach, {
       maxDays: 12,
@@ -103,43 +98,12 @@ export function ForecastTab({
     });
   }, [forecasts, beach, beachTimezone]);
 
-  // Public mode: the first 3 days are the free window shown to anonymous
-  // users. The horizon strip now renders ALL 12 days (with days 4-12 blurred
-  // as a loss-aversion signal), but the conditions tab still only receives
-  // the free window so no forecast detail leaks. See Change 3 in
-  // plans/abstract-exploring-phoenix.md.
-  const PUBLIC_FREE_DAYS = 3;
-  const publicHorizonDays = publicMode
-    ? horizonDaySummaries.slice(0, PUBLIC_FREE_DAYS)
-    : horizonDaySummaries;
-
-  // Gated-horizon state — opens auth modal when an anonymous user taps a
-  // blurred day card (days 4-12 in public mode). Uses the same UnifiedAuthModal
-  // as other beach-page signup surfaces.
-  const [gatedAuthOpen, setGatedAuthOpen] = useState(false);
-
   // Forecasts filtered by horizon strip selection
   const selectedDateForecasts = useMemo(() => {
     if (!horizonSelectedDate) return forecasts;
     const tz = resolveBeachTimezone(beachTimezone);
     return forecasts.filter((f) => extractForecastDate(f.forecast_at, tz) === horizonSelectedDate);
   }, [forecasts, horizonSelectedDate, beachTimezone]);
-
-  // Public mode: allowed dates (first 3 days)
-  const publicAllowedDates = useMemo(() => {
-    if (!publicMode) return null;
-    const tz = resolveBeachTimezone(beachTimezone);
-    const today = getLocalDateString(new Date(), tz);
-    const futureDates = [...new Set(forecasts.map(f => extractForecastDate(f.forecast_at, tz)).filter(d => d >= today))].sort();
-    return new Set(futureDates.slice(0, 3));
-  }, [publicMode, forecasts, beachTimezone]);
-
-  // Public mode: filter forecasts to 3 days (reuses publicAllowedDates)
-  const publicFilteredForecasts = useMemo(() => {
-    if (!publicMode || !publicAllowedDates) return forecasts;
-    const tz = resolveBeachTimezone(beachTimezone);
-    return forecasts.filter(f => publicAllowedDates.has(extractForecastDate(f.forecast_at, tz)));
-  }, [publicMode, forecasts, publicAllowedDates, beachTimezone]);
 
   const todayStr = useMemo(() => {
     return getLocalDateString(new Date(), resolveBeachTimezone(beachTimezone));
@@ -309,19 +273,10 @@ export function ForecastTab({
   return (
     <DataErrorBoundary dataType="forecast" componentName="ForecastTab">
     <div className="space-y-6 py-6">
-      {/* 12-Day Horizon Strip
-          Anonymous users see all 12 days; cards beyond PUBLIC_FREE_DAYS are
-          rendered blurred with a lock overlay. Clicking a blurred card opens
-          the auth modal via onGatedClick — this reuses the existing
-          signup-tracking funnel (source: horizon-strip-gated-days) so we can
-          measure conversion from the loss-aversion signal without adding a
-          banner (which Phase 1A/1B explicitly removed). */}
+      {/* 12-Day Horizon Strip — all 12 days visible to every user. */}
       {forecasts.length > 0 && (
         <section className="space-y-2">
           <div className="flex items-center justify-between px-4 sm:px-6">
-            {/* Heading uses the total horizon length regardless of publicMode —
-                the blur on days 4-12 is itself the loss-aversion signal; the
-                heading doesn't need to repeat it. */}
             <h2 className="text-sm font-medium text-muted-foreground">
               {horizonDaySummaries.length}-Day Outlook
             </h2>
@@ -334,24 +289,8 @@ export function ForecastTab({
             selectedDate={horizonSelectedDate}
             onSelectDate={handleHorizonDaySelect}
             beachSlug={slugify(beach.name)}
-            publicGateFromIndex={publicMode ? PUBLIC_FREE_DAYS : undefined}
-            onGatedClick={publicMode ? () => setGatedAuthOpen(true) : undefined}
           />
         </section>
-      )}
-
-      {publicMode && (
-        <UnifiedAuthModal
-          isOpen={gatedAuthOpen}
-          onClose={() => setGatedAuthOpen(false)}
-          mode="signup"
-          source="horizon-strip-gated-days"
-          contextMessage={{
-            title: `See the full 12-day call for ${beach.name}`,
-            description:
-              "Free — pick your home beach and we'll score every hour so you know when to paddle out.",
-          }}
-        />
       )}
 
       {/* Tabbed Content */}
@@ -517,90 +456,49 @@ export function ForecastTab({
             <YesterdaysAccuracyCard accuracy={yesterdayAccuracy} />
           )}
 
-          {/* Best Surf Window */}
-          {(() => {
-            const bestSurfWindowContent = (
-              <BestSurfWindow
-                beachId={beach.id}
-                beachName={beach.name}
-                beachTimezone={beachTimezone}
-                forecasts={todaysForecasts}
-                surfCall={surfCall}
-                surfCallIsTomorrow={surfCallIsTomorrow}
-                windows={conditionIntel.windows.map((w) => ({
-                  start: w.start.toISOString(),
-                  end: w.end.toISOString(),
-                  avgScore: w.avgScore ?? 0,
-                  character: w.character
-                    ? { label: w.character.label, category: w.character.category }
-                    : undefined,
-                  reasons: [],
-                }))}
-                boardPick={
-                  conditionIntel.boardPick
-                    ? {
-                        boardName: conditionIntel.boardPick.boardName,
-                        boardType: conditionIntel.boardPick.boardType,
-                        reason: conditionIntel.boardPick.reason,
-                      }
-                    : null
-                }
-                relativeContext={
-                  conditionIntel.relativeContext
-                    ? {
-                        isBestOfWeek: conditionIntel.relativeContext.isBestOfWeek,
-                        trend: conditionIntel.relativeContext.trend,
-                        incomingSwell:
-                          conditionIntel.relativeContext.incomingSwell
-                            ? {
-                                date: conditionIntel.relativeContext.incomingSwell.date,
-                                description:
-                                  conditionIntel.relativeContext.incomingSwell.description,
-                              }
-                            : null,
-                      }
-                    : undefined
-                }
-              />
-            );
-
-            // Lead with the actual best window as the hook — the value goes
-            // on-screen unblurred, then the gate promises what signing up unlocks.
-            // Previous copy ("See today's surf call") was generic and buried the
-            // real value in the description; 275 views → 0 clicks on 2026-04-09.
-            const { ctaTitle: gateTitle, ctaDescription: gateDescription } = (() => {
-              if (!surfCall?.bestWindowStart) {
-                return {
-                  ctaTitle: `Daily surf call for ${beach.name}`,
-                  ctaDescription:
-                    "We score every hour by tide, wind, and swell. Sign up free to see today's optimal window and tomorrow's call.",
-                };
-              }
-              const d = new Date(surfCall.bestWindowStart);
-              const timeStr = isNaN(d.getTime())
-                ? surfCall.bestWindowStart
-                : d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-              const waveInfo = surfCall.waveHeight ? ` · ${surfCall.waveHeight}` : "";
-              return {
-                ctaTitle: `Best window today: ${timeStr}${waveInfo}`,
-                ctaDescription:
-                  "Sign up free to unlock the full hour-by-hour breakdown, paddle alerts, and the 7-day call.",
-              };
-            })();
-
-            return publicMode ? (
-              <PublicContentGate
-                ctaTitle={gateTitle}
-                ctaDescription={gateDescription}
-                ctaButtonText="Unlock the full breakdown"
-                blurLevel="sm"
-                source="best-window-gate"
-                className="min-h-[200px]"
-              >
-                {bestSurfWindowContent}
-              </PublicContentGate>
-            ) : bestSurfWindowContent;
-          })()}
+          {/* Best Surf Window — visible to every user. */}
+          <BestSurfWindow
+            beachId={beach.id}
+            beachName={beach.name}
+            beachTimezone={beachTimezone}
+            forecasts={todaysForecasts}
+            surfCall={surfCall}
+            surfCallIsTomorrow={surfCallIsTomorrow}
+            windows={conditionIntel.windows.map((w) => ({
+              start: w.start.toISOString(),
+              end: w.end.toISOString(),
+              avgScore: w.avgScore ?? 0,
+              character: w.character
+                ? { label: w.character.label, category: w.character.category }
+                : undefined,
+              reasons: [],
+            }))}
+            boardPick={
+              conditionIntel.boardPick
+                ? {
+                    boardName: conditionIntel.boardPick.boardName,
+                    boardType: conditionIntel.boardPick.boardType,
+                    reason: conditionIntel.boardPick.reason,
+                  }
+                : null
+            }
+            relativeContext={
+              conditionIntel.relativeContext
+                ? {
+                    isBestOfWeek: conditionIntel.relativeContext.isBestOfWeek,
+                    trend: conditionIntel.relativeContext.trend,
+                    incomingSwell:
+                      conditionIntel.relativeContext.incomingSwell
+                        ? {
+                            date: conditionIntel.relativeContext.incomingSwell.date,
+                            description:
+                              conditionIntel.relativeContext.incomingSwell.description,
+                          }
+                        : null,
+                  }
+                : undefined
+            }
+          />
         </TabsContent>
 
         {/* Tides Tab */}
@@ -620,10 +518,9 @@ export function ForecastTab({
         {/* Conditions Tab */}
         <TabsContent value="conditions" className="mt-6">
           <ConditionsOverview
-            horizonDaySummaries={publicMode ? publicHorizonDays : horizonDaySummaries}
-            forecasts={publicMode ? publicFilteredForecasts : forecasts}
+            horizonDaySummaries={horizonDaySummaries}
+            forecasts={forecasts}
             beach={beach}
-            publicMode={publicMode}
             selectedDate={horizonSelectedDate}
           />
         </TabsContent>

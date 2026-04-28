@@ -12,8 +12,7 @@
 BEGIN;
 
 UPDATE beaches
-SET    shoaling_factors = NULL,
-       updated_at = NOW()
+SET    shoaling_factors = NULL
 WHERE  name IN (
          -- 0% CDIP beaches (stations 198, 215, 217 not delivering data)
          '52nd Street',

@@ -17,6 +17,14 @@ export interface NearbySpot {
   /** True when beach skill level exceeds user level AND conditions are significant */
   skillMismatch?: boolean;
   strategyTag?: StrategyTag;
+  /**
+   * Pre-computed display copy for the card body. Decided in the transform
+   * layer (oracle-home-screen.tsx → buildPersonalizedReason) where the full
+   * SurfDiscoveryRecommendation + hero context are still in scope. The
+   * renderer never recomputes this — NearbySpot does not carry forecast
+   * fields. Falls back to `conditions` when omitted.
+   */
+  reasonText?: string;
 }
 
 export interface NearbySpotsProps {
@@ -88,7 +96,7 @@ function SpotCard({
             </span>
           )}
         </div>
-        <p className="text-medium text-xs line-clamp-1">{spot.strategyTag?.reason ?? spot.conditions}</p>
+        <p className="text-medium text-xs line-clamp-1">{spot.reasonText ?? spot.conditions}</p>
         <p className="text-[#4A70D9] text-base font-bold">{spot.height}</p>
       </div>
     </div>
