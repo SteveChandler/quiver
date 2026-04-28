@@ -161,6 +161,48 @@ describe("NearbySpots", () => {
     });
   });
 
+  describe("Reason text rendering", () => {
+    it("renders pre-computed reasonText when provided", () => {
+      const spotsWithReason: NearbySpot[] = [
+        {
+          ...mockSpots[0],
+          conditions: "Generic conditions summary",
+          reasonText: "More size than the hero call",
+          strategyTag: {
+            type: "biggest_waves",
+            label: "Biggest",
+            reason: "Strategy-tag default reason",
+          },
+        },
+      ];
+      render(<NearbySpots spots={spotsWithReason} onViewSpot={jest.fn()} />);
+
+      // Personalized reasonText wins over both strategyTag.reason and conditions.
+      expect(
+        screen.getByText("More size than the hero call")
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText("Strategy-tag default reason")
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("Generic conditions summary")
+      ).not.toBeInTheDocument();
+    });
+
+    it("falls back to conditions when reasonText is omitted", () => {
+      const spotsNoReason: NearbySpot[] = [
+        {
+          ...mockSpots[0],
+          conditions: "Offshore · 14s",
+          // reasonText intentionally omitted
+        },
+      ];
+      render(<NearbySpots spots={spotsNoReason} onViewSpot={jest.fn()} />);
+
+      expect(screen.getByText("Offshore · 14s")).toBeInTheDocument();
+    });
+  });
+
   describe("Scroll fade indicator", () => {
     it("shows fade indicator when more than 2 spots are present", () => {
       render(<NearbySpots spots={mockSpots} onViewSpot={jest.fn()} />);

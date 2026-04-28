@@ -297,11 +297,70 @@ const SKILL_RANK: Record<string, number> = {
 };
 
 /**
+ * Minimal hero-context shape used inside the transform layer to personalize
+ * backup-spot reasons. Built from `heroSurfCall` (a `SurfCallResult`) using
+ * its real field names — `windDirection` and `windSpeedKnots` do NOT exist
+ * on SurfCallResult. Keep this local; nothing outside the transform should
+ * depend on it.
+ */
+type HeroReasonContext = {
+  verdict?: "YES" | "MAYBE" | "NO";
+  windCompass?: string | null;
+  windSpeed?: string | null;
+  tidePhase?: string | null;
+};
+
+/**
+ * Build a short, hero-relative reason string for a backup spot card.
+ *
+ * Rules — separation of authority (see memory pin
+ * `feedback_separate_ranking_from_verdict_authority`): discovery picks WHICH
+ * beach a card is for; verdict copy is decided here at render-prep time
+ * against the hero call. Strategy-tag classification stays in
+ * `lib/services/discovery/strategy-tags.ts` and is NOT modified.
+ *
+ * Conservative copy ONLY — never claim wind orientation, glassiness, or
+ * "hero closes" unless backed by a real source of truth carried in the
+ * code. Returning `null` lets the caller fall back to the existing
+ * `strategyTag.reason`, then to `rec.summary`.
+ */
+function buildPersonalizedReason(
+  rec: SurfDiscoveryRecommendation,
+  hero?: HeroReasonContext
+): string | null {
+  const tag = rec.strategyTag?.type;
+  if (!tag || !hero) return null;
+
+  if (tag === "biggest_waves" && hero.verdict === "MAYBE") {
+    return "More size than the hero call";
+  }
+  if (tag === "sleep_in") {
+    return "Better if you miss the early window";
+  }
+  if (tag === "low_crowd" && hero.verdict === "YES") {
+    return "Fallback if the hero spot gets crowded";
+  }
+  if (tag === "skip" && hero.verdict === "NO") {
+    return "Likely the same problem as the hero spot";
+  }
+  if (tag === "cleanest") {
+    return "Cleaner backup than the hero spot";
+  }
+  return null;
+}
+
+/**
  * Map remaining spots to the NearbySpot shape.
+ *
+ * `heroContext` is consumed only to derive `reasonText` via
+ * `buildPersonalizedReason`. NearbySpot itself does not carry forecast
+ * fields, so any hero-relative copy must be decided here while the full
+ * `SurfDiscoveryRecommendation` is in scope.
  */
 function transformToNearbySpots(
   remainingSpots: SurfDiscoveryRecommendation[],
-  userSkillLevel: string | null
+  userSkillLevel: string | null,
+  heroContext?: HeroReasonContext
 ): NearbySpot[] {
   const userRank = SKILL_RANK[userSkillLevel ?? ""] ?? -1;
   return remainingSpots.map((rec) => {
@@ -318,6 +377,10 @@ function transformToNearbySpots(
       score: rec.score,
       skillMismatch,
       strategyTag: rec.strategyTag,
+      reasonText:
+        buildPersonalizedReason(rec, heroContext) ??
+        rec.strategyTag?.reason ??
+        rec.summary,
     };
   });
 }
@@ -699,13 +762,33 @@ export function OracleHomeScreen() {
     () => transformToTimeWindows(oracle.discovery?.recommendations ?? [], heroRec),
     [oracle.discovery?.recommendations, heroRec]
   );
+  // Hero context used to personalize backup-spot reasons in the transform
+  // layer. Built from the freshness-gated `heroSurfCall` (see
+  // `heroSurfCallFresh` above) — never from raw `heroSurfCallData`, or a
+  // stale beach-A response would briefly drive backup copy on beach B.
+  // Memoised so `nearbySpots`'s useMemo doesn't recompute every render.
+  const heroReasonContext = useMemo<HeroReasonContext | undefined>(() => {
+    if (!heroSurfCall) return undefined;
+    return {
+      verdict: heroSurfCall.verdict,
+      windCompass: heroSurfCall.windCompass,
+      windSpeed: heroSurfCall.windSpeed,
+      tidePhase: heroSurfCall.tidePhase,
+    };
+  }, [heroSurfCall]);
+
   const nearbySpots = useMemo(() => {
     const heroBeachId = heroRec?.beach?.id;
     const spots = (oracle.discovery?.recommendations ?? [])
       .filter(r => r.beach.id !== heroBeachId)
       .sort((a, b) => (a.distanceMiles ?? Infinity) - (b.distanceMiles ?? Infinity));
-    return transformToNearbySpots(spots, oracle.userSkillLevel);
-  }, [oracle.discovery?.recommendations, heroRec?.beach?.id, oracle.userSkillLevel]);
+    return transformToNearbySpots(spots, oracle.userSkillLevel, heroReasonContext);
+  }, [
+    oracle.discovery?.recommendations,
+    heroRec?.beach?.id,
+    oracle.userSkillLevel,
+    heroReasonContext,
+  ]);
   const activityItems = useMemo(
     () => transformActivityItems(activityRaw ?? []),
     [activityRaw]
