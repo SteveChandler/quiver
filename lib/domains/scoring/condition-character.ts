@@ -197,8 +197,11 @@ export function getConditionCharacter(
       return { category: 'small-weak', label: 'Weak swell — minimal energy' };
     }
 
-    // Small-quality: long period + good direction alignment
-    if (wavePeriod >= 12) {
+    // Small-quality: long period + good direction alignment + non-onshore.
+    // Threshold of ≥10s matches large-clean's groundswell gate; the
+    // onshore guard prevents promoting a wind-affected small day to
+    // "powerful" purely because a longer-period swell sits underneath.
+    if (wavePeriod >= 10 && !isOnshore) {
       // Resolve a swell direction in the same priority order legacy used:
       // primary swell first, then overall wave direction.
       const swellDirection =

@@ -30,6 +30,14 @@ const customJestConfig = {
     "<rootDir>/components/session/wizard/__tests__/",
     "<rootDir>/__tests__/performance/helpers/",
   ],
+  // jest-haste-map scans __mocks__ regardless of testPathIgnorePatterns;
+  // worktree copies share manual-mock filenames with the main tree and trip
+  // duplicate-mock warnings on every run. modulePathIgnorePatterns is the
+  // knob that haste-map respects.
+  modulePathIgnorePatterns: [
+    "<rootDir>/.worktrees/",
+    "<rootDir>/.claude/worktrees/",
+  ],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
     // Mock Supabase entirely for problematic component tests

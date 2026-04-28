@@ -192,6 +192,40 @@ describe('getConditionCharacter (domain engine port)', () => {
       expect(result.category).toBe('small-weak');
       expect(result.label).toMatch(/weak/i);
     });
+
+    it('classifies 1.8ft + 10s + ideal direction + light wind as small-quality (≥10s threshold)', () => {
+      // Reviewer-flagged scenario: a 10s long-period swell with perfect
+      // direction at a small spot used to fall through to small-weak under
+      // the legacy ≥12s threshold. Aligning with large-clean's ≥10s gate
+      // (and adding the !isOnshore guard) promotes it correctly.
+      const snap = createSnapshot({
+        ...baseSnapshot,
+        waveHeight: 1.8,
+        wavePeriod: 10,
+        waveDirection: 260,
+        primarySwell: createSwell(1.8, 10, 260),
+        wind: { speedMph: 4, directionDeg: 90 },
+      });
+      const result = getConditionCharacter(snap, profile, baseComposite);
+      expect(result.category).toBe('small-quality');
+      expect(result.label).toMatch(/long-period/i);
+    });
+
+    it('does NOT promote 1.8ft + 10s + ideal direction + onshore wind to small-quality', () => {
+      // Onshore guard: a long-period small swell with onshore wind
+      // is still chop, regardless of direction fit underneath.
+      const snap = createSnapshot({
+        ...baseSnapshot,
+        waveHeight: 1.8,
+        wavePeriod: 10,
+        waveDirection: 260,
+        primarySwell: createSwell(1.8, 10, 260),
+        wind: { speedMph: 8, directionDeg: 270 }, // W = onshore
+      });
+      const result = getConditionCharacter(snap, profile, baseComposite);
+      expect(result.category).toBe('small-weak');
+      expect(result.label).toMatch(/choppy/i);
+    });
   });
 
   describe('medium wave conditions (2-5ft)', () => {
@@ -265,6 +299,23 @@ describe('getConditionCharacter (domain engine port)', () => {
       const composite = makeComposite({ windQuality: 40, tideFit: 67 });
       const result = getConditionCharacter(snap, profile, composite);
       expect(result.category).toBe('large-rough');
+    });
+
+    it('classifies 7ft + 8s + glassy offshore as large-rough (short-period stormy big)', () => {
+      // Reviewer verification scenario: short-period + clean-wind big surf
+      // is still wind-swell territory, not groundswell. Even with a 98
+      // windQuality (clean offshore), period < 10s lands large-rough →
+      // "experts only" → recommendationLabel gates to "Maybe".
+      const snap = createSnapshot({
+        ...baseSnapshot,
+        waveHeight: 7.0,
+        wavePeriod: 8,
+        wind: { speedMph: 5, directionDeg: 90 },
+      });
+      const composite = makeComposite({ windQuality: 98, tideFit: 80 });
+      const result = getConditionCharacter(snap, profile, composite);
+      expect(result.category).toBe('large-rough');
+      expect(result.label).toMatch(/experts only/i);
     });
   });
 
