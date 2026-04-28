@@ -341,7 +341,7 @@ describe("POST /api/alerts/anon-capture", () => {
     // Both calls still fired a fresh OTP magic link.
     expect(mockSupabase.auth.signInWithOtp).toHaveBeenCalledTimes(2);
 
-    // Both submit events recorded.
+    // Both calls still produce one server-side submit event each.
     expect(store.eventRows).toHaveLength(2);
   });
 });

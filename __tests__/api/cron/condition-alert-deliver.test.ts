@@ -31,6 +31,7 @@ if (typeof (globalThis as any).Response?.json !== "function") {
  */
 
 import { GET } from "@/app/api/cron/condition-alert-deliver/route";
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
 // ---- Mock api-utils ----
 jest.mock("@/lib/api-utils", () => ({
@@ -461,6 +462,43 @@ describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
       status: "skipped_user_cap",
     });
 
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+  });
+});
+
+describe("condition-alert-deliver — orphaned queue rows", () => {
+  it("marks rows sent and records failed_internal when the queued user has no profile", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    seedQueueRow({
+      alert_rules: { name: "Test rule", notify_email: true, notify_push: true },
+    });
+
+    const res = await GET(makeRequest());
+    expectConsoleWarnings([/\[condition-alert-deliver\] No profile found for user/]);
+    expect(res.status).toBe(200);
+
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(mockSendPushNotifications).not.toHaveBeenCalled();
+
+    expect(store.attemptInserts).toHaveLength(2);
+    expect(store.attemptInserts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          queue_id: QUEUE_1,
+          user_id: USER_A,
+          rule_id: RULE_1,
+          channel: "email",
+          status: "failed_internal",
+        }),
+        expect.objectContaining({
+          queue_id: QUEUE_1,
+          user_id: USER_A,
+          rule_id: RULE_1,
+          channel: "push",
+          status: "failed_internal",
+        }),
+      ])
+    );
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
   });
 });

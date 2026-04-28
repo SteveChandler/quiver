@@ -49,7 +49,7 @@ ALTER TABLE pending_alert_captures ENABLE ROW LEVEL SECURITY;
 -- for the 3 anon-capture presets:
 --   glass_off:      { wind_direction: "offshore", wind_speed_max_kt: 5, swell_height_min: 2 }
 --   big_day:        { swell_height_min: 6, swell_period_min: 10 }
---   mellow_session: { swell_height_min: 1, swell_height_max: 4, wind_speed_max_kt: 8,
+--   mellow_session: { swell_height_min: 1.5, swell_height_max: 4, wind_speed_max_kt: 8,
 --                     tide_height_min_ft?, tide_height_max_ft? }   -- tide fields only when non-null on the beach
 
 CREATE OR REPLACE FUNCTION preset_default_conditions(p_preset text, p_beach_id uuid)
@@ -79,7 +79,7 @@ BEGIN
         INTO v_tide_min, v_tide_max
       FROM beaches b WHERE b.id = p_beach_id;
       v_result := jsonb_build_object(
-        'swell_height_min', 1,
+        'swell_height_min', 1.5,
         'swell_height_max', 4,
         'wind_speed_max_kt', 8
       );
