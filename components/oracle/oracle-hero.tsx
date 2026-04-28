@@ -26,6 +26,10 @@ export interface OracleHeroProps {
   bestWindowTitle: string;
   bestWindowSubtitle: string;
   bestWindowTime: string;
+  /** Hero-call reasoning sentence rendered as a distinct prose line under
+   * the best-window card. Sourced from heroSurfCall?.whySentence; omit when
+   * absent so we don't paint placeholder reasoning. */
+  whySentence?: string;
   shouldAnimate: boolean;
   onAnimationComplete?: () => void;
   // Greeting
@@ -133,6 +137,7 @@ export function OracleHero({
   bestWindowTitle,
   bestWindowSubtitle,
   bestWindowTime,
+  whySentence,
   shouldAnimate,
   onAnimationComplete,
   userName,
@@ -265,6 +270,7 @@ export function OracleHero({
         bestWindowTitle={bestWindowTitle}
         bestWindowSubtitle={bestWindowSubtitle}
         bestWindowTime={bestWindowTime}
+        whySentence={whySentence}
         shouldAnimate={shouldAnimate}
         animatedWaveHeight={animatedWaveHeight}
         isTomorrow={isTomorrow}

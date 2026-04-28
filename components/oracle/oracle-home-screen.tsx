@@ -689,10 +689,12 @@ export function OracleHomeScreen() {
   // Best window data
   const bestWindowTime = getHeroSurfCallTime(heroSurfCall, heroTz, window);
   const bestWindowTitle = getHeroSurfCallTitle(heroSurfCall, isTomorrow, window);
+  // Supporting line *inside* the best-window card. Must NOT be sourced from
+  // `heroSurfCall?.whySentence` — that sentence renders as its own distinct
+  // prose line under the card (passed separately as `whySentence` below).
+  // Sourcing both from the same signal would render the same sentence twice.
   const bestWindowSubtitle =
-    heroSurfCall?.whySentence ??
-    heroRec?.reasons?.[0] ??
-    "Check the forecast for details";
+    heroRec?.reasons?.[0] ?? "Check the forecast for details";
 
   // Transformed sub-component data (memoised to avoid child re-renders)
   const timeWindows = useMemo(
@@ -777,6 +779,7 @@ export function OracleHomeScreen() {
         bestWindowTitle={bestWindowTitle}
         bestWindowSubtitle={bestWindowSubtitle}
         bestWindowTime={bestWindowTime}
+        whySentence={heroSurfCall?.whySentence}
         isTomorrow={isTomorrow}
         shouldAnimate={oracle.shouldAnimate}
         onAnimationComplete={oracle.markAnimationPlayed}

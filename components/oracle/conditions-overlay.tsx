@@ -20,6 +20,10 @@ interface ConditionsOverlayProps {
   bestWindowTitle: string;
   bestWindowSubtitle: string;
   bestWindowTime: string;
+  /** Hero-call reasoning sentence, rendered as a separate prose line under
+   * the best-window card. Distinct from `bestWindowSubtitle`, which is the
+   * supporting line *inside* the card. Omit when absent. */
+  whySentence?: string;
   shouldAnimate: boolean;
   /** Animated wave height display value — controlled by parent for count-up */
   animatedWaveHeight?: string;
@@ -109,6 +113,7 @@ export function ConditionsOverlay({
   bestWindowTitle,
   bestWindowSubtitle,
   bestWindowTime,
+  whySentence,
   shouldAnimate,
   animatedWaveHeight,
   isTomorrow,
@@ -191,6 +196,19 @@ export function ConditionsOverlay({
           </div>
         </div>
       </motion.div>
+
+      {/* Hero why-sentence — distinct prose line under the best-window card.
+          Sourced from heroSurfCall?.whySentence; the supporting subtitle
+          inside the card is sourced from a different signal so the same
+          sentence never renders twice. */}
+      {whySentence ? (
+        <p
+          data-testid="hero-why-sentence"
+          className="mt-2 text-medium text-xs sm:text-sm leading-snug"
+        >
+          {whySentence}
+        </p>
+      ) : null}
     </div>
   );
 }

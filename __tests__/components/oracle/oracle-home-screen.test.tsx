@@ -771,10 +771,90 @@ describe("OracleHomeScreen", () => {
     await waitFor(() => {
       expect(screen.getByText("Today's a no-go")).toBeInTheDocument();
     });
-    expect(
-      screen.getByText("Onshore wind all day making conditions choppy.")
-    ).toBeInTheDocument();
+    // whySentence renders in its own dedicated slot under the best-window
+    // card — not as the card subtitle (which is now sourced from
+    // heroRec.reasons[0]).
+    const why = screen.getByTestId("hero-why-sentence");
+    expect(why).toHaveTextContent(
+      "Onshore wind all day making conditions choppy."
+    );
     expect(screen.getByText("—")).toBeInTheDocument();
+  });
+
+  // ===========================================================================
+  // Hero why-sentence — distinct from the best-window subtitle
+  //
+  // The best-window card's subtitle line is now sourced from
+  // heroRec?.reasons?.[0]. heroSurfCall?.whySentence renders as its own
+  // distinct prose line under the card. The two must never resolve to the
+  // same string at the same time, and the why-sentence node must be
+  // omitted entirely when the surf-call payload doesn't carry one.
+  // ===========================================================================
+  describe("hero whySentence vs bestWindowSubtitle", () => {
+    it("renders whySentence under the card when /api/surf/call provides one", async () => {
+      // Default beforeEach mock returns whySentence "Solid window with offshore winds."
+      render(<OracleHomeScreen />);
+      const why = await screen.findByTestId("hero-why-sentence");
+      expect(why).toHaveTextContent("Solid window with offshore winds.");
+    });
+
+    it("renders the heroRec.reasons[0] fallback as the card subtitle, not the whySentence", async () => {
+      render(<OracleHomeScreen />);
+      // Wait for the surf-call fetch to settle so the render is stable.
+      await screen.findByTestId("hero-why-sentence");
+      // MOCK_TOP_REC.reasons = ["Clean WNW swell", "Offshore NW winds"].
+      expect(screen.getByText("Clean WNW swell")).toBeInTheDocument();
+    });
+
+    it("does not render the whySentence and the subtitle as the same string", async () => {
+      render(<OracleHomeScreen />);
+      const why = await screen.findByTestId("hero-why-sentence");
+      const whyText = why.textContent ?? "";
+      // The subtitle copy from MOCK_TOP_REC is "Clean WNW swell".
+      // The whySentence from beforeEach is "Solid window with offshore winds."
+      // These must be distinct nodes carrying distinct strings.
+      expect(whyText).not.toEqual("Clean WNW swell");
+      // And the subtitle string must not also appear as the why-sentence.
+      expect(whyText).not.toContain("Clean WNW swell");
+    });
+
+    it("omits the whySentence node when /api/surf/call returns no whySentence", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            report: {
+              verdict: "MAYBE",
+              score: 70,
+              // whySentence intentionally omitted
+              updatedAt: new Date().toISOString(),
+              bestWindowStart: new Date("2026-03-11T13:00:00.000Z").toISOString(),
+              bestWindowEnd: new Date("2026-03-11T16:00:00.000Z").toISOString(),
+              peakTime: new Date("2026-03-11T14:00:00.000Z").toISOString(),
+              waveHeight: "3-4ft",
+              windDescription: "8 mph NW",
+              tidePhase: "rising",
+              isCalibrated: true,
+              trendTags: [],
+              shortWindow: false,
+              windowMinutes: 180,
+              lowForecastConfidence: false,
+              rideableWavesPerHour: 12,
+            },
+            isTomorrow: false,
+          },
+        }),
+      });
+      render(<OracleHomeScreen />);
+      // The card subtitle (heroRec.reasons[0]) still renders even without a
+      // whySentence — proving the subtitle source is independent.
+      expect(await screen.findByText("Clean WNW swell")).toBeInTheDocument();
+      // No why-sentence node — we don't paint a placeholder when absent.
+      expect(
+        screen.queryByTestId("hero-why-sentence")
+      ).not.toBeInTheDocument();
+    });
   });
 
   it("falls back to top rec waveHeight for slots without slotForecasts data", () => {
