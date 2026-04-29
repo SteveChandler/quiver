@@ -3,6 +3,7 @@ import { waitForPageLoad } from './utils/test-helpers';
 import { TIMEOUTS } from './fixtures/test-data';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 import { isVisibleSafe } from './utils/strict-helpers';
+import { dismissMapEntryOverlay } from './utils/map-helpers';
 
 /**
  * Map Coordinate Validation Tests
@@ -49,6 +50,8 @@ test.describe('Map Coordinate Validation', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
+    await dismissMapEntryOverlay(page);
+
     // Wait for Mapbox map canvas to render
     await page.locator('.mapboxgl-canvas, canvas').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
@@ -87,6 +90,8 @@ test.describe('Map Coordinate Validation', () => {
   test('all beach markers render with valid coordinates', async ({ page }) => {
     await page.goto('/map');
     await waitForPageLoad(page);
+
+    await dismissMapEntryOverlay(page);
 
     // Wait for map and markers to load
     const mapContainer = page.locator('.mapboxgl-map, [class*="mapbox"]').first();
@@ -157,6 +162,8 @@ test.describe('Map Coordinate Validation', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
+    await dismissMapEntryOverlay(page);
+
     // Wait for Mapbox map canvas to render
     await page.locator('.mapboxgl-canvas, canvas').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
@@ -195,6 +202,8 @@ test.describe('Map Coordinate Validation', () => {
   test('clicking a marker shows correct beach info', async ({ page }) => {
     await page.goto('/map');
     await waitForPageLoad(page);
+
+    await dismissMapEntryOverlay(page);
 
     // Wait for markers to render
     await page.locator('.mapboxgl-marker').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
@@ -239,6 +248,8 @@ test.describe('Map Coordinate Validation', () => {
   test('map bounds are valid (not Infinity or NaN)', async ({ page }) => {
     await page.goto('/map');
     await waitForPageLoad(page);
+
+    await dismissMapEntryOverlay(page);
 
     // Wait for Mapbox map canvas to render
     await page.locator('.mapboxgl-canvas, canvas').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
@@ -314,6 +325,8 @@ test.describe('Map Coordinate Validation', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
+    await dismissMapEntryOverlay(page);
+
     // Wait for Mapbox map canvas to render
     await page.locator('.mapboxgl-canvas, canvas').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
@@ -345,6 +358,8 @@ test.describe('Map Coordinate Validation', () => {
   test('map markers cluster correctly at different zoom levels', async ({ page }) => {
     await page.goto('/map');
     await waitForPageLoad(page);
+
+    await dismissMapEntryOverlay(page);
 
     // Wait for Mapbox map canvas to render
     await page.locator('.mapboxgl-canvas, canvas').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
@@ -383,6 +398,8 @@ test.describe('Map Coordinate Validation', () => {
   test('map handles edge case coordinates correctly', async ({ page }) => {
     await page.goto('/map');
     await waitForPageLoad(page);
+
+    await dismissMapEntryOverlay(page);
 
     // Wait for Mapbox map canvas to render
     await page.locator('.mapboxgl-canvas, canvas').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
@@ -440,6 +457,8 @@ test.describe('Map Coordinate Validation - Data Quality', () => {
     // Navigate to a page that loads beach data
     await page.goto('/map');
     await waitForPageLoad(page);
+
+    await dismissMapEntryOverlay(page);
 
     // Wait for Mapbox map canvas to render
     await page.locator('.mapboxgl-canvas, canvas').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
@@ -499,6 +518,8 @@ test.describe('Map Coordinate Validation - Data Quality', () => {
   test('all beaches in database have valid longitude', async ({ page }) => {
     await page.goto('/map');
     await waitForPageLoad(page);
+
+    await dismissMapEntryOverlay(page);
 
     // Wait for Mapbox map canvas to render
     await page.locator('.mapboxgl-canvas, canvas').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
@@ -560,6 +581,8 @@ test.describe('Map Coordinate Validation - Data Quality', () => {
 
     await page.goto('/map');
     await waitForPageLoad(page);
+
+    await dismissMapEntryOverlay(page);
 
     // Try to create/update a beach with invalid coordinates via API
     const validationTest = await page.evaluate(async () => {
@@ -633,6 +656,7 @@ test.describe('Map Coordinate Validation - Mobile', () => {
   test('markers render correctly on mobile viewport', async ({ page }) => {
     await page.goto('/map');
     await waitForPageLoad(page);
+    await dismissMapEntryOverlay(page);
     // Wait for Mapbox map canvas to render
     await page.locator('.mapboxgl-canvas, canvas').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 

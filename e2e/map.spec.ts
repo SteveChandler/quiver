@@ -3,6 +3,7 @@ import { VIEWPORTS, TIMEOUTS } from './fixtures/test-data';
 import { waitForPageLoad } from './utils/test-helpers';
 import { isVisibleSafe } from './utils/strict-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
+import { dismissMapEntryOverlay } from './utils/map-helpers';
 
 /**
  * Map Page Tests
@@ -18,6 +19,7 @@ test.describe('Map Page - Core Functionality', () => {
     errorCapture = setupErrorDetection(page);
     await page.goto('/map');
     await waitForPageLoad(page);
+  await dismissMapEntryOverlay(page);
   });
 
   test.afterEach(async ({ page }) => {
@@ -80,6 +82,7 @@ test.describe('Map Page - View Mode Toggle', () => {
     errorCapture = setupErrorDetection(page);
     await page.goto('/map');
     await waitForPageLoad(page);
+  await dismissMapEntryOverlay(page);
   });
 
   test.afterEach(async ({ page }) => {
@@ -143,6 +146,7 @@ test.describe('Map Page - Filter Functionality', () => {
     errorCapture = setupErrorDetection(page);
     await page.goto('/map');
     await waitForPageLoad(page);
+  await dismissMapEntryOverlay(page);
   });
 
   test.afterEach(async ({ page }) => {
@@ -212,6 +216,7 @@ test.describe('Map Page - Search Integration', () => {
     errorCapture = setupErrorDetection(page);
     await page.goto('/map');
     await waitForPageLoad(page);
+  await dismissMapEntryOverlay(page);
   });
 
   test.afterEach(async ({ page }) => {
@@ -222,6 +227,8 @@ test.describe('Map Page - Search Integration', () => {
     // Navigate with search query in URL
     await page.goto('/map?search=Ocean Beach');
     await waitForPageLoad(page);
+
+    await dismissMapEntryOverlay(page);
 
     // Beaches should be filtered based on search
     // The map should show results (or no results message if none match)
@@ -236,6 +243,8 @@ test.describe('Map Page - Search Integration', () => {
     // Use URL search param to filter
     await page.goto('/map?search=Beach');
     await waitForPageLoad(page);
+
+    await dismissMapEntryOverlay(page);
 
     // Wait for map to be ready
     const mapCanvas = page.locator('canvas').first();
@@ -272,6 +281,8 @@ test.describe('Map Page - Geolocation', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
+    await dismissMapEntryOverlay(page);
+
     // Map should load with user location
     const mapView = page.getByTestId('map-view');
     await expect(mapView).toBeVisible({ timeout: TIMEOUTS.medium });
@@ -294,6 +305,8 @@ test.describe('Map Page - Geolocation', () => {
 
     await page.goto('/map');
     await waitForPageLoad(page);
+
+    await dismissMapEntryOverlay(page);
 
     // Map should still load (using default location or showing all beaches)
     const mapView = page.getByTestId('map-view');
@@ -330,6 +343,8 @@ test.describe('Map Page - Geolocation', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
+    await dismissMapEntryOverlay(page);
+
     // eslint-disable-next-line playwright/no-wait-for-timeout -- collecting console errors over time window for geolocation operations
     await page.waitForTimeout(TIMEOUTS.short);
 
@@ -348,6 +363,8 @@ test.describe('Map Page - Geolocation', () => {
 
     await page.goto('/map');
     await waitForPageLoad(page);
+
+    await dismissMapEntryOverlay(page);
 
     // Click "Use Near Me" button - matches exact button text
     const nearMeButton = page.getByRole('button', { name: /use near me/i });
@@ -394,6 +411,8 @@ test.describe('Map Page - Responsive Design', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
+    await dismissMapEntryOverlay(page);
+
     // Map view should be visible
     const mapView = page.getByTestId('map-view');
     await expect(mapView).toBeVisible({ timeout: TIMEOUTS.medium });
@@ -415,6 +434,8 @@ test.describe('Map Page - Responsive Design', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
+    await dismissMapEntryOverlay(page);
+
     const mapView = page.getByTestId('map-view');
     await expect(mapView).toBeVisible({ timeout: TIMEOUTS.medium });
 
@@ -428,6 +449,8 @@ test.describe('Map Page - Responsive Design', () => {
 
     await page.goto('/map');
     await waitForPageLoad(page);
+
+    await dismissMapEntryOverlay(page);
 
     const mapView = page.getByTestId('map-view');
     await expect(mapView).toBeVisible({ timeout: TIMEOUTS.medium });
@@ -449,6 +472,8 @@ test.describe('Map Page - Responsive Design', () => {
 
     await page.goto('/map');
     await waitForPageLoad(page);
+
+    await dismissMapEntryOverlay(page);
 
     // Map view should be visible within viewport
     const mapView = page.getByTestId('map-view');
@@ -516,6 +541,8 @@ test.describe('Map Page - Stability and Performance', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
+    await dismissMapEntryOverlay(page);
+
     const initialCount = mapInitCount;
 
     // Interact with the map (which might trigger state updates)
@@ -552,6 +579,8 @@ test.describe('Map Page - Stability and Performance', () => {
 
     await page.goto('/map');
     await waitForPageLoad(page);
+
+    await dismissMapEntryOverlay(page);
 
     // Verify map canvas is visible
     const mapCanvas = page.locator('canvas').first();
@@ -603,6 +632,7 @@ test.describe('Map Page - Marker Interactions', () => {
 
     await page.goto('/map');
     await waitForPageLoad(page);
+  await dismissMapEntryOverlay(page);
   });
 
   test.afterEach(async ({ page }) => {
@@ -695,6 +725,8 @@ test.describe('Map Page - Beach Card Navigation', () => {
     await page.goto('/map?search=Blacks');
     await waitForPageLoad(page);
 
+    await dismissMapEntryOverlay(page);
+
     // Desktop sidebar renders SidebarBeachCard as <button> elements (not links).
     // The sidebar uses handleSidebarNavigate which calls router.push() directly on click —
     // so clicking the button navigates immediately to the beach detail page.
@@ -727,6 +759,8 @@ test.describe('Map Page - Beach Card Navigation', () => {
 
     await page.goto('/map');
     await waitForPageLoad(page);
+
+    await dismissMapEntryOverlay(page);
 
     // Wait for map canvas to fully load
     const mapCanvas = page.locator('canvas').first();
@@ -771,6 +805,8 @@ test.describe('Map Page - Mobile Bug Fix Regression', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
+    await dismissMapEntryOverlay(page);
+
     const handleArea = page.getByTestId('drawer-handle-area');
     await expect(handleArea).toBeVisible({ timeout: TIMEOUTS.medium });
 
@@ -798,6 +834,8 @@ test.describe('Map Page - Mobile Bug Fix Regression', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
+    await dismissMapEntryOverlay(page);
+
     // Wait for markers then click one to select a beach
     const markers = page.locator('[data-testid="beach-marker"]');
     const hasMarkers = await isVisibleSafe(markers.first(), { timeout: TIMEOUTS.long });
@@ -819,6 +857,8 @@ test.describe('Map Page - Mobile Bug Fix Regression', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
+    await dismissMapEntryOverlay(page);
+
     const handleArea = page.getByTestId('drawer-handle-area');
     await expect(handleArea).toBeVisible({ timeout: TIMEOUTS.medium });
 
@@ -832,6 +872,8 @@ test.describe('Map Page - Mobile Bug Fix Regression', () => {
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/map');
     await waitForPageLoad(page);
+
+    await dismissMapEntryOverlay(page);
 
     // Wait for map to load
     await expect(page.locator('canvas').first()).toBeVisible({ timeout: TIMEOUTS.long });
@@ -854,6 +896,8 @@ test.describe('Map Page - Mobile Bug Fix Regression', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
+    await dismissMapEntryOverlay(page);
+
     const markers = page.locator('[data-testid="beach-marker"]');
     const hasMarkers = await isVisibleSafe(markers.first(), { timeout: TIMEOUTS.long });
     if (!hasMarkers) throw new Error('No beach markers found for icon visibility test');
@@ -871,6 +915,8 @@ test.describe('Map Page - Mobile Bug Fix Regression', () => {
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/map');
     await waitForPageLoad(page);
+
+    await dismissMapEntryOverlay(page);
 
     // Switch to list view
     const listButton = page.getByTestId('view-mode-list');

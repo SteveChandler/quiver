@@ -1,6 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { MapEntryOverlay } from "@/components/map/map-entry-overlay";
 
 // Loading skeleton for map
 function MapSkeleton() {
@@ -33,5 +36,27 @@ const MapView = dynamic(
 );
 
 export function MapPageClient() {
-  return <MapView />;
+  const searchParams = useSearchParams();
+  // If the URL already carries `?search=...`, the user has expressed search
+  // intent (typically via the global header search) — skip the overlay so they
+  // land directly on the map view.
+  const hasSearchIntent = Boolean(searchParams.get("search"));
+  const [overlayOpen, setOverlayOpen] = useState(!hasSearchIntent);
+
+  // Mirror URL → state for the rare case where the param appears post-mount
+  // (client-side nav into /map?search=...).
+  useEffect(() => {
+    if (hasSearchIntent) setOverlayOpen(false);
+  }, [hasSearchIntent]);
+
+  const handleDismiss = useCallback(() => {
+    setOverlayOpen(false);
+  }, []);
+
+  return (
+    <>
+      <MapView />
+      {overlayOpen && <MapEntryOverlay onDismiss={handleDismiss} />}
+    </>
+  );
 }
