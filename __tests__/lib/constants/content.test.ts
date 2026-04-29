@@ -80,44 +80,11 @@ describe("lib/constants/content invariants", () => {
     expect(email).toMatch(/@/);
   });
 
-  test("FEATURES_EXTENDED_CONTENT has required sections with non-empty content", () => {
-    // Hero
+  test("FEATURES_EXTENDED_CONTENT has required hero with non-empty content", () => {
     expect(typeof FEATURES_EXTENDED_CONTENT.hero.title).toBe("string");
     expect(FEATURES_EXTENDED_CONTENT.hero.title.length).toBeGreaterThan(0);
     expect(typeof FEATURES_EXTENDED_CONTENT.hero.subtitle).toBe("string");
     expect(FEATURES_EXTENDED_CONTENT.hero.subtitle.length).toBeGreaterThan(0);
-    expect(Array.isArray(FEATURES_EXTENDED_CONTENT.hero.stats)).toBe(true);
-    expect(FEATURES_EXTENDED_CONTENT.hero.stats.length).toBeGreaterThan(0);
-
-    // Benefits
-    expect(Array.isArray(FEATURES_EXTENDED_CONTENT.benefits.cards)).toBe(true);
-    expect(FEATURES_EXTENDED_CONTENT.benefits.cards.length).toBe(4);
-    for (const card of FEATURES_EXTENDED_CONTENT.benefits.cards) {
-      expect(typeof card.id).toBe("string");
-      expect(typeof card.title).toBe("string");
-      expect(card.title.length).toBeGreaterThan(0);
-      expect(typeof card.description).toBe("string");
-      expect(card.description.length).toBeGreaterThan(0);
-    }
-
-    // Deep Dive
-    expect(typeof FEATURES_EXTENDED_CONTENT.deepDive.heading).toBe("string");
-    expect(FEATURES_EXTENDED_CONTENT.deepDive.heading.length).toBeGreaterThan(0);
-    expect(Array.isArray(FEATURES_EXTENDED_CONTENT.deepDive.items)).toBe(true);
-    expect(FEATURES_EXTENDED_CONTENT.deepDive.items.length).toBe(4);
-    for (const item of FEATURES_EXTENDED_CONTENT.deepDive.items) {
-      expect(typeof item.id).toBe("string");
-      expect(typeof item.title).toBe("string");
-      expect(item.title.length).toBeGreaterThan(0);
-      expect(typeof item.content).toBe("string");
-      expect(item.content.length).toBeGreaterThan(0);
-    }
-
-    // CTA
-    expect(typeof FEATURES_EXTENDED_CONTENT.cta.title).toBe("string");
-    expect(FEATURES_EXTENDED_CONTENT.cta.title.length).toBeGreaterThan(0);
-    expect(typeof FEATURES_EXTENDED_CONTENT.cta.primaryCta.text).toBe("string");
-    expect(typeof FEATURES_EXTENDED_CONTENT.cta.primaryCta.href).toBe("string");
   });
 });
 

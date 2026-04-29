@@ -812,78 +812,8 @@ export const TERMS_CONTENT = {
 
 export const FEATURES_EXTENDED_CONTENT = {
   hero: {
-    title: "Know Where to Paddle Out Before You Leave the House",
+    title: "Find your home break.",
     subtitle:
-      "Quiver learns your wave preferences and tells you which beach will be best today. No decoding charts. No guesswork.",
-    stats: [
-      { value: "275+", label: "Beaches" },
-      { value: "3hr", label: "Updated Every 3 Hours" },
-      { value: "0-100", label: "Your Personal Match Score" },
-      { value: "Live", label: "Real Conditions, Not Guesses" },
-    ],
-  },
-  benefits: {
-    cards: [
-      {
-        id: "know-now",
-        title: "Know What's Happening Now",
-        description:
-          "Live updates from buoys and surfers. No more driving to a flat beach.",
-      },
-      {
-        id: "see-whos-surfing",
-        title: "See Who's Surfing",
-        description:
-          "Real-time reports from your breaks. Know if it's worth the paddle.",
-      },
-      {
-        id: "log-sessions",
-        title: "Log Sessions in 30 Seconds",
-        description:
-          "Conditions fill in automatically. Just add your notes.",
-      },
-      {
-        id: "watch-progress",
-        title: "Watch Yourself Progress",
-        description: "Charts and insights from your surf history.",
-      },
-    ],
-  },
-  deepDive: {
-    heading: "Want the Details? We've Got Layers.",
-    items: [
-      {
-        id: "forecast",
-        title: "How the forecast works",
-        content:
-          "We pull raw predictions from NOAA wave models, correct them every 3 hours with live IOOS and CDIP buoy readings, then run everything through an XGBoost ML model trained on 90 days of local data. The result: forecasts that match what you actually find at the beach.",
-      },
-      {
-        id: "discovery",
-        title: "350+ surf guides",
-        content:
-          "Intent-based guides for every style — beginner spots, longboard-friendly waves, dawn patrol picks, and regional hub guides. Each one built from real forecast data, not just a list.",
-      },
-      {
-        id: "mobile",
-        title: "Native iOS & Android apps",
-        content:
-          "Push alerts when conditions hit your thresholds, native camera for session photos, and GPS-based nearby beach suggestions. Take Quiver everywhere.",
-      },
-      {
-        id: "data",
-        title: "The data behind your forecast",
-        content:
-          "30,000+ training observations, 3-hour correction cadence, 90-day rolling data window. Every forecast is backed by real buoy readings, not just model output.",
-      },
-    ],
-  },
-  cta: {
-    title: "Your Next Session Starts Here",
-    subtitle: "Know where to surf before you leave the house.",
-    // href kept for secondaryCta parity; primary CTA opens auth modal via onClick
-    primaryCta: { text: "Get Started", href: "/auth/sign-up" },
-    secondaryCta: { text: "Explore the Map", href: "/map" },
-    note: "Free account. Works on web, iOS, and Android.",
+      "Pick your spot. Get conditions explained for your level. Free, updated every 3 hours.",
   },
 } as const;
