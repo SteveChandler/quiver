@@ -74,9 +74,9 @@ jest.mock("@/lib/analytics/auth-events", () => ({
 jest.mock("@/lib/constants/features", () => ({
   CONTENT: {
     hero: {
-      title: "Every session makes your next forecast smarter.",
+      title: "Dial in your home break.",
       subtitle: "Test subtitle",
-      cta: "Check your forecast",
+      cta: "Set up your home break",
     },
   },
 }));
@@ -86,7 +86,7 @@ describe("HeroSection", () => {
     render(<HeroSection />);
     expect(
       screen.getByRole("heading", {
-        name: /every session makes your next forecast smarter/i,
+        name: /dial in your home break/i,
       })
     ).toBeInTheDocument();
   });
@@ -99,7 +99,7 @@ describe("HeroSection", () => {
   it("renders the primary CTA button with correct text", () => {
     render(<HeroSection />);
     const cta = screen.getByRole("button", {
-      name: /check your forecast/i,
+      name: /set up your home break/i,
     });
     expect(cta).toBeInTheDocument();
   });
@@ -116,7 +116,7 @@ describe("HeroSection", () => {
     render(<HeroSection />);
 
     const cta = screen.getByRole("button", {
-      name: /check your forecast/i,
+      name: /set up your home break/i,
     });
     await user.click(cta);
 
@@ -131,7 +131,7 @@ describe("HeroSection", () => {
     render(<HeroSection />);
 
     const cta = screen.getByRole("button", {
-      name: /check your forecast/i,
+      name: /set up your home break/i,
     });
     await user.click(cta);
 
