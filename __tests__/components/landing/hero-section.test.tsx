@@ -104,11 +104,11 @@ describe("HeroSection", () => {
     expect(cta).toBeInTheDocument();
   });
 
-  it("renders the Learn More secondary CTA linking to /about", () => {
+  it("renders the Find a spot secondary CTA linking to /features", () => {
     render(<HeroSection />);
-    const learnMore = screen.getByRole("link", { name: /learn more/i });
-    expect(learnMore).toBeInTheDocument();
-    expect(learnMore).toHaveAttribute("href", "/about");
+    const secondary = screen.getByRole("link", { name: /find a spot/i });
+    expect(secondary).toBeInTheDocument();
+    expect(secondary).toHaveAttribute("href", "/features");
   });
 
   it("opens auth modal in signup mode when primary CTA is clicked", async () => {
