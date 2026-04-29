@@ -21,6 +21,13 @@ global.fetch = jest.fn(() =>
   Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
 );
 
+// Mock useTrackEvent — HomeBeachStep emits onboarding_step events with
+// geolocation_state metadata on mount (Workstream W5).
+const mockTrack = jest.fn();
+jest.mock("@/hooks/use-track-event", () => ({
+  useTrackEvent: () => ({ track: mockTrack }),
+}));
+
 // Mock dependencies for PayoffStep
 jest.mock("@/context/profile-context", () => ({
   useProfileContext: () => ({ updateProfile: jest.fn() }),
@@ -101,6 +108,29 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
   });
 
   describe("HomeBeachStep", () => {
+    // Stub navigator.geolocation so the auto-prompt-on-mount path doesn't
+    // throw in JSDOM. Default = unavailable; specific tests override.
+    const originalGeolocation = (
+      global.navigator as Navigator & { geolocation?: Geolocation }
+    ).geolocation;
+
+    beforeEach(() => {
+      mockTrack.mockClear();
+      // Default: geolocation unavailable in JSDOM. Tests that exercise the
+      // granted/denied paths override navigator.geolocation directly.
+      Object.defineProperty(global.navigator, "geolocation", {
+        configurable: true,
+        value: undefined,
+      });
+    });
+
+    afterEach(() => {
+      Object.defineProperty(global.navigator, "geolocation", {
+        configurable: true,
+        value: originalGeolocation,
+      });
+    });
+
     it("renders search input", () => {
       render(<HomeBeachStep />);
       expect(
@@ -133,9 +163,118 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       expect(continueBtn).toBeDisabled();
     });
 
-    // Note: Search and selection tests involve complex async interactions
-    // that work differently in Jest/JSDOM vs real browser.
-    // Full flow tested in E2E (e2e/onboarding.spec.ts).
+    it("does NOT render a Find me / opt-in geolocation button — auto-prompts on mount", () => {
+      // Workstream W5: geolocation prompt fires automatically on mount.
+      // The previous opt-in "Find me" button was removed; manual search is
+      // the always-available fallback (covered by the search-input test).
+      render(<HomeBeachStep />);
+      expect(
+        screen.queryByRole("button", { name: /Find me/i })
+      ).not.toBeInTheDocument();
+    });
+
+    it("emits onboarding_step with geolocation_state='unavailable' when navigator.geolocation is missing", () => {
+      render(<HomeBeachStep />);
+      // First emit on mount = pending; second emit = unavailable (synchronous fallback).
+      expect(mockTrack).toHaveBeenCalledWith(
+        "onboarding_step",
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            step: "home_beach_geolocation",
+            step_name: "home_beach",
+            geolocation_state: "pending",
+          }),
+        })
+      );
+      expect(mockTrack).toHaveBeenCalledWith(
+        "onboarding_step",
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            step: "home_beach_geolocation",
+            geolocation_state: "unavailable",
+          }),
+        })
+      );
+    });
+
+    it("emits geolocation_state='denied' when the user denies the permission prompt", async () => {
+      Object.defineProperty(global.navigator, "geolocation", {
+        configurable: true,
+        value: {
+          getCurrentPosition: (
+            _success: PositionCallback,
+            error: PositionErrorCallback
+          ) => {
+            error({
+              code: 1,
+              message: "User denied geolocation",
+              PERMISSION_DENIED: 1,
+              POSITION_UNAVAILABLE: 2,
+              TIMEOUT: 3,
+            } as GeolocationPositionError);
+          },
+        },
+      });
+
+      render(<HomeBeachStep />);
+
+      await waitFor(() => {
+        expect(mockTrack).toHaveBeenCalledWith(
+          "onboarding_step",
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              geolocation_state: "denied",
+            }),
+          })
+        );
+      });
+
+      // Falls back to search-first UI silently — no error toast, search input
+      // still rendered.
+      expect(toast.error).not.toHaveBeenCalled();
+      expect(
+        screen.getByPlaceholderText(/e.g., Malibu, Pipeline, Rincon/i)
+      ).toBeInTheDocument();
+    });
+
+    it("emits geolocation_state='granted' when permission is granted", async () => {
+      Object.defineProperty(global.navigator, "geolocation", {
+        configurable: true,
+        value: {
+          getCurrentPosition: (success: PositionCallback) => {
+            success({
+              coords: {
+                latitude: 33.7,
+                longitude: -118.3,
+                accuracy: 10,
+                altitude: null,
+                altitudeAccuracy: null,
+                heading: null,
+                speed: null,
+                toJSON: () => ({}),
+              },
+              timestamp: Date.now(),
+              toJSON: () => ({}),
+            } as GeolocationPosition);
+          },
+        },
+      });
+
+      render(<HomeBeachStep />);
+
+      await waitFor(() => {
+        expect(mockTrack).toHaveBeenCalledWith(
+          "onboarding_step",
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              geolocation_state: "granted",
+            }),
+          })
+        );
+      });
+    });
+
+    // Note: full search/selection flow tested in E2E (e2e/onboarding.spec.ts).
   });
 
   describe("ExperienceLevelStep", () => {
