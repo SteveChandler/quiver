@@ -93,20 +93,23 @@ test.describe('Service Health: Beach Data Rendering @smoke', () => {
     });
     await page.waitForLoadState('load', { timeout: 15000 });
 
-    // Wait for conditions ticker or stats grid (actual testids on the beach detail page)
-    const ticker = page.locator('[data-testid="ticker-content"]');
-    const statsGrid = page.locator('[data-testid="beach-stats-grid"]');
-    const hasTicker = await isVisibleSafe(ticker, { timeout: 10000 });
-    const hasStats = await isVisibleSafe(statsGrid, { timeout: 5000 });
+    // Zine rebuild (2026-04-28) retired ConditionsTicker + BeachStatsGrid;
+    // the editorial "Today's Surf Call" section is the new wave-data surface.
+    // Fall back to the H1 as a render-success signal.
+    const surfCallSection = page.locator('section[aria-label="Today\'s surf call"]');
+    const heading = page.locator('h1', { hasText: /blacks/i });
+    const hasSurfCall = await isVisibleSafe(surfCallSection, { timeout: 10000 });
+    const hasHeading = await isVisibleSafe(heading, { timeout: 5000 });
 
-    expect(hasTicker || hasStats).toBe(true);
+    expect(hasSurfCall || hasHeading).toBe(true);
 
-    if (hasTicker) {
-      const text = await ticker.textContent();
-      console.log(`[Beach Page] Found conditions ticker: ${text}`);
+    if (hasSurfCall) {
+      const text = await surfCallSection.textContent();
+      const snippet = text?.slice(0, 200) ?? '';
+      console.log(`[Beach Page] Found Today's Surf Call: ${snippet}`);
       test.info().annotations.push({
         type: 'wave-data',
-        description: `Ticker: ${text}`,
+        description: `SurfCall: ${snippet}`,
       });
     }
   });
