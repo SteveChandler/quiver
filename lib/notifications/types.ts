@@ -135,6 +135,28 @@ export interface NotificationTypeDef<P = Record<string, unknown>> {
   /** Skip when actor === recipient. Default true for social types. */
   suppressSelfNotify: boolean;
   quietHours: QuietHoursConfig;
+  /**
+   * Phase 5e: validate (and parse) the producer-supplied payload at enqueue
+   * time. Throw on shape mismatch — `enqueueNotification` catches and returns
+   * `{ enqueued: false, reason: "invalid_payload" }`. Recommended: a Zod
+   * schema's `.parse`. Returning the validated payload lets builders rely
+   * on the parsed shape downstream.
+   */
+  validatePayload?: (input: unknown) => P;
+  /**
+   * Phase 5e: per-type minimum interval between SUCCESSFUL push deliveries to
+   * the same recipient. Querying `notification_delivery_attempts` for the
+   * last `sent` push within this window — if found, the worker emits
+   * `skipped_cooldown`. NULL = no cooldown (default). Distinct from producer
+   * dedupe_key (which prevents duplicate active events).
+   */
+  cooldownMs?: number;
+  /**
+   * Phase 5e: per-type override for the global per-channel retry cap.
+   * Default 3. Rarely needed — set higher for types where transient
+   * delivery failures are tolerable (e.g. analytics).
+   */
+  maxAttempts?: number;
   buildPushPayload?: (payload: P, ctx: BuildCtx) => NotificationPushPayload;
   buildInAppPayload?: (payload: P, ctx: BuildCtx) => NotificationInAppPayload;
   /**
@@ -182,4 +204,12 @@ export interface EnqueueArgs<P = Record<string, unknown>> {
 
 export type EnqueueResult =
   | { enqueued: true; eventId: string }
-  | { enqueued: false; reason: "duplicate" | "unknown_type" | "internal_error"; message?: string };
+  | {
+      enqueued: false;
+      reason:
+        | "duplicate"
+        | "unknown_type"
+        | "internal_error"
+        | "invalid_payload";
+      message?: string;
+    };

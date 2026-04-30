@@ -23,7 +23,69 @@
  * Plan: ~/.claude/plans/on-quiver-native-we-have-snug-tiger.md (Phase 1d).
  */
 
+import { z } from "zod";
+
 import type { NotificationDeliveryStatus, NotificationTypeDef } from "./types";
+
+// ─── Phase 5e: payload schemas (validatePayload source of truth) ─────────────
+
+const sessionInviteSchema = z.object({
+  session_id: z.string().min(1),
+  beach_name: z.string().nullable().optional(),
+  arrival_time: z.string().nullable().optional(),
+  message: z.string().nullable().optional(),
+});
+
+const likeSchema = z.object({
+  session_id: z.string().min(1),
+  beach_name: z.string().nullable().optional(),
+});
+
+// follow has no required fields; actor identity comes from BuildCtx.
+const followSchema = z.record(z.string(), z.unknown());
+
+const forecastAlertSchema = z.object({
+  alert_date: z.string().min(1),
+  title: z.string().min(1),
+  body: z.string().min(1),
+  beach_id: z.string().nullable().optional(),
+  beach_slug: z.string().nullable().optional(),
+  matches: z.unknown().optional(),
+  queue_items: z
+    .array(z.object({ queue_id: z.string(), rule_id: z.string() }))
+    .optional(),
+});
+
+const trialEndingSchema = z.object({
+  title: z.string().min(1),
+  body: z.string().min(1),
+  trial_ends_at: z.string().min(1),
+});
+
+const logSessionNudgeSchema = z.object({
+  cohort: z.string().min(1),
+  title: z.string().min(1),
+  body: z.string().min(1),
+  beach_id: z.string().nullable().optional(),
+});
+
+const waterQualitySchema = z.object({
+  beach_id: z.string().min(1),
+  beach_slug: z.string().min(1),
+  beach_name: z.string().min(1),
+  status: z.enum(["good", "advisory", "closure", "unknown"]),
+  previous_status: z
+    .enum(["good", "advisory", "closure", "unknown"])
+    .nullable(),
+  status_changed_at: z.string().min(1),
+});
+
+const dailyDigestSchema = z.object({
+  alert_date: z.string().min(1),
+  title: z.string().min(1),
+  body: z.string().min(1),
+  match_count: z.number().int().nonnegative().optional(),
+});
 
 /**
  * Map a worker's per-channel status onto the legacy alert_delivery_attempts
@@ -153,6 +215,7 @@ export const NOTIFICATION_REGISTRY = {
     },
     suppressSelfNotify: true,
     quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => sessionInviteSchema.parse(input),
     buildPushPayload: (p, ctx) => {
       const inviter = ctx.actor?.display_name || "A surfer on Quiver";
       const where = p.beach_name ? ` to ${p.beach_name}` : "";
@@ -193,6 +256,7 @@ export const NOTIFICATION_REGISTRY = {
     },
     suppressSelfNotify: true,
     quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => likeSchema.parse(input),
     buildPushPayload: (p, ctx) => {
       const liker = ctx.actor?.display_name || "Someone";
       return {
@@ -221,6 +285,7 @@ export const NOTIFICATION_REGISTRY = {
     },
     suppressSelfNotify: true,
     quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => followSchema.parse(input) as FollowPayload,
     buildPushPayload: (_p, ctx) => {
       const follower = ctx.actor?.display_name || "Someone";
       return {
@@ -253,6 +318,7 @@ export const NOTIFICATION_REGISTRY = {
     },
     suppressSelfNotify: false,
     quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => forecastAlertSchema.parse(input) as ForecastAlertPayload,
     buildPushPayload: (p) => ({
       title: p.title,
       body: p.body,
@@ -320,6 +386,7 @@ export const NOTIFICATION_REGISTRY = {
     suppressSelfNotify: false,
     // Producer cron runs at 9am PT — quiet-hour window not relevant.
     quietHours: NO_QUIET,
+    validatePayload: (input) => trialEndingSchema.parse(input),
     buildPushPayload: (p) => ({
       title: p.title,
       body: p.body,
@@ -336,6 +403,7 @@ export const NOTIFICATION_REGISTRY = {
     },
     suppressSelfNotify: false,
     quietHours: NO_QUIET,
+    validatePayload: (input) => logSessionNudgeSchema.parse(input),
     buildPushPayload: (p) => ({
       title: p.title,
       body: p.body,
@@ -356,6 +424,7 @@ export const NOTIFICATION_REGISTRY = {
     },
     suppressSelfNotify: false,
     quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => waterQualitySchema.parse(input),
     buildPushPayload: (p) => {
       const isAdvisory = p.status === "advisory" || p.status === "closure";
       const title = isAdvisory
@@ -399,6 +468,7 @@ export const NOTIFICATION_REGISTRY = {
     },
     suppressSelfNotify: false,
     quietHours: NO_QUIET,
+    validatePayload: (input) => dailyDigestSchema.parse(input),
     buildPushPayload: (p) => ({
       title: p.title,
       body: p.body,
