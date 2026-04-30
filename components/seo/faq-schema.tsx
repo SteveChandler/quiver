@@ -152,7 +152,7 @@ export function QuiverFAQSchema() {
     {
       question: "Is Quiver free to use?",
       answer:
-        "Quiver's core is free to use — forecasts at 279+ beaches, unlimited session logging, similarity score, custom spots, and the community feed. Quiver Pro adds personalized alerts, board recommendations, offline mode, and deeper session analytics for $4.99/month or $39.99/year.",
+        "Quiver's core is free to use — forecasts at 279+ beaches, unlimited session logging, the community feed, share cards, and 3 favorite beaches. Quiver Pro unlocks the personalized 'should I go' verdict, similarity matching against your best sessions, board recommendations, push alerts when conditions match, and unlimited favorites for $4.99/month or $39.99/year, with a 14-day free trial.",
     },
     {
       question: "How accurate are the surf forecasts?",
