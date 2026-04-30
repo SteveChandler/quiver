@@ -31,12 +31,24 @@ export type ProfilePrefColumn = Extract<
 
 export type NotificationChannel = "push" | "in_app" | "email";
 
+/**
+ * Phase 5a: event-level outcomes only. Channel-level skips moved to
+ * NotificationDeliveryStatus. The legacy 'skipped' value has been backfilled
+ * to 'processed' in the migration; new code should never write it.
+ */
 export type NotificationEventStatus =
   | "pending"
+  | "processing"
   | "processed"
-  | "skipped"
-  | "failed";
+  | "failed"
+  | "cancelled";
 
+/**
+ * Phase 5a: `skipped_quiet_hours` was renamed to `deferred_quiet_hours` to
+ * make its retryable nature explicit. `skipped_cooldown` is a new terminal
+ * skip emitted when the registry's per-type cooldownMs window has not
+ * elapsed since the last successful send to this recipient.
+ */
 export type NotificationDeliveryStatus =
   | "sent"
   | "skipped_no_device"
@@ -45,7 +57,8 @@ export type NotificationDeliveryStatus =
   | "skipped_self"
   | "skipped_dedup"
   | "skipped_disabled"
-  | "skipped_quiet_hours"
+  | "skipped_cooldown"
+  | "deferred_quiet_hours"
   | "failed_provider"
   | "failed_internal";
 
@@ -118,7 +131,7 @@ export interface NotificationTypeDef<P = Record<string, unknown>> {
   buildInAppPayload?: (payload: P, ctx: BuildCtx) => NotificationInAppPayload;
   /**
    * Optional hook the worker fires after writing a notification_delivery_attempts
-   * row. Called for every status EXCEPT `skipped_quiet_hours` (which is a "try
+   * row. Called for every status EXCEPT `deferred_quiet_hours` (which is a "try
    * later" state, not an outcome). Used by types that need to reconcile their
    * own bookkeeping tables (e.g. forecast_alert writes per-rule rows to
    * alert_delivery_attempts).

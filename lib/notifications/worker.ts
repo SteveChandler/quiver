@@ -19,7 +19,7 @@
  *     `skipped_dedup`). The decision was "don't send" rather than "couldn't
  *     send" — we don't retry. Channel is done.
  *   - **retryable**: `failed_provider`, `failed_internal`, or
- *     `skipped_quiet_hours` (re-evaluate next tick when out of window). The
+ *     `deferred_quiet_hours` (re-evaluate next tick when out of window). The
  *     event stays `pending` until the channel either succeeds, decisively
  *     skips, or hits MAX_FAILED_ATTEMPTS_PER_CHANNEL.
  *
@@ -342,8 +342,8 @@ async function processOne(
     summary.by_status[status] = (summary.by_status[status] ?? 0) + 1;
 
     // Type-specific reconciliation hook (e.g. forecast_alert -> alert_delivery_attempts).
-    // Skip for skipped_quiet_hours (non-terminal — try later, no audit row yet).
-    if (def.onChannelOutcome && status !== "skipped_quiet_hours") {
+    // Skip for deferred_quiet_hours (non-terminal — try later, no audit row yet).
+    if (def.onChannelOutcome && status !== "deferred_quiet_hours") {
       try {
         await def.onChannelOutcome({
           supabase: supabase as unknown as Parameters<
@@ -374,7 +374,7 @@ async function processOne(
       channelOutcomes.set(channel, "sent");
     } else if (TERMINAL_SKIP_STATUSES.has(status)) {
       channelOutcomes.set(channel, "skipped");
-    } else if (status === "skipped_quiet_hours") {
+    } else if (status === "deferred_quiet_hours") {
       // Retryable — re-evaluate next tick.
       channelOutcomes.set(channel, "pending");
     } else if (FAILURE_STATUSES.has(status)) {
@@ -492,7 +492,7 @@ async function processChannel(
     const start = def.quietHours.windowStart ?? 22;
     const end = def.quietHours.windowEnd ?? 4;
     if (isInQuietWindow(localHour, start, end)) {
-      return "skipped_quiet_hours";
+      return "deferred_quiet_hours";
     }
   }
 

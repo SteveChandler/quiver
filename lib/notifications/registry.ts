@@ -28,7 +28,7 @@ import type { NotificationDeliveryStatus, NotificationTypeDef } from "./types";
 /**
  * Map a worker's per-channel status onto the legacy alert_delivery_attempts
  * status enum. Returns null for non-terminal-or-irrelevant statuses (e.g.
- * skipped_quiet_hours — the next worker tick will produce the real outcome).
+ * deferred_quiet_hours — the next worker tick will produce the real outcome).
  */
 function mapWorkerStatusToAlertAttempt(
   status: NotificationDeliveryStatus
@@ -58,7 +58,7 @@ function mapWorkerStatusToAlertAttempt(
       return "failed_provider";
     case "failed_internal":
       return "failed_internal";
-    case "skipped_quiet_hours":
+    case "deferred_quiet_hours":
       return null;
     default:
       return null;

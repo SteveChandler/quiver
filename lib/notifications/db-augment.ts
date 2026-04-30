@@ -32,20 +32,45 @@ export interface NotificationEventRow {
   created_at: string;
   processed_at: string | null;
   /**
-   * Worker claim timestamp (set by lib/notifications/worker.ts to prevent
-   * two overlapping cron ticks from double-dispatching). NULL means
-   * unclaimed; a value older than 5 minutes is treated as abandoned.
+   * Worker claim timestamp. Set by claim_notification_events RPC at the start
+   * of each tick; cleared (or refreshed) when the worker finalizes the event
+   * or releases the lease. A value older than 5 minutes is treated as a
+   * stale lease and may be reclaimed.
    */
   claimed_at: string | null;
+  /** Phase 5a additions — see migration 20260430130000_notifications_phase5_schema.sql. */
+  attempt_count: number;
+  next_attempt_at: string | null;
+  last_attempt_at: string | null;
+  claim_token: string | null;
+  cancel_reason: string | null;
+  last_error: string | null;
 }
 
 export type NotificationEventInsert = Omit<
   NotificationEventRow,
-  "id" | "created_at" | "processed_at" | "status" | "skip_reason" | "claimed_at"
+  | "id"
+  | "created_at"
+  | "processed_at"
+  | "status"
+  | "skip_reason"
+  | "claimed_at"
+  | "attempt_count"
+  | "next_attempt_at"
+  | "last_attempt_at"
+  | "claim_token"
+  | "cancel_reason"
+  | "last_error"
 > & {
   status?: NotificationEventStatus;
   skip_reason?: string | null;
   claimed_at?: string | null;
+  attempt_count?: number;
+  next_attempt_at?: string | null;
+  last_attempt_at?: string | null;
+  claim_token?: string | null;
+  cancel_reason?: string | null;
+  last_error?: string | null;
 };
 
 export type NotificationEventUpdate = Partial<NotificationEventRow>;
@@ -58,9 +83,13 @@ export interface NotificationDeliveryAttemptRow {
   provider_response: Json | null;
   error_message: string | null;
   created_at: string;
+  /** Phase 5a addition — which retry attempt this row records (1-indexed). */
+  attempt_number: number;
 }
 
 export type NotificationDeliveryAttemptInsert = Omit<
   NotificationDeliveryAttemptRow,
-  "id" | "created_at"
->;
+  "id" | "created_at" | "attempt_number"
+> & {
+  attempt_number?: number;
+};

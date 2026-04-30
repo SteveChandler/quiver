@@ -453,7 +453,7 @@ describe("processPendingEvents — terminal skips", () => {
 });
 
 describe("processPendingEvents — quiet hours", () => {
-  it("quiet hours → push skipped_quiet_hours, event STAYS PENDING (retry next tick)", async () => {
+  it("quiet hours → push deferred_quiet_hours, event STAYS PENDING (retry next tick)", async () => {
     const state = emptyState();
     state.events.push(buildEvent());
     state.profiles.set(
@@ -471,7 +471,7 @@ describe("processPendingEvents — quiet hours", () => {
       { now: inQuietWindow, fcm: { sendEach: jest.fn() } as never }
     );
 
-    expect(summary.by_status.skipped_quiet_hours).toBe(1);
+    expect(summary.by_status.deferred_quiet_hours).toBe(1);
     expect(summary.by_status.sent).toBe(1); // in-app still sent
     expect(summary.pending_after_run).toBe(1);
     expect(summary.processed).toBe(0);
