@@ -65,11 +65,11 @@ function mapWorkerStatusToAlertAttempt(
   }
 }
 
-// Default 10pm–4am local quiet hours. Overridden per-type below where the
-// producer's existing semantics need different behavior (e.g. trial_ending
-// runs at 9am PT and never needs nighttime suppression).
-const DEFAULT_QUIET = { honor: true, windowStart: 22, windowEnd: 4 } as const;
-const NO_QUIET = { honor: false } as const;
+// Default 10pm–4am local quiet hours (defer mode). Overridden per-type below
+// where the producer's existing semantics need different behavior (e.g.
+// trial_ending runs at 9am PT and never needs nighttime suppression).
+const DEFAULT_QUIET = { mode: "defer", windowStart: 22, windowEnd: 4 } as const;
+const NO_QUIET = { mode: "ignore" } as const;
 
 // ─── Payload shapes (what producers pass + what builders consume) ────────────
 

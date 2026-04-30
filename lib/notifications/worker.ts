@@ -597,7 +597,10 @@ async function processChannel(
     return "skipped_pref_type";
   }
 
-  if (channel === "push" && def.quietHours.honor) {
+  // Phase 5d: mode-based quiet hours. `ignore` and `bypass` skip the check
+  // entirely. `defer` respects the window and returns deferred_quiet_hours
+  // so the worker leaves the event pending for the next tick.
+  if (channel === "push" && def.quietHours.mode === "defer") {
     const tz = profile.timezone || "UTC";
     const localHour = getLocalHour(now, tz);
     const start = def.quietHours.windowStart ?? 22;

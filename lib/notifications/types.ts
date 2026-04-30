@@ -62,11 +62,19 @@ export type NotificationDeliveryStatus =
   | "failed_provider"
   | "failed_internal";
 
+/**
+ * Phase 5d: first-class quiet-hours policy. The legacy `{ honor: bool }` shape
+ * is replaced with an explicit mode so registry entries name their intent:
+ *   - `ignore`: type doesn't care about quiet hours (e.g. cron-timed types
+ *     that already fire at fixed daytime hours — declaring this is honest).
+ *   - `defer`: respect the window; defer delivery until the window ends.
+ *   - `bypass`: emergency-class — always send, even at 3am (admin_broadcast).
+ */
 export interface QuietHoursConfig {
-  honor: boolean;
-  /** Local hour (0–23) when quiet hours start. Inclusive. */
+  mode: "ignore" | "defer" | "bypass";
+  /** Local hour (0–23) when quiet hours start. Inclusive. Required when mode='defer'. */
   windowStart?: number;
-  /** Local hour (0–23) when quiet hours end. Exclusive. Wraps midnight. */
+  /** Local hour (0–23) when quiet hours end. Exclusive. Wraps midnight. Required when mode='defer'. */
   windowEnd?: number;
 }
 
