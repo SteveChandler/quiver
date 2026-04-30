@@ -401,6 +401,11 @@ describe("processPendingEvents — empty state", () => {
       pending_after_run: 0,
       firebase_configured: false,
       by_status: {},
+      // Phase 5m
+      deferred_quiet_hours_count: 0,
+      retry_scheduled_count: 0,
+      unknown_type_count: 0,
+      missing_timezone_count: 0,
     });
     expect(state.attempts).toEqual([]);
     expect(state.eventUpdates).toEqual([]);
@@ -1084,6 +1089,86 @@ describe("processPendingEvents — Phase 5c backoff scheduling", () => {
     const ev = state.events[0];
     expect(ev.status).toBe("pending");
     expect(ev.next_attempt_at).toBeNull(); // No backoff for quiet-hours-only retry
+  });
+});
+
+describe("processPendingEvents — Phase 5m observability counters", () => {
+  it("unknown_type_count increments when an event's type is not in the registry", async () => {
+    const state = emptyState();
+    state.events.push(buildEvent({ type: "totally_made_up_type" as never }));
+    state.profiles.set("user-recipient", buildProfile());
+
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      { now: NOON_PT, fcm: { sendEach: jest.fn() } as never }
+    );
+
+    expect(summary.unknown_type_count).toBe(1);
+    expect(summary.failed).toBe(1);
+  });
+
+  it("missing_timezone_count increments when recipient profile has no timezone", async () => {
+    const state = emptyState();
+    state.events.push(buildEvent());
+    state.profiles.set(
+      "user-recipient",
+      buildProfile({ timezone: null })
+    );
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      {
+        now: NOON_PT,
+        fcm: {
+          sendEach: jest.fn(async () => ({
+            successCount: 1,
+            failureCount: 0,
+            responses: [{ success: true }],
+          })),
+        } as never,
+      }
+    );
+
+    expect(summary.missing_timezone_count).toBe(1);
+  });
+
+  it("deferred_quiet_hours_count increments when quiet hours defer push", async () => {
+    const state = emptyState();
+    // Like type uses DEFAULT_QUIET (10pm-4am defer). Set "now" to 11pm PT.
+    state.events.push(buildEvent());
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+    state.devices.set("user-recipient", ["device-A"]);
+
+    const ELEVEN_PM_PT = new Date("2026-04-30T06:00:00Z"); // 23:00 Pacific previous day
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      {
+        now: ELEVEN_PM_PT,
+        fcm: { sendEach: jest.fn() } as never,
+      }
+    );
+
+    expect(summary.deferred_quiet_hours_count).toBe(1);
+    expect(summary.retry_scheduled_count).toBe(0);
+  });
+
+  it("retry_scheduled_count increments when failed_provider triggers backoff", async () => {
+    const state = emptyState();
+    state.events.push(buildEvent());
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+    state.devices.set("user-recipient", ["device-A"]);
+
+    // FCM null → failed_provider for the push channel; in-app still sends.
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      { now: NOON_PT, fcm: null as never }
+    );
+
+    expect(summary.retry_scheduled_count).toBe(1);
+    expect(summary.deferred_quiet_hours_count).toBe(0);
   });
 });
 

@@ -177,6 +177,31 @@ export interface ProcessSummary {
   pending_after_run: number;
   firebase_configured: boolean;
   by_status: Partial<Record<NotificationDeliveryStatus, number>>;
+  /**
+   * Phase 5m: events deferred this tick due to quiet hours (will retry when
+   * the window ends). Subset of pending_after_run, broken out so dashboards
+   * can distinguish "respecting user preferences" from "broken / retrying".
+   */
+  deferred_quiet_hours_count: number;
+  /**
+   * Phase 5m: events scheduled for backoff retry this tick (failed_provider
+   * / failed_internal below the per-channel cap). Subset of pending_after_run.
+   * Different from deferred_quiet_hours_count: these are unhealthy paths.
+   */
+  retry_scheduled_count: number;
+  /**
+   * Phase 5m: events terminal-failed because the registry doesn't recognize
+   * their type. Should be 0 in steady-state. Non-zero indicates a stale
+   * producer or a missing registry entry — page on it.
+   */
+  unknown_type_count: number;
+  /**
+   * Phase 5m: events whose recipient lacks a `profiles.timezone`. Quiet-hours
+   * defer falls back to UTC for these — fine in the short term but indicates
+   * a sign-up flow gap. Tracked so we can fix the source instead of papering
+   * over with UTC-default forever.
+   */
+  missing_timezone_count: number;
 }
 
 /** Per-channel decision rolled up at the end of one tick. */
@@ -200,6 +225,10 @@ export async function processPendingEvents(
     pending_after_run: 0,
     firebase_configured: fcm !== null,
     by_status: {},
+    deferred_quiet_hours_count: 0,
+    retry_scheduled_count: 0,
+    unknown_type_count: 0,
+    missing_timezone_count: 0,
   };
 
   // Each tick gets a unique claim_token. Workers write terminal status only
@@ -310,6 +339,7 @@ async function processOne(
   claimToken: string
 ): Promise<ProcessOneResult> {
   if (!isKnownNotificationType(event.type)) {
+    summary.unknown_type_count++;
     await markEventTerminal(
       supabase,
       event.id,
@@ -362,6 +392,14 @@ async function processOne(
         nextAttemptAt: new Date(now.getTime() + backoffFor(event.attempt_count)),
       };
     }
+  }
+
+  // Phase 5m: tally missing timezones at most once per event. Recipients
+  // without a timezone fall back to UTC for quiet-hours math, which is
+  // wrong for non-UTC users — count so we can fix the source instead of
+  // papering over with a UTC default forever.
+  if (!profile.timezone) {
+    summary.missing_timezone_count++;
   }
 
   const ctx: BuildCtx = {
@@ -483,10 +521,18 @@ async function processOne(
     const hasRetryableFailure = newAttempts.some((a) =>
       FAILURE_STATUSES.has(a.status as NotificationDeliveryStatus)
     );
+    const hasDeferredQuietHours = newAttempts.some(
+      (a) => a.status === "deferred_quiet_hours"
+    );
     if (hasRetryableFailure) {
       nextAttemptAt = new Date(
         now.getTime() + backoffFor(event.attempt_count)
       );
+      // Phase 5m: surface the unhealthy retry path separately from the
+      // healthy "user said quiet hours, we respect it" path.
+      summary.retry_scheduled_count++;
+    } else if (hasDeferredQuietHours) {
+      summary.deferred_quiet_hours_count++;
     }
   }
 

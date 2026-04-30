@@ -9,15 +9,23 @@ import { NOTIFICATION_REGISTRY } from "@/lib/notifications/registry";
 
 describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () => {
   it("forecast_alert has only the in_app channel (no push)", () => {
-    expect(NOTIFICATION_REGISTRY.forecast_alert.channels).toEqual(["in_app"]);
-    expect(NOTIFICATION_REGISTRY.forecast_alert.prefs.master.push).toBeUndefined();
-    expect(NOTIFICATION_REGISTRY.forecast_alert.prefs.perType.push).toBeUndefined();
+    const def = NOTIFICATION_REGISTRY.forecast_alert as unknown as {
+      channels: string[];
+      prefs: { master: Record<string, unknown>; perType: Record<string, unknown> };
+    };
+    expect(def.channels).toEqual(["in_app"]);
+    expect(def.prefs.master.push).toBeUndefined();
+    expect(def.prefs.perType.push).toBeUndefined();
   });
 
   it("water_quality has only the in_app channel (no push)", () => {
-    expect(NOTIFICATION_REGISTRY.water_quality.channels).toEqual(["in_app"]);
-    expect(NOTIFICATION_REGISTRY.water_quality.prefs.master.push).toBeUndefined();
-    expect(NOTIFICATION_REGISTRY.water_quality.prefs.perType.push).toBeUndefined();
+    const def = NOTIFICATION_REGISTRY.water_quality as unknown as {
+      channels: string[];
+      prefs: { master: Record<string, unknown>; perType: Record<string, unknown> };
+    };
+    expect(def.channels).toEqual(["in_app"]);
+    expect(def.prefs.master.push).toBeUndefined();
+    expect(def.prefs.perType.push).toBeUndefined();
   });
 
   it("daily_digest still pushes (and writes in_app)", () => {
@@ -42,41 +50,25 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
   });
 
   it("daily_digest push body summarizes water-quality state when advisory_count > 0", () => {
-    const out = NOTIFICATION_REGISTRY.daily_digest.buildPushPayload!(
-      {
-        alert_date: "2026-04-30",
-        title: "Daily digest",
-        body: "Top match: Ocean Beach",
-        forecast_summary: { top_match: "Ocean Beach", match_count: 3 },
-        water_quality_summary: { advisory_count: 2, closure_count: 1 },
-      },
-      {
-        recipientUserId: "u",
-        actorUserId: null,
-        recipient: { display_name: null, timezone: null },
-        actor: null,
-      }
-    );
+    const out = NOTIFICATION_REGISTRY.daily_digest.buildPushPayload!({
+      alert_date: "2026-04-30",
+      title: "Daily digest",
+      body: "Top match: Ocean Beach",
+      forecast_summary: { top_match: "Ocean Beach", match_count: 3 },
+      water_quality_summary: { advisory_count: 2, closure_count: 1 },
+    });
     expect(out.body).toMatch(/Water quality/);
     expect(out.body).toMatch(/1 closure/);
     expect(out.body).toMatch(/2 advisories/);
   });
 
   it("daily_digest push body falls back to producer body when no water-quality issues", () => {
-    const out = NOTIFICATION_REGISTRY.daily_digest.buildPushPayload!(
-      {
-        alert_date: "2026-04-30",
-        title: "Daily digest",
-        body: "Top match: Ocean Beach",
-        water_quality_summary: { advisory_count: 0, closure_count: 0 },
-      },
-      {
-        recipientUserId: "u",
-        actorUserId: null,
-        recipient: { display_name: null, timezone: null },
-        actor: null,
-      }
-    );
+    const out = NOTIFICATION_REGISTRY.daily_digest.buildPushPayload!({
+      alert_date: "2026-04-30",
+      title: "Daily digest",
+      body: "Top match: Ocean Beach",
+      water_quality_summary: { advisory_count: 0, closure_count: 0 },
+    });
     expect(out.body).toBe("Top match: Ocean Beach");
   });
 });
