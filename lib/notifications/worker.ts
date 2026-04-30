@@ -116,6 +116,19 @@ const FAILURE_STATUSES = new Set<NotificationDeliveryStatus>([
   "failed_internal",
 ]);
 
+/**
+ * Phase 5c: backoff schedule for retryable channel failures. Indexed by
+ * the event's `attempt_count` after this tick:
+ *   1 → 60s, 2 → 5min, 3+ → 30min
+ * Quiet-hours defers don't use this — they just leave next_attempt_at NULL
+ * so the next tick can re-evaluate the quiet window immediately.
+ */
+function backoffFor(attemptCount: number): number {
+  if (attemptCount <= 1) return 60_000;
+  if (attemptCount === 2) return 5 * 60_000;
+  return 30 * 60_000;
+}
+
 interface ProfileRow {
   id: string;
   display_name: string | null;
@@ -206,14 +219,15 @@ export async function processPendingEvents(
   );
 
   // Track events that stay pending after the tick so we can release their
-  // claim and let the next tick retry immediately (instead of waiting for
-  // the 5-min stale TTL).
-  const stillPendingIds: string[] = [];
+  // claim and let the next tick retry. Phase 5c: nextAttemptAt is also
+  // captured so we can space out retries with backoff (1m/5m/30m) instead
+  // of hammering FCM every minute on transient failures.
+  const pendingReleases: Array<{ eventId: string; nextAttemptAt: Date | null }> = [];
 
   for (const event of events) {
     const eventAttempts = priorAttempts.get(event.id) ?? [];
     try {
-      const outcome = await processOne(
+      const result = await processOne(
         supabase,
         fcm,
         event,
@@ -222,8 +236,13 @@ export async function processPendingEvents(
         summary,
         claimToken
       );
-      tallyOutcome(summary, outcome);
-      if (outcome === "pending") stillPendingIds.push(event.id);
+      tallyOutcome(summary, result.outcome);
+      if (result.outcome === "pending") {
+        pendingReleases.push({
+          eventId: event.id,
+          nextAttemptAt: result.nextAttemptAt,
+        });
+      }
     } catch (err) {
       // Truly unexpected error (not a planned failure path) — leave the
       // event pending so the next tick retries. We do NOT mark the event
@@ -233,11 +252,15 @@ export async function processPendingEvents(
         err
       );
       summary.pending_after_run++;
-      stillPendingIds.push(event.id);
+      // Unknown failure mode — schedule a backoff to avoid tight retry loop.
+      pendingReleases.push({
+        eventId: event.id,
+        nextAttemptAt: new Date(now.getTime() + backoffFor(event.attempt_count)),
+      });
     }
   }
 
-  await releaseClaims(supabase, stillPendingIds, claimToken);
+  await releaseClaims(supabase, pendingReleases, claimToken);
 
   return summary;
 }
@@ -255,13 +278,24 @@ function tallyOutcome(
 }
 
 /**
- * The event-level outcome of one tick's pass over an event.
+ * Event-level outcome of one tick's pass over an event.
  *   - processed: at least one channel was sent and the event finalized
  *   - all-skipped: every channel was a terminal skip (event status: processed)
  *   - failed: at least one required channel exhausted retries
  *   - pending: at least one channel is retryable; revisit next tick
  */
 type ProcessOneOutcome = "processed" | "all-skipped" | "failed" | "pending";
+
+/**
+ * processOne result. `nextAttemptAt` is only meaningful when outcome='pending'
+ * — Phase 5c uses it to space out retries so transient FCM failures don't
+ * hammer the provider every minute.
+ */
+interface ProcessOneResult {
+  outcome: ProcessOneOutcome;
+  /** When to re-claim. NULL = immediate (next tick). Date = future. */
+  nextAttemptAt: Date | null;
+}
 
 // ─── Per-event pipeline ──────────────────────────────────────────────────────
 
@@ -273,7 +307,7 @@ async function processOne(
   now: Date,
   summary: ProcessSummary,
   claimToken: string
-): Promise<ProcessOneOutcome> {
+): Promise<ProcessOneResult> {
   if (!isKnownNotificationType(event.type)) {
     await markEventTerminal(
       supabase,
@@ -282,7 +316,7 @@ async function processOne(
       "unknown_type",
       claimToken
     );
-    return "failed";
+    return { outcome: "failed", nextAttemptAt: null };
   }
   const def = getRegistryEntry(event.type as NotificationType);
 
@@ -296,7 +330,11 @@ async function processOne(
       `[notifications/worker] profile query errored for event ${event.id}:`,
       err
     );
-    return "pending";
+    // Transient lookup failure — backoff before next tick to avoid hammering.
+    return {
+      outcome: "pending",
+      nextAttemptAt: new Date(now.getTime() + backoffFor(event.attempt_count)),
+    };
   }
   if (!profile) {
     await markEventTerminal(
@@ -306,7 +344,7 @@ async function processOne(
       "recipient_profile_missing",
       claimToken
     );
-    return "failed";
+    return { outcome: "failed", nextAttemptAt: null };
   }
 
   let actor: { id: string; display_name: string | null } | null = null;
@@ -318,7 +356,10 @@ async function processOne(
         `[notifications/worker] actor query errored for event ${event.id}:`,
         err
       );
-      return "pending";
+      return {
+        outcome: "pending",
+        nextAttemptAt: new Date(now.getTime() + backoffFor(event.attempt_count)),
+      };
     }
   }
 
@@ -425,7 +466,30 @@ async function processOne(
     await insertDeliveryAttempts(supabase, newAttempts);
   }
 
-  return finalizeEventStatus(supabase, event.id, channelOutcomes, claimToken);
+  const outcome = await finalizeEventStatus(
+    supabase,
+    event.id,
+    channelOutcomes,
+    claimToken
+  );
+
+  // Phase 5c: schedule backoff for retryable failures so the next tick
+  // doesn't fire 1 minute later. Quiet-hours-only retryable → no backoff
+  // (next tick can re-evaluate the window immediately and skip if still
+  // inside quiet hours; the cost is one wasted tick).
+  let nextAttemptAt: Date | null = null;
+  if (outcome === "pending") {
+    const hasRetryableFailure = newAttempts.some((a) =>
+      FAILURE_STATUSES.has(a.status as NotificationDeliveryStatus)
+    );
+    if (hasRetryableFailure) {
+      nextAttemptAt = new Date(
+        now.getTime() + backoffFor(event.attempt_count)
+      );
+    }
+  }
+
+  return { outcome, nextAttemptAt };
 }
 
 function priorTerminalOutcome(
@@ -717,20 +781,22 @@ async function claimPendingEvents(
 
 /**
  * Release the claim on events that the worker chose to leave pending for
- * retry next tick (e.g. quiet-hours, transient FCM error). Transitions the
- * row from `processing` back to `pending` with `claim_token=NULL` and
- * `claimed_at=NULL` so the next tick's `claim_notification_events` call can
- * re-claim it immediately instead of waiting for the 5-minute stale TTL.
+ * retry next tick. Transitions each row from `processing` back to `pending`
+ * with `claim_token=NULL` and `claimed_at=NULL`. Phase 5c: also writes
+ * `next_attempt_at` so retries with backoff land at the right time.
+ *
+ * Releases happen one event at a time because each may have a different
+ * next_attempt_at. Volume per tick is bounded by batch size (50 default).
  *
  * Defended by `claim_token = $own` — if a stale-lease reclaim happened, this
  * worker's release is silently dropped (the fresh worker is now in charge).
  */
 async function releaseClaims(
   supabase: ServiceClient,
-  eventIds: string[],
+  releases: Array<{ eventId: string; nextAttemptAt: Date | null }>,
   claimToken: string
 ): Promise<void> {
-  if (eventIds.length === 0) return;
+  if (releases.length === 0) return;
 
   const client = supabase as unknown as {
     from(t: "notification_events"): {
@@ -738,8 +804,9 @@ async function releaseClaims(
         status: string;
         claimed_at: null;
         claim_token: null;
+        next_attempt_at: string | null;
       }): {
-        in(c: string, v: string[]): {
+        eq(c: string, v: string): {
           eq(c: string, v: string): Promise<{
             error: { message: string; code?: string } | null;
           }>;
@@ -748,16 +815,23 @@ async function releaseClaims(
     };
   };
 
-  const { error } = await client
-    .from("notification_events")
-    .update({ status: "pending", claimed_at: null, claim_token: null })
-    .in("id", eventIds)
-    .eq("claim_token", claimToken);
-  if (error) {
-    console.error(
-      "[notifications/worker] releaseClaims failed (will be reclaimed via stale TTL):",
-      error
-    );
+  for (const { eventId, nextAttemptAt } of releases) {
+    const { error } = await client
+      .from("notification_events")
+      .update({
+        status: "pending",
+        claimed_at: null,
+        claim_token: null,
+        next_attempt_at: nextAttemptAt ? nextAttemptAt.toISOString() : null,
+      })
+      .eq("id", eventId)
+      .eq("claim_token", claimToken);
+    if (error) {
+      console.error(
+        `[notifications/worker] releaseClaims failed for ${eventId} (will be reclaimed via stale TTL):`,
+        error
+      );
+    }
   }
 }
 

@@ -175,12 +175,12 @@ function buildMockSupabase(state: MockState) {
             claimed_at: string | null;
             claim_token: string | null;
             processed_at: string | null;
+            next_attempt_at: string | null;
           }>
         ) => {
           // markEventTerminal: update(row).eq('id', eventId).eq('claim_token', claimToken)
-          // releaseClaims:     update(row).in('id', ids).eq('claim_token', claimToken)
+          // releaseClaims:     update(row).eq('id', eventId).eq('claim_token', claimToken) — per event
           return {
-            // markEventTerminal path — first .eq is on 'id'
             eq: (_idCol: string, eventId: string) => ({
               eq: async (_col: string, claimToken: string) => {
                 const e = state.events.find((x) => x.id === eventId);
@@ -188,29 +188,25 @@ function buildMockSupabase(state: MockState) {
                 // claim_token defense: only write if our token matches
                 if (e.claim_token !== claimToken) return { error: null };
                 if ("status" in row) {
-                  state.eventUpdates.push({
-                    id: eventId,
-                    status: row.status as string,
-                    skip_reason: (row.skip_reason ?? null) as string | null,
-                  });
-                  e.status = row.status as MockEvent["status"];
-                  e.skip_reason = (row.skip_reason ?? null) as string | null;
-                  e.claim_token = null;
-                  e.claimed_at = null;
-                }
-                return { error: null };
-              },
-            }),
-            // releaseClaims path — first .in is on 'id'
-            in: (_inCol: string, ids: string[]) => ({
-              eq: async (_col: string, claimToken: string) => {
-                for (const id of ids) {
-                  const ev = state.events.find((e) => e.id === id);
-                  if (!ev) continue;
-                  if (ev.claim_token !== claimToken) continue;
-                  ev.status = "pending";
-                  ev.claimed_at = null;
-                  ev.claim_token = null;
+                  if (row.status === "pending") {
+                    // releaseClaims path
+                    e.status = "pending";
+                    e.claimed_at = null;
+                    e.claim_token = null;
+                    e.next_attempt_at =
+                      (row.next_attempt_at ?? null) as string | null;
+                  } else {
+                    // markEventTerminal path
+                    state.eventUpdates.push({
+                      id: eventId,
+                      status: row.status as string,
+                      skip_reason: (row.skip_reason ?? null) as string | null,
+                    });
+                    e.status = row.status as MockEvent["status"];
+                    e.skip_reason = (row.skip_reason ?? null) as string | null;
+                    e.claim_token = null;
+                    e.claimed_at = null;
+                  }
                 }
                 return { error: null };
               },
@@ -950,5 +946,81 @@ describe("processPendingEvents — atomic claim (concurrency)", () => {
 
     expect(summary.fetched).toBe(0);
     expect(fakeFcm.sendEach).not.toHaveBeenCalled();
+  });
+});
+
+describe("processPendingEvents — Phase 5c backoff scheduling", () => {
+  it("failed_provider on attempt 1 → next_attempt_at set ~60s in future", async () => {
+    // Firebase null → push channel returns failed_provider. In-app sends.
+    // Since push is retryable (not at cap), event should stay pending with
+    // next_attempt_at = now + 60s.
+    const state = emptyState();
+    state.now = NOON_PT.getTime();
+    state.events.push(buildEvent());
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set(
+      "user-actor",
+      buildProfile({ id: "user-actor", display_name: "Actor User" })
+    );
+    state.devices.set("user-recipient", ["device-token-A"]);
+
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT,
+      fcm: null, // Firebase null → push fails
+    });
+
+    const ev = state.events[0];
+    expect(ev.status).toBe("pending");
+    expect(ev.next_attempt_at).not.toBeNull();
+    const scheduled = new Date(ev.next_attempt_at!).getTime();
+    const expected = NOON_PT.getTime() + 60_000;
+    expect(scheduled).toBe(expected);
+  });
+
+  it("backoff schedule increments per claim", async () => {
+    // Pre-set attempt_count=1 so post-claim it's 2 → backoff = 5 min.
+    const state = emptyState();
+    state.now = NOON_PT.getTime();
+    state.events.push(buildEvent({ attempt_count: 1 }));
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set(
+      "user-actor",
+      buildProfile({ id: "user-actor", display_name: "Actor User" })
+    );
+    state.devices.set("user-recipient", ["device-token-A"]);
+
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT,
+      fcm: null,
+    });
+
+    const ev = state.events[0];
+    // attempt_count post-claim = 2 → backoff(2) = 5 min
+    expect(ev.attempt_count).toBe(2);
+    const scheduled = new Date(ev.next_attempt_at!).getTime();
+    expect(scheduled).toBe(NOON_PT.getTime() + 5 * 60_000);
+  });
+
+  it("quiet hours alone (no failure) → next_attempt_at = null (immediate retry)", async () => {
+    // Quiet hours is retryable but not a failure — backoff doesn't apply.
+    const state = emptyState();
+    state.now = new Date("2026-04-29T06:00:00Z").getTime(); // 23:00 PT prev day
+    state.events.push(buildEvent());
+    state.profiles.set(
+      "user-recipient",
+      buildProfile({ timezone: "America/Los_Angeles" })
+    );
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+    state.devices.set("user-recipient", ["device-token-A"]);
+
+    const inQuiet = new Date("2026-04-29T06:00:00Z");
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: inQuiet,
+      fcm: { sendEach: jest.fn() } as never,
+    });
+
+    const ev = state.events[0];
+    expect(ev.status).toBe("pending");
+    expect(ev.next_attempt_at).toBeNull(); // No backoff for quiet-hours-only retry
   });
 });
