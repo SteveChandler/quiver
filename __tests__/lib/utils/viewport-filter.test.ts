@@ -43,7 +43,7 @@ function makeBeach(overrides: Partial<Beach> & { id: string; name: string }): Be
     region: null,
     review_count: null,
     shoaling_factors: null,
-    skill_level: null,
+    skill_level: "intermediate", // NOT NULL DEFAULT 'intermediate' since 20260312
     slug: null,
     state: null,
     swell_access_factors: null,
@@ -70,6 +70,9 @@ function makeBeach(overrides: Partial<Beach> & { id: string; name: string }): Be
     wind_onshore_bad_kt: null,
     deepwater_decay_factor: null,
     persona: null,
+    max_wind_any_mph: null,
+    max_wind_onshore_mph: null,
+    region_id: null,
 
     // Apply overrides
     ...overrides,

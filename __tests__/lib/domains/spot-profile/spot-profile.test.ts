@@ -13,8 +13,15 @@ import {
 import { angleDifference } from '@/lib/domains/shared';
 import type { Beach } from '@/types/database';
 
-// Mock beach factory for testing
-function createMockBeach(overrides: Partial<Beach> = {}): Beach {
+// Mock beach factory for testing.
+// `skill_level` is widened to allow null because downstream code defends
+// against null at runtime even though the generated Beach.Row type pins
+// it to `string` (the DB has a NOT NULL DEFAULT).
+type MockBeachOverrides = Partial<Omit<Beach, "skill_level">> & {
+  skill_level?: string | null;
+};
+
+function createMockBeach(overrides: MockBeachOverrides = {}): Beach {
   return {
     id: 'test-beach-id',
     name: 'Test Beach',

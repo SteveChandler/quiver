@@ -4,8 +4,13 @@ import type { Beach } from "@/types/database";
 // Note: In production, we'd export these from the module for testability
 import { scoreRecommendation } from "@/lib/utils/recommendation-scorer";
 
-// Test utilities
-const createMockBeach = (overrides?: Partial<Beach>): Beach => ({
+// Test utilities. `skill_level` is widened to allow null because the scorer
+// defends against null at runtime even though Beach.Row pins it to `string`.
+type MockBeachOverrides = Partial<Omit<Beach, "skill_level">> & {
+  skill_level?: string | null;
+};
+
+const createMockBeach = (overrides?: MockBeachOverrides): Beach => ({
   id: "test-beach",
   name: "Test Beach",
   center_lat: 33.7490,
