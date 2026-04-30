@@ -30,6 +30,7 @@ import {
 } from "@/types/forecast";
 import type { NowcastAnchor } from "@/lib/services/observations/nowcast-anchor.types";
 import { isNowcastAnchorEnabled } from "@/lib/services/observations/nowcast-anchor.types";
+import { pickDominantSwell } from "@/lib/domains/conditions";
 
 /**
  * Nowcast-anchor design (see plan golden-sleeping-steele.md):
@@ -676,38 +677,11 @@ export class ForecastBuilder {
   private getDominantSwellComponent(
     wavePoint: WaveWatchData
   ): { height: number; period: number; direction: number } | null {
-    const components: { height: number; period: number; direction: number }[] = [];
-
-    if (wavePoint.swell_1_height > 0 && wavePoint.swell_1_period > 0) {
-      components.push({
-        height: wavePoint.swell_1_height,
-        period: wavePoint.swell_1_period,
-        direction: wavePoint.swell_1_direction,
-      });
-    }
-    if (wavePoint.swell_2_height > 0 && wavePoint.swell_2_period > 0) {
-      components.push({
-        height: wavePoint.swell_2_height,
-        period: wavePoint.swell_2_period,
-        direction: wavePoint.swell_2_direction,
-      });
-    }
-    if (wavePoint.wind_wave_height > 0 && wavePoint.wind_wave_period > 0) {
-      components.push({
-        height: wavePoint.wind_wave_height,
-        period: wavePoint.wind_wave_period,
-        direction: wavePoint.wind_wave_direction,
-      });
-    }
-
-    if (components.length === 0) return null;
-
-    const maxHeight = Math.max(...components.map((c) => c.height));
-    const dominant = components
-      .filter((c) => c.height >= maxHeight * 0.8)
-      .sort((a, b) => b.period - a.period);
-
-    return dominant[0];
+    return pickDominantSwell({
+      swell_1: { height: wavePoint.swell_1_height, period: wavePoint.swell_1_period, direction: wavePoint.swell_1_direction },
+      swell_2: { height: wavePoint.swell_2_height, period: wavePoint.swell_2_period, direction: wavePoint.swell_2_direction },
+      wind_wave: { height: wavePoint.wind_wave_height, period: wavePoint.wind_wave_period, direction: wavePoint.wind_wave_direction },
+    });
   }
 
   private getWaveDirection(cdipPoint: CDIPDataPoint | null, wavePoint: WaveWatchData | null, useCDIPData: boolean): string | null {

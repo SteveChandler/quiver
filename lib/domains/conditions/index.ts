@@ -37,3 +37,12 @@ export {
   isWindowStable,
   describeWindowStability,
 } from './trend-detector';
+
+// Dominant partition picker (shared by forecast-builder + scoring snapshot)
+export type {
+  SwellPartition,
+  SwellPartitions,
+  DominantSwell,
+  DominantSource,
+} from './dominant-swell';
+export { pickDominantSwell, pickSecondarySwell } from './dominant-swell';

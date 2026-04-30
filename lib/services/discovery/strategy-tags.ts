@@ -129,8 +129,15 @@ function buildReason(rec: SurfDiscoveryRecommendation): string {
     }
   }
 
-  if (forecast.swell_1_period && forecast.swell_1_direction) {
-    parts.push(`${forecast.swell_1_period} ${forecast.swell_1_direction}`);
+  // Prefer wave_period / wave_direction — already the dominant partition per
+  // forecast-builder. swell_1_* is the legacy fallback for rows that predate
+  // the dominant-write path. Reading raw swell_1 here would emit "14s SSW" in
+  // the strategy reason on a windswell-dominant day even though the verdict
+  // was scored on the actual 6s W dominant.
+  const reasonPeriod = forecast.wave_period ?? forecast.swell_1_period;
+  const reasonDirection = forecast.wave_direction ?? forecast.swell_1_direction;
+  if (reasonPeriod && reasonDirection) {
+    parts.push(`${reasonPeriod} ${reasonDirection}`);
   }
 
   return parts.join(' · ') || rec.summary;

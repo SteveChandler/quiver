@@ -12,3 +12,5 @@ export { tideFitScorer } from './tide-fit-scorer';
 export { windowStabilityScorer } from './window-stability-scorer';
 export { trendPreferenceScorer } from './trend-preference-scorer';
 export { tideDirectionScorer } from './tide-direction-scorer';
+export { getDirectionalRelevance } from './directional-relevance';
+export type { DominantKind } from './directional-relevance';

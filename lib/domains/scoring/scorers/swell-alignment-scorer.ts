@@ -16,6 +16,14 @@
 import type { ScorerPlugin, ScorerInput, ScorerResult } from '../types';
 import { SCORER_WEIGHTS, createNeutralResult } from '../types';
 import { angleDifference, directionName } from '../../shared';
+import { getDirectionalRelevance } from './directional-relevance';
+
+/**
+ * Geometric scores at or above this threshold are framed as positive
+ * "reasons". Below it, even an aligned-on-paper swell becomes a warning
+ * because the dominant period is too weak to organise into rideable waves.
+ */
+const RELEVANCE_REASON_THRESHOLD = 60;
 
 /**
  * Alignment scoring thresholds.
@@ -70,16 +78,27 @@ export const swellAlignmentScorer: ScorerPlugin = {
       return createNeutralResult('swellAlignment', SCORER_WEIGHTS.swellAlignment);
     }
 
-    // Calculate alignment score
-    const { score, description } = calculateAlignmentScore(swellDirection, swellWindow);
+    // Calculate the geometric alignment score first…
+    const { score: geometricScore, description } = calculateAlignmentScore(swellDirection, swellWindow);
+
+    // …then attenuate by how relevant geometry is for the dominant wave
+    // train. A 6s W "ideal direction" is wind chop — geometry doesn't save
+    // it from being unrideable, so don't let it lift the composite score.
+    const periodS = snapshot.primarySwell?.periodS ?? null;
+    const relevance = getDirectionalRelevance(periodS);
+    const score = Math.round(geometricScore * relevance);
 
     const reasons: string[] = [];
     const warnings: string[] = [];
 
-    if (score >= 80) {
+    if (score >= RELEVANCE_REASON_THRESHOLD) {
       reasons.push(description);
-    } else if (score >= 60) {
-      reasons.push(description);
+    } else if (relevance < 1 && geometricScore >= RELEVANCE_REASON_THRESHOLD) {
+      // Geometry was good but period dragged it below threshold — surface
+      // the period as the reason rather than reporting "ideal direction"
+      // alongside a low score.
+      const periodLabel = periodS != null ? `${periodS.toFixed(1)}s` : 'short period';
+      warnings.push(`${description} but short period (${periodLabel})`);
     } else if (score < 50) {
       warnings.push(description);
     }
