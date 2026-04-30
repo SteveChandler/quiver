@@ -25,11 +25,18 @@ interface MockEvent {
   entity_id: string | null;
   payload: Record<string, unknown>;
   dedupe_key: string | null;
-  status: "pending" | "processed" | "skipped" | "failed";
+  status: "pending" | "processing" | "processed" | "failed" | "cancelled";
   skip_reason: string | null;
   created_at: string;
   processed_at: string | null;
   claimed_at: string | null;
+  // Phase 5a additions
+  attempt_count: number;
+  next_attempt_at: string | null;
+  last_attempt_at: string | null;
+  claim_token: string | null;
+  cancel_reason: string | null;
+  last_error: string | null;
 }
 
 interface MockProfile {
@@ -72,6 +79,8 @@ interface MockState {
   errorOnSelect?: Set<string>;
   /** When set, profile lookup for this user_id throws. */
   errorOnProfileLookup?: Set<string>;
+  /** Override "now" inside the mock RPC simulator. Defaults to Date.now(). */
+  now?: number;
 }
 
 function buildProfile(over: Partial<MockProfile> = {}): MockProfile {
@@ -110,115 +119,100 @@ function buildEvent(over: Partial<MockEvent> = {}): MockEvent {
     created_at: new Date("2026-04-29T12:00:00Z").toISOString(),
     processed_at: null,
     claimed_at: null,
+    attempt_count: 0,
+    next_attempt_at: null,
+    last_attempt_at: null,
+    claim_token: null,
+    cancel_reason: null,
+    last_error: null,
     ...over,
   };
 }
 
-/**
- * Parse the supabase `or()` filter string used by the worker's claim path —
- * `claimed_at.is.null,claimed_at.lt.<iso>` — into a predicate so the mock
- * can faithfully simulate "pending and (unclaimed OR claim is stale)".
- */
-function parseClaimableFilter(
-  filter: string
-): (event: MockEvent) => boolean {
-  // Expected shape: claimed_at.is.null,claimed_at.lt.<iso>
-  const lt = /claimed_at\.lt\.(.+)$/.exec(filter);
-  const cutoff = lt ? lt[1] : null;
-  return (e) => {
-    if (e.claimed_at === null) return true;
-    if (cutoff && e.claimed_at < cutoff) return true;
-    return false;
-  };
-}
-
 function buildMockSupabase(state: MockState) {
+  // Phase 5b: atomic claim simulator. Mirrors the SQL function semantics:
+  // eligible = (pending OR (processing AND stale)) AND next_attempt_at not in
+  // future. Updates state in-place so subsequent calls see processing rows.
+  function simulateClaim(
+    batchSize: number,
+    leaseSeconds: number,
+    claimToken: string,
+    nowMs: number
+  ): MockEvent[] {
+    const staleCutoff = nowMs - leaseSeconds * 1000;
+    const claimed: MockEvent[] = [];
+    for (const ev of state.events) {
+      if (claimed.length >= batchSize) break;
+      const isPending = ev.status === "pending";
+      const isStaleProcessing =
+        ev.status === "processing" &&
+        ev.claimed_at !== null &&
+        new Date(ev.claimed_at).getTime() < staleCutoff;
+      if (!isPending && !isStaleProcessing) continue;
+      if (
+        ev.next_attempt_at !== null &&
+        new Date(ev.next_attempt_at).getTime() > nowMs
+      ) {
+        continue;
+      }
+      ev.status = "processing";
+      ev.claim_token = claimToken;
+      ev.claimed_at = new Date(nowMs).toISOString();
+      ev.attempt_count += 1;
+      ev.last_attempt_at = ev.claimed_at;
+      claimed.push({ ...ev });
+    }
+    return claimed;
+  }
+
   function fromTable(table: string) {
     if (table === "notification_events") {
       return {
-        // Phase-1 select used by claimPendingEvents:
-        //   .select('id').eq('status','pending').or(<filter>).order(...).limit(N)
-        select: () => ({
-          eq: (_col: string, val: string) => ({
-            or: (filter: string) => ({
-              order: () => ({
-                limit: async () => {
-                  if (state.errorOnSelect?.has("notification_events")) {
-                    return {
-                      data: null,
-                      error: { message: "simulated db error", code: "57P01" },
-                    };
-                  }
-                  const claimable = parseClaimableFilter(filter);
-                  const matches = state.events
-                    .filter((e) => e.status === val && claimable(e))
-                    .map((e) => ({ id: e.id }));
-                  return { data: matches, error: null };
-                },
-              }),
-            }),
-          }),
-        }),
         update: (
           row: Partial<{
             status: string;
             skip_reason: string | null;
             claimed_at: string | null;
+            claim_token: string | null;
+            processed_at: string | null;
           }>
         ) => {
-          // Branch A — markEventTerminal: update({status, skip_reason}).eq('id', val)
-          const eqTerminator = async (_col: string, val: string) => {
-            if ("status" in row && "skip_reason" in row) {
-              state.eventUpdates.push({
-                id: val,
-                status: row.status as string,
-                skip_reason: (row.skip_reason ?? null) as string | null,
-              });
-              const e = state.events.find((x) => x.id === val);
-              if (e) {
-                e.status = row.status as MockEvent["status"];
-                e.skip_reason = (row.skip_reason ?? null) as string | null;
-              }
-            }
-            return { error: null };
-          };
-
+          // markEventTerminal: update(row).eq('id', eventId).eq('claim_token', claimToken)
+          // releaseClaims:     update(row).in('id', ids).eq('claim_token', claimToken)
           return {
-            eq: eqTerminator,
-            // Branch B — Phase-2 atomic claim: update({claimed_at}).in('id', ids).eq('status','pending').or(<filter>).select(...)
-            //   AND
-            // Branch C — releaseClaims: update({claimed_at: null}).in('id', ids).eq('status','pending')
+            // markEventTerminal path — first .eq is on 'id'
+            eq: (_idCol: string, eventId: string) => ({
+              eq: async (_col: string, claimToken: string) => {
+                const e = state.events.find((x) => x.id === eventId);
+                if (!e) return { error: null };
+                // claim_token defense: only write if our token matches
+                if (e.claim_token !== claimToken) return { error: null };
+                if ("status" in row) {
+                  state.eventUpdates.push({
+                    id: eventId,
+                    status: row.status as string,
+                    skip_reason: (row.skip_reason ?? null) as string | null,
+                  });
+                  e.status = row.status as MockEvent["status"];
+                  e.skip_reason = (row.skip_reason ?? null) as string | null;
+                  e.claim_token = null;
+                  e.claimed_at = null;
+                }
+                return { error: null };
+              },
+            }),
+            // releaseClaims path — first .in is on 'id'
             in: (_inCol: string, ids: string[]) => ({
-              eq: (_eqCol: string, statusVal: string) => {
-                const eqResult = (async () => {
-                  // Release-claims path (no .or().select() chain).
-                  if (row.claimed_at === null) {
-                    for (const id of ids) {
-                      const ev = state.events.find((e) => e.id === id);
-                      if (ev && ev.status === statusVal) ev.claimed_at = null;
-                    }
-                    return { error: null };
-                  }
-                  return { error: null };
-                })();
-
-                return Object.assign(eqResult, {
-                  or: (filter: string) => ({
-                    select: async () => {
-                      const claimable = parseClaimableFilter(filter);
-                      const claimedRows: MockEvent[] = [];
-                      for (const id of ids) {
-                        const ev = state.events.find((e) => e.id === id);
-                        if (!ev) continue;
-                        if (ev.status !== statusVal) continue;
-                        if (!claimable(ev)) continue;
-                        ev.claimed_at = (row.claimed_at as string) ?? null;
-                        claimedRows.push({ ...ev });
-                      }
-                      return { data: claimedRows, error: null };
-                    },
-                  }),
-                });
+              eq: async (_col: string, claimToken: string) => {
+                for (const id of ids) {
+                  const ev = state.events.find((e) => e.id === id);
+                  if (!ev) continue;
+                  if (ev.claim_token !== claimToken) continue;
+                  ev.status = "pending";
+                  ev.claimed_at = null;
+                  ev.claim_token = null;
+                }
+                return { error: null };
               },
             }),
           };
@@ -293,7 +287,30 @@ function buildMockSupabase(state: MockState) {
     }
     throw new Error(`Unexpected table in mock: ${table}`);
   }
-  return { from: fromTable };
+  return {
+    from: fromTable,
+    rpc: async (
+      name: string,
+      args: { p_batch_size: number; p_lease_seconds: number; p_claim_token: string }
+    ) => {
+      if (name !== "claim_notification_events") {
+        throw new Error(`Unexpected rpc in mock: ${name}`);
+      }
+      if (state.errorOnSelect?.has("notification_events")) {
+        return {
+          data: null,
+          error: { message: "simulated db error", code: "57P01" },
+        };
+      }
+      const data = simulateClaim(
+        args.p_batch_size,
+        args.p_lease_seconds,
+        args.p_claim_token,
+        state.now ?? Date.now()
+      );
+      return { data, error: null };
+    },
+  };
 }
 
 function emptyState(): MockState {
@@ -395,11 +412,12 @@ describe("processPendingEvents — terminal skips", () => {
     );
 
     expect(summary.skipped).toBe(1);
+    expect(summary.processed).toBe(1); // Phase 5a: all-skipped is event-level processed
     expect(summary.by_status.skipped_pref_master).toBe(2);
     expect(state.notificationsInserts).toEqual([]);
     expect(state.eventUpdates[0]).toEqual({
       id: "evt-1",
-      status: "skipped",
+      status: "processed",
       skip_reason: "all_channels_skipped",
     });
   });
@@ -682,7 +700,7 @@ describe("processPendingEvents — transient error handling", () => {
 
     await expect(
       processPendingEvents(buildMockSupabase(state) as never, { now: NOON_PT })
-    ).rejects.toThrow(/notification_events select failed/);
+    ).rejects.toThrow(/notification_events claim failed/);
 
     expectConsoleErrors([]);
   });
@@ -898,10 +916,18 @@ describe("processPendingEvents — atomic claim (concurrency)", () => {
   });
 
   it("recently claimed (<5 min old) is NOT reclaimed", async () => {
-    // 2 minutes before NOON_PT (19:00Z) — well within the 5-min stale TTL.
+    // Phase 5b: in the new model, a 'processing' row with a fresh claim is
+    // not eligible. 2 minutes before NOON_PT (19:00Z) — within the 5-min lease.
     const state = emptyState();
+    state.now = NOON_PT.getTime();
     const recent = new Date("2026-04-29T18:58:00Z").toISOString();
-    state.events.push(buildEvent({ claimed_at: recent }));
+    state.events.push(
+      buildEvent({
+        status: "processing",
+        claimed_at: recent,
+        claim_token: "00000000-0000-0000-0000-000000000001",
+      })
+    );
     state.profiles.set("user-recipient", buildProfile());
     state.profiles.set(
       "user-actor",

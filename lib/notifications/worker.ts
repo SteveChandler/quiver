@@ -29,28 +29,29 @@
  * `notification_delivery_attempts` for each event and short-circuits
  * channels that are already terminal.
  *
- * ## Concurrency
+ * ## Concurrency (Phase 5b — atomic claim)
  *
- * The worker claims events atomically before processing. Each tick:
+ * Each tick generates a unique `claim_token` UUID and calls the
+ * `claim_notification_events` Postgres function, which uses
+ * `FOR UPDATE SKIP LOCKED` inside a CTE to atomically claim a batch:
  *
- *   1. SELECT candidate ids WHERE status='pending' AND
- *        (claimed_at IS NULL OR claimed_at < now() - 5 min)
- *   2. UPDATE notification_events SET claimed_at = now()
- *        WHERE id = ANY(ids) AND status='pending'
- *          AND (claimed_at IS NULL OR claimed_at < now() - 5 min)
- *        RETURNING *;
+ *   - Eligible: status='pending' OR (status='processing' AND claimed_at older
+ *     than the lease) AND (next_attempt_at NULL or in the past).
+ *   - The function transitions claimed rows from `pending` → `processing`
+ *     with the caller's `claim_token`, increments `attempt_count`, and sets
+ *     `last_attempt_at`.
+ *   - SKIP LOCKED means parallel workers always claim disjoint sets — no
+ *     row is double-dispatched even if Vercel runs two instances.
  *
- * Postgres row-level locking on UPDATE means only one tick wins the claim
- * for any given row — the second tick's UPDATE re-evaluates the WHERE
- * clause against the now-updated row, fails the `claimed_at IS NULL OR ...`
- * predicate, and returns 0 rows. So even if Vercel runs two notifications-
- * deliver instances during a deploy, or a manual cron hit overlaps with
- * the scheduled tick, no event is double-dispatched.
+ * Subsequent terminal-status writes (`markEventTerminal`) and lease releases
+ * (`releaseClaims`) include `WHERE claim_token = $own` so a stale worker
+ * (whose lease was reclaimed by a fresh tick) can't overwrite fresh progress.
  *
  * If a worker crashes mid-tick, its claim becomes reclaimable after
  * `CLAIM_STALE_AFTER_MS` (5 min). Events that stay pending for retry have
- * their claim released to NULL at the end of the tick so the next tick
- * can retry immediately.
+ * their lease explicitly released at the end of the tick (status →
+ * `pending`, claim_token NULL, claimed_at NULL) so the next tick can
+ * re-claim immediately.
  *
  * ## Dedupe
  *
@@ -147,9 +148,14 @@ export interface ProcessOptions {
 
 export interface ProcessSummary {
   fetched: number;
-  /** Events that reached terminal `processed` this tick. */
+  /** Events that reached terminal `processed` this tick (any sent or all-skipped). */
   processed: number;
-  /** Events that reached terminal `skipped` this tick. */
+  /**
+   * Retained for backwards-compat with dashboards. Phase 5a removed `skipped`
+   * as an event-level status (skips are channel-level), so this counter now
+   * tracks events whose channels were ALL terminal-skips. The event row has
+   * status='processed' on disk; this number breaks it out for monitoring.
+   */
   skipped: number;
   /** Events that reached terminal `failed` this tick (retry exhausted or fatal). */
   failed: number;
@@ -182,10 +188,15 @@ export async function processPendingEvents(
     by_status: {},
   };
 
+  // Each tick gets a unique claim_token. Workers write terminal status only
+  // WHERE claim_token = $own — defends against a stale worker (whose lease
+  // was reclaimed by a fresh tick) overwriting fresh progress.
+  const claimToken = crypto.randomUUID();
+
   // Surfacing a fetch error is critical: a silent empty-array return would
   // make a broken cron look identical to a healthy idle tick. Throwing here
   // lets `withCronObservability` mark the run status='error'.
-  const events = await claimPendingEvents(supabase, batchSize, now);
+  const events = await claimPendingEvents(supabase, batchSize, claimToken);
   summary.fetched = events.length;
   if (events.length === 0) return summary;
 
@@ -208,7 +219,8 @@ export async function processPendingEvents(
         event,
         eventAttempts,
         now,
-        summary
+        summary,
+        claimToken
       );
       tallyOutcome(summary, outcome);
       if (outcome === "pending") stillPendingIds.push(event.id);
@@ -225,20 +237,31 @@ export async function processPendingEvents(
     }
   }
 
-  await releaseClaims(supabase, stillPendingIds);
+  await releaseClaims(supabase, stillPendingIds, claimToken);
 
   return summary;
 }
 
 function tallyOutcome(
   summary: ProcessSummary,
-  outcome: "processed" | "skipped" | "failed" | "pending"
+  outcome: ProcessOneOutcome
 ): void {
   if (outcome === "processed") summary.processed++;
-  else if (outcome === "skipped") summary.skipped++;
-  else if (outcome === "failed") summary.failed++;
+  else if (outcome === "all-skipped") {
+    summary.processed++;
+    summary.skipped++;
+  } else if (outcome === "failed") summary.failed++;
   else summary.pending_after_run++;
 }
+
+/**
+ * The event-level outcome of one tick's pass over an event.
+ *   - processed: at least one channel was sent and the event finalized
+ *   - all-skipped: every channel was a terminal skip (event status: processed)
+ *   - failed: at least one required channel exhausted retries
+ *   - pending: at least one channel is retryable; revisit next tick
+ */
+type ProcessOneOutcome = "processed" | "all-skipped" | "failed" | "pending";
 
 // ─── Per-event pipeline ──────────────────────────────────────────────────────
 
@@ -248,10 +271,17 @@ async function processOne(
   event: NotificationEventRow,
   priorAttempts: NotificationDeliveryAttemptRow[],
   now: Date,
-  summary: ProcessSummary
-): Promise<"processed" | "skipped" | "failed" | "pending"> {
+  summary: ProcessSummary,
+  claimToken: string
+): Promise<ProcessOneOutcome> {
   if (!isKnownNotificationType(event.type)) {
-    await markEventTerminal(supabase, event.id, "failed", "unknown_type");
+    await markEventTerminal(
+      supabase,
+      event.id,
+      "failed",
+      "unknown_type",
+      claimToken
+    );
     return "failed";
   }
   const def = getRegistryEntry(event.type as NotificationType);
@@ -273,7 +303,8 @@ async function processOne(
       supabase,
       event.id,
       "failed",
-      "recipient_profile_missing"
+      "recipient_profile_missing",
+      claimToken
     );
     return "failed";
   }
@@ -394,7 +425,7 @@ async function processOne(
     await insertDeliveryAttempts(supabase, newAttempts);
   }
 
-  return finalizeEventStatus(supabase, event.id, channelOutcomes);
+  return finalizeEventStatus(supabase, event.id, channelOutcomes, claimToken);
 }
 
 function priorTerminalOutcome(
@@ -422,12 +453,13 @@ function groupAttemptsByChannel(
 async function finalizeEventStatus(
   supabase: ServiceClient,
   eventId: string,
-  outcomes: Map<NotificationChannel, ChannelOutcome>
-): Promise<"processed" | "skipped" | "failed" | "pending"> {
+  outcomes: Map<NotificationChannel, ChannelOutcome>,
+  claimToken: string
+): Promise<ProcessOneOutcome> {
   const values = Array.from(outcomes.values());
   if (values.length === 0) {
     // No channels — defensive (shouldn't happen for a registered type).
-    await markEventTerminal(supabase, eventId, "failed", "no_channels");
+    await markEventTerminal(supabase, eventId, "failed", "no_channels", claimToken);
     return "failed";
   }
 
@@ -444,16 +476,31 @@ async function finalizeEventStatus(
   const anyFailed = values.some((o) => o === "failed");
 
   if (anySent) {
-    await markEventTerminal(supabase, eventId, "processed", null);
+    await markEventTerminal(supabase, eventId, "processed", null, claimToken);
     return "processed";
   }
   if (anyFailed) {
-    await markEventTerminal(supabase, eventId, "failed", "all_channels_failed");
+    await markEventTerminal(
+      supabase,
+      eventId,
+      "failed",
+      "all_channels_failed",
+      claimToken
+    );
     return "failed";
   }
-  // Everything was a decisive skip.
-  await markEventTerminal(supabase, eventId, "skipped", "all_channels_skipped");
-  return "skipped";
+  // Everything was a decisive skip. Phase 5a: event-level 'skipped' status was
+  // removed — record this as 'processed' (we processed the event, the decision
+  // was "don't send"). The processed counter ticks both `processed` and
+  // `skipped` in summary so dashboards can still distinguish.
+  await markEventTerminal(
+    supabase,
+    eventId,
+    "processed",
+    "all_channels_skipped",
+    claimToken
+  );
+  return "all-skipped";
 }
 
 // ─── Per-channel pipeline ────────────────────────────────────────────────────
@@ -625,116 +672,73 @@ const EVENT_COLUMN_LIST =
   "id, recipient_user_id, actor_user_id, type, entity_type, entity_id, payload, dedupe_key, status, skip_reason, created_at, processed_at, claimed_at";
 
 /**
- * Atomically claim up to `limit` pending events. Two-phase:
+ * Atomically claim up to `limit` events via the `claim_notification_events`
+ * Postgres function (Phase 5b). The function uses FOR UPDATE SKIP LOCKED so
+ * two parallel workers always claim disjoint sets, and transitions claimed
+ * rows from `pending` → `processing` with the caller's `claim_token`.
  *
- *   1. SELECT candidate ids (claimable = unclaimed OR claim is stale).
- *   2. UPDATE the same id set, setting `claimed_at = now()` only if the row
- *      is STILL claimable at update time. Rows that another worker already
- *      grabbed between phase 1 and phase 2 are silently dropped from the
- *      RETURNING set.
+ * Stale processing rows (claimed_at older than CLAIM_STALE_AFTER_MS) become
+ * claimable again — recovers from a crashed prior worker without manual
+ * intervention.
  *
- * Throws on query error so the cron handler surfaces it via
- * withCronObservability (`cron_runs.status='error'`) rather than silently
- * looking like a clean idle tick.
+ * Throws on RPC error so `withCronObservability` records `status='error'`.
  */
 async function claimPendingEvents(
   supabase: ServiceClient,
   limit: number,
-  now: Date
+  claimToken: string
 ): Promise<NotificationEventRow[]> {
-  const staleCutoff = new Date(now.getTime() - CLAIM_STALE_AFTER_MS).toISOString();
-  const claimableFilter = `claimed_at.is.null,claimed_at.lt.${staleCutoff}`;
+  const leaseSeconds = Math.ceil(CLAIM_STALE_AFTER_MS / 1000);
 
-  // Phase 1 — find candidate ids. We could fold this into a single UPDATE
-  // ... WHERE id IN (SELECT ...) but supabase-js doesn't expose subqueries,
-  // so the two-step keeps us within the supported builder API.
-  const selectClient = supabase as unknown as {
-    from(t: "notification_events"): {
-      select(s: string): {
-        eq(c: string, v: string): {
-          or(filter: string): {
-            order(c: string, opts: { ascending: boolean }): {
-              limit(n: number): Promise<{
-                data: Pick<NotificationEventRow, "id">[] | null;
-                error: { message: string; code?: string } | null;
-              }>;
-            };
-          };
-        };
-      };
-    };
+  const rpcClient = supabase as unknown as {
+    rpc(
+      name: "claim_notification_events",
+      args: { p_batch_size: number; p_lease_seconds: number; p_claim_token: string }
+    ): Promise<{
+      data: NotificationEventRow[] | null;
+      error: { message: string; code?: string } | null;
+    }>;
   };
 
-  const { data: candidates, error: selectError } = await selectClient
-    .from("notification_events")
-    .select("id")
-    .eq("status", "pending")
-    .or(claimableFilter)
-    .order("created_at", { ascending: true })
-    .limit(limit);
+  const { data, error } = await rpcClient.rpc("claim_notification_events", {
+    p_batch_size: limit,
+    p_lease_seconds: leaseSeconds,
+    p_claim_token: claimToken,
+  });
 
-  if (selectError) {
+  if (error) {
     throw new Error(
-      `notification_events select failed: ${selectError.message}${selectError.code ? ` (code=${selectError.code})` : ""}`
+      `notification_events claim failed: ${error.message}${error.code ? ` (code=${error.code})` : ""}`
     );
   }
 
-  const candidateIds = (candidates ?? []).map((r) => r.id);
-  if (candidateIds.length === 0) return [];
-
-  // Phase 2 — atomic claim. The duplicated `claimableFilter` predicate is
-  // intentional: it forces Postgres to re-check (under the row lock taken by
-  // UPDATE) whether the row is still claimable, so a parallel worker's
-  // claim wins the race but doesn't get double-dispatched.
-  const updateClient = supabase as unknown as {
-    from(t: "notification_events"): {
-      update(v: { claimed_at: string }): {
-        in(c: string, v: string[]): {
-          eq(c: string, v: string): {
-            or(filter: string): {
-              select(s: string): Promise<{
-                data: NotificationEventRow[] | null;
-                error: { message: string; code?: string } | null;
-              }>;
-            };
-          };
-        };
-      };
-    };
-  };
-
-  const { data: claimed, error: updateError } = await updateClient
-    .from("notification_events")
-    .update({ claimed_at: now.toISOString() })
-    .in("id", candidateIds)
-    .eq("status", "pending")
-    .or(claimableFilter)
-    .select(EVENT_COLUMN_LIST);
-
-  if (updateError) {
-    throw new Error(
-      `notification_events claim failed: ${updateError.message}${updateError.code ? ` (code=${updateError.code})` : ""}`
-    );
-  }
-
-  return claimed ?? [];
+  return data ?? [];
 }
 
 /**
  * Release the claim on events that the worker chose to leave pending for
- * retry next tick (e.g. quiet-hours, transient FCM error). Without this,
- * the row stays "claimed" until the 5-minute stale TTL kicks in — which
- * pushes retry latency from 1 min (next tick) to 5 min.
+ * retry next tick (e.g. quiet-hours, transient FCM error). Transitions the
+ * row from `processing` back to `pending` with `claim_token=NULL` and
+ * `claimed_at=NULL` so the next tick's `claim_notification_events` call can
+ * re-claim it immediately instead of waiting for the 5-minute stale TTL.
+ *
+ * Defended by `claim_token = $own` — if a stale-lease reclaim happened, this
+ * worker's release is silently dropped (the fresh worker is now in charge).
  */
 async function releaseClaims(
   supabase: ServiceClient,
-  eventIds: string[]
+  eventIds: string[],
+  claimToken: string
 ): Promise<void> {
   if (eventIds.length === 0) return;
 
   const client = supabase as unknown as {
     from(t: "notification_events"): {
-      update(v: { claimed_at: null }): {
+      update(v: {
+        status: string;
+        claimed_at: null;
+        claim_token: null;
+      }): {
         in(c: string, v: string[]): {
           eq(c: string, v: string): Promise<{
             error: { message: string; code?: string } | null;
@@ -746,9 +750,9 @@ async function releaseClaims(
 
   const { error } = await client
     .from("notification_events")
-    .update({ claimed_at: null })
+    .update({ status: "pending", claimed_at: null, claim_token: null })
     .in("id", eventIds)
-    .eq("status", "pending");
+    .eq("claim_token", claimToken);
   if (error) {
     console.error(
       "[notifications/worker] releaseClaims failed (will be reclaimed via stale TTL):",
@@ -864,24 +868,33 @@ async function insertDeliveryAttempts(
 async function markEventTerminal(
   supabase: ServiceClient,
   eventId: string,
-  status: "processed" | "skipped" | "failed",
-  skipReason: string | null
+  status: "processed" | "failed",
+  skipReason: string | null,
+  claimToken: string
 ): Promise<void> {
   const client = supabase as unknown as {
     from(t: "notification_events"): {
       update(row: Record<string, unknown>): {
-        eq(c: string, v: string): Promise<{ error: { message: string } | null }>;
+        eq(c: string, v: string): {
+          eq(c: string, v: string): Promise<{ error: { message: string } | null }>;
+        };
       };
     };
   };
+  // claim_token defense (Phase 5b): if a stale-lease reclaim happened, the
+  // fresh worker is now in charge. Our write matches zero rows and is
+  // silently dropped — the fresh worker's progress wins.
   const { error } = await client
     .from("notification_events")
     .update({
       status,
       skip_reason: skipReason,
       processed_at: new Date().toISOString(),
+      claim_token: null,
+      claimed_at: null,
     })
-    .eq("id", eventId);
+    .eq("id", eventId)
+    .eq("claim_token", claimToken);
   if (error) {
     console.error(
       `[notifications/worker] mark event ${eventId} ${status} failed:`,

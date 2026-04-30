@@ -8006,6 +8006,40 @@ export type Database = {
         }
         Returns: boolean
       }
+      claim_notification_events: {
+        Args: {
+          p_batch_size: number
+          p_claim_token: string
+          p_lease_seconds: number
+        }
+        Returns: {
+          actor_user_id: string | null
+          attempt_count: number
+          cancel_reason: string | null
+          claim_token: string | null
+          claimed_at: string | null
+          created_at: string
+          dedupe_key: string | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          last_attempt_at: string | null
+          last_error: string | null
+          next_attempt_at: string | null
+          payload: Json
+          processed_at: string | null
+          recipient_user_id: string
+          skip_reason: string | null
+          status: string
+          type: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "notification_events"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       cleanup_expired_events: { Args: never; Returns: number }
       cleanup_inactive_buoys: {
         Args: { inactive_days?: number }
