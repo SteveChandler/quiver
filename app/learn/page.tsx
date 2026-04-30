@@ -58,8 +58,10 @@ const CATEGORIES: { label: string; desc: string; slugs: string[] }[] = [
       "how-are-waves-measured",
       "wind-swell-vs-ground-swell",
       "how-swell-direction-affects-surf",
+      "how-swell-wraps-around-points",
       "how-accurate-are-surf-forecasts",
       "how-surf-forecasts-work",
+      "how-quiver-calibrates-your-beach",
     ],
   },
   {
