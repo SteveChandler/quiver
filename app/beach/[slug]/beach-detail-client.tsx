@@ -60,6 +60,20 @@ export function BeachDetailClient({
     isLoading: false,
     error: false,
   });
+  const [effectiveSurfCallReport, setEffectiveSurfCallReport] = useState<SurfCallResult | null>(
+    surfCallReport ?? null,
+  );
+  const [effectiveSurfCallIsTomorrow, setEffectiveSurfCallIsTomorrow] = useState<boolean>(
+    surfCallIsTomorrow ?? false,
+  );
+
+  useEffect(() => {
+    setEffectiveSurfCallReport(surfCallReport ?? null);
+  }, [surfCallReport]);
+
+  useEffect(() => {
+    setEffectiveSurfCallIsTomorrow(surfCallIsTomorrow ?? false);
+  }, [surfCallIsTomorrow]);
 
   // Keep refs in sync with beach data
   useEffect(() => {
@@ -115,6 +129,35 @@ export function BeachDetailClient({
     };
   }, [slug, user, track]);
 
+  useEffect(() => {
+    if (!user || !beach?.id) return;
+
+    const controller = new AbortController();
+
+    const fetchPersonalizedSurfCall = async () => {
+      try {
+        const res = await fetch(`/api/surf/call?beachId=${beach.id}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!res.ok) return;
+
+        const json = await res.json();
+        const data = json?.data;
+        if (!data?.report) return;
+
+        setEffectiveSurfCallReport(data.report);
+        setEffectiveSurfCallIsTomorrow(Boolean(data.isTomorrow));
+      } catch (error) {
+        if ((error as Error).name === "AbortError") return;
+      }
+    };
+
+    void fetchPersonalizedSurfCall();
+
+    return () => controller.abort();
+  }, [user, beach?.id]);
+
   return (
     <>
       <BeachDetail
@@ -123,8 +166,8 @@ export function BeachDetailClient({
         initialBeach={beach}
         beachTimezone={beachTimezone}
         surfReportSlot={surfReportSlot}
-        surfCallReport={surfCallReport}
-        surfCallIsTomorrow={surfCallIsTomorrow}
+        surfCallReport={effectiveSurfCallReport}
+        surfCallIsTomorrow={effectiveSurfCallIsTomorrow}
         defaultTab={defaultTab}
         defaultSubTab={defaultSubTab}
         amenities={amenities}

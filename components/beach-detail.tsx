@@ -917,6 +917,7 @@ function BeachDetailContent({
                 amenities={amenities}
                 waterQuality={waterQuality}
                 beachPhoto={beachPhoto}
+                surfCallReport={surfCallReport}
                 onWriteReview={() =>
                   handleWriteReview(REVIEW_TRACKING_SOURCES.OVERVIEW_CTA)
                 }

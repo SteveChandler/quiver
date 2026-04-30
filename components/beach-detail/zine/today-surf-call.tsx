@@ -51,7 +51,6 @@ export function TodaySurfCall({ beach, surfCallReport }: TodaySurfCallProps) {
 
   const isAuthed = userTier != null;
   const showUpgradeCta = tiers != null && !isAuthed;
-
   const bestWindCardinal =
     beach.wind_offshore_deg != null && beach.wind_offshore_tol_deg != null
       ? degreeWindowToCardinal(
@@ -113,7 +112,6 @@ export function TodaySurfCall({ beach, surfCallReport }: TodaySurfCallProps) {
           <WhyCallout text={surfCallReport.whySentence} />
         )}
 
-        {/* Anonymous-only CTA — handwritten link, never a button. */}
         {showUpgradeCta && (
           <div className="flex justify-center">
             <UpgradeCallHint />
@@ -234,8 +232,6 @@ function TierMarginScrawl({
     );
   }
 
-  // Anon: scrawl literally crosses the stamp's top edge, like a hand-written note
-  // an editor stuck on the page asking "is this for you?"
   return (
     <div
       className="absolute -top-5 -left-2 md:-top-6 md:-left-3 z-10 pointer-events-none"

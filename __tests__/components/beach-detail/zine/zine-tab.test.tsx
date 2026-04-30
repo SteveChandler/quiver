@@ -44,10 +44,27 @@ describe("ZineTab", () => {
       best_months: [11, 12, 1, 2, 3],
     });
 
-    render(<ZineTab beach={beach} />);
+    render(
+      <ZineTab
+        beach={beach}
+        surfCallReport={{
+          verdict: "YES",
+          bestWindowStart: "2026-04-30T12:00:00.000Z",
+          waveHeight: "2-3 ft",
+          windCompass: "W",
+          windSpeed: 6,
+          windType: "offshore",
+          tidePhase: "rising",
+          tideHeight: "3.1 ft",
+          whySentence: "Clean and playful.",
+          updatedAt: "2026-04-30T12:30:00.000Z",
+        } as any}
+      />,
+    );
 
     // Hero masthead byline (multiple instances OK — masthead + salty eyebrow)
     expect(screen.getAllByText(/Field Guide/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole("region", { name: /today's surf call/i })).toBeInTheDocument();
     // Main grid labels
     expect(screen.getByText(/ABOUT THIS SPOT/)).toBeInTheDocument();
     expect(screen.getByText(/LOCAL KNOWLEDGE/)).toBeInTheDocument();
@@ -85,6 +102,36 @@ describe("ZineTab", () => {
 
     expect(screen.queryByTestId("water-quality-badge")).not.toBeInTheDocument();
     expect(screen.queryByTestId("amenities-badges")).not.toBeInTheDocument();
+  });
+
+  it("renders anonymous promo copy in Today's Surf Call when userTier is absent", () => {
+    const beach = createMockBeach({ name: "Seaside Reef" });
+    render(
+      <ZineTab
+        beach={beach}
+        surfCallReport={{
+          verdict: "YES",
+          bestWindowStart: "2026-04-30T12:00:00.000Z",
+          waveHeight: "2-3 ft",
+          windCompass: "W",
+          windSpeed: 6,
+          windType: "offshore",
+          tidePhase: "rising",
+          tideHeight: "3.1 ft",
+          whySentence: "Clean and playful.",
+          updatedAt: "2026-04-30T12:30:00.000Z",
+          tiers: {
+            beginner: { verdict: "YES", trail: "BEST AT 12:00 PM" },
+            intermediate: { verdict: "YES", trail: "BEST AT 12:00 PM" },
+            advanced: { verdict: "YES", trail: "BEST AT 12:00 PM" },
+          },
+          userTier: null,
+        } as any}
+      />,
+    );
+
+    expect(screen.getByText(/get your call/i)).toBeInTheDocument();
+    expect(screen.getByText(/for beginners/i)).toBeInTheDocument();
   });
 
   it("hides Hazards panel when beach.hazards is empty", () => {

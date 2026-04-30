@@ -3,6 +3,7 @@
 import type { Beach } from "@/types/database";
 import type { BeachAmenities } from "@/types/amenities";
 import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
+import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import type { ZineBeachPhoto } from "@/components/beach-detail/zine/types";
 import { ZineOverviewBody } from "@/components/beach-detail/zine/zine-overview-body";
 
@@ -23,6 +24,7 @@ interface OverviewTabProps {
   amenities?: BeachAmenities | null;
   waterQuality?: WaterQuality | null;
   beachPhoto?: ZineBeachPhoto | null;
+  surfCallReport?: SurfCallResult | null;
   onWriteReview?: () => void;
 }
 
@@ -35,6 +37,7 @@ export function OverviewTab({
   amenities,
   waterQuality,
   beachPhoto,
+  surfCallReport,
   onWriteReview,
 }: OverviewTabProps) {
   return (
@@ -43,6 +46,7 @@ export function OverviewTab({
       amenities={amenities}
       waterQuality={waterQuality}
       beachPhoto={beachPhoto}
+      surfCallReport={surfCallReport}
       onWriteReview={onWriteReview}
     />
   );
