@@ -201,6 +201,7 @@ interface BeachDetailProps {
   amenities?: BeachAmenities | null;
   waterQuality?: WaterQuality | null;
   beachPhoto?: ZineBeachPhoto | null;
+  afterTabsContent?: ReactNode;
   personalizationData?: {
     score:
       | import("@/lib/services/personalized-scoring-service").PersonalizedScore
@@ -228,6 +229,7 @@ function BeachDetailContent({
   amenities,
   waterQuality,
   beachPhoto,
+  afterTabsContent,
   personalizationData,
   onPersonalizationRequest,
 }: BeachDetailProps) {
@@ -996,6 +998,8 @@ function BeachDetailContent({
             </div>
           </BeachTabContent>
         </BeachTabs>
+
+        {afterTabsContent ? <div className="mt-10">{afterTabsContent}</div> : null}
       </ZinePageShell>
 
       {/* MatchScoreTeaser cut from the beach-detail layout — the zine masthead

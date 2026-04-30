@@ -566,6 +566,21 @@ body:has(.zine-page) {
   font-size: 11px !important;
 }
 
+/* Retro-dark utility classes still exist on the page tree; when they
+   leak into the cream-paper accuracy card they wash the text out. Pin
+   those tokens back to ink inside the zine forecast surfaces. */
+.zine-page .zine-tabs-slot .text-dark-grey {
+  color: #11100D !important;
+}
+
+.zine-page .zine-tabs-slot [data-testid="yesterdays-accuracy-card"] .text-muted-foreground {
+  color: rgba(17, 16, 13, 0.7) !important;
+  font-family: var(--font-mono), monospace !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase;
+  font-size: 11px !important;
+}
+
 /* ─── Horizon strip day cards on cream paper ─────────────────
    The default tier palette (blue-400 + white text) washes out on
    cream. Boost text legibility with a subtle ink shadow + bump

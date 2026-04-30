@@ -27,6 +27,7 @@ interface BeachDetailClientProps {
   amenities?: BeachAmenities | null;
   waterQuality?: WaterQuality | null;
   beachPhoto?: ZineBeachPhoto | null;
+  afterTabsContent?: ReactNode;
 }
 
 export function BeachDetailClient({
@@ -41,6 +42,7 @@ export function BeachDetailClient({
   amenities,
   waterQuality,
   beachPhoto,
+  afterTabsContent,
 }: BeachDetailClientProps) {
   const { user } = useAuth();
   const { track } = useTrackEvent();
@@ -128,6 +130,7 @@ export function BeachDetailClient({
         amenities={amenities}
         waterQuality={waterQuality}
         beachPhoto={beachPhoto}
+        afterTabsContent={afterTabsContent}
         personalizationData={personalizationData}
         onPersonalizationRequest={(forecast, baseScore) => {
           // BeachDetail will call this when it has forecast data and wants personalization
