@@ -52,9 +52,9 @@ const VALUE_PROPS = [
   },
   {
     icon: Zap,
-    title: "Free Forever",
+    title: "Free, No API Keys",
     description:
-      "No API keys, no rate limits, no subscriptions. Powered by Quiver's open forecast engine.",
+      "No keys to manage, no rate limits, no subscriptions. Powered by Quiver's open forecast engine.",
   },
 ];
 

@@ -152,7 +152,7 @@ export function QuiverFAQSchema() {
     {
       question: "Is Quiver free to use?",
       answer:
-        "Yes! Quiver is completely free to use. You can track unlimited sessions, connect with surfers, access forecasts, and discover new surf spots without any cost. We're focused on building the best surf community first.",
+        "Quiver's core is free to use — forecasts at 279+ beaches, unlimited session logging, similarity score, custom spots, and the community feed. Quiver Pro adds personalized alerts, board recommendations, offline mode, and deeper session analytics for $4.99/month or $39.99/year.",
     },
     {
       question: "How accurate are the surf forecasts?",

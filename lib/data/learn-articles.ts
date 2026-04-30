@@ -1124,9 +1124,9 @@ export const learnArticles: LearnArticle[] = [
           "Per-beach XGBoost models trained on 30,000+ buoy observations learn systematic forecast errors at each spot — when the model over-predicts height or misreads direction due to local bathymetry. The correction layer runs every 3 hours with fresh buoy data.",
       },
       {
-        question: "Is Quiver more accurate than Surfline?",
+        question: "How does Quiver's forecast accuracy compare to other apps?",
         answer:
-          "Quiver publishes its accuracy metrics publicly at /forecast-accuracy. Surfline does not publish comparable metrics. Quiver's ML achieves a 90.4% match rate vs. observed buoy readings and 59% improvement over raw NOAA — judge for yourself.",
+          "Quiver publishes its accuracy metrics publicly at /forecast-accuracy. Most major apps don't publish comparable numbers. Our ML achieves a 90.4% match rate vs. observed buoy readings and 59% improvement over raw NOAA — judge for yourself.",
       },
       {
         question: "Should I trust a 10-day forecast?",
