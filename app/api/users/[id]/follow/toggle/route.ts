@@ -7,7 +7,13 @@ import {
   methodNotAllowed,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
-import { enqueueNotification } from "@/lib/notifications/enqueue";
+
+interface FollowWithNotificationResult {
+  followed: boolean;
+  was_existing: boolean;
+  event_id: string | null;
+  notification_dedup_collision: boolean;
+}
 
 /**
  * POST /api/users/[id]/follow/toggle - Toggle follow status for a user.
@@ -55,34 +61,31 @@ export const POST = withAuth(
       });
     }
 
-    const { error: insertError } = await supabase
-      .from("user_follows")
-      .insert({ follower_id: user.id, following_id: targetUserId });
-    if (insertError) throw insertError;
-
-    // Weekly-bucketed dedupe (`YYYY-WW`): rapid unfollow → re-follow within the
-    // same ISO week does not re-notify, but re-engagement after the bucket
-    // rolls over does — which matches "follow is a meaningful re-engagement
-    // signal" without exposing the recipient to spam-toggle abuse. Worker
-    // honors notif_follows + master prefs + quiet hours.
+    // Phase 5f: atomic follow+notification via Postgres function. Either both
+    // the user_follows row AND the notification_events row commit, or neither
+    // does. Weekly-bucketed dedupe key (`follow:${actor}:${recipient}:${YYYY-Www}`)
+    // means rapid unfollow→re-follow within a week stays deduped, but
+    // re-engagement after the bucket rolls over re-notifies.
     const isoWeekBucket = formatIsoYearWeek(new Date());
-    void enqueueNotification({
-      type: "follow",
-      recipientUserId: targetUserId,
-      actorUserId: user.id,
-      entityType: "user",
-      entityId: targetUserId,
-      payload: {},
-      dedupeKey: `follow:${user.id}:${targetUserId}:${isoWeekBucket}`,
-    })
-      .then((result) => {
-        if (!result.enqueued && result.reason !== "duplicate") {
-          console.error("[follow] enqueue failed", { targetUserId, result });
+    const rpcClient = supabase as unknown as {
+      rpc(
+        fn: "follow_user_with_notification",
+        args: {
+          p_target_user_id: string;
+          p_actor_id: string;
+          p_dedupe_key: string;
         }
-      })
-      .catch((err) => {
-        console.error("[follow] enqueue threw", { targetUserId, err });
-      });
+      ): Promise<{ data: FollowWithNotificationResult | null; error: { code?: string; message: string } | null }>;
+    };
+    const { error: rpcError } = await rpcClient.rpc(
+      "follow_user_with_notification",
+      {
+        p_target_user_id: targetUserId,
+        p_actor_id: user.id,
+        p_dedupe_key: `follow:${user.id}:${targetUserId}:${isoWeekBucket}`,
+      },
+    );
+    if (rpcError) throw rpcError;
 
     revalidatePath("/profile");
     revalidatePath(`/profile/${targetUserId}`);

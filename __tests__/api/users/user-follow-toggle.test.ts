@@ -37,21 +37,36 @@ jest.mock("@/lib/notifications/enqueue", () => ({
 const { POST, GET } = require("@/app/api/users/[id]/follow/toggle/route");
 
 /**
- * The route does up to 3 chained calls on supabase.from("user_follows"):
- *   1. .select("id").eq("follower_id", X).eq("following_id", Y).maybeSingle()  → existing follow check
- *   2a. .delete().eq("id", existing.id)                                          (when following → unfollow)
- *   2b. .insert({ follower_id, following_id })                                    (when not following → follow)
+ * Phase 5f flow (route uses RPC for the create-follow path):
+ *   1. supabase.from("user_follows").select("id").eq().eq().maybeSingle()       → existing check
+ *   2a. supabase.from("user_follows").delete().eq("id", ...)                     (existing → unfollow)
+ *   2b. supabase.rpc("follow_user_with_notification", { ... })                   (no existing → atomic follow+notif)
+ *
+ * `insertError` here represents an RPC-level failure (route propagates it),
+ * since the actual user_follows insert now happens inside the Postgres function.
  */
 function setupUserFollowsTable(opts: {
   existing?: { id: string } | null;
   selectError?: { code: string; message: string } | null;
   insertError?: { message: string } | null;
   deleteError?: { message: string } | null;
+  rpcResult?: {
+    followed: boolean;
+    was_existing: boolean;
+    event_id: string | null;
+    notification_dedup_collision: boolean;
+  };
 }) {
   const existing = opts.existing ?? null;
   const selectError = opts.selectError ?? null;
   const insertError = opts.insertError ?? null;
   const deleteError = opts.deleteError ?? null;
+  const rpcResult = opts.rpcResult ?? {
+    followed: true,
+    was_existing: false,
+    event_id: "evt-mock",
+    notification_dedup_collision: false,
+  };
 
   const selectChain: any = {
     eq: jest.fn().mockReturnThis(),
@@ -60,17 +75,25 @@ function setupUserFollowsTable(opts: {
   const deleteChain: any = {
     eq: jest.fn(() => Promise.resolve({ error: deleteError })),
   };
-  const insertChain: any = Promise.resolve({ error: insertError });
 
   (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
     if (table === "user_follows") {
       return {
         select: jest.fn(() => selectChain),
         delete: jest.fn(() => deleteChain),
-        insert: jest.fn(() => insertChain),
       } as any;
     }
     throw new Error(`Unexpected supabase.from(${table}) — test only mocks user_follows`);
+  });
+
+  (mockSupabaseClient.rpc as jest.Mock).mockImplementation((fn: string) => {
+    if (fn === "follow_user_with_notification") {
+      return Promise.resolve({
+        data: insertError ? null : rpcResult,
+        error: insertError ?? null,
+      });
+    }
+    throw new Error(`Unexpected supabase.rpc(${fn})`);
   });
 }
 
@@ -196,7 +219,7 @@ describe("POST /api/users/[id]/follow/toggle", () => {
       await expectErrorResponse(res, 500, "Failed to toggle follow");
     });
 
-    it("enqueues a `follow` notification event on successful follow (Phase 3c)", async () => {
+    it("invokes the follow_user_with_notification RPC on follow (Phase 5f atomicity)", async () => {
       mockAuthenticatedUser(mockSupabaseClient, followerUser);
       setupUserFollowsTable({ existing: null });
 
@@ -205,32 +228,29 @@ describe("POST /api/users/[id]/follow/toggle", () => {
         `http://localhost:3000/api/users/${targetUserId}/follow/toggle`,
       );
       await POST(req as any, { params: { id: targetUserId } });
-      await Promise.resolve();
-      await Promise.resolve();
 
-      expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(1);
       // Dedupe key carries an ISO `YYYY-Www` time bucket so unfollow → re-follow
       // within the same week stays deduped, but re-engagement next week
       // notifies again. The bucket is computed from `new Date()` at request
       // time, so we assert the prefix rather than a hard-coded week.
-      expect(mockEnqueueNotification).toHaveBeenCalledWith(
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+        "follow_user_with_notification",
         expect.objectContaining({
-          type: "follow",
-          recipientUserId: targetUserId,
-          actorUserId: followerId,
-          entityType: "user",
-          entityId: targetUserId,
-          payload: {},
-          dedupeKey: expect.stringMatching(
+          p_target_user_id: targetUserId,
+          p_actor_id: followerId,
+          p_dedupe_key: expect.stringMatching(
             new RegExp(
               `^follow:${followerId}:${targetUserId}:\\d{4}-W\\d{2}$`
             )
           ),
         })
       );
+      // Phase 5f: route never calls enqueueNotification directly anymore.
+      expect(mockEnqueueNotification).not.toHaveBeenCalled();
     });
 
-    it("does NOT enqueue a notification when the follow insert fails (Phase 3c)", async () => {
+    it("returns 500 when the RPC fails (Phase 5f — atomicity rollback observable as error)", async () => {
       mockAuthenticatedUser(mockSupabaseClient, followerUser);
       setupUserFollowsTable({
         existing: null,
@@ -241,10 +261,10 @@ describe("POST /api/users/[id]/follow/toggle", () => {
         "POST",
         `http://localhost:3000/api/users/${targetUserId}/follow/toggle`,
       );
-      await POST(req as any, { params: { id: targetUserId } });
-      await Promise.resolve();
-      await Promise.resolve();
-
+      const res = await POST(req as any, { params: { id: targetUserId } });
+      await expectErrorResponse(res, 500, "Failed to toggle follow");
+      // Even on failure the route must not call the legacy enqueue path —
+      // atomicity is the function's responsibility, not the route's.
       expect(mockEnqueueNotification).not.toHaveBeenCalled();
     });
   });
@@ -267,7 +287,7 @@ describe("POST /api/users/[id]/follow/toggle", () => {
       expect((body.data as any).message).toBe("Unfollowed");
     });
 
-    it("does NOT enqueue a notification on unfollow (Phase 3c)", async () => {
+    it("does NOT invoke the RPC on unfollow (Phase 5f)", async () => {
       mockAuthenticatedUser(mockSupabaseClient, followerUser);
       setupUserFollowsTable({ existing: { id: "follow-existing-3" } });
 
@@ -276,9 +296,8 @@ describe("POST /api/users/[id]/follow/toggle", () => {
         `http://localhost:3000/api/users/${targetUserId}/follow/toggle`,
       );
       await POST(req as any, { params: { id: targetUserId } });
-      await Promise.resolve();
-      await Promise.resolve();
 
+      expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
       expect(mockEnqueueNotification).not.toHaveBeenCalled();
     });
 

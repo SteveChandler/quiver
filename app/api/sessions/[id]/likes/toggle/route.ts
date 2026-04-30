@@ -6,7 +6,13 @@ import {
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
 import { creditAuthorWithXP } from "@/lib/gamification";
-import { enqueueNotification } from "@/lib/notifications/enqueue";
+
+interface LikeWithNotificationResult {
+  liked: boolean;
+  was_existing: boolean;
+  event_id: string | null;
+  notification_dedup_collision: boolean;
+}
 
 /**
  * POST /api/sessions/[id]/likes/toggle - Toggle like status for a session.
@@ -49,51 +55,48 @@ export const POST = withAuth(
       });
     }
 
-    const { error: insertError } = await supabase
-      .from("session_likes")
-      .insert({ session_id: sessionId, user_id: user.id });
-    if (insertError) throw insertError;
+    // Phase 5f: atomic like+notification via Postgres function. Either both
+    // the session_likes row AND the notification_events row commit, or neither
+    // does. No orphan notifications from a failed mutation; no orphan likes
+    // from a failed enqueue. The function is idempotent on (session_id, user_id),
+    // catches unique_violation on the notification dedupe_key internally, and
+    // suppresses self-like notifications.
+    const rpcClient = supabase as unknown as {
+      rpc(
+        fn: "like_session_with_notification",
+        args: { p_session_id: string; p_actor_id: string; p_dedupe_key: string }
+      ): Promise<{ data: LikeWithNotificationResult | null; error: { code?: string; message: string } | null }>;
+    };
+    const { data: rpcData, error: rpcError } = await rpcClient.rpc(
+      "like_session_with_notification",
+      {
+        p_session_id: sessionId,
+        p_actor_id: user.id,
+        p_dedupe_key: `like:${sessionId}:${user.id}`,
+      },
+    );
+    if (rpcError) throw rpcError;
+    const result: LikeWithNotificationResult = rpcData ?? {
+      liked: true,
+      was_existing: false,
+      event_id: null,
+      notification_dedup_collision: false,
+    };
 
-    // Credit the session author with XP. Idempotent (keyed on xp_events
-    // (user_id, action, related_entity_id)) and non-blocking — the like is
-    // already persisted so if the credit fails we shouldn't fail the POST.
-    // creditAuthorWithXP uses a service-role client internally so it bypasses
-    // RLS regardless of which client context we're in.
-    const { data: session } = await supabase
-      .from("sessions")
-      .select("user_id, beach_name")
-      .eq("id", sessionId)
-      .single();
-
-    if (session && session.user_id && session.user_id !== user.id) {
-      void creditAuthorWithXP(session.user_id, "session", sessionId).catch(
-        (err) => console.error("Failed to credit author XP:", err),
-      );
-
-      // Dedupe is permanent on (recipient, type, key): if you like → unlike →
-      // re-like, the recipient gets exactly one notification, not two. The
-      // worker still applies notif_likes/notif_push_enabled/notif_inapp_enabled
-      // and quiet hours.
-      void enqueueNotification({
-        type: "like",
-        recipientUserId: session.user_id,
-        actorUserId: user.id,
-        entityType: "session",
-        entityId: sessionId,
-        payload: {
-          session_id: sessionId,
-          beach_name: session.beach_name ?? null,
-        },
-        dedupeKey: `like:${sessionId}:${user.id}`,
-      })
-        .then((result) => {
-          if (!result.enqueued && result.reason !== "duplicate") {
-            console.error("[likes] enqueue failed", { sessionId, result });
-          }
-        })
-        .catch((err) => {
-          console.error("[likes] enqueue threw", { sessionId, err });
-        });
+    // Credit the session author with XP. Idempotent and non-blocking — the
+    // like is already persisted, so a credit failure shouldn't fail the POST.
+    // Skip when the like already existed (idempotent re-POST).
+    if (!result.was_existing) {
+      const { data: session } = await supabase
+        .from("sessions")
+        .select("user_id")
+        .eq("id", sessionId)
+        .single();
+      if (session && session.user_id && session.user_id !== user.id) {
+        void creditAuthorWithXP(session.user_id, "session", sessionId).catch(
+          (err) => console.error("Failed to credit author XP:", err),
+        );
+      }
     }
 
     return createSuccessResponse({

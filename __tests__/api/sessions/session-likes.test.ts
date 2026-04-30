@@ -13,6 +13,7 @@ import { NextRequest } from "next/server";
 
 // Mock createSupabaseServerClient before imports
 const mockFrom = jest.fn();
+const mockRpc = jest.fn();
 const mockAuthGetUser = jest.fn();
 
 const mockSupabaseClient = {
@@ -20,6 +21,7 @@ const mockSupabaseClient = {
     getUser: mockAuthGetUser,
   },
   from: mockFrom,
+  rpc: mockRpc,
 };
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -33,6 +35,10 @@ jest.mock("@/lib/gamification", () => ({
   creditAuthorWithXP: jest.fn(() => Promise.resolve()),
 }));
 
+// Defensive guard: the route previously called enqueueNotification directly.
+// Phase 5f moved that into the like_session_with_notification Postgres
+// function, so the import is no longer used by the route — but a regression
+// test catches accidental re-introduction.
 const mockEnqueueNotification = jest.fn();
 jest.mock("@/lib/notifications/enqueue", () => ({
   enqueueNotification: (...args: unknown[]) => mockEnqueueNotification(...args),
@@ -44,11 +50,14 @@ import { POST } from "@/app/api/sessions/[id]/likes/toggle/route";
 import { creditAuthorWithXP as mockCreditAuthorWithXP } from "@/lib/gamification";
 
 /**
- * Configure `mockFrom` for the POST route. The route does:
+ * Configure mocks for the POST route. Phase 5f flow:
  *   1. supabase.from("session_likes").select("id").eq().eq().maybeSingle()
- *   2a. supabase.from("session_likes").delete().eq()                       (existing → unlike)
- *   2b. supabase.from("session_likes").insert({...})                       (no existing → like)
- *       then supabase.from("sessions").select("user_id").eq().single()    (XP author lookup)
+ *   2a. supabase.from("session_likes").delete().eq()                            (existing → unlike)
+ *   2b. supabase.rpc("like_session_with_notification", { p_session_id, ... })  (no existing → atomic like+notif)
+ *       then supabase.from("sessions").select("user_id").eq().single()         (XP author lookup, only when !was_existing)
+ *
+ * `insertError` here represents an RPC-level failure (route propagates it),
+ * since the actual insert now happens inside the Postgres function.
  */
 function setupSessionLikesScenario(opts: {
   existing?: { id: string } | null;
@@ -56,12 +65,24 @@ function setupSessionLikesScenario(opts: {
   insertError?: { message: string } | null;
   deleteError?: { message: string } | null;
   sessionAuthor?: { user_id: string; beach_name?: string | null } | null;
+  rpcResult?: {
+    liked: boolean;
+    was_existing: boolean;
+    event_id: string | null;
+    notification_dedup_collision: boolean;
+  };
 }) {
   const existing = opts.existing ?? null;
   const selectError = opts.selectError ?? null;
   const insertError = opts.insertError ?? null;
   const deleteError = opts.deleteError ?? null;
   const sessionAuthor = opts.sessionAuthor ?? null;
+  const rpcResult = opts.rpcResult ?? {
+    liked: true,
+    was_existing: false,
+    event_id: "evt-mock",
+    notification_dedup_collision: false,
+  };
 
   const sessionLikesSelectChain: any = {
     eq: jest.fn().mockReturnThis(),
@@ -72,7 +93,6 @@ function setupSessionLikesScenario(opts: {
   const sessionLikesDeleteChain: any = {
     eq: jest.fn(() => Promise.resolve({ error: deleteError })),
   };
-  const sessionLikesInsertChain: any = Promise.resolve({ error: insertError });
 
   const sessionsSelectChain: any = {
     eq: jest.fn().mockReturnThis(),
@@ -86,7 +106,6 @@ function setupSessionLikesScenario(opts: {
       return {
         select: jest.fn(() => sessionLikesSelectChain),
         delete: jest.fn(() => sessionLikesDeleteChain),
-        insert: jest.fn(() => sessionLikesInsertChain),
       };
     }
     if (table === "sessions") {
@@ -95,6 +114,16 @@ function setupSessionLikesScenario(opts: {
       };
     }
     throw new Error(`Unexpected supabase.from(${table})`);
+  });
+
+  mockRpc.mockImplementation((fn: string) => {
+    if (fn === "like_session_with_notification") {
+      return Promise.resolve({
+        data: insertError ? null : rpcResult,
+        error: insertError ?? null,
+      });
+    }
+    throw new Error(`Unexpected supabase.rpc(${fn})`);
   });
 }
 
@@ -525,7 +554,7 @@ describe("Session Likes API", () => {
       expect(mockCreditAuthorWithXP).not.toHaveBeenCalled();
     });
 
-    it("enqueues a `like` notification event when liking another user's session (Phase 3b)", async () => {
+    it("invokes the like_session_with_notification RPC on like (Phase 5f atomicity)", async () => {
       mockAuthGetUser.mockResolvedValue({
         data: { user: { id: validUserId, email: "user@example.com" } },
         error: null,
@@ -542,49 +571,18 @@ describe("Session Likes API", () => {
       );
 
       await POST(request, { params: { id: validSessionId } });
-      // Fire-and-forget — let the microtask queue settle.
-      await Promise.resolve();
-      await Promise.resolve();
 
-      expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
-      expect(mockEnqueueNotification).toHaveBeenCalledWith({
-        type: "like",
-        recipientUserId: otherUserId,
-        actorUserId: validUserId,
-        entityType: "session",
-        entityId: validSessionId,
-        payload: {
-          session_id: validSessionId,
-          beach_name: "Mavericks",
-        },
-        dedupeKey: `like:${validSessionId}:${validUserId}`,
+      expect(mockRpc).toHaveBeenCalledTimes(1);
+      expect(mockRpc).toHaveBeenCalledWith("like_session_with_notification", {
+        p_session_id: validSessionId,
+        p_actor_id: validUserId,
+        p_dedupe_key: `like:${validSessionId}:${validUserId}`,
       });
-    });
-
-    it("does NOT enqueue a notification when liking own session (Phase 3b)", async () => {
-      mockAuthGetUser.mockResolvedValue({
-        data: { user: { id: validUserId, email: "user@example.com" } },
-        error: null,
-      });
-
-      setupSessionLikesScenario({
-        existing: null,
-        sessionAuthor: { user_id: validUserId, beach_name: "Self Beach" },
-      });
-
-      const request = new NextRequest(
-        `http://localhost:3000/api/sessions/${validSessionId}/likes/toggle`,
-        { method: "POST" }
-      );
-
-      await POST(request, { params: { id: validSessionId } });
-      await Promise.resolve();
-      await Promise.resolve();
-
+      // Phase 5f: route never calls enqueueNotification directly anymore.
       expect(mockEnqueueNotification).not.toHaveBeenCalled();
     });
 
-    it("does NOT enqueue a notification on unlike (Phase 3b)", async () => {
+    it("does NOT invoke the RPC on unlike (Phase 5f)", async () => {
       mockAuthGetUser.mockResolvedValue({
         data: { user: { id: validUserId, email: "user@example.com" } },
         error: null,
@@ -598,10 +596,40 @@ describe("Session Likes API", () => {
       );
 
       await POST(request, { params: { id: validSessionId } });
-      await Promise.resolve();
-      await Promise.resolve();
 
+      expect(mockRpc).not.toHaveBeenCalled();
       expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    });
+
+    it("skips XP credit when RPC reports the like already existed (idempotent re-POST) (Phase 5f)", async () => {
+      mockAuthGetUser.mockResolvedValue({
+        data: { user: { id: validUserId, email: "user@example.com" } },
+        error: null,
+      });
+
+      // Local session_likes existence check missed it (race), but the RPC
+      // reports was_existing=true — route should skip the XP lookup entirely.
+      setupSessionLikesScenario({
+        existing: null,
+        rpcResult: {
+          liked: true,
+          was_existing: true,
+          event_id: null,
+          notification_dedup_collision: false,
+        },
+      });
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/sessions/${validSessionId}/likes/toggle`,
+        { method: "POST" }
+      );
+
+      const response = await POST(request, { params: { id: validSessionId } });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.liked).toBe(true);
+      expect(mockCreditAuthorWithXP).not.toHaveBeenCalled();
     });
 
     it("does NOT credit XP when the session has been deleted", async () => {
