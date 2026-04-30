@@ -27,23 +27,23 @@ interface HowItWorksStep {
 const STEPS: HowItWorksStep[] = [
   {
     number: "01",
-    title: "Tell us where you surf",
+    title: "5am. Alarm goes off.",
     description:
-      "Your home beach, what kind of waves you like, how long you've been surfing.",
+      "You tell us your home beach, what kind of waves you like, and how long you've been surfing. Once.",
     Icon: Sliders,
   },
   {
     number: "02",
-    title: "We read the conditions for you",
+    title: "Phone's already telling you.",
     description:
-      "Wave height, wind, tide, swell direction — translated into whether it's worth the drive, for you.",
+      "Wave height, wind, tide, swell direction — read for your spot, in plain English. No five-app shuffle.",
     Icon: Brain,
   },
   {
     number: "03",
-    title: "Know when to go",
+    title: "Dawn patrol or back to bed.",
     description:
-      "Best window today, at your spots, with the conditions explained clearly.",
+      "One call: worth getting out of bed, or roll over. Best window of the day, at the beaches you actually surf.",
     Icon: Target,
   },
 ];

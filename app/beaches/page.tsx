@@ -6,7 +6,7 @@ import { buildPageMetadata } from "@/lib/seo/meta";
 export const metadata: Metadata = buildPageMetadata({
   title: "Browse Surf Beaches by Region",
   description:
-    "Explore surf beaches across the United States and Mexico. Find real-time conditions, AI-powered forecasts, and community reviews for thousands of breaks.",
+    "Explore surf beaches across the United States and Mexico. Find real-time conditions, calibrated forecasts, and community reviews for thousands of breaks.",
   path: "/beaches",
 });
 
@@ -41,7 +41,7 @@ export default function BeachesIndexPage() {
         </h1>
         <p className="mt-2 text-gray-600 max-w-3xl">
           Pick a region to explore surf cities, beach conditions, and
-          AI-powered forecasts.
+          calibrated forecasts.
         </p>
       </header>
 

@@ -73,7 +73,7 @@ export async function generateMetadata(
   const stateName = getUsStateDisplayNameFromSlug(stateSlug);
   return buildPageMetadata({
     title: `Surf Beaches in ${stateName} — Every City & Break`,
-    description: `Explore every surf city and beach break in ${stateName} with real-time conditions, AI-powered forecasts, and community reviews. Find your next session from beginner-friendly waves to expert reef breaks.`,
+    description: `Explore every surf city and beach break in ${stateName} with real-time conditions, calibrated forecasts, and community reviews. Find your next session from beginner-friendly waves to expert reef breaks.`,
     path: `/beaches/usa/${stateSlug}`,
   });
 }
@@ -244,7 +244,7 @@ export default async function UsaStatePage(
       <WebPageSchema
         name={`Surf Beaches in ${stateName} — Every City & Break`}
         url={statePageUrl}
-        description={`Explore every surf city and beach break in ${stateName} with real-time conditions, AI-powered forecasts, and community reviews.`}
+        description={`Explore every surf city and beach break in ${stateName} with real-time conditions, calibrated forecasts, and community reviews.`}
       />
       <ItemListSchema
         items={cityItemListItems}
