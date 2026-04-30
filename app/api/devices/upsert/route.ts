@@ -16,7 +16,7 @@ import { withAuth, createSuccessResponse } from "@/lib/middleware/api-wrappers";
  */
 export const POST = withAuth(async (request: NextRequest, { user, supabase }) => {
   const body = await request.json();
-  const { platform, device_token } = body;
+  const { platform, device_token, app_version, os_version, expo_sdk } = body;
 
   if (!platform || !device_token) {
     return NextResponse.json(
@@ -62,19 +62,53 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
     );
   }
 
+  // Phase 5l: optional device metadata. Each capped at 32 chars to keep
+  // dashboard/log payloads small. Bad values fail loudly rather than silently
+  // truncating.
+  for (const [field, value] of [
+    ["app_version", app_version],
+    ["os_version", os_version],
+    ["expo_sdk", expo_sdk],
+  ] as const) {
+    if (value !== undefined && value !== null) {
+      if (typeof value !== "string") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `${field} must be a string`,
+            timestamp: new Date().toISOString(),
+          },
+          { status: 400 }
+        );
+      }
+      if (value.length > 32) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `${field} exceeds maximum length of 32 characters`,
+            timestamp: new Date().toISOString(),
+          },
+          { status: 400 }
+        );
+      }
+    }
+  }
+
+  const upsertRow: Record<string, unknown> = {
+    user_id: user.id,
+    platform,
+    device_token,
+    updated_at: new Date().toISOString(),
+  };
+  if (app_version !== undefined) upsertRow.app_version = app_version ?? null;
+  if (os_version !== undefined) upsertRow.os_version = os_version ?? null;
+  if (expo_sdk !== undefined) upsertRow.expo_sdk = expo_sdk ?? null;
+
   const { error: upsertError } = await supabase
     .from("user_devices")
-    .upsert(
-      {
-        user_id: user.id,
-        platform,
-        device_token,
-        updated_at: new Date().toISOString(),
-      },
-      {
-        onConflict: "user_id,device_token",
-      }
-    );
+    .upsert(upsertRow as never, {
+      onConflict: "user_id,device_token",
+    });
 
   if (upsertError) {
     console.error("Device token upsert failed:", upsertError);

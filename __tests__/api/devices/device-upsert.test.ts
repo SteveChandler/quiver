@@ -505,6 +505,113 @@ describe("Device Token API - POST /api/devices/upsert", () => {
     });
   });
 
+  describe("Phase 5l: device metadata", () => {
+    it("passes app_version, os_version, expo_sdk through to upsert when provided", async () => {
+      const mockUser = createMockUser();
+      mockAuthenticatedUser(mockSupabase, mockUser);
+
+      const mockUpsert = jest.fn().mockResolvedValue({ error: null });
+      (mockSupabase.from as jest.Mock).mockReturnValue({
+        upsert: mockUpsert,
+      });
+
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "ios",
+            device_token: "tok",
+            app_version: "0.6.0",
+            os_version: "17.4",
+            expo_sdk: "55.0.0",
+          },
+        }
+      );
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+      expect(mockUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          app_version: "0.6.0",
+          os_version: "17.4",
+          expo_sdk: "55.0.0",
+        }),
+        expect.any(Object)
+      );
+    });
+
+    it("rejects metadata strings longer than 32 chars", async () => {
+      const mockUser = createMockUser();
+      mockAuthenticatedUser(mockSupabase, mockUser);
+
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "ios",
+            device_token: "tok",
+            app_version: "x".repeat(33),
+          },
+        }
+      );
+
+      const response = await POST(request);
+      const data = await response.json();
+      expect(response.status).toBe(400);
+      expect(data.error).toContain("app_version");
+      expect(data.error).toContain("exceeds maximum length");
+    });
+
+    it("rejects non-string metadata", async () => {
+      const mockUser = createMockUser();
+      mockAuthenticatedUser(mockSupabase, mockUser);
+
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "ios",
+            device_token: "tok",
+            os_version: 17,
+          },
+        }
+      );
+
+      const response = await POST(request);
+      const data = await response.json();
+      expect(response.status).toBe(400);
+      expect(data.error).toContain("os_version");
+    });
+
+    it("does NOT include metadata fields in upsert when omitted (preserves prior values)", async () => {
+      const mockUser = createMockUser();
+      mockAuthenticatedUser(mockSupabase, mockUser);
+
+      const mockUpsert = jest.fn().mockResolvedValue({ error: null });
+      (mockSupabase.from as jest.Mock).mockReturnValue({
+        upsert: mockUpsert,
+      });
+
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: { platform: "android", device_token: "tok" },
+        }
+      );
+
+      await POST(request);
+
+      const upsertArg = mockUpsert.mock.calls[0][0];
+      expect(upsertArg).not.toHaveProperty("app_version");
+      expect(upsertArg).not.toHaveProperty("os_version");
+      expect(upsertArg).not.toHaveProperty("expo_sdk");
+    });
+  });
+
   describe("Request Body Parsing", () => {
     it("should handle malformed JSON body", async () => {
       const mockUser = createMockUser();
