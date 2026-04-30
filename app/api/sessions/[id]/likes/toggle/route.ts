@@ -6,6 +6,7 @@ import {
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
 import { creditAuthorWithXP } from "@/lib/gamification";
+import { enqueueNotification } from "@/lib/notifications/enqueue";
 
 /**
  * POST /api/sessions/[id]/likes/toggle - Toggle like status for a session.
@@ -60,7 +61,7 @@ export const POST = withAuth(
     // RLS regardless of which client context we're in.
     const { data: session } = await supabase
       .from("sessions")
-      .select("user_id")
+      .select("user_id, beach_name")
       .eq("id", sessionId)
       .single();
 
@@ -68,6 +69,31 @@ export const POST = withAuth(
       void creditAuthorWithXP(session.user_id, "session", sessionId).catch(
         (err) => console.error("Failed to credit author XP:", err),
       );
+
+      // Dedupe is permanent on (recipient, type, key): if you like → unlike →
+      // re-like, the recipient gets exactly one notification, not two. The
+      // worker still applies notif_likes/notif_push_enabled/notif_inapp_enabled
+      // and quiet hours.
+      void enqueueNotification({
+        type: "like",
+        recipientUserId: session.user_id,
+        actorUserId: user.id,
+        entityType: "session",
+        entityId: sessionId,
+        payload: {
+          session_id: sessionId,
+          beach_name: session.beach_name ?? null,
+        },
+        dedupeKey: `like:${sessionId}:${user.id}`,
+      })
+        .then((result) => {
+          if (!result.enqueued && result.reason !== "duplicate") {
+            console.error("[likes] enqueue failed", { sessionId, result });
+          }
+        })
+        .catch((err) => {
+          console.error("[likes] enqueue threw", { sessionId, err });
+        });
     }
 
     return createSuccessResponse({

@@ -84,7 +84,15 @@ jest.mock("@/lib/gamification", () => ({
 }));
 
 jest.mock("@/lib/services/push-notifications", () => ({
+  // Retained as a defensive mock — the route no longer calls this function
+  // post-Phase-3a, but other code paths importing the module shouldn't
+  // touch FCM in tests.
   sendSessionInvitePush: jest.fn().mockResolvedValue(undefined),
+}));
+
+const mockEnqueueNotification = jest.fn();
+jest.mock("@/lib/notifications/enqueue", () => ({
+  enqueueNotification: (...args: unknown[]) => mockEnqueueNotification(...args),
 }));
 
 // Test data factories
@@ -133,6 +141,10 @@ describe("/api/session-planner/invitations - POST", () => {
     const testEnv = setupApiTestEnvironment();
     cleanup = testEnv.cleanup;
     jest.clearAllMocks();
+    mockEnqueueNotification.mockResolvedValue({
+      enqueued: true,
+      eventId: "evt-mock",
+    });
   });
 
   afterEach(() => {
@@ -968,6 +980,10 @@ describe("/api/session-planner/invitations - POST", () => {
     beforeEach(() => {
       const mockUser = createMockUser();
       mockAuthenticatedUser(mockSupabaseClient, mockUser);
+      mockEnqueueNotification.mockResolvedValue({
+        enqueued: true,
+        eventId: "evt-mock",
+      });
     });
 
     it("should create invitation to follower successfully", async () => {
@@ -1273,6 +1289,106 @@ describe("/api/session-planner/invitations - POST", () => {
 
       expect(response.status).toBe(200);
       expect(data.data.invitations[0].message).toBe("Epic waves today!");
+    });
+
+    it("enqueues a notification_event per invitee with the registry-shaped payload (Phase 3a)", async () => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
+        if (table === "sessions") {
+          return {
+            select: jest.fn(() => ({
+              eq: jest.fn(() => ({
+                eq: jest.fn(() => ({
+                  single: jest.fn().mockResolvedValue({
+                    data: createMockSession({ user_id: "test-user-123" }),
+                    error: null,
+                  }),
+                })),
+              })),
+            })),
+          };
+        }
+        if (table === "session_invitations") {
+          return {
+            select: jest.fn(() => ({
+              eq: jest.fn(() => ({
+                eq: jest.fn(() => ({
+                  single: jest.fn().mockResolvedValue({ data: null, error: null }),
+                })),
+                gt: jest.fn(() => ({
+                  order: jest.fn(() => ({
+                    maybeSingle: jest
+                      .fn()
+                      .mockResolvedValue({ data: null, error: null }),
+                  })),
+                })),
+              })),
+            })),
+            insert: jest.fn(() => ({
+              select: jest.fn(() => ({
+                single: jest.fn().mockResolvedValue({
+                  data: createMockInvitation(),
+                  error: null,
+                }),
+              })),
+            })),
+          };
+        }
+        if (table === "profiles") {
+          const mockProfile = createMockProfile({
+            id: "invitee-456",
+            email: "invitee@example.com",
+            email_session_invites: true,
+            inapp_session_invites: true,
+          });
+          return {
+            select: jest.fn(() => ({
+              eq: jest.fn(() => ({
+                single: jest.fn().mockResolvedValue({
+                  data: mockProfile,
+                  error: null,
+                }),
+              })),
+              in: jest.fn(() => Promise.resolve({ data: [mockProfile], error: null })),
+            })),
+          };
+        }
+        return mockSupabaseClient.from();
+      });
+
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/session-planner/invitations",
+        {
+          body: {
+            sessionId: "session-123",
+            invitees: [{ userId: "invitee-456" }],
+            message: "Join me for a surf!",
+          },
+        }
+      );
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+
+      // Producer fires the enqueue via Promise.allSettled (not awaited);
+      // flush microtasks so the call is observable.
+      await new Promise((r) => setImmediate(r));
+
+      expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+      expect(mockEnqueueNotification).toHaveBeenCalledWith({
+        type: "session_invite",
+        recipientUserId: "invitee-456",
+        actorUserId: "test-user-123",
+        entityType: "session",
+        entityId: "session-123",
+        payload: {
+          session_id: "session-123",
+          beach_name: "Ocean Beach",
+          arrival_time: "2024-01-20T10:00:00Z",
+          message: "Join me for a surf!",
+        },
+        dedupeKey: "session_invite:session-123:invitee-456",
+      });
     });
   });
 

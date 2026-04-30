@@ -142,6 +142,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/notifications-deliver",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron/cleanup-pending-alert-captures",
       "schedule": "30 3 * * *"
     },

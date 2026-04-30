@@ -7,6 +7,7 @@ import {
   methodNotAllowed,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
+import { enqueueNotification } from "@/lib/notifications/enqueue";
 
 /**
  * POST /api/users/[id]/follow/toggle - Toggle follow status for a user.
@@ -59,6 +60,30 @@ export const POST = withAuth(
       .insert({ follower_id: user.id, following_id: targetUserId });
     if (insertError) throw insertError;
 
+    // Weekly-bucketed dedupe (`YYYY-WW`): rapid unfollow → re-follow within the
+    // same ISO week does not re-notify, but re-engagement after the bucket
+    // rolls over does — which matches "follow is a meaningful re-engagement
+    // signal" without exposing the recipient to spam-toggle abuse. Worker
+    // honors notif_follows + master prefs + quiet hours.
+    const isoWeekBucket = formatIsoYearWeek(new Date());
+    void enqueueNotification({
+      type: "follow",
+      recipientUserId: targetUserId,
+      actorUserId: user.id,
+      entityType: "user",
+      entityId: targetUserId,
+      payload: {},
+      dedupeKey: `follow:${user.id}:${targetUserId}:${isoWeekBucket}`,
+    })
+      .then((result) => {
+        if (!result.enqueued && result.reason !== "duplicate") {
+          console.error("[follow] enqueue failed", { targetUserId, result });
+        }
+      })
+      .catch((err) => {
+        console.error("[follow] enqueue threw", { targetUserId, err });
+      });
+
     revalidatePath("/profile");
     revalidatePath(`/profile/${targetUserId}`);
 
@@ -73,4 +98,19 @@ export const POST = withAuth(
 
 export function GET() {
   return methodNotAllowed(["POST"]);
+}
+
+/**
+ * ISO-8601 year + week (e.g. "2026-W18"). Used as a dedupe-key time bucket so
+ * follow notifications only suppress within the same calendar week, not
+ * forever. Algorithm per ISO-8601: thursday of the same week determines the
+ * year; week 1 contains january 4th.
+ */
+function formatIsoYearWeek(d: Date): string {
+  const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${date.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
 }

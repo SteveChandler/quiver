@@ -4,6 +4,7 @@
  */
 
 import admin from "firebase-admin";
+import * as Sentry from "@sentry/nextjs";
 
 let initAttempted = false;
 let missingEnvWarned = false;
@@ -21,8 +22,23 @@ function initializeFirebaseAdminIfNeeded(): void {
   if (!projectId || !clientEmail || !privateKey) {
     if (!missingEnvWarned) {
       missingEnvWarned = true;
-      console.warn("Firebase Admin SDK not initialized: Missing environment variables");
-      console.warn("Required: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY");
+      const missing = [
+        !projectId && "FIREBASE_PROJECT_ID",
+        !clientEmail && "FIREBASE_CLIENT_EMAIL",
+        !privateKey && "FIREBASE_PRIVATE_KEY",
+      ]
+        .filter(Boolean)
+        .join(", ");
+      const message = `Firebase Admin SDK not initialized — push notifications are silently disabled. Missing: ${missing}`;
+      console.error(message);
+      // In production, escalate to Sentry so this can't go unnoticed (it
+      // previously hid behind a one-time console.warn).
+      if (process.env.NODE_ENV === "production") {
+        Sentry.captureMessage(message, {
+          level: "error",
+          tags: { feature: "push", subsystem: "firebase_admin" },
+        });
+      }
     }
     return;
   }
@@ -40,6 +56,11 @@ function initializeFirebaseAdminIfNeeded(): void {
     if (!initErrorLogged) {
       initErrorLogged = true;
       console.error("Failed to initialize Firebase Admin SDK:", error);
+      if (process.env.NODE_ENV === "production") {
+        Sentry.captureException(error, {
+          tags: { feature: "push", subsystem: "firebase_admin" },
+        });
+      }
     }
   }
 }

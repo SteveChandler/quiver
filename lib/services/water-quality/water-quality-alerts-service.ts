@@ -13,9 +13,8 @@
  * - Mock users are always skipped
  */
 
-import type { SupabaseServiceClient, Json } from "@/types/supabase";
-import { sendPushNotification } from "@/lib/services/push-notifications";
-import { getLocalHour, DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
+import type { SupabaseServiceClient } from "@/types/supabase";
+import { enqueueNotification } from "@/lib/notifications/enqueue";
 
 type WaterQualityStatus = "good" | "advisory" | "closure" | "unknown";
 
@@ -49,19 +48,9 @@ export interface AlertResult {
   errors: string[];
 }
 
-// Quiet hours: suppress notifications between 10 PM and 4 AM local time
-const QUIET_HOURS_START = 22; // 10 PM
-const QUIET_HOURS_END = 4;    // 4 AM
-
-function isHourInQuietHours(hour: number): boolean {
-  return hour >= QUIET_HOURS_START || hour < QUIET_HOURS_END;
-}
-
-function isWithinQuietHours(timezone: string | null, now: Date = new Date()): boolean {
-  const tz = timezone || DEFAULT_TIMEZONE;
-  const localHour = getLocalHour(now, tz);
-  return isHourInQuietHours(localHour);
-}
+// Phase 3e: quiet-hours and producer-level dedup are now handled by the
+// notifications-deliver worker via the registry's `quietHours` config and
+// the partial unique index on (recipient_user_id, type, dedupe_key).
 
 function buildNotificationContent(
   status: WaterQualityStatus,
@@ -177,38 +166,9 @@ export async function processWaterQualityAlerts(
   const wqByBeachId = new Map<string, ChangedBeachRow>();
   changed.forEach((r) => wqByBeachId.set(r.beach_id, r));
 
-  // 6) Dedup: fetch today's water_quality_alert notifications for these users
-  //    We check the notifications table for records created today (UTC) to prevent
-  //    sending duplicate alerts if the cron fires multiple times within a day.
-  const eligibleUserIds = eligibleProfiles.map((p) => p.id);
-  const todayUtcStart = new Date();
-  todayUtcStart.setUTCHours(0, 0, 0, 0);
-
-  const { data: todayNotifs, error: notifsError } = await supabase
-    .from("notifications")
-    .select("user_id, data")
-    .eq("type", "water_quality_alert")
-    .in("user_id", eligibleUserIds)
-    .gte("created_at", todayUtcStart.toISOString());
-
-  if (notifsError) {
-    // Non-fatal: log and continue without dedup (prefer over-notification to silence)
-    console.warn("[WQAlerts] Failed to load today's notifications for dedup:", notifsError);
-  }
-
-  // Build a Set of "userId|beachId" combos already notified today
-  const alreadyNotifiedToday = new Set<string>();
-  (todayNotifs || []).forEach((n: { user_id: string; data: Json }) => {
-    const data = n.data as Record<string, unknown> | null;
-    const beachId = data?.beach_id as string | undefined;
-    if (beachId) {
-      alreadyNotifiedToday.add(`${n.user_id}|${beachId}`);
-    }
-  });
-
-  // 7) Process each eligible user
-  const now = new Date();
-
+  // 6) Phase 3e: enqueue per eligible user. The notifications-deliver worker
+  //    handles devices/FCM, in-app inbox row, master+per-type prefs, quiet
+  //    hours, and same-day dedup via the partial unique index.
   for (const profile of eligibleProfiles) {
     const beachId = profile.home_beach_id!;
     const wqRow = wqByBeachId.get(beachId);
@@ -219,7 +179,10 @@ export async function processWaterQualityAlerts(
       continue;
     }
 
-    // Skip if no notification content for this status transition
+    // Skip if no notification content for this status transition.
+    // (buildNotificationContent returns null for non-notify transitions;
+    // the worker rebuilds title/body from `status` so we only need the
+    // transition gate here, not the copy.)
     const notifContent = buildNotificationContent(
       wqRow.status,
       wqRow.previous_status,
@@ -231,82 +194,42 @@ export async function processWaterQualityAlerts(
       continue;
     }
 
-    // Quiet hours check
-    if (isWithinQuietHours(profile.timezone, now)) {
-      console.info(
-        `[WQAlerts] Skipping notification for user ${profile.id} - quiet hours ` +
-          `(tz: ${profile.timezone || DEFAULT_TIMEZONE})`
-      );
-      result.notificationsSkipped++;
-      continue;
-    }
+    const localDate = new Date(wqRow.status_changed_at)
+      .toISOString()
+      .slice(0, 10);
 
-    // Dedup: skip if already sent for this user+beach today
-    const dedupeKey = `${profile.id}|${beachId}`;
-    if (alreadyNotifiedToday.has(dedupeKey)) {
-      result.notificationsSkipped++;
-      continue;
-    }
-
-    // 8) Send push notification
     try {
-      const pushResult = await sendPushNotification({
-        userIds: [profile.id],
-        title: notifContent.title,
-        body: notifContent.body,
-        data: {
-          type: "water_quality_alert",
+      const enqueueResult = await enqueueNotification({
+        type: "water_quality",
+        recipientUserId: profile.id,
+        entityType: "beach",
+        entityId: beachId,
+        payload: {
           beach_id: beachId,
+          beach_name: beach.name || "Your home beach",
           beach_slug: beach.slug || "",
           status: wqRow.status,
-          url: `/beach/${beach.slug}`,
+          previous_status: wqRow.previous_status,
+          status_changed_at: wqRow.status_changed_at,
         },
+        dedupeKey: `water_quality:${profile.id}:${beachId}:${localDate}`,
       });
 
-      // If Firebase is unconfigured or no device tokens, count as skipped (not an error)
-      if (pushResult.success === 0 && pushResult.failed === 0) {
+      if (enqueueResult.enqueued) {
+        result.notificationsSent++;
+      } else if (enqueueResult.reason === "duplicate") {
         result.notificationsSkipped++;
-        continue;
-      }
-
-      if (pushResult.failed > 0) {
-        result.notificationsSkipped++;
-        continue;
-      }
-
-      // 9) Record in-app notification (non-fatal if it fails)
-      const { error: insertError } = await supabase
-        .from("notifications")
-        .insert({
-          user_id: profile.id,
-          type: "water_quality_alert",
-          data: {
-            beach_id: beachId,
-            beach_slug: beach.slug,
-            beach_name: beach.name,
-            status: wqRow.status,
-            previous_status: wqRow.previous_status,
-            title: notifContent.title,
-            body: notifContent.body,
-          },
-        });
-
-      if (insertError) {
-        console.warn(
-          `[WQAlerts] Failed to insert notification record for user ${profile.id}:`,
-          insertError
-        );
-        // Still count as sent since push succeeded
       } else {
-        // Mark as notified in our local dedup set to guard against
-        // the rare case of a user appearing twice in the profile list
-        alreadyNotifiedToday.add(dedupeKey);
+        console.error(
+          `[WQAlerts] Enqueue failed for user ${profile.id}:`,
+          enqueueResult
+        );
+        result.errors.push(`user ${profile.id}: ${enqueueResult.reason}`);
+        result.notificationsSkipped++;
       }
-
-      result.notificationsSent++;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unknown push error";
-      console.error(`[WQAlerts] Push failed for user ${profile.id}:`, msg);
+      const msg = err instanceof Error ? err.message : "Unknown enqueue error";
+      console.error(`[WQAlerts] Enqueue threw for user ${profile.id}:`, msg);
       result.errors.push(`user ${profile.id}: ${msg}`);
       result.notificationsSkipped++;
     }

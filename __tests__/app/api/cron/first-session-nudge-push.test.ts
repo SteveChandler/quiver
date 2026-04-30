@@ -139,9 +139,16 @@ jest.mock("@/lib/supabase/server", () => ({
   })),
 }));
 
+// Phase 3e: route uses enqueueNotification, not sendPushNotifications.
+// Retain the FCM mock as a defensive guard so any future regression is caught.
 const mockSendPushNotifications = jest.fn().mockResolvedValue(undefined);
 jest.mock("@/lib/services/push-notifications", () => ({
   sendPushNotifications: (...args: unknown[]) => mockSendPushNotifications(...args),
+}));
+
+const mockEnqueueNotification = jest.fn();
+jest.mock("@/lib/notifications/enqueue", () => ({
+  enqueueNotification: (...args: unknown[]) => mockEnqueueNotification(...args),
 }));
 
 // ============================================================================
@@ -208,6 +215,10 @@ describe("First-Session-Nudge Push Cron", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     reset();
+    mockEnqueueNotification.mockResolvedValue({
+      enqueued: true,
+      eventId: "evt-mock",
+    });
     const { validateCronRequest } = require("@/lib/api-utils");
     validateCronRequest.mockReturnValue(true);
   });
@@ -399,7 +410,7 @@ describe("First-Session-Nudge Push Cron", () => {
       }
     };
 
-    it("trialing_home → 'Unlock your Quiver' + beach name in body", async () => {
+    it("trialing_home → 'Unlock your Quiver' + beach name in body (Phase 3e: enqueued)", async () => {
       setupBase("u-th", {
         home_beach_id: "beach-1",
         entitlement: { is_pro: true, is_trialing: true },
@@ -411,14 +422,18 @@ describe("First-Session-Nudge Push Cron", () => {
 
       expect(data.data.summary.sent).toBe(1);
       expect(data.data.summary.cohorts.trialing_home).toBe(1);
-      const [messages] = mockSendPushNotifications.mock.calls[0];
-      expect(messages[0]).toEqual(
+      expect(mockSendPushNotifications).not.toHaveBeenCalled();
+
+      expect(mockEnqueueNotification).toHaveBeenCalledWith(
         expect.objectContaining({
-          to: "tok-1",
-          title: "Unlock your Quiver",
-          body: "Log today's session at Swami's — 7 days left in your trial",
-          data: expect.objectContaining({
-            type: "log_session_nudge",
+          type: "log_session_nudge",
+          recipientUserId: "u-th",
+          entityType: "beach",
+          entityId: "beach-1",
+          payload: expect.objectContaining({
+            cohort: "trialing_home",
+            title: "Unlock your Quiver",
+            body: "Log today's session at Swami's — 7 days left in your trial",
             beach_id: "beach-1",
           }),
         })
@@ -435,12 +450,12 @@ describe("First-Session-Nudge Push Cron", () => {
       const data = await response.json();
 
       expect(data.data.summary.cohorts.trialing_no_home).toBe(1);
-      const [messages] = mockSendPushNotifications.mock.calls[0];
-      expect(messages[0].title).toBe("Set your home break");
-      expect(messages[0].body).toBe(
+      const call = mockEnqueueNotification.mock.calls[0][0];
+      expect(call.payload.title).toBe("Set your home break");
+      expect(call.payload.body).toBe(
         "Pick a spot and log a session — 7 days left in your trial"
       );
-      expect(messages[0].data.beach_id).toBeNull();
+      expect(call.payload.beach_id).toBeNull();
     });
 
     it("free_home_firing → '✨ {beach} is looking good' when confidence>=70", async () => {
@@ -455,9 +470,9 @@ describe("First-Session-Nudge Push Cron", () => {
       const data = await response.json();
 
       expect(data.data.summary.cohorts.free_home_firing).toBe(1);
-      const [messages] = mockSendPushNotifications.mock.calls[0];
-      expect(messages[0].title).toBe("✨ Blacks is looking good");
-      expect(messages[0].body).toBe(
+      const call = mockEnqueueNotification.mock.calls[0][0];
+      expect(call.payload.title).toBe("✨ Blacks is looking good");
+      expect(call.payload.body).toBe(
         "Check today's forecast and log your session to start building your score"
       );
     });
@@ -474,9 +489,9 @@ describe("First-Session-Nudge Push Cron", () => {
       const data = await response.json();
 
       expect(data.data.summary.cohorts.free_home).toBe(1);
-      const [messages] = mockSendPushNotifications.mock.calls[0];
-      expect(messages[0].title).toBe("How was this week?");
-      expect(messages[0].body).toBe(
+      const call = mockEnqueueNotification.mock.calls[0][0];
+      expect(call.payload.title).toBe("How was this week?");
+      expect(call.payload.body).toBe(
         "Log a session at Trestles to start building your personalized forecast"
       );
     });
@@ -491,15 +506,15 @@ describe("First-Session-Nudge Push Cron", () => {
       const data = await response.json();
 
       expect(data.data.summary.cohorts.free_no_home).toBe(1);
-      const [messages] = mockSendPushNotifications.mock.calls[0];
-      expect(messages[0].title).toBe("Been out this week?");
-      expect(messages[0].body).toBe("Set your home break and log a session to start");
-      expect(messages[0].data.beach_id).toBeNull();
+      const call = mockEnqueueNotification.mock.calls[0][0];
+      expect(call.payload.title).toBe("Been out this week?");
+      expect(call.payload.body).toBe("Set your home break and log a session to start");
+      expect(call.payload.beach_id).toBeNull();
     });
   });
 
-  describe("Multi-device fan-out", () => {
-    it("fans out across multiple devices but logs once per user", async () => {
+  describe("Multi-device fan-out (Phase 3e: enqueue once, worker handles fan-out)", () => {
+    it("logs once per user even when the user has multiple device tokens", async () => {
       seedWindow("profiles", [
         { id: "u-multi", first_name: null, home_beach_id: null },
       ]);
@@ -518,9 +533,9 @@ describe("First-Session-Nudge Push Cron", () => {
 
       expect(data.success).toBe(true);
       expect(data.data.summary.sent).toBe(1);
-      expect(mockSendPushNotifications).toHaveBeenCalledTimes(1);
-      const [messages] = mockSendPushNotifications.mock.calls[0];
-      expect(messages).toHaveLength(2);
+      // Phase 3e: cron enqueues once; the worker fans out across devices.
+      expect(mockSendPushNotifications).not.toHaveBeenCalled();
+      expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
 
       expect(mockInsert).toHaveBeenCalledTimes(1);
       const [table, payload] = mockInsert.mock.calls[0];
@@ -531,6 +546,7 @@ describe("First-Session-Nudge Push Cron", () => {
         metadata: expect.objectContaining({
           cohort: "free_no_home",
           device_count: 2,
+          method: "enqueued_via_pipeline",
         }),
       });
     });

@@ -36,7 +36,7 @@
  * - OR Authorization: Bearer <CRON_SECRET>
  */
 
-import type { messaging } from "firebase-admin";
+import { enqueueNotification } from "@/lib/notifications/enqueue";
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -44,7 +44,6 @@ import {
   validateCronRequest,
 } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { sendPushNotifications, type PushMessage } from "@/lib/services/push-notifications";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -513,39 +512,35 @@ export async function GET(request: Request) {
       }
     }
 
-    // 10. Resolve cohort + send + log per user.
-    const android: messaging.AndroidConfig = {
-      priority: "high",
-      notification: { channelId: "default", priority: "high" },
-    };
-
+    // 10. Phase 3e: enqueue per candidate. Worker handles devices/FCM.
     for (const candidate of candidates) {
       try {
         const resolved = await resolveCohort(supabase, candidate, beachById);
         summary.cohorts[resolved.cohort]++;
 
-        const apns: messaging.ApnsConfig = {
+        const enqueueResult = await enqueueNotification({
+          type: "log_session_nudge",
+          recipientUserId: candidate.user_id,
+          entityType: resolved.beach_id ? "beach" : null,
+          entityId: resolved.beach_id ?? null,
           payload: {
-            aps: {
-              sound: "default",
-              alert: { title: resolved.title, body: resolved.body },
-            },
-          },
-        };
-
-        const messages: PushMessage[] = candidate.device_tokens.map((token) => ({
-          to: token,
-          title: resolved.title,
-          body: resolved.body,
-          data: {
-            type: "log_session_nudge",
+            cohort: resolved.cohort,
+            title: resolved.title,
+            body: resolved.body,
             beach_id: resolved.beach_id ?? null,
           },
-          android,
-          apns,
-        }));
+          dedupeKey: `log_session_nudge:${candidate.user_id}:${NUDGE_TYPE}`,
+        });
 
-        await sendPushNotifications(messages);
+        if (!enqueueResult.enqueued && enqueueResult.reason !== "duplicate") {
+          console.error(
+            `${CONTEXT_TAG} Enqueue failed for ${candidate.user_id}:`,
+            enqueueResult
+          );
+          summary.skipped.send_failed++;
+          summary.errors++;
+          continue;
+        }
 
         const { error: insertError } = await supabase
           .from("activation_push_log")
@@ -558,6 +553,9 @@ export async function GET(request: Request) {
               beach_name: resolved.beach_name,
               confidence_score: resolved.confidence_score,
               device_count: candidate.device_tokens.length,
+              notification_event_id:
+                enqueueResult.enqueued ? enqueueResult.eventId : null,
+              method: "enqueued_via_pipeline",
             },
           });
 
@@ -567,12 +565,12 @@ export async function GET(request: Request) {
             insertError
           );
           summary.skipped.log_failed++;
-          // Still counted as sent — push went out. Next tick noops on PK conflict.
+          // Still counted as sent — event is enqueued. Next tick noops on PK conflict.
         }
 
         summary.sent++;
         console.log(
-          `${CONTEXT_TAG} Sent ${resolved.cohort} to ${candidate.user_id} ` +
+          `${CONTEXT_TAG} Enqueued ${resolved.cohort} for ${candidate.user_id} ` +
             `(${candidate.device_tokens.length} device${candidate.device_tokens.length === 1 ? "" : "s"})`
         );
       } catch (candidateError) {

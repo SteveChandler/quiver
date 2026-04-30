@@ -37,7 +37,7 @@ import {
   type MatchQuality,
 } from "@/lib/services/forecast-digest-service";
 import { getFreshForecastFromCache } from "@/lib/utils/forecast-service-utils";
-import { sendPushNotification } from "@/lib/services/push-notifications";
+import { enqueueNotification } from "@/lib/notifications/enqueue";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 export const revalidate = 0;
@@ -294,11 +294,13 @@ async function persistRunStats(
 }
 
 /**
- * Send a push notification for digest email and track the result in summary.
- * Handles errors gracefully, updates push metrics, and logs to push_notification_log.
+ * Phase 3e: enqueue a daily_digest notification event. The
+ * notifications-deliver worker handles devices, FCM, retries, prefs, and
+ * the per-channel notification_delivery_attempts log. The legacy
+ * push_notification_log writes are dropped as part of this migration.
  */
 async function sendDigestPush(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
   userId: string,
   userEmail: string,
   title: string,
@@ -306,61 +308,39 @@ async function sendDigestPush(
   data: Record<string, string>,
   summary: DigestRunSummary
 ): Promise<void> {
-  let pushResult = { success: 0, failed: 0 };
-  let status: 'sent' | 'failed' | 'no_token' = 'sent';
-  let errorMessage: string | null = null;
-
   try {
-    pushResult = await sendPushNotification({
-      userIds: [userId],
-      title,
-      body,
-      data,
+    const today = new Date().toISOString().slice(0, 10);
+    const enqueueResult = await enqueueNotification({
+      type: "daily_digest",
+      recipientUserId: userId,
+      entityType: data.beach_id ? "beach" : null,
+      entityId: data.beach_id || null,
+      payload: {
+        alert_date: today,
+        title,
+        body,
+      },
+      dedupeKey: `daily_digest:${userId}:${today}`,
     });
 
-    // Determine status based on result
-    if (pushResult.success > 0) {
-      status = 'sent';
-    } else if (pushResult.failed > 0) {
-      status = 'failed';
-      errorMessage = 'FCM send failed';
+    if (enqueueResult.enqueued) {
+      summary.pushSent++;
+    } else if (enqueueResult.reason === "duplicate") {
+      // Same-day re-run — already enqueued.
+      summary.skipped.pushFailed++;
     } else {
-      status = 'no_token';
+      console.error(
+        `❌ [forecast-digest-email] Enqueue failed for ${userEmail}:`,
+        enqueueResult
+      );
+      summary.skipped.pushFailed++;
     }
-  } catch (pushError) {
+  } catch (err) {
     console.error(
-      `❌ [forecast-digest-email] Push notification failed for ${userEmail}:`,
-      pushError
+      `❌ [forecast-digest-email] Enqueue threw for ${userEmail}:`,
+      err
     );
-    pushResult = { success: 0, failed: 1 };
-    status = 'failed';
-    errorMessage = pushError instanceof Error ? pushError.message : 'Unknown error';
-  }
-
-  // Log to push_notification_log table
-  try {
-    await supabase.from('push_notification_log').insert({
-      user_id: userId,
-      notification_type: 'daily_digest',
-      title,
-      body,
-      status,
-      beach_id: data.beach_id || null,
-      data,
-      error_message: errorMessage,
-    });
-  } catch (logError) {
-    console.error('❌ [forecast-digest-email] Failed to log push notification:', logError);
-    // Don't fail the push send because logging failed
-  }
-
-  // Track push result in summary
-  if (pushResult.success > 0) {
-    summary.pushSent++;
-  } else if (pushResult.failed > 0) {
     summary.skipped.pushFailed++;
-  } else {
-    summary.skipped.noPushDeviceTokens++;
   }
 }
 

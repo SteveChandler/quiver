@@ -1,0 +1,164 @@
+/**
+ * Shared types for the centralized notification pipeline.
+ *
+ * Mirrors the SQL CHECK constraints in:
+ *   - 20260429231445_create_notification_events.sql
+ *   - 20260429231446_create_notification_delivery_attempts.sql
+ *
+ * The registry (registry.ts) is the runtime source of truth for type names;
+ * the SQL `type` column intentionally has no CHECK so adding a new type
+ * doesn't require a migration.
+ */
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database.generated";
+
+export type ProfilePrefColumn = Extract<
+  keyof Database["public"]["Tables"]["profiles"]["Row"],
+  | "notif_push_enabled"
+  | "notif_email_enabled"
+  | "notif_inapp_enabled"
+  | "notif_session_invites"
+  | "notif_likes"
+  | "notif_follows"
+  | "notif_reminders"
+  | "notif_xp_updates"
+  | "notif_forecast_alerts"
+  | "notif_water_quality"
+  | "inapp_session_invites"
+  | "email_session_invites"
+>;
+
+export type NotificationChannel = "push" | "in_app" | "email";
+
+export type NotificationEventStatus =
+  | "pending"
+  | "processed"
+  | "skipped"
+  | "failed";
+
+export type NotificationDeliveryStatus =
+  | "sent"
+  | "skipped_no_device"
+  | "skipped_pref_master"
+  | "skipped_pref_type"
+  | "skipped_self"
+  | "skipped_dedup"
+  | "skipped_disabled"
+  | "skipped_quiet_hours"
+  | "failed_provider"
+  | "failed_internal";
+
+export interface QuietHoursConfig {
+  honor: boolean;
+  /** Local hour (0–23) when quiet hours start. Inclusive. */
+  windowStart?: number;
+  /** Local hour (0–23) when quiet hours end. Exclusive. Wraps midnight. */
+  windowEnd?: number;
+}
+
+export interface NotificationPushPayload {
+  title: string;
+  body: string;
+  /** FCM data fields are stringified at send-time; values can be any JSON-serializable. */
+  data: Record<string, unknown>;
+}
+
+export interface NotificationInAppPayload {
+  /** Type string written to the `notifications` table. May differ from the
+   *  registry key if the legacy in-app `type` CHECK constraint demands it. */
+  type: string;
+  data: Record<string, unknown>;
+}
+
+/** Recipient context the worker fetches once per event and passes to builders. */
+export interface BuildCtx {
+  recipientUserId: string;
+  actorUserId: string | null;
+  recipient: {
+    display_name: string | null;
+    timezone: string | null;
+  };
+  /** The actor's profile, only loaded if the type might reference it (most do). */
+  actor: {
+    display_name: string | null;
+  } | null;
+}
+
+export interface OnChannelOutcomeArgs<P = Record<string, unknown>> {
+  supabase: SupabaseClient<Database>;
+  event: {
+    id: string;
+    recipient_user_id: string;
+    actor_user_id: string | null;
+    type: string;
+    entity_type: string | null;
+    entity_id: string | null;
+    payload: P;
+    created_at: string;
+  };
+  channel: NotificationChannel;
+  status: NotificationDeliveryStatus;
+}
+
+export interface NotificationTypeDef<P = Record<string, unknown>> {
+  /** Stable string key used by producers and stored in `notification_events.type`. */
+  type: string;
+  channels: NotificationChannel[];
+  prefs: {
+    /** Required master gate per channel — recipient.profile[col] === false suppresses. */
+    master: Partial<Record<NotificationChannel, ProfilePrefColumn>>;
+    /** Optional per-type gate per channel. */
+    perType: Partial<Record<NotificationChannel, ProfilePrefColumn>>;
+  };
+  /** Skip when actor === recipient. Default true for social types. */
+  suppressSelfNotify: boolean;
+  quietHours: QuietHoursConfig;
+  buildPushPayload?: (payload: P, ctx: BuildCtx) => NotificationPushPayload;
+  buildInAppPayload?: (payload: P, ctx: BuildCtx) => NotificationInAppPayload;
+  /**
+   * Optional hook the worker fires after writing a notification_delivery_attempts
+   * row. Called for every status EXCEPT `skipped_quiet_hours` (which is a "try
+   * later" state, not an outcome). Used by types that need to reconcile their
+   * own bookkeeping tables (e.g. forecast_alert writes per-rule rows to
+   * alert_delivery_attempts).
+   *
+   * Errors thrown by the hook are logged but do not roll back the channel
+   * dispatch — observability bookkeeping must not break delivery.
+   */
+  onChannelOutcome?: (args: OnChannelOutcomeArgs<P>) => Promise<void>;
+}
+
+export interface EnqueueArgs<P = Record<string, unknown>> {
+  type: string;
+  recipientUserId: string;
+  actorUserId?: string | null;
+  entityType?: string | null;
+  entityId?: string | null;
+  payload?: P;
+  /**
+   * Producer-supplied idempotency key. The partial unique index on
+   * (recipient_user_id, type, dedupe_key) blocks a duplicate insert when
+   * non-null. There is NO automatic derivation — if you omit this, the row
+   * inserts unconditionally and the producer is responsible for any other
+   * idempotency story it needs.
+   *
+   * Recommended shapes (mirrored in registry comments):
+   *   like:           `like:${session_id}:${actor_user_id}`
+   *                   (intentionally permanent — re-clicking a like should not
+   *                   re-notify the recipient)
+   *   follow:         `follow:${actor_user_id}:${recipient_user_id}:${YYYY-WW}`
+   *                   (weekly bucket — re-engagement after a week re-notifies)
+   *   session_invite: `session_invite:${session_id}:${recipient_user_id}`
+   *   forecast_alert: `forecast_alert:${recipient_user_id}:${alert_date}`
+   *   water_quality:  `water_quality:${recipient_user_id}:${beach_id}:${date}`
+   *   daily_digest:   `daily_digest:${recipient_user_id}:${alert_date}`
+   *   trial_ending:   `trial_ending:${recipient_user_id}:${trial_ends_at}`
+   *   log_session_nudge: `log_session_nudge:${recipient_user_id}:${cohort}`
+   */
+  dedupeKey?: string | null;
+}
+
+export type EnqueueResult =
+  | { enqueued: true; eventId: string }
+  | { enqueued: false; reason: "duplicate" | "unknown_type" | "internal_error"; message?: string };
