@@ -108,6 +108,7 @@ const TERMINAL_SKIP_STATUSES = new Set<NotificationDeliveryStatus>([
   "skipped_no_device",
   "skipped_dedup",
   "skipped_disabled",
+  "skipped_cooldown",
 ]);
 
 // Statuses that count toward the per-channel failure cap.
@@ -607,6 +608,85 @@ async function processChannel(
     const end = def.quietHours.windowEnd ?? 4;
     if (isInQuietWindow(localHour, start, end)) {
       return "deferred_quiet_hours";
+    }
+  }
+
+  // Phase 5g: per-type cooldown. If the registry sets `cooldownMs`, the worker
+  // suppresses a second send to the same recipient until the window elapses.
+  // Only applies after dedupe + prefs + quiet-hours since cooldown is the
+  // last-line "we already sent one of these recently" guard. Distinct from
+  // producer dedupe_key (which prevents duplicate ACTIVE events) and from
+  // the active-event partial unique index (which only sees pending/processing).
+  if (channel === "push" && def.cooldownMs && def.cooldownMs > 0) {
+    const cooldownStartIso = new Date(
+      now.getTime() - def.cooldownMs
+    ).toISOString();
+    const cooldownClient = supabase as unknown as {
+      from(t: "notification_delivery_attempts"): {
+        select(s: string): {
+          eq(c: "channel", v: NotificationChannel): {
+            eq(c: "status", v: NotificationDeliveryStatus): {
+              gte(c: "created_at", v: string): {
+                in(
+                  c: "notification_event_id",
+                  v: string[]
+                ): {
+                  limit(n: number): Promise<{
+                    data: Array<{ id: string }> | null;
+                    error: { message: string; code?: string } | null;
+                  }>;
+                };
+              };
+            };
+          };
+        };
+      };
+      from(
+        t: "notification_events"
+      ): {
+        select(s: string): {
+          eq(c: "recipient_user_id", v: string): {
+            eq(c: "type", v: string): {
+              gte(c: "created_at", v: string): Promise<{
+                data: Array<{ id: string }> | null;
+                error: { message: string; code?: string } | null;
+              }>;
+            };
+          };
+        };
+      };
+    };
+    const { data: recentEvents, error: eventsErr } = await cooldownClient
+      .from("notification_events")
+      .select("id")
+      .eq("recipient_user_id", event.recipient_user_id)
+      .eq("type", event.type)
+      .gte("created_at", cooldownStartIso);
+    if (eventsErr) {
+      console.error(
+        `[notifications/worker] cooldown lookup (events) failed for event ${event.id}:`,
+        eventsErr
+      );
+      // Fall through — we'd rather risk a within-cooldown send than lose the
+      // notification on a transient query error.
+    } else if (recentEvents && recentEvents.length > 0) {
+      const recentEventIds = recentEvents.map((r) => r.id);
+      const { data: sentAttempts, error: attemptsErr } = await cooldownClient
+        .from("notification_delivery_attempts")
+        .select("id")
+        .eq("channel", "push")
+        .eq("status", "sent")
+        .gte("created_at", cooldownStartIso)
+        .in("notification_event_id", recentEventIds)
+        .limit(1);
+      if (attemptsErr) {
+        console.error(
+          `[notifications/worker] cooldown lookup (attempts) failed for event ${event.id}:`,
+          attemptsErr
+        );
+      } else if (sentAttempts && sentAttempts.length > 0) {
+        return "skipped_cooldown";
+      }
     }
   }
 
