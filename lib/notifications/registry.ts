@@ -85,6 +85,20 @@ const dailyDigestSchema = z.object({
   title: z.string().min(1),
   body: z.string().min(1),
   match_count: z.number().int().nonnegative().optional(),
+  // Phase 5h: consolidated summaries from the morning digest cron. Both
+  // optional — the cron populates them as the data integrations land.
+  forecast_summary: z
+    .object({
+      top_match: z.string().min(1),
+      match_count: z.number().int().nonnegative(),
+    })
+    .optional(),
+  water_quality_summary: z
+    .object({
+      advisory_count: z.number().int().nonnegative(),
+      closure_count: z.number().int().nonnegative(),
+    })
+    .optional(),
 });
 
 // Phase 5i: admin types — push-only, master-pref-only, no quiet hours.
@@ -211,6 +225,15 @@ interface DailyDigestPayload {
   title: string;
   body: string;
   match_count?: number;
+  // Phase 5h: optional consolidated summaries
+  forecast_summary?: {
+    top_match: string;
+    match_count: number;
+  };
+  water_quality_summary?: {
+    advisory_count: number;
+    closure_count: number;
+  };
 }
 
 interface AdminTestPayload {
@@ -332,12 +355,15 @@ export const NOTIFICATION_REGISTRY = {
 
   forecast_alert: {
     type: "forecast_alert",
-    channels: ["push", "in_app"],
+    // Phase 5h: forecast_alert push channel removed. The morning daily_digest
+    // (6am PT) consolidates forecast highlights into a single push. Per-event
+    // forecast_alert rows continue to land in the in-app inbox so users can
+    // see all matched windows on demand.
+    channels: ["in_app"],
     prefs: {
-      master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
-      // Single UI toggle ("Forecast Alerts") gates both channels.
+      master: { in_app: "notif_inapp_enabled" },
+      // Single UI toggle ("Forecast Alerts") gates the in_app channel.
       perType: {
-        push: "notif_forecast_alerts",
         in_app: "notif_forecast_alerts",
       },
     },
@@ -442,10 +468,14 @@ export const NOTIFICATION_REGISTRY = {
 
   water_quality: {
     type: "water_quality",
-    channels: ["push", "in_app"],
+    // Phase 5h: water_quality push channel removed. The morning daily_digest
+    // (6am PT) summarizes today's beach advisories/closures into a single
+    // push. Per-event water_quality rows continue to land in the in-app
+    // inbox so users can see status changes on demand.
+    channels: ["in_app"],
     prefs: {
-      master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
-      perType: { push: "notif_water_quality", in_app: "notif_water_quality" },
+      master: { in_app: "notif_inapp_enabled" },
+      perType: { in_app: "notif_water_quality" },
     },
     suppressSelfNotify: false,
     quietHours: DEFAULT_QUIET,
@@ -494,11 +524,32 @@ export const NOTIFICATION_REGISTRY = {
     suppressSelfNotify: false,
     quietHours: NO_QUIET,
     validatePayload: (input) => dailyDigestSchema.parse(input),
-    buildPushPayload: (p) => ({
-      title: p.title,
-      body: p.body,
-      data: { type: "daily_digest", alert_date: p.alert_date },
-    }),
+    buildPushPayload: (p) => {
+      // Phase 5h: prefer consolidated summary copy when forecast/water-quality
+      // summaries are present. Falls back to the producer-supplied title/body
+      // (legacy / cron-not-yet-enriched path).
+      let body = p.body;
+      const wqs = p.water_quality_summary;
+      if (wqs && (wqs.advisory_count > 0 || wqs.closure_count > 0)) {
+        const parts: string[] = [];
+        if (wqs.closure_count > 0) {
+          parts.push(
+            `${wqs.closure_count} closure${wqs.closure_count === 1 ? "" : "s"}`
+          );
+        }
+        if (wqs.advisory_count > 0) {
+          parts.push(
+            `${wqs.advisory_count} advisor${wqs.advisory_count === 1 ? "y" : "ies"}`
+          );
+        }
+        body = `${p.body} • Water quality: ${parts.join(" + ")}`;
+      }
+      return {
+        title: p.title,
+        body,
+        data: { type: "daily_digest", alert_date: p.alert_date },
+      };
+    },
     buildInAppPayload: (p) => ({
       type: "daily_digest",
       data: {
@@ -506,6 +557,12 @@ export const NOTIFICATION_REGISTRY = {
         title: p.title,
         body: p.body,
         match_count: p.match_count ?? 0,
+        ...(p.forecast_summary
+          ? { forecast_summary: p.forecast_summary }
+          : {}),
+        ...(p.water_quality_summary
+          ? { water_quality_summary: p.water_quality_summary }
+          : {}),
       },
     }),
   } satisfies NotificationTypeDef<DailyDigestPayload>,
