@@ -38,6 +38,10 @@ export function IntelTab({
     }
   }, [beach.lat, beach.lon, beach.name, beach.id]);
 
+  if (beach.lat == null || beach.lon == null) {
+    return null;
+  }
+
   return (
     <div className="py-6">
       <BeachIntelSection

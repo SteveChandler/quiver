@@ -325,6 +325,11 @@ export async function getSurfForecast({
       } else {
         // Use the first match from the database
         const matchedBeach = matchingBeaches[0];
+        if (matchedBeach.lat == null || matchedBeach.lon == null) {
+          throw new Error(
+            `Beach "${matchedBeach.name}" is missing coordinates in the database`
+          );
+        }
         beachName = matchedBeach.name;
         coordinates = {
           lat: matchedBeach.lat,
@@ -365,6 +370,7 @@ export async function getSurfForecast({
             let foundNearbyForecast = false;
             for (const beach of allBeachesResult.data) {
               if (beach.id === matchedBeach.id) continue; // Skip the current beach
+              if (beach.lat == null || beach.lon == null) continue; // Skip beaches missing coordinates
 
               const distance = getDistanceInKm(
                 { lat: matchedBeach.lat, lon: matchedBeach.lon },

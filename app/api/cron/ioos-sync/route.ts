@@ -193,6 +193,7 @@ async function syncStations(maxStations: number): Promise<StationSyncResult> {
       let nearestBeach: { id: string; distance: number } | null = null;
 
       for (const beach of beaches || []) {
+        if (beach.lat == null || beach.lon == null) continue;
         const distance = calculateDistance(
           station.latitude,
           station.longitude,

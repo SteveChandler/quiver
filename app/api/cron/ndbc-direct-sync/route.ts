@@ -176,6 +176,7 @@ async function syncStations(): Promise<StationSyncResult> {
       let nearestBeach: { id: string; distance: number } | null = null;
 
       for (const beach of beaches || []) {
+        if (beach.lat == null || beach.lon == null) continue;
         const distance = haversineDistance(
           station.lat,
           station.lon,

@@ -58,15 +58,21 @@ async function summaryHandler(request: NextRequest) {
       .from("beaches")
       .select("id, name, lat, lon, wind_offshore_deg")
       .not("lat", "is", null)
+      .not("lon", "is", null)
       .limit(PAGINATION.BEACHES_CACHE_LIMIT);
 
-    const beachesCache = (beaches || []).map((b) => ({
-      id: b.id,
-      name: b.name,
-      lat: b.lat,
-      lon: b.lon,
-      windOffshoreDeg: b.wind_offshore_deg,
-    }));
+    const beachesCache = (beaches || []).flatMap((b) => {
+      if (b.lat == null || b.lon == null) return [];
+      return [
+        {
+          id: b.id,
+          name: b.name,
+          lat: b.lat,
+          lon: b.lon,
+          windOffshoreDeg: b.wind_offshore_deg,
+        },
+      ];
+    });
 
     // Find closest beach for forecast
     let closestBeach = beachesCache[0];
