@@ -3,10 +3,10 @@ import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { SpotSurfReportStream } from "@/components/spots/spot-surf-report";
-import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
+import { ZineNearbySpots } from "@/components/beach-detail/zine/zine-nearby-spots";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
-import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-section";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
@@ -37,7 +37,6 @@ import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { LiveCamSchema } from "@/components/seo/live-cam-schema";
 import { getBeachCameraUrl } from "@/actions/beach/cam-actions";
 import { BeachProseSummary } from "@/components/beach-detail/beach-prose-summary";
-import { OptimalConditionsSection } from "@/components/beach-detail/optimal-conditions-section";
 
 // ISR: revalidate every hour. getSpotSurfReportPublic() uses the service-role
 // client with no cookie reads, so this route stays in ISR (not forced dynamic).
@@ -307,29 +306,51 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           surfCallIsTomorrow={surfCallIsTomorrow}
           amenities={amenitiesResult}
           waterQuality={waterQualityResult}
+          beachPhoto={beachPhoto}
         />
 
-        {/* SSR sections below tabs for SEO crawlability */}
-        <div className="container mx-auto px-4 pb-8 space-y-8">
-          <OptimalConditionsSection beach={beach} photo={beachPhoto} />
-          <NearbyBeachesEnriched
-              beaches={nearbyBeaches}
-              sourceBeachName={beach.name}
-              sourceBeachLat={beach.lat}
-              sourceBeachLon={beach.lon}
-            />
-          <RelatedGuidesSection beach={beach} bestTimeToSurfUrl={bestTimeToSurfUrl} />
+        {/* Desktop-only inline CTA — counterpart to the mobile-only StickySignupBar
+            below. Together they form ONE primary CTA per viewport (Phase 1A/1B
+            invariant). Mobile sticky has md:hidden internally; this wrapper
+            mirrors that with hidden md:block. Placed before the nearby-spots
+            browse list so the "save THIS beach" prompt arrives before the
+            "explore other beaches" off-ramp. */}
+        <div className="hidden md:block px-4 md:px-8 max-w-5xl mx-auto my-8">
+          <InlineSignupCta
+            title={`Save ${beach.name} as your home break`}
+            description={`Get personalized alerts when ${beach.name} is firing — based on your level.`}
+            primaryButtonText={`Save ${beach.name}`}
+            source={`beach-detail-${beachSlug}-desktop-inline`}
+            ctaCopyVariant="beach_home_break_v1"
+          />
+        </div>
+
+        {/* Nearby surf spots — restyled to live inside a continuation of the
+            zine cream paper. OptimalConditionsSection + RelatedGuidesSection
+            were retired in favor of the zine layout (the zine carries spot
+            summary, hazards, and editorial content). */}
+        <div className="zine-tab zine-page-trailer">
+          <div className="zine-stage" style={{ paddingTop: 0 }}>
+            <div className="zine-paper">
+              <ZineNearbySpots
+                beaches={nearbyBeaches}
+                sourceBeachName={beach.name}
+                sourceBeachLat={beach.lat}
+                sourceBeachLon={beach.lon}
+              />
+            </div>
+          </div>
         </div>
 
         <StickySignupBar
           source={`beach-detail-${beachSlug}`}
-          ctaText={`Save ${beach.name}`}
+          ctaText={`Save ${beach.name} as your home break`}
           supportingText={`Alerts when ${beach.name} is firing — free`}
           contextMessage={{
-            title: `Save ${beach.name} to your quiver`,
+            title: `Save ${beach.name} as your home break`,
             description: "Condition alerts, 12-day outlook, and your personal match score",
           }}
-          ctaCopyVariant="beach_specific_v1"
+          ctaCopyVariant="beach_home_break_v1"
         />
       </div>
     );

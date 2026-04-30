@@ -5,19 +5,31 @@ import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error
 import { isVisibleSafe } from './utils/strict-helpers';
 
 /**
- * CTA Reduction Tests — Phase 1A + 1B (revised 2026-04-28)
+ * CTA Reduction Tests — zine layout revision (2026-04-28) +
+ * desktop CTA addition (2026-04-29).
  *
- * Phase 1A removed MatchScoreTeaser, InlineSignupCta, the horizon-strip
- * upsell banner, and PersonalizedForecastTeaser. Lifetime data showed
- * MatchScoreTeaser was actually the strongest-performing CTA in the
- * codebase (1.07% CTR over 1,305 views), so it has been reinstated. The
- * other Phase 1A removals stay removed.
+ * Beach detail page rebuilt around the cream-paper zine. The zine
+ * masthead + Today's Surf Call act as the editorial CTA surface. On
+ * top of that, anonymous users see exactly ONE primary signup CTA
+ * per viewport:
+ *   - Desktop (≥768px): InlineSignupCta with "home break" framing.
+ *   - Mobile (<768px): StickySignupBar with the same framing.
+ * They are mutually exclusive by viewport (md:hidden / hidden md:block),
+ * so they count as one effective CTA — the Phase 1A/1B invariant
+ * ("one primary CTA per beach page") is preserved.
+ *
+ * MatchScoreTeaser (Phase 1A reinstatement) was retired again because
+ * it conflicted visually with the zine paper and was redundant against
+ * the zine's own anonymous CTA flow.
  *
  * Invariants verified here:
- *   - MatchScoreTeaser card IS rendered for anonymous users.
- *   - InlineSignupCta, horizon-strip upsell banner, and
- *     PersonalizedForecastTeaser are NOT rendered.
- *   - At least one primary CTA is present.
+ *   - MatchScoreTeaser card is NOT rendered for anonymous users.
+ *   - Horizon-strip upsell banner and PersonalizedForecastTeaser are
+ *     NOT rendered.
+ *   - Desktop: InlineSignupCta with "home break" framing is visible;
+ *     StickySignupBar is NOT.
+ *   - Mobile: StickySignupBar with "home break" framing is visible;
+ *     desktop InlineSignupCta is NOT.
  *
  * @project guest
  */
@@ -36,28 +48,30 @@ test.describe('Anonymous beach page — CTA reduction (Phase 1A + 1B)', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Reinstated CTA — MatchScoreTeaser must render for anonymous users
+  // Retired again — MatchScoreTeaser is NOT rendered (zine layout owns CTA)
   // -------------------------------------------------------------------------
 
-  test('MatchScoreTeaser card IS rendered for anonymous users', async ({ page }) => {
-    // Reinstated 2026-04-28 after lifetime CTR data showed it was the
-    // strongest-performing high-volume CTA in the codebase. Tagged with
-    // cta_copy_variant: "match_score_v2_reinstated" so post-reinstatement
-    // CTR can be compared against the historical baseline.
+  test('MatchScoreTeaser card is NOT rendered for anonymous users', async ({ page }) => {
+    // Retired 2026-04-28 alongside the zine rebuild. The zine masthead +
+    // Today's Surf Call carry the anonymous CTA story now; the dark teaser
+    // card conflicted visually with the cream paper and was judged redundant.
     const teaserCard = page.getByTestId('match-score-teaser-card');
-    const isVisible = await isVisibleSafe(teaserCard, { timeout: 5000 });
-    expect(isVisible).toBe(true);
+    const isVisible = await isVisibleSafe(teaserCard, { timeout: 3000 });
+    expect(isVisible).toBe(false);
   });
 
   // -------------------------------------------------------------------------
   // Removed CTAs — these should still be absent for anonymous users
   // -------------------------------------------------------------------------
 
-  test('InlineSignupCta ("Get Alerts") is NOT rendered for anonymous users', async ({ page }) => {
-    // InlineSignupCta with "Get Alerts for …" title was shown below MatchScoreTeaser.
-    const inlineCta = page.getByTestId('inline-signup-cta');
-    const isVisible = await isVisibleSafe(inlineCta, { timeout: 5000 });
-    expect(isVisible).toBe(false);
+  test('legacy "Get Alerts" InlineSignupCta wording is NOT rendered for anonymous users', async ({ page }) => {
+    // The retired "Get Alerts for …" InlineSignupCta (shown below the old
+    // MatchScoreTeaser) must not return. The 2026-04-29 desktop inline CTA
+    // uses "home break" framing instead — that copy is asserted in the
+    // viewport-specific tests below.
+    const legacyHeading = page.getByRole('heading', { name: /get alerts for/i });
+    const headingVisible = await isVisibleSafe(legacyHeading, { timeout: 3000 });
+    expect(headingVisible).toBe(false);
   });
 
   test('Horizon-strip upsell banner is NOT rendered for anonymous users', async ({ page }) => {
@@ -164,6 +178,34 @@ test.describe('Anonymous beach page — CTA reduction (Phase 1A + 1B)', () => {
   // Hero teaser copy — benefit-driven, not feature-centric
   // -------------------------------------------------------------------------
 
+  // -------------------------------------------------------------------------
+  // Today's Surf Call — single beginner-default verdict + editorial CTA
+  // -------------------------------------------------------------------------
+
+  test('Today\'s Surf Call renders a single beginner-default stamp + "get your call" link for anonymous users', async ({ page }) => {
+    // The marquee verdict surface should show ONE verdict (the beginner tier),
+    // a handwritten margin scrawl pinned to the stamp ("for beginners — you?"),
+    // and a handwritten editorial link to /auth?mode=signin — never a button-shaped
+    // CTA, and never the prior 3-stamp comparison ladder.
+    const surfCallSection = page.getByRole('region', { name: /today.s surf call/i });
+    await expect(surfCallSection).toBeVisible({ timeout: 10000 });
+
+    // The margin scrawl priming the CTA must be present.
+    await expect(surfCallSection.getByLabel(/beginner call.*not you/i)).toBeVisible();
+    await expect(surfCallSection.getByText(/for beginners/i)).toBeVisible();
+
+    // The CTA link itself — points to /auth?mode=signin and reads as editorial copy.
+    const cta = surfCallSection.getByRole('link', { name: /sign in to see the surf call for your level/i });
+    await expect(cta).toBeVisible();
+    await expect(cta).toHaveAttribute('href', '/auth?mode=signin');
+    await expect(cta).toContainText(/get your call/i);
+
+    // The authed margin scrawl (aria-label starting "Your call —") must NOT be
+    // present for anon users; only the editorial CTA's "get your call" copy
+    // should match anything containing "your call".
+    await expect(surfCallSection.locator('[aria-label^="Your call"]')).toHaveCount(0);
+  });
+
   test('hero forecast teaser copy does NOT say "Get Alerts" (benefit-driven copy only)', async ({ page }) => {
     // Regression check: the hero forecast teaser (when rendered) must use
     // benefit-driven copy like "See what surfers reported..." / "See if now is
@@ -189,5 +231,58 @@ test.describe('Anonymous beach page — CTA reduction (Phase 1A + 1B)', () => {
 
     const teaserText = (await forecastTeaser.textContent()) ?? '';
     expect(teaserText.toLowerCase()).not.toContain('get alerts');
+  });
+
+  // -------------------------------------------------------------------------
+  // Viewport-specific CTA invariant (2026-04-29):
+  //   - Desktop ≥768px: InlineSignupCta visible, StickySignupBar hidden.
+  //   - Mobile <768px:  StickySignupBar visible, InlineSignupCta hidden.
+  //   - Both surfaces use "home break" framing with the beach name.
+  // -------------------------------------------------------------------------
+
+  test('desktop viewport renders InlineSignupCta with "home break" framing; sticky bar is hidden', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await navigateToBeach(page, TEST_BEACHES.blacks);
+    await page.waitForLoadState('load');
+
+    const inlineCta = page.getByTestId('inline-signup-cta');
+    await inlineCta.scrollIntoViewIfNeeded().catch(() => {});
+    await expect(inlineCta).toBeVisible({ timeout: 10000 });
+
+    // Copy must include "Save", the beach name, and "home break". The live DB
+    // may render a longer name than the fixture (e.g. "Blacks Beach" vs the
+    // fixture's "Blacks"), so we match on the fixture root + "as your home break".
+    const inlineHeading = inlineCta.getByRole('heading', {
+      name: new RegExp(`save\\s+${TEST_BEACHES.blacks.name}.*as your home break`, 'i'),
+    });
+    await expect(inlineHeading).toBeVisible();
+
+    // Sticky bar is mobile-only (md:hidden) and must not be visible at desktop.
+    const stickyBar = page.getByTestId('sticky-signup-bar');
+    const stickyVisible = await isVisibleSafe(stickyBar, { timeout: 1000 });
+    expect(stickyVisible).toBe(false);
+  });
+
+  test('mobile viewport renders StickySignupBar with "home break" framing; inline desktop CTA is hidden', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await navigateToBeach(page, TEST_BEACHES.blacks);
+    await page.waitForLoadState('load');
+
+    // Trigger sticky bar (scrollThreshold = 150).
+    await page.evaluate(() => window.scrollTo(0, 400));
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for scroll-triggered transition
+    await page.waitForTimeout(400);
+
+    const stickyBar = page.getByTestId('sticky-signup-bar');
+    await expect(stickyBar).toBeVisible({ timeout: 10000 });
+
+    const stickyCta = page.getByTestId('sticky-signup-cta');
+    await expect(stickyCta).toContainText(new RegExp(`save\\s+${TEST_BEACHES.blacks.name}`, 'i'));
+
+    // Desktop inline CTA is wrapped in `hidden md:block` and must not be
+    // visible at mobile widths.
+    const inlineCta = page.getByTestId('inline-signup-cta');
+    const inlineVisible = await isVisibleSafe(inlineCta, { timeout: 1000 });
+    expect(inlineVisible).toBe(false);
   });
 });

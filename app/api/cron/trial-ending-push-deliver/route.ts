@@ -24,7 +24,6 @@
  * - OR Authorization: Bearer <CRON_SECRET>
  */
 
-import type { messaging } from "firebase-admin";
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -32,7 +31,7 @@ import {
   validateCronRequest,
 } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { sendPushNotifications, type PushMessage } from "@/lib/services/push-notifications";
+import { enqueueNotification } from "@/lib/notifications/enqueue";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -235,39 +234,32 @@ export async function GET(request: Request) {
       return createSuccessResponse({ summary });
     }
 
-    // 5. Send push to each candidate's device(s), log once per user on success.
-    const android: messaging.AndroidConfig = {
-      priority: "high",
-      notification: {
-        channelId: "default",
-        priority: "high",
-      },
-    };
-
-    const apns: messaging.ApnsConfig = {
-      payload: {
-        aps: {
-          sound: "default",
-          alert: { title: PUSH_TITLE, body: PUSH_BODY },
-        },
-      },
-    };
-
+    // 5. Phase 3e: enqueue once per candidate. The notifications-deliver
+    //    worker handles devices, FCM, retries, and skip-no-device. The
+    //    `trial_ending_push_log` row is retained as the cron-level dedup so
+    //    a user is not re-enqueued daily.
     for (const candidate of candidates) {
       try {
-        const messages: PushMessage[] = candidate.device_tokens.map((token) => ({
-          to: token,
-          title: PUSH_TITLE,
-          body: PUSH_BODY,
-          data: {
-            type: "trial_ending",
+        const enqueueResult = await enqueueNotification({
+          type: "trial_ending",
+          recipientUserId: candidate.user_id,
+          payload: {
+            title: PUSH_TITLE,
+            body: PUSH_BODY,
             trial_ends_at: candidate.trial_ends_at,
           },
-          android,
-          apns,
-        }));
+          dedupeKey: `trial_ending:${candidate.user_id}:${candidate.trial_ends_at}`,
+        });
 
-        await sendPushNotifications(messages);
+        if (!enqueueResult.enqueued && enqueueResult.reason !== "duplicate") {
+          console.error(
+            `${CONTEXT_TAG} Enqueue failed for user ${candidate.user_id}:`,
+            enqueueResult
+          );
+          summary.skipped.sendFailed++;
+          summary.errors++;
+          continue;
+        }
 
         // Log per-user (unique constraint on PK prevents dupes even on race).
         const { error: insertError } = await supabase
@@ -275,7 +267,12 @@ export async function GET(request: Request) {
           .insert({
             user_id: candidate.user_id,
             trial_ends_at: candidate.trial_ends_at,
-            meta: { device_count: candidate.device_tokens.length },
+            meta: {
+              device_count: candidate.device_tokens.length,
+              notification_event_id:
+                enqueueResult.enqueued ? enqueueResult.eventId : null,
+              method: "enqueued_via_pipeline",
+            },
           });
 
         if (insertError) {
@@ -284,12 +281,12 @@ export async function GET(request: Request) {
             insertError
           );
           summary.skipped.logFailed++;
-          // Still count as sent — push went out. Next tick will noop on PK conflict.
+          // Still count as sent — event is enqueued. Next tick noops on PK conflict.
         }
 
         summary.sent++;
         console.log(
-          `${CONTEXT_TAG} Sent to user ${candidate.user_id} (${candidate.device_tokens.length} device${candidate.device_tokens.length === 1 ? "" : "s"})`
+          `${CONTEXT_TAG} Enqueued for user ${candidate.user_id} (${candidate.device_tokens.length} device${candidate.device_tokens.length === 1 ? "" : "s"})`
         );
       } catch (candidateError) {
         console.error(

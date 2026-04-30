@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { TIMEOUTS } from './fixtures/test-data';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
+import { dismissMapEntryOverlay } from './utils/map-helpers';
 
 /**
  * Map "Use Near Me" Button - Fresh GPS Position Tests
@@ -29,6 +30,7 @@ test.describe('Map Page - Use Near Me Fresh Position', () => {
     await context.setGeolocation(LA_JOLLA);
 
     await page.goto('/map');
+    await dismissMapEntryOverlay(page);
     // Wait for map container (networkidle can hang due to map tile loading)
     await expect(page.getByTestId('map-container')).toBeVisible({ timeout: TIMEOUTS.long });
 
@@ -66,6 +68,7 @@ test.describe('Map Page - Use Near Me Fresh Position', () => {
     await context.setGeolocation(LA_JOLLA);
 
     await page.goto('/map');
+    await dismissMapEntryOverlay(page);
     await expect(page.getByTestId('map-container')).toBeVisible({ timeout: TIMEOUTS.long });
 
     // Wait for map controls before looking for Near Me button
@@ -99,6 +102,7 @@ test.describe('Map Page - Use Near Me Fresh Position', () => {
     await context.clearPermissions();
 
     await page.goto('/map');
+    await dismissMapEntryOverlay(page);
     await expect(page.getByTestId('map-container')).toBeVisible({ timeout: TIMEOUTS.long });
 
     // Track page errors

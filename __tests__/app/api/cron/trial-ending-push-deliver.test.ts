@@ -99,9 +99,16 @@ jest.mock("@/lib/supabase/server", () => ({
   })),
 }));
 
+// Phase 3e: route uses enqueueNotification, not sendPushNotifications.
+// Retain the FCM mock as a defensive guard so any future regression is caught.
 const mockSendPushNotifications = jest.fn().mockResolvedValue(undefined);
 jest.mock("@/lib/services/push-notifications", () => ({
   sendPushNotifications: (...args: unknown[]) => mockSendPushNotifications(...args),
+}));
+
+const mockEnqueueNotification = jest.fn();
+jest.mock("@/lib/notifications/enqueue", () => ({
+  enqueueNotification: (...args: unknown[]) => mockEnqueueNotification(...args),
 }));
 
 // ============================================================================
@@ -136,6 +143,10 @@ describe("Trial-Ending Push Cron", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     resetTables();
+    mockEnqueueNotification.mockResolvedValue({
+      enqueued: true,
+      eventId: "evt-mock",
+    });
 
     const { validateCronRequest } = require("@/lib/api-utils");
     validateCronRequest.mockReturnValue(true);
@@ -254,8 +265,8 @@ describe("Trial-Ending Push Cron", () => {
     });
   });
 
-  describe("Happy path", () => {
-    it("sends push and writes one log row per candidate", async () => {
+  describe("Happy path (Phase 3e: enqueues via notifications pipeline)", () => {
+    it("enqueues a trial_ending event and writes one log row per candidate", async () => {
       const trialEndsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
       seed("user_entitlements", [{ user_id: "u-4", trial_ends_at: trialEndsAt }]);
       seed("trial_ending_push_log", []);
@@ -276,18 +287,21 @@ describe("Trial-Ending Push Cron", () => {
         logFailed: 0,
       });
 
-      expect(mockSendPushNotifications).toHaveBeenCalledTimes(1);
-      const [messages] = mockSendPushNotifications.mock.calls[0];
-      expect(messages).toEqual([
+      // Phase 3e: cron no longer calls FCM directly.
+      expect(mockSendPushNotifications).not.toHaveBeenCalled();
+
+      expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+      expect(mockEnqueueNotification).toHaveBeenCalledWith(
         expect.objectContaining({
-          to: "token-abc",
-          title: "Trial ends in 2 days",
-          data: expect.objectContaining({
-            type: "trial_ending",
+          type: "trial_ending",
+          recipientUserId: "u-4",
+          dedupeKey: `trial_ending:u-4:${trialEndsAt}`,
+          payload: expect.objectContaining({
+            title: "Trial ends in 2 days",
             trial_ends_at: trialEndsAt,
           }),
-        }),
-      ]);
+        })
+      );
 
       expect(mockInsert).toHaveBeenCalledTimes(1);
       const [table, payload] = mockInsert.mock.calls[0];
@@ -295,11 +309,11 @@ describe("Trial-Ending Push Cron", () => {
       expect(payload).toMatchObject({
         user_id: "u-4",
         trial_ends_at: trialEndsAt,
-        meta: { device_count: 1 },
+        meta: { device_count: 1, method: "enqueued_via_pipeline" },
       });
     });
 
-    it("fans out across multiple devices but logs once per user", async () => {
+    it("logs once per user even when the user has multiple device tokens", async () => {
       const trialEndsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
       seed("user_entitlements", [{ user_id: "u-5", trial_ends_at: trialEndsAt }]);
       seed("trial_ending_push_log", []);
@@ -315,9 +329,8 @@ describe("Trial-Ending Push Cron", () => {
       expect(data.success).toBe(true);
       expect(data.data.summary.sent).toBe(1);
 
-      expect(mockSendPushNotifications).toHaveBeenCalledTimes(1);
-      const [messages] = mockSendPushNotifications.mock.calls[0];
-      expect(messages).toHaveLength(2);
+      expect(mockSendPushNotifications).not.toHaveBeenCalled();
+      expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
 
       expect(mockInsert).toHaveBeenCalledTimes(1);
       const [, payload] = mockInsert.mock.calls[0];

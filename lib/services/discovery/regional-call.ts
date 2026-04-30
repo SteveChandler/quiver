@@ -103,8 +103,13 @@ function parseSpeed(speed: string): number {
 
 function buildSwellClause(recs: SurfDiscoveryRecommendation[]): string | null {
   const top5 = recs.slice(0, 5);
+  // Prefer wave_direction / wave_period — already the dominant partition per
+  // forecast-builder. swell_1_* is the legacy fallback for rows that predate
+  // the dominant-write path. Reading raw swell_1 here would surface a
+  // background SSW groundswell direction in the regional call while scoring
+  // (and the per-beach displayed swell description) used the dominant 6s W.
   const directions = top5
-    .map(r => r.forecast.swell_1_direction)
+    .map(r => r.forecast.wave_direction ?? r.forecast.swell_1_direction)
     .filter((d): d is string => d !== null && d !== undefined && d.trim() !== '');
 
   if (directions.length === 0) return null;
@@ -117,7 +122,7 @@ function buildSwellClause(recs: SurfDiscoveryRecommendation[]): string | null {
   // does not flicker the displayed period between 10s / 11s / 12s. If the
   // top rec has no period, fall back to the median of what we do have so
   // we never silently drop the number.
-  const topPeriodRaw = top5[0]?.forecast.swell_1_period;
+  const topPeriodRaw = top5[0]?.forecast.wave_period ?? top5[0]?.forecast.swell_1_period;
   const topPeriod = typeof topPeriodRaw === 'string' && topPeriodRaw.trim() !== ''
     ? parseFloat(topPeriodRaw)
     : NaN;
@@ -127,7 +132,7 @@ function buildSwellClause(recs: SurfDiscoveryRecommendation[]): string | null {
     period = topPeriod;
   } else {
     const periods = top5
-      .map(r => r.forecast.swell_1_period)
+      .map(r => r.forecast.wave_period ?? r.forecast.swell_1_period)
       .filter((p): p is string => p !== null && p !== undefined && p.trim() !== '')
       .map(p => parseFloat(p))
       .filter(p => !isNaN(p) && p > 0);

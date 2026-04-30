@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { computeSurfCall } from '@/lib/utils/surf-call-logic';
+import { computeSurfCall, computeSurfCallTiers } from '@/lib/utils/surf-call-logic';
 import type { PersonalizedForecastWindow } from '@/types/personalization';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { Beach } from '@/types/database';
@@ -1579,5 +1579,65 @@ describe('computeSurfCall', () => {
       expect(result.verdict).toBe('NO');
       expect(result.rideableWavesPerHour).not.toBeNull();
     });
+  });
+});
+
+describe('computeSurfCallTiers', () => {
+  it('returns the same intermediate verdict the baseline computeSurfCall produces', () => {
+    const window = makeWindow({ score: 75, waveHeight: '3-4 ft' });
+    const forecasts = [makeForecast({ wave_height: '3-4 ft' })];
+    const beach = makeBeach();
+    const baseline = computeSurfCall(window, forecasts, beach);
+    const tiers = computeSurfCallTiers(window, forecasts, beach);
+    expect(tiers.intermediate.verdict).toBe(baseline.verdict);
+  });
+
+  it('downgrades the advanced tier to NO when waves are below 2 ft', () => {
+    // 1.5 ft swell, intermediate-friendly conditions → beginner OK, advanced NO
+    const window = makeWindow({ score: 65, waveHeight: '1-1.5 ft' });
+    const forecasts = [
+      makeForecast({ wave_height: '1-1.5 ft' }),
+    ];
+    const tiers = computeSurfCallTiers(window, forecasts, makeBeach());
+    expect(tiers.advanced.verdict).toBe('NO');
+    expect(tiers.advanced.trail).toMatch(/TOO SMALL/i);
+  });
+
+  it('caps the beginner tier at NO when waves exceed 4 ft', () => {
+    // 9 ft swell, advanced-friendly → advanced YES, beginner NO
+    const window = makeWindow({ score: 80, waveHeight: '8-10 ft' });
+    const forecasts = [
+      makeForecast({
+        wave_height: '8-10 ft',
+        wave_period: '14s',
+        swell_1_period: '14s',
+        swell_1_height: '8',
+      }),
+    ];
+    const tiers = computeSurfCallTiers(window, forecasts, makeBeach());
+    expect(tiers.beginner.verdict).toBe('NO');
+    expect(tiers.beginner.trail).toMatch(/TOO BIG/i);
+  });
+
+  it('upgrades advanced to YES when waves > 8 ft and baseline is at least MAYBE', () => {
+    const window = makeWindow({ score: 60, waveHeight: '9-10 ft' });
+    const forecasts = [
+      makeForecast({
+        wave_height: '9-10 ft',
+        wave_period: '14s',
+        swell_1_period: '14s',
+        swell_1_height: '9',
+      }),
+    ];
+    const tiers = computeSurfCallTiers(window, forecasts, makeBeach());
+    expect(tiers.advanced.verdict).toBe('YES');
+  });
+
+  it('always returns three tier slices keyed beginner/intermediate/advanced', () => {
+    const tiers = computeSurfCallTiers(null, [], makeBeach());
+    expect(Object.keys(tiers).sort()).toEqual(['advanced', 'beginner', 'intermediate']);
+    expect(tiers.beginner.verdict).toMatch(/YES|MAYBE|NO/);
+    expect(tiers.intermediate.verdict).toMatch(/YES|MAYBE|NO/);
+    expect(tiers.advanced.verdict).toMatch(/YES|MAYBE|NO/);
   });
 });

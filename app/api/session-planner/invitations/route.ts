@@ -8,6 +8,7 @@ import {
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
 import { notifySessionInvite } from "@/lib/notifications";
+import { enqueueNotification } from "@/lib/notifications/enqueue";
 import { sendSessionInviteEmail } from "@/lib/mailer/sessionInviteEmail";
 
 // Mark this route as dynamic to prevent static generation
@@ -522,78 +523,57 @@ export const POST = withAuth(
         }
       }
 
-      // Fire-and-forget: Send push notifications to all successfully invited users
+      // Fire-and-forget: enqueue one notification_event per successfully
+      // invited user. The notifications-deliver cron picks these up and
+      // handles prefs (notif_push_enabled / notif_session_invites for push,
+      // notif_inapp_enabled / inapp_session_invites for in-app), self-
+      // suppression, quiet hours, push (FCM), and in-app inbox writes.
+      // Replaces the prior fire-and-forget direct sendSessionInvitePush +
+      // notifications insert path, which bypassed every preference.
       const inviteeUserIds = invitations
         .map((inv) => inv.inviteeId)
         .filter(Boolean) as string[];
 
       if (inviteeUserIds.length > 0) {
-        void Promise.allSettled([
-          // Push notifications
-          (async () => {
-            try {
-              const { sendSessionInvitePush } = await import(
-                "@/lib/services/push-notifications"
-              );
-              const inviterName =
-                user.user_metadata?.full_name ||
-                user.user_metadata?.user_name ||
-                "A surfer on Quiver";
-
-              await sendSessionInvitePush({
-                inviteeIds: inviteeUserIds,
-                inviterName,
-                beachName: session.beach_name || undefined,
-                arrivalTime: session.arrival_time,
-                sessionId: session.id,
-                message: message || undefined,
-              });
-              debug("Push notifications sent to invitees", {
-                count: inviteeUserIds.length,
-              });
-            } catch (err) {
-              console.error("Push notification failed:", err);
-              // Non-blocking error - don't fail the invitation
-            }
-          })(),
-
-          // In-app notification records
-          (async () => {
-            try {
-              const { data: profiles } = await serviceSupabase
-                .from("profiles")
-                .select("id, inapp_session_invites")
-                .in("id", inviteeUserIds);
-
-              const notificationRecords =
-                profiles
-                  ?.filter((p: any) => p.inapp_session_invites !== false)
-                  .map((p: any) => ({
-                    user_id: p.id,
-                    type: "session_invite" as const,
-                    data: {
-                      session_id: sessionId,
-                      inviter_id: user.id,
-                      beach_name: session.beach_name,
-                      arrival_time: session.arrival_time,
-                      message: message || null,
-                    },
-                  })) || [];
-
-              if (notificationRecords.length > 0) {
-                await serviceSupabase
-                  .from("notifications")
-                  .insert(notificationRecords);
-                debug("In-app notification records created", {
-                  count: notificationRecords.length,
-                });
-              }
-            } catch (err) {
-              console.error("In-app notification records failed:", err);
-              // Non-blocking error - don't fail the invitation
-            }
-          })(),
-        ]);
+        void Promise.allSettled(
+          inviteeUserIds.map((inviteeId) =>
+            enqueueNotification({
+              type: "session_invite",
+              recipientUserId: inviteeId,
+              actorUserId: user.id,
+              entityType: "session",
+              entityId: sessionId,
+              payload: {
+                session_id: sessionId,
+                beach_name: session.beach_name || null,
+                arrival_time: session.arrival_time || null,
+                message: message || null,
+              },
+              dedupeKey: `session_invite:${sessionId}:${inviteeId}`,
+            })
+              .then((result) => {
+                if (result.enqueued) {
+                  debug("notification event enqueued for invitee", {
+                    inviteeId,
+                    eventId: result.eventId,
+                  });
+                } else if (result.reason !== "duplicate") {
+                  console.error(
+                    "[invitations] enqueue failed for invitee",
+                    inviteeId,
+                    result
+                  );
+                }
+              })
+              .catch((err) => {
+                console.error(
+                  "[invitations] enqueue threw for invitee",
+                  inviteeId,
+                  err
+                );
+              })
+          )
+        );
       }
 
       const response: InvitationResponse = {

@@ -443,6 +443,15 @@ export interface OnboardingStepMetadata {
   push_enabled?: boolean;
   /** Whether email notifications were enabled */
   email_enabled?: boolean;
+
+  // -- Geolocation instrumentation (Workstream W5 / 2026-04-29) --
+
+  /**
+   * Geolocation permission outcome on HomeBeachStep mount. Lets us quantify
+   * how many users hit the auto-prompted nearby list vs. fall back to
+   * search-first. Emitted with step='home_beach_geolocation'.
+   */
+  geolocation_state?: 'pending' | 'granted' | 'denied' | 'unavailable';
 }
 
 /**

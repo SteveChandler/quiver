@@ -20,6 +20,14 @@ import { SCORER_WEIGHTS, createNeutralResult } from '../types';
 import { analyzeSwell, areSwellsAligned, areSwellsCrossing } from '../../conditions';
 import { CONDITIONS_CONSTANTS } from '../../conditions';
 import { directionName } from '../../shared';
+import { getDirectionalRelevance } from './directional-relevance';
+
+/**
+ * When directional relevance drops the attenuated score below this floor,
+ * suppress the positive "Clean single swell" / "Dominant primary swell"
+ * reasons — they're misleading on wind-chop dominated days.
+ */
+const RELEVANCE_REASON_THRESHOLD = 70;
 
 /**
  * Swell interference scorer plugin.
@@ -42,13 +50,19 @@ export const swellInterferenceScorer: ScorerPlugin = {
       return createNeutralResult('swellInterference', SCORER_WEIGHTS.swellInterference);
     }
 
-    // If no secondary swell, no interference - perfect score
+    // Geometry is meaningless when the dominant train carries no usable
+    // energy. Attenuate every score path below by directional relevance so a
+    // 6s "clean single swell" can't carry the composite into the good band.
+    const relevance = getDirectionalRelevance(snapshot.primarySwell.periodS);
+
+    // If no secondary swell, no interference - geometric score is 100
     if (!snapshot.secondarySwell) {
+      const score = Math.round(100 * relevance);
       return {
         name: 'swellInterference',
-        score: 100,
+        score,
         weight: SCORER_WEIGHTS.swellInterference,
-        reasons: ['Clean single swell'],
+        reasons: score >= RELEVANCE_REASON_THRESHOLD ? ['Clean single swell'] : [],
         warnings: [],
         skip: false,
         skipReason: null,
@@ -62,11 +76,12 @@ export const swellInterferenceScorer: ScorerPlugin = {
 
     // If secondary is < 10% of total energy, ignore it
     if (energyRatio < CONDITIONS_CONSTANTS.SECONDARY_SWELL_THRESHOLD) {
+      const score = Math.round(95 * relevance);
       return {
         name: 'swellInterference',
-        score: 95,
+        score,
         weight: SCORER_WEIGHTS.swellInterference,
-        reasons: ['Dominant primary swell'],
+        reasons: score >= RELEVANCE_REASON_THRESHOLD ? ['Dominant primary swell'] : [],
         warnings: [],
         skip: false,
         skipReason: null,
@@ -83,14 +98,20 @@ export const swellInterferenceScorer: ScorerPlugin = {
     // Convert interference penalty (0-30) to score (100-0)
     // interferencePenalty of 0 = score of 100
     // interferencePenalty of 30 = score of ~40
-    const score = Math.max(30, Math.round(100 - analysis.interferencePenalty * 2));
+    const geometricScore = Math.max(30, Math.round(100 - analysis.interferencePenalty * 2));
+    const score = Math.round(geometricScore * relevance);
 
     // Build reasons and warnings
     const reasons: string[] = [];
     const warnings: string[] = [];
 
     if (areSwellsAligned(snapshot.primarySwell, snapshot.secondarySwell)) {
-      reasons.push('Swells aligned - waves combine well');
+      // "Swells aligned" is a positive geometric finding, but on a 6s
+      // dominant day it's not a reason to like the surf — only surface it
+      // when the attenuated score still reads as a strength.
+      if (score >= RELEVANCE_REASON_THRESHOLD) {
+        reasons.push('Swells aligned - waves combine well');
+      }
     } else if (areSwellsCrossing(snapshot.primarySwell, snapshot.secondarySwell)) {
       warnings.push('Crossing swells creating choppy conditions');
     } else {

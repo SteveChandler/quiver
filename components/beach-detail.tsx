@@ -38,11 +38,11 @@ import { track } from "@/lib/analytics";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import { useCtaImpression } from "@/hooks/use-cta-impression";
 import { slugify } from "@/lib/utils/text-utils";
-import { buildCamEmbed } from "@/lib/media/cam-embed";
 import { FullPageLoader } from "@/components/ui/loading-states";
 import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
+import type { ZineBeachPhoto } from "@/components/beach-detail/zine/types";
 import type { BeachAmenities } from "@/types/amenities";
 import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
 
@@ -60,6 +60,7 @@ import {
   BeachTabContent,
   type BeachTabValue,
 } from "@/components/beach-detail/beach-tabs";
+import { ZinePageShell } from "@/components/beach-detail/zine/zine-page-shell";
 import { SessionPlanningModal } from "@/components/beach-detail/session-planning-modal";
 import { TabLoadingSkeleton } from "@/components/beach-detail/tab-loading-skeleton";
 // InlineSignupCta stays removed — Phase 1A CTA reduction.
@@ -184,13 +185,6 @@ const SessionsTab = lazy(() =>
   })),
 );
 
-// Dynamic import for cam player (no SSR — uses browser-only HLS)
-const CamsSection = lazy(() =>
-  import("@/components/beach-detail/cams-section").then((m) => ({
-    default: m.CamsSection,
-  })),
-);
-
 // Constants to prevent unnecessary re-renders
 const EMPTY_FORECASTS: EnhancedForecastEntity[] = [];
 
@@ -206,6 +200,7 @@ interface BeachDetailProps {
   defaultSubTab?: "today" | "tides" | "conditions";
   amenities?: BeachAmenities | null;
   waterQuality?: WaterQuality | null;
+  beachPhoto?: ZineBeachPhoto | null;
   personalizationData?: {
     score:
       | import("@/lib/services/personalized-scoring-service").PersonalizedScore
@@ -232,6 +227,7 @@ function BeachDetailContent({
   defaultSubTab,
   amenities,
   waterQuality,
+  beachPhoto,
   personalizationData,
   onPersonalizationRequest,
 }: BeachDetailProps) {
@@ -752,11 +748,6 @@ function BeachDetailContent({
     personalizationData?.isLoading,
   ]);
 
-  const showCamHero =
-    (Boolean(sources?.camera_url) &&
-      buildCamEmbed(sources?.camera_url).kind !== "none") ||
-    Boolean(sources?.diorama_url);
-
   // Horizon strip data for the hero teaser copy (firstHiddenDayName, peakHiddenWaveHeight)
   const horizonDaySummaries = useMemo(() => {
     if (!publicMode || !forecasts.length || !beach) return [];
@@ -875,131 +866,7 @@ function BeachDetailContent({
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white via-gray-50/30 to-white">
-      {/* Immersive hero: video or photos background with title at top and forecast at bottom */}
-      <div className="relative mb-6 min-h-[280px] md:min-h-[400px]">
-        {showCamHero ? (
-          /* Live cam stream — ungated for all users */
-          <Suspense
-            fallback={
-              <div
-                className="aspect-video w-full"
-                style={{ backgroundColor: "#2D357D" }}
-              />
-            }
-          >
-            <CamsSection sources={sources} variant="hero" beachName={beach.name} />
-          </Suspense>
-        ) : (
-          /* Photo gallery background */
-          <BeachPhotoGallery beach={beach} className="w-full" />
-        )}
-
-        {/* Top gradient — darkens top for title readability */}
-        <div
-          className="absolute inset-x-0 top-0 h-1/3 pointer-events-none z-[5]"
-          style={{
-            background:
-              "linear-gradient(to bottom, rgba(11,20,38,0.7) 0%, rgba(11,20,38,0.3) 60%, transparent 100%)",
-          }}
-        />
-
-        {/* Bottom gradient — darkens bottom for forecast readability (hidden when cam is active) */}
-        {!showCamHero && (
-          <div
-            className="absolute inset-x-0 bottom-0 h-1/2 pointer-events-none z-[5]"
-            style={{
-              background:
-                "linear-gradient(to top, #252D6B 0%, rgba(37,45,107,0.85) 30%, rgba(37,45,107,0.3) 65%, transparent 100%)",
-            }}
-          />
-        )}
-
-        {/* Title — top of hero */}
-        <div className="absolute inset-x-0 top-0 px-4 sm:px-6 pt-6 z-[6]">
-          <div className="mx-auto max-w-7xl">
-            <BeachBreadcrumb beach={beach} className="mb-1" />
-            <h1
-              className="font-heading text-4xl sm:text-5xl font-bold text-white leading-tight"
-              style={{ textShadow: "0 2px 16px rgba(0,0,0,0.7)" }}
-            >
-              {beach.name} Surf Report
-            </h1>
-            {/* Cam-hero NowBlock: on cam beaches the bottom forecast overlay is
-                hidden so the live cam can fill the frame. Mirror the SERP-promise
-                wave height in a thin strip under the title so Google bots and
-                first-paint mobile users still see the answer above the fold. */}
-            {showCamHero && surfCallReport?.waveHeight && (
-              <div className="mt-2 flex items-center gap-2 flex-wrap">
-                <span
-                  className="font-mono text-xl font-bold leading-none text-ocean-blue-decorative"
-                  style={{ textShadow: "0 1px 8px rgba(0,0,0,0.7)" }}
-                >
-                  {surfCallReport.waveHeight}
-                </span>
-                {surfCallReport.windSpeed && surfCallReport.windCompass && (
-                  <span
-                    className="text-white/90 text-sm font-medium"
-                    style={{ textShadow: "0 1px 8px rgba(0,0,0,0.7)" }}
-                  >
-                    · {surfCallReport.windSpeed} {surfCallReport.windCompass} wind
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Forecast overlay — bottom of hero (hidden when cam video is playing) */}
-        {!showCamHero && (
-          <div className="absolute inset-x-0 bottom-0 px-4 sm:px-6 pb-4 z-[6]">
-            <div className="mx-auto max-w-7xl">
-              {/* NowBlock: SSR'd wave height answer — visible to Google bots and
-                  first-paint users. surfCallReport is SSR'd from the server component.
-                  Keeps the SERP promise ("0.8 ft") visible within the first 280px on
-                  mobile without removing the diorama hero. */}
-              {surfCallReport?.waveHeight && (
-                <div className="mb-2 flex items-center gap-2 flex-wrap">
-                  <span className="font-mono text-2xl font-bold leading-none text-ocean-blue-decorative">
-                    {surfCallReport.waveHeight}
-                  </span>
-                  {surfCallReport.windSpeed && surfCallReport.windCompass && (
-                    <span className="text-white/80 text-sm font-medium">
-                      · {surfCallReport.windSpeed} {surfCallReport.windCompass} wind
-                    </span>
-                  )}
-                  {surfCallIsTomorrow && (
-                    <span className="text-white/60 text-xs">Tomorrow</span>
-                  )}
-                </div>
-              )}
-              <div ref={signupCtaRef}>
-                <BeachHeroCompact
-                  beach={beach as any}
-                  publicMode={publicMode}
-                  personalizationScore={personalizationData?.score}
-                  affinityData={personalizationData?.affinityData}
-                  baseScore={beach.base_score}
-                  isLoadingPersonalization={personalizationData?.isLoading}
-                  currentForecast={currentForecast}
-                  overlayMode={true}
-                  firstHiddenDayName={firstHiddenDayName}
-                  peakHiddenWaveHeight={peakHiddenWaveHeight}
-                />
-              </div>
-              {currentForecast && (
-                <ConditionsTicker
-                  data={forecastToConditionsData(currentForecast, beach)}
-                  theme="dark"
-                  beachName={beach.name}
-                  showFrequency
-                />
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
+    <div className="min-h-screen" style={{ background: "#0D1020" }}>
       {/* Alert discoverability nudge — only for authenticated favorited beaches with no alerts */}
       {!publicMode && beach && (
         <AlertNudge
@@ -1009,99 +876,30 @@ function BeachDetailContent({
         />
       )}
 
-      {/* Main Content Container */}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        {/* Attribution cluster — watchers badge + share pill mounted
-            here (rather than inside BeachHeroCompact) so it renders
-            uniformly on cam AND non-cam beach pages. BeachHeroCompact
-            is always in overlayMode on beach pages (or not rendered at
-            all on cam pages), which previously prevented the cluster
-            from ever showing. Plan: D2 follow-up. */}
-        <BeachAttributionCluster
-          beachId={beach.id}
-          beachSlug={beach.slug}
-          beachName={beach.name}
-          className="mb-4"
-        />
-
-        {/* Surf report slot — authenticated users only */}
-        {!publicMode && surfReportSlot}
-
-        {/* Key Stats Grid */}
-        <BeachStatsGrid
-          beach={beach}
-          currentForecast={currentForecast}
-          className="mb-6"
-        />
-
-        {/* Tide Chart & Water Temp subpage links (US beaches only) */}
-        {isUsBeachPage && (
-          <div className="flex gap-2 mb-6">
-            <Link
-              href={`${pathname}/tides`}
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700 hover:border-sky-400 hover:text-sky-700 transition-colors"
-            >
-              <Waves className="h-3.5 w-3.5" />
-              Tide Chart
-            </Link>
-            <Link
-              href={`${pathname}/water-temp`}
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700 hover:border-sky-400 hover:text-sky-700 transition-colors"
-            >
-              <Thermometer className="h-3.5 w-3.5" />
-              Water Temp
-            </Link>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <BeachActions
-          beach={beach}
-          onGetDirections={handleGetDirections}
-          canGetDirections={canGetDirections}
-          publicMode={publicMode}
-          onAuthRequired={handleAuthRequired}
-          onOpenAlerts={handleOpenAlerts}
-          className="mb-8"
-        />
-
-        {/* Forecast Error Warning Banner */}
-        {errors.forecasts && (
-          <Alert className="border-amber-200/70 bg-amber-50 text-amber-900 mb-6">
+      {/* Forecast Error Warning Banner */}
+      {errors.forecasts && (
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-4">
+          <Alert className="border-amber-200/70 bg-amber-50 text-amber-900">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
               Forecast data is temporarily unavailable. Some information may be
               missing.
             </AlertDescription>
           </Alert>
-        )}
-
-        {/* Anonymous CTA layout (post-2026-04-28):
-            - The hero forecast teaser inside BeachHeroCompact owns the
-              in-overlay CTA on non-cam beaches; it's hidden on cam beaches.
-            - The MatchScoreTeaser card below is the post-action-row primary
-              and renders on every beach page.
-            Both are intentional after lifetime CTR data (Mar 9 – Apr 28)
-            showed MatchScoreTeaser was the strongest standalone signal at
-            1.07% (1,305v / 14c). The horizon-strip "See 12-day outlook"
-            banner stays removed (Phase 1A invariant pinned by the e2e spec). */}
-        {publicMode && (
-          <div className="mb-6">
-            <MatchScoreTeaser
-              beachId={beach.id}
-              beachName={beach.name}
-              variant="card"
-            />
-          </div>
-        )}
-
-        {/* Trust Strip + Confidence Badge — credibility signals for anonymous visitors */}
-        <TrustStrip />
-        <div className="mb-4">
-          <ForecastConfidenceBadge />
         </div>
+      )}
 
-        {/* Tabbed Content */}
+      {/* Surf report slot — authenticated users only */}
+      {!publicMode && surfReportSlot && (
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-4">{surfReportSlot}</div>
+      )}
+
+      {/* Cream zine page — replaces the dark twilight chrome (immersive hero,
+          breadcrumb/H1 overlay, BeachStatsGrid, ConditionsTicker, BeachActions,
+          MatchScoreTeaser, TrustStrip). The zine carries its own H1, hero photo,
+          today's surf call, and footer; the tabs sit inside the cream paper. */}
+      <ZinePageShell beach={beach as Beach} surfCallReport={surfCallReport} beachPhoto={beachPhoto} sources={sources}>
+        <div ref={signupCtaRef} />
         <BeachTabs
           activeTab={activeTab}
           onTabChange={setActiveTab}
@@ -1115,6 +913,7 @@ function BeachDetailContent({
                 beach={beach as any}
                 amenities={amenities}
                 waterQuality={waterQuality}
+                beachPhoto={beachPhoto}
                 onWriteReview={() =>
                   handleWriteReview(REVIEW_TRACKING_SOURCES.OVERVIEW_CTA)
                 }
@@ -1196,19 +995,15 @@ function BeachDetailContent({
             </div>
           </BeachTabContent>
         </BeachTabs>
-      </div>
+      </ZinePageShell>
 
-      {/* Anonymous email-capture form — beach-detail-only.
-          Self-guards via useAuth() per CLAUDE.md CTA defense-in-depth, so the
-          publicMode parent gate is not strictly required, but we mirror it
-          for symmetry with the popover below. */}
-      {!user && (
-        <AnonAlertCaptureForm
-          beachId={beach.id}
-          beachName={beach.name}
-          returnPath={pathname}
-        />
-      )}
+      {/* MatchScoreTeaser cut from the beach-detail layout — the zine masthead
+          is the canonical anonymous CTA surface now. Phase 1A invariant
+          deliberately retired (see CHANGELOG entry; e2e/guest-anonymous-cta-
+          reduction.spec.ts updated to assert absence). */}
+
+      {/* AnonAlertCaptureForm cut from the beach-detail layout — the email-
+          capture flow lives elsewhere now (homepage / alert popover). */}
 
       {/* Alert Creation Dialog */}
       {!publicMode && alertCreationOpen && (

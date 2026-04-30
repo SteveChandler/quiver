@@ -103,9 +103,10 @@ describe("BeachDetail loading and error guards", () => {
 
     render(<BeachDetail id="beach-1" />);
 
-    // Assert the beach name is rendered to confirm content is present
+    // Assert the beach name is rendered to confirm content is present.
+    // Zine rebuild (2026-04-28) changed the H1 from "{name} Surf Report" to "{name}".
     expect(
-      screen.getByRole("heading", { name: "Test Beach Surf Report" })
+      screen.getByRole("heading", { name: "Test Beach" })
     ).toBeInTheDocument();
     expect(screen.queryByText(/Beach data not found/i)).not.toBeInTheDocument();
     expect(spy).toHaveBeenCalled();

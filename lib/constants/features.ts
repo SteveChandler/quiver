@@ -270,9 +270,9 @@ export const SURF_ACTIVITIES = [
 // Content strings to reduce hardcoding
 export const CONTENT = {
   hero: {
-    title: "Know what the swell means before you paddle out.",
-    subtitle: "Conditions at your beach, explained clearly. The more you surf, the sharper it gets.",
-    cta: "Check your forecast",
+    title: "Dial in your home break.",
+    subtitle: "Pick your spot, get conditions read for your level. 279+ beaches across California, Hawaii, Florida and beyond — but it starts with the one you actually surf.",
+    cta: "Set up your home break",
     secondaryCta: "Explore Features",
     benefits: [
       "🏄‍♀️ Connect with local surfers",

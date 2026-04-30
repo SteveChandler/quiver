@@ -24,7 +24,7 @@ import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { consolidateQueueItems } from "@/lib/alerts/payload-builder";
 import type { QueueItemWithMeta } from "@/lib/alerts/payload-builder";
 import { formatPushNotification } from "@/lib/alerts/push-formatter";
-import { sendPushNotifications } from "@/lib/services/push-notifications";
+import { enqueueNotification } from "@/lib/notifications/enqueue";
 import { generateDisableToken } from "@/lib/alerts/email-token";
 import type { AttemptStatus } from "@/lib/alerts/throttle";
 import { cooldownDecision, weeklyCapDecision } from "@/lib/alerts/throttle";
@@ -488,71 +488,108 @@ export async function GET(request: Request): Promise<NextResponse> {
                       });
                     }
                   } else {
-                    const { data: devices } = await supabase
-                      .from("user_devices")
-                      .select("device_token")
-                      .eq("user_id", payload.user_id);
+                    // Phase 3d: this branch no longer sends push directly.
+                    // It enqueues a notification_event; the notifications-deliver
+                    // worker handles devices, FCM, retries, and per-channel
+                    // pref enforcement. The `notif_push_enabled` master gate
+                    // above is kept as a cheap producer-side pre-filter.
+                    const survivorRuleIdsPush = new Set(pushSurvivors.map((i) => i.rule_id));
+                    const pushMatches = payload.matches.filter(
+                      (m) => m.notify_push && survivorRuleIdsPush.has(m.rule_id)
+                    );
+                    const { title, body, data: pushData } = formatPushNotification(pushMatches);
+                    const topMatch = pushMatches[0];
 
-                    if (!devices || devices.length === 0) {
+                    const enqueueResult = await enqueueNotification({
+                      type: "forecast_alert",
+                      recipientUserId: payload.user_id,
+                      entityType: "beach",
+                      entityId: topMatch?.beach_id ?? null,
+                      payload: {
+                        alert_date: payload.alert_date,
+                        title,
+                        body,
+                        beach_id: pushData.beach_id,
+                        matches: pushMatches.map((m) => ({
+                          beach_id: m.beach_id,
+                          beach_name: m.beach_name,
+                          window_start: m.window_start,
+                          window_end: m.window_end,
+                        })),
+                        // Queue-item provenance: the forecast_alert
+                        // onChannelOutcome hook in lib/notifications/registry.ts
+                        // writes alert_delivery_attempts(status=...) for each
+                        // queue item once the worker reaches a terminal channel
+                        // outcome — so cooldown/cap reads only see actually-
+                        // delivered pushes (not enqueued-but-skipped ones).
+                        queue_items: pushSurvivors.map((s) => ({
+                          queue_id: s.id,
+                          rule_id: s.rule_id,
+                        })),
+                      },
+                      dedupeKey: `forecast_alert:${payload.user_id}:${payload.alert_date}`,
+                    }).catch((err) => {
+                      console.error(`${CONTEXT_TAG} enqueue threw for user ${payload.user_id}:`, err);
+                      return { enqueued: false as const, reason: "internal_error" as const };
+                    });
+
+                    if (enqueueResult.enqueued) {
+                      // Evaluator-side day gate: condition-alert-evaluate skips
+                      // users who already have an alert_deliveries row for
+                      // (user, alert_date). This is "we've enqueued for today"
+                      // not "we've delivered" — actual delivery is recorded by
+                      // the worker via the forecast_alert onChannelOutcome hook
+                      // (per-rule rows in alert_delivery_attempts).
+                      await supabase.from("alert_deliveries").insert({
+                        user_id: payload.user_id,
+                        alert_date: payload.alert_date,
+                        channel: "push",
+                        payload: {
+                          match_count: pushMatches.length,
+                          notification_event_id: enqueueResult.eventId,
+                          method: "enqueued_via_pipeline",
+                        },
+                      });
+
+                      result.pushSent++;
+                      console.log(
+                        `${CONTEXT_TAG} Push enqueued for user ${payload.user_id} (event ${enqueueResult.eventId})`
+                      );
+
+                      // Note: per-rule alert_delivery_attempts rows are NOT
+                      // written here. The worker's onChannelOutcome hook
+                      // writes them once delivery reaches a terminal status
+                      // (sent / skipped_no_device / skipped_channel_disabled /
+                      // failed_provider / etc.), so cooldown reads on
+                      // status='sent' reflect actual delivery.
+                    } else if (enqueueResult.reason === "duplicate") {
+                      // Worker-level dedup caught it (a prior tick already
+                      // enqueued the same forecast_alert for today).
                       for (const item of pushSurvivors) {
                         await recordAttempt({
                           queueId: item.id,
                           ruleId: item.rule_id,
                           userId: payload.user_id,
                           channel: "push",
-                          status: "skipped_no_device",
-                          skipReason: "user has no registered devices",
+                          status: "skipped_dedup_collision",
+                          skipReason: "notification_events dedupe_key collision",
                         });
                       }
                     } else {
-                      const survivorRuleIdsPush = new Set(pushSurvivors.map((i) => i.rule_id));
-                      const pushMatches = payload.matches.filter(
-                        (m) => m.notify_push && survivorRuleIdsPush.has(m.rule_id)
+                      console.error(
+                        `${CONTEXT_TAG} enqueue failed for user ${payload.user_id}:`,
+                        enqueueResult
                       );
-                      const { title, body, data } = formatPushNotification(pushMatches);
-                      const messages = devices.map((d) => ({
-                        to: d.device_token,
-                        title,
-                        body,
-                        data,
-                      }));
-
-                      try {
-                        await sendPushNotifications(messages);
-
-                        await supabase.from("alert_deliveries").insert({
-                          user_id: payload.user_id,
-                          alert_date: payload.alert_date,
+                      result.errors++;
+                      for (const item of pushSurvivors) {
+                        await recordAttempt({
+                          queueId: item.id,
+                          ruleId: item.rule_id,
+                          userId: payload.user_id,
                           channel: "push",
-                          payload: { match_count: pushMatches.length, device_count: devices.length },
+                          status: "failed_internal",
+                          skipReason: `enqueue: ${enqueueResult.reason}`,
                         });
-
-                        result.pushSent++;
-                        console.log(`${CONTEXT_TAG} Push sent to user ${payload.user_id} (${devices.length} devices)`);
-
-                        for (const item of pushSurvivors) {
-                          await recordAttempt({
-                            queueId: item.id,
-                            ruleId: item.rule_id,
-                            userId: payload.user_id,
-                            channel: "push",
-                            status: "sent",
-                          });
-                        }
-                      } catch (pushErr) {
-                        console.error(`${CONTEXT_TAG} Push send failed for user ${payload.user_id}:`, pushErr);
-                        result.errors++;
-                        const errorMessage = pushErr instanceof Error ? pushErr.message : String(pushErr);
-                        for (const item of pushSurvivors) {
-                          await recordAttempt({
-                            queueId: item.id,
-                            ruleId: item.rule_id,
-                            userId: payload.user_id,
-                            channel: "push",
-                            status: "failed_provider",
-                            skipReason: errorMessage,
-                          });
-                        }
                       }
                     }
                   }

@@ -1,6 +1,6 @@
 import type React from "react";
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, Space_Grotesk, Space_Mono, Caveat } from "next/font/google";
+import { DM_Sans, Space_Grotesk, Space_Mono, Caveat, Bowlby_One, Permanent_Marker } from "next/font/google";
 import "./globals.css";
 import { SEO_CONFIG } from "@/lib/constants/seo";
 import { Providers } from "@/components/providers";
@@ -35,6 +35,22 @@ const caveat = Caveat({
   display: "swap",
   preload: false,
   variable: "--font-handwritten",
+});
+
+const bowlbyOne = Bowlby_One({
+  weight: "400",
+  subsets: ["latin"],
+  display: "swap",
+  preload: false,
+  variable: "--font-zine-display",
+});
+
+const permanentMarker = Permanent_Marker({
+  weight: "400",
+  subsets: ["latin"],
+  display: "swap",
+  preload: false,
+  variable: "--font-zine-marker",
 });
 
 // Optimize viewport for mobile performance
@@ -137,7 +153,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${dmSans.variable} ${spaceGrotesk.variable} ${spaceMono.variable} ${caveat.variable}`}
+      className={`${dmSans.variable} ${spaceGrotesk.variable} ${spaceMono.variable} ${caveat.variable} ${bowlbyOne.variable} ${permanentMarker.variable}`}
     >
       {/* WARNING: No whitespace allowed between tags in <head> to prevent React hydration errors. See: https://react.dev/link/hydration-mismatch */}
       <head>

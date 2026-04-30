@@ -27,6 +27,11 @@ jest.mock("next/cache", () => ({
   revalidatePath: jest.fn(),
 }));
 
+const mockEnqueueNotification = jest.fn();
+jest.mock("@/lib/notifications/enqueue", () => ({
+  enqueueNotification: (...args: unknown[]) => mockEnqueueNotification(...args),
+}));
+
 // Import after mocks.
 
 const { POST, GET } = require("@/app/api/users/[id]/follow/toggle/route");
@@ -77,6 +82,10 @@ describe("POST /api/users/[id]/follow/toggle", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSupabaseClient = createMockSupabaseClient();
+    mockEnqueueNotification.mockResolvedValue({
+      enqueued: true,
+      eventId: "evt-mock",
+    });
   });
 
   describe("Authentication", () => {
@@ -186,6 +195,58 @@ describe("POST /api/users/[id]/follow/toggle", () => {
       const res = await POST(req as any, { params: { id: targetUserId } });
       await expectErrorResponse(res, 500, "Failed to toggle follow");
     });
+
+    it("enqueues a `follow` notification event on successful follow (Phase 3c)", async () => {
+      mockAuthenticatedUser(mockSupabaseClient, followerUser);
+      setupUserFollowsTable({ existing: null });
+
+      const req = createMockRequest(
+        "POST",
+        `http://localhost:3000/api/users/${targetUserId}/follow/toggle`,
+      );
+      await POST(req as any, { params: { id: targetUserId } });
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+      // Dedupe key carries an ISO `YYYY-Www` time bucket so unfollow → re-follow
+      // within the same week stays deduped, but re-engagement next week
+      // notifies again. The bucket is computed from `new Date()` at request
+      // time, so we assert the prefix rather than a hard-coded week.
+      expect(mockEnqueueNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "follow",
+          recipientUserId: targetUserId,
+          actorUserId: followerId,
+          entityType: "user",
+          entityId: targetUserId,
+          payload: {},
+          dedupeKey: expect.stringMatching(
+            new RegExp(
+              `^follow:${followerId}:${targetUserId}:\\d{4}-W\\d{2}$`
+            )
+          ),
+        })
+      );
+    });
+
+    it("does NOT enqueue a notification when the follow insert fails (Phase 3c)", async () => {
+      mockAuthenticatedUser(mockSupabaseClient, followerUser);
+      setupUserFollowsTable({
+        existing: null,
+        insertError: { message: "boom" },
+      });
+
+      const req = createMockRequest(
+        "POST",
+        `http://localhost:3000/api/users/${targetUserId}/follow/toggle`,
+      );
+      await POST(req as any, { params: { id: targetUserId } });
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    });
   });
 
   describe("Unfollow (toggle when already following)", () => {
@@ -204,6 +265,21 @@ describe("POST /api/users/[id]/follow/toggle", () => {
       expect((body.data as any).success).toBe(true);
       expect((body.data as any).following).toBe(false);
       expect((body.data as any).message).toBe("Unfollowed");
+    });
+
+    it("does NOT enqueue a notification on unfollow (Phase 3c)", async () => {
+      mockAuthenticatedUser(mockSupabaseClient, followerUser);
+      setupUserFollowsTable({ existing: { id: "follow-existing-3" } });
+
+      const req = createMockRequest(
+        "POST",
+        `http://localhost:3000/api/users/${targetUserId}/follow/toggle`,
+      );
+      await POST(req as any, { params: { id: targetUserId } });
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(mockEnqueueNotification).not.toHaveBeenCalled();
     });
 
     it("returns 500 when unfollow delete fails", async () => {

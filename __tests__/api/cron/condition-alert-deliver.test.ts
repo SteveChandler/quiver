@@ -31,7 +31,7 @@ if (typeof (globalThis as any).Response?.json !== "function") {
  */
 
 import { GET } from "@/app/api/cron/condition-alert-deliver/route";
-import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
+import { expectConsoleWarnings, expectConsoleErrors } from "@/__tests__/setup/test-utils";
 
 // ---- Mock api-utils ----
 jest.mock("@/lib/api-utils", () => ({
@@ -67,9 +67,18 @@ jest.mock("@/lib/utils/email-rate-limiter", () => ({
 }));
 
 // ---- Mock push service ----
+// Phase 3d: the route no longer imports sendPushNotifications, but this mock
+// is retained as a defensive guard — if any path regresses to direct send,
+// the test will catch the unexpected FCM call.
 const mockSendPushNotifications = jest.fn().mockResolvedValue(undefined);
 jest.mock("@/lib/services/push-notifications", () => ({
   sendPushNotifications: (...args: any[]) => mockSendPushNotifications(...args),
+}));
+
+// ---- Mock notifications enqueue (Phase 3d push branch) ----
+const mockEnqueueNotification = jest.fn();
+jest.mock("@/lib/notifications/enqueue", () => ({
+  enqueueNotification: (...args: any[]) => mockEnqueueNotification(...args),
 }));
 
 // ---- Mock email-token (deterministic) ----
@@ -283,6 +292,10 @@ beforeEach(() => {
   store.queueUpdates = [];
   store.seededAttempts = [];
   mockEmailsSend.mockResolvedValue({ data: { id: "msg-1" }, error: null });
+  mockEnqueueNotification.mockResolvedValue({
+    enqueued: true,
+    eventId: "evt-mock",
+  });
   delete process.env.ALERTS_DELIVERY_ENABLED;
   delete process.env.ALERTS_DELIVERY_USER_ALLOWLIST;
 });
@@ -500,5 +513,116 @@ describe("condition-alert-deliver — orphaned queue rows", () => {
       ])
     );
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+  });
+});
+
+describe("condition-alert-deliver — push branch enqueues via notifications pipeline (Phase 3d)", () => {
+  it("enqueues a forecast_alert notification event instead of sending push directly", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    seedQueueRow({
+      alert_rules: { name: "Test rule", notify_email: false, notify_push: true },
+    });
+    seedProfile({ notif_email_enabled: false, notif_push_enabled: true });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    expect(mockSendPushNotifications).not.toHaveBeenCalled();
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+
+    const call = mockEnqueueNotification.mock.calls[0][0];
+    expect(call).toMatchObject({
+      type: "forecast_alert",
+      recipientUserId: USER_A,
+      entityType: "beach",
+      entityId: BEACH_1,
+      dedupeKey: `forecast_alert:${USER_A}:2026-04-26`,
+    });
+    expect(call.payload).toMatchObject({
+      alert_date: "2026-04-26",
+      title: expect.any(String),
+      body: expect.any(String),
+      beach_id: BEACH_1,
+      // Queue-item provenance for the worker's onChannelOutcome hook to fan
+      // back into alert_delivery_attempts after actual delivery (review fix
+      // for cooldown burning on terminal-skipped pushes).
+      queue_items: [{ queue_id: QUEUE_1, rule_id: RULE_1 }],
+    });
+
+    expect(store.deliveryInserts).toHaveLength(1);
+    expect(store.deliveryInserts[0]).toMatchObject({
+      user_id: USER_A,
+      alert_date: "2026-04-26",
+      channel: "push",
+    });
+    expect((store.deliveryInserts[0].payload as any).method).toBe(
+      "enqueued_via_pipeline"
+    );
+
+    // The cron no longer pre-writes status='sent' rows to alert_delivery_attempts
+    // on enqueue success — that's the job of the forecast_alert
+    // onChannelOutcome hook in registry.ts after the worker reaches a terminal
+    // status. So no push-channel attempt row should exist at this point.
+    const pushAttempt = store.attemptInserts.find((a) => a.channel === "push");
+    expect(pushAttempt).toBeUndefined();
+  });
+
+  it("records skipped_dedup_collision when enqueue returns duplicate", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    seedQueueRow({
+      alert_rules: { name: "Test rule", notify_email: false, notify_push: true },
+    });
+    seedProfile({ notif_email_enabled: false, notif_push_enabled: true });
+    mockEnqueueNotification.mockResolvedValueOnce({
+      enqueued: false,
+      reason: "duplicate",
+    });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(store.deliveryInserts).toHaveLength(0);
+
+    const pushAttempt = store.attemptInserts.find((a) => a.channel === "push");
+    expect(pushAttempt?.status).toBe("skipped_dedup_collision");
+  });
+
+  it("records failed_internal when enqueue returns internal_error", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    seedQueueRow({
+      alert_rules: { name: "Test rule", notify_email: false, notify_push: true },
+    });
+    seedProfile({ notif_email_enabled: false, notif_push_enabled: true });
+    mockEnqueueNotification.mockResolvedValueOnce({
+      enqueued: false,
+      reason: "internal_error",
+    });
+
+    const res = await GET(makeRequest());
+    expectConsoleErrors([/enqueue failed for user/]);
+    expect(res.status).toBe(200);
+
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(store.deliveryInserts).toHaveLength(0);
+
+    const pushAttempt = store.attemptInserts.find((a) => a.channel === "push");
+    expect(pushAttempt?.status).toBe("failed_internal");
+    expect(pushAttempt?.skip_reason).toContain("internal_error");
+  });
+
+  it("does NOT enqueue when notif_push_enabled=false", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    seedQueueRow({
+      alert_rules: { name: "Test rule", notify_email: false, notify_push: true },
+    });
+    seedProfile({ notif_email_enabled: false, notif_push_enabled: false });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    const pushAttempt = store.attemptInserts.find((a) => a.channel === "push");
+    expect(pushAttempt?.status).toBe("skipped_channel_disabled");
   });
 });

@@ -54,8 +54,8 @@ test.describe('Beach Amenities - CA beach (CCC data path)', () => {
     const overviewTab = page.getByRole('tab', { name: /overview/i });
     await expect(overviewTab).toBeVisible({ timeout: 10000 });
 
-    // Spot Summary card always renders (it is not data-conditional)
-    const spotSummary = page.getByText('Spot Summary');
+    // The zine layout's TODAY'S SURF CALL label is always present (not data-conditional)
+    const spotSummary = page.getByText(/TODAY'S SURF CALL/i).first();
     await expect(spotSummary).toBeVisible({ timeout: 10000 });
   });
 
@@ -149,8 +149,8 @@ test.describe('Beach Amenities - CA beach (CCC data path)', () => {
     const hasAmenities = await isVisibleSafe(amenitiesHeading, { timeout: 5000 });
 
     if (!hasAmenities) {
-      // Still verify Spot Summary is intact on mobile
-      const spotSummary = page.getByText('Spot Summary');
+      // Still verify the surf-call header is intact on mobile
+      const spotSummary = page.getByText(/TODAY'S SURF CALL/i).first();
       await expect(spotSummary).toBeVisible({ timeout: 10000 });
       console.log('[beach-amenities] Amenities card absent on mobile – skipping responsive badge check.');
       return;
@@ -214,7 +214,7 @@ test.describe('Beach Amenities - non-CA beach (fallback path)', () => {
     const overviewTab = page.getByRole('tab', { name: /overview/i });
     await expect(overviewTab).toBeVisible({ timeout: 10000 });
 
-    const spotSummary = page.getByText('Spot Summary');
+    const spotSummary = page.getByText(/TODAY'S SURF CALL/i).first();
     await expect(spotSummary).toBeVisible({ timeout: 10000 });
   });
 
@@ -247,7 +247,7 @@ test.describe('Beach Amenities - non-CA beach (fallback path)', () => {
       expect(foundAmenity).toBe(true);
     } else {
       // Graceful absence – page content is still fully rendered
-      const spotSummary = page.getByText('Spot Summary');
+      const spotSummary = page.getByText(/TODAY'S SURF CALL/i).first();
       await expect(spotSummary).toBeVisible();
     }
   });

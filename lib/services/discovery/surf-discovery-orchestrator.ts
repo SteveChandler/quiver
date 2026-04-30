@@ -898,8 +898,14 @@ async function discoverSurfSpotsInner(
         windDirection: midForecast.wind_direction ?? null,
         tideHeight: midForecast.tide_height ?? null,
         tideStatus: midForecast.tide_status ?? null,
-        swellPeriod: midForecast.swell_1_period ?? midForecast.wave_period ?? null,
-        swellDirection: midForecast.swell_1_direction ?? midForecast.wave_direction ?? null,
+        // Prefer wave_period / wave_direction — already the dominant
+        // partition per forecast-builder's getDominantSwellComponent. Reading
+        // raw swell_1_* would mismatch the dominant-snapshot scoring on
+        // mixed-swell or windswell-dominant rows ("verdict says one thing,
+        // displayed swell description shows another"). swell_1_* stays as a
+        // legacy fallback for rows that predate the dominant-write path.
+        swellPeriod: midForecast.wave_period ?? midForecast.swell_1_period ?? null,
+        swellDirection: midForecast.wave_direction ?? midForecast.swell_1_direction ?? null,
       };
     }
 

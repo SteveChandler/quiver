@@ -25,7 +25,8 @@ import type { SkillLevel } from '../user-preferences/skill-level';
 import { getSkillLevelOrDefault, parseSkillLevel, SKILL_WAVE_RANGES as SKILL_WAVE_RANGES_SOURCE } from '../user-preferences/skill-level';
 import type { SkillWaveRanges } from '../user-preferences/skill-level';
 import { createSpotProfile } from '../spot-profile';
-import { createSwellComponent } from '../conditions';
+import { createSwellComponent, pickDominantSwell } from '../conditions';
+import type { SwellPartition, SwellPartitions } from '../conditions';
 import {
   ScoringEngine,
   baseConditionsScorer,
@@ -64,46 +65,62 @@ export function beachToSpotProfile(beach: Beach): SpotProfile {
 
 /**
  * Convert EnhancedForecastEntity to ConditionsSnapshot.
+ *
+ * Snapshot semantics: `primarySwell`, `waveDirection`, and `wavePeriod` all
+ * describe the **dominant** wave train (tallest partition, longer-period
+ * tiebreak when within 20% — see `pickDominantSwell`). Reading `swell_1_*`
+ * directly here would let `primarySwell` and `wavePeriod` disagree on
+ * mixed-swell or windswell-dominant days, since `forecast.wave_period` and
+ * `forecast.wave_direction` are written by `forecast-builder.ts` using the
+ * same dominant picker.
+ *
+ * Direction-only scorers (`swellAlignment`, `swellInterference`) consume
+ * `primarySwell.periodS`/`directionDeg`; those fields must reflect the
+ * dominant component or the period-relevance gates fire on the wrong train.
  */
 export function forecastToSnapshot(forecast: EnhancedForecastEntity): ConditionsSnapshot {
-  // Parse wave data
   const waveHeight = parseFloat(forecast.wave_height || '0');
   const wavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
-  // Use getDirectionDegrees to handle both numeric ("280") and cardinal ("WNW") strings
-  const waveDirection = getDirectionDegrees(
-    forecast.swell_1_direction,
-    forecast.swell_1_direction
-  );
 
-  // Parse wind data
   const windSpeed = parseFloat(forecast.wind_speed || '0');
   const windDirection = getDirectionDegrees(
     forecast.wind_direction_deg,
     forecast.wind_direction
   );
 
-  // Parse tide data
   const tideHeight = parseFloat(forecast.tide_height || '0') || 0;
   const tideStatus = parseTideStatus(forecast.tide_status);
   const tideDirection = parseTideDirection(forecast.tide_status);
 
-  // Parse primary swell
-  const primarySwell = forecast.swell_1_height && forecast.swell_1_period
-    ? createSwellComponent(
-        parseFloat(forecast.swell_1_height),
-        parseFloat(forecast.swell_1_period.replace('s', '')),
-        waveDirection ?? 270
-      )
-    : null;
+  const partitions: SwellPartitions = {
+    swell_1: parsePartition(forecast.swell_1_height, forecast.swell_1_period, forecast.swell_1_direction),
+    swell_2: parsePartition(forecast.swell_2_height, forecast.swell_2_period, forecast.swell_2_direction),
+    wind_wave: parsePartition(forecast.wind_wave_height, forecast.wind_wave_period, forecast.wind_wave_direction),
+  };
 
-  // Parse secondary swell if available
-  // Use getDirectionDegrees to handle both numeric ("315") and cardinal ("NW") strings
-  const secondarySwell = forecast.swell_2_height && forecast.swell_2_period
-    ? createSwellComponent(
-        parseFloat(forecast.swell_2_height),
-        parseFloat(forecast.swell_2_period.replace('s', '')),
-        getDirectionDegrees(forecast.swell_2_direction, forecast.swell_2_direction) ?? 270
-      )
+  const dominant = pickDominantSwell(partitions);
+  const primarySwell = dominant ? toSwellComponent(dominant) : null;
+  const waveDirection = dominant ? dominant.direction : null;
+
+  // `secondarySwell` carries the next-most-energetic non-dominant *swell*
+  // train (swell_1 or swell_2 only) so the interference scorer keeps its
+  // swell-vs-swell focus. Wind sea is exposed separately via `windWave` so
+  // future scorers can reason about it without being forced through the
+  // existing two-swell interference path.
+  const swellOnlyCandidates: SwellPartition[] = [];
+  if (dominant?.source !== 'swell_1' && partitions.swell_1) swellOnlyCandidates.push(partitions.swell_1);
+  if (dominant?.source !== 'swell_2' && partitions.swell_2) swellOnlyCandidates.push(partitions.swell_2);
+  const secondarySwellPart = swellOnlyCandidates
+    .sort((a, b) => energy(b) - energy(a))[0];
+  const secondarySwell = secondarySwellPart ? toSwellComponent(secondarySwellPart) : null;
+
+  // `windWave` is populated only when wind_wave is a distinct partition that
+  // isn't already represented as the dominant. When wind_wave IS dominant,
+  // primarySwell already carries it and re-exposing it here would
+  // double-count.
+  const windWavePartition = partitions.wind_wave;
+  const windWave = windWavePartition && dominant?.source !== 'wind_wave'
+    ? toSwellComponent(windWavePartition)
     : null;
 
   return {
@@ -113,7 +130,7 @@ export function forecastToSnapshot(forecast: EnhancedForecastEntity): Conditions
     waveDirection,
     primarySwell,
     secondarySwell,
-    windWave: null,
+    windWave,
     wind: {
       speedMph: windSpeed,
       directionDeg: windDirection,
@@ -126,6 +143,41 @@ export function forecastToSnapshot(forecast: EnhancedForecastEntity): Conditions
     confidence: resolveConfidence(forecast.confidence_score, 'discovery'),
     dataSource: forecast.data_source || 'unknown',
   };
+}
+
+/**
+ * Parse a single NOAA partition row into the numeric shape `pickDominantSwell`
+ * expects. Returns `null` when height, period, OR direction is missing.
+ *
+ * Direction is required (not defaulted to W) because a partition without a
+ * known direction can't be scored geometrically; fabricating one would feed
+ * the alignment / interference scorers a phantom W swell rather than letting
+ * them fall through to their neutral path. NOAA always pairs height/period
+ * with direction in real data, so the only rows this rejects are malformed.
+ */
+function parsePartition(
+  height: string | null | undefined,
+  period: string | null | undefined,
+  direction: string | number | null | undefined
+): SwellPartition | null {
+  if (!height || !period) return null;
+  const h = parseFloat(height);
+  const p = parseFloat(typeof period === 'string' ? period.replace('s', '') : String(period));
+  if (!Number.isFinite(h) || !Number.isFinite(p) || h <= 0 || p <= 0) return null;
+  // `getDirectionDegrees` handles both numeric ("280") and cardinal ("WNW")
+  // strings; null result means the field was unparseable.
+  const cardinal = typeof direction === 'string' ? direction : null;
+  const d = getDirectionDegrees(direction ?? null, cardinal);
+  if (d == null) return null;
+  return { height: h, period: p, direction: d };
+}
+
+function toSwellComponent(p: SwellPartition) {
+  return createSwellComponent(p.height, p.period, p.direction);
+}
+
+function energy(p: SwellPartition): number {
+  return p.height * p.height * p.period;
 }
 
 /**

@@ -2,23 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { buildPageMetadata } from "@/lib/seo/meta";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { FEATURES_EXTENDED_CONTENT } from "@/lib/constants/content";
-import { SectionFadeUp } from "@/components/shared/section-fade-up";
-import { PersonalizationShowcase } from "@/components/landing-page/personalization-showcase";
+import { BeachSearchAutocomplete } from "@/components/beach/beach-search-autocomplete";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { COVERED_REGIONS } from "@/lib/constants/coverage-areas";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
-  FeaturesScrollTracker,
-  FeaturesSignupButton,
-  FeaturesStickyBar,
-} from "./features-interactive";
+  US_STATE_SLUG_MAP,
+  getUsStateDisplayNameFromSlug,
+} from "@/lib/utils/beach-url-utils";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Surf Forecast App Features — Free Reports, Tide Charts & More",
@@ -38,181 +28,153 @@ export const metadata: Metadata = buildPageMetadata({
   ],
 });
 
+const FEATURED_STATE_SLUGS = ["ca", "fl", "hi"] as const;
+
+type StateEntry = {
+  slug: string;
+  name: string;
+  featured: boolean;
+};
+
+function buildStateGrid(): { featured: StateEntry[]; rest: StateEntry[] } {
+  // Derive supported USA state slugs from COVERED_REGIONS (source of truth in
+  // lib/constants/coverage-areas.ts). PR has a state hub; Baja Mexico does not.
+  const slugs = new Set<string>();
+  for (const region of COVERED_REGIONS) {
+    for (const [key, slug] of Object.entries(US_STATE_SLUG_MAP)) {
+      if (key.length <= 2) continue;
+      if (region.includes(key)) {
+        slugs.add(slug);
+        break;
+      }
+    }
+  }
+
+  const all: StateEntry[] = [...slugs].map((slug) => ({
+    slug,
+    name: getUsStateDisplayNameFromSlug(slug),
+    featured: (FEATURED_STATE_SLUGS as readonly string[]).includes(slug),
+  }));
+
+  const featured = FEATURED_STATE_SLUGS
+    .map((slug) => all.find((s) => s.slug === slug))
+    .filter((entry): entry is StateEntry => Boolean(entry));
+
+  const rest = all
+    .filter((s) => !s.featured)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return { featured, rest };
+}
+
 export default function FeaturesPage() {
-  const { hero, benefits, deepDive, cta } = FEATURES_EXTENDED_CONTENT;
+  const { featured, rest } = buildStateGrid();
 
   return (
-    <FeaturesScrollTracker>
-      <div className="min-h-screen">
-        {/* Section 1: Hero -- Dark theme */}
-        <section className="py-20 px-4 bg-[#252D6B]">
-          <div className="max-w-6xl mx-auto">
-            <SectionFadeUp>
-              <div className="text-center mb-12">
-                <h1 className="text-4xl md:text-6xl font-heading font-bold text-white mb-6">
-                  {hero.title}
-                </h1>
-                <p className="text-xl md:text-2xl text-high mb-8 font-sans max-w-3xl mx-auto">
-                  {hero.subtitle}
-                </p>
+    <div className="min-h-screen bg-[#252D6B]">
+      {/* Hero with home-break search */}
+      <section className="px-4 pt-20 pb-12">
+        <div className="max-w-3xl mx-auto text-center">
+          <h1 className="text-4xl md:text-6xl font-heading font-bold text-white mb-6">
+            Find your home break.
+          </h1>
+          <p className="text-xl md:text-2xl text-high mb-10 font-sans">
+            Pick your spot. Get conditions explained for your level. Free,
+            updated every 3 hours.
+          </p>
 
-                <div className="flex justify-center mb-12">
-                  <FeaturesSignupButton
-                    ctaLocation="hero"
-                    className="bg-[#F78E42] text-white hover:bg-[#e07d35] px-8 py-4 text-lg font-heading font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
-                  />
+          <div className="bg-white rounded-2xl shadow-2xl p-2 md:p-3 ring-1 ring-[#F78E42]/30">
+            <BeachSearchAutocomplete
+              source="features-state-finder"
+              placeholder="Search for your beach…"
+              className="border-none shadow-none"
+              maxResults={6}
+            />
+          </div>
+
+          <p className="mt-4 text-sm text-medium font-sans">
+            Or browse by state below — 279+ breaks across the US coasts,
+            Hawaii, and Puerto Rico.
+          </p>
+        </div>
+      </section>
+
+      {/* States grid */}
+      <section className="px-4 pb-16">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-2xl md:text-3xl font-heading font-bold text-white text-center mb-8">
+            Pick your state
+          </h2>
+
+          {/* Featured states: CA, FL, HI */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            {featured.map((state) => (
+              <Link
+                key={state.slug}
+                href={`/beaches/usa/${state.slug}`}
+                className="group block rounded-2xl border-2 border-[#F78E42] bg-[#2D357D] p-6 hover:bg-[#343c8a] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+                data-state-slug={state.slug}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl md:text-3xl font-heading font-bold text-white">
+                    {state.name}
+                  </span>
+                  <ArrowRight className="h-6 w-6 text-[#F78E42] group-hover:translate-x-1 transition-transform" />
                 </div>
-              </div>
-            </SectionFadeUp>
-
-            {/* Stats Bar */}
-            <SectionFadeUp delay={0.3}>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 bg-white/10 backdrop-blur-sm rounded-2xl p-8">
-                {hero.stats.map((stat) => (
-                  <div key={stat.label} className="text-center">
-                    <div className="text-2xl md:text-3xl font-heading font-bold text-white">
-                      {stat.value}
-                    </div>
-                    <div className="text-sm text-medium font-sans mt-1">
-                      {stat.label}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </SectionFadeUp>
+                <p className="mt-2 text-sm text-medium font-sans">
+                  Browse beaches & cities
+                </p>
+              </Link>
+            ))}
           </div>
-        </section>
 
-        {/* Section 2: PersonalizationShowcase (reused) with bridge text */}
-        <section>
-          <div className="max-w-6xl mx-auto px-4 pt-8">
-            <p className="text-center text-base font-sans text-gray-500">
-              We crunch 40+ data points from buoys, weather models, and community
-              reports — so you get one clear answer.
-            </p>
+          {/* All other states alphabetical */}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {rest.map((state) => (
+              <Link
+                key={state.slug}
+                href={`/beaches/usa/${state.slug}`}
+                className="group block rounded-xl border border-white/10 bg-[#2D357D] px-4 py-3 hover:border-[#F78E42]/50 hover:bg-[#343c8a] transition-colors"
+                data-state-slug={state.slug}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-heading font-semibold text-white">
+                    {state.name}
+                  </span>
+                  <ArrowRight className="h-4 w-4 text-medium group-hover:text-[#F78E42] transition-colors" />
+                </div>
+              </Link>
+            ))}
           </div>
-          <PersonalizationShowcase />
-        </section>
 
-        {/* Section 3: Benefits + Social Proof -- Dark theme */}
-        <section className="py-20 px-4 bg-[#252D6B]">
-          <div className="max-w-6xl mx-auto">
-            <SectionFadeUp>
-              <div className="text-center mb-16">
-                <h2 className="text-3xl md:text-4xl font-heading font-bold text-white mb-4">
-                  Everything You Need, Nothing You Don&apos;t
-                </h2>
-              </div>
-            </SectionFadeUp>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-              {benefits.cards.map((card, index) => (
-                <SectionFadeUp key={card.id} delay={index * 0.1}>
-                  <Card className="h-full bg-[#2D357D] border-white/10 shadow-lg">
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-heading font-bold text-white mb-2">
-                        {card.title}
-                      </h3>
-                      <p className="text-medium font-sans">
-                        {card.description}
-                      </p>
-                    </CardContent>
-                  </Card>
-                </SectionFadeUp>
-              ))}
+          {/* Brief benefit lines */}
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto">
+            <div className="rounded-xl bg-white/5 border border-white/10 p-4 text-center">
+              <p className="text-base font-sans text-high">
+                Updated every 3 hours from live buoys.
+              </p>
             </div>
-
-            <div className="max-w-4xl mx-auto">
-              <InlineSignupCta
-                title="Ready? Pick your home beach."
-                description="We'll score every hour by tide, wind, and swell and tell you when to paddle out — free."
-                primaryButtonText="Pick your home beach"
-                source="features-mid-page"
-                ctaCopyVariant="features_mid_v1"
-              />
+            <div className="rounded-xl bg-white/5 border border-white/10 p-4 text-center">
+              <p className="text-base font-sans text-high">
+                Conditions explained for your level.
+              </p>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* Section 4: Collapsible Deep-Dive (Accordions) */}
-        <section className="py-20 px-4 bg-white">
-          <div className="max-w-3xl mx-auto">
-            <SectionFadeUp>
-              <div className="text-center mb-12">
-                <h2 className="text-3xl md:text-4xl font-heading font-bold text-dark-grey mb-4">
-                  {deepDive.heading}
-                </h2>
-              </div>
-            </SectionFadeUp>
-
-            <Accordion type="multiple" className="w-full">
-              {deepDive.items.map((item) => (
-                <AccordionItem
-                  key={item.id}
-                  value={item.id}
-                  className="border-gray-200"
-                >
-                  <AccordionTrigger className="text-lg font-heading font-semibold text-dark-grey hover:no-underline">
-                    {item.title}
-                  </AccordionTrigger>
-                  <AccordionContent className="text-gray-600 font-sans leading-relaxed">
-                    {item.content}
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </div>
-        </section>
-
-        {/* Section 5: Final CTA */}
-        <section className="py-20 px-4 bg-gradient-to-r from-ocean-blue to-[#D57835] relative overflow-hidden">
-          <div className="max-w-4xl mx-auto text-center relative z-10">
-            <SectionFadeUp>
-              <h2 className="text-3xl md:text-4xl font-heading font-bold text-white mb-6">
-                {cta.title}
-              </h2>
-            </SectionFadeUp>
-            <SectionFadeUp delay={0.15}>
-              <p className="text-xl text-high mb-8 font-sans">
-                {cta.subtitle}
-              </p>
-            </SectionFadeUp>
-
-            <SectionFadeUp delay={0.3}>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
-                <FeaturesSignupButton
-                  ctaLocation="bottom-cta"
-                  className="bg-[#F78E42] text-white hover:bg-[#e07d35] px-8 py-4 text-lg font-heading font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
-                >
-                  <>
-                    {cta.primaryCta.text}
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </>
-                </FeaturesSignupButton>
-
-                <Button
-                  size="lg"
-                  variant="ghost"
-                  className="border border-white/30 text-white hover:bg-white/10 px-8 py-4 text-lg font-heading font-semibold rounded-full transition-all duration-300"
-                  asChild
-                >
-                  <Link href={cta.secondaryCta.href}>
-                    {cta.secondaryCta.text}
-                  </Link>
-                </Button>
-              </div>
-            </SectionFadeUp>
-
-            <SectionFadeUp delay={0.4}>
-              <p className="text-high text-sm font-sans">
-                {cta.note}
-              </p>
-            </SectionFadeUp>
-          </div>
-        </section>
-
-        <FeaturesStickyBar />
-      </div>
-    </FeaturesScrollTracker>
+      {/* Inline signup CTA — home-break framing */}
+      <section className="px-4 pb-20">
+        <div className="max-w-4xl mx-auto">
+          <InlineSignupCta
+            title="Save your home spot."
+            description="Get personalized alerts when it's firing — free."
+            primaryButtonText="Save my home spot"
+            source="features-state-finder"
+            ctaCopyVariant="features_home_break_v1"
+          />
+        </div>
+      </section>
+    </div>
   );
 }

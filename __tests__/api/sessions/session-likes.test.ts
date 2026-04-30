@@ -33,6 +33,11 @@ jest.mock("@/lib/gamification", () => ({
   creditAuthorWithXP: jest.fn(() => Promise.resolve()),
 }));
 
+const mockEnqueueNotification = jest.fn();
+jest.mock("@/lib/notifications/enqueue", () => ({
+  enqueueNotification: (...args: unknown[]) => mockEnqueueNotification(...args),
+}));
+
 // Import route handlers after mocks are set up
 import { GET } from "@/app/api/sessions/[id]/likes/route";
 import { POST } from "@/app/api/sessions/[id]/likes/toggle/route";
@@ -50,7 +55,7 @@ function setupSessionLikesScenario(opts: {
   selectError?: { code: string; message: string } | null;
   insertError?: { message: string } | null;
   deleteError?: { message: string } | null;
-  sessionAuthor?: { user_id: string } | null;
+  sessionAuthor?: { user_id: string; beach_name?: string | null } | null;
 }) {
   const existing = opts.existing ?? null;
   const selectError = opts.selectError ?? null;
@@ -100,6 +105,10 @@ describe("Session Likes API", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockEnqueueNotification.mockResolvedValue({
+      enqueued: true,
+      eventId: "evt-mock",
+    });
   });
 
   describe("GET /api/sessions/[id]/likes - Get Like Status", () => {
@@ -514,6 +523,85 @@ describe("Session Likes API", () => {
       expect(response.status).toBe(200);
       expect(data.data.liked).toBe(true);
       expect(mockCreditAuthorWithXP).not.toHaveBeenCalled();
+    });
+
+    it("enqueues a `like` notification event when liking another user's session (Phase 3b)", async () => {
+      mockAuthGetUser.mockResolvedValue({
+        data: { user: { id: validUserId, email: "user@example.com" } },
+        error: null,
+      });
+
+      setupSessionLikesScenario({
+        existing: null,
+        sessionAuthor: { user_id: otherUserId, beach_name: "Mavericks" },
+      });
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/sessions/${validSessionId}/likes/toggle`,
+        { method: "POST" }
+      );
+
+      await POST(request, { params: { id: validSessionId } });
+      // Fire-and-forget — let the microtask queue settle.
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+      expect(mockEnqueueNotification).toHaveBeenCalledWith({
+        type: "like",
+        recipientUserId: otherUserId,
+        actorUserId: validUserId,
+        entityType: "session",
+        entityId: validSessionId,
+        payload: {
+          session_id: validSessionId,
+          beach_name: "Mavericks",
+        },
+        dedupeKey: `like:${validSessionId}:${validUserId}`,
+      });
+    });
+
+    it("does NOT enqueue a notification when liking own session (Phase 3b)", async () => {
+      mockAuthGetUser.mockResolvedValue({
+        data: { user: { id: validUserId, email: "user@example.com" } },
+        error: null,
+      });
+
+      setupSessionLikesScenario({
+        existing: null,
+        sessionAuthor: { user_id: validUserId, beach_name: "Self Beach" },
+      });
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/sessions/${validSessionId}/likes/toggle`,
+        { method: "POST" }
+      );
+
+      await POST(request, { params: { id: validSessionId } });
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    });
+
+    it("does NOT enqueue a notification on unlike (Phase 3b)", async () => {
+      mockAuthGetUser.mockResolvedValue({
+        data: { user: { id: validUserId, email: "user@example.com" } },
+        error: null,
+      });
+
+      setupSessionLikesScenario({ existing: { id: "like-row-1" } });
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/sessions/${validSessionId}/likes/toggle`,
+        { method: "POST" }
+      );
+
+      await POST(request, { params: { id: validSessionId } });
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(mockEnqueueNotification).not.toHaveBeenCalled();
     });
 
     it("does NOT credit XP when the session has been deleted", async () => {

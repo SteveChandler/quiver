@@ -190,7 +190,12 @@ describe('Discovery Adapter', () => {
         expect(snapshot.secondarySwell?.directionDeg).toBe(337.5); // NNW = 337.5 degrees
       });
 
-      it('should default to 270 when swell_2_direction is missing', () => {
+      it('drops a partition entirely when its direction is missing (no fabricated W)', () => {
+        // Previously this defaulted missing direction to 270 (W), which fed a
+        // phantom west swell into the geometric scorers. The post-fix
+        // semantics: a partition without a parseable direction is not material
+        // — drop it so the relevant scorer goes neutral instead of scoring
+        // against fabricated geometry.
         const forecast = createForecast({
           swell_1_height: '3',
           swell_1_period: '12s',
@@ -201,8 +206,86 @@ describe('Discovery Adapter', () => {
         });
         const snapshot = forecastToSnapshot(forecast);
 
-        expect(snapshot.secondarySwell).not.toBeNull();
-        expect(snapshot.secondarySwell?.directionDeg).toBe(270); // Default to W
+        expect(snapshot.secondarySwell).toBeNull();
+      });
+
+      it('returns null primarySwell when the dominant partition has no parseable direction', () => {
+        // Same defensive behavior at the primary level: if no partition has a
+        // direction, snapshot.primarySwell is null and the alignment /
+        // interference scorers fall through to their neutral paths rather than
+        // scoring against a fabricated W heading.
+        const forecast = createForecast({
+          swell_1_height: '3',
+          swell_1_period: '12s',
+          swell_1_direction: null,
+          swell_2_height: null,
+          swell_2_period: null,
+          swell_2_direction: null,
+        });
+        const snapshot = forecastToSnapshot(forecast);
+
+        expect(snapshot.primarySwell).toBeNull();
+        expect(snapshot.waveDirection).toBeNull();
+      });
+
+      it('keeps primarySwell paired with wavePeriod/waveDirection on swell_1-dominant rows', () => {
+        const forecast = createForecast({
+          wave_height: '4',
+          wave_period: '14s',
+          swell_1_height: '4',
+          swell_1_period: '14s',
+          swell_1_direction: 'WNW',
+        });
+        const snapshot = forecastToSnapshot(forecast);
+
+        expect(snapshot.primarySwell?.periodS).toBe(snapshot.wavePeriod);
+        expect(snapshot.primarySwell?.directionDeg).toBe(snapshot.waveDirection);
+      });
+
+      it('makes primarySwell follow the dominant partition on mixed-swell rows (wind_wave taller than swell_1)', () => {
+        // Background SSW groundswell at 1ft 14s + dominant WNW wind sea at 3ft 6s.
+        // Without the dominant-picker fix, primarySwell would be 1ft/14s SSW
+        // (raw swell_1) while wavePeriod = 6 (dominant). The relevance gate
+        // would then read 14s and grant full credit to direction-only scorers
+        // — defeating the OBP fix.
+        const forecast = createForecast({
+          wave_height: '3',
+          wave_period: '6s',
+          swell_1_height: '1',
+          swell_1_period: '14s',
+          swell_1_direction: '200',
+          wind_wave_height: '3',
+          wind_wave_period: '6s',
+          wind_wave_direction: '290',
+        });
+        const snapshot = forecastToSnapshot(forecast);
+
+        expect(snapshot.primarySwell?.heightFt).toBe(3);
+        expect(snapshot.primarySwell?.periodS).toBe(6);
+        expect(snapshot.primarySwell?.directionDeg).toBe(290);
+        expect(snapshot.waveDirection).toBe(290);
+        // The non-dominant 14s SSW swell should still be exposed as a swell train.
+        expect(snapshot.secondarySwell?.periodS).toBe(14);
+        // wind_wave is dominant → should NOT also appear in windWave (no double-count).
+        expect(snapshot.windWave).toBeNull();
+      });
+
+      it('exposes wind_wave separately when swell_1 is dominant', () => {
+        const forecast = createForecast({
+          wave_height: '4',
+          wave_period: '14s',
+          swell_1_height: '4',
+          swell_1_period: '14s',
+          swell_1_direction: '270',
+          wind_wave_height: '1',
+          wind_wave_period: '5s',
+          wind_wave_direction: '315',
+        });
+        const snapshot = forecastToSnapshot(forecast);
+
+        expect(snapshot.primarySwell?.heightFt).toBe(4);
+        expect(snapshot.windWave?.heightFt).toBe(1);
+        expect(snapshot.windWave?.periodS).toBe(5);
       });
 
       it('should handle numeric degree strings for backwards compatibility', () => {
