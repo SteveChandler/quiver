@@ -87,6 +87,19 @@ const dailyDigestSchema = z.object({
   match_count: z.number().int().nonnegative().optional(),
 });
 
+// Phase 5i: admin types — push-only, master-pref-only, no quiet hours.
+const adminTestSchema = z.object({
+  title: z.string().min(1).max(80).optional(),
+  body: z.string().min(1).max(240).optional(),
+});
+
+const adminBroadcastSchema = z.object({
+  title: z.string().min(1).max(80),
+  body: z.string().min(1).max(240),
+  url: z.string().nullable().optional(),
+  data: z.record(z.string(), z.string()).optional(),
+});
+
 /**
  * Map a worker's per-channel status onto the legacy alert_delivery_attempts
  * status enum. Returns null for non-terminal-or-irrelevant statuses (e.g.
@@ -198,6 +211,18 @@ interface DailyDigestPayload {
   title: string;
   body: string;
   match_count?: number;
+}
+
+interface AdminTestPayload {
+  title?: string;
+  body?: string;
+}
+
+interface AdminBroadcastPayload {
+  title: string;
+  body: string;
+  url?: string | null;
+  data?: Record<string, string>;
 }
 
 // ─── Registry ─────────────────────────────────────────────────────────────────
@@ -484,6 +509,55 @@ export const NOTIFICATION_REGISTRY = {
       },
     }),
   } satisfies NotificationTypeDef<DailyDigestPayload>,
+
+  admin_test: {
+    type: "admin_test",
+    channels: ["push"],
+    prefs: {
+      // Honors master push pref so admins can verify their own
+      // notif_push_enabled toggle. No per-type gate — there's no Settings
+      // toggle for "admin test pushes" and there shouldn't be.
+      master: { push: "notif_push_enabled" },
+      perType: {},
+    },
+    suppressSelfNotify: false,
+    quietHours: NO_QUIET,
+    validatePayload: (input) => adminTestSchema.parse(input),
+    buildPushPayload: (p) => {
+      const nowIso = new Date().toISOString();
+      return {
+        title: p.title ?? "Quiver Test Push",
+        body:
+          p.body ??
+          `Test push sent at ${nowIso}. If you see this, FCM is working.`,
+        data: { type: "admin_test", url: "/profile", sent_at: nowIso },
+      };
+    },
+  } satisfies NotificationTypeDef<AdminTestPayload>,
+
+  admin_broadcast: {
+    type: "admin_broadcast",
+    channels: ["push"],
+    prefs: {
+      // Honors master push pref. Bypasses per-type prefs (no per-type
+      // Settings toggle) AND quiet hours (mode='bypass') because broadcasts
+      // are emergency-class — outage notices, app-killer issues, etc.
+      master: { push: "notif_push_enabled" },
+      perType: {},
+    },
+    suppressSelfNotify: false,
+    quietHours: { mode: "bypass" },
+    validatePayload: (input) => adminBroadcastSchema.parse(input),
+    buildPushPayload: (p) => ({
+      title: p.title,
+      body: p.body,
+      data: {
+        type: "admin_broadcast",
+        ...(p.url ? { url: p.url } : {}),
+        ...(p.data ?? {}),
+      },
+    }),
+  } satisfies NotificationTypeDef<AdminBroadcastPayload>,
 } as const;
 
 export type NotificationType = keyof typeof NOTIFICATION_REGISTRY;
