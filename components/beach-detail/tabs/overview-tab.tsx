@@ -27,7 +27,7 @@ interface OverviewTabProps {
 }
 
 /**
- * Overview tab body. The hero, today's-call, and zine footer live in the
+ * Overview tab body. The hero and zine footer live in the
  * page-level `ZinePageShell` so they stay visible across all tabs.
  */
 export function OverviewTab({

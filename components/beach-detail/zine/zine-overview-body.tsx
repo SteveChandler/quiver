@@ -22,7 +22,7 @@ interface ZineOverviewBodyProps {
  * tabs row. Renders the editorial spot content + retained utility modules
  * (water quality, amenities, review CTA) + recent sessions polaroids.
  *
- * The hero, today's-call, and footer live in `ZinePageShell` so they remain
+ * The hero and footer live in `ZinePageShell` so they remain
  * visible across all tabs (Forecast / Reviews / Local Intel / Sessions).
  */
 export function ZineOverviewBody({ beach, amenities, waterQuality, beachPhoto, onWriteReview }: ZineOverviewBodyProps) {

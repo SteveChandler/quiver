@@ -3,17 +3,14 @@
 import type { Beach } from "@/types/database";
 import type { BeachAmenities } from "@/types/amenities";
 import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
-import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import type { ZineBeachPhoto } from "./types";
 import { RoughEdgeFilter } from "./atoms";
 import { ZineHero } from "./zine-hero";
-import { TodaySurfCall } from "./today-surf-call";
 import { ZineFooter } from "./zine-footer";
 import { ZineOverviewBody } from "./zine-overview-body";
 
 interface ZineTabProps {
   beach: Beach;
-  surfCallReport?: SurfCallResult | null;
   amenities?: BeachAmenities | null;
   waterQuality?: WaterQuality | null;
   beachPhoto?: ZineBeachPhoto | null;
@@ -28,7 +25,6 @@ interface ZineTabProps {
  */
 export function ZineTab({
   beach,
-  surfCallReport,
   amenities,
   waterQuality,
   beachPhoto,
@@ -53,7 +49,6 @@ export function ZineTab({
 
         <div className="zine-paper">
           <ZineHero beach={beach} beachPhoto={beachPhoto} />
-          <TodaySurfCall beach={beach} surfCallReport={surfCallReport} />
           <ZineOverviewBody
             beach={beach}
             amenities={amenities}

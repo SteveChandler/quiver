@@ -897,8 +897,8 @@ function BeachDetailContent({
       {/* Cream zine page — replaces the dark twilight chrome (immersive hero,
           breadcrumb/H1 overlay, BeachStatsGrid, ConditionsTicker, BeachActions,
           MatchScoreTeaser, TrustStrip). The zine carries its own H1, hero photo,
-          today's surf call, and footer; the tabs sit inside the cream paper. */}
-      <ZinePageShell beach={beach as Beach} surfCallReport={surfCallReport} beachPhoto={beachPhoto} sources={sources}>
+          and footer; the tabs sit inside the cream paper. */}
+      <ZinePageShell beach={beach as Beach} beachPhoto={beachPhoto} sources={sources}>
         <div ref={signupCtaRef} />
         <BeachTabs
           activeTab={activeTab}
