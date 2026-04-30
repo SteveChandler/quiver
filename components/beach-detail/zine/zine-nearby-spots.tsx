@@ -6,6 +6,8 @@ import {
   trackNearbyBeachClick,
   trackNearbyBeachesViewed,
 } from "@/lib/analytics/engagement-tracking";
+import { FALLBACK_IMAGE_BY_NAME } from "@/lib/constants/featured-beaches-config";
+import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 import type { EnrichedNearbyBeach } from "@/lib/utils/nearby-beach-enrichment";
@@ -142,6 +144,7 @@ function NearbyCard({
   const location = getBeachLocation(beach);
   const skill = beach.skill_level || "All";
   const wave = beach.waveHeight != null ? formatWave(beach.waveHeight) : null;
+  const photoUrl = getNearbyCardPhotoUrl(beach);
 
   return (
     <Link
@@ -166,7 +169,7 @@ function NearbyCard({
         className="group-hover:translate-y-[-2px] group-hover:shadow-[5px_6px_0_rgba(17,16,13,0.3)]"
       >
         <div className="relative" style={{ aspectRatio: "4/3", overflow: "hidden", border: "2px solid #11100D" }}>
-          <HalftonePhoto src={beach.photoUrl} alt={beach.photoUrl ? `${beach.name} photo` : undefined} height={140} />
+          <HalftonePhoto src={photoUrl} alt={photoUrl ? `${beach.name} photo` : undefined} height={140} />
         </div>
 
         <div className="mt-3 flex flex-col flex-1">
@@ -251,4 +254,17 @@ function NearbyCard({
 function formatWave(value: number): string {
   const rounded = Math.round(value * 10) / 10;
   return `${rounded}ft`;
+}
+
+function getNearbyCardPhotoUrl(beach: EnrichedNearbyBeach): string | null {
+  const approvedPhoto =
+    typeof beach.photoUrl === "string" && beach.photoUrl.trim().length > 0
+      ? beach.photoUrl
+      : null;
+  const fallbackPhoto =
+    FALLBACK_IMAGE_BY_NAME[beach.name as keyof typeof FALLBACK_IMAGE_BY_NAME] ?? null;
+  const selected = approvedPhoto ?? fallbackPhoto;
+
+  if (!selected) return null;
+  return getProxiedImageUrl(selected) || null;
 }

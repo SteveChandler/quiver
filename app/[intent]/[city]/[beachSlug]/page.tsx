@@ -315,14 +315,21 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             mirrors that with hidden md:block. Placed before the nearby-spots
             browse list so the "save THIS beach" prompt arrives before the
             "explore other beaches" off-ramp. */}
-        <div className="hidden md:block px-4 md:px-8 max-w-5xl mx-auto my-8">
-          <InlineSignupCta
-            title={`Save ${beach.name} as your home break`}
-            description={`Get personalized alerts when ${beach.name} is firing — based on your level.`}
-            primaryButtonText={`Save ${beach.name}`}
-            source={`beach-detail-${beachSlug}-desktop-inline`}
-            ctaCopyVariant="beach_home_break_v1"
-          />
+        <div className="hidden md:block zine-tab zine-page-trailer">
+          <div className="zine-stage" style={{ paddingTop: 0, paddingBottom: 0 }}>
+            <div className="zine-paper" style={{ paddingTop: 0, paddingBottom: 0 }}>
+              <div className="mx-auto max-w-5xl py-8">
+                <InlineSignupCta
+                  title={`Save ${beach.name} as your home break`}
+                  description={`Get personalized alerts when ${beach.name} is firing — based on your level.`}
+                  primaryButtonText={`Save ${beach.name}`}
+                  source={`beach-detail-${beachSlug}-desktop-inline`}
+                  ctaCopyVariant="beach_home_break_v1"
+                  variant="zine"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Nearby surf spots — restyled to live inside a continuation of the

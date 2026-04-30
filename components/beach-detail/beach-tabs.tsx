@@ -169,7 +169,7 @@ export function BeachTabs({
             </TabsTrigger>
           </TabsList>
           {actions ? (
-            <div className="hidden flex-[2] items-center gap-1 md:flex">
+            <div data-tier="nav-actions" className="hidden flex-[2] items-center gap-1 md:flex">
               {actions}
             </div>
           ) : null}

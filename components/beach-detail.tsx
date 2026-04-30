@@ -856,6 +856,7 @@ function BeachDetailContent({
         variant="ghost"
         onClick={handleGetDirections}
         disabled={!canGetDirections}
+        data-zine-directions
         className="flex-1 rounded-none border-0 border-b-2 border-transparent -mb-0.5 px-2 py-2 sm:px-6 sm:py-3 text-xs sm:text-base font-medium text-gray-600 transition-all duration-300 ease-out hover:bg-gray-50 dark:hover:bg-[#354090]/50 hover:text-gray-900 h-auto"
       >
         <Navigation className="mr-2 h-4 sm:h-5 w-4 sm:w-5" />
