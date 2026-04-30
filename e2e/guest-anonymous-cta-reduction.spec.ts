@@ -117,14 +117,16 @@ test.describe('Anonymous beach page — CTA reduction (Phase 1A + 1B)', () => {
     const getAlertsActionButton = page.getByRole('button', { name: /get alerts/i });
     const stickySignupBar = page.getByTestId('sticky-signup-bar');
     const headerSignupButton = page.getByRole('button', { name: /see your forecast|sign up/i });
+    const matchScoreTeaserCard = page.getByTestId('match-score-teaser-card');
 
     const teaserVisible = await isVisibleSafe(forecastTeaserButton, { timeout: 3000 });
     const alertsVisible = await isVisibleSafe(getAlertsActionButton.first(), { timeout: 3000 });
     const stickyVisible = await isVisibleSafe(stickySignupBar, { timeout: 1000 });
     const headerVisible = await isVisibleSafe(headerSignupButton.first(), { timeout: 3000 });
+    const matchScoreVisible = await isVisibleSafe(matchScoreTeaserCard, { timeout: 3000 });
 
     expect(
-      teaserVisible || alertsVisible || stickyVisible || headerVisible,
+      teaserVisible || alertsVisible || stickyVisible || headerVisible || matchScoreVisible,
     ).toBe(true);
   });
 
