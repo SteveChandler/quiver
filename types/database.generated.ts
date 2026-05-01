@@ -2435,6 +2435,94 @@ export type Database = {
           },
         ]
       }
+      content_reports: {
+        Row: {
+          created_at: string
+          details: string | null
+          id: string
+          moderator_id: string | null
+          moderator_notes: string | null
+          reason: Database["public"]["Enums"]["content_report_reason"]
+          reporter_id: string | null
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["content_report_status"]
+          target_id: string
+          target_owner_id: string | null
+          target_type: Database["public"]["Enums"]["content_report_target"]
+        }
+        Insert: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          moderator_id?: string | null
+          moderator_notes?: string | null
+          reason: Database["public"]["Enums"]["content_report_reason"]
+          reporter_id?: string | null
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["content_report_status"]
+          target_id: string
+          target_owner_id?: string | null
+          target_type: Database["public"]["Enums"]["content_report_target"]
+        }
+        Update: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          moderator_id?: string | null
+          moderator_notes?: string | null
+          reason?: Database["public"]["Enums"]["content_report_reason"]
+          reporter_id?: string | null
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["content_report_status"]
+          target_id?: string
+          target_owner_id?: string | null
+          target_type?: Database["public"]["Enums"]["content_report_target"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_reports_moderator_id_fkey"
+            columns: ["moderator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_reports_moderator_id_fkey"
+            columns: ["moderator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_with_home_beach"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_with_home_beach"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_reports_target_owner_id_fkey"
+            columns: ["target_owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_reports_target_owner_id_fkey"
+            columns: ["target_owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_with_home_beach"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       corrected_forecasts: {
         Row: {
           beach_id: string
@@ -6606,27 +6694,83 @@ export type Database = {
           },
         ]
       }
+      user_blocks: {
+        Row: {
+          blocked_id: string
+          blocker_id: string
+          created_at: string
+        }
+        Insert: {
+          blocked_id: string
+          blocker_id: string
+          created_at?: string
+        }
+        Update: {
+          blocked_id?: string
+          blocker_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_blocks_blocked_id_fkey"
+            columns: ["blocked_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_blocks_blocked_id_fkey"
+            columns: ["blocked_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_with_home_beach"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_blocks_blocker_id_fkey"
+            columns: ["blocker_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_blocks_blocker_id_fkey"
+            columns: ["blocker_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_with_home_beach"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_devices: {
         Row: {
+          app_version: string | null
           created_at: string
           device_token: string
+          expo_sdk: string | null
           id: string
+          os_version: string | null
           platform: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          app_version?: string | null
           created_at?: string
           device_token: string
+          expo_sdk?: string | null
           id?: string
+          os_version?: string | null
           platform: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          app_version?: string | null
           created_at?: string
           device_token?: string
+          expo_sdk?: string | null
           id?: string
+          os_version?: string | null
           platform?: string
           updated_at?: string
           user_id?: string
@@ -7370,6 +7514,33 @@ export type Database = {
           },
         ]
       }
+      blocked_user_ids: {
+        Row: {
+          blocked_id: string | null
+        }
+        Insert: {
+          blocked_id?: string | null
+        }
+        Update: {
+          blocked_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_blocks_blocked_id_fkey"
+            columns: ["blocked_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_blocks_blocked_id_fkey"
+            columns: ["blocked_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_with_home_beach"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       geography_columns: {
         Row: {
           coord_dimension: number | null
@@ -8051,6 +8222,7 @@ export type Database = {
         Returns: number
       }
       cleanup_old_ml_predictions: { Args: never; Returns: number }
+      cleanup_orphan_smoke_profiles: { Args: never; Returns: number }
       cleanup_orphaned_session_media: { Args: never; Returns: number }
       cleanup_session_media_storage: {
         Args: { media_id: string }
@@ -8194,6 +8366,14 @@ export type Database = {
           media_id: string
           storage_path: string
         }[]
+      }
+      follow_user_with_notification: {
+        Args: {
+          p_actor_id: string
+          p_dedupe_key: string
+          p_target_user_id: string
+        }
+        Returns: Json
       }
       generate_referral_code: { Args: never; Returns: string }
       geometry: { Args: { "": string }; Returns: unknown }
@@ -8896,6 +9076,10 @@ export type Database = {
         Returns: undefined
       }
       is_admin_user: { Args: never; Returns: boolean }
+      like_session_with_notification: {
+        Args: { p_actor_id: string; p_dedupe_key: string; p_session_id: string }
+        Returns: Json
+      }
       link_anonymous_events: {
         Args: { p_session_id: string; p_user_id: string }
         Returns: number
@@ -9639,6 +9823,18 @@ export type Database = {
         | "canyon_amplified"
         | "point_break"
         | "jetty_harbor"
+      content_report_reason:
+        | "spam"
+        | "harassment"
+        | "hate_speech"
+        | "sexual_content"
+        | "violence"
+        | "self_harm"
+        | "misinformation"
+        | "ip_violation"
+        | "other"
+      content_report_status: "pending" | "reviewing" | "actioned" | "dismissed"
+      content_report_target: "user" | "session" | "comment"
       intel_post_tag:
         | "parking"
         | "hazard"
@@ -9809,6 +10005,19 @@ export const Constants = {
         "point_break",
         "jetty_harbor",
       ],
+      content_report_reason: [
+        "spam",
+        "harassment",
+        "hate_speech",
+        "sexual_content",
+        "violence",
+        "self_harm",
+        "misinformation",
+        "ip_violation",
+        "other",
+      ],
+      content_report_status: ["pending", "reviewing", "actioned", "dismissed"],
+      content_report_target: ["user", "session", "comment"],
       intel_post_tag: [
         "parking",
         "hazard",
