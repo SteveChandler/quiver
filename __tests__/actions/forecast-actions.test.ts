@@ -84,6 +84,10 @@ beforeEach(() => {
       if (table === "ten_day_enhanced_forecasts") return tenDayViewChain;
       return makeChain();
     }),
+    // getBeachForecastPreview now also fetches a live observation via the
+    // get_nowcast_anchors RPC. Default to "no observation" so existing tests
+    // remain focused on forecast-side behavior.
+    rpc: jest.fn().mockResolvedValue({ data: [], error: null }),
   };
 
   (createSupabaseServiceRoleClient as unknown as jest.Mock).mockResolvedValue(

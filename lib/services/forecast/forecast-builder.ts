@@ -44,18 +44,18 @@ import {
 } from "@/types/forecast";
 import type { NowcastAnchor } from "@/lib/services/observations/nowcast-anchor.types";
 import { isNowcastAnchorEnabled } from "@/lib/services/observations/nowcast-anchor.types";
+import { STALENESS_THRESHOLDS } from "@/lib/config/forecast-staleness";
 import { pickDominantSwell } from "@/lib/domains/conditions";
 
 /**
  * Nowcast-anchor design (see plan golden-sleeping-steele.md):
  *  - NOWCAST_WINDOW_MS: forecast rows within ±1.5h of now may be anchored.
- *  - ANCHOR_FRESHNESS_MS: observations up to 6h old count as valid anchors.
- * The freshness cap is wider than the forecast window to accommodate CDIP-via-IOOS
- * ingestion lag (2h sync cron + up-to-3h source staleness). A 4h-old buoy reading
- * still beats a hallucinated NOAA forecast — swells don't swing 100% in 6h.
+ *  - ANCHOR_FRESHNESS_MS: observations up to NOWCAST_ANCHOR hours old count as valid.
+ * Sourced from STALENESS_THRESHOLDS.NOWCAST_ANCHOR for one source of truth across
+ * forecast-builder + the display-side `fetchLatestObservation` helper.
  */
 const NOWCAST_WINDOW_MS = 1.5 * 60 * 60 * 1000;
-const ANCHOR_FRESHNESS_MS = 6 * 60 * 60 * 1000;
+const ANCHOR_FRESHNESS_MS = STALENESS_THRESHOLDS.NOWCAST_ANCHOR * 60 * 60 * 1000;
 
 export function shouldApplyNowcastAnchor(args: {
   beachFeatures: string[] | null | undefined;

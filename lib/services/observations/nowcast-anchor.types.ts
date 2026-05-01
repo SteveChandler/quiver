@@ -12,6 +12,21 @@ export interface NowcastAnchor {
   waveDirectionDeg: number | null;
 }
 
+/**
+ * Display-side shape for the live-buoy channel — what the UI shows next to
+ * the forecast number on the beach detail page. Sourced from the same
+ * `get_nowcast_anchors` RPC as NowcastAnchor but without the `beachId`
+ * (caller already knows it) and semantically scoped to "show this to the
+ * user," not "merge into a forecast value."
+ */
+export interface LatestObservation {
+  stationId: string;
+  observedAt: string;
+  waveHeightM: number;
+  wavePeriodS: number | null;
+  waveDirectionDeg: number | null;
+}
+
 /** Feature flag value carried in `beaches.features` text[] column. */
 export const NOWCAST_ANCHOR_FEATURE_FLAG = "observation_anchor" as const;
 
