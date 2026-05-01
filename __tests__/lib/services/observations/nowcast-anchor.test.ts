@@ -5,7 +5,7 @@
  * used by ForecastBuilder to anchor nowcast displays on real buoy data.
  */
 
-import { fetchNowcastAnchors } from "@/lib/services/observations/nowcast-anchor";
+import { fetchLatestObservation, fetchNowcastAnchors } from "@/lib/services/observations/nowcast-anchor";
 
 const mockRpcRows = [
   {
@@ -129,5 +129,48 @@ describe("fetchNowcastAnchors", () => {
     const anchor = result.get("beach-d")!;
     expect(anchor.wavePeriodS).toBeNull();
     expect(anchor.waveDirectionDeg).toBeNull();
+  });
+});
+
+describe("fetchLatestObservation", () => {
+  test("returns shape (without beachId) when fresh observation exists", async () => {
+    const supabase = makeSupabaseMock(mockRpcRows);
+    const result = await fetchLatestObservation(supabase, "beach-a");
+
+    expect(result).toEqual({
+      stationId: "edu_ucsd_cdip_073",
+      observedAt: "2026-04-19T14:56:00Z",
+      waveHeightM: 0.8,
+      wavePeriodS: 14,
+      waveDirectionDeg: 197,
+    });
+  });
+
+  test("returns null when beach has no fresh observation", async () => {
+    const supabase = makeSupabaseMock(mockRpcRows);
+    const result = await fetchLatestObservation(supabase, "beach-with-no-station");
+    expect(result).toBeNull();
+  });
+
+  test("returns null when RPC errors out — never throws on the request path", async () => {
+    const supabase = makeSupabaseMock(null, new Error("connection refused"));
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const result = await fetchLatestObservation(supabase, "beach-a");
+    expect(result).toBeNull();
+    warnSpy.mockRestore();
+  });
+
+  test("returns null when RPC returns empty array", async () => {
+    const supabase = makeSupabaseMock([]);
+    const result = await fetchLatestObservation(supabase, "beach-a");
+    expect(result).toBeNull();
+  });
+
+  test("forwards maxAgeHours through to underlying RPC", async () => {
+    const supabase = makeSupabaseMock([]);
+    await fetchLatestObservation(supabase, "beach-a", { maxAgeHours: 1.5 });
+    expect(supabase.rpc).toHaveBeenCalledWith("get_nowcast_anchors", {
+      max_age_hours: 1.5,
+    });
   });
 });

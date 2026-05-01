@@ -14,12 +14,17 @@
  * - NOAA_NWS: Enhanced forecasts regenerate daily (6 AM), so 12-hour threshold prevents
  *   unnecessary regeneration attempts while providing buffer until next update
  * - FALLBACK: Fallback data is less critical and can tolerate longer staleness
+ * - NOWCAST_ANCHOR: Single-row buoy observation accepted as ground truth in the
+ *   nowcast window. 6h matches CDIP-via-IOOS ingestion lag (2h sync cron +
+ *   up-to-3h source staleness) — a stale anchor still beats a hallucinated
+ *   forecast since swells don't swing 100% in 6h.
  * - DEFAULT: Default threshold for unknown or unspecified sources
  */
 export const STALENESS_THRESHOLDS = {
   CDIP: 4,          // 4 hours (CDIP buoy cron doesn't reliably update every beach every hour)
   NOAA_NWS: 12,     // 12 hours (Enhanced forecasts regenerate daily, matches actual update cadence)
   FALLBACK: 12,     // 12 hours (fallback data less critical)
+  NOWCAST_ANCHOR: 6, // 6 hours (matches CDIP-via-IOOS ingestion lag; see forecast-builder shouldApplyNowcastAnchor)
   DEFAULT: 6        // Default for unknown sources
 } as const;
 
