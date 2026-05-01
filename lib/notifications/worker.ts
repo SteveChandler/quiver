@@ -81,6 +81,10 @@ import type {
   NotificationDeliveryAttemptRow,
 } from "./db-augment";
 import { getFirebaseAdminMessaging } from "@/lib/services/firebase-admin";
+import {
+  dispatchPushMessages,
+  type PushMessage,
+} from "@/lib/services/push-delivery";
 import { getLocalHour } from "@/lib/utils/timezone-utils";
 import type { messaging as fbMessaging } from "firebase-admin";
 
@@ -788,47 +792,31 @@ async function dispatchPush(
   const payloadRecord = (event.payload ?? {}) as Record<string, unknown>;
   const built = def.buildPushPayload(payloadRecord, ctx);
 
-  const fbMessages: fbMessaging.Message[] = deviceList.map((d) => ({
-    token: d.device_token,
-    notification: { title: built.title, body: built.body },
-    data: stringifyDataPayload(built.data),
+  const messages: PushMessage[] = deviceList.map((d) => ({
+    to: d.device_token,
+    title: built.title,
+    body: built.body,
+    data: built.data,
   }));
 
-  let response: fbMessaging.BatchResponse;
+  let result;
   try {
-    response = await fcm.sendEach(fbMessages);
+    result = await dispatchPushMessages({ messages, fcm });
   } catch (err) {
     console.error(
-      `[notifications/worker] fcm.sendEach threw for event ${event.id}:`,
+      `[notifications/worker] push dispatch threw for event ${event.id}:`,
       err
     );
     return "failed_provider";
   }
 
-  // Prune invalid tokens (mirrors lib/services/push-notifications.ts:86-104).
-  const invalid: string[] = [];
-  response.responses.forEach((r, i) => {
-    if (r.error && INVALID_TOKEN_ERROR_CODES.has(r.error.code)) {
-      invalid.push(deviceList[i].device_token);
-    }
-  });
-  if (invalid.length > 0) {
-    await supabase.from("user_devices").delete().in("device_token", invalid);
+  if (result.invalidTokens.length > 0) {
+    await supabase.from("user_devices").delete().in("device_token", result.invalidTokens);
   }
 
-  if (response.successCount > 0) return "sent";
-  if (response.failureCount > 0) return "failed_provider";
+  if (result.success > 0) return "sent";
+  if (result.failed > 0) return "failed_provider";
   return "failed_internal";
-}
-
-function stringifyDataPayload(
-  data: Record<string, unknown>
-): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(data)
-      .filter(([, v]) => v !== undefined && v !== null)
-      .map(([k, v]) => [k, typeof v === "string" ? v : JSON.stringify(v)])
-  );
 }
 
 // ─── In-app dispatch ─────────────────────────────────────────────────────────

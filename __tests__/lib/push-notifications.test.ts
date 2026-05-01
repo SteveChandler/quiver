@@ -11,6 +11,9 @@ const mockMessaging = {
   sendEach: mockSendEach,
 };
 
+const mockFetch = jest.fn<any>();
+global.fetch = mockFetch as unknown as typeof fetch;
+
 jest.mock("@/lib/services/firebase-admin", () => ({
   getFirebaseAdminMessaging: jest.fn(() => mockMessaging),
 }));
@@ -29,6 +32,7 @@ jest.mock("@/lib/supabase/server", () => ({
 describe("Push Notifications Service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFetch.mockReset();
   });
 
   describe("sendSessionInvitePush", () => {
@@ -346,6 +350,34 @@ describe("Push Notifications Service", () => {
 
       expect(mockDelete).toHaveBeenCalled();
       expect(mockDeleteIn).toHaveBeenCalledWith("device_token", ["stale-token"]);
+    });
+
+    it("routes Expo push tokens through Expo Push Service", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          data: [{ status: "ok", id: "ticket-1" }],
+        }),
+      });
+
+      const { sendPushNotifications } = await import(
+        "@/lib/services/push-notifications"
+      );
+
+      await sendPushNotifications([
+        {
+          to: "ExponentPushToken[expo-123]",
+          title: "Wave Alert",
+          body: "Perfect conditions",
+          data: { beach_id: "b1" },
+        },
+      ]);
+
+      expect(mockSendEach).not.toHaveBeenCalled();
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://exp.host/--/api/v2/push/send",
+        expect.objectContaining({ method: "POST" })
+      );
     });
   });
 });
