@@ -60,12 +60,6 @@ export async function logDisplayPredictions(
 ): Promise<void> {
   if (!rows || rows.length === 0) return;
 
-  // No-op under Jest. The forecast-builder hot path runs in many fixture-based
-  // unit tests; we don't want each one trying to write to a service-role
-  // Supabase client (and the test setup treats unexpected console.warn as a
-  // failure). Real environments don't set JEST_WORKER_ID.
-  if (process.env.JEST_WORKER_ID !== undefined) return;
-
   const hasServiceRoleKey =
     !!(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim() &&
     !!(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
