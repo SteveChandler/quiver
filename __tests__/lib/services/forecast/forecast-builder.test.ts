@@ -19,6 +19,16 @@ jest.mock("@/lib/logger", () => ({
 jest.mock("@/lib/utils/wave-formatters", () => ({
   toFaceHeightFeet: jest.fn(() => "3.5 ft"),
   toFaceHeightFeetDecomposed: jest.fn(() => "3.5 ft"),
+  toFaceHeightFeetDecomposedWithDebug: jest.fn(() => ({
+    value: "3.5 ft",
+    debug: {
+      source: "model_swell",
+      rawHeightFt: 3.5,
+      transformPath: "decomposed",
+      componentsUsed: true,
+      calibratedShoalingFired: false,
+    },
+  })),
   metersToFeet: jest.fn((m: number) => m * 3.28084),
   METERS_TO_FEET: 3.28084,
 }));
