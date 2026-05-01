@@ -173,11 +173,11 @@ export async function assertNoErrors(
   );
   const filteredConsoleErrors = capture.consoleErrors.filter((err) => {
     // When placeholder images are blocked upstream, Chromium logs a generic
-    // "Failed to load resource: ... 400" console error without the URL.
+    // "Failed to load resource: ... <status>" console error without the URL.
     // Ignore it only if we can corroborate with a known placeholder image failure.
     if (
       placeholderImageNetworkErrors.length > 0 &&
-      err.startsWith('Failed to load resource: the server responded with a status of 400')
+      /^Failed to load resource: the server responded with a status of (400|403|424)/.test(err)
     ) {
       return false;
     }
@@ -464,7 +464,10 @@ function isIgnorableNetworkError(url: string, status: number): boolean {
 }
 
 function isPlaceholderImageProxyFailure(url: string, status: number): boolean {
-  if (status !== 400 && status !== 403) return false;
+  // 424 Failed Dependency is what `/api/image-proxy` returns when the upstream
+  // (Openverse, Surfline, placehold.co, etc.) fails — same graceful-degradation
+  // class as 400/403, just a different status code from upstream.
+  if (status !== 400 && status !== 403 && status !== 424) return false;
 
   const isNextImageOptimizer = url.includes('/_next/image?');
   const isImageProxyWrapped =
