@@ -6,7 +6,7 @@
  *
  * Prints JSON for the three beaches with the columns the scenario matrix needs.
  * Pipe to /tmp/sd-beaches.json and paste into
- * `__tests__/lib/services/discovery/hero-ranking/fixtures/scenario-matrix.ts`.
+ * `__tests__/lib/services/discovery/hero-ranking/__fixtures__/scenario-matrix.ts`.
  */
 import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
