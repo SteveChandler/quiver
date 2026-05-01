@@ -24,6 +24,10 @@ import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import type { HeroRankingDiagnostic } from "./diagnostics";
 import { computeHeroWindowScore } from "./hero-window-score";
 import { computeSetupSuitability } from "./setup-suitability";
+import {
+  deriveSharedSetupSignal,
+  type SharedSetupSignal,
+} from "./shared-setup-signal";
 import { computeWindowPersistence } from "./window-evidence";
 
 const NEUTRAL_SETUP_SUITABILITY = 50;
@@ -70,9 +74,12 @@ function windowDurationHours(rec: SurfDiscoveryRecommendation): number {
   return Number.isFinite(hours) && hours > 0 ? hours : 0;
 }
 
-function computeOne(rec: SurfDiscoveryRecommendation): ComputedRec {
+function computeOne(
+  rec: SurfDiscoveryRecommendation,
+  sharedSignal: SharedSetupSignal,
+): ComputedRec {
   const setupSuitability = rec.spotProfile
-    ? computeSetupSuitability(rec.spotProfile, rec.forecast)
+    ? computeSetupSuitability(rec.spotProfile, sharedSignal)
     : NEUTRAL_SETUP_SUITABILITY;
 
   const slotScores =
@@ -103,7 +110,11 @@ function computeOne(rec: SurfDiscoveryRecommendation): ComputedRec {
   return { rec, setupSuitability, persistence, durationHours, heroScore };
 }
 
-function toDiagnostic(c: ComputedRec, finalRank: number): HeroRankingDiagnostic {
+function toDiagnostic(
+  c: ComputedRec,
+  finalRank: number,
+  sharedSignal: SharedSetupSignal,
+): HeroRankingDiagnostic {
   return {
     beachSlug: c.rec.beach.slug ?? "",
     representativeSlotScore: c.rec.score,
@@ -118,6 +129,11 @@ function toDiagnostic(c: ComputedRec, finalRank: number): HeroRankingDiagnostic 
     heroWindowScore: c.heroScore,
     finalRank,
     isHero: finalRank === 0,
+    sharedSetupSignal: {
+      directionDeg: sharedSignal.directionDeg,
+      periodS: sharedSignal.periodS,
+      source: sharedSignal.source,
+    },
   };
 }
 
@@ -133,7 +149,8 @@ export function rerankHero(
 ): RerankResult {
   if (recs.length === 0) return { reranked: [], diagnostics: [] };
 
-  const computed = recs.map(computeOne);
+  const sharedSignal = deriveSharedSetupSignal(recs);
+  const computed = recs.map((rec) => computeOne(rec, sharedSignal));
 
   let heroIdx = 0;
   for (let i = 1; i < computed.length; i++) {
@@ -145,7 +162,7 @@ export function rerankHero(
   if (heroIdx === 0) {
     return {
       reranked: recs,
-      diagnostics: computed.map((c, idx) => toDiagnostic(c, idx)),
+      diagnostics: computed.map((c, idx) => toDiagnostic(c, idx, sharedSignal)),
     };
   }
 
@@ -157,7 +174,7 @@ export function rerankHero(
 
   return {
     reranked: liftedComputed.map((c) => c.rec),
-    diagnostics: liftedComputed.map((c, idx) => toDiagnostic(c, idx)),
+    diagnostics: liftedComputed.map((c, idx) => toDiagnostic(c, idx, sharedSignal)),
   };
 }
 
@@ -165,4 +182,9 @@ export function rerankHero(
 export type { HeroRankingDiagnostic } from "./diagnostics";
 export { computeHeroWindowScore } from "./hero-window-score";
 export type { HeroWindowScoreInput } from "./hero-window-score";
+export {
+  cardinalToDeg,
+  deriveSharedSetupSignal,
+} from "./shared-setup-signal";
+export type { SharedSetupSignal } from "./shared-setup-signal";
 export { computeWindowDurationScore, computeWindowPersistence } from "./window-evidence";

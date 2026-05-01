@@ -3,19 +3,25 @@
  *
  * Foundation: reuses `calculateWindowAlignment` (wraparound-safe). Adds a
  * hard ≤8s exposure-vs-selectivity dimension that the engine doesn't have.
+ *
+ * Task 8: input shape changed from per-beach forecast to a cluster-shared
+ * `SharedSetupSignal`. Test outcomes are unchanged — only the input is.
  */
 
 import { computeSetupSuitability } from "@/lib/services/discovery/hero-ranking/setup-suitability";
+import type { SharedSetupSignal } from "@/lib/services/discovery/hero-ranking/shared-setup-signal";
 import { createSpotProfile } from "@/lib/domains/spot-profile/spot-profile";
-import { createBeach, createForecast } from "@/__tests__/lib/domains/__fixtures__";
+import { createBeach } from "@/__tests__/lib/domains/__fixtures__";
 import type { Beach } from "@/types/database";
-import type { EnhancedForecastEntity } from "@/types/forecast";
 
-// `createForecast` returns a TestForecast (Partial<EnhancedForecastEntity> with
-// extra required test keys). Cast through unknown to satisfy the strict entity
-// shape — every field the function reads is set explicitly via overrides.
-function fx(overrides: Partial<EnhancedForecastEntity>): EnhancedForecastEntity {
-  return createForecast(overrides) as unknown as EnhancedForecastEntity;
+function signal(overrides: Partial<SharedSetupSignal>): SharedSetupSignal {
+  return {
+    directionDeg: null,
+    periodS: null,
+    heightFt: null,
+    source: "cluster-majority",
+    ...overrides,
+  };
 }
 
 describe("computeSetupSuitability", () => {
@@ -41,41 +47,25 @@ describe("computeSetupSuitability", () => {
   );
 
   it("rewards exposed beach on short-period W swell (270° @ 6s)", () => {
-    const f = fx({
-      wave_direction: "270",
-      wave_period: "6s",
-      swell_1_period: "6s",
-    });
-    expect(computeSetupSuitability(wideExposedBeach, f)).toBeGreaterThanOrEqual(75);
+    const s = signal({ directionDeg: 270, periodS: 6, heightFt: 3 });
+    expect(computeSetupSuitability(wideExposedBeach, s)).toBeGreaterThanOrEqual(75);
   });
 
   it("rewards wraparound-window beach on short-period W swell (270° @ 6s)", () => {
-    const f = fx({
-      wave_direction: "270",
-      wave_period: "6s",
-      swell_1_period: "6s",
-    });
+    const s = signal({ directionDeg: 270, periodS: 6, heightFt: 3 });
     // 270° must be inside a 220→5° wraparound window. If this fails, the
     // wraparound math is broken — surface as a pre-existing bug.
-    expect(computeSetupSuitability(wraparoundBeach, f)).toBeGreaterThanOrEqual(70);
+    expect(computeSetupSuitability(wraparoundBeach, s)).toBeGreaterThanOrEqual(70);
   });
 
   it("penalizes selective beach on the same short-period W swell", () => {
-    const f = fx({
-      wave_direction: "270",
-      wave_period: "6s",
-      swell_1_period: "6s",
-    });
+    const s = signal({ directionDeg: 270, periodS: 6, heightFt: 3 });
     // 270° is OUTSIDE 210-250 window
-    expect(computeSetupSuitability(selectiveSouthBeach, f)).toBeLessThan(50);
+    expect(computeSetupSuitability(selectiveSouthBeach, s)).toBeLessThan(50);
   });
 
   it("rewards selective south beach on long-period SW (220° @ 14s)", () => {
-    const f = fx({
-      wave_direction: "220",
-      wave_period: "14s",
-      swell_1_period: "14s",
-    });
-    expect(computeSetupSuitability(selectiveSouthBeach, f)).toBeGreaterThanOrEqual(75);
+    const s = signal({ directionDeg: 220, periodS: 14, heightFt: 4 });
+    expect(computeSetupSuitability(selectiveSouthBeach, s)).toBeGreaterThanOrEqual(75);
   });
 });

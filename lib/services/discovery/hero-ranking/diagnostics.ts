@@ -35,6 +35,17 @@ export interface HeroRankingDiagnostic {
   heroWindowScore: number;
   finalRank: number;
   isHero: boolean;
+  /**
+   * Cluster-shared setup signal that fed `setupSuitability` for this
+   * candidate (Task 8). Same value across every diagnostic in a single
+   * `rerankHero` call — slight redundancy makes individual log lines
+   * self-explanatory in production.
+   */
+  sharedSetupSignal: {
+    directionDeg: number | null;
+    periodS: number | null;
+    source: "cluster-majority" | "fallback";
+  };
 }
 
 export function logHeroRankingDiagnostic(d: HeroRankingDiagnostic): void {

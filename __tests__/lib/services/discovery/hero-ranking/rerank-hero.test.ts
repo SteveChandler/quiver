@@ -76,7 +76,10 @@ function makeRec(opts: MakeRecOptions): SurfDiscoveryRecommendation {
   const forecast = fx({
     wave_direction: opts.waveDirection,
     wave_period: opts.wavePeriod,
+    // Mirror direction onto swell_1 so the shared-signal extractor picks up
+    // the test's intended setup (it prefers swell_1_* over wave_*).
     swell_1_period: opts.wavePeriod,
+    swell_1_direction: opts.waveDirection,
   });
   return {
     beach: beach as Beach & { photo_url?: string | null },
