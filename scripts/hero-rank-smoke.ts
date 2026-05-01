@@ -21,7 +21,10 @@ async function main(): Promise<void> {
     storageState: STATE,
   });
 
-  const url = `/api/surf/discover?lat=32.74&lon=-117.25&maxResults=5`;
+  // Mirror the home-screen call (`components/home-screen/index.tsx:231`):
+  // maxResults=6, horizonHours=24. Without horizonHours, all candidates can
+  // get filtered out before `rerankHero` runs, leaving zero diagnostic lines.
+  const url = `/api/surf/discover?lat=32.74&lon=-117.25&maxResults=6&horizonHours=24`;
   const t0 = Date.now();
   const res = await ctx.get(url);
   const ms = Date.now() - t0;
@@ -34,13 +37,18 @@ async function main(): Promise<void> {
     process.exit(res.status() === 401 ? 2 : 1);
   }
 
+  // Response shape: `{ success, data: { recommendations, ... }, timestamp }`
+  // (envelope from `lib/middleware/api-wrappers/createSuccessResponse`).
   const body = (await res.json()) as {
-    recommendations?: Array<{
-      beach?: { slug?: string; name?: string };
-      score?: number;
-    }>;
+    success?: boolean;
+    data?: {
+      recommendations?: Array<{
+        beach?: { slug?: string; name?: string };
+        score?: number;
+      }>;
+    };
   };
-  const recs = body.recommendations ?? [];
+  const recs = body.data?.recommendations ?? [];
   console.log(`recs: ${recs.length}`);
   recs.slice(0, 5).forEach((r, i) => {
     const slug = r.beach?.slug ?? "?";
