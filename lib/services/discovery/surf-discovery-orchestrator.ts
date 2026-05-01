@@ -66,6 +66,7 @@ import { assignStrategyTags } from '@/lib/services/discovery/strategy-tags';
 import { generateRegionalCall } from '@/lib/services/discovery/regional-call';
 import type { WindSnapshot } from '@/lib/services/discovery/regional-call';
 import { isAfterSunset, buildRestOfToday } from '@/lib/services/discovery/evening-transition';
+import { logHeroRankingDiagnostic } from '@/lib/services/discovery/hero-ranking/diagnostics';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
 
@@ -805,6 +806,30 @@ async function discoverSurfSpotsInner(
 
   // Take top results
   const merged = allRecs.slice(0, maxResults);
+
+  // Phase 1: hero-ranking diagnostics only — no behavior change yet.
+  // Task 4 will replace placeholder zeros (setupSuitability, windowPersistence,
+  // heroWindowScore) with real values via rerankHero(). Single emit site.
+  merged.forEach((rec, idx) => {
+    logHeroRankingDiagnostic({
+      beachSlug: rec.beach.slug ?? rec.beach.id,
+      representativeSlotScore: rec.score,
+      setupSuitability: 0,
+      windAlignment: rec.subscores.windAlignment,
+      tideFit: rec.subscores.tideFit,
+      waveHeightFit: rec.subscores.waveHeightFit,
+      periodEnergyScore: rec.subscores.periodEnergyScore,
+      affinityBonus: rec.subscores.affinityBonus,
+      windowDurationHours:
+        rec.window?.end && rec.window?.start
+          ? (new Date(rec.window.end).getTime() - new Date(rec.window.start).getTime()) / 3_600_000
+          : 0,
+      windowPersistence: 0,
+      heroWindowScore: 0,
+      finalRank: idx,
+      isHero: idx === 0,
+    });
+  });
 
   const favoriteCount = merged.filter(r => r.isFavorite).length;
   log.debug(
