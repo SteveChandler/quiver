@@ -27,9 +27,9 @@ function StepDataSources() {
         1
       </div>
       <div>
-        <h3 className="text-lg font-semibold text-white mb-1">Real-Time Data</h3>
+        <h3 className="text-lg font-semibold text-white mb-1">We pull from real ocean data.</h3>
         <p className="text-sm text-[#B0C0D6]">
-          30K+ buoy observations, NOAA models, community reports
+          NOAA buoys, Open-Meteo models, your local stations, and what surfers post from the lineup.
         </p>
       </div>
       <div className="flex flex-wrap gap-3 mt-auto">
@@ -47,10 +47,10 @@ function StepDataSources() {
 // ---------------------------------------------------------------------------
 
 const ML_CHIPS = [
-  "Wave Height Fit",
-  "Period Energy",
-  "Wind Alignment",
-  "Tide Fit",
+  "Wave Height",
+  "Period",
+  "Wind",
+  "Tide",
 ] as const;
 
 function StepMLEngine() {
@@ -60,9 +60,9 @@ function StepMLEngine() {
         2
       </div>
       <div>
-        <h3 className="text-lg font-semibold text-white mb-1">ML Scoring Engine</h3>
+        <h3 className="text-lg font-semibold text-white mb-1">We check our forecast against what actually happened.</h3>
         <p className="text-sm text-[#B0C0D6]">
-          Quiver ensemble scores 4 factors every 3 hours
+          Every three hours we compare the model to live buoy observations and correct what was off.
         </p>
       </div>
       <div className="flex items-center gap-3">
@@ -97,9 +97,9 @@ function StepMatchScore({ inView }: StepMatchScoreProps) {
         3
       </div>
       <div>
-        <h3 className="text-lg font-semibold text-white mb-1">Your Match Score</h3>
+        <h3 className="text-lg font-semibold text-white mb-1">We tell you what it means at your beach.</h3>
         <p className="text-sm text-[#B0C0D6]">
-          Personalized to your skill level and wave preferences
+          One call, read for your skill level and the way you actually surf.
         </p>
       </div>
       <div className="flex justify-center mt-auto">
@@ -175,10 +175,10 @@ export function MLPipelineShowcase() {
       {/* Section header */}
       <div className="text-center mb-10 md:mb-12 animate-fade-in-up">
         <h2 className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold text-white mb-4">
-          How your Match Score works
+          How the forecast actually works
         </h2>
         <p className="text-lg font-sans text-white/60 max-w-2xl mx-auto">
-          No black boxes. Here&apos;s exactly what powers every recommendation.
+          No black box. Real ocean data, checked against what actually happened, read for your beach.
         </p>
       </div>
 
@@ -218,6 +218,23 @@ export function MLPipelineShowcase() {
           <StepMatchScore inView={isInView} />
         </motion.div>
       </div>
+
+      {/* Founder note — short, restrained, transparency over hype */}
+      <motion.div
+        className="mt-10 md:mt-12 max-w-2xl mx-auto text-center"
+        initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0 }}
+        animate={isInView ? { opacity: 1 } : {}}
+        transition={{ duration: 0.6, delay: 1.2, ease: EASE_OUT_QUART }}
+      >
+        <p className="text-sm md:text-base font-sans text-white/70 leading-relaxed italic">
+          &ldquo;I shipped a forecast model, found a direction bug in our own data pipeline, fixed it,
+          retrained it, and kept the old predictions honest instead of rewriting history.
+          That&apos;s the difference: we check our own work.&rdquo;
+        </p>
+        <p className="text-xs uppercase tracking-wider text-white/40 mt-3">
+          — Steven, founder
+        </p>
+      </motion.div>
 
       {/* CTA — non-authenticated users only */}
       {!user && (

@@ -10,7 +10,13 @@ import type { Beach } from '@/types/database';
 // Test Factories
 // ============================================================================
 
-function makeBeach(overrides: Partial<Beach> = {}): Beach {
+// `skill_level` is widened to allow null because computeSurfCall defends
+// against null at runtime even though Beach.Row pins it to `string`.
+type MakeBeachOverrides = Partial<Omit<Beach, 'skill_level'>> & {
+  skill_level?: string | null;
+};
+
+function makeBeach(overrides: MakeBeachOverrides = {}): Beach {
   return {
     id: 'test-beach-id',
     name: 'Test Beach',
@@ -1198,7 +1204,7 @@ describe('computeSurfCall', () => {
     it('falls back to break_type minimum when skill_level is null', () => {
       const forecasts = [makeForecast({ wave_height: '1.5 ft' })];
       const window = makeWindow({ waveHeight: '1.5 ft', score: 75 });
-      const beach = makeBeach({ skill_level: null, break_type: 'beach break' } as Partial<Beach>);
+      const beach = makeBeach({ skill_level: null, break_type: 'beach break' });
       const result = computeSurfCall(window, forecasts, beach);
       // skill_level null → skillMin=0, break min=1.5 → max(1.5, 0) = 1.5
       // 1.5 ft wave >= 1.5 min → not rejected

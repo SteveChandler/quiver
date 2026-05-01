@@ -2,34 +2,29 @@
 
 import type { ReactNode } from "react";
 import type { Beach } from "@/types/database";
-import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import type { BeachSources } from "@/hooks/use-beach-detail-data";
 import type { ZineBeachPhoto } from "./types";
 import { RoughEdgeFilter } from "./atoms";
 import { ZineHero } from "./zine-hero";
-import { TodaySurfCall } from "./today-surf-call";
 import { ZineFooter } from "./zine-footer";
 
 interface ZinePageShellProps {
   beach: Beach;
-  surfCallReport?: SurfCallResult | null;
   beachPhoto?: ZineBeachPhoto | null;
   sources?: BeachSources | null;
   /**
    * The tabs container is rendered here so the cream-paper styling wraps
-   * the tabs row and tab content. Sits between Today's Surf Call and the
-   * footer.
+   * the tabs row and tab content. Sits between the hero and the footer.
    */
   children: ReactNode;
 }
 
 /**
- * Outer page shell for the zine: masthead, hero, today's surf call, then
- * the tabs/children, then the footer. This component is the top-level
- * cream-paper container that replaces the dark twilight chrome on the
- * beach detail page.
+ * Outer page shell for the zine: masthead, hero, then the tabs/children,
+ * then the footer. This component is the top-level cream-paper container
+ * that replaces the dark twilight chrome on the beach detail page.
  */
-export function ZinePageShell({ beach, surfCallReport, beachPhoto, sources, children }: ZinePageShellProps) {
+export function ZinePageShell({ beach, beachPhoto, sources, children }: ZinePageShellProps) {
   return (
     <div className="zine-page zine-tab">
       <RoughEdgeFilter />
@@ -53,7 +48,6 @@ export function ZinePageShell({ beach, surfCallReport, beachPhoto, sources, chil
 
         <div className="zine-paper">
           <ZineHero beach={beach} beachPhoto={beachPhoto} sources={sources} />
-          <TodaySurfCall beach={beach} surfCallReport={surfCallReport} />
 
           {/* Integrated tabs row + per-tab content lives inside the cream paper */}
           <div className="zine-tabs-slot mt-7">

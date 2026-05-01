@@ -19,7 +19,7 @@
  *     `skipped_dedup`). The decision was "don't send" rather than "couldn't
  *     send" — we don't retry. Channel is done.
  *   - **retryable**: `failed_provider`, `failed_internal`, or
- *     `skipped_quiet_hours` (re-evaluate next tick when out of window). The
+ *     `deferred_quiet_hours` (re-evaluate next tick when out of window). The
  *     event stays `pending` until the channel either succeeds, decisively
  *     skips, or hits MAX_FAILED_ATTEMPTS_PER_CHANNEL.
  *
@@ -29,28 +29,29 @@
  * `notification_delivery_attempts` for each event and short-circuits
  * channels that are already terminal.
  *
- * ## Concurrency
+ * ## Concurrency (Phase 5b — atomic claim)
  *
- * The worker claims events atomically before processing. Each tick:
+ * Each tick generates a unique `claim_token` UUID and calls the
+ * `claim_notification_events` Postgres function, which uses
+ * `FOR UPDATE SKIP LOCKED` inside a CTE to atomically claim a batch:
  *
- *   1. SELECT candidate ids WHERE status='pending' AND
- *        (claimed_at IS NULL OR claimed_at < now() - 5 min)
- *   2. UPDATE notification_events SET claimed_at = now()
- *        WHERE id = ANY(ids) AND status='pending'
- *          AND (claimed_at IS NULL OR claimed_at < now() - 5 min)
- *        RETURNING *;
+ *   - Eligible: status='pending' OR (status='processing' AND claimed_at older
+ *     than the lease) AND (next_attempt_at NULL or in the past).
+ *   - The function transitions claimed rows from `pending` → `processing`
+ *     with the caller's `claim_token`, increments `attempt_count`, and sets
+ *     `last_attempt_at`.
+ *   - SKIP LOCKED means parallel workers always claim disjoint sets — no
+ *     row is double-dispatched even if Vercel runs two instances.
  *
- * Postgres row-level locking on UPDATE means only one tick wins the claim
- * for any given row — the second tick's UPDATE re-evaluates the WHERE
- * clause against the now-updated row, fails the `claimed_at IS NULL OR ...`
- * predicate, and returns 0 rows. So even if Vercel runs two notifications-
- * deliver instances during a deploy, or a manual cron hit overlaps with
- * the scheduled tick, no event is double-dispatched.
+ * Subsequent terminal-status writes (`markEventTerminal`) and lease releases
+ * (`releaseClaims`) include `WHERE claim_token = $own` so a stale worker
+ * (whose lease was reclaimed by a fresh tick) can't overwrite fresh progress.
  *
  * If a worker crashes mid-tick, its claim becomes reclaimable after
  * `CLAIM_STALE_AFTER_MS` (5 min). Events that stay pending for retry have
- * their claim released to NULL at the end of the tick so the next tick
- * can retry immediately.
+ * their lease explicitly released at the end of the tick (status →
+ * `pending`, claim_token NULL, claimed_at NULL) so the next tick can
+ * re-claim immediately.
  *
  * ## Dedupe
  *
@@ -107,6 +108,7 @@ const TERMINAL_SKIP_STATUSES = new Set<NotificationDeliveryStatus>([
   "skipped_no_device",
   "skipped_dedup",
   "skipped_disabled",
+  "skipped_cooldown",
 ]);
 
 // Statuses that count toward the per-channel failure cap.
@@ -114,6 +116,19 @@ const FAILURE_STATUSES = new Set<NotificationDeliveryStatus>([
   "failed_provider",
   "failed_internal",
 ]);
+
+/**
+ * Phase 5c: backoff schedule for retryable channel failures. Indexed by
+ * the event's `attempt_count` after this tick:
+ *   1 → 60s, 2 → 5min, 3+ → 30min
+ * Quiet-hours defers don't use this — they just leave next_attempt_at NULL
+ * so the next tick can re-evaluate the quiet window immediately.
+ */
+function backoffFor(attemptCount: number): number {
+  if (attemptCount <= 1) return 60_000;
+  if (attemptCount === 2) return 5 * 60_000;
+  return 30 * 60_000;
+}
 
 interface ProfileRow {
   id: string;
@@ -147,9 +162,14 @@ export interface ProcessOptions {
 
 export interface ProcessSummary {
   fetched: number;
-  /** Events that reached terminal `processed` this tick. */
+  /** Events that reached terminal `processed` this tick (any sent or all-skipped). */
   processed: number;
-  /** Events that reached terminal `skipped` this tick. */
+  /**
+   * Retained for backwards-compat with dashboards. Phase 5a removed `skipped`
+   * as an event-level status (skips are channel-level), so this counter now
+   * tracks events whose channels were ALL terminal-skips. The event row has
+   * status='processed' on disk; this number breaks it out for monitoring.
+   */
   skipped: number;
   /** Events that reached terminal `failed` this tick (retry exhausted or fatal). */
   failed: number;
@@ -157,6 +177,31 @@ export interface ProcessSummary {
   pending_after_run: number;
   firebase_configured: boolean;
   by_status: Partial<Record<NotificationDeliveryStatus, number>>;
+  /**
+   * Phase 5m: events deferred this tick due to quiet hours (will retry when
+   * the window ends). Subset of pending_after_run, broken out so dashboards
+   * can distinguish "respecting user preferences" from "broken / retrying".
+   */
+  deferred_quiet_hours_count: number;
+  /**
+   * Phase 5m: events scheduled for backoff retry this tick (failed_provider
+   * / failed_internal below the per-channel cap). Subset of pending_after_run.
+   * Different from deferred_quiet_hours_count: these are unhealthy paths.
+   */
+  retry_scheduled_count: number;
+  /**
+   * Phase 5m: events terminal-failed because the registry doesn't recognize
+   * their type. Should be 0 in steady-state. Non-zero indicates a stale
+   * producer or a missing registry entry — page on it.
+   */
+  unknown_type_count: number;
+  /**
+   * Phase 5m: events whose recipient lacks a `profiles.timezone`. Quiet-hours
+   * defer falls back to UTC for these — fine in the short term but indicates
+   * a sign-up flow gap. Tracked so we can fix the source instead of papering
+   * over with UTC-default forever.
+   */
+  missing_timezone_count: number;
 }
 
 /** Per-channel decision rolled up at the end of one tick. */
@@ -180,12 +225,21 @@ export async function processPendingEvents(
     pending_after_run: 0,
     firebase_configured: fcm !== null,
     by_status: {},
+    deferred_quiet_hours_count: 0,
+    retry_scheduled_count: 0,
+    unknown_type_count: 0,
+    missing_timezone_count: 0,
   };
+
+  // Each tick gets a unique claim_token. Workers write terminal status only
+  // WHERE claim_token = $own — defends against a stale worker (whose lease
+  // was reclaimed by a fresh tick) overwriting fresh progress.
+  const claimToken = crypto.randomUUID();
 
   // Surfacing a fetch error is critical: a silent empty-array return would
   // make a broken cron look identical to a healthy idle tick. Throwing here
   // lets `withCronObservability` mark the run status='error'.
-  const events = await claimPendingEvents(supabase, batchSize, now);
+  const events = await claimPendingEvents(supabase, batchSize, claimToken);
   summary.fetched = events.length;
   if (events.length === 0) return summary;
 
@@ -195,23 +249,30 @@ export async function processPendingEvents(
   );
 
   // Track events that stay pending after the tick so we can release their
-  // claim and let the next tick retry immediately (instead of waiting for
-  // the 5-min stale TTL).
-  const stillPendingIds: string[] = [];
+  // claim and let the next tick retry. Phase 5c: nextAttemptAt is also
+  // captured so we can space out retries with backoff (1m/5m/30m) instead
+  // of hammering FCM every minute on transient failures.
+  const pendingReleases: Array<{ eventId: string; nextAttemptAt: Date | null }> = [];
 
   for (const event of events) {
     const eventAttempts = priorAttempts.get(event.id) ?? [];
     try {
-      const outcome = await processOne(
+      const result = await processOne(
         supabase,
         fcm,
         event,
         eventAttempts,
         now,
-        summary
+        summary,
+        claimToken
       );
-      tallyOutcome(summary, outcome);
-      if (outcome === "pending") stillPendingIds.push(event.id);
+      tallyOutcome(summary, result.outcome);
+      if (result.outcome === "pending") {
+        pendingReleases.push({
+          eventId: event.id,
+          nextAttemptAt: result.nextAttemptAt,
+        });
+      }
     } catch (err) {
       // Truly unexpected error (not a planned failure path) — leave the
       // event pending so the next tick retries. We do NOT mark the event
@@ -221,23 +282,49 @@ export async function processPendingEvents(
         err
       );
       summary.pending_after_run++;
-      stillPendingIds.push(event.id);
+      // Unknown failure mode — schedule a backoff to avoid tight retry loop.
+      pendingReleases.push({
+        eventId: event.id,
+        nextAttemptAt: new Date(now.getTime() + backoffFor(event.attempt_count)),
+      });
     }
   }
 
-  await releaseClaims(supabase, stillPendingIds);
+  await releaseClaims(supabase, pendingReleases, claimToken);
 
   return summary;
 }
 
 function tallyOutcome(
   summary: ProcessSummary,
-  outcome: "processed" | "skipped" | "failed" | "pending"
+  outcome: ProcessOneOutcome
 ): void {
   if (outcome === "processed") summary.processed++;
-  else if (outcome === "skipped") summary.skipped++;
-  else if (outcome === "failed") summary.failed++;
+  else if (outcome === "all-skipped") {
+    summary.processed++;
+    summary.skipped++;
+  } else if (outcome === "failed") summary.failed++;
   else summary.pending_after_run++;
+}
+
+/**
+ * Event-level outcome of one tick's pass over an event.
+ *   - processed: at least one channel was sent and the event finalized
+ *   - all-skipped: every channel was a terminal skip (event status: processed)
+ *   - failed: at least one required channel exhausted retries
+ *   - pending: at least one channel is retryable; revisit next tick
+ */
+type ProcessOneOutcome = "processed" | "all-skipped" | "failed" | "pending";
+
+/**
+ * processOne result. `nextAttemptAt` is only meaningful when outcome='pending'
+ * — Phase 5c uses it to space out retries so transient FCM failures don't
+ * hammer the provider every minute.
+ */
+interface ProcessOneResult {
+  outcome: ProcessOneOutcome;
+  /** When to re-claim. NULL = immediate (next tick). Date = future. */
+  nextAttemptAt: Date | null;
 }
 
 // ─── Per-event pipeline ──────────────────────────────────────────────────────
@@ -248,11 +335,19 @@ async function processOne(
   event: NotificationEventRow,
   priorAttempts: NotificationDeliveryAttemptRow[],
   now: Date,
-  summary: ProcessSummary
-): Promise<"processed" | "skipped" | "failed" | "pending"> {
+  summary: ProcessSummary,
+  claimToken: string
+): Promise<ProcessOneResult> {
   if (!isKnownNotificationType(event.type)) {
-    await markEventTerminal(supabase, event.id, "failed", "unknown_type");
-    return "failed";
+    summary.unknown_type_count++;
+    await markEventTerminal(
+      supabase,
+      event.id,
+      "failed",
+      "unknown_type",
+      claimToken
+    );
+    return { outcome: "failed", nextAttemptAt: null };
   }
   const def = getRegistryEntry(event.type as NotificationType);
 
@@ -266,16 +361,21 @@ async function processOne(
       `[notifications/worker] profile query errored for event ${event.id}:`,
       err
     );
-    return "pending";
+    // Transient lookup failure — backoff before next tick to avoid hammering.
+    return {
+      outcome: "pending",
+      nextAttemptAt: new Date(now.getTime() + backoffFor(event.attempt_count)),
+    };
   }
   if (!profile) {
     await markEventTerminal(
       supabase,
       event.id,
       "failed",
-      "recipient_profile_missing"
+      "recipient_profile_missing",
+      claimToken
     );
-    return "failed";
+    return { outcome: "failed", nextAttemptAt: null };
   }
 
   let actor: { id: string; display_name: string | null } | null = null;
@@ -287,8 +387,19 @@ async function processOne(
         `[notifications/worker] actor query errored for event ${event.id}:`,
         err
       );
-      return "pending";
+      return {
+        outcome: "pending",
+        nextAttemptAt: new Date(now.getTime() + backoffFor(event.attempt_count)),
+      };
     }
+  }
+
+  // Phase 5m: tally missing timezones at most once per event. Recipients
+  // without a timezone fall back to UTC for quiet-hours math, which is
+  // wrong for non-UTC users — count so we can fix the source instead of
+  // papering over with a UTC default forever.
+  if (!profile.timezone) {
+    summary.missing_timezone_count++;
   }
 
   const ctx: BuildCtx = {
@@ -342,8 +453,8 @@ async function processOne(
     summary.by_status[status] = (summary.by_status[status] ?? 0) + 1;
 
     // Type-specific reconciliation hook (e.g. forecast_alert -> alert_delivery_attempts).
-    // Skip for skipped_quiet_hours (non-terminal — try later, no audit row yet).
-    if (def.onChannelOutcome && status !== "skipped_quiet_hours") {
+    // Skip for deferred_quiet_hours (non-terminal — try later, no audit row yet).
+    if (def.onChannelOutcome && status !== "deferred_quiet_hours") {
       try {
         await def.onChannelOutcome({
           supabase: supabase as unknown as Parameters<
@@ -374,7 +485,7 @@ async function processOne(
       channelOutcomes.set(channel, "sent");
     } else if (TERMINAL_SKIP_STATUSES.has(status)) {
       channelOutcomes.set(channel, "skipped");
-    } else if (status === "skipped_quiet_hours") {
+    } else if (status === "deferred_quiet_hours") {
       // Retryable — re-evaluate next tick.
       channelOutcomes.set(channel, "pending");
     } else if (FAILURE_STATUSES.has(status)) {
@@ -394,7 +505,38 @@ async function processOne(
     await insertDeliveryAttempts(supabase, newAttempts);
   }
 
-  return finalizeEventStatus(supabase, event.id, channelOutcomes);
+  const outcome = await finalizeEventStatus(
+    supabase,
+    event.id,
+    channelOutcomes,
+    claimToken
+  );
+
+  // Phase 5c: schedule backoff for retryable failures so the next tick
+  // doesn't fire 1 minute later. Quiet-hours-only retryable → no backoff
+  // (next tick can re-evaluate the window immediately and skip if still
+  // inside quiet hours; the cost is one wasted tick).
+  let nextAttemptAt: Date | null = null;
+  if (outcome === "pending") {
+    const hasRetryableFailure = newAttempts.some((a) =>
+      FAILURE_STATUSES.has(a.status as NotificationDeliveryStatus)
+    );
+    const hasDeferredQuietHours = newAttempts.some(
+      (a) => a.status === "deferred_quiet_hours"
+    );
+    if (hasRetryableFailure) {
+      nextAttemptAt = new Date(
+        now.getTime() + backoffFor(event.attempt_count)
+      );
+      // Phase 5m: surface the unhealthy retry path separately from the
+      // healthy "user said quiet hours, we respect it" path.
+      summary.retry_scheduled_count++;
+    } else if (hasDeferredQuietHours) {
+      summary.deferred_quiet_hours_count++;
+    }
+  }
+
+  return { outcome, nextAttemptAt };
 }
 
 function priorTerminalOutcome(
@@ -422,12 +564,13 @@ function groupAttemptsByChannel(
 async function finalizeEventStatus(
   supabase: ServiceClient,
   eventId: string,
-  outcomes: Map<NotificationChannel, ChannelOutcome>
-): Promise<"processed" | "skipped" | "failed" | "pending"> {
+  outcomes: Map<NotificationChannel, ChannelOutcome>,
+  claimToken: string
+): Promise<ProcessOneOutcome> {
   const values = Array.from(outcomes.values());
   if (values.length === 0) {
     // No channels — defensive (shouldn't happen for a registered type).
-    await markEventTerminal(supabase, eventId, "failed", "no_channels");
+    await markEventTerminal(supabase, eventId, "failed", "no_channels", claimToken);
     return "failed";
   }
 
@@ -444,16 +587,31 @@ async function finalizeEventStatus(
   const anyFailed = values.some((o) => o === "failed");
 
   if (anySent) {
-    await markEventTerminal(supabase, eventId, "processed", null);
+    await markEventTerminal(supabase, eventId, "processed", null, claimToken);
     return "processed";
   }
   if (anyFailed) {
-    await markEventTerminal(supabase, eventId, "failed", "all_channels_failed");
+    await markEventTerminal(
+      supabase,
+      eventId,
+      "failed",
+      "all_channels_failed",
+      claimToken
+    );
     return "failed";
   }
-  // Everything was a decisive skip.
-  await markEventTerminal(supabase, eventId, "skipped", "all_channels_skipped");
-  return "skipped";
+  // Everything was a decisive skip. Phase 5a: event-level 'skipped' status was
+  // removed — record this as 'processed' (we processed the event, the decision
+  // was "don't send"). The processed counter ticks both `processed` and
+  // `skipped` in summary so dashboards can still distinguish.
+  await markEventTerminal(
+    supabase,
+    eventId,
+    "processed",
+    "all_channels_skipped",
+    claimToken
+  );
+  return "all-skipped";
 }
 
 // ─── Per-channel pipeline ────────────────────────────────────────────────────
@@ -486,13 +644,95 @@ async function processChannel(
     return "skipped_pref_type";
   }
 
-  if (channel === "push" && def.quietHours.honor) {
+  // Phase 5d: mode-based quiet hours. `ignore` and `bypass` skip the check
+  // entirely. `defer` respects the window and returns deferred_quiet_hours
+  // so the worker leaves the event pending for the next tick.
+  if (channel === "push" && def.quietHours.mode === "defer") {
     const tz = profile.timezone || "UTC";
     const localHour = getLocalHour(now, tz);
     const start = def.quietHours.windowStart ?? 22;
     const end = def.quietHours.windowEnd ?? 4;
     if (isInQuietWindow(localHour, start, end)) {
-      return "skipped_quiet_hours";
+      return "deferred_quiet_hours";
+    }
+  }
+
+  // Phase 5g: per-type cooldown. If the registry sets `cooldownMs`, the worker
+  // suppresses a second send to the same recipient until the window elapses.
+  // Only applies after dedupe + prefs + quiet-hours since cooldown is the
+  // last-line "we already sent one of these recently" guard. Distinct from
+  // producer dedupe_key (which prevents duplicate ACTIVE events) and from
+  // the active-event partial unique index (which only sees pending/processing).
+  if (channel === "push" && def.cooldownMs && def.cooldownMs > 0) {
+    const cooldownStartIso = new Date(
+      now.getTime() - def.cooldownMs
+    ).toISOString();
+    const cooldownClient = supabase as unknown as {
+      from(t: "notification_delivery_attempts"): {
+        select(s: string): {
+          eq(c: "channel", v: NotificationChannel): {
+            eq(c: "status", v: NotificationDeliveryStatus): {
+              gte(c: "created_at", v: string): {
+                in(
+                  c: "notification_event_id",
+                  v: string[]
+                ): {
+                  limit(n: number): Promise<{
+                    data: Array<{ id: string }> | null;
+                    error: { message: string; code?: string } | null;
+                  }>;
+                };
+              };
+            };
+          };
+        };
+      };
+      from(
+        t: "notification_events"
+      ): {
+        select(s: string): {
+          eq(c: "recipient_user_id", v: string): {
+            eq(c: "type", v: string): {
+              gte(c: "created_at", v: string): Promise<{
+                data: Array<{ id: string }> | null;
+                error: { message: string; code?: string } | null;
+              }>;
+            };
+          };
+        };
+      };
+    };
+    const { data: recentEvents, error: eventsErr } = await cooldownClient
+      .from("notification_events")
+      .select("id")
+      .eq("recipient_user_id", event.recipient_user_id)
+      .eq("type", event.type)
+      .gte("created_at", cooldownStartIso);
+    if (eventsErr) {
+      console.error(
+        `[notifications/worker] cooldown lookup (events) failed for event ${event.id}:`,
+        eventsErr
+      );
+      // Fall through — we'd rather risk a within-cooldown send than lose the
+      // notification on a transient query error.
+    } else if (recentEvents && recentEvents.length > 0) {
+      const recentEventIds = recentEvents.map((r) => r.id);
+      const { data: sentAttempts, error: attemptsErr } = await cooldownClient
+        .from("notification_delivery_attempts")
+        .select("id")
+        .eq("channel", "push")
+        .eq("status", "sent")
+        .gte("created_at", cooldownStartIso)
+        .in("notification_event_id", recentEventIds)
+        .limit(1);
+      if (attemptsErr) {
+        console.error(
+          `[notifications/worker] cooldown lookup (attempts) failed for event ${event.id}:`,
+          attemptsErr
+        );
+      } else if (sentAttempts && sentAttempts.length > 0) {
+        return "skipped_cooldown";
+      }
     }
   }
 
@@ -625,117 +865,77 @@ const EVENT_COLUMN_LIST =
   "id, recipient_user_id, actor_user_id, type, entity_type, entity_id, payload, dedupe_key, status, skip_reason, created_at, processed_at, claimed_at";
 
 /**
- * Atomically claim up to `limit` pending events. Two-phase:
+ * Atomically claim up to `limit` events via the `claim_notification_events`
+ * Postgres function (Phase 5b). The function uses FOR UPDATE SKIP LOCKED so
+ * two parallel workers always claim disjoint sets, and transitions claimed
+ * rows from `pending` → `processing` with the caller's `claim_token`.
  *
- *   1. SELECT candidate ids (claimable = unclaimed OR claim is stale).
- *   2. UPDATE the same id set, setting `claimed_at = now()` only if the row
- *      is STILL claimable at update time. Rows that another worker already
- *      grabbed between phase 1 and phase 2 are silently dropped from the
- *      RETURNING set.
+ * Stale processing rows (claimed_at older than CLAIM_STALE_AFTER_MS) become
+ * claimable again — recovers from a crashed prior worker without manual
+ * intervention.
  *
- * Throws on query error so the cron handler surfaces it via
- * withCronObservability (`cron_runs.status='error'`) rather than silently
- * looking like a clean idle tick.
+ * Throws on RPC error so `withCronObservability` records `status='error'`.
  */
 async function claimPendingEvents(
   supabase: ServiceClient,
   limit: number,
-  now: Date
+  claimToken: string
 ): Promise<NotificationEventRow[]> {
-  const staleCutoff = new Date(now.getTime() - CLAIM_STALE_AFTER_MS).toISOString();
-  const claimableFilter = `claimed_at.is.null,claimed_at.lt.${staleCutoff}`;
+  const leaseSeconds = Math.ceil(CLAIM_STALE_AFTER_MS / 1000);
 
-  // Phase 1 — find candidate ids. We could fold this into a single UPDATE
-  // ... WHERE id IN (SELECT ...) but supabase-js doesn't expose subqueries,
-  // so the two-step keeps us within the supported builder API.
-  const selectClient = supabase as unknown as {
-    from(t: "notification_events"): {
-      select(s: string): {
-        eq(c: string, v: string): {
-          or(filter: string): {
-            order(c: string, opts: { ascending: boolean }): {
-              limit(n: number): Promise<{
-                data: Pick<NotificationEventRow, "id">[] | null;
-                error: { message: string; code?: string } | null;
-              }>;
-            };
-          };
-        };
-      };
-    };
+  const rpcClient = supabase as unknown as {
+    rpc(
+      name: "claim_notification_events",
+      args: { p_batch_size: number; p_lease_seconds: number; p_claim_token: string }
+    ): Promise<{
+      data: NotificationEventRow[] | null;
+      error: { message: string; code?: string } | null;
+    }>;
   };
 
-  const { data: candidates, error: selectError } = await selectClient
-    .from("notification_events")
-    .select("id")
-    .eq("status", "pending")
-    .or(claimableFilter)
-    .order("created_at", { ascending: true })
-    .limit(limit);
+  const { data, error } = await rpcClient.rpc("claim_notification_events", {
+    p_batch_size: limit,
+    p_lease_seconds: leaseSeconds,
+    p_claim_token: claimToken,
+  });
 
-  if (selectError) {
+  if (error) {
     throw new Error(
-      `notification_events select failed: ${selectError.message}${selectError.code ? ` (code=${selectError.code})` : ""}`
+      `notification_events claim failed: ${error.message}${error.code ? ` (code=${error.code})` : ""}`
     );
   }
 
-  const candidateIds = (candidates ?? []).map((r) => r.id);
-  if (candidateIds.length === 0) return [];
-
-  // Phase 2 — atomic claim. The duplicated `claimableFilter` predicate is
-  // intentional: it forces Postgres to re-check (under the row lock taken by
-  // UPDATE) whether the row is still claimable, so a parallel worker's
-  // claim wins the race but doesn't get double-dispatched.
-  const updateClient = supabase as unknown as {
-    from(t: "notification_events"): {
-      update(v: { claimed_at: string }): {
-        in(c: string, v: string[]): {
-          eq(c: string, v: string): {
-            or(filter: string): {
-              select(s: string): Promise<{
-                data: NotificationEventRow[] | null;
-                error: { message: string; code?: string } | null;
-              }>;
-            };
-          };
-        };
-      };
-    };
-  };
-
-  const { data: claimed, error: updateError } = await updateClient
-    .from("notification_events")
-    .update({ claimed_at: now.toISOString() })
-    .in("id", candidateIds)
-    .eq("status", "pending")
-    .or(claimableFilter)
-    .select(EVENT_COLUMN_LIST);
-
-  if (updateError) {
-    throw new Error(
-      `notification_events claim failed: ${updateError.message}${updateError.code ? ` (code=${updateError.code})` : ""}`
-    );
-  }
-
-  return claimed ?? [];
+  return data ?? [];
 }
 
 /**
  * Release the claim on events that the worker chose to leave pending for
- * retry next tick (e.g. quiet-hours, transient FCM error). Without this,
- * the row stays "claimed" until the 5-minute stale TTL kicks in — which
- * pushes retry latency from 1 min (next tick) to 5 min.
+ * retry next tick. Transitions each row from `processing` back to `pending`
+ * with `claim_token=NULL` and `claimed_at=NULL`. Phase 5c: also writes
+ * `next_attempt_at` so retries with backoff land at the right time.
+ *
+ * Releases happen one event at a time because each may have a different
+ * next_attempt_at. Volume per tick is bounded by batch size (50 default).
+ *
+ * Defended by `claim_token = $own` — if a stale-lease reclaim happened, this
+ * worker's release is silently dropped (the fresh worker is now in charge).
  */
 async function releaseClaims(
   supabase: ServiceClient,
-  eventIds: string[]
+  releases: Array<{ eventId: string; nextAttemptAt: Date | null }>,
+  claimToken: string
 ): Promise<void> {
-  if (eventIds.length === 0) return;
+  if (releases.length === 0) return;
 
   const client = supabase as unknown as {
     from(t: "notification_events"): {
-      update(v: { claimed_at: null }): {
-        in(c: string, v: string[]): {
+      update(v: {
+        status: string;
+        claimed_at: null;
+        claim_token: null;
+        next_attempt_at: string | null;
+      }): {
+        eq(c: string, v: string): {
           eq(c: string, v: string): Promise<{
             error: { message: string; code?: string } | null;
           }>;
@@ -744,16 +944,23 @@ async function releaseClaims(
     };
   };
 
-  const { error } = await client
-    .from("notification_events")
-    .update({ claimed_at: null })
-    .in("id", eventIds)
-    .eq("status", "pending");
-  if (error) {
-    console.error(
-      "[notifications/worker] releaseClaims failed (will be reclaimed via stale TTL):",
-      error
-    );
+  for (const { eventId, nextAttemptAt } of releases) {
+    const { error } = await client
+      .from("notification_events")
+      .update({
+        status: "pending",
+        claimed_at: null,
+        claim_token: null,
+        next_attempt_at: nextAttemptAt ? nextAttemptAt.toISOString() : null,
+      })
+      .eq("id", eventId)
+      .eq("claim_token", claimToken);
+    if (error) {
+      console.error(
+        `[notifications/worker] releaseClaims failed for ${eventId} (will be reclaimed via stale TTL):`,
+        error
+      );
+    }
   }
 }
 
@@ -864,24 +1071,33 @@ async function insertDeliveryAttempts(
 async function markEventTerminal(
   supabase: ServiceClient,
   eventId: string,
-  status: "processed" | "skipped" | "failed",
-  skipReason: string | null
+  status: "processed" | "failed",
+  skipReason: string | null,
+  claimToken: string
 ): Promise<void> {
   const client = supabase as unknown as {
     from(t: "notification_events"): {
       update(row: Record<string, unknown>): {
-        eq(c: string, v: string): Promise<{ error: { message: string } | null }>;
+        eq(c: string, v: string): {
+          eq(c: string, v: string): Promise<{ error: { message: string } | null }>;
+        };
       };
     };
   };
+  // claim_token defense (Phase 5b): if a stale-lease reclaim happened, the
+  // fresh worker is now in charge. Our write matches zero rows and is
+  // silently dropped — the fresh worker's progress wins.
   const { error } = await client
     .from("notification_events")
     .update({
       status,
       skip_reason: skipReason,
       processed_at: new Date().toISOString(),
+      claim_token: null,
+      claimed_at: null,
     })
-    .eq("id", eventId);
+    .eq("id", eventId)
+    .eq("claim_token", claimToken);
   if (error) {
     console.error(
       `[notifications/worker] mark event ${eventId} ${status} failed:`,

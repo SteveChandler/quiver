@@ -72,8 +72,16 @@ beforeAll(() => {
   } as unknown as typeof IntersectionObserver;
 });
 
+// Test-only overrides: allow `skill_level: null` even though the generated
+// Beach.Row type pins it to `string`. The DB column is NOT NULL DEFAULT
+// 'intermediate', but downstream UI still defends against null at runtime,
+// and these tests verify that fallback path.
+type EnrichedBeachOverrides = Partial<Omit<EnrichedNearbyBeach, "skill_level">> & {
+  skill_level?: string | null;
+};
+
 function createMockEnrichedBeach(
-  overrides: Partial<EnrichedNearbyBeach> = {}
+  overrides: EnrichedBeachOverrides = {}
 ): EnrichedNearbyBeach {
   return {
     id: "beach-1",

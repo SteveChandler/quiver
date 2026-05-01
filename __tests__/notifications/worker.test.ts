@@ -25,11 +25,18 @@ interface MockEvent {
   entity_id: string | null;
   payload: Record<string, unknown>;
   dedupe_key: string | null;
-  status: "pending" | "processed" | "skipped" | "failed";
+  status: "pending" | "processing" | "processed" | "failed" | "cancelled";
   skip_reason: string | null;
   created_at: string;
   processed_at: string | null;
   claimed_at: string | null;
+  // Phase 5a additions
+  attempt_count: number;
+  next_attempt_at: string | null;
+  last_attempt_at: string | null;
+  claim_token: string | null;
+  cancel_reason: string | null;
+  last_error: string | null;
 }
 
 interface MockProfile {
@@ -72,6 +79,8 @@ interface MockState {
   errorOnSelect?: Set<string>;
   /** When set, profile lookup for this user_id throws. */
   errorOnProfileLookup?: Set<string>;
+  /** Override "now" inside the mock RPC simulator. Defaults to Date.now(). */
+  now?: number;
 }
 
 function buildProfile(over: Partial<MockProfile> = {}): MockProfile {
@@ -110,52 +119,83 @@ function buildEvent(over: Partial<MockEvent> = {}): MockEvent {
     created_at: new Date("2026-04-29T12:00:00Z").toISOString(),
     processed_at: null,
     claimed_at: null,
+    attempt_count: 0,
+    next_attempt_at: null,
+    last_attempt_at: null,
+    claim_token: null,
+    cancel_reason: null,
+    last_error: null,
     ...over,
   };
 }
 
-/**
- * Parse the supabase `or()` filter string used by the worker's claim path —
- * `claimed_at.is.null,claimed_at.lt.<iso>` — into a predicate so the mock
- * can faithfully simulate "pending and (unclaimed OR claim is stale)".
- */
-function parseClaimableFilter(
-  filter: string
-): (event: MockEvent) => boolean {
-  // Expected shape: claimed_at.is.null,claimed_at.lt.<iso>
-  const lt = /claimed_at\.lt\.(.+)$/.exec(filter);
-  const cutoff = lt ? lt[1] : null;
-  return (e) => {
-    if (e.claimed_at === null) return true;
-    if (cutoff && e.claimed_at < cutoff) return true;
-    return false;
-  };
-}
-
 function buildMockSupabase(state: MockState) {
+  // Phase 5b: atomic claim simulator. Mirrors the SQL function semantics:
+  // eligible = (pending OR (processing AND stale)) AND next_attempt_at not in
+  // future. Updates state in-place so subsequent calls see processing rows.
+  function simulateClaim(
+    batchSize: number,
+    leaseSeconds: number,
+    claimToken: string,
+    nowMs: number
+  ): MockEvent[] {
+    const staleCutoff = nowMs - leaseSeconds * 1000;
+    const claimed: MockEvent[] = [];
+    for (const ev of state.events) {
+      if (claimed.length >= batchSize) break;
+      const isPending = ev.status === "pending";
+      const isStaleProcessing =
+        ev.status === "processing" &&
+        ev.claimed_at !== null &&
+        new Date(ev.claimed_at).getTime() < staleCutoff;
+      if (!isPending && !isStaleProcessing) continue;
+      if (
+        ev.next_attempt_at !== null &&
+        new Date(ev.next_attempt_at).getTime() > nowMs
+      ) {
+        continue;
+      }
+      ev.status = "processing";
+      ev.claim_token = claimToken;
+      ev.claimed_at = new Date(nowMs).toISOString();
+      ev.attempt_count += 1;
+      ev.last_attempt_at = ev.claimed_at;
+      claimed.push({ ...ev });
+    }
+    return claimed;
+  }
+
   function fromTable(table: string) {
     if (table === "notification_events") {
       return {
-        // Phase-1 select used by claimPendingEvents:
-        //   .select('id').eq('status','pending').or(<filter>).order(...).limit(N)
+        // Phase 5g: cooldown lookup —
+        //   select('id').eq('recipient_user_id', X).eq('type', T).gte('created_at', iso)
         select: () => ({
-          eq: (_col: string, val: string) => ({
-            or: (filter: string) => ({
-              order: () => ({
-                limit: async () => {
-                  if (state.errorOnSelect?.has("notification_events")) {
-                    return {
-                      data: null,
-                      error: { message: "simulated db error", code: "57P01" },
-                    };
-                  }
-                  const claimable = parseClaimableFilter(filter);
-                  const matches = state.events
-                    .filter((e) => e.status === val && claimable(e))
-                    .map((e) => ({ id: e.id }));
-                  return { data: matches, error: null };
-                },
-              }),
+          eq: (col1: string, val1: string) => ({
+            eq: (col2: string, val2: string) => ({
+              gte: async (col3: string, iso: string) => {
+                if (
+                  col1 !== "recipient_user_id" ||
+                  col2 !== "type" ||
+                  col3 !== "created_at"
+                ) {
+                  throw new Error(
+                    `Unexpected notification_events select chain: ${col1}/${col2}/${col3}`
+                  );
+                }
+                const cutoff = new Date(iso).getTime();
+                return {
+                  data: state.events
+                    .filter(
+                      (e) =>
+                        e.recipient_user_id === val1 &&
+                        e.type === val2 &&
+                        new Date(e.created_at).getTime() >= cutoff
+                    )
+                    .map((e) => ({ id: e.id })),
+                  error: null,
+                };
+              },
             }),
           }),
         }),
@@ -164,61 +204,42 @@ function buildMockSupabase(state: MockState) {
             status: string;
             skip_reason: string | null;
             claimed_at: string | null;
+            claim_token: string | null;
+            processed_at: string | null;
+            next_attempt_at: string | null;
           }>
         ) => {
-          // Branch A — markEventTerminal: update({status, skip_reason}).eq('id', val)
-          const eqTerminator = async (_col: string, val: string) => {
-            if ("status" in row && "skip_reason" in row) {
-              state.eventUpdates.push({
-                id: val,
-                status: row.status as string,
-                skip_reason: (row.skip_reason ?? null) as string | null,
-              });
-              const e = state.events.find((x) => x.id === val);
-              if (e) {
-                e.status = row.status as MockEvent["status"];
-                e.skip_reason = (row.skip_reason ?? null) as string | null;
-              }
-            }
-            return { error: null };
-          };
-
+          // markEventTerminal: update(row).eq('id', eventId).eq('claim_token', claimToken)
+          // releaseClaims:     update(row).eq('id', eventId).eq('claim_token', claimToken) — per event
           return {
-            eq: eqTerminator,
-            // Branch B — Phase-2 atomic claim: update({claimed_at}).in('id', ids).eq('status','pending').or(<filter>).select(...)
-            //   AND
-            // Branch C — releaseClaims: update({claimed_at: null}).in('id', ids).eq('status','pending')
-            in: (_inCol: string, ids: string[]) => ({
-              eq: (_eqCol: string, statusVal: string) => {
-                const eqResult = (async () => {
-                  // Release-claims path (no .or().select() chain).
-                  if (row.claimed_at === null) {
-                    for (const id of ids) {
-                      const ev = state.events.find((e) => e.id === id);
-                      if (ev && ev.status === statusVal) ev.claimed_at = null;
-                    }
-                    return { error: null };
+            eq: (_idCol: string, eventId: string) => ({
+              eq: async (_col: string, claimToken: string) => {
+                const e = state.events.find((x) => x.id === eventId);
+                if (!e) return { error: null };
+                // claim_token defense: only write if our token matches
+                if (e.claim_token !== claimToken) return { error: null };
+                if ("status" in row) {
+                  if (row.status === "pending") {
+                    // releaseClaims path
+                    e.status = "pending";
+                    e.claimed_at = null;
+                    e.claim_token = null;
+                    e.next_attempt_at =
+                      (row.next_attempt_at ?? null) as string | null;
+                  } else {
+                    // markEventTerminal path
+                    state.eventUpdates.push({
+                      id: eventId,
+                      status: row.status as string,
+                      skip_reason: (row.skip_reason ?? null) as string | null,
+                    });
+                    e.status = row.status as MockEvent["status"];
+                    e.skip_reason = (row.skip_reason ?? null) as string | null;
+                    e.claim_token = null;
+                    e.claimed_at = null;
                   }
-                  return { error: null };
-                })();
-
-                return Object.assign(eqResult, {
-                  or: (filter: string) => ({
-                    select: async () => {
-                      const claimable = parseClaimableFilter(filter);
-                      const claimedRows: MockEvent[] = [];
-                      for (const id of ids) {
-                        const ev = state.events.find((e) => e.id === id);
-                        if (!ev) continue;
-                        if (ev.status !== statusVal) continue;
-                        if (!claimable(ev)) continue;
-                        ev.claimed_at = (row.claimed_at as string) ?? null;
-                        claimedRows.push({ ...ev });
-                      }
-                      return { data: claimedRows, error: null };
-                    },
-                  }),
-                });
+                }
+                return { error: null };
               },
             }),
           };
@@ -227,14 +248,45 @@ function buildMockSupabase(state: MockState) {
     }
     if (table === "notification_delivery_attempts") {
       return {
-        select: () => ({
-          in: async (_col: string, ids: string[]) => ({
-            data: state.attempts.filter((a) =>
-              ids.includes(a.notification_event_id)
-            ),
-            error: null,
-          }),
-        }),
+        // Two select shapes supported:
+        //   1. .select(...).in('notification_event_id', ids)               (history lookup)
+        //   2. .select(...).eq('channel',c).eq('status',s).gte('created_at',iso).in('notification_event_id', ids).limit(1)  (Phase 5g cooldown)
+        select: () => {
+          const buildHistoryShape = () => ({
+            in: async (_col: string, ids: string[]) => ({
+              data: state.attempts.filter((a) =>
+                ids.includes(a.notification_event_id)
+              ),
+              error: null,
+            }),
+          });
+          return {
+            ...buildHistoryShape(),
+            eq: (channelCol: string, channelVal: string) => ({
+              eq: (statusCol: string, statusVal: string) => ({
+                gte: (_dateCol: string, iso: string) => ({
+                  in: (_idCol: string, ids: string[]) => ({
+                    limit: async (_n: number) => {
+                      const cutoff = new Date(iso).getTime();
+                      const matches = state.attempts.filter(
+                        (a) =>
+                          a.channel === channelVal &&
+                          a.status === statusVal &&
+                          new Date(a.created_at).getTime() >= cutoff &&
+                          ids.includes(a.notification_event_id)
+                      );
+                      return {
+                        data: matches.slice(0, _n).map((m) => ({ id: m.id })),
+                        error: null,
+                      };
+                    },
+                  }),
+                }),
+                _: { channelCol, statusCol },
+              }),
+            }),
+          };
+        },
         insert: async (rows: MockAttempt[]) => {
           state.attempts.push(
             ...rows.map((r, i) => ({
@@ -293,7 +345,30 @@ function buildMockSupabase(state: MockState) {
     }
     throw new Error(`Unexpected table in mock: ${table}`);
   }
-  return { from: fromTable };
+  return {
+    from: fromTable,
+    rpc: async (
+      name: string,
+      args: { p_batch_size: number; p_lease_seconds: number; p_claim_token: string }
+    ) => {
+      if (name !== "claim_notification_events") {
+        throw new Error(`Unexpected rpc in mock: ${name}`);
+      }
+      if (state.errorOnSelect?.has("notification_events")) {
+        return {
+          data: null,
+          error: { message: "simulated db error", code: "57P01" },
+        };
+      }
+      const data = simulateClaim(
+        args.p_batch_size,
+        args.p_lease_seconds,
+        args.p_claim_token,
+        state.now ?? Date.now()
+      );
+      return { data, error: null };
+    },
+  };
 }
 
 function emptyState(): MockState {
@@ -326,6 +401,11 @@ describe("processPendingEvents — empty state", () => {
       pending_after_run: 0,
       firebase_configured: false,
       by_status: {},
+      // Phase 5m
+      deferred_quiet_hours_count: 0,
+      retry_scheduled_count: 0,
+      unknown_type_count: 0,
+      missing_timezone_count: 0,
     });
     expect(state.attempts).toEqual([]);
     expect(state.eventUpdates).toEqual([]);
@@ -395,11 +475,12 @@ describe("processPendingEvents — terminal skips", () => {
     );
 
     expect(summary.skipped).toBe(1);
+    expect(summary.processed).toBe(1); // Phase 5a: all-skipped is event-level processed
     expect(summary.by_status.skipped_pref_master).toBe(2);
     expect(state.notificationsInserts).toEqual([]);
     expect(state.eventUpdates[0]).toEqual({
       id: "evt-1",
-      status: "skipped",
+      status: "processed",
       skip_reason: "all_channels_skipped",
     });
   });
@@ -453,7 +534,7 @@ describe("processPendingEvents — terminal skips", () => {
 });
 
 describe("processPendingEvents — quiet hours", () => {
-  it("quiet hours → push skipped_quiet_hours, event STAYS PENDING (retry next tick)", async () => {
+  it("quiet hours → push deferred_quiet_hours, event STAYS PENDING (retry next tick)", async () => {
     const state = emptyState();
     state.events.push(buildEvent());
     state.profiles.set(
@@ -471,7 +552,7 @@ describe("processPendingEvents — quiet hours", () => {
       { now: inQuietWindow, fcm: { sendEach: jest.fn() } as never }
     );
 
-    expect(summary.by_status.skipped_quiet_hours).toBe(1);
+    expect(summary.by_status.deferred_quiet_hours).toBe(1);
     expect(summary.by_status.sent).toBe(1); // in-app still sent
     expect(summary.pending_after_run).toBe(1);
     expect(summary.processed).toBe(0);
@@ -682,7 +763,7 @@ describe("processPendingEvents — transient error handling", () => {
 
     await expect(
       processPendingEvents(buildMockSupabase(state) as never, { now: NOON_PT })
-    ).rejects.toThrow(/notification_events select failed/);
+    ).rejects.toThrow(/notification_events claim failed/);
 
     expectConsoleErrors([]);
   });
@@ -898,10 +979,18 @@ describe("processPendingEvents — atomic claim (concurrency)", () => {
   });
 
   it("recently claimed (<5 min old) is NOT reclaimed", async () => {
-    // 2 minutes before NOON_PT (19:00Z) — well within the 5-min stale TTL.
+    // Phase 5b: in the new model, a 'processing' row with a fresh claim is
+    // not eligible. 2 minutes before NOON_PT (19:00Z) — within the 5-min lease.
     const state = emptyState();
+    state.now = NOON_PT.getTime();
     const recent = new Date("2026-04-29T18:58:00Z").toISOString();
-    state.events.push(buildEvent({ claimed_at: recent }));
+    state.events.push(
+      buildEvent({
+        status: "processing",
+        claimed_at: recent,
+        claim_token: "00000000-0000-0000-0000-000000000001",
+      })
+    );
     state.profiles.set("user-recipient", buildProfile());
     state.profiles.set(
       "user-actor",
@@ -924,5 +1013,327 @@ describe("processPendingEvents — atomic claim (concurrency)", () => {
 
     expect(summary.fetched).toBe(0);
     expect(fakeFcm.sendEach).not.toHaveBeenCalled();
+  });
+});
+
+describe("processPendingEvents — Phase 5c backoff scheduling", () => {
+  it("failed_provider on attempt 1 → next_attempt_at set ~60s in future", async () => {
+    // Firebase null → push channel returns failed_provider. In-app sends.
+    // Since push is retryable (not at cap), event should stay pending with
+    // next_attempt_at = now + 60s.
+    const state = emptyState();
+    state.now = NOON_PT.getTime();
+    state.events.push(buildEvent());
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set(
+      "user-actor",
+      buildProfile({ id: "user-actor", display_name: "Actor User" })
+    );
+    state.devices.set("user-recipient", ["device-token-A"]);
+
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT,
+      fcm: null, // Firebase null → push fails
+    });
+
+    const ev = state.events[0];
+    expect(ev.status).toBe("pending");
+    expect(ev.next_attempt_at).not.toBeNull();
+    const scheduled = new Date(ev.next_attempt_at!).getTime();
+    const expected = NOON_PT.getTime() + 60_000;
+    expect(scheduled).toBe(expected);
+  });
+
+  it("backoff schedule increments per claim", async () => {
+    // Pre-set attempt_count=1 so post-claim it's 2 → backoff = 5 min.
+    const state = emptyState();
+    state.now = NOON_PT.getTime();
+    state.events.push(buildEvent({ attempt_count: 1 }));
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set(
+      "user-actor",
+      buildProfile({ id: "user-actor", display_name: "Actor User" })
+    );
+    state.devices.set("user-recipient", ["device-token-A"]);
+
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT,
+      fcm: null,
+    });
+
+    const ev = state.events[0];
+    // attempt_count post-claim = 2 → backoff(2) = 5 min
+    expect(ev.attempt_count).toBe(2);
+    const scheduled = new Date(ev.next_attempt_at!).getTime();
+    expect(scheduled).toBe(NOON_PT.getTime() + 5 * 60_000);
+  });
+
+  it("quiet hours alone (no failure) → next_attempt_at = null (immediate retry)", async () => {
+    // Quiet hours is retryable but not a failure — backoff doesn't apply.
+    const state = emptyState();
+    state.now = new Date("2026-04-29T06:00:00Z").getTime(); // 23:00 PT prev day
+    state.events.push(buildEvent());
+    state.profiles.set(
+      "user-recipient",
+      buildProfile({ timezone: "America/Los_Angeles" })
+    );
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+    state.devices.set("user-recipient", ["device-token-A"]);
+
+    const inQuiet = new Date("2026-04-29T06:00:00Z");
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: inQuiet,
+      fcm: { sendEach: jest.fn() } as never,
+    });
+
+    const ev = state.events[0];
+    expect(ev.status).toBe("pending");
+    expect(ev.next_attempt_at).toBeNull(); // No backoff for quiet-hours-only retry
+  });
+});
+
+describe("processPendingEvents — Phase 5m observability counters", () => {
+  it("unknown_type_count increments when an event's type is not in the registry", async () => {
+    const state = emptyState();
+    state.events.push(buildEvent({ type: "totally_made_up_type" as never }));
+    state.profiles.set("user-recipient", buildProfile());
+
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      { now: NOON_PT, fcm: { sendEach: jest.fn() } as never }
+    );
+
+    expect(summary.unknown_type_count).toBe(1);
+    expect(summary.failed).toBe(1);
+  });
+
+  it("missing_timezone_count increments when recipient profile has no timezone", async () => {
+    const state = emptyState();
+    state.events.push(buildEvent());
+    state.profiles.set(
+      "user-recipient",
+      buildProfile({ timezone: null })
+    );
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      {
+        now: NOON_PT,
+        fcm: {
+          sendEach: jest.fn(async () => ({
+            successCount: 1,
+            failureCount: 0,
+            responses: [{ success: true }],
+          })),
+        } as never,
+      }
+    );
+
+    expect(summary.missing_timezone_count).toBe(1);
+  });
+
+  it("deferred_quiet_hours_count increments when quiet hours defer push", async () => {
+    const state = emptyState();
+    // Like type uses DEFAULT_QUIET (10pm-4am defer). Set "now" to 11pm PT.
+    state.events.push(buildEvent());
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+    state.devices.set("user-recipient", ["device-A"]);
+
+    const ELEVEN_PM_PT = new Date("2026-04-30T06:00:00Z"); // 23:00 Pacific previous day
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      {
+        now: ELEVEN_PM_PT,
+        fcm: { sendEach: jest.fn() } as never,
+      }
+    );
+
+    expect(summary.deferred_quiet_hours_count).toBe(1);
+    expect(summary.retry_scheduled_count).toBe(0);
+  });
+
+  it("retry_scheduled_count increments when failed_provider triggers backoff", async () => {
+    const state = emptyState();
+    state.events.push(buildEvent());
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+    state.devices.set("user-recipient", ["device-A"]);
+
+    // FCM null → failed_provider for the push channel; in-app still sends.
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      { now: NOON_PT, fcm: null as never }
+    );
+
+    expect(summary.retry_scheduled_count).toBe(1);
+    expect(summary.deferred_quiet_hours_count).toBe(0);
+  });
+});
+
+describe("processPendingEvents — Phase 5g per-type cooldown", () => {
+  // The `like` registry entry has no cooldown set in production; we patch it
+  // for these tests and restore in afterEach so other tests are unaffected.
+  const registry = require("@/lib/notifications/registry").NOTIFICATION_REGISTRY;
+  let originalCooldown: number | undefined;
+
+  beforeEach(() => {
+    originalCooldown = registry.like.cooldownMs;
+  });
+  afterEach(() => {
+    registry.like.cooldownMs = originalCooldown;
+  });
+
+  function withCooldown(ms: number) {
+    registry.like.cooldownMs = ms;
+  }
+
+  it("emits skipped_cooldown when a `sent` push exists within the window", async () => {
+    withCooldown(5 * 60 * 1000); // 5min cooldown
+
+    const state = emptyState();
+    // Prior event in the same window with a sent push attempt.
+    const priorCreated = new Date("2026-04-29T18:58:00Z").toISOString(); // 2 min before "now"
+    state.events.push(
+      buildEvent({
+        id: "evt-prior",
+        status: "processed",
+        created_at: priorCreated,
+        dedupe_key: "like:sess-old:user-actor",
+      })
+    );
+    state.attempts.push({
+      id: "att-prior-1",
+      notification_event_id: "evt-prior",
+      channel: "push",
+      status: "sent",
+      provider_response: null,
+      error_message: null,
+      created_at: priorCreated,
+    });
+    // The new event we're about to process.
+    state.events.push(
+      buildEvent({
+        id: "evt-new",
+        created_at: new Date("2026-04-29T19:00:00Z").toISOString(),
+        dedupe_key: "like:sess-new:user-actor",
+      })
+    );
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+    state.devices.set("user-recipient", ["device-token-A"]);
+
+    const fakeFcm = { sendEach: jest.fn() };
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      { now: NOON_PT, fcm: fakeFcm as never }
+    );
+
+    expect(fakeFcm.sendEach).not.toHaveBeenCalled();
+    expect(summary.by_status.skipped_cooldown).toBe(1);
+    // Cooldown is push-only; in-app still landed.
+    expect(summary.by_status.sent).toBe(1);
+    const newEvent = state.events.find((e) => e.id === "evt-new")!;
+    expect(newEvent.status).toBe("processed");
+  });
+
+  it("does NOT skip when the prior `sent` push is older than the window", async () => {
+    withCooldown(5 * 60 * 1000); // 5min
+
+    const state = emptyState();
+    // 10 minutes before "now" — outside the 5-min window.
+    const priorCreated = new Date("2026-04-29T18:50:00Z").toISOString();
+    state.events.push(
+      buildEvent({
+        id: "evt-prior",
+        status: "processed",
+        created_at: priorCreated,
+        dedupe_key: "like:sess-old:user-actor",
+      })
+    );
+    state.attempts.push({
+      id: "att-prior-1",
+      notification_event_id: "evt-prior",
+      channel: "push",
+      status: "sent",
+      provider_response: null,
+      error_message: null,
+      created_at: priorCreated,
+    });
+    state.events.push(
+      buildEvent({
+        id: "evt-new",
+        created_at: new Date("2026-04-29T19:00:00Z").toISOString(),
+        dedupe_key: "like:sess-new:user-actor",
+      })
+    );
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+    state.devices.set("user-recipient", ["device-token-A"]);
+
+    const fakeFcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      })),
+    };
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      { now: NOON_PT, fcm: fakeFcm as never }
+    );
+
+    expect(fakeFcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(summary.by_status.skipped_cooldown).toBeUndefined();
+    expect(summary.by_status.sent).toBe(2);
+  });
+
+  it("no cooldown set on registry → never emits skipped_cooldown", async () => {
+    // cooldownMs not set (default behavior — production registry).
+    const state = emptyState();
+    const priorCreated = new Date("2026-04-29T18:59:30Z").toISOString();
+    state.events.push(
+      buildEvent({
+        id: "evt-prior",
+        status: "processed",
+        created_at: priorCreated,
+        dedupe_key: "like:sess-old:user-actor",
+      })
+    );
+    state.attempts.push({
+      id: "att-prior-1",
+      notification_event_id: "evt-prior",
+      channel: "push",
+      status: "sent",
+      provider_response: null,
+      error_message: null,
+      created_at: priorCreated,
+    });
+    state.events.push(
+      buildEvent({
+        id: "evt-new",
+        created_at: new Date("2026-04-29T19:00:00Z").toISOString(),
+        dedupe_key: "like:sess-new:user-actor",
+      })
+    );
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+    state.devices.set("user-recipient", ["device-token-A"]);
+
+    const fakeFcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      })),
+    };
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      { now: NOON_PT, fcm: fakeFcm as never }
+    );
+
+    expect(fakeFcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(summary.by_status.skipped_cooldown).toBeUndefined();
   });
 });

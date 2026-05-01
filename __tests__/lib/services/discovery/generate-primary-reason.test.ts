@@ -2,7 +2,13 @@ import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import { generatePrimaryReason } from '@/lib/services/discovery/surf-discovery-orchestrator';
 
-const makeBeach = (overrides: Partial<Beach> = {}): Beach =>
+// `skill_level` is widened to allow null because the orchestrator defends
+// against null at runtime even though Beach.Row pins it to `string`.
+type MakeBeachOverrides = Partial<Omit<Beach, 'skill_level'>> & {
+  skill_level?: string | null;
+};
+
+const makeBeach = (overrides: MakeBeachOverrides = {}): Beach =>
   ({
     id: 'beach-1',
     name: 'PB Point',

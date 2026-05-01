@@ -183,26 +183,16 @@ test.describe('Anonymous beach page — CTA reduction (Phase 1A + 1B)', () => {
   // -------------------------------------------------------------------------
 
   test('Today\'s Surf Call renders a single beginner-default stamp + "get your call" link for anonymous users', async ({ page }) => {
-    // The marquee verdict surface should show ONE verdict (the beginner tier),
-    // a handwritten margin scrawl pinned to the stamp ("for beginners — you?"),
-    // and a handwritten editorial link to /auth?mode=signin — never a button-shaped
-    // CTA, and never the prior 3-stamp comparison ladder.
     const surfCallSection = page.getByRole('region', { name: /today.s surf call/i });
     await expect(surfCallSection).toBeVisible({ timeout: 10000 });
 
-    // The margin scrawl priming the CTA must be present.
+    await expect(surfCallSection.getByText(/yes|maybe|no/i).first()).toBeVisible();
     await expect(surfCallSection.getByLabel(/beginner call.*not you/i)).toBeVisible();
     await expect(surfCallSection.getByText(/for beginners/i)).toBeVisible();
-
-    // The CTA link itself — points to /auth?mode=signin and reads as editorial copy.
     const cta = surfCallSection.getByRole('link', { name: /sign in to see the surf call for your level/i });
     await expect(cta).toBeVisible();
     await expect(cta).toHaveAttribute('href', '/auth?mode=signin');
     await expect(cta).toContainText(/get your call/i);
-
-    // The authed margin scrawl (aria-label starting "Your call —") must NOT be
-    // present for anon users; only the editorial CTA's "get your call" copy
-    // should match anything containing "your call".
     await expect(surfCallSection.locator('[aria-label^="Your call"]')).toHaveCount(0);
   });
 

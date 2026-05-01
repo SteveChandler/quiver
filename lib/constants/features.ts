@@ -30,17 +30,17 @@ export const FEATURE_CARDS = [
     features: [
       {
         icon: Waves,
-        text: "3hr correction cycle",
+        text: "Refreshed every 3 hours",
         color: "text-ocean-blue",
       },
       {
         icon: TrendingUp,
-        text: "90-day training window",
+        text: "Trained on 90 days of buoy ground truth",
         color: "text-ocean-blue",
       },
       {
         icon: BarChart3,
-        text: "Multi-model ensemble",
+        text: "NOAA + Open-Meteo + your local buoys",
         color: "text-ocean-blue",
       },
     ],
@@ -65,7 +65,7 @@ export const FEATURE_CARDS = [
       },
       {
         icon: Brain,
-        text: "3-layer preference engine",
+        text: "Gets sharper every session you log",
         color: "text-sunset-orange",
       },
     ],
@@ -270,8 +270,8 @@ export const SURF_ACTIVITIES = [
 // Content strings to reduce hardcoding
 export const CONTENT = {
   hero: {
-    title: "Dial in your home break.",
-    subtitle: "Pick your spot, get conditions read for your level. 279+ beaches across California, Hawaii, Florida and beyond — but it starts with the one you actually surf.",
+    title: "Free surf call. Your beach. Every morning.",
+    subtitle: "Tell us where you surf. We read the buoys, swell, wind, and tide — then tell you whether it's worth getting out of bed. 279+ beaches across the US. Free to use.",
     cta: "Set up your home break",
     secondaryCta: "Explore Features",
     benefits: [

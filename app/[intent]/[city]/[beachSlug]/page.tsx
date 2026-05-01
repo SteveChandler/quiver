@@ -307,40 +307,30 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           amenities={amenitiesResult}
           waterQuality={waterQualityResult}
           beachPhoto={beachPhoto}
+          afterTabsContent={
+            <>
+              <div className="hidden md:block mx-auto max-w-5xl pb-10">
+                <InlineSignupCta
+                  title={`Save ${beach.name} as your home break`}
+                  description={`Get personalized alerts when ${beach.name} is firing — based on your level.`}
+                  primaryButtonText={`Save ${beach.name}`}
+                  source={`beach-detail-${beachSlug}-desktop-inline`}
+                  ctaCopyVariant="beach_home_break_v1"
+                  variant="zine"
+                />
+              </div>
+
+              <div className="pt-2">
+                <ZineNearbySpots
+                  beaches={nearbyBeaches}
+                  sourceBeachName={beach.name}
+                  sourceBeachLat={beach.lat}
+                  sourceBeachLon={beach.lon}
+                />
+              </div>
+            </>
+          }
         />
-
-        {/* Desktop-only inline CTA — counterpart to the mobile-only StickySignupBar
-            below. Together they form ONE primary CTA per viewport (Phase 1A/1B
-            invariant). Mobile sticky has md:hidden internally; this wrapper
-            mirrors that with hidden md:block. Placed before the nearby-spots
-            browse list so the "save THIS beach" prompt arrives before the
-            "explore other beaches" off-ramp. */}
-        <div className="hidden md:block px-4 md:px-8 max-w-5xl mx-auto my-8">
-          <InlineSignupCta
-            title={`Save ${beach.name} as your home break`}
-            description={`Get personalized alerts when ${beach.name} is firing — based on your level.`}
-            primaryButtonText={`Save ${beach.name}`}
-            source={`beach-detail-${beachSlug}-desktop-inline`}
-            ctaCopyVariant="beach_home_break_v1"
-          />
-        </div>
-
-        {/* Nearby surf spots — restyled to live inside a continuation of the
-            zine cream paper. OptimalConditionsSection + RelatedGuidesSection
-            were retired in favor of the zine layout (the zine carries spot
-            summary, hazards, and editorial content). */}
-        <div className="zine-tab zine-page-trailer">
-          <div className="zine-stage" style={{ paddingTop: 0 }}>
-            <div className="zine-paper">
-              <ZineNearbySpots
-                beaches={nearbyBeaches}
-                sourceBeachName={beach.name}
-                sourceBeachLat={beach.lat}
-                sourceBeachLon={beach.lon}
-              />
-            </div>
-          </div>
-        </div>
 
         <StickySignupBar
           source={`beach-detail-${beachSlug}`}

@@ -94,7 +94,7 @@ export const createBeach = withAdminActionAndUser(
         lat: validated.latitude,
         lon: validated.longitude,
         break_type: validated.break_type,
-        skill_level: validated.skill_level,
+        skill_level: validated.skill_level ?? undefined,
         is_private: validated.is_private,
         hazards: validated.hazards,
       })

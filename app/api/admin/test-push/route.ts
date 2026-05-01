@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { withAdminAuth, createSuccessResponse } from "@/lib/middleware/api-wrappers";
-import { sendPushNotification } from "@/lib/services/push-notifications";
+import { enqueueNotification } from "@/lib/notifications/enqueue";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,8 +18,14 @@ const payloadSchema = z
 /**
  * POST /api/admin/test-push
  *
- * Admin-only endpoint to send a test push notification to the currently
- * authenticated admin user.
+ * Phase 5i: enqueues an `admin_test` notification through the centralized
+ * pipeline instead of calling FCM directly. The worker handles preferences
+ * (honors master notif_push_enabled), device-token fanout, retry/backoff,
+ * and writes to notification_delivery_attempts so admins can verify the
+ * full round-trip from the admin diagnostics endpoint.
+ *
+ * Each call uses a unique dedupeKey (timestamp-based) so admins can fire
+ * the test push as many times as they want.
  */
 export const POST = withAdminAuth(async (request: NextRequest, { user }) => {
   const parsed = payloadSchema.safeParse(await request.json().catch(() => undefined));
@@ -36,27 +42,30 @@ export const POST = withAdminAuth(async (request: NextRequest, { user }) => {
   }
 
   const nowIso = new Date().toISOString();
-  const title = parsed.data?.title ?? "Quiver Test Push";
-  const body =
-    parsed.data?.body ??
-    `Test push sent at ${nowIso}. If you see this, FCM is working.`;
-
-  const result = await sendPushNotification({
-    userIds: [user.id],
-    title,
-    body,
-    data: {
-      type: "test_push",
-      url: "/profile",
-      sent_at: nowIso,
-    },
+  const result = await enqueueNotification({
+    type: "admin_test",
+    recipientUserId: user.id,
+    payload: parsed.data ?? {},
+    dedupeKey: `admin_test:${user.id}:${nowIso}`,
   });
+
+  if (!result.enqueued) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to enqueue test push",
+        reason: result.reason,
+        message: result.message,
+        timestamp: nowIso,
+      },
+      { status: 500 }
+    );
+  }
 
   return createSuccessResponse({
     toUserId: user.id,
-    title,
-    body,
-    result,
+    eventId: result.eventId,
+    enqueuedAt: nowIso,
   });
 });
 
@@ -69,7 +78,8 @@ export const GET = withAdminAuth(async () => {
   return NextResponse.json({
     endpoint: "/api/admin/test-push",
     method: "POST",
-    description: "Send a push notification to the current admin user",
+    description:
+      "Enqueue a test push to the current admin user via the notifications pipeline",
     body: {
       title: "string (optional, max 80)",
       body: "string (optional, max 240)",

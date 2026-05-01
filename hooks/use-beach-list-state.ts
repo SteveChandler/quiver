@@ -42,8 +42,9 @@ export function useBeachListState(
     const from: Coordinates = { lat: userLocation.lat, lon: userLocation.lon };
     const map = new Map<string, string>();
     for (const beach of beaches) {
-      if (Number.isFinite(beach.lat) && Number.isFinite(beach.lon)) {
-        const to: Coordinates = { lat: beach.lat, lon: beach.lon };
+      const { lat, lon } = beach;
+      if (lat != null && lon != null && Number.isFinite(lat) && Number.isFinite(lon)) {
+        const to: Coordinates = { lat, lon };
         map.set(beach.id, calculateDistanceFormatted(from, to, "miles"));
       }
     }

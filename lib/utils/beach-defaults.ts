@@ -42,13 +42,14 @@ function getBeachDefaults(): Omit<
     state: null,
     country: null,
     region: null,
+    region_id: null,
     slug: null,
     geog: null,
     timezone: null,
 
     // Descriptive fields
     description: null,
-    skill_level: null,
+    skill_level: "", // non-nullable in DB schema; "" is the zero/empty state
     break_type: null,
     crowd_level: null,
 
@@ -100,6 +101,8 @@ function getBeachDefaults(): Omit<
     wind_onshore_bad_kt: null,
     wind_exposure_factors: null,
     wind_analyzed_at: null,
+    max_wind_any_mph: null,
+    max_wind_onshore_mph: null,
 
     // CDIP buoy integration
     cdip_station: null,

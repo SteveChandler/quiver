@@ -6,7 +6,6 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { ZineTab } from "@/components/beach-detail/zine/zine-tab";
 import { createMockBeach } from "@/__tests__/setup/typed-mocks";
-import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 
 // Mock the auth context (used by OverviewReviewCTA)
 jest.mock("@/context/auth-context", () => ({
@@ -29,34 +28,6 @@ jest.mock("@/components/beach-detail/amenities-badges", () => ({
   AmenitiesBadges: () => <div data-testid="amenities-badges" />,
 }));
 
-const mockSurfCall: SurfCallResult = {
-  verdict: "YES",
-  bestWindowStart: "2026-04-28T13:30:00.000Z",
-  bestWindowEnd: "2026-04-28T15:00:00.000Z",
-  windowMinutes: 90,
-  shortWindow: false,
-  waveHeight: "2-3 ft",
-  windDescription: "light onshore",
-  windSpeed: "0-5",
-  windCompass: "SW",
-  windType: "onshore",
-  tideDescription: "Falling 2.5 ft",
-  tidePhase: "Falling",
-  tideHeight: "2.5 ft",
-  nextTideType: "Low",
-  nextTideAt: null,
-  whySentence: "Good conditions today.",
-  forecastConfidence: 0.8,
-  lowForecastConfidence: false,
-  score: 7.5,
-  peakTime: null,
-  trendTags: [],
-  updatedAt: "2026-04-28T05:42:00.000Z",
-  isCalibrated: false,
-  rideableWavesPerHour: null,
-  dominantBeatIntervalS: null,
-};
-
 describe("ZineTab", () => {
   it("renders all top-level zine sections", () => {
     const beach = createMockBeach({
@@ -73,16 +44,27 @@ describe("ZineTab", () => {
       best_months: [11, 12, 1, 2, 3],
     });
 
-    render(<ZineTab beach={beach} surfCallReport={mockSurfCall} />);
+    render(
+      <ZineTab
+        beach={beach}
+        surfCallReport={{
+          verdict: "YES",
+          bestWindowStart: "2026-04-30T12:00:00.000Z",
+          waveHeight: "2-3 ft",
+          windCompass: "W",
+          windSpeed: 6,
+          windType: "offshore",
+          tidePhase: "rising",
+          tideHeight: "3.1 ft",
+          whySentence: "Clean and playful.",
+          updatedAt: "2026-04-30T12:30:00.000Z",
+        } as any}
+      />,
+    );
 
     // Hero masthead byline (multiple instances OK — masthead + salty eyebrow)
     expect(screen.getAllByText(/Field Guide/i).length).toBeGreaterThan(0);
-    // Today's surf call label (CSS-uppercased; assert case-insensitively against the literal node text)
-    expect(screen.getByText(/today's surf call/i)).toBeInTheDocument();
-    // YES verdict stamp — the verdict word and the trail caption are now in
-    // separate elements after the marquee redesign, so assert each separately.
-    expect(screen.getAllByText("YES").length).toBeGreaterThan(0);
-    expect(screen.getByText(/BEST AT/i)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /today's surf call/i })).toBeInTheDocument();
     // Main grid labels
     expect(screen.getByText(/ABOUT THIS SPOT/)).toBeInTheDocument();
     expect(screen.getByText(/LOCAL KNOWLEDGE/)).toBeInTheDocument();
@@ -122,99 +104,41 @@ describe("ZineTab", () => {
     expect(screen.queryByTestId("amenities-badges")).not.toBeInTheDocument();
   });
 
+  it("renders anonymous promo copy in Today's Surf Call when userTier is absent", () => {
+    const beach = createMockBeach({ name: "Seaside Reef" });
+    render(
+      <ZineTab
+        beach={beach}
+        surfCallReport={{
+          verdict: "YES",
+          bestWindowStart: "2026-04-30T12:00:00.000Z",
+          waveHeight: "2-3 ft",
+          windCompass: "W",
+          windSpeed: 6,
+          windType: "offshore",
+          tidePhase: "rising",
+          tideHeight: "3.1 ft",
+          whySentence: "Clean and playful.",
+          updatedAt: "2026-04-30T12:30:00.000Z",
+          tiers: {
+            beginner: { verdict: "YES", trail: "BEST AT 12:00 PM" },
+            intermediate: { verdict: "YES", trail: "BEST AT 12:00 PM" },
+            advanced: { verdict: "YES", trail: "BEST AT 12:00 PM" },
+          },
+          userTier: null,
+        } as any}
+      />,
+    );
+
+    expect(screen.getByText(/get your call/i)).toBeInTheDocument();
+    expect(screen.getByText(/for beginners/i)).toBeInTheDocument();
+  });
+
   it("hides Hazards panel when beach.hazards is empty", () => {
     const beach = createMockBeach({ name: "Seaside Reef", hazards: [] });
     render(<ZineTab beach={beach} />);
 
     expect(screen.queryByText(/HAZARDS/)).not.toBeInTheDocument();
-  });
-
-  it("falls back to MAYBE verdict when surfCallReport is absent", () => {
-    const beach = createMockBeach({ name: "Seaside Reef" });
-    render(<ZineTab beach={beach} />);
-
-    expect(screen.getByText(/MAYBE/)).toBeInTheDocument();
-  });
-
-  it("renders the beginner-tier verdict + 'get your call' CTA when tiers are present and user is anonymous", () => {
-    const beach = createMockBeach({ name: "Seaside Reef" });
-    const tiers = {
-      beginner: {
-        verdict: "YES" as const,
-        trail: "BEST AT 5:00 PM",
-        bestWindowStart: "2026-04-28T17:00:00.000Z",
-        bestWindowEnd: "2026-04-28T18:30:00.000Z",
-      },
-      intermediate: {
-        verdict: "MAYBE" as const,
-        trail: "TRY AT 5:00 PM",
-        bestWindowStart: "2026-04-28T17:00:00.000Z",
-        bestWindowEnd: "2026-04-28T18:30:00.000Z",
-      },
-      advanced: {
-        verdict: "NO" as const,
-        trail: "TOO SMALL",
-        bestWindowStart: null,
-        bestWindowEnd: null,
-      },
-    };
-    const tieredCall: SurfCallResult = { ...mockSurfCall, verdict: "MAYBE", tiers, userTier: null };
-
-    render(<ZineTab beach={beach} surfCallReport={tieredCall} />);
-
-    // Beginner verdict (YES) shown — not the intermediate baseline (MAYBE).
-    expect(screen.getAllByText("YES").length).toBeGreaterThan(0);
-    expect(screen.queryByText("MAYBE")).not.toBeInTheDocument();
-    expect(screen.queryByText("NO")).not.toBeInTheDocument();
-    // Margin scrawl primes the CTA — handwritten "for beginners — you?" pinned
-    // to the verdict stamp.
-    expect(screen.getByLabelText(/beginner call.*not you/i)).toBeInTheDocument();
-    expect(screen.getByText(/for beginners/i)).toBeInTheDocument();
-    expect(screen.getByText(/— you\?/i)).toBeInTheDocument();
-    // Editorial CTA, not a button.
-    const cta = screen.getByRole("link", { name: /sign in to see the surf call for your level/i });
-    expect(cta).toHaveAttribute("href", "/auth?mode=signin");
-    expect(cta).toHaveTextContent(/get your call/i);
-  });
-
-  it("renders the user's tier verdict and hides the CTA when authenticated", () => {
-    const beach = createMockBeach({ name: "Seaside Reef" });
-    const tiers = {
-      beginner: {
-        verdict: "YES" as const,
-        trail: "BEST AT 5:00 PM",
-        bestWindowStart: "2026-04-28T17:00:00.000Z",
-        bestWindowEnd: "2026-04-28T18:30:00.000Z",
-      },
-      intermediate: {
-        verdict: "MAYBE" as const,
-        trail: "TRY AT 5:00 PM",
-        bestWindowStart: "2026-04-28T17:00:00.000Z",
-        bestWindowEnd: "2026-04-28T18:30:00.000Z",
-      },
-      advanced: {
-        verdict: "NO" as const,
-        trail: "TOO SMALL",
-        bestWindowStart: null,
-        bestWindowEnd: null,
-      },
-    };
-    const tieredCall: SurfCallResult = { ...mockSurfCall, verdict: "MAYBE", tiers, userTier: "advanced" };
-
-    render(<ZineTab beach={beach} surfCallReport={tieredCall} />);
-
-    // Advanced-tier verdict (NO) is rendered, not beginner (YES) or intermediate (MAYBE).
-    expect(screen.getAllByText("NO").length).toBeGreaterThan(0);
-    expect(screen.queryByText("YES")).not.toBeInTheDocument();
-    expect(screen.queryByText("MAYBE")).not.toBeInTheDocument();
-    // ✦ your call · advanced surfers margin scrawl identifies the user's tier.
-    expect(screen.getByLabelText(/your call.*advanced surfers/i)).toBeInTheDocument();
-    expect(screen.getByText(/your call/i)).toBeInTheDocument();
-    expect(screen.getByText(/advanced surfers/i)).toBeInTheDocument();
-    // No CTA for authed users.
-    expect(screen.queryByText(/get your call/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/— you\?/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/for beginners/i)).not.toBeInTheDocument();
   });
 
   it("renders OverviewReviewCTA region only when onWriteReview is provided AND user is signed in", () => {

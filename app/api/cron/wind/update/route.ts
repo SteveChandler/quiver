@@ -55,6 +55,9 @@ export async function GET(request: Request) {
 
     const results = await Promise.allSettled(
       batch.map(async (beach) => {
+        if (beach.lat == null || beach.lon == null) {
+          return { beach: beach.name, updated: 0, skipped: 0 };
+        }
         const windPoints = await fetchHourlyWind(beach.lat, beach.lon);
         if (!windPoints.length) return { beach: beach.name, updated: 0, skipped: 0 };
 

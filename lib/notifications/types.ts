@@ -31,12 +31,24 @@ export type ProfilePrefColumn = Extract<
 
 export type NotificationChannel = "push" | "in_app" | "email";
 
+/**
+ * Phase 5a: event-level outcomes only. Channel-level skips moved to
+ * NotificationDeliveryStatus. The legacy 'skipped' value has been backfilled
+ * to 'processed' in the migration; new code should never write it.
+ */
 export type NotificationEventStatus =
   | "pending"
+  | "processing"
   | "processed"
-  | "skipped"
-  | "failed";
+  | "failed"
+  | "cancelled";
 
+/**
+ * Phase 5a: `skipped_quiet_hours` was renamed to `deferred_quiet_hours` to
+ * make its retryable nature explicit. `skipped_cooldown` is a new terminal
+ * skip emitted when the registry's per-type cooldownMs window has not
+ * elapsed since the last successful send to this recipient.
+ */
 export type NotificationDeliveryStatus =
   | "sent"
   | "skipped_no_device"
@@ -45,15 +57,24 @@ export type NotificationDeliveryStatus =
   | "skipped_self"
   | "skipped_dedup"
   | "skipped_disabled"
-  | "skipped_quiet_hours"
+  | "skipped_cooldown"
+  | "deferred_quiet_hours"
   | "failed_provider"
   | "failed_internal";
 
+/**
+ * Phase 5d: first-class quiet-hours policy. The legacy `{ honor: bool }` shape
+ * is replaced with an explicit mode so registry entries name their intent:
+ *   - `ignore`: type doesn't care about quiet hours (e.g. cron-timed types
+ *     that already fire at fixed daytime hours — declaring this is honest).
+ *   - `defer`: respect the window; defer delivery until the window ends.
+ *   - `bypass`: emergency-class — always send, even at 3am (admin_broadcast).
+ */
 export interface QuietHoursConfig {
-  honor: boolean;
-  /** Local hour (0–23) when quiet hours start. Inclusive. */
+  mode: "ignore" | "defer" | "bypass";
+  /** Local hour (0–23) when quiet hours start. Inclusive. Required when mode='defer'. */
   windowStart?: number;
-  /** Local hour (0–23) when quiet hours end. Exclusive. Wraps midnight. */
+  /** Local hour (0–23) when quiet hours end. Exclusive. Wraps midnight. Required when mode='defer'. */
   windowEnd?: number;
 }
 
@@ -114,11 +135,33 @@ export interface NotificationTypeDef<P = Record<string, unknown>> {
   /** Skip when actor === recipient. Default true for social types. */
   suppressSelfNotify: boolean;
   quietHours: QuietHoursConfig;
+  /**
+   * Phase 5e: validate (and parse) the producer-supplied payload at enqueue
+   * time. Throw on shape mismatch — `enqueueNotification` catches and returns
+   * `{ enqueued: false, reason: "invalid_payload" }`. Recommended: a Zod
+   * schema's `.parse`. Returning the validated payload lets builders rely
+   * on the parsed shape downstream.
+   */
+  validatePayload?: (input: unknown) => P;
+  /**
+   * Phase 5e: per-type minimum interval between SUCCESSFUL push deliveries to
+   * the same recipient. Querying `notification_delivery_attempts` for the
+   * last `sent` push within this window — if found, the worker emits
+   * `skipped_cooldown`. NULL = no cooldown (default). Distinct from producer
+   * dedupe_key (which prevents duplicate active events).
+   */
+  cooldownMs?: number;
+  /**
+   * Phase 5e: per-type override for the global per-channel retry cap.
+   * Default 3. Rarely needed — set higher for types where transient
+   * delivery failures are tolerable (e.g. analytics).
+   */
+  maxAttempts?: number;
   buildPushPayload?: (payload: P, ctx: BuildCtx) => NotificationPushPayload;
   buildInAppPayload?: (payload: P, ctx: BuildCtx) => NotificationInAppPayload;
   /**
    * Optional hook the worker fires after writing a notification_delivery_attempts
-   * row. Called for every status EXCEPT `skipped_quiet_hours` (which is a "try
+   * row. Called for every status EXCEPT `deferred_quiet_hours` (which is a "try
    * later" state, not an outcome). Used by types that need to reconcile their
    * own bookkeeping tables (e.g. forecast_alert writes per-rule rows to
    * alert_delivery_attempts).
@@ -161,4 +204,12 @@ export interface EnqueueArgs<P = Record<string, unknown>> {
 
 export type EnqueueResult =
   | { enqueued: true; eventId: string }
-  | { enqueued: false; reason: "duplicate" | "unknown_type" | "internal_error"; message?: string };
+  | {
+      enqueued: false;
+      reason:
+        | "duplicate"
+        | "unknown_type"
+        | "internal_error"
+        | "invalid_payload";
+      message?: string;
+    };

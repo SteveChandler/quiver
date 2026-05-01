@@ -7,16 +7,15 @@ import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import type { ZineBeachPhoto } from "./types";
 import { RoughEdgeFilter } from "./atoms";
 import { ZineHero } from "./zine-hero";
-import { TodaySurfCall } from "./today-surf-call";
 import { ZineFooter } from "./zine-footer";
 import { ZineOverviewBody } from "./zine-overview-body";
 
 interface ZineTabProps {
   beach: Beach;
-  surfCallReport?: SurfCallResult | null;
   amenities?: BeachAmenities | null;
   waterQuality?: WaterQuality | null;
   beachPhoto?: ZineBeachPhoto | null;
+  surfCallReport?: SurfCallResult | null;
   onWriteReview?: () => void;
 }
 
@@ -28,10 +27,10 @@ interface ZineTabProps {
  */
 export function ZineTab({
   beach,
-  surfCallReport,
   amenities,
   waterQuality,
   beachPhoto,
+  surfCallReport,
   onWriteReview,
 }: ZineTabProps) {
   return (
@@ -53,12 +52,12 @@ export function ZineTab({
 
         <div className="zine-paper">
           <ZineHero beach={beach} beachPhoto={beachPhoto} />
-          <TodaySurfCall beach={beach} surfCallReport={surfCallReport} />
           <ZineOverviewBody
             beach={beach}
             amenities={amenities}
             waterQuality={waterQuality}
             beachPhoto={beachPhoto}
+            surfCallReport={surfCallReport}
             onWriteReview={onWriteReview}
           />
           <ZineFooter city={beach.city} state={beach.state} />

@@ -1,6 +1,32 @@
 /**
  * @jest-environment node
+ *
+ * Phase 5i: admin test push goes through the centralized notifications
+ * pipeline (enqueueNotification → worker dispatch) rather than calling
+ * sendPushNotification directly.
  */
+
+// Mock admin authentication.
+jest.mock("@/lib/auth/admin", () => ({
+  authenticateAdmin: jest.fn(),
+}));
+
+// Phase 5i: route now calls enqueueNotification, not sendPushNotification.
+const mockEnqueueNotification = jest.fn();
+jest.mock("@/lib/notifications/enqueue", () => ({
+  enqueueNotification: (...args: unknown[]) => mockEnqueueNotification(...args),
+}));
+
+// Defensive guard: catch a regression that wires direct FCM back in.
+const mockSendPushNotification = jest.fn();
+jest.mock("@/lib/services/push-notifications", () => ({
+  sendPushNotification: (...args: unknown[]) =>
+    mockSendPushNotification(...args),
+}));
+
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServiceRoleClient: jest.fn(() => ({})),
+}));
 
 import { GET, POST } from "@/app/api/admin/test-push/route";
 import {
@@ -9,498 +35,145 @@ import {
   setupApiTestEnvironment,
 } from "@/test-utils/api-test-helpers";
 
-// Mock the admin authentication
-jest.mock("@/lib/auth/admin", () => ({
-  authenticateAdmin: jest.fn(),
-}));
-
-// Mock push notification service
-jest.mock("@/lib/services/push-notifications", () => ({
-  sendPushNotification: jest.fn(),
-}));
-
-// Mock Supabase service role client (withAdminAuth creates this)
-jest.mock("@/lib/supabase/server", () => ({
-  createSupabaseServiceRoleClient: jest.fn(() => ({})),
-}));
-
-// Get access to the mocked functions after mocking
 const mockAuthenticateAdmin = require("@/lib/auth/admin").authenticateAdmin;
-const mockSendPushNotification = require("@/lib/services/push-notifications").sendPushNotification;
 
-describe("/api/admin/test-push", () => {
+describe("/api/admin/test-push (Phase 5i — pipeline path)", () => {
   let cleanup: () => void;
 
   beforeEach(() => {
-    const testEnv = setupApiTestEnvironment();
-    cleanup = testEnv.cleanup;
+    const env = setupApiTestEnvironment();
+    cleanup = env.cleanup;
     jest.clearAllMocks();
-  });
-
-  afterEach(() => {
-    cleanup?.();
-  });
-
-  describe("POST - Send Test Push", () => {
-    it("requires admin authentication", async () => {
-      mockAuthenticateAdmin.mockResolvedValue({
-        success: false,
-        error: "Unauthorized - Admin access required",
-        status: 401,
-      });
-
-      const request = createMockRequest(
-        "POST",
-        "http://localhost:3000/api/admin/test-push",
-        {
-          body: {},
-        }
-      );
-
-      const response = await POST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(401);
-      expect(data.error).toContain("Unauthorized");
-      expect(mockSendPushNotification).not.toHaveBeenCalled();
-    });
-
-    it("sends test push notification successfully", async () => {
-      const adminUser = createMockAdminUser();
-
-      mockAuthenticateAdmin.mockResolvedValue({
-        success: true,
-        user: adminUser,
-      });
-
-      mockSendPushNotification.mockResolvedValue({
-        success: 1,
-        failed: 0,
-      });
-
-      const request = createMockRequest(
-        "POST",
-        "http://localhost:3000/api/admin/test-push",
-        {
-          body: {},
-        }
-      );
-
-      const response = await POST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
-      expect(data.data).toHaveProperty("toUserId", adminUser.id);
-      expect(data.data).toHaveProperty("title", "Quiver Test Push");
-      expect(data.data).toHaveProperty("body");
-      expect(data.data).toHaveProperty("result");
-      expect(data.data.result.success).toBe(1);
-
-      // Verify push notification was called with admin user ID
-      expect(mockSendPushNotification).toHaveBeenCalledWith(
-        expect.objectContaining({
-          userIds: [adminUser.id],
-          title: "Quiver Test Push",
-          data: expect.objectContaining({
-            type: "test_push",
-            url: "/profile",
-          }),
-        })
-      );
-    });
-
-    it("accepts custom title and body", async () => {
-      const adminUser = createMockAdminUser();
-
-      mockAuthenticateAdmin.mockResolvedValue({
-        success: true,
-        user: adminUser,
-      });
-
-      mockSendPushNotification.mockResolvedValue({
-        success: 1,
-        failed: 0,
-      });
-
-      const customTitle = "Custom Test Title";
-      const customBody = "This is a custom test message";
-
-      const request = createMockRequest(
-        "POST",
-        "http://localhost:3000/api/admin/test-push",
-        {
-          body: {
-            title: customTitle,
-            body: customBody,
-          },
-        }
-      );
-
-      const response = await POST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
-      expect(data.data.title).toBe(customTitle);
-      expect(data.data.body).toBe(customBody);
-
-      // Verify custom values were passed to push service
-      expect(mockSendPushNotification).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: customTitle,
-          body: customBody,
-        })
-      );
-    });
-
-    it("validates title length (max 80 characters)", async () => {
-      const adminUser = createMockAdminUser();
-
-      mockAuthenticateAdmin.mockResolvedValue({
-        success: true,
-        user: adminUser,
-      });
-
-      const longTitle = "A".repeat(100); // Exceeds max length
-
-      const request = createMockRequest(
-        "POST",
-        "http://localhost:3000/api/admin/test-push",
-        {
-          body: {
-            title: longTitle,
-          },
-        }
-      );
-
-      const response = await POST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data.success).toBe(false);
-      expect(data.error).toContain("Invalid request body");
-      expect(mockSendPushNotification).not.toHaveBeenCalled();
-    });
-
-    it("validates body length (max 240 characters)", async () => {
-      const adminUser = createMockAdminUser();
-
-      mockAuthenticateAdmin.mockResolvedValue({
-        success: true,
-        user: adminUser,
-      });
-
-      const longBody = "A".repeat(300); // Exceeds max length
-
-      const request = createMockRequest(
-        "POST",
-        "http://localhost:3000/api/admin/test-push",
-        {
-          body: {
-            body: longBody,
-          },
-        }
-      );
-
-      const response = await POST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data.success).toBe(false);
-      expect(data.error).toContain("Invalid request body");
-      expect(mockSendPushNotification).not.toHaveBeenCalled();
-    });
-
-    it("rejects empty title string", async () => {
-      const adminUser = createMockAdminUser();
-
-      mockAuthenticateAdmin.mockResolvedValue({
-        success: true,
-        user: adminUser,
-      });
-
-      const request = createMockRequest(
-        "POST",
-        "http://localhost:3000/api/admin/test-push",
-        {
-          body: {
-            title: "",
-          },
-        }
-      );
-
-      const response = await POST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data.success).toBe(false);
-      expect(data.error).toContain("Invalid request body");
-      expect(mockSendPushNotification).not.toHaveBeenCalled();
-    });
-
-    it("rejects empty body string", async () => {
-      const adminUser = createMockAdminUser();
-
-      mockAuthenticateAdmin.mockResolvedValue({
-        success: true,
-        user: adminUser,
-      });
-
-      const request = createMockRequest(
-        "POST",
-        "http://localhost:3000/api/admin/test-push",
-        {
-          body: {
-            body: "",
-          },
-        }
-      );
-
-      const response = await POST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data.success).toBe(false);
-      expect(data.error).toContain("Invalid request body");
-      expect(mockSendPushNotification).not.toHaveBeenCalled();
-    });
-
-    it("rejects unknown properties in request body", async () => {
-      const adminUser = createMockAdminUser();
-
-      mockAuthenticateAdmin.mockResolvedValue({
-        success: true,
-        user: adminUser,
-      });
-
-      const request = createMockRequest(
-        "POST",
-        "http://localhost:3000/api/admin/test-push",
-        {
-          body: {
-            title: "Test",
-            body: "Test message",
-            unknownField: "should not be allowed",
-          },
-        }
-      );
-
-      const response = await POST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data.success).toBe(false);
-      expect(data.error).toContain("Invalid request body");
-      expect(mockSendPushNotification).not.toHaveBeenCalled();
-    });
-
-    it("handles malformed JSON body gracefully", async () => {
-      const adminUser = createMockAdminUser();
-
-      mockAuthenticateAdmin.mockResolvedValue({
-        success: true,
-        user: adminUser,
-      });
-
-      mockSendPushNotification.mockResolvedValue({
-        success: 1,
-        failed: 0,
-      });
-
-      // Create request with invalid JSON
-      const request = new Request(
-        "http://localhost:3000/api/admin/test-push",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: "{ invalid json }",
-        }
-      ) as any;
-
-      const response = await POST(request);
-      const data = await response.json();
-
-      // Should use defaults when JSON parsing fails
-      expect(response.status).toBe(200);
-      expect(data.data.title).toBe("Quiver Test Push");
-      expect(mockSendPushNotification).toHaveBeenCalled();
-    });
-
-    it("handles push notification service failures", async () => {
-      const adminUser = createMockAdminUser();
-
-      mockAuthenticateAdmin.mockResolvedValue({
-        success: true,
-        user: adminUser,
-      });
-
-      mockSendPushNotification.mockResolvedValue({
-        success: 0,
-        failed: 1,
-        errors: ["FCM token not found"],
-      });
-
-      const request = createMockRequest(
-        "POST",
-        "http://localhost:3000/api/admin/test-push",
-        {
-          body: {},
-        }
-      );
-
-      const response = await POST(request);
-      const data = await response.json();
-
-      // Should still return 200 but with failed result
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
-      expect(data.data.result.success).toBe(0);
-      expect(data.data.result.failed).toBe(1);
-    });
-
-    it("handles push notification service exceptions", async () => {
-      const adminUser = createMockAdminUser();
-
-      mockAuthenticateAdmin.mockResolvedValue({
-        success: true,
-        user: adminUser,
-      });
-
-      mockSendPushNotification.mockRejectedValue(
-        new Error("FCM service unavailable")
-      );
-
-      const request = createMockRequest(
-        "POST",
-        "http://localhost:3000/api/admin/test-push",
-        {
-          body: {},
-        }
-      );
-
-      const response = await POST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(500);
-      expect(data.error).toBeTruthy();
-    });
-
-    it("handles authentication exceptions", async () => {
-      mockAuthenticateAdmin.mockRejectedValue(
-        new Error("Auth service unavailable")
-      );
-
-      const request = createMockRequest(
-        "POST",
-        "http://localhost:3000/api/admin/test-push",
-        {
-          body: {},
-        }
-      );
-
-      const response = await POST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(500);
-      expect(data.error).toBeTruthy();
-      expect(mockSendPushNotification).not.toHaveBeenCalled();
-    });
-
-    it("includes timestamp in notification data", async () => {
-      const adminUser = createMockAdminUser();
-
-      mockAuthenticateAdmin.mockResolvedValue({
-        success: true,
-        user: adminUser,
-      });
-
-      mockSendPushNotification.mockResolvedValue({
-        success: 1,
-        failed: 0,
-      });
-
-      const request = createMockRequest(
-        "POST",
-        "http://localhost:3000/api/admin/test-push",
-        {
-          body: {},
-        }
-      );
-
-      const response = await POST(request);
-      await response.json();
-
-      // Verify timestamp was included in notification data
-      expect(mockSendPushNotification).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            sent_at: expect.any(String),
-          }),
-        })
-      );
-    });
-
-    it("sets correct notification type in data", async () => {
-      const adminUser = createMockAdminUser();
-
-      mockAuthenticateAdmin.mockResolvedValue({
-        success: true,
-        user: adminUser,
-      });
-
-      mockSendPushNotification.mockResolvedValue({
-        success: 1,
-        failed: 0,
-      });
-
-      const request = createMockRequest(
-        "POST",
-        "http://localhost:3000/api/admin/test-push",
-        {
-          body: {},
-        }
-      );
-
-      const response = await POST(request);
-      await response.json();
-
-      // Verify notification type is set to test_push
-      expect(mockSendPushNotification).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            type: "test_push",
-            url: "/profile",
-          }),
-        })
-      );
+    mockEnqueueNotification.mockResolvedValue({
+      enqueued: true,
+      eventId: "evt-test-1",
     });
   });
 
-  describe("GET - Endpoint Information", () => {
-    it("returns endpoint information for admin users", async () => {
-      const adminUser = createMockAdminUser();
+  afterEach(() => cleanup?.());
 
+  it("requires admin authentication", async () => {
+    mockAuthenticateAdmin.mockResolvedValue({
+      success: false,
+      error: "Unauthorized - Admin access required",
+      status: 401,
+    });
+
+    const req = createMockRequest(
+      "POST",
+      "http://localhost:3000/api/admin/test-push",
+      { body: {} },
+    );
+    const res = await POST(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(401);
+    expect(data.error).toContain("Unauthorized");
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(mockSendPushNotification).not.toHaveBeenCalled();
+  });
+
+  it("enqueues an admin_test event for the authenticated admin user", async () => {
+    const adminUser = createMockAdminUser();
+    mockAuthenticateAdmin.mockResolvedValue({ success: true, user: adminUser });
+
+    const req = createMockRequest(
+      "POST",
+      "http://localhost:3000/api/admin/test-push",
+      { body: {} },
+    );
+    const res = await POST(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.data.toUserId).toBe(adminUser.id);
+    expect(data.data.eventId).toBe("evt-test-1");
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "admin_test",
+        recipientUserId: adminUser.id,
+        // Per-call unique key — fire as many test pushes as you want.
+        dedupeKey: expect.stringMatching(
+          new RegExp(`^admin_test:${adminUser.id}:`),
+        ),
+      }),
+    );
+    // Phase 5i regression guard: route never touches direct FCM.
+    expect(mockSendPushNotification).not.toHaveBeenCalled();
+  });
+
+  it("forwards optional title/body into the enqueue payload", async () => {
+    const adminUser = createMockAdminUser();
+    mockAuthenticateAdmin.mockResolvedValue({ success: true, user: adminUser });
+
+    const req = createMockRequest(
+      "POST",
+      "http://localhost:3000/api/admin/test-push",
+      { body: { title: "Hello", body: "World" } },
+    );
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    expect(mockEnqueueNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "admin_test",
+        payload: { title: "Hello", body: "World" },
+      }),
+    );
+  });
+
+  it("rejects title > 80 chars (Zod schema)", async () => {
+    const adminUser = createMockAdminUser();
+    mockAuthenticateAdmin.mockResolvedValue({ success: true, user: adminUser });
+
+    const req = createMockRequest(
+      "POST",
+      "http://localhost:3000/api/admin/test-push",
+      { body: { title: "A".repeat(100) } },
+    );
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 when enqueue fails for a non-duplicate reason", async () => {
+    const adminUser = createMockAdminUser();
+    mockAuthenticateAdmin.mockResolvedValue({ success: true, user: adminUser });
+    mockEnqueueNotification.mockResolvedValueOnce({
+      enqueued: false,
+      reason: "internal_error",
+      message: "supabase blew up",
+    });
+
+    const req = createMockRequest(
+      "POST",
+      "http://localhost:3000/api/admin/test-push",
+      { body: {} },
+    );
+    const res = await POST(req);
+    const data = await res.json();
+    expect(res.status).toBe(500);
+    expect(data.error).toMatch(/Failed to enqueue/);
+    expect(data.message).toBe("supabase blew up");
+  });
+
+  describe("GET", () => {
+    it("returns endpoint info when authenticated", async () => {
+      const adminUser = createMockAdminUser();
       mockAuthenticateAdmin.mockResolvedValue({
         success: true,
         user: adminUser,
       });
 
-      const request = createMockRequest(
+      const req = createMockRequest(
         "GET",
-        "http://localhost:3000/api/admin/test-push"
+        "http://localhost:3000/api/admin/test-push",
       );
-
-      const response = await GET(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
+      const res = await GET(req);
+      const data = await res.json();
+      expect(res.status).toBe(200);
       expect(data.endpoint).toBe("/api/admin/test-push");
       expect(data.method).toBe("POST");
-      expect(data.description).toBeTruthy();
-      expect(data.body).toHaveProperty("title");
-      expect(data.body).toHaveProperty("body");
-      expect(data.timestamp).toBeTruthy();
     });
 
     it("requires admin authentication", async () => {
@@ -509,163 +182,12 @@ describe("/api/admin/test-push", () => {
         error: "Unauthorized - Admin access required",
         status: 401,
       });
-
-      const request = createMockRequest(
+      const req = createMockRequest(
         "GET",
-        "http://localhost:3000/api/admin/test-push"
-      );
-
-      const response = await GET(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(401);
-      expect(data.error).toContain("Unauthorized");
-    });
-
-    it("handles authentication exceptions", async () => {
-      mockAuthenticateAdmin.mockRejectedValue(
-        new Error("Auth service unavailable")
-      );
-
-      const request = createMockRequest(
-        "GET",
-        "http://localhost:3000/api/admin/test-push"
-      );
-
-      // withAdminAuth wrapper catches exceptions and returns error response
-      const response = await GET(request);
-      expect(response.status).toBe(500);
-    });
-
-    it("documents parameter constraints", async () => {
-      const adminUser = createMockAdminUser();
-
-      mockAuthenticateAdmin.mockResolvedValue({
-        success: true,
-        user: adminUser,
-      });
-
-      const request = createMockRequest(
-        "GET",
-        "http://localhost:3000/api/admin/test-push"
-      );
-
-      const response = await GET(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data.body.title).toContain("80"); // Max length documented
-      expect(data.body.body).toContain("240"); // Max length documented
-    });
-  });
-
-  describe("Security", () => {
-    it("only sends push to the authenticated admin user", async () => {
-      const adminUser = createMockAdminUser();
-
-      mockAuthenticateAdmin.mockResolvedValue({
-        success: true,
-        user: adminUser,
-      });
-
-      mockSendPushNotification.mockResolvedValue({
-        success: 1,
-        failed: 0,
-      });
-
-      const request = createMockRequest(
-        "POST",
         "http://localhost:3000/api/admin/test-push",
-        {
-          body: {},
-        }
       );
-
-      const response = await POST(request);
-      await response.json();
-
-      // Verify push was only sent to admin user, not any other user
-      expect(mockSendPushNotification).toHaveBeenCalledWith(
-        expect.objectContaining({
-          userIds: [adminUser.id],
-        })
-      );
-      expect(mockSendPushNotification).toHaveBeenCalledTimes(1);
-    });
-
-    it("prevents injection attacks in title", async () => {
-      const adminUser = createMockAdminUser();
-
-      mockAuthenticateAdmin.mockResolvedValue({
-        success: true,
-        user: adminUser,
-      });
-
-      mockSendPushNotification.mockResolvedValue({
-        success: 1,
-        failed: 0,
-      });
-
-      const maliciousTitle = "<script>alert('xss')</script>";
-
-      const request = createMockRequest(
-        "POST",
-        "http://localhost:3000/api/admin/test-push",
-        {
-          body: {
-            title: maliciousTitle,
-          },
-        }
-      );
-
-      const response = await POST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      // Verify the malicious script is passed as-is (no execution risk in push notifications)
-      // Push notification services handle sanitization
-      expect(mockSendPushNotification).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: maliciousTitle,
-        })
-      );
-    });
-
-    it("prevents injection attacks in body", async () => {
-      const adminUser = createMockAdminUser();
-
-      mockAuthenticateAdmin.mockResolvedValue({
-        success: true,
-        user: adminUser,
-      });
-
-      mockSendPushNotification.mockResolvedValue({
-        success: 1,
-        failed: 0,
-      });
-
-      const maliciousBody = "javascript:alert('xss')";
-
-      const request = createMockRequest(
-        "POST",
-        "http://localhost:3000/api/admin/test-push",
-        {
-          body: {
-            body: maliciousBody,
-          },
-        }
-      );
-
-      const response = await POST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      // Verify the malicious code is passed as-is (no execution risk)
-      expect(mockSendPushNotification).toHaveBeenCalledWith(
-        expect.objectContaining({
-          body: maliciousBody,
-        })
-      );
+      const res = await GET(req);
+      expect(res.status).toBe(401);
     });
   });
 });

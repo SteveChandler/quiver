@@ -20,6 +20,7 @@ export type SeedResult =
         | "no_experience_level"
         | "already_has_rules"
         | "beach_not_found"
+        | "beach_missing_coordinates"
         | "error";
       error?: string;
     };
@@ -94,6 +95,9 @@ export async function seedDefaultRuleForUser(
   }
   if (!beachRow) {
     return { seeded: false, reason: "beach_not_found" };
+  }
+  if (beachRow.lat == null || beachRow.lon == null) {
+    return { seeded: false, reason: "beach_missing_coordinates" };
   }
 
   const beachMeta: BeachAlertMeta = {

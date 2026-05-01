@@ -74,7 +74,7 @@ jest.mock("@/lib/analytics/auth-events", () => ({
 jest.mock("@/lib/constants/features", () => ({
   CONTENT: {
     hero: {
-      title: "Dial in your home break.",
+      title: "Free surf call. Your beach. Every morning.",
       subtitle: "Test subtitle",
       cta: "Set up your home break",
     },
@@ -86,7 +86,7 @@ describe("HeroSection", () => {
     render(<HeroSection />);
     expect(
       screen.getByRole("heading", {
-        name: /dial in your home break/i,
+        name: /free surf call\. your beach\. every morning\./i,
       })
     ).toBeInTheDocument();
   });

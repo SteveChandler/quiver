@@ -20,18 +20,36 @@ const getCachedBeachPhotos = cache(
     const supabase = createSupabaseServiceRoleClient();
     const baseQuery = supabase
       .from("beach_photos")
-      .select("beach_id, image_url")
+      .select("beach_id, image_url, thumb_url, source")
       .in("beach_id", beachIds)
       .order("fetched_at", { ascending: false });
     const { data: photos } = await withApprovedPhotos(baseQuery);
 
-    // Build photo lookup (first photo per beach)
+    // Prefer scenic/licensed sources over user uploads for nearby cards so we
+    // don't surface random portraits when a representative beach image exists.
     const photoMap = new Map<string, string>();
+    const userFallbackMap = new Map<string, string>();
     if (photos) {
       for (const photo of photos) {
-        if (!photoMap.has(photo.beach_id)) {
-          photoMap.set(photo.beach_id, photo.image_url);
+        const bestUrl = photo.thumb_url || photo.image_url;
+        if (!bestUrl) continue;
+
+        if (photo.source !== "user") {
+          if (!photoMap.has(photo.beach_id)) {
+            photoMap.set(photo.beach_id, bestUrl);
+          }
+          continue;
         }
+
+        if (!userFallbackMap.has(photo.beach_id)) {
+          userFallbackMap.set(photo.beach_id, bestUrl);
+        }
+      }
+    }
+
+    for (const [beachId, url] of userFallbackMap.entries()) {
+      if (!photoMap.has(beachId)) {
+        photoMap.set(beachId, url);
       }
     }
     return photoMap;

@@ -1124,9 +1124,9 @@ export const learnArticles: LearnArticle[] = [
           "Per-beach XGBoost models trained on 30,000+ buoy observations learn systematic forecast errors at each spot — when the model over-predicts height or misreads direction due to local bathymetry. The correction layer runs every 3 hours with fresh buoy data.",
       },
       {
-        question: "Is Quiver more accurate than Surfline?",
+        question: "How does Quiver's forecast accuracy compare to other apps?",
         answer:
-          "Quiver publishes its accuracy metrics publicly at /forecast-accuracy. Surfline does not publish comparable metrics. Quiver's ML achieves a 90.4% match rate vs. observed buoy readings and 59% improvement over raw NOAA — judge for yourself.",
+          "Quiver publishes its accuracy metrics publicly at /forecast-accuracy. Most major apps don't publish comparable numbers. Our ML achieves a 90.4% match rate vs. observed buoy readings and 59% improvement over raw NOAA — judge for yourself.",
       },
       {
         question: "Should I trust a 10-day forecast?",
@@ -2376,6 +2376,249 @@ export const learnArticles: LearnArticle[] = [
         href: "/learn/how-to-read-a-surf-forecast",
         description:
           "Master wave height, swell period, direction, wind, and tide readings.",
+      },
+    ],
+  },
+
+  {
+    slug: "how-swell-wraps-around-points",
+    title: "How Swell Wraps Around a Point",
+    description:
+      "Swell bends as it enters shallower water near a headland. That bending — refraction — is why points like Rincon and Trestles can magnify a small swell from the right direction and ignore a bigger one from the wrong angle. Direction matters more than height at a point.",
+    readingTimeMin: 7,
+    datePublished: "2026-04-30",
+    heroImage: "/point-break.webp",
+    thumbnailImage: "/point-break.webp",
+    keywords: [
+      "swell refraction",
+      "how swell wraps around a point",
+      "point break swell direction",
+      "wave refraction explained",
+      "rincon swell direction",
+      "trestles swell window",
+      "why points need long period swell",
+      "point break physics",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Swell wraps around a point because waves slow down in shallow water near the headland while the rest of the wave keeps moving fast over deeper water. The line bends toward the slower side and refocuses along the point, peeling down the coast as a long, organized wall. That bending is called <strong>refraction</strong>. It's why a 4-foot west swell at 16 seconds can light up Rincon while the open beach next door barely notices, and why a bigger swell from the wrong direction can pass right by.</p>`,
+        keyTakeaway:
+          "Refraction is swell bending into shallower water at a headland — that's how points get long, peeling waves while the open coast next door looks flat.",
+      },
+      {
+        id: "what-refraction-is",
+        heading: "What Refraction Actually Is",
+        content: `<p>Refraction is wave bending. When a swell line enters shallower water, the part of the wave touching the shallow side slows down. The part still in deep water keeps moving at full speed. The whole line pivots toward the slow side, like a marching band turning around a corner where the inside row takes shorter steps.</p><p>This isn't a metaphor. Wave speed in shallow water depends on depth — once depth drops below roughly half the wavelength, the bottom starts dragging on the wave. A 14-second swell has a wavelength of about 1,000 feet in deep water, so it starts feeling the bottom at around 500 feet of depth. A 7-second swell only has a wavelength of about 250 feet, so it doesn't start bending until it's much closer to shore. <strong>Longer-period swells refract more.</strong> That single fact controls almost everything about how a point fires.</p><p>At a headland — a chunk of land that sticks out into the ocean — the swell line hits the shallow shelf around the point first. That part slows. The rest of the line keeps charging. The result is a wave that bends inward and peels along the point's contour instead of just slamming straight into the cliff.</p>`,
+        keyTakeaway:
+          "Waves slow down in shallow water. The part of the swell line that hits shallow first lags, the line bends toward it, and longer-period swells bend more.",
+        image: {
+          src: "/images/activities/point-breaks.webp",
+          alt: "Long-period ground swell wrapping around a point and peeling toward shore",
+          position: "right",
+        },
+      },
+      {
+        id: "how-points-filter",
+        heading: "How a Point Filters Swells",
+        content: `<p>Every point break has a swell window — a range of directions and periods it can actually wrap. Outside that window, the swell either gets blocked by land upstream, refracts the wrong way, or arrives with too much shoulder-angle to break clean.</p><p><strong>Rincon</strong>, on California's central coast, faces roughly southwest. It sits in the shadow of Point Conception for north and northwest swells. A 6-foot NW swell at 10 seconds gets cut off by the headlands above and arrives shrunken and confused. A 4-foot west or WNW swell at 16 seconds, though, has enough wavelength to bend around Conception, refract along the cobblestones, and run the full length of the cove. Locals know the rule: long-period west is gold; short-period north is nothing.</p><p><strong>Trestles</strong>, further south, has a different geometry. The reef sits in a south-facing zone with a wide-open swell window for southern hemisphere groundswells. A 3-foot south swell at 17 seconds can produce shoulder-high, peeling rides because the period is long enough to refract cleanly across the reef. The same beach a hundred yards north misses most of that energy because there's no reef to focus it.</p><p>The pattern repeats up and down the coast. Each point has a preferred direction, a preferred period range, and a frustrating list of conditions where the open beach is going off and the point is asleep. <strong>The geometry of the headland and the seafloor in front of it determine the window.</strong> No model fixes that — you learn it by surfing the spot or asking locals.</p>`,
+        keyTakeaway:
+          "Each point has a swell window — a direction and period range it can refract. Outside that window, the same swell that lights up the beach next door does nothing here.",
+      },
+      {
+        id: "direction-over-height",
+        heading: "Why Direction Matters More Than Height at a Point",
+        content: `<p>At a beach break, height and period dominate. At a point, <strong>direction comes first</strong>. A point that's blocked from a swell direction will turn a 6-foot day into a 1-foot day no matter how long the period is. Conversely, a point sitting wide open to a swell direction will magnify a 2-foot reading at the buoy into a chest-high wall on the right tide.</p><p>This is also why point breaks reward forecast literacy. The forecast might say "4 feet at 14 seconds." That's the open-coast reading. At your point, the actual wave depends on:</p><ul><li><strong>Whether the swell direction sits inside the point's window</strong> (otherwise no amount of energy reaches the lineup),</li><li><strong>Whether the period is long enough to refract</strong> around the headland (short-period swells stall out before they bend),</li><li><strong>Whether the seafloor in front of the point is shaped to focus or scatter</strong> the energy as it arrives.</li></ul><p>That's why surfers at Rincon will skip a 6-foot NW day and drive an hour for a 3-foot west day. The bigger swell can't get in. The smaller one can, and refraction does the rest.</p>`,
+        keyTakeaway:
+          "At a point, direction beats height. A small swell from the right direction outperforms a big swell from the wrong one because only the right direction can wrap.",
+        image: {
+          src: "/images/Winter-Swamis.webp",
+          alt: "Long-period swell wrapping into a point lineup",
+          position: "left",
+        },
+      },
+      {
+        id: "reading-refraction",
+        heading: "How to Read Refraction From a Forecast",
+        content: `<p>You don't need to model refraction. You need three pieces of information:</p><p><strong>1. The forecast swell direction</strong>, in degrees. 270 is straight west. 180 is straight south. 315 is northwest. Most surf forecasts give this as a number or a compass heading.</p><p><strong>2. Your point's swell window.</strong> This is local knowledge. Rincon: roughly 240–280. Trestles: roughly 180–220. Malibu: roughly 180–230. If the forecast direction is outside that range, the point is closed for that swell, period.</p><p><strong>3. The forecast period.</strong> If the period is under 10 seconds, the swell may not refract well even if the direction is correct. Points generally need <strong>12+ seconds</strong> to wrap properly, and the best days at most points are <strong>14–18 second</strong> ground swells.</p><p>Run those three filters before you check height. If all three line up, then check the buoy reading and the wind. If even one fails — wrong direction, short period — you're better off at a beach break that doesn't depend on refraction. The Quiver forecast for your beach already does this filtering for you, but the underlying logic is something every point surfer eventually learns by hand.</p><p>Quick gut check: <strong>at a point, never trust raw height alone.</strong> Always read direction and period first. The number on the forecast is the open-ocean signal. The wave you actually paddle out to is what survives the bend.</p>`,
+        keyTakeaway:
+          "Check direction and period before height. If the forecast direction sits inside your point's window and the period is 12+ seconds, then the height starts to matter.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Why does Rincon need a long-period west swell?",
+        answer:
+          "Two reasons. First, the cove faces roughly southwest, so a true west swell sits inside its window while a north swell gets blocked by Point Conception above. Second, refraction depends on wavelength — long-period swells (14+ seconds) have wavelengths long enough to bend around Conception's headlands and refract cleanly along the cobblestones. A short-period north swell stalls out before it gets there.",
+      },
+      {
+        question: "Can a small swell wrap into a bigger wave at a point?",
+        answer:
+          "Sort of. Refraction concentrates energy along the point — the same wave that would spread out over an open beach gets focused into a narrower zone, so the face stands taller and the wave peels longer. It doesn't make a 2-foot swell into a 6-foot wave, but it can turn a 2-foot open-coast reading into a chest-high, well-formed wall, especially with long period. The energy is the same; refraction just packages it better.",
+      },
+      {
+        question: "Why does my point fire on south swells but go flat on north?",
+        answer:
+          "Your point's swell window doesn't cover north. Either there's land upstream that blocks north swells, or the headland's geometry can't refract a swell coming from that angle. Most California points face south or southwest because their headlands stick out from north-facing coastline — that orientation opens them to southern hemisphere groundswells but shadows them from NW winter swells. Local geography is the answer.",
+      },
+      {
+        question: "What's the minimum period for a swell to wrap a point?",
+        answer:
+          "Roughly 10 seconds, with 12+ seconds being where refraction starts producing genuinely good waves and 14–18 seconds being the sweet spot for most points. Below 10 seconds the wavelength is too short to interact with the seafloor far enough offshore to bend cleanly, so the swell hits the headland straight and breaks messy or just dies on the rocks.",
+      },
+      {
+        question: "Does wind direction affect refraction?",
+        answer:
+          "Not really. Refraction is a function of seafloor depth and swell period, not wind. Wind affects what the wave looks like when it breaks — offshore cleans up the face, onshore chops it — but it doesn't change whether the swell can wrap into the point. A point with the wrong swell direction won't fire even on the cleanest offshore morning.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "How Swell Direction Affects Surf",
+        href: "/learn/how-swell-direction-affects-surf",
+        description:
+          "Why some breaks light up on south swells and ignore north — direction windows explained.",
+      },
+      {
+        label: "Swell Period Explained",
+        href: "/learn/swell-period-explained",
+        description:
+          "Period drives refraction. Learn why long-period swells wrap and short-period swells don't.",
+      },
+      {
+        label: "Beach Break vs Reef Break vs Point Break",
+        href: "/learn/beach-break-vs-reef-break-vs-point-break",
+        description:
+          "How the bottom shapes the wave — and why points behave so differently from beaches.",
+      },
+      {
+        label: "Rincon Forecast",
+        href: "/forecasts/rincon",
+        description:
+          "Live forecast and refraction-aware conditions for Rincon, CA.",
+      },
+    ],
+  },
+
+  {
+    slug: "how-quiver-calibrates-your-beach",
+    title: "How Quiver Calibrates Your Beach",
+    description:
+      "Calibration means we compare our forecast to what real buoys actually measured, then correct the model for your specific beach. We publish the accuracy. We catch our own bugs. This is what 'calibrated' actually means in plain English — and why it's the part of the forecast that most apps don't show you.",
+    readingTimeMin: 7,
+    datePublished: "2026-04-30",
+    heroImage: "/images/learn/learn-aerial-shore.jpg",
+    thumbnailImage: "/images/learn/learn-aerial-shore.jpg",
+    keywords: [
+      "calibrated surf forecast",
+      "how Quiver calibrates beach",
+      "surf forecast accuracy",
+      "buoy observations forecast correction",
+      "personalized surf forecast per beach",
+      "surf forecast transparency",
+      "machine learning surf forecast",
+      "Quiver vs Surfline accuracy",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Calibration means we don't just hand you the global model's guess. We compare every forecast to what the buoys actually measured at your beach, learn where the model runs hot or cold, and adjust the next prediction. That correction is per-beach — Ocean Beach behaves differently than Trestles, and the model needs to know. We also publish how well it's working at <a href="/forecast-accuracy">/forecast-accuracy</a> so you can audit the math instead of taking it on faith.</p>`,
+        keyTakeaway:
+          "Calibration = compare forecast to real buoy observations, correct per beach, publish the accuracy. It's the part most surf apps don't show.",
+      },
+      {
+        id: "what-calibrated-means",
+        heading: "What 'Calibrated' Actually Means",
+        content: `<p>Most surf forecasts start in the same place: a global wave model run by NOAA or a similar agency. WaveWatch III, ECMWF, and Open-Meteo all produce hourly predictions of swell height, period, direction, and wind for every spot on the planet. Those models are good. They are not perfect.</p><p>The gap between "model output" and "what actually shows up at your beach" is what calibration closes. Two things drive that gap:</p><ul><li><strong>Local seafloor and shoreline geometry.</strong> A global model has no idea your beach has a sandbar 300 feet offshore that turns a 4-foot reading into 3 feet of mush, or that the reef next door focuses the same swell into a head-high wall. The model just gives the open-ocean signal.</li><li><strong>Systematic model bias.</strong> Every model has tendencies. Some run hot on small swells. Some underestimate long-period north swells. Some are great on dominant swell but miss secondary windswell. These biases don't go away — they just need to be measured and corrected.</li></ul><p>Calibration is the act of measuring those biases for <strong>your specific beach</strong> and correcting the next forecast accordingly. It's the difference between "this is what the model said" and "this is what the model said, adjusted for what we've observed at your beach over the last several months."</p>`,
+        keyTakeaway:
+          "Calibration is the gap between what a global model predicts and what actually shows up at your beach. Closing that gap is the whole job.",
+      },
+      {
+        id: "how-it-works",
+        heading: "How It Works for Your Beach",
+        content: `<p>Here's the data flow, in plain English:</p><p><strong>1. Pull the forecast.</strong> We pull the raw global model output for the ocean grid cell closest to your beach — height, period, direction, wind, tide. That's the starting point every surf app uses.</p><p><strong>2. Pull the observations.</strong> We pull what the nearest NDBC and CDIP buoys actually measured at the same hour. Buoys don't lie — they record what the water did, not what a model predicted.</p><p><strong>3. Train a per-beach model.</strong> For each beach we cover, we train a small machine-learning model (XGBoost, in case the technical detail matters to you) on the history of "forecast said X, buoy measured Y." The model learns the pattern of how the global forecast under- and over-predicts at your specific beach.</p><p><strong>4. Apply the correction.</strong> When a fresh forecast comes in for your beach, we run it through the trained correction. The number you see is the model output adjusted by the bias we've measured.</p><p><strong>5. Re-train as new observations land.</strong> The buoys keep recording. The corrections keep updating. A beach that's been on Quiver for six months has more correction history than one we added last week, and you can see that reflected in the accuracy stats.</p><p>This is not magic and we don't pretend it is. It's a feedback loop: the model predicts, the ocean does whatever it does, we measure the gap, we use the gap to make the next prediction better. The longer we run it, the tighter it gets.</p>`,
+        keyTakeaway:
+          "Forecast in, real buoy reading in, learn the gap, apply the correction next time. Repeat per beach. That's the whole loop.",
+        image: {
+          src: "/images/learn/learn-aerial-swell.jpg",
+          alt: "Aerial view of organized swell lines approaching shore",
+          position: "right",
+        },
+      },
+      {
+        id: "what-we-publish",
+        heading: "What We Publish That Others Don't",
+        content: `<p>Calibration only matters if you can verify it. Otherwise it's marketing. So we publish the part most surf apps don't:</p><p><strong>Accuracy by beach, updated regularly.</strong> Visit <a href="/forecast-accuracy">/forecast-accuracy</a> to see how the corrected forecast is performing against real observations. Mean error, by beach, on the metrics that actually matter for whether you'd paddle out.</p><p><strong>The honest version, not the flattering one.</strong> When the model is wrong, we don't quietly rewrite the page. We log the prediction, log the observation, and let the gap show up in the stats. That's the only way the number means anything. If accuracy ever moves in the wrong direction, we want you to be able to see it.</p><p><strong>Comparisons against alternatives.</strong> Our <a href="/vs/surfline">/vs/surfline</a> page lays out where Quiver does the same thing as the big players, where we do something different, and where we don't claim to compete. The wedge isn't "we're more accurate." The wedge is "we show our work."</p><p>This isn't unique to us in principle — buoy verification is something serious forecasters have been doing for decades. What's unusual is making it part of the public-facing product. Most apps treat the forecast as an opaque output. We don't.</p>`,
+        keyTakeaway:
+          "We publish the accuracy. We don't quietly rewrite predictions when they're wrong. The transparency is the wedge — not a claim to be more accurate.",
+      },
+      {
+        id: "the-day-i-caught-my-bug",
+        heading: "The Day I Caught My Own Bug",
+        content: `<p>One thing about running a calibration loop is that it surfaces problems in your own code. You can't hide from it. The buoy is the buoy.</p><p>I shipped a forecast model, found a direction bug in our own data pipeline, fixed it, retrained it, and kept the old predictions honest instead of rewriting history. That's the difference: we check our own work.</p><p>The reason it matters is straightforward. If I'd quietly patched the model and pretended the old predictions had always been fine, the accuracy stats on this site would be a lie. The whole point of publishing them is that they reflect what we actually shipped, including the parts we got wrong and had to fix. A forecast you can't audit isn't a calibrated forecast — it's just a number.</p><p>This is also why I'm wary of "AI" framing in surf apps. The model is a tool. The discipline is the loop: predict, measure, correct, publish. If a forecast doesn't have that loop, it doesn't matter how sophisticated the underlying model is. And if it does have that loop, the underlying model gets pulled toward reality whether it wants to or not.</p><p>That's how Quiver works. That's how we'd like every surf forecast to work. Until that's the standard, the best thing we can do is run the loop ourselves and put the results where you can see them.</p>`,
+        keyTakeaway:
+          "The calibration loop catches your own bugs. We fix them, retrain, and keep the old predictions honest instead of rewriting history.",
+      },
+    ],
+    faqs: [
+      {
+        question: "How is this different from a regular surf forecast?",
+        answer:
+          "A regular forecast hands you the global model's output and stops there. We take the same starting point — global model — and add a per-beach correction trained on what the local buoys actually measured. The forecast number you see has been adjusted for the systematic biases at your specific beach, not just the open ocean grid cell.",
+      },
+      {
+        question: "Why don't other apps publish accuracy?",
+        answer:
+          "Mostly because publishing accuracy means publishing your misses. If you commit to the number, you can't quietly rewrite it when it's wrong. Most surf apps optimize for looking confident, not for being auditable. Showing the work is a different bet — it builds trust slower but it's the only kind of trust that survives a bad forecast.",
+      },
+      {
+        question: "What happens when the model is wrong?",
+        answer:
+          "The buoy reading still goes into the training data, the gap shows up in the accuracy stats, and the next round of training pulls the model back toward reality. We don't delete the bad prediction or back-edit the page. Being wrong is part of the loop — pretending you weren't is what breaks it.",
+      },
+      {
+        question: "Does calibration mean Quiver beats the big surf apps on accuracy?",
+        answer:
+          "We don't make that claim. Surfline runs sophisticated forecasting (LOTUS) with bathymetry-aware physics. Different approach, different tradeoffs. What we do differently is publish the accuracy and the methodology so you can audit it. The wedge is transparency, not a benchmark we haven't earned.",
+      },
+      {
+        question: "How long does it take a new beach to be well-calibrated?",
+        answer:
+          "Calibration improves with observation history. A beach with months of forecast-vs-observation pairs has more correction signal than one we added last week. The /forecast-accuracy page reflects this — older beaches generally show tighter error bars. There's no hard cutoff, just a steady tightening as the loop runs.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Forecast Accuracy",
+        href: "/forecast-accuracy",
+        description:
+          "See the published accuracy of the calibrated forecast against real buoy observations.",
+      },
+      {
+        label: "Quiver vs Surfline",
+        href: "/vs/surfline",
+        description:
+          "Where we do the same thing, where we differ, and what we don't claim to compete on.",
+      },
+      {
+        label: "How Swell Wraps Around a Point",
+        href: "/learn/how-swell-wraps-around-points",
+        description:
+          "Why direction and period matter more than height at a point — and why a global model alone misses it.",
+      },
+      {
+        label: "How to Read a Surf Forecast",
+        href: "/learn/how-to-read-a-surf-forecast",
+        description:
+          "The five metrics every forecast hands you, and how to read them together.",
+      },
+      {
+        label: "Rincon Forecast",
+        href: "/forecasts/rincon",
+        description:
+          "A calibrated forecast in action at one of California's most direction-sensitive points.",
       },
     ],
   },

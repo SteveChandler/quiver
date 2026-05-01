@@ -3,9 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BeachSearchAutocomplete } from "@/components/beach/beach-search-autocomplete";
-import { useAuth } from "@/context/auth-context";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
-import { trackSignupCtaView } from "@/lib/analytics/signup-conversion-tracking";
 import { beachNavigation } from "@/lib/navigation-utils";
 import { cn } from "@/lib/utils";
 import type { Beach } from "@/types/database";
@@ -27,12 +25,10 @@ const SOURCE = "map-entry-overlay";
  */
 export function MapEntryOverlay({ onDismiss }: MapEntryOverlayProps) {
   const router = useRouter();
-  const { user, isLoading: authLoading } = useAuth();
   const reducedMotion = useReducedMotion();
   const [autoFocus, setAutoFocus] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const hasTrackedView = useRef(false);
 
   // Autofocus only on desktop — on mobile this pops the keyboard immediately,
   // which is bad UX.
@@ -57,20 +53,6 @@ export function MapEntryOverlay({ onDismiss }: MapEntryOverlayProps) {
       inputRef.current = input;
     }
   }, [autoFocus]);
-
-  // Fire signup_cta_view once per session for anonymous users. The overlay is
-  // a meaningful CTA surface — it's the first thing /map visitors see and the
-  // primary conversion path on the page (search hits drive to beach detail).
-  useEffect(() => {
-    if (authLoading) return;
-    if (user) return;
-    if (hasTrackedView.current) return;
-    hasTrackedView.current = true;
-    trackSignupCtaView({
-      source: SOURCE,
-      cta_type: "overlay",
-    });
-  }, [user, authLoading]);
 
   const handleBeachSelect = useCallback(
     (beach: Beach) => {

@@ -480,7 +480,7 @@ export async function syncWQStations(
         : CEDEN_CONFIG.matchRadiusM;
       const radiusKm = radiusM / 1000;
 
-      const stateBeaches = beaches.filter((b: { id: string; name: string; lat: number; lon: number; state: string | null }) => b.state === station.state_code);
+      const stateBeaches = beaches.filter((b) => b.state === station.state_code);
       let nearestBeachId: string | null = null;
       let nearestDistanceM: number | null = null;
 

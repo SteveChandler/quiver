@@ -115,6 +115,76 @@ describe("enqueueNotification", () => {
     expectConsoleErrors([/notifications\/enqueue.*insert failed/]);
   });
 
+  it("returns enqueued=false reason=invalid_payload when payload fails registry schema (Phase 5e)", async () => {
+    const result = await enqueueNotification({
+      type: "session_invite",
+      recipientUserId: "user-A",
+      // session_invite requires session_id; pass an empty object.
+      payload: {},
+    });
+
+    expect(result.enqueued).toBe(false);
+    if (result.enqueued === false) {
+      expect(result.reason).toBe("invalid_payload");
+      expect(result.message).toMatch(/session_id/);
+    }
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed water_quality status enum (Phase 5e)", async () => {
+    const result = await enqueueNotification({
+      type: "water_quality",
+      recipientUserId: "user-A",
+      payload: {
+        beach_id: "beach-1",
+        beach_slug: "mavericks",
+        beach_name: "Mavericks",
+        // Invalid enum value — schema enforces good|advisory|closure|unknown.
+        status: "totally-fine",
+        previous_status: null,
+        status_changed_at: "2026-04-30T00:00:00Z",
+      },
+    });
+
+    expect(result.enqueued).toBe(false);
+    if (result.enqueued === false) {
+      expect(result.reason).toBe("invalid_payload");
+    }
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it("accepts valid payloads through validatePayload and inserts unchanged (Phase 5e)", async () => {
+    mockSingle.mockResolvedValueOnce({
+      data: { id: "evt-789" },
+      error: null,
+    });
+
+    const result = await enqueueNotification({
+      type: "session_invite",
+      recipientUserId: "user-A",
+      actorUserId: "user-B",
+      payload: {
+        session_id: "sess-1",
+        beach_name: "Mavericks",
+        arrival_time: "2026-05-01T07:00:00Z",
+        message: "lets surf",
+      },
+    });
+
+    expect(result).toEqual({ enqueued: true, eventId: "evt-789" });
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "session_invite",
+        payload: {
+          session_id: "sess-1",
+          beach_name: "Mavericks",
+          arrival_time: "2026-05-01T07:00:00Z",
+          message: "lets surf",
+        },
+      })
+    );
+  });
+
   it("defaults nullable fields when not provided", async () => {
     mockSingle.mockResolvedValueOnce({
       data: { id: "evt-456" },

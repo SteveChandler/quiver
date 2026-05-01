@@ -19,7 +19,7 @@ export const revalidate = 86400;
 export const metadata: Metadata = buildPageMetadata({
   title: "Surf Beaches by State",
   description:
-    "Browse surf beaches across every US coastal state. Find real-time conditions, AI-powered forecasts, and community reviews for hundreds of breaks from California to Hawaii.",
+    "Browse surf beaches across every US coastal state. Find real-time conditions, calibrated forecasts, and community reviews for hundreds of breaks from California to Hawaii.",
   path: "/beaches/usa",
 });
 
@@ -96,7 +96,7 @@ export default async function UsaStatesIndexPage() {
             </h1>
             <p className="text-gray-600 max-w-2xl mx-auto mb-4">
               Pick a state to explore top surf cities and their best beaches —
-              real-time conditions, AI-powered forecasts, and community reviews.
+              real-time conditions, calibrated forecasts, and community reviews.
             </p>
             <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
               <span className="inline-flex items-center gap-1">

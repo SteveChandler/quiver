@@ -23,12 +23,101 @@
  * Plan: ~/.claude/plans/on-quiver-native-we-have-snug-tiger.md (Phase 1d).
  */
 
+import { z } from "zod";
+
 import type { NotificationDeliveryStatus, NotificationTypeDef } from "./types";
+
+// ─── Phase 5e: payload schemas (validatePayload source of truth) ─────────────
+
+const sessionInviteSchema = z.object({
+  session_id: z.string().min(1),
+  beach_name: z.string().nullable().optional(),
+  arrival_time: z.string().nullable().optional(),
+  message: z.string().nullable().optional(),
+});
+
+const likeSchema = z.object({
+  session_id: z.string().min(1),
+  beach_name: z.string().nullable().optional(),
+});
+
+// follow has no required fields; actor identity comes from BuildCtx.
+const followSchema = z.record(z.string(), z.unknown());
+
+const forecastAlertSchema = z.object({
+  alert_date: z.string().min(1),
+  title: z.string().min(1),
+  body: z.string().min(1),
+  beach_id: z.string().nullable().optional(),
+  beach_slug: z.string().nullable().optional(),
+  matches: z.unknown().optional(),
+  queue_items: z
+    .array(z.object({ queue_id: z.string(), rule_id: z.string() }))
+    .optional(),
+});
+
+const trialEndingSchema = z.object({
+  title: z.string().min(1),
+  body: z.string().min(1),
+  trial_ends_at: z.string().min(1),
+});
+
+const logSessionNudgeSchema = z.object({
+  cohort: z.string().min(1),
+  title: z.string().min(1),
+  body: z.string().min(1),
+  beach_id: z.string().nullable().optional(),
+});
+
+const waterQualitySchema = z.object({
+  beach_id: z.string().min(1),
+  beach_slug: z.string().min(1),
+  beach_name: z.string().min(1),
+  status: z.enum(["good", "advisory", "closure", "unknown"]),
+  previous_status: z
+    .enum(["good", "advisory", "closure", "unknown"])
+    .nullable(),
+  status_changed_at: z.string().min(1),
+});
+
+const dailyDigestSchema = z.object({
+  alert_date: z.string().min(1),
+  title: z.string().min(1),
+  body: z.string().min(1),
+  match_count: z.number().int().nonnegative().optional(),
+  // Phase 5h: consolidated summaries from the morning digest cron. Both
+  // optional — the cron populates them as the data integrations land.
+  forecast_summary: z
+    .object({
+      top_match: z.string().min(1),
+      match_count: z.number().int().nonnegative(),
+    })
+    .optional(),
+  water_quality_summary: z
+    .object({
+      advisory_count: z.number().int().nonnegative(),
+      closure_count: z.number().int().nonnegative(),
+    })
+    .optional(),
+});
+
+// Phase 5i: admin types — push-only, master-pref-only, no quiet hours.
+const adminTestSchema = z.object({
+  title: z.string().min(1).max(80).optional(),
+  body: z.string().min(1).max(240).optional(),
+});
+
+const adminBroadcastSchema = z.object({
+  title: z.string().min(1).max(80),
+  body: z.string().min(1).max(240),
+  url: z.string().nullable().optional(),
+  data: z.record(z.string(), z.string()).optional(),
+});
 
 /**
  * Map a worker's per-channel status onto the legacy alert_delivery_attempts
  * status enum. Returns null for non-terminal-or-irrelevant statuses (e.g.
- * skipped_quiet_hours — the next worker tick will produce the real outcome).
+ * deferred_quiet_hours — the next worker tick will produce the real outcome).
  */
 function mapWorkerStatusToAlertAttempt(
   status: NotificationDeliveryStatus
@@ -58,18 +147,18 @@ function mapWorkerStatusToAlertAttempt(
       return "failed_provider";
     case "failed_internal":
       return "failed_internal";
-    case "skipped_quiet_hours":
+    case "deferred_quiet_hours":
       return null;
     default:
       return null;
   }
 }
 
-// Default 10pm–4am local quiet hours. Overridden per-type below where the
-// producer's existing semantics need different behavior (e.g. trial_ending
-// runs at 9am PT and never needs nighttime suppression).
-const DEFAULT_QUIET = { honor: true, windowStart: 22, windowEnd: 4 } as const;
-const NO_QUIET = { honor: false } as const;
+// Default 10pm–4am local quiet hours (defer mode). Overridden per-type below
+// where the producer's existing semantics need different behavior (e.g.
+// trial_ending runs at 9am PT and never needs nighttime suppression).
+const DEFAULT_QUIET = { mode: "defer", windowStart: 22, windowEnd: 4 } as const;
+const NO_QUIET = { mode: "ignore" } as const;
 
 // ─── Payload shapes (what producers pass + what builders consume) ────────────
 
@@ -136,6 +225,27 @@ interface DailyDigestPayload {
   title: string;
   body: string;
   match_count?: number;
+  // Phase 5h: optional consolidated summaries
+  forecast_summary?: {
+    top_match: string;
+    match_count: number;
+  };
+  water_quality_summary?: {
+    advisory_count: number;
+    closure_count: number;
+  };
+}
+
+interface AdminTestPayload {
+  title?: string;
+  body?: string;
+}
+
+interface AdminBroadcastPayload {
+  title: string;
+  body: string;
+  url?: string | null;
+  data?: Record<string, string>;
 }
 
 // ─── Registry ─────────────────────────────────────────────────────────────────
@@ -153,6 +263,7 @@ export const NOTIFICATION_REGISTRY = {
     },
     suppressSelfNotify: true,
     quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => sessionInviteSchema.parse(input),
     buildPushPayload: (p, ctx) => {
       const inviter = ctx.actor?.display_name || "A surfer on Quiver";
       const where = p.beach_name ? ` to ${p.beach_name}` : "";
@@ -193,6 +304,7 @@ export const NOTIFICATION_REGISTRY = {
     },
     suppressSelfNotify: true,
     quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => likeSchema.parse(input),
     buildPushPayload: (p, ctx) => {
       const liker = ctx.actor?.display_name || "Someone";
       return {
@@ -221,6 +333,7 @@ export const NOTIFICATION_REGISTRY = {
     },
     suppressSelfNotify: true,
     quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => followSchema.parse(input) as FollowPayload,
     buildPushPayload: (_p, ctx) => {
       const follower = ctx.actor?.display_name || "Someone";
       return {
@@ -242,17 +355,21 @@ export const NOTIFICATION_REGISTRY = {
 
   forecast_alert: {
     type: "forecast_alert",
-    channels: ["push", "in_app"],
+    // Phase 5h: forecast_alert push channel removed. The morning daily_digest
+    // (6am PT) consolidates forecast highlights into a single push. Per-event
+    // forecast_alert rows continue to land in the in-app inbox so users can
+    // see all matched windows on demand.
+    channels: ["in_app"],
     prefs: {
-      master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
-      // Single UI toggle ("Forecast Alerts") gates both channels.
+      master: { in_app: "notif_inapp_enabled" },
+      // Single UI toggle ("Forecast Alerts") gates the in_app channel.
       perType: {
-        push: "notif_forecast_alerts",
         in_app: "notif_forecast_alerts",
       },
     },
     suppressSelfNotify: false,
     quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => forecastAlertSchema.parse(input) as ForecastAlertPayload,
     buildPushPayload: (p) => ({
       title: p.title,
       body: p.body,
@@ -320,6 +437,7 @@ export const NOTIFICATION_REGISTRY = {
     suppressSelfNotify: false,
     // Producer cron runs at 9am PT — quiet-hour window not relevant.
     quietHours: NO_QUIET,
+    validatePayload: (input) => trialEndingSchema.parse(input),
     buildPushPayload: (p) => ({
       title: p.title,
       body: p.body,
@@ -336,6 +454,7 @@ export const NOTIFICATION_REGISTRY = {
     },
     suppressSelfNotify: false,
     quietHours: NO_QUIET,
+    validatePayload: (input) => logSessionNudgeSchema.parse(input),
     buildPushPayload: (p) => ({
       title: p.title,
       body: p.body,
@@ -349,13 +468,18 @@ export const NOTIFICATION_REGISTRY = {
 
   water_quality: {
     type: "water_quality",
-    channels: ["push", "in_app"],
+    // Phase 5h: water_quality push channel removed. The morning daily_digest
+    // (6am PT) summarizes today's beach advisories/closures into a single
+    // push. Per-event water_quality rows continue to land in the in-app
+    // inbox so users can see status changes on demand.
+    channels: ["in_app"],
     prefs: {
-      master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
-      perType: { push: "notif_water_quality", in_app: "notif_water_quality" },
+      master: { in_app: "notif_inapp_enabled" },
+      perType: { in_app: "notif_water_quality" },
     },
     suppressSelfNotify: false,
     quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => waterQualitySchema.parse(input),
     buildPushPayload: (p) => {
       const isAdvisory = p.status === "advisory" || p.status === "closure";
       const title = isAdvisory
@@ -399,11 +523,33 @@ export const NOTIFICATION_REGISTRY = {
     },
     suppressSelfNotify: false,
     quietHours: NO_QUIET,
-    buildPushPayload: (p) => ({
-      title: p.title,
-      body: p.body,
-      data: { type: "daily_digest", alert_date: p.alert_date },
-    }),
+    validatePayload: (input) => dailyDigestSchema.parse(input),
+    buildPushPayload: (p) => {
+      // Phase 5h: prefer consolidated summary copy when forecast/water-quality
+      // summaries are present. Falls back to the producer-supplied title/body
+      // (legacy / cron-not-yet-enriched path).
+      let body = p.body;
+      const wqs = p.water_quality_summary;
+      if (wqs && (wqs.advisory_count > 0 || wqs.closure_count > 0)) {
+        const parts: string[] = [];
+        if (wqs.closure_count > 0) {
+          parts.push(
+            `${wqs.closure_count} closure${wqs.closure_count === 1 ? "" : "s"}`
+          );
+        }
+        if (wqs.advisory_count > 0) {
+          parts.push(
+            `${wqs.advisory_count} advisor${wqs.advisory_count === 1 ? "y" : "ies"}`
+          );
+        }
+        body = `${p.body} • Water quality: ${parts.join(" + ")}`;
+      }
+      return {
+        title: p.title,
+        body,
+        data: { type: "daily_digest", alert_date: p.alert_date },
+      };
+    },
     buildInAppPayload: (p) => ({
       type: "daily_digest",
       data: {
@@ -411,9 +557,64 @@ export const NOTIFICATION_REGISTRY = {
         title: p.title,
         body: p.body,
         match_count: p.match_count ?? 0,
+        ...(p.forecast_summary
+          ? { forecast_summary: p.forecast_summary }
+          : {}),
+        ...(p.water_quality_summary
+          ? { water_quality_summary: p.water_quality_summary }
+          : {}),
       },
     }),
   } satisfies NotificationTypeDef<DailyDigestPayload>,
+
+  admin_test: {
+    type: "admin_test",
+    channels: ["push"],
+    prefs: {
+      // Honors master push pref so admins can verify their own
+      // notif_push_enabled toggle. No per-type gate — there's no Settings
+      // toggle for "admin test pushes" and there shouldn't be.
+      master: { push: "notif_push_enabled" },
+      perType: {},
+    },
+    suppressSelfNotify: false,
+    quietHours: NO_QUIET,
+    validatePayload: (input) => adminTestSchema.parse(input),
+    buildPushPayload: (p) => {
+      const nowIso = new Date().toISOString();
+      return {
+        title: p.title ?? "Quiver Test Push",
+        body:
+          p.body ??
+          `Test push sent at ${nowIso}. If you see this, FCM is working.`,
+        data: { type: "admin_test", url: "/profile", sent_at: nowIso },
+      };
+    },
+  } satisfies NotificationTypeDef<AdminTestPayload>,
+
+  admin_broadcast: {
+    type: "admin_broadcast",
+    channels: ["push"],
+    prefs: {
+      // Honors master push pref. Bypasses per-type prefs (no per-type
+      // Settings toggle) AND quiet hours (mode='bypass') because broadcasts
+      // are emergency-class — outage notices, app-killer issues, etc.
+      master: { push: "notif_push_enabled" },
+      perType: {},
+    },
+    suppressSelfNotify: false,
+    quietHours: { mode: "bypass" },
+    validatePayload: (input) => adminBroadcastSchema.parse(input),
+    buildPushPayload: (p) => ({
+      title: p.title,
+      body: p.body,
+      data: {
+        type: "admin_broadcast",
+        ...(p.url ? { url: p.url } : {}),
+        ...(p.data ?? {}),
+      },
+    }),
+  } satisfies NotificationTypeDef<AdminBroadcastPayload>,
 } as const;
 
 export type NotificationType = keyof typeof NOTIFICATION_REGISTRY;

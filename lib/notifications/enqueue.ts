@@ -15,9 +15,10 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { ZodError } from "zod";
 import type { Database } from "@/types/database.generated";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { isKnownNotificationType } from "./registry";
+import { getRegistryEntry, isKnownNotificationType } from "./registry";
 import type { EnqueueArgs, EnqueueResult } from "./types";
 import type {
   NotificationEventInsert,
@@ -71,6 +72,34 @@ export async function enqueueNotification(
     };
   }
 
+  // Phase 5e: validate the producer-supplied payload up-front so bad shapes
+  // fail at the producer rather than crashing the worker on dispatch.
+  const def = getRegistryEntry(args.type);
+  let validatedPayload: Record<string, unknown> = (args.payload ??
+    {}) as Record<string, unknown>;
+  if (def.validatePayload) {
+    try {
+      validatedPayload = def.validatePayload(args.payload ?? {}) as Record<
+        string,
+        unknown
+      >;
+    } catch (err) {
+      const message =
+        err instanceof ZodError
+          ? err.issues
+              .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+              .join("; ")
+          : err instanceof Error
+            ? err.message
+            : "payload validation failed";
+      return {
+        enqueued: false,
+        reason: "invalid_payload",
+        message,
+      };
+    }
+  }
+
   const supabase = client ?? createSupabaseServiceRoleClient();
   const notifClient = supabase as unknown as NotificationEventsClient;
 
@@ -82,7 +111,7 @@ export async function enqueueNotification(
       type: args.type,
       entity_type: args.entityType ?? null,
       entity_id: args.entityId ?? null,
-      payload: (args.payload ?? {}) as never,
+      payload: validatedPayload as never,
       dedupe_key: args.dedupeKey ?? null,
     })
     .select("id")

@@ -40,7 +40,7 @@ describe("lib/constants/content invariants", () => {
 
     // What's Next
     expect(Array.isArray(ABOUT_CONTENT.whatsNext)).toBe(true);
-    expect(ABOUT_CONTENT.whatsNext).toHaveLength(2);
+    expect(ABOUT_CONTENT.whatsNext).toHaveLength(3);
     for (const p of ABOUT_CONTENT.whatsNext) {
       expect(typeof p).toBe("string");
       expect(p.length).toBeGreaterThan(0);

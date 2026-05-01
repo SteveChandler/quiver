@@ -38,6 +38,7 @@ export const ABOUT_CONTENT = {
   whatsNext: [
     "Quiver is early. I'm not going to pretend it's finished. But that's kind of the point — I want the people who use it to help shape what it becomes.",
     "If the forecast was off at your spot, tell me. If there's a beach we're missing, tell me. If you want a feature that would make you actually open this thing every morning, I want to hear it.",
+    "And if a forecast is wrong, I'd rather show you that than hide it. I shipped a model, caught a direction bug in our own data pipeline, fixed it, retrained, and kept the old predictions visible instead of rewriting history. That's the deal: I check my own work, and you get to see it.",
   ],
   cta: {
     title: "Come check it out.",

@@ -201,6 +201,7 @@ interface BeachDetailProps {
   amenities?: BeachAmenities | null;
   waterQuality?: WaterQuality | null;
   beachPhoto?: ZineBeachPhoto | null;
+  afterTabsContent?: ReactNode;
   personalizationData?: {
     score:
       | import("@/lib/services/personalized-scoring-service").PersonalizedScore
@@ -228,6 +229,7 @@ function BeachDetailContent({
   amenities,
   waterQuality,
   beachPhoto,
+  afterTabsContent,
   personalizationData,
   onPersonalizationRequest,
 }: BeachDetailProps) {
@@ -856,6 +858,7 @@ function BeachDetailContent({
         variant="ghost"
         onClick={handleGetDirections}
         disabled={!canGetDirections}
+        data-zine-directions
         className="flex-1 rounded-none border-0 border-b-2 border-transparent -mb-0.5 px-2 py-2 sm:px-6 sm:py-3 text-xs sm:text-base font-medium text-gray-600 transition-all duration-300 ease-out hover:bg-gray-50 dark:hover:bg-[#354090]/50 hover:text-gray-900 h-auto"
       >
         <Navigation className="mr-2 h-4 sm:h-5 w-4 sm:w-5" />
@@ -897,8 +900,8 @@ function BeachDetailContent({
       {/* Cream zine page — replaces the dark twilight chrome (immersive hero,
           breadcrumb/H1 overlay, BeachStatsGrid, ConditionsTicker, BeachActions,
           MatchScoreTeaser, TrustStrip). The zine carries its own H1, hero photo,
-          today's surf call, and footer; the tabs sit inside the cream paper. */}
-      <ZinePageShell beach={beach as Beach} surfCallReport={surfCallReport} beachPhoto={beachPhoto} sources={sources}>
+          and footer; the tabs sit inside the cream paper. */}
+      <ZinePageShell beach={beach as Beach} beachPhoto={beachPhoto} sources={sources}>
         <div ref={signupCtaRef} />
         <BeachTabs
           activeTab={activeTab}
@@ -914,6 +917,7 @@ function BeachDetailContent({
                 amenities={amenities}
                 waterQuality={waterQuality}
                 beachPhoto={beachPhoto}
+                surfCallReport={surfCallReport}
                 onWriteReview={() =>
                   handleWriteReview(REVIEW_TRACKING_SOURCES.OVERVIEW_CTA)
                 }
@@ -995,6 +999,8 @@ function BeachDetailContent({
             </div>
           </BeachTabContent>
         </BeachTabs>
+
+        {afterTabsContent ? <div className="mt-10">{afterTabsContent}</div> : null}
       </ZinePageShell>
 
       {/* MatchScoreTeaser cut from the beach-detail layout — the zine masthead

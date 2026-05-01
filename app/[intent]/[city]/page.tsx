@@ -270,7 +270,7 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     const parsedCityName = parseLocationFromSlug(params.city);
     return {
       title: `${definition.label} Spots in ${parsedCityName}`,
-      description: `Find ${definition.label.toLowerCase()} surf spots near ${parsedCityName}. AI-powered recommendations for every skill level.`,
+      description: `Find ${definition.label.toLowerCase()} surf spots near ${parsedCityName}. Calibrated recommendations for every skill level.`,
       alternates: {
         canonical: `${baseUrl}/${params.intent}/${params.city}`,
       },

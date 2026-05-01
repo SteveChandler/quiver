@@ -18,11 +18,17 @@ npm is disabled via `.npmrc` with `engine-strict=true`. The `package.json` engin
 ```json
 {
   "engines": {
-    "node": ">=18.0.0 <23.0.0",
+    "node": ">=22.0.0 <23.0.0",
     "yarn": "^1.22.0",
     "npm": "please-use-yarn"
   }
 }
+```
+
+Use Node 22 before running repo scripts:
+
+```bash
+nvm use
 ```
 
 ### Installation

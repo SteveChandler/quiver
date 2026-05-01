@@ -31,7 +31,7 @@ const FEATURES: Feature[] = [
     ctaLabel: CONTENT.sections.forecast.primaryCta,
     ctaHref: "/map",
     imageSrc: "/images/app-screenshots/verdict.png",
-    imageAlt: "Quiver app showing a Trestles 4-6ft EPIC surf call with AI-powered verdict, swell, tide, and water temperature.",
+    imageAlt: "Quiver app showing a Trestles 4-6ft EPIC surf call with verdict, swell, tide, and water temperature.",
   },
   {
     id: "journal",
