@@ -101,7 +101,8 @@ export type WaveHeightSourceTag =
   | 'model_swell'
   | 'cdip_swell'
   | 'model_hs'
-  | 'ndbc_buoy';
+  | 'ndbc_buoy'
+  | 'nowcast_anchor';
 
 /**
  * Parameters for wave height transformation
