@@ -4,7 +4,7 @@
  * Tests for window calculator - finds optimal surf windows
  */
 
-import { calculateOptimalWindow } from '@/lib/scoring/window-calculator';
+import { calculateOptimalWindow, findPeakTime } from '@/lib/scoring/window-calculator';
 import type { BeachWithThresholds, ForecastForScoring } from '@/lib/scoring/types';
 
 describe('calculateOptimalWindow', () => {
@@ -311,5 +311,43 @@ describe('interpolateTransition', () => {
     // End should be interpolated somewhere between 8:00 and 9:00
     const endHour = result!.end.getUTCHours();
     expect(endHour).toBeLessThanOrEqual(9);
+  });
+});
+
+describe('findPeakTime tide-phase guard', () => {
+  function makeScored(timeIso: string, tideStatus: string, score: number) {
+    return {
+      forecast: {
+        forecastTime: new Date(timeIso),
+        waveHeight: 3,
+        wavePeriod: 12,
+        windSpeed: 5,
+        windDirection: 90,
+        tideHeight: 3,
+        tideStatus,
+      } as ForecastForScoring,
+      score,
+      isViable: true,
+    };
+  }
+
+  it('skips slack-high slot when an earlier rising slot is within 5pts', () => {
+    const scored = [
+      makeScored('2026-05-01T14:00:00Z', 'rising', 76),
+      makeScored('2026-05-01T15:00:00Z', 'rising', 78),
+      makeScored('2026-05-01T16:00:00Z', 'slack-high', 80),
+      makeScored('2026-05-01T17:00:00Z', 'falling', 74),
+    ];
+    const peak = findPeakTime(scored, 0, 3);
+    expect(peak?.toISOString()).toBe('2026-05-01T15:00:00.000Z');
+  });
+
+  it('returns slack slot when no non-slack slot is within 5pts', () => {
+    const scored = [
+      makeScored('2026-05-01T14:00:00Z', 'rising', 60),
+      makeScored('2026-05-01T16:00:00Z', 'slack-high', 80),
+    ];
+    const peak = findPeakTime(scored, 0, 1);
+    expect(peak?.toISOString()).toBe('2026-05-01T16:00:00.000Z');
   });
 });
