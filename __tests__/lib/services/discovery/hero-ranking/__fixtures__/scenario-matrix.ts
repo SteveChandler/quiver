@@ -272,6 +272,39 @@ function buildAllBeaches(
   };
 }
 
+/**
+ * Build forecasts where each beach gets its own independent swell params
+ * (used for divergent-swell scenarios where one beach is geometrically
+ * blocked from a swell train its neighbors see). Tide and date are shared
+ * — divergence is wave-only.
+ */
+function buildAllBeachesDivergent(
+  common: { dateBase: string; tideKeyframes: SeriesParams["tideKeyframes"] },
+  perBeach: {
+    ob: Omit<SeriesParams, "beachId" | "dateBase" | "tideKeyframes">;
+    pb: Omit<SeriesParams, "beachId" | "dateBase" | "tideKeyframes">;
+    crystal: Omit<SeriesParams, "beachId" | "dateBase" | "tideKeyframes">;
+  },
+): Record<string, EnhancedForecastEntity[]> {
+  return {
+    "ocean-beach-pier": buildSeries({
+      ...perBeach.ob,
+      ...common,
+      beachId: SD_BEACHES.ob.id,
+    }),
+    "pacific-beach": buildSeries({
+      ...perBeach.pb,
+      ...common,
+      beachId: SD_BEACHES.pb.id,
+    }),
+    "crystal-pier": buildSeries({
+      ...perBeach.crystal,
+      ...common,
+      beachId: SD_BEACHES.crystal.id,
+    }),
+  };
+}
+
 // =============================================================================
 // Standard tide curves (24h)
 // =============================================================================
@@ -691,5 +724,63 @@ export const scenarioMatrix: HeroScenarioFixture[] = [
     notes:
       "Advanced surfer, classic OB short-period W setup at solid 4ft. Setup " +
       "suitability + skill alignment combine; PB stays nearby but OB wins.",
+  },
+
+  // -------------------------------------------------------------------------
+  // 17. Divergent swell — OB blocked from south by Point Loma; PB/Crystal
+  //     see the 13s SW combo as primary (Task 8 — shared setup signal)
+  // -------------------------------------------------------------------------
+  {
+    name: "divergent-swell — OB only sees 6s WNW; PB/Crystal see 13s SW combo (PB stays hero)",
+    beaches: SD_BEACHES,
+    forecasts: buildAllBeachesDivergent(
+      {
+        dateBase: "2026-05-01",
+        tideKeyframes: TIDE_HIGH_PB_FAVORED,
+      },
+      {
+        // OB: geometrically blocked from south swell — only the local
+        // short-period WNW pulse arrives.
+        ob: {
+          waveHeightFt: 1.4,
+          wavePeriodS: 6,
+          primaryDirDeg: 292,
+          windSpeedMph: 4,
+          windDirDeg: 90,
+        },
+        // PB: 13s SW primary, 7s WNW secondary — the actual regional setup.
+        pb: {
+          waveHeightFt: 2.0,
+          wavePeriodS: 13,
+          primaryDirDeg: 225,
+          secondaryHeightFt: 1.0,
+          secondaryPeriodS: 7,
+          secondaryDirDeg: 292,
+          windSpeedMph: 4,
+          windDirDeg: 90,
+        },
+        // Crystal: same combo as PB.
+        crystal: {
+          waveHeightFt: 2.0,
+          wavePeriodS: 13,
+          primaryDirDeg: 225,
+          secondaryHeightFt: 1.0,
+          secondaryPeriodS: 7,
+          secondaryDirDeg: 292,
+          windSpeedMph: 4,
+          windDirDeg: 90,
+        },
+      },
+    ),
+    expectedHero: "pacific-beach",
+    notes:
+      "Divergent-swell day (today's bug): OB is geometrically blocked from " +
+      "south swell by Point Loma; PB and Crystal both see the 13s SW as " +
+      "primary. Shared setup signal aggregates the cluster's primaries and " +
+      "picks 13s SW (cluster-majority). Each beach is then judged against " +
+      "13s SW: OB poorly (window edge, no exposure bonus on long-period), " +
+      "PB well (south-favorable, narrower selectivity), Crystal moderately " +
+      "(absurdly-wide penalty at long-period). PB's realized score advantage " +
+      "(combo day + favorable falling tide) confirms the call.",
   },
 ];

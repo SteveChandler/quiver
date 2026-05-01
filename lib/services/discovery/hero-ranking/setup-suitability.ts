@@ -3,6 +3,14 @@
  *
  * Asks: "is this beach the right venue for THIS swell setup?"
  *
+ * **Input contract changed in Task 8:** the function now consumes a
+ * cluster-shared `SharedSetupSignal` derived once across the comparison
+ * cluster (see `./shared-setup-signal.ts`), NOT each beach's own forecast
+ * row. This avoids the divergent-swell category error where each beach
+ * was being scored against its own local swell — flipping the hero on
+ * combo days where one beach is geometrically blocked from the long-period
+ * train.
+ *
  * Foundation: reuses `calculateWindowAlignment` (wraparound-safe; handles
  * windows like OB Pier's 220° → 5° through-north correctly via the
  * `SwellWindow` factory at `lib/domains/spot-profile/spot-profile.ts:75-99`).
@@ -26,8 +34,9 @@
  */
 
 import type { SpotProfile } from "@/lib/domains/spot-profile/types";
-import type { EnhancedForecastEntity } from "@/types/forecast";
 import { calculateWindowAlignment } from "@/lib/domains/spot-profile/spot-profile";
+
+import type { SharedSetupSignal } from "./shared-setup-signal";
 
 const NEUTRAL_FALLBACK = 50;
 const SHORT_PERIOD_THRESHOLD = 8;
@@ -42,24 +51,6 @@ const NARROW_CUTOFF_DEG = 35;
 const WIDE_PEAK_DEG = 75;
 const ABSURDLY_WIDE_DEG = 110;
 const ABSURDLY_WIDE_PENALTY = 25;
-
-/**
- * Pulls a finite numeric value from a forecast field that may be a string
- * (e.g. "270", "12s") or a number (the `_om` raw fields). Returns null if
- * the value is missing or unparseable.
- */
-function readNumeric(
-  primary: number | string | null | undefined,
-  fallback: number | null | undefined,
-): number | null {
-  if (typeof primary === "number" && Number.isFinite(primary)) return primary;
-  if (typeof primary === "string") {
-    const parsed = Number.parseFloat(primary);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  if (typeof fallback === "number" && Number.isFinite(fallback)) return fallback;
-  return null;
-}
 
 /**
  * Returns the short-period exposure adjustment for a window of the given
@@ -80,7 +71,7 @@ function shortPeriodExposureBonus(halfWidthDeg: number): number {
 
 /**
  * Computes a setup-suitability score for the candidate beach against the
- * current swell setup. Output is in the 0–~140 range — the composer in
+ * cluster-shared swell setup. Output is in the 0–~140 range — the composer in
  * `hero-window-score.ts` clamps the final hero score.
  *
  *  - Short-period (≤8s): alignment + graded exposure bonus.
@@ -88,33 +79,25 @@ function shortPeriodExposureBonus(halfWidthDeg: number): number {
  *    windows (their alignment is a wide-denominator artifact, not signal).
  *  - Mid period (8–12s): alignment, with half the absurdly-wide penalty.
  *
- * Returns the neutral fallback (50) when direction or period is missing —
- * we don't know enough to reward or penalize the candidate.
+ * Returns the neutral fallback (50) when the signal carries no resolvable
+ * direction or period — we don't know enough to reward or penalize.
  */
 export function computeSetupSuitability(
   profile: SpotProfile,
-  forecast: EnhancedForecastEntity,
+  signal: SharedSetupSignal,
 ): number {
   const window = profile.swellWindow;
   if (!window) return NEUTRAL_FALLBACK;
+  if (signal.directionDeg === null || signal.periodS === null) return NEUTRAL_FALLBACK;
 
-  // Direction: prefer the string `wave_direction` field, fall back to OM raw.
-  const direction = readNumeric(forecast.wave_direction, forecast.wave_direction_om);
-  // Period: prefer primary swell, fall back to overall wave period, then OM raw.
-  const period =
-    readNumeric(forecast.swell_1_period, forecast.swell_period_om) ??
-    readNumeric(forecast.wave_period, forecast.wave_period_om);
-
-  if (direction === null || period === null) return NEUTRAL_FALLBACK;
-
-  const alignment = calculateWindowAlignment(direction, window);
+  const alignment = calculateWindowAlignment(signal.directionDeg, window);
   const halfWidth = window.halfWidthDeg;
 
-  if (period <= SHORT_PERIOD_THRESHOLD) {
+  if (signal.periodS <= SHORT_PERIOD_THRESHOLD) {
     return alignment + shortPeriodExposureBonus(halfWidth);
   }
 
-  if (period >= LONG_PERIOD_THRESHOLD) {
+  if (signal.periodS >= LONG_PERIOD_THRESHOLD) {
     if (halfWidth >= ABSURDLY_WIDE_DEG) return alignment - ABSURDLY_WIDE_PENALTY;
     return alignment;
   }

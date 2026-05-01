@@ -214,6 +214,17 @@ async function main(): Promise<void> {
   lines.push(`Hero flip: ${flipped ? "YES" : "no"}  (${oldHero} -> ${newHero})`);
   lines.push("");
 
+  // Cluster-shared setup signal (Task 8) — same across every diagnostic in
+  // a single rerank pass; print once for context.
+  const sharedSig = diagnostics[0]?.sharedSetupSignal;
+  if (sharedSig) {
+    lines.push("Cluster-shared setup signal (drives setupSuitability):");
+    lines.push(`  directionDeg: ${fmt(sharedSig.directionDeg, 1)}`);
+    lines.push(`  periodS:      ${fmt(sharedSig.periodS, 1)}`);
+    lines.push(`  source:       ${sharedSig.source}`);
+    lines.push("");
+  }
+
   lines.push("Diagnostic breakdown (top 2 reranked candidates):");
   diagnostics.slice(0, 2).forEach((d) => {
     lines.push(`  ${d.beachSlug}${d.isHero ? "  [HERO]" : ""}`);
@@ -228,6 +239,9 @@ async function main(): Promise<void> {
     lines.push(`    windowPersistence:       ${fmt(d.windowPersistence)}  (0-100)`);
     lines.push(`    heroWindowScore:         ${fmt(d.heroWindowScore)}  (0-100)`);
     lines.push(`    finalRank:               ${d.finalRank}`);
+    lines.push(
+      `    sharedSetupSignal:       direction=${fmt(d.sharedSetupSignal.directionDeg, 1)} period=${fmt(d.sharedSetupSignal.periodS, 1)} source=${d.sharedSetupSignal.source}`,
+    );
     lines.push("");
   });
 
