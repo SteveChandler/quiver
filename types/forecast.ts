@@ -246,6 +246,8 @@ export interface EnhancedForecastEntity {
     tide_schedule?: TideScheduleEntry[];
     /** NOAA CO-OPS station used for tide predictions */
     tide_station?: TideStationInfo;
+    /** Per-row wave_height provenance (source, transform path, etc.). */
+    wave_height_provenance?: WaveHeightProvenance;
   } | null;
 }
 
@@ -507,6 +509,46 @@ export interface RateLimitStatus {
   requestsRemaining: number;
 }
 
+/**
+ * Provenance metadata recorded for the wave_height number on each forecast row.
+ *
+ * Surfaced by the forecast builder via `WaveHeightDebugInfo` and stored on
+ * `raw_forecast.wave_height_provenance` so post-hoc questions like
+ * "why does Quiver show 1.5 ft when CDIP 220 shows 3 ft?" are answerable
+ * from one row instead of by re-running the pipeline.
+ */
+export interface WaveHeightProvenance {
+  /** Which raw input drove the displayed face height. */
+  source:
+    | 'cdip_sig'
+    | 'cdip_swell'
+    | 'model_swell'
+    | 'model_hs'
+    | 'ndbc_buoy'
+    | 'nowcast_anchor'
+    | null;
+  /** Raw input height in feet, before transformation. */
+  raw_value_ft: number | null;
+  /** CDIP / NDBC / IOOS station that supplied the input (null for model). */
+  station_id: string | null;
+  /** Which transformer math path fired. */
+  transform_path:
+    | 'scalar_calibrated'
+    | 'scalar_generic'
+    | 'decomposed'
+    | null;
+  /** True when the per-component decomposed RMS sum was computed. */
+  components_used: boolean;
+  /** True when the per-beach `shoaling_factors` lookup actually fired. */
+  calibrated_shoaling_fired: boolean;
+  /** Set when CDIP was rejected as an outlier and a fallback source was used. */
+  cdip_rejection?: {
+    reason: 'cdip_too_large' | 'cdip_outlier_vs_model';
+    raw_cdip_hs: number;
+    raw_model_hs: number | null;
+  };
+}
+
 // Enhanced Forecast with Raw Data
 export interface EnhancedForecastWithRawData extends EnhancedForecastEntity {
   raw_forecast?: {
@@ -526,5 +568,7 @@ export interface EnhancedForecastWithRawData extends EnhancedForecastEntity {
     tide_schedule?: TideScheduleEntry[];
     /** NOAA CO-OPS station used for tide predictions */
     tide_station?: TideStationInfo;
+    /** Per-row wave_height provenance metadata (source, transform path, etc.). */
+    wave_height_provenance?: WaveHeightProvenance;
   };
 }
