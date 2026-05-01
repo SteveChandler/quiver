@@ -10,6 +10,7 @@
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { PersonalizedScore } from "@/lib/services/personalized-scoring-service";
+import type { SpotProfile } from "@/lib/domains/spot-profile/types";
 
 // ============================================================================
 // Time Slot Filter Types
@@ -267,6 +268,16 @@ export interface SurfDiscoveryRecommendation {
   distanceMiles?: number;
   /** Estimated driving time in minutes (GPS phase) */
   drivingTimeMinutes?: number;
+  /**
+   * SpotProfile derived from the beach row.
+   * Required by the hero-ranking re-rank (setupSuitability).
+   */
+  spotProfile?: SpotProfile;
+  /**
+   * Per-slot raw scorer outputs across the candidate's selected window.
+   * Populated for top-N candidates pre-rerank; used by hero-window-score persistence.
+   */
+  windowSlotScores?: number[];
   /** ISO timestamp when generated */
   generated_at: string;
 }

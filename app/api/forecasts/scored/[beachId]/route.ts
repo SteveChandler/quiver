@@ -18,6 +18,7 @@ import {
   parseWavePeriod,
   getDirectionDegrees,
 } from "@/lib/utils/number-parsing";
+import { fetchLatestObservation } from "@/lib/services/observations/nowcast-anchor";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 
@@ -305,20 +306,27 @@ export const GET = withErrorHandler(
       return createNotFoundError("Beach");
     }
 
-    // Fetch next 24 hours of enhanced forecasts (8 slots × 3h = 24h)
+    // Fetch next 24 hours of enhanced forecasts (8 slots × 3h = 24h) and
+    // the latest live-buoy observation in parallel — both feed the beach
+    // detail UI (forecast slots + LiveBuoyChip).
     const now = new Date().toISOString();
     const twentyFourHoursLater = new Date(
       Date.now() + 24 * 60 * 60 * 1000
     ).toISOString();
 
-    const { data: forecasts, error: forecastError } = await supabase
-      .from("enhanced_forecasts")
-      .select("*")
-      .eq("beach_id", validBeachId)
-      .gte("forecast_at", now)
-      .lt("forecast_at", twentyFourHoursLater)
-      .order("forecast_at")
-      .limit(8);
+    const [forecastsResult, latestObservation] = await Promise.all([
+      supabase
+        .from("enhanced_forecasts")
+        .select("*")
+        .eq("beach_id", validBeachId)
+        .gte("forecast_at", now)
+        .lt("forecast_at", twentyFourHoursLater)
+        .order("forecast_at")
+        .limit(8),
+      fetchLatestObservation(supabase, validBeachId),
+    ]);
+
+    const { data: forecasts, error: forecastError } = forecastsResult;
 
     if (forecastError) {
       throw new Error(forecastError.message);
@@ -346,6 +354,9 @@ export const GET = withErrorHandler(
         breakType: beach.break_type ?? null,
         isCalibrated,
       },
+      // Top-level (not per-slot) — the live observation is a single "now"
+      // reading that doesn't vary across the 8 forecast slots.
+      latestObservation,
     });
   },
   { errorMessage: "Failed to fetch scored forecast" }

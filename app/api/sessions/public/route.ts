@@ -82,6 +82,21 @@ async function publicSessionsHandler(
   // `user` is resolved by withAuth({ optional: true }) — non-null when the
   // caller provided a valid Bearer token (native) or cookie session (web).
 
+  // Block filter: exclude sessions authored by users the caller has blocked.
+  // RLS on user_blocks scopes results to blocker_id = auth.uid(). Fail CLOSED
+  // (throw) instead of falling through to no-filter — silently exposing blocked
+  // content because of a transient query error would defeat the moderation
+  // contract Play Store relies on.
+  let blockedAuthorIds: string[] = [];
+  if (user) {
+    const { data: blocks, error: blocksError } = await supabase
+      .from("user_blocks")
+      .select("blocked_id")
+      .eq("blocker_id", user.id);
+    if (blocksError) throw blocksError;
+    blockedAuthorIds = (blocks ?? []).map((b) => b.blocked_id as string);
+  }
+
   // Friends feed: restrict to sessions from users the caller follows. Returns
   // empty when unauthenticated or when the caller follows nobody.
   let friendIds: string[] | null = null;
@@ -144,6 +159,9 @@ async function publicSessionsHandler(
   if (friendIds) {
     countQuery = countQuery.in("user_id", friendIds);
   }
+  if (blockedAuthorIds.length > 0) {
+    countQuery = countQuery.not("user_id", "in", `(${blockedAuthorIds.join(",")})`);
+  }
 
   const { count } = await countQuery;
 
@@ -202,6 +220,9 @@ async function publicSessionsHandler(
   }
   if (friendIds) {
     dataQuery = dataQuery.in("user_id", friendIds);
+  }
+  if (blockedAuthorIds.length > 0) {
+    dataQuery = dataQuery.not("user_id", "in", `(${blockedAuthorIds.join(",")})`);
   }
 
   const { data: sessions, error } = await dataQuery

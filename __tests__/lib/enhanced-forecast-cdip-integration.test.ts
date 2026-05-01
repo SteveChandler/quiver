@@ -201,9 +201,18 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       // Verify CDIP data is used in forecasts
       const firstForecast = forecasts[0];
       expect(firstForecast.data_source).toBe("CDIP");
-      // Decomposed pipeline uses WW3 component heights (swell_1: 1.2m→3.94ft) with CDIP-calibrated factors
-      expect(firstForecast.wave_height).toBe("4.3 ft");
+      // CDIP-scalar branch: CDIP `significantWaveHeight` (1.8) drives output
+      // through the scalar/legacy path with `components: [null, null, null]`
+      // so the per-beach calibration (or generic period × direction transform
+      // when no shoaling_factors are set) sees CDIP Hs as `rawHeightFt`.
+      // Previously, populated NOAA components silently overrode CDIP Hs in
+      // the decomposed branch — the old "4.3 ft" pinned that bug.
+      expect(firstForecast.wave_height).toBe("2.4 ft");
       expect(firstForecast.wave_period).toBe("13s");
+      // Provenance must record CDIP-driven scalar path, not decomposed.
+      const prov = firstForecast.raw_forecast?.wave_height_provenance;
+      expect(prov?.source).toBe("cdip_sig");
+      expect(prov?.components_used).toBe(false);
     });
 
     it("should fall back to NOAA when CDIP data unavailable", async () => {
@@ -233,8 +242,9 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
 
       // Should use CDIP wave data but NOAA weather/tide data
       expect(forecasts[0].data_source).toBe("CDIP");
-      // Decomposed pipeline uses WW3 component heights with CDIP-calibrated factors
-      expect(forecasts[0].wave_height).toBe("4.3 ft");
+      // CDIP-scalar branch: CDIP Hs drives wave_height; NOAA weather still
+      // populates weather_condition.
+      expect(forecasts[0].wave_height).toBe("2.4 ft");
       expect(forecasts[0].weather_condition).toBe("Partly Cloudy"); // From NOAA
     });
 
@@ -303,8 +313,8 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
 
       const forecasts = await service.generateComprehensiveForecast(mockBeach);
 
-      expect(forecasts[0].wave_height).toBeDefined();
-      expect(forecasts[0].swell_1_height).toBeDefined(); // Should estimate from total wave height
+      expect(forecasts[0].wave_height).not.toBeNull();
+      expect(forecasts[0].swell_1_height).not.toBeNull(); // Should estimate from total wave height
     });
   });
 

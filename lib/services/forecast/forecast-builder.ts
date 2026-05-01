@@ -10,7 +10,21 @@
 
 import { createContextLogger } from "@/lib/logger";
 import { calculateConfidenceScore } from "./confidence-scorer";
-import { toFaceHeightFeet, toFaceHeightFeetDecomposed, METERS_TO_FEET } from "@/lib/utils/wave-formatters";
+import {
+  toFaceHeightFeetDecomposedWithDebug,
+  METERS_TO_FEET,
+  type WaveHeightDebugInfo,
+} from "@/lib/utils/wave-formatters";
+import {
+  applyBeachHeightOffset,
+  formatDisplayHeightFt,
+  parseDisplayHeightFt,
+} from "./apply-beach-height-offset";
+import {
+  logDisplayPredictions,
+  type DisplayPredictionRow,
+} from "./log-display-prediction";
+import { createServiceRoleClient } from "@/lib/supabase";
 import type {
   ShoalingFactors,
   SwellComponentInput,
@@ -30,18 +44,18 @@ import {
 } from "@/types/forecast";
 import type { NowcastAnchor } from "@/lib/services/observations/nowcast-anchor.types";
 import { isNowcastAnchorEnabled } from "@/lib/services/observations/nowcast-anchor.types";
+import { STALENESS_THRESHOLDS } from "@/lib/config/forecast-staleness";
 import { pickDominantSwell } from "@/lib/domains/conditions";
 
 /**
  * Nowcast-anchor design (see plan golden-sleeping-steele.md):
  *  - NOWCAST_WINDOW_MS: forecast rows within ±1.5h of now may be anchored.
- *  - ANCHOR_FRESHNESS_MS: observations up to 6h old count as valid anchors.
- * The freshness cap is wider than the forecast window to accommodate CDIP-via-IOOS
- * ingestion lag (2h sync cron + up-to-3h source staleness). A 4h-old buoy reading
- * still beats a hallucinated NOAA forecast — swells don't swing 100% in 6h.
+ *  - ANCHOR_FRESHNESS_MS: observations up to NOWCAST_ANCHOR hours old count as valid.
+ * Sourced from STALENESS_THRESHOLDS.NOWCAST_ANCHOR for one source of truth across
+ * forecast-builder + the display-side `fetchLatestObservation` helper.
  */
 const NOWCAST_WINDOW_MS = 1.5 * 60 * 60 * 1000;
-const ANCHOR_FRESHNESS_MS = 6 * 60 * 60 * 1000;
+const ANCHOR_FRESHNESS_MS = STALENESS_THRESHOLDS.NOWCAST_ANCHOR * 60 * 60 * 1000;
 
 export function shouldApplyNowcastAnchor(args: {
   beachFeatures: string[] | null | undefined;
@@ -82,6 +96,20 @@ export interface DataSourceServices {
 }
 
 /**
+ * Per-beach height offset row, loaded once per cron invocation by the caller
+ * and passed in via ForecastInputs.offsetMap. Mirrors the
+ * beach_height_offsets table shape; kept narrow because forecast-builder only
+ * reads the columns the helper consumes.
+ */
+export type BeachHeightOffsetRow = {
+  offset_m: number | null;
+  sample_count: number | null;
+  mae_before_m: number | null;
+  mae_after_m: number | null;
+  computed_at: string | null;
+};
+
+/**
  * Input data for building forecasts
  */
 export interface ForecastInputs {
@@ -101,9 +129,88 @@ export interface ForecastInputs {
    * forecast-only path (current behavior).
    */
   nowcastAnchor?: NowcastAnchor | null;
+  /**
+   * Optional per-beach height offset row (source='display'), loaded for the
+   * beach being built. When undefined the helper short-circuits to identity
+   * and wave_height is byte-identical to today's output.
+   */
+  heightOffset?: BeachHeightOffsetRow | null;
 }
 
 const log = createContextLogger("ForecastBuilder");
+
+/**
+ * Read the per-beach offset config from a Beach row. The columns
+ * `height_offset_enabled`, `height_offset_min_sample_count`, and
+ * `height_offset_max_age_days` were added by migration
+ * 20260501200500_create_beach_height_offsets.sql but the generated DB types
+ * have not yet been regenerated (per task constraint). This helper isolates
+ * the typed cast to one place and applies the migration's column defaults.
+ */
+function readBeachOffsetConfig(beach: Beach): {
+  enabled: boolean;
+  minSampleCount: number;
+  maxAgeDays: number;
+} {
+  const cfg = beach as unknown as {
+    height_offset_enabled?: boolean | null;
+    height_offset_min_sample_count?: number | null;
+    height_offset_max_age_days?: number | null;
+  };
+  return {
+    enabled: cfg.height_offset_enabled === true,
+    minSampleCount: cfg.height_offset_min_sample_count ?? 30,
+    maxAgeDays: cfg.height_offset_max_age_days ?? 14,
+  };
+}
+
+/**
+ * Batch-load beach_height_offsets rows for a set of beaches in ONE query.
+ * Production callers (e.g. enhanced-forecast-service.updateAllEnhancedForecasts)
+ * should use this and pass the resulting Map into ForecastInputs.heightOffset
+ * per beach to avoid N+1 lookups.
+ *
+ * Returns an empty Map on any failure — the helper short-circuits to identity
+ * when no offset row is provided, so the caller is safe to fall through.
+ */
+export async function loadHeightOffsetsForBeaches(
+  beachIds: string[]
+): Promise<Map<string, BeachHeightOffsetRow>> {
+  const out = new Map<string, BeachHeightOffsetRow>();
+  if (!beachIds || beachIds.length === 0) return out;
+
+  try {
+    const supabase = createServiceRoleClient();
+    const { data, error } = await supabase
+      .from("beach_height_offsets" as never)
+      .select(
+        "beach_id, offset_m, sample_count, mae_before_m, mae_after_m, computed_at"
+      )
+      .eq("source", "display")
+      .in("beach_id", beachIds);
+
+    if (error || !data) return out;
+
+    for (const row of data as unknown as Array<
+      BeachHeightOffsetRow & { beach_id: string }
+    >) {
+      out.set(row.beach_id, {
+        offset_m: row.offset_m,
+        sample_count: row.sample_count,
+        mae_before_m: row.mae_before_m,
+        mae_after_m: row.mae_after_m,
+        computed_at: row.computed_at,
+      });
+    }
+  } catch (err) {
+    log.warn("loadHeightOffsetsForBeaches failed", {
+      err: err instanceof Error ? err.message : String(err),
+      beachCount: beachIds.length,
+    });
+  }
+
+  return out;
+}
 
 /**
  * Builds forecast entities by combining data from multiple sources
@@ -121,9 +228,27 @@ export class ForecastBuilder {
    * Build forecasts from raw data sources
    */
   async buildForecasts(inputs: ForecastInputs): Promise<EnhancedForecastWithRawData[]> {
-    const { beach, waveData, tideData, weatherData, buoyData, cdipData, ioosWaterTempC, coopsWaterTempC, nowcastAnchor } = inputs;
+    const { beach, waveData, tideData, weatherData, buoyData, cdipData, ioosWaterTempC, coopsWaterTempC, nowcastAnchor, heightOffset } = inputs;
     const forecasts: EnhancedForecastWithRawData[] = [];
     const now = new Date();
+
+    // If no offset row was preloaded by the caller AND the beach has the flag
+    // enabled, fetch it inline so the helper has data to work with. Most
+    // production callers pre-load via a single batched query (see
+    // loadHeightOffsetsForBeaches below) to avoid N+1 — this branch is the
+    // single-beach fallback path. The new height_offset_* columns are not yet
+    // in the generated DB types (added by migration 20260501200500), so we
+    // read them via a narrow typed projection.
+    const beachOffsetCfg = readBeachOffsetConfig(beach);
+    let resolvedOffset: BeachHeightOffsetRow | null | undefined = heightOffset;
+    if (resolvedOffset === undefined && beachOffsetCfg.enabled) {
+      resolvedOffset = await this.loadOffsetForBeach(beach.id);
+    }
+
+    // Snapshot buffer for ml_predictions_log. Captured pre-offset (telemetry
+    // feedback-loop invariant) inside buildSingleForecast and flushed after
+    // the row loop completes.
+    const snapshotBuffer: DisplayPredictionRow[] = [];
 
     // Determine data sources used for metadata
     const dataSources: string[] = [];
@@ -209,12 +334,59 @@ export class ForecastBuilder {
         ioosWaterTempC,
         coopsWaterTempC,
         nowcastAnchor: effectiveAnchor,
+        heightOffset: resolvedOffset ?? null,
+        snapshotBuffer,
       });
 
       forecasts.push(forecast);
     }
 
+    // Fire-and-forget snapshot write. NEVER awaited and NEVER throws —
+    // logDisplayPredictions catches all errors internally. This must not block
+    // the forecast write path under any failure mode (env missing, network,
+    // schema mismatch, etc.). See feedback_dont_parallelize_redirect_critical_awaits.
+    if (snapshotBuffer.length > 0) {
+      try {
+        void logDisplayPredictions(snapshotBuffer).catch((err) => {
+          log.warn("Snapshot write rejected (non-blocking)", { err: String(err) });
+        });
+      } catch (err) {
+        log.warn("Snapshot dispatch threw synchronously (non-blocking)", {
+          err: String(err),
+        });
+      }
+    }
+
     return forecasts;
+  }
+
+  /**
+   * Single-beach fallback offset loader. Production callers should batch-load
+   * with loadHeightOffsetsForBeaches to avoid N+1.
+   */
+  private async loadOffsetForBeach(
+    beachId: string
+  ): Promise<BeachHeightOffsetRow | null> {
+    try {
+      const supabase = createServiceRoleClient();
+      const { data, error } = await supabase
+        .from("beach_height_offsets" as never)
+        .select(
+          "offset_m, sample_count, mae_before_m, mae_after_m, computed_at"
+        )
+        .eq("beach_id", beachId)
+        .eq("source", "display")
+        .maybeSingle();
+
+      if (error || !data) return null;
+      return data as unknown as BeachHeightOffsetRow;
+    } catch (err) {
+      log.warn("loadOffsetForBeach failed", {
+        beachId,
+        err: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
   }
 
   /**
@@ -240,6 +412,8 @@ export class ForecastBuilder {
     ioosWaterTempC: number | null;
     coopsWaterTempC: number | null;
     nowcastAnchor: NowcastAnchor | null;
+    heightOffset: BeachHeightOffsetRow | null;
+    snapshotBuffer: DisplayPredictionRow[];
   }): EnhancedForecastWithRawData {
     const {
       beach,
@@ -261,7 +435,105 @@ export class ForecastBuilder {
       ioosWaterTempC,
       coopsWaterTempC,
       nowcastAnchor,
+      heightOffset,
+      snapshotBuffer,
     } = params;
+
+    // Compute wave height once and capture provenance metadata for raw_forecast.
+    // The debug record explains which source/transform path produced the number,
+    // making post-hoc "why does Quiver show X?" questions answerable from one row.
+    const waveHeightResult = this.getWaveHeight(
+      cdipPoint,
+      wavePoint,
+      buoyData,
+      useCDIPData,
+      beach,
+      nowcastAnchor,
+    );
+
+    // Telemetry feedback-loop invariant: parse the PRE-offset display value
+    // and capture rawDisplayHeightFt BEFORE applyBeachHeightOffset runs. The
+    // snapshot writer below uses this raw value directly; it never re-derives
+    // from enhanced_forecasts.wave_height (which would close a feedback loop
+    // once the cron starts writing offsets).
+    const parsedDisplay = parseDisplayHeightFt(waveHeightResult.value);
+    const rawDisplayHeightFt = parsedDisplay.numericFt;
+
+    // Compute the forecast horizon in hours from issue time (now) to the
+    // forecast slot. Used for both the offset gate (only 24h+ horizons in
+    // initial rollout) and the snapshot row's forecast_horizon_hours column.
+    const forecastHorizonHours =
+      (forecastTime.getTime() - now.getTime()) / (60 * 60 * 1000);
+
+    // Apply offset. The helper short-circuits to identity when:
+    //   - heightOffset is null (no row yet for this beach)
+    //   - beach.height_offset_enabled is false
+    //   - sample_count < min, computed_at stale, MAE not improved, etc.
+    // When ANY gate fails, correctedFt === rawDisplayHeightFt so wave_height
+    // is byte-identical to today's output.
+    const beachOffsetCfgRow = readBeachOffsetConfig(beach);
+    const correctedFt =
+      rawDisplayHeightFt == null
+        ? null
+        : applyBeachHeightOffset({
+            heightFt: rawDisplayHeightFt,
+            offsetM: heightOffset?.offset_m,
+            sampleCount: heightOffset?.sample_count,
+            enabled: beachOffsetCfgRow.enabled,
+            forecastHorizonHours,
+            computedAt: heightOffset?.computed_at ?? null,
+            maeBeforeM: heightOffset?.mae_before_m,
+            maeAfterM: heightOffset?.mae_after_m,
+            minSampleCount: beachOffsetCfgRow.minSampleCount,
+            maxOffsetAgeDays: beachOffsetCfgRow.maxAgeDays,
+          });
+
+    // Determine whether the offset actually applied (corrected differs from
+    // raw). When any gate fails, both numbers are equal and we emit null for
+    // height_offset_m/sample_count so analysis can distinguish "applied" from
+    // "no-op".
+    const offsetActuallyApplied =
+      rawDisplayHeightFt != null &&
+      correctedFt != null &&
+      Math.abs(correctedFt - rawDisplayHeightFt) > 1e-6;
+
+    // Re-stringify ONLY when the offset actually changed the value. When no
+    // offset applied (any gate failed) we leave the original string untouched
+    // so wave_height is byte-identical to today's output. Reformatting an
+    // unchanged value would needlessly diverge ("3 ft" → "3ft") and break the
+    // height_offset_enabled=false invariant.
+    const finalWaveHeightString =
+      offsetActuallyApplied && correctedFt != null
+        ? formatDisplayHeightFt({
+            numericFt: correctedFt,
+            rangeSpread: parsedDisplay.rangeSpread,
+          })
+        : waveHeightResult.value;
+
+    // Append snapshot row when the parser produced a numeric value. We do not
+    // snapshot rows where the display value was null/unparseable — the cron
+    // can't compute residuals against a missing prediction.
+    if (rawDisplayHeightFt != null && correctedFt != null) {
+      const rawDisplayHeightM = rawDisplayHeightFt / METERS_TO_FEET;
+      const correctedDisplayM = correctedFt / METERS_TO_FEET;
+      snapshotBuffer.push({
+        beach_id: beach.id,
+        predicted_at: getNormalizedForecastAt(forecastTime),
+        forecast_horizon_hours: Math.max(
+          0,
+          Math.round(forecastHorizonHours)
+        ),
+        raw_display_height_m: Number(rawDisplayHeightM.toFixed(3)),
+        offset_corrected_display_height_m: Number(correctedDisplayM.toFixed(3)),
+        height_offset_m: offsetActuallyApplied
+          ? heightOffset?.offset_m ?? null
+          : null,
+        height_offset_sample_count: offsetActuallyApplied
+          ? heightOffset?.sample_count ?? null
+          : null,
+        display_source: "face-Hs-transformer-v1",
+      });
+    }
 
     return {
       id: `forecast-${beach.id}-${forecastTime.getTime()}`,
@@ -273,7 +545,9 @@ export class ForecastBuilder {
       // still co-located on this row in `wave_height_om` for the Seaside ML
       // pipeline. The OM-primary scalar override (now removed) was inflating
       // display by ~2× because raw deep-water Hs is not face height.
-      wave_height: this.getWaveHeight(cdipPoint, wavePoint, buoyData, useCDIPData, beach, nowcastAnchor),
+      // Per-beach offset (when enabled + gates pass) is layered on TOP via
+      // applyBeachHeightOffset; otherwise byte-identical to waveHeightResult.value.
+      wave_height: finalWaveHeightString,
       wave_period: this.getWavePeriod(cdipPoint, wavePoint, buoyData, useCDIPData),
       wave_direction: this.getWaveDirection(cdipPoint, wavePoint, useCDIPData),
 
@@ -344,6 +618,8 @@ export class ForecastBuilder {
         isFirstOfDay,
         tideData,
         now,
+        waveHeightDebug: waveHeightResult.debug,
+        nowcastAnchor,
       }),
     } as EnhancedForecastWithRawData;
   }
@@ -359,9 +635,35 @@ export class ForecastBuilder {
     isFirstOfDay: boolean;
     tideData: COOPSForecast | null;
     now: Date;
+    waveHeightDebug: WaveHeightDebugInfo;
+    nowcastAnchor: NowcastAnchor | null;
   }): EnhancedForecastWithRawData["raw_forecast"] {
-    const { dataSources, useCDIPData, cdipData, confidenceScore, isFirstOfDay, tideData, now } =
-      params;
+    const {
+      dataSources,
+      useCDIPData,
+      cdipData,
+      confidenceScore,
+      isFirstOfDay,
+      tideData,
+      now,
+      waveHeightDebug,
+      nowcastAnchor,
+    } = params;
+
+    // Resolve the station_id for the wave-height provenance record. The
+    // debug info doesn't carry it because the transformer doesn't know which
+    // upstream row supplied each input — only the builder has that context.
+    const provenanceStationId = (() => {
+      switch (waveHeightDebug.source) {
+        case 'nowcast_anchor':
+          return nowcastAnchor?.stationId ?? null;
+        case 'cdip_sig':
+        case 'cdip_swell':
+          return cdipData?.stationId ?? null;
+        default:
+          return null;
+      }
+    })();
 
     return {
       data_sources: dataSources,
@@ -383,6 +685,23 @@ export class ForecastBuilder {
       fetch_timestamps: {
         cdip: cdipData?.lastUpdated,
         noaa: now.toISOString(),
+      },
+      wave_height_provenance: {
+        source: waveHeightDebug.source,
+        raw_value_ft: waveHeightDebug.rawHeightFt,
+        station_id: provenanceStationId,
+        transform_path: waveHeightDebug.transformPath,
+        components_used: waveHeightDebug.componentsUsed,
+        calibrated_shoaling_fired: waveHeightDebug.calibratedShoalingFired,
+        ...(waveHeightDebug.cdipRejection
+          ? {
+              cdip_rejection: {
+                reason: waveHeightDebug.cdipRejection.reason,
+                raw_cdip_hs: waveHeightDebug.cdipRejection.rawCdipHs,
+                raw_model_hs: waveHeightDebug.cdipRejection.rawModelHs,
+              },
+            }
+          : {}),
       },
       ...(isFirstOfDay && tideData && tideData.tides && tideData.tides.length > 0
         ? {
@@ -515,7 +834,7 @@ export class ForecastBuilder {
     useCDIPData: boolean,
     beach: Beach,
     nowcastAnchor: NowcastAnchor | null = null,
-  ): string | null {
+  ): { value: string | null; debug: WaveHeightDebugInfo } {
     // Extract period: prefer anchor period when anchored, else CDIP peak, model swell, buoy.
     const periodS =
       nowcastAnchor?.wavePeriodS ??
@@ -599,15 +918,29 @@ export class ForecastBuilder {
     // The decomposed variant falls back to the scalar path internally when no
     // component slots are populated, so it is always safe to call even when
     // wavePoint is null.
-    // When a nowcast anchor is active, swap in the observation Hs via the
-    // ndbcBuoyM slot AND pass empty components. The decomposed branch sums
-    // over populated components and never reads `rawHeightFt` when any are
-    // present — so keeping NOAA's components would silently discard the
-    // anchor height. Empty components forces the legacy scalar path, which
-    // runs `rawHeightFt` through the period+alignment shoaling transform
-    // using anchor-provided period/direction. See plan golden-sleeping-steele.md.
+    //
+    // Branch priority:
+    //   1. Nowcast anchor active → buoy observation drives Hs (scalar path).
+    //   2. CDIP data present → CDIP Hs drives the scalar calibrated path.
+    //      Without this branch, populated NOAA components would silently
+    //      override CDIP `Hs` because the decomposed transformer sums
+    //      components and never reads `rawHeightFt` (and so the per-beach
+    //      `shoaling_factors` calibration, gated on `cdip_sig` source, is
+    //      bypassed). selectWaveHeightSource still handles CDIP outlier
+    //      rejection (>10ft or >1.8× model); on rejection it falls back to
+    //      model_swell and the legacy generic pipeline runs.
+    //   3. NOAA-only or buoy fallback → original decomposed path.
+
+    // Branch 1: Nowcast anchor.
+    // Swap in the observation Hs via the ndbcBuoyM slot AND pass empty
+    // components. The decomposed branch sums over populated components and
+    // never reads `rawHeightFt` when any are present — so keeping NOAA's
+    // components would silently discard the anchor height. Empty components
+    // forces the legacy scalar path, which runs `rawHeightFt` through the
+    // period+alignment shoaling transform using anchor-provided period/
+    // direction. See plan golden-sleeping-steele.md.
     if (nowcastAnchor) {
-      return toFaceHeightFeetDecomposed({
+      const result = toFaceHeightFeetDecomposedWithDebug({
         cdipSigFt: undefined,
         cdipSwellFt: undefined,
         modelSwellM: undefined,
@@ -618,9 +951,33 @@ export class ForecastBuilder {
         swellDirectionDeg,
         components: [null, null, null],
       });
+      return {
+        value: result.value,
+        debug: { ...result.debug, source: 'nowcast_anchor' },
+      };
     }
 
-    return toFaceHeightFeetDecomposed({
+    // Branch 2: CDIP data present. Force the scalar/legacy path so CDIP `Hs`
+    // is read as `rawHeightFt` with `source = 'cdip_sig'`, which triggers the
+    // per-beach `shoaling_factors` short-circuit (when calibrated) instead of
+    // letting NOAA component decomposition discard CDIP entirely.
+    if (useCDIPData && cdipPoint) {
+      const result = toFaceHeightFeetDecomposedWithDebug({
+        cdipSigFt: cdipPoint.significantWaveHeight ?? undefined,
+        cdipSwellFt: cdipPoint.swellHeight ?? undefined,
+        modelSwellM: wavePoint?.swell_1_height ?? undefined,
+        modelHsM: wavePoint?.significant_wave_height ?? undefined,
+        ndbcBuoyM: buoyData?.wave_height ?? undefined,
+        beach: beachTerrain,
+        periodS,
+        swellDirectionDeg,
+        components: [null, null, null],
+      });
+      return result;
+    }
+
+    // Branch 3: NOAA-only / buoy fallback — original decomposed path.
+    return toFaceHeightFeetDecomposedWithDebug({
       cdipSigFt: cdipPoint?.significantWaveHeight ?? undefined,
       cdipSwellFt: cdipPoint?.swellHeight ?? undefined,
       modelSwellM: wavePoint?.swell_1_height ?? undefined,

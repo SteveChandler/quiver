@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { NowcastAnchor } from "./nowcast-anchor.types";
+import type { LatestObservation, NowcastAnchor } from "./nowcast-anchor.types";
+import { STALENESS_THRESHOLDS } from "@/lib/config/forecast-staleness";
 
-const DEFAULT_MAX_AGE_HOURS = 6;
+const DEFAULT_MAX_AGE_HOURS = STALENESS_THRESHOLDS.NOWCAST_ANCHOR;
 const LOG_PREFIX = "[nowcast-anchor]";
 
 type FetchOptions = {
@@ -71,4 +72,30 @@ export async function fetchNowcastAnchors(
     console.warn(`${LOG_PREFIX} unexpected failure, falling through to forecast-only`, err);
     return new Map();
   }
+}
+
+/**
+ * Fetch the latest buoy observation for a single beach, for the display-side
+ * "live channel" UI on the beach detail page. Returns null when no station
+ * resolves, no fresh observation exists, or the RPC fails.
+ *
+ * Reuses `get_nowcast_anchors` to keep one source of truth for what counts
+ * as a fresh observation. The map-style fetcher is overkill for single-beach
+ * reads on the request path, hence this thin wrapper.
+ */
+export async function fetchLatestObservation(
+  supabase: SupabaseClient,
+  beachId: string,
+  options: FetchOptions = {},
+): Promise<LatestObservation | null> {
+  const map = await fetchNowcastAnchors(supabase, options);
+  const anchor = map.get(beachId);
+  if (!anchor) return null;
+  return {
+    stationId: anchor.stationId,
+    observedAt: anchor.observedAt,
+    waveHeightM: anchor.waveHeightM,
+    wavePeriodS: anchor.wavePeriodS,
+    waveDirectionDeg: anchor.waveDirectionDeg,
+  };
 }

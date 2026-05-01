@@ -1,0 +1,191 @@
+/**
+ * Tests for the display-prediction snapshot writer.
+ *
+ * Critical invariants verified here:
+ *  1. Env-gated: missing SUPABASE_SERVICE_ROLE_KEY → no insert + warn.
+ *  2. Fire-and-forget: supabase failures NEVER throw to caller.
+ *  3. Batch insert: a single supabase call regardless of N rows.
+ *  4. Payload shape: every required column present.
+ */
+
+import {
+  logDisplayPredictions,
+  type DisplayPredictionRow,
+} from "../log-display-prediction";
+
+// Capture supabase calls. We swap the service-role factory so we observe the
+// .from("ml_predictions_log").insert(payload) flow.
+const insertMock: jest.Mock = jest.fn();
+const fromMock: jest.Mock = jest.fn(() => ({ insert: insertMock }));
+
+jest.mock("@/lib/supabase", () => ({
+  createServiceRoleClient: () => ({
+    from: (table: string) => fromMock(table),
+  }),
+}));
+
+// Silence the logger.
+jest.mock("@/lib/logger", () => ({
+  createContextLogger: () => ({
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  }),
+}));
+
+const sampleRow = (
+  overrides: Partial<DisplayPredictionRow> = {}
+): DisplayPredictionRow => ({
+  beach_id: "beach-1",
+  predicted_at: "2026-05-01T00:00:00Z",
+  forecast_horizon_hours: 24,
+  raw_display_height_m: 1.234,
+  offset_corrected_display_height_m: 1.123,
+  height_offset_m: 0.111,
+  height_offset_sample_count: 42,
+  display_source: "face-Hs-transformer-v1",
+  ...overrides,
+});
+
+describe("logDisplayPredictions", () => {
+  const ORIGINAL_ENV = process.env;
+
+  beforeEach(() => {
+    jest.resetAllMocks();
+    insertMock.mockResolvedValue({ data: null, error: null });
+    fromMock.mockImplementation(() => ({ insert: insertMock }));
+    process.env = {
+      ...ORIGINAL_ENV,
+      SUPABASE_SERVICE_ROLE_KEY: "test-service-key",
+      NEXT_PUBLIC_SUPABASE_URL: "https://test.supabase.co",
+    };
+  });
+
+  afterAll(() => {
+    process.env = ORIGINAL_ENV;
+  });
+
+  it("returns immediately for empty input", async () => {
+    await logDisplayPredictions([]);
+    expect(insertMock).not.toHaveBeenCalled();
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  it("env-gated: missing SUPABASE_SERVICE_ROLE_KEY skips insert + warns", async () => {
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    // Should not throw and should not insert anything.
+    await expect(
+      logDisplayPredictions([sampleRow()])
+    ).resolves.toBeUndefined();
+    expect(insertMock).not.toHaveBeenCalled();
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  it("env-gated: missing NEXT_PUBLIC_SUPABASE_URL skips insert", async () => {
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    await logDisplayPredictions([sampleRow()]);
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("performs ONE batch insert for N rows", async () => {
+    const rows = [
+      sampleRow({ predicted_at: "2026-05-01T00:00:00Z" }),
+      sampleRow({ predicted_at: "2026-05-01T03:00:00Z" }),
+      sampleRow({ predicted_at: "2026-05-01T06:00:00Z" }),
+      sampleRow({ predicted_at: "2026-05-01T09:00:00Z" }),
+      sampleRow({ predicted_at: "2026-05-01T12:00:00Z" }),
+    ];
+
+    await logDisplayPredictions(rows);
+
+    // ONE supabase.from() call, ONE .insert() call.
+    expect(fromMock).toHaveBeenCalledTimes(1);
+    expect(fromMock).toHaveBeenCalledWith("ml_predictions_log");
+    expect(insertMock).toHaveBeenCalledTimes(1);
+
+    const payload = insertMock.mock.calls[0][0];
+    expect(Array.isArray(payload)).toBe(true);
+    expect(payload).toHaveLength(5);
+  });
+
+  it("payload includes all required snapshot columns", async () => {
+    await logDisplayPredictions([
+      sampleRow({
+        beach_id: "beach-99",
+        predicted_at: "2026-05-01T00:00:00Z",
+        forecast_horizon_hours: 48,
+        raw_display_height_m: 2.5,
+        offset_corrected_display_height_m: 2.2,
+        height_offset_m: 0.3,
+        height_offset_sample_count: 60,
+        display_source: "face-Hs-transformer-v1",
+      }),
+    ]);
+
+    const payload = insertMock.mock.calls[0][0];
+    expect(payload[0]).toEqual({
+      beach_id: "beach-99",
+      predicted_at: "2026-05-01T00:00:00Z",
+      forecast_horizon_hours: 48,
+      raw_display_height_m: 2.5,
+      offset_corrected_display_height_m: 2.2,
+      height_offset_m: 0.3,
+      height_offset_sample_count: 60,
+      display_source: "face-Hs-transformer-v1",
+      // model_version falls back to display_source so the NOT NULL constraint
+      // on ml_predictions_log.model_version is always satisfied.
+      model_version: "face-Hs-transformer-v1",
+    });
+  });
+
+  it("respects explicit model_version override", async () => {
+    await logDisplayPredictions([
+      sampleRow({ model_version: "explicit-model-v2" }),
+    ]);
+    const payload = insertMock.mock.calls[0][0];
+    expect(payload[0].model_version).toBe("explicit-model-v2");
+  });
+
+  it("supabase insert failure does NOT throw to caller (fire-and-forget)", async () => {
+    insertMock.mockResolvedValueOnce({
+      data: null,
+      error: { message: "constraint violation", code: "23505" },
+    });
+
+    // Must resolve, not reject.
+    await expect(logDisplayPredictions([sampleRow()])).resolves.toBeUndefined();
+  });
+
+  it("unexpected synchronous throw inside client does NOT propagate", async () => {
+    fromMock.mockImplementationOnce(() => {
+      throw new Error("client-construction blew up");
+    });
+
+    await expect(logDisplayPredictions([sampleRow()])).resolves.toBeUndefined();
+  });
+
+  it("rejected insert promise does NOT propagate", async () => {
+    insertMock.mockRejectedValueOnce(new Error("network died"));
+
+    await expect(logDisplayPredictions([sampleRow()])).resolves.toBeUndefined();
+  });
+
+  it("handles null offset rows (no offset applied)", async () => {
+    await logDisplayPredictions([
+      sampleRow({
+        height_offset_m: null,
+        height_offset_sample_count: null,
+        offset_corrected_display_height_m: 1.234, // equal to raw
+      }),
+    ]);
+
+    const payload = insertMock.mock.calls[0][0];
+    expect(payload[0].height_offset_m).toBeNull();
+    expect(payload[0].height_offset_sample_count).toBeNull();
+    expect(payload[0].offset_corrected_display_height_m).toBe(
+      payload[0].raw_display_height_m
+    );
+  });
+});

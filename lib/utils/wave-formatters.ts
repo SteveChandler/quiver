@@ -403,6 +403,17 @@ export interface WaveHeightSource {
    * two files in sync.
    */
   source: WaveHeightSourceTag;
+  /**
+   * Set when CDIP Hs was passed in but the selector rejected it as an
+   * outlier and fell back to a non-CDIP source. Populated for traceability
+   * (see `WaveHeightDebugInfo`). Absent when CDIP was either chosen as the
+   * source or simply not available.
+   */
+  cdipRejection?: {
+    reason: 'cdip_too_large' | 'cdip_outlier_vs_model';
+    rawCdipHs: number;
+    rawModelHs: number | null;
+  };
 }
 
 /**
@@ -431,29 +442,64 @@ export function selectWaveHeightSource(
   if (cdipSig !== undefined && cdipSig <= MAX_TRUSTED_CDIP_FT) {
     // If we also have model swell and CDIP is a large outlier, defer to model
     if (modelSwell !== undefined && cdipSig > modelSwell * CDIP_OUTLIER_THRESHOLD) {
-      return { heightFt: modelSwell, source: 'model_swell' };
+      return {
+        heightFt: modelSwell,
+        source: 'model_swell',
+        cdipRejection: {
+          reason: 'cdip_outlier_vs_model',
+          rawCdipHs: cdipSig,
+          rawModelHs: modelSwell,
+        },
+      };
     }
     return { heightFt: cdipSig, source: 'cdip_sig' };
   }
 
+  // CDIP present but exceeds MAX_TRUSTED_CDIP_FT — record rejection so the
+  // caller can surface why we fell off the CDIP path.
+  const cdipTooLargeRejection: WaveHeightSource['cdipRejection'] | undefined =
+    cdipSig !== undefined && cdipSig > MAX_TRUSTED_CDIP_FT
+      ? {
+          reason: 'cdip_too_large',
+          rawCdipHs: cdipSig,
+          rawModelHs: modelSwell ?? null,
+        }
+      : undefined;
+
   // Prefer model primary swell
   if (modelSwell !== undefined) {
-    return { heightFt: modelSwell, source: 'model_swell' };
+    return {
+      heightFt: modelSwell,
+      source: 'model_swell',
+      ...(cdipTooLargeRejection ? { cdipRejection: cdipTooLargeRejection } : {}),
+    };
   }
 
   // CDIP swell as fallback
   if (cdipSwell !== undefined) {
-    return { heightFt: cdipSwell, source: 'cdip_swell' };
+    return {
+      heightFt: cdipSwell,
+      source: 'cdip_swell',
+      ...(cdipTooLargeRejection ? { cdipRejection: cdipTooLargeRejection } : {}),
+    };
   }
 
   // Model Hs as last resort
   if (modelHs !== undefined) {
-    return { heightFt: modelHs, source: 'model_hs' };
+    return {
+      heightFt: modelHs,
+      source: 'model_hs',
+      ...(cdipTooLargeRejection ? { cdipRejection: cdipTooLargeRejection } : {}),
+    };
   }
 
   // NDBC buoy as final fallback
   if (ndbcBuoy !== undefined) {
-    return { heightFt: ndbcBuoy, source: 'ndbc_buoy' };
+    return {
+      heightFt: ndbcBuoy,
+      source: 'ndbc_buoy',
+      ...(cdipTooLargeRejection ? { cdipRejection: cdipTooLargeRejection } : {}),
+    };
   }
 
   return null;
@@ -571,8 +617,67 @@ export interface DecomposedFaceHeightParams extends FaceHeightParams {
 export function toFaceHeightFeetDecomposed(
   params: DecomposedFaceHeightParams,
 ): string | null {
+  return toFaceHeightFeetDecomposedWithDebug(params).value;
+}
+
+/**
+ * Provenance metadata emitted alongside a face-height computation.
+ *
+ * Surfaced from the forecast builder into `enhanced_forecasts.raw_forecast`
+ * so future "why does Quiver show X?" questions can be answered from one row.
+ *
+ * Fields:
+ * - `source`: which raw input was actually used (after CDIP outlier checks).
+ * - `rawHeightFt`: the raw input height in feet, before transformation.
+ * - `transformPath`: which math path inside the transformer fired.
+ *   - `'scalar_calibrated'`: `transformToFaceHeightWithMetadata` ran the
+ *     per-beach `shoaling_factors` short-circuit (CDIP source + bucket hit).
+ *   - `'scalar_generic'`: legacy `base × period × direction` path.
+ *   - `'decomposed'`: per-component RMS sum with alignment weighting.
+ * - `componentsUsed`: true when the decomposed branch RMS-summed components.
+ * - `calibratedShoalingFired`: true when the empirical bucket lookup hit
+ *   (only possible when source is `cdip_sig` and the beach has factors).
+ * - `cdipRejection`: present when `selectWaveHeightSource` rejected CDIP as
+ *   an outlier and fell back to model/NDBC. Records the why for traceability.
+ */
+export interface WaveHeightDebugInfo {
+  source: WaveHeightSourceTag | null;
+  rawHeightFt: number | null;
+  transformPath: 'scalar_calibrated' | 'scalar_generic' | 'decomposed' | null;
+  componentsUsed: boolean;
+  calibratedShoalingFired: boolean;
+  cdipRejection?: {
+    reason: 'cdip_too_large' | 'cdip_outlier_vs_model';
+    rawCdipHs: number;
+    rawModelHs: number | null;
+  };
+}
+
+/**
+ * Sibling of `toFaceHeightFeetDecomposed` that also returns provenance
+ * metadata. Used by the forecast builder to populate `raw_forecast` so every
+ * stored row carries enough information to explain its own number.
+ *
+ * Behavior is identical to `toFaceHeightFeetDecomposed` — same selector,
+ * same transformer, same clamp/round. The only difference is the return
+ * shape includes `debug`.
+ */
+export function toFaceHeightFeetDecomposedWithDebug(
+  params: DecomposedFaceHeightParams,
+): { value: string | null; debug: WaveHeightDebugInfo } {
   const source = selectWaveHeightSource(params);
-  if (!source) return null;
+  if (!source) {
+    return {
+      value: null,
+      debug: {
+        source: null,
+        rawHeightFt: null,
+        transformPath: null,
+        componentsUsed: false,
+        calibratedShoalingFired: false,
+      },
+    };
+  }
 
   const result = transformToFaceHeightDecomposed({
     components: params.components,
@@ -585,7 +690,25 @@ export function toFaceHeightFeetDecomposed(
 
   const clamped = clampWaveHeight(result.faceHeightFt);
   const rounded = roundWaveHeight(clamped);
-  return `${rounded} ft`;
+
+  const transformPath: WaveHeightDebugInfo['transformPath'] =
+    result.path === 'decomposed'
+      ? 'decomposed'
+      : result.isCalibrated
+        ? 'scalar_calibrated'
+        : 'scalar_generic';
+
+  return {
+    value: `${rounded} ft`,
+    debug: {
+      source: source.source,
+      rawHeightFt: source.heightFt,
+      transformPath,
+      componentsUsed: result.path === 'decomposed',
+      calibratedShoalingFired: result.isCalibrated,
+      ...(source.cdipRejection ? { cdipRejection: source.cdipRejection } : {}),
+    },
+  };
 }
 
 /**

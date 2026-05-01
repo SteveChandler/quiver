@@ -531,7 +531,7 @@ function didTideEnterRange(prevTide: number, currentTide: number): boolean {
 /**
  * Finds the time of peak score within the window
  */
-function findPeakTime(
+export function findPeakTime(
   scoredForecasts: ScoredForecast[],
   startIndex: number,
   endIndex: number
@@ -550,7 +550,27 @@ function findPeakTime(
     }
   }
 
-  return scoredForecasts[peakIndex].forecast.forecastTime;
+  const peak = scoredForecasts[peakIndex];
+  const peakTideStatus = peak.forecast.tideStatus;
+  const isSlack =
+    peakTideStatus === 'slack-high' || peakTideStatus === 'slack-low';
+  if (isSlack) {
+    let bestNonSlackIndex = -1;
+    for (let i = startIndex; i <= endIndex; i++) {
+      const s = scoredForecasts[i];
+      const ts = s.forecast.tideStatus;
+      if (ts !== 'slack-high' && ts !== 'slack-low' && peak.score - s.score <= 5) {
+        if (bestNonSlackIndex === -1 || s.score > scoredForecasts[bestNonSlackIndex].score) {
+          bestNonSlackIndex = i;
+        }
+      }
+    }
+    if (bestNonSlackIndex !== -1) {
+      return scoredForecasts[bestNonSlackIndex].forecast.forecastTime;
+    }
+  }
+
+  return peak.forecast.forecastTime;
 }
 
 // Threshold for multi-window viability (lower than single-window to surface more options)

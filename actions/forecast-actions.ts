@@ -7,9 +7,11 @@ import { isDataStale } from "@/lib/utils/forecast-client-utils";
 import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 import { resolveConfidence } from "@/lib/monitoring/fallback-helpers";
 import { extractForecastDate as extractForecastDateFromAt } from "@/lib/utils/forecast-at-adapter";
+import { fetchLatestObservation } from "@/lib/services/observations/nowcast-anchor";
 import type { Beach, Forecast } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { ForecastTimeInfo } from "@/lib/utils/current-forecast-utils";
+import type { LatestObservation } from "@/lib/services/observations/nowcast-anchor.types";
 
 // Metadata interface for forecast transparency
 export interface ForecastMetadata {
@@ -224,16 +226,22 @@ export async function getBeachForecastPreview(beachId: string) {
 
     const dayAfterTomorrow = new Date(new Date(tomorrow + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
 
-    // Get today's and tomorrow's forecasts from enhanced_forecasts table (to handle forward-looking logic)
-    const { data: enhancedForecasts, error: enhancedError } = await (supabase as any)
-      .from("enhanced_forecasts")
-      .select(
-        "forecast_at, forecast_date, forecast_time, wave_height, wind_speed, wind_direction, weather_condition, confidence_score, data_source"
-      )
-      .eq("beach_id", beachId)
-      .gte("forecast_at", `${today}T00:00:00Z`)
-      .lt("forecast_at", `${dayAfterTomorrow}T00:00:00Z`)
-      .order("forecast_at", { ascending: true });
+    // Forecast row + latest live-buoy observation fetched in parallel — both
+    // feed the beach detail hero (forecast number + LiveBuoyChip).
+    const [enhancedResult, latestObservation] = await Promise.all([
+      (supabase as any)
+        .from("enhanced_forecasts")
+        .select(
+          "forecast_at, forecast_date, forecast_time, wave_height, wind_speed, wind_direction, weather_condition, confidence_score, data_source"
+        )
+        .eq("beach_id", beachId)
+        .gte("forecast_at", `${today}T00:00:00Z`)
+        .lt("forecast_at", `${dayAfterTomorrow}T00:00:00Z`)
+        .order("forecast_at", { ascending: true }),
+      fetchLatestObservation(supabase, beachId),
+    ]);
+
+    const { data: enhancedForecasts, error: enhancedError } = enhancedResult;
 
     if (enhancedError) {
       console.error("Error fetching enhanced forecast preview:", enhancedError);
@@ -253,6 +261,9 @@ export async function getBeachForecastPreview(beachId: string) {
             wind_direction: currentForecast.wind_direction,
             weather_condition: currentForecast.weather_condition,
             confidence_score: currentForecast.confidence_score,
+            // Live-buoy channel — peer to the forecast number, displayed in
+            // the LiveBuoyChip. Null when no station resolves or no fresh obs.
+            latestObservation,
             // Include metadata for transparency
             metadata: {
               primarySource: currentForecast.data_source || "FALLBACK",

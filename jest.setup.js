@@ -318,6 +318,7 @@ const ALLOWED_CONSOLE_PATTERNS = [
   /\[Sentry Cron\]/,
   /\[cam-resolve\]/,
   /\[hls-proxy\]/,
+  /\[LogDisplayPrediction\]/,
   /GoTrueClient.*Multiple GoTrueClient instances/,
   /limit exceeded/,
   /must be authenticated/,
