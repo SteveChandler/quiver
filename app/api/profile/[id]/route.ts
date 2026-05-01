@@ -58,6 +58,26 @@ const profileHandler = withAuth(
         return createSuccessResponse({ error: "User ID is required" }, 400);
       }
 
+      // Block filter: if the authenticated caller has blocked this profile
+      // owner, surface 404 so blocked users are functionally invisible. Skips
+      // the check when caller is unauthenticated (no blocklist context).
+      // Self-views are exempt — you can't block yourself.
+      if (user && user.id !== userId) {
+        const { data: block, error: blockErr } = await supabase
+          .from("user_blocks")
+          .select("blocked_id")
+          .eq("blocker_id", user.id)
+          .eq("blocked_id", userId)
+          .maybeSingle();
+        if (blockErr) throw blockErr;
+        if (block) {
+          return NextResponse.json(
+            { success: false, error: "Profile not found", timestamp: new Date().toISOString() },
+            { status: 404 },
+          );
+        }
+      }
+
       // Get user profile DTO via view; fallback to joined query if the view is missing in dev/test
       let base: ProfileDTO | null = null;
       try {

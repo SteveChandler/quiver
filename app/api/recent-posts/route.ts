@@ -24,17 +24,30 @@ async function recentPostsHandler(request: NextRequest): Promise<NextResponse> {
     // Calculate offset for pagination
     const offset = (page - 1) * limit;
 
+    // Block filter: exclude sessions authored by users the caller has blocked.
+    // RLS on user_blocks (blocker_id = auth.uid()) returns rows only for the
+    // authenticated caller — empty for anonymous callers. Fail closed on errors.
+    const { data: blocks, error: blocksError } = await supabase
+      .from("user_blocks")
+      .select("blocked_id");
+    if (blocksError) throw blocksError;
+    const blockedAuthorIds = (blocks ?? []).map((b) => b.blocked_id as string);
+
     // First, get total count of matching sessions
-    const { count } = await supabase
+    let countQuery = supabase
       .from("sessions")
       .select("*", { count: "exact", head: true })
       .eq("status", "completed")
       .not("image_url", "is", null);
+    if (blockedAuthorIds.length > 0) {
+      countQuery = countQuery.not("user_id", "in", `(${blockedAuthorIds.join(",")})`);
+    }
+    const { count } = await countQuery;
 
     const total = count || 0;
 
     // Fetch paginated recent completed sessions with profile and media information
-    const { data: sessions, error } = await supabase
+    let dataQuery = supabase
       .from("sessions")
       .select(
         `
@@ -62,7 +75,11 @@ async function recentPostsHandler(request: NextRequest): Promise<NextResponse> {
       `
       )
       .eq("status", "completed")
-      .not("image_url", "is", null)
+      .not("image_url", "is", null);
+    if (blockedAuthorIds.length > 0) {
+      dataQuery = dataQuery.not("user_id", "in", `(${blockedAuthorIds.join(",")})`);
+    }
+    const { data: sessions, error } = await dataQuery
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 

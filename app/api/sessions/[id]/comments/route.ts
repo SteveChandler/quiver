@@ -11,13 +11,13 @@ import { parseAndValidateJson } from "@/lib/validation/middleware";
 import { CommentSchema } from "@/lib/validation/schemas";
 
 export const GET = withAuth(
-  async (_request: NextRequest, { supabase, params }: AuthenticatedContext) => {
+  async (_request: NextRequest, { user, supabase, params }: AuthenticatedContext) => {
     const sessionResult = validateUuidParam(params.id, "session");
     if ("error" in sessionResult) return sessionResult.error;
 
     const sessionId = sessionResult.value;
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("comments")
       .select(
         `
@@ -27,6 +27,23 @@ export const GET = withAuth(
       )
       .eq("session_id", sessionId)
       .order("created_at", { ascending: false });
+
+    // Hide comments authored by users the caller has blocked. Fail CLOSED
+    // on query errors — silently exposing blocked authors because of a
+    // transient lookup failure would defeat the moderation contract.
+    if (user) {
+      const { data: blocks, error: blocksError } = await supabase
+        .from("user_blocks")
+        .select("blocked_id")
+        .eq("blocker_id", user.id);
+      if (blocksError) throw blocksError;
+      const blockedIds = (blocks ?? []).map((b) => b.blocked_id as string);
+      if (blockedIds.length > 0) {
+        query = query.not("user_id", "in", `(${blockedIds.join(",")})`);
+      }
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 

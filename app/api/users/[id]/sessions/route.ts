@@ -46,6 +46,22 @@ async function handler(
   // other-user lookups small to reduce load.
   const limit = parseLimit(url, 5, isOwn ? 200 : 20);
 
+  // Block filter: caller has blocked the target → return empty list. Don't
+  // 404 because some web consumers expect the array shape; an empty list
+  // matches "this user has no public sessions" semantics.
+  if (user && !isOwn) {
+    const { data: block, error: blockErr } = await supabase
+      .from("user_blocks")
+      .select("blocked_id")
+      .eq("blocker_id", user.id)
+      .eq("blocked_id", targetUserId)
+      .maybeSingle();
+    if (blockErr) throw blockErr;
+    if (block) {
+      return createSuccessResponse({ sessions: [] });
+    }
+  }
+
   let query = supabase
     .from("sessions")
     .select(
