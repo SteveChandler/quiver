@@ -819,6 +819,46 @@ describe("processPendingEvents — push provider details", () => {
 
     expect(state.deviceDeletes).toEqual(["bad-token"]);
   });
+
+  it("Expo push token routes through Expo Push Service without calling FCM", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        data: [{ status: "ok", id: "ticket-1" }],
+      }),
+    })) as unknown as typeof fetch;
+
+    try {
+      const state = emptyState();
+      state.events.push(buildEvent());
+      state.profiles.set("user-recipient", buildProfile());
+      state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+      state.devices.set("user-recipient", ["ExponentPushToken[expo-abc]"]);
+
+      const fakeFcm = {
+        sendEach: jest.fn(async () => ({
+          successCount: 1,
+          failureCount: 0,
+          responses: [{ success: true }],
+        })),
+      };
+
+      const summary = await processPendingEvents(buildMockSupabase(state) as never, {
+        now: NOON_PT,
+        fcm: fakeFcm as never,
+      });
+
+      expect(summary.processed).toBe(1);
+      expect(fakeFcm.sendEach).not.toHaveBeenCalled();
+      expect(global.fetch).toHaveBeenCalledWith(
+        "https://exp.host/--/api/v2/push/send",
+        expect.objectContaining({ method: "POST" })
+      );
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
 });
 
 describe("processPendingEvents — atomic claim (concurrency)", () => {

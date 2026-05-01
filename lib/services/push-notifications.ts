@@ -7,6 +7,10 @@
 import type { messaging } from "firebase-admin";
 import { getFirebaseAdminMessaging } from "./firebase-admin";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import {
+  dispatchPushMessages,
+  type PushMessage as SharedPushMessage,
+} from "./push-delivery";
 
 interface SendSessionInvitePushParams {
   inviteeIds: string[];
@@ -23,32 +27,9 @@ interface PushResult {
   errors?: string[];
 }
 
-export interface PushMessage {
-  to: string;
-  title: string;
-  body: string;
-  data?: Record<string, unknown>;
-  sound?: string;
-  imageUrl?: string;
-  android?: messaging.AndroidConfig;
-  apns?: messaging.ApnsConfig;
-}
+export type PushMessage = SharedPushMessage;
 
 let firebaseSkipWarned = false;
-
-const INVALID_TOKEN_ERROR_CODES = new Set([
-  "messaging/registration-token-not-registered",
-  "messaging/invalid-registration-token",
-]);
-
-function stringifyDataPayload(data: Record<string, unknown>): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(data).map(([k, v]) => [
-      k,
-      typeof v === "string" ? v : JSON.stringify(v),
-    ])
-  );
-}
 
 /**
  * Core Firebase Admin sender. Takes fully-built messages, fans out via
@@ -69,26 +50,8 @@ async function sendViaFirebase(messages: PushMessage[]): Promise<PushResult> {
     return { success: 0, failed: messages.length, errors: ["Firebase not configured"] };
   }
 
-  const firebaseMessages: messaging.Message[] = messages.map((m) => ({
-    token: m.to,
-    notification: {
-      title: m.title,
-      body: m.body,
-      ...(m.imageUrl ? { imageUrl: m.imageUrl } : {}),
-    },
-    ...(m.data ? { data: stringifyDataPayload(m.data) } : {}),
-    ...(m.android ? { android: m.android } : {}),
-    ...(m.apns ? { apns: m.apns } : {}),
-  }));
-
-  const response = await fcm.sendEach(firebaseMessages);
-
-  const invalidTokens: string[] = [];
-  response.responses.forEach((resp, idx) => {
-    if (resp.error && INVALID_TOKEN_ERROR_CODES.has(resp.error.code)) {
-      invalidTokens.push(messages[idx].to);
-    }
-  });
+  const result = await dispatchPushMessages({ messages, fcm });
+  const invalidTokens = result.invalidTokens;
 
   if (invalidTokens.length > 0) {
     console.log(`Pruning ${invalidTokens.length} invalid device tokens`);
@@ -103,7 +66,11 @@ async function sendViaFirebase(messages: PushMessage[]): Promise<PushResult> {
     }
   }
 
-  return { success: response.successCount, failed: response.failureCount };
+  return {
+    success: result.success,
+    failed: result.failed,
+    ...(result.errors.length > 0 ? { errors: result.errors } : {}),
+  };
 }
 
 /**
