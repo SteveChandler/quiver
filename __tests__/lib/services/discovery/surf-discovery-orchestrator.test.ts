@@ -189,7 +189,18 @@ jest.mock('@/lib/logger', () => ({
 
 // Mock scoring function
 jest.mock('@/lib/domains/scoring', () => ({
-  createDiscoveryScoringEngine: jest.fn(() => ({})),
+  // Engine stub: score() returns a CompositeScore-like with .total used by
+  // computeWindowSlotScores. .skip = false so the helper doesn't short-circuit.
+  createDiscoveryScoringEngine: jest.fn(() => ({
+    score: jest.fn(() => ({
+      total: 70,
+      subscores: new Map(),
+      reasons: [],
+      warnings: [],
+      skip: false,
+      skipReason: null,
+    })),
+  })),
   scoreBeachWithEngine: jest.fn(() => ({
     total: 75,
     subscores: {
@@ -206,6 +217,31 @@ jest.mock('@/lib/domains/scoring', () => ({
     warnings: [],
     conditionBadges: [],
   })),
+  // Stubs for the helpers the orchestrator now invokes pre-rerank to populate
+  // rec.spotProfile and rec.windowSlotScores. Returns minimal objects shaped
+  // like the real domain types.
+  beachToSpotProfile: jest.fn((beach) => ({
+    beachId: beach?.id ?? 'mock-beach',
+    swellWindow: { minDeg: 200, maxDeg: 320, centerDeg: 260, halfWidthDeg: 60 },
+    windThresholds: { offshoreDeg: 90, offshoreTolDeg: 45, maxOnshoreMph: 10, maxAnyMph: 18 },
+    tidePreferences: { preferredMinFt: 0, preferredMaxFt: 5, preferredDirection: 'either' },
+    skillLevel: 'intermediate',
+    breakType: 'beach',
+  })),
+  forecastToSnapshot: jest.fn(() => ({
+    timestamp: new Date(),
+    waveHeight: 3,
+    wavePeriod: 10,
+    waveDirection: 270,
+    primarySwell: { heightFt: 3, periodS: 10, directionDeg: 270 },
+    secondarySwell: null,
+    windWave: null,
+    wind: { speedMph: 5, directionDeg: 90 },
+    tide: { heightFt: 2.5, status: 'rising', direction: 'rising' },
+    confidence: 80,
+    dataSource: 'NOAA_NWS',
+  })),
+  getConditionCharacter: jest.fn(() => ({ label: 'Clean', category: 'good-clean' })),
 }));
 
 // Mock timezone utils
@@ -1258,7 +1294,38 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
-      createDiscoveryScoringEngine: jest.fn(() => ({})),
+      createDiscoveryScoringEngine: jest.fn(() => ({
+        score: jest.fn(() => ({
+          total: 70,
+          subscores: new Map(),
+          reasons: [],
+          warnings: [],
+          skip: false,
+          skipReason: null,
+        })),
+      })),
+      beachToSpotProfile: jest.fn((beach) => ({
+        beachId: beach?.id ?? 'mock-beach',
+        swellWindow: { minDeg: 200, maxDeg: 320, centerDeg: 260, halfWidthDeg: 60 },
+        windThresholds: { offshoreDeg: 90, offshoreTolDeg: 45, maxOnshoreMph: 10, maxAnyMph: 18 },
+        tidePreferences: { preferredMinFt: 0, preferredMaxFt: 5, preferredDirection: 'either' },
+        skillLevel: 'intermediate',
+        breakType: 'beach',
+      })),
+      forecastToSnapshot: jest.fn(() => ({
+        timestamp: new Date(),
+        waveHeight: 3,
+        wavePeriod: 10,
+        waveDirection: 270,
+        primarySwell: { heightFt: 3, periodS: 10, directionDeg: 270 },
+        secondarySwell: null,
+        windWave: null,
+        wind: { speedMph: 5, directionDeg: 90 },
+        tide: { heightFt: 2.5, status: 'rising', direction: 'rising' },
+        confidence: 80,
+        dataSource: 'NOAA_NWS',
+      })),
+      getConditionCharacter: jest.fn(() => ({ label: 'Clean', category: 'good-clean' })),
       scoreBeachWithEngine: jest.fn(() => ({
         total: 75,
         subscores: { waveHeightFit: 20, periodEnergyScore: 15, windAlignment: 15, tideFit: 12, affinityBonus: 0, personalizationBonus: 0, distancePenalty: 0 },
@@ -1429,7 +1496,38 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
-      createDiscoveryScoringEngine: jest.fn(() => ({})),
+      createDiscoveryScoringEngine: jest.fn(() => ({
+        score: jest.fn(() => ({
+          total: 70,
+          subscores: new Map(),
+          reasons: [],
+          warnings: [],
+          skip: false,
+          skipReason: null,
+        })),
+      })),
+      beachToSpotProfile: jest.fn((beach) => ({
+        beachId: beach?.id ?? 'mock-beach',
+        swellWindow: { minDeg: 200, maxDeg: 320, centerDeg: 260, halfWidthDeg: 60 },
+        windThresholds: { offshoreDeg: 90, offshoreTolDeg: 45, maxOnshoreMph: 10, maxAnyMph: 18 },
+        tidePreferences: { preferredMinFt: 0, preferredMaxFt: 5, preferredDirection: 'either' },
+        skillLevel: 'intermediate',
+        breakType: 'beach',
+      })),
+      forecastToSnapshot: jest.fn(() => ({
+        timestamp: new Date(),
+        waveHeight: 3,
+        wavePeriod: 10,
+        waveDirection: 270,
+        primarySwell: { heightFt: 3, periodS: 10, directionDeg: 270 },
+        secondarySwell: null,
+        windWave: null,
+        wind: { speedMph: 5, directionDeg: 90 },
+        tide: { heightFt: 2.5, status: 'rising', direction: 'rising' },
+        confidence: 80,
+        dataSource: 'NOAA_NWS',
+      })),
+      getConditionCharacter: jest.fn(() => ({ label: 'Clean', category: 'good-clean' })),
       scoreBeachWithEngine: jest.fn(() => ({
         total: 75,
         subscores: { waveHeightFit: 20, periodEnergyScore: 15, windAlignment: 15, tideFit: 12, affinityBonus: 0, personalizationBonus: 0, distancePenalty: 0 },
@@ -1594,7 +1692,38 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
-      createDiscoveryScoringEngine: jest.fn(() => ({})),
+      createDiscoveryScoringEngine: jest.fn(() => ({
+        score: jest.fn(() => ({
+          total: 70,
+          subscores: new Map(),
+          reasons: [],
+          warnings: [],
+          skip: false,
+          skipReason: null,
+        })),
+      })),
+      beachToSpotProfile: jest.fn((beach) => ({
+        beachId: beach?.id ?? 'mock-beach',
+        swellWindow: { minDeg: 200, maxDeg: 320, centerDeg: 260, halfWidthDeg: 60 },
+        windThresholds: { offshoreDeg: 90, offshoreTolDeg: 45, maxOnshoreMph: 10, maxAnyMph: 18 },
+        tidePreferences: { preferredMinFt: 0, preferredMaxFt: 5, preferredDirection: 'either' },
+        skillLevel: 'intermediate',
+        breakType: 'beach',
+      })),
+      forecastToSnapshot: jest.fn(() => ({
+        timestamp: new Date(),
+        waveHeight: 3,
+        wavePeriod: 10,
+        waveDirection: 270,
+        primarySwell: { heightFt: 3, periodS: 10, directionDeg: 270 },
+        secondarySwell: null,
+        windWave: null,
+        wind: { speedMph: 5, directionDeg: 90 },
+        tide: { heightFt: 2.5, status: 'rising', direction: 'rising' },
+        confidence: 80,
+        dataSource: 'NOAA_NWS',
+      })),
+      getConditionCharacter: jest.fn(() => ({ label: 'Clean', category: 'good-clean' })),
       scoreBeachWithEngine: jest.fn(() => ({
         total: 80,
         subscores: { waveHeightFit: 22, periodEnergyScore: 18, windAlignment: 16, tideFit: 12, affinityBonus: 0, personalizationBonus: 0, distancePenalty: 0 },
@@ -1747,7 +1876,38 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
-      createDiscoveryScoringEngine: jest.fn(() => ({})),
+      createDiscoveryScoringEngine: jest.fn(() => ({
+        score: jest.fn(() => ({
+          total: 70,
+          subscores: new Map(),
+          reasons: [],
+          warnings: [],
+          skip: false,
+          skipReason: null,
+        })),
+      })),
+      beachToSpotProfile: jest.fn((beach) => ({
+        beachId: beach?.id ?? 'mock-beach',
+        swellWindow: { minDeg: 200, maxDeg: 320, centerDeg: 260, halfWidthDeg: 60 },
+        windThresholds: { offshoreDeg: 90, offshoreTolDeg: 45, maxOnshoreMph: 10, maxAnyMph: 18 },
+        tidePreferences: { preferredMinFt: 0, preferredMaxFt: 5, preferredDirection: 'either' },
+        skillLevel: 'intermediate',
+        breakType: 'beach',
+      })),
+      forecastToSnapshot: jest.fn(() => ({
+        timestamp: new Date(),
+        waveHeight: 3,
+        wavePeriod: 10,
+        waveDirection: 270,
+        primarySwell: { heightFt: 3, periodS: 10, directionDeg: 270 },
+        secondarySwell: null,
+        windWave: null,
+        wind: { speedMph: 5, directionDeg: 90 },
+        tide: { heightFt: 2.5, status: 'rising', direction: 'rising' },
+        confidence: 80,
+        dataSource: 'NOAA_NWS',
+      })),
+      getConditionCharacter: jest.fn(() => ({ label: 'Clean', category: 'good-clean' })),
       scoreBeachWithEngine: jest.fn(() => ({
         total: 80,
         subscores: { waveHeightFit: 22, periodEnergyScore: 18, windAlignment: 16, tideFit: 12, affinityBonus: 0, personalizationBonus: 0, distancePenalty: 0 },
@@ -1896,7 +2056,38 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       })),
     }));
     jest.doMock('@/lib/domains/scoring', () => ({
-      createDiscoveryScoringEngine: jest.fn(() => ({})),
+      createDiscoveryScoringEngine: jest.fn(() => ({
+        score: jest.fn(() => ({
+          total: 70,
+          subscores: new Map(),
+          reasons: [],
+          warnings: [],
+          skip: false,
+          skipReason: null,
+        })),
+      })),
+      beachToSpotProfile: jest.fn((beach) => ({
+        beachId: beach?.id ?? 'mock-beach',
+        swellWindow: { minDeg: 200, maxDeg: 320, centerDeg: 260, halfWidthDeg: 60 },
+        windThresholds: { offshoreDeg: 90, offshoreTolDeg: 45, maxOnshoreMph: 10, maxAnyMph: 18 },
+        tidePreferences: { preferredMinFt: 0, preferredMaxFt: 5, preferredDirection: 'either' },
+        skillLevel: 'intermediate',
+        breakType: 'beach',
+      })),
+      forecastToSnapshot: jest.fn(() => ({
+        timestamp: new Date(),
+        waveHeight: 3,
+        wavePeriod: 10,
+        waveDirection: 270,
+        primarySwell: { heightFt: 3, periodS: 10, directionDeg: 270 },
+        secondarySwell: null,
+        windWave: null,
+        wind: { speedMph: 5, directionDeg: 90 },
+        tide: { heightFt: 2.5, status: 'rising', direction: 'rising' },
+        confidence: 80,
+        dataSource: 'NOAA_NWS',
+      })),
+      getConditionCharacter: jest.fn(() => ({ label: 'Clean', category: 'good-clean' })),
       scoreBeachWithEngine: jest.fn(() => ({
         total: 80,
         subscores: { waveHeightFit: 22, periodEnergyScore: 18, windAlignment: 16, tideFit: 12, affinityBonus: 0, personalizationBonus: 0, distancePenalty: 0 },
