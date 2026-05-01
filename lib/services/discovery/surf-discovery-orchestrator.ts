@@ -67,6 +67,9 @@ import { generateRegionalCall } from '@/lib/services/discovery/regional-call';
 import type { WindSnapshot } from '@/lib/services/discovery/regional-call';
 import { isAfterSunset, buildRestOfToday } from '@/lib/services/discovery/evening-transition';
 import { logHeroRankingDiagnostic } from '@/lib/services/discovery/hero-ranking/diagnostics';
+import { rerankHero } from '@/lib/services/discovery/hero-ranking';
+import { FEATURE_HERO_WINDOW_SCORE } from '@/lib/constants/feature-flags';
+import type { ScoringEngine } from '@/lib/domains/scoring';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
 
@@ -327,6 +330,73 @@ function getDiscoveryScoringEngine() {
     _discoveryScoringEngine = createDiscoveryScoringEngine();
   }
   return _discoveryScoringEngine;
+}
+
+/**
+ * Score every hourly forecast row inside the candidate's selected window
+ * using the SAME 8-scorer composite engine that produced `rec.score`.
+ *
+ * Contract:
+ *  - SpotProfile: rebuilt from `rec.beach` so it matches the profile that
+ *    produced `rec.score` (orchestrator does not stash the SpotProfile on
+ *    the rec; recreating it via `beachToSpotProfile` is referentially
+ *    equivalent for the same beach row).
+ *  - User context: passes `preferences: null` to mirror `build-recs.ts` and
+ *    keep production output deterministic vs the test harness. Personalization
+ *    that already lives in `rec.score` (affinityBonus / personalizationBonus)
+ *    flows through `representativeSlotScore`, not the per-slot scores.
+ *  - Engine: full composite — calls `engine.score(...)` per hour. Not a
+ *    reduced subset.
+ *  - Window bounds: filters `allHourly` to `forecast_at ∈ [start, end)`
+ *    (inclusive start, exclusive end), then sorts ascending by `forecast_at`.
+ *  - Missing data: rows are passed to the engine as-is. Engine handles nulls;
+ *    if a scorer throws, the row's score is 0 (engine's own try/catch already
+ *    suppresses individual scorer throws — we additionally catch at this layer
+ *    in case `forecastToSnapshot` itself throws on a malformed row).
+ *  - Empty window: returns `[]`.
+ *  - Return order: ascending by `forecast_at`, one entry per hourly row.
+ */
+/** @internal Exported for testing — see `__tests__/.../window-slot-scores.test.ts` */
+export function computeWindowSlotScores(
+  rec: SurfDiscoveryRecommendation,
+  allHourly: EnhancedForecastEntity[],
+  scoringEngine: ScoringEngine,
+): number[] {
+  const start = rec.window?.start;
+  const end = rec.window?.end;
+  if (!start || !end) return [];
+
+  const startMs = start instanceof Date ? start.getTime() : Date.parse(String(start));
+  const endMs = end instanceof Date ? end.getTime() : Date.parse(String(end));
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return [];
+
+  const inWindow = allHourly
+    .filter((f) => {
+      const t = new Date(f.forecast_at).getTime();
+      return Number.isFinite(t) && t >= startMs && t < endMs;
+    })
+    .sort(
+      (a, b) =>
+        new Date(a.forecast_at).getTime() - new Date(b.forecast_at).getTime(),
+    );
+
+  if (inWindow.length === 0) return [];
+
+  const profile = beachToSpotProfile(rec.beach);
+  return inWindow.map((f) => {
+    try {
+      const snapshot = forecastToSnapshot(f);
+      const composite = scoringEngine.score({
+        profile,
+        snapshot,
+        window: null,
+        preferences: null,
+      });
+      return composite.total;
+    } catch {
+      return 0;
+    }
+  });
 }
 
 /**
@@ -728,6 +798,9 @@ async function discoverSurfSpotsInner(
       score: detailedScore.total,
       matchQuality: detailedScore.matchQuality,
       character: conditionCharacter,
+      // Carry the SpotProfile through so hero-ranking's setupSuitability
+      // consumes the same window/exposure config the engine just used.
+      spotProfile: beachToSpotProfile(beach),
       // PR 4: gate "Worth it" on character category — a high score with
       // medium-rough/medium-mixed character now caps at "Maybe" instead of
       // promoting NOW FIRING on a windy day. Falls back to score-only when
@@ -807,37 +880,34 @@ async function discoverSurfSpotsInner(
   // Take top results
   const merged = allRecs.slice(0, maxResults);
 
-  // Phase 1: hero-ranking diagnostics only — no behavior change yet.
-  // Task 4 will replace placeholder zeros (setupSuitability, windowPersistence,
-  // heroWindowScore) with real values via rerankHero(). Single emit site.
-  merged.forEach((rec, idx) => {
-    logHeroRankingDiagnostic({
-      beachSlug: rec.beach.slug ?? rec.beach.id,
-      representativeSlotScore: rec.score,
-      setupSuitability: 0,
-      windAlignment: rec.subscores.windAlignment,
-      tideFit: rec.subscores.tideFit,
-      waveHeightFit: rec.subscores.waveHeightFit,
-      periodEnergyScore: rec.subscores.periodEnergyScore,
-      affinityBonus: rec.subscores.affinityBonus,
-      windowDurationHours:
-        rec.window?.end && rec.window?.start
-          ? (new Date(rec.window.end).getTime() - new Date(rec.window.start).getTime()) / 3_600_000
-          : 0,
-      windowPersistence: 0,
-      heroWindowScore: 0,
-      finalRank: idx,
-      isHero: idx === 0,
-    });
-  });
+  // Phase 2: populate per-slot scorer outputs across each candidate's window
+  // BEFORE rerank so hero-window-score's persistence/duration evidence is
+  // grounded in real data (not a single representative-slot fallback).
+  const scoringEngine = getDiscoveryScoringEngine();
+  for (const rec of merged) {
+    const allHourly = forecastsByBeachId.get(rec.beach.id) ?? [];
+    rec.windowSlotScores = computeWindowSlotScores(rec, allHourly, scoringEngine);
+  }
 
-  const favoriteCount = merged.filter(r => r.isFavorite).length;
+  // Run rerank ALWAYS (cheap pure compute) so diagnostics are complete.
+  // The flag below decides which array becomes the response; diagnostics
+  // emit either way. Single source of truth: this orchestrator is the only
+  // call site for `logHeroRankingDiagnostic`.
+  const { reranked, diagnostics } = rerankHero(merged);
+  diagnostics.forEach(logHeroRankingDiagnostic);
+
+  // Flag-gated behavior: when off (default), return the engine-sorted slice
+  // verbatim. When on, return the hero-lifted slice (only [0] moves;
+  // remaining order is preserved).
+  const finalSlice = FEATURE_HERO_WINDOW_SCORE ? reranked : merged;
+
+  const favoriteCount = finalSlice.filter(r => r.isFavorite).length;
   log.debug(
-    `Merged recommendations: ${favoriteCount} favorites in top ${merged.length} (pure score ranking)`
+    `Merged recommendations: ${favoriteCount} favorites in top ${finalSlice.length} (pure score ranking)`
   );
 
   // 5. Enrich with photos
-  const enrichedRanked = await enrichWithPhotos(merged);
+  const enrichedRanked = await enrichWithPhotos(finalSlice);
 
   // 6. Post-process the top recommendation only:
   //    a) Fix waveHeightBadge to use actual min/max from the window's hourly forecasts
