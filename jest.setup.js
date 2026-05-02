@@ -320,6 +320,8 @@ const ALLOWED_CONSOLE_PATTERNS = [
   /\[hls-proxy\]/,
   /\[LogDisplayPrediction\]/,
   /\[ForecastBuilder\]/,
+  /\[LDP-DIAG\]/,
+  /\[FB-DIAG\]/,
   /GoTrueClient.*Multiple GoTrueClient instances/,
   /limit exceeded/,
   /must be authenticated/,

@@ -58,18 +58,27 @@ let warnedMissingServiceRoleKey = false;
 export async function logDisplayPredictions(
   rows: DisplayPredictionRow[]
 ): Promise<void> {
-  if (!rows || rows.length === 0) return;
+  // SURGICAL DIAGNOSTIC (revert once landing): console.error bypasses the
+  // logger's prod min-level filter and always reaches Vercel runtime logs.
+  console.error("[LDP-DIAG] entry", {
+    rowCount: rows?.length ?? 0,
+    firstBeachId: rows?.[0]?.beach_id ?? null,
+  });
 
-  // DIAGNOSTIC: temporarily warn-level until snapshot-writer rollout confirmed
-  // landing rows in prod. Prod logger drops info-level. Revert to log.info once
-  // ml_predictions_log shows accruing rows.
-  log.warn("logDisplayPredictions: entry", { rowCount: rows.length });
+  if (!rows || rows.length === 0) {
+    console.error("[LDP-DIAG] early-return: empty rows");
+    return;
+  }
 
   const hasServiceRoleKey =
     !!(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim() &&
     !!(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
 
   if (!hasServiceRoleKey) {
+    console.error("[LDP-DIAG] early-return: env-gate", {
+      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    });
     if (!warnedMissingServiceRoleKey) {
       warnedMissingServiceRoleKey = true;
       log.warn(
@@ -82,6 +91,7 @@ export async function logDisplayPredictions(
 
   try {
     const supabase = createServiceRoleClient();
+    console.error("[LDP-DIAG] client constructed");
 
     const payload = rows.map((r) => ({
       beach_id: r.beach_id,
@@ -95,9 +105,21 @@ export async function logDisplayPredictions(
       model_version: r.model_version ?? r.display_source,
     }));
 
-    const { error } = await supabase
+    console.error("[LDP-DIAG] inserting", { payloadCount: payload.length });
+
+    const { data, error, status, statusText } = await supabase
       .from("ml_predictions_log")
-      .insert(payload as unknown as never);
+      .insert(payload as unknown as never)
+      .select("id");
+
+    console.error("[LDP-DIAG] insert returned", {
+      hasError: !!error,
+      errorMessage: error?.message ?? null,
+      errorCode: error?.code ?? null,
+      status,
+      statusText,
+      returnedRowCount: Array.isArray(data) ? data.length : 0,
+    });
 
     if (error) {
       log.warn("logDisplayPredictions: insert failed", {
@@ -108,9 +130,12 @@ export async function logDisplayPredictions(
       return;
     }
 
-    // DIAGNOSTIC: temporarily warn-level (see entry-log comment above).
     log.warn("logDisplayPredictions: insert ok", { rowCount: rows.length });
   } catch (err) {
+    console.error("[LDP-DIAG] catch", {
+      err: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+    });
     log.warn("logDisplayPredictions: unexpected error", {
       rowCount: rows.length,
       error: err instanceof Error ? err.message : String(err),

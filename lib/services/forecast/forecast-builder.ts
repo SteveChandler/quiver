@@ -341,25 +341,36 @@ export class ForecastBuilder {
       forecasts.push(forecast);
     }
 
-    // DIAGNOSTIC: warn-level so it shows in prod logs while we're confirming
-    // the snapshot writer landed. Tells us per-beach whether the buffer was
-    // empty (parser/correctedFt issue) or had rows (insert path issue).
-    log.warn("buildForecasts: snapshot buffer", {
+    // SURGICAL DIAGNOSTIC (revert once landing): console.error bypasses the
+    // logger's prod min-level filter so we can see exactly what each beach
+    // produces and whether logDisplayPredictions is actually invoked.
+    console.error("[FB-DIAG] snapshot buffer ready", {
       beach: inputs.beach.slug,
+      beachId: inputs.beach.id,
       snapshotCount: snapshotBuffer.length,
       forecastCount: forecasts.length,
     });
 
-    // Snapshot write — awaited so the Vercel runtime keeps the function alive
-    // until the round-trip to Supabase finishes.
     if (snapshotBuffer.length > 0) {
+      console.error("[FB-DIAG] calling logDisplayPredictions", {
+        beach: inputs.beach.slug,
+        rowCount: snapshotBuffer.length,
+      });
       try {
         await logDisplayPredictions(snapshotBuffer);
+        console.error("[FB-DIAG] logDisplayPredictions returned", {
+          beach: inputs.beach.slug,
+        });
       } catch (err) {
-        log.warn("Snapshot dispatch threw (caught, non-blocking)", {
-          err: String(err),
+        console.error("[FB-DIAG] logDisplayPredictions threw", {
+          beach: inputs.beach.slug,
+          err: err instanceof Error ? err.message : String(err),
         });
       }
+    } else {
+      console.error("[FB-DIAG] skipped: empty buffer", {
+        beach: inputs.beach.slug,
+      });
     }
 
     return forecasts;
