@@ -341,21 +341,36 @@ export class ForecastBuilder {
       forecasts.push(forecast);
     }
 
-    // Snapshot write — awaited so the Vercel runtime keeps the function alive
-    // until the round-trip to Supabase finishes. Fire-and-forget got killed by
-    // the response-tear-down in serverless (saw 1824 enhanced_forecasts writes
-    // but 0 ml_predictions_log inserts on the first prod cron tick).
-    // logDisplayPredictions catches all errors internally so this can never
-    // throw past us; cost is one ~50-200ms round-trip at the end of
-    // buildForecasts, amortized over the per-beach forecast build time.
+    // SURGICAL DIAGNOSTIC (revert once landing): console.error bypasses the
+    // logger's prod min-level filter so we can see exactly what each beach
+    // produces and whether logDisplayPredictions is actually invoked.
+    console.error("[FB-DIAG] snapshot buffer ready", {
+      beach: inputs.beach.slug,
+      beachId: inputs.beach.id,
+      snapshotCount: snapshotBuffer.length,
+      forecastCount: forecasts.length,
+    });
+
     if (snapshotBuffer.length > 0) {
+      console.error("[FB-DIAG] calling logDisplayPredictions", {
+        beach: inputs.beach.slug,
+        rowCount: snapshotBuffer.length,
+      });
       try {
         await logDisplayPredictions(snapshotBuffer);
+        console.error("[FB-DIAG] logDisplayPredictions returned", {
+          beach: inputs.beach.slug,
+        });
       } catch (err) {
-        log.warn("Snapshot dispatch threw (caught, non-blocking)", {
-          err: String(err),
+        console.error("[FB-DIAG] logDisplayPredictions threw", {
+          beach: inputs.beach.slug,
+          err: err instanceof Error ? err.message : String(err),
         });
       }
+    } else {
+      console.error("[FB-DIAG] skipped: empty buffer", {
+        beach: inputs.beach.slug,
+      });
     }
 
     return forecasts;
