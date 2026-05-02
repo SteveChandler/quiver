@@ -341,36 +341,17 @@ export class ForecastBuilder {
       forecasts.push(forecast);
     }
 
-    // SURGICAL DIAGNOSTIC (revert once landing): console.error bypasses the
-    // logger's prod min-level filter so we can see exactly what each beach
-    // produces and whether logDisplayPredictions is actually invoked.
-    console.error("[FB-DIAG] snapshot buffer ready", {
-      beach: inputs.beach.slug,
-      beachId: inputs.beach.id,
-      snapshotCount: snapshotBuffer.length,
-      forecastCount: forecasts.length,
-    });
-
+    // Snapshot write — awaited so the Vercel runtime keeps the function alive
+    // until the round-trip to Supabase finishes. logDisplayPredictions catches
+    // all errors internally so this can never throw past us.
     if (snapshotBuffer.length > 0) {
-      console.error("[FB-DIAG] calling logDisplayPredictions", {
-        beach: inputs.beach.slug,
-        rowCount: snapshotBuffer.length,
-      });
       try {
         await logDisplayPredictions(snapshotBuffer);
-        console.error("[FB-DIAG] logDisplayPredictions returned", {
-          beach: inputs.beach.slug,
-        });
       } catch (err) {
-        console.error("[FB-DIAG] logDisplayPredictions threw", {
-          beach: inputs.beach.slug,
-          err: err instanceof Error ? err.message : String(err),
+        log.warn("Snapshot dispatch threw (caught, non-blocking)", {
+          err: String(err),
         });
       }
-    } else {
-      console.error("[FB-DIAG] skipped: empty buffer", {
-        beach: inputs.beach.slug,
-      });
     }
 
     return forecasts;
@@ -526,19 +507,27 @@ export class ForecastBuilder {
           })
         : waveHeightResult.value;
 
-    // Append snapshot row when the parser produced a numeric value. We do not
-    // snapshot rows where the display value was null/unparseable — the cron
-    // can't compute residuals against a missing prediction.
-    if (rawDisplayHeightFt != null && correctedFt != null) {
+    // Append snapshot row when the parser produced a numeric value AND the
+    // forecast horizon falls inside ml_predictions_log's CHECK constraint
+    // (forecast_horizon_hours BETWEEN 0 AND 168 — locked by the table's
+    // original ML migration). Forecast-builder produces slots up to ~14 days;
+    // anything beyond 168h is dropped here. Since `.insert([rows])` is a
+    // single transaction, one out-of-range row would roll back the whole
+    // batch — filtering at write-time keeps the per-beach insert atomic and
+    // preserves all in-range rows. The offset use case is 24h+ planning
+    // forecasts so 168h is more than enough lead time.
+    const horizonInt = Math.max(0, Math.round(forecastHorizonHours));
+    if (
+      rawDisplayHeightFt != null &&
+      correctedFt != null &&
+      horizonInt <= 168
+    ) {
       const rawDisplayHeightM = rawDisplayHeightFt / METERS_TO_FEET;
       const correctedDisplayM = correctedFt / METERS_TO_FEET;
       snapshotBuffer.push({
         beach_id: beach.id,
         predicted_at: getNormalizedForecastAt(forecastTime),
-        forecast_horizon_hours: Math.max(
-          0,
-          Math.round(forecastHorizonHours)
-        ),
+        forecast_horizon_hours: horizonInt,
         raw_display_height_m: Number(rawDisplayHeightM.toFixed(3)),
         offset_corrected_display_height_m: Number(correctedDisplayM.toFixed(3)),
         height_offset_m: offsetActuallyApplied
