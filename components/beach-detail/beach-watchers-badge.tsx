@@ -11,9 +11,9 @@ import {
 
 interface BeachWatchersBadgeProps {
   beachId: string;
-  /** Minimum watcher count required to render. Defaults to 5 — avoids
-   *  "1 surfer watching" sadness and short-tail noise on rarely-viewed
-   *  beaches. */
+  /** Minimum watcher count required to render. Defaults to 3 — avoids
+   *  "1 surfer checked this spot" sadness on rarely-viewed beaches
+   *  while still surfacing social proof on the long tail. */
   minThreshold?: number;
   className?: string;
 }
@@ -23,9 +23,9 @@ interface ViewCountResponse {
 }
 
 /**
- * Social-proof badge showing "{n} surfers watching this week" on beach
- * detail pages. Renders only when the 7d distinct-viewer count clears
- * `minThreshold`. Silent-fail on fetch error — the badge is an
+ * Social-proof badge showing "{n} surfers checked this spot" on beach
+ * detail pages. Renders only when the all-time distinct-viewer count
+ * clears `minThreshold`. Silent-fail on fetch error — the badge is an
  * enhancement, not a load-bearing element.
  *
  * Data source: `/api/beaches/[id]/view-count` (GET, anonymous-accessible,
@@ -37,7 +37,7 @@ interface ViewCountResponse {
  */
 export function BeachWatchersBadge({
   beachId,
-  minThreshold = 5,
+  minThreshold = 3,
   className,
 }: BeachWatchersBadgeProps) {
   const fetchViewCount = useCallback(async () => {
@@ -58,12 +58,12 @@ export function BeachWatchersBadge({
 
   const label = useMemo(() => {
     if (watchers < minThreshold) return null;
-    // Past-tense copy. The underlying query counts distinct viewers
-    // over the last 7 days — some of those sessions ended days ago, so
-    // "watching" (present-continuous) would fib liveness. A compact
-    // past-tense tally with an explicit window reads as honest social
-    // proof and matches Quiver's "data is sacred" brand stance.
-    return `${watchers} surfers · last 7 days`;
+    // Past-tense copy. The underlying query counts distinct all-time
+    // viewers (with a ~90 day practical ceiling because
+    // `user_events.expires_at` prunes older rows). "Checked" is honest
+    // about this being a view-count rollup, not an active-presence
+    // signal — matches Quiver's "data is sacred" brand stance.
+    return `${watchers} surfers checked this spot`;
   }, [watchers, minThreshold]);
 
   if (error || (!loading && !label)) return null;
@@ -87,7 +87,7 @@ export function BeachWatchersBadge({
         )}
       >
         <Eye className="h-3 w-3 opacity-0" aria-hidden="true" />
-        <span>000 surfers · last 7 days</span>
+        <span>000 surfers checked this spot</span>
       </span>
     );
   }
