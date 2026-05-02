@@ -21,6 +21,7 @@ You can run these scripts in your Supabase SQL Editor:
 - **`delete-auth-users.sh`** - Bash script for bulk deletion via Admin REST API
 - **`delete-auth-users.mjs`** - Node.js script for bulk deletion via Admin REST API
 - **`generate-apple-icons.mjs`** - Generates iOS PWA app icons from source 512x512 icon
+- **`reseed-mock-cohort.ts`** - One-shot service-role re-seed for the 27-user mock cohort. Synthesizes 15 sessions per user at 2 home breaks, perturbs SFS forecasts into actual_conditions, seeds user_events with top-level beach_id. Required for testing implicit-prefs cron, similarity, beach affinity. CONFIRM_TARGET=DEV|PROD + CONFIRM_PROD=YES (prod). Lessons learned + design rationale: see file header docstring.
 
 ## Auth User Cleanup
 

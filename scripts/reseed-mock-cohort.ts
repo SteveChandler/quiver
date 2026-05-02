@@ -43,6 +43,32 @@
  *   CONFIRM_TARGET=DEV yarn seed:reseed-mock:dev        # full execution against dev
  *   CONFIRM_TARGET=PROD CONFIRM_PROD=YES yarn ...:prod  # against prod
  *   yarn seed:reseed-mock:dry -- --verify               # run SQL assertions only
+ *
+ * Lessons learned (2026-05-02 first live run on prod):
+ *   - Original plan was "concentrate existing 793 sessions to 2 home breaks." Dry-run
+ *     revealed prod state was 0–2 sessions per user. PIVOTED to synthesize from scratch.
+ *     Always dry-run a count of source data shape before committing to a strategy that
+ *     assumes density.
+ *   - EF coverage in production is ~7 days, NOT the 14-day retention docs imply. Sessions
+ *     with arrival_time older than that won't get an SFS row from the trigger. Verify SFS
+ *     count == session count after Phase 1.
+ *   - PostgREST nested joins (`sessions(...).session_forecast_snapshots(...)`) silently
+ *     return empty arrays for one-to-one relations. Use two separate queries joined via Map.
+ *   - Steven owns TWO auth users (610a5745 stcha0004, is_mock=true "Johnny Utah"; and
+ *     73040cff omg.its.thefuture, is_mock=false real). The cohort filter `is_mock=true`
+ *     already protects real Steven. STEVEN_EMAIL excludes only 610a5745, which is itself
+ *     a valid mock — minor side effect, not a safety issue.
+ *   - 4 mock profiles had no auth.users row (orphans). user_beach_affinity_user_id_fkey
+ *     references auth.users — writing affinities for orphans fails with FK violation.
+ *     Cohort selection intersects with auth.admin.listUsers to filter them out.
+ *   - Picking home breaks from a beach pool spanning both coasts produces nonsense
+ *     centroids (NJ + CA average → Illinois). Either constrain pool by coast per user or
+ *     accept that mock centroids are geographically meaningless.
+ *   - The implicit-prefs RPC `compute_implicit_preferences` had two latent bugs surfaced
+ *     by this reseed; both fixed in migrations 20260502171735 (b.lat/b.lon) and
+ *     20260502232605 (COALESCE break_type_weights). The cron route's lack of per-user
+ *     try/catch means any sparse-data user can fail the entire batch — fix at the RPC
+ *     level by ensuring every NOT-NULL-target subquery has a COALESCE fallback.
  */
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
