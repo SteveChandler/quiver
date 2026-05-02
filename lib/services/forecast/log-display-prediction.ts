@@ -60,6 +60,8 @@ export async function logDisplayPredictions(
 ): Promise<void> {
   if (!rows || rows.length === 0) return;
 
+  log.info("logDisplayPredictions: entry", { rowCount: rows.length });
+
   const hasServiceRoleKey =
     !!(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim() &&
     !!(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
@@ -78,9 +80,6 @@ export async function logDisplayPredictions(
   try {
     const supabase = createServiceRoleClient();
 
-    // Materialize the insert payload. model_version falls back to display_source
-    // because ml_predictions_log.model_version is NOT NULL in the original
-    // schema and we have no separate ML model identifier for the display path.
     const payload = rows.map((r) => ({
       beach_id: r.beach_id,
       predicted_at: r.predicted_at,
@@ -93,10 +92,6 @@ export async function logDisplayPredictions(
       model_version: r.model_version ?? r.display_source,
     }));
 
-    // Single batched insert. Cast through unknown because the new columns
-    // (raw_display_height_m, offset_corrected_display_height_m, etc.) are not
-    // yet in the generated database types — they were added by the migration
-    // 20260501200500_create_beach_height_offsets.sql.
     const { error } = await supabase
       .from("ml_predictions_log")
       .insert(payload as unknown as never);
@@ -109,9 +104,9 @@ export async function logDisplayPredictions(
       });
       return;
     }
+
+    log.info("logDisplayPredictions: insert ok", { rowCount: rows.length });
   } catch (err) {
-    // Catch-all: any unexpected throw (network, client construction, etc.)
-    // must not propagate. The user-facing forecast write already succeeded.
     log.warn("logDisplayPredictions: unexpected error", {
       rowCount: rows.length,
       error: err instanceof Error ? err.message : String(err),
