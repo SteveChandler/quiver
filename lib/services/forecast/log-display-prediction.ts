@@ -60,7 +60,10 @@ export async function logDisplayPredictions(
 ): Promise<void> {
   if (!rows || rows.length === 0) return;
 
-  log.info("logDisplayPredictions: entry", { rowCount: rows.length });
+  // DIAGNOSTIC: temporarily warn-level until snapshot-writer rollout confirmed
+  // landing rows in prod. Prod logger drops info-level. Revert to log.info once
+  // ml_predictions_log shows accruing rows.
+  log.warn("logDisplayPredictions: entry", { rowCount: rows.length });
 
   const hasServiceRoleKey =
     !!(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim() &&
@@ -105,7 +108,8 @@ export async function logDisplayPredictions(
       return;
     }
 
-    log.info("logDisplayPredictions: insert ok", { rowCount: rows.length });
+    // DIAGNOSTIC: temporarily warn-level (see entry-log comment above).
+    log.warn("logDisplayPredictions: insert ok", { rowCount: rows.length });
   } catch (err) {
     log.warn("logDisplayPredictions: unexpected error", {
       rowCount: rows.length,

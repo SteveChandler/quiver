@@ -319,6 +319,7 @@ const ALLOWED_CONSOLE_PATTERNS = [
   /\[cam-resolve\]/,
   /\[hls-proxy\]/,
   /\[LogDisplayPrediction\]/,
+  /\[ForecastBuilder\]/,
   /GoTrueClient.*Multiple GoTrueClient instances/,
   /limit exceeded/,
   /must be authenticated/,

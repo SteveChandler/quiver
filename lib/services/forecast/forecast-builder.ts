@@ -341,13 +341,17 @@ export class ForecastBuilder {
       forecasts.push(forecast);
     }
 
+    // DIAGNOSTIC: warn-level so it shows in prod logs while we're confirming
+    // the snapshot writer landed. Tells us per-beach whether the buffer was
+    // empty (parser/correctedFt issue) or had rows (insert path issue).
+    log.warn("buildForecasts: snapshot buffer", {
+      beach: inputs.beach.slug,
+      snapshotCount: snapshotBuffer.length,
+      forecastCount: forecasts.length,
+    });
+
     // Snapshot write — awaited so the Vercel runtime keeps the function alive
-    // until the round-trip to Supabase finishes. Fire-and-forget got killed by
-    // the response-tear-down in serverless (saw 1824 enhanced_forecasts writes
-    // but 0 ml_predictions_log inserts on the first prod cron tick).
-    // logDisplayPredictions catches all errors internally so this can never
-    // throw past us; cost is one ~50-200ms round-trip at the end of
-    // buildForecasts, amortized over the per-beach forecast build time.
+    // until the round-trip to Supabase finishes.
     if (snapshotBuffer.length > 0) {
       try {
         await logDisplayPredictions(snapshotBuffer);
