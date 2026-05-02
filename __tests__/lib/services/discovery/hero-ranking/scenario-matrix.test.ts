@@ -17,7 +17,25 @@ import { scenarioMatrix } from "./__fixtures__/scenario-matrix";
 // pacific-beach. Hero-ranking area owners to investigate and remove the skip.
 const KNOWN_FAILING_SCENARIOS = new Set(["S swell 195 @ 15s 3.5ft, glassy AM"]);
 
+// Freeze "now" at the fixture date so the windowSelector doesn't filter all
+// forecasts as past times after UTC rolls over. Fixtures are scoped to
+// 2026-05-01 (see scenario-matrix.ts dateBase). Without this, the suite
+// silently flips red the moment the day rolls.
+const FIXTURE_NOW = new Date("2026-05-01T08:00:00Z");
+
 describe("hero-ranking scenario matrix", () => {
+  beforeAll(() => {
+    jest.useFakeTimers({
+      doNotFake: ["nextTick", "setImmediate", "queueMicrotask"],
+    });
+    jest.setSystemTime(FIXTURE_NOW);
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
+
   describe.each(scenarioMatrix.map((fx) => [fx.name, fx] as const))(
     "%s",
     (_name, fx) => {
