@@ -44,6 +44,26 @@ export type DisplayPredictionRow = {
    * supply one we fall back to display_source so the constraint is satisfied.
    */
   model_version?: string;
+
+  /**
+   * v5 shadow program (Phase 2, 2026-05-02). All five fields below are written
+   * as a unit when the calibration version is loaded AND wave_height_om is
+   * available. Otherwise they are null. v5 is NEVER served — these columns
+   * exist solely so a paired comparator (current displayed vs raw OM vs v5)
+   * can be measured once observations backfill.
+   */
+  /** Raw OM Hs in meters (wavePoint.om_values.wave_height_om). Comparator. */
+  wave_height_om_m: number | null;
+  /** Primary swell direction in degrees, parsed from NOAA cardinal at log time. */
+  wave_direction_deg: number | null;
+  /** v5 candidate height = f(om) + g(direction), with W × 0.5-1.0m guardrail. */
+  v5_shadow_height_m: number | null;
+  /** Calibration version that produced v5_shadow_height_m. */
+  v5_model_version: string | null;
+  /** "S/SW" | "W" | "NW" | "OTHER" — bucket used for g(dir) lookup. */
+  direction_bucket: string | null;
+  /** "<0.5m" | "0.5-1.0m" | "1.0-1.5m" | "1.5m+" — bucket used for f(om). */
+  om_bucket: string | null;
 };
 
 /**
@@ -88,6 +108,12 @@ export async function logDisplayPredictions(
       height_offset_sample_count: r.height_offset_sample_count,
       display_source: r.display_source,
       model_version: r.model_version ?? r.display_source,
+      wave_height_om: r.wave_height_om_m,
+      wave_direction_deg: r.wave_direction_deg,
+      v5_shadow_height_m: r.v5_shadow_height_m,
+      v5_model_version: r.v5_model_version,
+      direction_bucket: r.direction_bucket,
+      om_bucket: r.om_bucket,
     }));
 
     const { error } = await supabase

@@ -348,6 +348,15 @@ const ALLOWED_CONSOLE_PATTERNS = [
   /\[createServerClient\] Supabase configuration missing/,
   /\[createServiceRoleClient\] Supabase service role configuration missing/,
   /Supabase URL or Anon Key is missing/,
+
+  // ── v5 shadow calibration: in tests the global fetch mock returns
+  //    {success: true, data: {}}, which the calibration loader correctly
+  //    rejects as a malformed row. Production never hits this path.
+  /\[CalibrationV5\] getActiveCalibration: active row is malformed/,
+  /\[CalibrationV5\] getActiveCalibration: query failed/,
+  /\[CalibrationV5\] getActiveCalibration: no active calibration version/,
+  /\[CalibrationV5\] getActiveCalibration: unexpected error/,
+  /\[CalibrationV5\] computeV5Shadow: unexpected error/,
 ];
 
 function isAllowed(args) {
