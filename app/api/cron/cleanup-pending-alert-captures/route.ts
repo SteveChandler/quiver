@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { validateCronRequest } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 const CONTEXT_TAG = "[cleanup-pending-alert-captures]";
 
-export async function GET(request: Request): Promise<NextResponse> {
+async function _GET(request: Request): Promise<Response> {
   if (!validateCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -34,3 +35,5 @@ export async function GET(request: Request): Promise<NextResponse> {
   console.log(`${CONTEXT_TAG} deleted ${count ?? 0} expired captures`);
   return NextResponse.json({ ok: true, deleted: count ?? 0 });
 }
+
+export const GET = withObservedCron("/api/cron/cleanup-pending-alert-captures", _GET);

@@ -11,6 +11,7 @@ import {
   startCronCheckIn,
   completeCronCheckIn,
 } from "@/lib/monitoring/sentry-cron";
+import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -194,7 +195,7 @@ function pickRotatingSlice<T>(items: T[], size: number, dayIndex: number): T[] {
  * with a JSON summary so Vercel cron history reflects scheduling health, not
  * downstream URL health.
  */
-export async function GET(request: Request) {
+async function _GET(request: Request): Promise<Response> {
   if (!validateCronRequest(request)) {
     return createErrorResponse(
       "Unauthorized",
@@ -281,3 +282,5 @@ export async function GET(request: Request) {
     return handleApiError(err, "Sitemap health probe failed");
   }
 }
+
+export const GET = withObservedCron("/api/cron/sitemap-health", _GET);

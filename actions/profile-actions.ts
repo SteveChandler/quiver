@@ -231,10 +231,15 @@ async function createProfile(userId: string): Promise<ProfileResult> {
       throw new Error(`User with ID ${userId} not found in auth.users`);
     }
 
-    // Create new profile - insert only fields guaranteed by current schema
+    // Create new profile - insert only fields guaranteed by current schema.
+    // Carry email forward from auth.users so condition-alert-deliver and any
+    // other reader of profiles.email gets a populated value. Without this,
+    // the trigger's self-heal path is the only repair, which doesn't fire
+    // when this fallback is exercised standalone.
     const insertPayload: any = {
       id: userId,
       full_name: user.user_metadata?.full_name || "",
+      email: user.email ?? null,
     };
 
     const { data, error } = await supabase

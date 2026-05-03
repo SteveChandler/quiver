@@ -43,6 +43,7 @@ import {
 } from "@/lib/domains/scoring";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { withObservedCron } from "@/lib/cron/observability";
 
 // Singleton engine for the cron run — created lazily on first invocation.
 let _engine: ScoringEngine | null = null;
@@ -259,7 +260,7 @@ async function processCandidate(
 // Main Handler
 // ============================================================================
 
-export async function GET(request: Request) {
+async function _GET(request: Request): Promise<Response> {
   const startTime = Date.now();
 
   try {
@@ -358,3 +359,5 @@ export async function GET(request: Request) {
     return handleApiError(error);
   }
 }
+
+export const GET = withObservedCron("/api/cron/conditions-alert-email", _GET);

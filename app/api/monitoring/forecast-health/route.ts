@@ -8,6 +8,7 @@
 import { NextResponse } from 'next/server';
 import { checkForecastHealth } from '@/lib/monitoring/forecast-health-check';
 import { forecastLogger } from '@/lib/monitoring/forecast-logger';
+import { withObservedCron } from '@/lib/cron/observability';
 
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
@@ -31,7 +32,7 @@ function getSupabaseProjectRef(): string | null {
   }
 }
 
-export async function GET(request: Request) {
+async function _GET(request: Request): Promise<Response> {
   const startTime = Date.now();
   
   try {
@@ -153,3 +154,5 @@ export async function GET(request: Request) {
     }, { status: 500 });
   }
 }
+
+export const GET = withObservedCron("/api/monitoring/forecast-health", _GET);

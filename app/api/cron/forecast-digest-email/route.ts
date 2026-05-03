@@ -39,6 +39,7 @@ import {
 import { getFreshForecastFromCache } from "@/lib/utils/forecast-service-utils";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -348,7 +349,7 @@ async function sendDigestPush(
 // Main Handler
 // ============================================================================
 
-export async function GET(request: Request) {
+async function _GET(request: Request): Promise<Response> {
   const runStartedAt = new Date();
   const startTime = runStartedAt.getTime();
 
@@ -651,3 +652,5 @@ export async function GET(request: Request) {
     return handleApiError(error);
   }
 }
+
+export const GET = withObservedCron("/api/cron/forecast-digest-email", _GET);

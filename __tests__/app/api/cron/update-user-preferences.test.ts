@@ -112,6 +112,7 @@ describe('User Preference Update Cron Job API', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    require("@/lib/api-utils").validateCronRequest.mockReturnValue(true);
 
     // Reset environment to production for most tests
     process.env.VERCEL_ENV = "production";
@@ -162,7 +163,7 @@ describe('User Preference Update Cron Job API', () => {
 
       it('should reject requests without valid authentication', async () => {
         const { validateCronRequest } = require('@/lib/api-utils');
-        validateCronRequest.mockReturnValueOnce(false);
+        validateCronRequest.mockReturnValue(false);
 
         const request = mockRequest({
           authorization: 'Bearer invalid-secret',
@@ -480,7 +481,7 @@ describe('User Preference Update Cron Job API', () => {
 
       it('should reject without authentication', async () => {
         const { validateCronRequest } = require('@/lib/api-utils');
-        validateCronRequest.mockReturnValueOnce(false);
+        validateCronRequest.mockReturnValue(false);
 
         const request = mockRequest({});
 

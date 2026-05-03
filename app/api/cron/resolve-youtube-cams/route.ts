@@ -16,13 +16,14 @@ import {
 } from "@/lib/youtube/resolver";
 import { YouTubeApiError } from "@/lib/youtube/types";
 import type { YouTubeCamRow, CamUpdateResult } from "@/lib/youtube/types";
+import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-export async function GET(request: NextRequest): Promise<Response> {
+async function _GET(request: Request): Promise<Response> {
   const startTime = Date.now();
 
   try {
@@ -190,6 +191,9 @@ export async function GET(request: NextRequest): Promise<Response> {
 }
 
 // Allow manual POST trigger
-export async function POST(request: NextRequest): Promise<Response> {
-  return GET(request);
+async function _POST(request: Request): Promise<Response> {
+  return _GET(request);
 }
+
+export const GET = withObservedCron("/api/cron/resolve-youtube-cams", _GET);
+export const POST = withObservedCron("/api/cron/resolve-youtube-cams", _POST);

@@ -10,20 +10,25 @@ import {
   runEnhancedForecastSyncCdip,
   runEnhancedForecastSyncCdipHead,
 } from "./_shared";
+import { withObservedCron } from "@/lib/cron/observability";
 
 // Next.js requires `maxDuration` to be statically analyzable (literal).
 export const maxDuration = 300;
 
-export async function GET(request: NextRequest): Promise<Response> {
-  return runEnhancedForecastSyncCdip(request);
+async function _GET(request: Request): Promise<Response> {
+  return runEnhancedForecastSyncCdip(request as NextRequest);
 }
 
-export async function POST(request: NextRequest): Promise<Response> {
-  return runEnhancedForecastSyncCdip(request);
+async function _POST(request: Request): Promise<Response> {
+  return runEnhancedForecastSyncCdip(request as NextRequest);
 }
 
-export async function HEAD(request: NextRequest): Promise<Response> {
-  return runEnhancedForecastSyncCdipHead(request);
+async function _HEAD(request: Request): Promise<Response> {
+  return runEnhancedForecastSyncCdipHead(request as NextRequest);
 }
+
+export const GET = withObservedCron("/api/cron/enhanced-forecast-sync-cdip", _GET);
+export const POST = withObservedCron("/api/cron/enhanced-forecast-sync-cdip", _POST);
+export const HEAD = withObservedCron("/api/cron/enhanced-forecast-sync-cdip", _HEAD);
 
 

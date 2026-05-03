@@ -61,6 +61,7 @@ describe("Enhanced Forecast Sync Cron Job API", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    require("@/lib/api-utils").validateCronRequest.mockReturnValue(true);
 
     process.env.VERCEL_ENV = "production";
     process.env.FORECAST_CRON_TIME_BUDGET_MS = "1";
@@ -110,7 +111,7 @@ describe("Enhanced Forecast Sync Cron Job API", () => {
 
     it("should handle authentication failures", async () => {
       const { validateCronRequest } = require("@/lib/api-utils");
-      validateCronRequest.mockReturnValueOnce(false);
+      validateCronRequest.mockReturnValue(false);
 
       const request = mockRequest({
         authorization: "Bearer invalid-secret",

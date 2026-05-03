@@ -29,6 +29,7 @@ import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { formatDatabaseTime } from "@/lib/email/email-formatters";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
+import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -130,7 +131,7 @@ async function fetchIntelData(
 // Main Handler
 // ============================================================================
 
-export async function GET(request: Request) {
+async function _GET(request: Request): Promise<Response> {
   const startTime = Date.now();
 
   try {
@@ -411,3 +412,5 @@ export async function GET(request: Request) {
     return handleApiError(error);
   }
 }
+
+export const GET = withObservedCron("/api/cron/first-session-nudge", _GET);

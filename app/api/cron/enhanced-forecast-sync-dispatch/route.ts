@@ -21,17 +21,22 @@ import {
   runEnhancedForecastSync,
   runEnhancedForecastSyncHead,
 } from "../enhanced-forecast-sync/_shared";
+import { withObservedCron } from "@/lib/cron/observability";
 
 export const maxDuration = 300;
 
-export async function GET(request: NextRequest): Promise<Response> {
-  return runEnhancedForecastSync(request, { resolveShardFromTime: true });
+async function _GET(request: Request): Promise<Response> {
+  return runEnhancedForecastSync(request as NextRequest, { resolveShardFromTime: true });
 }
 
-export async function POST(request: NextRequest): Promise<Response> {
-  return runEnhancedForecastSync(request, { resolveShardFromTime: true });
+async function _POST(request: Request): Promise<Response> {
+  return runEnhancedForecastSync(request as NextRequest, { resolveShardFromTime: true });
 }
 
-export async function HEAD(request: NextRequest): Promise<Response> {
-  return runEnhancedForecastSyncHead(request);
+async function _HEAD(request: Request): Promise<Response> {
+  return runEnhancedForecastSyncHead(request as NextRequest);
 }
+
+export const GET = withObservedCron("/api/cron/enhanced-forecast-sync-dispatch", _GET);
+export const POST = withObservedCron("/api/cron/enhanced-forecast-sync-dispatch", _POST);
+export const HEAD = withObservedCron("/api/cron/enhanced-forecast-sync-dispatch", _HEAD);

@@ -139,11 +139,11 @@
     },
     {
       "path": "/api/cron/condition-alert-deliver",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/notifications-deliver",
-      "schedule": "* * * * *"
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/cleanup-pending-alert-captures",

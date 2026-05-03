@@ -44,6 +44,7 @@ import {
   validateCronRequest,
 } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -234,7 +235,7 @@ async function resolveCohort(
 // Main Handler
 // ============================================================================
 
-export async function GET(request: Request) {
+async function _GET(request: Request): Promise<Response> {
   const startTime = Date.now();
 
   try {
@@ -593,3 +594,5 @@ export async function GET(request: Request) {
     return handleApiError(error);
   }
 }
+
+export const GET = withObservedCron("/api/cron/first-session-nudge-push", _GET);

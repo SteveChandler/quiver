@@ -28,6 +28,7 @@ import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getEmailTokenSecret } from "@/lib/utils/email-token";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
+import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -69,7 +70,7 @@ interface RunSummary {
 // Main Handler
 // ============================================================================
 
-export async function GET(request: Request) {
+async function _GET(request: Request): Promise<Response> {
   const startTime = Date.now();
 
   try {
@@ -241,3 +242,5 @@ export async function GET(request: Request) {
     return handleApiError(error);
   }
 }
+
+export const GET = withObservedCron("/api/cron/welcome-email", _GET);

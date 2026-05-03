@@ -14,6 +14,7 @@ import {
   NDBC_WAVE_CAPABLE_TYPES,
 } from "@/lib/constants/ioos-config";
 import { haversineDistance } from "@/lib/utils/geo-utils";
+import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -57,7 +58,7 @@ interface ObservationSyncResult {
  * Query params:
  * - phase: "stations" (weekly) | "observations" (every 2h)
  */
-export async function GET(request: Request) {
+async function _GET(request: Request): Promise<Response> {
   try {
     if (!validateCronRequest(request)) {
       return createErrorResponse(
@@ -94,6 +95,8 @@ export async function GET(request: Request) {
     return handleApiError(error);
   }
 }
+
+export const GET = withObservedCron("/api/cron/ndbc-direct-sync", _GET);
 
 // ---------------------------------------------------------------------------
 // Phase: stations (weekly)

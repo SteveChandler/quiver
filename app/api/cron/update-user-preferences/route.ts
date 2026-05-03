@@ -6,6 +6,7 @@ import {
   createErrorResponse,
   validateCronRequest,
 } from '@/lib/api-utils';
+import { withObservedCron } from '@/lib/cron/observability';
 
 interface UserPreferenceUpdateResult {
   totalUsers: number;
@@ -19,9 +20,10 @@ interface UserPreferenceUpdateResult {
   }>;
 }
 
-function getSearchParams(request: NextRequest): URLSearchParams {
-  if (request.nextUrl?.searchParams) {
-    return request.nextUrl.searchParams;
+function getSearchParams(request: Request | NextRequest): URLSearchParams {
+  const maybeNextUrl = (request as NextRequest).nextUrl;
+  if (maybeNextUrl?.searchParams) {
+    return maybeNextUrl.searchParams;
   }
 
   if (request.url) {
@@ -65,7 +67,7 @@ function isTruthyParam(value: string | null): boolean {
  *   }
  * }
  */
-export async function GET(request: NextRequest): Promise<Response> {
+async function _GET(request: Request): Promise<Response> {
   const startTime = Date.now();
 
   try {
@@ -278,6 +280,9 @@ export async function GET(request: NextRequest): Promise<Response> {
  * Alias for GET handler - allows manual triggering via POST request.
  * The main cron logic is in the GET handler (Vercel crons use GET).
  */
-export async function POST(request: NextRequest): Promise<Response> {
-  return GET(request);
+async function _POST(request: Request): Promise<Response> {
+  return _GET(request);
 }
+
+export const GET = withObservedCron("/api/cron/update-user-preferences", _GET);
+export const POST = withObservedCron("/api/cron/update-user-preferences", _POST);

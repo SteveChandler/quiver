@@ -26,6 +26,7 @@
 import { NextResponse } from "next/server";
 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -49,7 +50,7 @@ interface MatchScoreResult {
   sessions_in_profile?: number;
 }
 
-export async function GET(req: Request): Promise<NextResponse> {
+async function _GET(req: Request): Promise<Response> {
   const auth = req.headers.get("authorization") ?? "";
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -264,3 +265,5 @@ export async function GET(req: Request): Promise<NextResponse> {
     );
   }
 }
+
+export const GET = withObservedCron("/api/cron/similarity-alerts", _GET);

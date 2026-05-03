@@ -13,6 +13,7 @@ import {
 import { NOAACOOPSService } from "@/lib/services/noaa-coops";
 import { fanOutTidePointsToBeaches } from "../../../../../lib/services/tide-forecast-batch-utils";
 import SunCalc from "suncalc";
+import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
 // Vercel cron functions have a 5 minute hard limit
@@ -68,7 +69,7 @@ function getSupabaseProjectRef(): string | null {
   }
 }
 
-export async function GET(request: Request) {
+async function _GET(request: Request): Promise<Response> {
   try {
     if (!validateCronRequest(request)) {
       return createErrorResponse("Unauthorized", "Invalid cron authentication", 401);
@@ -709,3 +710,5 @@ export async function GET(request: Request) {
     return handleApiError(error);
   }
 }
+
+export const GET = withObservedCron("/api/cron/forecasts/refresh", _GET);

@@ -16,6 +16,7 @@ import {
 import { EARTH_RADIUS_KM } from "@/lib/utils/geo-utils";
 import { IOOSStation, IOOSObservation, PRIORITY_NETWORKS } from "@/types/ioos";
 import { ParsedObservation } from "@/lib/services/ioos";
+import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -72,7 +73,7 @@ interface ObservationSyncResult {
  * - Vercel Cron header (`x-vercel-cron`)
  * - OR Authorization: Bearer <CRON_SECRET>
  */
-export async function GET(request: Request) {
+async function _GET(request: Request): Promise<Response> {
   const startTime = Date.now();
 
   try {
@@ -117,6 +118,8 @@ export async function GET(request: Request) {
     return handleApiError(error);
   }
 }
+
+export const GET = withObservedCron("/api/cron/ioos-sync", _GET);
 
 /**
  * Station Discovery Phase
