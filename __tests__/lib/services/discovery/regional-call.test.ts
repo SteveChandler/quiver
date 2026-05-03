@@ -92,6 +92,7 @@ function mockRec(
     summary: `Surf at ${beachId}`,
     reasons: ['Good wave size'],
     warnings: [],
+    similarity: null,
     generated_at: '2024-01-15T12:00:00Z',
   };
 }

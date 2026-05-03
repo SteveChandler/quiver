@@ -101,6 +101,7 @@ function makeRec(opts: MakeRecOptions): SurfDiscoveryRecommendation {
     warnings: [],
     spotProfile: profile,
     windowSlotScores: opts.windowSlotScores,
+    similarity: null,
     generated_at: new Date().toISOString(),
   };
 }
