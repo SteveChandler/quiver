@@ -1,4 +1,4 @@
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import {
   withAuth,
   createSuccessResponse,
@@ -6,6 +6,7 @@ import {
   createErrorResponse,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
+import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
 import { canCreateRule, getUserEntitlement } from "@/lib/alerts/entitlements";
 
 /**
@@ -50,8 +51,30 @@ export const POST = withAuth(
     // Count existing rules and distinct beaches for this user
     const { data: existingRules } = await (supabase as any)
       .from("alert_rules")
-      .select("id, beach_id")
+      .select("id, beach_id, preset_type")
       .eq("user_id", user.id);
+
+    // Plan V4 Agent 4: server-side dedupe for similarity_match. Auto-enable
+    // (RC webhook) and a manual POST race; without this guard a Pro user
+    // could end up with two rows. Scoped to preset_type only — auto vs
+    // manual creation doesn't matter, one similarity_match rule per user
+    // is the contract.
+    if (preset_type === "similarity_match") {
+      const hasSimilarity = (
+        (existingRules ?? []) as Array<{ preset_type: string | null }>
+      ).some((r) => r.preset_type === "similarity_match");
+      if (hasSimilarity) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "similarity_match_already_exists",
+            message: "A similarity match rule already exists for this user.",
+            timestamp: new Date().toISOString(),
+          },
+          { status: 409, headers: DEFAULT_SECURITY_HEADERS }
+        );
+      }
+    }
 
     const existingRuleCount = (existingRules as unknown[])?.length ?? 0;
     const existingBeachIds = new Set(
