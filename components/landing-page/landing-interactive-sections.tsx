@@ -45,12 +45,12 @@ export function LandingInteractiveSections() {
   return (
     <div className="space-y-0">
       <SurfHighlightsSection />
-      <FeatureBentoSection />
-      <MLPipelineShowcase />
-      <ActivitiesSection />
       <div suppressHydrationWarning>
         {hasMounted ? <ForecastSection /> : <ForecastSectionFallback />}
       </div>
+      <MLPipelineShowcase />
+      <ActivitiesSection />
+      <FeatureBentoSection />
       <CTASection />
     </div>
   );

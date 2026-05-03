@@ -1,13 +1,18 @@
 "use client";
 
-import { useState, useCallback, KeyboardEvent } from "react";
+import { useState, useCallback, useEffect, useRef, KeyboardEvent } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { ArrowDown, ArrowUp } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useInView } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { SectionWrapper } from "./section-wrapper";
 import { CONTENT } from "@/lib/constants/features";
+import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
+import { useAuth } from "@/context/auth-context";
+import {
+  trackSignupCtaClick,
+  trackSignupCtaView,
+} from "@/lib/analytics/signup-conversion-tracking";
 
 type FeatureId = "forecast" | "journal" | "intel";
 
@@ -16,8 +21,6 @@ interface Feature {
   railLabel: string;
   headline: string;
   body: string;
-  ctaLabel: string;
-  ctaHref: string;
   imageSrc: string;
   imageAlt: string;
 }
@@ -28,8 +31,6 @@ const FEATURES: Feature[] = [
     railLabel: "Your Surf Call",
     headline: CONTENT.sections.forecast.title,
     body: CONTENT.sections.forecast.subtitle,
-    ctaLabel: CONTENT.sections.forecast.primaryCta,
-    ctaHref: "/map",
     imageSrc: "/images/app-screenshots/verdict.png",
     imageAlt: "Quiver app showing a Trestles 4-6ft EPIC surf call with verdict, swell, tide, and water temperature.",
   },
@@ -38,8 +39,6 @@ const FEATURES: Feature[] = [
     railLabel: "Session Journal",
     headline: "Track your surf story",
     body: "Log sessions. Unlock better forecasts.",
-    ctaLabel: "Start your journal",
-    ctaHref: "/sessions/new",
     imageSrc: "/images/app-screenshots/session.png",
     imageAlt: "Quiver Log Session screen with board picker, duration, rating, and wave conditions.",
   },
@@ -48,8 +47,6 @@ const FEATURES: Feature[] = [
     railLabel: "Local Intel",
     headline: "Real conditions from real surfers",
     body: "Real-time posts, photos, and crowd reports from surfers at your local breaks.",
-    ctaLabel: "Explore the map",
-    ctaHref: "/map",
     imageSrc: "/images/app-screenshots/forecast.png",
     imageAlt: "Quiver hour-by-hour forecast screen showing 4-6ft NW swell, 5kt wind, rising tide, and a 300-break hourly outlook.",
   },
@@ -57,8 +54,30 @@ const FEATURES: Feature[] = [
 
 export function ForecastSection() {
   const [activeFeatureId, setActiveFeatureId] = useState<FeatureId>("forecast");
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const isInView = useInView(sectionRef, { once: true, amount: 0.2 });
+  const { user } = useAuth();
+  const hasTrackedView = useRef(false);
 
   const activeFeature = FEATURES.find((f) => f.id === activeFeatureId) || FEATURES[0];
+
+  useEffect(() => {
+    if (user || !isInView || hasTrackedView.current) return;
+    hasTrackedView.current = true;
+    trackSignupCtaView({
+      source: "forecast-section",
+      surface: "landing-page",
+    });
+  }, [user, isInView]);
+
+  const handleBetaCtaClick = useCallback(() => {
+    trackSignupCtaClick({
+      source: "forecast-section",
+      surface: "landing-page",
+    });
+    setAuthModalOpen(true);
+  }, []);
 
   // Navigation handlers
   const handlePrevious = useCallback(() => {
@@ -121,6 +140,7 @@ export function ForecastSection() {
       <div className="absolute top-1/2 left-1/4 w-[400px] h-[400px] bg-ocean-blue/[0.06] rounded-full blur-[100px] pointer-events-none" />
 
       <div
+        ref={sectionRef}
         className="relative overflow-hidden rounded-3xl bg-white/[0.04] backdrop-blur-md border border-white/[0.08] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] animate-fade-in-up"
         data-testid="forecast-section"
       >
@@ -253,7 +273,7 @@ export function ForecastSection() {
               </div>
             </div>
 
-            {/* Right: copy + CTAs with animation */}
+            {/* Right: copy + CTAs */}
             <div className="text-center md:text-left">
               <AnimatePresence mode="wait">
                 <motion.div
@@ -269,24 +289,39 @@ export function ForecastSection() {
                   <p className="mt-5 text-base leading-7 text-[#9AABC6] max-w-[420px] mx-auto md:mx-0">
                     {activeFeature.body}
                   </p>
-
-                  <div className="mt-10 flex flex-col gap-4 items-center md:items-start">
-                    <Button
-                      className="rounded-full px-7 py-3 text-sm font-semibold bg-ocean-blue hover:bg-ocean-blue/90 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 text-white shadow-sm focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
-                      asChild
-                      data-testid={`forecast-cta-${activeFeatureId}`}
-                    >
-                      <Link href={activeFeature.ctaHref}>
-                        {activeFeature.ctaLabel}
-                      </Link>
-                    </Button>
-                  </div>
                 </motion.div>
               </AnimatePresence>
+
+              {!user && (
+                <div className="mt-10 flex flex-col gap-4 items-center md:items-start">
+                  <Button
+                    onClick={handleBetaCtaClick}
+                    className="rounded-full px-7 py-3 text-sm font-semibold bg-ocean-blue hover:bg-ocean-blue/90 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 text-white shadow-sm focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
+                    data-testid={`forecast-cta-${activeFeatureId}`}
+                  >
+                    Join the beta
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {authModalOpen && (
+        <UnifiedAuthModal
+          isOpen={authModalOpen}
+          onClose={() => setAuthModalOpen(false)}
+          mode="signup"
+          source="forecast-section"
+          returnTo="/"
+          contextMessage={{
+            title: "Join the Quiver beta",
+            description:
+              "Free access to the iOS and Android beta. Sign up to help dial in the forecast for your local breaks.",
+          }}
+        />
+      )}
     </SectionWrapper>
   );
 }
