@@ -820,6 +820,14 @@ describe('POST /api/events', () => {
         // Tab and map engagement events
         'tab_view',
         'map_interaction',
+        // Paywall + trial funnel (native)
+        'paywall_opened',
+        'paywall_dismissed',
+        'paywall_purchase_started',
+        'paywall_purchase_success',
+        'paywall_purchase_failed',
+        'onboarding_paywall_skipped',
+        'onboarding_trial_started',
       ];
 
       const realDateNow = Date.now;

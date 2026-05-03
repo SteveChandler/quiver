@@ -139,7 +139,15 @@ export type ImplicitEventType =
   | 'anon_alert_capture_submit'
   | 'anon_alert_capture_error'
   | 'anon_alert_magic_link_clicked'
-  | 'anon_alert_signup_success';
+  | 'anon_alert_signup_success'
+  // Paywall + trial funnel (native, added 2026-05-02)
+  | 'paywall_opened'
+  | 'paywall_dismissed'
+  | 'paywall_purchase_started'
+  | 'paywall_purchase_success'
+  | 'paywall_purchase_failed'
+  | 'onboarding_paywall_skipped'
+  | 'onboarding_trial_started';
 
 /**
  * Weight multipliers for each event type, determining how much
@@ -270,6 +278,14 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   anon_alert_capture_error: 0,
   anon_alert_magic_link_clicked: 0,
   anon_alert_signup_success: 0,
+  // Paywall + trial funnel (added 2026-05-02) — funnel tracking only, no preference weight
+  paywall_opened: 0,
+  paywall_dismissed: 0,
+  paywall_purchase_started: 0,
+  paywall_purchase_success: 0,
+  paywall_purchase_failed: 0,
+  onboarding_paywall_skipped: 0,
+  onboarding_trial_started: 0,
 } as const;
 
 // -----------------------------------------------------------------------------

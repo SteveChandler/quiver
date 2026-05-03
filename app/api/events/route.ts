@@ -231,6 +231,15 @@ export const VALID_EVENTS: ImplicitEventType[] = [
   'anon_alert_capture_error',
   'anon_alert_magic_link_clicked',
   'anon_alert_signup_success',
+  // Paywall + trial funnel (native, added 2026-05-02 — fires from
+  // trial-prompt onboarding step and standalone paywall screen)
+  'paywall_opened',
+  'paywall_dismissed',
+  'paywall_purchase_started',
+  'paywall_purchase_success',
+  'paywall_purchase_failed',
+  'onboarding_paywall_skipped',
+  'onboarding_trial_started',
 ];
 
 export const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
