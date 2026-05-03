@@ -1,0 +1,102 @@
+-- Fix: get_user_match_candidates was selecting enhanced_forecasts.wind_direction (TEXT label
+-- like "WNW") and feeding it into compute_user_match_score's p_wind_direction arg, which
+-- routes through parse_numeric_from_text() and returns 0 for any non-numeric input. Result:
+-- every UI-surfaced match candidate scored as if wind was blowing due-North.
+--
+-- The cron path at app/api/cron/similarity-alerts/route.ts already passes wind_direction_deg
+-- (numeric) correctly. This migration fixes only the RPC the UI consumes.
+--
+-- Single-line change inside the latest_forecast CTE:
+--   ef.wind_direction,
+-- becomes
+--   (ef.wind_direction_deg)::text AS wind_direction,
+--
+-- Everything else (signature, SECURITY DEFINER, search_path, joins, ORDER BY, GRANTs)
+-- preserved verbatim from the live function body.
+
+BEGIN;
+
+CREATE OR REPLACE FUNCTION public.get_user_match_candidates(p_user_id uuid, p_exclude_beach_id uuid DEFAULT NULL::uuid, p_device_lat double precision DEFAULT NULL::double precision, p_device_lon double precision DEFAULT NULL::double precision, p_radius_km double precision DEFAULT 50, p_limit integer DEFAULT 5)
+ RETURNS TABLE(beach jsonb, score numeric, label text)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_have_device boolean := p_device_lat IS NOT NULL AND p_device_lon IS NOT NULL;
+BEGIN
+  RETURN QUERY
+  WITH candidate_beaches AS (
+    SELECT DISTINCT b.id, b.name, b.lat, b.lon
+    FROM public.beaches b
+    WHERE b.deleted_at IS NULL
+      AND (p_exclude_beach_id IS NULL OR b.id <> p_exclude_beach_id)
+      AND b.id IN (
+        -- Favorites
+        SELECT fb.beach_id FROM public.favorite_beaches fb WHERE fb.user_id = p_user_id
+        UNION
+        -- Nearby (only if device coords provided)
+        SELECT b2.id FROM public.beaches b2
+        WHERE v_have_device
+          AND b2.geog IS NOT NULL
+          AND ST_DWithin(
+            b2.geog,
+            ST_SetSRID(ST_MakePoint(p_device_lon, p_device_lat), 4326)::geography,
+            p_radius_km * 1000
+          )
+      )
+  ),
+  latest_forecast AS (
+    SELECT DISTINCT ON (ef.beach_id)
+      ef.beach_id,
+      ef.wave_height,
+      ef.wave_period,
+      ef.wind_speed,
+      (ef.wind_direction_deg)::text AS wind_direction,
+      ef.tide_height
+    FROM public.enhanced_forecasts ef
+    WHERE ef.beach_id IN (SELECT id FROM candidate_beaches)
+    ORDER BY ef.beach_id, ef.forecast_at DESC NULLS LAST
+  ),
+  scored AS (
+    SELECT
+      cb.id,
+      cb.name,
+      cb.lat,
+      cb.lon,
+      public.compute_user_match_score(
+        p_user_id,
+        cb.id,
+        lf.wave_height,
+        lf.wave_period,
+        lf.wind_speed,
+        lf.wind_direction,
+        lf.tide_height
+      ) AS result
+    FROM candidate_beaches cb
+    JOIN latest_forecast lf ON lf.beach_id = cb.id
+  )
+  SELECT
+    jsonb_build_object(
+      'id', s.id,
+      'name', s.name,
+      'lat', s.lat,
+      'lon', s.lon
+    ) AS beach,
+    (s.result->>'score')::numeric AS score,
+    s.result->>'label' AS label
+  FROM scored s
+  WHERE s.result->>'state' = 'ready'
+  ORDER BY (s.result->>'score')::numeric DESC NULLS LAST
+  LIMIT p_limit;
+END;
+$function$;
+
+-- Re-assert grants captured pre-deploy from pg_proc.proacl. CREATE OR REPLACE FUNCTION
+-- preserves grants in practice but this is belt-and-suspenders so the UI RPC keeps working
+-- if Postgres ever changes that behavior.
+GRANT EXECUTE ON FUNCTION public.get_user_match_candidates(uuid, uuid, double precision, double precision, double precision, integer) TO anon;
+GRANT EXECUTE ON FUNCTION public.get_user_match_candidates(uuid, uuid, double precision, double precision, double precision, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_user_match_candidates(uuid, uuid, double precision, double precision, double precision, integer) TO service_role;
+
+COMMIT;
