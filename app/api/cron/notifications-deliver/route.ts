@@ -1,12 +1,14 @@
 /**
- * /api/cron/notifications-deliver — runs every minute.
+ * /api/cron/notifications-deliver — runs hourly (`0 * * * *`).
  *
  * Pulls pending events from `notification_events`, dispatches push (FCM) and
  * in-app rows, writes per-channel outcomes to `notification_delivery_attempts`.
  * Pure orchestration — the work lives in `lib/notifications/worker.ts`.
  *
- * Until Phase 3 starts migrating producers, this cron observes 0 pending
- * events per tick. `cron_runs` rows confirm the worker is healthy and ready.
+ * Cadence: was minutely until 2026-05-02. Audit showed 2 deliveries across
+ * 1,440 daily runs (99.86% no-op). Producers (likes, follows) write events
+ * but social-notification latency up to 60 min is acceptable. Re-tighten
+ * once volume justifies it.
  *
  * Plan: ~/.claude/plans/on-quiver-native-we-have-snug-tiger.md (Phase 2b).
  */

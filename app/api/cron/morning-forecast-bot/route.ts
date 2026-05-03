@@ -19,6 +19,7 @@ import {
   generateRegionalForecast,
   getRegionalBeachId,
 } from '@/lib/npc/forecast-formatter';
+import { withObservedCron } from '@/lib/cron/observability';
 
 export const revalidate = 0;
 export const runtime = 'nodejs';
@@ -41,7 +42,7 @@ interface RegionResult {
  *
  * Posts regional morning forecasts for NorCal, Central Coast, and SoCal.
  */
-export async function GET(request: Request) {
+async function _GET(request: Request): Promise<Response> {
   try {
     if (!validateCronRequest(request)) {
       return createErrorResponse('Unauthorized', 'Invalid cron authentication', 401);
@@ -179,6 +180,8 @@ export async function GET(request: Request) {
     return handleApiError(error, 'Failed to run morning forecast bot');
   }
 }
+
+export const GET = withObservedCron('/api/cron/morning-forecast-bot', _GET);
 
 /**
  * Default latitude for each region (fallback if beach lookup fails)

@@ -11,6 +11,7 @@ import {
   matchCCCToBeaches,
 } from "@/lib/services/ccc";
 import type { FetchResult, UpsertResult, MatchResult } from "@/lib/services/ccc";
+import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -58,7 +59,7 @@ interface MatchSyncResult {
  * - Vercel Cron header (`x-vercel-cron`)
  * - OR Authorization: Bearer <CRON_SECRET>
  */
-export async function GET(request: Request) {
+async function _GET(request: Request): Promise<Response> {
   const startTime = Date.now();
 
   try {
@@ -98,6 +99,8 @@ export async function GET(request: Request) {
     return handleApiError(error);
   }
 }
+
+export const GET = withObservedCron("/api/cron/ccc-sync", _GET);
 
 /**
  * Import Phase

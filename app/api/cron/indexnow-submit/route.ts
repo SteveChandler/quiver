@@ -14,6 +14,7 @@ import { stateToSlug } from "@/lib/utils/beach-url-utils";
 import { getAllForecastRegionSlugs } from "@/lib/data/forecast-regions";
 import { getAllCamRegionSlugs } from "@/lib/data/cam-regions";
 import { HUB_REGION_SLUGS } from "@/lib/data/hub-regions";
+import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -40,7 +41,7 @@ const US_INTENT_STATES = [
  * Weekly cron that submits intent pages, city hub pages, and other
  * programmatic URLs to IndexNow for accelerated search engine discovery.
  */
-export async function GET(request: Request) {
+async function _GET(request: Request): Promise<Response> {
   try {
     if (!validateCronRequest(request)) {
       return createErrorResponse(
@@ -91,6 +92,8 @@ export async function GET(request: Request) {
     return handleApiError(error);
   }
 }
+
+export const GET = withObservedCron("/api/cron/indexnow-submit", _GET);
 
 // ---------------------------------------------------------------------------
 // URL Collectors

@@ -8,6 +8,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { IntelGenerationService } from "@/lib/services/intel-generation-service";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
+import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -30,7 +31,7 @@ function getSupabaseConfig() {
  * - generationTime: HH:MM (default "06:00") - used for the record key and analysis time anchor
  * - maxBeaches: number (default 60) - hard cap on beaches processed per run
  */
-export async function GET(request: Request) {
+async function _GET(request: Request): Promise<Response> {
   try {
     if (!validateCronRequest(request)) {
       return createErrorResponse("Unauthorized", "Invalid cron authentication", 401);
@@ -126,5 +127,7 @@ export async function GET(request: Request) {
     return handleApiError(error, "Failed to run daily intel cron");
   }
 }
+
+export const GET = withObservedCron("/api/cron/daily-intel", _GET);
 
 

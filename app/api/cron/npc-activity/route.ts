@@ -27,6 +27,7 @@ import {
   fetchRandomTemplate,
 } from '@/lib/npc/template-hydration';
 import type { Database } from '@/types/database';
+import { withObservedCron } from '@/lib/cron/observability';
 
 export const revalidate = 0;
 export const runtime = 'nodejs';
@@ -96,7 +97,7 @@ interface PostResult {
  *
  * Generates NPC posts based on personality posting windows and activity levels.
  */
-export async function GET(request: Request) {
+async function _GET(request: Request): Promise<Response> {
   try {
     if (!validateCronRequest(request)) {
       return createErrorResponse('Unauthorized', 'Invalid cron authentication', 401);
@@ -196,6 +197,8 @@ export async function GET(request: Request) {
     return handleApiError(error, 'Failed to run NPC activity cron');
   }
 }
+
+export const GET = withObservedCron('/api/cron/npc-activity', _GET);
 
 /**
  * Select content type based on weighted probability

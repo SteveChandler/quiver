@@ -12,6 +12,7 @@
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { validateCronRequest, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 import { fetchHourlyWind } from '@/lib/services/open-meteo-wind-service';
+import { withObservedCron } from '@/lib/cron/observability';
 
 export const maxDuration = 120;
 
@@ -22,7 +23,7 @@ function degreesToCardinal(deg: number): string {
   return dirs[idx];
 }
 
-export async function GET(request: Request) {
+async function _GET(request: Request): Promise<Response> {
   if (!validateCronRequest(request)) {
     return createErrorResponse('Unauthorized', null, 401);
   }
@@ -126,3 +127,5 @@ export async function GET(request: Request) {
     errors,
   });
 }
+
+export const GET = withObservedCron('/api/cron/wind/update', _GET);
