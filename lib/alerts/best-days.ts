@@ -100,22 +100,21 @@ export async function computeBestDaysForUser(
       const wind = f.wind_speed ? parseFloat(f.wind_speed) : null;
       const tide = f.tide_height ? parseFloat(f.tide_height) : null;
 
-      const { data: rpcData, error: rpcErr } = await (
-        supabase.rpc as unknown as (
-          fn: string,
-          args: Record<string, unknown>,
-        ) => Promise<{ data: MatchScoreResult | null; error: unknown }>
-      )("compute_user_match_score", {
-        p_user_id: userId,
-        p_beach_id: beachId,
-        p_wave_height: wave,
-        p_wave_period: period,
-        p_wind_speed: wind,
-        p_wind_direction: f.wind_direction_deg,
-        p_tide_height: tide,
-      });
+      const { data: rpcData, error: rpcErr } = await supabase.rpc(
+        "compute_user_match_score",
+        {
+          p_user_id: userId,
+          p_beach_id: beachId,
+          p_wave_height: String(wave),
+          p_wave_period: String(period),
+          p_wind_speed: wind == null ? "" : String(wind),
+          p_wind_direction:
+            f.wind_direction_deg == null ? "" : String(f.wind_direction_deg),
+          p_tide_height: tide == null ? "" : String(tide),
+        },
+      );
       if (rpcErr) continue;
-      const result = rpcData;
+      const result = rpcData as MatchScoreResult | null;
       if (!result || result.state !== "ready") continue;
       if (typeof result.score !== "number") continue;
       if (result.score < DIGEST_SCORE_THRESHOLD) continue;

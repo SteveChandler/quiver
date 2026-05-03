@@ -42,7 +42,6 @@ function getBeachDefaults(): Omit<
     state: null,
     country: null,
     region: null,
-    region_id: null,
     slug: null,
     geog: null,
     timezone: null,
@@ -101,8 +100,11 @@ function getBeachDefaults(): Omit<
     wind_onshore_bad_kt: null,
     wind_exposure_factors: null,
     wind_analyzed_at: null,
-    max_wind_any_mph: null,
-    max_wind_onshore_mph: null,
+
+    // Height offset (per-beach calibration; non-nullable in schema)
+    height_offset_enabled: false,
+    height_offset_max_age_days: 30,
+    height_offset_min_sample_count: 5,
 
     // CDIP buoy integration
     cdip_station: null,
