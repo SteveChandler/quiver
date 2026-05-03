@@ -41,7 +41,7 @@ export const GET = withAuth(
     const { data: forecasts } = await supabase
       .from("enhanced_forecasts")
       .select(
-        "forecast_at, wave_height, wave_period, swell_1_height, swell_1_period, swell_1_direction, wind_speed, wind_direction_deg, tide_height, tide_status"
+        "forecast_at, wave_height, wave_period, wave_direction, swell_1_height, swell_1_period, swell_1_direction, wind_speed, wind_direction_deg, tide_height, tide_status"
       )
       .eq("beach_id", rule.beach_id)
       .gte("forecast_at", todayStart)
@@ -56,6 +56,7 @@ export const GET = withAuth(
       forecast_at: f.forecast_at,
       wave_height: f.wave_height ? parseFloat(f.wave_height) : null,
       wave_period: f.wave_period ? parseFloat(f.wave_period.replace("s", "")) : null,
+      wave_direction: f.wave_direction ?? null,
       swell_1_height: f.swell_1_height ? parseFloat(f.swell_1_height) : null,
       swell_1_period: f.swell_1_period ? parseFloat(f.swell_1_period.replace("s", "")) : null,
       swell_1_direction: f.swell_1_direction ? parseFloat(String(f.swell_1_direction)) : null,

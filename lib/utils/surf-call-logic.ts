@@ -119,8 +119,20 @@ export function verdictFromRecommendationLabel(
 // Constants
 // ============================================================================
 
-// Wave height minimums by break type (in feet)
+// Wave height minimums by break type (in feet).
+//
+// Both the canonical normalized form (beach/reef/point/river_mouth — what the
+// DB actually stores after migration 20251207100000_beaches_data_quality_fixes)
+// and the legacy two-word form ("beach break" etc.) are keyed so this lookup
+// works for any caller regardless of normalization stage. Without the canonical
+// keys, normalized "reef" / "point" rows would fall back to the 1.5ft default
+// instead of the intended 2.0ft minimum.
 const BREAK_TYPE_MINIMUMS: Record<string, number> = {
+  beach: 1.5,
+  reef: 2.0,
+  point: 2.0,
+  river_mouth: 1.5,
+  // Legacy two-word forms — preserved for any rows that didn't get normalized.
   'beach break': 1.5,
   'reef break': 2.0,
   'point break': 2.0,
@@ -158,7 +170,7 @@ const WIND_DIRECTION_OFFSHORE_MAX = 45;
 const WIND_DIRECTION_CROSSSHORE_MIN = 135;
 
 // Window duration thresholds (in minutes)
-const MINIMUM_VIABLE_WINDOW_MINUTES = 30;
+export const MINIMUM_VIABLE_WINDOW_MINUTES = 30;
 const SHORT_WINDOW_THRESHOLD_MINUTES = 45;
 
 // Score thresholds (0-100 scale)
@@ -193,7 +205,12 @@ interface BeachWithWindData {
 // Helpers
 // ============================================================================
 
-function getMinRideable(beach: Beach): number {
+/**
+ * Minimum rideable wave height (ft) for a beach, derived from break_type and
+ * skill_level. Exported for the alert-evaluator surfability gate, which lives
+ * outside the discovery pipeline and only needs `break_type` + `skill_level`.
+ */
+export function getMinRideable(beach: Beach): number {
   const beachWithType = beach as Beach & BeachWithBreakType;
   const breakType = (beachWithType.break_type || 'default').toLowerCase();
   const breakMin = BREAK_TYPE_MINIMUMS[breakType] ?? BREAK_TYPE_MINIMUMS.default;

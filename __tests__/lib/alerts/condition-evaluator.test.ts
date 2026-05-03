@@ -11,8 +11,9 @@ const mockBeach: BeachAlertMeta = {
 
 const baseForecast: ForecastHour = {
   forecast_at: "2026-04-01T15:00:00Z",
-  wave_height: 4, wave_period: 12, swell_1_height: 4, swell_1_period: 12,
-  swell_1_direction: 250, wind_speed: 5, wind_direction_deg: 45,
+  wave_height: 4, wave_period: 12, wave_direction: "W",
+  swell_1_height: 4, swell_1_period: 12, swell_1_direction: 250,
+  wind_speed: 5, wind_direction_deg: 45,
   tide_height: 3.5, tide_status: "rising",
 };
 

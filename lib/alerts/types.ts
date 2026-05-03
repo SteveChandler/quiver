@@ -51,6 +51,8 @@ export interface ForecastHour {
   forecast_at: string;
   wave_height: number | null;
   wave_period: number | null;
+  /** Total-spectrum dominant wave direction as a cardinal string ("WSW"); see enhanced_forecasts schema. */
+  wave_direction: string | null;
   swell_1_height: number | null;
   swell_1_period: number | null;
   swell_1_direction: number | null;

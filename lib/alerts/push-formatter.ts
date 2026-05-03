@@ -1,4 +1,11 @@
 import type { MatchingWindow } from "./types";
+import {
+  formatWaveHeightRange,
+  formatWindSpeed,
+  formatSwellPeriod,
+} from "@/lib/formatters/surf-data";
+
+const KNOTS_TO_MPH = 1.15078;
 
 interface PushContent {
   title: string;
@@ -67,9 +74,25 @@ export function formatPushNotification(matches: MatchingWindow[]): PushContent {
 
   if (matches.length === 1) {
     const snap = topMatch.conditions_snapshot;
-    const waveHeight = snap.wave_height ? `${snap.wave_height}ft` : "";
-    const period = snap.swell_1_period ? ` @ ${snap.swell_1_period}s` : "";
-    const wind = snap.wind_speed ? `, ${snap.wind_speed}kt wind` : "";
+    // Match the email's units + rounding so push and email don't disagree.
+    // wind_speed is knots (per ForecastHour), wave_period prefers the total-
+    // spectrum field that the website Current Conditions card reads, with
+    // swell_1_period as fallback.
+    const waveHeight =
+      typeof snap.wave_height === "number" && Number.isFinite(snap.wave_height)
+        ? formatWaveHeightRange(snap.wave_height)
+        : "";
+    const periodValue =
+      typeof snap.wave_period === "number" && Number.isFinite(snap.wave_period)
+        ? snap.wave_period
+        : typeof snap.swell_1_period === "number" && Number.isFinite(snap.swell_1_period)
+        ? snap.swell_1_period
+        : null;
+    const period = periodValue !== null ? ` @ ${formatSwellPeriod(periodValue)}` : "";
+    const wind =
+      typeof snap.wind_speed === "number" && Number.isFinite(snap.wind_speed)
+        ? `, ${formatWindSpeed(snap.wind_speed * KNOTS_TO_MPH)}`
+        : "";
     const timeWindow = formatTimeRange(topMatch.window_start, topMatch.window_end, topMatch.beach_timezone);
     let body = `${topMatch.beach_name} ${timeWindow} — ${waveHeight}${period}${wind}`;
     if (body.length > 150) body = `${topMatch.beach_name} ${timeWindow} — ${waveHeight}${period}`;

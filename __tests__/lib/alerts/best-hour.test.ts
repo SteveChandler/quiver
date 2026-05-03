@@ -2,9 +2,9 @@ import { scoreForecastHour } from "@/lib/alerts/best-hour";
 import type { AlertConditions, ForecastHour } from "@/lib/alerts/types";
 
 const nullForecast: ForecastHour = {
-  forecast_at: "a", wave_height: null, wave_period: null, swell_1_height: null,
-  swell_1_period: null, swell_1_direction: null, wind_speed: null,
-  wind_direction_deg: null, tide_height: null, tide_status: null,
+  forecast_at: "a", wave_height: null, wave_period: null, wave_direction: null,
+  swell_1_height: null, swell_1_period: null, swell_1_direction: null,
+  wind_speed: null, wind_direction_deg: null, tide_height: null, tide_status: null,
 };
 
 describe("scoreForecastHour", () => {

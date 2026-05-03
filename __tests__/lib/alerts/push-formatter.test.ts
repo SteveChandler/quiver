@@ -21,6 +21,52 @@ describe("formatPushNotification", () => {
     expect(result.body.length).toBeLessThanOrEqual(150);
   });
 
+  it("uses the same units + rounding as the email (mph from knots, ft bracket)", () => {
+    // Same snapshot the email tests use for the user's flagged 2026-05-03 case.
+    const result = formatPushNotification([
+      makeMatch({
+        conditions_snapshot: {
+          wave_height: 1.1,
+          wave_period: 5,
+          swell_1_period: 5,
+          wind_speed: 4.34488, // knots
+          tide_status: "Rising",
+        },
+      }),
+    ]);
+    expect(result.body).toContain("1-2ft @ 5s");
+    expect(result.body).toContain("5 mph");
+    expect(result.body).not.toContain("kt"); // no raw knots
+    expect(result.body).not.toContain("4.34488"); // no raw float
+  });
+
+  it("prefers wave_period over swell_1_period when both are present", () => {
+    const result = formatPushNotification([
+      makeMatch({
+        conditions_snapshot: {
+          wave_height: 4,
+          wave_period: 12,
+          swell_1_period: 8, // ignored — wave_period wins
+          wind_speed: 5,
+        },
+      }),
+    ]);
+    expect(result.body).toContain("@ 12s");
+  });
+
+  it("falls back to swell_1_period when wave_period is missing", () => {
+    const result = formatPushNotification([
+      makeMatch({
+        conditions_snapshot: {
+          wave_height: 4,
+          swell_1_period: 8,
+          wind_speed: 5,
+        },
+      }),
+    ]);
+    expect(result.body).toContain("@ 8s");
+  });
+
   it("formats two beaches", () => {
     const matches = [makeMatch(), makeMatch({ beach_name: "Trestles", beach_id: "b2" })];
     const result = formatPushNotification(matches);

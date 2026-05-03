@@ -388,7 +388,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                       from: MAIL_FROM,
                       replyTo: MAIL_REPLY_TO,
                       to: profile.email,
-                      subject: `Your surf alert for ${alertDate}`,
+                      subject: `Your surf report for ${alertDate}`,
                       react: ConsolidatedAlertEmail({
                         displayName: profile.display_name,
                         alertDate,
@@ -425,7 +425,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                       await emailLogger.logDelivery({
                         userId: payload.user_id,
                         emailType: "conditions_alert",
-                        subject: `Your surf alert for ${alertDate}`,
+                        subject: `Your surf report for ${alertDate}`,
                         meta: {
                           match_count: emailMatches.length,
                           beaches: emailMatches.map((m) => m.beach_name),
