@@ -151,7 +151,7 @@ export function OrbitAnimation({ visible }: OrbitAnimationProps) {
           style={{ width: 180, height: 180 }}
         >
           <Image
-            src="/quiver-logo-transparent.png"
+            src="/quiver-app-icon.png"
             alt="Quiver"
             width={180}
             height={180}

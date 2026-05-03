@@ -60,7 +60,7 @@ const organizationSchema = {
   name: "Quiver",
   description: "Community-driven surf forecasting and session tracking",
   url: "https://www.quiversurf.app",
-  logo: "https://www.quiversurf.app/logo.png",
+  logo: "https://www.quiversurf.app/quiver-app-icon.png",
   sameAs: [
     "https://twitter.com/quiversurf",
     "https://instagram.com/quiversurf",

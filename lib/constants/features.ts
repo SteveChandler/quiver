@@ -270,8 +270,8 @@ export const SURF_ACTIVITIES = [
 // Content strings to reduce hardcoding
 export const CONTENT = {
   hero: {
-    title: "Free surf call. Your beach. Every morning.",
-    subtitle: "Tell us where you surf. We read the buoys, swell, wind, and tide — then tell you whether it's worth getting out of bed. 279+ beaches across the US. Free to use.",
+    title: "Surf when it's actually good.",
+    subtitle: "Personalized to the spots you actually surf.",
     cta: "Set up your home break",
     secondaryCta: "Explore Features",
     benefits: [

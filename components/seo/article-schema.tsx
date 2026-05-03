@@ -46,7 +46,7 @@ export function ArticleSchema({
       url: baseUrl,
       logo: {
         "@type": "ImageObject",
-        url: `${baseUrl}/logo.png`,
+        url: `${baseUrl}/quiver-app-icon.png`,
       },
     },
     mainEntityOfPage: {

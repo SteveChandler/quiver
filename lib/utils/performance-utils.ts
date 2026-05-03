@@ -7,7 +7,7 @@ function preloadCriticalResources() {
   if (typeof window === "undefined") return () => {};
 
   // Note: logo preloads removed to prevent unused preload warnings on non-landing pages
-  // - logoQuiver.png: loaded via Next.js Image with priority on landing page
+  // - quiver-app-icon.png: loaded via Next.js Image with priority on landing page
   //
   // If landing-page-specific preload is needed in the future, make this function
   // accept an opts param: preloadCriticalResources({ isLandingPage: true })

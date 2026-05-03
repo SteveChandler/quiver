@@ -125,7 +125,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
           <div className="flex items-center">
             <Link href="/" className="flex items-center gap-2 group">
               <Image
-                src="/logoQuiver.png"
+                src="/quiver-app-icon.png"
                 alt="Quiver Logo"
                 width={48}
                 height={48}
