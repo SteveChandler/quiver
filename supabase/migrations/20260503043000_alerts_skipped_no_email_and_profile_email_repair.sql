@@ -44,15 +44,20 @@ ALTER TABLE public.alert_delivery_attempts
   ));
 
 -- 2. Backfill profiles.email from auth.users.email where missing.
---    Scoped to rows where the local copy is null and auth has a value, so
---    it is idempotent and never overwrites a user-set email.
+--    Match the runtime guard exactly: the deliver worker treats a NULL or
+--    whitespace-only email as missing (route.ts: "!profile.email ||
+--    profile.email.trim() === ''"), so the data repair must too. Use
+--    NULLIF(btrim(...), '') to coerce '' / '   ' to NULL for comparison.
+--    Scoped to rows where the local copy is missing-by-that-definition and
+--    auth.users has a real value, so it is idempotent and never overwrites
+--    a user-set email.
 UPDATE public.profiles p
 SET email = u.email,
     updated_at = now()
 FROM auth.users u
 WHERE p.id = u.id
-  AND p.email IS NULL
-  AND u.email IS NOT NULL;
+  AND NULLIF(btrim(p.email), '') IS NULL
+  AND NULLIF(btrim(u.email), '') IS NOT NULL;
 
 -- 3. Self-heal trigger. The current ON CONFLICT clause in handle_new_user()
 --    coalesces location/home_region/timezone/signup_context/signup_location
@@ -111,9 +116,10 @@ BEGIN
     NOW()
   )
   ON CONFLICT (id) DO UPDATE SET
-    -- Self-heal: if the existing profile row has null email but auth has one,
-    -- adopt it. Never overwrite a non-null user-set email.
-    email = COALESCE(profiles.email, EXCLUDED.email),
+    -- Self-heal: if the existing profile row has a missing email (NULL or
+    -- whitespace-only — matches the deliver worker's runtime guard) and
+    -- auth has one, adopt it. Never overwrite a non-blank user-set email.
+    email = COALESCE(NULLIF(btrim(profiles.email), ''), EXCLUDED.email),
     location = COALESCE(profiles.location, EXCLUDED.location),
     home_region = COALESCE(profiles.home_region, EXCLUDED.home_region),
     timezone = COALESCE(profiles.timezone, EXCLUDED.timezone),
@@ -133,8 +139,14 @@ $$;
 COMMIT;
 
 -- Post-deploy verification (manual, run after rollout):
+--   -- 0 expected: every profile with auth.users.email also has a usable
+--   -- profiles.email (matches the deliver worker's runtime guard).
 --   SELECT COUNT(*) FROM profiles p JOIN auth.users u ON u.id = p.id
---    WHERE p.email IS NULL AND u.email IS NOT NULL;          -- expect 0
+--    WHERE NULLIF(btrim(p.email), '') IS NULL
+--      AND NULLIF(btrim(u.email), '') IS NOT NULL;
+--
+--   -- 0 expected within the first 24h after the new code deploys, unless
+--   -- a non-trigger writer creates a profile without email (audit if so).
 --   SELECT COUNT(*) FROM alert_delivery_attempts
 --    WHERE status = 'skipped_no_email'
---      AND attempted_at > now() - interval '24 hours';       -- expect 0
+--      AND attempted_at > now() - interval '24 hours';
