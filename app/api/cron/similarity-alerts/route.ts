@@ -8,6 +8,15 @@
 // scores >= 7. Frequency caps: one alert per (user, beach) per 48h and a
 // maximum of three queued alerts per user per 24h.
 //
+// Kill switch (mirroring condition-alert-deliver):
+//   - ALERTS_DELIVERY_ENABLED — must equal "true" or the cron returns
+//     { skipped: true, reason: "delivery_disabled" } without touching the DB.
+//     Default OFF; enable per environment when ready to roll out.
+//   - ALERTS_DELIVERY_USER_ALLOWLIST — optional comma-separated user_ids.
+//     When non-empty, rules whose user is not on the list are counted as
+//     skipped and their forecasts are not scored. When empty, all enabled
+//     rules are processed (subject to frequency caps).
+//
 // Schema note: alert_queue has no `alert_type`/`payload` column (see
 // supabase/migrations/20260408163000_add_condition_alerts.sql). We stamp the
 // similarity payload inside `conditions_snapshot` jsonb so the delivery cron
@@ -56,6 +65,27 @@ async function _GET(req: Request): Promise<Response> {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Kill switch + per-user allowlist, mirroring condition-alert-deliver
+  // (route.ts:53-60). Default OFF for safety; enable per environment when
+  // ready to roll out. Gating the enqueue (not just delivery) prevents
+  // alert_queue writes, last_matched_at cooldown burn, and noisy attempt
+  // rows during a paused rollout.
+  const deliveryEnabled = process.env.ALERTS_DELIVERY_ENABLED === "true";
+  const allowlistRaw = process.env.ALERTS_DELIVERY_USER_ALLOWLIST ?? "";
+  const allowlist = new Set(
+    allowlistRaw.split(",").map((s) => s.trim()).filter(Boolean),
+  );
+
+  if (!deliveryEnabled) {
+    console.log(`${CONTEXT_TAG} skipped: ALERTS_DELIVERY_ENABLED=false`);
+    return NextResponse.json({
+      skipped: true,
+      reason: "delivery_disabled",
+      enqueued: 0,
+      evaluated: 0,
+    });
+  }
+
   const supabase = await createSupabaseServiceRoleClient();
   let enqueued = 0;
   let evaluated = 0;
@@ -85,6 +115,15 @@ async function _GET(req: Request): Promise<Response> {
     }>) {
       evaluated++;
       try {
+        // Allowlist short-circuit: when ALERTS_DELIVERY_USER_ALLOWLIST is
+        // non-empty, skip rules whose user is not on the list. Counted as
+        // skipped so the daily-cap math still reflects considered-but-skipped
+        // rules.
+        if (allowlist.size > 0 && !allowlist.has(rule.user_id)) {
+          skipped++;
+          continue;
+        }
+
         // 2. Frequency cap: skip if this (user, beach) already has a
         // similarity alert queued in the last 48h.
         const cooldownSince = new Date(
