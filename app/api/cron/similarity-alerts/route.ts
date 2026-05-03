@@ -8,6 +8,15 @@
 // scores >= 7. Frequency caps: one alert per (user, beach) per 48h and a
 // maximum of three queued alerts per user per 24h.
 //
+// Kill switch (mirroring condition-alert-deliver):
+//   - ALERTS_DELIVERY_ENABLED — must equal "true" or the cron returns
+//     { skipped: true, reason: "delivery_disabled" } without touching the DB.
+//     Default OFF; enable per environment when ready to roll out.
+//   - ALERTS_DELIVERY_USER_ALLOWLIST — optional comma-separated user_ids.
+//     When non-empty, rules whose user is not on the list are counted as
+//     skipped and their forecasts are not scored. When empty, all enabled
+//     rules are processed (subject to frequency caps).
+//
 // Schema note: alert_queue has no `alert_type`/`payload` column (see
 // supabase/migrations/20260408163000_add_condition_alerts.sql). We stamp the
 // similarity payload inside `conditions_snapshot` jsonb so the delivery cron
@@ -56,6 +65,27 @@ async function _GET(req: Request): Promise<Response> {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Kill switch + per-user allowlist, mirroring condition-alert-deliver
+  // (route.ts:53-60). Default OFF for safety; enable per environment when
+  // ready to roll out. Gating the enqueue (not just delivery) prevents
+  // alert_queue writes, last_matched_at cooldown burn, and noisy attempt
+  // rows during a paused rollout.
+  const deliveryEnabled = process.env.ALERTS_DELIVERY_ENABLED === "true";
+  const allowlistRaw = process.env.ALERTS_DELIVERY_USER_ALLOWLIST ?? "";
+  const allowlist = new Set(
+    allowlistRaw.split(",").map((s) => s.trim()).filter(Boolean),
+  );
+
+  if (!deliveryEnabled) {
+    console.log(`${CONTEXT_TAG} skipped: ALERTS_DELIVERY_ENABLED=false`);
+    return NextResponse.json({
+      skipped: true,
+      reason: "delivery_disabled",
+      enqueued: 0,
+      evaluated: 0,
+    });
+  }
+
   const supabase = await createSupabaseServiceRoleClient();
   let enqueued = 0;
   let evaluated = 0;
@@ -85,6 +115,15 @@ async function _GET(req: Request): Promise<Response> {
     }>) {
       evaluated++;
       try {
+        // Allowlist short-circuit: when ALERTS_DELIVERY_USER_ALLOWLIST is
+        // non-empty, skip rules whose user is not on the list. Counted as
+        // skipped so the daily-cap math still reflects considered-but-skipped
+        // rules.
+        if (allowlist.size > 0 && !allowlist.has(rule.user_id)) {
+          skipped++;
+          continue;
+        }
+
         // 2. Frequency cap: skip if this (user, beach) already has a
         // similarity alert queued in the last 48h.
         const cooldownSince = new Date(
@@ -165,23 +204,21 @@ async function _GET(req: Request): Promise<Response> {
           const wind = f.wind_speed ? parseFloat(f.wind_speed) : null;
           const tide = f.tide_height ? parseFloat(f.tide_height) : null;
 
-          // compute_user_match_score is the Phase 2 RPC shipped by Workstream
-          // A. It may not be in types/database.generated.ts yet when this
-          // lands; cast avoids the strict-typed rpc() overload rejection.
-          const { data: rpcData, error: rpcErr } = await (
-            supabase.rpc as unknown as (
-              fn: string,
-              args: Record<string, unknown>,
-            ) => Promise<{ data: MatchScoreResult | null; error: unknown }>
-          )("compute_user_match_score", {
-            p_user_id: rule.user_id,
-            p_beach_id: rule.beach_id,
-            p_wave_height: wave,
-            p_wave_period: period,
-            p_wind_speed: wind,
-            p_wind_direction: f.wind_direction_deg,
-            p_tide_height: tide,
-          });
+          // compute_user_match_score declares all forecast args as text.
+          // Stringify numerics here; Postgres parses them via parse_numeric_from_text.
+          const { data: rpcData, error: rpcErr } = await supabase.rpc(
+            "compute_user_match_score",
+            {
+              p_user_id: rule.user_id,
+              p_beach_id: rule.beach_id,
+              p_wave_height: String(wave),
+              p_wave_period: String(period),
+              p_wind_speed: wind == null ? "" : String(wind),
+              p_wind_direction:
+                f.wind_direction_deg == null ? "" : String(f.wind_direction_deg),
+              p_tide_height: tide == null ? "" : String(tide),
+            },
+          );
           if (rpcErr) {
             console.warn(
               `${CONTEXT_TAG} RPC error rule=${rule.id} slot=${f.forecast_at}`,

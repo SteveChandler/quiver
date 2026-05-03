@@ -13,6 +13,9 @@ function makeBeach(overrides: Partial<Beach> & { id: string; name: string }): Be
     cdip_eligible: false,
     is_private: false,
     terrain_enabled: false,
+    height_offset_enabled: false,
+    height_offset_max_age_days: 30,
+    height_offset_min_sample_count: 5,
     created_at: new Date().toISOString(),
 
     // Nullable fields with null defaults
@@ -70,9 +73,6 @@ function makeBeach(overrides: Partial<Beach> & { id: string; name: string }): Be
     wind_onshore_bad_kt: null,
     deepwater_decay_factor: null,
     persona: null,
-    max_wind_any_mph: null,
-    max_wind_onshore_mph: null,
-    region_id: null,
 
     // Apply overrides
     ...overrides,

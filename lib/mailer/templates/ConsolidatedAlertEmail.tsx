@@ -1,5 +1,13 @@
 // lib/mailer/templates/ConsolidatedAlertEmail.tsx
 import type { MatchingWindow } from "@/lib/alerts/types";
+import {
+  formatWaveHeightRange,
+  formatWindSpeed,
+  formatSwellPeriod,
+} from "@/lib/formatters/surf-data";
+import { degreesToCardinal } from "@/lib/utils/geo-utils";
+
+const KNOTS_TO_MPH = 1.15078;
 
 export interface ConsolidatedAlertEmailProps {
   displayName: string | null;
@@ -31,7 +39,7 @@ export function ConsolidatedAlertEmail({
         {/* Content */}
         <div style={content}>
           <p style={headingText}>
-            {greeting}, your surf alert for {alertDate}
+            {greeting}, your surf report for {alertDate}
           </p>
 
           {matches.map((match, i) => {
@@ -54,7 +62,7 @@ export function ConsolidatedAlertEmail({
                 }}
               >
                 <p style={beachNameStyle}>{match.beach_name}</p>
-                <p style={ruleNameStyle}>{match.rule_name} alert matched</p>
+                <p style={ruleNameStyle}>Matches: {match.rule_name}</p>
 
                 {/* Prominent time window */}
                 <div style={windowBox}>
@@ -125,13 +133,55 @@ function formatWindow(match: MatchingWindow): string {
   return `${start} \u2013 ${end} ${tzAbbr}, peak around ${best}`;
 }
 
-function buildConditionsLine(snap: Record<string, unknown>): string {
+// Renders the conditions row using the same units + rounding as the live web
+// CURRENT CONDITIONS card. Snapshot fields are independently optional so a
+// partial forecast still produces a clean line (no "undefined NW" / "NaN mph").
+// `wind_speed` is in knots per ForecastHour (lib/alerts/best-hour.ts); convert
+// to mph here to match the website. Exported for unit tests.
+//
+// Period and direction prefer the total-spectrum `wave_period` /
+// `wave_direction` (the same fields the web Current Conditions card reads, see
+// components/beach-detail/tabs/forecast-tab.tsx) over the primary-train
+// `swell_1_*`. wave_direction is already a cardinal string ("WSW") in
+// enhanced_forecasts; swell_1_direction is numeric degrees and gets converted
+// via degreesToCardinal as a fallback when wave_direction is absent.
+export function buildConditionsLine(snap: Record<string, unknown>): string {
   const parts: string[] = [];
-  if (snap.wave_height) parts.push(`\u{1F30A} ${snap.wave_height}ft`);
-  if (snap.swell_1_period) parts.push(`@ ${snap.swell_1_period}s`);
-  if (snap.wind_speed) parts.push(`\u{1F4A8} ${snap.wind_speed}kt wind`);
-  if (snap.tide_height && snap.tide_status)
-    parts.push(`\u{1F4C9} tide ${snap.tide_height}ft ${snap.tide_status}`);
+
+  if (typeof snap.wave_height === "number" && Number.isFinite(snap.wave_height)) {
+    let swell = `\u{1F30A} ${formatWaveHeightRange(snap.wave_height)}`;
+
+    const period =
+      typeof snap.wave_period === "number" && Number.isFinite(snap.wave_period)
+        ? snap.wave_period
+        : typeof snap.swell_1_period === "number" && Number.isFinite(snap.swell_1_period)
+        ? snap.swell_1_period
+        : null;
+    if (period !== null) swell += ` @ ${formatSwellPeriod(period)}`;
+
+    const cardinal =
+      typeof snap.wave_direction === "string" && snap.wave_direction.length > 0
+        ? snap.wave_direction
+        : typeof snap.swell_1_direction === "number" && Number.isFinite(snap.swell_1_direction)
+        ? degreesToCardinal(snap.swell_1_direction)
+        : null;
+    if (cardinal !== null) swell += ` ${cardinal}`;
+
+    parts.push(swell);
+  }
+
+  if (typeof snap.wind_speed === "number" && Number.isFinite(snap.wind_speed)) {
+    let wind = `\u{1F4A8} ${formatWindSpeed(snap.wind_speed * KNOTS_TO_MPH)}`;
+    if (typeof snap.wind_direction_deg === "number" && Number.isFinite(snap.wind_direction_deg)) {
+      wind += ` ${degreesToCardinal(snap.wind_direction_deg)}`;
+    }
+    parts.push(wind);
+  }
+
+  if (typeof snap.tide_status === "string" && snap.tide_status.length > 0) {
+    parts.push(`\u{1F4C9} tide ${snap.tide_status.toLowerCase()}`);
+  }
+
   return parts.join(", ");
 }
 

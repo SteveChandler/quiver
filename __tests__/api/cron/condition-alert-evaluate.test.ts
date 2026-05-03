@@ -219,6 +219,8 @@ function seedBeach(overrides: Partial<any> = {}) {
     preferred_tide_direction: null,
     swell_window_center_deg: null,
     swell_window_halfwidth_deg: null,
+    break_type: "beach",
+    skill_level: "",
     ...overrides,
   });
 }
@@ -268,6 +270,10 @@ function makeRequest(): Request {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // mockReset drains any `mockReturnValueOnce` queue left over from a prior
+  // test (jest.clearAllMocks does NOT clear that queue, only call records).
+  mockFindMatchingWindows.mockReset();
+  mockFilterToDaylight.mockReset();
   store.rules = [];
   store.profiles = [];
   store.beaches = [];
@@ -388,5 +394,238 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     // No queue upserts, no rule updates
     expect(store.queueUpserts).toHaveLength(0);
     expect(store.ruleUpdates).toHaveLength(0);
+  });
+});
+
+// Surfability gate: ensures rules that match user-authored conditions still get
+// suppressed when the day is genuinely unsurfable (max wave below the
+// break-type minimum or window shorter than 30 min). The gate uses
+// getMinRideable from lib/utils/surf-call-logic, which keys off the canonical
+// normalized break_type values ("beach", "reef", "point").
+describe("condition-alert-evaluate — surfability gate", () => {
+  /**
+   * Helper: build a window covering [startISO, endISO] and seed
+   * findMatchingWindows to return it. The snapshot's wave_height controls
+   * the "best-scoring hour" — we test on the MAX wave across the window
+   * separately by varying store.forecasts.
+   */
+  function seedWindow(opts: {
+    startISO: string;
+    endISO: string;
+    snapshotWaveHeight: number;
+  }) {
+    mockFindMatchingWindows.mockReturnValueOnce([
+      {
+        rule_id: RULE_1,
+        rule_name: "Test Rule",
+        beach_id: BEACH_1,
+        beach_name: "Test Beach",
+        beach_timezone: "America/Los_Angeles",
+        window_start: opts.startISO,
+        window_end: opts.endISO,
+        best_hour: opts.startISO,
+        best_score: 0.9,
+        conditions_snapshot: { wave_height: opts.snapshotWaveHeight },
+        notify_email: true,
+        notify_push: false,
+      },
+    ]);
+  }
+
+  /** Helper: seed an enhanced_forecasts row at a specific time + height. */
+  function pushForecast(forecastAt: string, waveHeightFt: number) {
+    store.forecasts.push({
+      forecast_at: forecastAt,
+      wave_height: String(waveHeightFt),
+      wave_period: "10s",
+      wave_direction: "W",
+      swell_1_height: String(waveHeightFt),
+      swell_1_period: "10s",
+      swell_1_direction: "270",
+      wind_speed: "5 mph",
+      wind_direction_deg: 270,
+      tide_height: "2.0",
+      tide_status: "rising",
+    });
+  }
+
+  it("uses 2.0ft minimum for legacy break_type 'reef break' (regression for the legacy keys)", async () => {
+    seedRule();
+    seedProfile();
+    seedBeach({ break_type: "reef break" }); // legacy two-word form
+    pushForecast("2026-04-26T14:00:00Z", 1.7);
+    seedWindow({
+      startISO: "2026-04-26T14:00:00Z",
+      endISO: "2026-04-26T15:00:00Z",
+      snapshotWaveHeight: 1.7,
+    });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+    expect(body.queued).toBe(0);
+    expect(body.skipped_unsurfable).toBe(1);
+  });
+
+  it("uses 2.0ft minimum for canonical break_type 'reef' (not the 1.5ft default)", async () => {
+    seedRule();
+    seedProfile();
+    seedBeach({ break_type: "reef" });
+    // Forecast hour at 14:00Z with 1.7ft — above the 1.5ft default but below
+    // the 2.0ft reef minimum. If the gate falls back to 1.5ft (the bug we
+    // fixed), this would queue.
+    pushForecast("2026-04-26T14:00:00Z", 1.7);
+    seedWindow({
+      startISO: "2026-04-26T14:00:00Z",
+      endISO: "2026-04-26T15:00:00Z",
+      snapshotWaveHeight: 1.7,
+    });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.queued).toBe(0);
+    expect(body.skipped_unsurfable).toBe(1);
+    expect(store.queueUpserts).toHaveLength(0);
+  });
+
+  it("low-wave skip: max wave below break-type minimum suppresses the window", async () => {
+    seedRule();
+    seedProfile();
+    seedBeach({ break_type: "beach" }); // 1.5ft minimum
+    pushForecast("2026-04-26T14:00:00Z", 1.0);
+    pushForecast("2026-04-26T15:00:00Z", 1.2);
+    seedWindow({
+      startISO: "2026-04-26T14:00:00Z",
+      endISO: "2026-04-26T15:00:00Z",
+      snapshotWaveHeight: 1.2,
+    });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+    expect(body.queued).toBe(0);
+    expect(body.skipped_unsurfable).toBe(1);
+  });
+
+  it("short-window skip: window shorter than 30 min suppresses regardless of wave size", async () => {
+    seedRule();
+    seedProfile();
+    seedBeach({ break_type: "beach" });
+    pushForecast("2026-04-26T14:00:00Z", 4.0);
+    seedWindow({
+      startISO: "2026-04-26T14:00:00Z",
+      endISO: "2026-04-26T14:15:00Z", // 15 min
+      snapshotWaveHeight: 4.0,
+    });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+    expect(body.queued).toBe(0);
+    expect(body.skipped_unsurfable).toBe(1);
+  });
+
+  it("mixed window kept: best-scoring hour is below min but a later hour is rideable", async () => {
+    seedRule();
+    seedProfile();
+    seedBeach({ break_type: "beach" }); // 1.5ft minimum
+    // 14:00 = 1.2ft (clean glassy hour, scores best — would suppress under
+    // the prior best-hour-only gate). 15:00 = 2.4ft (rideable).
+    pushForecast("2026-04-26T14:00:00Z", 1.2);
+    pushForecast("2026-04-26T15:00:00Z", 2.4);
+    seedWindow({
+      startISO: "2026-04-26T14:00:00Z",
+      endISO: "2026-04-26T15:00:00Z",
+      snapshotWaveHeight: 1.2, // best-scoring hour from window-finder
+    });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+    expect(body.queued).toBeGreaterThanOrEqual(1);
+    expect(body.skipped_unsurfable).toBe(0);
+    expect(store.queueUpserts).toHaveLength(1);
+  });
+
+  it("range-string wave_height: uses the max of '1-2ft' (2), not parseFloat's first number (1)", async () => {
+    seedRule();
+    seedProfile();
+    seedBeach({ break_type: "beach" }); // 1.5ft minimum
+    // Raw DB row stores a range string. parseFloat("1-2ft") = 1, which would
+    // false-suppress this window (1 < 1.5). The gate must extract max = 2.
+    store.forecasts.push({
+      forecast_at: "2026-04-26T14:00:00Z",
+      wave_height: "1-2ft",
+      wave_period: "10s",
+      wave_direction: "W",
+      swell_1_height: "1.5",
+      swell_1_period: "10s",
+      swell_1_direction: "270",
+      wind_speed: "5 mph",
+      wind_direction_deg: 270,
+      tide_height: "2.0",
+      tide_status: "rising",
+    });
+    seedWindow({
+      startISO: "2026-04-26T14:00:00Z",
+      endISO: "2026-04-26T15:00:00Z",
+      snapshotWaveHeight: 1.5,
+    });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+    expect(body.queued).toBeGreaterThanOrEqual(1);
+    expect(body.skipped_unsurfable).toBe(0);
+  });
+
+  it("single-hour window from findMatchingWindows is treated as 60-min, not 0-min", async () => {
+    // Bypass the mock to exercise the real findMatchingWindows so the
+    // window_end-as-last-hour-plus-1h semantic is end-to-end.
+    mockFindMatchingWindows.mockReset();
+    const realWindowFinder = jest.requireActual<typeof import("@/lib/alerts/window-finder")>(
+      "@/lib/alerts/window-finder",
+    );
+    mockFindMatchingWindows.mockImplementation(realWindowFinder.findMatchingWindows);
+
+    seedRule({ conditions: { swell_height_min: 2 } });
+    seedProfile();
+    seedBeach({ break_type: "beach" });
+    // Single forecast hour that matches the rule (height >= 2). Without the
+    // 60-min interval fix, the real findMatchingWindows would emit a window
+    // with start === end, and the gate would suppress as too short.
+    pushForecast("2026-04-26T14:00:00Z", 3.0);
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+    expect(body.queued).toBeGreaterThanOrEqual(1);
+    expect(body.skipped_unsurfable).toBe(0);
+  });
+
+  it("fail-open: when no forecast hours have wave_height, the window is kept", async () => {
+    seedRule();
+    seedProfile();
+    seedBeach({ break_type: "beach" });
+    // Push forecast hours with null wave_height — gate has no samples to judge.
+    store.forecasts.push({
+      forecast_at: "2026-04-26T14:00:00Z",
+      wave_height: null,
+      wave_period: "10s",
+      wave_direction: null,
+      swell_1_height: null,
+      swell_1_period: "10s",
+      swell_1_direction: "270",
+      wind_speed: "5 mph",
+      wind_direction_deg: 270,
+      tide_height: "2.0",
+      tide_status: "rising",
+    });
+    seedWindow({
+      startISO: "2026-04-26T14:00:00Z",
+      endISO: "2026-04-26T15:00:00Z",
+      snapshotWaveHeight: 0,
+    });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+    expect(body.queued).toBeGreaterThanOrEqual(1);
+    expect(body.skipped_unsurfable).toBe(0);
   });
 });

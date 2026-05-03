@@ -11,8 +11,9 @@ const mockBeach: BeachAlertMeta = {
 function makeForecast(hour: number, overrides: Partial<ForecastHour> = {}): ForecastHour {
   return {
     forecast_at: `2026-04-01T${String(hour).padStart(2, "0")}:00:00Z`,
-    wave_height: 4, wave_period: 12, swell_1_height: 4, swell_1_period: 12,
-    swell_1_direction: 250, wind_speed: 5, wind_direction_deg: 45,
+    wave_height: 4, wave_period: 12, wave_direction: "W",
+    swell_1_height: 4, swell_1_period: 12, swell_1_direction: 250,
+    wind_speed: 5, wind_direction_deg: 45,
     tide_height: 3.5, tide_status: "rising", ...overrides,
   };
 }
@@ -25,7 +26,17 @@ describe("findMatchingWindows", () => {
     const windows = findMatchingWindows(conditions, forecasts, mockBeach);
     expect(windows).toHaveLength(1);
     expect(windows[0].window_start).toBe(forecasts[0].forecast_at);
-    expect(windows[0].window_end).toBe(forecasts[2].forecast_at);
+    // window_end is the last hour's timestamp + 1h (each forecast hour
+    // represents a 60-min interval), so the 9:00 hour ends at 10:00.
+    expect(windows[0].window_end).toBe("2026-04-01T10:00:00.000Z");
+  });
+
+  it("single-hour window: window_end is start + 1h, not start itself", () => {
+    const forecasts = [makeForecast(7)];
+    const windows = findMatchingWindows(conditions, forecasts, mockBeach);
+    expect(windows).toHaveLength(1);
+    expect(windows[0].window_start).toBe("2026-04-01T07:00:00Z");
+    expect(windows[0].window_end).toBe("2026-04-01T08:00:00.000Z");
   });
 
   it("splits non-contiguous matches into separate windows", () => {

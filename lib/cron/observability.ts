@@ -1,14 +1,65 @@
 import { validateCronRequest } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
+// Supabase query builders are thenables, not full Promises — they expose
+// .then() but not .catch(). PromiseLike accurately reflects that shape;
+// using Promise<...> would falsely advertise .catch() on the raw chain.
+type CronRunUpdateChain = PromiseLike<unknown> & {
+  lt: (col: string, val: string) => PromiseLike<unknown>;
+};
+
 type CronRunsTable = {
   from: (table: "cron_runs") => {
     insert: (row: Record<string, unknown>) => {
-      select: (cols: string) => { single: () => Promise<{ data: { id: string } | null }> };
+      select: (cols: string) => { single: () => PromiseLike<{ data: { id: string } | null }> };
     };
-    update: (row: Record<string, unknown>) => { eq: (col: string, val: string) => Promise<unknown> };
+    update: (row: Record<string, unknown>) => { eq: (col: string, val: string) => CronRunUpdateChain };
   };
 };
+
+function extractErrorMessage(summary: unknown, statusCode: number): string {
+  const fallback = `HTTP ${statusCode}`;
+  if (!summary || typeof summary !== "object") return fallback;
+
+  const obj = summary as { error?: unknown; details?: unknown };
+  const top = typeof obj.error === "string" && obj.error.length > 0 ? obj.error : null;
+  const details = obj.details;
+  let detail: string | null = null;
+
+  if (typeof details === "string" && details.length > 0) {
+    detail = details;
+  } else if (details && typeof details === "object") {
+    for (const key of ["error", "message", "originalError"]) {
+      const value = (details as Record<string, unknown>)[key];
+      if (typeof value === "string" && value.length > 0) {
+        detail = value;
+        break;
+      }
+    }
+  }
+
+  if (top && detail) return `${top}: ${detail}`;
+  if (top) return top;
+  if (detail) return detail;
+  return fallback;
+}
+
+async function sweepStaleStartedRows(db: CronRunsTable): Promise<void> {
+  try {
+    const cutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    await db
+      .from("cron_runs")
+      .update({
+        status: "timeout",
+        finished_at: new Date().toISOString(),
+        error_message: "Vercel function killed before post-handler update (likely maxDuration exceeded)",
+      })
+      .eq("status", "started")
+      .lt("started_at", cutoff);
+  } catch {
+    // Sweeper failures must never block the handler.
+  }
+}
 
 /**
  * Response-level wrapper: takes an existing route handler and returns one that
@@ -42,12 +93,15 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
       try {
         const supabase = await createSupabaseServiceRoleClient();
         const db = supabase as unknown as CronRunsTable;
-        const { data } = await db
-          .from("cron_runs")
-          .insert({ route, status: "started" })
-          .select("id")
-          .single();
-        runId = data?.id ?? null;
+        const [, insertResult] = await Promise.all([
+          sweepStaleStartedRows(db),
+          db
+            .from("cron_runs")
+            .insert({ route, status: "started" })
+            .select("id")
+            .single(),
+        ]);
+        runId = insertResult.data?.id ?? null;
       } catch (err) {
         // Never block the handler. Log so cron_runs unavailability is at least
         // visible in Vercel function logs (otherwise an unobserved run leaves
@@ -85,6 +139,7 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
               finished_at: new Date().toISOString(),
               duration_ms: Date.now() - start,
               summary: summary as object | null,
+              error_message: response.ok ? null : extractErrorMessage(summary, response.status),
             })
             .eq("id", runId);
         } catch {
@@ -124,23 +179,19 @@ export async function withCronObservability<T>(
   const start = Date.now();
 
   // cron_runs is not yet in the generated types — cast to any until db:types is regenerated.
-  const db = supabase as unknown as {
-    from: (table: "cron_runs") => {
-      insert: (row: Record<string, unknown>) => {
-        select: (cols: string) => { single: () => Promise<{ data: { id: string } | null }> };
-      };
-      update: (row: Record<string, unknown>) => { eq: (col: string, val: string) => Promise<unknown> };
-    };
-  };
+  const db = supabase as unknown as CronRunsTable;
 
   let runId: string | null = null;
   try {
-    const { data } = await db
-      .from("cron_runs")
-      .insert({ route, status: "started" })
-      .select("id")
-      .single();
-    runId = data?.id ?? null;
+    const [, insertResult] = await Promise.all([
+      sweepStaleStartedRows(db),
+      db
+        .from("cron_runs")
+        .insert({ route, status: "started" })
+        .select("id")
+        .single(),
+    ]);
+    runId = insertResult.data?.id ?? null;
   } catch {
     // Observability must never block the handler.
   }

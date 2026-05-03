@@ -1,23 +1,63 @@
 // __tests__/lib/cron/observability.test.ts
-import { withCronObservability } from "@/lib/cron/observability";
+import { withCronObservability, withObservedCron } from "@/lib/cron/observability";
 
-const mockChain = () => {
+type MockChain = ReturnType<typeof mockChain>;
+
+// Plain Response builders. The wrapper only reads .clone()/.text()/.ok/.status,
+// all standard Web API — avoid NextResponse.json which isn't implemented in jsdom.
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+function errorEnvelope(error: string, details: unknown, status: number): Response {
+  return jsonResponse({ success: false, error, details, timestamp: new Date().toISOString() }, status);
+}
+function successEnvelope(data: unknown, status = 200): Response {
+  return jsonResponse({ success: true, data, timestamp: new Date().toISOString() }, status);
+}
+
+function mockChain() {
   const insertMock = jest.fn().mockReturnValue({
     select: jest.fn().mockReturnValue({
       single: jest.fn().mockResolvedValue({ data: { id: "run-1" }, error: null }),
     }),
   });
-  const updateMock = jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) });
+  // .update(...).eq(col, val) → thenable that also supports .lt(col, val) for the sweeper
+  const lastEqArgs: Array<[string, unknown]> = [];
+  const lastLtArgs: Array<[string, unknown]> = [];
+  const updateMock = jest.fn().mockImplementation(() => ({
+    eq: jest.fn().mockImplementation((col: string, val: unknown) => {
+      lastEqArgs.push([col, val]);
+      const eqResult: Promise<{ error: null }> & { lt?: jest.Mock } = Promise.resolve({
+        error: null,
+      }) as Promise<{ error: null }> & { lt?: jest.Mock };
+      eqResult.lt = jest.fn().mockImplementation((ltCol: string, ltVal: unknown) => {
+        lastLtArgs.push([ltCol, ltVal]);
+        return Promise.resolve({ error: null });
+      });
+      return eqResult;
+    }),
+  }));
   return {
     from: jest.fn(() => ({ insert: insertMock, update: updateMock })),
     _insertMock: insertMock,
     _updateMock: updateMock,
+    _lastEqArgs: lastEqArgs,
+    _lastLtArgs: lastLtArgs,
   };
-};
+}
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(),
 }));
+
+function makeAuthorizedRequest(): Request {
+  return new Request("http://test/api/cron/test", {
+    headers: { "x-vercel-cron": "1" },
+  });
+}
 
 describe("withCronObservability", () => {
   it("records start + ok with summary on success", async () => {
@@ -29,10 +69,9 @@ describe("withCronObservability", () => {
 
     expect(result).toEqual({ queued: 3 });
     expect(client._insertMock).toHaveBeenCalledWith({ route: "/api/cron/test", status: "started" });
-    expect(client._updateMock).toHaveBeenCalledWith(expect.objectContaining({
-      status: "ok",
-      summary: { queued: 3 },
-    }));
+    expect(client._updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "ok", summary: { queued: 3 } })
+    );
   });
 
   it("records error and rethrows", async () => {
@@ -41,13 +80,14 @@ describe("withCronObservability", () => {
     createSupabaseServiceRoleClient.mockResolvedValue(client);
 
     await expect(
-      withCronObservability("/api/cron/test", async () => { throw new Error("boom"); })
+      withCronObservability("/api/cron/test", async () => {
+        throw new Error("boom");
+      })
     ).rejects.toThrow("boom");
 
-    expect(client._updateMock).toHaveBeenCalledWith(expect.objectContaining({
-      status: "error",
-      error_message: "boom",
-    }));
+    expect(client._updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "error", error_message: "boom" })
+    );
   });
 
   it("does not block handler when cron_runs insert fails", async () => {
@@ -62,5 +102,158 @@ describe("withCronObservability", () => {
 
     const result = await withCronObservability("/api/cron/test", async () => ({ ok: true }));
     expect(result).toEqual({ ok: true });
+  });
+
+  it("sweeps stale 'started' rows on every invocation", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+
+    await withCronObservability("/api/cron/test", async () => ({ ok: true }));
+
+    expect(client._updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "timeout",
+        error_message: expect.stringContaining("Vercel function killed"),
+      })
+    );
+    expect(client._lastEqArgs).toEqual(expect.arrayContaining([["status", "started"]]));
+    expect(client._lastLtArgs[0][0]).toBe("started_at");
+    // duration_ms intentionally not asserted on swept rows — implementation leaves it null.
+  });
+});
+
+describe("withObservedCron", () => {
+  let consoleSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    consoleSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
+  });
+
+  function findUpdate(client: MockChain, predicate: (row: Record<string, unknown>) => boolean) {
+    return client._updateMock.mock.calls.find((call) => predicate(call[0] as Record<string, unknown>));
+  }
+
+  it("records ok with null error_message when handler returns 200", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+
+    const handler = withObservedCron("/api/cron/test", async (_req: Request) =>
+      successEnvelope({ count: 1 })
+    );
+    const response = await handler(makeAuthorizedRequest());
+
+    expect(response.status).toBe(200);
+    const okUpdate = findUpdate(client, (row) => row.status === "ok");
+    expect(okUpdate).toBeDefined();
+    expect(okUpdate![0]).toMatchObject({ status: "ok", error_message: null });
+  });
+
+  it("extracts 'error: details.error' from createErrorResponse with object details", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+
+    const handler = withObservedCron("/api/cron/test", async (_req: Request) =>
+      errorEnvelope("Quota exceeded", { error: "youtube quota 403" }, 500)
+    );
+    await handler(makeAuthorizedRequest());
+
+    const errUpdate = findUpdate(client, (row) => row.status === "error");
+    expect(errUpdate).toBeDefined();
+    expect(errUpdate![0]).toMatchObject({
+      status: "error",
+      error_message: "Quota exceeded: youtube quota 403",
+    });
+  });
+
+  it("extracts 'error: details' when details is a bare string", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+
+    const handler = withObservedCron("/api/cron/test", async (_req: Request) =>
+      errorEnvelope("Configuration error", "YOUTUBE_API_KEY not set", 500)
+    );
+    await handler(makeAuthorizedRequest());
+
+    const errUpdate = findUpdate(client, (row) => row.status === "error");
+    expect(errUpdate![0]).toMatchObject({
+      error_message: "Configuration error: YOUTUBE_API_KEY not set",
+    });
+  });
+
+  it("falls back to 'HTTP <status>' for non-JSON error responses", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+
+    const handler = withObservedCron(
+      "/api/cron/test",
+      async (_req: Request) => new Response("oops", { status: 500 })
+    );
+    await handler(makeAuthorizedRequest());
+
+    const errUpdate = findUpdate(client, (row) => row.status === "error");
+    expect(errUpdate![0]).toMatchObject({ error_message: "HTTP 500" });
+  });
+
+  it("populates error_message from thrown errors (regression)", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+
+    const handler = withObservedCron("/api/cron/test", async (_req: Request) => {
+      throw new Error("kaboom");
+    });
+
+    await expect(handler(makeAuthorizedRequest())).rejects.toThrow("kaboom");
+
+    const errUpdate = findUpdate(
+      client,
+      (row) => row.status === "error" && row.error_message === "kaboom"
+    );
+    expect(errUpdate).toBeDefined();
+  });
+
+  it("sweeps stale 'started' rows before inserting the new run", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+
+    const handler = withObservedCron("/api/cron/test", async (_req: Request) =>
+      successEnvelope({ ok: true })
+    );
+    await handler(makeAuthorizedRequest());
+
+    const sweepUpdate = findUpdate(client, (row) => row.status === "timeout");
+    expect(sweepUpdate).toBeDefined();
+    expect(sweepUpdate![0]).toMatchObject({
+      status: "timeout",
+      error_message: expect.stringContaining("Vercel function killed"),
+    });
+    expect(client._lastEqArgs).toEqual(expect.arrayContaining([["status", "started"]]));
+    expect(client._lastLtArgs[0][0]).toBe("started_at");
+  });
+
+  it("skips observability entirely on unauthorized requests", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+
+    const handler = withObservedCron("/api/cron/test", async (_req: Request) =>
+      errorEnvelope("Unauthorized", null, 401)
+    );
+    const unauthorizedRequest = new Request("http://test/api/cron/test");
+    const response = await handler(unauthorizedRequest);
+
+    expect(response.status).toBe(401);
+    expect(client._insertMock).not.toHaveBeenCalled();
+    expect(client._updateMock).not.toHaveBeenCalled();
   });
 });

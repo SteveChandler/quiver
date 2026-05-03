@@ -10,6 +10,8 @@ import { getUtcDayBounds } from "@/lib/alerts/timezone-utils";
 import { parseWindSpeedToKt, parseSwellDirectionToDegrees } from "@/lib/alerts/forecast-parsers";
 import type { AlertConditions, BeachAlertMeta, ForecastHour } from "@/lib/alerts/types";
 import type { Database } from "@/types/database.generated";
+import { getMinRideable, MINIMUM_VIABLE_WINDOW_MINUTES } from "@/lib/utils/surf-call-logic";
+import type { Beach } from "@/types/database";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -38,6 +40,8 @@ type BeachRow = Pick<
   | "preferred_tide_direction"
   | "swell_window_center_deg"
   | "swell_window_halfwidth_deg"
+  | "break_type"
+  | "skill_level"
 >;
 type EntitlementRow = Pick<
   Database["public"]["Tables"]["user_entitlements"]["Row"],
@@ -55,7 +59,7 @@ export async function GET(request: Request) {
     const summary = await withCronObservability(
       "/api/cron/condition-alert-evaluate",
       async () => {
-        const result = { evaluated: 0, matched: 0, queued: 0, skipped: 0, errors: 0 };
+        const result = { evaluated: 0, matched: 0, queued: 0, skipped: 0, skipped_unsurfable: 0, errors: 0 };
 
         // 1. Fetch all enabled rules — flat select, no embeds.
         //    Previously this used profiles!inner(...) which requires PostgREST to
@@ -85,7 +89,7 @@ export async function GET(request: Request) {
           supabase
             .from("beaches")
             .select(
-              "id, name, slug, lat, lon, timezone, wind_offshore_deg, wind_offshore_tol_deg, aspect_deg, preferred_tide_ft_min, preferred_tide_ft_max, preferred_tide_direction, swell_window_center_deg, swell_window_halfwidth_deg"
+              "id, name, slug, lat, lon, timezone, wind_offshore_deg, wind_offshore_tol_deg, aspect_deg, preferred_tide_ft_min, preferred_tide_ft_max, preferred_tide_direction, swell_window_center_deg, swell_window_halfwidth_deg, break_type, skill_level"
             )
             .in("id", beachIds),
           supabase
@@ -174,7 +178,7 @@ export async function GET(request: Request) {
               const { data: forecasts } = await supabase
                 .from("enhanced_forecasts")
                 .select(
-                  "forecast_at, wave_height, wave_period, swell_1_height, swell_1_period, swell_1_direction, wind_speed, wind_direction_deg, tide_height, tide_status"
+                  "forecast_at, wave_height, wave_period, wave_direction, swell_1_height, swell_1_period, swell_1_direction, wind_speed, wind_direction_deg, tide_height, tide_status"
                 )
                 .eq("beach_id", rule.beach_id)
                 .gte("forecast_at", todayStart)
@@ -187,6 +191,7 @@ export async function GET(request: Request) {
                 forecast_at: f.forecast_at,
                 wave_height: f.wave_height ? parseFloat(f.wave_height) : null,
                 wave_period: f.wave_period ? parseFloat(f.wave_period.replace("s", "")) : null,
+                wave_direction: f.wave_direction ?? null,
                 swell_1_height: f.swell_1_height ? parseFloat(f.swell_1_height) : null,
                 swell_1_period: f.swell_1_period ? parseFloat(f.swell_1_period.replace("s", "")) : null,
                 swell_1_direction: parseSwellDirectionToDegrees(f.swell_1_direction),
@@ -199,8 +204,83 @@ export async function GET(request: Request) {
               const daylight = filterToDaylight(parsed, beach.lat, beach.lon);
               if (daylight.length === 0) continue;
 
-              const windows = findMatchingWindows(conditions, daylight, beach);
-              if (windows.length === 0) continue;
+              // For the surfability gate we need the MAX numeric from the raw
+              // wave_height string, not parseFloat's first-number result —
+              // enhanced_forecasts.wave_height is sometimes a range like
+              // "1-2ft" (see lib/services/forecast/apply-beach-height-offset.ts).
+              // parsed.wave_height is the lower bound (conservative for matching);
+              // for "is anything in this window rideable?" we want the upper.
+              //
+              // Built from the unfiltered `forecasts` (not `daylight`) because
+              // it's a cheap O(n) lookup table — the gate's reduce iterates
+              // `daylight` for time-window scoping, but we'd rather build the
+              // map once than re-scope it per window.
+              const maxWaveByForecastAt = new Map<string, number>();
+              for (const f of forecasts) {
+                if (!f.wave_height) continue;
+                const nums = String(f.wave_height).match(/[\d.]+/g);
+                if (!nums) continue;
+                const parsedNums = nums.map(Number).filter((n) => Number.isFinite(n));
+                if (parsedNums.length === 0) continue;
+                maxWaveByForecastAt.set(f.forecast_at, Math.max(...parsedNums));
+              }
+
+              const allWindows = findMatchingWindows(conditions, daylight, beach);
+              if (allWindows.length === 0) continue;
+
+              // Surfability gate: a rule can match conditions the user picked
+              // (e.g. waves > 1ft) on a day that's still genuinely unsurfable
+              // for the beach (max wave in the window below the break-type
+              // minimum, or window shorter than 30 min). Suppress those — the
+              // user only wants a report when paddling out is actually worth
+              // it.
+              //
+              // We gate on the MAX wave height across the window's hours, not
+              // the best-scoring hour from the snapshot. The snapshot picks the
+              // hour with the best composite score (clean wind / matching
+              // swell), which can be a small-but-glassy hour even when a later
+              // hour in the same window has rideable size. Using the max
+              // captures "is there ANY rideable hour in this window?"
+              //
+              // Mirrors the NO conditions in lib/utils/surf-call-logic.ts
+              // computeSurfCall (waves below getMinRideable, no viable window).
+              // Inlined here because the alert pipeline shapes
+              // (FoundWindow/ForecastHour/BeachAlertMeta) don't match the
+              // discovery shapes computeSurfCall expects.
+              const beachRow = beachesById.get(rule.beach_id)!;
+              const minRideable = getMinRideable(beachRow as unknown as Beach);
+              const windows = allWindows.filter((w) => {
+                const startMs = new Date(w.window_start).getTime();
+                const endMs = new Date(w.window_end).getTime();
+                const durationMinutes = (endMs - startMs) / 60000;
+                if (durationMinutes < MINIMUM_VIABLE_WINDOW_MINUTES) return false;
+
+                const maxWave = daylight.reduce<number | null>((max, hour) => {
+                  const t = new Date(hour.forecast_at).getTime();
+                  if (t < startMs || t > endMs) return max;
+                  // Prefer the upper bound from the raw range string when
+                  // available; fall back to the parsed lower bound.
+                  const candidate =
+                    maxWaveByForecastAt.get(hour.forecast_at) ??
+                    (typeof hour.wave_height === "number" && Number.isFinite(hour.wave_height)
+                      ? hour.wave_height
+                      : null);
+                  if (candidate === null) return max;
+                  return max === null ? candidate : Math.max(max, candidate);
+                }, null);
+
+                // If we have any wave-height samples in the window and the max
+                // is below the rideable minimum, drop. If we have no samples
+                // (all null), let it through — fail-open for missing data
+                // beats a silent suppression on every report.
+                if (maxWave !== null && maxWave < minRideable) return false;
+
+                return true;
+              });
+              if (windows.length === 0) {
+                result.skipped_unsurfable++;
+                continue;
+              }
 
               result.matched++;
 

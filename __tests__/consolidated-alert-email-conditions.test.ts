@@ -1,0 +1,115 @@
+/**
+ * Unit tests for buildConditionsLine in the surf report email template.
+ *
+ * The conditions row must use the same units and rounding as the live web
+ * CURRENT CONDITIONS card so a recipient who taps through doesn't see
+ * different numbers from the email summary.
+ */
+
+import { buildConditionsLine } from "@/lib/mailer/templates/ConsolidatedAlertEmail";
+
+describe("buildConditionsLine", () => {
+  it("matches the website's units for today's Mission Beach snapshot", () => {
+    // The exact snapshot that produced the 2026-05-03 email the user flagged.
+    // Note: 1.1ft renders as "1-2ft" because formatWaveHeightRange uses
+    // floor/ceil — same as the website's WaveHeightDisplay component. The web
+    // showed "1ft" for the current hour (a different, cleaner 1.0 value);
+    // both numbers come from the same formatter applied to different hours.
+    const snap = {
+      wave_height: 1.1,
+      wave_period: 5,
+      wave_direction: "W",
+      swell_1_period: 5,
+      swell_1_direction: 270,
+      wind_speed: 4.34488, // knots
+      wind_direction_deg: 315, // NW
+      tide_height: 1.2,
+      tide_status: "Rising",
+    };
+
+    const line = buildConditionsLine(snap);
+
+    expect(line).toBe("\u{1F30A} 1-2ft @ 5s W, \u{1F4A8} 5 mph NW, \u{1F4C9} tide rising");
+  });
+
+  it("prefers wave_period + wave_direction over swell_1_* (matches the web Current Conditions card)", () => {
+    // wave_* are the total-spectrum fields the website renders; swell_1_*
+    // describe the primary swell train and can differ from the dominant total.
+    const snap = {
+      wave_height: 3.5,
+      wave_period: 12,
+      wave_direction: "WNW",
+      swell_1_period: 8, // ignored — wave_period wins
+      swell_1_direction: 270, // ignored — wave_direction wins
+    };
+    expect(buildConditionsLine(snap)).toContain("3-4ft @ 12s WNW");
+  });
+
+  it("falls back to swell_1_period / swell_1_direction when wave_* fields are absent", () => {
+    const snap = {
+      wave_height: 3.5,
+      // no wave_period / wave_direction
+      swell_1_period: 8,
+      swell_1_direction: 270, // W
+    };
+    expect(buildConditionsLine(snap)).toContain("3-4ft @ 8s W");
+  });
+
+  it("collapses to single-value when wave_height is exactly an integer", () => {
+    // What the website's current-hour card shows when wave_height is 1.0.
+    const snap = { wave_height: 1.0, wave_period: 5 };
+    expect(buildConditionsLine(snap)).toContain("1ft @ 5s");
+    expect(buildConditionsLine(snap)).not.toContain("1-1ft");
+  });
+
+  it("omits cardinal direction when wind_direction_deg is missing", () => {
+    const snap = {
+      wave_height: 2,
+      wind_speed: 10,
+      tide_status: "Falling",
+    };
+    const line = buildConditionsLine(snap);
+
+    expect(line).toContain("\u{1F4A8} 12 mph"); // 10kt → 11.5mph → rounds to 12
+    expect(line).not.toMatch(/mph\s+(N|S|E|W)/);
+    expect(line).toContain("tide falling");
+  });
+
+  it("omits the swell cardinal when neither wave_direction nor swell_1_direction is present", () => {
+    const snap = {
+      wave_height: 3.5,
+      swell_1_period: 12,
+      // no wave_direction, no swell_1_direction
+    };
+    const line = buildConditionsLine(snap);
+
+    expect(line).toContain("3-4ft @ 12s");
+    expect(line).not.toMatch(/12s\s+[A-Z]/);
+  });
+
+  it("renders 'Flat' when wave_height is 0 (combined surfability gate prevents this in practice)", () => {
+    const snap = { wave_height: 0 };
+    expect(buildConditionsLine(snap)).toContain("Flat");
+  });
+
+  it("returns an empty string when all snapshot fields are missing", () => {
+    expect(buildConditionsLine({})).toBe("");
+  });
+
+  it("ignores non-finite wind_speed without crashing", () => {
+    const snap = {
+      wave_height: 2,
+      wind_speed: NaN,
+      tide_status: "Rising",
+    };
+    const line = buildConditionsLine(snap);
+    expect(line).not.toContain("NaN");
+    expect(line).not.toContain("mph");
+    expect(line).toContain("tide rising");
+  });
+
+  it("lowercases tide_status regardless of input casing", () => {
+    expect(buildConditionsLine({ tide_status: "RISING" })).toContain("tide rising");
+    expect(buildConditionsLine({ tide_status: "rising" })).toContain("tide rising");
+  });
+});

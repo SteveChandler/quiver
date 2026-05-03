@@ -50,14 +50,23 @@ function buildWindow(conditions: AlertConditions, hours: ForecastHour[]): FoundW
 
   const best = hours[bestIdx];
 
+  // Each forecast hour represents a 60-minute interval, so window_end is the
+  // last hour's timestamp + 1h. Without this, a single-hour match has
+  // window_start === window_end (zero-duration), which the surfability gate
+  // suppresses as too short, and the email renders as "8:00 AM – 8:00 AM".
+  const FORECAST_HOUR_DURATION_MS = 60 * 60 * 1000;
+  const lastHourEndMs =
+    new Date(hours[hours.length - 1].forecast_at).getTime() + FORECAST_HOUR_DURATION_MS;
+
   return {
     window_start: hours[0].forecast_at,
-    window_end: hours[hours.length - 1].forecast_at,
+    window_end: new Date(lastHourEndMs).toISOString(),
     best_hour: best.forecast_at,
     best_score: bestScore,
     conditions_snapshot: {
       wave_height: best.wave_height,
       wave_period: best.wave_period,
+      wave_direction: best.wave_direction,
       swell_1_period: best.swell_1_period,
       swell_1_direction: best.swell_1_direction,
       wind_speed: best.wind_speed,

@@ -323,6 +323,7 @@ export function createMockSession(overrides: Partial<Session> = {}): Session {
     tide_status: null,
     source: null,
     custom_spot_id: null,
+    session_decomposition: null,
     ...overrides,
   };
 }
