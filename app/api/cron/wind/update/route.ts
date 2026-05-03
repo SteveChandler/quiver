@@ -13,6 +13,7 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { validateCronRequest, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 import { fetchHourlyWind } from '@/lib/services/open-meteo-wind-service';
 import { withObservedCron } from '@/lib/cron/observability';
+import pLimit from 'p-limit';
 
 export const maxDuration = 120;
 
@@ -50,6 +51,11 @@ async function _GET(request: Request): Promise<Response> {
   // so most points won't match → actual DB writes ≈ 273 × 8-10 = ~2,500 (well within 120s timeout)
   const BATCH_SIZE = 10; // Parallel API fetches per batch (avoid rate limiting)
   const DELAY_BETWEEN_BATCHES_MS = 200;
+  // Cap total in-flight enhanced_forecasts updates across all beaches in this run.
+  // Without this, BATCH_SIZE * ~48 windPoints could fan out to ~480 concurrent
+  // PostgREST requests, which is unfriendly to pgBouncer. 80 is well under
+  // pgBouncer headroom on a paid Supabase tier and still ~6x faster than serial.
+  const dbLimit = pLimit(80);
 
   for (let i = 0; i < beaches.length; i += BATCH_SIZE) {
     const batch = beaches.slice(i, i + BATCH_SIZE);
@@ -62,41 +68,55 @@ async function _GET(request: Request): Promise<Response> {
         const windPoints = await fetchHourlyWind(beach.lat, beach.lon);
         if (!windPoints.length) return { beach: beach.name, updated: 0, skipped: 0 };
 
+        // Catch inside each limited callback so a thrown Supabase error folds
+        // into the 'error' bucket. If we let it reject, Promise.all short-
+        // circuits — the beach task rejects while the remaining queued dbLimit
+        // tasks keep running, which under-reports counts on the final batch.
+        const updates = await Promise.all(
+          windPoints
+            .filter((wp) => wp.wind_speed_mph != null)
+            .map((wp) =>
+              dbLimit(async () => {
+                try {
+                  const hourStart = wp.ts;
+                  const hourEnd = new Date(new Date(wp.ts).getTime() + 3600000).toISOString();
+                  const cardinal = wp.wind_direction_deg != null
+                    ? degreesToCardinal(wp.wind_direction_deg)
+                    : null;
+
+                  // Only update rows where wind_source is NOT a higher-priority source
+                  const { data, error } = await supabase
+                    .from('enhanced_forecasts')
+                    .update({
+                      wind_speed: `${wp.wind_speed_mph} mph`,
+                      wind_direction: cardinal,
+                      wind_direction_deg: wp.wind_direction_deg,
+                      wind_source: 'OPEN_METEO_WIND',
+                    })
+                    .eq('beach_id', beach.id)
+                    .gte('forecast_at', hourStart)
+                    .lt('forecast_at', hourEnd)
+                    .or('wind_source.is.null,wind_source.not.in.(HRRR,NWS)')
+                    .select('id');
+
+                  if (error) return { kind: 'error' as const };
+                  const rowCount = data?.length ?? 0;
+                  return rowCount > 0
+                    ? { kind: 'updated' as const, rowCount }
+                    : { kind: 'skipped' as const };
+                } catch {
+                  return { kind: 'error' as const };
+                }
+              })
+            )
+        );
+
         let beachUpdated = 0;
         let beachSkipped = 0;
-
-        // Update each hourly forecast row
-        for (const wp of windPoints) {
-          if (wp.wind_speed_mph == null) continue;
-
-          const hourStart = wp.ts;
-          const hourEnd = new Date(new Date(wp.ts).getTime() + 3600000).toISOString();
-          const cardinal = wp.wind_direction_deg != null
-            ? degreesToCardinal(wp.wind_direction_deg)
-            : null;
-
-          // Only update rows where wind_source is NOT a higher-priority source
-          const { data, error } = await supabase
-            .from('enhanced_forecasts')
-            .update({
-              wind_speed: `${wp.wind_speed_mph} mph`,
-              wind_direction: cardinal,
-              wind_direction_deg: wp.wind_direction_deg,
-              wind_source: 'OPEN_METEO_WIND',
-            })
-            .eq('beach_id', beach.id)
-            .gte('forecast_at', hourStart)
-            .lt('forecast_at', hourEnd)
-            .or('wind_source.is.null,wind_source.not.in.(HRRR,NWS)')
-            .select('id');
-
-          if (error) {
-            errors++;
-          } else {
-            const rowCount = data?.length ?? 0;
-            if (rowCount > 0) beachUpdated += rowCount;
-            else beachSkipped++;
-          }
+        for (const u of updates) {
+          if (u.kind === 'error') errors++;
+          else if (u.kind === 'updated') beachUpdated += u.rowCount;
+          else beachSkipped++;
         }
 
         return { beach: beach.name, updated: beachUpdated, skipped: beachSkipped };
