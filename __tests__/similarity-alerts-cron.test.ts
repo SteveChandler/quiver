@@ -26,10 +26,17 @@ import { GET } from "@/app/api/cron/similarity-alerts/route";
 
 describe("Cron: similarity-alerts", () => {
   const originalSecret = process.env.CRON_SECRET;
+  const originalEnabled = process.env.ALERTS_DELIVERY_ENABLED;
+  const originalAllowlist = process.env.ALERTS_DELIVERY_USER_ALLOWLIST;
 
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.CRON_SECRET = "test-cron-secret";
+    // Phase 2 hardening: cron now gates on ALERTS_DELIVERY_ENABLED. The per-rule
+    // tests below exercise the score/queue path, so flip the gate ON here.
+    // The kill-switch's own behavior is covered by a dedicated test.
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    delete process.env.ALERTS_DELIVERY_USER_ALLOWLIST;
   });
 
   afterEach(() => {
@@ -38,6 +45,16 @@ describe("Cron: similarity-alerts", () => {
     } else {
       process.env.CRON_SECRET = originalSecret;
     }
+    if (originalEnabled === undefined) {
+      delete process.env.ALERTS_DELIVERY_ENABLED;
+    } else {
+      process.env.ALERTS_DELIVERY_ENABLED = originalEnabled;
+    }
+    if (originalAllowlist === undefined) {
+      delete process.env.ALERTS_DELIVERY_USER_ALLOWLIST;
+    } else {
+      process.env.ALERTS_DELIVERY_USER_ALLOWLIST = originalAllowlist;
+    }
   });
 
   it("returns 401 when no CRON_SECRET auth is provided", async () => {
@@ -45,6 +62,32 @@ describe("Cron: similarity-alerts", () => {
     const res = await GET(req);
     expect(res.status).toBe(401);
     expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it("returns skipped:true and touches no DB when ALERTS_DELIVERY_ENABLED!==true", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "false";
+    const req = new Request("http://localhost/api/cron/similarity-alerts", {
+      headers: { authorization: "Bearer test-cron-secret" },
+    });
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({
+      skipped: true,
+      reason: "delivery_disabled",
+      enqueued: 0,
+      evaluated: 0,
+    });
+    // Critical: kill switch returns BEFORE the rule loop runs. The
+    // withObservedCron wrapper still touches cron_runs (expected, that's
+    // observability), but _GET itself must NOT load alert_rules / score
+    // forecasts / write alert_queue while delivery is paused — otherwise the
+    // queue would accrue rows that get marked sent without delivering.
+    const ruleLoopTables = mockFrom.mock.calls
+      .map((call) => call[0])
+      .filter((t) => t !== "cron_runs");
+    expect(ruleLoopTables).toEqual([]);
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it("returns 200 with enqueued:0 when authorized but no rules exist", async () => {
