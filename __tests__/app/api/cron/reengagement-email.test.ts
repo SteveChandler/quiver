@@ -154,6 +154,7 @@ describe("Re-engagement Email Cron Job API", () => {
     // Access the global reference set up in the mock
     mockEmailsSend = (global as any).__mockEmailsSend;
     jest.clearAllMocks();
+    require("@/lib/api-utils").validateCronRequest.mockReturnValue(true);
 
     // Setup default Supabase mock chain for intel posts
     const mockChain = {
@@ -206,7 +207,7 @@ describe("Re-engagement Email Cron Job API", () => {
   describe("Authentication", () => {
     it("should reject requests without valid cron authentication", async () => {
       const { validateCronRequest } = require("@/lib/api-utils");
-      validateCronRequest.mockReturnValueOnce(false);
+      validateCronRequest.mockReturnValue(false);
 
       const request = mockRequest({
         authorization: "Bearer invalid-secret",

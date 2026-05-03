@@ -118,7 +118,9 @@ function buildQuery(table: string) {
     return Promise.resolve(resolved).then(onFulfilled);
   };
   builder.insert = jest.fn((payload: unknown) => {
-    mockInsert(table, payload);
+    // cron_runs comes from withObservedCron, not the handler — exclude it
+    // from the spy so existing assertions about handler-level inserts hold.
+    if (table !== "cron_runs") mockInsert(table, payload);
     return Promise.resolve({ error: row.insertError ?? null });
   });
   return builder;
@@ -226,7 +228,7 @@ describe("First-Session-Nudge Push Cron", () => {
   describe("Authentication", () => {
     it("rejects invalid cron requests with 401", async () => {
       const { validateCronRequest } = require("@/lib/api-utils");
-      validateCronRequest.mockReturnValueOnce(false);
+      validateCronRequest.mockReturnValue(false);
 
       const response = await GET(mockRequest({ authorization: "Bearer bad" }));
       const data = await response.json();

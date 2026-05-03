@@ -120,6 +120,7 @@ describe("Enhanced Forecast Sync Dispatch route", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    require("@/lib/api-utils").validateCronRequest.mockReturnValue(true);
     process.env.VERCEL_ENV = "production";
     process.env.FORECAST_CRON_TIME_BUDGET_MS = "1";
     (updateAllBeachForecasts as jest.Mock).mockResolvedValue({
@@ -189,7 +190,7 @@ describe("Enhanced Forecast Sync Dispatch route", () => {
 
   it("rejects unauthorized cron requests", async () => {
     const { validateCronRequest } = require("@/lib/api-utils");
-    validateCronRequest.mockReturnValueOnce(false);
+    validateCronRequest.mockReturnValue(false);
 
     const request = mockRequest({ authorization: "Bearer wrong" });
 

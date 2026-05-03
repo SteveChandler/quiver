@@ -333,7 +333,7 @@ describe("First Session Nudge Cron Job API", () => {
   describe("Authentication", () => {
     it("rejects requests without valid cron authentication", async () => {
       const { validateCronRequest } = require("@/lib/api-utils");
-      validateCronRequest.mockReturnValueOnce(false);
+      validateCronRequest.mockReturnValue(false);
 
       const response = await GET(mockRequest({ authorization: "Bearer invalid" }));
       const data = await response.json();

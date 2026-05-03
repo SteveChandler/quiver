@@ -153,6 +153,7 @@ describe("Conditions Alert Email Cron Job API", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    require("@/lib/api-utils").validateCronRequest.mockReturnValue(true);
 
     // Default RPC responses
     mockRpc.mockResolvedValue({
@@ -170,7 +171,7 @@ describe("Conditions Alert Email Cron Job API", () => {
   describe("Authentication", () => {
     it("should reject requests without valid cron authentication", async () => {
       const { validateCronRequest } = require("@/lib/api-utils");
-      validateCronRequest.mockReturnValueOnce(false);
+      validateCronRequest.mockReturnValue(false);
 
       const request = mockRequest({
         authorization: "Bearer invalid-secret",

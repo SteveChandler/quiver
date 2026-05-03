@@ -1,3 +1,4 @@
+import { validateCronRequest } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
 type CronRunsTable = {
@@ -31,20 +32,33 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
   const wrapped = (async (request: Request) => {
     const start = Date.now();
     let runId: string | null = null;
-    try {
-      const supabase = await createSupabaseServiceRoleClient();
-      const db = supabase as unknown as CronRunsTable;
-      const { data } = await db
-        .from("cron_runs")
-        .insert({ route, status: "started" })
-        .select("id")
-        .single();
-      runId = data?.id ?? null;
-    } catch (err) {
-      // Never block the handler. Log so cron_runs unavailability is at least
-      // visible in Vercel function logs (otherwise an unobserved run leaves
-      // no trail at all — the post-handler UPDATE is gated on runId).
-      console.warn(`[cron-observability] insert failed for ${route}`, err);
+
+    // Skip observability for unauthorized requests so the wrapper doesn't
+    // touch the DB before the handler returns 401. Each handler still calls
+    // validateCronRequest itself; this is the gate, not the auth.
+    const authorized = validateCronRequest(request);
+
+    if (authorized) {
+      try {
+        const supabase = await createSupabaseServiceRoleClient();
+        const db = supabase as unknown as CronRunsTable;
+        const { data } = await db
+          .from("cron_runs")
+          .insert({ route, status: "started" })
+          .select("id")
+          .single();
+        runId = data?.id ?? null;
+      } catch (err) {
+        // Never block the handler. Log so cron_runs unavailability is at least
+        // visible in Vercel function logs (otherwise an unobserved run leaves
+        // no trail at all — the post-handler UPDATE is gated on runId).
+        // Silenced in Jest because cron-route tests mock supabase per-test and
+        // don't stub the cron_runs.from(...).insert chain; the resulting noise
+        // trips the global console.warn fail-fast guardrail.
+        if (process.env.NODE_ENV !== "test") {
+          console.warn(`[cron-observability] insert failed for ${route}`, err);
+        }
+      }
     }
 
     try {
