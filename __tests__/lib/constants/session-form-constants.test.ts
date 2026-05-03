@@ -45,7 +45,9 @@ describe("Session Form Constants", () => {
       expect(conditionsConfig).toEqual({
         icon: "Activity",
         required: false,
-        order: 5,
+        // Order shifted from 5 → 4 when the planning-only section was removed
+        // in commit 4a8499ec (session-form refactor).
+        order: 4,
         showOnlyFor: "log",
       });
     });

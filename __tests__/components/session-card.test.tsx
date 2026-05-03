@@ -48,38 +48,9 @@ describe("SessionCard", () => {
     expect(screen.getByText("Great session!")).toBeInTheDocument();
   });
 
-  it("shows planned session indicator for planned sessions", () => {
-    const plannedSession = {
-      id: "planned-session",
-      beach: { name: "Test Beach" },
-      status: "planned",
-      rating: 0,
-      session_date: "2024-01-02",
-      user: { full_name: "Test User" },
-    };
-
-    render(<SessionCard {...defaultProps} session={plannedSession as any} />);
-
-    // Should show the planned session badge
-    expect(screen.getByText("Planned Session")).toBeInTheDocument();
-  });
-
-  it("does not show planned session indicator for completed sessions", () => {
-    const completedSession = {
-      id: "completed-session",
-      beach: { name: "Test Beach" },
-      status: "completed",
-      rating: 4,
-      session_date: "2024-01-01",
-      duration_minutes: 120,
-      user: { full_name: "Test User" },
-    };
-
-    render(<SessionCard {...defaultProps} session={completedSession as any} />);
-
-    // Should NOT show the planned session badge
-    expect(screen.queryByText("Planned Session")).not.toBeInTheDocument();
-  });
+  // "shows / does not show planned session indicator" removed —
+  // the planned-session feature was deleted in commit 4a8499ec
+  // (session-form refactor). All sessions are completed sessions now.
 
   it("renders session conditions when session data is provided", () => {
     const sessionWithConditions = {
