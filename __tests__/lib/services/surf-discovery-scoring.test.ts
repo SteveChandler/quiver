@@ -21,9 +21,17 @@ jest.mock("@/lib/utils/timezone-utils.server", () => ({
   isNightHour: jest.fn((h: number) => h >= 21 || h < 6),
 }));
 
-jest.mock("@/lib/services/preference-learning-service", () => ({
-  getUserSurfPreferences: jest.fn(() => Promise.resolve(null)),
-}));
+jest.mock("@/lib/services/preference-learning-service", () => {
+  // Preserve non-mocked exports (parseForecastNumber, etc.) so downstream
+  // services that use them at runtime don't throw "is not a function".
+  const actual = jest.requireActual<typeof import("@/lib/services/preference-learning-service")>(
+    "@/lib/services/preference-learning-service"
+  );
+  return {
+    ...actual,
+    getUserSurfPreferences: jest.fn(() => Promise.resolve(null)),
+  };
+});
 
 // Minimal, table-aware supabase mock used by discoverSurfSpots
 jest.mock("@/lib/supabase/server", () => {

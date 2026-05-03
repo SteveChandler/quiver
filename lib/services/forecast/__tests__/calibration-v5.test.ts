@@ -376,7 +376,6 @@ const goldenFixture = loadGoldenFixture();
   "cross-language golden parity (seaside/tests/fixtures/v5_golden_vectors.json)",
   () => {
     if (!goldenFixture) {
-      // eslint-disable-next-line no-console
       console.warn(
         `[calibration-v5.test] skipped: ${GOLDEN_FIXTURE_PATH} not found. ` +
           "If seaside repo is checked out, ensure it's at the expected sibling path."
