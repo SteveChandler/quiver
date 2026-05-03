@@ -141,7 +141,11 @@ export async function GET(request: Request): Promise<NextResponse> {
         //    profiles.id is a 1:1 mirror of auth.users.id, so we can key by user_id.
         type ProfileRow = {
           id: string;
-          email: string;
+          // profiles.email is nullable in the schema. Historical rows can have
+          // NULL even though auth.users.email is set (signup-trigger ordering
+          // edge case fixed forward in migration 20260503*). The email branch
+          // below guards on this; push delivery still proceeds on null email.
+          email: string | null;
           display_name: string | null;
           notif_email_enabled: boolean;
           notif_push_enabled: boolean;
@@ -327,6 +331,21 @@ export async function GET(request: Request): Promise<NextResponse> {
                       channel: "email",
                       status: "skipped_channel_disabled",
                       skipReason: "profile.notif_email_enabled=false",
+                    });
+                  }
+                } else if (!profile.email || profile.email.trim() === "") {
+                  // Resend rejects null/empty `to` with "The `to` field must be a
+                  // `string`.", which surfaced as failed_provider on 2026-04-27.
+                  // Guard before the provider call. Push delivery is independent
+                  // and continues for the same user below.
+                  for (const item of emailSurvivors) {
+                    await recordAttempt({
+                      queueId: item.id,
+                      ruleId: item.rule_id,
+                      userId: payload.user_id,
+                      channel: "email",
+                      status: "skipped_no_email",
+                      skipReason: "profile.email is null or empty",
                     });
                   }
                 } else {

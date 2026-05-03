@@ -5,6 +5,7 @@ export type AttemptStatus =
   | "skipped_cooldown"
   | "skipped_user_cap"
   | "skipped_no_device"
+  | "skipped_no_email"
   | "skipped_channel_disabled"
   | "skipped_dedup_collision"
   | "failed_provider"

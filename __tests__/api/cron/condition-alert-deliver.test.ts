@@ -394,6 +394,39 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
 
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
   });
+
+  it("email-only rule, profile.email is null → skipped_no_email, no Resend call, queue still marked sent", async () => {
+    // Regression for the 2026-04-27 failed_provider crash where Resend rejected
+    // a null `to` field. The deliver worker must guard before the provider call.
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    seedQueueRow({
+      alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+    });
+    seedProfile({
+      email: null,
+      notif_email_enabled: true,
+      notif_push_enabled: false,
+    });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(store.deliveryInserts).toHaveLength(0);
+
+    expect(store.attemptInserts).toHaveLength(1);
+    expect(store.attemptInserts[0]).toMatchObject({
+      queue_id: QUEUE_1,
+      user_id: USER_A,
+      rule_id: RULE_1,
+      channel: "email",
+      status: "skipped_no_email",
+    });
+
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+  });
+
 });
 
 describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
