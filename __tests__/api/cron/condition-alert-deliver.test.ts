@@ -659,3 +659,261 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
     expect(pushAttempt?.status).toBe("skipped_channel_disabled");
   });
 });
+
+// ─── Plan V4 — Agent 3: similarity_match partition + delivery split ─────────
+// Similarity rows are stamped by try_insert_similarity_alert with
+// conditions_snapshot.alert_type='similarity_match'. The cron must partition
+// these out BEFORE the legacy forecast_alert consolidation and process each
+// row individually via enqueueNotification — bypassing the shared cooldown +
+// weekly cap (similarity has its own dedup story via the partial unique index).
+
+const QUEUE_SIM = "00000000-0000-0000-0000-0000000000c2";
+const RULE_SIM = "00000000-0000-0000-0000-0000000000a2";
+const BEACH_SIM = "00000000-0000-0000-0000-0000000000b2";
+
+function seedSimilarityQueueRow(overrides: Partial<any> = {}) {
+  store.alertQueueRows.push({
+    id: QUEUE_SIM,
+    user_id: USER_A,
+    rule_id: RULE_SIM,
+    beach_id: BEACH_SIM,
+    alert_date: "2026-05-04",
+    send_at: "2026-05-04T05:00:00Z",
+    window_start: "2026-05-04T13:00:00Z",
+    window_end: "2026-05-04T15:00:00Z",
+    best_hour: "2026-05-04T14:00:00Z",
+    conditions_snapshot: {
+      alert_type: "similarity_match",
+      score: 8.5,
+      label: "EPIC",
+      forecast_at: "2026-05-04T15:00:00Z",
+      rule_id: RULE_SIM,
+      beach_id: BEACH_SIM,
+      beach_slug: "ocean-beach-sf",
+      beach_name: "Ocean Beach SF",
+      reason: "Conditions match your top sessions",
+    },
+    sent: false,
+    // notify_push/notify_email do NOT gate similarity — registry pref does.
+    // We default false here to confirm the route bypasses the legacy flags.
+    alert_rules: { name: "Similarity match", notify_email: false, notify_push: false },
+    beaches: { name: "Ocean Beach SF", timezone: "America/Los_Angeles" },
+    ...overrides,
+  });
+}
+
+describe("condition-alert-deliver — similarity_match partition + enqueue", () => {
+  it("partitions similarity rows out of legacy consolidation and enqueues a similarity_match event", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+
+    // One similarity row + one legacy forecast row for the same user. The
+    // legacy row should still go through the forecast_alert path; the
+    // similarity row should go through enqueueNotification with type=similarity_match.
+    seedSimilarityQueueRow();
+    seedQueueRow({
+      alert_rules: { name: "Forecast rule", notify_email: false, notify_push: true },
+    });
+    seedProfile({ notif_email_enabled: false, notif_push_enabled: true });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    // Two enqueue calls — one forecast_alert, one similarity_match.
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(2);
+    const calls = mockEnqueueNotification.mock.calls.map((c) => c[0]);
+    const types = calls.map((c) => c.type).sort();
+    expect(types).toEqual(["forecast_alert", "similarity_match"]);
+
+    const simCall = calls.find((c) => c.type === "similarity_match")!;
+    expect(simCall).toMatchObject({
+      type: "similarity_match",
+      recipientUserId: USER_A,
+      entityType: "beach",
+      entityId: BEACH_SIM,
+      dedupeKey: `similarity_match:${USER_A}:2026-05-04`,
+    });
+    expect(simCall.payload).toMatchObject({
+      beach_id: BEACH_SIM,
+      beach_slug: "ocean-beach-sf",
+      beach_name: "Ocean Beach SF",
+      alert_date: "2026-05-04",
+      forecast_at: "2026-05-04T15:00:00Z",
+      score: 8.5,
+      label: "EPIC",
+      reason: "Conditions match your top sessions",
+      queue_items: [{ queue_id: QUEUE_SIM, rule_id: RULE_SIM }],
+    });
+
+    // Similarity DOES NOT pre-write an alert_delivery_attempts row on success
+    // (mirror of forecast_alert — the worker's onChannelOutcome hook does it).
+    const simAttempts = store.attemptInserts.filter((a) => a.queue_id === QUEUE_SIM);
+    expect(simAttempts).toHaveLength(0);
+
+    // Both queue rows marked sent.
+    const allMarked = store.queueUpdates.flatMap((u) => u.ids).sort();
+    expect(allMarked).toEqual([QUEUE_1, QUEUE_SIM].sort());
+  });
+
+  it("kill switch: ALERTS_DELIVERY_ENABLED=false records skipped_disabled and marks similarity queue sent without enqueueing", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "false";
+    seedSimilarityQueueRow();
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: true });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    const simAttempts = store.attemptInserts.filter((a) => a.queue_id === QUEUE_SIM);
+    expect(simAttempts).toHaveLength(1);
+    expect(simAttempts[0]).toMatchObject({
+      queue_id: QUEUE_SIM,
+      rule_id: RULE_SIM,
+      user_id: USER_A,
+      channel: "push",
+      status: "skipped_disabled",
+    });
+
+    const allMarked = store.queueUpdates.flatMap((u) => u.ids);
+    expect(allMarked).toContain(QUEUE_SIM);
+  });
+
+  it("allowlist: user not in list records skipped_allowlist and marks similarity queue sent without enqueueing", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = USER_B;
+    seedSimilarityQueueRow();
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: true });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    const simAttempts = store.attemptInserts.filter((a) => a.queue_id === QUEUE_SIM);
+    expect(simAttempts).toHaveLength(1);
+    expect(simAttempts[0]).toMatchObject({
+      queue_id: QUEUE_SIM,
+      rule_id: RULE_SIM,
+      user_id: USER_A,
+      channel: "push",
+      status: "skipped_allowlist",
+    });
+
+    const allMarked = store.queueUpdates.flatMap((u) => u.ids);
+    expect(allMarked).toContain(QUEUE_SIM);
+  });
+
+  it("enqueue duplicate: marks queue sent + records skipped_dedup_collision", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    seedSimilarityQueueRow();
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: true });
+    mockEnqueueNotification.mockResolvedValueOnce({
+      enqueued: false,
+      reason: "duplicate",
+    });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    const simAttempts = store.attemptInserts.filter((a) => a.queue_id === QUEUE_SIM);
+    expect(simAttempts).toHaveLength(1);
+    expect(simAttempts[0]).toMatchObject({
+      queue_id: QUEUE_SIM,
+      channel: "push",
+      status: "skipped_dedup_collision",
+    });
+
+    const allMarked = store.queueUpdates.flatMap((u) => u.ids);
+    expect(allMarked).toContain(QUEUE_SIM);
+  });
+
+  it("enqueue internal_error: leaves queue UNSENT for retry, records failed_internal", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    seedSimilarityQueueRow();
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: true });
+    mockEnqueueNotification.mockResolvedValueOnce({
+      enqueued: false,
+      reason: "internal_error",
+      message: "supabase blip",
+    });
+
+    const res = await GET(makeRequest());
+    expectConsoleErrors([/similarity enqueue failed for user/]);
+    expect(res.status).toBe(200);
+
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    const simAttempts = store.attemptInserts.filter((a) => a.queue_id === QUEUE_SIM);
+    expect(simAttempts).toHaveLength(1);
+    expect(simAttempts[0]).toMatchObject({
+      queue_id: QUEUE_SIM,
+      channel: "push",
+      status: "failed_internal",
+    });
+    expect(simAttempts[0].skip_reason).toContain("internal_error");
+
+    // Queue NOT marked sent — the next tick should retry.
+    const allMarked = store.queueUpdates.flatMap((u) => u.ids);
+    expect(allMarked).not.toContain(QUEUE_SIM);
+  });
+
+  it("enqueue invalid_payload: marks queue sent (permanent), records failed_internal with reason", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    seedSimilarityQueueRow();
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: true });
+    mockEnqueueNotification.mockResolvedValueOnce({
+      enqueued: false,
+      reason: "invalid_payload",
+      message: "beach_id: Required",
+    });
+
+    const res = await GET(makeRequest());
+    expectConsoleErrors([/similarity enqueue rejected invalid payload/]);
+    expect(res.status).toBe(200);
+
+    const simAttempts = store.attemptInserts.filter((a) => a.queue_id === QUEUE_SIM);
+    expect(simAttempts).toHaveLength(1);
+    expect(simAttempts[0]).toMatchObject({
+      queue_id: QUEUE_SIM,
+      channel: "push",
+      status: "failed_internal",
+    });
+    expect(simAttempts[0].skip_reason).toContain("invalid_payload");
+
+    // Permanent failure — queue marked sent so we don't loop on it.
+    const allMarked = store.queueUpdates.flatMap((u) => u.ids);
+    expect(allMarked).toContain(QUEUE_SIM);
+  });
+
+  it("similarity bypasses cooldown + weekly cap (own dedup model via partial unique index)", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    seedSimilarityQueueRow();
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: true });
+
+    // Seed 10 prior 'sent' attempts for USER_A — would trip the legacy
+    // forecast weekly cap. Similarity must enqueue regardless.
+    for (let i = 0; i < 10; i++) {
+      store.seededAttempts.push({
+        queue_id: `00000000-0000-0000-0000-${String(i).padStart(12, "0")}`,
+        rule_id: RULE_SIM,
+        user_id: USER_A,
+        channel: "push",
+        status: "sent",
+        attempted_at: new Date(
+          Date.now() - (i + 1) * 24 * 60 * 60 * 1000
+        ).toISOString(),
+      });
+    }
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification.mock.calls[0][0].type).toBe(
+      "similarity_match"
+    );
+  });
+});
