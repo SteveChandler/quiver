@@ -205,10 +205,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
 
             {/* Compact Search Bar */}
             <div className="w-[300px]">
-              <HeroSearchLazy
-                onFallback={navigateToMap}
-                onSelect={(beach) => navigateToMap(beach.name)}
-              />
+              <HeroSearchLazy onFallback={navigateToMap} />
             </div>
 
             {/* Auth Buttons */}
@@ -267,10 +264,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                     <div className="flex flex-col gap-6 mt-8">
                       {/* Mobile Search */}
                       <div className="w-full">
-                        <HeroSearchLazy
-                          onFallback={navigateToMap}
-                          onSelect={(beach) => navigateToMap(beach.name)}
-                        />
+                        <HeroSearchLazy onFallback={navigateToMap} />
                       </div>
 
                       {/* Mobile Explore - Region groups */}

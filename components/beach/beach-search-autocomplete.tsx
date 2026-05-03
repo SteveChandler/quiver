@@ -97,6 +97,7 @@ export function BeachSearchAutocomplete({
     debouncedQuery,
     suggestions,
     loading,
+    error,
     isOpen,
     selectedIndex,
     setQuery,
@@ -250,8 +251,28 @@ export function BeachSearchAutocomplete({
             "rounded-lg border bg-background shadow-lg"
           )}
         >
+          {/* Error state — distinct from empty state. Surfaced when the
+              search API errored (e.g. transient 5xx, rate limit) so users
+              don't see a misleading "No beaches found" for a fetch failure. */}
+          {!loading && error && (
+            <div className="py-6 px-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                Couldn&apos;t search right now.
+              </p>
+              <Link
+                href="/beaches/usa"
+                prefetch={false}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm font-medium text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+              >
+                <MapIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                Browse all beaches by state
+                <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </Link>
+            </div>
+          )}
+
           {/* Custom empty state - don't use CommandEmpty as it conflicts with shouldFilter={false} */}
-          {!loading && suggestions.length === 0 && (
+          {!loading && !error && suggestions.length === 0 && (
             <div className="py-6 px-4 text-center">
               <p className="text-sm text-muted-foreground">
                 No beaches found matching &quot;{query}&quot;
@@ -292,8 +313,9 @@ export function BeachSearchAutocomplete({
               reachable even when results are showing. Plain Link rather
               than a CommandItem so cmdk's keyboard navigation doesn't
               treat it as a result and so the user gets a real anchor
-              focus ring. */}
-          {!(suggestions.length === 0 && !loading) && (
+              focus ring. Hidden when the empty-state or error-state branch
+              already renders its own browse link to avoid duplication. */}
+          {!error && !(suggestions.length === 0 && !loading) && (
             <>
               <CommandSeparator />
               <div className="p-2">
