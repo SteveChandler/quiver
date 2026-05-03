@@ -1,41 +1,46 @@
 // app/api/cron/similarity-alerts/route.ts
 //
-// Phase 2 similarity-alerts cron — runs hourly.
+// Plan V4 similarity-alerts cron — runs hourly.
 //
-// Scans every enabled alert_rules row with preset_type = 'similarity_match',
-// calls compute_user_match_score against the next 72h of enhanced_forecasts
-// for each rule's beach, and enqueues an alert_queue row when a forecast slot
-// scores >= 7. Frequency caps: one alert per (user, beach) per 48h and a
-// maximum of three queued alerts per user per 24h.
+// Iterates DISTINCT eligible USERS (not rules). For each user:
+//  1. Builds a candidate beach pool: home_beach + favorites + nearby ≤ 25mi.
+//  2. Drops candidates with active water-quality closures.
+//  3. Fetches the next 24h of enhanced_forecasts per candidate, filters to
+//     daylight hours, then bulk-scores via compute_user_match_score_batch
+//     (one RPC per beach, not per slot — collapses N×72 to N round-trips).
+//  4. Picks the highest-scoring ready slot ≥ 7.0 across all candidates,
+//     tie-break by earliest forecast_at, rejects 22:00-06:00 user-local picks.
+//  5. Inserts via try_insert_similarity_alert RPC. inserted=false on dedup
+//     hit (partial unique index alert_queue_one_similarity_per_user_day) is
+//     treated as success.
 //
-// Kill switch (mirroring condition-alert-deliver):
+// Anchor rule selection (one user can have ≥1 similarity_match rule):
+//   prefer auto_created_at IS NOT NULL, then MIN(id) for deterministic
+//   tie-break. The anchor's id is stamped as the foreign key on alert_queue
+//   and gets last_matched_at bumped on success.
+//
+// Kill switch (mirrors condition-alert-deliver):
 //   - ALERTS_DELIVERY_ENABLED — must equal "true" or the cron returns
-//     { skipped: true, reason: "delivery_disabled" } without touching the DB.
-//     Default OFF; enable per environment when ready to roll out.
+//     { skipped: true, reason: "delivery_disabled" } without touching the DB
+//     (beyond the cron_runs row owned by withObservedCron).
 //   - ALERTS_DELIVERY_USER_ALLOWLIST — optional comma-separated user_ids.
-//     When non-empty, rules whose user is not on the list are counted as
-//     skipped and their forecasts are not scored. When empty, all enabled
-//     rules are processed (subject to frequency caps).
+//     When non-empty, users not on the list are counted as skipped.
 //
-// Schema note: alert_queue has no `alert_type`/`payload` column (see
-// supabase/migrations/20260408163000_add_condition_alerts.sql). We stamp the
-// similarity payload inside `conditions_snapshot` jsonb so the delivery cron
-// can distinguish similarity_match rows from regular condition alerts via
-// conditions_snapshot.alert_type.
-//
-// Defensive paid API batching note: at scale (~100 rules × 72 hourly slots =
-// ~7.2k RPC invocations/run) this cron dominates RPC traffic. For v1 we accept
-// the cost since rules are bounded to the paid-tier cohort. Optimization
-// targets if rule count grows:
-//   - server-side batch RPC that scores all slots for a (user, beach) in one
-//     round-trip
-//   - early-break once we find the first slot >= threshold rather than scanning
-//     all 72 hours (we currently keep scanning to report the peak)
+// Schema notes: alert_queue has no alert_type/payload column. The similarity
+// shape lives inside conditions_snapshot.alert_type — try_insert_similarity_alert
+// RAISES if conditions_snapshot.alert_type ≠ 'similarity_match', and the
+// partial unique index is keyed on (user_id, alert_date) WHERE that flag
+// matches.
 
 import { NextResponse } from "next/server";
 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withObservedCron } from "@/lib/cron/observability";
+import { resolveBeachTimezone } from "@/lib/utils/timezone-utils";
+import {
+  pickBestSimilaritySlot,
+  type ScoredSlot,
+} from "@/lib/alerts/similarity-best-pick";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -44,32 +49,103 @@ export const maxDuration = 300;
 
 const CONTEXT_TAG = "[similarity-alerts]";
 const SCORE_THRESHOLD = 7;
-const PER_BEACH_COOLDOWN_MS = 48 * 60 * 60 * 1000;
-const DAILY_CAP = 3;
-const DAILY_WINDOW_MS = 24 * 60 * 60 * 1000;
-const LOOKAHEAD_HOURS = 72;
+const SURFABILITY_FLOOR = 0; // candidate pre-filter; picker handles its own threshold
+const LOOKAHEAD_HOURS = 24;
+const NEARBY_RADIUS_MILES = 25;
+const NEARBY_LIMIT = 10;
+const FAVORITE_LIMIT = 5;
+const REJECT_START_HOUR_LOCAL = 22; // 10pm
+const REJECT_END_HOUR_LOCAL = 6; // 6am
+const DAYLIGHT_START_HOUR = 6;
+const DAYLIGHT_END_HOUR = 21;
 
-interface MatchScoreResult {
-  state?: string;
-  score?: number;
-  label?: string;
-  reason_bullets?: unknown;
-  board_tip?: string | null;
-  confidence?: number;
-  sessions_in_profile?: number;
+interface EligibleUserRow {
+  user_id: string;
+  anchor_rule_id: string;
+  home_beach_id: string;
+  timezone: string | null;
+}
+
+interface BeachRow {
+  id: string;
+  name: string;
+  slug: string | null;
+  center_lat: number | null;
+  center_lng: number | null;
+  timezone: string | null;
+}
+
+interface ForecastSlot {
+  forecast_at: string;
+  wave_height: string | null;
+  wave_period: string | null;
+  wind_speed: string | null;
+  wind_direction_deg: number | null;
+  tide_height: string | null;
+}
+
+interface BatchSlotResult {
+  slot_idx: number;
+  forecast_at: string;
+  result: {
+    state?: string;
+    score?: number;
+    label?: string | null;
+    reason_bullets?: unknown;
+    confidence?: number;
+  } | null;
+}
+
+function localHourInTz(iso: string, tz: string): number {
+  try {
+    const fmt = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hour: "numeric",
+      hour12: false,
+    });
+    const h = parseInt(fmt.format(new Date(iso)), 10);
+    return h === 24 ? 0 : h;
+  } catch {
+    return new Date(iso).getUTCHours();
+  }
+}
+
+function localDateInTz(iso: string, tz: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date(iso));
+    const y = parts.find((p) => p.type === "year")?.value;
+    const m = parts.find((p) => p.type === "month")?.value;
+    const d = parts.find((p) => p.type === "day")?.value;
+    if (!y || !m || !d) throw new Error("bad date parts");
+    return `${y}-${m}-${d}`;
+  } catch {
+    return new Date(iso).toISOString().slice(0, 10);
+  }
+}
+
+function firstReasonBullet(bullets: unknown): string | null {
+  if (Array.isArray(bullets)) {
+    for (const b of bullets) {
+      if (typeof b === "string" && b.length > 0) return b;
+    }
+  }
+  return null;
 }
 
 async function _GET(req: Request): Promise<Response> {
   const auth = req.headers.get("authorization") ?? "";
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  const vercelHeader = req.headers.get("x-vercel-cron");
+  const isAuthorized =
+    !!vercelHeader || auth === `Bearer ${process.env.CRON_SECRET}`;
+  if (!isAuthorized) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Kill switch + per-user allowlist, mirroring condition-alert-deliver
-  // (route.ts:53-60). Default OFF for safety; enable per environment when
-  // ready to roll out. Gating the enqueue (not just delivery) prevents
-  // alert_queue writes, last_matched_at cooldown burn, and noisy attempt
-  // rows during a paused rollout.
   const deliveryEnabled = process.env.ALERTS_DELIVERY_ENABLED === "true";
   const allowlistRaw = process.env.ALERTS_DELIVERY_USER_ALLOWLIST ?? "";
   const allowlist = new Set(
@@ -87,201 +163,67 @@ async function _GET(req: Request): Promise<Response> {
   }
 
   const supabase = await createSupabaseServiceRoleClient();
-  let enqueued = 0;
   let evaluated = 0;
-  let skipped = 0;
+  let enqueued = 0;
+  let dedupSkipped = 0;
+  let allowlistSkipped = 0;
+  let noPickSkipped = 0;
   let errors = 0;
 
   try {
-    // 1. Load all enabled similarity_match rules.
-    const { data: rules, error: rulesErr } = await (supabase as any)
-      .from("alert_rules")
-      .select("id, user_id, beach_id, preset_type")
-      .eq("preset_type", "similarity_match")
-      .eq("enabled", true);
+    const eligibleUsers = await loadEligibleUsers(supabase);
 
-    if (rulesErr) {
-      console.error(`${CONTEXT_TAG} failed to load rules`, rulesErr);
-      return NextResponse.json(
-        { error: rulesErr.message, enqueued },
-        { status: 500 },
-      );
-    }
-
-    for (const rule of (rules ?? []) as Array<{
-      id: string;
-      user_id: string;
-      beach_id: string;
-    }>) {
+    for (const user of eligibleUsers) {
       evaluated++;
       try {
-        // Allowlist short-circuit: when ALERTS_DELIVERY_USER_ALLOWLIST is
-        // non-empty, skip rules whose user is not on the list. Counted as
-        // skipped so the daily-cap math still reflects considered-but-skipped
-        // rules.
-        if (allowlist.size > 0 && !allowlist.has(rule.user_id)) {
-          skipped++;
+        if (allowlist.size > 0 && !allowlist.has(user.user_id)) {
+          allowlistSkipped++;
           continue;
         }
 
-        // 2. Frequency cap: skip if this (user, beach) already has a
-        // similarity alert queued in the last 48h.
-        const cooldownSince = new Date(
-          Date.now() - PER_BEACH_COOLDOWN_MS,
-        ).toISOString();
-        const { count: recent } = await (supabase as any)
-          .from("alert_queue")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", rule.user_id)
-          .eq("beach_id", rule.beach_id)
-          .eq("rule_id", rule.id)
-          .gte("created_at", cooldownSince);
-        if ((recent ?? 0) > 0) {
-          skipped++;
+        const candidates = await buildCandidateBeaches(supabase, user);
+        if (candidates.length === 0) {
+          noPickSkipped++;
           continue;
         }
 
-        // 3. Daily cap: skip if this user already has >=3 queued alerts in
-        // the last 24h across all rules.
-        const dailySince = new Date(
-          Date.now() - DAILY_WINDOW_MS,
-        ).toISOString();
-        const { count: daily } = await (supabase as any)
-          .from("alert_queue")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", rule.user_id)
-          .gte("created_at", dailySince);
-        if ((daily ?? 0) >= DAILY_CAP) {
-          skipped++;
+        const filtered = await filterByWaterQuality(supabase, candidates);
+        if (filtered.length === 0) {
+          noPickSkipped++;
           continue;
         }
 
-        // 4. Load next 72h of forecasts for this beach.
-        const now = new Date();
-        const horizon = new Date(
-          now.getTime() + LOOKAHEAD_HOURS * 60 * 60 * 1000,
-        );
-        const { data: forecasts, error: forecastsErr } = await (supabase as any)
-          .from("enhanced_forecasts")
-          .select(
-            "forecast_at, wave_height, wave_period, wind_speed, wind_direction_deg, tide_height",
-          )
-          .eq("beach_id", rule.beach_id)
-          .gte("forecast_at", now.toISOString())
-          .lte("forecast_at", horizon.toISOString())
-          .order("forecast_at", { ascending: true });
-        if (forecastsErr) {
-          console.warn(
-            `${CONTEXT_TAG} forecasts load failed for rule ${rule.id}`,
-            forecastsErr.message,
-          );
+        const scored = await scoreCandidates(supabase, user.user_id, filtered);
+        if (scored.length === 0) {
+          noPickSkipped++;
+          continue;
+        }
+
+        const pick = pickBestSimilaritySlot({
+          scoredSlots: scored,
+          scoreThreshold: SCORE_THRESHOLD,
+          rejectStartHourLocal: REJECT_START_HOUR_LOCAL,
+          rejectEndHourLocal: REJECT_END_HOUR_LOCAL,
+        });
+
+        if (!pick) {
+          noPickSkipped++;
+          continue;
+        }
+
+        const inserted = await tryInsertAlert(supabase, user, pick);
+        if (inserted === "inserted") {
+          enqueued++;
+          await bumpLastMatchedAt(supabase, user.anchor_rule_id);
+        } else if (inserted === "dedup") {
+          dedupSkipped++;
+        } else {
           errors++;
-          continue;
         }
-        if (!forecasts || forecasts.length === 0) continue;
-
-        // 5. Score each slot; track the peak score >= threshold.
-        let peak: {
-          score: number;
-          forecast_at: string;
-          label: string | null;
-        } | null = null;
-
-        for (const f of forecasts as Array<{
-          forecast_at: string;
-          wave_height: string | null;
-          wave_period: string | null;
-          wind_speed: string | null;
-          wind_direction_deg: number | null;
-          tide_height: string | null;
-        }>) {
-          const wave = f.wave_height ? parseFloat(f.wave_height) : null;
-          const period = f.wave_period
-            ? parseFloat(String(f.wave_period).replace("s", ""))
-            : null;
-          if (wave == null || period == null) continue;
-
-          const wind = f.wind_speed ? parseFloat(f.wind_speed) : null;
-          const tide = f.tide_height ? parseFloat(f.tide_height) : null;
-
-          // compute_user_match_score declares all forecast args as text.
-          // Stringify numerics here; Postgres parses them via parse_numeric_from_text.
-          const { data: rpcData, error: rpcErr } = await supabase.rpc(
-            "compute_user_match_score",
-            {
-              p_user_id: rule.user_id,
-              p_beach_id: rule.beach_id,
-              p_wave_height: String(wave),
-              p_wave_period: String(period),
-              p_wind_speed: wind == null ? "" : String(wind),
-              p_wind_direction:
-                f.wind_direction_deg == null ? "" : String(f.wind_direction_deg),
-              p_tide_height: tide == null ? "" : String(tide),
-            },
-          );
-          if (rpcErr) {
-            console.warn(
-              `${CONTEXT_TAG} RPC error rule=${rule.id} slot=${f.forecast_at}`,
-              rpcErr,
-            );
-            continue;
-          }
-          const result = rpcData as MatchScoreResult | null;
-          if (!result || result.state !== "ready") continue;
-          if (typeof result.score !== "number") continue;
-          if (result.score < SCORE_THRESHOLD) continue;
-          if (!peak || result.score > peak.score) {
-            peak = {
-              score: result.score,
-              forecast_at: f.forecast_at,
-              label: result.label ?? null,
-            };
-          }
-        }
-
-        if (!peak) continue;
-
-        // 6. Queue the alert. alert_queue has no alert_type/payload columns;
-        // we stamp the similarity shape inside conditions_snapshot so the
-        // delivery cron can dispatch the right copy.
-        const alertDate = new Date(peak.forecast_at).toISOString().slice(0, 10);
-        const { error: insertErr } = await (supabase as any)
-          .from("alert_queue")
-          .insert({
-            user_id: rule.user_id,
-            rule_id: rule.id,
-            beach_id: rule.beach_id,
-            alert_date: alertDate,
-            send_at: new Date().toISOString(),
-            window_start: peak.forecast_at,
-            window_end: peak.forecast_at,
-            best_hour: peak.forecast_at,
-            conditions_snapshot: {
-              alert_type: "similarity_match",
-              score: peak.score,
-              label: peak.label,
-              forecast_at: peak.forecast_at,
-              rule_id: rule.id,
-            },
-          });
-        if (insertErr) {
-          console.error(
-            `${CONTEXT_TAG} enqueue failed rule=${rule.id}`,
-            insertErr.message,
-          );
-          errors++;
-          continue;
-        }
-        enqueued++;
-
-        await (supabase as any)
-          .from("alert_rules")
-          .update({ last_matched_at: new Date().toISOString() })
-          .eq("id", rule.id);
-      } catch (ruleErr) {
+      } catch (userErr) {
         console.error(
-          `${CONTEXT_TAG} error processing rule ${rule.id}`,
-          ruleErr,
+          `${CONTEXT_TAG} error processing user ${user.user_id}`,
+          userErr,
         );
         errors++;
       }
@@ -290,15 +232,397 @@ async function _GET(req: Request): Promise<Response> {
     console.log(`${CONTEXT_TAG} summary`, {
       evaluated,
       enqueued,
-      skipped,
+      dedupSkipped,
+      allowlistSkipped,
+      noPickSkipped,
       errors,
     });
-    return NextResponse.json({ enqueued, evaluated, skipped, errors });
+    return NextResponse.json({
+      evaluated,
+      enqueued,
+      dedupSkipped,
+      allowlistSkipped,
+      noPickSkipped,
+      errors,
+    });
   } catch (err) {
     console.error(`${CONTEXT_TAG} fatal error`, err);
     return NextResponse.json(
-      { error: "Internal error", enqueued, evaluated, skipped, errors },
+      {
+        error: "Internal error",
+        evaluated,
+        enqueued,
+        dedupSkipped,
+        allowlistSkipped,
+        noPickSkipped,
+        errors,
+      },
       { status: 500 },
+    );
+  }
+}
+
+/**
+ * Loads eligible users + their anchor similarity_match rule. Done in two
+ * round-trips (Supabase JS client doesn't expose CTEs):
+ *  1. Fetch all enabled similarity_match rules joined to user_entitlements
+ *     and profiles. We do entitlement filtering in JS to mirror
+ *     entitlementFromRow exactly (billing_issue carve-out + expires_at
+ *     staleness guard).
+ *  2. Group by user_id and pick the anchor: prefer auto_created_at NOT NULL,
+ *     then MIN(id).
+ */
+async function loadEligibleUsers(
+  supabase: any,
+): Promise<EligibleUserRow[]> {
+  const { data, error } = await supabase
+    .from("alert_rules")
+    .select(
+      `
+      id,
+      user_id,
+      auto_created_at,
+      profiles!inner(
+        id,
+        home_beach_id,
+        timezone,
+        user_entitlements(
+          is_pro,
+          is_trialing,
+          billing_issue,
+          expires_at
+        )
+      )
+      `,
+    )
+    .eq("preset_type", "similarity_match")
+    .eq("enabled", true);
+
+  if (error) {
+    console.error(`${CONTEXT_TAG} failed to load eligible users`, error);
+    throw error;
+  }
+
+  const now = Date.now();
+  const groups = new Map<
+    string,
+    Array<{
+      id: string;
+      user_id: string;
+      auto_created_at: string | null;
+      home_beach_id: string;
+      timezone: string | null;
+    }>
+  >();
+
+  for (const row of (data ?? []) as Array<{
+    id: string;
+    user_id: string;
+    auto_created_at: string | null;
+    profiles: {
+      id: string;
+      home_beach_id: string | null;
+      timezone: string | null;
+      user_entitlements:
+        | { is_pro: boolean | null; is_trialing: boolean | null; billing_issue: boolean | null; expires_at: string | null }[]
+        | { is_pro: boolean | null; is_trialing: boolean | null; billing_issue: boolean | null; expires_at: string | null }
+        | null;
+    };
+  }>) {
+    const profile = row.profiles;
+    if (!profile) continue;
+    if (!profile.home_beach_id) continue;
+
+    const ent = Array.isArray(profile.user_entitlements)
+      ? profile.user_entitlements[0]
+      : profile.user_entitlements;
+    if (!ent) continue;
+    if (!ent.is_pro && !ent.is_trialing) continue;
+    if (
+      ent.expires_at &&
+      !ent.billing_issue &&
+      new Date(ent.expires_at).getTime() < now
+    ) {
+      continue;
+    }
+
+    const list = groups.get(row.user_id) ?? [];
+    list.push({
+      id: row.id,
+      user_id: row.user_id,
+      auto_created_at: row.auto_created_at,
+      home_beach_id: profile.home_beach_id,
+      timezone: profile.timezone,
+    });
+    groups.set(row.user_id, list);
+  }
+
+  const eligibleUsers: EligibleUserRow[] = [];
+  for (const [userId, rules] of groups) {
+    rules.sort((a, b) => {
+      // Prefer auto_created_at NOT NULL (system-seeded). When tied (both NULL
+      // or both NOT NULL), sort by id ASC for deterministic anchor selection.
+      const aAuto = a.auto_created_at ? 1 : 0;
+      const bAuto = b.auto_created_at ? 1 : 0;
+      if (aAuto !== bAuto) return bAuto - aAuto;
+      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    });
+    const anchor = rules[0];
+    eligibleUsers.push({
+      user_id: userId,
+      anchor_rule_id: anchor.id,
+      home_beach_id: anchor.home_beach_id,
+      timezone: anchor.timezone,
+    });
+  }
+
+  return eligibleUsers;
+}
+
+/**
+ * Builds candidate pool: home_beach (required) + favorites (≤5) + nearby (≤10).
+ * Deduplicates by id. Returns hydrated beach rows.
+ */
+async function buildCandidateBeaches(
+  supabase: any,
+  user: EligibleUserRow,
+): Promise<BeachRow[]> {
+  const ids = new Set<string>([user.home_beach_id]);
+
+  const { data: favs } = await supabase
+    .from("favorite_beaches")
+    .select("beach_id")
+    .eq("user_id", user.user_id)
+    .order("rank", { ascending: true, nullsFirst: false })
+    .limit(FAVORITE_LIMIT);
+  for (const r of (favs ?? []) as Array<{ beach_id: string }>) {
+    if (r.beach_id) ids.add(r.beach_id);
+  }
+
+  // Nearby: need home beach coords first.
+  const { data: home } = await supabase
+    .from("beaches")
+    .select("id, center_lat, center_lng")
+    .eq("id", user.home_beach_id)
+    .maybeSingle();
+
+  const homeRow = home as
+    | { id: string; center_lat: number | null; center_lng: number | null }
+    | null;
+
+  if (homeRow?.center_lat != null && homeRow?.center_lng != null) {
+    const meters = Math.round(NEARBY_RADIUS_MILES * 1609.34);
+    const { data: nearby } = await supabase.rpc("get_nearby_beaches", {
+      input_lat: homeRow.center_lat,
+      input_lng: homeRow.center_lng,
+      max_distance_meters: meters,
+      limit_count: NEARBY_LIMIT,
+    });
+    for (const r of (nearby ?? []) as Array<{ id: string; is_private?: boolean | null }>) {
+      if (r.id && !r.is_private) ids.add(r.id);
+    }
+  }
+
+  if (ids.size === 0) return [];
+
+  const { data: beaches, error: beachErr } = await supabase
+    .from("beaches")
+    .select("id, name, slug, center_lat, center_lng, timezone")
+    .in("id", Array.from(ids));
+
+  if (beachErr) {
+    console.warn(`${CONTEXT_TAG} beach hydrate failed`, beachErr.message);
+    return [];
+  }
+
+  return (beaches ?? []) as BeachRow[];
+}
+
+/**
+ * Drops beaches with status='closure' in beach_water_quality (matches the
+ * filter applied by the discovery orchestrator).
+ */
+async function filterByWaterQuality(
+  supabase: any,
+  candidates: BeachRow[],
+): Promise<BeachRow[]> {
+  if (candidates.length === 0) return [];
+  const { data, error } = await supabase
+    .from("beach_water_quality")
+    .select("beach_id, status")
+    .in(
+      "beach_id",
+      candidates.map((c) => c.id),
+    );
+  if (error) {
+    // Non-fatal — proceed without WQ filter rather than skipping the user.
+    console.warn(`${CONTEXT_TAG} water quality lookup failed`, error.message);
+    return candidates;
+  }
+  const closed = new Set<string>();
+  for (const r of (data ?? []) as Array<{ beach_id: string; status: string }>) {
+    if (r.status === "closure") closed.add(r.beach_id);
+  }
+  return candidates.filter((c) => !closed.has(c.id));
+}
+
+/**
+ * For each candidate beach: fetch next 24h of forecasts, slice to daylight
+ * (6am-9pm beach-local), bulk-score via compute_user_match_score_batch, and
+ * flatten into a single ScoredSlot[] for the picker.
+ */
+async function scoreCandidates(
+  supabase: any,
+  userId: string,
+  candidates: BeachRow[],
+): Promise<ScoredSlot[]> {
+  const now = new Date();
+  const horizon = new Date(now.getTime() + LOOKAHEAD_HOURS * 60 * 60 * 1000);
+
+  const out: ScoredSlot[] = [];
+
+  for (const beach of candidates) {
+    const tz = resolveBeachTimezone(beach.timezone);
+
+    const { data: rows, error: fxErr } = await supabase
+      .from("enhanced_forecasts")
+      .select(
+        "forecast_at, wave_height, wave_period, wind_speed, wind_direction_deg, tide_height",
+      )
+      .eq("beach_id", beach.id)
+      .gte("forecast_at", now.toISOString())
+      .lte("forecast_at", horizon.toISOString())
+      .order("forecast_at", { ascending: true });
+
+    if (fxErr) {
+      console.warn(
+        `${CONTEXT_TAG} forecast load failed beach=${beach.id}`,
+        fxErr.message,
+      );
+      continue;
+    }
+
+    const forecasts = (rows ?? []) as ForecastSlot[];
+    if (forecasts.length === 0) continue;
+
+    const daylight = forecasts.filter((f) => {
+      const hour = localHourInTz(f.forecast_at, tz);
+      return hour >= DAYLIGHT_START_HOUR && hour < DAYLIGHT_END_HOUR;
+    });
+    if (daylight.length === 0) continue;
+
+    const slots = daylight
+      .filter((f) => f.wave_height != null && f.wave_period != null)
+      .map((f) => ({
+        forecast_at: f.forecast_at,
+        wave_height: f.wave_height ?? "",
+        wave_period: f.wave_period ?? "",
+        wind_speed: f.wind_speed ?? "",
+        wind_direction:
+          f.wind_direction_deg == null ? "" : String(f.wind_direction_deg),
+        tide_height: f.tide_height ?? "",
+      }));
+
+    if (slots.length === 0) continue;
+
+    const { data: rpcRows, error: rpcErr } = await supabase.rpc(
+      "compute_user_match_score_batch",
+      {
+        p_user_id: userId,
+        p_beach_id: beach.id,
+        p_slots: slots,
+      },
+    );
+
+    if (rpcErr) {
+      console.warn(
+        `${CONTEXT_TAG} batch RPC failed beach=${beach.id}`,
+        rpcErr.message,
+      );
+      continue;
+    }
+
+    for (const r of (rpcRows ?? []) as BatchSlotResult[]) {
+      const result = r.result;
+      if (!result || result.state !== "ready") continue;
+      if (typeof result.score !== "number") continue;
+      if (result.score < SURFABILITY_FLOOR) continue;
+      out.push({
+        beach_id: beach.id,
+        beach_name: beach.name,
+        beach_slug: beach.slug ?? "",
+        forecast_at: r.forecast_at,
+        beach_timezone: tz,
+        score: result.score,
+        label: result.label ?? null,
+        reason: firstReasonBullet(result.reason_bullets),
+      });
+    }
+  }
+
+  return out;
+}
+
+type InsertOutcome = "inserted" | "dedup" | "error";
+
+async function tryInsertAlert(
+  supabase: any,
+  user: EligibleUserRow,
+  pick: ScoredSlot,
+): Promise<InsertOutcome> {
+  const userTz = resolveBeachTimezone(user.timezone || pick.beach_timezone);
+  const alertDate = localDateInTz(pick.forecast_at, userTz);
+  const nowIso = new Date().toISOString();
+
+  const snapshot = {
+    alert_type: "similarity_match" as const,
+    score: pick.score,
+    label: pick.label,
+    forecast_at: pick.forecast_at,
+    rule_id: user.anchor_rule_id,
+    beach_id: pick.beach_id,
+    beach_slug: pick.beach_slug,
+    beach_name: pick.beach_name,
+    reason: pick.reason ?? `${pick.label ?? "Match"} at ${pick.beach_name}`,
+  };
+
+  const { data, error } = await supabase.rpc("try_insert_similarity_alert", {
+    p_user_id: user.user_id,
+    p_rule_id: user.anchor_rule_id,
+    p_beach_id: pick.beach_id,
+    p_alert_date: alertDate,
+    p_send_at: nowIso,
+    p_window_start: pick.forecast_at,
+    p_window_end: pick.forecast_at,
+    p_best_hour: pick.forecast_at,
+    p_conditions_snapshot: snapshot,
+  });
+
+  if (error) {
+    console.error(
+      `${CONTEXT_TAG} try_insert_similarity_alert failed user=${user.user_id}`,
+      error.message,
+    );
+    return "error";
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (row && row.inserted) return "inserted";
+  return "dedup";
+}
+
+async function bumpLastMatchedAt(
+  supabase: any,
+  ruleId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("alert_rules")
+    .update({ last_matched_at: new Date().toISOString() })
+    .eq("id", ruleId);
+  if (error) {
+    console.warn(
+      `${CONTEXT_TAG} last_matched_at update failed rule=${ruleId}`,
+      error.message,
     );
   }
 }
