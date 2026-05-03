@@ -356,6 +356,7 @@ const ALLOWED_CONSOLE_PATTERNS = [
   /\[CalibrationV5\] getActiveCalibration: query failed/,
   /\[CalibrationV5\] getActiveCalibration: no active calibration version/,
   /\[CalibrationV5\] getActiveCalibration: unexpected error/,
+  /\[CalibrationV5\] getActiveCalibration: SUPABASE_SERVICE_ROLE_KEY not configured/,
   /\[CalibrationV5\] computeV5Shadow: unexpected error/,
 ];
 
