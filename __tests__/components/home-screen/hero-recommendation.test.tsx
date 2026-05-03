@@ -192,7 +192,6 @@ describe("HeroRecommendation - Loading State", () => {
       <HeroRecommendation
         recommendation={null}
         loading={true}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -204,7 +203,6 @@ describe("HeroRecommendation - Loading State", () => {
       <HeroRecommendation
         recommendation={null}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -219,7 +217,6 @@ describe("HeroRecommendation - Error State", () => {
       <HeroRecommendation
         recommendation={null}
         error={error}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -232,7 +229,6 @@ describe("HeroRecommendation - Error State", () => {
       <HeroRecommendation
         recommendation={null}
         error={error}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -245,7 +241,6 @@ describe("HeroRecommendation - Empty State", () => {
     render(
       <HeroRecommendation
         recommendation={null}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -256,7 +251,6 @@ describe("HeroRecommendation - Empty State", () => {
     render(
       <HeroRecommendation
         recommendation={null}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -271,7 +265,6 @@ describe("HeroRecommendation - Normal Render", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -282,7 +275,6 @@ describe("HeroRecommendation - Normal Render", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -295,7 +287,6 @@ describe("HeroRecommendation - Normal Render", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -307,7 +298,6 @@ describe("HeroRecommendation - Normal Render", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -325,7 +315,6 @@ describe("HeroRecommendation - Beach Name Click", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={mockOnViewBeach}
       />
     );
@@ -344,7 +333,6 @@ describe("HeroRecommendation - Beach Name Click", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={mockOnViewBeach}
       />
     );
@@ -362,7 +350,6 @@ describe("HeroRecommendation - Time Window Badge", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -375,7 +362,6 @@ describe("HeroRecommendation - Time Window Badge", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -394,7 +380,6 @@ describe("HeroRecommendation - Message Text", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -410,7 +395,6 @@ describe("HeroRecommendation - Message Text", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -426,7 +410,6 @@ describe("HeroRecommendation - Message Text", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -442,7 +425,6 @@ describe("HeroRecommendation - Message Text", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -460,7 +442,6 @@ describe("HeroRecommendation - Condition Badges", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -484,7 +465,6 @@ describe("HeroRecommendation - Condition Badges", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -504,7 +484,6 @@ describe("HeroRecommendation - Condition Badges", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -526,7 +505,6 @@ describe("HeroRecommendation - Wave Height Badge", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -542,7 +520,6 @@ describe("HeroRecommendation - Wave Height Badge", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -571,7 +548,6 @@ describe("HeroRecommendation - Peak Time Badge", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -598,7 +574,6 @@ describe("HeroRecommendation - Peak Time Badge", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -623,7 +598,6 @@ describe("HeroRecommendation - Board Recommendation Badge", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -640,7 +614,6 @@ describe("HeroRecommendation - Board Recommendation Badge", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -656,7 +629,6 @@ describe("HeroRecommendation - Accessibility", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -672,7 +644,6 @@ describe("HeroRecommendation - Accessibility", () => {
     render(
       <HeroRecommendation
         recommendation={mockRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={mockOnViewBeach}
       />
     );
@@ -694,7 +665,6 @@ describe("HeroRecommendation - Edge Cases", () => {
     render(
       <HeroRecommendation
         recommendation={minimalRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -714,7 +684,6 @@ describe("HeroRecommendation - Edge Cases", () => {
     render(
       <HeroRecommendation
         recommendation={longNameRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -734,7 +703,6 @@ describe("HeroRecommendation - Edge Cases", () => {
     render(
       <HeroRecommendation
         recommendation={zeroScoreRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );
@@ -751,7 +719,6 @@ describe("HeroRecommendation - Edge Cases", () => {
     render(
       <HeroRecommendation
         recommendation={perfectScoreRecommendation}
-        onPlanSession={jest.fn()}
         onViewBeach={jest.fn()}
       />
     );

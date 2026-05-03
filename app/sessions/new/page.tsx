@@ -19,13 +19,11 @@ import { useNearestBeach } from "@/hooks/use-nearest-beach";
 interface NewSessionPageContentProps {
   initialFormState?: Partial<SessionFormState>;
   mode: SessionFormMode;
-  convertSessionId?: string | null;
 }
 
 function NewSessionPageContent({
   initialFormState,
   mode,
-  convertSessionId,
 }: NewSessionPageContentProps) {
   const router = useRouter();
   const { user, isLoading } = useAuth();
@@ -41,7 +39,6 @@ function NewSessionPageContent({
   const submission = useSessionSubmission({
     mode,
     user,
-    convertSessionId,
   });
 
   // Handle cancellation
@@ -102,14 +99,16 @@ function NewSessionPageContent({
       {/* Post-session share prompt — rendered after a successful log */}
       {submission.showSharePrompt && mode === "log" && (
         <>
-          <PostSessionShare
-            beachName={beachName}
-            overallRating={overallRating}
-            waveSize={waveSize}
-            onShare={submission.handleShareSession}
-            onSkip={submission.handleSkipShare}
-            shareCardUrl={submission.shareCardUrl ?? undefined}
-          />
+          {!submission.shareSheetOpen && (
+            <PostSessionShare
+              beachName={beachName}
+              overallRating={overallRating}
+              waveSize={waveSize}
+              onShare={submission.handleShareSession}
+              onSkip={submission.handleSkipShare}
+              shareCardUrl={submission.shareCardUrl ?? undefined}
+            />
+          )}
           {submission.shareCardUrl && (
             <ShareSheet
               open={submission.shareSheetOpen}
@@ -118,6 +117,16 @@ function NewSessionPageContent({
               type="session"
               filename="quiver-session"
               title="Check out my session!"
+              text={
+                beachName
+                  ? `Just logged a session at ${beachName} on Quiver.`
+                  : "Just logged a surf session on Quiver."
+              }
+              shareUrl={
+                submission.createdSessionId
+                  ? `/sessions/${submission.createdSessionId}`
+                  : undefined
+              }
             />
           )}
         </>
@@ -132,9 +141,7 @@ function NewSessionPageWrapper() {
   // Parse and validate URL parameters for wizard prefill
   const parseResult = parseSessionWizardParams(searchParams);
 
-  // Extract mode and convertSessionId from URL (backwards compatible)
-  const mode = (searchParams.get("mode") as SessionFormMode) || "plan";
-  const convertSessionId = searchParams.get("convert");
+  const mode: SessionFormMode = "log";
 
   // Prepare initial form state if validation succeeded
   let initialFormState: Partial<SessionFormState> | undefined;
@@ -179,7 +186,6 @@ function NewSessionPageWrapper() {
     <NewSessionPageContent
       initialFormState={initialFormState}
       mode={mode}
-      convertSessionId={convertSessionId}
     />
   );
 }

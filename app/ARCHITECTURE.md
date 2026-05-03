@@ -162,23 +162,10 @@ The `/app` directory follows Next.js 16 App Router conventions, implementing a m
   - Session analytics
   - Data portability
 
-#### `/api/plan-session/`
-
-- **Function**: Session planning assistance
-- **Features**: Integration with forecast data for optimal session timing
-
 #### `/api/recent-posts/`
 
 - **Function**: Social feed data
 - **Features**: Recent community activity aggregation
-
-#### `/api/session-planner/`
-
-- **Function**: Advanced session planning tools
-- **Features**:
-  - `gear-suggestions/` - AI-powered board recommendations
-  - `invitations/` - Session buddy system
-  - `optimal-times/` - Forecast-based timing optimization
 
 #### `/api/surf/`
 
@@ -296,22 +283,6 @@ The `/app` directory follows Next.js 16 App Router conventions, implementing a m
   - Advanced filtering
   - Performance optimizations
   - Loading states and error handling
-
----
-
-### 📁 `/plan-session`
-
-- **Function**: Session planning interface
-- **Type**: Protected route
-- **Features**:
-  - Future session scheduling
-  - Forecast integration
-  - Gear recommendations
-  - Buddy invitations
-
-#### Page Behavior
-
-- Renders a `CoachCard` with a default SD coordinate until the user selects a beach or location context is available.
 
 ---
 

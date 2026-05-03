@@ -5,18 +5,23 @@ import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
 /**
  * GET /api/beaches/[id]/view-count
  *
- * Returns the number of distinct viewers of a beach in the last 7 days.
- * Powers the social-proof "X surfers watching this beach" badge on beach
- * detail pages.
+ * Returns the number of distinct all-time viewers of a beach. Powers
+ * the social-proof "X surfers checked this spot" badge on beach detail
+ * pages.
  *
  * Anonymous-accessible — counts are aggregate and non-sensitive. Uses
  * `user_events.beach_view` rows, dedup'd by `user_id` (for authed) and
  * `session_id` (for anon). Bot-flagged rows excluded.
  *
+ * Practical ceiling: ~90 days. `user_events` has a TTL via `expires_at`
+ * cleanup, so "all-time" really means "everything still in the table".
+ * If traffic ever warrants a true persistent counter, a per-beach
+ * rollup table populated by trigger or daily cron would be the
+ * follow-up.
+ *
  * Cached at the edge for 5 minutes (s-maxage=300) — refreshing the badge
  * more often than that would burn a Supabase query per beach-page view
- * with no human-readable delta. The 7d window is deliberately rolling so
- * the number feels alive without being realtime.
+ * with no human-readable delta.
  *
  * Wrapped with `withBotBlockingAndRateLimit("public-default")` to match
  * sibling `/api/beaches/*` routes (see `app/api/beaches/[id]/route.ts`).
@@ -35,15 +40,16 @@ async function fetchWatchers(beachId: string): Promise<NextResponse> {
 
   const supabase = await createSupabaseServerClient();
 
+  // All-time distinct viewers. The practical ceiling is ~90 days
+  // because `user_events` rows are pruned via `expires_at`; if we ever
+  // need a true persistent counter (across the TTL boundary), build a
+  // per-beach rollup table (trigger or daily cron). Until then the
+  // count covers everything still in the table.
   const { data, error } = await supabase
     .from("user_events")
     .select("user_id, session_id")
     .eq("event_type", "beach_view")
     .eq("beach_id", beachId)
-    .gte(
-      "created_at",
-      new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-    )
     .or("bot_flagged.is.null,bot_flagged.eq.false");
 
   if (error) {

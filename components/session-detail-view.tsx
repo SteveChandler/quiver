@@ -15,7 +15,7 @@ import {
   Edit,
   Trash2,
   Loader2,
-  CheckCircle2,
+  Share2,
 } from "lucide-react";
 import Link from "next/link";
 // import Image from "next/image";
@@ -43,6 +43,8 @@ import { MapImage } from "@/components/map-image";
 import { getSessionMapImageUrl } from "@/lib/utils/session-utils";
 import type { SessionPhoto } from "@/lib/supabase/storage";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
+import { ShareSheet } from "@/components/share";
+import { buildSessionShareSheetData } from "@/lib/share/session-share";
 
 // Dynamically import SessionPhotoGallery to avoid SSR issues
 const SessionPhotoGallery = dynamic(
@@ -68,6 +70,7 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [sessionPhotos, setSessionPhotos] = useState<SessionPhoto[]>([]);
   const [photosLoading, setPhotosLoading] = useState(false);
 
@@ -187,13 +190,6 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
     }
   };
 
-  const handleMarkAsCompleted = () => {
-    if (session) {
-      // Route to log-session page with prefill parameter
-      router.push(`/sessions/new?mode=log&convert=${session.id}`);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -227,7 +223,6 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
     );
   }
 
-  // Use arrival_time for both planned and completed sessions
   const arrivalTime = session.arrival_time
     ? new Date(session.arrival_time)
     : null;
@@ -242,8 +237,7 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
     minute: "2-digit",
   });
 
-  // Check if this is a planned session
-  const isPlannedSession = session?.status === "planned";
+  const shareData = buildSessionShareSheetData(session);
 
   return (
     <div className="flex-1 flex flex-col">
@@ -255,29 +249,17 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
             </Link>
             <div>
               <h1 className="text-xl font-bold">Session Details</h1>
-              {isPlannedSession && (
-                <div className="flex items-center gap-1 mt-1">
-                  <Calendar className="h-3 w-3 text-blue-500" />
-                  <span className="text-xs text-blue-600 font-medium">
-                    Planned Session
-                  </span>
-                </div>
-              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* Mark as Completed button - only for planned sessions */}
-            {isPlannedSession && (
-              <Button
-                size="sm"
-                onClick={handleMarkAsCompleted}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Mark as Completed
-              </Button>
-            )}
-
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setShareOpen(true)}
+              aria-label="Share session"
+            >
+              <Share2 className="h-5 w-5" />
+            </Button>
             <Button size="icon" variant="ghost" asChild>
               <Link href={`/sessions/new?mode=log&edit=${session.id}`}>
                 <Edit className="h-5 w-5" />
@@ -318,32 +300,6 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
       </header>
 
       <main className="flex-1 container px-4 py-6 space-y-6 overflow-auto pb-20">
-        {/* Add planned session notice */}
-        {isPlannedSession && (
-          <Card className="border-blue-200 bg-blue-50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Calendar className="h-5 w-5 text-blue-600" />
-                <div>
-                  <p className="font-medium text-blue-800">Planned Session</p>
-                  <p className="text-sm text-blue-700">
-                    This session is planned for {formattedDate}. Click “Mark as
-                    Completed” to log the details of your actual session.
-                  </p>
-                  {session.notes && (
-                    <div className="mt-2 p-2 bg-blue-100 rounded text-sm">
-                      <p className="font-medium text-blue-800">
-                        Planned Notes:
-                      </p>
-                      <p className="text-blue-700">{session.notes}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Session Image/Map - Show map for all sessions, photos as additional content */}
         <div className="relative w-full aspect-[16/9] rounded-lg overflow-hidden">
           <MapImage
@@ -409,7 +365,6 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
           )}
 
           <div className="grid grid-cols-2 gap-4">
-            {/* Always show board for planned sessions, conditions only for completed */}
             {session.board && (
               <Card>
                 <CardContent className="p-4 flex items-center gap-3">
@@ -417,24 +372,19 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
                     🏄
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      {isPlannedSession ? "Planned Board" : "Board"}
-                    </p>
+                    <p className="text-sm text-muted-foreground">Board</p>
                     <p className="font-medium">{session.board.name}</p>
                   </div>
                 </CardContent>
               </Card>
             )}
 
-            {/* Duration for planned sessions */}
-            {isPlannedSession && session.duration_minutes && (
+            {session.duration_minutes && (
               <Card>
                 <CardContent className="p-4 flex items-center gap-3">
                   <Clock className="h-6 w-6 text-primary" />
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      Planned Duration
-                    </p>
+                    <p className="text-sm text-muted-foreground">Duration</p>
                     <p className="font-medium">
                       {Math.floor(session.duration_minutes / 60)}h{" "}
                       {session.duration_minutes % 60}m
@@ -444,8 +394,7 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
               </Card>
             )}
 
-            {/* Conditions only for completed sessions */}
-            {!isPlannedSession && session.wave_height_ft && (
+            {session.wave_height_ft && (
               <Card>
                 <CardContent className="p-4 flex items-center gap-3">
                   <Waves className="h-6 w-6 text-primary" />
@@ -457,7 +406,7 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
               </Card>
             )}
 
-            {!isPlannedSession && session.water_temp && (
+            {session.water_temp && (
               <Card>
                 <CardContent className="p-4 flex items-center gap-3">
                   <Thermometer className="h-6 w-6 text-primary" />
@@ -469,7 +418,7 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
               </Card>
             )}
 
-            {!isPlannedSession && session.crowd_level && (
+            {session.crowd_level && (
               <Card>
                 <CardContent className="p-4 flex items-center gap-3">
                   <Users className="h-6 w-6 text-primary" />
@@ -496,8 +445,8 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
           </div>
         </div>
 
-        {/* Forecast Comparison - Only for completed sessions with snapshot data */}
-        {!isPlannedSession && session.forecast_snapshot && (() => {
+        {/* Forecast Comparison */}
+        {session.forecast_snapshot && (() => {
           const parsedSnapshot = parseForecastSnapshot(session.forecast_snapshot);
           return parsedSnapshot ? (
             <ForecastComparison snapshot={parsedSnapshot} />
@@ -529,6 +478,17 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
           </CardContent>
         </Card>
       </main>
+
+      <ShareSheet
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        type="session"
+        imageUrl={shareData.imageUrl}
+        filename={shareData.filename}
+        title={shareData.title}
+        text={shareData.text}
+        shareUrl={shareData.shareUrl}
+      />
     </div>
   );
 }

@@ -66,25 +66,21 @@ export function BeachDiscoveryList({
   const error = discoveryData !== undefined ? externalError : fetchError;
   const hasRecommendations = discovery ? discovery.recommendations.length > 0 : fetchHasRecommendations;
 
-  const handlePlanSession = (beachId: string) => {
+  const handleLogSession = (beachId: string) => {
     // Find the recommendation to get complete data including time window
     const recommendation = discovery?.recommendations.find(r => r.beach.id === beachId);
 
     if (!recommendation) {
       console.warn(`Beach ${beachId} not found in recommendations`);
       // Fallback to basic route
-      router.push(`/sessions/new?mode=plan&beach=${beachId}`);
+      router.push(`/sessions/new?beach=${beachId}`);
       return;
     }
 
     // Build URL with prefill parameters
     const params = new URLSearchParams({
-      mode: 'plan',
       beach: recommendation.beach.id,
       beachName: recommendation.beach.name,
-      startTime: recommendation.window.start.toISOString(),
-      endTime: recommendation.window.end.toISOString(),
-      step: '3', // Jump to Goals step (0-indexed would be 2, but using 1-indexed for clarity)
     });
 
     router.push(`/sessions/new?${params.toString()}`);
@@ -227,7 +223,7 @@ export function BeachDiscoveryList({
             key={recommendation.beach.id}
             recommendation={recommendation}
             rank={index + 1}
-            onPlanSession={handlePlanSession}
+            onLogSession={handleLogSession}
           />
         ))}
       </div>

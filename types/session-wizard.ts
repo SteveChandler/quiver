@@ -6,12 +6,12 @@
 
 /**
  * URL parameters for prefilling the Session Wizard
- * Used when navigating from "Plan Session" CTAs
+ * Used when navigating from "Log Session" CTAs
  *
  * @example
  * ```typescript
  * const params = new URLSearchParams({
- *   mode: 'plan',
+ *   mode: 'log',
  *   beach: 'abc-123-def-456',
  *   beachName: 'Pacific Beach',
  *   startTime: '2025-11-22T06:00:00.000Z',
@@ -22,8 +22,8 @@
  * ```
  */
 export interface SessionWizardPrefillParams {
-  /** Session mode: 'plan' or 'log' */
-  mode: 'plan' | 'log';
+  /** Session mode: log-only */
+  mode: 'log';
 
   /** Enable streamlined 2-step quick log flow */
   quick?: 'true' | 'false';
@@ -35,10 +35,10 @@ export interface SessionWizardPrefillParams {
   beachName: string;
 
   /** Session start time (ISO 8601 format) */
-  startTime: string;
+  startTime?: string;
 
   /** Session end time (ISO 8601 format) */
-  endTime: string;
+  endTime?: string;
 
   /** Target wizard step (1-4, 1-indexed) */
   step: string;
@@ -50,7 +50,7 @@ export interface SessionWizardPrefillParams {
  */
 export interface ValidatedSessionWizardParams {
   /** Validated session mode */
-  mode: 'plan' | 'log';
+  mode: 'log';
 
   /** Whether quick log mode is enabled */
   quick: boolean;
@@ -61,11 +61,11 @@ export interface ValidatedSessionWizardParams {
   /** Sanitized beach name (safe for display) */
   beachName: string;
 
-  /** Parsed and validated start time */
-  startTime: Date;
+  /** Parsed and validated start time, when provided by the source CTA */
+  startTime?: Date;
 
-  /** Parsed and validated end time */
-  endTime: Date;
+  /** Parsed and validated end time, when provided by the source CTA */
+  endTime?: Date;
 
   /** Validated wizard step number (1-4) */
   targetStep: number;

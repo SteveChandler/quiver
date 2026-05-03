@@ -301,9 +301,6 @@ async function createMockUser(userData: typeof mockUsers[0]) {
           display_name: userData.name,
           is_mock: true,
           experience_level: userData.experienceLevel,
-          email_session_invites: true,
-          inapp_session_invites: true,
-          digest_session_invites: false,
           followers_count: Math.floor(Math.random() * 200) + 10,
           following_count: Math.floor(Math.random() * 150) + 5,
           created_at: new Date(Date.now() - (userData.yearsExperience * 365 * 24 * 60 * 60 * 1000)).toISOString()

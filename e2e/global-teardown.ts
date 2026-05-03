@@ -1,6 +1,10 @@
 import * as fs from 'fs';
 import { FullConfig } from '@playwright/test';
-import { cleanupAllTestData } from './utils/test-data-cleanup';
+import {
+  cleanupAllTestData,
+  cleanupEphemeralSmokeUsers,
+  createServiceClient,
+} from './utils/test-data-cleanup';
 
 /**
  * Global teardown runs once after all tests complete
@@ -13,14 +17,14 @@ async function globalTeardown(config: FullConfig) {
 
   const statePath = 'e2e/.auth/state.json';
 
-  try {
-    // Check if auth state file exists
-    if (!fs.existsSync(statePath)) {
-      console.warn(`[Global Teardown] ⚠️  Auth state file not found: ${statePath}`);
-      console.warn('[Global Teardown] This is expected if only guest tests ran');
-      return;
-    }
-
+  // Auth-state validation is best-effort and only relevant when authenticated
+  // tests ran. Skip it for guest-only runs but keep going to the cleanup block —
+  // the smoke-user sweep must run regardless of which projects executed.
+  if (!fs.existsSync(statePath)) {
+    console.warn(`[Global Teardown] ⚠️  Auth state file not found: ${statePath}`);
+    console.warn('[Global Teardown] This is expected if only guest tests ran');
+  } else {
+   try {
     // Read and validate auth state
     const stateContent = fs.readFileSync(statePath, 'utf-8');
     const state = JSON.parse(stateContent);
@@ -78,7 +82,7 @@ async function globalTeardown(config: FullConfig) {
       console.warn('[Global Teardown] ⚠️  State file is very small, may be incomplete');
     }
 
-  } catch (error) {
+   } catch (error) {
     console.error('[Global Teardown] ❌ Error validating auth state:', error);
     console.error('[Global Teardown] This may indicate corrupted state file');
 
@@ -86,29 +90,58 @@ async function globalTeardown(config: FullConfig) {
       console.error('[Global Teardown] State file contains invalid JSON');
       console.error('[Global Teardown] Run: npm run test:e2e:auth:reset to fix');
     }
+   }
   }
 
   // ============================================
-  // Clean up test data (soft-delete sessions and intel posts)
+  // Clean up test data
   // ============================================
+  // Two layers:
+  //   1. Ephemeral smoke users — always-on. The matcher requires
+  //      `app_metadata.is_ephemeral_smoke_test === true` (server-controlled,
+  //      cannot be set by a real user), with a legacy email-pattern fallback
+  //      for pre-marker accounts. Filter-safe enough to run on any env so
+  //      developer machines self-heal.
+  //   2. Sessions + intel posts — dev-only. These soft-delete content owned
+  //      by `is_mock=true` profiles or the main TEST_USER_EMAIL, which on prod
+  //      could touch real-user content via mis-tags. Stays gated.
   console.log('\n[Global Teardown] ============================================');
   console.log('[Global Teardown] Cleaning up test data...');
   console.log('[Global Teardown] ============================================\n');
 
   try {
-    // Only run cleanup for dev environment to avoid cleaning production data
     const testEnv = process.env.TEST_ENV || 'local';
     const baseURL = process.env.BASE_URL || '';
     const isDevEnvironment = testEnv === 'dev' || baseURL.includes('dev.quiversurf.app');
 
-    if (isDevEnvironment) {
-      const result = await cleanupAllTestData({ verbose: true });
+    // Layer 1: always-on ephemeral sweep.
+    let ephemeralCount = 0;
+    try {
+      const serviceClient = createServiceClient();
+      const ephemeralResult = await cleanupEphemeralSmokeUsers(serviceClient, false, true);
+      ephemeralCount = ephemeralResult.count;
+      if (ephemeralResult.error) {
+        console.warn(`[Global Teardown] ⚠️  Ephemeral users cleanup warning: ${ephemeralResult.error}`);
+      }
+    } catch (err) {
+      // Missing service-role env (e.g. local runs without .env.playwright.local)
+      // is the common shape — log and continue rather than fail the run.
+      console.warn('[Global Teardown] ⚠️  Skipping ephemeral sweep (service client unavailable):', err);
+    }
 
-      if (result.totalCleaned > 0) {
-        console.log(`[Global Teardown] ✓ Cleaned ${result.totalCleaned} test item(s)`);
+    // Layer 2: dev-only session + intel-post cleanup.
+    if (isDevEnvironment) {
+      const result = await cleanupAllTestData({
+        verbose: true,
+        skipEphemeralSmokeUsers: true,
+      });
+
+      const totalCleaned = result.totalCleaned + ephemeralCount;
+      if (totalCleaned > 0) {
+        console.log(`[Global Teardown] ✓ Cleaned ${totalCleaned} test item(s)`);
         console.log(`  - Sessions: ${result.sessions.count}`);
         console.log(`  - Intel Posts: ${result.intelPosts.count}`);
-        console.log(`  - Ephemeral smoke users: ${result.ephemeralUsers.count}`);
+        console.log(`  - Ephemeral smoke users: ${ephemeralCount}`);
       } else {
         console.log('[Global Teardown] ✓ No test data to clean up');
       }
@@ -119,12 +152,13 @@ async function globalTeardown(config: FullConfig) {
       if (result.intelPosts.error) {
         console.warn(`[Global Teardown] ⚠️  Intel posts cleanup warning: ${result.intelPosts.error}`);
       }
-      if (result.ephemeralUsers.error) {
-        console.warn(`[Global Teardown] ⚠️  Ephemeral users cleanup warning: ${result.ephemeralUsers.error}`);
-      }
     } else {
-      console.log(`[Global Teardown] Skipping cleanup (env=${testEnv}, not dev environment)`);
-      console.log('[Global Teardown] Test data cleanup only runs against dev.quiversurf.app');
+      if (ephemeralCount > 0) {
+        console.log(`[Global Teardown] ✓ Cleaned ${ephemeralCount} ephemeral smoke user(s)`);
+      }
+      console.log(
+        `[Global Teardown] Skipping session/intel cleanup (env=${testEnv}, not dev environment)`
+      );
     }
   } catch (error) {
     // Don't fail tests if cleanup fails - just log the warning

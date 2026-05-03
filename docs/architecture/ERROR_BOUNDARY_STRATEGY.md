@@ -2210,7 +2210,7 @@ test.describe('Error Boundaries', () => {
 
   test('preserves form data on session form error', async ({ page }) => {
     // Navigate to session form
-    await page.goto('/plan-session');
+    await page.goto('/sessions/new');
 
     // Fill form
     await page.getByLabel(/beach/i).fill('Ocean Beach');

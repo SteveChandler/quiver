@@ -24,6 +24,10 @@ import {
   logDisplayPredictions,
   type DisplayPredictionRow,
 } from "./log-display-prediction";
+import {
+  computeV5Shadow,
+  getActiveCalibration,
+} from "./calibration-v5";
 import { createServiceRoleClient } from "@/lib/supabase";
 import type {
   ShoalingFactors,
@@ -250,6 +254,11 @@ export class ForecastBuilder {
     // the row loop completes.
     const snapshotBuffer: DisplayPredictionRow[] = [];
 
+    // v5 shadow calibration (Phase 2, 2026-05-02). Loaded once per
+    // buildForecasts call; the helper caches in-process for 1h. Failure to
+    // load → null → snapshot rows write null v5 fields. Never throws.
+    const calibration = await getActiveCalibration();
+
     // Determine data sources used for metadata
     const dataSources: string[] = [];
     if (cdipData) dataSources.push("CDIP");
@@ -327,6 +336,7 @@ export class ForecastBuilder {
         confidenceScore,
         timepointDataSource,
         dataSources,
+        calibration,
         tideData,
         isFirstOfDay,
         cdipData,
@@ -411,6 +421,7 @@ export class ForecastBuilder {
     nowcastAnchor: NowcastAnchor | null;
     heightOffset: BeachHeightOffsetRow | null;
     snapshotBuffer: DisplayPredictionRow[];
+    calibration: Awaited<ReturnType<typeof getActiveCalibration>>;
   }): EnhancedForecastWithRawData {
     const {
       beach,
@@ -434,6 +445,7 @@ export class ForecastBuilder {
       nowcastAnchor,
       heightOffset,
       snapshotBuffer,
+      calibration,
     } = params;
 
     // Compute wave height once and capture provenance metadata for raw_forecast.
@@ -524,6 +536,28 @@ export class ForecastBuilder {
     ) {
       const rawDisplayHeightM = rawDisplayHeightFt / METERS_TO_FEET;
       const correctedDisplayM = correctedFt / METERS_TO_FEET;
+
+      // v5 shadow inputs. Direction comes from NOAA primary swell to match
+      // the calibration audits' bucketing; OM direction is a documented
+      // fallback only. wave_height_om_m is always meters (already correct).
+      const omHeightM =
+        typeof wavePoint?.om_values?.wave_height_om === "number"
+          ? wavePoint.om_values.wave_height_om
+          : null;
+      const noaaPrimaryDirDeg =
+        cardinalToDegrees(wavePoint?.swell_1_direction) ?? null;
+      const omDirDeg =
+        typeof wavePoint?.om_values?.wave_direction_om === "number"
+          ? wavePoint.om_values.wave_direction_om
+          : null;
+      const directionDegForBucket = noaaPrimaryDirDeg ?? omDirDeg;
+
+      const v5 = computeV5Shadow({
+        wave_height_om_m: omHeightM,
+        primary_swell_direction_deg: directionDegForBucket,
+        calibration,
+      });
+
       snapshotBuffer.push({
         beach_id: beach.id,
         predicted_at: getNormalizedForecastAt(forecastTime),
@@ -537,6 +571,12 @@ export class ForecastBuilder {
           ? heightOffset?.sample_count ?? null
           : null,
         display_source: "face-Hs-transformer-v1",
+        wave_height_om_m: omHeightM,
+        wave_direction_deg: directionDegForBucket,
+        v5_shadow_height_m: v5?.v5_shadow_height_m ?? null,
+        v5_model_version: v5?.v5_model_version ?? null,
+        direction_bucket: v5?.direction_bucket ?? null,
+        om_bucket: v5?.om_bucket ?? null,
       });
     }
 

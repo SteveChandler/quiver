@@ -233,7 +233,6 @@ Check notification records:
 ```sql
 select user_id, type, read_at, created_at
 from notifications
-where type = 'session_invite'
 order by created_at desc
 limit 10;
 ```
@@ -242,24 +241,12 @@ limit 10;
 
 ## Architecture
 
-**Flow:**
-
-1. User creates session with invitees
-2. API creates `session_invitations` records
-3. Backend fans out notifications:
-   - Push: Via FCM to `user_devices` tokens
-   - Email: Via Resend (existing system)
-   - In-app: Insert to `notifications` table
-4. Mobile app receives push, updates UI
-5. Invalid tokens are pruned automatically
-
 **Key Files:**
 
 - `lib/services/firebase-admin.ts` - Admin SDK init
 - `lib/services/push-notifications.ts` - Push utilities
 - `app/api/devices/upsert/route.ts` - Token registration
 - `lib/mobile/push-notifications.ts` - Mobile client
-- `app/api/session-planner/invitations/route.ts` - Fan-out logic
 
 ---
 

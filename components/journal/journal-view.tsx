@@ -22,8 +22,6 @@ import {
   EyeOff,
   Settings,
   Share2,
-  CalendarClock,
-  CheckCircle,
   BookOpen,
 } from "lucide-react";
 import { SessionCardWrapper } from "@/components/session-card-wrapper";
@@ -31,7 +29,6 @@ import { CalendarHeatmap } from "./calendar-heatmap";
 import { SessionAnalytics } from "./session-analytics";
 import { SessionAnnotationModal } from "./session-annotation-modal";
 import { ProgressionDashboard } from "./progression-dashboard";
-// Removed dropdown filter in favor of Completed/Planned tabs
 import { useAuth } from "@/context/auth-context";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { data as gateway } from "@/lib/data/client";
@@ -39,8 +36,7 @@ import { CenteredLoadingSpinner } from "@/components/ui/loading-spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ZeroState } from "@/components/ui/zero-state";
 import { ShareSheet } from "@/components/share";
-import { formatWindSpeed } from "@/lib/formatters/surf-data";
-import { buildSessionShareUrl } from "@/lib/share/build-share-card-url";
+import { buildSessionShareSheetData } from "@/lib/share/session-share";
 import type {
   SessionWithDetails,
   JournalViewMode,
@@ -53,53 +49,6 @@ interface JournalViewProps {
   className?: string;
 }
 
-function clampStars(value: unknown, fallback = 4) {
-  const n = typeof value === "number" ? value : Number(value);
-  const v = Number.isFinite(n) ? n : fallback;
-  return Math.max(0, Math.min(5, Math.round(v)));
-}
-
-function ratingLabelFromStars(stars: number) {
-  if (stars >= 4) return "Epic";
-  if (stars >= 3) return "Good";
-  return "Fair";
-}
-
-function sizeLabelFromSession(session: SessionWithDetails): string {
-  const height = typeof session.wave_height_ft === "number"
-    ? session.wave_height_ft
-    : Number(session.wave_height_ft);
-  if (Number.isFinite(height) && height > 0) {
-    if (height < 1) return "Ankle-Knee";
-    if (height < 2) return "Waist-Chest";
-    if (height < 4) return "Chest-Head";
-    if (height < 6) return "Overhead";
-    return "Double-Overhead";
-  }
-
-  const quality = typeof session.wave_quality === "number"
-    ? session.wave_quality
-    : Number(session.wave_quality);
-  if (Number.isFinite(quality) && quality > 0) {
-    if (quality >= 4) return "Overhead";
-    if (quality >= 3) return "Chest-Head";
-    return "Waist-Chest";
-  }
-
-  return "Waist-Chest";
-}
-
-function formatShareDate(raw: unknown): string | undefined {
-  if (!raw) return undefined;
-  const d = raw instanceof Date ? raw : new Date(String(raw));
-  if (Number.isNaN(d.getTime())) return undefined;
-  return d.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
 export function JournalView({ className }: JournalViewProps) {
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<JournalViewMode>("list");
@@ -110,9 +59,6 @@ export function JournalView({ className }: JournalViewProps) {
     null
   );
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
-  const [sessionFilter, setSessionFilter] = useState<"planned" | "completed">(
-    "completed"
-  );
   const [showAnnotationModal, setShowAnnotationModal] = useState(false);
   const [displayOptions, setDisplayOptions] = useState<JournalDisplayOptions>({
     showRatings: true,
@@ -223,20 +169,18 @@ export function JournalView({ className }: JournalViewProps) {
     }
   };
 
-  // Filter sessions based on current filter
-  const filteredSessions =
-    sessions?.filter((session) => session.status === sessionFilter) || [];
-
   const completedSessions =
     sessions?.filter((session) => session.status === "completed") || [];
-  const plannedSessions =
-    sessions?.filter((session) => session.status === "planned") || [];
+  const filteredSessions = completedSessions;
 
-  const totalSessions = filteredSessions.length;
+  const totalSessions = completedSessions.length;
   const totalHours =
     completedSessions.reduce((sum, session) => {
       return sum + (session.duration_minutes || 0);
     }, 0) / 60;
+  const shareSheetData = shareSession
+    ? buildSessionShareSheetData(shareSession)
+    : null;
 
   if (sessionsLoading || analyticsLoading) {
     return <CenteredLoadingSpinner text="Loading your surf journal..." />;
@@ -264,12 +208,8 @@ export function JournalView({ className }: JournalViewProps) {
         description="Every session you log makes your forecast sharper. Start logging to see your progression and improve forecasts for your community."
         action={{
           label: "Log Your First Session",
-          href: "/sessions/new?mode=log",
+          href: "/sessions/new",
           icon: Plus,
-        }}
-        secondaryAction={{
-          label: "Plan a Session",
-          href: "/sessions/new?mode=plan",
         }}
         proTip="Add photos to capture memories and track your progression over time"
       />
@@ -288,15 +228,9 @@ export function JournalView({ className }: JournalViewProps) {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild>
-            <Link href="/sessions/new?mode=log">
+            <Link href="/sessions/new">
               <Plus className="h-4 w-4 mr-2" />
               Log Session
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/sessions/new?mode=plan">
-              <Plus className="h-4 w-4 mr-2" />
-              Plan Session
             </Link>
           </Button>
         </div>
@@ -308,12 +242,6 @@ export function JournalView({ className }: JournalViewProps) {
           <CardContent className="p-4">
             <div className="text-2xl font-bold">{completedSessions.length}</div>
             <p className="text-sm text-muted-foreground">Completed Sessions</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold">{plannedSessions.length}</div>
-            <p className="text-sm text-muted-foreground">Planned Sessions</p>
           </CardContent>
         </Card>
         <Card>
@@ -380,21 +308,10 @@ export function JournalView({ className }: JournalViewProps) {
             </div>
             <div className="flex items-center gap-3">
               <Badge variant="secondary">{totalSessions} sessions</Badge>
-              <Tabs
-                value={sessionFilter}
-                onValueChange={(value) =>
-                  setSessionFilter(value as "planned" | "completed")
-                }
-              >
-                <TabsList>
-                  <TabsTrigger value="completed">Completed</TabsTrigger>
-                  <TabsTrigger value="planned">Planned</TabsTrigger>
-                </TabsList>
-              </Tabs>
             </div>
           </div>
 
-          {/* Sessions Display - filtered by tab (Completed default, Planned on click) */}
+          {/* Sessions Display */}
           {viewMode === "list" ? (
             <div className="space-y-4">
               {filteredSessions.length > 0 ? (
@@ -440,26 +357,12 @@ export function JournalView({ className }: JournalViewProps) {
                 ))
               ) : (
                 <ZeroState
-                  icon={sessionFilter === "planned" ? CalendarClock : BookOpen}
-                  title={
-                    sessionFilter === "planned"
-                      ? "No Planned Sessions"
-                      : "No Completed Sessions"
-                  }
-                  description={
-                    sessionFilter === "planned"
-                      ? "Plan your next surf adventure to stay organized"
-                      : "Log your surf sessions to track your progression"
-                  }
+                  icon={BookOpen}
+                  title="No Completed Sessions"
+                  description="Log your surf sessions to track your progression"
                   action={{
-                    label:
-                      sessionFilter === "planned"
-                        ? "Plan a Session"
-                        : "Log a Session",
-                    href:
-                      sessionFilter === "planned"
-                        ? "/sessions/new?mode=plan"
-                        : "/sessions/new?mode=log",
+                    label: "Log a Session",
+                    href: "/sessions/new",
                     icon: Plus,
                   }}
                 />
@@ -510,7 +413,7 @@ export function JournalView({ className }: JournalViewProps) {
       )}
 
       {/* Share Sheet */}
-      {shareSession && (
+      {shareSheetData && (
         <ShareSheet
           open={shareSheetOpen}
           onOpenChange={(open) => {
@@ -518,53 +421,11 @@ export function JournalView({ className }: JournalViewProps) {
             if (!open) setShareSession(null);
           }}
           type="session"
-          imageUrl={buildSessionShareUrl({
-            beach:
-              shareSession.beach?.name ||
-              shareSession.beaches?.name ||
-              shareSession.beach_name ||
-              "Unknown Beach",
-            stars: clampStars(shareSession.rating, 4),
-            rating: ratingLabelFromStars(clampStars(shareSession.rating, 4)),
-            size: sizeLabelFromSession(shareSession),
-            board:
-              shareSession.board?.name ||
-              shareSession.boards?.name ||
-              "Surfboard",
-            date: formatShareDate(shareSession.arrival_time ?? shareSession.session_date),
-            windLabel: shareSession.wind_direction || undefined,
-            windSpeed: (() => {
-              const mphRaw = shareSession.wind_speed_mph;
-              const mph =
-                typeof mphRaw === "number" ? mphRaw : mphRaw ? Number(mphRaw) : NaN;
-              return Number.isFinite(mph) ? formatWindSpeed(mph) : undefined;
-            })(),
-            tagline:
-              typeof (shareSession as { description?: unknown }).description === "string"
-                ? ((shareSession as { description?: string }).description as string)
-                : typeof (shareSession as { notes?: unknown }).notes === "string"
-                  ? ((shareSession as { notes?: string }).notes as string)
-                  : undefined,
-            footer: `Similar to your best ${
-              shareSession.beach?.name ||
-              shareSession.beaches?.name ||
-              shareSession.beach_name ||
-              "this beach"
-            } sessions`,
-            bg:
-              // Prefer a featured/session photo if available; otherwise default OG background
-              (shareSession.featured_photo_url as string | undefined) ||
-              (shareSession.image_url as string | undefined) ||
-              undefined,
-          })}
-          filename={`quiver-session-${shareSession.id}`}
-          title="Check out my surf session!"
-          text={`Just ${shareSession.status === "planned" ? "planned" : "logged"} a session at ${
-            shareSession.beach?.name ||
-            shareSession.beaches?.name ||
-            shareSession.beach_name ||
-            "the beach"
-          } on Quiver.`}
+          imageUrl={shareSheetData.imageUrl}
+          filename={shareSheetData.filename}
+          title={shareSheetData.title}
+          text={shareSheetData.text}
+          shareUrl={shareSheetData.shareUrl}
         />
       )}
     </div>

@@ -1,9 +1,9 @@
 /**
  * Shared session data builder — single source of truth for mapping form state
- * to the database payload shape used by createLoggedSession / createPlannedSession.
+ * to the database payload shape used by createLoggedSession.
  *
- * CRITICAL: Both SessionForm.tsx (legacy) and useSessionSubmission.ts (wizard)
- * MUST use this builder to keep the 6 condition fields in sync.
+ * CRITICAL: useSessionSubmission.ts MUST use this builder to keep the 6
+ * condition fields in sync.
  *
  * Condition fields:
  *   wave_height_ft, wind_speed_mph, wind_direction,
@@ -47,7 +47,7 @@ export interface SessionPayloadInput {
   isMuted?: boolean;
 }
 
-/** The shape sent to createPlannedSession / createLoggedSession server actions. */
+/** The shape sent to createLoggedSession server actions. */
 export interface SessionPayload {
   beach_name: string;
   beach_id?: string;
@@ -55,7 +55,7 @@ export interface SessionPayload {
   board_id?: string;
   user_id: string;
   notes?: string;
-  status: "planned" | "completed";
+  status: "completed";
 
   // Duration
   duration_minutes?: number;
@@ -133,17 +133,15 @@ function parseWaterTemp(raw?: string): number | null {
 }
 
 /**
- * Build the session payload for creating a logged or planned session.
+ * Build the session payload for creating a logged session.
  *
  * @param input  - Form state fields (from SessionFormState or wizard sessionData)
  * @param userId - Authenticated user ID
- * @param isPlanning - Whether this is a planned session (true) or logged session (false)
  * @param arrivalTimeOverride - Optional pre-computed arrival time (if caller already combined date+time)
  */
 export function buildSessionPayload(
   input: SessionPayloadInput,
   userId: string,
-  isPlanning: boolean,
   arrivalTimeOverride?: string
 ): SessionPayload {
   const arrivalTime =
@@ -157,17 +155,12 @@ export function buildSessionPayload(
     board_id: input.boardId,
     user_id: userId,
     notes: input.notes || undefined,
-    status: isPlanning ? "planned" : "completed",
+    status: "completed",
     is_public: input.isPublic ?? true,
     muted: input.isMuted ?? false,
   };
 
-  // For planned sessions, we only need the base fields
-  if (isPlanning) {
-    return base;
-  }
-
-  // For logged sessions, add duration, ratings, and the 6 condition fields
+  // Add duration, ratings, and the 6 condition fields.
   const durationMinutes = parseDurationToMinutes(input.duration);
   const parsedWaterTemp = parseWaterTemp(input.waterTemp);
 

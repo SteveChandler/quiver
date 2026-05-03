@@ -274,26 +274,25 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
     [user]
   );
 
-  // Handle plan session
-  const handlePlanSession = useCallback(
+  // Handle log session
+  const handleLogSession = useCallback(
     (post: IntelPostWithUser) => {
       if (!user) {
-        toast.error("Please sign in to plan sessions");
+        toast.error("Please sign in to log sessions");
         router.push("/auth/sign-in");
         return;
       }
 
-      track("plan_session_from_intel", {
+      track("session_log_from_intel", {
         post_id: post.id,
         post_tag: post.tag,
         has_beach: !!post.beach_id,
       });
 
-      // Navigate to session planner with beach context if available
       if (post.beach_id) {
-        router.push(`/sessions/new?mode=plan&beach=${post.beach_id}`);
+        router.push(`/sessions/new?beach=${post.beach_id}`);
       } else {
-        router.push("/sessions/new?mode=plan");
+        router.push("/sessions/new");
       }
     },
     [user, router]
@@ -588,7 +587,7 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
                 post={post}
                 onPostClick={() => {}}
                 onConfirm={handleConfirmPost}
-                onPlanSession={handlePlanSession}
+                onLogSession={handleLogSession}
                 canConfirm={canConfirm}
                 isConfirming={confirmingPosts.has(post.id)}
               />

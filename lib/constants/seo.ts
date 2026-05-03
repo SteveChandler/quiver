@@ -89,7 +89,7 @@ export const SEO_CONFIG = {
       description:
         "Free surf report and forecast platform with live conditions, tide charts, crowd data, and session tracking for 279+ beaches across California, Hawaii, Oregon, Washington, Florida, Puerto Rico, and more",
       url: SITE_URL,
-      logo: `${SITE_URL}/logo.png`,
+      logo: `${SITE_URL}/quiver-app-icon.png`,
       foundingDate: "2024",
       applicationCategory: "Sports & Recreation",
       operatingSystem: "Web, iOS, Android",
@@ -221,7 +221,7 @@ export const SEO_CONFIG = {
       publisher: {
         "@type": "Organization",
         name: "Quiver",
-        logo: `${SITE_URL}/logo.png`,
+        logo: `${SITE_URL}/quiver-app-icon.png`,
       },
       potentialAction: {
         "@type": "SearchAction",

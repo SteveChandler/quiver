@@ -33,7 +33,6 @@ export const PROFILE_NOTIFICATION_FIELDS = [
   'notif_forecast_alerts',
   'notif_email_enabled',
   'notif_inapp_enabled',
-  'notif_session_invites',
   'notif_likes',
   'notif_follows',
   'notif_reminders',

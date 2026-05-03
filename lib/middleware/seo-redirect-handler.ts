@@ -123,7 +123,6 @@ const RESERVED_PATHS = new Set([
   "discover",
   "features",
   "forecast",
-  "inbox",
   "journal",
   "map",
   "privacy",
@@ -135,7 +134,6 @@ const RESERVED_PATHS = new Set([
   "user",
   "error",
   "about",
-  "plan-session",
   "guides",
   // Intent slugs (handled by /app/[intent]/ routes)
   ...INTENT_SLUGS,

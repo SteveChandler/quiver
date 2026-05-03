@@ -40,11 +40,9 @@ const BeachSearchAutocomplete = lazy(() =>
 export default function HeroSearchLazy({
   onQueryChange,
   onFallback,
-  onSelect,
 }: {
   onQueryChange?: (query: string) => void;
   onFallback?: (query: string) => void;
-  onSelect?: (beach: import("@/types/database").Beach) => void;
 }) {
   const [showFullSearch, setShowFullSearch] = useState(false);
   const [searchValue, setSearchValue] = useState("");
@@ -196,13 +194,12 @@ export default function HeroSearchLazy({
       <BeachSearchAutocomplete
         initialValue={searchValue}
         placeholder="Search by beach"
-        className="w-full h-14 md:h-16 bg-white/20 backdrop-blur-md text-white rounded-full shadow-lg border border-white/30 [&>.relative]:h-full [&_[cmdk-input-wrapper]]:border-0 [&_[cmdk-input-wrapper]]:px-0 [&_[cmdk-input-wrapper]]:pl-4 [&_[cmdk-input-wrapper]]:pr-4 [&_[cmdk-input-wrapper]]:h-full [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:mr-3 [&_[cmdk-input-wrapper]_svg]:opacity-100 [&_[cmdk-input-wrapper]_svg]:text-white/70 focus-within:ring-2 focus-within:ring-ocean-blue overflow-hidden"
+        className="w-full h-14 md:h-16 bg-white/20 backdrop-blur-md text-white rounded-full shadow-lg border border-white/30 [&>.relative]:h-full [&_[cmdk-input-wrapper]]:border-0 [&_[cmdk-input-wrapper]]:px-0 [&_[cmdk-input-wrapper]]:pl-4 [&_[cmdk-input-wrapper]]:pr-4 [&_[cmdk-input-wrapper]]:h-full [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:mr-3 [&_[cmdk-input-wrapper]_svg]:opacity-100 [&_[cmdk-input-wrapper]_svg]:text-white/70 focus-within:ring-2 focus-within:ring-ocean-blue overflow-visible"
         inputClassName="h-full py-0 text-base md:text-lg placeholder:text-white/70 text-white"
         maxResults={8}
         requireExplicitSelection
         onFallback={onFallback}
         onQueryChange={onQueryChange}
-        onSelect={onSelect}
         source="landing_hero"
       />
     </Suspense>

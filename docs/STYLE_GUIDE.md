@@ -112,7 +112,7 @@ Three font families are loaded via Google Fonts and configured as CSS variables:
 
 ## 6. Logo Usage
 
-- **Primary logo:** `public/logoQuiver.png` (optimized PNG, <100KB)
+- **Primary logo:** `public/quiver-app-icon.png` (1024×1024 app icon, mirrors `quiver-native/assets/icon.png`)
 - **No SVG version exists** -- flagged as future work
 - **Canonical name in product UI:** "Quiver"
 - **Canonical name in copyright/marketing:** "Quiver Surf"

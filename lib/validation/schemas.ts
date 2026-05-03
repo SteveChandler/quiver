@@ -254,7 +254,7 @@ export type DeviceRegistrationInput = z.infer<typeof DeviceRegistrationSchema>;
  * Validation schema for Session Wizard URL parameters
  *
  * Used to validate and parse URL parameters when prefilling the Session Wizard
- * from "Plan Session" CTAs (Personalized Forecast, Surf Discovery, etc.)
+ * from "Log Session" CTAs (Surf Discovery, beach pages, etc.)
  *
  * Security: All parameters are validated before use to prevent XSS and injection
  * Compatibility: Missing/invalid params are handled gracefully with defaults
@@ -262,7 +262,7 @@ export type DeviceRegistrationInput = z.infer<typeof DeviceRegistrationSchema>;
  * @example
  * ```typescript
  * const result = SessionWizardPrefillSchema.safeParse({
- *   mode: 'plan',
+ *   mode: 'log',
  *   beach: 'abc-123-def-456',
  *   beachName: 'Pacific Beach',
  *   startTime: '2025-11-22T06:00:00.000Z',
@@ -277,8 +277,8 @@ export type DeviceRegistrationInput = z.infer<typeof DeviceRegistrationSchema>;
  * ```
  */
 export const SessionWizardPrefillSchema = z.object({
-  // Session mode (required, defaults to 'plan')
-  mode: z.enum(['plan', 'log']).default('plan'),
+  // Session mode is log-only. Keep the parameter optional for old links.
+  mode: z.enum(['log']).default('log'),
 
   // Quick log mode flag (optional, defaults to false)
   quick: z.enum(['true', 'false'])

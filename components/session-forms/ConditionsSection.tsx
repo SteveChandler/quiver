@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useCallback } from "react";
+import { useEffect, useId } from "react";
 import {
   Waves,
   Wind,
@@ -32,19 +32,9 @@ const tideStatusOptions = [
   { value: "low", label: "Low" },
 ];
 
-// Field state tracking for auto-prefill
-type FieldState = "empty" | "prefilled" | "user-edited";
-type FieldStateTracking = {
-  waveHeight: FieldState;
-  windSpeed: FieldState;
-  windDirection: FieldState;
-  waterTemp: FieldState;
-  tideHeight: FieldState;
-  tideStatus: FieldState;
-};
-
 interface ConditionsSectionProps {
-  mode: SessionFormMode;
+  /** Reserved for future per-mode UI variants (currently unused — prefill lives in useSessionConditionsPrefill). */
+  mode?: SessionFormMode;
   formState: SessionFormState;
   updateField: <K extends keyof SessionFormState>(
     field: K,
@@ -53,7 +43,6 @@ interface ConditionsSectionProps {
 }
 
 export function ConditionsSection({
-  mode,
   formState,
   updateField,
 }: ConditionsSectionProps) {
@@ -63,20 +52,6 @@ export function ConditionsSection({
   const windDirectionLabelId = useId();
   const tideHeightInputId = useId();
   const tideStatusLabelId = useId();
-
-  // Track field states for auto-prefill logic
-  // States: empty -> prefilled -> user-edited
-  const fieldStatesRef = useRef<FieldStateTracking>({
-    waveHeight: "empty",
-    windSpeed: "empty",
-    windDirection: "empty",
-    waterTemp: "empty",
-    tideHeight: "empty",
-    tideStatus: "empty",
-  });
-
-  // Track the last beach/date/time combination to detect changes
-  const lastPrefillKeyRef = useRef<string>("");
 
   // Helper to convert number|undefined to string for input display
   const numberToString = (value: number | undefined): string =>
@@ -89,49 +64,9 @@ export function ConditionsSection({
     return isNaN(num) ? undefined : num;
   };
 
-  // Helper to check if a field is empty (for prefill logic)
-  const isFieldEmpty = useCallback(
-    (field: keyof FieldStateTracking): boolean => {
-      switch (field) {
-        case "waveHeight":
-          return (
-            formState.waveHeight === undefined || formState.waveHeight === null
-          );
-        case "windSpeed":
-          return (
-            formState.windSpeed === undefined || formState.windSpeed === null
-          );
-        case "windDirection":
-          return !formState.windDirection;
-        case "waterTemp":
-          return !formState.waterTemp;
-        case "tideHeight":
-          return (
-            formState.tideHeight === undefined || formState.tideHeight === null
-          );
-        case "tideStatus":
-          return !formState.tideStatus;
-        default:
-          return true;
-      }
-    },
-    [formState]
-  );
-
-  // Wrapper for updateField that tracks user edits
-  const handleFieldUpdate = useCallback(
-    <K extends keyof SessionFormState>(field: K, value: SessionFormState[K]) => {
-      // Mark field as user-edited if it's a tracked condition field
-      const trackedField = field as keyof FieldStateTracking;
-      if (trackedField in fieldStatesRef.current) {
-        fieldStatesRef.current[trackedField] = "user-edited";
-      }
-      updateField(field, value);
-    },
-    [updateField]
-  );
-
-  // Fetch forecast data for the session date/time/beach
+  // Forecast data for the comparison panel. Auto-prefill itself happens at the
+  // form level via useSessionConditionsPrefill, so it runs even when this
+  // section is collapsed in QuickLog.
   const {
     forecastData,
     loading: forecastLoading,
@@ -142,90 +77,10 @@ export function ConditionsSection({
     formState.selectedTime ?? null
   );
 
-  // Auto-prefill effect: Only for "log" mode, only when fields are empty
-  useEffect(() => {
-    // Only auto-prefill in "log" mode (logging a completed session)
-    if (mode !== "log") return;
-
-    // Only prefill when we have forecast data
-    if (!forecastData || forecastLoading) return;
-
-    // Create a key for this beach/date/time combination
-    const currentPrefillKey = `${formState.selectedBeachId}-${formState.selectedDate}-${formState.selectedTime}`;
-
-    // If beach/date/time changed, reset tracking to allow new prefill
-    if (currentPrefillKey !== lastPrefillKeyRef.current) {
-      lastPrefillKeyRef.current = currentPrefillKey;
-      // Reset tracked fields that are empty to allow prefill
-      Object.keys(fieldStatesRef.current).forEach((key) => {
-        const field = key as keyof FieldStateTracking;
-        if (isFieldEmpty(field)) {
-          fieldStatesRef.current[field] = "empty";
-        }
-      });
-    }
-
-    // Prefill each field only if: (1) field is empty, (2) forecast has data
-    // Wave Height
-    if (
-      fieldStatesRef.current.waveHeight === "empty" &&
-      forecastData.wave_height !== undefined
-    ) {
-      updateField("waveHeight", forecastData.wave_height);
-      fieldStatesRef.current.waveHeight = "prefilled";
-    }
-
-    // Wind Speed
-    if (
-      fieldStatesRef.current.windSpeed === "empty" &&
-      forecastData.wind_speed !== undefined
-    ) {
-      updateField("windSpeed", forecastData.wind_speed);
-      fieldStatesRef.current.windSpeed = "prefilled";
-    }
-
-    // Wind Direction
-    if (
-      fieldStatesRef.current.windDirection === "empty" &&
-      forecastData.wind_direction
-    ) {
-      updateField("windDirection", forecastData.wind_direction);
-      fieldStatesRef.current.windDirection = "prefilled";
-    }
-
-    // Water Temp
-    if (
-      fieldStatesRef.current.waterTemp === "empty" &&
-      forecastData.water_temp !== undefined
-    ) {
-      updateField("waterTemp", String(forecastData.water_temp));
-      fieldStatesRef.current.waterTemp = "prefilled";
-    }
-
-    // Tide Height
-    if (
-      fieldStatesRef.current.tideHeight === "empty" &&
-      forecastData.tide_height !== null
-    ) {
-      updateField("tideHeight", forecastData.tide_height);
-      fieldStatesRef.current.tideHeight = "prefilled";
-    }
-
-    // Tide Status
-    if (
-      fieldStatesRef.current.tideStatus === "empty" &&
-      forecastData.tide_status
-    ) {
-      updateField("tideStatus", forecastData.tide_status.toLowerCase());
-      fieldStatesRef.current.tideStatus = "prefilled";
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [forecastData, forecastLoading, mode, formState.selectedBeachId, formState.selectedDate, formState.selectedTime]);
-
   // Breadcrumb for diagnostics (log once on mount)
   useEffect(() => {
     try {
-       
+
       console.debug(
         "[ConditionsStep] isReady:",
         Boolean(formState.selectedBeachId && formState.selectedDate),
@@ -367,7 +222,7 @@ export function ConditionsSection({
                 }
                 value={numberToString(formState.waveHeight)}
                 onChange={(e) =>
-                  handleFieldUpdate("waveHeight", stringToNumber(e.target.value))
+                  updateField("waveHeight", stringToNumber(e.target.value))
                 }
               />
             </div>
@@ -391,7 +246,7 @@ export function ConditionsSection({
                 }
                 value={formState.waterTemp}
                 onChange={(e) =>
-                  handleFieldUpdate("waterTemp", e.target.value)
+                  updateField("waterTemp", e.target.value)
                 }
               />
             </div>
@@ -418,7 +273,7 @@ export function ConditionsSection({
                 }
                 value={numberToString(formState.windSpeed)}
                 onChange={(e) =>
-                  handleFieldUpdate("windSpeed", stringToNumber(e.target.value))
+                  updateField("windSpeed", stringToNumber(e.target.value))
                 }
               />
             </div>
@@ -434,7 +289,7 @@ export function ConditionsSection({
               <Select
                 value={formState.windDirection ?? ""}
                 onValueChange={(value) =>
-                  handleFieldUpdate("windDirection", value)
+                  updateField("windDirection", value)
                 }
               >
                 <SelectTrigger aria-labelledby={windDirectionLabelId}>
@@ -472,7 +327,7 @@ export function ConditionsSection({
                 }
                 value={numberToString(formState.tideHeight)}
                 onChange={(e) =>
-                  handleFieldUpdate("tideHeight", stringToNumber(e.target.value))
+                  updateField("tideHeight", stringToNumber(e.target.value))
                 }
               />
             </div>
@@ -488,7 +343,7 @@ export function ConditionsSection({
               <Select
                 value={formState.tideStatus ?? ""}
                 onValueChange={(value) =>
-                  handleFieldUpdate("tideStatus", value)
+                  updateField("tideStatus", value)
                 }
               >
                 <SelectTrigger aria-labelledby={tideStatusLabelId}>

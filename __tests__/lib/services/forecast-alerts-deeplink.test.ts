@@ -208,10 +208,6 @@ describe("Forecast Alert Push Notification Deeplink Routing", () => {
     });
 
     it("verifies forecast_alert uses data.url fallback routing", () => {
-      // Service worker routing logic (firebase-messaging-sw.js lines 70-84):
-      // 1. Check type-specific routes first (session_invite, comment, like, follow)
-      // 2. Fall back to data.url for other types (including forecast_alert)
-
       const forecast_alert_payload = {
         notification: {
           title: "Quiver Forecast Alert",
@@ -225,18 +221,7 @@ describe("Forecast Alert Push Notification Deeplink Routing", () => {
         },
       };
 
-      // Simulate service worker routing decision
-      const routeUrl = (payload: typeof forecast_alert_payload) => {
-        const { data } = payload;
-
-        // Type-specific routing (not applicable for forecast_alert)
-        if (data.type === "session_invite") {
-          return `/sessions/${data.beach_id}`; // Not used for our type
-        }
-
-        // Fallback: use data.url
-        return data.url;
-      };
+      const routeUrl = (payload: typeof forecast_alert_payload) => payload.data.url;
 
       const resolvedUrl = routeUrl(forecast_alert_payload);
       expect(resolvedUrl).toBe("/beach/ocean-beach");

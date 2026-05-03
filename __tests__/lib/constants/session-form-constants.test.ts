@@ -12,44 +12,16 @@ import {
 
 describe("Session Form Constants", () => {
   describe("getFormText", () => {
-    it("should return planning text for plan mode", () => {
-      const text = getFormText("plan");
-      expect(text.pageTitle).toBe("Plan Session");
-      expect(text.submitButton).toBe("Plan Session");
-      expect(text.showInviteFriends).toBe(true);
-      expect(text.showConditions).toBe(false);
-      expect(text.showPerformanceRating).toBe(false);
-    });
-
     it("should return logging text for log mode", () => {
       const text = getFormText("log");
       expect(text.pageTitle).toBe("Log Session");
       expect(text.submitButton).toBe("Log Session");
-      expect(text.showInviteFriends).toBe(false);
       expect(text.showConditions).toBe(true);
       expect(text.showPerformanceRating).toBe(true);
-    });
-
-    it("should have different language for plan vs log", () => {
-      const planText = getFormText("plan");
-      const logText = getFormText("log");
-
-      expect(planText.location).toBe("Where will you surf?");
-      expect(logText.location).toBe("Where did you surf?");
-
-      expect(planText.dateTime).toBe("When will you surf?");
-      expect(logText.dateTime).toBe("When did you surf?");
     });
   });
 
   describe("getModeStyles", () => {
-    it("should return blue styles for plan mode", () => {
-      const styles = getModeStyles("plan");
-      expect(styles.headerBg).toBe("bg-blue-50");
-      expect(styles.headerText).toBe("text-blue-800");
-      expect(styles.buttonColor).toBe("bg-blue-600 hover:bg-blue-700");
-    });
-
     it("should return green styles for log mode", () => {
       const styles = getModeStyles("log");
       expect(styles.headerBg).toBe("bg-green-50");
@@ -59,21 +31,13 @@ describe("Session Form Constants", () => {
   });
 
   describe("getSectionConfig", () => {
-    it("should return config for sections available in both modes", () => {
-      const locationConfig = getSectionConfig("location", "plan");
+    it("should return config for sections", () => {
+      const locationConfig = getSectionConfig("location", "log");
       expect(locationConfig).toEqual({
         icon: "MapPin",
         required: true,
         order: 1,
       });
-
-      const locationConfigLog = getSectionConfig("location", "log");
-      expect(locationConfigLog).toEqual(locationConfig);
-    });
-
-    it("should return null for conditions section in plan mode", () => {
-      const conditionsConfig = getSectionConfig("conditions", "plan");
-      expect(conditionsConfig).toBeNull();
     });
 
     it("should return config for conditions section in log mode", () => {
@@ -81,7 +45,9 @@ describe("Session Form Constants", () => {
       expect(conditionsConfig).toEqual({
         icon: "Activity",
         required: false,
-        order: 5,
+        // Order shifted from 5 → 4 when the planning-only section was removed
+        // in commit 4a8499ec (session-form refactor).
+        order: 4,
         showOnlyFor: "log",
       });
     });
@@ -160,50 +126,15 @@ describe("Session Form Constants", () => {
         "overallRating",
       ]);
     });
-  });
 
-  describe("Mode Consistency", () => {
-    it("should have consistent core structure between modes", () => {
-      const planText = SESSION_FORM_TEXT.plan;
-      const logText = SESSION_FORM_TEXT.log;
-
-      // Check that both modes have essential properties
-      const essentialProps = [
-        "pageTitle",
-        "pageDescription",
-        "location",
-        "dateTime",
-        "equipment",
-        "goals",
-        "notes",
-        "notesPlaceholder",
-        "durationLabel",
-        "submitButton",
-        "successMessage",
-        "showInviteFriends",
-        "showConditions",
-        "showPerformanceRating",
-      ];
-
-      essentialProps.forEach((prop) => {
-        expect(planText).toHaveProperty(prop);
-        expect(logText).toHaveProperty(prop);
-      });
-
-      // Log mode should have additional properties
-      expect(logText).toHaveProperty("finishMessage");
-      expect(logText).toHaveProperty("conditions");
+    it("SESSION_FORM_TEXT exposes log mode", () => {
+      expect(SESSION_FORM_TEXT.log).toBeDefined();
+      expect(SESSION_FORM_TEXT.log.pageTitle).toBe("Log Session");
     });
 
-    it("should have consistent style structure between modes", () => {
-      const planStyles = MODE_STYLES.plan;
-      const logStyles = MODE_STYLES.log;
-
-      // Check that both modes have the same style properties
-      const planKeys = Object.keys(planStyles);
-      const logKeys = Object.keys(logStyles);
-
-      expect(planKeys.sort()).toEqual(logKeys.sort());
+    it("MODE_STYLES exposes log mode", () => {
+      expect(MODE_STYLES.log).toBeDefined();
+      expect(MODE_STYLES.log.headerBg).toBe("bg-green-50");
     });
   });
 });

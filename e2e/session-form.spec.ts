@@ -5,7 +5,7 @@ import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error
 
 /**
  * Session Scroll Form Tests
- * Tests the session creation/logging scroll form (both plan and log modes).
+ * Tests the session creation/logging scroll form (log mode only).
  *
  * The multi-step wizard was replaced with a single scrollable form
  * (SessionScrollForm). All sections are visible at once — there are no
@@ -15,128 +15,6 @@ import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error
  *
  * @project auth
  */
-
-test.describe('Session Form - Plan Mode', () => {
-  let errorCapture: ErrorCapture;
-
-  test.beforeEach(async ({ page }) => {
-    errorCapture = setupErrorDetection(page);
-    await page.goto('/sessions/new?mode=plan');
-    await waitForPageLoad(page);
-  });
-
-  test.afterEach(async ({ page }) => {
-    await assertNoErrors(page, errorCapture, { context: 'Session Form Plan Mode' });
-  });
-
-  test('should display session scroll form in plan mode', async ({ page }) => {
-    // Title "Plan Session" should be in the sticky header
-    const heading = page.getByRole('heading', { name: /plan session/i });
-    const hasHeading = await isVisibleSafe(heading);
-
-    if (hasHeading) {
-      expect(hasHeading).toBe(true);
-      return;
-    }
-
-    // Fall back: any heading is acceptable
-    const anyHeading = page.getByRole('heading').first();
-    const hasAnyHeading = await isVisibleSafe(anyHeading);
-
-    if (hasAnyHeading) {
-      expect(hasAnyHeading).toBe(true);
-      return;
-    }
-
-    // Fall back: form or input elements present
-    const formElement = page.locator('form, input, button').first();
-    const hasForm = await isVisibleSafe(formElement);
-    expect(hasForm).toBe(true);
-  });
-
-  test('should have beach selection input', async ({ page }) => {
-    // The scroll form renders LocationStep which contains the beach search input
-    const beachInput = page.getByTestId('beach-search-input');
-    const hasTestId = await isVisibleSafe(beachInput);
-
-    if (hasTestId) {
-      expect(hasTestId).toBe(true);
-      return;
-    }
-
-    // Fallback: any search/location input
-    const fallbackInput = page.getByPlaceholder(/beach|location|search/i).first();
-    const hasInput = await isVisibleSafe(fallbackInput);
-    const hasSelect = await isVisibleSafe(page.locator('select, [role="combobox"]').first());
-    expect(hasInput || hasSelect).toBe(true);
-  });
-
-  test('should allow typing a beach name into the search input', async ({ page }) => {
-    const beachInput = page.getByTestId('beach-search-input');
-    await expect(beachInput).toBeVisible({ timeout: 10000 });
-
-    await beachInput.fill('Black');
-    // Wait for search debounce and results
-    await page.waitForResponse(
-      (resp) => resp.url().includes('/api/beaches/search') || resp.url().includes('/api/beaches'),
-      { timeout: 10000 }
-    ).catch(() => {});
-
-    // Should show beach suggestions in the dropdown list
-    const beachOption = page.getByText(/black/i).first();
-    const hasOption = await isVisibleSafe(beachOption);
-
-    if (hasOption) {
-      await beachOption.click();
-    }
-  });
-
-  test('should have date and time fields visible without step navigation', async ({ page }) => {
-    // Scroll form renders all sections at once — date/time is always visible
-    const dateInput = page.locator('input[type="date"]').or(page.getByTestId('session-date-input')).first();
-    const hasDate = await isVisibleSafe(dateInput);
-
-    const timeInput = page.locator('input[type="time"]').or(page.getByTestId('session-time-input')).first();
-    const hasTime = await isVisibleSafe(timeInput);
-
-    // At least one of date or time must be present without any step navigation
-    expect(hasDate || hasTime).toBe(true);
-  });
-
-  test('should have a Save button that is disabled when no beach is selected', async ({ page }) => {
-    // The scroll form has a sticky Save button at the bottom and one in the header.
-    // Both are disabled until beach + date are selected (canSave = false).
-    const saveButtons = page.getByRole('button', { name: /save/i });
-    const count = await saveButtons.count();
-
-    // At least one Save button must exist
-    expect(count).toBeGreaterThan(0);
-
-    // With no beach selected, the Save button should be disabled
-    const firstSave = saveButtons.first();
-    const isDisabled = await firstSave.isDisabled();
-    expect(isDisabled).toBe(true);
-  });
-
-  test('should have a Cancel/close button', async ({ page }) => {
-    // The scroll form header has an X button with aria-label="Cancel"
-    const cancelButton = page.getByRole('button', { name: /cancel/i });
-    const hasCancelByLabel = await isVisibleSafe(cancelButton);
-
-    if (hasCancelByLabel) {
-      expect(hasCancelByLabel).toBe(true);
-      return;
-    }
-
-    // Fallback: any close/back button
-    const closeButton = page.getByRole('button', { name: /close|×/i });
-    const backLink = page.getByRole('link', { name: /back|cancel|close/i });
-    const hasClose = await isVisibleSafe(closeButton);
-    const hasBackLink = await isVisibleSafe(backLink);
-
-    expect(hasClose || hasBackLink).toBe(true);
-  });
-});
 
 test.describe('Session Form - Log Mode', () => {
   let errorCapture: ErrorCapture;
@@ -277,8 +155,8 @@ test.describe('Session Form - Complete Flow', () => {
     await assertNoErrors(page, errorCapture, { context: 'Session Form Complete Flow' });
   });
 
-  test('should complete plan session flow end-to-end', async ({ page }) => {
-    await page.goto('/sessions/new?mode=plan');
+  test('should complete log session flow end-to-end', async ({ page }) => {
+    await page.goto('/sessions/new?mode=log');
     await waitForPageLoad(page);
 
     // Beach selection — always visible in scroll form, no step navigation needed
@@ -313,14 +191,14 @@ test.describe('Session Form - Complete Flow', () => {
     }
 
     // The sticky-footer Save button becomes enabled once beach + date are filled
-    const saveButton = page.getByRole('button', { name: /save plan|save session|save/i }).first();
+    const saveButton = page.getByRole('button', { name: /save session|save/i }).first();
     await expect(saveButton).toBeEnabled({ timeout: 5000 });
 
     await saveButton.click();
 
     // Post-save: toast confirmation then redirect to /profile?highlight=<id>
     const profileRedirect = page.waitForURL(/\/profile/, { timeout: 15000 }).then(() => 'redirect').catch(() => null);
-    const toastPromise = page.getByText(/planned\. let.s go\.|logged\. nice one\./i).waitFor({ timeout: 15000 }).then(() => 'toast').catch(() => null);
+    const toastPromise = page.getByText(/logged\. nice one\./i).waitFor({ timeout: 15000 }).then(() => 'toast').catch(() => null);
 
     const result = await Promise.race([profileRedirect, toastPromise]);
     expect(result).toBeTruthy();
@@ -328,7 +206,7 @@ test.describe('Session Form - Complete Flow', () => {
 
   test('should redirect to profile after successful session creation', async ({ page }) => {
     // Smoke test: scroll form renders with its core container
-    await page.goto('/sessions/new?mode=plan');
+    await page.goto('/sessions/new?mode=log');
     await waitForPageLoad(page);
 
     // The page wraps SessionScrollForm in a min-h-screen container
@@ -338,7 +216,7 @@ test.describe('Session Form - Complete Flow', () => {
   });
 
   test('should allow canceling session creation via the close button', async ({ page }) => {
-    await page.goto('/sessions/new?mode=plan');
+    await page.goto('/sessions/new?mode=log');
     await waitForPageLoad(page);
 
     // The scroll form header has an X button with aria-label="Cancel"
@@ -367,7 +245,7 @@ test.describe('Session Form - Validation', () => {
   });
 
   test('should not allow saving without required fields (beach + date)', async ({ page }) => {
-    await page.goto('/sessions/new?mode=plan');
+    await page.goto('/sessions/new?mode=log');
     await waitForPageLoad(page);
 
     // canSave = Boolean(selectedBeachId && selectedDate) — the Save buttons are
@@ -446,6 +324,12 @@ test.describe('Session Form - Forecast Snapshot Creation', () => {
         await dateInput.fill(new Date().toISOString().split('T')[0]);
       }
     }
+
+    // Logged sessions require an overall rating before Save enables.
+    const ratingSlider = page.getByRole('slider').first();
+    await expect(ratingSlider).toBeVisible({ timeout: 5000 });
+    await ratingSlider.focus();
+    await page.keyboard.press('ArrowRight');
 
     // Submit — the sticky-footer Save Session button is always visible
     const submitButton = page.getByRole('button', { name: /save session|save/i }).first();

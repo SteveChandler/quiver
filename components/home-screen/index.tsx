@@ -445,7 +445,6 @@ export function HomeScreen() {
                   recommendation={topRecommendation}
                   loading={discoveryLoading}
                   error={discoveryError ? new Error(discoveryError) : null}
-                  onPlanSession={handleAtBeach}
                   onViewBeach={handleViewBeach}
                   onEnableReminder={handleHeroEnableReminder}
                   forecastAlertsEnabled={profile.notif_forecast_alerts ?? false}
@@ -515,7 +514,6 @@ export function HomeScreen() {
                 heroWindow={topRecommendation?.window}
                 timeSlot={timeSlot}
                 loading={discoveryLoading}
-                onPlanSession={handleAtBeach}
                 onViewSpot={handleViewSpot}
                 onUseMyLocation={requestLocation}
                 showLocationCta={geoSource !== "browser"}

@@ -126,7 +126,7 @@ describe("UnifiedAuthModal", () => {
       expect(screen.getByText("Sign Up")).toBeInTheDocument();
       expect(
         screen.getByText(
-          "Join Quiver to plan sessions and connect with surfers."
+          "Join Quiver to log sessions and connect with surfers."
         )
       ).toBeInTheDocument();
     });
@@ -274,7 +274,7 @@ describe("UnifiedAuthModal", () => {
       // Title/copy should update to signup mode and magic-link option should disappear
       expect(screen.getByText("Sign Up")).toBeInTheDocument();
       expect(
-        screen.getByText("Join Quiver to plan sessions and connect with surfers.")
+        screen.getByText("Join Quiver to log sessions and connect with surfers.")
       ).toBeInTheDocument();
       expect(
         screen.queryByText("Continue with Email Link")

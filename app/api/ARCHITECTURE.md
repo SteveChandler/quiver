@@ -623,19 +623,6 @@ export const GET = withAuth(handler);
 
 ---
 
-### 🎯 `/plan-session` - Session Planning
-
-#### `/plan-session/route.ts`
-
-- **Methods**: `POST`
-- **Function**: Future session planning with forecast integration
-- **Features**:
-  - Forecast data integration
-  - Session scheduling
-  - User preference tracking
-
----
-
 ### 📱 `/recent-posts` - Social Feed
 
 #### `/recent-posts/route.ts`
@@ -646,49 +633,6 @@ export const GET = withAuth(handler);
   - Social feed data compilation
   - Activity timeline generation
 - **Usage**: Home screen social features
-
----
-
-### 🗓️ `/session-planner` - Advanced Planning Tools
-
-#### `/session-planner/gear-suggestions/route.ts`
-
-- **Methods**: `GET`
-- **Function**: AI-powered surfboard recommendations
-- **Features**:
-  - Historical session analysis
-  - Condition-based board matching
-  - Confidence scoring
-  - User preference learning
-- **Algorithm**: Machine learning-based recommendation engine
-
-#### `/session-planner/invitations/route.ts`
-
-- **Methods**: `POST`, `GET`, `PATCH`
-- **Function**: Session buddy system
-- **Features**:
-  - Email and user-based invitations
-  - Status tracking (pending, accepted, declined, revoked)
-  - Invitation management
-  - Idempotency via optional `Idempotency-Key` header persisted on invitations
-  - In-app activity created on invite (`user_activities` → `session_invite.created`)
-  - Email via Resend when invitee has `email_session_invites` enabled
-  - Per-invitee uniqueness enforced: `unique(session_id, invitee_id)` and `unique(session_id, invitee_email)`
-  - Profile preferences extended: `inapp_session_invites`, `email_session_invites`, `digest_session_invites`
-  - Acceptance auto-adds participant (trigger)
-  - **Scope**: Notifications are only generated from plan-session tagging flow
-  - **Social Features**: Community building and session coordination
-
-#### `/session-planner/optimal-times/route.ts`
-
-- **Methods**: `GET`
-- **Function**: Forecast-based optimal timing analysis
-- **Features**:
-  - Multi-factor condition analysis
-  - Quality scoring (poor/fair/good/excellent)
-  - Time window optimization
-  - Confidence-based recommendations
-- **Data Integration**: Real-time forecast analysis
 
 ---
 

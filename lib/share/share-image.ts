@@ -10,6 +10,8 @@ export interface ShareImageOptions {
   title?: string;
   /** Optional text/description for the share */
   text?: string;
+  /** Optional URL to include in the native share payload */
+  url?: string;
   /** Callback for loading state changes */
   onLoadingChange?: (isLoading: boolean) => void;
 }
@@ -113,8 +115,26 @@ async function shareWeb(
   const fullFilename = filename.includes(".") ? filename : `${filename}.${ext}`;
 
   const file = new File([blob], fullFilename, { type: blob.type });
+  const payload: {
+    title?: string;
+    text?: string;
+    url?: string;
+    files: File[];
+  } = {
+    title: options.title,
+    text: options.text,
+    files: [file],
+  };
 
-  if (!navigator.canShare({ files: [file] })) {
+  if (options.url) {
+    payload.url = options.url;
+  }
+
+  if (!navigator.canShare(payload)) {
+    delete payload.url;
+  }
+
+  if (!navigator.canShare(payload)) {
     throw new ShareImageError(
       "Web Share API does not support sharing files",
       "UNSUPPORTED"
@@ -122,11 +142,7 @@ async function shareWeb(
   }
 
   try {
-    await navigator.share({
-      title: options.title,
-      text: options.text,
-      files: [file],
-    });
+    await navigator.share(payload);
 
     return { success: true, method: "web-share" };
   } catch (error) {

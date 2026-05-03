@@ -62,9 +62,6 @@ describe("GET /api/me/profile-page", () => {
       surf_styles: ["shortboard", "longboard"],
       notif_reminders: true,
       notif_forecast_alerts: true,
-      digest_session_invites: false,
-      inapp_session_invites: true,
-      email_session_invites: true,
       allow_implicit_tracking: true,
       home_beach: { id: "beach-456", name: "La Jolla Shores" },
     };
@@ -180,9 +177,6 @@ describe("GET /api/me/profile-page", () => {
       surf_styles: null,
       notif_reminders: null,
       notif_forecast_alerts: null,
-      digest_session_invites: null,
-      inapp_session_invites: null,
-      email_session_invites: null,
       allow_implicit_tracking: null,
       home_beach: null,
     };

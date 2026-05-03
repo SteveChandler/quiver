@@ -171,31 +171,6 @@ test('should display forecast', () => {
 });
 ```
 
----
-
-### session-planner-test-utils.ts
-**Purpose:** Utilities for testing session planning features
-
-**What it provides:**
-- Mock session data
-- Beach availability data
-- Forecast optimization helpers
-- Session recommendation generators
-
-**Usage:**
-```typescript
-import {
-  createMockSession,
-  createOptimalConditions
-} from '@/__tests__/setup/session-planner-test-utils';
-
-test('should suggest optimal time', () => {
-  const conditions = createOptimalConditions();
-  const suggestion = getSuggestion(conditions);
-
-  expect(suggestion.time).toBe('Morning');
-});
-```
 
 ---
 

@@ -24,7 +24,6 @@ export default function robots(): MetadataRoute.Robots {
               "/api/", // Don't crawl API routes (except /api/og/)
               "/admin/", // Private: admin pages
               "/profile/", // Private: user's own profile
-              "/inbox/", // Private: notifications
               "/sessions/", // Private: user sessions
               "/session/", // Email action routes (confirm/skip) — transactional pages, not for indexing
               "/auth/*", // Auth pages
@@ -46,7 +45,6 @@ export default function robots(): MetadataRoute.Robots {
               "/api/",
               "/admin/",
               "/profile/",
-              "/inbox/",
               "/sessions/",
               "/session/",
               "/auth/*",
@@ -64,7 +62,6 @@ export default function robots(): MetadataRoute.Robots {
               "/api/",
               "/admin/",
               "/profile/",
-              "/inbox/",
               "/sessions/",
               "/session/",
               "/auth/*",
@@ -81,7 +78,6 @@ export default function robots(): MetadataRoute.Robots {
               "/api/",
               "/admin/",
               "/profile/",
-              "/inbox/",
               "/sessions/",
               "/session/",
               "/auth/*",
@@ -98,7 +94,6 @@ export default function robots(): MetadataRoute.Robots {
               "/api/",
               "/admin/",
               "/profile/",
-              "/inbox/",
               "/sessions/",
               "/session/",
               "/auth/*",
@@ -116,7 +111,6 @@ export default function robots(): MetadataRoute.Robots {
               "/api/",
               "/admin/",
               "/profile/",
-              "/inbox/",
               "/sessions/",
               "/session/",
               "/auth/*",

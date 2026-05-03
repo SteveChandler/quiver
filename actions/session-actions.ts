@@ -22,7 +22,6 @@ import {
   sanitizeSessionPayload 
 } from "@/lib/utils/session-utils";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import type { BoardSnapshot } from "@/types/personalization";
 
 // Optional XP tracking - imported dynamically to avoid circular dependency
@@ -416,7 +415,7 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
     })();
 
     // Track XP (fire-and-forget — failure is non-fatal, already logged internally)
-    trackXPOptional("plan_session", session.id, "session").catch(() => {});
+    trackXPOptional("log_session", session.id, "session").catch(() => {});
 
     // Fire-and-forget milestone check (first_session_logged, wave_range_learned, etc.)
     import("@/lib/services/personalization-milestone-service")
@@ -425,114 +424,6 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
 
     // Forecast snapshot is created by DB trigger (trigger_create_session_forecast_snapshot)
     // during the INSERT — no app-level call needed.
-
-    revalidatePath("/sessions");
-    revalidatePath("/profile");
-    return session;
-  });
-}
-
-/**
- * Create a new planned surf session
- * Accepts either SessionFormState or SessionInput for backward compatibility
- */
-export async function createPlannedSession(data: SessionFormState | SessionInput) {
-  return withAuthenticatedAction(async (user, supabase) => {
-
-    // Transform SessionFormState to database schema if needed
-    let sessionData: Partial<Session>;
-    if ('selectedBeach' in data || 'selectedBeachId' in data || 'boardId' in data) {
-      // This is SessionFormState, transform it
-      sessionData = transformSessionFormStateToDbSchema(data as SessionFormState);
-    } else {
-      // This is already SessionInput, use as-is
-      sessionData = data as SessionInput;
-    }
-
-    // Create the session with planned status
-    const cleaned = sanitizeSessionPayload(sessionData);
-    
-    // CRITICAL: Ensure we have a valid beach_id before creating session
-    if (!cleaned.beach_id) {
-      // If we have beach_name but no beach_id, try to find existing beach only
-      if (cleaned.beach_name) {
-        
-        // Try to find existing beach by name (case-insensitive)
-        const { data: existingBeach, error: lookupError } = await supabase
-          .from("beaches")
-          .select("id")
-          .ilike("name", cleaned.beach_name)
-          .limit(1)
-          .single();
-        
-        if (lookupError && lookupError.code !== 'PGRST116') { // PGRST116 = no rows returned
-          throw new Error(`Failed to lookup beach: ${lookupError.message}`);
-        }
-        
-        if (existingBeach) {
-          cleaned.beach_id = existingBeach.id;
-        } else {
-          // Dev-only fallback for mock users: use TEST_BEACH_ID when allowed
-          try {
-            const allow = (process.env.ALLOW_E2E_MUTATIONS_DEV === '1' || (process.env.ALLOW_E2E_MUTATIONS_DEV || '').toLowerCase() === 'true');
-            if (allow) {
-              const { data: me } = await supabase.from('profiles').select('is_mock').eq('id', user.id).single();
-              const fallbackId = process.env.TEST_BEACH_ID;
-              if (me?.is_mock && fallbackId) {
-                cleaned.beach_id = fallbackId as any;
-              }
-            }
-          } catch (e) { console.error('[SessionAction] fallback failed:', e); }
-          if (!cleaned.beach_id) {
-            throw new Error(`Beach "${cleaned.beach_name}" not found. Please select a beach from the dropdown menu.`);
-          }
-        }
-      } else {
-        // No beach_id or beach_name provided
-        throw new Error("Please select a beach from the dropdown menu.");
-      }
-    }
-
-    // Capture board snapshot for personalization insights
-    const boardSnapshot = await captureBoardSnapshot(supabase, cleaned.board_id);
-
-    const finalPayload = {
-      ...cleaned,
-      user_id: user.id,
-      status: "planned",
-      board_snapshot: boardSnapshot,
-    };
-
-    // Choose write client: allow dev E2E mutations for mock users via service role
-    let writeClient = supabase as any;
-    try {
-      if (
-        (process.env.ALLOW_E2E_MUTATIONS_DEV === "1" ||
-          (process.env.ALLOW_E2E_MUTATIONS_DEV || "").toLowerCase() === "true")
-      ) {
-        const { data: me } = await supabase
-          .from("profiles")
-          .select("is_mock")
-          .eq("id", user.id)
-          .single();
-        if (me?.is_mock === true) {
-          writeClient = createSupabaseServiceRoleClient();
-        }
-      }
-    } catch (e) { console.error('[SessionAction] fallback failed:', e); }
-
-    const { data: session, error } = await writeClient
-      .from("sessions")
-      .insert(finalPayload)
-      .select()
-      .single();
-
-    if (error) {
-      throw new Error(`Session creation failed: ${error.message || 'Unknown database error'}`);
-    }
-
-    // Track XP (fire-and-forget — failure is non-fatal, already logged internally)
-    trackXPOptional("plan_session", session.id, "session").catch(() => {});
 
     revalidatePath("/sessions");
     revalidatePath("/profile");
@@ -626,122 +517,5 @@ async function getAllSessions(limit = 20) {
 
   const hydratedSessions = (sessions || []) as unknown as SessionWithDetails[];
   return await addFeaturedPhotoToSessions(supabase, hydratedSessions);
-  });
-}
-
-/**
- * Get a planned session for converting to completed (prefill data)
- */
-export async function getPlannedSessionForConversion(sessionId: string) {
-  return withAuthenticatedAction(async (user, supabase) => {
-    const { data: session, error } = await supabase
-      .from("sessions")
-      .select(
-        `
-        *,
-        beach:beaches(*),
-        board:boards(*)
-      `
-      )
-      .eq("id", sessionId)
-      .eq("user_id", user.id)
-      .eq("status", "planned")
-      .single();
-
-    if (error) {
-      throw new Error("Planned session not found");
-    }
-
-    return session;
-  });
-}
-
-/**
- * Update a planned session to completed status with additional data
- */
-export async function updatePlannedSessionToCompleted(
-  sessionId: string,
-  completedData: {
-    duration_minutes?: number;
-    wave_quality?: number;
-    water_temp?: string;
-    crowd_level?: number;
-    parking_ease?: number;
-    rating?: number;
-    notes?: string;
-  }
-) {
-  return withAuthenticatedAction(async (user, supabase) => {
-    // First verify this is a planned session owned by the user
-    const { data: existingSession, error: fetchError } = await supabase
-      .from("sessions")
-      .select("id, status, user_id, board_id")
-      .eq("id", sessionId)
-      .eq("user_id", user.id)
-      .eq("status", "planned")
-      .single();
-
-    if (fetchError || !existingSession) {
-      throw new Error("Planned session not found");
-    }
-
-    // Capture board snapshot for personalization insights when converting to completed
-    const boardSnapshot = await captureBoardSnapshot(supabase, existingSession.board_id);
-
-    // Update the session to completed with new data
-    const { data: updatedSession, error: updateError } = await supabase
-      .from("sessions")
-      .update({
-        status: "completed",
-        ...completedData,
-        board_snapshot: boardSnapshot as any,
-      } as any)
-      .eq("id", sessionId)
-      .select()
-      .single();
-
-    if (updateError) {
-      throw updateError;
-    }
-
-    // Track XP for adding a reflection if notes/rating-like fields provided
-    try {
-      if ((completedData?.notes && completedData.notes.trim().length > 0) ||
-          typeof completedData?.rating === 'number' ||
-          typeof completedData?.wave_quality === 'number') {
-        await trackXPOptional("write_reflection", sessionId, "session");
-      }
-    } catch (xpError) {
-      // Non-blocking
-    }
-
-    // Track XP for recording water temperature when provided on completion
-    try {
-      if (completedData?.water_temp && String(completedData.water_temp).trim().length > 0) {
-        await trackXPOptional("record_temperature", sessionId, "session");
-      }
-    } catch (xpError) {
-      // Non-blocking
-    }
-
-    // Create forecast snapshot for condition tracking
-    // Note: This should also be triggered by the database trigger, but we add it here
-    // for redundancy and to ensure it works even if the trigger fails
-    try {
-      const { createForecastSnapshotForSession } = await import("@/lib/utils/forecast-snapshot-utils");
-      await createForecastSnapshotForSession(
-        updatedSession.id,
-        updatedSession.beach_id,
-        updatedSession.arrival_time,
-        updatedSession.user_id
-      );
-    } catch (snapshotError) {
-      console.error("Failed to create forecast snapshot:", snapshotError);
-      // Don't fail the session update if snapshot creation fails
-    }
-
-    revalidatePath("/sessions");
-    revalidatePath("/profile");
-    return updatedSession;
   });
 }

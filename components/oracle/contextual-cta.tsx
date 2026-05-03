@@ -86,6 +86,11 @@ function resolveCTAs(props: ContextualCTAProps): {
     handler: onSetAlarm,
     variant: "outline",
   };
+  const logSession: CTAAction = {
+    label: "Log a session",
+    handler: onLogSession,
+    variant: "outline",
+  };
 
   // Priority logic — first match wins
   if (!hasHomeBeach) {
@@ -139,7 +144,7 @@ function resolveCTAs(props: ContextualCTAProps): {
 
   return {
     primary: inviteFriend,
-    secondary: [setAlarm, shareSession],
+    secondary: [setAlarm, logSession],
     contextLine: "Surfing's better with friends.",
   };
 }

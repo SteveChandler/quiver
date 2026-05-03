@@ -5,6 +5,9 @@ import {
   findModeDirections,
   findModes,
   calculateConfidence,
+  parseForecastNumber,
+  parseWindDirection,
+  normalizeTideStatus,
   type UserSurfPreferences,
 } from '@/lib/services/preference-learning-service';
 
@@ -268,6 +271,30 @@ describe('preference-learning-service', () => {
     });
   });
 
+  describe('stored forecast value parsing', () => {
+    it('should parse numeric display strings', () => {
+      expect(parseForecastNumber('1 ft')).toBe(1);
+      expect(parseForecastNumber('8s')).toBe(8);
+      expect(parseForecastNumber('4 mph')).toBe(4);
+      expect(parseForecastNumber('2-3 ft')).toBe(2.5);
+      expect(parseForecastNumber('flat')).toBeNull();
+      expect(parseForecastNumber(null)).toBeNull();
+    });
+
+    it('should parse compass wind directions', () => {
+      expect(parseWindDirection('ESE')).toBe(112.5);
+      expect(parseWindDirection('270°')).toBe(270);
+      expect(parseWindDirection(-10)).toBe(350);
+      expect(parseWindDirection('variable')).toBeNull();
+    });
+
+    it('should normalize tide status strings', () => {
+      expect(normalizeTideStatus('Falling')).toBe('falling');
+      expect(normalizeTideStatus('High Tide')).toBe('high_tide');
+      expect(normalizeTideStatus(null)).toBeNull();
+    });
+  });
+
   // ============================================================================
   // Main Functions Tests
   // ============================================================================
@@ -431,6 +458,37 @@ describe('preference-learning-service', () => {
 
       expect(result?.sample_size).toBe(20);
       expect(result?.confidence).toBeGreaterThan(0.9); // High confidence
+    });
+
+    it('should compute preferences from stored display strings', async () => {
+      const mockSnapshots = [
+        createMockSnapshot(5, 1 as any, 8 as any, 4 as any, 90 as any, 'Falling'),
+        createMockSnapshot(4, 2.5 as any, 9 as any, 5 as any, 90 as any, 'Falling'),
+        createMockSnapshot(5, 4 as any, 10 as any, 6 as any, 90 as any, 'Rising'),
+        createMockSnapshot(3, 5 as any, 11 as any, 7 as any, 90 as any, 'Falling'),
+        createMockSnapshot(4, 6 as any, 12 as any, 8 as any, 90 as any, 'High'),
+      ].map((snapshot, index) => ({
+        ...snapshot,
+        forecast_snapshot: {
+          wave_height: ['1 ft', '2-3 ft', '4 ft', '5 ft', '6 ft'][index],
+          wave_period: `${8 + index}s`,
+          wind_speed: `${4 + index} mph`,
+          wind_direction: 'ESE',
+          tide_status: snapshot.forecast_snapshot.tide_status,
+        },
+      }));
+
+      mockQueryResult = { data: mockSnapshots, error: null };
+
+      const result = await computeUserPreferences('user-1');
+
+      expect(result).not.toBeNull();
+      expect(result?.wave_min_ft).toBeGreaterThan(0);
+      expect(result?.wave_max_ft).toBeGreaterThan(result!.wave_min_ft!);
+      expect(result?.wave_period_min_s).toBeGreaterThan(0);
+      expect(result?.max_wind_mph).toBeGreaterThan(0);
+      expect(result?.preferred_wind_directions).toContain(90);
+      expect(result?.preferred_tide_statuses).toContain('falling');
     });
 
     it('should upsert preferences to database', async () => {

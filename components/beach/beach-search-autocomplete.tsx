@@ -2,15 +2,17 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Command,
   CommandInput,
   CommandList,
   CommandGroup,
   CommandItem,
+  CommandSeparator,
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ChevronRight, MapPin } from "lucide-react";
+import { Loader2, ChevronRight, MapPin, Map as MapIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useBeachAutocomplete } from "@/hooks/use-beach-autocomplete";
 import { useTrackEvent } from "@/hooks/use-track-event";
@@ -95,6 +97,7 @@ export function BeachSearchAutocomplete({
     debouncedQuery,
     suggestions,
     loading,
+    error,
     isOpen,
     selectedIndex,
     setQuery,
@@ -214,16 +217,21 @@ export function BeachSearchAutocomplete({
     ]
   );
 
+  const showDropdown = isOpen && query.length >= 2;
+
   return (
     <Command
       shouldFilter={false}
-      className={cn("rounded-lg border shadow-md bg-background", className)}
+      className={cn(
+        "relative overflow-visible bg-transparent",
+        className
+      )}
       onKeyDown={(e) => {
         handleKeyDown(e);
         handleEnterKey(e);
       }}
     >
-      <div className="relative">
+      <div className="relative rounded-lg border bg-background shadow-sm">
         <CommandInput
           placeholder={placeholder}
           value={query}
@@ -235,44 +243,101 @@ export function BeachSearchAutocomplete({
         )}
       </div>
 
-      <CommandList>
-        {isOpen && query.length >= 2 && (
-          <>
-            {/* Custom empty state - don't use CommandEmpty as it conflicts with shouldFilter={false} */}
-            {!loading && suggestions.length === 0 && (
-              <div className="py-6 text-center">
-                <p className="text-sm text-muted-foreground">
-                  No beaches found matching &quot;{query}&quot;
-                </p>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Try searching for a specific beach name like
-                  &quot;Swami&apos;s&quot; or &quot;Ocean Beach&quot;
-                </p>
-              </div>
-            )}
+      {showDropdown && (
+        <CommandList
+          className={cn(
+            "absolute top-full inset-x-0 z-50 mt-1",
+            "max-h-[min(60vh,480px)] overflow-y-auto",
+            "rounded-lg border bg-background shadow-lg"
+          )}
+        >
+          {/* Error state — distinct from empty state. Surfaced when the
+              search API errored (e.g. transient 5xx, rate limit) so users
+              don't see a misleading "No beaches found" for a fetch failure. */}
+          {!loading && error && (
+            <div className="py-6 px-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                Couldn&apos;t search right now.
+              </p>
+              <Link
+                href="/beaches/usa"
+                prefetch={false}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm font-medium text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+              >
+                <MapIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                Browse all beaches by state
+                <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </Link>
+            </div>
+          )}
 
-            {suggestions.length > 0 && (
-              <CommandGroup heading="Surf Spots">
-                {suggestions.map((beach, index) => (
-                  <CommandItem
-                    key={beach.id}
-                    onSelect={() => handleBeachSelect(beach, index)}
-                    className={cn(
-                      "cursor-pointer",
-                      index === selectedIndex && "bg-accent"
-                    )}
-                  >
-                    <BeachSuggestionCard
-                      beach={beach}
-                      showCurrentConditions={showCurrentConditions}
-                    />
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-          </>
-        )}
-      </CommandList>
+          {/* Custom empty state - don't use CommandEmpty as it conflicts with shouldFilter={false} */}
+          {!loading && !error && suggestions.length === 0 && (
+            <div className="py-6 px-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                No beaches found matching &quot;{query}&quot;
+              </p>
+              <Link
+                href="/beaches/usa"
+                prefetch={false}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm font-medium text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+              >
+                <MapIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                Don&apos;t see your spot? Browse all beaches by state
+                <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </Link>
+            </div>
+          )}
+
+          {suggestions.length > 0 && (
+            <CommandGroup heading="Surf Spots">
+              {suggestions.map((beach, index) => (
+                <CommandItem
+                  key={beach.id}
+                  onSelect={() => handleBeachSelect(beach, index)}
+                  className={cn(
+                    "cursor-pointer",
+                    index === selectedIndex && "bg-accent"
+                  )}
+                >
+                  <BeachSuggestionCard
+                    beach={beach}
+                    showCurrentConditions={showCurrentConditions}
+                  />
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+
+          {/* Always-visible footer escape hatch — keeps "browse by state"
+              reachable even when results are showing. Plain Link rather
+              than a CommandItem so cmdk's keyboard navigation doesn't
+              treat it as a result and so the user gets a real anchor
+              focus ring. Hidden when the empty-state or error-state branch
+              already renders its own browse link to avoid duplication. */}
+          {!error && !(suggestions.length === 0 && !loading) && (
+            <>
+              <CommandSeparator />
+              <div className="p-2">
+                <Link
+                  href="/beaches/usa"
+                  prefetch={false}
+                  className="flex items-center justify-between gap-2 rounded-sm px-2 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <MapIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                    Don&apos;t see your spot? Browse by state
+                  </span>
+                  <ChevronRight
+                    className="h-3.5 w-3.5"
+                    aria-hidden="true"
+                  />
+                </Link>
+              </div>
+            </>
+          )}
+        </CommandList>
+      )}
     </Command>
   );
 }

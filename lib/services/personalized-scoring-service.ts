@@ -31,7 +31,12 @@
  */
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
-import { getUserSurfPreferences } from './preference-learning-service';
+import {
+  getUserSurfPreferences,
+  normalizeTideStatus,
+  parseForecastNumber,
+  parseWindDirection,
+} from './preference-learning-service';
 import {
   getImplicitPreferences,
   calculateImplicitBonus,
@@ -223,7 +228,7 @@ export function matchesLearnedWaveRange(
   forecast: EnhancedForecastEntity,
   prefs: { wave_min_ft: number | null; wave_max_ft: number | null }
 ): boolean {
-  const height = parseFloat(forecast.wave_height || '0');
+  const height = parseForecastNumber(forecast.wave_height);
   if (!height || !prefs.wave_min_ft || !prefs.wave_max_ft) return false;
 
   return height >= prefs.wave_min_ft && height <= prefs.wave_max_ft;
@@ -249,16 +254,16 @@ export function matchesLearnedWindPrefs(
   forecast: EnhancedForecastEntity,
   prefs: { max_wind_mph: number | null; preferred_wind_directions: number[] | null }
 ): boolean {
-  const windSpeed = parseFloat(forecast.wind_speed || '0');
-  const windDir = parseFloat(forecast.wind_direction || '0');
+  const windSpeed = parseForecastNumber(forecast.wind_speed);
+  const windDir = parseWindDirection(forecast.wind_direction);
 
   // Check wind speed tolerance
-  if (prefs.max_wind_mph !== null && !isNaN(windSpeed)) {
+  if (prefs.max_wind_mph !== null && windSpeed !== null) {
     if (windSpeed > prefs.max_wind_mph) return false;
   }
 
   // Check wind direction preference (within ±30 degrees)
-  if (prefs.preferred_wind_directions && prefs.preferred_wind_directions.length > 0 && !isNaN(windDir)) {
+  if (prefs.preferred_wind_directions && prefs.preferred_wind_directions.length > 0 && windDir !== null) {
     const matches = prefs.preferred_wind_directions.some((prefDir) => {
       const diff = Math.abs(windDir - prefDir);
       // Handle wrapping around 0/360
@@ -270,7 +275,7 @@ export function matchesLearnedWindPrefs(
 
   // If we have max_wind_mph but no direction prefs, just check speed
   if (prefs.max_wind_mph !== null) {
-    return windSpeed <= prefs.max_wind_mph;
+    return windSpeed !== null && windSpeed <= prefs.max_wind_mph;
   }
 
   // If we only have direction prefs and passed the direction check, return true
@@ -296,5 +301,10 @@ export function matchesLearnedTidePrefs(
 ): boolean {
   if (!prefs.preferred_tide_statuses || !forecast.tide_status) return false;
 
-  return prefs.preferred_tide_statuses.includes(forecast.tide_status);
+  const forecastTide = normalizeTideStatus(forecast.tide_status);
+  if (!forecastTide) return false;
+
+  return prefs.preferred_tide_statuses
+    .map((status) => normalizeTideStatus(status))
+    .includes(forecastTide);
 }

@@ -618,12 +618,20 @@ export class EnhancedForecastService {
         `(stale>${config.freshnessWindowHours}h, max ${config.maxBeachesPerRun} per run, batch size: ${config.batchSize})`
       );
 
+      // Fetch nowcast observation anchors once per CDIP cron invocation, mirroring
+      // updateAllEnhancedForecasts(). Without this, the hourly CDIP refresh
+      // silently overwrites anchored values produced by the main rotation cron
+      // for any beach with the `observation_anchor` feature flag set.
+      const supabase = await createSupabaseServiceRoleClient();
+      const nowcastAnchors = await fetchNowcastAnchors(supabase);
+      log.info(`Loaded ${nowcastAnchors.size} nowcast anchors for this CDIP run`);
+
       const result = await processBeachesInBatches({
         beaches: beaches.selected,
         config,
         deadlineTracker,
         processBeach: createBeachProcessor(
-          (beach) => this.generateComprehensiveForecast(beach),
+          (beach) => this.generateComprehensiveForecast(beach, nowcastAnchors.get(beach.id) ?? null),
           (beach, forecasts) => this.storeEnhancedForecasts(beach, forecasts)
         ),
         prefetchCallback: (beaches) => this.prefetchTideStations(beaches),

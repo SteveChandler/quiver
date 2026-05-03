@@ -96,7 +96,7 @@ const createMockPost = (
 describe("IntelFeed", () => {
   const mockOnPostClick = jest.fn();
   const mockOnConfirm = jest.fn();
-  const mockOnPlanSession = jest.fn();
+  const mockOnLogSession = jest.fn();
   const mockOnShareIntel = jest.fn();
 
   beforeEach(() => {
@@ -111,7 +111,7 @@ describe("IntelFeed", () => {
           loading={true}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -127,7 +127,7 @@ describe("IntelFeed", () => {
           loading={true}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
           className="custom-loading-class"
         />
@@ -145,7 +145,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -163,7 +163,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           onShareIntel={mockOnShareIntel}
           canConfirm={true}
         />
@@ -183,7 +183,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -198,7 +198,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
           className="custom-empty-class"
         />
@@ -223,7 +223,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -247,7 +247,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -268,7 +268,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
           className="custom-posts-class"
         />
@@ -292,7 +292,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
           selectedTag="all"
         />
@@ -310,7 +310,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
           selectedTag="parking"
         />
@@ -328,7 +328,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
           selectedTag="crowd"
         />
@@ -349,7 +349,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -377,7 +377,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -407,7 +407,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -425,32 +425,6 @@ describe("IntelFeed", () => {
       });
     });
 
-    it("calls onPlanSession when plan session button is clicked", async () => {
-      const post = createMockPost({ title: "Test Post" });
-
-      render(
-        <IntelFeed
-          posts={[post]}
-          loading={false}
-          onPostClick={mockOnPostClick}
-          onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
-          canConfirm={true}
-        />
-      );
-
-      // Find the plan session button (outline variant has border-input class)
-      const buttons = screen.getAllByRole("button");
-      const planButton = buttons.find(
-        (btn) =>
-          btn.className.includes("border-input") && btn.className.includes("h-8")
-      );
-
-      fireEvent.click(planButton!);
-      // stopPropagation should prevent modal from opening
-      expect(mockOnPlanSession).toHaveBeenCalledWith(post);
-      expect(mockOnPostClick).not.toHaveBeenCalled();
-    });
   });
 
   describe("Post Types and Tags", () => {
@@ -469,7 +443,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -497,7 +471,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -522,7 +496,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -544,7 +518,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -566,7 +540,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -585,7 +559,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -604,7 +578,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -628,7 +602,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -650,7 +624,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -671,7 +645,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -692,7 +666,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -712,7 +686,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -737,7 +711,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -763,7 +737,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={true}
         />
       );
@@ -785,7 +759,7 @@ describe("IntelFeed", () => {
           loading={false}
           onPostClick={mockOnPostClick}
           onConfirm={mockOnConfirm}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={mockOnLogSession}
           canConfirm={false}
         />
       );
@@ -804,7 +778,7 @@ describe("IntelFeed", () => {
 describe("IntelFeedCard", () => {
   const mockOnPostClick = jest.fn();
   const mockOnConfirm = jest.fn();
-  const mockOnPlanSession = jest.fn();
+  const mockOnLogSession = jest.fn();
 
   beforeEach(() => {
     jest.resetAllMocks();
@@ -823,7 +797,7 @@ describe("IntelFeedCard", () => {
         post={post}
         onPostClick={mockOnPostClick}
         onConfirm={mockOnConfirm}
-        onPlanSession={mockOnPlanSession}
+        onLogSession={mockOnLogSession}
         canConfirm={true}
       />
     );
@@ -842,7 +816,7 @@ describe("IntelFeedCard", () => {
         post={post}
         onPostClick={mockOnPostClick}
         onConfirm={mockOnConfirm}
-        onPlanSession={mockOnPlanSession}
+        onLogSession={mockOnLogSession}
         canConfirm={true}
       />
     );
@@ -851,33 +825,6 @@ describe("IntelFeedCard", () => {
     await user.click(card!);
 
     expect(mockOnPostClick).toHaveBeenCalledWith(post);
-  });
-
-  it("prevents event bubbling when clicking action buttons", () => {
-    const post = createMockPost();
-    mockOnConfirm.mockResolvedValue(undefined);
-
-    render(
-      <IntelFeedCard
-        post={post}
-        onPostClick={mockOnPostClick}
-        onConfirm={mockOnConfirm}
-        onPlanSession={mockOnPlanSession}
-        canConfirm={true}
-      />
-    );
-
-    // The plan session button has the outline variant (border border-input bg-background)
-    const buttons = screen.getAllByRole("button");
-    const planButton = buttons.find(
-      (btn) =>
-        btn.className.includes("border-input") && btn.className.includes("bg-background")
-    );
-
-    fireEvent.click(planButton!);
-
-    expect(mockOnPlanSession).toHaveBeenCalled();
-    expect(mockOnPostClick).not.toHaveBeenCalled();
   });
 
   it("shows loading state when confirming", async () => {
@@ -894,7 +841,7 @@ describe("IntelFeedCard", () => {
         post={post}
         onPostClick={mockOnPostClick}
         onConfirm={mockOnConfirm}
-        onPlanSession={mockOnPlanSession}
+        onLogSession={mockOnLogSession}
         canConfirm={true}
       />
     );
@@ -926,7 +873,7 @@ describe("IntelFeedCard", () => {
         post={post}
         onPostClick={mockOnPostClick}
         onConfirm={mockOnConfirm}
-        onPlanSession={mockOnPlanSession}
+        onLogSession={mockOnLogSession}
         canConfirm={true}
         isConfirming={true}
       />
@@ -946,7 +893,7 @@ describe("IntelFeedCard", () => {
         post={post}
         onPostClick={mockOnPostClick}
         onConfirm={mockOnConfirm}
-        onPlanSession={mockOnPlanSession}
+        onLogSession={mockOnLogSession}
         canConfirm={true}
         isConfirming={false}
       />
@@ -970,7 +917,7 @@ describe("IntelFeedCard", () => {
         post={post}
         onPostClick={mockOnPostClick}
         onConfirm={mockOnConfirm}
-        onPlanSession={mockOnPlanSession}
+        onLogSession={mockOnLogSession}
         canConfirm={false}
       />
     );
@@ -998,7 +945,7 @@ describe("IntelFeedCard", () => {
         post={post}
         onPostClick={mockOnPostClick}
         onConfirm={mockOnConfirm}
-        onPlanSession={mockOnPlanSession}
+        onLogSession={mockOnLogSession}
         canConfirm={true}
       />
     );
@@ -1011,7 +958,7 @@ describe("IntelFeedCard", () => {
         post={post}
         onPostClick={mockOnPostClick}
         onConfirm={mockOnConfirm}
-        onPlanSession={mockOnPlanSession}
+        onLogSession={mockOnLogSession}
         canConfirm={false} // Different prop, same coordinates
       />
     );

@@ -11,7 +11,6 @@ function TestWrapper({ onFormChange }: { onFormChange?: (values: any) => void })
       notif_push_enabled: true,
       notif_email_enabled: true,
       notif_inapp_enabled: true,
-      notif_session_invites: true,
       notif_likes: true,
       notif_follows: true,
       notif_reminders: true,
@@ -69,7 +68,6 @@ describe("NotificationsSection", () => {
     fireEvent.click(advancedSettings);
 
     // Check all feature toggles are visible
-    expect(screen.getByText("Session Invites")).toBeInTheDocument();
     expect(screen.getByText("Likes")).toBeInTheDocument();
     expect(screen.getByText("Follows")).toBeInTheDocument();
     expect(screen.getByText("Reminders")).toBeInTheDocument();

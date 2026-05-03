@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Waves, Share2 } from "lucide-react";
+import { Waves, Share2 } from "lucide-react";
 import { FavoriteButton } from "@/components/favorite-button";
 import { ShareSheet } from "@/components/share/share-sheet";
 import Link from "next/link";
@@ -37,36 +37,11 @@ export function BeachQuickActions({
       >
         <Link
           href={
-            isAuthenticated ? `/sessions/new?mode=plan&beach=${beach.id}` : "/auth/sign-in"
+            isAuthenticated ? `/sessions/new?beach=${beach.id}&beachName=${encodeURIComponent(beach.name)}` : "/auth/sign-in"
           }
           className="block"
         >
           <Button className="w-full">
-            <motion.div
-              animate={{ rotate: [0, 10, 0] }}
-              transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 3 }}
-            >
-              <CalendarDays className="h-4 w-4 mr-1" />
-            </motion.div>
-            Plan Session
-          </Button>
-        </Link>
-      </motion.div>
-      
-      <motion.div 
-        className="flex-1"
-        variants={MAP_MOTION.quickAction}
-        initial="rest"
-        whileHover="hover"
-        whileTap="pressed"
-      >
-        <Link
-          href={
-            isAuthenticated ? `/sessions/new?mode=log&beach=${beach.id}` : "/auth/sign-in"
-          }
-          className="block"
-        >
-          <Button variant="outline" className="w-full">
             <motion.div
               animate={{ 
                 rotate: [0, -5, 5, 0],

@@ -61,7 +61,6 @@ import {
   type BeachTabValue,
 } from "@/components/beach-detail/beach-tabs";
 import { ZinePageShell } from "@/components/beach-detail/zine/zine-page-shell";
-import { SessionPlanningModal } from "@/components/beach-detail/session-planning-modal";
 import { TabLoadingSkeleton } from "@/components/beach-detail/tab-loading-skeleton";
 // InlineSignupCta stays removed — Phase 1A CTA reduction.
 // MatchScoreTeaser was removed in Phase 1A but reinstated 2026-04-28 based
@@ -251,10 +250,6 @@ function BeachDetailContent({
   const [selectedForecastEntry, setSelectedForecastEntry] =
     useState<EnhancedForecastEntity | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [sessionPlanningOpen, setSessionPlanningOpen] = useState(false);
-  const [sessionPlanningMode, setSessionPlanningMode] = useState<
-    "log" | "plan"
-  >("log");
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [alertCreationOpen, setAlertCreationOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<BeachTabValue>(
@@ -841,17 +836,6 @@ function BeachDetailContent({
   // Track if tab data is still loading (for skeleton loaders)
   const tabDataLoading = loading;
 
-  // Session planning handlers
-  const handlePlanSession = () => {
-    setSessionPlanningMode("plan");
-    setSessionPlanningOpen(true);
-  };
-
-  const handleLogSession = () => {
-    setSessionPlanningMode("log");
-    setSessionPlanningOpen(true);
-  };
-
   const tabActions = (
     <>
       <Button
@@ -1036,14 +1020,6 @@ function BeachDetailContent({
           onOpenChange={setAlertCreationOpen}
         />
       )}
-
-      {/* Session Planning Modal */}
-      <SessionPlanningModal
-        open={sessionPlanningOpen}
-        onOpenChange={setSessionPlanningOpen}
-        beach={beach}
-        initialMode={sessionPlanningMode}
-      />
 
       {/* Review Dialog */}
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>

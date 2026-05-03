@@ -24,7 +24,7 @@ Quick reference for security review findings. See [SECURITY_REVIEW_REPORT.md](./
 
 - [ ] **P1:** Refactor E2E bypass logic
   - Move from production routes to test-only middleware
-  - Files: `/app/api/plan-session/route.ts:127-139`, `/app/api/intel/route.ts:267-279`
+  - Files: `/app/api/intel/route.ts:267-279`
 
 ## Medium Priority - Fix Within 1 Month
 

@@ -51,6 +51,17 @@ jest.mock("@/components/profile/FeedHighlight", () => ({
   ),
 }));
 
+jest.mock("@/components/share", () => ({
+  ShareSheet: ({ open, imageUrl, shareUrl }: any) =>
+    open ? (
+      <div
+        data-testid="share-sheet"
+        data-image-url={imageUrl}
+        data-share-url={shareUrl}
+      />
+    ) : null,
+}));
+
 // Mock SetHomeBreakCta — uses useProfileContext/useOnboardingStore which would
 // require a provider wrapping the test render. Renders nothing when mocked;
 // the component's own unit tests cover its behavior.
@@ -407,6 +418,67 @@ describe("ProfileView - Surf Style Card", () => {
           { scroll: false }
         );
       });
+    });
+
+    it("opens a session ShareSheet when highlighted session share is clicked", async () => {
+      mockSearchParamsGet = jest.fn((key: string) => {
+        if (key === "highlight") return "session-abc";
+        if (key === "tab") return "sessions";
+        return null;
+      });
+      mockSearchParamsToString = jest
+        .fn()
+        .mockReturnValue("highlight=session-abc&tab=sessions");
+
+      (gateway.users.sessions.list as jest.Mock).mockResolvedValue([
+        {
+          id: "session-abc",
+          status: "completed",
+          rating: 4,
+          wave_height_ft: 3,
+          wave_quality: null,
+          arrival_time: "2026-04-30T15:00:00.000Z",
+          session_date: "2026-04-30T15:00:00.000Z",
+          beach_name: "Ocean Beach",
+          beach: { name: "Ocean Beach" },
+          beaches: null,
+          board: { name: "Shortboard" },
+          boards: null,
+          profiles: null,
+          wind_direction: "Offshore",
+          wind_speed_mph: 7,
+          featured_photo_url: null,
+          description: "Clean morning waves",
+        },
+      ]);
+
+      (useUserPreferences as jest.Mock).mockReturnValue({
+        data: null,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<ProfileView />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("feed-highlight")).toBeInTheDocument();
+      });
+
+      screen.getByText("Share").click();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("share-sheet")).toBeInTheDocument();
+      });
+
+      expect(screen.getByTestId("share-sheet")).toHaveAttribute(
+        "data-image-url",
+        expect.stringContaining("/api/og/session")
+      );
+      expect(screen.getByTestId("share-sheet")).toHaveAttribute(
+        "data-share-url",
+        expect.stringContaining("/sessions/session-abc")
+      );
     });
   });
 

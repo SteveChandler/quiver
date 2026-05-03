@@ -12,7 +12,7 @@
  * @see e2e/scripts/cleanup-test-data.ts - Standalone CLI script
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
 
 // Load environment variables
@@ -46,12 +46,21 @@ export interface CleanupOptions {
   supabaseUrl?: string;
   /** Override service role key (defaults to env var) */
   serviceRoleKey?: string;
+  /**
+   * Skip the ephemeral-smoke-user sweep. Used when the caller has already run
+   * `cleanupEphemeralSmokeUsers` directly (e.g. global-teardown runs the sweep
+   * unconditionally and only invokes `cleanupAllTestData` for the dev-gated
+   * session/intel-post cleanup).
+   */
+  skipEphemeralSmokeUsers?: boolean;
 }
 
 /**
- * Create a Supabase client with service role for bypassing RLS
+ * Create a Supabase client with service role for bypassing RLS.
+ * Exported so callers (e.g. global-teardown) can run individual cleanup
+ * functions without going through the `cleanupAllTestData` aggregator.
  */
-function createServiceClient(options: CleanupOptions = {}): SupabaseClient {
+export function createServiceClient(options: CleanupOptions = {}): SupabaseClient {
   const supabaseUrl = options.supabaseUrl || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = options.serviceRoleKey || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -240,17 +249,82 @@ async function cleanupTestIntelPosts(
 }
 
 /**
- * Hard-delete ephemeral smoke-test users (email matching `smoke+%@quiversurf.test`).
+ * Sweep orphan smoke profiles via the cleanup_orphan_smoke_profiles() RPC.
  *
- * These are provisioned by `signUpEphemeral()` in e2e/helpers/onboarding-flow.ts
- * for the auth-smoke + onboarding-smoke specs. Per-test `cleanupEphemeralUser`
- * is best-effort — if a run crashes before teardown, rows accumulate in
+ * Belt-and-suspenders for the inline profile cleanup in
+ * `cleanupEphemeralSmokeUsers`: if a prior run's profile delete failed (or
+ * skipped — e.g. before this code was deployed), the auth.users row is gone
+ * and the orphan can no longer be discovered via listUsers(). Running this
+ * before the auth.users sweep on every teardown makes orphan-profile leaks
+ * self-healing instead of permanent.
+ *
+ * Returns 0 silently if the RPC isn't deployed yet (pre-migration), so the
+ * sweep stays useful even before the schema change lands.
+ */
+export async function cleanupOrphanSmokeProfiles(
+  supabase: SupabaseClient,
+  verbose: boolean
+): Promise<CleanupResult> {
+  try {
+    const { data, error } = await supabase.rpc('cleanup_orphan_smoke_profiles');
+    if (error) {
+      // Pre-migration the function won't exist; treat as 0 deletions, not an error.
+      if (error.message?.includes('does not exist') || error.code === '42883') {
+        if (verbose) {
+          console.log('[Cleanup] cleanup_orphan_smoke_profiles RPC not deployed yet — skipping orphan sweep');
+        }
+        return { table: 'orphan_profiles', count: 0 };
+      }
+      return { table: 'orphan_profiles', count: 0, error: error.message };
+    }
+    const count = typeof data === 'number' ? data : 0;
+    if (verbose && count > 0) {
+      console.log(`[Cleanup] Swept ${count} orphan smoke profile(s)`);
+    }
+    return { table: 'orphan_profiles', count };
+  } catch (err) {
+    return { table: 'orphan_profiles', count: 0, error: String(err) };
+  }
+}
+
+/**
+ * Predicate: is this auth user an ephemeral smoke-test account?
+ *
+ * Primary signal: `app_metadata.is_ephemeral_smoke_test === true`. `app_metadata`
+ * is server-controlled — it cannot be set via public signup, only by the
+ * service-role admin API. This is the load-bearing safety claim for the sweep:
+ * a real user can never carry this marker.
+ *
+ * Legacy fallback: pre-marker users that were only identifiable by the
+ * `smoke+...@quiversurf.test` email pattern. Removable once the initial drain
+ * lands and a fresh leak window passes — at that point only marker-tagged
+ * users will exist in the cohort.
+ */
+export function isEphemeralSmokeTestUser(user: User): boolean {
+  if (user.app_metadata?.is_ephemeral_smoke_test === true) return true;
+  // Legacy fallback (TODO: remove after initial drain confirms 0 untagged users).
+  const email = user.email?.toLowerCase() ?? '';
+  return email.startsWith('smoke+') && email.endsWith('@quiversurf.test');
+}
+
+/**
+ * Hard-delete ephemeral smoke-test users.
+ *
+ * Provisioned by `signUpEphemeral()` in e2e/helpers/onboarding-flow.ts for the
+ * auth-smoke + onboarding-smoke specs. Per-test `cleanupEphemeralUser` is
+ * best-effort — if a run crashes before teardown, rows accumulate in
  * `auth.users`, `profiles`, and `user_events`. This sweep catches those orphans.
  *
+ * Pages through `auth.admin.listUsers` until a partial page returns. Matches
+ * via `isEphemeralSmokeTestUser` (marker-first, legacy email pattern as
+ * fallback).
+ *
  * Relies on FK cascade from `auth.users`:
- *   - `profiles.id` → `auth.users(id)` (Supabase-managed FK, verified present
- *     via the `handle_new_user` trigger setup)
- *   - `user_events.user_id` → `auth.users(id) ON DELETE CASCADE` (explicit)
+ *   - `profiles.id` → `auth.users(id)` (Supabase-managed FK via the
+ *     `handle_new_user` trigger setup)
+ *   - `user_events.user_id`, `sessions.user_id`, `saved_windows.user_id`,
+ *     `push_notification_log.user_id`, `user_email_prefs.user_id` →
+ *     `auth.users(id) ON DELETE CASCADE` (explicit)
  *
  * Orthogonal to `cleanupTestSessions` / `cleanupTestIntelPosts` — those
  * soft-delete mutable content from the main test user; this deletes the
@@ -262,21 +336,43 @@ export async function cleanupEphemeralSmokeUsers(
   verbose: boolean
 ): Promise<CleanupResult> {
   try {
-    // auth.admin.listUsers paginates at 1000 by default — that's 10x any
-    // realistic leak size for this cohort, so a single page is safe.
-    const { data, error } = await supabase.auth.admin.listUsers({
-      page: 1,
-      perPage: 1000,
-    });
-
-    if (error) {
-      return { table: 'ephemeral_users', count: 0, error: error.message };
+    // Pre-pass: sweep orphan profiles from prior runs whose auth.users row was
+    // deleted but profile cleanup failed. Once an auth.users row is gone the
+    // orphan is invisible to listUsers(), so without this it leaks forever.
+    // Skipped on dryRun (orphans don't surface a count via the RPC alone).
+    if (!dryRun) {
+      const orphanResult = await cleanupOrphanSmokeProfiles(supabase, verbose);
+      if (orphanResult.error && verbose) {
+        console.warn(`[Cleanup] Orphan-profile sweep warning: ${orphanResult.error}`);
+      }
     }
 
-    const ephemeralUsers = (data?.users ?? []).filter((user) =>
-      user.email?.toLowerCase().startsWith('smoke+') &&
-      user.email?.toLowerCase().endsWith('@quiversurf.test')
-    );
+    const perPage = 1000;
+    const ephemeralUsers: User[] = [];
+    let page = 1;
+
+    // Paginate until a returned page is shorter than perPage. Keeps a single
+    // listUsers round-trip when the cohort is small (<1000) and scales without
+    // a silent ceiling when leaks accumulate.
+    while (true) {
+      // eslint-disable-next-line no-await-in-loop
+      const { data, error } = await supabase.auth.admin.listUsers({
+        page,
+        perPage,
+      });
+
+      if (error) {
+        return { table: 'ephemeral_users', count: 0, error: error.message };
+      }
+
+      const users = data?.users ?? [];
+      for (const user of users) {
+        if (isEphemeralSmokeTestUser(user)) ephemeralUsers.push(user);
+      }
+
+      if (users.length < perPage) break;
+      page += 1;
+    }
 
     if (ephemeralUsers.length === 0) {
       if (verbose) {
@@ -297,8 +393,12 @@ export async function cleanupEphemeralSmokeUsers(
       return { table: 'ephemeral_users', count: ephemeralUsers.length };
     }
 
-    // Actually delete. Loop sequentially to keep admin-API load predictable —
-    // at leak sizes of <100 this is fast enough and avoids concurrent 429s.
+    // Actually delete. Loop sequentially to keep admin-API load predictable
+    // and avoid concurrent 429s. Delete the auth.users row first, then clean
+    // up the orphan profile — there is no FK cascade from public.profiles to
+    // auth.users in this schema, so the row would otherwise dangle. The
+    // prevent_delete_on_protected trigger allows orphan profile deletion (see
+    // 20260430170000_brake_exception_for_ephemeral_smoke_tests.sql).
     let deleted = 0;
     const errors: string[] = [];
     for (const user of ephemeralUsers) {
@@ -306,9 +406,19 @@ export async function cleanupEphemeralSmokeUsers(
       const { error: deleteError } = await supabase.auth.admin.deleteUser(user.id);
       if (deleteError) {
         errors.push(`${user.email}: ${deleteError.message}`);
-      } else {
-        deleted += 1;
+        continue;
       }
+      // eslint-disable-next-line no-await-in-loop
+      const { error: profileError } = await (supabase.from('profiles') as any)
+        .delete()
+        .eq('id', user.id);
+      if (profileError) {
+        // Auth user is gone but profile cleanup failed — log and move on.
+        // The next sweep won't re-pick this row (no auth.users to match), so
+        // surface it as a non-fatal error rather than silently leaking.
+        errors.push(`${user.email} (profile orphan): ${profileError.message}`);
+      }
+      deleted += 1;
     }
 
     if (verbose) {
@@ -338,7 +448,7 @@ export async function cleanupEphemeralSmokeUsers(
 export async function cleanupAllTestData(
   options: CleanupOptions = {}
 ): Promise<FullCleanupResult> {
-  const { dryRun = false, verbose = false } = options;
+  const { dryRun = false, verbose = false, skipEphemeralSmokeUsers = false } = options;
   const startTime = Date.now();
 
   if (verbose) {
@@ -377,10 +487,17 @@ export async function cleanupAllTestData(
   // Clean up sessions, intel posts, and orphaned ephemeral users in parallel.
   // The ephemeral sweep runs regardless of testUserIds (it's an independent
   // query against auth.users), so a missing TEST_USER_EMAIL doesn't skip it.
+  // Callers that have already invoked `cleanupEphemeralSmokeUsers` directly
+  // (e.g. global-teardown's always-on sweep) pass skipEphemeralSmokeUsers=true
+  // to avoid a duplicate paginated walk.
+  const ephemeralPromise: Promise<CleanupResult> = skipEphemeralSmokeUsers
+    ? Promise.resolve({ table: 'ephemeral_users', count: 0 })
+    : cleanupEphemeralSmokeUsers(supabase, dryRun, verbose);
+
   const [sessions, intelPosts, ephemeralUsers] = await Promise.all([
     cleanupTestSessions(supabase, testUserIds, dryRun, verbose),
     cleanupTestIntelPosts(supabase, testUserIds, dryRun, verbose),
-    cleanupEphemeralSmokeUsers(supabase, dryRun, verbose),
+    ephemeralPromise,
   ]);
 
   const totalCleaned = sessions.count + intelPosts.count + ephemeralUsers.count;

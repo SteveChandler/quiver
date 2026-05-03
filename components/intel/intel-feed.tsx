@@ -40,7 +40,7 @@ interface IntelFeedProps {
   loading?: boolean;
   onPostClick?: (post: IntelPostWithUser) => void;
   onConfirm: (postId: string, isCurrentlyConfirmed: boolean) => void;
-  onPlanSession: (post: IntelPostWithUser) => void;
+  onLogSession: (post: IntelPostWithUser) => void;
   onShareIntel?: () => void;
   canConfirm: boolean;
   selectedTag?: IntelPostTag | "all";
@@ -52,7 +52,7 @@ export function IntelFeed({
   loading = false,
   onPostClick,
   onConfirm,
-  onPlanSession,
+  onLogSession,
   onShareIntel,
   canConfirm,
   selectedTag = "all",
@@ -80,8 +80,8 @@ export function IntelFeed({
     await onConfirm(postId, isCurrentlyConfirmed);
   };
 
-  const handlePlanSession = (post: IntelPostWithUser) => {
-    onPlanSession(post);
+  const handleLogSession = (post: IntelPostWithUser) => {
+    onLogSession(post);
   };
 
   // Filter posts by selected tag
@@ -140,7 +140,7 @@ export function IntelFeed({
             post={post}
             onPostClick={handlePostClick}
             onConfirm={handleConfirm}
-            onPlanSession={handlePlanSession}
+            onLogSession={handleLogSession}
             canConfirm={canConfirm}
           />
         ))}
@@ -156,7 +156,7 @@ export function IntelFeed({
             setSelectedPostId(null);
           }}
           onConfirm={handleConfirm}
-          onPlanSession={handlePlanSession}
+          onLogSession={handleLogSession}
           canConfirm={canConfirm}
         />
       )}
@@ -168,7 +168,7 @@ export interface IntelFeedCardProps {
   post: IntelPostWithUser;
   onPostClick: (post: IntelPostWithUser) => void;
   onConfirm: (postId: string, isCurrentlyConfirmed: boolean) => void;
-  onPlanSession: (post: IntelPostWithUser) => void;
+  onLogSession: (post: IntelPostWithUser) => void;
   canConfirm: boolean;
   isConfirming?: boolean;
 }
@@ -177,7 +177,7 @@ export function IntelFeedCard({
   post,
   onPostClick,
   onConfirm,
-  onPlanSession,
+  onLogSession,
   canConfirm,
   isConfirming: externalIsConfirming,
 }: IntelFeedCardProps) {
@@ -212,9 +212,9 @@ export function IntelFeedCard({
     }
   };
 
-  const handlePlanSession = (e: React.MouseEvent) => {
+  const handleLogSession = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onPlanSession(post);
+    onLogSession(post);
   };
 
   return (
@@ -327,12 +327,13 @@ export function IntelFeedCard({
                 </Button>
               )}
 
-              {/* Plan Session Button */}
+              {/* Log Session Button */}
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handlePlanSession}
+                onClick={handleLogSession}
                 className="h-8 px-3 text-xs"
+                aria-label="Log session from intel"
               >
                 <ExternalLink className="h-3 w-3" />
               </Button>

@@ -142,7 +142,7 @@ export const metadata: Metadata = {
   },
 };
 
-const hideFooterPrefixes = ["/auth", "/admin", "/profile", "/inbox", "/sessions", "/prefs", "/embed", "/welcome", "/map"];
+const hideFooterPrefixes = ["/auth", "/admin", "/profile", "/sessions", "/prefs", "/embed", "/welcome", "/map"];
 
 export default function RootLayout({
   children,
@@ -251,7 +251,7 @@ export default function RootLayout({
           href="/apple-touch-icon-120x120.png"
         />
         {/* Remove aggressive prefetching on mobile to reduce initial network load */}
-        {/* Note: logoQuiver.png is only used on landing page, so preload is handled there */}
+        {/* Note: quiver-app-icon.png is only used on landing page, so preload is handled there */}
         {/* Remove non-existent webpack chunk preload - these are dynamic */}
         {/* Structured Data for SEO */}
         <script

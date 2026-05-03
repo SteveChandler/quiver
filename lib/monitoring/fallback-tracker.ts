@@ -12,9 +12,6 @@ const SEVERITY_CONFIG: Record<string, Record<string, FallbackSeverity>> = {
   'morning-intel': {
     wave_height: 'dangerous',     // Scoring built on fabricated wave data
   },
-  'session-planner': {
-    wave_height: 'dangerous',     // Session recommendations based on zero swell
-  },
   'surf-windows': {
     tide_height: 'dangerous',     // Window scoring ignores tide influence
   },

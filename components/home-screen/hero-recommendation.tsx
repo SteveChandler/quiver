@@ -48,8 +48,6 @@ export interface HeroRecommendationProps {
   loading?: boolean;
   /** Error object if fetch failed */
   error?: Error | null;
-  /** Callback when user clicks "Plan Session" */
-  onPlanSession: () => void;
   /** Callback when user clicks on the beach name/card */
   onViewBeach: (beachId: string) => void;
   /** Callback to enable reminder notifications */
@@ -157,7 +155,6 @@ export function HeroRecommendationEmpty() {
  * <HeroRecommendation
  *   recommendation={recommendation}
  *   loading={false}
- *   onPlanSession={() => navigate('/plan')}
  *   onViewBeach={(id) => navigate(`/beach/${id}`)}
  * />
  * ```
@@ -167,7 +164,6 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
   insights,
   loading = false,
   error = null,
-  onPlanSession,
   onViewBeach,
   onEnableReminder,
   forecastAlertsEnabled = false,

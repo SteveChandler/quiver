@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/user-avatar";
 import { StarRating } from "@/components/ui/star-rating";
 import {
@@ -15,7 +14,6 @@ import {
   Users,
   Car,
   Thermometer,
-  CalendarClock,
 } from "lucide-react";
 import { MapImage } from "@/components/map-image";
 import Link from "next/link";
@@ -109,19 +107,6 @@ export function SessionCard({
 
   const cardContent = (
     <CardContent className="p-4 space-y-4 motion-optimized session-card-hover">
-      {/* Session Status Badge */}
-      {session?.status === "planned" && (
-        <div className="mb-2">
-          <Badge
-            variant="secondary"
-            className="bg-blue-100 text-blue-800 border-blue-200"
-          >
-            <CalendarClock className="h-3 w-3 mr-1" />
-            Planned Session
-          </Badge>
-        </div>
-      )}
-
       {/* User Info */}
       <div className="flex items-center gap-3">
         {session?.user?.id && onUserClick && !isOwner ? (
@@ -170,17 +155,13 @@ export function SessionCard({
         )}
       </div>
 
-      {/* Planned session board info and conditional rating */}
-      {session?.status === "planned" && session?.board?.name && (
+      {session?.board?.name && (
         <div className="text-sm text-muted-foreground">
           Board: {session.board.name}
         </div>
       )}
 
-      {/* Overall Rating - hide for planned sessions or when no rating */}
-      {session?.status !== "planned" && rating > 0 && (
-        <StarRating rating={rating} size="md" />
-      )}
+      {rating > 0 && <StarRating rating={rating} size="md" />}
 
       {/* Session Conditions - Only show if session data is available */}
       {session && (
@@ -194,7 +175,7 @@ export function SessionCard({
                 <Waves className="h-4 w-4 text-blue-500" />
               </div>
               <div className="space-y-1">
-                {session.wave_quality && session?.status !== "planned" && (
+                {session.wave_quality && (
                   <StarRating
                     rating={session.wave_quality}
                     size="sm"
@@ -217,8 +198,7 @@ export function SessionCard({
           )}
 
           {/* Crowd Level */}
-          {session.crowd_level &&
-            session?.status !== "planned" && (
+          {session.crowd_level && (
               <div className="text-center">
                 <div className="flex items-center justify-center mb-1">
                   <Users className="h-4 w-4 text-orange-500" />
@@ -232,10 +212,10 @@ export function SessionCard({
                   <div className="text-xs text-muted-foreground">Crowd</div>
                 </div>
               </div>
-            )}
+          )}
 
           {/* Parking */}
-          {session.parking_ease && session?.status !== "planned" && (
+          {session.parking_ease && (
             <div className="text-center">
               <div className="flex items-center justify-center mb-1">
                 <Car className="h-4 w-4 text-green-500" />

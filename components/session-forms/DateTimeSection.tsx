@@ -36,8 +36,7 @@ export function DateTimeSection({
   sessionCreated = false,
 }: DateTimeSectionProps) {
   const text = getFormText(mode);
-  const isPlanning = mode === "plan";
-  const isDisabled = !isPlanning && sessionCreated;
+  const isDisabled = sessionCreated;
   const baseInputClass = "h-12 min-w-0 appearance-none";
 
   const handleDurationChange = useCallback(
@@ -66,10 +65,10 @@ export function DateTimeSection({
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
     setDateConstraints({
-      min: isPlanning ? today : undefined,
-      max: isPlanning ? undefined : today,
+      min: undefined,
+      max: today,
     });
-  }, [isPlanning]);
+  }, []);
 
   // Use ref to prevent infinite loops
   const dateInputRef = useRef<HTMLInputElement>(null);
@@ -110,18 +109,14 @@ export function DateTimeSection({
           {text.dateTime}
         </div>
       }
-      description={
-        isPlanning
-          ? "When are you planning to surf?"
-          : "When did your session take place?"
-      }
+      description="When did your session take place?"
     >
       <div className="space-y-4">
         {/* Date and Time in same row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="min-w-0">
             <label className="block text-sm font-medium mb-2">
-              {isPlanning ? "Session Date" : "Date Surfed"}
+              Date Surfed
             </label>
             <Input
               ref={dateInputRef}
@@ -138,16 +133,11 @@ export function DateTimeSection({
               data-testid="session-date-input"
               suppressHydrationWarning
             />
-            {isPlanning && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Select a future date for your planned session
-              </p>
-            )}
           </div>
 
           <div className="min-w-0">
             <label className="block text-sm font-medium mb-2">
-              {isPlanning ? "Start Time" : "Time Started"}
+              Time Started
             </label>
             <div className="relative">
               <Timer className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -164,9 +154,7 @@ export function DateTimeSection({
               />
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {isPlanning
-                ? "When do you plan to start?"
-                : "What time did you start surfing?"}
+              What time did you start surfing?
             </p>
           </div>
         </div>
@@ -194,9 +182,7 @@ export function DateTimeSection({
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground mt-1">
-            {isPlanning
-              ? "How long are you planning to surf?"
-              : "How long did your session last?"}
+            How long did your session last?
           </p>
         </div>
       </div>

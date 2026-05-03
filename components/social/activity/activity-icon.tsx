@@ -4,7 +4,6 @@ import {
   Users,
   MessageSquare,
   UserPlus,
-  CalendarPlus,
   type LucideIcon,
 } from "lucide-react";
 
@@ -29,8 +28,6 @@ export function ActivityIcon({ activityType, className = "" }: ActivityIconProps
         return { Icon: Star, color: "text-yellow-500" };
       case "user_followed":
         return { Icon: UserPlus, color: "text-green-500" };
-      case "session_invite.created":
-        return { Icon: CalendarPlus, color: "text-purple-500" };
       case "session_liked":
         return { Icon: MessageSquare, color: "text-red-500" };
       default:

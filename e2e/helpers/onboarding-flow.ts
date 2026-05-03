@@ -70,8 +70,10 @@ export interface EphemeralCredentials {
 /**
  * Create an email-confirmed test user via Supabase admin API.
  *
- * Returns `{ email, password, userId }`. The user is created with
- * `is_mock = true` so the E2E test-data cleanup job sweeps it up post-run.
+ * Returns `{ email, password, userId }`. The user is tagged with
+ * `app_metadata.is_ephemeral_smoke_test = true` (server-controlled, cannot be
+ * spoofed via public signup) so the cleanup sweep can match on positive proof
+ * of test origin rather than email pattern alone.
  *
  * The UI email-signup path requires clicking a confirmation email, which
  * is not addressable in headless CI. Admin-create with `email_confirm: true`
@@ -89,6 +91,7 @@ export async function signUpEphemeral(
     email,
     password,
     email_confirm: true,
+    app_metadata: { is_ephemeral_smoke_test: true, created_for: 'e2e-smoke' },
   });
 
   if (error || !data.user) {
@@ -128,13 +131,27 @@ export async function signUpEphemeral(
 
 /**
  * Delete an ephemeral test user. Safe to call in afterEach — never throws.
+ *
+ * Deletes auth.users first, then the orphan profile row (no FK cascade exists
+ * in this schema — see migration 20260430170000). If the profile delete fails,
+ * the global-teardown orphan-profile sweep (cleanup_orphan_smoke_profiles RPC)
+ * picks it up on the next run.
  */
 export async function cleanupEphemeralUser(userId: string): Promise<void> {
   try {
     const admin = getAdminClient();
-    await admin.auth.admin.deleteUser(userId);
+    const { error: authErr } = await admin.auth.admin.deleteUser(userId);
+    if (authErr) {
+      console.warn('[onboarding-flow] auth.admin.deleteUser failed:', authErr.message);
+      return;
+    }
+    const { error: profileErr } = await (admin.from('profiles') as any)
+      .delete()
+      .eq('id', userId);
+    if (profileErr) {
+      console.warn('[onboarding-flow] profile cleanup failed:', profileErr.message);
+    }
   } catch (err) {
-    // Teardown best-effort; global-teardown sweeps orphans via is_mock = true.
     console.warn('[onboarding-flow] ephemeral cleanup failed:', err);
   }
 }

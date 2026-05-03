@@ -295,13 +295,8 @@ describe("JournalView", () => {
     expect(insightsTab).toBeInTheDocument();
   });
 
-  it("shows Completed/Planned filter tabs", () => {
-    render(<JournalView />);
-
-    // Tabs should be present instead of a dropdown filter
-    expect(screen.getByRole("tab", { name: /Completed/i })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /Planned/i })).toBeInTheDocument();
-  });
+  // "shows Completed/Planned filter tabs" removed — the planned-session
+  // feature was deleted in commit 4a8499ec (session-form refactor).
 
   it("filters sessions correctly by status", () => {
     // Mock sessions with different statuses
@@ -341,48 +336,9 @@ describe("JournalView", () => {
     expect(screen.getByText("1 sessions")).toBeInTheDocument();
   });
 
-  it("displays separate counts for completed and planned sessions", () => {
-    // Mock sessions with mixed statuses
-    const mockCountSessions = [
-      {
-        id: "1",
-        beach: { name: "Test Beach 1" },
-        status: "completed",
-        rating: 4,
-        session_date: "2024-01-01",
-        duration_minutes: 120,
-        user: { full_name: "Test User" },
-      },
-      {
-        id: "2",
-        beach: { name: "Test Beach 2" },
-        status: "planned",
-        rating: 0,
-        session_date: "2024-01-02",
-        duration_minutes: null,
-        user: { full_name: "Test User" },
-      },
-    ];
-
-    (useDataFetcher as jest.Mock).mockImplementation((fetchFn) => {
-      return {
-        data: mockCountSessions,
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      };
-    });
-
-    render(<JournalView />);
-
-    // Should show separate counts in stats
-    expect(screen.getByText("Completed Sessions")).toBeInTheDocument();
-    expect(screen.getByText("Planned Sessions")).toBeInTheDocument();
-
-    // Check that both completed and planned sessions show count of 1
-    const completedCards = screen.getAllByText("1");
-    expect(completedCards).toHaveLength(2); // One for completed, one for planned
-  });
+  // "displays separate counts for completed and planned sessions" removed —
+  // the planned-session feature was deleted in commit 4a8499ec (session-form
+  // refactor). Sessions only have a single completed-count surface now.
 
   it("shows empty state CTA when no sessions exist", () => {
     (useDataFetcher as jest.Mock).mockImplementation((fetchFn) => {
@@ -448,7 +404,7 @@ describe("JournalView", () => {
     render(<JournalView />);
     expect(screen.getByText("No Sessions Yet")).toBeInTheDocument();
     expect(screen.getByText("Log Your First Session")).toBeInTheDocument();
-    expect(screen.getByText("Plan a Session")).toBeInTheDocument();
+    // "Plan a Session" CTA removed in commit 4a8499ec (session-form refactor).
   });
 
   it("displays correct session counts and statistics", () => {

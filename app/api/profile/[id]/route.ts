@@ -29,7 +29,6 @@ interface ProfileDetails {
   notif_forecast_alerts: boolean | null;
   notif_email_enabled: boolean | null;
   notif_inapp_enabled: boolean | null;
-  notif_session_invites: boolean | null;
   notif_likes: boolean | null;
   notif_follows: boolean | null;
   notif_reminders: boolean | null;
@@ -162,7 +161,6 @@ const profileHandler = withAuth(
         notif_forecast_alerts: details?.notif_forecast_alerts ?? true,
         notif_email_enabled: details?.notif_email_enabled ?? true,
         notif_inapp_enabled: details?.notif_inapp_enabled ?? true,
-        notif_session_invites: details?.notif_session_invites ?? true,
         notif_likes: details?.notif_likes ?? true,
         notif_follows: details?.notif_follows ?? true,
         notif_reminders: details?.notif_reminders ?? true,

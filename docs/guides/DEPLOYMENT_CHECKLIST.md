@@ -38,15 +38,13 @@
 2. `components/intel/intel-tab-simple.tsx` - Fixed subscription leak
 3. `hooks/use-comment-count.ts` - Stabilized supabase client
 4. `components/app-header.tsx` - Fixed refetch callback deps
-5. `app/inbox/page.tsx` - Fixed refetch callback deps
 
 **Performance Optimizations:**
-6. `lib/services/enhanced-forecast-service.ts` - Chunk size 24→100
+5. `lib/services/enhanced-forecast-service.ts` - Chunk size 24→100
 
 **New Utilities:**
-7. `hooks/use-session-invitations-subscription.ts` - Shared subscription hook
-8. `lib/utils/realtime-monitor.ts` - Subscription monitoring
-9. `lib/utils/beach-cache.ts` - Beach data caching
+6. `lib/utils/realtime-monitor.ts` - Subscription monitoring
+7. `lib/utils/beach-cache.ts` - Beach data caching
 
 **Documentation:**
 10. `CHANGELOG.md` - Complete change documentation

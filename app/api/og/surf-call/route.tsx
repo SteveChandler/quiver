@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
     // Build URLs for background image and logo
     const baseUrl = new URL(request.url).origin;
     const waveImageUrl = `${baseUrl}/surfer-wave-sample.jpg`;
-    const logoUrl = `${baseUrl}/logoQuiver.png`;
+    const logoUrl = `${baseUrl}/quiver-app-icon-128.png`;
 
     // Determine if we have a valid score
     const hasScore = score > 0;

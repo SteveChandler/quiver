@@ -358,13 +358,11 @@ const unsubscribe = subscriptionManager.subscribe(
 | `/api/intel/[id]/confirm` | POST/DELETE | Confirm intel | User |
 | `/api/intel/[id]/report` | POST | Report intel | User |
 
-### Session Planning (`/api/session-planner/*`)
+### Board Recommendations
 
 | Endpoint | Method | Purpose | Auth |
 |----------|--------|---------|------|
-| `/api/session-planner/gear-suggestions` | GET | Board recommendations | User |
-| `/api/session-planner/invitations` | GET/POST/PATCH | Session invites | User |
-| `/api/session-planner/optimal-times` | GET | Best time windows | User |
+| `/api/board-recommendations` | GET | Board recommendations | User |
 
 ---
 

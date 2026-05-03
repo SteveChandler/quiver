@@ -44,7 +44,6 @@ export function EditProfileModal({
         notif_push_enabled: profile.notif_push_enabled,
         notif_email_enabled: profile.notif_email_enabled,
         notif_inapp_enabled: profile.notif_inapp_enabled,
-        notif_session_invites: profile.notif_session_invites,
         notif_likes: profile.notif_likes,
         notif_follows: profile.notif_follows,
         notif_reminders: profile.notif_reminders,

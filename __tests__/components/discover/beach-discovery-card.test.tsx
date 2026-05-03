@@ -94,8 +94,6 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
     ...overrides,
   });
 
-  const mockOnPlanSession = jest.fn();
-
   beforeEach(() => {
     jest.clearAllMocks();
 
@@ -119,7 +117,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={jest.fn()}
         />
       );
 
@@ -137,7 +135,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={jest.fn()}
         />
       );
 
@@ -155,7 +153,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={jest.fn()}
         />
       );
 
@@ -177,7 +175,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={jest.fn()}
         />
       );
 
@@ -200,7 +198,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={jest.fn()}
         />
       );
 
@@ -218,7 +216,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={jest.fn()}
         />
       );
 
@@ -241,7 +239,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={jest.fn()}
         />
       );
 
@@ -260,7 +258,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={jest.fn()}
         />
       );
 
@@ -276,7 +274,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={jest.fn()}
         />
       );
 
@@ -293,7 +291,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={jest.fn()}
         />
       );
 
@@ -311,7 +309,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={jest.fn()}
         />
       );
 
@@ -328,7 +326,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={jest.fn()}
         />
       );
 
@@ -347,7 +345,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={jest.fn()}
         />
       );
 
@@ -366,32 +364,11 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={jest.fn()}
         />
       );
 
       expect(screen.getByText("6 miles away")).toBeInTheDocument();
-    });
-
-    it("should call onPlanSession when Plan Session button is clicked", async () => {
-      const user = userEvent.setup();
-      const startDate = new Date("2025-01-16T00:00:00Z");
-      const endDate = new Date("2025-01-16T03:00:00Z");
-      const recommendation = createMockRecommendation(startDate, endDate);
-
-      render(
-        <BeachDiscoveryCard
-          recommendation={recommendation}
-          rank={1}
-          onPlanSession={mockOnPlanSession}
-        />
-      );
-
-      const planButton = screen.getByRole("button", { name: /Plan Session/ });
-      await user.click(planButton);
-
-      expect(mockOnPlanSession).toHaveBeenCalledWith("beach-1");
-      expect(mockOnPlanSession).toHaveBeenCalledTimes(1);
     });
 
     it("should render View Beach link to the beach page", () => {
@@ -403,7 +380,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={jest.fn()}
         />
       );
 
@@ -441,7 +418,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={jest.fn()}
         />
       );
 
@@ -463,7 +440,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onPlanSession={mockOnPlanSession}
+          onLogSession={jest.fn()}
         />
       );
 

@@ -268,16 +268,15 @@ export function IntelMap({
     [user]
   );
 
-  // Handle plan session navigation
-  const handlePlanSession = useCallback(
+  // Handle log session navigation
+  const handleLogSession = useCallback(
     (post: IntelPostWithUser) => {
-      // Navigate to session planner with pre-filled location
       const searchParams = new URLSearchParams({
         lat: post.latitude.toString(),
         lng: post.longitude.toString(),
         location: `${post.title} (Intel)`,
       });
-      router.push(`/sessions/new?mode=plan&${searchParams.toString()}`);
+      router.push(`/sessions/new?${searchParams.toString()}`);
     },
     [router]
   );
@@ -365,7 +364,7 @@ export function IntelMap({
             setSelectedPost(null);
           }}
           onConfirm={handleConfirmPost}
-          onPlanSession={handlePlanSession}
+          onLogSession={handleLogSession}
           canConfirm={!!user && user.id !== selectedPost.user_id}
         />
       )}

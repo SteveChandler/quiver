@@ -125,7 +125,7 @@ describe("BeachDiscoveryCard - MatchScoreTeaser integration", () => {
       <BeachDiscoveryCard
         recommendation={mockRecommendation}
         rank={1}
-        onPlanSession={jest.fn()}
+        onLogSession={jest.fn()}
       />
     );
 
@@ -146,7 +146,7 @@ describe("BeachDiscoveryCard - MatchScoreTeaser integration", () => {
       <BeachDiscoveryCard
         recommendation={mockRecommendation}
         rank={1}
-        onPlanSession={jest.fn()}
+        onLogSession={jest.fn()}
       />
     );
 
@@ -178,7 +178,7 @@ describe("BeachDiscoveryCard - MatchScoreTeaser integration", () => {
       <BeachDiscoveryCard
         recommendation={mockRecommendation}
         rank={1}
-        onPlanSession={jest.fn()}
+        onLogSession={jest.fn()}
       />
     );
 
@@ -199,7 +199,7 @@ describe("BeachDiscoveryCard - MatchScoreTeaser integration", () => {
       <BeachDiscoveryCard
         recommendation={mockRecommendation}
         rank={1}
-        onPlanSession={jest.fn()}
+        onLogSession={jest.fn()}
       />
     );
 

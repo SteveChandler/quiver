@@ -45,6 +45,12 @@ const sampleRow = (
   height_offset_m: 0.111,
   height_offset_sample_count: 42,
   display_source: "face-Hs-transformer-v1",
+  wave_height_om_m: null,
+  wave_direction_deg: null,
+  v5_shadow_height_m: null,
+  v5_model_version: null,
+  direction_bucket: null,
+  om_bucket: null,
   ...overrides,
 });
 
@@ -137,6 +143,13 @@ describe("logDisplayPredictions", () => {
       // model_version falls back to display_source so the NOT NULL constraint
       // on ml_predictions_log.model_version is always satisfied.
       model_version: "face-Hs-transformer-v1",
+      // v5 shadow comparator columns: null when caller doesn't supply them.
+      wave_height_om: null,
+      wave_direction_deg: null,
+      v5_shadow_height_m: null,
+      v5_model_version: null,
+      direction_bucket: null,
+      om_bucket: null,
     });
   });
 

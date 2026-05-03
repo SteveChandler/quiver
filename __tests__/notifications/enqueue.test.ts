@@ -102,7 +102,7 @@ describe("enqueueNotification", () => {
     });
 
     const result = await enqueueNotification({
-      type: "session_invite",
+      type: "like",
       recipientUserId: "user-A",
       payload: { session_id: "sess-1" },
     });
@@ -117,9 +117,9 @@ describe("enqueueNotification", () => {
 
   it("returns enqueued=false reason=invalid_payload when payload fails registry schema (Phase 5e)", async () => {
     const result = await enqueueNotification({
-      type: "session_invite",
+      type: "like",
       recipientUserId: "user-A",
-      // session_invite requires session_id; pass an empty object.
+      // like requires session_id; pass an empty object.
       payload: {},
     });
 
@@ -160,26 +160,22 @@ describe("enqueueNotification", () => {
     });
 
     const result = await enqueueNotification({
-      type: "session_invite",
+      type: "like",
       recipientUserId: "user-A",
       actorUserId: "user-B",
       payload: {
         session_id: "sess-1",
         beach_name: "Mavericks",
-        arrival_time: "2026-05-01T07:00:00Z",
-        message: "lets surf",
       },
     });
 
     expect(result).toEqual({ enqueued: true, eventId: "evt-789" });
     expect(mockInsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        type: "session_invite",
+        type: "like",
         payload: {
           session_id: "sess-1",
           beach_name: "Mavericks",
-          arrival_time: "2026-05-01T07:00:00Z",
-          message: "lets surf",
         },
       })
     );

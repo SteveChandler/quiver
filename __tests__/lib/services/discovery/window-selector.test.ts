@@ -39,6 +39,13 @@ const mockBeachNoPrefs: Partial<Beach> = {
   preferred_tide_ft_max: null,
 };
 
+const mockBeachRisingTide: Partial<Beach> = {
+  ...mockBeach,
+  id: 'beach-3',
+  name: 'Rising Tide Beach',
+  preferred_tide_direction: 'rising',
+};
+
 // Helper to create forecast with defaults
 function createForecast(overrides: Partial<EnhancedForecastEntity>): EnhancedForecastEntity {
   return {
@@ -2300,6 +2307,74 @@ describe('sub-hour window refinement with peak centering', () => {
 
     // peakTime should be tracked
     expect(result!.peakTime).toBeDefined();
+  });
+
+  it('biases peakTime away from exact high tide when the spot prefers a rising tide', () => {
+    jest.setSystemTime(new Date('2024-01-15T14:00:00Z')); // 6am PST
+
+    const forecasts = [
+      createForecast({
+        id: 'forecast-0700',
+        beach_id: 'beach-3',
+        forecast_at: '2024-01-15T15:00:00Z',
+        forecast_date: '2024-01-15',
+        forecast_time: '07:00',
+        wave_height: '2.5',
+        wave_period: '8s',
+        wind_speed: '6',
+        tide_height: '1.9',
+        tide_status: 'Rising',
+        confidence_score: 78,
+      }),
+      createForecast({
+        id: 'forecast-0800',
+        beach_id: 'beach-3',
+        forecast_at: '2024-01-15T16:00:00Z',
+        forecast_date: '2024-01-15',
+        forecast_time: '08:00',
+        wave_height: '2.5',
+        wave_period: '8s',
+        wind_speed: '5',
+        tide_height: '2.4',
+        tide_status: 'Rising',
+        confidence_score: 80,
+      }),
+      createForecast({
+        id: 'forecast-1100',
+        beach_id: 'beach-3',
+        forecast_at: '2024-01-15T19:00:00Z',
+        forecast_date: '2024-01-15',
+        forecast_time: '11:00',
+        wave_height: '3.5',
+        wave_period: '12s',
+        wind_speed: '2',
+        tide_height: '3.5',
+        tide_status: 'High',
+        confidence_score: 92,
+      }),
+    ];
+
+    const sunTimesCache = new Map([
+      ['beach-3', {
+        sunrises: [new Date('2024-01-15T14:47:00Z')],
+        sunsets: [new Date('2024-01-16T01:00:00Z')],
+      }],
+    ]);
+
+    const result = selectBestWindow({
+      forecasts,
+      beach: mockBeachRisingTide as Beach,
+      sunTimesCache,
+      userPrefs: null,
+    });
+
+    expect(result).not.toBeNull();
+    expect(result!.peakTime).toBeDefined();
+    expect([
+      '2024-01-15T15:00:00.000Z',
+      '2024-01-15T16:00:00.000Z',
+    ]).toContain(result!.peakTime!.toISOString());
+    expect(result!.peakTime!.toISOString()).not.toBe('2024-01-15T19:00:00.000Z');
   });
 
   it('maintains minimum window duration of 1 hour', () => {

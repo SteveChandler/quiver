@@ -87,7 +87,7 @@ export function TideFAQSchema({ beachName }: { beachName: string }) {
     },
     {
       question: `What's the best tide for surfing at ${beachName}?`,
-      answer: `The best tide for surfing at ${beachName} depends on the break type. Our tide chart includes surf window analysis that identifies the 2–3 hour windows each day when tide direction and height combine for the best conditions. Check the 7-day outlook to plan sessions in advance.`,
+      answer: `The best tide for surfing at ${beachName} depends on the break type. Our tide chart includes surf window analysis that identifies the 2–3 hour windows each day when tide direction and height combine for the best conditions. Check the 7-day outlook before you paddle out.`,
     },
     {
       question: `How accurate are the tide predictions for ${beachName}?`,
@@ -142,12 +142,12 @@ export function QuiverFAQSchema() {
     {
       question: "How do I track surf sessions on Quiver?",
       answer:
-        "Tracking sessions is easy! Log in to your account, navigate to the journal section, and either plan a future session or log a completed one. Record details like beach location, conditions, wave quality, duration, and even add photos. Your sessions build your surf journal over time.",
+        "Tracking sessions is easy. Log in to your account, navigate to the journal section, and log a completed session. Record details like beach location, conditions, wave quality, duration, and even add photos. Your sessions build your surf journal over time.",
     },
     {
       question: "How do I find surf buddies?",
       answer:
-        "Finding surf buddies is one of Quiver's core features. Browse the community feed to see other surfers' sessions, follow surfers who frequent your favorite spots, and connect through planned sessions. You can also check who's surfing at specific beaches and join them.",
+        "Finding surf buddies is one of Quiver's core features. Browse the community feed to see other surfers' sessions, follow surfers who frequent your favorite spots, and use recent session activity to connect with people who surf the same breaks.",
     },
     {
       question: "Is Quiver free to use?",

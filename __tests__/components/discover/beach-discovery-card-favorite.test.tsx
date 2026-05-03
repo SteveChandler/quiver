@@ -96,7 +96,7 @@ describe("BeachDiscoveryCard - FavoriteButton integration", () => {
       <BeachDiscoveryCard
         recommendation={mockRecommendation}
         rank={1}
-        onPlanSession={jest.fn()}
+        onLogSession={jest.fn()}
       />
     );
 
@@ -109,7 +109,7 @@ describe("BeachDiscoveryCard - FavoriteButton integration", () => {
       <BeachDiscoveryCard
         recommendation={mockRecommendation}
         rank={1}
-        onPlanSession={jest.fn()}
+        onLogSession={jest.fn()}
       />
     );
 
@@ -122,7 +122,7 @@ describe("BeachDiscoveryCard - FavoriteButton integration", () => {
       <BeachDiscoveryCard
         recommendation={mockRecommendation}
         rank={1}
-        onPlanSession={jest.fn()}
+        onLogSession={jest.fn()}
       />
     );
 

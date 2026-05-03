@@ -141,15 +141,12 @@ interface ProfileRow {
   notif_push_enabled: boolean;
   notif_email_enabled: boolean;
   notif_inapp_enabled: boolean;
-  notif_session_invites: boolean;
   notif_likes: boolean;
   notif_follows: boolean;
   notif_reminders: boolean;
   notif_xp_updates: boolean;
   notif_forecast_alerts: boolean;
   notif_water_quality: boolean;
-  inapp_session_invites: boolean;
-  email_session_invites: boolean;
 }
 
 interface DeviceRow {
@@ -1008,7 +1005,7 @@ async function loadProfile(
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "id, display_name, timezone, notif_push_enabled, notif_email_enabled, notif_inapp_enabled, notif_session_invites, notif_likes, notif_follows, notif_reminders, notif_xp_updates, notif_forecast_alerts, notif_water_quality, inapp_session_invites, email_session_invites"
+      "id, display_name, timezone, notif_push_enabled, notif_email_enabled, notif_inapp_enabled, notif_likes, notif_follows, notif_reminders, notif_xp_updates, notif_forecast_alerts, notif_water_quality"
     )
     .eq("id", userId)
     .maybeSingle();

@@ -40,9 +40,18 @@ jest.mock('@/lib/supabase/server', () => ({
 
 // Mock preference-learning-service
 let mockUserPreferences: any = null;
-jest.mock('@/lib/services/preference-learning-service', () => ({
-  getUserSurfPreferences: jest.fn(() => Promise.resolve(mockUserPreferences)),
-}));
+jest.mock('@/lib/services/preference-learning-service', () => {
+  // Re-import the actual module so non-mocked exports (parseForecastNumber,
+  // parseWindDirection, normalizeTideStatus, etc.) keep working. Without this
+  // any caller that uses those helpers throws "is not a function" at runtime.
+  const actual = jest.requireActual<typeof import('@/lib/services/preference-learning-service')>(
+    '@/lib/services/preference-learning-service'
+  );
+  return {
+    ...actual,
+    getUserSurfPreferences: jest.fn(() => Promise.resolve(mockUserPreferences)),
+  };
+});
 
 // Mock implicit-preferences-service
 let mockImplicitPreferences: any = null;
