@@ -17,7 +17,6 @@ export type SeedResult =
   | {
       seeded: false;
       reason:
-        | "no_experience_level"
         | "already_has_rules"
         | "beach_not_found"
         | "beach_missing_coordinates"
@@ -39,11 +38,12 @@ export interface SeedDefaultRuleParams {
 const BEACH_META_COLUMNS =
   "id, name, slug, lat, lon, timezone, wind_offshore_deg, wind_offshore_tol_deg, aspect_deg, preferred_tide_ft_min, preferred_tide_ft_max, preferred_tide_direction, swell_window_center_deg, swell_window_halfwidth_deg";
 
-function pickPreset(level: ExperienceLevel): SeedPresetType | null {
-  if (!level) return null;
+function pickPreset(level: ExperienceLevel): SeedPresetType {
   if (level === "advanced" || level === "expert") return "clean_groundswell";
-  if (level === "beginner" || level === "intermediate") return "mellow_session";
-  return null;
+  // beginner, intermediate, null, undefined → safe default. We'd rather
+  // over-notify a stronger surfer with mellow conditions than leave any
+  // new user unreachable because experience_level wasn't captured.
+  return "mellow_session";
 }
 
 function nameForPreset(preset: SeedPresetType): string {
@@ -56,9 +56,10 @@ function nameForPreset(preset: SeedPresetType): string {
  * Seeds a single default alert rule on a user's home beach, tuned to their
  * experience level. Non-throwing: returns a structured result the caller logs.
  *
- * Idempotent — bails if the user already has any rule. Skips when
- * experience_level is null (we don't guess). Called from saveOnboardingData
- * after the profile update commits.
+ * Idempotent — bails if the user already has any rule. Falls back to
+ * mellow_session when experience_level is null/undefined so every new user
+ * is reachable. Called from saveOnboardingData (web) and
+ * /api/alerts/seed-default (native) after the profile update commits.
  */
 export async function seedDefaultRuleForUser(
   params: SeedDefaultRuleParams
@@ -67,9 +68,6 @@ export async function seedDefaultRuleForUser(
     params;
 
   const presetType = pickPreset(experienceLevel);
-  if (!presetType) {
-    return { seeded: false, reason: "no_experience_level" };
-  }
 
   const { count, error: countError } = await supabase
     .from("alert_rules")
@@ -118,8 +116,6 @@ export async function seedDefaultRuleForUser(
   };
 
   const preset = getPreset(presetType);
-  // AlertConditions is a structural shape; the DB column is Json. Cast once
-  // here so the insert payload typechecks cleanly.
   const conditions = (preset ? preset.buildConditions(beachMeta) : {}) as Json;
 
   const { data: inserted, error: insertError } = await supabase

@@ -237,8 +237,8 @@ export async function saveOnboardingData(data: OnboardingData) {
 
       // Seed a default alert rule on the user's home beach so they get a
       // retention hook ("you were right, I would've surfed") within their
-      // first days. Skipped when experience_level is null — we don't guess.
-      // Non-blocking: failures here must never fail onboarding.
+      // first days. Falls back to mellow_session when experience_level is
+      // null so every new user is reachable. Non-blocking.
       try {
         const { seedDefaultRuleForUser } = await import('@/lib/alerts/seed-default-rule');
         const seedResult = await seedDefaultRuleForUser({
