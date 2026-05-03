@@ -203,7 +203,7 @@ export function useBoardRecommendation({
         }
 
         const response = await fetch(
-          `/api/session-planner/gear-suggestions?${params.toString()}`
+          `/api/board-recommendations?${params.toString()}`
         );
 
         // Bail if component unmounted or a newer fetch was started

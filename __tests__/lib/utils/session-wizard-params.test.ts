@@ -13,7 +13,7 @@ import type { ValidatedSessionWizardParams } from '@/types/session-wizard';
 describe('parseSessionWizardParams', () => {
   it('should parse valid parameters successfully', () => {
     const params = new URLSearchParams({
-      mode: 'plan',
+      mode: 'log',
       beach: '123e4567-e89b-12d3-a456-426614174000',
       beachName: 'Pacific Beach',
       startTime: '2025-11-22T06:00:00.000Z',
@@ -25,7 +25,7 @@ describe('parseSessionWizardParams', () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.mode).toBe('plan');
+      expect(result.data.mode).toBe('log');
       expect(result.data.beachId).toBe('123e4567-e89b-12d3-a456-426614174000');
       expect(result.data.beachName).toBe('Pacific Beach');
       expect(result.data.startTime).toBeInstanceOf(Date);
@@ -36,7 +36,7 @@ describe('parseSessionWizardParams', () => {
 
   it('should handle missing optional parameters with defaults', () => {
     const params = new URLSearchParams({
-      mode: 'plan',
+      mode: 'log',
     });
 
     const result = parseSessionWizardParams(params);
@@ -45,7 +45,7 @@ describe('parseSessionWizardParams', () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       // Should provide defaults for graceful degradation
-      expect(result.defaults.mode).toBe('plan');
+      expect(result.defaults.mode).toBe('log');
       expect(result.defaults.targetStep).toBe(1); // Default
       expect(result.error).toBeTruthy(); // Some error message
     }
@@ -53,7 +53,7 @@ describe('parseSessionWizardParams', () => {
 
   it('should reject invalid UUID format', () => {
     const params = new URLSearchParams({
-      mode: 'plan',
+      mode: 'log',
       beach: 'not-a-uuid',
       beachName: 'Test Beach',
       startTime: '2025-11-22T06:00:00.000Z',
@@ -66,14 +66,14 @@ describe('parseSessionWizardParams', () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error).toContain('Invalid');
-      expect(result.defaults.mode).toBe('plan');
+      expect(result.defaults.mode).toBe('log');
       expect(result.defaults.targetStep).toBe(1);
     }
   });
 
   it('should reject invalid timestamp format', () => {
     const params = new URLSearchParams({
-      mode: 'plan',
+      mode: 'log',
       beach: '123e4567-e89b-12d3-a456-426614174000',
       beachName: 'Test Beach',
       startTime: 'not-a-timestamp',
@@ -92,7 +92,7 @@ describe('parseSessionWizardParams', () => {
 
   it('should reject end time before start time', () => {
     const params = new URLSearchParams({
-      mode: 'plan',
+      mode: 'log',
       beach: '123e4567-e89b-12d3-a456-426614174000',
       beachName: 'Test Beach',
       startTime: '2025-11-22T10:00:00.000Z',
@@ -110,7 +110,7 @@ describe('parseSessionWizardParams', () => {
 
   it('should reject session duration over 12 hours', () => {
     const params = new URLSearchParams({
-      mode: 'plan',
+      mode: 'log',
       beach: '123e4567-e89b-12d3-a456-426614174000',
       beachName: 'Test Beach',
       startTime: '2025-11-22T06:00:00.000Z',
@@ -128,7 +128,7 @@ describe('parseSessionWizardParams', () => {
 
   it('should reject step number out of range', () => {
     const params = new URLSearchParams({
-      mode: 'plan',
+      mode: 'log',
       beach: '123e4567-e89b-12d3-a456-426614174000',
       beachName: 'Test Beach',
       startTime: '2025-11-22T06:00:00.000Z',
@@ -146,7 +146,7 @@ describe('parseSessionWizardParams', () => {
 
   it('should sanitize beach name (trim whitespace)', () => {
     const params = new URLSearchParams({
-      mode: 'plan',
+      mode: 'log',
       beach: '123e4567-e89b-12d3-a456-426614174000',
       beachName: '  Pacific Beach  ', // Extra whitespace
       startTime: '2025-11-22T06:00:00.000Z',
@@ -162,27 +162,20 @@ describe('parseSessionWizardParams', () => {
     }
   });
 
-  it('should handle both "plan" and "log" modes', () => {
-    // Need to provide minimal prefill data for success
-    const baseParams = {
+  it('should accept "log" mode', () => {
+    const params = new URLSearchParams({
+      mode: 'log',
       beach: '123e4567-e89b-12d3-a456-426614174000',
       beachName: 'Test Beach',
       startTime: '2025-11-22T06:00:00.000Z',
       endTime: '2025-11-22T10:00:00.000Z',
       step: '1',
-    };
+    });
 
-    const planParams = new URLSearchParams({ ...baseParams, mode: 'plan' });
-    const logParams = new URLSearchParams({ ...baseParams, mode: 'log' });
+    const result = parseSessionWizardParams(params);
 
-    const planResult = parseSessionWizardParams(planParams);
-    const logResult = parseSessionWizardParams(logParams);
-
-    expect(planResult.success).toBe(true);
-    expect(logResult.success).toBe(true);
-
-    if (planResult.success) expect(planResult.data.mode).toBe('plan');
-    if (logResult.success) expect(logResult.data.mode).toBe('log');
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.mode).toBe('log');
   });
 
   it('should reject invalid mode', () => {
@@ -198,7 +191,7 @@ describe('parseSessionWizardParams', () => {
 
 describe('buildSessionWizardUrl', () => {
   const validParams: ValidatedSessionWizardParams = {
-    mode: 'plan',
+    mode: 'log',
     quick: false,
     beachId: '123e4567-e89b-12d3-a456-426614174000',
     beachName: 'Pacific Beach',
@@ -211,7 +204,7 @@ describe('buildSessionWizardUrl', () => {
     const url = buildSessionWizardUrl(validParams);
 
     expect(url).toContain('/sessions/new?');
-    expect(url).toContain('mode=plan');
+    expect(url).toContain('mode=log');
     expect(url).toContain('beach=123e4567-e89b-12d3-a456-426614174000');
     expect(url).toContain('beachName=Pacific+Beach');
     expect(url).toContain('startTime=2025-11-22T06%3A00%3A00.000Z');
@@ -248,8 +241,8 @@ describe('buildSessionWizardUrl', () => {
       expect(result.data.beachName).toBe(validParams.beachName);
       expect(result.data.targetStep).toBe(validParams.targetStep);
       // Timestamps should be equivalent (allow small millisecond differences)
-      expect(Math.abs(result.data.startTime.getTime() - validParams.startTime.getTime())).toBeLessThan(1000);
-      expect(Math.abs(result.data.endTime.getTime() - validParams.endTime.getTime())).toBeLessThan(1000);
+      expect(Math.abs(result.data.startTime!.getTime() - validParams.startTime!.getTime())).toBeLessThan(1000);
+      expect(Math.abs(result.data.endTime!.getTime() - validParams.endTime!.getTime())).toBeLessThan(1000);
     }
   });
 });
@@ -265,7 +258,7 @@ describe('hasWizardParams', () => {
 
   it('should return true when mode parameter is present', () => {
     const params = new URLSearchParams({
-      mode: 'plan',
+      mode: 'log',
     });
 
     expect(hasWizardParams(params)).toBe(true);
@@ -296,7 +289,7 @@ describe('hasWizardParams', () => {
 
 describe('extractFormState', () => {
   const validParams: ValidatedSessionWizardParams = {
-    mode: 'plan',
+    mode: 'log',
     quick: false,
     beachId: '123e4567-e89b-12d3-a456-426614174000',
     beachName: 'Pacific Beach',
@@ -332,7 +325,7 @@ describe('extractFormState', () => {
 describe('URL length validation', () => {
   it('should create URLs under 300 characters', () => {
     const params: ValidatedSessionWizardParams = {
-      mode: 'plan',
+      mode: 'log',
       quick: false,
       beachId: '123e4567-e89b-12d3-a456-426614174000',
       beachName: 'Very Long Beach Name With Many Words',
@@ -351,7 +344,7 @@ describe('URL length validation', () => {
 describe('Security validation', () => {
   it('should reject XSS attempts in beach name', () => {
     const params = new URLSearchParams({
-      mode: 'plan',
+      mode: 'log',
       beach: '123e4567-e89b-12d3-a456-426614174000',
       beachName: '<script>alert("XSS")</script>',
       startTime: '2025-11-22T06:00:00.000Z',
@@ -372,7 +365,7 @@ describe('Security validation', () => {
 
   it('should reject SQL injection attempts in UUID', () => {
     const params = new URLSearchParams({
-      mode: 'plan',
+      mode: 'log',
       beach: "'; DROP TABLE beaches; --",
       beachName: 'Test Beach',
       startTime: '2025-11-22T06:00:00.000Z',
@@ -388,7 +381,7 @@ describe('Security validation', () => {
 
   it('should reject excessively long beach names', () => {
     const params = new URLSearchParams({
-      mode: 'plan',
+      mode: 'log',
       beach: '123e4567-e89b-12d3-a456-426614174000',
       beachName: 'A'.repeat(201), // Over 200 char limit
       startTime: '2025-11-22T06:00:00.000Z',

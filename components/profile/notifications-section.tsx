@@ -4,7 +4,6 @@ import {
   Bell,
   Mail,
   AppWindow,
-  UserPlus,
   Heart,
   Users,
   Clock,
@@ -75,13 +74,6 @@ export function NotificationsSection({ control }: NotificationsSectionProps) {
             name="notif_forecast_alerts"
             label="Forecast Alerts"
             icon={CloudSun}
-            variant="row"
-          />
-          <FormSwitch
-            control={control}
-            name="notif_session_invites"
-            label="Session Invites"
-            icon={UserPlus}
             variant="row"
           />
           <FormSwitch

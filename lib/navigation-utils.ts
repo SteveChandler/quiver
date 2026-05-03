@@ -131,12 +131,7 @@ export const appNavigation = {
   /**
    * Navigate to log session page
    */
-  toLogSession: (): string => "/sessions/new?mode=log",
-
-  /**
-   * Navigate to plan session page
-   */
-  toPlanSession: (): string => "/sessions/new?mode=plan",
+  toLogSession: (): string => "/sessions/new",
 
   /**
    * Navigate to map page
@@ -171,12 +166,5 @@ export const appNavigation = {
    */
   navigateToLogSession: (router: AppRouterInstance): void => {
     router.push(appNavigation.toLogSession());
-  },
-
-  /**
-   * Navigate to plan session page
-   */
-  navigateToPlanSession: (router: AppRouterInstance): void => {
-    router.push(appNavigation.toPlanSession());
   },
 } as const;

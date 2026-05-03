@@ -107,8 +107,8 @@ describe("ZeroState", () => {
           href: "/sessions/new",
         }}
         secondaryAction={{
-          label: "Plan Session",
-          href: "/sessions/new?mode=plan",
+          label: "Discover",
+          href: "/discover",
         }}
       />
     );
@@ -117,7 +117,7 @@ describe("ZeroState", () => {
       screen.getByRole("link", { name: /log session/i })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /plan session/i })
+      screen.getByRole("link", { name: /discover/i })
     ).toBeInTheDocument();
   });
 

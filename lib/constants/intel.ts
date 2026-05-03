@@ -68,7 +68,7 @@ export const INTEL_UI_TEXT = {
   POST_BUTTON: "+ Intel",
   CONFIRM_BUTTON: "Confirm",
   CONFIRMED_BUTTON: "Confirmed",
-  PLAN_SESSION_BUTTON: "Plan Session Here",
+  LOG_SESSION_BUTTON: "Log Session Here",
   FILTER_ALL: "All Tags",
   EMPTY_STATE: {
     TITLE: "No intel posts found",

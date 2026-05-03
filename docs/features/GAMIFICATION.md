@@ -53,7 +53,6 @@ Authoritative reference for Quiver's gamification system: current status, conden
   - Boards: `actions/board-actions.ts` (create board)
   - Intel: `actions/intel-actions.ts` (post, confirm; author XP on confirmations)
   - Likes: `actions/like-actions.ts` (author XP on likes)
-  - Invites: `app/api/session-planner/invitations/route.ts` (invite XP on send)
 
 ---
 
@@ -84,28 +83,23 @@ Authoritative reference for Quiver's gamification system: current status, conden
 
 ## Next Steps (To Complete)
 
-1) Session participants on accept
-   - Where: `app/api/session-planner/invitations/route.ts` (PATCH)
-   - Action: When invitation is accepted, insert into `session_participants (session_id, user_id)` if absent
-   - Accept: Profile's team badges get accurate counts; duplicate-safe; revalidate affected pages
-
-2) Badge unlock E2E scenarios
+1) Badge unlock E2E scenarios
    - Add end-to-end tests that perform actions and assert unlock toasts and profile badge presence
    - Cover at least: `first_ride`, `quiver_starter`, `locals_tip` (via confirmation), `sunrise_chaser`
 
-3) Streaks and dawn patrol visualization
+2) Streaks and dawn patrol visualization
    - Enhance profile UI to surface `consecutive_days` and early-session counts from `getUserStatsForBadges`
    - Accept: User sees streak length and progress toward dawn patrol badges
 
-4) Leaderboard (optional MVP)
+3) Leaderboard (optional MVP)
    - Simple weekly/monthly XP ranking view
    - Accept: Query `xp_events` within window; list top N with avatars
 
-5) Performance polish
+4) Performance polish
    - Memoize heavy selectors, consider caching gamification status per session
    - Accept: No noticeable lag on profile; minimal Supabase roundtrips
 
-6) Optional API: `/api/gamification/badges`
+5) Optional API: `/api/gamification/badges`
    - Return `badge_definitions` (+ user's unlocked if authed)
    - Enables simpler clients and E2E checks
 

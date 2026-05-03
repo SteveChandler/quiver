@@ -54,7 +54,7 @@ describe('Gamification Actions', () => {
         mockWithAuthenticatedAction(mockState, tracker)
       );
 
-      const result = await trackXP('plan_session');
+      const result = await trackXP('log_session');
 
       expect(result.success).toBe(true);
       expect(result.data?.xp_gained).toBe(50);
@@ -64,7 +64,7 @@ describe('Gamification Actions', () => {
       
       // Verify XP was tracked and event logged
       expectXPTracked(tracker, 50);
-      expectXPEventLogged(tracker, 'plan_session');
+      expectXPEventLogged(tracker, 'log_session');
     });
 
     test('should track XP for existing user', async () => {
@@ -74,7 +74,7 @@ describe('Gamification Actions', () => {
         mockWithAuthenticatedAction(mockState, tracker)
       );
 
-      const result = await trackXP('plan_session');
+      const result = await trackXP('log_session');
 
       expect(result.success).toBe(true);
       expect(result.data?.xp_gained).toBe(50);
@@ -84,7 +84,7 @@ describe('Gamification Actions', () => {
       expect(result.data?.level_title).toBe('Grom');
       
       expectXPTracked(tracker, 100);
-      expectXPEventLogged(tracker, 'plan_session');
+      expectXPEventLogged(tracker, 'log_session');
     });
 
     test('should detect level up when threshold reached', async () => {
@@ -94,7 +94,7 @@ describe('Gamification Actions', () => {
         mockWithAuthenticatedAction(mockState, tracker)
       );
 
-      const result = await trackXP('plan_session');
+      const result = await trackXP('log_session');
 
       expect(result.success).toBe(true);
       expect(result.data?.total_xp).toBe(140);
@@ -113,7 +113,7 @@ describe('Gamification Actions', () => {
         mockWithAuthenticatedAction(mockState, tracker)
       );
 
-      const result = await trackXP('plan_session');
+      const result = await trackXP('log_session');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Database connection failed');
@@ -134,7 +134,7 @@ describe('Gamification Actions', () => {
 
     test('should award correct XP amounts for different actions', async () => {
       const testCases = [
-        { action: 'plan_session', expectedXP: 50 },
+        { action: 'log_session', expectedXP: 50 },
         { action: 'add_board', expectedXP: 30 },
         { action: 'post_beach_intel', expectedXP: 50 },
         { action: 'invite_friend', expectedXP: 100 },

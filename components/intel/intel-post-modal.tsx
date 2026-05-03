@@ -41,7 +41,7 @@ interface IntelPostModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (postId: string, isCurrentlyConfirmed: boolean) => void;
-  onPlanSession: (post: IntelPostWithUser) => void;
+  onLogSession: (post: IntelPostWithUser) => void;
   canConfirm: boolean;
 }
 
@@ -50,7 +50,7 @@ export function IntelPostModal({
   isOpen,
   onClose,
   onConfirm,
-  onPlanSession,
+  onLogSession,
   canConfirm,
 }: IntelPostModalProps) {
   const [isConfirming, setIsConfirming] = useState(false);
@@ -72,8 +72,8 @@ export function IntelPostModal({
     }
   };
 
-  const handlePlanSession = () => {
-    onPlanSession(post);
+  const handleLogSession = () => {
+    onLogSession(post);
     onClose();
   };
 
@@ -228,16 +228,16 @@ export function IntelPostModal({
               </Button>
             )}
 
-            {/* Plan Session Button */}
+            {/* Log Session Button */}
             <Button
               variant="outline"
               size="sm"
-              onClick={handlePlanSession}
+              onClick={handleLogSession}
               className="flex-1"
             >
               <div className="flex items-center gap-2">
                 <ExternalLink className="h-4 w-4" />
-                <span>{INTEL_UI_TEXT.PLAN_SESSION_BUTTON}</span>
+                <span>{INTEL_UI_TEXT.LOG_SESSION_BUTTON}</span>
               </div>
             </Button>
           </div>

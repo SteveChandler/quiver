@@ -30,33 +30,9 @@ describe("session-data-builder", () => {
     forecastAccuracy: "accurate",
   };
 
-  describe("buildSessionPayload - planned session", () => {
-    it("returns only base fields for a planned session", () => {
-      const payload = buildSessionPayload(fullInput, userId, true);
-
-      expect(payload.status).toBe("planned");
-      expect(payload.beach_name).toBe("Blacks Beach");
-      expect(payload.beach_id).toBe("beach-456");
-      expect(payload.board_id).toBe("board-789");
-      expect(payload.user_id).toBe(userId);
-      expect(payload.notes).toBe("Great session");
-      expect(payload.arrival_time).toBeDefined();
-
-      // Condition and rating fields should NOT be present
-      expect(payload.wave_height_ft).toBeUndefined();
-      expect(payload.wind_speed_mph).toBeUndefined();
-      expect(payload.wind_direction).toBeUndefined();
-      expect(payload.tide_height_ft).toBeUndefined();
-      expect(payload.tide_status).toBeUndefined();
-      expect(payload.forecast_accuracy).toBeUndefined();
-      expect(payload.duration_minutes).toBeUndefined();
-      expect(payload.wave_quality).toBeUndefined();
-    });
-  });
-
   describe("buildSessionPayload - logged session", () => {
     it("includes all 6 condition fields when set", () => {
-      const payload = buildSessionPayload(fullInput, userId, false);
+      const payload = buildSessionPayload(fullInput, userId);
 
       expect(payload.status).toBe("completed");
 
@@ -70,7 +46,7 @@ describe("session-data-builder", () => {
     });
 
     it("includes rating and quality fields", () => {
-      const payload = buildSessionPayload(fullInput, userId, false);
+      const payload = buildSessionPayload(fullInput, userId);
 
       expect(payload.duration_minutes).toBe(150);
       expect(payload.wave_quality).toBe(4);
@@ -86,7 +62,7 @@ describe("session-data-builder", () => {
         selectedDate: "2026-02-12",
       };
 
-      const payload = buildSessionPayload(minimalInput, userId, false);
+      const payload = buildSessionPayload(minimalInput, userId);
 
       expect(payload.wave_height_ft).toBeUndefined();
       expect(payload.wind_speed_mph).toBeUndefined();
@@ -104,7 +80,7 @@ describe("session-data-builder", () => {
         tideHeight: 0,
       };
 
-      const payload = buildSessionPayload(zeroInput, userId, false);
+      const payload = buildSessionPayload(zeroInput, userId);
 
       // Zero is a valid value and should be included
       expect(payload.wave_height_ft).toBe(0);
@@ -118,7 +94,7 @@ describe("session-data-builder", () => {
         selectedBeach: "Windansea",
         waterTemp: "warm",
       };
-      const payload1 = buildSessionPayload(badTemp, userId, false);
+      const payload1 = buildSessionPayload(badTemp, userId);
       expect(payload1.water_temp).toBeUndefined();
 
       // Empty string water temp
@@ -126,7 +102,7 @@ describe("session-data-builder", () => {
         selectedBeach: "Windansea",
         waterTemp: "",
       };
-      const payload2 = buildSessionPayload(emptyTemp, userId, false);
+      const payload2 = buildSessionPayload(emptyTemp, userId);
       expect(payload2.water_temp).toBeUndefined();
 
       // Valid water temp
@@ -134,18 +110,13 @@ describe("session-data-builder", () => {
         selectedBeach: "Windansea",
         waterTemp: "58.5",
       };
-      const payload3 = buildSessionPayload(goodTemp, userId, false);
+      const payload3 = buildSessionPayload(goodTemp, userId);
       expect(payload3.water_temp).toBe(58.5);
     });
 
     it("uses arrivalTimeOverride when provided", () => {
       const overrideTime = "2026-02-12 14:00:00+00";
-      const payload = buildSessionPayload(
-        fullInput,
-        userId,
-        false,
-        overrideTime
-      );
+      const payload = buildSessionPayload(fullInput, userId, overrideTime);
 
       expect(payload.arrival_time).toBe(overrideTime);
     });
@@ -179,7 +150,7 @@ describe("session-data-builder", () => {
         selectedBeach: "Blacks Beach",
         selectedGoals: ["Pop-ups", "Cutbacks"],
       };
-      const payload = buildSessionPayload(input, userId, false);
+      const payload = buildSessionPayload(input, userId);
       expect(payload.goals).toEqual(["Pop-ups", "Cutbacks"]);
     });
 
@@ -188,7 +159,7 @@ describe("session-data-builder", () => {
         selectedBeach: "Blacks Beach",
         skillRatings: { "Pop-ups": 4, Cutbacks: 3 },
       };
-      const payload = buildSessionPayload(input, userId, false);
+      const payload = buildSessionPayload(input, userId);
       expect(payload.skill_ratings).toEqual({ "Pop-ups": 4, Cutbacks: 3 });
     });
 
@@ -197,7 +168,7 @@ describe("session-data-builder", () => {
         selectedBeach: "Blacks Beach",
         selectedGoals: [],
       };
-      const payload = buildSessionPayload(input, userId, false);
+      const payload = buildSessionPayload(input, userId);
       expect(payload.goals).toBeUndefined();
     });
 
@@ -206,7 +177,7 @@ describe("session-data-builder", () => {
         selectedBeach: "Blacks Beach",
         skillRatings: {},
       };
-      const payload = buildSessionPayload(input, userId, false);
+      const payload = buildSessionPayload(input, userId);
       expect(payload.skill_ratings).toBeUndefined();
     });
 
@@ -219,7 +190,7 @@ describe("session-data-builder", () => {
         selectedGoals: ["Pop-ups"],
         skillRatings: { "Pop-ups": 4 },
       };
-      const payload = buildSessionPayload(input, userId, false);
+      const payload = buildSessionPayload(input, userId);
       expect(payload.beach_name).toBe("Blacks Beach");
       expect(payload.beach_id).toBe("beach-456");
       expect(payload.rating).toBe(5);
@@ -234,21 +205,11 @@ describe("session-data-builder", () => {
         selectedGoals: ["Duck Dives"],
         skillRatings: {},
       };
-      const payload = buildSessionPayload(input, userId, false);
+      const payload = buildSessionPayload(input, userId);
       expect(payload.goals).toEqual(["Duck Dives"]);
       expect(payload.skill_ratings).toBeUndefined();
     });
 
-    it("does not include goals in planned sessions", () => {
-      const input: SessionPayloadInput = {
-        selectedBeach: "Blacks Beach",
-        selectedGoals: ["Pop-ups"],
-        skillRatings: { "Pop-ups": 5 },
-      };
-      const payload = buildSessionPayload(input, userId, true);
-      expect(payload.goals).toBeUndefined();
-      expect(payload.skill_ratings).toBeUndefined();
-    });
   });
 
   describe("combineDateAndTime", () => {

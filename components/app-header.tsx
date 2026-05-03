@@ -8,7 +8,6 @@ import {
   Loader2,
   User,
   LogOut,
-  Bell,
   Search,
   Menu,
   Home,
@@ -24,9 +23,6 @@ import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 
 import { useCachedProfile } from "@/hooks/use-cached-profile";
-import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { Badge } from "@/components/ui/badge";
-import { useSessionInvitationsSubscription } from "@/hooks/use-session-invitations-subscription";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import {
   trackSignupCtaClick,
@@ -48,12 +44,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-
-/** Shape of invitation data from the API */
-interface Invitation {
-  status: string;
-  seen_at: string | null;
-}
 
 /**
  * Detect whether the current pathname is a beach-context page (a covered
@@ -80,43 +70,6 @@ export function AppHeader() {
 
   // Use shared profile loading hook
   const { profile, profileLoading } = useCachedProfile();
-
-  // Unread notification count (pending invitations)
-  const fetchNotificationsCount = useCallback(async () => {
-    if (!user) return 0;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-    try {
-      const res = await fetch(
-        "/api/session-planner/invitations?type=received",
-        {
-          cache: "no-store",
-          signal: controller.signal,
-        }
-      );
-      if (!res.ok) return 0;
-      const json = await res.json();
-      const invitations: Invitation[] = json?.data?.invitations || [];
-      return invitations.filter(
-        (i) => i.status === "pending" && (!i.seen_at || i.seen_at === null)
-      ).length;
-    } catch (e) {
-      if (process.env.NODE_ENV === "development") {
-        console.warn("Notification fetch failed:", e);
-      }
-      return 0;
-    } finally {
-      clearTimeout(timeout);
-    }
-  }, [user]);
-
-  const { data: unreadCountData, refetch: refetchUnreadCount } =
-    useDataFetcher<number>(fetchNotificationsCount, { skip: !user });
-  const unreadCount = unreadCountData ?? 0;
-
-  // Use shared subscription hook to avoid duplicate subscriptions
-  // This replaces the inline subscription logic that was duplicating inbox page subscriptions
-  useSessionInvitationsSubscription(user?.id, user?.email, refetchUnreadCount);
 
   // Search state for header search bar
   const [searchQuery, setSearchQuery] = useState("");
@@ -317,37 +270,6 @@ export function AppHeader() {
             </Button>
           )}
 
-          {/* Notification Bell - Authenticated Users Only */}
-          {user && (
-            <Link href="/inbox" className="relative">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="relative h-8 w-8 p-0 rounded-full hover:bg-muted transition-colors duration-200"
-                aria-label={
-                  unreadCount > 0
-                    ? `Notifications, ${unreadCount} unread`
-                    : "Notifications"
-                }
-                data-testid="notification-bell-button"
-              >
-                <Bell
-                  className="h-5 w-5 text-foreground/70 hover:text-foreground transition-colors"
-                  data-testid="notification-bell-icon"
-                />
-                {unreadCount > 0 && (
-                  <Badge
-                    variant="destructive"
-                    className="absolute -top-1 -right-1 h-5 min-w-5 px-1 text-xs font-semibold border-2 border-background"
-                    data-testid="notification-badge"
-                  >
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </Badge>
-                )}
-              </Button>
-            </Link>
-          )}
-
           {/* Mobile Hamburger Menu - All Users, Hidden on Desktop */}
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
@@ -412,28 +334,6 @@ export function AppHeader() {
                       </Link>
                     ))}
                   </nav>
-
-                  {/* Quick Actions */}
-                  <div className="border-t border-border" />
-                  <div className="py-4 flex flex-col gap-1">
-                    <Link
-                      href="/inbox"
-                      className="flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium text-foreground/80 hover:bg-muted transition-colors"
-                      onClick={() => setMobileMenuOpen(false)}
-                      data-testid="mobile-nav-notifications"
-                    >
-                      <Bell className="h-5 w-5" />
-                      <span>Notifications</span>
-                      {unreadCount > 0 && (
-                        <Badge
-                          variant="destructive"
-                          className="ml-auto h-5 min-w-5"
-                        >
-                          {unreadCount > 9 ? "9+" : unreadCount}
-                        </Badge>
-                      )}
-                    </Link>
-                  </div>
 
                   {/* Log Out */}
                   <div className="border-t border-border" />

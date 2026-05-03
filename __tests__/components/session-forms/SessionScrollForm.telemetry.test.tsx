@@ -24,6 +24,12 @@ jest.mock("@/hooks/use-track-event", () => ({
   useTrackEvent: () => ({ track: mockTrack }),
 }));
 
+// Form-level conditions prefill is exercised by its own unit test. Stub here so
+// SessionScrollForm.tsx doesn't pull in the forecast fetcher transitively.
+jest.mock("@/hooks/use-session-conditions-prefill", () => ({
+  useSessionConditionsPrefill: jest.fn(),
+}));
+
 // Controllable useSessionForm mock. Tests mutate `currentFormState` and then
 // trigger a rerender so the hook returns the updated state.
 const defaultFormState: SessionFormState = {
@@ -44,13 +50,11 @@ const defaultFormState: SessionFormState = {
   waveTypes: [],
   isPublic: true,
   isMuted: false,
-  invitees: [],
   selectedGoals: [],
   skillRatings: {},
 };
 
 let currentFormState: SessionFormState = { ...defaultFormState };
-let currentIsPlanning = false;
 
 jest.mock("@/hooks/use-session-form", () => ({
   useSessionForm: ({ initialMode }: { initialMode: SessionFormMode }) => ({
@@ -69,7 +73,6 @@ jest.mock("@/hooks/use-session-form", () => ({
     updateField: jest.fn(),
     resetForm: jest.fn(),
     refreshBoards: jest.fn(),
-    isPlanning: currentIsPlanning,
   }),
 }));
 
@@ -92,9 +95,6 @@ jest.mock("@/components/session-forms/PhotoSelectionSection", () => ({
 }));
 jest.mock("@/components/session-forms/NotesSection", () => ({
   NotesSection: () => <div data-testid="stub-notes" />,
-}));
-jest.mock("@/components/session-forms/GoalsSection", () => ({
-  GoalsSection: () => <div data-testid="stub-goals" />,
 }));
 jest.mock("@/components/session-forms/VisibilitySection", () => ({
   VisibilitySection: () => <div data-testid="stub-visibility" />,
@@ -155,7 +155,6 @@ describe("SessionScrollForm telemetry", () => {
     jest.clearAllMocks();
     jest.useFakeTimers();
     resetFormState();
-    currentIsPlanning = false;
     // Deterministic Date.now so duration_ms assertions are stable.
     let current = 1_000_000;
     nowSpy = jest.spyOn(Date, "now").mockImplementation(() => {
@@ -198,18 +197,6 @@ describe("SessionScrollForm telemetry", () => {
       expect(getEvents("session_log_start")).toHaveLength(1);
     });
 
-    it("does NOT fire in plan mode", () => {
-      currentIsPlanning = true;
-      resetFormState({
-        selectedBeachId: "beach-abc",
-        selectedBeach: "Ocean Beach",
-      });
-
-      renderForm({ initialMode: "plan" });
-
-      expect(getEvents("session_log_start")).toHaveLength(0);
-      expect(getEvents("session_log_beach_selected")).toHaveLength(0);
-    });
   });
 
   describe("session_log_beach_selected", () => {
@@ -289,16 +276,6 @@ describe("SessionScrollForm telemetry", () => {
       expect(payload.metadata.duration_ms).toBeGreaterThanOrEqual(0);
     });
 
-    it("does NOT fire abandon if the form was opened in plan mode", () => {
-      currentIsPlanning = true;
-      resetFormState({ selectedBeachId: "beach-xyz" });
-      const { unmount } = renderForm({ initialMode: "plan" });
-
-      unmount();
-
-      expect(getEvents("session_log_abandon")).toHaveLength(0);
-    });
-
     it("carries max_step_reached reflecting the deepest step (beach_select)", () => {
       // Mount with no beach so hasTrackedOpenRef flips but maxStepReached stays "none".
       resetFormState();
@@ -374,10 +351,11 @@ describe("SessionScrollForm telemetry", () => {
 
     it("does NOT fire abandon when hasSubmittedRef is set via celebration dismiss", () => {
       const onComplete = jest.fn();
-      // canSave requires selectedBeachId + selectedDate; both present.
+      // Log-mode canSave requires selectedBeachId + selectedDate + overallRating.
       resetFormState({
         selectedBeachId: "beach-1",
         selectedDate: "2026-04-06",
+        overallRating: "4",
       });
       const { unmount } = renderForm({ onComplete });
 

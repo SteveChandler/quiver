@@ -55,17 +55,6 @@ export function ActivityText({ activity, onUserClick }: ActivityTextProps) {
         </span>
       );
 
-    case "session_invite.created":
-      return (
-        <span>
-          {UserName} invited you to surf at{" "}
-          <strong>{metadata.beachName || "a beach"}</strong>
-          {metadata.when && (
-            <span> — {new Date(metadata.when).toLocaleString()}</span>
-          )}
-        </span>
-      );
-
     case "user_followed":
       return (
         <span>

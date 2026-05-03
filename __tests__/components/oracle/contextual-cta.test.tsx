@@ -95,6 +95,43 @@ describe("ContextualCTA", () => {
       expect(buttons.length).toBeGreaterThanOrEqual(1);
     });
 
+    it("fallback secondary row offers 'Log a session', not 'Share your session'", () => {
+      render(
+        <ContextualCTA
+          {...makeProps({
+            hasHomeBeach: true,
+            hasSessionToday: false,
+            conditionsGood: false,
+            hasFollows: false,
+          })}
+        />
+      );
+      expect(
+        screen.getByRole("button", { name: /log a session/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /share your session/i })
+      ).not.toBeInTheDocument();
+    });
+
+    it("calls onLogSession when fallback 'Log a session' secondary button is clicked", async () => {
+      const user = userEvent.setup();
+      const onLogSession = jest.fn();
+      render(
+        <ContextualCTA
+          {...makeProps({
+            hasHomeBeach: true,
+            hasSessionToday: false,
+            conditionsGood: false,
+            hasFollows: false,
+            onLogSession,
+          })}
+        />
+      );
+      await user.click(screen.getByRole("button", { name: /log a session/i }));
+      expect(onLogSession).toHaveBeenCalledTimes(1);
+    });
+
     it("'Set your home beach' takes priority over a logged session today", () => {
       render(
         <ContextualCTA

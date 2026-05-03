@@ -41,8 +41,10 @@ import type { Board, SessionWithDetails, Profile } from "@/types/database";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
+import { ShareSheet } from "@/components/share";
 import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
 import { track } from "@/lib/analytics";
+import { buildSessionShareSheetData } from "@/lib/share/session-share";
 
 import { FeedHighlight } from "@/components/profile/FeedHighlight";
 import { SetHomeBreakCta } from "@/components/profile/set-home-break-cta";
@@ -142,7 +144,10 @@ function ProfileViewContent() {
     const profileData = await gateway.users.profile.get(user.id);
 
     setProfile(profileData as Profile);
-    const userSessions = await gateway.users.sessions.list(user.id, 5);
+    const userSessions = await gateway.users.sessions.list(
+      user.id,
+      highlightSessionId ? 20 : 5
+    );
     setSessions(userSessions as SessionWithDetails[]);
 
     // Fetch user boards
@@ -154,7 +159,7 @@ function ProfileViewContent() {
       sessions: userSessions,
       boards: userBoards,
     };
-  }, [user]);
+  }, [user, highlightSessionId]);
 
   const {
     loading: dataLoading,
@@ -233,6 +238,13 @@ function ProfileViewContent() {
       });
     }
   }, [preferences?.confidence, preferences?.sample_size, preferences]);
+
+  const highlightedSession = highlightSessionId
+    ? sessions.find((session) => session.id === highlightSessionId) ?? null
+    : null;
+  const highlightShareData = highlightedSession
+    ? buildSessionShareSheetData(highlightedSession)
+    : null;
 
   // Show loading state while checking authentication
   if (authLoading || (dataLoading && !error && !fetchError)) {
@@ -534,7 +546,11 @@ function ProfileViewContent() {
                     {highlightSessionId && (
                       <FeedHighlight
                         sessionId={highlightSessionId}
-                        onShare={() => setHighlightShareOpen(true)}
+                        onShare={() => {
+                          if (highlightShareData) {
+                            setHighlightShareOpen(true);
+                          }
+                        }}
                         onDismiss={() => {
                           // Clean the highlight param from the URL without a full navigation
                           const params = new URLSearchParams(searchParams?.toString() ?? "");
@@ -614,6 +630,19 @@ function ProfileViewContent() {
           </>
         )}
       </main>
+
+      {highlightShareData && (
+        <ShareSheet
+          open={highlightShareOpen}
+          onOpenChange={setHighlightShareOpen}
+          type="session"
+          imageUrl={highlightShareData.imageUrl}
+          filename={highlightShareData.filename}
+          title={highlightShareData.title}
+          text={highlightShareData.text}
+          shareUrl={highlightShareData.shareUrl}
+        />
+      )}
 
       {/* Edit Profile Modal */}
       {editModalOpen && (

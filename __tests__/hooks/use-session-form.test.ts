@@ -53,19 +53,13 @@ describe('useSessionForm', () => {
   });
 
   describe('Initialization', () => {
-    it('should initialize with default plan mode', () => {
+    it('should initialize with default log mode', () => {
       const { result } = renderHook(() => useSessionForm());
 
-      expect(result.current.mode).toBe('plan');
+      expect(result.current.mode).toBe('log');
       expect(result.current.step).toBe(1);
       expect(result.current.loading).toBe(false);
       expect(result.current.loadingData).toBe(true); // Initially loading
-    });
-
-    it('should initialize with log mode when specified', () => {
-      const { result } = renderHook(() => useSessionForm('log'));
-
-      expect(result.current.mode).toBe('log');
     });
 
     it('should initialize with default form state', () => {
@@ -79,7 +73,6 @@ describe('useSessionForm', () => {
       expect(result.current.formState.duration).toBe('60m');
       expect(result.current.formState.photos).toEqual([]);
       expect(result.current.formState.waveTypes).toEqual([]);
-      expect(result.current.formState.invitees).toEqual([]);
     });
   });
 
@@ -148,42 +141,6 @@ describe('useSessionForm', () => {
       expect(mockToast.error).toHaveBeenCalledWith(
         'Failed to load data. Some features may be limited.'
       );
-    });
-  });
-
-  describe('Mode Switching', () => {
-    it('should switch from plan to log mode', () => {
-      const { result } = renderHook(() => useSessionForm('plan'));
-
-      act(() => {
-        result.current.setMode('log');
-      });
-
-      expect(result.current.mode).toBe('log');
-      expect(result.current.isPlanning).toBe(false);
-    });
-
-    it('should switch from log to plan mode', () => {
-      const { result } = renderHook(() => useSessionForm('log'));
-
-      act(() => {
-        result.current.setMode('plan');
-      });
-
-      expect(result.current.mode).toBe('plan');
-      expect(result.current.isPlanning).toBe(true);
-    });
-
-    it('should update isPlanning computed property', () => {
-      const { result } = renderHook(() => useSessionForm());
-
-      expect(result.current.isPlanning).toBe(true);
-
-      act(() => {
-        result.current.setMode('log');
-      });
-
-      expect(result.current.isPlanning).toBe(false);
     });
   });
 
@@ -321,54 +278,6 @@ describe('useSessionForm', () => {
       expect(result.current.formState.notes).toBe(notes);
     });
 
-    it('should update invitees array', async () => {
-      const { result } = renderHook(() => useSessionForm());
-
-      await waitFor(() => {
-        expect(result.current.loadingData).toBe(false);
-      });
-
-      const invitees = [
-        { userId: 'user-1', name: 'John Doe' },
-        { email: 'jane@example.com', name: 'Jane Smith' },
-      ];
-
-      act(() => {
-        result.current.updateField('invitees', invitees);
-      });
-
-      expect(result.current.formState.invitees).toEqual(invitees);
-    });
-
-    it('should update optimal times', async () => {
-      const { result } = renderHook(() => useSessionForm());
-
-      await waitFor(() => {
-        expect(result.current.loadingData).toBe(false);
-      });
-
-      const optimalTimes = [
-        {
-          time: '06:00',
-          score: 85,
-          rating: 'excellent' as const,
-          conditions: {
-            waveHeight: 4,
-            waveQuality: 'clean',
-            windSpeed: 5,
-            windDirection: 'offshore',
-            confidence: 90,
-          },
-          reasons: ['Offshore winds', 'Good swell'],
-        },
-      ];
-
-      act(() => {
-        result.current.updateField('optimalTimes', optimalTimes);
-      });
-
-      expect(result.current.formState.optimalTimes).toEqual(optimalTimes);
-    });
   });
 
   describe('Board Selection', () => {
@@ -515,14 +424,14 @@ describe('useSessionForm', () => {
 
   describe('Prefill Functionality', () => {
     it('should initialize with default state when no prefill provided (legacy usage)', async () => {
-      const { result } = renderHook(() => useSessionForm('plan'));
+      const { result } = renderHook(() => useSessionForm('log'));
 
       await waitFor(() => {
         expect(result.current.loadingData).toBe(false);
       });
 
       // Check default values
-      expect(result.current.mode).toBe('plan');
+      expect(result.current.mode).toBe('log');
       expect(result.current.formState.selectedBeach).toBe('');
       expect(result.current.formState.selectedBeachId).toBe('');
       expect(result.current.formState.selectedDate).toBe(new Date().toISOString().split('T')[0]);
@@ -542,7 +451,7 @@ describe('useSessionForm', () => {
 
       const { result } = renderHook(() =>
         useSessionForm({
-          initialMode: 'plan',
+          initialMode: 'log',
           initialFormState,
         })
       );
@@ -572,13 +481,12 @@ describe('useSessionForm', () => {
 
       expect(result.current.mode).toBe('log');
       expect(result.current.formState).toBeDefined();
-      expect(result.current.isPlanning).toBe(false);
     });
 
     it('should support new usage with params object', async () => {
       const { result } = renderHook(() =>
         useSessionForm({
-          initialMode: 'plan',
+          initialMode: 'log',
           initialFormState: {
             selectedBeach: 'Test Beach',
           },
@@ -589,9 +497,8 @@ describe('useSessionForm', () => {
         expect(result.current.loadingData).toBe(false);
       });
 
-      expect(result.current.mode).toBe('plan');
+      expect(result.current.mode).toBe('log');
       expect(result.current.formState.selectedBeach).toBe('Test Beach');
-      expect(result.current.isPlanning).toBe(true);
     });
 
     it('should reset to canonical defaults, not prefilled values', async () => {
@@ -605,7 +512,7 @@ describe('useSessionForm', () => {
 
       const { result } = renderHook(() =>
         useSessionForm({
-          initialMode: 'plan',
+          initialMode: 'log',
           initialFormState,
         })
       );
@@ -639,7 +546,7 @@ describe('useSessionForm', () => {
       const { result, rerender } = renderHook(
         ({ formState }) =>
           useSessionForm({
-            initialMode: 'plan',
+            initialMode: 'log',
             initialFormState: formState,
           }),
         {
@@ -672,7 +579,7 @@ describe('useSessionForm', () => {
 
       const { result } = renderHook(() =>
         useSessionForm({
-          initialMode: 'plan',
+          initialMode: 'log',
           initialFormState,
         })
       );
@@ -699,7 +606,7 @@ describe('useSessionForm', () => {
 
       const { result } = renderHook(() =>
         useSessionForm({
-          initialMode: 'plan',
+          initialMode: 'log',
           initialFormState,
         })
       );
@@ -716,71 +623,11 @@ describe('useSessionForm', () => {
       expect(result.current.formState.selectedTime).toBe('06:00');
     });
 
-    it('should handle prefill with all session planner pro fields', async () => {
-      const initialFormState = {
-        selectedBeachId: 'test-beach',
-        selectedBeach: 'Test Beach',
-        selectedDate: '2025-11-23',
-        selectedTime: '07:00',
-        optimalTimes: [
-          {
-            time: '07:00',
-            score: 90,
-            rating: 'excellent' as const,
-            conditions: {
-              waveHeight: 4,
-              waveQuality: 'clean',
-              windSpeed: 5,
-              windDirection: 'offshore',
-              confidence: 95,
-            },
-            reasons: ['Offshore winds', 'Good swell'],
-          },
-        ],
-        selectedOptimalTime: '07:00',
-        boardSuggestions: [
-          {
-            boardId: 'board-1',
-            score: 85,
-            confidence: 90,
-            reasons: ['Good for conditions'],
-          },
-        ],
-        invitees: [
-          {
-            userId: 'user-1',
-            name: 'John Doe',
-          },
-        ],
-        invitationMessage: 'Want to surf?',
-      };
-
-      const { result } = renderHook(() =>
-        useSessionForm({
-          initialMode: 'plan',
-          initialFormState,
-        })
-      );
-
-      await waitFor(() => {
-        expect(result.current.loadingData).toBe(false);
-      });
-
-      // Verify all fields prefilled correctly
-      expect(result.current.formState.selectedBeachId).toBe('test-beach');
-      expect(result.current.formState.selectedBeach).toBe('Test Beach');
-      expect(result.current.formState.optimalTimes).toHaveLength(1);
-      expect(result.current.formState.optimalTimes![0].score).toBe(90);
-      expect(result.current.formState.selectedOptimalTime).toBe('07:00');
-      expect(result.current.formState.boardSuggestions).toHaveLength(1);
-      expect(result.current.formState.invitees).toHaveLength(1);
-      expect(result.current.formState.invitationMessage).toBe('Want to surf?');
-    });
   });
 
   describe('Complex Workflows', () => {
-    it('should handle complete session planning workflow', async () => {
-      const { result } = renderHook(() => useSessionForm('plan'));
+    it('should handle complete session log workflow', async () => {
+      const { result } = renderHook(() => useSessionForm('log'));
 
       await waitFor(() => {
         expect(result.current.loadingData).toBe(false);

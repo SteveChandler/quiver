@@ -173,9 +173,8 @@ export function SessionDetailsSection({
     formState.selectedTime ?? null
   );
 
-  // Auto-prefill effect: Only for "log" mode, only when fields are empty
+  // Auto-prefill effect: only when fields are empty.
   useEffect(() => {
-    if (mode !== "log") return;
     if (!forecastData || forecastLoading) return;
 
     // Create a key for this beach/date/time combination
@@ -357,11 +356,6 @@ export function SessionDetailsSection({
     if (!e.target.files || isProcessing) return;
     processFiles(e.target.files);
   };
-
-  // Only render in log mode
-  if (mode !== "log") {
-    return null;
-  }
 
   return (
     <SimpleCardLayout

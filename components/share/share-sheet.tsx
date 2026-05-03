@@ -127,22 +127,31 @@ export function ShareSheet({
   }
 
   // Issue 3: Use URL constructor for safe UTM param construction
+  const getTrackedShareUrl = React.useCallback(() => {
+    // eslint-disable-next-line no-restricted-properties -- reading URL for share data, not navigating
+    const base = shareUrl ?? (typeof window !== "undefined" ? window.location.href : "");
+    if (!base) return "";
+
+    // URL(base, origin) supports both absolute and app-relative shareUrl values.
+    // eslint-disable-next-line no-restricted-properties -- reading origin for URL normalization, not navigating
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://quiversurf.app";
+    const urlObj = new URL(base, origin);
+    urlObj.searchParams.set("utm_source", "quiver");
+    urlObj.searchParams.set("utm_medium", "share");
+    urlObj.searchParams.set("utm_campaign", `${type}_share`);
+    return urlObj.toString();
+  }, [shareUrl, type]);
+
   const handleCopyLink = async () => {
     setActionState("copy", "loading");
 
     try {
-      // eslint-disable-next-line no-restricted-properties -- reading URL for clipboard copy, not navigating
-      const base = shareUrl ?? (typeof window !== "undefined" ? window.location.href : "");
-      if (!base) {
+      const url = getTrackedShareUrl();
+      if (!url) {
         setActionState("copy", "error");
         resetActionAfter("copy", 1500);
         return;
       }
-      const urlObj = new URL(base);
-      urlObj.searchParams.set("utm_source", "quiver");
-      urlObj.searchParams.set("utm_medium", "share");
-      urlObj.searchParams.set("utm_campaign", `${type}_share`);
-      const url = urlObj.toString();
 
       await copyToClipboard(url);
       setActionState("copy", "success");
@@ -180,7 +189,12 @@ export function ShareSheet({
     track("share_started", { type });
 
     try {
-      await shareImage(imageUrl, filename, { title, text });
+      const url = getTrackedShareUrl();
+      await shareImage(imageUrl, filename, {
+        title,
+        text,
+        url: url || undefined,
+      });
       setActionState("more", "success");
       track("share_completed", { type });
       fetch("/api/events", {

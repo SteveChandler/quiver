@@ -39,20 +39,6 @@ describe("SessionForm Photo Upload Feature - LOG MODE ONLY", () => {
     ).toBeInTheDocument();
   });
 
-  it("should NOT render photo upload section for plan mode", () => {
-    const mockProps = {
-      mode: "plan" as const,
-      selectedFiles: [],
-      onFilesChange: jest.fn(),
-      disabled: false,
-      maxPhotos: 5,
-    };
-
-    render(<PhotoSelectionSection {...mockProps} />);
-
-    expect(screen.queryByText("Session Photos")).not.toBeInTheDocument();
-  });
-
   it("should handle file selection and validation", () => {
     const mockOnFilesChange = jest.fn();
     const mockProps = {

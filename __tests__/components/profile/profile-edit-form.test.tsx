@@ -73,7 +73,6 @@ describe("ProfileEditForm", () => {
     notif_push_enabled: true,
     notif_email_enabled: true,
     notif_inapp_enabled: true,
-    notif_session_invites: true,
     notif_likes: true,
     notif_follows: true,
     notif_reminders: true,

@@ -18,15 +18,12 @@ export type ProfilePrefColumn = Extract<
   | "notif_push_enabled"
   | "notif_email_enabled"
   | "notif_inapp_enabled"
-  | "notif_session_invites"
   | "notif_likes"
   | "notif_follows"
   | "notif_reminders"
   | "notif_xp_updates"
   | "notif_forecast_alerts"
   | "notif_water_quality"
-  | "inapp_session_invites"
-  | "email_session_invites"
 >;
 
 export type NotificationChannel = "push" | "in_app" | "email";
@@ -192,7 +189,6 @@ export interface EnqueueArgs<P = Record<string, unknown>> {
    *                   re-notify the recipient)
    *   follow:         `follow:${actor_user_id}:${recipient_user_id}:${YYYY-WW}`
    *                   (weekly bucket — re-engagement after a week re-notifies)
-   *   session_invite: `session_invite:${session_id}:${recipient_user_id}`
    *   forecast_alert: `forecast_alert:${recipient_user_id}:${alert_date}`
    *   water_quality:  `water_quality:${recipient_user_id}:${beach_id}:${date}`
    *   daily_digest:   `daily_digest:${recipient_user_id}:${alert_date}`

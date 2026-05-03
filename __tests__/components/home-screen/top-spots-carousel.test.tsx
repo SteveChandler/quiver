@@ -83,7 +83,6 @@ describe("TopSpotsCarousel - Loading State", () => {
       <TopSpotsCarousel
         spots={[]}
         loading={true}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -97,7 +96,6 @@ describe("TopSpotsCarousel - Loading State", () => {
       <TopSpotsCarousel
         spots={[]}
         loading={true}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -110,7 +108,6 @@ describe("TopSpotsCarousel - Loading State", () => {
       <TopSpotsCarousel
         spots={[]}
         loading={true}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -125,7 +122,6 @@ describe("TopSpotsCarousel - Empty State", () => {
       <TopSpotsCarousel
         spots={[]}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -138,7 +134,6 @@ describe("TopSpotsCarousel - Empty State", () => {
       <TopSpotsCarousel
         spots={[]}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -151,7 +146,6 @@ describe("TopSpotsCarousel - Empty State", () => {
       <TopSpotsCarousel
         spots={[]}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -164,7 +158,6 @@ describe("TopSpotsCarousel - Empty State", () => {
       <TopSpotsCarousel
         spots={[]}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -179,7 +172,6 @@ describe("TopSpotsCarousel - Empty State with Location CTA", () => {
       <TopSpotsCarousel
         spots={[]}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
         showLocationCta={true}
       />
@@ -193,7 +185,6 @@ describe("TopSpotsCarousel - Empty State with Location CTA", () => {
       <TopSpotsCarousel
         spots={[]}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
         showLocationCta={true}
         onUseMyLocation={jest.fn()}
@@ -208,7 +199,6 @@ describe("TopSpotsCarousel - Empty State with Location CTA", () => {
       <TopSpotsCarousel
         spots={[]}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
         showLocationCta={false}
       />
@@ -222,7 +212,6 @@ describe("TopSpotsCarousel - Empty State with Location CTA", () => {
       <TopSpotsCarousel
         spots={[]}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
         showLocationCta={true}
       />
@@ -241,7 +230,6 @@ describe("TopSpotsCarousel - Location Button Click", () => {
       <TopSpotsCarousel
         spots={[]}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
         showLocationCta={true}
         onUseMyLocation={mockOnUseMyLocation}
@@ -262,7 +250,6 @@ describe("TopSpotsCarousel - Location Button Click", () => {
       <TopSpotsCarousel
         spots={[]}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
         showLocationCta={true}
         onUseMyLocation={mockOnUseMyLocation}
@@ -282,7 +269,6 @@ describe("TopSpotsCarousel - Location Loading State", () => {
       <TopSpotsCarousel
         spots={[]}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
         showLocationCta={true}
         onUseMyLocation={jest.fn()}
@@ -298,7 +284,6 @@ describe("TopSpotsCarousel - Location Loading State", () => {
       <TopSpotsCarousel
         spots={[]}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
         showLocationCta={true}
         onUseMyLocation={jest.fn()}
@@ -315,7 +300,6 @@ describe("TopSpotsCarousel - Location Loading State", () => {
       <TopSpotsCarousel
         spots={[]}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
         showLocationCta={true}
         onUseMyLocation={jest.fn()}
@@ -331,7 +315,6 @@ describe("TopSpotsCarousel - Location Loading State", () => {
       <TopSpotsCarousel
         spots={[]}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
         showLocationCta={true}
         onUseMyLocation={jest.fn()}
@@ -356,7 +339,6 @@ describe("TopSpotsCarousel - Normal Render", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -369,7 +351,6 @@ describe("TopSpotsCarousel - Normal Render", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -383,7 +364,6 @@ describe("TopSpotsCarousel - Normal Render", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -399,7 +379,6 @@ describe("TopSpotsCarousel - Normal Render", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -412,7 +391,6 @@ describe("TopSpotsCarousel - Normal Render", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -432,7 +410,6 @@ describe("TopSpotsCarousel - First Card Featured", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -446,7 +423,6 @@ describe("TopSpotsCarousel - First Card Featured", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -467,7 +443,6 @@ describe("TopSpotsCarousel - First Card Featured", () => {
       <TopSpotsCarousel
         spots={manySpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -488,7 +463,6 @@ describe("TopSpotsCarousel - Carousel Title", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -504,7 +478,6 @@ describe("TopSpotsCarousel - Carousel Title", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
         heroWindow={{
           start: new Date("2026-02-11T07:00:00"),
@@ -539,7 +512,6 @@ describe("TopSpotsCarousel - Spot Card Click", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={mockOnViewSpot}
       />
     );
@@ -558,7 +530,6 @@ describe("TopSpotsCarousel - Spot Card Click", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={mockOnViewSpot}
       />
     );
@@ -577,7 +548,6 @@ describe("TopSpotsCarousel - Spot Card Click", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={mockOnViewSpot}
       />
     );
@@ -601,7 +571,6 @@ describe("TopSpotsCarousel - Fade Indicator", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -620,7 +589,6 @@ describe("TopSpotsCarousel - Fade Indicator", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -636,7 +604,6 @@ describe("TopSpotsCarousel - Fade Indicator", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -654,7 +621,6 @@ describe("TopSpotsCarousel - Time Slot Context", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
         timeSlot="dawn-patrol"
       />
@@ -669,7 +635,6 @@ describe("TopSpotsCarousel - Time Slot Context", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
         timeSlot="lunch-session"
       />
@@ -684,7 +649,6 @@ describe("TopSpotsCarousel - Time Slot Context", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
         timeSlot="afternoon"
       />
@@ -699,7 +663,6 @@ describe("TopSpotsCarousel - Time Slot Context", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
         timeSlot="any"
       />
@@ -714,7 +677,6 @@ describe("TopSpotsCarousel - Time Slot Context", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -731,7 +693,6 @@ describe("TopSpotsCarousel - Edge Cases", () => {
       <TopSpotsCarousel
         spots={singleSpot}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -750,7 +711,6 @@ describe("TopSpotsCarousel - Edge Cases", () => {
       <TopSpotsCarousel
         spots={manySpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -772,7 +732,6 @@ describe("TopSpotsCarousel - Edge Cases", () => {
       <TopSpotsCarousel
         spots={longNameSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -789,7 +748,6 @@ describe("TopSpotsCarousel - Edge Cases", () => {
       <TopSpotsCarousel
         spots={null as any}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -804,7 +762,6 @@ describe("TopSpotsCarousel - Edge Cases", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={true}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -826,7 +783,6 @@ describe("TopSpotsCarousel - Accessibility", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -840,7 +796,6 @@ describe("TopSpotsCarousel - Accessibility", () => {
       <TopSpotsCarousel
         spots={mockSpots}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
       />
     );
@@ -854,7 +809,6 @@ describe("TopSpotsCarousel - Accessibility", () => {
       <TopSpotsCarousel
         spots={[]}
         loading={false}
-        onPlanSession={jest.fn()}
         onViewSpot={jest.fn()}
         showLocationCta={true}
         onUseMyLocation={jest.fn()}

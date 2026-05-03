@@ -782,6 +782,7 @@ describe('POST /api/events', () => {
         // Session logging events
         'session_log_start',
         'session_log_submit',
+        'session_log_validation_failed',
         'session_share_opened_post_save',
         'session_share_closed_post_save',
         // Onboarding/tour events

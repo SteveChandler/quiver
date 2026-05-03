@@ -1,7 +1,6 @@
 /**
  * Push Notification Service
  * Handles sending FCM push notifications to iOS/Android devices
- * Following patterns from lib/mailer/sessionInviteEmail.tsx
  */
 
 import type { messaging } from "firebase-admin";
@@ -11,15 +10,6 @@ import {
   dispatchPushMessages,
   type PushMessage as SharedPushMessage,
 } from "./push-delivery";
-
-interface SendSessionInvitePushParams {
-  inviteeIds: string[];
-  inviterName: string;
-  beachName?: string;
-  arrivalTime?: string;
-  sessionId: string;
-  message?: string;
-}
 
 interface PushResult {
   success: number;
@@ -85,105 +75,7 @@ export async function sendPushNotifications(messages: PushMessage[]): Promise<vo
 }
 
 /**
- * Send push notifications for session invitations
- * Uses Firebase Cloud Messaging (FCM) to deliver notifications
- */
-export async function sendSessionInvitePush({
-  inviteeIds,
-  inviterName,
-  beachName,
-  arrivalTime,
-  sessionId,
-  message,
-}: SendSessionInvitePushParams): Promise<PushResult> {
-  if (!inviteeIds.length) {
-    return { success: 0, failed: 0 };
-  }
-
-  if (!getFirebaseAdminMessaging()) {
-    if (!firebaseSkipWarned) {
-      firebaseSkipWarned = true;
-      console.warn("Firebase Admin SDK not initialized, skipping push notifications");
-    }
-    return { success: 0, failed: 0, errors: ["Firebase not configured"] };
-  }
-
-  try {
-    const supabase = createSupabaseServiceRoleClient();
-
-    const { data: devices, error: devicesError } = await supabase
-      .from("user_devices")
-      .select("device_token, platform, user_id")
-      .in("user_id", inviteeIds);
-
-    if (devicesError) {
-      console.error("Failed to fetch device tokens:", devicesError);
-      return { success: 0, failed: 0, errors: [devicesError.message] };
-    }
-
-    if (!devices?.length) {
-      console.log("No device tokens found for invitees");
-      return { success: 0, failed: 0 };
-    }
-
-    const title = "New Surf Session Invite";
-    const body = `${inviterName} invited you${beachName ? ` to ${beachName}` : ""}${
-      arrivalTime ? ` • ${new Date(arrivalTime).toLocaleString()}` : ""
-    }`;
-
-    const data = {
-      type: "session_invite",
-      session_id: sessionId,
-      message: message || "",
-    };
-
-    const android: messaging.AndroidConfig = {
-      priority: "high",
-      notification: {
-        channelId: "session_invites",
-        priority: "high",
-      },
-    };
-
-    const apns: messaging.ApnsConfig = {
-      payload: {
-        aps: {
-          sound: "default",
-          badge: 1,
-          alert: { title, body },
-        },
-      },
-    };
-
-    const messages: PushMessage[] = devices.map((d) => ({
-      to: d.device_token,
-      title,
-      body,
-      data,
-      android,
-      apns,
-    }));
-
-    const result = await sendViaFirebase(messages);
-
-    console.log(
-      `Push notifications sent: ${result.success} success, ${result.failed} failed`
-    );
-
-    return result;
-  } catch (error) {
-    console.error("Push notification error:", error);
-    return {
-      success: 0,
-      failed: inviteeIds.length,
-      errors: [error instanceof Error ? error.message : "Unknown error"],
-    };
-  }
-}
-
-/**
  * Send a generic push notification to specific users
- * Can be used for other notification types beyond session invites
  */
 export async function sendPushNotification({
   userIds,

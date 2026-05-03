@@ -11,7 +11,7 @@ import type { ReadonlyURLSearchParams } from "next/navigation";
  * @example Building a URL
  * ```typescript
  * const url = buildSessionWizardUrl({
- *   mode: 'plan',
+ *   mode: 'log',
  *   beachId: beach.id,
  *   beachName: beach.name,
  *   startTime: new Date('2025-11-22T06:00:00Z'),
@@ -104,9 +104,8 @@ export function parseSessionWizardParams(
     // Validate using Zod schema
     const validated = SessionWizardPrefillSchema.parse(rawParams);
 
-    // Only return success if we have all required data for a proper prefill
-    // If beach/startTime/endTime are missing, treat as "no prefill" (not an error)
-    const hasMinimalPrefillData = validated.beach && validated.startTime && validated.endTime;
+    // Only return success if we have enough data for a useful log prefill.
+    const hasMinimalPrefillData = Boolean(validated.beach);
 
     if (!hasMinimalPrefillData) {
       // Not an error - just means user is accessing /sessions/new directly
@@ -127,15 +126,13 @@ export function parseSessionWizardParams(
       };
     }
 
-    // Transform to validated output format
-    // Note: hasMinimalPrefillData check above guarantees these fields exist
     const data: ValidatedSessionWizardParams = {
       mode: validated.mode,
       quick: validated.quick,
       beachId: validated.beach!,
       beachName: validated.beachName || '',
-      startTime: new Date(validated.startTime!),
-      endTime: new Date(validated.endTime!),
+      startTime: validated.startTime ? new Date(validated.startTime) : undefined,
+      endTime: validated.endTime ? new Date(validated.endTime) : undefined,
       targetStep: validated.step,
     };
 
@@ -159,7 +156,7 @@ export function parseSessionWizardParams(
 
     // Provide safe defaults for graceful degradation
     const defaults: Partial<ValidatedSessionWizardParams> = {
-      mode: 'plan',
+      mode: 'log',
       quick: false,
       targetStep: 1,
       beachId: '',
@@ -188,12 +185,12 @@ export function parseSessionWizardParams(
  * ```typescript
  * // From Personalized Forecast
  * const url = buildSessionWizardUrl({
- *   mode: 'plan',
+ *   mode: 'log',
  *   beachId: recommendation.beach.id,
  *   beachName: recommendation.beach.name,
  *   startTime: recommendation.window.start,
  *   endTime: recommendation.window.end,
- *   targetStep: 3, // Jump to Goals step
+ *   targetStep: 1,
  * });
  * router.push(url);
  * ```
@@ -202,12 +199,12 @@ export function parseSessionWizardParams(
  * ```typescript
  * // From Surf Discovery
  * const url = buildSessionWizardUrl({
- *   mode: 'plan',
+ *   mode: 'log',
  *   beachId: discovery.beach.id,
  *   beachName: discovery.beach.name,
  *   startTime: discovery.window.start,
  *   endTime: discovery.window.end,
- *   targetStep: 3,
+ *   targetStep: 1,
  * });
  * router.push(url);
  * ```
@@ -220,10 +217,16 @@ export function buildSessionWizardUrl(
     mode: params.mode,
     beach: params.beachId,
     beachName: params.beachName,
-    startTime: params.startTime.toISOString(),
-    endTime: params.endTime.toISOString(),
     step: params.targetStep.toString(),
   });
+
+  if (params.startTime) {
+    urlParams.set('startTime', params.startTime.toISOString());
+  }
+
+  if (params.endTime) {
+    urlParams.set('endTime', params.endTime.toISOString());
+  }
 
   // Only add quick param when true to keep URLs clean
   if (params.quick) {
@@ -283,7 +286,11 @@ export function extractFormState(params: ValidatedSessionWizardParams) {
   return {
     selectedBeach: params.beachName,
     selectedBeachId: params.beachId,
-    selectedDate: params.startTime.toISOString().split('T')[0], // YYYY-MM-DD
-    selectedTime: params.startTime.toTimeString().slice(0, 5), // HH:MM
+    ...(params.startTime
+      ? { selectedDate: params.startTime.toISOString().split('T')[0] }
+      : {}),
+    ...(params.startTime
+      ? { selectedTime: params.startTime.toTimeString().slice(0, 5) }
+      : {}),
   };
 }

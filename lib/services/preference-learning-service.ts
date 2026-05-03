@@ -45,13 +45,121 @@ interface SessionWithConditions {
   rating: number | null;
   arrival_time: string;
   forecast_snapshot: {
-    wave_height: number | null;
-    wave_period: number | null;
-    wind_speed: number | null;
-    wind_direction: number | null;
+    wave_height: number | string | null;
+    wave_period: number | string | null;
+    wind_speed: number | string | null;
+    wind_direction: number | string | null;
     tide_status: string | null;
     [key: string]: any;
   };
+}
+
+const COMPASS_DEGREES: Record<string, number> = {
+  N: 0,
+  NNE: 22.5,
+  NE: 45,
+  ENE: 67.5,
+  E: 90,
+  ESE: 112.5,
+  SE: 135,
+  SSE: 157.5,
+  S: 180,
+  SSW: 202.5,
+  SW: 225,
+  WSW: 247.5,
+  W: 270,
+  WNW: 292.5,
+  NW: 315,
+  NNW: 337.5,
+  NORTH: 0,
+  NORTHEAST: 45,
+  EAST: 90,
+  SOUTHEAST: 135,
+  SOUTH: 180,
+  SOUTHWEST: 225,
+  WEST: 270,
+  NORTHWEST: 315,
+};
+
+function normalizeDegrees(degrees: number): number {
+  return ((degrees % 360) + 360) % 360;
+}
+
+/**
+ * Extract a numeric value from stored forecast fields.
+ *
+ * Production snapshots commonly store display strings such as "1 ft", "8s",
+ * "4 mph", or ranges like "2-3 ft". The learner needs the numeric value,
+ * not the display text.
+ */
+export function parseForecastNumber(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const normalizedForNumbers = trimmed.replace(/(\d)\s*-\s*(\d)/g, '$1 to $2');
+  const matches = normalizedForNumbers.match(/-?\d+(?:\.\d+)?/g);
+  if (!matches) {
+    return null;
+  }
+
+  const numbers = matches.map(Number).filter(Number.isFinite);
+  if (numbers.length === 0) {
+    return null;
+  }
+
+  const looksLikeRange = /\d\s*(?:-|to)\s*\d/i.test(trimmed);
+  if (looksLikeRange && numbers.length >= 2) {
+    return (numbers[0] + numbers[1]) / 2;
+  }
+
+  return numbers[0];
+}
+
+/**
+ * Convert stored wind direction values to degrees.
+ *
+ * Enhanced forecast snapshots may store numeric degrees, degree strings, or
+ * compass labels such as "ESE".
+ */
+export function parseWindDirection(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? normalizeDegrees(value) : null;
+  }
+
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const compact = value.trim().toUpperCase().replace(/[\s_-]+/g, '');
+  if (!compact) {
+    return null;
+  }
+
+  if (COMPASS_DEGREES[compact] !== undefined) {
+    return COMPASS_DEGREES[compact];
+  }
+
+  const numeric = parseForecastNumber(value);
+  return numeric === null ? null : normalizeDegrees(numeric);
+}
+
+export function normalizeTideStatus(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return normalized || null;
 }
 
 /**
@@ -119,23 +227,23 @@ export async function computeUserPreferences(
 
     // 3. Extract arrays of values
     const waveHeights = goodSessions
-      .map((s) => (s.forecast_snapshot as Record<string, any>)?.wave_height)
+      .map((s) => parseForecastNumber((s.forecast_snapshot as Record<string, any>)?.wave_height))
       .filter((v): v is number => v !== null && v !== undefined);
 
     const wavePeriods = goodSessions
-      .map((s) => (s.forecast_snapshot as Record<string, any>)?.wave_period)
+      .map((s) => parseForecastNumber((s.forecast_snapshot as Record<string, any>)?.wave_period))
       .filter((v): v is number => v !== null && v !== undefined);
 
     const windSpeeds = goodSessions
-      .map((s) => (s.forecast_snapshot as Record<string, any>)?.wind_speed)
+      .map((s) => parseForecastNumber((s.forecast_snapshot as Record<string, any>)?.wind_speed))
       .filter((v): v is number => v !== null && v !== undefined);
 
     const windDirections = goodSessions
-      .map((s) => (s.forecast_snapshot as Record<string, any>)?.wind_direction)
+      .map((s) => parseWindDirection((s.forecast_snapshot as Record<string, any>)?.wind_direction))
       .filter((v): v is number => v !== null && v !== undefined);
 
     const tideStatuses = goodSessions
-      .map((s) => (s.forecast_snapshot as Record<string, any>)?.tide_status)
+      .map((s) => normalizeTideStatus((s.forecast_snapshot as Record<string, any>)?.tide_status))
       .filter((v): v is string => v !== null && v !== undefined && v !== '');
 
     // 4. Compute statistics

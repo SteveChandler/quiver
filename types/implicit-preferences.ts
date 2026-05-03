@@ -108,6 +108,7 @@ export type ImplicitEventType =
   | 'session_log_rating_set'
   | 'session_log_photo_added'
   | 'session_log_abandon'
+  | 'session_log_validation_failed'
   // Search
   | 'beach_search_result_click'
   // Growth markers
@@ -239,6 +240,7 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   session_log_rating_set: 0,
   session_log_photo_added: 0,
   session_log_abandon: 0,
+  session_log_validation_failed: 0,
   // Search
   beach_search_result_click: 0,
   // Growth markers

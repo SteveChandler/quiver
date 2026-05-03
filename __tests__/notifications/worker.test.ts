@@ -46,15 +46,12 @@ interface MockProfile {
   notif_push_enabled: boolean;
   notif_email_enabled: boolean;
   notif_inapp_enabled: boolean;
-  notif_session_invites: boolean;
   notif_likes: boolean;
   notif_follows: boolean;
   notif_reminders: boolean;
   notif_xp_updates: boolean;
   notif_forecast_alerts: boolean;
   notif_water_quality: boolean;
-  inapp_session_invites: boolean;
-  email_session_invites: boolean;
 }
 
 interface MockAttempt {
@@ -91,15 +88,12 @@ function buildProfile(over: Partial<MockProfile> = {}): MockProfile {
     notif_push_enabled: true,
     notif_email_enabled: true,
     notif_inapp_enabled: true,
-    notif_session_invites: true,
     notif_likes: true,
     notif_follows: true,
     notif_reminders: true,
     notif_xp_updates: true,
     notif_forecast_alerts: true,
     notif_water_quality: true,
-    inapp_session_invites: true,
-    email_session_invites: true,
     ...over,
   };
 }
@@ -952,9 +946,9 @@ describe("processPendingEvents — atomic claim (concurrency)", () => {
     const state = emptyState();
     state.events.push(
       buildEvent({
-        type: "session_invite",
+        type: "like",
         payload: { session_id: "sess-1", beach_name: "Mavericks" },
-        dedupe_key: "session_invite:sess-1:user-recipient",
+        dedupe_key: "like:sess-1:user-recipient",
       })
     );
     state.profiles.set("user-recipient", buildProfile());

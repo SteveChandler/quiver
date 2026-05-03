@@ -35,7 +35,6 @@ const profileUpdateSchema = z.object({
   notif_email_enabled: z.boolean().optional(),
   notif_inapp_enabled: z.boolean().optional(),
   // Notification preferences - feature toggles
-  notif_session_invites: z.boolean().optional(),
   notif_likes: z.boolean().optional(),
   notif_follows: z.boolean().optional(),
   notif_reminders: z.boolean().optional(),
@@ -44,10 +43,6 @@ const profileUpdateSchema = z.object({
   // Surf preferences
   experience_level: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).nullable().optional(),
   surf_styles: z.array(z.string()).nullable().optional(),
-  // Session invite preferences
-  digest_session_invites: z.boolean().optional(),
-  inapp_session_invites: z.boolean().optional(),
-  email_session_invites: z.boolean().optional(),
   // Privacy preferences (implicit preference learning)
   allow_implicit_tracking: z.boolean().optional(),
 }).passthrough(); // Allow extra fields that aren't in schema
@@ -318,6 +313,15 @@ export async function updateProfile(
     // Never attempt to update unknown column
     if ("home_beach_text" in processedData) {
       delete processedData.home_beach_text;
+    }
+
+    for (const staleInvitePreference of [
+      "notif_session_invites",
+      "digest_session_invites",
+      "inapp_session_invites",
+      "email_session_invites",
+    ]) {
+      delete processedData[staleInvitePreference];
     }
 
     // Handle empty strings for avatar_url by treating them as unset

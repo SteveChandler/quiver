@@ -44,13 +44,6 @@ describe("PhotoSelectionSection", () => {
     ).toBeInTheDocument();
   });
 
-  it("does not render for plan mode", () => {
-    render(<PhotoSelectionSection {...defaultProps} mode="plan" />);
-
-    expect(screen.queryByText("Session Photos")).not.toBeInTheDocument();
-    expect(screen.queryByText("Add session photos")).not.toBeInTheDocument();
-  });
-
   it("shows default upload message when no files selected", () => {
     render(<PhotoSelectionSection {...defaultProps} />);
 

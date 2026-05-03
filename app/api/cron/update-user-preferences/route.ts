@@ -19,6 +19,26 @@ interface UserPreferenceUpdateResult {
   }>;
 }
 
+function getSearchParams(request: NextRequest): URLSearchParams {
+  if (request.nextUrl?.searchParams) {
+    return request.nextUrl.searchParams;
+  }
+
+  if (request.url) {
+    try {
+      return new URL(request.url).searchParams;
+    } catch {
+      return new URLSearchParams();
+    }
+  }
+
+  return new URLSearchParams();
+}
+
+function isTruthyParam(value: string | null): boolean {
+  return value === '1' || value === 'true' || value === 'yes';
+}
+
 /**
  * GET /api/cron/update-user-preferences
  *
@@ -72,14 +92,22 @@ export async function GET(request: NextRequest): Promise<Response> {
 
     console.log('🏄 Starting nightly user preference updates...');
 
+    const searchParams = getSearchParams(request);
+    const includeMockUsers =
+      isTruthyParam(searchParams.get('includeMock')) ||
+      isTruthyParam(searchParams.get('includeMockUsers'));
+
     // 3. Get eligible users (those with rated sessions, excluding NPC/bot users)
     const supabase = createSupabaseServiceRoleClient();
 
-    // First, get NPC/bot user IDs to exclude from preference learning
-    const { data: npcUsers } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('is_mock', true);
+    // First, get NPC/bot user IDs to exclude from production preference learning.
+    // Manual cron calls can pass includeMock=true to exercise seeded data.
+    const { data: npcUsers } = includeMockUsers
+      ? { data: [] as Array<{ id: string }> }
+      : await supabase
+          .from('profiles')
+          .select('id')
+          .eq('is_mock', true);
 
     const npcUserIds = new Set(npcUsers?.map((u) => u.id) || []);
 
@@ -102,7 +130,11 @@ export async function GET(request: NextRequest): Promise<Response> {
     ].filter((userId) => !npcUserIds.has(userId));
 
     const excludedNpcCount = npcUserIds.size;
-    console.log(`🤖 Excluding ${excludedNpcCount} NPC/bot users from preference learning`);
+    if (includeMockUsers) {
+      console.log('🧪 Including mock/NPC users for manual preference-learning run');
+    } else {
+      console.log(`🤖 Excluding ${excludedNpcCount} NPC/bot users from preference learning`);
+    }
 
     if (uniqueUserIds.length === 0) {
       console.log('ℹ️ No eligible users found for preference updates');
@@ -114,6 +146,8 @@ export async function GET(request: NextRequest): Promise<Response> {
           skipped: 0,
           duration: `${Date.now() - startTime}ms`,
           failures: [],
+          includeMockUsers,
+          excludedMockUsers: excludedNpcCount,
           message: 'No eligible users found for preference updates',
         },
         200
@@ -214,6 +248,8 @@ export async function GET(request: NextRequest): Promise<Response> {
     return createSuccessResponse(
       {
         ...results,
+        includeMockUsers,
+        excludedMockUsers: excludedNpcCount,
         message: successMessage,
       },
       200

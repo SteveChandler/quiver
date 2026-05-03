@@ -733,13 +733,11 @@ html.has-auth-cookie #ssr-beach-links {
 /* CTA button shimmer sweep */
 @media (prefers-reduced-motion: no-preference) {
   .theme-retro-dark [data-tier="hero"] .cta-shimmer,
-  .theme-retro-dark [data-testid="log-session-btn"],
-  .theme-retro-dark [data-testid="plan-session-btn"] {
+  .theme-retro-dark [data-testid="log-session-btn"] {
     position: relative;
     overflow: hidden;
   }
-  .theme-retro-dark [data-testid="log-session-btn"]::after,
-  .theme-retro-dark [data-testid="plan-session-btn"]::after {
+  .theme-retro-dark [data-testid="log-session-btn"]::after {
     content: "";
     position: absolute;
     inset: 0;
@@ -755,9 +753,6 @@ html.has-auth-cookie #ssr-beach-links {
     animation: cta-sweep 4s ease-in-out infinite;
     animation-delay: 2s;
     pointer-events: none;
-  }
-  .theme-retro-dark [data-testid="plan-session-btn"]::after {
-    animation-delay: 2.4s;
   }
 }
 @keyframes cta-sweep {

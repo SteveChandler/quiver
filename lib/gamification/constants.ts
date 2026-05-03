@@ -10,7 +10,7 @@ import type { UserBadgeStats, BadgeCheck } from "./types";
  * XP action mapping - defines XP values for each user action
  */
 export const XP_ACTION_MAP = {
-  plan_session: 50,
+  log_session: 50,
   add_board: 30,
   tag_board_to_session: 20,
   post_beach_intel: 50,

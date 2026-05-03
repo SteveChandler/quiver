@@ -50,9 +50,6 @@ const preferencesFormSchema = z.object({
   // Notification preferences
   notif_reminders: z.boolean().default(false),
   notif_forecast_alerts: z.boolean().default(true),
-  digest_session_invites: z.boolean().default(false),
-  inapp_session_invites: z.boolean().default(true),
-  email_session_invites: z.boolean().default(true),
   // Privacy preferences
   allow_implicit_tracking: z.boolean().default(true),
 });
@@ -93,9 +90,6 @@ export function ProfilePreferences({
       // Notification preferences
       notif_reminders: profile?.notif_reminders || false,
       notif_forecast_alerts: profile?.notif_forecast_alerts ?? true,
-      digest_session_invites: profile?.digest_session_invites || false,
-      inapp_session_invites: profile?.inapp_session_invites ?? true,
-      email_session_invites: profile?.email_session_invites ?? true,
       // Privacy preferences
       allow_implicit_tracking: (profile as any)?.allow_implicit_tracking ?? true,
     },
@@ -146,9 +140,6 @@ export function ProfilePreferences({
         // Notification preferences
         notif_reminders: data.notif_reminders,
         notif_forecast_alerts: data.notif_forecast_alerts,
-        digest_session_invites: data.digest_session_invites,
-        inapp_session_invites: data.inapp_session_invites,
-        email_session_invites: data.email_session_invites,
         // Privacy preferences (new column from implicit-preference-learning migration)
         allow_implicit_tracking: data.allow_implicit_tracking,
       } as any);
@@ -298,29 +289,6 @@ export function ProfilePreferences({
                 disabled={isSubmitting}
               />
 
-              <FormSwitch
-                control={form.control as any}
-                name="digest_session_invites"
-                label="Session Invite Digests"
-                description="Get periodic digest of session invitations"
-                disabled={isSubmitting}
-              />
-
-              <FormSwitch
-                control={form.control as any}
-                name="inapp_session_invites"
-                label="In‑app Session Invites"
-                description="Show session invitations in your activity feed"
-                disabled={isSubmitting}
-              />
-
-              <FormSwitch
-                control={form.control as any}
-                name="email_session_invites"
-                label="Email Session Invites"
-                description="Receive email when someone invites you to a surf session"
-                disabled={isSubmitting}
-              />
             </div>
 
             {/* Privacy Settings */}

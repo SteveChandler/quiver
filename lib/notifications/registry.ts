@@ -29,13 +29,6 @@ import type { NotificationDeliveryStatus, NotificationTypeDef } from "./types";
 
 // ─── Phase 5e: payload schemas (validatePayload source of truth) ─────────────
 
-const sessionInviteSchema = z.object({
-  session_id: z.string().min(1),
-  beach_name: z.string().nullable().optional(),
-  arrival_time: z.string().nullable().optional(),
-  message: z.string().nullable().optional(),
-});
-
 const likeSchema = z.object({
   session_id: z.string().min(1),
   beach_name: z.string().nullable().optional(),
@@ -162,13 +155,6 @@ const NO_QUIET = { mode: "ignore" } as const;
 
 // ─── Payload shapes (what producers pass + what builders consume) ────────────
 
-interface SessionInvitePayload {
-  session_id: string;
-  beach_name?: string | null;
-  arrival_time?: string | null;
-  message?: string | null;
-}
-
 interface LikePayload {
   session_id: string;
   beach_name?: string | null;
@@ -251,47 +237,6 @@ interface AdminBroadcastPayload {
 // ─── Registry ─────────────────────────────────────────────────────────────────
 
 export const NOTIFICATION_REGISTRY = {
-  session_invite: {
-    type: "session_invite",
-    channels: ["push", "in_app"],
-    prefs: {
-      master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
-      perType: {
-        push: "notif_session_invites",
-        in_app: "inapp_session_invites",
-      },
-    },
-    suppressSelfNotify: true,
-    quietHours: DEFAULT_QUIET,
-    validatePayload: (input) => sessionInviteSchema.parse(input),
-    buildPushPayload: (p, ctx) => {
-      const inviter = ctx.actor?.display_name || "A surfer on Quiver";
-      const where = p.beach_name ? ` to ${p.beach_name}` : "";
-      const when = p.arrival_time
-        ? ` • ${new Date(p.arrival_time).toLocaleString()}`
-        : "";
-      return {
-        title: "New Surf Session Invite",
-        body: `${inviter} invited you${where}${when}`,
-        data: {
-          type: "session_invite",
-          session_id: p.session_id,
-          message: p.message ?? "",
-        },
-      };
-    },
-    buildInAppPayload: (p, ctx) => ({
-      type: "session_invite",
-      data: {
-        session_id: p.session_id,
-        inviter_id: ctx.actorUserId,
-        beach_name: p.beach_name ?? null,
-        arrival_time: p.arrival_time ?? null,
-        message: p.message ?? null,
-      },
-    }),
-  } satisfies NotificationTypeDef<SessionInvitePayload>,
-
   like: {
     type: "like",
     channels: ["push", "in_app"],

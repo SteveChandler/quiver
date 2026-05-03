@@ -1,35 +1,10 @@
 /**
- * Session form constants for consistent language and options across planning and logging modes
+ * Session form constants for the session logging flow.
  */
 
-export type SessionFormMode = "plan" | "log";
+export type SessionFormMode = "log";
 
-// Mode-specific text configurations
 export const SESSION_FORM_TEXT = {
-  plan: {
-    pageTitle: "Plan Session",
-    pageDescription:
-      "Plan your upcoming surf session - set your goals, choose your spot, and get ready to charge!",
-
-    // Section headers
-    location: "Where will you surf?",
-    dateTime: "When will you surf?",
-    equipment: "Which board will you use?",
-    goals: "What are your goals?",
-    notes: "Notes & Invite Friends",
-
-    // Form labels and placeholders
-    notesPlaceholder: "Any notes about your upcoming session...",
-    durationLabel: "Expected Duration",
-    submitButton: "Plan Session",
-    successMessage: "Session planned successfully!",
-
-    // Specific features
-    showInviteFriends: true,
-    showConditions: false,
-    showPerformanceRating: false,
-    showPhotos: false,
-  },
   log: {
     pageTitle: "Log Session",
     pageDescription:
@@ -39,7 +14,6 @@ export const SESSION_FORM_TEXT = {
     location: "Where did you surf?",
     dateTime: "When did you surf?",
     equipment: "Which board did you use?",
-    goals: "How did you perform?",
     notes: "Session Notes",
     conditions: "Session Conditions",
     photos: "Session Photos",
@@ -52,7 +26,6 @@ export const SESSION_FORM_TEXT = {
     finishMessage: "You can now finish by going to your profile.",
 
     // Specific features
-    showInviteFriends: false,
     showConditions: true,
     showPerformanceRating: true,
     showPhotos: true,
@@ -131,40 +104,26 @@ export const FORM_SECTIONS = {
     required: false,
     order: 3,
   },
-  goals: {
-    icon: "Target",
-    required: false,
-    order: 4,
-  },
   conditions: {
     icon: "Activity",
     required: false,
-    order: 5,
+    order: 4,
     showOnlyFor: "log" as SessionFormMode,
   },
   photos: {
     icon: "Camera",
     required: false,
-    order: 6,
+    order: 5,
     showOnlyFor: "log" as SessionFormMode,
   },
   notes: {
     icon: "ClipboardList",
     required: false,
-    order: 7,
+    order: 6,
   },
 } as const;
 
-// Mode-specific styling
 export const MODE_STYLES = {
-  plan: {
-    headerBg: "bg-blue-50",
-    headerText: "text-blue-800",
-    headerBorder: "border-blue-200",
-    accentColor: "text-blue-600",
-    buttonColor: "bg-blue-600 hover:bg-blue-700",
-    iconColor: "text-blue-500",
-  },
   log: {
     headerBg: "bg-green-50",
     headerText: "text-green-800",

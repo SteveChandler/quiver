@@ -1,7 +1,7 @@
 /**
  * Board Recommendations API Contract Tests
  *
- * Tests the gear-suggestions endpoint for board recommendations:
+ * Tests the board-recommendations endpoint:
  * - Authentication required (returns 401 for guests)
  * - Proper payload validation (waveHeight, windSpeed)
  * - Response structure with suggestions array
@@ -15,10 +15,10 @@ import { createIsolatedApiContext } from "../utils/api-request-helpers";
 import { TEST_BEACHES } from "../fixtures/test-data";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
-const GEAR_SUGGESTIONS_ENDPOINT = `${BASE_URL}/api/session-planner/gear-suggestions`;
+const BOARD_RECOMMENDATIONS_ENDPOINT = `${BASE_URL}/api/board-recommendations`;
 
 test.describe("Board Recommendations API Contract", () => {
-  test.describe("GET /api/session-planner/gear-suggestions", () => {
+  test.describe("GET /api/board-recommendations", () => {
     test.describe("Authentication Requirements", () => {
       test("should require authentication (401 for unauthenticated)", async ({
         playwright,
@@ -31,7 +31,7 @@ test.describe("Board Recommendations API Contract", () => {
         );
 
         const response = await unauthApi.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
         );
 
         expect(response.status()).toBe(401);
@@ -51,7 +51,7 @@ test.describe("Board Recommendations API Contract", () => {
         );
 
         const response = await authApi.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
         );
 
         // Should be 200 (may have empty suggestions if user has no boards)
@@ -73,7 +73,7 @@ test.describe("Board Recommendations API Contract", () => {
 
       test("should reject missing waveHeight", async () => {
         const response = await api.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?windSpeed=5`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?windSpeed=5`
         );
 
         expect(response.status()).toBe(400);
@@ -86,7 +86,7 @@ test.describe("Board Recommendations API Contract", () => {
 
       test("should reject missing windSpeed", async () => {
         const response = await api.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=3`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=3`
         );
 
         expect(response.status()).toBe(400);
@@ -99,7 +99,7 @@ test.describe("Board Recommendations API Contract", () => {
 
       test("should accept valid waveHeight and windSpeed", async () => {
         const response = await api.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
         );
 
         expect(response.status()).toBe(200);
@@ -110,7 +110,7 @@ test.describe("Board Recommendations API Contract", () => {
 
       test("should accept optional beachId parameter", async () => {
         const response = await api.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=3&windSpeed=5&beachId=${TEST_BEACHES.blacks.id}`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=3&windSpeed=5&beachId=${TEST_BEACHES.blacks.id}`
         );
 
         expect(response.status()).toBe(200);
@@ -121,7 +121,7 @@ test.describe("Board Recommendations API Contract", () => {
 
       test("should reject invalid waveHeight (non-numeric)", async () => {
         const response = await api.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=abc&windSpeed=5`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=abc&windSpeed=5`
         );
 
         expect(response.status()).toBe(400);
@@ -132,7 +132,7 @@ test.describe("Board Recommendations API Contract", () => {
 
       test("should handle negative waveHeight gracefully", async () => {
         const response = await api.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=-3&windSpeed=5`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=-3&windSpeed=5`
         );
 
         // API validates input and rejects negative wave heights
@@ -154,7 +154,7 @@ test.describe("Board Recommendations API Contract", () => {
 
       test("should return valid JSON content", async () => {
         const response = await api.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
         );
 
         expect(response.headers()["content-type"]).toContain("application/json");
@@ -165,7 +165,7 @@ test.describe("Board Recommendations API Contract", () => {
 
       test("should return standard API response structure", async () => {
         const response = await api.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
         );
 
         const json = await response.json();
@@ -176,7 +176,7 @@ test.describe("Board Recommendations API Contract", () => {
 
       test("should include userId, conditions, suggestions on success", async () => {
         const response = await api.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
         );
 
         if (response.status() === 200) {
@@ -204,7 +204,7 @@ test.describe("Board Recommendations API Contract", () => {
 
       test("each suggestion should have required fields", async () => {
         const response = await api.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
         );
 
         if (response.status() === 200) {
@@ -227,7 +227,7 @@ test.describe("Board Recommendations API Contract", () => {
 
       test("board object should have name and board_type", async () => {
         const response = await api.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
         );
 
         if (response.status() === 200) {
@@ -246,7 +246,7 @@ test.describe("Board Recommendations API Contract", () => {
 
       test("score should be a number between 0 and 100", async () => {
         const response = await api.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
         );
 
         if (response.status() === 200) {
@@ -265,7 +265,7 @@ test.describe("Board Recommendations API Contract", () => {
 
       test("confidence should be a number between 0 and 1", async () => {
         const response = await api.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
         );
 
         if (response.status() === 200) {
@@ -294,7 +294,7 @@ test.describe("Board Recommendations API Contract", () => {
 
       test("should handle small wave conditions (1-2ft)", async () => {
         const response = await api.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=1.5&windSpeed=5`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=1.5&windSpeed=5`
         );
 
         expect(response.status()).toBe(200);
@@ -306,7 +306,7 @@ test.describe("Board Recommendations API Contract", () => {
 
       test("should handle medium wave conditions (3-5ft)", async () => {
         const response = await api.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=4&windSpeed=8`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=4&windSpeed=8`
         );
 
         expect(response.status()).toBe(200);
@@ -318,7 +318,7 @@ test.describe("Board Recommendations API Contract", () => {
 
       test("should handle large wave conditions (6-10ft)", async () => {
         const response = await api.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=8&windSpeed=10`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=8&windSpeed=10`
         );
 
         expect(response.status()).toBe(200);
@@ -331,7 +331,7 @@ test.describe("Board Recommendations API Contract", () => {
       test("should handle very light wind conditions (1 mph)", async () => {
         // Note: API requires windSpeed > 0, so testing with minimal wind
         const response = await api.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=3&windSpeed=1`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=3&windSpeed=1`
         );
 
         expect(response.status()).toBe(200);
@@ -343,7 +343,7 @@ test.describe("Board Recommendations API Contract", () => {
 
       test("should handle high wind conditions", async () => {
         const response = await api.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=3&windSpeed=25`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=3&windSpeed=25`
         );
 
         expect(response.status()).toBe(200);
@@ -365,7 +365,7 @@ test.describe("Board Recommendations API Contract", () => {
 
       test("should handle POST requests with 405 Method Not Allowed", async () => {
         const response = await api.post(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
         );
 
         expect(response.status()).toBe(405);
@@ -385,7 +385,7 @@ test.describe("Board Recommendations API Contract", () => {
 
         const startTime = Date.now();
         const response = await api.get(
-          `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
+          `${BOARD_RECOMMENDATIONS_ENDPOINT}?waveHeight=3&windSpeed=5`
         );
         const duration = Date.now() - startTime;
 

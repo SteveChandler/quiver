@@ -383,16 +383,22 @@ function applySunsetCap(
 function buildResult(
   bestWindow: CandidateWindow,
   filteredForecasts: ScoredForecast[],
+  beach: Beach,
   beachTz: string,
   now: Date
 ): PersonalizedForecastWindow {
+  const peakCandidates = filteredForecasts.map(({ forecast, forecastTime, score }) => ({
+    forecastTime,
+    score: score + getPeakTimeTideAdjustment(forecast, beach),
+  }));
+
   // Pass `now` through so findPeakWithinWindow can clamp past peaks to the
   // current time — a still-open window must never report a best time that
   // has already elapsed. See peak-finder.ts for the full rationale.
   const peakTime = findPeakWithinWindow(
     bestWindow.start,
     bestWindow.end,
-    filteredForecasts,
+    peakCandidates,
     now
   );
 
@@ -411,6 +417,76 @@ function buildResult(
     peakTime,
     sourceForecast: bestWindow.forecast,
   };
+}
+
+function getPeakTimeTideAdjustment(
+  forecast: EnhancedForecastEntity,
+  beach: Beach
+): number {
+  const status = (forecast.tide_status ?? '').toLowerCase();
+  const tideHeight = parseFloat(forecast.tide_height ?? '0');
+  const preferredDirection = parsePreferredTideDirection(
+    beach.preferred_tide_direction
+  );
+
+  let adjustment = 0;
+
+  const isRising = status.includes('rising') || status.includes('incoming');
+  const isFalling = status.includes('falling') || status.includes('outgoing');
+  const isSlackHigh = status.includes('high');
+  const isSlackLow = status.includes('low');
+
+  // Peak-time selection should avoid labeling the exact tide turn as "best"
+  // when the broader window is still surfable. Keep the penalty modest so we
+  // bias the label, not the entire window choice.
+  if (isSlackHigh) adjustment -= 14;
+  else if (isSlackLow) adjustment -= 7;
+
+  if (preferredDirection === 'rising') {
+    if (isRising) adjustment += 7;
+    else if (isFalling || isSlackHigh || isSlackLow) adjustment -= 8;
+  } else if (preferredDirection === 'falling') {
+    if (isFalling) adjustment += 5;
+    else if (isRising || isSlackHigh || isSlackLow) adjustment -= 6;
+  } else if (preferredDirection === 'slack') {
+    if (isSlackHigh || isSlackLow) adjustment += 4;
+    else if (isRising || isFalling) adjustment -= 4;
+  }
+
+  if (!Number.isNaN(tideHeight)) {
+    const minTide = beach.preferred_tide_ft_min;
+    const maxTide = beach.preferred_tide_ft_max;
+
+    if (maxTide != null && tideHeight > maxTide) {
+      adjustment -= Math.min(8, Math.round((tideHeight - maxTide) * 4));
+    }
+
+    if (minTide != null && tideHeight < minTide) {
+      adjustment -= Math.min(4, Math.round((minTide - tideHeight) * 2));
+    }
+  }
+
+  return adjustment;
+}
+
+function parsePreferredTideDirection(
+  direction: string | null | undefined
+): 'rising' | 'falling' | 'either' | 'slack' {
+  const normalized = direction?.toLowerCase().trim();
+  if (
+    normalized === 'rising' ||
+    normalized === 'falling' ||
+    normalized === 'either' ||
+    normalized === 'slack'
+  ) {
+    return normalized;
+  }
+
+  if (normalized === 'any') {
+    return 'either';
+  }
+
+  return 'either';
 }
 
 // ============================================================================
@@ -733,7 +809,7 @@ export function selectBestWindow(
     return null;
   }
 
-  return buildResult(bestWindow, filteredForecasts, beachTz, now);
+  return buildResult(bestWindow, filteredForecasts, actualBeach, beachTz, now);
 }
 
 /**

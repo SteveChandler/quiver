@@ -413,7 +413,6 @@ function isIgnorableNetworkError(url: string, status: number): boolean {
     const gracefulApis = [
       '/api/beach/personalized-score',
       '/api/user/beach-affinity',
-      '/api/session-planner/gear-suggestions', // Optional gear suggestions feature
       '/api/alerts/rules', // BeachAlertCta is rendered as anon sign-up CTA; rules fetch is skip:!user-gated but a single fetch may surface before useAuth() hydrates
     ];
     if (gracefulApis.some(api => url.includes(api))) {

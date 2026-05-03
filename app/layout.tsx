@@ -142,7 +142,7 @@ export const metadata: Metadata = {
   },
 };
 
-const hideFooterPrefixes = ["/auth", "/admin", "/profile", "/inbox", "/sessions", "/prefs", "/embed", "/welcome", "/map"];
+const hideFooterPrefixes = ["/auth", "/admin", "/profile", "/sessions", "/prefs", "/embed", "/welcome", "/map"];
 
 export default function RootLayout({
   children,

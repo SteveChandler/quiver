@@ -50,7 +50,6 @@ export const profileFormSchema = z.object({
   notif_inapp_enabled: z.boolean().optional(),
 
   // Notification Preferences - Feature toggles
-  notif_session_invites: z.boolean().optional(),
   notif_likes: z.boolean().optional(),
   notif_follows: z.boolean().optional(),
   notif_reminders: z.boolean().optional(),

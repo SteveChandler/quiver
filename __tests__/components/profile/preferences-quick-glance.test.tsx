@@ -37,9 +37,6 @@ describe("PreferencesQuickGlance", () => {
     homeBeachName: "La Jolla Shores",
     notif_reminders: null,
     notif_forecast_alerts: null,
-    digest_session_invites: null,
-    inapp_session_invites: null,
-    email_session_invites: null,
     allow_implicit_tracking: null,
   };
 

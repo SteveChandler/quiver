@@ -32,8 +32,6 @@ export interface TopSpotsCarouselProps {
   timeSlot?: TimeSlot;
   /** Whether data is currently loading */
   loading?: boolean;
-  /** Callback when user wants to plan a session at a spot */
-  onPlanSession: (beachId: string) => void;
   /** Callback when user taps to view spot details */
   onViewSpot: (beachId: string) => void;
   /** Callback when user wants to use their location */
@@ -62,7 +60,6 @@ export interface TopSpotsCarouselProps {
  * <TopSpotsCarousel
  *   spots={recommendations}
  *   loading={isLoading}
- *   onPlanSession={(id) => router.push(`/session/plan?beach=${id}`)}
  *   onViewSpot={(id) => router.push(`/beach/${id}`)}
  *   onUseMyLocation={handleLocationRequest}
  *   showLocationCta={!hasLocation}
@@ -74,7 +71,6 @@ export const TopSpotsCarousel = React.memo(function TopSpotsCarousel({
   heroWindow,
   timeSlot,
   loading = false,
-  onPlanSession,
   onViewSpot,
   onUseMyLocation,
   showLocationCta = false,

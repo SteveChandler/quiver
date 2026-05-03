@@ -237,17 +237,6 @@ useEffect(() => {
 
 ### Current Active Subscriptions (Optimized)
 
-#### Session Invitations (Shared Hook)
-
-**Hook**: `hooks/use-session-invitations-subscription.ts`  
-**Used by**: `components/app-header.tsx`, `app/inbox/page.tsx`  
-**Filters**:
-
-- `invitee_id=eq.${userId}`
-- `invitee_email=eq.${email}`
-
-**Status**: ✅ Optimized (shared hook prevents duplicates)
-
 #### Session Likes
 
 **Hook**: `hooks/use-session-like.ts`  
@@ -587,51 +576,6 @@ const channel = supabase
 **Before**: Subscribed to ALL intel posts (unfiltered)  
 **After**: Only posts from last 7 days  
 **Impact**: 70-90% reduction in overhead for intel feature
-
-### ✅ Shared Hook Pattern: Session Invitations
-
-```typescript
-// hooks/use-session-invitations-subscription.ts
-export function useSessionInvitationsSubscription(userId, email, onUpdate) {
-  useEffect(() => {
-    const channels: RealtimeChannel[] = [];
-
-    if (userId) {
-      channels.push(
-        supabase
-          .channel(`invitations_user_${userId}`)
-          .on(
-            "postgres_changes",
-            {
-              event: "*",
-              schema: "public",
-              table: "session_invitations",
-              filter: `invitee_id=eq.${userId}`,
-            },
-            () => onUpdateRef.current()
-          )
-          .subscribe()
-      );
-    }
-
-    return () => channels.forEach((ch) => supabase.removeChannel(ch));
-  }, [userId, email]);
-}
-
-// Use in multiple components (no duplicates!)
-// components/app-header.tsx
-useSessionInvitationsSubscription(user?.id, user?.email, refetchCount);
-
-// app/inbox/page.tsx
-useSessionInvitationsSubscription(user?.id, user?.email, refetchList);
-```
-
-**Benefits**:
-
-- Single source of truth
-- No duplicate subscriptions
-- Consistent channel names
-- Easier to optimize
 
 ---
 

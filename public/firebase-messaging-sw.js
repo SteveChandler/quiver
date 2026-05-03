@@ -67,9 +67,7 @@ self.addEventListener("notificationclick", (event) => {
   let urlToOpen = self.location.origin;
 
   // Route based on notification type
-  if (data.type === "session_invite" && data.session_id) {
-    urlToOpen = `${self.location.origin}/sessions/${data.session_id}`;
-  } else if (data.type === "comment" && data.session_id) {
+  if (data.type === "comment" && data.session_id) {
     urlToOpen = `${self.location.origin}/sessions/${data.session_id}#comments`;
   } else if (data.type === "like" && data.session_id) {
     urlToOpen = `${self.location.origin}/sessions/${data.session_id}`;
@@ -101,5 +99,4 @@ self.addEventListener("notificationclick", (event) => {
       })
   );
 });
-
 

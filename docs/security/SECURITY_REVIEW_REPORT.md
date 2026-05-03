@@ -89,7 +89,6 @@ const isAllowed = ALLOWED_DOMAINS.some((domain) => {
 | `/app/api/intel/route.ts:236-238` | No XSS sanitization on user-generated content (title, description) | Add HTML entity encoding or use DOMPurify |
 | `/lib/middleware/rate-limiter.ts:156-162` | Rate limiter errors are silently swallowed and allow requests through | Log to Sentry with high severity, add metrics |
 | Multiple files | `dangerouslySetInnerHTML` used for JSON-LD | Acceptable for structured data, but verify all inputs are from trusted sources |
-| `/app/api/plan-session/route.ts:127-139` | E2E mock user bypass in production code | Move to separate test-only middleware, not production routes |
 
 ---
 

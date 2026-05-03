@@ -56,7 +56,6 @@ interface EditProfileFormProps {
     notif_push_enabled?: boolean;
     notif_email_enabled?: boolean;
     notif_inapp_enabled?: boolean;
-    notif_session_invites?: boolean;
     notif_likes?: boolean;
     notif_follows?: boolean;
     notif_reminders?: boolean;
@@ -108,7 +107,6 @@ export function EditProfileForm({
       notif_push_enabled: initialData?.notif_push_enabled ?? true,
       notif_email_enabled: initialData?.notif_email_enabled ?? true,
       notif_inapp_enabled: initialData?.notif_inapp_enabled ?? true,
-      notif_session_invites: initialData?.notif_session_invites ?? true,
       notif_likes: initialData?.notif_likes ?? true,
       notif_follows: initialData?.notif_follows ?? true,
       notif_reminders: initialData?.notif_reminders ?? true,

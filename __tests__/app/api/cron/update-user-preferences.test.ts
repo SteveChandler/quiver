@@ -95,8 +95,14 @@ jest.mock('@/lib/supabase/server', () => ({
 }));
 
 describe('User Preference Update Cron Job API', () => {
-  const mockRequest = (headers: Record<string, string> = {}) => {
+  const mockRequest = (
+    headers: Record<string, string> = {},
+    url = 'http://localhost/api/cron/update-user-preferences'
+  ) => {
+    const nextUrl = new URL(url);
     return {
+      url,
+      nextUrl,
       headers: {
         get: jest.fn((name: string) => headers[name] || null),
       },
@@ -561,6 +567,33 @@ describe('User Preference Update Cron Job API', () => {
 
       expect(data.data.totalUsers).toBe(3);
       expect(computeUserPreferences).toHaveBeenCalledTimes(3);
+    });
+
+    it('should include NPC users for manual includeMock runs', async () => {
+      mockSupabaseClient.from = jest.fn((table: string) => {
+        if (table === 'profiles') {
+          return createProfilesChain(['user-2']);
+        }
+        return createSessionsChain([
+          { user_id: 'user-1' },
+          { user_id: 'user-2' },
+          { user_id: 'user-3' },
+        ]);
+      });
+
+      const request = mockRequest(
+        { authorization: 'Bearer valid-cron-secret' },
+        'http://localhost/api/cron/update-user-preferences?includeMock=true'
+      );
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(data.data.totalUsers).toBe(3);
+      expect(data.data.includeMockUsers).toBe(true);
+      expect(computeUserPreferences).toHaveBeenCalledWith('user-1');
+      expect(computeUserPreferences).toHaveBeenCalledWith('user-2');
+      expect(computeUserPreferences).toHaveBeenCalledWith('user-3');
     });
   });
 });

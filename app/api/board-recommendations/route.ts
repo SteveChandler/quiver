@@ -47,7 +47,7 @@ interface GearSuggestionsResponse {
 
 /**
  * Analyzes user's past sessions to recommend boards based on conditions
- * GET /api/session-planner/gear-suggestions?waveHeight=4&windSpeed=8&beachId=xxx
+ * GET /api/board-recommendations?waveHeight=4&windSpeed=8&beachId=xxx
  */
 export async function GET(request: NextRequest) {
   try {

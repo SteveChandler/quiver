@@ -15,7 +15,6 @@ import { EquipmentStep } from "./EquipmentStep";
 import { ConditionsSection } from "./ConditionsSection";
 import { PhotoSelectionSection } from "./PhotoSelectionSection";
 import { NotesSection } from "./NotesSection";
-import { GoalsSection } from "./GoalsSection";
 import { VisibilitySection } from "./VisibilitySection";
 import { SessionSlider } from "./SessionSlider";
 import { WaveTypeSelector } from "@/components/ui/wave-type-selector";
@@ -24,6 +23,7 @@ import { SessionCelebration } from "@/components/session/session-celebration";
 import { QuickLogView } from "./QuickLogView";
 import type { BeachSource } from "@/hooks/use-nearest-beach";
 import { useTrackEvent } from "@/hooks/use-track-event";
+import { useSessionConditionsPrefill } from "@/hooks/use-session-conditions-prefill";
 import type { SessionLogMetadata } from "@/types/implicit-preferences";
 
 type SessionLogStep =
@@ -79,14 +79,24 @@ export function SessionScrollForm({
   detectedSource,
   detectedConfidence,
 }: SessionScrollFormProps) {
-  const { formState, updateField, boards, beaches, loadingData, isPlanning, refreshBoards } =
+  const { formState, updateField, boards, beaches, loadingData, refreshBoards } =
     useSessionForm({ initialMode, initialFormState, quick: quickMode });
 
-  const isLog = !isPlanning;
-  const useQuickMode = quickMode && isLog;
-  const title = useQuickMode ? "How was it?" : isPlanning ? "Plan Session" : "Log Session";
+  const isLog = true;
+  const useQuickMode = quickMode;
+  const title = useQuickMode ? "How was it?" : "Log Session";
 
-  const canSave = Boolean(formState.selectedBeachId && formState.selectedDate);
+  // Prefill wave/wind/tide from forecast at the form level so it runs even when
+  // the conditions UI is collapsed behind QuickLog's details accordion.
+  useSessionConditionsPrefill(initialMode, formState, updateField);
+
+  // Logged sessions require a rating — that's the only signal the preference
+  // learner reads. Conditions are prefilled and editable but not required.
+  const canSave = Boolean(
+    formState.selectedBeachId &&
+      formState.selectedDate &&
+      formState.overallRating
+  );
 
   // ── Session log funnel instrumentation (log mode only) ──
   const { track: trackEvent } = useTrackEvent();
@@ -265,17 +275,12 @@ export function SessionScrollForm({
 
   const handleSave = useCallback(() => {
     if (!canSave) return;
-    // Only show celebration for log mode; plan mode completes immediately
-    if (isLog) {
-      maxStepReachedRef.current = promoteStep(
-        maxStepReachedRef.current,
-        "review"
-      );
-      setPendingFormState(formState);
-    } else {
-      onComplete(formState);
-    }
-  }, [canSave, isLog, formState, onComplete]);
+    maxStepReachedRef.current = promoteStep(
+      maxStepReachedRef.current,
+      "review"
+    );
+    setPendingFormState(formState);
+  }, [canSave, formState]);
 
   const handleCelebrationDismiss = useCallback(() => {
     if (pendingFormState) {
@@ -399,81 +404,67 @@ export function SessionScrollForm({
               />
             ) : (
               /* ── Standard Full Mode ── */
-              <>
+                  <>
                 {/* Section 1: Location + Date/Time */}
                 <section className="space-y-4">
                   <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">
-                    {isPlanning ? "Where & when?" : "Where'd you surf?"}
+                    Where&apos;d you surf?
                   </h2>
                   <LocationStep formState={formState} beaches={beaches} mode={initialMode} updateField={updateField} />
                   <DateTimeSection mode={initialMode} formState={formState} updateField={updateField} />
                 </section>
 
-                {isLog && (
-                  <>
-                    <hr className="border-[#404C92]" />
-                    <section className="space-y-4">
-                      <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">What&apos;d you ride?</h2>
-                      <EquipmentStep formState={formState} boards={boards} updateField={updateField} onBoardsRefresh={refreshBoards} />
-                    </section>
+                <hr className="border-[#404C92]" />
+                <section className="space-y-4">
+                  <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">What&apos;d you ride?</h2>
+                  <EquipmentStep formState={formState} boards={boards} updateField={updateField} onBoardsRefresh={refreshBoards} />
+                </section>
 
-                    <hr className="border-[#404C92]" />
-                    <section className="space-y-4">
-                      <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">What was it like out there?</h2>
-                      <ConditionsSection mode={initialMode} formState={formState} updateField={updateField} />
-                    </section>
+                <hr className="border-[#404C92]" />
+                <section className="space-y-4">
+                  <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">What was it like out there?</h2>
+                  <ConditionsSection mode={initialMode} formState={formState} updateField={updateField} />
+                </section>
 
-                    <hr className="border-[#404C92]" />
-                    <section className="space-y-6">
-                      <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">How were the waves?</h2>
-                      <SessionSlider label="Overall" labels={["Rough", "Meh", "Fun", "Great", "Epic"]} colors={["#9CA3AF", "#F59E0B", "#EA580C"]} value={formState.overallRating} onChange={(v) => updateField("overallRating", v)} hero />
-                      <SessionSlider label="Wave Quality" labels={["Flat", "Choppy", "Fun", "Good", "Firing"]} colors={["#0D9488", "#F59E0B", "#EA580C"]} value={formState.waveQuality} onChange={(v) => updateField("waveQuality", v)} />
-                      <SessionSlider label="Crowd" labels={["Empty", "Chill", "Moderate", "Busy", "Packed"]} colors={["#16A34A", "#FBBF24", "#DC2626"]} value={formState.crowdLevel} onChange={(v) => updateField("crowdLevel", v)} />
-                      <div className="space-y-2">
-                        <span className="text-sm font-bold text-[#F0F0F0]">Wave Types</span>
-                        <WaveTypeSelector selectedTypes={formState.waveTypes} onChange={(types) => updateField("waveTypes", types)} />
-                      </div>
-                    </section>
+                <hr className="border-[#404C92]" />
+                <section className="space-y-6">
+                  <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">How were the waves?</h2>
+                  <SessionSlider label="Overall" labels={["Rough", "Meh", "Fun", "Great", "Epic"]} colors={["#9CA3AF", "#F59E0B", "#EA580C"]} value={formState.overallRating} onChange={(v) => updateField("overallRating", v)} hero />
+                  <SessionSlider label="Wave Quality" labels={["Flat", "Choppy", "Fun", "Good", "Firing"]} colors={["#0D9488", "#F59E0B", "#EA580C"]} value={formState.waveQuality} onChange={(v) => updateField("waveQuality", v)} />
+                  <SessionSlider label="Crowd" labels={["Empty", "Chill", "Moderate", "Busy", "Packed"]} colors={["#16A34A", "#FBBF24", "#DC2626"]} value={formState.crowdLevel} onChange={(v) => updateField("crowdLevel", v)} />
+                  <div className="space-y-2">
+                    <span className="text-sm font-bold text-[#F0F0F0]">Wave Types</span>
+                    <WaveTypeSelector selectedTypes={formState.waveTypes} onChange={(types) => updateField("waveTypes", types)} />
+                  </div>
+                </section>
 
-                    <hr className="border-[#404C92]" />
-                    <section className="space-y-4">
-                      <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">Was the forecast accurate?</h2>
-                      <div className="grid grid-cols-3 gap-3">
-                        {FORECAST_ACCURACY_OPTIONS.map((option) => {
-                          const IconComponent = option.icon;
-                          const isSelected = formState.forecastAccuracy === option.value;
-                          return (
-                            <button key={option.value} type="button" onClick={() => updateField("forecastAccuracy", option.value as "accurate" | "somewhat" | "inaccurate")} className={cn("p-4 rounded-lg border-2 transition-all", isSelected ? "border-[#F78E42] bg-[#F78E42]/10" : "border-[#404C92] bg-[#354090] hover:bg-[#404C92]")} aria-label={`${option.label}: ${option.description}`}>
-                              <div className="flex flex-col items-center gap-2">
-                                <IconComponent className={cn("h-6 w-6", isSelected ? "text-[#F78E42]" : option.color)} />
-                                <span className={cn("font-medium", isSelected ? "text-[#F78E42]" : "text-[#F0F0F0]")}>{option.label}</span>
-                                <span className="text-xs text-[#9AABC6] text-center">{option.description}</span>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </section>
+                <hr className="border-[#404C92]" />
+                <section className="space-y-4">
+                  <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">Was the forecast accurate?</h2>
+                  <div className="grid grid-cols-3 gap-3">
+                    {FORECAST_ACCURACY_OPTIONS.map((option) => {
+                      const IconComponent = option.icon;
+                      const isSelected = formState.forecastAccuracy === option.value;
+                      return (
+                        <button key={option.value} type="button" onClick={() => updateField("forecastAccuracy", option.value as "accurate" | "somewhat" | "inaccurate")} className={cn("p-4 rounded-lg border-2 transition-all", isSelected ? "border-[#F78E42] bg-[#F78E42]/10" : "border-[#404C92] bg-[#354090] hover:bg-[#404C92]")} aria-label={`${option.label}: ${option.description}`}>
+                          <div className="flex flex-col items-center gap-2">
+                            <IconComponent className={cn("h-6 w-6", isSelected ? "text-[#F78E42]" : option.color)} />
+                            <span className={cn("font-medium", isSelected ? "text-[#F78E42]" : "text-[#F0F0F0]")}>{option.label}</span>
+                            <span className="text-xs text-[#9AABC6] text-center">{option.description}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
 
-                    <hr className="border-[#404C92]" />
-                    <section className="space-y-4">
-                      <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">Photos</h2>
-                      <PhotoSelectionSection mode={initialMode} selectedFiles={formState.photos} onFilesChange={(files) => updateField("photos", files)} />
-                    </section>
+                <hr className="border-[#404C92]" />
+                <section className="space-y-4">
+                  <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">Photos</h2>
+                  <PhotoSelectionSection mode={initialMode} selectedFiles={formState.photos} onFilesChange={(files) => updateField("photos", files)} />
+                </section>
 
-                    <hr className="border-[#404C92]" />
-                  </>
-                )}
-
-                {isPlanning && (
-                  <>
-                    <hr className="border-[#404C92]" />
-                    <section>
-                      <GoalsSection mode={initialMode} formState={formState} updateField={updateField} />
-                    </section>
-                    <hr className="border-[#404C92]" />
-                  </>
-                )}
+                <hr className="border-[#404C92]" />
 
                 {/* Notes (both modes) */}
                 <section className="space-y-4">
@@ -520,7 +511,7 @@ export function SessionScrollForm({
             ) : useQuickMode ? (
               "Log it"
             ) : (
-              `Save ${isPlanning ? "Plan" : "Session"}`
+              "Save Session"
             )}
           </button>
           </div>

@@ -223,7 +223,6 @@ All metadata on a single line, wraps on mobile.
 ```tsx
 <BeachActions
   beach={beach}
-  onPlanSession={handlePlan}
   onLogSession={handleLog}
 />
 ```
@@ -232,7 +231,6 @@ All metadata on a single line, wraps on mobile.
 
 - **Get Directions** - Opens Google Maps (secondary)
 - **Log Session** - Opens modal to record a session (primary, blue)
-- **Plan Session** - Opens modal to plan future session (primary, blue)
 - **Favorite** - Toggle favorite status
 - **Set as Home Beach** - Set as default beach
 
@@ -242,36 +240,6 @@ All metadata on a single line, wraps on mobile.
 - Horizontal row on desktop
 - Blue buttons for session planning (primary actions)
 - Outline button for directions (secondary)
-
----
-
-### Modal Components
-
-#### SessionPlanningModal
-
-**File:** `components/beach-detail/session-planning-modal.tsx`
-**Purpose:** Log or plan surf sessions
-
-```tsx
-<SessionPlanningModal
-  open={open}
-  onOpenChange={setOpen}
-  beach={beach}
-  initialMode="log"
-/>
-```
-
-**Modes:**
-
-- **Log Session** - Record a past or current session
-- **Plan Session** - Schedule a future session
-
-**Features:**
-
-- Tabbed interface (Log vs Plan)
-- Dynamic SessionForm component
-- Closes on success
-- Full-screen on mobile
 
 ---
 

@@ -61,7 +61,6 @@ function friendlyPathName(path: string): string {
     "/discover": "discovery",
     "/sessions": "your sessions",
     "/profile": "your profile",
-    "/inbox": "your inbox",
   };
   if (map[path]) return map[path];
   // Beach paths: /XX/city/beach or /ca/city/beach
@@ -675,7 +674,7 @@ export function UnifiedAuthModal({
               ? contextMessage.description
               : activeMode === "login"
                 ? "Access your sessions, forecasts, and community."
-                : "Join Quiver to plan sessions and connect with surfers."}
+                : "Join Quiver to log sessions and connect with surfers."}
           </DialogDescription>
         </DialogHeader>
 

@@ -177,10 +177,6 @@ export function PhotoSelectionSection({
     processFiles(e.target.files);
   };
 
-  if (mode !== "log") {
-    return null;
-  }
-
   const text = getFormText(mode);
 
   return (

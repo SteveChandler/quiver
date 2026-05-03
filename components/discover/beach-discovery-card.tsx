@@ -31,7 +31,7 @@ import { useAuth } from "@/context/auth-context";
 interface BeachDiscoveryCardProps {
   recommendation: SurfDiscoveryRecommendation;
   rank: number;
-  onPlanSession: (beachId: string) => void;
+  onLogSession: (beachId: string) => void;
   /** Optional personalized board-wave matching feedback from matchBoardToWaves() */
   boardReasoning?: string;
 }
@@ -45,7 +45,7 @@ interface BeachDiscoveryCardProps {
 export function BeachDiscoveryCard({
   recommendation,
   rank,
-  onPlanSession,
+  onLogSession,
   boardReasoning,
 }: BeachDiscoveryCardProps) {
   const {
@@ -259,14 +259,14 @@ export function BeachDiscoveryCard({
                 metadata: {
                   position: rank,
                   score_shown: displayScore,
-                  action: "plan_session",
+                  action: "log_session",
                   match_quality: matchQuality,
                 },
               });
-              onPlanSession(beach.id);
+              onLogSession(beach.id);
             }}
           >
-            Plan Session
+            Log Session
           </Button>
           <Link
             href={beachUrl}

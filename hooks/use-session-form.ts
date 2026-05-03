@@ -34,45 +34,18 @@ export type SessionFormState = {
   // Visibility fields
   isPublic: boolean; // Whether session is visible to others (default true)
   isMuted: boolean; // Whether session is hidden from community feed (default false)
-  // New Session Planner Pro fields
-  optimalTimes?: Array<{
-    time: string;
-    score: number;
-    rating: "poor" | "fair" | "good" | "excellent";
-    conditions: {
-      waveHeight: number;
-      waveQuality: string;
-      windSpeed: number;
-      windDirection: string;
-      confidence: number;
-    };
-    reasons: string[];
-  }>;
-  selectedOptimalTime?: string;
-  boardSuggestions?: Array<{
-    boardId: string;
-    score: number;
-    confidence: number;
-    reasons: string[];
-  }>;
-  invitees?: Array<{
-    userId?: string;
-    email?: string;
-    name?: string;
-  }>;
-  invitationMessage?: string;
   selectedGoals: string[];
   skillRatings: Record<string, number>;
 };
 
-export type SessionFormMode = "plan" | "log";
+export type SessionFormMode = "log";
 
 /**
  * Parameters for configuring the session form hook
  */
 export type SessionFormHookParams = {
   /**
-   * Initial form mode (plan or log)
+   * Initial form mode. Session creation is log-only.
    */
   initialMode: SessionFormMode;
   /**
@@ -83,7 +56,7 @@ export type SessionFormHookParams = {
    * @example
    * ```typescript
    * const form = useSessionForm({
-   *   initialMode: 'plan',
+   *   initialMode: 'log',
    *   initialFormState: {
    *     selectedBeachId: 'abc-123',
    *     selectedBeach: 'Pacific Beach',
@@ -132,12 +105,6 @@ function getDefaultFormState(mode: SessionFormMode): SessionFormState {
     // Visibility defaults
     isPublic: true,
     isMuted: false,
-    // Initialize new Session Planner Pro fields
-    optimalTimes: undefined,
-    selectedOptimalTime: undefined,
-    boardSuggestions: undefined,
-    invitees: [],
-    invitationMessage: "",
     selectedGoals: [],
     skillRatings: {},
   };
@@ -152,12 +119,12 @@ function getDefaultFormState(mode: SessionFormMode): SessionFormState {
  *
  * @example
  * // Legacy usage (backwards compatible)
- * const form = useSessionForm('plan');
+ * const form = useSessionForm('log');
  *
  * @example
  * // New usage with prefill
  * const form = useSessionForm({
- *   initialMode: 'plan',
+ *   initialMode: 'log',
  *   initialFormState: {
  *     selectedBeachId: 'abc-123',
  *     selectedBeach: 'Pacific Beach',
@@ -167,7 +134,7 @@ function getDefaultFormState(mode: SessionFormMode): SessionFormState {
  * });
  */
 export function useSessionForm(
-  params: SessionFormMode | SessionFormHookParams = "plan"
+  params: SessionFormMode | SessionFormHookParams = "log"
 ) {
   // Support both legacy (mode string) and new (params object) usage
   const { initialMode, initialFormState, quick } =
@@ -302,6 +269,5 @@ export function useSessionForm(
     updateField,
     resetForm,
     refreshBoards,
-    isPlanning: mode === "plan",
   };
 }
