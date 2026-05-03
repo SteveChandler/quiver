@@ -40,8 +40,11 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
         .select("id")
         .single();
       runId = data?.id ?? null;
-    } catch {
-      // never block the handler
+    } catch (err) {
+      // Never block the handler. Log so cron_runs unavailability is at least
+      // visible in Vercel function logs (otherwise an unobserved run leaves
+      // no trail at all — the post-handler UPDATE is gated on runId).
+      console.warn(`[cron-observability] insert failed for ${route}`, err);
     }
 
     try {
