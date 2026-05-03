@@ -62,6 +62,7 @@ import {
   buildDiscoveryMessage,
 } from './response-formatter';
 import { fetchPersonalizationContext, calculatePersonalizationBonus } from './personalization-layer';
+import { applySimilarityLayer } from './similarity-layer';
 import { assignStrategyTags } from '@/lib/services/discovery/strategy-tags';
 import { generateRegionalCall } from '@/lib/services/discovery/regional-call';
 import type { WindSnapshot } from '@/lib/services/discovery/regional-call';
@@ -505,6 +506,7 @@ async function discoverSurfSpotsInner(
     timeout = DEFAULT_TIMEOUT_MS,
     overallTimeout = DEFAULT_OVERALL_TIMEOUT_MS,
     timeSlot,
+    isPro = false,
   } = options;
 
   log.debug(`Discovering surf spots for user ${userId} (maxResults: ${maxResults})`);
@@ -819,6 +821,9 @@ async function discoverSurfSpotsInner(
       waveHeightBadge: detailedScore.waveHeightBadge,
       distanceMiles,
       drivingTimeMinutes: distanceMiles ? Math.round(distanceMiles * 1.5) : undefined,
+      // Similarity is stamped later by applySimilarityLayer (Pro path) or
+      // remains null for free users. Required field — initialize to null.
+      similarity: null,
       generated_at: new Date().toISOString(),
     });
 
@@ -878,7 +883,25 @@ async function discoverSurfSpotsInner(
   allRecs.sort((a, b) => b.score - a.score);
 
   // Take top results
-  const merged = allRecs.slice(0, maxResults);
+  let merged = allRecs.slice(0, maxResults);
+
+  // Pass 2 (Plan V4): inject similarity scoring for Pro/trial users.
+  // - Free users: no RPC call; every rec keeps similarity:null.
+  // - Pro users: bulk RPC per beach via compute_user_match_score_batch.
+  //   Ready-state slots with score >= 7.0 get an additive bonus (capped +15)
+  //   added to recommendation.score, then we re-sort.
+  //
+  // Authority separation: this only changes RANK. Verdict copy is generated
+  // separately by computeSurfCall and does not read similarity.
+  // (See feedback_separate_ranking_from_verdict_authority.)
+  const similarityResult = await applySimilarityLayer({
+    recommendations: merged,
+    userId,
+    isPro,
+    supabase,
+  });
+  merged = similarityResult.recommendations;
+  merged.sort((a, b) => b.score - a.score);
 
   // Phase 2: populate per-slot scorer outputs across each candidate's window
   // BEFORE rerank so hero-window-score's persistence/duration evidence is

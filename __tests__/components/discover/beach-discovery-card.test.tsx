@@ -90,6 +90,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
     summary: "Excellent match at Pipeline - 4-5 ft with 10 mph E.",
     reasons: ["Good swell direction", "Light offshore wind", "Rising tide"],
     warnings: [],
+    similarity: null,
     generated_at: new Date().toISOString(),
     ...overrides,
   });
