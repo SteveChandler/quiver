@@ -123,7 +123,7 @@ function baseState(overrides: Partial<MockState> = {}): MockState {
 }
 
 describe("seedDefaultRuleForUser", () => {
-  it("returns no_experience_level when level is null", async () => {
+  it("seeds mellow_session when level is null", async () => {
     const state = baseState();
     const supabase = makeMockSupabase(state);
 
@@ -136,11 +136,18 @@ describe("seedDefaultRuleForUser", () => {
       notifyPush: false,
     });
 
-    expect(result).toEqual({ seeded: false, reason: "no_experience_level" });
-    expect(state.insertPayload).toBeNull();
+    expect(result).toEqual({
+      seeded: true,
+      ruleId: "rule-abc",
+      presetType: "mellow_session",
+    });
+    expect(state.insertPayload).toMatchObject({
+      preset_type: "mellow_session",
+      name: "Mellow session at your home break",
+    });
   });
 
-  it("returns no_experience_level when level is undefined", async () => {
+  it("seeds mellow_session when level is undefined", async () => {
     const state = baseState();
     const supabase = makeMockSupabase(state);
 
@@ -153,7 +160,11 @@ describe("seedDefaultRuleForUser", () => {
       notifyPush: false,
     });
 
-    expect(result).toEqual({ seeded: false, reason: "no_experience_level" });
+    expect(result).toMatchObject({
+      seeded: true,
+      presetType: "mellow_session",
+    });
+    expect(state.insertPayload?.preset_type).toBe("mellow_session");
   });
 
   it("inserts mellow_session for beginner", async () => {
