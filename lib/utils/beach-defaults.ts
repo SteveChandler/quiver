@@ -100,6 +100,11 @@ function getBeachDefaults(): Omit<
     wind_onshore_bad_kt: null,
     wind_exposure_factors: null,
     wind_analyzed_at: null,
+    max_wind_any_mph: null,
+    max_wind_onshore_mph: null,
+
+    // Region linkage
+    region_id: null,
 
     // Height offset (per-beach calibration; non-nullable in schema)
     height_offset_enabled: false,

@@ -73,6 +73,9 @@ function makeBeach(overrides: Partial<Beach> & { id: string; name: string }): Be
     wind_onshore_bad_kt: null,
     deepwater_decay_factor: null,
     persona: null,
+    max_wind_any_mph: null,
+    max_wind_onshore_mph: null,
+    region_id: null,
 
     // Apply overrides
     ...overrides,
