@@ -88,6 +88,7 @@ describe("BeachDiscoveryCard - FavoriteButton integration", () => {
     summary: "Excellent match at Pipeline - 4-5 ft with 10 mph E.",
     reasons: ["Good swell direction"],
     warnings: [],
+    similarity: null,
     generated_at: new Date().toISOString(),
   };
 

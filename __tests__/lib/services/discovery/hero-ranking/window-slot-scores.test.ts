@@ -61,6 +61,7 @@ function makeRec(
     warnings: [],
     conditionBadges: [],
     spotProfile: beachToSpotProfile(beach),
+    similarity: null,
     generated_at: new Date().toISOString(),
   };
 }

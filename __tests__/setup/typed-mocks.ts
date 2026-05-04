@@ -269,6 +269,7 @@ export function createMockProfile(overrides: Partial<Profile> = {}): Profile {
     notif_session_invites: true,
     notif_xp_updates: true,
     notif_water_quality: true,
+    notif_similarity_alerts: true,
     // Session-invite preferences (DB columns still exist; feature retired)
     digest_session_invites: false,
     email_session_invites: true,

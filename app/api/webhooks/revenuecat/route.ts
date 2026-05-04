@@ -25,6 +25,7 @@ import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import * as Sentry from "@sentry/nextjs";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { ensureSimilarityRuleForUser } from "@/lib/alerts/auto-enable-similarity";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -151,6 +152,42 @@ export async function POST(request: Request) {
     console.log(
       `${CONTEXT_TAG} Applied ${event.type} for user ${userId}`,
     );
+
+    // Best-effort: auto-enable the similarity_match alert rule for newly
+    // entitled users so the Pro flagship feature reaches them without
+    // requiring an explicit opt-in via the alert management UI. Mirrors the
+    // backfill in supabase/migrations/20260503210949_auto_enable_similarity_for_pro.sql.
+    // Failures here MUST NOT fail the webhook — the user_entitlements upsert
+    // above is the load-bearing step; the rule create is best-effort. RC
+    // retries on 5xx; we don't want a transient alert_rules write error to
+    // trigger a retry that re-flips entitlement state.
+    if (update.is_pro === true || update.is_trialing === true) {
+      try {
+        const result = await ensureSimilarityRuleForUser(supabase, userId);
+        if (result.created) {
+          console.log(
+            `${CONTEXT_TAG} Auto-enabled similarity_match rule for user ${userId}`,
+          );
+        } else {
+          console.log(
+            `${CONTEXT_TAG} Skipped similarity_match auto-enable for user ${userId}: ${result.reason}`,
+          );
+        }
+      } catch (err) {
+        console.error(
+          `${CONTEXT_TAG} Auto-enable similarity rule threw for user ${userId}:`,
+          err,
+        );
+        Sentry.captureException(err, {
+          tags: {
+            feature: "rc-webhook",
+            step: "auto-enable-similarity",
+          },
+          extra: { user_id: userId, event_type: event.type },
+        });
+      }
+    }
+
     return NextResponse.json({ ok: true, event_type: event.type });
   } catch (err) {
     console.error(`${CONTEXT_TAG} Unexpected error:`, err);
