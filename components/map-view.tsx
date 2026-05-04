@@ -17,6 +17,8 @@ import { filterBeachesByViewport, type ViewportBounds } from "@/lib/utils/viewpo
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Beach } from "@/types/database";
 
+const MISSION_BEACH_COORDS = { lat: 32.7702, lon: -117.2525 } as const;
+
 export function MapView() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -52,7 +54,10 @@ export function MapView() {
     loading: locationLoading,
     getUserLocation,
     useDefaultLocation,
-  } = useGeolocation({ useLastBeach: false });
+  } = useGeolocation({
+    useLastBeach: false,
+    defaultLocation: MISSION_BEACH_COORDS,
+  });
 
   const {
     filteredBeaches,

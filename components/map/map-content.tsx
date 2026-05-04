@@ -104,7 +104,7 @@ export function MapContent({
     ) {
       return userLocation;
     }
-    return { lat: 32.7503, lon: -117.2534 }; // Ocean Beach default
+    return { lat: 32.7702, lon: -117.2525 }; // Mission Beach default
   }, [selectedBeach, searchQuery, filteredBeaches, userLocation]);
 
   // Stable array reference — only changes when lat/lon values actually change
@@ -199,7 +199,7 @@ export function MapContent({
 
               if (userLocation) {
                 if (usingDefaultLocation) {
-                  return `Showing beaches near Ocean Beach, San Diego`;
+                  return `Showing beaches near Mission Beach`;
                 }
                 if (displayCount > 0) {
                   return `Found ${displayCount} ${displayCount === 1 ? "beach" : "beaches"} near you`;
