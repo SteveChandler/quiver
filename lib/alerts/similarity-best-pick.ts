@@ -30,6 +30,18 @@ export interface ScoredSlot {
   score: number;
   label: string | null;
   reason: string | null;
+  /**
+   * Conditions snapshot fields stamped at scoring time so the cron can
+   * forward them into the notifications payload (window_local label,
+   * wave_height_ft, wave_period_s) without re-fetching the forecast row.
+   *
+   * The schema (`lib/notifications/types/similarity-match.ts`) requires
+   * window_local + wave_height_ft + wave_period_s; the picker passes the
+   * winning slot's values straight through.
+   */
+  window_local: string;
+  wave_height_ft: number;
+  wave_period_s: number;
 }
 
 export interface PickArgs {

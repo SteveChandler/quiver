@@ -35,6 +35,16 @@ jest.mock("@/lib/cron/observability", () => ({
   ),
 }));
 
+// scoreWindowWithEngine is a deterministic-on-input pure function but pulls
+// in the full discovery scorer chain. For unit tests we mock it so the
+// SURFABILITY_FLOOR pre-filter is exercised on a known score, decoupled from
+// the engine internals (covered by their own tests).
+const mockScoreWindowWithEngine = jest.fn();
+jest.mock("@/lib/services/discovery/window-selector", () => ({
+  scoreWindowWithEngine: (...args: unknown[]) =>
+    mockScoreWindowWithEngine(...args),
+}));
+
 const mockFrom = jest.fn();
 const mockRpc = jest.fn();
 
@@ -48,6 +58,7 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 import { GET } from "@/app/api/cron/similarity-alerts/route";
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
 // ---- Fixtures ----
 
@@ -205,6 +216,10 @@ beforeEach(() => {
 
   mockFrom.mockImplementation(fromImpl);
   mockRpc.mockImplementation(rpcImpl);
+  // Default: every slot clears the SURFABILITY_FLOOR so the existing tests
+  // exercise the similarity-scoring path. Individual tests override this to
+  // test the floor itself.
+  mockScoreWindowWithEngine.mockReturnValue(75);
 });
 
 afterEach(() => {
@@ -514,6 +529,301 @@ describe("similarity-alerts cron — Plan V4", () => {
     expect(store.ruleUpdates).toHaveLength(1);
     expect(store.ruleUpdates[0].id).toBe(RULE_AUTO_NEW);
     expect(typeof store.ruleUpdates[0].last_matched_at).toBe("string");
+  });
+
+  // Plan V4 fix F2: SCORE_THRESHOLD raised 7→7.5. A 7.0 picked-result would
+  // have alerted under the old constant; the new constant rejects it.
+  it("7a. SCORE_THRESHOLD=7.5: picker score 7.0 rejected, 7.5 accepted", async () => {
+    seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+
+    mockRpc.mockImplementation((name: string, _args: any) => {
+      if (name === "compute_user_match_score_batch") {
+        return Promise.resolve({
+          data: [
+            {
+              slot_idx: 0,
+              forecast_at: "2026-05-04T18:00:00Z",
+              result: { state: "ready", score: 7.0, label: "GOOD" },
+            },
+          ],
+          error: null,
+        });
+      }
+      return rpcImpl(name, _args);
+    });
+
+    const lowRes = await GET(makeReq());
+    expect(lowRes.status).toBe(200);
+    const lowBody = await lowRes.json();
+    expect(lowBody.enqueued).toBe(0);
+    const lowInserts = mockRpc.mock.calls.filter(
+      (c: any[]) => c[0] === "try_insert_similarity_alert",
+    );
+    expect(lowInserts).toHaveLength(0);
+
+    // Bump to 7.5 — should pass.
+    jest.clearAllMocks();
+    store.alertRules = [];
+    store.beaches = [];
+    store.forecasts = [];
+    store.ruleUpdates = [];
+    seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+    mockScoreWindowWithEngine.mockReturnValue(75);
+    mockFrom.mockImplementation(fromImpl);
+    mockRpc.mockImplementation((name: string, _args: any) => {
+      if (name === "compute_user_match_score_batch") {
+        return Promise.resolve({
+          data: [
+            {
+              slot_idx: 0,
+              forecast_at: "2026-05-04T18:00:00Z",
+              result: { state: "ready", score: 7.5, label: "GOOD" },
+            },
+          ],
+          error: null,
+        });
+      }
+      return rpcImpl(name, _args);
+    });
+
+    const okRes = await GET(makeReq());
+    expect(okRes.status).toBe(200);
+    const okBody = await okRes.json();
+    expect(okBody.enqueued).toBe(1);
+  });
+
+  // Plan V4 fix F2: LOOKAHEAD_HOURS raised 24→72. The cron's forecasts query
+  // must cover the full 72h horizon so 2-3 day-out windows are eligible.
+  it("7b. LOOKAHEAD_HOURS=72: forecast horizon parameter ≥ 72h ahead of now", async () => {
+    seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+
+    // Capture the upper bound passed to enhanced_forecasts. We can't read
+    // the .lte('forecast_at', horizonISO) call directly through our chain
+    // mock — but we can shim the chain factory for this single test to
+    // record the horizon string the route requested.
+    let lteValue: string | null = null;
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "enhanced_forecasts") {
+        const chain: any = {};
+        const passthrough = () => chain;
+        chain.select = passthrough;
+        chain.eq = passthrough;
+        chain.in = passthrough;
+        chain.gte = passthrough;
+        chain.lte = (_col: string, val: string) => {
+          lteValue = val;
+          return chain;
+        };
+        chain.order = passthrough;
+        chain.limit = passthrough;
+        chain.then = (resolve: any) =>
+          resolve({ data: store.forecasts, error: null });
+        chain.maybeSingle = () =>
+          Promise.resolve({ data: store.forecasts[0] ?? null, error: null });
+        return chain;
+      }
+      return fromImpl(table);
+    });
+
+    await GET(makeReq());
+
+    expect(lteValue).not.toBeNull();
+    const horizonMs = new Date(lteValue!).getTime();
+    const nowMs = Date.now();
+    const hoursAhead = (horizonMs - nowMs) / (60 * 60 * 1000);
+    expect(hoursAhead).toBeGreaterThanOrEqual(71.9);
+    expect(hoursAhead).toBeLessThanOrEqual(72.1);
+  });
+
+  // Plan V4 fix F2: SURFABILITY_FLOOR=60 on the discovery base score. A slot
+  // can match the user's similarity preferences but still be objectively
+  // weak (small / blown out); the floor drops it before the user-personal
+  // RPC runs, so the cron never alerts on those.
+  it("7c. SURFABILITY_FLOOR: base score 59 drops slot before similarity RPC", async () => {
+    seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+    mockScoreWindowWithEngine.mockReturnValue(59); // below floor
+
+    let batchCalls = 0;
+    mockRpc.mockImplementation((name: string, _args: any) => {
+      if (name === "compute_user_match_score_batch") {
+        batchCalls++;
+        return Promise.resolve({ data: [], error: null });
+      }
+      return rpcImpl(name, _args);
+    });
+
+    const res = await GET(makeReq());
+    expect(res.status).toBe(200);
+    // No surfable slots ⇒ batch RPC never called for that beach.
+    expect(batchCalls).toBe(0);
+    const body = await res.json();
+    expect(body.enqueued).toBe(0);
+  });
+
+  // Plan V4 fix F2: send_at = window_start - 60 minutes. Old code wrote
+  // now() — alerts landed immediately, even for windows 2 days out.
+  it("7d. send_at = window_start - 60min", async () => {
+    seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+
+    const captured: { p_send_at?: string; p_window_start?: string } = {};
+    mockRpc.mockImplementation((name: string, args: any) => {
+      if (name === "compute_user_match_score_batch") {
+        return Promise.resolve({
+          data: [
+            {
+              slot_idx: 0,
+              forecast_at: "2026-05-04T18:00:00Z",
+              result: { state: "ready", score: 8.5, label: "GOOD" },
+            },
+          ],
+          error: null,
+        });
+      }
+      if (name === "try_insert_similarity_alert") {
+        captured.p_send_at = args.p_send_at;
+        captured.p_window_start = args.p_window_start;
+        return Promise.resolve({
+          data: [{ inserted: true, alert_queue_id: "ff" }],
+          error: null,
+        });
+      }
+      return rpcImpl(name, args);
+    });
+
+    await GET(makeReq());
+
+    expect(captured.p_window_start).toBe("2026-05-04T18:00:00Z");
+    expect(captured.p_send_at).toBeDefined();
+    const windowMs = new Date(captured.p_window_start!).getTime();
+    const sendMs = new Date(captured.p_send_at!).getTime();
+    // send_at is exactly 60 min before window_start (when the window is in
+    // the future, which is the common case).
+    if (windowMs > Date.now() + 60 * 60 * 1000) {
+      expect(windowMs - sendMs).toBe(60 * 60 * 1000);
+    } else {
+      // Window is too close — the route falls back to "now". The window
+      // we seeded above (2026-05-04T18:00:00Z) is far in the future from
+      // any realistic test clock, so this branch should not trigger.
+      expect(sendMs).toBeGreaterThanOrEqual(Date.now() - 1000);
+    }
+  });
+
+  // Plan V4 fix F2: slug guard. A candidate beach with null/empty slug must
+  // be dropped before similarity scoring — otherwise the registry's Zod
+  // schema (beach_slug: z.string().min(1)) self-rejects the payload.
+  it("7e. slug guard: candidate with null slug is excluded", async () => {
+    seedActiveProUser();
+    // Override the home beach to have NULL slug.
+    store.beaches[0].slug = null;
+    store.forecasts.push({
+      forecast_at: "2026-05-04T18:00:00Z",
+      wave_height: "3.5",
+      wave_period: "12",
+      wind_speed: "5",
+      wind_direction_deg: 270,
+      tide_height: "2.0",
+    });
+
+    mockRpc.mockImplementation((name: string, args: any) => {
+      if (name === "compute_user_match_score_batch") {
+        return Promise.resolve({
+          data: [
+            {
+              slot_idx: 0,
+              forecast_at: "2026-05-04T18:00:00Z",
+              result: { state: "ready", score: 9.0, label: "EPIC" },
+            },
+          ],
+          error: null,
+        });
+      }
+      return rpcImpl(name, args);
+    });
+
+    const res = await GET(makeReq());
+    expectConsoleWarnings([/dropping candidate beach .* — null\/empty slug/]);
+    expect(res.status).toBe(200);
+    const inserts = mockRpc.mock.calls.filter(
+      (c: any[]) => c[0] === "try_insert_similarity_alert",
+    );
+    expect(inserts).toHaveLength(0);
+  });
+
+  it("7f. slug guard: candidate with empty-string slug is excluded", async () => {
+    seedActiveProUser();
+    store.beaches[0].slug = "";
+    store.forecasts.push({
+      forecast_at: "2026-05-04T18:00:00Z",
+      wave_height: "3.5",
+      wave_period: "12",
+      wind_speed: "5",
+      wind_direction_deg: 270,
+      tide_height: "2.0",
+    });
+
+    mockRpc.mockImplementation((name: string, args: any) => {
+      if (name === "compute_user_match_score_batch") {
+        return Promise.resolve({
+          data: [
+            {
+              slot_idx: 0,
+              forecast_at: "2026-05-04T18:00:00Z",
+              result: { state: "ready", score: 9.0, label: "EPIC" },
+            },
+          ],
+          error: null,
+        });
+      }
+      return rpcImpl(name, args);
+    });
+
+    const res = await GET(makeReq());
+    expectConsoleWarnings([/dropping candidate beach .* — null\/empty slug/]);
+    expect(res.status).toBe(200);
+    const inserts = mockRpc.mock.calls.filter(
+      (c: any[]) => c[0] === "try_insert_similarity_alert",
+    );
+    expect(inserts).toHaveLength(0);
+  });
+
+  // Plan V4 fix F2: stamps window_local + wave_height_ft + wave_period_s
+  // into conditions_snapshot so the deliver cron can forward them to the
+  // registry's push body builder ("4.5ft @ 11s · Sat 8am").
+  it("7g. stamps window_local/wave_height_ft/wave_period_s in conditions_snapshot", async () => {
+    seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+
+    const captured: { snapshot?: any } = {};
+    mockRpc.mockImplementation((name: string, args: any) => {
+      if (name === "compute_user_match_score_batch") {
+        return Promise.resolve({
+          data: [
+            {
+              slot_idx: 0,
+              forecast_at: "2026-05-04T18:00:00Z",
+              result: { state: "ready", score: 8.5, label: "GOOD" },
+            },
+          ],
+          error: null,
+        });
+      }
+      if (name === "try_insert_similarity_alert") {
+        captured.snapshot = args.p_conditions_snapshot;
+        return Promise.resolve({
+          data: [{ inserted: true, alert_queue_id: "ff" }],
+          error: null,
+        });
+      }
+      return rpcImpl(name, args);
+    });
+
+    await GET(makeReq());
+
+    expect(captured.snapshot).toBeDefined();
+    expect(typeof captured.snapshot.window_local).toBe("string");
+    expect(captured.snapshot.window_local.length).toBeGreaterThan(0);
+    expect(captured.snapshot.wave_height_ft).toBe(3.5);
+    expect(captured.snapshot.wave_period_s).toBe(12);
   });
 
   it("7. 03:00 picks rejected: only above-threshold slot is at 3am local → no insert", async () => {
