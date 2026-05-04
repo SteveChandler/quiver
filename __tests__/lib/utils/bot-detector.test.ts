@@ -112,4 +112,46 @@ describe("isSuspiciousFingerprint", () => {
   it("returns false when UA is empty", () => {
     expect(isSuspiciousFingerprint("", 1280)).toBe(false);
   });
+
+  // Pattern B: Android + Chrome + 614px viewport
+  const ANDROID_CHROME_UA =
+    "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36";
+  // Samsung Internet's UA legitimately contains both "SamsungBrowser" AND
+  // "Chrome/" — the !isSamsung guard in Pattern B exists to keep real
+  // Samsung Internet users from being flagged.
+  const ANDROID_SAMSUNG_UA =
+    "Mozilla/5.0 (Linux; Android 14; SM-S918U) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/24.0 Chrome/115.0.0.0 Mobile Safari/537.36";
+  const ANDROID_EDGE_UA =
+    "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36 EdgA/127.0.0.0 Edg/127.0.0.0";
+  const IPHONE_SAFARI_UA =
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+
+  it("returns true for Android + Chrome + 614px viewport (Pattern B)", () => {
+    expect(isSuspiciousFingerprint(ANDROID_CHROME_UA, 614)).toBe(true);
+  });
+
+  it("returns false for Android + Chrome at common real viewports", () => {
+    // Real Android devices: Pixel 360, Pixel Pro 412, Galaxy 360-412, foldable 717
+    expect(isSuspiciousFingerprint(ANDROID_CHROME_UA, 360)).toBe(false);
+    expect(isSuspiciousFingerprint(ANDROID_CHROME_UA, 393)).toBe(false);
+    expect(isSuspiciousFingerprint(ANDROID_CHROME_UA, 412)).toBe(false);
+    expect(isSuspiciousFingerprint(ANDROID_CHROME_UA, 430)).toBe(false);
+  });
+
+  it("returns false for Samsung Internet + 614px (avoid penalizing Samsung Browser)", () => {
+    expect(isSuspiciousFingerprint(ANDROID_SAMSUNG_UA, 614)).toBe(false);
+  });
+
+  it("returns false for Edge on Android + 614px", () => {
+    expect(isSuspiciousFingerprint(ANDROID_EDGE_UA, 614)).toBe(false);
+  });
+
+  it("returns false for iPhone Safari at any viewport", () => {
+    expect(isSuspiciousFingerprint(IPHONE_SAFARI_UA, 614)).toBe(false);
+    expect(isSuspiciousFingerprint(IPHONE_SAFARI_UA, 1280)).toBe(false);
+  });
+
+  it("returns false for Windows + Chrome + 614px (only Android matches Pattern B)", () => {
+    expect(isSuspiciousFingerprint(WINDOWS_CHROME_UA, 614)).toBe(false);
+  });
 });

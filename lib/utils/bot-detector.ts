@@ -16,20 +16,34 @@ export function isBot(ua: string): boolean {
 /**
  * Check if a request matches a known bot fingerprint pattern based on viewport + UA.
  *
- * The primary pattern targeted: Windows + Chrome (not Edge/OPR) + exactly 1280px viewport.
- * This combination was identified in analytics as a high-volume bot that uses a real
- * Chrome UA string but fires events with a consistent 1280px viewport width.
+ * Known fingerprints (append new ones here as they're identified):
+ * - Pattern A: Windows + Chrome (not Edge/OPR) + 1280px viewport
+ * - Pattern B: Android + Chrome (not Edge/OPR/Samsung) + 614px viewport
+ *   (identified 2026-05-04 from a steady ~20s-cadence source that produced
+ *   ~10,600 unflagged events on three beach pages and the map. No real
+ *   Android device defaults to a 614px viewport.)
  *
  * Returns false when viewportWidth is undefined (e.g. server-side or non-browser contexts).
  */
 export function isSuspiciousFingerprint(ua: string, viewportWidth?: number): boolean {
   if (!ua || viewportWidth === undefined) return false;
-  if (viewportWidth !== 1280) return false;
 
-  const isWindows = ua.includes('Windows');
   const isChrome = /Chrome\//.test(ua);
   const isEdge = /Edg\//.test(ua);
   const isOpera = /OPR\//.test(ua);
 
-  return isWindows && isChrome && !isEdge && !isOpera;
+  // Pattern A: Windows + Chrome + 1280px
+  if (viewportWidth === 1280) {
+    const isWindows = ua.includes('Windows');
+    if (isWindows && isChrome && !isEdge && !isOpera) return true;
+  }
+
+  // Pattern B: Android + Chrome + 614px
+  if (viewportWidth === 614) {
+    const isAndroid = ua.includes('Android');
+    const isSamsung = /SamsungBrowser/.test(ua);
+    if (isAndroid && isChrome && !isEdge && !isOpera && !isSamsung) return true;
+  }
+
+  return false;
 }
