@@ -4,7 +4,20 @@ BEGIN;
 -- jsonb with multiple possible shapes (state='onboarding' vs state='ready' vs
 -- neutral fallback) — preserving the raw jsonb per slot keeps this wrapper
 -- byte-for-byte equivalent to N independent single-slot calls. Performance
--- gain comes from collapsing N round-trips to 1.
+-- gain comes from collapsing N slot-round-trips to 1 per beach.
+--
+-- KNOWN LIMITATION: the loop body still re-invokes compute_user_match_score
+-- for every slot, which means the user-session-profile CTEs (session_count,
+-- positive preference, aversion preference, board_tip lookup) are rebuilt
+-- on every slot AND on every candidate beach. Multi-beach callers (discovery,
+-- the daily similarity cron) pay the profile-load cost N times.
+--
+-- A proper "bulk-multibeach" scorer (compute_user_match_score_multibeach)
+-- that hoists session_count and per-break-type preference/aversion CTEs to
+-- the top of the function and loops candidates × slots is deferred. Today's
+-- call sites are bounded (≤20 candidate beaches per user) and the round-trip
+-- win was the dominant cost; revisit when cron P95 wallclock or RPC count
+-- grows. Track as a perf follow-up.
 CREATE OR REPLACE FUNCTION compute_user_match_score_batch(
   p_user_id uuid,
   p_beach_id uuid,
