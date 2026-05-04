@@ -204,7 +204,7 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
     return <HeroRecommendationEmpty />;
   }
 
-  const { beach, score, window, matchQuality, recommendationLabel, message, conditionBadges, waveHeightBadge, subscores } = recommendation;
+  const { beach, score, window, matchQuality, recommendationLabel, message, conditionBadges, waveHeightBadge, subscores, similarity } = recommendation;
   const formattedScore = formatDiscoveryScore(score);
   const timeWindow = formatTimeWindowCompact(
     window.start,
@@ -337,6 +337,27 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
               className="text-xs sm:text-sm font-medium py-1.5 px-2.5 bg-white/10 text-white border-white/20"
             >
               {waveHeightBadge}
+            </Badge>
+          </motion.div>
+        )}
+
+        {/* Pro similarity chip — only renders when the bonus actually moved
+            the rec. Onboarding/null states stay silent here; the onboarding
+            affordance lives elsewhere. The chip's title is the RPC reason
+            (e.g. "Like your good days") for screen-reader / hover context. */}
+        {similarity?.state === "ready" && similarity.bonusApplied > 0 && (
+          <motion.div
+            variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge}
+            className="flex-shrink-0"
+            data-testid="hero-similarity-chip"
+          >
+            <Badge
+              variant="outline"
+              className="text-xs sm:text-sm font-medium py-1.5 px-2.5 bg-accent-orange/20 text-accent-orange border-accent-orange/40"
+              title={similarity.reason || undefined}
+              aria-label={similarity.reason ? `Matches your style — ${similarity.reason}` : "Matches your style"}
+            >
+              Matches your style
             </Badge>
           </motion.div>
         )}

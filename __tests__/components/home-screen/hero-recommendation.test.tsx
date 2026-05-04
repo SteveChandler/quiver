@@ -582,6 +582,118 @@ describe("HeroRecommendation - Peak Time Badge", () => {
   });
 });
 
+describe("HeroRecommendation - Similarity Chip", () => {
+  beforeEach(() => {
+    const { useBoardRecommendation } = require("@/hooks/use-board-recommendation");
+    useBoardRecommendation.mockReturnValue({ recommendation: null });
+  });
+
+  it("renders chip when similarity is ready and bonusApplied > 0", () => {
+    const mockRecommendation = createMockRecommendation({
+      similarity: {
+        state: "ready",
+        score: 8.5,
+        label: "GOOD",
+        bonusApplied: 12,
+        reason: "Matches the conditions you've been scoring high lately",
+        sessionCount: 18,
+      },
+    } as any);
+
+    render(
+      <HeroRecommendation
+        recommendation={mockRecommendation}
+        onViewBeach={jest.fn()}
+      />
+    );
+
+    const chip = screen.getByTestId("hero-similarity-chip");
+    expect(chip).toBeInTheDocument();
+    expect(chip).toHaveTextContent("Matches your style");
+  });
+
+  it("chip carries the similarity reason as accessible label", () => {
+    const reason = "You've rated 4-6ft offshore days highest";
+    const mockRecommendation = createMockRecommendation({
+      similarity: {
+        state: "ready",
+        score: 9,
+        label: "EPIC",
+        bonusApplied: 16,
+        reason,
+        sessionCount: 25,
+      },
+    } as any);
+
+    render(
+      <HeroRecommendation
+        recommendation={mockRecommendation}
+        onViewBeach={jest.fn()}
+      />
+    );
+
+    const chip = screen.getByTestId("hero-similarity-chip");
+    const labelChild = chip.querySelector("[aria-label]");
+    expect(labelChild?.getAttribute("aria-label")).toContain(reason);
+  });
+
+  it("does not render chip when similarity ready but bonusApplied === 0", () => {
+    const mockRecommendation = createMockRecommendation({
+      similarity: {
+        state: "ready",
+        score: 4.5,
+        label: "MEH",
+        bonusApplied: 0,
+        reason: "Below threshold",
+        sessionCount: 12,
+      },
+    } as any);
+
+    render(
+      <HeroRecommendation
+        recommendation={mockRecommendation}
+        onViewBeach={jest.fn()}
+      />
+    );
+
+    expect(screen.queryByTestId("hero-similarity-chip")).not.toBeInTheDocument();
+  });
+
+  it("does not render chip when similarity is null (free user)", () => {
+    const mockRecommendation = createMockRecommendation({
+      similarity: null,
+    } as any);
+
+    render(
+      <HeroRecommendation
+        recommendation={mockRecommendation}
+        onViewBeach={jest.fn()}
+      />
+    );
+
+    expect(screen.queryByTestId("hero-similarity-chip")).not.toBeInTheDocument();
+  });
+
+  it("does not render chip when similarity state is onboarding", () => {
+    const mockRecommendation = createMockRecommendation({
+      similarity: {
+        state: "onboarding",
+        sessionCount: 2,
+        sessionsNeeded: 5,
+      },
+    } as any);
+
+    render(
+      <HeroRecommendation
+        recommendation={mockRecommendation}
+        onViewBeach={jest.fn()}
+      />
+    );
+
+    expect(screen.queryByTestId("hero-similarity-chip")).not.toBeInTheDocument();
+  });
+});
+
 describe("HeroRecommendation - Board Recommendation Badge", () => {
   it("renders board recommendation badge when provided by hook", () => {
     const { useBoardRecommendation } = require("@/hooks/use-board-recommendation");
