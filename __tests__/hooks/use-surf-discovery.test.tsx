@@ -75,6 +75,7 @@ describe("useSurfDiscovery", () => {
         summary: "Perfect conditions for your skill level",
         reasons: ["Offshore winds", "Good swell period"],
         warnings: [],
+        similarity: null,
         generated_at: "2025-12-16T14:00:00Z",
       },
     ],

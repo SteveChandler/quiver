@@ -62,6 +62,7 @@ import {
   buildDiscoveryMessage,
 } from './response-formatter';
 import { fetchPersonalizationContext, calculatePersonalizationBonus } from './personalization-layer';
+import { applySimilarityLayer } from './similarity-layer';
 import { assignStrategyTags } from '@/lib/services/discovery/strategy-tags';
 import { generateRegionalCall } from '@/lib/services/discovery/regional-call';
 import type { WindSnapshot } from '@/lib/services/discovery/regional-call';
@@ -505,6 +506,7 @@ async function discoverSurfSpotsInner(
     timeout = DEFAULT_TIMEOUT_MS,
     overallTimeout = DEFAULT_OVERALL_TIMEOUT_MS,
     timeSlot,
+    isPro = false,
   } = options;
 
   log.debug(`Discovering surf spots for user ${userId} (maxResults: ${maxResults})`);
@@ -819,6 +821,9 @@ async function discoverSurfSpotsInner(
       waveHeightBadge: detailedScore.waveHeightBadge,
       distanceMiles,
       drivingTimeMinutes: distanceMiles ? Math.round(distanceMiles * 1.5) : undefined,
+      // Similarity is stamped later by applySimilarityLayer (Pro path) or
+      // remains null for free users. Required field — initialize to null.
+      similarity: null,
       generated_at: new Date().toISOString(),
     });
 
@@ -877,8 +882,34 @@ async function discoverSurfSpotsInner(
   // Sort ALL recommendations by score descending (pure score ranking)
   allRecs.sort((a, b) => b.score - a.score);
 
-  // Take top results
-  const merged = allRecs.slice(0, maxResults);
+  // Pass 2 (Plan V4 — Fix Agent F1): inject similarity scoring for Pro/trial
+  // users BEFORE truncating to maxResults. Running similarity after slice
+  // meant a beach just outside the base top-N could never be lifted into the
+  // hero by similarity, defeating the "where to surf today" promise.
+  //
+  // - Free users: no RPC call; every rec keeps similarity:null.
+  // - Pro users: bulk RPC per beach via compute_user_match_score_batch.
+  //   Ready-state slots with score >= threshold get an additive bonus
+  //   (capped +20) added to recommendation.score, then we re-sort.
+  //
+  // Authority separation: this only changes RANK. Verdict copy is generated
+  // separately by computeSurfCall and does not read similarity.
+  // (See feedback_separate_ranking_from_verdict_authority.)
+  //
+  // Perf note: candidate pool is typically 5-20 beaches, so N RPC calls
+  // is acceptable for v1. The deferred compute_user_match_score_multibeach
+  // RPC will collapse this to one call once shipped.
+  const similarityResult = await applySimilarityLayer({
+    recommendations: allRecs,
+    userId,
+    isPro,
+    supabase,
+  });
+  const allRecsScored = [...similarityResult.recommendations];
+  allRecsScored.sort((a, b) => b.score - a.score);
+
+  // Take top results AFTER similarity bonus is applied.
+  const merged = allRecsScored.slice(0, maxResults);
 
   // Phase 2: populate per-slot scorer outputs across each candidate's window
   // BEFORE rerank so hero-window-score's persistence/duration evidence is

@@ -26,6 +26,10 @@
 import { z } from "zod";
 
 import type { NotificationDeliveryStatus, NotificationTypeDef } from "./types";
+import {
+  similarityMatchSchema,
+  type SimilarityMatchPayload,
+} from "./types/similarity-match";
 
 // ─── Phase 5e: payload schemas (validatePayload source of truth) ─────────────
 
@@ -371,6 +375,87 @@ export const NOTIFICATION_REGISTRY = {
       }
     },
   } satisfies NotificationTypeDef<ForecastAlertPayload>,
+
+  similarity_match: {
+    type: "similarity_match",
+    channels: ["push", "in_app"],
+    prefs: {
+      master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
+      // Single UI toggle gates both channels — auto-enabled for Pro users
+      // via `notif_similarity_alerts` (default true). Settings UI presents
+      // it as one switch so we never end up with inbox rows leaking past
+      // a user who thought they'd disabled the entire feature.
+      perType: {
+        push: "notif_similarity_alerts",
+        in_app: "notif_similarity_alerts",
+      },
+    },
+    suppressSelfNotify: false,
+    quietHours: DEFAULT_QUIET,
+    validatePayload: (input) =>
+      similarityMatchSchema.parse(input) as SimilarityMatchPayload,
+    buildPushPayload: (p) => ({
+      title: `${p.label ? `${p.label} ` : ""}match at ${p.beach_name}`.trim(),
+      // Plan V4 fix F2: compose the surf-data line from extended payload
+      // fields rather than falling back to `reason` (which is a generic
+      // similarity-justification string and reads weirdly as a push body).
+      // Format matches the email/web body: "4.5ft @ 11s · Sat 8am".
+      body: `${p.wave_height_ft.toFixed(1)}ft @ ${p.wave_period_s.toFixed(0)}s · ${p.window_local}`,
+      data: {
+        type: "similarity_match",
+        beach_id: p.beach_id,
+        beach_slug: p.beach_slug,
+        alert_date: p.alert_date,
+        forecast_at: p.forecast_at,
+      },
+    }),
+    buildInAppPayload: (p) => ({
+      type: "similarity_match",
+      data: {
+        beach_id: p.beach_id,
+        beach_slug: p.beach_slug,
+        beach_name: p.beach_name,
+        alert_date: p.alert_date,
+        forecast_at: p.forecast_at,
+        score: p.score,
+        label: p.label ?? null,
+        reason: p.reason,
+      },
+    }),
+    /**
+     * Mirrors forecast_alert's hook: on terminal push outcomes, fan out into
+     * `alert_delivery_attempts` (one row per queue item) so the cron's
+     * cooldown / weekly-cap reads (status='sent') reflect actual worker
+     * delivery rather than enqueue-time optimism.
+     */
+    onChannelOutcome: async ({ supabase, event, channel, status }) => {
+      if (channel !== "push") return;
+      const queueItems = event.payload.queue_items ?? [];
+      if (queueItems.length === 0) return;
+
+      const mapped = mapWorkerStatusToAlertAttempt(status);
+      if (!mapped) return;
+
+      const rows = queueItems.map((qi) => ({
+        queue_id: qi.queue_id,
+        rule_id: qi.rule_id,
+        user_id: event.recipient_user_id,
+        channel: "push" as const,
+        status: mapped,
+        skip_reason: status,
+      }));
+
+      const { error } = await supabase
+        .from("alert_delivery_attempts")
+        .insert(rows);
+      if (error) {
+        console.error(
+          `[notifications/similarity_match.onChannelOutcome] alert_delivery_attempts insert failed for event ${event.id}:`,
+          error
+        );
+      }
+    },
+  } satisfies NotificationTypeDef<SimilarityMatchPayload>,
 
   trial_ending: {
     type: "trial_ending",
