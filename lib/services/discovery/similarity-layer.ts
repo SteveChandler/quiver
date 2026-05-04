@@ -15,11 +15,20 @@
  *     is computed by computeSurfCall from snapshot data; similarity does NOT
  *     feed into that path.
  *
- * Bonus math (LOCKED — do not retune without product approval):
- *   - state="ready" with score >= 7.0:  bonusApplied = min(15, (score - 7) * 5)
- *   - state="ready" with score < 7.0:   bonusApplied = 0
+ * Bonus math (LOCKED Plan V4 spec — do not retune without product approval):
+ *   - state="ready" with score >= 5.0:  bonusApplied = min(20, (score - 5) * 4)
+ *   - state="ready" with score < 5.0:   bonusApplied = 0
  *   - state="onboarding":               bonusApplied = 0
  *   - null (free / disabled):           bonusApplied = 0
+ *
+ * Curve:
+ *   score=5.0  -> bonus=0
+ *   score=6.0  -> bonus=4
+ *   score=7.0  -> bonus=8
+ *   score=7.5  -> bonus=10
+ *   score=8.0  -> bonus=12
+ *   score=9.0  -> bonus=16
+ *   score=10.0 -> bonus=20  (cap)
  *
  * @module lib/services/discovery/similarity-layer
  */
@@ -35,13 +44,13 @@ import type {
 const log = createContextLogger("SimilarityLayer");
 
 /** Threshold below which a "ready" similarity score yields no bonus. */
-const SIMILARITY_BONUS_THRESHOLD = 7.0;
+const SIMILARITY_BONUS_THRESHOLD = 5.0;
 
 /** Hard cap on the additive bonus injected into recommendation.score. */
-const SIMILARITY_BONUS_MAX = 15;
+const SIMILARITY_BONUS_MAX = 20;
 
-/** Slope: each +1 above threshold = +5 points, capped at +15 (i.e. score=10). */
-const SIMILARITY_BONUS_SLOPE = 5;
+/** Slope: each +1 above threshold = +4 points, capped at +20 (i.e. score=10). */
+const SIMILARITY_BONUS_SLOPE = 4;
 
 /**
  * Shape of a single row from compute_user_match_score_batch.

@@ -28,12 +28,15 @@ function slot(overrides: Partial<ScoredSlot> = {}): ScoredSlot {
     score: 8,
     label: "GOOD",
     reason: "Solid groundswell, light offshore",
+    window_local: "Mon 10am",
+    wave_height_ft: 4.5,
+    wave_period_s: 11,
     ...overrides,
   };
 }
 
 const DEFAULTS = {
-  scoreThreshold: 7,
+  scoreThreshold: 7.5,
   rejectStartHourLocal: 22,
   rejectEndHourLocal: 6,
 };
@@ -47,6 +50,23 @@ describe("pickBestSimilaritySlot", () => {
 
     const pick = pickBestSimilaritySlot({ scoredSlots: slots, ...DEFAULTS });
     expect(pick).toBeNull();
+  });
+
+  // Plan V4 fix F2: SCORE_THRESHOLD raised 7→7.5. Pin the exact boundary so
+  // a future regression to 7.0 surfaces as a unit failure.
+  it("threshold=7.5 boundary: 7.4 rejected, 7.5 accepted", () => {
+    const tooLow = pickBestSimilaritySlot({
+      scoredSlots: [slot({ score: 7.4, forecast_at: "2026-05-04T17:00:00Z" })],
+      ...DEFAULTS,
+    });
+    expect(tooLow).toBeNull();
+
+    const exactly = pickBestSimilaritySlot({
+      scoredSlots: [slot({ score: 7.5, forecast_at: "2026-05-04T17:00:00Z" })],
+      ...DEFAULTS,
+    });
+    expect(exactly).not.toBeNull();
+    expect(exactly!.score).toBe(7.5);
   });
 
   it("returns the highest-scoring ready slot", () => {
@@ -89,7 +109,7 @@ describe("pickBestSimilaritySlot", () => {
     });
     // 10:00 PT == 17:00 UTC — a valid daytime slot
     const tenAmPT = slot({
-      score: 7.0,
+      score: 7.5,
       forecast_at: "2026-05-04T17:00:00Z",
       beach_timezone: PT,
     });
@@ -99,9 +119,9 @@ describe("pickBestSimilaritySlot", () => {
       ...DEFAULTS,
     });
     expect(pick).not.toBeNull();
-    // The 9.5 and 9.4 are both in the rejected window; 7.0 daytime wins.
+    // The 9.5 and 9.4 are both in the rejected window; 7.5 daytime wins.
     expect(pick!.forecast_at).toBe("2026-05-04T17:00:00Z");
-    expect(pick!.score).toBe(7.0);
+    expect(pick!.score).toBe(7.5);
   });
 
   it("returns null when every above-threshold slot is in the rejected nighttime window", () => {

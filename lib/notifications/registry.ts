@@ -396,7 +396,11 @@ export const NOTIFICATION_REGISTRY = {
       similarityMatchSchema.parse(input) as SimilarityMatchPayload,
     buildPushPayload: (p) => ({
       title: `${p.label ? `${p.label} ` : ""}match at ${p.beach_name}`.trim(),
-      body: p.reason,
+      // Plan V4 fix F2: compose the surf-data line from extended payload
+      // fields rather than falling back to `reason` (which is a generic
+      // similarity-justification string and reads weirdly as a push body).
+      // Format matches the email/web body: "4.5ft @ 11s · Sat 8am".
+      body: `${p.wave_height_ft.toFixed(1)}ft @ ${p.wave_period_s.toFixed(0)}s · ${p.window_local}`,
       data: {
         type: "similarity_match",
         beach_id: p.beach_id,

@@ -26,6 +26,10 @@
       "schedule": "0 3 * * *"
     },
     {
+      "path": "/api/cron/update-implicit-preferences",
+      "schedule": "30 3 * * *"
+    },
+    {
       "path": "/api/cron/forecast-alerts",
       "schedule": "15 */3 * * *"
     },
@@ -135,7 +139,7 @@
     },
     {
       "path": "/api/cron/similarity-alerts",
-      "schedule": "0 * * * *"
+      "schedule": "0 13 * * *"
     },
     {
       "path": "/api/cron/condition-alert-deliver",

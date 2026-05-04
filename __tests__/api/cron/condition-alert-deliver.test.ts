@@ -692,6 +692,13 @@ function seedSimilarityQueueRow(overrides: Partial<any> = {}) {
       beach_slug: "ocean-beach-sf",
       beach_name: "Ocean Beach SF",
       reason: "Conditions match your top sessions",
+      // Plan V4 fix F2: extended payload fields written by the
+      // similarity-alerts cron and forwarded into the notifications
+      // pipeline. Tests below override / strip these to simulate legacy
+      // queue rows.
+      window_local: "Sat 8am",
+      wave_height_ft: 4.5,
+      wave_period_s: 11,
     },
     sent: false,
     // notify_push/notify_email do NOT gate similarity — registry pref does.
@@ -742,6 +749,10 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
       score: 8.5,
       label: "EPIC",
       reason: "Conditions match your top sessions",
+      // Plan V4 fix F2: extended fields forwarded from conditions_snapshot.
+      window_local: "Sat 8am",
+      wave_height_ft: 4.5,
+      wave_period_s: 11,
       queue_items: [{ queue_id: QUEUE_SIM, rule_id: RULE_SIM }],
     });
 
@@ -885,6 +896,56 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
     // Permanent failure — queue marked sent so we don't loop on it.
     const allMarked = store.queueUpdates.flatMap((u) => u.ids);
     expect(allMarked).toContain(QUEUE_SIM);
+  });
+
+  // Plan V4 fix F2: legacy queue rows written before the cron started
+  // stamping window_local/wave_height_ft/wave_period_s into
+  // conditions_snapshot. The deliver cron forwards whatever it finds; the
+  // registry's Zod schema then rejects with invalid_payload, the deliver
+  // cron records failed_internal + marks the queue row sent (no retry loop).
+  // Old rows drain quickly via the alert_date partial unique index TTL.
+  it("legacy row missing extended fields: forwards NaN/empty so registry returns invalid_payload", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    seedSimilarityQueueRow({
+      conditions_snapshot: {
+        alert_type: "similarity_match",
+        score: 8.5,
+        label: "EPIC",
+        forecast_at: "2026-05-04T15:00:00Z",
+        rule_id: RULE_SIM,
+        beach_id: BEACH_SIM,
+        beach_slug: "ocean-beach-sf",
+        beach_name: "Ocean Beach SF",
+        reason: "Conditions match your top sessions",
+        // window_local / wave_height_ft / wave_period_s deliberately omitted
+        // to simulate a legacy row stamped before fix F2.
+      },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: true });
+
+    await GET(makeRequest());
+
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    const payload = mockEnqueueNotification.mock.calls[0][0].payload;
+    expect(payload.window_local).toBe("");
+    expect(Number.isNaN(payload.wave_height_ft)).toBe(true);
+    expect(Number.isNaN(payload.wave_period_s)).toBe(true);
+  });
+
+  it("forwards window_local/wave_height_ft/wave_period_s from conditions_snapshot", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    seedSimilarityQueueRow();
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: true });
+
+    await GET(makeRequest());
+
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    const payload = mockEnqueueNotification.mock.calls[0][0].payload;
+    expect(payload.window_local).toBe("Sat 8am");
+    expect(payload.wave_height_ft).toBe(4.5);
+    expect(payload.wave_period_s).toBe(11);
   });
 
   it("similarity bypasses cooldown + weekly cap (own dedup model via partial unique index)", async () => {

@@ -1,18 +1,29 @@
 // app/api/cron/similarity-alerts/route.ts
 //
-// Plan V4 similarity-alerts cron — runs hourly.
+// Plan V4 similarity-alerts cron — runs once daily at 13:00 UTC (~6am PT).
 //
 // Iterates DISTINCT eligible USERS (not rules). For each user:
-//  1. Builds a candidate beach pool: home_beach + favorites + nearby ≤ 25mi.
+//  1. Builds a candidate beach pool: home_beach + favorites + nearby ≤ 30mi.
 //  2. Drops candidates with active water-quality closures.
-//  3. Fetches the next 24h of enhanced_forecasts per candidate, filters to
-//     daylight hours, then bulk-scores via compute_user_match_score_batch
-//     (one RPC per beach, not per slot — collapses N×72 to N round-trips).
-//  4. Picks the highest-scoring ready slot ≥ 7.0 across all candidates,
+//  3. Drops candidates whose `slug` is null/empty (defensive; payload schema
+//     requires non-empty beach_slug and a missing slug means the beach row
+//     was malformed at seed time — better to skip than to self-reject in
+//     the worker).
+//  4. Fetches the next 72h of enhanced_forecasts per candidate, filters to
+//     surfable windows (tighter 6:00-19:00 beach-local daylight + base
+//     scoreWindowWithEngine ≥ SURFABILITY_FLOOR on the 0-100 discovery
+//     scale), then bulk-scores survivors via compute_user_match_score_batch
+//     (one RPC per beach, not per slot).
+//  5. Picks the highest-scoring ready slot ≥ 7.5 across all candidates,
 //     tie-break by earliest forecast_at, rejects 22:00-06:00 user-local picks.
-//  5. Inserts via try_insert_similarity_alert RPC. inserted=false on dedup
-//     hit (partial unique index alert_queue_one_similarity_per_user_day) is
-//     treated as success.
+//  6. Inserts via try_insert_similarity_alert RPC with send_at =
+//     window_start - 60 minutes so the alert lands ~1h before the window.
+//     inserted=false on dedup hit is treated as success.
+//
+// TODO(window-selector reuse): the daylight + score floor here is a tighter
+// stand-in for the full discovery window selector. Future follow-up: thread
+// the orchestrator's `selectBestWindow` (with sun-times cache) through here
+// so the cron honours per-beach tide/wind/sunset rules identically to /home.
 //
 // Anchor rule selection (one user can have ≥1 similarity_match rule):
 //   prefer auto_created_at IS NOT NULL, then MIN(id) for deterministic
@@ -34,9 +45,12 @@
 
 import { NextResponse } from "next/server";
 
+import type { Beach } from "@/types/database";
+import type { EnhancedForecastEntity } from "@/types/forecast";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withObservedCron } from "@/lib/cron/observability";
 import { resolveBeachTimezone } from "@/lib/utils/timezone-utils";
+import { scoreWindowWithEngine } from "@/lib/services/discovery/window-selector";
 import {
   pickBestSimilaritySlot,
   type ScoredSlot,
@@ -48,16 +62,34 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const CONTEXT_TAG = "[similarity-alerts]";
-const SCORE_THRESHOLD = 7;
-const SURFABILITY_FLOOR = 0; // candidate pre-filter; picker handles its own threshold
-const LOOKAHEAD_HOURS = 24;
-const NEARBY_RADIUS_MILES = 25;
+const SCORE_THRESHOLD = 7.5;
+/**
+ * Base score floor (0-100 discovery scale). A slot must clear this on
+ * scoreWindowWithEngine BEFORE we run user-personal similarity scoring —
+ * otherwise we send a "matches your style" alert for a flat / blown-out
+ * window just because the user has logged sessions like it before.
+ *
+ * 60 ≈ "decent surfable conditions" on the discovery scoring rubric used by
+ * the Surf Discovery home page. Tune downward only after observing
+ * false-positive complaints.
+ */
+const SURFABILITY_FLOOR = 60;
+const LOOKAHEAD_HOURS = 72;
+const NEARBY_RADIUS_MILES = 30;
 const NEARBY_LIMIT = 10;
 const FAVORITE_LIMIT = 5;
 const REJECT_START_HOUR_LOCAL = 22; // 10pm
 const REJECT_END_HOUR_LOCAL = 6; // 6am
 const DAYLIGHT_START_HOUR = 6;
-const DAYLIGHT_END_HOUR = 21;
+/**
+ * 19:00 — tighter than the previous 21:00 to drop dusk windows that
+ * accumulate junk wind/glare-off-the-water and rarely produce surfable
+ * conditions in practice. The picker's reject window (22:00-06:00) still
+ * runs as a defense-in-depth.
+ */
+const DAYLIGHT_END_HOUR = 19;
+/** send_at = window_start - 60 min so the alert lands ~1h before the window. */
+const SEND_AT_LEAD_MINUTES = 60;
 
 interface EligibleUserRow {
   user_id: string;
@@ -66,22 +98,55 @@ interface EligibleUserRow {
   timezone: string | null;
 }
 
+/**
+ * Hydrated beach row passed to the scoring/picker pipeline. Includes the
+ * spot-profile-relevant fields scoreWindowWithEngine needs (swell window,
+ * wind thresholds, tide preferences). We coerce to `Beach` at the call site
+ * via a structural cast — `createSpotProfile` reads with `?? defaults`, so
+ * any unselected nullable field falls through to a SPOT_PROFILE_DEFAULTS
+ * equivalent rather than throwing.
+ */
 interface BeachRow {
   id: string;
   name: string;
   slug: string | null;
   center_lat: number | null;
   center_lng: number | null;
+  lat: number | null;
+  lon: number | null;
   timezone: string | null;
+  skill_level: string | null;
+  break_type: string | null;
+  swell_window_min_deg: number | null;
+  swell_window_max_deg: number | null;
+  wind_offshore_deg: number | null;
+  wind_offshore_tol_deg: number | null;
+  preferred_tide_direction: string | null;
+  preferred_tide_ft_min: number | null;
+  preferred_tide_ft_max: number | null;
 }
 
 interface ForecastSlot {
   forecast_at: string;
   wave_height: string | null;
   wave_period: string | null;
+  wave_direction: string | null;
   wind_speed: string | null;
+  wind_direction: string | null;
   wind_direction_deg: number | null;
   tide_height: string | null;
+  tide_status: string | null;
+  swell_1_height: string | null;
+  swell_1_period: string | null;
+  swell_1_direction: string | null;
+  swell_2_height: string | null;
+  swell_2_period: string | null;
+  swell_2_direction: string | null;
+  wind_wave_height: string | null;
+  wind_wave_period: string | null;
+  wind_wave_direction: string | null;
+  confidence_score: number | null;
+  data_source: string | null;
 }
 
 interface BatchSlotResult {
@@ -135,6 +200,44 @@ function firstReasonBullet(bullets: unknown): string | null {
     }
   }
   return null;
+}
+
+/**
+ * Format a forecast UTC ISO string into a short beach-local window label
+ * for the push body, e.g. "Sat 8am". No standalone formatter exists in
+ * timezone-utils — this matches the Plan V4 "Sat 8am"-style spec verbatim.
+ *
+ * Uses two Intl.DateTimeFormat calls so we can lowercase the AM/PM separately
+ * and drop the space ("8 AM" → "8am"), matching the email/web body convention.
+ */
+function formatWindowLocal(forecastAt: string, timezone: string): string {
+  try {
+    const d = new Date(forecastAt);
+    const day = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      weekday: "short",
+    }).format(d);
+    const hour = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      hour: "numeric",
+      hour12: true,
+    })
+      .format(d)
+      .toLowerCase()
+      .replace(/\s+/g, "");
+    return `${day} ${hour}`;
+  } catch {
+    // Fall back to the raw ISO if locale data is unavailable. Never throw
+    // out of the cron's hot path on a formatting blip.
+    return forecastAt;
+  }
+}
+
+function parseFloatOrZero(value: string | null | undefined): number {
+  if (value == null) return 0;
+  const cleaned = String(value).replace(/[^\d.\-]/g, "");
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : 0;
 }
 
 async function _GET(req: Request): Promise<Response> {
@@ -427,7 +530,27 @@ async function buildCandidateBeaches(
 
   const { data: beaches, error: beachErr } = await supabase
     .from("beaches")
-    .select("id, name, slug, center_lat, center_lng, timezone")
+    .select(
+      [
+        "id",
+        "name",
+        "slug",
+        "center_lat",
+        "center_lng",
+        "lat",
+        "lon",
+        "timezone",
+        "skill_level",
+        "break_type",
+        "swell_window_min_deg",
+        "swell_window_max_deg",
+        "wind_offshore_deg",
+        "wind_offshore_tol_deg",
+        "preferred_tide_direction",
+        "preferred_tide_ft_min",
+        "preferred_tide_ft_max",
+      ].join(", "),
+    )
     .in("id", Array.from(ids));
 
   if (beachErr) {
@@ -435,7 +558,21 @@ async function buildCandidateBeaches(
     return [];
   }
 
-  return (beaches ?? []) as BeachRow[];
+  // Producer-side slug guard: similarityMatchSchema requires a non-empty
+  // beach_slug. A null/empty slug here means the beach row was malformed at
+  // seed time — dropping it before similarity scoring is safer than letting
+  // the worker self-reject the payload (which would burn a queue slot AND
+  // log invalid_payload errors that look like data-shape regressions).
+  return ((beaches ?? []) as BeachRow[]).filter((b) => {
+    const slug = b.slug;
+    if (slug == null || slug === "") {
+      console.warn(
+        `${CONTEXT_TAG} dropping candidate beach ${b.id} — null/empty slug`,
+      );
+      return false;
+    }
+    return true;
+  });
 }
 
 /**
@@ -467,9 +604,13 @@ async function filterByWaterQuality(
 }
 
 /**
- * For each candidate beach: fetch next 24h of forecasts, slice to daylight
- * (6am-9pm beach-local), bulk-score via compute_user_match_score_batch, and
- * flatten into a single ScoredSlot[] for the picker.
+ * For each candidate beach: fetch next 72h of forecasts, slice to daylight
+ * (6am-7pm beach-local), drop slots whose discovery base score is below
+ * SURFABILITY_FLOOR (so we never alert on personally-similar but objectively
+ * weak windows), then bulk-score the survivors via
+ * compute_user_match_score_batch and flatten into a single ScoredSlot[] for
+ * the picker. Stamps window_local + wave_height_ft + wave_period_s on each
+ * survivor so the registry's push body can compose without a second fetch.
  */
 async function scoreCandidates(
   supabase: any,
@@ -487,7 +628,28 @@ async function scoreCandidates(
     const { data: rows, error: fxErr } = await supabase
       .from("enhanced_forecasts")
       .select(
-        "forecast_at, wave_height, wave_period, wind_speed, wind_direction_deg, tide_height",
+        [
+          "forecast_at",
+          "wave_height",
+          "wave_period",
+          "wave_direction",
+          "wind_speed",
+          "wind_direction",
+          "wind_direction_deg",
+          "tide_height",
+          "tide_status",
+          "swell_1_height",
+          "swell_1_period",
+          "swell_1_direction",
+          "swell_2_height",
+          "swell_2_period",
+          "swell_2_direction",
+          "wind_wave_height",
+          "wind_wave_period",
+          "wind_wave_direction",
+          "confidence_score",
+          "data_source",
+        ].join(", "),
       )
       .eq("beach_id", beach.id)
       .gte("forecast_at", now.toISOString())
@@ -505,25 +667,66 @@ async function scoreCandidates(
     const forecasts = (rows ?? []) as ForecastSlot[];
     if (forecasts.length === 0) continue;
 
+    // Daylight filter: tighter 6:00-19:00 vs the previous 21:00. Plan V4 fix
+    // F2 — dusk windows accumulate junk wind and rarely surf well.
     const daylight = forecasts.filter((f) => {
       const hour = localHourInTz(f.forecast_at, tz);
       return hour >= DAYLIGHT_START_HOUR && hour < DAYLIGHT_END_HOUR;
     });
     if (daylight.length === 0) continue;
 
-    const slots = daylight
-      .filter((f) => f.wave_height != null && f.wave_period != null)
-      .map((f) => ({
-        forecast_at: f.forecast_at,
-        wave_height: f.wave_height ?? "",
-        wave_period: f.wave_period ?? "",
-        wind_speed: f.wind_speed ?? "",
-        wind_direction:
-          f.wind_direction_deg == null ? "" : String(f.wind_direction_deg),
-        tide_height: f.tide_height ?? "",
-      }));
+    // Base score gate: run the discovery scoring engine on each slot and drop
+    // anything below SURFABILITY_FLOOR (60/100) BEFORE the user-personal
+    // similarity scoring. Without this, a user with a "small-mush" preference
+    // pattern gets push notifications for 0.5ft 4s windows just because
+    // they've logged sessions in those conditions before.
+    //
+    // We cast the structurally-narrow BeachRow / ForecastSlot to Beach /
+    // EnhancedForecastEntity. createSpotProfile + forecastToSnapshot read
+    // every nullable field with `?? defaults`, so any column we didn't SELECT
+    // falls through to its SPOT_PROFILE_DEFAULTS / 0 equivalent rather than
+    // throwing. See lib/domains/spot-profile/spot-profile.ts and
+    // lib/domains/scoring/discovery-adapter.ts.
+    const surfable: ForecastSlot[] = [];
+    for (const f of daylight) {
+      if (f.wave_height == null || f.wave_period == null) continue;
+      let baseScore = 0;
+      try {
+        baseScore = scoreWindowWithEngine(
+          f as unknown as EnhancedForecastEntity,
+          beach as unknown as Beach,
+        );
+      } catch (engineErr) {
+        // Engine throws are unexpected — log and treat as below floor so we
+        // never silently push an unscored window.
+        console.warn(
+          `${CONTEXT_TAG} scoreWindowWithEngine threw beach=${beach.id} forecast_at=${f.forecast_at}`,
+          engineErr,
+        );
+        continue;
+      }
+      if (baseScore < SURFABILITY_FLOOR) continue;
+      surfable.push(f);
+    }
+    if (surfable.length === 0) continue;
+
+    const slots = surfable.map((f) => ({
+      forecast_at: f.forecast_at,
+      wave_height: f.wave_height ?? "",
+      wave_period: f.wave_period ?? "",
+      wind_speed: f.wind_speed ?? "",
+      wind_direction:
+        f.wind_direction_deg == null ? "" : String(f.wind_direction_deg),
+      tide_height: f.tide_height ?? "",
+    }));
 
     if (slots.length === 0) continue;
+
+    // Quick lookup of original forecast row by forecast_at, so we can stamp
+    // wave_height_ft / wave_period_s onto the ScoredSlot from the same row
+    // the engine scored.
+    const byForecastAt = new Map<string, ForecastSlot>();
+    for (const f of surfable) byForecastAt.set(f.forecast_at, f);
 
     const { data: rpcRows, error: rpcErr } = await supabase.rpc(
       "compute_user_match_score_batch",
@@ -546,16 +749,22 @@ async function scoreCandidates(
       const result = r.result;
       if (!result || result.state !== "ready") continue;
       if (typeof result.score !== "number") continue;
-      if (result.score < SURFABILITY_FLOOR) continue;
+      const source = byForecastAt.get(r.forecast_at);
       out.push({
         beach_id: beach.id,
         beach_name: beach.name,
+        // Slug is guaranteed non-empty by the producer-side filter in
+        // buildCandidateBeaches; the `?? ""` is defense-in-depth for the
+        // type system, never reached at runtime.
         beach_slug: beach.slug ?? "",
         forecast_at: r.forecast_at,
         beach_timezone: tz,
         score: result.score,
         label: result.label ?? null,
         reason: firstReasonBullet(result.reason_bullets),
+        window_local: formatWindowLocal(r.forecast_at, tz),
+        wave_height_ft: parseFloatOrZero(source?.wave_height),
+        wave_period_s: parseFloatOrZero(source?.wave_period),
       });
     }
   }
@@ -572,7 +781,16 @@ async function tryInsertAlert(
 ): Promise<InsertOutcome> {
   const userTz = resolveBeachTimezone(user.timezone || pick.beach_timezone);
   const alertDate = localDateInTz(pick.forecast_at, userTz);
-  const nowIso = new Date().toISOString();
+  const now = Date.now();
+  // Send the alert ~60 minutes before the matched window opens. If the
+  // window is already in the past (defensive — pick should have filtered
+  // these out), fall back to "now" so the deliver cron picks it up on the
+  // next tick instead of holding an alert that will never fire.
+  const windowStartMs = new Date(pick.forecast_at).getTime();
+  const sendAtMs = Number.isFinite(windowStartMs)
+    ? windowStartMs - SEND_AT_LEAD_MINUTES * 60 * 1000
+    : now;
+  const sendAtIso = new Date(sendAtMs >= now ? sendAtMs : now).toISOString();
 
   const snapshot = {
     alert_type: "similarity_match" as const,
@@ -584,6 +802,13 @@ async function tryInsertAlert(
     beach_slug: pick.beach_slug,
     beach_name: pick.beach_name,
     reason: pick.reason ?? `${pick.label ?? "Match"} at ${pick.beach_name}`,
+    // Plan V4 fix F2: extended payload fields. The deliver cron reads these
+    // off conditions_snapshot and forwards them into the notifications
+    // pipeline; the registry's buildPushPayload composes them into the body
+    // ("4.5ft @ 11s · Sat 8am") rather than falling back to `reason`.
+    window_local: pick.window_local,
+    wave_height_ft: pick.wave_height_ft,
+    wave_period_s: pick.wave_period_s,
   };
 
   const { data, error } = await supabase.rpc("try_insert_similarity_alert", {
@@ -591,7 +816,7 @@ async function tryInsertAlert(
     p_rule_id: user.anchor_rule_id,
     p_beach_id: pick.beach_id,
     p_alert_date: alertDate,
-    p_send_at: nowIso,
+    p_send_at: sendAtIso,
     p_window_start: pick.forecast_at,
     p_window_end: pick.forecast_at,
     p_best_hour: pick.forecast_at,

@@ -25,6 +25,10 @@ const validPayload: SimilarityMatchPayload = {
   score: 8.5,
   label: "EPIC",
   reason: "Conditions match your top sessions",
+  // Plan V4 fix F2: extended payload fields used by the registry's push body.
+  window_local: "Sat 8am",
+  wave_height_ft: 4.5,
+  wave_period_s: 11,
   queue_items: [
     {
       queue_id: "00000000-0000-0000-0000-0000000000c1",
@@ -107,14 +111,57 @@ describe("similarityMatchSchema — payload validation", () => {
       similarityMatchSchema.parse({ ...validPayload, score: "8.5" })
     ).toThrow();
   });
+
+  // Plan V4 fix F2: window_local + wave_height_ft + wave_period_s are required.
+  // Missing any of them should fail Zod parsing — the deliver cron's
+  // invalid_payload branch then marks the queue row sent permanently.
+  it("rejects payload missing window_local", () => {
+    const { window_local: _wl, ...incomplete } = validPayload;
+    void _wl;
+    expect(() => similarityMatchSchema.parse(incomplete)).toThrow();
+  });
+
+  it("rejects payload missing wave_height_ft", () => {
+    const { wave_height_ft: _wh, ...incomplete } = validPayload;
+    void _wh;
+    expect(() => similarityMatchSchema.parse(incomplete)).toThrow();
+  });
+
+  it("rejects payload missing wave_period_s", () => {
+    const { wave_period_s: _wp, ...incomplete } = validPayload;
+    void _wp;
+    expect(() => similarityMatchSchema.parse(incomplete)).toThrow();
+  });
+
+  it("rejects payload with empty beach_slug (producer-side guard backstop)", () => {
+    expect(() =>
+      similarityMatchSchema.parse({ ...validPayload, beach_slug: "" })
+    ).toThrow();
+  });
+
+  it("rejects payload with NaN wave_height_ft (legacy queue-row signal)", () => {
+    expect(() =>
+      similarityMatchSchema.parse({ ...validPayload, wave_height_ft: NaN })
+    ).toThrow();
+  });
 });
 
 describe("NOTIFICATION_REGISTRY.similarity_match — buildPushPayload", () => {
-  it("includes label + beach_name in the title and the reason in the body", () => {
+  it("composes body from extended fields: <height>ft @ <period>s · <window_local>", () => {
     const out =
       NOTIFICATION_REGISTRY.similarity_match.buildPushPayload!(validPayload);
     expect(out.title).toBe("EPIC match at Ocean Beach SF");
-    expect(out.body).toBe("Conditions match your top sessions");
+    expect(out.body).toBe("4.5ft @ 11s · Sat 8am");
+  });
+
+  it("rounds wave_height_ft to 1 decimal and wave_period_s to whole seconds", () => {
+    const out = NOTIFICATION_REGISTRY.similarity_match.buildPushPayload!({
+      ...validPayload,
+      wave_height_ft: 3.249,
+      wave_period_s: 12.6,
+      window_local: "Today 7am",
+    });
+    expect(out.body).toBe("3.2ft @ 13s · Today 7am");
   });
 
   it("omits leading whitespace when label is missing", () => {
