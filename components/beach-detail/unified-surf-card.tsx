@@ -224,12 +224,12 @@ export function UnifiedSurfCard({
     return (
       <Card data-tier="hero" className="noise-texture overflow-hidden rounded-3xl border-yellow-100/60 bg-yellow-50/50">
         <CardContent className="p-6 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+          <AlertCircle className="h-5 w-5 text-amber-700 mt-0.5 flex-shrink-0" />
           <div className="flex-1">
-            <p className="text-sm text-yellow-800 font-medium mb-1">
+            <p className="text-sm text-amber-900 font-semibold mb-1">
               No good surf window {isTomorrow ? "tomorrow" : "today"}
             </p>
-            <p className="text-xs text-yellow-700">{surfCall.whySentence}</p>
+            <p className="text-sm text-amber-800">{surfCall.whySentence}</p>
           </div>
         </CardContent>
       </Card>
@@ -403,8 +403,8 @@ export function UnifiedSurfCard({
         {surfCall.lowForecastConfidence && (
           <div className="bg-yellow-50/50 rounded-xl p-3 border border-yellow-100/50">
             <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-yellow-600" />
-              <p className="text-xs text-yellow-800 font-medium">
+              <AlertCircle className="h-4 w-4 text-amber-700" />
+              <p className="text-xs text-amber-900 font-semibold">
                 Low Confidence - Forecast data may be less reliable
               </p>
             </div>

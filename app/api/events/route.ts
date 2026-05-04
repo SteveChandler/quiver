@@ -384,8 +384,11 @@ export const POST = withAuth(
     return createErrorResponse('Invalid JSON body', undefined, 400);
   }
 
-  // 2a. Fingerprint-based bot filtering (requires body for viewportWidth)
-  if (isSuspiciousFingerprint(ua, body.viewportWidth)) {
+  // 2a. Fingerprint-based bot filtering (requires body for viewportWidth).
+  // Founder account is exempt — keeps Steven's testing visible (he uses Chrome
+  // DevTools mobile-emulation, which can collide with Pattern B's 614px width).
+  const FOUNDER_USER_ID = '73040cff-afe9-4fa0-a874-2016203fc015';
+  if (user?.id !== FOUNDER_USER_ID && isSuspiciousFingerprint(ua, body.viewportWidth)) {
     return createSuccessResponse({ ok: true, status: 'bot_filtered' });
   }
 

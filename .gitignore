@@ -3,6 +3,9 @@
 # dependencies
 /node_modules
 
+# brainstorm/visual-companion sessions
+/.superpowers
+
 # testing
 /coverage
 

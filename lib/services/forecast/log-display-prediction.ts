@@ -116,9 +116,19 @@ export async function logDisplayPredictions(
       om_bucket: r.om_bucket,
     }));
 
+    // Upsert with ignoreDuplicates=true → INSERT ... ON CONFLICT (beach_id,
+    // predicted_at) DO NOTHING. The unique index `idx_ml_predictions_beach_
+    // predicted_at_unique` (migration 20260222140000) makes this a single-call
+    // batch with no rollback risk on conflict. First-write-wins matches the
+    // telemetry feedback-loop invariant: raw_display_height_m is frozen at
+    // first issue and never overwritten on subsequent cron runs, even before
+    // observed_m is filled. Also protects observed rows from being clobbered.
     const { error } = await supabase
       .from("ml_predictions_log")
-      .insert(payload as unknown as never);
+      .upsert(payload as unknown as never, {
+        onConflict: "beach_id,predicted_at",
+        ignoreDuplicates: true,
+      });
 
     if (error) {
       log.warn("logDisplayPredictions: insert failed", {
