@@ -42,6 +42,7 @@ function getBeachDefaults(): Omit<
     state: null,
     country: null,
     region: null,
+    region_id: null,
     slug: null,
     geog: null,
     timezone: null,
@@ -102,9 +103,6 @@ function getBeachDefaults(): Omit<
     wind_analyzed_at: null,
     max_wind_any_mph: null,
     max_wind_onshore_mph: null,
-
-    // Region linkage
-    region_id: null,
 
     // Height offset (per-beach calibration; non-nullable in schema)
     height_offset_enabled: false,
