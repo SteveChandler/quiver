@@ -882,26 +882,34 @@ async function discoverSurfSpotsInner(
   // Sort ALL recommendations by score descending (pure score ranking)
   allRecs.sort((a, b) => b.score - a.score);
 
-  // Take top results
-  let merged = allRecs.slice(0, maxResults);
-
-  // Pass 2 (Plan V4): inject similarity scoring for Pro/trial users.
+  // Pass 2 (Plan V4 — Fix Agent F1): inject similarity scoring for Pro/trial
+  // users BEFORE truncating to maxResults. Running similarity after slice
+  // meant a beach just outside the base top-N could never be lifted into the
+  // hero by similarity, defeating the "where to surf today" promise.
+  //
   // - Free users: no RPC call; every rec keeps similarity:null.
   // - Pro users: bulk RPC per beach via compute_user_match_score_batch.
-  //   Ready-state slots with score >= 7.0 get an additive bonus (capped +15)
-  //   added to recommendation.score, then we re-sort.
+  //   Ready-state slots with score >= threshold get an additive bonus
+  //   (capped +20) added to recommendation.score, then we re-sort.
   //
   // Authority separation: this only changes RANK. Verdict copy is generated
   // separately by computeSurfCall and does not read similarity.
   // (See feedback_separate_ranking_from_verdict_authority.)
+  //
+  // Perf note: candidate pool is typically 5-20 beaches, so N RPC calls
+  // is acceptable for v1. The deferred compute_user_match_score_multibeach
+  // RPC will collapse this to one call once shipped.
   const similarityResult = await applySimilarityLayer({
-    recommendations: merged,
+    recommendations: allRecs,
     userId,
     isPro,
     supabase,
   });
-  merged = similarityResult.recommendations;
-  merged.sort((a, b) => b.score - a.score);
+  const allRecsScored = [...similarityResult.recommendations];
+  allRecsScored.sort((a, b) => b.score - a.score);
+
+  // Take top results AFTER similarity bonus is applied.
+  const merged = allRecsScored.slice(0, maxResults);
 
   // Phase 2: populate per-slot scorer outputs across each candidate's window
   // BEFORE rerank so hero-window-score's persistence/duration evidence is

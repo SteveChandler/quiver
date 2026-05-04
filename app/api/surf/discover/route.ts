@@ -9,6 +9,7 @@ import {
   type AuthenticatedContext,
 } from '@/lib/middleware/api-wrappers';
 import { discoverSurfSpots } from '@/lib/services/surf-discovery-service';
+import { entitlementFromRow } from '@/lib/alerts/entitlements';
 import { generateETag, isETagMatch } from '@/lib/utils/cache-headers';
 import type { TimeSlot } from '@/types/personalization';
 
@@ -99,13 +100,26 @@ async function surfDiscoveryHandler(
     );
   }
 
-  // 3. Call service to get ranked recommendations
+  // 3. Resolve user entitlement so the orchestrator can gate the Pro
+  //    similarity layer. entitlementFromRow returns "premium" for active
+  //    Pro/trial (with billing-issue grace-period carve-out) and "free"
+  //    otherwise. Missing row, RLS error, or query failure all fall back
+  //    to free — safer than over-granting Pro on a transient DB blip.
+  const { data: entitlementRow } = await supabase
+    .from('user_entitlements')
+    .select('is_pro, is_trialing, billing_issue, expires_at')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  const isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
+
+  // 4. Call service to get ranked recommendations
   const discovery = await discoverSurfSpots(user.id, {
     userLocation,
     radiusMiles: radius,
     horizonHours,
     maxResults,
     timeSlot,
+    isPro,
   });
 
   // 3a. Stamp empirical shoaling calibration status onto each recommendation's
