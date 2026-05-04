@@ -74,6 +74,21 @@ const SCORE_THRESHOLD = 7.5;
  * false-positive complaints.
  */
 const SURFABILITY_FLOOR = 60;
+/**
+ * Forecast horizon scanned per run.
+ *
+ * Trade-off (code review 2026-05-03 M2): with the partial unique index
+ * `alert_queue_one_similarity_per_user_day` keyed on (user_id, alert_date),
+ * scanning 72h means Friday's run can pick a Monday slot. If Saturday's
+ * run finds a BETTER Monday slot (different forecast_at or higher score),
+ * `try_insert_similarity_alert` returns inserted=false and silently keeps
+ * the older, worse pick — the cron logs it as `dedupSkipped`. Acceptable
+ * for v1 (rare-edge: model-update-induced score swings on the same window),
+ * but if telemetry shows users complaining about stale picks, change the
+ * dedup contract to "best pick wins" (UPDATE on conflict when new score >
+ * stored score) or shrink LOOKAHEAD_HOURS to 24 to make per-day dedup
+ * semantics align with the scan horizon.
+ */
 const LOOKAHEAD_HOURS = 72;
 const NEARBY_RADIUS_MILES = 30;
 const NEARBY_LIMIT = 10;
@@ -366,46 +381,109 @@ async function _GET(req: Request): Promise<Response> {
 }
 
 /**
- * Loads eligible users + their anchor similarity_match rule. Done in two
- * round-trips (Supabase JS client doesn't expose CTEs):
- *  1. Fetch all enabled similarity_match rules joined to user_entitlements
- *     and profiles. We do entitlement filtering in JS to mirror
- *     entitlementFromRow exactly (billing_issue carve-out + expires_at
- *     staleness guard).
- *  2. Group by user_id and pick the anchor: prefer auto_created_at NOT NULL,
+ * Loads eligible users + their anchor similarity_match rule.
+ *
+ * Uses three flat selects + JS-side join. We do NOT use a `profiles!inner(...)`
+ * embed on alert_rules because `alert_rules.user_id` FKs to `auth.users(id)`,
+ * not `profiles(id)` — PostgREST cannot resolve the two-hop relationship and
+ * returns PGRST200, silently 500ing the cron. Both `condition-alert-evaluate`
+ * (route.ts:64-67) and `condition-alert-deliver` (route.ts:91-94) document
+ * the same lesson — keep this pattern in sync with them.
+ *
+ * Steps:
+ *  1. Flat select alert_rules (no embeds).
+ *  2. Parallel `.in()` lookups against profiles and user_entitlements.
+ *  3. JS-side entitlement filter mirroring `entitlementFromRow` exactly
+ *     (billing_issue carve-out + expires_at staleness guard).
+ *  4. Group by user_id and pick the anchor: prefer auto_created_at NOT NULL,
  *     then MIN(id).
  */
 async function loadEligibleUsers(
   supabase: any,
 ): Promise<EligibleUserRow[]> {
-  const { data, error } = await supabase
+  // 1. Flat select — no relationship embed. See function-doc rationale.
+  const { data: rules, error: rulesError } = await supabase
     .from("alert_rules")
-    .select(
-      `
-      id,
-      user_id,
-      auto_created_at,
-      profiles!inner(
-        id,
-        home_beach_id,
-        timezone,
-        user_entitlements(
-          is_pro,
-          is_trialing,
-          billing_issue,
-          expires_at
-        )
-      )
-      `,
-    )
+    .select("id, user_id, auto_created_at")
     .eq("preset_type", "similarity_match")
     .eq("enabled", true);
 
-  if (error) {
-    console.error(`${CONTEXT_TAG} failed to load eligible users`, error);
-    throw error;
+  if (rulesError) {
+    console.error(`${CONTEXT_TAG} failed to load similarity rules`, rulesError);
+    throw rulesError;
   }
 
+  const ruleRows = (rules ?? []) as Array<{
+    id: string;
+    user_id: string;
+    auto_created_at: string | null;
+  }>;
+  if (ruleRows.length === 0) return [];
+
+  const userIds = Array.from(new Set(ruleRows.map((r) => r.user_id)));
+
+  // 2. Parallel flat lookups by user_id.
+  const [profilesRes, entitlementsRes] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, home_beach_id, timezone")
+      .in("id", userIds),
+    supabase
+      .from("user_entitlements")
+      .select("user_id, is_pro, is_trialing, billing_issue, expires_at")
+      .in("user_id", userIds),
+  ]);
+
+  if (profilesRes.error) {
+    console.error(`${CONTEXT_TAG} failed to load profiles`, profilesRes.error);
+    throw profilesRes.error;
+  }
+  // user_entitlements legitimately has no rows for free users — only throw
+  // on hard errors (mirrors condition-alert-evaluate:104).
+  if (entitlementsRes.error) {
+    console.error(
+      `${CONTEXT_TAG} failed to load entitlements`,
+      entitlementsRes.error,
+    );
+    throw entitlementsRes.error;
+  }
+
+  // 3. Build lookup maps.
+  const profileById = new Map<
+    string,
+    { home_beach_id: string | null; timezone: string | null }
+  >();
+  for (const p of (profilesRes.data ?? []) as Array<{
+    id: string;
+    home_beach_id: string | null;
+    timezone: string | null;
+  }>) {
+    profileById.set(p.id, {
+      home_beach_id: p.home_beach_id,
+      timezone: p.timezone,
+    });
+  }
+
+  const entitlementByUserId = new Map<
+    string,
+    {
+      is_pro: boolean | null;
+      is_trialing: boolean | null;
+      billing_issue: boolean | null;
+      expires_at: string | null;
+    }
+  >();
+  for (const e of (entitlementsRes.data ?? []) as Array<{
+    user_id: string;
+    is_pro: boolean | null;
+    is_trialing: boolean | null;
+    billing_issue: boolean | null;
+    expires_at: string | null;
+  }>) {
+    entitlementByUserId.set(e.user_id, e);
+  }
+
+  // 4. JS-side join + entitlement filter + anchor selection.
   const now = Date.now();
   const groups = new Map<
     string,
@@ -418,27 +496,12 @@ async function loadEligibleUsers(
     }>
   >();
 
-  for (const row of (data ?? []) as Array<{
-    id: string;
-    user_id: string;
-    auto_created_at: string | null;
-    profiles: {
-      id: string;
-      home_beach_id: string | null;
-      timezone: string | null;
-      user_entitlements:
-        | { is_pro: boolean | null; is_trialing: boolean | null; billing_issue: boolean | null; expires_at: string | null }[]
-        | { is_pro: boolean | null; is_trialing: boolean | null; billing_issue: boolean | null; expires_at: string | null }
-        | null;
-    };
-  }>) {
-    const profile = row.profiles;
+  for (const rule of ruleRows) {
+    const profile = profileById.get(rule.user_id);
     if (!profile) continue;
     if (!profile.home_beach_id) continue;
 
-    const ent = Array.isArray(profile.user_entitlements)
-      ? profile.user_entitlements[0]
-      : profile.user_entitlements;
+    const ent = entitlementByUserId.get(rule.user_id);
     if (!ent) continue;
     if (!ent.is_pro && !ent.is_trialing) continue;
     if (
@@ -449,20 +512,20 @@ async function loadEligibleUsers(
       continue;
     }
 
-    const list = groups.get(row.user_id) ?? [];
+    const list = groups.get(rule.user_id) ?? [];
     list.push({
-      id: row.id,
-      user_id: row.user_id,
-      auto_created_at: row.auto_created_at,
+      id: rule.id,
+      user_id: rule.user_id,
+      auto_created_at: rule.auto_created_at,
       home_beach_id: profile.home_beach_id,
       timezone: profile.timezone,
     });
-    groups.set(row.user_id, list);
+    groups.set(rule.user_id, list);
   }
 
   const eligibleUsers: EligibleUserRow[] = [];
-  for (const [userId, rules] of groups) {
-    rules.sort((a, b) => {
+  for (const [userId, userRules] of groups) {
+    userRules.sort((a, b) => {
       // Prefer auto_created_at NOT NULL (system-seeded). When tied (both NULL
       // or both NOT NULL), sort by id ASC for deterministic anchor selection.
       const aAuto = a.auto_created_at ? 1 : 0;
@@ -470,7 +533,7 @@ async function loadEligibleUsers(
       if (aAuto !== bAuto) return bAuto - aAuto;
       return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
     });
-    const anchor = rules[0];
+    const anchor = userRules[0];
     eligibleUsers.push({
       user_id: userId,
       anchor_rule_id: anchor.id,

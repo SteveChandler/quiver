@@ -111,7 +111,17 @@ function chainOk(rows: any[]) {
 function fromImpl(table: string) {
   switch (table) {
     case "alert_rules": {
-      const chain: any = chainOk(store.alertRules);
+      // Strip the legacy nested `profiles` / `user_entitlements` fields the
+      // test fixtures attach (back when the cron used a PostgREST embed).
+      // The cron now uses flat selects, so it expects rows with only
+      // {id, user_id, auto_created_at, ...rule fields}. The nested data is
+      // surfaced separately via the "profiles" / "user_entitlements" branches
+      // below.
+      const flatRules = store.alertRules.map((r: any) => {
+        const { profiles: _p, user_entitlements: _ue, ...rest } = r;
+        return rest;
+      });
+      const chain: any = chainOk(flatRules);
       chain.update = (vals: any) => ({
         eq: (_col: string, val: string) => {
           store.ruleUpdates.push({ id: val, ...vals });
@@ -119,6 +129,39 @@ function fromImpl(table: string) {
         },
       });
       return chain;
+    }
+    case "profiles": {
+      // Derive flat profile rows from the nested data the seed helpers attach
+      // to alertRules. Real prod data lives in profiles directly; keeping the
+      // nested-fixture style avoids rewriting 14 test seeds.
+      const profilesById = new Map<string, any>();
+      for (const rule of store.alertRules as any[]) {
+        const p = rule.profiles;
+        if (!p?.id) continue;
+        // Last-write-wins (idempotent in fixtures).
+        profilesById.set(p.id, {
+          id: p.id,
+          home_beach_id: p.home_beach_id ?? null,
+          timezone: p.timezone ?? null,
+        });
+      }
+      return chainOk(Array.from(profilesById.values()));
+    }
+    case "user_entitlements": {
+      const entByUserId = new Map<string, any>();
+      for (const rule of store.alertRules as any[]) {
+        const p = rule.profiles;
+        const ue = p?.user_entitlements;
+        if (!p?.id || !ue) continue;
+        entByUserId.set(p.id, {
+          user_id: p.id,
+          is_pro: ue.is_pro ?? null,
+          is_trialing: ue.is_trialing ?? null,
+          billing_issue: ue.billing_issue ?? null,
+          expires_at: ue.expires_at ?? null,
+        });
+      }
+      return chainOk(Array.from(entByUserId.values()));
     }
     case "favorite_beaches":
       return chainOk(store.favoriteBeaches);
@@ -863,5 +906,22 @@ describe("similarity-alerts cron — Plan V4", () => {
       (c: any[]) => c[0] === "try_insert_similarity_alert",
     );
     expect(insertCalls).toHaveLength(0);
+  });
+
+  // Regression test for B1 (code review 2026-05-03): the previous
+  // implementation used a `profiles!inner(...)` embed on alert_rules, which
+  // PostgREST cannot resolve because alert_rules.user_id FKs to auth.users(id),
+  // not profiles(id). Same lesson learned in condition-alert-deliver and
+  // condition-alert-evaluate. Asserting the cron uses three separate flat
+  // selects keeps that drift impossible to silently re-introduce.
+  it("B1 regression: loadEligibleUsers uses flat selects, no embed", async () => {
+    seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+
+    await GET(makeReq());
+
+    const fromCalls = mockFrom.mock.calls.map((c: any[]) => c[0]);
+    expect(fromCalls).toContain("alert_rules");
+    expect(fromCalls).toContain("profiles");
+    expect(fromCalls).toContain("user_entitlements");
   });
 });
