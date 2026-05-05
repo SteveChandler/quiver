@@ -415,7 +415,6 @@ export function AppHeader() {
                       onClick={() => {
                         trackSigninCtaClick({
                           source: "app-header-mobile",
-                          surface: "header",
                         });
                         setMobileMenuOpen(false);
                         setAuthMode("login");
@@ -431,7 +430,6 @@ export function AppHeader() {
                       onClick={() => {
                         trackSignupCtaClick({
                           source: "app-header-mobile",
-                          surface: "header",
                         });
                         setMobileMenuOpen(false);
                         setAuthMode("signup");
@@ -516,7 +514,6 @@ export function AppHeader() {
                   onClick={() => {
                     trackSigninCtaClick({
                       source: "app-header",
-                      surface: "header",
                     });
                     setAuthMode("login");
                     setAuthModalOpen(true);
@@ -531,7 +528,6 @@ export function AppHeader() {
                     const headerSource = `app-header-${isBeachContextPath(pathname) ? "beach" : pathname.startsWith("/forecast") ? "forecast" : "general"}`;
                     trackSignupCtaClick({
                       source: headerSource,
-                      surface: "header",
                     });
                     setAuthMode("signup");
                     setAuthModalOpen(true);
