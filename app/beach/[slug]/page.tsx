@@ -189,6 +189,18 @@ export async function generateMetadata(
       }
     }
 
+    // Fast-path: when this request is going to permanent-redirect to the canonical
+    // 3-segment URL (page render handles that), skip the forecast-pipeline call and
+    // emit minimal metadata. Crawlers follow the 308 to the real page; the heavy
+    // metadata only matters at the canonical destination.
+    if (canonicalPath !== `/beach/${params.slug}`) {
+      return buildPageMetadata({
+        title: beach.name,
+        description: `Conditions, intel, photos, and community tips for ${beach.name}.`,
+        path: canonicalPath,
+      });
+    }
+
     // Fetch live forecast data for dynamic title with wave heights
     const forecastResult = await getBeachForecastPreview(beach.id);
     const forecast = forecastResult.success && forecastResult.data

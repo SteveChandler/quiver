@@ -138,7 +138,7 @@ export default function LearnHubPage() {
         
         {/* 2. Main Sharp Image (full-width hero) */}
         <Image
-          src="/learn-hero-16x9.png"
+          src="/learn-hero-16x9.webp"
           alt="Surfers walking toward the ocean at sunset with Learn to Surf Smarter text"
           fill
           className="object-cover object-bottom contrast-[1.10] saturate-[1.3] brightness-[1.05] drop-shadow-2xl"

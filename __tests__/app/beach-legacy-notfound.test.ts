@@ -11,7 +11,7 @@ jest.mock("react", () => {
   };
 });
 
-import BeachDetailBySlugPage from "@/app/beach/[slug]/page";
+import BeachDetailBySlugPage, { generateMetadata } from "@/app/beach/[slug]/page";
 import { notFound } from "next/navigation";
 
 jest.mock("@/lib/services/beach-query-service", () => ({
@@ -19,10 +19,15 @@ jest.mock("@/lib/services/beach-query-service", () => ({
   getBeachByIdFromDb: jest.fn(),
 }));
 
+jest.mock("@/actions/forecast-actions", () => ({
+  getBeachForecastPreview: jest.fn().mockResolvedValue({ success: true, data: null }),
+}));
+
 import {
   getBeachesBySlugFromDb,
   getBeachByIdFromDb,
 } from "@/lib/services/beach-query-service";
+import { getBeachForecastPreview } from "@/actions/forecast-actions";
 
 jest.mock("next/navigation", () => ({
   notFound: jest.fn(() => {
@@ -92,6 +97,30 @@ describe("legacy /beach/[slug] route", () => {
     ).rejects.toMatchObject({ digest: "NEXT_NOT_FOUND" });
 
     expect(notFound).toHaveBeenCalled();
+  });
+
+  it("generateMetadata skips forecast-preview when the slug will permanent-redirect", async () => {
+    // Resolved beach has city + state + slug, so canonical = /ca/san-diego/ocean-beach
+    // and request slug "ocean-beach" -> /beach/ocean-beach != canonical -> redirects.
+    (getBeachesBySlugFromDb as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [
+        {
+          id: "beach-id-1",
+          slug: "ocean-beach",
+          name: "Ocean Beach",
+          city: "San Diego",
+          state: "CA",
+          country: "USA",
+          lat: 32.75,
+          lon: -117.25,
+        },
+      ],
+    });
+
+    await generateMetadata({ params: Promise.resolve({ slug: "ocean-beach" }) });
+
+    expect(getBeachForecastPreview).not.toHaveBeenCalled();
   });
 });
 
