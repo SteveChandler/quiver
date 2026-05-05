@@ -18,7 +18,7 @@ async function loadJose() {
   }
 }
 
-export type EmailTokenPurpose = 'prefs' | 'save_window' | 'log_session';
+export type EmailTokenPurpose = 'prefs' | 'save_window' | 'log_session' | 'invite';
 
 export interface EmailTokenPayload {
   user_id: string;
@@ -89,6 +89,13 @@ export async function generateTestEmailToken(
  */
 export async function generatePrefsToken(userId: string = 'e2e-test-user'): Promise<string> {
   return generateTestEmailToken({ user_id: userId, purpose: 'prefs' });
+}
+
+/**
+ * Generate an invite token for a test inviter.
+ */
+export async function generateInviteToken(userId: string): Promise<string> {
+  return generateTestEmailToken({ user_id: userId, purpose: 'invite' });
 }
 
 /**
