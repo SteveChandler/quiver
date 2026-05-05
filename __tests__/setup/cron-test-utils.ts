@@ -823,22 +823,34 @@ export function createMockForecastSyncResult(overrides: Partial<{
  */
 export function createMockAlertResult(overrides: Partial<{
   eligibleUsers: number;
+  eligibleBeachesProcessed: number;
   sent: number;
   durationMs: number;
   skipped: Record<string, number>;
 }> = {}) {
+  const { skipped, ...summaryOverrides } = overrides;
+
   return {
     eligibleUsers: 100,
+    eligibleBeachesProcessed: 100,
     sent: 50,
     durationMs: 2500,
     skipped: {
       pushDisabled: 10,
       alertsDisabled: 5,
-      missingHomeBeach: 20,
+      mockUser: 0,
+      noEligibleBeaches: 0,
+      missingBeachSlug: 0,
+      staleForecast: 0,
+      missingForecast: 0,
+      noGoodForecasts: 0,
+      duplicateDailySummary: 0,
       noMatch: 15,
-      ...overrides.skipped,
+      sendFailed: 0,
+      quietHours: 0,
+      ...skipped,
     },
-    ...overrides,
+    ...summaryOverrides,
   };
 }
 

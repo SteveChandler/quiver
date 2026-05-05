@@ -3,7 +3,7 @@
  *
  * Tests for the /api/cron/forecast-alerts route.
  *
- * This route evaluates forecast threshold alerts and sends push notifications.
+ * This route evaluates forecast threshold alerts and enqueues daily summary pushes.
  * It requires valid cron authentication (Vercel cron header or Bearer token).
  */
 
@@ -102,17 +102,18 @@ describe("Cron: forecast-alerts", () => {
     });
   });
 
-  describe("Push Notification Behavior", () => {
-    it("sends push notifications for threshold alerts", async () => {
+  describe("Daily Summary Behavior", () => {
+    it("returns daily summary push counts", async () => {
       const alertResult = createMockAlertResult({
         eligibleUsers: 100,
+        eligibleBeachesProcessed: 150,
         sent: 50,
         durationMs: 2500,
         skipped: {
           pushDisabled: 10,
           alertsDisabled: 5,
-          missingHomeBeach: 20,
-          noMatch: 15,
+          noEligibleBeaches: 20,
+          noGoodForecasts: 15,
         },
       });
 
@@ -130,9 +131,10 @@ describe("Cron: forecast-alerts", () => {
       expect(data.data.summary).toEqual(alertResult);
       expect(data.data.summary.sent).toBe(50);
       expect(data.data.summary.eligibleUsers).toBe(100);
+      expect(data.data.summary.eligibleBeachesProcessed).toBe(150);
     });
 
-    it("returns summary with zero notifications when no users match", async () => {
+    it("returns summary with zero notifications when no eligible beaches match", async () => {
       const alertResult = createMockAlertResult({
         eligibleUsers: 50,
         sent: 0,
@@ -140,8 +142,8 @@ describe("Cron: forecast-alerts", () => {
         skipped: {
           pushDisabled: 0,
           alertsDisabled: 0,
-          missingHomeBeach: 0,
-          noMatch: 50,
+          noEligibleBeaches: 0,
+          noGoodForecasts: 50,
         },
       });
 
@@ -157,14 +159,14 @@ describe("Cron: forecast-alerts", () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.data.summary.sent).toBe(0);
-      expect(data.data.summary.skipped.noMatch).toBe(50);
+      expect(data.data.summary.skipped.noGoodForecasts).toBe(50);
     });
   });
 
   describe("Error Handling", () => {
-    it("handles notification service failures gracefully", async () => {
+    it("handles notification enqueue failures gracefully", async () => {
       mockRunForecastThresholdAlerts.mockRejectedValue(
-        new Error("Push notification service unavailable")
+        new Error("Notification enqueue service unavailable")
       );
 
       const request = createMockCronRequest("/api/cron/forecast-alerts", {
@@ -176,7 +178,7 @@ describe("Cron: forecast-alerts", () => {
 
       expect(response.status).toBe(500);
       expect(data.success).toBe(false);
-      expect(data.error).toContain("Push notification service unavailable");
+      expect(data.error).toContain("Notification enqueue service unavailable");
     });
 
     it("handles database connection errors gracefully", async () => {
@@ -269,8 +271,8 @@ describe("Cron: forecast-alerts", () => {
             skipped: {
               pushDisabled: 10,
               alertsDisabled: 5,
-              missingHomeBeach: 20,
-              noMatch: 15,
+              noEligibleBeaches: 20,
+              noGoodForecasts: 15,
               sendFailed: 20, // Some sends failed
             },
           })
@@ -283,8 +285,8 @@ describe("Cron: forecast-alerts", () => {
             skipped: {
               pushDisabled: 10,
               alertsDisabled: 5,
-              missingHomeBeach: 20,
-              noMatch: 15,
+              noEligibleBeaches: 20,
+              noGoodForecasts: 15,
               sendFailed: 20,
             },
           })
@@ -359,8 +361,9 @@ describe("Cron: forecast-alerts", () => {
         skipped: {
           pushDisabled: 10,
           alertsDisabled: 15,
-          missingHomeBeach: 20,
-          noMatch: 30,
+          noEligibleBeaches: 20,
+          noGoodForecasts: 30,
+          duplicateDailySummary: 5,
         },
       });
 
@@ -375,11 +378,13 @@ describe("Cron: forecast-alerts", () => {
 
       expect(response.status).toBe(200);
       const summary = data.data.summary;
-      expect(summary.skipped).toBeDefined();
-      expect(summary.skipped.pushDisabled).toBe(10);
-      expect(summary.skipped.alertsDisabled).toBe(15);
-      expect(summary.skipped.missingHomeBeach).toBe(20);
-      expect(summary.skipped.noMatch).toBe(30);
+      expect(summary.skipped).toMatchObject({
+        pushDisabled: 10,
+        alertsDisabled: 15,
+        noEligibleBeaches: 20,
+        noGoodForecasts: 30,
+        duplicateDailySummary: 5,
+      });
     });
   });
 
@@ -392,8 +397,8 @@ describe("Cron: forecast-alerts", () => {
         skipped: {
           pushDisabled: 0,
           alertsDisabled: 0,
-          missingHomeBeach: 0,
-          noMatch: 0,
+          noEligibleBeaches: 0,
+          noGoodForecasts: 0,
         },
       });
 
@@ -420,8 +425,8 @@ describe("Cron: forecast-alerts", () => {
         skipped: {
           pushDisabled: 1000,
           alertsDisabled: 500,
-          missingHomeBeach: 2000,
-          noMatch: 1500,
+          noEligibleBeaches: 2000,
+          noGoodForecasts: 1500,
         },
       });
 
