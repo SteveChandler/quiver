@@ -142,12 +142,12 @@ jest.mock("@/components/ui/sheet", () => {
         {ReactActual.Children.map(children, (child: any) => {
           if (!ReactActual.isValidElement(child)) return child;
           if (child.type === SheetTrigger) {
-            return ReactActual.cloneElement(child, {
+            return ReactActual.cloneElement(child as any, {
               onClick: () => onOpenChange?.(true),
             });
           }
           if (child.type === SheetContent) {
-            return ReactActual.cloneElement(child, { open });
+            return ReactActual.cloneElement(child as any, { open });
           }
           return child;
         })}

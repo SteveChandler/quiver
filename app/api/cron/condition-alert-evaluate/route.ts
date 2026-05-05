@@ -68,7 +68,8 @@ export async function GET(request: Request) {
         const { data: rules, error: rulesError } = await supabase
           .from("alert_rules")
           .select("id, user_id, beach_id, name, conditions, notify_email, notify_push, preset_type, created_at")
-          .eq("enabled", true);
+          .eq("enabled", true)
+          .neq("preset_type", "similarity_match");
 
         if (rulesError) throw rulesError;
         if (!rules || rules.length === 0) {

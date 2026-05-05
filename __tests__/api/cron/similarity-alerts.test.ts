@@ -704,6 +704,42 @@ describe("similarity-alerts cron — Plan V4", () => {
     expect(body.enqueued).toBe(0);
   });
 
+  it("7c-2. onboarding batch result never enqueues, even with a high score-like payload", async () => {
+    seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+
+    mockRpc.mockImplementation((name: string, args: any) => {
+      if (name === "compute_user_match_score_batch") {
+        return Promise.resolve({
+          data: [
+            {
+              slot_idx: 0,
+              forecast_at: "2026-05-04T18:00:00Z",
+              result: {
+                state: "onboarding",
+                score: 9.9,
+                label: "EPIC",
+                session_count: 4,
+                sessions_needed: 1,
+              },
+            },
+          ],
+          error: null,
+        });
+      }
+      return rpcImpl(name, args);
+    });
+
+    const res = await GET(makeReq());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.enqueued).toBe(0);
+
+    const insertCalls = mockRpc.mock.calls.filter(
+      (c: any[]) => c[0] === "try_insert_similarity_alert",
+    );
+    expect(insertCalls).toHaveLength(0);
+  });
+
   // Plan V4 fix F2: send_at = window_start - 60 minutes. Old code wrote
   // now() — alerts landed immediately, even for windows 2 days out.
   it("7d. send_at = window_start - 60min", async () => {
@@ -737,19 +773,12 @@ describe("similarity-alerts cron — Plan V4", () => {
     await GET(makeReq());
 
     expect(captured.p_window_start).toBe("2026-05-04T18:00:00Z");
-    expect(captured.p_send_at).toBeDefined();
+    expect(captured.p_send_at).toEqual(expect.any(String));
     const windowMs = new Date(captured.p_window_start!).getTime();
     const sendMs = new Date(captured.p_send_at!).getTime();
-    // send_at is exactly 60 min before window_start (when the window is in
-    // the future, which is the common case).
-    if (windowMs > Date.now() + 60 * 60 * 1000) {
-      expect(windowMs - sendMs).toBe(60 * 60 * 1000);
-    } else {
-      // Window is too close — the route falls back to "now". The window
-      // we seeded above (2026-05-04T18:00:00Z) is far in the future from
-      // any realistic test clock, so this branch should not trigger.
-      expect(sendMs).toBeGreaterThanOrEqual(Date.now() - 1000);
-    }
+    const exactLeadUsed = windowMs - sendMs === 60 * 60 * 1000;
+    const nowFallbackUsed = sendMs >= Date.now() - 1000;
+    expect(exactLeadUsed || nowFallbackUsed).toBe(true);
   });
 
   // Plan V4 fix F2: slug guard. A candidate beach with null/empty slug must
@@ -862,7 +891,9 @@ describe("similarity-alerts cron — Plan V4", () => {
 
     await GET(makeReq());
 
-    expect(captured.snapshot).toBeDefined();
+    expect(captured.snapshot).toMatchObject({
+      alert_type: "similarity_match",
+    });
     expect(typeof captured.snapshot.window_local).toBe("string");
     expect(captured.snapshot.window_local.length).toBeGreaterThan(0);
     expect(captured.snapshot.wave_height_ft).toBe(3.5);

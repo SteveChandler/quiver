@@ -109,8 +109,10 @@ const store: Store = {
 function makeChain(rowsResolver: () => any[], onUpsert?: (row: any) => void) {
   const chain: any = {
     _filters: {} as Record<string, any>,
+    _neqFilters: {} as Record<string, any>,
     select: jest.fn(() => chain),
     eq: jest.fn((_col: string, val: any) => { chain._filters[_col] = val; return chain; }),
+    neq: jest.fn((_col: string, val: any) => { chain._neqFilters[_col] = val; return chain; }),
     in: jest.fn((_col: string, vals: any[]) => { chain._filters[`${_col}__in`] = vals; return chain; }),
     gte: jest.fn(() => chain),
     lt: jest.fn(() => chain),
@@ -131,7 +133,12 @@ function makeChain(rowsResolver: () => any[], onUpsert?: (row: any) => void) {
     }),
     // Promise resolution (then is the terminal for most selects)
     then: jest.fn((resolve: any) =>
-      resolve({ data: rowsResolver(), error: null })
+      resolve({
+        data: rowsResolver().filter((row) =>
+          Object.entries(chain._neqFilters).every(([col, val]) => row?.[col] !== val)
+        ),
+        error: null,
+      })
     ),
     single: jest.fn(() => Promise.resolve({ data: rowsResolver()[0] ?? null, error: null })),
     maybeSingle: jest.fn(() => Promise.resolve({ data: rowsResolver()[0] ?? null, error: null })),
@@ -345,6 +352,29 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     expect(body.queued).toBe(0);
 
     // No queue upserts, no rule updates
+    expect(store.queueUpserts).toHaveLength(0);
+    expect(store.ruleUpdates).toHaveLength(0);
+  });
+
+  it("2b. excludes similarity_match rules from the generic condition evaluator", async () => {
+    seedRule({
+      name: "Conditions like your best sessions",
+      preset_type: "similarity_match",
+      conditions: {},
+    });
+    seedProfile();
+    seedBeach();
+    seedForecast();
+    seedMatchingWindow();
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.evaluated).toBe(0);
+    expect(body.matched).toBe(0);
+    expect(body.queued).toBe(0);
+    expect(mockFindMatchingWindows).not.toHaveBeenCalled();
     expect(store.queueUpserts).toHaveLength(0);
     expect(store.ruleUpdates).toHaveLength(0);
   });
