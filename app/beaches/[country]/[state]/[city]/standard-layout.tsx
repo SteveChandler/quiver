@@ -18,6 +18,7 @@ import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { FAQSection } from "@/components/seo/faq-schema";
 import { ItemListSchema } from "@/components/seo/item-list-schema";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
+import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
 import { generateCityRichContent } from "@/lib/seo/city-content-generator";
 import { RichContentRenderer } from "@/lib/seo/rich-content";
 import type { MetroAreaConfig } from "@/lib/constants/metro-areas";
@@ -182,6 +183,29 @@ export function StandardLayout({
         <p className="text-gray-700 leading-relaxed max-w-3xl mb-8">
           <RichContentRenderer content={citySummary} />
         </p>
+
+        <SeoFunnelNextSteps
+          title={`Plan the next ${displayCityName} session`}
+          description="Start with the ranked beach list, then check the condition guide that matches your decision."
+          steps={[
+            {
+              label: `Find the best surf window`,
+              href: bestTimeToSurfUrl ?? `/best-time-to-surf/${params.city}`,
+              description: "Use the monthly guide when timing matters more than spot choice.",
+            },
+            {
+              label: `Check ${displayCityName} water temperature`,
+              href: `/water-temp/${params.city}`,
+              description: "Dial in gear before you head to the beach.",
+            },
+            {
+              label: `Watch the tide window`,
+              href: `/tide/${params.city}`,
+              description: "See the tide context before picking a break.",
+            },
+          ]}
+          className="mb-8"
+        />
 
         {/* Surf Report Today — live conditions hero */}
         {surfReport && surfReport.beaches.length > 0 && (

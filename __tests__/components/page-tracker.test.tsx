@@ -125,15 +125,22 @@ describe("PageTracker", () => {
       expect(mockTrack).toHaveBeenCalledTimes(1);
     });
 
-    it("does not track landing page views", async () => {
+    it("tracks landing page views", async () => {
       mockUsePathname.mockReturnValue("/");
 
       render(<PageTracker />);
 
-      // Wait for potential track calls
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      expect(mockTrack).not.toHaveBeenCalled();
+      await waitFor(() => {
+        expect(mockTrack).toHaveBeenCalledWith("page_view", {
+          metadata: {
+            page: "landing",
+            pathname: "/",
+            referrer: "",
+            browser_session_id: expect.any(String),
+          },
+          debounceMs: 500,
+        });
+      });
     });
   });
 
@@ -201,6 +208,7 @@ describe("PageTracker", () => {
       { pathname: "/login", expected: "auth" },
       { pathname: "/signup", expected: "auth" },
       { pathname: "/auth", expected: "auth" },
+      { pathname: "/", expected: "landing" },
     ];
 
     it.each(pageMappings)(

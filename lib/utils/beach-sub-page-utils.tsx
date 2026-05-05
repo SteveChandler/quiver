@@ -13,6 +13,7 @@ import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-sche
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
 import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
+import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { TideSummaryHero } from "@/components/beach-detail/tide-summary-hero";
 import { WaterTempSummaryHero } from "@/components/beach-detail/water-temp-summary-hero";
@@ -231,6 +232,33 @@ export async function renderBeachSubPage({
           beachId={beach.id}
           beachName={beach.name}
           source={`${ctaSource}-inline`}
+        />
+      </div>
+
+      <div className="container mx-auto px-4 pb-8">
+        <SeoFunnelNextSteps
+          title={`Keep planning ${beach.name}`}
+          description={`Use this ${config.breadcrumbLabel.toLowerCase()} page as one signal, then check the full forecast, nearby breaks, and the companion condition page.`}
+          steps={[
+            {
+              label: `Open the full ${beach.name} forecast`,
+              href: beachPath,
+              description: "Return to the full spot page for forecast, reviews, intel, and sessions.",
+            },
+            {
+              label: pageType === "tides" ? "Check water temperature" : "Watch the tide window",
+              href: pageType === "tides" ? `${beachPath}/water-temp` : `${beachPath}/tides`,
+              description:
+                pageType === "tides"
+                  ? "Pair the tide call with gear and water-temperature context."
+                  : "Pair water temperature with the next useful tide shift.",
+            },
+            {
+              label: "Compare nearby surf spots",
+              href: "/map",
+              description: "Use the map when this spot is not the right call.",
+            },
+          ]}
         />
       </div>
 

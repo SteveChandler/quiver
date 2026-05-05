@@ -25,6 +25,7 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { ItemListSchema } from "@/components/seo/item-list-schema";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { SITE_URL } from "@/lib/constants/seo";
 
@@ -274,7 +275,7 @@ export default async function UsaStatePage(
       </p>
 
       <div className="grid gap-8 lg:grid-cols-[420px_1fr]">
-        <section aria-label="Cities" className="order-2 lg:order-1">
+        <section id="surf-cities" aria-label="Cities" className="order-2 lg:order-1">
           <h2 className="text-xl font-semibold text-slate-900 mb-3">
             Surf cities in {stateName}
           </h2>
@@ -343,6 +344,29 @@ export default async function UsaStatePage(
           ctaCopyVariant={ctaCopyVariant}
         />
       </div>
+
+      <SeoFunnelNextSteps
+        title={`Plan a ${stateName} surf session`}
+        description="Use the state hub to choose a city, then move into live conditions, water temperature, or the map before you drive."
+        steps={[
+          {
+            label: `Browse ${stateName} surf cities`,
+            href: "#surf-cities",
+            description: "Start with the indexed city list and pick the coast you care about.",
+          },
+          {
+            label: `Open the ${stateName} surf map`,
+            href: `/map?search=${encodeURIComponent(stateName)}`,
+            description: "Scan nearby breaks when you need a fast alternate spot.",
+          },
+          {
+            label: `Check water temperature guides`,
+            href: `/water-temp/${stateSlug}`,
+            description: "Use statewide water-temperature context for gear calls.",
+          },
+        ]}
+        className="my-8"
+      />
 
       <IntentGuidesGrid
         locationSlug={stateSlug}

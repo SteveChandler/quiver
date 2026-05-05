@@ -29,6 +29,7 @@ import { MonthlySurfChart } from "@/components/best-time-to-surf/monthly-chart";
 import { MonthlyViewToggle } from "@/components/best-time-to-surf/monthly-view-toggle";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { SITE_URL } from "@/lib/constants/seo";
 import { INTENT_DEFINITIONS, buildCityIntentUrl, type IntentKey } from "@/lib/constants/intent-definitions";
@@ -387,11 +388,34 @@ export default async function BestTimeToSurfPage(props: PageParams) {
         )}
 
         <InlineSignupCta
-          title={`Your best ${cityName} window, delivered`}
-          description={`Dawn patrol, after work, weekends — we'll ping you when ${cityName} lines up for your session. Free.`}
-          primaryButtonText={`Track ${cityName}`}
+          title={`Save ${cityName}'s best surf windows`}
+          description={`Dawn patrol, after work, weekends. We'll ping you when ${cityName} lines up for your session.`}
+          primaryButtonText="Save best windows"
           source={`best-time-${citySlug}-inline`}
           ctaCopyVariant="city_specific_v1"
+          className="mb-8"
+        />
+
+        <SeoFunnelNextSteps
+          title={`Plan the next ${cityName} session`}
+          description="The seasonal calendar is the long view. Use these pages to turn it into a live surf call."
+          steps={[
+            {
+              label: `Check live ${cityName} spots`,
+              href: `/beaches/usa/${stateSlug}/${citySlug}`,
+              description: "Open the local breaks and current surf conditions.",
+            },
+            {
+              label: `Check ${cityName} water temperature`,
+              href: `/water-temp/${citySlug}`,
+              description: "Dial in suit choice before you commit to the window.",
+            },
+            {
+              label: `Watch the tide window`,
+              href: `/tide/${citySlug}`,
+              description: "See when the tide is helping or hurting the session.",
+            },
+          ]}
           className="mb-8"
         />
 
@@ -443,8 +467,8 @@ export default async function BestTimeToSurfPage(props: PageParams) {
       </div>
       <StickySignupBar
         source={`best-time-${citySlug}`}
-        ctaText="Get Alerts"
-        supportingText={`Best conditions alerts for ${cityName}`}
+        ctaText="Save Window"
+        supportingText={`Best surf windows for ${cityName}`}
       />
     </div>
   );

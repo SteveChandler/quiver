@@ -83,12 +83,6 @@ export function PageTracker() {
     // Skip if pathname hasn't changed (initial mount is fine)
     if (prevPathname.current === pathname) return;
 
-    // Don't track landing page views (handled separately)
-    if (pathname === "/") {
-      prevPathname.current = pathname;
-      return;
-    }
-
     const page = getPageName(pathname);
     const sessionId = getSessionId();
 
