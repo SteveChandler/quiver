@@ -10,8 +10,11 @@ import { getUtcDayBounds } from "@/lib/alerts/timezone-utils";
 import { parseWindSpeedToKt, parseSwellDirectionToDegrees } from "@/lib/alerts/forecast-parsers";
 import type { AlertConditions, BeachAlertMeta, ForecastHour } from "@/lib/alerts/types";
 import type { Database } from "@/types/database.generated";
-import { getMinRideable, MINIMUM_VIABLE_WINDOW_MINUTES } from "@/lib/utils/surf-call-logic";
+import { selectBestWindow } from "@/lib/services/discovery";
+import { computeSurfCall, getMinRideable, MINIMUM_VIABLE_WINDOW_MINUTES } from "@/lib/utils/surf-call-logic";
 import type { Beach } from "@/types/database";
+import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -24,29 +27,104 @@ type ProfileRow = Pick<
   Database["public"]["Tables"]["profiles"]["Row"],
   "id" | "home_beach_id" | "notif_forecast_alerts" | "notif_email_enabled" | "notif_push_enabled"
 >;
-type BeachRow = Pick<
-  Database["public"]["Tables"]["beaches"]["Row"],
-  | "id"
-  | "name"
-  | "slug"
-  | "lat"
-  | "lon"
-  | "timezone"
-  | "wind_offshore_deg"
-  | "wind_offshore_tol_deg"
-  | "aspect_deg"
-  | "preferred_tide_ft_min"
-  | "preferred_tide_ft_max"
-  | "preferred_tide_direction"
-  | "swell_window_center_deg"
-  | "swell_window_halfwidth_deg"
-  | "break_type"
-  | "skill_level"
->;
+type BeachRow = Beach;
 type EntitlementRow = Pick<
   Database["public"]["Tables"]["user_entitlements"]["Row"],
   "user_id" | "is_pro" | "is_trialing" | "billing_issue" | "expires_at"
 >;
+
+interface QueuedSurfWindow {
+  window_start: string;
+  window_end: string;
+  best_hour: string;
+  conditions_snapshot: Record<string, unknown>;
+}
+
+function buildConditionsSnapshot(forecast: EnhancedForecastEntity | null): Record<string, unknown> {
+  if (!forecast) return {};
+
+  return {
+    wave_height: forecast.wave_height ? parseFloat(forecast.wave_height) : null,
+    wave_period: forecast.wave_period ? parseFloat(forecast.wave_period.replace("s", "")) : null,
+    wave_direction: forecast.wave_direction ?? null,
+    swell_1_period: forecast.swell_1_period ? parseFloat(forecast.swell_1_period.replace("s", "")) : null,
+    swell_1_direction: parseSwellDirectionToDegrees(forecast.swell_1_direction ?? null),
+    wind_speed: parseWindSpeedToKt(forecast.wind_speed ?? null),
+    wind_direction_deg: forecast.wind_direction_deg ?? null,
+    tide_height: forecast.tide_height ? parseFloat(forecast.tide_height) : null,
+    tide_status: forecast.tide_status ?? null,
+  };
+}
+
+function pickForecastClosestTo(
+  forecasts: EnhancedForecastEntity[],
+  targetISO: string | null
+): EnhancedForecastEntity | null {
+  if (forecasts.length === 0) return null;
+  if (!targetISO) return forecasts[0];
+
+  const targetMs = new Date(targetISO).getTime();
+  if (!Number.isFinite(targetMs)) return forecasts[0];
+
+  return forecasts.reduce((closest, forecast) => {
+    const closestDelta = Math.abs(new Date(closest.forecast_at).getTime() - targetMs);
+    const forecastDelta = Math.abs(new Date(forecast.forecast_at).getTime() - targetMs);
+    return forecastDelta < closestDelta ? forecast : closest;
+  }, forecasts[0]);
+}
+
+async function resolveSurfCallWindow(
+  supabase: SupabaseClient<Database>,
+  beach: Beach,
+  forecasts: EnhancedForecastEntity[],
+  localDate: string
+): Promise<QueuedSurfWindow | null> {
+  const sunTimesCache = await getSunTimesCache(supabase, beach.id, localDate);
+  const selectedWindow = selectBestWindow({
+    forecasts,
+    beach,
+    userPrefs: null,
+    horizonHours: 24,
+    sunTimesCache,
+  });
+  const surfCall = computeSurfCall(selectedWindow, forecasts, beach);
+
+  if (!surfCall.bestWindowStart || !surfCall.bestWindowEnd) return null;
+
+  const bestHour = surfCall.peakTime ?? surfCall.bestWindowStart;
+  const snapshotForecast = pickForecastClosestTo(forecasts, bestHour);
+
+  return {
+    window_start: surfCall.bestWindowStart,
+    window_end: surfCall.bestWindowEnd,
+    best_hour: bestHour,
+    conditions_snapshot: buildConditionsSnapshot(snapshotForecast),
+  };
+}
+
+async function getSunTimesCache(
+  supabase: SupabaseClient<Database>,
+  beachId: string,
+  localDate: string
+): Promise<Map<string, { sunrises: Date[]; sunsets: Date[] }>> {
+  const { data, error } = await supabase
+    .from("sun_times")
+    .select("beach_id, sunrise_utc, sunset_utc")
+    .eq("beach_id", beachId)
+    .eq("date", localDate)
+    .order("sunrise_utc", { ascending: true });
+
+  if (error || !data) return new Map();
+
+  const sunrises: Date[] = [];
+  const sunsets: Date[] = [];
+  for (const row of data) {
+    if (row.sunrise_utc) sunrises.push(new Date(row.sunrise_utc));
+    if (row.sunset_utc) sunsets.push(new Date(row.sunset_utc));
+  }
+
+  return new Map([[beachId, { sunrises, sunsets }]]);
+}
 
 export async function GET(request: Request) {
   if (!validateCronRequest(request)) {
@@ -89,9 +167,7 @@ export async function GET(request: Request) {
             .in("id", userIds),
           supabase
             .from("beaches")
-            .select(
-              "id, name, slug, lat, lon, timezone, wind_offshore_deg, wind_offshore_tol_deg, aspect_deg, preferred_tide_ft_min, preferred_tide_ft_max, preferred_tide_direction, swell_window_center_deg, swell_window_halfwidth_deg, break_type, skill_level"
-            )
+            .select("*")
             .in("id", beachIds),
           supabase
             .from("user_entitlements")
@@ -146,6 +222,7 @@ export async function GET(request: Request) {
             const homeBeach = homeBeachId ? beachesById.get(homeBeachId) : undefined;
             const homeBeachTz = homeBeach?.timezone ?? "America/New_York";
             const userLocalDate = new Date().toLocaleDateString("en-CA", { timeZone: homeBeachTz });
+            const surfCallWindowByBeachId = new Map<string, QueuedSurfWindow | null>();
 
             // Check if already delivered today.
             const { data: existing } = await supabase
@@ -178,9 +255,7 @@ export async function GET(request: Request) {
 
               const { data: forecasts } = await supabase
                 .from("enhanced_forecasts")
-                .select(
-                  "forecast_at, wave_height, wave_period, wave_direction, swell_1_height, swell_1_period, swell_1_direction, wind_speed, wind_direction_deg, tide_height, tide_status"
-                )
+                .select("*")
                 .eq("beach_id", rule.beach_id)
                 .gte("forecast_at", todayStart)
                 .lt("forecast_at", todayEnd)
@@ -283,11 +358,27 @@ export async function GET(request: Request) {
                 continue;
               }
 
+              if (!surfCallWindowByBeachId.has(rule.beach_id)) {
+                const surfCallWindow = await resolveSurfCallWindow(
+                  supabase,
+                  beachRow as Beach,
+                  forecasts as EnhancedForecastEntity[],
+                  userLocalDate
+                );
+                surfCallWindowByBeachId.set(rule.beach_id, surfCallWindow);
+              }
+
+              const surfCallWindow = surfCallWindowByBeachId.get(rule.beach_id);
+              if (!surfCallWindow) {
+                result.skipped_unsurfable++;
+                continue;
+              }
+
               result.matched++;
 
               const { sunrise } = getDaylightWindow(beach.lat, beach.lon, new Date(todayStart));
 
-              for (const window of windows) {
+              for (const window of [surfCallWindow]) {
                 const sendAtDate = new Date(new Date(window.window_start).getTime() - 2 * 60 * 60 * 1000);
                 const clampedSendAt = sendAtDate < sunrise ? sunrise : sendAtDate;
                 const sendAt = clampedSendAt < new Date() ? new Date() : clampedSendAt;

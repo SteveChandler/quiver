@@ -27,6 +27,7 @@ export function ConsolidatedAlertEmail({
   baseUrl,
 }: ConsolidatedAlertEmailProps) {
   const greeting = displayName ? `Hey ${displayName}` : "Hey";
+  const headingDate = formatEmailHeadingDate(alertDate);
 
   return (
     <div style={body}>
@@ -39,7 +40,7 @@ export function ConsolidatedAlertEmail({
         {/* Content */}
         <div style={content}>
           <p style={headingText}>
-            {greeting}, your surf report for {alertDate}
+            {greeting}, your surf report for <span style={nowrapText}>{headingDate}</span>
           </p>
 
           {matches.map((match, i) => {
@@ -66,8 +67,8 @@ export function ConsolidatedAlertEmail({
 
                 {/* Prominent time window */}
                 <div style={windowBox}>
-                  <p style={windowLabelStyle}>Best Window</p>
-                  <p style={windowTimeStyle}>{timeWindow}</p>
+                  <p style={windowLabelStyle}>{timeWindow.label}</p>
+                  <p style={windowTimeStyle}>{timeWindow.text}</p>
                 </div>
 
                 <p style={conditionsTextStyle}>
@@ -114,7 +115,28 @@ export function ConsolidatedAlertEmail({
   );
 }
 
-function formatWindow(match: MatchingWindow): string {
+export interface FormattedEmailWindow {
+  label: "Best Around" | "Best Window";
+  text: string;
+}
+
+export function formatEmailHeadingDate(alertDate: string): string {
+  const [weekday, rest] = alertDate.split(", ");
+  const weekdayMap: Record<string, string> = {
+    Monday: "Mon",
+    Tuesday: "Tue",
+    Wednesday: "Wed",
+    Thursday: "Thu",
+    Friday: "Fri",
+    Saturday: "Sat",
+    Sunday: "Sun",
+  };
+
+  if (!rest || !weekdayMap[weekday]) return alertDate;
+  return `${weekdayMap[weekday]}, ${rest}`;
+}
+
+export function formatWindow(match: MatchingWindow): FormattedEmailWindow {
   const opts: Intl.DateTimeFormatOptions = {
     hour: "numeric",
     minute: "2-digit",
@@ -130,7 +152,22 @@ function formatWindow(match: MatchingWindow): string {
     })
     .split(" ")
     .pop();
-  return `${start} \u2013 ${end} ${tzAbbr}, peak around ${best}`;
+
+  const startMs = new Date(match.window_start).getTime();
+  const endMs = new Date(match.window_end).getTime();
+  const durationMinutes = (endMs - startMs) / 60000;
+
+  if (Number.isFinite(durationMinutes) && durationMinutes <= 75) {
+    return {
+      label: "Best Around",
+      text: `${best} ${tzAbbr}`,
+    };
+  }
+
+  return {
+    label: "Best Window",
+    text: `${start} \u2013 ${end} ${tzAbbr} · peak ${best}`,
+  };
 }
 
 // Renders the conditions row using the same units + rounding as the live web
@@ -215,6 +252,7 @@ const headingText: React.CSSProperties = {
   fontWeight: "600",
   marginBottom: "24px",
 };
+const nowrapText: React.CSSProperties = { whiteSpace: "nowrap" };
 const beachSection: React.CSSProperties = { marginBottom: "16px" };
 const beachNameStyle: React.CSSProperties = {
   color: "#ffffff",
