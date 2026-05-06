@@ -18,4 +18,16 @@ describe("Cron: forecast-digest-email", () => {
     expect(source).not.toContain("enqueueNotification(");
     expect(source).not.toContain("dedupeKey: `daily_digest:");
   });
+
+  it("uses canonical beach tide preference columns", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/cron/forecast-digest-email/route.ts"),
+      "utf8"
+    );
+
+    expect(source).toContain("preferred_tide_ft_min");
+    expect(source).toContain("preferred_tide_ft_max");
+    expect(source).not.toContain("tide_min_ft");
+    expect(source).not.toContain("tide_max_ft");
+  });
 });

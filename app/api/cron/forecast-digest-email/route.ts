@@ -82,8 +82,8 @@ interface EligibleUser {
   beach_swell_window_halfwidth_deg: number | null;
   beach_wind_offshore_deg: number | null;
   beach_wind_offshore_tol_deg: number | null;
-  beach_tide_min_ft: number | null;
-  beach_tide_max_ft: number | null;
+  beach_preferred_tide_ft_min: number | null;
+  beach_preferred_tide_ft_max: number | null;
 }
 
 interface DigestRunSummary {
@@ -355,8 +355,8 @@ async function _GET(request: Request): Promise<Response> {
           swell_window_halfwidth_deg,
           wind_offshore_deg,
           wind_offshore_tol_deg,
-          tide_min_ft,
-          tide_max_ft
+          preferred_tide_ft_min,
+          preferred_tide_ft_max
         )
       `
       )
@@ -434,8 +434,8 @@ async function _GET(request: Request): Promise<Response> {
           swell_window_halfwidth_deg: beach.swell_window_halfwidth_deg,
           wind_offshore_deg: beach.wind_offshore_deg,
           wind_offshore_tol_deg: beach.wind_offshore_tol_deg,
-          preferred_tide_ft_min: beach.tide_min_ft,
-          preferred_tide_ft_max: beach.tide_max_ft,
+          preferred_tide_ft_min: beach.preferred_tide_ft_min,
+          preferred_tide_ft_max: beach.preferred_tide_ft_max,
         };
 
         const matchResult = evaluateDigestMatch(
