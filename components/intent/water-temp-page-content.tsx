@@ -59,7 +59,7 @@ export function WaterTempPageContent({
   );
 
   return (
-    <div className="bg-gradient-to-b from-white via-gray-50/30 to-white">
+    <div className="seo-paper-page">
       <BreadcrumbStructuredData
         items={[
           { name: "Quiver", url: `${baseUrl}/` },
@@ -130,6 +130,7 @@ export function WaterTempPageContent({
           />
 
           <SeoFunnelNextSteps
+            variant="paper"
             title={`Keep planning ${cityName}`}
             description={`Water temperature answers the gear question. Use the live spot list, best-window guide, and tide page to pick the actual session.`}
             steps={[

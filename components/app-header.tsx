@@ -17,6 +17,7 @@ import {
   Settings,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { preserveQueryParams } from "@/lib/utils/navigation-utils";
 import { cn } from "@/lib/utils";
@@ -203,7 +204,16 @@ export function AppHeader() {
             href={getPreservedHref("/")}
             className="flex items-center space-x-2 group focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
           >
-            <div className="text-xl font-bold text-primary transition-colors duration-300 hover:text-primary/90">
+            <Image
+              src="/quiver-app-icon-128.png"
+              alt=""
+              width={28}
+              height={28}
+              className="h-7 w-7 rounded-md shadow-sm"
+              priority
+              aria-hidden="true"
+            />
+            <div className="text-xl font-bold text-[#F78E42] transition-colors duration-300 group-hover:text-[#FFAA63]">
               Quiver
             </div>
           </Link>
@@ -523,7 +533,7 @@ export function AppHeader() {
                 </Button>
                 <Button
                   size="sm"
-                  className="bg-gradient-to-b from-primary to-primary/90 text-primary-foreground rounded-full px-3 lg:px-5 h-10 font-semibold shadow-sm hover:shadow-md hover:from-primary/95 hover:to-primary/85 active:scale-[0.98] transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  className="rounded-full bg-[#F78E42] px-3 text-[#11100D] shadow-sm transition-all duration-200 hover:bg-[#FFAA63] hover:shadow-md active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 lg:px-5 h-10 font-semibold"
                   onClick={() => {
                     const headerSource = `app-header-${isBeachContextPath(pathname) ? "beach" : pathname.startsWith("/forecast") ? "forecast" : "general"}`;
                     trackSignupCtaClick({

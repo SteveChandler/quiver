@@ -373,7 +373,7 @@ export default async function IntentPage(props: IntentPageParams) {
     // Render state-level intent page (with empty state if no beaches)
     const statePageUrl = `${baseUrl.replace(/\/$/, "")}/${params.intent}/${params.city}`;
     return (
-      <div className="bg-gradient-to-b from-white via-gray-50/30 to-white">
+      <div className="seo-paper-page">
         {/* Breadcrumb: Home → State → Intent (3 levels) */}
         <BreadcrumbStructuredData
           items={[
@@ -446,6 +446,7 @@ export default async function IntentPage(props: IntentPageParams) {
               )}
 
               <SeoFunnelNextSteps
+                variant="paper"
                 title={`Keep planning ${stateName}`}
                 description={`Use this ${intentDefinition.label.toLowerCase()} page as the filter, then narrow down by city, map, or conditions guide.`}
                 steps={[
@@ -943,7 +944,7 @@ export default async function IntentPage(props: IntentPageParams) {
       return notFound();
     }
     return (
-      <div className="bg-gradient-to-b from-white via-gray-50/30 to-white">
+      <div className="seo-paper-page">
         <div className="container mx-auto px-4 py-8 max-w-7xl">
           <header className="mb-8">
             <h1 className="text-3xl font-bold text-gray-800">
@@ -1024,7 +1025,7 @@ export default async function IntentPage(props: IntentPageParams) {
   const pageUrl = `${safeBaseUrl}/${params.intent}/${params.city}`;
 
   return (
-    <div className="bg-gradient-to-b from-white via-gray-50/30 to-white">
+    <div className="seo-paper-page">
       {/* Breadcrumb: Home → State → City → Intent (4 levels) */}
       <BreadcrumbStructuredData
         items={[
@@ -1115,6 +1116,7 @@ export default async function IntentPage(props: IntentPageParams) {
 
         <div className="space-y-12">
           <SeoFunnelNextSteps
+            variant="paper"
             title={`Keep planning ${cityMetadata.cityName}`}
             description={`Use this ${definition.label.toLowerCase()} guide as the filter, then jump to live spots, tides, or the seasonal window.`}
             steps={[

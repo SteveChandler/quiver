@@ -97,6 +97,7 @@ export function EditorialLayout({
         url={`${SITE_ORIGIN}${buildCanonicalCityPath(params)}`}
       />
 
+      <div className="seo-paper-page">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Breadcrumb */}
         <nav
@@ -176,6 +177,7 @@ export function EditorialLayout({
         )}
 
         <SeoFunnelNextSteps
+          variant="paper"
           title={`Plan the next ${displayCityName} session`}
           description="Use the city guide for spot choice, then move into timing, water temperature, or tide context."
           steps={[
@@ -260,6 +262,7 @@ export function EditorialLayout({
             cities={siblingCities}
           />
         )}
+      </div>
       </div>
     </>
   );
