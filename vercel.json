@@ -130,10 +130,6 @@
       "schedule": "45 * * * *"
     },
     {
-      "path": "/api/cron/resolve-youtube-cams",
-      "schedule": "0 */6 * * *"
-    },
-    {
       "path": "/api/cron/resolve-cam-thumbnails",
       "schedule": "0 4 * * 1-6"
     },
