@@ -29,7 +29,10 @@ export function ExploreMoreLinks({ beach }: ExploreMoreLinksProps) {
   ];
 
   return (
-    <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <div
+      data-testid="conditions-explore-more-links"
+      className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2"
+    >
       {cards.map((card) => (
         <Link key={card.href} href={card.href} className={cardClass}>
           <div className="flex-shrink-0 rounded-xl bg-blue-50 p-2 text-blue-600">
