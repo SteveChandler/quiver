@@ -111,6 +111,7 @@ export function StandardLayout({
         url={`${SITE_ORIGIN}${buildCanonicalCityPath(params)}`}
       />
 
+      <div className="seo-paper-page">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Breadcrumb */}
         <nav
@@ -185,6 +186,7 @@ export function StandardLayout({
         </p>
 
         <SeoFunnelNextSteps
+          variant="paper"
           title={`Plan the next ${displayCityName} session`}
           description="Start with the ranked beach list, then check the condition guide that matches your decision."
           steps={[
@@ -398,6 +400,7 @@ export function StandardLayout({
             <p className="text-gray-600">No beaches found in this location.</p>
           </div>
         )}
+      </div>
       </div>
     </>
   );

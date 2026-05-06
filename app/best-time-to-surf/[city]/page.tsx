@@ -168,7 +168,7 @@ export default async function BestTimeToSurfPage(props: PageParams) {
       : null;
 
   return (
-    <div className="bg-gradient-to-b from-sky-50 via-blue-50/30 to-white min-h-screen">
+    <div className="seo-paper-page">
       <BreadcrumbStructuredData
         items={[
           { name: "Quiver", url: `${SITE_URL}/` },
@@ -219,21 +219,20 @@ export default async function BestTimeToSurfPage(props: PageParams) {
             </p>
 
             {/* Current month hero card */}
-            <div className="rounded-2xl bg-gradient-to-br from-ocean-blue to-blue-700 p-6 md:p-8 text-white flex flex-col md:flex-row items-center gap-6">
+            <div className="flex flex-col items-center gap-6 rounded-2xl border border-[#11100D]/15 bg-gradient-to-br from-[#FBF6E8]/95 to-[#EEE3C9]/75 p-6 text-[#11100D] shadow-[0_18px_38px_rgba(17,16,13,0.14)] md:flex-row md:p-8">
               <AnimatedScoreGauge
                 score={data.monthly[currentMonthIndex].score}
                 size="xl"
                 showLabel
-                variant="hero"
               />
               <div className="text-center md:text-left">
-                <p className="text-white/80 text-sm font-medium uppercase tracking-wide mb-1">
+                <p className="mb-1 text-sm font-medium uppercase tracking-wide text-[#655C4C]">
                   Surfing in {data.monthly[currentMonthIndex].monthName}
                 </p>
-                <p className="text-3xl md:text-4xl font-bold mb-2">
+                <p className="mb-2 text-3xl font-bold text-[#11100D] md:text-4xl">
                   {data.monthly[currentMonthIndex].monthName}
                 </p>
-                <p className="text-white/90 max-w-md">
+                <p className="max-w-md text-[#655C4C]">
                   {data.monthly[currentMonthIndex].bestMonthCount > 0
                     ? `${data.monthly[currentMonthIndex].bestMonthCount} of ${data.totalBeaches} beaches are in peak season right now.`
                     : `${cityName} is between peak seasons right now.`}
@@ -397,6 +396,7 @@ export default async function BestTimeToSurfPage(props: PageParams) {
         />
 
         <SeoFunnelNextSteps
+          variant="paper"
           title={`Plan the next ${cityName} session`}
           description="The seasonal calendar is the long view. Use these pages to turn it into a live surf call."
           steps={[

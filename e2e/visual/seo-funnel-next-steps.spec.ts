@@ -20,15 +20,53 @@ const SEO_FUNNEL_ROUTES = [
   },
   {
     slug: "best-time",
-    path: "/best-time-to-surf/westport",
-    expectedLink: /live Westport spots/i,
+    path: "/best-time-to-surf/huntington-beach",
+    expectedLink: /live Huntington Beach spots/i,
   },
   {
     slug: "state-hub",
     path: "/beaches/usa/ca",
     expectedLink: /California surf cities/i,
   },
+  {
+    slug: "city-guide",
+    path: "/beaches/usa/ca/huntington-beach",
+    expectedLink: /Find the best surf window/i,
+  },
+  {
+    slug: "generic-intent-state",
+    path: "/beginner/ca",
+    expectedLink: /California surf cities/i,
+  },
 ] as const;
+
+async function expectPaperTheme(page: Page, section: Locator): Promise<void> {
+  const pageRoot = page.locator(".seo-paper-page").first();
+  await expect(pageRoot).toBeVisible();
+
+  const pageStyles = await pageRoot.evaluate((element) => {
+    const styles = window.getComputedStyle(element);
+    return {
+      backgroundImage: styles.backgroundImage,
+      color: styles.color,
+    };
+  });
+
+  expect(pageStyles.backgroundImage).toContain("gradient");
+  expect(pageStyles.color).toBe("rgb(17, 16, 13)");
+
+  const firstCard = section.getByRole("link").first();
+  const cardStyles = await firstCard.evaluate((element) => {
+    const styles = window.getComputedStyle(element);
+    return {
+      backgroundColor: styles.backgroundColor,
+      borderColor: styles.borderTopColor,
+    };
+  });
+
+  expect(cardStyles.backgroundColor).toContain("251, 246, 232");
+  expect(cardStyles.borderColor).not.toBe("rgb(64, 76, 146)");
+}
 
 async function expectNonOverlappingLinks(section: Locator): Promise<void> {
   const links = section.getByRole("link");
@@ -111,6 +149,7 @@ test.describe("SEO funnel next steps visual validation", () => {
         expect(box!.height).toBeGreaterThan(140);
 
         await expectNonOverlappingLinks(section);
+        await expectPaperTheme(page, section);
         await attachSectionScreenshot(
           page,
           section,

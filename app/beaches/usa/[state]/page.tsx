@@ -148,13 +148,15 @@ export default async function UsaStatePage(
 
   if (!locationsResponse.success || !locationsResponse.data) {
     return (
-      <div className="container mx-auto px-4 py-12 max-w-7xl">
-        <h1 className="text-3xl font-bold text-gray-900">
-          Best surf beaches in {stateName}
-        </h1>
-        <p className="mt-3 text-gray-600">
-          We couldn&apos;t load this state right now. Try again soon.
-        </p>
+      <div className="seo-paper-page">
+        <div className="container mx-auto px-4 py-12 max-w-7xl">
+          <h1 className="text-3xl font-bold text-gray-900">
+            Best surf beaches in {stateName}
+          </h1>
+          <p className="mt-3 text-gray-600">
+            We couldn&apos;t load this state right now. Try again soon.
+          </p>
+        </div>
       </div>
     );
   }
@@ -251,6 +253,7 @@ export default async function UsaStatePage(
         items={cityItemListItems}
         name={`Surf Cities in ${stateName}`}
       />
+      <div className="seo-paper-page">
       <div className="container mx-auto px-4 py-10 max-w-7xl">
       <header className="mb-8">
         <nav aria-label="breadcrumb" className="text-sm text-gray-600 mb-4">
@@ -346,6 +349,7 @@ export default async function UsaStatePage(
       </div>
 
       <SeoFunnelNextSteps
+        variant="paper"
         title={`Plan a ${stateName} surf session`}
         description="Use the state hub to choose a city, then move into live conditions, water temperature, or the map before you drive."
         steps={[
@@ -383,6 +387,7 @@ export default async function UsaStatePage(
         ctaCopyVariant={ctaCopyVariant}
         buttonClassName="min-h-[48px]"
       />
+      </div>
     </>
   );
 }

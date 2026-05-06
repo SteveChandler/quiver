@@ -237,6 +237,7 @@ export async function renderBeachSubPage({
 
       <div className="container mx-auto px-4 pb-8">
         <SeoFunnelNextSteps
+          variant="paper"
           title={`Keep planning ${beach.name}`}
           description={`Use this ${config.breadcrumbLabel.toLowerCase()} page as one signal, then check the full forecast, nearby breaks, and the companion condition page.`}
           steps={[

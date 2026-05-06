@@ -782,6 +782,183 @@ html.has-auth-cookie #ssr-beach-links {
 }
 
 /* =============================================================================
+   SEO PAPER THEME — Cream-paper funnel pages
+   Scoped under .seo-paper-page so global retro-dark utility overrides do not
+   leak into crawl-focused landing and route pages.
+   ============================================================================= */
+.seo-paper-page {
+  --seo-paper-ink: #11100D;
+  --seo-paper: #F4EBD8;
+  --seo-paper-panel: #FBF6E8;
+  --seo-paper-mist: #EEE3C9;
+  --seo-paper-line: rgba(17, 16, 13, 0.16);
+  --seo-paper-muted: #655C4C;
+  --seo-paper-soft: #8A806F;
+  --seo-paper-blue: #0B3A75;
+  --seo-paper-blue-soft: rgba(11, 58, 117, 0.1);
+  --seo-paper-orange: #B65F1A;
+  --seo-paper-shadow: rgba(17, 16, 13, 0.1);
+
+  position: relative;
+  min-height: 100vh;
+  isolation: isolate;
+  color: var(--seo-paper-ink);
+  background:
+    radial-gradient(circle at 12% 4%, rgba(11, 58, 117, 0.06), transparent 34rem),
+    radial-gradient(circle at 88% 18%, rgba(182, 95, 26, 0.08), transparent 28rem),
+    linear-gradient(180deg, #F8F0DD 0%, var(--seo-paper) 42%, #EFE0C2 100%);
+}
+
+.seo-paper-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='3' seed='7'/><feColorMatrix values='0 0 0 0 0.32 0 0 0 0 0.25 0 0 0 0 0.15 0 0 0 0.13 0'/></filter><rect width='100%25' height='100%25' filter='url(%23p)'/></svg>"),
+    radial-gradient(circle at 12% 32%, rgba(17, 16, 13, 0.12) 0.5px, transparent 1.2px),
+    radial-gradient(circle at 78% 88%, rgba(17, 16, 13, 0.08) 0.5px, transparent 1px);
+  background-size: 320px 320px, 7px 9px, 11px 7px;
+  mix-blend-mode: multiply;
+  opacity: 0.28;
+}
+
+.seo-paper-page .container {
+  color: var(--seo-paper-ink);
+}
+
+.seo-paper-next-steps {
+  border-top: 1px solid var(--seo-paper-line);
+  border-bottom: 1px solid var(--seo-paper-line);
+}
+
+.theme-retro-dark .seo-paper-page {
+  background:
+    radial-gradient(circle at 12% 4%, rgba(11, 58, 117, 0.06), transparent 34rem),
+    radial-gradient(circle at 88% 18%, rgba(182, 95, 26, 0.08), transparent 28rem),
+    linear-gradient(180deg, #F8F0DD 0%, var(--seo-paper) 42%, #EFE0C2 100%) !important;
+  color: var(--seo-paper-ink) !important;
+}
+
+.theme-retro-dark .seo-paper-page [class*="bg-white"]:not([class*="bg-white/10"]):not([class*="bg-white/5"]),
+.theme-retro-dark .seo-paper-page [class*="bg-gray-50"],
+.theme-retro-dark .seo-paper-page [class*="bg-gray-100"],
+.theme-retro-dark .seo-paper-page [class*="bg-slate-50"],
+.theme-retro-dark .seo-paper-page [class*="bg-slate-100"],
+.theme-retro-dark .seo-paper-page [class*="bg-blue-50"],
+.theme-retro-dark .seo-paper-page [class*="bg-blue-100"],
+.theme-retro-dark .seo-paper-page [class*="bg-cyan-50"],
+.theme-retro-dark .seo-paper-page [class*="bg-cyan-100"],
+.theme-retro-dark .seo-paper-page [class*="bg-sky-50"],
+.theme-retro-dark .seo-paper-page [class*="bg-sky-100"] {
+  background-color: var(--seo-paper-panel) !important;
+}
+
+.theme-retro-dark .seo-paper-page [class*="from-white"],
+.theme-retro-dark .seo-paper-page [class*="via-white"],
+.theme-retro-dark .seo-paper-page [class*="to-white"],
+.theme-retro-dark .seo-paper-page [class*="from-blue-50"],
+.theme-retro-dark .seo-paper-page [class*="to-blue-50"],
+.theme-retro-dark .seo-paper-page [class*="from-cyan-50"],
+.theme-retro-dark .seo-paper-page [class*="to-cyan-50"],
+.theme-retro-dark .seo-paper-page [class*="from-sky-50"],
+.theme-retro-dark .seo-paper-page [class*="via-blue-50"] {
+  --tw-gradient-from: rgba(251, 246, 232, 0.94) !important;
+  --tw-gradient-via: rgba(244, 235, 216, 0.82) !important;
+  --tw-gradient-to: rgba(238, 227, 201, 0.74) !important;
+  background: linear-gradient(135deg, rgba(251, 246, 232, 0.94), rgba(238, 227, 201, 0.72)) !important;
+}
+
+.theme-retro-dark .seo-paper-page .text-gray-900,
+.theme-retro-dark .seo-paper-page .text-gray-800,
+.theme-retro-dark .seo-paper-page .text-slate-900,
+.theme-retro-dark .seo-paper-page .text-slate-800,
+.theme-retro-dark .seo-paper-page .text-black,
+.theme-retro-dark .seo-paper-page .text-foreground {
+  color: var(--seo-paper-ink) !important;
+}
+
+.theme-retro-dark .seo-paper-page .text-gray-700,
+.theme-retro-dark .seo-paper-page .text-gray-600,
+.theme-retro-dark .seo-paper-page .text-slate-700,
+.theme-retro-dark .seo-paper-page .text-slate-600,
+.theme-retro-dark .seo-paper-page .text-muted-foreground {
+  color: var(--seo-paper-muted) !important;
+}
+
+.theme-retro-dark .seo-paper-page .text-gray-500,
+.theme-retro-dark .seo-paper-page .text-gray-400,
+.theme-retro-dark .seo-paper-page .text-slate-500,
+.theme-retro-dark .seo-paper-page .text-slate-400 {
+  color: var(--seo-paper-soft) !important;
+}
+
+.theme-retro-dark .seo-paper-page .text-ocean-blue,
+.theme-retro-dark .seo-paper-page .text-sky-700,
+.theme-retro-dark .seo-paper-page .text-sky-600,
+.theme-retro-dark .seo-paper-page .text-blue-700,
+.theme-retro-dark .seo-paper-page .text-blue-600 {
+  color: var(--seo-paper-blue) !important;
+}
+
+.theme-retro-dark .seo-paper-page .bg-ocean-blue,
+.theme-retro-dark .seo-paper-page button.bg-ocean-blue,
+.theme-retro-dark .seo-paper-page a.bg-ocean-blue {
+  background-color: var(--seo-paper-orange) !important;
+}
+
+.theme-retro-dark .seo-paper-page .border-gray-200,
+.theme-retro-dark .seo-paper-page .border-gray-100,
+.theme-retro-dark .seo-paper-page .border-slate-200,
+.theme-retro-dark .seo-paper-page .border-blue-200,
+.theme-retro-dark .seo-paper-page [class*="border-blue-100"],
+.theme-retro-dark .seo-paper-page [class*="border-cyan-100"],
+.theme-retro-dark .seo-paper-page [class*="border-sky-200"] {
+  border-color: var(--seo-paper-line) !important;
+}
+
+.theme-retro-dark .seo-paper-page .shadow-sm,
+.theme-retro-dark .seo-paper-page .shadow,
+.theme-retro-dark .seo-paper-page .shadow-md {
+  box-shadow: 0 8px 18px var(--seo-paper-shadow) !important;
+}
+
+.theme-retro-dark .seo-paper-page .shadow-lg,
+.theme-retro-dark .seo-paper-page .hover\:shadow-xl:hover {
+  box-shadow:
+    0 18px 38px rgba(17, 16, 13, 0.14),
+    2px 3px 0 rgba(17, 16, 13, 0.08) !important;
+}
+
+.theme-retro-dark .seo-paper-page [data-testid="alert-capture-cta"] {
+  background:
+    linear-gradient(135deg, rgba(251, 246, 232, 0.98), rgba(238, 227, 201, 0.82)) !important;
+  border-color: var(--seo-paper-line) !important;
+  box-shadow:
+    0 18px 38px rgba(17, 16, 13, 0.14),
+    2px 3px 0 rgba(17, 16, 13, 0.08) !important;
+}
+
+.theme-retro-dark .seo-paper-page [data-testid="alert-capture-cta"] h3 {
+  color: var(--seo-paper-ink) !important;
+}
+
+.theme-retro-dark .seo-paper-page [data-testid="alert-capture-cta"] p {
+  color: var(--seo-paper-muted) !important;
+}
+
+.theme-retro-dark .seo-paper-page [data-testid="alert-capture-cta"] [aria-label="Available alert types"] span {
+  background-color: rgba(11, 58, 117, 0.1) !important;
+  color: var(--seo-paper-blue) !important;
+}
+
+.theme-retro-dark .seo-paper-page [data-testid="alert-capture-primary-cta"] {
+  background-color: var(--seo-paper-orange) !important;
+  color: #FBF6E8 !important;
+}
+
+/* =============================================================================
    FORMGRID ONBOARDING — Scoped styles for the restyled onboarding dialog
    ============================================================================= */
 
