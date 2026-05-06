@@ -34,16 +34,18 @@ export const similarityMatchSchema = z.object({
   score: z.number(),
   label: z.string().nullable().optional(),
   reason: z.string(),
-  /**
-   * Pre-formatted local time string for the push body, e.g. "Sat 8am".
-   * The cron formats this from forecast_at + beach.timezone so the registry
-   * doesn't need timezone data at build time.
-   */
-  window_local: z.string().min(1),
-  /** Wave height in feet, used to compose the push body. Finite required. */
-  wave_height_ft: z.number().finite(),
-  /** Wave period in seconds, used to compose the push body. Finite required. */
-  wave_period_s: z.number().finite(),
+  /** Optional richer conditions context stamped by newer similarity cron rows. */
+  window_local: z.string().min(1).optional(),
+  wave_height_ft: z.number().finite().optional(),
+  wave_period_s: z.number().finite().optional(),
+  wind_speed_mph: z.number().finite().optional(),
+  wind_direction: z.string().min(1).optional(),
+  tide_height_ft: z.number().finite().optional(),
+  tide_status: z.string().min(1).optional(),
+  confidence: z.number().finite().optional(),
+  condition_summary: z.string().min(1).optional(),
+  board_tip: z.string().min(1).optional(),
+  setup_tip: z.string().min(1).optional(),
   /** Provenance for onChannelOutcome to reconcile alert_delivery_attempts. */
   queue_items: z
     .array(z.object({ queue_id: z.string(), rule_id: z.string() }))

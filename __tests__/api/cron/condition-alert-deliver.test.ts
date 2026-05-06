@@ -699,6 +699,13 @@ function seedSimilarityQueueRow(overrides: Partial<any> = {}) {
       window_local: "Sat 8am",
       wave_height_ft: 4.5,
       wave_period_s: 11,
+      wind_speed_mph: 8,
+      wind_direction: "NW",
+      tide_height_ft: 2.1,
+      tide_status: "rising",
+      confidence: 0.86,
+      condition_summary: "4.5ft @ 11s, NW wind 8mph, rising tide 2.1ft",
+      board_tip: "Bring the step-up",
     },
     sent: false,
     // notify_push/notify_email do NOT gate similarity — registry pref does.
@@ -753,6 +760,13 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
       window_local: "Sat 8am",
       wave_height_ft: 4.5,
       wave_period_s: 11,
+      wind_speed_mph: 8,
+      wind_direction: "NW",
+      tide_height_ft: 2.1,
+      tide_status: "rising",
+      confidence: 0.86,
+      condition_summary: "4.5ft @ 11s, NW wind 8mph, rising tide 2.1ft",
+      board_tip: "Bring the step-up",
       queue_items: [{ queue_id: QUEUE_SIM, rule_id: RULE_SIM }],
     });
 
@@ -898,13 +912,7 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
     expect(allMarked).toContain(QUEUE_SIM);
   });
 
-  // Plan V4 fix F2: legacy queue rows written before the cron started
-  // stamping window_local/wave_height_ft/wave_period_s into
-  // conditions_snapshot. The deliver cron forwards whatever it finds; the
-  // registry's Zod schema then rejects with invalid_payload, the deliver
-  // cron records failed_internal + marks the queue row sent (no retry loop).
-  // Old rows drain quickly via the alert_date partial unique index TTL.
-  it("legacy row missing extended fields: forwards NaN/empty so registry returns invalid_payload", async () => {
+  it("legacy row missing extended fields: omits optional fields without poisoning the payload", async () => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedSimilarityQueueRow({
@@ -928,9 +936,10 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
 
     expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
     const payload = mockEnqueueNotification.mock.calls[0][0].payload;
-    expect(payload.window_local).toBe("");
-    expect(Number.isNaN(payload.wave_height_ft)).toBe(true);
-    expect(Number.isNaN(payload.wave_period_s)).toBe(true);
+    expect(payload.window_local).toBeUndefined();
+    expect(payload.wave_height_ft).toBeUndefined();
+    expect(payload.wave_period_s).toBeUndefined();
+    expect(payload.wind_speed_mph).toBeUndefined();
   });
 
   it("forwards window_local/wave_height_ft/wave_period_s from conditions_snapshot", async () => {

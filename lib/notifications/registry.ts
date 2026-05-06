@@ -394,21 +394,37 @@ export const NOTIFICATION_REGISTRY = {
     quietHours: DEFAULT_QUIET,
     validatePayload: (input) =>
       similarityMatchSchema.parse(input) as SimilarityMatchPayload,
-    buildPushPayload: (p) => ({
-      title: `${p.label ? `${p.label} ` : ""}match at ${p.beach_name}`.trim(),
-      // Plan V4 fix F2: compose the surf-data line from extended payload
-      // fields rather than falling back to `reason` (which is a generic
-      // similarity-justification string and reads weirdly as a push body).
-      // Format matches the email/web body: "4.5ft @ 11s · Sat 8am".
-      body: `${p.wave_height_ft.toFixed(1)}ft @ ${p.wave_period_s.toFixed(0)}s · ${p.window_local}`,
-      data: {
-        type: "similarity_match",
-        beach_id: p.beach_id,
-        beach_slug: p.beach_slug,
-        alert_date: p.alert_date,
-        forecast_at: p.forecast_at,
-      },
-    }),
+    buildPushPayload: (p) => {
+      const waveWindow =
+        p.wave_height_ft != null &&
+        p.wave_period_s != null &&
+        p.window_local
+          ? `${p.wave_height_ft.toFixed(1)}ft @ ${p.wave_period_s.toFixed(0)}s · ${p.window_local}`
+          : null;
+      const contextDetails = [
+        p.wind_direction && p.wind_speed_mph != null
+          ? `${p.wind_direction} wind ${p.wind_speed_mph.toFixed(0)}mph`
+          : null,
+        p.tide_status ? `${p.tide_status} tide` : null,
+        p.board_tip ?? p.setup_tip ?? null,
+        p.reason || null,
+      ].filter((detail): detail is string => Boolean(detail));
+      const body = waveWindow
+        ? [waveWindow, ...contextDetails.slice(0, 2)].join(" · ")
+        : p.reason;
+
+      return {
+        title: `${p.label ? `${p.label} ` : ""}match at ${p.beach_name}`.trim(),
+        body,
+        data: {
+          type: "similarity_match",
+          beach_id: p.beach_id,
+          beach_slug: p.beach_slug,
+          alert_date: p.alert_date,
+          forecast_at: p.forecast_at,
+        },
+      };
+    },
     buildInAppPayload: (p) => ({
       type: "similarity_match",
       data: {
@@ -420,6 +436,17 @@ export const NOTIFICATION_REGISTRY = {
         score: p.score,
         label: p.label ?? null,
         reason: p.reason,
+        window_local: p.window_local,
+        wave_height_ft: p.wave_height_ft,
+        wave_period_s: p.wave_period_s,
+        wind_speed_mph: p.wind_speed_mph,
+        wind_direction: p.wind_direction,
+        tide_height_ft: p.tide_height_ft,
+        tide_status: p.tide_status,
+        confidence: p.confidence,
+        condition_summary: p.condition_summary,
+        board_tip: p.board_tip,
+        setup_tip: p.setup_tip,
       },
     }),
     /**
