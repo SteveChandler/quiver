@@ -1369,13 +1369,13 @@ describe("AppHeader", () => {
         expect(logoText.className).toContain("duration-300");
       });
 
-      it("logo has hover:text-primary/90 class", () => {
+      it("logo has orange hover class", () => {
         render(<AppHeader />);
 
         const logoText = screen.getByText("Quiver");
 
         expect(logoText).toBeInTheDocument();
-        expect(logoText.className).toContain("hover:text-primary/90");
+        expect(logoText.className).toContain("group-hover:text-[#FFAA63]");
       });
 
       it("logo link has group class for hover coordination", () => {
@@ -1448,7 +1448,9 @@ describe("AppHeader", () => {
 
         expect(signUpButton).toBeInTheDocument();
         expect(signUpButton?.className).toContain("focus-visible:ring-2");
-        expect(signUpButton?.className).toContain("focus-visible:ring-primary");
+        expect(signUpButton?.className).toContain(
+          "focus-visible:ring-[#F78E42]"
+        );
         expect(signUpButton?.className).toContain(
           "focus-visible:ring-offset-2"
         );
@@ -1501,7 +1503,7 @@ describe("AppHeader", () => {
         expect(logoText).toBeInTheDocument();
         expect(logoText.className).toContain("text-xl");
         expect(logoText.className).toContain("font-bold");
-        expect(logoText.className).toContain("text-primary");
+        expect(logoText.className).toContain("text-[#F78E42]");
       });
 
       it("navigation links have text-sm and font-medium classes", () => {

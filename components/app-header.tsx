@@ -210,7 +210,6 @@ export function AppHeader() {
               width={28}
               height={28}
               className="h-7 w-7 rounded-md shadow-sm"
-              priority
               aria-hidden="true"
             />
             <div className="text-xl font-bold text-[#F78E42] transition-colors duration-300 group-hover:text-[#FFAA63]">
