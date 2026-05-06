@@ -79,53 +79,34 @@ const DEFAULT_THRESHOLDS = {
 const LOOKAHEAD_HOURS = 18;
 const MAX_DAILY_SUMMARY_ENTRIES = 3;
 const DAILY_FORECAST_ALERT_TYPE = "daily_forecast_summary";
+const DAILY_FORECAST_NOTIFICATION_TYPE = "daily_forecast";
 
-// Quiet hours: suppress notifications between 10 PM and 4 AM local time
-const QUIET_HOURS_START = 22; // 10 PM
-const QUIET_HOURS_END = 4;    // 4 AM
-
-/**
- * Check if a given hour falls within quiet hours (10 PM - 4 AM)
- */
-function isHourInQuietHours(hour: number): boolean {
-  return hour >= QUIET_HOURS_START || hour < QUIET_HOURS_END;
-}
+// Daily forecasts should land during the user's morning planning window.
+const DAILY_FORECAST_SEND_WINDOW_START = 5;
+const DAILY_FORECAST_SEND_WINDOW_END = 11;
 
 /**
- * Check if a given time falls within quiet hours (10 PM - 4 AM) in a timezone
- * Exported for testing
+ * Check if a given time is inside the daily forecast send window.
+ * Exported for testing.
  */
-export function isWithinQuietHours(timezone: string | null, now: Date = new Date()): boolean {
-  const tz = timezone || DEFAULT_TIMEZONE;
-  const localHour = getLocalHour(now, tz);
-  return isHourInQuietHours(localHour);
-}
-
-/**
- * Determine if a notification should be suppressed due to quiet hours.
- *
- * Logic: Only suppress if BOTH the current time AND the forecast time are in quiet hours.
- * This allows dawn patrol alerts - e.g., at 3 AM we still notify about good 6 AM conditions
- * so users can prepare, but we don't wake users for forecasts they can't act on.
- *
- * @param timezone - User's timezone (falls back to DEFAULT_TIMEZONE if null)
- * @param forecastUtcMs - The UTC timestamp of the forecast
- * @param now - Current time (defaults to now, injectable for testing)
- * @returns true if notification should be suppressed
- *
- * Exported for testing
- */
-export function shouldSuppressForQuietHours(
+export function isWithinDailyForecastSendWindow(
   timezone: string | null,
-  forecastUtcMs: number,
   now: Date = new Date()
 ): boolean {
   const tz = timezone || DEFAULT_TIMEZONE;
-  const currentHour = getLocalHour(now, tz);
-  const forecastHour = getLocalHour(new Date(forecastUtcMs), tz);
+  const localHour = getLocalHour(now, tz);
+  return (
+    localHour >= DAILY_FORECAST_SEND_WINDOW_START &&
+    localHour < DAILY_FORECAST_SEND_WINDOW_END
+  );
+}
 
-  // Only suppress if BOTH current time and forecast time are in quiet hours
-  return isHourInQuietHours(currentHour) && isHourInQuietHours(forecastHour);
+/**
+ * Get the current local hour with the same fallback used by the send window.
+ */
+function getCurrentLocalHour(timezone: string | null, now: Date): number {
+  const tz = timezone || DEFAULT_TIMEZONE;
+  return getLocalHour(now, tz);
 }
 
 /**
@@ -344,6 +325,7 @@ type DailyForecastCandidate = {
   beach: BeachRow;
   forecast: ForecastAlertForecast;
   forecastUtcMs: number;
+  localForecastDate: string;
   score: number;
 };
 
@@ -354,7 +336,6 @@ type EvaluateBeachForecastArgs = {
   forecastBucket: { forecasts: ForecastAlertForecast[]; stale: boolean; missing: boolean };
   timezone: string | null;
   nowMs: number;
-  now: Date;
   summary: ForecastAlertRunSummary;
 };
 
@@ -369,7 +350,6 @@ function evaluateBeachForecast({
   forecastBucket,
   timezone,
   nowMs,
-  now,
   summary,
 }: EvaluateBeachForecastArgs): DailyForecastCandidate | null {
   if (!beach) {
@@ -398,22 +378,12 @@ function evaluateBeachForecast({
     return null;
   }
 
-  // Check quiet hours AFTER finding a match - only suppress if both current time
-  // and forecast time are in quiet hours. This allows dawn patrol alerts.
-  if (shouldSuppressForQuietHours(timezone, match.forecastUtcMs, now)) {
-    console.info(
-      `[ForecastAlerts] Skipping forecast candidate for beach ${beachId} - quiet hours ` +
-      `(tz: ${timezone || DEFAULT_TIMEZONE}, forecast: ${new Date(match.forecastUtcMs).toISOString()})`
-    );
-    summary.skipped.quietHours++;
-    return null;
-  }
-
   return {
     beachId,
     beach,
     forecast: match.forecast,
     forecastUtcMs: match.forecastUtcMs,
+    localForecastDate: getLocalDateString(new Date(match.forecastUtcMs), timezone),
     score: match.score,
   };
 }
@@ -448,21 +418,30 @@ function formatDailySummaryLine(candidate: DailyForecastCandidate, timezone: str
   return `${beachName}: ${whenLocal} looks good, ${waveText}${periodText}${windText}`;
 }
 
+function sortDailyForecastCandidates(
+  candidates: DailyForecastCandidate[]
+): DailyForecastCandidate[] {
+  return [...candidates]
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.forecastUtcMs - b.forecastUtcMs;
+    });
+}
+
 async function enqueueDailyForecastSummary(args: {
   supabase: ReturnType<typeof createSupabaseServiceRoleClient>;
   userId: string;
-  alertDate: string;
   timezone: string | null;
   candidates: DailyForecastCandidate[];
   summary: ForecastAlertRunSummary;
 }): Promise<void> {
-  const { supabase, userId, alertDate, timezone, candidates, summary } = args;
-  const topCandidates = [...candidates]
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return a.forecastUtcMs - b.forecastUtcMs;
-    })
-    .slice(0, MAX_DAILY_SUMMARY_ENTRIES);
+  const { supabase, userId, timezone, candidates, summary } = args;
+  const alertDate = candidates[0]?.localForecastDate;
+
+  if (!alertDate) {
+    summary.skipped.noGoodForecasts++;
+    return;
+  }
 
   try {
     const enqueueResult = await enqueueNotification(
@@ -474,11 +453,11 @@ async function enqueueDailyForecastSummary(args: {
         payload: {
           alert_date: alertDate,
           title: "Quiver Daily Forecast",
-          body: topCandidates.map((c) => formatDailySummaryLine(c, timezone)).join("\n"),
-          match_count: topCandidates.length,
+          body: candidates.map((c) => formatDailySummaryLine(c, timezone)).join("\n"),
+          match_count: candidates.length,
           forecast_summary: {
-            top_match: topCandidates[0]?.beach.name || "Forecast summary",
-            match_count: topCandidates.length,
+            top_match: candidates[0]?.beach.name || "Forecast summary",
+            match_count: candidates.length,
           },
         },
         dedupeKey: `${DAILY_FORECAST_ALERT_TYPE}:${userId}:${alertDate}`,
@@ -492,7 +471,7 @@ async function enqueueDailyForecastSummary(args: {
         user_id: userId,
         forecast_date: alertDate,
         alert_type: DAILY_FORECAST_ALERT_TYPE,
-        match_count: topCandidates.length,
+        match_count: candidates.length,
       });
       return;
     }
@@ -519,6 +498,49 @@ async function enqueueDailyForecastSummary(args: {
     );
     summary.skipped.sendFailed++;
   }
+}
+
+async function claimDailyForecastCandidate(args: {
+  supabase: ReturnType<typeof createSupabaseServiceRoleClient>;
+  userId: string;
+  candidate: DailyForecastCandidate;
+  summary: ForecastAlertRunSummary;
+}): Promise<boolean> {
+  const { supabase, userId, candidate, summary } = args;
+
+  const { data, error } = await (supabase.rpc as any)(
+    "claim_daily_forecast_notification_slot",
+    {
+      p_user_id: userId,
+      p_beach_id: candidate.beachId,
+      p_notification_type: DAILY_FORECAST_NOTIFICATION_TYPE,
+      p_local_forecast_date: candidate.localForecastDate,
+    }
+  );
+
+  if (error) {
+    console.error("failed_daily_forecast_claim", {
+      user_id: userId,
+      beach_id: candidate.beachId,
+      local_forecast_date: candidate.localForecastDate,
+      message: error.message,
+    });
+    summary.skipped.sendFailed++;
+    return false;
+  }
+
+  if (data !== true) {
+    summary.skipped.duplicateDailySummary++;
+    console.info("skipped_duplicate_daily_forecast", {
+      user_id: userId,
+      beach_id: candidate.beachId,
+      notification_type: DAILY_FORECAST_NOTIFICATION_TYPE,
+      local_forecast_date: candidate.localForecastDate,
+    });
+    return false;
+  }
+
+  return true;
 }
 
 function uniqueBeachIds(ids: Array<string | null | undefined>): string[] {
@@ -555,6 +577,22 @@ function logNoGoodForecasts(userId: string, alertDate: string, eligibleBeachCoun
     forecast_date: alertDate,
     alert_type: DAILY_FORECAST_ALERT_TYPE,
     eligible_beach_count: eligibleBeachCount,
+  });
+}
+
+function logDailyForecastQuietHours(args: {
+  userId: string;
+  timezone: string | null;
+  localHour: number;
+  candidateCount: number;
+}): void {
+  console.info("skipped_daily_forecast_quiet_hours", {
+    user_id: args.userId,
+    timezone: args.timezone || DEFAULT_TIMEZONE,
+    local_hour: args.localHour,
+    candidate_count: args.candidateCount,
+    send_window_start: DAILY_FORECAST_SEND_WINDOW_START,
+    send_window_end: DAILY_FORECAST_SEND_WINDOW_END,
   });
 }
 
@@ -735,7 +773,6 @@ export async function runForecastThresholdAlerts(): Promise<ForecastAlertRunSumm
         },
         timezone: profile.timezone,
         nowMs,
-        now,
         summary,
       });
       if (candidate) candidates.push(candidate);
@@ -747,12 +784,38 @@ export async function runForecastThresholdAlerts(): Promise<ForecastAlertRunSumm
       continue;
     }
 
+    if (!isWithinDailyForecastSendWindow(profile.timezone, now)) {
+      summary.skipped.quietHours++;
+      logDailyForecastQuietHours({
+        userId: profile.id,
+        timezone: profile.timezone,
+        localHour: getCurrentLocalHour(profile.timezone, now),
+        candidateCount: candidates.length,
+      });
+      continue;
+    }
+
+    const claimedCandidates: DailyForecastCandidate[] = [];
+    for (const candidate of sortDailyForecastCandidates(candidates)) {
+      if (claimedCandidates.length >= MAX_DAILY_SUMMARY_ENTRIES) break;
+      const claimed = await claimDailyForecastCandidate({
+        supabase,
+        userId: profile.id,
+        candidate,
+        summary,
+      });
+      if (claimed) claimedCandidates.push(candidate);
+    }
+
+    if (claimedCandidates.length === 0) {
+      continue;
+    }
+
     await enqueueDailyForecastSummary({
       supabase,
       userId: profile.id,
-      alertDate,
       timezone: profile.timezone,
-      candidates,
+      candidates: claimedCandidates,
       summary,
     });
   }

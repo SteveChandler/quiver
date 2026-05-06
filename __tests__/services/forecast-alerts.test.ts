@@ -12,8 +12,7 @@
 import {
   runForecastThresholdAlerts,
   findFirstMatchingForecast,
-  isWithinQuietHours,
-  shouldSuppressForQuietHours,
+  isWithinDailyForecastSendWindow,
   formatForecastTimeLocal,
   type ForecastAlertRunSummary,
 } from "@/lib/services/forecast-alerts";
@@ -83,10 +82,16 @@ function makeBadForecast(offsetHours = 2): object {
 
 interface MockSupabase {
   from: jest.Mock;
+  rpc: jest.Mock;
 }
 
 /** Build a minimal Supabase mock client that routes .from() calls by table name */
-function buildMockSupabase(tableResponses: Record<string, unknown>): MockSupabase {
+function buildMockSupabase(
+  tableResponses: Record<string, unknown>,
+  rpcResponses: Record<string, unknown> = {
+    claim_daily_forecast_notification_slot: { data: true, error: null },
+  }
+): MockSupabase {
   const client = {
     from: jest.fn((table: string) => {
       const response = tableResponses[table] ?? { data: [], error: null };
@@ -109,6 +114,11 @@ function buildMockSupabase(tableResponses: Record<string, unknown>): MockSupabas
       chain.then = jest.fn((resolve: (v: unknown) => void) => resolve(response));
 
       return chain;
+    }),
+    rpc: jest.fn((name: string) => {
+      return Promise.resolve(
+        rpcResponses[name] ?? { data: null, error: { message: `Unexpected RPC: ${name}` } }
+      );
     }),
   };
   return client;
@@ -258,51 +268,25 @@ describe("findFirstMatchingForecast", () => {
   });
 });
 
-describe("isWithinQuietHours", () => {
-  it("returns true for hour in quiet window (11 PM)", () => {
-    const date = new Date("2026-02-26T07:00:00Z"); // 11 PM PST
-    expect(isWithinQuietHours("America/Los_Angeles", date)).toBe(true);
+describe("isWithinDailyForecastSendWindow", () => {
+  it("returns true in the daily forecast send window", () => {
+    const date = new Date("2026-02-26T14:00:00Z"); // 6 AM PST
+    expect(isWithinDailyForecastSendWindow("America/Los_Angeles", date)).toBe(true);
   });
 
-  it("returns false for hour outside quiet window (noon)", () => {
+  it("returns false before the daily forecast send window", () => {
+    const date = new Date("2026-02-26T12:00:00Z"); // 4 AM PST
+    expect(isWithinDailyForecastSendWindow("America/Los_Angeles", date)).toBe(false);
+  });
+
+  it("returns false after the daily forecast send window", () => {
     const date = new Date("2026-02-26T20:00:00Z"); // noon PST
-    expect(isWithinQuietHours("America/Los_Angeles", date)).toBe(false);
+    expect(isWithinDailyForecastSendWindow("America/Los_Angeles", date)).toBe(false);
   });
 
   it("falls back to DEFAULT_TIMEZONE when null passed", () => {
-    const date = new Date("2026-02-26T20:00:00Z"); // noon PST
-    expect(isWithinQuietHours(null, date)).toBe(false);
-  });
-});
-
-describe("shouldSuppressForQuietHours", () => {
-  it("suppresses when both current time and forecast time are in quiet hours", () => {
-    // 11 PM local — current time is quiet
-    const nowDate = new Date("2026-02-26T07:00:00Z"); // 11 PM PST
-    // 1 AM local — forecast time is also quiet
-    const forecastMs = new Date("2026-02-26T09:00:00Z").getTime(); // 1 AM PST
-    expect(
-      shouldSuppressForQuietHours("America/Los_Angeles", forecastMs, nowDate)
-    ).toBe(true);
-  });
-
-  it("does NOT suppress when current time is quiet but forecast is not", () => {
-    // 11 PM local — current time quiet
-    const nowDate = new Date("2026-02-26T07:00:00Z"); // 11 PM PST
-    // 9 AM local — forecast is NOT in quiet hours
-    const forecastMs = new Date("2026-02-26T17:00:00Z").getTime(); // 9 AM PST
-    expect(
-      shouldSuppressForQuietHours("America/Los_Angeles", forecastMs, nowDate)
-    ).toBe(false);
-  });
-
-  it("does NOT suppress when current time is not in quiet hours", () => {
-    // noon local
-    const nowDate = new Date("2026-02-26T20:00:00Z"); // noon PST
-    const forecastMs = new Date("2026-02-26T23:00:00Z").getTime(); // 3 PM PST
-    expect(
-      shouldSuppressForQuietHours("America/Los_Angeles", forecastMs, nowDate)
-    ).toBe(false);
+    const date = new Date("2026-02-26T14:00:00Z"); // 6 AM PST
+    expect(isWithinDailyForecastSendWindow(null, date)).toBe(true);
   });
 });
 
@@ -327,9 +311,9 @@ describe("formatForecastTimeLocal", () => {
 // ---------------------------------------------------------------------------
 
 describe("runForecastThresholdAlerts", () => {
-  // Pin the clock to noon Pacific (8 PM UTC) so tests never land in quiet
-  // hours (10 PM – 4 AM local) and results are deterministic.
-  const FAKE_NOW_UTC = new Date("2026-03-13T20:00:00Z"); // noon Pacific
+  // Pin the clock to 6 AM Pacific so tests are inside the 5 AM - 11 AM daily
+  // forecast send window and results are deterministic.
+  const FAKE_NOW_UTC = new Date("2026-03-13T13:00:00Z"); // 6 AM Pacific
 
   beforeEach(() => {
     jest.useFakeTimers({ now: FAKE_NOW_UTC });
@@ -429,6 +413,12 @@ describe("runForecastThresholdAlerts", () => {
     expect(event.payload.body).toContain("Home Beach:");
     expect(event.payload.body).toContain("4ft @ 12s, 8mph wind");
     expect(event.payload.match_count).toBe(1);
+    expect(supabase.rpc).toHaveBeenCalledWith("claim_daily_forecast_notification_slot", {
+      p_user_id: userId,
+      p_beach_id: beachId,
+      p_notification_type: "daily_forecast",
+      p_local_forecast_date: "2026-03-13",
+    });
   });
 
   it("groups home beach and two alert-enabled favorites into one summary", async () => {
@@ -485,6 +475,112 @@ describe("runForecastThresholdAlerts", () => {
     expect(event.payload.body).toContain("Home Beach:");
     expect(event.payload.body).toContain("Favorite One:");
     expect(event.payload.body).toContain("Favorite Two:");
+  });
+
+  it("claims only beaches included in the top-three batched summary", async () => {
+    const userId = "user-top-three";
+    const beachIds = ["beach-home", "beach-fav-1", "beach-fav-2", "beach-fav-3"];
+
+    const supabase = buildMockSupabase({
+      profiles: {
+        data: [
+          {
+            id: userId,
+            home_beach_id: beachIds[0],
+            notif_push_enabled: true,
+            notif_forecast_alerts: true,
+            is_mock: false,
+            timezone: "America/Los_Angeles",
+          },
+        ],
+        error: null,
+      },
+      beaches: {
+        data: beachIds.map((id, idx) => ({
+          id,
+          slug: `beach-${idx}`,
+          name: `Beach ${idx}`,
+        })),
+        error: null,
+      },
+      favorite_beaches: {
+        data: beachIds.slice(1).map((beach_id) => ({
+          user_id: userId,
+          beach_id,
+          alerts_enabled: true,
+        })),
+        error: null,
+      },
+      user_surf_preferences: { data: [], error: null },
+    });
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
+    (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
+      forecasts: [makeGoodForecast(2)],
+      metadata: { stale: false, missing: false },
+    });
+
+    await runForecastThresholdAlerts();
+
+    const event = (enqueueNotification as jest.Mock).mock.calls[0][0];
+    expect(event.payload.match_count).toBe(3);
+    expect(supabase.rpc).toHaveBeenCalledTimes(3);
+  });
+
+  it("fills the batched summary from lower-ranked beaches when a top candidate is duplicate", async () => {
+    const userId = "user-fill-duplicate";
+    const beachIds = ["beach-home", "beach-fav-1", "beach-fav-2", "beach-fav-3"];
+
+    const supabase = buildMockSupabase({
+      profiles: {
+        data: [
+          {
+            id: userId,
+            home_beach_id: beachIds[0],
+            notif_push_enabled: true,
+            notif_forecast_alerts: true,
+            is_mock: false,
+            timezone: "America/Los_Angeles",
+          },
+        ],
+        error: null,
+      },
+      beaches: {
+        data: beachIds.map((id, idx) => ({
+          id,
+          slug: `fill-${idx}`,
+          name: `Fill Beach ${idx}`,
+        })),
+        error: null,
+      },
+      favorite_beaches: {
+        data: beachIds.slice(1).map((beach_id) => ({
+          user_id: userId,
+          beach_id,
+          alerts_enabled: true,
+        })),
+        error: null,
+      },
+      user_surf_preferences: { data: [], error: null },
+    });
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
+    (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
+      forecasts: [makeGoodForecast(2)],
+      metadata: { stale: false, missing: false },
+    });
+    supabase.rpc
+      .mockResolvedValueOnce({ data: false, error: null })
+      .mockResolvedValueOnce({ data: true, error: null })
+      .mockResolvedValueOnce({ data: true, error: null })
+      .mockResolvedValueOnce({ data: true, error: null });
+
+    const summary = await runForecastThresholdAlerts();
+
+    const event = (enqueueNotification as jest.Mock).mock.calls[0][0];
+    expect(summary.skipped.duplicateDailySummary).toBe(1);
+    expect(event.payload.match_count).toBe(3);
+    expect(event.payload.body).not.toContain("Fill Beach 0:");
+    expect(event.payload.body).toContain("Fill Beach 3:");
+    expect(supabase.rpc).toHaveBeenCalledTimes(4);
   });
 
   it("uses one best window for a beach with multiple good windows", async () => {
@@ -620,7 +716,7 @@ describe("runForecastThresholdAlerts", () => {
     expect(enqueueNotification).not.toHaveBeenCalled();
   });
 
-  it("skips duplicate daily summary enqueue for the same user and local date", async () => {
+  it("skips duplicate daily forecast claims on repeated scheduler execution", async () => {
     const userId = "user-duplicate";
     const beachId = "beach-duplicate";
 
@@ -644,15 +740,17 @@ describe("runForecastThresholdAlerts", () => {
       },
       favorite_beaches: { data: [], error: null },
       user_surf_preferences: { data: [], error: null },
+    }, {
+      claim_daily_forecast_notification_slot: { data: true, error: null },
     });
     (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
     (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
       forecasts: [makeGoodForecast(2)],
       metadata: { stale: false, missing: false },
     });
-    (enqueueNotification as jest.Mock)
-      .mockResolvedValueOnce({ enqueued: true, eventId: "event-1" })
-      .mockResolvedValueOnce({ enqueued: false, reason: "duplicate" });
+    supabase.rpc
+      .mockResolvedValueOnce({ data: true, error: null })
+      .mockResolvedValueOnce({ data: false, error: null });
 
     const firstSummary = await runForecastThresholdAlerts();
     const secondSummary = await runForecastThresholdAlerts();
@@ -660,10 +758,8 @@ describe("runForecastThresholdAlerts", () => {
     expect(firstSummary.sent).toBe(1);
     expect(secondSummary.sent).toBe(0);
     expect(secondSummary.skipped.duplicateDailySummary).toBe(1);
-    expect(enqueueNotification).toHaveBeenCalledTimes(2);
-    expect((enqueueNotification as jest.Mock).mock.calls[1][0].dedupeKey).toBe(
-      "daily_forecast_summary:user-duplicate:2026-03-13"
-    );
+    expect(supabase.rpc).toHaveBeenCalledTimes(2);
+    expect(enqueueNotification).toHaveBeenCalledTimes(1);
   });
 
   it("skips users with no home beach and no alert-enabled favorites", async () => {
@@ -777,6 +873,118 @@ describe("runForecastThresholdAlerts", () => {
 
     expect(getFreshForecastFromCache).toHaveBeenCalledTimes(1);
     expect((getFreshForecastFromCache as jest.Mock).mock.calls[0][0]).toBe(sharedBeachId);
+    expect(supabase.rpc).toHaveBeenCalledTimes(1);
+    expect(supabase.rpc).toHaveBeenCalledWith("claim_daily_forecast_notification_slot", {
+      p_user_id: userId,
+      p_beach_id: sharedBeachId,
+      p_notification_type: "daily_forecast",
+      p_local_forecast_date: "2026-03-13",
+    });
+  });
+
+  it("dedupes by matched forecast local date across scheduler runs before and after midnight", async () => {
+    const userId = "user-midnight";
+    const beachId = "beach-midnight";
+    const forecastAt = "2026-03-14T15:00:00.000Z"; // 8 AM Pacific on Mar 14
+
+    jest.setSystemTime(new Date("2026-03-14T07:30:00.000Z")); // 11:30 PM Pacific Mar 13
+
+    const supabase = buildMockSupabase({
+      profiles: {
+        data: [
+          {
+            id: userId,
+            home_beach_id: beachId,
+            notif_push_enabled: true,
+            notif_forecast_alerts: true,
+            is_mock: false,
+            timezone: "America/Los_Angeles",
+          },
+        ],
+        error: null,
+      },
+      beaches: {
+        data: [{ id: beachId, slug: "midnight", name: "Midnight Beach" }],
+        error: null,
+      },
+      favorite_beaches: { data: [], error: null },
+      user_surf_preferences: { data: [], error: null },
+    });
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
+    (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
+      forecasts: [
+        {
+          ...makeGoodForecast(8),
+          forecast_at: forecastAt,
+          forecast_date: "2026-03-14",
+        },
+      ],
+      metadata: { stale: false, missing: false },
+    });
+    supabase.rpc
+      .mockResolvedValueOnce({ data: true, error: null })
+      .mockResolvedValueOnce({ data: false, error: null });
+
+    const firstSummary = await runForecastThresholdAlerts();
+    jest.setSystemTime(new Date("2026-03-14T13:00:00.000Z")); // 6 AM Pacific Mar 14
+    const secondSummary = await runForecastThresholdAlerts();
+
+    expect(firstSummary.sent).toBe(0);
+    expect(firstSummary.skipped.quietHours).toBe(1);
+    expect(secondSummary.sent).toBe(1);
+    expect(supabase.rpc).toHaveBeenCalledTimes(1);
+    expect(supabase.rpc).toHaveBeenCalledWith("claim_daily_forecast_notification_slot", {
+      p_user_id: userId,
+      p_beach_id: beachId,
+      p_notification_type: "daily_forecast",
+      p_local_forecast_date: "2026-03-14",
+    });
+  });
+
+  it("suppresses daily forecast enqueue outside the daytime send window even for an 8 AM forecast", async () => {
+    const userId = "user-quiet";
+    const beachId = "beach-quiet";
+    jest.setSystemTime(new Date("2026-03-13T11:00:00.000Z")); // 4 AM Pacific
+
+    const supabase = buildMockSupabase({
+      profiles: {
+        data: [
+          {
+            id: userId,
+            home_beach_id: beachId,
+            notif_push_enabled: true,
+            notif_forecast_alerts: true,
+            is_mock: false,
+            timezone: "America/Los_Angeles",
+          },
+        ],
+        error: null,
+      },
+      beaches: {
+        data: [{ id: beachId, slug: "quiet", name: "Quiet Beach" }],
+        error: null,
+      },
+      favorite_beaches: { data: [], error: null },
+      user_surf_preferences: { data: [], error: null },
+    });
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
+    (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
+      forecasts: [
+        {
+          ...makeGoodForecast(4),
+          forecast_at: "2026-03-13T15:00:00.000Z", // 8 AM Pacific
+          forecast_date: "2026-03-13",
+        },
+      ],
+      metadata: { stale: false, missing: false },
+    });
+
+    const summary = await runForecastThresholdAlerts();
+
+    expect(summary.sent).toBe(0);
+    expect(summary.skipped.quietHours).toBe(1);
+    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(enqueueNotification).not.toHaveBeenCalled();
   });
 
   it("skips users when profile push notifications are disabled", async () => {
