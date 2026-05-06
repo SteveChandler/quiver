@@ -37,7 +37,6 @@ import {
   type MatchQuality,
 } from "@/lib/services/forecast-digest-service";
 import { getFreshForecastFromCache } from "@/lib/utils/forecast-service-utils";
-import { enqueueNotification } from "@/lib/notifications/enqueue";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { withObservedCron } from "@/lib/cron/observability";
 
@@ -52,11 +51,6 @@ export const dynamic = "force-dynamic";
 const DEDUPE_WINDOW_HOURS = 72; // 3 days to match Mon/Thu schedule
 const LOOKAHEAD_HOURS = 48;
 const ALERT_TYPE = "daily_digest_email";
-
-// Push notification failure thresholds for alerting
-// Alert on high push failure rates to detect infrastructure issues early
-const PUSH_FAILURE_RATE_THRESHOLD = 0.5; // 50% - alert if half or more pushes fail
-const PUSH_FAILURE_MIN_USERS = 10; // Minimum users to evaluate failure rate (avoid false alarms on low volumes)
 
 // Match quality to emoji mapping
 const MATCH_EMOJI: Record<MatchQuality, string> = {
@@ -291,57 +285,6 @@ async function persistRunStats(
   } catch (error) {
     console.error("❌ [forecast-digest-email] Failed to persist run stats:", error);
     // Don't throw - stats persistence failure shouldn't fail the cron
-  }
-}
-
-/**
- * Phase 3e: enqueue a daily_digest notification event. The
- * notifications-deliver worker handles devices, FCM, retries, prefs, and
- * the per-channel notification_delivery_attempts log. The legacy
- * push_notification_log writes are dropped as part of this migration.
- */
-async function sendDigestPush(
-  _supabase: SupabaseClient,
-  userId: string,
-  userEmail: string,
-  title: string,
-  body: string,
-  data: Record<string, string>,
-  summary: DigestRunSummary
-): Promise<void> {
-  try {
-    const today = new Date().toISOString().slice(0, 10);
-    const enqueueResult = await enqueueNotification({
-      type: "daily_digest",
-      recipientUserId: userId,
-      entityType: data.beach_id ? "beach" : null,
-      entityId: data.beach_id || null,
-      payload: {
-        alert_date: today,
-        title,
-        body,
-      },
-      dedupeKey: `daily_digest:${userId}:${today}`,
-    });
-
-    if (enqueueResult.enqueued) {
-      summary.pushSent++;
-    } else if (enqueueResult.reason === "duplicate") {
-      // Same-day re-run — already enqueued.
-      summary.skipped.pushFailed++;
-    } else {
-      console.error(
-        `❌ [forecast-digest-email] Enqueue failed for ${userEmail}:`,
-        enqueueResult
-      );
-      summary.skipped.pushFailed++;
-    }
-  } catch (err) {
-    console.error(
-      `❌ [forecast-digest-email] Enqueue threw for ${userEmail}:`,
-      err
-    );
-    summary.skipped.pushFailed++;
   }
 }
 
@@ -588,27 +531,7 @@ async function _GET(request: Request): Promise<Response> {
             },
           });
 
-          // Send push notification
-          const matchQualityCapitalized = capitalizeFirst(matchResult.matchQuality);
-          const pushBody = matchResult.bestWindow
-            ? `${matchQualityCapitalized} conditions ${matchResult.bestWindow.windowStart}-${matchResult.bestWindow.windowEnd}`
-            : `${matchQualityCapitalized} conditions today`;
-
-          await sendDigestPush(
-            supabase,
-            user.id,
-            user.email,
-            `${matchQualityEmoji} ${beach.name}`,
-            pushBody,
-            {
-              type: "daily_digest",
-              beach_id: user.home_beach_id,
-              beach_slug: beach.slug,
-              match_quality: matchResult.matchQuality,
-              url: `/beaches/${beach.slug}`,
-            },
-            summary
-          );
+          // Forecast push summaries are owned by /api/cron/forecast-alerts.
         } else {
           // NO MATCH: Skip entirely - no more "bad day" emails
           console.log(
@@ -629,20 +552,9 @@ async function _GET(request: Request): Promise<Response> {
     summary.durationMs = Date.now() - startTime;
 
     console.log(
-      `🎉 [forecast-digest-email] Completed: ${summary.sent} emails sent, ${summary.skipped.noMatch} skipped (no match), ${summary.pushSent} push notifications, ${summary.eligibleUsers} eligible, ${summary.durationMs}ms`
+      `🎉 [forecast-digest-email] Completed: ${summary.sent} emails sent, ${summary.skipped.noMatch} skipped (no match), ${summary.eligibleUsers} eligible, ${summary.durationMs}ms`
     );
     console.log(`   Skipped breakdown:`, summary.skipped);
-
-    // Alert on high push failure rate
-    const totalPushAttempts = summary.pushSent + summary.skipped.pushFailed;
-    if (totalPushAttempts > 0) {
-      const pushFailureRate = summary.skipped.pushFailed / totalPushAttempts;
-      if (pushFailureRate > PUSH_FAILURE_RATE_THRESHOLD && summary.eligibleUsers > PUSH_FAILURE_MIN_USERS) {
-        console.error(
-          `🚨 [forecast-digest-email] HIGH PUSH FAILURE RATE: ${(pushFailureRate * 100).toFixed(1)}% (${summary.skipped.pushFailed}/${totalPushAttempts})`
-        );
-      }
-    }
 
     // Persist run stats to database
     await persistRunStats(supabase, runStartedAt, summary, 'completed');

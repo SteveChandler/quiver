@@ -6,6 +6,10 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { useCachedProfile } from "@/hooks/use-cached-profile";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import {
+  trackSigninCtaClick,
+  trackSignupCtaClick,
+} from "@/lib/analytics/signup-conversion-tracking";
 
 // Mock Next.js navigation hooks
 jest.mock("next/navigation", () => ({
@@ -27,6 +31,23 @@ jest.mock("@/hooks/use-cached-profile", () => ({
 // Mock data fetcher hook
 jest.mock("@/hooks/use-data-fetcher", () => ({
   useDataFetcher: jest.fn(),
+}));
+
+jest.mock("@/lib/analytics/signup-conversion-tracking", () => ({
+  trackSigninCtaClick: jest.fn(),
+  trackSignupCtaClick: jest.fn(),
+}));
+
+jest.mock("@/components/auth/unified-auth-modal", () => ({
+  UnifiedAuthModal: ({ isOpen, mode, source, returnTo }: any) =>
+    isOpen ? (
+      <div
+        data-testid="auth-modal"
+        data-mode={mode}
+        data-source={source}
+        data-return-to={returnTo}
+      />
+    ) : null,
 }));
 
 // Mock UI components
@@ -81,36 +102,69 @@ jest.mock("@/components/user-avatar", () => ({
 }));
 
 // Mock UI Sheet components for mobile menu
-jest.mock("@/components/ui/sheet", () => ({
-  Sheet: ({ children, open, onOpenChange }: any) => (
-    <div data-testid="sheet-root" data-open={open}>
-      {open && children}
-    </div>
-  ),
-  SheetTrigger: ({ children, asChild, ...props }: any) => (
-    <div data-testid="sheet-trigger" {...props}>
-      {children}
-    </div>
-  ),
-  SheetContent: ({ children, side, className }: any) => (
-    <div
-      data-testid="sheet-content"
-      data-side={side}
-      className={className}
-      role="dialog"
-    >
-      {children}
-    </div>
-  ),
-  SheetHeader: ({ children, className }: any) => (
-    <div data-testid="sheet-header" className={className}>
-      {children}
-    </div>
-  ),
-  SheetTitle: ({ children }: any) => (
-    <h2 data-testid="sheet-title">{children}</h2>
-  ),
-}));
+jest.mock("@/components/ui/sheet", () => {
+  const ReactActual = jest.requireActual<typeof import("react")>("react");
+
+  const SheetTrigger = ({ children, asChild, onClick, ...props }: any) => {
+    if (asChild && ReactActual.isValidElement(children)) {
+      const childProps = children.props as { onClick?: (event: any) => void };
+      return ReactActual.cloneElement(children, {
+        ...props,
+        onClick: (event: any) => {
+          childProps.onClick?.(event);
+          onClick?.(event);
+        },
+      });
+    }
+
+    return (
+      <div data-testid="sheet-trigger" onClick={onClick} {...props}>
+        {children}
+      </div>
+    );
+  };
+
+  const SheetContent = ({ children, side, className, open }: any) =>
+    open ? (
+      <div
+        data-testid="sheet-content"
+        data-side={side}
+        className={className}
+        role="dialog"
+      >
+        {children}
+      </div>
+    ) : null;
+
+  return {
+    Sheet: ({ children, open, onOpenChange }: any) => (
+      <div data-testid="sheet-root" data-open={open}>
+        {ReactActual.Children.map(children, (child: any) => {
+          if (!ReactActual.isValidElement(child)) return child;
+          if (child.type === SheetTrigger) {
+            return ReactActual.cloneElement(child as any, {
+              onClick: () => onOpenChange?.(true),
+            });
+          }
+          if (child.type === SheetContent) {
+            return ReactActual.cloneElement(child as any, { open });
+          }
+          return child;
+        })}
+      </div>
+    ),
+    SheetTrigger,
+    SheetContent,
+    SheetHeader: ({ children, className }: any) => (
+      <div data-testid="sheet-header" className={className}>
+        {children}
+      </div>
+    ),
+    SheetTitle: ({ children }: any) => (
+      <h2 data-testid="sheet-title">{children}</h2>
+    ),
+  };
+});
 
 // Mock Input component
 jest.mock("@/components/ui/input", () => ({
@@ -798,6 +852,80 @@ describe("AppHeader", () => {
     });
   });
 
+  describe("Header auth CTA analytics attribution", () => {
+    const renderGuestHeader = (pathname: string) => {
+      (useAuth as jest.Mock).mockReturnValue({
+        user: null,
+        isLoading: false,
+        signOut: jest.fn(),
+      });
+      (usePathname as jest.Mock).mockReturnValue(pathname);
+
+      render(<AppHeader />);
+    };
+
+    it("desktop Sign Up on /map keeps header source and omits surface", () => {
+      renderGuestHeader("/map");
+
+      fireEvent.click(screen.getByRole("button", { name: /get started/i }));
+
+      expect(trackSignupCtaClick).toHaveBeenCalledTimes(1);
+      const payload = (trackSignupCtaClick as jest.Mock).mock.calls[0][0];
+      expect(payload).toEqual({ source: "app-header-general" });
+      expect(payload).not.toHaveProperty("surface");
+    });
+
+    it("desktop Log in on /map keeps header source and omits surface", () => {
+      renderGuestHeader("/map");
+
+      fireEvent.click(screen.getByRole("button", { name: /^log in$/i }));
+
+      expect(trackSigninCtaClick).toHaveBeenCalledTimes(1);
+      const payload = (trackSigninCtaClick as jest.Mock).mock.calls[0][0];
+      expect(payload).toEqual({ source: "app-header" });
+      expect(payload).not.toHaveProperty("surface");
+    });
+
+    it("mobile Sign Up on /features keeps mobile header source and omits surface", async () => {
+      const user = userEvent.setup();
+      renderGuestHeader("/features");
+
+      await user.click(screen.getByTestId("mobile-menu-button"));
+      await user.click(await screen.findByTestId("mobile-nav-signup"));
+
+      expect(trackSignupCtaClick).toHaveBeenCalledTimes(1);
+      const payload = (trackSignupCtaClick as jest.Mock).mock.calls[0][0];
+      expect(payload).toEqual({ source: "app-header-mobile" });
+      expect(payload).not.toHaveProperty("surface");
+    });
+
+    it("mobile Log in on /features keeps mobile header source and omits surface", async () => {
+      const user = userEvent.setup();
+      renderGuestHeader("/features");
+
+      await user.click(screen.getByTestId("mobile-menu-button"));
+      await user.click(await screen.findByTestId("mobile-nav-login"));
+
+      expect(trackSigninCtaClick).toHaveBeenCalledTimes(1);
+      const payload = (trackSigninCtaClick as jest.Mock).mock.calls[0][0];
+      expect(payload).toEqual({ source: "app-header-mobile" });
+      expect(payload).not.toHaveProperty("surface");
+    });
+
+    it("beach-detail Sign Up keeps beach header source and omits surface", () => {
+      renderGuestHeader("/ca/oceanside/the-rock");
+
+      fireEvent.click(
+        screen.getByRole("button", { name: /see your forecast/i })
+      );
+
+      expect(trackSignupCtaClick).toHaveBeenCalledTimes(1);
+      const payload = (trackSignupCtaClick as jest.Mock).mock.calls[0][0];
+      expect(payload).toEqual({ source: "app-header-beach" });
+      expect(payload).not.toHaveProperty("surface");
+    });
+  });
+
   describe("H. Phase 2: Navigation Links", () => {
     describe("Authenticated Users", () => {
       beforeEach(() => {
@@ -1241,13 +1369,13 @@ describe("AppHeader", () => {
         expect(logoText.className).toContain("duration-300");
       });
 
-      it("logo has hover:text-primary/90 class", () => {
+      it("logo has orange hover class", () => {
         render(<AppHeader />);
 
         const logoText = screen.getByText("Quiver");
 
         expect(logoText).toBeInTheDocument();
-        expect(logoText.className).toContain("hover:text-primary/90");
+        expect(logoText.className).toContain("group-hover:text-[#FFAA63]");
       });
 
       it("logo link has group class for hover coordination", () => {
@@ -1320,7 +1448,9 @@ describe("AppHeader", () => {
 
         expect(signUpButton).toBeInTheDocument();
         expect(signUpButton?.className).toContain("focus-visible:ring-2");
-        expect(signUpButton?.className).toContain("focus-visible:ring-primary");
+        expect(signUpButton?.className).toContain(
+          "focus-visible:ring-[#F78E42]"
+        );
         expect(signUpButton?.className).toContain(
           "focus-visible:ring-offset-2"
         );
@@ -1373,7 +1503,7 @@ describe("AppHeader", () => {
         expect(logoText).toBeInTheDocument();
         expect(logoText.className).toContain("text-xl");
         expect(logoText.className).toContain("font-bold");
-        expect(logoText.className).toContain("text-primary");
+        expect(logoText.className).toContain("text-[#F78E42]");
       });
 
       it("navigation links have text-sm and font-medium classes", () => {

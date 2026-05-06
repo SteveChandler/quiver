@@ -617,8 +617,8 @@ export const learnArticles: LearnArticle[] = [
         keyTakeaway:
           "NDBC and CDIP buoys measure real waves every hour across US coasts, providing ground-truth observations that verify and correct global models.",
         image: {
-          src: "/images/buoy.png",
-          alt: "NOAA ocean buoy measuring wave conditions",
+          src: "/images/learn/learn-aerial-swell.jpg",
+          alt: "Aerial view of organized swell lines, the kind ocean buoys measure",
           position: "right",
         },
       },

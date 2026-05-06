@@ -25,6 +25,7 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { ItemListSchema } from "@/components/seo/item-list-schema";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { SITE_URL } from "@/lib/constants/seo";
 
@@ -147,13 +148,15 @@ export default async function UsaStatePage(
 
   if (!locationsResponse.success || !locationsResponse.data) {
     return (
-      <div className="container mx-auto px-4 py-12 max-w-7xl">
-        <h1 className="text-3xl font-bold text-gray-900">
-          Best surf beaches in {stateName}
-        </h1>
-        <p className="mt-3 text-gray-600">
-          We couldn&apos;t load this state right now. Try again soon.
-        </p>
+      <div className="seo-paper-page">
+        <div className="container mx-auto px-4 py-12 max-w-7xl">
+          <h1 className="text-3xl font-bold text-gray-900">
+            Best surf beaches in {stateName}
+          </h1>
+          <p className="mt-3 text-gray-600">
+            We couldn&apos;t load this state right now. Try again soon.
+          </p>
+        </div>
       </div>
     );
   }
@@ -250,6 +253,7 @@ export default async function UsaStatePage(
         items={cityItemListItems}
         name={`Surf Cities in ${stateName}`}
       />
+      <div className="seo-paper-page">
       <div className="container mx-auto px-4 py-10 max-w-7xl">
       <header className="mb-8">
         <nav aria-label="breadcrumb" className="text-sm text-gray-600 mb-4">
@@ -274,7 +278,7 @@ export default async function UsaStatePage(
       </p>
 
       <div className="grid gap-8 lg:grid-cols-[420px_1fr]">
-        <section aria-label="Cities" className="order-2 lg:order-1">
+        <section id="surf-cities" aria-label="Cities" className="order-2 lg:order-1">
           <h2 className="text-xl font-semibold text-slate-900 mb-3">
             Surf cities in {stateName}
           </h2>
@@ -344,6 +348,30 @@ export default async function UsaStatePage(
         />
       </div>
 
+      <SeoFunnelNextSteps
+        variant="paper"
+        title={`Plan a ${stateName} surf session`}
+        description="Use the state hub to choose a city, then move into live conditions, water temperature, or the map before you drive."
+        steps={[
+          {
+            label: `Browse ${stateName} surf cities`,
+            href: "#surf-cities",
+            description: "Start with the indexed city list and pick the coast you care about.",
+          },
+          {
+            label: `Open the ${stateName} surf map`,
+            href: `/map?search=${encodeURIComponent(stateName)}`,
+            description: "Scan nearby breaks when you need a fast alternate spot.",
+          },
+          {
+            label: `Check water temperature guides`,
+            href: `/water-temp/${stateSlug}`,
+            description: "Use statewide water-temperature context for gear calls.",
+          },
+        ]}
+        className="my-8"
+      />
+
       <IntentGuidesGrid
         locationSlug={stateSlug}
         locationName={stateName}
@@ -359,6 +387,7 @@ export default async function UsaStatePage(
         ctaCopyVariant={ctaCopyVariant}
         buttonClassName="min-h-[48px]"
       />
+      </div>
     </>
   );
 }

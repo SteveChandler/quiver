@@ -6,7 +6,7 @@
  * Mocking strategy:
  * - createSupabaseServiceRoleClient: returns a per-test configurable mock client
  * - getFreshForecastFromCache: returns controllable forecast buckets per beach
- * - sendPushNotification: captured to assert what notifications were sent
+ * - enqueueNotification: captured to assert one daily summary event per user
  */
 
 import {
@@ -30,20 +30,28 @@ jest.mock("@/lib/utils/forecast-service-utils", () => ({
   getFreshForecastFromCache: jest.fn(),
 }));
 
-jest.mock("@/lib/services/push-notifications", () => ({
-  sendPushNotification: jest.fn(),
+jest.mock("@/lib/notifications/enqueue", () => ({
+  enqueueNotification: jest.fn(),
 }));
 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getFreshForecastFromCache } from "@/lib/utils/forecast-service-utils";
-import { sendPushNotification } from "@/lib/services/push-notifications";
+import { enqueueNotification } from "@/lib/notifications/enqueue";
 
 // ---------------------------------------------------------------------------
 // Test helpers / fixtures
 // ---------------------------------------------------------------------------
 
 /** A forecast record that matches the default thresholds (wave 4ft, 12s, 8mph) */
-function makeGoodForecast(offsetHours = 2): object {
+function makeGoodForecast(
+  offsetHours = 2,
+  overrides: Partial<{
+    wave_height: string;
+    wave_period: string;
+    wind_speed: string;
+    confidence_score: number;
+  }> = {}
+): object {
   const futureMs = Date.now() + offsetHours * 60 * 60 * 1000;
   return {
     forecast_at: new Date(futureMs).toISOString(),
@@ -54,6 +62,7 @@ function makeGoodForecast(offsetHours = 2): object {
     wind_speed: "8",
     tide_status: null,
     confidence_score: 0.9,
+    ...overrides,
   };
 }
 
@@ -325,11 +334,9 @@ describe("runForecastThresholdAlerts", () => {
   beforeEach(() => {
     jest.useFakeTimers({ now: FAKE_NOW_UTC });
     jest.clearAllMocks();
-    // Default: push notification succeeds with 1 device
-    (sendPushNotification as jest.Mock).mockResolvedValue({
-      success: 1,
-      failed: 0,
-      errors: [],
+    (enqueueNotification as jest.Mock).mockResolvedValue({
+      enqueued: true,
+      eventId: "event-1",
     });
   });
 
@@ -337,11 +344,7 @@ describe("runForecastThresholdAlerts", () => {
     jest.useRealTimers();
   });
 
-  // -------------------------------------------------------------------------
-  // Baseline: existing home beach path still works
-  // -------------------------------------------------------------------------
-
-  it("returns zero sent when no profiles have a home beach", async () => {
+  it("returns zero sent when no profiles are eligible", async () => {
     const supabase = buildMockSupabase({
       profiles: { data: [], error: null },
     });
@@ -351,9 +354,10 @@ describe("runForecastThresholdAlerts", () => {
 
     expect(summary.sent).toBe(0);
     expect(summary.eligibleUsers).toBe(0);
+    expect(enqueueNotification).not.toHaveBeenCalled();
   });
 
-  it("skips mock users for home beach alerts", async () => {
+  it("skips mock users", async () => {
     const supabase = buildMockSupabase({
       profiles: {
         data: [
@@ -376,9 +380,10 @@ describe("runForecastThresholdAlerts", () => {
 
     expect(summary.sent).toBe(0);
     expect(summary.skipped.mockUser).toBe(1);
+    expect(enqueueNotification).not.toHaveBeenCalled();
   });
 
-  it("sends a home beach alert when conditions match", async () => {
+  it("enqueues one daily summary for a home beach with one good window", async () => {
     const userId = "user-home";
     const beachId = "beach-home";
 
@@ -401,7 +406,6 @@ describe("runForecastThresholdAlerts", () => {
         error: null,
       },
       user_surf_preferences: { data: [], error: null },
-      forecast_alert_deliveries: { data: [], error: null },
       favorite_beaches: { data: [], error: null },
     });
     (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
@@ -413,421 +417,419 @@ describe("runForecastThresholdAlerts", () => {
     const summary = await runForecastThresholdAlerts();
 
     expect(summary.sent).toBe(1);
-    expect(sendPushNotification).toHaveBeenCalledTimes(1);
-    const call = (sendPushNotification as jest.Mock).mock.calls[0][0];
-    expect(call.userIds).toEqual([userId]);
-    expect(call.data.beach_id).toBe(beachId);
+    expect(summary.eligibleUsers).toBe(1);
+    expect(summary.eligibleBeachesProcessed).toBe(1);
+    expect(enqueueNotification).toHaveBeenCalledTimes(1);
+    const [event, client] = (enqueueNotification as jest.Mock).mock.calls[0];
+    expect(client).toBe(supabase);
+    expect(event.type).toBe("daily_digest");
+    expect(event.recipientUserId).toBe(userId);
+    expect(event.dedupeKey).toBe("daily_forecast_summary:user-home:2026-03-13");
+    expect(event.payload.title).toBe("Quiver Daily Forecast");
+    expect(event.payload.body).toContain("Home Beach:");
+    expect(event.payload.body).toContain("4ft @ 12s, 8mph wind");
+    expect(event.payload.match_count).toBe(1);
   });
 
-  // -------------------------------------------------------------------------
-  // New: favorite beach alerts
-  // -------------------------------------------------------------------------
+  it("groups home beach and two alert-enabled favorites into one summary", async () => {
+    const userId = "user-batch";
+    const homeBeachId = "beach-home";
+    const favoriteOneId = "beach-fav-1";
+    const favoriteTwoId = "beach-fav-2";
 
-  describe("favorite beach alerts", () => {
-    it("sends an alert for a favorite beach with alerts_enabled = true when conditions match", async () => {
-      const userId = "user-fav";
-      const favBeachId = "beach-fav";
-
-      // This user has NO home beach — only a favorite beach
-      const supabase = buildMockSupabase({
-        profiles: {
-          data: [],  // no home beach profiles
-          error: null,
-        },
-        favorite_beaches: {
-          data: [
-            {
-              user_id: userId,
-              beach_id: favBeachId,
-              alerts_enabled: true,
-              profiles: {
-                id: userId,
-                notif_push_enabled: true,
-                notif_forecast_alerts: true,
-                is_mock: false,
-                timezone: "America/Los_Angeles",
-              },
-            },
-          ],
-          error: null,
-        },
-        beaches: {
-          data: [{ id: favBeachId, slug: "fav-beach", name: "Fav Beach" }],
-          error: null,
-        },
-        user_surf_preferences: { data: [], error: null },
-        forecast_alert_deliveries: { data: [], error: null },
-      });
-      (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
-      (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
-        forecasts: [makeGoodForecast(2)],
-        metadata: { stale: false, missing: false },
-      });
-
-      const summary = await runForecastThresholdAlerts();
-
-      expect(summary.sent).toBe(1);
-      expect(sendPushNotification).toHaveBeenCalledTimes(1);
-      const call = (sendPushNotification as jest.Mock).mock.calls[0][0];
-      expect(call.userIds).toEqual([userId]);
-      expect(call.data.beach_id).toBe(favBeachId);
+    const supabase = buildMockSupabase({
+      profiles: {
+        data: [
+          {
+            id: userId,
+            home_beach_id: homeBeachId,
+            notif_push_enabled: true,
+            notif_forecast_alerts: true,
+            is_mock: false,
+            timezone: "America/Los_Angeles",
+          },
+        ],
+        error: null,
+      },
+      beaches: {
+        data: [
+          { id: homeBeachId, slug: "home", name: "Home Beach" },
+          { id: favoriteOneId, slug: "favorite-one", name: "Favorite One" },
+          { id: favoriteTwoId, slug: "favorite-two", name: "Favorite Two" },
+        ],
+        error: null,
+      },
+      favorite_beaches: {
+        data: [
+          { user_id: userId, beach_id: favoriteOneId, alerts_enabled: true },
+          { user_id: userId, beach_id: favoriteTwoId, alerts_enabled: true },
+        ],
+        error: null,
+      },
+      user_surf_preferences: { data: [], error: null },
+    });
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
+    (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
+      forecasts: [makeGoodForecast(2)],
+      metadata: { stale: false, missing: false },
     });
 
-    it("does NOT send an alert for a favorite beach with alerts_enabled = false", async () => {
-      const userId = "user-fav-disabled";
-      const favBeachId = "beach-fav-disabled";
+    const summary = await runForecastThresholdAlerts();
 
-      const supabase = buildMockSupabase({
-        profiles: { data: [], error: null },
-        favorite_beaches: {
-          data: [
-            {
-              user_id: userId,
-              beach_id: favBeachId,
-              alerts_enabled: false,
-              profiles: {
-                id: userId,
-                notif_push_enabled: true,
-                notif_forecast_alerts: true,
-                is_mock: false,
-                timezone: null,
-              },
-            },
-          ],
-          error: null,
-        },
-        beaches: { data: [], error: null },
-        user_surf_preferences: { data: [], error: null },
-        forecast_alert_deliveries: { data: [], error: null },
-      });
-      (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
-      (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
-        forecasts: [makeGoodForecast(2)],
-        metadata: { stale: false, missing: false },
-      });
+    expect(summary.sent).toBe(1);
+    expect(summary.eligibleBeachesProcessed).toBe(3);
+    expect(getFreshForecastFromCache).toHaveBeenCalledTimes(3);
+    expect(enqueueNotification).toHaveBeenCalledTimes(1);
+    const event = (enqueueNotification as jest.Mock).mock.calls[0][0];
+    expect(event.payload.match_count).toBe(3);
+    expect(event.payload.body).toContain("Home Beach:");
+    expect(event.payload.body).toContain("Favorite One:");
+    expect(event.payload.body).toContain("Favorite Two:");
+  });
 
-      const summary = await runForecastThresholdAlerts();
+  it("uses one best window for a beach with multiple good windows", async () => {
+    const userId = "user-best-window";
+    const beachId = "beach-best-window";
 
-      expect(summary.sent).toBe(0);
-      expect(sendPushNotification).not.toHaveBeenCalled();
+    const supabase = buildMockSupabase({
+      profiles: {
+        data: [
+          {
+            id: userId,
+            home_beach_id: beachId,
+            notif_push_enabled: true,
+            notif_forecast_alerts: true,
+            is_mock: false,
+            timezone: "America/Los_Angeles",
+          },
+        ],
+        error: null,
+      },
+      beaches: {
+        data: [{ id: beachId, slug: "best-window", name: "Best Window" }],
+        error: null,
+      },
+      favorite_beaches: { data: [], error: null },
+      user_surf_preferences: { data: [], error: null },
+    });
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
+    (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
+      forecasts: [
+        makeGoodForecast(1, { wave_height: "2", wave_period: "10", wind_speed: "14" }),
+        makeGoodForecast(2, { wave_height: "4", wave_period: "16", wind_speed: "4" }),
+        makeGoodForecast(3, { wave_height: "5", wave_period: "12", wind_speed: "8" }),
+      ],
+      metadata: { stale: false, missing: false },
     });
 
-    it("home beach delivery does NOT prevent favorite beach alert for the same user", async () => {
-      const userId = "user-both";
-      const homeBeachId = "beach-home-dedup";
-      const favBeachId = "beach-fav-dedup";
+    const summary = await runForecastThresholdAlerts();
 
-      // The user already received a home beach alert recently (within dedupe window)
-      const recentlySentAt = new Date(Date.now() - 60 * 60 * 1000).toISOString(); // 1h ago
+    expect(summary.sent).toBe(1);
+    const event = (enqueueNotification as jest.Mock).mock.calls[0][0];
+    const lines = event.payload.body.split("\n");
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("Best Window:");
+    expect(lines[0]).toContain("4ft @ 16s, 4mph wind");
+  });
 
-      const supabase = buildMockSupabase({
-        profiles: {
-          data: [
-            {
-              id: userId,
-              home_beach_id: homeBeachId,
-              notif_push_enabled: true,
-              notif_forecast_alerts: true,
-              is_mock: false,
-              timezone: null,
-            },
-          ],
-          error: null,
-        },
-        beaches: {
-          data: [
-            { id: homeBeachId, slug: "home-beach-dedup", name: "Home Beach" },
-            { id: favBeachId,  slug: "fav-beach-dedup",  name: "Fav Beach" },
-          ],
-          error: null,
-        },
-        user_surf_preferences: { data: [], error: null },
-        forecast_alert_deliveries: {
-          // Prior delivery exists ONLY for the home beach
-          data: [
-            {
-              user_id: userId,
-              beach_id: homeBeachId,
-              alert_type: "forecast_threshold",
-              last_sent_at: recentlySentAt,
-              last_matching_forecast_ts: null,
-            },
-          ],
-          error: null,
-        },
-        favorite_beaches: {
-          data: [
-            {
-              user_id: userId,
-              beach_id: favBeachId,
-              alerts_enabled: true,
-              profiles: {
-                id: userId,
-                notif_push_enabled: true,
-                notif_forecast_alerts: true,
-                is_mock: false,
-                timezone: null,
-              },
-            },
-          ],
-          error: null,
-        },
-      });
-      (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
-      (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
-        forecasts: [makeGoodForecast(2)],
-        metadata: { stale: false, missing: false },
-      });
+  it("normalizes 0-100 confidence scores when ranking matching windows", async () => {
+    const userId = "user-confidence-normalized";
+    const beachId = "beach-confidence-normalized";
 
-      const summary = await runForecastThresholdAlerts();
-
-      // Home beach should be rate-limited (sent within 24h window)
-      expect(summary.skipped.rateLimited).toBeGreaterThanOrEqual(1);
-
-      // Favorite beach alert should still fire — it has its own dedupe key
-      expect(summary.sent).toBe(1);
-      const call = (sendPushNotification as jest.Mock).mock.calls[0][0];
-      expect(call.data.beach_id).toBe(favBeachId);
+    const supabase = buildMockSupabase({
+      profiles: {
+        data: [
+          {
+            id: userId,
+            home_beach_id: beachId,
+            notif_push_enabled: true,
+            notif_forecast_alerts: true,
+            is_mock: false,
+            timezone: "America/Los_Angeles",
+          },
+        ],
+        error: null,
+      },
+      beaches: {
+        data: [{ id: beachId, slug: "confidence", name: "Confidence Beach" }],
+        error: null,
+      },
+      favorite_beaches: { data: [], error: null },
+      user_surf_preferences: { data: [], error: null },
+    });
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
+    (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
+      forecasts: [
+        makeGoodForecast(1, { wave_height: "2", wave_period: "10", wind_speed: "14", confidence_score: 100 }),
+        makeGoodForecast(2, { wave_height: "4", wave_period: "16", wind_speed: "4", confidence_score: 50 }),
+      ],
+      metadata: { stale: false, missing: false },
     });
 
-    it("user receives alerts for BOTH home beach AND favorite beach in the same run", async () => {
-      const userId = "user-both-send";
-      const homeBeachId = "beach-home-both";
-      const favBeachId  = "beach-fav-both";
+    await runForecastThresholdAlerts();
 
-      const supabase = buildMockSupabase({
-        profiles: {
-          data: [
-            {
-              id: userId,
-              home_beach_id: homeBeachId,
-              notif_push_enabled: true,
-              notif_forecast_alerts: true,
-              is_mock: false,
-              timezone: null,
-            },
-          ],
-          error: null,
-        },
-        beaches: {
-          data: [
-            { id: homeBeachId, slug: "home-beach-both", name: "Home Beach" },
-            { id: favBeachId,  slug: "fav-beach-both",  name: "Fav Beach" },
-          ],
-          error: null,
-        },
-        user_surf_preferences: { data: [], error: null },
-        forecast_alert_deliveries: { data: [], error: null },
-        favorite_beaches: {
-          data: [
-            {
-              user_id: userId,
-              beach_id: favBeachId,
-              alerts_enabled: true,
-              profiles: {
-                id: userId,
-                notif_push_enabled: true,
-                notif_forecast_alerts: true,
-                is_mock: false,
-                timezone: null,
-              },
-            },
-          ],
-          error: null,
-        },
-      });
-      (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
-      (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
-        forecasts: [makeGoodForecast(2)],
-        metadata: { stale: false, missing: false },
-      });
+    const event = (enqueueNotification as jest.Mock).mock.calls[0][0];
+    const [line] = event.payload.body.split("\n");
+    expect(line).toContain("4ft @ 16s, 4mph wind");
+  });
 
-      const summary = await runForecastThresholdAlerts();
+  it("does not enqueue when only non-eligible beaches have good forecasts", async () => {
+    const userId = "user-non-eligible";
+    const homeBeachId = "beach-home-bad";
+    const disabledFavoriteId = "beach-disabled-good";
 
-      expect(summary.sent).toBe(2);
-      expect(sendPushNotification).toHaveBeenCalledTimes(2);
+    const supabase = buildMockSupabase({
+      profiles: {
+        data: [
+          {
+            id: userId,
+            home_beach_id: homeBeachId,
+            notif_push_enabled: true,
+            notif_forecast_alerts: true,
+            is_mock: false,
+            timezone: "America/Los_Angeles",
+          },
+        ],
+        error: null,
+      },
+      beaches: {
+        data: [
+          { id: homeBeachId, slug: "home-bad", name: "Home Bad" },
+          { id: disabledFavoriteId, slug: "disabled-good", name: "Disabled Good" },
+        ],
+        error: null,
+      },
+      favorite_beaches: {
+        data: [{ user_id: userId, beach_id: disabledFavoriteId, alerts_enabled: false }],
+        error: null,
+      },
+      user_surf_preferences: { data: [], error: null },
+    });
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
+    (getFreshForecastFromCache as jest.Mock).mockImplementation(async (beachId: string) => ({
+      forecasts: beachId === disabledFavoriteId ? [makeGoodForecast(2)] : [makeBadForecast(2)],
+      metadata: { stale: false, missing: false },
+    }));
 
-      const beachIds = (sendPushNotification as jest.Mock).mock.calls.map(
-        (c) => c[0].data.beach_id
-      );
-      expect(beachIds).toContain(homeBeachId);
-      expect(beachIds).toContain(favBeachId);
+    const summary = await runForecastThresholdAlerts();
+
+    expect(summary.sent).toBe(0);
+    expect(summary.skipped.noGoodForecasts).toBe(1);
+    expect(getFreshForecastFromCache).toHaveBeenCalledTimes(1);
+    expect((getFreshForecastFromCache as jest.Mock).mock.calls[0][0]).toBe(homeBeachId);
+    expect(enqueueNotification).not.toHaveBeenCalled();
+  });
+
+  it("skips duplicate daily summary enqueue for the same user and local date", async () => {
+    const userId = "user-duplicate";
+    const beachId = "beach-duplicate";
+
+    const supabase = buildMockSupabase({
+      profiles: {
+        data: [
+          {
+            id: userId,
+            home_beach_id: beachId,
+            notif_push_enabled: true,
+            notif_forecast_alerts: true,
+            is_mock: false,
+            timezone: "America/Los_Angeles",
+          },
+        ],
+        error: null,
+      },
+      beaches: {
+        data: [{ id: beachId, slug: "duplicate", name: "Duplicate Beach" }],
+        error: null,
+      },
+      favorite_beaches: { data: [], error: null },
+      user_surf_preferences: { data: [], error: null },
+    });
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
+    (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
+      forecasts: [makeGoodForecast(2)],
+      metadata: { stale: false, missing: false },
+    });
+    (enqueueNotification as jest.Mock)
+      .mockResolvedValueOnce({ enqueued: true, eventId: "event-1" })
+      .mockResolvedValueOnce({ enqueued: false, reason: "duplicate" });
+
+    const firstSummary = await runForecastThresholdAlerts();
+    const secondSummary = await runForecastThresholdAlerts();
+
+    expect(firstSummary.sent).toBe(1);
+    expect(secondSummary.sent).toBe(0);
+    expect(secondSummary.skipped.duplicateDailySummary).toBe(1);
+    expect(enqueueNotification).toHaveBeenCalledTimes(2);
+    expect((enqueueNotification as jest.Mock).mock.calls[1][0].dedupeKey).toBe(
+      "daily_forecast_summary:user-duplicate:2026-03-13"
+    );
+  });
+
+  it("skips users with no home beach and no alert-enabled favorites", async () => {
+    const userId = "user-no-beaches";
+
+    const supabase = buildMockSupabase({
+      profiles: {
+        data: [
+          {
+            id: userId,
+            home_beach_id: null,
+            notif_push_enabled: true,
+            notif_forecast_alerts: true,
+            is_mock: false,
+            timezone: "America/Los_Angeles",
+          },
+        ],
+        error: null,
+      },
+      favorite_beaches: { data: [], error: null },
+      beaches: { data: [], error: null },
+      user_surf_preferences: { data: [], error: null },
+    });
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
+
+    const summary = await runForecastThresholdAlerts();
+
+    expect(summary.sent).toBe(0);
+    expect(summary.eligibleUsers).toBe(1);
+    expect(summary.skipped.noEligibleBeaches).toBe(1);
+    expect(enqueueNotification).not.toHaveBeenCalled();
+  });
+
+  it("enqueues one summary for an alert-enabled favorite without a home beach", async () => {
+    const userId = "user-favorite-only";
+    const favoriteBeachId = "beach-favorite-only";
+
+    const supabase = buildMockSupabase({
+      profiles: {
+        data: [
+          {
+            id: userId,
+            home_beach_id: null,
+            notif_push_enabled: true,
+            notif_forecast_alerts: true,
+            is_mock: false,
+            timezone: "America/Los_Angeles",
+          },
+        ],
+        error: null,
+      },
+      favorite_beaches: {
+        data: [{ user_id: userId, beach_id: favoriteBeachId, alerts_enabled: true }],
+        error: null,
+      },
+      beaches: {
+        data: [{ id: favoriteBeachId, slug: "favorite-only", name: "Favorite Only" }],
+        error: null,
+      },
+      user_surf_preferences: { data: [], error: null },
+    });
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
+    (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
+      forecasts: [makeGoodForecast(2)],
+      metadata: { stale: false, missing: false },
     });
 
-    it("does not double-fetch forecast for a beach that is both a home beach and a favorite", async () => {
-      const userId = "user-overlap";
-      const sharedBeachId = "beach-shared";
+    const summary = await runForecastThresholdAlerts();
 
-      const supabase = buildMockSupabase({
-        profiles: {
-          data: [
-            {
-              id: userId,
-              home_beach_id: sharedBeachId,
-              notif_push_enabled: true,
-              notif_forecast_alerts: true,
-              is_mock: false,
-              timezone: null,
-            },
-          ],
-          error: null,
-        },
-        beaches: {
-          data: [{ id: sharedBeachId, slug: "shared-beach", name: "Shared" }],
-          error: null,
-        },
-        user_surf_preferences: { data: [], error: null },
-        forecast_alert_deliveries: { data: [], error: null },
-        favorite_beaches: {
-          data: [
-            {
-              user_id: userId,
-              beach_id: sharedBeachId,
-              alerts_enabled: true,
-              profiles: {
-                id: userId,
-                notif_push_enabled: true,
-                notif_forecast_alerts: true,
-                is_mock: false,
-                timezone: null,
-              },
-            },
-          ],
-          error: null,
-        },
-      });
-      (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
-      (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
-        forecasts: [makeGoodForecast(2)],
-        metadata: { stale: false, missing: false },
-      });
+    expect(summary.sent).toBe(1);
+    expect(summary.eligibleBeachesProcessed).toBe(1);
+    const event = (enqueueNotification as jest.Mock).mock.calls[0][0];
+    expect(event.payload.body).toContain("Favorite Only:");
+  });
 
-      await runForecastThresholdAlerts();
+  it("does not double-fetch forecast for a beach that is both home and favorite", async () => {
+    const userId = "user-overlap";
+    const sharedBeachId = "beach-shared";
 
-      // getFreshForecastFromCache should be called exactly once for the shared beach
-      expect(getFreshForecastFromCache).toHaveBeenCalledTimes(1);
-      expect(
-        (getFreshForecastFromCache as jest.Mock).mock.calls[0][0]
-      ).toBe(sharedBeachId);
+    const supabase = buildMockSupabase({
+      profiles: {
+        data: [
+          {
+            id: userId,
+            home_beach_id: sharedBeachId,
+            notif_push_enabled: true,
+            notif_forecast_alerts: true,
+            is_mock: false,
+            timezone: null,
+          },
+        ],
+        error: null,
+      },
+      beaches: {
+        data: [{ id: sharedBeachId, slug: "shared-beach", name: "Shared" }],
+        error: null,
+      },
+      user_surf_preferences: { data: [], error: null },
+      favorite_beaches: {
+        data: [{ user_id: userId, beach_id: sharedBeachId, alerts_enabled: true }],
+        error: null,
+      },
+    });
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
+    (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
+      forecasts: [makeGoodForecast(2)],
+      metadata: { stale: false, missing: false },
     });
 
-    it("skips favorite beach alert when profile push notifications are disabled", async () => {
-      const userId = "user-push-off";
-      const favBeachId = "beach-push-off";
+    await runForecastThresholdAlerts();
 
-      const supabase = buildMockSupabase({
-        profiles: { data: [], error: null },
-        favorite_beaches: {
-          data: [
-            {
-              user_id: userId,
-              beach_id: favBeachId,
-              alerts_enabled: true,
-              profiles: {
-                id: userId,
-                notif_push_enabled: false,  // push disabled
-                notif_forecast_alerts: true,
-                is_mock: false,
-                timezone: null,
-              },
-            },
-          ],
-          error: null,
-        },
-        beaches: { data: [], error: null },
-        user_surf_preferences: { data: [], error: null },
-        forecast_alert_deliveries: { data: [], error: null },
-      });
-      (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
-      (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
-        forecasts: [makeGoodForecast(2)],
-        metadata: { stale: false, missing: false },
-      });
+    expect(getFreshForecastFromCache).toHaveBeenCalledTimes(1);
+    expect((getFreshForecastFromCache as jest.Mock).mock.calls[0][0]).toBe(sharedBeachId);
+  });
 
-      const summary = await runForecastThresholdAlerts();
+  it("skips users when profile push notifications are disabled", async () => {
+    const userId = "user-push-off";
 
-      expect(summary.sent).toBe(0);
-      expect(sendPushNotification).not.toHaveBeenCalled();
+    const supabase = buildMockSupabase({
+      profiles: {
+        data: [
+          {
+            id: userId,
+            home_beach_id: "beach-push-off",
+            notif_push_enabled: false,
+            notif_forecast_alerts: true,
+            is_mock: false,
+            timezone: null,
+          },
+        ],
+        error: null,
+      },
     });
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
 
-    it("skips favorite beach alert when profile forecast alerts are disabled", async () => {
-      const userId = "user-alerts-off";
-      const favBeachId = "beach-alerts-off";
+    const summary = await runForecastThresholdAlerts();
 
-      const supabase = buildMockSupabase({
-        profiles: { data: [], error: null },
-        favorite_beaches: {
-          data: [
-            {
-              user_id: userId,
-              beach_id: favBeachId,
-              alerts_enabled: true,
-              profiles: {
-                id: userId,
-                notif_push_enabled: true,
-                notif_forecast_alerts: false,  // alerts disabled
-                is_mock: false,
-                timezone: null,
-              },
-            },
-          ],
-          error: null,
-        },
-        beaches: { data: [], error: null },
-        user_surf_preferences: { data: [], error: null },
-        forecast_alert_deliveries: { data: [], error: null },
-      });
-      (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
-      (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
-        forecasts: [makeGoodForecast(2)],
-        metadata: { stale: false, missing: false },
-      });
+    expect(summary.sent).toBe(0);
+    expect(summary.skipped.pushDisabled).toBe(1);
+    expect(enqueueNotification).not.toHaveBeenCalled();
+  });
 
-      const summary = await runForecastThresholdAlerts();
+  it("skips users when profile forecast alerts are disabled", async () => {
+    const userId = "user-alerts-off";
 
-      expect(summary.sent).toBe(0);
-      expect(sendPushNotification).not.toHaveBeenCalled();
+    const supabase = buildMockSupabase({
+      profiles: {
+        data: [
+          {
+            id: userId,
+            home_beach_id: "beach-alerts-off",
+            notif_push_enabled: true,
+            notif_forecast_alerts: false,
+            is_mock: false,
+            timezone: null,
+          },
+        ],
+        error: null,
+      },
     });
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
 
-    it("increments favoriteBeachesProcessed summary counter", async () => {
-      const userId = "user-counter";
-      const favBeachId = "beach-counter";
+    const summary = await runForecastThresholdAlerts();
 
-      const supabase = buildMockSupabase({
-        profiles: { data: [], error: null },
-        favorite_beaches: {
-          data: [
-            {
-              user_id: userId,
-              beach_id: favBeachId,
-              alerts_enabled: true,
-              profiles: {
-                id: userId,
-                notif_push_enabled: true,
-                notif_forecast_alerts: true,
-                is_mock: false,
-                timezone: null,
-              },
-            },
-          ],
-          error: null,
-        },
-        beaches: {
-          data: [{ id: favBeachId, slug: "counter-beach", name: "Counter Beach" }],
-          error: null,
-        },
-        user_surf_preferences: { data: [], error: null },
-        forecast_alert_deliveries: { data: [], error: null },
-      });
-      (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
-      (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
-        forecasts: [makeGoodForecast(2)],
-        metadata: { stale: false, missing: false },
-      });
-
-      const summary = await runForecastThresholdAlerts();
-
-      expect((summary as any).favoriteBeachesProcessed).toBe(1);
-    });
+    expect(summary.sent).toBe(0);
+    expect(summary.skipped.alertsDisabled).toBe(1);
+    expect(enqueueNotification).not.toHaveBeenCalled();
   });
 });

@@ -85,7 +85,11 @@ export default defineConfig({
     // Guest-only: runs unauthenticated checks with cleared auth state
     {
       name: 'guest',
-      testMatch: ['e2e/guest-*.spec.ts', 'e2e/email-core-loop/**/*.spec.ts'],
+      testMatch: [
+        'e2e/guest-*.spec.ts',
+        'e2e/invite-flow.spec.ts',
+        'e2e/email-core-loop/**/*.spec.ts',
+      ],
       use: {
         ...devices['Desktop Chrome'],
         // Clear any auth state for truly unauthenticated tests

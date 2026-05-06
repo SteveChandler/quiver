@@ -18,6 +18,7 @@ import { PlanningChecklist } from "@/components/city/planning-checklist";
 import { FAQSection } from "@/components/seo/faq-schema";
 import { ItemListSchema } from "@/components/seo/item-list-schema";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
+import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
 import { SiblingCitiesSection } from "@/components/shared/sibling-cities-section";
 import { generateCityRichContent } from "@/lib/seo/city-content-generator";
 import { getUsStateDisplayNameFromSlug } from "@/lib/utils/beach-url-utils";
@@ -96,6 +97,7 @@ export function EditorialLayout({
         url={`${SITE_ORIGIN}${buildCanonicalCityPath(params)}`}
       />
 
+      <div className="seo-paper-page">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Breadcrumb */}
         <nav
@@ -174,6 +176,30 @@ export function EditorialLayout({
           />
         )}
 
+        <SeoFunnelNextSteps
+          variant="paper"
+          title={`Plan the next ${displayCityName} session`}
+          description="Use the city guide for spot choice, then move into timing, water temperature, or tide context."
+          steps={[
+            {
+              label: `Find the best surf window`,
+              href: bestTimeToSurfUrl ?? `/best-time-to-surf/${params.city}`,
+              description: "Compare the local seasonality before choosing a day.",
+            },
+            {
+              label: `Check ${displayCityName} water temperature`,
+              href: `/water-temp/${params.city}`,
+              description: "Dial in gear before you head to the beach.",
+            },
+            {
+              label: `Watch the tide window`,
+              href: `/tide/${params.city}`,
+              description: "See when tide timing helps the main breaks.",
+            },
+          ]}
+          className="mb-8"
+        />
+
         {/* Full-width Interactive Map with Beach List */}
         <CityMapView
           spots={surfSpots}
@@ -236,6 +262,7 @@ export function EditorialLayout({
             cities={siblingCities}
           />
         )}
+      </div>
       </div>
     </>
   );

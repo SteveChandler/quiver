@@ -1,17 +1,16 @@
 /**
  * @jest-environment node
  *
- * Tests for the invite-token bridge added to `app/auth/callback/route.ts`.
- * After exchangeCodeForSession succeeds, the route must:
- *   1. Read the `invite_token` cookie set at sign-up time.
- *   2. Verify the JWT, insert a `user_follows` row (idempotent on 23505).
- *   3. Delete the cookie from the response.
- *   4. Append `?invited=1` to the final redirect.
+ * Tests for the invite-token handoff in `app/auth/callback/route.ts`.
+ * The callback exchanges the auth code and preserves the `invite_token`
+ * cookie. `/invite/consume` is the canonical web post-auth consumer.
  */
 
 import { NextRequest } from "next/server";
-import { createMockSupabaseClient, createMockUser } from "@/test-utils/api-test-helpers";
-import { signEmailToken } from "@/lib/utils/email-token";
+import {
+  createMockSupabaseClient,
+  createMockUser,
+} from "@/test-utils/api-test-helpers";
 
 const mockSupabaseClient = createMockSupabaseClient();
 
@@ -22,7 +21,6 @@ jest.mock("@supabase/ssr", () => ({
 import { GET } from "@/app/auth/callback/route";
 
 const ORIGIN = "http://localhost:3000";
-const TEST_SECRET = "test-secret-key-that-is-at-least-32-characters-long";
 
 function buildCallbackRequest(
   searchParams: Record<string, string>,
@@ -32,7 +30,7 @@ function buildCallbackRequest(
   const headers: Record<string, string> = {};
   if (cookies) {
     headers.cookie = Object.entries(cookies)
-      .map(([k, v]) => `${k}=${v}`)
+      .map(([key, value]) => `${key}=${value}`)
       .join("; ");
   }
   return new NextRequest(`${ORIGIN}/auth/callback?${params.toString()}`, {
@@ -40,49 +38,32 @@ function buildCallbackRequest(
   });
 }
 
-interface CapturedInsert {
-  args: unknown[];
-}
-
-/**
- * Prime the mock Supabase client so the route's two table calls both resolve:
- * - `from('profiles').select().eq().maybeSingle()` → returns a completed profile
- * - `from('user_follows').insert({...})` → returns either null or an error code
- */
-function primeMocks({
-  profile = {
-    home_beach_id: "beach-1",
-    onboarding_completed_at: "2026-04-01T00:00:00Z",
-  },
-  insertError = null as { code: string } | null,
-}: {
-  profile?: { home_beach_id: string | null; onboarding_completed_at: string | null } | null;
-  insertError?: { code: string } | null;
-} = {}): { captures: CapturedInsert[] } {
-  const captures: CapturedInsert[] = [];
-  (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
+function primeProfileMock() {
+  const tables: string[] = [];
+  mockSupabaseClient.from.mockImplementation(((table: string) => {
+    tables.push(table);
     if (table === "profiles") {
       return {
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        maybeSingle: jest.fn().mockResolvedValue({ data: profile, error: null }),
-      };
-    }
-    if (table === "user_follows") {
-      return {
-        insert: jest.fn((...args: unknown[]) => {
-          captures.push({ args });
-          return Promise.resolve({ error: insertError });
+        maybeSingle: jest.fn().mockResolvedValue({
+          data: {
+            home_beach_id: "beach-1",
+            onboarding_completed_at: "2026-04-01T00:00:00Z",
+          },
+          error: null,
         }),
       };
     }
+
     return {
+      insert: jest.fn().mockResolvedValue({ error: null }),
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
       maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
     };
-  });
-  return { captures };
+  }) as any);
+  return tables;
 }
 
 function getRedirectLocation(response: Response): URL {
@@ -91,21 +72,15 @@ function getRedirectLocation(response: Response): URL {
   return new URL(location);
 }
 
-function getCookie(response: Response, name: string): string | null {
-  const setCookie = response.headers.get("set-cookie");
-  if (!setCookie) return null;
-  // Multiple Set-Cookie values may be joined by ", " in a combined header —
-  // in Next.js NextResponse they're usually separate, but split on common name=.
-  const match = setCookie.match(new RegExp(`${name}=([^;,]*)`));
-  return match ? match[1] : null;
+function getSetCookie(response: Response): string {
+  return response.headers.get("set-cookie") || "";
 }
 
-describe("/auth/callback — invite_token bridge", () => {
+describe("/auth/callback invite_token handoff", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
-    process.env.EMAIL_TOKEN_SECRET = TEST_SECRET;
 
     (mockSupabaseClient.auth as Record<string, unknown>).exchangeCodeForSession = jest
       .fn()
@@ -116,112 +91,49 @@ describe("/auth/callback — invite_token bridge", () => {
     });
   });
 
-  afterEach(() => {
-    delete process.env.EMAIL_TOKEN_SECRET;
-  });
-
-  it("inserts user_follows row and appends ?invited=1 when invite_token cookie is valid", async () => {
-    const { captures } = primeMocks();
-
-    const token = await signEmailToken(
-      { user_id: "inviter-id", purpose: "invite" },
-      TEST_SECRET,
-    );
+  it("preserves invite_token when redirecting to /invite/consume", async () => {
+    const tables = primeProfileMock();
 
     const response = await GET(
-      buildCallbackRequest({ code: "abc", redirect: "/" }, { invite_token: token }),
+      buildCallbackRequest(
+        { code: "abc", redirect: "/invite/consume" },
+        { invite_token: "opaque-invite-token" },
+      ),
     );
 
     const url = getRedirectLocation(response);
-    expect(url.pathname).toBe("/");
-    expect(url.searchParams.get("invited")).toBe("1");
-
-    expect(captures).toHaveLength(1);
-    expect(captures[0].args[0]).toEqual({
-      follower_id: "new-user-id",
-      following_id: "inviter-id",
-    });
+    expect(url.pathname).toBe("/invite/consume");
+    expect(tables).not.toContain("user_follows");
+    expect(getSetCookie(response)).not.toMatch(/invite_token=/);
   });
 
-  it("clears the invite_token cookie after consumption", async () => {
-    primeMocks();
-
-    const token = await signEmailToken(
-      { user_id: "inviter-id", purpose: "invite" },
-      TEST_SECRET,
-    );
-
-    const response = await GET(
-      buildCallbackRequest({ code: "abc", redirect: "/" }, { invite_token: token }),
-    );
-
-    // NextResponse.cookies.delete sets a Max-Age=0 or past-date cookie.
-    const setCookie = response.headers.get("set-cookie") || "";
-    expect(setCookie).toMatch(/invite_token=/);
-    expect(setCookie.toLowerCase()).toMatch(/max-age=0|expires=thu, 01 jan 1970/);
-  });
-
-  it("does NOT insert when follower === inviter", async () => {
-    const { captures } = primeMocks();
-
-    const token = await signEmailToken(
-      { user_id: "new-user-id", purpose: "invite" },
-      TEST_SECRET,
-    );
-
-    const response = await GET(
-      buildCallbackRequest({ code: "abc", redirect: "/" }, { invite_token: token }),
-    );
-
-    expect(captures).toHaveLength(0);
-    const url = getRedirectLocation(response);
-    // Cookie still cleared, but no invited flag because no row was written.
-    expect(url.searchParams.get("invited")).toBeNull();
-  });
-
-  it("swallows 23505 unique-violation and still appends invited=1", async () => {
-    const { captures } = primeMocks({ insertError: { code: "23505" } });
-
-    const token = await signEmailToken(
-      { user_id: "inviter-id", purpose: "invite" },
-      TEST_SECRET,
-    );
-
-    const response = await GET(
-      buildCallbackRequest({ code: "abc", redirect: "/" }, { invite_token: token }),
-    );
-
-    expect(captures).toHaveLength(1);
-    const url = getRedirectLocation(response);
-    expect(url.pathname).toBe("/");
-    expect(url.searchParams.get("invited")).toBe("1");
-  });
-
-  it("ignores an invalid/expired invite_token and still completes callback", async () => {
-    const { captures } = primeMocks();
+  it("does not consume or delete invite_token on non-consume redirects", async () => {
+    const tables = primeProfileMock();
 
     const response = await GET(
       buildCallbackRequest(
         { code: "abc", redirect: "/" },
-        { invite_token: "not-a-valid-jwt" },
+        { invite_token: "opaque-invite-token" },
       ),
     );
 
-    expect(captures).toHaveLength(0);
     const url = getRedirectLocation(response);
     expect(url.pathname).toBe("/");
     expect(url.searchParams.get("invited")).toBeNull();
+    expect(tables).not.toContain("user_follows");
+    expect(getSetCookie(response)).not.toMatch(/invite_token=/);
   });
 
-  it("is a no-op when no invite_token cookie is present", async () => {
-    const { captures } = primeMocks();
+  it("continues to complete callback normally when no invite_token cookie is present", async () => {
+    const tables = primeProfileMock();
 
-    const response = await GET(buildCallbackRequest({ code: "abc", redirect: "/" }));
+    const response = await GET(
+      buildCallbackRequest({ code: "abc", redirect: "/profile" }),
+    );
 
-    expect(captures).toHaveLength(0);
     const url = getRedirectLocation(response);
-    expect(url.searchParams.get("invited")).toBeNull();
-    // No invite_token cookie should be set on the response.
-    expect(getCookie(response, "invite_token")).toBeNull();
+    expect(url.pathname).toBe("/profile");
+    expect(tables).not.toContain("user_follows");
+    expect(getSetCookie(response)).not.toMatch(/invite_token=/);
   });
 });

@@ -228,7 +228,7 @@ describe("MapContent", () => {
     render(<MapContent {...defaultProps} usingDefaultLocation={true} />);
 
     expect(
-      screen.getByText("Showing beaches near Ocean Beach, San Diego")
+      screen.getByText("Showing beaches near Mission Beach")
     ).toBeInTheDocument();
   });
 

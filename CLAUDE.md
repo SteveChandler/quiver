@@ -145,6 +145,19 @@ Before committing, identify test files that import or reference changed modules.
 - **`yarn lint` OOMs without `NODE_OPTIONS="--max-old-space-size=8192"`** — scope lint to your files with `npx eslint --max-warnings=0 <files>` instead
 - `.worktrees/` is not excluded from eslint — pre-existing lint errors there are not your problem
 
+### Self-Review, Verify, Commit Protocol
+
+When the user asks for implementation and authorizes committing when verification passes:
+
+1. Implement the smallest complete change that satisfies the request.
+2. Review your own final diff before staging. Look for logic bugs, regressions, missing tests, user-data risk, and unrelated churn.
+3. Run the blast-radius tests, scoped ESLint for touched files, and `yarn typecheck` with Node 22. Add targeted Playwright only when the change affects browser behavior or routing.
+4. Fix any issue found by review or tests, then rerun the failing check.
+5. Inspect `git status` and `git diff --cached`; stage only files owned by the task.
+6. If all required verification passes, commit with a scoped Conventional Commit subject. If a required check fails because of a pre-existing or environment blocker, stop and report it instead of committing.
+
+If `CHANGELOG.md` is part of the work, bundle or amend it into the code commit. Do not leave a CHANGELOG-only commit at `HEAD` on a Vercel branch.
+
 ### E2E Required Patterns
 
 - `setupErrorDetection(page)` in `beforeEach`, `assertNoErrors(page, errorCapture)` in `afterEach`

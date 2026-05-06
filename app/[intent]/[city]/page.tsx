@@ -43,6 +43,7 @@ import {
 } from "@/components/intent";
 import { CTASection } from "@/components/landing-page/cta-section";
 import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
+import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
 import type { AlertPageContext } from "@/lib/alerts/preset-context-map";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { IntentKey } from "@/lib/constants/intent-definitions";
@@ -372,7 +373,7 @@ export default async function IntentPage(props: IntentPageParams) {
     // Render state-level intent page (with empty state if no beaches)
     const statePageUrl = `${baseUrl.replace(/\/$/, "")}/${params.intent}/${params.city}`;
     return (
-      <div className="bg-gradient-to-b from-white via-gray-50/30 to-white">
+      <div className="seo-paper-page">
         {/* Breadcrumb: Home → State → Intent (3 levels) */}
         <BreadcrumbStructuredData
           items={[
@@ -443,6 +444,30 @@ export default async function IntentPage(props: IntentPageParams) {
                   )}
                 </section>
               )}
+
+              <SeoFunnelNextSteps
+                variant="paper"
+                title={`Keep planning ${stateName}`}
+                description={`Use this ${intentDefinition.label.toLowerCase()} page as the filter, then narrow down by city, map, or conditions guide.`}
+                steps={[
+                  {
+                    label: `Browse ${stateName} surf cities`,
+                    href: `/beaches/usa/${params.city}`,
+                    description: "See every indexed surf city and break in the state.",
+                  },
+                  {
+                    label: `Open the ${stateName} surf map`,
+                    href: `/map?search=${encodeURIComponent(stateName)}`,
+                    description: "Scan the map when you want nearby options quickly.",
+                  },
+                  {
+                    label: `Check water temperature guides`,
+                    href: `/water-temp/${params.city}`,
+                    description: "Compare gear and water-temperature context statewide.",
+                  },
+                ]}
+                className="mt-8"
+              />
 
               {/* Cross-intent navigation */}
               <IntentGuidesGrid
@@ -919,7 +944,7 @@ export default async function IntentPage(props: IntentPageParams) {
       return notFound();
     }
     return (
-      <div className="bg-gradient-to-b from-white via-gray-50/30 to-white">
+      <div className="seo-paper-page">
         <div className="container mx-auto px-4 py-8 max-w-7xl">
           <header className="mb-8">
             <h1 className="text-3xl font-bold text-gray-800">
@@ -1000,7 +1025,7 @@ export default async function IntentPage(props: IntentPageParams) {
   const pageUrl = `${safeBaseUrl}/${params.intent}/${params.city}`;
 
   return (
-    <div className="bg-gradient-to-b from-white via-gray-50/30 to-white">
+    <div className="seo-paper-page">
       {/* Breadcrumb: Home → State → City → Intent (4 levels) */}
       <BreadcrumbStructuredData
         items={[
@@ -1090,6 +1115,29 @@ export default async function IntentPage(props: IntentPageParams) {
         />
 
         <div className="space-y-12">
+          <SeoFunnelNextSteps
+            variant="paper"
+            title={`Keep planning ${cityMetadata.cityName}`}
+            description={`Use this ${definition.label.toLowerCase()} guide as the filter, then jump to live spots, tides, or the seasonal window.`}
+            steps={[
+              {
+                label: `Check live ${cityMetadata.cityName} spots`,
+                href: `/beaches/usa/${stateSlugLower}/${params.city}`,
+                description: "See the local breaks and current surf conditions.",
+              },
+              {
+                label: `Find the best surf window`,
+                href: bestTimeToSurfUrl ?? `/best-time-to-surf/${params.city}`,
+                description: "Compare today's call with the seasonal pattern.",
+              },
+              {
+                label: `Watch the tide window`,
+                href: `/tide/${params.city}`,
+                description: "Use tide timing before you commit to a spot.",
+              },
+            ]}
+          />
+
           {/* Map & List Section */}
           <section>
             <CityMapView

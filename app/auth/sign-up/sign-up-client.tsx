@@ -4,8 +4,8 @@ import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useRouter, useSearchParams } from "next/navigation";
 
 /**
- * Client half of the sign-up page. The parent server component handles the
- * `invite_token` cookie side-effect before this renders.
+ * Client half of the sign-up page. Invite token cookie writes are handled by
+ * /invite/start before this route renders.
  */
 export default function SignUpClient() {
   const router = useRouter();

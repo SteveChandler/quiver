@@ -134,6 +134,14 @@
       "schedule": "0 */6 * * *"
     },
     {
+      "path": "/api/cron/resolve-cam-thumbnails",
+      "schedule": "0 4 * * 1-6"
+    },
+    {
+      "path": "/api/cron/resolve-cam-thumbnails?force=true",
+      "schedule": "30 4 * * 0"
+    },
+    {
       "path": "/api/cron/condition-alert-evaluate",
       "schedule": "0 9 * * *"
     },
@@ -147,7 +155,7 @@
     },
     {
       "path": "/api/cron/notifications-deliver",
-      "schedule": "0 * * * *"
+      "schedule": "* * * * *"
     },
     {
       "path": "/api/cron/cleanup-pending-alert-captures",
