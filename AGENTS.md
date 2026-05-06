@@ -53,6 +53,10 @@ Test OAuth signup flows (Apple, Google) on **real iOS Safari** — cookie handli
 
 `yarn test` runs Playwright (E2E); `yarn test:unit` runs Jest. Don't confuse them. Update tests in the same commit as behavior changes. Search `__tests__/` and `e2e/` for imports/routes touched by your change, then run the smallest relevant subset.
 
+GitHub Actions minutes are exhausted and repo Actions are disabled as of 2026-05-06. Treat remote CI as unavailable. Before pushing to `main`, run the local gate and report exact commands/results. Do not push if local checks fail, and do not re-enable or rerun GitHub Actions unless the user explicitly asks.
+
+Local push gate: `source ~/.nvm/nvm.sh && nvm use 22`, then `yarn typecheck` and `yarn test:unit --bail=0`. Add scoped ESLint for touched files, targeted Playwright, and `VERCEL_ENV=preview yarn build` when the change affects browser behavior, routing, Next config, env-gated build behavior, or release readiness.
+
 ### E2E required patterns
 - `setupErrorDetection(page)` in `beforeEach`, `assertNoErrors(page, errorCapture)` in `afterEach`
 - Proper HTTP status codes (400/401/403/404/405). 500 is always a bug.
