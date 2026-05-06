@@ -210,7 +210,7 @@
     "node-fetch": "^3.3.2",
     "patch-package": "^8.0.1",
     "playwright": "^1.54.2",
-    "postcss": "^8",
+    "postcss": "^8.5.14",
     "postcss-load-config": "^6.0.1",
     "proj4": "^2.20.2",
     "string-width": "npm:string-width@4.2.3",
@@ -250,6 +250,9 @@
     "yaml": "^2.8.0",
     "brace-expansion": "^1.1.13",
     "protobufjs": "^7.5.5",
-    "protocol-buffers-schema": "^3.6.1"
+    "protocol-buffers-schema": "^3.6.1",
+    "postcss": "^8.5.14",
+    "ip-address": "^10.2.0",
+    "firebase-admin/uuid": "^11.1.1"
   }
 }
