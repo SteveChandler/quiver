@@ -294,6 +294,12 @@ export function scoreBeachWithEngine(
 export const WAVE_SIZE_SCORING_CONFIG = {
   /** Points deducted per foot over skill ceiling */
   skillCeilingPenaltyPerFoot: 8,
+  /** Points deducted per foot below a user's ideal lower bound */
+  skillFloorPenaltyPerFoot: 6,
+  /** Extra points deducted per foot below a user's acceptable lower bound */
+  skillFloorBelowAcceptableExtraPenaltyPerFoot: 8,
+  /** Cap for small-wave floor penalties so clean small days can remain possible */
+  skillFloorPenaltyCap: 18,
   /** Bonus points for waves in skill ideal range */
   skillIdealBonus: 3,
   /** Warning thresholds */
@@ -357,6 +363,55 @@ export function checkSkillCeiling(
       : overSkill >= WAVE_SIZE_SCORING_CONFIG.warnings.significantThreshold
         ? 'Waves significantly exceed your skill level'
         : 'Waves may exceed your skill level';
+
+  return { penalty, warning };
+}
+
+/**
+ * Result of checking wave height against the user's lower-end preference.
+ */
+export interface SkillFloorResult {
+  /** Penalty points (0 if wave height is within/above the user's ideal floor) */
+  penalty: number;
+  /** Warning string if conditions are smaller than the user's usual range */
+  warning: string | null;
+}
+
+/**
+ * Penalize waves that are useful for lower-skill practice but below the
+ * viewer's normal range. This is intentionally softer than the ceiling gate:
+ * small waves are not unsafe, but they should not rank as equally "worth it"
+ * for an advanced surfer.
+ */
+export function checkSkillFloor(
+  waveHeight: number,
+  skillLevel: SkillLevel
+): SkillFloorResult {
+  const skillRanges = SKILL_WAVE_RANGES[skillLevel];
+
+  if (waveHeight >= skillRanges.ideal.min) {
+    return { penalty: 0, warning: null };
+  }
+
+  const belowIdeal = Math.max(0, skillRanges.ideal.min - waveHeight);
+  const belowAcceptable = Math.max(0, skillRanges.acceptable.min - waveHeight);
+  const rawPenalty =
+    belowIdeal * WAVE_SIZE_SCORING_CONFIG.skillFloorPenaltyPerFoot +
+    belowAcceptable *
+      WAVE_SIZE_SCORING_CONFIG.skillFloorBelowAcceptableExtraPenaltyPerFoot;
+  const penalty = Math.min(
+    WAVE_SIZE_SCORING_CONFIG.skillFloorPenaltyCap,
+    Math.round(rawPenalty)
+  );
+
+  if (penalty <= 0) {
+    return { penalty: 0, warning: null };
+  }
+
+  const warning =
+    waveHeight < skillRanges.acceptable.min
+      ? 'Waves are below your usual range'
+      : 'Waves are smaller than your ideal range';
 
   return { penalty, warning };
 }
@@ -502,11 +557,26 @@ function applySkillBasedAdjustment(
     };
   }
 
-  // 2. Condition-aware skill-based scoring
+  // 2. Preference floor - small practice waves should not score the same for
+  // experienced surfers as they do for beginners.
+  const { penalty: floorPenalty, warning: floorWarning } = checkSkillFloor(
+    waveHeight,
+    skillLevel
+  );
+  const floorAdjusted =
+    floorPenalty > 0
+      ? {
+          ...composite,
+          total: Math.max(0, composite.total - floorPenalty),
+          warnings: floorWarning ? [...composite.warnings, floorWarning] : composite.warnings,
+        }
+      : composite;
+
+  // 3. Condition-aware skill-based scoring
   const { adjustment, reason, warning } = calculateBeachSkillMatchBonus(
     waveHeight, beachSkillLevel ?? null, skillLevel
   );
-  return applyScoreAdjustment(composite, adjustment, reason, warning);
+  return applyScoreAdjustment(floorAdjusted, adjustment, reason, warning);
 }
 
 // =============================================================================

@@ -24,25 +24,7 @@ type ProfileRow = Pick<
   Database["public"]["Tables"]["profiles"]["Row"],
   "id" | "home_beach_id" | "notif_forecast_alerts" | "notif_email_enabled" | "notif_push_enabled"
 >;
-type BeachRow = Pick<
-  Database["public"]["Tables"]["beaches"]["Row"],
-  | "id"
-  | "name"
-  | "slug"
-  | "lat"
-  | "lon"
-  | "timezone"
-  | "wind_offshore_deg"
-  | "wind_offshore_tol_deg"
-  | "aspect_deg"
-  | "preferred_tide_ft_min"
-  | "preferred_tide_ft_max"
-  | "preferred_tide_direction"
-  | "swell_window_center_deg"
-  | "swell_window_halfwidth_deg"
-  | "break_type"
-  | "skill_level"
->;
+type BeachRow = Beach;
 type EntitlementRow = Pick<
   Database["public"]["Tables"]["user_entitlements"]["Row"],
   "user_id" | "is_pro" | "is_trialing" | "billing_issue" | "expires_at"
@@ -96,9 +78,7 @@ export async function GET(request: Request) {
             .in("id", userIds),
           supabase
             .from("beaches")
-            .select(
-              "id, name, slug, lat, lon, timezone, wind_offshore_deg, wind_offshore_tol_deg, aspect_deg, preferred_tide_ft_min, preferred_tide_ft_max, preferred_tide_direction, swell_window_center_deg, swell_window_halfwidth_deg, break_type, skill_level"
-            )
+            .select("*")
             .in("id", beachIds),
           supabase
             .from("user_entitlements")
@@ -185,9 +165,7 @@ export async function GET(request: Request) {
 
               const { data: forecasts } = await supabase
                 .from("enhanced_forecasts")
-                .select(
-                  "forecast_at, wave_height, wave_period, wave_direction, swell_1_height, swell_1_period, swell_1_direction, wind_speed, wind_direction_deg, tide_height, tide_status"
-                )
+                .select("*")
                 .eq("beach_id", rule.beach_id)
                 .gte("forecast_at", todayStart)
                 .lt("forecast_at", todayEnd)

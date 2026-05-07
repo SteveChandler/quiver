@@ -20,6 +20,17 @@ import { WaveParticles } from '../wave-particles';
 import type { Profile } from '@/types/database';
 import type { ClientBeachDailyIntel } from '@/lib/data/client';
 
+function getRuntimeIanaTimezone(): string | null {
+  try {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!timezone || timezone.length > 100) return null;
+    new Intl.DateTimeFormat('en-US', { timeZone: timezone }).format(new Date(0));
+    return timezone;
+  } catch {
+    return null;
+  }
+}
+
 // Animated score counter — displays a spring-animated number with scale pop on finish
 function AnimatedScore({ target }: { target: number }) {
   const motionValue = useMotionValue(0);
@@ -94,7 +105,11 @@ export function PayoffStep() {
   const attemptSave = async (): Promise<boolean> => {
     try {
       const referralCode = getReferralCodeFromCookie() ?? undefined;
-      const result = await saveOnboardingData({ ...data, referralCode });
+      const result = await saveOnboardingData({
+        ...data,
+        referralCode,
+        timezone: getRuntimeIanaTimezone(),
+      });
 
       if (!result.success) {
         track("onboarding_step", {

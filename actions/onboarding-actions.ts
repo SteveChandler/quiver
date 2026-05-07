@@ -1,6 +1,19 @@
 'use server';
 
 import { withAuthenticatedAction } from '@/lib/server-action-utils';
+import type { SupabaseServerClient } from '@/types/supabase';
+
+function normalizeIanaTimezone(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const timezone = value.trim();
+  if (timezone.length === 0 || timezone.length > 100) return null;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(new Date(0));
+    return timezone;
+  } catch {
+    return null;
+  }
+}
 
 interface OnboardingData {
   fullName?: string;
@@ -13,6 +26,30 @@ interface OnboardingData {
   pushEnabled?: boolean;
   emailEnabled?: boolean;
   referralCode?: string;
+  timezone?: string | null;
+}
+
+async function resolveOnboardingTimezone(
+  supabase: SupabaseServerClient,
+  data: OnboardingData
+): Promise<string | null> {
+  const clientTimezone = normalizeIanaTimezone(data.timezone);
+  if (clientTimezone) return clientTimezone;
+
+  if (!data.homeBeachId) return null;
+
+  const { data: beach, error } = await supabase
+    .from('beaches')
+    .select('timezone')
+    .eq('id', data.homeBeachId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[onboarding] Failed to resolve home beach timezone:', error);
+    return null;
+  }
+
+  return normalizeIanaTimezone(beach?.timezone);
 }
 
 /**
@@ -204,6 +241,9 @@ export async function saveOnboardingData(data: OnboardingData) {
         home_beach_id: data.homeBeachId,
         onboarding_completed_at: new Date().toISOString(),
       };
+
+      const resolvedTimezone = await resolveOnboardingTimezone(supabase, data);
+      if (resolvedTimezone) profileUpdate.timezone = resolvedTimezone;
 
       // Only override notification prefs if explicitly provided
       if (data.pushEnabled !== undefined) profileUpdate.notif_push_enabled = data.pushEnabled;

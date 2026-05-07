@@ -29,6 +29,13 @@ const validPayload: SimilarityMatchPayload = {
   window_local: "Sat 8am",
   wave_height_ft: 4.5,
   wave_period_s: 11,
+  wind_speed_mph: 8,
+  wind_direction: "NW",
+  tide_height_ft: 2.1,
+  tide_status: "rising",
+  confidence: 0.86,
+  condition_summary: "4.5ft @ 11s, NW wind 8mph, rising tide 2.1ft",
+  board_tip: "Bring the step-up",
   queue_items: [
     {
       queue_id: "00000000-0000-0000-0000-0000000000c1",
@@ -112,25 +119,31 @@ describe("similarityMatchSchema — payload validation", () => {
     ).toThrow();
   });
 
-  // Plan V4 fix F2: window_local + wave_height_ft + wave_period_s are required.
-  // Missing any of them should fail Zod parsing — the deliver cron's
-  // invalid_payload branch then marks the queue row sent permanently.
-  it("rejects payload missing window_local", () => {
+  it("accepts a legacy payload missing optional condition context", () => {
     const { window_local: _wl, ...incomplete } = validPayload;
     void _wl;
-    expect(() => similarityMatchSchema.parse(incomplete)).toThrow();
-  });
-
-  it("rejects payload missing wave_height_ft", () => {
-    const { wave_height_ft: _wh, ...incomplete } = validPayload;
+    const {
+      wave_height_ft: _wh,
+      wave_period_s: _wp,
+      wind_speed_mph: _ws,
+      wind_direction: _wd,
+      tide_height_ft: _th,
+      tide_status: _ts,
+      confidence: _c,
+      condition_summary: _cs,
+      board_tip: _bt,
+      ...legacy
+    } = incomplete;
     void _wh;
-    expect(() => similarityMatchSchema.parse(incomplete)).toThrow();
-  });
-
-  it("rejects payload missing wave_period_s", () => {
-    const { wave_period_s: _wp, ...incomplete } = validPayload;
     void _wp;
-    expect(() => similarityMatchSchema.parse(incomplete)).toThrow();
+    void _ws;
+    void _wd;
+    void _th;
+    void _ts;
+    void _c;
+    void _cs;
+    void _bt;
+    expect(() => similarityMatchSchema.parse(legacy)).not.toThrow();
   });
 
   it("rejects payload with empty beach_slug (producer-side guard backstop)", () => {
@@ -139,7 +152,7 @@ describe("similarityMatchSchema — payload validation", () => {
     ).toThrow();
   });
 
-  it("rejects payload with NaN wave_height_ft (legacy queue-row signal)", () => {
+  it("rejects payload with NaN wave_height_ft when present", () => {
     expect(() =>
       similarityMatchSchema.parse({ ...validPayload, wave_height_ft: NaN })
     ).toThrow();
@@ -147,11 +160,11 @@ describe("similarityMatchSchema — payload validation", () => {
 });
 
 describe("NOTIFICATION_REGISTRY.similarity_match — buildPushPayload", () => {
-  it("composes body from extended fields: <height>ft @ <period>s · <window_local>", () => {
+  it("composes a short body from waves, window, and concrete context", () => {
     const out =
       NOTIFICATION_REGISTRY.similarity_match.buildPushPayload!(validPayload);
     expect(out.title).toBe("EPIC match at Ocean Beach SF");
-    expect(out.body).toBe("4.5ft @ 11s · Sat 8am");
+    expect(out.body).toBe("4.5ft @ 11s · Sat 8am · NW wind 8mph · rising tide");
   });
 
   it("rounds wave_height_ft to 1 decimal and wave_period_s to whole seconds", () => {
@@ -161,7 +174,38 @@ describe("NOTIFICATION_REGISTRY.similarity_match — buildPushPayload", () => {
       wave_period_s: 12.6,
       window_local: "Today 7am",
     });
-    expect(out.body).toBe("3.2ft @ 13s · Today 7am");
+    expect(out.body).toContain("3.2ft @ 13s · Today 7am");
+  });
+
+  it("falls back to legacy reason copy when wave context is absent", () => {
+    const {
+      window_local: _wl,
+      wave_height_ft: _wh,
+      wave_period_s: _wp,
+      wind_speed_mph: _ws,
+      wind_direction: _wd,
+      tide_height_ft: _th,
+      tide_status: _ts,
+      confidence: _c,
+      condition_summary: _cs,
+      board_tip: _bt,
+      ...legacy
+    } = validPayload;
+    void _wl;
+    void _wh;
+    void _wp;
+    void _ws;
+    void _wd;
+    void _th;
+    void _ts;
+    void _c;
+    void _cs;
+    void _bt;
+
+    const out = NOTIFICATION_REGISTRY.similarity_match.buildPushPayload!(
+      legacy
+    );
+    expect(out.body).toBe("Conditions match your top sessions");
   });
 
   it("omits leading whitespace when label is missing", () => {

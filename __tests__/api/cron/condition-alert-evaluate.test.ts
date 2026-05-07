@@ -316,6 +316,27 @@ beforeEach(() => {
     end: "2026-04-27T00:00:00.000Z",
   });
   mockResolveEntitlement.mockReturnValue("free");
+  mockSelectBestWindow.mockImplementation(({ forecasts }: any) => {
+    const forecast = forecasts[0];
+    return {
+      start: new Date("2026-04-26T16:00:00Z"),
+      end: new Date("2026-04-26T18:00:00Z"),
+      tide: forecast?.tide_status ?? "Unknown",
+      wind: forecast?.wind_speed ?? "Unknown",
+      waveHeight: forecast?.wave_height ?? "Unknown",
+      wavePeriod: forecast?.wave_period ?? "Unknown",
+      dataSource: forecast?.data_source ?? "TEST",
+      confidence: forecast?.confidence_score ?? 80,
+      score: 90,
+      peakTime: new Date("2026-04-26T17:00:00Z"),
+      sourceForecast: forecast,
+    };
+  });
+  mockComputeSurfCall.mockImplementation((window: any) => ({
+    bestWindowStart: window?.start?.toISOString() ?? null,
+    bestWindowEnd: window?.end?.toISOString() ?? null,
+    peakTime: window?.peakTime?.toISOString() ?? null,
+  }));
 
   // Reset the mockSupabase.from implementation so per-test seeds are isolated.
   mockSupabase.from.mockImplementation(mockFrom);

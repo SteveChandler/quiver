@@ -21,11 +21,7 @@ const mockFetch = jest.fn(() =>
 );
 
 function setPathname(pathname: string) {
-  Object.defineProperty(window, "location", {
-    value: { ...window.location, pathname },
-    configurable: true,
-    writable: true,
-  });
+  window.history.pushState({}, "", pathname);
 }
 
 beforeEach(() => {
@@ -58,7 +54,6 @@ describe("trackSignupCtaView", () => {
     let freshTrackView!: typeof trackSignupCtaView;
 
     jest.isolateModules(() => {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       freshTrackView = require("@/lib/analytics/signup-conversion-tracking").trackSignupCtaView;
     });
 
@@ -301,6 +296,67 @@ describe("sessionId", () => {
     const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
     const body = JSON.parse(callArgs[1].body as string);
     expect(body.sessionId).toBe("custom-visitor-abc");
+  });
+});
+
+// /api/events route handler reads body.beachId only and ignores metadata.beach_id
+// (app/api/events/route.ts:399,448,500). Caused 1,512 + 6 historical orphan rows
+// where the column was NULL despite metadata carrying a valid beach UUID.
+describe("beachId lift from params.beach_id", () => {
+  it("trackSignupCtaClick lifts beach_id to top-level beachId field", () => {
+    trackSignupCtaClick({
+      source: "personalized-forecast-teaser",
+      beach_id: "30e68b00-c27d-4d22-ba57-2d92156964c6",
+    });
+
+    const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
+    const body = JSON.parse(callArgs[1].body as string);
+    expect(body.beachId).toBe("30e68b00-c27d-4d22-ba57-2d92156964c6");
+    // Preserve original payload — downstream consumers may already read metadata.beach_id
+    expect(body.metadata.beach_id).toBe("30e68b00-c27d-4d22-ba57-2d92156964c6");
+  });
+
+  it("trackSignupCtaView lifts beach_id to top-level beachId field", () => {
+    let freshTrackView!: typeof trackSignupCtaView;
+    jest.isolateModules(() => {
+      freshTrackView = require("@/lib/analytics/signup-conversion-tracking").trackSignupCtaView;
+    });
+
+    freshTrackView({
+      source: "beach-hero-compact",
+      beach_id: "d291411d-d331-4bf1-ad1a-302da3c69de0",
+    });
+    jest.runOnlyPendingTimers();
+
+    const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
+    const body = JSON.parse(callArgs[1].body as string);
+    expect(body.beachId).toBe("d291411d-d331-4bf1-ad1a-302da3c69de0");
+  });
+
+  it("omits beachId when params has no beach_id (landing page CTA)", () => {
+    trackSignupCtaClick({ source: "sticky-bar" });
+
+    const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
+    const body = JSON.parse(callArgs[1].body as string);
+    expect(body.beachId).toBeUndefined();
+  });
+
+  it("omits beachId for empty-string beach_id (defensive against bad callers)", () => {
+    trackSignupCtaClick({ source: "test", beach_id: "" });
+
+    const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
+    const body = JSON.parse(callArgs[1].body as string);
+    expect(body.beachId).toBeUndefined();
+  });
+
+  it("omits beachId for non-string beach_id (defensive against bad callers)", () => {
+    // params is typed as Record<string, any>, so a number passes type-check.
+    // We still want runtime defense — the route handler expects a UUID string.
+    trackSignupCtaClick({ source: "test", beach_id: 12345 });
+
+    const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
+    const body = JSON.parse(callArgs[1].body as string);
+    expect(body.beachId).toBeUndefined();
   });
 });
 

@@ -33,6 +33,9 @@ jest.mock("@/lib/api-utils", () => ({
 // Mock Supabase client — shared by bearer and cookie auth paths in withAuth
 const mockUpsert = jest.fn();
 const mockDelete = jest.fn();
+const mockProfileUpdate = jest.fn();
+const mockProfileEq = jest.fn();
+const mockProfileIs = jest.fn();
 const mockSupabase = {
   auth: {
     getUser: jest.fn(),
@@ -42,6 +45,11 @@ const mockSupabase = {
       return {
         upsert: mockUpsert,
         delete: mockDelete,
+      };
+    }
+    if (table === "profiles") {
+      return {
+        update: mockProfileUpdate,
       };
     }
     return {};
@@ -58,6 +66,9 @@ jest.mock("@/lib/supabase/bearer-client", () => ({
 describe("Device Token API", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockProfileIs.mockResolvedValue({ error: null });
+    mockProfileEq.mockReturnValue({ is: mockProfileIs });
+    mockProfileUpdate.mockReturnValue({ eq: mockProfileEq });
   });
 
   describe("POST /api/devices/upsert", () => {
@@ -91,6 +102,64 @@ describe("Device Token API", () => {
         }),
         { onConflict: "user_id,device_token" }
       );
+    });
+
+    it("stores a valid IANA timezone and fills missing profile timezone", async () => {
+      const mockUser = { id: "user-123" };
+      (mockSupabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+      mockUpsert.mockResolvedValue({ error: null });
+
+      const request = new NextRequest("http://localhost:3000/api/devices/upsert", {
+        method: "POST",
+        body: JSON.stringify({
+          platform: "ios",
+          device_token: "test-token-123",
+          timezone: "America/New_York",
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          timezone: "America/New_York",
+        }),
+        { onConflict: "user_id,device_token" }
+      );
+      expect(mockProfileUpdate).toHaveBeenCalledWith({
+        timezone: "America/New_York",
+      });
+      expect(mockProfileEq).toHaveBeenCalledWith("id", "user-123");
+      expect(mockProfileIs).toHaveBeenCalledWith("timezone", null);
+    });
+
+    it("rejects invalid timezone strings before upserting the device", async () => {
+      const mockUser = { id: "user-123" };
+      (mockSupabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      const request = new NextRequest("http://localhost:3000/api/devices/upsert", {
+        method: "POST",
+        body: JSON.stringify({
+          platform: "ios",
+          device_token: "test-token-123",
+          timezone: "Mars/Olympus",
+        }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.success).toBe(false);
+      expect(mockUpsert).not.toHaveBeenCalled();
+      expect(mockProfileUpdate).not.toHaveBeenCalled();
     });
 
     it("should reject invalid platform", async () => {
@@ -281,7 +350,6 @@ describe("Device Token API", () => {
     });
   });
 });
-
 
 
 

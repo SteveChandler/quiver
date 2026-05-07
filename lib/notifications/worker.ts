@@ -85,7 +85,8 @@ import {
   dispatchPushMessages,
   type PushMessage,
 } from "@/lib/services/push-delivery";
-import { getLocalHour } from "@/lib/utils/timezone-utils";
+import { DEFAULT_TIMEZONE, getLocalHour } from "@/lib/utils/timezone-utils";
+import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
 import type { messaging as fbMessaging } from "firebase-admin";
 
 type ServiceClient = SupabaseClient<Database>;
@@ -132,6 +133,13 @@ function backoffFor(attemptCount: number): number {
   if (attemptCount <= 1) return 60_000;
   if (attemptCount === 2) return 5 * 60_000;
   return 30 * 60_000;
+}
+
+function earliestDate(dates: Date[]): Date | null {
+  if (dates.length === 0) return null;
+  return dates.reduce((earliest, date) =>
+    date.getTime() < earliest.getTime() ? date : earliest
+  );
 }
 
 interface ProfileRow {
@@ -208,6 +216,20 @@ export interface ProcessSummary {
 
 /** Per-channel decision rolled up at the end of one tick. */
 type ChannelOutcome = "sent" | "skipped" | "failed" | "pending";
+
+interface ChannelDecision {
+  status: NotificationDeliveryStatus;
+  providerResponse?: Json | null;
+  errorMessage?: string | null;
+  nextAttemptAt?: Date | null;
+}
+
+function channelDecision(
+  status: NotificationDeliveryStatus,
+  details: Omit<ChannelDecision, "status"> = {}
+): ChannelDecision {
+  return { status, ...details };
+}
 
 // ─── Public entrypoint ───────────────────────────────────────────────────────
 
@@ -413,6 +435,7 @@ async function processOne(
 
   const attemptsByChannel = groupAttemptsByChannel(priorAttempts);
   const newAttempts: NotificationDeliveryAttemptInsert[] = [];
+  const quietHoursRetryTimes: Date[] = [];
   const channelOutcomes = new Map<NotificationChannel, ChannelOutcome>();
 
   for (const channel of def.channels) {
@@ -434,7 +457,7 @@ async function processOne(
       continue;
     }
 
-    const status = await processChannel(
+    const decision = await processChannel(
       supabase,
       fcm,
       event,
@@ -444,14 +467,18 @@ async function processOne(
       channel,
       now
     );
+    const { status } = decision;
 
     newAttempts.push({
       notification_event_id: event.id,
       channel,
       status,
-      provider_response: null,
-      error_message: null,
+      provider_response: decision.providerResponse ?? null,
+      error_message: decision.errorMessage ?? null,
     });
+    if (status === "deferred_quiet_hours" && decision.nextAttemptAt) {
+      quietHoursRetryTimes.push(decision.nextAttemptAt);
+    }
     summary.by_status[status] = (summary.by_status[status] ?? 0) + 1;
 
     // Type-specific reconciliation hook (e.g. forecast_alert -> alert_delivery_attempts).
@@ -534,6 +561,7 @@ async function processOne(
       // healthy "user said quiet hours, we respect it" path.
       summary.retry_scheduled_count++;
     } else if (hasDeferredQuietHours) {
+      nextAttemptAt = earliestDate(quietHoursRetryTimes);
       summary.deferred_quiet_hours_count++;
     }
   }
@@ -627,35 +655,37 @@ async function processChannel(
   ctx: BuildCtx,
   channel: NotificationChannel,
   now: Date
-): Promise<NotificationDeliveryStatus> {
+): Promise<ChannelDecision> {
   if (
     def.suppressSelfNotify &&
     event.actor_user_id &&
     event.actor_user_id === event.recipient_user_id
   ) {
-    return "skipped_self";
+    return channelDecision("skipped_self");
   }
 
   const masterCol = def.prefs.master[channel];
   if (masterCol && profile[masterCol] === false) {
-    return "skipped_pref_master";
+    return channelDecision("skipped_pref_master");
   }
 
   const perTypeCol = def.prefs.perType[channel];
   if (perTypeCol && profile[perTypeCol] === false) {
-    return "skipped_pref_type";
+    return channelDecision("skipped_pref_type");
   }
 
   // Phase 5d: mode-based quiet hours. `ignore` and `bypass` skip the check
   // entirely. `defer` respects the window and returns deferred_quiet_hours
   // so the worker leaves the event pending for the next tick.
   if (channel === "push" && def.quietHours.mode === "defer") {
-    const tz = profile.timezone || "UTC";
+    const tz = resolveNotificationTimezone(profile.timezone);
     const localHour = getLocalHour(now, tz);
     const start = def.quietHours.windowStart ?? 22;
     const end = def.quietHours.windowEnd ?? 4;
     if (isInQuietWindow(localHour, start, end)) {
-      return "deferred_quiet_hours";
+      return channelDecision("deferred_quiet_hours", {
+        nextAttemptAt: getQuietWindowEnd(now, tz, localHour, start, end),
+      });
     }
   }
 
@@ -733,7 +763,7 @@ async function processChannel(
           attemptsErr
         );
       } else if (sentAttempts && sentAttempts.length > 0) {
-        return "skipped_cooldown";
+        return channelDecision("skipped_cooldown");
       }
     }
   }
@@ -742,10 +772,12 @@ async function processChannel(
     return dispatchPush(supabase, fcm, event, def, ctx);
   }
   if (channel === "in_app") {
-    return dispatchInApp(supabase, event, def, ctx);
+    return channelDecision(await dispatchInApp(supabase, event, def, ctx));
   }
   // 'email' not supported in v1 — registry has no entries that route here.
-  return "failed_internal";
+  return channelDecision("failed_internal", {
+    errorMessage: "Unsupported notification channel",
+  });
 }
 
 function isInQuietWindow(hour: number, start: number, end: number): boolean {
@@ -753,6 +785,54 @@ function isInQuietWindow(hour: number, start: number, end: number): boolean {
   if (start < end) return hour >= start && hour < end;
   // Window wraps midnight (e.g. 22→4 means 22,23,0,1,2,3 are quiet).
   return hour >= start || hour < end;
+}
+
+function resolveNotificationTimezone(timezone: string | null): string {
+  if (!timezone) return DEFAULT_TIMEZONE;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(new Date(0));
+    return timezone;
+  } catch {
+    return DEFAULT_TIMEZONE;
+  }
+}
+
+function getLocalDateStringForTimezone(date: Date, timezone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const year = parts.find((p) => p.type === "year")?.value;
+  const month = parts.find((p) => p.type === "month")?.value;
+  const day = parts.find((p) => p.type === "day")?.value;
+  if (!year || !month || !day) {
+    throw new Error(`Could not resolve local date for timezone ${timezone}`);
+  }
+  return `${year}-${month}-${day}`;
+}
+
+function addDaysToDateString(dateStr: string, days: number): string {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  return date.toISOString().slice(0, 10);
+}
+
+function getQuietWindowEnd(
+  now: Date,
+  timezone: string,
+  localHour: number,
+  start: number,
+  end: number
+): Date {
+  const localDate = getLocalDateStringForTimezone(now, timezone);
+  const targetDate =
+    start > end && localHour >= start
+      ? addDaysToDateString(localDate, 1)
+      : localDate;
+  const endHour = String(end).padStart(2, "0");
+  return localDateTimeToUTC(targetDate, `${endHour}:00:00`, timezone);
 }
 
 // ─── Push dispatch ───────────────────────────────────────────────────────────
@@ -763,11 +843,18 @@ async function dispatchPush(
   event: NotificationEventRow,
   def: NotificationTypeDef,
   ctx: BuildCtx
-): Promise<NotificationDeliveryStatus> {
-  if (!def.buildPushPayload) return "failed_internal";
+): Promise<ChannelDecision> {
+  if (!def.buildPushPayload) {
+    return channelDecision("failed_internal", {
+      errorMessage: "Notification type has no push payload builder",
+    });
+  }
 
   if (fcm === null) {
-    return "failed_provider";
+    return channelDecision("failed_provider", {
+      providerResponse: { reason: "firebase_not_configured" },
+      errorMessage: "Firebase not configured",
+    });
   }
 
   const { data: devices, error: devicesError } = await supabase
@@ -780,11 +867,13 @@ async function dispatchPush(
       `[notifications/worker] device lookup failed for ${event.recipient_user_id}:`,
       devicesError
     );
-    return "failed_internal";
+    return channelDecision("failed_internal", {
+      errorMessage: devicesError.message,
+    });
   }
   const deviceList = (devices ?? []) as DeviceRow[];
   if (deviceList.length === 0) {
-    return "skipped_no_device";
+    return channelDecision("skipped_no_device");
   }
 
   const payloadRecord = (event.payload ?? {}) as Record<string, unknown>;
@@ -805,16 +894,43 @@ async function dispatchPush(
       `[notifications/worker] push dispatch threw for event ${event.id}:`,
       err
     );
-    return "failed_provider";
+    const message = err instanceof Error ? err.message : String(err);
+    return channelDecision("failed_provider", {
+      providerResponse: { reason: "dispatch_exception" },
+      errorMessage: message,
+    });
   }
 
   if (result.invalidTokens.length > 0) {
     await supabase.from("user_devices").delete().in("device_token", result.invalidTokens);
   }
 
-  if (result.success > 0) return "sent";
-  if (result.failed > 0) return "failed_provider";
-  return "failed_internal";
+  const providerResponse = {
+    success: result.success,
+    failed: result.failed,
+    invalidTokens: result.invalidTokens,
+    errors: result.errors,
+  };
+  const errorMessage =
+    result.errors[0] ??
+    (result.failed > 0 ? "Push provider returned failed deliveries" : null);
+
+  if (result.success > 0) {
+    return channelDecision("sent", {
+      providerResponse,
+      errorMessage,
+    });
+  }
+  if (result.failed > 0) {
+    return channelDecision("failed_provider", {
+      providerResponse,
+      errorMessage,
+    });
+  }
+  return channelDecision("failed_internal", {
+    providerResponse,
+    errorMessage: "Push provider returned no sent or failed deliveries",
+  });
 }
 
 // ─── In-app dispatch ─────────────────────────────────────────────────────────

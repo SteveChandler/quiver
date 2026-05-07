@@ -84,7 +84,11 @@ async function dispatchFcmMessages(
 
   const response = await fcm.sendEach(firebaseMessages);
   const invalidTokens: string[] = [];
+  const errors: string[] = [];
   response.responses.forEach((resp, idx) => {
+    if (resp.error) {
+      errors.push(`${resp.error.code}: ${resp.error.message}`);
+    }
     if (resp.error && FCM_INVALID_TOKEN_ERROR_CODES.has(resp.error.code)) {
       invalidTokens.push(messages[idx].to);
     }
@@ -94,7 +98,7 @@ async function dispatchFcmMessages(
     success: response.successCount,
     failed: response.failureCount,
     invalidTokens,
-    errors: [],
+    errors,
   };
 }
 

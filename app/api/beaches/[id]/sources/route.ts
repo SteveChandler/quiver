@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
-import { buildCamEmbed } from "@/lib/media/cam-embed";
+import { buildCamEmbed, getViewableUrl } from "@/lib/media/cam-embed";
 
 // GET /api/beaches/[id]/sources - fetch external source mappings (e.g., camera_url)
 export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("beach_sources")
-      .select("beach_id, ndbc_buoy_ids, forecast_source_id, camera_url")
+      .select("beach_id, ndbc_buoy_ids, forecast_source_id, camera_url, thumbnail_url")
       .eq("beach_id", params.id)
       .maybeSingle();
 
@@ -20,6 +20,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
 
     // Fallback: if beach_sources missing or camera_url empty, check beaches table for live_cam_url variants
     let cameraUrl: string | null = (data as any)?.camera_url || null;
+    let cameraThumbnailUrl: string | null = (data as any)?.thumbnail_url || null;
     if (!cameraUrl) {
       const { data: beachRow, error: beachErr } = await supabase
         .from("beaches")
@@ -72,10 +73,10 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
 
     // Server-side preflight for embed allow
     let embedAllowed: boolean | null = null;
+    const camIntent = cameraUrl ? buildCamEmbed(cameraUrl) : { kind: "none" as const };
     if (cameraUrl) {
-      const intent = buildCamEmbed(cameraUrl);
       // Known embeddable sources — buildCamEmbed transforms these to proper embed URLs
-      if (intent.kind !== "none" && intent.kind !== "iframe") {
+      if (camIntent.kind !== "none" && camIntent.kind !== "iframe") {
         // HLS, video — always embeddable via native players
         embedAllowed = true;
       } else if (
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       ) {
         // Known iframe sources with dedicated embed transforms
         embedAllowed = true;
-      } else if (intent.kind === "iframe") {
+      } else if (camIntent.kind === "iframe") {
         // Unknown iframe source — do preflight check
         try {
           const head = await fetch(cameraUrl, {
@@ -113,6 +114,9 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       camera_url: cameraUrl,
       embed_allowed: embedAllowed,
       diorama_url: dioramaUrl,
+      cam_open_url: cameraUrl ? getViewableUrl(cameraUrl) : null,
+      cam_thumbnail_url: cameraThumbnailUrl,
+      cam_kind: camIntent.kind,
     };
 
     // PERFORMANCE OPTIMIZATION: Cache sources for 30 minutes (1800s)
@@ -128,5 +132,3 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     return handleApiError(err, "Failed to fetch beach sources");
   }
 }
-
-

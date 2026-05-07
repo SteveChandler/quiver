@@ -11,7 +11,8 @@ import {
 import { discoverSurfSpots } from '@/lib/services/surf-discovery-service';
 import { entitlementFromRow } from '@/lib/alerts/entitlements';
 import { generateETag, isETagMatch } from '@/lib/utils/cache-headers';
-import type { TimeSlot } from '@/types/personalization';
+import { gateSurfDiscoveryResponse } from '@/lib/services/discovery/surf-discovery-gating';
+import type { SurfDiscoveryEntitlement, TimeSlot } from '@/types/personalization';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30; // Allow 30s for GPS discovery + batch forecast fetching
@@ -111,6 +112,11 @@ async function surfDiscoveryHandler(
     .eq('user_id', user.id)
     .maybeSingle();
   const isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
+  const entitlement: SurfDiscoveryEntitlement = {
+    tier: isPro ? 'premium' : 'free',
+    hasPaidAccess: isPro,
+    canSeeBestSpot: isPro,
+  };
 
   // 4. Call service to get ranked recommendations
   const discovery = await discoverSurfSpots(user.id, {
@@ -160,8 +166,10 @@ async function surfDiscoveryHandler(
     }));
   }
 
+  const gatedDiscovery = gateSurfDiscoveryResponse(discovery, entitlement);
+
   // 4. Generate ETag for conditional request support
-  const responseData = { success: true, data: discovery };
+  const responseData = { success: true, data: gatedDiscovery };
   const etag = await generateETag(responseData);
 
   // 5. Check If-None-Match header - return 304 if data unchanged
@@ -177,7 +185,7 @@ async function surfDiscoveryHandler(
   }
 
   // 6. Return success response with ETag and improved caching
-  const response = createSuccessResponse(discovery);
+  const response = createSuccessResponse(gatedDiscovery);
 
   // Private cache: 5 min max-age + 15 min stale-while-revalidate
   response.headers.set('Cache-Control', 'private, max-age=300, stale-while-revalidate=900');

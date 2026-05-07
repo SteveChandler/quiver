@@ -231,9 +231,10 @@ export function getRecommendationLabelGated(
 export function buildDiscoveryMessage(
   score: number,
   reasons: string[],
-  warnings: string[]
+  warnings: string[],
+  recommendationLabel?: RecommendationLabel
 ): string {
-  const label = getRecommendationLabel(score);
+  const label = recommendationLabel ?? getRecommendationLabel(score);
 
   if (label === 'Skip') {
     const skipReason = warnings[0] || 'Conditions not favorable';

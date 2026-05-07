@@ -218,6 +218,17 @@ describe('buildDiscoveryMessage', () => {
     expect(message).toBe('Maybe - Surfable conditions. Watch: Wind picking up');
   });
 
+  it('uses a gated label override when character caps a high score', () => {
+    const message = buildDiscoveryMessage(
+      75,
+      ['Good wave size', 'Clean swell'],
+      ['Side-shore wind'],
+      'Maybe'
+    );
+
+    expect(message).toBe('Maybe - Good wave size, Clean swell. Watch: Side-shore wind');
+  });
+
   it('should handle empty reasons gracefully', () => {
     const message = buildDiscoveryMessage(70, [], []);
 

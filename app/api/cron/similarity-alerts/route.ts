@@ -173,8 +173,21 @@ interface BatchSlotResult {
     label?: string | null;
     reason_bullets?: unknown;
     confidence?: number;
+    board_tip?: unknown;
+    setup_tip?: unknown;
   } | null;
 }
+
+type RichScoredSlot = ScoredSlot & {
+  wind_speed_mph?: number;
+  wind_direction?: string;
+  tide_height_ft?: number;
+  tide_status?: string;
+  confidence?: number;
+  condition_summary?: string;
+  board_tip?: string;
+  setup_tip?: string;
+};
 
 function localHourInTz(iso: string, tz: string): number {
   try {
@@ -255,6 +268,41 @@ function parseFloatOrZero(value: string | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function parseOptionalFloat(value: string | null | undefined): number | undefined {
+  if (value == null) return undefined;
+  const cleaned = String(value).replace(/[^\d.\-]/g, "");
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function optionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function buildConditionSummary(args: {
+  waveHeightFt: number;
+  wavePeriodS: number;
+  windSpeedMph?: number;
+  windDirection?: string;
+  tideHeightFt?: number;
+  tideStatus?: string;
+}): string | undefined {
+  const parts = [
+    `${args.waveHeightFt.toFixed(1)}ft @ ${args.wavePeriodS.toFixed(0)}s`,
+  ];
+  if (args.windDirection && args.windSpeedMph != null) {
+    parts.push(`${args.windDirection} wind ${args.windSpeedMph.toFixed(0)}mph`);
+  }
+  if (args.tideStatus && args.tideHeightFt != null) {
+    parts.push(`${args.tideStatus} tide ${args.tideHeightFt.toFixed(1)}ft`);
+  } else if (args.tideStatus) {
+    parts.push(`${args.tideStatus} tide`);
+  }
+  return parts.length > 1 ? parts.join(", ") : undefined;
+}
+
 async function _GET(req: Request): Promise<Response> {
   const auth = req.headers.get("authorization") ?? "";
   const vercelHeader = req.headers.get("x-vercel-cron");
@@ -329,7 +377,7 @@ async function _GET(req: Request): Promise<Response> {
           continue;
         }
 
-        const inserted = await tryInsertAlert(supabase, user, pick);
+        const inserted = await tryInsertAlert(supabase, user, pick as RichScoredSlot);
         if (inserted === "inserted") {
           enqueued++;
           await bumpLastMatchedAt(supabase, user.anchor_rule_id);
@@ -679,11 +727,11 @@ async function scoreCandidates(
   supabase: any,
   userId: string,
   candidates: BeachRow[],
-): Promise<ScoredSlot[]> {
+): Promise<RichScoredSlot[]> {
   const now = new Date();
   const horizon = new Date(now.getTime() + LOOKAHEAD_HOURS * 60 * 60 * 1000);
 
-  const out: ScoredSlot[] = [];
+  const out: RichScoredSlot[] = [];
 
   for (const beach of candidates) {
     const tz = resolveBeachTimezone(beach.timezone);
@@ -813,6 +861,30 @@ async function scoreCandidates(
       if (!result || result.state !== "ready") continue;
       if (typeof result.score !== "number") continue;
       const source = byForecastAt.get(r.forecast_at);
+      const waveHeightFt = parseFloatOrZero(source?.wave_height);
+      const wavePeriodS = parseFloatOrZero(source?.wave_period);
+      const windSpeedMph = parseOptionalFloat(source?.wind_speed);
+      const tideHeightFt = parseOptionalFloat(source?.tide_height);
+      const windDirection =
+        optionalString(source?.wind_direction) ??
+        (source?.wind_direction_deg == null
+          ? undefined
+          : String(source.wind_direction_deg));
+      const tideStatus = optionalString(source?.tide_status);
+      const confidence =
+        typeof result.confidence === "number"
+          ? result.confidence
+          : source?.confidence_score ?? undefined;
+      const boardTip = optionalString(result.board_tip);
+      const setupTip = optionalString(result.setup_tip);
+      const conditionSummary = buildConditionSummary({
+        waveHeightFt,
+        wavePeriodS,
+        windSpeedMph,
+        windDirection,
+        tideHeightFt,
+        tideStatus,
+      });
       out.push({
         beach_id: beach.id,
         beach_name: beach.name,
@@ -826,8 +898,18 @@ async function scoreCandidates(
         label: result.label ?? null,
         reason: firstReasonBullet(result.reason_bullets),
         window_local: formatWindowLocal(r.forecast_at, tz),
-        wave_height_ft: parseFloatOrZero(source?.wave_height),
-        wave_period_s: parseFloatOrZero(source?.wave_period),
+        wave_height_ft: waveHeightFt,
+        wave_period_s: wavePeriodS,
+        ...(windSpeedMph == null ? {} : { wind_speed_mph: windSpeedMph }),
+        ...(windDirection == null ? {} : { wind_direction: windDirection }),
+        ...(tideHeightFt == null ? {} : { tide_height_ft: tideHeightFt }),
+        ...(tideStatus == null ? {} : { tide_status: tideStatus }),
+        ...(confidence == null ? {} : { confidence }),
+        ...(boardTip == null ? {} : { board_tip: boardTip }),
+        ...(setupTip == null ? {} : { setup_tip: setupTip }),
+        ...(conditionSummary == null
+          ? {}
+          : { condition_summary: conditionSummary }),
       });
     }
   }
@@ -840,7 +922,7 @@ type InsertOutcome = "inserted" | "dedup" | "error";
 async function tryInsertAlert(
   supabase: any,
   user: EligibleUserRow,
-  pick: ScoredSlot,
+  pick: RichScoredSlot,
 ): Promise<InsertOutcome> {
   const userTz = resolveBeachTimezone(user.timezone || pick.beach_timezone);
   const alertDate = localDateInTz(pick.forecast_at, userTz);
@@ -872,6 +954,14 @@ async function tryInsertAlert(
     window_local: pick.window_local,
     wave_height_ft: pick.wave_height_ft,
     wave_period_s: pick.wave_period_s,
+    ...(pick.wind_speed_mph == null ? {} : { wind_speed_mph: pick.wind_speed_mph }),
+    ...(pick.wind_direction == null ? {} : { wind_direction: pick.wind_direction }),
+    ...(pick.tide_height_ft == null ? {} : { tide_height_ft: pick.tide_height_ft }),
+    ...(pick.tide_status == null ? {} : { tide_status: pick.tide_status }),
+    ...(pick.confidence == null ? {} : { confidence: pick.confidence }),
+    ...(pick.condition_summary == null ? {} : { condition_summary: pick.condition_summary }),
+    ...(pick.board_tip == null ? {} : { board_tip: pick.board_tip }),
+    ...(pick.setup_tip == null ? {} : { setup_tip: pick.setup_tip }),
   };
 
   const { data, error } = await supabase.rpc("try_insert_similarity_alert", {
