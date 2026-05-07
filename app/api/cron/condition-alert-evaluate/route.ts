@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { validateCronRequest } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withCronObservability } from "@/lib/cron/observability";
-import { findMatchingWindows } from "@/lib/alerts/window-finder";
+import { findMatchingWindows, type FoundWindow } from "@/lib/alerts/window-finder";
 import { filterToDaylight, getDaylightWindow } from "@/lib/alerts/sunrise";
 import { CAPS, resolveEntitlement } from "@/lib/alerts/entitlements";
 import { getUtcDayBounds } from "@/lib/alerts/timezone-utils";
@@ -47,6 +47,13 @@ type EntitlementRow = Pick<
   Database["public"]["Tables"]["user_entitlements"]["Row"],
   "user_id" | "is_pro" | "is_trialing" | "billing_issue" | "expires_at"
 >;
+
+function selectBestMatchedWindow(windows: FoundWindow[]): FoundWindow {
+  return [...windows].sort((a, b) => {
+    if (b.best_score !== a.best_score) return b.best_score - a.best_score;
+    return new Date(a.window_start).getTime() - new Date(b.window_start).getTime();
+  })[0];
+}
 
 export async function GET(request: Request) {
   if (!validateCronRequest(request)) {
@@ -283,11 +290,13 @@ export async function GET(request: Request) {
                 continue;
               }
 
+              const matchedWindow = selectBestMatchedWindow(windows);
+
               result.matched++;
 
               const { sunrise } = getDaylightWindow(beach.lat, beach.lon, new Date(todayStart));
 
-              for (const window of windows) {
+              for (const window of [matchedWindow]) {
                 const sendAtDate = new Date(new Date(window.window_start).getTime() - 2 * 60 * 60 * 1000);
                 const clampedSendAt = sendAtDate < sunrise ? sunrise : sendAtDate;
                 const sendAt = clampedSendAt < new Date() ? new Date() : clampedSendAt;

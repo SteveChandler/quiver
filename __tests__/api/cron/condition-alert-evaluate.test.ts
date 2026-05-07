@@ -54,6 +54,8 @@ const mockGetUtcDayBounds = jest.fn<any, any[]>(() => ({
   end: "2026-04-27T00:00:00.000Z",
 }));
 const mockResolveEntitlement = jest.fn<any, any[]>(() => "free" as const);
+const mockSelectBestWindow = jest.fn<any, any[]>();
+const mockComputeSurfCall = jest.fn<any, any[]>();
 
 jest.mock("@/lib/alerts/window-finder", () => ({
   findMatchingWindows: (...args: any[]) => mockFindMatchingWindows(...args),
@@ -72,6 +74,16 @@ jest.mock("@/lib/alerts/entitlements", () => ({
     premium: { beaches: 10, rulesPerBeach: 5, totalRules: 50 },
   },
 }));
+jest.mock("@/lib/services/discovery", () => ({
+  selectBestWindow: (...args: any[]) => mockSelectBestWindow(...args),
+}));
+jest.mock("@/lib/utils/surf-call-logic", () => {
+  const actual = jest.requireActual("@/lib/utils/surf-call-logic");
+  return {
+    ...actual,
+    computeSurfCall: (...args: any[]) => mockComputeSurfCall(...args),
+  };
+});
 
 // ---- Store + mock Supabase ----
 
@@ -281,6 +293,8 @@ beforeEach(() => {
   // test (jest.clearAllMocks does NOT clear that queue, only call records).
   mockFindMatchingWindows.mockReset();
   mockFilterToDaylight.mockReset();
+  mockSelectBestWindow.mockReset();
+  mockComputeSurfCall.mockReset();
   store.rules = [];
   store.profiles = [];
   store.beaches = [];
@@ -332,7 +346,13 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
       rule_id: RULE_1,
       beach_id: BEACH_1,
       alert_date: expect.any(String),
+      window_start: "2026-04-26T14:00:00Z",
+      window_end: "2026-04-26T16:00:00Z",
+      best_hour: "2026-04-26T15:00:00Z",
+      conditions_snapshot: { wave_height: 3.5 },
     });
+    expect(mockSelectBestWindow).not.toHaveBeenCalled();
+    expect(mockComputeSurfCall).not.toHaveBeenCalled();
 
     // last_matched_at must be stamped
     expect(store.ruleUpdates).toHaveLength(1);
@@ -424,6 +444,86 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     // No queue upserts, no rule updates
     expect(store.queueUpserts).toHaveLength(0);
     expect(store.ruleUpdates).toHaveLength(0);
+  });
+
+  it("queues the matched condition window instead of a separate surf-call window", async () => {
+    seedRule();
+    seedProfile();
+    seedBeach();
+    seedForecast();
+    mockFindMatchingWindows.mockReturnValueOnce([
+      {
+        rule_id: RULE_1,
+        rule_name: "Test Rule",
+        beach_id: BEACH_1,
+        beach_name: "Test Beach",
+        beach_timezone: "America/Los_Angeles",
+        window_start: "2026-04-26T15:00:00Z",
+        window_end: "2026-04-26T16:00:00Z",
+        best_hour: "2026-04-26T15:00:00Z",
+        best_score: 0.9,
+        conditions_snapshot: { wave_height: 3.5, wind_speed: 5 },
+        notify_email: true,
+        notify_push: false,
+      },
+    ]);
+    mockSelectBestWindow.mockReturnValueOnce({
+      start: new Date("2026-04-27T00:00:00Z"),
+      end: new Date("2026-04-27T01:00:00Z"),
+      peakTime: new Date("2026-04-27T00:00:00Z"),
+    });
+    mockComputeSurfCall.mockReturnValueOnce({
+      bestWindowStart: "2026-04-27T00:00:00.000Z",
+      bestWindowEnd: "2026-04-27T01:00:00.000Z",
+      peakTime: "2026-04-27T00:00:00.000Z",
+    });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.queued).toBe(1);
+    expect(store.queueUpserts).toHaveLength(1);
+    expect(store.queueUpserts[0]).toMatchObject({
+      window_start: "2026-04-26T15:00:00Z",
+      window_end: "2026-04-26T16:00:00Z",
+      best_hour: "2026-04-26T15:00:00Z",
+      conditions_snapshot: { wave_height: 3.5, wind_speed: 5 },
+    });
+    expect(mockSelectBestWindow).not.toHaveBeenCalled();
+    expect(mockComputeSurfCall).not.toHaveBeenCalled();
+  });
+
+  it("does not queue a matched window removed by daylight filtering", async () => {
+    seedRule();
+    seedProfile();
+    seedBeach();
+    seedForecast();
+    mockFilterToDaylight.mockReturnValueOnce([]);
+    mockFindMatchingWindows.mockReturnValueOnce([
+      {
+        rule_id: RULE_1,
+        rule_name: "Test Rule",
+        beach_id: BEACH_1,
+        beach_name: "Test Beach",
+        beach_timezone: "America/Los_Angeles",
+        window_start: "2026-04-27T03:00:00Z",
+        window_end: "2026-04-27T04:00:00Z",
+        best_hour: "2026-04-27T03:00:00Z",
+        best_score: 0.9,
+        conditions_snapshot: { wave_height: 3.5 },
+        notify_email: true,
+        notify_push: false,
+      },
+    ]);
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.queued).toBe(0);
+    expect(mockFindMatchingWindows).not.toHaveBeenCalled();
+    expect(store.queueUpserts).toHaveLength(0);
   });
 });
 
