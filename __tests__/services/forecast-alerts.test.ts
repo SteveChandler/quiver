@@ -45,6 +45,9 @@ import { enqueueNotification } from "@/lib/notifications/enqueue";
 function makeGoodForecast(
   offsetHours = 2,
   overrides: Partial<{
+    forecast_at: string;
+    forecast_date: string;
+    forecast_time: string;
     wave_height: string;
     wave_period: string;
     wind_speed: string;
@@ -63,6 +66,18 @@ function makeGoodForecast(
     confidence_score: 0.9,
     ...overrides,
   };
+}
+
+function makeGoodForecastAt(
+  forecastAt: string,
+  overrides: Parameters<typeof makeGoodForecast>[1] = {}
+): object {
+  return makeGoodForecast(2, {
+    forecast_at: forecastAt,
+    forecast_date: forecastAt.split("T")[0],
+    forecast_time: forecastAt.split("T")[1]?.replace(".000Z", "") ?? "00:00:00",
+    ...overrides,
+  });
 }
 
 /** A forecast that never matches (wave too small) */
@@ -667,6 +682,165 @@ describe("runForecastThresholdAlerts", () => {
     const event = (enqueueNotification as jest.Mock).mock.calls[0][0];
     const [line] = event.payload.body.split("\n");
     expect(line).toContain("4ft @ 16s, 4mph wind");
+  });
+
+  it("filters daily forecast candidates to daylight before writing the summary", async () => {
+    const userId = "user-daylight";
+    const beachId = "beach-blacks";
+    jest.setSystemTime(new Date("2026-05-07T13:00:00.000Z")); // 6 AM Pacific
+
+    const supabase = buildMockSupabase({
+      profiles: {
+        data: [
+          {
+            id: userId,
+            home_beach_id: beachId,
+            notif_push_enabled: true,
+            notif_forecast_alerts: true,
+            is_mock: false,
+            timezone: "America/Los_Angeles",
+          },
+        ],
+        error: null,
+      },
+      beaches: {
+        data: [
+          {
+            id: beachId,
+            slug: "blacks",
+            name: "Blacks Beach",
+            lat: 32.8916,
+            lon: -117.2537,
+            timezone: "America/Los_Angeles",
+          },
+        ],
+        error: null,
+      },
+      favorite_beaches: { data: [], error: null },
+      user_surf_preferences: { data: [], error: null },
+    });
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
+    (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
+      forecasts: [
+        makeGoodForecastAt("2026-05-08T00:00:00.000Z", { wave_height: "2.5", wave_period: "11", wind_speed: "7" }), // 5 PM PDT
+        makeGoodForecastAt("2026-05-08T03:00:00.000Z", { wave_height: "5.5", wave_period: "18", wind_speed: "1" }), // 8 PM PDT
+        makeGoodForecastAt("2026-05-08T06:00:00.000Z", { wave_height: "5.5", wave_period: "18", wind_speed: "1" }), // 11 PM PDT
+        makeGoodForecastAt("2026-05-08T09:00:00.000Z", { wave_height: "5.5", wave_period: "18", wind_speed: "1" }), // 2 AM PDT
+      ],
+      metadata: { stale: false, missing: false },
+    });
+
+    const summary = await runForecastThresholdAlerts();
+
+    expect(summary.sent).toBe(1);
+    const event = (enqueueNotification as jest.Mock).mock.calls[0][0];
+    expect(event.payload.body).toContain("Blacks Beach: 5PM looks good");
+    expect(event.payload.body).not.toContain("8PM");
+    expect(event.payload.body).not.toContain("11PM");
+    expect(event.payload.body).not.toContain("2AM");
+  });
+
+  it("prefers a lower-scoring daylight forecast over a higher-scoring post-sunset forecast", async () => {
+    const userId = "user-post-sunset-ranking";
+    const beachId = "beach-ranking";
+    jest.setSystemTime(new Date("2026-05-07T13:00:00.000Z")); // 6 AM Pacific
+
+    const supabase = buildMockSupabase({
+      profiles: {
+        data: [
+          {
+            id: userId,
+            home_beach_id: beachId,
+            notif_push_enabled: true,
+            notif_forecast_alerts: true,
+            is_mock: false,
+            timezone: "America/Los_Angeles",
+          },
+        ],
+        error: null,
+      },
+      beaches: {
+        data: [
+          {
+            id: beachId,
+            slug: "ranking",
+            name: "Ranking Beach",
+            lat: 32.85,
+            lon: -117.27,
+            timezone: "America/Los_Angeles",
+          },
+        ],
+        error: null,
+      },
+      favorite_beaches: { data: [], error: null },
+      user_surf_preferences: { data: [], error: null },
+    });
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
+    (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
+      forecasts: [
+        makeGoodForecastAt("2026-05-08T00:00:00.000Z", { wave_height: "2.2", wave_period: "10", wind_speed: "12" }), // 5 PM PDT
+        makeGoodForecastAt("2026-05-08T03:00:00.000Z", { wave_height: "4", wave_period: "16", wind_speed: "2" }), // 8 PM PDT
+      ],
+      metadata: { stale: false, missing: false },
+    });
+
+    const summary = await runForecastThresholdAlerts();
+
+    expect(summary.sent).toBe(1);
+    const event = (enqueueNotification as jest.Mock).mock.calls[0][0];
+    expect(event.payload.body).toContain("Ranking Beach: 5PM looks good");
+    expect(event.payload.body).not.toContain("8PM");
+  });
+
+  it("does not enqueue when all matching forecasts are before civil dawn", async () => {
+    const userId = "user-before-dawn";
+    const beachId = "beach-before-dawn";
+    jest.setSystemTime(new Date("2026-05-07T12:00:00.000Z")); // 5 AM Pacific, inside send window
+
+    const supabase = buildMockSupabase({
+      profiles: {
+        data: [
+          {
+            id: userId,
+            home_beach_id: beachId,
+            notif_push_enabled: true,
+            notif_forecast_alerts: true,
+            is_mock: false,
+            timezone: "America/Los_Angeles",
+          },
+        ],
+        error: null,
+      },
+      beaches: {
+        data: [
+          {
+            id: beachId,
+            slug: "before-dawn",
+            name: "Before Dawn",
+            lat: 32.85,
+            lon: -117.27,
+            timezone: "America/Los_Angeles",
+          },
+        ],
+        error: null,
+      },
+      favorite_beaches: { data: [], error: null },
+      user_surf_preferences: { data: [], error: null },
+    });
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
+    (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
+      forecasts: [
+        makeGoodForecastAt("2026-05-07T12:00:00.000Z", { wave_height: "4", wave_period: "12", wind_speed: "5" }), // 5 AM PDT
+      ],
+      metadata: { stale: false, missing: false },
+    });
+
+    const summary = await runForecastThresholdAlerts();
+
+    expect(summary.sent).toBe(0);
+    expect(summary.skipped.noGoodForecasts).toBe(1);
+    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(enqueueNotification).not.toHaveBeenCalled();
   });
 
   it("does not enqueue when only non-eligible beaches have good forecasts", async () => {

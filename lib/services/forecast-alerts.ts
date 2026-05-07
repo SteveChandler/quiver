@@ -14,6 +14,7 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getFreshForecastFromCache } from "@/lib/utils/forecast-service-utils";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
+import SunCalc from "suncalc";
 import {
   getLocalDateString,
   getLocalHour,
@@ -44,6 +45,9 @@ type BeachRow = {
   id: string;
   slug: string | null;
   name: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  timezone?: string | null;
 };
 
 export type ForecastAlertRunSummary = {
@@ -80,6 +84,8 @@ const LOOKAHEAD_HOURS = 18;
 const MAX_DAILY_SUMMARY_ENTRIES = 3;
 const DAILY_FORECAST_ALERT_TYPE = "daily_forecast_summary";
 const DAILY_FORECAST_NOTIFICATION_TYPE = "daily_forecast";
+const FORECAST_HOUR_MS = 60 * 60 * 1000;
+const DAYLIGHT_BUFFER_MS = 30 * 60 * 1000;
 
 // Daily forecasts should land during the user's morning planning window.
 const DAILY_FORECAST_SEND_WINDOW_START = 5;
@@ -286,8 +292,11 @@ function findBestMatchingForecast(args: {
   nowMs: number;
   lookaheadHours: number;
   thresholds: ReturnType<typeof getUserThresholds>;
+  beach?: BeachRow;
 }): MatchingForecast | null {
-  const matches = getMatchingForecasts(args);
+  const matches = getMatchingForecasts(args).filter((match) =>
+    isForecastInSurfableDaylight(match.forecastUtcMs, args.beach)
+  );
   if (matches.length === 0) return null;
 
   matches.sort((a, b) => {
@@ -296,6 +305,29 @@ function findBestMatchingForecast(args: {
   });
 
   return matches[0];
+}
+
+function isForecastInSurfableDaylight(forecastUtcMs: number, beach?: BeachRow): boolean {
+  if (
+    !beach ||
+    typeof beach.lat !== "number" ||
+    typeof beach.lon !== "number" ||
+    !Number.isFinite(beach.lat) ||
+    !Number.isFinite(beach.lon)
+  ) {
+    return true;
+  }
+
+  const forecastAt = new Date(forecastUtcMs);
+  const times = SunCalc.getTimes(forecastAt, beach.lat, beach.lon);
+  const civilDawnMs = times.sunrise.getTime() - DAYLIGHT_BUFFER_MS;
+  const latestEndMs = times.sunset.getTime() - DAYLIGHT_BUFFER_MS;
+
+  if (!Number.isFinite(civilDawnMs) || !Number.isFinite(latestEndMs)) {
+    return true;
+  }
+
+  return forecastUtcMs >= civilDawnMs && forecastUtcMs + FORECAST_HOUR_MS <= latestEndMs;
 }
 
 function scoreMatchingForecast(args: {
@@ -371,6 +403,7 @@ function evaluateBeachForecast({
     nowMs,
     lookaheadHours: LOOKAHEAD_HOURS,
     thresholds,
+    beach,
   });
 
   if (!match) {
@@ -383,7 +416,7 @@ function evaluateBeachForecast({
     beach,
     forecast: match.forecast,
     forecastUtcMs: match.forecastUtcMs,
-    localForecastDate: getLocalDateString(new Date(match.forecastUtcMs), timezone),
+    localForecastDate: getLocalDateString(new Date(match.forecastUtcMs), beach.timezone || timezone),
     score: match.score,
   };
 }
@@ -410,7 +443,7 @@ function formatDailySummaryLine(candidate: DailyForecastCandidate, timezone: str
   const periodS = parseNumber(candidate.forecast.wave_period);
   const windMph = parseNumber(candidate.forecast.wind_speed);
   const beachName = candidate.beach.name || "Your beach";
-  const whenLocal = formatForecastSummaryTime(candidate.forecastUtcMs, timezone);
+  const whenLocal = formatForecastSummaryTime(candidate.forecastUtcMs, candidate.beach.timezone || timezone);
   const waveText = waveFt !== null ? `${Math.round(waveFt * 10) / 10}ft` : "waves";
   const periodText = periodS !== null ? ` @ ${Math.round(periodS)}s` : "";
   const windText = windMph !== null ? `, ${Math.round(windMph)}mph wind` : "";
@@ -682,12 +715,12 @@ export async function runForecastThresholdAlerts(): Promise<ForecastAlertRunSumm
     eligibleProfiles.flatMap((profile) => getEligibleBeachIdsForUser({ profile, favoritesByUser }))
   );
 
-  // 3) Fetch beach names for summary copy.
+  // 3) Fetch beach metadata for summary copy and daylight filtering.
   const beachById = new Map<string, BeachRow>();
   if (allBeachIds.length > 0) {
     const { data: beaches, error: beachesError } = await supabase
       .from("beaches")
-      .select("id, slug, name")
+      .select("id, slug, name, lat, lon, timezone")
       .in("id", allBeachIds);
     if (beachesError) {
       throw new Error(beachesError.message || "Failed to load beaches for forecast alerts");
