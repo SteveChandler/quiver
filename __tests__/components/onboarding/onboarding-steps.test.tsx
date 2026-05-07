@@ -618,6 +618,8 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
         expect(mockSaveOnboardingData).toHaveBeenCalledWith({
           homeBeachId: "beach-123",
           homeBeachName: "Malibu",
+          referralCode: undefined,
+          timezone: expect.any(String),
         });
       });
     });

@@ -13,6 +13,17 @@ const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || "";
 // Store the unsubscribe function for cleanup
 let unsubscribeFromMessages: Unsubscribe | null = null;
 
+function getRuntimeIanaTimezone(): string | null {
+  try {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!timezone || timezone.length > 100) return null;
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(new Date(0));
+    return timezone;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Check if push notifications are supported
  */
@@ -123,6 +134,7 @@ export async function registerWebPushNotifications(): Promise<void> {
         body: JSON.stringify({
           platform: "web",
           device_token: token,
+          timezone: getRuntimeIanaTimezone(),
         }),
       });
 
@@ -304,4 +316,3 @@ export function checkNotificationPermissions(): {
     status,
   };
 }
-

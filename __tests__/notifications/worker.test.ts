@@ -553,6 +553,27 @@ describe("processPendingEvents — quiet hours", () => {
     expect(state.notificationsInserts).toHaveLength(1);
     // Event NOT marked terminal — it stays pending until quiet hours pass.
     expect(state.eventUpdates).toEqual([]);
+    expect(state.events[0].next_attempt_at).toBe("2026-04-29T11:00:00.000Z");
+  });
+
+  it("missing profile timezone uses the app default timezone for quiet-hours math", async () => {
+    const state = emptyState();
+    state.now = new Date("2026-04-29T06:00:00Z").getTime(); // 23:00 PT prev day
+    state.events.push(buildEvent());
+    state.profiles.set("user-recipient", buildProfile({ timezone: null }));
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+    state.devices.set("user-recipient", ["device-token-A"]);
+    const fakeFcm = { sendEach: jest.fn() };
+
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      { now: new Date("2026-04-29T06:00:00Z"), fcm: fakeFcm as never }
+    );
+
+    expect(summary.missing_timezone_count).toBe(1);
+    expect(summary.by_status.deferred_quiet_hours).toBe(1);
+    expect(summary.pending_after_run).toBe(1);
+    expect(fakeFcm.sendEach).not.toHaveBeenCalled();
   });
 
   it("quiet-hours retry: in-app skipped on second tick (idempotent), push attempted again", async () => {
@@ -620,6 +641,16 @@ describe("processPendingEvents — Firebase / provider failure retry", () => {
     expect(summary.failed).toBe(0);
     // Event NOT marked terminal — push side will retry.
     expect(state.eventUpdates).toEqual([]);
+    expect(state.attempts).toContainEqual(
+      expect.objectContaining({
+        channel: "push",
+        status: "failed_provider",
+        provider_response: expect.objectContaining({
+          reason: "firebase_not_configured",
+        }),
+        error_message: "Firebase not configured",
+      })
+    );
   });
 
   it("after MAX_FAILED_ATTEMPTS_PER_CHANNEL=3 push failures → channel permanently failed, event marked processed (in_app already sent)", async () => {
@@ -814,6 +845,48 @@ describe("processPendingEvents — push provider details", () => {
     expect(state.deviceDeletes).toEqual(["bad-token"]);
   });
 
+  it("failed provider responses persist provider_response and error_message", async () => {
+    const state = emptyState();
+    state.events.push(buildEvent());
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+    state.devices.set("user-recipient", ["device-token-A"]);
+
+    const fakeFcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 0,
+        failureCount: 1,
+        responses: [
+          {
+            success: false,
+            error: {
+              code: "messaging/internal-error",
+              message: "provider down",
+            },
+          },
+        ],
+      })),
+    };
+
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT,
+      fcm: fakeFcm as never,
+    });
+
+    expect(state.attempts).toContainEqual(
+      expect.objectContaining({
+        channel: "push",
+        status: "failed_provider",
+        provider_response: expect.objectContaining({
+          success: 0,
+          failed: 1,
+          errors: ["messaging/internal-error: provider down"],
+        }),
+        error_message: "messaging/internal-error: provider down",
+      })
+    );
+  });
+
   it("Expo push token routes through Expo Push Service without calling FCM", async () => {
     const originalFetch = global.fetch;
     global.fetch = jest.fn(async () => ({
@@ -939,10 +1012,10 @@ describe("processPendingEvents — atomic claim (concurrency)", () => {
     expect(fakeFcmA.sendEach.mock.calls.length + fakeFcmB.sendEach.mock.calls.length).toBe(1);
   });
 
-  it("releases claim on retryable channels so next tick can pick it up immediately", async () => {
+  it("releases claim on retryable quiet-hours channels and schedules the next claim for window end", async () => {
     // Quiet hours sets channel to "pending" (retryable). After the tick, the
-    // worker releases claimed_at to NULL. Next tick (in-window) should be
-    // able to re-claim and dispatch.
+    // worker releases claimed_at to NULL and sets next_attempt_at to the quiet
+    // window end so it does not re-claim every minute while still in-window.
     const state = emptyState();
     state.events.push(
       buildEvent({
@@ -975,8 +1048,10 @@ describe("processPendingEvents — atomic claim (concurrency)", () => {
 
     // Push deferred (quiet hours), in-app delivered. Event still pending.
     expect(state.events[0].status).toBe("pending");
-    // Claim was released so the next tick can re-claim immediately.
+    // Claim was released, but next_attempt_at prevents re-claim until quiet
+    // hours end.
     expect(state.events[0].claimed_at).toBeNull();
+    expect(state.events[0].next_attempt_at).toBe("2026-04-29T11:00:00.000Z");
     expect(fakeFcm.sendEach).not.toHaveBeenCalled();
   });
 
@@ -1102,8 +1177,9 @@ describe("processPendingEvents — Phase 5c backoff scheduling", () => {
     expect(scheduled).toBe(NOON_PT.getTime() + 5 * 60_000);
   });
 
-  it("quiet hours alone (no failure) → next_attempt_at = null (immediate retry)", async () => {
-    // Quiet hours is retryable but not a failure — backoff doesn't apply.
+  it("quiet hours alone (no failure) → next_attempt_at is the quiet window end", async () => {
+    // Quiet hours is retryable but not a failure — schedule for the quiet
+    // window end instead of logging another deferred row every minute.
     const state = emptyState();
     state.now = new Date("2026-04-29T06:00:00Z").getTime(); // 23:00 PT prev day
     state.events.push(buildEvent());
@@ -1122,7 +1198,7 @@ describe("processPendingEvents — Phase 5c backoff scheduling", () => {
 
     const ev = state.events[0];
     expect(ev.status).toBe("pending");
-    expect(ev.next_attempt_at).toBeNull(); // No backoff for quiet-hours-only retry
+    expect(ev.next_attempt_at).toBe("2026-04-29T11:00:00.000Z");
   });
 });
 
