@@ -163,6 +163,7 @@ export function buildRecsFromFixture(
       waveHeightBadge: detailedScore.waveHeightBadge,
       spotProfile: beachToSpotProfile(beach),
       windowSlotScores: slotScores,
+      similarity: null,
       generated_at: new Date().toISOString(),
     });
   }

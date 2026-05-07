@@ -205,6 +205,55 @@ export interface DetailedScore {
 }
 
 /**
+ * Per-recommendation similarity readout. Always present on
+ * SurfDiscoveryRecommendation as `similarity` (never optional).
+ *
+ * - null: free user (no Pro/trial entitlement) OR similarity not applicable
+ *   (e.g. similarity feature disabled for the request).
+ * - state="onboarding": Pro/trial user but fewer than the qualifying-session
+ *   threshold met. UI shows a "Log a few sessions to unlock" affordance.
+ * - state="ready": full readout including the additive bonus that's already
+ *   baked into the recommendation's `score` field.
+ */
+export type SimilarityRecommendation =
+  | null
+  | {
+      state: "onboarding";
+      sessionCount: number;
+      sessionsNeeded: number;
+    }
+  | {
+      state: "ready";
+      score: number;          // raw similarity score 0-10ish from compute_user_match_score
+      label: string;          // EPIC | GOOD | FAIR | RIDEABLE | MEH
+      bonusApplied: number;   // additive bonus already injected into recommendation.score (0 if score below threshold)
+      reason: string;         // 1-2 sentence user-facing copy derived from reason_bullets[0]
+      sessionCount: number;
+    };
+
+export interface SurfDiscoveryEntitlement {
+  tier: 'free' | 'premium';
+  hasPaidAccess: boolean;
+  canSeeBestSpot: boolean;
+}
+
+export interface LockedBestSpotTeaser {
+  title: string;
+  subtitle: string;
+  approximateTime: string;
+  approximateArea: string;
+  confidence: number;
+  scoreBand: string;
+  conditionSummary: string;
+}
+
+export interface SurfDiscoveryBoardPick {
+  boardName?: string;
+  boardType?: string;
+  reason?: string | null;
+}
+
+/**
  * Single surf discovery recommendation
  *
  * Extends personalized forecast with detailed scoring breakdown,
@@ -278,6 +327,20 @@ export interface SurfDiscoveryRecommendation {
    * Populated for top-N candidates pre-rerank; used by hero-window-score persistence.
    */
   windowSlotScores?: number[];
+  /**
+   * Per-recommendation similarity readout (REQUIRED — always present).
+   * `null` = free user or feature disabled. Otherwise a state="onboarding"
+   * or state="ready" object. When state="ready" with score >= threshold,
+   * the recommendation's `score` field already includes the additive bonus.
+   *
+   * Ranking authority only — the verdict text in computeSurfCall does NOT
+   * read this field. See feedback_separate_ranking_from_verdict_authority.
+   */
+  similarity: SimilarityRecommendation;
+  /** Paid/trial explanation derived from already-present preference signals */
+  personalExplanation?: string;
+  /** Optional board fit language when recommendation builders attach it */
+  boardPick?: SurfDiscoveryBoardPick | null;
   /** ISO timestamp when generated */
   generated_at: string;
 }
@@ -288,6 +351,10 @@ export interface SurfDiscoveryRecommendation {
 export interface SurfDiscoveryResponse {
   /** Ranked list of surf spot recommendations (best first) */
   recommendations: SurfDiscoveryRecommendation[];
+  /** Requesting user's entitlement gate for the discovery contract */
+  entitlement?: SurfDiscoveryEntitlement;
+  /** Non-identifying teaser for free users when the best spot is locked */
+  lockedBestSpotTeaser?: LockedBestSpotTeaser | null;
   /** Search criteria used to generate recommendations */
   searchCriteria: {
     /** User's GPS location (GPS phase) */
@@ -342,6 +409,14 @@ export interface SurfDiscoveryOptions {
   timeout?: number;
   /** Overall batch timeout in ms (default: 12000) */
   overallTimeout?: number;
+  /**
+   * Whether the requesting user has Pro/trial entitlement.
+   * Default false: free user, similarity layer is skipped and every
+   * recommendation gets `similarity: null`. When true, the similarity
+   * layer bulk-scores top-N candidates via compute_user_match_score_batch
+   * and may inject a ranking bonus.
+   */
+  isPro?: boolean;
 }
 
 // ============================================================================
@@ -443,4 +518,3 @@ export interface SimilarityInsightsInput {
   /** Window start time (optional) */
   windowStart?: string;
 }
-

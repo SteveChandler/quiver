@@ -6,7 +6,12 @@
  * different numbers from the email summary.
  */
 
-import { buildConditionsLine } from "@/lib/mailer/templates/ConsolidatedAlertEmail";
+import {
+  buildConditionsLine,
+  formatEmailHeadingDate,
+  formatWindow,
+} from "@/lib/mailer/templates/ConsolidatedAlertEmail";
+import type { MatchingWindow } from "@/lib/alerts/types";
 
 describe("buildConditionsLine", () => {
   it("matches the website's units for today's Mission Beach snapshot", () => {
@@ -111,5 +116,50 @@ describe("buildConditionsLine", () => {
   it("lowercases tide_status regardless of input casing", () => {
     expect(buildConditionsLine({ tide_status: "RISING" })).toContain("tide rising");
     expect(buildConditionsLine({ tide_status: "rising" })).toContain("tide rising");
+  });
+});
+
+function makeMatch(overrides: Partial<MatchingWindow> = {}): MatchingWindow {
+  return {
+    rule_id: "rule-1",
+    rule_name: "Mellow session",
+    beach_id: "beach-1",
+    beach_name: "Mission Beach",
+    beach_timezone: "America/Los_Angeles",
+    window_start: "2026-05-06T15:00:00Z",
+    window_end: "2026-05-06T16:00:00Z",
+    best_hour: "2026-05-06T15:00:00Z",
+    best_score: 10,
+    conditions_snapshot: {},
+    notify_email: true,
+    notify_push: true,
+    ...overrides,
+  };
+}
+
+describe("surf report email copy", () => {
+  it("shortens weekday copy in the heading date", () => {
+    expect(formatEmailHeadingDate("Wednesday, May 6")).toBe("Wed, May 6");
+  });
+
+  it("renders a one-hour match as a best-around time instead of a short window", () => {
+    expect(formatWindow(makeMatch())).toEqual({
+      label: "Best Around",
+      text: "8:00 AM PDT",
+    });
+  });
+
+  it("renders longer surf-call matches as a best window with a compact peak note", () => {
+    expect(
+      formatWindow(
+        makeMatch({
+          window_end: "2026-05-06T18:00:00Z",
+          best_hour: "2026-05-06T16:00:00Z",
+        })
+      )
+    ).toEqual({
+      label: "Best Window",
+      text: "8:00 AM – 11:00 AM PDT · peak 9:00 AM",
+    });
   });
 });

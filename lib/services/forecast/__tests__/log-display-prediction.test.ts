@@ -14,9 +14,9 @@ import {
 } from "../log-display-prediction";
 
 // Capture supabase calls. We swap the service-role factory so we observe the
-// .from("ml_predictions_log").insert(payload) flow.
-const insertMock: jest.Mock = jest.fn();
-const fromMock: jest.Mock = jest.fn(() => ({ insert: insertMock }));
+// .from("ml_predictions_log").upsert(payload, opts) flow.
+const upsertMock: jest.Mock = jest.fn();
+const fromMock: jest.Mock = jest.fn(() => ({ upsert: upsertMock }));
 
 jest.mock("@/lib/supabase", () => ({
   createServiceRoleClient: () => ({
@@ -59,8 +59,8 @@ describe("logDisplayPredictions", () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
-    insertMock.mockResolvedValue({ data: null, error: null });
-    fromMock.mockImplementation(() => ({ insert: insertMock }));
+    upsertMock.mockResolvedValue({ data: null, error: null });
+    fromMock.mockImplementation(() => ({ upsert: upsertMock }));
     process.env = {
       ...ORIGINAL_ENV,
       SUPABASE_SERVICE_ROLE_KEY: "test-service-key",
@@ -74,7 +74,7 @@ describe("logDisplayPredictions", () => {
 
   it("returns immediately for empty input", async () => {
     await logDisplayPredictions([]);
-    expect(insertMock).not.toHaveBeenCalled();
+    expect(upsertMock).not.toHaveBeenCalled();
     expect(fromMock).not.toHaveBeenCalled();
   });
 
@@ -85,17 +85,17 @@ describe("logDisplayPredictions", () => {
     await expect(
       logDisplayPredictions([sampleRow()])
     ).resolves.toBeUndefined();
-    expect(insertMock).not.toHaveBeenCalled();
+    expect(upsertMock).not.toHaveBeenCalled();
     expect(fromMock).not.toHaveBeenCalled();
   });
 
   it("env-gated: missing NEXT_PUBLIC_SUPABASE_URL skips insert", async () => {
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     await logDisplayPredictions([sampleRow()]);
-    expect(insertMock).not.toHaveBeenCalled();
+    expect(upsertMock).not.toHaveBeenCalled();
   });
 
-  it("performs ONE batch insert for N rows", async () => {
+  it("performs ONE batch upsert for N rows", async () => {
     const rows = [
       sampleRow({ predicted_at: "2026-05-01T00:00:00Z" }),
       sampleRow({ predicted_at: "2026-05-01T03:00:00Z" }),
@@ -106,14 +106,28 @@ describe("logDisplayPredictions", () => {
 
     await logDisplayPredictions(rows);
 
-    // ONE supabase.from() call, ONE .insert() call.
+    // ONE supabase.from() call, ONE .upsert() call.
     expect(fromMock).toHaveBeenCalledTimes(1);
     expect(fromMock).toHaveBeenCalledWith("ml_predictions_log");
-    expect(insertMock).toHaveBeenCalledTimes(1);
+    expect(upsertMock).toHaveBeenCalledTimes(1);
 
-    const payload = insertMock.mock.calls[0][0];
+    const payload = upsertMock.mock.calls[0][0];
     expect(Array.isArray(payload)).toBe(true);
     expect(payload).toHaveLength(5);
+  });
+
+  it("upsert call uses onConflict=beach_id,predicted_at and ignoreDuplicates=true", async () => {
+    // Locks in the first-write-wins semantic. Changing either option silently
+    // breaks the telemetry feedback-loop invariant (raw_display_height_m must
+    // stay frozen at first issue) or restores the silent-rollback bug fixed
+    // 2026-05-04 (insert was rolling back the whole batch on every conflict).
+    await logDisplayPredictions([sampleRow()]);
+
+    const opts = upsertMock.mock.calls[0][1];
+    expect(opts).toEqual({
+      onConflict: "beach_id,predicted_at",
+      ignoreDuplicates: true,
+    });
   });
 
   it("payload includes all required snapshot columns", async () => {
@@ -130,7 +144,7 @@ describe("logDisplayPredictions", () => {
       }),
     ]);
 
-    const payload = insertMock.mock.calls[0][0];
+    const payload = upsertMock.mock.calls[0][0];
     expect(payload[0]).toEqual({
       beach_id: "beach-99",
       predicted_at: "2026-05-01T00:00:00Z",
@@ -157,12 +171,12 @@ describe("logDisplayPredictions", () => {
     await logDisplayPredictions([
       sampleRow({ model_version: "explicit-model-v2" }),
     ]);
-    const payload = insertMock.mock.calls[0][0];
+    const payload = upsertMock.mock.calls[0][0];
     expect(payload[0].model_version).toBe("explicit-model-v2");
   });
 
   it("supabase insert failure does NOT throw to caller (fire-and-forget)", async () => {
-    insertMock.mockResolvedValueOnce({
+    upsertMock.mockResolvedValueOnce({
       data: null,
       error: { message: "constraint violation", code: "23505" },
     });
@@ -180,7 +194,7 @@ describe("logDisplayPredictions", () => {
   });
 
   it("rejected insert promise does NOT propagate", async () => {
-    insertMock.mockRejectedValueOnce(new Error("network died"));
+    upsertMock.mockRejectedValueOnce(new Error("network died"));
 
     await expect(logDisplayPredictions([sampleRow()])).resolves.toBeUndefined();
   });
@@ -194,7 +208,7 @@ describe("logDisplayPredictions", () => {
       }),
     ]);
 
-    const payload = insertMock.mock.calls[0][0];
+    const payload = upsertMock.mock.calls[0][0];
     expect(payload[0].height_offset_m).toBeNull();
     expect(payload[0].height_offset_sample_count).toBeNull();
     expect(payload[0].offset_corrected_display_height_m).toBe(

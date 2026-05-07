@@ -32,10 +32,10 @@ const CONTEXT_MAP: Record<AlertPageContext, ContextualPresetConfig> = {
   },
   "water-temp": {
     presets: ["dawn_patrol"],
-    headline: (name) => `Know before you go — conditions alerts for ${name}`,
+    headline: (name) => `Get water temp and surf-window alerts for ${name}`,
     description: (name) =>
-      `Get notified when conditions at ${name} match your preferences so you always suit up right.`,
-    buttonText: "Get Conditions Alerts — Free",
+      `Track water temperature, gear calls, and clean windows at ${name} without checking three pages.`,
+    buttonText: "Get Water Temp Alerts",
   },
   beginner: {
     presets: ["mellow_session"],

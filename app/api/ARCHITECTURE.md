@@ -352,13 +352,14 @@ export const GET = withAuth(handler);
 #### `/cron/forecast-alerts/route.ts`
 
 - **Methods**: `GET`
-- **Function**: Evaluates forecast threshold alerts and sends push notifications (home beach).
+- **Function**: Evaluates forecast threshold alerts and enqueues one daily forecast summary push per eligible user.
 - **Auth**: `validateCronRequest(request)` accepts `x-vercel-cron` or `Authorization: Bearer <CRON_SECRET>`
 - **Service Layer**: `lib/services/forecast-alerts.ts` (`runForecastThresholdAlerts()`)
 - **Constraints**:
   - Reads forecasts via `getFreshForecastFromCache()` (cache-only)
   - Skips stale/missing forecasts (no stale pushes)
-  - Dedupe via `public.forecast_alert_deliveries`
+  - Eligible beaches are `profiles.home_beach_id` plus `favorite_beaches.alerts_enabled = true`
+  - Enqueues a centralized `daily_digest` notification event with dedupe key `daily_forecast_summary:{userId}:{userLocalDate}`
 
 ### 🔮 `/forecasts` - Surf Forecast System
 

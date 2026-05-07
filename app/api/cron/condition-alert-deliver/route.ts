@@ -112,7 +112,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         console.log(`${CONTEXT_TAG} Found ${rawItems.length} due queue items`);
 
         // 2. Reshape into flat QueueItemWithMeta (consolidateQueueItems expects this shape)
-        const items: QueueItemWithMeta[] = rawItems.map((row) => {
+        const allItems: QueueItemWithMeta[] = rawItems.map((row) => {
           const rule = row.alert_rules as unknown as { name: string; notify_email: boolean; notify_push: boolean };
           const beach = row.beaches as unknown as { name: string; timezone: string };
           return {
@@ -136,6 +136,20 @@ export async function GET(request: Request): Promise<NextResponse> {
             best_score: 0,
           };
         });
+
+        // 2b. Partition: similarity_match rows are stamped by the
+        //     try_insert_similarity_alert RPC with conditions_snapshot.alert_type
+        //     and routed through the centralized notifications pipeline. Legacy
+        //     forecast_alert rows continue through the consolidation +
+        //     email/push branches below. Excluding similarity rows here is
+        //     CRITICAL — otherwise the email path tries to render forecast
+        //     match data and the push title is wrong.
+        const similarityItems = allItems.filter(
+          (i) => (i.conditions_snapshot as Record<string, unknown>)?.alert_type === "similarity_match"
+        );
+        const items = allItems.filter(
+          (i) => (i.conditions_snapshot as Record<string, unknown>)?.alert_type !== "similarity_match"
+        );
 
         // 3. Fetch profile data for the queue's user set in a single query.
         //    profiles.id is a 1:1 mirror of auth.users.id, so we can key by user_id.
@@ -635,6 +649,249 @@ export async function GET(request: Request): Promise<NextResponse> {
             }
           } catch (userErr) {
             console.error(`${CONTEXT_TAG} Error processing user ${payload.user_id}:`, userErr);
+            result.errors++;
+          }
+        }
+
+        // ─── Similarity-match branch ────────────────────────────────────────
+        // Each similarity row is independent (one-per-user-per-day, dedup
+        // owned by the partial unique index Agent 2 added). We do NOT call
+        // consolidateQueueItems on these — the payload is already shaped by
+        // try_insert_similarity_alert and the notifications worker handles
+        // per-channel pref enforcement (notif_similarity_alerts gate lives
+        // in the registry). The cron-side throttle (cooldown + weekly cap)
+        // is intentionally skipped — similarity is a once-per-day pick with
+        // its own dedup story; piling it under the same per-user weekly cap
+        // would silently suppress matches in active weeks.
+        for (const item of similarityItems) {
+          result.processed++;
+          const queueIds = [item.id];
+          const profile = profilesByUser.get(item.user_id);
+
+          if (!profile) {
+            console.warn(`${CONTEXT_TAG} No profile found for similarity user ${item.user_id}, skipping`);
+            await recordAttempt({
+              queueId: item.id,
+              ruleId: item.rule_id,
+              userId: item.user_id,
+              channel: "push",
+              status: "failed_internal",
+              skipReason: "profile missing for queued similarity user",
+            });
+            const { error: markErr } = await supabase
+              .from("alert_queue")
+              .update({ sent: true })
+              .in("id", queueIds);
+            if (markErr) {
+              console.error(`${CONTEXT_TAG} Failed to mark orphaned similarity queue item sent for user ${item.user_id}:`, markErr);
+              result.errors++;
+            } else {
+              result.queueMarked += queueIds.length;
+              result.errors++;
+            }
+            continue;
+          }
+
+          try {
+            // Kill switch — same semantics as the forecast branch: skip the
+            // provider call but mark the queue row sent so the queue can't
+            // grow unbounded during a pause.
+            if (!deliveryEnabled) {
+              await recordAttempt({
+                queueId: item.id,
+                ruleId: item.rule_id,
+                userId: item.user_id,
+                channel: "push",
+                status: "skipped_disabled",
+                skipReason: "ALERTS_DELIVERY_ENABLED=false",
+              });
+              const { error: markErr } = await supabase
+                .from("alert_queue")
+                .update({ sent: true })
+                .in("id", queueIds);
+              if (markErr) {
+                console.error(`${CONTEXT_TAG} Failed to mark similarity queue item sent for user ${item.user_id}:`, markErr);
+                result.errors++;
+              } else {
+                result.queueMarked += queueIds.length;
+              }
+              continue;
+            }
+
+            if (allowlist.size > 0 && !allowlist.has(item.user_id)) {
+              await recordAttempt({
+                queueId: item.id,
+                ruleId: item.rule_id,
+                userId: item.user_id,
+                channel: "push",
+                status: "skipped_allowlist",
+                skipReason: `user not in ALERTS_DELIVERY_USER_ALLOWLIST`,
+              });
+              const { error: markErr } = await supabase
+                .from("alert_queue")
+                .update({ sent: true })
+                .in("id", queueIds);
+              if (markErr) {
+                console.error(`${CONTEXT_TAG} Failed to mark similarity queue item sent for user ${item.user_id}:`, markErr);
+                result.errors++;
+              } else {
+                result.queueMarked += queueIds.length;
+              }
+              continue;
+            }
+
+            // Build the payload directly from conditions_snapshot. Newer
+            // similarity rows include richer surf context; older rows only
+            // carry the core fields and must still enqueue with fallback copy.
+            const snap = item.conditions_snapshot as Record<string, unknown>;
+            const optionalStringField = (value: unknown): string | undefined =>
+              typeof value === "string" && value.trim().length > 0
+                ? value
+                : undefined;
+            const optionalNumberField = (value: unknown): number | undefined =>
+              typeof value === "number" && Number.isFinite(value)
+                ? value
+                : undefined;
+            const enqueueResult = await enqueueNotification({
+              type: "similarity_match",
+              recipientUserId: item.user_id,
+              entityType: "beach",
+              entityId: item.beach_id,
+              payload: {
+                beach_id: String(snap.beach_id ?? item.beach_id),
+                beach_slug: String(snap.beach_slug ?? ""),
+                beach_name: String(snap.beach_name ?? item.beach_name),
+                alert_date: item.alert_date,
+                forecast_at: String(snap.forecast_at ?? ""),
+                score: typeof snap.score === "number" ? snap.score : 0,
+                label: snap.label == null ? null : String(snap.label),
+                reason: String(snap.reason ?? ""),
+                ...(optionalStringField(snap.window_local) == null
+                  ? {}
+                  : { window_local: optionalStringField(snap.window_local) }),
+                ...(optionalNumberField(snap.wave_height_ft) == null
+                  ? {}
+                  : { wave_height_ft: optionalNumberField(snap.wave_height_ft) }),
+                ...(optionalNumberField(snap.wave_period_s) == null
+                  ? {}
+                  : { wave_period_s: optionalNumberField(snap.wave_period_s) }),
+                ...(optionalNumberField(snap.wind_speed_mph) == null
+                  ? {}
+                  : { wind_speed_mph: optionalNumberField(snap.wind_speed_mph) }),
+                ...(optionalStringField(snap.wind_direction) == null
+                  ? {}
+                  : { wind_direction: optionalStringField(snap.wind_direction) }),
+                ...(optionalNumberField(snap.tide_height_ft) == null
+                  ? {}
+                  : { tide_height_ft: optionalNumberField(snap.tide_height_ft) }),
+                ...(optionalStringField(snap.tide_status) == null
+                  ? {}
+                  : { tide_status: optionalStringField(snap.tide_status) }),
+                ...(optionalNumberField(snap.confidence) == null
+                  ? {}
+                  : { confidence: optionalNumberField(snap.confidence) }),
+                ...(optionalStringField(snap.condition_summary) == null
+                  ? {}
+                  : { condition_summary: optionalStringField(snap.condition_summary) }),
+                ...(optionalStringField(snap.board_tip) == null
+                  ? {}
+                  : { board_tip: optionalStringField(snap.board_tip) }),
+                ...(optionalStringField(snap.setup_tip) == null
+                  ? {}
+                  : { setup_tip: optionalStringField(snap.setup_tip) }),
+                queue_items: [{ queue_id: item.id, rule_id: item.rule_id }],
+              },
+              dedupeKey: `similarity_match:${item.user_id}:${item.alert_date}`,
+            }).catch((err) => {
+              console.error(`${CONTEXT_TAG} similarity enqueue threw for user ${item.user_id}:`, err);
+              return { enqueued: false as const, reason: "internal_error" as const };
+            });
+
+            if (enqueueResult.enqueued) {
+              // Defer the per-queue-item alert_delivery_attempts row write to
+              // the registry's onChannelOutcome hook (mirrors forecast_alert)
+              // so the cron's cooldown / cap reads only see actually-delivered
+              // pushes — not enqueued-but-pref-skipped ones.
+              const { error: markErr } = await supabase
+                .from("alert_queue")
+                .update({ sent: true })
+                .in("id", queueIds);
+              if (markErr) {
+                console.error(`${CONTEXT_TAG} Failed to mark similarity queue item sent for user ${item.user_id}:`, markErr);
+                result.errors++;
+              } else {
+                result.queueMarked += queueIds.length;
+                result.pushSent++;
+                console.log(
+                  `${CONTEXT_TAG} Similarity push enqueued for user ${item.user_id} (event ${enqueueResult.eventId})`
+                );
+              }
+            } else if (enqueueResult.reason === "duplicate") {
+              // Worker-level dedup caught it — a prior tick already enqueued
+              // the same similarity_match for today. Mark queue sent so we
+              // don't loop on it; record the skip.
+              await recordAttempt({
+                queueId: item.id,
+                ruleId: item.rule_id,
+                userId: item.user_id,
+                channel: "push",
+                status: "skipped_dedup_collision",
+                skipReason: "notification_events dedupe_key collision",
+              });
+              const { error: markErr } = await supabase
+                .from("alert_queue")
+                .update({ sent: true })
+                .in("id", queueIds);
+              if (markErr) {
+                console.error(`${CONTEXT_TAG} Failed to mark similarity queue item sent for user ${item.user_id}:`, markErr);
+                result.errors++;
+              } else {
+                result.queueMarked += queueIds.length;
+              }
+            } else if (enqueueResult.reason === "invalid_payload") {
+              // Permanent — don't retry. Mark queue sent + record the failure.
+              console.error(
+                `${CONTEXT_TAG} similarity enqueue rejected invalid payload for user ${item.user_id}:`,
+                enqueueResult
+              );
+              result.errors++;
+              await recordAttempt({
+                queueId: item.id,
+                ruleId: item.rule_id,
+                userId: item.user_id,
+                channel: "push",
+                status: "failed_internal",
+                skipReason: `enqueue: invalid_payload${enqueueResult.message ? `: ${enqueueResult.message}` : ""}`,
+              });
+              const { error: markErr } = await supabase
+                .from("alert_queue")
+                .update({ sent: true })
+                .in("id", queueIds);
+              if (markErr) {
+                console.error(`${CONTEXT_TAG} Failed to mark similarity queue item sent for user ${item.user_id}:`, markErr);
+                result.errors++;
+              } else {
+                result.queueMarked += queueIds.length;
+              }
+            } else {
+              // internal_error / unknown_type — leave queue UNSENT so the
+              // next tick can retry. Record the attempt for observability.
+              console.error(
+                `${CONTEXT_TAG} similarity enqueue failed for user ${item.user_id}:`,
+                enqueueResult
+              );
+              result.errors++;
+              await recordAttempt({
+                queueId: item.id,
+                ruleId: item.rule_id,
+                userId: item.user_id,
+                channel: "push",
+                status: "failed_internal",
+                skipReason: `enqueue: ${enqueueResult.reason}`,
+              });
+            }
+          } catch (similarityErr) {
+            console.error(`${CONTEXT_TAG} Error processing similarity user ${item.user_id}:`, similarityErr);
             result.errors++;
           }
         }

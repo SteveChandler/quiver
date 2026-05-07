@@ -65,6 +65,25 @@ const STATE_NAMES: Record<string, string> = {
   AL: "Alabama", MS: "Mississippi", LA: "Louisiana",
 };
 
+function normalizeBestMonths(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((month) => {
+    const numericMonth =
+      typeof month === "number" ? month : Number.parseInt(String(month), 10);
+
+    if (
+      !Number.isInteger(numericMonth) ||
+      numericMonth < 1 ||
+      numericMonth > 12
+    ) {
+      return [];
+    }
+
+    return [numericMonth];
+  });
+}
+
 /**
  * Fetch best-time-to-surf data for a city.
  *
@@ -97,28 +116,74 @@ export async function getBestTimeToSurfData(
     }
 
     // Aggregate best_months counts across all beaches
-    const monthCounts = new Array(12).fill(0);
+    const monthCounts: number[] = new Array(12).fill(0);
     let beachesWithMonths = 0;
 
     for (const beach of beaches) {
-      if (beach.best_months && beach.best_months.length > 0) {
+      const bestMonths = normalizeBestMonths(beach.best_months);
+      if (bestMonths.length > 0) {
         beachesWithMonths++;
-        for (const month of beach.best_months) {
-          if (month >= 1 && month <= 12) {
-            monthCounts[month - 1]++;
-          }
+        for (const month of bestMonths) {
+          monthCounts[month - 1]++;
         }
       }
     }
 
-    // If no beaches have best_months data, return null
+    const stateSlug = normalizedState.toLowerCase();
+    const stateProfile = getStateSurfProfile(stateSlug);
+    const regional = getRegionalData(stateSlug);
+
     if (beachesWithMonths === 0) {
-      return null;
+      if (!stateProfile) {
+        return null;
+      }
+
+      const monthly: MonthlySurfEntry[] = stateProfile.monthly.map(
+        (monthData, i) => {
+          const month = i + 1;
+
+          return {
+            month,
+            monthName: MONTH_NAMES[i],
+            bestMonthCount: stateProfile.peakMonths.includes(month)
+              ? beaches.length
+              : 0,
+            score: monthData.overallScore,
+          };
+        }
+      );
+
+      const peakScore = Math.max(...monthly.map((m) => m.score));
+      const peakIndex = monthly.findIndex((m) => m.score === peakScore);
+      const stateName = STATE_NAMES[normalizedState] || normalizedState;
+
+      return {
+        cityName,
+        state: normalizedState,
+        stateName,
+        stateSlug,
+        totalBeaches: beaches.length,
+        peakMonth: peakIndex + 1,
+        peakMonthName: MONTH_NAMES[peakIndex],
+        peakScore,
+        monthly,
+        waterTempRange: regional?.waterTempRange ?? null,
+        summerWetsuit: regional?.summerWetsuit ?? null,
+        winterWetsuit: regional?.winterWetsuit ?? null,
+        topBeaches: beaches.slice(0, 10).map((b) => ({
+          name: b.name,
+          slug: b.slug,
+          city: b.city,
+          state: b.state,
+          country: b.country,
+          bestMonths: normalizeBestMonths(b.best_months),
+          skillLevel: b.skill_level,
+          crowdLevel: b.crowd_level,
+        })),
+      };
     }
 
     // Compute composite monthly scores (shoulder-smoothed + blended)
-    const stateProfile = getStateSurfProfile(normalizedState.toLowerCase());
-    const regional = getRegionalData(normalizedState.toLowerCase());
     const compositeScores = buildMonthlyScores(
       monthCounts,
       stateProfile?.monthly,
@@ -139,8 +204,6 @@ export async function getBestTimeToSurfData(
     const peakMonth = peakIndex + 1;
 
     // Regional data
-    const stateSlug = normalizedState.toLowerCase();
-
     const stateName = STATE_NAMES[normalizedState] || normalizedState;
 
     return {
@@ -157,7 +220,7 @@ export async function getBestTimeToSurfData(
       summerWetsuit: regional?.summerWetsuit ?? null,
       winterWetsuit: regional?.winterWetsuit ?? null,
       topBeaches: beaches
-        .filter((b) => b.best_months && b.best_months.length > 0)
+        .filter((b) => normalizeBestMonths(b.best_months).length > 0)
         .slice(0, 10)
         .map((b) => ({
           name: b.name,
@@ -165,7 +228,7 @@ export async function getBestTimeToSurfData(
           city: b.city,
           state: b.state,
           country: b.country,
-          bestMonths: b.best_months || [],
+          bestMonths: normalizeBestMonths(b.best_months),
           skillLevel: b.skill_level,
           crowdLevel: b.crowd_level,
         })),

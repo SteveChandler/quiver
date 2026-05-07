@@ -21,11 +21,7 @@ const mockFetch = jest.fn(() =>
 );
 
 function setPathname(pathname: string) {
-  Object.defineProperty(window, "location", {
-    value: { ...window.location, pathname },
-    configurable: true,
-    writable: true,
-  });
+  window.history.pushState({}, "", pathname);
 }
 
 beforeEach(() => {
@@ -58,7 +54,6 @@ describe("trackSignupCtaView", () => {
     let freshTrackView!: typeof trackSignupCtaView;
 
     jest.isolateModules(() => {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       freshTrackView = require("@/lib/analytics/signup-conversion-tracking").trackSignupCtaView;
     });
 
@@ -324,7 +319,6 @@ describe("beachId lift from params.beach_id", () => {
   it("trackSignupCtaView lifts beach_id to top-level beachId field", () => {
     let freshTrackView!: typeof trackSignupCtaView;
     jest.isolateModules(() => {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       freshTrackView = require("@/lib/analytics/signup-conversion-tracking").trackSignupCtaView;
     });
 

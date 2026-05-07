@@ -65,7 +65,12 @@ export function OutlookBarChart({ days }: OutlookBarChartProps) {
   }, []);
 
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-sm p-4 sm:p-6" role="img" aria-label={`Bar chart showing daily surf condition scores for the next ${days.length} days`}>
+    <div
+      data-testid="outlook-bar-chart"
+      className="rounded-2xl border border-border bg-card shadow-sm p-4 sm:p-6"
+      role="img"
+      aria-label={`Bar chart showing daily surf condition scores for the next ${days.length} days`}
+    >
       <h3 className="text-lg font-semibold text-foreground">{days.length}-Day Outlook</h3>
       <p className="text-sm text-muted-foreground mb-4">
         Daily surf condition scores

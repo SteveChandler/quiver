@@ -54,6 +54,8 @@ const mockGetUtcDayBounds = jest.fn<any, any[]>(() => ({
   end: "2026-04-27T00:00:00.000Z",
 }));
 const mockResolveEntitlement = jest.fn<any, any[]>(() => "free" as const);
+const mockSelectBestWindow = jest.fn<any, any[]>();
+const mockComputeSurfCall = jest.fn<any, any[]>();
 
 jest.mock("@/lib/alerts/window-finder", () => ({
   findMatchingWindows: (...args: any[]) => mockFindMatchingWindows(...args),
@@ -72,6 +74,16 @@ jest.mock("@/lib/alerts/entitlements", () => ({
     premium: { beaches: 10, rulesPerBeach: 5, totalRules: 50 },
   },
 }));
+jest.mock("@/lib/services/discovery", () => ({
+  selectBestWindow: (...args: any[]) => mockSelectBestWindow(...args),
+}));
+jest.mock("@/lib/utils/surf-call-logic", () => {
+  const actual = jest.requireActual("@/lib/utils/surf-call-logic");
+  return {
+    ...actual,
+    computeSurfCall: (...args: any[]) => mockComputeSurfCall(...args),
+  };
+});
 
 // ---- Store + mock Supabase ----
 
@@ -109,8 +121,10 @@ const store: Store = {
 function makeChain(rowsResolver: () => any[], onUpsert?: (row: any) => void) {
   const chain: any = {
     _filters: {} as Record<string, any>,
+    _neqFilters: {} as Record<string, any>,
     select: jest.fn(() => chain),
     eq: jest.fn((_col: string, val: any) => { chain._filters[_col] = val; return chain; }),
+    neq: jest.fn((_col: string, val: any) => { chain._neqFilters[_col] = val; return chain; }),
     in: jest.fn((_col: string, vals: any[]) => { chain._filters[`${_col}__in`] = vals; return chain; }),
     gte: jest.fn(() => chain),
     lt: jest.fn(() => chain),
@@ -131,7 +145,12 @@ function makeChain(rowsResolver: () => any[], onUpsert?: (row: any) => void) {
     }),
     // Promise resolution (then is the terminal for most selects)
     then: jest.fn((resolve: any) =>
-      resolve({ data: rowsResolver(), error: null })
+      resolve({
+        data: rowsResolver().filter((row) =>
+          Object.entries(chain._neqFilters).every(([col, val]) => row?.[col] !== val)
+        ),
+        error: null,
+      })
     ),
     single: jest.fn(() => Promise.resolve({ data: rowsResolver()[0] ?? null, error: null })),
     maybeSingle: jest.fn(() => Promise.resolve({ data: rowsResolver()[0] ?? null, error: null })),
@@ -274,6 +293,8 @@ beforeEach(() => {
   // test (jest.clearAllMocks does NOT clear that queue, only call records).
   mockFindMatchingWindows.mockReset();
   mockFilterToDaylight.mockReset();
+  mockSelectBestWindow.mockReset();
+  mockComputeSurfCall.mockReset();
   store.rules = [];
   store.profiles = [];
   store.beaches = [];
@@ -295,6 +316,27 @@ beforeEach(() => {
     end: "2026-04-27T00:00:00.000Z",
   });
   mockResolveEntitlement.mockReturnValue("free");
+  mockSelectBestWindow.mockImplementation(({ forecasts }: any) => {
+    const forecast = forecasts[0];
+    return {
+      start: new Date("2026-04-26T16:00:00Z"),
+      end: new Date("2026-04-26T18:00:00Z"),
+      tide: forecast?.tide_status ?? "Unknown",
+      wind: forecast?.wind_speed ?? "Unknown",
+      waveHeight: forecast?.wave_height ?? "Unknown",
+      wavePeriod: forecast?.wave_period ?? "Unknown",
+      dataSource: forecast?.data_source ?? "TEST",
+      confidence: forecast?.confidence_score ?? 80,
+      score: 90,
+      peakTime: new Date("2026-04-26T17:00:00Z"),
+      sourceForecast: forecast,
+    };
+  });
+  mockComputeSurfCall.mockImplementation((window: any) => ({
+    bestWindowStart: window?.start?.toISOString() ?? null,
+    bestWindowEnd: window?.end?.toISOString() ?? null,
+    peakTime: window?.peakTime?.toISOString() ?? null,
+  }));
 
   // Reset the mockSupabase.from implementation so per-test seeds are isolated.
   mockSupabase.from.mockImplementation(mockFrom);
@@ -325,7 +367,12 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
       rule_id: RULE_1,
       beach_id: BEACH_1,
       alert_date: expect.any(String),
+      window_start: "2026-04-26T16:00:00.000Z",
+      window_end: "2026-04-26T18:00:00.000Z",
+      best_hour: "2026-04-26T17:00:00.000Z",
     });
+    expect(mockSelectBestWindow).toHaveBeenCalledTimes(1);
+    expect(mockComputeSurfCall).toHaveBeenCalledTimes(1);
 
     // last_matched_at must be stamped
     expect(store.ruleUpdates).toHaveLength(1);
@@ -345,6 +392,29 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     expect(body.queued).toBe(0);
 
     // No queue upserts, no rule updates
+    expect(store.queueUpserts).toHaveLength(0);
+    expect(store.ruleUpdates).toHaveLength(0);
+  });
+
+  it("2b. excludes similarity_match rules from the generic condition evaluator", async () => {
+    seedRule({
+      name: "Conditions like your best sessions",
+      preset_type: "similarity_match",
+      conditions: {},
+    });
+    seedProfile();
+    seedBeach();
+    seedForecast();
+    seedMatchingWindow();
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.evaluated).toBe(0);
+    expect(body.matched).toBe(0);
+    expect(body.queued).toBe(0);
+    expect(mockFindMatchingWindows).not.toHaveBeenCalled();
     expect(store.queueUpserts).toHaveLength(0);
     expect(store.ruleUpdates).toHaveLength(0);
   });

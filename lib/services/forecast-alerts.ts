@@ -1,21 +1,24 @@
 /**
  * Forecast Alert Service (Push)
  *
- * Evaluates cached forecasts for a user's home beach and sends a push notification
- * when conditions cross the user's thresholds.
+ * Evaluates cached forecasts for a user's home beach and alert-enabled favorite
+ * beaches, then enqueues one daily summary push when conditions cross the
+ * user's thresholds.
  *
  * Design constraints:
  * - Cache-only forecast reads (via getFreshForecastFromCache)
  * - No stale pushes: if forecast cache is stale/missing, skip sending
- * - Dedupe: at most 1 alert/day per user+beach (and only when the matching window changes)
+ * - Dedupe: at most 1 daily summary per user+local date
  */
 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getFreshForecastFromCache } from "@/lib/utils/forecast-service-utils";
-import { sendPushNotification } from "@/lib/services/push-notifications";
-import { getLocalHour, DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
-
-type AlertType = "forecast_threshold";
+import { enqueueNotification } from "@/lib/notifications/enqueue";
+import {
+  getLocalDateString,
+  getLocalHour,
+  DEFAULT_TIMEZONE,
+} from "@/lib/utils/timezone-utils";
 
 type LearnedPrefsRow = {
   user_id: string;
@@ -43,29 +46,20 @@ type BeachRow = {
   name: string | null;
 };
 
-type DeliveryRow = {
-  user_id: string;
-  beach_id: string;
-  alert_type: AlertType;
-  last_sent_at: string | null;
-  last_matching_forecast_ts: string | null;
-};
-
 export type ForecastAlertRunSummary = {
   eligibleUsers: number;
-  favoriteBeachesProcessed: number;
+  eligibleBeachesProcessed: number;
   skipped: {
     pushDisabled: number;
     alertsDisabled: number;
-    missingHomeBeach: number;
     mockUser: number;
+    noEligibleBeaches: number;
     missingBeachSlug: number;
     staleForecast: number;
     missingForecast: number;
+    noGoodForecasts: number;
+    duplicateDailySummary: number;
     noMatch: number;
-    rateLimited: number;
-    notCrossing: number;
-    noDeviceTokens: number;
     sendFailed: number;
     quietHours: number;
   };
@@ -83,55 +77,36 @@ const DEFAULT_THRESHOLDS = {
 };
 
 const LOOKAHEAD_HOURS = 18;
-const DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000;
-const ALERT_TYPE: AlertType = "forecast_threshold";
+const MAX_DAILY_SUMMARY_ENTRIES = 3;
+const DAILY_FORECAST_ALERT_TYPE = "daily_forecast_summary";
+const DAILY_FORECAST_NOTIFICATION_TYPE = "daily_forecast";
 
-// Quiet hours: suppress notifications between 10 PM and 4 AM local time
-const QUIET_HOURS_START = 22; // 10 PM
-const QUIET_HOURS_END = 4;    // 4 AM
-
-/**
- * Check if a given hour falls within quiet hours (10 PM - 4 AM)
- */
-function isHourInQuietHours(hour: number): boolean {
-  return hour >= QUIET_HOURS_START || hour < QUIET_HOURS_END;
-}
+// Daily forecasts should land during the user's morning planning window.
+const DAILY_FORECAST_SEND_WINDOW_START = 5;
+const DAILY_FORECAST_SEND_WINDOW_END = 11;
 
 /**
- * Check if a given time falls within quiet hours (10 PM - 4 AM) in a timezone
- * Exported for testing
+ * Check if a given time is inside the daily forecast send window.
+ * Exported for testing.
  */
-export function isWithinQuietHours(timezone: string | null, now: Date = new Date()): boolean {
-  const tz = timezone || DEFAULT_TIMEZONE;
-  const localHour = getLocalHour(now, tz);
-  return isHourInQuietHours(localHour);
-}
-
-/**
- * Determine if a notification should be suppressed due to quiet hours.
- *
- * Logic: Only suppress if BOTH the current time AND the forecast time are in quiet hours.
- * This allows dawn patrol alerts - e.g., at 3 AM we still notify about good 6 AM conditions
- * so users can prepare, but we don't wake users for forecasts they can't act on.
- *
- * @param timezone - User's timezone (falls back to DEFAULT_TIMEZONE if null)
- * @param forecastUtcMs - The UTC timestamp of the forecast
- * @param now - Current time (defaults to now, injectable for testing)
- * @returns true if notification should be suppressed
- *
- * Exported for testing
- */
-export function shouldSuppressForQuietHours(
+export function isWithinDailyForecastSendWindow(
   timezone: string | null,
-  forecastUtcMs: number,
   now: Date = new Date()
 ): boolean {
   const tz = timezone || DEFAULT_TIMEZONE;
-  const currentHour = getLocalHour(now, tz);
-  const forecastHour = getLocalHour(new Date(forecastUtcMs), tz);
+  const localHour = getLocalHour(now, tz);
+  return (
+    localHour >= DAILY_FORECAST_SEND_WINDOW_START &&
+    localHour < DAILY_FORECAST_SEND_WINDOW_END
+  );
+}
 
-  // Only suppress if BOTH current time and forecast time are in quiet hours
-  return isHourInQuietHours(currentHour) && isHourInQuietHours(forecastHour);
+/**
+ * Get the current local hour with the same fallback used by the send window.
+ */
+function getCurrentLocalHour(timezone: string | null, now: Date): number {
+  const tz = timezone || DEFAULT_TIMEZONE;
+  return getLocalHour(now, tz);
 }
 
 /**
@@ -182,7 +157,17 @@ function parseNumber(value: unknown): number | null {
   return null;
 }
 
-function forecastToUtcMs(forecast: { forecast_at?: string; forecast_date?: string; forecast_time?: string }): number | null {
+function normalizeConfidenceScore(value: number | null): number | null {
+  if (value === null) return null;
+  if (value > 1) return Math.min(value / 100, 1);
+  return Math.max(value, 0);
+}
+
+function forecastToUtcMs(forecast: {
+  forecast_at?: string | null;
+  forecast_date?: string | null;
+  forecast_time?: string | null;
+}): number | null {
   // Prefer forecast_at (already UTC timestamptz)
   if (forecast.forecast_at) {
     const ts = new Date(forecast.forecast_at).getTime();
@@ -193,6 +178,23 @@ function forecastToUtcMs(forecast: { forecast_at?: string; forecast_date?: strin
   const ts = new Date(`${forecast.forecast_date}T${forecast.forecast_time}Z`).getTime();
   return Number.isFinite(ts) ? ts : null;
 }
+
+type ForecastAlertForecast = {
+  forecast_at?: string;
+  forecast_date?: string | null;
+  forecast_time?: string | null;
+  wave_height?: string | null;
+  wave_period?: string | null;
+  wind_speed?: string | null;
+  tide_status?: string | null;
+  confidence_score?: number | null;
+};
+
+type MatchingForecast = {
+  forecast: ForecastAlertForecast;
+  forecastUtcMs: number;
+  score: number;
+};
 
 function getUserThresholds(prefs: LearnedPrefsRow | null) {
   if (!prefs || typeof prefs.sample_size !== "number" || prefs.sample_size < 5) {
@@ -218,22 +220,23 @@ function getUserThresholds(prefs: LearnedPrefsRow | null) {
 }
 
 export function findFirstMatchingForecast(args: {
-  forecasts: Array<{
-    forecast_at?: string;
-    forecast_date: string;
-    forecast_time: string;
-    wave_height?: string | null;
-    wave_period?: string | null;
-    wind_speed?: string | null;
-    tide_status?: string | null;
-    confidence_score?: number | null;
-  }>;
+  forecasts: ForecastAlertForecast[];
   nowMs: number;
   lookaheadHours: number;
   thresholds: ReturnType<typeof getUserThresholds>;
 }) {
+  return getMatchingForecasts(args)[0] ?? null;
+}
+
+function getMatchingForecasts(args: {
+  forecasts: ForecastAlertForecast[];
+  nowMs: number;
+  lookaheadHours: number;
+  thresholds: ReturnType<typeof getUserThresholds>;
+}): MatchingForecast[] {
   const { forecasts, nowMs, lookaheadHours, thresholds } = args;
   const endMs = nowMs + lookaheadHours * 60 * 60 * 1000;
+  const matches: MatchingForecast[] = [];
 
   for (const f of forecasts) {
     const tMs = forecastToUtcMs(f);
@@ -243,7 +246,9 @@ export function findFirstMatchingForecast(args: {
     const waveFt = parseNumber(f.wave_height);
     const periodS = parseNumber(f.wave_period);
     const windMph = parseNumber(f.wind_speed);
-    const confidence = typeof f.confidence_score === "number" ? f.confidence_score : null;
+    const confidence = normalizeConfidenceScore(
+      typeof f.confidence_score === "number" ? f.confidence_score : null
+    );
     const tideStatus = (f.tide_status || "").toLowerCase();
 
     if (waveFt === null || periodS === null || windMph === null) continue;
@@ -258,61 +263,110 @@ export function findFirstMatchingForecast(args: {
       if (!thresholds.preferredTideStatuses.includes(tideStatus)) continue;
     }
 
-    return { forecast: f, forecastUtcMs: tMs };
+    matches.push({
+      forecast: f,
+      forecastUtcMs: tMs,
+      score: scoreMatchingForecast({
+        waveFt,
+        periodS,
+        windMph,
+        confidence,
+        forecastUtcMs: tMs,
+        nowMs,
+        thresholds,
+      }),
+    });
   }
 
-  return null;
+  return matches;
 }
 
-type EvaluateAndSendAlertArgs = {
-  userId: string;
+function findBestMatchingForecast(args: {
+  forecasts: ForecastAlertForecast[];
+  nowMs: number;
+  lookaheadHours: number;
+  thresholds: ReturnType<typeof getUserThresholds>;
+}): MatchingForecast | null {
+  const matches = getMatchingForecasts(args);
+  if (matches.length === 0) return null;
+
+  matches.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.forecastUtcMs - b.forecastUtcMs;
+  });
+
+  return matches[0];
+}
+
+function scoreMatchingForecast(args: {
+  waveFt: number;
+  periodS: number;
+  windMph: number;
+  confidence: number | null;
+  forecastUtcMs: number;
+  nowMs: number;
+  thresholds: ReturnType<typeof getUserThresholds>;
+}): number {
+  const { waveFt, periodS, windMph, confidence, forecastUtcMs, nowMs, thresholds } = args;
+  const waveCenter = (thresholds.waveMinFt + thresholds.waveMaxFt) / 2;
+  const waveHalfWidth = Math.max((thresholds.waveMaxFt - thresholds.waveMinFt) / 2, 1);
+  const waveFit = Math.max(0, 1 - Math.abs(waveFt - waveCenter) / waveHalfWidth);
+  const periodFit = Math.min(1, periodS / Math.max(thresholds.periodMaxS, 1));
+  const windFit = Math.max(0, 1 - windMph / Math.max(thresholds.maxWindMph, 1));
+  const confidenceFit = confidence ?? 1;
+  const hoursAhead = Math.max(0, (forecastUtcMs - nowMs) / (60 * 60 * 1000));
+  const timeFit = Math.max(0, 1 - hoursAhead / LOOKAHEAD_HOURS);
+
+  return waveFit * 35 + periodFit * 30 + windFit * 20 + confidenceFit * 10 + timeFit * 5;
+}
+
+type DailyForecastCandidate = {
   beachId: string;
   beach: BeachRow;
+  forecast: ForecastAlertForecast;
+  forecastUtcMs: number;
+  localForecastDate: string;
+  score: number;
+};
+
+type EvaluateBeachForecastArgs = {
+  beachId: string;
+  beach: BeachRow | undefined;
   thresholds: ReturnType<typeof getUserThresholds>;
-  forecastBucket: { forecasts: any[]; stale: boolean; missing: boolean };
+  forecastBucket: { forecasts: ForecastAlertForecast[]; stale: boolean; missing: boolean };
   timezone: string | null;
   nowMs: number;
-  now: Date;
-  deliveryByKey: Map<string, DeliveryRow>;
   summary: ForecastAlertRunSummary;
-  supabase: ReturnType<typeof createSupabaseServiceRoleClient>;
 };
 
 /**
- * Evaluate a single user+beach pair and send a push notification if conditions
- * match. Mutates `summary` counters and `deliveryByKey` in place.
- *
- * Extracted so the same logic can be reused for both home beaches and
- * per-favorite-beach alert pairs.
+ * Evaluate a single user+beach pair and return its best matching forecast.
+ * Mutates `summary` counters for per-beach skip reasons.
  */
-async function evaluateAndSendAlert({
-  userId,
+function evaluateBeachForecast({
   beachId,
   beach,
   thresholds,
   forecastBucket,
   timezone,
   nowMs,
-  now,
-  deliveryByKey,
   summary,
-  supabase,
-}: EvaluateAndSendAlertArgs): Promise<void> {
-  if (!beach?.slug) {
+}: EvaluateBeachForecastArgs): DailyForecastCandidate | null {
+  if (!beach) {
     summary.skipped.missingBeachSlug++;
-    return;
+    return null;
   }
 
   if (forecastBucket.missing) {
     summary.skipped.missingForecast++;
-    return;
+    return null;
   }
   if (forecastBucket.stale) {
     summary.skipped.staleForecast++;
-    return;
+    return null;
   }
 
-  const match = findFirstMatchingForecast({
+  const match = findBestMatchingForecast({
     forecasts: forecastBucket.forecasts,
     nowMs,
     lookaheadHours: LOOKAHEAD_HOURS,
@@ -321,110 +375,225 @@ async function evaluateAndSendAlert({
 
   if (!match) {
     summary.skipped.noMatch++;
+    return null;
+  }
+
+  return {
+    beachId,
+    beach,
+    forecast: match.forecast,
+    forecastUtcMs: match.forecastUtcMs,
+    localForecastDate: getLocalDateString(new Date(match.forecastUtcMs), timezone),
+    score: match.score,
+  };
+}
+
+function formatForecastSummaryTime(forecastUtcMs: number, timezone: string | null): string {
+  const tz = timezone || DEFAULT_TIMEZONE;
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hour: "numeric",
+      hour12: true,
+    })
+      .format(new Date(forecastUtcMs))
+      .replace(/\s/g, "");
+  } catch {
+    const d = new Date(forecastUtcMs);
+    const h = d.getUTCHours();
+    return `${h % 12 || 12}${h >= 12 ? "PM" : "AM"} UTC`;
+  }
+}
+
+function formatDailySummaryLine(candidate: DailyForecastCandidate, timezone: string | null): string {
+  const waveFt = parseNumber(candidate.forecast.wave_height);
+  const periodS = parseNumber(candidate.forecast.wave_period);
+  const windMph = parseNumber(candidate.forecast.wind_speed);
+  const beachName = candidate.beach.name || "Your beach";
+  const whenLocal = formatForecastSummaryTime(candidate.forecastUtcMs, timezone);
+  const waveText = waveFt !== null ? `${Math.round(waveFt * 10) / 10}ft` : "waves";
+  const periodText = periodS !== null ? ` @ ${Math.round(periodS)}s` : "";
+  const windText = windMph !== null ? `, ${Math.round(windMph)}mph wind` : "";
+
+  return `${beachName}: ${whenLocal} looks good, ${waveText}${periodText}${windText}`;
+}
+
+function sortDailyForecastCandidates(
+  candidates: DailyForecastCandidate[]
+): DailyForecastCandidate[] {
+  return [...candidates]
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.forecastUtcMs - b.forecastUtcMs;
+    });
+}
+
+async function enqueueDailyForecastSummary(args: {
+  supabase: ReturnType<typeof createSupabaseServiceRoleClient>;
+  userId: string;
+  timezone: string | null;
+  candidates: DailyForecastCandidate[];
+  summary: ForecastAlertRunSummary;
+}): Promise<void> {
+  const { supabase, userId, timezone, candidates, summary } = args;
+  const alertDate = candidates[0]?.localForecastDate;
+
+  if (!alertDate) {
+    summary.skipped.noGoodForecasts++;
     return;
   }
-
-  // Check quiet hours AFTER finding a match - only suppress if both current time
-  // and forecast time are in quiet hours. This allows dawn patrol alerts.
-  if (shouldSuppressForQuietHours(timezone, match.forecastUtcMs, now)) {
-    console.info(
-      `[ForecastAlerts] Skipping notification for user ${userId} - quiet hours ` +
-      `(tz: ${timezone || DEFAULT_TIMEZONE}, forecast: ${new Date(match.forecastUtcMs).toISOString()})`
-    );
-    summary.skipped.quietHours++;
-    return;
-  }
-
-  const matchIso = new Date(match.forecastUtcMs).toISOString();
-  const deliveryKey = `${userId}|${beachId}|${ALERT_TYPE}`;
-  const prior = deliveryByKey.get(deliveryKey);
-
-  if (prior?.last_sent_at) {
-    const lastSentMs = new Date(prior.last_sent_at).getTime();
-    if (Number.isFinite(lastSentMs) && nowMs - lastSentMs < DEDUPE_WINDOW_MS) {
-      summary.skipped.rateLimited++;
-      return;
-    }
-  }
-
-  if (prior?.last_matching_forecast_ts && prior.last_matching_forecast_ts === matchIso) {
-    summary.skipped.notCrossing++;
-    return;
-  }
-
-  // Build notification content
-  const waveFt = parseNumber(match.forecast.wave_height);
-  const periodS = parseNumber(match.forecast.wave_period);
-  const windMph = parseNumber(match.forecast.wind_speed);
-
-  const title = "Quiver Forecast Alert";
-  const whenLocal = formatForecastTimeLocal(match.forecastUtcMs, timezone);
-  const body = `${beach.name || "Your beach"} looks good ${whenLocal}: ${
-    waveFt !== null ? `${Math.round(waveFt * 10) / 10}ft` : "waves"
-  } @ ${periodS !== null ? `${Math.round(periodS)}s` : "—"} • ${
-    windMph !== null ? `${Math.round(windMph)}mph wind` : "—"
-  }`;
 
   try {
-    const pushResult = await sendPushNotification({
-      userIds: [userId],
-      title,
-      body,
-      data: {
-        type: "forecast_alert",
-        beach_id: beachId,
-        beach_slug: beach.slug,
-        forecast_ts: matchIso,
-        url: `/beach/${beach.slug}`,
-      },
-    });
-
-    if (pushResult.errors?.length) {
-      summary.skipped.sendFailed++;
-      return;
-    }
-
-    if (pushResult.success === 0 && pushResult.failed === 0) {
-      // Most commonly: no registered device tokens for the user.
-      summary.skipped.noDeviceTokens++;
-      return;
-    }
-
-    if (pushResult.failed > 0) {
-      summary.skipped.sendFailed++;
-      return;
-    }
-
-    summary.sent++;
-
-    const { error: upsertError } = await supabase
-      .from("forecast_alert_deliveries")
-      .upsert(
-        {
-          user_id: userId,
-          beach_id: beachId,
-          alert_type: ALERT_TYPE,
-          last_sent_at: new Date().toISOString(),
-          last_matching_forecast_ts: matchIso,
+    const enqueueResult = await enqueueNotification(
+      {
+        type: "daily_digest",
+        recipientUserId: userId,
+        entityType: null,
+        entityId: null,
+        payload: {
+          alert_date: alertDate,
+          title: "Quiver Daily Forecast",
+          body: candidates.map((c) => formatDailySummaryLine(c, timezone)).join("\n"),
+          match_count: candidates.length,
+          forecast_summary: {
+            top_match: candidates[0]?.beach.name || "Forecast summary",
+            match_count: candidates.length,
+          },
         },
-        { onConflict: "user_id,beach_id,alert_type" }
-      );
+        dedupeKey: `${DAILY_FORECAST_ALERT_TYPE}:${userId}:${alertDate}`,
+      },
+      supabase
+    );
 
-    if (upsertError) {
-      // Non-fatal: don't fail the run if state write fails
-      console.warn("Forecast alert delivery upsert failed", upsertError);
-    } else {
-      deliveryByKey.set(deliveryKey, {
+    if (enqueueResult.enqueued) {
+      summary.sent++;
+      console.info("sent_daily_forecast_summary", {
         user_id: userId,
-        beach_id: beachId,
-        alert_type: ALERT_TYPE,
-        last_sent_at: new Date().toISOString(),
-        last_matching_forecast_ts: matchIso,
+        forecast_date: alertDate,
+        alert_type: DAILY_FORECAST_ALERT_TYPE,
+        match_count: candidates.length,
       });
+      return;
     }
+
+    if (enqueueResult.reason === "duplicate") {
+      summary.skipped.duplicateDailySummary++;
+      console.info("skipped_duplicate_daily_summary", {
+        user_id: userId,
+        forecast_date: alertDate,
+        alert_type: DAILY_FORECAST_ALERT_TYPE,
+      });
+      return;
+    }
+
+    console.error(
+      `[ForecastAlerts] Failed to enqueue daily forecast summary for user ${userId}:`,
+      enqueueResult
+    );
+    summary.skipped.sendFailed++;
   } catch (err) {
+    console.error(
+      `[ForecastAlerts] Enqueue threw for daily forecast summary user ${userId}:`,
+      err
+    );
     summary.skipped.sendFailed++;
   }
+}
+
+async function claimDailyForecastCandidate(args: {
+  supabase: ReturnType<typeof createSupabaseServiceRoleClient>;
+  userId: string;
+  candidate: DailyForecastCandidate;
+  summary: ForecastAlertRunSummary;
+}): Promise<boolean> {
+  const { supabase, userId, candidate, summary } = args;
+
+  const { data, error } = await (supabase.rpc as any)(
+    "claim_daily_forecast_notification_slot",
+    {
+      p_user_id: userId,
+      p_beach_id: candidate.beachId,
+      p_notification_type: DAILY_FORECAST_NOTIFICATION_TYPE,
+      p_local_forecast_date: candidate.localForecastDate,
+    }
+  );
+
+  if (error) {
+    console.error("failed_daily_forecast_claim", {
+      user_id: userId,
+      beach_id: candidate.beachId,
+      local_forecast_date: candidate.localForecastDate,
+      message: error.message,
+    });
+    summary.skipped.sendFailed++;
+    return false;
+  }
+
+  if (data !== true) {
+    summary.skipped.duplicateDailySummary++;
+    console.info("skipped_duplicate_daily_forecast", {
+      user_id: userId,
+      beach_id: candidate.beachId,
+      notification_type: DAILY_FORECAST_NOTIFICATION_TYPE,
+      local_forecast_date: candidate.localForecastDate,
+    });
+    return false;
+  }
+
+  return true;
+}
+
+function uniqueBeachIds(ids: Array<string | null | undefined>): string[] {
+  return Array.from(new Set(ids.filter((id): id is string => Boolean(id))));
+}
+
+type FavoriteBeachRow = {
+  user_id: string;
+  beach_id: string;
+  alerts_enabled: boolean;
+};
+
+function getEligibleBeachIdsForUser(args: {
+  profile: EligibleProfileRow;
+  favoritesByUser: Map<string, FavoriteBeachRow[]>;
+}): string[] {
+  const { profile, favoritesByUser } = args;
+  return uniqueBeachIds([
+    profile.home_beach_id,
+    ...(favoritesByUser.get(profile.id)?.map((favorite) => favorite.beach_id) ?? []),
+  ]);
+}
+
+function logNoEligibleBeaches(userId: string): void {
+  console.info("skipped_no_eligible_beaches", {
+    user_id: userId,
+    alert_type: DAILY_FORECAST_ALERT_TYPE,
+  });
+}
+
+function logNoGoodForecasts(userId: string, alertDate: string, eligibleBeachCount: number): void {
+  console.info("skipped_no_good_forecasts", {
+    user_id: userId,
+    forecast_date: alertDate,
+    alert_type: DAILY_FORECAST_ALERT_TYPE,
+    eligible_beach_count: eligibleBeachCount,
+  });
+}
+
+function logDailyForecastQuietHours(args: {
+  userId: string;
+  timezone: string | null;
+  localHour: number;
+  candidateCount: number;
+}): void {
+  console.info("skipped_daily_forecast_quiet_hours", {
+    user_id: args.userId,
+    timezone: args.timezone || DEFAULT_TIMEZONE,
+    local_hour: args.localHour,
+    candidate_count: args.candidateCount,
+    send_window_start: DAILY_FORECAST_SEND_WINDOW_START,
+    send_window_end: DAILY_FORECAST_SEND_WINDOW_END,
+  });
 }
 
 export async function runForecastThresholdAlerts(): Promise<ForecastAlertRunSummary> {
@@ -433,47 +602,40 @@ export async function runForecastThresholdAlerts(): Promise<ForecastAlertRunSumm
 
   const summary: ForecastAlertRunSummary = {
     eligibleUsers: 0,
-    favoriteBeachesProcessed: 0,
+    eligibleBeachesProcessed: 0,
     sent: 0,
     durationMs: 0,
     skipped: {
       pushDisabled: 0,
       alertsDisabled: 0,
-      missingHomeBeach: 0,
       mockUser: 0,
+      noEligibleBeaches: 0,
       missingBeachSlug: 0,
       staleForecast: 0,
       missingForecast: 0,
+      noGoodForecasts: 0,
+      duplicateDailySummary: 0,
       noMatch: 0,
-      rateLimited: 0,
-      notCrossing: 0,
-      noDeviceTokens: 0,
       sendFailed: 0,
       quietHours: 0,
     },
   };
 
-  // 1) Load eligible users (home beach + push enabled + alerts enabled)
+  // 1) Load profiles once. This keeps skip accounting explicit and lets
+  // favorite-only users participate in the daily summary.
   const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
-    .select("id, home_beach_id, notif_push_enabled, notif_forecast_alerts, is_mock, timezone")
-    .not("home_beach_id", "is", null);
+    .select("id, home_beach_id, notif_push_enabled, notif_forecast_alerts, is_mock, timezone");
 
   if (profilesError) {
     throw new Error(profilesError.message || "Failed to load profiles for forecast alerts");
   }
 
-  const eligible: EligibleProfileRow[] = (profiles || []) as any[];
-
-  // Apply per-profile eligibility gating with explicit skip accounting
-  const filtered: EligibleProfileRow[] = [];
-  for (const p of eligible) {
+  const profileRows: EligibleProfileRow[] = (profiles || []) as any[];
+  const eligibleProfiles: EligibleProfileRow[] = [];
+  for (const p of profileRows) {
     if (p.is_mock) {
       summary.skipped.mockUser++;
-      continue;
-    }
-    if (!p.home_beach_id) {
-      summary.skipped.missingHomeBeach++;
       continue;
     }
     if (p.notif_push_enabled === false) {
@@ -484,76 +646,43 @@ export async function runForecastThresholdAlerts(): Promise<ForecastAlertRunSumm
       summary.skipped.alertsDisabled++;
       continue;
     }
-    filtered.push(p);
+    eligibleProfiles.push(p);
   }
 
-  summary.eligibleUsers = filtered.length;
+  summary.eligibleUsers = eligibleProfiles.length;
 
-  // Collect user IDs and home beach IDs from eligible home-beach users.
-  // These are used for batched preference/delivery lookups that are shared
-  // with the favorite beach section below.
-  const homeBeachUserIds = filtered.map((p) => p.id);
-  const homeBeachIds = Array.from(
-    new Set(filtered.map((p) => p.home_beach_id!).filter(Boolean))
-  );
+  if (eligibleProfiles.length === 0) {
+    summary.durationMs = Date.now() - start;
+    return summary;
+  }
 
-  // 2) Query favorite_beaches with alerts_enabled = true, joined to profile
-  //    eligibility fields. We do this early so we can batch-load everything
-  //    (preferences, deliveries, forecasts) in one pass.
-  type FavoriteBeachRow = {
-    user_id: string;
-    beach_id: string;
-    alerts_enabled: boolean;
-    profiles: {
-      id: string;
-      notif_push_enabled: boolean;
-      notif_forecast_alerts: boolean;
-      is_mock: boolean;
-      timezone: string | null;
-    } | null;
-  };
-
+  // 2) Query alert-enabled favorites. The code still checks `alerts_enabled`
+  // locally because unit-test Supabase fakes don't implement query filtering.
+  const allUserIds = eligibleProfiles.map((profile) => profile.id);
   const { data: favRows, error: favError } = await supabase
     .from("favorite_beaches")
-    .select("user_id, beach_id, alerts_enabled, profiles(id, notif_push_enabled, notif_forecast_alerts, is_mock, timezone)")
+    .select("user_id, beach_id, alerts_enabled")
     .eq("alerts_enabled", true);
 
   if (favError) {
     throw new Error(favError.message || "Failed to load favorite beaches for forecast alerts");
   }
 
-  // Filter favorites: profile must be eligible (push on, alerts on, not mock)
-  const eligibleFavorites: FavoriteBeachRow[] = ((favRows || []) as any[]).filter(
-    (row: FavoriteBeachRow) => {
-      const prof = row.profiles;
-      if (!prof) return false;
-      if (prof.is_mock) return false;
-      if (prof.notif_push_enabled === false) return false;
-      if (prof.notif_forecast_alerts === false) return false;
-      return true;
-    }
-  );
-
-  // Collect the unique set of user IDs and beach IDs we need to service,
-  // spanning both home beach users AND eligible favorite beach pairs.
-  const favUserIds = eligibleFavorites.map((r) => r.user_id);
-  const allUserIds = Array.from(new Set([...homeBeachUserIds, ...favUserIds]));
-
-  const favBeachIds = eligibleFavorites.map((r) => r.beach_id);
-  // Only fetch forecasts for fav beaches not already covered by home beach IDs
-  const homeBeachIdSet = new Set(homeBeachIds);
-  const additionalBeachIds = Array.from(
-    new Set(favBeachIds.filter((id) => !homeBeachIdSet.has(id)))
-  );
-  const allBeachIds = [...homeBeachIds, ...additionalBeachIds];
-
-  // If nothing to process at all, short-circuit here
-  if (allBeachIds.length === 0 && allUserIds.length === 0) {
-    summary.durationMs = Date.now() - start;
-    return summary;
+  const eligibleUserIds = new Set(eligibleProfiles.map((profile) => profile.id));
+  const favoritesByUser = new Map<string, FavoriteBeachRow[]>();
+  for (const favorite of (favRows || []) as FavoriteBeachRow[]) {
+    if (!favorite.alerts_enabled) continue;
+    if (!eligibleUserIds.has(favorite.user_id)) continue;
+    const existing = favoritesByUser.get(favorite.user_id) ?? [];
+    existing.push(favorite);
+    favoritesByUser.set(favorite.user_id, existing);
   }
 
-  // 3) Fetch beach slug/name for deep-link payload
+  const allBeachIds = uniqueBeachIds(
+    eligibleProfiles.flatMap((profile) => getEligibleBeachIdsForUser({ profile, favoritesByUser }))
+  );
+
+  // 3) Fetch beach names for summary copy.
   const beachById = new Map<string, BeachRow>();
   if (allBeachIds.length > 0) {
     const { data: beaches, error: beachesError } = await supabase
@@ -583,28 +712,10 @@ export async function runForecastThresholdAlerts(): Promise<ForecastAlertRunSumm
     }
   }
 
-  // 5) Fetch prior delivery state (batch over all users)
-  const deliveryByKey = new Map<string, DeliveryRow>();
-  if (allUserIds.length > 0) {
-    for (const batch of chunkArray(allUserIds, 250)) {
-      const { data: rows, error: delError } = await supabase
-        .from("forecast_alert_deliveries")
-        .select("user_id, beach_id, alert_type, last_sent_at, last_matching_forecast_ts")
-        .eq("alert_type", ALERT_TYPE)
-        .in("user_id", batch);
-      if (delError) {
-        throw new Error(delError.message || "Failed to load forecast alert deliveries");
-      }
-      (rows || []).forEach((r: any) => {
-        deliveryByKey.set(`${r.user_id}|${r.beach_id}|${r.alert_type}`, r);
-      });
-    }
-  }
-
-  // 6) Fetch forecasts per beach (cache-only) — covers both home and fav beaches.
+  // 5) Fetch forecasts per beach (cache-only) — covers both home and fav beaches.
   const forecastsByBeach = new Map<
     string,
-    { forecasts: any[]; stale: boolean; missing: boolean }
+    { forecasts: ForecastAlertForecast[]; stale: boolean; missing: boolean }
   >();
 
   if (allBeachIds.length > 0) {
@@ -615,7 +726,7 @@ export async function runForecastThresholdAlerts(): Promise<ForecastAlertRunSumm
         batch.map(async (beachId) => {
           const res = await getFreshForecastFromCache(beachId, LOOKAHEAD_HOURS);
           forecastsByBeach.set(beachId, {
-            forecasts: res.forecasts as any[],
+            forecasts: res.forecasts as ForecastAlertForecast[],
             stale: res.metadata.stale,
             missing: res.metadata.missing,
           });
@@ -634,53 +745,81 @@ export async function runForecastThresholdAlerts(): Promise<ForecastAlertRunSumm
   const nowMs = Date.now();
   const now = new Date(nowMs);
 
-  // 7) Evaluate and send per home-beach user
-  for (const p of filtered) {
-    const beachId = p.home_beach_id!;
-    await evaluateAndSendAlert({
-      userId: p.id,
-      beachId,
-      beach: beachById.get(beachId) as BeachRow,
-      thresholds: getUserThresholds(prefsByUser.get(p.id) || null),
-      forecastBucket: forecastsByBeach.get(beachId) || {
-        forecasts: [],
-        stale: false,
-        missing: true,
-      },
-      timezone: p.timezone,
-      nowMs,
-      now,
-      deliveryByKey,
-      summary,
-      supabase,
-    });
-  }
+  // 6) Evaluate each eligible user's home + alert-enabled favorite beaches,
+  // then enqueue one daily summary at most.
+  for (const profile of eligibleProfiles) {
+    const alertDate = getLocalDateString(now, profile.timezone);
+    const beachIds = getEligibleBeachIdsForUser({ profile, favoritesByUser });
 
-  // 8) Evaluate and send per eligible favorite beach pair
-  summary.favoriteBeachesProcessed = eligibleFavorites.length;
-  for (const fav of eligibleFavorites) {
-    const prof = fav.profiles!;
-    await evaluateAndSendAlert({
-      userId: fav.user_id,
-      beachId: fav.beach_id,
-      beach: beachById.get(fav.beach_id) as BeachRow,
-      thresholds: getUserThresholds(prefsByUser.get(fav.user_id) || null),
-      forecastBucket: forecastsByBeach.get(fav.beach_id) || {
-        forecasts: [],
-        stale: false,
-        missing: true,
-      },
-      timezone: prof.timezone,
-      nowMs,
-      now,
-      deliveryByKey,
-      summary,
+    if (beachIds.length === 0) {
+      summary.skipped.noEligibleBeaches++;
+      logNoEligibleBeaches(profile.id);
+      continue;
+    }
+
+    summary.eligibleBeachesProcessed += beachIds.length;
+
+    const candidates: DailyForecastCandidate[] = [];
+    const thresholds = getUserThresholds(prefsByUser.get(profile.id) || null);
+    for (const beachId of beachIds) {
+      const candidate = evaluateBeachForecast({
+        beachId,
+        beach: beachById.get(beachId),
+        thresholds,
+        forecastBucket: forecastsByBeach.get(beachId) || {
+          forecasts: [],
+          stale: false,
+          missing: true,
+        },
+        timezone: profile.timezone,
+        nowMs,
+        summary,
+      });
+      if (candidate) candidates.push(candidate);
+    }
+
+    if (candidates.length === 0) {
+      summary.skipped.noGoodForecasts++;
+      logNoGoodForecasts(profile.id, alertDate, beachIds.length);
+      continue;
+    }
+
+    if (!isWithinDailyForecastSendWindow(profile.timezone, now)) {
+      summary.skipped.quietHours++;
+      logDailyForecastQuietHours({
+        userId: profile.id,
+        timezone: profile.timezone,
+        localHour: getCurrentLocalHour(profile.timezone, now),
+        candidateCount: candidates.length,
+      });
+      continue;
+    }
+
+    const claimedCandidates: DailyForecastCandidate[] = [];
+    for (const candidate of sortDailyForecastCandidates(candidates)) {
+      if (claimedCandidates.length >= MAX_DAILY_SUMMARY_ENTRIES) break;
+      const claimed = await claimDailyForecastCandidate({
+        supabase,
+        userId: profile.id,
+        candidate,
+        summary,
+      });
+      if (claimed) claimedCandidates.push(candidate);
+    }
+
+    if (claimedCandidates.length === 0) {
+      continue;
+    }
+
+    await enqueueDailyForecastSummary({
       supabase,
+      userId: profile.id,
+      timezone: profile.timezone,
+      candidates: claimedCandidates,
+      summary,
     });
   }
 
   summary.durationMs = Date.now() - start;
   return summary;
 }
-
-

@@ -538,12 +538,12 @@ export function BestSurfWindow({
     return (
       <Card className="rounded-3xl border-yellow-100/60 bg-yellow-50/50">
         <CardContent className="p-6 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+          <AlertCircle className="h-5 w-5 text-amber-700 mt-0.5 flex-shrink-0" />
           <div className="flex-1">
-            <p className="text-sm text-yellow-800 font-medium mb-1">
+            <p className="text-sm text-amber-900 font-semibold mb-1">
               Surf intel not available yet
             </p>
-            <p className="text-xs text-yellow-700">
+            <p className="text-sm text-amber-800">
               Intel is generated daily for select beaches. Check the detailed
               forecast below for conditions.
             </p>

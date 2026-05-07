@@ -20,21 +20,22 @@ jest.mock("@/lib/api-utils", () => {
 jest.mock("@/lib/services/forecast-alerts", () => ({
   runForecastThresholdAlerts: jest.fn(async () => ({
     eligibleUsers: 1,
+    eligibleBeachesProcessed: 1,
     sent: 1,
     durationMs: 123,
     skipped: {
       pushDisabled: 0,
       alertsDisabled: 0,
-      missingHomeBeach: 0,
       mockUser: 0,
+      noEligibleBeaches: 0,
       missingBeachSlug: 0,
       staleForecast: 0,
       missingForecast: 0,
+      noGoodForecasts: 0,
+      duplicateDailySummary: 0,
       noMatch: 0,
-      rateLimited: 0,
-      notCrossing: 0,
-      noDeviceTokens: 0,
       sendFailed: 0,
+      quietHours: 0,
     },
   })),
 }));
@@ -53,5 +54,3 @@ describe("GET /api/cron/forecast-alerts", () => {
     expect(json.data.summary.sent).toBe(1);
   });
 });
-
-

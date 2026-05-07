@@ -722,6 +722,9 @@ body:has(.zine-page) {
 .zine-page .zine-tabs-slot .border-blue-100\/60 {
   border-color: rgba(17, 16, 13, 0.35) !important;
 }
+.zine-page .zine-tabs-slot [data-testid="tide-status-strip"] .text-muted-foreground {
+  color: rgba(17, 16, 13, 0.88) !important;
+}
 
 /* TideConditionsCard — was bg-gradient-to-br from-white/80 to-blue-50/60
    border-blue-200/50. Strip the gradient + blur, solid cream. */
@@ -739,6 +742,17 @@ body:has(.zine-page) {
 }
 .zine-page .zine-tabs-slot .backdrop-blur-sm {
   backdrop-filter: none !important;
+}
+.zine-page .zine-tabs-slot [data-testid="tide-conditions-card"] .from-blue-50\/80,
+.zine-page .zine-tabs-slot [data-testid="tide-conditions-card"] .to-indigo-50\/80 {
+  --tw-gradient-from: #0B3A75 !important;
+  --tw-gradient-to: #0B3A75 !important;
+}
+.zine-page .zine-tabs-slot [data-testid="tide-conditions-card"] .text-gray-800 {
+  color: #F4EBD8 !important;
+}
+.zine-page .zine-tabs-slot [data-testid="tide-conditions-card"] .text-muted-foreground {
+  color: rgba(17, 16, 13, 0.9) !important;
 }
 
 /* BestDayHero (Conditions sub-tab) — was bg-gradient-to-br
@@ -767,6 +781,38 @@ body:has(.zine-page) {
 }
 .zine-page .zine-tabs-slot .border-border {
   border-color: rgba(17, 16, 13, 0.3) !important;
+}
+.zine-page .zine-tabs-slot [data-testid="outlook-bar-chart"] .text-foreground,
+.zine-page .zine-tabs-slot [data-testid="outlook-bar-chart"] h3 {
+  color: #11100D !important;
+}
+.zine-page .zine-tabs-slot [data-testid="outlook-bar-chart"] .text-muted-foreground {
+  color: #4B4030 !important;
+  opacity: 1;
+}
+.zine-page .zine-tabs-slot [data-testid="outlook-bar-chart"] .recharts-cartesian-axis-tick text {
+  fill: #4B4030 !important;
+}
+.zine-page .zine-tabs-slot [data-testid="outlook-bar-chart"] .recharts-tooltip-wrapper .text-muted-foreground {
+  color: #4B4030 !important;
+  opacity: 1;
+}
+.zine-page .zine-tabs-slot [data-testid="conditions-explore-more-links"] a {
+  background-color: #F4EBD8 !important;
+  border-color: #11100D !important;
+}
+.zine-page .zine-tabs-slot [data-testid="conditions-explore-more-links"] .text-slate-800 {
+  color: #11100D !important;
+}
+.zine-page .zine-tabs-slot [data-testid="conditions-explore-more-links"] .text-slate-500,
+.zine-page .zine-tabs-slot [data-testid="conditions-explore-more-links"] .text-slate-400 {
+  color: #4B4030 !important;
+}
+.zine-page .zine-tabs-slot [data-testid="conditions-explore-more-links"] .bg-blue-50 {
+  background-color: rgba(11, 58, 117, 0.08) !important;
+}
+.zine-page .zine-tabs-slot [data-testid="conditions-explore-more-links"] .text-blue-600 {
+  color: #0B3A75 !important;
 }
 
 /* Misc legacy backgrounds still appearing inside the forecast

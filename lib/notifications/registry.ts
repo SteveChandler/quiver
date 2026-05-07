@@ -26,6 +26,10 @@
 import { z } from "zod";
 
 import type { NotificationDeliveryStatus, NotificationTypeDef } from "./types";
+import {
+  similarityMatchSchema,
+  type SimilarityMatchPayload,
+} from "./types/similarity-match";
 
 // ─── Phase 5e: payload schemas (validatePayload source of truth) ─────────────
 
@@ -371,6 +375,114 @@ export const NOTIFICATION_REGISTRY = {
       }
     },
   } satisfies NotificationTypeDef<ForecastAlertPayload>,
+
+  similarity_match: {
+    type: "similarity_match",
+    channels: ["push", "in_app"],
+    prefs: {
+      master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
+      // Single UI toggle gates both channels — auto-enabled for Pro users
+      // via `notif_similarity_alerts` (default true). Settings UI presents
+      // it as one switch so we never end up with inbox rows leaking past
+      // a user who thought they'd disabled the entire feature.
+      perType: {
+        push: "notif_similarity_alerts",
+        in_app: "notif_similarity_alerts",
+      },
+    },
+    suppressSelfNotify: false,
+    quietHours: DEFAULT_QUIET,
+    validatePayload: (input) =>
+      similarityMatchSchema.parse(input) as SimilarityMatchPayload,
+    buildPushPayload: (p) => {
+      const waveWindow =
+        p.wave_height_ft != null &&
+        p.wave_period_s != null &&
+        p.window_local
+          ? `${p.wave_height_ft.toFixed(1)}ft @ ${p.wave_period_s.toFixed(0)}s · ${p.window_local}`
+          : null;
+      const contextDetails = [
+        p.wind_direction && p.wind_speed_mph != null
+          ? `${p.wind_direction} wind ${p.wind_speed_mph.toFixed(0)}mph`
+          : null,
+        p.tide_status ? `${p.tide_status} tide` : null,
+        p.board_tip ?? p.setup_tip ?? null,
+        p.reason || null,
+      ].filter((detail): detail is string => Boolean(detail));
+      const body = waveWindow
+        ? [waveWindow, ...contextDetails.slice(0, 2)].join(" · ")
+        : p.reason;
+
+      return {
+        title: `${p.label ? `${p.label} ` : ""}match at ${p.beach_name}`.trim(),
+        body,
+        data: {
+          type: "similarity_match",
+          beach_id: p.beach_id,
+          beach_slug: p.beach_slug,
+          alert_date: p.alert_date,
+          forecast_at: p.forecast_at,
+        },
+      };
+    },
+    buildInAppPayload: (p) => ({
+      type: "similarity_match",
+      data: {
+        beach_id: p.beach_id,
+        beach_slug: p.beach_slug,
+        beach_name: p.beach_name,
+        alert_date: p.alert_date,
+        forecast_at: p.forecast_at,
+        score: p.score,
+        label: p.label ?? null,
+        reason: p.reason,
+        window_local: p.window_local,
+        wave_height_ft: p.wave_height_ft,
+        wave_period_s: p.wave_period_s,
+        wind_speed_mph: p.wind_speed_mph,
+        wind_direction: p.wind_direction,
+        tide_height_ft: p.tide_height_ft,
+        tide_status: p.tide_status,
+        confidence: p.confidence,
+        condition_summary: p.condition_summary,
+        board_tip: p.board_tip,
+        setup_tip: p.setup_tip,
+      },
+    }),
+    /**
+     * Mirrors forecast_alert's hook: on terminal push outcomes, fan out into
+     * `alert_delivery_attempts` (one row per queue item) so the cron's
+     * cooldown / weekly-cap reads (status='sent') reflect actual worker
+     * delivery rather than enqueue-time optimism.
+     */
+    onChannelOutcome: async ({ supabase, event, channel, status }) => {
+      if (channel !== "push") return;
+      const queueItems = event.payload.queue_items ?? [];
+      if (queueItems.length === 0) return;
+
+      const mapped = mapWorkerStatusToAlertAttempt(status);
+      if (!mapped) return;
+
+      const rows = queueItems.map((qi) => ({
+        queue_id: qi.queue_id,
+        rule_id: qi.rule_id,
+        user_id: event.recipient_user_id,
+        channel: "push" as const,
+        status: mapped,
+        skip_reason: status,
+      }));
+
+      const { error } = await supabase
+        .from("alert_delivery_attempts")
+        .insert(rows);
+      if (error) {
+        console.error(
+          `[notifications/similarity_match.onChannelOutcome] alert_delivery_attempts insert failed for event ${event.id}:`,
+          error
+        );
+      }
+    },
+  } satisfies NotificationTypeDef<SimilarityMatchPayload>,
 
   trial_ending: {
     type: "trial_ending",

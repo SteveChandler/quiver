@@ -11,10 +11,14 @@
 --   onboarding_step_completed    {step, skipped: bool, has_home_beach?: bool}
 --   onboarding_step_auto_skipped {step: 'home_beach', reason: 'location_cached'}
 --   onboarding_completed         {experience_level, preferred_time, home_beach_id}
---   home_beach_forecast_viewed   {beach_id, is_home_beach: bool, forecast_confidence, discovery_score}
+--   home_hero_forecast_viewed    {beach_id, is_home_beach: bool, forecast_confidence, discovery_score}
+--     Renamed 2026-05-03 from 'home_beach_forecast_viewed' — the event fires
+--     for the home-screen HERO card (top discovery rec for current location),
+--     not the user's home beach. Both names are valid event_types; queries
+--     below match either to bridge pre/post-rename history.
 --
--- Activation definition (D0): home_beach_forecast_viewed fired at least once
--- D1 retention: home_beach_forecast_viewed fired on calendar day + 1 (separate query)
+-- Activation definition (D0): hero forecast viewed at least once on signup day
+-- D1 retention: hero forecast viewed on calendar day + 1 (separate query)
 -- =============================================================================
 
 
@@ -58,7 +62,8 @@ steps AS (
     MAX((e.event_type = 'onboarding_step_viewed'
          AND e.metadata->>'step' = 'payoff')::int)                         AS step_payoff_view,
     MAX((e.event_type = 'onboarding_completed')::int)                      AS completed,
-    MAX((e.event_type = 'home_beach_forecast_viewed')::int)                AS activated
+    MAX((e.event_type IN ('home_hero_forecast_viewed',
+                          'home_beach_forecast_viewed'))::int)             AS activated
   FROM cohort c
   LEFT JOIN user_events e
     ON e.user_id = c.user_id
@@ -124,7 +129,8 @@ events AS (
     c.user_id,
     c.email,
     c.created_at AS signed_up_at,
-    BOOL_OR(e.event_type = 'home_beach_forecast_viewed')                       AS activated,
+    BOOL_OR(e.event_type IN ('home_hero_forecast_viewed',
+                             'home_beach_forecast_viewed'))                    AS activated,
     BOOL_OR(e.event_type = 'onboarding_completed')                             AS completed_onboarding,
     BOOL_OR(e.event_type = 'onboarding_step_viewed'
             AND e.metadata->>'step' = 'payoff')                                AS reached_payoff,
@@ -175,7 +181,7 @@ d0 AS (
   FROM cohort c
   JOIN user_events e
     ON e.user_id = c.user_id
-   AND e.event_type = 'home_beach_forecast_viewed'
+   AND e.event_type IN ('home_hero_forecast_viewed', 'home_beach_forecast_viewed')
    AND e.created_at::date = c.signup_date
 ),
 d1 AS (
@@ -183,7 +189,7 @@ d1 AS (
   FROM d0
   JOIN user_events e
     ON e.user_id = d0.user_id
-   AND e.event_type = 'home_beach_forecast_viewed'
+   AND e.event_type IN ('home_hero_forecast_viewed', 'home_beach_forecast_viewed')
    AND e.created_at::date = d0.signup_date + 1
 )
 SELECT

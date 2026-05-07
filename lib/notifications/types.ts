@@ -24,6 +24,7 @@ export type ProfilePrefColumn = Extract<
   | "notif_xp_updates"
   | "notif_forecast_alerts"
   | "notif_water_quality"
+  | "notif_similarity_alerts"
 >;
 
 export type NotificationChannel = "push" | "in_app" | "email";

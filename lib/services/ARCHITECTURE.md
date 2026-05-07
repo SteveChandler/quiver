@@ -648,18 +648,21 @@ Tests should verify:
 - No capping for "any" time slot
 - Graceful handling of timezone conversion failures
 
-### **ForecastAlertService** (Forecast Threshold Push Alerts)
+### **ForecastAlertService** (Daily Forecast Summary Push Alerts)
 
-- **Purpose**: Sends **opt-out** push alerts when a user's **home beach** forecast matches their thresholds (learned prefs when available; defaults otherwise).
+- **Purpose**: Enqueues one daily forecast summary push per eligible user when the user's **home beach** or alert-enabled favorite beaches match their thresholds (learned prefs when available; defaults otherwise).
 - **Service Location**: `lib/services/forecast-alerts.ts`
 - **Trigger**: `/api/cron/forecast-alerts` (see `app/api/cron/forecast-alerts/route.ts`)
 - **Constraints**:
   - Cache-only forecast reads via `getFreshForecastFromCache()`
   - Skips **stale/missing** forecasts (no stale pushes)
-  - Dedupe via `public.forecast_alert_deliveries` (max 1/day per user+beach, only when the matching forecast window changes)
+  - Eligible beaches are `profiles.home_beach_id` plus `favorite_beaches.alerts_enabled = true`
+  - Selects one best matching window per beach, then enqueues the top 3 beach entries in one `daily_digest` notification event
+  - Dedupe via notification event producer key `daily_forecast_summary:{userId}:{userLocalDate}` (max 1/day per user-local date)
 - **Storage**:
   - User preference: `profiles.notif_forecast_alerts` (default true)
-  - Delivery state: `public.forecast_alert_deliveries`
+  - Favorite opt-in: `favorite_beaches.alerts_enabled`
+  - Delivery state: centralized `notification_events`
 
 ### **PersonalizedScoringService** (Preference-Based Scoring)
 

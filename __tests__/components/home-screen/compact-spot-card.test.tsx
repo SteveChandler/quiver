@@ -61,6 +61,7 @@ function createMockRecommendation(
     summary: "Excellent conditions at Ocean Beach",
     reasons: ["Good wave size", "Offshore wind", "Favorable tide"],
     warnings: [],
+    similarity: null,
     generated_at: "2024-01-20T00:00:00Z",
     isFavorite: false,
     ...overrides,

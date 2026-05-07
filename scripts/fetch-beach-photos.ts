@@ -18,6 +18,7 @@ import "dotenv/config";
 import fetch from "node-fetch";
 import { createClient } from "@supabase/supabase-js";
 import pLimit from "p-limit";
+import { requirePhotoReview } from "./lib/beach-photo-review";
 
 type Beach = {
   id: string;
@@ -42,6 +43,7 @@ type PhotoRecord = {
   license_url?: string | null;
   attribution_html?: string | null;
   fetched_at: string;
+  approved: false;
 };
 
 type OpenverseItem = {
@@ -300,29 +302,31 @@ async function fetchOpenverse(beach: Beach, limit = LIMIT): Promise<PhotoRecord[
 
     const json = (await res.json()) as { results?: OpenverseItem[] };
     const results: OpenverseItem[] = json.results ?? [];
-    return results.map((item) => ({
-      beach_id: beach.id,
-      source: "openverse",
-      source_id: item.id,
-      image_url: item.url,
-      // Strip ?format=json from thumbnail URLs - Openverse sometimes returns this suffix
-      // which causes 400 errors when passed through Next.js Image Optimization
-      thumb_url: item.thumbnail?.replace(/\?format=json$/i, '') ?? null,
-      title: item.title ?? null,
-      creator_name: item.creator ?? null,
-      creator_url: item.creator_url ?? null,
-      license_code: item.license_version ? `${item.license.toUpperCase()} ${item.license_version}` : item.license.toUpperCase(),
-      license_url: item.license_url ?? null,
-      attribution_html: buildAttributionHtml({
-        source: "Openverse",
-        creator_name: item.creator,
-        creator_url: item.creator_url ?? undefined,
-        license_code: item.license ? item.license.toUpperCase() : undefined,
-        license_url: item.license_url ?? undefined,
-        title: item.title ?? undefined,
+    return results.map((item) =>
+      requirePhotoReview({
+        beach_id: beach.id,
+        source: "openverse" as const,
+        source_id: item.id,
+        image_url: item.url,
+        // Strip ?format=json from thumbnail URLs - Openverse sometimes returns this suffix
+        // which causes 400 errors when passed through Next.js Image Optimization
+        thumb_url: item.thumbnail?.replace(/\?format=json$/i, "") ?? null,
+        title: item.title ?? null,
+        creator_name: item.creator ?? null,
+        creator_url: item.creator_url ?? null,
+        license_code: item.license_version ? `${item.license.toUpperCase()} ${item.license_version}` : item.license.toUpperCase(),
+        license_url: item.license_url ?? null,
+        attribution_html: buildAttributionHtml({
+          source: "Openverse",
+          creator_name: item.creator,
+          creator_url: item.creator_url ?? undefined,
+          license_code: item.license ? item.license.toUpperCase() : undefined,
+          license_url: item.license_url ?? undefined,
+          title: item.title ?? undefined,
+        }),
+        fetched_at: new Date().toISOString(),
       }),
-      fetched_at: new Date().toISOString(),
-    }));
+    );
   }
 
   throw new Error(`Openverse rate limit exceeded for ${beach.name} after retries`);
@@ -352,9 +356,9 @@ async function fetchFlickr(beach: Beach, limit = LIMIT): Promise<PhotoRecord[]> 
     const licenseInfo = FLICKR_LICENSE_MAP[photo.license] || { code: "Unknown", url: "" };
     const image_url = photo.url_o || flickrStaticUrl(photo, "b");
     const thumb_url = flickrStaticUrl(photo, "z");
-    return {
+    return requirePhotoReview({
       beach_id: beach.id,
-      source: "flickr",
+      source: "flickr" as const,
       source_id: photo.id,
       image_url,
       thumb_url,
@@ -372,7 +376,7 @@ async function fetchFlickr(beach: Beach, limit = LIMIT): Promise<PhotoRecord[]> 
         title: photo.title,
       }),
       fetched_at: new Date().toISOString(),
-    };
+    });
   });
 }
 

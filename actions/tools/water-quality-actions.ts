@@ -1,5 +1,6 @@
 "use server";
 
+import { unstable_cache } from "next/cache";
 import { createPublicReadClient } from "@/lib/supabase/server";
 import { withServerAction, type ServerActionResponse } from "@/lib/server-action-utils";
 import {
@@ -88,24 +89,23 @@ export async function getBeachWaterQuality(
   });
 }
 
-/**
- * Get all beaches with water quality data (for map/list view).
- * Returns beaches in CA and HI only.
- */
-export async function getBeachesWithWaterQuality(): Promise<
-  ServerActionResponse<Array<{
-    beachId: string;
-    beachName: string;
-    beachSlug: string;
-    state: string;
-    city: string | null;
-    lat: number;
-    lon: number;
-    status: WQStatus;
-    latestSampleDate: string | null;
-  }>>
-> {
-  return withServerAction(async () => {
+type WaterQualityBeachListItem = {
+  beachId: string;
+  beachName: string;
+  beachSlug: string;
+  state: string;
+  city: string | null;
+  lat: number;
+  lon: number;
+  status: WQStatus;
+  latestSampleDate: string | null;
+};
+
+// Cached at the data-layer because the same payload is rendered for every
+// `?beach=<slug>` variant of /tools/water-quality. Without this, each unique
+// slug becomes a fresh ISR cache miss and runs the same DB query.
+const fetchMonitoredBeachesList = unstable_cache(
+  async (): Promise<WaterQualityBeachListItem[]> => {
     const supabase = createPublicReadClient();
 
     const { data, error } = await supabase
@@ -154,5 +154,17 @@ export async function getBeachesWithWaterQuality(): Promise<
           latestSampleDate: row.latest_sample_date,
         };
       });
-  });
+  },
+  ["water-quality-monitored-beaches-v1"],
+  { revalidate: 3600 },
+);
+
+/**
+ * Get all beaches with water quality data (for map/list view).
+ * Returns beaches in CA and HI only.
+ */
+export async function getBeachesWithWaterQuality(): Promise<
+  ServerActionResponse<WaterQualityBeachListItem[]>
+> {
+  return withServerAction(async () => fetchMonitoredBeachesList());
 }

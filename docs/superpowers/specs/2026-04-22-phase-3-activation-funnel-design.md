@@ -3,6 +3,13 @@
 **Date:** 2026-04-22
 **Status:** Draft — pending user review before writing-plans.
 
+> **2026-05-03 update:** the `home_beach_forecast_viewed` event referenced
+> throughout this spec was renamed to `home_hero_forecast_viewed` (the event
+> always fired for the home-screen *hero* — top discovery rec — not the user's
+> home beach). See migration `20260503234500_add_home_hero_forecast_viewed_event.sql`.
+> Legacy name remains in the CHECK allowlist for historical queries; the
+> activation funnel queries in `docs/onboarding-funnel.sql` match either name.
+
 ## Problem
 
 Quiver is pre-PMF with **49 signups, 0 retention, 0 session logs** (per `project_quiver_pmf_status_apr2026.md`). Phase 2's personal match score requires ≥5 rated sessions to unlock, so it's literally invisible to every current user until they log their first session. The `project_invisible_cohort_is_retention_not_adblock.md` memory confirms 94% of zero-event signups are retention failures, not tracking. The monetization research (`/Users/stevenchandler/.claude/plans/when-can-we-start-cozy-tower-agent-a9874e89d523ad631.md`) concluded: **retention is the bottleneck, not pricing**.

@@ -36,6 +36,8 @@ function makeBeach(overrides: Partial<Beach> & { id: string; name: string }): Be
     geog: null,
     hazards: null,
     local_etiquette: null,
+    max_wind_any_mph: null,
+    max_wind_onshore_mph: null,
     owner_id: null,
     parking_tips: null,
     preference_model: null,
@@ -44,6 +46,7 @@ function makeBeach(overrides: Partial<Beach> & { id: string; name: string }): Be
     preferred_tide_ft_min: null,
     real_takeaways: null,
     region: null,
+    region_id: null,
     review_count: null,
     shoaling_factors: null,
     skill_level: "intermediate", // NOT NULL DEFAULT 'intermediate' since 20260312
