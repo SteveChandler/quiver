@@ -48,6 +48,7 @@ function expectContext(
   expect(context?.beachId).toBe("obp");
   expect(context?.localDate).toBe("2026-05-08");
   expect(context?.recommendationType).toBe(recommendationType);
+  expect(context?.contextType).toBe(recommendationType);
   expect(context?.resolverUsed).toBe("surf-call");
 }
 
@@ -93,10 +94,16 @@ describe("buildForecastRecommendationContext", () => {
     expect(context?.endTime).toBe("2026-05-09T01:30:00.000Z");
     expect(context?.selectedRowTime).toBe("2026-05-08T23:00:00.000Z");
     expect(context?.waveHeight).toBe("2.7 ft");
+    expect(context?.waveHeightFt).toBe(2.7);
+    expect(context?.waveHeightRangeLabel).toBe("2-3 ft");
     expect(context?.swellPeriod).toBe("13s");
+    expect(context?.periodSec).toBe(13);
     expect(context?.swellDirection).toBe("SW");
     expect(context?.windSpeed).toBe("5 mph");
     expect(context?.windDirection).toBe("W");
+    expect(context?.selectedWindowStart).toBe("2026-05-08T22:30:00.000Z");
+    expect(context?.selectedWindowEnd).toBe("2026-05-09T01:30:00.000Z");
+    expect(context?.source).toBe("looking_ahead");
   });
 
   it("falls back to now when the current row is rideable and no best window exists", () => {
@@ -109,6 +116,11 @@ describe("buildForecastRecommendationContext", () => {
 
     expectContext(context, "now");
     expect(context?.displayTimeLabel).toBe("Now");
+    expect(context?.selectedWindowStart).toBeNull();
+    expect(context?.selectedWindowEnd).toBeNull();
+    expect(context?.waveHeightFt).toBe(2);
+    expect(context?.waveHeightRangeLabel).toBe("1-2 ft");
+    expect(context?.source).toBe("current_conditions");
   });
 
   it("falls back to the next rideable same-day row when current conditions are not rideable", () => {
@@ -124,6 +136,8 @@ describe("buildForecastRecommendationContext", () => {
 
     expectContext(context, "next_rideable");
     expect(context?.selectedRowTime).toBe("2026-05-08T21:00:00.000Z");
+    expect(context?.displayTimeLabel).toContain("Later:");
+    expect(context?.source).toBe("hourly_forecast");
   });
 
   it("shows marginal current conditions when no rideable context exists", () => {
@@ -136,5 +150,6 @@ describe("buildForecastRecommendationContext", () => {
 
     expectContext(context, "marginal");
     expect(context?.displayTimeLabel).toBe("Now: marginal");
+    expect(context?.source).toBe("current_conditions");
   });
 });

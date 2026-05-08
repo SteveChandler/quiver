@@ -9,22 +9,39 @@ export type ForecastRecommendationType =
   | "next_rideable"
   | "marginal";
 
+export type ForecastDisplayContextType =
+  | ForecastRecommendationType
+  | "forecast_bucket";
+
+export type ForecastDisplayContextSource =
+  | "hourly_forecast"
+  | "daily_bucket"
+  | "current_conditions"
+  | "looking_ahead";
+
 export interface ForecastRecommendationContext {
   beachId: string;
   localDate: string;
   recommendationType: ForecastRecommendationType;
+  contextType: ForecastDisplayContextType;
   startTime: string | null;
   endTime: string | null;
+  selectedWindowStart: string | null;
+  selectedWindowEnd: string | null;
   displayTimeLabel: string;
   selectedRowTime: string | null;
   waveHeight: string | null;
+  waveHeightFt: number | null;
+  waveHeightRangeLabel: string | null;
   swellPeriod: string | null;
+  periodSec: number | null;
   swellDirection: string | null;
   windSpeed: string | null;
   windDirection: string | null;
   score: number | null;
   confidence: number | null;
   resolverUsed: "surf-call";
+  source: ForecastDisplayContextSource;
 }
 
 export type ForecastContextSource =
@@ -48,14 +65,36 @@ const DEFAULT_RIDEABLE = {
   maxWindMph: 18,
 };
 
-function parseNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value !== "string") return null;
+function parseNumbers(value: unknown): number[] {
+  if (typeof value === "number" && Number.isFinite(value)) return [value];
+  if (typeof value !== "string") return [];
   const match = value.match(/-?\d+(?:\.\d+)?/g);
-  if (!match) return null;
+  if (!match) return [];
   const values = match.map(Number).filter(Number.isFinite);
+  return values;
+}
+
+function parseNumber(value: unknown): number | null {
+  const values = parseNumbers(value);
   if (values.length === 0) return null;
   return Math.max(...values);
+}
+
+function parseAverageNumber(value: unknown): number | null {
+  const values = parseNumbers(value);
+  if (values.length === 0) return null;
+  if (values.length === 1) return values[0];
+  return values.reduce((sum, n) => sum + n, 0) / values.length;
+}
+
+function formatForecastDisplayWaveHeightRange(value: number | null): string | null {
+  if (value == null || !Number.isFinite(value)) return null;
+  const low = Math.floor(value);
+  const high = Math.ceil(value);
+  if (low === high) {
+    return low === 0 ? "0-1 ft" : `${low - 1}-${low} ft`;
+  }
+  return `${low}-${high} ft`;
 }
 
 function isRideable(row: EnhancedForecastEntity | null): boolean {
@@ -150,25 +189,35 @@ function contextFromRow(args: {
   timezone: string;
   type: ForecastRecommendationType;
   score: number | null;
+  source: ForecastDisplayContextSource;
 }): ForecastRecommendationContext {
   const rowTime = new Date(args.row.forecast_at);
   const startTime = toIso(rowTime);
+  const waveHeightFt = parseAverageNumber(args.row.wave_height);
+  const periodSec = parseAverageNumber(pickSwellPeriod(args.row));
   return {
     beachId: String(args.beach.id),
     localDate: getLocalDateString(rowTime, args.timezone),
     recommendationType: args.type,
+    contextType: args.type,
     startTime,
     endTime: null,
+    selectedWindowStart: null,
+    selectedWindowEnd: null,
     displayTimeLabel: args.type === "now" ? "Now" : `Later: ${formatClock(rowTime, args.timezone)}`,
     selectedRowTime: startTime,
     waveHeight: args.row.wave_height ?? null,
+    waveHeightFt,
+    waveHeightRangeLabel: formatForecastDisplayWaveHeightRange(waveHeightFt),
     swellPeriod: pickSwellPeriod(args.row),
+    periodSec,
     swellDirection: pickSwellDirection(args.row),
     windSpeed: args.row.wind_speed ?? null,
     windDirection: args.row.wind_direction ?? null,
     score: args.score,
     confidence: args.row.confidence_score ?? null,
     resolverUsed: "surf-call",
+    source: args.source,
   };
 }
 
@@ -186,25 +235,38 @@ export function buildForecastRecommendationContext({
     const sourceForecast = window.sourceForecast ?? null;
     const start = new Date(window.start);
     const end = new Date(window.end);
+    const startTime = toIso(start);
+    const endTime = toIso(end);
     const selectedRowTime = sourceForecast?.forecast_at
       ? toIso(sourceForecast.forecast_at)
       : toIso(window.peakTime ?? window.start);
+    const waveHeight = window.waveHeight !== "Unknown" ? window.waveHeight : sourceForecast?.wave_height ?? null;
+    const waveHeightFt = parseAverageNumber(waveHeight);
+    const swellPeriod = pickSwellPeriod(sourceForecast, window);
+    const periodSec = parseAverageNumber(swellPeriod);
     return {
       beachId: String(beach.id),
       localDate: getLocalDateString(start, resolvedTimezone),
       recommendationType: "best_window",
-      startTime: toIso(start),
-      endTime: toIso(end),
+      contextType: "best_window",
+      startTime,
+      endTime,
+      selectedWindowStart: startTime,
+      selectedWindowEnd: endTime,
       displayTimeLabel: `Best window: ${formatRange(start, end, resolvedTimezone)}`,
       selectedRowTime,
-      waveHeight: window.waveHeight !== "Unknown" ? window.waveHeight : sourceForecast?.wave_height ?? null,
-      swellPeriod: pickSwellPeriod(sourceForecast, window),
+      waveHeight,
+      waveHeightFt,
+      waveHeightRangeLabel: formatForecastDisplayWaveHeightRange(waveHeightFt),
+      swellPeriod,
+      periodSec,
       swellDirection: pickSwellDirection(sourceForecast),
       windSpeed: sourceForecast?.wind_speed ?? null,
       windDirection: sourceForecast?.wind_direction ?? null,
       score: window.score ?? null,
       confidence: window.confidence ?? sourceForecast?.confidence_score ?? null,
       resolverUsed: "surf-call",
+      source: "looking_ahead",
     };
   }
 
@@ -216,6 +278,7 @@ export function buildForecastRecommendationContext({
       timezone: resolvedTimezone,
       type: "now",
       score: null,
+      source: "current_conditions",
     });
   }
 
@@ -227,6 +290,7 @@ export function buildForecastRecommendationContext({
       timezone: resolvedTimezone,
       type: "next_rideable",
       score: null,
+      source: "hourly_forecast",
     });
   }
 
@@ -238,6 +302,7 @@ export function buildForecastRecommendationContext({
         timezone: resolvedTimezone,
         type: "marginal",
         score: null,
+        source: "current_conditions",
       }),
       displayTimeLabel: "Now: marginal",
     };
@@ -271,5 +336,35 @@ export function logForecastRecommendationContext(args: {
     windDirection: args.context.windDirection,
     score: args.context.score,
     resolverUsed: args.context.resolverUsed,
+  });
+}
+
+export function logForecastDisplayContext(args: {
+  component: ForecastContextSource;
+  beachId?: string | null;
+  beachName?: string | null;
+  context: ForecastRecommendationContext | null | undefined;
+  enabled?: boolean;
+}): void {
+  const isOceanBeachPier = args.beachName?.toLowerCase() === "ocean beach pier";
+  if (!args.enabled && !isOceanBeachPier) return;
+  if (!args.context) return;
+
+  console.log("[forecast-display-context]", {
+    beachId: args.beachId ?? args.context.beachId,
+    beachName: args.beachName ?? null,
+    localDate: args.context.localDate,
+    component: args.component,
+    contextType: args.context.contextType,
+    selectedTime: args.context.selectedRowTime,
+    selectedWindowStart: args.context.selectedWindowStart,
+    selectedWindowEnd: args.context.selectedWindowEnd,
+    waveHeightFt: args.context.waveHeightFt,
+    waveHeightRangeLabel: args.context.waveHeightRangeLabel,
+    periodSec: args.context.periodSec,
+    swellDirection: args.context.swellDirection,
+    windSpeedMph: parseAverageNumber(args.context.windSpeed),
+    windDirection: args.context.windDirection,
+    source: args.context.source,
   });
 }

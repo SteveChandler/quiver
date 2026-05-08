@@ -21,6 +21,7 @@ import { selectBestWindow } from "@/lib/services/discovery/window-selector";
 import type { UserSurfPreferences } from "@/lib/services/preference-learning-service";
 import {
   buildForecastRecommendationContext,
+  logForecastDisplayContext,
   logForecastRecommendationContext,
   type ForecastRecommendationContext,
 } from "@/lib/services/forecast-recommendation-context";
@@ -436,6 +437,13 @@ function evaluateBeachForecast({
 
   logForecastRecommendationContext({
     source: "notification",
+    beachId,
+    beachName: beach.name,
+    context: canonicalContext,
+    enabled: process.env.FORECAST_CONTEXT_DEBUG === "1",
+  });
+  logForecastDisplayContext({
+    component: "notification",
     beachId,
     beachName: beach.name,
     context: canonicalContext,
