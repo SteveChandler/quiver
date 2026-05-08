@@ -33,6 +33,7 @@ test.describe("Anonymous alert capture on beach detail", () => {
   });
 
   test("anonymous user submits the form and sees the check-your-email confirmation", async ({ page }) => {
+    test.fixme(true, 'AnonAlertCaptureForm was cut from beach detail; update this spec if anonymous alert capture gets a new surface.');
     // Spec runs in the [auth] project, but `AnonAlertCaptureForm` is
     // self-gated to `!user` in `components/beach-detail.tsx:1187`. Clear
     // cookies so the form actually mounts.

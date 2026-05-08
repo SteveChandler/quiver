@@ -3,6 +3,7 @@
  *
  * Tests the helper functions for skill-based wave scoring:
  * - checkSkillCeiling
+ * - checkSkillFloor
  * - calculateBeachSkillMatchBonus (condition-aware)
  *
  * Also tests safety defaults and priority order.
@@ -10,6 +11,7 @@
 
 import {
   checkSkillCeiling,
+  checkSkillFloor,
   calculateBeachSkillMatchBonus,
   WAVE_SIZE_SCORING_CONFIG,
   SKILL_WAVE_RANGES,
@@ -103,6 +105,38 @@ describe('Skill Level Wave Scoring', () => {
         expect(WAVE_SIZE_SCORING_CONFIG.warnings.dangerousThreshold).toBe(8);
         expect(WAVE_SIZE_SCORING_CONFIG.warnings.significantThreshold).toBe(4);
       });
+    });
+  });
+
+  describe('checkSkillFloor', () => {
+    it('does not penalize beginner-friendly practice waves for beginners', () => {
+      const result = checkSkillFloor(1.5, 'beginner');
+      expect(result.penalty).toBe(0);
+      expect(result.warning).toBeNull();
+    });
+
+    it('soft-penalizes small waves for advanced surfers', () => {
+      const result = checkSkillFloor(1.5, 'advanced');
+      expect(result.penalty).toBe(13);
+      expect(result.warning).toBe('Waves are below your usual range');
+    });
+
+    it('applies a lighter penalty below ideal but still acceptable', () => {
+      const result = checkSkillFloor(2.5, 'advanced');
+      expect(result.penalty).toBe(3);
+      expect(result.warning).toBe('Waves are smaller than your ideal range');
+    });
+
+    it('does not penalize waves at the ideal lower bound', () => {
+      const result = checkSkillFloor(3, 'advanced');
+      expect(result.penalty).toBe(0);
+      expect(result.warning).toBeNull();
+    });
+
+    it('caps extreme small-wave penalties', () => {
+      const result = checkSkillFloor(0, 'expert');
+      expect(result.penalty).toBe(WAVE_SIZE_SCORING_CONFIG.skillFloorPenaltyCap);
+      expect(result.warning).toBe('Waves are below your usual range');
     });
   });
 
@@ -241,8 +275,9 @@ describe('Skill Level Wave Scoring', () => {
     });
 
     it('should not penalize small waves for beginner default', () => {
-      const result = checkSkillCeiling(2, getSkillLevelOrDefault(null));
-      expect(result.penalty).toBe(0);
+      const skillLevel = getSkillLevelOrDefault(null);
+      expect(checkSkillCeiling(2, skillLevel).penalty).toBe(0);
+      expect(checkSkillFloor(2, skillLevel).penalty).toBe(0);
     });
   });
 
@@ -263,6 +298,12 @@ describe('Skill Level Wave Scoring', () => {
   describe('Configuration Constants', () => {
     it('should have correct penalty per foot', () => {
       expect(WAVE_SIZE_SCORING_CONFIG.skillCeilingPenaltyPerFoot).toBe(8);
+    });
+
+    it('should have correct small-wave floor penalty settings', () => {
+      expect(WAVE_SIZE_SCORING_CONFIG.skillFloorPenaltyPerFoot).toBe(6);
+      expect(WAVE_SIZE_SCORING_CONFIG.skillFloorBelowAcceptableExtraPenaltyPerFoot).toBe(8);
+      expect(WAVE_SIZE_SCORING_CONFIG.skillFloorPenaltyCap).toBe(18);
     });
 
     it('should have correct skill ideal bonus', () => {

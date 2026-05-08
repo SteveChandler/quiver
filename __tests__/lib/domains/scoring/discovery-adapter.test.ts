@@ -329,6 +329,38 @@ describe('Discovery Adapter', () => {
     });
   });
 
+  describe('scoreBeachWithEngine skill floor adjustment', () => {
+    it('scores small beginner-friendly waves lower for advanced users', () => {
+      const engine = createDiscoveryScoringEngine();
+      const beach = createBeach({
+        skill_level: 'beginner',
+        break_type: 'beach break',
+      } as Partial<Beach>);
+      const forecast = createForecast({
+        wave_height: '1.5',
+        wave_period: '12s',
+        wind_speed: '5',
+        wind_direction: 'E',
+        wind_direction_deg: 90,
+        swell_1_height: '1.5',
+        swell_1_period: '12s',
+        swell_1_direction: '270',
+      } as Partial<EnhancedForecastEntity>);
+
+      const beginnerScore = scoreBeachWithEngine(engine, beach, forecast, {
+        userSkillLevel: 'beginner',
+        beachSkillLevel: beach.skill_level,
+      });
+      const advancedScore = scoreBeachWithEngine(engine, beach, forecast, {
+        userSkillLevel: 'advanced',
+        beachSkillLevel: beach.skill_level,
+      });
+
+      expect(advancedScore.total).toBeLessThan(beginnerScore.total);
+      expect(advancedScore.warnings).toContain('Waves are below your usual range');
+    });
+  });
+
   describe('createDiscoveryScoringEngine', () => {
     it('should create engine with all standard scorers', () => {
       const engine = createDiscoveryScoringEngine();

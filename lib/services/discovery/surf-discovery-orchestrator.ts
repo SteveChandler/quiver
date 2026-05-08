@@ -793,6 +793,11 @@ async function discoverSurfSpotsInner(
       // Non-fatal — character is optional
     }
 
+    const recommendationLabel = getRecommendationLabelGated(
+      detailedScore.total,
+      (conditionCharacter?.category ?? null) as ConditionCharacterCategory | null,
+    );
+
     scored.push({
       beach,
       window: bestWindow,
@@ -808,13 +813,15 @@ async function discoverSurfSpotsInner(
       // promoting NOW FIRING on a windy day. Falls back to score-only when
       // character is unavailable. The cast is safe because getConditionCharacter
       // produces values from the ConditionCharacterCategory union by construction.
-      recommendationLabel: getRecommendationLabelGated(
-        detailedScore.total,
-        (conditionCharacter?.category ?? null) as ConditionCharacterCategory | null,
-      ),
+      recommendationLabel,
       subscores: detailedScore.subscores,
       summary: generateDiscoverySummary(beach, bestWindow, detailedScore),
-      message: buildDiscoveryMessage(detailedScore.total, detailedScore.reasons, detailedScore.warnings),
+      message: buildDiscoveryMessage(
+        detailedScore.total,
+        detailedScore.reasons,
+        detailedScore.warnings,
+        recommendationLabel,
+      ),
       reasons: detailedScore.reasons,
       warnings: detailedScore.warnings,
       conditionBadges: detailedScore.conditionBadges,

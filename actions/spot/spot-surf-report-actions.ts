@@ -11,7 +11,7 @@ import { extractForecastDate } from '@/lib/utils/forecast-at-adapter';
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getBatchSunTimes } from '@/lib/services/discovery';
 import { getUserSurfPreferences, type UserSurfPreferences } from '@/lib/services/preference-learning-service';
-import { checkSkillCeiling } from '@/lib/domains/scoring/discovery-adapter';
+import { checkSkillCeiling, checkSkillFloor } from '@/lib/domains/scoring/discovery-adapter';
 import { parseSkillLevel } from '@/lib/domains/user-preferences';
 import type { PersonalizedForecastWindow } from '@/types/personalization';
 
@@ -153,6 +153,12 @@ function applyPreferenceAdjustments(
   const skillResult = checkSkillCeiling(waveHeight, userSkillLevel);
   if (skillResult.penalty > 0) {
     const adjustedScore = Math.max(0, (window.score ?? 0) - skillResult.penalty);
+    return { ...window, score: adjustedScore };
+  }
+
+  const floorResult = checkSkillFloor(waveHeight, userSkillLevel);
+  if (floorResult.penalty > 0) {
+    const adjustedScore = Math.max(0, (window.score ?? 0) - floorResult.penalty);
     return { ...window, score: adjustedScore };
   }
 

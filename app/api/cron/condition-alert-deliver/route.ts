@@ -740,23 +740,18 @@ export async function GET(request: Request): Promise<NextResponse> {
               continue;
             }
 
-            // Build the payload directly from conditions_snapshot. The shape
-            // is locked by Agent 2's RPC + the registry's Zod schema.
-            //
-            // Plan V4 fix F2: pull window_local + wave_height_ft +
-            // wave_period_s through to the registry. The schema requires
-            // these (non-optional); legacy queue rows written before the
-            // similarity-alerts cron started stamping them will fail Zod
-            // validation here and surface as `invalid_payload` — the
-            // existing branch below marks those queue rows sent (no retry
-            // loop) and records `failed_internal: invalid_payload: …` in
-            // alert_delivery_attempts so we can audit them. Documented as
-            // OK because old rows drain quickly (single-day TTL via
-            // alert_date partial unique index).
+            // Build the payload directly from conditions_snapshot. Newer
+            // similarity rows include richer surf context; older rows only
+            // carry the core fields and must still enqueue with fallback copy.
             const snap = item.conditions_snapshot as Record<string, unknown>;
-            const windowLocalRaw = snap.window_local;
-            const waveHeightRaw = snap.wave_height_ft;
-            const wavePeriodRaw = snap.wave_period_s;
+            const optionalStringField = (value: unknown): string | undefined =>
+              typeof value === "string" && value.trim().length > 0
+                ? value
+                : undefined;
+            const optionalNumberField = (value: unknown): number | undefined =>
+              typeof value === "number" && Number.isFinite(value)
+                ? value
+                : undefined;
             const enqueueResult = await enqueueNotification({
               type: "similarity_match",
               recipientUserId: item.user_id,
@@ -771,12 +766,39 @@ export async function GET(request: Request): Promise<NextResponse> {
                 score: typeof snap.score === "number" ? snap.score : 0,
                 label: snap.label == null ? null : String(snap.label),
                 reason: String(snap.reason ?? ""),
-                window_local:
-                  typeof windowLocalRaw === "string" ? windowLocalRaw : "",
-                wave_height_ft:
-                  typeof waveHeightRaw === "number" ? waveHeightRaw : NaN,
-                wave_period_s:
-                  typeof wavePeriodRaw === "number" ? wavePeriodRaw : NaN,
+                ...(optionalStringField(snap.window_local) == null
+                  ? {}
+                  : { window_local: optionalStringField(snap.window_local) }),
+                ...(optionalNumberField(snap.wave_height_ft) == null
+                  ? {}
+                  : { wave_height_ft: optionalNumberField(snap.wave_height_ft) }),
+                ...(optionalNumberField(snap.wave_period_s) == null
+                  ? {}
+                  : { wave_period_s: optionalNumberField(snap.wave_period_s) }),
+                ...(optionalNumberField(snap.wind_speed_mph) == null
+                  ? {}
+                  : { wind_speed_mph: optionalNumberField(snap.wind_speed_mph) }),
+                ...(optionalStringField(snap.wind_direction) == null
+                  ? {}
+                  : { wind_direction: optionalStringField(snap.wind_direction) }),
+                ...(optionalNumberField(snap.tide_height_ft) == null
+                  ? {}
+                  : { tide_height_ft: optionalNumberField(snap.tide_height_ft) }),
+                ...(optionalStringField(snap.tide_status) == null
+                  ? {}
+                  : { tide_status: optionalStringField(snap.tide_status) }),
+                ...(optionalNumberField(snap.confidence) == null
+                  ? {}
+                  : { confidence: optionalNumberField(snap.confidence) }),
+                ...(optionalStringField(snap.condition_summary) == null
+                  ? {}
+                  : { condition_summary: optionalStringField(snap.condition_summary) }),
+                ...(optionalStringField(snap.board_tip) == null
+                  ? {}
+                  : { board_tip: optionalStringField(snap.board_tip) }),
+                ...(optionalStringField(snap.setup_tip) == null
+                  ? {}
+                  : { setup_tip: optionalStringField(snap.setup_tip) }),
                 queue_items: [{ queue_id: item.id, rule_id: item.rule_id }],
               },
               dedupeKey: `similarity_match:${item.user_id}:${item.alert_date}`,

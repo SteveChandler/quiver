@@ -313,9 +313,9 @@ export function InteractiveMap({
         onSelectChange: setSelectedBeachId,
         onLocationClick: (beach: Beach) => {
           track('map_interaction', {
+            beachId: beach.id,
             metadata: {
               action: 'pin_click',
-              beach_id: beach.id,
               ...getMapViewportMetadata(),
             },
             debounceMs: 500,

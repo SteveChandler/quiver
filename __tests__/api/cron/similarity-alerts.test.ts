@@ -900,6 +900,64 @@ describe("similarity-alerts cron — Plan V4", () => {
     expect(captured.snapshot.wave_period_s).toBe(12);
   });
 
+  it("7h. stamps richer similarity conditions context in conditions_snapshot", async () => {
+    seedActiveProUser();
+    store.forecasts.push({
+      forecast_at: "2026-05-04T18:00:00Z",
+      wave_height: "3.5",
+      wave_period: "12",
+      wind_speed: "6",
+      wind_direction: "NW",
+      wind_direction_deg: 315,
+      tide_height: "2.4",
+      tide_status: "rising",
+      confidence_score: 0.82,
+    });
+
+    const captured: { snapshot?: any } = {};
+    mockRpc.mockImplementation((name: string, args: any) => {
+      if (name === "compute_user_match_score_batch") {
+        return Promise.resolve({
+          data: [
+            {
+              slot_idx: 0,
+              forecast_at: "2026-05-04T18:00:00Z",
+              result: {
+                state: "ready",
+                score: 8.7,
+                label: "GOOD",
+                reason_bullets: ["cleaner than your usual good sessions"],
+                confidence: 0.91,
+              },
+            },
+          ],
+          error: null,
+        });
+      }
+      if (name === "try_insert_similarity_alert") {
+        captured.snapshot = args.p_conditions_snapshot;
+        return Promise.resolve({
+          data: [{ inserted: true, alert_queue_id: "ff" }],
+          error: null,
+        });
+      }
+      return rpcImpl(name, args);
+    });
+
+    await GET(makeReq());
+
+    expect(captured.snapshot).toMatchObject({
+      wind_speed_mph: 6,
+      wind_direction: "NW",
+      tide_height_ft: 2.4,
+      tide_status: "rising",
+      score: 8.7,
+      confidence: 0.91,
+      reason: "cleaner than your usual good sessions",
+      condition_summary: "3.5ft @ 12s, NW wind 6mph, rising tide 2.4ft",
+    });
+  });
+
   it("7. 03:00 picks rejected: only above-threshold slot is at 3am local → no insert", async () => {
     seedActiveProUser();
     // 10:00 UTC == 03:00 PT — should be rejected by daylight pre-filter (and

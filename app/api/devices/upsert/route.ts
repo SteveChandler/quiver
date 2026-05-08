@@ -10,13 +10,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth, createSuccessResponse } from "@/lib/middleware/api-wrappers";
 
+function normalizeIanaTimezone(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const timezone = value.trim();
+  if (timezone.length === 0 || timezone.length > 100) return null;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(new Date(0));
+    return timezone;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * POST /api/devices/upsert
  * Register or update a device token for push notifications
  */
 export const POST = withAuth(async (request: NextRequest, { user, supabase }) => {
   const body = await request.json();
-  const { platform, device_token, app_version, os_version, expo_sdk } = body;
+  const { platform, device_token, app_version, os_version, expo_sdk, timezone } = body;
 
   if (!platform || !device_token) {
     return NextResponse.json(
@@ -94,6 +106,21 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
     }
   }
 
+  const normalizedTimezone =
+    timezone === undefined || timezone === null
+      ? null
+      : normalizeIanaTimezone(timezone);
+  if (timezone !== undefined && timezone !== null && !normalizedTimezone) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "timezone must be a valid IANA timezone string",
+        timestamp: new Date().toISOString(),
+      },
+      { status: 400 }
+    );
+  }
+
   const upsertRow: Record<string, unknown> = {
     user_id: user.id,
     platform,
@@ -103,6 +130,7 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
   if (app_version !== undefined) upsertRow.app_version = app_version ?? null;
   if (os_version !== undefined) upsertRow.os_version = os_version ?? null;
   if (expo_sdk !== undefined) upsertRow.expo_sdk = expo_sdk ?? null;
+  if (normalizedTimezone) upsertRow.timezone = normalizedTimezone;
 
   const { error: upsertError } = await supabase
     .from("user_devices")
@@ -113,6 +141,18 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
   if (upsertError) {
     console.error("Device token upsert failed:", upsertError);
     throw upsertError;
+  }
+
+  if (normalizedTimezone) {
+    const { error: profileTimezoneError } = await supabase
+      .from("profiles")
+      .update({ timezone: normalizedTimezone })
+      .eq("id", user.id)
+      .is("timezone", null);
+
+    if (profileTimezoneError) {
+      console.warn("Profile timezone repair failed:", profileTimezoneError);
+    }
   }
 
   return createSuccessResponse({

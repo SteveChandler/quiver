@@ -231,6 +231,28 @@ export type SimilarityRecommendation =
       sessionCount: number;
     };
 
+export interface SurfDiscoveryEntitlement {
+  tier: 'free' | 'premium';
+  hasPaidAccess: boolean;
+  canSeeBestSpot: boolean;
+}
+
+export interface LockedBestSpotTeaser {
+  title: string;
+  subtitle: string;
+  approximateTime: string;
+  approximateArea: string;
+  confidence: number;
+  scoreBand: string;
+  conditionSummary: string;
+}
+
+export interface SurfDiscoveryBoardPick {
+  boardName?: string;
+  boardType?: string;
+  reason?: string | null;
+}
+
 /**
  * Single surf discovery recommendation
  *
@@ -315,6 +337,10 @@ export interface SurfDiscoveryRecommendation {
    * read this field. See feedback_separate_ranking_from_verdict_authority.
    */
   similarity: SimilarityRecommendation;
+  /** Paid/trial explanation derived from already-present preference signals */
+  personalExplanation?: string;
+  /** Optional board fit language when recommendation builders attach it */
+  boardPick?: SurfDiscoveryBoardPick | null;
   /** ISO timestamp when generated */
   generated_at: string;
 }
@@ -325,6 +351,10 @@ export interface SurfDiscoveryRecommendation {
 export interface SurfDiscoveryResponse {
   /** Ranked list of surf spot recommendations (best first) */
   recommendations: SurfDiscoveryRecommendation[];
+  /** Requesting user's entitlement gate for the discovery contract */
+  entitlement?: SurfDiscoveryEntitlement;
+  /** Non-identifying teaser for free users when the best spot is locked */
+  lockedBestSpotTeaser?: LockedBestSpotTeaser | null;
   /** Search criteria used to generate recommendations */
   searchCriteria: {
     /** User's GPS location (GPS phase) */
@@ -488,4 +518,3 @@ export interface SimilarityInsightsInput {
   /** Window start time (optional) */
   windowStart?: string;
 }
-

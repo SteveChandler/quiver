@@ -17,6 +17,8 @@ let lastProfileUpdate: any = null;
 let lastXPTrackCalls: any[] = [];
 let lastUserEventInsert: any = null;
 let allUserEventInserts: any[] = [];
+let beachTimezone: string | null = "America/Los_Angeles";
+let beachLookupIds: string[] = [];
 
 // Mock server action utils
 jest.mock("@/lib/server-action-utils", () => {
@@ -84,6 +86,22 @@ jest.mock("@/lib/server-action-utils", () => {
         };
       }
 
+      if (table === 'beaches') {
+        return {
+          select: (_columns?: string) => ({
+            eq: (_column: string, value: any) => ({
+              maybeSingle: () => {
+                beachLookupIds.push(value);
+                return Promise.resolve({
+                  data: { timezone: beachTimezone },
+                  error: null,
+                });
+              },
+            }),
+          }),
+        };
+      }
+
       if (table === 'referrals') {
         return {
           select: (_columns?: string) => ({
@@ -129,6 +147,8 @@ describe("saveOnboardingData", () => {
     lastXPTrackCalls = [];
     lastUserEventInsert = null;
     allUserEventInserts = [];
+    beachTimezone = "America/Los_Angeles";
+    beachLookupIds = [];
     mockSeedDefaultRuleForUser.mockReset();
     mockSeedDefaultRuleForUser.mockResolvedValue({
       seeded: true,
@@ -160,8 +180,32 @@ describe("saveOnboardingData", () => {
         surf_styles: ["shortboard", "longboard"],
         notif_push_enabled: true,
         notif_email_enabled: false,
+        timezone: "America/Los_Angeles",
         onboarding_completed_at: expect.any(String),
       });
+    });
+
+    it("saves a valid client timezone directly", async () => {
+      const result = await saveOnboardingData({
+        homeBeachId: "beach-123",
+        timezone: "America/New_York",
+      });
+
+      expect(result.success).toBe(true);
+      expect(lastProfileUpdate.timezone).toBe("America/New_York");
+      expect(beachLookupIds).toEqual([]);
+    });
+
+    it("falls back to the selected home beach timezone when no client timezone is available", async () => {
+      beachTimezone = "Pacific/Honolulu";
+
+      const result = await saveOnboardingData({
+        homeBeachId: "beach-123",
+      });
+
+      expect(result.success).toBe(true);
+      expect(beachLookupIds).toEqual(["beach-123"]);
+      expect(lastProfileUpdate.timezone).toBe("Pacific/Honolulu");
     });
 
     // preferredTime → preferred_session_time mapping tests removed in

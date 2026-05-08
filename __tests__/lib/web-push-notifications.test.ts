@@ -93,7 +93,7 @@ describe("Web Push Notifications", () => {
       const { checkNotificationPermissions } =
         await import("@/lib/web/push-notifications");
       const result = checkNotificationPermissions();
-      expect(result).toBeDefined();
+      expect(result).toEqual({ granted: false, status: "default" });
     });
 
     it("should return false when Notification is not available", async () => {
@@ -120,12 +120,14 @@ describe("Web Push Notifications", () => {
         "/api/devices/upsert",
         expect.objectContaining({
           method: "POST",
-          body: JSON.stringify({
-            platform: "web",
-            device_token: mockToken,
-          }),
         })
       );
+      const [, options] = (global.fetch as jest.Mock).mock.calls[0];
+      expect(JSON.parse((options as RequestInit).body as string)).toEqual({
+        platform: "web",
+        device_token: mockToken,
+        timezone: expect.any(String),
+      });
     });
 
     it("should not register if permission is denied", async () => {
@@ -240,6 +242,4 @@ describe("Web Push Notifications", () => {
     });
   });
 });
-
-
 

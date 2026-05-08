@@ -60,12 +60,25 @@ export function _resetViewedSourcesForTesting(): void {
 function fireToUserEvents(eventType: string, params: Record<string, any>) {
   if (typeof window === "undefined") return;
 
+  // Lift beach_id from params to top-level beachId. Route handler
+  // (app/api/events/route.ts:399,448,500) reads body.beachId only and
+  // never touches metadata.beach_id — without this lift the column
+  // stays NULL on every signup CTA fired from a beach detail page,
+  // and the dashboard can't attribute signups to the beach that drove
+  // them. Mirrors the lift in quiver-native/src/lib/analytics.ts.
+  const beachIdCandidate = params.beach_id;
+  const beachId =
+    typeof beachIdCandidate === "string" && beachIdCandidate.length > 0
+      ? beachIdCandidate
+      : undefined;
+
   try {
     fetch("/api/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         eventType,
+        ...(beachId ? { beachId } : {}),
         metadata: params,
         sessionId: getVisitorId(),
         viewportWidth: window.innerWidth,
