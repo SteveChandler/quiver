@@ -50,6 +50,8 @@ function setupUserFollowsTable(opts: {
   selectError?: { code: string; message: string } | null;
   insertError?: { message: string } | null;
   deleteError?: { message: string } | null;
+  counts?: { followers_count: number; following_count: number };
+  countsError?: { message: string } | null;
   rpcResult?: {
     followed: boolean;
     was_existing: boolean;
@@ -61,6 +63,8 @@ function setupUserFollowsTable(opts: {
   const selectError = opts.selectError ?? null;
   const insertError = opts.insertError ?? null;
   const deleteError = opts.deleteError ?? null;
+  const counts = opts.counts ?? { followers_count: 11, following_count: 4 };
+  const countsError = opts.countsError ?? null;
   const rpcResult = opts.rpcResult ?? {
     followed: true,
     was_existing: false,
@@ -75,6 +79,10 @@ function setupUserFollowsTable(opts: {
   const deleteChain: any = {
     eq: jest.fn(() => Promise.resolve({ error: deleteError })),
   };
+  const profileChain: any = {
+    eq: jest.fn().mockReturnThis(),
+    single: jest.fn(() => Promise.resolve({ data: counts, error: countsError })),
+  };
 
   (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
     if (table === "user_follows") {
@@ -83,7 +91,12 @@ function setupUserFollowsTable(opts: {
         delete: jest.fn(() => deleteChain),
       } as any;
     }
-    throw new Error(`Unexpected supabase.from(${table}) — test only mocks user_follows`);
+    if (table === "profiles") {
+      return {
+        select: jest.fn(() => profileChain),
+      } as any;
+    }
+    throw new Error(`Unexpected supabase.from(${table}) — test only mocks follow tables`);
   });
 
   (mockSupabaseClient.rpc as jest.Mock).mockImplementation((fn: string) => {
@@ -201,6 +214,8 @@ describe("POST /api/users/[id]/follow/toggle", () => {
       expect(body.success).toBe(true);
       expect((body.data as any).success).toBe(true);
       expect((body.data as any).following).toBe(true);
+      expect((body.data as any).followersCount).toBe(11);
+      expect((body.data as any).followingCount).toBe(4);
       expect((body.data as any).message).toBe("Now following");
     });
 
@@ -284,6 +299,8 @@ describe("POST /api/users/[id]/follow/toggle", () => {
       expect(body.success).toBe(true);
       expect((body.data as any).success).toBe(true);
       expect((body.data as any).following).toBe(false);
+      expect((body.data as any).followersCount).toBe(11);
+      expect((body.data as any).followingCount).toBe(4);
       expect((body.data as any).message).toBe("Unfollowed");
     });
 

@@ -85,11 +85,41 @@ async function userSearchHandler(
       return (b.followers_count || 0) - (a.followers_count || 0);
     });
 
-  return createSuccessResponse({
-    users: filteredUsers,
-    total: filteredUsers.length,
+  let followingIds = new Set<string>();
+  if (filteredUsers.length > 0) {
+    const resultIds = filteredUsers.map((result) => result.id);
+    const { data: follows, error: followsError } = await supabase
+      .from("user_follows")
+      .select("following_id")
+      .eq("follower_id", user.id)
+      .in("following_id", resultIds);
+
+    if (followsError) {
+      throw followsError;
+    }
+
+    followingIds = new Set(
+      (follows || [])
+        .map((follow) => follow.following_id)
+        .filter((id): id is string => typeof id === "string"),
+    );
+  }
+
+  const usersWithFollowState = filteredUsers.map((result) => ({
+    ...result,
+    following: followingIds.has(result.id),
+  }));
+
+  const response = createSuccessResponse({
+    users: usersWithFollowState,
+    total: usersWithFollowState.length,
     query: searchTerm,
   });
+  response.headers.set(
+    "Cache-Control",
+    "private, no-store, no-cache, must-revalidate",
+  );
+  return response;
 }
 
 export const GET = withAuth(userSearchHandler, {
