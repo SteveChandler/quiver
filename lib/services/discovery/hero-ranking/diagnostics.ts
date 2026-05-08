@@ -26,7 +26,7 @@ export interface HeroRankingDiagnostic {
   waveHeightFit: number;
   /** = rec.subscores.periodEnergyScore (0-20) */
   periodEnergyScore: number;
-  /** = rec.subscores.affinityBonus (0-15) */
+  /** = rec.subscores.affinityBonus */
   affinityBonus: number;
   windowDurationHours: number;
   /** 0-100 — Task 4 fills, Task 2 ships zero placeholder */

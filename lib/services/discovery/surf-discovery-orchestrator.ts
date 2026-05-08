@@ -36,6 +36,7 @@ import {
   forecastToSnapshot,
   getConditionCharacter,
 } from '@/lib/domains/scoring';
+import { waveHeightCeiling } from '@/lib/domains/scoring/wave-height-ceiling';
 import type { ConditionCharacterCategory } from '@/lib/domains/scoring';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
@@ -451,6 +452,20 @@ async function scoreBeachForDiscovery(args: {
   if (persBonus > 0) {
     detailedScore.total = Math.min(100, detailedScore.total + persBonus);
     detailedScore.subscores.personalizationBonus = persBonus;
+  }
+
+  const waveCap = waveHeightCeiling(forecastToSnapshot(forecast).waveHeight);
+  if (detailedScore.total > waveCap) {
+    detailedScore.total = waveCap;
+    const waveHeight = parseFloat(String(forecast.wave_height ?? ''));
+    const heightLabel = Number.isFinite(waveHeight) ? waveHeight.toFixed(1) : 'unknown';
+    const capMessage = `Small wave (${heightLabel}ft) caps score at ${waveCap}`;
+    if (!detailedScore.warnings.includes(capMessage)) {
+      detailedScore.warnings.push(capMessage);
+    }
+    if (!detailedScore.reasons.includes(capMessage)) {
+      detailedScore.reasons.push(capMessage);
+    }
   }
 
   // Merge personalization reasons

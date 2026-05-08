@@ -402,14 +402,14 @@ describe('personalized-scoring-service', () => {
 
       expect(result.score).toBeGreaterThan(75);
       expect(result.personalized).toBe(true);
-      expect(result.breakdown.affinity).toBeCloseTo(12, 0); // 80 * 0.15 = 12
+      expect(result.breakdown.affinity).toBeCloseTo(4, 0); // 80 * 0.05, capped at 4
 
-      // multiplier = 1.0 + (12/50)*0.15 = 1.036, score = round(75*1.036) = 78
-      expect(result.breakdown.multiplier).toBeCloseTo(1.036, 4);
-      expect(result.score).toBe(78);
+      // multiplier = 1.0 + (4/50)*0.15 = 1.012, score = round(75*1.012) = 76
+      expect(result.breakdown.multiplier).toBeCloseTo(1.012, 4);
+      expect(result.score).toBe(76);
     });
 
-    it('should cap affinity bonus at 15 points', async () => {
+    it('should cap affinity bonus at 4 points', async () => {
       mockQueryResults = [
         { data: { affinity_score: 100, session_count: 20 }, error: null },
       ];
@@ -417,11 +417,11 @@ describe('personalized-scoring-service', () => {
       const forecast = createMockForecast('4.0', '10', '180', 'rising');
       const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 75);
 
-      expect(result.breakdown.affinity).toBe(15); // Capped at 15
+      expect(result.breakdown.affinity).toBe(4); // Capped at 4
 
-      // multiplier = 1.0 + (15/50)*0.15 = 1.045, score = round(75*1.045) = 78
-      expect(result.breakdown.multiplier).toBeCloseTo(1.045, 4);
-      expect(result.score).toBe(78);
+      // multiplier = 1.0 + (4/50)*0.15 = 1.012, score = round(75*1.012) = 76
+      expect(result.breakdown.multiplier).toBeCloseTo(1.012, 4);
+      expect(result.score).toBe(76);
     });
 
     it('should combine learned + affinity bonuses multiplicatively', async () => {
@@ -448,11 +448,11 @@ describe('personalized-scoring-service', () => {
       expect(result.personalized).toBe(true);
       expect(result.breakdown.base).toBe(70);
       expect(result.breakdown.learnedPrefs).toBeCloseTo(29.7, 0); // (15+10+8)*0.9
-      expect(result.breakdown.affinity).toBeCloseTo(9, 0); // 60*0.15
+      expect(result.breakdown.affinity).toBeCloseTo(3, 0); // 60*0.05
 
-      // totalBonus = 29.7 + 9 = 38.7
-      // multiplier = 1.0 + (38.7/50)*0.15 = 1.1161
-      expect(result.breakdown.multiplier).toBeCloseTo(1.1161, 3);
+      // totalBonus = 29.7 + 3 = 32.7
+      // multiplier = 1.0 + (32.7/50)*0.15 = 1.0981
+      expect(result.breakdown.multiplier).toBeCloseTo(1.0981, 3);
     });
 
     it('should cap final score at 100', async () => {
@@ -475,12 +475,12 @@ describe('personalized-scoring-service', () => {
       const forecast = createMockForecast('4.5', '10', '180', 'rising');
       const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 95); // High base
 
-      // totalBonus = learned (15+10+8) + affinity (15) = 48
-      // multiplier = 1.0 + (48/50)*0.15 ≈ 1.144
-      // 95 * 1.144 ≈ 108.68 -> capped at 100
+      // totalBonus = learned (15+10+8) + affinity (4) = 37
+      // multiplier = 1.0 + (37/50)*0.15 ≈ 1.111
+      // 95 * 1.111 ≈ 105.55 -> capped at 100
       expect(result.score).toBe(100);
       expect(result.score).toBeLessThanOrEqual(100);
-      expect(result.breakdown.multiplier).toBeCloseTo(1.144, 3);
+      expect(result.breakdown.multiplier).toBeCloseTo(1.111, 3);
     });
 
     it('should ignore low affinity scores (< 10)', async () => {

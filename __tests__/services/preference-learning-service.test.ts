@@ -45,12 +45,17 @@ jest.mock('@/lib/supabase/server', () => ({
 
 // Mock data
 const createMockSnapshot = (
-  rating: number,
+  rating: number | null,
   waveHeight: number,
   wavePeriod: number,
   windSpeed: number,
   windDirection: number,
-  tideStatus: string
+  tideStatus: string,
+  options: {
+    waveQuality?: number | null;
+    actualConditions?: Record<string, unknown>;
+    session?: Record<string, unknown>;
+  } = {}
 ) => ({
   id: `snapshot-${rating}`,
   session_id: `session-${rating}`,
@@ -63,7 +68,10 @@ const createMockSnapshot = (
   },
   actual_conditions: {
     rating,
+    ...(options.waveQuality !== undefined ? { wave_quality: options.waveQuality } : {}),
+    ...options.actualConditions,
   },
+  ...(options.session ? { sessions: options.session } : {}),
 });
 
 describe('preference-learning-service', () => {
@@ -337,6 +345,141 @@ describe('preference-learning-service', () => {
 
       expect(result).not.toBeNull();
       expect(result?.sample_size).toBe(5); // Only ratings 3, 4, 5 (5 sessions >= 3)
+    });
+
+    it('does not learn small-wave preference from high rating when wave_quality is low', async () => {
+      const mockSnapshots = Array.from({ length: 5 }, (_, i) =>
+        createMockSnapshot(5, 1.0 + i * 0.1, 8, 5, 270, 'rising', {
+          waveQuality: 2,
+        })
+      );
+
+      mockQueryResult = { data: mockSnapshots, error: null };
+
+      const result = await computeUserPreferences('user-1');
+
+      expect(result).not.toBeNull();
+      expect(result?.sample_size).toBe(5);
+      expect(result?.wave_min_ft).toBeNull();
+      expect(result?.wave_max_ft).toBeNull();
+    });
+
+    it('learns wave preference from high wave_quality even when rating is null', async () => {
+      const mockSnapshots = [
+        createMockSnapshot(null, 3.0, 11, 7, 270, 'rising', { waveQuality: 4 }),
+        createMockSnapshot(null, 3.5, 12, 8, 270, 'rising', { waveQuality: 5 }),
+        createMockSnapshot(null, 4.0, 13, 9, 270, 'rising', { waveQuality: 4 }),
+        createMockSnapshot(null, 4.5, 14, 10, 270, 'rising', { waveQuality: 5 }),
+        createMockSnapshot(null, 5.0, 15, 11, 270, 'rising', { waveQuality: 4 }),
+      ];
+
+      mockQueryResult = { data: mockSnapshots, error: null };
+
+      const result = await computeUserPreferences('user-1');
+
+      expect(result).not.toBeNull();
+      expect(result?.wave_min_ft).toBeCloseTo(3.2, 1);
+      expect(result?.wave_max_ft).toBeCloseTo(4.8, 1);
+    });
+
+    it('ignores null wave_quality rows when enough wave_quality history exists', async () => {
+      const positiveWaveQualityRows = [
+        createMockSnapshot(3, 3.0, 11, 7, 270, 'rising', { waveQuality: 4 }),
+        createMockSnapshot(3, 3.5, 12, 8, 270, 'rising', { waveQuality: 4 }),
+        createMockSnapshot(3, 4.0, 13, 9, 270, 'rising', { waveQuality: 5 }),
+        createMockSnapshot(3, 4.5, 14, 10, 270, 'rising', { waveQuality: 5 }),
+        createMockSnapshot(3, 5.0, 15, 11, 270, 'rising', { waveQuality: 4 }),
+      ];
+      const nullWaveQualityRows = Array.from({ length: 5 }, () =>
+        createMockSnapshot(5, 1.0, 8, 5, 270, 'rising')
+      );
+
+      mockQueryResult = {
+        data: [...positiveWaveQualityRows, ...nullWaveQualityRows],
+        error: null,
+      };
+
+      const result = await computeUserPreferences('user-1');
+
+      expect(result).not.toBeNull();
+      expect(result?.wave_min_ft).toBeGreaterThan(3);
+      expect(result?.wave_max_ft).toBeGreaterThan(4);
+    });
+
+    it('excludes seeded similarity rows from preference learning', async () => {
+      const seededRows = Array.from({ length: 5 }, () =>
+        createMockSnapshot(5, 1.0, 8, 5, 270, 'rising', {
+          waveQuality: 5,
+          actualConditions: { notes: '[SEED_SIMILARITY_V2]' },
+        })
+      );
+      const realRows = [
+        createMockSnapshot(4, 3.0, 11, 7, 270, 'rising', { waveQuality: 4 }),
+        createMockSnapshot(4, 3.5, 12, 8, 270, 'rising', { waveQuality: 4 }),
+        createMockSnapshot(5, 4.0, 13, 9, 270, 'rising', { waveQuality: 5 }),
+        createMockSnapshot(5, 4.5, 14, 10, 270, 'rising', { waveQuality: 5 }),
+        createMockSnapshot(4, 5.0, 15, 11, 270, 'rising', { waveQuality: 4 }),
+      ];
+
+      mockQueryResult = { data: [...seededRows, ...realRows], error: null };
+
+      const result = await computeUserPreferences('user-1');
+
+      expect(result).not.toBeNull();
+      expect(result?.sample_size).toBe(5);
+      expect(result?.wave_min_ft).toBeGreaterThan(3);
+    });
+
+    it('prefers actual logged condition fields over forecast snapshot fields', async () => {
+      const mockSnapshots = Array.from({ length: 5 }, (_, i) =>
+        createMockSnapshot(4, 1.0, 8, 20, 90, 'low', {
+          waveQuality: 4,
+          actualConditions: {
+            wave_height_ft: 4 + i * 0.5,
+            wind_speed_mph: 6 + i,
+            wind_direction: 'W',
+            tide_status: 'Falling',
+            tide_height_ft: 2 + i * 0.1,
+          },
+        })
+      );
+
+      mockQueryResult = { data: mockSnapshots, error: null };
+
+      const result = await computeUserPreferences('user-1');
+
+      expect(result).not.toBeNull();
+      expect(result?.wave_min_ft).toBeGreaterThan(4);
+      expect(result?.max_wind_mph).toBeLessThan(11);
+      expect(result?.preferred_wind_directions).toContain(270);
+      expect(result?.preferred_tide_statuses).toContain('falling');
+    });
+
+    it('keeps small longboard sessions out of global wave preference', async () => {
+      const smallLongboardRows = Array.from({ length: 5 }, () =>
+        createMockSnapshot(5, 1.0, 8, 5, 270, 'rising', {
+          waveQuality: 5,
+          session: {
+            board_id: 'longboard-1',
+            board_snapshot: { board_type: 'longboard', name: 'Log' },
+            goals: ['practice'],
+          },
+        })
+      );
+      const normalRows = [
+        createMockSnapshot(4, 3.0, 11, 7, 270, 'rising', { waveQuality: 4 }),
+        createMockSnapshot(4, 3.5, 12, 8, 270, 'rising', { waveQuality: 4 }),
+        createMockSnapshot(5, 4.0, 13, 9, 270, 'rising', { waveQuality: 5 }),
+        createMockSnapshot(5, 4.5, 14, 10, 270, 'rising', { waveQuality: 5 }),
+        createMockSnapshot(4, 5.0, 15, 11, 270, 'rising', { waveQuality: 4 }),
+      ];
+
+      mockQueryResult = { data: [...smallLongboardRows, ...normalRows], error: null };
+
+      const result = await computeUserPreferences('user-1');
+
+      expect(result).not.toBeNull();
+      expect(result?.wave_min_ft).toBeGreaterThan(3);
     });
 
     it('should return null with insufficient data (<5 sessions)', async () => {
