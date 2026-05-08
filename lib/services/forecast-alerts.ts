@@ -15,6 +15,15 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getFreshForecastFromCache } from "@/lib/utils/forecast-service-utils";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 import SunCalc from "suncalc";
+import type { Beach } from "@/types/database";
+import type { EnhancedForecastEntity } from "@/types/forecast";
+import { selectBestWindow } from "@/lib/services/discovery/window-selector";
+import type { UserSurfPreferences } from "@/lib/services/preference-learning-service";
+import {
+  buildForecastRecommendationContext,
+  logForecastRecommendationContext,
+  type ForecastRecommendationContext,
+} from "@/lib/services/forecast-recommendation-context";
 import {
   getLocalDateString,
   getLocalHour,
@@ -41,7 +50,7 @@ type EligibleProfileRow = {
   timezone: string | null;
 };
 
-type BeachRow = {
+type BeachRow = Partial<Beach> & {
   id: string;
   slug: string | null;
   name: string | null;
@@ -359,6 +368,7 @@ type DailyForecastCandidate = {
   forecastUtcMs: number;
   localForecastDate: string;
   score: number;
+  forecastContext: ForecastRecommendationContext;
 };
 
 type EvaluateBeachForecastArgs = {
@@ -411,14 +421,127 @@ function evaluateBeachForecast({
     return null;
   }
 
+  const canonicalContext = buildDailyForecastContext({
+    beach,
+    forecasts: forecastBucket.forecasts,
+    thresholds,
+    nowMs,
+    timezone,
+  });
+
+  if (!canonicalContext) {
+    summary.skipped.noMatch++;
+    return null;
+  }
+
+  logForecastRecommendationContext({
+    source: "notification",
+    beachId,
+    beachName: beach.name,
+    context: canonicalContext,
+    enabled: process.env.FORECAST_CONTEXT_DEBUG === "1",
+  });
+
   return {
     beachId,
     beach,
     forecast: match.forecast,
-    forecastUtcMs: match.forecastUtcMs,
-    localForecastDate: getLocalDateString(new Date(match.forecastUtcMs), beach.timezone || timezone),
-    score: match.score,
+    forecastUtcMs: Date.parse(canonicalContext.selectedRowTime ?? canonicalContext.startTime ?? "") || match.forecastUtcMs,
+    localForecastDate: canonicalContext.localDate,
+    score: canonicalContext.score ?? match.score,
+    forecastContext: canonicalContext,
   };
+}
+
+function thresholdsToUserPrefs(
+  thresholds: ReturnType<typeof getUserThresholds>,
+): UserSurfPreferences | null {
+  if (thresholds.source !== "learned") return null;
+  return {
+    wave_min_ft: thresholds.waveMinFt,
+    wave_max_ft: thresholds.waveMaxFt,
+    wave_period_min_s: thresholds.periodMinS,
+    wave_period_max_s: thresholds.periodMaxS,
+    max_wind_mph: thresholds.maxWindMph,
+    preferred_wind_directions: null,
+    preferred_tide_statuses: thresholds.preferredTideStatuses,
+    confidence: 1,
+    sample_size: 5,
+  };
+}
+
+function buildDailyForecastContext(args: {
+  beach: BeachRow;
+  forecasts: ForecastAlertForecast[];
+  thresholds: ReturnType<typeof getUserThresholds>;
+  nowMs: number;
+  timezone: string | null;
+}): ForecastRecommendationContext | null {
+  const timezone = args.beach.timezone || args.timezone || DEFAULT_TIMEZONE;
+  const localDate = getLocalDateString(new Date(args.nowMs), timezone);
+  const todayForecasts = (args.forecasts as EnhancedForecastEntity[]).filter((forecast) => {
+    const forecastMs = Date.parse(forecast.forecast_at ?? "");
+    if (Number.isNaN(forecastMs)) return false;
+    return getLocalDateString(new Date(forecastMs), timezone) === localDate;
+  });
+
+  const window = todayForecasts.length > 0
+    ? selectBestWindow({
+        forecasts: todayForecasts,
+        beach: args.beach as Beach,
+        userPrefs: thresholdsToUserPrefs(args.thresholds),
+        horizonHours: LOOKAHEAD_HOURS,
+        sunTimesCache: buildSunTimesCacheForForecasts(args.beach, todayForecasts, timezone),
+      })
+    : null;
+
+  const context = buildForecastRecommendationContext({
+    beach: args.beach as Beach,
+    forecasts: todayForecasts,
+    window,
+    now: new Date(args.nowMs),
+    timezone,
+  });
+
+  return context?.recommendationType === "marginal" ? null : context;
+}
+
+function buildSunTimesCacheForForecasts(
+  beach: BeachRow,
+  forecasts: EnhancedForecastEntity[],
+  timezone: string,
+): Map<string, { sunrises: Date[]; sunsets: Date[] }> | undefined {
+  if (
+    typeof beach.lat !== "number" ||
+    typeof beach.lon !== "number" ||
+    !Number.isFinite(beach.lat) ||
+    !Number.isFinite(beach.lon)
+  ) {
+    return undefined;
+  }
+
+  const localDates = Array.from(new Set(
+    forecasts
+      .map((forecast) => {
+        const forecastMs = Date.parse(forecast.forecast_at ?? "");
+        return Number.isNaN(forecastMs)
+          ? null
+          : getLocalDateString(new Date(forecastMs), timezone);
+      })
+      .filter((date): date is string => Boolean(date))
+  ));
+
+  if (localDates.length === 0) return undefined;
+
+  const sunrises: Date[] = [];
+  const sunsets: Date[] = [];
+  for (const localDate of localDates) {
+    const times = SunCalc.getTimes(new Date(`${localDate}T12:00:00.000Z`), beach.lat, beach.lon);
+    if (Number.isFinite(times.sunrise.getTime())) sunrises.push(times.sunrise);
+    if (Number.isFinite(times.sunset.getTime())) sunsets.push(times.sunset);
+  }
+
+  return new Map([[beach.id, { sunrises, sunsets }]]);
 }
 
 function formatForecastSummaryTime(forecastUtcMs: number, timezone: string | null): string {
@@ -438,17 +561,61 @@ function formatForecastSummaryTime(forecastUtcMs: number, timezone: string | nul
   }
 }
 
+function formatForecastSummaryClock(forecastUtcMs: number, timezone: string | null): string {
+  const tz = timezone || DEFAULT_TIMEZONE;
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).formatToParts(new Date(forecastUtcMs));
+    const hour = parts.find((p) => p.type === "hour")?.value ?? "";
+    const minute = parts.find((p) => p.type === "minute")?.value ?? "00";
+    const dayPeriod = parts.find((p) => p.type === "dayPeriod")?.value ?? "";
+    return minute === "00" ? `${hour}${dayPeriod}` : `${hour}:${minute}${dayPeriod}`;
+  } catch {
+    return formatForecastSummaryTime(forecastUtcMs, timezone);
+  }
+}
+
+function formatForecastSummaryRange(
+  startTime: string | null,
+  endTime: string | null,
+  timezone: string | null,
+): string | null {
+  if (!startTime || !endTime) return null;
+  const startMs = Date.parse(startTime);
+  const endMs = Date.parse(endTime);
+  if (Number.isNaN(startMs) || Number.isNaN(endMs)) return null;
+  const start = formatForecastSummaryClock(startMs, timezone);
+  const end = formatForecastSummaryClock(endMs, timezone);
+  const startSuffix = start.match(/(AM|PM)$/i)?.[1];
+  const endSuffix = end.match(/(AM|PM)$/i)?.[1];
+  if (startSuffix && endSuffix && startSuffix.toUpperCase() === endSuffix.toUpperCase()) {
+    return `${start.replace(/(AM|PM)$/i, "")}-${end}`;
+  }
+  return `${start}-${end}`;
+}
+
 function formatDailySummaryLine(candidate: DailyForecastCandidate, timezone: string | null): string {
-  const waveFt = parseNumber(candidate.forecast.wave_height);
-  const periodS = parseNumber(candidate.forecast.wave_period);
-  const windMph = parseNumber(candidate.forecast.wind_speed);
+  const context = candidate.forecastContext;
+  const waveFt = parseNumber(context.waveHeight);
+  const periodS = parseNumber(context.swellPeriod);
+  const windMph = parseNumber(context.windSpeed);
   const beachName = candidate.beach.name || "Your beach";
-  const whenLocal = formatForecastSummaryTime(candidate.forecastUtcMs, candidate.beach.timezone || timezone);
+  const contextTimezone = candidate.beach.timezone || timezone;
+  const whenLocal = context.recommendationType === "best_window"
+    ? formatForecastSummaryRange(context.startTime, context.endTime, contextTimezone)
+      ?? formatForecastSummaryTime(candidate.forecastUtcMs, contextTimezone)
+    : formatForecastSummaryTime(candidate.forecastUtcMs, contextTimezone);
   const waveText = waveFt !== null ? `${Math.round(waveFt * 10) / 10}ft` : "waves";
   const periodText = periodS !== null ? ` @ ${Math.round(periodS)}s` : "";
-  const windText = windMph !== null ? `, ${Math.round(windMph)}mph wind` : "";
+  const windDirection = context.windDirection ? ` ${context.windDirection}` : "";
+  const windText = windMph !== null ? `, ${Math.round(windMph)}mph${windDirection}` : "";
+  const phrase = context.recommendationType === "best_window" ? "looks best" : "looks good";
 
-  return `${beachName}: ${whenLocal} looks good, ${waveText}${periodText}${windText}`;
+  return `${beachName}: ${whenLocal} ${phrase}, ${waveText}${periodText}${windText}`;
 }
 
 function sortDailyForecastCandidates(
@@ -720,7 +887,17 @@ export async function runForecastThresholdAlerts(): Promise<ForecastAlertRunSumm
   if (allBeachIds.length > 0) {
     const { data: beaches, error: beachesError } = await supabase
       .from("beaches")
-      .select("id, slug, name, lat, lon, timezone")
+      .select(
+        "id, name, slug, lat, lon, city, state, country, region, " +
+        "timezone, break_type, skill_level, cdip_station, cdip_eligible, " +
+        "wind_offshore_deg, wind_offshore_tol_deg, " +
+        "wind_cross_shore_ok_kt, wind_onshore_bad_kt, " +
+        "swell_window_center_deg, swell_window_halfwidth_deg, " +
+        "swell_access_factors, wind_exposure_factors, " +
+        "preferred_tide_direction, preferred_tide_ft_min, " +
+        "preferred_tide_ft_max, tide_direction_sensitivity, preference_model, " +
+        "features, hazards, average_rating, review_count"
+      )
       .in("id", allBeachIds);
     if (beachesError) {
       throw new Error(beachesError.message || "Failed to load beaches for forecast alerts");

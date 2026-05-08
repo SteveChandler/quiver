@@ -38,7 +38,7 @@ function makeResult(overrides: Partial<SurfCallResult> = {}): SpotSurfReportResu
     dominantBeatIntervalS: 8,
     ...overrides,
   };
-  return { report, isTomorrow: false };
+  return { report, isTomorrow: false, forecastContext: null };
 }
 
 describe('applyForceVerdict', () => {

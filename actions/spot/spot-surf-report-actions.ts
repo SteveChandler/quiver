@@ -14,10 +14,15 @@ import { getUserSurfPreferences, type UserSurfPreferences } from '@/lib/services
 import { checkSkillCeiling, checkSkillFloor } from '@/lib/domains/scoring/discovery-adapter';
 import { parseSkillLevel } from '@/lib/domains/user-preferences';
 import type { PersonalizedForecastWindow } from '@/types/personalization';
+import {
+  buildForecastRecommendationContext,
+  type ForecastRecommendationContext,
+} from '@/lib/services/forecast-recommendation-context';
 
 export interface SpotSurfReportResult {
   report: SurfCallResult;
   isTomorrow: boolean;
+  forecastContext: ForecastRecommendationContext | null;
 }
 
 /**
@@ -278,11 +283,19 @@ const getCachedSurfReport = unstable_cache(
         message: error.message,
         code: error.code,
       });
-      return { report: buildReport(null, [], beach, {}, userSkillLevel), isTomorrow: false };
+      return {
+        report: buildReport(null, [], beach, {}, userSkillLevel),
+        isTomorrow: false,
+        forecastContext: null,
+      };
     }
 
     if (!data || data.length === 0) {
-      return { report: buildReport(null, [], beach, {}, userSkillLevel), isTomorrow: false };
+      return {
+        report: buildReport(null, [], beach, {}, userSkillLevel),
+        isTomorrow: false,
+        forecastContext: null,
+      };
     }
 
     const forecasts = data as EnhancedForecastEntity[];
@@ -304,9 +317,19 @@ const getCachedSurfReport = unstable_cache(
       });
 
       if (window) {
-        delete window.sourceForecast;
         const adjustedWindow = applyPreferenceAdjustments(window, userSkillLevel);
-        return { report: buildReport(adjustedWindow, todayForecasts, beach, { isTomorrow: false }, userSkillLevel), isTomorrow: false };
+        const forecastContext = buildForecastRecommendationContext({
+          beach,
+          forecasts: todayForecasts,
+          window: adjustedWindow,
+          timezone: beachTz,
+        });
+        delete adjustedWindow.sourceForecast;
+        return {
+          report: buildReport(adjustedWindow, todayForecasts, beach, { isTomorrow: false }, userSkillLevel),
+          isTomorrow: false,
+          forecastContext,
+        };
       }
     }
 
@@ -321,15 +344,38 @@ const getCachedSurfReport = unstable_cache(
       });
 
       if (window) {
-        delete window.sourceForecast;
         const adjustedWindow = applyPreferenceAdjustments(window, userSkillLevel);
-        return { report: buildReport(adjustedWindow, tomorrowForecasts, beach, { isTomorrow: true }, userSkillLevel), isTomorrow: true };
+        const forecastContext = buildForecastRecommendationContext({
+          beach,
+          forecasts: tomorrowForecasts,
+          window: adjustedWindow,
+          timezone: beachTz,
+        });
+        delete adjustedWindow.sourceForecast;
+        return {
+          report: buildReport(adjustedWindow, tomorrowForecasts, beach, { isTomorrow: true }, userSkillLevel),
+          isTomorrow: true,
+          forecastContext,
+        };
       }
-      return { report: buildReport(null, tomorrowForecasts, beach, { isTomorrow: true }, userSkillLevel), isTomorrow: true };
+      return {
+        report: buildReport(null, tomorrowForecasts, beach, { isTomorrow: true }, userSkillLevel),
+        isTomorrow: true,
+        forecastContext: buildForecastRecommendationContext({
+          beach,
+          forecasts: tomorrowForecasts,
+          window: null,
+          timezone: beachTz,
+        }),
+      };
     }
 
     // No forecast data for either day
-    return { report: buildReport(null, [], beach, {}, userSkillLevel), isTomorrow: false };
+    return {
+      report: buildReport(null, [], beach, {}, userSkillLevel),
+      isTomorrow: false,
+      forecastContext: null,
+    };
   },
   ['spot-surf-report'],
   { revalidate: 900 } // 15-minute cache
