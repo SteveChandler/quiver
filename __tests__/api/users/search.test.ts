@@ -94,6 +94,14 @@ function mockProfilesQuery(mockClient: any, profilesData: any, error: any = null
 
   mockClient.from.mockReturnValue({
     select: jest.fn(() => ({
+      eq: jest.fn(() => ({
+        in: jest.fn(() =>
+          Promise.resolve({
+            data: [],
+            error: null,
+          }),
+        ),
+      })),
       or: jest.fn(() => ({
         neq: jest.fn(() => ({
           gt: jest.fn(() => ({
@@ -399,22 +407,22 @@ describe("/api/users/search", () => {
       let request = createMockRequest("GET", "http://localhost:3000/api/users/search", {
         searchParams: { q: "test" },
       });
-      await GET(request);
-      // The test verifies behavior by checking the limit is applied correctly
+      let response = await GET(request);
+      expect(response.status).toBe(200);
 
       // Test custom limit within cap
       request = createMockRequest("GET", "http://localhost:3000/api/users/search", {
         searchParams: { q: "test", limit: "10" },
       });
-      await GET(request);
-      // The test verifies behavior by checking the custom limit is respected
+      response = await GET(request);
+      expect(response.status).toBe(200);
 
       // Test limit exceeding cap
       request = createMockRequest("GET", "http://localhost:3000/api/users/search", {
         searchParams: { q: "test", limit: "100" },
       });
-      await GET(request);
-      // The test verifies behavior by checking the limit is capped at 50
+      response = await GET(request);
+      expect(response.status).toBe(200);
     });
 
     it("should handle database errors appropriately", async () => {
@@ -430,6 +438,7 @@ describe("/api/users/search", () => {
       });
 
       const response = await GET(request);
+      expect(response.status).toBe(500);
       await expectErrorResponse(response, 500);
     });
 
@@ -598,9 +607,8 @@ describe("/api/users/search", () => {
         searchParams: { q: "test" },
       });
 
-      await GET(request);
-
-      // The test verifies performance optimizations are in place
+      const response = await GET(request);
+      expect(response.status).toBe(200);
     });
   });
 });
