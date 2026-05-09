@@ -268,12 +268,116 @@ jest.mock('@/lib/services/discovery/personalization-layer', () => ({
 // Import after mocks
 import { discoverSurfSpots } from '@/lib/services/discovery/surf-discovery-orchestrator';
 
+function resetDefaultDiscoveryMocks(): void {
+  const { scoreBeachWithEngine, forecastToSnapshot } = require('@/lib/domains/scoring');
+  const {
+    fetchPersonalizationContext,
+    calculatePersonalizationBonus,
+  } = require('@/lib/services/discovery/personalization-layer');
+
+  scoreBeachWithEngine.mockReturnValue({
+    total: 75,
+    subscores: {
+      waveHeightFit: 20,
+      periodEnergyScore: 15,
+      windAlignment: 15,
+      tideFit: 12,
+      affinityBonus: 0,
+      personalizationBonus: 0,
+      distancePenalty: 0,
+    },
+    matchQuality: 'excellent',
+    reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+    warnings: [],
+    conditionBadges: [],
+  });
+  forecastToSnapshot.mockReturnValue({
+    timestamp: new Date(),
+    waveHeight: 3,
+    wavePeriod: 10,
+    waveDirection: 270,
+    primarySwell: { heightFt: 3, periodS: 10, directionDeg: 270 },
+    secondarySwell: null,
+    windWave: null,
+    wind: { speedMph: 5, directionDeg: 90 },
+    tide: { heightFt: 2.5, status: 'rising', direction: 'rising' },
+    confidence: 80,
+    dataSource: 'NOAA_NWS',
+  });
+  fetchPersonalizationContext.mockResolvedValue({
+    implicitPrefs: null,
+    learnedPrefs: null,
+    affinityMap: new Map(),
+    preferredBreakType: null,
+    implicitWeight: 0,
+  });
+  calculatePersonalizationBonus.mockReturnValue({
+    total: 0,
+    affinityBonus: 0,
+    personalizationBonus: 0,
+    reasons: [],
+  });
+}
+
+afterEach(() => {
+  resetDefaultDiscoveryMocks();
+});
+
 describe('discoverSurfSpots - Favorites Merging', () => {
   const testUserId = 'test-user-123';
   const defaultUserLocation = { lat: 32.7157, lon: -117.1611 };
 
   beforeEach(() => {
     jest.clearAllMocks();
+    const { scoreBeachWithEngine, forecastToSnapshot } = require('@/lib/domains/scoring');
+    const {
+      fetchPersonalizationContext,
+      calculatePersonalizationBonus,
+    } = require('@/lib/services/discovery/personalization-layer');
+
+    scoreBeachWithEngine.mockReturnValue({
+      total: 75,
+      subscores: {
+        waveHeightFit: 20,
+        periodEnergyScore: 15,
+        windAlignment: 15,
+        tideFit: 12,
+        affinityBonus: 0,
+        personalizationBonus: 0,
+        distancePenalty: 0,
+      },
+      matchQuality: 'excellent',
+      reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+      warnings: [],
+      conditionBadges: [],
+    });
+    forecastToSnapshot.mockReturnValue({
+      timestamp: new Date(),
+      waveHeight: 3,
+      wavePeriod: 10,
+      waveDirection: 270,
+      primarySwell: { heightFt: 3, periodS: 10, directionDeg: 270 },
+      secondarySwell: null,
+      windWave: null,
+      wind: { speedMph: 5, directionDeg: 90 },
+      tide: { heightFt: 2.5, status: 'rising', direction: 'rising' },
+      confidence: 80,
+      dataSource: 'NOAA_NWS',
+    });
+    fetchPersonalizationContext.mockResolvedValue({
+      implicitPrefs: null,
+      learnedPrefs: null,
+      affinityMap: new Map(),
+      preferredBreakType: null,
+      implicitWeight: 0,
+    });
+    calculatePersonalizationBonus.mockReturnValue({
+      total: 0,
+      affinityBonus: 0,
+      personalizationBonus: 0,
+      reasons: [],
+    });
+
     // Reset mock state
     mockState.candidatePoolResponse = {
       candidates: [mockBeach1, mockBeach2, mockBeach3, mockBeach4] as Beach[],
@@ -309,8 +413,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
 
     // Find beach-2 and verify it has isFavorite flag
     const beach2Rec = result.recommendations.find(r => r.beach.id === 'beach-2');
-    expect(beach2Rec).toBeDefined();
-    expect(beach2Rec?.isFavorite).toBe(true);
+    expect(beach2Rec).toMatchObject({ isFavorite: true });
 
     // Verify sorting is by score (highest first), not favorites-first
     for (let i = 1; i < result.recommendations.length; i++) {
@@ -382,9 +485,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
 
     // Verify beach-2 IS in results (no longer excluded based on score)
     const beach2Rec = result.recommendations.find(r => r.beach.id === 'beach-2');
-    expect(beach2Rec).toBeDefined();
-    expect(beach2Rec?.isFavorite).toBe(true);
-    expect(beach2Rec?.score).toBe(45);
+    expect(beach2Rec).toMatchObject({ isFavorite: true, score: 45 });
 
     // Verify it's sorted to the end due to low score
     const lastRec = result.recommendations[result.recommendations.length - 1];
@@ -473,8 +574,8 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     // Favorites should have isFavorite: true
     const beach1Rec = result.recommendations.find(r => r.beach.id === 'beach-1');
     const beach2Rec = result.recommendations.find(r => r.beach.id === 'beach-2');
-    if (beach1Rec) expect(beach1Rec.isFavorite).toBe(true);
-    if (beach2Rec) expect(beach2Rec.isFavorite).toBe(true);
+    expect(beach1Rec).toMatchObject({ isFavorite: true });
+    expect(beach2Rec).toMatchObject({ isFavorite: true });
   });
 
   test('marks non-favorites with isFavorite: false', async () => {
@@ -484,8 +585,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
 
     // Find a non-favorite recommendation
     const nonFavorite = result.recommendations.find(r => r.beach.id !== 'beach-1');
-    expect(nonFavorite).toBeDefined();
-    expect(nonFavorite?.isFavorite).toBe(false); // Now explicitly false, not undefined
+    expect(nonFavorite).toMatchObject({ isFavorite: false }); // Now explicitly false, not undefined
   });
 
   test('handles malformed recommendations with null safety', async () => {
@@ -498,14 +598,15 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5 });
 
     // Should successfully complete without errors
-    expect(result.recommendations).toBeDefined();
+    expect(result.recommendations).toEqual(expect.any(Array));
     expect(result.recommendations.length).toBeGreaterThan(0);
 
     // All recommendations should have valid beach.id and score
     for (const rec of result.recommendations) {
-      expect(rec.beach).toBeDefined();
-      expect(rec.beach.id).toBeDefined();
-      expect(typeof rec.score).toBe('number');
+      expect(rec).toMatchObject({
+        beach: { id: expect.any(String) },
+        score: expect.any(Number),
+      });
     }
   });
 });
@@ -836,7 +937,7 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
 
     const beach1 = result.recommendations.find(r => r.beach.id === 'beach-1');
-    expect(beach1).toBeDefined();
+    expect(beach1).toMatchObject({ score: expect.any(Number) });
     // Score should be higher than the base 75 due to personalization
     expect(beach1!.score).toBeGreaterThan(75);
     // Personalization reasons should appear in the reasons array
@@ -846,6 +947,64 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     ]));
     // subscores should include personalizationBonus
     expect(beach1!.subscores.personalizationBonus).toBe(15);
+  });
+
+  test('post-personalization score still respects small-wave cap', async () => {
+    const { scoreBeachWithEngine, forecastToSnapshot } = require('@/lib/domains/scoring');
+    const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
+
+    mockState.forecastBatchResponse = {
+      successful: [
+        { beach: mockBeach1, forecasts: [{ ...mockForecast, wave_height: '1.7' }] },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+
+    forecastToSnapshot.mockReturnValue({
+      timestamp: new Date(),
+      waveHeight: 1.7,
+      wavePeriod: 10,
+      waveDirection: 270,
+      primarySwell: { heightFt: 1.7, periodS: 10, directionDeg: 270 },
+      secondarySwell: null,
+      windWave: null,
+      wind: { speedMph: 5, directionDeg: 90 },
+      tide: { heightFt: 2.5, status: 'rising', direction: 'rising' },
+      confidence: 80,
+      dataSource: 'NOAA_NWS',
+    });
+    scoreBeachWithEngine.mockReturnValue({
+      total: 55,
+      subscores: {
+        waveHeightFit: 13,
+        periodEnergyScore: 12,
+        windAlignment: 12,
+        tideFit: 10,
+        affinityBonus: 4,
+        personalizationBonus: 0,
+        distancePenalty: 0,
+      },
+      matchQuality: 'fair',
+      reasons: ['Small wave (1.7ft) caps score at 55'],
+      warnings: ['Small wave (1.7ft) caps score at 55'],
+      conditionBadges: [],
+    });
+    calculatePersonalizationBonus.mockReturnValue({
+      total: 16,
+      affinityBonus: 4,
+      personalizationBonus: 12,
+      reasons: ['Matches your surfing patterns', "One of your go-to spots"],
+    });
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 1,
+    });
+
+    expect(result.recommendations[0].score).toBe(55);
+    expect(result.recommendations[0].subscores.affinityBonus).toBe(4);
+    expect(result.recommendations[0].subscores.personalizationBonus).toBe(12);
   });
 
   test('zero personalization bonus does not change scores', async () => {
@@ -1107,8 +1266,9 @@ describe('discoverSurfSpots - Time Slot Scoring Differentiation', () => {
 
     // The fuzzy fallback should pick windyAfternoonForecast (15:00)
     // not calmMorningForecast (07:00), since 15:00 is closer to window.start
-    expect(receivedForecast).toBeDefined();
-    expect(receivedForecast.forecast_at).toBe('2024-01-15T15:00:00Z');
+    expect(receivedForecast).toMatchObject({
+      forecast_at: '2024-01-15T15:00:00Z',
+    });
   });
 
   test('sourceForecast is stripped from the response window', async () => {
@@ -1361,7 +1521,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       && msg.includes('no today forecasts')
       && msg.includes('tomorrow fallback returned null')
     );
-    expect(noTodayWarn).toBeDefined();
+    expect(noTodayWarn).toEqual(expect.any(String));
 
     const staleFallbackWarn = warnCalls.find((msg: string) =>
       typeof msg === 'string' && msg.includes('falling back to all-day forecasts')

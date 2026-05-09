@@ -29,6 +29,9 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { Beach } from '@/types/database';
 
 const log = createContextLogger('PersonalizationLayer');
+const MAX_AFFINITY_BONUS = 4;
+const AFFINITY_BONUS_SCALE = 0.05;
+const MAX_CONDITION_PERSONALIZATION_BONUS = 12;
 
 // ============================================================================
 // Public Types
@@ -56,12 +59,13 @@ export interface PersonalizationContext {
 
 /**
  * Personalization bonus result for a single beach/forecast pair.
- * All values are additive on top of the base condition score.
+ * Values are bounded so personalization can break close calls without
+ * overriding the base surf setup.
  */
 export interface PersonalizationBonusResult {
   /** Total bonus to add to the beach score (affinityBonus + personalizationBonus) */
   total: number;
-  /** Affinity bonus component (0–15 pts), based on user_beach_affinity.affinity_score */
+  /** Affinity bonus component, based on user_beach_affinity.affinity_score */
   affinityBonus: number;
   /** Combined bonus from learned and implicit preferences */
   personalizationBonus: number;
@@ -174,7 +178,7 @@ export async function fetchPersonalizationContext(
  *   2. Learned wind preference match (+10 * confidence) — from session history
  *   3. Learned tide preference match (+8 * confidence) — from session history
  *   4. Implicit behavior bonus — from engagement patterns, blended by implicitWeight
- *   5. Beach affinity bonus (0–15 pts) — from user_beach_affinity.affinity_score
+ *   5. Beach affinity bonus — from user_beach_affinity.affinity_score
  *
  * @param beach - The beach being evaluated
  * @param forecast - The forecast entry selected for scoring (best window)
@@ -243,12 +247,17 @@ export function calculatePersonalizationBonus(
     }
   }
 
+  personalizationBonus = Math.min(
+    personalizationBonus,
+    MAX_CONDITION_PERSONALIZATION_BONUS
+  );
+
   // ── 5. Beach affinity ──────────────────────────────────────────────────────
-  // Up to 15 bonus points for beaches the user frequents.
+  // Small tie-breaker for beaches the user frequents.
   // Threshold at 10 matches the same guard in personalized-scoring-service.ts.
   const affinityScore = context.affinityMap.get(beach.id) ?? 0;
   if (affinityScore > 10) {
-    affinityBonus = Math.min(affinityScore * 0.15, 15);
+    affinityBonus = Math.min(affinityScore * AFFINITY_BONUS_SCALE, MAX_AFFINITY_BONUS);
     reasons.push("One of your go-to spots");
   }
 

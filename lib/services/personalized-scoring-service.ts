@@ -22,7 +22,7 @@
  * - Implicit wave range match: 10 pts * implicitWeight
  * - Implicit break type match: 8 pts * implicitWeight
  * - Implicit top engaged beach: 2 pts (flat)
- * - Beach affinity: affinity_score * 0.15 (max 15 pts)
+ * - Beach affinity: affinity_score * 0.05 (max 4 pts)
  *
  * @see supabase/migrations/20251103000002_beach_affinity.sql
  * @see supabase/migrations/20251103000003_user_surf_preferences.sql
@@ -43,6 +43,9 @@ import {
   isTopEngagedBeach,
 } from './implicit-preferences-service';
 import type { EnhancedForecastEntity } from '@/types/forecast';
+
+const MAX_AFFINITY_BONUS = 4;
+const AFFINITY_BONUS_SCALE = 0.05;
 
 /**
  * Personalized score with breakdown
@@ -179,8 +182,11 @@ export async function scoreBeachForUser(
       .single();
 
     if (affinity && affinity.affinity_score > 10) {
-      // Up to 15 bonus points for familiar beaches
-      const affinityBonus = Math.min(affinity.affinity_score * 0.15, 15);
+      // Small tie-breaker for familiar beaches, not a condition override.
+      const affinityBonus = Math.min(
+        affinity.affinity_score * AFFINITY_BONUS_SCALE,
+        MAX_AFFINITY_BONUS
+      );
       breakdown.affinity = affinityBonus;
       personalized = true;
     }

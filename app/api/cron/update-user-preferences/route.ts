@@ -113,14 +113,22 @@ async function _GET(request: Request): Promise<Response> {
 
     const npcUserIds = new Set(npcUsers?.map((u) => u.id) || []);
 
-    // Query users who have at least 5 rated sessions (rating >= 3)
-    // We query session_forecast_snapshots which contains actual_conditions JSONB
-    const { data: usersWithSessions, error: queryError } = await supabase
-      .from('session_forecast_snapshots')
-      .select('user_id')
-      .not('actual_conditions->>rating', 'is', null)
-      .gte('actual_conditions->>rating', '3');
+    // Query users with either wave-quality or legacy rating signals. The
+    // compute step owns the stricter rules and skips insufficient histories.
+    const [usersWithWaveQuality, usersWithRatings] = await Promise.all([
+      supabase
+        .from('session_forecast_snapshots')
+        .select('user_id')
+        .not('actual_conditions->>wave_quality', 'is', null)
+        .gte('actual_conditions->>wave_quality', '4'),
+      supabase
+        .from('session_forecast_snapshots')
+        .select('user_id')
+        .not('actual_conditions->>rating', 'is', null)
+        .gte('actual_conditions->>rating', '3'),
+    ]);
 
+    const queryError = usersWithWaveQuality.error || usersWithRatings.error;
     if (queryError) {
       console.error('❌ Failed to query eligible users:', queryError);
       throw new Error(`Failed to query eligible users: ${queryError.message}`);
@@ -128,7 +136,10 @@ async function _GET(request: Request): Promise<Response> {
 
     // Get unique user IDs, excluding NPC/bot users
     const uniqueUserIds = [
-      ...new Set(usersWithSessions?.map((s) => s.user_id) || []),
+      ...new Set([
+        ...((usersWithWaveQuality.data ?? []).map((s) => s.user_id)),
+        ...((usersWithRatings.data ?? []).map((s) => s.user_id)),
+      ]),
     ].filter((userId) => !npcUserIds.has(userId));
 
     const excludedNpcCount = npcUserIds.size;

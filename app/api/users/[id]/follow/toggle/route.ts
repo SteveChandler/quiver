@@ -15,6 +15,11 @@ interface FollowWithNotificationResult {
   notification_dedup_collision: boolean;
 }
 
+interface FollowCounts {
+  followersCount: number;
+  followingCount: number;
+}
+
 /**
  * POST /api/users/[id]/follow/toggle - Toggle follow status for a user.
  *
@@ -51,12 +56,15 @@ export const POST = withAuth(
         .eq("id", existing.id);
       if (deleteError) throw deleteError;
 
+      const counts = await getFollowCounts(supabase, targetUserId);
+
       revalidatePath("/profile");
       revalidatePath(`/profile/${targetUserId}`);
 
       return createSuccessResponse({
         success: true,
         following: false,
+        ...counts,
         message: "Unfollowed",
       });
     }
@@ -87,12 +95,15 @@ export const POST = withAuth(
     );
     if (rpcError) throw rpcError;
 
+    const counts = await getFollowCounts(supabase, targetUserId);
+
     revalidatePath("/profile");
     revalidatePath(`/profile/${targetUserId}`);
 
     return createSuccessResponse({
       success: true,
       following: true,
+      ...counts,
       message: "Now following",
     });
   },
@@ -116,4 +127,22 @@ function formatIsoYearWeek(d: Date): string {
   const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
   const weekNo = Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
   return `${date.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
+}
+
+async function getFollowCounts(
+  supabase: AuthenticatedContext["supabase"],
+  targetUserId: string,
+): Promise<FollowCounts> {
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("followers_count, following_count")
+    .eq("id", targetUserId)
+    .single();
+
+  if (error) throw error;
+
+  return {
+    followersCount: profile?.followers_count ?? 0,
+    followingCount: profile?.following_count ?? 0,
+  };
 }

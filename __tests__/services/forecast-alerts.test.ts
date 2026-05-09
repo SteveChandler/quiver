@@ -426,7 +426,8 @@ describe("runForecastThresholdAlerts", () => {
     expect(event.dedupeKey).toBe("daily_forecast_summary:user-home:2026-03-13");
     expect(event.payload.title).toBe("Quiver Daily Forecast");
     expect(event.payload.body).toContain("Home Beach:");
-    expect(event.payload.body).toContain("4ft @ 12s, 8mph wind");
+    expect(event.payload.body).toContain("looks best");
+    expect(event.payload.body).toContain("4ft @ 12s, 8mph");
     expect(event.payload.match_count).toBe(1);
     expect(supabase.rpc).toHaveBeenCalledWith("claim_daily_forecast_notification_slot", {
       p_user_id: userId,
@@ -640,7 +641,8 @@ describe("runForecastThresholdAlerts", () => {
     const lines = event.payload.body.split("\n");
     expect(lines).toHaveLength(1);
     expect(lines[0]).toContain("Best Window:");
-    expect(lines[0]).toContain("4ft @ 16s, 4mph wind");
+    expect(lines[0]).toContain("looks best");
+    expect(lines[0]).toContain("5ft @ 12s, 8mph");
   });
 
   it("normalizes 0-100 confidence scores when ranking matching windows", async () => {
@@ -681,7 +683,7 @@ describe("runForecastThresholdAlerts", () => {
 
     const event = (enqueueNotification as jest.Mock).mock.calls[0][0];
     const [line] = event.payload.body.split("\n");
-    expect(line).toContain("4ft @ 16s, 4mph wind");
+    expect(line).toContain("4ft @ 16s, 4mph");
   });
 
   it("filters daily forecast candidates to daylight before writing the summary", async () => {
@@ -734,7 +736,7 @@ describe("runForecastThresholdAlerts", () => {
 
     expect(summary.sent).toBe(1);
     const event = (enqueueNotification as jest.Mock).mock.calls[0][0];
-    expect(event.payload.body).toContain("Blacks Beach: 5PM looks good");
+    expect(event.payload.body).toContain("Blacks Beach: 5-7:36PM looks best");
     expect(event.payload.body).not.toContain("8PM");
     expect(event.payload.body).not.toContain("11PM");
     expect(event.payload.body).not.toContain("2AM");
@@ -788,7 +790,7 @@ describe("runForecastThresholdAlerts", () => {
 
     expect(summary.sent).toBe(1);
     const event = (enqueueNotification as jest.Mock).mock.calls[0][0];
-    expect(event.payload.body).toContain("Ranking Beach: 5PM looks good");
+    expect(event.payload.body).toContain("Ranking Beach: 5-7:36PM looks best");
     expect(event.payload.body).not.toContain("8PM");
   });
 

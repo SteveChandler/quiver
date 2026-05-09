@@ -1,8 +1,11 @@
 /**
  * Preference Learning Service
  *
- * Learns user surf preferences from their session history by analyzing
- * forecast conditions from highly-rated sessions (rating >= 3).
+ * Learns user surf preferences from session history by keeping condition
+ * signals separate:
+ * - wave_quality teaches wave size/period preference
+ * - rating teaches overall enjoyment
+ * - actual logged condition fields win over forecast snapshots
  *
  * Algorithm:
  * - Wave ranges: 10th-90th percentile of good sessions
@@ -18,7 +21,6 @@
  */
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
-import type { Database } from '@/types/database.generated';
 
 /**
  * User surf preferences (matches database schema)
@@ -42,17 +44,67 @@ export interface UserSurfPreferences {
  */
 interface SessionWithConditions {
   id: string;
-  rating: number | null;
-  arrival_time: string;
+  session_id: string;
   forecast_snapshot: {
     wave_height: number | string | null;
+    wave_height_ft?: number | string | null;
     wave_period: number | string | null;
+    wave_period_s?: number | string | null;
     wind_speed: number | string | null;
+    wind_speed_mph?: number | string | null;
     wind_direction: number | string | null;
+    wind_direction_deg?: number | string | null;
     tide_status: string | null;
+    tide_height?: number | string | null;
+    tide_height_ft?: number | string | null;
     [key: string]: any;
   };
+  actual_conditions: {
+    rating?: number | string | null;
+    wave_quality?: number | string | null;
+    notes?: string | null;
+    wave_height_ft?: number | string | null;
+    wind_speed_mph?: number | string | null;
+    wind_direction?: number | string | null;
+    tide_status?: string | null;
+    tide_height_ft?: number | string | null;
+    [key: string]: any;
+  } | null;
+  session?: {
+    board_id?: string | null;
+    board_snapshot?: Record<string, unknown> | null;
+    goals?: string[] | null;
+    notes?: string | null;
+    source?: string | null;
+  } | Array<{
+    board_id?: string | null;
+    board_snapshot?: Record<string, unknown> | null;
+    goals?: string[] | null;
+    notes?: string | null;
+    source?: string | null;
+  }> | null;
+  sessions?: {
+    board_id?: string | null;
+    board_snapshot?: Record<string, unknown> | null;
+    goals?: string[] | null;
+    notes?: string | null;
+    source?: string | null;
+  } | Array<{
+    board_id?: string | null;
+    board_snapshot?: Record<string, unknown> | null;
+    goals?: string[] | null;
+    notes?: string | null;
+    source?: string | null;
+  }> | null;
 }
+
+const MIN_SIGNAL_SAMPLE_SIZE = 5;
+const ENJOYED_RATING_MIN = 3;
+const POSITIVE_WAVE_QUALITY_MIN = 4;
+const NEGATIVE_WAVE_QUALITY_MAX = 2;
+const LOW_CONFIDENCE_THRESHOLD = 0.5;
+const SMALL_WAVE_MODALITY_MAX_FT = 2;
+const SEED_SESSION_MARKERS = ['[SEED_SIMILARITY_V2]'];
 
 const COMPASS_DEGREES: Record<string, number> = {
   N: 0,
@@ -162,6 +214,202 @@ export function normalizeTideStatus(value: unknown): string | null {
   return normalized || null;
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function firstPresentValue(
+  record: Record<string, unknown>,
+  keys: readonly string[]
+): unknown {
+  for (const key of keys) {
+    const value = record[key];
+    if (value !== null && value !== undefined && value !== '') {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function getActualConditions(snapshot: SessionWithConditions): Record<string, unknown> {
+  return asRecord(snapshot.actual_conditions);
+}
+
+function getForecastSnapshot(snapshot: SessionWithConditions): Record<string, unknown> {
+  return asRecord(snapshot.forecast_snapshot);
+}
+
+function getSessionRelation(snapshot: SessionWithConditions): Record<string, unknown> {
+  const relation = snapshot.session ?? snapshot.sessions;
+  if (Array.isArray(relation)) {
+    return asRecord(relation[0]);
+  }
+
+  return asRecord(relation);
+}
+
+function getSessionNumber(
+  snapshot: SessionWithConditions,
+  actualKeys: readonly string[],
+  forecastKeys: readonly string[]
+): number | null {
+  const actual = parseForecastNumber(firstPresentValue(getActualConditions(snapshot), actualKeys));
+  if (actual !== null) {
+    return actual;
+  }
+
+  return parseForecastNumber(firstPresentValue(getForecastSnapshot(snapshot), forecastKeys));
+}
+
+function getSessionWindDirection(snapshot: SessionWithConditions): number | null {
+  const actual = parseWindDirection(
+    firstPresentValue(getActualConditions(snapshot), ['wind_direction'])
+  );
+  if (actual !== null) {
+    return actual;
+  }
+
+  return parseWindDirection(
+    firstPresentValue(getForecastSnapshot(snapshot), ['wind_direction_deg', 'wind_direction'])
+  );
+}
+
+function getSessionTideStatus(snapshot: SessionWithConditions): string | null {
+  const actual = normalizeTideStatus(
+    firstPresentValue(getActualConditions(snapshot), ['tide_status'])
+  );
+  if (actual) {
+    return actual;
+  }
+
+  return normalizeTideStatus(
+    firstPresentValue(getForecastSnapshot(snapshot), ['tide_status'])
+  );
+}
+
+function getRating(snapshot: SessionWithConditions): number | null {
+  return parseForecastNumber(firstPresentValue(getActualConditions(snapshot), ['rating']));
+}
+
+function getWaveQuality(snapshot: SessionWithConditions): number | null {
+  return parseForecastNumber(firstPresentValue(getActualConditions(snapshot), ['wave_quality']));
+}
+
+function isSeededOrTestSession(snapshot: SessionWithConditions): boolean {
+  const actual = getActualConditions(snapshot);
+  const session = getSessionRelation(snapshot);
+  const haystack = [
+    actual.notes,
+    actual.source,
+    session.notes,
+    session.source,
+  ]
+    .filter((value): value is string => typeof value === 'string')
+    .join(' ')
+    .toLowerCase();
+
+  if (SEED_SESSION_MARKERS.some((marker) => haystack.includes(marker.toLowerCase()))) {
+    return true;
+  }
+
+  const source = String(actual.source ?? session.source ?? '').toLowerCase();
+  return source === 'seed' || source === 'test' || source === 'mock';
+}
+
+function getGoalStrings(snapshot: SessionWithConditions): string[] {
+  const relation = getSessionRelation(snapshot);
+  const goals = relation.goals;
+  if (!Array.isArray(goals)) {
+    return [];
+  }
+
+  return goals.filter((goal): goal is string => typeof goal === 'string');
+}
+
+function getBoardStrings(snapshot: SessionWithConditions): string[] {
+  const relation = getSessionRelation(snapshot);
+  const boardSnapshot = asRecord(relation.board_snapshot);
+  const boardFields = ['name', 'board_type', 'type', 'category', 'shape', 'size'];
+
+  return boardFields
+    .map((field) => boardSnapshot[field])
+    .filter((value): value is string => typeof value === 'string');
+}
+
+function hasBoardContext(snapshot: SessionWithConditions): boolean {
+  const relation = getSessionRelation(snapshot);
+  return Boolean(relation.board_id) || getBoardStrings(snapshot).length > 0;
+}
+
+function hasSmallWaveIntent(snapshot: SessionWithConditions): boolean {
+  const tokens = [...getGoalStrings(snapshot), ...getBoardStrings(snapshot)]
+    .join(' ')
+    .toLowerCase();
+
+  return [
+    'longboard',
+    'log',
+    'foam',
+    'foamie',
+    'soft top',
+    'funboard',
+    'midlength',
+    'small wave',
+    'small-wave',
+    'practice',
+    'beginner',
+    'cruise',
+    'grovel',
+  ].some((term) => tokens.includes(term));
+}
+
+function isModalitySpecificSmallWaveSession(snapshot: SessionWithConditions): boolean {
+  const waveHeight = getSessionNumber(
+    snapshot,
+    ['wave_height_ft'],
+    ['wave_height', 'wave_height_ft']
+  );
+
+  if (waveHeight === null || waveHeight >= SMALL_WAVE_MODALITY_MAX_FT) {
+    return false;
+  }
+
+  return hasSmallWaveIntent(snapshot) || hasBoardContext(snapshot);
+}
+
+function hasPositiveWaveQuality(snapshot: SessionWithConditions): boolean {
+  const waveQuality = getWaveQuality(snapshot);
+  return waveQuality !== null && waveQuality >= POSITIVE_WAVE_QUALITY_MIN;
+}
+
+function hasNegativeWaveQuality(snapshot: SessionWithConditions): boolean {
+  const waveQuality = getWaveQuality(snapshot);
+  return waveQuality !== null && waveQuality <= NEGATIVE_WAVE_QUALITY_MAX;
+}
+
+function hasEnjoymentSignal(snapshot: SessionWithConditions): boolean {
+  const rating = getRating(snapshot);
+  if (rating !== null && rating >= ENJOYED_RATING_MIN) {
+    return true;
+  }
+
+  return hasPositiveWaveQuality(snapshot);
+}
+
+function canUseRatingAsWaveFallback(snapshot: SessionWithConditions): boolean {
+  if (getWaveQuality(snapshot) !== null) {
+    return false;
+  }
+
+  const rating = getRating(snapshot);
+  return rating !== null && rating >= ENJOYED_RATING_MIN;
+}
+
 /**
  * Compute user surf preferences from their session history
  *
@@ -189,14 +437,21 @@ export async function computeUserPreferences(
   const supabase = createSupabaseServiceRoleClient();
 
   try {
-    // 1. Get sessions with forecast snapshots (rating >= 3, last 50 sessions)
+    // 1. Get sessions with forecast snapshots (last 50 sessions)
     const { data: snapshots, error } = await supabase
       .from('session_forecast_snapshots')
       .select(`
         id,
         session_id,
         forecast_snapshot,
-        actual_conditions
+        actual_conditions,
+        session:sessions (
+          board_id,
+          board_snapshot,
+          goals,
+          notes,
+          source
+        )
       `)
       .eq('user_id', userId)
       .order('session_date', { ascending: false })
@@ -212,52 +467,80 @@ export async function computeUserPreferences(
       return null;
     }
 
-    // 2. Filter to highly-rated sessions (rating >= 3)
-    const goodSessions = snapshots.filter((snapshot) => {
-      const rating = (snapshot.actual_conditions as Record<string, any>)?.rating;
-      return rating !== null && rating !== undefined && rating >= 3;
-    });
+    const cleanSessions = (snapshots as unknown as SessionWithConditions[]).filter(
+      (snapshot) => !isSeededOrTestSession(snapshot)
+    );
 
-    if (goodSessions.length < 5) {
+    const waveQualitySessions = cleanSessions
+      .filter((snapshot) => hasPositiveWaveQuality(snapshot))
+      .filter((snapshot) => !isModalitySpecificSmallWaveSession(snapshot));
+
+    const waveQualityConfidence = calculateConfidence(waveQualitySessions.length);
+    const shouldUseRatingWaveFallback =
+      waveQualitySessions.length < MIN_SIGNAL_SAMPLE_SIZE &&
+      waveQualityConfidence < LOW_CONFIDENCE_THRESHOLD;
+
+    const ratingFallbackWaveSessions = shouldUseRatingWaveFallback
+      ? cleanSessions
+          .filter((snapshot) => canUseRatingAsWaveFallback(snapshot))
+          .filter((snapshot) => !hasNegativeWaveQuality(snapshot))
+          .filter((snapshot) => !isModalitySpecificSmallWaveSession(snapshot))
+      : [];
+
+    const wavePreferenceSessions = [
+      ...waveQualitySessions,
+      ...ratingFallbackWaveSessions,
+    ];
+
+    const conditionPreferenceSessions = cleanSessions.filter((snapshot) =>
+      hasEnjoymentSignal(snapshot)
+    );
+
+    const signalSampleSize = Math.max(
+      wavePreferenceSessions.length,
+      conditionPreferenceSessions.length
+    );
+
+    if (signalSampleSize < MIN_SIGNAL_SAMPLE_SIZE) {
       console.log(
-        `Not enough data for user ${userId}: ${goodSessions.length} good sessions (need 5+)`
+        `Not enough data for user ${userId}: ${signalSampleSize} preference sessions (need 5+)`
       );
       return null;
     }
 
     // 3. Extract arrays of values
-    const waveHeights = goodSessions
-      .map((s) => parseForecastNumber((s.forecast_snapshot as Record<string, any>)?.wave_height))
+    const waveHeights = wavePreferenceSessions
+      .map((s) => getSessionNumber(s, ['wave_height_ft'], ['wave_height', 'wave_height_ft']))
       .filter((v): v is number => v !== null && v !== undefined);
 
-    const wavePeriods = goodSessions
-      .map((s) => parseForecastNumber((s.forecast_snapshot as Record<string, any>)?.wave_period))
+    const wavePeriods = wavePreferenceSessions
+      .map((s) => getSessionNumber(s, [], ['wave_period', 'wave_period_s']))
       .filter((v): v is number => v !== null && v !== undefined);
 
-    const windSpeeds = goodSessions
-      .map((s) => parseForecastNumber((s.forecast_snapshot as Record<string, any>)?.wind_speed))
+    const windSpeeds = conditionPreferenceSessions
+      .map((s) => getSessionNumber(s, ['wind_speed_mph'], ['wind_speed', 'wind_speed_mph']))
       .filter((v): v is number => v !== null && v !== undefined);
 
-    const windDirections = goodSessions
-      .map((s) => parseWindDirection((s.forecast_snapshot as Record<string, any>)?.wind_direction))
+    const windDirections = conditionPreferenceSessions
+      .map((s) => getSessionWindDirection(s))
       .filter((v): v is number => v !== null && v !== undefined);
 
-    const tideStatuses = goodSessions
-      .map((s) => normalizeTideStatus((s.forecast_snapshot as Record<string, any>)?.tide_status))
+    const tideStatuses = conditionPreferenceSessions
+      .map((s) => getSessionTideStatus(s))
       .filter((v): v is string => v !== null && v !== undefined && v !== '');
 
     // 4. Compute statistics
     const preferences: UserSurfPreferences = {
-      wave_min_ft: waveHeights.length >= 5 ? percentile(waveHeights, 10) : null,
-      wave_max_ft: waveHeights.length >= 5 ? percentile(waveHeights, 90) : null,
-      wave_period_min_s: wavePeriods.length >= 5 ? percentile(wavePeriods, 10) : null,
-      wave_period_max_s: wavePeriods.length >= 5 ? percentile(wavePeriods, 90) : null,
-      max_wind_mph: windSpeeds.length >= 5 ? percentile(windSpeeds, 90) : null,
+      wave_min_ft: waveHeights.length >= MIN_SIGNAL_SAMPLE_SIZE ? percentile(waveHeights, 10) : null,
+      wave_max_ft: waveHeights.length >= MIN_SIGNAL_SAMPLE_SIZE ? percentile(waveHeights, 90) : null,
+      wave_period_min_s: wavePeriods.length >= MIN_SIGNAL_SAMPLE_SIZE ? percentile(wavePeriods, 10) : null,
+      wave_period_max_s: wavePeriods.length >= MIN_SIGNAL_SAMPLE_SIZE ? percentile(wavePeriods, 90) : null,
+      max_wind_mph: windSpeeds.length >= MIN_SIGNAL_SAMPLE_SIZE ? percentile(windSpeeds, 90) : null,
       preferred_wind_directions:
-        windDirections.length >= 5 ? findModeDirections(windDirections, 45) : null,
-      preferred_tide_statuses: tideStatuses.length >= 5 ? findModes(tideStatuses, 0.2) : null,
-      confidence: calculateConfidence(goodSessions.length),
-      sample_size: goodSessions.length,
+        windDirections.length >= MIN_SIGNAL_SAMPLE_SIZE ? findModeDirections(windDirections, 45) : null,
+      preferred_tide_statuses: tideStatuses.length >= MIN_SIGNAL_SAMPLE_SIZE ? findModes(tideStatuses, 0.2) : null,
+      confidence: calculateConfidence(signalSampleSize),
+      sample_size: signalSampleSize,
     };
 
     // 5. Upsert to database
@@ -279,7 +562,7 @@ export async function computeUserPreferences(
       throw new Error(`Failed to save preferences: ${upsertError.message}`);
     }
 
-    console.log(`✅ Computed preferences for user ${userId} (${goodSessions.length} sessions)`);
+    console.log(`✅ Computed preferences for user ${userId} (${signalSampleSize} sessions)`);
 
     // Fire-and-forget milestone check after preferences are computed
     import('@/lib/services/personalization-milestone-service')

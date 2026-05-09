@@ -302,8 +302,8 @@ describe('calculatePersonalizationBonus', () => {
 
       const result = calculatePersonalizationBonus(beach, forecast, context);
 
-      // 15*1.0 + 10*1.0 + 8*1.0 = 33
-      expect(result.personalizationBonus).toBe(33);
+      // Learned condition personalization is capped so it cannot override setup quality.
+      expect(result.personalizationBonus).toBe(12);
     });
 
     it('applies proportional bonus at confidence 0.51 (just above threshold)', () => {
@@ -538,12 +538,12 @@ describe('calculatePersonalizationBonus', () => {
 
       const result = calculatePersonalizationBonus(beach, forecast, context);
 
-      // min(80 * 0.15, 15) = min(12, 15) = 12
-      expect(result.affinityBonus).toBeCloseTo(12);
+      // min(80 * 0.05, 4) = 4
+      expect(result.affinityBonus).toBeCloseTo(4);
       expect(result.reasons).toContain("One of your go-to spots");
     });
 
-    it('caps affinity bonus at 15 for very high affinity scores', () => {
+    it('caps affinity bonus at 4 for very high affinity scores', () => {
       const affinityMap = new Map([['beach-1', 200]]);
       const beach = makeBeach({ id: 'beach-1' });
       const forecast = makeForecast();
@@ -551,8 +551,8 @@ describe('calculatePersonalizationBonus', () => {
 
       const result = calculatePersonalizationBonus(beach, forecast, context);
 
-      // min(200 * 0.15, 15) = min(30, 15) = 15
-      expect(result.affinityBonus).toBe(15);
+      // min(200 * 0.05, 4) = 4
+      expect(result.affinityBonus).toBe(4);
     });
 
     it('adds 0 affinity when affinity score is exactly 10 (boundary)', () => {
@@ -620,10 +620,10 @@ describe('calculatePersonalizationBonus', () => {
       const result = calculatePersonalizationBonus(beach, forecast, context);
 
       // wave range: +15 * 0.8 = +12
-      // affinity: min(80 * 0.15, 15) = 12
+      // affinity: min(80 * 0.05, 4) = 4
       expect(result.personalizationBonus).toBeCloseTo(12);
-      expect(result.affinityBonus).toBeCloseTo(12);
-      expect(result.total).toBeCloseTo(24);
+      expect(result.affinityBonus).toBeCloseTo(4);
+      expect(result.total).toBeCloseTo(16);
       expect(result.reasons).toContain('Wave size matches your sweet spot');
       expect(result.reasons).toContain("One of your go-to spots");
     });
@@ -640,8 +640,8 @@ describe('calculatePersonalizationBonus', () => {
 
       const result = calculatePersonalizationBonus(beach, forecast, context);
 
-      // 15*0.8 + 10*0.8 + 8*0.8 = 12 + 8 + 6.4 = 26.4
-      expect(result.personalizationBonus).toBeCloseTo(26.4);
+      // Raw learned bonus is 26.4, capped at 12.
+      expect(result.personalizationBonus).toBeCloseTo(12);
       expect(result.reasons).toContain('Wave size matches your sweet spot');
       expect(result.reasons).toContain('Wind matches your usual sessions');
       expect(result.reasons).toContain('Tide matches your usual sessions');
@@ -790,9 +790,9 @@ describe('score arithmetic edge cases', () => {
 
     const result = calculatePersonalizationBonus(beach, forecast, context);
 
-    // affinityBonus = min(50 * 0.15, 15) = 7.5
+    // affinityBonus = min(50 * 0.05, 4) = 2.5
     // personalizationBonus = 15 * 0.8 = 12
-    expect(result.affinityBonus).toBe(7.5);
+    expect(result.affinityBonus).toBe(2.5);
     expect(result.personalizationBonus).toBe(12);
     expect(result.total).toBe(result.affinityBonus + result.personalizationBonus);
   });
@@ -820,12 +820,11 @@ describe('score arithmetic edge cases', () => {
 
     const result = calculatePersonalizationBonus(beach, forecast, context);
 
-    // learned: 15 + 10 + 8 = 33
-    // implicit: 20
-    // affinity: min(100 * 0.15, 15) = 15
-    expect(result.personalizationBonus).toBe(33 + 20);
-    expect(result.affinityBonus).toBe(15);
-    expect(result.total).toBe(68);
+    // learned + implicit raw bonus is capped at 12.
+    // affinity: min(100 * 0.05, 4) = 4
+    expect(result.personalizationBonus).toBe(12);
+    expect(result.affinityBonus).toBe(4);
+    expect(result.total).toBe(16);
   });
 });
 
