@@ -304,15 +304,15 @@ export const NOTIFICATION_REGISTRY = {
 
   forecast_alert: {
     type: "forecast_alert",
-    // Phase 5h: forecast_alert push channel removed. The morning daily_digest
-    // (6am PT) consolidates forecast highlights into a single push. Per-event
-    // forecast_alert rows continue to land in the in-app inbox so users can
-    // see all matched windows on demand.
-    channels: ["in_app"],
+    // Restore push delivery for actionable surf windows. The same per-type
+    // forecast-alert toggle gates both push and in-app so users never end up
+    // with a push-only or inbox-only mismatch.
+    channels: ["push", "in_app"],
     prefs: {
-      master: { in_app: "notif_inapp_enabled" },
-      // Single UI toggle ("Forecast Alerts") gates the in_app channel.
+      master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
+      // Single UI toggle ("Forecast Alerts") gates both channels.
       perType: {
+        push: "notif_forecast_alerts",
         in_app: "notif_forecast_alerts",
       },
     },
@@ -573,7 +573,9 @@ export const NOTIFICATION_REGISTRY = {
 
   daily_digest: {
     type: "daily_digest",
-    channels: ["push", "in_app"],
+    // Daily digest is intentionally disabled. The producer may still enqueue
+    // legacy rows, but the worker will not deliver them on any channel.
+    channels: [],
     prefs: {
       master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
       perType: {},
