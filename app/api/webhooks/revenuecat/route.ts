@@ -8,6 +8,8 @@
 //
 // Event handling (see https://www.revenuecat.com/docs/webhooks for full list):
 //   INITIAL_PURCHASE / RENEWAL / UNCANCELLATION → is_pro=true, extend expires_at
+//   NON_RENEWING_PURCHASE                       → is_pro=true, including
+//                                                  non-expiring promo grants
 //   CANCELLATION                                 → will_renew=false (keep is_pro
 //                                                  until expires_at passes)
 //   EXPIRATION                                   → is_pro=false, set lapsed_at
@@ -26,6 +28,12 @@ import { timingSafeEqual } from "node:crypto";
 import * as Sentry from "@sentry/nextjs";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { ensureSimilarityRuleForUser } from "@/lib/alerts/auto-enable-similarity";
+import {
+  buildEntitlementUpdate,
+  mergeEntitlementUpdate,
+  type ExistingEntitlementRow,
+  type RCEvent,
+} from "./entitlement-update";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -33,21 +41,6 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 const CONTEXT_TAG = "[rc-webhook]";
-
-interface RCEvent {
-  type: string;
-  app_user_id?: string;
-  original_app_user_id?: string;
-  product_id?: string;
-  period_type?: "NORMAL" | "TRIAL" | "INTRO";
-  purchased_at_ms?: number;
-  expiration_at_ms?: number;
-  event_timestamp_ms?: number;
-  environment?: "SANDBOX" | "PRODUCTION";
-  // Many more fields exist; we read the ones we need + stash the full
-  // payload into rc_raw for debugging.
-  [k: string]: unknown;
-}
 
 interface RCPayload {
   event: RCEvent;
@@ -132,6 +125,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, skipped: event.type });
     }
 
+    const { data: currentRow, error: readError } = await (supabase as any)
+      .from("user_entitlements")
+      .select("is_pro, is_trialing, expires_at, product_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (readError) {
+      console.error(`${CONTEXT_TAG} Read failed for user ${userId}:`, readError);
+      return recordFailure(event, readError.message, userId);
+    }
+
+    const mergedUpdate = mergeEntitlementUpdate({
+      currentRow: currentRow as ExistingEntitlementRow | null,
+      update,
+    });
+
+    if (!mergedUpdate) {
+      console.log(
+        `${CONTEXT_TAG} Preserved lifetime promotional Pro for user ${userId}; ignored ${event.type}`,
+      );
+      return NextResponse.json({
+        ok: true,
+        event_type: event.type,
+        preserved: "lifetime_promotional_pro",
+      });
+    }
+
     const { error } = await (supabase as any)
       .from("user_entitlements")
       .upsert(
@@ -140,7 +160,7 @@ export async function POST(request: Request) {
         // `[k: string]: unknown` index signature can't satisfy. The runtime
         // shape is correct (every RC payload is JSON-serializable); the
         // cast is scoped to this single webhook boundary.
-        { user_id: userId, ...update, rc_raw: event },
+        { user_id: userId, ...mergedUpdate, rc_raw: event },
         { onConflict: "user_id" },
       );
 
@@ -161,7 +181,7 @@ export async function POST(request: Request) {
     // above is the load-bearing step; the rule create is best-effort. RC
     // retries on 5xx; we don't want a transient alert_rules write error to
     // trigger a retry that re-flips entitlement state.
-    if (update.is_pro === true || update.is_trialing === true) {
+    if (mergedUpdate.is_pro === true || mergedUpdate.is_trialing === true) {
       try {
         const result = await ensureSimilarityRuleForUser(supabase, userId);
         if (result.created) {
@@ -196,81 +216,6 @@ export async function POST(request: Request) {
       err instanceof Error ? err.message : "Unknown error",
       userId,
     );
-  }
-}
-
-interface EntitlementUpdate {
-  is_pro?: boolean;
-  is_trialing?: boolean;
-  trial_ends_at?: string | null;
-  expires_at?: string | null;
-  product_id?: string | null;
-  will_renew?: boolean;
-  billing_issue?: boolean;
-  lapsed_at?: string | null;
-  previous_product_id?: string | null;
-}
-
-// Maps an RC event to the column set to upsert. Returns null for events we
-// deliberately ignore (TRANSFER is handled by a separate admin path; we don't
-// mirror it automatically because it requires re-identifying app_user_id).
-function buildEntitlementUpdate(event: RCEvent): EntitlementUpdate | null {
-  const expiresAt = event.expiration_at_ms
-    ? new Date(event.expiration_at_ms).toISOString()
-    : null;
-  const isTrial = event.period_type === "TRIAL";
-
-  switch (event.type) {
-    case "INITIAL_PURCHASE":
-    case "RENEWAL":
-    case "UNCANCELLATION":
-      return {
-        is_pro: true,
-        is_trialing: isTrial,
-        trial_ends_at: isTrial ? expiresAt : null,
-        expires_at: expiresAt,
-        product_id: event.product_id ?? null,
-        will_renew: true,
-        billing_issue: false,
-        lapsed_at: null,
-      };
-
-    case "CANCELLATION":
-      // Don't flip is_pro — user retains access until expires_at.
-      return {
-        will_renew: false,
-      };
-
-    case "EXPIRATION":
-      return {
-        is_pro: false,
-        is_trialing: false,
-        will_renew: false,
-        billing_issue: false,
-        lapsed_at: new Date(
-          event.event_timestamp_ms ?? Date.now(),
-        ).toISOString(),
-        previous_product_id: event.product_id ?? null,
-      };
-
-    case "BILLING_ISSUE":
-      // Grace period — keep is_pro true; surface a banner via UI read.
-      return {
-        billing_issue: true,
-      };
-
-    case "PRODUCT_CHANGE":
-      return {
-        product_id: event.product_id ?? null,
-        expires_at: expiresAt,
-      };
-
-    // TRANSFER is intercepted earlier in the POST handler and routed to
-    // the DLQ — it should never reach this switch. Leaving no case here
-    // so a future refactor that removes the early intercept fails loudly.
-
-    default:
-      return null;
   }
 }
 
