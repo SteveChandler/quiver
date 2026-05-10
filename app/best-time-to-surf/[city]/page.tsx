@@ -12,6 +12,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { Waves } from "lucide-react";
 
 import {
   getBestTimeToSurfData,
@@ -33,6 +34,11 @@ import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { SITE_URL } from "@/lib/constants/seo";
 import { INTENT_DEFINITIONS, buildCityIntentUrl, type IntentKey } from "@/lib/constants/intent-definitions";
+import { SeoScenePanel } from "@/components/seo/seo-scene-panel";
+import {
+  getBestTimeSeoScene,
+  getBestTimeSessionSeoScene,
+} from "@/lib/constants/seo-scenes";
 
 export const revalidate = 86400;
 
@@ -103,6 +109,8 @@ export default async function BestTimeToSurfPage(props: PageParams) {
 
   const { cityName, state, stateName } = cityResult.data;
   const stateSlug = state.toLowerCase();
+  const heroScene = getBestTimeSeoScene(citySlug);
+  const sessionScene = getBestTimeSessionSeoScene(citySlug);
 
   const [dataResult, excludeIntents] = await Promise.all([
     getBestTimeToSurfData(cityName, state),
@@ -211,41 +219,52 @@ export default async function BestTimeToSurfPage(props: PageParams) {
         {/* Hero Section */}
         <ScrollReveal>
           <header className="mb-10">
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-              Best Time to Surf {cityName} ({currentYear})
-            </h1>
-            <p className="text-lg text-gray-600 mb-6">
-              {cityName}, {stateName} &mdash; Month-by-month surf guide
-            </p>
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,460px)] lg:items-stretch">
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+                  Best Time to Surf {cityName} ({currentYear})
+                </h1>
+                <p className="text-lg text-gray-600 mb-6">
+                  {cityName}, {stateName} &mdash; Month-by-month surf guide
+                </p>
 
-            {/* Current month hero card */}
-            <div className="flex flex-col items-center gap-6 rounded-2xl border border-[#11100D]/15 bg-gradient-to-br from-[#FBF6E8]/95 to-[#EEE3C9]/75 p-6 text-[#11100D] shadow-[0_18px_38px_rgba(17,16,13,0.14)] md:flex-row md:p-8">
-              <AnimatedScoreGauge
-                score={data.monthly[currentMonthIndex].score}
-                size="xl"
-                showLabel
-              />
-              <div className="text-center md:text-left">
-                <p className="mb-1 text-sm font-medium uppercase tracking-wide text-[#655C4C]">
-                  Surfing in {data.monthly[currentMonthIndex].monthName}
-                </p>
-                <p className="mb-2 text-3xl font-bold text-[#11100D] md:text-4xl">
-                  {data.monthly[currentMonthIndex].monthName}
-                </p>
-                <p className="max-w-md text-[#655C4C]">
-                  {data.monthly[currentMonthIndex].bestMonthCount > 0
-                    ? `${data.monthly[currentMonthIndex].bestMonthCount} of ${data.totalBeaches} beaches are in peak season right now.`
-                    : `${cityName} is between peak seasons right now.`}
-                  {stateProfile
-                    ? ` Expect ${stateProfile.monthly[currentMonthIndex].waveHeightRange} waves and ${stateProfile.monthly[currentMonthIndex].waterTemp}°F water.`
-                    : data.waterTempRange
-                      ? ` Water temperatures range ${data.waterTempRange}°F year-round.`
-                      : ""}
-                  {data.peakMonth !== currentMonthIndex + 1
-                    ? ` Peak month: ${data.peakMonthName}.`
-                    : ""}
-                </p>
+                {/* Current month hero card */}
+                <div className="flex flex-col items-center gap-6 rounded-lg border border-[#11100D]/15 bg-gradient-to-br from-[#FBF6E8]/95 to-[#EEE3C9]/75 p-6 text-[#11100D] shadow-[0_18px_38px_rgba(17,16,13,0.14)] md:flex-row md:p-8">
+                  <AnimatedScoreGauge
+                    score={data.monthly[currentMonthIndex].score}
+                    size="xl"
+                    showLabel
+                  />
+                  <div className="text-center md:text-left">
+                    <p className="mb-1 text-sm font-medium uppercase tracking-wide text-[#655C4C]">
+                      Surfing in {data.monthly[currentMonthIndex].monthName}
+                    </p>
+                    <p className="mb-2 text-3xl font-bold text-[#11100D] md:text-4xl">
+                      {data.monthly[currentMonthIndex].monthName}
+                    </p>
+                    <p className="max-w-md text-[#655C4C]">
+                      {data.monthly[currentMonthIndex].bestMonthCount > 0
+                        ? `${data.monthly[currentMonthIndex].bestMonthCount} of ${data.totalBeaches} beaches are in peak season right now.`
+                        : `${cityName} is between peak seasons right now.`}
+                      {stateProfile
+                        ? ` Expect ${stateProfile.monthly[currentMonthIndex].waveHeightRange} waves and ${stateProfile.monthly[currentMonthIndex].waterTemp}°F water.`
+                        : data.waterTempRange
+                          ? ` Water temperatures range ${data.waterTempRange}°F year-round.`
+                          : ""}
+                      {data.peakMonth !== currentMonthIndex + 1
+                        ? ` Peak month: ${data.peakMonthName}.`
+                        : ""}
+                    </p>
+                  </div>
+                </div>
               </div>
+              {heroScene && (
+                <SeoScenePanel
+                  scene={heroScene}
+                  priority
+                  mediaClassName="h-full min-h-[300px] lg:min-h-full"
+                />
+              )}
             </div>
           </header>
         </ScrollReveal>
@@ -288,7 +307,14 @@ export default async function BestTimeToSurfPage(props: PageParams) {
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">
               Dawn Patrol vs Afternoon Sessions
             </h2>
-            <div className="grid md:grid-cols-2 gap-4">
+            {sessionScene && (
+              <SeoScenePanel
+                scene={sessionScene}
+                className="mb-4"
+                mediaClassName="aspect-auto h-[240px] sm:h-[280px] lg:h-[320px]"
+              />
+            )}
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="rounded-xl border border-gray-200 bg-white p-5 hover:-translate-y-1 hover:shadow-xl transition-all duration-200">
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   Dawn Patrol
@@ -342,8 +368,11 @@ export default async function BestTimeToSurfPage(props: PageParams) {
                         key={beach.slug || beach.name}
                         className="rounded-xl border border-gray-200 bg-white p-4 hover:-translate-y-1 hover:shadow-xl transition-all duration-200"
                       >
-                        <div className="flex items-start justify-between">
-                          <div>
+                        <div className="flex items-start gap-3">
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#252D6B]/10 text-[#252D6B]">
+                            <Waves className="h-5 w-5" aria-hidden="true" />
+                          </span>
+                          <div className="min-w-0 flex-1">
                             {href ? (
                               <Link
                                 href={href}
@@ -368,15 +397,15 @@ export default async function BestTimeToSurfPage(props: PageParams) {
                                 </span>
                               )}
                             </div>
+                            {beach.bestMonths.length > 0 && (
+                              <p className="mt-2 text-xs text-gray-500">
+                                Peak: {beach.bestMonths
+                                  .map((m) => MONTH_ABBREVS[m - 1])
+                                  .join(", ")}
+                              </p>
+                            )}
                           </div>
                         </div>
-                        {beach.bestMonths.length > 0 && (
-                          <p className="mt-2 text-xs text-gray-500">
-                            Peak: {beach.bestMonths
-                              .map((m) => MONTH_ABBREVS[m - 1])
-                              .join(", ")}
-                          </p>
-                        )}
                       </div>
                     );
                   })}
