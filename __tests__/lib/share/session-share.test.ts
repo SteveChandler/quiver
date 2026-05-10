@@ -52,6 +52,19 @@ describe("session share helpers", () => {
     expect(parsed.searchParams.get("bg")).toBe("https://example.com/session.jpg");
   });
 
+  it("uses the uploaded session image as the share-card background", () => {
+    const url = buildSessionShareImageUrl({
+      ...session,
+      featured_photo_url: null,
+      image_url: "https://cdn.quiversurf.app/uploaded-session.jpg",
+    } as unknown as SessionWithDetails);
+    const parsed = new URL(url);
+
+    expect(parsed.searchParams.get("bg")).toBe(
+      "https://cdn.quiversurf.app/uploaded-session.jpg"
+    );
+  });
+
   it("builds share sheet data with image and session URL", () => {
     const data = buildSessionShareSheetData(session);
 

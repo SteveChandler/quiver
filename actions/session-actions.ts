@@ -277,6 +277,14 @@ export async function getSessionMetadata(sessionId: string) {
         rating,
         status,
         is_public,
+        image_url,
+        wave_height_ft,
+        wave_quality,
+        wind_direction,
+        wind_speed_mph,
+        notes,
+        description,
+        board:boards(name),
         user:profiles!sessions_user_id_fkey(full_name, username),
         beach:beaches(name)
       `
@@ -288,7 +296,8 @@ export async function getSessionMetadata(sessionId: string) {
       return { success: false as const, error: error?.message || "Session not found" };
     }
 
-    return { success: true as const, data };
+    const enriched = await addFeaturedPhotoToSession(supabase, data);
+    return { success: true as const, data: enriched ?? data };
   } catch (error) {
     return {
       success: false as const,
