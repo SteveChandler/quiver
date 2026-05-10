@@ -13,7 +13,15 @@ import { useBeachClustering, type ClusterPoint } from "@/hooks/use-beach-cluster
 import { loadFavoriteBeaches } from "@/components/map/map-favorites-loader";
 import { createWaveHeightBadge, type MarkerBuilderDeps, type MapDisplayMode } from "@/components/map/map-marker-builder";
 import { loadBeachesAndWaveHeights } from "@/components/map/map-beach-loader";
-import { createClusterMapMarker, type ClusterRendererDeps } from "@/components/map/map-cluster-renderer";
+import {
+  createClusterMapMarker,
+  type ClusterClickBehavior,
+  type ClusterRendererDeps,
+} from "@/components/map/map-cluster-renderer";
+import {
+  createClusterPopupContent,
+  getClusterPopupBeaches,
+} from "@/components/map/map-cluster-popup";
 import { useTrackEvent } from "@/hooks/use-track-event";
 
 // Mapbox CSS is imported globally in app/globals.css
@@ -37,6 +45,7 @@ interface InteractiveMapProps {
   beaches?: Beach[]; // Filtered beaches to display on map (if provided, skips API fetch)
   autoNavigateOnMarkerClick?: boolean; // Whether marker clicks auto-navigate to beach page (default: true)
   displayMode?: MapDisplayMode; // What data to show in markers: 'wave-height' (default) or 'water-temp'
+  clusterClickBehavior?: ClusterClickBehavior; // Whether clusters expand or show grouped spot details
 }
 
 const SAN_DIEGO: [number, number] = [32.7157, -117.1611];
@@ -54,10 +63,12 @@ export function InteractiveMap({
   beaches,
   autoNavigateOnMarkerClick = true,
   displayMode = "wave-height",
+  clusterClickBehavior = "expand",
 }: InteractiveMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<Record<string, mapboxgl.Marker>>({});
+  const activeClusterPopupRef = useRef<mapboxgl.Popup | null>(null);
   const lastPopulateKeyRef = useRef<string | null>(null);
   const lastViewportRef = useRef<{
     lat: number;
@@ -173,6 +184,8 @@ export function InteractiveMap({
     // Clean up cluster event listeners
     clusterCleanupRef.current.forEach((cleanup) => cleanup());
     clusterCleanupRef.current.clear();
+    activeClusterPopupRef.current?.remove();
+    activeClusterPopupRef.current = null;
 
     // Remove all markers
     Object.values(markersRef.current).forEach((marker) => marker.remove());
@@ -332,6 +345,40 @@ export function InteractiveMap({
     [onLocationClick, router, autoNavigateOnMarkerClick, track, displayMode, waterTempMap, getMapViewportMetadata]
   );
 
+  const openClusterDetailsPopup = useCallback(
+    (cluster: ClusterPoint): void => {
+      const map = mapRef.current;
+      const allBeaches = beachesRef.current ?? [];
+      const clusterBeaches = getClusterPopupBeaches(cluster, allBeaches);
+      if (!map || !clusterBeaches.length) return;
+
+      activeClusterPopupRef.current?.remove();
+
+      const content = createClusterPopupContent({
+        cluster,
+        beaches: clusterBeaches,
+        waveHeightMap,
+        waterTempMap,
+        displayMode,
+      });
+
+      const popup = new mapboxgl.Popup({
+        closeButton: true,
+        closeOnClick: true,
+        closeOnMove: false,
+        className: "quiver-map-cluster-popup",
+        maxWidth: "320px",
+        offset: 18,
+      })
+        .setLngLat([cluster.longitude, cluster.latitude])
+        .setDOMContent(content)
+        .addTo(map);
+
+      activeClusterPopupRef.current = popup;
+    },
+    [displayMode, waterTempMap, waveHeightMap]
+  );
+
   // Create cluster marker using extracted module with deps from refs
   const buildClusterMarker = useCallback(
     (cluster: ClusterPoint): mapboxgl.Marker => {
@@ -344,10 +391,18 @@ export function InteractiveMap({
         },
         displayMode,
         waterTempMap,
+        clusterClickBehavior,
+        onClusterClick: openClusterDetailsPopup,
       };
       return createClusterMapMarker(cluster, deps);
     },
-    [getExpansionZoom, displayMode, waterTempMap]
+    [
+      getExpansionZoom,
+      displayMode,
+      waterTempMap,
+      clusterClickBehavior,
+      openClusterDetailsPopup,
+    ]
   );
 
   /** Populate beach markers with enhanced forecast data */

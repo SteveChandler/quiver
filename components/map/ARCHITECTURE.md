@@ -13,7 +13,8 @@ components/map/
 ├── map-marker-builder.ts     # createWaveHeightBadge — beach marker DOM creation + styling
 ├── map-favorites-loader.ts   # loadFavoriteBeaches — async fetch of user's favorite beach IDs
 ├── map-beach-loader.ts       # loadBeachesAndWaveHeights — beach resolution + wave height fetching
-├── map-cluster-renderer.ts   # createClusterMapMarker — cluster marker creation + click-to-expand
+├── map-cluster-renderer.ts   # createClusterMapMarker — cluster marker creation + click handling
+├── map-cluster-popup.ts      # createClusterPopupContent — grouped beach detail popup
 ├── cluster-marker.tsx        # createClusterMarkerElement — cluster marker DOM element factory
 ├── map-sidebar.tsx           # Desktop sidebar with viewport-filtered beach list
 ├── map-bottom-sheet.tsx      # Mobile bottom sheet (custom touch gestures) with beach list
@@ -36,6 +37,7 @@ The `interactive-map.tsx` component (originally 854 LOC) was split into pure, te
 | `map-marker-builder.ts` | Wave height badge DOM creation with MarkerBuilderDeps interface | ~180 |
 | `map-beach-loader.ts` | Beach resolution + wave height fetching + interpolation | ~185 |
 | `map-cluster-renderer.ts` | Cluster marker creation with ClusterRendererDeps interface | ~70 |
+| `map-cluster-popup.ts` | Grouped beach detail popup DOM creation | ~170 |
 | `map-favorites-loader.ts` | Favorite beach ID fetching | ~40 |
 
 **Design pattern**: Each extracted module receives all dependencies via explicit parameter interfaces
@@ -46,7 +48,7 @@ component state. This makes them independently unit-testable.
 
 ### **Overview**
 
-When zoomed out, beaches in dense areas are automatically grouped into clusters to reduce visual clutter and improve performance. Clusters display aggregated wave height ranges and expand on click.
+When zoomed out, beaches in dense areas are automatically grouped into clusters to reduce visual clutter and improve performance. Clusters display aggregated wave height ranges and either expand on click or show grouped beach details depending on the parent surface.
 
 ### **Architecture**
 
@@ -60,6 +62,10 @@ InteractiveMap
 │   ├── Shows wave height range (e.g., "2-4ft")
 │   ├── Shows beach count badge
 │   └── Highlights if contains favorite beaches
+├── ClusterPopup (DOM element for state-page grouped beach details)
+│   ├── Lists beach names in the group
+│   ├── Shows compact condition/skill/location metadata
+│   └── Links to beach detail pages when URL fields are available
 └── Individual BeachMarker (for non-clustered points)
 ```
 
@@ -108,7 +114,7 @@ const { element, cleanup } = createClusterMarkerElement({
 - Beach count badge showing number of grouped beaches
 - Color-coded background based on favorite status (`getClusterColor()`)
 - Hover effects with scale transform and shadow enhancement
-- Click-to-expand behavior via `getExpansionZoom()`
+- Click behavior via `clusterClickBehavior`: default map surfaces expand; state pages open grouped details
 
 ### **Integration in InteractiveMap**
 
