@@ -240,6 +240,11 @@ export const VALID_EVENTS: ImplicitEventType[] = [
   'paywall_purchase_failed',
   'onboarding_paywall_skipped',
   'onboarding_trial_started',
+  // Push registration observability (native)
+  'push_permission_denied',
+  'push_token_fetch_failed',
+  'push_device_registration_failed',
+  'push_device_registered',
 ];
 
 export const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
