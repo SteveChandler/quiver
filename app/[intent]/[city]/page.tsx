@@ -44,6 +44,7 @@ import {
 import { CTASection } from "@/components/landing-page/cta-section";
 import { SeoScenePanel } from "@/components/seo/seo-scene-panel";
 import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
+import { SeoLocationPage } from "@/components/seo/funnel/SeoLocationPage";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { isConditionsIntent } from "@/lib/constants/intent-definitions";
@@ -77,6 +78,7 @@ import {
 import { BeginnerPageContent } from "@/components/beginner/BeginnerPageContent";
 import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
+import { getSeoFunnelPageByIntentRoute } from "@/lib/seo/funnel-pages";
 
 export const revalidate = 3600;
 
@@ -200,6 +202,17 @@ interface IntentPageParams {
 
 export async function generateMetadata(props: IntentPageParams): Promise<Metadata> {
   const params = await props.params;
+
+  const seoFunnelPage = getSeoFunnelPageByIntentRoute(params.intent, params.city);
+  if (seoFunnelPage) {
+    return buildPageMetadata({
+      title: seoFunnelPage.title,
+      description: seoFunnelPage.metaDescription,
+      path: seoFunnelPage.path,
+      image: seoFunnelPage.heroImage.src,
+    });
+  }
+
   // Check if this is a state-level intent page like /beginner/ca
   if (isValidStateSlug(params.city) && SURF_INTENTS[params.intent as SurfIntentSlug]) {
     const stateName = getUsStateDisplayNameFromSlug(params.city);
@@ -351,6 +364,11 @@ export default async function IntentPage(props: IntentPageParams) {
     const redirectTo = `/map?search=${encodeURIComponent(cityName)}`;
 
     redirect(redirectTo);
+  }
+
+  const seoFunnelPage = getSeoFunnelPageByIntentRoute(params.intent, params.city);
+  if (seoFunnelPage) {
+    return <SeoLocationPage page={seoFunnelPage} />;
   }
 
   // Check if this is a state-level intent page like /beginner/ca

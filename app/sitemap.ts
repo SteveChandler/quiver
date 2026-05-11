@@ -17,6 +17,7 @@ import { slugifyAscii } from "@/lib/utils/text-utils";
 import { buildCitySlug } from "@/lib/seo/city-slug-utils";
 import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import { learnArticles } from "@/lib/data/learn-articles";
+import { INDEXABLE_SEO_FUNNEL_PAGES } from "@/lib/seo/funnel-pages";
 
 const baseUrl = (
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
@@ -66,6 +67,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     guideRoutes,
     forecastRoutes,
     camRoutes,
+    seoFunnelRoutes,
     bestTimeRoutes,
     learnRoutes,
   ] = await Promise.all([
@@ -76,11 +78,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     Promise.resolve(getGuideRoutes()),
     Promise.resolve(getForecastRoutes()),
     Promise.resolve(getCamRoutes()),
+    Promise.resolve(getSeoFunnelRoutes()),
     getBestTimeToSurfRoutes(),
     Promise.resolve(getLearnRoutes()),
   ]);
 
-  return [
+  const routes = [
     ...staticRoutes,
     ...beachRoutes,
     ...locationRoutes,
@@ -88,10 +91,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...guideRoutes,
     ...forecastRoutes,
     ...camRoutes,
+    ...seoFunnelRoutes,
     ...bestTimeRoutes,
     ...learnRoutes,
     ...getToolsRoutes(),
   ];
+
+  const seenUrls = new Set<string>();
+  return routes.filter((route) => {
+    if (seenUrls.has(route.url)) return false;
+    seenUrls.add(route.url);
+    return true;
+  });
 }
 
 // =============================================================================
@@ -500,6 +511,20 @@ function getCamRoutes(): MetadataRoute.Sitemap {
   }
 
   return routes;
+}
+
+/**
+ * Curated SEO funnel pages.
+ */
+function getSeoFunnelRoutes(): MetadataRoute.Sitemap {
+  const funnelDate = "2026-05-10";
+
+  return INDEXABLE_SEO_FUNNEL_PAGES.map((page) => ({
+    url: `${baseUrl}${page.path}`,
+    lastModified: funnelDate,
+    changeFrequency: page.type === "surf-report-today" ? "daily" : "weekly",
+    priority: page.type === "surf-report-today" ? 0.86 : 0.82,
+  }));
 }
 
 /**
