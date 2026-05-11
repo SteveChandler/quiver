@@ -47,6 +47,7 @@ const forecastAlertSchema = z.object({
   body: z.string().min(1),
   beach_id: z.string().nullable().optional(),
   beach_slug: z.string().nullable().optional(),
+  forecast_at: z.string().nullable().optional(),
   matches: z.unknown().optional(),
   queue_items: z
     .array(z.object({ queue_id: z.string(), rule_id: z.string() }))
@@ -177,6 +178,7 @@ interface ForecastAlertPayload {
   /** Optional first-match context for tap-routing to a specific beach. */
   beach_id?: string | null;
   beach_slug?: string | null;
+  forecast_at?: string | null;
   /** Full match list for the in-app inbox row. */
   matches?: unknown;
   /**
@@ -327,6 +329,7 @@ export const NOTIFICATION_REGISTRY = {
         alert_date: p.alert_date,
         ...(p.beach_id ? { beach_id: p.beach_id } : {}),
         ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
+        ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
       },
     }),
     buildInAppPayload: (p) => ({

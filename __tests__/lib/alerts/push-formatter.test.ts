@@ -18,6 +18,7 @@ describe("formatPushNotification", () => {
     const result = formatPushNotification([makeMatch()]);
     expect(result.title).toBe("Conditions lining up today");
     expect(result.body).toContain("Blacks Beach");
+    expect(result.data.forecast_at).toBe("2026-04-01T15:30:00Z");
     expect(result.body.length).toBeLessThanOrEqual(150);
   });
 

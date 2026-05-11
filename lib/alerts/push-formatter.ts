@@ -10,7 +10,7 @@ const KNOTS_TO_MPH = 1.15078;
 interface PushContent {
   title: string;
   body: string;
-  data: { type: string; beach_id: string };
+  data: { type: string; beach_id: string; forecast_at?: string };
 }
 
 /**
@@ -52,7 +52,7 @@ function formatSimilarityPush(match: MatchingWindow): PushContent {
     // Intentionally generic — don't fabricate wind/wave details the cron
     // didn't capture at enqueue time.
     body: "Conditions match your profile today.",
-    data: { type: "similarity_match", beach_id: match.beach_id },
+    data: { type: "similarity_match", beach_id: match.beach_id, forecast_at: forecastAt },
   };
 }
 
@@ -97,7 +97,15 @@ export function formatPushNotification(matches: MatchingWindow[]): PushContent {
     let body = `${topMatch.beach_name} ${timeWindow} — ${waveHeight}${period}${wind}`;
     if (body.length > 150) body = `${topMatch.beach_name} ${timeWindow} — ${waveHeight}${period}`;
     if (body.length > 150) body = body.substring(0, 147) + "...";
-    return { title, body, data: { type: "forecast_alert", beach_id: topMatch.beach_id } };
+    return {
+      title,
+      body,
+      data: {
+        type: "forecast_alert",
+        beach_id: topMatch.beach_id,
+        forecast_at: topMatch.best_hour ?? topMatch.window_start,
+      },
+    };
   }
 
   const showCount = Math.min(matches.length, 2);
@@ -109,7 +117,15 @@ export function formatPushNotification(matches: MatchingWindow[]): PushContent {
   let body = parts.join(" · ");
   if (matches.length > 2) body += ` and ${matches.length - 2} more`;
   if (body.length > 150) body = body.substring(0, 147) + "...";
-  return { title, body, data: { type: "forecast_alert", beach_id: topMatch.beach_id } };
+  return {
+    title,
+    body,
+    data: {
+      type: "forecast_alert",
+      beach_id: topMatch.beach_id,
+      forecast_at: topMatch.best_hour ?? topMatch.window_start,
+    },
+  };
 }
 
 function formatTimeRange(start: string, end: string, timezone: string): string {

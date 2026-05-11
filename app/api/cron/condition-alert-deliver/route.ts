@@ -547,6 +547,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                         title,
                         body,
                         beach_id: pushData.beach_id,
+                        forecast_at: pushData.forecast_at ?? topMatch?.best_hour ?? topMatch?.window_start ?? null,
                         matches: pushMatches.map((m) => ({
                           beach_id: m.beach_id,
                           beach_name: m.beach_name,

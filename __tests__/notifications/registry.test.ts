@@ -18,6 +18,21 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
     expect(def.prefs.perType.push).toBe("notif_forecast_alerts");
   });
 
+  it("forecast_alert push payload carries forecast_at for native selected-window routing", () => {
+    const out = NOTIFICATION_REGISTRY.forecast_alert.buildPushPayload!({
+      alert_date: "2026-05-10",
+      title: "Conditions lining up today",
+      body: "Cardiff 7am-9am",
+      beach_id: "beach-1",
+      forecast_at: "2026-05-10T14:30:00.000Z",
+    });
+    expect(out.data).toMatchObject({
+      type: "forecast_alert",
+      beach_id: "beach-1",
+      forecast_at: "2026-05-10T14:30:00.000Z",
+    });
+  });
+
   it("water_quality has only the in_app channel (no push)", () => {
     const def = NOTIFICATION_REGISTRY.water_quality as unknown as {
       channels: string[];

@@ -576,6 +576,7 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
       title: expect.any(String),
       body: expect.any(String),
       beach_id: BEACH_1,
+      forecast_at: "2026-04-26T14:00:00Z",
       // Queue-item provenance for the worker's onChannelOutcome hook to fan
       // back into alert_delivery_attempts after actual delivery (review fix
       // for cooldown burning on terminal-skipped pushes).
