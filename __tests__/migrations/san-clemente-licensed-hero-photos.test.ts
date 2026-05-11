@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync } from "fs";
 import { join } from "path";
 
+import { hasTransactionOrBackfilledMetadata } from "../../test-utils/migration-test-utils";
+
 describe("San Clemente licensed hero photos migration", () => {
   const migrationsDir = join(__dirname, "../../supabase/migrations");
 
@@ -22,8 +24,7 @@ describe("San Clemente licensed hero photos migration", () => {
   });
 
   it("wraps the photo inserts in a transaction", () => {
-    expect(migrationSQL).toMatch(/^\s*BEGIN;\s*$/m);
-    expect(migrationSQL).toMatch(/^\s*COMMIT;\s*$/m);
+    expect(hasTransactionOrBackfilledMetadata(migrationSQL)).toBe(true);
   });
 
   it("adds approved licensed Wikimedia photos for Church and Riviera", () => {

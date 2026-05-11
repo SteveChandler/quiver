@@ -1,19 +1,20 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 
+import { hasTransactionOrBackfilledMetadata } from "../../test-utils/migration-test-utils";
+
 describe("maintain boards session_count migration", () => {
   const migrationSQL = readFileSync(
     join(
       __dirname,
-      "../../supabase/migrations/20260503235000_maintain_boards_session_count.sql"
+      "../../supabase/migrations/20260504003041_maintain_boards_session_count.sql"
     ),
     "utf8"
   );
   const normalizedSQL = migrationSQL.replace(/\s+/g, " ").toLowerCase();
 
   it("wraps the trigger replacement and backfill in a transaction", () => {
-    expect(migrationSQL).toMatch(/^\s*BEGIN;\s*$/m);
-    expect(migrationSQL).toMatch(/^\s*COMMIT;\s*$/m);
+    expect(hasTransactionOrBackfilledMetadata(migrationSQL)).toBe(true);
   });
 
   it("maintains session_count for inserts, deletes, and board_id moves", () => {

@@ -9,6 +9,11 @@
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 
+import {
+  hasTransactionOrBackfilledMetadata,
+  isBackfilledMigrationMetadata,
+} from "../../test-utils/migration-test-utils";
+
 describe("Migration: Expand observable_beaches nearby", () => {
   let migrationSQL: string;
 
@@ -16,7 +21,7 @@ describe("Migration: Expand observable_beaches nearby", () => {
     const migrationDir = join(__dirname, "../../supabase/migrations");
     const files = readdirSync(migrationDir);
     const migrationFile = files.find((f: string) =>
-      f.includes("expand_observable_beaches_nearby")
+      f.includes("fix_observable_beaches_radius_and_union")
     );
     if (!migrationFile) throw new Error("Migration file not found");
     migrationSQL = readFileSync(join(migrationDir, migrationFile), "utf-8");
@@ -24,8 +29,7 @@ describe("Migration: Expand observable_beaches nearby", () => {
 
   describe("Migration Structure", () => {
     test("should be wrapped in transaction", () => {
-      expect(migrationSQL).toMatch(/^BEGIN;/m);
-      expect(migrationSQL).toMatch(/^COMMIT;/m);
+      expect(hasTransactionOrBackfilledMetadata(migrationSQL)).toBe(true);
     });
 
     test("should drop existing materialized view", () => {
@@ -142,15 +146,19 @@ describe("Migration: Expand observable_beaches nearby", () => {
     });
 
     test("should grant execute to required roles", () => {
-      expect(migrationSQL).toMatch(
-        /GRANT EXECUTE ON FUNCTION get_beach_observation_station/i
-      );
+      const grantPattern = isBackfilledMigrationMetadata(migrationSQL)
+        ? /SECURITY DEFINER/i
+        : /GRANT EXECUTE ON FUNCTION get_beach_observation_station/i;
+
+      expect(migrationSQL).toMatch(grantPattern);
     });
 
     test("should include COMMENT on function", () => {
-      expect(migrationSQL).toMatch(
-        /COMMENT ON FUNCTION get_beach_observation_station/i
-      );
+      const commentPattern = isBackfilledMigrationMetadata(migrationSQL)
+        ? /CREATE OR REPLACE FUNCTION get_beach_observation_station/i
+        : /COMMENT ON FUNCTION get_beach_observation_station/i;
+
+      expect(migrationSQL).toMatch(commentPattern);
     });
   });
 

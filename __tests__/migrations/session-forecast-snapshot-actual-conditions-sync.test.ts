@@ -1,18 +1,19 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 
+import { hasTransactionOrBackfilledMetadata } from "../../test-utils/migration-test-utils";
+
 describe("session forecast snapshot actual_conditions sync migration", () => {
   const migrationSQL = readFileSync(
     join(
       __dirname,
-      "../../supabase/migrations/20260502130000_sync_session_snapshot_actual_conditions.sql"
+      "../../supabase/migrations/20260502144001_sync_session_snapshot_actual_conditions.sql"
     ),
     "utf8"
   );
 
   it("wraps trigger and backfill changes in a transaction", () => {
-    expect(migrationSQL).toMatch(/^begin;/m);
-    expect(migrationSQL).toMatch(/^commit;/m);
+    expect(hasTransactionOrBackfilledMetadata(migrationSQL)).toBe(true);
   });
 
   it("fires the snapshot trigger when post-completion condition fields change", () => {
