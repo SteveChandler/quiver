@@ -166,10 +166,9 @@ export function BeachReviewForm({
   // outside-click, or back navigation (anything that isn't Cancel or Submit).
   // Empty deps ensure the cleanup runs only on actual unmount.
   //
-  // React 19 StrictMode fake-unmount only runs in dev. Suppress that specific
-  // firing via a compound check (first mount cycle + ref still at 1 + short
-  // elapsed) gated behind NODE_ENV !== 'production'. Production bundles skip
-  // the entire branch — a fast real-user dismiss always fires abandon.
+  // React 19 StrictMode fake-unmount only runs in dev. Suppress that first
+  // cleanup by cycle instead of elapsed time; full test runs can exceed tiny
+  // timing thresholds before React replays the mount.
   useEffect(() => {
     mountCycleRef.current += 1;
     const cycleAtMount = mountCycleRef.current;
@@ -177,7 +176,8 @@ export function BeachReviewForm({
       const elapsed = Date.now() - formOpenTimeRef.current;
       const isStrictModeFakeUnmount =
         process.env.NODE_ENV !== 'production' &&
-        cycleAtMount === 1 && mountCycleRef.current === 1 && elapsed < 10;
+        cycleAtMount === 1 &&
+        mountCycleRef.current === 1;
       if (
         !hasTrackedOpenRef.current ||
         hasSubmittedRef.current ||
