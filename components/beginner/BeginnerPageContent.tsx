@@ -61,6 +61,7 @@ export function BeginnerPageContent({
     beaches.slice(0, 3).map((b) => b.name),
     stateSlug
   );
+  const heroImageUrl = beaches.find((beach) => beach.photoUrl)?.photoUrl ?? null;
 
   return (
     <div className="bg-gradient-to-b from-white via-gray-50/30 to-white">
@@ -102,6 +103,7 @@ export function BeginnerPageContent({
             totalBeaches={totalBeaches}
             conditionsBadge={conditionsBadge}
             cityEditorial={cityEditorial}
+            heroImageUrl={heroImageUrl}
           />
 
           {/* Module 2: Right Now Conditions */}
@@ -176,7 +178,7 @@ export function BeginnerPageContent({
           {cityEditorial && cityEditorial.planningChecklist.length > 0 && (
             <SectionFadeUp>
               <aside className="overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50/40 to-indigo-50/40 border border-blue-200/50 shadow-sm p-6">
-                <h2 className="text-lg font-semibold text-gray-800 mb-3">
+                <h2 id="checklist" className="text-lg font-semibold text-gray-800 mb-3">
                   Beginner checklist
                 </h2>
                 <ul className="space-y-2 text-sm text-gray-700">

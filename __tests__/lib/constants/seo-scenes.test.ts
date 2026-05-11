@@ -1,6 +1,7 @@
 import {
   getBestTimeSeoScene,
   getBestTimeSessionSeoScene,
+  getStateIntentSeoScene,
 } from "@/lib/constants/seo-scenes";
 
 describe("seo-scenes", () => {
@@ -44,6 +45,21 @@ describe("seo-scenes", () => {
       expect(getBestTimeSessionSeoScene("cocoa-beach")).toBeNull();
       expect(getBestTimeSessionSeoScene("westport")).toBeNull();
       expect(getBestTimeSessionSeoScene("pacifica")).toBeNull();
+    });
+  });
+
+  describe("getStateIntentSeoScene", () => {
+    it("returns approved state beginner scenes where they exist", () => {
+      expect(getStateIntentSeoScene("beginner", "pr")?.imageSrc).toBe(
+        "/images/seo-scenes/beginner-pr-natural.webp"
+      );
+      expect(getStateIntentSeoScene("beginner", "nc")?.imageSrc).toBe(
+        "/images/seo-scenes/north-carolina-carolina-beach.jpg"
+      );
+    });
+
+    it("does not invent state scenes for unmapped funnels", () => {
+      expect(getStateIntentSeoScene("beginner", "ca")).toBeNull();
     });
   });
 });

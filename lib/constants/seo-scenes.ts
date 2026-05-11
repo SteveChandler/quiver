@@ -2,6 +2,7 @@ export interface SeoScene {
   imageSrc: string;
   alt: string;
   objectPosition?: string;
+  attribution?: string;
 }
 
 const LA_JOLLA_SCENE: SeoScene = {
@@ -70,6 +71,13 @@ const PUERTO_RICO_BEGINNER_SCENE: SeoScene = {
   objectPosition: "center",
 };
 
+const NORTH_CAROLINA_BEGINNER_SCENE: SeoScene = {
+  imageSrc: "/images/seo-scenes/north-carolina-carolina-beach.jpg",
+  alt: "Small surf rolling into Carolina Beach under bright North Carolina sun.",
+  objectPosition: "center",
+  attribution: "Photo: Billy Hathorn / Wikimedia Commons (CC BY 3.0)",
+};
+
 const CITY_SCENES: Record<string, SeoScene> = {
   "la-jolla": LA_JOLLA_SCENE,
   "san-onofre": SAN_ONOFRE_SCENE,
@@ -95,6 +103,7 @@ const CITY_INTENT_PLAN_SCENES: Record<string, SeoScene> = {
 
 const STATE_INTENT_SCENES: Record<string, SeoScene> = {
   "beginner:pr": PUERTO_RICO_BEGINNER_SCENE,
+  "beginner:nc": NORTH_CAROLINA_BEGINNER_SCENE,
 };
 
 export function getBestTimeSeoScene(citySlug: string): SeoScene | null {

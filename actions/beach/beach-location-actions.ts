@@ -180,6 +180,37 @@ export interface CityWithSkillCategories {
   hasEditorialContent: boolean;
 }
 
+const NC_BEGINNER_CITY_PRIORITY: Record<string, number> = {
+  "wrightsville-beach": 0,
+  "carolina-beach": 1,
+  "kure-beach": 2,
+  "surf-city": 3,
+  "corolla": 4,
+  "nags-head": 5,
+  "kill-devil-hills": 6,
+};
+
+function sortCitiesForIntentState(
+  cities: CityWithSkillCategories[],
+  stateSlug: string,
+  intentKey: string
+): CityWithSkillCategories[] {
+  const normalizedStateSlug = stateSlug.toLowerCase();
+
+  return [...cities].sort((a, b) => {
+    if (intentKey === "beginner" && normalizedStateSlug === "nc") {
+      const aPriority =
+        NC_BEGINNER_CITY_PRIORITY[slugifyAscii(a.city) ?? ""] ?? Number.MAX_SAFE_INTEGER;
+      const bPriority =
+        NC_BEGINNER_CITY_PRIORITY[slugifyAscii(b.city) ?? ""] ?? Number.MAX_SAFE_INTEGER;
+      if (aPriority !== bPriority) return aPriority - bPriority;
+    }
+
+    if (b.beachCount !== a.beachCount) return b.beachCount - a.beachCount;
+    return a.city.localeCompare(b.city);
+  });
+}
+
 /**
  * Get all cities with beach counts AND skill-level flags.
  * Used by sitemap and generateStaticParams to filter skill-based intent URLs
@@ -448,7 +479,6 @@ export async function getTopCitiesInState(
       return cityStateSlug === normalizedStateSlug;
     });
 
-    // Sort by beach count (descending) and take top N
     const sortedCities = citiesInState
       .sort((a, b) => b.beachCount - a.beachCount)
       .slice(0, limit);
@@ -510,10 +540,11 @@ export async function getTopCitiesInStateForIntent(
       citiesInState = citiesInState.filter((city) => city.hasBeginnerBeaches);
     }
 
-    // Sort by beach count (descending) and take top N
-    const sortedCities = citiesInState
-      .sort((a, b) => b.beachCount - a.beachCount)
-      .slice(0, limit);
+    const sortedCities = sortCitiesForIntentState(
+      citiesInState,
+      normalizedStateSlug,
+      intentKey
+    ).slice(0, limit);
 
     // Use static collision map for consistency with sitemap canonical URLs
     const { buildCitySlug } = await import("@/lib/seo/city-slug-utils");

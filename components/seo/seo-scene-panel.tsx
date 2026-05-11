@@ -34,6 +34,11 @@ export function SeoScenePanel({
           className="object-cover"
           style={{ objectPosition: scene.objectPosition ?? "center" }}
         />
+        {scene.attribution && (
+          <figcaption className="absolute bottom-2 right-2 max-w-[calc(100%-1rem)] rounded bg-black/55 px-2 py-1 text-[11px] leading-tight text-white/85">
+            {scene.attribution}
+          </figcaption>
+        )}
       </div>
     </figure>
   );
