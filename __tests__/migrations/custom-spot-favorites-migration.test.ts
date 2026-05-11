@@ -56,6 +56,11 @@ describe("custom spot favorites migration", () => {
     expect(migrationSQL).toMatch(/INSERT INTO public\.favorite_beaches/i);
   });
 
+  it("qualifies favorite rows inside the create RPC to avoid output column ambiguity", () => {
+    expect(migrationSQL).toMatch(/FROM public\.favorite_beaches fb\s+WHERE fb\.user_id = current_user_id/i);
+    expect(migrationSQL).toMatch(/SELECT COALESCE\(max\(fb\.rank\), 0\) \+ 1 INTO next_rank/i);
+  });
+
   it("removes custom favorite rows on soft delete", () => {
     expect(migrationSQL).toMatch(/CREATE OR REPLACE FUNCTION public\.remove_custom_spot_favorite_on_soft_delete/i);
     expect(migrationSQL).toMatch(/AFTER UPDATE OF deleted_at ON public\.custom_spots/i);

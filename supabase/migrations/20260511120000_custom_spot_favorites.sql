@@ -121,17 +121,17 @@ BEGIN
   ) INTO has_unlimited_favorites;
 
   SELECT count(*) INTO favorite_count
-  FROM public.favorite_beaches
-  WHERE user_id = current_user_id;
+  FROM public.favorite_beaches fb
+  WHERE fb.user_id = current_user_id;
 
   IF NOT has_unlimited_favorites AND favorite_count >= 3 THEN
     RAISE EXCEPTION 'favorite_quota_exceeded'
       USING DETAIL = 'free_favorites_limit';
   END IF;
 
-  SELECT COALESCE(max(rank), 0) + 1 INTO next_rank
-  FROM public.favorite_beaches
-  WHERE user_id = current_user_id;
+  SELECT COALESCE(max(fb.rank), 0) + 1 INTO next_rank
+  FROM public.favorite_beaches fb
+  WHERE fb.user_id = current_user_id;
 
   INSERT INTO public.favorite_beaches (
     user_id,
