@@ -10,7 +10,18 @@ import {
   RESEND_RATE_LIMIT_MS,
 } from "@/lib/utils/email-rate-limiter";
 
+const START_TIME = new Date("2026-01-01T00:00:00.000Z");
+
 describe("email-rate-limiter", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(START_TIME);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   describe("RESEND_RATE_LIMIT_MS constant", () => {
     it("should be 600ms (2 req/s with buffer)", () => {
       expect(RESEND_RATE_LIMIT_MS).toBe(600);
@@ -19,13 +30,17 @@ describe("email-rate-limiter", () => {
 
   describe("sleep", () => {
     it("should resolve after specified time", async () => {
-      const start = Date.now();
-      await sleep(50);
-      const elapsed = Date.now() - start;
+      let resolved = false;
+      const sleepPromise = sleep(50).then(() => {
+        resolved = true;
+      });
 
-      // Allow some tolerance for timing
-      expect(elapsed).toBeGreaterThanOrEqual(45);
-      expect(elapsed).toBeLessThan(100);
+      await jest.advanceTimersByTimeAsync(49);
+      expect(resolved).toBe(false);
+
+      await jest.advanceTimersByTimeAsync(1);
+      await sleepPromise;
+      expect(resolved).toBe(true);
     });
   });
 
@@ -33,43 +48,42 @@ describe("email-rate-limiter", () => {
     describe("throttle", () => {
       it("should not wait on first call", async () => {
         const limiter = new SequentialRateLimiter(100);
-        const start = Date.now();
-        await limiter.throttle();
-        const elapsed = Date.now() - start;
 
-        // First call should be immediate (< 10ms)
-        expect(elapsed).toBeLessThan(10);
+        await limiter.throttle();
+
+        expect(limiter.getRemainingWaitTime()).toBe(100);
       });
 
       it("should wait for remaining time on subsequent calls", async () => {
         const limiter = new SequentialRateLimiter(100);
 
         await limiter.throttle();
-        // Simulate some processing time
-        await sleep(30);
+        await jest.advanceTimersByTimeAsync(30);
 
-        const start = Date.now();
-        await limiter.throttle();
-        const elapsed = Date.now() - start;
+        let resolved = false;
+        const throttlePromise = limiter.throttle().then(() => {
+          resolved = true;
+        });
 
-        // Should wait approximately 70ms (100 - 30); allow timer jitter
-        expect(elapsed).toBeGreaterThanOrEqual(50);
-        expect(elapsed).toBeLessThan(110);
+        await jest.advanceTimersByTimeAsync(69);
+        expect(resolved).toBe(false);
+
+        await jest.advanceTimersByTimeAsync(1);
+        await throttlePromise;
+
+        expect(resolved).toBe(true);
+        expect(limiter.getRemainingWaitTime()).toBe(100);
       });
 
       it("should not wait if interval has passed", async () => {
         const limiter = new SequentialRateLimiter(50);
 
         await limiter.throttle();
-        // Wait longer than the interval
-        await sleep(60);
+        await jest.advanceTimersByTimeAsync(60);
 
-        const start = Date.now();
         await limiter.throttle();
-        const elapsed = Date.now() - start;
 
-        // Should not wait
-        expect(elapsed).toBeLessThan(10);
+        expect(limiter.getRemainingWaitTime()).toBe(50);
       });
     });
 
@@ -88,7 +102,7 @@ describe("email-rate-limiter", () => {
       it("should return false after interval has passed", async () => {
         const limiter = new SequentialRateLimiter(50);
         await limiter.throttle();
-        await sleep(60);
+        await jest.advanceTimersByTimeAsync(60);
         expect(limiter.shouldWait()).toBe(false);
       });
     });
@@ -111,7 +125,7 @@ describe("email-rate-limiter", () => {
       it("should return 0 after interval has passed", async () => {
         const limiter = new SequentialRateLimiter(50);
         await limiter.throttle();
-        await sleep(60);
+        await jest.advanceTimersByTimeAsync(60);
 
         expect(limiter.getRemainingWaitTime()).toBe(0);
       });
@@ -128,11 +142,9 @@ describe("email-rate-limiter", () => {
 
         expect(limiter.shouldWait()).toBe(false);
 
-        const start = Date.now();
         await limiter.throttle();
-        const elapsed = Date.now() - start;
 
-        expect(elapsed).toBeLessThan(10);
+        expect(limiter.getRemainingWaitTime()).toBe(100);
       });
     });
   });
@@ -165,19 +177,40 @@ describe("email-rate-limiter", () => {
       const limiter = new SequentialRateLimiter(50);
       const timestamps: number[] = [];
 
-      // Simulate sending 3 emails
-      for (let i = 0; i < 3; i++) {
-        await limiter.throttle();
-        timestamps.push(Date.now());
+      await limiter.throttle();
+      timestamps.push(Date.now());
+
+      for (let i = 0; i < 2; i++) {
+        const throttlePromise = limiter.throttle().then(() => {
+          timestamps.push(Date.now());
+        });
+
+        await jest.advanceTimersByTimeAsync(50);
+        await throttlePromise;
       }
 
-      // Check intervals between sends
-      const interval1 = timestamps[1] - timestamps[0];
-      const interval2 = timestamps[2] - timestamps[1];
+      expect(timestamps).toHaveLength(3);
+      expect(timestamps[1] - timestamps[0]).toBe(50);
+      expect(timestamps[2] - timestamps[1]).toBe(50);
+    });
 
-      // First email is immediate, subsequent ones should wait ~50ms
-      expect(interval1).toBeGreaterThanOrEqual(45);
-      expect(interval2).toBeGreaterThanOrEqual(45);
+    it("should account for processing time between operations", async () => {
+      const limiter = new SequentialRateLimiter(50);
+      const timestamps: number[] = [];
+
+      await limiter.throttle();
+      timestamps.push(Date.now());
+
+      await jest.advanceTimersByTimeAsync(20);
+
+      const throttlePromise = limiter.throttle().then(() => {
+        timestamps.push(Date.now());
+      });
+
+      await jest.advanceTimersByTimeAsync(30);
+      await throttlePromise;
+
+      expect(timestamps[1] - timestamps[0]).toBe(50);
     });
   });
 });
