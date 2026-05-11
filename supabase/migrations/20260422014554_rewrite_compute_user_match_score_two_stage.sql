@@ -1,0 +1,304 @@
+-- Backfilled from remote supabase_migrations.schema_migrations on 2026-05-11.
+
+-- Two-stage scoring: preference peak (WHERE good is) + aversion penalty (WHAT TO PENALIZE).
+--
+-- Motivation: previous revision used (rating - 3) as a signed weight on session
+-- conditions to form a single preference peak. A rating-1 session contributed
+-- weight -2 and pulled the peak toward bad conditions. This collapses into
+-- nonsense whenever users have polarized rating histories.
+--
+-- New algorithm:
+--   1. preference_peak[bucket] = weighted_mean(conditions in sessions with rating >= 4,
+--                                              weight = rating - 3)
+--   2. aversion_peak[bucket]   = weighted_mean(conditions in sessions with rating <= 2,
+--                                              weight = 3 - rating)
+--   3. base_score = 10 * (1 - normalized_bucket_distance(forecast, preference_peak))
+--   4. aversion_penalty = aversion_proximity * 3.0  (max 3 score points)
+--      where aversion_proximity = 1 - normalized_bucket_distance(forecast, aversion_peak)
+--   5. score = clamp(base_score - aversion_penalty, 0, 10)
+--
+-- Degenerate profiles:
+--   - Fewer than 5 sessions with rating + snapshot: state = 'onboarding' (unchanged).
+--   - 5+ sessions but all with rating <= 2 (no preference anchor): state = 'onboarding'
+--     with reason 'no_positive_sessions'. Cannot score a preference we have zero data on.
+--   - 5+ sessions but all rating = 3 (neither positive nor negative data): state = 'ready'
+--     with score = 5.0 (neutral) — user has given us signal that they surf, but no
+--     strong preference or aversion to exploit.
+--
+-- Buckets: wave_height 0.35, period 0.25, wind_speed 0.20, tide 0.10, wind_direction 0.10.
+-- Wind direction uses circular distance (min of |diff|, 360-|diff|) / 180.
+
+CREATE OR REPLACE FUNCTION public.compute_user_match_score(
+  p_user_id uuid,
+  p_beach_id uuid,
+  p_wave_height text,
+  p_wave_period text,
+  p_wind_speed text,
+  p_wind_direction text,
+  p_tide_height text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_session_count integer;
+  v_forecast_wave numeric;
+  v_forecast_period numeric;
+  v_forecast_wind numeric;
+  v_forecast_wind_dir numeric;
+  v_forecast_tide numeric;
+
+  v_pref_wave numeric;
+  v_pref_period numeric;
+  v_pref_wind numeric;
+  v_pref_wind_dir numeric;
+  v_pref_tide numeric;
+  v_pref_count integer;
+
+  v_av_wave numeric;
+  v_av_period numeric;
+  v_av_wind numeric;
+  v_av_wind_dir numeric;
+  v_av_tide numeric;
+  v_av_count integer;
+
+  v_wave_distance numeric;
+  v_period_distance numeric;
+  v_wind_distance numeric;
+  v_wind_dir_distance numeric;
+  v_tide_distance numeric;
+
+  v_av_wave_distance numeric;
+  v_av_period_distance numeric;
+  v_av_wind_distance numeric;
+  v_av_wind_dir_distance numeric;
+  v_av_tide_distance numeric;
+
+  v_base_distance numeric;
+  v_base_score numeric;
+  v_aversion_distance numeric;
+  v_aversion_proximity numeric;
+  v_aversion_penalty numeric;
+  v_score numeric;
+  v_label text;
+  v_confidence text;
+  v_reason_bullets jsonb;
+  v_board_tip text;
+  v_beach_break_type text;
+
+  c_aversion_scaling constant numeric := 3.0;
+BEGIN
+  -- Gate: need >=5 sessions with rating + snapshot in the last 12 months.
+  SELECT COUNT(*)::integer INTO v_session_count
+  FROM public.sessions s
+  JOIN public.session_forecast_snapshots sfs ON sfs.session_id = s.id
+  WHERE s.user_id = p_user_id
+    AND s.status = 'completed'
+    AND s.rating IS NOT NULL
+    AND s.arrival_time > now() - interval '12 months'
+    AND s.deleted_at IS NULL
+    AND sfs.forecast_snapshot IS NOT NULL;
+
+  IF v_session_count < 5 THEN
+    RETURN jsonb_build_object(
+      'state', 'onboarding',
+      'session_count', v_session_count,
+      'sessions_needed', 5 - v_session_count
+    );
+  END IF;
+
+  -- Parse forecast inputs.
+  v_forecast_wave     := public.parse_numeric_from_text(p_wave_height);
+  v_forecast_period   := public.parse_numeric_from_text(p_wave_period);
+  v_forecast_wind     := public.parse_numeric_from_text(p_wind_speed);
+  v_forecast_wind_dir := public.parse_numeric_from_text(p_wind_direction);
+  v_forecast_tide     := public.parse_numeric_from_text(p_tide_height);
+
+  SELECT break_type INTO v_beach_break_type FROM public.beaches WHERE id = p_beach_id;
+
+  -- Preference peak: weighted mean of conditions over sessions with rating >= 4.
+  -- Weight = rating - 3 (1 for r=4, 2 for r=5). No contribution from r=3 or r<=2.
+  SELECT
+    SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_height') * (s.rating - 3))
+      / NULLIF(SUM(s.rating - 3), 0),
+    SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period') * (s.rating - 3))
+      / NULLIF(SUM(s.rating - 3), 0),
+    SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wind_speed') * (s.rating - 3))
+      / NULLIF(SUM(s.rating - 3), 0),
+    SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wind_direction_deg') * (s.rating - 3))
+      / NULLIF(SUM(s.rating - 3), 0),
+    SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'tide_height') * (s.rating - 3))
+      / NULLIF(SUM(s.rating - 3), 0),
+    COUNT(*)::integer
+  INTO
+    v_pref_wave, v_pref_period, v_pref_wind, v_pref_wind_dir, v_pref_tide, v_pref_count
+  FROM public.sessions s
+  JOIN public.session_forecast_snapshots sfs ON sfs.session_id = s.id
+  LEFT JOIN public.beaches b ON b.id = s.beach_id
+  WHERE s.user_id = p_user_id
+    AND s.status = 'completed'
+    AND s.rating >= 4
+    AND s.arrival_time > now() - interval '12 months'
+    AND s.deleted_at IS NULL
+    AND sfs.forecast_snapshot IS NOT NULL
+    AND (v_beach_break_type IS NULL OR b.break_type = v_beach_break_type OR b.break_type IS NULL);
+
+  -- Aversion peak: weighted mean of conditions over sessions with rating <= 2.
+  -- Weight = 3 - rating (1 for r=2, 2 for r=1). No contribution from r=3 or r>=4.
+  SELECT
+    SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_height') * (3 - s.rating))
+      / NULLIF(SUM(3 - s.rating), 0),
+    SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period') * (3 - s.rating))
+      / NULLIF(SUM(3 - s.rating), 0),
+    SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wind_speed') * (3 - s.rating))
+      / NULLIF(SUM(3 - s.rating), 0),
+    SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wind_direction_deg') * (3 - s.rating))
+      / NULLIF(SUM(3 - s.rating), 0),
+    SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'tide_height') * (3 - s.rating))
+      / NULLIF(SUM(3 - s.rating), 0),
+    COUNT(*)::integer
+  INTO
+    v_av_wave, v_av_period, v_av_wind, v_av_wind_dir, v_av_tide, v_av_count
+  FROM public.sessions s
+  JOIN public.session_forecast_snapshots sfs ON sfs.session_id = s.id
+  LEFT JOIN public.beaches b ON b.id = s.beach_id
+  WHERE s.user_id = p_user_id
+    AND s.status = 'completed'
+    AND s.rating <= 2
+    AND s.arrival_time > now() - interval '12 months'
+    AND s.deleted_at IS NULL
+    AND sfs.forecast_snapshot IS NOT NULL
+    AND (v_beach_break_type IS NULL OR b.break_type = v_beach_break_type OR b.break_type IS NULL);
+
+  -- Degenerate: all-negative profile (no rating >= 4 samples). Cannot anchor a preference.
+  IF v_pref_count IS NULL OR v_pref_count = 0 THEN
+    IF v_av_count IS NULL OR v_av_count = 0 THEN
+      -- Also no aversion samples -> all rating = 3 sessions. Return neutral ready state.
+      RETURN jsonb_build_object(
+        'state', 'ready',
+        'score', 5.0,
+        'label', 'FAIR',
+        'reason_bullets', jsonb_build_array(
+          'No strong preferences logged yet — keep rating sessions',
+          format('Wave height %s ft — no profile peak', round(v_forecast_wave::numeric, 1)),
+          format('Period %s s — no profile peak', round(v_forecast_period::numeric, 0))
+        ),
+        'board_tip', NULL,
+        'confidence', 'low',
+        'sessions_in_profile', v_session_count,
+        'profile_kind', 'neutral'
+      );
+    END IF;
+
+    -- Aversion only — we know what the user hates but not what they love. Can't score.
+    RETURN jsonb_build_object(
+      'state', 'onboarding',
+      'session_count', v_session_count,
+      'sessions_needed', 0,
+      'reason', 'no_positive_sessions'
+    );
+  END IF;
+
+  -- Base distance (forecast vs preference peak).
+  v_wave_distance     := LEAST(ABS(v_pref_wave - v_forecast_wave) / GREATEST(v_pref_wave, 1), 1);
+  v_period_distance   := LEAST(ABS(v_pref_period - v_forecast_period) / GREATEST(v_pref_period, 1), 1);
+  v_wind_distance     := LEAST(ABS(v_pref_wind - v_forecast_wind) / GREATEST(v_pref_wind, 5), 1);
+  v_tide_distance     := LEAST(ABS(v_pref_tide - v_forecast_tide) / 3, 1);
+  v_wind_dir_distance := LEAST(
+    LEAST(ABS(v_pref_wind_dir - v_forecast_wind_dir), 360 - ABS(v_pref_wind_dir - v_forecast_wind_dir)) / 180,
+    1
+  );
+
+  v_base_distance := LEAST(
+    0.35 * v_wave_distance +
+    0.25 * v_period_distance +
+    0.20 * v_wind_distance +
+    0.10 * v_tide_distance +
+    0.10 * v_wind_dir_distance,
+    1.0
+  );
+  v_base_score := (1.0 - v_base_distance) * 10.0;
+
+  -- Aversion penalty (forecast vs aversion peak). Only when we have samples.
+  IF v_av_count IS NOT NULL AND v_av_count > 0 THEN
+    v_av_wave_distance     := LEAST(ABS(v_av_wave - v_forecast_wave) / GREATEST(v_av_wave, 1), 1);
+    v_av_period_distance   := LEAST(ABS(v_av_period - v_forecast_period) / GREATEST(v_av_period, 1), 1);
+    v_av_wind_distance     := LEAST(ABS(v_av_wind - v_forecast_wind) / GREATEST(v_av_wind, 5), 1);
+    v_av_tide_distance     := LEAST(ABS(v_av_tide - v_forecast_tide) / 3, 1);
+    v_av_wind_dir_distance := LEAST(
+      LEAST(ABS(v_av_wind_dir - v_forecast_wind_dir), 360 - ABS(v_av_wind_dir - v_forecast_wind_dir)) / 180,
+      1
+    );
+
+    v_aversion_distance := LEAST(
+      0.35 * v_av_wave_distance +
+      0.25 * v_av_period_distance +
+      0.20 * v_av_wind_distance +
+      0.10 * v_av_tide_distance +
+      0.10 * v_av_wind_dir_distance,
+      1.0
+    );
+    v_aversion_proximity := 1.0 - v_aversion_distance;
+    v_aversion_penalty := v_aversion_proximity * c_aversion_scaling;
+  ELSE
+    v_aversion_penalty := 0;
+  END IF;
+
+  v_score := GREATEST(0, LEAST(10, v_base_score - v_aversion_penalty));
+
+  v_label := CASE
+    WHEN v_score >= 8.5 THEN 'EPIC'
+    WHEN v_score >= 7.0 THEN 'GOOD'
+    WHEN v_score >= 5.5 THEN 'FAIR'
+    WHEN v_score >= 3.5 THEN 'RIDEABLE'
+    ELSE 'MEH'
+  END;
+
+  v_confidence := CASE
+    WHEN v_session_count >= 25 THEN 'high'
+    WHEN v_session_count >= 10 THEN 'medium'
+    ELSE 'low'
+  END;
+
+  v_reason_bullets := jsonb_build_array(
+    format('Wave height %s ft — profile peak %s ft', round(v_forecast_wave::numeric, 1), round(v_pref_wave::numeric, 1)),
+    format('Period %s s — profile peak %s s', round(v_forecast_period::numeric, 0), round(v_pref_period::numeric, 0)),
+    format('Wind %s mph — profile peak %s mph', round(v_forecast_wind::numeric, 0), round(v_pref_wind::numeric, 0))
+  );
+
+  -- Board tip (unchanged: most-used board at rating >=4 sessions with nearby wave height).
+  SELECT
+    CASE
+      WHEN b.dimensions IS NOT NULL AND b.dimensions <> '' THEN b.name || ' ' || b.dimensions
+      ELSE b.name
+    END
+  INTO v_board_tip
+  FROM public.sessions s
+  JOIN public.boards b ON b.id = s.board_id
+  WHERE s.user_id = p_user_id
+    AND s.rating >= 4
+    AND s.status = 'completed'
+    AND ABS(public.parse_numeric_from_text((SELECT forecast_snapshot->>'wave_height' FROM public.session_forecast_snapshots WHERE session_id = s.id)) - v_forecast_wave) < 1.5
+  GROUP BY b.id, b.name, b.dimensions
+  ORDER BY COUNT(*) DESC
+  LIMIT 1;
+
+  RETURN jsonb_build_object(
+    'state', 'ready',
+    'score', round(v_score::numeric, 1),
+    'label', v_label,
+    'reason_bullets', v_reason_bullets,
+    'board_tip', v_board_tip,
+    'confidence', v_confidence,
+    'sessions_in_profile', v_session_count,
+    'profile_kind', CASE WHEN v_av_count IS NOT NULL AND v_av_count > 0 THEN 'two_sided' ELSE 'preference_only' END,
+    'base_score', round(v_base_score::numeric, 2),
+    'aversion_penalty', round(v_aversion_penalty::numeric, 2),
+    'aversion_sample_count', COALESCE(v_av_count, 0)
+  );
+END;
+$function$;
+
+NOTIFY pgrst, 'reload schema';
