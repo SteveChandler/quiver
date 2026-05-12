@@ -44,7 +44,7 @@ type Guardrails = {
   }>;
 };
 
-type CalibrationVersion = {
+export type CalibrationVersion = {
   version: string;
   knots: Knots;
   g_dir: GDir;

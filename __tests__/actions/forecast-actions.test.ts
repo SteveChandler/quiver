@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "../setup/vitest-shim";
 import * as ForecastActionsModule from "@/actions/forecast-actions";
-import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import {
+  createSupabaseServerClient,
+  createSupabaseServiceRoleClient,
+} from "@/lib/supabase/server";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 // Unwrap server action wrappers to direct functions
@@ -16,6 +19,7 @@ const updateAllBeachForecasts = ForecastActionsModule.updateAllBeachForecasts;
 jest.mock("@/lib/supabase/server", () => ({
   __esModule: true,
   createSupabaseServiceRoleClient: jest.fn(),
+  createSupabaseServerClient: jest.fn(),
 }));
 
 // Mock the forecast utility modules
@@ -93,6 +97,14 @@ beforeEach(() => {
   (createSupabaseServiceRoleClient as unknown as jest.Mock).mockResolvedValue(
     mockSupabaseClient
   );
+  (createSupabaseServerClient as unknown as jest.Mock).mockResolvedValue({
+    auth: {
+      getUser: jest.fn().mockResolvedValue({
+        data: { user: null },
+        error: null,
+      }),
+    },
+  });
 });
 
 describe("Forecast Actions", () => {
