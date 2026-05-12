@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MapContent } from "@/components/map/map-content";
 import { createMockBeaches } from "@/__tests__/setup/test-utils";
 
@@ -66,7 +66,7 @@ describe("MapContent", () => {
         {...defaultProps}
         locationError="Location access denied"
         usingDefaultLocation={false}
-      />
+      />,
     );
 
     expect(screen.getByText("Location access denied")).toBeInTheDocument();
@@ -80,7 +80,7 @@ describe("MapContent", () => {
         {...defaultProps}
         locationError="Location access blocked"
         usingDefaultLocation={false}
-      />
+      />,
     );
 
     expect(screen.getByText("To enable location:")).toBeInTheDocument();
@@ -88,19 +88,22 @@ describe("MapContent", () => {
     expect(screen.getByText(/Set Location to "Allow"/)).toBeInTheDocument();
   });
 
-  it("should render interactive map when loaded", () => {
+  it("should render interactive map after interaction", async () => {
     render(<MapContent {...defaultProps} />);
 
-    expect(screen.getByTestId("interactive-map")).toBeInTheDocument();
-    expect(screen.getByTestId("map-container")).toBeInTheDocument();
+    const mapContainer = screen.getByTestId("map-container");
+    fireEvent.pointerDown(mapContainer);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("interactive-map")).toBeInTheDocument();
+    });
+    expect(mapContainer).toBeInTheDocument();
   });
 
   it("should show beach count overlay", () => {
     render(<MapContent {...defaultProps} />);
 
-    expect(
-      screen.getByText("Found 3 beaches near you")
-    ).toBeInTheDocument();
+    expect(screen.getByText("Found 3 beaches near you")).toBeInTheDocument();
   });
 
   it("should show search results overlay", () => {
@@ -109,7 +112,7 @@ describe("MapContent", () => {
         {...defaultProps}
         searchQuery="Ocean"
         filteredBeaches={[mockBeaches[0]] as any}
-      />
+      />,
     );
 
     expect(screen.getByText('Found 1 beach for "Ocean"')).toBeInTheDocument();
@@ -121,21 +124,25 @@ describe("MapContent", () => {
         {...defaultProps}
         searchQuery="nonexistent"
         filteredBeaches={[]}
-      />
+      />,
     );
 
     expect(
-      screen.getByText('No beaches found for "nonexistent"')
+      screen.getByText('No beaches found for "nonexistent"'),
     ).toBeInTheDocument();
   });
 
   it("should treat in-coverage regions like Hawaii as normal search", () => {
     render(
-      <MapContent {...defaultProps} searchQuery="Hawaii" filteredBeaches={[]} />
+      <MapContent
+        {...defaultProps}
+        searchQuery="Hawaii"
+        filteredBeaches={[]}
+      />,
     );
 
     expect(
-      screen.getByText('No beaches found for "Hawaii"')
+      screen.getByText('No beaches found for "Hawaii"'),
     ).toBeInTheDocument();
   });
 
@@ -145,7 +152,7 @@ describe("MapContent", () => {
         {...defaultProps}
         usingDefaultLocation={true}
         userLocation={null}
-      />
+      />,
     );
 
     expect(screen.getByText("Use My Location")).toBeInTheDocument();
@@ -157,7 +164,7 @@ describe("MapContent", () => {
         {...defaultProps}
         usingDefaultLocation={true}
         userLocation={{ lat: 32.7, lon: -117.2 }}
-      />
+      />,
     );
 
     expect(screen.getByText("Use My Actual Location")).toBeInTheDocument();
@@ -169,7 +176,7 @@ describe("MapContent", () => {
         {...defaultProps}
         usingDefaultLocation={true}
         userLocation={null}
-      />
+      />,
     );
 
     const locationButton = screen.getByText("Use My Location");
@@ -184,7 +191,7 @@ describe("MapContent", () => {
         {...defaultProps}
         locationError="Location access denied"
         usingDefaultLocation={false}
-      />
+      />,
     );
 
     const tryAgainButton = screen.getByText("Try Again");
@@ -199,7 +206,7 @@ describe("MapContent", () => {
         {...defaultProps}
         locationError="Location access denied"
         usingDefaultLocation={false}
-      />
+      />,
     );
 
     const defaultLocationButton = screen.getByText("Use San Diego Location");
@@ -210,11 +217,11 @@ describe("MapContent", () => {
 
   it("should show selected beach name in overlay", () => {
     render(
-      <MapContent {...defaultProps} selectedBeach={mockBeaches[0] as any} />
+      <MapContent {...defaultProps} selectedBeach={mockBeaches[0] as any} />,
     );
 
     expect(
-      screen.getByText(`Showing ${mockBeaches[0].name}`)
+      screen.getByText(`Showing ${mockBeaches[0].name}`),
     ).toBeInTheDocument();
   });
 
@@ -228,7 +235,7 @@ describe("MapContent", () => {
     render(<MapContent {...defaultProps} usingDefaultLocation={true} />);
 
     expect(
-      screen.getByText("Showing beaches near Mission Beach")
+      screen.getByText("Showing beaches near Mission Beach"),
     ).toBeInTheDocument();
   });
 
@@ -236,7 +243,7 @@ describe("MapContent", () => {
     render(<MapContent {...defaultProps} filteredBeaches={[]} />);
 
     expect(
-      screen.getByText("No beaches within 30 miles of your location")
+      screen.getByText("No beaches within 30 miles of your location"),
     ).toBeInTheDocument();
   });
 

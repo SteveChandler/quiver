@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MapPin } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -32,7 +32,12 @@ interface MapContentProps {
   onGetUserLocation: () => void;
   onUseDefaultLocation: () => void;
   onBeachSelect: (beach: Beach) => void;
-  onBoundsChange?: (bounds: { west: number; south: number; east: number; north: number }) => void;
+  onBoundsChange?: (bounds: {
+    west: number;
+    south: number;
+    east: number;
+    north: number;
+  }) => void;
   onWaveHeightsChange?: (map: Map<string, number | undefined>) => void;
   onMapClick?: () => void;
   autoNavigateOnMarkerClick?: boolean;
@@ -47,7 +52,7 @@ const InteractiveMap = dynamic(
     import("@/components/map/interactive-map").then((mod) => ({
       default: mod.InteractiveMap,
     })),
-  { ssr: false }
+  { ssr: false },
 );
 
 export function MapContent({
@@ -70,6 +75,35 @@ export function MapContent({
   onShowBeaches,
   visibleBeachCount,
 }: MapContentProps) {
+  const [shouldLoadInteractiveMap, setShouldLoadInteractiveMap] =
+    useState(false);
+
+  const loadInteractiveMap = useCallback((): void => {
+    setShouldLoadInteractiveMap(true);
+  }, []);
+
+  useEffect(() => {
+    if (loading || shouldLoadInteractiveMap) return;
+
+    const browserWindow = window as Window & {
+      requestIdleCallback?: (
+        callback: () => void,
+        options?: { timeout?: number },
+      ) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+
+    if (browserWindow.requestIdleCallback && browserWindow.cancelIdleCallback) {
+      const idleId = browserWindow.requestIdleCallback(loadInteractiveMap, {
+        timeout: 1200,
+      });
+      return () => browserWindow.cancelIdleCallback?.(idleId);
+    }
+
+    const timeoutId = globalThis.setTimeout(loadInteractiveMap, 300);
+    return () => globalThis.clearTimeout(timeoutId);
+  }, [loading, loadInteractiveMap, shouldLoadInteractiveMap]);
+
   // Memoize the map display coordinates
   const mapCenter = useMemo(() => {
     // Helper to check if coordinates are valid
@@ -110,7 +144,7 @@ export function MapContent({
   // Stable array reference — only changes when lat/lon values actually change
   const initialCenterArray = useMemo(
     () => [mapCenter.lat, mapCenter.lon] as [number, number],
-    [mapCenter.lat, mapCenter.lon]
+    [mapCenter.lat, mapCenter.lon],
   );
 
   if (loading) {
@@ -165,25 +199,37 @@ export function MapContent({
       <div
         className="flex-1 relative overflow-hidden min-h-[200px] sm:min-h-[400px] bg-gray-200 map-container"
         data-testid="map-container"
+        onPointerDown={loadInteractiveMap}
+        onFocusCapture={loadInteractiveMap}
       >
-        <DataErrorBoundary dataType="map data" componentName="InteractiveMap">
-          <InteractiveMap
-            key={`${mapCenter.lat.toFixed(4)}-${mapCenter.lon.toFixed(4)}`}
-            initialCenter={initialCenterArray}
-            initialZoom={12}
-            onLocationClick={onBeachSelect}
-            onMapClick={onMapClick ? () => onMapClick() : undefined}
-            regionViewport={regionViewport}
-            beaches={filteredBeaches}
-            onBoundsChange={onBoundsChange}
-            onWaveHeightsChange={onWaveHeightsChange}
-            autoNavigateOnMarkerClick={autoNavigateOnMarkerClick}
-            className="absolute inset-0 z-0 w-full h-full"
+        {shouldLoadInteractiveMap ? (
+          <DataErrorBoundary dataType="map data" componentName="InteractiveMap">
+            <InteractiveMap
+              key={`${mapCenter.lat.toFixed(4)}-${mapCenter.lon.toFixed(4)}`}
+              initialCenter={initialCenterArray}
+              initialZoom={12}
+              onLocationClick={onBeachSelect}
+              onMapClick={onMapClick ? () => onMapClick() : undefined}
+              regionViewport={regionViewport}
+              beaches={filteredBeaches}
+              onBoundsChange={onBoundsChange}
+              onWaveHeightsChange={onWaveHeightsChange}
+              autoNavigateOnMarkerClick={autoNavigateOnMarkerClick}
+              className="absolute inset-0 z-0 w-full h-full"
+            />
+          </DataErrorBoundary>
+        ) : (
+          <div
+            className="absolute inset-0 z-0 bg-[linear-gradient(135deg,#17213a_0%,#0f766e_45%,#1d4ed8_100%)]"
+            aria-hidden="true"
           />
-        </DataErrorBoundary>
+        )}
 
         {/* Map overlay with beach count */}
-        <div data-testid="map-overlay" className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-md max-w-[55vw] sm:max-w-xs z-10">
+        <div
+          data-testid="map-overlay"
+          className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-md max-w-[55vw] sm:max-w-xs z-10"
+        >
           <p className="text-sm font-medium">
             {(() => {
               const displayCount = visibleBeachCount ?? filteredBeaches.length;
@@ -212,7 +258,9 @@ export function MapContent({
           </p>
           {(() => {
             const displayCount = visibleBeachCount ?? filteredBeaches.length;
-            const hasMoreOffscreen = visibleBeachCount != null && visibleBeachCount < filteredBeaches.length;
+            const hasMoreOffscreen =
+              visibleBeachCount != null &&
+              visibleBeachCount < filteredBeaches.length;
             if (hasMoreOffscreen) {
               return (
                 <p className="text-xs text-muted-foreground mt-1">
@@ -228,10 +276,10 @@ export function MapContent({
                   {selectedBeach
                     ? `Showing ${selectedBeach.name}`
                     : searchQuery && displayCount === 1
-                    ? `Showing ${filteredBeaches[0].name} on the map`
-                    : searchQuery && displayCount > 1
-                    ? `Showing ${filteredBeaches[0].name} - tap other beach cards below to see them on the map`
-                    : "Tap a beach card below to see it on the map"}
+                      ? `Showing ${filteredBeaches[0].name} on the map`
+                      : searchQuery && displayCount > 1
+                        ? `Showing ${filteredBeaches[0].name} - tap other beach cards below to see them on the map`
+                        : "Tap a beach card below to see it on the map"}
                 </p>
               );
             }
