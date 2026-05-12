@@ -64,23 +64,20 @@ test.describe('CCC Sync API - authentication', () => {
 
 test.describe('CCC Sync API - parameter validation', () => {
   /**
-   * Phase validation tests send the x-vercel-cron header which the route
-   * accepts unconditionally when VERCEL_ENV is set. In CI / local environments
-   * this header may or may not be accepted depending on the VERCEL_ENV env var.
-   *
-   * We therefore test both outcomes:
-   *   - If x-vercel-cron is accepted: we expect 400 for invalid phase
-   *   - If it is rejected: we expect 401 (auth fails before param validation)
-   *
-   * This avoids brittle env-specific failures.
+   * Phase validation tests send the x-vercel-cron header so they exercise
+   * parameter handling after cron auth passes.
+   * Missing phase should skip safely while explicit invalid phase values still
+   * fail validation.
    */
 
-  test('returns 400 or 401 for missing phase param when cron header is present', async ({ request }) => {
+  test('returns safe skip for missing phase param when cron header is present', async ({ request }) => {
     const response = await request.get('/api/cron/ccc-sync', {
       headers: { 'x-vercel-cron': '1' },
     });
-    // 400 = auth passed, phase missing; 401 = cron header not trusted in this env
-    expect([400, 401]).toContain(response.status());
+    expect(response.status()).toBe(200);
+
+    const body = await response.json();
+    expect(body?.data?.phase).toBe('skipped');
   });
 
   test('returns 400 or 401 for invalid phase value', async ({ request }) => {

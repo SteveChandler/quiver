@@ -1,12 +1,10 @@
 import type { NextRequest } from "next/server";
 import {
-  withErrorHandler,
+  withAuth,
   validateUuidParam,
   createSuccessResponse,
   createNotFoundError,
 } from "@/lib/middleware/api-wrappers";
-import type { RouteContext } from "@/lib/middleware/api-wrappers";
-import { createAPIServerClient } from "@/lib/supabase/api-server-client";
 import {
   createDiscoveryScoringEngine,
   scoreBeachWithEngine,
@@ -19,6 +17,10 @@ import {
   getDirectionDegrees,
 } from "@/lib/utils/number-parsing";
 import { fetchLatestObservation } from "@/lib/services/observations/nowcast-anchor";
+import {
+  applyV51DisplayOverrideToForecasts,
+  isV51DisplayAllowlistedUser,
+} from "@/lib/services/forecast/v5-display-gate";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 
@@ -281,19 +283,16 @@ export function identifyGoldenWindows(slots: TimeSlot[]): GoldenWindow[] {
 // Route handler
 // ---------------------------------------------------------------------------
 
-export const GET = withErrorHandler(
-  async (request: NextRequest, context?: RouteContext) => {
-    const params = context?.params
-      ? await Promise.resolve(context.params)
-      : {};
+export const GET = withAuth(
+  async (request: NextRequest, context) => {
+    const params = context.params ?? {};
     const beachId = (params as Record<string, string>).beachId;
 
     // Validate beachId
     const uuidResult = validateUuidParam(beachId, "beachId");
     if ("error" in uuidResult) return uuidResult.error;
     const validBeachId = uuidResult.value;
-
-    const supabase = await createAPIServerClient();
+    const { supabase, user } = context;
 
     // Fetch beach
     const { data: beach, error: beachError } = await supabase
@@ -332,7 +331,10 @@ export const GET = withErrorHandler(
       throw new Error(forecastError.message);
     }
 
-    const forecastList = (forecasts ?? []) as EnhancedForecastEntity[];
+    const forecastList = await applyV51DisplayOverrideToForecasts(
+      (forecasts ?? []) as EnhancedForecastEntity[],
+      { enabled: isV51DisplayAllowlistedUser(user) }
+    );
 
     // Score all slots
     const timeSlots = scoreForecastSlots(forecastList, beach as Beach);
@@ -359,5 +361,5 @@ export const GET = withErrorHandler(
       latestObservation,
     });
   },
-  { errorMessage: "Failed to fetch scored forecast" }
+  { optional: true, errorMessage: "Failed to fetch scored forecast" }
 );
