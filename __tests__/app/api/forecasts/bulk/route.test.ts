@@ -24,6 +24,10 @@ jest.mock("@/lib/supabase/api-server-client", () => ({
   createAPIServerClient: jest.fn(() => mockSupabaseClient),
 }));
 
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient: jest.fn(() => mockSupabaseClient),
+}));
+
 // Mock API utils
 jest.mock("@/lib/api-utils", () => {
   const actual = jest.requireActual("@/lib/api-utils");

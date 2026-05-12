@@ -8,6 +8,10 @@ import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 import { resolveConfidence } from "@/lib/monitoring/fallback-helpers";
 import { extractForecastDate as extractForecastDateFromAt } from "@/lib/utils/forecast-at-adapter";
 import { fetchLatestObservation } from "@/lib/services/observations/nowcast-anchor";
+import {
+  applyV51DisplayOverrideToForecasts,
+  isV51DisplayAllowlistedCurrentUser,
+} from "@/lib/services/forecast/v5-display-gate";
 import type { Beach, Forecast } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { ForecastTimeInfo } from "@/lib/utils/current-forecast-utils";
@@ -122,6 +126,7 @@ export async function getEnhancedBeachForecasts(
 ) {
   try {
     const supabase = await createSupabaseServiceRoleClient();
+    const useV51Display = await isV51DisplayAllowlistedCurrentUser();
 
     // Prefer the legacy compatibility view if present (tests assert against it), fallback to table
     const today = new Date().toISOString().split("T")[0];
@@ -194,9 +199,12 @@ export async function getEnhancedBeachForecasts(
     });
 
     // Enrich forecasts with metadata for transparency
-    const forecastsWithMetadata: EnhancedForecastWithMetadata[] = (
-      data || []
-    ).map((forecast: EnhancedForecastEntity) => ({
+    const displayForecasts = await applyV51DisplayOverrideToForecasts(
+      (data || []) as EnhancedForecastEntity[],
+      { enabled: useV51Display }
+    );
+
+    const forecastsWithMetadata: EnhancedForecastWithMetadata[] = displayForecasts.map((forecast) => ({
       ...forecast,
       metadata: extractForecastMetadata(forecast),
     }));
@@ -215,6 +223,7 @@ export async function getEnhancedBeachForecasts(
 export async function getBeachForecastPreview(beachId: string) {
   try {
     const supabase = await createSupabaseServiceRoleClient();
+    const useV51Display = await isV51DisplayAllowlistedCurrentUser();
     const { getCurrentForecast } = await import(
       "@/lib/utils/current-forecast-utils"
     );
@@ -232,7 +241,7 @@ export async function getBeachForecastPreview(beachId: string) {
       (supabase as any)
         .from("enhanced_forecasts")
         .select(
-          "forecast_at, forecast_date, forecast_time, wave_height, wind_speed, wind_direction, weather_condition, confidence_score, data_source"
+          "forecast_at, forecast_date, forecast_time, wave_height, wave_height_om, wave_direction_om, swell_direction_om, swell_1_direction, wind_speed, wind_direction, weather_condition, confidence_score, data_source"
         )
         .eq("beach_id", beachId)
         .gte("forecast_at", `${today}T00:00:00Z`)
@@ -248,8 +257,12 @@ export async function getBeachForecastPreview(beachId: string) {
     }
 
     if (enhancedForecasts && enhancedForecasts.length > 0) {
+      const displayForecasts = await applyV51DisplayOverrideToForecasts(
+        enhancedForecasts as EnhancedForecastEntity[],
+        { enabled: useV51Display }
+      );
       // Use time-aware selection to get the most appropriate forecast
-      const currentForecast = getCurrentForecast(enhancedForecasts as any[]);
+      const currentForecast = getCurrentForecast(displayForecasts as any[]);
 
       if (currentForecast) {
         return {

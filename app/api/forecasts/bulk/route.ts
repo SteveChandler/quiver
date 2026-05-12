@@ -3,8 +3,18 @@ import {
   createSuccessResponse,
   handleApiError,
 } from "@/lib/api-utils";
-import { createAPIServerClient } from "@/lib/supabase/api-server-client";
-import { withRateLimit } from "@/lib/middleware/api-wrappers";
+import {
+  withAuth,
+  withRateLimit,
+} from "@/lib/middleware/api-wrappers";
+import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
+import {
+  applyV51DisplayOverrideToForecasts,
+  isV51DisplayAllowlistedUser,
+} from "@/lib/services/forecast/v5-display-gate";
+import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { Database } from "@/types/database.generated";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +45,90 @@ export const dynamic = 'force-dynamic';
  *   }
  * }
  */
-async function bulkForecastHandler(request: NextRequest) {
+function nextUtcDateString(date: Date): string {
+  return new Date(date.getTime() + 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+}
+
+function currentForecastRank(
+  row: Pick<EnhancedForecastEntity, "forecast_date" | "forecast_time">,
+  targetDate: string,
+  currentTime: string
+): [number, number] {
+  if (row.forecast_date === targetDate && row.forecast_time >= currentTime) {
+    return [1, secondsFromTime(row.forecast_time)];
+  }
+
+  if (row.forecast_date === nextUtcDateString(new Date(`${targetDate}T00:00:00Z`))) {
+    return [2, secondsFromTime(row.forecast_time)];
+  }
+
+  return [3, -secondsFromTime(row.forecast_time)];
+}
+
+function secondsFromTime(time: string): number {
+  const [hours = "0", minutes = "0", seconds = "0"] = time.split(":");
+  return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
+}
+
+async function fetchBulkCurrentForecastsWithV51Display(
+  supabase: SupabaseClient<Database>,
+  beachIds: string[]
+): Promise<{ data: Array<{ beach_id: string; wave_height: string | null }> | null; error: { message: string } | null }> {
+  const now = new Date();
+  const targetDate = now.toISOString().split("T")[0];
+  const tomorrow = nextUtcDateString(now);
+  const currentTime = now.toISOString().slice(11, 19);
+
+  const { data, error } = await supabase
+    .from("enhanced_forecasts")
+    .select(
+      "beach_id, forecast_date, forecast_time, forecast_at, wave_height, wave_height_om, wave_direction_om, swell_direction_om, swell_1_direction"
+    )
+    .in("beach_id", beachIds)
+    .in("forecast_date", [targetDate, tomorrow]);
+
+  if (error || !data) {
+    return { data: null, error: error ? { message: error.message } : null };
+  }
+
+  const rankedByBeach = new Map<string, EnhancedForecastEntity>();
+  for (const row of data as unknown as EnhancedForecastEntity[]) {
+    const current = rankedByBeach.get(row.beach_id);
+    if (!current) {
+      rankedByBeach.set(row.beach_id, row);
+      continue;
+    }
+
+    const nextRank = currentForecastRank(row, targetDate, currentTime);
+    const currentRank = currentForecastRank(current, targetDate, currentTime);
+    if (
+      nextRank[0] < currentRank[0] ||
+      (nextRank[0] === currentRank[0] && nextRank[1] < currentRank[1])
+    ) {
+      rankedByBeach.set(row.beach_id, row);
+    }
+  }
+
+  const displayRows = await applyV51DisplayOverrideToForecasts(
+    Array.from(rankedByBeach.values()),
+    { enabled: true }
+  );
+
+  return {
+    data: displayRows.map((row) => ({
+      beach_id: row.beach_id,
+      wave_height: row.wave_height,
+    })),
+    error: null,
+  };
+}
+
+async function bulkForecastHandler(
+  request: NextRequest,
+  context: OptionalAuthContext
+) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const beachIdsParam = searchParams.get("beachIds");
@@ -58,16 +151,14 @@ async function bulkForecastHandler(request: NextRequest) {
     // Limit to prevent abuse
     const maxBeaches = 50;
     const limitedBeachIds = beachIds.slice(0, maxBeaches);
+    const { supabase } = context;
 
-    const supabase = await createAPIServerClient();
-
-    // Use RPC to get exactly 1 row per beach (database-side aggregation).
-    // This eliminates the risk of PostgREST's 1,000-row default limit silently
-    // truncating results — the old .gte("forecast_date", today) query fetched
-    // ~4,700 rows for 50 beaches, cutting off later-sorting UUIDs.
-    const { data, error } = await supabase.rpc("get_bulk_current_forecasts", {
-      p_beach_ids: limitedBeachIds,
-    });
+    const useV51Display = isV51DisplayAllowlistedUser(context?.user ?? null);
+    const { data, error } = useV51Display
+      ? await fetchBulkCurrentForecastsWithV51Display(supabase, limitedBeachIds)
+      : await supabase.rpc("get_bulk_current_forecasts", {
+          p_beach_ids: limitedBeachIds,
+        });
 
     if (error) {
       console.error("Error fetching bulk forecasts:", error);
@@ -134,4 +225,10 @@ async function bulkForecastHandler(request: NextRequest) {
 }
 
 // Apply rate limiting to prevent abuse of bulk operations
-export const GET = withRateLimit(bulkForecastHandler, "forecast-bulk");
+export const GET = withRateLimit(
+  withAuth(bulkForecastHandler, {
+    optional: true,
+    errorMessage: "Unexpected error fetching forecasts",
+  }),
+  "forecast-bulk"
+);

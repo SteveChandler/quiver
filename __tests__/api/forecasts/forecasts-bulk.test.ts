@@ -19,6 +19,12 @@ const mockSupabaseClient = createMockSupabaseClient();
 
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   withRateLimit: (handler: any) => handler,
+  withAuth: (handler: any) => (request: any, context: any) =>
+    handler(request, {
+      params: context?.params ?? {},
+      user: null,
+      supabase: mockSupabaseClient,
+    }),
   createSuccessResponse: jest.fn((data: any) => {
     return new Response(JSON.stringify({ success: true, data }), {
       status: 200,
