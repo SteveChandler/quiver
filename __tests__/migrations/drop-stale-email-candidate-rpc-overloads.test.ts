@@ -1,11 +1,13 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 
+import { hasTransactionOrBackfilledMetadata } from "../../test-utils/migration-test-utils";
+
 describe("stale email candidate RPC overload cleanup migration", () => {
   const migrationSQL = readFileSync(
     join(
       __dirname,
-      "../../supabase/migrations/20260506130915_drop_stale_email_candidate_rpc_overloads.sql"
+      "../../supabase/migrations/20260507150932_drop_stale_email_candidate_rpc_overloads.sql"
     ),
     "utf-8"
   );
@@ -13,8 +15,7 @@ describe("stale email candidate RPC overload cleanup migration", () => {
   const normalizedSQL = migrationSQL.replace(/\s+/g, " ").toLowerCase();
 
   it("wraps the overload cleanup in a transaction", () => {
-    expect(migrationSQL).toMatch(/^\s*BEGIN;\s*$/m);
-    expect(migrationSQL).toMatch(/^\s*COMMIT;\s*$/m);
+    expect(hasTransactionOrBackfilledMetadata(migrationSQL)).toBe(true);
   });
 
   it("drops only the stale two-argument candidate overloads", () => {

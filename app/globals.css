@@ -212,6 +212,109 @@
     height: 200%;
   }
 
+  .quiver-map-cluster-popup .mapboxgl-popup-content {
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid rgba(37, 45, 107, 0.16);
+    border-radius: 8px;
+    background: #fff8eb;
+    box-shadow: 0 18px 42px rgba(37, 45, 107, 0.22);
+  }
+
+  .quiver-map-cluster-popup .mapboxgl-popup-close-button {
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    border-radius: 9999px;
+    color: #252d6b;
+    font-size: 18px;
+    line-height: 22px;
+  }
+
+  .quiver-map-cluster-popup .mapboxgl-popup-close-button:hover {
+    background: rgba(37, 45, 107, 0.08);
+  }
+
+  .quiver-cluster-popup {
+    width: min(312px, calc(100vw - 48px));
+    color: #172033;
+    font-family: inherit;
+  }
+
+  .quiver-cluster-popup__header {
+    padding: 13px 40px 11px 14px;
+    border-bottom: 1px solid rgba(37, 45, 107, 0.12);
+    background: linear-gradient(
+      180deg,
+      rgba(147, 180, 216, 0.28),
+      rgba(255, 248, 235, 0)
+    );
+  }
+
+  .quiver-cluster-popup__title {
+    margin: 0;
+    color: #172033;
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+
+  .quiver-cluster-popup__list {
+    max-height: 320px;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+  }
+
+  .quiver-cluster-popup__item {
+    padding: 11px 14px 12px;
+    border-bottom: 1px solid rgba(37, 45, 107, 0.1);
+  }
+
+  .quiver-cluster-popup__item:last-child {
+    border-bottom: 0;
+  }
+
+  .quiver-cluster-popup__beach-name {
+    display: inline-block;
+    color: #0a4a8a;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.2;
+    text-decoration: none;
+  }
+
+  .quiver-cluster-popup__beach-name:hover {
+    text-decoration: underline;
+  }
+
+  .quiver-cluster-popup__meta {
+    margin-top: 4px;
+    color: #5f6673;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .quiver-cluster-popup__description {
+    margin: 6px 0 0;
+    color: #49525f;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .quiver-cluster-popup__remaining {
+    padding: 9px 14px 11px;
+    border-top: 1px solid rgba(37, 45, 107, 0.1);
+    color: #5f6673;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+    background: rgba(147, 180, 216, 0.16);
+  }
+
   /* Default container behavior - responsive and fills screen appropriately */
   .home-container {
     @apply w-full px-4 sm:px-6 lg:px-8;

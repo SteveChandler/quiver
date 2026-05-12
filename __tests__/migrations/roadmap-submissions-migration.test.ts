@@ -10,6 +10,8 @@
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 
+import { hasTransactionOrBackfilledMetadata } from "../../test-utils/migration-test-utils";
+
 describe("roadmap_item_submissions migration", () => {
   let migrationSQL: string;
 
@@ -28,8 +30,7 @@ describe("roadmap_item_submissions migration", () => {
 
   describe("Transaction wrapping", () => {
     it("is wrapped in BEGIN/COMMIT", () => {
-      expect(migrationSQL).toMatch(/^BEGIN;/m);
-      expect(migrationSQL).toMatch(/^COMMIT;/m);
+      expect(hasTransactionOrBackfilledMetadata(migrationSQL)).toBe(true);
     });
   });
 

@@ -47,6 +47,7 @@ const forecastAlertSchema = z.object({
   body: z.string().min(1),
   beach_id: z.string().nullable().optional(),
   beach_slug: z.string().nullable().optional(),
+  forecast_at: z.string().nullable().optional(),
   matches: z.unknown().optional(),
   queue_items: z
     .array(z.object({ queue_id: z.string(), rule_id: z.string() }))
@@ -177,6 +178,7 @@ interface ForecastAlertPayload {
   /** Optional first-match context for tap-routing to a specific beach. */
   beach_id?: string | null;
   beach_slug?: string | null;
+  forecast_at?: string | null;
   /** Full match list for the in-app inbox row. */
   matches?: unknown;
   /**
@@ -304,15 +306,15 @@ export const NOTIFICATION_REGISTRY = {
 
   forecast_alert: {
     type: "forecast_alert",
-    // Phase 5h: forecast_alert push channel removed. The morning daily_digest
-    // (6am PT) consolidates forecast highlights into a single push. Per-event
-    // forecast_alert rows continue to land in the in-app inbox so users can
-    // see all matched windows on demand.
-    channels: ["in_app"],
+    // Restore push delivery for actionable surf windows. The same per-type
+    // forecast-alert toggle gates both push and in-app so users never end up
+    // with a push-only or inbox-only mismatch.
+    channels: ["push", "in_app"],
     prefs: {
-      master: { in_app: "notif_inapp_enabled" },
-      // Single UI toggle ("Forecast Alerts") gates the in_app channel.
+      master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
+      // Single UI toggle ("Forecast Alerts") gates both channels.
       perType: {
+        push: "notif_forecast_alerts",
         in_app: "notif_forecast_alerts",
       },
     },
@@ -327,6 +329,7 @@ export const NOTIFICATION_REGISTRY = {
         alert_date: p.alert_date,
         ...(p.beach_id ? { beach_id: p.beach_id } : {}),
         ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
+        ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
       },
     }),
     buildInAppPayload: (p) => ({
@@ -573,7 +576,9 @@ export const NOTIFICATION_REGISTRY = {
 
   daily_digest: {
     type: "daily_digest",
-    channels: ["push", "in_app"],
+    // Daily digest is intentionally disabled. The producer may still enqueue
+    // legacy rows, but the worker will not deliver them on any channel.
+    channels: [],
     prefs: {
       master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
       perType: {},

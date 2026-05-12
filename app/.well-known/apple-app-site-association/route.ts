@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
-const teamId = process.env.APPLE_TEAM_ID?.trim();
+const DEFAULT_APPLE_TEAM_ID = "QBA8TA48NG";
+const DEFAULT_APPLE_BUNDLE_IDS = "app.quiversurf.mobile";
+
+const teamId = process.env.APPLE_TEAM_ID?.trim() || DEFAULT_APPLE_TEAM_ID;
 const explicitAppId = process.env.APPLE_APP_ID?.trim();
 
 const pathEnv = process.env.APPLE_APP_SITE_ASSOCIATION_PATHS ??
@@ -16,7 +19,9 @@ const webCredentialApps = (process.env.APPLE_WEB_CREDENTIALS_APP_IDS ?? "")
   .filter(Boolean);
 
 // Support multiple bundle IDs (comma-separated), falling back to singular var
-const bundleIdsEnv = process.env.APPLE_APP_BUNDLE_IDS ?? process.env.APPLE_APP_BUNDLE_ID ?? '';
+const bundleIdsEnv = process.env.APPLE_APP_BUNDLE_IDS ??
+  process.env.APPLE_APP_BUNDLE_ID ??
+  DEFAULT_APPLE_BUNDLE_IDS;
 const bundleIds = bundleIdsEnv.split(',').map(id => id.trim()).filter(Boolean);
 
 export const revalidate = 3600;

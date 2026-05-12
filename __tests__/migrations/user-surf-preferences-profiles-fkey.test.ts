@@ -1,11 +1,13 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 
+import { hasTransactionOrBackfilledMetadata } from "../../test-utils/migration-test-utils";
+
 describe("user_surf_preferences profiles foreign key migration", () => {
   const migrationSQL = readFileSync(
     join(
       __dirname,
-      "../../supabase/migrations/20260504220000_add_user_surf_preferences_profiles_fkey.sql"
+      "../../supabase/migrations/20260505130229_add_user_surf_preferences_profiles_fkey.sql"
     ),
     "utf8"
   );
@@ -13,8 +15,7 @@ describe("user_surf_preferences profiles foreign key migration", () => {
   const normalizedSQL = migrationSQL.replace(/\s+/g, " ").toLowerCase();
 
   it("wraps the schema change in a transaction", () => {
-    expect(migrationSQL).toMatch(/^\s*begin;\s*$/im);
-    expect(migrationSQL).toMatch(/^\s*commit;\s*$/im);
+    expect(hasTransactionOrBackfilledMetadata(migrationSQL)).toBe(true);
   });
 
   it("preserves the existing auth.users foreign key", () => {

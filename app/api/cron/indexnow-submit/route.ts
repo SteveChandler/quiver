@@ -15,6 +15,7 @@ import { getAllForecastRegionSlugs } from "@/lib/data/forecast-regions";
 import { getAllCamRegionSlugs } from "@/lib/data/cam-regions";
 import { HUB_REGION_SLUGS } from "@/lib/data/hub-regions";
 import { withObservedCron } from "@/lib/cron/observability";
+import { getIndexableSeoFunnelRoutes } from "@/lib/seo/funnel-pages";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -293,6 +294,10 @@ function collectStaticSeoUrls(): string[] {
     `${SITE_URL}/vs/surfline`,
     `${SITE_URL}/forecast-accuracy`
   );
+
+  for (const route of getIndexableSeoFunnelRoutes()) {
+    urls.push(`${SITE_URL}${route}`);
+  }
 
   return urls;
 }

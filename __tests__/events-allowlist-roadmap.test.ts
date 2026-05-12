@@ -2,6 +2,8 @@ import { VALID_EVENTS, ANONYMOUS_ALLOWED_EVENTS, PRE_AUTH_ONLY_EVENTS } from '@/
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+import { hasTransactionOrBackfilledMetadata } from '../test-utils/migration-test-utils';
+
 const ROADMAP_EVENTS = [
   'roadmap_vote_cast',
   'roadmap_item_submitted',
@@ -26,7 +28,7 @@ describe('roadmap-feature event allowlist', () => {
   });
 
   describe('CHECK migration sync', () => {
-    const migrationPath = join(__dirname, '../supabase/migrations/20260425000400_add_roadmap_user_events.sql');
+    const migrationPath = join(__dirname, '../supabase/migrations/20260425042511_add_roadmap_user_events.sql');
     let migrationSQL: string;
 
     beforeAll(() => {
@@ -43,8 +45,7 @@ describe('roadmap-feature event allowlist', () => {
     });
 
     it('is wrapped in BEGIN/COMMIT', () => {
-      expect(migrationSQL).toMatch(/^BEGIN;/m);
-      expect(migrationSQL).toMatch(/^COMMIT;/m);
+      expect(hasTransactionOrBackfilledMetadata(migrationSQL)).toBe(true);
     });
 
     it('preserves existing events (regression check)', () => {

@@ -14,7 +14,9 @@ export default tseslint.config(
   {
     ignores: [
       ".next/**",
+      ".claude/**",
       ".turbo/**",
+      ".worktrees/**",
       "android/**",
       "ios/**",
       "app/.well-known/**",

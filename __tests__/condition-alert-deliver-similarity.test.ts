@@ -65,6 +65,7 @@ describe("formatPushNotification: similarity_match branch", () => {
     expect(data).toMatchObject({
       type: "similarity_match",
       beach_id: "beach-1",
+      forecast_at: "2026-04-23T13:00:00.000Z",
     });
   });
 
@@ -101,5 +102,6 @@ describe("formatPushNotification: similarity_match branch", () => {
     const { title, data } = formatPushNotification([nonSim]);
     expect(title).toBe("Conditions lining up today");
     expect(data.type).toBe("forecast_alert");
+    expect(data.forecast_at).toBe("2026-04-23T14:00:00.000Z");
   });
 });

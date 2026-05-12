@@ -42,12 +42,17 @@ import {
   ConditionsStateOverview,
 } from "@/components/intent";
 import { CTASection } from "@/components/landing-page/cta-section";
-import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
+import { SeoScenePanel } from "@/components/seo/seo-scene-panel";
 import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
-import type { AlertPageContext } from "@/lib/alerts/preset-context-map";
+import { SeoLocationPage } from "@/components/seo/funnel/SeoLocationPage";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { isConditionsIntent } from "@/lib/constants/intent-definitions";
+import {
+  getCityIntentSeoScene,
+  getCityIntentPlanSeoScene,
+  getStateIntentSeoScene,
+} from "@/lib/constants/seo-scenes";
 import { ContinueExploring } from "@/components/shared/continue-exploring";
 import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
 import { ZeroState } from "@/components/ui/zero-state";
@@ -73,19 +78,9 @@ import {
 import { BeginnerPageContent } from "@/components/beginner/BeginnerPageContent";
 import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
+import { getSeoFunnelPageByIntentRoute } from "@/lib/seo/funnel-pages";
 
 export const revalidate = 3600;
-
-/** Maps surf intent slugs to AlertPageContext for alert-centric CTAs */
-const INTENT_TO_ALERT_CONTEXT: Record<string, AlertPageContext> = {
-  beginner: "beginner",
-  "least-crowded": "least-crowded",
-  tide: "tides",
-  "water-temp": "water-temp",
-  longboard: "longboard",
-  "dawn-patrol": "dawn-patrol",
-  sunset: "sunset",
-};
 
 /**
  * Try to resolve a city slug with automatic state suffix detection.
@@ -189,6 +184,9 @@ function IntentEmptyState({
 }
 
 const BEGINNER_INTENTS = new Set(["beginner", "longboard"]);
+const STATE_INTENT_SLUG_ALIASES: Record<string, string> = {
+  "puerto-rico": "pr",
+};
 
 /** Intents that may return zero beaches and should noindex at state level when empty */
 const NOINDEX_WHEN_EMPTY_INTENTS = new Set(["beginner", "longboard", "least-crowded"]);
@@ -204,6 +202,17 @@ interface IntentPageParams {
 
 export async function generateMetadata(props: IntentPageParams): Promise<Metadata> {
   const params = await props.params;
+
+  const seoFunnelPage = getSeoFunnelPageByIntentRoute(params.intent, params.city);
+  if (seoFunnelPage) {
+    return buildPageMetadata({
+      title: seoFunnelPage.title,
+      description: seoFunnelPage.metaDescription,
+      path: seoFunnelPage.path,
+      image: seoFunnelPage.heroImage.src,
+    });
+  }
+
   // Check if this is a state-level intent page like /beginner/ca
   if (isValidStateSlug(params.city) && SURF_INTENTS[params.intent as SurfIntentSlug]) {
     const stateName = getUsStateDisplayNameFromSlug(params.city);
@@ -342,6 +351,11 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
 export default async function IntentPage(props: IntentPageParams) {
   const params = await props.params;
   const definition = SURF_INTENTS[params.intent as SurfIntentSlug];
+  const stateSlugAlias = STATE_INTENT_SLUG_ALIASES[params.city];
+
+  if (stateSlugAlias && definition) {
+    redirect(`/${params.intent}/${stateSlugAlias}`);
+  }
 
   // Legacy 2-segment state/city route: redirect to map filtered by city
   // Examples: /ca/encinitas, /or/newport
@@ -352,6 +366,11 @@ export default async function IntentPage(props: IntentPageParams) {
     redirect(redirectTo);
   }
 
+  const seoFunnelPage = getSeoFunnelPageByIntentRoute(params.intent, params.city);
+  if (seoFunnelPage) {
+    return <SeoLocationPage page={seoFunnelPage} />;
+  }
+
   // Check if this is a state-level intent page like /beginner/ca
   if (isValidStateSlug(params.city) && SURF_INTENTS[params.intent as SurfIntentSlug]) {
     const stateName = getUsStateDisplayNameFromSlug(params.city);
@@ -360,6 +379,7 @@ export default async function IntentPage(props: IntentPageParams) {
     const beachesResult = await getBeachesByIntentAndState(params.intent, params.city);
     const beaches = beachesResult.success && beachesResult.data ? beachesResult.data : [];
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
+    const stateScene = getStateIntentSeoScene(params.intent, params.city);
 
     // Fetch all cities in this state for PopularCitiesForIntent component.
     // No explicit limit — uses default of 100 so all qualifying cities are
@@ -397,16 +417,25 @@ export default async function IntentPage(props: IntentPageParams) {
           description={`Find the best ${intentDefinition.label.toLowerCase()} surf spots across ${stateName}. Live conditions, crowd data & surf windows — updated hourly.`}
         />
         <div className="container mx-auto px-4 py-8 max-w-7xl">
-          <header className="mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
-              {intentDefinition.heading({ cityName: stateName })}
-            </h1>
-            <p className="text-lg text-gray-600 mt-2">
-              {beaches.length} spots across {stateName}
-            </p>
-            <p className="text-base text-gray-700 mt-4">
-              {intentDefinition.intro({ cityName: stateName, stateSlug: params.city })}
-            </p>
+          <header className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,460px)] lg:items-stretch">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
+                {intentDefinition.heading({ cityName: stateName })}
+              </h1>
+              <p className="text-lg text-gray-600 mt-2">
+                {beaches.length} spots across {stateName}
+              </p>
+              <p className="text-base text-gray-700 mt-4">
+                {intentDefinition.intro({ cityName: stateName, stateSlug: params.city })}
+              </p>
+            </div>
+            {stateScene && (
+              <SeoScenePanel
+                scene={stateScene}
+                priority
+                mediaClassName="h-full min-h-[300px] lg:min-h-full"
+              />
+            )}
           </header>
 
           {beaches.length === 0 ? (
@@ -997,6 +1026,8 @@ export default async function IntentPage(props: IntentPageParams) {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
   const regionLabel = `${cityMetadata.cityName}, ${cityMetadata.stateName}`;
+  const pageScene = getCityIntentSeoScene(params.intent, params.city);
+  const planScene = getCityIntentPlanSeoScene(params.intent, params.city);
 
   // Build Place schema with geo coordinates for Google's structured data parser.
   // The Mapbox GL canvas is not readable by crawlers, so we expose pin data here.
@@ -1082,21 +1113,30 @@ export default async function IntentPage(props: IntentPageParams) {
         </nav>
 
         {/* Header */}
-        <header className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
-            {pageContent.heading}
-          </h1>
-          <p className="text-lg text-gray-600 mb-4">{regionLabel}</p>
+        <header className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,460px)] lg:items-stretch">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
+              {pageContent.heading}
+            </h1>
+            <p className="text-lg text-gray-600 mb-4">{regionLabel}</p>
 
-          <div className="space-y-2 mt-6">
-            <p className="text-base text-gray-700">
-              Recommendations refresh every 30 minutes based on tide, wind,
-              and crowd telemetry from Quiver.
-            </p>
-            <p className="text-base text-gray-700">
-              {pageContent.intro}
-            </p>
+            <div className="space-y-2 mt-6">
+              <p className="text-base text-gray-700">
+                Recommendations refresh every 30 minutes based on tide, wind,
+                and crowd telemetry from Quiver.
+              </p>
+              <p className="text-base text-gray-700">
+                {pageContent.intro}
+              </p>
+            </div>
           </div>
+          {pageScene && (
+            <SeoScenePanel
+              scene={pageScene}
+              priority
+              mediaClassName="h-full min-h-[300px] lg:min-h-full"
+            />
+          )}
         </header>
 
         {/* Intent-specific live data sections */}
@@ -1104,15 +1144,6 @@ export default async function IntentPage(props: IntentPageParams) {
         {params.intent === "water-temp" && (
           <WaterTempOverviewSection data={waterTempData} />
         )}
-
-        {/* Intent-specific alert CTA - positioned before map for conversion */}
-        <AlertCaptureCta
-          pageContext={INTENT_TO_ALERT_CONTEXT[params.intent as SurfIntentSlug] ?? "city-surf-report"}
-          beachId={beachesResult.data[0]?.id ?? ""}
-          beachName={cityMetadata.cityName}
-          source={`intent-${params.intent}-${params.city}`}
-          className="my-8"
-        />
 
         <div className="space-y-12">
           <SeoFunnelNextSteps
@@ -1158,6 +1189,7 @@ export default async function IntentPage(props: IntentPageParams) {
             stateSlug={cityMetadata.state.toLowerCase()}
             citySlug={params.city}
             focusPoints={definition.focusPoints}
+            scene={planScene}
           />
 
           {/* Beach Editorial Section — intent-specific local tips */}

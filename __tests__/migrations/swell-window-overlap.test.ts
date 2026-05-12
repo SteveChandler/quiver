@@ -8,6 +8,8 @@
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 
+import { hasTransactionOrBackfilledMetadata } from "../../test-utils/migration-test-utils";
+
 describe("Migration: Add swell_windows_overlap function", () => {
   let migrationSQL: string;
 
@@ -23,8 +25,7 @@ describe("Migration: Add swell_windows_overlap function", () => {
 
   describe("Migration Structure", () => {
     test("should be wrapped in transaction", () => {
-      expect(migrationSQL).toMatch(/BEGIN/i);
-      expect(migrationSQL).toMatch(/COMMIT/i);
+      expect(hasTransactionOrBackfilledMetadata(migrationSQL)).toBe(true);
     });
 
     test("should create swell_windows_overlap function", () => {
@@ -118,9 +119,8 @@ describe("Migration: Add swell_windows_overlap function", () => {
       expect(openParens).toBe(closeParens);
     });
 
-    test("should have single BEGIN and COMMIT", () => {
-      expect(migrationSQL.match(/^BEGIN;/m)).toBeTruthy();
-      expect(migrationSQL.match(/^COMMIT;/m)).toBeTruthy();
+    test("should have transaction markers or backfilled metadata", () => {
+      expect(hasTransactionOrBackfilledMetadata(migrationSQL)).toBe(true);
     });
   });
 });

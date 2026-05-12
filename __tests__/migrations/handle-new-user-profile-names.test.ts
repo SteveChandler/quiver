@@ -5,7 +5,7 @@ describe("handle_new_user profile name metadata migration", () => {
   const migrationSQL = readFileSync(
     join(
       __dirname,
-      "../../supabase/migrations/20260505110000_harden_handle_new_user_profile_names.sql"
+      "../../supabase/migrations/20260511130300_harden_handle_new_user_profile_names.sql"
     ),
     "utf8"
   );

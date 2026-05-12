@@ -7,8 +7,9 @@
  * so the comparator (current displayed vs raw OM vs v5) becomes available
  * once enough paired-with-observation rows accumulate.
  *
- * Spec (locked 2026-05-02 by walk-forward audit):
- *   v5 = f(wave_height_om) + g(direction_bucket)
+ * v5.1 shadow spec (locked 2026-05-11 by post-refit gate):
+ *   v5.1 = f(wave_height_om) + g(direction_bucket), except NW uses f(om)
+ *          only because the NW directional adjustment regressed post-refit.
  *   Guardrail: when (direction_bucket=W, om_bucket=0.5-1.0m), pass through
  *              raw OM (skip g entirely for that cell only).
  *
@@ -58,6 +59,7 @@ const OM_BUCKET_ORDER: OmBucket[] = [
 ];
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const V51_FORMULA_ID = "v5_1_no_nw_g";
 
 let cachedVersion: CalibrationVersion | null = null;
 let cachedAt = 0;
@@ -144,6 +146,13 @@ function isPassthroughCell(
   );
 }
 
+function shadowModelVersion(calibrationVersion: string): string {
+  const suffix = calibrationVersion.startsWith("v5_c.")
+    ? calibrationVersion.slice("v5_c.".length)
+    : calibrationVersion;
+  return `${V51_FORMULA_ID}.${suffix}`;
+}
+
 export type V5ShadowResult = {
   v5_shadow_height_m: number;
   v5_model_version: string;
@@ -227,6 +236,7 @@ function computeV5ShadowImpl(params: {
   if (!omBucket) return null;
 
   const dirBucket = bucketDirection(primary_swell_direction_deg);
+  const v5ModelVersion = shadowModelVersion(calibration.version);
 
   // NUMERIC(5,3) on ml_predictions_log.v5_shadow_height_m caps at 99.999m;
   // clamp defensively. The unit-slope tail of f at unrealistic OM (e.g. 100m)
@@ -238,7 +248,7 @@ function computeV5ShadowImpl(params: {
   if (isPassthroughCell(calibration.guardrails, dirBucket, omBucket)) {
     return {
       v5_shadow_height_m: Number(clamp(wave_height_om_m).toFixed(3)),
-      v5_model_version: calibration.version,
+      v5_model_version: v5ModelVersion,
       direction_bucket: dirBucket,
       om_bucket: omBucket,
     };
@@ -250,14 +260,17 @@ function computeV5ShadowImpl(params: {
       ? calibration.g_dir[dirBucket]
       : undefined;
   const gDir =
-    gEntry && typeof gEntry === "object" && typeof gEntry.g === "number"
+    dirBucket !== "NW" &&
+    gEntry &&
+    typeof gEntry === "object" &&
+    typeof gEntry.g === "number"
       ? gEntry.g
       : 0;
   const v5 = clamp(fOm + gDir);
 
   return {
     v5_shadow_height_m: Number(v5.toFixed(3)),
-    v5_model_version: calibration.version,
+    v5_model_version: v5ModelVersion,
     direction_bucket: dirBucket,
     om_bucket: omBucket,
   };

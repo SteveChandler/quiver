@@ -23,6 +23,26 @@ interface MonthlySurfChartProps {
   className?: string;
 }
 
+function getScoreLabel(score: number): string {
+  if (score >= 80) return "Prime window";
+  if (score >= 60) return "Solid season";
+  if (score >= 40) return "Worth watching";
+  return "Quiet stretch";
+}
+
+function getScoreHint(data: MonthlySurfEntry): string {
+  if (data.score >= 80) {
+    return "Plan around this month if you want the most consistent odds.";
+  }
+  if (data.score >= 60) {
+    return "Good fallback window with enough beaches in season.";
+  }
+  if (data.score >= 40) {
+    return "Pick your days carefully and lean on live conditions.";
+  }
+  return "Usually between prime seasons. Watch for short-lived windows.";
+}
+
 function CustomTooltip({
   active,
   payload,
@@ -34,13 +54,26 @@ function CustomTooltip({
 
   const data = payload[0].payload;
   return (
-    <div className="rounded-lg border border-border bg-card px-3 py-2 shadow-md">
-      <p className="text-sm font-semibold text-foreground">{data.monthName}</p>
-      <p className="text-sm text-muted-foreground">
-        Score: <span className="font-medium text-ocean-blue">{data.score}</span>
+    <div className="max-w-[250px] rounded-lg border border-[#252D6B]/20 bg-[#FBF6E8] px-4 py-3 text-[#11100D] shadow-[0_16px_34px_rgba(37,45,107,0.18)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#655C4C]">
+            {data.monthName}
+          </p>
+          <p className="mt-0.5 text-lg font-bold leading-none">
+            {getScoreLabel(data.score)}
+          </p>
+        </div>
+        <span className="rounded-full bg-[#252D6B] px-2.5 py-1 text-sm font-bold text-white">
+          {data.score}
+        </span>
+      </div>
+      <p className="mt-3 text-sm leading-snug text-[#655C4C]">
+        {getScoreHint(data)}
       </p>
-      <p className="text-xs text-muted-foreground">
-        {data.bestMonthCount} beach{data.bestMonthCount !== 1 ? "es" : ""} in peak season
+      <p className="mt-2 text-xs font-medium text-[#252D6B]">
+        {data.bestMonthCount} peak-season beach
+        {data.bestMonthCount !== 1 ? "es" : ""}
       </p>
     </div>
   );

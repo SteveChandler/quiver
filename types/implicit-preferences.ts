@@ -147,7 +147,12 @@ export type ImplicitEventType =
   | 'paywall_purchase_success'
   | 'paywall_purchase_failed'
   | 'onboarding_paywall_skipped'
-  | 'onboarding_trial_started';
+  | 'onboarding_trial_started'
+  // Push registration observability (native, added 2026-05-10)
+  | 'push_permission_denied'
+  | 'push_token_fetch_failed'
+  | 'push_device_registration_failed'
+  | 'push_device_registered';
 
 /**
  * Weight multipliers for each event type, determining how much
@@ -286,6 +291,10 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   paywall_purchase_failed: 0,
   onboarding_paywall_skipped: 0,
   onboarding_trial_started: 0,
+  push_permission_denied: 0,
+  push_token_fetch_failed: 0,
+  push_device_registration_failed: 0,
+  push_device_registered: 0,
 } as const;
 
 // -----------------------------------------------------------------------------

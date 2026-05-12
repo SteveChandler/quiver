@@ -828,6 +828,10 @@ describe('POST /api/events', () => {
         'paywall_purchase_failed',
         'onboarding_paywall_skipped',
         'onboarding_trial_started',
+        'push_permission_denied',
+        'push_token_fetch_failed',
+        'push_device_registration_failed',
+        'push_device_registered',
       ];
 
       const realDateNow = Date.now;

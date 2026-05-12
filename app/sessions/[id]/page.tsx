@@ -3,6 +3,8 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { getSessionMetadata } from "@/actions/session-actions";
+import { buildSessionShareImageUrl } from "@/lib/share/session-share";
+import type { SessionWithDetails } from "@/types/database";
 import { format } from "date-fns";
 
 const baseUrl =
@@ -76,7 +78,7 @@ export async function generateMetadata(
         title,
         description,
         path: `/sessions/${params.id}`,
-        image: `/api/og/session/${params.id}?variant=1`,
+        image: buildSessionShareImageUrl(session as unknown as SessionWithDetails),
       });
     }
   } catch (error) {

@@ -3,6 +3,8 @@ import { createClusterMarkerElement } from "@/components/map/cluster-marker";
 import type { ClusterPoint } from "@/hooks/use-beach-clustering";
 import type { MapDisplayMode } from "@/components/map/map-marker-builder";
 
+export type ClusterClickBehavior = "expand" | "details";
+
 /**
  * Dependencies injected into createClusterMapMarker so the function
  * remains pure and testable — no closure capture of component state.
@@ -20,6 +22,10 @@ export interface ClusterRendererDeps {
   displayMode?: MapDisplayMode;
   /** Map from beach ID to water temperature string */
   waterTempMap?: Map<string, string | undefined>;
+  /** How cluster marker clicks should behave */
+  clusterClickBehavior?: ClusterClickBehavior;
+  /** Optional handler for non-zoom cluster click behavior */
+  onClusterClick?: (cluster: ClusterPoint) => void;
 }
 
 /**
@@ -61,9 +67,16 @@ export function createClusterMapMarker(
   const clusterId = `cluster-${cluster.clusterId}`;
   deps.clusterCleanupMap.set(clusterId, cleanup);
 
-  // Handle cluster click - zoom to expansion level
+  // Handle cluster click
   element.addEventListener("click", (e) => {
     e.stopPropagation();
+    e.preventDefault();
+
+    if (deps.clusterClickBehavior === "details" && deps.onClusterClick) {
+      deps.onClusterClick(cluster);
+      return;
+    }
+
     if (cluster.clusterId !== undefined) {
       const expansionZoom = deps.getExpansionZoom(cluster.clusterId);
       deps.flyTo(

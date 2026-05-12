@@ -44,11 +44,9 @@ export function CamCard({ beach }: CamCardProps) {
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
           </>
         ) : (
-          /* Gradient placeholder fallback */
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-900 via-blue-700 to-cyan-600">
-            {/* Wave pattern overlay */}
+          <div className="flex h-full w-full items-center justify-center bg-[#252D6B]">
             <svg
-              className="absolute bottom-0 left-0 w-full h-12 opacity-20"
+              className="absolute bottom-0 left-0 h-12 w-full opacity-20"
               viewBox="0 0 1440 120"
               preserveAspectRatio="none"
               fill="none"
@@ -60,14 +58,22 @@ export function CamCard({ beach }: CamCardProps) {
                 fillOpacity="0.15"
               />
             </svg>
+            <span className="relative rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-white/85">
+              Preview unavailable
+            </span>
           </div>
         )}
 
-        {/* LIVE badge */}
-        <span className="absolute top-3 right-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm">
-          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-white" />
-          LIVE
-        </span>
+        {showThumbnail ? (
+          <span className="absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+            <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-white" />
+            LIVE
+          </span>
+        ) : (
+          <span className="absolute right-3 top-3 z-10 inline-flex rounded-full bg-[#FBF6E8]/95 px-2.5 py-1 text-xs font-semibold text-[#252D6B] shadow-sm">
+            Cam link
+          </span>
+        )}
 
         {/* Beach name overlay */}
         <span className="absolute bottom-3 left-0 right-0 z-10 px-4 text-center font-heading text-lg font-bold text-white drop-shadow-md">
@@ -84,7 +90,7 @@ export function CamCard({ beach }: CamCardProps) {
           </span>
         </div>
         <p className="mt-1 text-xs text-ocean-blue font-medium opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-          Watch live cam &rarr;
+          {showThumbnail ? "Watch live cam" : "Open cam page"} &rarr;
         </p>
       </div>
     </Link>

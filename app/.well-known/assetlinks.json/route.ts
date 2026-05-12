@@ -7,7 +7,7 @@ const sha256Fingerprints = fingerprintEnv
   .filter(Boolean);
 
 // Support multiple Android packages (comma-separated), falling back to singular var
-const packagesEnv = process.env.ANDROID_APP_PACKAGES ?? process.env.ANDROID_APP_PACKAGE ?? "app.quiversurf.mobile";
+const packagesEnv = process.env.ANDROID_APP_PACKAGES ?? process.env.ANDROID_APP_PACKAGE ?? "app.quiversurf.surf";
 const packages = packagesEnv.split(',').map(p => p.trim()).filter(Boolean);
 
 export const revalidate = 3600;

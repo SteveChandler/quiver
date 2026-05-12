@@ -18,6 +18,7 @@ import sitemap from "@/app/sitemap";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import { getAllCitiesWithBeachSkills } from "@/actions/beach/beach-location-actions";
+import { getCitiesWithBestMonthsData } from "@/actions/city/best-time-actions";
 
 // Mock the action modules
 jest.mock("@/actions/beach/beach-location-list-actions", () => ({
@@ -30,6 +31,10 @@ jest.mock("@/actions/beach/beach-query-actions", () => ({
 
 jest.mock("@/actions/beach/beach-location-actions", () => ({
   getAllCitiesWithBeachSkills: jest.fn(),
+}));
+
+jest.mock("@/actions/city/best-time-actions", () => ({
+  getCitiesWithBestMonthsData: jest.fn(),
 }));
 
 describe("Sitemap Generation", () => {
@@ -58,6 +63,11 @@ describe("Sitemap Generation", () => {
         { city: "San Diego", state: "CA", country: "USA", beachCount: 15, hasBeginnerBeaches: true, hasAdvancedBeaches: true, hasLeastCrowdedBeaches: true, hasEditorialContent: true },
         { city: "Encinitas", state: "CA", country: "USA", beachCount: 5, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: true, hasEditorialContent: true },
       ],
+    });
+
+    (getCitiesWithBestMonthsData as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [],
     });
   });
 
@@ -122,6 +132,15 @@ describe("Sitemap Generation", () => {
 
       expect(homeRoute?.lastModified).toBe("2026-02-10");
     });
+
+    it("should include curated SEO funnel routes and skip Santa Cruz cams", async () => {
+      const result = await sitemap();
+
+      expect(result.find((r) => r.url === `${baseUrl}/surf-report/scripps-pier-today`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/surf-cams/san-diego`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/beginner/santa-cruz`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/surf-cams/santa-cruz`)).toBeUndefined();
+    });
   });
 
   describe("Database-Driven Intent Routes", () => {
@@ -167,8 +186,10 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
 
-      // City-level intent routes should be absent (no data to derive them)
-      expect(result.find((r) => r.url === `${baseUrl}/beginner/san-diego`)).toBeUndefined();
+      // Database-derived city-level intent routes should be absent when there is
+      // no data to derive them. Curated SEO funnel routes are static and remain.
+      expect(result.find((r) => r.url === `${baseUrl}/beginner/nags-head`)).toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/beginner/san-diego`)).not.toBeUndefined();
 
       // Unfiltered state-level intent routes should still be present (tide, water-temp, etc.)
       expect(result.find((r) => r.url === `${baseUrl}/tide/ca`)).not.toBeUndefined();
@@ -244,11 +265,10 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
 
-      // No city-level intent routes
-      const cityIntentRoute = result.find(
-        (r) => r.url === `${baseUrl}/beginner/san-diego`
-      );
-      expect(cityIntentRoute).toBeUndefined();
+      // No database-derived city-level intent routes. Curated SEO funnel routes
+      // are static and should still be present.
+      expect(result.find((r) => r.url === `${baseUrl}/beginner/nags-head`)).toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/beginner/san-diego`)).not.toBeUndefined();
 
       // Filtered state-level intent routes (beginner, longboard, least-crowded) are
       // excluded when city data returns empty — fail-closed prevents indexing empty pages.
@@ -358,63 +378,6 @@ describe("Sitemap Generation", () => {
       expect(result.find((r) => r.url === `${baseUrl}/tide/no-content-beach`)).toBeUndefined();
       // Has editorial in thin state → included
       expect(result.find((r) => r.url === `${baseUrl}/tide/quality-beach`)).not.toBeUndefined();
-    });
-
-    it("should include single-beach city intent routes in thin states with editorial content", async () => {
-      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
-        success: true,
-        data: [
-          // NJ has 5 total beaches (< 20 threshold), Cocoa Beach has editorial content
-          { city: "Cocoa Beach", state: "FL", country: "USA", beachCount: 1, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false, hasEditorialContent: true },
-          { city: "Melbourne Beach", state: "FL", country: "USA", beachCount: 2, hasBeginnerBeaches: false, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false, hasEditorialContent: true },
-          // Total FL beaches: 3 (< 20)
-        ],
-      });
-
-      const result = await sitemap();
-
-      // Single-beach city in thin state WITH editorial → included
-      expect(result.find((r) => r.url === `${baseUrl}/tide/cocoa-beach`)).toBeTruthy();
-      expect(result.find((r) => r.url === `${baseUrl}/longboard/cocoa-beach`)).toBeTruthy();
-    });
-
-    it("should exclude single-beach city intent routes in large states", async () => {
-      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
-        success: true,
-        data: [
-          // CA has many beaches (>= 20), so single-beach cities are excluded
-          { city: "Tiny Cove", state: "CA", country: "USA", beachCount: 1, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false, hasEditorialContent: true },
-          { city: "San Diego", state: "CA", country: "USA", beachCount: 15, hasBeginnerBeaches: true, hasAdvancedBeaches: true, hasLeastCrowdedBeaches: true, hasEditorialContent: true },
-          { city: "Encinitas", state: "CA", country: "USA", beachCount: 5, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: true, hasEditorialContent: true },
-          // Total CA beaches: 21 (>= 20)
-        ],
-      });
-
-      const result = await sitemap();
-
-      // Single-beach city in large state → excluded even with editorial content
-      expect(result.find((r) => r.url === `${baseUrl}/tide/tiny-cove`)).toBeUndefined();
-      // Multi-beach cities still included
-      expect(result.find((r) => r.url === `${baseUrl}/tide/san-diego`)).toBeTruthy();
-    });
-
-    it("should exclude single-beach city intent routes without editorial content", async () => {
-      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
-        success: true,
-        data: [
-          // Thin state but no editorial content → excluded
-          { city: "No Content Beach", state: "ME", country: "USA", beachCount: 1, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false, hasEditorialContent: false },
-          { city: "Quality Beach", state: "ME", country: "USA", beachCount: 1, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false, hasEditorialContent: true },
-          // Total ME beaches: 2 (< 20)
-        ],
-      });
-
-      const result = await sitemap();
-
-      // No editorial → excluded
-      expect(result.find((r) => r.url === `${baseUrl}/tide/no-content-beach`)).toBeUndefined();
-      // Has editorial in thin state → included
-      expect(result.find((r) => r.url === `${baseUrl}/tide/quality-beach`)).toBeTruthy();
     });
 
     it("should exclude non-US cities from intent routes", async () => {
@@ -667,42 +630,6 @@ describe("Sitemap Generation", () => {
       expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs-garbage") && !r.url.includes("/tides") && !r.url.includes("/water-temp"))).not.toBeUndefined();
       expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs-garbage/tides"))).not.toBeUndefined();
       expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs-garbage/water-temp"))).not.toBeUndefined();
-    });
-
-    it("should NOT include tides/water-temp subpages for international beaches", async () => {
-      // International beaches use a 4-segment URL pattern and have no dedicated
-      // tides/water-temp subpage routes — only US beaches get those subpages.
-      (getBeaches as jest.Mock).mockResolvedValue({
-        success: true,
-        data: [
-          {
-            id: "beach-1",
-            slug: "teresas",
-            city: "Rosarito",
-            state: "Baja California",
-            country: "Mexico",
-          },
-          {
-            id: "beach-2",
-            slug: "sunset-cliffs-garbage",
-            city: "San Diego",
-            state: "CA",
-            country: "USA",
-          },
-        ],
-      });
-
-      const result = await sitemap();
-
-      // International beach: main page present, subpages absent
-      expect(result.find((r) => r.url.includes("/mexico/baja-california/rosarito/teresas"))).toBeTruthy();
-      expect(result.find((r) => r.url.includes("/mexico/baja-california/rosarito/teresas/tides"))).toBeUndefined();
-      expect(result.find((r) => r.url.includes("/mexico/baja-california/rosarito/teresas/water-temp"))).toBeUndefined();
-
-      // US beach: main page AND subpages present
-      expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs-garbage") && !r.url.includes("/tides") && !r.url.includes("/water-temp"))).toBeTruthy();
-      expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs-garbage/tides"))).toBeTruthy();
-      expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs-garbage/water-temp"))).toBeTruthy();
     });
 
     it("should filter out beaches without slug from beach entries", async () => {

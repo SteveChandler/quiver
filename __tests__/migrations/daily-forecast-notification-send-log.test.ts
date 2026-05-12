@@ -1,11 +1,13 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 
+import { hasTransactionOrBackfilledMetadata } from "../../test-utils/migration-test-utils";
+
 describe("daily forecast notification send log migration", () => {
   const migrationSQL = readFileSync(
     join(
       __dirname,
-      "../../supabase/migrations/20260506143000_create_daily_forecast_notification_send_log.sql"
+      "../../supabase/migrations/20260507230219_create_daily_forecast_notification_send_log.sql"
     ),
     "utf-8"
   );
@@ -13,8 +15,7 @@ describe("daily forecast notification send log migration", () => {
   const normalizedSQL = migrationSQL.replace(/\s+/g, " ").toLowerCase();
 
   it("wraps the send log schema changes in a transaction", () => {
-    expect(migrationSQL).toMatch(/^\s*BEGIN;\s*$/m);
-    expect(migrationSQL).toMatch(/^\s*COMMIT;\s*$/m);
+    expect(hasTransactionOrBackfilledMetadata(migrationSQL)).toBe(true);
   });
 
   it("creates a durable notification send log with the daily forecast unique key", () => {

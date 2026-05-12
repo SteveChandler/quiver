@@ -3,6 +3,7 @@ import {
   lookupCityBySlug,
   lookupCityByCityAndStateSlug,
   getAllCitiesWithBeachSkills,
+  getTopCitiesInStateForIntent,
 } from '@/actions/beach/beach-location-actions';
 
 jest.mock('@/lib/supabase/server');
@@ -49,13 +50,11 @@ describe('city lookup functions', () => {
       mockCreate.mockReturnValue(makeSupabaseFake(mockCities));
 
       const result = await lookupCityBySlug('san-diego');
-      expect(result).toBeDefined();
-      if (result) {
-        expect(result.slug).toBe('san-diego');
-        expect(result.stateSlug).toBe('ca');
-        expect(result.cityName).toBe('San Diego');
-        expect(result.stateName).toBe('CA');
-      }
+      expect(result).not.toBeNull();
+      expect(result!.slug).toBe('san-diego');
+      expect(result!.stateSlug).toBe('ca');
+      expect(result!.cityName).toBe('San Diego');
+      expect(result!.stateName).toBe('CA');
     });
 
     it('should return null for invalid slug', async () => {
@@ -271,6 +270,25 @@ describe('city lookup functions', () => {
       expect(result.data?.[0].hasAdvancedBeaches).toBe(true);
       warnSpy.mockRestore();
     });
+
+    it('applies curated NC beginner city order to state intent links', async () => {
+      const cities = [
+        { city: 'Corolla', state: 'NC', country: 'USA', beach_count: 4, has_beginner: true, has_advanced: false },
+        { city: 'Wrightsville Beach', state: 'NC', country: 'USA', beach_count: 1, has_beginner: true, has_advanced: false },
+        { city: 'Surf City', state: 'NC', country: 'USA', beach_count: 3, has_beginner: true, has_advanced: false },
+        { city: 'Carolina Beach', state: 'NC', country: 'USA', beach_count: 2, has_beginner: true, has_advanced: false },
+      ];
+      mockCreate.mockReturnValue(makeSkillRpcSupabaseFake(cities));
+
+      const result = await getTopCitiesInStateForIntent('nc', 'beginner');
+
+      expect(result.map((city) => city.name)).toEqual([
+        'Wrightsville Beach',
+        'Carolina Beach',
+        'Surf City',
+        'Corolla',
+      ]);
+    });
   });
 
   describe('lookupCityByCityAndStateSlug', () => {
@@ -282,13 +300,11 @@ describe('city lookup functions', () => {
       mockCreate.mockReturnValue(makeSupabaseFake(mockCities));
 
       const result = await lookupCityByCityAndStateSlug('oceanside', 'ca');
-      expect(result).toBeDefined();
-      if (result) {
-        expect(result.slug).toBe('oceanside');
-        expect(result.stateSlug).toBe('ca');
-        expect(result.cityName).toBe('Oceanside');
-        expect(result.stateName).toBe('CA');
-      }
+      expect(result).not.toBeNull();
+      expect(result!.slug).toBe('oceanside');
+      expect(result!.stateSlug).toBe('ca');
+      expect(result!.cityName).toBe('Oceanside');
+      expect(result!.stateName).toBe('CA');
     });
 
     it('should distinguish between same city names in different states', async () => {

@@ -8,14 +8,29 @@
 import { NOTIFICATION_REGISTRY } from "@/lib/notifications/registry";
 
 describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () => {
-  it("forecast_alert has only the in_app channel (no push)", () => {
+  it("forecast_alert restores push alongside in_app", () => {
     const def = NOTIFICATION_REGISTRY.forecast_alert as unknown as {
       channels: string[];
       prefs: { master: Record<string, unknown>; perType: Record<string, unknown> };
     };
-    expect(def.channels).toEqual(["in_app"]);
-    expect(def.prefs.master.push).toBeUndefined();
-    expect(def.prefs.perType.push).toBeUndefined();
+    expect(def.channels).toEqual(["push", "in_app"]);
+    expect(def.prefs.master.push).toBe("notif_push_enabled");
+    expect(def.prefs.perType.push).toBe("notif_forecast_alerts");
+  });
+
+  it("forecast_alert push payload carries forecast_at for native selected-window routing", () => {
+    const out = NOTIFICATION_REGISTRY.forecast_alert.buildPushPayload!({
+      alert_date: "2026-05-10",
+      title: "Conditions lining up today",
+      body: "Cardiff 7am-9am",
+      beach_id: "beach-1",
+      forecast_at: "2026-05-10T14:30:00.000Z",
+    });
+    expect(out.data).toMatchObject({
+      type: "forecast_alert",
+      beach_id: "beach-1",
+      forecast_at: "2026-05-10T14:30:00.000Z",
+    });
   });
 
   it("water_quality has only the in_app channel (no push)", () => {
@@ -28,11 +43,8 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
     expect(def.prefs.perType.push).toBeUndefined();
   });
 
-  it("daily_digest still pushes (and writes in_app)", () => {
-    expect(NOTIFICATION_REGISTRY.daily_digest.channels).toEqual([
-      "push",
-      "in_app",
-    ]);
+  it("daily_digest is fully disabled", () => {
+    expect(NOTIFICATION_REGISTRY.daily_digest.channels).toEqual([]);
   });
 
   it("daily_digest schema accepts forecast_summary and water_quality_summary", () => {
