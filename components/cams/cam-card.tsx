@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { MapPin } from "lucide-react";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
-import { getCamThumbnailUrl } from "@/lib/media/cam-thumbnail";
+import { getDisplayCamThumbnailUrl } from "@/lib/media/cam-thumbnail";
 import type { CamBeachWithRegion } from "@/actions/beach/cam-actions";
 
 interface CamCardProps {
@@ -13,7 +13,10 @@ interface CamCardProps {
 }
 
 export function CamCard({ beach }: CamCardProps) {
-  const thumbnailUrl = beach.thumbnail_url || getCamThumbnailUrl(beach.camera_url);
+  const thumbnailUrl = getDisplayCamThumbnailUrl({
+    cameraUrl: beach.camera_url,
+    thumbnailUrl: beach.thumbnail_url,
+  });
   const [imgError, setImgError] = useState(false);
   const showThumbnail = thumbnailUrl && !imgError;
 
