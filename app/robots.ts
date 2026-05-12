@@ -5,6 +5,17 @@ const isProd =
   (process.env.VERCEL_ENV || process.env.NODE_ENV) === "production";
 // Allow indexing in development for testing unless explicitly disabled
 const disallow = process.env.DISALLOW_ROBOTS === "true" || !isProd;
+const crawlDisallowRules = [
+  "/api/", // Don't crawl API routes (except /api/og/)
+  "/admin/", // Private: admin pages
+  "/profile/", // Private: user's own profile
+  "/sessions/", // Private: user sessions
+  "/session/", // Email action routes (confirm/skip) — transactional pages, not for indexing
+  "/auth/*", // Auth pages
+  "/embed/", // Embeddable widgets (prevent duplicate content)
+  "/spots/", // Legacy URL pattern — canonical URLs are hierarchical (state/city/beach); 301 redirects handle traffic but disallowing stops Google from re-indexing old slugs
+  "/welcome", // Native app only — not a public web page
+];
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -19,18 +30,7 @@ export default function robots(): MetadataRoute.Robots {
             userAgent: "*",
             allow: "/",
             // Note: /forecast/ is now public and indexable for SEO (regional forecast landing pages)
-            disallow: [
-              "/_next/", // Don't crawl Next.js build assets
-              "/api/", // Don't crawl API routes (except /api/og/)
-              "/admin/", // Private: admin pages
-              "/profile/", // Private: user's own profile
-              "/sessions/", // Private: user sessions
-              "/session/", // Email action routes (confirm/skip) — transactional pages, not for indexing
-              "/auth/*", // Auth pages
-              "/embed/", // Embeddable widgets (prevent duplicate content)
-              "/spots/", // Legacy URL pattern — canonical URLs are hierarchical (state/city/beach); 301 redirects handle traffic but disallowing stops Google from re-indexing old slugs
-              "/welcome", // Native app only — not a public web page
-            ],
+            disallow: crawlDisallowRules,
           },
           {
             userAgent: "*",
@@ -40,84 +40,29 @@ export default function robots(): MetadataRoute.Robots {
           {
             userAgent: "GPTBot",
             allow: "/",
-            disallow: [
-              "/_next/",
-              "/api/",
-              "/admin/",
-              "/profile/",
-              "/sessions/",
-              "/session/",
-              "/auth/*",
-              "/embed/",
-              "/spots/",
-              "/welcome",
-            ],
+            disallow: crawlDisallowRules,
             crawlDelay: 2,
           },
           {
             userAgent: "ChatGPT-User",
             allow: "/",
-            disallow: [
-              "/_next/",
-              "/api/",
-              "/admin/",
-              "/profile/",
-              "/sessions/",
-              "/session/",
-              "/auth/*",
-              "/embed/",
-              "/spots/",
-              "/welcome",
-            ],
+            disallow: crawlDisallowRules,
           },
           {
             userAgent: "OAI-SearchBot",
             allow: "/",
-            disallow: [
-              "/_next/",
-              "/api/",
-              "/admin/",
-              "/profile/",
-              "/sessions/",
-              "/session/",
-              "/auth/*",
-              "/embed/",
-              "/spots/",
-              "/welcome",
-            ],
+            disallow: crawlDisallowRules,
           },
           {
             userAgent: "ClaudeBot",
             allow: "/",
-            disallow: [
-              "/_next/",
-              "/api/",
-              "/admin/",
-              "/profile/",
-              "/sessions/",
-              "/session/",
-              "/auth/*",
-              "/embed/",
-              "/spots/",
-              "/welcome",
-            ],
+            disallow: crawlDisallowRules,
             crawlDelay: 2,
           },
           {
             userAgent: "PerplexityBot",
             allow: "/",
-            disallow: [
-              "/_next/",
-              "/api/",
-              "/admin/",
-              "/profile/",
-              "/sessions/",
-              "/session/",
-              "/auth/*",
-              "/embed/",
-              "/spots/",
-              "/welcome",
-            ],
+            disallow: crawlDisallowRules,
           },
           // Block training-only crawlers
           {

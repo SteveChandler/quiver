@@ -9,12 +9,12 @@ describe("robots.txt", () => {
     process.env.DISALLOW_ROBOTS = original;
   });
 
-  it("disallows crawling Next.js build assets (/_next/*) when indexing is enabled", () => {
+  it("allows render-critical Next.js static assets when indexing is enabled", () => {
     delete process.env.DISALLOW_ROBOTS;
     (process.env as any).NODE_ENV = "production";
 
     jest.resetModules();
-     
+
     const robots = require("@/app/robots").default as () => any;
     const r = robots();
 
@@ -22,14 +22,17 @@ describe("robots.txt", () => {
     const rules = Array.isArray(r.rules) ? r.rules[0] : r.rules;
     expect(rules.userAgent).toBe("*");
     expect(rules.allow).toBe("/");
-    expect(rules.disallow).toEqual(expect.arrayContaining(["/_next/"]));
+    expect(rules.disallow).not.toEqual(expect.arrayContaining(["/_next/"]));
+    expect(rules.disallow).not.toEqual(
+      expect.arrayContaining(["/_next/static/"]),
+    );
   });
 
   it("disallows everything when DISALLOW_ROBOTS=true", () => {
     process.env.DISALLOW_ROBOTS = "true";
 
     jest.resetModules();
-     
+
     const robots = require("@/app/robots").default as () => any;
     const r = robots();
 
@@ -38,5 +41,3 @@ describe("robots.txt", () => {
     expect(rules.disallow).toBe("/");
   });
 });
-
-

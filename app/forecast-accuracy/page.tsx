@@ -59,13 +59,28 @@ export async function generateMetadata(): Promise<Metadata> {
 const MIN_BEACH_THRESHOLD = 5;
 
 export default async function ForecastAccuracyPage() {
-  // Fetch all data in parallel
-  const [overallStats, regionalData, topBeaches, dailyTimeSeries] = await Promise.all([
+  const [
+    overallStatsResult,
+    regionalDataResult,
+    topBeachesResult,
+    dailyTimeSeriesResult,
+  ] = await Promise.allSettled([
     getOverallAccuracyStats(),
     getRegionalAccuracy(),
     getTopBeaches(),
     getDailyAccuracyTimeSeries(),
   ]);
+
+  const overallStats =
+    overallStatsResult.status === "fulfilled" ? overallStatsResult.value : null;
+  const regionalData =
+    regionalDataResult.status === "fulfilled" ? regionalDataResult.value : [];
+  const topBeaches =
+    topBeachesResult.status === "fulfilled" ? topBeachesResult.value : [];
+  const dailyTimeSeries =
+    dailyTimeSeriesResult.status === "fulfilled"
+      ? dailyTimeSeriesResult.value
+      : [];
 
   const hasEnoughData =
     overallStats !== null && overallStats.beachCount >= MIN_BEACH_THRESHOLD;
