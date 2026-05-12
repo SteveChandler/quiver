@@ -2,9 +2,21 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Loader2, CameraOff, RefreshCw } from "lucide-react";
+import {
+  CameraOff,
+  ExternalLink,
+  Loader2,
+  PlayCircle,
+  RefreshCw,
+} from "lucide-react";
 import { buildCamEmbed, getViewableUrl, toProxiedHlsUrl } from "@/lib/media/cam-embed";
+import {
+  getCamThumbnailUrl,
+  getYouTubeWatchUrl,
+  isYouTubeCameraUrl,
+} from "@/lib/media/cam-thumbnail";
 import type { BeachSources } from "@/hooks/use-beach-detail-data";
 
 const HLSVideoPlayer = dynamic(() => import("./hls-video-player"), {
@@ -18,7 +30,11 @@ interface CamsSectionProps {
   beachName?: string;
 }
 
-export function CamsSection({ sources, variant = "default", beachName }: CamsSectionProps) {
+export function CamsSection({
+  sources,
+  variant = "default",
+  beachName,
+}: CamsSectionProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeBlocked, setIframeBlocked] = useState(false);
   const [hlsError, setHlsError] = useState(false);
@@ -36,6 +52,11 @@ export function CamsSection({ sources, variant = "default", beachName }: CamsSec
 
   const intent = cameraUrl ? buildCamEmbed(cameraUrl) : null;
   const viewableUrl = useMemo(() => getViewableUrl(cameraUrl), [cameraUrl]);
+  const youtubeThumbnailUrl = useMemo(() => getCamThumbnailUrl(cameraUrl), [cameraUrl]);
+  const youtubeClickoutUrl = useMemo(() => {
+    if (!isYouTubeCameraUrl(cameraUrl)) return null;
+    return getYouTubeWatchUrl(cameraUrl) ?? viewableUrl;
+  }, [cameraUrl, viewableUrl]);
   const allowIframe =
     intent &&
     intent.kind === "iframe" &&
@@ -123,7 +144,15 @@ export function CamsSection({ sources, variant = "default", beachName }: CamsSec
   // every beach.
   const camLabel = beachName ? `Live cam of ${beachName}` : "Live Cam";
 
-  if (allowIframe && intent) {
+  if (youtubeClickoutUrl) {
+    visual = (
+      <YouTubeCamClickout
+        href={youtubeClickoutUrl}
+        thumbnailUrl={youtubeThumbnailUrl}
+        camLabel={camLabel}
+      />
+    );
+  } else if (allowIframe && intent) {
     visual = (
       <div key={playerKey} className="relative aspect-video w-full overflow-hidden bg-black">
         <iframe
@@ -187,32 +216,78 @@ export function CamsSection({ sources, variant = "default", beachName }: CamsSec
   return (
     <div className="overflow-hidden rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg">
       {visual}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-blue-100/60 bg-blue-50/70 px-4 py-3 text-sm">
-        <span className="text-muted-foreground">
-          Refresh for the latest frame or open the feed in a new tab.
-        </span>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRefresh}
-            className="text-ocean-blue hover:bg-ocean-blue/10"
-          >
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
-          {viewableUrl ? (
+      {!youtubeClickoutUrl && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-blue-100/60 bg-blue-50/70 px-4 py-3 text-sm">
+          <span className="text-muted-foreground">
+            Refresh for the latest frame or open the feed in a new tab.
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
             <Button
-              asChild
+              variant="ghost"
               size="sm"
-              className="bg-ocean-blue text-white hover:bg-ocean-blue/90"
+              onClick={handleRefresh}
+              className="text-ocean-blue hover:bg-ocean-blue/10"
             >
-              <a href={viewableUrl} target="_blank" rel="noopener noreferrer">
-                Open cam
-              </a>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh
             </Button>
-          ) : null}
+            {viewableUrl ? (
+              <Button
+                asChild
+                size="sm"
+                className="bg-ocean-blue text-white hover:bg-ocean-blue/90"
+              >
+                <a href={viewableUrl} target="_blank" rel="noopener noreferrer">
+                  Open cam
+                </a>
+              </Button>
+            ) : null}
+          </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function YouTubeCamClickout({
+  href,
+  thumbnailUrl,
+  camLabel,
+}: {
+  href: string;
+  thumbnailUrl: string | null;
+  camLabel: string;
+}) {
+  return (
+    <div className="relative aspect-video w-full overflow-hidden bg-[#11100D]">
+      {thumbnailUrl ? (
+        <Image
+          src={thumbnailUrl}
+          alt=""
+          width={640}
+          height={360}
+          sizes="(min-width: 768px) 40vw, 100vw"
+          className="h-full w-full object-cover opacity-70 saturate-[0.9]"
+        />
+      ) : null}
+      <div className="absolute inset-0 bg-black/45" aria-hidden />
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-5 text-center">
+        <PlayCircle className="h-12 w-12 text-white drop-shadow" aria-hidden />
+        <Button
+          asChild
+          size="sm"
+          className="bg-[#F78E42] text-[#11100D] shadow-[3px_4px_0_rgba(0,0,0,0.35)] hover:bg-[#F78E42]/90"
+        >
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`${camLabel}: open live cam on YouTube`}
+          >
+            Open live cam on YouTube
+            <ExternalLink className="ml-1 h-4 w-4" aria-hidden />
+          </a>
+        </Button>
       </div>
     </div>
   );
