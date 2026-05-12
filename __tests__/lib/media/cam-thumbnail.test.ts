@@ -1,4 +1,7 @@
-import { getCamThumbnailUrl } from "@/lib/media/cam-thumbnail";
+import {
+  getCamThumbnailUrl,
+  getDisplayCamThumbnailUrl,
+} from "@/lib/media/cam-thumbnail";
 
 describe("getCamThumbnailUrl", () => {
   // --- Null / undefined / empty ---
@@ -90,5 +93,41 @@ describe("getCamThumbnailUrl", () => {
   // --- Invalid URLs ---
   it("returns null for invalid URL strings", () => {
     expect(getCamThumbnailUrl("not-a-valid-url")).toBeNull();
+  });
+});
+
+describe("getDisplayCamThumbnailUrl", () => {
+  it("ignores stored OB Hotel page captures", () => {
+    expect(
+      getDisplayCamThumbnailUrl({
+        cameraUrl: "https://www.obhotel.com/Webcam-Oceanbeach.php",
+        thumbnailUrl:
+          "https://vawdnbbgawichorsjiwe.supabase.co/storage/v1/object/public/cam-thumbnails/65d177de-e75a-4ad8-aa0d-48a67c0851b0.jpg",
+      })
+    ).toBeNull();
+  });
+
+  it("keeps real provider thumbnails for OB Hotel if one is supplied", () => {
+    expect(
+      getDisplayCamThumbnailUrl({
+        cameraUrl: "https://www.obhotel.com/Webcam-Oceanbeach.php",
+        thumbnailUrl:
+          "https://storage.hdontap.com/wowza_stream_thumbnails/snapshot_obhotel.stream.jpg",
+      })
+    ).toBe(
+      "https://storage.hdontap.com/wowza_stream_thumbnails/snapshot_obhotel.stream.jpg"
+    );
+  });
+
+  it("keeps stored thumbnails for other camera hosts", () => {
+    expect(
+      getDisplayCamThumbnailUrl({
+        cameraUrl: "https://streams.surfchex.com:8443/live/wb3.stream/playlist.m3u8",
+        thumbnailUrl:
+          "https://vawdnbbgawichorsjiwe.supabase.co/storage/v1/object/public/cam-thumbnails/4b88f10a-c794-4144-b17a-133af9fee9f9.jpg",
+      })
+    ).toBe(
+      "https://vawdnbbgawichorsjiwe.supabase.co/storage/v1/object/public/cam-thumbnails/4b88f10a-c794-4144-b17a-133af9fee9f9.jpg"
+    );
   });
 });
