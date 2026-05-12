@@ -762,6 +762,41 @@ describe("processPendingEvents — fatal data conditions", () => {
     expect(state.attempts).toEqual([]);
   });
 
+  it("registered type with no channels → event processed as disabled surface", async () => {
+    const state = emptyState();
+    state.events.push(
+      buildEvent({
+        type: "daily_digest",
+        actor_user_id: null,
+        entity_type: null,
+        entity_id: null,
+        payload: {
+          alert_date: "2026-05-12",
+          title: "Quiver Daily Forecast",
+          body: "Daily digest disabled",
+        },
+        dedupe_key: "daily_forecast_summary:user-recipient:2026-05-12",
+      })
+    );
+    state.profiles.set("user-recipient", buildProfile());
+
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      { now: NOON_PT, fcm: { sendEach: jest.fn() } as never }
+    );
+
+    expect(summary.processed).toBe(1);
+    expect(summary.skipped).toBe(1);
+    expect(summary.failed).toBe(0);
+    expect(state.eventUpdates[0]).toEqual({
+      id: "evt-1",
+      status: "processed",
+      skip_reason: "surface_disabled",
+    });
+    expect(state.notificationsInserts).toEqual([]);
+    expect(state.attempts).toEqual([]);
+  });
+
   it("recipient profile missing (row not found) → event terminal failed", async () => {
     const state = emptyState();
     state.events.push(buildEvent());

@@ -845,6 +845,7 @@ export function createMockAlertResult(overrides: Partial<{
       missingForecast: 0,
       noGoodForecasts: 0,
       duplicateDailySummary: 0,
+      dailyDigestDisabled: 0,
       noMatch: 15,
       sendFailed: 0,
       quietHours: 0,

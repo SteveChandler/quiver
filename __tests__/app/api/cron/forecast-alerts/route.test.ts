@@ -33,6 +33,7 @@ jest.mock("@/lib/services/forecast-alerts", () => ({
       missingForecast: 0,
       noGoodForecasts: 0,
       duplicateDailySummary: 0,
+      dailyDigestDisabled: 0,
       noMatch: 0,
       sendFailed: 0,
       quietHours: 0,

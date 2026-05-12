@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/cron/forecast-alerts
  *
- * Cron job entrypoint: evaluates forecast threshold alerts and enqueues daily summary pushes.
+ * Cron job entrypoint for the disabled legacy daily forecast summary producer.
  *
  * Auth:
  * - Vercel Cron header (`x-vercel-cron`)
@@ -34,7 +34,6 @@ async function _GET(request: Request): Promise<Response> {
 }
 
 export const GET = withObservedCron("/api/cron/forecast-alerts", _GET);
-
 
 
 

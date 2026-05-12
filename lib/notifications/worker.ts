@@ -599,9 +599,14 @@ async function finalizeEventStatus(
 ): Promise<ProcessOneOutcome> {
   const values = Array.from(outcomes.values());
   if (values.length === 0) {
-    // No channels — defensive (shouldn't happen for a registered type).
-    await markEventTerminal(supabase, eventId, "failed", "no_channels", claimToken);
-    return "failed";
+    await markEventTerminal(
+      supabase,
+      eventId,
+      "processed",
+      "surface_disabled",
+      claimToken
+    );
+    return "all-skipped";
   }
 
   const allTerminal = values.every(
