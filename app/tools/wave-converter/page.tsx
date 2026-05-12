@@ -76,7 +76,10 @@ export default function WaveConverterPage() {
         items={[
           { name: "Quiver", url: `${SITE_URL}/` },
           { name: "Surfer's Toolkit", url: `${SITE_URL}/tools` },
-          { name: "Wave Height Converter", url: `${SITE_URL}/tools/wave-converter` },
+          {
+            name: "Wave Height Converter",
+            url: `${SITE_URL}/tools/wave-converter`,
+          },
         ]}
       />
       <script
@@ -87,11 +90,16 @@ export default function WaveConverterPage() {
             "@type": "WebApplication",
             name: "Quiver Wave Height Converter",
             url: `${SITE_URL}/tools/wave-converter`,
-            description: "Convert wave heights between feet, meters, and Hawaiian scale instantly. Includes a reference table and explanation of how waves are measured.",
+            description:
+              "Convert wave heights between feet, meters, and Hawaiian scale instantly. Includes a reference table and explanation of how waves are measured.",
             applicationCategory: "SportsApplication",
             operatingSystem: "Any",
             offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-            publisher: { "@type": "Organization", name: "Quiver", url: SITE_URL },
+            publisher: {
+              "@type": "Organization",
+              name: "Quiver",
+              url: SITE_URL,
+            },
           }),
         }}
       />
@@ -99,6 +107,7 @@ export default function WaveConverterPage() {
       <div className="min-h-screen" style={{ background: "#0F1535" }}>
         <ToolHero
           imageSrc={TOOL_IMAGES["wave-converter"]}
+          imageAlt="Wave height converter preview showing surf size conversions."
           title="Wave Height Converter"
           description="Convert between feet, meters, and Hawaiian scale instantly."
         />
@@ -134,14 +143,63 @@ export default function WaveConverterPage() {
               See real-time wave heights, swell periods, and conditions at
               hundreds of beaches.
             </p>
-            <Link
-              href="/forecast"
-              className="mt-4 inline-flex h-11 items-center justify-center rounded-lg px-6 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
-              style={{ background: "#F78E42", color: "#fff" }}
-            >
-              View surf forecast
-            </Link>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link
+                href="/forecast"
+                className="inline-flex h-11 items-center justify-center rounded-lg px-6 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
+                style={{ background: "#F78E42", color: "#fff" }}
+              >
+                View surf forecast
+              </Link>
+              <Link
+                href="/map"
+                className="inline-flex h-11 items-center justify-center rounded-lg border px-6 text-sm font-semibold text-[#B8C7E0] transition-colors hover:text-white focus:outline-none focus:ring-2 focus:ring-[#F78E42]"
+                style={{ borderColor: "rgba(247, 142, 66, 0.35)" }}
+              >
+                Open surf map
+              </Link>
+            </div>
           </div>
+
+          <section
+            aria-labelledby="related-conditions-heading"
+            className="mt-8 rounded-xl border p-6"
+            style={{
+              background: "rgba(30, 37, 88, 0.7)",
+              borderColor: "rgba(64, 76, 146, 0.4)",
+            }}
+          >
+            <h2
+              id="related-conditions-heading"
+              className="font-heading text-lg font-bold text-white"
+            >
+              Pair wave size with the conditions that matter
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-[#B8C7E0]">
+              Wave height is only one part of the call. Check{" "}
+              <Link
+                href="/tide/san-diego"
+                className="text-[#F78E42] hover:underline"
+              >
+                local tide charts
+              </Link>
+              ,{" "}
+              <Link
+                href="/water-temp/san-diego"
+                className="text-[#F78E42] hover:underline"
+              >
+                water temperatures
+              </Link>
+              , and{" "}
+              <Link
+                href="/beaches/usa/ca/san-diego"
+                className="text-[#F78E42] hover:underline"
+              >
+                beach forecast pages
+              </Link>{" "}
+              before you decide which board to bring.
+            </p>
+          </section>
 
           {/* FAQ section */}
           <section aria-labelledby="faq-heading" className="mt-12">

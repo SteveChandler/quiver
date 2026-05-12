@@ -63,7 +63,7 @@ const FAQ_ITEMS = [
   {
     question: "What is the right surfboard volume for big waves?",
     answer:
-      "For bigger, more powerful waves (6ft+), you generally want slightly less volume than your baseline — around 5% less. Less volume means the board sits lower in the water, which helps in steep, fast waves. Advanced and expert surfers riding overhead-plus conditions often use a \"step-up\" board: same skill-level volume but a longer, narrower shape for more hold.",
+      'For bigger, more powerful waves (6ft+), you generally want slightly less volume than your baseline — around 5% less. Less volume means the board sits lower in the water, which helps in steep, fast waves. Advanced and expert surfers riding overhead-plus conditions often use a "step-up" board: same skill-level volume but a longer, narrower shape for more hold.',
   },
 ];
 
@@ -76,7 +76,10 @@ export default function BoardCalculatorPage() {
         items={[
           { name: "Quiver", url: `${SITE_URL}/` },
           { name: "Surfer's Toolkit", url: `${SITE_URL}/tools` },
-          { name: "Surfboard Volume Calculator", url: `${SITE_URL}/tools/board-calculator` },
+          {
+            name: "Surfboard Volume Calculator",
+            url: `${SITE_URL}/tools/board-calculator`,
+          },
         ]}
       />
       <script
@@ -87,11 +90,16 @@ export default function BoardCalculatorPage() {
             "@type": "WebApplication",
             name: "Quiver Surfboard Volume Calculator",
             url: `${SITE_URL}/tools/board-calculator`,
-            description: "Find the right surfboard volume for your weight, skill level, and the waves you ride. Get board type suggestions and a size chart.",
+            description:
+              "Find the right surfboard volume for your weight, skill level, and the waves you ride. Get board type suggestions and a size chart.",
             applicationCategory: "SportsApplication",
             operatingSystem: "Any",
             offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-            publisher: { "@type": "Organization", name: "Quiver", url: SITE_URL },
+            publisher: {
+              "@type": "Organization",
+              name: "Quiver",
+              url: SITE_URL,
+            },
           }),
         }}
       />
@@ -99,6 +107,7 @@ export default function BoardCalculatorPage() {
       <div className="min-h-screen" style={{ background: "#0F1535" }}>
         <ToolHero
           imageSrc={TOOL_IMAGES["board-calculator"]}
+          imageAlt="Surfboard volume calculator preview with surfboard size controls."
           title="Surfboard Volume Calculator"
           description="Find the right board size for your weight, skill level, and the waves you ride."
         />

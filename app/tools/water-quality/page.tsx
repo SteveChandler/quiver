@@ -11,7 +11,10 @@ import Link from "next/link";
 import { AlertTriangle, CheckCircle, XCircle, HelpCircle } from "lucide-react";
 
 import { buildPageMetadata } from "@/lib/seo/meta";
-import { getBeachWaterQuality, getBeachesWithWaterQuality } from "@/actions/tools/water-quality-actions";
+import {
+  getBeachWaterQuality,
+  getBeachesWithWaterQuality,
+} from "@/actions/tools/water-quality-actions";
 import { WQ_STATUS, EPA_BEACH_CRITERIA } from "@/lib/constants/water-quality";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { ToolShareButton } from "@/components/tools/tool-share-button";
@@ -109,9 +112,21 @@ function StatusBadge({ status }: { status: WQStatus }) {
   );
 }
 
-function StatusMessage({ status, beachName, date }: { status: WQStatus; beachName: string; date: string | null }) {
+function StatusMessage({
+  status,
+  beachName,
+  date,
+}: {
+  status: WQStatus;
+  beachName: string;
+  date: string | null;
+}) {
   const formattedDate = date
-    ? new Date(date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+    ? new Date(date).toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
     : null;
 
   const messages: Record<WQStatus, string> = {
@@ -121,20 +136,38 @@ function StatusMessage({ status, beachName, date }: { status: WQStatus; beachNam
     [WQ_STATUS.UNKNOWN]: `No recent test data available for ${beachName}. Check back after the next monitoring cycle.`,
   };
 
-  return <p className="text-slate-600 text-base leading-relaxed">{messages[status]}</p>;
+  return (
+    <p className="text-slate-600 text-base leading-relaxed">
+      {messages[status]}
+    </p>
+  );
 }
 
-function MetricBar({ value, max, label }: { value: number; max: number; label: string }) {
+function MetricBar({
+  value,
+  max,
+  label,
+}: {
+  value: number;
+  max: number;
+  label: string;
+}) {
   const pct = Math.min(100, (value / max) * 100);
-  const color = pct >= 100 ? "bg-red-500" : pct >= 70 ? "bg-amber-400" : "bg-emerald-500";
+  const color =
+    pct >= 100 ? "bg-red-500" : pct >= 70 ? "bg-amber-400" : "bg-emerald-500";
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-xs text-slate-500">
         <span>{label}</span>
-        <span className="font-mono">{value.toFixed(0)} / {max} CFU/100mL</span>
+        <span className="font-mono">
+          {value.toFixed(0)} / {max} CFU/100mL
+        </span>
       </div>
       <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+        <div
+          className={`h-full rounded-full transition-all ${color}`}
+          style={{ width: `${pct}%` }}
+        />
       </div>
     </div>
   );
@@ -148,12 +181,16 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
   const { beach: beachSlug } = await searchParams;
 
   const [wqResult, allBeachesResult] = await Promise.all([
-    beachSlug ? getBeachWaterQuality(beachSlug) : Promise.resolve({ success: true, data: null }),
+    beachSlug
+      ? getBeachWaterQuality(beachSlug)
+      : Promise.resolve({ success: true, data: null }),
     getBeachesWithWaterQuality(),
   ]);
 
   const wq = wqResult.success ? wqResult.data : null;
-  const allBeaches = allBeachesResult.success ? (allBeachesResult.data ?? []) : [];
+  const allBeaches = allBeachesResult.success
+    ? (allBeachesResult.data ?? [])
+    : [];
 
   return (
     <div className="min-h-screen" style={{ background: "#0F1535" }}>
@@ -162,7 +199,10 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
         items={[
           { name: "Quiver", url: `${SITE_ORIGIN}/` },
           { name: "Surfer's Toolkit", url: `${SITE_ORIGIN}/tools` },
-          { name: "Water Quality Check", url: `${SITE_ORIGIN}/tools/water-quality` },
+          {
+            name: "Water Quality Check",
+            url: `${SITE_ORIGIN}/tools/water-quality`,
+          },
         ]}
       />
       <script
@@ -173,17 +213,23 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
             "@type": "WebApplication",
             name: "Quiver Water Quality Check",
             url: `${SITE_ORIGIN}/tools/water-quality`,
-            description: "Check bacteria levels before you paddle out. Real water quality data from EPA monitoring stations for California and Hawaii beaches.",
+            description:
+              "Check bacteria levels before you paddle out. Real water quality data from EPA monitoring stations for California and Hawaii beaches.",
             applicationCategory: "SportsApplication",
             operatingSystem: "Any",
             offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-            publisher: { "@type": "Organization", name: "Quiver", url: SITE_ORIGIN },
+            publisher: {
+              "@type": "Organization",
+              name: "Quiver",
+              url: SITE_ORIGIN,
+            },
           }),
         }}
       />
 
       <ToolHero
         imageSrc={TOOL_IMAGES["water-quality"]}
+        imageAlt="Kelp forest underwater near a coastal surf zone."
         title="Water Quality Check"
         description="Check bacteria levels before you paddle out. Updated from EPA monitoring stations. Currently covers CA & HI."
       />
@@ -192,9 +238,7 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
         {/* Beach Search */}
         <ScrollReveal>
           <div className="mb-8">
-            <WaterQualitySearch
-              placeholder="Search for a CA or HI beach..."
-            />
+            <WaterQualitySearch placeholder="Search for a CA or HI beach..." />
           </div>
         </ScrollReveal>
 
@@ -216,9 +260,13 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
               >
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div>
-                    <h2 className="text-xl font-bold text-white mb-1">{wq.beachName}</h2>
+                    <h2 className="text-xl font-bold text-white mb-1">
+                      {wq.beachName}
+                    </h2>
                     {wq.city && (
-                      <p className="text-slate-400 text-sm">{wq.city}, {wq.state}</p>
+                      <p className="text-slate-400 text-sm">
+                        {wq.city}, {wq.state}
+                      </p>
                     )}
                   </div>
                   <div className="flex items-center gap-3">
@@ -239,12 +287,17 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
                   </div>
                 </div>
                 <div className="mt-4">
-                  <StatusMessage status={wq.status} beachName={wq.beachName} date={wq.latestSampleDate} />
+                  <StatusMessage
+                    status={wq.status}
+                    beachName={wq.beachName}
+                    date={wq.latestSampleDate}
+                  />
                 </div>
               </div>
 
               {/* Metrics */}
-              {(wq.latestEnterococcus !== null || wq.latestFecalColiform !== null) && (
+              {(wq.latestEnterococcus !== null ||
+                wq.latestFecalColiform !== null) && (
                 <div className="p-6 space-y-6">
                   <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
                     Latest Test Results
@@ -271,7 +324,9 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
                   {wq.totalSamples30d > 0 && (
                     <div className="pt-4 border-t border-white/10">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-400">30-day exceedances</span>
+                        <span className="text-slate-400">
+                          30-day exceedances
+                        </span>
                         <span className="font-mono text-white">
                           {wq.exceedanceCount30d} / {wq.totalSamples30d} samples
                         </span>
@@ -298,10 +353,13 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
               {/* Rain advisory */}
               <div className="px-6 pb-6">
                 <div className="rounded-xl bg-blue-900/30 border border-blue-700/30 p-4">
-                  <p className="text-sm text-blue-200 font-medium mb-1">Rain Advisory</p>
+                  <p className="text-sm text-blue-200 font-medium mb-1">
+                    Rain Advisory
+                  </p>
                   <p className="text-xs text-blue-300">
-                    Bacteria levels typically spike 24–72 hours after rain, especially near storm drains
-                    and river mouths. Avoid surfing near these areas for 72 hours after significant rainfall.
+                    Bacteria levels typically spike 24–72 hours after rain,
+                    especially near storm drains and river mouths. Avoid surfing
+                    near these areas for 72 hours after significant rainfall.
                   </p>
                 </div>
               </div>
@@ -315,8 +373,9 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
                   See full conditions at {wq.beachName}
                 </Link>
                 <p className="text-xs text-slate-500 text-center">
-                  Data from {wq.state === "HI" ? "PacIOOS ERDDAP" : "CEDEN"}. Monitoring stations may not be at your
-                  exact surf spot. Levels can change rapidly after rain.
+                  Data from {wq.state === "HI" ? "PacIOOS ERDDAP" : "CEDEN"}.
+                  Monitoring stations may not be at your exact surf spot. Levels
+                  can change rapidly after rain.
                 </p>
               </div>
             </div>
@@ -325,10 +384,13 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
           <ScrollReveal>
             <div className="mb-8 rounded-2xl bg-white/5 border border-white/10 p-8 text-center">
               <HelpCircle className="h-10 w-10 text-slate-400 mx-auto mb-3" />
-              <h2 className="text-white font-semibold mb-2">No water quality data for this beach</h2>
+              <h2 className="text-white font-semibold mb-2">
+                No water quality data for this beach
+              </h2>
               <p className="text-slate-400 text-sm max-w-sm mx-auto">
-                This beach either isn&apos;t in our monitoring network or hasn&apos;t been tested recently.
-                Water quality data is currently available for California and Hawaii beaches only.
+                This beach either isn&apos;t in our monitoring network or
+                hasn&apos;t been tested recently. Water quality data is
+                currently available for California and Hawaii beaches only.
               </p>
             </div>
           </ScrollReveal>
@@ -341,7 +403,10 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
               <h2 className="text-lg font-semibold text-white mb-4">
                 All Monitored Beaches
               </h2>
-              <WaterQualityMapList beaches={allBeaches} currentSlug={beachSlug} />
+              <WaterQualityMapList
+                beaches={allBeaches}
+                currentSlug={beachSlug}
+              />
             </div>
           </ScrollReveal>
         )}
@@ -349,7 +414,9 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
         {/* FAQ */}
         <ScrollReveal>
           <section className="mb-8">
-            <h2 className="text-xl font-bold text-white mb-4">Frequently Asked Questions</h2>
+            <h2 className="text-xl font-bold text-white mb-4">
+              Frequently Asked Questions
+            </h2>
             <div className="space-y-3">
               {FAQ_ITEMS.map((item) => (
                 <details
@@ -379,15 +446,17 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
             </h3>
             <ul className="text-sm text-slate-400 space-y-1">
               <li>
-                <span className="text-white font-medium">California:</span> CEDEN (California
-                Environmental Data Exchange Network) — updated bi-weekly
+                <span className="text-white font-medium">California:</span>{" "}
+                CEDEN (California Environmental Data Exchange Network) — updated
+                bi-weekly
               </li>
               <li>
-                <span className="text-white font-medium">Hawaii:</span> PacIOOS ERDDAP (Hawaii
-                DOH Clean Water Branch) — updated bi-weekly
+                <span className="text-white font-medium">Hawaii:</span> PacIOOS
+                ERDDAP (Hawaii DOH Clean Water Branch) — updated bi-weekly
               </li>
               <li className="pt-1 text-slate-500">
-                More states coming soon. Monitoring stations may not be at your exact surf spot.
+                More states coming soon. Monitoring stations may not be at your
+                exact surf spot.
               </li>
             </ul>
           </div>
@@ -396,7 +465,10 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
         {/* InlineSignupCta wrapped in dark container to match page background */}
         <div
           className="mb-8 rounded-2xl p-px"
-          style={{ background: "linear-gradient(135deg, rgba(247,142,66,0.3) 0%, rgba(64,76,146,0.4) 100%)" }}
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(247,142,66,0.3) 0%, rgba(64,76,146,0.4) 100%)",
+          }}
         >
           <div className="rounded-2xl" style={{ background: "#1A2158" }}>
             <InlineSignupCta

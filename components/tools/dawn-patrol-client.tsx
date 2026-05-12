@@ -74,7 +74,7 @@ function isToday(dateStr: string, timezone: string | null): boolean {
 /** Find the tide state at a given moment from hourly predictions */
 function getTideAtTime(
   predictions: TidePrediction[],
-  isoTime: string | null
+  isoTime: string | null,
 ): { height_ft: number; isRising: boolean } | null {
   if (!isoTime || predictions.length < 2) return null;
   const targetMs = new Date(isoTime).getTime();
@@ -86,10 +86,12 @@ function getTideAtTime(
       const frac = (targetMs - t1) / (t2 - t1);
       const h =
         predictions[i].tide_height_m +
-        frac * (predictions[i + 1].tide_height_m - predictions[i].tide_height_m);
+        frac *
+          (predictions[i + 1].tide_height_m - predictions[i].tide_height_m);
       return {
         height_ft: Math.round(mToFt(h) * 10) / 10,
-        isRising: predictions[i + 1].tide_height_m > predictions[i].tide_height_m,
+        isRising:
+          predictions[i + 1].tide_height_m > predictions[i].tide_height_m,
       };
     }
   }
@@ -98,7 +100,7 @@ function getTideAtTime(
 
 /** Simple verdict: based on tide at dawn */
 function getDawnVerdict(
-  tideAtDawn: { height_ft: number; isRising: boolean } | null
+  tideAtDawn: { height_ft: number; isRising: boolean } | null,
 ): { emoji: string; label: string; color: string } {
   if (!tideAtDawn) {
     return { emoji: "→", label: "Check conditions", color: "#7A8CC0" };
@@ -108,7 +110,11 @@ function getDawnVerdict(
     return { emoji: "↓", label: "High tide at dawn", color: "#B8C7E0" };
   }
   // Rising tide at moderate height = good
-  if (tideAtDawn.isRising && tideAtDawn.height_ft >= 1.5 && tideAtDawn.height_ft <= 4) {
+  if (
+    tideAtDawn.isRising &&
+    tideAtDawn.height_ft >= 1.5 &&
+    tideAtDawn.height_ft <= 4
+  ) {
     return { emoji: "✓", label: "Good tide", color: "#4CAF8A" };
   }
   // Low tide at dawn = potentially good for reef breaks
@@ -134,7 +140,8 @@ function DayTimeline({
   if (!day.civilTwilight && !day.sunrise) return null;
 
   // Build time markers
-  const markers: { iso: string; label: string; color: string; icon: string }[] = [];
+  const markers: { iso: string; label: string; color: string; icon: string }[] =
+    [];
 
   if (day.civilTwilight) {
     markers.push({
@@ -301,40 +308,45 @@ export function DawnPatrolClient() {
     if (beachSlug) {
       fetchData(beachSlug);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchData = useCallback(async (beachSlug: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/tools/dawn-patrol?beachSlug=${encodeURIComponent(beachSlug)}`
-      );
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json.error || "Failed to load dawn patrol data");
-      }
-      const d: DawnPatrolData = await res.json();
-      setData(d);
+  const fetchData = useCallback(
+    async (beachSlug: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(
+          `/api/tools/dawn-patrol?beachSlug=${encodeURIComponent(beachSlug)}`,
+        );
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}));
+          throw new Error(json.error || "Failed to load dawn patrol data");
+        }
+        const d: DawnPatrolData = await res.json();
+        setData(d);
 
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("beach", beachSlug);
-      router.replace(`?${params.toString()}`, { scroll: false });
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Unable to load data. Try again."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [router, searchParams]);
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("beach", beachSlug);
+        router.replace(`?${params.toString()}`, { scroll: false });
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load data. Try again.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [router, searchParams],
+  );
 
   const handleBeachSelect = useCallback(
     (beach: Beach) => {
       if (beach.slug) fetchData(beach.slug);
     },
-    [fetchData]
+    [fetchData],
   );
 
   const timezone = data?.beach.timezone ?? null;
@@ -355,8 +367,10 @@ export function DawnPatrolClient() {
     <div className="min-h-screen" style={{ background: "#0F1535" }}>
       <ToolHero
         imageSrc={TOOL_IMAGES["dawn-patrol"]}
+        imageAlt="Surfer walking along the shoreline near sunset."
         title="Dawn Patrol Calculator"
         description="Know exactly when to be in the water. First light, sunrise, golden hour — plus tide at dawn."
+        headingLevel="p"
       >
         <div className="max-w-md mx-auto">
           <BeachSearchAutocomplete
@@ -373,7 +387,9 @@ export function DawnPatrolClient() {
         {loading && (
           <div className="flex items-center justify-center py-20 gap-3 text-[#7A8CC0]">
             <RefreshCw className="h-5 w-5 animate-spin" />
-            <span className="font-mono text-sm">Loading dawn patrol data...</span>
+            <span className="font-mono text-sm">
+              Loading dawn patrol data...
+            </span>
           </div>
         )}
 
@@ -450,7 +466,10 @@ export function DawnPatrolClient() {
                         </p>
                         <span
                           className="font-mono text-xs font-semibold px-2 py-0.5 rounded-full"
-                          style={{ color: verdict.color, background: `${verdict.color}18` }}
+                          style={{
+                            color: verdict.color,
+                            background: `${verdict.color}18`,
+                          }}
                         >
                           {verdict.emoji} {verdict.label}
                         </span>
@@ -466,7 +485,8 @@ export function DawnPatrolClient() {
                             {formatTime(day.civilTwilight, timezone)}
                           </p>
                           <p className="font-mono text-xs text-[#7A8CC0] mt-1">
-                            About 30 min before sunrise — enough to read the lineup
+                            About 30 min before sunrise — enough to read the
+                            lineup
                           </p>
                         </div>
                       )}
@@ -474,22 +494,37 @@ export function DawnPatrolClient() {
                       {/* Sun grid */}
                       <div className="grid grid-cols-3 gap-2 text-center">
                         <div>
-                          <Sunrise className="h-4 w-4 text-[#F78E42] mx-auto mb-0.5" aria-hidden="true" />
-                          <p className="font-mono text-[10px] text-[#7A8CC0]">Sunrise</p>
+                          <Sunrise
+                            className="h-4 w-4 text-[#F78E42] mx-auto mb-0.5"
+                            aria-hidden="true"
+                          />
+                          <p className="font-mono text-[10px] text-[#7A8CC0]">
+                            Sunrise
+                          </p>
                           <p className="font-mono text-sm font-semibold text-white">
                             {formatTime(day.sunrise, timezone)}
                           </p>
                         </div>
                         <div>
-                          <Sun className="h-4 w-4 text-[#FFB347] mx-auto mb-0.5" aria-hidden="true" />
-                          <p className="font-mono text-[10px] text-[#7A8CC0]">Golden hr</p>
+                          <Sun
+                            className="h-4 w-4 text-[#FFB347] mx-auto mb-0.5"
+                            aria-hidden="true"
+                          />
+                          <p className="font-mono text-[10px] text-[#7A8CC0]">
+                            Golden hr
+                          </p>
                           <p className="font-mono text-sm font-semibold text-white">
                             {formatTime(day.goldenHour, timezone)}
                           </p>
                         </div>
                         <div>
-                          <Moon className="h-4 w-4 text-[#B8C7E0] mx-auto mb-0.5" aria-hidden="true" />
-                          <p className="font-mono text-[10px] text-[#7A8CC0]">Sunset</p>
+                          <Moon
+                            className="h-4 w-4 text-[#B8C7E0] mx-auto mb-0.5"
+                            aria-hidden="true"
+                          />
+                          <p className="font-mono text-[10px] text-[#7A8CC0]">
+                            Sunset
+                          </p>
                           <p className="font-mono text-sm font-semibold text-white">
                             {formatTime(day.sunset, timezone)}
                           </p>
@@ -518,9 +553,7 @@ export function DawnPatrolClient() {
                       )}
 
                       {/* Timeline */}
-                      {isTod && (
-                        <DayTimeline day={day} timezone={timezone} />
-                      )}
+                      {isTod && <DayTimeline day={day} timezone={timezone} />}
                     </div>
                   );
                 })}
@@ -536,7 +569,10 @@ export function DawnPatrolClient() {
                   borderColor: "rgba(64, 76, 146, 0.4)",
                 }}
               >
-                <div className="px-5 py-4 border-b" style={{ borderColor: "rgba(64,76,146,0.3)" }}>
+                <div
+                  className="px-5 py-4 border-b"
+                  style={{ borderColor: "rgba(64,76,146,0.3)" }}
+                >
                   <p className="font-mono text-xs font-semibold uppercase tracking-widest text-[#7A8CC0]">
                     7-Day Dawn Patrol Forecast
                   </p>
@@ -550,7 +586,10 @@ export function DawnPatrolClient() {
                   <span>Sunrise</span>
                   <span className="text-right">Tide</span>
                 </div>
-                <div className="divide-y" style={{ borderColor: "rgba(64,76,146,0.2)" }}>
+                <div
+                  className="divide-y"
+                  style={{ borderColor: "rgba(64,76,146,0.2)" }}
+                >
                   {data.days.slice(2).map((day) => {
                     const tideAtDawn =
                       data.stationId && data.tidePredictions.length > 0
@@ -661,9 +700,10 @@ export function DawnPatrolClient() {
                 What is first light?
               </p>
               <p className="text-[#B8C7E0] text-sm max-w-md mx-auto">
-                First light (civil twilight) starts about 30 minutes before sunrise.
-                There&apos;s enough light to see the lineup and spot other surfers —
-                without waiting for the crowds that show up after sunrise.
+                First light (civil twilight) starts about 30 minutes before
+                sunrise. There&apos;s enough light to see the lineup and spot
+                other surfers — without waiting for the crowds that show up
+                after sunrise.
               </p>
             </div>
 

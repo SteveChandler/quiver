@@ -7,6 +7,7 @@
 
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { TideClockClient } from "@/components/tools/tide-clock-client";
@@ -116,6 +117,7 @@ export default function TideClockPage() {
       />
 
       <div className="min-h-screen" style={{ background: "#0F1535" }}>
+        <h1 className="sr-only">Tide Clock</h1>
         <Suspense>
           <TideClockClient />
         </Suspense>
@@ -143,8 +145,7 @@ export default function TideClockPage() {
                 Predictions come from{" "}
                 <strong className="text-white">NOAA</strong> — the same source
                 used by the Coast Guard and National Weather Service. Typically
-                accurate within 5-10 minutes and a few inches for US
-                coastlines.
+                accurate within 5-10 minutes and a few inches for US coastlines.
               </p>
               <p>
                 Most US beaches see two highs and two lows per day, roughly 6
@@ -153,6 +154,42 @@ export default function TideClockPage() {
                 <strong className="text-white">
                   best conditions for surfing
                 </strong>
+                .
+              </p>
+              <p>
+                Use the tide clock with the{" "}
+                <Link
+                  href="/forecast"
+                  className="text-[#F78E42] hover:underline"
+                >
+                  7-day surf forecast
+                </Link>
+                ,{" "}
+                <Link
+                  href="/water-temp/san-diego"
+                  className="text-[#F78E42] hover:underline"
+                >
+                  water temperature guide
+                </Link>
+                , and{" "}
+                <Link href="/map" className="text-[#F78E42] hover:underline">
+                  surf map
+                </Link>{" "}
+                to decide whether a tide window is actually worth paddling out.
+                For a city-level starting point, check{" "}
+                <Link
+                  href="/tide/san-diego"
+                  className="text-[#F78E42] hover:underline"
+                >
+                  San Diego tide charts
+                </Link>{" "}
+                or browse{" "}
+                <Link
+                  href="/beaches/usa/ca/san-diego"
+                  className="text-[#F78E42] hover:underline"
+                >
+                  San Diego beach pages
+                </Link>
                 .
               </p>
             </div>

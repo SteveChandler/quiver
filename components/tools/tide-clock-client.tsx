@@ -18,7 +18,11 @@ const POPULAR_BEACH_SLUGS = [
   { slug: "pipeline", name: "Pipeline", state: "HI" },
   { slug: "lower-trestles", name: "Lower Trestles", state: "CA" },
   { slug: "rincon-carpinteria-ca", name: "Rincon", state: "CA" },
-  { slug: "rockaway-beach-90th-st-queens-ny", name: "Rockaway Beach", state: "NY" },
+  {
+    slug: "rockaway-beach-90th-st-queens-ny",
+    name: "Rockaway Beach",
+    state: "NY",
+  },
   { slug: "huntington-beach-pier", name: "Huntington Beach Pier", state: "CA" },
   { slug: "ocean-beach", name: "Ocean Beach", state: "CA" },
   { slug: "ditch-plains-montauk-ny", name: "Ditch Plains", state: "NY" },
@@ -68,7 +72,7 @@ function formatTime(iso: string, timezone: string | null): string {
 /** Find local extremes (high/low tides) in an array of hourly predictions */
 function findTideExtremes(
   predictions: TidePrediction[],
-  timezone: string | null
+  timezone: string | null,
 ): TideExtreme[] {
   const extremes: TideExtreme[] = [];
   for (let i = 1; i < predictions.length - 1; i++) {
@@ -97,7 +101,10 @@ function getCurrentTideHeight(predictions: TidePrediction[]): number | null {
     const t2 = new Date(predictions[i + 1].ts).getTime();
     if (now >= t1 && now <= t2) {
       const frac = (now - t1) / (t2 - t1);
-      const h = predictions[i].tide_height_m + frac * (predictions[i + 1].tide_height_m - predictions[i].tide_height_m);
+      const h =
+        predictions[i].tide_height_m +
+        frac *
+          (predictions[i + 1].tide_height_m - predictions[i].tide_height_m);
       return Math.round(mToFt(h) * 10) / 10;
     }
   }
@@ -129,7 +136,13 @@ interface TideClockProps {
   currentHeight: number | null;
 }
 
-function TideClock({ predictions, sunriseUtc, sunsetUtc, timezone, currentHeight }: TideClockProps) {
+function TideClock({
+  predictions,
+  sunriseUtc,
+  sunsetUtc,
+  timezone,
+  currentHeight,
+}: TideClockProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
 
@@ -202,8 +215,10 @@ function TideClock({ predictions, sunriseUtc, sunsetUtc, timezone, currentHeight
       const riseMs = new Date(sunriseUtc).getTime();
       const setMs = new Date(sunsetUtc).getTime();
       if (riseMs >= startMs && setMs <= endMs) {
-        const riseAngle = ((riseMs - startMs) / totalMs) * Math.PI * 2 - Math.PI / 2;
-        const setAngle = ((setMs - startMs) / totalMs) * Math.PI * 2 - Math.PI / 2;
+        const riseAngle =
+          ((riseMs - startMs) / totalMs) * Math.PI * 2 - Math.PI / 2;
+        const setAngle =
+          ((setMs - startMs) / totalMs) * Math.PI * 2 - Math.PI / 2;
         ctx.beginPath();
         ctx.arc(cx, cy, r, riseAngle, setAngle);
         ctx.strokeStyle = "rgba(247, 142, 66, 0.4)";
@@ -220,7 +235,9 @@ function TideClock({ predictions, sunriseUtc, sunsetUtc, timezone, currentHeight
       ctx.beginPath();
       ctx.moveTo(cx + Math.cos(angle) * inner, cy + Math.sin(angle) * inner);
       ctx.lineTo(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
-      ctx.strokeStyle = isMajor ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.2)";
+      ctx.strokeStyle = isMajor
+        ? "rgba(255,255,255,0.5)"
+        : "rgba(255,255,255,0.2)";
       ctx.lineWidth = isMajor ? 2 : 1;
       ctx.stroke();
     }
@@ -232,7 +249,11 @@ function TideClock({ predictions, sunriseUtc, sunsetUtc, timezone, currentHeight
       const angle = (hourIndex / 24) * Math.PI * 2 - Math.PI / 2;
       const ms = startMs + (hourIndex / 24) * totalMs;
       const label = new Date(ms)
-        .toLocaleTimeString("en-US", { hour: "numeric", hour12: true, timeZone: tz })
+        .toLocaleTimeString("en-US", {
+          hour: "numeric",
+          hour12: true,
+          timeZone: tz,
+        })
         .replace(/ AM$/i, "a")
         .replace(/ PM$/i, "p");
       const labelR = r + 24;
@@ -247,10 +268,14 @@ function TideClock({ predictions, sunriseUtc, sunsetUtc, timezone, currentHeight
 
     // Current time needle
     if (nowMs >= startMs && nowMs <= endMs) {
-      const nowAngle = ((nowMs - startMs) / totalMs) * Math.PI * 2 - Math.PI / 2;
+      const nowAngle =
+        ((nowMs - startMs) / totalMs) * Math.PI * 2 - Math.PI / 2;
       ctx.beginPath();
       ctx.moveTo(cx, cy);
-      ctx.lineTo(cx + Math.cos(nowAngle) * (r - 6), cy + Math.sin(nowAngle) * (r - 6));
+      ctx.lineTo(
+        cx + Math.cos(nowAngle) * (r - 6),
+        cy + Math.sin(nowAngle) * (r - 6),
+      );
       ctx.strokeStyle = "#F78E42";
       ctx.lineWidth = 3;
       ctx.lineCap = "round";
@@ -263,7 +288,7 @@ function TideClock({ predictions, sunriseUtc, sunsetUtc, timezone, currentHeight
         cy + Math.sin(nowAngle) * (r - 6),
         5,
         0,
-        Math.PI * 2
+        Math.PI * 2,
       );
       ctx.fillStyle = "#F78E42";
       ctx.fill();
@@ -339,38 +364,41 @@ export function TideClockClient() {
     if (beachSlug) {
       fetchTideData(beachSlug);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchTideData = useCallback(async (beachSlug: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/tools/tide-clock?beachSlug=${encodeURIComponent(beachSlug)}`
-      );
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json.error || "Failed to load tide data");
-      }
-      const data: TideData = await res.json();
-      setTideData(data);
-      setBeachName(data.beach.name);
+  const fetchTideData = useCallback(
+    async (beachSlug: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(
+          `/api/tools/tide-clock?beachSlug=${encodeURIComponent(beachSlug)}`,
+        );
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}));
+          throw new Error(json.error || "Failed to load tide data");
+        }
+        const data: TideData = await res.json();
+        setTideData(data);
+        setBeachName(data.beach.name);
 
-      // Update URL without navigation
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("beach", beachSlug);
-      router.replace(`?${params.toString()}`, { scroll: false });
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Tide data temporarily unavailable. Try again in a few minutes."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [router, searchParams]);
+        // Update URL without navigation
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("beach", beachSlug);
+        router.replace(`?${params.toString()}`, { scroll: false });
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Tide data temporarily unavailable. Try again in a few minutes.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [router, searchParams],
+  );
 
   const handleBeachSelect = useCallback(
     (beach: Beach) => {
@@ -379,7 +407,7 @@ export function TideClockClient() {
         fetchTideData(beach.slug);
       }
     },
-    [fetchTideData]
+    [fetchTideData],
   );
 
   const extremes = tideData
@@ -402,18 +430,29 @@ export function TideClockClient() {
       : null;
 
   // Compute TideChart window from actual data range
-  const dataStartMs = tideData ? new Date(tideData.predictions[0].ts).getTime() : 0;
-  const dataEndMs = tideData ? new Date(tideData.predictions[tideData.predictions.length - 1].ts).getTime() : 0;
-  const dataSpanMs = (dataEndMs - dataStartMs) || 3_600_000;
+  const dataStartMs = tideData
+    ? new Date(tideData.predictions[0].ts).getTime()
+    : 0;
+  const dataEndMs = tideData
+    ? new Date(
+        tideData.predictions[tideData.predictions.length - 1].ts,
+      ).getTime()
+    : 0;
+  const dataSpanMs = dataEndMs - dataStartMs || 3_600_000;
   const tideWindowHours = dataSpanMs / 3_600_000;
-  const tideNowBias = Math.max(0.05, Math.min(0.95, (Date.now() - dataStartMs) / dataSpanMs));
+  const tideNowBias = Math.max(
+    0.05,
+    Math.min(0.95, (Date.now() - dataStartMs) / dataSpanMs),
+  );
 
   return (
     <div className="min-h-screen" style={{ background: "#0F1535" }}>
       <ToolHero
         imageSrc={TOOL_IMAGES["tide-clock"]}
+        imageAlt="Tide pools exposed at low tide along a rocky shoreline."
         title="Tide Clock"
         description="Real-time tide heights for any beach."
+        headingLevel="p"
       >
         <div className="max-w-md mx-auto">
           <BeachSearchAutocomplete
@@ -476,27 +515,30 @@ export function TideClockClient() {
                       : undefined
                   }
                 />
-              {rising !== null && (
-                <span
-                  className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-mono text-xs font-semibold uppercase tracking-wider"
-                  style={{
-                    background: rising
-                      ? "rgba(247, 142, 66, 0.12)"
-                      : "rgba(100, 120, 200, 0.15)",
-                    borderColor: rising
-                      ? "rgba(247, 142, 66, 0.4)"
-                      : "rgba(184, 199, 224, 0.25)",
-                    color: rising ? "#F78E42" : "#B8C7E0",
-                  }}
-                >
-                  {rising ? (
-                    <TrendingUp className="h-3.5 w-3.5" aria-hidden="true" />
-                  ) : (
-                    <TrendingDown className="h-3.5 w-3.5" aria-hidden="true" />
-                  )}
-                  {rising ? "Rising" : "Falling"}
-                </span>
-              )}
+                {rising !== null && (
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-mono text-xs font-semibold uppercase tracking-wider"
+                    style={{
+                      background: rising
+                        ? "rgba(247, 142, 66, 0.12)"
+                        : "rgba(100, 120, 200, 0.15)",
+                      borderColor: rising
+                        ? "rgba(247, 142, 66, 0.4)"
+                        : "rgba(184, 199, 224, 0.25)",
+                      color: rising ? "#F78E42" : "#B8C7E0",
+                    }}
+                  >
+                    {rising ? (
+                      <TrendingUp className="h-3.5 w-3.5" aria-hidden="true" />
+                    ) : (
+                      <TrendingDown
+                        className="h-3.5 w-3.5"
+                        aria-hidden="true"
+                      />
+                    )}
+                    {rising ? "Rising" : "Falling"}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -554,7 +596,10 @@ export function TideClockClient() {
                       }}
                     >
                       <div className="flex items-center justify-center gap-1 mb-1">
-                        <TrendingUp className="h-3.5 w-3.5 text-[#F78E42]" aria-hidden="true" />
+                        <TrendingUp
+                          className="h-3.5 w-3.5 text-[#F78E42]"
+                          aria-hidden="true"
+                        />
                         <span className="font-mono text-xs font-semibold uppercase tracking-wider text-[#7A8CC0]">
                           High
                         </span>
@@ -577,7 +622,10 @@ export function TideClockClient() {
                       }}
                     >
                       <div className="flex items-center justify-center gap-1 mb-1">
-                        <TrendingDown className="h-3.5 w-3.5 text-[#B8C7E0]" aria-hidden="true" />
+                        <TrendingDown
+                          className="h-3.5 w-3.5 text-[#B8C7E0]"
+                          aria-hidden="true"
+                        />
                         <span className="font-mono text-xs font-semibold uppercase tracking-wider text-[#7A8CC0]">
                           Low
                         </span>
@@ -593,29 +641,40 @@ export function TideClockClient() {
                 </div>
 
                 {/* Sun times */}
-                {tideData.sunTimes?.sunrise_utc && tideData.sunTimes?.sunset_utc && (
-                  <div
-                    className="rounded-xl border px-4 py-3 flex items-center justify-between"
-                    style={{
-                      background: "rgba(247, 142, 66, 0.06)",
-                      borderColor: "rgba(247, 142, 66, 0.2)",
-                    }}
-                  >
-                    <div className="text-center">
-                      <p className="font-mono text-xs text-[#7A8CC0] mb-0.5">Sunrise</p>
-                      <p className="font-mono text-sm font-semibold text-[#F78E42]">
-                        {formatTime(tideData.sunTimes.sunrise_utc, tideData.beach.timezone)}
-                      </p>
+                {tideData.sunTimes?.sunrise_utc &&
+                  tideData.sunTimes?.sunset_utc && (
+                    <div
+                      className="rounded-xl border px-4 py-3 flex items-center justify-between"
+                      style={{
+                        background: "rgba(247, 142, 66, 0.06)",
+                        borderColor: "rgba(247, 142, 66, 0.2)",
+                      }}
+                    >
+                      <div className="text-center">
+                        <p className="font-mono text-xs text-[#7A8CC0] mb-0.5">
+                          Sunrise
+                        </p>
+                        <p className="font-mono text-sm font-semibold text-[#F78E42]">
+                          {formatTime(
+                            tideData.sunTimes.sunrise_utc,
+                            tideData.beach.timezone,
+                          )}
+                        </p>
+                      </div>
+                      <div className="text-[#F78E42] text-xs">—</div>
+                      <div className="text-center">
+                        <p className="font-mono text-xs text-[#7A8CC0] mb-0.5">
+                          Sunset
+                        </p>
+                        <p className="font-mono text-sm font-semibold text-[#F78E42]">
+                          {formatTime(
+                            tideData.sunTimes.sunset_utc,
+                            tideData.beach.timezone,
+                          )}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-[#F78E42] text-xs">—</div>
-                    <div className="text-center">
-                      <p className="font-mono text-xs text-[#7A8CC0] mb-0.5">Sunset</p>
-                      <p className="font-mono text-sm font-semibold text-[#F78E42]">
-                        {formatTime(tideData.sunTimes.sunset_utc, tideData.beach.timezone)}
-                      </p>
-                    </div>
-                  </div>
-                )}
+                  )}
               </div>
             </div>
 
@@ -657,7 +716,8 @@ export function TideClockClient() {
                     Get the full picture
                   </p>
                   <p className="text-[#7A8CC0] text-xs mt-0.5">
-                    Wave height, wind, crowd levels & more for {tideData.beach.name}
+                    Wave height, wind, crowd levels & more for{" "}
+                    {tideData.beach.name}
                   </p>
                 </div>
                 <Link
@@ -718,7 +778,8 @@ export function TideClockClient() {
                 Planning a dawn patrol?
               </p>
               <p className="text-[#7A8CC0] text-xs mb-3">
-                Check first light times, 7-day sunrise forecast, and tide at dawn.
+                Check first light times, 7-day sunrise forecast, and tide at
+                dawn.
               </p>
               <Link
                 href="/tools/dawn-patrol"
