@@ -47,7 +47,8 @@ export function ConsolidatedAlertEmail({
             const timeWindow = formatWindow(match);
             const snap = match.conditions_snapshot;
             const conditionsLine = buildConditionsLine(snap);
-            const beachUrl = `${baseUrl}/surf/${match.beach_name.toLowerCase().replace(/\s+/g, "-")}`;
+            const beachUrl = buildEmailBeachUrl(baseUrl, match);
+            const ruleName = formatEmailRuleName(match.rule_name);
             const tokenParam = match.disable_token ? `?token=${match.disable_token}` : "";
             const disableUrl = `${baseUrl}/api/alerts/rules/${match.rule_id}/disable-email${tokenParam}`;
 
@@ -63,7 +64,7 @@ export function ConsolidatedAlertEmail({
                 }}
               >
                 <p style={beachNameStyle}>{match.beach_name}</p>
-                <p style={ruleNameStyle}>Matches: {match.rule_name}</p>
+                <p style={ruleNameStyle}>Matches: {ruleName}</p>
 
                 {/* Prominent time window */}
                 <div style={windowBox}>
@@ -170,6 +171,15 @@ export function formatWindow(match: MatchingWindow): FormattedEmailWindow {
   };
 }
 
+export function buildEmailBeachUrl(baseUrl: string, match: MatchingWindow): string {
+  const beachIdentifier = match.beach_slug || match.beach_id;
+  return `${baseUrl}/beach/${encodeURIComponent(beachIdentifier)}`;
+}
+
+export function formatEmailRuleName(ruleName: string): string {
+  return ruleName.replace(/\s+at your home break$/i, "");
+}
+
 // Renders the conditions row using the same units + rounding as the live web
 // CURRENT CONDITIONS card. Snapshot fields are independently optional so a
 // partial forecast still produces a clean line (no "undefined NW" / "NaN mph").
@@ -229,7 +239,11 @@ const body: React.CSSProperties = {
   padding: "0",
   fontFamily: "'DM Sans', sans-serif",
 };
-const container: React.CSSProperties = { maxWidth: "600px", margin: "0 auto" };
+const container: React.CSSProperties = {
+  width: "100%",
+  maxWidth: "600px",
+  margin: "0 auto",
+};
 const header: React.CSSProperties = {
   backgroundColor: "#252D6B",
   padding: "24px 32px",
@@ -244,12 +258,13 @@ const logoText: React.CSSProperties = {
 };
 const content: React.CSSProperties = {
   backgroundColor: "#252D6B",
-  padding: "24px 32px",
+  padding: "24px",
 };
 const headingText: React.CSSProperties = {
   color: "#ffffff",
   fontSize: "20px",
   fontWeight: "600",
+  lineHeight: "1.35",
   marginBottom: "24px",
 };
 const nowrapText: React.CSSProperties = { whiteSpace: "nowrap" };
@@ -268,6 +283,7 @@ const beachNameStyle: React.CSSProperties = {
 const ruleNameStyle: React.CSSProperties = {
   color: "#9ca3af",
   fontSize: "13px",
+  lineHeight: "1.4",
   margin: "8px 0 12px 0",
 };
 const windowBox: React.CSSProperties = {
@@ -287,16 +303,20 @@ const windowLabelStyle: React.CSSProperties = {
 };
 const windowTimeStyle: React.CSSProperties = {
   color: "#F78E42",
-  fontSize: "20px",
+  fontSize: "18px",
   fontWeight: "700",
+  lineHeight: "1.3",
   margin: "0",
   fontFamily: "'Space Grotesk', sans-serif",
+  wordBreak: "break-word",
 };
 const conditionsTextStyle: React.CSSProperties = {
   color: "#d1d5db",
   fontSize: "14px",
+  lineHeight: "1.6",
   margin: "0 0 16px 0",
   fontFamily: "'Space Mono', monospace",
+  wordBreak: "break-word",
 };
 const ctaButton: React.CSSProperties = {
   backgroundColor: "#F78E42",
@@ -307,9 +327,12 @@ const ctaButton: React.CSSProperties = {
   fontWeight: "600",
   textDecoration: "none",
   display: "inline-block",
+  maxWidth: "100%",
+  boxSizing: "border-box",
 };
 const disableLinkStyle: React.CSSProperties = {
   fontSize: "12px",
+  lineHeight: "1.4",
   margin: "8px 0 0 0",
 };
 const linkStyle: React.CSSProperties = {

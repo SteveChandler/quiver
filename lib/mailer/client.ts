@@ -31,5 +31,12 @@ export const MAIL_REPLY_TO = process.env.MAIL_REPLY_TO || MAIL_FROM;
  * Used for constructing links in emails.
  */
 export function getBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL || "https://quiversurf.app";
+  const configured =
+    process.env.APP_URL ||
+    process.env.SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "https://www.quiversurf.app";
+  const baseUrl = configured.replace(/\/+$/, "");
+  if (baseUrl === "https://quiversurf.app") return "https://www.quiversurf.app";
+  return baseUrl;
 }

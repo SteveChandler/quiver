@@ -67,6 +67,7 @@ export interface MatchingWindow {
   rule_name: string;
   beach_id: string;
   beach_name: string;
+  beach_slug?: string | null;
   beach_timezone: string;
   window_start: string;
   window_end: string;

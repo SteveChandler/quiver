@@ -8,6 +8,7 @@ export type AttemptStatus =
   | "skipped_no_email"
   | "skipped_channel_disabled"
   | "skipped_dedup_collision"
+  | "skipped_stale_forecast"
   | "failed_provider"
   | "failed_internal";
 

@@ -32,10 +32,21 @@ describe('.well-known app-link manifests', () => {
       expect.arrayContaining([
         expect.objectContaining({
           appID: 'QBA8TA48NG.app.quiversurf.mobile',
-          paths: expect.arrayContaining(['/beach/*']),
+          paths: expect.arrayContaining(['/beach/*', '/settings*']),
         }),
       ]),
     );
+  });
+
+  it('keeps required native paths even when env paths are partial', async () => {
+    process.env.APPLE_APP_SITE_ASSOCIATION_PATHS = '/auth/*';
+    const { GET } = await import('@/app/.well-known/apple-app-site-association/route');
+
+    const response = GET();
+    const body = await response.json();
+    const paths = body.applinks.details[0].paths;
+
+    expect(paths).toEqual(expect.arrayContaining(['/auth/*', '/beach/*', '/settings*']));
   });
 
   it('emits the Android app-link package with configured fingerprints', async () => {

@@ -49,6 +49,21 @@ describe("findMatchingWindows", () => {
     expect(windows).toHaveLength(2);
   });
 
+  it("does not merge sparse 3-hour forecast samples into a fake broad window", () => {
+    const forecasts = [makeForecast(15), makeForecast(18)];
+    const windows = findMatchingWindows(conditions, forecasts, mockBeach);
+
+    expect(windows).toHaveLength(2);
+    expect(windows[0]).toMatchObject({
+      window_start: "2026-04-01T15:00:00Z",
+      window_end: "2026-04-01T16:00:00.000Z",
+    });
+    expect(windows[1]).toMatchObject({
+      window_start: "2026-04-01T18:00:00Z",
+      window_end: "2026-04-01T19:00:00.000Z",
+    });
+  });
+
   it("returns empty array when nothing matches", () => {
     const forecasts = [makeForecast(7, { wave_height: 1 })];
     const windows = findMatchingWindows(conditions, forecasts, mockBeach);

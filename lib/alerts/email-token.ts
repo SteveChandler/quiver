@@ -14,6 +14,23 @@ export function generateDisableToken(ruleId: string): string {
 
 export function verifyDisableToken(ruleId: string, token: string): boolean {
   const expected = generateDisableToken(ruleId);
+  return timingSafeTokenEquals(expected, token);
+}
+
+export function generateEmailUnsubscribeToken(userId: string): string {
+  return crypto
+    .createHmac("sha256", getSecret())
+    .update(`unsubscribe-email:${userId}`)
+    .digest("hex")
+    .slice(0, 32);
+}
+
+export function verifyEmailUnsubscribeToken(userId: string, token: string): boolean {
+  const expected = generateEmailUnsubscribeToken(userId);
+  return timingSafeTokenEquals(expected, token);
+}
+
+function timingSafeTokenEquals(expected: string, token: string): boolean {
   if (expected.length !== token.length) return false;
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(token));
 }

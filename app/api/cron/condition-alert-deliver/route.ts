@@ -25,13 +25,22 @@ import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/clien
 import { ConsolidatedAlertEmail } from "@/lib/mailer/templates/ConsolidatedAlertEmail";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
-import { consolidateQueueItems } from "@/lib/alerts/payload-builder";
-import type { QueueItemWithMeta } from "@/lib/alerts/payload-builder";
+import {
+  consolidateQueueItems,
+  type AlertRevalidationBeachMeta,
+  type QueueItemWithMeta,
+} from "@/lib/alerts/payload-builder";
 import { formatPushNotification } from "@/lib/alerts/push-formatter";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
-import { generateDisableToken } from "@/lib/alerts/email-token";
+import { generateDisableToken, generateEmailUnsubscribeToken } from "@/lib/alerts/email-token";
 import type { AttemptStatus } from "@/lib/alerts/throttle";
 import { cooldownDecision, weeklyCapDecision } from "@/lib/alerts/throttle";
+import { getUtcDayBounds } from "@/lib/alerts/timezone-utils";
+import {
+  selectFreshAlertWindow,
+  type EnhancedForecastAlertRow,
+} from "@/lib/alerts/revalidate-alert-window";
+import type { AlertConditions } from "@/lib/alerts/types";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -41,6 +50,72 @@ export const maxDuration = 120;
 const CONTEXT_TAG = "[condition-alert-deliver]";
 
 type Channel = "email" | "push";
+
+type RuleEmbed = {
+  name: string;
+  notify_email: boolean;
+  notify_push: boolean;
+  conditions?: AlertConditions | null;
+};
+
+type BeachEmbed = {
+  id?: string;
+  name: string;
+  slug?: string | null;
+  timezone?: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  wind_offshore_deg?: number | null;
+  wind_offshore_tol_deg?: number | null;
+  aspect_deg?: number | null;
+  preferred_tide_ft_min?: number | null;
+  preferred_tide_ft_max?: number | null;
+  preferred_tide_direction?: string | null;
+  swell_window_center_deg?: number | null;
+  swell_window_halfwidth_deg?: number | null;
+  break_type?: string | null;
+  skill_level?: string | null;
+};
+
+function enabledChannels(item: QueueItemWithMeta): Channel[] {
+  const channels: Channel[] = [];
+  if (item.notify_email) channels.push("email");
+  if (item.notify_push) channels.push("push");
+  return channels;
+}
+
+function toRevalidationBeachMeta(
+  beachId: string,
+  beach: BeachEmbed
+): AlertRevalidationBeachMeta | null {
+  if (
+    typeof beach.lat !== "number" ||
+    !Number.isFinite(beach.lat) ||
+    typeof beach.lon !== "number" ||
+    !Number.isFinite(beach.lon)
+  ) {
+    return null;
+  }
+
+  return {
+    id: beach.id ?? beachId,
+    name: beach.name,
+    slug: beach.slug ?? null,
+    lat: beach.lat,
+    lon: beach.lon,
+    timezone: beach.timezone ?? "America/Los_Angeles",
+    wind_offshore_deg: beach.wind_offshore_deg ?? null,
+    wind_offshore_tol_deg: beach.wind_offshore_tol_deg ?? null,
+    aspect_deg: beach.aspect_deg ?? null,
+    preferred_tide_ft_min: beach.preferred_tide_ft_min ?? null,
+    preferred_tide_ft_max: beach.preferred_tide_ft_max ?? null,
+    preferred_tide_direction: beach.preferred_tide_direction ?? null,
+    swell_window_center_deg: beach.swell_window_center_deg ?? null,
+    swell_window_halfwidth_deg: beach.swell_window_halfwidth_deg ?? null,
+    break_type: beach.break_type ?? null,
+    skill_level: beach.skill_level ?? null,
+  };
+}
 
 export async function GET(request: Request): Promise<NextResponse> {
   if (!validateCronRequest(request)) {
@@ -80,11 +155,59 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
   }
 
+  async function refreshQueueItemFromLatestForecasts(
+    item: QueueItemWithMeta
+  ): Promise<QueueItemWithMeta | null> {
+    if (!item.conditions || !item.beach_meta) return item;
+
+    const { start, end } = getUtcDayBounds(item.alert_date, item.beach_timezone);
+    const { data: forecastRows, error } = await supabase
+      .from("enhanced_forecasts")
+      .select("*")
+      .eq("beach_id", item.beach_id)
+      .gte("forecast_at", start)
+      .lt("forecast_at", end)
+      .order("forecast_at", { ascending: true });
+
+    if (error) {
+      console.warn(
+        `${CONTEXT_TAG} forecast revalidation failed for queue ${item.id}; using queued snapshot:`,
+        error.message
+      );
+      return item;
+    }
+
+    if (!forecastRows || forecastRows.length === 0) return item;
+
+    const freshWindow = selectFreshAlertWindow({
+      conditions: item.conditions,
+      forecastRows: forecastRows as EnhancedForecastAlertRow[],
+      beach: item.beach_meta,
+    });
+    if (!freshWindow) return null;
+
+    return {
+      ...item,
+      window_start: freshWindow.window_start,
+      window_end: freshWindow.window_end,
+      best_hour: freshWindow.best_hour,
+      best_score: freshWindow.best_score,
+      conditions_snapshot: freshWindow.conditions_snapshot,
+    };
+  }
+
   try {
     const summary = await withCronObservability(
       "/api/cron/condition-alert-deliver",
       async () => {
-        const result = { processed: 0, emailSent: 0, pushSent: 0, queueMarked: 0, errors: 0 };
+        const result = {
+          processed: 0,
+          emailSent: 0,
+          pushSent: 0,
+          queueMarked: 0,
+          skippedStale: 0,
+          errors: 0,
+        };
 
         // 1. Fetch due, unsent queue items with rule + beach embeddings.
         //    Profiles are fetched in a separate query because `alert_queue.user_id`
@@ -96,8 +219,14 @@ export async function GET(request: Request): Promise<NextResponse> {
           .select(`
             id, user_id, rule_id, beach_id, alert_date, send_at,
             window_start, window_end, best_hour, conditions_snapshot, sent,
-            alert_rules!inner(name, notify_email, notify_push),
-            beaches!inner(name, timezone)
+            alert_rules!inner(name, notify_email, notify_push, conditions),
+            beaches!inner(
+              id, name, slug, timezone, lat, lon,
+              wind_offshore_deg, wind_offshore_tol_deg, aspect_deg,
+              preferred_tide_ft_min, preferred_tide_ft_max, preferred_tide_direction,
+              swell_window_center_deg, swell_window_halfwidth_deg,
+              break_type, skill_level
+            )
           `)
           .eq("sent", false)
           .lte("send_at", new Date().toISOString())
@@ -113,8 +242,8 @@ export async function GET(request: Request): Promise<NextResponse> {
 
         // 2. Reshape into flat QueueItemWithMeta (consolidateQueueItems expects this shape)
         const allItems: QueueItemWithMeta[] = rawItems.map((row) => {
-          const rule = row.alert_rules as unknown as { name: string; notify_email: boolean; notify_push: boolean };
-          const beach = row.beaches as unknown as { name: string; timezone: string };
+          const rule = row.alert_rules as unknown as RuleEmbed;
+          const beach = row.beaches as unknown as BeachEmbed;
           return {
             id: row.id,
             user_id: row.user_id,
@@ -129,9 +258,12 @@ export async function GET(request: Request): Promise<NextResponse> {
             sent: row.sent,
             rule_name: rule.name,
             beach_name: beach.name,
-            beach_timezone: beach.timezone,
+            beach_slug: beach.slug ?? null,
+            beach_timezone: beach.timezone ?? "America/Los_Angeles",
             notify_email: rule.notify_email,
             notify_push: rule.notify_push,
+            conditions: rule.conditions ?? null,
+            beach_meta: toRevalidationBeachMeta(row.beach_id, beach),
             // best_score not stored in queue — use 0 as default; consolidate sorts by it
             best_score: 0,
           };
@@ -147,9 +279,47 @@ export async function GET(request: Request): Promise<NextResponse> {
         const similarityItems = allItems.filter(
           (i) => (i.conditions_snapshot as Record<string, unknown>)?.alert_type === "similarity_match"
         );
-        const items = allItems.filter(
+        const forecastItems = allItems.filter(
           (i) => (i.conditions_snapshot as Record<string, unknown>)?.alert_type !== "similarity_match"
         );
+
+        const items: QueueItemWithMeta[] = [];
+        const staleItems: QueueItemWithMeta[] = [];
+        for (const item of forecastItems) {
+          const refreshed = await refreshQueueItemFromLatestForecasts(item);
+          if (refreshed) {
+            items.push(refreshed);
+          } else {
+            staleItems.push(item);
+          }
+        }
+
+        if (staleItems.length > 0) {
+          for (const item of staleItems) {
+            for (const channel of enabledChannels(item)) {
+              await recordAttempt({
+                queueId: item.id,
+                ruleId: item.rule_id,
+                userId: item.user_id,
+                channel,
+                status: "skipped_stale_forecast",
+                skipReason: "fresh forecast no longer matches the queued alert rule",
+              });
+            }
+          }
+          const staleQueueIds = staleItems.map((i) => i.id);
+          const { error: staleMarkError } = await supabase
+            .from("alert_queue")
+            .update({ sent: true })
+            .in("id", staleQueueIds);
+          if (staleMarkError) {
+            console.error(`${CONTEXT_TAG} Failed to mark stale queue items sent:`, staleMarkError);
+            result.errors++;
+          } else {
+            result.queueMarked += staleQueueIds.length;
+            result.skippedStale += staleQueueIds.length;
+          }
+        }
 
         // 3. Fetch profile data for the queue's user set in a single query.
         //    profiles.id is a 1:1 mirror of auth.users.id, so we can key by user_id.
@@ -388,8 +558,11 @@ export async function GET(request: Request): Promise<NextResponse> {
                     const emailMatches = payload.matches
                       .filter((m) => m.notify_email && survivorRuleIds.has(m.rule_id))
                       .map((m) => ({ ...m, disable_token: generateDisableToken(m.rule_id) }));
-                    const manageAlertsUrl = `${baseUrl}/settings/alerts`;
-                    const unsubscribeUrl = `${baseUrl}/settings`;
+                    const manageAlertsUrl = `${baseUrl}/settings`;
+                    const unsubscribeToken = generateEmailUnsubscribeToken(payload.user_id);
+                    const unsubscribeUrl =
+                      `${baseUrl}/api/alerts/unsubscribe-email?user_id=${payload.user_id}` +
+                      `&token=${unsubscribeToken}`;
                     const alertDate = new Date(payload.alert_date).toLocaleDateString("en-US", {
                       weekday: "long",
                       month: "long",

@@ -7,8 +7,10 @@
  */
 
 import {
+  buildEmailBeachUrl,
   buildConditionsLine,
   formatEmailHeadingDate,
+  formatEmailRuleName,
   formatWindow,
 } from "@/lib/mailer/templates/ConsolidatedAlertEmail";
 import type { MatchingWindow } from "@/lib/alerts/types";
@@ -138,6 +140,22 @@ function makeMatch(overrides: Partial<MatchingWindow> = {}): MatchingWindow {
 }
 
 describe("surf report email copy", () => {
+  it("builds a native-handled beach URL from the public slug", () => {
+    expect(
+      buildEmailBeachUrl("https://www.quiversurf.app", makeMatch({ beach_slug: "mission-beach" }))
+    ).toBe("https://www.quiversurf.app/beach/mission-beach");
+  });
+
+  it("falls back to the beach id when a slug is unavailable", () => {
+    expect(buildEmailBeachUrl("https://www.quiversurf.app", makeMatch())).toBe(
+      "https://www.quiversurf.app/beach/beach-1"
+    );
+  });
+
+  it("removes stale home-break wording from rule names in alert emails", () => {
+    expect(formatEmailRuleName("Mellow session at your home break")).toBe("Mellow session");
+  });
+
   it("shortens weekday copy in the heading date", () => {
     expect(formatEmailHeadingDate("Wednesday, May 6")).toBe("Wed, May 6");
   });
