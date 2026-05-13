@@ -921,11 +921,9 @@ export class ForecastBuilder {
     // converted internally, but the decomposed path takes feet directly so
     // its inputs are unambiguous).
     //
-    // WaveWatchData exposes three physical components: swell_1, swell_2,
-    // and wind_wave. We treat all three as "swell components" for decomposition
-    // purposes — the short-period cutoff inside `alignmentFactor` will zero
-    // out wind-wave energy regardless of direction, which is exactly the
-    // Tourmaline mixed-day failure mode we're fixing.
+    // WaveWatchData exposes two swell partitions plus a wind-wave partition.
+    // The transformer applies a stricter cutoff to wind_wave so borderline
+    // short-period chop cannot inflate face height as if it were organized swell.
     const components: Array<SwellComponentInput | null> = wavePoint
       ? [
           wavePoint.swell_1_height > 0 && wavePoint.swell_1_period > 0
@@ -950,6 +948,7 @@ export class ForecastBuilder {
                 periodS: wavePoint.wind_wave_period,
                 directionDeg:
                   cardinalToDegrees(wavePoint.wind_wave_direction) ?? null,
+                partition: 'wind_wave',
               }
             : null,
         ]

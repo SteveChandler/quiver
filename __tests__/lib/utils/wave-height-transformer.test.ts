@@ -9,6 +9,7 @@ import {
   getTransformationFactors,
   lookupShoalingBucket,
   SHORT_PERIOD_CUTOFF_S,
+  WIND_WAVE_FACE_HEIGHT_CUTOFF_S,
   BASE_SHOALING,
   PERIOD_REF,
   PERIOD_MULT,
@@ -40,6 +41,7 @@ describe('Wave Height Transformer', () => {
       expect(DIRECTION_FACTOR_MIN).toBe(0.6);
       expect(DIRECTION_FACTOR_RANGE).toBe(0.4);
       expect(SET_WAVE_VARIANCE).toBe(1.5);
+      expect(WIND_WAVE_FACE_HEIGHT_CUTOFF_S).toBe(9);
     });
   });
 
@@ -1211,6 +1213,39 @@ describe('Wave Height Transformer', () => {
       // Within +/- 5% of the current production value.
       const delta = Math.abs(result.faceHeightFt - legacy) / legacy;
       expect(delta).toBeLessThan(0.05);
+    });
+
+    it('Blacks 2026-05-13 spike scenario — borderline wind-wave does not inflate face height', () => {
+      const blacksCanyon: BeachTerrainConfig = {
+        terrain_enabled: false,
+        swell_access_factors: null,
+        shoaling_factors: BLACKS_FACTORS,
+        swell_window_center_deg: 268,
+        swell_window_halfwidth_deg: 73,
+        deepwater_decay_factor: 1.15,
+      };
+
+      const result = transformToFaceHeightDecomposed({
+        components: [
+          { heightFt: 2.99, periodS: 12, directionDeg: 270 },
+          null,
+          {
+            heightFt: 3.5,
+            periodS: 8.1,
+            directionDeg: 270,
+            partition: 'wind_wave',
+          },
+        ],
+        beach: blacksCanyon,
+        source: 'model_swell',
+        rawHeightFt: 2.99,
+        periodS: 12,
+        swellDirectionDeg: 270,
+      });
+
+      expect(result.path).toBe('decomposed');
+      expect(result.faceHeightFt).toBeGreaterThanOrEqual(3.5);
+      expect(result.faceHeightFt).toBeLessThanOrEqual(4.0);
     });
 
     it('uncalibrated beach (null shoaling_factors) still decomposes via calculatePeriodFactor', () => {
