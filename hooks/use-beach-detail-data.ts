@@ -10,6 +10,18 @@ export interface BeachSources {
   diorama_url?: string | null;
 }
 
+export interface BeachForecastMetadata {
+  cached?: boolean;
+  stale?: boolean;
+  missing?: boolean;
+  displayStale?: boolean;
+  reason?: string | null;
+  dataSource?: string;
+  lastUpdated?: string;
+  dataAge?: string;
+  stalenessThreshold?: number;
+}
+
 interface UseBeachDetailDataOptions {
   beachId: string;
   initialBeach?: Beach | null;
@@ -48,7 +60,7 @@ export function useBeachDetailData({
   // Fetch forecasts
   const fetchForecasts = useCallback(async () => {
     const res = await fetch(
-      `/api/forecasts/update-enhanced?beachId=${beachId}&days=${forecastDays}`,
+      `/api/forecasts/update-enhanced?beachId=${beachId}&days=${forecastDays}&allowStale=display`,
       {
         cache: "force-cache",
         next: { revalidate: 600 },
@@ -117,6 +129,14 @@ export function useBeachDetailData({
     }
     return data as EnhancedForecastEntity[];
   }, [forecastRawData, forecastError]);
+
+  const forecastMetadata = useMemo<BeachForecastMetadata | null>(() => {
+    return (
+      forecastRawData?.data?.metadata ||
+      forecastRawData?.metadata ||
+      null
+    );
+  }, [forecastRawData]);
 
   // Forecast cache instrumentation surfaced from response headers
   // (X-Quiver-Source / X-Quiver-Cached). Consumed by forecast_ready event.
@@ -191,6 +211,7 @@ export function useBeachDetailData({
   return {
     beach,
     forecasts,
+    forecastMetadata,
     forecastSource,
     forecastCached,
     sources,

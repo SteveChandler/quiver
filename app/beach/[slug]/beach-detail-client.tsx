@@ -27,6 +27,7 @@ interface BeachDetailClientProps {
   amenities?: BeachAmenities | null;
   waterQuality?: WaterQuality | null;
   beachPhoto?: ZineBeachPhoto | null;
+  beforeTabsContent?: ReactNode;
   afterTabsContent?: ReactNode;
 }
 
@@ -42,6 +43,7 @@ export function BeachDetailClient({
   amenities,
   waterQuality,
   beachPhoto,
+  beforeTabsContent,
   afterTabsContent,
 }: BeachDetailClientProps) {
   const { user } = useAuth();
@@ -173,6 +175,7 @@ export function BeachDetailClient({
         amenities={amenities}
         waterQuality={waterQuality}
         beachPhoto={beachPhoto}
+        beforeTabsContent={beforeTabsContent}
         afterTabsContent={afterTabsContent}
         personalizationData={personalizationData}
         onPersonalizationRequest={(forecast, baseScore) => {

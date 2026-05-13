@@ -72,7 +72,7 @@ function ProgressiveSection({
       {
         rootMargin: "150px", // Load earlier for smoother experience
         threshold: 0.01,
-      }
+      },
     );
 
     observer.observe(ref);
@@ -86,7 +86,11 @@ function ProgressiveSection({
   );
 }
 
-export default function LandingPage({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
+export default function LandingPage({
+  autoOpenLogin = false,
+}: {
+  autoOpenLogin?: boolean;
+}) {
   // Preload critical resources immediately
   useEffect(() => {
     PerformanceUtils.preloadCriticalResources();
@@ -144,7 +148,10 @@ export default function LandingPage({ autoOpenLogin = false }: { autoOpenLogin?:
 
           {/* CTA Section */}
           <ProgressiveSection height="h-64">
-            <CTASection />
+            <CTASection
+              source="landing-final-cta"
+              ctaCopyVariant="landing_final_v1"
+            />
           </ProgressiveSection>
 
           {/* Footer Section */}

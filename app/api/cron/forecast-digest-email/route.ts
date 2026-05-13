@@ -27,7 +27,12 @@ import {
 } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
+import {
+  resend,
+  MAIL_FROM,
+  MAIL_REPLY_TO,
+  getBaseUrl,
+} from "@/lib/mailer/client";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { ForecastDigestEmail } from "@/lib/mailer/templates/ForecastDigestEmail";
@@ -115,7 +120,7 @@ interface DigestRunSummary {
  */
 async function fetchCrowdIntel(
   supabase: SupabaseClient,
-  beachId: string
+  beachId: string,
 ): Promise<string | null> {
   const { data, error } = await supabase
     .from("intel_posts")
@@ -145,20 +150,23 @@ async function fetchCrowdIntel(
 async function claimDeliverySlot(
   supabase: SupabaseClient,
   userId: string,
-  beachId: string
+  beachId: string,
 ): Promise<boolean> {
   const { data: claimed, error } = await supabase.rpc(
-    'claim_forecast_delivery_slot',
+    "claim_forecast_delivery_slot",
     {
       p_user_id: userId,
       p_beach_id: beachId,
       p_alert_type: ALERT_TYPE,
-      p_dedupe_hours: DEDUPE_WINDOW_HOURS
-    }
+      p_dedupe_hours: DEDUPE_WINDOW_HOURS,
+    },
   );
 
   if (error) {
-    console.error(`[claimDeliverySlot] Error claiming slot for user ${userId}:`, error);
+    console.error(
+      `[claimDeliverySlot] Error claiming slot for user ${userId}:`,
+      error,
+    );
     // Fail open: allow sending on error (matches previous behavior)
     return true;
   }
@@ -176,7 +184,7 @@ function formatForecastForEmail(forecasts: EnhancedForecastEntity[]) {
       f.wave_height !== null &&
       f.wave_period !== null &&
       f.wind_speed !== null &&
-      f.wind_direction_deg !== null
+      f.wind_direction_deg !== null,
   );
 
   if (!firstForecast) {
@@ -190,7 +198,9 @@ function formatForecastForEmail(forecasts: EnhancedForecastEntity[]) {
   }
 
   const waveHeight = firstForecast.wave_height || "N/A";
-  const wavePeriod = firstForecast.wave_period ? `${firstForecast.wave_period}s` : "N/A";
+  const wavePeriod = firstForecast.wave_period
+    ? `${firstForecast.wave_period}s`
+    : "N/A";
   const windSpeed = firstForecast.wind_speed
     ? `${Math.round(parseFloat(firstForecast.wind_speed))}mph`
     : "N/A";
@@ -266,7 +276,7 @@ async function persistRunStats(
   supabase: SupabaseClient,
   runStartedAt: Date,
   summary: DigestRunSummary,
-  status: 'completed' | 'failed'
+  status: "completed" | "failed",
 ): Promise<void> {
   try {
     await supabase.from("digest_run_stats").insert({
@@ -283,7 +293,10 @@ async function persistRunStats(
       duration_ms: summary.durationMs,
     });
   } catch (error) {
-    console.error("❌ [forecast-digest-email] Failed to persist run stats:", error);
+    console.error(
+      "❌ [forecast-digest-email] Failed to persist run stats:",
+      error,
+    );
     // Don't throw - stats persistence failure shouldn't fail the cron
   }
 }
@@ -299,7 +312,11 @@ async function _GET(request: Request): Promise<Response> {
   try {
     // 1. Validate cron auth
     if (!validateCronRequest(request)) {
-      return createErrorResponse("Unauthorized", "Invalid cron authentication", 401);
+      return createErrorResponse(
+        "Unauthorized",
+        "Invalid cron authentication",
+        401,
+      );
     }
 
     console.log("🔔 [forecast-digest-email] Starting daily digest email run");
@@ -358,7 +375,7 @@ async function _GET(request: Request): Promise<Response> {
           preferred_tide_ft_min,
           preferred_tide_ft_max
         )
-      `
+      `,
       )
       .eq("notif_email_enabled", true)
       .eq("notif_forecast_alerts", true)
@@ -370,7 +387,9 @@ async function _GET(request: Request): Promise<Response> {
       throw new Error(`Failed to fetch eligible users: ${usersError.message}`);
     }
 
-    console.log(`📧 [forecast-digest-email] Found ${users?.length ?? 0} eligible users`);
+    console.log(
+      `📧 [forecast-digest-email] Found ${users?.length ?? 0} eligible users`,
+    );
 
     if (!users || users.length === 0) {
       summary.durationMs = Date.now() - startTime;
@@ -398,7 +417,9 @@ async function _GET(request: Request): Promise<Response> {
           continue;
         }
 
-        const beach = Array.isArray(user.beaches) ? user.beaches[0] : user.beaches;
+        const beach = Array.isArray(user.beaches)
+          ? user.beaches[0]
+          : user.beaches;
         if (!beach) {
           summary.skipped.missingHomeBeach++;
           continue;
@@ -407,12 +428,12 @@ async function _GET(request: Request): Promise<Response> {
         // 4. Fetch today's forecast for their home beach
         const { forecasts, metadata } = await getFreshForecastFromCache(
           user.home_beach_id,
-          LOOKAHEAD_HOURS
+          LOOKAHEAD_HOURS,
         );
 
         if (metadata.stale || metadata.missing || forecasts.length === 0) {
           console.warn(
-            `⚠️ [forecast-digest-email] Stale/missing forecast for user ${user.id}, beach ${beach.name}: ${metadata.reason}`
+            `⚠️ [forecast-digest-email] Stale/missing forecast for user ${user.id}, beach ${beach.name}: ${metadata.reason}`,
           );
           summary.skipped.staleOrMissingForecast++;
           continue;
@@ -442,27 +463,34 @@ async function _GET(request: Request): Promise<Response> {
           forecasts,
           beachMetadata,
           user.experience_level,
-          userPrefs
+          userPrefs,
         );
 
         // 6. ATOMIC DEDUPLICATION (CRITICAL)
         // Use RPC with row-level locking to prevent race conditions.
         // This atomically checks AND claims the slot in one operation.
-        const claimed = await claimDeliverySlot(supabase, user.id, user.home_beach_id);
+        const claimed = await claimDeliverySlot(
+          supabase,
+          user.id,
+          user.home_beach_id,
+        );
         if (!claimed) {
           summary.skipped.alreadySentToday++;
           continue;
         }
 
         const baseUrl = getBaseUrl();
-        const ctaUrl = `${baseUrl}/beaches/${beach.slug}`;
+        const ctaUrl = `${baseUrl}/beaches/${beach.slug}?utm_source=quiver&utm_medium=email&utm_campaign=forecast_digest&utm_content=check_forecast_v1`;
         const unsubscribeUrl = `${baseUrl}/settings`;
         const forecastDate = getForecastDate();
 
         // 7. Branch: good day (match) vs bad day (no match)
         if (matchResult.isMatch) {
           // GOOD DAY: Send full digest email
-          const crowdIntel = await fetchCrowdIntel(supabase, user.home_beach_id);
+          const crowdIntel = await fetchCrowdIntel(
+            supabase,
+            user.home_beach_id,
+          );
           const crowdWarning = crowdIntel || matchResult.crowdWarning;
           const forecastData = formatForecastForEmail(forecasts);
 
@@ -472,7 +500,11 @@ async function _GET(request: Request): Promise<Response> {
             beachName: beach.name,
             beachSlug: beach.slug,
             forecastDate,
-            matchQuality: matchResult.matchQuality as "perfect" | "excellent" | "good" | "fair",
+            matchQuality: matchResult.matchQuality as
+              | "perfect"
+              | "excellent"
+              | "good"
+              | "fair",
             waveHeight: forecastData.waveHeight,
             wavePeriod: forecastData.wavePeriod,
             windSpeed: forecastData.windSpeed,
@@ -495,25 +527,27 @@ async function _GET(request: Request): Promise<Response> {
           // Rate limit before sending
           await rateLimiter.throttle();
 
-          const { data: sendData, error: sendError } = await resend.emails.send({
-            from: MAIL_FROM,
-            replyTo: MAIL_REPLY_TO,
-            to: user.email,
-            subject: emailSubject,
-            react: ForecastDigestEmail(emailProps),
-          });
+          const { data: sendData, error: sendError } = await resend.emails.send(
+            {
+              from: MAIL_FROM,
+              replyTo: MAIL_REPLY_TO,
+              to: user.email,
+              subject: emailSubject,
+              react: ForecastDigestEmail(emailProps),
+            },
+          );
 
           if (sendError) {
             console.error(
               `❌ [forecast-digest-email] Failed to send email to ${user.email}:`,
-              sendError
+              sendError,
             );
             summary.skipped.sendFailed++;
             continue;
           }
 
           console.log(
-            `✅ [forecast-digest-email] Sent digest to ${user.email} for ${beach.name} (${matchResult.matchQuality})`
+            `✅ [forecast-digest-email] Sent digest to ${user.email} for ${beach.name} (${matchResult.matchQuality})`,
           );
           // Note: Delivery slot already tracked atomically by claimDeliverySlot()
           summary.sent++;
@@ -526,6 +560,8 @@ async function _GET(request: Request): Promise<Response> {
             resendMessageId: sendData?.id,
             bestBeachId: user.home_beach_id,
             meta: {
+              template: "check_forecast_v1",
+              primary_action: "check_forecast",
               beach_name: beach.name,
               match_quality: matchResult.matchQuality,
             },
@@ -535,7 +571,7 @@ async function _GET(request: Request): Promise<Response> {
         } else {
           // NO MATCH: Skip entirely - no more "bad day" emails
           console.log(
-            `⏭️ [forecast-digest-email] Skipping ${user.email} for ${beach.name} - no match`
+            `⏭️ [forecast-digest-email] Skipping ${user.email} for ${beach.name} - no match`,
           );
           summary.skipped.noMatch++;
           continue;
@@ -543,7 +579,7 @@ async function _GET(request: Request): Promise<Response> {
       } catch (userError) {
         console.error(
           `❌ [forecast-digest-email] Error processing user ${user.id}:`,
-          userError
+          userError,
         );
         summary.skipped.sendFailed++;
       }
@@ -552,12 +588,12 @@ async function _GET(request: Request): Promise<Response> {
     summary.durationMs = Date.now() - startTime;
 
     console.log(
-      `🎉 [forecast-digest-email] Completed: ${summary.sent} emails sent, ${summary.skipped.noMatch} skipped (no match), ${summary.eligibleUsers} eligible, ${summary.durationMs}ms`
+      `🎉 [forecast-digest-email] Completed: ${summary.sent} emails sent, ${summary.skipped.noMatch} skipped (no match), ${summary.eligibleUsers} eligible, ${summary.durationMs}ms`,
     );
     console.log(`   Skipped breakdown:`, summary.skipped);
 
     // Persist run stats to database
-    await persistRunStats(supabase, runStartedAt, summary, 'completed');
+    await persistRunStats(supabase, runStartedAt, summary, "completed");
 
     return createSuccessResponse({ summary });
   } catch (error) {

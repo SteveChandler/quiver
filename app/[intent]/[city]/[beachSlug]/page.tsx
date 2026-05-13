@@ -45,7 +45,8 @@ import { BeachProseSummary } from "@/components/beach-detail/beach-prose-summary
 export const revalidate = 3600;
 
 const getCachedBeachCandidates = cache(async (slug: string) => {
-  const { getBeachesBySlug } = await import("@/actions/beach/beach-query-actions");
+  const { getBeachesBySlug } =
+    await import("@/actions/beach/beach-query-actions");
   return getBeachesBySlug(slug);
 });
 
@@ -60,7 +61,6 @@ interface PageProps {
   }>;
 }
 
-
 function isNextRouterSignal(error: unknown) {
   if (!error || typeof error !== "object" || !("digest" in error)) return false;
   const digest = (error as { digest?: unknown }).digest;
@@ -69,7 +69,6 @@ function isNextRouterSignal(error: unknown) {
     (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT"))
   );
 }
-
 
 /**
  * Generic Beach Detail Page for all states
@@ -102,7 +101,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     const beach = pickBestUsaBeachMatch({
       stateParam,
       cityParam: city,
-      beaches: candidatesResult.success ? candidatesResult.data ?? [] : [],
+      beaches: candidatesResult.success ? (candidatesResult.data ?? []) : [],
     });
 
     if (!beach) notFound();
@@ -113,7 +112,16 @@ export default async function GenericBeachDetailPage(props: PageProps) {
         : null;
 
     // Fetch surf report, nearby beaches, reviews, best time to surf URL, amenities, and water quality in parallel
-    const [surfReportResult, nearbyResult, reviewsResult, bestTimeToSurfUrl, amenitiesResult, waterQualityResult, cameraUrl, beachPhoto] = await Promise.all([
+    const [
+      surfReportResult,
+      nearbyResult,
+      reviewsResult,
+      bestTimeToSurfUrl,
+      amenitiesResult,
+      waterQualityResult,
+      cameraUrl,
+      beachPhoto,
+    ] = await Promise.all([
       getSpotSurfReportPublic(beach),
       beach.lat && beach.lon
         ? getNearbyBeaches(beach.lat, beach.lon, 25)
@@ -156,7 +164,9 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           const supabase = createPublicReadClient();
           const { data } = await supabase
             .from("beach_photos")
-            .select("image_url, thumb_url, source, creator_name, license_code, attribution_html")
+            .select(
+              "image_url, thumb_url, source, creator_name, license_code, attribution_html",
+            )
             .eq("beach_id", beach.id)
             .eq("approved", true)
             .is("deleted_at", null)
@@ -172,7 +182,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
 
     const surfCallReport = surfReportResult?.report || null;
     const surfCallIsTomorrow = surfReportResult?.isTomorrow ?? false;
-    const reviews = reviewsResult.success ? reviewsResult.data ?? [] : [];
+    const reviews = reviewsResult.success ? (reviewsResult.data ?? []) : [];
 
     let nearbyBeachesRaw: Beach[] = [];
     if (nearbyResult?.success && nearbyResult.data) {
@@ -291,10 +301,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
         )}
 
         {/* SSR prose summary for AI crawlers and search engines (GEO) */}
-        <BeachProseSummary
-          beach={beach}
-          surfCallReport={surfCallReport}
-        />
+        <BeachProseSummary beach={beach} surfCallReport={surfCallReport} />
 
         {/* Client detail component with auth tracking */}
         <BeachDetailClient
@@ -307,28 +314,27 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           amenities={amenitiesResult}
           waterQuality={waterQualityResult}
           beachPhoto={beachPhoto}
+          beforeTabsContent={
+            <div className="hidden md:block">
+              <InlineSignupCta
+                title={`Save ${beach.name} as your home break`}
+                description={`Get personalized alerts when ${beach.name} is firing — based on your level.`}
+                primaryButtonText={`Save ${beach.name}`}
+                source={`beach-detail-${beachSlug}-desktop-inline`}
+                ctaCopyVariant="beach_home_break_v1"
+                variant="zine"
+              />
+            </div>
+          }
           afterTabsContent={
-            <>
-              <div className="hidden md:block mx-auto max-w-5xl pb-10">
-                <InlineSignupCta
-                  title={`Save ${beach.name} as your home break`}
-                  description={`Get personalized alerts when ${beach.name} is firing — based on your level.`}
-                  primaryButtonText={`Save ${beach.name}`}
-                  source={`beach-detail-${beachSlug}-desktop-inline`}
-                  ctaCopyVariant="beach_home_break_v1"
-                  variant="zine"
-                />
-              </div>
-
-              <div className="pt-2">
-                <ZineNearbySpots
-                  beaches={nearbyBeaches}
-                  sourceBeachName={beach.name}
-                  sourceBeachLat={beach.lat}
-                  sourceBeachLon={beach.lon}
-                />
-              </div>
-            </>
+            <div className="pt-2">
+              <ZineNearbySpots
+                beaches={nearbyBeaches}
+                sourceBeachName={beach.name}
+                sourceBeachLat={beach.lat}
+                sourceBeachLon={beach.lon}
+              />
+            </div>
           }
         />
 
@@ -338,7 +344,8 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           supportingText={`Alerts when ${beach.name} is firing — free`}
           contextMessage={{
             title: `Save ${beach.name} as your home break`,
-            description: "Condition alerts, 12-day outlook, and your personal match score",
+            description:
+              "Condition alerts, 12-day outlook, and your personal match score",
           }}
           ctaCopyVariant="beach_home_break_v1"
         />
@@ -374,7 +381,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
     const beach = pickBestUsaBeachMatch({
       stateParam,
       cityParam: params.city,
-      beaches: candidatesResult.success ? candidatesResult.data ?? [] : [],
+      beaches: candidatesResult.success ? (candidatesResult.data ?? []) : [],
     });
 
     // Beach not found — return noindex metadata immediately so no canonical or
@@ -395,9 +402,8 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
         "[GenericBeachDetailPage] Error building beach URL for metadata:",
         {
           beachSlug,
-          error:
-            urlError instanceof Error ? urlError.message : "Unknown error",
-        }
+          error: urlError instanceof Error ? urlError.message : "Unknown error",
+        },
       );
       path = `/beach/${beachSlug}`;
     }

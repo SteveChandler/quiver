@@ -7,7 +7,10 @@ import { PayoffStep } from "@/components/onboarding/steps/payoff-step";
 import { useOnboardingStore } from "@/store/onboarding-store";
 import { useProfileContext } from "@/context/profile-context";
 import { useForecastPreview } from "@/hooks/use-forecast-preview";
-import { saveOnboardingData, skipOnboarding } from "@/actions/onboarding-actions";
+import {
+  saveOnboardingData,
+  skipOnboarding,
+} from "@/actions/onboarding-actions";
 import { data as dataClient } from "@/lib/data/client";
 import { getLocalDateString } from "@/lib/utils/timezone-utils";
 import { toast } from "sonner";
@@ -18,7 +21,7 @@ const mockUseOnboardingStore = useOnboardingStore as unknown as jest.Mock;
 
 // Mock global fetch for HomeBeachStep
 global.fetch = jest.fn(() =>
-  Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+  Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response),
 );
 
 // Mock useTrackEvent — HomeBeachStep emits onboarding_step events with
@@ -134,14 +137,14 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
     it("renders search input", () => {
       render(<HomeBeachStep />);
       expect(
-        screen.getByPlaceholderText(/e.g., Malibu, Pipeline, Rincon/i)
+        screen.getByPlaceholderText(/e.g., Malibu, Pipeline, Rincon/i),
       ).toBeInTheDocument();
     });
 
     it("renders continue button", () => {
       render(<HomeBeachStep />);
       expect(
-        screen.getByRole("button", { name: /Continue/i })
+        screen.getByRole("button", { name: /Continue/i }),
       ).toBeInTheDocument();
     });
 
@@ -153,7 +156,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       // not via an in-step Maybe later button.
       render(<HomeBeachStep />);
       expect(
-        screen.queryByRole("button", { name: /Maybe later/i })
+        screen.queryByRole("button", { name: /Maybe later/i }),
       ).not.toBeInTheDocument();
     });
 
@@ -169,7 +172,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       // the always-available fallback (covered by the search-input test).
       render(<HomeBeachStep />);
       expect(
-        screen.queryByRole("button", { name: /Find me/i })
+        screen.queryByRole("button", { name: /Find me/i }),
       ).not.toBeInTheDocument();
     });
 
@@ -184,7 +187,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
             step_name: "home_beach",
             geolocation_state: "pending",
           }),
-        })
+        }),
       );
       expect(mockTrack).toHaveBeenCalledWith(
         "onboarding_step",
@@ -193,7 +196,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
             step: "home_beach_geolocation",
             geolocation_state: "unavailable",
           }),
-        })
+        }),
       );
     });
 
@@ -203,7 +206,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
         value: {
           getCurrentPosition: (
             _success: PositionCallback,
-            error: PositionErrorCallback
+            error: PositionErrorCallback,
           ) => {
             error({
               code: 1,
@@ -225,7 +228,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
             metadata: expect.objectContaining({
               geolocation_state: "denied",
             }),
-          })
+          }),
         );
       });
 
@@ -233,7 +236,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       // still rendered.
       expect(toast.error).not.toHaveBeenCalled();
       expect(
-        screen.getByPlaceholderText(/e.g., Malibu, Pipeline, Rincon/i)
+        screen.getByPlaceholderText(/e.g., Malibu, Pipeline, Rincon/i),
       ).toBeInTheDocument();
     });
 
@@ -269,7 +272,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
             metadata: expect.objectContaining({
               geolocation_state: "granted",
             }),
-          })
+          }),
         );
       });
     });
@@ -288,9 +291,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
     it("renders the experience-level question only (no time question)", () => {
       render(<ExperienceLevelStep />);
 
-      expect(
-        screen.getByText(/What kind of surfer\??/i)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/What kind of surfer\??/i)).toBeInTheDocument();
       // The former "When do you surf?" prompt must be gone.
       expect(screen.queryByText(/When do you surf\?/i)).not.toBeInTheDocument();
       expect(screen.queryByText("Dawn Patrol")).not.toBeInTheDocument();
@@ -311,10 +312,10 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
 
       expect(screen.getByRole("button", { name: /Back/i })).toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: /Maybe later/i })
+        screen.getByRole("button", { name: /Maybe later/i }),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: /Continue/i })
+        screen.getByRole("button", { name: /Continue/i }),
       ).toBeInTheDocument();
     });
 
@@ -322,13 +323,23 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       const user = userEvent.setup();
       render(<ExperienceLevelStep />);
 
-      const maybeLaterBtn = screen.getByRole("button", { name: /Maybe later/i });
+      const maybeLaterBtn = screen.getByRole("button", {
+        name: /Maybe later/i,
+      });
       await user.click(maybeLaterBtn);
 
-      expect(mockSkipOnboarding).toHaveBeenCalled();
+      expect(mockSkipOnboarding).not.toHaveBeenCalled();
       expect(mockCloseDialog).toHaveBeenCalled();
       expect(mockNextStep).not.toHaveBeenCalled();
       expect(mockUpdateData).not.toHaveBeenCalled();
+      expect(mockTrack).toHaveBeenCalledWith("onboarding_step", {
+        metadata: {
+          step: "dismissed",
+          step_name: "dismissed",
+          source_step: "experience_level",
+        },
+        debounceMs: 0,
+      });
     });
 
     it("clicking Back calls prevStep", async () => {
@@ -345,7 +356,9 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       const user = userEvent.setup();
       render(<ExperienceLevelStep />);
 
-      const intermediateBtn = screen.getByText("Intermediate").closest("button");
+      const intermediateBtn = screen
+        .getByText("Intermediate")
+        .closest("button");
       if (intermediateBtn) await user.click(intermediateBtn);
 
       const continueBtn = screen.getByRole("button", { name: /Continue/i });
@@ -366,7 +379,9 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
 
       render(<ExperienceLevelStep />);
 
-      const intermediateBtn = screen.getByText("Intermediate").closest("button");
+      const intermediateBtn = screen
+        .getByText("Intermediate")
+        .closest("button");
       expect(intermediateBtn?.className).toContain("border-[#F78E42]");
     });
 
@@ -430,7 +445,9 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       render(<PayoffStep />);
 
       await waitFor(() => {
-        expect(screen.getByText(/You're set up for Pipeline/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/You're set up for Pipeline/i),
+        ).toBeInTheDocument();
       });
     });
 
@@ -520,7 +537,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText(/Your surf call is ready on the home page/i)
+          screen.getByText(/Your surf call is ready on the home page/i),
         ).toBeInTheDocument();
       });
     });
@@ -546,7 +563,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText(/Log sessions to train your beach/i)
+          screen.getByText(/Log sessions to train your beach/i),
         ).toBeInTheDocument();
       });
     });
@@ -564,7 +581,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByRole("button", { name: /Let's go/i })
+          screen.getByRole("button", { name: /Let's go/i }),
         ).toBeInTheDocument();
       });
     });
@@ -583,7 +600,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       // Wait for the component to finish all initial async work (intel fetch)
       await waitFor(() => {
         expect(
-          screen.getByRole("button", { name: /Let's go/i })
+          screen.getByRole("button", { name: /Let's go/i }),
         ).toBeInTheDocument();
       });
 
@@ -607,7 +624,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByRole("button", { name: /Let's go/i })
+          screen.getByRole("button", { name: /Let's go/i }),
         ).toBeInTheDocument();
       });
 
@@ -637,7 +654,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByTestId("complete-onboarding-button")
+          screen.getByTestId("complete-onboarding-button"),
         ).toBeInTheDocument();
       });
     });
@@ -661,7 +678,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByRole("button", { name: /Let's go/i })
+          screen.getByRole("button", { name: /Let's go/i }),
         ).toBeInTheDocument();
       });
 
@@ -670,7 +687,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
 
       await waitFor(() => {
         expect(toast.error).toHaveBeenCalledWith(
-          expect.stringContaining("Database error")
+          expect.stringContaining("Database error"),
         );
       });
 
@@ -744,7 +761,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByRole("button", { name: /Let's go/i })
+          screen.getByRole("button", { name: /Let's go/i }),
         ).toBeInTheDocument();
       });
 

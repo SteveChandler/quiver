@@ -8,11 +8,13 @@ import { ActivitiesSection } from "@/components/landing-page/activities-section"
 import { ForecastSection } from "@/components/landing-page/forecast-section";
 import { CTASection } from "@/components/landing-page/cta-section";
 
-
 function ForecastSectionFallback() {
   // Deterministic placeholder to avoid SSR/client mismatches (e.g. Intl/animation libs).
   return (
-    <section className="py-16 md:py-20 px-4 bg-[#252D6B] noise-texture" data-testid="forecast-section">
+    <section
+      className="py-16 md:py-20 px-4 bg-[#252D6B] noise-texture"
+      data-testid="forecast-section"
+    >
       <div className="max-w-6xl mx-auto">
         <div className="relative overflow-hidden rounded-3xl bg-white/[0.04] border border-white/[0.08]">
           <div className="px-4 sm:px-8 md:px-12 lg:px-20 py-12 md:py-16 lg:py-20">
@@ -51,7 +53,10 @@ export function LandingInteractiveSections() {
       <MLPipelineShowcase />
       <ActivitiesSection />
       <FeatureBentoSection />
-      <CTASection />
+      <CTASection
+        source="landing-final-cta"
+        ctaCopyVariant="landing_final_v1"
+      />
     </div>
   );
 }

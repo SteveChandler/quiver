@@ -1,10 +1,11 @@
 /**
  * Tests for GET /api/forecasts/update-enhanced
  * 
- * Validates "never serve stale" behavior:
- * - Returns empty forecasts when cache is stale
+ * Validates strict stale behavior and beach-detail display fallback:
+ * - Returns empty forecasts when cache is stale by default
  * - Returns empty forecasts when cache is missing
  * - Returns forecasts only when fresh
+ * - Allows stale rows only for allowStale=display
  * - Includes appropriate metadata in all cases
  */
 
@@ -58,9 +59,10 @@ describe("GET /api/forecasts/update-enhanced", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.resetModules();
+    mockBeachShoalingFactors = null;
   });
 
-  it("returns empty forecasts when cache is stale (never serve stale)", async () => {
+  it("returns empty forecasts when cache is stale by default", async () => {
     mockGetFreshForecastFromCache.mockResolvedValueOnce({
       forecasts: [], // Empty because stale
       metadata: {
@@ -200,7 +202,64 @@ describe("GET /api/forecasts/update-enhanced", () => {
     );
 
     // 5 days * 24 hours = 120 hours
-    expect(mockGetFreshForecastFromCache).toHaveBeenCalledWith("test-beach", 120);
+    expect(mockGetFreshForecastFromCache).toHaveBeenCalledWith(
+      "test-beach",
+      120,
+      undefined
+    );
+  });
+
+  it("allows display-only stale rows when allowStale=display is requested", async () => {
+    const mockForecasts = [
+      {
+        id: "1",
+        beach_id: "test-beach-id",
+        forecast_at: "2026-05-12T18:00:00Z",
+        forecast_date: "2026-05-12",
+        forecast_time: "18:00:00",
+        wave_height: "4",
+        data_source: "NOAA_NWS",
+      },
+    ];
+
+    mockGetFreshForecastFromCache.mockResolvedValueOnce({
+      forecasts: mockForecasts,
+      metadata: {
+        cached: true,
+        stale: true,
+        missing: false,
+        displayStale: true,
+        reason: "Data is 14.0h old (threshold: 12h) - serving cached forecast for display",
+        dataSource: "NOAA_NWS",
+        lastUpdated: "2026-05-12T04:00:00Z",
+        stalenessDetails: {
+          hoursSinceUpdate: 14,
+          threshold: 12,
+          isStale: true,
+          reason: "Exceeded source-specific threshold",
+        },
+      },
+    });
+
+    const { GET } = await import("@/app/api/forecasts/update-enhanced/route");
+    const res = await GET(
+      new Request("http://localhost:3000/api/forecasts/update-enhanced?beachId=test-beach-id&allowStale=display") as any
+    );
+
+    const json = await res.json();
+
+    expect(mockGetFreshForecastFromCache).toHaveBeenCalledWith(
+      "test-beach-id",
+      240,
+      { allowStale: true, maxStaleHours: 24 }
+    );
+    expect(json.data.forecasts).toHaveLength(1);
+    expect(json.data.metadata.stale).toBe(true);
+    expect(json.data.metadata.displayStale).toBe(true);
+    expect(json.data.metadata.dataSource).toBe("NOAA_NWS");
+    expect(json.data.metadata.lastUpdated).toBe("2026-05-12T04:00:00Z");
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+    expect(res.headers.get("X-Quiver-Source")).toBe("stale");
   });
 
   describe("isCalibrated honesty-layer envelope", () => {
@@ -285,4 +344,3 @@ describe("GET /api/forecasts/update-enhanced", () => {
     });
   });
 });
-

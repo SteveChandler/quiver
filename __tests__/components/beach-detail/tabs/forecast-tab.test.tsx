@@ -280,7 +280,31 @@ describe("ForecastTab", () => {
       render(<ForecastTab {...defaultProps} />);
 
       expect(screen.getByText("Current Conditions")).toBeInTheDocument();
-      expect(screen.getByText("Right now")).toBeInTheDocument();
+      expect(screen.getByText("Current conditions")).toBeInTheDocument();
+      expect(screen.queryByText("Right now")).not.toBeInTheDocument();
+    });
+
+    it("labels stale display rows as forecasted conditions", () => {
+      render(
+        <ForecastTab
+          {...defaultProps}
+          forecastMetadata={{
+            cached: true,
+            stale: true,
+            missing: false,
+            displayStale: true,
+            dataAge: "12h old",
+            dataSource: "NOAA_NWS",
+          }}
+        />
+      );
+
+      expect(screen.getByTestId("stale-forecast-banner")).toBeInTheDocument();
+      expect(screen.getByText("Forecasted Conditions")).toBeInTheDocument();
+      expect(
+        screen.getByText(/Forecast for 7:00 AM · model updated 12h old/)
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Right now")).not.toBeInTheDocument();
     });
 
     it("hides BestSurfWindow for anonymous users", () => {
@@ -567,4 +591,3 @@ describe("ForecastTab", () => {
   });
 
 });
-

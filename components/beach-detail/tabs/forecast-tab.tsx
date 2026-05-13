@@ -11,10 +11,12 @@ import {
   Wind,
   Sun,
   Globe2,
+  AlertTriangle,
 } from "lucide-react";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
+import type { BeachForecastMetadata } from "@/hooks/use-beach-detail-data";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BestSurfWindow } from "@/components/beach-detail/best-surf-window";
 import { useConditionIntelligence } from "@/hooks/use-condition-intelligence";
@@ -37,7 +39,6 @@ import { EmbedCodeButton } from "@/components/beach-detail/embed-code-modal";
 import { DataErrorBoundary } from "@/components/error-boundaries";
 import { TideStatusStrip } from "@/components/beach-detail/tide-status-strip";
 import { TideChartSection } from "@/components/beach-detail/tide-chart-section";
-import { TextureOverlay } from "@/components/ui/texture-overlay";
 import { useAuth } from "@/context/auth-context";
 
 const ConditionsOverview = dynamic(
@@ -52,6 +53,7 @@ interface ForecastTabProps {
   beach: Beach;
   forecasts: EnhancedForecastEntity[];
   currentForecast: EnhancedForecastEntity | null;
+  forecastMetadata?: BeachForecastMetadata | null;
   beachTimezone?: string | null;
   surfCall?: SurfCallResult | null;
   surfCallIsTomorrow?: boolean;
@@ -63,6 +65,7 @@ export function ForecastTab({
   beach,
   forecasts,
   currentForecast,
+  forecastMetadata,
   beachTimezone,
   surfCall,
   surfCallIsTomorrow,
@@ -232,6 +235,26 @@ export function ForecastTab({
   };
 
   const heroWaveHeight = formatMetric(currentForecast?.wave_height);
+  const isDisplayStaleForecast =
+    Boolean(forecastMetadata?.displayStale) && forecasts.length > 0;
+  const freshnessLabel = useMemo(() => {
+    if (forecastMetadata?.dataAge) return forecastMetadata.dataAge;
+    if (!forecastMetadata?.lastUpdated) return null;
+
+    const updatedAt = new Date(forecastMetadata.lastUpdated).getTime();
+    if (Number.isNaN(updatedAt)) return null;
+
+    const ageMs = Date.now() - updatedAt;
+    const ageHours = Math.max(0, Math.round(ageMs / (1000 * 60 * 60)));
+    if (ageHours < 1) return "less than 1h old";
+    return `${ageHours}h old`;
+  }, [forecastMetadata?.dataAge, forecastMetadata?.lastUpdated]);
+  const currentForecastTimeLabel =
+    currentForecast?.forecast_at && beachTimezone
+      ? formatTimeInBeachTimezone(currentForecast.forecast_at, beachTimezone)
+      : currentForecast?.forecast_time
+        ? formatTimeString(currentForecast.forecast_time)
+        : null;
 
   // Population-level calibration flag: true when this beach has an empirical
   // shoaling calibration (`beaches.shoaling_factors IS NOT NULL`). Used by the
@@ -275,6 +298,27 @@ export function ForecastTab({
   return (
     <DataErrorBoundary dataType="forecast" componentName="ForecastTab">
     <div className="space-y-6 py-6">
+      {isDisplayStaleForecast && (
+        <div
+          data-testid="stale-forecast-banner"
+          className="flex flex-col gap-2 rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] px-4 py-3 shadow-[3px_3px_0_#11100D] sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#C46A24]" />
+            <p className="text-sm font-medium text-[#11100D]">
+              Forecast is updating. Showing cached model data
+              {freshnessLabel ? ` from ${freshnessLabel}` : ""}; current
+              conditions may have changed.
+            </p>
+          </div>
+          {forecastMetadata?.dataSource && (
+            <span className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[#0B3A75]">
+              {forecastMetadata.dataSource}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* 12-Day Horizon Strip — all 12 days visible to every user. */}
       {forecasts.length > 0 && (
         <section className="space-y-2">
@@ -308,24 +352,24 @@ export function ForecastTab({
         }}
         className="w-full"
       >
-        <TabsList className="grid w-full grid-cols-3 gap-2 rounded-full bg-blue-100/60 p-1">
+        <TabsList className="grid w-full grid-cols-3 gap-1 rounded-full border-2 border-[#11100D] bg-[#F4EBD8] p-1 shadow-[2px_2px_0_#11100D]">
           <TabsTrigger
             value="today"
-            className="flex items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-all data-[state=active]:bg-white data-[state=active]:text-ocean-blue data-[state=active]:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ocean-blue"
+            className="flex items-center justify-center gap-2 rounded-full px-3 py-2 font-heading text-sm font-black uppercase text-[#5F5646] transition-all data-[state=active]:bg-[#11100D] data-[state=active]:text-[#F4EBD8] data-[state=active]:shadow-[0_2px_0_#F78E42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
           >
             <Sun className="h-4 w-4" />
             <span>Today</span>
           </TabsTrigger>
           <TabsTrigger
             value="tides"
-            className="flex items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-all data-[state=active]:bg-white data-[state=active]:text-ocean-blue data-[state=active]:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ocean-blue"
+            className="flex items-center justify-center gap-2 rounded-full px-3 py-2 font-heading text-sm font-black uppercase text-[#5F5646] transition-all data-[state=active]:bg-[#11100D] data-[state=active]:text-[#F4EBD8] data-[state=active]:shadow-[0_2px_0_#F78E42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
           >
             <Waves className="h-4 w-4" />
             <span>Tides</span>
           </TabsTrigger>
           <TabsTrigger
             value="conditions"
-            className="flex items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-all data-[state=active]:bg-white data-[state=active]:text-ocean-blue data-[state=active]:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ocean-blue"
+            className="flex items-center justify-center gap-2 rounded-full px-3 py-2 font-heading text-sm font-black uppercase text-[#5F5646] transition-all data-[state=active]:bg-[#11100D] data-[state=active]:text-[#F4EBD8] data-[state=active]:shadow-[0_2px_0_#F78E42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
           >
             <Globe2 className="h-4 w-4" />
             <span>Conditions</span>
@@ -336,15 +380,22 @@ export function ForecastTab({
         <TabsContent value="today" className="space-y-6 mt-6">
           {/* Current Forecast Snapshot */}
           {currentForecast && (
-            <section className="rounded-2xl border border-white/10 bg-[#141937] p-4 md:p-6 shadow-lg relative overflow-hidden">
-              <TextureOverlay variant="topo" />
+            <section className="relative overflow-hidden rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] p-4 shadow-[4px_4px_0_#11100D] md:p-6">
               <div className="flex flex-col gap-6">
                 <div className="flex flex-wrap items-center justify-between gap-4">
-                  <h2 className="text-xl font-heading font-semibold text-white/90 relative">
-                    Current Conditions
+                  <h2 className="relative font-heading text-xl font-black uppercase text-[#11100D]">
+                    {isDisplayStaleForecast
+                      ? "Forecasted Conditions"
+                      : "Current Conditions"}
                   </h2>
-                  <span className="text-sm text-white/60 relative">
-                    Right now
+                  <span className="relative max-w-full rounded-full border-2 border-[#11100D] bg-[#EFE5CF] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#0B3A75]">
+                    {isDisplayStaleForecast
+                      ? `Forecast for ${currentForecastTimeLabel ?? "selected slot"}${
+                          freshnessLabel
+                            ? ` · model updated ${freshnessLabel}`
+                            : ""
+                        }`
+                      : "Current conditions"}
                   </span>
                 </div>
 
@@ -354,47 +405,47 @@ export function ForecastTab({
                 )}
 
                 <div className="grid grid-cols-3 gap-2 sm:gap-4 md:gap-6">
-                  <div className="flex flex-col items-center gap-1 sm:gap-4 rounded-[8px_16px_16px_8px] border-l-[3px] border-l-[#F78E42] bg-[#141937] p-3 sm:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.25)] sm:flex-row sm:items-center sm:justify-between relative">
-                    <div className="flex h-10 w-10 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-[rgba(247,142,66,0.1)] border border-[rgba(247,142,66,0.15)] sm:order-last">
-                      <TideIcon className="h-5 w-5 sm:h-8 sm:w-8 text-[#F78E42]" />
+                  <div className="relative flex flex-col items-center gap-1 rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] p-3 shadow-[2px_2px_0_#11100D] sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-5">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#F78E42] sm:order-last sm:h-14 sm:w-14">
+                      <TideIcon className="h-5 w-5 text-[#11100D] sm:h-7 sm:w-7" />
                     </div>
                     <div className="text-center sm:text-left sm:flex-1">
-                      <div className="text-xs uppercase tracking-wider sm:tracking-[0.2em] text-[#FFA559]">
+                      <div className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#C46A24]">
                         Tide
                       </div>
-                      <div className="mt-0.5 sm:mt-2 text-base sm:text-2xl font-bold text-white">
+                      <div className="mt-0.5 font-heading text-base font-black text-[#11100D] sm:mt-2 sm:text-2xl">
                         {getCurrentTideDisplay()}
                       </div>
-                      <div className="hidden sm:block text-sm text-white/60">
+                      <div className="hidden text-sm font-medium text-[#5F5646] sm:block">
                         Next: {heroNextTideType} @ {getNextTideTimeDisplay()}
                       </div>
                     </div>
                   </div>
-                  <div className="flex flex-col items-center gap-1 sm:gap-4 rounded-[8px_16px_16px_8px] border-l-[3px] border-l-[#6CB4EE] bg-[#141937] p-3 sm:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.25)] sm:flex-row sm:items-center sm:justify-between relative">
-                    <div className="flex h-10 w-10 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-[rgba(108,180,238,0.1)] border border-[rgba(108,180,238,0.15)] sm:order-last">
-                      <Wind className="h-5 w-5 sm:h-8 sm:w-8 text-[#6CB4EE]" />
+                  <div className="relative flex flex-col items-center gap-1 rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] p-3 shadow-[2px_2px_0_#11100D] sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-5">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#0B3A75] sm:order-last sm:h-14 sm:w-14">
+                      <Wind className="h-5 w-5 text-[#F4EBD8] sm:h-7 sm:w-7" />
                     </div>
                     <div className="text-center sm:text-left sm:flex-1">
-                      <div className="text-xs uppercase tracking-wider sm:tracking-[0.2em] text-[#8DC8F5]">
+                      <div className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#0B3A75]">
                         Wind
                       </div>
-                      <div className="mt-0.5 sm:mt-2 text-base sm:text-2xl font-bold text-white">
+                      <div className="mt-0.5 font-heading text-base font-black text-[#11100D] sm:mt-2 sm:text-2xl">
                         {currentForecast?.wind_speed ?? "—"}
                       </div>
-                      <div className="text-xs sm:text-sm text-white/60 uppercase">
+                      <div className="text-xs font-medium uppercase text-[#5F5646] sm:text-sm">
                         {currentForecast?.wind_direction ?? "—"}
                       </div>
                     </div>
                   </div>
-                  <div className="flex flex-col items-center gap-1 sm:gap-4 rounded-[8px_16px_16px_8px] border-l-[3px] border-l-[#FDB84B] bg-[#141937] p-3 sm:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.25)] sm:flex-row sm:items-center sm:justify-between relative">
-                    <div className="flex h-10 w-10 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-[rgba(253,184,75,0.1)] border border-[rgba(253,184,75,0.15)] sm:order-last">
-                      <Waves className="h-5 w-5 sm:h-8 sm:w-8 text-[#FDB84B]" />
+                  <div className="relative flex flex-col items-center gap-1 rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] p-3 shadow-[2px_2px_0_#11100D] sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-5">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#F78E42] sm:order-last sm:h-14 sm:w-14">
+                      <Waves className="h-5 w-5 text-[#11100D] sm:h-7 sm:w-7" />
                     </div>
                     <div className="text-center sm:text-left sm:flex-1">
-                      <div className="text-xs uppercase tracking-wider sm:tracking-[0.2em] text-[#FDCA7B]">
+                      <div className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#C46A24]">
                         Swell
                       </div>
-                      <div className="mt-0.5 sm:mt-2 text-base sm:text-2xl font-bold text-white">
+                      <div className="mt-0.5 font-heading text-base font-black text-[#11100D] sm:mt-2 sm:text-2xl">
                         {heroWaveHeight === "—" ? (
                           "— ft"
                         ) : (
@@ -402,11 +453,11 @@ export function ForecastTab({
                             height={`${heroWaveHeight} ft`}
                             isCalibrated={beachIsCalibrated}
                             showTooltip={true}
-                            className="text-base sm:text-2xl font-bold text-white"
+                            className="text-base font-black text-[#11100D] sm:text-2xl"
                           />
                         )}
                       </div>
-                      <div className="text-xs sm:text-sm text-white/60">
+                      <div className="text-xs font-medium text-[#5F5646] sm:text-sm">
                         {snapshotSwellDetails}
                       </div>
                     </div>
@@ -416,33 +467,33 @@ export function ForecastTab({
                 {/* Secondary Conditions */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 mt-3 sm:mt-4">
                   {/* Swell Direction */}
-                  <div className="rounded-xl bg-white/5 p-2 sm:p-3 border border-white/10 relative">
-                    <div className="text-xs text-white/60 mb-1">Swell Direction</div>
-                    <div className="text-sm font-semibold text-white">
+                  <div className="relative rounded-[8px] border-2 border-[#11100D] bg-[#F8F0DF] p-2 shadow-[2px_2px_0_#11100D] sm:p-3">
+                    <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#5F5646]">Swell Direction</div>
+                    <div className="text-sm font-black text-[#11100D]">
                       {currentForecast?.swell_1_direction ?? "—"}
                     </div>
                   </div>
 
                   {/* Water Temp */}
-                  <div className="rounded-xl bg-white/5 p-2 sm:p-3 border border-white/10 relative">
-                    <div className="text-xs text-white/60 mb-1">Water Temp</div>
-                    <div className="text-sm font-semibold text-white">
+                  <div className="relative rounded-[8px] border-2 border-[#11100D] bg-[#F8F0DF] p-2 shadow-[2px_2px_0_#11100D] sm:p-3">
+                    <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#5F5646]">Water Temp</div>
+                    <div className="text-sm font-black text-[#11100D]">
                       {currentForecast?.water_temp ? `${String(currentForecast.water_temp).replace(/°F$/, "")}°F` : "—"}
                     </div>
                   </div>
 
                   {/* Next Tide */}
-                  <div className="rounded-xl bg-white/5 p-2 sm:p-3 border border-white/10 relative">
-                    <div className="text-xs text-white/60 mb-1">Next Tide</div>
-                    <div className="text-sm font-semibold text-white">
+                  <div className="relative rounded-[8px] border-2 border-[#11100D] bg-[#F8F0DF] p-2 shadow-[2px_2px_0_#11100D] sm:p-3">
+                    <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#5F5646]">Next Tide</div>
+                    <div className="text-sm font-black text-[#11100D]">
                       {heroNextTideType} @ {getNextTideTimeDisplay()}
                     </div>
                   </div>
 
                   {/* Sunrise/Sunset */}
-                  <div className="rounded-xl bg-white/5 p-2 sm:p-3 border border-white/10 relative">
-                    <div className="text-xs text-white/60 mb-1">Daylight</div>
-                    <div className="text-sm font-semibold text-white">
+                  <div className="relative rounded-[8px] border-2 border-[#11100D] bg-[#F8F0DF] p-2 shadow-[2px_2px_0_#11100D] sm:p-3">
+                    <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#5F5646]">Daylight</div>
+                    <div className="text-sm font-black text-[#11100D]">
                       {sunrise && sunset
                         ? `${formatSunTime(sunrise)} - ${formatSunTime(sunset)}`
                         : "—"}
@@ -526,6 +577,7 @@ export function ForecastTab({
             forecasts={forecasts}
             beach={beach}
             selectedDate={horizonSelectedDate}
+            beachTimezone={beachTimezone}
           />
         </TabsContent>
       </Tabs>

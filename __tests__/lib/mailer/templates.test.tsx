@@ -33,12 +33,16 @@ describe("Email Templates", () => {
 
     describe("Component Rendering", () => {
       it("should render with all props provided", () => {
-        const { container } = render(<ForecastDigestEmail {...baseMockProps} />);
+        const { container } = render(
+          <ForecastDigestEmail {...baseMockProps} />,
+        );
         expect(container).toBeInTheDocument();
       });
 
       it("should display the correct greeting with displayName", () => {
-        const { container } = render(<ForecastDigestEmail {...baseMockProps} />);
+        const { container } = render(
+          <ForecastDigestEmail {...baseMockProps} />,
+        );
         expect(container.textContent).toContain("Hey Alex,");
       });
 
@@ -49,12 +53,16 @@ describe("Email Templates", () => {
       });
 
       it("should display the forecast date in header", () => {
-        const { container } = render(<ForecastDigestEmail {...baseMockProps} />);
+        const { container } = render(
+          <ForecastDigestEmail {...baseMockProps} />,
+        );
         expect(container.textContent).toContain("Monday, January 6");
       });
 
       it("should display the beach name", () => {
-        const { container } = render(<ForecastDigestEmail {...baseMockProps} />);
+        const { container } = render(
+          <ForecastDigestEmail {...baseMockProps} />,
+        );
         expect(container.textContent).toContain("Ocean Beach");
       });
     });
@@ -91,25 +99,33 @@ describe("Email Templates", () => {
 
     describe("Forecast Data Display", () => {
       it("should display wave information", () => {
-        const { container } = render(<ForecastDigestEmail {...baseMockProps} />);
+        const { container } = render(
+          <ForecastDigestEmail {...baseMockProps} />,
+        );
         expect(container.textContent).toContain("Waves");
         expect(container.textContent).toContain("3-5ft @ 12s");
       });
 
       it("should display wind information", () => {
-        const { container } = render(<ForecastDigestEmail {...baseMockProps} />);
+        const { container } = render(
+          <ForecastDigestEmail {...baseMockProps} />,
+        );
         expect(container.textContent).toContain("Wind");
         expect(container.textContent).toContain("5mph NE (offshore)");
       });
 
       it("should display tide information", () => {
-        const { container } = render(<ForecastDigestEmail {...baseMockProps} />);
+        const { container } = render(
+          <ForecastDigestEmail {...baseMockProps} />,
+        );
         expect(container.textContent).toContain("Tide");
         expect(container.textContent).toContain("Low, incoming");
       });
 
       it("should display best window when provided", () => {
-        const { container } = render(<ForecastDigestEmail {...baseMockProps} />);
+        const { container } = render(
+          <ForecastDigestEmail {...baseMockProps} />,
+        );
         expect(container.textContent).toContain("Best Window");
         expect(container.textContent).toContain("8:30 AM - 9:30 AM");
       });
@@ -123,18 +139,20 @@ describe("Email Templates", () => {
 
     describe("Personalization Section", () => {
       it("should display all why text reasons", () => {
-        const { container } = render(<ForecastDigestEmail {...baseMockProps} />);
-        expect(container.textContent).toContain(
-          "Why This Matches Your Playbook"
+        const { container } = render(
+          <ForecastDigestEmail {...baseMockProps} />,
         );
         expect(container.textContent).toContain(
-          "Wave height matches your 3-6ft preference"
+          "Why This Matches Your Playbook",
         );
         expect(container.textContent).toContain(
-          "Offshore wind creates clean faces"
+          "Wave height matches your 3-6ft preference",
         );
         expect(container.textContent).toContain(
-          "Low tide incoming, your preferred tide direction"
+          "Offshore wind creates clean faces",
+        );
+        expect(container.textContent).toContain(
+          "Low tide incoming, your preferred tide direction",
         );
       });
 
@@ -142,7 +160,7 @@ describe("Email Templates", () => {
         const props = { ...baseMockProps, whyText: [] };
         const { container } = render(<ForecastDigestEmail {...props} />);
         expect(container.textContent).toContain(
-          "Why This Matches Your Playbook"
+          "Why This Matches Your Playbook",
         );
         // List should still exist, just empty
         const ul = container.querySelector("ul");
@@ -169,12 +187,14 @@ describe("Email Templates", () => {
         const { container } = render(<ForecastDigestEmail {...props} />);
         expect(container.textContent).toContain("⚠️ Heads up:");
         expect(container.textContent).toContain(
-          "Recent reports indicate heavy crowds this morning"
+          "Recent reports indicate heavy crowds this morning",
         );
       });
 
       it("should not display crowd warning when null", () => {
-        const { container } = render(<ForecastDigestEmail {...baseMockProps} />);
+        const { container } = render(
+          <ForecastDigestEmail {...baseMockProps} />,
+        );
         expect(container.textContent).not.toContain("⚠️ Heads up:");
       });
 
@@ -187,19 +207,23 @@ describe("Email Templates", () => {
 
     describe("Call-to-Action", () => {
       it("should include CTA link with correct URL", () => {
-        const { container } = render(<ForecastDigestEmail {...baseMockProps} />);
+        const { container } = render(
+          <ForecastDigestEmail {...baseMockProps} />,
+        );
         const ctaLink = Array.from(container.querySelectorAll("a")).find(
-          (link) => link.href === "https://quiversurf.app/beaches/ocean-beach"
+          (link) => link.href === "https://quiversurf.app/beaches/ocean-beach",
         );
         expect(ctaLink).toBeInTheDocument();
-        expect(ctaLink?.textContent).toContain("Check Full Forecast");
+        expect(ctaLink?.textContent).toContain("Check Today's Forecast");
       });
 
       it("should include unsubscribe link", () => {
-        const { container } = render(<ForecastDigestEmail {...baseMockProps} />);
+        const { container } = render(
+          <ForecastDigestEmail {...baseMockProps} />,
+        );
         const unsubLink = Array.from(container.querySelectorAll("a")).find(
           (link) =>
-            link.href === "https://quiversurf.app/settings/notifications"
+            link.href === "https://quiversurf.app/settings/notifications",
         );
         expect(unsubLink).toBeInTheDocument();
         expect(unsubLink?.textContent).toContain("Unsubscribe");
@@ -208,29 +232,37 @@ describe("Email Templates", () => {
 
     describe("HTML Structure for Email Clients", () => {
       it("should use inline styles for compatibility", () => {
-        const { container } = render(<ForecastDigestEmail {...baseMockProps} />);
+        const { container } = render(
+          <ForecastDigestEmail {...baseMockProps} />,
+        );
         const rootDiv = container.firstChild as HTMLElement;
         expect(rootDiv.style.fontFamily).toContain("Arial");
         expect(rootDiv.style.lineHeight).toBe("1.6");
       });
 
       it("should use table for forecast data layout", () => {
-        const { container } = render(<ForecastDigestEmail {...baseMockProps} />);
+        const { container } = render(
+          <ForecastDigestEmail {...baseMockProps} />,
+        );
         const table = container.querySelector("table");
         expect(table).toBeInTheDocument();
         expect(table?.style.borderCollapse).toBe("collapse");
       });
 
       it("should have proper header section styling", () => {
-        const { container } = render(<ForecastDigestEmail {...baseMockProps} />);
+        const { container } = render(
+          <ForecastDigestEmail {...baseMockProps} />,
+        );
         const header = Array.from(container.querySelectorAll("div")).find(
-          (div) => div.style.backgroundColor === "rgb(0, 102, 204)"
+          (div) => div.style.backgroundColor === "rgb(0, 102, 204)",
         );
         expect(header).toBeInTheDocument();
       });
 
       it("should use max-width for email client compatibility", () => {
-        const { container } = render(<ForecastDigestEmail {...baseMockProps} />);
+        const { container } = render(
+          <ForecastDigestEmail {...baseMockProps} />,
+        );
         const rootDiv = container.firstChild as HTMLElement;
         expect(rootDiv.style.maxWidth).toBe("600px");
       });
@@ -245,7 +277,7 @@ describe("Email Templates", () => {
         };
         const { container } = render(<ForecastDigestEmail {...props} />);
         expect(container.textContent).toContain(
-          "Super Long Beach Name That Might Cause Layout Issues in Email Clients"
+          "Super Long Beach Name That Might Cause Layout Issues in Email Clients",
         );
       });
 
@@ -269,7 +301,7 @@ describe("Email Templates", () => {
         };
         const { container } = render(<ForecastDigestEmail {...props} />);
         expect(container.textContent).toContain(
-          "This is an extremely long reason"
+          "This is an extremely long reason",
         );
       });
 
@@ -343,5 +375,4 @@ describe("Email Templates", () => {
       });
     });
   });
-
 });

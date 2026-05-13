@@ -57,14 +57,16 @@ export const POST = withAdminAuth(async (request: NextRequest, { user }) => {
 /**
  * API endpoint to get enhanced forecasts for a beach
  *
- * NEVER SERVE STALE: Uses getFreshForecastFromCache() as single source of truth.
- * Returns empty forecasts + metadata when data is stale/missing.
+ * Uses getFreshForecastFromCache() as single source of truth for forecast cache
+ * freshness. Strict callers receive empty forecasts when cache is stale/missing.
+ * Beach detail can opt into display-only stale rows with `allowStale=display`.
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const beachId = searchParams.get("beachId");
     const rawDays = searchParams.get("days");
+    const allowStaleMode = searchParams.get("allowStale");
     let days = 10;
     if (rawDays != null) {
       const parsed = parseInt(rawDays as string, 10);
@@ -80,10 +82,16 @@ export async function GET(request: NextRequest) {
     // Use getFreshForecastFromCache as single source of truth for staleness gating.
     // This function:
     // - Uses v_enhanced_forecast_latest (not forecasts[0]) for accurate freshness
-    // - Never returns stale rows
-    // - Returns empty + metadata when stale/missing
+    // - Keeps stale rows out by default for alerts, pushes, emails, and automation
+    // - Allows beach-detail display stale rows only when explicitly requested
     const windowHours = days * 24;
-    const result = await getFreshForecastFromCache(beachId, windowHours);
+    const result = await getFreshForecastFromCache(
+      beachId,
+      windowHours,
+      allowStaleMode === "display"
+        ? { allowStale: true, maxStaleHours: 24 }
+        : undefined
+    );
 
     const { metadata } = result;
 
@@ -135,12 +143,16 @@ export async function GET(request: NextRequest) {
         cached: metadata.cached,
         stale: metadata.stale,
         missing: metadata.missing,
+        displayStale: metadata.displayStale ?? false,
         reason: metadata.reason,
-        dataSource: metadata.stalenessDetails ?
-          (metadata.stale ? "UNKNOWN" : forecasts[0]?.data_source || "FALLBACK") :
-          undefined,
+        dataSource: metadata.stalenessDetails
+          ? metadata.stale
+            ? metadata.dataSource ?? "UNKNOWN"
+            : forecasts[0]?.data_source || metadata.dataSource || "FALLBACK"
+          : metadata.dataSource ?? undefined,
         lastUpdated: metadata.stalenessDetails ?
-          new Date(Date.now() - metadata.stalenessDetails.hoursSinceUpdate * 60 * 60 * 1000).toISOString() :
+          (metadata.lastUpdated ??
+            new Date(Date.now() - metadata.stalenessDetails.hoursSinceUpdate * 60 * 60 * 1000).toISOString()) :
           undefined,
         stalenessThreshold: metadata.stalenessDetails?.threshold,
         dataAge: metadata.stalenessDetails ?

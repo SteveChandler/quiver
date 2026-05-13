@@ -19,6 +19,7 @@ import { CONDITION_TIER_THRESHOLDS } from "@/lib/utils/condition-tier-utils";
 import { ErrorBoundary } from "@/components/error-boundaries";
 import { BestDayHero } from "./best-day-hero";
 import { ExploreMoreLinks } from "./explore-more-links";
+import { DetailedForecastTable } from "./detailed-forecast-table";
 
 // Dynamic import for chart (code splitting since it's a subtab)
 const OutlookBarChart = dynamic(
@@ -32,6 +33,7 @@ interface ConditionsOverviewProps {
   beach: Beach;
   /** When set, the hero shows this day instead of the overall best */
   selectedDate?: string;
+  beachTimezone?: string | null;
 }
 
 export function ConditionsOverview({
@@ -39,6 +41,7 @@ export function ConditionsOverview({
   forecasts,
   beach,
   selectedDate,
+  beachTimezone,
 }: ConditionsOverviewProps) {
   const enrichedDays = useMemo(
     () => enrichDaySummaries(horizonDaySummaries, forecasts, beach.wind_offshore_deg),
@@ -88,6 +91,11 @@ export function ConditionsOverview({
       <ErrorBoundary fallback={() => <p className="text-sm text-muted-foreground py-4">Unable to load chart.</p>}>
         <OutlookBarChart days={enrichedDays} />
       </ErrorBoundary>
+
+      <DetailedForecastTable
+        forecasts={forecasts}
+        beachTimezone={beachTimezone}
+      />
 
       <ExploreMoreLinks beach={beach} />
     </div>

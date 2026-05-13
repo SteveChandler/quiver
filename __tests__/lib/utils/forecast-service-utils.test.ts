@@ -106,6 +106,60 @@ describe("getFreshForecastFromCache", () => {
     expect(enhancedForecastsQueried).toBe(false);
   });
 
+  it("returns stale display rows when allowStale is enabled and metadata is under 24 hours old", async () => {
+    const fourteenHoursAgoIso = new Date(Date.now() - 14 * 60 * 60 * 1000).toISOString();
+    const forecasts = [
+      {
+        beach_id: BEACH_ID,
+        forecast_date: "2026-01-05",
+        forecast_time: "12:00:00",
+        forecast_at: "2026-01-05T12:00:00Z",
+        updated_at: fourteenHoursAgoIso,
+        data_source: "NOAA_NWS",
+      },
+    ];
+
+    latestResult = {
+      data: { updated_at: fourteenHoursAgoIso, data_source: "NOAA_NWS" },
+      error: null,
+    };
+    forecastsResult = { data: forecasts, error: null };
+
+    const result = await getFreshForecastFromCache(BEACH_ID, 48, {
+      allowStale: true,
+      maxStaleHours: 24,
+    });
+
+    expect(result.forecasts).toEqual(forecasts);
+    expect(result.metadata.cached).toBe(true);
+    expect(result.metadata.stale).toBe(true);
+    expect(result.metadata.displayStale).toBe(true);
+    expect(result.metadata.missing).toBe(false);
+    expect(result.metadata.lastUpdated).toBe(fourteenHoursAgoIso);
+    expect(enhancedForecastsQueried).toBe(true);
+  });
+
+  it("keeps display stale rows empty when stale metadata is older than 24 hours", async () => {
+    const twentyFiveHoursAgoIso = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+
+    latestResult = {
+      data: { updated_at: twentyFiveHoursAgoIso, data_source: "NOAA_NWS" },
+      error: null,
+    };
+
+    const result = await getFreshForecastFromCache(BEACH_ID, 48, {
+      allowStale: true,
+      maxStaleHours: 24,
+    });
+
+    expect(result.forecasts).toEqual([]);
+    expect(result.metadata.cached).toBe(true);
+    expect(result.metadata.stale).toBe(true);
+    expect(result.metadata.displayStale).toBeUndefined();
+    expect(result.metadata.missing).toBe(false);
+    expect(enhancedForecastsQueried).toBe(false);
+  });
+
   it("returns missing=true when latest metadata does not exist (no cached forecasts yet)", async () => {
     latestResult = { data: null, error: null };
 
@@ -380,4 +434,3 @@ describe("getBatchFreshForecastsFromCache", () => {
     expect(beach1?.forecasts).toEqual([]);
   });
 });
-
