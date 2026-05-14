@@ -84,6 +84,7 @@ jest.mock("@/lib/notifications/enqueue", () => ({
 // ---- Mock email-token (deterministic) ----
 jest.mock("@/lib/alerts/email-token", () => ({
   generateDisableToken: jest.fn(() => "test-disable-token"),
+  generateEmailUnsubscribeToken: jest.fn(() => "test-unsubscribe-token"),
 }));
 
 // ---- Mock Supabase via per-table store ----
@@ -123,6 +124,7 @@ interface MockStore {
   // Worker reads these via SELECT on alert_delivery_attempts where status='sent'
   // and attempted_at >= sinceWeek. Inserts during the run land in attemptInserts.
   seededAttempts: SeededAttemptRow[];
+  forecastRows: any[];
 }
 
 const store: MockStore = {
@@ -134,6 +136,7 @@ const store: MockStore = {
   deliveryInserts: [],
   queueUpdates: [],
   seededAttempts: [],
+  forecastRows: [],
 };
 
 function makeChain(rowsResolver: () => any[], onTerminal?: () => void) {
@@ -226,6 +229,9 @@ function mockFrom(table: string) {
     });
     return chain;
   }
+  if (table === "enhanced_forecasts") {
+    return makeChain(() => store.forecastRows);
+  }
   return makeChain(() => []);
 }
 
@@ -291,6 +297,7 @@ beforeEach(() => {
   store.deliveryInserts = [];
   store.queueUpdates = [];
   store.seededAttempts = [];
+  store.forecastRows = [];
   mockEmailsSend.mockResolvedValue({ data: { id: "msg-1" }, error: null });
   mockEnqueueNotification.mockResolvedValue({
     enqueued: true,
@@ -424,6 +431,68 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       status: "skipped_no_email",
     });
 
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+  });
+
+  it("fresh forecast revalidation skips stale queued alerts that no longer match", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    seedQueueRow({
+      alert_rules: {
+        name: "Mellow session at your home break",
+        notify_email: true,
+        notify_push: false,
+        conditions: { swell_height_min: 1.5, swell_height_max: 4, wind_speed_max_kt: 8 },
+      },
+      beaches: {
+        id: BEACH_1,
+        name: "Mission Beach",
+        slug: "mission-beach",
+        timezone: "America/Los_Angeles",
+        lat: 32.7701,
+        lon: -117.2525,
+        wind_offshore_deg: 90,
+        wind_offshore_tol_deg: 45,
+        aspect_deg: 270,
+        preferred_tide_ft_min: 2,
+        preferred_tide_ft_max: 6,
+        preferred_tide_direction: "rising",
+        swell_window_center_deg: 300,
+        swell_window_halfwidth_deg: 45,
+        break_type: "beach",
+        skill_level: "intermediate",
+      },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+    store.forecastRows.push({
+      forecast_at: "2026-04-26T15:00:00Z",
+      wave_height: "0.7 ft",
+      wave_period: "8s",
+      wave_direction: "W",
+      swell_1_period: "8s",
+      swell_1_direction: "270",
+      wind_speed: "0 mph",
+      wind_direction_deg: 225,
+      tide_height: "2.8",
+      tide_status: "Falling",
+    });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    expect(body.skippedStale).toBe(1);
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(store.deliveryInserts).toHaveLength(0);
+    expect(store.attemptInserts).toEqual([
+      expect.objectContaining({
+        queue_id: QUEUE_1,
+        user_id: USER_A,
+        rule_id: RULE_1,
+        channel: "email",
+        status: "skipped_stale_forecast",
+      }),
+    ]);
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
   });
 

@@ -3,7 +3,7 @@
  *
  * Tests for the /api/cron/forecast-alerts route.
  *
- * This route evaluates forecast threshold alerts and enqueues daily summary pushes.
+ * This route owns the disabled legacy daily forecast summary producer.
  * It requires valid cron authentication (Vercel cron header or Bearer token).
  */
 
@@ -103,7 +103,7 @@ describe("Cron: forecast-alerts", () => {
   });
 
   describe("Daily Summary Behavior", () => {
-    it("returns daily summary push counts", async () => {
+    it("returns legacy producer summary counts", async () => {
       const alertResult = createMockAlertResult({
         eligibleUsers: 100,
         eligibleBeachesProcessed: 150,

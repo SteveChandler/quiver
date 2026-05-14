@@ -6,6 +6,7 @@ import {
   SEO_FUNNEL_PAGES,
   filterSeoCamBeaches,
   getIndexableSeoFunnelRoutes,
+  getSeoFunnelInternalLinks,
   getSeoFunnelImagePrompts,
   getSeoFunnelPageByIntentRoute,
   getSeoFunnelPageByTypeAndSlug,
@@ -46,6 +47,8 @@ describe("SEO funnel pages", () => {
 
   it("keeps page metadata, H1s, images, FAQs, and internal links complete", () => {
     for (const page of INDEXABLE_SEO_FUNNEL_PAGES) {
+      const internalLinks = getSeoFunnelInternalLinks(page);
+
       expect(page.title.length).toBeGreaterThan(0);
       expect(page.metaDescription.length).toBeGreaterThan(0);
       expect(page.h1.length).toBeGreaterThan(0);
@@ -53,7 +56,62 @@ describe("SEO funnel pages", () => {
       expect(page.images.length).toBeGreaterThanOrEqual(3);
       expect(page.faqs.length).toBeGreaterThanOrEqual(3);
       expect(page.internalLinks.length).toBeGreaterThanOrEqual(3);
+      expect(internalLinks.length).toBeGreaterThan(page.internalLinks.length);
       expect(page.nearbySpots.length).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it("builds deterministic contextual links to canonical planning surfaces", () => {
+    const page = getSeoFunnelPageByTypeAndSlug(
+      "surf-report-today",
+      "scripps-pier-today",
+    );
+
+    expect(page).not.toBeNull();
+
+    const links = getSeoFunnelInternalLinks(page!);
+    const hrefs = links.map((link) => link.href);
+    const kinds = links.map((link) => link.kind);
+
+    expect(hrefs).toEqual([...new Set(hrefs)]);
+    expect(hrefs).not.toContain(page!.path);
+    expect(hrefs).toEqual(
+      expect.arrayContaining([
+        "/ca/la-jolla/la-jolla-shores",
+        "/ca/la-jolla/la-jolla-shores/tides",
+        "/ca/la-jolla/la-jolla-shores/water-temp",
+        "/ca/la-jolla/blacks-beach",
+        "/ca/la-jolla/blacks-beach/tides",
+        "/ca/la-jolla/blacks-beach/water-temp",
+        "/map?search=Scripps%20Pier",
+        "/surf-cams/san-diego",
+      ]),
+    );
+    expect(kinds).toEqual(
+      expect.arrayContaining([
+        "beach",
+        "cam",
+        "forecast",
+        "map",
+        "tide",
+        "water-temp",
+      ]),
+    );
+  });
+
+  it("keeps contextual links on supported canonical route shapes only", () => {
+    for (const page of INDEXABLE_SEO_FUNNEL_PAGES) {
+      const links = getSeoFunnelInternalLinks(page);
+      const hrefs = links.map((link) => link.href);
+
+      expect(hrefs).toEqual([...new Set(hrefs)]);
+
+      for (const link of links) {
+        expect(link.href).not.toBe(page.path);
+        expect(link.href).toMatch(
+          /^\/(?:[a-z]{2}\/[^/?#]+\/[^/?#]+(?:\/(?:tides|water-temp))?|surf-report\/[^/?#]+|surf-cams\/[^/?#]+|beginner\/[^/?#]+|longboard\/[^/?#]+|best-time-to-surf(?:\/[^/?#]+)?|map(?:\?search=[^#]+)?)$/,
+        );
+      }
     }
   });
 
@@ -86,28 +144,30 @@ describe("SEO funnel pages", () => {
     expect(prompts).toHaveLength(63);
     for (const { image } of prompts) {
       expect(
-        existsSync(join(process.cwd(), "public", image.src.slice(1)))
+        existsSync(join(process.cwd(), "public", image.src.slice(1))),
       ).toBe(true);
     }
   });
 
   it("resolves every nearby-spot background image file", () => {
     const spots = SEO_FUNNEL_PAGES.flatMap((page) =>
-      page.nearbySpots.map((spot) => ({ page, spot }))
+      page.nearbySpots.map((spot) => ({ page, spot })),
     );
 
     expect(spots.length).toBeGreaterThan(0);
     for (const { page, spot } of spots) {
       if (!spot.imageSrc || !spot.imageAlt) {
-        throw new Error(`${page.path} is missing a background for ${spot.label}`);
+        throw new Error(
+          `${page.path} is missing a background for ${spot.label}`,
+        );
       }
 
       expect(spot.imageSrc).toMatch(/^\/images\/.+\.webp$/);
       expect(spot.imageSrc).not.toMatch(
-        /aerial-ocean|open-ocean|scripps-clean-wave|scripps-tide-risk/
+        /aerial-ocean|open-ocean|scripps-clean-wave|scripps-tide-risk/,
       );
       expect(
-        existsSync(join(process.cwd(), "public", spot.imageSrc.slice(1)))
+        existsSync(join(process.cwd(), "public", spot.imageSrc.slice(1))),
       ).toBe(true);
       expect(page.path).toMatch(/^\//);
     }
@@ -116,13 +176,13 @@ describe("SEO funnel pages", () => {
   it("stores image source instructions without mislabeling surf-cam photos", () => {
     const prompts = getSeoFunnelImagePrompts();
     const surfCamPrompts = prompts.filter(({ path }) =>
-      path.startsWith("/surf-cams/")
+      path.startsWith("/surf-cams/"),
     );
     const photoPrompts = prompts.filter(
-      ({ image }) => image.assetType === "photo"
+      ({ image }) => image.assetType === "photo",
     );
     const dioramaPrompts = prompts.filter(
-      ({ image }) => image.assetType === "diorama"
+      ({ image }) => image.assetType === "diorama",
     );
 
     expect(prompts).toHaveLength(63);
@@ -152,10 +212,10 @@ describe("SEO funnel pages", () => {
 
   it("resolves exact beginner and longboard route overrides", () => {
     expect(getSeoFunnelPageByIntentRoute("beginner", "santa-cruz")?.path).toBe(
-      "/beginner/santa-cruz"
+      "/beginner/santa-cruz",
     );
     expect(getSeoFunnelPageByIntentRoute("longboard", "pr")?.path).toBe(
-      "/longboard/pr"
+      "/longboard/pr",
     );
     expect(getSeoFunnelPageByIntentRoute("tide", "san-diego")).toBeNull();
   });
@@ -163,11 +223,11 @@ describe("SEO funnel pages", () => {
   it("resolves surf report and cam configs by type and slug", () => {
     expect(
       getSeoFunnelPageByTypeAndSlug("surf-report-today", "scripps-pier-today")
-        ?.decision?.primarySpotSlug
+        ?.decision?.primarySpotSlug,
     ).toBe("scripps");
     expect(
       getSeoFunnelPageByTypeAndSlug("surf-cams", "san-diego")?.camRegion
-        ?.states
+        ?.states,
     ).toContain("CA");
     expect(getSeoFunnelPageByTypeAndSlug("surf-cams", "santa-cruz")).toBeNull();
   });

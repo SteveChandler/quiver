@@ -29,7 +29,11 @@ import {
 jest.mock("@/lib/api-utils", () => ({
   createSuccessResponse: jest.fn((data) => ({
     status: 200,
-    json: async () => ({ success: true, data, timestamp: new Date().toISOString() }),
+    json: async () => ({
+      success: true,
+      data,
+      timestamp: new Date().toISOString(),
+    }),
   })),
   handleApiError: jest.fn((error, _errorMessage?: string) => ({
     status: 500,
@@ -52,6 +56,34 @@ jest.mock("@/lib/api-utils", () => ({
 // Mock Supabase client — used by both bearer and cookie auth paths in withAuth
 let mockSupabase: MockSupabaseClient;
 
+function mockSuccessfulDeviceRegistration(
+  mockUpsert: jest.Mock = jest.fn().mockResolvedValue({ error: null }),
+): {
+  mockUpsert: jest.Mock;
+  mockProfileUpdate: jest.Mock;
+  mockProfileEq: jest.Mock;
+  mockProfileIs: jest.Mock;
+} {
+  const mockProfileIs = jest.fn().mockResolvedValue({ error: null });
+  const mockProfileEq = jest.fn(() => ({
+    error: null,
+    is: mockProfileIs,
+  }));
+  const mockProfileUpdate = jest.fn(() => ({
+    eq: mockProfileEq,
+  }));
+
+  (mockSupabase.from as jest.Mock).mockImplementation((table: string) => {
+    if (table === "profiles") {
+      return { update: mockProfileUpdate };
+    }
+
+    return { upsert: mockUpsert };
+  });
+
+  return { mockUpsert, mockProfileUpdate, mockProfileEq, mockProfileIs };
+}
+
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(() => mockSupabase),
 }));
@@ -71,17 +103,18 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       mockAuthenticatedUser(mockSupabase, mockUser);
 
       // Mock successful upsert
-      const mockUpsert = jest.fn().mockResolvedValue({ error: null });
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        upsert: mockUpsert,
-      });
+      const { mockUpsert } = mockSuccessfulDeviceRegistration();
 
-      const request = createMockRequest("POST", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          platform: "ios",
-          device_token: "test-ios-token-123",
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "ios",
+            device_token: "test-ios-token-123",
+          },
         },
-      });
+      );
 
       const response = await POST(request);
       const data = await response.json();
@@ -94,7 +127,7 @@ describe("Device Token API - POST /api/devices/upsert", () => {
           platform: "ios",
           device_token: "test-ios-token-123",
         }),
-        { onConflict: "user_id,device_token" }
+        { onConflict: "user_id,device_token" },
       );
     });
 
@@ -102,17 +135,18 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       const mockUser = createMockUser();
       mockAuthenticatedUser(mockSupabase, mockUser);
 
-      const mockUpsert = jest.fn().mockResolvedValue({ error: null });
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        upsert: mockUpsert,
-      });
+      const { mockUpsert } = mockSuccessfulDeviceRegistration();
 
-      const request = createMockRequest("POST", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          platform: "android",
-          device_token: "test-android-token-456",
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "android",
+            device_token: "test-android-token-456",
+          },
         },
-      });
+      );
 
       const response = await POST(request);
       const data = await response.json();
@@ -125,7 +159,7 @@ describe("Device Token API - POST /api/devices/upsert", () => {
           platform: "android",
           device_token: "test-android-token-456",
         }),
-        { onConflict: "user_id,device_token" }
+        { onConflict: "user_id,device_token" },
       );
     });
 
@@ -133,17 +167,18 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       const mockUser = createMockUser();
       mockAuthenticatedUser(mockSupabase, mockUser);
 
-      const mockUpsert = jest.fn().mockResolvedValue({ error: null });
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        upsert: mockUpsert,
-      });
+      const { mockUpsert } = mockSuccessfulDeviceRegistration();
 
-      const request = createMockRequest("POST", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          platform: "web",
-          device_token: "test-web-token-789",
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "web",
+            device_token: "test-web-token-789",
+          },
         },
-      });
+      );
 
       const response = await POST(request);
       const data = await response.json();
@@ -156,7 +191,7 @@ describe("Device Token API - POST /api/devices/upsert", () => {
           platform: "web",
           device_token: "test-web-token-789",
         }),
-        { onConflict: "user_id,device_token" }
+        { onConflict: "user_id,device_token" },
       );
     });
 
@@ -164,17 +199,18 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       const mockUser = createMockUser();
       mockAuthenticatedUser(mockSupabase, mockUser);
 
-      const mockUpsert = jest.fn().mockResolvedValue({ error: null });
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        upsert: mockUpsert,
-      });
+      const { mockUpsert } = mockSuccessfulDeviceRegistration();
 
-      const request = createMockRequest("POST", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          platform: "ios",
-          device_token: "existing-token-to-update",
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "ios",
+            device_token: "existing-token-to-update",
+          },
         },
-      });
+      );
 
       const response = await POST(request);
       const data = await response.json();
@@ -189,7 +225,7 @@ describe("Device Token API - POST /api/devices/upsert", () => {
           device_token: "existing-token-to-update",
           updated_at: expect.any(String),
         }),
-        { onConflict: "user_id,device_token" }
+        { onConflict: "user_id,device_token" },
       );
     });
 
@@ -197,17 +233,18 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       const mockUser = createMockUser();
       mockAuthenticatedUser(mockSupabase, mockUser);
 
-      const mockUpsert = jest.fn().mockResolvedValue({ error: null });
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        upsert: mockUpsert,
-      });
+      const { mockUpsert } = mockSuccessfulDeviceRegistration();
 
-      const request = createMockRequest("POST", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          platform: "ios",
-          device_token: "test-token-with-timestamp",
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "ios",
+            device_token: "test-token-with-timestamp",
+          },
         },
-      });
+      );
 
       await POST(request);
 
@@ -215,7 +252,7 @@ describe("Device Token API - POST /api/devices/upsert", () => {
         expect.objectContaining({
           updated_at: expect.any(String),
         }),
-        expect.any(Object)
+        expect.any(Object),
       );
 
       // Verify timestamp is a valid ISO string
@@ -229,12 +266,16 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       const mockUser = createMockUser();
       mockAuthenticatedUser(mockSupabase, mockUser);
 
-      const request = createMockRequest("POST", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          platform: "invalid",
-          device_token: "test-token-123",
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "invalid",
+            device_token: "test-token-123",
+          },
         },
-      });
+      );
 
       const response = await POST(request);
       const data = await response.json();
@@ -248,12 +289,16 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       const mockUser = createMockUser();
       mockAuthenticatedUser(mockSupabase, mockUser);
 
-      const request = createMockRequest("POST", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          platform: "",
-          device_token: "test-token-123",
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "",
+            device_token: "test-token-123",
+          },
         },
-      });
+      );
 
       const response = await POST(request);
       const data = await response.json();
@@ -267,12 +312,16 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       const mockUser = createMockUser();
       mockAuthenticatedUser(mockSupabase, mockUser);
 
-      const request = createMockRequest("POST", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          platform: "IOS", // uppercase, should be lowercase
-          device_token: "test-token-123",
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "IOS", // uppercase, should be lowercase
+            device_token: "test-token-123",
+          },
         },
-      });
+      );
 
       const response = await POST(request);
       const data = await response.json();
@@ -287,12 +336,16 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       const mockUser = createMockUser();
       mockAuthenticatedUser(mockSupabase, mockUser);
 
-      const request = createMockRequest("POST", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          platform: "ios",
-          // missing device_token
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "ios",
+            // missing device_token
+          },
         },
-      });
+      );
 
       const response = await POST(request);
       const data = await response.json();
@@ -306,12 +359,16 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       const mockUser = createMockUser();
       mockAuthenticatedUser(mockSupabase, mockUser);
 
-      const request = createMockRequest("POST", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          platform: "ios",
-          device_token: "",
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "ios",
+            device_token: "",
+          },
         },
-      });
+      );
 
       const response = await POST(request);
       const data = await response.json();
@@ -325,12 +382,16 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       const mockUser = createMockUser();
       mockAuthenticatedUser(mockSupabase, mockUser);
 
-      const request = createMockRequest("POST", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          platform: "ios",
-          device_token: "   ",
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "ios",
+            device_token: "   ",
+          },
         },
-      });
+      );
 
       const response = await POST(request);
       const data = await response.json();
@@ -346,12 +407,16 @@ describe("Device Token API - POST /api/devices/upsert", () => {
 
       const longToken = "a".repeat(513); // 513 characters, exceeds limit
 
-      const request = createMockRequest("POST", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          platform: "ios",
-          device_token: longToken,
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "ios",
+            device_token: longToken,
+          },
         },
-      });
+      );
 
       const response = await POST(request);
       const data = await response.json();
@@ -365,19 +430,20 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       const mockUser = createMockUser();
       mockAuthenticatedUser(mockSupabase, mockUser);
 
-      const mockUpsert = jest.fn().mockResolvedValue({ error: null });
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        upsert: mockUpsert,
-      });
+      const { mockUpsert } = mockSuccessfulDeviceRegistration();
 
       const maxLengthToken = "b".repeat(512); // Exactly 512 characters
 
-      const request = createMockRequest("POST", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          platform: "ios",
-          device_token: maxLengthToken,
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "ios",
+            device_token: maxLengthToken,
+          },
         },
-      });
+      );
 
       const response = await POST(request);
       const data = await response.json();
@@ -392,12 +458,16 @@ describe("Device Token API - POST /api/devices/upsert", () => {
     it("should require authentication", async () => {
       mockUnauthenticatedUser(mockSupabase);
 
-      const request = createMockRequest("POST", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          platform: "ios",
-          device_token: "test-token-123",
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "ios",
+            device_token: "test-token-123",
+          },
         },
-      });
+      );
 
       const response = await POST(request);
       const data = await response.json();
@@ -413,12 +483,16 @@ describe("Device Token API - POST /api/devices/upsert", () => {
         error: new Error("Auth token expired"),
       });
 
-      const request = createMockRequest("POST", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          platform: "ios",
-          device_token: "test-token-123",
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "ios",
+            device_token: "test-token-123",
+          },
         },
-      });
+      );
 
       const response = await POST(request);
       const data = await response.json();
@@ -431,17 +505,18 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       const mockUser = createMockUser({ id: "specific-user-id-123" });
       mockAuthenticatedUser(mockSupabase, mockUser);
 
-      const mockUpsert = jest.fn().mockResolvedValue({ error: null });
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        upsert: mockUpsert,
-      });
+      const { mockUpsert } = mockSuccessfulDeviceRegistration();
 
-      const request = createMockRequest("POST", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          platform: "ios",
-          device_token: "test-token-123",
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "ios",
+            device_token: "test-token-123",
+          },
         },
-      });
+      );
 
       await POST(request);
 
@@ -449,7 +524,7 @@ describe("Device Token API - POST /api/devices/upsert", () => {
         expect.objectContaining({
           user_id: "specific-user-id-123",
         }),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
   });
@@ -466,12 +541,16 @@ describe("Device Token API - POST /api/devices/upsert", () => {
         upsert: mockUpsert,
       });
 
-      const request = createMockRequest("POST", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          platform: "ios",
-          device_token: "test-token-123",
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "ios",
+            device_token: "test-token-123",
+          },
         },
-      });
+      );
 
       const response = await POST(request);
       const data = await response.json();
@@ -485,18 +564,25 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       mockAuthenticatedUser(mockSupabase, mockUser);
 
       const mockUpsert = jest.fn().mockResolvedValue({
-        error: { message: "duplicate key value violates unique constraint", code: "23505" },
+        error: {
+          message: "duplicate key value violates unique constraint",
+          code: "23505",
+        },
       });
       (mockSupabase.from as jest.Mock).mockReturnValue({
         upsert: mockUpsert,
       });
 
-      const request = createMockRequest("POST", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          platform: "ios",
-          device_token: "test-token-123",
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "ios",
+            device_token: "test-token-123",
+          },
         },
-      });
+      );
 
       const response = await POST(request);
 
@@ -510,10 +596,7 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       const mockUser = createMockUser();
       mockAuthenticatedUser(mockSupabase, mockUser);
 
-      const mockUpsert = jest.fn().mockResolvedValue({ error: null });
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        upsert: mockUpsert,
-      });
+      const { mockUpsert } = mockSuccessfulDeviceRegistration();
 
       const request = createMockRequest(
         "POST",
@@ -526,7 +609,7 @@ describe("Device Token API - POST /api/devices/upsert", () => {
             os_version: "17.4",
             expo_sdk: "55.0.0",
           },
-        }
+        },
       );
 
       const response = await POST(request);
@@ -537,7 +620,7 @@ describe("Device Token API - POST /api/devices/upsert", () => {
           os_version: "17.4",
           expo_sdk: "55.0.0",
         }),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
 
@@ -554,7 +637,7 @@ describe("Device Token API - POST /api/devices/upsert", () => {
             device_token: "tok",
             app_version: "x".repeat(33),
           },
-        }
+        },
       );
 
       const response = await POST(request);
@@ -577,7 +660,7 @@ describe("Device Token API - POST /api/devices/upsert", () => {
             device_token: "tok",
             os_version: 17,
           },
-        }
+        },
       );
 
       const response = await POST(request);
@@ -590,17 +673,14 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       const mockUser = createMockUser();
       mockAuthenticatedUser(mockSupabase, mockUser);
 
-      const mockUpsert = jest.fn().mockResolvedValue({ error: null });
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        upsert: mockUpsert,
-      });
+      const { mockUpsert } = mockSuccessfulDeviceRegistration();
 
       const request = createMockRequest(
         "POST",
         "http://localhost:3000/api/devices/upsert",
         {
           body: { platform: "android", device_token: "tok" },
-        }
+        },
       );
 
       await POST(request);
@@ -618,11 +698,14 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       mockAuthenticatedUser(mockSupabase, mockUser);
 
       // Create a request with invalid JSON
-      const request = new NextRequest("http://localhost:3000/api/devices/upsert", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "invalid-json-{",
-      });
+      const request = new NextRequest(
+        "http://localhost:3000/api/devices/upsert",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "invalid-json-{",
+        },
+      );
 
       const response = await POST(request);
       const data = await response.json();
@@ -659,11 +742,15 @@ describe("Device Token API - DELETE /api/devices/upsert", () => {
         delete: mockDelete,
       });
 
-      const request = createMockRequest("DELETE", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          device_token: "test-token-to-delete",
+      const request = createMockRequest(
+        "DELETE",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            device_token: "test-token-to-delete",
+          },
         },
-      });
+      );
 
       const response = await DELETE(request);
       const data = await response.json();
@@ -672,7 +759,10 @@ describe("Device Token API - DELETE /api/devices/upsert", () => {
       expect(data.success).toBe(true);
       expect(mockDelete).toHaveBeenCalled();
       expect(mockEq).toHaveBeenCalledWith("user_id", mockUser.id);
-      expect(mockEq).toHaveBeenCalledWith("device_token", "test-token-to-delete");
+      expect(mockEq).toHaveBeenCalledWith(
+        "device_token",
+        "test-token-to-delete",
+      );
     });
 
     it("should only delete tokens for authenticated user", async () => {
@@ -694,11 +784,15 @@ describe("Device Token API - DELETE /api/devices/upsert", () => {
         delete: mockDelete,
       });
 
-      const request = createMockRequest("DELETE", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          device_token: "test-token-123",
+      const request = createMockRequest(
+        "DELETE",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            device_token: "test-token-123",
+          },
         },
-      });
+      );
 
       await DELETE(request);
 
@@ -710,11 +804,15 @@ describe("Device Token API - DELETE /api/devices/upsert", () => {
       const mockUser = createMockUser();
       mockAuthenticatedUser(mockSupabase, mockUser);
 
-      const request = createMockRequest("DELETE", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          // missing device_token
+      const request = createMockRequest(
+        "DELETE",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            // missing device_token
+          },
         },
-      });
+      );
 
       const response = await DELETE(request);
       const data = await response.json();
@@ -727,11 +825,15 @@ describe("Device Token API - DELETE /api/devices/upsert", () => {
     it("should require authentication for deletion", async () => {
       mockUnauthenticatedUser(mockSupabase);
 
-      const request = createMockRequest("DELETE", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          device_token: "test-token-123",
+      const request = createMockRequest(
+        "DELETE",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            device_token: "test-token-123",
+          },
         },
-      });
+      );
 
       const response = await DELETE(request);
       const data = await response.json();
@@ -760,11 +862,15 @@ describe("Device Token API - DELETE /api/devices/upsert", () => {
         delete: mockDelete,
       });
 
-      const request = createMockRequest("DELETE", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          device_token: "test-token-123",
+      const request = createMockRequest(
+        "DELETE",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            device_token: "test-token-123",
+          },
         },
-      });
+      );
 
       const response = await DELETE(request);
       const data = await response.json();
@@ -795,11 +901,15 @@ describe("Device Token API - DELETE /api/devices/upsert", () => {
         delete: mockDelete,
       });
 
-      const request = createMockRequest("DELETE", "http://localhost:3000/api/devices/upsert", {
-        body: {
-          device_token: "non-existent-token",
+      const request = createMockRequest(
+        "DELETE",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            device_token: "non-existent-token",
+          },
         },
-      });
+      );
 
       const response = await DELETE(request);
       const data = await response.json();

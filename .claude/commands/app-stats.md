@@ -1,6 +1,7 @@
 Query Quiver application metrics from Supabase and present a formatted dashboard.
 
 **Exclusion filter** (applied to all queries joining profiles):
+
 ```
 p.is_mock = false
 AND (p.email IS NULL OR (
@@ -9,18 +10,21 @@ AND (p.email IS NULL OR (
   AND p.email NOT LIKE '%@example.invalid'
 ))
 ```
+
 This filters out:
+
 - Mock/NPC profiles of every kind via `p.is_mock = false` (includes `morning.intel@quiversurf.app`, the NPC review authors at `@example.invalid`, and any future seed script that sets the flag).
 - Test accounts and local-dev accounts via the email substring guards.
 - But explicitly INCLUDES real profiles with `email IS NULL` (Apple relay accounts, social logins that didn't surface an email). Without the `OR p.email IS NULL` branch, `NULL NOT ILIKE '%test%'` returns NULL and those rows silently drop out of every dashboard count.
 
 Run these 27 SQL queries **in parallel** against project `vawdnbbgawichorsjiwe` using the Supabase MCP `execute_sql` tool directly from the main session (do NOT delegate to subagents — they cannot access MCP tools).
 
-**Design principle:** at pre-PMF scale (single-digit signups/week, handful of real active users), daily granularity is noise. Prefer lifetime/7d/monthly aggregates. The dashboard should surface *archetypes and who's using it*, not per-day swings on tiny samples. Lead with anomalies + real-user behavior.
+**Design principle:** at pre-PMF scale (single-digit signups/week, handful of real active users), daily granularity is noise. Prefer lifetime/7d/monthly aggregates. The dashboard should surface _archetypes and who's using it_, not per-day swings on tiny samples. Lead with anomalies + real-user behavior.
 
 **Founder exclusion note:** Query 32 and Query 33 exclude Steven's real user account (`73040cff-afe9-4fa0-a874-2016203fc015` / `omg.its.thefuture@gmail.com`) because his founder-power-user behavior distorts real-user aggregates. His test/QA identity accounts are already handled via `is_mock=true` (see `reference_is_mock_flagged_accounts_apr24.md`). Do NOT flip `is_mock` on the founder account — it's used for genuine session logging.
 
 ### Query 1: Users
+
 ```sql
 SELECT
   COUNT(*) AS total_users,
@@ -36,6 +40,7 @@ WHERE is_mock = false
 ```
 
 ### Query 2: Sessions
+
 ```sql
 SELECT
   COUNT(*) AS total_sessions,
@@ -56,6 +61,7 @@ WHERE s.deleted_at IS NULL
 ```
 
 ### Query 3: Content
+
 ```sql
 SELECT
   (SELECT COUNT(*) FROM beach_reviews br JOIN profiles p ON br.user_id = p.id WHERE br.deleted_at IS NULL AND p.is_mock = false AND (p.email IS NULL OR (p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'))) AS total_reviews,
@@ -67,6 +73,7 @@ SELECT
 ```
 
 ### Query 4: Delivery (7d)
+
 ```sql
 SELECT
   COUNT(*) AS emails_7d,
@@ -89,6 +96,7 @@ WHERE esl.sent_at >= NOW() - INTERVAL '7 days'
 ```
 
 ### Query 5: User Behavior Events (7d) — includes anonymous visitors
+
 ```sql
 SELECT
   COUNT(*) AS total_events_7d,
@@ -129,6 +137,7 @@ WHERE ue.created_at >= NOW() - INTERVAL '7 days'
 ```
 
 ### Query 7: Top Beaches by Activity (7d)
+
 ```sql
 SELECT beach_name, total_activity FROM (
   SELECT b.name AS beach_name, COUNT(*) AS total_activity
@@ -149,6 +158,7 @@ SELECT beach_name, total_activity FROM (
 ```
 
 ### Query 9: Data Freshness Check
+
 ```sql
 SELECT
   (SELECT MAX(p.created_at) FROM profiles p WHERE p.is_mock = false AND (p.email IS NULL OR (p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'))) AS latest_signup,
@@ -161,6 +171,7 @@ SELECT
 ```
 
 ### Query 10: Activity Source Health (7d)
+
 ```sql
 SELECT source, unique_users_7d, rows_7d, latest FROM (
   SELECT 'sessions' AS source, COUNT(DISTINCT s.user_id) AS unique_users_7d, COUNT(*) AS rows_7d, MAX(s.created_at) AS latest
@@ -185,6 +196,7 @@ ORDER BY unique_users_7d DESC;
 ```
 
 ### Query 12: Fallback Health — Top Offenders (7d)
+
 ```sql
 SELECT
   domain,
@@ -206,6 +218,7 @@ LIMIT 15;
 If the `fallback_events` table doesn't exist yet (query returns error), skip the fallback sections silently.
 
 ### Query 13: Forecast Pipeline Health (Per-Source)
+
 ```sql
 SELECT
   source,
@@ -242,6 +255,7 @@ FROM (
 ```
 
 ### Query 14: Enhanced Forecast Data Source Breakdown
+
 ```sql
 SELECT
   COALESCE(data_source, 'UNKNOWN') AS data_source,
@@ -254,6 +268,7 @@ ORDER BY beach_count DESC;
 ```
 
 ### Query 15: Signup Funnel Breakdown (7d) — with computed conversion rates
+
 ```sql
 -- THREE mode-conflating events are split in the CTE because they fire for both
 -- signup + login intent. Comparing raw totals against signup_cta_click gives
@@ -329,11 +344,13 @@ ORDER BY count DESC;
 ```
 
 The `conv_from_prior_pct` column is the conversion rate from the immediately preceding funnel step, so you can see at a glance where the funnel leaks. Key watches:
+
 - `signup_cta_click / signup_cta_view` — anything under 2% is a red alert; under 1% means the CTA copy, placement, or targeting is broken. Since Apr 2026, `trackSignupCtaView` (`lib/analytics/signup-conversion-tracking.ts`) requires a 500ms dwell + `document.visibilityState === "visible"` gate before firing, so the denominator already excludes fast-bouncers and background-tab prefetches. Post-gate views represent engaged users — the 1%/2% thresholds are the real click-to-engagement floors, not raw impression floors.
 - `auth_modal_opened_signup / signup_cta_click` — should be ≈100%. If it's wildly higher, a surface is opening the modal without firing the upstream click event (instrumentation gap). If it's much lower, clicks are being tracked but the modal isn't actually opening (UI bug).
 - `auth_modal_opened_login / signin_cta_click` — health check for the login path. TWO legitimate sources produce login modal opens without a preceding `signin_cta_click`: (a) the `/auth/sign-in` page fires `source='redirect'` when arriving via a protected-route redirect (middleware `RouteGuard.buildSignInRedirect` / `app/admin/layout.tsx`), and (b) the navbar's `autoOpenLogin` path (`components/landing-page/navbar.tsx:97-109`) fires `source='returning-user-auto'` when a returning user hits the landing page — AND the modal's own internal `useEffect` at `unified-auth-modal.tsx:241-245` double-fires `auth_modal_opened` with the modal's prop `source='landing-navbar'`, so each auto-open actually logs TWICE with two different source labels. Healthy equation: `auth_modal_opened_login ≈ signin_cta_click + redirect-sourced opens + (auto-opens × 2)`. To audit cleanly, split login opens by source: `SELECT metadata->>'source', COUNT(*) FROM user_events WHERE event_type='auth_modal_opened' AND metadata->>'mode'='login' AND created_at >= NOW() - INTERVAL '7 days' GROUP BY 1`. If `source='redirect'` + `source='returning-user-auto'` + the `landing-navbar` ghost-duplicates of those auto-opens account for the gap, instrumentation is healthy; if a remaining slice is unaccounted-for, there's a new gap.
 
 ### Query 16: Onboarding Step Funnel (7d)
+
 ```sql
 SELECT
   event_type,
@@ -348,7 +365,26 @@ GROUP BY event_type, metadata->>'step'
 ORDER BY step, event_type;
 ```
 
+### Query 17: Onboarding Completion Truth Check
+
+```sql
+SELECT
+  COUNT(*) FILTER (WHERE onboarding_completed_at IS NOT NULL) AS completed_profiles,
+  COUNT(*) FILTER (WHERE onboarding_completed_at IS NOT NULL AND home_beach_id IS NULL) AS false_completed_no_home_beach,
+  COUNT(*) FILTER (WHERE home_beach_id IS NOT NULL) AS activated_home_beach
+FROM profiles p
+WHERE p.is_mock = false
+  AND (p.email IS NULL OR (
+    p.email NOT ILIKE '%test%'
+    AND p.email NOT LIKE '%@local.test'
+    AND p.email NOT LIKE '%@example.invalid'
+  ));
+```
+
+`false_completed_no_home_beach` should stay at 0 after the May 2026 dismissal fix. If it is non-zero, prepare a read-only roster/count first; production repair requires explicit approval.
+
 ### Query 18: Gamification & XP
+
 ```sql
 SELECT
   COUNT(DISTINCT ux.user_id) AS users_with_xp,
@@ -380,6 +416,7 @@ WHERE p.is_mock = false
 ```
 
 ### Query 19: Social Graph
+
 ```sql
 SELECT
   (SELECT COUNT(*) FROM user_follows uf JOIN profiles p ON uf.follower_id = p.id
@@ -396,6 +433,7 @@ SELECT
 ```
 
 ### Query 20: Session Engagement (likes, comments, shares, media)
+
 ```sql
 SELECT
   (SELECT COUNT(*) FROM session_likes sl JOIN profiles p ON sl.user_id = p.id
@@ -422,6 +460,7 @@ SELECT
 ```
 
 ### Query 21: Referrals
+
 ```sql
 SELECT
   COUNT(*) AS total_referrals,
@@ -442,6 +481,7 @@ WHERE p.is_mock = false
 ```
 
 ### Query 22: Notifications & Devices
+
 ```sql
 SELECT
   (SELECT COUNT(*) FROM notifications n JOIN profiles p ON n.user_id = p.id
@@ -467,15 +507,20 @@ SELECT
    AND p.is_mock = false AND (p.email IS NULL OR (p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'))) AS web_devices;
 ```
 
-### Query 23: Email Engagement (7d)
+### Query 23: Email Engagement by Type and Template (7d)
+
 ```sql
 SELECT
+  esl.email_type,
+  COALESCE(esl.meta->>'template', '(default)') AS template,
+  COUNT(*) AS sent,
   COUNT(*) FILTER (WHERE esl.delivered_at IS NOT NULL) AS delivered,
   COUNT(*) FILTER (WHERE esl.opened_at IS NOT NULL) AS opened,
   COUNT(*) FILTER (WHERE esl.clicked_at IS NOT NULL) AS clicked,
   COUNT(*) FILTER (WHERE esl.bounced_at IS NOT NULL) AS bounced,
   ROUND(100.0 * COUNT(*) FILTER (WHERE esl.opened_at IS NOT NULL) / NULLIF(COUNT(*) FILTER (WHERE esl.delivered_at IS NOT NULL), 0), 1) AS open_rate_pct,
-  ROUND(100.0 * COUNT(*) FILTER (WHERE esl.clicked_at IS NOT NULL) / NULLIF(COUNT(*) FILTER (WHERE esl.opened_at IS NOT NULL), 0), 1) AS click_rate_pct
+  ROUND(100.0 * COUNT(*) FILTER (WHERE esl.clicked_at IS NOT NULL) / NULLIF(COUNT(*) FILTER (WHERE esl.opened_at IS NOT NULL), 0), 1) AS click_to_open_pct,
+  ROUND(100.0 * COUNT(*) FILTER (WHERE esl.clicked_at IS NOT NULL) / NULLIF(COUNT(*) FILTER (WHERE esl.delivered_at IS NOT NULL), 0), 1) AS click_to_delivered_pct
 FROM email_send_log esl
 JOIN profiles p ON esl.user_id = p.id
 WHERE esl.sent_at >= NOW() - INTERVAL '7 days'
@@ -484,10 +529,13 @@ WHERE esl.sent_at >= NOW() - INTERVAL '7 days'
     p.email NOT ILIKE '%test%'
     AND p.email NOT LIKE '%@local.test'
     AND p.email NOT LIKE '%@example.invalid'
-  ));
+  ))
+GROUP BY esl.email_type, COALESCE(esl.meta->>'template', '(default)')
+ORDER BY sent DESC, clicked DESC;
 ```
 
 ### Query 25: Top Landing Pages — Anonymous Visitors (7d)
+
 ```sql
 SELECT
   COALESCE(metadata->>'page', '(unknown)') AS landing_page,
@@ -508,6 +556,7 @@ LIMIT 15;
 Answers "where are anonymous visitors landing?" — the dominant traffic surface for an acquisition-stage product. Knowing whether people enter via `/tools`, `/about`, `/` (homepage), a beach detail page, or a region hub tells you which surface needs the strongest value-first CTAs. Sort by unique visitors, not page views, so a returning bot or auto-refresh can't inflate the ranking.
 
 ### Query 26: New Signups Roster (7d)
+
 ```sql
 SELECT
   p.email,
@@ -541,6 +590,7 @@ ORDER BY p.created_at DESC;
 Per-user detail for every new signup in the window. When new-user volume is 1-5/week, this is where the real story lives: Who are they? Did they onboard? Where did they come from? Did they do anything after signup? Return this inline in the dashboard — don't make the reader re-query.
 
 ### Query 27: Onboarding Completion Rate (7d cohort)
+
 ```sql
 SELECT
   COUNT(*) AS signups_7d,
@@ -580,10 +630,12 @@ WHERE p.created_at >= NOW() - INTERVAL '7 days'
 `auto_skip_rate_pct` (of the completed cohort, how many finished in <30s?) still surfaces "Maybe later reflex tap" after clicking the CTA. Less likely to spike now that the dialog isn't ambushing users, but keep as a safety check.
 
 `invisible_cohort_pct` is the fraction of 7d signups with **zero lifetime user_events**. Server-side `signup_context` proves they existed, but the browser never successfully POSTed to `/api/events`. Two causal families, not one:
+
 - **Client-drop (normal floor):** ad-blocker or Safari ITP blocks `/api/events`. Expected at ~15-25%; not a bug.
 - **Ghost-bug (real bug):** prior to commit `2684eb03` (2026-04-19), a user opening the email-confirm link in a different browser than signup had `email_confirmed_at` set but session cookies never landed — the user could never authenticate, so they produced zero events by definition. When `invisible_cohort_pct` spikes, consult **Query 30 (Ghost-User Recurrence)** before blaming ad-blockers.
 
 ### Query 28: Monthly Signup Trend (12mo)
+
 ```sql
 -- Correct lens for growth trajectory at small weekly sample size. Weekly numbers
 -- are noise below ~10 signups/week; monthly reveals the real direction.
@@ -603,6 +655,7 @@ ORDER BY 1 DESC;
 The current month is always partial — label it as such in the output. Compare the most recent 3-4 months to judge direction; ignore week-over-week entirely when weekly signups are single-digit.
 
 ### Query 30: Ghost-User Recurrence (post-`2684eb03`)
+
 ```sql
 -- Detects the cross-browser email-confirm ghost bug (fixed 2026-04-19 via commit
 -- 2684eb03, deployed 2026-04-19 19:13 UTC). Only flags users whose signup landed
@@ -629,30 +682,64 @@ ORDER BY au.created_at DESC;
 
 If rows return, raise a **dangerous** anomaly: "Ghost-user bug may have returned (`2684eb03` regression risk) — N post-fix users confirmed email but never authenticated. Check `[confirm_session_lost]` in Sentry + `app/auth/confirm/route.ts`." An empty result confirms the fix is holding; pre-fix historical ghosts are intentionally excluded from this query by the `2026-04-19 19:13:00+00` floor.
 
-### Query 31: CTA CTR by Surface (14d)
+### Query 31: CTA CTR by Surface and Source (14d)
+
 ```sql
 -- Post-commit 9d54fddb (2026-04-20), signup CTA events carry metadata.surface.
--- Split per-surface to see which CTAs are working. State-hub F1 merge (Apr 20)
--- added InlineSignupCta + StickySignupBar to the state-hub surface — this query
--- is how you check whether the new surface is carrying its weight.
+-- Split by surface, normalized source group, raw source, cta_type, and copy
+-- variant. Do not judge landing-page or beach-detail from blended surface CTR;
+-- find the placement dragging the average first.
+WITH events AS (
+  SELECT
+    event_type,
+    COALESCE(metadata->>'surface', '(unset)') AS surface,
+    COALESCE(metadata->>'source', '(unset)') AS source,
+    COALESCE(metadata->>'cta_type', '(unset)') AS cta_type,
+    COALESCE(metadata->>'cta_copy_variant', '(unset)') AS cta_copy_variant
+  FROM user_events
+  WHERE created_at >= NOW() - INTERVAL '14 days'
+    AND event_type IN ('signup_cta_view', 'signup_cta_click')
+    AND (bot_flagged IS NULL OR bot_flagged = false)
+), grouped AS (
+  SELECT
+    surface,
+    CASE
+      WHEN source IN ('hero-cta', 'landing-navbar', 'landing-navbar-mobile', 'landing-final-cta') THEN source
+      WHEN source LIKE 'beach-detail-%-desktop-inline' THEN 'beach-detail-desktop-inline'
+      WHEN source LIKE 'beach-detail-%' THEN 'beach-detail-sticky'
+      WHEN source LIKE 'horizon-strip-gated-days-%' THEN 'horizon-strip-gated-days'
+      WHEN source LIKE 'beach-hero-match-teaser-%' THEN 'beach-hero-match-teaser'
+      WHEN source LIKE 'match-score-teaser-%' THEN 'match-score-teaser'
+      ELSE source
+    END AS source_group,
+    source,
+    cta_type,
+    cta_copy_variant,
+    COUNT(*) FILTER (WHERE event_type = 'signup_cta_view') AS views,
+    COUNT(*) FILTER (WHERE event_type = 'signup_cta_click') AS clicks,
+    ROUND(100.0 * COUNT(*) FILTER (WHERE event_type = 'signup_cta_click')
+         / NULLIF(COUNT(*) FILTER (WHERE event_type = 'signup_cta_view'), 0), 2) AS ctr_pct
+  FROM events
+  GROUP BY 1,2,3,4,5
+)
 SELECT
-  COALESCE(metadata->>'surface', '(unset)') AS surface,
-  COUNT(*) FILTER (WHERE event_type = 'signup_cta_view') AS views,
-  COUNT(*) FILTER (WHERE event_type = 'signup_cta_click') AS clicks,
-  ROUND(100.0 * COUNT(*) FILTER (WHERE event_type = 'signup_cta_click')
-       / NULLIF(COUNT(*) FILTER (WHERE event_type = 'signup_cta_view'), 0), 2) AS ctr_pct
-FROM user_events
-WHERE created_at >= NOW() - INTERVAL '14 days'
-  AND event_type IN ('signup_cta_view', 'signup_cta_click')
-  AND (bot_flagged IS NULL OR bot_flagged = false)
-GROUP BY COALESCE(metadata->>'surface', '(unset)')
-HAVING COUNT(*) FILTER (WHERE event_type = 'signup_cta_view') >= 50
+  surface,
+  source_group,
+  source,
+  cta_type,
+  cta_copy_variant,
+  views,
+  clicks,
+  ctr_pct
+FROM grouped
+WHERE views >= 10 OR clicks > 0
 ORDER BY views DESC;
 ```
 
-Surfaces with <50 views in 14d are suppressed (too noisy). A surface with high views and low CTR is the concrete fix target — don't revise global CTA copy when one surface is dragging the average.
+Placements with <10 views in 14d are suppressed unless they have clicks. For landing-page, read `hero-cta`, `landing-navbar`, `landing-navbar-mobile`, and `landing-final-cta` separately; blended educational-section CTR is not the KPI.
 
 ### Query 32: Real-User Engagement Signatures (lifetime, founder-excluded)
+
 ```sql
 -- Per-user behavior signature for non-founder real users who have ANY events.
 -- Steven's founder account (73040cff-afe9-4fa0-a874-2016203fc015 / omg.its.thefuture@gmail.com)
@@ -692,6 +779,7 @@ ORDER BY events DESC;
 Use this to classify real users into behavioral archetypes (see Query 33). The founder exclusion is essential: with Steven in the aggregate, "forecast interactions" and "distinct beaches per user" both read 5–10× higher than what real users actually do, painting a false feature-adoption picture.
 
 ### Query 33: Behavioral Archetype Distribution (founder-excluded)
+
 ```sql
 -- Classify non-founder real users into behavioral archetypes based on lifetime actions.
 -- Same founder exclusion as Query 32.
@@ -732,6 +820,7 @@ ORDER BY archetype;
 ```
 
 Archetype heuristics (tune as the user base grows):
+
 - **A. Single-Beach Loyalist** — 1 distinct beach, ≥3 views. Comes to check ONE break. Most common archetype; drives the "forecast for your home spot" positioning.
 - **B. Small-Radius Explorer** — 2–5 distinct beaches. Home + a few backups. Core target for a surf-spot-compare pitch.
 - **C. Map-First Wanderer** — 0 beach_views but ≥3 map_interactions. Visual discovery, never clicks into detail. Could be a successful "which way to drive" scan, or a broken handoff — worth qualitative checks.
@@ -807,6 +896,7 @@ The native-app metrics (Q2 sessions/session engagement, Q18 XP, Q19 follows, Q20
 ## Anomaly Flags
 
 **Fix timeline context** (only use to suppress false flags, don't recite):
+
 - `ba2291fc` (2026-04-16) dwell-gated `signup_cta_view` (500ms). Pre-date views aren't comparable.
 - `2684eb03` (2026-04-19) fixed cross-browser email-confirm ghost bug.
 - `9d54fddb` (2026-04-20) added `metadata.surface` on signup CTA events.
@@ -814,6 +904,7 @@ The native-app metrics (Q2 sessions/session engagement, Q18 XP, Q19 follows, Q20
 If a funnel anomaly traces to one of these, skip the flag.
 
 **Web Acquisition Anomalies:**
+
 - **No new users in 24h** — "Zero signups in last 24h"
 - **Monthly signup trend down** (Query 28: most recent 3 full months trending down AND current month pace <50% of prior) — "Signups trending down over 3 months." Do NOT flag on weekly numbers.
 - **Data source stale** (Query 9: any source >48h) — "{source} no activity in 48h+"
@@ -831,6 +922,7 @@ If a funnel anomaly traces to one of these, skip the flag.
 - **New-Signup Bouncer archetype spike** (Query 33: >25% of non-ghost signups classified as Bouncer) — "Onboarding value-delivery broken — {n} users stuck in onboarding events without beach engagement"
 
 **Forecast Pipeline Anomalies:**
+
 - **Dangerous fallback active** (Query 12: any row with severity='dangerous' AND occurrences_24h > 0) — "{field} fallback fired {n}× in 24h — scoring may use fabricated data"
 - **Synthetic NOAA data active** (Query 12: domain in ('noaa-coops','noaa-wavewatch') AND occurrences_24h > 0) — "NOAA fallback generator fired {n}× — possible API outage"
 - **Enhanced forecasts critical** (Query 13: critical_stale > 35 for enhanced) — "{n} beaches >24h stale — cron pipeline may be down"
@@ -839,6 +931,7 @@ If a funnel anomaly traces to one of these, skip the flag.
 - **Low forecast coverage** (Query 13: coverage_pct < 90 for enhanced) — "Coverage {n}% — {missing} beaches no data"
 
 **Do NOT flag** (expected pre-launch):
+
 - Zero social activity, likes, comments, shares, follows, referrals, notification reads, or session engagement.
 - Zero sessions logged (only flag if `sessions_7d > 0` but `session_log_events = 0` — instrumentation regression).
 

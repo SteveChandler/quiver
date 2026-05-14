@@ -8,7 +8,23 @@ interface InternalLinkClusterProps {
   links: SeoInternalLink[];
 }
 
-export function InternalLinkCluster({ title, links }: InternalLinkClusterProps) {
+const KIND_LABEL_BY_LINK_KIND: Record<
+  NonNullable<SeoInternalLink["kind"]>,
+  string
+> = {
+  beach: "Beach",
+  cam: "Cam",
+  forecast: "Forecast",
+  guide: "Guide",
+  map: "Map",
+  tide: "Tide",
+  "water-temp": "Water temp",
+};
+
+export function InternalLinkCluster({
+  title,
+  links,
+}: InternalLinkClusterProps) {
   if (links.length === 0) return null;
 
   return (
@@ -26,6 +42,11 @@ export function InternalLinkCluster({ title, links }: InternalLinkClusterProps) 
             href={link.href}
             className="group rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-ocean-blue/40 hover:shadow-md"
           >
+            {link.kind ? (
+              <span className="mb-2 block font-mono text-[11px] font-semibold uppercase tracking-wide text-ocean-blue">
+                {KIND_LABEL_BY_LINK_KIND[link.kind]}
+              </span>
+            ) : null}
             <span className="flex items-center justify-between gap-3 font-heading text-base font-bold text-gray-900 group-hover:text-ocean-blue">
               {link.label}
               <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />

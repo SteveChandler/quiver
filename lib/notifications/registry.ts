@@ -576,8 +576,8 @@ export const NOTIFICATION_REGISTRY = {
 
   daily_digest: {
     type: "daily_digest",
-    // Daily digest is intentionally disabled. The producer may still enqueue
-    // legacy rows, but the worker will not deliver them on any channel.
+    // Daily digest is intentionally disabled. Existing legacy rows remain
+    // schema-valid, but the worker will not deliver them on any channel.
     channels: [],
     prefs: {
       master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },

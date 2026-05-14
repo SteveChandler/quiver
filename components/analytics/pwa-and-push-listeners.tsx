@@ -33,7 +33,7 @@ export default function PWAAndPushListeners() {
         await Promise.all(
           regs
             .filter((reg) => reg.active?.scriptURL?.includes("/sw.js"))
-            .map((reg) => reg.unregister())
+            .map((reg) => reg.unregister()),
         );
 
         // Clear caches to prevent stale HTML/chunk mismatches lingering locally
@@ -58,6 +58,13 @@ export default function PWAAndPushListeners() {
 
     const registerServiceWorker = async () => {
       try {
+        const swResponse = await fetch("/sw.js", {
+          method: "HEAD",
+          cache: "no-store",
+        });
+
+        if (!swResponse.ok) return;
+
         await navigator.serviceWorker.register("/sw.js", {
           scope: "/",
         });

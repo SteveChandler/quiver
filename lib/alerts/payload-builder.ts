@@ -1,4 +1,14 @@
-import type { ConsolidatedAlertPayload, MatchingWindow } from "./types";
+import type {
+  AlertConditions,
+  BeachAlertMeta,
+  ConsolidatedAlertPayload,
+  MatchingWindow,
+} from "./types";
+
+export type AlertRevalidationBeachMeta = BeachAlertMeta & {
+  break_type?: string | null;
+  skill_level?: string | null;
+};
 
 export interface QueueItemWithMeta {
   id: string;
@@ -14,10 +24,13 @@ export interface QueueItemWithMeta {
   sent: boolean;
   rule_name: string;
   beach_name: string;
+  beach_slug?: string | null;
   beach_timezone: string;
   notify_email: boolean;
   notify_push: boolean;
   best_score: number;
+  conditions?: AlertConditions | null;
+  beach_meta?: AlertRevalidationBeachMeta | null;
 }
 
 export function consolidateQueueItems(items: QueueItemWithMeta[]): ConsolidatedAlertPayload[] {
@@ -38,6 +51,7 @@ export function consolidateQueueItems(items: QueueItemWithMeta[]): ConsolidatedA
     const matches: MatchingWindow[] = sorted.map((item) => ({
       rule_id: item.rule_id, rule_name: item.rule_name,
       beach_id: item.beach_id, beach_name: item.beach_name,
+      beach_slug: item.beach_slug ?? null,
       beach_timezone: item.beach_timezone,
       window_start: item.window_start, window_end: item.window_end,
       best_hour: item.best_hour, best_score: item.best_score,

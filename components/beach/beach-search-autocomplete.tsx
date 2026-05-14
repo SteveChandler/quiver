@@ -28,6 +28,7 @@ interface BeachSearchAutocompleteProps {
   onSelect?: (beach: Beach) => void;
   placeholder?: string;
   className?: string;
+  inputWrapperClassName?: string;
   inputClassName?: string;
   showCurrentConditions?: boolean;
   maxResults?: number;
@@ -80,6 +81,7 @@ export function BeachSearchAutocomplete({
   onSelect,
   placeholder = "Search surf spots...",
   className,
+  inputWrapperClassName,
   inputClassName,
   showCurrentConditions = false,
   maxResults = 5,
@@ -136,7 +138,7 @@ export function BeachSearchAutocomplete({
       setQuery(value);
       onQueryChange?.(value);
     },
-    [onQueryChange, setQuery]
+    [onQueryChange, setQuery],
   );
 
   const handleBeachSelect = useCallback(
@@ -173,7 +175,7 @@ export function BeachSearchAutocomplete({
       source,
       suggestions.length,
       track,
-    ]
+    ],
   );
 
   const handleEnterKey = useCallback(
@@ -214,7 +216,7 @@ export function BeachSearchAutocomplete({
       query,
       selectedIndex,
       suggestions,
-    ]
+    ],
   );
 
   const showDropdown = isOpen && query.length >= 2;
@@ -222,16 +224,18 @@ export function BeachSearchAutocomplete({
   return (
     <Command
       shouldFilter={false}
-      className={cn(
-        "relative overflow-visible bg-transparent",
-        className
-      )}
+      className={cn("relative overflow-visible bg-transparent", className)}
       onKeyDown={(e) => {
         handleKeyDown(e);
         handleEnterKey(e);
       }}
     >
-      <div className="relative rounded-lg border bg-background shadow-sm">
+      <div
+        className={cn(
+          "relative rounded-lg border bg-background shadow-sm",
+          inputWrapperClassName,
+        )}
+      >
         <CommandInput
           placeholder={placeholder}
           value={query}
@@ -248,7 +252,7 @@ export function BeachSearchAutocomplete({
           className={cn(
             "absolute top-full inset-x-0 z-50 mt-1",
             "max-h-[min(60vh,480px)] overflow-y-auto",
-            "rounded-lg border bg-background shadow-lg"
+            "rounded-lg border bg-background shadow-lg",
           )}
         >
           {/* Error state — distinct from empty state. Surfaced when the
@@ -297,7 +301,7 @@ export function BeachSearchAutocomplete({
                   onSelect={() => handleBeachSelect(beach, index)}
                   className={cn(
                     "cursor-pointer",
-                    index === selectedIndex && "bg-accent"
+                    index === selectedIndex && "bg-accent",
                   )}
                 >
                   <BeachSuggestionCard
@@ -328,10 +332,7 @@ export function BeachSearchAutocomplete({
                     <MapIcon className="h-3.5 w-3.5" aria-hidden="true" />
                     Don&apos;t see your spot? Browse by state
                   </span>
-                  <ChevronRight
-                    className="h-3.5 w-3.5"
-                    aria-hidden="true"
-                  />
+                  <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
                 </Link>
               </div>
             </>

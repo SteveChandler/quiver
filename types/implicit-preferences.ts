@@ -107,6 +107,9 @@ export type ImplicitEventType =
   | 'session_log_beach_selected'
   | 'session_log_rating_set'
   | 'session_log_photo_added'
+  | 'session_photo_upload_started'
+  | 'session_photo_upload_succeeded'
+  | 'session_photo_upload_failed'
   | 'session_log_abandon'
   | 'session_log_validation_failed'
   // Search
@@ -252,6 +255,9 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   session_log_beach_selected: 0,
   session_log_rating_set: 0,
   session_log_photo_added: 0,
+  session_photo_upload_started: 0,
+  session_photo_upload_succeeded: 0,
+  session_photo_upload_failed: 0,
   session_log_abandon: 0,
   session_log_validation_failed: 0,
   // Search
@@ -666,6 +672,8 @@ export interface BeachSearchResultClickMetadata {
 
 /** Metadata for session_log_* events */
 export interface SessionLogMetadata {
+  /** Draft or saved session ID for native session-log telemetry */
+  session_id?: string;
   /** Beach ID selected for the session (if already chosen) */
   beach_id?: string;
   /** For session_log_abandon: how the form exited */
@@ -678,6 +686,28 @@ export interface SessionLogMetadata {
   rating?: number;
   /** For session_log_photo_added: count of photos attached at time of event */
   photo_count?: number;
+  /** For session_log_photo_added: count added in this picker action */
+  added_count?: number;
+  /** Local URI schemes only, never raw device paths */
+  uri_schemes?: Array<'file' | 'content' | 'http' | 'https' | 'data' | 'unknown'>;
+  /** For native photo events: which client pipeline emitted this */
+  source?: 'image_library' | 'session_outbox';
+  /** For session_photo_upload_*: outbox attempt number */
+  attempt?: number;
+  /** For session_photo_upload_*: age of the outbox item when emitted */
+  queued_age_ms?: number;
+  /** For session_photo_upload_succeeded: number uploaded to storage/session_media */
+  uploaded_count?: number;
+  /** For session_photo_upload_succeeded: total uploaded bytes */
+  bytes_total?: number;
+  /** For session_photo_upload_succeeded: sessions.image_url was attached */
+  hero_attached?: boolean;
+  /** For session_photo_upload_failed: failing upload stage */
+  stage?: 'file_read' | 'storage_upload' | 'media_insert' | 'session_image_update' | 'media_lookup' | 'validation' | 'max_attempts';
+  /** For session_photo_upload_failed: compact error code */
+  error_code?: string;
+  /** For session_photo_upload_failed: whether the outbox will retry */
+  retryable?: boolean;
 }
 
 /** Metadata for map_ready events */

@@ -83,12 +83,37 @@ export function getStalenessDetails(
   };
 }
 
+export interface ForecastCacheMetadata {
+  cached: boolean;
+  stale: boolean;
+  missing: boolean;
+  reason: string | null;
+  stalenessDetails?: ReturnType<typeof getStalenessDetails>;
+  dataSource?: string | null;
+  lastUpdated?: string;
+  displayStale?: boolean;
+}
+
+export interface ForecastCacheOptions {
+  /**
+   * Return stale cached rows for display-only surfaces.
+   * Keep false for alerts, emails, pushes, and automation.
+   */
+  allowStale?: boolean;
+  /** Maximum cache age allowed when allowStale is true. Defaults to 24 hours. */
+  maxStaleHours?: number;
+}
+
+const DEFAULT_DISPLAY_STALE_MAX_HOURS = 24;
+
 /**
  * Fetch forecast from cache with staleness awareness
  *
  * CACHE-ONLY: Never calls external APIs or generates fresh forecasts.
- * Never returns stale forecast rows. If cached data is stale, returns an empty
- * forecast array with staleness metadata so callers can fail/degrade safely.
+ * By default, never returns stale forecast rows. If cached data is stale,
+ * returns an empty forecast array with staleness metadata so strict callers
+ * can fail/degrade safely. Display surfaces can opt into a bounded stale row
+ * fallback with `allowStale`.
  *
  * This is the single source of truth for cache-backed forecast access.
  * Background jobs (cron, manual updateAllBeachForecasts) are responsible
@@ -100,16 +125,11 @@ export function getStalenessDetails(
  */
 export async function getFreshForecastFromCache(
   beachId: string,
-  windowHours: number = 48
+  windowHours: number = 48,
+  options: ForecastCacheOptions = {}
 ): Promise<{
   forecasts: EnhancedForecastEntity[];
-  metadata: {
-    cached: boolean;
-    stale: boolean;
-    missing: boolean;
-    reason: string | null;
-    stalenessDetails?: ReturnType<typeof getStalenessDetails>;
-  };
+  metadata: ForecastCacheMetadata;
 }> {
   const startTime = Date.now();
 
@@ -154,6 +174,50 @@ export async function getFreshForecastFromCache(
     const duration = Date.now() - startTime;
 
     if (stalenessDetails.isStale) {
+      const maxStaleHours =
+        options.maxStaleHours ?? DEFAULT_DISPLAY_STALE_MAX_HOURS;
+      const canServeDisplayStale =
+        options.allowStale === true &&
+        stalenessDetails.hoursSinceUpdate <= maxStaleHours;
+
+      if (canServeDisplayStale) {
+        const daysToFetch = Math.ceil(windowHours / 24);
+        const result = await fetchBeachForecasts(beachId, daysToFetch);
+
+        if (!result.forecasts || result.forecasts.length === 0) {
+          console.warn(`⚠️ [getFreshForecastFromCache] Stale metadata exists but no display fallback rows returned for beach ${beachId}`);
+          return {
+            forecasts: [],
+            metadata: {
+              cached: false,
+              stale: false,
+              missing: true,
+              reason: "No forecast rows returned - waiting for background job",
+              dataSource,
+              lastUpdated: latest.updated_at,
+            },
+          };
+        }
+
+        console.warn(
+          `⚠️ [getFreshForecastFromCache] Serving stale display cache for beach ${beachId} (${stalenessDetails.hoursSinceUpdate.toFixed(1)}h old, max display age: ${maxStaleHours}h, ${result.forecasts.length} forecasts, ${duration}ms)`
+        );
+
+        return {
+          forecasts: result.forecasts as unknown as EnhancedForecastEntity[],
+          metadata: {
+            cached: true,
+            stale: true,
+            missing: false,
+            displayStale: true,
+            reason: `Data is ${stalenessDetails.hoursSinceUpdate.toFixed(1)}h old (threshold: ${stalenessDetails.threshold}h) - serving cached forecast for display`,
+            stalenessDetails,
+            dataSource,
+            lastUpdated: latest.updated_at,
+          },
+        };
+      }
+
       console.warn(
         `⚠️ [getFreshForecastFromCache] Cached data for beach ${beachId} is STALE (${stalenessDetails.hoursSinceUpdate.toFixed(1)}h old, threshold: ${stalenessDetails.threshold}h) - NOT returning stale rows (${duration}ms)`
       );
@@ -165,6 +229,8 @@ export async function getFreshForecastFromCache(
           missing: false,
           reason: `Data is ${stalenessDetails.hoursSinceUpdate.toFixed(1)}h old (threshold: ${stalenessDetails.threshold}h) - refusing to serve stale cache (waiting for background refresh)`,
           stalenessDetails,
+          dataSource,
+          lastUpdated: latest.updated_at,
         },
       };
     }
@@ -198,6 +264,8 @@ export async function getFreshForecastFromCache(
         missing: false,
         reason: null,
         stalenessDetails,
+        dataSource,
+        lastUpdated: latest.updated_at,
       },
     };
   } catch (error) {
@@ -220,13 +288,7 @@ export async function getFreshForecastFromCache(
 export interface BatchForecastCacheResult {
   beachId: string;
   forecasts: EnhancedForecastEntity[];
-  metadata: {
-    cached: boolean;
-    stale: boolean;
-    missing: boolean;
-    reason: string | null;
-    stalenessDetails?: ReturnType<typeof getStalenessDetails>;
-  };
+  metadata: ForecastCacheMetadata;
 }
 
 /**

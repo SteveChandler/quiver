@@ -78,9 +78,51 @@ function createMockBeach(overrides: Partial<Beach> = {}): Beach {
 
 const mockForecasts: EnhancedForecastEntity[] = [];
 
+function createMockForecast(
+  overrides: Partial<EnhancedForecastEntity> = {}
+): EnhancedForecastEntity {
+  return {
+    id: "forecast-1",
+    beach_id: "beach-1",
+    forecast_at: "2026-05-12T15:00:00Z",
+    forecast_date: "2026-05-12",
+    forecast_time: "15:00:00",
+    wave_height: "4",
+    wave_period: "12",
+    wave_direction: "W",
+    swell_1_height: "3 ft",
+    swell_1_period: "14s",
+    swell_1_direction: "W",
+    swell_2_height: "1 ft",
+    swell_2_period: "10s",
+    swell_2_direction: "SSW",
+    wind_wave_height: "2 ft",
+    wind_wave_period: "6s",
+    wind_wave_direction: "NW",
+    wind_speed: "8 mph",
+    wind_direction: "NW",
+    tide_height: "3.2 ft",
+    tide_status: "rising",
+    weather_condition: "Partly cloudy",
+    air_temperature: "61°F",
+    water_temp: "57°F",
+    confidence_score: 74,
+    data_source: "NOAA_NWS",
+    created_at: "2026-02-10T00:00:00Z",
+    updated_at: "2026-02-10T00:00:00Z",
+    ...overrides,
+  };
+}
+
 describe("ConditionsOverview", () => {
   beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2026-05-12T18:00:00Z"));
     jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   it("renders empty state when no forecast data available", () => {
@@ -247,5 +289,27 @@ describe("ConditionsOverview", () => {
     expect(screen.getByTestId("outlook-bar-chart")).toHaveTextContent(
       "Chart with 3 days"
     );
+  });
+
+  it("renders detailed forecast rows below the outlook chart", () => {
+    const enrichedDays = [createMockDay({ fullDate: "2026-02-10", score: 70 })];
+    mockEnrichDaySummaries.mockReturnValue(enrichedDays);
+
+    const beach = createMockBeach();
+    render(
+      <ConditionsOverview
+        horizonDaySummaries={[]}
+        forecasts={[createMockForecast()]}
+        beach={beach}
+        beachTimezone="America/Los_Angeles"
+      />
+    );
+
+    expect(screen.getByTestId("outlook-bar-chart")).toBeInTheDocument();
+    expect(screen.getByTestId("detailed-forecast-table")).toBeInTheDocument();
+    expect(screen.getByText("Full Forecast")).toBeInTheDocument();
+    expect(screen.getByText("Today, Tue, May 12")).toBeInTheDocument();
+    expect(screen.getByText("Partly cloudy 61°F")).toBeInTheDocument();
+    expect(screen.getByText("NOAA NWS")).toBeInTheDocument();
   });
 });

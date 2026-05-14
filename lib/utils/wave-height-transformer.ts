@@ -507,6 +507,13 @@ export function transformToFaceHeightRange(params: TransformParams): WaveHeightR
 export const SHORT_PERIOD_CUTOFF_S = 8;
 
 /**
+ * Wind-wave partitions are less trustworthy as surf-height contributors than
+ * swell partitions. Treat borderline 8-9s wind-wave as conditions/texture
+ * unless it has clearly organized beyond local wind-sea.
+ */
+export const WIND_WAVE_FACE_HEIGHT_CUTOFF_S = 9;
+
+/**
  * Compute the alignment weight for a single swell component against a beach's
  * swell window.
  *
@@ -588,6 +595,7 @@ export interface SwellComponentInput {
   heightFt: number;
   periodS: number;
   directionDeg: number | null;
+  partition?: 'swell' | 'wind_wave';
 }
 
 /**
@@ -714,6 +722,13 @@ export function transformToFaceHeightDecomposed(params: {
 
   let sumOfSquares = 0;
   for (const component of populated) {
+    if (
+      component.partition === 'wind_wave' &&
+      component.periodS <= WIND_WAVE_FACE_HEIGHT_CUTOFF_S
+    ) {
+      continue;
+    }
+
     const alignment = alignmentFactor(
       component.directionDeg,
       component.periodS,

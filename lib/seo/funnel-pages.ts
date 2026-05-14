@@ -37,6 +37,7 @@ export interface SeoInternalLink {
   label: string;
   href: string;
   description?: string;
+  kind?: "beach" | "cam" | "forecast" | "guide" | "map" | "tide" | "water-temp";
 }
 
 export interface SeoSpotLink extends SeoInternalLink {
@@ -90,6 +91,12 @@ export interface SeoPageConfig {
   decision?: SeoDecisionConfig;
   camRegion?: SeoCamRegionConfig;
   indexable: boolean;
+}
+
+interface CanonicalSpotPath {
+  citySlug: string;
+  stateSlug: string;
+  spotSlug: string;
 }
 
 const APP_CTA: SeoCta = {
@@ -300,10 +307,142 @@ function withSpotImages(spots: SeoSpotLink[]): SeoSpotLink[] {
       (spot.beachSlug ? SPOT_IMAGE_BY_KEY[spot.beachSlug] : undefined) ??
       SPOT_IMAGE_BY_KEY[spot.href];
 
-    return image
-      ? { ...spot, imageSrc: image.src, imageAlt: image.alt }
-      : spot;
+    return image ? { ...spot, imageSrc: image.src, imageAlt: image.alt } : spot;
   });
+}
+
+function parseCanonicalSpotPath(href: string): CanonicalSpotPath | null {
+  const match = href.match(/^\/([a-z]{2})\/([^/?#]+)\/([^/?#]+)$/);
+  if (!match) return null;
+
+  return {
+    stateSlug: match[1],
+    citySlug: match[2],
+    spotSlug: match[3],
+  };
+}
+
+function isExistingFunnelPath(path: string): boolean {
+  return SEO_FUNNEL_PAGES.some((page) => page.path === path);
+}
+
+function addUniqueInternalLink(
+  links: SeoInternalLink[],
+  seen: Set<string>,
+  link: SeoInternalLink,
+): void {
+  if (seen.has(link.href)) return;
+
+  links.push(link);
+  seen.add(link.href);
+}
+
+function getMapSearchLink(page: SeoPageConfig): SeoInternalLink {
+  return {
+    label: `${page.locationName} surf map`,
+    href: `/map?search=${encodeURIComponent(page.locationName)}`,
+    description: `Compare nearby breaks around ${page.locationName} before choosing the drive.`,
+    kind: "map",
+  };
+}
+
+function getRelatedCamLink(page: SeoPageConfig): SeoInternalLink | null {
+  if (page.type === "surf-cams") return null;
+
+  const camLink = page.internalLinks.find((link) =>
+    link.href.startsWith("/surf-cams/"),
+  );
+
+  if (!camLink || !isExistingFunnelPath(camLink.href)) return null;
+
+  return {
+    label: camLink.label,
+    href: camLink.href,
+    description:
+      "Use live camera context with the forecast before you move spots.",
+    kind: "cam",
+  };
+}
+
+function getRelatedReportLinks(page: SeoPageConfig): SeoInternalLink[] {
+  if (page.type === "surf-report-today") return [];
+
+  return page.internalLinks
+    .filter((link) => link.href.startsWith("/surf-report/"))
+    .filter((link) => isExistingFunnelPath(link.href))
+    .map((link) => ({
+      label: link.label,
+      href: link.href,
+      description: "Check the current surf-call page for a spot-specific read.",
+      kind: "forecast" as const,
+    }));
+}
+
+function getCanonicalSpotLinks(page: SeoPageConfig): SeoInternalLink[] {
+  return page.nearbySpots.flatMap((spot) => {
+    const parsed = parseCanonicalSpotPath(spot.href);
+    if (!parsed) return [];
+
+    const labelPrefix = spot.label;
+    const beachPath = `/${parsed.stateSlug}/${parsed.citySlug}/${parsed.spotSlug}`;
+
+    return [
+      {
+        label: `${labelPrefix} forecast`,
+        href: beachPath,
+        description: `Open the live beach page for ${labelPrefix} forecast, conditions, and local context.`,
+        kind: "beach" as const,
+      },
+      {
+        label: `${labelPrefix} tide chart`,
+        href: `${beachPath}/tides`,
+        description: `Check tide timing before committing to ${labelPrefix}.`,
+        kind: "tide" as const,
+      },
+      {
+        label: `${labelPrefix} water temperature`,
+        href: `${beachPath}/water-temp`,
+        description: `Dial wetsuit choice from the ${labelPrefix} water-temp page.`,
+        kind: "water-temp" as const,
+      },
+    ];
+  });
+}
+
+export function getSeoFunnelInternalLinks(
+  page: SeoPageConfig,
+): SeoInternalLink[] {
+  const links: SeoInternalLink[] = [];
+  const seen = new Set<string>();
+
+  for (const link of page.internalLinks) {
+    const kind =
+      link.kind ??
+      (link.href.startsWith("/surf-cams/")
+        ? "cam"
+        : link.href.startsWith("/surf-report/")
+          ? "forecast"
+          : link.href.startsWith("/map")
+            ? "map"
+            : "guide");
+
+    addUniqueInternalLink(links, seen, { ...link, kind });
+  }
+
+  for (const link of getCanonicalSpotLinks(page)) {
+    addUniqueInternalLink(links, seen, link);
+  }
+
+  const camLink = getRelatedCamLink(page);
+  if (camLink) addUniqueInternalLink(links, seen, camLink);
+
+  for (const link of getRelatedReportLinks(page)) {
+    addUniqueInternalLink(links, seen, link);
+  }
+
+  addUniqueInternalLink(links, seen, getMapSearchLink(page));
+
+  return links.filter((link) => link.href !== page.path);
 }
 
 const DIORAMA_STYLE =
@@ -322,7 +461,7 @@ function makeImage(
   id: string,
   theme: string,
   alt: string,
-  caption: string
+  caption: string,
 ): SeoImage {
   const directory = IMAGE_DIR_BY_TYPE[type];
 
@@ -350,7 +489,7 @@ function makePhotoImage(
   id: string,
   theme: string,
   alt: string,
-  caption: string
+  caption: string,
 ): SeoImage {
   const directory = IMAGE_DIR_BY_TYPE[type];
 
@@ -375,22 +514,22 @@ function makePhotoImage(
 function makeImages(
   type: SeoPageType,
   slug: string,
-  entries: SeoImageSeedEntry[]
+  entries: SeoImageSeedEntry[],
 ): SeoImage[] {
   return entries.map(([id, theme, alt, caption, assetType]) =>
     assetType === "photo"
       ? makePhotoImage(type, slug, id, theme, alt, caption)
-      : makeImage(type, slug, id, theme, alt, caption)
+      : makeImage(type, slug, id, theme, alt, caption),
   );
 }
 
 function makePhotoImages(
   type: SeoPageType,
   slug: string,
-  entries: SeoImageSeedEntry[]
+  entries: SeoImageSeedEntry[],
 ): SeoImage[] {
   return entries.map(([id, theme, alt, caption]) =>
-    makePhotoImage(type, slug, id, theme, alt, caption)
+    makePhotoImage(type, slug, id, theme, alt, caption),
   );
 }
 
@@ -488,7 +627,7 @@ function buildLocationPage(seed: LocationSeed): SeoPageConfig {
     primaryCta: APP_CTA,
     secondaryCta: MAP_CTA,
     relatedSpotIds: seed.spots.flatMap((spot) =>
-      spot.beachSlug ? [spot.beachSlug] : []
+      spot.beachSlug ? [spot.beachSlug] : [],
     ),
     indexable: true,
   };
@@ -520,14 +659,37 @@ const LONGBOARD_PAGES = [
       { label: "San Diego surf cams", href: "/surf-cams/san-diego" },
     ],
     spots: [
-      { label: "Moonlight Beach", href: "/ca/encinitas/moonlight-beach", beachSlug: "moonlight-beach" },
-      { label: "Grandview", href: "/ca/encinitas/grandview", beachSlug: "grandview" },
+      {
+        label: "Moonlight Beach",
+        href: "/ca/encinitas/moonlight-beach",
+        beachSlug: "moonlight-beach",
+      },
+      {
+        label: "Grandview",
+        href: "/ca/encinitas/grandview",
+        beachSlug: "grandview",
+      },
       { label: "Tourmaline today", href: "/surf-report/tourmaline-today" },
     ],
     images: [
-      ["cardiff-log-diorama", "Cardiff reef longboard diorama at golden hour", "Quiver-style diorama of a longboard surfer checking Cardiff reef in Encinitas", "Cardiff-inspired longboard morning"],
-      ["swamis-bluff-diorama", "Swami's bluff overlook with tiny longboarders", "Miniature Swami's bluff surf-check scene with tiny longboarders", "Swami's bluff check"],
-      ["moonlight-peelers-diorama", "Moonlight Beach mellow summer peelers", "Miniature Moonlight Beach summer longboard scene with soft peelers", "Moonlight summer peelers"],
+      [
+        "cardiff-log-diorama",
+        "Cardiff reef longboard diorama at golden hour",
+        "Quiver-style diorama of a longboard surfer checking Cardiff reef in Encinitas",
+        "Cardiff-inspired longboard morning",
+      ],
+      [
+        "swamis-bluff-diorama",
+        "Swami's bluff overlook with tiny longboarders",
+        "Miniature Swami's bluff surf-check scene with tiny longboarders",
+        "Swami's bluff check",
+      ],
+      [
+        "moonlight-peelers-diorama",
+        "Moonlight Beach mellow summer peelers",
+        "Miniature Moonlight Beach summer longboard scene with soft peelers",
+        "Moonlight summer peelers",
+      ],
     ],
   }),
   buildLocationPage({
@@ -550,19 +712,45 @@ const LONGBOARD_PAGES = [
       "Tourmaline parking is the first constraint. If the lot is full or the wind turns onshore, compare Scripps, La Jolla Shores, and San Diego cams before driving south.",
     namedBreaks: ["Tourmaline", "La Jolla Shores", "Scripps", "Windansea"],
     links: [
-      { label: "Tourmaline surf report today", href: "/surf-report/tourmaline-today" },
+      {
+        label: "Tourmaline surf report today",
+        href: "/surf-report/tourmaline-today",
+      },
       { label: "Scripps Pier today", href: "/surf-report/scripps-pier-today" },
       { label: "San Diego surf cams", href: "/surf-cams/san-diego" },
     ],
     spots: [
-      { label: "Tourmaline Surf Park", href: "/ca/san-diego/tourmaline-surf-park", beachSlug: "tourmaline-surf-park" },
-      { label: "La Jolla Shores", href: "/ca/la-jolla/la-jolla-shores", beachSlug: "la-jolla-shores" },
+      {
+        label: "Tourmaline Surf Park",
+        href: "/ca/san-diego/tourmaline-surf-park",
+        beachSlug: "tourmaline-surf-park",
+      },
+      {
+        label: "La Jolla Shores",
+        href: "/ca/la-jolla/la-jolla-shores",
+        beachSlug: "la-jolla-shores",
+      },
       { label: "Scripps", href: "/ca/la-jolla/scripps", beachSlug: "scripps" },
     ],
     images: [
-      ["tourmaline-lineup-diorama", "Tourmaline longboard lineup with soft rolling waves", "Miniature Tourmaline longboard lineup with soft rolling waves", "Tourmaline soft runners"],
-      ["la-jolla-cove-cliffs-diorama", "La Jolla cove cliffs with tiny surfboards and ocean texture", "Quiver diorama of La Jolla cliffs with tiny surfboards and textured ocean", "La Jolla cliff texture"],
-      ["windansea-mellow-reef-diorama", "Windansea-inspired reef scene, mellow not heavy", "Mellow Windansea-inspired reef diorama with longboards and no heavy surf", "Mellow reef read"],
+      [
+        "tourmaline-lineup-diorama",
+        "Tourmaline longboard lineup with soft rolling waves",
+        "Miniature Tourmaline longboard lineup with soft rolling waves",
+        "Tourmaline soft runners",
+      ],
+      [
+        "la-jolla-cove-cliffs-diorama",
+        "La Jolla cove cliffs with tiny surfboards and ocean texture",
+        "Quiver diorama of La Jolla cliffs with tiny surfboards and textured ocean",
+        "La Jolla cliff texture",
+      ],
+      [
+        "windansea-mellow-reef-diorama",
+        "Windansea-inspired reef scene, mellow not heavy",
+        "Mellow Windansea-inspired reef diorama with longboards and no heavy surf",
+        "Mellow reef read",
+      ],
     ],
   }),
   buildLocationPage({
@@ -585,7 +773,10 @@ const LONGBOARD_PAGES = [
       "C-Street can feel like a conveyor belt on the good days. If the lot and lineup look maxed, compare Mondos and nearby beachbreaks before forcing it.",
     namedBreaks: ["C-Street", "Mondos", "Ventura Pier", "Emma Wood"],
     links: [
-      { label: "Santa Barbara longboard guide", href: "/longboard/santa-barbara" },
+      {
+        label: "Santa Barbara longboard guide",
+        href: "/longboard/santa-barbara",
+      },
       { label: "Malibu surf report today", href: "/surf-report/malibu-today" },
       { label: "Open the Quiver map", href: "/map?search=Ventura" },
     ],
@@ -595,9 +786,24 @@ const LONGBOARD_PAGES = [
       { label: "Malibu today", href: "/surf-report/malibu-today" },
     ],
     images: [
-      ["c-street-point-diorama", "C-Street point-break diorama with long peeling right", "Miniature C-Street point-break diorama with a long peeling right", "C-Street-style peelers"],
-      ["ventura-pier-check-diorama", "Ventura pier morning check", "Quiver diorama of a Ventura pier morning surf check", "Pier morning check"],
-      ["ventura-log-wagon-diorama", "Coastal parking lot with logs stacked on a wagon", "Miniature Ventura coastal parking lot with longboards stacked on a wagon", "Logs in the lot"],
+      [
+        "c-street-point-diorama",
+        "C-Street point-break diorama with long peeling right",
+        "Miniature C-Street point-break diorama with a long peeling right",
+        "C-Street-style peelers",
+      ],
+      [
+        "ventura-pier-check-diorama",
+        "Ventura pier morning check",
+        "Quiver diorama of a Ventura pier morning surf check",
+        "Pier morning check",
+      ],
+      [
+        "ventura-log-wagon-diorama",
+        "Coastal parking lot with logs stacked on a wagon",
+        "Miniature Ventura coastal parking lot with longboards stacked on a wagon",
+        "Logs in the lot",
+      ],
     ],
   }),
   buildLocationPage({
@@ -618,21 +824,45 @@ const LONGBOARD_PAGES = [
       "A log fits the slower town waves and connected point peelers. A mid-length is the safer call when the wave has more speed, kelp, or crowd pressure.",
     localNotes:
       "The best Santa Barbara longboard days are not secret. Build a backup plan before you drive, especially around holiday mornings and the first real swell after a lull.",
-    namedBreaks: ["Rincon", "Leadbetter", "Hammonds", "Santa Barbara town beaches"],
+    namedBreaks: [
+      "Rincon",
+      "Leadbetter",
+      "Hammonds",
+      "Santa Barbara town beaches",
+    ],
     links: [
       { label: "Ventura longboard guide", href: "/longboard/ventura" },
       { label: "Malibu surf report today", href: "/surf-report/malibu-today" },
       { label: "Open Quiver map", href: "/map?search=Santa%20Barbara" },
     ],
     spots: [
-      { label: "Leadbetter", href: "/ca/santa-barbara/leadbetter", beachSlug: "leadbetter" },
+      {
+        label: "Leadbetter",
+        href: "/ca/santa-barbara/leadbetter",
+        beachSlug: "leadbetter",
+      },
       { label: "Rincon search", href: "/map?search=Rincon" },
       { label: "Ventura longboard", href: "/longboard/ventura" },
     ],
     images: [
-      ["rincon-right-diorama", "Rincon-inspired long right-hand point wave", "Original Rincon-inspired miniature long right-hand point wave scene", "Long right-hand line"],
-      ["santa-barbara-palm-check-diorama", "Santa Barbara palm-lined beach check", "Miniature Santa Barbara palm-lined beach surf-check diorama", "Palm-lined beach check"],
-      ["bluff-wax-up-diorama", "Longboard wax-up scene near coastal bluffs", "Quiver-style diorama of a longboard wax-up scene near coastal bluffs", "Bluff-side wax-up"],
+      [
+        "rincon-right-diorama",
+        "Rincon-inspired long right-hand point wave",
+        "Original Rincon-inspired miniature long right-hand point wave scene",
+        "Long right-hand line",
+      ],
+      [
+        "santa-barbara-palm-check-diorama",
+        "Santa Barbara palm-lined beach check",
+        "Miniature Santa Barbara palm-lined beach surf-check diorama",
+        "Palm-lined beach check",
+      ],
+      [
+        "bluff-wax-up-diorama",
+        "Longboard wax-up scene near coastal bluffs",
+        "Quiver-style diorama of a longboard wax-up scene near coastal bluffs",
+        "Bluff-side wax-up",
+      ],
     ],
   }),
   buildLocationPage({
@@ -660,14 +890,37 @@ const LONGBOARD_PAGES = [
       { label: "Open Quiver map", href: "/map?search=Honolulu" },
     ],
     spots: [
-      { label: "Waikiki Beach", href: "/hi/honolulu/waikiki-beach", beachSlug: "waikiki-beach" },
-      { label: "Waikiki Canoes", href: "/hi/honolulu/waikiki-canoes", beachSlug: "waikiki-canoes" },
+      {
+        label: "Waikiki Beach",
+        href: "/hi/honolulu/waikiki-beach",
+        beachSlug: "waikiki-beach",
+      },
+      {
+        label: "Waikiki Canoes",
+        href: "/hi/honolulu/waikiki-canoes",
+        beachSlug: "waikiki-canoes",
+      },
       { label: "Hawaii cams", href: "/surf-cams/hawaii" },
     ],
     images: [
-      ["waikiki-canoes-diorama", "Waikiki Queens and Canoes-inspired mellow longboard wave", "Miniature Waikiki Queens and Canoes-inspired mellow longboard wave", "Waikiki runners"],
-      ["diamond-head-lineup-diorama", "Diamond Head in background with tiny surfers", "Quiver diorama with Diamond Head in the background and tiny surfers", "Diamond Head backdrop"],
-      ["tropical-board-rack-diorama", "Tropical board rack with longboards and Quiver colors", "Miniature tropical board rack with longboards and Quiver orange-blue accents", "Tropical board rack"],
+      [
+        "waikiki-canoes-diorama",
+        "Waikiki Queens and Canoes-inspired mellow longboard wave",
+        "Miniature Waikiki Queens and Canoes-inspired mellow longboard wave",
+        "Waikiki runners",
+      ],
+      [
+        "diamond-head-lineup-diorama",
+        "Diamond Head in background with tiny surfers",
+        "Quiver diorama with Diamond Head in the background and tiny surfers",
+        "Diamond Head backdrop",
+      ],
+      [
+        "tropical-board-rack-diorama",
+        "Tropical board rack with longboards and Quiver colors",
+        "Miniature tropical board rack with longboards and Quiver orange-blue accents",
+        "Tropical board rack",
+      ],
     ],
   }),
   buildLocationPage({
@@ -700,9 +953,24 @@ const LONGBOARD_PAGES = [
       { label: "La Ocho", href: "/map?search=La%20Ocho" },
     ],
     images: [
-      ["rincon-pr-reef-diorama", "Rincon Puerto Rico longboard-friendly reef scene", "Original Rincon Puerto Rico longboard-friendly reef diorama", "Rincon reef glide"],
-      ["tropical-beach-road-check-diorama", "Tropical beach road surf check", "Miniature Puerto Rico tropical beach road surf-check scene", "Beach road check"],
-      ["warm-water-longboard-diorama", "Warm-water longboard session with palm trees and clear water", "Quiver diorama of a warm-water longboard session with palms and clear water", "Warm-water runners"],
+      [
+        "rincon-pr-reef-diorama",
+        "Rincon Puerto Rico longboard-friendly reef scene",
+        "Original Rincon Puerto Rico longboard-friendly reef diorama",
+        "Rincon reef glide",
+      ],
+      [
+        "tropical-beach-road-check-diorama",
+        "Tropical beach road surf check",
+        "Miniature Puerto Rico tropical beach road surf-check scene",
+        "Beach road check",
+      ],
+      [
+        "warm-water-longboard-diorama",
+        "Warm-water longboard session with palm trees and clear water",
+        "Quiver diorama of a warm-water longboard session with palms and clear water",
+        "Warm-water runners",
+      ],
     ],
   }),
   buildLocationPage({
@@ -723,21 +991,45 @@ const LONGBOARD_PAGES = [
       "Bring a log for small, clean peelers and foamier summer mornings. A mid-length or fish is better when the surf has push but the sections are too fast for classic trim.",
     localNotes:
       "Check cams before committing to a drive. Florida can look fun for one tide window and then flatten or blow out before lunch.",
-    namedBreaks: ["Cocoa Beach", "New Smyrna", "Ponce Inlet", "Jacksonville Beach"],
+    namedBreaks: [
+      "Cocoa Beach",
+      "New Smyrna",
+      "Ponce Inlet",
+      "Jacksonville Beach",
+    ],
     links: [
       { label: "Cocoa Beach beginner surf", href: "/beginner/cocoa-beach" },
       { label: "Florida surf cams", href: "/surf-cams/florida" },
       { label: "Puerto Rico longboard guide", href: "/longboard/pr" },
     ],
     spots: [
-      { label: "Cocoa Beach Pier", href: "/fl/cocoa-beach/cocoa-beach-pier", beachSlug: "cocoa-beach-pier" },
+      {
+        label: "Cocoa Beach Pier",
+        href: "/fl/cocoa-beach/cocoa-beach-pier",
+        beachSlug: "cocoa-beach-pier",
+      },
       { label: "Florida cams", href: "/surf-cams/florida" },
       { label: "Cocoa beginner guide", href: "/beginner/cocoa-beach" },
     ],
     images: [
-      ["cocoa-beach-pier-log-diorama", "Cocoa Beach pier longboard diorama", "Miniature Cocoa Beach pier longboard diorama", "Cocoa pier glide"],
-      ["small-clean-florida-diorama", "Small clean Florida beachbreak with foamies and logs", "Quiver diorama of small clean Florida beachbreak with foamies and longboards", "Small clean beachbreak"],
-      ["sunrise-boardwalk-check-diorama", "Sunrise boardwalk surf check", "Miniature Florida sunrise boardwalk surf-check scene", "Sunrise boardwalk check"],
+      [
+        "cocoa-beach-pier-log-diorama",
+        "Cocoa Beach pier longboard diorama",
+        "Miniature Cocoa Beach pier longboard diorama",
+        "Cocoa pier glide",
+      ],
+      [
+        "small-clean-florida-diorama",
+        "Small clean Florida beachbreak with foamies and logs",
+        "Quiver diorama of small clean Florida beachbreak with foamies and longboards",
+        "Small clean beachbreak",
+      ],
+      [
+        "sunrise-boardwalk-check-diorama",
+        "Sunrise boardwalk surf check",
+        "Miniature Florida sunrise boardwalk surf-check scene",
+        "Sunrise boardwalk check",
+      ],
     ],
   }),
 ];
@@ -762,21 +1054,45 @@ const BEGINNER_PAGES = [
       "A soft-top is the default for first sessions. Move to a longboard only when the surfer can control the board, turtle roll safely, and avoid crowded takeoff zones.",
     localNotes:
       "Parking and lesson traffic build early. If La Jolla Shores or Tourmaline is packed, check cams and Quiver's nearby spots before forcing a crowded inside lineup.",
-    namedBreaks: ["La Jolla Shores", "Tourmaline", "Mission Beach", "Pacific Beach"],
+    namedBreaks: [
+      "La Jolla Shores",
+      "Tourmaline",
+      "Mission Beach",
+      "Pacific Beach",
+    ],
     links: [
       { label: "San Diego surf cams", href: "/surf-cams/san-diego" },
       { label: "Scripps Pier today", href: "/surf-report/scripps-pier-today" },
       { label: "La Jolla longboard guide", href: "/longboard/la-jolla" },
     ],
     spots: [
-      { label: "La Jolla Shores", href: "/ca/la-jolla/la-jolla-shores", beachSlug: "la-jolla-shores" },
+      {
+        label: "La Jolla Shores",
+        href: "/ca/la-jolla/la-jolla-shores",
+        beachSlug: "la-jolla-shores",
+      },
       { label: "Tourmaline", href: "/surf-report/tourmaline-today" },
       { label: "Scripps today", href: "/surf-report/scripps-pier-today" },
     ],
     images: [
-      ["la-jolla-shores-photo", "La Jolla Shores beach photo for beginner surf planning", "La Jolla Shores beach with boards and soft beginner-friendly surf", "La Jolla Shores"],
-      ["tourmaline-shoreline-real-photo", "Tourmaline shoreline photo for beginner and longboard planning", "Tourmaline shoreline with soft rolling waves and open beach", "Tourmaline shoreline"],
-      ["ocean-beach-wave-real-photo", "Ocean Beach wave photo for San Diego beginner context", "Ocean Beach wave line with surfers used for broader San Diego context", "Ocean Beach wave line"],
+      [
+        "la-jolla-shores-photo",
+        "La Jolla Shores beach photo for beginner surf planning",
+        "La Jolla Shores beach with boards and soft beginner-friendly surf",
+        "La Jolla Shores",
+      ],
+      [
+        "tourmaline-shoreline-real-photo",
+        "Tourmaline shoreline photo for beginner and longboard planning",
+        "Tourmaline shoreline with soft rolling waves and open beach",
+        "Tourmaline shoreline",
+      ],
+      [
+        "ocean-beach-wave-real-photo",
+        "Ocean Beach wave photo for San Diego beginner context",
+        "Ocean Beach wave line with surfers used for broader San Diego context",
+        "Ocean Beach wave line",
+      ],
     ],
   }),
   buildLocationPage({
@@ -799,19 +1115,41 @@ const BEGINNER_PAGES = [
       "Quiver-backed live forecast coverage should stay separate from local editorial guidance. Capitola has nearby Quiver spot coverage; Cowell's and other learner references should not be shown as live Quiver forecast spots until they exist in the DB.",
     namedBreaks: ["Cowell's", "Capitola", "Pleasure Point", "38th Avenue"],
     links: [
-      { label: "Santa Cruz longboard-style spots", href: "/beginner/santa-cruz" },
+      {
+        label: "Santa Cruz longboard-style spots",
+        href: "/beginner/santa-cruz",
+      },
       { label: "San Onofre beginner surf", href: "/beginner/san-onofre" },
       { label: "Open Quiver map", href: "/map?search=Santa%20Cruz" },
     ],
     spots: [
-      { label: "Capitola Beach", href: "/ca/capitola/capitola-beach", beachSlug: "capitola-beach" },
+      {
+        label: "Capitola Beach",
+        href: "/ca/capitola/capitola-beach",
+        beachSlug: "capitola-beach",
+      },
       { label: "Pleasure Point search", href: "/map?search=Pleasure%20Point" },
       { label: "Santa Cruz map", href: "/map?search=Santa%20Cruz" },
     ],
     images: [
-      ["cowells-beginner-diorama", "Cowell's beginner wave diorama", "Miniature Cowell's beginner wave diorama with tiny learners", "Cowell's learner wave"],
-      ["boardwalk-surf-check-diorama", "Santa Cruz boardwalk surf check", "Quiver diorama of a Santa Cruz boardwalk surf-check scene", "Boardwalk surf check"],
-      ["soft-point-beginner-diorama", "Soft rolling point wave with beginner surfers", "Miniature soft rolling Santa Cruz point wave with beginner surfers", "Soft point-wave lesson"],
+      [
+        "cowells-beginner-diorama",
+        "Cowell's beginner wave diorama",
+        "Miniature Cowell's beginner wave diorama with tiny learners",
+        "Cowell's learner wave",
+      ],
+      [
+        "boardwalk-surf-check-diorama",
+        "Santa Cruz boardwalk surf check",
+        "Quiver diorama of a Santa Cruz boardwalk surf-check scene",
+        "Boardwalk surf check",
+      ],
+      [
+        "soft-point-beginner-diorama",
+        "Soft rolling point wave with beginner surfers",
+        "Miniature soft rolling Santa Cruz point wave with beginner surfers",
+        "Soft point-wave lesson",
+      ],
     ],
   }),
   buildLocationPage({
@@ -832,21 +1170,45 @@ const BEGINNER_PAGES = [
       "A soft-top or stable longboard is the right starting point. Keep learners away from fast inside sections where boards and bodies get pushed into shallow water.",
     localNotes:
       "Parking varies by beach and weekend timing. If Doheny looks packed, compare Orange County cams and pick the easiest water entry instead of the most famous name.",
-    namedBreaks: ["Doheny", "San Clemente", "Old Man's", "Salt Creek on small days"],
+    namedBreaks: [
+      "Doheny",
+      "San Clemente",
+      "Old Man's",
+      "Salt Creek on small days",
+    ],
     links: [
       { label: "Orange County surf cams", href: "/surf-cams/orange-county" },
       { label: "San Onofre beginner surf", href: "/beginner/san-onofre" },
       { label: "Encinitas longboard guide", href: "/longboard/encinitas" },
     ],
     spots: [
-      { label: "Doheny Beach", href: "/ca/dana-point/doheny-beach", beachSlug: "doheny-beach" },
+      {
+        label: "Doheny Beach",
+        href: "/ca/dana-point/doheny-beach",
+        beachSlug: "doheny-beach",
+      },
       { label: "San Onofre", href: "/beginner/san-onofre" },
       { label: "Orange County cams", href: "/surf-cams/orange-county" },
     ],
     images: [
-      ["doheny-beginner-diorama", "Doheny beginner-friendly longboard scene", "Miniature Doheny beginner-friendly longboard scene", "Doheny learner glide"],
-      ["san-clemente-inside-diorama", "San Clemente mellow inside wave", "Quiver diorama of a mellow San Clemente inside wave", "San Clemente inside wave"],
-      ["oc-softtop-parking-diorama", "Beach parking and soft-top board setup", "Miniature Orange County beach parking scene with soft-top board setup", "Soft-top setup"],
+      [
+        "doheny-beginner-diorama",
+        "Doheny beginner-friendly longboard scene",
+        "Miniature Doheny beginner-friendly longboard scene",
+        "Doheny learner glide",
+      ],
+      [
+        "san-clemente-inside-diorama",
+        "San Clemente mellow inside wave",
+        "Quiver diorama of a mellow San Clemente inside wave",
+        "San Clemente inside wave",
+      ],
+      [
+        "oc-softtop-parking-diorama",
+        "Beach parking and soft-top board setup",
+        "Miniature Orange County beach parking scene with soft-top board setup",
+        "Soft-top setup",
+      ],
     ],
   }),
   buildLocationPage({
@@ -874,14 +1236,37 @@ const BEGINNER_PAGES = [
       { label: "Open Quiver map", href: "/map?search=Honolulu" },
     ],
     spots: [
-      { label: "Waikiki Beach", href: "/hi/honolulu/waikiki-beach", beachSlug: "waikiki-beach" },
-      { label: "Waikiki Canoes", href: "/hi/honolulu/waikiki-canoes", beachSlug: "waikiki-canoes" },
+      {
+        label: "Waikiki Beach",
+        href: "/hi/honolulu/waikiki-beach",
+        beachSlug: "waikiki-beach",
+      },
+      {
+        label: "Waikiki Canoes",
+        href: "/hi/honolulu/waikiki-canoes",
+        beachSlug: "waikiki-canoes",
+      },
       { label: "Hawaii cams", href: "/surf-cams/hawaii" },
     ],
     images: [
-      ["waikiki-lesson-zone-diorama", "Waikiki beginner lesson zone", "Miniature Waikiki beginner lesson zone with soft-top boards", "Waikiki lesson zone"],
-      ["diamond-head-beginner-diorama", "Diamond Head tropical beginner scene", "Quiver diorama of a tropical beginner surf scene with Diamond Head", "Diamond Head learner view"],
-      ["warm-sand-softtops-diorama", "Soft-top board lineup on warm sand", "Miniature Honolulu soft-top board lineup on warm sand", "Warm sand soft-tops"],
+      [
+        "waikiki-lesson-zone-diorama",
+        "Waikiki beginner lesson zone",
+        "Miniature Waikiki beginner lesson zone with soft-top boards",
+        "Waikiki lesson zone",
+      ],
+      [
+        "diamond-head-beginner-diorama",
+        "Diamond Head tropical beginner scene",
+        "Quiver diorama of a tropical beginner surf scene with Diamond Head",
+        "Diamond Head learner view",
+      ],
+      [
+        "warm-sand-softtops-diorama",
+        "Soft-top board lineup on warm sand",
+        "Miniature Honolulu soft-top board lineup on warm sand",
+        "Warm sand soft-tops",
+      ],
     ],
   }),
   buildLocationPage({
@@ -902,21 +1287,44 @@ const BEGINNER_PAGES = [
       "A soft-top is the best call for first sessions. A longboard can work for progressing beginners on cleaner small days with enough room.",
     localNotes:
       "Florida wind can change the plan quickly. Check the cam plus forecast before loading boards, especially when the window is early and short.",
-    namedBreaks: ["Cocoa Beach Pier", "Cocoa Beach", "nearby small beachbreaks"],
+    namedBreaks: [
+      "Cocoa Beach Pier",
+      "Cocoa Beach",
+      "nearby small beachbreaks",
+    ],
     links: [
       { label: "Florida surf cams", href: "/surf-cams/florida" },
       { label: "Florida longboard guide", href: "/longboard/fl" },
       { label: "Open Quiver map", href: "/map?search=Cocoa%20Beach" },
     ],
     spots: [
-      { label: "Cocoa Beach Pier", href: "/fl/cocoa-beach/cocoa-beach-pier", beachSlug: "cocoa-beach-pier" },
+      {
+        label: "Cocoa Beach Pier",
+        href: "/fl/cocoa-beach/cocoa-beach-pier",
+        beachSlug: "cocoa-beach-pier",
+      },
       { label: "Florida cams", href: "/surf-cams/florida" },
       { label: "Florida longboard", href: "/longboard/fl" },
     ],
     images: [
-      ["cocoa-pier-beginner-diorama", "Cocoa Beach pier beginner wave", "Miniature Cocoa Beach pier beginner wave diorama", "Pier learner wave"],
-      ["florida-surf-school-feel-diorama", "Small Florida beachbreak with surf school feel", "Quiver diorama of a small Florida beachbreak with surf school feel", "Small beachbreak lesson"],
-      ["sunrise-softtop-session-diorama", "Sunrise soft-top session", "Miniature Cocoa Beach sunrise soft-top session", "Sunrise soft-top session"],
+      [
+        "cocoa-pier-beginner-diorama",
+        "Cocoa Beach pier beginner wave",
+        "Miniature Cocoa Beach pier beginner wave diorama",
+        "Pier learner wave",
+      ],
+      [
+        "florida-surf-school-feel-diorama",
+        "Small Florida beachbreak with surf school feel",
+        "Quiver diorama of a small Florida beachbreak with surf school feel",
+        "Small beachbreak lesson",
+      ],
+      [
+        "sunrise-softtop-session-diorama",
+        "Sunrise soft-top session",
+        "Miniature Cocoa Beach sunrise soft-top session",
+        "Sunrise soft-top session",
+      ],
     ],
   }),
   buildLocationPage({
@@ -944,14 +1352,37 @@ const BEGINNER_PAGES = [
       { label: "Encinitas longboard guide", href: "/longboard/encinitas" },
     ],
     spots: [
-      { label: "San Onofre State Beach", href: "/ca/san-onofre/san-onofre-state-beach", beachSlug: "san-onofre-state-beach" },
-      { label: "Middles", href: "/ca/san-onofre/middles", beachSlug: "middles" },
+      {
+        label: "San Onofre State Beach",
+        href: "/ca/san-onofre/san-onofre-state-beach",
+        beachSlug: "san-onofre-state-beach",
+      },
+      {
+        label: "Middles",
+        href: "/ca/san-onofre/middles",
+        beachSlug: "middles",
+      },
       { label: "Orange County cams", href: "/surf-cams/orange-county" },
     ],
     images: [
-      ["old-mans-beginner-diorama", "Old Man's longboard and beginner scene", "Miniature Old Man's longboard and beginner surf scene", "Old Man's learner line"],
-      ["san-onofre-trail-carry-diorama", "San Onofre beach trail and board carry", "Quiver diorama of San Onofre beach trail and board carry", "Trail board carry"],
-      ["gentle-logs-softtops-diorama", "Gentle rolling wave with classic logs and soft tops", "Miniature gentle rolling wave with classic logs and soft-top boards", "Gentle rolling wave"],
+      [
+        "old-mans-beginner-diorama",
+        "Old Man's longboard and beginner scene",
+        "Miniature Old Man's longboard and beginner surf scene",
+        "Old Man's learner line",
+      ],
+      [
+        "san-onofre-trail-carry-diorama",
+        "San Onofre beach trail and board carry",
+        "Quiver diorama of San Onofre beach trail and board carry",
+        "Trail board carry",
+      ],
+      [
+        "gentle-logs-softtops-diorama",
+        "Gentle rolling wave with classic logs and soft tops",
+        "Miniature gentle rolling wave with classic logs and soft-top boards",
+        "Gentle rolling wave",
+      ],
     ],
   }),
 ];
@@ -1045,7 +1476,11 @@ const TODAY_PAGES = [
       "Scripps can be tempting from the parking lot, but tide, wind, and beachbreak shape decide whether it is worth paddling out.",
     primarySpotSlug: "scripps",
     fallbackSpotName: "Scripps Pier",
-    nearbySpotSlugs: ["la-jolla-shores", "tourmaline-surf-park", "blacks-beach"],
+    nearbySpotSlugs: [
+      "la-jolla-shores",
+      "tourmaline-surf-park",
+      "blacks-beach",
+    ],
     boardCall:
       "Start with a fish or shortboard if Scripps has clean push. Bring a log only when the surf is small, soft, and not closing out.",
     wetsuitCall:
@@ -1057,9 +1492,18 @@ const TODAY_PAGES = [
     crowdParkingNote:
       "Parking fills around campus and beach access points. If Scripps is packed, compare Shores and Tourmaline before committing.",
     sections: [
-      { heading: "How to read Scripps today", body: "Use the verdict as a first filter, then look at whether the best window lines up with your drive. Scripps changes quickly with tide and wind, so a stale read is not enough." },
-      { heading: "When Scripps is worth it", body: "Clean waist-to-shoulder-high surf with light wind is the sweet spot. If the report shows short windows or low confidence, treat it as a quick-check wave, not a guaranteed session." },
-      { heading: "Backup plan", body: "La Jolla Shores is the softer option, Tourmaline is the longboard fallback, and Blacks is only a fit when your skill level and conditions make sense." },
+      {
+        heading: "How to read Scripps today",
+        body: "Use the verdict as a first filter, then look at whether the best window lines up with your drive. Scripps changes quickly with tide and wind, so a stale read is not enough.",
+      },
+      {
+        heading: "When Scripps is worth it",
+        body: "Clean waist-to-shoulder-high surf with light wind is the sweet spot. If the report shows short windows or low confidence, treat it as a quick-check wave, not a guaranteed session.",
+      },
+      {
+        heading: "Backup plan",
+        body: "La Jolla Shores is the softer option, Tourmaline is the longboard fallback, and Blacks is only a fit when your skill level and conditions make sense.",
+      },
     ],
     links: [
       { label: "San Diego surf cams", href: "/surf-cams/san-diego" },
@@ -1067,14 +1511,42 @@ const TODAY_PAGES = [
       { label: "Tourmaline today", href: "/surf-report/tourmaline-today" },
     ],
     spots: [
-      { label: "La Jolla Shores", href: "/ca/la-jolla/la-jolla-shores", beachSlug: "la-jolla-shores" },
-      { label: "Tourmaline", href: "/surf-report/tourmaline-today", beachSlug: "tourmaline-surf-park" },
-      { label: "Blacks Beach", href: "/ca/la-jolla/blacks-beach", beachSlug: "blacks-beach" },
+      {
+        label: "La Jolla Shores",
+        href: "/ca/la-jolla/la-jolla-shores",
+        beachSlug: "la-jolla-shores",
+      },
+      {
+        label: "Tourmaline",
+        href: "/surf-report/tourmaline-today",
+        beachSlug: "tourmaline-surf-park",
+      },
+      {
+        label: "Blacks Beach",
+        href: "/ca/la-jolla/blacks-beach",
+        beachSlug: "blacks-beach",
+      },
     ],
     images: [
-      ["scripps-pier-surf-check-diorama", "Scripps Pier miniature surf-check diorama", "Miniature Scripps Pier surf-check diorama with pier pilings and surfers", "Pier surf check"],
-      ["scripps-board-choice-diorama", "Board choice scene with shortboard, fish, and log", "Quiver diorama showing shortboard, fish, and log board choice near Scripps", "Board choice table"],
-      ["scripps-clean-set-photo", "Clean San Diego wave photo for Scripps surf report context", "Clean San Diego wave with surfers used for Scripps surf report context", "Clean San Diego wave", "photo"],
+      [
+        "scripps-pier-surf-check-diorama",
+        "Scripps Pier miniature surf-check diorama",
+        "Miniature Scripps Pier surf-check diorama with pier pilings and surfers",
+        "Pier surf check",
+      ],
+      [
+        "scripps-board-choice-diorama",
+        "Board choice scene with shortboard, fish, and log",
+        "Quiver diorama showing shortboard, fish, and log board choice near Scripps",
+        "Board choice table",
+      ],
+      [
+        "scripps-clean-set-photo",
+        "Clean San Diego wave photo for Scripps surf report context",
+        "Clean San Diego wave with surfers used for Scripps surf report context",
+        "Clean San Diego wave",
+        "photo",
+      ],
     ],
   }),
   buildTodayPage({
@@ -1088,7 +1560,11 @@ const TODAY_PAGES = [
       "Belmar can switch from fun beachbreak to drift-heavy work fast. The right call starts with wind, tide, and whether the best window is still open.",
     primarySpotSlug: "belmar-belmar-nj",
     fallbackSpotName: "Belmar",
-    nearbySpotSlugs: ["3rd-avenue-jetty-belmar-nj", "8th-avenue-jetty-belmar-nj", "belmar-fishing-pier-belmar-nj"],
+    nearbySpotSlugs: [
+      "3rd-avenue-jetty-belmar-nj",
+      "8th-avenue-jetty-belmar-nj",
+      "belmar-fishing-pier-belmar-nj",
+    ],
     boardCall:
       "Use a shortboard or fish when Belmar has clean punch. A longboard only makes sense on smaller, softer days with room between peaks.",
     wetsuitCall:
@@ -1100,9 +1576,18 @@ const TODAY_PAGES = [
     crowdParkingNote:
       "Boardwalk access helps, but summer parking and beach traffic can change the plan. Have a north/south backup ready.",
     sections: [
-      { heading: "How to read Belmar today", body: "Do not treat a generic wave-height number as the call. Belmar needs tide, wind, sandbar, and drift context before it is worth loading the car." },
-      { heading: "When Belmar is worth it", body: "Clean, organized shoulder-high or smaller surf with manageable current is the best setup. Bigger can still work, but it becomes less forgiving quickly." },
-      { heading: "Backup plan", body: "Compare the jetties and nearby Jersey beachbreaks. A small move can change wind angle, crowd, and drift enough to save a session." },
+      {
+        heading: "How to read Belmar today",
+        body: "Do not treat a generic wave-height number as the call. Belmar needs tide, wind, sandbar, and drift context before it is worth loading the car.",
+      },
+      {
+        heading: "When Belmar is worth it",
+        body: "Clean, organized shoulder-high or smaller surf with manageable current is the best setup. Bigger can still work, but it becomes less forgiving quickly.",
+      },
+      {
+        heading: "Backup plan",
+        body: "Compare the jetties and nearby Jersey beachbreaks. A small move can change wind angle, crowd, and drift enough to save a session.",
+      },
     ],
     links: [
       { label: "Open Quiver map", href: "/map?search=Belmar" },
@@ -1110,14 +1595,41 @@ const TODAY_PAGES = [
       { label: "San Diego cams", href: "/surf-cams/san-diego" },
     ],
     spots: [
-      { label: "3rd Avenue Jetty", href: "/nj/belmar/3rd-avenue-jetty-belmar-nj", beachSlug: "3rd-avenue-jetty-belmar-nj" },
-      { label: "8th Avenue Jetty", href: "/nj/belmar/8th-avenue-jetty-belmar-nj", beachSlug: "8th-avenue-jetty-belmar-nj" },
-      { label: "Belmar Fishing Pier", href: "/nj/belmar/belmar-fishing-pier-belmar-nj", beachSlug: "belmar-fishing-pier-belmar-nj" },
+      {
+        label: "3rd Avenue Jetty",
+        href: "/nj/belmar/3rd-avenue-jetty-belmar-nj",
+        beachSlug: "3rd-avenue-jetty-belmar-nj",
+      },
+      {
+        label: "8th Avenue Jetty",
+        href: "/nj/belmar/8th-avenue-jetty-belmar-nj",
+        beachSlug: "8th-avenue-jetty-belmar-nj",
+      },
+      {
+        label: "Belmar Fishing Pier",
+        href: "/nj/belmar/belmar-fishing-pier-belmar-nj",
+        beachSlug: "belmar-fishing-pier-belmar-nj",
+      },
     ],
     images: [
-      ["belmar-beachbreak-check-diorama", "Belmar beachbreak surf-check diorama", "Miniature Belmar beachbreak surf-check diorama", "Belmar beachbreak check"],
-      ["jersey-boardwalk-forecast-diorama", "Jersey shore boardwalk surf forecast scene", "Quiver diorama of a Jersey shore boardwalk surf forecast scene", "Boardwalk forecast read"],
-      ["cold-water-wetsuit-call-diorama", "Cold-water wetsuit and board call scene", "Miniature cold-water wetsuit and board call scene for Belmar", "Cold-water board call"],
+      [
+        "belmar-beachbreak-check-diorama",
+        "Belmar beachbreak surf-check diorama",
+        "Miniature Belmar beachbreak surf-check diorama",
+        "Belmar beachbreak check",
+      ],
+      [
+        "jersey-boardwalk-forecast-diorama",
+        "Jersey shore boardwalk surf forecast scene",
+        "Quiver diorama of a Jersey shore boardwalk surf forecast scene",
+        "Boardwalk forecast read",
+      ],
+      [
+        "cold-water-wetsuit-call-diorama",
+        "Cold-water wetsuit and board call scene",
+        "Miniature cold-water wetsuit and board call scene for Belmar",
+        "Cold-water board call",
+      ],
     ],
   }),
   buildTodayPage({
@@ -1143,9 +1655,18 @@ const TODAY_PAGES = [
     crowdParkingNote:
       "The lot is part of the forecast. If parking is already stacked, have a Shores or Scripps backup ready.",
     sections: [
-      { heading: "How to read Tourmaline today", body: "The best Tourmaline call balances wave shape and crowd. A smaller clean window can be better than a bigger day with too much traffic." },
-      { heading: "When Tourmaline is worth it", body: "Soft waist-to-shoulder-high runners, light wind, and enough tide for trim are the classic ingredients." },
-      { heading: "Backup plan", body: "Check La Jolla Shores when Tourmaline is too crowded, and Scripps when you want more beachbreak energy." },
+      {
+        heading: "How to read Tourmaline today",
+        body: "The best Tourmaline call balances wave shape and crowd. A smaller clean window can be better than a bigger day with too much traffic.",
+      },
+      {
+        heading: "When Tourmaline is worth it",
+        body: "Soft waist-to-shoulder-high runners, light wind, and enough tide for trim are the classic ingredients.",
+      },
+      {
+        heading: "Backup plan",
+        body: "Check La Jolla Shores when Tourmaline is too crowded, and Scripps when you want more beachbreak energy.",
+      },
     ],
     links: [
       { label: "La Jolla longboard guide", href: "/longboard/la-jolla" },
@@ -1153,14 +1674,37 @@ const TODAY_PAGES = [
       { label: "Scripps Pier today", href: "/surf-report/scripps-pier-today" },
     ],
     spots: [
-      { label: "La Jolla Shores", href: "/ca/la-jolla/la-jolla-shores", beachSlug: "la-jolla-shores" },
-      { label: "Scripps Pier", href: "/surf-report/scripps-pier-today", beachSlug: "scripps" },
+      {
+        label: "La Jolla Shores",
+        href: "/ca/la-jolla/la-jolla-shores",
+        beachSlug: "la-jolla-shores",
+      },
+      {
+        label: "Scripps Pier",
+        href: "/surf-report/scripps-pier-today",
+        beachSlug: "scripps",
+      },
       { label: "San Diego cams", href: "/surf-cams/san-diego" },
     ],
     images: [
-      ["tourmaline-parking-check-diorama", "Tourmaline parking lot morning check", "Miniature Tourmaline parking lot morning surf-check diorama", "Parking lot check"],
-      ["tourmaline-longboard-lineup-diorama", "Mellow longboard lineup with tiny surfers", "Miniature mellow Tourmaline longboard lineup with tiny surfers", "Mellow lineup"],
-      ["tourmaline-wind-tide-decision-diorama", "Wind and tide decision diorama", "Quiver diorama of wind and tide decision-making at Tourmaline", "Wind and tide call"],
+      [
+        "tourmaline-parking-check-diorama",
+        "Tourmaline parking lot morning check",
+        "Miniature Tourmaline parking lot morning surf-check diorama",
+        "Parking lot check",
+      ],
+      [
+        "tourmaline-longboard-lineup-diorama",
+        "Mellow longboard lineup with tiny surfers",
+        "Miniature mellow Tourmaline longboard lineup with tiny surfers",
+        "Mellow lineup",
+      ],
+      [
+        "tourmaline-wind-tide-decision-diorama",
+        "Wind and tide decision diorama",
+        "Quiver diorama of wind and tide decision-making at Tourmaline",
+        "Wind and tide call",
+      ],
     ],
   }),
   buildTodayPage({
@@ -1174,7 +1718,11 @@ const TODAY_PAGES = [
       "Malibu can be magic or mayhem. The decision is not just wave height; it is tide, wind, crowd, and whether the point has room to breathe.",
     primarySpotSlug: "malibu-first-point-surfrider",
     fallbackSpotName: "Malibu",
-    nearbySpotSlugs: ["malibu-surfrider-first-point-malibu-ca", "malibu-second-point-malibu-ca", "malibu-third-point-malibu-ca"],
+    nearbySpotSlugs: [
+      "malibu-surfrider-first-point-malibu-ca",
+      "malibu-second-point-malibu-ca",
+      "malibu-third-point-malibu-ca",
+    ],
     boardCall:
       "Bring a log for classic smaller Malibu runners. A mid-length is useful when the wave has more speed or the crowd makes positioning tight.",
     wetsuitCall:
@@ -1186,24 +1734,55 @@ const TODAY_PAGES = [
     crowdParkingNote:
       "Crowd awareness is the main Malibu risk. If the lineup is packed, a backup spot may be the better surf decision.",
     sections: [
-      { heading: "How to read Malibu today", body: "The live verdict tells you whether the window is worth considering, but Malibu also requires a crowd read. A good forecast with no space can still be a bad session." },
-      { heading: "When Malibu is worth it", body: "Clean, organized south or west energy with a tide that keeps the point connected is the classic setup." },
-      { heading: "Backup plan", body: "Compare nearby point and beachbreak options before committing to the drive. If the crowd is the problem, not the surf, moving early matters." },
+      {
+        heading: "How to read Malibu today",
+        body: "The live verdict tells you whether the window is worth considering, but Malibu also requires a crowd read. A good forecast with no space can still be a bad session.",
+      },
+      {
+        heading: "When Malibu is worth it",
+        body: "Clean, organized south or west energy with a tide that keeps the point connected is the classic setup.",
+      },
+      {
+        heading: "Backup plan",
+        body: "Compare nearby point and beachbreak options before committing to the drive. If the crowd is the problem, not the surf, moving early matters.",
+      },
     ],
     links: [
       { label: "Ventura longboard guide", href: "/longboard/ventura" },
-      { label: "Santa Barbara longboard guide", href: "/longboard/santa-barbara" },
+      {
+        label: "Santa Barbara longboard guide",
+        href: "/longboard/santa-barbara",
+      },
       { label: "Open Quiver map", href: "/map?search=Malibu" },
     ],
     spots: [
-      { label: "Malibu First Point", href: "/ca/malibu/malibu-first-point-surfrider", beachSlug: "malibu-first-point-surfrider" },
+      {
+        label: "Malibu First Point",
+        href: "/ca/malibu/malibu-first-point-surfrider",
+        beachSlug: "malibu-first-point-surfrider",
+      },
       { label: "Second Point", href: "/map?search=Malibu%20Second%20Point" },
       { label: "Ventura longboard", href: "/longboard/ventura" },
     ],
     images: [
-      ["malibu-point-wave-diorama", "Malibu point wave diorama", "Miniature Malibu point-wave diorama with tiny longboarders", "Malibu point wave"],
-      ["malibu-crowd-awareness-diorama", "Longboard lineup and crowd-awareness scene", "Quiver diorama of a Malibu longboard lineup with crowd-awareness cues", "Crowd-awareness read"],
-      ["malibu-coastal-drive-check-diorama", "Coastal drive surf-check scene", "Miniature Malibu coastal drive surf-check scene", "Coastal drive check"],
+      [
+        "malibu-point-wave-diorama",
+        "Malibu point wave diorama",
+        "Miniature Malibu point-wave diorama with tiny longboarders",
+        "Malibu point wave",
+      ],
+      [
+        "malibu-crowd-awareness-diorama",
+        "Longboard lineup and crowd-awareness scene",
+        "Quiver diorama of a Malibu longboard lineup with crowd-awareness cues",
+        "Crowd-awareness read",
+      ],
+      [
+        "malibu-coastal-drive-check-diorama",
+        "Coastal drive surf-check scene",
+        "Miniature Malibu coastal drive surf-check scene",
+        "Coastal drive check",
+      ],
     ],
   }),
 ];
@@ -1241,19 +1820,23 @@ function buildCamPage(seed: CamSeed): SeoPageConfig {
     faqs: [
       {
         question: `Are ${seed.locationName} surf cams enough to choose a spot?`,
-        answer: "Cams are useful for seeing shape, crowd, and texture, but they do not replace tide, wind, swell direction, or forecast confidence. Use cams and Quiver together.",
+        answer:
+          "Cams are useful for seeing shape, crowd, and texture, but they do not replace tide, wind, swell direction, or forecast confidence. Use cams and Quiver together.",
       },
       {
         question: `What should I look for on ${seed.locationName} surf cams?`,
-        answer: "Watch wave shape, closeouts, drift, crowd spacing, and whether the best sets match the forecast. One good-looking set is not enough by itself.",
+        answer:
+          "Watch wave shape, closeouts, drift, crowd spacing, and whether the best sets match the forecast. One good-looking set is not enough by itself.",
       },
       {
         question: `How does Quiver combine cams and forecasts?`,
-        answer: "Quiver links real camera coverage with live forecast context so you can compare what the ocean looks like with what the data says should happen next.",
+        answer:
+          "Quiver links real camera coverage with live forecast context so you can compare what the ocean looks like with what the data says should happen next.",
       },
       {
         question: `Why is there no Santa Cruz surf cam page here?`,
-        answer: "This SEO cam system only indexes regions where Quiver has real cam coverage. Santa Cruz should stay out of the sitemap until real camera rows exist.",
+        answer:
+          "This SEO cam system only indexes regions where Quiver has real cam coverage. Santa Cruz should stay out of the sitemap until real camera rows exist.",
       },
     ],
     internalLinks: seed.links,
@@ -1277,12 +1860,30 @@ const CAM_PAGES = [
       "Use San Diego cams to verify shape and crowd, then use Quiver to decide whether the tide and wind window is still worth the drive.",
     camRegion: {
       states: ["CA"],
-      cities: ["San Diego", "La Jolla", "Del Mar", "Encinitas", "Carlsbad", "Oceanside", "Imperial Beach", "Coronado"],
+      cities: [
+        "San Diego",
+        "La Jolla",
+        "Del Mar",
+        "Encinitas",
+        "Carlsbad",
+        "Oceanside",
+        "Imperial Beach",
+        "Coronado",
+      ],
     },
     sections: [
-      { heading: "What to watch on San Diego cams", body: "Check whether Scripps and PB are closing out, whether Tourmaline is soft enough for logs, and whether the wind line is already moving down the coast." },
-      { heading: "Cam plus forecast", body: "A cam tells you what one angle looks like now. Quiver adds tide, wind, swell, and best-window context so you can decide before you park." },
-      { heading: "Nearby planning links", body: "Pair cams with today's Scripps or Tourmaline call, then keep beginner and longboard alternatives ready." },
+      {
+        heading: "What to watch on San Diego cams",
+        body: "Check whether Scripps and PB are closing out, whether Tourmaline is soft enough for logs, and whether the wind line is already moving down the coast.",
+      },
+      {
+        heading: "Cam plus forecast",
+        body: "A cam tells you what one angle looks like now. Quiver adds tide, wind, swell, and best-window context so you can decide before you park.",
+      },
+      {
+        heading: "Nearby planning links",
+        body: "Pair cams with today's Scripps or Tourmaline call, then keep beginner and longboard alternatives ready.",
+      },
     ],
     links: [
       { label: "Scripps Pier today", href: "/surf-report/scripps-pier-today" },
@@ -1290,14 +1891,37 @@ const CAM_PAGES = [
       { label: "Beginner surf in San Diego", href: "/beginner/san-diego" },
     ],
     spots: [
-      { label: "Scripps Pier today", href: "/surf-report/scripps-pier-today" },
-      { label: "Tourmaline today", href: "/surf-report/tourmaline-today" },
+      {
+        label: "Scripps Pier",
+        href: "/ca/la-jolla/scripps",
+        beachSlug: "scripps",
+      },
+      {
+        label: "Tourmaline",
+        href: "/ca/san-diego/tourmaline-surf-park",
+        beachSlug: "tourmaline-surf-park",
+      },
       { label: "La Jolla longboard", href: "/longboard/la-jolla" },
     ],
     images: [
-      ["san-diego-la-jolla-shores-photo", "La Jolla Shores beach photo for San Diego cam planning", "La Jolla Shores beach with boards and soft surf", "La Jolla Shores"],
-      ["san-diego-tourmaline-break-photo", "Tourmaline surf photo for checking mellow San Diego waves", "Tourmaline shoreline with longboard-friendly surf", "Tourmaline shoreline"],
-      ["san-diego-ocean-beach-line-photo", "Ocean Beach wave photo for San Diego cam context", "Ocean Beach wave line with surfers used for San Diego cam planning", "Ocean Beach wave line"],
+      [
+        "san-diego-la-jolla-shores-photo",
+        "La Jolla Shores beach photo for San Diego cam planning",
+        "La Jolla Shores beach with boards and soft surf",
+        "La Jolla Shores",
+      ],
+      [
+        "san-diego-tourmaline-break-photo",
+        "Tourmaline surf photo for checking mellow San Diego waves",
+        "Tourmaline shoreline with longboard-friendly surf",
+        "Tourmaline shoreline",
+      ],
+      [
+        "san-diego-ocean-beach-line-photo",
+        "Ocean Beach wave photo for San Diego cam context",
+        "Ocean Beach wave line with surfers used for San Diego cam planning",
+        "Ocean Beach wave line",
+      ],
     ],
   }),
   buildCamPage({
@@ -1311,27 +1935,70 @@ const CAM_PAGES = [
       "Use Orange County cams to separate a clean beginner window from a famous spot that is too crowded, too steep, or already blown out.",
     camRegion: {
       states: ["CA"],
-      cities: ["Huntington Beach", "Newport Beach", "Laguna Beach", "Dana Point", "San Clemente", "San Onofre", "Seal Beach"],
+      cities: [
+        "Huntington Beach",
+        "Newport Beach",
+        "Laguna Beach",
+        "Dana Point",
+        "San Clemente",
+        "San Onofre",
+        "Seal Beach",
+      ],
     },
     sections: [
-      { heading: "What to watch on Orange County cams", body: "Look for shorebreak, drift, crowd density, and whether the inside waves at Doheny or San Onofre are actually beginner-friendly today." },
-      { heading: "Cam plus forecast", body: "The camera shows one angle. Quiver adds tide and wind timing so you know whether the window is improving or already fading." },
-      { heading: "Nearby planning links", body: "Pair the cams with beginner and longboard guides before choosing a board or driving between beaches." },
+      {
+        heading: "What to watch on Orange County cams",
+        body: "Look for shorebreak, drift, crowd density, and whether the inside waves at Doheny or San Onofre are actually beginner-friendly today.",
+      },
+      {
+        heading: "Cam plus forecast",
+        body: "The camera shows one angle. Quiver adds tide and wind timing so you know whether the window is improving or already fading.",
+      },
+      {
+        heading: "Nearby planning links",
+        body: "Pair the cams with beginner and longboard guides before choosing a board or driving between beaches.",
+      },
     ],
     links: [
-      { label: "Beginner surf in Orange County", href: "/beginner/orange-county" },
+      {
+        label: "Beginner surf in Orange County",
+        href: "/beginner/orange-county",
+      },
       { label: "San Onofre beginner surf", href: "/beginner/san-onofre" },
       { label: "Encinitas longboard guide", href: "/longboard/encinitas" },
     ],
     spots: [
-      { label: "Doheny beginner guide", href: "/beginner/orange-county" },
-      { label: "San Onofre beginner guide", href: "/beginner/san-onofre" },
+      {
+        label: "Doheny Beach",
+        href: "/ca/dana-point/doheny-beach",
+        beachSlug: "doheny-beach",
+      },
+      {
+        label: "San Onofre State Beach",
+        href: "/ca/san-onofre/san-onofre-state-beach",
+        beachSlug: "san-onofre-state-beach",
+      },
       { label: "Open OC map", href: "/map?search=Orange%20County" },
     ],
     images: [
-      ["orange-county-open-wave-photo", "Open Southern California wave photo for Orange County cam context", "Clean blue wave used as broad Orange County cam context", "Open wave check"],
-      ["orange-county-sunset-beach-photo", "Southern California beach sunset photo for Orange County planning", "Golden beach sunset used for Orange County surf-cam planning", "Sunset beach read"],
-      ["orange-county-aerial-shore-photo", "Aerial shoreline photo for Orange County camera planning", "Aerial shoreline and beachbreak sandbars from the coast", "Aerial shoreline"],
+      [
+        "orange-county-open-wave-photo",
+        "Open Southern California wave photo for Orange County cam context",
+        "Clean blue wave used as broad Orange County cam context",
+        "Open wave check",
+      ],
+      [
+        "orange-county-sunset-beach-photo",
+        "Southern California beach sunset photo for Orange County planning",
+        "Golden beach sunset used for Orange County surf-cam planning",
+        "Sunset beach read",
+      ],
+      [
+        "orange-county-aerial-shore-photo",
+        "Aerial shoreline photo for Orange County camera planning",
+        "Aerial shoreline and beachbreak sandbars from the coast",
+        "Aerial shoreline",
+      ],
     ],
   }),
   buildCamPage({
@@ -1348,9 +2015,18 @@ const CAM_PAGES = [
       regionSlugs: ["hawaii"],
     },
     sections: [
-      { heading: "What to watch on Hawaii cams", body: "Look for set spacing, reef exposure, channel traffic, and whether the lineup matches your ability. Warm water does not make heavy surf forgiving." },
-      { heading: "Cam plus forecast", body: "Use cams to verify the visual read, then use Quiver's forecast context to decide whether the next window is improving or getting less safe." },
-      { heading: "Nearby planning links", body: "For Waikiki-style waves, pair cams with Honolulu beginner and longboard guides. For heavier surf, make the safety filter the first decision." },
+      {
+        heading: "What to watch on Hawaii cams",
+        body: "Look for set spacing, reef exposure, channel traffic, and whether the lineup matches your ability. Warm water does not make heavy surf forgiving.",
+      },
+      {
+        heading: "Cam plus forecast",
+        body: "Use cams to verify the visual read, then use Quiver's forecast context to decide whether the next window is improving or getting less safe.",
+      },
+      {
+        heading: "Nearby planning links",
+        body: "For Waikiki-style waves, pair cams with Honolulu beginner and longboard guides. For heavier surf, make the safety filter the first decision.",
+      },
     ],
     links: [
       { label: "Honolulu beginner surf", href: "/beginner/honolulu" },
@@ -1358,14 +2034,37 @@ const CAM_PAGES = [
       { label: "Open Quiver map", href: "/map?search=Hawaii" },
     ],
     spots: [
-      { label: "Waikiki beginner guide", href: "/beginner/honolulu" },
-      { label: "Honolulu longboard", href: "/longboard/honolulu" },
+      {
+        label: "Waikiki Beach",
+        href: "/hi/honolulu/waikiki-beach",
+        beachSlug: "waikiki-beach",
+      },
+      {
+        label: "Waikiki Canoes",
+        href: "/hi/honolulu/waikiki-canoes",
+        beachSlug: "waikiki-canoes",
+      },
       { label: "Hawaii map", href: "/map?search=Hawaii" },
     ],
     images: [
-      ["hawaii-surf-check-photo", "Surfer checking waves photo for Hawaii surf-cam planning", "Surfer watching the lineup used as broad Hawaii camera planning context", "Surf-check moment"],
-      ["hawaii-aerial-swell-photo", "Aerial swell photo for Hawaii camera context", "Aerial view of swell lines moving toward a broad coastline", "Aerial swell view"],
-      ["hawaii-misty-lineup-photo", "Misty lineup photo for Hawaii surf-cam context", "Misty surf lineup used for Hawaii camera planning context", "Misty lineup"],
+      [
+        "hawaii-surf-check-photo",
+        "Surfer checking waves photo for Hawaii surf-cam planning",
+        "Surfer watching the lineup used as broad Hawaii camera planning context",
+        "Surf-check moment",
+      ],
+      [
+        "hawaii-aerial-swell-photo",
+        "Aerial swell photo for Hawaii camera context",
+        "Aerial view of swell lines moving toward a broad coastline",
+        "Aerial swell view",
+      ],
+      [
+        "hawaii-misty-lineup-photo",
+        "Misty lineup photo for Hawaii surf-cam context",
+        "Misty surf lineup used for Hawaii camera planning context",
+        "Misty lineup",
+      ],
     ],
   }),
   buildCamPage({
@@ -1382,9 +2081,18 @@ const CAM_PAGES = [
       regionSlugs: ["florida"],
     },
     sections: [
-      { heading: "What to watch on Florida cams", body: "Look for wind texture, drift, closeouts, and whether the sets are organized enough for your board choice." },
-      { heading: "Cam plus forecast", body: "A Florida cam can look fun for a few minutes, then go flat or bumpy. Quiver adds best-window timing so you can decide before the window closes." },
-      { heading: "Nearby planning links", body: "Pair cams with Cocoa Beach beginner guidance and Florida longboard planning when the surf is small and clean." },
+      {
+        heading: "What to watch on Florida cams",
+        body: "Look for wind texture, drift, closeouts, and whether the sets are organized enough for your board choice.",
+      },
+      {
+        heading: "Cam plus forecast",
+        body: "A Florida cam can look fun for a few minutes, then go flat or bumpy. Quiver adds best-window timing so you can decide before the window closes.",
+      },
+      {
+        heading: "Nearby planning links",
+        body: "Pair cams with Cocoa Beach beginner guidance and Florida longboard planning when the surf is small and clean.",
+      },
     ],
     links: [
       { label: "Cocoa Beach beginner surf", href: "/beginner/cocoa-beach" },
@@ -1392,14 +2100,33 @@ const CAM_PAGES = [
       { label: "Open Quiver map", href: "/map?search=Florida" },
     ],
     spots: [
-      { label: "Cocoa Beach beginner", href: "/beginner/cocoa-beach" },
+      {
+        label: "Cocoa Beach Pier",
+        href: "/fl/cocoa-beach/cocoa-beach-pier",
+        beachSlug: "cocoa-beach-pier",
+      },
       { label: "Florida longboard", href: "/longboard/fl" },
       { label: "Open Florida map", href: "/map?search=Florida" },
     ],
     images: [
-      ["florida-dawn-beachbreak-photo", "Dawn beachbreak photo for Florida cam planning", "Dawn shoreline with small surf used for Florida camera context", "Dawn beachbreak"],
-      ["florida-choppy-sea-photo", "Wind-textured ocean photo for Florida surf checks", "Choppy ocean texture used for Florida wind and cam context", "Wind texture"],
-      ["florida-sunset-shore-photo", "Beach sunset photo for Florida cam fallback context", "Warm beach sunset used as broad Florida cam planning context", "Sunset shoreline"],
+      [
+        "florida-dawn-beachbreak-photo",
+        "Dawn beachbreak photo for Florida cam planning",
+        "Dawn shoreline with small surf used for Florida camera context",
+        "Dawn beachbreak",
+      ],
+      [
+        "florida-choppy-sea-photo",
+        "Wind-textured ocean photo for Florida surf checks",
+        "Choppy ocean texture used for Florida wind and cam context",
+        "Wind texture",
+      ],
+      [
+        "florida-sunset-shore-photo",
+        "Beach sunset photo for Florida cam fallback context",
+        "Warm beach sunset used as broad Florida cam planning context",
+        "Sunset shoreline",
+      ],
     ],
   }),
 ];
@@ -1421,7 +2148,7 @@ export function getSeoFunnelPageByPath(path: string): SeoPageConfig | null {
 
 export function getSeoFunnelPageByTypeAndSlug(
   type: SeoPageType,
-  slug: string
+  slug: string,
 ): SeoPageConfig | null {
   return (
     SEO_FUNNEL_PAGES.find((page) => page.type === type && page.slug === slug) ??
@@ -1431,7 +2158,7 @@ export function getSeoFunnelPageByTypeAndSlug(
 
 export function getSeoFunnelPageByIntentRoute(
   intent: string,
-  slug: string
+  slug: string,
 ): SeoPageConfig | null {
   if (intent !== "beginner" && intent !== "longboard") return null;
   return getSeoFunnelPageByTypeAndSlug(intent, slug);
@@ -1446,28 +2173,27 @@ export function getSeoFunnelImagePrompts(): Array<{
   image: SeoImage;
 }> {
   return SEO_FUNNEL_PAGES.flatMap((page) =>
-    page.images.map((image) => ({ path: page.path, image }))
+    page.images.map((image) => ({ path: page.path, image })),
   );
 }
 
-export function filterSeoCamBeaches<T extends {
-  state: string;
-  city: string;
-  regionSlug?: string;
-}>(
-  page: SeoPageConfig,
-  beaches: T[]
-): T[] {
+export function filterSeoCamBeaches<
+  T extends {
+    state: string;
+    city: string;
+    regionSlug?: string;
+  },
+>(page: SeoPageConfig, beaches: T[]): T[] {
   if (page.type !== "surf-cams" || !page.camRegion) return [];
 
   const stateSet = new Set(
-    page.camRegion.states?.map((state) => state.toUpperCase()) ?? []
+    page.camRegion.states?.map((state) => state.toUpperCase()) ?? [],
   );
   const citySet = new Set(
-    page.camRegion.cities?.map((city) => city.toLowerCase()) ?? []
+    page.camRegion.cities?.map((city) => city.toLowerCase()) ?? [],
   );
   const regionSet = new Set(
-    page.camRegion.regionSlugs?.map((region) => region.toLowerCase()) ?? []
+    page.camRegion.regionSlugs?.map((region) => region.toLowerCase()) ?? [],
   );
 
   return beaches.filter((beach) => {

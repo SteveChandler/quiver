@@ -46,17 +46,21 @@ export function TideStatusStrip({ dynamicTide }: TideStatusStripProps) {
 
   return (
     <div
-      className="flex items-center justify-between rounded-2xl border border-blue-100/60 bg-white/95 p-3 shadow-sm"
+      className="flex items-center justify-between gap-3 rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] p-3 shadow-[2px_2px_0_#11100D]"
       data-testid="tide-status-strip"
     >
       <div className="flex items-center gap-2">
-        <DirectionIcon className="h-4 w-4 text-ocean-blue" />
-        <span className="text-sm font-medium text-dark-grey">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#0B3A75]">
+          <DirectionIcon className="h-4 w-4 text-[#F4EBD8]" />
+        </span>
+        <span className="font-heading text-sm font-black uppercase text-[#11100D]">
           {directionLabel}
         </span>
       </div>
       {nextTideInfo && (
-        <span className="text-xs text-muted-foreground">{nextTideInfo}</span>
+        <span className="text-right font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#0B3A75]">
+          {nextTideInfo}
+        </span>
       )}
     </div>
   );

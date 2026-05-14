@@ -10,6 +10,9 @@ export interface FoundWindow {
   conditions_snapshot: Record<string, unknown>;
 }
 
+const FORECAST_HOUR_DURATION_MS = 60 * 60 * 1000;
+const MAX_CONTIGUOUS_GAP_MS = 90 * 60 * 1000;
+
 export function findMatchingWindows(
   conditions: AlertConditions,
   forecasts: ForecastHour[],
@@ -20,6 +23,11 @@ export function findMatchingWindows(
 
   for (const forecast of forecasts) {
     if (evaluateConditions(conditions, forecast, beach)) {
+      const previous = currentWindow[currentWindow.length - 1];
+      if (previous && isSparseGap(previous.forecast_at, forecast.forecast_at)) {
+        windows.push(buildWindow(conditions, currentWindow));
+        currentWindow = [];
+      }
       currentWindow.push(forecast);
     } else {
       if (currentWindow.length > 0) {
@@ -34,6 +42,13 @@ export function findMatchingWindows(
   }
 
   return windows;
+}
+
+function isSparseGap(previousForecastAt: string, nextForecastAt: string): boolean {
+  const previousMs = new Date(previousForecastAt).getTime();
+  const nextMs = new Date(nextForecastAt).getTime();
+  if (!Number.isFinite(previousMs) || !Number.isFinite(nextMs)) return false;
+  return nextMs - previousMs > MAX_CONTIGUOUS_GAP_MS;
 }
 
 function buildWindow(conditions: AlertConditions, hours: ForecastHour[]): FoundWindow {
@@ -54,7 +69,6 @@ function buildWindow(conditions: AlertConditions, hours: ForecastHour[]): FoundW
   // last hour's timestamp + 1h. Without this, a single-hour match has
   // window_start === window_end (zero-duration), which the surfability gate
   // suppresses as too short, and the email renders as "8:00 AM – 8:00 AM".
-  const FORECAST_HOUR_DURATION_MS = 60 * 60 * 1000;
   const lastHourEndMs =
     new Date(hours[hours.length - 1].forecast_at).getTime() + FORECAST_HOUR_DURATION_MS;
 

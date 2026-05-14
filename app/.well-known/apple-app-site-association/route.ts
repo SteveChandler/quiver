@@ -8,10 +8,24 @@ const explicitAppId = process.env.APPLE_APP_ID?.trim();
 
 const pathEnv = process.env.APPLE_APP_SITE_ASSOCIATION_PATHS ??
   "/auth/*,/sessions/*,/beach/*,/profile/*,/map*";
-const applinkPaths = pathEnv
-  .split(",")
-  .map((value) => value.trim())
-  .filter(Boolean);
+const requiredApplinkPaths = [
+  "/auth/*",
+  "/sessions/*",
+  "/beach/*",
+  "/profile/*",
+  "/map*",
+  "/invite/*",
+  "/settings*",
+];
+const applinkPaths = Array.from(
+  new Set([
+    ...pathEnv
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
+    ...requiredApplinkPaths,
+  ])
+);
 
 const webCredentialApps = (process.env.APPLE_WEB_CREDENTIALS_APP_IDS ?? "")
   .split(",")

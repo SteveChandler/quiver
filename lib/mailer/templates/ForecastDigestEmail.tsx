@@ -79,7 +79,7 @@ export function ForecastDigestEmail({
             fontWeight: "bold",
           }}
         >
-          Your Quiver Daily Playbook
+          Today's Surf Call
         </h1>
         <p
           style={{
@@ -97,7 +97,7 @@ export function ForecastDigestEmail({
       <div style={{ padding: "24px 20px" }}>
         {/* Greeting */}
         <p style={{ fontSize: 16, margin: "0 0 16px 0" }}>
-          {greeting} {emoji}
+          {`${greeting} ${emoji}`}
         </p>
 
         {/* Match Quality Headline */}
@@ -108,7 +108,7 @@ export function ForecastDigestEmail({
             color: "#333333",
           }}
         >
-          {qualityTitle} Conditions at {beachName}
+          {`${qualityTitle} Conditions at ${beachName}`}
         </h2>
 
         {/* Forecast Snapshot Table */}
@@ -139,7 +139,7 @@ export function ForecastDigestEmail({
                   color: "#333333",
                 }}
               >
-                {waveHeight} @ {wavePeriod}
+                {`${waveHeight} @ ${wavePeriod}`}
               </td>
             </tr>
             <tr>
@@ -160,7 +160,7 @@ export function ForecastDigestEmail({
                   color: "#333333",
                 }}
               >
-                {windSpeed} {windDirection}
+                {`${windSpeed} ${windDirection}`}
               </td>
             </tr>
             <tr>
@@ -203,7 +203,7 @@ export function ForecastDigestEmail({
                     color: "#333333",
                   }}
                 >
-                  {bestWindow.startTime} - {bestWindow.endTime}
+                  {`${bestWindow.startTime} - ${bestWindow.endTime}`}
                 </td>
               </tr>
             )}
@@ -258,7 +258,8 @@ export function ForecastDigestEmail({
             }}
           >
             <p style={{ margin: 0, color: "#664d03" }}>
-              <strong>⚠️ Heads up:</strong> {crowdWarning}
+              <strong>⚠️ Heads up:</strong>
+              {` ${crowdWarning}`}
             </p>
           </div>
         )}
@@ -278,7 +279,7 @@ export function ForecastDigestEmail({
               fontWeight: "bold",
             }}
           >
-            Check Full Forecast →
+            Check Today&apos;s Forecast →
           </a>
         </div>
       </div>
@@ -298,8 +299,7 @@ export function ForecastDigestEmail({
             margin: "0 0 8px 0",
           }}
         >
-          You&apos;re receiving this because you have forecast alerts enabled for{" "}
-          {beachName}.
+          {`You're receiving this because you have forecast alerts enabled for ${beachName}.`}
         </p>
         <a
           href={unsubscribeUrl}

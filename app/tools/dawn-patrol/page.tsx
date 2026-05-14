@@ -7,6 +7,7 @@
 
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { DawnPatrolClient } from "@/components/tools/dawn-patrol-client";
@@ -118,6 +119,7 @@ export default function DawnPatrolPage() {
       />
 
       <div className="min-h-screen" style={{ background: "#0F1535" }}>
+        <h1 className="sr-only">Dawn Patrol Calculator</h1>
         <Suspense>
           <DawnPatrolClient />
         </Suspense>
@@ -160,6 +162,42 @@ export default function DawnPatrolPage() {
                 you know whether conditions will be rising or falling when you
                 hit the water. Data comes from astronomical calculations
                 adjusted for your beach&#39;s exact coordinates and timezone.
+              </p>
+              <p>
+                First light is just the start of the call. Compare it with the{" "}
+                <Link
+                  href="/forecast"
+                  className="text-[#F78E42] hover:underline"
+                >
+                  surf forecast
+                </Link>
+                ,{" "}
+                <Link
+                  href="/tide/san-diego"
+                  className="text-[#F78E42] hover:underline"
+                >
+                  tide charts
+                </Link>
+                ,{" "}
+                <Link
+                  href="/water-temp/san-diego"
+                  className="text-[#F78E42] hover:underline"
+                >
+                  water temperatures
+                </Link>
+                , and{" "}
+                <Link href="/map" className="text-[#F78E42] hover:underline">
+                  map
+                </Link>{" "}
+                before setting the alarm. If you are picking a specific zone,
+                start from the{" "}
+                <Link
+                  href="/beaches/usa/ca/san-diego"
+                  className="text-[#F78E42] hover:underline"
+                >
+                  San Diego beach pages
+                </Link>
+                .
               </p>
             </div>
           </section>

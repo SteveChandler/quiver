@@ -150,13 +150,12 @@ describe("BestDayHero", () => {
     expect(screen.queryByText(/period/)).not.toBeInTheDocument();
   });
 
-  it("passes correct score to AnimatedScoreGauge", () => {
+  it("renders the hero score", () => {
     const bestDay = createMockDay({ score: 85 });
     render(<BestDayHero bestDay={bestDay} otherGoodDays={[]} />);
 
-    expect(screen.getByTestId("gauge-score")).toHaveTextContent("85");
-    expect(screen.getByTestId("gauge-size")).toHaveTextContent("xl");
-    expect(screen.getByTestId("gauge-label")).toBeInTheDocument();
+    expect(screen.getByText("85")).toBeInTheDocument();
+    expect(screen.getByText("Score")).toBeInTheDocument();
   });
 
   it("renders other good days grid when otherGoodDays is not empty", () => {
@@ -167,21 +166,17 @@ describe("BestDayHero", () => {
     ];
     render(<BestDayHero bestDay={bestDay} otherGoodDays={otherGoodDays} />);
 
-    // Check that we have score badges for other days
-    const scoreBadges = screen.getAllByTestId("score-badge");
-    // Should have 2 badges (one for each other good day)
-    expect(scoreBadges).toHaveLength(2);
-    expect(scoreBadges[0]).toHaveTextContent("75");
-    expect(scoreBadges[1]).toHaveTextContent("70");
+    expect(screen.getByText(/Tue, Feb 11/)).toBeInTheDocument();
+    expect(screen.getByText("75")).toBeInTheDocument();
+    expect(screen.getByText(/Wed, Feb 12/)).toBeInTheDocument();
+    expect(screen.getAllByText("70").length).toBeGreaterThanOrEqual(1);
   });
 
   it("does not render other good days grid when otherGoodDays is empty", () => {
     const bestDay = createMockDay();
     render(<BestDayHero bestDay={bestDay} otherGoodDays={[]} />);
 
-    // Should only have the main hero section with gauge, no additional score badges
-    const scoreBadges = screen.queryAllByTestId("score-badge");
-    expect(scoreBadges).toHaveLength(0);
+    expect(screen.queryByText(/Tue, Feb 11/)).not.toBeInTheDocument();
   });
 
   it("displays day name and date for each other good day", () => {
@@ -236,29 +231,31 @@ describe("BestDayHero", () => {
     expect(lightWindLabels.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("renders ScoreBadge with sm size for other good days", () => {
+  it("renders compact score markers for other good days", () => {
     const bestDay = createMockDay();
     const otherGoodDays = [
-      createMockDay({ fullDate: "2026-02-11", score: 75 }),
+      createMockDay({ fullDate: "2026-02-11", dayName: "Tue", date: "Feb 11", score: 75 }),
     ];
     render(<BestDayHero bestDay={bestDay} otherGoodDays={otherGoodDays} />);
 
-    expect(screen.getByText(/size: sm/)).toBeInTheDocument();
+    expect(screen.getByText("75")).toBeInTheDocument();
   });
 
   it("limits display to maximum 4 other good days", () => {
     const bestDay = createMockDay();
     const otherGoodDays = [
-      createMockDay({ fullDate: "2026-02-11", score: 80 }),
-      createMockDay({ fullDate: "2026-02-12", score: 75 }),
-      createMockDay({ fullDate: "2026-02-13", score: 70 }),
-      createMockDay({ fullDate: "2026-02-14", score: 65 }),
-      createMockDay({ fullDate: "2026-02-15", score: 60 }),
+      createMockDay({ fullDate: "2026-02-11", dayName: "Tue", date: "Feb 11", score: 80 }),
+      createMockDay({ fullDate: "2026-02-12", dayName: "Wed", date: "Feb 12", score: 75 }),
+      createMockDay({ fullDate: "2026-02-13", dayName: "Thu", date: "Feb 13", score: 70 }),
+      createMockDay({ fullDate: "2026-02-14", dayName: "Fri", date: "Feb 14", score: 65 }),
+      createMockDay({ fullDate: "2026-02-15", dayName: "Sat", date: "Feb 15", score: 60 }),
     ];
     render(<BestDayHero bestDay={bestDay} otherGoodDays={otherGoodDays} />);
 
-    const scoreBadges = screen.getAllByTestId("score-badge");
-    // Should only render 4 cards
-    expect(scoreBadges).toHaveLength(4);
+    expect(screen.getByText(/Tue, Feb 11/)).toBeInTheDocument();
+    expect(screen.getByText(/Wed, Feb 12/)).toBeInTheDocument();
+    expect(screen.getByText(/Thu, Feb 13/)).toBeInTheDocument();
+    expect(screen.getByText(/Fri, Feb 14/)).toBeInTheDocument();
+    expect(screen.queryByText(/Sat, Feb 15/)).not.toBeInTheDocument();
   });
 });

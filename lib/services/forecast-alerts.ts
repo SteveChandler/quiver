@@ -2,18 +2,17 @@
  * Forecast Alert Service (Push)
  *
  * Evaluates cached forecasts for a user's home beach and alert-enabled favorite
- * beaches, then enqueues one daily summary push when conditions cross the
- * user's thresholds.
+ * beaches. The legacy daily digest producer is disabled; actionable forecast
+ * pushes are owned by the condition-alert pipeline.
  *
  * Design constraints:
  * - Cache-only forecast reads (via getFreshForecastFromCache)
  * - No stale pushes: if forecast cache is stale/missing, skip sending
- * - Dedupe: at most 1 daily summary per user+local date
+ * - Disabled producer exits before DB reads or notification enqueue
  */
 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getFreshForecastFromCache } from "@/lib/utils/forecast-service-utils";
-import { enqueueNotification } from "@/lib/notifications/enqueue";
 import SunCalc from "suncalc";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -73,6 +72,7 @@ export type ForecastAlertRunSummary = {
     missingForecast: number;
     noGoodForecasts: number;
     duplicateDailySummary: number;
+    dailyDigestDisabled: number;
     noMatch: number;
     sendFailed: number;
     quietHours: number;
@@ -93,13 +93,16 @@ const DEFAULT_THRESHOLDS = {
 const LOOKAHEAD_HOURS = 18;
 const MAX_DAILY_SUMMARY_ENTRIES = 3;
 const DAILY_FORECAST_ALERT_TYPE = "daily_forecast_summary";
-const DAILY_FORECAST_NOTIFICATION_TYPE = "daily_forecast";
 const FORECAST_HOUR_MS = 60 * 60 * 1000;
 const DAYLIGHT_BUFFER_MS = 30 * 60 * 1000;
 
 // Daily forecasts should land during the user's morning planning window.
 const DAILY_FORECAST_SEND_WINDOW_START = 5;
 const DAILY_FORECAST_SEND_WINDOW_END = 11;
+
+function isDailyDigestProducerEnabled(): boolean {
+  return false;
+}
 
 /**
  * Check if a given time is inside the daily forecast send window.
@@ -636,121 +639,6 @@ function sortDailyForecastCandidates(
     });
 }
 
-async function enqueueDailyForecastSummary(args: {
-  supabase: ReturnType<typeof createSupabaseServiceRoleClient>;
-  userId: string;
-  timezone: string | null;
-  candidates: DailyForecastCandidate[];
-  summary: ForecastAlertRunSummary;
-}): Promise<void> {
-  const { supabase, userId, timezone, candidates, summary } = args;
-  const alertDate = candidates[0]?.localForecastDate;
-
-  if (!alertDate) {
-    summary.skipped.noGoodForecasts++;
-    return;
-  }
-
-  try {
-    const enqueueResult = await enqueueNotification(
-      {
-        type: "daily_digest",
-        recipientUserId: userId,
-        entityType: null,
-        entityId: null,
-        payload: {
-          alert_date: alertDate,
-          title: "Quiver Daily Forecast",
-          body: candidates.map((c) => formatDailySummaryLine(c, timezone)).join("\n"),
-          match_count: candidates.length,
-          forecast_summary: {
-            top_match: candidates[0]?.beach.name || "Forecast summary",
-            match_count: candidates.length,
-          },
-        },
-        dedupeKey: `${DAILY_FORECAST_ALERT_TYPE}:${userId}:${alertDate}`,
-      },
-      supabase
-    );
-
-    if (enqueueResult.enqueued) {
-      summary.sent++;
-      console.info("sent_daily_forecast_summary", {
-        user_id: userId,
-        forecast_date: alertDate,
-        alert_type: DAILY_FORECAST_ALERT_TYPE,
-        match_count: candidates.length,
-      });
-      return;
-    }
-
-    if (enqueueResult.reason === "duplicate") {
-      summary.skipped.duplicateDailySummary++;
-      console.info("skipped_duplicate_daily_summary", {
-        user_id: userId,
-        forecast_date: alertDate,
-        alert_type: DAILY_FORECAST_ALERT_TYPE,
-      });
-      return;
-    }
-
-    console.error(
-      `[ForecastAlerts] Failed to enqueue daily forecast summary for user ${userId}:`,
-      enqueueResult
-    );
-    summary.skipped.sendFailed++;
-  } catch (err) {
-    console.error(
-      `[ForecastAlerts] Enqueue threw for daily forecast summary user ${userId}:`,
-      err
-    );
-    summary.skipped.sendFailed++;
-  }
-}
-
-async function claimDailyForecastCandidate(args: {
-  supabase: ReturnType<typeof createSupabaseServiceRoleClient>;
-  userId: string;
-  candidate: DailyForecastCandidate;
-  summary: ForecastAlertRunSummary;
-}): Promise<boolean> {
-  const { supabase, userId, candidate, summary } = args;
-
-  const { data, error } = await (supabase.rpc as any)(
-    "claim_daily_forecast_notification_slot",
-    {
-      p_user_id: userId,
-      p_beach_id: candidate.beachId,
-      p_notification_type: DAILY_FORECAST_NOTIFICATION_TYPE,
-      p_local_forecast_date: candidate.localForecastDate,
-    }
-  );
-
-  if (error) {
-    console.error("failed_daily_forecast_claim", {
-      user_id: userId,
-      beach_id: candidate.beachId,
-      local_forecast_date: candidate.localForecastDate,
-      message: error.message,
-    });
-    summary.skipped.sendFailed++;
-    return false;
-  }
-
-  if (data !== true) {
-    summary.skipped.duplicateDailySummary++;
-    console.info("skipped_duplicate_daily_forecast", {
-      user_id: userId,
-      beach_id: candidate.beachId,
-      notification_type: DAILY_FORECAST_NOTIFICATION_TYPE,
-      local_forecast_date: candidate.localForecastDate,
-    });
-    return false;
-  }
-
-  return true;
-}
-
 function uniqueBeachIds(ids: Array<string | null | undefined>): string[] {
   return Array.from(new Set(ids.filter((id): id is string => Boolean(id))));
 }
@@ -823,14 +711,21 @@ export async function runForecastThresholdAlerts(): Promise<ForecastAlertRunSumm
       missingForecast: 0,
       noGoodForecasts: 0,
       duplicateDailySummary: 0,
+      dailyDigestDisabled: 0,
       noMatch: 0,
       sendFailed: 0,
       quietHours: 0,
     },
   };
 
-  // 1) Load profiles once. This keeps skip accounting explicit and lets
-  // favorite-only users participate in the daily summary.
+  if (!isDailyDigestProducerEnabled()) {
+    summary.skipped.dailyDigestDisabled = 1;
+    summary.durationMs = Date.now() - start;
+    return summary;
+  }
+
+  // Legacy flow below is inactive while the daily digest producer is disabled.
+  // Keep the old skip accounting in place until the endpoint is removed.
   const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
     .select("id, home_beach_id, notif_push_enabled, notif_forecast_alerts, is_mock, timezone");
@@ -963,8 +858,7 @@ export async function runForecastThresholdAlerts(): Promise<ForecastAlertRunSumm
   const nowMs = Date.now();
   const now = new Date(nowMs);
 
-  // 6) Evaluate each eligible user's home + alert-enabled favorite beaches,
-  // then enqueue one daily summary at most.
+  // 6) Evaluate each eligible user's home + alert-enabled favorite beaches.
   for (const profile of eligibleProfiles) {
     const alertDate = getLocalDateString(now, profile.timezone);
     const beachIds = getEligibleBeachIdsForUser({ profile, favoritesByUser });
@@ -1013,29 +907,10 @@ export async function runForecastThresholdAlerts(): Promise<ForecastAlertRunSumm
       continue;
     }
 
-    const claimedCandidates: DailyForecastCandidate[] = [];
-    for (const candidate of sortDailyForecastCandidates(candidates)) {
-      if (claimedCandidates.length >= MAX_DAILY_SUMMARY_ENTRIES) break;
-      const claimed = await claimDailyForecastCandidate({
-        supabase,
-        userId: profile.id,
-        candidate,
-        summary,
-      });
-      if (claimed) claimedCandidates.push(candidate);
-    }
-
-    if (claimedCandidates.length === 0) {
-      continue;
-    }
-
-    await enqueueDailyForecastSummary({
-      supabase,
-      userId: profile.id,
-      timezone: profile.timezone,
-      candidates: claimedCandidates,
-      summary,
-    });
+    summary.skipped.dailyDigestDisabled += Math.min(
+      sortDailyForecastCandidates(candidates).length,
+      MAX_DAILY_SUMMARY_ENTRIES
+    );
   }
 
   summary.durationMs = Date.now() - start;

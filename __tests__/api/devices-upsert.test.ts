@@ -67,7 +67,10 @@ describe("Device Token API", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockProfileIs.mockResolvedValue({ error: null });
-    mockProfileEq.mockReturnValue({ is: mockProfileIs });
+    mockProfileEq.mockImplementation((_field: string, _value: string) => ({
+      error: null,
+      is: mockProfileIs,
+    }));
     mockProfileUpdate.mockReturnValue({ eq: mockProfileEq });
   });
 
@@ -102,6 +105,10 @@ describe("Device Token API", () => {
         }),
         { onConflict: "user_id,device_token" }
       );
+      expect(mockProfileUpdate).toHaveBeenCalledWith({
+        notif_push_enabled: true,
+      });
+      expect(mockProfileEq).toHaveBeenCalledWith("id", "user-123");
     });
 
     it("stores a valid IANA timezone and fills missing profile timezone", async () => {
@@ -130,10 +137,14 @@ describe("Device Token API", () => {
         }),
         { onConflict: "user_id,device_token" }
       );
-      expect(mockProfileUpdate).toHaveBeenCalledWith({
+      expect(mockProfileUpdate).toHaveBeenNthCalledWith(1, {
+        notif_push_enabled: true,
+      });
+      expect(mockProfileUpdate).toHaveBeenNthCalledWith(2, {
         timezone: "America/New_York",
       });
-      expect(mockProfileEq).toHaveBeenCalledWith("id", "user-123");
+      expect(mockProfileEq).toHaveBeenNthCalledWith(1, "id", "user-123");
+      expect(mockProfileEq).toHaveBeenNthCalledWith(2, "id", "user-123");
       expect(mockProfileIs).toHaveBeenCalledWith("timezone", null);
     });
 
@@ -350,8 +361,6 @@ describe("Device Token API", () => {
     });
   });
 });
-
-
 
 
 

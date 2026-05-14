@@ -156,12 +156,14 @@ describe("TideConditionsCard", () => {
       const card = container.firstChild as HTMLElement;
       expect(card).toHaveClass(
         "overflow-hidden",
-        "rounded-2xl",
-        "backdrop-blur-sm"
+        "rounded-[8px]",
+        "border-2",
+        "bg-[#F4EBD8]",
+        "shadow-[3px_3px_0_#11100D]"
       );
     });
 
-    it("should apply gradient background classes", () => {
+    it("should apply solid editorial background classes", () => {
       const { container } = render(
         <TideConditionsCard
           prose="Background test"
@@ -170,7 +172,7 @@ describe("TideConditionsCard", () => {
       );
 
       const card = container.firstChild as HTMLElement;
-      expect(card).toHaveClass("bg-gradient-to-br");
+      expect(card).toHaveClass("bg-[#F4EBD8]");
     });
 
     it("should apply proper spacing class (mt-6)", () => {
@@ -208,7 +210,7 @@ describe("TideConditionsCard", () => {
       );
 
       const proseText = screen.getByText("Muted text example");
-      expect(proseText).toHaveClass("text-muted-foreground");
+      expect(proseText).toHaveClass("text-[#11100D]");
     });
 
     it("should render prose text with small font size", () => {
@@ -372,15 +374,15 @@ describe("TideConditionsCard", () => {
       );
 
       const title = screen.getByText("Best Tide Conditions");
-      expect(title).toHaveClass("text-gray-800");
+      expect(title).toHaveClass("text-[#F4EBD8]");
 
       const prose = screen.getByText("Color contrast test");
-      expect(prose).toHaveClass("text-muted-foreground");
+      expect(prose).toHaveClass("text-[#11100D]");
     });
   });
 
   describe("Component structure", () => {
-    it("should render CardHeader with gradient background", () => {
+    it("should render header with brand background", () => {
       const { container } = render(
         <TideConditionsCard
           prose="Header test"
@@ -389,12 +391,9 @@ describe("TideConditionsCard", () => {
       );
 
       // Find the header section by looking for the element containing the title
-      const header = screen
-        .getByText("Best Tide Conditions")
-        .closest("div")
-        ?.parentElement;
+      const header = screen.getByText("Best Tide Conditions").closest("header");
 
-      expect(header).toHaveClass("bg-gradient-to-r");
+      expect(header).toHaveClass("bg-[#0B3A75]", "border-b-2");
     });
 
     it("should render CardContent with proper spacing", () => {
@@ -432,7 +431,7 @@ describe("TideConditionsCard", () => {
       );
 
       const icon = container.querySelector("svg");
-      expect(icon).toHaveClass("text-sky-500");
+      expect(icon).toHaveClass("text-[#F78E42]");
     });
   });
 
@@ -505,7 +504,7 @@ describe("TideConditionsCard", () => {
 
       const card = container.firstChild as HTMLElement;
       // Card should have responsive shadow and border
-      expect(card).toHaveClass("shadow-lg", "border-blue-200/50");
+      expect(card).toHaveClass("shadow-[3px_3px_0_#11100D]", "border-[#11100D]");
     });
 
     it("should maintain readability on all devices", () => {

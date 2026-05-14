@@ -23,7 +23,11 @@ const POPULAR_BEACH_SLUGS = [
   { slug: "pipeline", name: "Pipeline", state: "HI" },
   { slug: "lower-trestles", name: "Lower Trestles", state: "CA" },
   { slug: "rincon-carpinteria-ca", name: "Rincon", state: "CA" },
-  { slug: "rockaway-beach-90th-st-queens-ny", name: "Rockaway Beach", state: "NY" },
+  {
+    slug: "rockaway-beach-90th-st-queens-ny",
+    name: "Rockaway Beach",
+    state: "NY",
+  },
   { slug: "huntington-beach-pier", name: "Huntington Beach Pier", state: "CA" },
   { slug: "ocean-beach", name: "Ocean Beach", state: "CA" },
   { slug: "ditch-plains-montauk-ny", name: "Ditch Plains", state: "NY" },
@@ -43,24 +47,29 @@ export function WindCheckerClient({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const loadBeach = useCallback((slug: string) => {
-    startTransition(async () => {
-      setError(null);
-      const result = await getWindCheckerData(slug);
-      if (result.success && result.data) {
-        setData(result.data);
-        router.replace(`?beach=${encodeURIComponent(slug)}`, { scroll: false });
-      } else {
-        setError(result.error ?? "Failed to load wind data");
-      }
-    });
-  }, [router]);
+  const loadBeach = useCallback(
+    (slug: string) => {
+      startTransition(async () => {
+        setError(null);
+        const result = await getWindCheckerData(slug);
+        if (result.success && result.data) {
+          setData(result.data);
+          router.replace(`?beach=${encodeURIComponent(slug)}`, {
+            scroll: false,
+          });
+        } else {
+          setError(result.error ?? "Failed to load wind data");
+        }
+      });
+    },
+    [router],
+  );
 
   const handleBeachSelect = useCallback(
     (beach: Beach) => {
       if (beach.slug) loadBeach(beach.slug);
     },
-    [loadBeach]
+    [loadBeach],
   );
 
   const currentWind = data?.wind[0] ?? null;
@@ -77,12 +86,17 @@ export function WindCheckerClient({
       ? classifyWindQuality(
           currentWind.wind_direction_deg,
           beach.wind_offshore_deg,
-          beach.wind_offshore_tol_deg
+          beach.wind_offshore_tol_deg,
         )
       : null;
 
   const bestWindows = useMemo(() => {
-    if (!data?.wind?.length || !beach?.wind_offshore_deg || !beach?.wind_offshore_tol_deg) return [];
+    if (
+      !data?.wind?.length ||
+      !beach?.wind_offshore_deg ||
+      !beach?.wind_offshore_tol_deg
+    )
+      return [];
     const hours = data.wind.slice(0, 24);
     const windows: string[] = [];
     let inGoodWindow = false;
@@ -98,7 +112,11 @@ export function WindCheckerClient({
       const isGood =
         h.wind_direction_deg != null &&
         h.wind_speed_mph != null &&
-        classifyWindQuality(h.wind_direction_deg, beach.wind_offshore_deg, beach.wind_offshore_tol_deg).color === "green";
+        classifyWindQuality(
+          h.wind_direction_deg,
+          beach.wind_offshore_deg,
+          beach.wind_offshore_tol_deg,
+        ).color === "green";
       if (isGood && !inGoodWindow) {
         inGoodWindow = true;
         windowStart = fmtHour(h.ts);
@@ -109,7 +127,9 @@ export function WindCheckerClient({
       }
     }
     if (inGoodWindow && hours.length > 0) {
-      windows.push(`${windowStart}\u2013${fmtHour(hours[hours.length - 1].ts)}`);
+      windows.push(
+        `${windowStart}\u2013${fmtHour(hours[hours.length - 1].ts)}`,
+      );
     }
     return windows;
   }, [data?.wind, beach?.wind_offshore_deg, beach?.wind_offshore_tol_deg]);
@@ -143,6 +163,7 @@ export function WindCheckerClient({
     <>
       <ToolHero
         imageSrc={TOOL_IMAGES["wind-checker"]}
+        imageAlt="Offshore wind checker preview showing wind direction at a surf break."
         title="Offshore Wind Checker"
         description="Is the wind offshore at your break? Check in one tap."
         badge={
@@ -255,7 +276,10 @@ export function WindCheckerClient({
             {/* Beach name */}
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-2 min-w-0">
-                <MapPin className="h-4 w-4 text-[#F78E42] shrink-0" aria-hidden="true" />
+                <MapPin
+                  className="h-4 w-4 text-[#F78E42] shrink-0"
+                  aria-hidden="true"
+                />
                 <h2 className="font-heading text-2xl font-bold text-white truncate">
                   {beach.name}
                 </h2>
@@ -276,7 +300,8 @@ export function WindCheckerClient({
                     className="flex items-center gap-1 font-mono text-xs shrink-0 hover:underline"
                     style={{ color: "#F78E42" }}
                   >
-                    Full forecast <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                    Full forecast{" "}
+                    <ExternalLink className="h-3 w-3" aria-hidden="true" />
                   </Link>
                 )}
               </div>
@@ -287,7 +312,8 @@ export function WindCheckerClient({
               <div
                 className="noise-texture rounded-2xl border flex items-center justify-center p-5 w-full md:w-auto"
                 style={{
-                  background: "linear-gradient(135deg, rgba(37,45,107,0.9) 0%, rgba(26,33,88,0.95) 100%)",
+                  background:
+                    "linear-gradient(135deg, rgba(37,45,107,0.9) 0%, rgba(26,33,88,0.95) 100%)",
                   borderColor: "rgba(64,76,146,0.5)",
                 }}
               >
@@ -306,7 +332,8 @@ export function WindCheckerClient({
                   <div
                     className="noise-texture rounded-2xl border p-4"
                     style={{
-                      background: "linear-gradient(135deg, rgba(47,57,120,0.9) 0%, rgba(37,45,107,0.95) 100%)",
+                      background:
+                        "linear-gradient(135deg, rgba(47,57,120,0.9) 0%, rgba(37,45,107,0.95) 100%)",
                       borderColor: "rgba(64,76,146,0.5)",
                     }}
                   >
@@ -321,7 +348,8 @@ export function WindCheckerClient({
                   <div
                     className="noise-texture rounded-2xl border p-4"
                     style={{
-                      background: "linear-gradient(135deg, rgba(47,57,120,0.9) 0%, rgba(37,45,107,0.95) 100%)",
+                      background:
+                        "linear-gradient(135deg, rgba(47,57,120,0.9) 0%, rgba(37,45,107,0.95) 100%)",
                       borderColor: "rgba(64,76,146,0.5)",
                     }}
                   >
@@ -339,7 +367,8 @@ export function WindCheckerClient({
                     <div
                       className="noise-texture rounded-2xl border p-4 col-span-2"
                       style={{
-                        background: "linear-gradient(135deg, rgba(47,57,120,0.9) 0%, rgba(37,45,107,0.95) 100%)",
+                        background:
+                          "linear-gradient(135deg, rgba(47,57,120,0.9) 0%, rgba(37,45,107,0.95) 100%)",
                         borderColor: "rgba(64,76,146,0.5)",
                       }}
                     >
@@ -348,7 +377,9 @@ export function WindCheckerClient({
                       </p>
                       <p className="font-heading text-2xl font-bold text-white leading-none">
                         {Math.round(currentWind.wind_gust_mph)}
-                        <span className="text-base text-[#B8C7E0] ml-1">mph</span>
+                        <span className="text-base text-[#B8C7E0] ml-1">
+                          mph
+                        </span>
                       </p>
                     </div>
                   )}
@@ -374,10 +405,14 @@ export function WindCheckerClient({
                       borderColor: "rgba(122,140,192,0.2)",
                     }}
                   >
-                    <Wind className="h-4 w-4 mt-0.5 shrink-0 text-[#7A8CC0]" aria-hidden="true" />
+                    <Wind
+                      className="h-4 w-4 mt-0.5 shrink-0 text-[#7A8CC0]"
+                      aria-hidden="true"
+                    />
                     <p className="text-sm text-[#B8C7E0]">
-                      Wind is {Math.round(windSpeed)} mph from the {windCardinal}.
-                      We don&apos;t have shore orientation data for this beach yet.
+                      Wind is {Math.round(windSpeed)} mph from the{" "}
+                      {windCardinal}. We don&apos;t have shore orientation data
+                      for this beach yet.
                     </p>
                   </div>
                 )}
@@ -388,7 +423,8 @@ export function WindCheckerClient({
               <div
                 className="noise-texture rounded-2xl border p-5"
                 style={{
-                  background: "linear-gradient(135deg, rgba(37,45,107,0.9) 0%, rgba(26,33,88,0.95) 100%)",
+                  background:
+                    "linear-gradient(135deg, rgba(37,45,107,0.9) 0%, rgba(26,33,88,0.95) 100%)",
                   borderColor: "rgba(64,76,146,0.4)",
                 }}
               >
@@ -396,11 +432,15 @@ export function WindCheckerClient({
                   <h3 className="font-mono text-xs font-semibold uppercase tracking-widest text-[#7A8CC0]">
                     24-Hour Wind Forecast
                   </h3>
-                  {bestWindows.length > 0 && beach.wind_offshore_deg != null && (
-                    <span className="font-mono text-xs font-semibold" style={{ color: "#4ade80" }}>
-                      Best: {bestWindows.join(", ")}
-                    </span>
-                  )}
+                  {bestWindows.length > 0 &&
+                    beach.wind_offshore_deg != null && (
+                      <span
+                        className="font-mono text-xs font-semibold"
+                        style={{ color: "#4ade80" }}
+                      >
+                        Best: {bestWindows.join(", ")}
+                      </span>
+                    )}
                 </div>
                 <WindForecastChart
                   wind={data.wind}
@@ -431,13 +471,14 @@ export function WindCheckerClient({
               <div
                 className="noise-texture rounded-2xl border p-5"
                 style={{
-                  background: "linear-gradient(135deg, rgba(37,45,107,0.9) 0%, rgba(26,33,88,0.95) 100%)",
+                  background:
+                    "linear-gradient(135deg, rgba(37,45,107,0.9) 0%, rgba(26,33,88,0.95) 100%)",
                   borderColor: "rgba(247,142,66,0.25)",
                 }}
               >
                 <p className="text-[#B8C7E0] text-sm mb-3">
-                  Wind is just one piece. Get the full picture — waves, tides, crowd
-                  levels, and more.
+                  Wind is just one piece. Get the full picture — waves, tides,
+                  crowd levels, and more.
                 </p>
                 <Link
                   href={`/beach/${beach.slug}`}
@@ -451,9 +492,7 @@ export function WindCheckerClient({
             )}
           </div>
         )}
-
       </div>
     </>
   );
 }
-

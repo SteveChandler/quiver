@@ -197,6 +197,9 @@ export const VALID_EVENTS: ImplicitEventType[] = [
   'session_log_beach_selected',
   'session_log_rating_set',
   'session_log_photo_added',
+  'session_photo_upload_started',
+  'session_photo_upload_succeeded',
+  'session_photo_upload_failed',
   'session_log_abandon',
   'session_log_validation_failed',
   // Search

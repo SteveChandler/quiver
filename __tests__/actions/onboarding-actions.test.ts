@@ -1,15 +1,21 @@
-import { saveOnboardingData } from "@/actions/onboarding-actions";
+import {
+  saveOnboardingData,
+  skipOnboarding,
+} from "@/actions/onboarding-actions";
 
 // Mock gamification actions
 jest.mock("@/lib/gamification", () => ({
-  trackXP: jest.fn().mockResolvedValue({ success: true, data: { xp_gained: 100 } }),
+  trackXP: jest
+    .fn()
+    .mockResolvedValue({ success: true, data: { xp_gained: 100 } }),
 }));
 
 // Mock the seed helper so we can assert it's invoked with the right params.
 // Defaults to a no-op success; individual tests can override to simulate errors.
 const mockSeedDefaultRuleForUser = jest.fn();
 jest.mock("@/lib/alerts/seed-default-rule", () => ({
-  seedDefaultRuleForUser: (...args: unknown[]) => mockSeedDefaultRuleForUser(...args),
+  seedDefaultRuleForUser: (...args: unknown[]) =>
+    mockSeedDefaultRuleForUser(...args),
 }));
 
 // Track last operations for assertions
@@ -24,11 +30,11 @@ let beachLookupIds: string[] = [];
 jest.mock("@/lib/server-action-utils", () => {
   const mockSupabase = {
     from: (table: string) => {
-      if (table === 'profiles') {
+      if (table === "profiles") {
         return {
           update: (data: any) => {
             // Only capture the main profile update (not referral_code updates)
-            if (!('referral_code' in data)) {
+            if (!("referral_code" in data)) {
               lastProfileUpdate = data;
             }
             const eqResult = {
@@ -37,24 +43,28 @@ jest.mock("@/lib/server-action-utils", () => {
               select: () => ({
                 single: () => {
                   // Simulate constraint violations
-                  if (data.display_name === 'duplicate') {
+                  if (data.display_name === "duplicate") {
                     return Promise.resolve({
                       data: null,
-                      error: { message: 'duplicate key value violates unique constraint "profiles_display_name_key"', code: '23505' }
+                      error: {
+                        message:
+                          'duplicate key value violates unique constraint "profiles_display_name_key"',
+                        code: "23505",
+                      },
                     });
                   }
                   // Return updated profile data
                   return Promise.resolve({
                     data: {
-                      id: 'user-123',
+                      id: "user-123",
                       ...data,
                       created_at: new Date().toISOString(),
                       updated_at: new Date().toISOString(),
                     },
-                    error: null
+                    error: null,
                   });
-                }
-              })
+                },
+              }),
             };
             return { eq: (_column: string, _value: any) => eqResult };
           },
@@ -63,30 +73,31 @@ jest.mock("@/lib/server-action-utils", () => {
               neq: (column2: string, value2: any) => ({
                 maybeSingle: () => {
                   // Check for duplicate display name (used in pre-save validation)
-                  if (value === 'duplicate') {
+                  if (value === "duplicate") {
                     return Promise.resolve({
-                      data: { id: 'other-user-456', display_name: 'duplicate' },
-                      error: null
+                      data: { id: "other-user-456", display_name: "duplicate" },
+                      error: null,
                     });
                   }
                   // No duplicate found
                   return Promise.resolve({
                     data: null,
-                    error: null
+                    error: null,
                   });
-                }
+                },
               }),
               // Used by getOrCreateReferralCode to check if profile has a referral_code
-              single: () => Promise.resolve({
-                data: { referral_code: null },
-                error: null
-              }),
-            })
-          })
+              single: () =>
+                Promise.resolve({
+                  data: { referral_code: null },
+                  error: null,
+                }),
+            }),
+          }),
         };
       }
 
-      if (table === 'beaches') {
+      if (table === "beaches") {
         return {
           select: (_columns?: string) => ({
             eq: (_column: string, value: any) => ({
@@ -102,7 +113,7 @@ jest.mock("@/lib/server-action-utils", () => {
         };
       }
 
-      if (table === 'referrals') {
+      if (table === "referrals") {
         return {
           select: (_columns?: string) => ({
             eq: (_column: string, _value: any) => ({
@@ -113,7 +124,7 @@ jest.mock("@/lib/server-action-utils", () => {
         };
       }
 
-      if (table === 'user_events') {
+      if (table === "user_events") {
         return {
           insert: (row: any) => {
             lastUserEventInsert = row;
@@ -126,8 +137,8 @@ jest.mock("@/lib/server-action-utils", () => {
       return {};
     },
     rpc: (fn: string, _args?: any) => {
-      if (fn === 'generate_referral_code') {
-        return Promise.resolve({ data: 'ABC123', error: null });
+      if (fn === "generate_referral_code") {
+        return Promise.resolve({ data: "ABC123", error: null });
       }
       return Promise.resolve({ data: null, error: null });
     },
@@ -287,7 +298,9 @@ describe("saveOnboardingData", () => {
       expect(result.success).toBe(true);
       // eslint-disable-next-line jest/no-restricted-matchers -- asserting presence; specific shape checked on next line
       expect(lastProfileUpdate.onboarding_completed_at).toBeDefined();
-      expect(lastProfileUpdate.onboarding_completed_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+      expect(lastProfileUpdate.onboarding_completed_at).toMatch(
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,
+      );
 
       // Timestamp should be between before and after
       const timestamp = lastProfileUpdate.onboarding_completed_at;
@@ -306,9 +319,8 @@ describe("saveOnboardingData", () => {
       const result = await saveOnboardingData(onboardingData);
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Display name is already taken');
+      expect(result.error).toContain("Display name is already taken");
     });
-
   });
 
   describe("XP Awarding", () => {
@@ -324,7 +336,7 @@ describe("saveOnboardingData", () => {
       const result = await saveOnboardingData(onboardingData);
 
       expect(result.success).toBe(true);
-      expect(trackXP).toHaveBeenCalledWith('onboarding_completed', 'user-123');
+      expect(trackXP).toHaveBeenCalledWith("onboarding_completed", "user-123");
     });
 
     it("should not fail if XP tracking fails", async () => {
@@ -365,14 +377,14 @@ describe("saveOnboardingData", () => {
       // the user_events_event_type_check constraint doesn't include 'onboarding_completed'.
       // See project_server_analytics_noop.md for background.
       expect(lastUserEventInsert).toEqual({
-        user_id: 'user-123',
-        event_type: 'onboarding_step',
+        user_id: "user-123",
+        event_type: "onboarding_step",
         metadata: {
-          step: 'completed',
-          step_name: 'completed',
-          source: 'server',
+          step: "completed",
+          step_name: "completed",
+          source: "server",
           has_home_beach: true,
-          experience_level: 'intermediate',
+          experience_level: "intermediate",
           preferred_time: null,
           surf_styles_count: 2,
           push_enabled: true,
@@ -392,12 +404,12 @@ describe("saveOnboardingData", () => {
 
       expect(result.success).toBe(true);
       expect(lastUserEventInsert).toEqual({
-        user_id: 'user-123',
-        event_type: 'onboarding_step',
+        user_id: "user-123",
+        event_type: "onboarding_step",
         metadata: {
-          step: 'completed',
-          step_name: 'completed',
-          source: 'server',
+          step: "completed",
+          step_name: "completed",
+          source: "server",
           has_home_beach: true,
           experience_level: null,
           preferred_time: null,
@@ -435,7 +447,9 @@ describe("saveOnboardingData", () => {
       });
 
       expect(mockSeedDefaultRuleForUser).toHaveBeenCalledTimes(1);
-      expect(mockSeedDefaultRuleForUser.mock.calls[0][0].experienceLevel).toBeNull();
+      expect(
+        mockSeedDefaultRuleForUser.mock.calls[0][0].experienceLevel,
+      ).toBeNull();
     });
 
     it("logs an alert_rule_seeded user_events row with the seed result", async () => {
@@ -451,7 +465,7 @@ describe("saveOnboardingData", () => {
       });
 
       const seededEvent = allUserEventInserts.find(
-        (e) => e.metadata?.step === "alert_rule_seeded"
+        (e) => e.metadata?.step === "alert_rule_seeded",
       );
       expect(seededEvent).toMatchObject({
         event_type: "onboarding_step",
@@ -491,7 +505,7 @@ describe("saveOnboardingData", () => {
 
       expect(result.success).toBe(true);
       const seededEvent = allUserEventInserts.find(
-        (e) => e.metadata?.step === "alert_rule_seeded"
+        (e) => e.metadata?.step === "alert_rule_seeded",
       );
       expect(seededEvent.metadata.reason).toBe("error");
     });
@@ -556,13 +570,43 @@ describe("saveOnboardingData", () => {
       expect(result.success).toBe(true);
       /* eslint-disable jest/no-conditional-expect -- narrowing result type; assertions only run when profile shape is present */
       if (result.success && "profile" in result && result.profile) {
-        const profile = result.profile as { id: string; full_name: string; display_name: string; home_beach_id: string };
+        const profile = result.profile as {
+          id: string;
+          full_name: string;
+          display_name: string;
+          home_beach_id: string;
+        };
         expect(profile.id).toBe("user-123");
         expect(profile.full_name).toBe("Test User");
         expect(profile.display_name).toBe("test_user");
         expect(profile.home_beach_id).toBe("beach-123");
       }
       /* eslint-enable jest/no-conditional-expect */
+    });
+  });
+});
+
+describe("skipOnboarding", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    lastProfileUpdate = null;
+    lastUserEventInsert = null;
+    allUserEventInserts = [];
+  });
+
+  it("dismisses onboarding without setting onboarding_completed_at", async () => {
+    const result = await skipOnboarding();
+
+    expect(result.success).toBe(true);
+    expect(lastProfileUpdate).toBeNull();
+    expect(lastUserEventInsert).toEqual({
+      user_id: "user-123",
+      event_type: "onboarding_step",
+      metadata: {
+        step: "dismissed",
+        step_name: "dismissed",
+        source: "server",
+      },
     });
   });
 });

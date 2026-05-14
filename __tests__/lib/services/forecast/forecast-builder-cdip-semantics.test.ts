@@ -67,6 +67,17 @@ const CALIBRATED_SHOALING = {
   ],
 };
 
+const BLACKS_SHOALING = {
+  version: 1 as const,
+  type: "period_lookup" as const,
+  buckets: [
+    { tp_min_s: 0, tp_max_s: 8, factor: 1.57 },
+    { tp_min_s: 8, tp_max_s: 12, factor: 1.7 },
+    { tp_min_s: 12, tp_max_s: 16, factor: 2.13 },
+    { tp_min_s: 16, tp_max_s: 999, factor: 2.4 },
+  ],
+};
+
 function makeWaveData(nowIso: string, hsM = 2.8) {
   return {
     lat: 32.76,
@@ -87,6 +98,33 @@ function makeWaveData(nowIso: string, hsM = 2.8) {
         swell_2_direction: 290,
         wind_wave_height: 1.0,
         wind_wave_period: 6,
+        wind_wave_direction: 270,
+        data_source: "NOAA_NWS" as const,
+      },
+    ],
+  };
+}
+
+function makeBlacksSpikeWaveData(nowIso: string) {
+  return {
+    lat: 32.887,
+    lng: -117.252,
+    data_source: "NOAA_NWS" as const,
+    forecast: [
+      {
+        timestamp: nowIso,
+        forecast_at: nowIso,
+        significant_wave_height: 0.9,
+        peak_wave_period: 12,
+        peak_wave_direction: 270,
+        swell_1_height: 0.91, // ~3 ft
+        swell_1_period: 12,
+        swell_1_direction: 270,
+        swell_2_height: 0,
+        swell_2_period: 0,
+        swell_2_direction: 0,
+        wind_wave_height: 1.07, // ~3.5 ft
+        wind_wave_period: 8.1,
         wind_wave_direction: 270,
         data_source: "NOAA_NWS" as const,
       },
@@ -188,6 +226,48 @@ describe("ForecastBuilder CDIP height semantics", () => {
     expect(prov?.source).not.toBe("nowcast_anchor");
     // NOAA path produces a non-trivial face height (multi-component sum).
     expect(extractFt(forecasts[0].wave_height)).toBeGreaterThan(2);
+  });
+
+  test("NOAA-only Blacks spike: 8s wind-wave is not treated as full surf-height swell", async () => {
+    const builder = makeBuilder();
+
+    const forecasts = await builder.buildForecasts({
+      beach: makeBeach({
+        id: "01330afc-00d3-461b-88f3-b173774766f4",
+        name: "Blacks Beach",
+        lat: 32.887,
+        lon: -117.252,
+        swell_window_center_deg: 268,
+        swell_window_halfwidth_deg: 73,
+        deepwater_decay_factor: 1.15,
+        shoaling_factors: BLACKS_SHOALING as unknown as Beach["shoaling_factors"],
+      }),
+      waveData: makeBlacksSpikeWaveData(FROZEN_NOW_ISO),
+      tideData: null,
+      weatherData: [],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+    });
+
+    const actualFt = extractFt(forecasts[0].wave_height);
+    expect(actualFt).toBeGreaterThanOrEqual(3.5);
+    expect(actualFt).toBeLessThanOrEqual(4.0);
+    expect(forecasts[0].swell_1_height).toBe("3 ft");
+    expect(forecasts[0].wind_wave_height).toBe("3.5 ft");
+    expect(forecasts[0].wind_wave_period).toBe("8s");
+
+    const prov = forecasts[0].raw_forecast?.wave_height_provenance;
+    expect(prov).toEqual(
+      expect.objectContaining({
+        source: "model_swell",
+        transform_path: "decomposed",
+        components_used: true,
+        calibrated_shoaling_fired: false,
+      }),
+    );
+    expect(prov?.raw_value_ft).toBeCloseTo(3.0, 1);
   });
 
   test("Nowcast anchor still overrides CDIP + NOAA (anchor branch wins)", async () => {

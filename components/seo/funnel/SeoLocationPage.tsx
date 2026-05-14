@@ -1,7 +1,10 @@
 import { CamGrid } from "@/components/cams/cam-grid";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import type { CamBeachWithRegion } from "@/actions/beach/cam-actions";
-import type { SeoPageConfig } from "@/lib/seo/funnel-pages";
+import {
+  getSeoFunnelInternalLinks,
+  type SeoPageConfig,
+} from "@/lib/seo/funnel-pages";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { BoardRecommendationCard } from "./BoardRecommendationCard";
@@ -37,11 +40,21 @@ const FEATURED_CAMERA_TERMS_BY_SLUG: Record<string, string[]> = {
     "huntington",
     "newport",
   ],
-  hawaii: ["waikiki", "honolulu", "pipeline", "waimea", "north shore", "hanalei"],
+  hawaii: [
+    "waikiki",
+    "honolulu",
+    "pipeline",
+    "waimea",
+    "north shore",
+    "hanalei",
+  ],
   florida: ["cocoa", "new smyrna", "ponce", "satellite", "jacksonville"],
 };
 
-function getCameraPriority(page: SeoPageConfig, camera: CamBeachWithRegion): number {
+function getCameraPriority(
+  page: SeoPageConfig,
+  camera: CamBeachWithRegion,
+): number {
   const terms = FEATURED_CAMERA_TERMS_BY_SLUG[page.slug] ?? [];
   const haystack = `${camera.name} ${camera.city}`.toLowerCase();
   const matchIndex = terms.findIndex((term) => haystack.includes(term));
@@ -51,7 +64,7 @@ function getCameraPriority(page: SeoPageConfig, camera: CamBeachWithRegion): num
 
 function getFeaturedCameras(
   page: SeoPageConfig,
-  cameras: CamBeachWithRegion[]
+  cameras: CamBeachWithRegion[],
 ): CamBeachWithRegion[] {
   return cameras
     .map((camera, index) => ({ camera, index }))
@@ -71,7 +84,11 @@ export function SeoLocationPage({ page, cameras = [] }: SeoLocationPageProps) {
   const pageUrl = `${baseUrl}${page.path}`;
   const featuredCameras =
     page.type === "surf-cams" ? getFeaturedCameras(page, cameras) : cameras;
-  const hiddenCameraCount = Math.max(cameras.length - featuredCameras.length, 0);
+  const hiddenCameraCount = Math.max(
+    cameras.length - featuredCameras.length,
+    0,
+  );
+  const internalLinks = getSeoFunnelInternalLinks(page);
 
   return (
     <div className="seo-paper-page">
@@ -91,7 +108,7 @@ export function SeoLocationPage({ page, cameras = [] }: SeoLocationPageProps) {
           "@context": "https://schema.org",
           "@type": "ItemList",
           name: `${page.locationName} Quiver planning links`,
-          itemListElement: page.internalLinks.map((link, index) => ({
+          itemListElement: internalLinks.map((link, index) => ({
             "@type": "ListItem",
             position: index + 1,
             name: link.label,
@@ -139,8 +156,8 @@ export function SeoLocationPage({ page, cameras = [] }: SeoLocationPageProps) {
               </>
             ) : (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-                Live camera coverage is temporarily unavailable for this
-                region. Check Quiver for the freshest forecast read.
+                Live camera coverage is temporarily unavailable for this region.
+                Check Quiver for the freshest forecast read.
               </div>
             )}
           </section>
@@ -180,7 +197,7 @@ export function SeoLocationPage({ page, cameras = [] }: SeoLocationPageProps) {
         </div>
 
         <NearbySpots spots={page.nearbySpots} />
-        <InternalLinkCluster title="Keep planning" links={page.internalLinks} />
+        <InternalLinkCluster title="Keep planning" links={internalLinks} />
         <div className="py-6">
           <SeoFaq items={page.faqs} locationName={page.locationName} />
         </div>

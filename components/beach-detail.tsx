@@ -12,7 +12,14 @@ import {
 } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Navigation, AlertTriangle, Waves, Thermometer, Bell, X } from "lucide-react";
+import {
+  Navigation,
+  AlertTriangle,
+  Waves,
+  Thermometer,
+  Bell,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -101,7 +108,8 @@ function AlertNudge({
     });
     if (!res.ok) return false;
     const body = await res.json().catch(() => ({}));
-    const beaches: Array<{ id: string }> = body?.data?.beaches || body?.beaches || [];
+    const beaches: Array<{ id: string }> =
+      body?.data?.beaches || body?.beaches || [];
     return beaches.some((b) => b.id === beachId);
   }, [user, beachId]);
 
@@ -187,6 +195,28 @@ const SessionsTab = lazy(() =>
 // Constants to prevent unnecessary re-renders
 const EMPTY_FORECASTS: EnhancedForecastEntity[] = [];
 
+function getClosestForecastToNow(
+  forecasts: EnhancedForecastEntity[],
+): EnhancedForecastEntity | null {
+  if (!forecasts || forecasts.length === 0) return null;
+
+  const withForecastAt = forecasts.filter((forecast) => forecast.forecast_at);
+  if (withForecastAt.length === 0) {
+    return getCurrentForecast(forecasts);
+  }
+
+  const nowMs = Date.now();
+  return withForecastAt.reduce((closest, forecast) => {
+    const closestDiff = Math.abs(
+      new Date(closest.forecast_at).getTime() - nowMs,
+    );
+    const forecastDiff = Math.abs(
+      new Date(forecast.forecast_at).getTime() - nowMs,
+    );
+    return forecastDiff < closestDiff ? forecast : closest;
+  });
+}
+
 interface BeachDetailProps {
   id: string;
   publicMode?: boolean;
@@ -200,6 +230,7 @@ interface BeachDetailProps {
   amenities?: BeachAmenities | null;
   waterQuality?: WaterQuality | null;
   beachPhoto?: ZineBeachPhoto | null;
+  beforeTabsContent?: ReactNode;
   afterTabsContent?: ReactNode;
   personalizationData?: {
     score:
@@ -228,6 +259,7 @@ function BeachDetailContent({
   amenities,
   waterQuality,
   beachPhoto,
+  beforeTabsContent,
   afterTabsContent,
   personalizationData,
   onPersonalizationRequest,
@@ -240,7 +272,8 @@ function BeachDetailContent({
   // US beach pages have 3-segment paths starting with a 2-letter state code (e.g., /ca/san-diego/ocean-beach-pier).
   // Only these have /tides and /water-temp subpages.
   const pathSegments = pathname.split("/").filter(Boolean);
-  const isUsBeachPage = pathSegments.length === 3 && /^[a-z]{2}$/.test(pathSegments[0]);
+  const isUsBeachPage =
+    pathSegments.length === 3 && /^[a-z]{2}$/.test(pathSegments[0]);
 
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [reviewDialogSource, setReviewDialogSource] =
@@ -364,6 +397,7 @@ function BeachDetailContent({
   const {
     beach,
     forecasts = EMPTY_FORECASTS,
+    forecastMetadata,
     forecastSource,
     forecastCached,
     sources,
@@ -456,9 +490,7 @@ function BeachDetailContent({
         beachId: id,
         metadata: {
           beach_id: id,
-          load_time_ms: Math.round(
-            performance.now() - fetchStartRef.current,
-          ),
+          load_time_ms: Math.round(performance.now() - fetchStartRef.current),
           // Surfaced from X-Quiver-Source / X-Quiver-Cached headers on
           // /api/forecasts/update-enhanced. Omit when undefined to avoid
           // shipping fabricated values.
@@ -538,9 +570,7 @@ function BeachDetailContent({
           beachId: id,
           metadata: {
             surface: "beach_detail",
-            duration_ms: Math.round(
-              performance.now() - pageStartRef.current,
-            ),
+            duration_ms: Math.round(performance.now() - pageStartRef.current),
             authenticated: wasAuthenticated,
             exit_via: exitVia,
           },
@@ -608,7 +638,7 @@ function BeachDetailContent({
     // empty-state event for reviews — acceptable fallback).
     const reviewCountFromBeach =
       typeof (beach as { review_count?: number }).review_count === "number"
-        ? (beach as { review_count?: number }).review_count ?? null
+        ? ((beach as { review_count?: number }).review_count ?? null)
         : null;
 
     Promise.all([
@@ -620,10 +650,7 @@ function BeachDetailContent({
     ]).then(([reviews, intelJson, sessionsJson]) => {
       if (cancelled) return;
       const intelPosts =
-        intelJson?.data?.posts ??
-        intelJson?.posts ??
-        intelJson?.data ??
-        null;
+        intelJson?.data?.posts ?? intelJson?.posts ?? intelJson?.data ?? null;
       const sessionsList =
         sessionsJson?.data?.sessions ??
         sessionsJson?.sessions ??
@@ -707,8 +734,7 @@ function BeachDetailContent({
   const currentForecast = useMemo(() => {
     if (!forecasts || forecasts.length === 0) return null;
 
-    // Use the same getCurrentForecast utility as the home page for consistency
-    const selectedForecast = getCurrentForecast(forecasts);
+    const selectedForecast = getClosestForecastToNow(forecasts);
 
     if (process.env.NODE_ENV === "development") {
       console.warn("Beach Detail currentForecast selection:", {
@@ -759,7 +785,10 @@ function BeachDetailContent({
     const hiddenDay = horizonDaySummaries[3];
     if (!hiddenDay?.fullDate) return null;
     try {
-      return new Date(`${hiddenDay.fullDate}T00:00:00`).toLocaleDateString(undefined, { weekday: "long" });
+      return new Date(`${hiddenDay.fullDate}T00:00:00`).toLocaleDateString(
+        undefined,
+        { weekday: "long" },
+      );
     } catch {
       return null;
     }
@@ -769,7 +798,9 @@ function BeachDetailContent({
   const peakHiddenWaveHeight = useMemo(() => {
     if (!publicMode || horizonDaySummaries.length <= 3) return null;
     const hiddenDays = horizonDaySummaries.slice(3);
-    const maxHeight = Math.max(...hiddenDays.map(d => d.maxHeight ?? 0).filter(h => h > 0));
+    const maxHeight = Math.max(
+      ...hiddenDays.map((d) => d.maxHeight ?? 0).filter((h) => h > 0),
+    );
     return maxHeight > 0 ? maxHeight : null;
   }, [publicMode, horizonDaySummaries]);
 
@@ -878,15 +909,24 @@ function BeachDetailContent({
 
       {/* Surf report slot — authenticated users only */}
       {!publicMode && surfReportSlot && (
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-4">{surfReportSlot}</div>
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-4">
+          {surfReportSlot}
+        </div>
       )}
 
       {/* Cream zine page — replaces the dark twilight chrome (immersive hero,
           breadcrumb/H1 overlay, BeachStatsGrid, ConditionsTicker, BeachActions,
           MatchScoreTeaser, TrustStrip). The zine carries its own H1, hero photo,
           and footer; the tabs sit inside the cream paper. */}
-      <ZinePageShell beach={beach as Beach} beachPhoto={beachPhoto} sources={sources}>
+      <ZinePageShell
+        beach={beach as Beach}
+        beachPhoto={beachPhoto}
+        sources={sources}
+      >
         <div ref={signupCtaRef} />
+        {beforeTabsContent ? (
+          <div className="mx-auto mb-6 max-w-5xl">{beforeTabsContent}</div>
+        ) : null}
         <BeachTabs
           activeTab={activeTab}
           onTabChange={setActiveTab}
@@ -921,6 +961,7 @@ function BeachDetailContent({
                   beachTimezone={beachTimezone}
                   forecasts={forecasts || []}
                   currentForecast={currentForecast}
+                  forecastMetadata={forecastMetadata}
                   surfCall={surfCallReport}
                   surfCallIsTomorrow={surfCallIsTomorrow}
                   defaultSubTab={defaultSubTab}
@@ -984,7 +1025,9 @@ function BeachDetailContent({
           </BeachTabContent>
         </BeachTabs>
 
-        {afterTabsContent ? <div className="mt-10">{afterTabsContent}</div> : null}
+        {afterTabsContent ? (
+          <div className="mt-10">{afterTabsContent}</div>
+        ) : null}
       </ZinePageShell>
 
       {/* MatchScoreTeaser cut from the beach-detail layout — the zine masthead
@@ -1000,22 +1043,30 @@ function BeachDetailContent({
         <AlertCreationPopover
           beachId={beach.id}
           beachName={beach.name}
-          beach={{
-            id: beach.id,
-            name: beach.name,
-            slug: (beach as any).slug ?? null,
-            lat: beach.lat ?? 0,
-            lon: beach.lon ?? 0,
-            timezone: (beach as any).timezone ?? "UTC",
-            wind_offshore_deg: (beach as any).wind_offshore_deg ?? null,
-            wind_offshore_tol_deg: (beach as any).wind_offshore_tol_deg ?? null,
-            aspect_deg: (beach as any).aspect_deg ?? null,
-            preferred_tide_ft_min: (beach as any).preferred_tide_ft_min ?? null,
-            preferred_tide_ft_max: (beach as any).preferred_tide_ft_max ?? null,
-            preferred_tide_direction: (beach as any).preferred_tide_direction ?? null,
-            swell_window_center_deg: (beach as any).swell_window_center_deg ?? null,
-            swell_window_halfwidth_deg: (beach as any).swell_window_halfwidth_deg ?? null,
-          } satisfies BeachAlertMeta}
+          beach={
+            {
+              id: beach.id,
+              name: beach.name,
+              slug: (beach as any).slug ?? null,
+              lat: beach.lat ?? 0,
+              lon: beach.lon ?? 0,
+              timezone: (beach as any).timezone ?? "UTC",
+              wind_offshore_deg: (beach as any).wind_offshore_deg ?? null,
+              wind_offshore_tol_deg:
+                (beach as any).wind_offshore_tol_deg ?? null,
+              aspect_deg: (beach as any).aspect_deg ?? null,
+              preferred_tide_ft_min:
+                (beach as any).preferred_tide_ft_min ?? null,
+              preferred_tide_ft_max:
+                (beach as any).preferred_tide_ft_max ?? null,
+              preferred_tide_direction:
+                (beach as any).preferred_tide_direction ?? null,
+              swell_window_center_deg:
+                (beach as any).swell_window_center_deg ?? null,
+              swell_window_halfwidth_deg:
+                (beach as any).swell_window_halfwidth_deg ?? null,
+            } satisfies BeachAlertMeta
+          }
           open={alertCreationOpen}
           onOpenChange={setAlertCreationOpen}
         />

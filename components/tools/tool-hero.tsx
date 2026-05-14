@@ -3,10 +3,12 @@ import type { ReactNode } from "react";
 
 interface ToolHeroProps {
   imageSrc: string;
+  imageAlt: string;
   title: string;
   description?: string;
   badge?: ReactNode;
   children?: ReactNode;
+  headingLevel?: "h1" | "p";
   priority?: boolean;
 }
 
@@ -17,28 +19,33 @@ interface ToolHeroProps {
  */
 export function ToolHero({
   imageSrc,
+  imageAlt,
   title,
   description,
   badge,
   children,
+  headingLevel = "h1",
   priority = true,
 }: ToolHeroProps) {
+  const HeadingTag = headingLevel;
+
   return (
     <section className="relative flex min-h-[280px] flex-col justify-end overflow-hidden bg-[#0A0E27] sm:min-h-[340px] md:min-h-[400px]">
       {/* Layer 1: Blurred background */}
       <Image
         src={imageSrc}
-        alt=""
+        alt={`${imageAlt} background`}
         fill
         className="object-cover blur-3xl opacity-40 scale-110"
         priority={priority}
         sizes="100vw"
+        aria-hidden="true"
       />
 
       {/* Layer 2: Sharp main image */}
       <Image
         src={imageSrc}
-        alt=""
+        alt={imageAlt}
         fill
         className="object-cover object-center contrast-[1.10] saturate-[1.2] brightness-[1.05]"
         priority={priority}
@@ -54,9 +61,9 @@ export function ToolHero({
       {/* Layer 5: Content — pinned to bottom */}
       <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-8 pt-20 sm:px-6 sm:pb-10 lg:px-8">
         {badge && <div className="mb-4">{badge}</div>}
-        <h1 className="font-heading text-3xl font-bold text-white sm:text-4xl md:text-5xl">
+        <HeadingTag className="font-heading text-3xl font-bold text-white sm:text-4xl md:text-5xl">
           {title}
-        </h1>
+        </HeadingTag>
         {description && (
           <p className="mt-3 max-w-2xl text-base text-white/70 sm:text-lg">
             {description}

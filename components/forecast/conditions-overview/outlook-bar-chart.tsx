@@ -32,18 +32,18 @@ function CustomTooltip({
   const day = payload[0].payload;
 
   return (
-    <div className="rounded-lg border border-border bg-card px-3 py-2 text-sm shadow-md">
-      <p className="font-medium text-foreground">{day.date}</p>
-      <p className="text-muted-foreground">
+    <div className="rounded-[8px] border-2 border-[#11100D] bg-[#F8F0DF] px-3 py-2 text-sm shadow-[2px_2px_0_#11100D]">
+      <p className="font-black text-[#11100D]">{day.date}</p>
+      <p className="text-[#5F5646]">
         Score: {day.score} &mdash; {getQualityLabel(day.score)}
       </p>
-      <p className="text-muted-foreground">
+      <p className="text-[#5F5646]">
         Waves: {formatWaveRange([day.minHeight, day.maxHeight], "integer")}
       </p>
-      <p className="text-muted-foreground">
+      <p className="text-[#5F5646]">
         Wind: {capitalize(day.windConditions)}
       </p>
-      <p className="text-muted-foreground">
+      <p className="text-[#5F5646]">
         Best time: {capitalize(day.bestTimeSlot)}
       </p>
     </div>
@@ -67,12 +67,14 @@ export function OutlookBarChart({ days }: OutlookBarChartProps) {
   return (
     <div
       data-testid="outlook-bar-chart"
-      className="rounded-2xl border border-border bg-card shadow-sm p-4 sm:p-6"
+      className="rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] p-4 shadow-[4px_4px_0_#11100D] sm:p-6"
       role="img"
       aria-label={`Bar chart showing daily surf condition scores for the next ${days.length} days`}
     >
-      <h3 className="text-lg font-semibold text-foreground">{days.length}-Day Outlook</h3>
-      <p className="text-sm text-muted-foreground mb-4">
+      <h3 className="font-heading text-2xl font-black uppercase text-[#11100D]">
+        {days.length}-Day Outlook
+      </h3>
+      <p className="mb-4 font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#5F5646]">
         Daily surf condition scores
       </p>
 
@@ -98,9 +100,9 @@ export function OutlookBarChart({ days }: OutlookBarChartProps) {
             content={<CustomTooltip />}
             cursor={{ fill: "rgba(0,0,0,0.04)" }}
           />
-          <ReferenceLine y={40} stroke="#606DA8" strokeDasharray="3 3" />
-          <ReferenceLine y={60} stroke="#606DA8" strokeDasharray="3 3" />
-          <ReferenceLine y={80} stroke="#606DA8" strokeDasharray="3 3" />
+          <ReferenceLine y={40} stroke="#0B3A75" strokeDasharray="3 3" />
+          <ReferenceLine y={60} stroke="#0B3A75" strokeDasharray="3 3" />
+          <ReferenceLine y={80} stroke="#0B3A75" strokeDasharray="3 3" />
           <Bar dataKey="score" radius={[4, 4, 0, 0]} maxBarSize={40}>
             {days.map((day, i) => (
               <Cell

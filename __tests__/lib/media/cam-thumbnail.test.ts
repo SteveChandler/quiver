@@ -1,6 +1,9 @@
 import {
   getCamThumbnailUrl,
   getDisplayCamThumbnailUrl,
+  getYouTubeVideoId,
+  getYouTubeWatchUrl,
+  isYouTubeCameraUrl,
 } from "@/lib/media/cam-thumbnail";
 
 describe("getCamThumbnailUrl", () => {
@@ -93,6 +96,49 @@ describe("getCamThumbnailUrl", () => {
   // --- Invalid URLs ---
   it("returns null for invalid URL strings", () => {
     expect(getCamThumbnailUrl("not-a-valid-url")).toBeNull();
+  });
+});
+
+describe("getYouTubeVideoId", () => {
+  it("extracts IDs from supported YouTube URL formats", () => {
+    expect(getYouTubeVideoId("https://www.youtube.com/watch?v=abc123")).toBe(
+      "abc123"
+    );
+    expect(getYouTubeVideoId("https://youtu.be/def456?t=30")).toBe("def456");
+    expect(
+      getYouTubeVideoId("https://www.youtube.com/live/ghi789?feature=share")
+    ).toBe("ghi789");
+    expect(getYouTubeVideoId("https://www.youtube.com/embed/jkl012")).toBe(
+      "jkl012"
+    );
+  });
+
+  it("returns null for non-video YouTube pages", () => {
+    expect(
+      getYouTubeVideoId("https://www.youtube.com/@QuiverSurf/streams")
+    ).toBeNull();
+  });
+});
+
+describe("getYouTubeWatchUrl", () => {
+  it("normalizes supported YouTube URLs to watch URLs", () => {
+    expect(getYouTubeWatchUrl("https://www.youtube.com/embed/abc123")).toBe(
+      "https://www.youtube.com/watch?v=abc123"
+    );
+  });
+});
+
+describe("isYouTubeCameraUrl", () => {
+  it("detects YouTube hosts", () => {
+    expect(isYouTubeCameraUrl("https://www.youtube.com/watch?v=abc123")).toBe(
+      true
+    );
+    expect(isYouTubeCameraUrl("https://youtu.be/abc123")).toBe(true);
+  });
+
+  it("rejects non-YouTube hosts and invalid URLs", () => {
+    expect(isYouTubeCameraUrl("https://vimeo.com/123456")).toBe(false);
+    expect(isYouTubeCameraUrl("not-a-url")).toBe(false);
   });
 });
 

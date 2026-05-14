@@ -143,6 +143,15 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
     throw upsertError;
   }
 
+  const { error: pushPrefError } = await supabase
+    .from("profiles")
+    .update({ notif_push_enabled: true })
+    .eq("id", user.id);
+
+  if (pushPrefError) {
+    console.warn("Push preference repair failed:", pushPrefError);
+  }
+
   if (normalizedTimezone) {
     const { error: profileTimezoneError } = await supabase
       .from("profiles")

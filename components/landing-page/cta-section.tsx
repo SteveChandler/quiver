@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, useInView, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
@@ -9,6 +9,11 @@ import { useSearchParams } from "next/navigation";
 import { preserveQueryParams } from "@/lib/utils/navigation-utils";
 import { useAuth } from "@/context/auth-context";
 import { CONTENT } from "@/lib/constants/features";
+import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
+import {
+  trackSignupCtaClick,
+  trackSignupCtaView,
+} from "@/lib/analytics/signup-conversion-tracking";
 
 const EASE_OUT_QUART: [number, number, number, number] = [0.25, 1, 0.5, 1];
 
@@ -17,12 +22,38 @@ const FADE_UP_VARIANTS = {
   visible: { opacity: 1, y: 0 },
 };
 
-export function CTASection() {
+interface CTASectionProps {
+  source?: string;
+  ctaType?: string;
+  ctaCopyVariant?: string;
+  returnTo?: string;
+  contextMessage?: { title: string; description: string };
+}
+
+export function CTASection({
+  source = "final-cta",
+  ctaType = "bottom-cta",
+  ctaCopyVariant,
+  returnTo = "/",
+  contextMessage,
+}: CTASectionProps) {
   const searchParams = useSearchParams();
   const { user, isLoading } = useAuth();
   const sectionRef = useRef<HTMLDivElement>(null);
+  const hasTrackedView = useRef(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
   const isInView = useInView(sectionRef, { once: true, amount: 0.3 });
   const shouldReduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (user || isLoading || !isInView || hasTrackedView.current) return;
+    hasTrackedView.current = true;
+    trackSignupCtaView({
+      source,
+      cta_type: ctaType,
+      cta_copy_variant: ctaCopyVariant,
+    });
+  }, [ctaCopyVariant, ctaType, isInView, isLoading, source, user]);
 
   // Don't render for authenticated users (show during loading to avoid CLS)
   if (!isLoading && user) return null;
@@ -67,12 +98,18 @@ export function CTASection() {
           <Button
             size="lg"
             className="bg-ocean-blue text-white rounded-full px-8 py-3 font-sans font-semibold hover:shadow-xl hover:shadow-ocean-blue/20 transition-all duration-200 hover:bg-ocean-blue/90 hover:-translate-y-0.5 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
-            asChild
+            onClick={() => {
+              trackSignupCtaClick({
+                source,
+                cta_type: ctaType,
+                cta_text: CONTENT.hero.cta,
+                cta_copy_variant: ctaCopyVariant,
+              });
+              setAuthModalOpen(true);
+            }}
           >
-            <Link href={preserveQueryParams("/auth/sign-up", searchParams)}>
-              {CONTENT.hero.cta}
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Link>
+            {CONTENT.hero.cta}
+            <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
 
           <Button
@@ -94,6 +131,19 @@ export function CTASection() {
           Free iOS &amp; Android beta. Free core, Pro adds depth.
         </motion.p>
       </div>
+      <UnifiedAuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        mode="signup"
+        source={source}
+        returnTo={preserveQueryParams(returnTo, searchParams)}
+        contextMessage={
+          contextMessage ?? {
+            title: "See Your Forecast",
+            description: "Conditions explained clearly in 30 seconds",
+          }
+        }
+      />
     </section>
   );
 }
