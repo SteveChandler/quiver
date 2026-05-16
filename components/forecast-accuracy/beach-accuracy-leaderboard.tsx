@@ -20,10 +20,10 @@ export interface LeaderboardBeachRow {
   city: string | null;
   state: string | null;
   country: string | null;
-  rawMae: number;
-  correctedMae: number;
-  maeImprovementPct: number;
-  predictionsMatched: number;
+  rawMae: number | null;
+  correctedMae: number | null;
+  maeImprovementPct: number | null;
+  predictionsMatched: number | null;
 }
 
 interface BeachAccuracyLeaderboardProps {
@@ -32,18 +32,25 @@ interface BeachAccuracyLeaderboardProps {
 
 const INITIAL_COUNT = 5;
 
-function formatMae(mae: number): string {
+function isFiniteMetric(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function formatMae(mae: number | null): string {
+  if (!isFiniteMetric(mae)) return "—";
   return `${mae.toFixed(3)}m`;
 }
 
-function formatImprovement(pct: number): string {
+function formatImprovement(pct: number | null): string {
+  if (!isFiniteMetric(pct)) return "—";
   const rounded = Math.round(pct);
-  return `+${rounded}%`;
+  return `${rounded > 0 ? "+" : ""}${rounded}%`;
 }
 
 /** Returns a small inline bar width (0-100%) for visual encoding of improvement. */
-function improvementBarWidth(pct: number, maxPct: number): string {
-  return `${Math.min(100, (pct / maxPct) * 100)}%`;
+function improvementBarWidth(pct: number | null, maxPct: number): string {
+  if (!isFiniteMetric(pct) || maxPct <= 0) return "0%";
+  return `${Math.max(0, Math.min(100, (pct / maxPct) * 100))}%`;
 }
 
 export function BeachAccuracyLeaderboard({ beaches }: BeachAccuracyLeaderboardProps) {
@@ -53,7 +60,12 @@ export function BeachAccuracyLeaderboard({ beaches }: BeachAccuracyLeaderboardPr
 
   const visibleBeaches = expanded ? beaches : beaches.slice(0, INITIAL_COUNT);
   const hasMore = beaches.length > INITIAL_COUNT;
-  const maxImprovement = beaches[0]?.maeImprovementPct ?? 1;
+  const maxImprovement = Math.max(
+    1,
+    ...beaches
+      .map((beach) => beach.maeImprovementPct)
+      .filter((pct): pct is number => isFiniteMetric(pct) && pct > 0),
+  );
 
   return (
     <section aria-label="Top beaches by forecast accuracy improvement">
@@ -153,7 +165,9 @@ export function BeachAccuracyLeaderboard({ beaches }: BeachAccuracyLeaderboardPr
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right text-white/40 text-xs hidden sm:table-cell">
-                      {beach.predictionsMatched.toLocaleString("en-US")}
+                      {isFiniteMetric(beach.predictionsMatched)
+                        ? beach.predictionsMatched.toLocaleString("en-US")
+                        : "—"}
                     </td>
                   </tr>
                 );
