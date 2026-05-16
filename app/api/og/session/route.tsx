@@ -1,5 +1,6 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
+import { remoteImageUrlOrFallback } from '@/lib/share/remote-image-url';
 
 export const runtime = 'edge';
 
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
   const windSpeed = searchParams.get('windSpeed') || '';
   const tagline = searchParams.get('tagline') || '';
   const footer = searchParams.get('footer') || 'Logged on Quiver';
-  const bg = searchParams.get('bg') || DEFAULT_BG;
+  const bg = remoteImageUrlOrFallback(searchParams.get('bg'), DEFAULT_BG);
 
   const truncate = (value: string, max: number) => {
     if (!value) return '';
