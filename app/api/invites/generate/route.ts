@@ -10,6 +10,7 @@ import {
   signEmailToken,
   getEmailTokenSecret,
 } from "@/lib/utils/email-token";
+import { capturePostHogEvent } from "@/lib/posthog-server";
 
 /**
  * POST /api/invites/generate
@@ -31,6 +32,11 @@ const generateHandler = withAuth(
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     const url = `${siteUrl.replace(/\/$/, "")}/invite/${token}`;
+
+    await capturePostHogEvent({
+      distinctId: user.id,
+      event: "invite_link_generated",
+    });
 
     return createSuccessResponse({ token, url });
   },

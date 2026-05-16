@@ -1,4 +1,5 @@
 import { init, captureRouterTransitionStart } from "@sentry/nextjs";
+import posthog from "posthog-js";
 
 /**
  * Next.js will call this hook (when present) to instrument router
@@ -39,6 +40,23 @@ function detectEnvironment(): string {
   // Production
   return "production";
 }
+
+function initPostHog(): void {
+  const posthogToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+  if (!posthogToken) return;
+
+  const posthogClient = posthog as typeof posthog & { __loaded?: boolean };
+  if (posthogClient.__loaded) return;
+
+  posthog.init(posthogToken, {
+    api_host: "/ingest",
+    ui_host: "https://us.posthog.com",
+    defaults: "2026-01-30",
+    debug: process.env.NODE_ENV === "development",
+  });
+}
+
+initPostHog();
 
 /**
  * Client-side instrumentation entrypoint (Next.js App Router).

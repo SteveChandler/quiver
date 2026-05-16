@@ -193,3 +193,4 @@ ios/App/Pods/
 
 # Claude Code worktrees
 .claude/worktrees/
+.env.local
