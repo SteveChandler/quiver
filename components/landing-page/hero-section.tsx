@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { CONTENT } from "@/lib/constants/features";
 import { Button } from "@/components/ui/button";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
@@ -28,6 +29,12 @@ const itemVariants = {
   },
 } as const;
 
+const HERO_FORECAST_MARKERS = [
+  { label: "Wave height", value: "2-3 ft", note: "mellow enough to learn" },
+  { label: "Swell period", value: "12s", note: "more push than the number implies" },
+  { label: "Wind", value: "light W", note: "cleaner before lunch" },
+] as const;
+
 export function HeroSection() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("signup");
@@ -50,62 +57,107 @@ export function HeroSection() {
   return (
     <section
       ref={sectionRef}
-      className="relative flex items-center justify-center overflow-hidden bg-black pt-32 pb-24 min-h-[600px] md:min-h-[700px]"
+      className="relative overflow-hidden bg-[oklch(18%_0.04_268)] pt-24 pb-12 md:pt-28 md:pb-8"
     >
       {/* Background: video → Ken Burns images loop */}
       <HeroVideoBackground />
+      <div className="absolute inset-0 z-10 bg-[linear-gradient(90deg,oklch(18%_0.04_268_/_0.94)_0%,oklch(20%_0.05_268_/_0.78)_45%,oklch(19%_0.04_268_/_0.5)_100%)]" />
+      <div className="absolute inset-x-0 bottom-0 z-10 h-32 bg-[linear-gradient(0deg,oklch(34%_0.09_268),transparent)]" />
 
       {/* Hero content */}
       <motion.div
-        className="relative z-20 flex flex-col items-center gap-8 px-6 text-center max-w-4xl mx-auto"
+        className="relative z-20 mx-auto grid w-full max-w-7xl grid-cols-1 gap-10 px-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.75fr)] lg:items-end"
         variants={containerVariants}
         initial={reducedMotion ? false : "hidden"}
         animate={isInView ? "visible" : "hidden"}
       >
-        {/* Headline */}
-        <motion.h1
-          className="text-5xl md:text-6xl lg:text-7xl font-heading font-bold text-white leading-tight tracking-tight text-balance"
-          variants={itemVariants}
-        >
-          {CONTENT.hero.title}
-        </motion.h1>
+        <div className="max-w-3xl">
+          <motion.h1
+            className="max-w-4xl text-balance font-heading text-4xl font-black leading-[0.94] tracking-normal text-[#F8F2DD] xs:text-5xl sm:text-6xl md:text-7xl lg:text-7xl"
+            variants={itemVariants}
+          >
+            {CONTENT.hero.title}
+          </motion.h1>
 
-        {/* Subtitle */}
-        <motion.p
-          className="text-lg md:text-xl text-white/80 max-w-2xl leading-relaxed"
-          variants={itemVariants}
-        >
-          {CONTENT.hero.subtitle}
-        </motion.p>
+          <motion.p
+            className="mt-6 max-w-2xl text-lg leading-relaxed text-[#D8E1F0] md:text-xl"
+            variants={itemVariants}
+          >
+            {CONTENT.hero.subtitle}
+          </motion.p>
 
-        {/* CTA buttons */}
+          <motion.div
+            className="mt-8 flex flex-col items-start gap-4 sm:flex-row sm:items-center"
+            variants={itemVariants}
+          >
+            <Button
+              onClick={() => {
+                trackSignupCtaClick({
+                  source: "hero-cta",
+                  surface: "landing-page",
+                });
+                setAuthMode("signup");
+                setAuthModalOpen(true);
+              }}
+              className="rounded-[16px_8px_18px_8px] bg-ocean-blue px-7 py-4 font-heading text-base font-bold text-white shadow-[0_5px_0_rgba(0,0,0,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-ocean-blue/90 hover:shadow-[0_7px_0_rgba(0,0,0,0.35)] active:translate-y-0 focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
+              size="lg"
+            >
+              {CONTENT.hero.cta}
+              <ArrowRight className="ml-2 h-5 w-5" aria-hidden="true" />
+            </Button>
+
+            <Button
+              asChild
+              variant="ghost"
+              className="rounded-[14px_6px_16px_4px] border border-[#F8F2DD]/35 bg-[#F8F2DD]/8 px-6 py-4 font-heading text-base font-bold text-[#F8F2DD] transition-all duration-200 hover:-rotate-1 hover:bg-[#F8F2DD]/14 focus-visible:ring-2 focus-visible:ring-[#F8F2DD]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
+              size="lg"
+            >
+              <Link href="/beginner/san-diego">{CONTENT.hero.secondaryCta}</Link>
+            </Button>
+          </motion.div>
+
+        </div>
+
         <motion.div
-          className="flex flex-col sm:flex-row items-center gap-4"
+          className="relative mx-auto w-full max-w-md rotate-[1deg] rounded-[30px_14px_34px_18px] border-2 border-[#252D6B] bg-[#F8F2DD] p-4 text-[#171A35] shadow-[10px_12px_0_rgba(0,0,0,0.34)] sm:p-5 lg:mx-0"
           variants={itemVariants}
         >
-          <Button
-            onClick={() => {
-              trackSignupCtaClick({
-                source: "hero-cta",
-                surface: "landing-page",
-              });
-              setAuthMode("signup");
-              setAuthModalOpen(true);
-            }}
-            className="bg-ocean-blue text-white rounded-full px-8 py-4 font-semibold text-lg shadow-lg hover:bg-ocean-blue/90 hover:shadow-xl hover:shadow-ocean-blue/20 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
-            size="lg"
-          >
-            {CONTENT.hero.cta}
-          </Button>
+          <div className="absolute -left-5 top-6 rotate-[-9deg] rounded-[12px_4px_12px_4px] bg-[#F78E42] px-4 py-2 font-heading text-xs font-black uppercase tracking-wide text-[#252D6B] shadow-[0_3px_0_rgba(0,0,0,0.25)]">
+            Epic
+          </div>
 
-          <Button
-            asChild
-            variant="ghost"
-            className="border border-white/30 text-white rounded-full px-6 py-4 font-semibold hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
-            size="lg"
-          >
-            <Link href="/features">Find a spot</Link>
-          </Button>
+          <div className="mt-8 border-y-2 border-[#252D6B] py-4">
+            <p className="font-mono text-xs uppercase tracking-wide text-[#9E5010]">
+              La Jolla Shores, tomorrow morning
+            </p>
+            <p className="mt-3 font-heading text-4xl font-black leading-none">
+              Go before 10.
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-[#31375D]">
+              Small enough to learn, enough period to push a soft top, and wind
+              stays light before lunch.
+            </p>
+          </div>
+
+          <div className="mt-5 hidden gap-3 sm:grid">
+            {HERO_FORECAST_MARKERS.map((marker) => (
+              <div
+                key={marker.label}
+                className="grid grid-cols-[88px_72px_1fr] items-center gap-3 border-b border-[#252D6B]/20 pb-3 last:border-b-0 last:pb-0"
+              >
+                <span className="font-mono text-[11px] uppercase tracking-wide text-[#58607F]">
+                  {marker.label}
+                </span>
+                <span className="font-heading text-xl font-black text-[#252D6B]">
+                  {marker.value}
+                </span>
+                <span className="text-sm leading-snug text-[#31375D]">
+                  {marker.note}
+                </span>
+              </div>
+            ))}
+          </div>
+
         </motion.div>
       </motion.div>
 
@@ -118,9 +170,9 @@ export function HeroSection() {
         contextMessage={
           authMode === "signup"
             ? {
-                title: "See Your Forecast",
+                title: "Get Your Surf Call",
                 description:
-                  "Conditions explained clearly in 30 seconds",
+                  "Create a free account to see conditions explained for your level.",
               }
             : undefined
         }

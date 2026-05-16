@@ -24,6 +24,9 @@ jest.mock("framer-motion", () => ({
     h2: ({ children, initial, animate, transition, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
       <h2 {...props}>{children}</h2>
     ),
+    p: ({ children, initial, animate, transition, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
+      <p {...props}>{children}</p>
+    ),
     div: ({ children, initial, animate, transition, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
       <div {...props}>{children}</div>
     ),

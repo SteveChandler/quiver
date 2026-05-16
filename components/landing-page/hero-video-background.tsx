@@ -135,7 +135,7 @@ export function HeroVideoBackground() {
           className="object-cover"
           aria-hidden="true"
         />
-        <div className="absolute inset-0 bg-black/30" />
+        <div className="absolute inset-0 bg-[#111635]/45" />
       </div>
     );
   }
@@ -179,7 +179,7 @@ export function HeroVideoBackground() {
               alt={image.alt}
               fill
               sizes="100vw"
-              priority={false}
+              priority={idx === 0}
               className={`object-cover ${
                 isActive ? KEN_BURNS_CLASSES[idx % KEN_BURNS_CLASSES.length] : ""
               }`}
@@ -189,7 +189,7 @@ export function HeroVideoBackground() {
       })}
 
       {/* Overlay */}
-      <div className="absolute inset-0 bg-black/30" />
+      <div className="absolute inset-0 bg-[#111635]/45" />
     </div>
   );
 }

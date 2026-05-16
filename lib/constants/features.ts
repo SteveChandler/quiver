@@ -270,10 +270,11 @@ export const SURF_ACTIVITIES = [
 // Content strings to reduce hardcoding
 export const CONTENT = {
   hero: {
-    title: "Surf when it's actually good.",
-    subtitle: "Personalized to the spots you actually surf.",
-    cta: "Set up your home break",
-    secondaryCta: "Explore Features",
+    title: "Quiver: Your best days on repeat.",
+    subtitle:
+      "Log your sessions, teach Quiver what works for you, and get alerts when the forecast lines up again.",
+    cta: "Get my surf call",
+    secondaryCta: "Find your spots",
     benefits: [
       "🏄‍♀️ Connect with local surfers",
       "📊 Track epic sessions",
@@ -313,9 +314,9 @@ export const CONTENT = {
         "From finding surf buddies to sharing epic sessions, your complete surf community platform",
     },
     cta: {
-      title: "See today's conditions at your beach",
+      title: "Know what today's surf report means",
       subtitle:
-        "Free surf reports. Session tracking. Your forecast gets sharper the more you surf.",
+        "Free surf reports, beginner-friendly spot discovery, session tracking, and mobile beta alerts.",
     },
   },
 } as const;
