@@ -32,6 +32,8 @@
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import {
+  calculateAvoidancePenalty,
+  getAvoidancePatternForBeach,
   getUserSurfPreferences,
   normalizeTideStatus,
   parseForecastNumber,
@@ -67,6 +69,8 @@ export interface PersonalizedScore {
     implicitPrefs: number;
     /** Bonus from beach affinity */
     affinity: number;
+    /** Penalty from learned negative session patterns */
+    avoidancePenalty: number;
     /** Multiplier applied to base score (1.0x to 1.15x) */
     multiplier: number;
   };
@@ -105,6 +109,7 @@ export async function scoreBeachForUser(
     learnedPrefs: 0,
     implicitPrefs: 0,
     affinity: 0,
+    avoidancePenalty: 0,
     multiplier: 1.0,
   };
 
@@ -190,6 +195,13 @@ export async function scoreBeachForUser(
       breakdown.affinity = affinityBonus;
       personalized = true;
     }
+
+    const avoidancePattern = getAvoidancePatternForBeach(learnedPrefs, beachId);
+    const avoidanceMatch = calculateAvoidancePenalty(forecast, avoidancePattern);
+    if (avoidanceMatch > 0) {
+      breakdown.avoidancePenalty = avoidanceMatch * 50;
+      personalized = true;
+    }
   } catch (error) {
     // Graceful degradation - return base score on error
     console.error(`Error personalizing score for user ${userId}, beach ${beachId}:`, error);
@@ -200,7 +212,11 @@ export async function scoreBeachForUser(
                    + breakdown.implicitPrefs + breakdown.affinity;
   const MAX_ADDITIVE = 50;  // maximum possible bonus sum
   const MAX_MULTIPLIER = 0.15;  // max 15% boost
-  const multiplier = 1.0 + Math.min(totalBonus / MAX_ADDITIVE, 1.0) * MAX_MULTIPLIER;
+  const MAX_AVOIDANCE_MULTIPLIER = 0.12; // max 12% soft penalty
+  const positiveMultiplier = 1.0 + Math.min(totalBonus / MAX_ADDITIVE, 1.0) * MAX_MULTIPLIER;
+  const avoidanceMultiplier =
+    1.0 - Math.min(breakdown.avoidancePenalty / MAX_ADDITIVE, 1.0) * MAX_AVOIDANCE_MULTIPLIER;
+  const multiplier = positiveMultiplier * avoidanceMultiplier;
   breakdown.multiplier = multiplier;
 
   const finalScore = Math.min(100, Math.round(baseScore * multiplier));

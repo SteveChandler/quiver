@@ -17,7 +17,13 @@ import SunCalc from "suncalc";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { selectBestWindow } from "@/lib/services/discovery/window-selector";
-import type { UserSurfPreferences } from "@/lib/services/preference-learning-service";
+import {
+  calculateAvoidancePenalty,
+  getAvoidancePatternForBeach,
+  normalizeAvoidanceByBeach,
+  type AvoidancePattern,
+  type UserSurfPreferences,
+} from "@/lib/services/preference-learning-service";
 import {
   buildForecastRecommendationContext,
   logForecastDisplayContext,
@@ -39,6 +45,8 @@ type LearnedPrefsRow = {
   max_wind_mph: number | null;
   preferred_tide_statuses: string[] | null;
   sample_size: number;
+  eligible_session_count?: number | null;
+  avoidance_by_beach?: unknown;
 };
 
 type EligibleProfileRow = {
@@ -95,6 +103,8 @@ const MAX_DAILY_SUMMARY_ENTRIES = 3;
 const DAILY_FORECAST_ALERT_TYPE = "daily_forecast_summary";
 const FORECAST_HOUR_MS = 60 * 60 * 1000;
 const DAYLIGHT_BUFFER_MS = 30 * 60 * 1000;
+const MAX_ALERT_AVOIDANCE_MULTIPLIER = 0.12;
+const MIN_AVOIDED_ALERT_SCORE = 60;
 
 // Daily forecasts should land during the user's morning planning window.
 const DAILY_FORECAST_SEND_WINDOW_START = 5;
@@ -379,6 +389,7 @@ type EvaluateBeachForecastArgs = {
   beachId: string;
   beach: BeachRow | undefined;
   thresholds: ReturnType<typeof getUserThresholds>;
+  avoidancePattern: AvoidancePattern | null;
   forecastBucket: { forecasts: ForecastAlertForecast[]; stale: boolean; missing: boolean };
   timezone: string | null;
   nowMs: number;
@@ -393,6 +404,7 @@ function evaluateBeachForecast({
   beachId,
   beach,
   thresholds,
+  avoidancePattern,
   forecastBucket,
   timezone,
   nowMs,
@@ -453,15 +465,50 @@ function evaluateBeachForecast({
     enabled: process.env.FORECAST_CONTEXT_DEBUG === "1",
   });
 
+  const scoredCandidate = applyForecastAvoidancePenalty({
+    score: canonicalContext.score ?? match.score,
+    forecast: match.forecast,
+    avoidancePattern,
+  });
+
+  if (shouldSuppressAvoidedForecast(scoredCandidate)) {
+    summary.skipped.noMatch++;
+    return null;
+  }
+
   return {
     beachId,
     beach,
     forecast: match.forecast,
     forecastUtcMs: Date.parse(canonicalContext.selectedRowTime ?? canonicalContext.startTime ?? "") || match.forecastUtcMs,
     localForecastDate: canonicalContext.localDate,
-    score: canonicalContext.score ?? match.score,
+    score: scoredCandidate.score,
     forecastContext: canonicalContext,
   };
+}
+
+export function applyForecastAvoidancePenalty(args: {
+  score: number;
+  forecast: ForecastAlertForecast;
+  avoidancePattern: AvoidancePattern | null;
+}): { score: number; penalty: number } {
+  const penalty = calculateAvoidancePenalty(args.forecast, args.avoidancePattern);
+  if (penalty <= 0) {
+    return { score: args.score, penalty: 0 };
+  }
+
+  const multiplier = 1 - Math.min(penalty, 1) * MAX_ALERT_AVOIDANCE_MULTIPLIER;
+  return {
+    score: Math.max(0, Math.round(args.score * multiplier)),
+    penalty,
+  };
+}
+
+export function shouldSuppressAvoidedForecast(args: {
+  score: number;
+  penalty: number;
+}): boolean {
+  return args.penalty > 0 && args.score < MIN_AVOIDED_ALERT_SCORE;
 }
 
 function thresholdsToUserPrefs(
@@ -812,10 +859,10 @@ export async function runForecastThresholdAlerts(): Promise<ForecastAlertRunSumm
   const prefsByUser = new Map<string, LearnedPrefsRow>();
   if (allUserIds.length > 0) {
     for (const batch of chunkArray(allUserIds, 250)) {
-      const { data: prefs, error: prefsError } = await supabase
+      const { data: prefs, error: prefsError } = await (supabase as any)
         .from("user_surf_preferences")
         .select(
-          "user_id, wave_min_ft, wave_max_ft, wave_period_min_s, wave_period_max_s, max_wind_mph, preferred_tide_statuses, sample_size"
+          "user_id, wave_min_ft, wave_max_ft, wave_period_min_s, wave_period_max_s, max_wind_mph, preferred_tide_statuses, sample_size, eligible_session_count, avoidance_by_beach"
         )
         .in("user_id", batch);
       if (prefsError) {
@@ -872,12 +919,23 @@ export async function runForecastThresholdAlerts(): Promise<ForecastAlertRunSumm
     summary.eligibleBeachesProcessed += beachIds.length;
 
     const candidates: DailyForecastCandidate[] = [];
-    const thresholds = getUserThresholds(prefsByUser.get(profile.id) || null);
+    const userPrefs = prefsByUser.get(profile.id) || null;
+    const thresholds = getUserThresholds(userPrefs);
     for (const beachId of beachIds) {
+      const avoidancePattern = userPrefs
+        ? getAvoidancePatternForBeach(
+            {
+              eligible_session_count: userPrefs.eligible_session_count ?? userPrefs.sample_size,
+              avoidance_by_beach: normalizeAvoidanceByBeach(userPrefs.avoidance_by_beach),
+            },
+            beachId
+          )
+        : null;
       const candidate = evaluateBeachForecast({
         beachId,
         beach: beachById.get(beachId),
         thresholds,
+        avoidancePattern,
         forecastBucket: forecastsByBeach.get(beachId) || {
           forecasts: [],
           stale: false,

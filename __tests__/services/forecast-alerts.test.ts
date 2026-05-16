@@ -9,6 +9,8 @@ import {
   findFirstMatchingForecast,
   isWithinDailyForecastSendWindow,
   formatForecastTimeLocal,
+  applyForecastAvoidancePenalty,
+  shouldSuppressAvoidedForecast,
 } from "@/lib/services/forecast-alerts";
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -36,6 +38,8 @@ function makeGoodForecast(
     wave_height: string;
     wave_period: string;
     wind_speed: string;
+    wind_direction: string;
+    tide_status: string | null;
     confidence_score: number;
   }> = {}
 ): object {
@@ -47,6 +51,7 @@ function makeGoodForecast(
     wave_height: "4",
     wave_period: "12",
     wind_speed: "8",
+    wind_direction: "180",
     tide_status: null,
     confidence_score: 0.9,
     ...overrides,
@@ -247,6 +252,89 @@ describe("formatForecastTimeLocal", () => {
     const tsMs = new Date("2026-02-26T12:00:00Z").getTime();
     const result = formatForecastTimeLocal(tsMs, "Invalid/Timezone");
     expect(result).toMatch(/UTC/);
+  });
+});
+
+describe("forecast avoidance penalty", () => {
+  const avoidancePattern = {
+    negative_sample_size: 1,
+    confidence: 0.31,
+    wave_min_ft: 3,
+    wave_max_ft: 3,
+    period_min_s: 11,
+    period_max_s: 11,
+    wind_directions: [180],
+    tide_statuses: ["rising"],
+    last_session_at: "2026-05-15T15:01:00Z",
+  };
+
+  it("reduces alert candidate score when forecast resembles an avoided pattern", () => {
+    const forecast = makeGoodForecast(2, {
+      wave_height: "3",
+      wave_period: "11",
+      wind_speed: "6",
+      wind_direction: "190",
+      tide_status: "rising",
+    }) as any;
+
+    const result = applyForecastAvoidancePenalty({
+      score: 80,
+      forecast,
+      avoidancePattern,
+    });
+
+    expect(result.penalty).toBe(0.31);
+    expect(result.score).toBeLessThan(80);
+    expect(result.score).toBe(77);
+  });
+
+  it("suppresses weak avoided alerts after the soft penalty", () => {
+    const result = applyForecastAvoidancePenalty({
+      score: 61,
+      forecast: makeGoodForecast(2, {
+        wave_height: "3",
+        wave_period: "11",
+        wind_direction: "190",
+        tide_status: "rising",
+      }) as any,
+      avoidancePattern: {
+        ...avoidancePattern,
+        confidence: 0.5,
+      },
+    });
+
+    expect(result.score).toBe(57);
+    expect(shouldSuppressAvoidedForecast(result)).toBe(true);
+  });
+
+  it("keeps strong avoided alerts eligible after the soft penalty", () => {
+    const result = applyForecastAvoidancePenalty({
+      score: 90,
+      forecast: makeGoodForecast(2, {
+        wave_height: "3",
+        wave_period: "11",
+        wind_direction: "190",
+        tide_status: "rising",
+      }) as any,
+      avoidancePattern: {
+        ...avoidancePattern,
+        confidence: 0.5,
+      },
+    });
+
+    expect(result.score).toBe(85);
+    expect(shouldSuppressAvoidedForecast(result)).toBe(false);
+  });
+
+  it("leaves alert score unchanged when no avoidance data exists", () => {
+    const result = applyForecastAvoidancePenalty({
+      score: 80,
+      forecast: makeGoodForecast(2) as any,
+      avoidancePattern: null,
+    });
+
+    expect(result).toEqual({ score: 80, penalty: 0 });
+    expect(shouldSuppressAvoidedForecast(result)).toBe(false);
   });
 });
 

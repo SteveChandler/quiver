@@ -493,6 +493,163 @@ describe('personalized-scoring-service', () => {
 
       expect(result.breakdown.affinity).toBe(0); // No bonus for low affinity
     });
+
+    it('lowers score when a forecast matches a negative beach pattern', async () => {
+      mockQueryResults = [
+        { data: null, error: null }, // Affinity
+      ];
+      mockUserPreferences = {
+        confidence: 0.4,
+        sample_size: 3,
+        eligible_session_count: 5,
+        wave_min_ft: null,
+        wave_max_ft: null,
+        wave_period_min_s: null,
+        wave_period_max_s: null,
+        max_wind_mph: null,
+        preferred_wind_directions: null,
+        preferred_tide_statuses: null,
+        avoidance_by_beach: {
+          'beach-456': {
+            negative_sample_size: 1,
+            confidence: 0.31,
+            wave_min_ft: 3,
+            wave_max_ft: 3,
+            period_min_s: 11,
+            period_max_s: 11,
+            wind_directions: [180],
+            tide_statuses: ['rising'],
+            last_session_at: '2026-05-15T15:01:00Z',
+          },
+        },
+      };
+
+      const forecast = createMockForecast('3.0', '6', '190', 'rising');
+      forecast.wave_period = '11';
+      const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 75);
+
+      expect(result.personalized).toBe(true);
+      expect(result.breakdown.avoidancePenalty).toBeCloseTo(15.5, 1);
+      expect(result.score).toBeLessThan(75);
+      expect(result.score).toBeGreaterThan(0);
+    });
+
+    it('does not apply a negative pattern from another beach', async () => {
+      mockQueryResults = [
+        { data: null, error: null }, // Affinity
+      ];
+      mockUserPreferences = {
+        confidence: 0.4,
+        sample_size: 3,
+        eligible_session_count: 5,
+        wave_min_ft: null,
+        wave_max_ft: null,
+        wave_period_min_s: null,
+        wave_period_max_s: null,
+        max_wind_mph: null,
+        preferred_wind_directions: null,
+        preferred_tide_statuses: null,
+        avoidance_by_beach: {
+          'other-beach': {
+            negative_sample_size: 1,
+            confidence: 0.31,
+            wave_min_ft: 3,
+            wave_max_ft: 3,
+            period_min_s: 11,
+            period_max_s: 11,
+            wind_directions: [180],
+            tide_statuses: ['rising'],
+            last_session_at: '2026-05-15T15:01:00Z',
+          },
+        },
+      };
+
+      const forecast = createMockForecast('3.0', '6', '190', 'rising');
+      forecast.wave_period = '11';
+      const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 75);
+
+      expect(result.breakdown.avoidancePenalty).toBe(0);
+      expect(result.score).toBe(75);
+    });
+
+    it('applies positive learned bonuses and negative penalties together', async () => {
+      mockQueryResults = [
+        { data: null, error: null }, // Affinity
+      ];
+      mockUserPreferences = {
+        wave_min_ft: 2.5,
+        wave_max_ft: 4.0,
+        wave_period_min_s: 10,
+        wave_period_max_s: 13,
+        max_wind_mph: 15,
+        preferred_wind_directions: [180],
+        preferred_tide_statuses: ['rising'],
+        confidence: 0.8,
+        sample_size: 10,
+        eligible_session_count: 10,
+        avoidance_by_beach: {
+          'beach-456': {
+            negative_sample_size: 1,
+            confidence: 0.31,
+            wave_min_ft: 3,
+            wave_max_ft: 3,
+            period_min_s: 11,
+            period_max_s: 11,
+            wind_directions: [180],
+            tide_statuses: ['rising'],
+            last_session_at: '2026-05-15T15:01:00Z',
+          },
+        },
+      };
+
+      const forecast = createMockForecast('3.0', '6', '190', 'rising');
+      forecast.wave_period = '11';
+      const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 75);
+
+      expect(result.breakdown.learnedPrefs).toBeGreaterThan(0);
+      expect(result.breakdown.avoidancePenalty).toBeGreaterThan(0);
+      expect(result.score).toBeGreaterThan(75);
+      expect(result.score).toBeLessThan(81);
+    });
+
+    it('caps the avoidance penalty so it never hard-blocks scoring', async () => {
+      mockQueryResults = [
+        { data: null, error: null }, // Affinity
+      ];
+      mockUserPreferences = {
+        confidence: 0,
+        sample_size: 0,
+        eligible_session_count: 20,
+        wave_min_ft: null,
+        wave_max_ft: null,
+        wave_period_min_s: null,
+        wave_period_max_s: null,
+        max_wind_mph: null,
+        preferred_wind_directions: null,
+        preferred_tide_statuses: null,
+        avoidance_by_beach: {
+          'beach-456': {
+            negative_sample_size: 20,
+            confidence: 1,
+            wave_min_ft: 3,
+            wave_max_ft: 3,
+            period_min_s: 11,
+            period_max_s: 11,
+            wind_directions: [180],
+            tide_statuses: ['rising'],
+            last_session_at: '2026-05-15T15:01:00Z',
+          },
+        },
+      };
+
+      const forecast = createMockForecast('3.0', '6', '180', 'rising');
+      forecast.wave_period = '11';
+      const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 75);
+
+      expect(result.breakdown.avoidancePenalty).toBe(50);
+      expect(result.breakdown.multiplier).toBeCloseTo(0.88, 2);
+      expect(result.score).toBe(66);
+    });
   });
 
   // ============================================================================
