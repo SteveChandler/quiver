@@ -46,6 +46,7 @@ import {
 } from "@/lib/utils/safe-storage";
 import { getExistingVisitorId, clearVisitorId } from "@/lib/utils/visitor-id";
 import { AUTH_INIT_TIMEOUT_MS } from "@/lib/constants/ui";
+import posthog from "posthog-js";
 
 /**
  * Zod schema for validating signup metadata from OAuth flows.
@@ -446,6 +447,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   });
               }
 
+              if (process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN) {
+                const provider = session.user.app_metadata?.provider || "email";
+                posthog.identify(session.user.id, { provider });
+
+                const isNewUserForPostHog = session.user.created_at
+                  ? Date.now() - new Date(session.user.created_at).getTime() < 60_000
+                  : false;
+                const signupCaptureKey = `posthog_signup_captured_${session.user.id}`;
+                const alreadyCapturedSignup =
+                  sessionStorage.getItem(signupCaptureKey);
+
+                if (isNewUserForPostHog && !alreadyCapturedSignup) {
+                  sessionStorage.setItem(signupCaptureKey, "true");
+                  posthog.capture("user_signed_up", { provider });
+                }
+              }
+
               // Note: We don't navigate here. The auth state update (below) will cause
               // React components to re-render and show authenticated content.
               // For cross-page redirects (OAuth, magic link), see app/auth/callback/route.ts
@@ -634,6 +652,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
 
     try {
+      if (process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN) {
+        posthog.capture("user_signed_out");
+        posthog.reset();
+      }
+
       const { error } = await supabase.auth.signOut();
 
       if (error) throw error;
