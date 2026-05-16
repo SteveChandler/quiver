@@ -60,6 +60,7 @@ import { pickDominantSwell } from "@/lib/domains/conditions";
  */
 const NOWCAST_WINDOW_MS = 1.5 * 60 * 60 * 1000;
 const ANCHOR_FRESHNESS_MS = STALENESS_THRESHOLDS.NOWCAST_ANCHOR * 60 * 60 * 1000;
+const MPH_TO_METERS_PER_SECOND = 0.44704;
 
 export function shouldApplyNowcastAnchor(args: {
   beachFeatures: string[] | null | undefined;
@@ -76,6 +77,16 @@ export function shouldApplyNowcastAnchor(args: {
   if (age < 0 || age > ANCHOR_FRESHNESS_MS) return false;
   return true;
 }
+
+function parseWindSpeedMs(windSpeed: string | null | undefined): number | null {
+  if (!windSpeed) return null;
+  const match = windSpeed.match(/(\d+(?:\.\d+)?)/);
+  if (!match) return null;
+  const mph = Number(match[1]);
+  if (!Number.isFinite(mph)) return null;
+  return Number((mph * MPH_TO_METERS_PER_SECOND).toFixed(3));
+}
+
 import type { TideStatus } from "@/lib/services/noaa-coops/types";
 import type {
   WaveWatchForecast,
@@ -551,6 +562,14 @@ export class ForecastBuilder {
           ? wavePoint.om_values.wave_direction_om
           : null;
       const directionDegForBucket = noaaPrimaryDirDeg ?? omDirDeg;
+      const wavePeriodS =
+        typeof wavePoint?.peak_wave_period === "number"
+          ? wavePoint.peak_wave_period
+          : null;
+      const windSpeedMs = parseWindSpeedMs(weatherPoint?.windSpeed);
+      const windDirectionDeg = weatherPoint
+        ? cardinalToDegrees(weatherPoint.windDirection)
+        : null;
 
       const v5 = computeV5Shadow({
         wave_height_om_m: omHeightM,
@@ -572,7 +591,16 @@ export class ForecastBuilder {
           : null,
         display_source: "face-Hs-transformer-v1",
         wave_height_om_m: omHeightM,
+        wave_period_s: wavePeriodS,
         wave_direction_deg: directionDegForBucket,
+        wave_period_om: wavePoint?.om_values?.wave_period_om ?? null,
+        wave_direction_om: wavePoint?.om_values?.wave_direction_om ?? null,
+        swell_height_om: wavePoint?.om_values?.swell_height_om ?? null,
+        swell_period_om: wavePoint?.om_values?.swell_period_om ?? null,
+        swell_direction_om: wavePoint?.om_values?.swell_direction_om ?? null,
+        wind_wave_height_om: wavePoint?.om_values?.wind_wave_height_om ?? null,
+        wind_speed_ms: windSpeedMs,
+        wind_direction_deg: windDirectionDeg,
         v5_shadow_height_m: v5?.v5_shadow_height_m ?? null,
         v5_model_version: v5?.v5_model_version ?? null,
         direction_bucket: v5?.direction_bucket ?? null,

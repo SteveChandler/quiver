@@ -106,11 +106,28 @@ const buildInputs = (overrides: Partial<ForecastInputs> = {}): ForecastInputs =>
           wind_wave_period: 6,
           wind_wave_direction: 200,
           data_source: "NOAA_NWS" as const,
+          om_values: {
+            wave_height_om: 1.1,
+            wave_period_om: 11,
+            wave_direction_om: 230,
+            swell_height_om: 0.7,
+            swell_period_om: 13,
+            swell_direction_om: 225,
+            wind_wave_height_om: 0.2,
+          },
         },
       ],
     } as any,
     tideData: null,
-    weatherData: [],
+    weatherData: [
+      {
+        startTime: new Date().toISOString(),
+        temperature: 66,
+        windSpeed: "12 mph",
+        windDirection: "W",
+        shortForecast: "Clear",
+      },
+    ],
     buoyData: null,
     cdipData: null,
     ioosWaterTempC: null,
@@ -319,5 +336,27 @@ describe("ForecastBuilder per-beach height-offset hook", () => {
     for (const r of capturedSnapshotRows) {
       expect(r.display_source).toBe("face-Hs-transformer-v1");
     }
+  });
+
+  it("snapshot records ML feature inputs alongside v5 shadow fields", async () => {
+    const builder = newBuilder();
+    await builder.buildForecasts(buildInputs());
+
+    expect(capturedSnapshotRows.length).toBeGreaterThan(0);
+    expect(capturedSnapshotRows[0]).toEqual(
+      expect.objectContaining({
+        wave_height_om_m: 1.1,
+        wave_period_s: 12,
+        wave_direction_deg: 220,
+        wave_period_om: 11,
+        wave_direction_om: 230,
+        swell_height_om: 0.7,
+        swell_period_om: 13,
+        swell_direction_om: 225,
+        wind_wave_height_om: 0.2,
+        wind_speed_ms: 5.364,
+        wind_direction_deg: 270,
+      })
+    );
   });
 });

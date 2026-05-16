@@ -54,8 +54,26 @@ export type DisplayPredictionRow = {
    */
   /** Raw OM Hs in meters (wavePoint.om_values.wave_height_om). Comparator. */
   wave_height_om_m: number | null;
+  /** NOAA/merged peak wave period in seconds. */
+  wave_period_s: number | null;
   /** Primary swell direction in degrees, parsed from NOAA cardinal at log time. */
   wave_direction_deg: number | null;
+  /** Raw OM peak wave period in seconds. */
+  wave_period_om: number | null;
+  /** Raw OM peak wave direction in degrees. */
+  wave_direction_om: number | null;
+  /** Raw OM swell height in meters. */
+  swell_height_om: number | null;
+  /** Raw OM swell period in seconds. */
+  swell_period_om: number | null;
+  /** Raw OM swell direction in degrees. */
+  swell_direction_om: number | null;
+  /** Raw OM wind-wave height in meters. */
+  wind_wave_height_om: number | null;
+  /** NWS wind speed converted to meters per second. Null when no weather point was present. */
+  wind_speed_ms: number | null;
+  /** NWS wind direction in degrees. Null when no weather point was present. */
+  wind_direction_deg: number | null;
   /** v5 candidate height = f(om) + g(direction), with W × 0.5-1.0m guardrail. */
   v5_shadow_height_m: number | null;
   /** Calibration version that produced v5_shadow_height_m. */
@@ -109,7 +127,16 @@ export async function logDisplayPredictions(
       display_source: r.display_source,
       model_version: r.model_version ?? r.display_source,
       wave_height_om: r.wave_height_om_m,
+      wave_period_s: r.wave_period_s,
       wave_direction_deg: r.wave_direction_deg,
+      wave_period_om: r.wave_period_om,
+      wave_direction_om: r.wave_direction_om,
+      swell_height_om: r.swell_height_om,
+      swell_period_om: r.swell_period_om,
+      swell_direction_om: r.swell_direction_om,
+      wind_wave_height_om: r.wind_wave_height_om,
+      wind_speed_ms: r.wind_speed_ms,
+      wind_direction_deg: r.wind_direction_deg,
       v5_shadow_height_m: r.v5_shadow_height_m,
       v5_model_version: r.v5_model_version,
       direction_bucket: r.direction_bucket,
