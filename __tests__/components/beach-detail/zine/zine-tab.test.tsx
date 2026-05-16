@@ -36,6 +36,8 @@ describe("ZineTab", () => {
       state: "CA",
       break_type: "Reef",
       skill_level: "Intermediate",
+      aspect_deg: 260,
+      features: ["Reef", "Stairway lineup"],
       average_rating: 3.8,
       review_count: 26,
       hazards: ["Shallow reef at low tide", "Rip currents"],
@@ -74,6 +76,7 @@ describe("ZineTab", () => {
     expect(screen.getByText(/BEST SWELL:/)).toBeInTheDocument();
     // Footer / hero — location appears in multiple zine surfaces
     expect(screen.getAllByText(/Solana Beach, CA/i).length).toBeGreaterThan(0);
+    expect(screen.getByTestId("zine-map-cue-reef")).toBeInTheDocument();
   });
 
   it("retains WaterQualityBadge and AmenitiesBadges when data is present (e2e regression sentinel)", () => {
