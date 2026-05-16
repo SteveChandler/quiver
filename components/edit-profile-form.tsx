@@ -103,8 +103,8 @@ export function EditProfileForm({
       instagram: initialData?.instagram || "",
       home_beach_id: initialData?.home_beach_id ?? null,
       surf_styles: initialData?.surf_styles || [],
-      // Notification preferences - default to true if not set
-      notif_push_enabled: initialData?.notif_push_enabled ?? true,
+      // Push requires a registered device; don't manufacture an opt-in.
+      notif_push_enabled: initialData?.notif_push_enabled ?? false,
       notif_email_enabled: initialData?.notif_email_enabled ?? true,
       notif_inapp_enabled: initialData?.notif_inapp_enabled ?? true,
       notif_likes: initialData?.notif_likes ?? true,
