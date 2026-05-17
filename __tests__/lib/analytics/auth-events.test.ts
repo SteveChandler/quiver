@@ -36,19 +36,31 @@ jest.mock("@/lib/utils/visitor-id", () => ({
   getVisitorId: jest.fn(() => "test-visitor-id"),
 }));
 
+jest.mock("@/lib/posthog-client", () => ({
+  captureClientPostHogEvent: jest.fn(),
+}));
+
 import { track } from "@/lib/analytics";
 import { getVisitorId } from "@/lib/utils/visitor-id";
+import { captureClientPostHogEvent } from "@/lib/posthog-client";
 
 const mockFetch = jest.fn(() => Promise.resolve({ ok: true } as Response));
 global.fetch = mockFetch as any;
 
 describe("auth-events", () => {
+  const originalPostHogToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN = "phc_test";
     global.fetch = mockFetch;
     mockFetch.mockReset();
     mockFetch.mockResolvedValue({ ok: true } as Response);
     Object.defineProperty(window, "innerWidth", { value: 375, writable: true });
+  });
+
+  afterAll(() => {
+    process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN = originalPostHogToken;
   });
 
   describe("Modal events", () => {
@@ -324,6 +336,10 @@ describe("auth-events", () => {
         trackLoginSuccess({ method: "password", duration_ms: 1234 });
 
         expect(track).toHaveBeenCalledWith("login_success", {
+          method: "password",
+          duration_ms: 1234,
+        });
+        expect(captureClientPostHogEvent).toHaveBeenCalledWith("user_signed_in", {
           method: "password",
           duration_ms: 1234,
         });

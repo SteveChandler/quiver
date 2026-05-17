@@ -129,7 +129,7 @@ describe("Forecast Actions", () => {
         },
       ];
 
-      forecastsChain.limit.mockResolvedValueOnce({
+      enhancedForecastsChain.limit.mockResolvedValueOnce({
         data: mockForecasts,
         error: null,
       });
@@ -138,32 +138,32 @@ describe("Forecast Actions", () => {
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual(mockForecasts);
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith("forecasts");
-      expect(forecastsChain.select).toHaveBeenCalledWith("*");
-      expect(forecastsChain.eq).toHaveBeenCalledWith("beach_id", "beach-123");
-      expect(forecastsChain.gte).toHaveBeenCalledWith(
+      expect(mockSupabaseClient.from).toHaveBeenCalledWith("enhanced_forecasts");
+      expect(enhancedForecastsChain.select).toHaveBeenCalledWith("*");
+      expect(enhancedForecastsChain.eq).toHaveBeenCalledWith("beach_id", "beach-123");
+      expect(enhancedForecastsChain.gte).toHaveBeenCalledWith(
         "forecast_at",
         `${today}T00:00:00Z`
       );
-      expect(forecastsChain.limit).toHaveBeenCalledWith(50);
+      expect(enhancedForecastsChain.limit).toHaveBeenCalledWith(50);
     });
 
     it("should order forecasts by forecast_at ascending", async () => {
-      forecastsChain.limit.mockResolvedValueOnce({
+      enhancedForecastsChain.limit.mockResolvedValueOnce({
         data: [],
         error: null,
       });
 
       await getBeachForecasts("beach-123");
 
-      expect(forecastsChain.order).toHaveBeenCalledWith("forecast_at", {
+      expect(enhancedForecastsChain.order).toHaveBeenCalledWith("forecast_at", {
         ascending: true,
       });
-      expect(forecastsChain.order).toHaveBeenCalledTimes(1);
+      expect(enhancedForecastsChain.order).toHaveBeenCalledTimes(1);
     });
 
     it("should handle database errors gracefully", async () => {
-      forecastsChain.limit.mockResolvedValueOnce({
+      enhancedForecastsChain.limit.mockResolvedValueOnce({
         data: null,
         error: { message: "Database connection failed" },
       });
@@ -175,7 +175,7 @@ describe("Forecast Actions", () => {
     });
 
     it("should handle unexpected errors", async () => {
-      forecastsChain.limit.mockRejectedValueOnce(new Error("Network error"));
+      enhancedForecastsChain.limit.mockRejectedValueOnce(new Error("Network error"));
 
       const result = await getBeachForecasts("beach-123");
 
@@ -184,7 +184,7 @@ describe("Forecast Actions", () => {
     });
 
     it("should return empty array when no forecasts exist", async () => {
-      forecastsChain.limit.mockResolvedValueOnce({
+      enhancedForecastsChain.limit.mockResolvedValueOnce({
         data: [],
         error: null,
       });
@@ -208,7 +208,7 @@ describe("Forecast Actions", () => {
         },
       ];
 
-      forecastsChain.limit.mockResolvedValueOnce({
+      enhancedForecastsChain.limit.mockResolvedValueOnce({
         data: mockForecasts,
         error: null,
       });
@@ -217,15 +217,15 @@ describe("Forecast Actions", () => {
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual(mockForecasts);
-      expect(forecastsChain.order).toHaveBeenCalledWith("forecast_at", {
+      expect(enhancedForecastsChain.order).toHaveBeenCalledWith("forecast_at", {
         ascending: false,
       });
-      expect(forecastsChain.order).toHaveBeenCalledTimes(1);
-      expect(forecastsChain.limit).toHaveBeenCalledWith(5);
+      expect(enhancedForecastsChain.order).toHaveBeenCalledTimes(1);
+      expect(enhancedForecastsChain.limit).toHaveBeenCalledWith(5);
     });
 
     it("should handle database errors", async () => {
-      forecastsChain.limit.mockResolvedValueOnce({
+      enhancedForecastsChain.limit.mockResolvedValueOnce({
         data: null,
         error: { message: "Query failed" },
       });
@@ -590,7 +590,7 @@ describe("Forecast Actions", () => {
 
   describe("Edge Cases", () => {
     it("should handle invalid beach IDs gracefully", async () => {
-      forecastsChain.limit.mockResolvedValueOnce({
+      enhancedForecastsChain.limit.mockResolvedValueOnce({
         data: [],
         error: null,
       });
@@ -602,7 +602,7 @@ describe("Forecast Actions", () => {
     });
 
     it("should handle empty strings as beach IDs", async () => {
-      forecastsChain.limit.mockResolvedValueOnce({
+      enhancedForecastsChain.limit.mockResolvedValueOnce({
         data: [],
         error: null,
       });
@@ -610,7 +610,7 @@ describe("Forecast Actions", () => {
       const result = await getBeachForecasts("");
 
       expect(result.success).toBe(true);
-      expect(forecastsChain.eq).toHaveBeenCalledWith("beach_id", "");
+      expect(enhancedForecastsChain.eq).toHaveBeenCalledWith("beach_id", "");
     });
 
     it("should handle missing forecast fields gracefully", async () => {
@@ -623,7 +623,7 @@ describe("Forecast Actions", () => {
         },
       ];
 
-      forecastsChain.limit.mockResolvedValueOnce({
+      enhancedForecastsChain.limit.mockResolvedValueOnce({
         data: incompleteForecasts,
         error: null,
       });
@@ -635,7 +635,7 @@ describe("Forecast Actions", () => {
     });
 
     it("should handle network timeouts", async () => {
-      forecastsChain.limit.mockRejectedValueOnce(new Error("Network timeout"));
+      enhancedForecastsChain.limit.mockRejectedValueOnce(new Error("Network timeout"));
 
       const result = await getBeachForecasts("beach-123");
 
@@ -646,14 +646,14 @@ describe("Forecast Actions", () => {
 
   describe("Date Range Logic", () => {
     it("should filter forecasts to future dates only in getBeachForecasts", async () => {
-      forecastsChain.limit.mockResolvedValueOnce({
+      enhancedForecastsChain.limit.mockResolvedValueOnce({
         data: [],
         error: null,
       });
 
       await getBeachForecasts("beach-123");
 
-      expect(forecastsChain.gte).toHaveBeenCalledWith(
+      expect(enhancedForecastsChain.gte).toHaveBeenCalledWith(
         "forecast_at",
         expect.stringMatching(/^\d{4}-\d{2}-\d{2}T00:00:00Z$/)
       );
@@ -706,7 +706,7 @@ describe("Forecast Actions", () => {
 
   describe("Response Structure Validation", () => {
     it("should return consistent success/error structure for getBeachForecasts", async () => {
-      forecastsChain.limit.mockResolvedValueOnce({
+      enhancedForecastsChain.limit.mockResolvedValueOnce({
         data: [],
         error: null,
       });

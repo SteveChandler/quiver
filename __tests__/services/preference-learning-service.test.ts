@@ -13,22 +13,26 @@ import {
 
 // Mock Supabase client
 let mockQueryResult: any = { data: null, error: null };
+let mockTableResults: Record<string, any> = {};
 let mockQueryBuilder: any;
 
-const createMockQueryBuilder = () => {
+const createMockQueryBuilder = (table?: string) => {
+  const resultForTable = () => mockTableResults[table || ''] || mockQueryResult;
   const builder = {
     select: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
+    is: jest.fn().mockReturnThis(),
     order: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
-    single: jest.fn().mockResolvedValue(mockQueryResult),
+    single: jest.fn().mockImplementation(() => Promise.resolve(resultForTable())),
     upsert: jest.fn((data, options) => {
       // Upsert should return success by default
       return Promise.resolve({ data: data, error: null });
     }),
     then: jest.fn((resolve) => {
-      resolve(mockQueryResult);
-      return Promise.resolve(mockQueryResult);
+      const result = resultForTable();
+      resolve(result);
+      return Promise.resolve(result);
     }),
   };
   return builder;
@@ -37,7 +41,7 @@ const createMockQueryBuilder = () => {
 jest.mock('@/lib/supabase/server', () => ({
   createSupabaseServiceRoleClient: jest.fn(() => ({
     from: jest.fn((table: string) => {
-      mockQueryBuilder = createMockQueryBuilder();
+      mockQueryBuilder = createMockQueryBuilder(table);
       return mockQueryBuilder;
     }),
   })),
@@ -74,10 +78,34 @@ const createMockSnapshot = (
   ...(options.session ? { sessions: options.session } : {}),
 });
 
+const createCompletedSession = (
+  id: string,
+  options: {
+    beachId?: string | null;
+    notes?: string | null;
+    source?: string | null;
+  } = {}
+) => ({
+  id,
+  beach_id: options.beachId ?? 'beach-1',
+  created_at: `2026-05-${String(Number(id.replace(/\D/g, '') || 1)).padStart(2, '0')}T12:00:00Z`,
+  status: 'completed',
+  notes: options.notes ?? null,
+  source: options.source ?? null,
+});
+
 describe('preference-learning-service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockQueryResult = { data: null, error: null };
+    mockTableResults = {};
+    const { createSupabaseServiceRoleClient } = require('@/lib/supabase/server');
+    createSupabaseServiceRoleClient.mockImplementation(() => ({
+      from: jest.fn((table: string) => {
+        mockQueryBuilder = createMockQueryBuilder(table);
+        return mockQueryBuilder;
+      }),
+    }));
     console.error = jest.fn();
     console.log = jest.fn();
   });
@@ -482,6 +510,113 @@ describe('preference-learning-service', () => {
       expect(result?.wave_min_ft).toBeGreaterThan(3);
     });
 
+    it('creates a preference row after 5 completed sessions with only 3 positive sessions', async () => {
+      const beachId = 'ponto-beach';
+      mockTableResults = {
+        sessions: {
+          data: Array.from({ length: 5 }, (_, i) =>
+            createCompletedSession(`s${i + 1}`, { beachId })
+          ),
+          error: null,
+        },
+        session_forecast_snapshots: {
+          data: [
+            createMockSnapshot(3, 1.0, 5, 8, 284, 'Falling', {
+              waveQuality: 4,
+              session: { id: 's2', beach_id: beachId, created_at: '2026-05-02T17:57:00Z' },
+            }),
+            createMockSnapshot(3, 1.0, 7, 4, 267, 'Rising', {
+              waveQuality: 4,
+              session: { id: 's3', beach_id: beachId, created_at: '2026-05-08T12:40:00Z' },
+            }),
+            createMockSnapshot(3, 1.0, 7, 4, 267, 'Rising', {
+              waveQuality: 4,
+              session: { id: 's4', beach_id: beachId, created_at: '2026-05-10T20:35:00Z' },
+            }),
+            createMockSnapshot(2, 3.0, 11, 6, 190, 'Rising', {
+              waveQuality: 1,
+              session: { id: 's5', beach_id: beachId, created_at: '2026-05-15T15:01:00Z' },
+            }),
+          ],
+          error: null,
+        },
+      };
+
+      const result = await computeUserPreferences('user-1');
+
+      expect(result).not.toBeNull();
+      expect(result?.eligible_session_count).toBe(5);
+      expect(result?.sample_size).toBe(3);
+      expect(result?.wave_min_ft).toBeNull();
+      expect(result?.avoidance_by_beach?.[beachId]).toEqual(
+        expect.objectContaining({
+          negative_sample_size: 1,
+          confidence: 0.31,
+          wave_min_ft: 3,
+          wave_max_ft: 3,
+          period_min_s: 11,
+          period_max_s: 11,
+          wind_directions: [180],
+          tide_statuses: ['rising'],
+        })
+      );
+    });
+
+    it('counts old completed sessions without snapshots toward eligibility only', async () => {
+      mockTableResults = {
+        sessions: {
+          data: Array.from({ length: 5 }, (_, i) => createCompletedSession(`s${i + 1}`)),
+          error: null,
+        },
+        session_forecast_snapshots: {
+          data: [
+            createMockSnapshot(4, 3.0, 11, 7, 270, 'rising', {
+              waveQuality: 4,
+              session: { id: 's5', beach_id: 'beach-1', created_at: '2026-05-15T12:00:00Z' },
+            }),
+          ],
+          error: null,
+        },
+      };
+
+      const result = await computeUserPreferences('user-1');
+
+      expect(result).not.toBeNull();
+      expect(result?.eligible_session_count).toBe(5);
+      expect(result?.sample_size).toBe(1);
+      expect(result?.wave_min_ft).toBeNull();
+      expect(result?.avoidance_by_beach).toEqual({});
+    });
+
+    it('does not count seeded or mock completed sessions toward eligibility', async () => {
+      mockTableResults = {
+        sessions: {
+          data: [
+            createCompletedSession('s1'),
+            createCompletedSession('s2'),
+            createCompletedSession('s3'),
+            createCompletedSession('s4'),
+            createCompletedSession('s5', { source: 'seed' }),
+          ],
+          error: null,
+        },
+        session_forecast_snapshots: {
+          data: Array.from({ length: 5 }, (_, i) =>
+            createMockSnapshot(4, 3.0 + i, 11, 7, 270, 'rising', {
+              waveQuality: 4,
+              session: { id: `s${i + 1}`, beach_id: 'beach-1' },
+            })
+          ),
+          error: null,
+        },
+      };
+
+      const result = await computeUserPreferences('user-1');
+
+      expect(result).toBeNull();
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Not enough completed'));
+    });
+
     it('should return null with insufficient data (<5 sessions)', async () => {
       const mockSnapshots = [
         createMockSnapshot(5, 4.0, 12, 8, 0, 'rising'),
@@ -495,7 +630,7 @@ describe('preference-learning-service', () => {
 
       expect(result).toBeNull();
       expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('Not enough data')
+        expect.stringContaining('Not enough completed')
       );
     });
 
@@ -647,6 +782,8 @@ describe('preference-learning-service', () => {
         expect.objectContaining({
           user_id: 'user-1',
           sample_size: 5,
+          eligible_session_count: 5,
+          avoidance_by_beach: {},
         }),
         expect.objectContaining({
           onConflict: 'user_id',
@@ -670,6 +807,20 @@ describe('preference-learning-service', () => {
 
       // First query succeeds, upsert fails
       const mockFrom = jest.fn((table: string) => {
+        if (table === 'sessions') {
+          return {
+            ...createMockQueryBuilder(table),
+            then: jest.fn((resolve) => {
+              const result = {
+                data: mockSnapshots.map((_, index) => createCompletedSession(`s${index + 1}`)),
+                error: null,
+              };
+              resolve(result);
+              return Promise.resolve(result);
+            }),
+          };
+        }
+
         if (table === 'session_forecast_snapshots') {
           return {
             ...createMockQueryBuilder(),
@@ -853,6 +1004,8 @@ describe('preference-learning-service', () => {
         preferred_tide_statuses: ['rising'],
         confidence: 0.73,
         sample_size: 10,
+        eligible_session_count: 10,
+        avoidance_by_beach: {},
       });
     });
 

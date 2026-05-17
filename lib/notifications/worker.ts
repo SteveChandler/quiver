@@ -85,6 +85,7 @@ import {
   dispatchPushMessages,
   type PushMessage,
 } from "@/lib/services/push-delivery";
+import { capturePostHogEvent } from "@/lib/posthog-server";
 import { DEFAULT_TIMEZONE, getLocalHour } from "@/lib/utils/timezone-utils";
 import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
 import type { messaging as fbMessaging } from "firebase-admin";
@@ -531,7 +532,10 @@ async function processOne(
   }
 
   if (newAttempts.length > 0) {
-    await insertDeliveryAttempts(supabase, newAttempts);
+    const attemptsInserted = await insertDeliveryAttempts(supabase, newAttempts);
+    if (attemptsInserted) {
+      await captureDeliveryAttemptEvents(event, newAttempts);
+    }
   }
 
   const outcome = await finalizeEventStatus(
@@ -1159,7 +1163,7 @@ async function loadActorProfile(
 async function insertDeliveryAttempts(
   supabase: ServiceClient,
   rows: NotificationDeliveryAttemptInsert[]
-): Promise<void> {
+): Promise<boolean> {
   const client = supabase as unknown as {
     from(t: "notification_delivery_attempts"): {
       insert(rows: NotificationDeliveryAttemptInsert[]): Promise<{
@@ -1172,6 +1176,76 @@ async function insertDeliveryAttempts(
     .insert(rows);
   if (error) {
     console.error("[notifications/worker] attempts insert failed:", error);
+    return false;
+  }
+  return true;
+}
+
+function summarizeProviderResponse(
+  response: Json | null | undefined
+): Record<string, unknown> {
+  if (!response || typeof response !== "object" || Array.isArray(response)) {
+    return {};
+  }
+
+  const source = response as Record<string, unknown>;
+  const summary: Record<string, unknown> = {};
+
+  if (typeof source.success === "number") {
+    summary.provider_success = source.success;
+  }
+  if (typeof source.failed === "number") {
+    summary.provider_failed = source.failed;
+  }
+  if (Array.isArray(source.invalidTokens)) {
+    summary.provider_invalid_token_count = source.invalidTokens.length;
+  }
+  if (Array.isArray(source.errors)) {
+    summary.provider_error_count = source.errors.length;
+  }
+  if (typeof source.reason === "string") {
+    summary.provider_reason = source.reason;
+  }
+
+  return summary;
+}
+
+async function captureDeliveryAttemptEvents(
+  event: NotificationEventRow,
+  attempts: NotificationDeliveryAttemptInsert[]
+): Promise<void> {
+  for (const attempt of attempts) {
+    try {
+      await capturePostHogEvent({
+        distinctId: event.recipient_user_id,
+        event: "notification_delivery_attempt",
+        properties: {
+          $insert_id: [
+            "notification_delivery_attempt",
+            event.id,
+            attempt.channel,
+            event.attempt_count,
+            attempt.status,
+          ].join(":"),
+          notification_event_id: event.id,
+          notification_type: event.type,
+          notification_channel: attempt.channel,
+          notification_status: attempt.status,
+          notification_entity_type: event.entity_type,
+          notification_entity_id: event.entity_id,
+          has_actor: Boolean(event.actor_user_id),
+          event_created_at: event.created_at,
+          attempt_count: event.attempt_count,
+          has_error_message: Boolean(attempt.error_message),
+          ...summarizeProviderResponse(attempt.provider_response ?? null),
+        },
+      });
+    } catch (error) {
+      console.error(
+        `[notifications/worker] PostHog capture failed for event ${event.id} (${attempt.channel}/${attempt.status}):`,
+        error
+      );
+    }
   }
 }
 

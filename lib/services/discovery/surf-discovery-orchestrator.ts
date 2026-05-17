@@ -43,6 +43,12 @@ import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/li
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
+import {
+  getConditionBoardPick,
+  toForecastForScoring,
+  type BoardForPick,
+} from '@/lib/scoring';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Import from other discovery modules
 import { buildCandidatePool } from './candidate-pool-builder';
@@ -74,6 +80,13 @@ import { FEATURE_HERO_WINDOW_SCORE } from '@/lib/constants/feature-flags';
 import type { ScoringEngine } from '@/lib/domains/scoring';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
+
+type BoardPickRow = {
+  id: unknown;
+  name: unknown;
+  board_type: unknown;
+  volume?: unknown;
+};
 
 // ============================================================================
 // Constants
@@ -332,6 +345,52 @@ function getDiscoveryScoringEngine() {
     _discoveryScoringEngine = createDiscoveryScoringEngine();
   }
   return _discoveryScoringEngine;
+}
+
+function normalizeBoardForPick(row: BoardPickRow): BoardForPick | null {
+  if (
+    typeof row.id !== 'string' ||
+    typeof row.name !== 'string' ||
+    typeof row.board_type !== 'string'
+  ) {
+    return null;
+  }
+
+  const volume =
+    typeof row.volume === 'number' && Number.isFinite(row.volume)
+      ? row.volume
+      : null;
+
+  return {
+    id: row.id,
+    name: row.name,
+    board_type: row.board_type,
+    volume,
+  };
+}
+
+async function fetchUserBoardsForPicks(
+  supabase: Pick<SupabaseClient, 'from'>,
+  userId: string,
+  isPro: boolean
+): Promise<BoardForPick[]> {
+  if (!isPro) return [];
+
+  const { data, error } = await supabase
+    .from('boards')
+    .select('id, name, board_type, volume')
+    .eq('user_id', userId);
+
+  if (error) {
+    log.warn(`Failed to fetch boards for board picks: ${error.message}`);
+    return [];
+  }
+
+  if (!Array.isArray(data)) return [];
+
+  return data
+    .map((row) => normalizeBoardForPick(row as BoardPickRow))
+    .filter((board): board is BoardForPick => board !== null);
 }
 
 /**
@@ -638,14 +697,15 @@ async function discoverSurfSpotsInner(
     return null;
   });
 
-  // Batch-fetch sun times, water quality, and personalization context in parallel
-  const [sunTimesCache, wqResult, personalizationCtx] = await Promise.all([
+  // Batch-fetch sun times, water quality, personalization, and Pro board context in parallel
+  const [sunTimesCache, wqResult, personalizationCtx, userBoardsForPicks] = await Promise.all([
     getBatchSunTimes(Array.from(allBeachIds), uniqueDates),
     supabase
       .from('beach_water_quality')
       .select('beach_id, status')
       .in('beach_id', candidateBeachIds),
     fetchPersonalizationContext(userId, candidateBeachIds, userPrefs),
+    fetchUserBoardsForPicks(supabase, userId, isPro),
   ]);
 
   const wqMap = new Map<string, string>();
@@ -812,6 +872,14 @@ async function discoverSurfSpotsInner(
       detailedScore.total,
       (conditionCharacter?.category ?? null) as ConditionCharacterCategory | null,
     );
+    const conditionBoardPick =
+      userBoardsForPicks.length > 0
+        ? getConditionBoardPick(
+            toForecastForScoring(bestWindowForecast, beachTz),
+            userBoardsForPicks,
+            beach,
+          )
+        : null;
 
     scored.push({
       beach,
@@ -841,6 +909,13 @@ async function discoverSurfSpotsInner(
       warnings: detailedScore.warnings,
       conditionBadges: detailedScore.conditionBadges,
       waveHeightBadge: detailedScore.waveHeightBadge,
+      boardPick: conditionBoardPick
+        ? {
+            boardName: conditionBoardPick.boardName,
+            boardType: conditionBoardPick.boardType,
+            reason: conditionBoardPick.reason,
+          }
+        : null,
       distanceMiles,
       drivingTimeMinutes: distanceMiles ? Math.round(distanceMiles * 1.5) : undefined,
       // Similarity is stamped later by applySimilarityLayer (Pro path) or

@@ -234,7 +234,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                 }}
                 className="bg-ocean-blue text-white rounded-full px-6 py-3 font-sans font-semibold shadow-sm hover:bg-ocean-blue/90"
               >
-                Get alerts
+                Get free alerts
               </Button>
             </div>
           </div>
@@ -345,7 +345,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                         setAuthModalOpen(true);
                       }}
                     >
-                      Get alerts
+                      Get free alerts
                     </Button>
                     <Button
                       variant="ghost"
@@ -387,7 +387,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
         mode={authMode}
         source="landing-navbar"
         returnTo="/"
-        contextMessage={authMode === "signup" ? { title: "Get Alerts", description: "Know when conditions fire at your spots" } : undefined}
+        contextMessage={authMode === "signup" ? { title: "Get Free Alerts", description: "Know when conditions match your level and spots." } : undefined}
       />
     </nav>
   );

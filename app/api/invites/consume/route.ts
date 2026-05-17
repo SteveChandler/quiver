@@ -10,6 +10,7 @@ import {
   verifyEmailToken,
   getEmailTokenSecret,
 } from "@/lib/utils/email-token";
+import { capturePostHogEvent } from "@/lib/posthog-server";
 
 /**
  * POST /api/invites/consume
@@ -60,6 +61,15 @@ export const POST = withAuth(
     if (insertError && insertError.code !== "23505") {
       throw insertError;
     }
+
+    await capturePostHogEvent({
+      distinctId: user.id,
+      event: "invite_consumed",
+      properties: {
+        inviter_id: inviterId,
+        duplicate: insertError?.code === "23505",
+      },
+    });
 
     return createSuccessResponse({
       success: true,

@@ -65,6 +65,30 @@ describe("session share helpers", () => {
     );
   });
 
+  it("omits device-local session images from the share-card background", () => {
+    const url = buildSessionShareImageUrl({
+      ...session,
+      featured_photo_url: null,
+      image_url: "file:///data/user/0/app.quiversurf.surf/cache/ImagePicker/photo.jpg",
+    } as unknown as SessionWithDetails);
+    const parsed = new URL(url);
+
+    expect(parsed.searchParams.has("bg")).toBe(false);
+  });
+
+  it("falls back to uploaded image when featured photo is not remote", () => {
+    const url = buildSessionShareImageUrl({
+      ...session,
+      featured_photo_url: "content://media/external/images/1",
+      image_url: "https://cdn.quiversurf.app/uploaded-session.jpg",
+    } as unknown as SessionWithDetails);
+    const parsed = new URL(url);
+
+    expect(parsed.searchParams.get("bg")).toBe(
+      "https://cdn.quiversurf.app/uploaded-session.jpg"
+    );
+  });
+
   it("builds share sheet data with image and session URL", () => {
     const data = buildSessionShareSheetData(session);
 

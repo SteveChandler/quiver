@@ -9,6 +9,18 @@ beforeAll(() => {
   HTMLMediaElement.prototype.pause = jest.fn();
 });
 
+jest.mock("next/image", () => ({
+  __esModule: true,
+  default: ({
+    fill: _fill,
+    priority: _priority,
+    alt = "",
+    ...props
+  }: Record<string, unknown>) => {
+    return <img alt={String(alt)} {...props} />;
+  },
+}));
+
 // Mock framer-motion to avoid animation complexity in tests
 jest.mock("framer-motion", () => {
   const React = require("react");
@@ -74,9 +86,11 @@ jest.mock("@/lib/analytics/auth-events", () => ({
 jest.mock("@/lib/constants/features", () => ({
   CONTENT: {
     hero: {
-      title: "Surf when it's actually good.",
-      subtitle: "Test subtitle",
-      cta: "Set up your home break",
+      title: "Quiver: Your best days on repeat.",
+      subtitle:
+        "Log your sessions, teach Quiver what works for you, and get alerts when the forecast lines up again.",
+      cta: "Get my surf call",
+      secondaryCta: "Find your spots",
     },
   },
 }));
@@ -86,29 +100,33 @@ describe("HeroSection", () => {
     render(<HeroSection />);
     expect(
       screen.getByRole("heading", {
-        name: /surf when it's actually good\./i,
+        name: /quiver: your best days on repeat\./i,
       })
     ).toBeInTheDocument();
   });
 
   it("renders the subtitle text", () => {
     render(<HeroSection />);
-    expect(screen.getByText("Test subtitle")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Log your sessions, teach Quiver what works for you, and get alerts when the forecast lines up again."
+      )
+    ).toBeInTheDocument();
   });
 
   it("renders the primary CTA button with correct text", () => {
     render(<HeroSection />);
     const cta = screen.getByRole("button", {
-      name: /set up your home break/i,
+      name: /get my surf call/i,
     });
     expect(cta).toBeInTheDocument();
   });
 
-  it("renders the Find a spot secondary CTA linking to /features", () => {
+  it("renders the spots secondary CTA linking to /beginner/san-diego", () => {
     render(<HeroSection />);
-    const secondary = screen.getByRole("link", { name: /find a spot/i });
+    const secondary = screen.getByRole("link", { name: /find your spots/i });
     expect(secondary).toBeInTheDocument();
-    expect(secondary).toHaveAttribute("href", "/features");
+    expect(secondary).toHaveAttribute("href", "/beginner/san-diego");
   });
 
   it("opens auth modal in signup mode when primary CTA is clicked", async () => {
@@ -116,7 +134,7 @@ describe("HeroSection", () => {
     render(<HeroSection />);
 
     const cta = screen.getByRole("button", {
-      name: /set up your home break/i,
+      name: /get my surf call/i,
     });
     await user.click(cta);
 
@@ -131,7 +149,7 @@ describe("HeroSection", () => {
     render(<HeroSection />);
 
     const cta = screen.getByRole("button", {
-      name: /set up your home break/i,
+      name: /get my surf call/i,
     });
     await user.click(cta);
 

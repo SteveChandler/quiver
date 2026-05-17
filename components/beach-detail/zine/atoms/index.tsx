@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { buildZineMapScene, type ZineMapCue } from "../map-doodle-scene";
 
 export function RoughEdgeFilter() {
   return (
@@ -297,48 +298,76 @@ export function HalftonePhoto({
 export function MapDoodle({
   height = 200,
   label,
+  beachName,
   locationName = "Beach",
   lat,
   lon,
+  aspectDeg,
+  breakType,
+  features,
 }: {
   height?: number;
   label?: string | null;
+  beachName?: string;
   locationName?: string;
   lat?: number | null;
   lon?: number | null;
+  aspectDeg?: number | null;
+  breakType?: string | null;
+  features?: string[] | null;
 }) {
-  const { x: markerX, y: markerY } = computeMarkerPosition(lat, lon);
+  const scene = buildZineMapScene({
+    beachName,
+    locationName,
+    lat,
+    lon,
+    aspectDeg,
+    breakType,
+    features,
+  });
+  const { x: markerX, y: markerY } = scene.marker;
+  const approachStartX = scene.oceanSide === "left" ? 30 : 370;
+  const approachEndX = scene.oceanSide === "left" ? markerX - 18 : markerX + 18;
+  const locationFontSize = locationName.length > 18 ? 15 : locationName.length > 14 ? 17 : 20;
   return (
     <div style={{ position: "relative", width: "100%", height, background: "#EBDFC2", overflow: "hidden" }} aria-hidden>
       <svg viewBox="0 0 400 240" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
-        <rect x="0" y="0" width="170" height="240" fill="#C9D8DD" />
-        <pattern id="zine-dots-map" x="0" y="0" width="6" height="6" patternUnits="userSpaceOnUse">
+        <pattern id={scene.patternId} x="0" y="0" width="6" height="6" patternUnits="userSpaceOnUse">
           <circle cx="3" cy="3" r="1.1" fill="#7FA7B8" opacity="0.55" />
         </pattern>
-        <rect x="0" y="0" width="170" height="240" fill="url(#zine-dots-map)" />
-        <path d="M170,0 C160,40 175,80 165,120 C158,160 175,200 165,240" stroke="#11100D" strokeWidth="2" fill="none" filter="url(#zine-rough-edge)" />
-        <path d="M170,0 C160,40 175,80 165,120 C158,160 175,200 165,240 L400,240 L400,0 Z" fill="#EBDFC2" />
+        <path d={scene.oceanPath} fill="#C9D8DD" />
+        <path d={scene.oceanPath} fill={`url(#${scene.patternId})`} />
+        <path d={scene.landPath} fill="#EBDFC2" />
+        <path d={scene.coastPath} stroke="#11100D" strokeWidth="2" fill="none" filter="url(#zine-rough-edge)" />
         <g stroke="#11100D" strokeWidth="0.6" opacity="0.55">
-          <path d="M180,40 L400,30" />
-          <path d="M185,80 L400,70" />
-          <path d="M190,120 L400,110" />
-          <path d="M195,160 L400,150" />
-          <path d="M200,200 L400,190" />
-          <path d="M220,0 L240,240" />
-          <path d="M280,0 L300,240" />
-          <path d="M340,0 L360,240" />
+          {scene.gridLines.map((path) => (
+            <path key={path} d={path} />
+          ))}
+        </g>
+        <g transform={scene.cueTransform} data-testid={`zine-map-cue-${scene.cue}`}>
+          <MapCue cue={scene.cue} />
         </g>
         <g transform={`translate(${markerX},${markerY})`}>
           <circle r="14" fill="none" stroke="#11100D" strokeWidth="2" filter="url(#zine-rough-edge)" />
           <path d="M-7,-7 L7,7 M-7,7 L7,-7" stroke="#11100D" strokeWidth="2.2" strokeLinecap="round" />
         </g>
         <g stroke="#0B3A75" strokeWidth="1.6" fill="none" strokeDasharray="3,3">
-          <path d={`M30,${markerY - 30} C60,${markerY - 25} 90,${markerY - 28} ${markerX - 18},${markerY - 12}`} />
-          <path d={`M30,${markerY + 30} C60,${markerY + 25} 90,${markerY + 28} ${markerX - 18},${markerY + 12}`} />
+          <path d={`M${approachStartX},${markerY - 30} C${approachStartX - 18},${markerY - 25} ${approachEndX},${markerY - 28} ${approachEndX},${markerY - 12}`} />
+          <path d={`M${approachStartX},${markerY + 30} C${approachStartX - 18},${markerY + 25} ${approachEndX},${markerY + 28} ${approachEndX},${markerY + 12}`} />
         </g>
-        <path d={`M${markerX - 28},${markerY - 17} L${markerX - 16},${markerY - 12} L${markerX - 26},${markerY - 7}`} stroke="#0B3A75" strokeWidth="1.6" fill="none" />
-        <path d={`M${markerX - 28},${markerY + 7} L${markerX - 16},${markerY + 12} L${markerX - 26},${markerY + 17}`} stroke="#0B3A75" strokeWidth="1.6" fill="none" />
-        <text x="280" y="135" fontFamily="var(--font-handwritten), cursive" fontSize="20" fill="#11100D" fontWeight="700">{locationName}</text>
+        <path d={`M${approachEndX},${markerY - 17} L${markerX},${markerY - 12} L${approachEndX},${markerY - 7}`} stroke="#0B3A75" strokeWidth="1.6" fill="none" />
+        <path d={`M${approachEndX},${markerY + 7} L${markerX},${markerY + 12} L${approachEndX},${markerY + 17}`} stroke="#0B3A75" strokeWidth="1.6" fill="none" />
+        <text
+          x={scene.label.x}
+          y={scene.label.y}
+          fontFamily="var(--font-handwritten), cursive"
+          fontSize={locationFontSize}
+          fill="#11100D"
+          fontWeight="700"
+          textAnchor="middle"
+        >
+          {locationName}
+        </text>
       </svg>
       {label && (
         <div
@@ -363,23 +392,54 @@ export function MapDoodle({
   );
 }
 
-// Place the "X" marker inside the ocean band of the zine map doodle so the
-// pin sits roughly where the spot would be relative to its neighbours along
-// the coast. Same beach renders the same position every visit; nearby beaches
-// land near each other (fractional decimals are close), distant beaches drift
-// apart. Stays inside the ocean rectangle (left of the coastline at x≈170).
-function computeMarkerPosition(lat?: number | null, lon?: number | null): { x: number; y: number } {
-  // Safe ocean zone that avoids the BEACH NAME / CITY label stamp pinned to
-  // the top-left corner: x ∈ [40, 150] (ocean band, before coastline at ~170),
-  // y ∈ [120, 210] (below the stamp's bottom edge).
-  if (lat == null || lon == null || !Number.isFinite(lat) || !Number.isFinite(lon)) {
-    return { x: 130, y: 165 };
+function MapCue({ cue }: { cue: ZineMapCue }) {
+  if (cue === "pier") {
+    return (
+      <g stroke="#11100D" strokeLinecap="round" strokeLinejoin="round" filter="url(#zine-rough-edge)">
+        <path d="M-34,-3 L34,3" strokeWidth="4" />
+        <path d="M-24,6 L-24,18 M-8,7 L-8,19 M8,7 L8,19 M24,6 L24,18" strokeWidth="2" />
+      </g>
+    );
   }
-  const fracLat = Math.abs(lat) - Math.floor(Math.abs(lat));
-  const fracLon = Math.abs(lon) - Math.floor(Math.abs(lon));
-  const x = 40 + fracLon * 110;
-  const y = 210 - fracLat * 90;
-  return { x: Math.round(x), y: Math.round(y) };
+  if (cue === "jetty") {
+    return (
+      <g fill="#11100D" opacity="0.82" filter="url(#zine-rough-edge)">
+        {[-28, -16, -4, 8, 20, 32].map((x, index) => (
+          <rect key={x} x={x} y={index % 2 === 0 ? -4 : 4} width="10" height="8" transform={`rotate(${index * 8 - 14} ${x} 0)`} />
+        ))}
+      </g>
+    );
+  }
+  if (cue === "reef") {
+    return (
+      <g stroke="#0B3A75" fill="none" strokeLinecap="round" filter="url(#zine-rough-edge)">
+        <path d="M-30,14 C-16,-8 -2,16 10,-6 C18,8 24,10 32,-8" strokeWidth="2.2" />
+        <path d="M-22,22 C-8,8 8,24 26,10" strokeWidth="1.4" opacity="0.75" />
+      </g>
+    );
+  }
+  if (cue === "point") {
+    return (
+      <g fill="#D9C49C" stroke="#11100D" strokeLinejoin="round" filter="url(#zine-rough-edge)">
+        <path d="M-34,-12 C-6,-18 16,-8 36,6 C10,8 -10,18 -34,12 Z" strokeWidth="1.8" />
+      </g>
+    );
+  }
+  if (cue === "inlet") {
+    return (
+      <g strokeLinecap="round" filter="url(#zine-rough-edge)">
+        <path d="M-34,-8 C-12,-2 10,-16 34,-6" stroke="#0B3A75" strokeWidth="2.2" fill="none" />
+        <path d="M-34,8 C-12,14 10,0 34,10" stroke="#0B3A75" strokeWidth="2.2" fill="none" />
+        <path d="M-24,-2 L-10,3 M8,-5 L20,0" stroke="#11100D" strokeWidth="1.4" />
+      </g>
+    );
+  }
+  return (
+    <g stroke="#0B3A75" strokeLinecap="round" fill="none" filter="url(#zine-rough-edge)">
+      <path d="M-34,-8 C-18,-14 -6,-2 8,-8 C20,-13 28,-8 36,-12" strokeWidth="1.7" />
+      <path d="M-32,8 C-16,2 -4,14 12,8 C24,3 30,9 36,4" strokeWidth="1.7" opacity="0.75" />
+    </g>
+  );
 }
 
 export function SaltyEyebrow({ text = "KEEP IT SALTY" }: { text?: string }) {

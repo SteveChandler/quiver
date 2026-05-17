@@ -32,7 +32,7 @@ jest.mock("@/components/auth/unified-auth-modal", () => ({
 jest.mock("@/lib/constants/features", () => ({
   CONTENT: {
     hero: {
-      cta: "Set up your home break",
+      cta: "Get my surf call",
     },
     sections: {
       cta: {
@@ -102,13 +102,13 @@ describe("CTASection", () => {
     );
 
     await user.click(
-      screen.getByRole("button", { name: /set up your home break/i }),
+      screen.getByRole("button", { name: /get my surf call/i }),
     );
 
     expect(mockTrackSignupCtaClick).toHaveBeenCalledWith({
       source: "landing-final-cta",
       cta_type: "bottom-cta",
-      cta_text: "Set up your home break",
+      cta_text: "Get my surf call",
       cta_copy_variant: "landing_final_v1",
     });
     expect(screen.getAllByTestId("auth-modal")).toHaveLength(1);

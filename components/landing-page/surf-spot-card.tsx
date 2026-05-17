@@ -57,6 +57,16 @@ function formatSkillLevel(value?: string | null): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function getSkillHelpText(value?: string | null): string {
+  const normalized = value?.toLowerCase() ?? "";
+  if (normalized.includes("beginner")) return "Good starter option";
+  if (normalized.includes("intermediate")) return "Some experience helps";
+  if (normalized.includes("advanced") || normalized.includes("expert")) {
+    return "Confident surfers only";
+  }
+  return "Check the local notes";
+}
+
 export function SurfSpotCard({
   id,
   name,
@@ -109,7 +119,7 @@ export function SurfSpotCard({
             {/* Score badge - circular, top-left corner of image */}
             {typeof score === "number" && score > 0 && (
               <div
-                className={`absolute top-3 left-3 z-10 inline-flex items-center justify-center h-10 w-10 rounded-full text-sm font-mono font-bold text-white glow-orange ${getScoreColorClasses(score).bg}`}
+                className={`absolute top-3 left-3 z-10 inline-flex items-center justify-center h-10 w-10 rounded-[14px_7px_16px_7px] text-sm font-mono font-bold text-white shadow-[0_3px_0_rgba(0,0,0,0.35)] ${getScoreColorClasses(score).bg}`}
               >
                 {score}
               </div>
@@ -146,6 +156,15 @@ export function SurfSpotCard({
 
           {/* Content Section */}
           <div className="p-4 flex-1">
+            <div className="mb-3 inline-flex flex-col rounded-[12px_5px_14px_6px] border border-[#F78E42]/30 bg-[#F78E42]/12 px-3 py-1.5">
+              <span className="font-heading text-xs font-bold uppercase tracking-wide text-[#F78E42]">
+                {formatSkillLevel(skillLevel)}
+              </span>
+              <span className="text-[11px] leading-tight text-white/55">
+                {getSkillHelpText(skillLevel)}
+              </span>
+            </div>
+
             {/* Name */}
             <h3 className="text-base font-semibold font-sans text-white mb-1 line-clamp-1">
               {name}
@@ -184,12 +203,6 @@ export function SurfSpotCard({
                   <span className="text-white/60">({reviewCount})</span>
                 )}
               </div>
-              <span className="text-white/20">·</span>
-              {/* Skill level */}
-              <span className="text-white/60">
-                {formatSkillLevel(skillLevel)}
-              </span>
-              <span className="text-white/20">·</span>
               {/* Location */}
               <span className="text-white/60 truncate">{location}</span>
             </div>

@@ -3,7 +3,7 @@
 /**
  * NOAAComparisonBar
  *
- * Client component — when time-series data is available, renders a line chart
+ * Client component: when time-series data is available, renders a line chart
  * showing daily MAE over the last 30 days comparing NOAA baseline vs Quiver ML.
  * Falls back to the original horizontal bar chart when no time-series data exists.
  */
@@ -36,15 +36,8 @@ interface NOAAComparisonBarProps {
 }
 
 const chartConfig = {
-  mae: {
-    label: "Wave Height Error (m)",
-  },
-  rawMae: {
-    label: "NOAA Baseline",
-    color: "#fb923c",
-  },
-  correctedMae: {
-    label: "Quiver ML",
+  improvementPct: {
+    label: "Forecast lift",
     color: "#34d399",
   },
 } satisfies ChartConfig;
@@ -61,9 +54,10 @@ interface TimeSeriesPayloadEntry {
   dataKey: string;
   payload: {
     date: string;
+    improvementPct: number;
+    count: number;
     rawMae: number;
     correctedMae: number;
-    count: number;
   };
 }
 
@@ -76,38 +70,37 @@ function CustomTooltip({
   payload?: TimeSeriesPayloadEntry[];
   label?: string;
 }) {
-  if (!active || !payload || payload.length < 2) return null;
+  if (!active || !payload || payload.length === 0) return null;
 
-  const rawMae = payload.find((p) => p.dataKey === "rawMae")?.value ?? 0;
-  const correctedMae = payload.find((p) => p.dataKey === "correctedMae")?.value ?? 0;
-  const improvement = rawMae > 0 ? ((rawMae - correctedMae) / rawMae) * 100 : 0;
+  const point = payload[0]?.payload;
+  const improvement = point?.improvementPct ?? 0;
   const count = payload[0]?.payload?.count ?? 0;
 
   return (
-    <div className="rounded-lg border border-white/20 bg-[#1a2150] px-3 py-2.5 shadow-xl">
-      <p className="text-xs font-medium text-white/70 mb-1.5">
+    <div className="rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-2.5 shadow-[3px_3px_0_#11100D]">
+      <p className="mb-1.5 text-xs font-black text-[#5F5646]">
         {label ? formatDateShort(label) : ""}
       </p>
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full" style={{ background: "#fb923c" }} />
-          <span className="text-xs text-white/80">NOAA:</span>
-          <span className="text-xs font-semibold text-white">{rawMae.toFixed(3)}m</span>
-        </div>
-        <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full" style={{ background: "#34d399" }} />
-          <span className="text-xs text-white/80">Quiver:</span>
-          <span className="text-xs font-semibold text-white">{correctedMae.toFixed(3)}m</span>
+          <span className="text-xs font-bold text-[#5F5646]">Lift:</span>
+          <span className="text-xs font-black text-[#11100D]">
+            {improvement.toFixed(1)}% better than NOAA
+          </span>
         </div>
-        <div className="mt-1 pt-1 border-t border-white/10 flex items-center justify-between gap-3">
-          <span className="text-xs text-white/60">{count} predictions</span>
-          <span className="text-xs font-semibold text-emerald-400">
-            {improvement > 0 ? `${improvement.toFixed(1)}% better` : "—"}
+        <div className="mt-1 border-t border-[#11100D]/15 pt-1">
+          <span className="text-xs font-bold text-[#5F5646]">
+            {count} predictions
           </span>
         </div>
       </div>
     </div>
   );
+}
+
+interface PositiveAccuracyPoint extends DailyAccuracyPoint {
+  improvementPct: number;
 }
 
 function TimeSeriesChart({
@@ -121,85 +114,83 @@ function TimeSeriesChart({
 }) {
   const improvementPct =
     rawMae > 0 ? ((rawMae - correctedMae) / rawMae) * 100 : 0;
+  const chartData: PositiveAccuracyPoint[] = timeSeries
+    .map((point) => ({
+      ...point,
+      improvementPct:
+        point.rawMae > 0
+          ? Math.max(0, ((point.rawMae - point.correctedMae) / point.rawMae) * 100)
+          : 0,
+    }))
+    .filter((point) => Number.isFinite(point.improvementPct));
 
   return (
-    <section aria-label="Quiver vs NOAA — 30 Day Accuracy Trend">
-      <div className="rounded-2xl border border-white/15 p-6">
-        <h2 className="text-xl font-semibold text-white mb-1">
-          Quiver vs NOAA — 30 Day Accuracy Trend
-        </h2>
-        <p className="text-sm text-medium mb-6">
-          Daily Mean Absolute Error comparing NOAA marine baseline against
-          Quiver&apos;s ML-corrected forecasts. Lower is better.
-        </p>
+    <section aria-label="Quiver forecast lift over NOAA by day">
+      <div className="relative overflow-hidden rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] p-5 shadow-[4px_4px_0_#11100D] md:p-6">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="mb-2 inline-flex rotate-[-1.5deg] rounded-[8px] border-2 border-[#11100D] bg-[#F78E42] px-3 py-1 font-mono text-xs font-black uppercase tracking-[0.16em] text-[#11100D] shadow-[2px_2px_0_#11100D]">
+              The receipts
+            </p>
+            <h2 className="font-heading text-2xl font-black text-[#11100D]">
+              Quiver lift, day by day
+            </h2>
+          </div>
+          <p className="max-w-sm text-sm font-semibold leading-6 text-[#5F5646]">
+            How much better Quiver performed than the NOAA baseline against buoy
+            checks.
+          </p>
+        </div>
 
-        <div className="h-72 w-full">
+        <div className="h-72 w-full rounded-[8px] border-2 border-[#11100D] bg-[#0B3A75] p-3 shadow-[3px_3px_0_#11100D]">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart
-              data={timeSeries}
+              data={chartData}
               margin={{ top: 8, right: 16, bottom: 0, left: 0 }}
             >
               <defs>
-                <linearGradient id="improvementGap" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="improvementLift" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#34d399" stopOpacity={0.15} />
                   <stop offset="100%" stopColor="#34d399" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke="rgba(255,255,255,0.08)"
+                stroke="rgba(244,235,216,0.15)"
                 vertical={false}
               />
               <XAxis
                 dataKey="date"
                 tickFormatter={formatDateShort}
-                tick={{ fontSize: 11, fill: "rgba(255,255,255,0.5)" }}
-                axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
+                tick={{ fontSize: 11, fill: "rgba(244,235,216,0.72)" }}
+                axisLine={{ stroke: "rgba(244,235,216,0.2)" }}
                 tickLine={false}
                 interval="preserveStartEnd"
                 minTickGap={40}
               />
               <YAxis
-                tickFormatter={(v: number) => `${v.toFixed(2)}m`}
-                tick={{ fontSize: 11, fill: "rgba(255,255,255,0.5)" }}
+                tickFormatter={(v: number) => `${Math.round(v)}%`}
+                tick={{ fontSize: 11, fill: "rgba(244,235,216,0.72)" }}
                 axisLine={false}
                 tickLine={false}
-                width={52}
+                width={42}
               />
               <Tooltip content={<CustomTooltip />} />
 
-              {/* Area fill between the two lines to show the improvement gap */}
               <Area
                 type="monotone"
-                dataKey="rawMae"
+                dataKey="improvementPct"
                 stroke="none"
-                fill="url(#improvementGap)"
+                fill="url(#improvementLift)"
                 fillOpacity={1}
               />
 
-              {/* NOAA Baseline line */}
               <Line
                 type="monotone"
-                dataKey="rawMae"
-                name="NOAA Baseline"
-                stroke="#fb923c"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{
-                  r: 4,
-                  fill: "#fb923c",
-                  stroke: "#1a2150",
-                  strokeWidth: 2,
-                }}
-              />
-
-              {/* Quiver ML line */}
-              <Line
-                type="monotone"
-                dataKey="correctedMae"
-                name="Quiver ML"
+                dataKey="improvementPct"
+                name="Forecast lift"
                 stroke="#34d399"
-                strokeWidth={2}
+                strokeWidth={3}
                 dot={false}
                 activeDot={{
                   r: 4,
@@ -213,29 +204,23 @@ function TimeSeriesChart({
         </div>
 
         {/* Legend */}
-        <div className="flex items-center justify-center gap-6 mt-4 mb-3">
-          <div className="flex items-center gap-2">
-            <span className="h-0.5 w-5 rounded-full" style={{ background: "#fb923c" }} />
-            <span className="text-xs text-white/70">NOAA Baseline</span>
-          </div>
+        <div className="mb-3 mt-4 flex items-center justify-center gap-6">
           <div className="flex items-center gap-2">
             <span className="h-0.5 w-5 rounded-full" style={{ background: "#34d399" }} />
-            <span className="text-xs text-white/70">Quiver ML</span>
+            <span className="text-xs font-bold text-[#5F5646]">
+              Improvement over NOAA
+            </span>
           </div>
         </div>
 
         {/* Summary stat */}
-        <div className="rounded-lg bg-white/5 border border-white/10 px-4 py-3 text-center">
-          <p className="text-sm text-white/70">
-            Overall improvement:{" "}
-            <span className="font-semibold text-emerald-400">
+        <div className="rotate-[-0.5deg] rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] px-4 py-3 text-center shadow-[3px_3px_0_#11100D]">
+          <p className="text-sm font-bold text-[#11100D]">
+            Latest sample:{" "}
+            <span className="font-mono font-black text-[#008A7A]">
               {improvementPct.toFixed(1)}%
             </span>
-            {" "}lower error — from{" "}
-            <span className="font-medium text-white">{rawMae.toFixed(3)}m</span>
-            {" "}to{" "}
-            <span className="font-medium text-white">{correctedMae.toFixed(3)}m</span>
-            {" "}MAE
+            {" "}better than the NOAA baseline.
           </p>
         </div>
       </div>
@@ -257,14 +242,14 @@ function FallbackBarChart({
 
   return (
     <section aria-label="NOAA Baseline vs Quiver accuracy comparison">
-      <div className="rounded-2xl border border-white/15 p-6">
-        <h2 className="text-xl font-semibold text-white mb-1">
+      <div className="rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] p-6 shadow-[4px_4px_0_#11100D]">
+        <h2 className="mb-1 font-heading text-xl font-black text-[#11100D]">
           NOAA Baseline vs. Quiver
         </h2>
-        <p className="text-sm text-medium mb-6">
+        <p className="mb-6 text-sm font-semibold text-[#5F5646]">
           Quiver reduces wave height error from{" "}
-          <strong className="text-white">{rawMae.toFixed(3)}m</strong> to{" "}
-          <strong className="text-white">{correctedMae.toFixed(3)}m</strong> — measured as Mean Absolute
+          <strong className="text-[#11100D]">{rawMae.toFixed(3)}m</strong> to{" "}
+          <strong className="text-[#11100D]">{correctedMae.toFixed(3)}m</strong>, measured as Mean Absolute
           Error (MAE) against live buoy readings.
         </p>
 
@@ -274,18 +259,18 @@ function FallbackBarChart({
             layout="vertical"
             margin={{ top: 0, right: 24, bottom: 0, left: 0 }}
           >
-            <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+            <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="rgba(17,16,13,0.12)" />
             <XAxis
               type="number"
               domain={[0, Math.ceil(rawMae * 1.2 * 100) / 100]}
               tickFormatter={(v: number) => `${v.toFixed(2)}m`}
-              tick={{ fontSize: 11, fill: "rgba(255,255,255,0.6)" }}
+              tick={{ fontSize: 11, fill: "#5F5646" }}
             />
             <YAxis
               type="category"
               dataKey="name"
               width={100}
-              tick={{ fontSize: 12, fontWeight: 500, fill: "rgba(255,255,255,0.8)" }}
+              tick={{ fontSize: 12, fontWeight: 700, fill: "#11100D" }}
             />
             <ChartTooltip
               content={
@@ -308,7 +293,7 @@ function FallbackBarChart({
           </BarChart>
         </ChartContainer>
 
-        <p className="text-xs text-medium mt-4 text-center">
+        <p className="mt-4 text-center text-xs font-semibold text-[#5F5646]">
           Lower is better. Values are average MAE across all tracked beaches (14-day
           rolling window).
         </p>

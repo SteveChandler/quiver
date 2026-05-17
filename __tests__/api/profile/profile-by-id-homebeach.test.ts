@@ -126,5 +126,76 @@ describe("/api/profile/[id] includes home_beach", () => {
       home_beach: { id: "550e8400-e29b-41d4-a716-446655440099", name: "Malibu" },
     });
   });
-});
 
+  it("defaults notif_push_enabled to false when the profile value is null", async () => {
+    const targetUserId = "550e8400-e29b-41d4-a716-446655440002";
+
+    mockUnauthenticatedUser(mockSupabaseClient as any);
+
+    (mockSupabaseClient as any).from.mockImplementation((table: string) => {
+      if (table === "profiles_with_home_beach") {
+        return {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn(() =>
+            Promise.resolve({
+              data: {
+                id: targetUserId,
+                full_name: "Pushless User",
+                home_beach_id: null,
+                home_beach_name: null,
+              },
+              error: null,
+            })
+          ),
+        } as any;
+      }
+
+      if (table === "profiles") {
+        return {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn(() =>
+            Promise.resolve({
+              data: {
+                followers_count: 0,
+                following_count: 0,
+                created_at: "2024-01-01T00:00:00Z",
+                avatar_url: null,
+                email: null,
+                bio: null,
+                location: null,
+                experience_level: null,
+                instagram: null,
+                notif_push_enabled: null,
+                home_beach: null,
+              },
+              error: null,
+            })
+          ),
+        } as any;
+      }
+
+      if (table === "sessions") {
+        return {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          data: [],
+          error: null,
+        } as any;
+      }
+
+      return {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn(() => Promise.resolve({ data: null, error: null })),
+      } as any;
+    });
+
+    const req = createMockRequest("GET");
+    const res = await GET(req as any, { params: Promise.resolve({ id: targetUserId }) });
+    const body = await expectSuccessResponse<any>(res, 200);
+
+    expect(body.data.notif_push_enabled).toBe(false);
+  });
+});

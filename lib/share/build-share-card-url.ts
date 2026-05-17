@@ -1,3 +1,5 @@
+import { remoteImageUrlOrUndefined } from "@/lib/share/remote-image-url";
+
 /**
  * Share Card URL Builders
  *
@@ -197,8 +199,9 @@ export function buildSessionShareUrl(params: SessionShareParams): string {
   if (params.footer) {
     searchParams.set('footer', params.footer);
   }
-  if (params.bg) {
-    searchParams.set('bg', params.bg);
+  const bg = remoteImageUrlOrUndefined(params.bg);
+  if (bg) {
+    searchParams.set('bg', bg);
   }
 
   return `${baseUrl}/api/og/session?${searchParams.toString()}`;

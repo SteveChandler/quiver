@@ -3,7 +3,7 @@
 /**
  * RegionalAccuracyChart
  *
- * Client component — grouped bar chart showing NOAA baseline vs Quiver corrected
+ * Client component: grouped bar chart showing NOAA baseline vs Quiver corrected
  * MAE by US state, sorted by improvement %. Uses Recharts + ChartContainer.
  */
 
@@ -37,7 +37,7 @@ interface RegionalAccuracyChartProps {
 const chartConfig = {
   avgRawMae: {
     label: "NOAA Baseline",
-    color: "#fb923c", // orange-400 — colorblind-safe vs emerald
+    color: "#fb923c", // orange-400, colorblind-safe vs emerald
   },
   avgCorrectedMae: {
     label: "Quiver",
@@ -61,12 +61,12 @@ export function RegionalAccuracyChart({ data }: RegionalAccuracyChartProps) {
 
   return (
     <section aria-label="Regional forecast accuracy breakdown">
-      <div className="rounded-2xl border border-white/15 bg-white p-6">
-        <h2 className="text-xl font-semibold text-white mb-1">
+      <div className="rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] p-6 shadow-[4px_4px_0_#11100D]">
+        <h2 className="mb-1 font-heading text-xl font-black text-[#11100D]">
           Accuracy by Region
         </h2>
-        <p className="text-sm text-medium mb-6">
-          Wave height MAE (meters) by state — lower is better. Regions sorted by
+        <p className="mb-6 text-sm font-semibold text-[#5F5646]">
+          Wave height MAE (meters) by state. Lower is better. Regions sorted by
           improvement over NOAA.
         </p>
 
@@ -77,16 +77,16 @@ export function RegionalAccuracyChart({ data }: RegionalAccuracyChartProps) {
             barCategoryGap="30%"
             barGap={4}
           >
-            <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+            <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(17,16,13,0.12)" />
             <XAxis
               dataKey="state"
-              tick={{ fontSize: 12, fill: "rgba(255,255,255,0.8)" }}
+              tick={{ fontSize: 12, fill: "#11100D", fontWeight: 700 }}
               tickLine={false}
               axisLine={false}
             />
             <YAxis
               tickFormatter={(v: number) => `${v.toFixed(2)}m`}
-              tick={{ fontSize: 11, fill: "rgba(255,255,255,0.6)" }}
+              tick={{ fontSize: 11, fill: "#5F5646" }}
               axisLine={false}
               tickLine={false}
             />
@@ -100,7 +100,7 @@ export function RegionalAccuracyChart({ data }: RegionalAccuracyChartProps) {
                   labelFormatter={(label, payload) => {
                     const row = payload?.[0]?.payload as typeof chartData[0] | undefined;
                     return row
-                      ? `${label} — ${row.avgImprovementPct}% improvement (${row.beachCount} beaches)`
+                      ? `${label}: ${row.avgImprovementPct}% improvement (${row.beachCount} beaches)`
                       : String(label);
                   }}
                 />
@@ -126,7 +126,7 @@ export function RegionalAccuracyChart({ data }: RegionalAccuracyChartProps) {
           </BarChart>
         </ChartContainer>
 
-        <p className="text-xs text-medium mt-4 text-center">
+        <p className="mt-4 text-center text-xs font-semibold text-[#5F5646]">
           Only regions with 3+ validated beaches shown. 14-day rolling evaluation
           window.
         </p>

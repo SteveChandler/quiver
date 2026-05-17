@@ -12,6 +12,12 @@ jest.mock("@/lib/utils/visitor-id", () => ({
   getVisitorId: jest.fn(() => "visitor-uuid-123"),
 }));
 
+const mockCaptureClientPostHogEvent = jest.fn();
+jest.mock("@/lib/posthog-client", () => ({
+  captureClientPostHogEvent: (...args: unknown[]) =>
+    mockCaptureClientPostHogEvent(...args),
+}));
+
 // Mock fetch
 global.fetch = jest.fn();
 
@@ -62,6 +68,10 @@ describe("useTrackEvent", () => {
         metadata: { duration_ms: 5000 },
       });
       expect(typeof body.viewportWidth).toBe("number");
+      expect(mockCaptureClientPostHogEvent).toHaveBeenCalledWith("beach_view", {
+        beach_id: "beach-456",
+        duration_ms: 5000,
+      });
     });
 
     it("includes keepalive: true in fetch options", async () => {
@@ -472,17 +482,9 @@ describe("useTrackEvent", () => {
 
       const { result, rerender } = renderHook(() => useTrackEvent());
 
-      await waitFor(() => {
-        expect(result.current).toBeTruthy();
-      });
-
       const firstTrack = result.current.track;
 
       rerender();
-
-      await waitFor(() => {
-        expect(result.current).toBeTruthy();
-      });
 
       const secondTrack = result.current.track;
 
@@ -494,20 +496,12 @@ describe("useTrackEvent", () => {
 
       const { result, rerender } = renderHook(() => useTrackEvent());
 
-      await waitFor(() => {
-        expect(result.current).toBeTruthy();
-      });
-
       const firstTrack = result.current.track;
 
       // Change user
       (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-456" } });
 
       rerender();
-
-      await waitFor(() => {
-        expect(result.current).toBeTruthy();
-      });
 
       const secondTrack = result.current.track;
 

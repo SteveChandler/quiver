@@ -157,7 +157,7 @@ const profileHandler = withAuth(
         // Surf preferences
         surf_styles: details?.surf_styles ?? null,
         // Notification preferences
-        notif_push_enabled: details?.notif_push_enabled ?? true,
+        notif_push_enabled: details?.notif_push_enabled ?? false,
         notif_forecast_alerts: details?.notif_forecast_alerts ?? true,
         notif_email_enabled: details?.notif_email_enabled ?? true,
         notif_inapp_enabled: details?.notif_inapp_enabled ?? true,

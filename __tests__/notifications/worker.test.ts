@@ -13,7 +13,12 @@ jest.mock("@/lib/services/firebase-admin", () => ({
   getFirebaseAdminMessaging: jest.fn(() => null),
 }));
 
+jest.mock("@/lib/posthog-server", () => ({
+  capturePostHogEvent: jest.fn(async () => undefined),
+}));
+
 import { processPendingEvents } from "@/lib/notifications/worker";
+import { capturePostHogEvent } from "@/lib/posthog-server";
 import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 
 interface MockEvent {
@@ -76,6 +81,8 @@ interface MockState {
   errorOnSelect?: Set<string>;
   /** When set, profile lookup for this user_id throws. */
   errorOnProfileLookup?: Set<string>;
+  /** When set, delivery-attempt inserts return this error. */
+  attemptInsertError?: string;
   /** Override "now" inside the mock RPC simulator. Defaults to Date.now(). */
   now?: number;
 }
@@ -282,6 +289,9 @@ function buildMockSupabase(state: MockState) {
           };
         },
         insert: async (rows: MockAttempt[]) => {
+          if (state.attemptInsertError) {
+            return { error: { message: state.attemptInsertError } };
+          }
           state.attempts.push(
             ...rows.map((r, i) => ({
               ...r,
@@ -379,6 +389,10 @@ function emptyState(): MockState {
 
 const NOON_PT = new Date("2026-04-29T19:00:00Z"); // 12:00 Pacific.
 
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
 describe("processPendingEvents — empty state", () => {
   it("returns zero counts when nothing is pending", async () => {
     const state = emptyState();
@@ -450,6 +464,34 @@ describe("processPendingEvents — happy path", () => {
     expect(state.eventUpdates).toEqual([
       { id: "evt-1", status: "processed", skip_reason: null },
     ]);
+    expect(capturePostHogEvent).toHaveBeenCalledWith({
+      distinctId: "user-recipient",
+      event: "notification_delivery_attempt",
+      properties: expect.objectContaining({
+        "$insert_id": "notification_delivery_attempt:evt-1:push:1:sent",
+        notification_event_id: "evt-1",
+        notification_type: "like",
+        notification_channel: "push",
+        notification_status: "sent",
+        notification_entity_type: "session",
+        notification_entity_id: "sess-1",
+        has_actor: true,
+        attempt_count: 1,
+        provider_success: 1,
+        provider_failed: 0,
+        provider_invalid_token_count: 0,
+        provider_error_count: 0,
+      }),
+    });
+    expect(capturePostHogEvent).toHaveBeenCalledWith({
+      distinctId: "user-recipient",
+      event: "notification_delivery_attempt",
+      properties: expect.objectContaining({
+        "$insert_id": "notification_delivery_attempt:evt-1:in_app:1:sent",
+        notification_channel: "in_app",
+        notification_status: "sent",
+      }),
+    });
   });
 });
 
@@ -524,6 +566,14 @@ describe("processPendingEvents — terminal skips", () => {
     expect(summary.by_status.skipped_no_device).toBe(1);
     expect(summary.by_status.sent).toBe(1);
     expect(state.notificationsInserts).toHaveLength(1);
+    expect(capturePostHogEvent).toHaveBeenCalledWith({
+      distinctId: "user-recipient",
+      event: "notification_delivery_attempt",
+      properties: expect.objectContaining({
+        notification_channel: "push",
+        notification_status: "skipped_no_device",
+      }),
+    });
   });
 });
 
@@ -845,6 +895,31 @@ describe("processPendingEvents — transient error handling", () => {
       /profile query errored for event/,
     ]);
   });
+
+  it("does not emit PostHog delivery analytics when attempt insert fails", async () => {
+    const state = emptyState();
+    state.events.push(buildEvent());
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+    state.devices.set("user-recipient", ["device-token-A"]);
+    state.attemptInsertError = "simulated attempt insert failure";
+
+    const fakeFcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      })),
+    };
+
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT,
+      fcm: fakeFcm as never,
+    });
+
+    expect(capturePostHogEvent).not.toHaveBeenCalled();
+    expectConsoleErrors([/attempts insert failed/]);
+  });
 });
 
 describe("processPendingEvents — push provider details", () => {
@@ -920,6 +995,18 @@ describe("processPendingEvents — push provider details", () => {
         error_message: "messaging/internal-error: provider down",
       })
     );
+    expect(capturePostHogEvent).toHaveBeenCalledWith({
+      distinctId: "user-recipient",
+      event: "notification_delivery_attempt",
+      properties: expect.objectContaining({
+        notification_channel: "push",
+        notification_status: "failed_provider",
+        provider_success: 0,
+        provider_failed: 1,
+        provider_error_count: 1,
+        has_error_message: true,
+      }),
+    });
   });
 
   it("Expo push token routes through Expo Push Service without calling FCM", async () => {

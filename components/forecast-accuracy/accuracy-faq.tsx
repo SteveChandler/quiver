@@ -1,7 +1,7 @@
 /**
  * AccuracyFaq
  *
- * Server component — FAQ section with FAQPage JSON-LD structured data and
+ * Server component: FAQ section with FAQPage JSON-LD structured data and
  * an interactive accordion (client-side via FAQSection).
  */
 
@@ -17,7 +17,7 @@ export function AccuracyFaq({ beachCount }: AccuracyFaqProps) {
     {
       question: "How is forecast accuracy measured?",
       answer:
-        "We use Mean Absolute Error (MAE) — the average absolute difference between a predicted wave height and the actual wave height recorded by a nearby IOOS buoy. Lower MAE means more accurate forecasts. We report MAE in meters and compare Quiver's ML-corrected forecast against the raw NOAA marine forecast baseline.",
+        "We use Mean Absolute Error (MAE), the average absolute difference between a predicted wave height and the actual wave height recorded by a nearby IOOS buoy. Lower MAE means more accurate forecasts. We report MAE in meters and compare Quiver's ML-corrected forecast against the raw NOAA marine forecast baseline.",
     },
     {
       question: "How often is accuracy data updated?",
@@ -27,12 +27,12 @@ export function AccuracyFaq({ beachCount }: AccuracyFaqProps) {
     {
       question: "Where does the ground truth data come from?",
       answer:
-        "Ground truth comes from the Integrated Ocean Observing System (IOOS) buoy network — a national network of ocean sensors operated by NOAA. Buoys report significant wave height every 1–6 hours. We match each forecast to the nearest buoy observation within a 3-hour window.",
+        "Ground truth comes from the Integrated Ocean Observing System (IOOS) buoy network, a national network of ocean sensors operated by NOAA. Buoys report significant wave height every 1–6 hours. We match each forecast to the nearest buoy observation within a 3-hour window.",
     },
     {
       question: "What is the NOAA baseline?",
       answer:
-        "The NOAA baseline is the raw National Weather Service (NWS) marine wave height forecast — unmodified. It represents the regional average forecast that any surfer can access from weather.gov. Quiver's ML model starts from this baseline and applies per-beach corrections. The improvement percentage shown is how much smaller our error is compared to using the raw NOAA forecast.",
+        "The NOAA baseline is the raw National Weather Service (NWS) marine wave height forecast, unmodified. It represents the regional average forecast that any surfer can access from weather.gov. Quiver's ML model starts from this baseline and applies per-beach corrections. The improvement percentage shown is how much smaller our error is compared to using the raw NOAA forecast.",
     },
     {
       question: "How does ML improve the forecasts?",

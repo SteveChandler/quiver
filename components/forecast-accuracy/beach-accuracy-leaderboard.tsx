@@ -20,10 +20,10 @@ export interface LeaderboardBeachRow {
   city: string | null;
   state: string | null;
   country: string | null;
-  rawMae: number;
-  correctedMae: number;
-  maeImprovementPct: number;
-  predictionsMatched: number;
+  rawMae: number | null;
+  correctedMae: number | null;
+  maeImprovementPct: number | null;
+  predictionsMatched: number | null;
 }
 
 interface BeachAccuracyLeaderboardProps {
@@ -32,18 +32,25 @@ interface BeachAccuracyLeaderboardProps {
 
 const INITIAL_COUNT = 5;
 
-function formatMae(mae: number): string {
+function isFiniteMetric(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function formatMae(mae: number | null): string {
+  if (!isFiniteMetric(mae)) return "—";
   return `${mae.toFixed(3)}m`;
 }
 
-function formatImprovement(pct: number): string {
+function formatImprovement(pct: number | null): string {
+  if (!isFiniteMetric(pct)) return "—";
   const rounded = Math.round(pct);
-  return `+${rounded}%`;
+  return `${rounded > 0 ? "+" : ""}${rounded}%`;
 }
 
 /** Returns a small inline bar width (0-100%) for visual encoding of improvement. */
-function improvementBarWidth(pct: number, maxPct: number): string {
-  return `${Math.min(100, (pct / maxPct) * 100)}%`;
+function improvementBarWidth(pct: number | null, maxPct: number): string {
+  if (!isFiniteMetric(pct) || maxPct <= 0) return "0%";
+  return `${Math.max(0, Math.min(100, (pct / maxPct) * 100))}%`;
 }
 
 export function BeachAccuracyLeaderboard({ beaches }: BeachAccuracyLeaderboardProps) {
@@ -53,16 +60,21 @@ export function BeachAccuracyLeaderboard({ beaches }: BeachAccuracyLeaderboardPr
 
   const visibleBeaches = expanded ? beaches : beaches.slice(0, INITIAL_COUNT);
   const hasMore = beaches.length > INITIAL_COUNT;
-  const maxImprovement = beaches[0]?.maeImprovementPct ?? 1;
+  const maxImprovement = Math.max(
+    1,
+    ...beaches
+      .map((beach) => beach.maeImprovementPct)
+      .filter((pct): pct is number => isFiniteMetric(pct) && pct > 0),
+  );
 
   return (
     <section aria-label="Top beaches by forecast accuracy improvement">
-      <div className="rounded-2xl border border-white/15 bg-white overflow-hidden">
-        <div className="px-6 py-5 border-b border-white/10">
-          <h2 className="text-xl font-semibold text-white">
+      <div className="overflow-hidden rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] shadow-[4px_4px_0_#11100D]">
+        <div className="border-b-2 border-[#11100D] px-6 py-5">
+          <h2 className="font-heading text-xl font-black text-[#11100D]">
             Top Beaches by Accuracy Improvement
           </h2>
-          <p className="text-sm text-medium mt-1">
+          <p className="mt-1 text-sm font-semibold text-[#5F5646]">
             Ranked by reduction in wave height error versus the NOAA baseline.
             Minimum 20 validated predictions.
           </p>
@@ -71,23 +83,23 @@ export function BeachAccuracyLeaderboard({ beaches }: BeachAccuracyLeaderboardPr
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/10 bg-white/5">
-                <th className="px-4 py-3 text-left font-medium text-medium w-8">
+              <tr className="border-b-2 border-[#11100D] bg-[#EFE5CF]">
+                <th className="w-8 px-4 py-3 text-left font-black text-[#5F5646]">
                   #
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-medium">
+                <th className="px-4 py-3 text-left font-black text-[#5F5646]">
                   Beach
                 </th>
-                <th className="px-4 py-3 text-right font-medium text-medium">
+                <th className="px-4 py-3 text-right font-black text-[#5F5646]">
                   NOAA Error
                 </th>
-                <th className="px-4 py-3 text-right font-medium text-medium">
+                <th className="px-4 py-3 text-right font-black text-[#5F5646]">
                   Quiver Error
                 </th>
-                <th className="px-4 py-3 text-right font-medium text-medium min-w-[120px]">
+                <th className="min-w-[120px] px-4 py-3 text-right font-black text-[#5F5646]">
                   Improvement
                 </th>
-                <th className="px-4 py-3 text-right font-medium text-medium hidden sm:table-cell">
+                <th className="hidden px-4 py-3 text-right font-black text-[#5F5646] sm:table-cell">
                   Predictions
                 </th>
               </tr>
@@ -107,53 +119,55 @@ export function BeachAccuracyLeaderboard({ beaches }: BeachAccuracyLeaderboardPr
                 return (
                   <tr
                     key={beach.beachId}
-                    className={`border-b border-white/5 hover:bg-white/5 transition-colors ${
+                    className={`border-b border-[#11100D]/10 transition-colors hover:bg-[#EFE5CF] ${
                       index === visibleBeaches.length - 1 && !hasMore ? "border-b-0" : ""
                     }`}
                   >
-                    <td className="px-4 py-3 text-white/40 text-xs font-mono">
+                    <td className="px-4 py-3 font-mono text-xs font-bold text-[#5F5646]">
                       {index + 1}
                     </td>
                     <td className="px-4 py-3">
                       {beachUrl ? (
                         <Link
                           href={beachUrl}
-                          className="font-medium text-sky-300 hover:text-sky-200 hover:underline"
+                          className="font-black text-[#0B3A75] hover:underline"
                         >
                           {beach.beachName}
                         </Link>
                       ) : (
-                        <span className="font-medium text-white">
+                        <span className="font-black text-[#11100D]">
                           {beach.beachName}
                         </span>
                       )}
                       {beach.city && beach.state && (
-                        <span className="block text-xs text-white/40 mt-0.5">
+                        <span className="mt-0.5 block text-xs font-semibold text-[#5F5646]">
                           {beach.city}, {beach.state}
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right text-medium font-mono text-xs">
+                    <td className="px-4 py-3 text-right font-mono text-xs font-semibold text-[#5F5646]">
                       {formatMae(beach.rawMae)}
                     </td>
-                    <td className="px-4 py-3 text-right text-medium font-mono text-xs">
+                    <td className="px-4 py-3 text-right font-mono text-xs font-semibold text-[#5F5646]">
                       {formatMae(beach.correctedMae)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-xs">
                       <div className="flex items-center justify-end gap-2">
-                        <div className="hidden sm:block w-16 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                        <div className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-[#11100D]/10 sm:block">
                           <div
-                            className="h-full rounded-full bg-emerald-400"
+                            className="h-full rounded-full bg-[#008A7A]"
                             style={{ width: improvementBarWidth(beach.maeImprovementPct, maxImprovement) }}
                           />
                         </div>
-                        <span className="text-white font-medium">
+                        <span className="font-black text-[#008A7A]">
                           {formatImprovement(beach.maeImprovementPct)}
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-right text-white/40 text-xs hidden sm:table-cell">
-                      {beach.predictionsMatched.toLocaleString("en-US")}
+                    <td className="hidden px-4 py-3 text-right text-xs font-semibold text-[#5F5646] sm:table-cell">
+                      {isFiniteMetric(beach.predictionsMatched)
+                        ? beach.predictionsMatched.toLocaleString("en-US")
+                        : "—"}
                     </td>
                   </tr>
                 );
@@ -163,10 +177,10 @@ export function BeachAccuracyLeaderboard({ beaches }: BeachAccuracyLeaderboardPr
         </div>
 
         {hasMore && !expanded && (
-          <div className="px-6 py-4 border-t border-white/10">
+          <div className="border-t-2 border-[#11100D] px-6 py-4">
             <button
               onClick={() => setExpanded(true)}
-              className="w-full text-sm font-medium text-sky-300 hover:text-sky-200 transition-colors py-2"
+              className="w-full py-2 text-sm font-black text-[#0B3A75] transition-colors hover:underline"
             >
               Show all {beaches.length} beaches
             </button>
@@ -174,10 +188,10 @@ export function BeachAccuracyLeaderboard({ beaches }: BeachAccuracyLeaderboardPr
         )}
 
         {expanded && hasMore && (
-          <div className="px-6 py-4 border-t border-white/10">
+          <div className="border-t-2 border-[#11100D] px-6 py-4">
             <button
               onClick={() => setExpanded(false)}
-              className="w-full text-sm font-medium text-white/50 hover:text-white/70 transition-colors py-2"
+              className="w-full py-2 text-sm font-black text-[#5F5646] transition-colors hover:text-[#11100D]"
             >
               Show less
             </button>

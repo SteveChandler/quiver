@@ -80,11 +80,55 @@ const mockState = {
   forecastBatchResponse: { successful: [] as any[], failed: [], staleCount: 0 },
   favoriteBeaches: [] as Partial<Beach>[],
   favoritesError: null as Error | null,
+  boards: [] as Array<{ id: string; name: string; board_type: string; volume?: number | null }>,
+  boardsError: null as { message: string } | null,
   userPrefs: null as any,
   affinityMap: new Map(),
   sunTimesCache: new Map(),
   scoringResults: [] as { beach: Partial<Beach>; score: number; window: any; forecast: any }[],
 };
+
+const mockSupabaseRpc = jest.fn(async () => ({
+  data: [
+    {
+      slot_idx: 0,
+      forecast_at: mockForecast.forecast_at,
+      result: { state: 'onboarding', session_count: 0, sessions_needed: 5 },
+    },
+  ],
+  error: null,
+}));
+
+const mockSupabaseFrom = jest.fn((table: string) => {
+  if (table === 'boards') {
+    return {
+      select: jest.fn(() => ({
+        eq: jest.fn(async () => ({
+          data: mockState.boards,
+          error: mockState.boardsError,
+        })),
+      })),
+    };
+  }
+
+  if (table === 'sun_times') {
+    return {
+      select: jest.fn(() => ({
+        in: jest.fn(() => ({
+          in: jest.fn(() => ({
+            order: jest.fn(() => Promise.resolve({ data: [], error: null })),
+          })),
+        })),
+      })),
+    };
+  }
+
+  return {
+    select: jest.fn(() => ({
+      in: jest.fn(() => Promise.resolve({ data: [], error: null })),
+    })),
+  };
+});
 
 // Setup mocks
 jest.mock('@/lib/services/discovery/candidate-pool-builder', () => ({
@@ -151,30 +195,8 @@ jest.mock('@/lib/services/beach-query-service', () => ({
 
 jest.mock('@/lib/supabase/server', () => ({
   createSupabaseServiceRoleClient: jest.fn(() => ({
-    from: jest.fn((table: string) => {
-      return {
-        select: jest.fn((fields: string) => {
-          return {
-            eq: jest.fn((field: string, value: any) => {
-              return {
-                in: jest.fn((field: string, values: any[]) => {
-                  return Promise.resolve({ data: [], error: null });
-                }),
-              };
-            }),
-            in: jest.fn((field: string, values: any[]) => {
-              return {
-                in: jest.fn((field2: string, values2: any[]) => {
-                  return {
-                    order: jest.fn(() => Promise.resolve({ data: [], error: null })),
-                  };
-                }),
-              };
-            }),
-          };
-        }),
-      };
-    }),
+    from: mockSupabaseFrom,
+    rpc: mockSupabaseRpc,
   })),
 }));
 
@@ -397,6 +419,8 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     };
     mockState.favoriteBeaches = [];
     mockState.favoritesError = null;
+    mockState.boards = [];
+    mockState.boardsError = null;
     mockState.userPrefs = null;
     mockState.affinityMap = new Map();
     mockState.sunTimesCache = new Map();
@@ -609,6 +633,55 @@ describe('discoverSurfSpots - Favorites Merging', () => {
       });
     }
   });
+
+  test('attaches condition-based board picks for Pro users with saved boards', async () => {
+    mockState.boards = [
+      { id: 'lb-1', name: "9'0 Torq Longboard", board_type: 'longboard', volume: 75 },
+      { id: 'sb-1', name: "5'10 Lost Driver", board_type: 'shortboard', volume: 28 },
+    ];
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 5,
+      isPro: true,
+    });
+
+    const beach1Rec = result.recommendations.find(r => r.beach.id === 'beach-1');
+    expect(beach1Rec?.boardPick).toEqual({
+      boardName: "5'10 Lost Driver",
+      boardType: 'shortboard',
+      reason: "5'10 Lost Driver conditions — enjoy the fun waves",
+    });
+    expect(mockSupabaseFrom).toHaveBeenCalledWith('boards');
+  });
+
+  test('does not fetch or leak board picks for free users', async () => {
+    mockState.boards = [
+      { id: 'sb-1', name: "5'10 Lost Driver", board_type: 'shortboard', volume: 28 },
+    ];
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 5,
+      isPro: false,
+    });
+
+    expect(mockSupabaseFrom).not.toHaveBeenCalledWith('boards');
+    expect(result.recommendations.every(r => r.boardPick == null)).toBe(true);
+  });
+
+  test('degrades to null board picks when Pro board lookup fails', async () => {
+    mockState.boardsError = { message: 'Database connection failed' };
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 5,
+      isPro: true,
+    });
+
+    expect(mockSupabaseFrom).toHaveBeenCalledWith('boards');
+    expect(result.recommendations.every(r => r.boardPick == null)).toBe(true);
+  });
 });
 
 describe('discoverSurfSpots - Stale Data Fallback', () => {
@@ -626,6 +699,8 @@ describe('discoverSurfSpots - Stale Data Fallback', () => {
     };
     mockState.favoriteBeaches = [];
     mockState.favoritesError = null;
+    mockState.boards = [];
+    mockState.boardsError = null;
     mockState.userPrefs = null;
     mockState.affinityMap = new Map();
     mockState.sunTimesCache = new Map();
@@ -892,6 +967,8 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     };
     mockState.favoriteBeaches = [];
     mockState.favoritesError = null;
+    mockState.boards = [];
+    mockState.boardsError = null;
     mockState.userPrefs = null;
   });
 
@@ -1170,6 +1247,8 @@ describe('discoverSurfSpots - Time Slot Scoring Differentiation', () => {
     };
     mockState.favoriteBeaches = [];
     mockState.favoritesError = null;
+    mockState.boards = [];
+    mockState.boardsError = null;
     mockState.userPrefs = null;
   });
 
@@ -1339,6 +1418,8 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
     };
     mockState.favoriteBeaches = [];
     mockState.favoritesError = null;
+    mockState.boards = [];
+    mockState.boardsError = null;
     mockState.userPrefs = null;
   });
 

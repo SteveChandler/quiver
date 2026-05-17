@@ -162,7 +162,7 @@ export function SurfHighlightsSection() {
     >
       <div className="max-w-7xl mx-auto px-6">
         {/* Section header */}
-        <div className="mb-10 md:mb-12">
+        <div className="mb-10 grid gap-6 md:mb-12 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
           <motion.h2
             className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold text-white text-left"
             initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
@@ -173,12 +173,23 @@ export function SurfHighlightsSection() {
             }
             transition={{ duration: 0.5, ease: easeOutQuart }}
           >
-            {isNearby ? "Local surf favorites near you" : "Popular surf spots"}
+            Start with the beach, not the buoy chart
           </motion.h2>
+
+          <motion.p
+            className="max-w-2xl text-base leading-relaxed text-[#B8C7E0] md:col-span-2"
+            initial={shouldReduceMotion ? false : { opacity: 0 }}
+            animate={shouldReduceMotion ? {} : { opacity: isInView ? 1 : 0 }}
+            transition={{ duration: 0.45, ease: easeOutQuart, delay: 0.18 }}
+          >
+            {isNearby
+              ? "Nearby spots are labeled by difficulty so a newer surfer can spot the mellow options first."
+              : "Difficulty labels are now front and center. Start with beginner-friendly beaches, then open the full forecast when you are ready for the details."}
+          </motion.p>
 
           {!hasPreciseLocation && requestPreciseLocation && !loading && !locationLoading && (
             <motion.div
-              className="mt-3 flex items-center gap-3 flex-wrap"
+              className="flex items-center gap-3 flex-wrap md:col-span-2"
               initial={shouldReduceMotion ? false : { opacity: 0 }}
               animate={shouldReduceMotion ? {} : { opacity: isInView ? 1 : 0 }}
               transition={{ duration: 0.4, ease: easeOutQuart, delay: 0.2 }}
@@ -269,7 +280,7 @@ export function SurfHighlightsSection() {
         >
           <Link
             href="/map"
-            className="text-[#4A70D9] font-sans font-medium hover:text-ocean-blue transition-colors underline-offset-4 hover:underline"
+            className="font-heading text-sm font-bold text-[#F78E42] transition-colors underline-offset-4 hover:text-[#FDB84B] hover:underline"
           >
             Browse all surf spots &rarr;
           </Link>

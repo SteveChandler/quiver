@@ -1,5 +1,6 @@
 import { formatWindSpeed } from "@/lib/formatters/surf-data";
 import { buildSessionShareUrl } from "@/lib/share/build-share-card-url";
+import { remoteImageUrlOrUndefined } from "@/lib/share/remote-image-url";
 import type { SessionWithDetails } from "@/types/database";
 
 export interface SessionShareSheetData {
@@ -90,10 +91,7 @@ function getSessionTagline(session: SessionWithDetails): string | undefined {
 
 function getSessionBackground(session: SessionWithDetails): string | undefined {
   const imageUrl = (session as { image_url?: unknown }).image_url;
-  return (
-    session.featured_photo_url ||
-    (typeof imageUrl === "string" && imageUrl ? imageUrl : undefined)
-  );
+  return remoteImageUrlOrUndefined(session.featured_photo_url) ?? remoteImageUrlOrUndefined(imageUrl);
 }
 
 function getShareBaseUrl() {

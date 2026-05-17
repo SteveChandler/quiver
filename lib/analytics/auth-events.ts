@@ -20,6 +20,7 @@
 
 import { track } from "@/lib/analytics";
 import { getVisitorId } from "@/lib/utils/visitor-id";
+import { captureClientPostHogEvent } from "@/lib/posthog-client";
 
 /**
  * Fire a funnel event to the internal /api/events endpoint.
@@ -43,6 +44,10 @@ function fireToUserEvents(eventType: string, params: Record<string, unknown>) {
   } catch {
     // Swallow errors — tracking must never break the app
   }
+}
+
+function fireToPostHog(eventType: string, params: Record<string, unknown>) {
+  captureClientPostHogEvent(eventType, params);
 }
 
 /**
@@ -211,6 +216,7 @@ export function trackLoginSuccess(params: {
   };
   track("login_success", eventParams);
   fireToUserEvents("login_success", eventParams);
+  fireToPostHog("user_signed_in", eventParams);
 }
 
 /**

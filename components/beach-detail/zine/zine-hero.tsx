@@ -91,6 +91,9 @@ export function ZineHero({ beach, beachPhoto, sources }: ZineHeroProps) {
         sources={sources}
         lat={beach.lat}
         lon={beach.lon}
+        aspectDeg={beach.aspect_deg}
+        breakType={beach.break_type}
+        features={beach.features}
       />
       </div>
 
@@ -202,6 +205,9 @@ function TapedMapPhoto({
   sources,
   lat,
   lon,
+  aspectDeg,
+  breakType,
+  features,
 }: {
   beachPhoto?: ZineBeachPhoto | null;
   beachName: string;
@@ -209,6 +215,9 @@ function TapedMapPhoto({
   sources?: BeachSources | null;
   lat?: number | null;
   lon?: number | null;
+  aspectDeg?: number | null;
+  breakType?: string | null;
+  features?: string[] | null;
 }) {
   const hasEmbeddableCam =
     !!sources?.camera_url && buildCamEmbed(sources.camera_url).kind !== "none";
@@ -274,7 +283,16 @@ function TapedMapPhoto({
             <span style={{ fontSize: 11, opacity: 0.8, letterSpacing: "0.1em" }}>{locationName.toUpperCase()}</span>
           </div>
         </div>
-        <MapDoodle height={180} locationName={locationName} lat={lat} lon={lon} />
+        <MapDoodle
+          height={180}
+          beachName={beachName}
+          locationName={locationName}
+          lat={lat}
+          lon={lon}
+          aspectDeg={aspectDeg}
+          breakType={breakType}
+          features={features}
+        />
       </div>
     </div>
   );
@@ -315,4 +333,3 @@ function TapedCamFrame({ sources, beachName }: { sources: BeachSources; beachNam
     </div>
   );
 }
-

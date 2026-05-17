@@ -70,6 +70,20 @@ describe("buildSessionShareUrl", () => {
     expect(parsed.searchParams.get("bg")).toBe("https://example.com/bg.jpg?x=1&y=2");
     expect(parsed.searchParams.get("board")).toBe(`6'2" Shortboard`);
   });
+
+  it("omits non-remote background URLs", () => {
+    const url = buildSessionShareUrl({
+      beach: "Ocean Beach",
+      rating: "Epic",
+      stars: 5,
+      size: "Overhead",
+      board: "Surfboard",
+      bg: "file:///data/user/0/app.quiversurf.surf/cache/ImagePicker/photo.jpg",
+    });
+
+    const parsed = new URL(url);
+    expect(parsed.searchParams.has("bg")).toBe(false);
+  });
 });
 
 describe("buildSurfCallShareUrl", () => {
