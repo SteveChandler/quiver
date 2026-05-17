@@ -20,7 +20,7 @@
 
 import { track } from "@/lib/analytics";
 import { getVisitorId } from "@/lib/utils/visitor-id";
-import posthog from "posthog-js";
+import { captureClientPostHogEvent } from "@/lib/posthog-client";
 
 /**
  * Fire a funnel event to the internal /api/events endpoint.
@@ -47,14 +47,7 @@ function fireToUserEvents(eventType: string, params: Record<string, unknown>) {
 }
 
 function fireToPostHog(eventType: string, params: Record<string, unknown>) {
-  if (typeof window === "undefined") return;
-  if (!process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN) return;
-
-  try {
-    posthog.capture(eventType, params);
-  } catch {
-    // Swallow errors — tracking must never break the app
-  }
+  captureClientPostHogEvent(eventType, params);
 }
 
 /**

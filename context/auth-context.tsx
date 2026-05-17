@@ -46,7 +46,12 @@ import {
 } from "@/lib/utils/safe-storage";
 import { getExistingVisitorId, clearVisitorId } from "@/lib/utils/visitor-id";
 import { AUTH_INIT_TIMEOUT_MS } from "@/lib/constants/ui";
-import posthog from "posthog-js";
+import {
+  buildPostHogUserProperties,
+  captureClientPostHogEvent,
+  identifyPostHogUser,
+  resetPostHog,
+} from "@/lib/posthog-client";
 
 /**
  * Zod schema for validating signup metadata from OAuth flows.
@@ -448,8 +453,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
 
               if (process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN) {
-                const provider = session.user.app_metadata?.provider || "email";
-                posthog.identify(session.user.id, { provider });
+                const postHogUserProperties = buildPostHogUserProperties(session.user);
+                const provider = postHogUserProperties.provider ?? "email";
+                identifyPostHogUser(session.user.id, postHogUserProperties);
 
                 const isNewUserForPostHog = session.user.created_at
                   ? Date.now() - new Date(session.user.created_at).getTime() < 60_000
@@ -460,7 +466,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 if (isNewUserForPostHog && !alreadyCapturedSignup) {
                   sessionStorage.setItem(signupCaptureKey, "true");
-                  posthog.capture("user_signed_up", { provider });
+                  captureClientPostHogEvent("user_signed_up", { provider });
                 }
               }
 
@@ -653,8 +659,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       if (process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN) {
-        posthog.capture("user_signed_out");
-        posthog.reset();
+        captureClientPostHogEvent("user_signed_out");
+        resetPostHog();
       }
 
       const { error } = await supabase.auth.signOut();

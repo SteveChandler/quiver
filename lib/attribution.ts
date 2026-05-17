@@ -159,9 +159,17 @@ function saveAttributionToCookies(
  * Filters out null values and adds prefix if needed
  */
 export function getAttributionForAnalytics(
-  options: { prefix?: string; includeTimestamp?: boolean } = {}
+  options: {
+    prefix?: string;
+    includeTimestamp?: boolean;
+    includeLandingPage?: boolean;
+  } = {}
 ): Record<string, string> {
-  const { prefix = "", includeTimestamp = false } = options;
+  const {
+    prefix = "",
+    includeTimestamp = false,
+    includeLandingPage = true,
+  } = options;
   const attribution = getAttributionFromCookies();
   const result: Record<string, string> = {};
 
@@ -181,6 +189,10 @@ export function getAttributionForAnalytics(
   // Optionally add timestamp
   if (includeTimestamp && attribution.first_touch_ts) {
     result[prefix + "first_touch_ts"] = attribution.first_touch_ts;
+  }
+
+  if (includeLandingPage && attribution.landing_page) {
+    result[prefix + "landing_page"] = attribution.landing_page;
   }
 
   return result;
@@ -244,4 +256,3 @@ export function generateAttributionCookieHeaders(
 
   return headers;
 }
-

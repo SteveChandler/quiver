@@ -36,16 +36,13 @@ jest.mock("@/lib/utils/visitor-id", () => ({
   getVisitorId: jest.fn(() => "test-visitor-id"),
 }));
 
-jest.mock("posthog-js", () => ({
-  __esModule: true,
-  default: {
-    capture: jest.fn(),
-  },
+jest.mock("@/lib/posthog-client", () => ({
+  captureClientPostHogEvent: jest.fn(),
 }));
 
 import { track } from "@/lib/analytics";
 import { getVisitorId } from "@/lib/utils/visitor-id";
-import posthog from "posthog-js";
+import { captureClientPostHogEvent } from "@/lib/posthog-client";
 
 const mockFetch = jest.fn(() => Promise.resolve({ ok: true } as Response));
 global.fetch = mockFetch as any;
@@ -342,7 +339,7 @@ describe("auth-events", () => {
           method: "password",
           duration_ms: 1234,
         });
-        expect(posthog.capture).toHaveBeenCalledWith("user_signed_in", {
+        expect(captureClientPostHogEvent).toHaveBeenCalledWith("user_signed_in", {
           method: "password",
           duration_ms: 1234,
         });

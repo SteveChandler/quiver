@@ -28,6 +28,7 @@ import { useCallback, useRef } from "react";
 import { useAuth } from "@/context/auth-context";
 import type { ImplicitEventType, EventMetadata } from "@/types/implicit-preferences";
 import { getVisitorId } from "@/lib/utils/visitor-id";
+import { captureClientPostHogEvent } from "@/lib/posthog-client";
 
 interface TrackEventOptions {
   /** The beach ID to associate with this event (optional for some event types) */
@@ -64,6 +65,11 @@ export function useTrackEvent() {
 
       if (now - lastTime < debounceMs) return;
       lastFired.current.set(key, now);
+
+      captureClientPostHogEvent(eventType, {
+        ...(beachId ? { beach_id: beachId } : {}),
+        ...metadata,
+      });
 
       // Fire and forget - don't block UI
       try {

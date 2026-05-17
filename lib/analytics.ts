@@ -4,6 +4,7 @@
  */
 
 import { getAttributionForAnalytics } from "@/lib/attribution";
+import { captureClientPostHogEvent } from "@/lib/posthog-client";
 
 /**
  * Detect current platform for analytics purposes based on user agent.
@@ -16,8 +17,6 @@ function currentPlatform(): "ios" | "android" | "desktop" {
   if (/iPad|iPhone|iPod/.test(ua)) return "ios";
   return "desktop";
 }
-
-const GA_ID = process.env.NEXT_PUBLIC_GA_ID || "";
 
 declare global {
   interface Window {
@@ -54,7 +53,7 @@ export function track(
   params: Record<string, any> = {},
   options: { includeAttribution?: boolean } = {}
 ) {
-  if (!GA_ID || typeof window === "undefined" || !window.gtag) return;
+  if (typeof window === "undefined") return;
 
   const { includeAttribution = true } = options;
 
@@ -64,7 +63,11 @@ export function track(
       ? { ...getAttributionForAnalytics(), ...params }
       : params;
 
-    window.gtag("event", event, eventParams);
+    captureClientPostHogEvent(event, eventParams);
+
+    if (process.env.NEXT_PUBLIC_GA_ID && window.gtag) {
+      window.gtag("event", event, eventParams);
+    }
   } catch (e) {
     // Swallow analytics errors to avoid disrupting UX
   }

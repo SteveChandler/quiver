@@ -14,6 +14,12 @@ jest.mock("@/hooks/use-track-event", () => ({
   useTrackEvent: () => ({ track: mockTrack }),
 }));
 
+const mockCaptureClientPostHogPageView = jest.fn();
+jest.mock("@/lib/posthog-client", () => ({
+  captureClientPostHogPageView: (...args: unknown[]) =>
+    mockCaptureClientPostHogPageView(...args),
+}));
+
 // Mock sessionStorage
 const mockSessionStorage: Record<string, string> = {};
 const originalSessionStorage = global.sessionStorage;
@@ -76,6 +82,12 @@ describe("PageTracker", () => {
             browser_session_id: expect.any(String),
           },
           debounceMs: 500,
+        });
+        expect(mockCaptureClientPostHogPageView).toHaveBeenCalledWith({
+          page: "home",
+          pathname: "/home",
+          referrer: "",
+          browser_session_id: expect.any(String),
         });
       });
     });

@@ -8,6 +8,7 @@ import { LocationProvider } from "@/context/location-context";
 import { SelectedBeachProvider } from "@/state/selectedBeach";
 import { Suspense } from "react";
 import { AnalyticsLoader } from "@/components/analytics/analytics-loader";
+import { PostHogProvider } from "@/components/analytics/posthog-provider";
 import dynamic from "next/dynamic";
 import { ChunkErrorHandler } from "@/components/chunk-error-handler";
 
@@ -181,6 +182,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <AuthProvider>
           {/* Global body class manager for authenticated state */}
           <AuthBodyClassManager />
+          {/* PostHog primary analytics + authenticated identity bridge */}
+          <PostHogProvider />
           {/* Google One Tap sign-in prompt for anonymous web visitors */}
           <Suspense fallback={null}>
             <GoogleOneTap />
