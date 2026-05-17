@@ -59,8 +59,8 @@ export async function getBeachForecasts(beachId: string) {
     const supabase = await createSupabaseServiceRoleClient();
 
     const today = new Date().toISOString().split("T")[0];
-    const { data, error } = await (supabase as any)
-      .from("forecasts")
+    const { data, error } = await supabase
+      .from("enhanced_forecasts")
       .select("*")
       .eq("beach_id", beachId)
       .gte("forecast_at", `${today}T00:00:00Z`)
@@ -87,8 +87,8 @@ export async function getLatestBeachForecast(beachId: string) {
   try {
     const supabase = await createSupabaseServiceRoleClient();
 
-    const { data, error } = await (supabase as any)
-      .from("forecasts")
+    const { data, error } = await supabase
+      .from("enhanced_forecasts")
       .select("*")
       .eq("beach_id", beachId)
       .order("forecast_at", { ascending: false })
@@ -385,6 +385,7 @@ export async function getForecastForToday(beachId: string) {
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
       .toISOString()
       .split("T")[0];
+    const dayAfterTomorrow = new Date(new Date(tomorrow + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
 
     console.log("📅 Searching for forecasts between:", today, "and", tomorrow);
 
@@ -432,44 +433,6 @@ export async function getForecastForToday(beachId: string) {
         );
         console.log(`🕐 Current time: ${formatCurrentTime()}, total forecasts: ${enhancedForecasts.length}`);
         console.log(`📊 First forecast: ${enhancedForecasts[0]?.forecast_time} (${enhancedForecasts[0]?.wave_height})`);
-        return currentForecast;
-      }
-    }
-
-    // Fallback to basic forecasts table if enhanced not available
-    console.log("🔄 Trying fallback to basic forecasts table...");
-
-    const dayAfterTomorrow = new Date(new Date(tomorrow + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
-    const { data: basicForecasts, error: basicError } = await (supabase as any)
-      .from("forecasts")
-      .select("*")
-      .eq("beach_id", beachId)
-      .gte("forecast_at", `${today}T00:00:00Z`)
-      .lt("forecast_at", `${dayAfterTomorrow}T00:00:00Z`)
-      .order("forecast_at", { ascending: true });
-
-    console.log("📊 Basic forecasts query result:", {
-      error: basicError,
-      count: basicForecasts?.length || 0,
-      sampleForecast: basicForecasts?.[0]
-        ? {
-            date: basicForecasts[0].forecast_date,
-            time: basicForecasts[0].forecast_time,
-            beachId: basicForecasts[0].beach_id,
-          }
-        : null,
-    });
-
-    if (basicError) {
-      console.error("❌ Error fetching basic forecast for today:", basicError);
-    }
-
-    if (basicForecasts && basicForecasts.length > 0) {
-      const currentForecast = getCurrentForecast(basicForecasts);
-      if (currentForecast) {
-        console.log(
-          `✅ Home page forecast (fallback): ${currentForecast.forecast_date} ${currentForecast.forecast_time}`
-        );
         return currentForecast;
       }
     }

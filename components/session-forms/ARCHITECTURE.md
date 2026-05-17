@@ -11,7 +11,6 @@ components/session-forms/
 ├── SessionForm.tsx                  # Main container — UI state, effects, JSX only (~460 LOC)
 ├── session-submit-handler.ts        # Submission orchestration (validation, create, redirect)
 ├── session-conversion-handler.ts    # Planned-to-completed conversion logic
-├── session-photo-handler.ts         # Photo upload workflow with toast messaging
 ├── session-invitation-handler.ts    # Fire-and-forget invitation sending
 ├── SessionFormWrapper.tsx           # Auth wrapper and error boundaries
 ├── SessionFormHeader.tsx            # Mode-aware header component

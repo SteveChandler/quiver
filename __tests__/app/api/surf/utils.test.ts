@@ -74,8 +74,9 @@ describe("app/api/surf/utils", () => {
     expect(res.name).toBe("blacks beach");
   });
 
-  test("fetchForecast: returns first forecast entry when available", async () => {
+  test("fetchForecast: returns first enhanced forecast entry when available", async () => {
     const { createSupabaseServiceRoleClient } = await import("@/lib/supabase/server");
+    const { getBeachForecasts } = await import("@/actions/forecast-actions");
 
     const beachesResult = [
       { id: "b1", name: "Ocean Beach", lat: 32.75, lon: -117.25 },
@@ -93,15 +94,15 @@ describe("app/api/surf/utils", () => {
     };
 
     const beachesQuery = createThenableQuery<any[]>({ data: beachesResult, error: null });
-    const forecastsQuery = createThenableQuery<any[]>({
+
+    (getBeachForecasts as unknown as jest.Mock).mockResolvedValue({
+      success: true,
       data: [forecastRow],
-      error: null,
     });
 
     (createSupabaseServiceRoleClient as unknown as jest.Mock).mockResolvedValue({
       from: jest.fn((table: string) => {
         if (table === "beaches") return beachesQuery;
-        if (table === "forecasts") return forecastsQuery;
         throw new Error(`Unexpected table: ${table}`);
       }),
     });
@@ -158,7 +159,6 @@ describe("app/api/surf/utils", () => {
     );
   });
 });
-
 
 
 
