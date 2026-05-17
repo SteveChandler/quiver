@@ -17,6 +17,7 @@ import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 
 import {
+  type DailyAccuracyPoint,
   getOverallAccuracyStats,
   getRegionalAccuracy,
   getTopBeaches,
@@ -38,7 +39,7 @@ const SITE_ORIGIN = (
 
 export async function generateMetadata(): Promise<Metadata> {
   return buildPageMetadata({
-    title: "Surf Forecast Accuracy — ML vs NOAA Baseline",
+    title: "Surf Forecast Accuracy: ML vs NOAA Baseline",
     description:
       "See how accurate Quiver's ML-corrected surf forecasts are versus the NOAA marine baseline. Live buoy-validated data across 100+ beaches. Updated daily.",
     path: "/forecast-accuracy",
@@ -58,6 +59,57 @@ export async function generateMetadata(): Promise<Metadata> {
 // Minimum beaches required to show charts instead of the "data building" message
 const MIN_BEACH_THRESHOLD = 5;
 
+interface AccuracySampleSummary {
+  avgRawMae: number;
+  avgCorrectedMae: number;
+  avgImprovementPct: number;
+  totalMatches: number;
+  latestDate: string;
+  dayCount: number;
+}
+
+function isPositiveMetric(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+function summarizeTimeSeries(
+  timeSeries: DailyAccuracyPoint[],
+): AccuracySampleSummary | null {
+  const validPoints = timeSeries.filter(
+    (point) =>
+      isPositiveMetric(point.rawMae) &&
+      isPositiveMetric(point.correctedMae) &&
+      isPositiveMetric(point.count),
+  );
+
+  if (validPoints.length === 0) return null;
+
+  const totalMatches = validPoints.reduce((sum, point) => sum + point.count, 0);
+  if (totalMatches <= 0) return null;
+
+  const rawSum = validPoints.reduce(
+    (sum, point) => sum + point.rawMae * point.count,
+    0,
+  );
+  const correctedSum = validPoints.reduce(
+    (sum, point) => sum + point.correctedMae * point.count,
+    0,
+  );
+  const avgRawMae = rawSum / totalMatches;
+  const avgCorrectedMae = correctedSum / totalMatches;
+  const avgImprovementPct =
+    avgRawMae > 0 ? ((avgRawMae - avgCorrectedMae) / avgRawMae) * 100 : 0;
+
+  return {
+    avgRawMae,
+    avgCorrectedMae,
+    avgImprovementPct,
+    totalMatches,
+    latestDate: validPoints[validPoints.length - 1].date,
+    dayCount: validPoints.length,
+  };
+}
+
 export default async function ForecastAccuracyPage() {
   const [
     overallStatsResult,
@@ -74,19 +126,28 @@ export default async function ForecastAccuracyPage() {
   const overallStats =
     overallStatsResult.status === "fulfilled" ? overallStatsResult.value : null;
   const regionalData =
-    regionalDataResult.status === "fulfilled" ? regionalDataResult.value : [];
+    regionalDataResult.status === "fulfilled"
+      ? regionalDataResult.value.filter(
+          (row) =>
+            isPositiveMetric(row.avgRawMae) &&
+            isPositiveMetric(row.avgCorrectedMae),
+        )
+      : [];
   const topBeaches =
     topBeachesResult.status === "fulfilled" ? topBeachesResult.value : [];
   const dailyTimeSeries =
     dailyTimeSeriesResult.status === "fulfilled"
       ? dailyTimeSeriesResult.value
       : [];
+  const accuracySample = summarizeTimeSeries(dailyTimeSeries);
 
   const hasEnoughData =
-    overallStats !== null && overallStats.beachCount >= MIN_BEACH_THRESHOLD;
+    overallStats !== null &&
+    overallStats.beachCount >= MIN_BEACH_THRESHOLD &&
+    accuracySample !== null;
 
   return (
-    <div className="bg-gradient-to-b from-sky-50 via-blue-50/30 to-white min-h-screen">
+    <div className="min-h-screen bg-[#F4EBD8] text-[#11100D]">
       <BreadcrumbStructuredData
         items={[
           { name: "Quiver", url: `${SITE_ORIGIN}/` },
@@ -97,35 +158,33 @@ export default async function ForecastAccuracyPage() {
         ]}
       />
       <WebPageSchema
-        name="Surf Forecast Accuracy — ML vs NOAA Baseline"
+        name="Surf Forecast Accuracy: ML vs NOAA Baseline"
         url={`${SITE_ORIGIN}/forecast-accuracy`}
         description="Live buoy-validated forecast accuracy data comparing Quiver's ML model against the NOAA marine baseline across 100+ surf beaches."
       />
 
-      <div className="container mx-auto px-4 py-8 max-w-5xl">
+      <div className="container mx-auto max-w-5xl px-4 py-8">
         {hasEnoughData ? (
           <>
-            {/* Hero with stat cards */}
             <ScrollReveal>
               <AccuracyHero
-                avgImprovementPct={overallStats.avgImprovementPct}
+                avgImprovementPct={accuracySample.avgImprovementPct}
                 beachCount={overallStats.beachCount}
-                totalPredictions={overallStats.totalPredictions}
+                totalPredictions={accuracySample.totalMatches}
+                latestValidatedDate={accuracySample.latestDate}
               />
             </ScrollReveal>
 
-            {/* NOAA vs Quiver comparison bar chart */}
             <ScrollReveal>
               <div className="mb-8">
                 <NOAAComparisonBar
-                  rawMae={overallStats.avgRawMae}
-                  correctedMae={overallStats.avgCorrectedMae}
+                  rawMae={accuracySample.avgRawMae}
+                  correctedMae={accuracySample.avgCorrectedMae}
                   timeSeries={dailyTimeSeries}
                 />
               </div>
             </ScrollReveal>
 
-            {/* Regional breakdown chart (only if we have regional data) */}
             {regionalData.length > 0 && (
               <ScrollReveal>
                 <div className="mb-8">
@@ -134,7 +193,6 @@ export default async function ForecastAccuracyPage() {
               </ScrollReveal>
             )}
 
-            {/* Top beaches leaderboard (only if we have beach data) */}
             {topBeaches.length > 0 && (
               <ScrollReveal>
                 <div className="mb-8">
@@ -143,7 +201,12 @@ export default async function ForecastAccuracyPage() {
               </ScrollReveal>
             )}
 
-            {/* Crowdsource CTA */}
+            <ScrollReveal>
+              <div className="mb-8">
+                <MethodologySection />
+              </div>
+            </ScrollReveal>
+
             <ScrollReveal>
               <div className="mb-8">
                 <CrowdsourceCta />
@@ -151,70 +214,53 @@ export default async function ForecastAccuracyPage() {
             </ScrollReveal>
           </>
         ) : (
-          /* Sparse data — show placeholder while data accumulates */
           <ScrollReveal>
-            <div className="mb-12 rounded-2xl border border-white/15 bg-white p-8 text-center">
-              <h1 className="text-3xl font-bold text-white mb-3">
+            <div className="mb-12 rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] p-8 text-center shadow-[4px_4px_0_#11100D]">
+              <h1 className="mb-3 font-heading text-3xl font-black text-[#11100D]">
                 How Accurate Is Quiver&apos;s Surf Forecast?
               </h1>
-              <p className="text-lg text-medium max-w-xl mx-auto mb-6">
+              <p className="mx-auto mb-6 max-w-xl text-lg font-semibold text-[#5F5646]">
                 We&apos;re accumulating buoy-validated forecast data across our
-                beach network. Check back in a few days — accuracy stats update
+                beach network. Check back in a few days; accuracy stats update
                 daily as new observations arrive.
               </p>
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm text-sky-300 font-medium">
-                <span className="h-2 w-2 rounded-full bg-sky-400 animate-pulse" />
+              <div className="inline-flex items-center gap-2 rounded-full border-2 border-[#11100D] bg-[#EFE5CF] px-4 py-2 text-sm font-black text-[#0B3A75] shadow-[2px_2px_0_#11100D]">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-[#0B3A75]" />
                 Data building in progress
               </div>
             </div>
           </ScrollReveal>
         )}
 
-        {/* Methodology — always shown */}
-        <ScrollReveal>
-          <div className="mb-8">
-            <MethodologySection />
-          </div>
-        </ScrollReveal>
+        {!hasEnoughData && (
+          <ScrollReveal>
+            <div className="mb-8">
+              <MethodologySection />
+            </div>
+          </ScrollReveal>
+        )}
 
-        {/* FAQ — always shown, uses beach count from stats or 0 fallback */}
         <ScrollReveal>
           <div className="mb-8">
             <AccuracyFaq beachCount={overallStats?.beachCount ?? 0} />
           </div>
         </ScrollReveal>
 
-        {/* CTA */}
         <ScrollReveal>
-          <section className="rounded-2xl bg-gradient-to-br from-ocean-blue to-blue-700 p-6 md:p-8 text-white text-center">
-            <h2 className="text-xl md:text-2xl font-bold mb-2">
-              Ready to check the forecast?
-            </h2>
-            <p className="text-white/80 mb-6 max-w-lg mx-auto">
-              Get ML-corrected surf forecasts, tide charts, and crowd levels for
-              beaches across the US.
-            </p>
-            <div className="flex flex-wrap justify-center gap-3">
-              <Link
-                href="/forecast"
-                className="inline-flex items-center px-5 py-2.5 rounded-lg bg-white text-ocean-blue font-semibold text-sm hover:bg-gray-50 transition-colors"
-              >
-                7-Day Forecast
-              </Link>
-              <Link
-                href="/beaches"
-                className="inline-flex items-center px-5 py-2.5 rounded-lg bg-white/10 text-white font-semibold text-sm hover:bg-white/20 transition-colors border border-white/30"
-              >
-                Browse All Beaches
-              </Link>
-              <Link
-                href="/vs/surfline"
-                className="inline-flex items-center px-5 py-2.5 rounded-lg bg-white/10 text-white font-semibold text-sm hover:bg-white/20 transition-colors border border-white/30"
-              >
-                Quiver vs Surfline
-              </Link>
-            </div>
-          </section>
+          <div className="mb-8 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/forecast"
+              className="inline-flex rounded-[8px] border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 text-sm font-black text-[#11100D] shadow-[3px_3px_0_#11100D] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75]"
+            >
+              Check today&apos;s forecast
+            </Link>
+            <Link
+              href="/vs/surfline"
+              className="inline-flex rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] px-5 py-3 text-sm font-black text-[#11100D] shadow-[3px_3px_0_#11100D] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75]"
+            >
+              Compare Surfline
+            </Link>
+          </div>
         </ScrollReveal>
       </div>
     </div>

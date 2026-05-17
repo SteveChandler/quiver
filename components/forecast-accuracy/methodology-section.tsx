@@ -1,102 +1,63 @@
 /**
  * MethodologySection
  *
- * Server component — static content explaining how Quiver's ML bias
+ * Server component: static content explaining how Quiver's ML bias
  * correction pipeline works and how accuracy is measured.
  */
 
 export function MethodologySection() {
   return (
-    <section aria-label="Forecast accuracy methodology">
-      <div className="rounded-2xl border border-white/15 bg-white p-6 md:p-8">
-        <h2 className="text-xl font-semibold text-white mb-6">
-          How We Measure Forecast Accuracy
-        </h2>
-
-        <div className="grid gap-8 md:grid-cols-2">
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-base font-semibold text-high mb-2">
-                NOAA Marine Forecasts as the Baseline
-              </h3>
-              <p className="text-sm text-medium leading-relaxed">
-                NOAA&apos;s National Weather Service publishes marine wave height
-                forecasts for coastal regions across the US. These serve as our
-                baseline — they represent what any surfer would see checking a
-                government forecast. Our ML model starts from these raw NOAA
-                predictions and refines them.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="text-base font-semibold text-high mb-2">
-                Per-Beach ML Bias Correction
-              </h3>
-              <p className="text-sm text-medium leading-relaxed">
-                Every beach has unique exposure to swell direction, wind patterns,
-                and local geography. Quiver&apos;s XGBoost model learns per-beach
-                correction factors from historical buoy observations, adjusting
-                NOAA&apos;s regional forecast to the specific conditions at each
-                spot. Corrections account for terrain-aware factors like swell
-                access and wind shelter across 72 directional bins.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="text-base font-semibold text-high mb-2">
-                Ground Truth from the IOOS Buoy Network
-              </h3>
-              <p className="text-sm text-medium leading-relaxed">
-                Validation uses real wave height readings from the Integrated
-                Ocean Observing System (IOOS) buoy network. Buoys report
-                significant wave height every 1–6 hours. We match each
-                ML-corrected forecast to the nearest buoy observation within
-                a 3-hour window to produce a verified prediction pair.
-              </p>
-            </div>
+    <section aria-label="Forecast accuracy methodology" className="relative">
+      <div className="rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] p-5 shadow-[4px_4px_0_#11100D] md:p-6">
+        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="mb-2 inline-flex rotate-1 rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] px-3 py-1 font-mono text-xs font-black uppercase tracking-[0.16em] text-[#11100D] shadow-[2px_2px_0_#11100D]">
+              How to read it
+            </p>
+            <h2 className="font-heading text-2xl font-black text-[#11100D]">
+              Three checks, no mystery math.
+            </h2>
           </div>
-
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-base font-semibold text-high mb-2">
-                What MAE Means
-              </h3>
-              <p className="text-sm text-medium leading-relaxed">
-                Mean Absolute Error (MAE) measures the average absolute
-                difference between a forecast and the observed buoy reading,
-                expressed in meters. A raw MAE of 0.40m means the forecast is,
-                on average, 0.4 meters off from what the buoy actually recorded.
-                Lower MAE = more accurate forecast.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="text-base font-semibold text-high mb-2">
-                Rolling 14-Day Evaluation Window
-              </h3>
-              <p className="text-sm text-medium leading-relaxed">
-                All accuracy statistics shown here use a 14-day rolling window
-                of matched forecast-observation pairs. This keeps the data
-                current and reflects recent model performance rather than
-                long-term historical averages. The data refreshes daily as new
-                buoy observations become available.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="text-base font-semibold text-high mb-2">
-                Automated Weekly Retraining
-              </h3>
-              <p className="text-sm text-medium leading-relaxed">
-                The ML model retrains weekly using a 90-day rolling window of
-                matched observation data. Retraining includes validation gates —
-                the new model must outperform the previous version before
-                deployment. This ensures the model stays calibrated as swell
-                patterns and buoy data evolve over time.
-              </p>
-            </div>
-          </div>
+          <p className="max-w-md text-sm font-semibold leading-6 text-[#5F5646]">
+            MAE means average wave-height miss. Lower is better.
+          </p>
         </div>
+
+        <ol className="grid gap-3 md:grid-cols-3">
+          <li className="-rotate-1 rounded-[8px] border-2 border-[#11100D] bg-[#F78E42] p-4 text-[#11100D] shadow-[3px_3px_0_#11100D]">
+            <span className="font-mono text-xs font-black uppercase tracking-[0.18em]">
+              01 baseline
+            </span>
+            <h3 className="mt-3 font-heading text-xl font-black">
+              Start with NOAA
+            </h3>
+            <p className="mt-2 text-sm font-semibold leading-6">
+              Use the raw marine forecast a surfer could check anywhere.
+            </p>
+          </li>
+          <li className="rotate-1 rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] p-4 text-[#11100D] shadow-[3px_3px_0_#11100D]">
+            <span className="font-mono text-xs font-black uppercase tracking-[0.18em]">
+              02 correction
+            </span>
+            <h3 className="mt-3 font-heading text-xl font-black">
+              Tune per beach
+            </h3>
+            <p className="mt-2 text-sm font-semibold leading-6">
+              Account for exposure, swell direction, shelter, and local shape.
+            </p>
+          </li>
+          <li className="-rotate-1 rounded-[8px] border-2 border-[#11100D] bg-[#8AB4F8] p-4 text-[#11100D] shadow-[3px_3px_0_#11100D]">
+            <span className="font-mono text-xs font-black uppercase tracking-[0.18em]">
+              03 receipts
+            </span>
+            <h3 className="mt-3 font-heading text-xl font-black">
+              Check the buoys
+            </h3>
+            <p className="mt-2 text-sm font-semibold leading-6">
+              Compare both forecasts to IOOS buoy observations within 3 hours.
+            </p>
+          </li>
+        </ol>
       </div>
     </section>
   );
