@@ -29,9 +29,6 @@ jest.mock("@/components/home-screen", () => ({
 jest.mock("@/components/oracle/oracle-home-screen", () => ({
   OracleHomeScreen: () => <div data-testid="home-screen" />,
 }));
-jest.mock("@/components/landing-page/navbar", () => ({
-  Navbar: () => <div data-testid="navbar" />,
-}));
 jest.mock("@/components/landing-page/hero-section", () => ({
   HeroSection: () => <div data-testid="hero-section" />,
 }));
@@ -91,7 +88,7 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     ).not.toBeInTheDocument();
 
     // Should render unauth landing sections even while auth is initializing.
-    expect(screen.getByTestId("navbar")).toBeInTheDocument();
+    expect(screen.queryByTestId("navbar")).not.toBeInTheDocument();
     expect(screen.getByTestId("hero-section")).toBeInTheDocument();
 
     // Should show the email confirmation modal
@@ -229,7 +226,7 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     render(<AuthAwareLandingWrapper />);
 
     // Should render landing page
-    expect(screen.getByTestId("navbar")).toBeInTheDocument();
+    expect(screen.queryByTestId("navbar")).not.toBeInTheDocument();
     expect(screen.getByTestId("hero-section")).toBeInTheDocument();
 
     // Should NOT show modal
@@ -266,7 +263,7 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     render(<AuthAwareLandingWrapper />);
 
     // Should render landing page, not redirect to sign-in
-    expect(screen.getByTestId("navbar")).toBeInTheDocument();
+    expect(screen.queryByTestId("navbar")).not.toBeInTheDocument();
     expect(screen.getByTestId("hero-section")).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
 
@@ -285,7 +282,7 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     render(<AuthAwareLandingWrapper />);
 
     // Should render landing page
-    expect(screen.getByTestId("navbar")).toBeInTheDocument();
+    expect(screen.queryByTestId("navbar")).not.toBeInTheDocument();
 
     // Should NOT show modal
     expect(screen.queryByText("Check your email")).not.toBeInTheDocument();
@@ -313,5 +310,4 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     expect(replace).toHaveBeenCalledWith("/");
   });
 });
-
 

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { Navbar } from "@/components/landing-page/navbar";
 import { HeroSection } from "@/components/landing-page/hero-section";
 import { useState, useEffect } from "react";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
@@ -112,9 +111,6 @@ export default function LandingPage({
         Sign Up
       </Link>
 
-      {/* Modern Navigation */}
-      <Navbar autoOpenLogin={autoOpenLogin} />
-
       <main role="main">
         {/* Hero Section */}
         <HeroSection />
@@ -151,6 +147,7 @@ export default function LandingPage({
             <CTASection
               source="landing-final-cta"
               ctaCopyVariant="landing_final_v1"
+              variant="app-store-preorder"
             />
           </ProgressiveSection>
 

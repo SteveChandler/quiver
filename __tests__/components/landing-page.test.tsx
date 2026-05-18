@@ -9,11 +9,6 @@ jest.mock("@/lib/utils/performance-utils", () => ({
   },
 }));
 
-// Mock all the section components to test integration
-jest.mock("@/components/landing-page/navbar", () => ({
-  Navbar: () => <nav data-testid="navbar">Navbar</nav>,
-}));
-
 jest.mock("@/components/landing-page/hero-section", () => ({
   HeroSection: () => <div data-testid="hero-section">Hero Section</div>,
 }));
@@ -61,11 +56,10 @@ describe("LandingPage", () => {
     jest.clearAllMocks();
   });
 
-  it("renders navbar and hero section immediately", () => {
+  it("renders the hero section immediately without the old navbar", () => {
     render(<LandingPage />);
 
-    // Navbar and hero section should render immediately since they're not lazy loaded
-    expect(screen.getByTestId("navbar")).toBeInTheDocument();
+    expect(screen.queryByTestId("navbar")).not.toBeInTheDocument();
     expect(screen.getByTestId("hero-section")).toBeInTheDocument();
   });
 
@@ -114,8 +108,7 @@ describe("LandingPage", () => {
     const mainDiv = container.firstChild as HTMLElement;
     expect(mainDiv).toHaveClass("min-h-screen");
 
-    // Should have navbar, hero section and sections container
-    expect(screen.getByTestId("navbar")).toBeInTheDocument();
+    expect(screen.queryByTestId("navbar")).not.toBeInTheDocument();
     expect(screen.getByTestId("hero-section")).toBeInTheDocument();
     expect(container.querySelector(".space-y-0")).toBeInTheDocument();
   });

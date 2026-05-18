@@ -7,7 +7,6 @@ import dynamic from "next/dynamic";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
 import { hasSupabaseAuthCookie } from "@/lib/utils/supabase-cookie-utils";
 import { BODY_CLASSES, PERFORMANCE_TIMING } from "@/lib/constants/css-classes";
-import { Navbar } from "@/components/landing-page/navbar";
 import { HeroSection } from "@/components/landing-page/hero-section";
 import { LandingInteractiveSections } from "@/components/landing-page/landing-interactive-sections";
 import { OracleHomeSkeleton } from "@/components/oracle/oracle-home-skeleton";
@@ -135,7 +134,6 @@ export function AuthAwareLandingWrapper() {
   // but hidden via CSS (body.js-loaded) when this client version is available.
   return (
     <>
-      <Navbar />
       <main role="main">
         <HeroSection />
 
