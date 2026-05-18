@@ -169,7 +169,9 @@ export function CTASection({
           className="text-white/50 text-sm font-sans"
           {...motionProps(400)}
         >
-          Free iOS &amp; Android beta. Free core, Pro adds depth.
+          {isAppStorePreorder
+            ? "iPhone pre-order is open. Core forecasts stay free."
+            : "Free iOS & Android beta. Free core, Pro adds depth."}
         </motion.p>
       </div>
       <UnifiedAuthModal

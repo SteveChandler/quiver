@@ -85,11 +85,7 @@ function ProgressiveSection({
   );
 }
 
-export default function LandingPage({
-  autoOpenLogin = false,
-}: {
-  autoOpenLogin?: boolean;
-}) {
+export default function LandingPage() {
   // Preload critical resources immediately
   useEffect(() => {
     PerformanceUtils.preloadCriticalResources();
