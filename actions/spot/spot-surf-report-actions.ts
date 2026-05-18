@@ -18,6 +18,7 @@ import {
   buildForecastRecommendationContext,
   type ForecastRecommendationContext,
 } from '@/lib/services/forecast-recommendation-context';
+import { applyV51DisplayOverrideToForecasts } from '@/lib/services/forecast/v5-display-gate';
 
 export interface SpotSurfReportResult {
   report: SurfCallResult;
@@ -298,7 +299,10 @@ const getCachedSurfReport = unstable_cache(
       };
     }
 
-    const forecasts = data as EnhancedForecastEntity[];
+    const forecasts = await applyV51DisplayOverrideToForecasts(
+      data as EnhancedForecastEntity[],
+      { enabled: true },
+    );
 
     // 4. Filter to today first; fall back to tomorrow if no viable window today
     const todayForecasts = forecasts.filter(f => extractForecastDate(f.forecast_at, beachTz) === todayStr);
