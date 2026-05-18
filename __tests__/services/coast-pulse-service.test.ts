@@ -150,6 +150,14 @@ jest.mock("@/lib/utils/geo-utils", () => ({
   degreesToCardinal: jest.fn().mockReturnValue("SW"),
 }));
 
+const mockWaveLabelMocks = {
+  getDailyIntelWaveHeightLabels: jest.fn(),
+};
+jest.mock("@/lib/services/intel/wave-height-labels", () => ({
+  getDailyIntelWaveHeightLabels: (...args: any[]) =>
+    mockWaveLabelMocks.getDailyIntelWaveHeightLabels(...args),
+}));
+
 // Import after mocks
 import { generateCoastPulse } from "@/lib/services/coast-pulse/coast-pulse-service";
 import { haversineDistance } from "@/lib/utils/geo-utils";
@@ -170,6 +178,10 @@ function setupDefaultMocks() {
 
   // Reset haversineDistance default
   (haversineDistance as jest.Mock).mockReturnValue(5);
+  mockWaveLabelMocks.getDailyIntelWaveHeightLabels.mockResolvedValue({
+    current_wave_height_label: null,
+    best_window_wave_height_label: null,
+  });
 
   // Beaches query (from("beaches"))
   // The mock chain returns itself, so we need to handle the thenable
@@ -260,6 +272,51 @@ describe("Coast Pulse Service", () => {
       });
 
       expect(result.nearbyBeachIds).toContain("beach-1");
+    });
+
+    test("daily intel item uses current forecast-derived wave-height label", async () => {
+      mockWaveLabelMocks.getDailyIntelWaveHeightLabels.mockResolvedValue({
+        current_wave_height_label: "2-3ft",
+        best_window_wave_height_label: "3-4ft",
+      });
+      mockSupabaseChain.single = jest.fn().mockImplementation(() => ({
+        then: (resolve: any) =>
+          resolve({
+            data: {
+              id: "intel-1",
+              beach_id: "beach-1",
+              created_at: ONE_HOUR_AGO.toISOString(),
+              best_window_start: "06:00:00",
+              best_window_end: "09:00:00",
+              best_window_description: "cleanest early",
+              surf_min_ft: 1,
+              surf_max_ft: 5,
+              primary_swell_period_s: 12,
+              wind_speed_mph: 6,
+              wind_direction_text: "NE",
+              conditions_score: 70,
+            },
+            error: null,
+          }),
+      }));
+
+      const result = await generateCoastPulse({
+        lat: 32.72,
+        lon: -117.16,
+        limit: 8,
+      });
+
+      expect(result.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: "daily-intel-beach-1",
+            message: expect.stringContaining("2-3ft"),
+          }),
+        ])
+      );
+      expect(
+        result.items.find((item) => item.id === "daily-intel-beach-1")?.message
+      ).not.toContain("1-5ft");
     });
 
     test("limits returned items to limit parameter", async () => {

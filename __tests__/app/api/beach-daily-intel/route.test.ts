@@ -14,6 +14,12 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(),
 }));
 
+const mockGetDailyIntelWaveHeightLabels = jest.fn();
+jest.mock("@/lib/services/intel/wave-height-labels", () => ({
+  getDailyIntelWaveHeightLabels: (...args: unknown[]) =>
+    mockGetDailyIntelWaveHeightLabels(...args),
+}));
+
 import { NextRequest } from "next/server";
 import { GET } from "@/app/api/beach-daily-intel/route";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -21,6 +27,10 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 describe("/api/beach-daily-intel", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetDailyIntelWaveHeightLabels.mockResolvedValue({
+      current_wave_height_label: null,
+      best_window_wave_height_label: null,
+    });
   });
 
   describe("input validation", () => {
@@ -160,6 +170,61 @@ describe("/api/beach-daily-intel", () => {
         best_time_range: intelRow.best_time_range,
         confidence_score: intelRow.confidence_score,
       });
+    });
+
+    it("merges computed forecast wave-height labels into the intel response", async () => {
+      const beachId = "11111111-1111-4111-8111-111111111111";
+      const forecastDate = "2026-01-06";
+      const intelRow = {
+        beach_id: beachId,
+        forecast_date: forecastDate,
+        best_window_start: "06:00:00",
+        best_window_end: "09:00:00",
+        surf_min_ft: 1,
+        surf_max_ft: 5,
+      };
+
+      mockGetDailyIntelWaveHeightLabels.mockResolvedValue({
+        current_wave_height_label: "2-3ft",
+        best_window_wave_height_label: "3-4ft",
+      });
+
+      const chain: any = {
+        select: jest.fn(() => chain),
+        eq: jest.fn(() => chain),
+        order: jest.fn(() => chain),
+        limit: jest.fn(() => chain),
+        maybeSingle: jest.fn(async () => ({ data: intelRow, error: null })),
+      };
+      const mockSupabase = {
+        from: jest.fn(() => chain),
+      };
+      (createSupabaseServerClient as jest.Mock).mockResolvedValue(mockSupabase as any);
+
+      const req = new NextRequest(
+        new URL(
+          `http://localhost/api/beach-daily-intel?beachId=${beachId}&forecastDate=${forecastDate}`
+        )
+      );
+
+      const res = await GET(req);
+      const json = await res.json();
+
+      expect(json.data.intel).toMatchObject({
+        surf_min_ft: 1,
+        surf_max_ft: 5,
+        current_wave_height_label: "2-3ft",
+        best_window_wave_height_label: "3-4ft",
+      });
+      expect(mockGetDailyIntelWaveHeightLabels).toHaveBeenCalledWith(
+        mockSupabase,
+        beachId,
+        forecastDate,
+        {
+          bestWindowStart: "06:00:00",
+          bestWindowEnd: "09:00:00",
+        }
+      );
     });
 
     it("returns null intel when no data found (not a 404)", async () => {
@@ -380,5 +445,4 @@ describe("/api/beach-daily-intel", () => {
     });
   });
 });
-
 

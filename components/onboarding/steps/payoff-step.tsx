@@ -31,6 +31,19 @@ function getRuntimeIanaTimezone(): string | null {
   }
 }
 
+function formatIntelWaveHeightLabel(intel: ClientBeachDailyIntel): string | null {
+  if (intel.best_window_wave_height_label) {
+    return intel.best_window_wave_height_label;
+  }
+  if (intel.current_wave_height_label) {
+    return intel.current_wave_height_label;
+  }
+  if (intel.surf_min_ft == null || intel.surf_max_ft == null) {
+    return null;
+  }
+  return `${Math.round(intel.surf_min_ft)}-${Math.round(intel.surf_max_ft)}ft`;
+}
+
 // Animated score counter — displays a spring-animated number with scale pop on finish
 function AnimatedScore({ target }: { target: number }) {
   const motionValue = useMotionValue(0);
@@ -366,11 +379,11 @@ export function PayoffStep() {
                   )}
 
                   <div className="flex items-center gap-4 text-sm">
-                    {intel.surf_min_ft !== null && intel.surf_max_ft !== null && (
+                    {formatIntelWaveHeightLabel(intel) && (
                       <div className="flex items-center gap-1.5">
                         <span className="text-base leading-none">🌊</span>
                         <span className="text-white">
-                          {intel.surf_min_ft}-{intel.surf_max_ft} ft
+                          {formatIntelWaveHeightLabel(intel)}
                         </span>
                       </div>
                     )}
