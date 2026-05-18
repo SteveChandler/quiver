@@ -4,6 +4,7 @@
 
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { CalibrationVersion } from "@/lib/services/forecast/calibration-v5";
 
 // Mock server modules
 jest.mock("@/lib/supabase/server", () => ({
@@ -31,6 +32,14 @@ jest.mock("@/lib/domains/user-preferences", () => ({
 jest.mock("@/lib/utils/timezone-utils.server", () => ({
   getTimezoneFromCoords: jest.fn(() => "America/Los_Angeles"),
 }));
+
+jest.mock("@/lib/services/forecast/calibration-v5", () => {
+  const actual = jest.requireActual("@/lib/services/forecast/calibration-v5");
+  return {
+    ...actual,
+    getActiveCalibration: jest.fn(),
+  };
+});
 
 // Track call count for formatDateInTimezone to return different values
 let formatDateCallCount = 0;
@@ -79,6 +88,25 @@ describe("spot-surf-report-actions", () => {
       confidence_score: 80,
     },
   ];
+
+  const calibration: CalibrationVersion = {
+    version: "v5_c.20260511_0630",
+    knots: {
+      "<0.5m": { om_anchor: 0.4, obs: 0.787, n: 1155 },
+      "0.5-1.0m": { om_anchor: 0.803, obs: 0.803, n: 17999 },
+      "1.0-1.5m": { om_anchor: 1.097, obs: 1.097, n: 8134 },
+      "1.5m+": { om_anchor: 1.628, obs: 1.628, n: 2840 },
+    },
+    g_dir: {
+      "S/SW": { g: -0.093, n: 6296 },
+      W: { g: -0.097, n: 9475 },
+      NW: { g: 0.231, n: 3670 },
+      OTHER: { g: -0.01, n: 10687 },
+    },
+    guardrails: {
+      passthrough_cells: [{ direction_bucket: "W", om_bucket: "0.5-1.0m" }],
+    },
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -422,6 +450,92 @@ describe("spot-surf-report-actions", () => {
       expect(mockSelectBestWindow).toHaveBeenCalled();
       const callArgs = mockSelectBestWindow.mock.calls[0][0];
       expect(callArgs.userPrefs).toBeNull();
+    });
+
+    it("builds forecastContext from v5.1 display heights for PB Point-like rows", async () => {
+      const { createSupabaseServerClient, createSupabaseServiceRoleClient } = await import(
+        "@/lib/supabase/server"
+      );
+      const { getBatchSunTimes } = await import("@/lib/services/discovery");
+      const { getActiveCalibration } = await import("@/lib/services/forecast/calibration-v5");
+
+      (getActiveCalibration as jest.Mock).mockResolvedValue(calibration);
+      (createSupabaseServerClient as jest.Mock).mockReturnValue({
+        auth: {
+          getUser: jest.fn().mockResolvedValue({ data: { user: null } }),
+        },
+        from: jest.fn(() => ({
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              single: jest.fn().mockResolvedValue({ data: null, error: null }),
+            })),
+          })),
+        })),
+      });
+
+      const mockSunTimesCache = new Map([
+        [
+          "beach-123",
+          {
+            sunrises: [new Date("2024-01-15T14:47:00Z")],
+            sunsets: [new Date("2024-01-16T01:00:00Z")],
+          },
+        ],
+      ]);
+      (getBatchSunTimes as jest.Mock).mockResolvedValue(mockSunTimesCache);
+
+      const pbPointForecasts: Partial<EnhancedForecastEntity>[] = [
+        {
+          ...mockForecasts[0],
+          wave_height: "0.5 ft",
+          wave_height_om: 1.22,
+          swell_1_direction: "WNW",
+          swell_1_period: "12",
+          wind_speed: "4 mph",
+          wind_direction: "S",
+        },
+      ];
+      (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              gte: jest.fn(() => ({
+                lt: jest.fn(() => ({
+                  order: jest.fn(() => ({
+                    limit: jest.fn(async () => ({
+                      data: pbPointForecasts,
+                      error: null,
+                    })),
+                  })),
+                })),
+              })),
+            })),
+          })),
+        })),
+      });
+
+      mockSelectBestWindow.mockImplementation(({ forecasts }) => {
+        const sourceForecast = forecasts[0];
+        return {
+          start: new Date("2024-01-15T16:00:00Z"),
+          end: new Date("2024-01-15T20:00:00Z"),
+          score: 82,
+          waveHeight: sourceForecast.wave_height,
+          wavePeriod: sourceForecast.swell_1_period,
+          peakTime: new Date(sourceForecast.forecast_at),
+          sourceForecast,
+        };
+      });
+
+      const { getSpotSurfReport } = await import(
+        "@/actions/spot/spot-surf-report-actions"
+      );
+      const result = await getSpotSurfReport(mockBeach);
+
+      expect(mockSelectBestWindow).toHaveBeenCalled();
+      expect(mockSelectBestWindow.mock.calls[0][0].forecasts[0].wave_height).toBe("4-5ft");
+      expect(result?.forecastContext?.waveHeight).toBe("4-5ft");
+      expect(result?.forecastContext?.waveHeightRangeLabel).toBe("4-5 ft");
     });
 
     // ------------------------------------------------------------------------
