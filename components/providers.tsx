@@ -63,6 +63,7 @@ const ClientErrorTracker = dynamic(
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { AppHeader } from "@/components/app-header";
+import { IphoneAppBanner } from "@/components/app-store/iphone-app-banner";
 
 /**
  * EmbedBodyOverride - Sets body styles for embed routes and cleans up on unmount.
@@ -230,6 +231,7 @@ function AuthenticatedAppContent({ children }: { children: React.ReactNode }) {
       <Suspense fallback={null}>
         <AppHeader />
       </Suspense>
+      <IphoneAppBanner />
       <main id="main-content" role="main">
         {children}
       </main>
@@ -257,6 +259,7 @@ function LandingPageContent({ children }: { children: React.ReactNode }) {
       <Suspense fallback={null}>
         <AppHeader />
       </Suspense>
+      <IphoneAppBanner />
       {/* PWA SW registration/unregistration (runtime-controlled; never on localhost) */}
       <Suspense fallback={null}>
         <PWAAndPushListeners />

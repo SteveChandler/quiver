@@ -1,0 +1,9 @@
+export const IOS_APP_STORE_APP_ID = "6759300320";
+
+export const IOS_APP_STORE_PREORDER_URL =
+  "https://apps.apple.com/us/app/surf-forecast-quiver/id6759300320";
+
+export const IOS_APP_STORE_PREORDER_CTA = "Pre-order on the App Store";
+
+export const IOS_APP_STORE_SMART_BANNER_ARGUMENT =
+  "https://www.quiversurf.app";
