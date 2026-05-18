@@ -21,8 +21,7 @@ export const maxDuration = 300; // Vercel hard limit (5min)
 type SyncPhase = "import" | "match";
 type PhaseResolution =
   | { kind: "run"; phase: SyncPhase; inferred: boolean }
-  | { kind: "skip"; reason: string }
-  | { kind: "invalid"; details: string };
+  | { kind: "skip"; reason: string };
 
 const SYNC_PHASES: readonly SyncPhase[] = ["import", "match"];
 
@@ -89,14 +88,6 @@ async function _GET(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const phaseResolution = resolvePhase(url.searchParams, new Date());
 
-    if (phaseResolution.kind === "invalid") {
-      return createErrorResponse(
-        "Invalid phase",
-        phaseResolution.details,
-        400
-      );
-    }
-
     if (phaseResolution.kind === "skip") {
       const result: SkippedSyncResult = {
         phase: "skipped",
@@ -153,8 +144,11 @@ function resolvePhase(
     }
 
     return {
-      kind: "invalid",
-      details: 'Query param "phase" must be "import" or "match"',
+      kind: "skip",
+      reason:
+        normalizedPhase.length === 0
+          ? 'Ignoring blank query param "phase" from authenticated probe (raw phase="")'
+          : `Ignoring invalid query param "phase" from authenticated probe (raw phase="${rawPhase}"). Accepted phases: import, match`,
     };
   }
 
