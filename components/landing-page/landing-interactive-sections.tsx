@@ -56,6 +56,7 @@ export function LandingInteractiveSections() {
       <CTASection
         source="landing-final-cta"
         ctaCopyVariant="landing_final_v1"
+        variant="app-store-preorder"
       />
     </div>
   );

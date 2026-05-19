@@ -7,9 +7,9 @@
  * so the comparator (current displayed vs raw OM vs v5) becomes available
  * once enough paired-with-observation rows accumulate.
  *
- * v5.1 shadow spec (locked 2026-05-11 by post-refit gate):
- *   v5.1 = f(wave_height_om) + g(direction_bucket), except NW uses f(om)
- *          only because the NW directional adjustment regressed post-refit.
+ * v5.1 shadow spec (updated 2026-05-18 by post-refit gate):
+ *   v5.1 = f(wave_height_om) + g(direction_bucket), except NW >= 1.0m
+ *          passes raw OM through and NW < 1.0m uses f(om) only.
  *   Guardrail: when (direction_bucket=W, om_bucket=0.5-1.0m), pass through
  *              raw OM (skip g entirely for that cell only).
  *
@@ -59,7 +59,7 @@ const OM_BUCKET_ORDER: OmBucket[] = [
 ];
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
-const V51_FORMULA_ID = "v5_1_no_nw_g";
+const V51_FORMULA_ID = "v5_1_nw_ge1_raw_om";
 
 let cachedVersion: CalibrationVersion | null = null;
 let cachedAt = 0;
@@ -143,6 +143,15 @@ function isPassthroughCell(
   if (!cells || cells.length === 0) return false;
   return cells.some(
     (c) => c.direction_bucket === dirBucket && c.om_bucket === omBucket
+  );
+}
+
+function isNorthwestRawOmPassthrough(
+  dirBucket: DirectionBucket,
+  omBucket: OmBucket
+): boolean {
+  return (
+    dirBucket === "NW" && (omBucket === "1.0-1.5m" || omBucket === "1.5m+")
   );
 }
 
@@ -243,9 +252,12 @@ function computeV5ShadowImpl(params: {
   // could otherwise overflow on insert and roll back the snapshot batch.
   const clamp = (v: number): number => Math.min(Math.max(v, 0), 99.999);
 
-  // Guardrail: pass through raw OM in the W × 0.5-1.0m cell (failed
-  // walk-forward promotion at +0.0545m MAE; isolated to that cell).
-  if (isPassthroughCell(calibration.guardrails, dirBucket, omBucket)) {
+  // Guardrails: pass through raw OM in cells where the latest gate showed the
+  // calibrated transform was worse than raw OM.
+  if (
+    isNorthwestRawOmPassthrough(dirBucket, omBucket) ||
+    isPassthroughCell(calibration.guardrails, dirBucket, omBucket)
+  ) {
     return {
       v5_shadow_height_m: Number(clamp(wave_height_om_m).toFixed(3)),
       v5_model_version: v5ModelVersion,

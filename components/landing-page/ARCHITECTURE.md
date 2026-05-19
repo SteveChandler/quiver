@@ -67,7 +67,6 @@ export function AuthAwareLandingWrapper() {
   if (user) return <HomeScreenDynamic />;
   return (
     <>
-      <Navbar />
       <main role=\"main\">
         <HeroSection />
         <LandingInteractiveSections />
@@ -77,13 +76,9 @@ export function AuthAwareLandingWrapper() {
 }
 ```
 
-### Returning-User Auto-Login (`autoOpenLogin` prop)
+### Launch-Week Header Behavior
 
-`LandingPage` accepts an optional `autoOpenLogin?: boolean` prop, which is forwarded to `Navbar`. When `true`, `Navbar` auto-opens the `UnifiedAuthModal` in login mode on first mount (guarded by a `hasAutoOpened` ref to prevent re-triggering).
-
-The prop originates from `app/client-app.tsx`, which reads the `quiver_returning_user` localStorage flag set by `AuthProvider` on successful sign-in. This creates a low-friction re-authentication flow for returning users whose sessions have expired.
-
-**Prop chain**: `ClientApp` (reads localStorage) -> `LandingPage({ autoOpenLogin })` -> `Navbar({ autoOpenLogin })` -> opens `UnifiedAuthModal`
+The unauthenticated `/` route intentionally omits the landing navbar during the iPhone pre-order campaign so the first viewport opens directly on the App Store launch video. Returning-user auto-login still records the `quiver_returning_user` flag in auth, but the launch landing page no longer forwards an `autoOpenLogin` prop or auto-opens the navbar auth modal.
 
 **Architecture Decisions:**
 

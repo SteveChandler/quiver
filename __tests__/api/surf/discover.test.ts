@@ -183,8 +183,11 @@ async function callDiscoverRoute(entitlementRow: Record<string, unknown> | null)
 }
 
 describe("/api/surf/discover entitlement resolution", () => {
+  const originalBestSpotGate = process.env.SURF_DISCOVERY_BEST_SPOT_GATE;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    delete process.env.SURF_DISCOVERY_BEST_SPOT_GATE;
     // Default discovery response: empty but well-formed.
     mockDiscoverSurfSpots.mockResolvedValue({
       recommendations: [],
@@ -199,6 +202,14 @@ describe("/api/surf/discover entitlement resolution", () => {
       },
       regionalCall: "",
     });
+  });
+
+  afterAll(() => {
+    if (originalBestSpotGate === undefined) {
+      delete process.env.SURF_DISCOVERY_BEST_SPOT_GATE;
+    } else {
+      process.env.SURF_DISCOVERY_BEST_SPOT_GATE = originalBestSpotGate;
+    }
   });
 
   it("active Pro user (is_pro=true, no expiry) → isPro:true reaches orchestrator", async () => {
@@ -328,7 +339,29 @@ describe("/api/surf/discover entitlement resolution", () => {
     );
   });
 
-  it("free users receive teaser-safe regional context without best-spot identity fields", async () => {
+  it("free users receive recommendations when the best-spot gate is not enabled", async () => {
+    mockDiscoverSurfSpots.mockResolvedValue(makeDiscoveryResponse());
+
+    const response = await callDiscoverRoute(null);
+    const body = await response.json();
+
+    expect(body.data.entitlement).toMatchObject({
+      tier: "free",
+      hasPaidAccess: false,
+      canSeeBestSpot: false,
+    });
+    expect(body.data.lockedBestSpotTeaser).toBeNull();
+    expect(body.data.recommendations).toHaveLength(1);
+    expect(body.data.recommendations[0].beach).toMatchObject({
+      id: "beach-secret-id",
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+    });
+    expect(body.data.recommendations[0].personalExplanation).toBeUndefined();
+  });
+
+  it("free users receive teaser-safe regional context when the best-spot gate is enabled", async () => {
+    process.env.SURF_DISCOVERY_BEST_SPOT_GATE = "1";
     mockDiscoverSurfSpots.mockResolvedValue(makeDiscoveryResponse());
 
     const response = await callDiscoverRoute(null);
@@ -367,7 +400,8 @@ describe("/api/surf/discover entitlement resolution", () => {
     expect(responseText).not.toContain("https://cams.quiver.test/ob");
   });
 
-  it("generates ETag from the gated free response rather than the ungated discovery object", async () => {
+  it("generates ETag from the opt-in gated free response rather than the ungated discovery object", async () => {
+    process.env.SURF_DISCOVERY_BEST_SPOT_GATE = "1";
     const ungatedDiscovery = makeDiscoveryResponse();
     mockDiscoverSurfSpots.mockResolvedValue(ungatedDiscovery);
 

@@ -50,6 +50,9 @@ describe("session share helpers", () => {
     expect(parsed.searchParams.get("windLabel")).toBe("Offshore");
     expect(parsed.searchParams.get("tagline")).toBe("Clean morning waves");
     expect(parsed.searchParams.get("bg")).toBe("https://example.com/session.jpg");
+    expect(new URL(parsed.searchParams.get("shareUrl") ?? "").pathname).toBe(
+      "/sessions/session-abc"
+    );
   });
 
   it("uses the uploaded session image as the share-card background", () => {

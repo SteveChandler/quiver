@@ -7,12 +7,12 @@ import { motion, AnimatePresence, useInView } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { SectionWrapper } from "./section-wrapper";
 import { CONTENT } from "@/lib/constants/features";
-import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useAuth } from "@/context/auth-context";
+import { track } from "@/lib/analytics";
 import {
-  trackSignupCtaClick,
-  trackSignupCtaView,
-} from "@/lib/analytics/signup-conversion-tracking";
+  IOS_APP_STORE_PREORDER_CTA,
+  IOS_APP_STORE_PREORDER_URL,
+} from "@/lib/constants/app-store";
 
 type FeatureId = "forecast" | "journal" | "intel";
 
@@ -54,7 +54,6 @@ const FEATURES: Feature[] = [
 
 export function ForecastSection() {
   const [activeFeatureId, setActiveFeatureId] = useState<FeatureId>("forecast");
-  const [authModalOpen, setAuthModalOpen] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
   const isInView = useInView(sectionRef, { once: true, amount: 0.2 });
   const { user } = useAuth();
@@ -65,18 +64,21 @@ export function ForecastSection() {
   useEffect(() => {
     if (user || !isInView || hasTrackedView.current) return;
     hasTrackedView.current = true;
-    trackSignupCtaView({
+    track("app_store_preorder_view", {
       source: "forecast-section",
       surface: "landing-page",
+      platform: "ios",
     });
   }, [user, isInView]);
 
-  const handleBetaCtaClick = useCallback(() => {
-    trackSignupCtaClick({
+  const handlePreorderClick = useCallback(() => {
+    track("app_store_preorder_click", {
       source: "forecast-section",
       surface: "landing-page",
+      platform: "ios",
+      cta_text: IOS_APP_STORE_PREORDER_CTA,
+      destination_url: IOS_APP_STORE_PREORDER_URL,
     });
-    setAuthModalOpen(true);
   }, []);
 
   // Navigation handlers
@@ -292,36 +294,24 @@ export function ForecastSection() {
                 </motion.div>
               </AnimatePresence>
 
-              {!user && (
-                <div className="mt-10 flex flex-col gap-4 items-center md:items-start">
-                  <Button
-                    onClick={handleBetaCtaClick}
-                    className="rounded-full px-7 py-3 text-sm font-semibold bg-ocean-blue hover:bg-ocean-blue/90 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 text-white shadow-sm focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
-                    data-testid={`forecast-cta-${activeFeatureId}`}
+              <div className="mt-10 flex flex-col gap-4 items-center md:items-start">
+                <Button
+                  asChild
+                  className="rounded-full bg-ocean-blue px-7 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-ocean-blue/90 hover:shadow-xl active:translate-y-0 focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
+                  data-testid={`forecast-cta-${activeFeatureId}`}
+                >
+                  <a
+                    href={IOS_APP_STORE_PREORDER_URL}
+                    onClick={handlePreorderClick}
                   >
-                    Join the beta
-                  </Button>
-                </div>
-              )}
+                    {IOS_APP_STORE_PREORDER_CTA}
+                  </a>
+                </Button>
+              </div>
             </div>
           </div>
         </div>
       </div>
-
-      {authModalOpen && (
-        <UnifiedAuthModal
-          isOpen={authModalOpen}
-          onClose={() => setAuthModalOpen(false)}
-          mode="signup"
-          source="forecast-section"
-          returnTo="/"
-          contextMessage={{
-            title: "Join the Quiver beta",
-            description:
-              "Free access to the iOS and Android beta. Sign up to help dial in the forecast for your local breaks.",
-          }}
-        />
-      )}
     </SectionWrapper>
   );
 }

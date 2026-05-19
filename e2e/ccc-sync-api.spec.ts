@@ -66,8 +66,7 @@ test.describe('CCC Sync API - parameter validation', () => {
   /**
    * Phase validation tests send the x-vercel-cron header so they exercise
    * parameter handling after cron auth passes.
-   * Missing phase should skip safely while explicit invalid phase values still
-   * fail validation.
+   * Missing phase and malformed explicit phase values should skip safely.
    */
 
   test('returns safe skip for missing phase param when cron header is present', async ({ request }) => {
@@ -80,32 +79,37 @@ test.describe('CCC Sync API - parameter validation', () => {
     expect(body?.data?.phase).toBe('skipped');
   });
 
-  test('returns 400 or 401 for invalid phase value', async ({ request }) => {
+  test('returns safe skip for invalid phase value', async ({ request }) => {
     const response = await request.get('/api/cron/ccc-sync?phase=bogus', {
       headers: { 'x-vercel-cron': '1' },
     });
-    expect([400, 401]).toContain(response.status());
+    expect(response.status()).toBe(200);
+
+    const body = await response.json();
+    expect(body?.data?.phase).toBe('skipped');
+    expect(body?.data?.reason).toContain('raw phase="bogus"');
   });
 
-  test('returns 400 or 401 for phase=DELETE (injection attempt)', async ({ request }) => {
+  test('returns safe skip for phase=DELETE (injection attempt)', async ({ request }) => {
     const response = await request.get('/api/cron/ccc-sync?phase=DELETE', {
       headers: { 'x-vercel-cron': '1' },
     });
-    expect([400, 401]).toContain(response.status());
+    expect(response.status()).toBe(200);
+
+    const body = await response.json();
+    expect(body?.data?.phase).toBe('skipped');
+    expect(body?.data?.reason).toContain('raw phase="DELETE"');
   });
 
-  test('when cron header accepted, 400 body contains descriptive error for invalid phase', async ({ request }) => {
-    const response = await request.get('/api/cron/ccc-sync?phase=invalid', {
+  test('returns safe skip for blank explicit phase when cron header is present', async ({ request }) => {
+    const response = await request.get('/api/cron/ccc-sync?phase=%20%20', {
       headers: { 'x-vercel-cron': '1' },
     });
+    expect(response.status()).toBe(200);
 
-    if (response.status() === 400) {
-      const body = await response.json().catch(() => null);
-      expect(body).toBeTruthy();
-      // createErrorResponse wraps the message in a standard shape
-      expect(body).toHaveProperty('error');
-    }
-    // 401 is also acceptable – means env does not trust x-vercel-cron
+    const body = await response.json();
+    expect(body?.data?.phase).toBe('skipped');
+    expect(body?.data?.reason).toContain('raw phase=""');
   });
 });
 

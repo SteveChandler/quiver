@@ -7,6 +7,10 @@ import { Providers } from "@/components/providers";
 import { SiteFooter } from "@/components/shared/site-footer";
 import { HideOnRoutes } from "@/components/hide-on-routes";
 import { buildRootStructuredDataGraph } from "@/lib/seo/root-structured-data";
+import {
+  IOS_APP_STORE_APP_ID,
+  IOS_APP_STORE_SMART_BANNER_ARGUMENT,
+} from "@/lib/constants/app-store";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -134,6 +138,11 @@ export const metadata: Metadata = {
       index: true,
       follow: true,
     },
+  },
+
+  itunes: {
+    appId: IOS_APP_STORE_APP_ID,
+    appArgument: IOS_APP_STORE_SMART_BANNER_ARGUMENT,
   },
 
   // Performance hints

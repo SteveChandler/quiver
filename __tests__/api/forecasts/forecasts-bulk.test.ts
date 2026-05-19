@@ -3,18 +3,35 @@
  */
 
 import {
-  createMockSupabaseClient,
   createMockRequest,
+  createMockSupabaseClient,
   expectSuccessResponse,
   setupApiTestEnvironment,
 } from "@/test-utils/api-test-helpers";
 
-/** Type for the forecasts bulk API response */
 interface ForecastsBulkResponse {
   forecasts: Record<string, number>;
+  waterTemps: Record<string, string | undefined>;
+  isCalibrated: Record<string, boolean>;
 }
 
-// Mock the Supabase server client
+type QueryResult<T> = {
+  data: T | null;
+  error: { message: string } | null;
+};
+
+type ForecastRow = {
+  beach_id: string;
+  forecast_date: string;
+  forecast_time: string;
+  forecast_at: string;
+  wave_height: string | null;
+  wave_height_om: number | null;
+  wave_direction_om: number | null;
+  swell_direction_om: number | null;
+  swell_1_direction: string | null;
+};
+
 const mockSupabaseClient = createMockSupabaseClient();
 
 jest.mock("@/lib/middleware/api-wrappers", () => ({
@@ -25,27 +42,85 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
       user: null,
       supabase: mockSupabaseClient,
     }),
-  createSuccessResponse: jest.fn((data: any) => {
-    return new Response(JSON.stringify({ success: true, data }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  }),
-  handleApiError: jest.fn((error: any, message: string) => {
-    return new Response(JSON.stringify({ success: false, error: message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
-  }),
 }));
 
-jest.mock("@/lib/supabase/api-server-client", () => ({
-  createAPIServerClient: jest.fn(() => mockSupabaseClient),
+jest.mock("@/lib/services/forecast/v5-display-gate", () => ({
+  applyV51DisplayOverrideToForecasts: jest.fn(async (forecasts: ForecastRow[]) => forecasts),
 }));
 
-// Import after mocks
- 
 const { GET } = require("@/app/api/forecasts/bulk/route");
+
+function forecastRow(
+  beachId: string,
+  waveHeight: string | null,
+  offsetHours = 1,
+): ForecastRow {
+  const forecastAt = new Date(Date.now() + offsetHours * 60 * 60 * 1000);
+  return {
+    beach_id: beachId,
+    forecast_at: forecastAt.toISOString(),
+    forecast_date: forecastAt.toISOString().split("T")[0],
+    forecast_time: forecastAt.toISOString().slice(11, 19),
+    wave_height: waveHeight,
+    wave_height_om: null,
+    wave_direction_om: null,
+    swell_direction_om: null,
+    swell_1_direction: null,
+  };
+}
+
+function queryChain<T>(result: QueryResult<T>) {
+  const chain: any = {
+    select: jest.fn(),
+    in: jest.fn(),
+    gte: jest.fn(),
+    not: jest.fn(),
+    order: jest.fn(),
+    then: jest.fn((onResolve: (value: QueryResult<T>) => unknown) =>
+      Promise.resolve(onResolve(result)),
+    ),
+  };
+
+  chain.select.mockReturnValue(chain);
+  chain.in.mockReturnValue(chain);
+  chain.gte.mockReturnValue(chain);
+  chain.not.mockReturnValue(chain);
+  chain.order.mockReturnValue(chain);
+
+  return chain;
+}
+
+function mockBulkQueries(options: {
+  forecastRows?: ForecastRow[] | null;
+  forecastError?: { message: string } | null;
+  beachRows?: Array<{ id: string; shoaling_factors: unknown }> | null;
+  waterRows?: Array<{ beach_id: string; water_temp: string | null }> | null;
+} = {}) {
+  const forecastChain = queryChain({
+    data: options.forecastRows ?? [],
+    error: options.forecastError ?? null,
+  });
+  const beachChain = queryChain({
+    data: options.beachRows ?? [],
+    error: null,
+  });
+  const waterChain = queryChain({
+    data: options.waterRows ?? [],
+    error: null,
+  });
+
+  let enhancedForecastCalls = 0;
+  mockSupabaseClient.from = jest.fn((table: string) => {
+    if (table === "enhanced_forecasts") {
+      enhancedForecastCalls += 1;
+      return enhancedForecastCalls === 1 ? forecastChain : waterChain;
+    }
+    if (table === "beaches") return beachChain;
+    return queryChain({ data: null, error: null });
+  }) as any;
+
+  return { forecastChain };
+}
 
 describe("GET /api/forecasts/bulk", () => {
   let cleanup: () => void;
@@ -54,347 +129,198 @@ describe("GET /api/forecasts/bulk", () => {
     const testEnv = setupApiTestEnvironment();
     cleanup = testEnv.cleanup;
     jest.clearAllMocks();
-
-    // Mock rpc function (route now uses RPC instead of direct queries)
-    (mockSupabaseClient.rpc as jest.Mock) = jest.fn().mockResolvedValue({
-      data: [],
-      error: null,
-    });
+    mockSupabaseClient.from = jest.fn(() => queryChain({ data: null, error: null })) as any;
   });
 
   afterEach(() => {
     cleanup?.();
   });
 
-  describe("Success Cases", () => {
-    it("fetches forecasts for multiple beaches", async () => {
-      const beach1Id = "beach-1";
-      const beach2Id = "beach-2";
-      const beach3Id = "beach-3";
-
-      const mockRpcData = [
-        { beach_id: beach1Id, wave_height: 4.5 },
-        { beach_id: beach2Id, wave_height: 3.2 },
-        { beach_id: beach3Id, wave_height: 5.8 },
-      ];
-
-      (mockSupabaseClient.rpc as jest.Mock).mockResolvedValue({
-        data: mockRpcData,
-        error: null,
-      });
-
-      const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
-        searchParams: {
-          beachIds: `${beach1Id},${beach2Id},${beach3Id}`,
-        },
-      });
-
-      const response = await GET(request);
-      const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
-
-      expect(result.data).toHaveProperty("forecasts");
-      expect(result.data.forecasts).toHaveProperty(beach1Id, 4.5);
-      expect(result.data.forecasts).toHaveProperty(beach2Id, 3.2);
-      expect(result.data.forecasts).toHaveProperty(beach3Id, 5.8);
+  it("fetches forecasts for multiple beaches from enhanced_forecasts", async () => {
+    mockBulkQueries({
+      forecastRows: [
+        forecastRow("beach-1", "4.5"),
+        forecastRow("beach-2", "3.2"),
+        forecastRow("beach-3", "5.8"),
+      ],
     });
 
-    it("returns empty forecasts for missing beachIds parameter", async () => {
-      const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk");
+    const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
+      searchParams: { beachIds: "beach-1,beach-2,beach-3" },
+    });
+
+    const response = await GET(request);
+    const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
+
+    expect(result.data.forecasts).toEqual({
+      "beach-1": 4.5,
+      "beach-2": 3.2,
+      "beach-3": 5.8,
+    });
+  });
+
+  it("returns empty forecasts for missing, empty, or whitespace-only beachIds", async () => {
+    const cases: Array<Record<string, string>> = [
+      {},
+      { beachIds: "" },
+      { beachIds: "   ,  ,   " },
+    ];
+
+    for (const searchParams of cases) {
+      const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
+        searchParams,
+      });
 
       const response = await GET(request);
       const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
 
-      expect(result.data).toHaveProperty("forecasts");
       expect(result.data.forecasts).toEqual({});
-    });
-
-    it("returns empty forecasts for empty beachIds parameter", async () => {
-      const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
-        searchParams: {
-          beachIds: "",
-        },
-      });
-
-      const response = await GET(request);
-      const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
-
-      expect(result.data).toHaveProperty("forecasts");
-      expect(result.data.forecasts).toEqual({});
-    });
-
-    it("returns empty forecasts for whitespace-only beachIds", async () => {
-      const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
-        searchParams: {
-          beachIds: "   ,  ,   ",
-        },
-      });
-
-      const response = await GET(request);
-      const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
-
-      expect(result.data).toHaveProperty("forecasts");
-      expect(result.data.forecasts).toEqual({});
-    });
-
-    it("handles beaches with no forecast data", async () => {
-      const beach1Id = "beach-with-forecast";
-      const beach2Id = "beach-without-forecast";
-
-      const mockRpcData = [
-        { beach_id: beach1Id, wave_height: 4.5 },
-      ];
-
-      (mockSupabaseClient.rpc as jest.Mock).mockResolvedValue({
-        data: mockRpcData,
-        error: null,
-      });
-
-      const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
-        searchParams: {
-          beachIds: `${beach1Id},${beach2Id}`,
-        },
-      });
-
-      const response = await GET(request);
-      const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
-
-      expect(result.data.forecasts).toHaveProperty(beach1Id, 4.5);
-      expect(result.data.forecasts).not.toHaveProperty(beach2Id);
-    });
-
-    it("limits to 50 beaches maximum", async () => {
-      // Create 60 beach IDs
-      const beachIds = Array.from({ length: 60 }, (_, i) => `beach-${i + 1}`);
-
-      let rpcBeachIds: string[] = [];
-      (mockSupabaseClient.rpc as jest.Mock).mockImplementation((fnName: string, params: any) => {
-        rpcBeachIds = params.p_beach_ids || [];
-        const mockData = rpcBeachIds.slice(0, 50).map((id, i) => ({
-          beach_id: id,
-          wave_height: i + 1,
-        }));
-        return Promise.resolve({ data: mockData, error: null });
-      });
-
-      const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
-        searchParams: {
-          beachIds: beachIds.join(","),
-        },
-      });
-
-      await GET(request);
-
-      // Verify only 50 beaches were passed to RPC
-      expect(rpcBeachIds.length).toBe(50);
-    });
+    }
+    expect(mockSupabaseClient.from).not.toHaveBeenCalled();
   });
 
-  describe("Partial Failures", () => {
-    it("handles partial failures gracefully", async () => {
-      const beach1Id = "beach-1";
-      const beach2Id = "beach-2";
-      const beach3Id = "beach-3";
-
-      const mockRpcData = [
-        { beach_id: beach1Id, wave_height: 4.5 },
-        { beach_id: beach3Id, wave_height: 5.8 },
-      ];
-
-      (mockSupabaseClient.rpc as jest.Mock).mockResolvedValue({
-        data: mockRpcData,
-        error: null,
-      });
-
-      const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
-        searchParams: {
-          beachIds: `${beach1Id},${beach2Id},${beach3Id}`,
-        },
-      });
-
-      const response = await GET(request);
-      const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
-
-      // Should return forecasts for beaches that succeeded
-      expect(result.data.forecasts).toHaveProperty(beach1Id);
-      expect(result.data.forecasts).toHaveProperty(beach3Id);
-      // Beach 2 should be missing (partial failure)
-      expect(result.data.forecasts).not.toHaveProperty(beach2Id);
+  it("handles beaches with no forecast data", async () => {
+    mockBulkQueries({
+      forecastRows: [forecastRow("beach-with-forecast", "4.5")],
     });
 
-    it("returns 500 error on database error", async () => {
-      const beachIds = "beach-1,beach-2";
-
-      (mockSupabaseClient.rpc as jest.Mock).mockResolvedValue({
-        data: null,
-        error: { message: "Database connection failed", code: "CONNECTION_ERROR" },
-      });
-
-      const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
-        searchParams: { beachIds },
-      });
-
-      const response = await GET(request);
-
-      // Database connection errors are genuine server errors - 500 is correct
-      expect(response.status).toBe(500);
-      const data = await response.json();
-      expect(data.success).toBe(false);
+    const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
+      searchParams: { beachIds: "beach-with-forecast,beach-without-forecast" },
     });
 
-    it("returns 500 error on unexpected error", async () => {
-      const beachIds = "beach-1,beach-2";
+    const response = await GET(request);
+    const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
 
-      (mockSupabaseClient.rpc as jest.Mock).mockRejectedValue(new Error("Unexpected error"));
-
-      const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
-        searchParams: { beachIds },
-      });
-
-      const response = await GET(request);
-
-      // Unexpected errors are genuine server errors - 500 is correct
-      expect(response.status).toBe(500);
-      const data = await response.json();
-      expect(data.success).toBe(false);
-    });
-
-    it("handles forecasts with null wave_height", async () => {
-      const beach1Id = "beach-1";
-
-      const mockRpcData = [
-        { beach_id: beach1Id, wave_height: null },
-      ];
-
-      (mockSupabaseClient.rpc as jest.Mock).mockResolvedValue({
-        data: mockRpcData,
-        error: null,
-      });
-
-      const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
-        searchParams: {
-          beachIds: beach1Id,
-        },
-      });
-
-      const response = await GET(request);
-      const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
-
-      // Beach should not have a forecast entry if wave_height is null
-      expect(result.data.forecasts).not.toHaveProperty(beach1Id);
-    });
+    expect(result.data.forecasts).toHaveProperty("beach-with-forecast", 4.5);
+    expect(result.data.forecasts).not.toHaveProperty("beach-without-forecast");
   });
 
-  describe("Data Filtering", () => {
-    it("uses RPC function for bulk forecast retrieval", async () => {
-      const beachId = "beach-1";
+  it("limits to 50 beaches maximum", async () => {
+    const beachIds = Array.from({ length: 60 }, (_, i) => `beach-${i + 1}`);
+    const { forecastChain } = mockBulkQueries();
 
-      (mockSupabaseClient.rpc as jest.Mock).mockResolvedValue({
-        data: [],
-        error: null,
-      });
-
-      const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
-        searchParams: { beachIds: beachId },
-      });
-
-      await GET(request);
-
-      // Should call RPC function with beach IDs
-      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("get_bulk_current_forecasts", {
-        p_beach_ids: [beachId],
-      });
+    const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
+      searchParams: { beachIds: beachIds.join(",") },
     });
 
-    it("calls RPC with array of beach IDs", async () => {
-      const beachIds = "beach-1,beach-2";
+    await GET(request);
 
-      (mockSupabaseClient.rpc as jest.Mock).mockResolvedValue({
-        data: [],
-        error: null,
-      });
-
-      const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
-        searchParams: { beachIds },
-      });
-
-      await GET(request);
-
-      // Should call RPC with parsed beach IDs
-      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("get_bulk_current_forecasts", {
-        p_beach_ids: ["beach-1", "beach-2"],
-      });
-    });
+    expect(forecastChain.in).toHaveBeenCalledWith("beach_id", beachIds.slice(0, 50));
   });
 
-  describe("Input Parsing", () => {
-    it("trims whitespace from beach IDs", async () => {
-      const beach1Id = "beach-1";
-      const beach2Id = "beach-2";
-
-      (mockSupabaseClient.rpc as jest.Mock).mockResolvedValue({
-        data: [],
-        error: null,
-      });
-
-      const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
-        searchParams: {
-          beachIds: `  ${beach1Id}  ,  ${beach2Id}  `,
-        },
-      });
-
-      await GET(request);
-
-      // IDs should be trimmed before passing to RPC
-      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("get_bulk_current_forecasts", {
-        p_beach_ids: [beach1Id, beach2Id],
-      });
+  it("returns partial forecast maps when some beaches have no row", async () => {
+    mockBulkQueries({
+      forecastRows: [
+        forecastRow("beach-1", "4.5"),
+        forecastRow("beach-3", "5.8"),
+      ],
     });
 
-    it("filters out empty strings from beach IDs", async () => {
-      const beach1Id = "beach-1";
-
-      (mockSupabaseClient.rpc as jest.Mock).mockResolvedValue({
-        data: [],
-        error: null,
-      });
-
-      const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
-        searchParams: {
-          beachIds: `${beach1Id},,,`,
-        },
-      });
-
-      await GET(request);
-
-      // Empty strings should be filtered out
-      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("get_bulk_current_forecasts", {
-        p_beach_ids: [beach1Id],
-      });
+    const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
+      searchParams: { beachIds: "beach-1,beach-2,beach-3" },
     });
+
+    const response = await GET(request);
+    const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
+
+    expect(result.data.forecasts).toHaveProperty("beach-1", 4.5);
+    expect(result.data.forecasts).toHaveProperty("beach-3", 5.8);
+    expect(result.data.forecasts).not.toHaveProperty("beach-2");
   });
 
-  describe("RPC Function Integration", () => {
-    it("returns wave heights from RPC function", async () => {
-      const beachId = "beach-1";
-
-      const mockRpcData = [
-        { beach_id: beachId, wave_height: 4.5 },
-      ];
-
-      (mockSupabaseClient.rpc as jest.Mock).mockResolvedValue({
-        data: mockRpcData,
-        error: null,
-      });
-
-      const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
-        searchParams: { beachIds: beachId },
-      });
-
-      const response = await GET(request);
-      const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
-
-      // Should return wave height from RPC result
-      expect(result.data.forecasts[beachId]).toBe(4.5);
+  it("returns 500 on forecast query database errors", async () => {
+    mockBulkQueries({
+      forecastRows: null,
+      forecastError: { message: "Database connection failed" },
     });
+
+    const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
+      searchParams: { beachIds: "beach-1,beach-2" },
+    });
+
+    const response = await GET(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(data.success).toBe(false);
+  });
+
+  it("filters out null and non-numeric wave heights", async () => {
+    mockBulkQueries({
+      forecastRows: [
+        forecastRow("beach-1", null),
+        forecastRow("beach-2", "overhead"),
+      ],
+    });
+
+    const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
+      searchParams: { beachIds: "beach-1,beach-2" },
+    });
+
+    const response = await GET(request);
+    const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
+
+    expect(result.data.forecasts).toEqual({});
+  });
+
+  it("parses v5.1 display ranges without dropping the beach", async () => {
+    mockBulkQueries({
+      forecastRows: [forecastRow("beach-1", "3-4ft")],
+    });
+
+    const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
+      searchParams: { beachIds: "beach-1" },
+    });
+
+    const response = await GET(request);
+    const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
+
+    expect(result.data.forecasts).toEqual({ "beach-1": 3 });
+  });
+
+  it("preserves flat v5.1 display as zero", async () => {
+    mockBulkQueries({
+      forecastRows: [forecastRow("beach-1", "Flat")],
+    });
+
+    const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
+      searchParams: { beachIds: "beach-1" },
+    });
+
+    const response = await GET(request);
+    const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
+
+    expect(result.data.forecasts).toEqual({ "beach-1": 0 });
+  });
+
+  it("trims whitespace and filters empty strings from beach IDs", async () => {
+    const { forecastChain } = mockBulkQueries();
+
+    const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
+      searchParams: { beachIds: "  beach-1  ,  beach-2  ,,," },
+    });
+
+    await GET(request);
+
+    expect(forecastChain.in).toHaveBeenCalledWith("beach_id", ["beach-1", "beach-2"]);
+  });
+
+  it("returns water temps and calibration status in the envelope", async () => {
+    mockBulkQueries({
+      forecastRows: [forecastRow("beach-1", "4.5")],
+      waterRows: [{ beach_id: "beach-1", water_temp: "63" }],
+      beachRows: [{ id: "beach-1", shoaling_factors: { "270": 1.05 } }],
+    });
+
+    const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
+      searchParams: { beachIds: "beach-1" },
+    });
+
+    const response = await GET(request);
+    const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
+
+    expect(result.data.forecasts["beach-1"]).toBe(4.5);
+    expect(result.data.waterTemps).toEqual({ "beach-1": "63" });
+    expect(result.data.isCalibrated).toEqual({ "beach-1": true });
   });
 });

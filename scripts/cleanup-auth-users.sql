@@ -62,11 +62,32 @@ LIMIT 1000;
 -- SUMMARY STATS: Get counts before proceeding
 -- ============================================================================
 SELECT
-  COUNT(*) FILTER (WHERE last_sign_in_at IS NULL) AS never_signed_in,
-  COUNT(*) FILTER (WHERE confirmed_at IS NULL) AS not_confirmed,
-  COUNT(*) FILTER (WHERE last_sign_in_at IS NULL OR confirmed_at IS NULL) AS total_candidates,
+  COUNT(*) FILTER (WHERE au.last_sign_in_at IS NULL) AS never_signed_in,
+  COUNT(*) FILTER (WHERE au.confirmed_at IS NULL) AS not_confirmed,
+  COUNT(*) FILTER (WHERE au.last_sign_in_at IS NULL OR au.confirmed_at IS NULL) AS total_candidates,
   COUNT(*) AS total_users
-FROM auth.users;
+FROM auth.users au
+LEFT JOIN public.profiles p ON au.id = p.id
+WHERE (p.is_mock IS NULL OR p.is_mock = false);
+
+-- ============================================================================
+-- GHOST-USER AUDIT: confirmed email, still no sign-in after 1 hour
+-- ============================================================================
+SELECT
+  au.id,
+  au.email,
+  au.email_confirmed_at,
+  au.last_sign_in_at,
+  au.created_at,
+  EXTRACT(EPOCH FROM (NOW() - au.created_at)) / 3600 AS age_in_hours
+FROM auth.users au
+LEFT JOIN public.profiles p ON au.id = p.id
+WHERE au.email_confirmed_at IS NOT NULL
+  AND au.last_sign_in_at IS NULL
+  AND au.created_at <= NOW() - INTERVAL '1 hour'
+  AND (p.is_mock IS NULL OR p.is_mock = false)
+ORDER BY au.created_at DESC
+LIMIT 1000;
 
 -- ============================================================================
 -- EXPORT USER IDS: Copy-paste ready format for deletion scripts
@@ -101,4 +122,3 @@ WHERE
   -- AND au.created_at < NOW() - INTERVAL '30 days'
 ORDER BY au.created_at ASC
 LIMIT 1000;
-

@@ -11,6 +11,12 @@ const IMPLICIT_ONLY_REASON_PATTERNS: RegExp[] = [
   /implicit/i,
 ];
 
+const BEST_SPOT_GATE_FLAG = "SURF_DISCOVERY_BEST_SPOT_GATE";
+
+function isBestSpotGateEnabled(): boolean {
+  return process.env[BEST_SPOT_GATE_FLAG] === "1";
+}
+
 function formatApproximateTime(rec: SurfDiscoveryRecommendation): string {
   const start = rec.window?.start instanceof Date
     ? rec.window.start
@@ -133,7 +139,7 @@ export function gateSurfDiscoveryResponse(
   discovery: SurfDiscoveryResponse,
   entitlement: SurfDiscoveryEntitlement
 ): SurfDiscoveryResponse {
-  if (!entitlement.hasPaidAccess) {
+  if (!entitlement.hasPaidAccess && isBestSpotGateEnabled()) {
     return {
       ...discovery,
       entitlement,
@@ -146,9 +152,11 @@ export function gateSurfDiscoveryResponse(
     ...discovery,
     entitlement,
     lockedBestSpotTeaser: null,
-    recommendations: discovery.recommendations.map((rec) => ({
-      ...rec,
-      personalExplanation: buildPersonalExplanation(rec),
-    })),
+    recommendations: entitlement.hasPaidAccess
+      ? discovery.recommendations.map((rec) => ({
+          ...rec,
+          personalExplanation: buildPersonalExplanation(rec),
+        }))
+      : discovery.recommendations,
   };
 }

@@ -10,7 +10,6 @@ import { extractForecastDate as extractForecastDateFromAt } from "@/lib/utils/fo
 import { fetchLatestObservation } from "@/lib/services/observations/nowcast-anchor";
 import {
   applyV51DisplayOverrideToForecasts,
-  isV51DisplayAllowlistedCurrentUser,
 } from "@/lib/services/forecast/v5-display-gate";
 import type { Beach, Forecast } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -126,7 +125,6 @@ export async function getEnhancedBeachForecasts(
 ) {
   try {
     const supabase = await createSupabaseServiceRoleClient();
-    const useV51Display = await isV51DisplayAllowlistedCurrentUser();
 
     // Prefer the legacy compatibility view if present (tests assert against it), fallback to table
     const today = new Date().toISOString().split("T")[0];
@@ -200,8 +198,7 @@ export async function getEnhancedBeachForecasts(
 
     // Enrich forecasts with metadata for transparency
     const displayForecasts = await applyV51DisplayOverrideToForecasts(
-      (data || []) as EnhancedForecastEntity[],
-      { enabled: useV51Display }
+      (data || []) as EnhancedForecastEntity[]
     );
 
     const forecastsWithMetadata: EnhancedForecastWithMetadata[] = displayForecasts.map((forecast) => ({
@@ -223,7 +220,6 @@ export async function getEnhancedBeachForecasts(
 export async function getBeachForecastPreview(beachId: string) {
   try {
     const supabase = await createSupabaseServiceRoleClient();
-    const useV51Display = await isV51DisplayAllowlistedCurrentUser();
     const { getCurrentForecast } = await import(
       "@/lib/utils/current-forecast-utils"
     );
@@ -258,8 +254,7 @@ export async function getBeachForecastPreview(beachId: string) {
 
     if (enhancedForecasts && enhancedForecasts.length > 0) {
       const displayForecasts = await applyV51DisplayOverrideToForecasts(
-        enhancedForecasts as EnhancedForecastEntity[],
-        { enabled: useV51Display }
+        enhancedForecasts as EnhancedForecastEntity[]
       );
       // Use time-aware selection to get the most appropriate forecast
       const currentForecast = getCurrentForecast(displayForecasts as any[]);

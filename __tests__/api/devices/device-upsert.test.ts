@@ -592,7 +592,7 @@ describe("Device Token API - POST /api/devices/upsert", () => {
   });
 
   describe("Phase 5l: device metadata", () => {
-    it("passes app_version, os_version, expo_sdk through to upsert when provided", async () => {
+    it("passes app_version, build_number, os_version, expo_sdk through to upsert when provided", async () => {
       const mockUser = createMockUser();
       mockAuthenticatedUser(mockSupabase, mockUser);
 
@@ -606,6 +606,7 @@ describe("Device Token API - POST /api/devices/upsert", () => {
             platform: "ios",
             device_token: "tok",
             app_version: "0.6.0",
+            build_number: "10",
             os_version: "17.4",
             expo_sdk: "55.0.0",
           },
@@ -617,6 +618,7 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       expect(mockUpsert).toHaveBeenCalledWith(
         expect.objectContaining({
           app_version: "0.6.0",
+          build_number: "10",
           os_version: "17.4",
           expo_sdk: "55.0.0",
         }),
@@ -635,7 +637,7 @@ describe("Device Token API - POST /api/devices/upsert", () => {
           body: {
             platform: "ios",
             device_token: "tok",
-            app_version: "x".repeat(33),
+            build_number: "x".repeat(33),
           },
         },
       );
@@ -643,7 +645,7 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       const response = await POST(request);
       const data = await response.json();
       expect(response.status).toBe(400);
-      expect(data.error).toContain("app_version");
+      expect(data.error).toContain("build_number");
       expect(data.error).toContain("exceeds maximum length");
     });
 
@@ -687,6 +689,7 @@ describe("Device Token API - POST /api/devices/upsert", () => {
 
       const upsertArg = mockUpsert.mock.calls[0][0];
       expect(upsertArg).not.toHaveProperty("app_version");
+      expect(upsertArg).not.toHaveProperty("build_number");
       expect(upsertArg).not.toHaveProperty("os_version");
       expect(upsertArg).not.toHaveProperty("expo_sdk");
     });

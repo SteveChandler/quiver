@@ -39,6 +39,7 @@ import {
 import { getDisplayName } from "@/lib/utils/display-name-utils";
 import { computeSummary } from "@/lib/utils/coast-pulse-summary";
 import { haversineDistance, degreesToCardinal } from "@/lib/utils/geo-utils";
+import { getDailyIntelWaveHeightLabels } from "@/lib/services/intel/wave-height-labels";
 import {
   DISTANCE,
   TIME,
@@ -593,7 +594,19 @@ async function fetchDailyIntel(
     // Format message from pre-computed intel
     const parts: string[] = [];
 
-    if (intel.surf_min_ft != null && intel.surf_max_ft != null) {
+    const waveLabels = await getDailyIntelWaveHeightLabels(
+      supabase,
+      closestBeach.id,
+      today,
+      {
+        bestWindowStart: intel.best_window_start,
+        bestWindowEnd: intel.best_window_end,
+      }
+    );
+
+    if (waveLabels.current_wave_height_label) {
+      parts.push(waveLabels.current_wave_height_label);
+    } else if (intel.surf_min_ft != null && intel.surf_max_ft != null) {
       parts.push(`${intel.surf_min_ft}-${intel.surf_max_ft}ft`);
     }
 

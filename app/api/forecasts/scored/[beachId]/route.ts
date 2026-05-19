@@ -19,7 +19,6 @@ import {
 import { fetchLatestObservation } from "@/lib/services/observations/nowcast-anchor";
 import {
   applyV51DisplayOverrideToForecasts,
-  isV51DisplayAllowlistedUser,
 } from "@/lib/services/forecast/v5-display-gate";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
@@ -292,7 +291,7 @@ export const GET = withAuth(
     const uuidResult = validateUuidParam(beachId, "beachId");
     if ("error" in uuidResult) return uuidResult.error;
     const validBeachId = uuidResult.value;
-    const { supabase, user } = context;
+    const { supabase } = context;
 
     // Fetch beach
     const { data: beach, error: beachError } = await supabase
@@ -332,8 +331,7 @@ export const GET = withAuth(
     }
 
     const forecastList = await applyV51DisplayOverrideToForecasts(
-      (forecasts ?? []) as EnhancedForecastEntity[],
-      { enabled: isV51DisplayAllowlistedUser(user) }
+      (forecasts ?? []) as EnhancedForecastEntity[]
     );
 
     // Score all slots

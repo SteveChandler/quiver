@@ -7,7 +7,10 @@
  * suffix and no × 1.5 expansion.
  */
 
-import { formatWaveHeightRange } from "@/lib/services/discovery/surf-discovery-orchestrator";
+import {
+  applyWindowWaveHeightBadgesForRecommendations,
+  formatWaveHeightRange,
+} from "@/lib/services/discovery/surf-discovery-orchestrator";
 
 describe("formatWaveHeightRange", () => {
   it("returns null for flat conditions (< 0.5ft)", () => {
@@ -39,5 +42,52 @@ describe("formatWaveHeightRange", () => {
     expect(formatWaveHeightRange(8)).toBe("8ft");
     // Fractional values keep the bracket
     expect(formatWaveHeightRange(5.4)).toBe("5-6ft");
+  });
+
+  it("updates non-top recommendations from their selected window forecasts", () => {
+    const recs = [
+      {
+        beach: { id: "beach-1" },
+        window: {
+          start: new Date("2026-05-18T15:00:00.000Z"),
+          end: new Date("2026-05-18T18:00:00.000Z"),
+        },
+        waveHeightBadge: "1-2ft",
+      },
+      {
+        beach: { id: "beach-2" },
+        window: {
+          start: new Date("2026-05-18T15:00:00.000Z"),
+          end: new Date("2026-05-18T18:00:00.000Z"),
+        },
+        waveHeightBadge: "1-2ft",
+      },
+    ] as any;
+
+    const forecastsByBeachId = new Map<string, any[]>([
+      [
+        "beach-2",
+        [
+          {
+            beach_id: "beach-2",
+            forecast_at: "2026-05-18T15:00:00.000Z",
+            wave_height: "2.4 ft",
+          },
+          {
+            beach_id: "beach-2",
+            forecast_at: "2026-05-18T18:00:00.000Z",
+            wave_height: "4.1 ft",
+          },
+        ],
+      ],
+    ]);
+
+    const updated = applyWindowWaveHeightBadgesForRecommendations(
+      recs,
+      forecastsByBeachId
+    );
+
+    expect(updated[0].waveHeightBadge).toBe("1-2ft");
+    expect(updated[1].waveHeightBadge).toBe("2-5ft");
   });
 });

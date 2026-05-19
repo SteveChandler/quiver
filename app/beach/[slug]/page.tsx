@@ -25,9 +25,11 @@ const baseUrl =
 export default async function BeachDetailBySlugPage(
   props: {
     params: Promise<{ slug: string }>;
+    searchParams?: Promise<Record<string, string | string[] | undefined>>;
   }
 ) {
   const params = await props.params;
+  const searchParams = props.searchParams ? await props.searchParams : {};
   // Fetch beach data server-side using cached function
   try {
     const beach = await getBeachBySlugOrId(params.slug);
@@ -49,7 +51,7 @@ export default async function BeachDetailBySlugPage(
 
       // Only redirect if the hierarchical URL is different from current path
       if (hierarchicalUrl !== currentPath) {
-        permanentRedirect(hierarchicalUrl);
+        permanentRedirect(withSearchParams(hierarchicalUrl, searchParams));
       }
     }
 
@@ -166,6 +168,29 @@ export default async function BeachDetailBySlugPage(
       </div>
     );
   }
+}
+
+function withSearchParams(
+  path: string,
+  searchParams: Record<string, string | string[] | undefined>,
+): string {
+  const params = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        params.append(key, item);
+      }
+      continue;
+    }
+
+    if (value != null) {
+      params.set(key, value);
+    }
+  }
+
+  const query = params.toString();
+  return query ? `${path}?${query}` : path;
 }
 
 export async function generateMetadata(

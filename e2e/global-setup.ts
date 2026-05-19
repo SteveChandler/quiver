@@ -136,21 +136,30 @@ async function globalSetup(config: FullConfig) {
       // Wait for login button to appear (React app needs time to complete auth check)
       console.log('[Global Setup] Waiting for login button to appear...');
       const loginButton = page.getByRole('button', { name: /log in/i });
+      let authDialogVisible = false;
 
       try {
         await loginButton.waitFor({ state: 'visible', timeout: 15000 });
         console.log('[Global Setup] Login button found');
+
+        // Use force:true to bypass any overlay issues during SSR-to-client transition
+        // This is appropriate for setup since we're not testing click behavior
+        await loginButton.click({ force: true });
+        console.log('[Global Setup] Clicked login button');
       } catch (error) {
-        throw new Error('Login button not found after 15 seconds. Page may still be checking authentication.');
+        console.log('[Global Setup] Login button not found; opening /auth/sign-in directly');
+        await page.goto(`${baseUrlString}/auth/sign-in`, {
+          waitUntil: 'domcontentloaded',
+          timeout: 30000,
+        });
+        await page.waitForSelector('[role="dialog"]', { timeout: 15000 });
+        authDialogVisible = true;
       }
 
-      // Use force:true to bypass any overlay issues during SSR-to-client transition
-      // This is appropriate for setup since we're not testing click behavior
-      await loginButton.click({ force: true });
-      console.log('[Global Setup] Clicked login button');
-
       // Wait for auth modal to appear
-      await page.waitForSelector('[role="dialog"]', { timeout: 10000 });
+      if (!authDialogVisible) {
+        await page.waitForSelector('[role="dialog"]', { timeout: 10000 });
+      }
       console.log('[Global Setup] Auth modal appeared');
 
       // Click "Continue with Email" button to get to email/password form

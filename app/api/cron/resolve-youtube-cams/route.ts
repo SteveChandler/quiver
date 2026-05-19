@@ -1,6 +1,5 @@
 // app/api/cron/resolve-youtube-cams/route.ts
 
-import { NextRequest } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   validateCronRequest,
@@ -33,7 +32,18 @@ async function _GET(request: Request): Promise<Response> {
 
     const apiKey = process.env.YOUTUBE_API_KEY;
     if (!apiKey) {
-      return createErrorResponse("Configuration error", "YOUTUBE_API_KEY not set", 500);
+      return createSuccessResponse({
+        status: "skipped",
+        skip_reason: "config_missing",
+        message: "YOUTUBE_API_KEY not set",
+        processed: 0,
+        updated: 0,
+        unchanged: 0,
+        skipped: 0,
+        cleared: 0,
+        results: [],
+        duration: `${Date.now() - startTime}ms`,
+      });
     }
 
     const supabase = createSupabaseServiceRoleClient();

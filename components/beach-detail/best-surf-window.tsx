@@ -50,6 +50,14 @@ function formatISOTime(iso: string): string {
   }
 }
 
+function formatIntelWaveHeightLabel(
+  minFt: number | null | undefined,
+  maxFt: number | null | undefined
+): string | null {
+  if (minFt == null || maxFt == null) return null;
+  return `${Math.round(minFt)}-${Math.round(maxFt)}ft`;
+}
+
 // ------------------------------------------------------------------
 // Condition Intelligence types (Step 8 additions)
 // ------------------------------------------------------------------
@@ -304,6 +312,16 @@ export function BestSurfWindow({
   }, [beachId, forecastDate]);
 
   const { data: intel, loading, error } = useDataFetcher(fetchIntel);
+  const fallbackWaveHeightLabel = useMemo(
+    () => formatIntelWaveHeightLabel(intel?.surf_min_ft, intel?.surf_max_ft),
+    [intel?.surf_min_ft, intel?.surf_max_ft]
+  );
+  const currentWaveHeightLabel =
+    intel?.current_wave_height_label ?? fallbackWaveHeightLabel;
+  const surfGridWaveHeightLabel =
+    intel?.best_window_wave_height_label ??
+    intel?.current_wave_height_label ??
+    fallbackWaveHeightLabel;
 
   // Magic Hour: Interpolated peak time calculation
   const { magicHour, isLoading: magicHourLoading } = useMagicHour(beachId);
@@ -749,7 +767,7 @@ export function BestSurfWindow({
               Current Conditions
             </h4>
             <p className="text-sm text-gray-700">
-              Right now: {intel.surf_min_ft}-{intel.surf_max_ft} ft,{" "}
+              Right now: {currentWaveHeightLabel ?? "unknown surf"},{" "}
               {intel.wind_speed_mph} mph {intel.wind_direction_text} (
               {intel.wind_quality}). Check tomorrow&apos;s forecast for next
               windows.
@@ -768,7 +786,7 @@ export function BestSurfWindow({
               </span>
             </div>
             <p className="font-semibold text-gray-900">
-              {intel.surf_min_ft}-{intel.surf_max_ft} ft
+              {surfGridWaveHeightLabel ?? "—"}
             </p>
             <p className="text-xs text-muted-foreground truncate">
               {intel.surf_description}
