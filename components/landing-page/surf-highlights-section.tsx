@@ -24,6 +24,8 @@ interface Beach {
   wave_height?: string | number | null;
 }
 
+const LANDING_SCORE_BADGE_MINIMUM = 60;
+
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
@@ -93,7 +95,11 @@ export function SurfHighlightsSection() {
             averageRating: beach.average_rating ?? null,
             reviewCount: beach.review_count ?? null,
             skillLevel: beach.skill_level ?? null,
-            score: beach.score ?? null,
+            score:
+              typeof beach.score === "number" &&
+              beach.score >= LANDING_SCORE_BADGE_MINIMUM
+                ? beach.score
+                : null,
             waveHeight: beach.wave_height ?? null,
             delay: index,
           };

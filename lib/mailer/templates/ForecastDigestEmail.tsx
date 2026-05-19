@@ -79,7 +79,7 @@ export function ForecastDigestEmail({
             fontWeight: "bold",
           }}
         >
-          Today's Surf Call
+          Today&apos;s Surf Call
         </h1>
         <p
           style={{

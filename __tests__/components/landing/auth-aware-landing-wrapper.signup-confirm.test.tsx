@@ -32,6 +32,11 @@ jest.mock("@/components/oracle/oracle-home-screen", () => ({
 jest.mock("@/components/landing-page/hero-section", () => ({
   HeroSection: () => <div data-testid="hero-section" />,
 }));
+jest.mock("@/components/landing-page/navbar", () => ({
+  Navbar: ({ position }: { position?: string }) => (
+    <nav data-position={position} data-testid="landing-navbar" />
+  ),
+}));
 jest.mock("@/components/landing-page/surf-highlights-section", () => ({
   SurfHighlightsSection: () => <div data-testid="surf-highlights" />,
 }));
@@ -88,7 +93,10 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     ).not.toBeInTheDocument();
 
     // Should render unauth landing sections even while auth is initializing.
-    expect(screen.queryByTestId("navbar")).not.toBeInTheDocument();
+    expect(screen.getByTestId("landing-navbar")).toHaveAttribute(
+      "data-position",
+      "static"
+    );
     expect(screen.getByTestId("hero-section")).toBeInTheDocument();
 
     // Should show the email confirmation modal
@@ -226,7 +234,7 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     render(<AuthAwareLandingWrapper />);
 
     // Should render landing page
-    expect(screen.queryByTestId("navbar")).not.toBeInTheDocument();
+    expect(screen.getByTestId("landing-navbar")).toBeInTheDocument();
     expect(screen.getByTestId("hero-section")).toBeInTheDocument();
 
     // Should NOT show modal
@@ -249,7 +257,7 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     });
 
     // Should NOT show landing page elements
-    expect(screen.queryByTestId("navbar")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("landing-navbar")).not.toBeInTheDocument();
     expect(screen.queryByTestId("hero-section")).not.toBeInTheDocument();
 
     // Should NOT show modal
@@ -263,7 +271,7 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     render(<AuthAwareLandingWrapper />);
 
     // Should render landing page, not redirect to sign-in
-    expect(screen.queryByTestId("navbar")).not.toBeInTheDocument();
+    expect(screen.getByTestId("landing-navbar")).toBeInTheDocument();
     expect(screen.getByTestId("hero-section")).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
 
@@ -282,7 +290,7 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     render(<AuthAwareLandingWrapper />);
 
     // Should render landing page
-    expect(screen.queryByTestId("navbar")).not.toBeInTheDocument();
+    expect(screen.getByTestId("landing-navbar")).toBeInTheDocument();
 
     // Should NOT show modal
     expect(screen.queryByText("Check your email")).not.toBeInTheDocument();
@@ -310,4 +318,3 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     expect(replace).toHaveBeenCalledWith("/");
   });
 });
-
