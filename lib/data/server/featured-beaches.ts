@@ -211,6 +211,69 @@ function sortFeaturedBeaches(beaches: EnrichedBeach[]): EnrichedBeach[] {
   });
 }
 
+function getLandingSkillPriority(skillLevel?: string | null): number {
+  const normalized = (skillLevel ?? "").trim().toLowerCase();
+
+  if (normalized.includes("expert")) return 5;
+  if (
+    normalized.includes("beginner") ||
+    normalized.includes("longboard") ||
+    normalized.includes("easy") ||
+    normalized.includes("mellow") ||
+    normalized.includes("lower-intermediate")
+  ) {
+    return 0;
+  }
+  if (normalized.includes("intermediate") && normalized.includes("advanced")) {
+    return 2;
+  }
+  if (normalized.includes("intermediate")) return 1;
+  if (normalized.includes("advanced")) return 4;
+  return 3;
+}
+
+function compareNullableNumberDesc(
+  a: number | null | undefined,
+  b: number | null | undefined
+): number {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  return b - a;
+}
+
+export function sortLandingFeaturedBeaches(
+  beaches: EnrichedBeach[]
+): EnrichedBeach[] {
+  return [...beaches].sort((a, b) => {
+    if (a.has_real_photo !== b.has_real_photo) {
+      return a.has_real_photo ? -1 : 1;
+    }
+
+    const skillDelta =
+      getLandingSkillPriority(a.skill_level) -
+      getLandingSkillPriority(b.skill_level);
+    if (skillDelta !== 0) return skillDelta;
+
+    const scoreDelta = compareNullableNumberDesc(a.score, b.score);
+    if (scoreDelta !== 0) return scoreDelta;
+
+    const ratingDelta = compareNullableNumberDesc(
+      a.average_rating,
+      b.average_rating
+    );
+    if (ratingDelta !== 0) return ratingDelta;
+
+    const reviewDelta = compareNullableNumberDesc(
+      a.review_count,
+      b.review_count
+    );
+    if (reviewDelta !== 0) return reviewDelta;
+
+    return a.name.localeCompare(b.name);
+  });
+}
+
 /**
  * Builds the global featured beaches list (no proximity filtering).
  * Photos-first beaches, then fallback-image beaches, deduped and sorted.

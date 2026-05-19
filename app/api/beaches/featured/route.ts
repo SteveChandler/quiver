@@ -6,7 +6,10 @@ import {
   methodNotAllowed,
 } from "@/lib/api-utils";
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
-import { getFeaturedBeaches } from "@/lib/data/server/featured-beaches";
+import {
+  getFeaturedBeaches,
+  sortLandingFeaturedBeaches,
+} from "@/lib/data/server/featured-beaches";
 import { isValidLatitude, isValidLongitude } from "@/lib/coordinate-validation";
 import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-utils";
 import { calculateDayScore } from "@/lib/utils/regional-forecast-utils";
@@ -23,7 +26,7 @@ import type { EnrichedBeach } from "@/lib/data/server/featured-beaches";
  * - First, get beaches with actual photos (from beach_photos table)
  * - Then, fill remaining slots with beaches that have fallback images in FALLBACK_IMAGE_BY_NAME
  * - Enrich with forecast data from cache (current conditions)
- * - Sort by score descending (best conditions first)
+ * - Sort for landing-page fit: real photos, beginner/intermediate skill, then score
  * - This ensures visual variety and no duplicate photos on the landing page
  *
  * Security:
@@ -85,19 +88,13 @@ async function featuredBeachesHandler(request: NextRequest) {
       };
     });
 
-    // Sort by score descending (nulls last)
-    enrichedBeaches.sort((a, b) => {
-      if (a.score == null && b.score == null) return 0;
-      if (a.score == null) return 1;
-      if (b.score == null) return -1;
-      return b.score - a.score;
-    });
+    const sortedBeaches = sortLandingFeaturedBeaches(enrichedBeaches);
 
     // Short cache for forecast-enriched data (2 minutes for personalized, 5 minutes otherwise)
     if (coordinates) {
-      return createSuccessResponse({ beaches: enrichedBeaches, isNearby });
+      return createSuccessResponse({ beaches: sortedBeaches, isNearby });
     }
-    return await createCachedResponse({ beaches: enrichedBeaches, isNearby }, CacheDuration.SHORT);
+    return await createCachedResponse({ beaches: sortedBeaches, isNearby }, CacheDuration.SHORT);
   } catch (error) {
     console.error("Error fetching featured beaches:", error);
     // Return empty array rather than error for graceful degradation

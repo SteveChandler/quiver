@@ -64,7 +64,15 @@ const GROUPED_STATIC_ITEMS = STATIC_MENU_ITEMS.reduce(
   {} as Record<string, typeof STATIC_MENU_ITEMS>
 );
 
-export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
+type NavbarPosition = "overlay" | "static";
+
+export function Navbar({
+  autoOpenLogin = false,
+  position = "overlay",
+}: {
+  autoOpenLogin?: boolean;
+  position?: NavbarPosition;
+}) {
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -118,7 +126,13 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
   }, [regionName]);
 
   return (
-    <nav className="absolute top-0 left-0 right-0 z-50 w-full">
+    <nav
+      className={
+        position === "static"
+          ? "relative z-50 w-full bg-[#252D6B]"
+          : "absolute top-0 left-0 right-0 z-50 w-full"
+      }
+    >
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex justify-between items-center py-5">
           {/* Logo */}
