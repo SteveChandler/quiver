@@ -2,12 +2,21 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CTASection } from "@/components/landing-page/cta-section";
 import { useAuth } from "@/context/auth-context";
+import { track } from "@/lib/analytics";
+import {
+  IOS_APP_STORE_PREORDER_CTA,
+  IOS_APP_STORE_PREORDER_URL,
+} from "@/lib/constants/app-store";
 import {
   trackSignupCtaClick,
   trackSignupCtaView,
 } from "@/lib/analytics/signup-conversion-tracking";
 
 jest.mock("@/context/auth-context");
+
+jest.mock("@/lib/analytics", () => ({
+  track: jest.fn(),
+}));
 
 jest.mock("@/lib/analytics/signup-conversion-tracking", () => ({
   trackSignupCtaClick: jest.fn(),
@@ -54,6 +63,7 @@ jest.mock("framer-motion", () => ({
 }));
 
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
+const mockTrack = track as jest.Mock;
 const mockTrackSignupCtaClick = trackSignupCtaClick as jest.Mock;
 const mockTrackSignupCtaView = trackSignupCtaView as jest.Mock;
 
@@ -116,5 +126,43 @@ describe("CTASection", () => {
       "data-source",
       "landing-final-cta",
     );
+  });
+
+  it("renders and tracks the App Store pre-order CTA variant", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <CTASection
+        source="landing-final-cta"
+        variant="app-store-preorder"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockTrack).toHaveBeenCalledWith("app_store_preorder_view", {
+        source: "landing-final-cta",
+        surface: "landing-page",
+        platform: "ios",
+      });
+    });
+
+    const link = screen.getByRole("link", {
+      name: new RegExp(IOS_APP_STORE_PREORDER_CTA, "i"),
+    });
+    link.addEventListener("click", (event) => event.preventDefault());
+
+    expect(link).toHaveAttribute("href", IOS_APP_STORE_PREORDER_URL);
+
+    await user.click(link);
+
+    expect(mockTrack).toHaveBeenCalledWith("app_store_preorder_click", {
+      source: "landing-final-cta",
+      surface: "landing-page",
+      platform: "ios",
+      cta_text: IOS_APP_STORE_PREORDER_CTA,
+      destination_url: IOS_APP_STORE_PREORDER_URL,
+    });
+    expect(mockTrackSignupCtaClick).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("auth-modal")).not.toBeInTheDocument();
   });
 });

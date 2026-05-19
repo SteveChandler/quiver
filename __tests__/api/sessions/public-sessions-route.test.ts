@@ -4,6 +4,7 @@
 
 import {
   createMockRequest,
+  createMockUser,
   createMockSupabaseClient,
   expectSuccessResponse,
 } from "@/test-utils/api-test-helpers";
@@ -134,6 +135,104 @@ describe("/api/sessions/public", () => {
     expect(item.author).not.toHaveProperty("name");
     expect(item.author).not.toHaveProperty("avatar");
   });
-});
 
+  it("filters friends feed by followed users and requested beach", async () => {
+    const user = createMockUser({ id: "current-user" });
+    mockSupabaseClient.auth.getUser.mockResolvedValue({
+      data: { user },
+      error: null,
+    });
+
+    const createChain = (result: any) => {
+      const chain: any = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        in: jest.fn().mockReturnThis(),
+        not: jest.fn().mockReturnThis(),
+        order: jest.fn().mockReturnThis(),
+        range: jest.fn().mockReturnThis(),
+        then: jest.fn((onResolve: any) => onResolve(result)),
+      };
+      return chain;
+    };
+
+    const blocksChain = createChain({ data: [], error: null });
+    const followsChain = createChain({
+      data: [
+        { following_id: "friend-1" },
+        { following_id: "friend-2" },
+      ],
+      error: null,
+    });
+    const countChain = createChain({ count: 1, data: null, error: null });
+    const dataChain = createChain({
+      data: [
+        {
+          id: "session-1",
+          user_id: "friend-1",
+          beach_name: "Blacks Beach",
+          beach_id: "beach-1",
+          arrival_time: "2026-05-18T08:00:00.000Z",
+          wave_quality: 4,
+          wave_height_ft: 3,
+          notes: null,
+          description: "Fun morning",
+          image_url: null,
+          likes_count: 0,
+          created_at: "2026-05-18T10:00:00.000Z",
+          duration_minutes: 75,
+          crowd_level: 2,
+          water_temp: 62,
+          rating: 4,
+          beaches: { name: "Blacks Beach" },
+          profiles: {
+            id: "friend-1",
+            full_name: "Crew Surfer",
+            avatar_url: null,
+          },
+          session_media: [],
+        },
+      ],
+      error: null,
+    });
+    const likesChain = createChain({ data: [], error: null });
+
+    const sessionsChains = [countChain, dataChain];
+    mockSupabaseClient.from.mockImplementation((table: string) => {
+      if (table === "user_blocks") return blocksChain;
+      if (table === "user_follows") return followsChain;
+      if (table === "session_likes") return likesChain;
+      if (table === "sessions") return sessionsChains.shift();
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const req = createMockRequest(
+      "GET",
+      "http://localhost:3000/api/sessions/public?feed_type=friends&beach_id=beach-1&page=1&limit=10",
+    );
+    const res = await GET(req as any);
+    const payload = await expectSuccessResponse<any[]>(res, 200);
+
+    expect(payload.data).toHaveLength(1);
+    expect(payload.data[0]).toMatchObject({
+      id: "session-1",
+      userId: "friend-1",
+      beachId: "beach-1",
+      displayName: "Crew Surfer",
+    });
+    expect(followsChain.eq).toHaveBeenCalledWith("follower_id", "current-user");
+    expect(countChain.eq).toHaveBeenCalledWith("beach_id", "beach-1");
+    expect(countChain.in).toHaveBeenCalledWith("user_id", [
+      "friend-1",
+      "friend-2",
+    ]);
+    expect(dataChain.eq).toHaveBeenCalledWith("beach_id", "beach-1");
+    expect(dataChain.in).toHaveBeenCalledWith("user_id", [
+      "friend-1",
+      "friend-2",
+    ]);
+    expect(likesChain.eq).toHaveBeenCalledWith("user_id", "current-user");
+    expect(res.headers.get("cache-control")).toContain("no-store");
+  });
+});
 

@@ -132,6 +132,7 @@ export function buildSessionShareImageUrl(
     tagline: getSessionTagline(session),
     footer: `Similar to your best ${footerBeach} sessions`,
     bg: getSessionBackground(session),
+    shareUrl: buildSessionPageShareUrl(session.id),
   });
 }
 

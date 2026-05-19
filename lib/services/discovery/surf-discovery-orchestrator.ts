@@ -135,6 +135,32 @@ export function formatWaveHeightRange(
   return formatWaveHeightRangeString(waveHeight, waveHeight);
 }
 
+function formatWindowWaveHeightBadge(
+  forecasts: EnhancedForecastEntity[]
+): string | null {
+  const heights = forecasts
+    .map((f) => parseFloat(String(f.wave_height ?? '')))
+    .filter((h) => !isNaN(h) && h > 0);
+
+  if (heights.length === 0) return null;
+  return formatWaveHeightRangeString(Math.min(...heights), Math.max(...heights));
+}
+
+export function applyWindowWaveHeightBadgesForRecommendations(
+  recommendations: SurfDiscoveryRecommendation[],
+  forecastsByBeachId: Map<string, EnhancedForecastEntity[]>
+): SurfDiscoveryRecommendation[] {
+  return recommendations.map((rec) => {
+    const allHourly = forecastsByBeachId.get(rec.beach.id) ?? [];
+    const windowForecasts = allHourly.filter((f) => {
+      const t = new Date(f.forecast_at);
+      return t >= rec.window.start && t <= rec.window.end;
+    });
+    const waveHeightBadge = formatWindowWaveHeightBadge(windowForecasts);
+    return waveHeightBadge ? { ...rec, waveHeightBadge } : rec;
+  });
+}
+
 /**
  * Generate condition badges based on thresholds
  * Returns top 2-3 badges sorted by contribution
@@ -1035,39 +1061,17 @@ async function discoverSurfSpotsInner(
   );
 
   // 5. Enrich with photos
-  const enrichedRanked = await enrichWithPhotos(finalSlice);
+  let enrichedRanked = applyWindowWaveHeightBadgesForRecommendations(
+    await enrichWithPhotos(finalSlice),
+    forecastsByBeachId
+  );
 
-  // 6. Post-process the top recommendation only:
-  //    a) Fix waveHeightBadge to use actual min/max from the window's hourly forecasts
-  //       (replaces the 1.5x variance estimate with beach-page-consistent logic).
-  //    b) Attach slotForecasts for Today's Windows per-slot wave heights.
+  // 6. Attach slotForecasts for Today's Windows to the top recommendation.
+  // Wave-height badges for all recommendations were corrected above from
+  // actual min/max within each recommendation's selected window.
   if (enrichedRanked.length > 0) {
     const topRec = enrichedRanked[0];
     const allHourly = forecastsByBeachId.get(topRec.beach.id) ?? [];
-
-    // Filter to forecasts within the best window's time range
-    const windowStart = topRec.window.start;
-    const windowEnd = topRec.window.end;
-    const windowForecasts = allHourly.filter((f) => {
-      const t = new Date(f.forecast_at);
-      return t >= windowStart && t <= windowEnd;
-    });
-
-    // Compute accurate waveHeightBadge from actual window min/max
-    const windowHeights = windowForecasts
-      .map((f) => parseFloat(String(f.wave_height ?? '')))
-      .filter((h) => !isNaN(h) && h > 0);
-
-    if (windowHeights.length >= 2) {
-      const winMin = Math.min(...windowHeights);
-      const winMax = Math.max(...windowHeights);
-      if (winMax > winMin) {
-        enrichedRanked[0] = {
-          ...topRec,
-          waveHeightBadge: formatWaveHeightRangeString(winMin, winMax),
-        };
-      }
-    }
 
     // Compute per-slot wave heights for the same day as the top rec's window
     const SLOT_HOURS = [5, 8, 11, 14, 17];

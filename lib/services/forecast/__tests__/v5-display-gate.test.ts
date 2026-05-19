@@ -1,6 +1,5 @@
 import {
   applyV51DisplayOverrideToForecasts,
-  isV51DisplayAllowlistedUser,
 } from "../v5-display-gate";
 import type { CalibrationVersion } from "../calibration-v5";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -60,33 +59,6 @@ function forecast(
   };
 }
 
-describe("isV51DisplayAllowlistedUser", () => {
-  it("allows the Steve and Jake production identities", () => {
-    expect(
-      isV51DisplayAllowlistedUser({
-        id: "73040cff-afe9-4fa0-a874-2016203fc015",
-        email: "other@example.com",
-      })
-    ).toBe(true);
-    expect(
-      isV51DisplayAllowlistedUser({
-        id: "not-listed",
-        email: "JAKEHUMPHREY18@gmail.com",
-      })
-    ).toBe(true);
-  });
-
-  it("rejects unrelated and plus-test identities", () => {
-    expect(
-      isV51DisplayAllowlistedUser({
-        id: "not-listed",
-        email: "omg.its.thefuture+test@gmail.com",
-      })
-    ).toBe(false);
-    expect(isV51DisplayAllowlistedUser(null)).toBe(false);
-  });
-});
-
 describe("applyV51DisplayOverrideToForecasts", () => {
   it("leaves forecasts untouched when disabled", async () => {
     const rows = [forecast()];
@@ -98,13 +70,21 @@ describe("applyV51DisplayOverrideToForecasts", () => {
     ).resolves.toBe(rows);
   });
 
+  it("replaces wave_height with v5.1 display by default", async () => {
+    const [row] = await applyV51DisplayOverrideToForecasts([forecast()], {
+      calibration: CALIBRATION,
+    });
+
+    expect(row.wave_height).toBe("2-3ft");
+  });
+
   it("replaces wave_height with v5.1 display when enabled", async () => {
     const [row] = await applyV51DisplayOverrideToForecasts([forecast()], {
       enabled: true,
       calibration: CALIBRATION,
     });
 
-    expect(row.wave_height).toBe("2-4ft");
+    expect(row.wave_height).toBe("2-3ft");
   });
 
   it("uses the W x 0.5-1.0m raw-OM passthrough guardrail", async () => {
@@ -116,13 +96,21 @@ describe("applyV51DisplayOverrideToForecasts", () => {
     expect(row.wave_height).toBe("2-3ft");
   });
 
+  it("uses raw OM display for NW swells at or above 1m", async () => {
+    const [row] = await applyV51DisplayOverrideToForecasts(
+      [forecast({ wave_height: "1ft", wave_height_om: 1.2, swell_1_direction: "WNW" })],
+      { enabled: true, calibration: CALIBRATION }
+    );
+
+    expect(row.wave_height).toBe("3-4ft");
+  });
+
   it("falls back to OM direction when swell_1_direction is missing", async () => {
     const [row] = await applyV51DisplayOverrideToForecasts(
       [forecast({ wave_height_om: 0.8, swell_1_direction: null, wave_direction_om: 270 })],
       { enabled: true, calibration: CALIBRATION }
     );
 
-    expect(row.wave_height).toBe("2-4ft");
+    expect(row.wave_height).toBe("2-3ft");
   });
 });
-

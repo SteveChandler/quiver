@@ -215,6 +215,26 @@ describe("BestSurfWindow", () => {
       expect(screen.getByText(/Chest to head high/i)).toBeInTheDocument();
     });
 
+    it("uses forecast-derived wave labels before daily-intel min/max", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: {
+          ...mockIntel,
+          surf_min_ft: 1,
+          surf_max_ft: 5,
+          current_wave_height_label: "2-3ft",
+          best_window_wave_height_label: "3-4ft",
+        },
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      expect(screen.getByText("3-4ft")).toBeInTheDocument();
+      expect(screen.queryByText("1-5ft")).not.toBeInTheDocument();
+    });
+
     it("should display wind metrics", () => {
       mockUseDataFetcher.mockReturnValue({
         data: mockIntel,

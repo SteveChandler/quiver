@@ -153,14 +153,35 @@ describe("GET /api/cron/ccc-sync", () => {
     jest.useRealTimers();
   });
 
-  it("rejects an explicit invalid phase without running sync work", async () => {
+  it("returns an ok skipped result for an invalid explicit phase", async () => {
     const response = await GET(
       createCronRequest("http://localhost/api/cron/ccc-sync?phase=bogus")
     );
     const body = await response.json();
 
-    expect(response.status).toBe(400);
-    expect(body.error).toBe("Invalid phase");
+    expect(response.status).toBe(200);
+    expect(body.data).toMatchObject({
+      phase: "skipped",
+      accepted_phases: ["import", "match"],
+    });
+    expect(body.data.reason).toContain('raw phase="bogus"');
+    expect(mockFetchCCCLocations).not.toHaveBeenCalled();
+    expect(mockUpsertCCCLocations).not.toHaveBeenCalled();
+    expect(mockMatchCCCToBeaches).not.toHaveBeenCalled();
+  });
+
+  it("returns an ok skipped result for a blank explicit phase", async () => {
+    const response = await GET(
+      createCronRequest("http://localhost/api/cron/ccc-sync?phase=%20%20")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data).toMatchObject({
+      phase: "skipped",
+      accepted_phases: ["import", "match"],
+    });
+    expect(body.data.reason).toContain('raw phase=""');
     expect(mockFetchCCCLocations).not.toHaveBeenCalled();
     expect(mockUpsertCCCLocations).not.toHaveBeenCalled();
     expect(mockMatchCCCToBeaches).not.toHaveBeenCalled();

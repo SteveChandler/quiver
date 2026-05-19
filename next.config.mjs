@@ -186,6 +186,15 @@ const nextConfig = {
           },
         ],
       },
+      {
+        source: "/api/sessions/public",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, must-revalidate",
+          },
+        ],
+      },
     ];
   },
 

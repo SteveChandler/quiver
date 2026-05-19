@@ -40,6 +40,25 @@ jest.mock("@/lib/analytics/signup-conversion-tracking", () => ({
   trackSignupCtaView: jest.fn(),
 }));
 
+jest.mock("@/components/landing-page/hero-search-lazy", () => {
+  const React = require("react");
+  const {
+    BeachSearchAutocomplete,
+  } = require("@/components/beach/beach-search-autocomplete");
+
+  return {
+    __esModule: true,
+    default: (props: any) =>
+      React.createElement(BeachSearchAutocomplete, {
+        ...props,
+        placeholder: "Search by beach",
+        maxResults: 8,
+        requireExplicitSelection: true,
+        source: "landing_hero",
+      }),
+  };
+});
+
 beforeEach(() => {
   pushMock.mockClear();
   global.fetch = jest.fn().mockResolvedValue({

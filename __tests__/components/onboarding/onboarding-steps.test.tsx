@@ -459,6 +459,8 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
         conditions_score: 8,
         surf_min_ft: 3,
         surf_max_ft: 5,
+        current_wave_height_label: "2-3ft",
+        best_window_wave_height_label: "3-4ft",
         wind_quality: "offshore",
         wind_speed_mph: 10,
       };
@@ -481,6 +483,10 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
 
       await waitFor(() => {
         expect(screen.getByText(/Perfect offshore winds/i)).toBeInTheDocument();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText("3-4ft")).toBeInTheDocument();
       });
 
       // Score is rendered via AnimatedScore (spring animation) — in JSDOM it stays at 0

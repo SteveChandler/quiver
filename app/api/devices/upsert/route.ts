@@ -28,7 +28,7 @@ function normalizeIanaTimezone(value: unknown): string | null {
  */
 export const POST = withAuth(async (request: NextRequest, { user, supabase }) => {
   const body = await request.json();
-  const { platform, device_token, app_version, os_version, expo_sdk, timezone } = body;
+  const { platform, device_token, app_version, build_number, os_version, expo_sdk, timezone } = body;
 
   if (!platform || !device_token) {
     return NextResponse.json(
@@ -79,6 +79,7 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
   // truncating.
   for (const [field, value] of [
     ["app_version", app_version],
+    ["build_number", build_number],
     ["os_version", os_version],
     ["expo_sdk", expo_sdk],
   ] as const) {
@@ -128,6 +129,7 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
     updated_at: new Date().toISOString(),
   };
   if (app_version !== undefined) upsertRow.app_version = app_version ?? null;
+  if (build_number !== undefined) upsertRow.build_number = build_number ?? null;
   if (os_version !== undefined) upsertRow.os_version = os_version ?? null;
   if (expo_sdk !== undefined) upsertRow.expo_sdk = expo_sdk ?? null;
   if (normalizedTimezone) upsertRow.timezone = normalizedTimezone;

@@ -86,6 +86,8 @@ export type ClientBeachDailyIntel = {
   surf_min_ft: number | null;
   surf_max_ft: number | null;
   surf_description: string | null;
+  current_wave_height_label?: string | null;
+  best_window_wave_height_label?: string | null;
 
   tide_height_ft: number | null;
   tide_time: string | null;

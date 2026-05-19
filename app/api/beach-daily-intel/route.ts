@@ -5,6 +5,7 @@ import {
   createValidationError,
   handleApiError,
 } from "@/lib/api-utils";
+import { getDailyIntelWaveHeightLabels } from "@/lib/services/intel/wave-height-labels";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const revalidate = 0;
@@ -71,12 +72,25 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    return createSuccessResponse({ intel: intel ?? null });
+    if (!intel) {
+      return createSuccessResponse({ intel: null });
+    }
+
+    const labels = await getDailyIntelWaveHeightLabels(
+      supabase,
+      beachId,
+      forecastDate,
+      {
+        bestWindowStart: intel.best_window_start,
+        bestWindowEnd: intel.best_window_end,
+      }
+    );
+
+    return createSuccessResponse({ intel: { ...intel, ...labels } });
   } catch (error) {
     return handleApiError(error, "Failed to load beach daily intel");
   }
 }
-
 
 
 
