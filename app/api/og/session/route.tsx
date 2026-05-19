@@ -56,6 +56,18 @@ export async function GET(request: NextRequest) {
   const tagline = searchParams.get('tagline') || '';
   const footer = searchParams.get('footer') || 'Logged on Quiver';
   const bg = remoteImageUrlOrFallback(searchParams.get('bg'), DEFAULT_BG);
+  const shareUrl = searchParams.get('shareUrl') || '';
+
+  const formatShareUrl = (value: string) => {
+    if (!value) return '';
+    try {
+      const parsed = new URL(value);
+      const host = parsed.host.replace(/^www\./, '');
+      return `${host}${parsed.pathname}`;
+    } catch {
+      return value.replace(/^https?:\/\//, '');
+    }
+  };
 
   const truncate = (value: string, max: number) => {
     if (!value) return '';
@@ -152,6 +164,7 @@ export async function GET(request: NextRequest) {
   const displayRating = truncate(rating.toUpperCase(), 16);
   const displaySize = truncate(size, 24);
   const displayBoard = truncate(board, 34);
+  const displayShareUrl = truncate(formatShareUrl(shareUrl), 38);
 
   const showWind = Boolean(windLabel || windSpeed);
   const windText = [windLabel, windSpeed].filter(Boolean).join(' • ');
@@ -473,29 +486,48 @@ export async function GET(request: NextRequest) {
               <div
                 style={{
                   display: 'flex',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 14,
+                  flexDirection: 'column',
+                  alignItems: 'flex-end',
+                  gap: 6,
                 }}
               >
                 <div
                   style={{
-                    width: 18,
-                    height: 18,
-                    borderRadius: 9,
-                    backgroundColor: '#00D4AA',
-                    display: 'flex',
-                  }}
-                />
-                <div
-                  style={{
-                    fontSize: 30,
+                    fontSize: 22,
                     fontWeight: 800,
-                    color: '#F5EEDC',
+                    color: '#FDB84B',
                     display: 'flex',
                   }}
                 >
-                  quiversurf.app
+                  {displayShareUrl ? 'OPEN THIS SESSION' : 'QUIVER'}
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 14,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: 9,
+                      backgroundColor: '#00D4AA',
+                      display: 'flex',
+                    }}
+                  />
+                  <div
+                    style={{
+                      fontSize: 30,
+                      fontWeight: 800,
+                      color: '#F5EEDC',
+                      display: 'flex',
+                    }}
+                  >
+                    {displayShareUrl || 'quiversurf.app'}
+                  </div>
                 </div>
               </div>
             </div>

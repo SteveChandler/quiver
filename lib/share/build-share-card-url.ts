@@ -56,6 +56,8 @@ export interface SessionShareParams {
   footer?: string;
   /** Background image URL (optional) */
   bg?: string;
+  /** Public URL recipients should open from the share card */
+  shareUrl?: string;
 }
 
 /**
@@ -202,6 +204,9 @@ export function buildSessionShareUrl(params: SessionShareParams): string {
   const bg = remoteImageUrlOrUndefined(params.bg);
   if (bg) {
     searchParams.set('bg', bg);
+  }
+  if (params.shareUrl) {
+    searchParams.set('shareUrl', params.shareUrl);
   }
 
   return `${baseUrl}/api/og/session?${searchParams.toString()}`;

@@ -55,6 +55,7 @@ describe("buildSessionShareUrl", () => {
       tagline: "Solid Snake: Smooth walls, long rights...",
       footer: "Similar to your best Ocean Beach sessions",
       bg: "https://example.com/bg.jpg?x=1&y=2",
+      shareUrl: "https://www.quiversurf.app/sessions/session-abc?utm_source=test",
     });
 
     const parsed = new URL(url);
@@ -68,6 +69,9 @@ describe("buildSessionShareUrl", () => {
       "Similar to your best Ocean Beach sessions"
     );
     expect(parsed.searchParams.get("bg")).toBe("https://example.com/bg.jpg?x=1&y=2");
+    expect(parsed.searchParams.get("shareUrl")).toBe(
+      "https://www.quiversurf.app/sessions/session-abc?utm_source=test"
+    );
     expect(parsed.searchParams.get("board")).toBe(`6'2" Shortboard`);
   });
 
