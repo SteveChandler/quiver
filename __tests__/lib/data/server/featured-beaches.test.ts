@@ -2,7 +2,11 @@
  * @jest-environment node
  */
 
-import { getFeaturedBeaches } from "@/lib/data/server/featured-beaches";
+import {
+  getFeaturedBeaches,
+  sortLandingFeaturedBeaches,
+} from "@/lib/data/server/featured-beaches";
+import type { EnrichedBeach } from "@/lib/data/server/featured-beaches";
 
 // Mock Supabase server client
 const mockFrom = jest.fn();
@@ -155,5 +159,59 @@ describe("getFeaturedBeaches", () => {
 
     expect(result.isNearby).toBe(false);
     expect(Array.isArray(result.beaches)).toBe(true);
+  });
+});
+
+describe("sortLandingFeaturedBeaches", () => {
+  function beach(
+    id: string,
+    name: string,
+    skill_level: string | null,
+    score: number,
+    average_rating = 4
+  ): EnrichedBeach {
+    return {
+      id,
+      name,
+      city: "San Diego",
+      state: "CA",
+      slug: name.toLowerCase().replace(/\s+/g, "-"),
+      average_rating,
+      review_count: 10,
+      skill_level,
+      photo_url: `https://example.com/${id}.jpg`,
+      has_real_photo: true,
+      score,
+    };
+  }
+
+  it("prioritizes beginner and intermediate beaches over advanced score-only winners", () => {
+    const result = sortLandingFeaturedBeaches([
+      beach("expert", "Expert Reef", "expert", 92),
+      beach("advanced", "Advanced Slab", "advanced", 88),
+      beach("intermediate", "Intermediate Beach", "intermediate", 55),
+      beach("beginner", "Beginner Cove", "beginner", 48),
+    ]);
+
+    expect(result.map((item) => item.name)).toEqual([
+      "Beginner Cove",
+      "Intermediate Beach",
+      "Advanced Slab",
+      "Expert Reef",
+    ]);
+  });
+
+  it("uses score and rating only within the same landing skill tier", () => {
+    const result = sortLandingFeaturedBeaches([
+      beach("lower", "Lower Score Beginner", "beginner", 48, 4.8),
+      beach("higher", "Higher Score Beginner", "beginner", 65, 3.8),
+      beach("intermediate", "Intermediate Beach", "intermediate", 80, 4.9),
+    ]);
+
+    expect(result.map((item) => item.name)).toEqual([
+      "Higher Score Beginner",
+      "Lower Score Beginner",
+      "Intermediate Beach",
+    ]);
   });
 });
