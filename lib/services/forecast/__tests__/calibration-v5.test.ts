@@ -9,7 +9,7 @@
  * `seaside/tests/fixtures/v5_golden_vectors.json` — the SAME file is loaded
  * by `seaside/tests/test_calibration.py`. Any drift between this TS module
  * and the Python `score_v5` will fail one of those golden tests. v5.1 keeps
- * the existing W guardrail and disables the NW directional g adjustment.
+ * the existing W guardrail and passes raw OM through for NW >= 1.0m.
  */
 
 import * as fs from "node:fs";
@@ -149,7 +149,7 @@ describe("computeV5Shadow", () => {
     expect(result).not.toBeNull();
     expect(result!.direction_bucket).toBe("S/SW");
     expect(result!.om_bucket).toBe("1.0-1.5m");
-    expect(result!.v5_model_version).toBe("v5_1_no_nw_g.20260502_test");
+    expect(result!.v5_model_version).toBe("v5_1_nw_ge1_raw_om.20260502_test");
     // f(1.2) = interp between (1.19, 1.120) and (1.79, 1.669):
     //   t = (1.2 - 1.19) / (1.79 - 1.19) ≈ 0.01667
     //   f ≈ 1.120 + 0.01667 * (1.669 - 1.120) ≈ 1.1291
@@ -190,17 +190,18 @@ describe("computeV5Shadow", () => {
     expect(result!.v5_shadow_height_m).toBeCloseTo(0.711, 2);
   });
 
-  it("uses unit slope above the largest knot and disables NW g", () => {
+  it("passes raw OM through for NW 1.5m+ buckets", () => {
     const result = computeV5Shadow({
       wave_height_om_m: 3.0,
       primary_swell_direction_deg: 310,
       calibration: FIXTURE_CALIBRATION,
     });
-    // f(3.0) = 1.669 + (3.0 - 1.79) = 2.879; v5.1 uses no NW g.
-    expect(result!.v5_shadow_height_m).toBeCloseTo(2.879, 2);
+    expect(result!.direction_bucket).toBe("NW");
+    expect(result!.om_bucket).toBe("1.5m+");
+    expect(result!.v5_shadow_height_m).toBeCloseTo(3.0, 3);
   });
 
-  it("uses global f(om) only for NW buckets", () => {
+  it("passes raw OM through for NW 1.0-1.5m buckets", () => {
     const result = computeV5Shadow({
       wave_height_om_m: 1.2,
       primary_swell_direction_deg: 310,
@@ -208,8 +209,21 @@ describe("computeV5Shadow", () => {
     });
     expect(result).not.toBeNull();
     expect(result!.direction_bucket).toBe("NW");
-    // f(1.2) ≈ 1.129; old v5 added +0.277, v5.1 intentionally does not.
-    expect(result!.v5_shadow_height_m).toBeCloseTo(1.129, 2);
+    expect(result!.om_bucket).toBe("1.0-1.5m");
+    expect(result!.v5_shadow_height_m).toBeCloseTo(1.2, 3);
+  });
+
+  it("keeps NW below 1.0m on f(om) without direction g", () => {
+    const result = computeV5Shadow({
+      wave_height_om_m: 0.8,
+      primary_swell_direction_deg: 310,
+      calibration: FIXTURE_CALIBRATION,
+    });
+    expect(result).not.toBeNull();
+    expect(result!.direction_bucket).toBe("NW");
+    expect(result!.om_bucket).toBe("0.5-1.0m");
+    // f(0.8) ≈ 0.844; old v5 added +0.277, v5.1 intentionally does not.
+    expect(result!.v5_shadow_height_m).toBeCloseTo(0.844, 2);
   });
 
   it("treats null direction as OTHER bucket", () => {
