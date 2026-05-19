@@ -274,6 +274,32 @@ describe("/api/forecasts/bulk", () => {
     expect(data.data.forecasts).toEqual({});
   });
 
+  it("parses v5.1 display ranges without dropping the beach", async () => {
+    mockBulkQueries({
+      forecastRows: [forecastRow("beach-1", "3-4ft")],
+    });
+
+    const response = await GET(
+      createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
+    );
+    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+
+    expect(data.data.forecasts).toEqual({ "beach-1": 3 });
+  });
+
+  it("preserves flat v5.1 display as zero", async () => {
+    mockBulkQueries({
+      forecastRows: [forecastRow("beach-1", "Flat")],
+    });
+
+    const response = await GET(
+      createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
+    );
+    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+
+    expect(data.data.forecasts).toEqual({ "beach-1": 0 });
+  });
+
   it("returns water temps from the nearest future enhanced forecast row", async () => {
     mockBulkQueries({
       forecastRows: [forecastRow("beach-1", "2.5")],

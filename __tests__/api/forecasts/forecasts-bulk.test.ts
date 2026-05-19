@@ -263,6 +263,36 @@ describe("GET /api/forecasts/bulk", () => {
     expect(result.data.forecasts).toEqual({});
   });
 
+  it("parses v5.1 display ranges without dropping the beach", async () => {
+    mockBulkQueries({
+      forecastRows: [forecastRow("beach-1", "3-4ft")],
+    });
+
+    const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
+      searchParams: { beachIds: "beach-1" },
+    });
+
+    const response = await GET(request);
+    const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
+
+    expect(result.data.forecasts).toEqual({ "beach-1": 3 });
+  });
+
+  it("preserves flat v5.1 display as zero", async () => {
+    mockBulkQueries({
+      forecastRows: [forecastRow("beach-1", "Flat")],
+    });
+
+    const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
+      searchParams: { beachIds: "beach-1" },
+    });
+
+    const response = await GET(request);
+    const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
+
+    expect(result.data.forecasts).toEqual({ "beach-1": 0 });
+  });
+
   it("trims whitespace and filters empty strings from beach IDs", async () => {
     const { forecastChain } = mockBulkQueries();
 

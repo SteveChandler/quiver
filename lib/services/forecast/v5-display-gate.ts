@@ -3,11 +3,8 @@ import {
   getActiveCalibration,
   type CalibrationVersion,
 } from "./calibration-v5";
-import {
-  formatDisplayHeightFt,
-  parseDisplayHeightFt,
-} from "./apply-beach-height-offset";
 import { cardinalToDegrees } from "./forecast-transformer";
+import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
@@ -37,11 +34,7 @@ function applyV51DisplayOverrideToForecast<T extends EnhancedForecastEntity>(
 
   if (!v5) return forecast;
 
-  const parsedDisplay = parseDisplayHeightFt(forecast.wave_height);
-  const waveHeight = formatDisplayHeightFt({
-    numericFt: v5.v5_shadow_height_m * METERS_TO_FEET,
-    rangeSpread: parsedDisplay.rangeSpread,
-  });
+  const waveHeight = formatWaveHeightRange(v5.v5_shadow_height_m * METERS_TO_FEET);
 
   if (waveHeight === forecast.wave_height) return forecast;
   return { ...forecast, wave_height: waveHeight };

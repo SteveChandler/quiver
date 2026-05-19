@@ -71,6 +71,13 @@ function secondsFromTime(time: string): number {
   return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
 }
 
+function parseDisplayWaveHeight(value: string | null): number | null {
+  if (value == null) return null;
+  if (value.trim().toLowerCase() === "flat") return 0;
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 async function fetchBulkCurrentForecastsWithV51Display(
   supabase: SupabaseClient<Database>,
   beachIds: string[]
@@ -163,11 +170,9 @@ async function bulkForecastHandler(
 
     const waveHeightMap: Record<string, number | undefined> = {};
     (data || []).forEach((row: { beach_id: string; wave_height: string | null }) => {
-      if (row.wave_height !== null) {
-        const parsedWaveHeight = Number(row.wave_height);
-        if (Number.isFinite(parsedWaveHeight)) {
-          waveHeightMap[row.beach_id] = parsedWaveHeight;
-        }
+      const parsedWaveHeight = parseDisplayWaveHeight(row.wave_height);
+      if (parsedWaveHeight != null) {
+        waveHeightMap[row.beach_id] = parsedWaveHeight;
       }
     });
 

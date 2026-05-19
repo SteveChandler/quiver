@@ -75,7 +75,7 @@ describe("applyV51DisplayOverrideToForecasts", () => {
       calibration: CALIBRATION,
     });
 
-    expect(row.wave_height).toBe("2-4ft");
+    expect(row.wave_height).toBe("2-3ft");
   });
 
   it("replaces wave_height with v5.1 display when enabled", async () => {
@@ -84,7 +84,7 @@ describe("applyV51DisplayOverrideToForecasts", () => {
       calibration: CALIBRATION,
     });
 
-    expect(row.wave_height).toBe("2-4ft");
+    expect(row.wave_height).toBe("2-3ft");
   });
 
   it("uses the W x 0.5-1.0m raw-OM passthrough guardrail", async () => {
@@ -111,6 +111,6 @@ describe("applyV51DisplayOverrideToForecasts", () => {
       { enabled: true, calibration: CALIBRATION }
     );
 
-    expect(row.wave_height).toBe("2-4ft");
+    expect(row.wave_height).toBe("2-3ft");
   });
 });
