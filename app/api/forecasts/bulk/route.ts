@@ -10,7 +10,6 @@ import {
 import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
 import {
   applyV51DisplayOverrideToForecasts,
-  isV51DisplayAllowlistedUser,
 } from "@/lib/services/forecast/v5-display-gate";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Database } from "@/types/database.generated";
@@ -112,8 +111,7 @@ async function fetchBulkCurrentForecastsWithV51Display(
   }
 
   const displayRows = await applyV51DisplayOverrideToForecasts(
-    Array.from(rankedByBeach.values()),
-    { enabled: true }
+    Array.from(rankedByBeach.values())
   );
 
   return {
@@ -153,12 +151,10 @@ async function bulkForecastHandler(
     const limitedBeachIds = beachIds.slice(0, maxBeaches);
     const { supabase } = context;
 
-    const useV51Display = isV51DisplayAllowlistedUser(context?.user ?? null);
-    const { data, error } = useV51Display
-      ? await fetchBulkCurrentForecastsWithV51Display(supabase, limitedBeachIds)
-      : await supabase.rpc("get_bulk_current_forecasts", {
-          p_beach_ids: limitedBeachIds,
-        });
+    const { data, error } = await fetchBulkCurrentForecastsWithV51Display(
+      supabase,
+      limitedBeachIds
+    );
 
     if (error) {
       console.error("Error fetching bulk forecasts:", error);
@@ -168,7 +164,10 @@ async function bulkForecastHandler(
     const waveHeightMap: Record<string, number | undefined> = {};
     (data || []).forEach((row: { beach_id: string; wave_height: string | null }) => {
       if (row.wave_height !== null) {
-        waveHeightMap[row.beach_id] = row.wave_height as unknown as number;
+        const parsedWaveHeight = Number(row.wave_height);
+        if (Number.isFinite(parsedWaveHeight)) {
+          waveHeightMap[row.beach_id] = parsedWaveHeight;
+        }
       }
     });
 
