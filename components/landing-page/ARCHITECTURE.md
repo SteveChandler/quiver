@@ -78,7 +78,7 @@ export function AuthAwareLandingWrapper() {
 
 ### Launch-Week Header Behavior
 
-The unauthenticated `/` route intentionally omits the landing navbar during the iPhone pre-order campaign so the first viewport opens directly on the App Store launch video. Returning-user auto-login still records the `quiver_returning_user` flag in auth, but the launch landing page no longer forwards an `autoOpenLogin` prop or auto-opens the navbar auth modal.
+The unauthenticated `/` route renders the landing navbar in normal document flow above the App Store launch video. Returning-user auto-login still records the `quiver_returning_user` flag in auth, but the launch landing page no longer forwards an `autoOpenLogin` prop or auto-opens the navbar auth modal.
 
 **Architecture Decisions:**
 
