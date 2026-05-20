@@ -12,6 +12,7 @@ import {
   buildDynamicWaterTempMetadata,
   extractDescriptionSnippet,
   formatCrowdSignal,
+  shortenBeachNameForSerpTitle,
 } from "@/lib/seo/meta";
 import { SEO_CONFIG } from "@/lib/constants/seo";
 
@@ -392,8 +393,48 @@ describe("SEO Meta Builder", () => {
       });
     });
 
-    describe("Fix 1: location context in titles", () => {
-      it("PR beach with forecast includes PR or Puerto Rico in title", () => {
+    describe("short CTR titles", () => {
+      it("Malibu forecast title fits before the global Quiver suffix", () => {
+        const result = buildDynamicBeachMetadata({
+          beach: {
+            name: "Malibu Surfrider (First Point)",
+            city: "Malibu",
+            state: "CA",
+            break_type: "point",
+            skill_level: "intermediate",
+            wave_tips: "long point waves",
+          },
+          forecast: { wave_height: "2-3ft" },
+        });
+
+        expect(result.title).toBe("Malibu Surfrider: 2-3ft Surf Report | Malibu");
+        expect(result.title.length).toBeLessThanOrEqual(51);
+        expect(result.title).not.toContain("Long Point");
+      });
+
+      it("C Street forecast title uses the first name segment", () => {
+        const result = buildDynamicBeachMetadata({
+          beach: {
+            name: "C Street / Ventura Point",
+            city: "Ventura",
+            state: "CA",
+            break_type: "point",
+            skill_level: "intermediate",
+            wave_tips: "long right hand point waves",
+          },
+          forecast: { wave_height: "2-3ft" },
+        });
+
+        expect(result.title).toBe("C Street: 2-3ft Surf Report | Ventura");
+        expect(result.title.length).toBeLessThanOrEqual(51);
+      });
+
+      it("helper removes parenthetical text and slash alternates", () => {
+        expect(shortenBeachNameForSerpTitle("Malibu Surfrider (First Point)")).toBe("Malibu Surfrider");
+        expect(shortenBeachNameForSerpTitle("C Street / Ventura Point")).toBe("C Street");
+      });
+
+      it("PR beach with forecast includes Rincón when it fits", () => {
         const result = buildDynamicBeachMetadata({
           beach: {
             name: "Tres Palmas",
@@ -406,7 +447,7 @@ describe("SEO Meta Builder", () => {
           forecast: { wave_height: "2.7 ft" },
         });
         expect(result.title.length).toBeLessThanOrEqual(60);
-        expect(result.title).toMatch(/PR|Puerto Rico/);
+        expect(result.title).toMatch(/Rincón|PR|Puerto Rico/);
       });
 
       it("HI beach with forecast includes HI or Hawaii in title", () => {
@@ -482,7 +523,7 @@ describe("SEO Meta Builder", () => {
     });
 
     describe("Fix 2: description improvements", () => {
-      it("description includes location for PR beach (Puerto Rico or Rincón)", () => {
+      it("forecast description uses the stable surf-report template", () => {
         const result = buildDynamicBeachMetadata({
           beach: {
             name: "Tres Palmas",
@@ -492,16 +533,18 @@ describe("SEO Meta Builder", () => {
           },
           forecast: { wave_height: "2.7 ft" },
         });
-        expect(result.description).toMatch(/Puerto Rico|Rincón/);
+        expect(result.description).toBe(
+          "2.7 ft at Tres Palmas. See today's surf report, tide window, crowd intel, and 7-day forecast before you paddle out.",
+        );
         expect(result.description.length).toBeLessThanOrEqual(160);
       });
 
-      it("description contains '7-day surf forecast' (not just '7-day forecast')", () => {
+      it("description contains the 7-day forecast planning signal", () => {
         const result = buildDynamicBeachMetadata({
           beach: { name: "Ocean Beach", city: "San Diego", state: "CA" },
           forecast: { wave_height: "3 ft" },
         });
-        expect(result.description).toContain("7-day surf forecast");
+        expect(result.description).toContain("7-day forecast");
       });
 
       it("wave tips with semicolons split cleanly at clause boundary", () => {
@@ -559,8 +602,8 @@ describe("SEO Meta Builder", () => {
       });
     });
 
-    describe("Fix 4: expanded wave character keywords", () => {
-      const testKeyword = (waveTips: string, expectedChar: string) => {
+    describe("forecast title template", () => {
+      const testKeyword = (waveTips: string) => {
         const result = buildDynamicBeachMetadata({
           beach: {
             name: "Test Beach",
@@ -572,31 +615,28 @@ describe("SEO Meta Builder", () => {
           },
           forecast: { wave_height: "3 ft" },
         });
-        expect(result.title).toContain(expectedChar);
+        expect(result.title).toBe("Test Beach: 3 ft Surf Report | San Diego");
+        expect(result.title).not.toContain("Beach Break");
       };
 
-      it("'punchy' wave_tips surfaces Punchy in title", () => {
-        // Use wave_tips that only matches 'punchy', not earlier keywords like 'powerful'
-        testKeyword("Punchy shore break that rewards quick reactive turns", "Punchy");
+      it("'punchy' wave_tips does not lengthen the CTR title", () => {
+        testKeyword("Punchy shore break that rewards quick reactive turns");
       });
 
-      it("'heavy walls' wave_tips surfaces Heavy in title", () => {
-        // Use wave_tips that only matches 'heavy', not 'hollow' or 'powerful'
-        testKeyword("heavy walls that challenge even expert surfers at Tres Palmas", "Heavy");
+      it("'heavy walls' wave_tips does not lengthen the CTR title", () => {
+        testKeyword("heavy walls that challenge even expert surfers at Tres Palmas");
       });
 
-      it("'clean' wave_tips surfaces Clean in title", () => {
-        // Use wave_tips with no earlier keyword matches
-        testKeyword("clean lined-up swells with excellent shape at mid tide", "Clean");
+      it("'clean' wave_tips does not lengthen the CTR title", () => {
+        testKeyword("clean lined-up swells with excellent shape at mid tide");
       });
 
-      it("existing keyword 'hollow' still works", () => {
-        testKeyword("hollow barrels on a low tide push", "Hollow");
+      it("existing keyword 'hollow' does not lengthen the CTR title", () => {
+        testKeyword("hollow barrels on a low tide push");
       });
 
-      it("existing keyword 'mellow' still works", () => {
-        // Use wave_tips that only matches 'mellow' — avoid 'long', 'fast', 'powerful', 'hollow'
-        testKeyword("mellow glassy waves great for beginners and cruisy surfers", "Mellow");
+      it("existing keyword 'mellow' does not lengthen the CTR title", () => {
+        testKeyword("mellow glassy waves great for beginners and cruisy surfers");
       });
     });
   });
@@ -772,19 +812,19 @@ describe("SEO Meta Builder", () => {
           beach: mockBeach,
           tideData: { nextHighTime: "2:30 PM", nextLowTime: "8:45 AM" },
         });
-        expect(result.description).toMatch(/^Is incoming or outgoing tide better for/);
+        expect(result.description).toMatch(/^Should you surf/);
       });
 
-      it("should include both tide times in description when available", () => {
+      it("should not include exact tide times in description", () => {
         const result = buildDynamicTideMetadata({
           beach: mockBeach,
           tideData: { nextHighTime: "2:30 PM", nextLowTime: "8:45 AM" },
         });
-        expect(result.description).toContain("2:30 PM");
-        expect(result.description).toContain("8:45 AM");
+        expect(result.description).not.toContain("2:30 PM");
+        expect(result.description).not.toContain("8:45 AM");
       });
 
-      it("should include height values in description when provided", () => {
+      it("should not include height values in description", () => {
         const result = buildDynamicTideMetadata({
           beach: mockBeach,
           tideData: {
@@ -794,11 +834,11 @@ describe("SEO Meta Builder", () => {
             nextLowHeight: 0.8,
           },
         });
-        expect(result.description).toContain("5.2ft");
-        expect(result.description).toContain("0.8ft");
+        expect(result.description).not.toContain("5.2ft");
+        expect(result.description).not.toContain("0.8ft");
       });
 
-      it("should mention surf windows and sweet spots", () => {
+      it("should mention tide windows and 7-day surf timing", () => {
         const result = buildDynamicTideMetadata({
           beach: mockBeach,
           tideData: {
@@ -808,18 +848,18 @@ describe("SEO Meta Builder", () => {
             nextLowHeight: 0.8,
           },
         });
-        expect(result.description).toContain("Surf windows");
-        expect(result.description).toContain("sweet spots");
+        expect(result.description).toContain("2-3 hour tide windows");
+        expect(result.description).toContain("7-day surf timing");
       });
 
-      it("should use 7-day outlook fallback description when no tide data", () => {
+      it("should use the same non-answering description when no tide data", () => {
         const result = buildDynamicTideMetadata({
           beach: mockBeach,
           tideData: null,
         });
-        expect(result.description).toMatch(/^Is incoming or outgoing tide better for/);
-        expect(result.description).toContain("7-day outlook");
-        expect(result.description).toContain("surf windows");
+        expect(result.description).toMatch(/^Should you surf/);
+        expect(result.description).toContain("2-3 hour tide windows");
+        expect(result.description).toContain("7-day surf timing");
       });
 
       it("description length never exceeds 160 chars", () => {
@@ -828,6 +868,35 @@ describe("SEO Meta Builder", () => {
           tideData: { nextHighTime: "2:30 PM", nextLowTime: "8:45 AM", nextHighHeight: 5.2, nextLowHeight: 0.8 },
         });
         expect(result.description.length).toBeLessThanOrEqual(160);
+        expect(result.description).not.toContain("…");
+      });
+
+      it("Huntington tide description stays complete and non-answering", () => {
+        const result = buildDynamicTideMetadata({
+          beach: { name: "Huntington Beach Pier", city: "Huntington Beach", state: "CA" },
+          tideData: { nextHighTime: "2:30 PM", nextLowTime: "8:45 AM", nextHighHeight: 5.2, nextLowHeight: 0.8 },
+        });
+
+        expect(result.description).toBe(
+          "Should you surf Huntington Beach Pier on incoming or outgoing tide? See today's 2-3 hour tide windows, chart, and 7-day surf timing.",
+        );
+        expect(result.description.length).toBeLessThanOrEqual(160);
+        expect(result.description).not.toContain("2:30 PM");
+        expect(result.description).not.toContain("5.2ft");
+      });
+
+      it("Pleasure Point tide description stays complete and non-answering", () => {
+        const result = buildDynamicTideMetadata({
+          beach: { name: "Pleasure Point", city: "Santa Cruz", state: "CA" },
+          tideData: { nextHighTime: "6:10 AM", nextLowTime: "12:20 PM", nextHighHeight: 4.8, nextLowHeight: 0.5 },
+        });
+
+        expect(result.description).toBe(
+          "Should you surf Pleasure Point on incoming or outgoing tide? See today's 2-3 hour tide windows, chart, and 7-day surf timing.",
+        );
+        expect(result.description.length).toBeLessThanOrEqual(160);
+        expect(result.description).not.toContain("6:10 AM");
+        expect(result.description).not.toContain("4.8ft");
       });
     });
 
@@ -963,15 +1032,15 @@ describe("SEO Meta Builder", () => {
           beach: mockBeach,
           waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
         });
-        expect(result.description).toMatch(/^What wetsuit for/);
+        expect(result.description).toMatch(/^What wetsuit works for/);
       });
 
-      it("should include current temp in description when available", () => {
+      it("should not include exact current temp in description", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
         });
-        expect(result.description).toContain("64°F");
+        expect(result.description).not.toContain("64°F");
       });
 
       it("should mention seasonal trends", () => {
@@ -979,6 +1048,7 @@ describe("SEO Meta Builder", () => {
           beach: mockBeach,
           waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
         });
+        expect(result.description).toContain("current water temp");
         expect(result.description).toContain("seasonal trends");
       });
 
@@ -1003,16 +1073,42 @@ describe("SEO Meta Builder", () => {
           beach: mockBeach,
           waterTempData: null,
         });
-        expect(result.description).toMatch(/^What wetsuit for/);
-        expect(result.description).toContain("Plan your session gear");
+        expect(result.description).toMatch(/^What wetsuit works for/);
+        expect(result.description).toContain("gear guidance");
       });
 
-      it("description with data mentions NOAA buoys", () => {
+      it("description with data does not mention NOAA buoys", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
         });
-        expect(result.description).toContain("NOAA buoys");
+        expect(result.description).not.toContain("NOAA buoys");
+      });
+
+      it("Del Mar water temp description stays complete and non-answering", () => {
+        const result = buildDynamicWaterTempMetadata({
+          beach: { name: "Del Mar", city: "Del Mar", state: "CA" },
+          waterTempData: { tempF: 67, wetsuitRec: "2mm spring suit" },
+        });
+
+        expect(result.description).toBe(
+          "What wetsuit works for Del Mar today? See current water temp, gear guidance, and seasonal trends before you paddle out.",
+        );
+        expect(result.description.length).toBeLessThanOrEqual(160);
+        expect(result.description).not.toContain("67°F");
+      });
+
+      it("Waikiki water temp description stays complete and non-answering", () => {
+        const result = buildDynamicWaterTempMetadata({
+          beach: { name: "Waikiki Queens", city: "Honolulu", state: "HI" },
+          waterTempData: { tempF: 78, wetsuitRec: "rash guard" },
+        });
+
+        expect(result.description).toBe(
+          "What wetsuit works for Waikiki Queens today? See current water temp, gear guidance, and seasonal trends before you paddle out.",
+        );
+        expect(result.description.length).toBeLessThanOrEqual(160);
+        expect(result.description).not.toContain("78°F");
       });
     });
 

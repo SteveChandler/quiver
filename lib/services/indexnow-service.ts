@@ -56,7 +56,7 @@ export async function submitUrlsToIndexNow(
     body: JSON.stringify({
       host,
       key,
-      keyLocation: `${SITE_URL}/${key}.txt`,
+      keyLocation: `${SITE_URL}/indexnow-key.txt`,
       urlList: urls,
     }),
   });
