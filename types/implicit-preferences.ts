@@ -155,7 +155,14 @@ export type ImplicitEventType =
   | 'push_permission_denied'
   | 'push_token_fetch_failed'
   | 'push_device_registration_failed'
-  | 'push_device_registered';
+  | 'push_device_registered'
+  // Apple sign-in beta prompt funnel
+  | 'apple_beta_prompt_eligible'
+  | 'apple_beta_prompt_viewed'
+  | 'apple_beta_prompt_qr_rendered'
+  | 'apple_beta_prompt_open_testflight_clicked'
+  | 'apple_beta_prompt_copy_link_clicked'
+  | 'apple_beta_prompt_dismissed';
 
 /**
  * Weight multipliers for each event type, determining how much
@@ -301,6 +308,12 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   push_token_fetch_failed: 0,
   push_device_registration_failed: 0,
   push_device_registered: 0,
+  apple_beta_prompt_eligible: 0,
+  apple_beta_prompt_viewed: 0,
+  apple_beta_prompt_qr_rendered: 0,
+  apple_beta_prompt_open_testflight_clicked: 0,
+  apple_beta_prompt_copy_link_clicked: 0,
+  apple_beta_prompt_dismissed: 0,
 } as const;
 
 // -----------------------------------------------------------------------------
@@ -644,6 +657,22 @@ export interface AuthProviderSelectedMetadata {
   source?: string;
 }
 
+/** Metadata for Apple sign-in → iOS beta prompt events */
+export interface AppleBetaPromptMetadata {
+  provider: 'apple';
+  source: 'apple-signin-beta-prompt';
+  device_mode: 'ios_direct' | 'desktop_qr';
+  platform_guess: 'ios' | 'ipad' | 'mac' | 'desktop' | 'unknown';
+  destination_url?: string;
+  pathname?: string;
+  prompt_reason?: 'apple-signin';
+  redirect_path?: string;
+  has_qr?: boolean;
+  testflight_url?: string;
+  qr_logo?: 'quiver-app-icon-128';
+  dismiss_reason?: 'not_now' | 'dialog_close';
+}
+
 // -----------------------------------------------------------------------------
 // Phase 2 Tracking Metadata Interfaces
 // -----------------------------------------------------------------------------
@@ -827,7 +856,8 @@ export type EventMetadata =
   | ClientErrorMetadata
   | ScrollDepthMetadata
   | TimeOnPageMetadata
-  | FirstBeachViewPostSignupMetadata;
+  | FirstBeachViewPostSignupMetadata
+  | AppleBetaPromptMetadata;
 
 /**
  * Full user event record as stored in the database

@@ -23,7 +23,10 @@ export async function signInWithApple(
   try {
     const origin =
       typeof window !== "undefined" ? window.location.origin : ""; // eslint-disable-line no-restricted-properties
-    const redirectTo = `${origin}/auth/callback?redirect=${encodeURIComponent(returnTo)}`;
+    const callbackUrl = new URL(`${origin}/auth/callback`);
+    callbackUrl.searchParams.set("redirect", returnTo);
+    callbackUrl.searchParams.set("provider", "apple");
+    const redirectTo = callbackUrl.toString();
 
     const { error: oauthError } = await sb.auth.signInWithOAuth({
       provider: "apple",

@@ -248,6 +248,13 @@ export const VALID_EVENTS: ImplicitEventType[] = [
   'push_token_fetch_failed',
   'push_device_registration_failed',
   'push_device_registered',
+  // Apple sign-in beta prompt funnel
+  'apple_beta_prompt_eligible',
+  'apple_beta_prompt_viewed',
+  'apple_beta_prompt_qr_rendered',
+  'apple_beta_prompt_open_testflight_clicked',
+  'apple_beta_prompt_copy_link_clicked',
+  'apple_beta_prompt_dismissed',
 ];
 
 export const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [

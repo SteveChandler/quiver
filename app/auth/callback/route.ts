@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import {
+  APPLE_BETA_PROMPT_COOKIE,
+  APPLE_BETA_PROMPT_COOKIE_MAX_AGE_SECONDS,
+  APPLE_BETA_PROMPT_COOKIE_VALUE,
+  APPLE_BETA_PROMPT_REASON,
+  APPLE_BETA_PROMPT_SOURCE,
+  classifyAppleBetaPromptPlatform,
+  getAppleBetaPromptDeviceMode,
+} from '@/lib/app-store/apple-beta-prompt';
+import { IOS_TESTFLIGHT_BETA_URL } from '@/lib/constants/app-store';
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
   const error = url.searchParams.get('error');
   const redirect = url.searchParams.get('redirect') || '/';
+  const isAppleCallback = url.searchParams.get('provider') === 'apple';
 
   // If the OAuth provider returned an error (e.g. user denied consent),
   // redirect to sign-in with the error info
@@ -94,9 +105,13 @@ export async function GET(request: NextRequest) {
   let firstCaptureBeachId: string | null = null;
   let firstCapturePresetType: string | null = null;
   let captureBeachIds: string[] = [];
+  let shouldSetAppleBetaPrompt = false;
+  let appleBetaPromptUserId: string | null = null;
   if (supabase) {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
+      shouldSetAppleBetaPrompt = isAppleCallback;
+      appleBetaPromptUserId = isAppleCallback ? user.id : null;
       const sessionEmail = user.email;
       const sessionUserId = user.id;
       if (sessionEmail && sessionUserId) {
@@ -182,6 +197,35 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  if (shouldSetAppleBetaPrompt && appleBetaPromptUserId && supabase) {
+    const platformGuess = classifyAppleBetaPromptPlatform(
+      request.headers.get('user-agent') ?? ''
+    );
+    const { error: appleBetaPromptError } = await supabase
+      .from('user_events')
+      .insert({
+        event_type: 'apple_beta_prompt_eligible',
+        user_id: appleBetaPromptUserId,
+        session_id: crypto.randomUUID(),
+        metadata: {
+          provider: 'apple',
+          source: APPLE_BETA_PROMPT_SOURCE,
+          device_mode: getAppleBetaPromptDeviceMode(platformGuess),
+          platform_guess: platformGuess,
+          destination_url: IOS_TESTFLIGHT_BETA_URL,
+          prompt_reason: APPLE_BETA_PROMPT_REASON,
+          redirect_path: finalRedirect,
+        },
+      });
+
+    if (appleBetaPromptError) {
+      console.warn(
+        '[Auth Callback] Apple beta prompt eligibility tracking failed:',
+        appleBetaPromptError.message
+      );
+    }
+  }
+
   const response = NextResponse.redirect(new URL(finalRedirect, request.url));
 
   // Replay session cookies onto the final response (the supabase client
@@ -200,6 +244,16 @@ export async function GET(request: NextRequest) {
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
   });
+
+  if (shouldSetAppleBetaPrompt) {
+    response.cookies.set(APPLE_BETA_PROMPT_COOKIE, APPLE_BETA_PROMPT_COOKIE_VALUE, {
+      maxAge: APPLE_BETA_PROMPT_COOKIE_MAX_AGE_SECONDS,
+      path: '/',
+      httpOnly: false,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+  }
 
   return response;
 }
