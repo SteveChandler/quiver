@@ -90,6 +90,10 @@ function shouldIndex(): boolean {
  * to fit while preserving the most important information.
  */
 const MAX_TITLE_LENGTH = 60;
+const QUIVER_TITLE_SUFFIX = " | Quiver";
+const MAX_DYNAMIC_BEACH_TITLE_LENGTH =
+  MAX_TITLE_LENGTH - QUIVER_TITLE_SUFFIX.length;
+const MAX_META_DESCRIPTION_LENGTH = 160;
 
 /**
  * Expand state abbreviations for meta tags where full names improve CTR.
@@ -117,6 +121,50 @@ export function truncateTitleForSEO(title: string, maxLength: number = MAX_TITLE
     return truncated.slice(0, lastSpace) + "…";
   }
   return truncated + "…";
+}
+
+export function shortenBeachNameForSerpTitle(name: string): string {
+  const normalized = name.replace(/\s+/g, " ").trim();
+  const firstSegment = normalized.split("/")[0]?.trim() ?? "";
+  const withoutParenthetical = firstSegment
+    .replace(/\s*\([^)]*\)/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return withoutParenthetical || firstSegment || normalized;
+}
+
+function fitDynamicBeachTitle(
+  baseTitle: string,
+  city: string | null | undefined,
+): string {
+  if (city) {
+    const withCity = `${baseTitle} | ${city}`;
+    if (withCity.length <= MAX_DYNAMIC_BEACH_TITLE_LENGTH) {
+      return withCity;
+    }
+  }
+
+  return truncateTitleForSEO(baseTitle, MAX_DYNAMIC_BEACH_TITLE_LENGTH);
+}
+
+function truncateDescriptionForSEO(
+  description: string,
+  maxLength: number = MAX_META_DESCRIPTION_LENGTH,
+): string {
+  if (description.length <= maxLength) {
+    return description;
+  }
+
+  const trimmed = description.slice(0, maxLength - 1);
+  const lastSpace = trimmed.lastIndexOf(" ");
+  const boundary = lastSpace > maxLength * 0.6 ? lastSpace : maxLength - 1;
+  return `${trimmed.slice(0, boundary).replace(/[,\s]+$/, "")}.`;
+}
+
+function pickMetaDescription(candidates: string[]): string {
+  return candidates.find((candidate) => candidate.length <= MAX_META_DESCRIPTION_LENGTH)
+    ?? truncateDescriptionForSEO(candidates[candidates.length - 1] ?? "");
 }
 
 /**
@@ -272,19 +320,10 @@ export function extractDescriptionSnippet(
  * Build dynamic metadata for beach pages using live forecast data.
  * Falls back to generic titles when forecast data is unavailable.
  *
- * CTR Optimization Strategy (based on competitive research):
- * - No "Free" in titles or descriptions — focus on data richness
- * - Add forecast duration (7-Day) like competitors (DeepSwell, Surfline)
- * - Include break_type + skill_level for identity signal
- * - Wave character extracted from wave_tips creates unique SERP snippets
- * - Crowd signal ("Uncrowded" / "Popular") as differentiator in no-forecast titles
- * - Title length capped at 60 chars for optimal SERP display
- * - Location context appended to all title tiers via buildTitleLocationSuffix
- *
- * Competitive patterns:
- * - Surfline: "{Beach} Surf Report, Surf Forecast and Surf Cams - Surfline"
- * - DeepSwell: "{Beach} Surf Report & 15-day Forecast | {Region} Surf Conditions"
- * - Surf-Forecast: "{Beach} Surf Forecast and Surf Reports ({Region}, {Country})"
+ * CTR strategy:
+ * - Keep titles short enough for Next's global " | Quiver" suffix.
+ * - Prefer "{shortBeach}: {height} Surf Report", adding city only if it fits.
+ * - Use stable descriptions that create click incentive without fragmenting.
  */
 export function buildDynamicBeachMetadata({
   beach,
@@ -304,181 +343,34 @@ export function buildDynamicBeachMetadata({
   };
   forecast: { wave_height?: string | null } | null;
 }): { title: string; description: string } {
-  // Build location context for descriptions and fallback titles
   const expandedState = beach.state ? expandStateForMeta(beach.state) : "";
-  const locationContext =
+  const locationText =
     beach.city && expandedState
       ? `${beach.city}, ${expandedState}`
       : beach.city || expandedState || "";
-
-  const waveChar = extractWaveCharacter(beach.wave_tips);
-  const crowdSignal = formatCrowdSignal(beach.crowd_level);
-  // Capitalize skill_level for title use (DB stores lowercase)
-  const skill = beach.skill_level
-    ? beach.skill_level.charAt(0).toUpperCase() + beach.skill_level.slice(1).toLowerCase()
-    : null;
-
-  // Build title — differentiate from Surfline with unique value signals
-  let title: string;
+  const locationContext = locationText ? ` in ${locationText}` : "";
+  const shortBeachName = shortenBeachNameForSerpTitle(beach.name);
 
   if (forecast?.wave_height) {
-    // WITH forecast: 3-tier fallback, each tier appends best-fitting location suffix
+    const title = fitDynamicBeachTitle(
+      `${shortBeachName}: ${forecast.wave_height} Surf Report`,
+      beach.city,
+    );
+    const description = pickMetaDescription([
+      `${forecast.wave_height} at ${beach.name}. See today's surf report, tide window, crowd intel, and 7-day forecast before you paddle out.`,
+      `${forecast.wave_height} at ${shortBeachName}. See today's surf report, tide window, crowd intel, and 7-day forecast before you paddle out.`,
+      `${forecast.wave_height} surf report for ${shortBeachName}. See tide window, crowd intel, and 7-day forecast before you paddle out.`,
+    ]);
 
-    // Tier 1 core: {Beach}: {height} — {WaveChar} {BreakShort}
-    if (waveChar && beach.break_type) {
-      const t1Core = `${beach.name}: ${forecast.wave_height} — ${waveChar} ${shortBreakType(beach.break_type)}`;
-      const t1Suffix = buildTitleLocationSuffix(t1Core, beach.city, beach.state);
-      const t1 = t1Core + t1Suffix;
-      if (t1.length <= MAX_TITLE_LENGTH) {
-        title = t1;
-      } else if (t1Core.length <= MAX_TITLE_LENGTH) {
-        title = t1Core;
-      } else if (skill && beach.break_type) {
-        // Tier 2: {Beach}: {height} — {Skill} {BreakShort}
-        const t2Core = `${beach.name}: ${forecast.wave_height} — ${skill} ${shortBreakType(beach.break_type)}`;
-        const t2Suffix = buildTitleLocationSuffix(t2Core, beach.city, beach.state);
-        const t2 = t2Core + t2Suffix;
-        const t2Best = t2.length <= MAX_TITLE_LENGTH ? t2 : (t2Core.length <= MAX_TITLE_LENGTH ? t2Core : `${beach.name}: ${forecast.wave_height} Today | Surf Report`);
-        title = truncateTitleForSEO(t2Best);
-      } else {
-        // Tier 3
-        const t3Core = `${beach.name}: ${forecast.wave_height} Today`;
-        const t3Suffix = buildTitleLocationSuffix(t3Core, beach.city, beach.state);
-        title = truncateTitleForSEO(t3Suffix ? t3Core + t3Suffix : `${t3Core} | Surf Report`);
-      }
-    } else if (skill && beach.break_type) {
-      // Tier 2: {Beach}: {height} — {Skill} {BreakShort}
-      const t2Core = `${beach.name}: ${forecast.wave_height} — ${skill} ${shortBreakType(beach.break_type)}`;
-      const t2Suffix = buildTitleLocationSuffix(t2Core, beach.city, beach.state);
-      const t2 = t2Core + t2Suffix;
-      if (t2.length <= MAX_TITLE_LENGTH) {
-        title = t2;
-      } else if (t2Core.length <= MAX_TITLE_LENGTH) {
-        title = t2Core;
-      } else {
-        // Tier 3
-        const t3Core = `${beach.name}: ${forecast.wave_height} Today`;
-        const t3Suffix = buildTitleLocationSuffix(t3Core, beach.city, beach.state);
-        title = truncateTitleForSEO(t3Suffix ? t3Core + t3Suffix : `${t3Core} | Surf Report`);
-      }
-    } else {
-      // Tier 3: {Beach}: {height} Today + location suffix
-      const t3Core = `${beach.name}: ${forecast.wave_height} Today`;
-      const t3Suffix = buildTitleLocationSuffix(t3Core, beach.city, beach.state);
-      title = truncateTitleForSEO(t3Suffix ? t3Core + t3Suffix : `${t3Core} | Surf Report`);
-    }
-  } else {
-    // WITHOUT forecast: 3-tier fallback, each tier appends best-fitting location suffix
-
-    // Tier 1 core: {Beach} — {Skill} {WaveChar} {BreakShort}
-    if (skill && waveChar && beach.break_type) {
-      const t1Core = `${beach.name} — ${skill} ${waveChar} ${shortBreakType(beach.break_type)}`;
-      const t1Suffix = buildTitleLocationSuffix(t1Core, beach.city, beach.state);
-      const t1 = t1Core + t1Suffix;
-      if (t1.length <= MAX_TITLE_LENGTH) {
-        title = t1;
-      } else if (t1Core.length <= MAX_TITLE_LENGTH) {
-        title = t1Core;
-      } else if (skill && beach.break_type) {
-        // Tier 2: {Beach} — {Skill} {Break}
-        const t2Core = `${beach.name} — ${skill} ${capitalizeBreakType(beach.break_type)}`;
-        const t2Suffix = buildTitleLocationSuffix(t2Core, beach.city, beach.state);
-        const t2 = t2Core + t2Suffix;
-        const t2Best = t2.length <= MAX_TITLE_LENGTH ? t2 : (t2Core.length <= MAX_TITLE_LENGTH ? t2Core : buildNoForecastTier3(beach.name, beach.break_type, crowdSignal, beach.city, beach.state));
-        title = truncateTitleForSEO(t2Best);
-      } else {
-        title = truncateTitleForSEO(buildNoForecastTier3(beach.name, beach.break_type, crowdSignal, beach.city, beach.state));
-      }
-    } else if (skill && beach.break_type) {
-      // Tier 2: {Beach} — {Skill} {Break} + location suffix
-      const t2Core = `${beach.name} — ${skill} ${capitalizeBreakType(beach.break_type)}`;
-      const t2Suffix = buildTitleLocationSuffix(t2Core, beach.city, beach.state);
-      const t2 = t2Core + t2Suffix;
-      if (t2.length <= MAX_TITLE_LENGTH) {
-        title = t2;
-      } else if (t2Core.length <= MAX_TITLE_LENGTH) {
-        title = t2Core;
-      } else {
-        title = truncateTitleForSEO(buildNoForecastTier3(beach.name, beach.break_type, crowdSignal, beach.city, beach.state));
-      }
-    } else {
-      // Tier 3
-      title = truncateTitleForSEO(buildNoForecastTier3(beach.name, beach.break_type, crowdSignal, beach.city, beach.state));
-    }
+    return { title, description };
   }
 
-  // Build description
-  const MAX_DESC = 160;
-  const ratingSignal =
-    beach.average_rating != null &&
-    beach.average_rating >= 4.0 &&
-    beach.review_count != null &&
-    beach.review_count >= 3
-      ? `Rated ${beach.average_rating.toFixed(1)}/5.`
-      : null;
-
-  let description: string;
-
-  if (forecast?.wave_height) {
-    // WITH forecast description — location-aware opener
-    const close = "7-day surf forecast, crowd intel & optimal windows.";
-    const openerBase = `${forecast.wave_height} at ${beach.name}`;
-    const openerLocation = locationContext ? `, ${locationContext}` : "";
-    const opener = `${openerBase}${openerLocation}.`;
-
-    // Budget accounting: description = opener + mid + " " + [ratingSignal + " "] + close
-    // where mid = " {snippet}." = snippet.length + 2 chars
-    const budgetWithRating = MAX_DESC - opener.length - 1 - close.length - (ratingSignal ? 1 + ratingSignal.length : 0) - 2;
-    const budgetWithoutRating = MAX_DESC - opener.length - 1 - close.length - 2;
-    const snippetBudget = Math.max(0, ratingSignal ? budgetWithRating : budgetWithoutRating);
-
-    let mid = "";
-    if (beach.wave_tips && snippetBudget > 10) {
-      const snippet = extractDescriptionSnippet(beach.wave_tips, snippetBudget);
-      mid = snippet ? ` ${snippet}.` : "";
-    } else if (beach.break_type && beach.skill_level && snippetBudget > 10) {
-      const candidate = ` ${capitalizeBreakType(beach.break_type)} for ${beach.skill_level} surfers.`;
-      mid = candidate.length - 1 <= snippetBudget ? candidate : "";
-    }
-
-    const base = `${opener}${mid}`;
-    const withRating = ratingSignal ? `${base} ${ratingSignal} ${close}` : `${base} ${close}`;
-    if (withRating.length <= MAX_DESC) {
-      description = withRating;
-    } else {
-      // Drop rating
-      const withoutRating = `${base} ${close}`;
-      description = withoutRating.length <= MAX_DESC ? withoutRating : withoutRating.slice(0, MAX_DESC);
-    }
-  } else {
-    // WITHOUT forecast description
-    const close = "Live forecast, tide chart & surf windows.";
-    let opener = "";
-    if (beach.description_excerpt) {
-      const raw = beach.description_excerpt;
-      opener = raw.length > 80 ? raw.slice(0, 77) + "..." : raw;
-    } else {
-      opener = `${beach.name} in ${locationContext || "the area"}.`;
-    }
-
-    const crowdPart = crowdSignal ? ` ${crowdSignal}.` : "";
-    const ratingPart = ratingSignal ? ` ${ratingSignal}` : "";
-
-    const full = `${opener}${crowdPart}${ratingPart} ${close}`;
-    if (full.length <= MAX_DESC) {
-      description = full;
-    } else {
-      // Drop rating first
-      const withoutRating = `${opener}${crowdPart} ${close}`;
-      if (withoutRating.length <= MAX_DESC) {
-        description = withoutRating;
-      } else {
-        // Drop crowd signal too
-        const withoutBoth = `${opener} ${close}`;
-        description = withoutBoth.length <= MAX_DESC ? withoutBoth : withoutBoth.slice(0, MAX_DESC);
-      }
-    }
-  }
+  const title = fitDynamicBeachTitle(`${shortBeachName} Surf Report`, beach.city);
+  const description = pickMetaDescription([
+    `${beach.name}${locationContext}. Today's surf report with tide, wind, crowd intel, and 7-day forecast.`,
+    `${shortBeachName}${locationContext}. Today's surf report with tide, wind, crowd intel, and 7-day forecast.`,
+    `${shortBeachName} surf report: tide, wind, crowd intel, and 7-day forecast.`,
+  ]);
 
   return { title, description };
 }
@@ -526,8 +418,8 @@ function buildNoForecastTier3(
  * - Keep "Tide Chart" as the anchor term (matches dominant query intent).
  * - Add planning signal via em dash: "— When to Surf" frames the page as a
  *   decision-making tool, not just a data display.
- * - Descriptions lead with an unanswerable question ("Is incoming or outgoing tide
- *   better for {Beach}?") to create a curiosity gap Google can't resolve in the SERP.
+ * - Descriptions avoid exact tide times/heights so the SERP does not fully
+ *   answer the planning question.
  * - Month+Year date token keeps title fresh without encoding daily-volatile data.
  */
 export function buildDynamicTideMetadata({
@@ -561,23 +453,12 @@ export function buildDynamicTideMetadata({
     title = truncateTitleForSEO(tier3);
   }
 
-  // Description: lead with unanswerable question to create curiosity gap,
-  // then include live tide data for relevance signals.
-  const MAX_DESC = 160;
-  let description: string;
-  if (tideData?.nextHighTime && tideData?.nextLowTime) {
-    const highPart = tideData.nextHighHeight != null
-      ? `${tideData.nextHighHeight}ft at ${tideData.nextHighTime}`
-      : `at ${tideData.nextHighTime}`;
-    const lowPart = tideData.nextLowHeight != null
-      ? `${tideData.nextLowHeight}ft at ${tideData.nextLowTime}`
-      : `at ${tideData.nextLowTime}`;
-    const candidate = `Is incoming or outgoing tide better for ${beach.name}? Surf windows show the 2-3hr sweet spots each day. Next high ${highPart}, low ${lowPart}. Updated every 3 hours.`;
-    description = candidate.length <= MAX_DESC ? candidate : candidate.slice(0, MAX_DESC - 1).replace(/\s+\S*$/, "") + "…";
-  } else {
-    const candidate = `Is incoming or outgoing tide better for ${beach.name}? Interactive chart with surf windows showing the best 2-3hr tide windows. 7-day outlook updated every 3 hours.`;
-    description = candidate.length <= MAX_DESC ? candidate : candidate.slice(0, MAX_DESC - 1).replace(/\s+\S*$/, "") + "…";
-  }
+  const shortBeachName = shortenBeachNameForSerpTitle(beach.name);
+  const description = pickMetaDescription([
+    `Should you surf ${beach.name} on incoming or outgoing tide? See today's 2-3 hour tide windows, chart, and 7-day surf timing.`,
+    `Should you surf ${shortBeachName} on incoming or outgoing tide? See today's 2-3 hour tide windows, chart, and 7-day surf timing.`,
+    `See today's tide chart for ${shortBeachName}: 2-3 hour surf windows, tide timing, and 7-day surf context.`,
+  ]);
 
   return { title, description };
 }
@@ -600,8 +481,8 @@ export function buildDynamicTideMetadata({
  * - Keep "Water Temp" as the anchor term (matches dominant query intent).
  * - Add planning signal via em dash: "— What Wetsuit Today" frames the page as a
  *   gear-planning tool, not just a data display. "Today" adds temporal urgency.
- * - Descriptions lead with an unanswerable question ("What wetsuit for {Beach}
- *   right now?") to create a curiosity gap Google can't resolve in the SERP.
+ * - Descriptions avoid exact water temperature so the SERP does not fully
+ *   answer the gear-planning question.
  * - Month+Year date token keeps title fresh without encoding daily-volatile data.
  */
 export function buildDynamicWaterTempMetadata({
@@ -633,17 +514,12 @@ export function buildDynamicWaterTempMetadata({
     title = truncateTitleForSEO(tier3);
   }
 
-  // Description: lead with unanswerable question to create curiosity gap.
-  // Include live temp data when available for relevance signals.
-  const MAX_DESC = 160;
-  let description: string;
-  if (waterTempData?.tempF != null) {
-    const candidate = `What wetsuit for ${beach.name} right now? Current temp ${waterTempData.tempF}°F, thickness rec, and seasonal trends from NOAA buoys. Plan your session gear.`;
-    description = candidate.length <= MAX_DESC ? candidate : candidate.slice(0, MAX_DESC - 1).replace(/\s+\S*$/, "") + "…";
-  } else {
-    const candidate = `What wetsuit for ${beach.name} right now? Current temp, thickness recommendation, and month-by-month seasonal trends. Plan your session gear.`;
-    description = candidate.length <= MAX_DESC ? candidate : candidate.slice(0, MAX_DESC - 1).replace(/\s+\S*$/, "") + "…";
-  }
+  const shortBeachName = shortenBeachNameForSerpTitle(beach.name);
+  const description = pickMetaDescription([
+    `What wetsuit works for ${beach.name} today? See current water temp, gear guidance, and seasonal trends before you paddle out.`,
+    `What wetsuit works for ${shortBeachName} today? See current water temp, gear guidance, and seasonal trends before you paddle out.`,
+    `See current water temp, wetsuit guidance, and seasonal trends for ${shortBeachName} before you paddle out.`,
+  ]);
 
   return { title, description };
 }

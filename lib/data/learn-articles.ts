@@ -2159,7 +2159,7 @@ export const learnArticles: LearnArticle[] = [
     slug: "beginner-breaks-san-diego",
     title: "Best Beginner Surf Spots in San Diego",
     description:
-      "San Diego is one of the best places in the world to learn to surf. Year-round mild water temps (57-72°F), consistent small south swells in summer, and a huge variety of forgiving beach breaks make it ideal for first-timers. This guide covers the top beginner-friendly breaks, when to go, and what gear you need.",
+      "Find beginner surf spots in San Diego with forgiving waves, mellow beaches, surf-school zones, gear tips, and when to paddle out.",
     readingTimeMin: 5,
     datePublished: "2026-03-30",
     heroImage: "/beginnerWhiteWater.jpg",

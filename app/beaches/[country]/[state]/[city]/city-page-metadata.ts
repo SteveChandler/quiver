@@ -109,16 +109,10 @@ export async function generateMetadata(props: LocationPageProps) {
         title = truncateTitleForSEO(surfReportTier2);
       }
     } else if (metroConfig) {
-      // For metro areas, prefer an enriched title with beach count and break types
-      // which gives Google more indexable keywords and a more descriptive snippet.
-      if (breakTypes !== null) {
-        const metroTier1 = `${n} ${metroConfig.displayName} Surf Spots: ${breakTypes}`;
-        title = metroTier1.length <= 60 ? metroTier1 : truncateTitleForSEO(metroTier1);
-      } else if (metroConfig.pageTitle) {
-        title = metroConfig.pageTitle;
-      } else {
-        title = `Best Surf Beaches in ${metroConfig.displayName}`;
-      }
+      const metroReportTitle = `${metroConfig.displayName} Surf Report Today | ${n} Beaches`;
+      title = metroReportTitle.length <= 60
+        ? metroReportTitle
+        : truncateTitleForSEO(metroReportTitle);
     } else {
       const fallback = `Best Surf Beaches in ${displayCityName}, ${expandedState}`;
       // Tier 1: count + break types
@@ -160,25 +154,12 @@ export async function generateMetadata(props: LocationPageProps) {
       } else {
         description = base.slice(0, MAX_DESC_LENGTH - 1) + ".";
       }
-    } else if (metroConfig?.description) {
-      const ratingSnippet =
-        stats.totalReviews >= 5
-          ? ` Rated ${stats.averageRating.toFixed(1)}/5.`
-          : "";
-      const suffix = ratingSnippet || ` ${n} surf spots with forecasts, tides & crowd intel.`;
-      const full = `${metroConfig.description}${suffix}`;
-      if (full.length <= MAX_DESC_LENGTH) {
-        description = full;
-      } else if (metroConfig.description.length <= MAX_DESC_LENGTH) {
-        description = metroConfig.description;
-      } else {
-        // Trim the metro description itself to fit within 160 chars
-        const trimmed = metroConfig.description.slice(0, MAX_DESC_LENGTH - 1);
-        const lastSpace = trimmed.lastIndexOf(" ");
-        description = lastSpace > MAX_DESC_LENGTH * 0.6
-          ? trimmed.slice(0, lastSpace) + "."
-          : trimmed + ".";
-      }
+    } else if (metroConfig) {
+      const metroDescription = `Today's ${metroConfig.displayName} surf report across ${n} beaches. Compare live wave height, wind, tide windows, and crowd context.`;
+      const fallbackDescription = `Today's ${metroConfig.displayName} surf report: live wave height, wind, tide windows, and crowd context.`;
+      description = metroDescription.length <= MAX_DESC_LENGTH
+        ? metroDescription
+        : fallbackDescription;
     } else {
       // Core sentence varies by what data is available
       const breakNoun = n === 1 ? "break" : "breaks";

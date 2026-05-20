@@ -111,12 +111,6 @@ export function captureClientPostHogEvent(
   }
 }
 
-export function captureClientPostHogPageView(
-  properties: PostHogProperties = {}
-): void {
-  captureClientPostHogEvent("$pageview", properties);
-}
-
 export function identifyPostHogUser(
   userId: string,
   properties: PostHogProperties = {}

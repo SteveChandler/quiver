@@ -12,7 +12,6 @@
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useTrackEvent } from "@/hooks/use-track-event";
-import { captureClientPostHogPageView } from "@/lib/posthog-client";
 
 /**
  * Maps pathname to a human-readable page name
@@ -92,8 +91,6 @@ export function PageTracker() {
       referrer: prevPathname.current || "",
       browser_session_id: sessionId,
     };
-
-    captureClientPostHogPageView(metadata);
 
     track("page_view", {
       metadata,

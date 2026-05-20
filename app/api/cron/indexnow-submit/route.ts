@@ -10,7 +10,11 @@ import { createPublicReadClient } from "@/lib/supabase/server";
 import { buildCitySlug } from "@/lib/seo/city-slug-utils";
 import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import { slugifyAscii } from "@/lib/utils/text-utils";
-import { stateToSlug } from "@/lib/utils/beach-url-utils";
+import {
+  buildBeachUrl,
+  isValidStateSlug,
+  stateToSlug,
+} from "@/lib/utils/beach-url-utils";
 import { getAllForecastRegionSlugs } from "@/lib/data/forecast-regions";
 import { getAllCamRegionSlugs } from "@/lib/data/cam-regions";
 import { HUB_REGION_SLUGS } from "@/lib/data/hub-regions";
@@ -64,13 +68,27 @@ async function _GET(request: Request): Promise<Response> {
     const urls: string[] = [];
 
     // Collect all URL categories in parallel
-    const [intentUrls, locationUrls, staticSeoUrls] = await Promise.all([
+    const [
+      intentUrls,
+      locationUrls,
+      staticSeoUrls,
+      beachDetailUrls,
+      bestTimeCityUrls,
+    ] = await Promise.all([
       collectIntentUrls(),
       collectLocationUrls(),
       Promise.resolve(collectStaticSeoUrls()),
+      collectBeachDetailUrls(),
+      collectBestTimeCityUrls(),
     ]);
 
-    urls.push(...intentUrls, ...locationUrls, ...staticSeoUrls);
+    urls.push(
+      ...intentUrls,
+      ...locationUrls,
+      ...staticSeoUrls,
+      ...beachDetailUrls,
+      ...bestTimeCityUrls
+    );
 
     // Deduplicate
     const uniqueUrls = [...new Set(urls)];
@@ -84,6 +102,8 @@ async function _GET(request: Request): Promise<Response> {
         intent: intentUrls.length,
         location: locationUrls.length,
         staticSeo: staticSeoUrls.length,
+        beachDetail: beachDetailUrls.length,
+        bestTimeCity: bestTimeCityUrls.length,
       },
       batches: result.batches.length,
       errors: result.errors,
@@ -257,6 +277,112 @@ async function collectLocationUrls(): Promise<string[]> {
     }
   } catch (error) {
     console.error("IndexNow: Error collecting location URLs", error);
+  }
+
+  return urls;
+}
+
+/**
+ * Collect beach detail pages and their US-only tide/water-temp subpages.
+ * Mirrors buildBeachRoutes() in app/sitemap.ts.
+ */
+async function collectBeachDetailUrls(): Promise<string[]> {
+  const urls: string[] = [];
+  const pageSize = 1000;
+  let from = 0;
+
+  type BeachRow = {
+    slug: string | null;
+    city: string | null;
+    state: string | null;
+    country?: string | null;
+  };
+
+  try {
+    const supabase = createPublicReadClient();
+
+    while (true) {
+      const { data, error } = await supabase
+        .from("beaches")
+        .select("slug, city, state, country")
+        .not("slug", "is", null)
+        .not("city", "is", null)
+        .not("state", "is", null)
+        .range(from, from + pageSize - 1);
+
+      if (error || !data) {
+        console.error("IndexNow: Failed to fetch beach detail URLs", error);
+        return urls;
+      }
+
+      const rows = data as BeachRow[];
+      for (const beach of rows) {
+        const beachPath = buildBeachUrl(beach);
+        urls.push(`${SITE_URL}${beachPath}`);
+
+        const stateSlug = stateToSlug(beach.state);
+        if (isValidStateSlug(stateSlug)) {
+          urls.push(`${SITE_URL}${beachPath}/tides`);
+          urls.push(`${SITE_URL}${beachPath}/water-temp`);
+        }
+      }
+
+      if (rows.length < pageSize) {
+        break;
+      }
+      from += pageSize;
+    }
+  } catch (error) {
+    console.error("IndexNow: Error collecting beach detail URLs", error);
+  }
+
+  return urls;
+}
+
+/**
+ * Collect city-level best-time-to-surf pages.
+ * Mirrors getBestTimeToSurfRoutes() in app/sitemap.ts.
+ */
+async function collectBestTimeCityUrls(): Promise<string[]> {
+  const urls: string[] = [];
+
+  try {
+    const supabase = createPublicReadClient();
+    const { data, error } = await supabase
+      .from("beaches")
+      .select("city, state")
+      .not("best_months", "is", null)
+      .or("is_private.is.null,is_private.eq.false")
+      .not("city", "is", null)
+      .not("state", "is", null);
+
+    if (error || !data) {
+      console.error("IndexNow: Failed to fetch best-time city URLs", error);
+      return urls;
+    }
+
+    type CityRow = {
+      city: string | null;
+      state: string | null;
+    };
+
+    const cityKeys = new Set<string>();
+    for (const row of data as CityRow[]) {
+      if (!row.city || !row.state) continue;
+      cityKeys.add(`${row.city}|${row.state}`);
+    }
+
+    for (const key of cityKeys) {
+      const [city, state] = key.split("|");
+      if (!city || !state) continue;
+
+      const citySlug = buildCitySlug(city, state, COLLISION_CITY_MAP);
+      if (citySlug) {
+        urls.push(`${SITE_URL}/best-time-to-surf/${citySlug}`);
+      }
+    }
+  } catch (error) {
+    console.error("IndexNow: Error collecting best-time city URLs", error);
   }
 
   return urls;
