@@ -36,11 +36,16 @@ jest.mock("@/lib/utils/visitor-id", () => ({
   getVisitorId: jest.fn(() => "test-visitor-id"),
 }));
 
+jest.mock("@/lib/utils/browser-session-id", () => ({
+  getBrowserSessionId: jest.fn(() => "test-browser-session-id"),
+}));
+
 jest.mock("@/lib/posthog-client", () => ({
   captureClientPostHogEvent: jest.fn(),
 }));
 
 import { track } from "@/lib/analytics";
+import { getBrowserSessionId } from "@/lib/utils/browser-session-id";
 import { getVisitorId } from "@/lib/utils/visitor-id";
 import { captureClientPostHogEvent } from "@/lib/posthog-client";
 
@@ -52,6 +57,7 @@ describe("auth-events", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (getBrowserSessionId as jest.Mock).mockReturnValue("test-browser-session-id");
     process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN = "phc_test";
     global.fetch = mockFetch;
     mockFetch.mockReset();
@@ -338,10 +344,12 @@ describe("auth-events", () => {
         expect(track).toHaveBeenCalledWith("login_success", {
           method: "password",
           duration_ms: 1234,
+          browser_session_id: "test-browser-session-id",
         });
         expect(captureClientPostHogEvent).toHaveBeenCalledWith("user_signed_in", {
           method: "password",
           duration_ms: 1234,
+          browser_session_id: "test-browser-session-id",
         });
       });
     });
@@ -369,6 +377,7 @@ describe("auth-events", () => {
         expect(track).toHaveBeenCalledWith("signup_started", {
           method: "password",
           timestamp: expect.any(Number),
+          browser_session_id: "test-browser-session-id",
         });
       });
 
@@ -383,6 +392,7 @@ describe("auth-events", () => {
           timestamp: expect.any(Number),
           source: "intent-longboard-torrance",
           landing_page: "/longboard/torrance/torrance-beach",
+          browser_session_id: "test-browser-session-id",
         });
       });
 
@@ -392,6 +402,7 @@ describe("auth-events", () => {
         const callArgs = (track as jest.Mock).mock.calls[0][1];
         expect(callArgs).not.toHaveProperty("source");
         expect(callArgs).not.toHaveProperty("landing_page");
+        expect(callArgs).toHaveProperty("browser_session_id", "test-browser-session-id");
       });
     });
 
@@ -405,6 +416,7 @@ describe("auth-events", () => {
         expect(track).toHaveBeenCalledWith("signup_success", {
           method: "password",
           requires_verification: true,
+          browser_session_id: "test-browser-session-id",
         });
       });
 
@@ -417,6 +429,7 @@ describe("auth-events", () => {
         expect(track).toHaveBeenCalledWith("signup_success", {
           method: "google",
           requires_verification: false,
+          browser_session_id: "test-browser-session-id",
         });
       });
 
@@ -433,6 +446,7 @@ describe("auth-events", () => {
           requires_verification: false,
           source: "beach-detail-blacks",
           landing_page: "/ca/san-diego/blacks-beach",
+          browser_session_id: "test-browser-session-id",
         });
       });
 
@@ -445,6 +459,7 @@ describe("auth-events", () => {
         const callArgs = (track as jest.Mock).mock.calls[0][1];
         expect(callArgs).not.toHaveProperty("source");
         expect(callArgs).not.toHaveProperty("landing_page");
+        expect(callArgs).toHaveProperty("browser_session_id", "test-browser-session-id");
       });
     });
 
@@ -595,13 +610,18 @@ describe("auth-events", () => {
         expect(track).toHaveBeenCalledWith("signup_started", {
           method: "password",
           timestamp: 1741827600000,
+          browser_session_id: "test-browser-session-id",
         });
         expect(mockFetch).toHaveBeenCalledWith("/api/events", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             eventType: "signup_started",
-            metadata: { method: "password", timestamp: 1741827600000 },
+            metadata: {
+              method: "password",
+              timestamp: 1741827600000,
+              browser_session_id: "test-browser-session-id",
+            },
             sessionId: "test-visitor-id",
             viewportWidth: 375,
           }),
@@ -623,6 +643,7 @@ describe("auth-events", () => {
           method: "google",
           source: "hero-cta",
           landing_page: "/",
+          browser_session_id: "test-browser-session-id",
         });
         jest.spyOn(Date, "now").mockRestore();
       });
@@ -635,13 +656,18 @@ describe("auth-events", () => {
         expect(track).toHaveBeenCalledWith("signup_success", {
           method: "google",
           requires_verification: false,
+          browser_session_id: "test-browser-session-id",
         });
         expect(mockFetch).toHaveBeenCalledWith("/api/events", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             eventType: "signup_success",
-            metadata: { method: "google", requires_verification: false },
+            metadata: {
+              method: "google",
+              requires_verification: false,
+              browser_session_id: "test-browser-session-id",
+            },
             sessionId: "test-visitor-id",
             viewportWidth: 375,
           }),
@@ -656,7 +682,11 @@ describe("auth-events", () => {
         const body = JSON.parse(callArgs[1].body as string);
         expect(body).toMatchObject({
           eventType: "signup_success",
-          metadata: { method: "password", requires_verification: true },
+          metadata: {
+            method: "password",
+            requires_verification: true,
+            browser_session_id: "test-browser-session-id",
+          },
           sessionId: "test-visitor-id",
           viewportWidth: expect.any(Number),
         });
@@ -677,6 +707,7 @@ describe("auth-events", () => {
           requires_verification: false,
           source: "intent-longboard-torrance",
           landing_page: "/longboard/torrance/torrance-beach",
+          browser_session_id: "test-browser-session-id",
         });
       });
     });
@@ -688,13 +719,18 @@ describe("auth-events", () => {
         expect(track).toHaveBeenCalledWith("login_success", {
           method: "apple",
           duration_ms: 800,
+          browser_session_id: "test-browser-session-id",
         });
         expect(mockFetch).toHaveBeenCalledWith("/api/events", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             eventType: "login_success",
-            metadata: { method: "apple", duration_ms: 800 },
+            metadata: {
+              method: "apple",
+              duration_ms: 800,
+              browser_session_id: "test-browser-session-id",
+            },
             sessionId: "test-visitor-id",
             viewportWidth: 375,
           }),

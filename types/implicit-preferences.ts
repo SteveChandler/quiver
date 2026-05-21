@@ -396,8 +396,8 @@ export interface PageViewMetadata {
   page: string;
   /** Full pathname for landing page attribution */
   pathname?: string;
-  /** Previous page URL or path */
-  referrer?: string;
+  /** Previous internal pathname, separate from PostHog's built-in referrer fields */
+  previous_pathname?: string;
   /** Browser session identifier for grouping page views (tab-scoped, distinct from DB session_id column) */
   browser_session_id?: string;
   /** Opaque UUID from a low-friction session share link. */
@@ -413,7 +413,7 @@ export interface ShareLinkOpenedMetadata {
   share_id: string;
   session_id: string;
   pathname?: string;
-  referrer?: string;
+  previous_pathname?: string;
   browser_session_id?: string;
   source?: 'initial' | 'event' | 'web_page_tracker';
   utm_source?: string;

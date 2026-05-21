@@ -12,6 +12,7 @@
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useTrackEvent } from "@/hooks/use-track-event";
+import { getBrowserSessionId } from "@/lib/utils/browser-session-id";
 
 /**
  * Maps pathname to a human-readable page name
@@ -54,24 +55,6 @@ function getPageName(pathname: string): string {
   // Fallback to pathname segment
   const segment = pathname.split("/").filter(Boolean)[0];
   return segment || "unknown";
-}
-
-/**
- * Generates a simple session ID for grouping page views
- * Persists for the browser session (cleared on tab close)
- */
-function getSessionId(): string {
-  if (typeof window === "undefined") return "";
-
-  const key = "__quiver_session_id";
-  let sessionId = sessionStorage.getItem(key);
-
-  if (!sessionId) {
-    sessionId = crypto.randomUUID();
-    sessionStorage.setItem(key, sessionId);
-  }
-
-  return sessionId;
 }
 
 type ShareAttributionMetadata = {
@@ -130,11 +113,11 @@ export function PageTracker() {
     if (prevTrackingKey.current === trackingKey) return;
 
     const page = getPageName(pathname);
-    const sessionId = getSessionId();
+    const sessionId = getBrowserSessionId();
     const metadata = {
       page,
       pathname,
-      referrer: prevPathname.current || "",
+      previous_pathname: prevPathname.current || "",
       browser_session_id: sessionId,
       ...attributionMetadata,
     };
@@ -153,7 +136,7 @@ export function PageTracker() {
           share_id: shareId,
           session_id: sharedSessionId,
           pathname,
-          referrer: prevPathname.current || "",
+          previous_pathname: prevPathname.current || "",
           browser_session_id: sessionId,
           source: "web_page_tracker",
           utm_source: attributionMetadata.utm_source,

@@ -2,11 +2,10 @@ import posthog from "posthog-js";
 import { getAttributionForAnalytics } from "@/lib/attribution";
 
 type PostHogProperties = Record<string, unknown>;
+type PostHogClient = typeof posthog & { __quiverInitialized?: boolean };
 
 const POSTHOG_HOST = "/ingest";
 const POSTHOG_UI_HOST = "https://us.posthog.com";
-
-let initialized = false;
 
 function getPostHogToken(): string {
   return process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN ?? "";
@@ -70,20 +69,23 @@ export function isPostHogEnabled(): boolean {
 export function initPostHog(): boolean {
   if (typeof window === "undefined") return false;
   if (!isPostHogEnabled()) return false;
-  if (initialized) return true;
+
+  const posthogClient = posthog as PostHogClient;
+  if (posthogClient.__quiverInitialized) return true;
 
   try {
     posthog.init(getPostHogToken(), {
       api_host: POSTHOG_HOST,
       ui_host: POSTHOG_UI_HOST,
+      defaults: "2026-01-30",
       capture_pageview: false,
       autocapture: false,
       persistence: "localStorage+cookie",
       loaded: () => {
-        initialized = true;
+        posthogClient.__quiverInitialized = true;
       },
     });
-    initialized = true;
+    posthogClient.__quiverInitialized = true;
     return true;
   } catch (error) {
     if (process.env.NODE_ENV === "development") {
@@ -159,5 +161,5 @@ export function buildPostHogUserProperties(user: {
 }
 
 export function _resetPostHogClientForTesting(): void {
-  initialized = false;
+  (posthog as PostHogClient).__quiverInitialized = false;
 }

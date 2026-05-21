@@ -85,26 +85,33 @@ function analyzePostHogPages(
 ): SeoRecommendation[] {
   return pages.flatMap((page) => {
     const canonicalPath = normalizeSeoPath(page.path);
-    const visitors = page.visitors ?? 0;
+    const landingSessions = page.landingSessions ?? 0;
     const recommendations: SeoRecommendation[] = [];
 
-    if (visitors >= 25 && typeof page.multiPageRate === "number" && page.multiPageRate < 0.1) {
+    if (
+      landingSessions >= 25 &&
+      typeof page.multiPageRate === "number" &&
+      page.multiPageRate < 0.1
+    ) {
       recommendations.push({
         id: makeSeoId("posthog-clickaround", canonicalPath),
         createdAt: now,
         source: "posthog-behavior",
-        priority: visitors >= 100 ? "high" : "medium",
+        priority: landingSessions >= 100 ? "high" : "medium",
         canonicalPath,
         summary: "PostHog shows weak click-around from an SEO landing page.",
-        evidence: [`visitors=${visitors}`, `multiPageRate=${formatRate(page.multiPageRate)}`],
+        evidence: [
+          `landingSessions=${landingSessions}`,
+          `multiPageRate=${formatRate(page.multiPageRate)}`,
+        ],
         status: "open",
       });
     }
 
     if (
-      visitors >= 25 &&
-      typeof page.relatedPathCtr === "number" &&
-      page.relatedPathCtr < 0.02
+      landingSessions >= 25 &&
+      Array.isArray(page.topNextPaths) &&
+      page.topNextPaths.length === 0
     ) {
       recommendations.push({
         id: makeSeoId("posthog-related-paths", canonicalPath),
@@ -112,13 +119,17 @@ function analyzePostHogPages(
         source: "posthog-behavior",
         priority: "medium",
         canonicalPath,
-        summary: "PostHog shows related-path links are underused on an SEO landing page.",
-        evidence: [`visitors=${visitors}`, `relatedPathCtr=${formatRate(page.relatedPathCtr)}`],
+        summary: "PostHog shows this SEO landing page rarely drives a second page.",
+        evidence: [`landingSessions=${landingSessions}`, "topNextPaths=none"],
         status: "open",
       });
     }
 
-    if (visitors >= 25 && typeof page.signupRate === "number" && page.signupRate >= 0.05) {
+    if (
+      landingSessions >= 25 &&
+      typeof page.landingSignupRate === "number" &&
+      page.landingSignupRate >= 0.05
+    ) {
       recommendations.push({
         id: makeSeoId("posthog-high-value", canonicalPath),
         createdAt: now,
@@ -126,7 +137,10 @@ function analyzePostHogPages(
         priority: "low",
         canonicalPath,
         summary: "PostHog shows this SEO page converts; protect and expand internal links to it.",
-        evidence: [`visitors=${visitors}`, `signupRate=${formatRate(page.signupRate)}`],
+        evidence: [
+          `landingSessions=${landingSessions}`,
+          `landingSignupRate=${formatRate(page.landingSignupRate)}`,
+        ],
         status: "open",
       });
     }
