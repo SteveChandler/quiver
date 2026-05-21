@@ -98,6 +98,61 @@ interface PredictionStats {
   latest_predicted_at: string | null;
 }
 
+interface SessionWaveObservationFunnel {
+  real_completed_sessions?: number;
+  candidate_rows?: number;
+  valid_height_candidates?: number;
+  matched_to_ml_within_6h?: number;
+  matched_with_buoy_truth?: number;
+  candidate_sessions_7d?: number;
+  candidate_sessions_30d?: number;
+}
+
+interface SessionWaveObservationQuality {
+  user_vs_buoy_abs_error_avg_m?: number | null;
+  user_vs_buoy_abs_error_median_m?: number | null;
+  user_vs_buoy_abs_error_p75_m?: number | null;
+  user_vs_buoy_abs_error_p90_m?: number | null;
+  user_vs_buoy_signed_bias_avg_m?: number | null;
+  display_abs_error_avg_m?: number | null;
+  raw_om_abs_error_avg_m?: number | null;
+  v5_shadow_abs_error_avg_m?: number | null;
+  user_beats_display_count?: number;
+  display_comparison_count?: number;
+  user_beats_v5_shadow_count?: number;
+  v5_shadow_comparison_count?: number;
+}
+
+interface SessionWaveObservationCounts {
+  by_quality_state?: Record<string, number>;
+  by_source_created_by?: Record<string, number>;
+  effective_weak_label_mass?: number;
+}
+
+interface AnonymousUserReliability {
+  anonymous_user_rank: number;
+  comparisons: number;
+  avg_abs_error_m: number | null;
+  median_abs_error_m: number | null;
+  p75_abs_error_m: number | null;
+  avg_signed_bias_m: number | null;
+}
+
+interface MatchDeltaBucket {
+  bucket: string;
+  candidates: number;
+  with_buoy_truth: number;
+}
+
+interface SessionWaveObservationAnalytics {
+  generated_at?: string;
+  funnel?: SessionWaveObservationFunnel;
+  quality?: SessionWaveObservationQuality;
+  candidate_counts?: SessionWaveObservationCounts;
+  anonymous_user_reliability?: AnonymousUserReliability[];
+  match_delta_buckets?: MatchDeltaBucket[];
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -132,6 +187,17 @@ function relativeTime(iso: string | null): string {
 function hoursAgo(iso: string | null): number | null {
   if (!iso) return null;
   return (Date.now() - new Date(iso).getTime()) / 3_600_000;
+}
+
+function formatMaybeNumber(
+  value: number | null | undefined,
+  decimals = 0,
+  suffix = ""
+): string {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return "n/a";
+  }
+  return `${value.toFixed(decimals)}${suffix}`;
 }
 
 function createAdminClient(): SupabaseClient {
@@ -335,6 +401,29 @@ async function fetchPredictionStats(
     },
     error: null,
   };
+}
+
+async function fetchSessionWaveObservationAnalytics(
+  supabase: SupabaseClient
+): Promise<{
+  data: SessionWaveObservationAnalytics | null;
+  error: string | null;
+}> {
+  try {
+    const { data, error } = await supabase.rpc(
+      "get_session_wave_observation_analytics"
+    );
+    if (error) return { data: null, error: error.message };
+    return {
+      data: (data as SessionWaveObservationAnalytics | null) ?? null,
+      error: null,
+    };
+  } catch (e: unknown) {
+    return {
+      data: null,
+      error: e instanceof Error ? e.message : "Unknown error",
+    };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -574,8 +663,13 @@ function formatPipelineHealth(
     return `### Pipeline Health\n\nWarning: ${error ?? "No data"}\n`;
   }
 
-  const matchRate = Math.min(data.match_rate_24h, 100);
+  const matchRate =
+    data.match_rate_24h === null || data.match_rate_24h === undefined
+      ? null
+      : Math.min(data.match_rate_24h, 100);
   const matchNote =
+    data.match_rate_24h !== null &&
+    data.match_rate_24h !== undefined &&
     data.match_rate_24h > 100
       ? ` (raw: ${data.match_rate_24h.toFixed(1)}% — capped)`
       : "";
@@ -585,17 +679,17 @@ function formatPipelineHealth(
     "",
     "| Metric | Value |",
     "|--------|-------|",
-    `| Total Predictions | ${data.total_predictions.toLocaleString()} |`,
-    `| Pending Observations | ${data.pending_observations} |`,
-    `| Pending 12-24h | ${data.pending_12_24h} |`,
-    `| Pending >24h | ${data.pending_gt_24h} |`,
-    `| Oldest Pending Age | ${data.oldest_pending_age_hours.toFixed(1)}h |`,
-    `| Observable Beaches | ${data.observable_beaches_count} |`,
-    `| Matched / Observable | ${data.matched_last_24h} / ${data.total_observable_24h} |`,
-    `| Match Rate | ${matchRate.toFixed(1)}%${matchNote} |`,
-    `| MAE (Raw) | ${data.avg_raw_error_24h.toFixed(3)}m |`,
-    `| MAE (Corrected) | ${data.avg_corrected_error_24h.toFixed(3)}m |`,
-    `| Improvement | ${data.improvement_pct_24h.toFixed(1)}% |`,
+    `| Total Predictions | ${formatMaybeNumber(data.total_predictions)} |`,
+    `| Pending Observations | ${formatMaybeNumber(data.pending_observations)} |`,
+    `| Pending 12-24h | ${formatMaybeNumber(data.pending_12_24h)} |`,
+    `| Pending >24h | ${formatMaybeNumber(data.pending_gt_24h)} |`,
+    `| Oldest Pending Age | ${formatMaybeNumber(data.oldest_pending_age_hours, 1, "h")} |`,
+    `| Observable Beaches | ${formatMaybeNumber(data.observable_beaches_count)} |`,
+    `| Matched / Observable | ${formatMaybeNumber(data.matched_last_24h)} / ${formatMaybeNumber(data.total_observable_24h)} |`,
+    `| Match Rate | ${formatMaybeNumber(matchRate, 1, "%")}${matchNote} |`,
+    `| MAE (Raw) | ${formatMaybeNumber(data.avg_raw_error_24h, 3, "m")} |`,
+    `| MAE (Corrected) | ${formatMaybeNumber(data.avg_corrected_error_24h, 3, "m")} |`,
+    `| Improvement | ${formatMaybeNumber(data.improvement_pct_24h, 1, "%")} |`,
   ];
   return lines.join("\n");
 }
@@ -619,7 +713,7 @@ function formatWeeklyMetrics(
   ];
   for (const row of data) {
     lines.push(
-      `| ${row.model_version} | ${row.predictions.toLocaleString()} | ${row.with_ground_truth.toLocaleString()} | ${row.avg_raw_error_m.toFixed(3)}m | ${row.avg_corrected_error_m.toFixed(3)}m | ${row.pct_improved.toFixed(1)}% |`
+      `| ${row.model_version} | ${formatMaybeNumber(row.predictions)} | ${formatMaybeNumber(row.with_ground_truth)} | ${formatMaybeNumber(row.avg_raw_error_m, 3, "m")} | ${formatMaybeNumber(row.avg_corrected_error_m, 3, "m")} | ${formatMaybeNumber(row.pct_improved, 1, "%")} |`
     );
   }
   return lines.join("\n");
@@ -709,6 +803,91 @@ function formatPredictionStats(
   return lines.join("\n");
 }
 
+function formatRecordCounts(counts: Record<string, number> | undefined): string {
+  if (!counts || Object.keys(counts).length === 0) return "none";
+  return Object.entries(counts)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}: ${value}`)
+    .join(", ");
+}
+
+function formatSessionWaveObservationAnalytics(
+  data: SessionWaveObservationAnalytics | null,
+  error: string | null
+): string {
+  if (error || !data) {
+    return `### Session Wave Observation Analytics\n\nWarning: ${error ?? "No data"}\n`;
+  }
+
+  const funnel = data.funnel ?? {};
+  const quality = data.quality ?? {};
+  const counts = data.candidate_counts ?? {};
+  const userReliability = data.anonymous_user_reliability ?? [];
+  const deltaBuckets = data.match_delta_buckets ?? [];
+
+  const lines = [
+    "### Session Wave Observation Analytics",
+    "",
+    "| Funnel | Count |",
+    "|--------|-------|",
+    `| Real Completed Sessions | ${funnel.real_completed_sessions ?? 0} |`,
+    `| Candidate Rows | ${funnel.candidate_rows ?? 0} |`,
+    `| Valid Height Candidates | ${funnel.valid_height_candidates ?? 0} |`,
+    `| Matched to ML (+/-6h) | ${funnel.matched_to_ml_within_6h ?? 0} |`,
+    `| Matched with Buoy Truth | ${funnel.matched_with_buoy_truth ?? 0} |`,
+    `| Candidate Sessions (7d) | ${funnel.candidate_sessions_7d ?? 0} |`,
+    `| Candidate Sessions (30d) | ${funnel.candidate_sessions_30d ?? 0} |`,
+    "",
+    "| Quality Metric | Value |",
+    "|----------------|-------|",
+    `| User vs Buoy Avg Abs Error | ${formatMaybeNumber(quality.user_vs_buoy_abs_error_avg_m, 3, "m")} |`,
+    `| User vs Buoy Median Abs Error | ${formatMaybeNumber(quality.user_vs_buoy_abs_error_median_m, 3, "m")} |`,
+    `| User vs Buoy P75 Abs Error | ${formatMaybeNumber(quality.user_vs_buoy_abs_error_p75_m, 3, "m")} |`,
+    `| User vs Buoy P90 Abs Error | ${formatMaybeNumber(quality.user_vs_buoy_abs_error_p90_m, 3, "m")} |`,
+    `| User Signed Bias | ${formatMaybeNumber(quality.user_vs_buoy_signed_bias_avg_m, 3, "m")} |`,
+    `| Display Avg Abs Error | ${formatMaybeNumber(quality.display_abs_error_avg_m, 3, "m")} |`,
+    `| Raw OM Avg Abs Error | ${formatMaybeNumber(quality.raw_om_abs_error_avg_m, 3, "m")} |`,
+    `| v5 Shadow Avg Abs Error | ${formatMaybeNumber(quality.v5_shadow_abs_error_avg_m, 3, "m")} |`,
+    `| User Beats Display | ${quality.user_beats_display_count ?? 0} / ${quality.display_comparison_count ?? 0} |`,
+    `| User Beats v5 Shadow | ${quality.user_beats_v5_shadow_count ?? 0} / ${quality.v5_shadow_comparison_count ?? 0} |`,
+    `| Effective Weak-Label Mass | ${formatMaybeNumber(counts.effective_weak_label_mass, 1)} |`,
+    `| Quality States | ${formatRecordCounts(counts.by_quality_state)} |`,
+    `| Creation Sources | ${formatRecordCounts(counts.by_source_created_by)} |`,
+  ];
+
+  if (userReliability.length > 0) {
+    lines.push(
+      "",
+      "**Anonymous user reliability:**",
+      "",
+      "| User | N | Median Error | P75 Error | Bias |",
+      "|------|---|--------------|-----------|------|"
+    );
+    for (const row of userReliability.slice(0, 8)) {
+      lines.push(
+        `| user_${row.anonymous_user_rank} | ${row.comparisons} | ${formatMaybeNumber(row.median_abs_error_m, 3, "m")} | ${formatMaybeNumber(row.p75_abs_error_m, 3, "m")} | ${formatMaybeNumber(row.avg_signed_bias_m, 3, "m")} |`
+      );
+    }
+  }
+
+  if (deltaBuckets.length > 0) {
+    lines.push(
+      "",
+      "**Match delta buckets:**",
+      "",
+      "| Bucket | Candidates | With Buoy Truth |",
+      "|--------|------------|-----------------|"
+    );
+    for (const row of deltaBuckets) {
+      lines.push(
+        `| ${row.bucket} | ${row.candidates} | ${row.with_buoy_truth} |`
+      );
+    }
+  }
+
+  return lines.join("\n");
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -733,6 +912,7 @@ async function main(): Promise<void> {
     registryResult,
     correctionResult,
     predictionResult,
+    sessionWaveObservationResult,
   ] = await Promise.all([
     fetchHealthEndpoint(),
     fetchCronStatus(),
@@ -741,6 +921,7 @@ async function main(): Promise<void> {
     fetchModelRegistry(supabase),
     fetchCorrectionStats(supabase),
     fetchPredictionStats(supabase),
+    fetchSessionWaveObservationAnalytics(supabase),
   ]);
 
   // Detect anomalies
@@ -769,6 +950,11 @@ async function main(): Promise<void> {
     formatModelRegistry(registryResult.data, registryResult.error),
     "",
     formatPredictionStats(predictionResult.data, predictionResult.error),
+    "",
+    formatSessionWaveObservationAnalytics(
+      sessionWaveObservationResult.data,
+      sessionWaveObservationResult.error
+    ),
     "",
     formatCorrectionStats(correctionResult.data, correctionResult.error),
     "",
