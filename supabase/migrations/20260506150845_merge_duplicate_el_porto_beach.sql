@@ -16,7 +16,8 @@ BEGIN
     FROM public.beaches
     WHERE id = canonical_beach_id
   ) THEN
-    RAISE EXCEPTION 'Canonical El Porto beach % is missing', canonical_beach_id;
+    RAISE NOTICE 'Canonical El Porto beach % is missing; skipping duplicate merge', canonical_beach_id;
+    RETURN;
   END IF;
 
   UPDATE public.beach_sources canonical
