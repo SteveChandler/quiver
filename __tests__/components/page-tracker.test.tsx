@@ -59,6 +59,7 @@ describe("PageTracker", () => {
     mockSessionStorage.__quiver_session_id = "";
     delete mockSessionStorage.__quiver_session_id;
     mockRandomUUID.mockClear();
+    window.history.pushState({}, "", "/");
   });
 
   describe("tracking behavior", () => {
@@ -140,6 +141,49 @@ describe("PageTracker", () => {
           },
           debounceMs: 500,
         });
+      });
+    });
+
+    it("adds share attribution metadata and tracks shared session opens", async () => {
+      window.history.pushState(
+        {},
+        "",
+        "/sessions/session-1?share_id=share-123&utm_source=quiver_native&utm_medium=share&utm_campaign=session_share"
+      );
+      mockUsePathname.mockReturnValue("/sessions/session-1");
+
+      render(<PageTracker />);
+
+      await waitFor(() => {
+        expect(mockTrack).toHaveBeenCalledTimes(2);
+      });
+
+      expect(mockTrack).toHaveBeenNthCalledWith(1, "page_view", {
+        metadata: {
+          page: "session",
+          pathname: "/sessions/session-1",
+          referrer: "",
+          browser_session_id: expect.any(String),
+          share_id: "share-123",
+          utm_source: "quiver_native",
+          utm_medium: "share",
+          utm_campaign: "session_share",
+        },
+        debounceMs: 500,
+      });
+      expect(mockTrack).toHaveBeenNthCalledWith(2, "share_link_opened", {
+        metadata: {
+          share_id: "share-123",
+          session_id: "session-1",
+          pathname: "/sessions/session-1",
+          referrer: "",
+          browser_session_id: expect.any(String),
+          source: "web_page_tracker",
+          utm_source: "quiver_native",
+          utm_medium: "share",
+          utm_campaign: "session_share",
+        },
+        debounceMs: 0,
       });
     });
   });

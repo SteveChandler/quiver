@@ -34,6 +34,7 @@ export type ImplicitEventType =
   // Share tracking events
   | 'share_started'
   | 'share_completed'
+  | 'share_link_opened'
   | 'share_link_copied'
   | 'share_image_saved'
   | 'cam_share'
@@ -189,6 +190,7 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   // Share tracking events
   share_started: 0,
   share_completed: 0,
+  share_link_opened: 0,
   share_link_copied: 0,
   share_image_saved: 0,
   cam_share: 0,
@@ -398,6 +400,25 @@ export interface PageViewMetadata {
   referrer?: string;
   /** Browser session identifier for grouping page views (tab-scoped, distinct from DB session_id column) */
   browser_session_id?: string;
+  /** Opaque UUID from a low-friction session share link. */
+  share_id?: string;
+  /** Safe UTM attribution fields preserved from share URLs. */
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+}
+
+/** Metadata for share_link_opened events */
+export interface ShareLinkOpenedMetadata {
+  share_id: string;
+  session_id: string;
+  pathname?: string;
+  referrer?: string;
+  browser_session_id?: string;
+  source?: 'initial' | 'event' | 'web_page_tracker';
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
 }
 
 /**
@@ -830,6 +851,7 @@ export type EventMetadata =
   | ForecastCheckMetadata
   | LocationUpdateMetadata
   | PageViewMetadata
+  | ShareLinkOpenedMetadata
   | ForecastInteractionMetadata
   | SessionActionMetadata
   | ProfileUpdateMetadata

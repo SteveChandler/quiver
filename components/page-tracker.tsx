@@ -74,14 +74,60 @@ function getSessionId(): string {
   return sessionId;
 }
 
+type ShareAttributionMetadata = {
+  share_id?: string;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+};
+
+const ATTRIBUTION_QUERY_KEYS = [
+  "share_id",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+] as const;
+
+function getShareAttributionMetadata(): ShareAttributionMetadata {
+  if (typeof window === "undefined") return {};
+
+  const searchParams = new URLSearchParams(window.location.search);
+  const metadata: ShareAttributionMetadata = {};
+
+  for (const key of ATTRIBUTION_QUERY_KEYS) {
+    const value = searchParams.get(key);
+    if (value) metadata[key] = value;
+  }
+
+  return metadata;
+}
+
+function getSharedSessionId(pathname: string): string | null {
+  const match = pathname.match(/^\/sessions\/([^/?#]+)/);
+  const sessionId = match?.[1];
+  if (!sessionId || sessionId === "new") return null;
+  return decodeURIComponent(sessionId);
+}
+
 export function PageTracker() {
   const pathname = usePathname();
   const { track } = useTrackEvent();
+  const prevTrackingKey = useRef<string | null>(null);
   const prevPathname = useRef<string | null>(null);
+  const trackedShareIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    // Skip if pathname hasn't changed (initial mount is fine)
-    if (prevPathname.current === pathname) return;
+    const attributionMetadata = getShareAttributionMetadata();
+    const trackingKey = [
+      pathname,
+      attributionMetadata.share_id ?? "",
+      attributionMetadata.utm_source ?? "",
+      attributionMetadata.utm_medium ?? "",
+      attributionMetadata.utm_campaign ?? "",
+    ].join("|");
+
+    // Skip if the route plus safe attribution params haven't changed.
+    if (prevTrackingKey.current === trackingKey) return;
 
     const page = getPageName(pathname);
     const sessionId = getSessionId();
@@ -90,6 +136,7 @@ export function PageTracker() {
       pathname,
       referrer: prevPathname.current || "",
       browser_session_id: sessionId,
+      ...attributionMetadata,
     };
 
     track("page_view", {
@@ -97,6 +144,27 @@ export function PageTracker() {
       debounceMs: 500, // Shorter debounce for page views
     });
 
+    const sharedSessionId = getSharedSessionId(pathname);
+    const shareId = attributionMetadata.share_id;
+    if (shareId && sharedSessionId && !trackedShareIds.current.has(shareId)) {
+      trackedShareIds.current.add(shareId);
+      track("share_link_opened", {
+        metadata: {
+          share_id: shareId,
+          session_id: sharedSessionId,
+          pathname,
+          referrer: prevPathname.current || "",
+          browser_session_id: sessionId,
+          source: "web_page_tracker",
+          utm_source: attributionMetadata.utm_source,
+          utm_medium: attributionMetadata.utm_medium,
+          utm_campaign: attributionMetadata.utm_campaign,
+        },
+        debounceMs: 0,
+      });
+    }
+
+    prevTrackingKey.current = trackingKey;
     prevPathname.current = pathname;
   }, [pathname, track]);
 

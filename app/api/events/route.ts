@@ -124,6 +124,7 @@ export const VALID_EVENTS: ImplicitEventType[] = [
   // Share tracking events
   'share_started',
   'share_completed',
+  'share_link_opened',
   'share_link_copied',
   'share_image_saved',
   'cam_share',
@@ -274,7 +275,7 @@ export const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
   // Engagement signals from anonymous visitors
   'forecast_interaction', 'forecast_tab_click', 'horizon_strip_day_selected',
   'beach_search', 'beach_search_result_click', 'map_interaction', 'map_marker_click',
-  'share_started', 'share_completed', 'share_link_copied',
+  'share_started', 'share_completed', 'share_link_opened', 'share_link_copied',
   'match_score_teaser_view', 'match_score_teaser_click',
   // Map reliability (anon visitors hit the map immediately)
   'map_ready', 'map_load_failed',
