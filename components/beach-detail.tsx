@@ -61,7 +61,7 @@ import { BeachPhotoGallery } from "@/components/beach-detail/beach-photo-gallery
 import { BeachStatsGrid } from "@/components/beach-detail/beach-stats-grid";
 import { ConditionsTicker } from "@/components/conditions/conditions-ticker";
 import { forecastToConditionsData } from "@/lib/mappers/conditions-mappers";
-import { BeachActions } from "@/components/beach-detail/beach-actions";
+import { BeachAlertCta } from "@/components/beach-detail/beach-alert-cta";
 import {
   BeachTabs,
   BeachTabContent,
@@ -283,6 +283,7 @@ function BeachDetailContent({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [alertCreationOpen, setAlertCreationOpen] = useState(false);
+  const [alertRulesRefreshKey, setAlertRulesRefreshKey] = useState(0);
   const [activeTab, setActiveTab] = useState<BeachTabValue>(
     defaultTab || "forecast",
   );
@@ -867,6 +868,14 @@ function BeachDetailContent({
 
   const tabActions = (
     <>
+      <BeachAlertCta
+        beachId={beach.id}
+        beachName={beach.name}
+        compact
+        refreshKey={alertRulesRefreshKey}
+        onOpenAlerts={handleOpenAlerts}
+        className="rounded-none px-2 text-[#F78E42] hover:bg-gray-50"
+      />
       <Button
         variant="ghost"
         onClick={handleGetDirections}
@@ -918,6 +927,15 @@ function BeachDetailContent({
         {beforeTabsContent ? (
           <div className="mx-auto mb-6 max-w-5xl">{beforeTabsContent}</div>
         ) : null}
+        <div className="mx-auto mb-6 max-w-5xl md:hidden">
+          <BeachAlertCta
+            beachId={beach.id}
+            beachName={beach.name}
+            refreshKey={alertRulesRefreshKey}
+            onOpenAlerts={handleOpenAlerts}
+            className="bg-[#F78E42] text-white hover:bg-[#F78E42]/90"
+          />
+        </div>
         <BeachTabs
           activeTab={activeTab}
           onTabChange={setActiveTab}
@@ -1061,6 +1079,7 @@ function BeachDetailContent({
           }
           open={alertCreationOpen}
           onOpenChange={setAlertCreationOpen}
+          onRuleCreated={() => setAlertRulesRefreshKey((key) => key + 1)}
         />
       )}
 

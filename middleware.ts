@@ -34,6 +34,7 @@ const INTERNATIONAL_RESERVED_SEGMENTS = new Set([
   "_next",
   "auth",
   "admin",
+  "alerts",
   "beach",
   "beaches",
   "discover",

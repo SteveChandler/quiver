@@ -26,6 +26,7 @@ export class RouteGuard {
   // /sessions/new requires auth to create sessions, but /sessions/:id is public for sharing
   private static readonly PROTECTED_PATHS = [
     "/profile",
+    "/alerts",
     "/dashboard",
     "/journal",
     "/discover",

@@ -15,6 +15,7 @@ import {
   Users,
   CalendarDays,
   Settings,
+  Bell,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -137,6 +138,7 @@ export function AppHeader() {
   const navItems: { name: string; href: string }[] = user
     ? [
         { name: "Discover", href: "/map" },
+        { name: "Alerts", href: "/alerts" },
         { name: "Sessions", href: "/profile?tab=sessions" },
         // TODO: /?tab=community is a dead route — the Oracle home screen has no community tab handler.
         // Keep the link for now until a community tab is implemented or the route is removed.
@@ -155,6 +157,7 @@ export function AppHeader() {
   const mobileNavItems = [
     { name: "Home", href: "/", icon: Home },
     { name: "Map", href: "/map", icon: Map },
+    { name: "Alerts", href: "/alerts", icon: Bell },
     { name: "Discover", href: "/discover", icon: Users },
     { name: "Sessions", href: "/profile?tab=sessions", icon: CalendarDays },
     { name: "Profile", href: "/profile", icon: User },
@@ -495,6 +498,15 @@ export function AppHeader() {
                 >
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onSelect={() => {
+                    router.push("/alerts");
+                  }}
+                >
+                  <Bell className="mr-2 h-4 w-4" />
+                  <span>Alerts</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

@@ -1,0 +1,910 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import {
+  Bell,
+  BellOff,
+  Check,
+  Edit3,
+  Loader2,
+  Mail,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  Waves,
+  Wind,
+} from "lucide-react";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AuthLoader } from "@/components/ui/loading-states";
+import { useAuth } from "@/context/auth-context";
+import { ConditionBuilder } from "@/components/alerts/condition-builder";
+import type { AlertConditions, BeachAlertMeta } from "@/lib/alerts/types";
+
+interface AlertRule {
+  id: string;
+  user_id: string;
+  beach_id: string;
+  name: string;
+  preset_type: string | null;
+  conditions: AlertConditions;
+  notify_email: boolean;
+  notify_push: boolean;
+  enabled: boolean;
+  last_matched_at: string | null;
+  auto_created_at: string | null;
+  created_at: string;
+  updated_at: string;
+  beaches?: {
+    name: string;
+    slug: string | null;
+    timezone: string;
+  } | null;
+}
+
+interface BeachSearchResult {
+  id: string;
+  name: string;
+  slug: string | null;
+  city: string | null;
+  state: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  timezone?: string | null;
+}
+
+type EditorState =
+  | { mode: "create"; beach: BeachAlertMeta; rule?: undefined }
+  | { mode: "edit"; beach: BeachAlertMeta; rule: AlertRule };
+
+const LONGBOARD_CONDITIONS: AlertConditions = {
+  swell_height_min: 1,
+  swell_height_max: 3,
+  wind_speed_max_kt: 5,
+};
+
+function getBeachName(rule: AlertRule): string {
+  return rule.beaches?.name ?? "Unknown beach";
+}
+
+function toBeachAlertMeta(raw: Record<string, unknown>): BeachAlertMeta {
+  return {
+    id: String(raw.id ?? ""),
+    name: String(raw.name ?? "Beach"),
+    slug: typeof raw.slug === "string" ? raw.slug : null,
+    lat: typeof raw.lat === "number" ? raw.lat : 0,
+    lon: typeof raw.lon === "number" ? raw.lon : 0,
+    timezone: typeof raw.timezone === "string" ? raw.timezone : "UTC",
+    wind_offshore_deg:
+      typeof raw.wind_offshore_deg === "number" ? raw.wind_offshore_deg : null,
+    wind_offshore_tol_deg:
+      typeof raw.wind_offshore_tol_deg === "number"
+        ? raw.wind_offshore_tol_deg
+        : null,
+    aspect_deg: typeof raw.aspect_deg === "number" ? raw.aspect_deg : null,
+    preferred_tide_ft_min:
+      typeof raw.preferred_tide_ft_min === "number"
+        ? raw.preferred_tide_ft_min
+        : null,
+    preferred_tide_ft_max:
+      typeof raw.preferred_tide_ft_max === "number"
+        ? raw.preferred_tide_ft_max
+        : null,
+    preferred_tide_direction:
+      typeof raw.preferred_tide_direction === "string"
+        ? raw.preferred_tide_direction
+        : null,
+    swell_window_center_deg:
+      typeof raw.swell_window_center_deg === "number"
+        ? raw.swell_window_center_deg
+        : null,
+    swell_window_halfwidth_deg:
+      typeof raw.swell_window_halfwidth_deg === "number"
+        ? raw.swell_window_halfwidth_deg
+        : null,
+  };
+}
+
+async function readJson(response: Response): Promise<Record<string, unknown>> {
+  try {
+    return (await response.json()) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+async function fetchBeachMeta(beachId: string): Promise<BeachAlertMeta> {
+  const response = await fetch(`/api/beaches/${beachId}`, {
+    cache: "no-store",
+  });
+  const json = await readJson(response);
+  if (!response.ok) {
+    throw new Error(
+      typeof json.message === "string" ? json.message : "Could not load beach"
+    );
+  }
+
+  const payload = json.data;
+  const beach =
+    typeof payload === "object" && payload !== null
+      ? (payload as Record<string, unknown>).beach
+      : null;
+  if (!beach || typeof beach !== "object") {
+    throw new Error("Beach metadata was incomplete");
+  }
+
+  return toBeachAlertMeta(beach as Record<string, unknown>);
+}
+
+function formatConditionChips(conditions: AlertConditions): string[] {
+  const chips: string[] = [];
+  const min = conditions.swell_height_min;
+  const max = conditions.swell_height_max;
+
+  if (typeof min === "number" && typeof max === "number") {
+    chips.push(`${min}-${max} ft`);
+  } else if (typeof min === "number") {
+    chips.push(`${min}+ ft`);
+  } else if (typeof max === "number") {
+    chips.push(`under ${max} ft`);
+  }
+
+  if (typeof conditions.swell_period_min === "number") {
+    chips.push(`${conditions.swell_period_min}s+ period`);
+  }
+
+  if (typeof conditions.wind_speed_max_kt === "number") {
+    chips.push(`<= ${conditions.wind_speed_max_kt} kt wind`);
+  }
+
+  if (conditions.wind_direction) {
+    chips.push(`${conditions.wind_direction} wind`);
+  }
+
+  if (
+    typeof conditions.tide_height_min_ft === "number" ||
+    typeof conditions.tide_height_max_ft === "number"
+  ) {
+    chips.push(
+      `${conditions.tide_height_min_ft ?? "low"}-${
+        conditions.tide_height_max_ft ?? "high"
+      } ft tide`
+    );
+  }
+
+  if (conditions.tide_direction) {
+    chips.push(`${conditions.tide_direction} tide`);
+  }
+
+  return chips.length ? chips : ["custom conditions"];
+}
+
+function groupRulesByBeach(rules: AlertRule[]): Array<{
+  beachId: string;
+  beachName: string;
+  rules: AlertRule[];
+}> {
+  const groups = new Map<string, { beachName: string; rules: AlertRule[] }>();
+
+  for (const rule of rules) {
+    const existing = groups.get(rule.beach_id);
+    if (existing) {
+      existing.rules.push(rule);
+      continue;
+    }
+    groups.set(rule.beach_id, {
+      beachName: getBeachName(rule),
+      rules: [rule],
+    });
+  }
+
+  return Array.from(groups.entries())
+    .map(([beachId, group]) => ({ beachId, ...group }))
+    .sort((a, b) => a.beachName.localeCompare(b.beachName));
+}
+
+function validateConditions(conditions: AlertConditions): string | null {
+  if (
+    typeof conditions.swell_height_min === "number" &&
+    typeof conditions.swell_height_max === "number" &&
+    conditions.swell_height_min > conditions.swell_height_max
+  ) {
+    return "Minimum wave height must be below the maximum.";
+  }
+
+  if (
+    typeof conditions.tide_height_min_ft === "number" &&
+    typeof conditions.tide_height_max_ft === "number" &&
+    conditions.tide_height_min_ft > conditions.tide_height_max_ft
+  ) {
+    return "Minimum tide height must be below the maximum.";
+  }
+
+  return null;
+}
+
+export function AlertsManagementPage() {
+  const { user, isLoading } = useAuth();
+  const [rules, setRules] = useState<AlertRule[]>([]);
+  const [rulesLoading, setRulesLoading] = useState(true);
+  const [rulesError, setRulesError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [beachResults, setBeachResults] = useState<BeachSearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [editor, setEditor] = useState<EditorState | null>(null);
+  const [editorLoading, setEditorLoading] = useState(false);
+  const searchAbortRef = useRef<AbortController | null>(null);
+
+  const conditionRules = useMemo(
+    () => rules.filter((rule) => rule.preset_type !== "similarity_match"),
+    [rules]
+  );
+  const groupedRules = useMemo(
+    () => groupRulesByBeach(conditionRules),
+    [conditionRules]
+  );
+
+  const loadRules = useCallback(async () => {
+    setRulesLoading(true);
+    setRulesError(null);
+    try {
+      const response = await fetch("/api/alerts/rules", { cache: "no-store" });
+      const json = await readJson(response);
+      if (!response.ok) {
+        throw new Error(
+          typeof json.message === "string" ? json.message : "Could not load alerts"
+        );
+      }
+      setRules((json.data as AlertRule[]) ?? []);
+    } catch (error) {
+      setRulesError(
+        error instanceof Error ? error.message : "Could not load alerts"
+      );
+    } finally {
+      setRulesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) void loadRules();
+  }, [loadRules, user]);
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+    searchAbortRef.current?.abort();
+
+    if (query.length < 2) {
+      setBeachResults([]);
+      setSearchLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
+    const timer = window.setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const response = await fetch(
+          `/api/beaches/search?query=${encodeURIComponent(query)}&limit=8`,
+          { signal: controller.signal }
+        );
+        const json = await readJson(response);
+        if (!response.ok) throw new Error("search failed");
+        setBeachResults((json.data as BeachSearchResult[]) ?? []);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        setBeachResults([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 200);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [searchQuery]);
+
+  const openCreateEditor = async (beachId: string) => {
+    setEditorLoading(true);
+    try {
+      const beach = await fetchBeachMeta(beachId);
+      setEditor({ mode: "create", beach });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not load beach");
+    } finally {
+      setEditorLoading(false);
+    }
+  };
+
+  const openEditEditor = async (rule: AlertRule) => {
+    setEditorLoading(true);
+    try {
+      const beach = await fetchBeachMeta(rule.beach_id);
+      setEditor({ mode: "edit", beach, rule });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not load beach");
+    } finally {
+      setEditorLoading(false);
+    }
+  };
+
+  const patchRule = async (ruleId: string, updates: Record<string, unknown>) => {
+    const response = await fetch(`/api/alerts/rules/${ruleId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+    const json = await readJson(response);
+    if (!response.ok) {
+      throw new Error(
+        typeof json.message === "string" ? json.message : "Could not update alert"
+      );
+    }
+    await loadRules();
+  };
+
+  const handleToggleRule = async (rule: AlertRule) => {
+    setRules((prev) =>
+      prev.map((item) =>
+        item.id === rule.id ? { ...item, enabled: !item.enabled } : item
+      )
+    );
+    try {
+      await patchRule(rule.id, { enabled: !rule.enabled });
+      toast.success(!rule.enabled ? "Alert enabled" : "Alert paused");
+    } catch (error) {
+      setRules((prev) =>
+        prev.map((item) =>
+          item.id === rule.id ? { ...item, enabled: rule.enabled } : item
+        )
+      );
+      toast.error(error instanceof Error ? error.message : "Could not update alert");
+    }
+  };
+
+  const handleDeleteRule = async (rule: AlertRule) => {
+    const confirmed = window.confirm(`Delete "${rule.name}"?`);
+    if (!confirmed) return;
+
+    const previous = rules;
+    setRules((prev) => prev.filter((item) => item.id !== rule.id));
+    try {
+      const response = await fetch(`/api/alerts/rules/${rule.id}`, {
+        method: "DELETE",
+      });
+      const json = await readJson(response);
+      if (!response.ok) {
+        throw new Error(
+          typeof json.message === "string" ? json.message : "Could not delete alert"
+        );
+      }
+      toast.success("Alert deleted");
+    } catch (error) {
+      setRules(previous);
+      toast.error(error instanceof Error ? error.message : "Could not delete alert");
+    }
+  };
+
+  if (isLoading) {
+    return <AuthLoader />;
+  }
+
+  if (!user) {
+    return <AuthLoader />;
+  }
+
+  return (
+    <main className="min-h-screen bg-[#0D1020] px-4 py-8 text-white sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <section className="flex flex-col gap-4 border-b border-[#404C92]/60 pb-6 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-bold tracking-tight sm:text-4xl">
+              Condition alerts
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#B8C7E0]">
+              Manage the surf windows you care about. These rules use wave
+              height, wind, tide, and beach-specific forecast data.
+            </p>
+          </div>
+          <Button
+            type="button"
+            onClick={() => document.getElementById("alert-beach-search")?.focus()}
+            className="h-11 rounded-md bg-[#F78E42] px-4 font-semibold text-white hover:bg-[#F78E42]/90"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Create alert
+          </Button>
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-[360px_1fr]">
+          <div className="rounded-lg border border-[#404C92] bg-[#252D6B] p-4">
+            <div className="flex items-center gap-2">
+              <Search className="h-4 w-4 text-[#F78E42]" />
+              <h2 className="font-[family-name:var(--font-space-grotesk)] text-base font-semibold">
+                Create for a beach
+              </h2>
+            </div>
+            <p className="mt-2 text-xs leading-5 text-[#B8C7E0]">
+              Start with the small clean longboard setup, then adjust the
+              conditions before saving.
+            </p>
+            <div className="mt-4">
+              <label
+                htmlFor="alert-beach-search"
+                className="sr-only"
+              >
+                Search beaches
+              </label>
+              <input
+                id="alert-beach-search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search Bolsa, Huntington..."
+                className="h-11 w-full rounded-md border border-[#404C92] bg-[#1E2660] px-3 text-sm text-white outline-none placeholder:text-[#B8C7E0]/55 focus:border-[#F78E42] focus:ring-2 focus:ring-[#F78E42]/30"
+              />
+            </div>
+
+            <div className="mt-3 space-y-2" data-testid="alert-beach-results">
+              {searchLoading || editorLoading ? (
+                <div className="flex items-center gap-2 rounded-md border border-[#404C92]/60 bg-[#1E2660]/70 px-3 py-3 text-sm text-[#B8C7E0]">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading beach metadata
+                </div>
+              ) : null}
+
+              {!searchLoading && searchQuery.trim().length >= 2 && beachResults.length === 0 ? (
+                <div className="rounded-md border border-[#404C92]/60 bg-[#1E2660]/70 px-3 py-3 text-sm text-[#B8C7E0]">
+                  No beaches found
+                </div>
+              ) : null}
+
+              {beachResults.map((beach) => (
+                <button
+                  key={beach.id}
+                  type="button"
+                  onClick={() => openCreateEditor(beach.id)}
+                  className="flex w-full items-center justify-between rounded-md border border-[#404C92]/70 bg-[#1E2660] px-3 py-3 text-left transition hover:border-[#F78E42]/70 hover:bg-[#354090]"
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-white">
+                      {beach.name}
+                    </span>
+                    <span className="block text-xs text-[#B8C7E0]">
+                      {[beach.city, beach.state].filter(Boolean).join(", ")}
+                    </span>
+                  </span>
+                  <Plus className="h-4 w-4 text-[#F78E42]" />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {rulesError ? (
+              <Alert className="border-red-400/40 bg-red-500/10 text-red-100">
+                <AlertDescription className="flex items-center justify-between gap-3">
+                  <span>{rulesError}</span>
+                  <button
+                    type="button"
+                    onClick={loadRules}
+                    className="inline-flex items-center gap-1 text-sm font-semibold text-white"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Retry
+                  </button>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {rulesLoading ? (
+              <div className="rounded-lg border border-[#404C92] bg-[#252D6B] p-8 text-center text-[#B8C7E0]">
+                <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-[#F78E42]" />
+                Loading alerts
+              </div>
+            ) : null}
+
+            {!rulesLoading && groupedRules.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-[#404C92] bg-[#252D6B]/70 p-8 text-center">
+                <Waves className="mx-auto h-8 w-8 text-[#F78E42]" />
+                <h2 className="mt-3 font-[family-name:var(--font-space-grotesk)] text-xl font-semibold">
+                  No condition alerts yet
+                </h2>
+                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#B8C7E0]">
+                  Search for a beach and create a rule for small clean waves,
+                  glassy mornings, tide windows, or your own setup.
+                </p>
+              </div>
+            ) : null}
+
+            {groupedRules.map((group) => (
+              <section
+                key={group.beachId}
+                className="rounded-lg border border-[#404C92] bg-[#252D6B] p-4"
+              >
+                <div className="flex flex-col gap-1 border-b border-[#404C92]/60 pb-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="font-[family-name:var(--font-space-grotesk)] text-lg font-semibold">
+                      {group.beachName}
+                    </h2>
+                    <p className="text-xs text-[#B8C7E0]">
+                      {group.rules.length} alert
+                      {group.rules.length === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openCreateEditor(group.beachId)}
+                    className="inline-flex min-h-10 items-center gap-2 rounded-md px-3 text-sm font-semibold text-[#F78E42] transition hover:bg-[#F78E42]/10"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add rule
+                  </button>
+                </div>
+
+                <div className="divide-y divide-[#404C92]/55">
+                  {group.rules.map((rule) => (
+                    <AlertRuleRow
+                      key={rule.id}
+                      rule={rule}
+                      onToggle={() => handleToggleRule(rule)}
+                      onDelete={() => handleDeleteRule(rule)}
+                      onEdit={() => openEditEditor(rule)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <AlertRuleEditorDialog
+        editor={editor}
+        onClose={() => setEditor(null)}
+        onSaved={async () => {
+          setEditor(null);
+          await loadRules();
+        }}
+      />
+    </main>
+  );
+}
+
+function AlertRuleRow({
+  rule,
+  onToggle,
+  onDelete,
+  onEdit,
+}: {
+  rule: AlertRule;
+  onToggle: () => void;
+  onDelete: () => void;
+  onEdit: () => void;
+}) {
+  const chips = formatConditionChips(rule.conditions ?? {});
+
+  return (
+    <article
+      className="grid gap-3 py-4 md:grid-cols-[1fr_auto]"
+      data-testid={`alert-rule-${rule.id}`}
+    >
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="truncate text-sm font-semibold text-white">
+            {rule.name}
+          </h3>
+          <span
+            className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+              rule.enabled
+                ? "bg-[#00D4AA]/15 text-[#00D4AA]"
+                : "bg-[#B8C7E0]/10 text-[#B8C7E0]"
+            }`}
+          >
+            {rule.enabled ? "Active" : "Paused"}
+          </span>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {chips.map((chip) => (
+            <span
+              key={chip}
+              className="rounded-full border border-[#404C92] bg-[#1E2660] px-2.5 py-1 text-xs text-[#F0F0F0]"
+            >
+              {chip}
+            </span>
+          ))}
+          {rule.notify_push ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-[#F78E42]/45 bg-[#F78E42]/10 px-2.5 py-1 text-xs text-[#F78E42]">
+              <Bell className="h-3 w-3" />
+              Push on
+            </span>
+          ) : null}
+          {rule.notify_email ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-[#FDB84B]/45 bg-[#FDB84B]/10 px-2.5 py-1 text-xs text-[#FDB84B]">
+              <Mail className="h-3 w-3" />
+              Email on
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={rule.enabled ? "Pause alert" : "Enable alert"}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[#B8C7E0] transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50"
+        >
+          {rule.enabled ? (
+            <BellOff className="h-4 w-4" />
+          ) : (
+            <Bell className="h-4 w-4" />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={onEdit}
+          aria-label="Edit alert"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[#B8C7E0] transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50"
+        >
+          <Edit3 className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          aria-label="Delete alert"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[#B8C7E0] transition hover:bg-red-500/10 hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function AlertRuleEditorDialog({
+  editor,
+  onClose,
+  onSaved,
+}: {
+  editor: EditorState | null;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [name, setName] = useState("");
+  const [conditions, setConditions] = useState<AlertConditions>(
+    LONGBOARD_CONDITIONS
+  );
+  const [notifyPush, setNotifyPush] = useState(true);
+  const [notifyEmail, setNotifyEmail] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!editor) return;
+    if (editor.mode === "edit") {
+      setName(editor.rule.name);
+      setConditions(editor.rule.conditions ?? {});
+      setNotifyPush(editor.rule.notify_push);
+      setNotifyEmail(editor.rule.notify_email);
+      setError(null);
+      return;
+    }
+
+    setName(`Small clean longboard waves - ${editor.beach.name}`);
+    setConditions(LONGBOARD_CONDITIONS);
+    setNotifyPush(true);
+    setNotifyEmail(false);
+    setError(null);
+  }, [editor]);
+
+  const hasConditions = Object.keys(conditions).length > 0;
+
+  const handleSave = async () => {
+    if (!editor || saving) return;
+    if (!name.trim()) {
+      setError("Name this alert before saving.");
+      return;
+    }
+    if (!hasConditions) {
+      setError("Add at least one condition.");
+      return;
+    }
+    const conditionError = validateConditions(conditions);
+    if (conditionError) {
+      setError(conditionError);
+      return;
+    }
+    if (!notifyPush && !notifyEmail) {
+      setError("Choose push, email, or both.");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      const body = {
+        name: name.trim(),
+        conditions,
+        notify_push: notifyPush,
+        notify_email: notifyEmail,
+      };
+      const response =
+        editor.mode === "edit"
+          ? await fetch(`/api/alerts/rules/${editor.rule.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            })
+          : await fetch("/api/alerts/rules", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ...body,
+                beach_id: editor.beach.id,
+                preset_type: null,
+              }),
+            });
+
+      const json = await readJson(response);
+      if (!response.ok) {
+        throw new Error(
+          typeof json.message === "string" ||
+          typeof json.error === "string"
+            ? String(json.message ?? json.error)
+            : "Could not save alert"
+        );
+      }
+      toast.success(editor.mode === "edit" ? "Alert updated" : "Alert created");
+      await onSaved();
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error ? saveError.message : "Could not save alert"
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!editor} onOpenChange={(open) => (!open ? onClose() : null)}>
+      <DialogContent
+        data-testid="alert-editor-dialog"
+        className="max-w-lg border border-[#404C92] bg-[#1E2660] p-0 text-white"
+      >
+        {editor ? (
+          <>
+            <DialogHeader className="border-b border-[#404C92]/70 px-5 py-4">
+              <DialogTitle className="font-[family-name:var(--font-space-grotesk)] text-lg font-semibold">
+                {editor.mode === "edit" ? "Edit alert" : "Create alert"}
+              </DialogTitle>
+              <DialogDescription className="mt-1 text-xs text-[#B8C7E0]">
+                {editor.beach.name}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="max-h-[74vh] space-y-4 overflow-y-auto px-5 py-5">
+              <div className="rounded-md border border-[#F78E42]/35 bg-[#F78E42]/10 p-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-[#F78E42]">
+                  <Waves className="h-4 w-4" />
+                  Small clean longboard default
+                </div>
+                <p className="mt-1 text-xs leading-5 text-[#F0F0F0]">
+                  Starts at 1-3 ft and light wind. Adjust anything before
+                  saving.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="alert-name"
+                  className="text-[11px] font-bold uppercase tracking-widest text-[#B8C7E0]"
+                >
+                  Alert name
+                </label>
+                <input
+                  id="alert-name"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  maxLength={100}
+                  className="h-10 w-full rounded-md border border-[#404C92] bg-[#252D6B] px-3 text-sm text-white outline-none focus:border-[#F78E42] focus:ring-2 focus:ring-[#F78E42]/30"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-widest text-[#B8C7E0]">
+                  Conditions
+                </label>
+                <ConditionBuilder
+                  conditions={conditions}
+                  onChange={setConditions}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold uppercase tracking-widest text-[#B8C7E0]">
+                  Notify via
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <ChannelButton
+                    active={notifyPush}
+                    onClick={() => setNotifyPush((prev) => !prev)}
+                    icon={<Bell className="h-3.5 w-3.5" />}
+                    label="Push"
+                  />
+                  <ChannelButton
+                    active={notifyEmail}
+                    onClick={() => setNotifyEmail((prev) => !prev)}
+                    icon={<Mail className="h-3.5 w-3.5" />}
+                    label="Email"
+                  />
+                </div>
+              </div>
+
+              {error ? (
+                <Alert className="border-red-400/40 bg-red-500/10 text-red-100">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              ) : null}
+
+              <Button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                data-testid="alert-editor-save"
+                className="h-11 w-full rounded-md bg-[#F78E42] font-semibold text-white hover:bg-[#F78E42]/90 disabled:opacity-60"
+              >
+                {saving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="mr-2 h-4 w-4" />
+                )}
+                {editor.mode === "edit" ? "Save changes" : "Create alert"}
+              </Button>
+            </div>
+          </>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ChannelButton({
+  active,
+  icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition ${
+        active
+          ? "border-[#F78E42] bg-[#F78E42]/15 text-[#F78E42]"
+          : "border-[#404C92] bg-transparent text-[#B8C7E0] hover:border-[#B8C7E0]"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}

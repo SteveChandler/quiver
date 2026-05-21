@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Bell, BellRing } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
@@ -13,6 +13,7 @@ import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking"
 interface AlertRule {
   id: string;
   beach_id: string;
+  preset_type?: string | null;
 }
 
 interface BeachAlertCtaProps {
@@ -20,15 +21,24 @@ interface BeachAlertCtaProps {
   beachName: string;
   compact?: boolean;
   className?: string;
+  refreshKey?: number;
   /** Called when the user clicks to open the alert creation/management flow */
   onOpenAlerts?: () => void;
 }
 
-export function BeachAlertCta({ beachId, beachName, compact, className, onOpenAlerts }: BeachAlertCtaProps) {
+export function BeachAlertCta({
+  beachId,
+  beachName,
+  compact,
+  className,
+  refreshKey,
+  onOpenAlerts,
+}: BeachAlertCtaProps) {
   const { user } = useAuth();
   const { pendingAction, setPendingAction, clearPendingAction } = usePendingAction();
   const pathname = usePathname();
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const previousRefreshKey = useRef(refreshKey);
 
   // Fetch alert rules only for authenticated users — filter by beach_id client-side
   const fetchRules = useCallback(async (): Promise<AlertRule[]> => {
@@ -38,14 +48,26 @@ export function BeachAlertCta({ beachId, beachName, compact, className, onOpenAl
     return (json.data ?? []) as AlertRule[];
   }, []);
 
-  const { data: allRules, loading: rulesLoading } = useDataFetcher(fetchRules, {
+  const {
+    data: allRules,
+    loading: rulesLoading,
+    refetch,
+    invalidateCache,
+  } = useDataFetcher(fetchRules, {
     skip: !user,
     cacheKey: user ? `alert-rules-${user.id}` : undefined,
   });
 
   // null while loading, 0+ once fetched
   const ruleCount = useMemo(
-    () => allRules === null ? null : allRules.filter((r) => r.beach_id === beachId).length,
+    () =>
+      allRules === null
+        ? null
+        : allRules.filter(
+            (rule) =>
+              rule.beach_id === beachId &&
+              rule.preset_type !== "similarity_match"
+          ).length,
     [allRules, beachId]
   );
 
@@ -64,6 +86,15 @@ export function BeachAlertCta({ beachId, beachName, compact, className, onOpenAl
       onOpenAlerts?.();
     }
   }, [user, pendingAction, beachId, clearPendingAction, onOpenAlerts]);
+
+  useEffect(() => {
+    if (!user || refreshKey === undefined) return;
+    if (previousRefreshKey.current === refreshKey) return;
+
+    previousRefreshKey.current = refreshKey;
+    invalidateCache();
+    void refetch();
+  }, [user, refreshKey, invalidateCache, refetch]);
 
   function handleClick() {
     if (!user) {
