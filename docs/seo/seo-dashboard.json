@@ -1,0 +1,1667 @@
+{
+  "version": 1,
+  "site": "https://www.quiversurf.app",
+  "updatedAt": "2026-05-20T01:45:28.550Z",
+  "entries": [
+    {
+      "id": "static-root",
+      "canonicalPath": "/",
+      "pageType": "home",
+      "targetKeyword": "free surf forecast app",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "free surf forecast app",
+        "secondarySemantics": [
+          "session log",
+          "surf conditions",
+          "surf forecast"
+        ],
+        "intendedHeadings": [
+          "Quiver"
+        ],
+        "linkedUrls": [
+          "/forecast-accuracy",
+          "/learn",
+          "/map"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "beginner-beginner-cocoa-beach",
+      "canonicalPath": "/beginner/cocoa-beach",
+      "pageType": "beginner",
+      "targetKeyword": "beginner surf spots in cocoa beach",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "beginner surf spots in cocoa beach",
+        "secondarySemantics": [
+          "beginner surf guide",
+          "cocoa beach",
+          "is cocoa beach good for beginner surfing?",
+          "what board should a beginner bring in cocoa beach?",
+          "what conditions are best in cocoa beach?",
+          "which local breaks should i check near cocoa beach?"
+        ],
+        "intendedHeadings": [
+          "Beginner Surf Spots in Cocoa Beach",
+          "Best conditions to watch for",
+          "Board and safety call",
+          "Local read before you drive",
+          "Where Cocoa Beach works best"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/fl/cocoa-beach/cocoa-beach-pier",
+          "/longboard/fl",
+          "/map",
+          "/surf-cams/florida"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "beginner-beginner-honolulu",
+      "canonicalPath": "/beginner/honolulu",
+      "pageType": "beginner",
+      "targetKeyword": "beginner surf spots in honolulu",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "beginner surf spots in honolulu",
+        "secondarySemantics": [
+          "beginner surf guide",
+          "honolulu",
+          "is honolulu good for beginner surfing?",
+          "what board should a beginner bring in honolulu?",
+          "what conditions are best in honolulu?",
+          "which local breaks should i check near honolulu?"
+        ],
+        "intendedHeadings": [
+          "Beginner Surf Spots in Honolulu",
+          "Best conditions to watch for",
+          "Board and safety call",
+          "Local read before you drive",
+          "Where Honolulu works best"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/hi/honolulu/waikiki-beach",
+          "/hi/honolulu/waikiki-canoes",
+          "/longboard/honolulu",
+          "/map",
+          "/surf-cams/hawaii"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "beginner-beginner-orange-county",
+      "canonicalPath": "/beginner/orange-county",
+      "pageType": "beginner",
+      "targetKeyword": "beginner surf spots in orange county",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "beginner surf spots in orange county",
+        "secondarySemantics": [
+          "beginner surf guide",
+          "is orange county good for beginner surfing?",
+          "orange county",
+          "what board should a beginner bring in orange county?",
+          "what conditions are best in orange county?",
+          "which local breaks should i check near orange county?"
+        ],
+        "intendedHeadings": [
+          "Beginner Surf Spots in Orange County",
+          "Best conditions to watch for",
+          "Board and safety call",
+          "Local read before you drive",
+          "Where Orange County works best"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/beginner/san-onofre",
+          "/ca/dana-point/doheny-beach",
+          "/longboard/encinitas",
+          "/map",
+          "/surf-cams/orange-county"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "beginner-beginner-san-diego",
+      "canonicalPath": "/beginner/san-diego",
+      "pageType": "beginner",
+      "targetKeyword": "beginner surf spots in san diego",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "beginner surf spots in san diego",
+        "secondarySemantics": [
+          "beginner surf guide",
+          "is san diego good for beginner surfing?",
+          "san diego",
+          "what board should a beginner bring in san diego?",
+          "what conditions are best in san diego?",
+          "which local breaks should i check near san diego?"
+        ],
+        "intendedHeadings": [
+          "Beginner Surf Spots in San Diego",
+          "Best conditions to watch for",
+          "Board and safety call",
+          "Local read before you drive",
+          "Where San Diego works best"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/ca/la-jolla/la-jolla-shores",
+          "/longboard/la-jolla",
+          "/map",
+          "/surf-cams/san-diego",
+          "/surf-report/scripps-pier-today",
+          "/surf-report/tourmaline-today"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "beginner-beginner-san-onofre",
+      "canonicalPath": "/beginner/san-onofre",
+      "pageType": "beginner",
+      "targetKeyword": "beginner surf spots in san onofre",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "beginner surf spots in san onofre",
+        "secondarySemantics": [
+          "beginner surf guide",
+          "is san onofre good for beginner surfing?",
+          "san onofre",
+          "what board should a beginner bring in san onofre?",
+          "what conditions are best in san onofre?",
+          "which local breaks should i check near san onofre?"
+        ],
+        "intendedHeadings": [
+          "Beginner Surf Spots in San Onofre",
+          "Best conditions to watch for",
+          "Board and safety call",
+          "Local read before you drive",
+          "Where San Onofre works best"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/beginner/orange-county",
+          "/ca/san-onofre/middles",
+          "/ca/san-onofre/san-onofre-state-beach",
+          "/longboard/encinitas",
+          "/map",
+          "/surf-cams/orange-county"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "beginner-beginner-santa-cruz",
+      "canonicalPath": "/beginner/santa-cruz",
+      "pageType": "beginner",
+      "targetKeyword": "beginner surf spots in santa cruz",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "beginner surf spots in santa cruz",
+        "secondarySemantics": [
+          "beginner surf guide",
+          "is santa cruz good for beginner surfing?",
+          "santa cruz",
+          "what board should a beginner bring in santa cruz?",
+          "what conditions are best in santa cruz?",
+          "which local breaks should i check near santa cruz?"
+        ],
+        "intendedHeadings": [
+          "Beginner Surf Spots in Santa Cruz",
+          "Best conditions to watch for",
+          "Board and safety call",
+          "Local read before you drive",
+          "Where Santa Cruz works best"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/beginner/san-onofre",
+          "/beginner/santa-cruz",
+          "/ca/capitola/capitola-beach",
+          "/map"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "static-forecast-accuracy",
+      "canonicalPath": "/forecast-accuracy",
+      "pageType": "trust",
+      "targetKeyword": "surf forecast accuracy",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "surf forecast accuracy",
+        "secondarySemantics": [
+          "forecast model verification",
+          "wave forecast accuracy"
+        ],
+        "intendedHeadings": [
+          "Forecast Accuracy"
+        ],
+        "linkedUrls": [
+          "/learn/how-surf-forecasts-work",
+          "/map"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-beach-break-vs-reef-break-vs-point-break",
+      "canonicalPath": "/learn/beach-break-vs-reef-break-vs-point-break",
+      "pageType": "learn",
+      "targetKeyword": "beach break vs reef break",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "beach break vs reef break",
+        "secondarySemantics": [
+          "beach break",
+          "point break surfing",
+          "reef break",
+          "surf break types explained",
+          "types of surf breaks"
+        ],
+        "intendedHeadings": [
+          "How Each Break Type Works",
+          "The Short Answer",
+          "What This Means for Your Session"
+        ],
+        "linkedUrls": [
+          "/learn/best-surf-conditions-for-beginners",
+          "/learn/best-tide-for-surfing",
+          "/map"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-beginner-breaks-san-diego",
+      "canonicalPath": "/learn/beginner-breaks-san-diego",
+      "pageType": "learn",
+      "targetKeyword": "beginner surf spots san diego",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "beginner surf spots san diego",
+        "secondarySemantics": [
+          "best beaches for beginners san diego",
+          "easy surf spots san diego",
+          "learn to surf san diego",
+          "san diego surf lessons"
+        ],
+        "intendedHeadings": [
+          "Best Time to Surf as a Beginner",
+          "Gear & Where to Take Lessons",
+          "Safety Tips",
+          "Top 5 Beginner Breaks",
+          "Why San Diego Is Perfect for Learning"
+        ],
+        "linkedUrls": [
+          "/beginner/san-diego",
+          "/learn/best-surf-conditions-for-beginners",
+          "/learn/how-to-read-a-surf-forecast",
+          "/water-temp/san-diego"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-beginner-breaks-santa-cruz",
+      "canonicalPath": "/learn/beginner-breaks-santa-cruz",
+      "pageType": "learn",
+      "targetKeyword": "beginner surf spots santa cruz",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "beginner surf spots santa cruz",
+        "secondarySemantics": [
+          "best beaches for beginners santa cruz",
+          "cowells beach surfing",
+          "learn to surf santa cruz",
+          "santa cruz surf lessons"
+        ],
+        "intendedHeadings": [
+          "Best Time to Surf as a Beginner",
+          "Gear & Where to Take Lessons",
+          "Safety & Localism",
+          "Top 5 Beginner Breaks",
+          "Why Santa Cruz Works for Beginners"
+        ],
+        "linkedUrls": [
+          "/beginner/santa-cruz",
+          "/learn/best-surf-conditions-for-beginners",
+          "/learn/how-to-read-a-surf-forecast",
+          "/water-temp/santa-cruz"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-best-surf-conditions-for-beginners",
+      "canonicalPath": "/learn/best-surf-conditions-for-beginners",
+      "pageType": "learn",
+      "targetKeyword": "best surf conditions for beginners",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "best surf conditions for beginners",
+        "secondarySemantics": [
+          "beginner surf conditions",
+          "beginner swell size",
+          "learning to surf",
+          "what waves are good for beginners"
+        ],
+        "intendedHeadings": [
+          "Crowd Management: When to Avoid the Pack",
+          "Swell Period: Why Longer Period Is Actually Easier",
+          "The Ideal Beginner Session",
+          "Tide: Mid-Tide on Sand Is Sweet Spot",
+          "Using a Forecast to Plan Your Beginner Session",
+          "Wave Height: 1-3 Feet (Face Height) Is Ideal",
+          "Wind: Offshore Early Morning Is Best"
+        ],
+        "linkedUrls": [
+          "/learn/how-to-read-a-surf-forecast",
+          "/learn/surf-etiquette-rules",
+          "/learn/swell-period-explained",
+          "/learn/what-size-surfboard-should-i-get"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-best-tide-for-surfing",
+      "canonicalPath": "/learn/best-tide-for-surfing",
+      "pageType": "learn",
+      "targetKeyword": "best tide for surfing",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "best tide for surfing",
+        "secondarySemantics": [
+          "high tide surfing",
+          "low tide surfing",
+          "mid tide",
+          "surf tide chart",
+          "tide and waves"
+        ],
+        "intendedHeadings": [
+          "How Tide Changes Wave Shape at Different Break Types",
+          "The Short Answer",
+          "What This Means for Your Session"
+        ],
+        "linkedUrls": [
+          "/forecast",
+          "/learn/how-do-tides-work",
+          "/learn/how-to-read-a-surf-forecast"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-best-time-of-day-to-surf",
+      "canonicalPath": "/learn/best-time-of-day-to-surf",
+      "pageType": "learn",
+      "targetKeyword": "best time to surf",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "best time to surf",
+        "secondarySemantics": [
+          "best time of day waves",
+          "dawn patrol surfing",
+          "glass off surfing",
+          "morning surf vs afternoon",
+          "when to surf"
+        ],
+        "intendedHeadings": [
+          "The Short Answer",
+          "The Thermal Wind Cycle That Drives Surf Quality",
+          "What This Means for Your Session"
+        ],
+        "linkedUrls": [
+          "/forecast",
+          "/learn/offshore-vs-onshore-wind-surfing",
+          "/learn/why-waves-better-in-morning"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-how-accurate-are-surf-forecasts",
+      "canonicalPath": "/learn/how-accurate-are-surf-forecasts",
+      "pageType": "learn",
+      "targetKeyword": "surf forecast accuracy",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "surf forecast accuracy",
+        "secondarySemantics": [
+          "how accurate are surf forecasts",
+          "ml surf forecast",
+          "noaa wave model accuracy",
+          "surf prediction accuracy",
+          "wave forecast reliability"
+        ],
+        "intendedHeadings": [
+          "The Short Answer",
+          "What This Means for Your Session",
+          "Where Forecasts Are Accurate — and Where They Fail"
+        ],
+        "linkedUrls": [
+          "/forecast",
+          "/forecast-accuracy",
+          "/learn/how-surf-forecasts-work"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-how-are-ocean-waves-formed",
+      "canonicalPath": "/learn/how-are-ocean-waves-formed",
+      "pageType": "learn",
+      "targetKeyword": "how are waves formed",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "how are waves formed",
+        "secondarySemantics": [
+          "fetch wind waves",
+          "how swells form",
+          "ocean wave formation",
+          "wave generation",
+          "what causes waves"
+        ],
+        "intendedHeadings": [
+          "From Storm to Swell: The Formation Process",
+          "The Short Answer",
+          "What This Means for Your Session"
+        ],
+        "linkedUrls": [
+          "/learn/how-surf-forecasts-work",
+          "/learn/swell-period-explained",
+          "/learn/wind-swell-vs-ground-swell"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-how-are-waves-measured",
+      "canonicalPath": "/learn/how-are-waves-measured",
+      "pageType": "learn",
+      "targetKeyword": "wave height measurement",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "wave height measurement",
+        "secondarySemantics": [
+          "face height vs forecast height",
+          "hawaiian scale waves",
+          "how big is 3 foot surf",
+          "significant wave height",
+          "surf forecast height explained"
+        ],
+        "intendedHeadings": [
+          "The Short Answer",
+          "The Three Wave Measurement Scales",
+          "What This Means for Your Session"
+        ],
+        "linkedUrls": [
+          "/forecast",
+          "/learn/how-to-read-a-surf-forecast",
+          "/learn/swell-period-explained"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-how-do-tides-work",
+      "canonicalPath": "/learn/how-do-tides-work",
+      "pageType": "learn",
+      "targetKeyword": "how do tides work",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "how do tides work",
+        "secondarySemantics": [
+          "moon tides",
+          "semidiurnal tides",
+          "spring tide neap tide",
+          "tidal range",
+          "what causes tides"
+        ],
+        "intendedHeadings": [
+          "The Lunar Cycle and Tidal Range",
+          "The Short Answer",
+          "What This Means for Your Session"
+        ],
+        "linkedUrls": [
+          "/forecast",
+          "/learn/best-tide-for-surfing",
+          "/learn/how-to-read-a-surf-forecast"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-how-long-to-learn-to-surf",
+      "canonicalPath": "/learn/how-long-to-learn-to-surf",
+      "pageType": "learn",
+      "targetKeyword": "how long to learn to surf",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "how long to learn to surf",
+        "secondarySemantics": [
+          "beginner surfer progression",
+          "how hard is surfing",
+          "learn to surf time",
+          "learning to surf timeline",
+          "surf lessons"
+        ],
+        "intendedHeadings": [
+          "The Four Milestones of Learning to Surf",
+          "The Short Answer",
+          "What This Means for Your Session"
+        ],
+        "linkedUrls": [
+          "/learn/best-surf-conditions-for-beginners",
+          "/learn/surf-etiquette-rules",
+          "/learn/what-size-surfboard-should-i-get"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-how-quiver-calibrates-your-beach",
+      "canonicalPath": "/learn/how-quiver-calibrates-your-beach",
+      "pageType": "learn",
+      "targetKeyword": "calibrated surf forecast",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "calibrated surf forecast",
+        "secondarySemantics": [
+          "buoy observations forecast correction",
+          "how quiver calibrates beach",
+          "machine learning surf forecast",
+          "personalized surf forecast per beach",
+          "quiver vs surfline accuracy",
+          "surf forecast accuracy",
+          "surf forecast transparency"
+        ],
+        "intendedHeadings": [
+          "How It Works for Your Beach",
+          "The Day I Caught My Own Bug",
+          "The Short Answer",
+          "What 'Calibrated' Actually Means",
+          "What We Publish That Others Don't"
+        ],
+        "linkedUrls": [
+          "/forecast-accuracy",
+          "/forecasts/rincon",
+          "/learn/how-swell-wraps-around-points",
+          "/learn/how-to-read-a-surf-forecast",
+          "/vs/surfline"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-how-surf-forecasts-work",
+      "canonicalPath": "/learn/how-surf-forecasts-work",
+      "pageType": "learn",
+      "targetKeyword": "how do surf forecasts work",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "how do surf forecasts work",
+        "secondarySemantics": [
+          "noaa wavewatch iii",
+          "surf buoys",
+          "surf forecast accuracy",
+          "wave forecast models"
+        ],
+        "intendedHeadings": [
+          "Buoy Networks: NDBC and CDIP Ground-Truth the Models",
+          "Forecast Accuracy by Timeline",
+          "From Satellites to Your Phone: The Complete Picture",
+          "Global Wave Models: WaveWatch III and WAM",
+          "How Quiver Improves Accuracy: ML Trained on Real Observations",
+          "The Nearshore Problem: Why Models Miss the Last Mile",
+          "Where Forecasts Still Struggle and How to Account for It"
+        ],
+        "linkedUrls": [
+          "/",
+          "/forecast-accuracy",
+          "/learn/how-to-read-a-surf-forecast",
+          "/products/wavewatch-3-global-wave-model"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-how-swell-direction-affects-surf",
+      "canonicalPath": "/learn/how-swell-direction-affects-surf",
+      "pageType": "learn",
+      "targetKeyword": "swell direction surfing",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "swell direction surfing",
+        "secondarySemantics": [
+          "best swell direction",
+          "how swell direction affects waves",
+          "swell angle surf",
+          "swell window",
+          "wave direction beach"
+        ],
+        "intendedHeadings": [
+          "Swell Windows and Coastal Geometry",
+          "The Short Answer",
+          "What This Means for Your Session"
+        ],
+        "linkedUrls": [
+          "/learn/how-to-read-a-surf-forecast",
+          "/learn/wind-swell-vs-ground-swell",
+          "/map"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-how-swell-wraps-around-points",
+      "canonicalPath": "/learn/how-swell-wraps-around-points",
+      "pageType": "learn",
+      "targetKeyword": "swell refraction",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "swell refraction",
+        "secondarySemantics": [
+          "how swell wraps around a point",
+          "point break physics",
+          "point break swell direction",
+          "rincon swell direction",
+          "trestles swell window",
+          "wave refraction explained",
+          "why points need long period swell"
+        ],
+        "intendedHeadings": [
+          "How a Point Filters Swells",
+          "How to Read Refraction From a Forecast",
+          "The Short Answer",
+          "What Refraction Actually Is",
+          "Why Direction Matters More Than Height at a Point"
+        ],
+        "linkedUrls": [
+          "/forecasts/rincon",
+          "/learn/beach-break-vs-reef-break-vs-point-break",
+          "/learn/how-swell-direction-affects-surf",
+          "/learn/swell-period-explained"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-how-to-read-a-surf-forecast",
+      "canonicalPath": "/learn/how-to-read-a-surf-forecast",
+      "pageType": "learn",
+      "targetKeyword": "how to read surf forecast",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "how to read surf forecast",
+        "secondarySemantics": [
+          "surf forecast explained",
+          "swell direction",
+          "swell period",
+          "understanding surf reports",
+          "wave height"
+        ],
+        "intendedHeadings": [
+          "Putting It All Together: Reading a Real Forecast",
+          "Swell Direction: Is Your Break Facing It?",
+          "Swell Period: Why Seconds Matter",
+          "The Short Answer",
+          "Tide and How It Reshapes Your Break",
+          "Wave Height: Significant vs. Face Height",
+          "What a Surf Forecast Actually Tells You",
+          "Wind Speed and Direction: Offshore vs. Onshore"
+        ],
+        "linkedUrls": [
+          "/learn/how-surf-forecasts-work",
+          "/learn/swell-period-explained",
+          "/learn/wind-swell-vs-ground-swell"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-is-it-safe-to-surf-after-rain",
+      "canonicalPath": "/learn/is-it-safe-to-surf-after-rain",
+      "pageType": "learn",
+      "targetKeyword": "surfing after rain",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "surfing after rain",
+        "secondarySemantics": [
+          "72 hour rule surfing",
+          "is it safe to surf after rain",
+          "ocean water quality after rain",
+          "storm drain runoff surfing",
+          "surfrider water quality"
+        ],
+        "intendedHeadings": [
+          "The Short Answer",
+          "What This Means for Your Session",
+          "What's Actually in the Water After Rain"
+        ],
+        "linkedUrls": [
+          "/learn/best-time-of-day-to-surf",
+          "/learn/what-equipment-to-start-surfing"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-offshore-vs-onshore-wind-surfing",
+      "canonicalPath": "/learn/offshore-vs-onshore-wind-surfing",
+      "pageType": "learn",
+      "targetKeyword": "offshore wind surfing",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "offshore wind surfing",
+        "secondarySemantics": [
+          "best wind for surfing",
+          "how wind affects surf",
+          "offshore vs onshore",
+          "onshore wind surfing",
+          "wind direction waves"
+        ],
+        "intendedHeadings": [
+          "How Wind Direction Changes Wave Shape",
+          "The Short Answer",
+          "What This Means for Your Session"
+        ],
+        "linkedUrls": [
+          "/forecast",
+          "/learn/best-time-of-day-to-surf",
+          "/learn/how-to-read-a-surf-forecast"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-surf-etiquette-rules",
+      "canonicalPath": "/learn/surf-etiquette-rules",
+      "pageType": "learn",
+      "targetKeyword": "surf etiquette",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "surf etiquette",
+        "secondarySemantics": [
+          "beginner surf etiquette",
+          "drop in surfing",
+          "right of way surfing",
+          "surf lineup rules",
+          "surfing rules"
+        ],
+        "intendedHeadings": [
+          "The Short Answer",
+          "The Six Rules Every Surfer Must Know",
+          "What This Means for Your Session"
+        ],
+        "linkedUrls": [
+          "/learn/beach-break-vs-reef-break-vs-point-break",
+          "/learn/best-surf-conditions-for-beginners",
+          "/learn/how-long-to-learn-to-surf"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-swell-period-explained",
+      "canonicalPath": "/learn/swell-period-explained",
+      "pageType": "learn",
+      "targetKeyword": "swell period",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "swell period",
+        "secondarySemantics": [
+          "long period swell",
+          "short period swell",
+          "swell period chart",
+          "wave period surfing",
+          "what is swell period"
+        ],
+        "intendedHeadings": [
+          "How Your Break's Bathymetry Interacts with Period",
+          "Long Period (12+ seconds): Distant Storms",
+          "Period and Distance: The Fetch Law",
+          "Reading Period on Your Forecast",
+          "Short Period (5-9 seconds): Local Wind and Chop",
+          "The Short Answer",
+          "What Swell Period Actually Is",
+          "Why Period Matters More Than Height"
+        ],
+        "linkedUrls": [
+          "/learn/how-surf-forecasts-work",
+          "/learn/how-to-read-a-surf-forecast",
+          "/learn/wind-swell-vs-ground-swell"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-what-equipment-to-start-surfing",
+      "canonicalPath": "/learn/what-equipment-to-start-surfing",
+      "pageType": "learn",
+      "targetKeyword": "surfing equipment list",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "surfing equipment list",
+        "secondarySemantics": [
+          "beginner surf gear",
+          "how much does surfing cost",
+          "surfboard leash wax wetsuit",
+          "surfing starter kit",
+          "what do i need to start surfing"
+        ],
+        "intendedHeadings": [
+          "The Essential Gear Breakdown",
+          "The Short Answer",
+          "What This Means for Your Session"
+        ],
+        "linkedUrls": [
+          "/learn/how-long-to-learn-to-surf",
+          "/learn/what-size-surfboard-should-i-get",
+          "/learn/what-wetsuit-thickness-do-i-need"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-what-is-a-rip-current",
+      "canonicalPath": "/learn/what-is-a-rip-current",
+      "pageType": "learn",
+      "targetKeyword": "rip current",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "rip current",
+        "secondarySemantics": [
+          "how to escape rip current",
+          "ocean safety surfing",
+          "rip current safety",
+          "rip current signs",
+          "rip tide"
+        ],
+        "intendedHeadings": [
+          "How to Spot a Rip Current From Shore",
+          "The Short Answer",
+          "What This Means for Your Session"
+        ],
+        "linkedUrls": [
+          "/learn/beach-break-vs-reef-break-vs-point-break",
+          "/learn/best-surf-conditions-for-beginners",
+          "/learn/surf-etiquette-rules"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-what-size-surfboard-should-i-get",
+      "canonicalPath": "/learn/what-size-surfboard-should-i-get",
+      "pageType": "learn",
+      "targetKeyword": "what size surfboard",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "what size surfboard",
+        "secondarySemantics": [
+          "beginner surfboard size",
+          "first surfboard",
+          "foamie surfboard",
+          "surfboard size chart",
+          "surfboard volume guide"
+        ],
+        "intendedHeadings": [
+          "The Short Answer",
+          "What This Means for Your Session",
+          "Why Volume Matters More Than Length"
+        ],
+        "linkedUrls": [
+          "/learn/best-surf-conditions-for-beginners",
+          "/learn/how-long-to-learn-to-surf",
+          "/learn/what-equipment-to-start-surfing"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-what-wetsuit-thickness-do-i-need",
+      "canonicalPath": "/learn/what-wetsuit-thickness-do-i-need",
+      "pageType": "learn",
+      "targetKeyword": "wetsuit thickness guide",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "wetsuit thickness guide",
+        "secondarySemantics": [
+          "3/2 vs 4/3 wetsuit",
+          "surf wetsuit guide",
+          "wetsuit for cold water surfing",
+          "wetsuit temperature chart",
+          "what wetsuit do i need"
+        ],
+        "intendedHeadings": [
+          "The Complete Temperature-to-Thickness Chart",
+          "The Short Answer",
+          "What This Means for Your Session"
+        ],
+        "linkedUrls": [
+          "/forecast",
+          "/learn/best-surf-conditions-for-beginners",
+          "/learn/what-equipment-to-start-surfing"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-why-waves-better-in-morning",
+      "canonicalPath": "/learn/why-waves-better-in-morning",
+      "pageType": "learn",
+      "targetKeyword": "why waves better morning",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "why waves better morning",
+        "secondarySemantics": [
+          "dawn patrol why",
+          "glassy conditions",
+          "morning surf better",
+          "offshore morning",
+          "thermal wind surfing"
+        ],
+        "intendedHeadings": [
+          "The Physics: Land-Sea Thermal Circulation",
+          "The Short Answer",
+          "What This Means for Your Session"
+        ],
+        "linkedUrls": [
+          "/learn/best-time-of-day-to-surf",
+          "/learn/offshore-vs-onshore-wind-surfing"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "learn-learn-wind-swell-vs-ground-swell",
+      "canonicalPath": "/learn/wind-swell-vs-ground-swell",
+      "pageType": "learn",
+      "targetKeyword": "wind swell vs ground swell",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "wind swell vs ground swell",
+        "secondarySemantics": [
+          "ground swell definition",
+          "types of ocean swells",
+          "what is ground swell",
+          "wind swell"
+        ],
+        "intendedHeadings": [
+          "How Ground Swells Form: Storms and Fetch",
+          "How Wind Swells Form: Local Wind Right Now",
+          "Reading Both Swells in a Forecast",
+          "The Short Answer",
+          "Two Types of Ocean Swells: Definitions",
+          "What Wind and Ground Swells Look Like in the Water",
+          "When Wind Swell Can Actually Be Good",
+          "Which Produces Better Surf and Why"
+        ],
+        "linkedUrls": [
+          "/learn/how-surf-forecasts-work",
+          "/learn/how-to-read-a-surf-forecast",
+          "/learn/swell-period-explained"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "longboard-longboard-encinitas",
+      "canonicalPath": "/longboard/encinitas",
+      "pageType": "longboard",
+      "targetKeyword": "best longboard waves in encinitas",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "best longboard waves in encinitas",
+        "secondarySemantics": [
+          "encinitas",
+          "is encinitas good for longboard surfing?",
+          "longboard surf guide",
+          "should i bring a log or mid-length in encinitas?",
+          "what conditions are best in encinitas?",
+          "which local breaks should i check near encinitas?"
+        ],
+        "intendedHeadings": [
+          "Best conditions to watch for",
+          "Best Longboard Waves in Encinitas",
+          "Local read before you drive",
+          "Log vs mid-length call",
+          "Where Encinitas works best"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/beginner/san-diego",
+          "/ca/encinitas/grandview",
+          "/ca/encinitas/moonlight-beach",
+          "/longboard/la-jolla",
+          "/map",
+          "/surf-cams/san-diego",
+          "/surf-report/tourmaline-today"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "longboard-longboard-fl",
+      "canonicalPath": "/longboard/fl",
+      "pageType": "longboard",
+      "targetKeyword": "best longboard waves in florida",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "best longboard waves in florida",
+        "secondarySemantics": [
+          "florida",
+          "is florida good for longboard surfing?",
+          "longboard surf guide",
+          "should i bring a log or mid-length in florida?",
+          "what conditions are best in florida?",
+          "which local breaks should i check near florida?"
+        ],
+        "intendedHeadings": [
+          "Best conditions to watch for",
+          "Best Longboard Waves in Florida",
+          "Local read before you drive",
+          "Log vs mid-length call",
+          "Where Florida works best"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/beginner/cocoa-beach",
+          "/fl/cocoa-beach/cocoa-beach-pier",
+          "/longboard/pr",
+          "/map",
+          "/surf-cams/florida"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "longboard-longboard-honolulu",
+      "canonicalPath": "/longboard/honolulu",
+      "pageType": "longboard",
+      "targetKeyword": "best longboard waves in honolulu",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "best longboard waves in honolulu",
+        "secondarySemantics": [
+          "honolulu",
+          "is honolulu good for longboard surfing?",
+          "longboard surf guide",
+          "should i bring a log or mid-length in honolulu?",
+          "what conditions are best in honolulu?",
+          "which local breaks should i check near honolulu?"
+        ],
+        "intendedHeadings": [
+          "Best conditions to watch for",
+          "Best Longboard Waves in Honolulu",
+          "Local read before you drive",
+          "Log vs mid-length call",
+          "Where Honolulu works best"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/beginner/honolulu",
+          "/hi/honolulu/waikiki-beach",
+          "/hi/honolulu/waikiki-canoes",
+          "/map",
+          "/surf-cams/hawaii"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "longboard-longboard-la-jolla",
+      "canonicalPath": "/longboard/la-jolla",
+      "pageType": "longboard",
+      "targetKeyword": "best longboard waves in la jolla",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "best longboard waves in la jolla",
+        "secondarySemantics": [
+          "is la jolla good for longboard surfing?",
+          "la jolla",
+          "longboard surf guide",
+          "should i bring a log or mid-length in la jolla?",
+          "what conditions are best in la jolla?",
+          "which local breaks should i check near la jolla?"
+        ],
+        "intendedHeadings": [
+          "Best conditions to watch for",
+          "Best Longboard Waves in La Jolla",
+          "Local read before you drive",
+          "Log vs mid-length call",
+          "Where La Jolla works best"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/ca/la-jolla/la-jolla-shores",
+          "/ca/la-jolla/scripps",
+          "/ca/san-diego/tourmaline-surf-park",
+          "/map",
+          "/surf-cams/san-diego",
+          "/surf-report/scripps-pier-today",
+          "/surf-report/tourmaline-today"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "longboard-longboard-pr",
+      "canonicalPath": "/longboard/pr",
+      "pageType": "longboard",
+      "targetKeyword": "best longboard waves in puerto rico",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "best longboard waves in puerto rico",
+        "secondarySemantics": [
+          "is puerto rico good for longboard surfing?",
+          "longboard surf guide",
+          "puerto rico",
+          "should i bring a log or mid-length in puerto rico?",
+          "what conditions are best in puerto rico?",
+          "which local breaks should i check near puerto rico?"
+        ],
+        "intendedHeadings": [
+          "Best conditions to watch for",
+          "Best Longboard Waves in Puerto Rico",
+          "Local read before you drive",
+          "Log vs mid-length call",
+          "Where Puerto Rico works best"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/best-time-to-surf",
+          "/longboard/fl",
+          "/map",
+          "/pr/rincon/domes",
+          "/pr/rincon/marias"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "longboard-longboard-santa-barbara",
+      "canonicalPath": "/longboard/santa-barbara",
+      "pageType": "longboard",
+      "targetKeyword": "best longboard waves in santa barbara",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "best longboard waves in santa barbara",
+        "secondarySemantics": [
+          "is santa barbara good for longboard surfing?",
+          "longboard surf guide",
+          "santa barbara",
+          "should i bring a log or mid-length in santa barbara?",
+          "what conditions are best in santa barbara?",
+          "which local breaks should i check near santa barbara?"
+        ],
+        "intendedHeadings": [
+          "Best conditions to watch for",
+          "Best Longboard Waves in Santa Barbara",
+          "Local read before you drive",
+          "Log vs mid-length call",
+          "Where Santa Barbara works best"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/ca/santa-barbara/leadbetter",
+          "/longboard/ventura",
+          "/map",
+          "/surf-report/malibu-today"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "longboard-longboard-ventura",
+      "canonicalPath": "/longboard/ventura",
+      "pageType": "longboard",
+      "targetKeyword": "best longboard waves in ventura",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "best longboard waves in ventura",
+        "secondarySemantics": [
+          "is ventura good for longboard surfing?",
+          "longboard surf guide",
+          "should i bring a log or mid-length in ventura?",
+          "ventura",
+          "what conditions are best in ventura?",
+          "which local breaks should i check near ventura?"
+        ],
+        "intendedHeadings": [
+          "Best conditions to watch for",
+          "Best Longboard Waves in Ventura",
+          "Local read before you drive",
+          "Log vs mid-length call",
+          "Where Ventura works best"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/ca/ventura/mondos",
+          "/longboard/santa-barbara",
+          "/map",
+          "/surf-report/malibu-today"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "surf-cams-surf-cams-florida",
+      "canonicalPath": "/surf-cams/florida",
+      "pageType": "surf-cams",
+      "targetKeyword": "florida surf cams",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "florida surf cams",
+        "secondarySemantics": [
+          "are florida surf cams enough to choose a spot?",
+          "florida",
+          "how does quiver combine cams and forecasts?",
+          "surf cams plus forecast",
+          "what should i look for on florida surf cams?",
+          "why is there no santa cruz surf cam page here?"
+        ],
+        "intendedHeadings": [
+          "Cam plus forecast",
+          "Florida Surf Cams",
+          "Nearby planning links",
+          "What to watch on Florida cams"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/beginner/cocoa-beach",
+          "/fl/cocoa-beach/cocoa-beach-pier",
+          "/longboard/fl",
+          "/map"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "surf-cams-surf-cams-hawaii",
+      "canonicalPath": "/surf-cams/hawaii",
+      "pageType": "surf-cams",
+      "targetKeyword": "hawaii surf cams",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "hawaii surf cams",
+        "secondarySemantics": [
+          "are hawaii surf cams enough to choose a spot?",
+          "hawaii",
+          "how does quiver combine cams and forecasts?",
+          "surf cams plus forecast",
+          "what should i look for on hawaii surf cams?",
+          "why is there no santa cruz surf cam page here?"
+        ],
+        "intendedHeadings": [
+          "Cam plus forecast",
+          "Hawaii Surf Cams",
+          "Nearby planning links",
+          "What to watch on Hawaii cams"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/beginner/honolulu",
+          "/hi/honolulu/waikiki-beach",
+          "/hi/honolulu/waikiki-canoes",
+          "/longboard/honolulu",
+          "/map"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "surf-cams-surf-cams-orange-county",
+      "canonicalPath": "/surf-cams/orange-county",
+      "pageType": "surf-cams",
+      "targetKeyword": "orange county surf cams",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "orange county surf cams",
+        "secondarySemantics": [
+          "are orange county surf cams enough to choose a spot?",
+          "how does quiver combine cams and forecasts?",
+          "orange county",
+          "surf cams plus forecast",
+          "what should i look for on orange county surf cams?",
+          "why is there no santa cruz surf cam page here?"
+        ],
+        "intendedHeadings": [
+          "Cam plus forecast",
+          "Nearby planning links",
+          "Orange County Surf Cams",
+          "What to watch on Orange County cams"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/beginner/orange-county",
+          "/beginner/san-onofre",
+          "/ca/dana-point/doheny-beach",
+          "/ca/san-onofre/san-onofre-state-beach",
+          "/longboard/encinitas",
+          "/map"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "surf-cams-surf-cams-san-diego",
+      "canonicalPath": "/surf-cams/san-diego",
+      "pageType": "surf-cams",
+      "targetKeyword": "san diego surf cams",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "san diego surf cams",
+        "secondarySemantics": [
+          "are san diego surf cams enough to choose a spot?",
+          "how does quiver combine cams and forecasts?",
+          "san diego",
+          "surf cams plus forecast",
+          "what should i look for on san diego surf cams?",
+          "why is there no santa cruz surf cam page here?"
+        ],
+        "intendedHeadings": [
+          "Cam plus forecast",
+          "Nearby planning links",
+          "San Diego Surf Cams",
+          "What to watch on San Diego cams"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/beginner/san-diego",
+          "/ca/la-jolla/scripps",
+          "/ca/san-diego/tourmaline-surf-park",
+          "/longboard/la-jolla",
+          "/map",
+          "/surf-report/scripps-pier-today",
+          "/surf-report/tourmaline-today"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "surf-report-today-surf-report-belmar-today",
+      "canonicalPath": "/surf-report/belmar-today",
+      "pageType": "surf-report-today",
+      "targetKeyword": "should you surf belmar today?",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "should you surf belmar today?",
+        "secondarySemantics": [
+          "belmar",
+          "should you surf belmar today?",
+          "should you surf today?",
+          "what are good backup spots near belmar?",
+          "what are the main risks at belmar?",
+          "what board should i bring to belmar today?"
+        ],
+        "intendedHeadings": [
+          "Backup plan",
+          "Belmar NJ Surf Report Today",
+          "How to read Belmar today",
+          "Should You Surf Belmar Today?",
+          "When Belmar is worth it"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/beginner/san-diego",
+          "/map",
+          "/nj/belmar/3rd-avenue-jetty-belmar-nj",
+          "/nj/belmar/8th-avenue-jetty-belmar-nj",
+          "/nj/belmar/belmar-fishing-pier-belmar-nj",
+          "/surf-cams/san-diego",
+          "/surf-report/newport-beach-today",
+          "/surf-report/scripps-pier-today"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "surf-report-today-surf-report-malibu-today",
+      "canonicalPath": "/surf-report/malibu-today",
+      "pageType": "surf-report-today",
+      "targetKeyword": "should you surf malibu today?",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "should you surf malibu today?",
+        "secondarySemantics": [
+          "malibu",
+          "should you surf malibu today?",
+          "should you surf today?",
+          "what are good backup spots near malibu?",
+          "what are the main risks at malibu?",
+          "what board should i bring to malibu today?"
+        ],
+        "intendedHeadings": [
+          "Backup plan",
+          "How to read Malibu today",
+          "Should You Surf Malibu Today?",
+          "When Malibu is worth it"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/ca/malibu/malibu-first-point-surfrider",
+          "/longboard/santa-barbara",
+          "/longboard/ventura",
+          "/map"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "surf-report-today-surf-report-newport-beach-today",
+      "canonicalPath": "/surf-report/newport-beach-today",
+      "pageType": "surf-report-today",
+      "targetKeyword": "newport beach surf report today",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "newport beach surf report today",
+        "secondarySemantics": [
+          "newport beach",
+          "should you surf newport beach today?",
+          "should you surf today?",
+          "what are good backup spots near newport beach?",
+          "what are the main risks at newport beach?",
+          "what board should i bring to newport beach today?"
+        ],
+        "intendedHeadings": [
+          "Backup plan",
+          "How to read Newport Beach today",
+          "Newport Beach Surf Report Today",
+          "When Newport Beach is worth it"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/beginner/orange-county",
+          "/ca/huntington-beach/bolsa-chica",
+          "/ca/huntington-beach/huntington-beach-pier",
+          "/ca/newport-beach/newport-56th-st",
+          "/map",
+          "/surf-cams/orange-county"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "surf-report-today-surf-report-scripps-pier-today",
+      "canonicalPath": "/surf-report/scripps-pier-today",
+      "pageType": "surf-report-today",
+      "targetKeyword": "should you surf scripps pier today?",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "should you surf scripps pier today?",
+        "secondarySemantics": [
+          "scripps pier",
+          "should you surf scripps pier today?",
+          "should you surf today?",
+          "what are good backup spots near scripps pier?",
+          "what are the main risks at scripps pier?",
+          "what board should i bring to scripps pier today?"
+        ],
+        "intendedHeadings": [
+          "Backup plan",
+          "How to read Scripps today",
+          "Should You Surf Scripps Pier Today?",
+          "When Scripps is worth it"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/beginner/san-diego",
+          "/ca/la-jolla/blacks-beach",
+          "/ca/la-jolla/la-jolla-shores",
+          "/map",
+          "/surf-cams/san-diego",
+          "/surf-report/tourmaline-today"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "surf-report-today-surf-report-tourmaline-today",
+      "canonicalPath": "/surf-report/tourmaline-today",
+      "pageType": "surf-report-today",
+      "targetKeyword": "should you surf tourmaline today?",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "should you surf tourmaline today?",
+        "secondarySemantics": [
+          "should you surf today?",
+          "should you surf tourmaline today?",
+          "tourmaline",
+          "what are good backup spots near tourmaline?",
+          "what are the main risks at tourmaline?",
+          "what board should i bring to tourmaline today?"
+        ],
+        "intendedHeadings": [
+          "Backup plan",
+          "How to read Tourmaline today",
+          "Should You Surf Tourmaline Today?",
+          "When Tourmaline is worth it"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/ca/la-jolla/la-jolla-shores",
+          "/longboard/la-jolla",
+          "/map",
+          "/surf-cams/san-diego",
+          "/surf-report/scripps-pier-today"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "static-vs-surfline",
+      "canonicalPath": "/vs/surfline",
+      "pageType": "comparison",
+      "targetKeyword": "surfline alternative",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "surfline alternative",
+        "secondarySemantics": [
+          "free surf forecast",
+          "surfline vs quiver"
+        ],
+        "intendedHeadings": [
+          "Surfline Alternative"
+        ],
+        "linkedUrls": [
+          "/forecast-accuracy",
+          "/learn",
+          "/map"
+        ]
+      },
+      "recommendations": []
+    }
+  ],
+  "proposals": [
+    {
+      "id": "proposal-beginner-california-beginner-20surf-20spots-20california",
+      "createdAt": "2026-05-20T01:45:28.550Z",
+      "source": "keyword-research",
+      "priority": "medium",
+      "targetKeyword": "beginner surf spots california",
+      "pageType": "programmatic-intent",
+      "canonicalPath": "/beginner/california",
+      "reason": "High-fit beginner long-tail topic that should be checked against current route coverage. Derived from Quiver product-marketing context and existing route inventory.",
+      "competingUrls": [],
+      "status": "open"
+    },
+    {
+      "id": "proposal-beaches-usa-nj-belmar-belmar-nj-surf-report",
+      "createdAt": "2026-05-18T00:41:57.063Z",
+      "source": "ahrefs-audit",
+      "priority": "medium",
+      "targetKeyword": "belmar nj surf report",
+      "pageType": "city-review",
+      "canonicalPath": "/beaches/usa/nj/belmar",
+      "reason": "Ahrefs screenshot shows this URL ranking at position 9. Review against the dedicated Belmar surf-report page before changing runtime content. Accepted by retargeting /surf-report/belmar-today around Belmar NJ surf report intent while city pages remain supporting pages.",
+      "competingUrls": [
+        "/nj/belmar",
+        "/surf-report/belmar-today"
+      ],
+      "status": "accepted"
+    },
+    {
+      "id": "proposal-vs-surfline-free-20surfline-20alternative",
+      "createdAt": "2026-05-20T01:45:28.550Z",
+      "source": "keyword-research",
+      "priority": "medium",
+      "targetKeyword": "free surfline alternative",
+      "pageType": "comparison",
+      "canonicalPath": "/vs/surfline",
+      "reason": "Comparison intent with high brand fit and existing comparison page. Derived from Quiver product-marketing context and existing route inventory.",
+      "competingUrls": [],
+      "status": "open"
+    },
+    {
+      "id": "proposal-best-time-newport-beach-newport-beach-surf-report",
+      "createdAt": "2026-05-18T00:41:57.063Z",
+      "source": "ahrefs-audit",
+      "priority": "high",
+      "targetKeyword": "newport beach surf report",
+      "pageType": "best-time-review",
+      "canonicalPath": "/best-time-to-surf/newport-beach",
+      "reason": "Ahrefs screenshot shows ranking at position 27 with volume 800. Review whether this best-time page should keep the query or whether a dedicated surf-report page should own it. Accepted by adding /surf-report/newport-beach-today as the surf-report owner; /best-time-to-surf/newport-beach should stay seasonal planning, not own this query.",
+      "competingUrls": [],
+      "status": "accepted"
+    },
+    {
+      "id": "proposal-nj-belmar-nj-surf-report-belmar",
+      "createdAt": "2026-05-18T00:41:57.063Z",
+      "source": "ahrefs-audit",
+      "priority": "medium",
+      "targetKeyword": "nj surf report belmar",
+      "pageType": "city-review",
+      "canonicalPath": "/nj/belmar",
+      "reason": "Ahrefs screenshot shows this canonical city page ranking at position 9. Review against /surf-report/belmar-today to avoid cannibalization. Accepted by retargeting /surf-report/belmar-today around Belmar NJ surf report intent while /nj/belmar remains the city hub.",
+      "competingUrls": [
+        "/beaches/usa/nj/belmar",
+        "/surf-report/belmar-today"
+      ],
+      "status": "accepted"
+    },
+    {
+      "id": "proposal-map-surf-20conditions-20near-20me",
+      "createdAt": "2026-05-20T01:45:28.550Z",
+      "source": "keyword-research",
+      "priority": "medium",
+      "targetKeyword": "surf conditions near me",
+      "pageType": "map",
+      "canonicalPath": "/map",
+      "reason": "Primary local-discovery intent from Quiver product marketing context. Derived from Quiver product-marketing context and existing route inventory.",
+      "competingUrls": [],
+      "status": "open"
+    }
+  ]
+}

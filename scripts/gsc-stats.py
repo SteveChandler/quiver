@@ -20,6 +20,7 @@ import os
 import sys
 import urllib.request
 import xml.etree.ElementTree as ET
+import argparse
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
@@ -366,6 +367,65 @@ def get_sitemap_comparison(service):
 # Output formatting
 # ---------------------------------------------------------------------------
 
+def _page_row(row):
+    return {
+        "page": strip_domain(row["keys"][0]),
+        "clicks": row["clicks"],
+        "impressions": row["impressions"],
+        "ctr": row.get("ctr"),
+        "position": row.get("position"),
+    }
+
+
+def _query_row(row):
+    return {
+        "query": row["keys"][0],
+        "clicks": row["clicks"],
+        "impressions": row["impressions"],
+        "ctr": row.get("ctr"),
+        "position": row.get("position"),
+    }
+
+
+def _dimension_row(row, key_name):
+    return {
+        key_name: row["keys"][0],
+        "clicks": row["clicks"],
+        "impressions": row["impressions"],
+        "ctr": row.get("ctr"),
+        "position": row.get("position"),
+    }
+
+
+def build_json_export(service):
+    """Build the machine-readable export consumed by the weekly SEO workflow."""
+    comparison = get_sitemap_comparison(service)
+    last_7d = query_gsc(service, START_LAST_7D, END_LAST_7D, ["page"], row_limit=25000)
+    prior_7d = query_gsc(service, START_PRIOR_7D, END_PRIOR_7D, ["page"], row_limit=25000)
+    last_28d = query_gsc(service, START_28D, END_28D, ["page"], row_limit=25000)
+    top_queries = get_top_queries(service)
+    top_pages = get_top_pages(service)
+    by_device = get_by_device(service)
+    by_country = get_by_country(service)
+
+    return {
+        "generatedAt": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "siteUrl": SITE_URL,
+        "dateRanges": {
+            "last7d": {"start": START_LAST_7D, "end": END_LAST_7D},
+            "prior7d": {"start": START_PRIOR_7D, "end": END_PRIOR_7D},
+            "last28d": {"start": START_28D, "end": END_28D},
+        },
+        "last7d": [_page_row(row) for row in last_7d],
+        "prior7d": [_page_row(row) for row in prior_7d],
+        "last28d": [_page_row(row) for row in last_28d],
+        "sitemapPaths": sorted(comparison["sitemap_paths"]),
+        "topQueries": [_query_row(row) for row in top_queries],
+        "topPages": [_page_row(row) for row in top_pages],
+        "byDevice": [_dimension_row(row, "device") for row in by_device],
+        "byCountry": [_dimension_row(row, "country") for row in by_country],
+    }
+
 def print_dashboard(service):
     """Run all queries and print the formatted markdown dashboard."""
 
@@ -593,5 +653,22 @@ def print_dashboard(service):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Query Google Search Console for Quiver SEO reporting.")
+    parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON to stdout.")
+    parser.add_argument("--json-output", help="Write machine-readable JSON to this file.")
+    args = parser.parse_args()
+
     service = get_service()
-    print_dashboard(service)
+
+    if args.json or args.json_output:
+        export = build_json_export(service)
+        output = json.dumps(export, indent=2, sort_keys=True) + "\n"
+        if args.json_output:
+            output_path = Path(args.json_output)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(output)
+            print(f"Wrote {output_path}")
+        else:
+            print(output, end="")
+    else:
+        print_dashboard(service)

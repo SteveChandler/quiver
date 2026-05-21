@@ -289,12 +289,21 @@ export interface DataForSeoExportInput {
   estimatedCostUsd?: number;
 }
 
+export interface ManualBacklinkExport {
+  source: string;
+  path: string;
+  rows: number;
+  uniqueReferringDomains: number;
+  sampleReferringDomains: string[];
+  topTargetUrls: Array<{ url: string; links: number }>;
+}
+
 export interface BacklinkProxyInput {
   generatedAt: string;
   referrers: VercelReferrerMetric[];
   embedReferrers: VercelReferrerMetric[];
   outreachStatuses: Array<{ target: string; status: string }>;
-  manualExports: Array<{ source: string; path: string; rows: number }>;
+  manualExports: ManualBacklinkExport[];
   competitorDeltas: string[];
   missing?: string[];
 }
