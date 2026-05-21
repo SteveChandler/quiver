@@ -8,6 +8,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
+import { buildCompactSurfSummary } from "@/lib/surf-summary-display";
 import type { EveningTransition } from "@/types/personalization";
 
 export interface TimeWindow {
@@ -55,34 +56,18 @@ const PREFERRED_TIME_TO_HOUR: Record<string, string> = {
 
 /**
  * Build compact condition segments (swell, wind, tide) from a TimeWindow.
- * Returns an array of display strings like ["14s WNW", "8mph NW", "3.2ft Rising"].
+ * Returns display strings like ["Wind NW 8 mph", "Swell WNW @ 14s", "Tide 3.2 ft Rising"].
  */
 function buildConditionSegments(w: TimeWindow): string[] {
-  const segments: string[] = [];
-
-  if (w.swellPeriod || w.swellDirection) {
-    segments.push([w.swellPeriod, w.swellDirection].filter(Boolean).join(" "));
-  }
-
-  if (w.windSpeed || w.windDirection) {
-    if (w.windSpeed && /^0\s*(mph|kn)/i.test(w.windSpeed)) {
-      segments.push("Calm");
-    } else {
-      const spd = w.windSpeed
-        ? /mph|kn/i.test(w.windSpeed) ? w.windSpeed : `${w.windSpeed}mph`
-        : null;
-      segments.push([spd, w.windDirection].filter(Boolean).join(" "));
-    }
-  }
-
-  if (w.tideHeight || w.tideStatus) {
-    const ht = w.tideHeight
-      ? /ft|m\b/i.test(w.tideHeight) ? w.tideHeight : `${w.tideHeight}ft`
-      : null;
-    segments.push([ht, w.tideStatus].filter(Boolean).join(" "));
-  }
-
-  return segments;
+  return buildCompactSurfSummary({
+    waveHeight: w.height,
+    windSpeed: w.windSpeed,
+    windDirection: w.windDirection,
+    swellPeriod: w.swellPeriod,
+    swellDirection: w.swellDirection,
+    tideHeight: w.tideHeight,
+    tideStatus: w.tideStatus,
+  }).supportingSegments;
 }
 
 export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow, eveningTransition }: TodaysWindowsProps) {
@@ -135,6 +120,16 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow,
             const isPreferred = preferredHour !== null && window.time === preferredHour;
             const barWidthPercent = Math.round(window.quality * 100);
             const conditionSegments = buildConditionSegments(window);
+            const compactSummary = buildCompactSurfSummary({
+              waveHeight: window.height,
+              windSpeed: window.windSpeed,
+              windDirection: window.windDirection,
+              swellPeriod: window.swellPeriod,
+              swellDirection: window.swellDirection,
+              tideHeight: window.tideHeight,
+              tideStatus: window.tideStatus,
+            });
+            const height = compactSummary.waveHeightHeadline ?? window.height;
 
             return (
               <div
@@ -198,7 +193,7 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow,
                     </span>
                   ) : (
                     <WaveHeightDisplay
-                      height={window.height}
+                      height={height}
                       showTooltip={false}
                       className="w-16 shrink-0 whitespace-nowrap text-right text-sm font-semibold text-high"
                       isCalibrated={window.isCalibrated}

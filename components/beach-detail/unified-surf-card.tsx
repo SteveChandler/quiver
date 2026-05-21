@@ -10,6 +10,7 @@ import { formatTimeInTimezone, formatTimeCasual } from "@/lib/utils/date-time";
 import { ShareSheet } from "@/components/share/share-sheet";
 import { buildSurfCallShareUrl } from "@/lib/share/build-share-card-url";
 import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
+import { buildCompactSurfSummary } from "@/lib/surf-summary-display";
 import { cn } from "@/lib/utils";
 
 const TREND_TAG_STYLES: Record<TrendTag, { bg: string; text: string }> = {
@@ -136,6 +137,26 @@ export function UnifiedSurfCard({
   const updatedTime = useMemo(
     () => formatTimeInTimezone(surfCall.updatedAt, beachTimezone),
     [surfCall.updatedAt, beachTimezone]
+  );
+  const compactSummary = useMemo(
+    () =>
+      buildCompactSurfSummary({
+        waveHeight: surfCall.waveHeight,
+        windSummary: surfCall.windDescription,
+        tideStatus: surfCall.tidePhase
+          ? surfCall.tidePhase.charAt(0).toUpperCase() + surfCall.tidePhase.slice(1)
+          : surfCall.tideDescription,
+        tideHeight: surfCall.tideHeight,
+        why: surfCall.whySentence,
+      }),
+    [
+      surfCall.waveHeight,
+      surfCall.windDescription,
+      surfCall.tidePhase,
+      surfCall.tideDescription,
+      surfCall.tideHeight,
+      surfCall.whySentence,
+    ]
   );
 
   // Build relative context badges (max 2), priority: best-of-week > swell > trend
@@ -343,32 +364,29 @@ export function UnifiedSurfCard({
         <div className="bg-white/80 dark:bg-[#354090]/50 rounded-xl p-3 border border-gray-200/60 dark:border-[#404C92]/60">
           <p className="text-sm text-gray-700 font-medium mb-1">Conditions</p>
           <div className="flex flex-wrap items-baseline gap-x-1 text-sm text-gray-600">
-            {surfCall.waveHeight && (
+            {compactSummary.waveHeightHeadline && (
               <>
                 <WaveHeightDisplay
-                  height={surfCall.waveHeight}
+                  height={compactSummary.waveHeightHeadline}
                   isCalibrated={surfCall.isCalibrated}
                   showTooltip={true}
                   className="text-sm text-gray-600"
                 />
-                <span>·</span>
+                {(compactSummary.supportingSegments.length > 0 ||
+                  (surfCall.rideableWavesPerHour != null &&
+                    surfCall.rideableWavesPerHour > 0)) && <span>·</span>}
               </>
             )}
-            {surfCall.windDescription && (
-              <>
-                <span>{surfCall.windDescription}</span>
-                <span>·</span>
-              </>
-            )}
-            {surfCall.tidePhase && (
-              <span>
-                {surfCall.tidePhase.charAt(0).toUpperCase() +
-                  surfCall.tidePhase.slice(1)}
-              </span>
-            )}
+            {compactSummary.supportingSegments.map((segment, index) => (
+              <React.Fragment key={segment}>
+                <span>{segment}</span>
+                {(index < compactSummary.supportingSegments.length - 1 ||
+                  (surfCall.rideableWavesPerHour != null &&
+                    surfCall.rideableWavesPerHour > 0)) && <span>·</span>}
+              </React.Fragment>
+            ))}
             {surfCall.rideableWavesPerHour != null && surfCall.rideableWavesPerHour > 0 && (
               <>
-                <span>·</span>
                 <span>~{surfCall.rideableWavesPerHour} waves/hr</span>
               </>
             )}

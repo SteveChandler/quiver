@@ -168,6 +168,28 @@ describe("UnifiedSurfCard", () => {
       expect(screen.getByText(/Rising/)).toBeInTheDocument();
     });
 
+    it("uses compact summary semantics for raw ranges, wind, and tide", () => {
+      const surfCall = createMockSurfCall({
+        verdict: "YES",
+        waveHeight: "0.5-5.5 ft",
+        windDescription: "Light offshore",
+        tidePhase: "rising",
+      });
+
+      render(
+        <UnifiedSurfCard
+          surfCall={surfCall}
+          beachName="Test Beach"
+          beachTimezone="America/Los_Angeles"
+        />
+      );
+
+      expect(screen.queryByText(/0\.5-5\.5/)).not.toBeInTheDocument();
+      expect(screen.getByTestId("wave-height-display")).toHaveTextContent("3ft");
+      expect(screen.getByText("Wind Light offshore")).toBeInTheDocument();
+      expect(screen.getByText("Tide Rising")).toBeInTheDocument();
+    });
+
     it("shows whySentence for YES verdict", () => {
       const surfCall = createMockSurfCall({
         verdict: "YES",
