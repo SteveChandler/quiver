@@ -181,6 +181,42 @@ describe("buildForecastRecommendationContext", () => {
     });
   });
 
+  it("parses display ranges as positive wave heights", () => {
+    const sourceForecast = row({
+      forecast_at: "2026-05-08T23:00:00.000Z",
+      wave_height: "4-5ft",
+      wave_period: "12s",
+      wave_direction: "WNW",
+      swell_1_period: "12s",
+      swell_1_direction: "WNW",
+    });
+    const window: PersonalizedForecastWindow = {
+      start: new Date("2026-05-08T22:30:00.000Z"),
+      end: new Date("2026-05-09T01:30:00.000Z"),
+      tide: "Rising",
+      wind: "5 mph W",
+      waveHeight: "4-5ft",
+      wavePeriod: "12s",
+      dataSource: "OPEN_METEO",
+      confidence: 80,
+      timezone: "America/Los_Angeles",
+      score: 82,
+      peakTime: new Date("2026-05-08T23:00:00.000Z"),
+      sourceForecast,
+    };
+
+    const context = buildForecastRecommendationContext({
+      beach: beach(),
+      forecasts: [sourceForecast],
+      window,
+      now: new Date("2026-05-08T13:00:00.000Z"),
+    });
+
+    expect(context?.waveHeight).toBe("4-5ft");
+    expect(context?.waveHeightFt).toBe(4.5);
+    expect(context?.waveHeightRangeLabel).toBe("4-5 ft");
+  });
+
   it("derives a tight display window around the peak when the raw range misses it", () => {
     const sourceForecast = row({
       forecast_at: "2026-05-08T15:00:00.000Z",

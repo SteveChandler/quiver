@@ -80,7 +80,8 @@ const DEFAULT_RIDEABLE = {
 function parseNumbers(value: unknown): number[] {
   if (typeof value === "number" && Number.isFinite(value)) return [value];
   if (typeof value !== "string") return [];
-  const match = value.match(/-?\d+(?:\.\d+)?/g);
+  const normalized = value.replace(/(\d)\s*-\s*(\d)/g, "$1 $2");
+  const match = normalized.match(/-?\d+(?:\.\d+)?/g);
   if (!match) return [];
   const values = match.map(Number).filter(Number.isFinite);
   return values;
