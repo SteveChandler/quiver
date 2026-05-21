@@ -56,6 +56,7 @@ test.describe("Apple beta prompt", () => {
     const logo = qr.locator('image[href="/quiver-app-icon-128.png"]');
     await expect(logo).toHaveCount(1);
     const logoPixels = await qr.evaluate((svg) => {
+      if (!(svg instanceof SVGSVGElement)) return null;
       const image = svg.querySelector("image");
       if (!image) return null;
       const viewBoxWidth = svg.viewBox.baseVal.width;

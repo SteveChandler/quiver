@@ -2,6 +2,7 @@ import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { PersonalizedForecastWindow } from "@/types/personalization";
 import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
+import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
 
 export type ForecastRecommendationType =
   | "best_window"
@@ -28,6 +29,8 @@ export interface ForecastRecommendationContext {
   endTime: string | null;
   selectedWindowStart: string | null;
   selectedWindowEnd: string | null;
+  displayWindowStart?: string | null;
+  displayWindowEnd?: string | null;
   displayTimeLabel: string;
   selectedRowTime: string | null;
   waveHeight: string | null;
@@ -42,6 +45,15 @@ export interface ForecastRecommendationContext {
   confidence: number | null;
   resolverUsed: "surf-call";
   source: ForecastDisplayContextSource;
+  timezone?: string | null;
+  conditionDrivers?: ForecastConditionDrivers | null;
+}
+
+export interface ForecastConditionDrivers {
+  wave: string | null;
+  energy: string | null;
+  wind: string | null;
+  tide: string | null;
 }
 
 export type ForecastContextSource =
@@ -150,6 +162,127 @@ function formatRange(start: Date, end: Date, timezone: string): string {
   return `${startLabel}-${endLabel}`;
 }
 
+const TIGHT_DISPLAY_WINDOW_MINUTES = 150;
+const DISPLAY_WINDOW_HALF_MINUTES = TIGHT_DISPLAY_WINDOW_MINUTES / 2;
+
+function containsTime(start: Date, end: Date, time: Date): boolean {
+  return start.getTime() <= time.getTime() && time.getTime() <= end.getTime();
+}
+
+function displayWindowAroundPeak(peak: Date, timezone: string): { start: Date; end: Date } {
+  let start = new Date(peak.getTime() - DISPLAY_WINDOW_HALF_MINUTES * 60 * 1000);
+  let end = new Date(peak.getTime() + DISPLAY_WINDOW_HALF_MINUTES * 60 * 1000);
+
+  const localDate = getLocalDateString(peak, timezone);
+  const daylightStart = localDateTimeToUTC(localDate, "06:00:00", timezone);
+  const daylightEnd = localDateTimeToUTC(localDate, "19:00:00", timezone);
+
+  if (containsTime(daylightStart, daylightEnd, peak)) {
+    if (start < daylightStart) {
+      start = daylightStart;
+      end = new Date(start.getTime() + TIGHT_DISPLAY_WINDOW_MINUTES * 60 * 1000);
+    }
+    if (end > daylightEnd) {
+      end = daylightEnd;
+      start = new Date(end.getTime() - TIGHT_DISPLAY_WINDOW_MINUTES * 60 * 1000);
+    }
+  }
+
+  if (!containsTime(start, end, peak)) {
+    return {
+      start: new Date(peak.getTime() - DISPLAY_WINDOW_HALF_MINUTES * 60 * 1000),
+      end: new Date(peak.getTime() + DISPLAY_WINDOW_HALF_MINUTES * 60 * 1000),
+    };
+  }
+
+  return { start, end };
+}
+
+function deriveDisplayWindow({
+  rawStart,
+  rawEnd,
+  peak,
+  timezone,
+}: {
+  rawStart: Date;
+  rawEnd: Date;
+  peak: Date;
+  timezone: string;
+}): { start: Date; end: Date } {
+  const rawDurationMinutes = (rawEnd.getTime() - rawStart.getTime()) / (60 * 1000);
+  const rawContainsPeak = rawDurationMinutes > 0 && containsTime(rawStart, rawEnd, peak);
+
+  if (rawContainsPeak && rawDurationMinutes <= TIGHT_DISPLAY_WINDOW_MINUTES) {
+    return { start: rawStart, end: rawEnd };
+  }
+
+  let display = displayWindowAroundPeak(peak, timezone);
+
+  if (rawContainsPeak) {
+    if (display.start < rawStart) {
+      const shiftMs = rawStart.getTime() - display.start.getTime();
+      display = {
+        start: rawStart,
+        end: new Date(display.end.getTime() + shiftMs),
+      };
+    }
+
+    if (display.end > rawEnd) {
+      const shiftMs = display.end.getTime() - rawEnd.getTime();
+      display = {
+        start: new Date(display.start.getTime() - shiftMs),
+        end: rawEnd,
+      };
+    }
+  }
+
+  if (!containsTime(display.start, display.end, peak)) {
+    return displayWindowAroundPeak(peak, timezone);
+  }
+
+  return display;
+}
+
+function describeWind(windSpeed: string | null | undefined): string | null {
+  const mph = parseNumber(windSpeed);
+  if (mph == null) return null;
+  if (mph <= 6) return "clean";
+  if (mph <= 12) return "manageable";
+  if (mph <= 18) return "textured";
+  return "blown out";
+}
+
+function buildConditionDrivers({
+  wave,
+  waveRange,
+  swellPeriod,
+  swellDirection,
+  sourceForecast,
+}: {
+  wave: string | null;
+  waveRange: string | null;
+  swellPeriod: string | null;
+  swellDirection: string | null;
+  sourceForecast: EnhancedForecastEntity | null;
+}): ForecastConditionDrivers {
+  const wind = [sourceForecast?.wind_speed, sourceForecast?.wind_direction, describeWind(sourceForecast?.wind_speed)]
+    .filter(Boolean)
+    .join(" ") || null;
+  const tide = [sourceForecast?.tide_height, sourceForecast?.tide_status?.toLowerCase()]
+    .filter(Boolean)
+    .join(" ") || null;
+  const energy = [swellPeriod, swellDirection, "energy"]
+    .filter(Boolean)
+    .join(" ") || null;
+
+  return {
+    wave: waveRange ?? wave,
+    energy,
+    wind,
+    tide,
+  };
+}
+
 function pickCurrentRow(
   forecasts: EnhancedForecastEntity[],
   nowMs: number,
@@ -181,6 +314,22 @@ function pickNextRideableRow(
       if (getLocalDateString(new Date(rowMs), timezone) !== today) return false;
       return isRideable(row);
     }) ?? null;
+}
+
+function nearestForecastToTime(
+  forecasts: EnhancedForecastEntity[],
+  target: Date,
+): EnhancedForecastEntity | null {
+  if (Number.isNaN(target.getTime())) return null;
+  return forecasts.reduce<EnhancedForecastEntity | null>((nearest, forecast) => {
+    const forecastMs = Date.parse(forecast.forecast_at);
+    if (Number.isNaN(forecastMs)) return nearest;
+    if (!nearest) return forecast;
+    const nearestMs = Date.parse(nearest.forecast_at);
+    return Math.abs(forecastMs - target.getTime()) < Math.abs(nearestMs - target.getTime())
+      ? forecast
+      : nearest;
+  }, null);
 }
 
 function contextFromRow(args: {
@@ -218,6 +367,7 @@ function contextFromRow(args: {
     confidence: args.row.confidence_score ?? null,
     resolverUsed: "surf-call",
     source: args.source,
+    timezone: args.timezone,
   };
 }
 
@@ -235,15 +385,33 @@ export function buildForecastRecommendationContext({
     const sourceForecast = window.sourceForecast ?? null;
     const start = new Date(window.start);
     const end = new Date(window.end);
+    const peak = new Date(window.peakTime ?? window.start);
+    const selectedForecast = nearestForecastToTime(forecasts, peak) ?? sourceForecast;
+    const displayWindow =
+      !Number.isNaN(start.getTime()) &&
+      !Number.isNaN(end.getTime()) &&
+      !Number.isNaN(peak.getTime())
+        ? deriveDisplayWindow({
+          rawStart: start,
+          rawEnd: end,
+          peak,
+          timezone: resolvedTimezone,
+        })
+        : { start, end };
     const startTime = toIso(start);
     const endTime = toIso(end);
-    const selectedRowTime = sourceForecast?.forecast_at
-      ? toIso(sourceForecast.forecast_at)
+    const displayWindowStart = toIso(displayWindow.start);
+    const displayWindowEnd = toIso(displayWindow.end);
+    const selectedRowTime = selectedForecast?.forecast_at
+      ? toIso(selectedForecast.forecast_at)
       : toIso(window.peakTime ?? window.start);
-    const waveHeight = window.waveHeight !== "Unknown" ? window.waveHeight : sourceForecast?.wave_height ?? null;
+    const waveHeight = selectedForecast?.wave_height
+      ?? (window.waveHeight !== "Unknown" ? window.waveHeight : sourceForecast?.wave_height ?? null);
     const waveHeightFt = parseAverageNumber(waveHeight);
-    const swellPeriod = pickSwellPeriod(sourceForecast, window);
+    const swellPeriod = pickSwellPeriod(selectedForecast, window);
     const periodSec = parseAverageNumber(swellPeriod);
+    const waveHeightRangeLabel = formatForecastDisplayWaveHeightRange(waveHeightFt);
+    const swellDirection = pickSwellDirection(selectedForecast);
     return {
       beachId: String(beach.id),
       localDate: getLocalDateString(start, resolvedTimezone),
@@ -253,20 +421,32 @@ export function buildForecastRecommendationContext({
       endTime,
       selectedWindowStart: startTime,
       selectedWindowEnd: endTime,
-      displayTimeLabel: `Best window: ${formatRange(start, end, resolvedTimezone)}`,
+      displayWindowStart,
+      displayWindowEnd,
+      displayTimeLabel: displayWindowStart && displayWindowEnd
+        ? `Best window: ${formatRange(displayWindow.start, displayWindow.end, resolvedTimezone)}`
+        : `Best window: ${formatRange(start, end, resolvedTimezone)}`,
       selectedRowTime,
       waveHeight,
       waveHeightFt,
-      waveHeightRangeLabel: formatForecastDisplayWaveHeightRange(waveHeightFt),
+      waveHeightRangeLabel,
       swellPeriod,
       periodSec,
-      swellDirection: pickSwellDirection(sourceForecast),
-      windSpeed: sourceForecast?.wind_speed ?? null,
-      windDirection: sourceForecast?.wind_direction ?? null,
+      swellDirection,
+      windSpeed: selectedForecast?.wind_speed ?? sourceForecast?.wind_speed ?? null,
+      windDirection: selectedForecast?.wind_direction ?? sourceForecast?.wind_direction ?? null,
       score: window.score ?? null,
-      confidence: window.confidence ?? sourceForecast?.confidence_score ?? null,
+      confidence: window.confidence ?? selectedForecast?.confidence_score ?? sourceForecast?.confidence_score ?? null,
       resolverUsed: "surf-call",
       source: "looking_ahead",
+      timezone: resolvedTimezone,
+      conditionDrivers: buildConditionDrivers({
+        wave: waveHeight,
+        waveRange: waveHeightRangeLabel,
+        swellPeriod,
+        swellDirection,
+        sourceForecast: selectedForecast ?? sourceForecast,
+      }),
     };
   }
 
