@@ -6,6 +6,7 @@ import {
   withServerAction,
 } from "@/lib/server-action-utils";
 import { trackFallback } from "@/lib/monitoring/fallback-tracker";
+import { computeUserPreferences } from "@/lib/services/preference-learning-service";
 import type {
   Session,
   SessionWithDetails,
@@ -433,6 +434,9 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
 
     // Forecast snapshot is created by DB trigger (trigger_create_session_forecast_snapshot)
     // during the INSERT — no app-level call needed.
+    void computeUserPreferences(user.id).catch((error) => {
+      console.warn("[createLoggedSession] preference recompute failed:", error);
+    });
 
     revalidatePath("/sessions");
     revalidatePath("/profile");

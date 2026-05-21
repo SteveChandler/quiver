@@ -534,8 +534,8 @@ async function scoreBeachForDiscovery(args: {
 
   // Apply personalization bonus from personalization layer
   const persBonus = args.personalizationBonus ?? 0;
-  if (persBonus > 0) {
-    detailedScore.total = Math.min(100, detailedScore.total + persBonus);
+  if (persBonus !== 0) {
+    detailedScore.total = Math.max(0, Math.min(100, detailedScore.total + persBonus));
     detailedScore.subscores.personalizationBonus = persBonus;
   }
 
