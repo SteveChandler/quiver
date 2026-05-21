@@ -8,7 +8,11 @@ The SEO components provide structured data and metadata management for search en
 
 ```
 components/seo/
-└── structured-data.tsx    # JSON-LD structured data for search engines
+├── article-schema.tsx     # Article and BlogPosting JSON-LD
+├── blog-schema.tsx        # Blog collection JSON-LD for /blog
+├── breadcrumb-schema.tsx  # BreadcrumbList JSON-LD
+├── web-page-schema.tsx    # WebPage JSON-LD
+└── structured-data.tsx    # Root Organization/App/WebSite JSON-LD
 ```
 
 ## 🏗️ **ARCHITECTURE PATTERNS**
@@ -19,7 +23,11 @@ components/seo/
 SEOSystem
 ├── StructuredData (Generic JSON-LD)
 ├── HomePageStructuredData (Organization/App)
-└── BeachPageStructuredData (Local Business/Place)
+├── BeachPageStructuredData (Local Business/Place)
+├── ArticleSchema (Article/BlogPosting)
+├── BlogSchema (Blog collection)
+├── BreadcrumbStructuredData (BreadcrumbList)
+└── WebPageSchema (WebPage)
 ```
 
 ### **JSON-LD Generation Pattern**
@@ -137,6 +145,24 @@ const beachSchema = {
   // "Review snippets" errors.
 };
 ```
+
+### **ArticleSchema** (Guides and Blog Posts)
+
+- **Purpose**: Article-style JSON-LD for learn articles, guides, and founder notes
+- **Props**: `title, description, url, imageUrl, datePublished, dateModified, author, wordCount, articleSection, keywords, type`
+- **Features**:
+  - Defaults to `Article`
+  - Supports `BlogPosting` for `/blog/[slug]`
+  - Adds publisher logo, author, canonical `mainEntityOfPage`, word count, section, and keyword signals
+
+### **BlogSchema** (Blog Hub)
+
+- **Purpose**: Collection-level JSON-LD for `/blog`
+- **Props**: `name, description, url, posts`
+- **Features**:
+  - Emits a `Blog` schema with `BlogPosting` entries
+  - Keeps founder notes discoverable without turning Quiver into a generic media site
+  - Uses absolute post URLs and image URLs
 
 ## 🎨 **DESIGN PATTERNS**
 
@@ -452,7 +478,7 @@ const validateSchema = (schema: any) => {
 
 ### **Advanced SEO Features**
 
-- Automatic sitemap generation
+- Sitemap generation coverage for every indexable route group
 - Meta tag optimization
 - Open Graph integration
 - Twitter Card support
@@ -460,6 +486,6 @@ const validateSchema = (schema: any) => {
 
 ---
 
-**Last Updated**: January 2025  
-**Status**: Production-ready with comprehensive structured data  
+**Last Updated**: May 2026
+**Status**: Production-ready with comprehensive structured data
 **Next Review**: After advanced SEO features implementation

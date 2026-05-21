@@ -214,6 +214,7 @@ jest.mock('@/lib/services/discovery/personalization-layer', () => ({
     total: 0,
     affinityBonus: 0,
     personalizationBonus: 0,
+    avoidancePenalty: 0,
     reasons: [],
   })),
 }));
@@ -229,12 +230,23 @@ jest.mock('@/lib/services/discovery/similarity-layer', () => ({
 
 // Import after mocks
 import { discoverSurfSpots } from '@/lib/services/discovery/surf-discovery-orchestrator';
+import { calculatePersonalizationBonus } from '@/lib/services/discovery/personalization-layer';
+
+const calculatePersonalizationBonusMock =
+  calculatePersonalizationBonus as jest.MockedFunction<typeof calculatePersonalizationBonus>;
 
 describe('discoverSurfSpots — similarity is applied BEFORE the maxResults slice (Plan V4 Fix F1)', () => {
   const userLocation = { lat: 32.7, lon: -117.1 };
 
   beforeEach(() => {
     jest.clearAllMocks();
+    calculatePersonalizationBonusMock.mockImplementation(() => ({
+      total: 0,
+      affinityBonus: 0,
+      personalizationBonus: 0,
+      avoidancePenalty: 0,
+      reasons: [],
+    }));
     applySimilarityLayerMock.mockImplementation(
       async ({ recommendations }: { recommendations: SurfDiscoveryRecommendation[] }) => ({
         recommendations: recommendations.map((rec) => {
@@ -331,5 +343,44 @@ describe('discoverSurfSpots — similarity is applied BEFORE the maxResults slic
     const ids = result.recommendations.map((r) => r.beach.id);
     expect(ids).not.toContain('beach-6');
     expect(result.recommendations).toHaveLength(5);
+  });
+
+  it('applies negative personalization as a demotion without removing the beach', async () => {
+    applySimilarityLayerMock.mockImplementation(
+      async ({ recommendations }: { recommendations: SurfDiscoveryRecommendation[] }) => ({
+        recommendations: recommendations.map((rec) => ({ ...rec, similarity: null })),
+      }),
+    );
+    calculatePersonalizationBonusMock.mockImplementation((beach) =>
+      beach.id === 'beach-1'
+        ? {
+            total: -6,
+            affinityBonus: 0,
+            personalizationBonus: -6,
+            avoidancePenalty: 6,
+            reasons: [],
+          }
+        : {
+            total: 0,
+            affinityBonus: 0,
+            personalizationBonus: 0,
+            avoidancePenalty: 0,
+            reasons: [],
+          }
+    );
+
+    const result = await discoverSurfSpots('user-free', {
+      userLocation,
+      maxResults: 5,
+      isPro: false,
+    });
+
+    const ids = result.recommendations.map((r) => r.beach.id);
+    const beach1 = result.recommendations.find((r) => r.beach.id === 'beach-1');
+
+    expect(ids).toContain('beach-1');
+    expect(ids.indexOf('beach-2')).toBeLessThan(ids.indexOf('beach-1'));
+    expect(beach1?.score).toBe(69);
+    expect(beach1?.subscores.personalizationBonus).toBe(-6);
   });
 });

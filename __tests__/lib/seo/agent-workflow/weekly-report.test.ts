@@ -20,9 +20,11 @@ describe("SEO workflow weekly report", () => {
     expect(report).toContain("## Bottom Line");
     expect(report).toContain("## Web SEO");
     expect(report).toContain("## Native ASO");
-    expect(report).toContain("No paid SERP API is configured");
-    expect(report).toContain("No automated Google SERP scraping is performed");
-    expect(report).toContain("Missing/skipped: POSTHOG_PROJECT_ID");
+    expect(report).toContain("## Coverage Notes");
+    expect(report).toContain("DataForSEO is not configured");
+    expect(report).toContain("no automated Google SERP scraping is performed");
+    expect(report).toContain("Skipped source: POSTHOG_PROJECT_ID");
+    expect(report).not.toContain("## Missing Data / Limits");
   });
 
   it("does not list optional Ahrefs enrichment as missing", () => {
@@ -66,6 +68,8 @@ describe("SEO workflow weekly report", () => {
           domain: "swell-scope.com",
           keyword: "custom surf forecast",
           rank: 6,
+          searchVolume: 90,
+          url: "https://www.swell-scope.com/",
         }],
         missing: [],
       },
@@ -73,8 +77,37 @@ describe("SEO workflow weekly report", () => {
 
     expect(report).toContain("DataForSEO Google rank checks: 1/1");
     expect(report).toContain("DataForSEO ASO rank checks: 1/1");
-    expect(report).toContain("Paid SERP/API source: DataForSEO is enabled");
-    expect(report).not.toContain("No paid SERP API is configured");
+    expect(report).toContain("DataForSEO is enabled");
+    expect(report).toContain("DataForSEO Labs competitor keyword rows: 1 rows across 1 competitors");
+    expect(report).not.toContain("DataForSEO is not configured");
+  });
+
+  it("renders manual backlink import coverage without calling it missing data", () => {
+    const report = renderWeeklySeoReport({
+      generatedAt: "2026-05-20T12:00:00Z",
+      recommendations: [],
+      missing: [],
+      backlink: {
+        generatedAt: "2026-05-20T12:00:00Z",
+        referrers: [{ referrer: "reddit.com", visits: 3 }],
+        embedReferrers: [{ referrer: "surf-school.example", visits: 2 }],
+        outreachStatuses: [{ target: "Surf School", status: "backlink-confirmed" }],
+        manualExports: [{
+          source: "ahrefs-webmaster-tools",
+          path: "/tmp/AHREFS-WEBMASTER-TOOLS.csv",
+          rows: 3,
+          uniqueReferringDomains: 2,
+          sampleReferringDomains: ["surf-school.example", "tourism.example"],
+          topTargetUrls: [{ url: "https://www.quiversurf.app/map", links: 2 }],
+        }],
+        competitorDeltas: [],
+        missing: [],
+      },
+    });
+
+    expect(report).toContain("Manual backlink exports imported: 1 file / 3 rows / 2 referring-domain observations");
+    expect(report).toContain("Manual backlink sample domains: surf-school.example, tourism.example");
+    expect(report).toContain("No paid full backlink index is configured");
   });
 
   it("renders canonical action paths while retaining legacy raw-path evidence", () => {

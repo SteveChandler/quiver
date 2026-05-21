@@ -1,0 +1,120 @@
+{
+  "google": {
+    "domain": "quiversurf.app",
+    "depth": 100,
+    "device": "mobile",
+    "locations": [
+      {
+        "name": "United States",
+        "code": 2840
+      }
+    ],
+    "keywords": [
+      "surf forecast app",
+      "free surf forecast app",
+      "surf report app",
+      "best surf forecast app",
+      "surf forecast",
+      "surf report",
+      "wave forecast",
+      "surf conditions",
+      "surf forecast accuracy",
+      "surfline alternative",
+      "free surfline alternative",
+      "personal surf forecast",
+      "custom surf forecast",
+      "surf session log",
+      "surf tracker",
+      "surf journal app",
+      "dawn patrol surf app",
+      "best time to surf",
+      "best tide for surfing",
+      "best wind for surfing",
+      "how to read surf forecast",
+      "swell period",
+      "swell direction surfing",
+      "wind swell vs ground swell",
+      "surfing after rain",
+      "beginner surf spots san diego",
+      "beginner surf spots santa cruz",
+      "beginner surf spots orange county",
+      "beginner surf spots honolulu",
+      "best surf conditions for beginners",
+      "newport beach surf report",
+      "la jolla surf forecast",
+      "scripps pier surf forecast",
+      "tourmaline surf forecast",
+      "huntington beach surf forecast",
+      "huntington beach water temperature",
+      "ocean temperature huntington beach",
+      "water temp huntington beach today",
+      "water temp santa cruz ca",
+      "kona water temperature today",
+      "kure beach water temp",
+      "aguadilla surf report",
+      "best time to surf rincon puerto rico",
+      "malibu first point surf forecast"
+    ]
+  },
+  "aso": {
+    "quiver": {
+      "iosAppId": "6759300320",
+      "androidAppId": "app.quiversurf.surf"
+    },
+    "depth": 100,
+    "keywords": [
+      "surf forecast",
+      "surf report",
+      "surf app",
+      "surfing app",
+      "wave forecast",
+      "swell forecast",
+      "surf conditions",
+      "tide chart",
+      "wind forecast",
+      "beach forecast",
+      "surf tracker",
+      "surf journal",
+      "surf session",
+      "session log",
+      "dawn patrol",
+      "custom spot",
+      "buoy",
+      "boards",
+      "quiver",
+      "lazy surfer",
+      "duune",
+      "swellify",
+      "swell scope",
+      "swellscope",
+      "surf radar",
+      "surfline"
+    ]
+  },
+  "competitors": [
+    {
+      "name": "Lazy Surfer",
+      "domain": "lazysurfer.app"
+    },
+    {
+      "name": "Swellify",
+      "domain": "swellify.app"
+    },
+    {
+      "name": "Swell Scope",
+      "domain": "swell-scope.com"
+    },
+    {
+      "name": "Duune",
+      "domain": "duunecrew.com"
+    },
+    {
+      "name": "Surf Radar",
+      "domain": "getsurfreport.com"
+    },
+    {
+      "name": "Surfline",
+      "domain": "surfline.com"
+    }
+  ]
+}

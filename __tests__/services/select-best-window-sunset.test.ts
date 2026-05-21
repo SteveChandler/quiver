@@ -164,6 +164,61 @@ describe('selectBestWindow with sunset', () => {
     expect(result!.start).toEqual(new Date('2026-01-13T21:00:00Z'));
   });
 
+  it('ranks the best window by wave energy, wind quality, and tide fit', () => {
+    const forecasts = [
+      createMockForecast({
+        forecast_time: '12:00:00',
+        wave_height: '4.0',
+        wave_period: '6s',
+        wind_speed: '18',
+        wind_direction: 'W',
+        wind_direction_deg: 270,
+        tide_height: '0.2',
+      }),
+      createMockForecast({
+        forecast_time: '13:00:00',
+        wave_height: '4.0',
+        wave_period: '14s',
+        wind_speed: '4',
+        wind_direction: 'E',
+        wind_direction_deg: 90,
+        tide_height: '3.0',
+      }),
+      createMockForecast({
+        forecast_time: '14:00:00',
+        wave_height: '4.0',
+        wave_period: '14s',
+        wind_speed: '4',
+        wind_direction: 'E',
+        wind_direction_deg: 90,
+        tide_height: '3.0',
+      }),
+      createMockForecast({
+        forecast_time: '15:00:00',
+        wave_height: '4.0',
+        wave_period: '14s',
+        wind_speed: '30',
+        wind_direction: 'W',
+        wind_direction_deg: 270,
+        tide_height: '0.2',
+      }),
+    ];
+    const beach = createMockBeach({
+      wind_offshore_deg: 90,
+      wind_offshore_tol_deg: 30,
+      preferred_tide_ft_min: 2.5,
+      preferred_tide_ft_max: 3.5,
+    });
+
+    const result = selectBestWindow(forecasts, beach, null, 24);
+
+    expect(result).not.toBeNull();
+    expect(result!.start).toEqual(new Date('2026-01-13T21:00:00Z'));
+    expect(result!.wavePeriod).toBe('14s');
+    expect(result!.wind).toBe('4 E');
+    expect(result!.tide).toBe('Rising');
+  });
+
   it('allows windows with sufficient time before sunset', () => {
     const forecasts = [
       createMockForecast({

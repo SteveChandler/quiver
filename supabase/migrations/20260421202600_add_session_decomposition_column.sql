@@ -1,7 +1,7 @@
 -- Backfilled from remote supabase_migrations.schema_migrations on 2026-05-11.
 
 ALTER TABLE public.sessions
-  ADD COLUMN session_decomposition jsonb NULL;
+  ADD COLUMN IF NOT EXISTS session_decomposition jsonb NULL;
 
 CREATE INDEX IF NOT EXISTS idx_sessions_session_decomposition_gin
   ON public.sessions USING gin (session_decomposition);

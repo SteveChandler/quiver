@@ -80,6 +80,8 @@ describe("GET /api/surf/call", () => {
       endTime: "2026-05-09T01:30:00.000Z",
       selectedWindowStart: "2026-05-08T22:30:00.000Z",
       selectedWindowEnd: "2026-05-09T01:30:00.000Z",
+      displayWindowStart: "2026-05-08T22:45:00.000Z",
+      displayWindowEnd: "2026-05-09T01:15:00.000Z",
       displayTimeLabel: "Best window: 3:30-6:30 PM",
       selectedRowTime: "2026-05-08T23:00:00.000Z",
       waveHeight: "2.7 ft",
@@ -94,6 +96,13 @@ describe("GET /api/surf/call", () => {
       confidence: 80,
       resolverUsed: "surf-call",
       source: "looking_ahead",
+      timezone: "America/Los_Angeles",
+      conditionDrivers: {
+        wave: "2-3 ft",
+        energy: "13s SW energy",
+        wind: "5 mph W clean",
+        tide: "3.1 ft rising",
+      },
     };
 
     mockBeachQuery({

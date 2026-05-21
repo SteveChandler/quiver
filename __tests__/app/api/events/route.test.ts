@@ -764,6 +764,7 @@ describe('POST /api/events', () => {
         // Share tracking events
         'share_started',
         'share_completed',
+        'share_link_opened',
         'share_link_copied',
         'share_image_saved',
         'cam_share',

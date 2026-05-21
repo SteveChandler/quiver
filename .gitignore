@@ -182,7 +182,11 @@ __pycache__/
 quiver/android/debug/
 
 # Content pipeline output (crawl cache, staging, reports)
-tools/content-pipeline/output/
+tools/content-pipeline/output/*
+!tools/content-pipeline/output/.gitkeep
+!tools/content-pipeline/output/seo-drafts/
+tools/content-pipeline/output/seo-drafts/*
+!tools/content-pipeline/output/seo-drafts/.gitkeep
 
 # iOS build caches (regenerable)
 ios/DerivedData/

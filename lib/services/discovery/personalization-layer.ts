@@ -16,7 +16,11 @@
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getImplicitPreferences, calculateImplicitBonus, isTopEngagedBeach } from '@/lib/services/implicit-preferences-service';
-import { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
+import {
+  calculateAvoidancePenalty,
+  getAvoidancePatternForBeach,
+  getUserSurfPreferences,
+} from '@/lib/services/preference-learning-service';
 import {
   matchesLearnedWaveRange,
   matchesLearnedWindPrefs,
@@ -32,6 +36,7 @@ const log = createContextLogger('PersonalizationLayer');
 const MAX_AFFINITY_BONUS = 4;
 const AFFINITY_BONUS_SCALE = 0.05;
 const MAX_CONDITION_PERSONALIZATION_BONUS = 12;
+const MAX_AVOIDANCE_PERSONALIZATION_PENALTY = 6;
 
 // ============================================================================
 // Public Types
@@ -69,6 +74,8 @@ export interface PersonalizationBonusResult {
   affinityBonus: number;
   /** Combined bonus from learned and implicit preferences */
   personalizationBonus: number;
+  /** Soft demotion from learned negative session patterns */
+  avoidancePenalty: number;
   /** Human-readable reasons, suitable for the recommendation card UI */
   reasons: string[];
 }
@@ -178,7 +185,8 @@ export async function fetchPersonalizationContext(
  *   2. Learned wind preference match (+10 * confidence) — from session history
  *   3. Learned tide preference match (+8 * confidence) — from session history
  *   4. Implicit behavior bonus — from engagement patterns, blended by implicitWeight
- *   5. Beach affinity bonus — from user_beach_affinity.affinity_score
+ *   5. Avoidance demotion — from learned negative session patterns
+ *   6. Beach affinity bonus — from user_beach_affinity.affinity_score
  *
  * @param beach - The beach being evaluated
  * @param forecast - The forecast entry selected for scoring (best window)
@@ -192,6 +200,7 @@ export function calculatePersonalizationBonus(
 ): PersonalizationBonusResult {
   let personalizationBonus = 0;
   let affinityBonus = 0;
+  let avoidancePenalty = 0;
   const reasons: string[] = [];
 
   // ── 1–3. Learned preferences (session history) ────────────────────────────
@@ -247,9 +256,23 @@ export function calculatePersonalizationBonus(
     }
   }
 
-  personalizationBonus = Math.min(
+  const positivePersonalizationBonus = Math.min(
     personalizationBonus,
     MAX_CONDITION_PERSONALIZATION_BONUS
+  );
+
+  const avoidancePattern = getAvoidancePatternForBeach(learned, beach.id);
+  const avoidanceMatch = calculateAvoidancePenalty(forecast, avoidancePattern);
+  if (avoidanceMatch > 0) {
+    avoidancePenalty = Math.min(
+      avoidanceMatch * MAX_AVOIDANCE_PERSONALIZATION_PENALTY,
+      MAX_AVOIDANCE_PERSONALIZATION_PENALTY
+    );
+  }
+
+  personalizationBonus = Math.max(
+    -MAX_AVOIDANCE_PERSONALIZATION_PENALTY,
+    positivePersonalizationBonus - avoidancePenalty
   );
 
   // ── 5. Beach affinity ──────────────────────────────────────────────────────
@@ -265,6 +288,7 @@ export function calculatePersonalizationBonus(
     total: affinityBonus + personalizationBonus,
     affinityBonus,
     personalizationBonus,
+    avoidancePenalty,
     reasons,
   };
 }

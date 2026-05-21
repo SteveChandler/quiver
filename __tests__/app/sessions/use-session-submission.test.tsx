@@ -1,0 +1,106 @@
+/**
+ * @jest-environment jsdom
+ */
+
+import { act, renderHook } from "@testing-library/react";
+
+const mockCreateLoggedSession = jest.fn();
+const mockCreateActivity = jest.fn();
+const mockTrack = jest.fn();
+const mockTrackSupabase = jest.fn();
+const mockSaveLastBeach = jest.fn();
+
+jest.mock("@/actions/session-actions", () => ({
+  createLoggedSession: (...args: unknown[]) => mockCreateLoggedSession(...args),
+}));
+
+jest.mock("@/actions/session-media-actions", () => ({
+  uploadSessionPhotosAction: jest.fn(),
+}));
+
+jest.mock("@/actions/activity-actions", () => ({
+  createActivity: (...args: unknown[]) => mockCreateActivity(...args),
+}));
+
+jest.mock("@/lib/analytics", () => ({
+  track: (...args: unknown[]) => mockTrack(...args),
+}));
+
+jest.mock("@/hooks/use-track-event", () => ({
+  useTrackEvent: () => ({ track: mockTrackSupabase }),
+}));
+
+jest.mock("@/hooks/use-nearest-beach", () => ({
+  saveLastBeach: (...args: unknown[]) => mockSaveLastBeach(...args),
+}));
+
+jest.mock("@/lib/share/build-share-card-url", () => ({
+  buildSessionShareUrl: jest.fn(() => "/api/share/session-card?id=session-123"),
+}));
+
+jest.mock("sonner", () => ({
+  toast: {
+    error: jest.fn(),
+    success: jest.fn(),
+    warning: jest.fn(),
+  },
+}));
+
+import { useSessionSubmission } from "@/app/sessions/new/useSessionSubmission";
+
+describe("useSessionSubmission", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCreateLoggedSession.mockResolvedValue({
+      success: true,
+      data: { id: "session-123" },
+    });
+    mockCreateActivity.mockResolvedValue({ success: true });
+  });
+
+  it("keeps GA submit tracking but does not duplicate Supabase session_log_submit", async () => {
+    const { result } = renderHook(() =>
+      useSessionSubmission({
+        mode: "log",
+        user: { id: "user-123" },
+      })
+    );
+
+    await act(async () => {
+      await result.current.handleSessionComplete({
+        selectedBeach: "Ocean Beach",
+        selectedBeachId: "beach-123",
+        selectedDate: "2026-05-20",
+        selectedTime: "07:00",
+        waveQuality: "4",
+        crowdLevel: "2",
+        waterTemp: "63F",
+        forecastAccuracy: "somewhat",
+        photos: [],
+      });
+    });
+
+    expect(mockCreateLoggedSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        beach_id: "beach-123",
+        forecast_accuracy: "somewhat",
+        wave_quality: 4,
+      })
+    );
+    expect(mockTrack).toHaveBeenCalledWith(
+      "session_log_submit",
+      expect.objectContaining({
+        beach_slug: "ocean-beach",
+        wave_rating: 4,
+      })
+    );
+    expect(mockTrackSupabase).not.toHaveBeenCalledWith(
+      "session_log_submit",
+      expect.anything()
+    );
+    expect(mockSaveLastBeach).toHaveBeenCalledWith({
+      id: "beach-123",
+      name: "Ocean Beach",
+    });
+  });
+});

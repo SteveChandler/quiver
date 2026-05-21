@@ -61,15 +61,15 @@ export function renderWeeklySeoReport(input: WeeklySeoReportInput): string {
     "",
     "## Competitor Deltas",
     "",
-    renderCompetitorDeltas(input.store, input.backlink),
+    renderCompetitorDeltas(input.store, input.backlink, input.dataforseo),
     "",
     "## Actions This Week",
     "",
     renderRecommendations(topActions, "No open actions from available inputs."),
     "",
-    "## Missing Data / Limits",
+    "## Coverage Notes",
     "",
-    renderLimits(input),
+    renderCoverageNotes(input),
     "",
   ].join("\n");
 }
@@ -139,11 +139,18 @@ function renderKeywordMovement(
 
 function renderBacklink(backlink?: BacklinkProxyInput): string {
   if (!backlink) return "- Backlink proxy export unavailable.";
+  const manualRows = sum(backlink.manualExports.map((item) => item.rows));
+  const manualDomains = sum(backlink.manualExports.map((item) => item.uniqueReferringDomains ?? 0));
+  const sampleDomains = backlink.manualExports.flatMap((item) => item.sampleReferringDomains ?? []);
+  const topManualDomains = [...new Set(sampleDomains)].slice(0, 8);
   return [
     `- Vercel referrer domains/labels: ${backlink.referrers.length}.`,
     `- Embed referrer domains: ${backlink.embedReferrers.length}.`,
     `- Outreach rows parsed: ${backlink.outreachStatuses.length}.`,
-    `- Manual backlink exports found: ${backlink.manualExports.length}.`,
+    `- Manual backlink exports imported: ${backlink.manualExports.length} file${backlink.manualExports.length === 1 ? "" : "s"} / ${manualRows} row${manualRows === 1 ? "" : "s"} / ${manualDomains} referring-domain observations.`,
+    topManualDomains.length
+      ? `- Manual backlink sample domains: ${topManualDomains.join(", ")}.`
+      : "- Manual backlink sample domains: none imported.",
   ].join("\n");
 }
 
@@ -181,10 +188,12 @@ function renderNativeFunnel(posthog?: PostHogExportInput): string {
 function renderCompetitorDeltas(
   store?: StoreSnapshotInput,
   backlink?: BacklinkProxyInput,
+  dataforseo?: DataForSeoExportInput,
 ): string {
   const deltas = [
     ...(store?.competitorDeltas ?? []),
     ...(backlink?.competitorDeltas ?? []),
+    ...renderCompetitorKeywordCoverage(dataforseo),
   ];
   return deltas.length ? deltas.map((delta) => `- ${delta}`).join("\n") : "- No competitor deltas in available inputs.";
 }
@@ -199,7 +208,7 @@ function renderRecommendations(items: SeoRecommendation[], fallback: string): st
   }).join("\n");
 }
 
-function renderLimits(input: WeeklySeoReportInput): string {
+function renderCoverageNotes(input: WeeklySeoReportInput): string {
   const missing = [
     ...input.missing,
     ...(input.vercel?.missing ?? []),
@@ -212,16 +221,25 @@ function renderLimits(input: WeeklySeoReportInput): string {
     (input.dataforseo.googleRankings.length > 0 ||
       input.dataforseo.asoRankings.length > 0 ||
       input.dataforseo.competitorKeywords.length > 0);
+  const manualExportCount = input.backlink?.manualExports.length ?? 0;
+  const manualRows = sum(input.backlink?.manualExports.map((item) => item.rows) ?? []);
+  const manualDomains = sum(input.backlink?.manualExports.map((item) => item.uniqueReferringDomains ?? 0) ?? []);
+  const competitorCount = new Set(input.dataforseo?.competitorKeywords.map((row) => row.competitor) ?? []).size;
   const rows = [
     hasDataForSeo
-      ? "- Paid SERP/API source: DataForSEO is enabled for tracked Google SERP, ASO, and competitor keyword snapshots; Backlinks API is intentionally disabled."
-      : "- No paid SERP API is configured, so rank tracking is limited to GSC average position and any sampled store/search snapshots.",
-    "- No full backlink index is available; backlink coverage is a proxy from referrers, embeds, outreach/manual exports, and competitor deltas.",
+      ? "- DataForSEO is enabled for tracked Google SERP, ASO, and competitor keyword snapshots. Backlinks API is intentionally disabled."
+      : "- DataForSEO is not configured, so rank tracking is limited to GSC average position and public store/search snapshots.",
+    input.backlink
+      ? `- Backlink coverage uses free/provided sources: Vercel referrers, widget embed referrers, outreach tracker rows, and ${manualExportCount} manual export file${manualExportCount === 1 ? "" : "s"} (${manualRows} rows, ${manualDomains} referring-domain observations). No paid full backlink index is configured.`
+      : "- Backlink coverage uses free/provided sources when available: Vercel referrers, widget embeds, outreach rows, and manual CSV/JSON exports. No paid full backlink index is configured.",
+    manualExportCount > 0
+      ? "- Manual backlink imports are included when matching Ahrefs Webmaster Tools, Moz Link Explorer, GSC links, or manual backlink CSV/JSON files are present in the audit folder or `docs/seo/backlink-reports/`."
+      : "- Manual backlink imports: no matching Ahrefs Webmaster Tools, Moz Link Explorer, GSC links, or manual backlink CSV/JSON files were found in this audit folder or `docs/seo/backlink-reports/`.",
     hasDataForSeo
-      ? "- Competitor keyword coverage uses DataForSEO Labs for the configured competitor set; it is not a complete hidden keyword database."
-      : "- No hidden competitor keyword database is available; competitor insight is limited to public pages/store metadata and explicit exports.",
-    "- No automated Google SERP scraping is performed.",
-    ...[...new Set(missing)].map((item) => `- Missing/skipped: ${item}`),
+      ? `- Competitor keyword coverage uses DataForSEO Labs for ${competitorCount} configured competitors. It is a provider-index snapshot, not a complete hidden keyword database.`
+      : "- Competitor keyword coverage is limited to public pages/store metadata and explicit exports.",
+    "- Google SERP collection: no automated Google SERP scraping is performed; tracked rank checks use DataForSEO API when configured and GSC average position otherwise.",
+    ...[...new Set(missing)].map((item) => `- Skipped source: ${item}`),
   ];
   return rows.join("\n");
 }
@@ -259,6 +277,98 @@ function renderDataForSeoAsoRanks(dataforseo?: DataForSeoExportInput): string[] 
         return `- DataForSEO ${rank.platform}: "${rank.keyword}" - Quiver ${quiver}${leader}.`;
       }),
   ];
+}
+
+function renderCompetitorKeywordCoverage(dataforseo?: DataForSeoExportInput): string[] {
+  const rows = dataforseo?.competitorKeywords ?? [];
+  if (rows.length === 0) return [];
+
+  const byCompetitor = new Map<string, { rows: number; volume: number }>();
+  const byPage = new Map<string, { rows: number; volume: number; competitors: Set<string> }>();
+  const byCluster = new Map<string, { rows: number; volume: number }>();
+
+  for (const row of rows) {
+    const competitor = byCompetitor.get(row.competitor) ?? { rows: 0, volume: 0 };
+    competitor.rows += 1;
+    competitor.volume += row.searchVolume ?? 0;
+    byCompetitor.set(row.competitor, competitor);
+
+    const clusterName = classifyCompetitorKeyword(row.keyword);
+    const cluster = byCluster.get(clusterName) ?? { rows: 0, volume: 0 };
+    cluster.rows += 1;
+    cluster.volume += row.searchVolume ?? 0;
+    byCluster.set(clusterName, cluster);
+
+    if (row.url) {
+      const page = byPage.get(row.url) ?? { rows: 0, volume: 0, competitors: new Set<string>() };
+      page.rows += 1;
+      page.volume += row.searchVolume ?? 0;
+      page.competitors.add(row.competitor);
+      byPage.set(row.url, page);
+    }
+  }
+
+  const competitorSummary = [...byCompetitor.entries()]
+    .sort((a, b) => b[1].rows - a[1].rows || b[1].volume - a[1].volume)
+    .map(([competitor, value]) => `${competitor}=${value.rows}`)
+    .join(", ");
+  const actionableRows = rows.filter((row) => isActionableCompetitorKeyword(row.keyword));
+  const topKeywords = (actionableRows.length ? actionableRows : rows)
+    .slice()
+    .sort((a, b) => (b.searchVolume ?? 0) - (a.searchVolume ?? 0))
+    .slice(0, 5)
+    .map((row) => `"${row.keyword}" (${row.competitor}, vol ${row.searchVolume ?? "n/a"}, rank ${row.rank ?? "n/a"})`)
+    .join("; ");
+  const clusterSummary = [...byCluster.entries()]
+    .sort((a, b) => b[1].volume - a[1].volume || b[1].rows - a[1].rows)
+    .slice(0, 6)
+    .map(([cluster, value]) => `${cluster}=${value.rows} rows/${value.volume} volume`)
+    .join(", ");
+  const topPages = [...byPage.entries()]
+    .sort((a, b) => b[1].rows - a[1].rows || b[1].volume - a[1].volume)
+    .slice(0, 5)
+    .map(([url, value]) => `${url} (${value.rows} rows, ${value.volume} volume)`)
+    .join("; ");
+
+  return [
+    `DataForSEO Labs competitor keyword rows: ${rows.length} rows across ${byCompetitor.size} competitors (${competitorSummary}).`,
+    topKeywords ? `Top actionable competitor keyword opportunities by volume: ${topKeywords}.` : "",
+    clusterSummary ? `Competitor keyword clusters: ${clusterSummary}.` : "",
+    topPages ? `Competitor ranking pages with the broadest keyword footprint: ${topPages}.` : "",
+  ].filter((row) => row.length > 0);
+}
+
+function classifyCompetitorKeyword(keyword: string): string {
+  const value = keyword.toLowerCase();
+  if (/(surfline|lazy surfer|swellify|swell scope|swellscope|duune|surf radar|magicseaweed|msw)/.test(value)) {
+    return "competitor-brand";
+  }
+  if (/(water temp|water temperature|ocean temp|sea temperature)/.test(value)) {
+    return "water-temp";
+  }
+  if (/(forecast|report|conditions|wave|swell|tide|wind|buoy)/.test(value)) {
+    return "forecast-report";
+  }
+  if (/(beginner|learn|how to|what is|why|when|best time|history|origin)/.test(value)) {
+    return "education";
+  }
+  if (/(session|journal|tracker|log|dawn patrol|board)/.test(value)) {
+    return "session-memory";
+  }
+  if (/(beach|pier|point|cove|break|tamarack|malibu|scripps|tourmaline|huntington|rincon|kona|santa cruz|newport|la jolla)/.test(value)) {
+    return "spot-local";
+  }
+  return "other";
+}
+
+function isActionableCompetitorKeyword(keyword: string): boolean {
+  if (/(surfline|lazy surfer|swellify|swell scope|swellscope|duune|surf radar|magicseaweed|msw)/i.test(keyword)) {
+    return false;
+  }
+  if (/^(surf|surfing|surfs)$/i.test(keyword.trim())) {
+    return false;
+  }
+  return /(surf forecast|surf report|forecast|report|conditions|swell|wave forecast|tide|wind|buoy|water temp|water temperature|ocean temp|sea temp|how to read|beginner surf|best time to surf|dawn patrol|surf session|surf journal|surf tracker|surfboard|surf board|learn surf)/i.test(keyword);
 }
 
 function sum(values: number[]): number {

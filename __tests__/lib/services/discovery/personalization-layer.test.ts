@@ -67,7 +67,11 @@ import {
   calculateImplicitBonus,
   isTopEngagedBeach,
 } from '@/lib/services/implicit-preferences-service';
-import { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
+import {
+  calculateAvoidancePenalty,
+  getAvoidancePatternForBeach,
+  getUserSurfPreferences,
+} from '@/lib/services/preference-learning-service';
 import {
   matchesLearnedWaveRange,
   matchesLearnedWindPrefs,
@@ -84,6 +88,8 @@ import {
 
 const mockGetImplicitPreferences = getImplicitPreferences as jest.MockedFunction<typeof getImplicitPreferences>;
 const mockGetUserSurfPreferences = getUserSurfPreferences as jest.MockedFunction<typeof getUserSurfPreferences>;
+const mockCalculateAvoidancePenalty = calculateAvoidancePenalty as jest.MockedFunction<typeof calculateAvoidancePenalty>;
+const mockGetAvoidancePatternForBeach = getAvoidancePatternForBeach as jest.MockedFunction<typeof getAvoidancePatternForBeach>;
 const mockCalculateImplicitBonus = calculateImplicitBonus as jest.MockedFunction<typeof calculateImplicitBonus>;
 const mockIsTopEngagedBeach = isTopEngagedBeach as jest.MockedFunction<typeof isTopEngagedBeach>;
 const mockMatchesLearnedWaveRange = matchesLearnedWaveRange as jest.MockedFunction<typeof matchesLearnedWaveRange>;
@@ -204,6 +210,8 @@ describe('calculatePersonalizationBonus', () => {
     mockMatchesLearnedWindPrefs.mockReturnValue(false);
     mockMatchesLearnedTidePrefs.mockReturnValue(false);
     mockIsTopEngagedBeach.mockReturnValue(false);
+    mockGetAvoidancePatternForBeach.mockReturnValue(null);
+    mockCalculateAvoidancePenalty.mockReturnValue(0);
     mockCalculateImplicitBonus.mockReturnValue({
       total: 0,
       breakdown: { waveRange: 0, breakType: 0, topEngaged: 0 },
@@ -221,6 +229,7 @@ describe('calculatePersonalizationBonus', () => {
       expect(result.total).toBe(0);
       expect(result.affinityBonus).toBe(0);
       expect(result.personalizationBonus).toBe(0);
+      expect(result.avoidancePenalty).toBe(0);
       expect(result.reasons).toHaveLength(0);
     });
   });
@@ -526,6 +535,69 @@ describe('calculatePersonalizationBonus', () => {
         implicit,
         0.5
       );
+    });
+  });
+
+  describe('avoidance demotion', () => {
+    it('subtracts a soft personalization penalty for learned negative patterns', () => {
+      const learned = makeLearnedPrefs({
+        confidence: 0.8,
+        eligible_session_count: 6,
+        avoidance_by_beach: {},
+      });
+      const avoidancePattern = {
+        negative_sample_size: 3,
+        confidence: 0.8,
+        wave_min_ft: 4,
+        wave_max_ft: 6,
+        period_min_s: null,
+        period_max_s: null,
+        wind_directions: null,
+        tide_statuses: null,
+        last_session_at: null,
+      };
+      mockGetAvoidancePatternForBeach.mockReturnValue(avoidancePattern);
+      mockCalculateAvoidancePenalty.mockReturnValue(0.8);
+
+      const beach = makeBeach({ id: 'beach-1' });
+      const forecast = makeForecast({ wave_height: '5' });
+      const context = makeContext({ learnedPrefs: learned });
+
+      const result = calculatePersonalizationBonus(beach, forecast, context);
+
+      expect(mockGetAvoidancePatternForBeach).toHaveBeenCalledWith(learned, 'beach-1');
+      expect(mockCalculateAvoidancePenalty).toHaveBeenCalledWith(forecast, avoidancePattern);
+      expect(result.avoidancePenalty).toBeCloseTo(4.8);
+      expect(result.personalizationBonus).toBeCloseTo(-4.8);
+      expect(result.total).toBeCloseTo(-4.8);
+      expect(result.reasons).toEqual([]);
+    });
+
+    it('caps avoidance at six score points after positive preference matches', () => {
+      const learned = makeLearnedPrefs({ confidence: 0.8, eligible_session_count: 10 });
+      mockMatchesLearnedWaveRange.mockReturnValue(true);
+      mockGetAvoidancePatternForBeach.mockReturnValue({
+        negative_sample_size: 8,
+        confidence: 1,
+        wave_min_ft: 3,
+        wave_max_ft: 4,
+        period_min_s: null,
+        period_max_s: null,
+        wind_directions: null,
+        tide_statuses: null,
+        last_session_at: null,
+      });
+      mockCalculateAvoidancePenalty.mockReturnValue(1);
+
+      const beach = makeBeach({ id: 'beach-1' });
+      const forecast = makeForecast({ wave_height: '3.5' });
+      const context = makeContext({ learnedPrefs: learned });
+
+      const result = calculatePersonalizationBonus(beach, forecast, context);
+
+      expect(result.avoidancePenalty).toBe(6);
+      expect(result.personalizationBonus).toBeCloseTo(6);
+      expect(result.total).toBeCloseTo(6);
     });
   });
 

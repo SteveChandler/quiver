@@ -11,6 +11,7 @@ import {
   createMockSupabaseClient,
   createMockUser,
 } from "@/test-utils/api-test-helpers";
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 
 const mockSupabaseClient = createMockSupabaseClient();
 
@@ -21,6 +22,15 @@ jest.mock("@supabase/ssr", () => ({
 import { GET } from "@/app/auth/callback/route";
 
 const ORIGIN = "http://localhost:3000";
+
+interface MockInsertCall {
+  table: string;
+  payload: unknown;
+}
+
+type PrimeProfileMockResult = string[] & {
+  inserts: MockInsertCall[];
+};
 
 function buildCallbackRequest(
   searchParams: Record<string, string>,
@@ -38,8 +48,9 @@ function buildCallbackRequest(
   });
 }
 
-function primeProfileMock() {
+function primeProfileMock(): PrimeProfileMockResult {
   const tables: string[] = [];
+  const inserts: MockInsertCall[] = [];
   mockSupabaseClient.from.mockImplementation(((table: string) => {
     tables.push(table);
     if (table === "profiles") {
@@ -57,13 +68,16 @@ function primeProfileMock() {
     }
 
     return {
-      insert: jest.fn().mockResolvedValue({ error: null }),
+      insert: jest.fn().mockImplementation((payload: unknown) => {
+        inserts.push({ table, payload });
+        return Promise.resolve({ error: null });
+      }),
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
       maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
     };
   }) as any);
-  return tables;
+  return Object.assign(tables, { inserts });
 }
 
 function getRedirectLocation(response: Response): URL {
@@ -135,5 +149,72 @@ describe("/auth/callback invite_token handoff", () => {
     expect(url.pathname).toBe("/profile");
     expect(tables).not.toContain("user_follows");
     expect(getSetCookie(response)).not.toMatch(/invite_token=/);
+  });
+
+  it("sets the Apple beta prompt cookie after successful Apple auth", async () => {
+    const tables = primeProfileMock();
+
+    const response = await GET(
+      buildCallbackRequest({ code: "abc", redirect: "/", provider: "apple" }),
+    );
+
+    expect(getSetCookie(response)).toContain(
+      "quiver_ios_beta_prompt=apple-signin",
+    );
+    expect(tables.inserts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          table: "user_events",
+          payload: expect.objectContaining({
+            event_type: "apple_beta_prompt_eligible",
+            user_id: "new-user-id",
+            metadata: expect.objectContaining({
+              provider: "apple",
+              source: "apple-signin-beta-prompt",
+              device_mode: "desktop_qr",
+              platform_guess: "unknown",
+              destination_url: "https://testflight.apple.com/join/G31D4XW6",
+              prompt_reason: "apple-signin",
+              redirect_path: "/",
+            }),
+          }),
+        }),
+      ])
+    );
+  });
+
+  it("does not set the Apple beta prompt cookie for non-Apple callbacks", async () => {
+    const tables = primeProfileMock();
+
+    const response = await GET(
+      buildCallbackRequest({ code: "abc", redirect: "/" }),
+    );
+
+    expect(getSetCookie(response)).not.toContain("quiver_ios_beta_prompt=");
+    expect(tables.inserts).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          table: "user_events",
+          payload: expect.objectContaining({
+            event_type: "apple_beta_prompt_eligible",
+          }),
+        }),
+      ])
+    );
+  });
+
+  it("does not set the Apple beta prompt cookie when session exchange fails", async () => {
+    (mockSupabaseClient.auth as Record<string, unknown>).exchangeCodeForSession = jest
+      .fn()
+      .mockResolvedValue({ error: new Error("bad code") });
+
+    const response = await GET(
+      buildCallbackRequest({ code: "abc", redirect: "/", provider: "apple" }),
+    );
+
+    const url = getRedirectLocation(response);
+    expect(url.pathname).toBe("/auth/sign-in");
+    expect(getSetCookie(response)).not.toContain("quiver_ios_beta_prompt=");
+    expectConsoleErrors([/\[Auth Callback\] Session exchange failed/]);
   });
 });

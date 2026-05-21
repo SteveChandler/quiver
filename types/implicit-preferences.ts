@@ -34,6 +34,7 @@ export type ImplicitEventType =
   // Share tracking events
   | 'share_started'
   | 'share_completed'
+  | 'share_link_opened'
   | 'share_link_copied'
   | 'share_image_saved'
   | 'cam_share'
@@ -155,7 +156,14 @@ export type ImplicitEventType =
   | 'push_permission_denied'
   | 'push_token_fetch_failed'
   | 'push_device_registration_failed'
-  | 'push_device_registered';
+  | 'push_device_registered'
+  // Apple sign-in beta prompt funnel
+  | 'apple_beta_prompt_eligible'
+  | 'apple_beta_prompt_viewed'
+  | 'apple_beta_prompt_qr_rendered'
+  | 'apple_beta_prompt_open_testflight_clicked'
+  | 'apple_beta_prompt_copy_link_clicked'
+  | 'apple_beta_prompt_dismissed';
 
 /**
  * Weight multipliers for each event type, determining how much
@@ -182,6 +190,7 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   // Share tracking events
   share_started: 0,
   share_completed: 0,
+  share_link_opened: 0,
   share_link_copied: 0,
   share_image_saved: 0,
   cam_share: 0,
@@ -301,6 +310,12 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   push_token_fetch_failed: 0,
   push_device_registration_failed: 0,
   push_device_registered: 0,
+  apple_beta_prompt_eligible: 0,
+  apple_beta_prompt_viewed: 0,
+  apple_beta_prompt_qr_rendered: 0,
+  apple_beta_prompt_open_testflight_clicked: 0,
+  apple_beta_prompt_copy_link_clicked: 0,
+  apple_beta_prompt_dismissed: 0,
 } as const;
 
 // -----------------------------------------------------------------------------
@@ -385,6 +400,25 @@ export interface PageViewMetadata {
   referrer?: string;
   /** Browser session identifier for grouping page views (tab-scoped, distinct from DB session_id column) */
   browser_session_id?: string;
+  /** Opaque UUID from a low-friction session share link. */
+  share_id?: string;
+  /** Safe UTM attribution fields preserved from share URLs. */
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+}
+
+/** Metadata for share_link_opened events */
+export interface ShareLinkOpenedMetadata {
+  share_id: string;
+  session_id: string;
+  pathname?: string;
+  referrer?: string;
+  browser_session_id?: string;
+  source?: 'initial' | 'event' | 'web_page_tracker';
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
 }
 
 /**
@@ -644,6 +678,22 @@ export interface AuthProviderSelectedMetadata {
   source?: string;
 }
 
+/** Metadata for Apple sign-in → iOS beta prompt events */
+export interface AppleBetaPromptMetadata {
+  provider: 'apple';
+  source: 'apple-signin-beta-prompt';
+  device_mode: 'ios_direct' | 'desktop_qr';
+  platform_guess: 'ios' | 'ipad' | 'mac' | 'desktop' | 'unknown';
+  destination_url?: string;
+  pathname?: string;
+  prompt_reason?: 'apple-signin';
+  redirect_path?: string;
+  has_qr?: boolean;
+  testflight_url?: string;
+  qr_logo?: 'quiver-app-icon-128';
+  dismiss_reason?: 'not_now' | 'dialog_close';
+}
+
 // -----------------------------------------------------------------------------
 // Phase 2 Tracking Metadata Interfaces
 // -----------------------------------------------------------------------------
@@ -801,6 +851,7 @@ export type EventMetadata =
   | ForecastCheckMetadata
   | LocationUpdateMetadata
   | PageViewMetadata
+  | ShareLinkOpenedMetadata
   | ForecastInteractionMetadata
   | SessionActionMetadata
   | ProfileUpdateMetadata
@@ -827,7 +878,8 @@ export type EventMetadata =
   | ClientErrorMetadata
   | ScrollDepthMetadata
   | TimeOnPageMetadata
-  | FirstBeachViewPostSignupMetadata;
+  | FirstBeachViewPostSignupMetadata
+  | AppleBetaPromptMetadata;
 
 /**
  * Full user event record as stored in the database

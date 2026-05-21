@@ -8,8 +8,6 @@ import { createLoggedSession } from "@/actions/session-actions";
 import { uploadSessionPhotosAction } from "@/actions/session-media-actions";
 import { createActivity } from "@/actions/activity-actions";
 import { track } from "@/lib/analytics";
-import { useTrackEvent } from "@/hooks/use-track-event";
-import type { SessionLogMetadata } from "@/types/implicit-preferences";
 import { slugify } from "@/lib/utils/text-utils";
 import { buildSessionPayload } from "@/lib/utils/session-data-builder";
 import { buildSessionShareUrl } from "@/lib/share/build-share-card-url";
@@ -25,7 +23,6 @@ export function useSessionSubmission({
   user,
 }: UseSessionSubmissionOptions) {
   const router = useRouter();
-  const { track: trackSupabase } = useTrackEvent();
 
   // Share state
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
@@ -165,21 +162,6 @@ export function useSessionSubmission({
             wave_rating: isFinite(wave as number) ? wave : undefined,
             crowd: isFinite(crowd as number) ? crowd : undefined,
             water_temp: isFinite(water as number) ? water : undefined,
-          });
-          // Parallel Supabase emission for funnel queries against user_events
-          // (GA call above feeds marketing dashboards; Supabase call is the
-          // funnel bookend that pairs with session_log_start).
-          const beachId = sessionData.selectedBeachId as string | undefined;
-          const ratingNum =
-            isFinite(wave as number) && (wave as number) >= 1 && (wave as number) <= 5
-              ? (wave as number)
-              : undefined;
-          trackSupabase("session_log_submit", {
-            beachId,
-            metadata: {
-              beach_id: beachId,
-              ...(ratingNum !== undefined ? { rating: ratingNum } : {}),
-            } as SessionLogMetadata,
           });
         } catch (e) { console.error('[SessionSubmission] error:', e); }
 

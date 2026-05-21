@@ -7,6 +7,9 @@ interface ArticleSchemaProps {
   dateModified?: string;
   author?: string;
   wordCount?: number;
+  articleSection?: string;
+  keywords?: string[];
+  type?: "Article" | "BlogPosting";
 }
 
 export function ArticleSchema({
@@ -18,6 +21,9 @@ export function ArticleSchema({
   dateModified,
   author = "Quiver",
   wordCount,
+  articleSection,
+  keywords,
+  type = "Article",
 }: ArticleSchemaProps) {
   const baseUrl =
     process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -28,7 +34,7 @@ export function ArticleSchema({
 
   const data: Record<string, unknown> = {
     "@context": "https://schema.org",
-    "@type": "Article",
+    "@type": type,
     headline: title,
     description,
     url: fullUrl,
@@ -57,6 +63,12 @@ export function ArticleSchema({
 
   if (wordCount) {
     data.wordCount = wordCount;
+  }
+  if (articleSection) {
+    data.articleSection = articleSection;
+  }
+  if (keywords && keywords.length > 0) {
+    data.keywords = keywords.join(", ");
   }
 
   return (
