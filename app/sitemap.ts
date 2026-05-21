@@ -16,6 +16,7 @@ import {
 import { slugifyAscii } from "@/lib/utils/text-utils";
 import { buildCitySlug } from "@/lib/seo/city-slug-utils";
 import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
+import { blogPosts } from "@/lib/data/blog-posts";
 import { learnArticles } from "@/lib/data/learn-articles";
 import { INDEXABLE_SEO_FUNNEL_PAGES } from "@/lib/seo/funnel-pages";
 
@@ -70,6 +71,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     seoFunnelRoutes,
     bestTimeRoutes,
     learnRoutes,
+    blogRoutes,
   ] = await Promise.all([
     Promise.resolve(getStaticRoutes()),
     Promise.resolve(buildBeachRoutes(allBeaches)),
@@ -81,6 +83,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     Promise.resolve(getSeoFunnelRoutes()),
     getBestTimeToSurfRoutes(),
     Promise.resolve(getLearnRoutes()),
+    Promise.resolve(getBlogRoutes()),
   ]);
 
   const routes = [
@@ -94,6 +97,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...seoFunnelRoutes,
     ...bestTimeRoutes,
     ...learnRoutes,
+    ...blogRoutes,
     ...getToolsRoutes(),
   ];
 
@@ -620,6 +624,28 @@ function getLearnRoutes(): MetadataRoute.Sitemap {
       lastModified: learnDate,
       changeFrequency: "monthly" as const,
       priority: 0.8,
+    })),
+  ];
+}
+
+/**
+ * Blog hub and post pages — founder notes and product transparency updates.
+ */
+function getBlogRoutes(): MetadataRoute.Sitemap {
+  const blogDate = "2026-05-21";
+
+  return [
+    {
+      url: `${baseUrl}/blog`,
+      lastModified: blogDate,
+      changeFrequency: "weekly",
+      priority: 0.75,
+    },
+    ...blogPosts.map((post) => ({
+      url: `${baseUrl}/blog/${post.slug}`,
+      lastModified: post.dateModified ?? post.datePublished,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
     })),
   ];
 }

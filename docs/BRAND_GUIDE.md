@@ -175,7 +175,7 @@ The line is: **every public page should be useful on its own.** If it only exist
 
 ## What Quiver is not
 
-**Quiver is not a media company.** No editorial content about "the best beginner boards for 2026." No lifestyle blog. No branded content partnerships. Quiver is a tool. If it's not helping you decide where to surf or remember where you surfed, it doesn't belong.
+**Quiver is not a media company.** No editorial content about "the best beginner boards for 2026." No lifestyle blog. No branded content partnerships. The `/blog` route is for founder notes, product transparency, forecast/session-learning writeups, and data notes that make Quiver more useful or more trustworthy. Quiver is a tool. If it's not helping you decide where to surf or remember where you surfed, it doesn't belong.
 
 **Quiver is not a data dashboard.** The goal is never to show more data. If a surfer has to interpret a chart to make a decision, something failed. The work of translating data into a recommendation happens inside Quiver, not inside the surfer's head.
 

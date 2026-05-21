@@ -218,9 +218,9 @@ The terrain analysis system encodes beach-specific wind shelter and swell wrap b
 
 **Status**: Production
 
-Single flat sitemap at `/sitemap.xml` combining all 6 route groups (static, beaches, locations, intents, guides, forecasts) via `Promise.all()`. Reverted from segmented `generateSitemaps()` pattern due to a Next.js 16 bug ([#77304](https://github.com/vercel/next.js/issues/77304)) where the sitemap index at `/sitemap.xml` returns 404.
+Single flat sitemap at `/sitemap.xml` combining route groups for static pages, beaches, locations, intents, guides, forecasts, cams, SEO funnel pages, best-time pages, learn articles, blog posts, and tools via `Promise.all()`. Reverted from segmented `generateSitemaps()` pattern due to a Next.js 16 bug ([#77304](https://github.com/vercel/next.js/issues/77304)) where the sitemap index at `/sitemap.xml` returns 404.
 
-**Implementation:** `app/sitemap.ts` (single file, ~330 lines)
+**Implementation:** `app/sitemap.ts` (single flat generator)
 
 ---
 
