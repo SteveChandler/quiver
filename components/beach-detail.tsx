@@ -222,7 +222,6 @@ interface BeachDetailProps {
   publicMode?: boolean;
   initialBeach?: Beach;
   beachTimezone?: string | null;
-  surfReportSlot?: ReactNode;
   surfCallReport?: SurfCallResult | null;
   surfCallIsTomorrow?: boolean;
   defaultTab?: "overview" | "forecast" | "reviews" | "intel" | "sessions";
@@ -251,7 +250,6 @@ function BeachDetailContent({
   publicMode = false,
   initialBeach,
   beachTimezone,
-  surfReportSlot,
   surfCallReport,
   surfCallIsTomorrow,
   defaultTab,
@@ -907,13 +905,6 @@ function BeachDetailContent({
         </div>
       )}
 
-      {/* Surf report slot — authenticated users only */}
-      {!publicMode && surfReportSlot && (
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-4">
-          {surfReportSlot}
-        </div>
-      )}
-
       {/* Cream zine page — replaces the dark twilight chrome (immersive hero,
           breadcrumb/H1 overlay, BeachStatsGrid, ConditionsTicker, BeachActions,
           MatchScoreTeaser, TrustStrip). The zine carries its own H1, hero photo,
@@ -942,6 +933,7 @@ function BeachDetailContent({
                 waterQuality={waterQuality}
                 beachPhoto={beachPhoto}
                 surfCallReport={surfCallReport}
+                beachTimezone={beachTimezone}
                 onWriteReview={() =>
                   handleWriteReview(REVIEW_TRACKING_SOURCES.OVERVIEW_CTA)
                 }

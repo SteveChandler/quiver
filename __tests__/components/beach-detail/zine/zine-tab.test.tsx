@@ -137,6 +137,53 @@ describe("ZineTab", () => {
     expect(screen.getByText(/for beginners/i)).toBeInTheDocument();
   });
 
+  it("formats zine surf-call stamp times in the beach timezone", () => {
+    const beach = createMockBeach({ name: "Marine Street Beach" });
+    render(
+      <ZineTab
+        beach={beach}
+        beachTimezone="America/Los_Angeles"
+        surfCallReport={{
+          verdict: "YES",
+          bestWindowStart: "2026-05-21T20:30:00.000Z",
+          bestWindowEnd: "2026-05-21T22:00:00.000Z",
+          waveHeight: "2-3 ft",
+          windCompass: "SW",
+          windSpeed: 8,
+          windType: "onshore",
+          tidePhase: "rising",
+          tideHeight: "0.7 ft",
+          whySentence: "Size is there, but onshore wind hurts shape.",
+          updatedAt: "2026-05-21T18:32:00.000Z",
+          tiers: {
+            beginner: {
+              verdict: "YES",
+              trail: "BEST AT 8:30 PM",
+              bestWindowStart: "2026-05-21T20:30:00.000Z",
+              bestWindowEnd: "2026-05-21T22:00:00.000Z",
+            },
+            intermediate: {
+              verdict: "YES",
+              trail: "BEST AT 8:30 PM",
+              bestWindowStart: "2026-05-21T20:30:00.000Z",
+              bestWindowEnd: "2026-05-21T22:00:00.000Z",
+            },
+            advanced: {
+              verdict: "YES",
+              trail: "BEST AT 8:30 PM",
+              bestWindowStart: "2026-05-21T20:30:00.000Z",
+              bestWindowEnd: "2026-05-21T22:00:00.000Z",
+            },
+          },
+          userTier: null,
+        } as any}
+      />,
+    );
+
+    expect(screen.getByText(/BEST AT 1:30 PM/i)).toBeInTheDocument();
+    expect(screen.queryByText(/BEST AT 8:30 PM/i)).not.toBeInTheDocument();
+  });
+
   it("hides Hazards panel when beach.hazards is empty", () => {
     const beach = createMockBeach({ name: "Seaside Reef", hazards: [] });
     render(<ZineTab beach={beach} />);

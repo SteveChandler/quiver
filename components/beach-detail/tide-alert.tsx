@@ -11,18 +11,18 @@ interface TideAlertProps {
 
 const alertStyles = {
   optimal: {
-    bg: "bg-emerald-50 border-emerald-200",
-    text: "text-emerald-700",
+    bg: "bg-emerald-100 border-emerald-300",
+    text: "text-emerald-900",
     icon: CheckCircle2,
   },
   waiting: {
-    bg: "bg-amber-50 border-amber-200",
-    text: "text-amber-700",
+    bg: "bg-amber-100 border-amber-300",
+    text: "text-amber-900",
     icon: Clock,
   },
   neutral: {
-    bg: "bg-gray-50 border-gray-200",
-    text: "text-gray-600",
+    bg: "bg-gray-100 border-gray-300",
+    text: "text-gray-900",
     icon: Waves,
   },
 };
@@ -34,7 +34,7 @@ export function TideAlertBadge({ alert, className }: TideAlertProps) {
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium",
+        "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-bold",
         style.bg,
         style.text,
         className

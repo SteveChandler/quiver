@@ -2,7 +2,6 @@ import { cache } from "react";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
-import { SpotSurfReportStream } from "@/components/spots/spot-surf-report";
 import { ZineNearbySpots } from "@/components/beach-detail/zine/zine-nearby-spots";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
@@ -308,7 +307,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           beach={beach}
           slug={beachSlug}
           beachTimezone={beachTimezone}
-          surfReportSlot={<SpotSurfReportStream beach={beach} />}
           surfCallReport={surfCallReport}
           surfCallIsTomorrow={surfCallIsTomorrow}
           amenities={amenitiesResult}

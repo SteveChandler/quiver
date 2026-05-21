@@ -1,7 +1,6 @@
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
-import { SpotSurfReportStream } from "@/components/spots/spot-surf-report";
 import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-section";
@@ -164,7 +163,6 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
           beach={beach}
           slug={params.beachSlug}
           beachTimezone={beachTimezone}
-          surfReportSlot={<SpotSurfReportStream beach={beach} />}
           surfCallReport={surfCallReport}
           surfCallIsTomorrow={surfCallIsTomorrow}
         />

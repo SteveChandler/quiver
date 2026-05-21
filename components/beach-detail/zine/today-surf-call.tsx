@@ -3,11 +3,13 @@ import type { Beach } from "@/types/database";
 import type { SurfCallResult, SurfCallVerdict } from "@/lib/utils/surf-call-logic";
 import type { SkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import { degreeWindowToCardinal } from "@/lib/utils/direction-utils";
+import { formatTimeInTimezone } from "@/lib/utils/date-time";
 import { DoodleWave, DoodleWind, DoodleTide, DoodleStar, TornDivider, HandArrow } from "./atoms";
 
 interface TodaySurfCallProps {
   beach: Beach;
   surfCallReport?: SurfCallResult | null;
+  beachTimezone?: string | null;
 }
 
 const VERDICT_COLOR: Record<SurfCallVerdict, string> = {
@@ -29,24 +31,21 @@ function selectDisplayTier(userTier: SkillLevel | null | undefined): TierKey {
   return "beginner";
 }
 
-export function TodaySurfCall({ beach, surfCallReport }: TodaySurfCallProps) {
+export function TodaySurfCall({ beach, surfCallReport, beachTimezone }: TodaySurfCallProps) {
   const tiers = surfCallReport?.tiers ?? null;
   const userTier = surfCallReport?.userTier ?? null;
   const displayTier: TierKey | null = tiers ? selectDisplayTier(userTier) : null;
   const tierSlice = displayTier && tiers ? tiers[displayTier] : null;
 
   const fallbackVerdict: SurfCallVerdict = surfCallReport?.verdict ?? "MAYBE";
-  const fallbackWindowFrom = formatWindow(surfCallReport?.bestWindowStart);
-  const fallbackWindowShort = fallbackWindowFrom ?? "—";
-  const fallbackTrail =
-    fallbackVerdict === "YES"
-      ? `BEST AT ${fallbackWindowShort}`
-      : fallbackVerdict === "MAYBE"
-        ? `TRY AT ${fallbackWindowShort}`
-        : "WAIT FOR SWELL";
 
   const verdict: SurfCallVerdict = tierSlice?.verdict ?? fallbackVerdict;
-  const trail = tierSlice?.trail ?? fallbackTrail;
+  const trail = buildDisplayTrail(
+    verdict,
+    tierSlice?.bestWindowStart ?? surfCallReport?.bestWindowStart ?? null,
+    beachTimezone,
+    tierSlice?.trail,
+  );
   const color = VERDICT_COLOR[verdict];
 
   const isAuthed = userTier != null;
@@ -60,7 +59,7 @@ export function TodaySurfCall({ beach, surfCallReport }: TodaySurfCallProps) {
       : null;
 
   const updatedAt = surfCallReport?.updatedAt
-    ? new Date(surfCallReport.updatedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+    ? formatTimeInTimezone(surfCallReport.updatedAt, beachTimezone) || null
     : null;
 
   return (
@@ -450,13 +449,28 @@ function ConditionCell({
   );
 }
 
-function formatWindow(iso: string | null | undefined): string | null {
+function isNonTimeTrailOverride(trail: string | null | undefined): boolean {
+  return !!trail && !/^(BEST|TRY) AT /i.test(trail);
+}
+
+function buildDisplayTrail(
+  verdict: SurfCallVerdict,
+  windowStart: string | null | undefined,
+  timezone: string | null | undefined,
+  trailOverride?: string | null,
+): string {
+  if (trailOverride && isNonTimeTrailOverride(trailOverride)) return trailOverride;
+
+  const formattedWindow = formatWindow(windowStart, timezone);
+  if (verdict === "YES") return formattedWindow ? `BEST AT ${formattedWindow}` : "PADDLE OUT";
+  if (verdict === "MAYBE") return formattedWindow ? `TRY AT ${formattedWindow}` : "KEEP WATCHING";
+  return "WAIT FOR SWELL";
+}
+
+function formatWindow(
+  iso: string | null | undefined,
+  timezone: string | null | undefined,
+): string | null {
   if (!iso) return null;
-  try {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return null;
-    return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  } catch {
-    return null;
-  }
+  return formatTimeInTimezone(iso, timezone) || null;
 }
