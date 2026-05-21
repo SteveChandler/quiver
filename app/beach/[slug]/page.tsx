@@ -17,7 +17,10 @@ import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import type { Beach } from "@/types/database";
 import type { BeachAmenities } from "@/types/amenities";
 import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  createPublicReadClient,
+  createSupabaseServiceRoleClient,
+} from "@/lib/supabase/server";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -73,14 +76,15 @@ export default async function BeachDetailBySlugPage(
     let amenities: BeachAmenities | null = null;
     let waterQuality: WaterQuality | null = null;
     try {
-      const supabase = await createSupabaseServerClient();
+      const serviceSupabase = createSupabaseServiceRoleClient();
+      const publicSupabase = createPublicReadClient();
       const [amenitiesResult, waterQualityResult] = await Promise.all([
-        supabase
+        serviceSupabase
           .from("mv_beach_amenities")
           .select("*")
           .eq("beach_id", beach.id)
           .maybeSingle(),
-        supabase
+        publicSupabase
           .from("beach_water_quality")
           .select("*")
           .eq("beach_id", beach.id)
