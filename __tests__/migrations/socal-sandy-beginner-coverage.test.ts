@@ -153,6 +153,24 @@ describe("SoCal sandy beginner coverage migration", () => {
     );
   });
 
+  it("keeps wind thresholds in beginner_window metadata instead of beach columns", () => {
+    expect(normalizedSQL).toContain("max_wind_any_mph integer");
+    expect(normalizedSQL).toContain("max_wind_onshore_mph integer");
+    expect(normalizedSQL).toContain('"max_beginner_wind_mph":10');
+    expect(normalizedSQL).not.toContain(
+      "max_wind_any_mph = profile.max_wind_any_mph",
+    );
+    expect(normalizedSQL).not.toContain(
+      "max_wind_onshore_mph = profile.max_wind_onshore_mph",
+    );
+    expect(normalizedSQL).not.toMatch(
+      /insert into public\.beaches \([^)]*max_wind_any_mph/s,
+    );
+    expect(normalizedSQL).not.toMatch(
+      /insert into public\.beaches \([^)]*max_wind_onshore_mph/s,
+    );
+  });
+
   it("writes beginner editorial JSON for public pages", () => {
     expect(normalizedSQL).toContain(
       "insert into public.beach_editorial_content",
