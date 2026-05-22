@@ -21,6 +21,9 @@ import type { ClientErrorMetadata } from "@/types/implicit-preferences";
 const MAX_MESSAGE_LENGTH = 200;
 const RATE_LIMIT_WINDOW_MS = 10_000;
 const RATE_LIMIT_MAX_EVENTS = 10;
+const IGNORED_UNHANDLED_REJECTION_MESSAGES = new Set([
+  "Error: WKWebView API client did not respond to this postMessage",
+]);
 
 // Module-scoped so the window survives React strict-mode double-effect runs.
 const recentErrorTimestamps: number[] = [];
@@ -59,6 +62,13 @@ function shouldEmit(now: number): boolean {
   return true;
 }
 
+function shouldIgnoreClientError(metadata: ClientErrorMetadata): boolean {
+  return (
+    metadata.source === "unhandled_rejection" &&
+    IGNORED_UNHANDLED_REJECTION_MESSAGES.has(metadata.message)
+  );
+}
+
 export function ClientErrorTracker(): null {
   const { track } = useTrackEvent();
 
@@ -66,6 +76,7 @@ export function ClientErrorTracker(): null {
     if (typeof window === "undefined") return;
 
     const emit = (metadata: ClientErrorMetadata) => {
+      if (shouldIgnoreClientError(metadata)) return;
       if (!shouldEmit(Date.now())) return;
       // Fire-and-forget; useTrackEvent already swallows errors.
       void track("client_error", { metadata });
