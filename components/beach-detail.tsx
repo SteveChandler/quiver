@@ -12,12 +12,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  AlertTriangle,
-  Waves,
-  Thermometer,
-  X,
-} from "lucide-react";
+import { AlertTriangle, Waves, Thermometer, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -154,20 +149,20 @@ function AlertNudge({
           </span>
         </div>
         <div className="flex items-center gap-2 px-1 sm:ml-3 sm:px-0">
-        <button
-          onClick={onSetupAlerts}
-          className="inline-flex min-h-9 items-center border-2 border-[#11100D] bg-[#F78E42] px-3 font-[var(--font-mono)] text-[11px] font-black uppercase tracking-[0.12em] text-[#11100D] shadow-[2px_2px_0_#11100D] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#E8DCC0]"
-        >
-          Set up alert
-        </button>
-        <button
-          onClick={dismiss}
-          aria-label="Dismiss"
-          className="inline-flex h-9 w-9 items-center justify-center text-[#5F5646] transition hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
+          <button
+            onClick={onSetupAlerts}
+            className="inline-flex min-h-9 items-center border-2 border-[#11100D] bg-[#F78E42] px-3 font-[var(--font-mono)] text-[11px] font-black uppercase tracking-[0.12em] text-[#11100D] shadow-[2px_2px_0_#11100D] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#E8DCC0]"
+          >
+            Set up alert
+          </button>
+          <button
+            onClick={dismiss}
+            aria-label="Dismiss"
+            className="inline-flex h-9 w-9 items-center justify-center text-[#5F5646] transition hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </aside>
   );
@@ -1089,6 +1084,12 @@ function BeachDetailContent({
                 (beach as any).swell_window_center_deg ?? null,
               swell_window_halfwidth_deg:
                 (beach as any).swell_window_halfwidth_deg ?? null,
+              break_type: (beach as any).break_type ?? null,
+              skill_level: (beach as any).skill_level ?? null,
+              features: (beach as any).features ?? null,
+              preference_model: (beach as any).preference_model ?? null,
+              max_wind_any_mph: (beach as any).max_wind_any_mph ?? null,
+              max_wind_onshore_mph: (beach as any).max_wind_onshore_mph ?? null,
             } satisfies BeachAlertMeta
           }
           open={alertCreationOpen}

@@ -37,16 +37,19 @@ jest.mock("svix", () => ({
 
 // Mock Supabase
 const mockUpdate = jest.fn();
+const mockInsert = jest.fn();
+const mockFrom = jest.fn();
 const mockEq = jest.fn();
 const mockIs = jest.fn();
 const mockSelect = jest.fn();
+const mockExistingLogSelect = jest.fn();
+const mockExistingLogEq = jest.fn();
+const mockExistingLogMaybeSingle = jest.fn();
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(() =>
     Promise.resolve({
-      from: jest.fn(() => ({
-        update: mockUpdate,
-      })),
+      from: mockFrom,
     })
   ),
 }));
@@ -92,6 +95,19 @@ describe("Resend Webhook Endpoint", () => {
     mockIs.mockReturnValue({ select: mockSelect });
     mockEq.mockReturnValue({ is: mockIs });
     mockUpdate.mockReturnValue({ eq: mockEq });
+    mockInsert.mockResolvedValue({ error: null });
+    mockExistingLogMaybeSingle.mockResolvedValue({
+      data: { id: "existing-log-id" },
+      error: null,
+    });
+    mockExistingLogEq.mockReturnValue({ maybeSingle: mockExistingLogMaybeSingle });
+    mockExistingLogSelect.mockReturnValue({ eq: mockExistingLogEq });
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "email_click_events") {
+        return { insert: mockInsert };
+      }
+      return { update: mockUpdate, select: mockExistingLogSelect };
+    });
   });
 
   afterEach(() => {
@@ -253,15 +269,31 @@ describe("Resend Webhook Endpoint", () => {
   });
 
   describe("Event Type: email.clicked", () => {
-    it("should update clicked_at column for email.clicked event", async () => {
+    it("should update clicked_at column and record click link for email.clicked event", async () => {
       mockVerify.mockReturnValueOnce({
         type: "email.clicked",
-        data: { email_id: "test-email-789" },
+        data: {
+          email_id: "test-email-789",
+          click: {
+            link: "https://www.quiversurf.app/beaches/foo?utm_medium=email",
+            timestamp: "2026-05-22T14:01:24.891Z",
+            userAgent: "Mozilla/5.0",
+            ipAddress: "203.0.113.10",
+          },
+        },
       });
 
       const request = createWebhookRequest({
         type: "email.clicked",
-        data: { email_id: "test-email-789" },
+        data: {
+          email_id: "test-email-789",
+          click: {
+            link: "https://www.quiversurf.app/beaches/foo?utm_medium=email",
+            timestamp: "2026-05-22T14:01:24.891Z",
+            userAgent: "Mozilla/5.0",
+            ipAddress: "203.0.113.10",
+          },
+        },
       });
 
       const response = await POST(request);
@@ -271,9 +303,83 @@ describe("Resend Webhook Endpoint", () => {
       expect(data.received).toBe(true);
       expect(data.processed).toBe(true);
 
-      expect(mockUpdate).toHaveBeenCalledWith({ clicked_at: expect.any(String) });
+      expect(mockUpdate).toHaveBeenCalledWith({
+        clicked_at: "2026-05-22T14:01:24.891Z",
+      });
       expect(mockEq).toHaveBeenCalledWith("resend_message_id", "test-email-789");
       expect(mockIs).toHaveBeenCalledWith("clicked_at", null);
+      expect(mockFrom).toHaveBeenCalledWith("email_click_events");
+      expect(mockInsert).toHaveBeenCalledWith({
+        email_send_log_id: "1",
+        resend_message_id: "test-email-789",
+        webhook_message_id: "msg_test123",
+        clicked_at: "2026-05-22T14:01:24.891Z",
+        link: "https://www.quiversurf.app/beaches/foo?utm_medium=email",
+        user_agent: "Mozilla/5.0",
+      });
+      expect(JSON.stringify(mockInsert.mock.calls[0][0])).not.toContain("203.0.113.10");
+    });
+
+    it("does not record click detail when email.clicked has no link", async () => {
+      mockVerify.mockReturnValueOnce({
+        type: "email.clicked",
+        data: {
+          email_id: "test-email-no-link",
+          click: { userAgent: "Mozilla/5.0" },
+        },
+      });
+
+      const request = createWebhookRequest({
+        type: "email.clicked",
+        data: {
+          email_id: "test-email-no-link",
+          click: { userAgent: "Mozilla/5.0" },
+        },
+      });
+
+      await POST(request);
+
+      expect(mockIs).toHaveBeenCalledWith("clicked_at", null);
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("still records click detail with email_send_log id when clicked_at was already set", async () => {
+      mockSelect.mockResolvedValueOnce({ data: [], error: null });
+      mockVerify.mockReturnValueOnce({
+        type: "email.clicked",
+        data: {
+          email_id: "already-clicked",
+          click: {
+            link: "https://www.quiversurf.app/alerts?utm_medium=email",
+          },
+        },
+      });
+
+      const request = createWebhookRequest({
+        type: "email.clicked",
+        data: {
+          email_id: "already-clicked",
+          click: {
+            link: "https://www.quiversurf.app/alerts?utm_medium=email",
+          },
+        },
+      });
+
+      await POST(request);
+
+      expect(mockIs).toHaveBeenCalledWith("clicked_at", null);
+      expect(mockExistingLogSelect).toHaveBeenCalledWith("id");
+      expect(mockExistingLogEq).toHaveBeenCalledWith(
+        "resend_message_id",
+        "already-clicked",
+      );
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email_send_log_id: "existing-log-id",
+          resend_message_id: "already-clicked",
+          link: "https://www.quiversurf.app/alerts?utm_medium=email",
+        }),
+      );
     });
   });
 
@@ -663,7 +769,6 @@ describe("Resend Webhook Endpoint", () => {
       const { withRateLimit } = require("@/lib/middleware/api-wrappers/rate-limit-wrapper");
 
       // Verify the mock is set up correctly (it's called during module import)
-      expect(withRateLimit).toBeDefined();
       expect(typeof withRateLimit).toBe("function");
     });
   });

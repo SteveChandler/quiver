@@ -207,6 +207,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl, { status: 301 });
   }
 
+  const northHbStreetsMatch = pathname
+    .toLowerCase()
+    .match(
+      /^\/ca\/huntington-beach\/north-hb-streets(\/(?:tides|water-temp))?$/,
+    );
+  if (northHbStreetsMatch) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = `/ca/huntington-beach/goldenwest${
+      northHbStreetsMatch[1] ?? ""
+    }`;
+    return NextResponse.redirect(redirectUrl, { status: 301 });
+  }
+
   /**
    * Canonicalize state-root casing
    * Example: /CA -> /ca

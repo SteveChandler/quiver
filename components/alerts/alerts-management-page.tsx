@@ -113,6 +113,18 @@ function toBeachAlertMeta(raw: Record<string, unknown>): BeachAlertMeta {
       typeof raw.swell_window_halfwidth_deg === "number"
         ? raw.swell_window_halfwidth_deg
         : null,
+    break_type: typeof raw.break_type === "string" ? raw.break_type : null,
+    skill_level: typeof raw.skill_level === "string" ? raw.skill_level : null,
+    features: Array.isArray(raw.features)
+      ? raw.features.filter((item): item is string => typeof item === "string")
+      : null,
+    preference_model: raw.preference_model ?? null,
+    max_wind_any_mph:
+      typeof raw.max_wind_any_mph === "number" ? raw.max_wind_any_mph : null,
+    max_wind_onshore_mph:
+      typeof raw.max_wind_onshore_mph === "number"
+        ? raw.max_wind_onshore_mph
+        : null,
   };
 }
 
@@ -131,7 +143,7 @@ async function fetchBeachMeta(beachId: string): Promise<BeachAlertMeta> {
   const json = await readJson(response);
   if (!response.ok) {
     throw new Error(
-      typeof json.message === "string" ? json.message : "Could not load beach"
+      typeof json.message === "string" ? json.message : "Could not load beach",
     );
   }
 
@@ -179,7 +191,7 @@ function formatConditionChips(conditions: AlertConditions): string[] {
     chips.push(
       `${conditions.tide_height_min_ft ?? "low"}-${
         conditions.tide_height_max_ft ?? "high"
-      } ft tide`
+      } ft tide`,
     );
   }
 
@@ -248,11 +260,11 @@ export function AlertsManagementPage() {
 
   const conditionRules = useMemo(
     () => rules.filter((rule) => rule.preset_type !== "similarity_match"),
-    [rules]
+    [rules],
   );
   const groupedRules = useMemo(
     () => groupRulesByBeach(conditionRules),
-    [conditionRules]
+    [conditionRules],
   );
 
   const loadRules = useCallback(async () => {
@@ -263,13 +275,15 @@ export function AlertsManagementPage() {
       const json = await readJson(response);
       if (!response.ok) {
         throw new Error(
-          typeof json.message === "string" ? json.message : "Could not load alerts"
+          typeof json.message === "string"
+            ? json.message
+            : "Could not load alerts",
         );
       }
       setRules((json.data as AlertRule[]) ?? []);
     } catch (error) {
       setRulesError(
-        error instanceof Error ? error.message : "Could not load alerts"
+        error instanceof Error ? error.message : "Could not load alerts",
       );
     } finally {
       setRulesLoading(false);
@@ -297,7 +311,7 @@ export function AlertsManagementPage() {
       try {
         const response = await fetch(
           `/api/beaches/search?query=${encodeURIComponent(query)}&limit=8`,
-          { signal: controller.signal }
+          { signal: controller.signal },
         );
         const json = await readJson(response);
         if (!response.ok) throw new Error("search failed");
@@ -324,7 +338,9 @@ export function AlertsManagementPage() {
       const beach = await fetchBeachMeta(beachId);
       setEditor({ mode: "create", beach });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not load beach");
+      toast.error(
+        error instanceof Error ? error.message : "Could not load beach",
+      );
     } finally {
       setEditorLoading(false);
     }
@@ -336,13 +352,18 @@ export function AlertsManagementPage() {
       const beach = await fetchBeachMeta(rule.beach_id);
       setEditor({ mode: "edit", beach, rule });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not load beach");
+      toast.error(
+        error instanceof Error ? error.message : "Could not load beach",
+      );
     } finally {
       setEditorLoading(false);
     }
   };
 
-  const patchRule = async (ruleId: string, updates: Record<string, unknown>) => {
+  const patchRule = async (
+    ruleId: string,
+    updates: Record<string, unknown>,
+  ) => {
     const response = await fetch(`/api/alerts/rules/${ruleId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -351,7 +372,9 @@ export function AlertsManagementPage() {
     const json = await readJson(response);
     if (!response.ok) {
       throw new Error(
-        typeof json.message === "string" ? json.message : "Could not update alert"
+        typeof json.message === "string"
+          ? json.message
+          : "Could not update alert",
       );
     }
     await loadRules();
@@ -360,8 +383,8 @@ export function AlertsManagementPage() {
   const handleToggleRule = async (rule: AlertRule) => {
     setRules((prev) =>
       prev.map((item) =>
-        item.id === rule.id ? { ...item, enabled: !item.enabled } : item
-      )
+        item.id === rule.id ? { ...item, enabled: !item.enabled } : item,
+      ),
     );
     try {
       await patchRule(rule.id, { enabled: !rule.enabled });
@@ -369,10 +392,12 @@ export function AlertsManagementPage() {
     } catch (error) {
       setRules((prev) =>
         prev.map((item) =>
-          item.id === rule.id ? { ...item, enabled: rule.enabled } : item
-        )
+          item.id === rule.id ? { ...item, enabled: rule.enabled } : item,
+        ),
       );
-      toast.error(error instanceof Error ? error.message : "Could not update alert");
+      toast.error(
+        error instanceof Error ? error.message : "Could not update alert",
+      );
     }
   };
 
@@ -389,13 +414,17 @@ export function AlertsManagementPage() {
       const json = await readJson(response);
       if (!response.ok) {
         throw new Error(
-          typeof json.message === "string" ? json.message : "Could not delete alert"
+          typeof json.message === "string"
+            ? json.message
+            : "Could not delete alert",
         );
       }
       toast.success("Alert deleted");
     } catch (error) {
       setRules(previous);
-      toast.error(error instanceof Error ? error.message : "Could not delete alert");
+      toast.error(
+        error instanceof Error ? error.message : "Could not delete alert",
+      );
     }
   };
 
@@ -422,7 +451,9 @@ export function AlertsManagementPage() {
           </div>
           <Button
             type="button"
-            onClick={() => document.getElementById("alert-beach-search")?.focus()}
+            onClick={() =>
+              document.getElementById("alert-beach-search")?.focus()
+            }
             className="h-11 rounded-md bg-[#F78E42] px-4 font-semibold text-white hover:bg-[#F78E42]/90"
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -443,10 +474,7 @@ export function AlertsManagementPage() {
               conditions before saving.
             </p>
             <div className="mt-4">
-              <label
-                htmlFor="alert-beach-search"
-                className="sr-only"
-              >
+              <label htmlFor="alert-beach-search" className="sr-only">
                 Search beaches
               </label>
               <input
@@ -466,7 +494,9 @@ export function AlertsManagementPage() {
                 </div>
               ) : null}
 
-              {!searchLoading && searchQuery.trim().length >= 2 && beachResults.length === 0 ? (
+              {!searchLoading &&
+              searchQuery.trim().length >= 2 &&
+              beachResults.length === 0 ? (
                 <div className="rounded-md border border-[#404C92]/60 bg-[#1E2660]/70 px-3 py-3 text-sm text-[#B8C7E0]">
                   No beaches found
                 </div>
@@ -685,9 +715,8 @@ function AlertRuleEditorDialog({
   onSaved: () => Promise<void>;
 }) {
   const [name, setName] = useState("");
-  const [conditions, setConditions] = useState<AlertConditions>(
-    LONGBOARD_CONDITIONS
-  );
+  const [conditions, setConditions] =
+    useState<AlertConditions>(LONGBOARD_CONDITIONS);
   const [notifyPush, setNotifyPush] = useState(true);
   const [notifyEmail, setNotifyEmail] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -762,17 +791,16 @@ function AlertRuleEditorDialog({
       const json = await readJson(response);
       if (!response.ok) {
         throw new Error(
-          typeof json.message === "string" ||
-          typeof json.error === "string"
+          typeof json.message === "string" || typeof json.error === "string"
             ? String(json.message ?? json.error)
-            : "Could not save alert"
+            : "Could not save alert",
         );
       }
       toast.success(editor.mode === "edit" ? "Alert updated" : "Alert created");
       await onSaved();
     } catch (saveError) {
       setError(
-        saveError instanceof Error ? saveError.message : "Could not save alert"
+        saveError instanceof Error ? saveError.message : "Could not save alert",
       );
     } finally {
       setSaving(false);

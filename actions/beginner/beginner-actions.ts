@@ -19,10 +19,47 @@ import type {
 } from "@/types/beginner";
 import type { BeginnerNotesContent } from "@/types/editorial-content";
 import { getOptimizedImageUrl } from "@/lib/image-proxy";
+import {
+  evaluateBeginnerWindow,
+  type BeginnerWindowEvaluation,
+} from "@/lib/beginner/beginner-window-evaluator";
 
 // ================================================
 // Internal Helpers
 // ================================================
+
+interface BeginnerBeachRankingMeta {
+  id: string;
+  name: string;
+  slug: string | null;
+  timezone: string | null;
+  average_rating: number | null;
+  review_count?: number | null;
+  break_type: string | null;
+  skill_level: string | null;
+  features: string[] | null;
+  preference_model: unknown;
+  preferred_tide_ft_min: number | null;
+  preferred_tide_ft_max: number | null;
+}
+
+interface BeginnerForecastForRanking {
+  beach_id: string;
+  wave_height: string | null;
+  wind_speed: string | null;
+  tide_status: string | null;
+  tide_height: string | null;
+  forecast_at: string | null;
+}
+
+interface BeginnerBeachSort {
+  conditionPriority: number;
+  fitPriority: number;
+  editorialPriority: number;
+  rating: number;
+  reviewCount: number;
+  name: string;
+}
 
 function escapeLikePattern(pattern: string): string {
   return pattern.replace(/[%_]/g, "\\$&");
@@ -32,38 +69,184 @@ function cityNameFromSlug(citySlug: string): string {
   return parseLocationFromSlug(citySlug);
 }
 
+function readRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function readBeginnerFit(preferenceModel: unknown): string | null {
+  const preference = readRecord(preferenceModel);
+  const beginnerWindow = readRecord(preference?.beginner_window);
+  const fit = beginnerWindow?.beginner_fit;
+  return typeof fit === "string" ? fit.toLowerCase() : null;
+}
+
+function getBeginnerFitPriority(beach: BeginnerBeachRankingMeta): number {
+  const beginnerFit = readBeginnerFit(beach.preference_model);
+  if (beginnerFit === "primary") return 0;
+  if (beginnerFit === "conditional") return 1;
+  if (beginnerFit === "no") return 4;
+
+  const skillLevel = beach.skill_level?.toLowerCase() ?? "";
+  const features = (beach.features ?? []).join(" ").toLowerCase();
+  if (skillLevel.includes("beginner") || features.includes("beginner")) {
+    return 1;
+  }
+  if (skillLevel.includes("longboard")) return 2;
+  return 3;
+}
+
+function parseWaveHeightMaxOrNull(waveHeight: string | null): number | null {
+  if (!waveHeight) return null;
+  const range = parseWaveHeightRange(waveHeight);
+  if (range) return range.max;
+  const parsed = parseFloatSafe(waveHeight, Number.NaN);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseWindSpeedOrNull(windSpeed: string | null): number | null {
+  const parsed = parseWindSpeed(windSpeed, Number.NaN);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseTideHeightOrNull(tideHeight: string | null): number | null {
+  const parsed = parseFloatSafe(tideHeight, Number.NaN);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+async function getTodayLatestForecastMap(
+  supabase: ReturnType<typeof createPublicReadClient>,
+  beachIds: string[],
+): Promise<Map<string, BeginnerForecastForRanking>> {
+  if (beachIds.length === 0) return new Map();
+
+  const today = new Date().toISOString().split("T")[0];
+  const nextDay = new Date(new Date(today + "T00:00:00Z").getTime() + 86400000)
+    .toISOString()
+    .split("T")[0];
+
+  const { data: forecasts } = await supabase
+    .from("enhanced_forecasts")
+    .select("beach_id, wave_height, wind_speed, tide_status, tide_height, forecast_at")
+    .in("beach_id", beachIds)
+    .gte("forecast_at", `${today}T00:00:00Z`)
+    .lt("forecast_at", `${nextDay}T00:00:00Z`)
+    .order("forecast_at", { ascending: false });
+
+  const forecastMap = new Map<string, BeginnerForecastForRanking>();
+  if (!forecasts) return forecastMap;
+
+  for (const forecast of forecasts as BeginnerForecastForRanking[]) {
+    if (!forecastMap.has(forecast.beach_id)) {
+      forecastMap.set(forecast.beach_id, forecast);
+    }
+  }
+
+  return forecastMap;
+}
+
+function getConditionPriority(
+  beach: BeginnerBeachRankingMeta,
+  forecast: BeginnerForecastForRanking | undefined,
+): number {
+  if (!forecast) return 2;
+
+  const waveHeightFtMax = parseWaveHeightMaxOrNull(forecast.wave_height);
+  const windSpeedMph = parseWindSpeedOrNull(forecast.wind_speed);
+  const tideHeightFt = parseTideHeightOrNull(forecast.tide_height);
+  const evaluation = evaluateBeginnerWindow({
+    beach,
+    waveHeightFtMax,
+    windSpeedMph,
+    tideStatus: forecast.tide_status,
+    tideHeightFt,
+    forecastAt: forecast.forecast_at,
+    timezone: beach.timezone,
+  });
+
+  if (!evaluation.applies) return 2;
+  if (evaluation.rating === "ideal") return 0;
+  if (evaluation.rating === "acceptable") return 1;
+  return 3;
+}
+
+function buildBeginnerBeachSort(
+  beach: BeginnerBeachRankingMeta,
+  forecast: BeginnerForecastForRanking | undefined,
+  hasEditorial = false,
+): BeginnerBeachSort {
+  return {
+    conditionPriority: getConditionPriority(beach, forecast),
+    fitPriority: getBeginnerFitPriority(beach),
+    editorialPriority: hasEditorial ? 0 : 1,
+    rating: beach.average_rating ?? 0,
+    reviewCount: beach.review_count ?? 0,
+    name: beach.name,
+  };
+}
+
+function compareBeginnerBeachSort(
+  a: BeginnerBeachSort,
+  b: BeginnerBeachSort,
+): number {
+  if (a.conditionPriority !== b.conditionPriority) {
+    return a.conditionPriority - b.conditionPriority;
+  }
+  if (a.fitPriority !== b.fitPriority) return a.fitPriority - b.fitPriority;
+  if (a.editorialPriority !== b.editorialPriority) {
+    return a.editorialPriority - b.editorialPriority;
+  }
+  if (a.rating !== b.rating) return b.rating - a.rating;
+  if (a.reviewCount !== b.reviewCount) return b.reviewCount - a.reviewCount;
+  return a.name.localeCompare(b.name);
+}
+
 async function findTopBeginnerBeach(
   supabase: ReturnType<typeof createPublicReadClient>,
   citySlug: string,
-  stateSlug: string
-): Promise<{ id: string; name: string; slug: string } | null> {
+  stateSlug: string,
+): Promise<BeginnerBeachRankingMeta | null> {
   const cityName = cityNameFromSlug(citySlug);
   const escapedCity = escapeLikePattern(cityName);
   const normalizedState = stateSlug.toUpperCase();
 
   const { data, error } = await supabase
     .from("beaches")
-    .select("id, name, slug, average_rating")
+    .select(
+      "id, name, slug, timezone, average_rating, break_type, skill_level, features, preference_model, preferred_tide_ft_min, preferred_tide_ft_max",
+    )
     .or(
-      `city.ilike.%${escapedCity}%,city.ilike.%${escapeLikePattern(citySlug)}%`
+      `city.ilike.%${escapedCity}%,city.ilike.%${escapeLikePattern(citySlug)}%`,
     )
     .eq("state", normalizedState)
     .or("is_private.is.null,is_private.eq.false")
     .or("skill_level.ilike.%beginner%,skill_level.ilike.%longboard%")
-    .order("average_rating", { ascending: false, nullsFirst: false })
-    .limit(1);
+    .order("average_rating", { ascending: false, nullsFirst: false });
 
   if (error || !data || data.length === 0) return null;
 
-  return { id: data[0].id, name: data[0].name, slug: data[0].slug ?? "" };
+  const beaches = data as BeginnerBeachRankingMeta[];
+  const forecastMap = await getTodayLatestForecastMap(
+    supabase,
+    beaches.map((beach) => beach.id),
+  );
+
+  return [...beaches].sort((a, b) =>
+    compareBeginnerBeachSort(
+      buildBeginnerBeachSort(a, forecastMap.get(a.id)),
+      buildBeginnerBeachSort(b, forecastMap.get(b.id)),
+    ),
+  )[0];
 }
 
 async function getLatestForecast(
   supabase: ReturnType<typeof createPublicReadClient>,
-  beachId: string
+  beachId: string,
 ): Promise<Record<string, any> | null> {
   const today = new Date().toISOString().split("T")[0];
-  const nextDay = new Date(new Date(today + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
+  const nextDay = new Date(new Date(today + "T00:00:00Z").getTime() + 86400000)
+    .toISOString()
+    .split("T")[0];
 
   const { data: todayData, error: todayError } = await supabase
     .from("enhanced_forecasts")
@@ -88,10 +271,7 @@ async function getLatestForecast(
 }
 
 function parseWaveHeightMax(waveHeight: string | null): number {
-  if (!waveHeight) return 0;
-  const range = parseWaveHeightRange(waveHeight);
-  if (range) return range.max;
-  return parseFloatSafe(waveHeight, 0);
+  return parseWaveHeightMaxOrNull(waveHeight) ?? 0;
 }
 
 function formatWaveHeight(waveHeight: string | null): string {
@@ -103,8 +283,9 @@ function formatWaveHeight(waveHeight: string | null): string {
 
 function formatWind(
   windSpeed: string | null,
-  windDirection: string | null
+  windDirection: string | null,
 ): string {
+  if (!windSpeed) return "Wind unavailable";
   const speed = parseWindSpeed(windSpeed, 0);
   const dir = windDirection ? windDirection.trim() : "";
   if (speed === 0) return "Calm";
@@ -123,8 +304,15 @@ function formatWaterTemp(waterTemp: string | null): string {
 function determineConditionStatus(
   waveHeightMax: number,
   windSpeedNum: number,
-  windDirection: string | null
+  windDirection: string | null,
+  beginnerWindow: BeginnerWindowEvaluation | null = null,
 ): BeginnerConditionStatus {
+  if (beginnerWindow?.applies) {
+    if (beginnerWindow.rating === "ideal") return "great";
+    if (beginnerWindow.rating === "acceptable") return "fair";
+    return "challenging";
+  }
+
   const isStrongOnshore =
     windDirection && /onshore/i.test(windDirection) && windSpeedNum > 12;
 
@@ -168,15 +356,36 @@ function getCrowdEstimate(): { value: string; status: MetricStatus } {
 function getWaveHeightMetric(waveHeight: string | null): ConditionMetric {
   const maxHeight = parseWaveHeightMax(waveHeight);
   const value = formatWaveHeight(waveHeight);
-  if (maxHeight < 3) return { value, label: "Ideal for learning", status: "good" };
-  if (maxHeight <= 4) return { value, label: "Slightly challenging", status: "caution" };
+  if (maxHeight < 3)
+    return { value, label: "Ideal for learning", status: "good" };
+  if (maxHeight <= 4)
+    return { value, label: "Slightly challenging", status: "caution" };
   return { value, label: "Too large for beginners", status: "warning" };
+}
+
+function applyBeginnerWindowMetric(
+  metric: ConditionMetric,
+  status: BeginnerWindowEvaluation["statuses"][keyof BeginnerWindowEvaluation["statuses"]],
+  label: string,
+): ConditionMetric {
+  if (status === "ideal") return { ...metric, label, status: "good" };
+  if (status === "acceptable") return { ...metric, label, status: "caution" };
+  if (status === "poor") return { ...metric, label, status: "warning" };
+  return { ...metric, label, status: "caution" };
 }
 
 function getWindMetric(
   windSpeed: string | null,
-  windDirection: string | null
+  windDirection: string | null,
 ): ConditionMetric {
+  if (!windSpeed) {
+    return {
+      value: "Wind unavailable",
+      label: "Wind unavailable",
+      status: "caution",
+    };
+  }
+
   const speed = parseWindSpeed(windSpeed, 0);
   const value = formatWind(windSpeed, windDirection);
   if (speed < 8) return { value, label: "Clean conditions", status: "good" };
@@ -190,33 +399,61 @@ function getWaterTempMetric(waterTemp: string | null): ConditionMetricWithIcon {
   if (temp >= 65)
     return { value, label: "Warm", status: "good", icon: "thermometer-sun" };
   if (temp >= 55)
-    return { value, label: "Cool - wetsuit recommended", status: "caution", icon: "thermometer" };
+    return {
+      value,
+      label: "Cool - wetsuit recommended",
+      status: "caution",
+      icon: "thermometer",
+    };
   if (temp > 0)
-    return { value, label: "Cold - full wetsuit required", status: "warning", icon: "thermometer-snowflake" };
-  return { value, label: "Temperature unavailable", status: "good", icon: "thermometer" };
+    return {
+      value,
+      label: "Cold - full wetsuit required",
+      status: "warning",
+      icon: "thermometer-snowflake",
+    };
+  return {
+    value,
+    label: "Temperature unavailable",
+    status: "good",
+    icon: "thermometer",
+  };
 }
 
 function getTideMetric(
   tideStatus: string | null,
-  tideHeight: string | null
+  tideHeight: string | null,
+  beginnerWindow: BeginnerWindowEvaluation | null = null,
 ): ConditionMetric {
   const height = tideHeight ? tideHeight.trim() : "";
   const status = tideStatus ? tideStatus.trim() : "Unknown";
   const heightDisplay = height ? ` (${height})` : "";
-  return { value: `${status}${heightDisplay}`, label: status, status: "good" };
+  const metric: ConditionMetric = {
+    value: `${status}${heightDisplay}`,
+    label: status,
+    status: "good",
+  };
+
+  if (!beginnerWindow?.applies) return metric;
+  return applyBeginnerWindowMetric(
+    metric,
+    beginnerWindow.statuses.tide,
+    beginnerWindow.labels.tide,
+  );
 }
 
 function generateSummary(
   waveStatus: MetricStatus,
   windStatus: MetricStatus,
-  crowdStatus: MetricStatus
+  crowdStatus: MetricStatus,
+  tideStatus: MetricStatus,
 ): string {
-  const statuses = [waveStatus, windStatus, crowdStatus];
+  const statuses = [waveStatus, windStatus, crowdStatus, tideStatus];
   if (statuses.every((s) => s === "good"))
-    return "Head out now \u2013 conditions are textbook for a first session";
+    return "Small, clean, early, and low-to-mid tide - a strong learner window";
   if (statuses.includes("warning"))
     return "Consider waiting for conditions to improve";
-  return "Decent conditions \u2013 worth a paddle if you\u2019re keen";
+  return "Decent learner setup, but check the details before paddling out";
 }
 
 // ================================================
@@ -229,7 +466,7 @@ function generateSummary(
  */
 export async function getBeginnerConditionsData(
   citySlug: string,
-  stateSlug: string
+  stateSlug: string,
 ): Promise<{
   badge: BeginnerConditionsBadge | null;
   rightNow: RightNowConditions | null;
@@ -244,11 +481,26 @@ export async function getBeginnerConditionsData(
 
     // Badge
     const waveHeightMax = parseWaveHeightMax(forecast.wave_height);
+    const beginnerWaveHeightMax = parseWaveHeightMaxOrNull(
+      forecast.wave_height,
+    );
     const windSpeedNum = parseWindSpeed(forecast.wind_speed, 0);
+    const beginnerWindSpeedMph = parseWindSpeedOrNull(forecast.wind_speed);
+    const tideHeightNum = parseTideHeightOrNull(forecast.tide_height);
+    const beginnerWindow = evaluateBeginnerWindow({
+      beach,
+      waveHeightFtMax: beginnerWaveHeightMax,
+      windSpeedMph: beginnerWindSpeedMph,
+      tideStatus: forecast.tide_status,
+      tideHeightFt: tideHeightNum,
+      forecastAt: forecast.forecast_at,
+      timezone: beach.timezone,
+    });
     const status = determineConditionStatus(
       waveHeightMax,
       windSpeedNum,
-      forecast.wind_direction
+      forecast.wind_direction,
+      beginnerWindow,
     );
 
     const badge: BeginnerConditionsBadge = {
@@ -258,14 +510,35 @@ export async function getBeginnerConditionsData(
       wind: formatWind(forecast.wind_speed, forecast.wind_direction),
       waterTemp: formatWaterTemp(forecast.water_temp),
       spotName: beach.name,
-      spotSlug: beach.slug,
+      spotSlug: beach.slug ?? "",
     };
 
     // Right Now
-    const waveHeightMetric = getWaveHeightMetric(forecast.wave_height);
-    const windMetric = getWindMetric(forecast.wind_speed, forecast.wind_direction);
+    const rawWaveHeightMetric = getWaveHeightMetric(forecast.wave_height);
+    const waveHeightMetric = beginnerWindow.applies
+      ? applyBeginnerWindowMetric(
+          rawWaveHeightMetric,
+          beginnerWindow.statuses.wave,
+          beginnerWindow.labels.wave,
+        )
+      : rawWaveHeightMetric;
+    const rawWindMetric = getWindMetric(
+      forecast.wind_speed,
+      forecast.wind_direction,
+    );
+    const windMetric = beginnerWindow.applies
+      ? applyBeginnerWindowMetric(
+          rawWindMetric,
+          beginnerWindow.statuses.wind,
+          beginnerWindow.labels.wind,
+        )
+      : rawWindMetric;
     const waterTempMetric = getWaterTempMetric(forecast.water_temp);
-    const tideMetric = getTideMetric(forecast.tide_status, forecast.tide_height);
+    const tideMetric = getTideMetric(
+      forecast.tide_status,
+      forecast.tide_height,
+      beginnerWindow,
+    );
     const crowdEstimate = getCrowdEstimate();
     const crowdMetric: ConditionMetric = {
       value: crowdEstimate.value,
@@ -275,7 +548,7 @@ export async function getBeginnerConditionsData(
 
     const rightNow: RightNowConditions = {
       spotName: beach.name,
-      spotSlug: beach.slug,
+      spotSlug: beach.slug ?? "",
       metrics: {
         waveHeight: waveHeightMetric,
         wind: windMetric,
@@ -286,7 +559,8 @@ export async function getBeginnerConditionsData(
       summary: generateSummary(
         waveHeightMetric.status,
         windMetric.status,
-        crowdMetric.status
+        crowdMetric.status,
+        tideMetric.status,
       ),
       lastUpdated: forecast.updated_at || new Date().toISOString(),
     };
@@ -300,7 +574,7 @@ export async function getBeginnerConditionsData(
 
 export async function getBeginnerBeachesWithEditorial(
   citySlug: string,
-  stateSlug: string
+  stateSlug: string,
 ): Promise<BeginnerBeachWithEditorial[]> {
   try {
     const supabase = createPublicReadClient();
@@ -312,13 +586,15 @@ export async function getBeginnerBeachesWithEditorial(
       .from("beaches")
       .select(
         `
-        id, name, slug, city, state, average_rating, review_count, skill_level, break_type,
+        id, name, slug, city, state, timezone, average_rating, review_count,
+        skill_level, break_type, features, preference_model,
+        preferred_tide_ft_min, preferred_tide_ft_max,
         beach_editorial_content!left ( content_type, content ),
         beach_photos!left ( image_url )
-      `
+      `,
       )
       .or(
-        `city.ilike.%${escapedCity}%,city.ilike.%${escapeLikePattern(citySlug)}%`
+        `city.ilike.%${escapedCity}%,city.ilike.%${escapeLikePattern(citySlug)}%`,
       )
       .eq("state", normalizedState)
       .or("is_private.is.null,is_private.eq.false")
@@ -327,36 +603,22 @@ export async function getBeginnerBeachesWithEditorial(
 
     if (error || !beaches || beaches.length === 0) return [];
 
-    // Batch fetch current wave heights
-    const today = new Date().toISOString().split("T")[0];
-    const nextDay = new Date(new Date(today + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
-    const beachIds = beaches.map((b: any) => b.id);
+    const beachRows = beaches as BeginnerBeachRankingMeta[];
+    const forecastMap = await getTodayLatestForecastMap(
+      supabase,
+      beachRows.map((beach) => beach.id),
+    );
 
-    const { data: forecasts } = await supabase
-      .from("enhanced_forecasts")
-      .select("beach_id, wave_height")
-      .in("beach_id", beachIds)
-      .gte("forecast_at", `${today}T00:00:00Z`)
-      .lt("forecast_at", `${nextDay}T00:00:00Z`)
-      .order("forecast_at", { ascending: false });
-
-    const waveHeightMap = new Map<string, string>();
-    if (forecasts) {
-      for (const f of forecasts) {
-        if (!waveHeightMap.has(f.beach_id)) {
-          waveHeightMap.set(f.beach_id, f.wave_height ?? "");
-        }
-      }
-    }
-
-    return beaches.map((beach: any) => {
+    return beachRows.map((beach: any) => {
       const editorialRows = Array.isArray(beach.beach_editorial_content)
         ? beach.beach_editorial_content
         : [];
       const beginnerNotesRow = editorialRows.find(
-        (e: any) => e.content_type === "beginner_notes"
+        (e: any) => e.content_type === "beginner_notes",
       );
-      const content = beginnerNotesRow?.content as BeginnerNotesContent | undefined;
+      const content = beginnerNotesRow?.content as
+        | BeginnerNotesContent
+        | undefined;
 
       let editorial: BeginnerBeachWithEditorial["editorial"] = null;
       if (content?.why_beginners_love_it && content?.logistics) {
@@ -381,24 +643,30 @@ export async function getBeginnerBeachesWithEditorial(
       const photoUrl = firstPhoto
         ? getOptimizedImageUrl(firstPhoto.image_url)
         : null;
+      const forecast = forecastMap.get(beach.id);
 
       return {
-        id: beach.id,
-        name: beach.name,
-        slug: beach.slug ?? "",
-        city: beach.city ?? null,
-        state: beach.state ?? null,
-        rating: beach.average_rating ?? 0,
-        reviewCount: beach.review_count ?? 0,
-        skillLevel: beach.skill_level ?? "beginner",
-        breakType: beach.break_type ?? "",
-        currentWaveHeight: waveHeightMap.get(beach.id)
-          ? formatWaveHeight(waveHeightMap.get(beach.id)!)
-          : null,
-        editorial,
-        photoUrl,
+        beach: {
+          id: beach.id,
+          name: beach.name,
+          slug: beach.slug ?? "",
+          city: beach.city ?? null,
+          state: beach.state ?? null,
+          rating: beach.average_rating ?? 0,
+          reviewCount: beach.review_count ?? 0,
+          skillLevel: beach.skill_level ?? "beginner",
+          breakType: beach.break_type ?? "",
+          currentWaveHeight: forecast?.wave_height
+            ? formatWaveHeight(forecast.wave_height)
+            : null,
+          editorial,
+          photoUrl,
+        },
+        sort: buildBeginnerBeachSort(beach, forecast, editorial !== null),
       };
-    });
+    })
+      .sort((a, b) => compareBeginnerBeachSort(a.sort, b.sort))
+      .map((ranked) => ranked.beach);
   } catch (error) {
     console.error("[getBeginnerBeachesWithEditorial] Error:", error);
     return [];
@@ -407,7 +675,7 @@ export async function getBeginnerBeachesWithEditorial(
 
 export async function getBeginnerCityEditorial(
   citySlug: string,
-  stateSlug: string
+  stateSlug: string,
 ): Promise<BeginnerCityEditorial | null> {
   try {
     const supabase = createPublicReadClient();

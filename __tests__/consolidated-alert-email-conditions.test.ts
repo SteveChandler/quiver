@@ -36,7 +36,9 @@ describe("buildConditionsLine", () => {
 
     const line = buildConditionsLine(snap);
 
-    expect(line).toBe("\u{1F30A} 1-2ft @ 5s W, \u{1F4A8} 5 mph NW, \u{1F4C9} tide rising");
+    expect(line).toBe(
+      "\u{1F30A} 1-2ft @ 5s W, \u{1F4A8} 5 mph NW, \u{1F4C9} tide rising",
+    );
   });
 
   it("prefers wave_period + wave_direction over swell_1_* (matches the web Current Conditions card)", () => {
@@ -116,8 +118,24 @@ describe("buildConditionsLine", () => {
   });
 
   it("lowercases tide_status regardless of input casing", () => {
-    expect(buildConditionsLine({ tide_status: "RISING" })).toContain("tide rising");
-    expect(buildConditionsLine({ tide_status: "rising" })).toContain("tide rising");
+    expect(buildConditionsLine({ tide_status: "RISING" })).toContain(
+      "tide rising",
+    );
+    expect(buildConditionsLine({ tide_status: "rising" })).toContain(
+      "tide rising",
+    );
+  });
+
+  it("includes beginner alert rationale when the evaluator snapshots it", () => {
+    expect(
+      buildConditionsLine({
+        wave_height: 1.5,
+        wind_speed: 4,
+        tide_status: "Rising",
+        beginner_window_reason:
+          "small waves, light wind, morning window, rising tide.",
+      }),
+    ).toContain("why: small waves, light wind, morning window, rising tide.");
   });
 });
 
@@ -142,18 +160,23 @@ function makeMatch(overrides: Partial<MatchingWindow> = {}): MatchingWindow {
 describe("surf report email copy", () => {
   it("builds a native-handled beach URL from the public slug", () => {
     expect(
-      buildEmailBeachUrl("https://www.quiversurf.app", makeMatch({ beach_slug: "mission-beach" }))
+      buildEmailBeachUrl(
+        "https://www.quiversurf.app",
+        makeMatch({ beach_slug: "mission-beach" }),
+      ),
     ).toBe("https://www.quiversurf.app/beach/mission-beach");
   });
 
   it("falls back to the beach id when a slug is unavailable", () => {
     expect(buildEmailBeachUrl("https://www.quiversurf.app", makeMatch())).toBe(
-      "https://www.quiversurf.app/beach/beach-1"
+      "https://www.quiversurf.app/beach/beach-1",
     );
   });
 
   it("removes stale home-break wording from rule names in alert emails", () => {
-    expect(formatEmailRuleName("Mellow session at your home break")).toBe("Mellow session");
+    expect(formatEmailRuleName("Mellow session at your home break")).toBe(
+      "Mellow session",
+    );
   });
 
   it("shortens weekday copy in the heading date", () => {
@@ -173,8 +196,8 @@ describe("surf report email copy", () => {
         makeMatch({
           window_end: "2026-05-06T18:00:00Z",
           best_hour: "2026-05-06T16:00:00Z",
-        })
-      )
+        }),
+      ),
     ).toEqual({
       label: "Best Window",
       text: "8:00 AM – 11:00 AM PDT · peak 9:00 AM",

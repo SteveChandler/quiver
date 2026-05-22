@@ -10,6 +10,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth, createSuccessResponse } from "@/lib/middleware/api-wrappers";
 
+function normalizeOptionalMetadata(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 function normalizeIanaTimezone(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const timezone = value.trim();
@@ -94,7 +100,9 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
           { status: 400 }
         );
       }
-      if (value.length > 32) {
+      const normalizedValue = value.trim();
+      if (normalizedValue.length === 0) continue;
+      if (normalizedValue.length > 32) {
         return NextResponse.json(
           {
             success: false,
@@ -128,10 +136,14 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
     device_token,
     updated_at: new Date().toISOString(),
   };
-  if (app_version !== undefined) upsertRow.app_version = app_version ?? null;
-  if (build_number !== undefined) upsertRow.build_number = build_number ?? null;
-  if (os_version !== undefined) upsertRow.os_version = os_version ?? null;
-  if (expo_sdk !== undefined) upsertRow.expo_sdk = expo_sdk ?? null;
+  const normalizedAppVersion = normalizeOptionalMetadata(app_version);
+  const normalizedBuildNumber = normalizeOptionalMetadata(build_number);
+  const normalizedOsVersion = normalizeOptionalMetadata(os_version);
+  const normalizedExpoSdk = normalizeOptionalMetadata(expo_sdk);
+  if (normalizedAppVersion) upsertRow.app_version = normalizedAppVersion;
+  if (normalizedBuildNumber) upsertRow.build_number = normalizedBuildNumber;
+  if (normalizedOsVersion) upsertRow.os_version = normalizedOsVersion;
+  if (normalizedExpoSdk) upsertRow.expo_sdk = normalizedExpoSdk;
   if (normalizedTimezone) upsertRow.timezone = normalizedTimezone;
 
   const { error: upsertError } = await supabase
