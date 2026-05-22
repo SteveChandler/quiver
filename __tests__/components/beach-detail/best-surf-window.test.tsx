@@ -550,7 +550,7 @@ describe("BestSurfWindow", () => {
       render(<BestSurfWindow {...defaultProps} forecasts={mockForecasts} />);
 
       expect(
-        screen.getByText(/Next Best Window Today/i)
+        screen.getByText(/Next Favorable Window Today/i)
       ).toBeInTheDocument();
       expect(screen.getByText(/2:00.*PM.*4:00.*PM/i)).toBeInTheDocument();
     });
@@ -710,7 +710,7 @@ describe("BestSurfWindow", () => {
 
       // Component should render without errors
       expect(
-        screen.getByText(/Best Time to Surf Today/i)
+        screen.getByText(/Best Surf Window Today/i)
       ).toBeInTheDocument();
     });
 
@@ -726,7 +726,7 @@ describe("BestSurfWindow", () => {
 
       // Should use default timezone
       expect(
-        screen.getByText(/Best Time to Surf Today/i)
+        screen.getByText(/Best Surf Window Today/i)
       ).toBeInTheDocument();
     });
   });
@@ -748,7 +748,7 @@ describe("BestSurfWindow", () => {
 
       // Component should render the title without crashing
       expect(
-        screen.getByText(/Best Time to Surf Today/i)
+        screen.getByText(/Best Surf Window Today/i)
       ).toBeInTheDocument();
       // Description should be shown when times are equal (using getAllByText since it might appear multiple times)
       const descriptions = screen.getAllByText(

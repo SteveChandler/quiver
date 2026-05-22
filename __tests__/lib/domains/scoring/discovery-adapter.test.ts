@@ -55,8 +55,8 @@ describe('Discovery Adapter', () => {
       const profile = beachToSpotProfile(beach);
 
       // Should use defaults
-      expect(profile.swellWindow.minDeg).toBeDefined();
-      expect(profile.windThresholds.offshoreDeg).toBeDefined();
+      expect(profile.swellWindow).toMatchObject({ minDeg: 0, maxDeg: 360 });
+      expect(profile.windThresholds.offshoreDeg).toBe(90);
     });
   });
 
@@ -372,9 +372,10 @@ describe('Discovery Adapter', () => {
       expect(scorerNames).toContain('windQuality');
       expect(scorerNames).toContain('tideFit');
       expect(scorerNames).toContain('tideDirection');
+      expect(scorerNames).toContain('setupRisk');
       expect(scorerNames).toContain('windowStability');
       expect(scorerNames).toContain('trendPreference');
-      expect(scorerNames).toHaveLength(8);
+      expect(scorerNames).toHaveLength(9);
     });
   });
 
