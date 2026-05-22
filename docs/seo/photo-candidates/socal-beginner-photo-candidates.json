@@ -1,7 +1,8 @@
 {
-  "generatedAt": "2026-05-22T18:49:16.127Z",
+  "generatedAt": "2026-05-22T20:31:32.447Z",
   "source": "openverse",
   "sourceFilter": "wikimedia",
+  "includeManual": true,
   "minScore": 4,
   "targetPath": "scripts/data/socal-beginner-photo-targets.json",
   "candidates": [
@@ -20,6 +21,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"File:Bolsa Chica State Beach sunset.jpg\" by <a href=\"https://www.flickr.com/photos/40518938@N00\" rel=\"noopener nofollow\">Jeff Turner</a> · <a href=\"https://creativecommons.org/licenses/by/2.0/\" rel=\"noopener nofollow\">BY 2.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 100,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/bolsa-chica-photo.webp",
       "score": 10
     },
     {
@@ -37,6 +42,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"File:Bolsa Chica State Beach Photo D Ramey Logan.jpg\" by <a href=\"https://commons.wikimedia.org/wiki/Category:Photographs_by_Don_Ramey_Logan\" rel=\"noopener nofollow\">Don Ramey Logan</a> · <a href=\"https://creativecommons.org/licenses/by-sa/3.0/\" rel=\"noopener nofollow\">BY-SA 3.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 100,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/bolsa-chica-photo.webp",
       "score": 10
     },
     {
@@ -54,6 +63,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"Huntington State Beach 8 2018-05-20\" by <a href=\"https://commons.wikimedia.org/wiki/User_talk:Fastily\" rel=\"noopener nofollow\">FASTILY</a> · <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\" rel=\"noopener nofollow\">BY-SA 4.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 80,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/huntington-state-beach-photo.webp",
       "score": 8
     },
     {
@@ -71,6 +84,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"Huntington State Beach 4 2018-05-20\" by <a href=\"https://commons.wikimedia.org/wiki/User_talk:Fastily\" rel=\"noopener nofollow\">FASTILY</a> · <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\" rel=\"noopener nofollow\">BY-SA 4.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 80,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/huntington-state-beach-photo.webp",
       "score": 8
     },
     {
@@ -88,6 +105,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"Huntington State Beach 2 2018-05-20\" by <a href=\"https://commons.wikimedia.org/wiki/User_talk:Fastily\" rel=\"noopener nofollow\">FASTILY</a> · <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\" rel=\"noopener nofollow\">BY-SA 4.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 80,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/huntington-state-beach-photo.webp",
       "score": 8
     },
     {
@@ -105,24 +126,11 @@
       "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"Doheny State Beach, Oct. 29, 1965 (29909873671)\" by <a href=\"https://www.flickr.com/people/30346812@N07\" rel=\"noopener nofollow\">Orange County Archives from Orange County, California, United States of America</a> · <a href=\"https://creativecommons.org/licenses/by/2.0/\" rel=\"noopener nofollow\">BY 2.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 80,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/doheny-beach-photo.webp",
       "score": 8
-    },
-    {
-      "targetSlug": "san-onofre-state-beach",
-      "targetName": "San Onofre State Beach",
-      "source": "openverse",
-      "sourceId": "7e9154bb-31b6-4048-9168-7fbe7066147b",
-      "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/b/b4/San_Onofre_Sunset.jpg",
-      "thumbUrl": "https://api.openverse.org/v1/images/7e9154bb-31b6-4048-9168-7fbe7066147b/thumb/",
-      "sourceUrl": "https://commons.wikimedia.org/w/index.php?curid=96033795",
-      "title": "San Onofre Sunset",
-      "creatorName": "Xylem9",
-      "creatorUrl": "https://commons.wikimedia.org/w/index.php?title=User:Xylem9&action=edit&redlink=1",
-      "licenseCode": "BY-SA 4.0",
-      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
-      "provider": "wikimedia",
-      "attributionHtml": "\"San Onofre Sunset\" by <a href=\"https://commons.wikimedia.org/w/index.php?title=User:Xylem9&action=edit&redlink=1\" rel=\"noopener nofollow\">Xylem9</a> · <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\" rel=\"noopener nofollow\">BY-SA 4.0</a> via Openverse",
-      "score": 5
     },
     {
       "targetSlug": "la-jolla-shores",
@@ -139,6 +147,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"La Jolla Shores view (cropped)\" by <a href=\"https://commons.wikimedia.org/w/index.php?title=User:Djh57&action=edit&redlink=1\" rel=\"noopener nofollow\">Dirk Hansen</a> · <a href=\"https://creativecommons.org/licenses/by-sa/3.0/\" rel=\"noopener nofollow\">BY-SA 3.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 100,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/la-jolla-shores-photo.webp",
       "score": 12
     },
     {
@@ -156,6 +168,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"Martin Johnson House, SIO, La Jolla Shores - at sunset pano\" by <a href=\"https://commons.wikimedia.org/wiki/User:Farwestern\" rel=\"noopener nofollow\">Farwestern Photo by Gregg M. Erickson</a> · <a href=\"https://creativecommons.org/licenses/by/3.0/\" rel=\"noopener nofollow\">BY 3.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 100,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/la-jolla-shores-photo.webp",
       "score": 12
     },
     {
@@ -173,6 +189,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
       "provider": "wikimedia",
       "attributionHtml": "\"File:Grunion run - la jolla shores - 800px.jpg\" by <a href=\"https://commons.wikimedia.org/w/index.php?title=User:Achen33&action=edit&redlink=1\" rel=\"noopener nofollow\">Andrew Chen (Achen33)</a> · <a href=\"https://creativecommons.org/licenses/by-sa/3.0\" rel=\"noopener nofollow\">BY-SA 3.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 100,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/la-jolla-shores-photo.webp",
       "score": 12
     },
     {
@@ -190,6 +210,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"Tourmaline Surfing Park, California\" by <a href=\"https://commons.wikimedia.org/wiki/User:Invertzoo\" rel=\"noopener nofollow\">Invertzoo</a> · <a href=\"https://creativecommons.org/licenses/by-sa/3.0/\" rel=\"noopener nofollow\">BY-SA 3.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 50,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/tourmaline-surf-park-photo.webp",
       "score": 5
     },
     {
@@ -207,6 +231,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"Tourmaline Surfing Park looking uphill\" by <a href=\"https://commons.wikimedia.org/wiki/User:Invertzoo\" rel=\"noopener nofollow\">Invertzoo</a> · <a href=\"https://creativecommons.org/licenses/by-sa/3.0/\" rel=\"noopener nofollow\">BY-SA 3.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 50,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/tourmaline-surf-park-photo.webp",
       "score": 5
     },
     {
@@ -224,6 +252,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"Santa Monica State Beach P4060277\" by <a href=\"https://commons.wikimedia.org/wiki/User:Alexander-93\" rel=\"noopener nofollow\">Alexander Migl</a> · <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\" rel=\"noopener nofollow\">BY-SA 4.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 70,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/santa-monica-beach-santa-monica-ca-photo.webp",
       "score": 7
     },
     {
@@ -241,6 +273,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"Santa monica state beach\" by <a href=\"https://www.flickr.com/photos/pedrosz\" rel=\"noopener nofollow\">Pedro Szekely</a> · <a href=\"https://creativecommons.org/licenses/by-sa/2.0/\" rel=\"noopener nofollow\">BY-SA 2.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 70,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/santa-monica-beach-santa-monica-ca-photo.webp",
       "score": 7
     },
     {
@@ -258,6 +294,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"Santa Monica State Beach P4060274\" by <a href=\"https://commons.wikimedia.org/wiki/User:Alexander-93\" rel=\"noopener nofollow\">Alexander Migl</a> · <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\" rel=\"noopener nofollow\">BY-SA 4.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 70,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/santa-monica-beach-santa-monica-ca-photo.webp",
       "score": 7
     },
     {
@@ -275,6 +315,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"File:Will Rogers State Beach 1.JPG\" by <a href=\"https://commons.wikimedia.org/wiki/User:JCS\" rel=\"noopener nofollow\">JCS</a> · <a href=\"https://creativecommons.org/licenses/by-sa/3.0/\" rel=\"noopener nofollow\">BY-SA 3.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 100,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/will-rogers-state-beach-santa-monica-ca-photo.webp",
       "score": 10
     },
     {
@@ -292,6 +336,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"Sunset at Will Rogers State Beach 3\" by <a href=\"https://commons.wikimedia.org/w/index.php?title=User:AllyUnion&action=edit&redlink=1\" rel=\"noopener nofollow\">AllyUnion</a> · <a href=\"https://creativecommons.org/licenses/by-sa/3.0/\" rel=\"noopener nofollow\">BY-SA 3.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 100,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/will-rogers-state-beach-santa-monica-ca-photo.webp",
       "score": 10
     },
     {
@@ -309,6 +357,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"Sunset at Will Rogers State Beach 1\" by <a href=\"https://commons.wikimedia.org/w/index.php?title=User:AllyUnion&action=edit&redlink=1\" rel=\"noopener nofollow\">AllyUnion</a> · <a href=\"https://creativecommons.org/licenses/by-sa/3.0/\" rel=\"noopener nofollow\">BY-SA 3.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 100,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/will-rogers-state-beach-santa-monica-ca-photo.webp",
       "score": 10
     },
     {
@@ -326,6 +378,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"Busy ocean off Dockweiler State Beach\" by <a href=\"https://commons.wikimedia.org/wiki/User:Downtowngal\" rel=\"noopener nofollow\">Downtowngal</a> · <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\" rel=\"noopener nofollow\">BY-SA 4.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 80,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/dockweiler-state-beach-playa-del-rey-ca-photo.webp",
       "score": 8
     },
     {
@@ -343,6 +399,10 @@
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/deed.en/",
       "provider": "wikimedia",
       "attributionHtml": "\"Venice Beach, Los Angeles, CA 01 (cropped)\" by <a href=\"https://commons.wikimedia.org/w/index.php?title=User:Blake_Everett&action=edit&redlink=1\" rel=\"noopener nofollow\">Blake Everett</a> · <a href=\"https://creativecommons.org/publicdomain/zero/1.0/deed.en/\" rel=\"noopener nofollow\">CC0 1.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 100,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/venice-beach-venice-ca-photo.webp",
       "score": 14
     },
     {
@@ -360,6 +420,10 @@
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/deed.en/",
       "provider": "wikimedia",
       "attributionHtml": "\"Venice Beach, Los Angeles, CA 01 (cropped2)\" by <a href=\"https://commons.wikimedia.org/w/index.php?title=User:Blake_Everett&action=edit&redlink=1\" rel=\"noopener nofollow\">Blake Everett</a> · <a href=\"https://creativecommons.org/publicdomain/zero/1.0/deed.en/\" rel=\"noopener nofollow\">CC0 1.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 100,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/venice-beach-venice-ca-photo.webp",
       "score": 14
     },
     {
@@ -377,6 +441,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"Venice Beach, Los Angeles (20983951688)\" by <a href=\"https://www.flickr.com/people/63503049@N03\" rel=\"noopener nofollow\">Fabio Achilli from Milano, Italy</a> · <a href=\"https://creativecommons.org/licenses/by/2.0/\" rel=\"noopener nofollow\">BY 2.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 100,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/venice-beach-venice-ca-photo.webp",
       "score": 14
     },
     {
@@ -394,6 +462,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"Path Leading to the Shore of Torrance Beach\" by <a href=\"https://commons.wikimedia.org/w/index.php?title=User:DylanMoz49&action=edit&redlink=1\" rel=\"noopener nofollow\">DylanMoz49</a> · <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\" rel=\"noopener nofollow\">BY-SA 4.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 50,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/torrance-beach-rat-beach-torrance-ca-photo.webp",
       "score": 5
     },
     {
@@ -411,6 +483,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"Torrance Beach from Miramar Park\" by <a href=\"https://commons.wikimedia.org/w/index.php?title=User:Thurifer&action=edit&redlink=1\" rel=\"noopener nofollow\">Thurifer</a> · <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\" rel=\"noopener nofollow\">BY-SA 4.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 50,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/torrance-beach-rat-beach-torrance-ca-photo.webp",
       "score": 5
     },
     {
@@ -428,6 +504,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"Sunset at Torrance Beach, California\" by <a href=\"https://commons.wikimedia.org/w/index.php?title=User:DylanMoz49&action=edit&redlink=1\" rel=\"noopener nofollow\">DylanMoz49</a> · <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\" rel=\"noopener nofollow\">BY-SA 4.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 50,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/torrance-beach-rat-beach-torrance-ca-photo.webp",
       "score": 5
     },
     {
@@ -445,6 +525,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"Refugio State Beach California (28788392072)\" by <a href=\"https://www.flickr.com/people/87296837@N00\" rel=\"noopener nofollow\">Tony Webster from Minneapolis, Minnesota</a> · <a href=\"https://creativecommons.org/licenses/by-sa/2.0/\" rel=\"noopener nofollow\">BY-SA 2.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 80,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/refugio-state-beach-goleta-ca-photo.webp",
       "score": 8
     },
     {
@@ -462,6 +546,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
       "provider": "wikimedia",
       "attributionHtml": "\"Refugio State Beach (32300805583)\" by <a href=\"https://www.flickr.com/people/87296837@N00\" rel=\"noopener nofollow\">Tony Webster</a> · <a href=\"https://creativecommons.org/licenses/by/2.0/\" rel=\"noopener nofollow\">BY 2.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 80,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/refugio-state-beach-goleta-ca-photo.webp",
       "score": 8
     },
     {
@@ -479,6 +567,10 @@
       "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
       "provider": "wikimedia",
       "attributionHtml": "\"File:Refugio state beach 2.jpg\" by <a href=\"https://www.flickr.com/photos/61695255@N07/\" rel=\"noopener nofollow\">ars5017</a> · <a href=\"https://creativecommons.org/licenses/by/2.0\" rel=\"noopener nofollow\">BY 2.0</a> via Openverse",
+      "licenseStatus": "defensible",
+      "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+      "confidence": 80,
+      "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/refugio-state-beach-goleta-ca-photo.webp",
       "score": 8
     }
   ]

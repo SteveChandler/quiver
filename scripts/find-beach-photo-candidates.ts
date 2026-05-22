@@ -4,6 +4,7 @@ import { dirname, relative, resolve } from "node:path";
 import {
   buildOpenverseSearchUrl,
   buildTargetQuery,
+  candidateFromManualSource,
   candidateFromOpenverseResult,
   formatCandidateReport,
   parseBeachPhotoTargets,
@@ -26,6 +27,7 @@ interface CliOptions {
   minScore: number;
   source: string | null;
   dryRun: boolean;
+  includeManual: boolean;
   onlySlugs: Set<string> | null;
 }
 
@@ -67,6 +69,7 @@ function parseArgs(argv: string[]): CliOptions {
     minScore: Number(args.get("minScore") ?? "4"),
     source: args.get("source") === "all" ? null : args.get("source") ?? "wikimedia",
     dryRun: args.get("dryRun") === "true",
+    includeManual: args.get("includeManual") !== "false",
     onlySlugs: only
       ? new Set(
           only
@@ -149,6 +152,16 @@ async function main(): Promise<void> {
   const candidates: PhotoCandidate[] = [];
 
   for (const target of targets) {
+    if (options.includeManual) {
+      const manualCandidates = (target.manualSources ?? [])
+        .map((manualSource) => candidateFromManualSource(target, manualSource))
+        .filter((candidate): candidate is PhotoCandidate => candidate !== null);
+      candidates.push(...manualCandidates);
+      if (manualCandidates.length > 0) {
+        console.log(`Loaded ${manualCandidates.length} manual candidates for ${target.slug}`);
+      }
+    }
+
     console.log(`Searching ${target.slug}: ${buildTargetQuery(target)}`);
     const targetCandidates = await fetchOpenverseCandidates(target, options);
     candidates.push(...targetCandidates);
@@ -158,7 +171,7 @@ async function main(): Promise<void> {
   const generatedAt = new Date().toISOString();
   const report = formatCandidateReport({
     generatedAt,
-    sourceLabel: `Openverse API commercial-use Creative Commons image search (${options.source ?? "all sources"}, min score ${options.minScore})`,
+    sourceLabel: `Openverse API commercial-use Creative Commons image search (${options.source ?? "all sources"}, min score ${options.minScore}) plus ${options.includeManual ? "manual review sources" : "no manual sources"}`,
     targetPath: relative(process.cwd(), targetsPath),
     targets,
     candidates,
@@ -168,6 +181,7 @@ async function main(): Promise<void> {
       generatedAt,
       source: "openverse",
       sourceFilter: options.source,
+      includeManual: options.includeManual,
       minScore: options.minScore,
       targetPath: relative(process.cwd(), targetsPath),
       candidates,

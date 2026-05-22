@@ -3,10 +3,13 @@ import { join } from "path";
 
 import {
   buildOpenverseSearchUrl,
+  candidateFromManualSource,
   candidateFromOpenverseResult,
   formatCandidateReport,
   isSeoUsableCreativeCommonsLicense,
+  parseApprovedRuntimePhotos,
   parseBeachPhotoTargets,
+  runtimeAssetPathForSlug,
 } from "@/scripts/lib/beach-photo-candidates";
 
 describe("SEO beach photo candidate pipeline", () => {
@@ -116,10 +119,91 @@ describe("SEO beach photo candidate pipeline", () => {
         creatorName: "JCS",
         licenseCode: "BY-SA 3.0",
         licenseUrl: "https://creativecommons.org/licenses/by-sa/3.0/",
+        licenseStatus: "defensible",
         provider: "wikimedia",
+        runtimeAssetPath:
+          "public/images/seo-dioramas/beginner/socal/will-rogers-state-beach-santa-monica-ca-photo.webp",
       }),
     );
     expect(candidate?.attributionHtml).toContain("BY-SA 3.0");
+    expect(candidate?.usageNotes).toContain("manual beach-match review");
+    expect(candidate?.confidence).toBeGreaterThan(0);
+  });
+
+  it("maps manual source rows into grey-review candidates only when an image exists", () => {
+    const target = {
+      slug: "mondos-beach-ventura-ca",
+      name: "Mondos Beach",
+      query: "Mondos Beach Ventura surf",
+    };
+    const candidate = candidateFromManualSource(target, {
+      source: "official",
+      sourceId: "ventura-tourism-mondos",
+      imageUrl: "https://example.com/mondos.jpg",
+      sourceUrl: "https://example.com/mondos-source",
+      title: "Mondos Beach",
+      creator: "Ventura Tourism",
+      licenseCode: "review required",
+      licenseStatus: "grey_review",
+      usageNotes:
+        "Official/tourism source for review report only; not approved for runtime use.",
+      confidence: 65,
+    });
+
+    expect(candidate).toEqual(
+      expect.objectContaining({
+        targetSlug: "mondos-beach-ventura-ca",
+        source: "manual",
+        licenseStatus: "grey_review",
+        confidence: 65,
+        runtimeAssetPath: runtimeAssetPathForSlug("mondos-beach-ventura-ca"),
+      }),
+    );
+
+    expect(
+      candidateFromManualSource(target, {
+        source: "official",
+        sourceId: "blocked-mondos",
+        imageUrl: "https://example.com/mondos.jpg",
+        sourceUrl: "https://example.com/mondos-source",
+        licenseStatus: "blocked",
+        usageNotes: "Blocked licensing.",
+      }),
+    ).toBeNull();
+  });
+
+  it("keeps approved runtime photos defensible and scoped to the SoCal asset directory", () => {
+    const manifestPath = join(
+      process.cwd(),
+      "scripts/data/socal-beginner-approved-photos.json",
+    );
+    const photos = parseApprovedRuntimePhotos(
+      JSON.parse(readFileSync(manifestPath, "utf8")),
+    );
+
+    expect(photos).toHaveLength(12);
+    expect(photos.map((photo) => photo.slug)).toEqual(
+      expect.arrayContaining([
+        "bolsa-chica",
+        "huntington-state-beach",
+        "doheny-beach",
+        "san-onofre-state-beach",
+        "la-jolla-shores",
+        "tourmaline-surf-park",
+        "santa-monica-beach-santa-monica-ca",
+        "will-rogers-state-beach-santa-monica-ca",
+        "dockweiler-state-beach-playa-del-rey-ca",
+        "venice-beach-venice-ca",
+        "torrance-beach-rat-beach-torrance-ca",
+        "refugio-state-beach-goleta-ca",
+      ]),
+    );
+
+    for (const photo of photos) {
+      expect(photo.licenseStatus).toBe("defensible");
+      expect(photo.licenseUrl).toMatch(/^https:\/\/creativecommons\.org\//);
+      expect(photo.runtimeAssetPath).toBe(runtimeAssetPathForSlug(photo.slug));
+    }
   });
 
   it("drops licensed images that are not useful as beach-specific SEO photos", () => {
@@ -177,10 +261,15 @@ describe("SEO beach photo candidate pipeline", () => {
     expect(report).toContain("# Beach Photo Candidate Report");
     expect(report).toContain("review candidates only");
     expect(report).toContain("Will Rogers State Beach");
+    expect(report).toContain("License status");
+    expect(report).toContain("Runtime path");
+    expect(report).toContain("manual beach-match review");
     expect(report).toContain(
       "[BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/)",
     );
-    expect(report).toMatch(/\| \d+ \| Will Rogers State Beach \|/);
+    expect(report).toContain(
+      "public/images/seo-dioramas/beginner/socal/will-rogers-state-beach-santa-monica-ca-photo.webp",
+    );
     expect(report).toContain(
       "[source](https://commons.wikimedia.org/wiki/File:Will_Rogers_State_Beach_1.JPG)",
     );

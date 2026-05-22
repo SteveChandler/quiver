@@ -6,6 +6,26 @@ export interface BeachPhotoTarget {
   country?: string;
   query?: string;
   notes?: string;
+  manualSources?: ManualPhotoSource[];
+}
+
+export type PhotoLicenseStatus = "defensible" | "grey_review" | "blocked";
+
+export interface ManualPhotoSource {
+  source: "wikimedia" | "flickr" | "official" | "tourism" | "other";
+  sourceId: string;
+  imageUrl?: string;
+  thumbUrl?: string;
+  sourceUrl: string;
+  title?: string;
+  creator?: string;
+  creatorUrl?: string;
+  licenseCode?: string;
+  licenseUrl?: string;
+  licenseStatus: PhotoLicenseStatus;
+  usageNotes: string;
+  confidence?: number;
+  runtimeAssetPath?: string;
 }
 
 export interface OpenverseImageResult {
@@ -27,7 +47,7 @@ export interface OpenverseImageResult {
 export interface PhotoCandidate {
   targetSlug: string;
   targetName: string;
-  source: "openverse";
+  source: "openverse" | "manual";
   sourceId: string;
   imageUrl: string;
   thumbUrl: string | null;
@@ -39,7 +59,26 @@ export interface PhotoCandidate {
   licenseUrl: string | null;
   provider: string | null;
   attributionHtml: string;
+  licenseStatus: PhotoLicenseStatus;
+  usageNotes: string;
+  confidence: number;
+  runtimeAssetPath: string;
   score: number;
+}
+
+export interface ApprovedRuntimePhoto {
+  slug: string;
+  name: string;
+  imageUrl: string;
+  sourceUrl: string;
+  title: string;
+  creator: string;
+  creatorUrl?: string;
+  licenseCode: string;
+  licenseUrl: string;
+  licenseStatus: "defensible";
+  usageNotes: string;
+  runtimeAssetPath: string;
 }
 
 export interface CandidateReportInput {
@@ -61,6 +100,7 @@ const STOP_WORDS = new Set([
 ]);
 
 const DEFAULT_OPENVERSE_API_URL = "https://api.openverse.org/v1/images/";
+const DEFAULT_RUNTIME_ASSET_DIR = "public/images/seo-dioramas/beginner/socal";
 const LOW_VALUE_SEO_TITLE_TERMS = [
   "airlines",
   "bath house",
@@ -133,6 +173,10 @@ export function buildTargetQuery(target: BeachPhotoTarget): string {
       .filter((part): part is string => Boolean(part))
       .join(" "),
   );
+}
+
+export function runtimeAssetPathForSlug(slug: string): string {
+  return `${DEFAULT_RUNTIME_ASSET_DIR}/${slug}-photo.webp`;
 }
 
 export function buildOpenverseSearchUrl(
@@ -239,7 +283,57 @@ export function candidateFromOpenverseResult(
       licenseUrl,
       source: "Openverse",
     }),
+    licenseStatus: "defensible",
+    usageNotes:
+      "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+    confidence: Math.min(100, scoreOpenverseResult(target, result) * 10),
+    runtimeAssetPath: runtimeAssetPathForSlug(target.slug),
     score: scoreOpenverseResult(target, result),
+  };
+}
+
+export function candidateFromManualSource(
+  target: BeachPhotoTarget,
+  manualSource: ManualPhotoSource,
+): PhotoCandidate | null {
+  if (manualSource.licenseStatus === "blocked" || !manualSource.imageUrl) {
+    return null;
+  }
+
+  const title = manualSource.title ?? target.name;
+  const creatorName = manualSource.creator ?? null;
+  const creatorUrl = manualSource.creatorUrl ?? null;
+  const licenseCode = manualSource.licenseCode ?? manualSource.licenseStatus;
+  const licenseUrl = manualSource.licenseUrl ?? null;
+
+  return {
+    targetSlug: target.slug,
+    targetName: target.name,
+    source: "manual",
+    sourceId: manualSource.sourceId,
+    imageUrl: manualSource.imageUrl,
+    thumbUrl: manualSource.thumbUrl ?? null,
+    sourceUrl: manualSource.sourceUrl,
+    title,
+    creatorName,
+    creatorUrl,
+    licenseCode,
+    licenseUrl,
+    provider: manualSource.source,
+    attributionHtml: buildAttributionHtml({
+      title,
+      creatorName,
+      creatorUrl,
+      licenseCode,
+      licenseUrl,
+      source: manualSource.source,
+    }),
+    licenseStatus: manualSource.licenseStatus,
+    usageNotes: manualSource.usageNotes,
+    confidence: manualSource.confidence ?? 50,
+    runtimeAssetPath:
+      manualSource.runtimeAssetPath ?? runtimeAssetPathForSlug(target.slug),
+    score: manualSource.confidence ?? 50,
   };
 }
 
@@ -277,6 +371,126 @@ export function parseBeachPhotoTargets(input: unknown): BeachPhotoTarget[] {
       country: optionalString(target.country),
       query: optionalString(target.query),
       notes: optionalString(target.notes),
+      manualSources: parseManualSources(target.manualSources, target.slug),
+    };
+  });
+}
+
+function parseManualSources(value: unknown, slug: unknown): ManualPhotoSource[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) {
+    throw new Error(`Beach photo target ${String(slug)} manualSources must be an array.`);
+  }
+
+  return value.map((entry, index) => {
+    if (!entry || typeof entry !== "object") {
+      throw new Error(
+        `Beach photo target ${String(slug)} manualSource ${index} must be an object.`,
+      );
+    }
+
+    const source = entry as Record<string, unknown>;
+    const sourceType = optionalString(source.source);
+    const licenseStatus = optionalString(source.licenseStatus);
+    const sourceId = optionalString(source.sourceId);
+    const sourceUrl = optionalString(source.sourceUrl);
+    const usageNotes = optionalString(source.usageNotes);
+
+    if (
+      sourceType !== "wikimedia" &&
+      sourceType !== "flickr" &&
+      sourceType !== "official" &&
+      sourceType !== "tourism" &&
+      sourceType !== "other"
+    ) {
+      throw new Error(
+        `Beach photo target ${String(slug)} manualSource ${index} has invalid source.`,
+      );
+    }
+    if (
+      licenseStatus !== "defensible" &&
+      licenseStatus !== "grey_review" &&
+      licenseStatus !== "blocked"
+    ) {
+      throw new Error(
+        `Beach photo target ${String(slug)} manualSource ${index} has invalid licenseStatus.`,
+      );
+    }
+    if (!sourceId || !sourceUrl || !usageNotes) {
+      throw new Error(
+        `Beach photo target ${String(slug)} manualSource ${index} is missing sourceId, sourceUrl, or usageNotes.`,
+      );
+    }
+
+    return {
+      source: sourceType,
+      sourceId,
+      imageUrl: optionalString(source.imageUrl),
+      thumbUrl: optionalString(source.thumbUrl),
+      sourceUrl,
+      title: optionalString(source.title),
+      creator: optionalString(source.creator),
+      creatorUrl: optionalString(source.creatorUrl),
+      licenseCode: optionalString(source.licenseCode),
+      licenseUrl: optionalString(source.licenseUrl),
+      licenseStatus,
+      usageNotes,
+      confidence:
+        typeof source.confidence === "number" ? source.confidence : undefined,
+      runtimeAssetPath: optionalString(source.runtimeAssetPath),
+    };
+  });
+}
+
+export function parseApprovedRuntimePhotos(input: unknown): ApprovedRuntimePhoto[] {
+  if (!Array.isArray(input)) {
+    throw new Error("Approved runtime photo manifest must be an array.");
+  }
+
+  return input.map((entry, index) => {
+    if (!entry || typeof entry !== "object") {
+      throw new Error(`Approved runtime photo at index ${index} must be an object.`);
+    }
+
+    const photo = entry as Record<string, unknown>;
+    const requiredFields = [
+      "slug",
+      "name",
+      "imageUrl",
+      "sourceUrl",
+      "title",
+      "creator",
+      "licenseCode",
+      "licenseUrl",
+      "usageNotes",
+      "runtimeAssetPath",
+    ] as const;
+
+    for (const field of requiredFields) {
+      if (!optionalString(photo[field])) {
+        throw new Error(`Approved runtime photo at index ${index} is missing ${field}.`);
+      }
+    }
+
+    if (photo.licenseStatus !== "defensible") {
+      throw new Error(
+        `Approved runtime photo ${String(photo.slug)} must use defensible licensing.`,
+      );
+    }
+
+    return {
+      slug: optionalString(photo.slug)!,
+      name: optionalString(photo.name)!,
+      imageUrl: optionalString(photo.imageUrl)!,
+      sourceUrl: optionalString(photo.sourceUrl)!,
+      title: optionalString(photo.title)!,
+      creator: optionalString(photo.creator)!,
+      creatorUrl: optionalString(photo.creatorUrl),
+      licenseCode: optionalString(photo.licenseCode)!,
+      licenseUrl: optionalString(photo.licenseUrl)!,
+      licenseStatus: "defensible",
+      usageNotes: optionalString(photo.usageNotes)!,
+      runtimeAssetPath: optionalString(photo.runtimeAssetPath)!,
     };
   });
 }
@@ -363,14 +577,16 @@ export function formatCandidateReport(input: CandidateReportInput): string {
     }
 
     lines.push(
-      "| Score | Candidate | Creator | License | Provider | Source | Image |",
+      "| Score | Confidence | License status | Candidate | Creator | License | Provider | Runtime path | Usage notes | Source | Image |",
     );
-    lines.push("| ---: | --- | --- | --- | --- | --- | --- |");
+    lines.push("| ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- |");
 
     for (const candidate of candidates) {
       lines.push(
         `| ${[
           String(candidate.score),
+          String(candidate.confidence),
+          escapeMarkdownCell(candidate.licenseStatus),
           escapeMarkdownCell(candidate.title ?? candidate.sourceId),
           candidate.creatorUrl
             ? markdownLink(
@@ -382,6 +598,8 @@ export function formatCandidateReport(input: CandidateReportInput): string {
             ? markdownLink(candidate.licenseCode, candidate.licenseUrl)
             : escapeMarkdownCell(candidate.licenseCode),
           escapeMarkdownCell(candidate.provider),
+          escapeMarkdownCell(candidate.runtimeAssetPath),
+          escapeMarkdownCell(candidate.usageNotes),
           markdownLink("source", candidate.sourceUrl),
           markdownLink("image", candidate.imageUrl),
         ].join(" | ")} |`,

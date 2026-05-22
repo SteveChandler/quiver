@@ -177,6 +177,78 @@ describe("SEO funnel pages", () => {
     }
   });
 
+  it("uses approved beach-specific photos on SoCal beginner pages where available", () => {
+    const sanDiego = getSeoFunnelPageByTypeAndSlug("beginner", "san-diego");
+    const orangeCounty = getSeoFunnelPageByTypeAndSlug(
+      "beginner",
+      "orange-county",
+    );
+    const huntington = getSeoFunnelPageByTypeAndSlug(
+      "beginner",
+      "huntington-beach",
+    );
+    const losAngeles = getSeoFunnelPageByTypeAndSlug(
+      "beginner",
+      "los-angeles",
+    );
+    const santaBarbara = getSeoFunnelPageByTypeAndSlug(
+      "beginner",
+      "santa-barbara",
+    );
+    const sanOnofre = getSeoFunnelPageByTypeAndSlug(
+      "beginner",
+      "san-onofre",
+    );
+
+    expect(sanDiego?.images.map((image) => image.src)).toEqual(
+      expect.arrayContaining([
+        "/images/seo-dioramas/beginner/socal/la-jolla-shores-photo.webp",
+        "/images/seo-dioramas/beginner/socal/tourmaline-surf-park-photo.webp",
+      ]),
+    );
+    expect(orangeCounty?.images.map((image) => image.src)).toEqual(
+      expect.arrayContaining([
+        "/images/seo-dioramas/beginner/socal/bolsa-chica-photo.webp",
+        "/images/seo-dioramas/beginner/socal/doheny-beach-photo.webp",
+        "/images/seo-dioramas/beginner/socal/san-onofre-state-beach-photo.webp",
+      ]),
+    );
+    expect(huntington?.images.map((image) => image.src)).toEqual(
+      expect.arrayContaining([
+        "/images/seo-dioramas/beginner/socal/bolsa-chica-photo.webp",
+        "/images/seo-dioramas/beginner/socal/huntington-state-beach-photo.webp",
+      ]),
+    );
+    expect(losAngeles?.images.map((image) => image.src)).toEqual([
+      "/images/seo-dioramas/beginner/socal/santa-monica-beach-santa-monica-ca-photo.webp",
+      "/images/seo-dioramas/beginner/socal/will-rogers-state-beach-santa-monica-ca-photo.webp",
+      "/images/seo-dioramas/beginner/socal/dockweiler-state-beach-playa-del-rey-ca-photo.webp",
+    ]);
+    expect(santaBarbara?.images[0].src).toBe(
+      "/images/seo-dioramas/beginner/socal/refugio-state-beach-goleta-ca-photo.webp",
+    );
+    expect(sanOnofre?.images[0].src).toBe(
+      "/images/seo-dioramas/beginner/socal/san-onofre-state-beach-photo.webp",
+    );
+
+    expect(losAngeles?.images.map((image) => image.caption).join(" ")).toContain(
+      "CC BY",
+    );
+    expect(losAngeles?.images.map((image) => image.src).join(" ")).not.toContain(
+      "surf-cams/orange-county",
+    );
+
+    const losAngelesSpotImages = new Map(
+      losAngeles?.nearbySpots.map((spot) => [spot.label, spot.imageSrc]) ?? [],
+    );
+    expect(losAngelesSpotImages.get("Venice Beach")).toBe(
+      "/images/seo-dioramas/beginner/socal/venice-beach-venice-ca-photo.webp",
+    );
+    expect(losAngelesSpotImages.get("Torrance/RAT Beach")).toBe(
+      "/images/seo-dioramas/beginner/socal/torrance-beach-rat-beach-torrance-ca-photo.webp",
+    );
+  });
+
   it("stores image source instructions without mislabeling surf-cam photos", () => {
     const prompts = getSeoFunnelImagePrompts();
     const surfCamPrompts = prompts.filter(({ path }) =>

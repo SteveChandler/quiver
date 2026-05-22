@@ -164,10 +164,10 @@ describe("SoCal sandy beginner coverage migration", () => {
       "max_wind_onshore_mph = profile.max_wind_onshore_mph",
     );
     expect(normalizedSQL).not.toMatch(
-      /insert into public\.beaches \([^)]*max_wind_any_mph/s,
+      /insert into public\.beaches \([\s\S]*?max_wind_any_mph/,
     );
     expect(normalizedSQL).not.toMatch(
-      /insert into public\.beaches \([^)]*max_wind_onshore_mph/s,
+      /insert into public\.beaches \([\s\S]*?max_wind_onshore_mph/,
     );
   });
 

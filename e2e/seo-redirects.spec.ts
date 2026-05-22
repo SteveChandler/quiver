@@ -89,4 +89,35 @@ test.describe('SEO Redirect Recovery', () => {
       await expect(page).toHaveURL(/\/ca\/dana-point\/doheny-state-beach/);
     });
   });
+
+  test.describe('North HB Streets Redirects', () => {
+    const redirects = [
+      {
+        source: '/ca/huntington-beach/north-hb-streets',
+        destination: '/ca/huntington-beach/goldenwest',
+      },
+      {
+        source: '/ca/huntington-beach/north-hb-streets/tides',
+        destination: '/ca/huntington-beach/goldenwest/tides',
+      },
+      {
+        source: '/ca/huntington-beach/north-hb-streets/water-temp',
+        destination: '/ca/huntington-beach/goldenwest/water-temp',
+      },
+    ] as const;
+
+    for (const redirect of redirects) {
+      test(`301 redirects ${redirect.source} to Goldenwest`, async ({ page }) => {
+        const response = await page.request.get(redirect.source, {
+          maxRedirects: 0,
+        });
+
+        expect(response.status()).toBe(301);
+        expect(response.headers().location).toBe(redirect.destination);
+
+        await page.goto(redirect.source);
+        await expect(page).toHaveURL(new RegExp(`${redirect.destination}$`));
+      });
+    }
+  });
 });
