@@ -119,6 +119,17 @@ npx playwright test --project=guest
 npx playwright test --project=auth
 ```
 
+### Production Read-Only Review
+
+```bash
+yarn test:e2e:prod:readonly:list
+yarn test:e2e:prod:readonly:guest
+yarn test:e2e:prod:readonly:auth
+yarn test:e2e:prod:readonly
+```
+
+This suite lives in `e2e/prod-readonly/`. It is read-only with respect to business data, but it still emits normal telemetry such as page views and auth activity. When `PLAYWRIGHT_PROD_READONLY=true`, auth bootstrap may refresh the approved `.env.playwright` account for session establishment. If that refresh fails, guest coverage still runs and auth specs are reported as blocked.
+
 ### Dev Validation Suite (Fast - <5 minutes)
 
 ```bash
