@@ -12,6 +12,8 @@ let mockExistingReferral: any = null;
 let mockInsertError: any = null;
 let mockUpdateError: any = null;
 let mockRpcResults: Record<string, { data: any; error: any }> = {};
+let mockReferralInserts: any[] = [];
+let mockRpcCalls: Array<{ fn: string; args?: any }> = [];
 
 // ---- Mock server-action-utils ----
 jest.mock("@/lib/server-action-utils", () => {
@@ -47,13 +49,17 @@ jest.mock("@/lib/server-action-utils", () => {
             }),
           }),
           insert: (_data: any) =>
-            Promise.resolve({ error: mockInsertError }),
+            {
+              mockReferralInserts.push(_data);
+              return Promise.resolve({ error: mockInsertError });
+            },
         };
       }
 
       return {};
     },
     rpc: (fn: string, args?: any) => {
+      mockRpcCalls.push({ fn, args });
       if (mockRpcResults[fn]) {
         return Promise.resolve(mockRpcResults[fn]);
       }
@@ -88,6 +94,12 @@ jest.mock("@/lib/server-action-utils", () => {
           error: null,
         });
       }
+      if (fn === "record_referral_attribution") {
+        return Promise.resolve({
+          data: { created: true, existing: false },
+          error: null,
+        });
+      }
       return Promise.resolve({ data: null, error: null });
     },
   };
@@ -108,6 +120,8 @@ describe("referral-actions", () => {
     mockInsertError = null;
     mockUpdateError = null;
     mockRpcResults = {};
+    mockReferralInserts = [];
+    mockRpcCalls = [];
   });
 
   // =========================================================================
@@ -167,6 +181,16 @@ describe("referral-actions", () => {
       const result = await claimReferral("ABC123");
 
       expect(result).toEqual({ success: true });
+      expect(mockRpcCalls).toContainEqual({
+        fn: "record_referral_attribution",
+        args: {
+          referrer: "referrer-456",
+          referee: "user-123",
+          source: "referral_code",
+          referral_code: "ABC123",
+        },
+      });
+      expect(mockReferralInserts).toEqual([]);
     });
 
     it("rejects codes shorter than 4 characters", async () => {
@@ -260,12 +284,34 @@ describe("referral-actions", () => {
         success: false,
         error: "You have already used a referral code",
       });
+      expect(
+        mockRpcCalls.some((call) => call.fn === "record_referral_attribution")
+      ).toBe(false);
     });
 
-    it("throws when insert fails", async () => {
-      mockInsertError = { message: "Insert failed" };
+    it("returns duplicate error when the attribution RPC finds an existing referral", async () => {
+      mockRpcResults["record_referral_attribution"] = {
+        data: { created: false, existing: true },
+        error: null,
+      };
 
-      await expect(claimReferral("ABC123")).rejects.toThrow("Insert failed");
+      const result = await claimReferral("ABC123");
+
+      expect(result).toEqual({
+        success: false,
+        error: "You have already used a referral code",
+      });
+    });
+
+    it("throws when attribution RPC fails", async () => {
+      mockRpcResults["record_referral_attribution"] = {
+        data: null,
+        error: { message: "Attribution failed" },
+      };
+
+      await expect(claimReferral("ABC123")).rejects.toThrow(
+        "Attribution failed"
+      );
     });
   });
 

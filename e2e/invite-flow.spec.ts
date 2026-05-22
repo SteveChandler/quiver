@@ -35,12 +35,18 @@ type FollowPair = {
   followingId: string;
 };
 
+type ReferralAttribution = {
+  refereeId: string;
+  referrerId: string;
+};
+
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Invite landing flow', () => {
   let errorCapture: ErrorCapture;
   let allowedStatuses: number[] = [];
   const cleanupPairs: FollowPair[] = [];
+  const cleanupReferrals: ReferralAttribution[] = [];
 
   test.beforeEach(async ({ page }) => {
     errorCapture = setupErrorDetection(page);
@@ -49,6 +55,7 @@ test.describe('Invite landing flow', () => {
 
   test.afterEach(async ({ page }) => {
     await cleanupCreatedFollows(cleanupPairs);
+    await cleanupCreatedReferralAttributions(cleanupReferrals);
     await assertNoErrors(page, errorCapture, {
       context: 'Invite landing flow',
       allowedStatuses,
@@ -94,6 +101,14 @@ test.describe('Invite landing flow', () => {
       await resolveUnfollowedInviterId(supabase, inviteeId),
       'Requires an inviter profile not already followed',
     );
+    recordReferralCleanup(
+      cleanupReferrals,
+      await canCleanupReferral(supabase, inviteeId),
+      {
+        refereeId: inviteeId,
+        referrerId: inviterId,
+      },
+    );
 
     const token = await generateInviteToken(inviterId);
     await context.addCookies([buildInviteCookie(token)]);
@@ -117,6 +132,14 @@ test.describe('Invite landing flow', () => {
     const inviterId = requireInviteCandidate(
       await resolveUnfollowedInviterId(supabase, inviteeId),
       'Requires an inviter profile not already followed',
+    );
+    recordReferralCleanup(
+      cleanupReferrals,
+      await canCleanupReferral(supabase, inviteeId),
+      {
+        refereeId: inviteeId,
+        referrerId: inviterId,
+      },
     );
 
     const token = await generateInviteToken(inviterId);
@@ -148,6 +171,14 @@ test.describe('Invite landing flow', () => {
       followerId: inviteeId,
       followingId: inviterId,
     });
+    recordReferralCleanup(
+      cleanupReferrals,
+      await canCleanupReferral(supabase, inviteeId),
+      {
+        refereeId: inviteeId,
+        referrerId: inviterId,
+      },
+    );
 
     const token = await generateInviteToken(inviterId);
     await context.addCookies([buildInviteCookie(token)]);
@@ -195,6 +226,16 @@ function recordFollowCleanup(
 ) {
   if (shouldCleanup) {
     cleanupPairs.push(pair);
+  }
+}
+
+function recordReferralCleanup(
+  cleanupReferrals: ReferralAttribution[],
+  shouldCleanup: boolean,
+  attribution: ReferralAttribution,
+) {
+  if (shouldCleanup) {
+    cleanupReferrals.push(attribution);
   }
 }
 
@@ -353,6 +394,23 @@ async function ensureFollow(
   return true;
 }
 
+async function canCleanupReferral(
+  supabase: ReturnType<typeof createServiceClient>,
+  refereeId: string,
+): Promise<boolean> {
+  const { data: existing, error } = await supabase
+    .from('referrals')
+    .select('id')
+    .eq('referee_id', refereeId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Referral lookup failed: ${error.message}`);
+  }
+
+  return !existing;
+}
+
 async function cleanupCreatedFollows(pairs: FollowPair[]) {
   if (pairs.length === 0 || !process.env.SUPABASE_SERVICE_ROLE_KEY) return;
 
@@ -369,6 +427,31 @@ async function cleanupCreatedFollows(pairs: FollowPair[]) {
 
     if (error) {
       throw new Error(`Follow cleanup failed: ${error.message}`);
+    }
+  }
+}
+
+async function cleanupCreatedReferralAttributions(
+  attributions: ReferralAttribution[],
+) {
+  if (attributions.length === 0 || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return;
+  }
+
+  const supabase = createServiceClient();
+  while (attributions.length > 0) {
+    const attribution = attributions.pop();
+    if (!attribution) continue;
+
+    const { error } = await supabase
+      .from('referrals')
+      .delete()
+      .eq('referee_id', attribution.refereeId)
+      .eq('referrer_id', attribution.referrerId)
+      .eq('source', 'invite_token');
+
+    if (error) {
+      throw new Error(`Referral cleanup failed: ${error.message}`);
     }
   }
 }

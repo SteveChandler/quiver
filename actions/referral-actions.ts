@@ -2,6 +2,11 @@
 
 import { withAuthenticatedAction } from '@/lib/server-action-utils';
 
+type ReferralAttributionResult = {
+  created?: boolean;
+  existing?: boolean;
+};
+
 /**
  * Get or create the current user's referral code.
  * Calls the DB function generate_referral_code() if the profile doesn't have one yet.
@@ -76,17 +81,21 @@ export async function claimReferral(code: string) {
       return { success: false, error: 'You have already used a referral code' };
     }
 
-    // 4. Create the referral
-    const { error: insertError } = await supabase
-      .from('referrals')
-      .insert({
-        referrer_id: referrer.id,
-        referee_id: user.id,
+    // 4. Create referral attribution through the shared DB path
+    const { data: attribution, error: attributionError } = await supabase
+      .rpc('record_referral_attribution' as any, {
+        referrer: referrer.id,
+        referee: user.id,
+        source: 'referral_code',
         referral_code: code.toUpperCase(),
-        status: 'pending',
       });
 
-    if (insertError) throw new Error(insertError.message);
+    if (attributionError) throw new Error(attributionError.message);
+
+    const attributionResult = (attribution ?? {}) as ReferralAttributionResult;
+    if (attributionResult.existing) {
+      return { success: false, error: 'You have already used a referral code' };
+    }
 
     return { success: true };
   });
