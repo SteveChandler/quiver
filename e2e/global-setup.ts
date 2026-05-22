@@ -7,15 +7,44 @@ import {
   getAuthTokens,
   checkServerSession
 } from './utils/auth-helpers';
+import {
+  clearProdReadonlyAuthStatus,
+  isProdReadonlyMode,
+  writeProdReadonlyAuthStatus,
+} from './utils/prod-readonly-auth';
 
 /**
  * Global setup runs once before all tests
  * Creates authenticated session for tests that require authentication
  */
+function getRequestedProjectsFromArgs(): string[] {
+  const requestedProjects: string[] = [];
+
+  for (let index = 0; index < process.argv.length; index += 1) {
+    const arg = process.argv[index];
+    if (arg === '--project' && process.argv[index + 1]) {
+      requestedProjects.push(process.argv[index + 1]);
+      index += 1;
+      continue;
+    }
+
+    if (arg.startsWith('--project=')) {
+      requestedProjects.push(arg.slice('--project='.length));
+    }
+  }
+
+  return requestedProjects;
+}
+
 async function globalSetup(config: FullConfig) {
   // Load env without overriding CLI/OS env. (playwright.config.ts already sets precedence)
   dotenv.config({ path: '.env.playwright' });
   dotenv.config(); // Fallback to .env
+  const prodReadonlyMode = isProdReadonlyMode();
+
+  if (prodReadonlyMode) {
+    await clearProdReadonlyAuthStatus();
+  }
 
   // Skip authentication setup if only running guest or email-core-loop tests
   // These tests don't require authentication
@@ -23,12 +52,16 @@ async function globalSetup(config: FullConfig) {
     // Check if project is selected via --project flag or will run based on grep
     return p.grep ? true : !p.grepInvert;
   });
+  const requestedProjects = getRequestedProjectsFromArgs();
 
-  const onlyGuestProjects = projectsToRun.every(p =>
-    p.name === 'guest' ||
-    p.testMatch?.toString().includes('guest-') ||
-    p.testMatch?.toString().includes('email-core-loop')
-  );
+  const onlyGuestProjects =
+    requestedProjects.length > 0
+      ? requestedProjects.every((projectName) => projectName === 'guest')
+      : projectsToRun.every(p =>
+          p.name === 'guest' ||
+          p.testMatch?.toString().includes('guest-') ||
+          p.testMatch?.toString().includes('email-core-loop')
+        );
 
   // Also check if running via SKIP_AUTH_SETUP env var (for CI or explicit skipping)
   const skipAuthSetup = process.env.SKIP_AUTH_SETUP === 'true' || onlyGuestProjects;
@@ -242,15 +275,22 @@ async function globalSetup(config: FullConfig) {
     await context.close();
     await browser.close();
 
-    throw new Error(
+    const failureMessage =
       `Failed to authenticate after ${maxAttempts} attempts. ` +
       `Last error: ${lastError?.message || 'Unknown error'}. ` +
       `Please check:\n` +
       `  1. Test credentials are correct in .env.playwright\n` +
       `  2. User exists in the target environment (${testEnv})\n` +
       `  3. ${baseURL} is accessible\n` +
-      `  4. Supabase configuration is correct`
-    );
+      `  4. Supabase configuration is correct`;
+
+    if (prodReadonlyMode) {
+      await writeProdReadonlyAuthStatus('blocked', failureMessage);
+      console.warn('[Global Setup] Continuing prod-readonly run with guest coverage only');
+      return;
+    }
+
+    throw new Error(failureMessage);
   }
 
   // Log final authentication state
@@ -267,6 +307,9 @@ async function globalSetup(config: FullConfig) {
 
     if (tokens.cookies.length === 0 && tokens.storage.length === 0) {
       throw new Error('Saved state contains no authentication data');
+    }
+    if (prodReadonlyMode) {
+      await writeProdReadonlyAuthStatus('ok');
     }
   } catch (error) {
     console.error('[Global Setup] ❌ Failed to save authentication state:', error);

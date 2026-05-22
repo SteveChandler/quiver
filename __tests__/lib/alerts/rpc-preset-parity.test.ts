@@ -46,6 +46,26 @@ const TEST_BEACH: BeachAlertMeta = {
   swell_window_halfwidth_deg: null,
 };
 
+const SANDY_BEGINNER_BEACH: BeachAlertMeta = {
+  ...TEST_BEACH,
+  name: "Bolsa Chica",
+  slug: "bolsa-chica",
+  skill_level: "beginner",
+  break_type: "beach",
+  features: ["sand bottom", "beginner sandy beachbreak"],
+  preferred_tide_ft_min: 0.5,
+  preferred_tide_ft_max: 3,
+  preference_model: {
+    beginner_window: {
+      model: "socal_sandy_beginner",
+      beginner_fit: "primary",
+      acceptable_wave_height_ft: { min: 0.5, max: 3 },
+      best_time_local: { start: "06:00", end: "10:00" },
+      max_beginner_wind_mph: 10,
+    },
+  },
+};
+
 // Frozen fixture: what each preset's TS buildConditions(TEST_BEACH) outputs
 // today. The SQL helper preset_default_conditions(preset, beach_id) MUST
 // produce the same JSON for every key listed here, plus tide fields when the
@@ -81,7 +101,25 @@ describe("preset TS regression — anon-capture set", () => {
   }
 });
 
+it("mellow_session: TS buildConditions uses the sandy beginner window when beach metadata qualifies", () => {
+  const tsConditions = getPreset("mellow_session")!.buildConditions(
+    SANDY_BEGINNER_BEACH,
+  );
+  expect(JSON.parse(JSON.stringify(tsConditions))).toEqual({
+    swell_height_min: 0.5,
+    swell_height_max: 3,
+    wind_speed_max_kt: 9,
+    tide_height_min_ft: 0.5,
+    tide_height_max_ft: 3,
+    avoid_tide_statuses: ["high"],
+    local_time_start: "06:00",
+    local_time_end: "10:00",
+    beginner_sandy_window: true,
+  });
+});
+
 // SQL parity is skipped on this branch — see file header for context.
+// eslint-disable-next-line jest/no-disabled-tests -- live DB parity is documented above and local migration replay is currently blocked.
 describe.skip("RPC preset parity (TS vs SQL — live DB required)", () => {
   // To re-enable: ensure local supabase db reset succeeds, regenerate types,
   // import createServiceClient, and remove the .skip. The body below mirrors
@@ -115,5 +153,7 @@ describe.skip("RPC preset parity (TS vs SQL — live DB required)", () => {
   //     expect(sqlConditions).toEqual(JSON.parse(JSON.stringify(tsConditions)));
   //   });
   // }
-  it("placeholder so describe.skip has a body", () => {});
+  it("placeholder so describe.skip has a body", () => {
+    expect(true).toBe(true);
+  });
 });

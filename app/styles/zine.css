@@ -774,13 +774,117 @@ body:has(.zine-page) {
   box-shadow: 3px 4px 0 rgba(17, 16, 13, 0.35) !important;
 }
 
-/* OutlookBarChart container — bg-card is theme-driven. Force
-   cream paper for safety so it never falls back to dark. */
+/* Card surfaces inside zine tabs — bg-card/text-card-foreground are
+   theme-driven for the dark app shell. Force cream paper + ink so
+   shared cards like Reviews do not inherit washed-out twilight text. */
 .zine-page .zine-tabs-slot .bg-card {
   background-color: #F4EBD8 !important;
+  border-color: #11100D !important;
+  color: #11100D !important;
+}
+.zine-page .zine-tabs-slot .bg-card .text-card-foreground,
+.zine-page .zine-tabs-slot .bg-card .text-foreground {
+  color: #11100D !important;
+}
+.zine-page .zine-tabs-slot .bg-card .text-muted-foreground {
+  color: #4B4030 !important;
+  opacity: 1;
+}
+.zine-page .zine-tabs-slot .bg-card .border-t {
+  border-top-color: rgba(17, 16, 13, 0.45) !important;
 }
 .zine-page .zine-tabs-slot .border-border {
   border-color: rgba(17, 16, 13, 0.3) !important;
+}
+
+/* Forecast "Best Time" surf-call card — this card is styled for the
+   dark app shell by default, so its explicit blue/gray utilities wash
+   out when rendered on cream zine paper. */
+.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .text-blue-900,
+.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .text-gray-700 {
+  color: #11100D !important;
+}
+.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .text-blue-700,
+.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .text-blue-600,
+.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .text-blue-400 {
+  color: #0B3A75 !important;
+}
+.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .text-gray-600 {
+  color: #4B4030 !important;
+}
+.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .bg-white\/80,
+.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .bg-blue-50\/50 {
+  background-color: rgba(244, 235, 216, 0.9) !important;
+}
+.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .border-blue-100\/60,
+.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .border-blue-200\/60,
+.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .border-gray-200\/40,
+.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .border-gray-200\/60 {
+  border-color: rgba(11, 58, 117, 0.28) !important;
+}
+.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-2xl.border-blue-200\/60 {
+  background: rgba(11, 58, 117, 0.08) !important;
+  border-color: #0B3A75 !important;
+}
+.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-2xl.border-blue-200\/60 .text-blue-900 {
+  color: #11100D !important;
+}
+.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-2xl.border-blue-200\/60 .text-blue-700,
+.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-2xl.border-blue-200\/60 .text-blue-600 {
+  color: #0A2F5E !important;
+}
+.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-xl.border-gray-200\/40 {
+  background-color: rgba(11, 58, 117, 0.08) !important;
+  border-color: #0B3A75 !important;
+}
+.zine-page .zine-tabs-slot [data-tier="hero"].bg-card .rounded-xl.border-gray-200\/40 .text-gray-700 {
+  color: #11100D !important;
+  opacity: 1;
+}
+
+/* Local Intel empty state — global retro-dark text utilities make
+   gray/blue copy too pale on the cream zine card. */
+.zine-page .zine-tabs-slot #intel-section .text-gray-900 {
+  color: #11100D !important;
+}
+.zine-page .zine-tabs-slot #intel-section .text-gray-600 {
+  color: #4B4030 !important;
+}
+.zine-page .zine-tabs-slot #intel-section .text-blue-600,
+.zine-page .zine-tabs-slot #intel-section .text-blue-700 {
+  color: #0B3A75 !important;
+}
+.zine-page .zine-tabs-slot #intel-section .border-blue-200 {
+  border-color: #0B3A75 !important;
+}
+.zine-page .zine-tabs-slot #intel-section .hover\:bg-blue-50:hover {
+  background-color: rgba(11, 58, 117, 0.08) !important;
+}
+
+/* Recent Sessions cards reuse the global social SessionCard, whose muted
+   blocks are blue overlays in the dark app theme. On cream paper they need
+   light inked panels instead. */
+.zine-page .zine-tabs-slot .session-card-hover {
+  color: #11100D !important;
+}
+.zine-page .zine-tabs-slot .session-card-hover .text-muted-foreground {
+  color: #4B4030 !important;
+  opacity: 1;
+}
+.zine-page .zine-tabs-slot .session-card-hover .bg-muted\/30,
+.zine-page .zine-tabs-slot .session-card-hover .bg-muted\/50 {
+  background-color: rgba(11, 58, 117, 0.08) !important;
+  border-color: rgba(11, 58, 117, 0.25) !important;
+  color: #11100D !important;
+}
+.zine-page .zine-tabs-slot .session-card-hover .text-blue-500 {
+  color: #0B3A75 !important;
+}
+.zine-page .zine-tabs-slot .session-card-hover .text-orange-500 {
+  color: #9E5010 !important;
+}
+.zine-page .zine-tabs-slot .session-card-hover .text-green-500 {
+  color: #17633A !important;
 }
 .zine-page .zine-tabs-slot [data-testid="outlook-bar-chart"] .text-foreground,
 .zine-page .zine-tabs-slot [data-testid="outlook-bar-chart"] h3 {

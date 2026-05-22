@@ -34,6 +34,7 @@ const INTERNATIONAL_RESERVED_SEGMENTS = new Set([
   "_next",
   "auth",
   "admin",
+  "alerts",
   "beach",
   "beaches",
   "discover",
@@ -203,6 +204,19 @@ export async function middleware(request: NextRequest) {
   if (ocMatch && ocMatch[1]) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = `/spots/${ocMatch[1]}`;
+    return NextResponse.redirect(redirectUrl, { status: 301 });
+  }
+
+  const northHbStreetsMatch = pathname
+    .toLowerCase()
+    .match(
+      /^\/ca\/huntington-beach\/north-hb-streets(\/(?:tides|water-temp))?$/,
+    );
+  if (northHbStreetsMatch) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = `/ca/huntington-beach/goldenwest${
+      northHbStreetsMatch[1] ?? ""
+    }`;
     return NextResponse.redirect(redirectUrl, { status: 301 });
   }
 

@@ -1,0 +1,52 @@
+import React from "react";
+import { render, waitFor } from "@testing-library/react";
+import { ClientErrorTracker } from "@/components/providers/client-error-tracker";
+
+const mockTrack = jest.fn();
+
+jest.mock("@/hooks/use-track-event", () => ({
+  useTrackEvent: () => ({ track: mockTrack }),
+}));
+
+describe("ClientErrorTracker", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    window.history.pushState({}, "", "/hi/honolulu/diamond-head-cliffs");
+  });
+
+  it("suppresses the known WKWebView postMessage unhandled rejection noise", async () => {
+    render(<ClientErrorTracker />);
+
+    const event = new Event("unhandledrejection") as PromiseRejectionEvent;
+    Object.assign(event, {
+      reason: new Error("WKWebView API client did not respond to this postMessage"),
+    });
+
+    window.dispatchEvent(event);
+
+    await waitFor(() => {
+      expect(mockTrack).not.toHaveBeenCalled();
+    });
+  });
+
+  it("still tracks other unhandled rejections", async () => {
+    render(<ClientErrorTracker />);
+
+    const event = new Event("unhandledrejection") as PromiseRejectionEvent;
+    Object.assign(event, {
+      reason: new Error("Unexpected fetch failure"),
+    });
+
+    window.dispatchEvent(event);
+
+    await waitFor(() => {
+      expect(mockTrack).toHaveBeenCalledWith("client_error", {
+        metadata: expect.objectContaining({
+          message: "Error: Unexpected fetch failure",
+          route: "/hi/honolulu/diamond-head-cliffs",
+          source: "unhandled_rejection",
+        }),
+      });
+    });
+  });
+});

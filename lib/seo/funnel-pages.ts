@@ -131,6 +131,18 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
     src: "/images/blacks.webp",
     alt: "Blacks Beach surf lineup",
   },
+  blackies: {
+    src: "/images/seo-dioramas/surf-cams/orange-county/orange-county-open-wave-photo.webp",
+    alt: "Newport and North Orange County sandy beachbreak context near Blackies",
+  },
+  "bolsa-chica": {
+    src: "/images/seo-dioramas/beginner/socal/bolsa-chica-photo.webp",
+    alt: "Bolsa Chica State Beach sandy shoreline and beginner surf context",
+  },
+  goldenwest: {
+    src: "/images/seo-dioramas/surf-cams/orange-county/orange-county-aerial-shore-photo.webp",
+    alt: "Goldenwest and North Huntington sandy beachbreak context",
+  },
   "capitola-beach": {
     src: "/images/seo-dioramas/beginner/santa-cruz/boardwalk-surf-check-diorama.webp",
     alt: "Santa Cruz beginner surf check near Capitola",
@@ -140,20 +152,32 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
     alt: "Cocoa Beach Pier beginner surf context",
   },
   "doheny-beach": {
-    src: "/images/seo-dioramas/spot-backgrounds/doheny-state-beach-photo.webp",
-    alt: "Doheny State Beach shoreline and surf lineup",
+    src: "/images/seo-dioramas/beginner/socal/doheny-beach-photo.webp",
+    alt: "Doheny State Beach shoreline and soft learner surf context",
+  },
+  "dockweiler-state-beach-playa-del-rey-ca": {
+    src: "/images/seo-dioramas/beginner/socal/dockweiler-state-beach-playa-del-rey-ca-photo.webp",
+    alt: "Dockweiler State Beach shoreline for Los Angeles beginner surf planning",
   },
   domes: {
     src: "/images/seo-scenes/rincon-domes.webp",
     alt: "Domes surf context in Rincon Puerto Rico",
+  },
+  "72nd-place-long-beach-ca": {
+    src: "/images/seo-dioramas/surf-cams/orange-county/orange-county-open-wave-photo.webp",
+    alt: "Small clean Southern California beachbreak context near 72nd Place",
+  },
+  "el-porto-manhattan": {
+    src: "/images/seo-dioramas/surf-report/malibu-today/malibu-crowd-awareness-diorama.webp",
+    alt: "Los Angeles beachbreak crowd and surf-planning context",
   },
   grandview: {
     src: "/images/Beacons_Beach.webp",
     alt: "Encinitas beach and reef surf context near Grandview",
   },
   "la-jolla-shores": {
-    src: "/images/seo-dioramas/spot-backgrounds/la-jolla-shores-photo.webp",
-    alt: "La Jolla Shores beach and surf lineup",
+    src: "/images/seo-dioramas/beginner/socal/la-jolla-shores-photo.webp",
+    alt: "La Jolla Shores beach and learner surf context",
   },
   leadbetter: {
     src: "/images/seo-dioramas/longboard/santa-barbara/santa-barbara-palm-check-diorama.webp",
@@ -162,6 +186,14 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
   "malibu-first-point-surfrider": {
     src: "/images/seo-dioramas/surf-report/malibu-today/malibu-point-wave-diorama.webp",
     alt: "Malibu First Point surf context",
+  },
+  "leo-carrillo-state-beach-malibu-ca": {
+    src: "/images/seo-dioramas/surf-report/malibu-today/malibu-coastal-drive-check-diorama.webp",
+    alt: "Malibu coast surf-check context near Leo Carrillo",
+  },
+  "huntington-state-beach": {
+    src: "/images/seo-dioramas/beginner/socal/huntington-state-beach-photo.webp",
+    alt: "Huntington State Beach sandy surf zone context",
   },
   marias: {
     src: "/images/seo-scenes/rincon-marias.webp",
@@ -175,21 +207,45 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
     src: "/images/seo-dioramas/longboard/ventura/c-street-point-diorama.webp",
     alt: "Ventura point-wave longboard context near Mondos",
   },
+  "mondos-beach-ventura-ca": {
+    src: "/images/seo-dioramas/longboard/ventura/c-street-point-diorama.webp",
+    alt: "Ventura soft point-wave context near Mondos",
+  },
   "moonlight-beach": {
     src: "/images/seo-dioramas/longboard/encinitas/moonlight-peelers-diorama.webp",
     alt: "Moonlight Beach mellow surf context",
   },
   "san-onofre-state-beach": {
-    src: "/images/seo-scenes/san-onofre-plan-clean.webp",
-    alt: "San Onofre State Beach surf planning context",
+    src: "/images/seo-dioramas/beginner/socal/san-onofre-state-beach-photo.webp",
+    alt: "San Onofre State Beach sunset and gentle-wave planning context",
   },
   scripps: {
     src: "/images/seo-dioramas/spot-backgrounds/scripps-pier-photo.webp",
     alt: "Scripps Pier surf lineup",
   },
+  "santa-monica-beach-santa-monica-ca": {
+    src: "/images/seo-dioramas/beginner/socal/santa-monica-beach-santa-monica-ca-photo.webp",
+    alt: "Santa Monica State Beach shoreline for Los Angeles beginner surf planning",
+  },
+  "refugio-state-beach-goleta-ca": {
+    src: "/images/seo-dioramas/beginner/socal/refugio-state-beach-goleta-ca-photo.webp",
+    alt: "Refugio State Beach shoreline for Santa Barbara beginner surf planning",
+  },
   "tourmaline-surf-park": {
-    src: "/images/seo-dioramas/spot-backgrounds/tourmaline-photo.webp",
-    alt: "Tourmaline shoreline and mellow surf context",
+    src: "/images/seo-dioramas/beginner/socal/tourmaline-surf-park-photo.webp",
+    alt: "Tourmaline Surf Park shoreline and mellow surf context",
+  },
+  "torrance-beach-rat-beach-torrance-ca": {
+    src: "/images/seo-dioramas/beginner/socal/torrance-beach-rat-beach-torrance-ca-photo.webp",
+    alt: "Torrance Beach shoreline for South Bay beginner surf planning",
+  },
+  "venice-beach-venice-ca": {
+    src: "/images/seo-dioramas/beginner/socal/venice-beach-venice-ca-photo.webp",
+    alt: "Venice Beach shoreline for Los Angeles beginner surf planning",
+  },
+  "will-rogers-state-beach-santa-monica-ca": {
+    src: "/images/seo-dioramas/beginner/socal/will-rogers-state-beach-santa-monica-ca-photo.webp",
+    alt: "Will Rogers State Beach shoreline for north Los Angeles beginner surf planning",
   },
   "waikiki-beach": {
     src: "/images/seo-dioramas/longboard/honolulu/waikiki-canoes-diorama.webp",
@@ -207,6 +263,10 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
     src: "/images/seo-dioramas/beginner/honolulu/waikiki-lesson-zone-diorama.webp",
     alt: "Honolulu beginner surf context at Waikiki",
   },
+  "/beginner/los-angeles": {
+    src: "/images/seo-dioramas/surf-report/malibu-today/malibu-coastal-drive-check-diorama.webp",
+    alt: "Los Angeles beginner surf planning context",
+  },
   "/beginner/orange-county": {
     src: "/images/seo-dioramas/spot-backgrounds/doheny-state-beach-photo.webp",
     alt: "Orange County beginner surf context at Doheny",
@@ -218,6 +278,14 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
   "/beginner/san-onofre": {
     src: "/images/seo-scenes/san-onofre-clean.webp",
     alt: "San Onofre beginner surf context",
+  },
+  "/beginner/santa-barbara": {
+    src: "/images/seo-dioramas/longboard/santa-barbara/santa-barbara-palm-check-diorama.webp",
+    alt: "Santa Barbara beginner surf planning context",
+  },
+  "/beginner/ventura": {
+    src: "/images/seo-dioramas/longboard/ventura/c-street-point-diorama.webp",
+    alt: "Ventura beginner surf planning context near Mondos",
   },
   "/longboard/fl": {
     src: "/images/seo-dioramas/longboard/fl/cocoa-beach-pier-log-diorama.webp",
@@ -267,9 +335,17 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
     src: "/images/seo-dioramas/beginner/santa-cruz/cowells-beginner-diorama.webp",
     alt: "Santa Cruz beginner surf context",
   },
+  "/map?search=Santa%20Barbara": {
+    src: "/images/seo-dioramas/longboard/santa-barbara/santa-barbara-palm-check-diorama.webp",
+    alt: "Santa Barbara surf map context",
+  },
   "/map?search=Ventura%20Pier": {
     src: "/images/seo-dioramas/longboard/ventura/ventura-pier-check-diorama.webp",
     alt: "Ventura Pier surf context",
+  },
+  "zuma-beach-malibu-ca": {
+    src: "/images/seo-dioramas/surf-report/malibu-today/malibu-coastal-drive-check-diorama.webp",
+    alt: "Malibu beachbreak context near Zuma",
   },
   "/surf-cams/florida": {
     src: "/images/seo-dioramas/surf-cams/florida/florida-choppy-sea-photo.webp",
@@ -511,6 +587,56 @@ function makePhotoImage(
   };
 }
 
+function makeExistingPhotoImage(
+  id: string,
+  src: string,
+  theme: string,
+  alt: string,
+  caption: string,
+): SeoImage {
+  return {
+    assetType: "photo",
+    id,
+    src,
+    alt,
+    caption,
+    prompt: [
+      "Use case: ads-marketing",
+      "Asset type: Quiver SEO landing page real photo image",
+      `Primary request: ${theme}`,
+      `Scene/backdrop: ${theme}`,
+      "Subject: real coastline, beach, and surf-condition reference photography",
+      "Style constraints: preserve the source photo's natural location cues, avoid synthetic effects, no text overlays, no logos, no readable signs, no watermark.",
+      "Avoid: generated-scene claims, invented landmarks, copyrighted logo focus, or implying the photo shows a specific break when it only shows a representative coastline.",
+    ].join("\n"),
+  };
+}
+
+function makeExistingDioramaImage(
+  id: string,
+  src: string,
+  theme: string,
+  alt: string,
+  caption: string,
+): SeoImage {
+  return {
+    assetType: "diorama",
+    id,
+    src,
+    alt,
+    caption,
+    prompt: [
+      "Use case: ads-marketing",
+      "Asset type: Quiver SEO landing page diorama image",
+      `Primary request: ${theme}`,
+      `Scene/backdrop: ${theme}`,
+      "Subject: location-specific surf decision scene with tiny surfers and boards",
+      `Style constraints: ${DIORAMA_STYLE}`,
+      "Avoid: copyrighted photo replication, real brand logos, readable text, signs, UI text, watermarks, generic stock-photo framing.",
+    ].join("\n"),
+  };
+}
+
 function makeImages(
   type: SeoPageType,
   slug: string,
@@ -556,13 +682,15 @@ interface LocationSeed {
   links: SeoInternalLink[];
   spots: SeoSpotLink[];
   images: SeoImageSeedEntry[];
+  existingImages?: SeoImage[];
 }
 
 function buildLocationPage(seed: LocationSeed): SeoPageConfig {
   const images =
-    seed.imageAssetType === "photo"
+    seed.existingImages ??
+    (seed.imageAssetType === "photo"
       ? makePhotoImages(seed.type, seed.slug, seed.images)
-      : makeImages(seed.type, seed.slug, seed.images);
+      : makeImages(seed.type, seed.slug, seed.images));
   const intentLabel = seed.type === "longboard" ? "longboard" : "beginner";
 
   return {
@@ -1064,6 +1192,8 @@ const BEGINNER_PAGES = [
       { label: "San Diego surf cams", href: "/surf-cams/san-diego" },
       { label: "Scripps Pier today", href: "/surf-report/scripps-pier-today" },
       { label: "La Jolla longboard guide", href: "/longboard/la-jolla" },
+      { label: "Orange County beginner surf", href: "/beginner/orange-county" },
+      { label: "Los Angeles beginner surf", href: "/beginner/los-angeles" },
     ],
     spots: [
       {
@@ -1071,7 +1201,11 @@ const BEGINNER_PAGES = [
         href: "/ca/la-jolla/la-jolla-shores",
         beachSlug: "la-jolla-shores",
       },
-      { label: "Tourmaline", href: "/surf-report/tourmaline-today" },
+      {
+        label: "Tourmaline",
+        href: "/surf-report/tourmaline-today",
+        beachSlug: "tourmaline-surf-park",
+      },
       { label: "Scripps today", href: "/surf-report/scripps-pier-today" },
     ],
     images: [
@@ -1093,6 +1227,29 @@ const BEGINNER_PAGES = [
         "Ocean Beach wave line with surfers used for broader San Diego context",
         "Ocean Beach wave line",
       ],
+    ],
+    existingImages: [
+      makeExistingPhotoImage(
+        "san-diego-beginner-la-jolla-shores-photo",
+        "/images/seo-dioramas/beginner/socal/la-jolla-shores-photo.webp",
+        "La Jolla Shores beach photo for beginner surf planning",
+        "La Jolla Shores beach with gentle learner-zone surf",
+        "La Jolla Shores - photo by Dirk Hansen, CC BY-SA 3.0",
+      ),
+      makeExistingPhotoImage(
+        "san-diego-beginner-tourmaline-photo",
+        "/images/seo-dioramas/beginner/socal/tourmaline-surf-park-photo.webp",
+        "Tourmaline Surf Park shoreline photo for beginner and longboard planning",
+        "Tourmaline Surf Park shoreline and mellow surf context",
+        "Tourmaline - photo by Invertzoo, CC BY-SA 3.0",
+      ),
+      makeExistingPhotoImage(
+        "san-diego-beginner-ocean-beach-photo",
+        "/images/seo-dioramas/surf-cams/san-diego/san-diego-ocean-beach-line-photo.webp",
+        "Ocean Beach wave photo for San Diego beginner context",
+        "Ocean Beach wave line with surfers used for broader San Diego context",
+        "Ocean Beach wave line",
+      ),
     ],
   }),
   buildLocationPage({
@@ -1158,30 +1315,49 @@ const BEGINNER_PAGES = [
     locationName: "Orange County",
     title: "Beginner Surf Spots in Orange County | Quiver",
     metaDescription:
-      "Find beginner-friendly Orange County surf zones with Quiver's guide to Doheny, San Clemente, softer inside waves, board choice, and nearby cams.",
+      "Find beginner-friendly Orange County surf zones with Quiver's guide to Bolsa Chica, Huntington Beach, Blackies, Doheny, tide windows, and nearby cams.",
     h1: "Beginner Surf Spots in Orange County",
     intro:
-      "Orange County has plenty of surf, but beginner-friendly usually means choosing the softest corner, not the most famous lineup.",
+      "Orange County has plenty of surf, but beginner-friendly usually means choosing the softest corner, the right tide, and the cleanest morning window.",
     bestZones:
-      "Doheny and mellow San Clemente inside waves are stronger beginner checks than heavy pier or reef days. Look for sand, space, and clear exits.",
+      "Bolsa Chica, small clean Huntington sandbars, and Blackies are the North OC checks when the surf is tiny and organized. Doheny and San Onofre stay useful softer-wave references farther south.",
     conditions:
-      "Small, clean, and soft is the goal. Avoid steep south swell, heavy shorebreak, strong drift, or crowded high-performance peaks.",
+      "For Huntington-style sandy beaches, look for 1-2 ft surf, light wind, 6-10am glass, and low-to-mid tide. Avoid tiny high-tide windows where the waves may not break cleanly.",
     boardCall:
       "A soft-top or stable longboard is the right starting point. Keep learners away from fast inside sections where boards and bodies get pushed into shallow water.",
     localNotes:
-      "Parking varies by beach and weekend timing. If Doheny looks packed, compare Orange County cams and pick the easiest water entry instead of the most famous name.",
+      "Any Huntington sandbar can be usable for learners on a small clean morning, but the pier peaks, Newland, Huntington St., and Cliffs are not blanket beginner calls. If the tide or wind is wrong, wait rather than forcing it.",
     namedBreaks: [
+      "Bolsa Chica",
+      "Blackies",
+      "Huntington State Beach",
       "Doheny",
-      "San Clemente",
       "Old Man's",
-      "Salt Creek on small days",
     ],
     links: [
+      { label: "Huntington beginner surf", href: "/beginner/huntington-beach" },
       { label: "Orange County surf cams", href: "/surf-cams/orange-county" },
       { label: "San Onofre beginner surf", href: "/beginner/san-onofre" },
-      { label: "Encinitas longboard guide", href: "/longboard/encinitas" },
+      { label: "San Diego beginner surf", href: "/beginner/san-diego" },
+      { label: "Los Angeles beginner surf", href: "/beginner/los-angeles" },
+      { label: "Ventura beginner surf", href: "/beginner/ventura" },
     ],
     spots: [
+      {
+        label: "Bolsa Chica",
+        href: "/ca/huntington-beach/bolsa-chica",
+        beachSlug: "bolsa-chica",
+      },
+      {
+        label: "Blackies",
+        href: "/ca/newport-beach/blackies",
+        beachSlug: "blackies",
+      },
+      {
+        label: "Goldenwest / North HB Streets",
+        href: "/ca/huntington-beach/goldenwest",
+        beachSlug: "goldenwest",
+      },
       {
         label: "Doheny Beach",
         href: "/ca/dana-point/doheny-beach",
@@ -1209,6 +1385,324 @@ const BEGINNER_PAGES = [
         "Miniature Orange County beach parking scene with soft-top board setup",
         "Soft-top setup",
       ],
+    ],
+    existingImages: [
+      makeExistingPhotoImage(
+        "orange-county-beginner-bolsa-chica-photo",
+        "/images/seo-dioramas/beginner/socal/bolsa-chica-photo.webp",
+        "Bolsa Chica State Beach sandy shoreline for Orange County beginner surf planning",
+        "Bolsa Chica State Beach shoreline and beginner surf context",
+        "Bolsa Chica - photo by Jeff Turner, CC BY 2.0",
+      ),
+      makeExistingPhotoImage(
+        "orange-county-beginner-doheny-photo",
+        "/images/seo-dioramas/beginner/socal/doheny-beach-photo.webp",
+        "Doheny State Beach soft learner-wave context",
+        "Doheny State Beach shoreline for Orange County beginner planning",
+        "Doheny - photo by Orange County Archives, CC BY 2.0",
+      ),
+      makeExistingPhotoImage(
+        "orange-county-beginner-san-onofre-photo",
+        "/images/seo-dioramas/beginner/socal/san-onofre-state-beach-photo.webp",
+        "San Onofre State Beach gentle-wave context for Orange County beginner planning",
+        "San Onofre State Beach sunset and gentle-wave planning context",
+        "San Onofre - photo by Xylem9, CC BY-SA 4.0",
+      ),
+    ],
+  }),
+  buildLocationPage({
+    type: "beginner",
+    slug: "huntington-beach",
+    locationName: "Huntington Beach",
+    title: "Beginner Surf Spots in Huntington Beach | Quiver",
+    metaDescription:
+      "Plan beginner surfing in Huntington Beach with Quiver's guide to Bolsa Chica, small HB sandbars, Huntington State Beach, Blackies nearby, tide timing, and morning wind.",
+    h1: "Beginner Surf Spots in Huntington Beach",
+    intro:
+      "Huntington can work for beginners, but the useful filter is practical: small waves, low wind, an early glass window, and low-to-mid tide.",
+    bestZones:
+      "Bolsa Chica is the easiest Huntington-first learner reference. Huntington State Beach and the broader HB sandbars can work on tiny clean mornings, while nearby Blackies in Newport is a strong longboard and learner alternate.",
+    conditions:
+      "The local beginner pattern is 1-2 ft surf, light wind, 6-10am, and low-to-mid tide. High tide on a tiny day can flatten the wave or create awkward shore wash instead of clean whitewater reps.",
+    boardCall:
+      "Use a foam board for first sessions and keep the goal simple: whitewater reps, clean paddles, and predictable takeoffs. A longboard makes sense only when the surfer can control it around other learners.",
+    localNotes:
+      "Do not treat the pier, Newland, Huntington St., or Cliffs as default beginner zones. On the right small morning, Goldenwest and other HB sandbars can be friendly; on the wrong tide or wind, the same beach can be frustrating fast.",
+    namedBreaks: [
+      "Bolsa Chica",
+      "Huntington State Beach",
+      "Goldenwest / North HB Streets",
+      "Blackies",
+    ],
+    links: [
+      { label: "Orange County beginner surf", href: "/beginner/orange-county" },
+      { label: "Orange County surf cams", href: "/surf-cams/orange-county" },
+      { label: "Open Huntington map", href: "/map?search=Huntington%20Beach" },
+      { label: "Los Angeles beginner surf", href: "/beginner/los-angeles" },
+      { label: "San Onofre beginner surf", href: "/beginner/san-onofre" },
+    ],
+    spots: [
+      {
+        label: "Bolsa Chica",
+        href: "/ca/huntington-beach/bolsa-chica",
+        beachSlug: "bolsa-chica",
+      },
+      {
+        label: "Huntington State Beach",
+        href: "/ca/huntington-beach/huntington-state-beach",
+        beachSlug: "huntington-state-beach",
+      },
+      {
+        label: "Goldenwest / North HB Streets",
+        href: "/ca/huntington-beach/goldenwest",
+        beachSlug: "goldenwest",
+      },
+      {
+        label: "Blackies",
+        href: "/ca/newport-beach/blackies",
+        beachSlug: "blackies",
+      },
+    ],
+    images: [],
+    existingImages: [
+      makeExistingPhotoImage(
+        "huntington-beginner-bolsa-chica-photo",
+        "/images/seo-dioramas/beginner/socal/bolsa-chica-photo.webp",
+        "Bolsa Chica State Beach shoreline for Huntington beginner surf planning",
+        "Bolsa Chica State Beach sandy shoreline and beginner surf context",
+        "Bolsa Chica - photo by Jeff Turner, CC BY 2.0",
+      ),
+      makeExistingPhotoImage(
+        "huntington-beginner-state-beach-photo",
+        "/images/seo-dioramas/beginner/socal/huntington-state-beach-photo.webp",
+        "Huntington State Beach sandy surf zone for beginner planning",
+        "Huntington State Beach sandy surf zone context",
+        "Huntington State Beach - photo by FASTILY, CC BY-SA 4.0",
+      ),
+      makeExistingPhotoImage(
+        "huntington-beginner-open-wave-photo",
+        "/images/seo-dioramas/surf-cams/orange-county/orange-county-open-wave-photo.webp",
+        "Small clean North Orange County beachbreak for Blackies and Goldenwest planning when no approved spot photo exists",
+        "Small clean North Orange County beachbreak context for Blackies and Goldenwest planning",
+        "Representative Blackies/Goldenwest context",
+      ),
+    ],
+  }),
+  buildLocationPage({
+    type: "beginner",
+    slug: "los-angeles",
+    locationName: "Los Angeles",
+    title: "Beginner Surf Spots in Los Angeles | Quiver",
+    metaDescription:
+      "Plan beginner surfing in Los Angeles with Quiver's guide to Santa Monica, Will Rogers, Dockweiler, Venice, Torrance, small-wave windows, and unsafe-spot caveats.",
+    h1: "Beginner Surf Spots in Los Angeles",
+    intro:
+      "Los Angeles beginner surf is less about chasing famous names and more about finding a small, clean, uncrowded sandbar with soft whitewater.",
+    bestZones:
+      "Santa Monica, Will Rogers, Dockweiler, Venice, Torrance/RAT Beach, and 72nd Place are the sandy beginner checks when the surf is small. El Porto, Zuma, and Leo Carrillo need stricter filtering because size, rocks, or beachbreak power can change the risk fast.",
+    conditions:
+      "Use the same conservative sandy-beach filter: 0.5-2 ft is best, light morning wind, low-to-mid tide, and no post-rain water-quality concern. If the inside is pitching or drifting, it is not a beginner window.",
+    boardCall:
+      "Start with a soft-top and keep the session in whitewater until the surfer can steer, stop, and avoid other learners. A longboard is only useful once board control is reliable.",
+    localNotes:
+      "Do not treat every Los Angeles beach row with beginner wording as a blanket learner call. El Porto, Zuma, and Leo Carrillo are small-day conditional checks, while faster or rocky zones should stay out of sandy beginner alerts.",
+    namedBreaks: [
+      "Santa Monica",
+      "Will Rogers",
+      "Dockweiler",
+      "Venice",
+      "Torrance/RAT Beach",
+      "72nd Place",
+    ],
+    links: [
+      { label: "Orange County beginner surf", href: "/beginner/orange-county" },
+      { label: "San Diego beginner surf", href: "/beginner/san-diego" },
+      { label: "Ventura beginner surf", href: "/beginner/ventura" },
+      { label: "Santa Barbara beginner surf", href: "/beginner/santa-barbara" },
+    ],
+    spots: [
+      {
+        label: "Santa Monica Beach",
+        href: "/ca/santa-monica/santa-monica-beach-santa-monica-ca",
+        beachSlug: "santa-monica-beach-santa-monica-ca",
+      },
+      {
+        label: "Will Rogers",
+        href: "/ca/santa-monica/will-rogers-state-beach-santa-monica-ca",
+        beachSlug: "will-rogers-state-beach-santa-monica-ca",
+      },
+      {
+        label: "Dockweiler",
+        href: "/ca/playa-del-rey/dockweiler-state-beach-playa-del-rey-ca",
+        beachSlug: "dockweiler-state-beach-playa-del-rey-ca",
+      },
+      {
+        label: "Venice Beach",
+        href: "/ca/venice/venice-beach-venice-ca",
+        beachSlug: "venice-beach-venice-ca",
+      },
+      {
+        label: "Torrance/RAT Beach",
+        href: "/ca/torrance/torrance-beach-rat-beach-torrance-ca",
+        beachSlug: "torrance-beach-rat-beach-torrance-ca",
+      },
+      {
+        label: "72nd Place",
+        href: "/ca/long-beach/72nd-place-long-beach-ca",
+        beachSlug: "72nd-place-long-beach-ca",
+      },
+    ],
+    images: [],
+    existingImages: [
+      makeExistingPhotoImage(
+        "los-angeles-beginner-santa-monica-photo",
+        "/images/seo-dioramas/beginner/socal/santa-monica-beach-santa-monica-ca-photo.webp",
+        "Santa Monica State Beach shoreline for Los Angeles beginner surf planning",
+        "Santa Monica State Beach shoreline and beginner surf context",
+        "Santa Monica - photo by Alexander Migl, CC BY-SA 4.0",
+      ),
+      makeExistingPhotoImage(
+        "los-angeles-beginner-will-rogers-photo",
+        "/images/seo-dioramas/beginner/socal/will-rogers-state-beach-santa-monica-ca-photo.webp",
+        "Will Rogers State Beach shoreline for north Los Angeles beginner surf planning",
+        "Will Rogers State Beach shoreline and soft-surf planning context",
+        "Will Rogers - photo by JCS, CC BY-SA 3.0",
+      ),
+      makeExistingPhotoImage(
+        "los-angeles-beginner-dockweiler-photo",
+        "/images/seo-dioramas/beginner/socal/dockweiler-state-beach-playa-del-rey-ca-photo.webp",
+        "Dockweiler State Beach shoreline for wide sandy beginner planning",
+        "Dockweiler State Beach shoreline and beginner logistics context",
+        "Dockweiler - photo by Downtowngal, CC BY-SA 4.0",
+      ),
+    ],
+  }),
+  buildLocationPage({
+    type: "beginner",
+    slug: "ventura",
+    locationName: "Ventura",
+    title: "Beginner Surf Spots in Ventura | Quiver",
+    metaDescription:
+      "Use Quiver's Ventura beginner surf guide for Mondos, soft small-day windows, board calls, access caveats, and links toward Santa Barbara and Los Angeles.",
+    h1: "Beginner Surf Spots in Ventura",
+    intro:
+      "Ventura beginner planning should start with soft, source-backed waves instead of assuming every point or beachbreak works for learners.",
+    bestZones:
+      "Mondos is the strongest beginner anchor because it is known for small, rolling waves and longboard-friendly lessons. Ventura Pier and C Street-style checks belong in the broader planning path, not the sandy beginner alert model.",
+    conditions:
+      "Small clean surf, light wind, and low-to-mid tide are the filter. Bigger west swell, rocks, tight crowds, or wind texture should push beginners out of the water.",
+    boardCall:
+      "Use a soft-top or stable longboard only when the surfer can control it around others. Keep early learners on the soft shoulder or whitewater and avoid the main rotation.",
+    localNotes:
+      "Mondos can look easy because it is soft, but parking, rocks, and crowd etiquette still matter. Solimar-style reef rows should not inherit beginner alert behavior from Mondos.",
+    namedBreaks: ["Mondos", "Ventura Pier", "C Street context"],
+    links: [
+      { label: "Los Angeles beginner surf", href: "/beginner/los-angeles" },
+      { label: "Santa Barbara beginner surf", href: "/beginner/santa-barbara" },
+      { label: "Ventura longboard guide", href: "/longboard/ventura" },
+      { label: "Orange County beginner surf", href: "/beginner/orange-county" },
+    ],
+    spots: [
+      {
+        label: "Mondos Beach",
+        href: "/ca/ventura/mondos-beach-ventura-ca",
+        beachSlug: "mondos-beach-ventura-ca",
+      },
+      { label: "Ventura longboard", href: "/longboard/ventura" },
+      { label: "Ventura Pier search", href: "/map?search=Ventura%20Pier" },
+      { label: "Santa Barbara beginner", href: "/beginner/santa-barbara" },
+    ],
+    images: [],
+    existingImages: [
+      makeExistingDioramaImage(
+        "ventura-beginner-mondos-diorama",
+        "/images/seo-dioramas/longboard/ventura/c-street-point-diorama.webp",
+        "Ventura soft point-wave decision scene for Mondos-style beginner planning",
+        "Ventura soft point-wave beginner planning scene",
+        "Soft point-wave check",
+      ),
+      makeExistingDioramaImage(
+        "ventura-beginner-pier-check-diorama",
+        "/images/seo-dioramas/longboard/ventura/ventura-pier-check-diorama.webp",
+        "Ventura Pier surf-check context for beginner backups and no-go calls",
+        "Ventura Pier surf-check scene used for beginner backup planning",
+        "Pier backup check",
+      ),
+      makeExistingDioramaImage(
+        "ventura-beginner-log-wagon-diorama",
+        "/images/seo-dioramas/longboard/ventura/ventura-log-wagon-diorama.webp",
+        "Ventura longboard and soft-top setup for small beginner waves",
+        "Ventura small-wave board setup scene",
+        "Small-wave board setup",
+      ),
+    ],
+  }),
+  buildLocationPage({
+    type: "beginner",
+    slug: "santa-barbara",
+    locationName: "Santa Barbara",
+    title: "Beginner Surf Spots in Santa Barbara | Quiver",
+    metaDescription:
+      "Plan beginner surf around Santa Barbara with Quiver's guide to Refugio, Mondos nearby, small clean windows, and caveats for point and reef learners.",
+    h1: "Beginner Surf Spots in Santa Barbara",
+    intro:
+      "Santa Barbara beginner surf works best when the call is specific: soft small waves, clear access, and no assumption that a famous point is safe today.",
+    bestZones:
+      "Refugio can be a conditional Santa Barbara-area beginner check when small and clean. Mondos, just down the coast toward Ventura, is the stronger source-backed soft learner anchor; Leadbetter-style longboard copy should stay separate from the sandy alert model unless conditions are clearly forgiving.",
+    conditions:
+      "Look for small clean surf, light wind, and low-to-mid tide. Strong west swell, reef/rock exposure, and crowded point-wave rotations should turn beginner promotion off.",
+    boardCall:
+      "Bring a soft-top or stable longboard only for small, soft waves with space. If the takeoff requires lineup judgment around rocks or a tight point crowd, it is not a beginner session.",
+    localNotes:
+      "This page connects Santa Barbara planning to Ventura and Los Angeles without claiming every local learner reference is a sandy beginner alert candidate. Refugio is conditional; Mondos is the safer beginner anchor when it is small.",
+    namedBreaks: ["Refugio", "Mondos", "Leadbetter context"],
+    links: [
+      { label: "Ventura beginner surf", href: "/beginner/ventura" },
+      { label: "Los Angeles beginner surf", href: "/beginner/los-angeles" },
+      { label: "Santa Barbara longboard guide", href: "/longboard/santa-barbara" },
+      { label: "Orange County beginner surf", href: "/beginner/orange-county" },
+    ],
+    spots: [
+      {
+        label: "Refugio State Beach",
+        href: "/ca/goleta/refugio-state-beach-goleta-ca",
+        beachSlug: "refugio-state-beach-goleta-ca",
+      },
+      {
+        label: "Mondos Beach",
+        href: "/ca/ventura/mondos-beach-ventura-ca",
+        beachSlug: "mondos-beach-ventura-ca",
+      },
+      {
+        label: "Leadbetter context",
+        href: "/ca/santa-barbara/leadbetter",
+        beachSlug: "leadbetter",
+      },
+      { label: "Santa Barbara map", href: "/map?search=Santa%20Barbara" },
+    ],
+    images: [],
+    existingImages: [
+      makeExistingPhotoImage(
+        "santa-barbara-beginner-refugio-photo",
+        "/images/seo-dioramas/beginner/socal/refugio-state-beach-goleta-ca-photo.webp",
+        "Refugio State Beach shoreline for Santa Barbara beginner surf planning",
+        "Refugio State Beach shoreline and conditional beginner surf context",
+        "Refugio - photo by Tony Webster, CC BY-SA 2.0",
+      ),
+      makeExistingDioramaImage(
+        "santa-barbara-beginner-bluff-wax-up-diorama",
+        "/images/seo-dioramas/longboard/santa-barbara/bluff-wax-up-diorama.webp",
+        "Santa Barbara bluff and board setup for cautious beginner planning",
+        "Santa Barbara bluff board setup scene for cautious beginner planning",
+        "Bluff board setup",
+      ),
+      makeExistingDioramaImage(
+        "santa-barbara-beginner-palm-check-diorama",
+        "/images/seo-dioramas/longboard/santa-barbara/santa-barbara-palm-check-diorama.webp",
+        "Santa Barbara small-wave surf-check scene for beginner planning",
+        "Santa Barbara small-wave surf-check scene",
+        "Palm-lined surf check",
+      ),
     ],
   }),
   buildLocationPage({
@@ -1350,6 +1844,8 @@ const BEGINNER_PAGES = [
       { label: "Orange County beginner surf", href: "/beginner/orange-county" },
       { label: "Orange County surf cams", href: "/surf-cams/orange-county" },
       { label: "Encinitas longboard guide", href: "/longboard/encinitas" },
+      { label: "San Diego beginner surf", href: "/beginner/san-diego" },
+      { label: "Los Angeles beginner surf", href: "/beginner/los-angeles" },
     ],
     spots: [
       {
@@ -1383,6 +1879,29 @@ const BEGINNER_PAGES = [
         "Miniature gentle rolling wave with classic logs and soft-top boards",
         "Gentle rolling wave",
       ],
+    ],
+    existingImages: [
+      makeExistingPhotoImage(
+        "san-onofre-beginner-state-beach-photo",
+        "/images/seo-dioramas/beginner/socal/san-onofre-state-beach-photo.webp",
+        "San Onofre State Beach gentle-wave context for beginner planning",
+        "San Onofre State Beach sunset and gentle-wave planning context",
+        "San Onofre - photo by Xylem9, CC BY-SA 4.0",
+      ),
+      makeExistingDioramaImage(
+        "san-onofre-trail-carry-diorama",
+        "/images/seo-dioramas/beginner/san-onofre/san-onofre-trail-carry-diorama.webp",
+        "San Onofre beach trail and board carry",
+        "Quiver diorama of San Onofre beach trail and board carry",
+        "Trail board carry",
+      ),
+      makeExistingDioramaImage(
+        "gentle-logs-softtops-diorama",
+        "/images/seo-dioramas/beginner/san-onofre/gentle-logs-softtops-diorama.webp",
+        "Gentle rolling wave with classic logs and soft tops",
+        "Miniature gentle rolling wave with classic logs and soft-top boards",
+        "Gentle rolling wave",
+      ),
     ],
   }),
 ];

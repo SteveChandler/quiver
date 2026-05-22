@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import withPWA from "@ducanh2912/next-pwa";
 import { withSentryConfig } from "@sentry/nextjs";
+import { isCacheableForecastApiPath } from "./config/forecast-api-cache-rules.mjs";
 
 const require = createRequire(import.meta.url);
 
@@ -183,6 +184,15 @@ const nextConfig = {
           {
             key: "Cache-Control",
             value: "private, max-age=60, stale-while-revalidate=120",
+          },
+        ],
+      },
+      {
+        source: "/api/forecasts/current",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, must-revalidate",
           },
         ],
       },
@@ -485,9 +495,10 @@ const pwaConfig = withPWA({
   ],
   cleanupOutdatedCaches: true,
   runtimeCaching: [
-    // Forecast API - NetworkFirst with 3s timeout (fresh data priority, short cache for offline)
+    // Forecast API - NetworkFirst with 3s timeout (fresh data priority, short cache for offline).
+    // Source-backed current conditions can trigger refreshes and must never be cached.
     {
-      urlPattern: ({ url }) => url.pathname.startsWith("/api/forecasts"),
+      urlPattern: ({ url }) => isCacheableForecastApiPath(url.pathname),
       handler: "NetworkFirst",
       options: {
         cacheName: "forecast-api",

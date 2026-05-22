@@ -155,8 +155,8 @@ describe('BeachTabs Component', () => {
 
       const overviewTab = screen.getByRole('tab', { name: /overview/i });
 
-      // Phase 5: Responsive padding (mobile: px-2 py-2, desktop: sm:px-6 sm:py-3)
-      expect(overviewTab).toHaveClass('px-2', 'py-2', 'sm:px-6', 'sm:py-3');
+      // Phase 5: Responsive padding (mobile: px-2 py-2, tablet: sm:px-3, wide desktop: min-[1100px]:px-6)
+      expect(overviewTab).toHaveClass('px-2', 'py-2', 'sm:px-3', 'sm:py-3', 'min-[1100px]:px-6');
     });
 
     test('TabTriggers have correct typography classes', () => {
@@ -168,8 +168,8 @@ describe('BeachTabs Component', () => {
 
       const overviewTab = screen.getByRole('tab', { name: /overview/i });
 
-      // Phase 5: Responsive typography (mobile: text-xs, desktop: sm:text-base)
-      expect(overviewTab).toHaveClass('text-xs', 'sm:text-base'); // Responsive font size
+      // Phase 5: Responsive typography (mobile: text-xs, tablet: sm:text-sm, wide desktop: min-[1100px]:text-base)
+      expect(overviewTab).toHaveClass('text-xs', 'sm:text-sm', 'min-[1100px]:text-base'); // Responsive font size
       expect(overviewTab).toHaveClass('font-medium'); // 500 weight for inactive
       expect(overviewTab).toHaveClass('text-gray-600'); // Inactive text color
     });

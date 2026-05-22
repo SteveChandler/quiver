@@ -96,6 +96,7 @@ const DEFAULT_MAX_RESULTS = 5;
 const DEFAULT_MAX_CONCURRENT = 5; // Increased from 3 for discovery
 const DEFAULT_TIMEOUT_MS = 5000; // Per-beach timeout
 const DEFAULT_OVERALL_TIMEOUT_MS = 12000; // Increased from 8s for more beaches
+const MAX_INCLUDED_BEACH_IDS = 12;
 
 // ============================================================================
 // Badge Generation
@@ -395,6 +396,45 @@ function normalizeBoardForPick(row: BoardPickRow): BoardForPick | null {
   };
 }
 
+async function fetchIncludedBeachCandidates(includeBeachIds: string[] | undefined): Promise<Beach[]> {
+  const uniqueIds = Array.from(new Set(includeBeachIds ?? [])).slice(0, MAX_INCLUDED_BEACH_IDS);
+  if (uniqueIds.length === 0) return [];
+
+  const supabase = createSupabaseServiceRoleClient();
+  const { data, error } = await supabase
+    .from('beaches')
+    .select('*')
+    .in('id', uniqueIds);
+
+  if (error) {
+    log.warn(`[discoverSurfSpots] Failed to fetch included beaches: ${error.message}`);
+    return [];
+  }
+
+  const byId = new Map(
+    ((data ?? []) as unknown as Beach[])
+      .filter((beach) => beach?.id && beach.is_private !== true)
+      .map((beach) => [beach.id, beach])
+  );
+
+  return uniqueIds
+    .map((id) => byId.get(id))
+    .filter((beach): beach is Beach => Boolean(beach));
+}
+
+function mergeCandidatePools(nearbyCandidates: Beach[], includedCandidates: Beach[]): Beach[] {
+  const byId = new Map<string, Beach>();
+  for (const beach of nearbyCandidates) {
+    if (beach?.id) byId.set(beach.id, beach);
+  }
+  for (const beach of includedCandidates) {
+    if (beach?.id && !byId.has(beach.id)) {
+      byId.set(beach.id, beach);
+    }
+  }
+  return Array.from(byId.values());
+}
+
 async function fetchUserBoardsForPicks(
   supabase: Pick<SupabaseClient, 'from'>,
   userId: string,
@@ -607,26 +647,41 @@ async function discoverSurfSpotsInner(
     overallTimeout = DEFAULT_OVERALL_TIMEOUT_MS,
     timeSlot,
     isPro = false,
+    includeBeachIds,
   } = options;
+  const requestedIncludeBeachIds = Array.from(new Set(includeBeachIds ?? []))
+    .slice(0, MAX_INCLUDED_BEACH_IDS);
+  const requestedIncludeBeachIdSet = new Set(requestedIncludeBeachIds);
 
   log.debug(`Discovering surf spots for user ${userId} (maxResults: ${maxResults})`);
 
   // 1. Build candidate pool (GPS-based, sorted by distance)
-  const { candidates, userSkillLevel } = await buildCandidatePool(userId, {
-    userLocation,
-    radiusMiles,
-  });
+  const [{ candidates, userSkillLevel }, includedCandidates] = await Promise.all([
+    buildCandidatePool(userId, {
+      userLocation,
+      radiusMiles,
+    }),
+    fetchIncludedBeachCandidates(requestedIncludeBeachIds),
+  ]);
 
-  if (candidates.length === 0) {
+  // Limit nearby candidates to prevent excessive forecast work, then append
+  // explicit include targets. Included beaches are capped separately at the
+  // route boundary so saved/home targets can be scored without N native calls.
+  const maxNearbyCandidates = Math.min(candidates.length, 20);
+  const finalCandidates = mergeCandidatePools(
+    candidates.slice(0, maxNearbyCandidates),
+    includedCandidates,
+  );
+
+  if (finalCandidates.length === 0) {
     log.warn(`No candidate beaches found for user ${userId}`);
     return emptyResponse(maxResults);
   }
 
-  log.debug(`Found ${candidates.length} candidate beaches`);
-
-  // Limit candidates to prevent excessive API calls
-  const maxCandidates = Math.min(candidates.length, 20);
-  const finalCandidates = candidates.slice(0, maxCandidates);
+  log.debug(
+    `Found ${finalCandidates.length} candidate beaches ` +
+    `(${maxNearbyCandidates} nearby, ${includedCandidates.length} included)`
+  );
 
   // 2. Fetch forecasts for all candidates
   let { successful: beachForecasts, failed: failedForecasts, staleCount } = await batchFetchForecasts(finalCandidates, {
@@ -1054,6 +1109,10 @@ async function discoverSurfSpotsInner(
   // verbatim. When on, return the hero-lifted slice (only [0] moves;
   // remaining order is preserved).
   const finalSlice = FEATURE_HERO_WINDOW_SCORE ? reranked : merged;
+  const finalSliceBeachIds = new Set(finalSlice.map((rec) => rec.beach.id));
+  const includedSlice = allRecsScored.filter((rec) =>
+    requestedIncludeBeachIdSet.has(rec.beach.id) && !finalSliceBeachIds.has(rec.beach.id)
+  );
 
   const favoriteCount = finalSlice.filter(r => r.isFavorite).length;
   log.debug(
@@ -1063,6 +1122,10 @@ async function discoverSurfSpotsInner(
   // 5. Enrich with photos
   let enrichedRanked = applyWindowWaveHeightBadgesForRecommendations(
     await enrichWithPhotos(finalSlice),
+    forecastsByBeachId
+  );
+  const enrichedIncluded = applyWindowWaveHeightBadgesForRecommendations(
+    await enrichWithPhotos(includedSlice),
     forecastsByBeachId
   );
 
@@ -1237,6 +1300,7 @@ async function discoverSurfSpotsInner(
 
   return {
     recommendations: enrichedRanked,
+    includedRecommendations: enrichedIncluded,
     searchCriteria: {
       userLocation,
       radiusMiles,

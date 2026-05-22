@@ -4,8 +4,10 @@ import { PageTracker } from "@/components/page-tracker";
 
 // Mock next/navigation
 const mockUsePathname = jest.fn();
+const mockUseSearchParams = jest.fn(() => new URLSearchParams());
 jest.mock("next/navigation", () => ({
   usePathname: () => mockUsePathname(),
+  useSearchParams: () => mockUseSearchParams(),
 }));
 
 // Mock useTrackEvent hook
@@ -56,6 +58,7 @@ Object.defineProperty(global, "crypto", {
 describe("PageTracker", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseSearchParams.mockReturnValue(new URLSearchParams());
     mockSessionStorage.__quiver_session_id = "";
     delete mockSessionStorage.__quiver_session_id;
     mockRandomUUID.mockClear();
@@ -73,7 +76,7 @@ describe("PageTracker", () => {
           metadata: {
             page: "home",
             pathname: "/home",
-            referrer: "",
+            previous_pathname: "",
             browser_session_id: expect.any(String),
           },
           debounceMs: 500,
@@ -102,7 +105,7 @@ describe("PageTracker", () => {
           metadata: {
             page: "discover",
             pathname: "/discover",
-            referrer: "/home",
+            previous_pathname: "/home",
             browser_session_id: expect.any(String),
           },
           debounceMs: 500,
@@ -136,7 +139,7 @@ describe("PageTracker", () => {
           metadata: {
             page: "landing",
             pathname: "/",
-            referrer: "",
+            previous_pathname: "",
             browser_session_id: expect.any(String),
           },
           debounceMs: 500,
@@ -151,6 +154,11 @@ describe("PageTracker", () => {
         "/sessions/session-1?share_id=share-123&utm_source=quiver_native&utm_medium=share&utm_campaign=session_share"
       );
       mockUsePathname.mockReturnValue("/sessions/session-1");
+      mockUseSearchParams.mockReturnValue(
+        new URLSearchParams(
+          "share_id=share-123&utm_source=quiver_native&utm_medium=share&utm_campaign=session_share"
+        )
+      );
 
       render(<PageTracker />);
 
@@ -162,7 +170,7 @@ describe("PageTracker", () => {
         metadata: {
           page: "session",
           pathname: "/sessions/session-1",
-          referrer: "",
+          previous_pathname: "",
           browser_session_id: expect.any(String),
           share_id: "share-123",
           utm_source: "quiver_native",
@@ -176,7 +184,7 @@ describe("PageTracker", () => {
           share_id: "share-123",
           session_id: "session-1",
           pathname: "/sessions/session-1",
-          referrer: "",
+          previous_pathname: "",
           browser_session_id: expect.any(String),
           source: "web_page_tracker",
           utm_source: "quiver_native",
@@ -268,7 +276,7 @@ describe("PageTracker", () => {
             metadata: {
               page: expected,
               pathname,
-              referrer: expect.any(String),
+              previous_pathname: expect.any(String),
               browser_session_id: expect.any(String),
             },
             debounceMs: 500,
@@ -278,8 +286,8 @@ describe("PageTracker", () => {
     );
   });
 
-  describe("referrer tracking", () => {
-    it("tracks previous pathname as referrer", async () => {
+  describe("previous pathname tracking", () => {
+    it("tracks previous pathname separately from PostHog referrer", async () => {
       mockUsePathname.mockReturnValue("/home");
 
       const { rerender } = render(<PageTracker />);
@@ -288,8 +296,8 @@ describe("PageTracker", () => {
         expect(mockTrack).toHaveBeenCalledTimes(1);
       });
 
-      // First call should have empty referrer
-      expect(mockTrack.mock.calls[0][1].metadata.referrer).toBe("");
+      // First call should have empty previous path
+      expect(mockTrack.mock.calls[0][1].metadata.previous_pathname).toBe("");
 
       // Navigate to discover
       mockUsePathname.mockReturnValue("/discover");
@@ -299,8 +307,8 @@ describe("PageTracker", () => {
         expect(mockTrack).toHaveBeenCalledTimes(2);
       });
 
-      // Second call should have /home as referrer
-      expect(mockTrack.mock.calls[1][1].metadata.referrer).toBe("/home");
+      // Second call should have /home as previous path
+      expect(mockTrack.mock.calls[1][1].metadata.previous_pathname).toBe("/home");
     });
   });
 

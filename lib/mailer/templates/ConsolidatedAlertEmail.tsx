@@ -40,7 +40,8 @@ export function ConsolidatedAlertEmail({
         {/* Content */}
         <div style={content}>
           <p style={headingText}>
-            {greeting}, your surf report for <span style={nowrapText}>{headingDate}</span>
+            {greeting}, your surf report for{" "}
+            <span style={nowrapText}>{headingDate}</span>
           </p>
 
           {matches.map((match, i) => {
@@ -49,7 +50,9 @@ export function ConsolidatedAlertEmail({
             const conditionsLine = buildConditionsLine(snap);
             const beachUrl = buildEmailBeachUrl(baseUrl, match);
             const ruleName = formatEmailRuleName(match.rule_name);
-            const tokenParam = match.disable_token ? `?token=${match.disable_token}` : "";
+            const tokenParam = match.disable_token
+              ? `?token=${match.disable_token}`
+              : "";
             const disableUrl = `${baseUrl}/api/alerts/rules/${match.rule_id}/disable-email${tokenParam}`;
 
             return (
@@ -73,14 +76,12 @@ export function ConsolidatedAlertEmail({
                 </div>
 
                 <p style={conditionsTextStyle}>
-                  {conditionsLine
-                    .split(", ")
-                    .map((part, j) => (
-                      <span key={j}>
-                        {j > 0 ? " \u00B7 " : ""}
-                        {part}
-                      </span>
-                    ))}
+                  {conditionsLine.split(", ").map((part, j) => (
+                    <span key={j}>
+                      {j > 0 ? " \u00B7 " : ""}
+                      {part}
+                    </span>
+                  ))}
                 </p>
 
                 <div style={{ marginBottom: "8px" }}>
@@ -171,7 +172,10 @@ export function formatWindow(match: MatchingWindow): FormattedEmailWindow {
   };
 }
 
-export function buildEmailBeachUrl(baseUrl: string, match: MatchingWindow): string {
+export function buildEmailBeachUrl(
+  baseUrl: string,
+  match: MatchingWindow,
+): string {
   const beachIdentifier = match.beach_slug || match.beach_id;
   return `${baseUrl}/beach/${encodeURIComponent(beachIdentifier)}`;
 }
@@ -195,23 +199,28 @@ export function formatEmailRuleName(ruleName: string): string {
 export function buildConditionsLine(snap: Record<string, unknown>): string {
   const parts: string[] = [];
 
-  if (typeof snap.wave_height === "number" && Number.isFinite(snap.wave_height)) {
+  if (
+    typeof snap.wave_height === "number" &&
+    Number.isFinite(snap.wave_height)
+  ) {
     let swell = `\u{1F30A} ${formatWaveHeightRange(snap.wave_height)}`;
 
     const period =
       typeof snap.wave_period === "number" && Number.isFinite(snap.wave_period)
         ? snap.wave_period
-        : typeof snap.swell_1_period === "number" && Number.isFinite(snap.swell_1_period)
-        ? snap.swell_1_period
-        : null;
+        : typeof snap.swell_1_period === "number" &&
+            Number.isFinite(snap.swell_1_period)
+          ? snap.swell_1_period
+          : null;
     if (period !== null) swell += ` @ ${formatSwellPeriod(period)}`;
 
     const cardinal =
       typeof snap.wave_direction === "string" && snap.wave_direction.length > 0
         ? snap.wave_direction
-        : typeof snap.swell_1_direction === "number" && Number.isFinite(snap.swell_1_direction)
-        ? degreesToCardinal(snap.swell_1_direction)
-        : null;
+        : typeof snap.swell_1_direction === "number" &&
+            Number.isFinite(snap.swell_1_direction)
+          ? degreesToCardinal(snap.swell_1_direction)
+          : null;
     if (cardinal !== null) swell += ` ${cardinal}`;
 
     parts.push(swell);
@@ -219,7 +228,10 @@ export function buildConditionsLine(snap: Record<string, unknown>): string {
 
   if (typeof snap.wind_speed === "number" && Number.isFinite(snap.wind_speed)) {
     let wind = `\u{1F4A8} ${formatWindSpeed(snap.wind_speed * KNOTS_TO_MPH)}`;
-    if (typeof snap.wind_direction_deg === "number" && Number.isFinite(snap.wind_direction_deg)) {
+    if (
+      typeof snap.wind_direction_deg === "number" &&
+      Number.isFinite(snap.wind_direction_deg)
+    ) {
       wind += ` ${degreesToCardinal(snap.wind_direction_deg)}`;
     }
     parts.push(wind);
@@ -227,6 +239,13 @@ export function buildConditionsLine(snap: Record<string, unknown>): string {
 
   if (typeof snap.tide_status === "string" && snap.tide_status.length > 0) {
     parts.push(`\u{1F4C9} tide ${snap.tide_status.toLowerCase()}`);
+  }
+
+  if (
+    typeof snap.beginner_window_reason === "string" &&
+    snap.beginner_window_reason.length > 0
+  ) {
+    parts.push(`why: ${snap.beginner_window_reason}`);
   }
 
   return parts.join(", ");

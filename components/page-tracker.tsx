@@ -10,8 +10,10 @@
  */
 
 import { useEffect, useRef } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import type { ReadonlyURLSearchParams } from "next/navigation";
 import { useTrackEvent } from "@/hooks/use-track-event";
+import { getBrowserSessionId } from "@/lib/utils/browser-session-id";
 
 /**
  * Maps pathname to a human-readable page name
@@ -56,24 +58,6 @@ function getPageName(pathname: string): string {
   return segment || "unknown";
 }
 
-/**
- * Generates a simple session ID for grouping page views
- * Persists for the browser session (cleared on tab close)
- */
-function getSessionId(): string {
-  if (typeof window === "undefined") return "";
-
-  const key = "__quiver_session_id";
-  let sessionId = sessionStorage.getItem(key);
-
-  if (!sessionId) {
-    sessionId = crypto.randomUUID();
-    sessionStorage.setItem(key, sessionId);
-  }
-
-  return sessionId;
-}
-
 type ShareAttributionMetadata = {
   share_id?: string;
   utm_source?: string;
@@ -88,14 +72,13 @@ const ATTRIBUTION_QUERY_KEYS = [
   "utm_campaign",
 ] as const;
 
-function getShareAttributionMetadata(): ShareAttributionMetadata {
-  if (typeof window === "undefined") return {};
-
-  const searchParams = new URLSearchParams(window.location.search);
+function getShareAttributionMetadata(
+  searchParams: URLSearchParams | ReadonlyURLSearchParams | null
+): ShareAttributionMetadata {
   const metadata: ShareAttributionMetadata = {};
 
   for (const key of ATTRIBUTION_QUERY_KEYS) {
-    const value = searchParams.get(key);
+    const value = searchParams?.get(key);
     if (value) metadata[key] = value;
   }
 
@@ -111,13 +94,14 @@ function getSharedSessionId(pathname: string): string | null {
 
 export function PageTracker() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { track } = useTrackEvent();
   const prevTrackingKey = useRef<string | null>(null);
   const prevPathname = useRef<string | null>(null);
   const trackedShareIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    const attributionMetadata = getShareAttributionMetadata();
+    const attributionMetadata = getShareAttributionMetadata(searchParams);
     const trackingKey = [
       pathname,
       attributionMetadata.share_id ?? "",
@@ -130,11 +114,11 @@ export function PageTracker() {
     if (prevTrackingKey.current === trackingKey) return;
 
     const page = getPageName(pathname);
-    const sessionId = getSessionId();
+    const sessionId = getBrowserSessionId();
     const metadata = {
       page,
       pathname,
-      referrer: prevPathname.current || "",
+      previous_pathname: prevPathname.current || "",
       browser_session_id: sessionId,
       ...attributionMetadata,
     };
@@ -153,7 +137,7 @@ export function PageTracker() {
           share_id: shareId,
           session_id: sharedSessionId,
           pathname,
-          referrer: prevPathname.current || "",
+          previous_pathname: prevPathname.current || "",
           browser_session_id: sessionId,
           source: "web_page_tracker",
           utm_source: attributionMetadata.utm_source,
@@ -166,7 +150,7 @@ export function PageTracker() {
 
     prevTrackingKey.current = trackingKey;
     prevPathname.current = pathname;
-  }, [pathname, track]);
+  }, [pathname, searchParams, track]);
 
   return null;
 }

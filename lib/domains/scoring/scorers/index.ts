@@ -12,5 +12,10 @@ export { tideFitScorer } from './tide-fit-scorer';
 export { windowStabilityScorer } from './window-stability-scorer';
 export { trendPreferenceScorer } from './trend-preference-scorer';
 export { tideDirectionScorer } from './tide-direction-scorer';
+export {
+  detectSetupRisk,
+  LOW_TIDE_HEAVY_SWELL_WARNING,
+  setupRiskScorer,
+} from './setup-risk-scorer';
 export { getDirectionalRelevance } from './directional-relevance';
 export type { DominantKind } from './directional-relevance';

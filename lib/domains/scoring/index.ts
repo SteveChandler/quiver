@@ -27,6 +27,9 @@ export {
   windQualityScorer,
   tideFitScorer,
   tideDirectionScorer,
+  detectSetupRisk,
+  LOW_TIDE_HEAVY_SWELL_WARNING,
+  setupRiskScorer,
   windowStabilityScorer,
   trendPreferenceScorer,
 } from './scorers';

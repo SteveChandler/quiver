@@ -10,6 +10,7 @@ import { formatTimeInTimezone, formatTimeCasual } from "@/lib/utils/date-time";
 import { ShareSheet } from "@/components/share/share-sheet";
 import { buildSurfCallShareUrl } from "@/lib/share/build-share-card-url";
 import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
+import { buildCompactSurfSummary } from "@/lib/surf-summary-display";
 import { cn } from "@/lib/utils";
 
 const TREND_TAG_STYLES: Record<TrendTag, { bg: string; text: string }> = {
@@ -132,10 +133,34 @@ export function UnifiedSurfCard({
   relativeContext,
 }: UnifiedSurfCardProps) {
   const [shareOpen, setShareOpen] = useState(false);
+  const cautions = surfCall.cautions ?? [];
+  const primaryCaution = cautions[0] ?? null;
+  const cautionIsPrimaryReason =
+    primaryCaution != null && surfCall.whySentence.includes(primaryCaution);
 
   const updatedTime = useMemo(
     () => formatTimeInTimezone(surfCall.updatedAt, beachTimezone),
     [surfCall.updatedAt, beachTimezone]
+  );
+  const compactSummary = useMemo(
+    () =>
+      buildCompactSurfSummary({
+        waveHeight: surfCall.waveHeight,
+        windSummary: surfCall.windDescription,
+        tideStatus: surfCall.tidePhase
+          ? surfCall.tidePhase.charAt(0).toUpperCase() + surfCall.tidePhase.slice(1)
+          : surfCall.tideDescription,
+        tideHeight: surfCall.tideHeight,
+        why: surfCall.whySentence,
+      }),
+    [
+      surfCall.waveHeight,
+      surfCall.windDescription,
+      surfCall.tidePhase,
+      surfCall.tideDescription,
+      surfCall.tideHeight,
+      surfCall.whySentence,
+    ]
   );
 
   // Build relative context badges (max 2), priority: best-of-week > swell > trend
@@ -229,7 +254,19 @@ export function UnifiedSurfCard({
             <p className="text-sm text-amber-900 font-semibold mb-1">
               No good surf window {isTomorrow ? "tomorrow" : "today"}
             </p>
-            <p className="text-sm text-amber-800">{surfCall.whySentence}</p>
+            {!cautionIsPrimaryReason && (
+              <p className="text-sm text-amber-800">{surfCall.whySentence}</p>
+            )}
+            {cautions.length > 0 && (
+              <div className="mt-3 rounded-xl border border-amber-200/70 bg-amber-100/60 px-3 py-2">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-800 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm font-medium text-amber-950">
+                    {primaryCaution}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -253,10 +290,10 @@ export function UnifiedSurfCard({
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
             <CardTitle className="text-xl font-bold text-blue-900">
-              {isTomorrow ? "🌊 Best Time to Surf Tomorrow" : "🌊 Best Time to Surf Today"}
+              {isTomorrow ? "🌊 Best Surf Window Tomorrow" : "🌊 Best Surf Window Today"}
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-1">
-              Based on forecast scoring · Updated {updatedTime}
+              Based on tide, swell, wind, and spot fit · Updated {updatedTime}
             </p>
             <div className="h-0.5 w-16 rounded-full bg-gradient-to-r from-transparent via-[#F78E42] to-transparent motion-safe:animate-shimmer mt-1" style={{ backgroundSize: "200% 100%" }} />
           </div>
@@ -343,32 +380,29 @@ export function UnifiedSurfCard({
         <div className="bg-white/80 dark:bg-[#354090]/50 rounded-xl p-3 border border-gray-200/60 dark:border-[#404C92]/60">
           <p className="text-sm text-gray-700 font-medium mb-1">Conditions</p>
           <div className="flex flex-wrap items-baseline gap-x-1 text-sm text-gray-600">
-            {surfCall.waveHeight && (
+            {compactSummary.waveHeightHeadline && (
               <>
                 <WaveHeightDisplay
-                  height={surfCall.waveHeight}
+                  height={compactSummary.waveHeightHeadline}
                   isCalibrated={surfCall.isCalibrated}
                   showTooltip={true}
                   className="text-sm text-gray-600"
                 />
-                <span>·</span>
+                {(compactSummary.supportingSegments.length > 0 ||
+                  (surfCall.rideableWavesPerHour != null &&
+                    surfCall.rideableWavesPerHour > 0)) && <span>·</span>}
               </>
             )}
-            {surfCall.windDescription && (
-              <>
-                <span>{surfCall.windDescription}</span>
-                <span>·</span>
-              </>
-            )}
-            {surfCall.tidePhase && (
-              <span>
-                {surfCall.tidePhase.charAt(0).toUpperCase() +
-                  surfCall.tidePhase.slice(1)}
-              </span>
-            )}
+            {compactSummary.supportingSegments.map((segment, index) => (
+              <React.Fragment key={segment}>
+                <span>{segment}</span>
+                {(index < compactSummary.supportingSegments.length - 1 ||
+                  (surfCall.rideableWavesPerHour != null &&
+                    surfCall.rideableWavesPerHour > 0)) && <span>·</span>}
+              </React.Fragment>
+            ))}
             {surfCall.rideableWavesPerHour != null && surfCall.rideableWavesPerHour > 0 && (
               <>
-                <span>·</span>
                 <span>~{surfCall.rideableWavesPerHour} waves/hr</span>
               </>
             )}
@@ -381,6 +415,17 @@ export function UnifiedSurfCard({
             {surfCall.whySentence}
           </p>
         </div>
+
+        {cautions.length > 0 && (
+          <div className="rounded-xl border border-amber-200/70 bg-amber-50/80 p-3 dark:border-amber-800/40 dark:bg-amber-900/10">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-amber-700 dark:text-amber-300 mt-0.5 flex-shrink-0" />
+              <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                {cautions[0]}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Relative context chips — max 2, sticker-style */}
         {contextBadges.length > 0 && (

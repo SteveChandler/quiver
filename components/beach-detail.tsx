@@ -12,14 +12,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  Navigation,
-  AlertTriangle,
-  Waves,
-  Thermometer,
-  Bell,
-  X,
-} from "lucide-react";
+import { AlertTriangle, Waves, Thermometer, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -61,7 +54,7 @@ import { BeachPhotoGallery } from "@/components/beach-detail/beach-photo-gallery
 import { BeachStatsGrid } from "@/components/beach-detail/beach-stats-grid";
 import { ConditionsTicker } from "@/components/conditions/conditions-ticker";
 import { forecastToConditionsData } from "@/lib/mappers/conditions-mappers";
-import { BeachActions } from "@/components/beach-detail/beach-actions";
+import { BeachAlertCta } from "@/components/beach-detail/beach-alert-cta";
 import {
   BeachTabs,
   BeachTabContent,
@@ -140,27 +133,38 @@ function AlertNudge({
   };
 
   return (
-    <div className="flex items-center justify-between px-4 py-2 bg-[#354090]/30 rounded-lg mx-4 mt-2 mb-4">
-      <div className="flex items-center gap-2 text-sm text-gray-300">
-        <Bell className="w-4 h-4 shrink-0 text-[#F78E42]" />
-        <span>Get notified when {beachName} has your ideal conditions</span>
+    <aside className="mx-auto mb-6 hidden max-w-5xl border-y-2 border-[#11100D] bg-[#E8DCC0] px-0 py-3 text-[#11100D] shadow-[0_3px_0_rgba(17,16,13,0.16)] md:block">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3 px-1 sm:px-0">
+          <span className="inline-flex h-9 w-9 shrink-0 rotate-[-2deg] items-center justify-center border-2 border-[#11100D] bg-[#F78E42] text-[#11100D] shadow-[2px_2px_0_#11100D]">
+            <Waves className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block font-[var(--font-mono)] text-[10px] font-black uppercase tracking-[0.18em] text-[#5F5646]">
+              Condition watch
+            </span>
+            <span className="block text-sm font-semibold leading-5 text-[#11100D]">
+              Track ideal windows at {beachName}.
+            </span>
+          </span>
+        </div>
+        <div className="flex items-center gap-2 px-1 sm:ml-3 sm:px-0">
+          <button
+            onClick={onSetupAlerts}
+            className="inline-flex min-h-9 items-center border-2 border-[#11100D] bg-[#F78E42] px-3 font-[var(--font-mono)] text-[11px] font-black uppercase tracking-[0.12em] text-[#11100D] shadow-[2px_2px_0_#11100D] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#E8DCC0]"
+          >
+            Set up alert
+          </button>
+          <button
+            onClick={dismiss}
+            aria-label="Dismiss"
+            className="inline-flex h-9 w-9 items-center justify-center text-[#5F5646] transition hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
-      <div className="flex items-center gap-2 ml-3 shrink-0">
-        <button
-          onClick={onSetupAlerts}
-          className="text-xs text-[#F78E42] font-medium hover:underline"
-        >
-          Set Up Alert
-        </button>
-        <button
-          onClick={dismiss}
-          aria-label="Dismiss"
-          className="text-gray-500 hover:text-gray-400"
-        >
-          <X className="w-3 h-3" />
-        </button>
-      </div>
-    </div>
+    </aside>
   );
 }
 
@@ -222,7 +226,6 @@ interface BeachDetailProps {
   publicMode?: boolean;
   initialBeach?: Beach;
   beachTimezone?: string | null;
-  surfReportSlot?: ReactNode;
   surfCallReport?: SurfCallResult | null;
   surfCallIsTomorrow?: boolean;
   defaultTab?: "overview" | "forecast" | "reviews" | "intel" | "sessions";
@@ -251,7 +254,6 @@ function BeachDetailContent({
   publicMode = false,
   initialBeach,
   beachTimezone,
-  surfReportSlot,
   surfCallReport,
   surfCallIsTomorrow,
   defaultTab,
@@ -285,6 +287,7 @@ function BeachDetailContent({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [alertCreationOpen, setAlertCreationOpen] = useState(false);
+  const [alertRulesRefreshKey, setAlertRulesRefreshKey] = useState(0);
   const [activeTab, setActiveTab] = useState<BeachTabValue>(
     defaultTab || "forecast",
   );
@@ -869,31 +872,36 @@ function BeachDetailContent({
 
   const tabActions = (
     <>
+      <BeachAlertCta
+        beachId={beach.id}
+        beachName={beach.name}
+        compact
+        refreshKey={alertRulesRefreshKey}
+        onOpenAlerts={handleOpenAlerts}
+        className="shrink-0"
+      />
       <Button
         variant="ghost"
         onClick={handleGetDirections}
         disabled={!canGetDirections}
         data-zine-directions
-        className="flex-1 rounded-none border-0 border-b-2 border-transparent -mb-0.5 px-2 py-2 sm:px-6 sm:py-3 text-xs sm:text-base font-medium text-gray-600 transition-all duration-300 ease-out hover:bg-gray-50 dark:hover:bg-[#354090]/50 hover:text-gray-900 h-auto"
+        aria-label="Get directions"
+        className="group relative h-10 w-[170px] shrink-0 overflow-visible rounded-none border-0 bg-transparent px-0 text-[#F4EBD8] shadow-none transition-all duration-300 ease-out hover:bg-transparent focus-visible:ring-2 focus-visible:ring-[#F78E42]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] disabled:opacity-50 min-[1100px]:w-[220px]"
       >
-        <Navigation className="mr-2 h-4 sm:h-5 w-4 sm:w-5" />
-        <span className="hidden sm:inline">Get directions</span>
-        <span className="sm:hidden">Directions</span>
+        <span
+          aria-hidden="true"
+          className="absolute inset-x-0 top-1/2 h-[44px] -translate-y-1/2 bg-[url('/images/alerts/directions-button.webp')] bg-contain bg-center bg-no-repeat drop-shadow-[2px_2px_0_rgba(17,16,13,0.28)] transition-transform group-hover:rotate-1 group-hover:scale-[1.02]"
+        />
+        <span className="relative z-10 flex w-full items-center justify-center pl-[62px] pr-5 font-mono text-[9px] font-black uppercase leading-none tracking-[0.09em] text-[#F4EBD8] min-[1100px]:pl-[78px] min-[1100px]:pr-6 min-[1100px]:text-[10px] min-[1100px]:tracking-[0.1em]">
+          <span className="hidden min-[1100px]:inline">Get directions</span>
+          <span className="min-[1100px]:hidden">Directions</span>
+        </span>
       </Button>
     </>
   );
 
   return (
     <div className="min-h-screen" style={{ background: "#0D1020" }}>
-      {/* Alert discoverability nudge — only for authenticated favorited beaches with no alerts */}
-      {!publicMode && beach && (
-        <AlertNudge
-          beachId={beach.id}
-          beachName={beach.name}
-          onSetupAlerts={handleOpenAlerts}
-        />
-      )}
-
       {/* Forecast Error Warning Banner */}
       {errors.forecasts && (
         <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-4">
@@ -904,13 +912,6 @@ function BeachDetailContent({
               missing.
             </AlertDescription>
           </Alert>
-        </div>
-      )}
-
-      {/* Surf report slot — authenticated users only */}
-      {!publicMode && surfReportSlot && (
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-4">
-          {surfReportSlot}
         </div>
       )}
 
@@ -927,6 +928,23 @@ function BeachDetailContent({
         {beforeTabsContent ? (
           <div className="mx-auto mb-6 max-w-5xl">{beforeTabsContent}</div>
         ) : null}
+        {/* Alert discoverability nudge — only for authenticated favorited beaches with no alerts */}
+        {!publicMode && beach ? (
+          <AlertNudge
+            beachId={beach.id}
+            beachName={beach.name}
+            onSetupAlerts={handleOpenAlerts}
+          />
+        ) : null}
+        <div className="mx-auto mb-6 max-w-5xl md:hidden">
+          <BeachAlertCta
+            beachId={beach.id}
+            beachName={beach.name}
+            refreshKey={alertRulesRefreshKey}
+            onOpenAlerts={handleOpenAlerts}
+            className="bg-[#F78E42] text-white hover:bg-[#F78E42]/90"
+          />
+        </div>
         <BeachTabs
           activeTab={activeTab}
           onTabChange={setActiveTab}
@@ -942,6 +960,7 @@ function BeachDetailContent({
                 waterQuality={waterQuality}
                 beachPhoto={beachPhoto}
                 surfCallReport={surfCallReport}
+                beachTimezone={beachTimezone}
                 onWriteReview={() =>
                   handleWriteReview(REVIEW_TRACKING_SOURCES.OVERVIEW_CTA)
                 }
@@ -1065,10 +1084,17 @@ function BeachDetailContent({
                 (beach as any).swell_window_center_deg ?? null,
               swell_window_halfwidth_deg:
                 (beach as any).swell_window_halfwidth_deg ?? null,
+              break_type: (beach as any).break_type ?? null,
+              skill_level: (beach as any).skill_level ?? null,
+              features: (beach as any).features ?? null,
+              preference_model: (beach as any).preference_model ?? null,
+              max_wind_any_mph: (beach as any).max_wind_any_mph ?? null,
+              max_wind_onshore_mph: (beach as any).max_wind_onshore_mph ?? null,
             } satisfies BeachAlertMeta
           }
           open={alertCreationOpen}
           onOpenChange={setAlertCreationOpen}
+          onRuleCreated={() => setAlertRulesRefreshKey((key) => key + 1)}
         />
       )}
 

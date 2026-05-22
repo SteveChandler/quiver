@@ -30,6 +30,16 @@ jest.mock("@/components/favorite-button", () => ({
 jest.mock("@/components/home/HomeBeachBanner", () => ({
   HomeBeachBanner: () => <div data-testid="home-beach-banner" />,
 }));
+jest.mock("@/components/beach-detail/beach-alert-cta", () => ({
+  BeachAlertCta: ({ beachId, beachName, compact }: any) => (
+    <button
+      data-testid={compact ? "beach-alert-cta-compact" : "beach-alert-cta"}
+      data-beach-id={beachId}
+    >
+      Alerts for {beachName}
+    </button>
+  ),
+}));
 
 import React from "react";
 import { render, screen } from "@testing-library/react";
@@ -110,5 +120,25 @@ describe("BeachDetail loading and error guards", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText(/Beach data not found/i)).not.toBeInTheDocument();
     expect(spy).toHaveBeenCalled();
+  });
+
+  it("keeps the condition alert CTA visible on beach detail", () => {
+    const beach = {
+      id: "beach-1",
+      name: "Test Beach",
+      lat: 0,
+      lon: 0,
+      city: "Test City",
+      state: "CA",
+      country: "USA",
+      break_type: "Beach Break",
+      created_at: "2024-01-01",
+      updated_at: "2024-01-01",
+    };
+    mockBeachDetailData(beach, false, null);
+
+    render(<BeachDetail id="beach-1" />);
+
+    expect(screen.getAllByText("Alerts for Test Beach").length).toBeGreaterThan(0);
   });
 });

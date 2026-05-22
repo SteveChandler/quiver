@@ -145,6 +145,7 @@ export function gateSurfDiscoveryResponse(
       entitlement,
       lockedBestSpotTeaser: buildLockedBestSpotTeaser(discovery.recommendations[0]),
       recommendations: [],
+      includedRecommendations: [],
     };
   }
 
@@ -158,5 +159,11 @@ export function gateSurfDiscoveryResponse(
           personalExplanation: buildPersonalExplanation(rec),
         }))
       : discovery.recommendations,
+    includedRecommendations: entitlement.hasPaidAccess
+      ? discovery.includedRecommendations?.map((rec) => ({
+          ...rec,
+          personalExplanation: buildPersonalExplanation(rec),
+        }))
+      : discovery.includedRecommendations,
   };
 }

@@ -79,6 +79,7 @@ const mockState = {
   candidatePoolResponse: { candidates: [] as Partial<Beach>[], preferredWaveSize: null as string | null, userSkillLevel: null as any, preferredBreakType: null as string | null },
   forecastBatchResponse: { successful: [] as any[], failed: [], staleCount: 0 },
   favoriteBeaches: [] as Partial<Beach>[],
+  includedBeachRows: [] as Partial<Beach>[],
   favoritesError: null as Error | null,
   boards: [] as Array<{ id: string; name: string; board_type: string; volume?: number | null }>,
   boardsError: null as { message: string } | null,
@@ -100,6 +101,17 @@ const mockSupabaseRpc = jest.fn(async () => ({
 }));
 
 const mockSupabaseFrom = jest.fn((table: string) => {
+  if (table === 'beaches') {
+    return {
+      select: jest.fn(() => ({
+        in: jest.fn(async (_column: string, ids: string[]) => ({
+          data: mockState.includedBeachRows.filter((beach) => ids.includes(beach.id!)),
+          error: null,
+        })),
+      })),
+    };
+  }
+
   if (table === 'boards') {
     return {
       select: jest.fn(() => ({
@@ -342,6 +354,7 @@ function resetDefaultDiscoveryMocks(): void {
 }
 
 afterEach(() => {
+  mockState.includedBeachRows = [];
   resetDefaultDiscoveryMocks();
 });
 
@@ -418,6 +431,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
       staleCount: 0,
     };
     mockState.favoriteBeaches = [];
+    mockState.includedBeachRows = [];
     mockState.favoritesError = null;
     mockState.boards = [];
     mockState.boardsError = null;
@@ -681,6 +695,101 @@ describe('discoverSurfSpots - Favorites Merging', () => {
 
     expect(mockSupabaseFrom).toHaveBeenCalledWith('boards');
     expect(result.recommendations.every(r => r.boardPick == null)).toBe(true);
+  });
+
+  test('scores includeBeachIds outside the nearby candidate pool and returns low-ranked included recs separately', async () => {
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.includedBeachRows = [mockBeach4];
+    mockState.forecastBatchResponse = {
+      successful: [
+        { beach: mockBeach1, forecasts: [mockForecast] },
+        { beach: mockBeach4, forecasts: [{ ...mockForecast, beach_id: 'beach-4' }] },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+    scoreBeachWithEngine.mockImplementation((engine: any, beach: Beach) => ({
+      total: beach.id === 'beach-1' ? 91 : 42,
+      subscores: {
+        waveHeightFit: 20,
+        periodEnergyScore: 15,
+        windAlignment: 15,
+        tideFit: 12,
+        affinityBonus: 0,
+        personalizationBonus: 0,
+        distancePenalty: 0,
+      },
+      matchQuality: beach.id === 'beach-1' ? 'excellent' : 'fair',
+      reasons: ['Scored in batch'],
+      warnings: [],
+      conditionBadges: [],
+    }));
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 1,
+      includeBeachIds: ['beach-4'],
+    });
+
+    const { batchFetchForecasts } = require('@/lib/services/discovery/forecast-batch-fetcher');
+    expect(batchFetchForecasts.mock.calls[0][0].map((beach: Beach) => beach.id)).toEqual([
+      'beach-1',
+      'beach-4',
+    ]);
+    expect(result.recommendations.map((rec) => rec.beach.id)).toEqual(['beach-1']);
+    expect(result.includedRecommendations?.map((rec) => rec.beach.id)).toEqual(['beach-4']);
+  });
+
+  test('does not duplicate an included beach that already ranks into recommendations', async () => {
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.includedBeachRows = [mockBeach4];
+    mockState.forecastBatchResponse = {
+      successful: [
+        { beach: mockBeach1, forecasts: [mockForecast] },
+        { beach: mockBeach4, forecasts: [{ ...mockForecast, beach_id: 'beach-4' }] },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+    scoreBeachWithEngine.mockImplementation((engine: any, beach: Beach) => ({
+      total: beach.id === 'beach-4' ? 95 : 70,
+      subscores: {
+        waveHeightFit: 20,
+        periodEnergyScore: 15,
+        windAlignment: 15,
+        tideFit: 12,
+        affinityBonus: 0,
+        personalizationBonus: 0,
+        distancePenalty: 0,
+      },
+      matchQuality: 'excellent',
+      reasons: ['Scored in batch'],
+      warnings: [],
+      conditionBadges: [],
+    }));
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 2,
+      includeBeachIds: ['beach-4'],
+    });
+
+    expect(result.recommendations.map((rec) => rec.beach.id)).toEqual(['beach-4', 'beach-1']);
+    expect(result.includedRecommendations).toEqual([]);
   });
 });
 

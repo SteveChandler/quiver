@@ -1,242 +1,239 @@
-/**
- * E2E Tests for Beginner Page Redesign
- *
- * Tests the beginner-specific page layout with editorial content,
- * live conditions, and modular components.
- *
- * Test Coverage:
- * - Hero section with conditions badge
- * - Right Now conditions grid
- * - Curated spot list with editorial
- * - What to Expect editorial section
- * - Seasonal guide
- * - Safety essentials
- * - Gear & Lessons
- * - FAQ accordion
- * - SEO structured data (FAQSchema, Breadcrumbs)
- * - Continue exploring links
- */
+import { expect, test, type Page } from "@playwright/test";
 
-import { test, expect } from "@playwright/test";
-import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
+import {
+  assertNoErrors,
+  setupErrorDetection,
+  type ErrorCapture,
+} from "./utils/error-detection";
 
-const PAGE_LOAD_TIMEOUT = 15000;
+test.use({ storageState: { cookies: [], origins: [] } });
 
-test.describe("Beginner page - San Diego", () => {
+const PAGE_LOAD_TIMEOUT = 20_000;
+
+interface BeginnerRouteExpectation {
+  path: string;
+  h1: string;
+  titleTerms: string[];
+  metaTerms: string[];
+  spots: string[];
+  caveats: string[];
+  internalLinks: string[];
+}
+
+const BEGINNER_ROUTES: BeginnerRouteExpectation[] = [
+  {
+    path: "/beginner/san-diego",
+    h1: "Beginner Surf Spots in San Diego",
+    titleTerms: ["beginner", "san diego"],
+    metaTerms: ["beginner", "san diego"],
+    spots: ["La Jolla Shores", "Tourmaline", "Mission Beach"],
+    caveats: ["overhead sets", "strong drift", "fast closeouts"],
+    internalLinks: ["/beginner/orange-county", "/beginner/los-angeles"],
+  },
+  {
+    path: "/beginner/orange-county",
+    h1: "Beginner Surf Spots in Orange County",
+    titleTerms: ["beginner", "orange county"],
+    metaTerms: ["beginner", "orange county"],
+    spots: ["Bolsa Chica", "Blackies", "Doheny", "Old Man's"],
+    caveats: ["Newland", "Huntington St.", "Cliffs"],
+    internalLinks: [
+      "/beginner/huntington-beach",
+      "/beginner/san-onofre",
+      "/beginner/san-diego",
+      "/beginner/los-angeles",
+      "/beginner/ventura",
+    ],
+  },
+  {
+    path: "/beginner/huntington-beach",
+    h1: "Beginner Surf Spots in Huntington Beach",
+    titleTerms: ["beginner", "huntington beach"],
+    metaTerms: ["beginner", "huntington beach"],
+    spots: ["Bolsa Chica", "Huntington State Beach", "Goldenwest", "Blackies"],
+    caveats: ["pier", "Newland", "Huntington St.", "Cliffs"],
+    internalLinks: [
+      "/beginner/orange-county",
+      "/beginner/los-angeles",
+      "/beginner/san-onofre",
+    ],
+  },
+  {
+    path: "/beginner/los-angeles",
+    h1: "Beginner Surf Spots in Los Angeles",
+    titleTerms: ["beginner", "los angeles"],
+    metaTerms: ["beginner", "los angeles"],
+    spots: [
+      "Santa Monica",
+      "Will Rogers",
+      "Dockweiler",
+      "Venice",
+      "Torrance/RAT Beach",
+      "72nd Place",
+    ],
+    caveats: ["El Porto", "Zuma", "Leo Carrillo", "conditional"],
+    internalLinks: [
+      "/beginner/orange-county",
+      "/beginner/san-diego",
+      "/beginner/ventura",
+      "/beginner/santa-barbara",
+    ],
+  },
+  {
+    path: "/beginner/ventura",
+    h1: "Beginner Surf Spots in Ventura",
+    titleTerms: ["beginner", "ventura"],
+    metaTerms: ["beginner", "ventura"],
+    spots: ["Mondos", "Ventura Pier", "C Street"],
+    caveats: ["rocks", "crowd etiquette", "Solimar-style reef"],
+    internalLinks: [
+      "/beginner/los-angeles",
+      "/beginner/santa-barbara",
+      "/beginner/orange-county",
+    ],
+  },
+  {
+    path: "/beginner/santa-barbara",
+    h1: "Beginner Surf Spots in Santa Barbara",
+    titleTerms: ["beginner", "santa barbara"],
+    metaTerms: ["beginner", "santa barbara"],
+    spots: ["Refugio", "Mondos", "Leadbetter"],
+    caveats: ["Refugio is conditional", "point-wave rotations", "reef/rock"],
+    internalLinks: ["/beginner/ventura", "/beginner/los-angeles"],
+  },
+  {
+    path: "/beginner/san-onofre",
+    h1: "Beginner Surf Spots in San Onofre",
+    titleTerms: ["beginner", "san onofre"],
+    metaTerms: ["beginner", "san onofre"],
+    spots: ["Old Man's", "San Onofre State Beach", "Middles", "Trails"],
+    caveats: ["Bigger south swell", "crowding the main takeoff"],
+    internalLinks: [
+      "/beginner/orange-county",
+      "/beginner/san-diego",
+      "/beginner/los-angeles",
+    ],
+  },
+];
+
+function normalizeText(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, " ");
+}
+
+async function getMetaDescription(page: Page): Promise<string> {
+  return (await page.locator('meta[name="description"]').getAttribute("content")) ?? "";
+}
+
+async function getJsonLdTypes(page: Page): Promise<Set<string>> {
+  const scripts = await page
+    .locator('script[type="application/ld+json"]')
+    .allTextContents();
+  const types = new Set<string>();
+
+  for (const text of scripts) {
+    const data = JSON.parse(text) as { "@type"?: string; itemListElement?: unknown };
+    if (typeof data["@type"] === "string") types.add(data["@type"]);
+  }
+
+  return types;
+}
+
+async function scrollPageToLoadImages(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const step = Math.max(window.innerHeight * 0.75, 400);
+    for (let y = 0; y <= document.documentElement.scrollHeight; y += step) {
+      window.scrollTo(0, y);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    window.scrollTo(0, 0);
+  });
+}
+
+async function getBrokenImages(page: Page): Promise<string[]> {
+  return page.locator("img").evaluateAll((images) =>
+    (images as HTMLImageElement[])
+      .filter((image) => !image.complete || image.naturalWidth === 0)
+      .map((image) => image.currentSrc || image.src || image.getAttribute("src") || ""),
+  );
+}
+
+test.describe("Beginner SEO funnel pages", () => {
   let errorCapture: ErrorCapture;
 
   test.beforeEach(async ({ page }) => {
     errorCapture = setupErrorDetection(page);
-    await page.goto("/beginner/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
   });
 
   test.afterEach(async ({ page }) => {
-    await assertNoErrors(page, errorCapture, { context: 'San Diego' });
+    await assertNoErrors(page, errorCapture, {
+      context: "Beginner SEO funnel pages",
+    });
   });
 
-  test("should render hero with H1 and beginner count", async ({ page }) => {
-    const hero = page.locator("[data-testid='beginner-hero']");
-    await expect(hero).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
+  for (const route of BEGINNER_ROUTES) {
+    test(`${route.path} renders current SEO content, links, and schema`, async ({
+      page,
+    }) => {
+      await page.goto(route.path, { timeout: PAGE_LOAD_TIMEOUT });
+      await page.waitForLoadState("load");
 
-    const h1 = hero.locator("h1");
-    await expect(h1).toContainText(/Beginner Surf Spots in San Diego/i);
+      await expect(page.locator(".seo-paper-page")).toBeVisible();
+      await expect(
+        page.getByRole("heading", { level: 1, name: route.h1 }),
+      ).toBeVisible();
 
-    // Should show beach count
-    await expect(hero).toContainText(/beginner-friendly/i);
-  });
+      const title = normalizeText(await page.title());
+      for (const term of route.titleTerms) {
+        expect(title).toContain(term);
+      }
 
-  test("should display conditions badge when data available", async ({
-    page,
-  }) => {
-    const hero = page.locator("[data-testid='beginner-hero']");
-    await expect(hero).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
+      const metaDescription = normalizeText(await getMetaDescription(page));
+      for (const term of route.metaTerms) {
+        expect(metaDescription).toContain(term);
+      }
 
-    // Conditions badge may or may not be visible depending on forecast data
-    // If visible, it should have the expected structure
-    const badge = hero.locator("text=/Great for Beginners|Fair for Beginners|Challenging Today/i");
-    const badgeCount = await badge.count();
+      for (const spot of route.spots) {
+        await expect(page.getByText(spot, { exact: false }).first()).toBeVisible();
+      }
 
-    if (badgeCount > 0) {
-      await expect(badge.first()).toBeVisible();
-    }
-  });
+      for (const caveat of route.caveats) {
+        await expect(
+          page.getByText(caveat, { exact: false }).first(),
+        ).toBeVisible();
+      }
 
-  test("should render right now conditions when available", async ({
-    page,
-  }) => {
-    const section = page.locator("[data-testid='right-now-conditions']");
-    const sectionCount = await section.count();
+      for (const href of route.internalLinks) {
+        await expect(page.locator(`a[href="${href}"]`).first()).toBeVisible();
+      }
 
-    if (sectionCount > 0) {
-      await expect(section).toBeVisible();
-      await expect(section.locator("h2")).toContainText(/Right Now/i);
+      const faq = page.locator('section[aria-label^="FAQ about surfing in"]');
+      await expect(faq).toBeVisible();
+      await expect(faq.getByRole("button")).toHaveCount(4);
 
-      // Should show at least one metric
-      await expect(section.locator("text=/ft|mph|Calm/i").first()).toBeVisible();
-    }
-  });
+      const schemaTypes = await getJsonLdTypes(page);
+      expect(Array.from(schemaTypes)).toEqual(
+        expect.arrayContaining(["BreadcrumbList", "WebPage", "ItemList", "FAQPage"]),
+      );
 
-  test("should render beginner spot list with beaches", async ({ page }) => {
-    const section = page.locator("[data-testid='beginner-spot-list']");
-    await expect(section).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
+      await scrollPageToLoadImages(page);
+      await expect.poll(() => getBrokenImages(page)).toEqual([]);
+    });
 
-    await expect(section.locator("h2")).toContainText(
-      /Best Beginner Breaks/i
-    );
+    test(`${route.path} has sane mobile layout`, async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto(route.path, { timeout: PAGE_LOAD_TIMEOUT });
+      await page.waitForLoadState("load");
 
-    // Should have at least one beach card
-    const spotCards = section.locator(
-      "div.rounded-xl.border"
-    );
-    await expect(spotCards.first()).toBeVisible();
+      await expect(
+        page.getByRole("heading", { level: 1, name: route.h1 }),
+      ).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Nearby backup spots" })).toBeVisible();
+      await expect(page.locator("img").first()).toBeVisible();
 
-    // First spot should have a name link
-    const firstSpotLink = spotCards.first().locator("a");
-    await expect(firstSpotLink.first()).toBeVisible();
-  });
-
-  test("should render seasonal guide section", async ({ page }) => {
-    const section = page.locator("[data-testid='seasonal-guide']");
-    await expect(section).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
-
-    await expect(section.locator("h2")).toContainText(
-      /Best Months for Beginner/i
-    );
-
-    // Should have 4 season cards
-    const seasonCards = section.locator(
-      "text=/Spring|Summer|Fall|Winter/"
-    );
-    await expect(seasonCards).toHaveCount(4);
-  });
-
-  test("should render safety essentials with 4 tips", async ({ page }) => {
-    const section = page.locator("[data-testid='safety-essentials']");
-    await expect(section).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
-
-    await expect(section.locator("h2")).toContainText(/Safety Tips/i);
-
-    // Should have 4 safety tip cards
-    const tipCards = section.locator("h3");
-    await expect(tipCards).toHaveCount(4);
-  });
-
-  test("should render gear and lessons section", async ({ page }) => {
-    const section = page.locator("[data-testid='gear-and-lessons']");
-    await expect(section).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
-
-    await expect(section.locator("h2")).toContainText(/Gear/i);
-
-    // Board guide and wetsuit guide
-    await expect(section.locator("text=/Board Guide/i")).toBeVisible();
-    await expect(section.locator("text=/Wetsuit Guide/i")).toBeVisible();
-  });
-
-  test("should render FAQ section with expandable items", async ({ page }) => {
-    // FAQSection uses aria-label and <dl> with button toggles, not data-testid or <details>
-    const section = page.locator("section[aria-label*='FAQ']");
-    await expect(section).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
-
-    await expect(section.locator("h2")).toContainText(
-      /Frequently Asked Questions/i
-    );
-
-    // Should have FAQ items (buttons inside <dt> elements)
-    const faqButtons = section.locator("dt button");
-    const count = await faqButtons.count();
-    expect(count).toBeGreaterThanOrEqual(3);
-
-    // First item is expanded by default; click to collapse then re-expand
-    const firstButton = faqButtons.first();
-    await firstButton.click();
-    // Click again to expand
-    await firstButton.click();
-    const answer = section.locator("dd").first();
-    await expect(answer).toBeVisible();
-  });
-
-  test("should render session gallery placeholder", async ({ page }) => {
-    const section = page.locator("[data-testid='session-gallery']");
-    await expect(section).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
-
-    await expect(section.locator("h2")).toContainText(/Recent Beginner/i);
-  });
-
-  test("should have continue exploring links", async ({ page }) => {
-    const continueSection = page.locator("aside", { hasText: /Continue exploring/i });
-    await expect(continueSection).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
-
-    // Should have links to tide, water-temp, and least-crowded pages (scoped to aside)
-    await expect(continueSection.locator("a[href*='/tide/san-diego']")).toBeVisible();
-    await expect(
-      continueSection.locator("a[href*='/water-temp/san-diego']")
-    ).toBeVisible();
-    await expect(
-      continueSection.locator("a[href*='/least-crowded/san-diego']")
-    ).toBeVisible();
-  });
-
-  test("should have breadcrumb navigation", async ({ page }) => {
-    const breadcrumb = page.locator("nav[aria-label='breadcrumb']");
-    await expect(breadcrumb).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
-
-    await expect(breadcrumb.locator("text=/Back to San Diego/i")).toBeVisible();
-    await expect(
-      breadcrumb.locator("text=/Beginner Spots/i")
-    ).toBeVisible();
-  });
-
-  test("should include FAQSchema structured data", async ({ page }) => {
-    const faqScript = page.locator(
-      'script[type="application/ld+json"]'
-    );
-    const scripts = await faqScript.allTextContents();
-    const hasFaqSchema = scripts.some((text) =>
-      text.includes("FAQPage")
-    );
-    expect(hasFaqSchema).toBe(true);
-  });
-
-  test("should include BreadcrumbList structured data", async ({ page }) => {
-    const scripts = await page
-      .locator('script[type="application/ld+json"]')
-      .allTextContents();
-    const hasBreadcrumb = scripts.some((text) =>
-      text.includes("BreadcrumbList")
-    );
-    expect(hasBreadcrumb).toBe(true);
-  });
-});
-
-test.describe("Beginner page - SEO metadata", () => {
-  test("should have correct title and meta description", async ({ page }) => {
-    await page.goto("/beginner/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
-
-    const title = await page.title();
-    expect(title.toLowerCase()).toContain("beginner");
-    expect(title.toLowerCase()).toContain("san diego");
-
-    const metaDesc = await page
-      .locator('meta[name="description"]')
-      .getAttribute("content");
-    expect(metaDesc?.toLowerCase()).toContain("beginner");
-  });
-});
-
-test.describe("Beginner page - Mobile responsive", () => {
-  test.use({ viewport: { width: 375, height: 812 } });
-
-  test("should render properly on mobile", async ({ page }) => {
-    await page.goto("/beginner/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
-
-    const hero = page.locator("[data-testid='beginner-hero']");
-    await expect(hero).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
-
-    const h1 = hero.locator("h1");
-    await expect(h1).toBeVisible();
-
-    // Spot list should be visible
-    const spotList = page.locator("[data-testid='beginner-spot-list']");
-    await expect(spotList).toBeVisible();
-  });
+      const horizontalOverflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - window.innerWidth,
+      );
+      expect(horizontalOverflow).toBeLessThanOrEqual(2);
+    });
+  }
 });

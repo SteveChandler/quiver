@@ -2,7 +2,6 @@ import { cache } from "react";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
-import { SpotSurfReportStream } from "@/components/spots/spot-surf-report";
 import { ZineNearbySpots } from "@/components/beach-detail/zine/zine-nearby-spots";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
@@ -32,7 +31,10 @@ import { getSpotSurfReportPublic } from "@/actions/spot/spot-surf-report-actions
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { getBeachReviews } from "@/actions/beach-review-actions";
 import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
-import { createPublicReadClient } from "@/lib/supabase/server";
+import {
+  createPublicReadClient,
+  createSupabaseServiceRoleClient,
+} from "@/lib/supabase/server";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { LiveCamSchema } from "@/components/seo/live-cam-schema";
 import { getBeachCameraUrl } from "@/actions/beach/cam-actions";
@@ -132,7 +134,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
         : Promise.resolve(undefined),
       (async () => {
         try {
-          const supabase = createPublicReadClient();
+          const supabase = createSupabaseServiceRoleClient();
           const { data } = await supabase
             .from("mv_beach_amenities")
             .select("*")
@@ -308,7 +310,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           beach={beach}
           slug={beachSlug}
           beachTimezone={beachTimezone}
-          surfReportSlot={<SpotSurfReportStream beach={beach} />}
           surfCallReport={surfCallReport}
           surfCallIsTomorrow={surfCallIsTomorrow}
           amenities={amenitiesResult}

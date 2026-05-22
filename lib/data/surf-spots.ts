@@ -64,7 +64,7 @@ export interface SurfSpot {
  * This data remains for backwards compatibility with intent pages.
  */
 export const SURF_SPOTS: Record<string, SurfSpot> = {
-  "blacks": {
+  blacks: {
     slug: "blacks",
     name: "Blacks Beach",
     citySlug: "san-diego",
@@ -90,11 +90,15 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Crowded takeoff zones with advanced surfers",
     ],
     skillLevel: "Intermediate to expert",
-    bestSeason: "Late fall through spring, with south swells adding options in summer",
+    bestSeason:
+      "Late fall through spring, with south swells adding options in summer",
     crowdFactor: "Heavy",
     parking:
       "Park at the Glider Port lot or Torrey Pines State Beach. Expect a 10-15 minute hike down either the Goat Trail or the paved road.",
-    amenities: ["No restrooms on the sand", "Closest showers at La Jolla Shores"],
+    amenities: [
+      "No restrooms on the sand",
+      "Closest showers at La Jolla Shores",
+    ],
     nearby: ["torrey-pines-state-beach", "la-jolla-shores", "del-mar"],
     faq: [
       {
@@ -143,7 +147,8 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Kelp drifts that snag leashes",
     ],
     skillLevel: "Intermediate",
-    bestSeason: "Fall and winter for combo swells, summer for smaller log sessions",
+    bestSeason:
+      "Fall and winter for combo swells, summer for smaller log sessions",
     crowdFactor: "Heavy",
     parking:
       "Limited bluff-top lot. Street parking along Highway 101 fills early; arrive before sunrise on swell pulses.",
@@ -203,10 +208,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     crowdFactor: "Heavy",
     parking:
       "Street parking along Neptune Place fills quickly. Check side streets and be prepared for a walk.",
-    amenities: [
-      "No restrooms on site",
-      "Closest showers at La Jolla Cove",
-    ],
+    amenities: ["No restrooms on site", "Closest showers at La Jolla Cove"],
     nearby: ["la-jolla-shores", "sunset-cliffs-garbage", "blacks"],
     faq: [
       {
@@ -1276,7 +1278,8 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Strong rip currents sweeping alongside the pier",
     ],
     skillLevel: "Intermediate",
-    bestSeason: "Year-round, with summer events and winter swells keeping it active",
+    bestSeason:
+      "Year-round, with summer events and winter swells keeping it active",
     crowdFactor: "Heavy",
     parking:
       "Large pay lots at the pier plus street parking along PCH. Arrive early during contest weeks.",
@@ -1340,7 +1343,11 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Outdoor showers at the end of 56th Street",
       "Coffee shops and breakfast spots a short walk inland",
     ],
-    nearby: ["huntington-beach-pier", "bolsa-chica", "seal-beach-pier-seal-beach-ca"],
+    nearby: [
+      "huntington-beach-pier",
+      "bolsa-chica",
+      "seal-beach-pier-seal-beach-ca",
+    ],
     faq: [
       {
         question: "Is 56th Street good for beginners?",
@@ -1375,7 +1382,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     conditions:
       "Expect mellow peaks with plenty of shoulder room. The wave reforms nicely, letting surfers work on footwork, trims, and turns without pressure.",
     tideAdvice:
-      "Mid to high tide keeps the wave soft and rideable. Low tide makes it faster but riskier for new surfers.",
+      "Low-to-mid tide is usually the cleaner learner window on small days. Tiny high tide can flatten the wave or add awkward wash near shore.",
     swellAdvice:
       "Combo swells from the west and south keep it consistent. Pure windswell is still fun but shorter.",
     windAdvice:
@@ -1396,7 +1403,11 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Restrooms, showers, and fire pits along the sand",
       "Food vendors and rental shacks during peak season",
     ],
-    nearby: ["huntington-beach-pier", "seal-beach-pier-seal-beach-ca", "doheny-state-beach"],
+    nearby: [
+      "huntington-beach-pier",
+      "seal-beach-pier-seal-beach-ca",
+      "doheny-state-beach",
+    ],
     faq: [
       {
         question: "Is Bolsa Chica good for first-time surfers?",
@@ -1415,7 +1426,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       },
     ],
     speakableSummary:
-      "Bolsa Chica is Huntington’s mellow playground. High tide combo swells deliver long rides, easy paddles, and a relaxed lineup perfect for new surfers.",
+      "Bolsa Chica is Huntington’s mellow playground. Small, clean morning surf around low-to-mid tide is the best beginner target.",
     beginnerNotes:
       "Surf near lifeguard Tower 18 for the softest takeoffs and the quickest walk from the parking lot.",
     intentTags: ["beginner", "water-temp"],

@@ -156,6 +156,9 @@ export const SCORER_WEIGHTS = {
   /** Tide direction match with beach preference - NEW */
   tideDirection: 0.15,
 
+  /** Setup-specific red-flag guardrails */
+  setupRisk: 0,
+
   /** Window stability */
   windowStability: 0.05,
 

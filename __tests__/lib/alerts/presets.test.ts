@@ -1,8 +1,4 @@
-import {
-  PRESETS,
-  getPreset,
-  getPresetsForGroup,
-} from "@/lib/alerts/presets";
+import { PRESETS, getPreset, getPresetsForGroup } from "@/lib/alerts/presets";
 import type { BeachAlertMeta } from "@/lib/alerts/types";
 
 const mockBeach: BeachAlertMeta = {
@@ -34,10 +30,10 @@ describe("presets", () => {
 
   it("each preset has required fields", () => {
     for (const preset of PRESETS) {
-      expect(preset.type).toBeTruthy();
-      expect(preset.name).toBeTruthy();
-      expect(preset.description).toBeTruthy();
-      expect(preset.conditionsSummary).toBeTruthy();
+      expect(preset.type.length).toBeGreaterThan(0);
+      expect(preset.name.length).toBeGreaterThan(0);
+      expect(preset.description.length).toBeGreaterThan(0);
+      expect(preset.conditionsSummary.length).toBeGreaterThan(0);
       expect(preset.group).toMatch(/^(popular|specific)$/);
       expect(typeof preset.buildConditions).toBe("function");
     }
@@ -58,6 +54,90 @@ describe("presets", () => {
     expect(conditions.tide_height_max_ft).toBe(5);
     expect(conditions.swell_height_min).toBe(1.5);
     expect(conditions.swell_height_max).toBe(4);
+  });
+
+  it("mellow_session tightens size, wind, tide, and time for sandy beginner beaches", () => {
+    const preset = getPreset("mellow_session")!;
+    const conditions = preset.buildConditions({
+      ...mockBeach,
+      name: "Bolsa Chica",
+      slug: "bolsa-chica",
+      skill_level: "beginner",
+      break_type: "beach",
+      features: ["sand bottom", "beginner sandy beachbreak"],
+      preference_model: {
+        beginner_window: {
+          model: "socal_sandy_beginner",
+          beginner_fit: "primary",
+          acceptable_wave_height_ft: { min: 0.5, max: 3 },
+          best_time_local: { start: "06:00", end: "10:00" },
+          max_beginner_wind_mph: 10,
+        },
+      },
+      preferred_tide_ft_min: 0.5,
+      preferred_tide_ft_max: 3,
+    });
+
+    expect(conditions.beginner_sandy_window).toBe(true);
+    expect(conditions.swell_height_min).toBe(0.5);
+    expect(conditions.swell_height_max).toBe(3);
+    expect(conditions.wind_speed_max_kt).toBe(9);
+    expect(conditions.tide_height_min_ft).toBe(0.5);
+    expect(conditions.tide_height_max_ft).toBe(3);
+    expect(conditions.avoid_tide_statuses).toEqual(["high"]);
+    expect(conditions.local_time_start).toBe("06:00");
+    expect(conditions.local_time_end).toBe("10:00");
+  });
+
+  it("does not apply sandy beginner scoring to non-sandy advanced breaks", () => {
+    const preset = getPreset("mellow_session")!;
+    const conditions = preset.buildConditions({
+      ...mockBeach,
+      skill_level: "advanced",
+      break_type: "reef",
+      features: ["shallow reef"],
+    });
+
+    expect(conditions.beginner_sandy_window).toBeUndefined();
+    expect(conditions.swell_height_min).toBe(1.5);
+    expect(conditions.swell_height_max).toBe(4);
+  });
+
+  it("does not apply sandy beginner scoring from legacy tags alone", () => {
+    const preset = getPreset("mellow_session")!;
+    const conditions = preset.buildConditions({
+      ...mockBeach,
+      skill_level: "beginner",
+      break_type: "beach",
+      features: ["sand bottom", "beginner sandy beachbreak"],
+      preference_model: {},
+    });
+
+    expect(conditions.beginner_sandy_window).toBeUndefined();
+    expect(conditions.swell_height_min).toBe(1.5);
+    expect(conditions.swell_height_max).toBe(4);
+    expect(conditions.wind_speed_max_kt).toBe(8);
+  });
+
+  it("requires primary or conditional beginner_fit metadata for sandy beginner scoring", () => {
+    const preset = getPreset("mellow_session")!;
+    const conditions = preset.buildConditions({
+      ...mockBeach,
+      skill_level: "beginner",
+      break_type: "beach",
+      features: ["sand bottom", "beginner sandy beachbreak"],
+      preference_model: {
+        beginner_window: {
+          model: "socal_sandy_beginner",
+          acceptable_wave_height_ft: { min: 0.5, max: 3 },
+        },
+      },
+    });
+
+    expect(conditions.beginner_sandy_window).toBeUndefined();
+    expect(conditions.swell_height_min).toBe(1.5);
+    expect(conditions.swell_height_max).toBe(4);
+    expect(conditions.wind_speed_max_kt).toBe(8);
   });
 
   it("clean_groundswell has 2ft floor + 12s period", () => {

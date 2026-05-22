@@ -18,7 +18,6 @@ import {
   Users,
   Car,
   Accessibility,
-  Bell,
 } from "lucide-react";
 import {
   removeFavoriteBeach,
@@ -41,7 +40,9 @@ export function FavoriteBeaches() {
   const [removing, setRemoving] = useState<string | null>(null);
   const [savingOrder, setSavingOrder] = useState(false);
   const [alertCounts, setAlertCounts] = useState<Record<string, number>>({});
-  const [expandedAlerts, setExpandedAlerts] = useState<Record<string, boolean>>({});
+  const [expandedAlerts, setExpandedAlerts] = useState<Record<string, boolean>>(
+    {},
+  );
   const [addAlertBeach, setAddAlertBeach] = useState<Beach | null>(null);
 
   // Standard data fetching pattern
@@ -68,7 +69,7 @@ export function FavoriteBeaches() {
       immediate: true,
       skip: !user,
       initialData: [] as Beach[],
-    }
+    },
   );
 
   useEffect(() => {
@@ -100,7 +101,7 @@ export function FavoriteBeaches() {
     const activeRules = alertCounts[beach.id] ?? 0;
     if (activeRules > 0) {
       const confirmed = window.confirm(
-        `Removing ${beach.name} from favorites will pause your ${activeRules} alert rule${activeRules === 1 ? "" : "s"} for this beach. Re-favorite to resume them.`
+        `Removing ${beach.name} from favorites will pause your ${activeRules} alert rule${activeRules === 1 ? "" : "s"} for this beach. Re-favorite to resume them.`,
       );
       if (!confirmed) return;
     }
@@ -187,165 +188,189 @@ export function FavoriteBeaches() {
 
   return (
     <>
-    <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button
-          onClick={saveOrder}
-          disabled={savingOrder}
-          variant="secondary"
-          size="sm"
-        >
-          {savingOrder ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            "Save Order"
-          )}
-        </Button>
-      </div>
-      {beaches.map((beach, idx) => (
-        <Card key={beach.id} className="overflow-hidden">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">{beach.name}</CardTitle>
-            <CardDescription className="flex items-center">
-              <MapPin className="h-4 w-4 mr-1" />
-              {getBeachLocation(beach)}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pb-2">
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div className="flex items-center">
-                <Waves className="h-4 w-4 mr-1 text-blue-500" />
-                <span>
-                  Wave Quality: {(beach as any).wave_quality_rating?.toFixed(1) ?? "N/A"}/5
-                </span>
+      <div className="space-y-4">
+        <div className="flex justify-end">
+          <Button
+            onClick={saveOrder}
+            disabled={savingOrder}
+            variant="secondary"
+            size="sm"
+          >
+            {savingOrder ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              "Save Order"
+            )}
+          </Button>
+        </div>
+        {beaches.map((beach, idx) => (
+          <Card key={beach.id} className="overflow-hidden">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">{beach.name}</CardTitle>
+              <CardDescription className="flex items-center">
+                <MapPin className="h-4 w-4 mr-1" />
+                {getBeachLocation(beach)}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pb-2">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="flex items-center">
+                  <Waves className="h-4 w-4 mr-1 text-blue-500" />
+                  <span>
+                    Wave Quality:{" "}
+                    {(beach as any).wave_quality_rating?.toFixed(1) ?? "N/A"}/5
+                  </span>
+                </div>
+                <div className="flex items-center">
+                  <Users className="h-4 w-4 mr-1 text-orange-500" />
+                  <span>
+                    Crowd:{" "}
+                    {(beach as any).crowd_density_rating?.toFixed(1) ?? "N/A"}/5
+                  </span>
+                </div>
+                <div className="flex items-center">
+                  <Car className="h-4 w-4 mr-1 text-gray-500" />
+                  <span>
+                    Parking:{" "}
+                    {(beach as any).parking_rating?.toFixed(1) ?? "N/A"}/5
+                  </span>
+                </div>
+                <div className="flex items-center">
+                  <Accessibility className="h-4 w-4 mr-1 text-green-500" />
+                  <span>
+                    Access:{" "}
+                    {(beach as any).accessibility_rating?.toFixed(1) ?? "N/A"}/5
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center">
-                <Users className="h-4 w-4 mr-1 text-orange-500" />
-                <span>Crowd: {(beach as any).crowd_density_rating?.toFixed(1) ?? "N/A"}/5</span>
+              {/* Alert status row */}
+              <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/40">
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <Waves className="h-3.5 w-3.5" />
+                  <span>
+                    {(alertCounts[beach.id] ?? 0) > 0
+                      ? `${alertCounts[beach.id]} alert rule${alertCounts[beach.id] === 1 ? "" : "s"} active`
+                      : "No alerts set"}
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() =>
+                    setExpandedAlerts((prev) => ({
+                      ...prev,
+                      [beach.id]: !prev[beach.id],
+                    }))
+                  }
+                >
+                  {expandedAlerts[beach.id] ? "Hide" : "Manage"}
+                </Button>
               </div>
-              <div className="flex items-center">
-                <Car className="h-4 w-4 mr-1 text-gray-500" />
-                <span>Parking: {(beach as any).parking_rating?.toFixed(1) ?? "N/A"}/5</span>
-              </div>
-              <div className="flex items-center">
-                <Accessibility className="h-4 w-4 mr-1 text-green-500" />
-                <span>Access: {(beach as any).accessibility_rating?.toFixed(1) ?? "N/A"}/5</span>
-              </div>
-            </div>
-            {/* Alert status row */}
-            <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/40">
-              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Bell
-                  className="h-3.5 w-3.5"
-                  fill={(alertCounts[beach.id] ?? 0) > 0 ? "currentColor" : "none"}
+              {expandedAlerts[beach.id] && (
+                <AlertManagementPanel
+                  beachId={beach.id}
+                  beachName={beach.name}
+                  onAddRule={() => setAddAlertBeach(beach)}
                 />
-                <span>
-                  {(alertCounts[beach.id] ?? 0) > 0
-                    ? `${alertCounts[beach.id]} alert rule${alertCounts[beach.id] === 1 ? "" : "s"} active`
-                    : "No alerts set"}
-                </span>
+              )}
+            </CardContent>
+            <CardFooter className="flex justify-between items-center gap-2 pt-2">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => moveBeach(idx, -1)}
+                  disabled={idx === 0}
+                >
+                  Move Up
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => moveBeach(idx, 1)}
+                  disabled={idx === beaches.length - 1}
+                >
+                  Move Down
+                </Button>
               </div>
+              <Button variant="outline" size="sm" asChild>
+                <Link href={beachNavigation.toBeachDetail(beach)}>
+                  View Details
+                </Link>
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 px-2 text-xs"
-                onClick={() =>
-                  setExpandedAlerts((prev) => ({
-                    ...prev,
-                    [beach.id]: !prev[beach.id],
-                  }))
+                onClick={() => handleRemoveFavorite(beach)}
+                disabled={removing === beach.id}
+              >
+                {removing === beach.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Heart className="h-4 w-4 text-red-500 fill-red-500" />
+                )}
+              </Button>
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+      {addAlertBeach && (
+        <AlertCreationPopover
+          beachId={addAlertBeach.id}
+          beachName={addAlertBeach.name}
+          beach={{
+            id: addAlertBeach.id,
+            name: addAlertBeach.name,
+            slug: addAlertBeach.slug ?? null,
+            lat: (addAlertBeach as any).lat,
+            lon: (addAlertBeach as any).lon,
+            timezone: (addAlertBeach as any).timezone ?? "UTC",
+            wind_offshore_deg: (addAlertBeach as any).wind_offshore_deg ?? null,
+            wind_offshore_tol_deg:
+              (addAlertBeach as any).wind_offshore_tol_deg ?? null,
+            aspect_deg: (addAlertBeach as any).aspect_deg ?? null,
+            preferred_tide_ft_min:
+              (addAlertBeach as any).preferred_tide_ft_min ?? null,
+            preferred_tide_ft_max:
+              (addAlertBeach as any).preferred_tide_ft_max ?? null,
+            preferred_tide_direction:
+              (addAlertBeach as any).preferred_tide_direction ?? null,
+            swell_window_center_deg:
+              (addAlertBeach as any).swell_window_center_deg ?? null,
+            swell_window_halfwidth_deg:
+              (addAlertBeach as any).swell_window_halfwidth_deg ?? null,
+            break_type: (addAlertBeach as any).break_type ?? null,
+            skill_level: (addAlertBeach as any).skill_level ?? null,
+            features: (addAlertBeach as any).features ?? null,
+            preference_model: (addAlertBeach as any).preference_model ?? null,
+            max_wind_any_mph: (addAlertBeach as any).max_wind_any_mph ?? null,
+            max_wind_onshore_mph:
+              (addAlertBeach as any).max_wind_onshore_mph ?? null,
+          }}
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) setAddAlertBeach(null);
+          }}
+          onRuleCreated={() => {
+            // Refresh alert counts
+            fetch("/api/alerts/rules")
+              .then((res) => res.json())
+              .then((json) => {
+                if (!Array.isArray(json.data)) return;
+                const counts: Record<string, number> = {};
+                for (const rule of json.data) {
+                  if (rule.enabled) {
+                    counts[rule.beach_id] = (counts[rule.beach_id] ?? 0) + 1;
+                  }
                 }
-              >
-                {expandedAlerts[beach.id] ? "Hide" : "Manage"}
-              </Button>
-            </div>
-            {expandedAlerts[beach.id] && (
-              <AlertManagementPanel
-                beachId={beach.id}
-                beachName={beach.name}
-                onAddRule={() => setAddAlertBeach(beach)}
-              />
-            )}
-          </CardContent>
-          <CardFooter className="flex justify-between items-center gap-2 pt-2">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => moveBeach(idx, -1)}
-                disabled={idx === 0}
-              >
-                Move Up
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => moveBeach(idx, 1)}
-                disabled={idx === beaches.length - 1}
-              >
-                Move Down
-              </Button>
-            </div>
-            <Button variant="outline" size="sm" asChild>
-              <Link href={beachNavigation.toBeachDetail(beach)}>View Details</Link>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleRemoveFavorite(beach)}
-              disabled={removing === beach.id}
-            >
-              {removing === beach.id ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Heart className="h-4 w-4 text-red-500 fill-red-500" />
-              )}
-            </Button>
-          </CardFooter>
-        </Card>
-      ))}
-    </div>
-    {addAlertBeach && (
-      <AlertCreationPopover
-        beachId={addAlertBeach.id}
-        beachName={addAlertBeach.name}
-        beach={{
-          id: addAlertBeach.id,
-          name: addAlertBeach.name,
-          slug: addAlertBeach.slug ?? null,
-          lat: (addAlertBeach as any).lat,
-          lon: (addAlertBeach as any).lon,
-          timezone: (addAlertBeach as any).timezone ?? "UTC",
-          wind_offshore_deg: (addAlertBeach as any).wind_offshore_deg ?? null,
-          wind_offshore_tol_deg: (addAlertBeach as any).wind_offshore_tol_deg ?? null,
-          aspect_deg: (addAlertBeach as any).aspect_deg ?? null,
-          preferred_tide_ft_min: (addAlertBeach as any).preferred_tide_ft_min ?? null,
-          preferred_tide_ft_max: (addAlertBeach as any).preferred_tide_ft_max ?? null,
-          preferred_tide_direction: (addAlertBeach as any).preferred_tide_direction ?? null,
-          swell_window_center_deg: (addAlertBeach as any).swell_window_center_deg ?? null,
-          swell_window_halfwidth_deg: (addAlertBeach as any).swell_window_halfwidth_deg ?? null,
-        }}
-        open={true}
-        onOpenChange={(open) => { if (!open) setAddAlertBeach(null); }}
-        onRuleCreated={() => {
-          // Refresh alert counts
-          fetch("/api/alerts/rules")
-            .then((res) => res.json())
-            .then((json) => {
-              if (!Array.isArray(json.data)) return;
-              const counts: Record<string, number> = {};
-              for (const rule of json.data) {
-                if (rule.enabled) {
-                  counts[rule.beach_id] = (counts[rule.beach_id] ?? 0) + 1;
-                }
-              }
-              setAlertCounts(counts);
-            })
-            .catch(() => {});
-          setAddAlertBeach(null);
-        }}
-      />
-    )}
+                setAlertCounts(counts);
+              })
+              .catch(() => {});
+            setAddAlertBeach(null);
+          }}
+        />
+      )}
     </>
   );
 }

@@ -67,7 +67,7 @@ describe('BestSurfWindow - Unified Card Integration', () => {
       );
 
       // Should show the card title
-      expect(screen.getByText(/Best Time to Surf Today/i)).toBeInTheDocument();
+      expect(screen.getByText(/Best Surf Window Today/i)).toBeInTheDocument();
     });
 
     it('should display trend tags as colored chips', () => {

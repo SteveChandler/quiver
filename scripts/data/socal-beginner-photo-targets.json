@@ -1,0 +1,132 @@
+[
+  {
+    "slug": "blackies",
+    "name": "Blackies",
+    "city": "Newport Beach",
+    "state": "CA",
+    "country": "USA",
+    "query": "Newport Beach Pier surf",
+    "notes": "North Orange County beginner anchor; review results for Newport Pier/28th Street context."
+  },
+  {
+    "slug": "bolsa-chica",
+    "name": "Bolsa Chica",
+    "city": "Huntington Beach",
+    "state": "CA",
+    "country": "USA",
+    "query": "Bolsa Chica State Beach"
+  },
+  {
+    "slug": "huntington-state-beach",
+    "name": "Huntington State Beach",
+    "city": "Huntington Beach",
+    "state": "CA",
+    "country": "USA",
+    "query": "Huntington State Beach"
+  },
+  {
+    "slug": "goldenwest",
+    "name": "Goldenwest",
+    "city": "Huntington Beach",
+    "state": "CA",
+    "country": "USA",
+    "query": "Goldenwest Huntington Beach"
+  },
+  {
+    "slug": "doheny-beach",
+    "name": "Doheny State Beach",
+    "city": "Dana Point",
+    "state": "CA",
+    "country": "USA",
+    "query": "Doheny State Beach"
+  },
+  {
+    "slug": "san-onofre-state-beach",
+    "name": "San Onofre State Beach",
+    "city": "San Clemente",
+    "state": "CA",
+    "country": "USA",
+    "query": "San Onofre State Beach"
+  },
+  {
+    "slug": "la-jolla-shores",
+    "name": "La Jolla Shores",
+    "city": "La Jolla",
+    "state": "CA",
+    "country": "USA",
+    "query": "La Jolla Shores"
+  },
+  {
+    "slug": "tourmaline-surf-park",
+    "name": "Tourmaline Surf Park",
+    "city": "San Diego",
+    "state": "CA",
+    "country": "USA",
+    "query": "Tourmaline Surf Park"
+  },
+  {
+    "slug": "santa-monica-beach-santa-monica-ca",
+    "name": "Santa Monica Beach",
+    "city": "Santa Monica",
+    "state": "CA",
+    "country": "USA",
+    "query": "Santa Monica State Beach"
+  },
+  {
+    "slug": "will-rogers-state-beach-santa-monica-ca",
+    "name": "Will Rogers State Beach",
+    "city": "Santa Monica",
+    "state": "CA",
+    "country": "USA",
+    "query": "Will Rogers State Beach"
+  },
+  {
+    "slug": "dockweiler-state-beach-playa-del-rey-ca",
+    "name": "Dockweiler State Beach",
+    "city": "Playa del Rey",
+    "state": "CA",
+    "country": "USA",
+    "query": "Dockweiler State Beach"
+  },
+  {
+    "slug": "venice-beach-venice-ca",
+    "name": "Venice Beach",
+    "city": "Venice",
+    "state": "CA",
+    "country": "USA",
+    "query": "Venice Beach Los Angeles"
+  },
+  {
+    "slug": "torrance-beach-rat-beach-torrance-ca",
+    "name": "Torrance/RAT Beach",
+    "city": "Torrance",
+    "state": "CA",
+    "country": "USA",
+    "query": "Torrance Beach"
+  },
+  {
+    "slug": "72nd-place-long-beach-ca",
+    "name": "72nd Place",
+    "city": "Long Beach",
+    "state": "CA",
+    "country": "USA",
+    "query": "72nd Place Long Beach"
+  },
+  {
+    "slug": "mondos-beach-ventura-ca",
+    "name": "Mondos Beach",
+    "city": "Ventura",
+    "state": "CA",
+    "country": "USA",
+    "query": "Mondos Beach",
+    "notes": "Strong Ventura beginner anchor; confirm exact beach match before any hero-photo seed."
+  },
+  {
+    "slug": "refugio-state-beach-goleta-ca",
+    "name": "Refugio State Beach",
+    "city": "Goleta",
+    "state": "CA",
+    "country": "USA",
+    "query": "Refugio State Beach"
+  }
+]

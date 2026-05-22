@@ -36,7 +36,7 @@ export interface SeedDefaultRuleParams {
 // Fields required to build a BeachAlertMeta for preset conditions.
 // Mirrors the BeachAlertMeta type in lib/alerts/types.ts.
 const BEACH_META_COLUMNS =
-  "id, name, slug, lat, lon, timezone, wind_offshore_deg, wind_offshore_tol_deg, aspect_deg, preferred_tide_ft_min, preferred_tide_ft_max, preferred_tide_direction, swell_window_center_deg, swell_window_halfwidth_deg";
+  "id, name, slug, lat, lon, timezone, wind_offshore_deg, wind_offshore_tol_deg, aspect_deg, preferred_tide_ft_min, preferred_tide_ft_max, preferred_tide_direction, swell_window_center_deg, swell_window_halfwidth_deg, break_type, skill_level, features, preference_model, max_wind_any_mph, max_wind_onshore_mph";
 
 function pickPreset(level: ExperienceLevel): SeedPresetType {
   if (level === "advanced" || level === "expert") return "clean_groundswell";
@@ -62,10 +62,16 @@ function nameForPreset(preset: SeedPresetType): string {
  * /api/alerts/seed-default (native) after the profile update commits.
  */
 export async function seedDefaultRuleForUser(
-  params: SeedDefaultRuleParams
+  params: SeedDefaultRuleParams,
 ): Promise<SeedResult> {
-  const { supabase, userId, beachId, experienceLevel, notifyEmail, notifyPush } =
-    params;
+  const {
+    supabase,
+    userId,
+    beachId,
+    experienceLevel,
+    notifyEmail,
+    notifyPush,
+  } = params;
 
   const presetType = pickPreset(experienceLevel);
 
@@ -113,6 +119,12 @@ export async function seedDefaultRuleForUser(
     preferred_tide_direction: beachRow.preferred_tide_direction,
     swell_window_center_deg: beachRow.swell_window_center_deg,
     swell_window_halfwidth_deg: beachRow.swell_window_halfwidth_deg,
+    break_type: beachRow.break_type ?? null,
+    skill_level: beachRow.skill_level ?? null,
+    features: beachRow.features ?? null,
+    preference_model: beachRow.preference_model ?? null,
+    max_wind_any_mph: beachRow.max_wind_any_mph ?? null,
+    max_wind_onshore_mph: beachRow.max_wind_onshore_mph ?? null,
   };
 
   const preset = getPreset(presetType);

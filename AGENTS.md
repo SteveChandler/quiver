@@ -14,6 +14,18 @@ Yarn 1 with Node 22. `yarn dev` runs on `localhost:3000`. `yarn build` for produ
 
 `.mcp.json` exposes Figma, Supabase, Vercel, and Playwright. `.agent/mcp_recommendations.md` adds optional PostgreSQL, GitHub, and Sentry MCPs. Before SEO, CRO, copy, design, audit, hardening, or performance work, read the relevant `SKILL.md` in `.claude/skills/` or `.agent/skills/`. Use `.claude/product-marketing-context.md` for positioning/SEO/copy and `.claude/projects/*/memory/*.md` for retained strategy notes. Treat dated memory as context; verify against current code/data.
 
+## Default Codex Workflow
+
+For every non-trivial code task, use inspect → plan → review → execute → test → review → iterate.
+
+- Inspect first: read this file, `CLAUDE.md`, the nearest `ARCHITECTURE.md`, relevant README/docs, `package.json`, test config, and affected code before editing.
+- In inspect/plan, decide which local instructions, skills, and plugins apply. Use local repo files, scripts, package commands, `.mcp.json` tools, and existing helpers before external plugins, web search, or new tooling.
+- Create a concise execution plan, review it for gaps, risky assumptions, missing tests, and unnecessary scope, then revise before implementation when needed.
+- Execute minimal, high-confidence changes that follow existing Quiver patterns. Do not add unrelated features, refactors, or abstractions.
+- Run the smallest relevant tests first, then broaden to local push gates or build/E2E checks based on touched surface and risk.
+- Review the diff like a PR before finalizing. Fix every actionable finding, rerun relevant tests, and repeat review → fix → test until clean. Stop after 5 full cycles if findings remain and report them clearly.
+- Never claim tests passed unless you actually ran the command and it passed.
+
 ## Coding Style & Naming Conventions
 
 TypeScript, 2-space indentation, PascalCase components, camelCase variables/functions, kebab-case route segments.
@@ -57,6 +69,8 @@ GitHub Actions minutes are exhausted and repo Actions are disabled as of 2026-05
 
 Local push gate: `source ~/.nvm/nvm.sh && nvm use 22`, then `yarn typecheck` and `yarn test:unit --bail=0`. Add scoped ESLint for touched files, targeted Playwright, and `VERCEL_ENV=preview yarn build` when the change affects browser behavior, routing, Next config, env-gated build behavior, or release readiness.
 
+The configured prod-gate workflow mirrors TypeScript, lint, Jest, build, and Playwright smoke coverage: `yarn tsc --noEmit`, `yarn lint`, `yarn test:unit --bail=5`, `yarn build`, and `npx playwright test --grep @smoke --project=guest`. Because remote CI is not reliable here, reproduce the relevant parts locally before claiming release readiness.
+
 ### E2E required patterns
 - `setupErrorDetection(page)` in `beforeEach`, `assertNoErrors(page, errorCapture)` in `afterEach`
 - Proper HTTP status codes (400/401/403/404/405). 500 is always a bug.
@@ -65,6 +79,17 @@ Local push gate: `source ~/.nvm/nvm.sh && nvm use 22`, then `yarn typecheck` and
 - Annotate `waitForTimeout` with `// eslint-disable-next-line playwright/no-wait-for-timeout -- <reason>`
 - `BASE_URL=http://localhost:3000` for local; anon tests must be `guest-*.spec.ts`
 - Don't run parallel `yarn test:e2e:dev` — global-setup writes `state.json` and they corrupt each other. Run ONE command with multiple specs.
+- Before adding E2E tests, inspect existing nearby specs, `e2e/README.md`, `e2e/ARCHITECTURE.md`, helpers, fixtures, and `e2e/TEST_DEBT.md`.
+- Prefer stable user-facing selectors and accessibility labels. Avoid arbitrary sleeps; use explicit waits tied to UI, app, network, or auth state.
+- Verify each assertion would fail if the feature broke. Avoid false positives, weak assertions, brittle selectors, overbroad mocks, and tests that only prove a page rendered.
+- Isolate test data, mark generated data clearly, and clean it up. Prevent leakage through auth state, shared accounts, or persistent rows.
+- Diagnose failures as product bug, test bug, flaky timing issue, missing setup, or environment issue. Fix actionable failures and rerun targeted E2E until passing or until the 5-cycle limit is reached.
+- Use `npx playwright test --list <files...>` for a cheap syntax/registration check before expensive runs on large touched E2E sets.
+- If localhost Playwright conflicts with another Next dev server, use `BASE_URL=https://dev.quiversurf.app` so `playwright.config.ts` skips the local `webServer`.
+
+### Final response requirements
+- Include files changed, E2E tests reviewed, tests added or modified, production files changed, exact commands run, pass/fail status for each command, final E2E pass/fail status, unresolved findings, and remaining risks.
+- State clearly when tests were not run. Never claim tests passed unless they actually ran successfully.
 
 ### Pre-flight before release PRs
 Run `yarn test:unit --bail=0` on main before opening release PRs. The prod gate runs jest only on release PRs to prod, so regressions accumulate silently on main between releases. Local `.env` and CI also diverge on warn-as-error tests — reproduce CI's env when they disagree.
@@ -105,7 +130,7 @@ MCP `apply_migration` query is whitespace-sensitive — multi-line SQL fails wit
 
 ## Build / Framework Notes
 
-- Next 16.2.3 builds with Turbopack by default; the `--turbopack` flag is a no-op. `@ducanh2912/next-pwa` may silently no-op under Turbopack (sw.js not regenerated).
+- Next 16.2.6 builds with Turbopack by default; the `--turbopack` flag is a no-op. `@ducanh2912/next-pwa` may silently no-op under Turbopack (sw.js not regenerated).
 - Next 16 webpack config requires `turbopack: {}` sibling. Gating Sentry off on Preview breaks build — always test `VERCEL_ENV=preview yarn build`.
 - `next.config.mjs` blanket-caches `/api/*` for 60s. NSURLCache (native) honors it. Set `cache: no-store` per-route for mutations.
 - Don't propose pnpm/Yarn Berry. Yarn 1.22.17 stays.

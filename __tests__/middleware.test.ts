@@ -189,4 +189,40 @@ describe("Middleware", () => {
     expect(mockRedirect).toHaveBeenCalled();
     expect(clonedUrl.pathname).toBe("/spots/bolsa-chica");
   });
+
+  test("redirects legacy North HB Streets slug to Goldenwest", async () => {
+    const clonedUrl = { pathname: "/ca/huntington-beach/north-hb-streets" };
+    const request: any = {
+      nextUrl: {
+        pathname: "/ca/huntington-beach/north-hb-streets",
+        clone: () => clonedUrl,
+      },
+      url: "http://localhost/ca/huntington-beach/north-hb-streets",
+      method: "GET",
+      headers: new Headers(),
+      cookies: { get: () => undefined, getAll: () => [] },
+    };
+    await middleware(request);
+    expect(mockRedirect).toHaveBeenCalled();
+    expect(clonedUrl.pathname).toBe("/ca/huntington-beach/goldenwest");
+  });
+
+  test("redirects legacy North HB Streets subpages to Goldenwest subpages", async () => {
+    const clonedUrl = {
+      pathname: "/ca/huntington-beach/north-hb-streets/tides",
+    };
+    const request: any = {
+      nextUrl: {
+        pathname: "/ca/huntington-beach/north-hb-streets/tides",
+        clone: () => clonedUrl,
+      },
+      url: "http://localhost/ca/huntington-beach/north-hb-streets/tides",
+      method: "GET",
+      headers: new Headers(),
+      cookies: { get: () => undefined, getAll: () => [] },
+    };
+    await middleware(request);
+    expect(mockRedirect).toHaveBeenCalled();
+    expect(clonedUrl.pathname).toBe("/ca/huntington-beach/goldenwest/tides");
+  });
 });

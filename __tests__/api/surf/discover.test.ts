@@ -67,9 +67,12 @@ function makeSupabaseStub(entitlementRow: Record<string, unknown> | null) {
   };
 }
 
-function makeRequest(): NextRequest {
+const INCLUDED_BEACH_ID_A = "11111111-1111-4111-8111-111111111111";
+const INCLUDED_BEACH_ID_B = "22222222-2222-4222-8222-222222222222";
+
+function makeRequest(query = "lat=32.7157&lon=-117.1611"): NextRequest {
   return new NextRequest(
-    "http://localhost:3000/api/surf/discover?lat=32.7157&lon=-117.1611",
+    `http://localhost:3000/api/surf/discover?${query}`,
   );
 }
 
@@ -143,6 +146,63 @@ function makeDiscoveryResponse() {
           reason: "Similar to your high-rated sessions at beach breaks.",
           sessionCount: 8,
         },
+        generated_at: "2026-05-06T13:00:00.000Z",
+      },
+    ],
+    includedRecommendations: [
+      {
+        beach: {
+          id: "included-secret-id",
+          name: "Saved Secret Beach",
+          slug: "saved-secret-beach",
+          city: "San Diego",
+          state: "CA",
+          region: "San Diego",
+          lat: 32.8,
+          lon: -117.25,
+          photo_url: "https://cdn.quiver.test/saved.jpg",
+          webcam_url: "https://cams.quiver.test/saved",
+          skill_level: "intermediate",
+        },
+        window: {
+          start: new Date("2026-05-06T15:00:00.000Z"),
+          end: new Date("2026-05-06T18:00:00.000Z"),
+          tide: "Rising",
+          wind: "6 mph E",
+          waveHeight: "2-3 ft",
+          wavePeriod: "11s",
+          dataSource: "CDIP",
+          confidence: 75,
+          timezone: "America/Los_Angeles",
+          score: 74,
+        },
+        forecast: {
+          forecast_at: "2026-05-06T15:00:00.000Z",
+          wave_height: "2.5",
+          wave_period: "11s",
+          wind_speed: "6",
+          wind_direction: "E",
+          tide_status: "Rising",
+        },
+        score: 74,
+        matchQuality: "good",
+        subscores: {
+          waveHeightFit: 19,
+          periodEnergyScore: 16,
+          windAlignment: 17,
+          tideFit: 12,
+          affinityBonus: 5,
+          personalizationBonus: 5,
+          distancePenalty: -5,
+        },
+        summary: "Saved spot has a decent window",
+        reasons: ["Clean enough for your saved list"],
+        warnings: [],
+        conditionBadges: [{ label: "Light Offshore", contribution: 17 }],
+        waveHeightBadge: "2-3ft",
+        distanceMiles: 10.2,
+        drivingTimeMinutes: 15,
+        similarity: null,
         generated_at: "2026-05-06T13:00:00.000Z",
       },
     ],
@@ -230,6 +290,44 @@ describe("/api/surf/discover entitlement resolution", () => {
     expect(mockDiscoverSurfSpots).toHaveBeenCalledTimes(1);
     const [, opts] = mockDiscoverSurfSpots.mock.calls[0];
     expect(opts).toMatchObject({ isPro: true });
+  });
+
+  it("passes de-duped includeBeachIds through to the discovery orchestrator", async () => {
+    const supabase = makeSupabaseStub(null);
+    const { GET } = await import("@/app/api/surf/discover/route");
+
+    await GET(
+      makeRequest(
+        `lat=32.7157&lon=-117.1611&includeBeachIds=${INCLUDED_BEACH_ID_A},${INCLUDED_BEACH_ID_B},${INCLUDED_BEACH_ID_A}`,
+      ),
+      {
+        user: { id: "user-with-saved-spots" } as any,
+        supabase: supabase as any,
+        params: {},
+      } as any,
+    );
+
+    expect(mockDiscoverSurfSpots).toHaveBeenCalledTimes(1);
+    expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({
+      includeBeachIds: [INCLUDED_BEACH_ID_A, INCLUDED_BEACH_ID_B],
+    });
+  });
+
+  it("rejects malformed includeBeachIds before calling discovery", async () => {
+    const supabase = makeSupabaseStub(null);
+    const { GET } = await import("@/app/api/surf/discover/route");
+
+    const response = await GET(
+      makeRequest("lat=32.7157&lon=-117.1611&includeBeachIds=not-a-uuid"),
+      {
+        user: { id: "user-bad-include" } as any,
+        supabase: supabase as any,
+        params: {},
+      } as any,
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockDiscoverSurfSpots).not.toHaveBeenCalled();
   });
 
   it("trialing user with future expires_at → isPro:true", async () => {
@@ -322,6 +420,7 @@ describe("/api/surf/discover entitlement resolution", () => {
     });
     expect(body.data.lockedBestSpotTeaser).toBeNull();
     expect(body.data.recommendations).toHaveLength(1);
+    expect(body.data.includedRecommendations).toHaveLength(1);
     expect(body.data.recommendations[0].beach).toMatchObject({
       id: "beach-secret-id",
       name: "Ocean Beach Pier",
@@ -352,6 +451,7 @@ describe("/api/surf/discover entitlement resolution", () => {
     });
     expect(body.data.lockedBestSpotTeaser).toBeNull();
     expect(body.data.recommendations).toHaveLength(1);
+    expect(body.data.includedRecommendations).toHaveLength(1);
     expect(body.data.recommendations[0].beach).toMatchObject({
       id: "beach-secret-id",
       name: "Ocean Beach Pier",
@@ -374,6 +474,7 @@ describe("/api/surf/discover entitlement resolution", () => {
       canSeeBestSpot: false,
     });
     expect(body.data.recommendations).toEqual([]);
+    expect(body.data.includedRecommendations).toEqual([]);
     expect(body.data.regionalCall).toBe("Cleanest window is before lunch.");
     expect(body.data.eveningTransition).toMatchObject({
       active: true,
@@ -398,6 +499,9 @@ describe("/api/surf/discover entitlement resolution", () => {
     expect(responseText).not.toContain("ocean-beach-pier");
     expect(responseText).not.toContain("https://cdn.quiver.test/ob.jpg");
     expect(responseText).not.toContain("https://cams.quiver.test/ob");
+    expect(responseText).not.toContain("included-secret-id");
+    expect(responseText).not.toContain("Saved Secret Beach");
+    expect(responseText).not.toContain("https://cdn.quiver.test/saved.jpg");
   });
 
   it("generates ETag from the opt-in gated free response rather than the ungated discovery object", async () => {
