@@ -99,9 +99,12 @@ function setupQueries(options: {
   tide?: Array<QueryResult<{ tide_ft: number | null }>>;
 }) {
   const beach = chain(options.beach ?? { data: { id: BEACH_ID }, error: null });
-  const latest = [...options.latest].map(chain);
-  const current = [...options.current].map(chain);
-  const tide = [...(options.tide ?? [])].map(chain);
+  const latestQueries = [...options.latest].map(chain);
+  const currentQueries = [...options.current].map(chain);
+  const tideQueries = [...(options.tide ?? [])].map(chain);
+  const latest = [...latestQueries];
+  const current = [...currentQueries];
+  const tide = [...tideQueries];
 
   mockSupabase.from.mockImplementation((table: string) => {
     if (table === "beaches") return beach;
@@ -117,7 +120,7 @@ function setupQueries(options: {
     return chain({ data: null, error: null });
   });
 
-  return { beach, latest, current, tide };
+  return { beach, latest: latestQueries, current: currentQueries, tide: tideQueries };
 }
 
 async function callRoute(url: string): Promise<Response> {
@@ -163,6 +166,7 @@ describe("GET /api/forecasts/current", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(body.success).toBe(true);
     expect(body.data.current.wave_height).toBe("3-4 ft");
     expect(body.data.current.tide_height).toBe("2.7 ft");
@@ -179,16 +183,25 @@ describe("GET /api/forecasts/current", () => {
   });
 
   it("refreshes a missing current row and returns the reread source-backed row", async () => {
-    setupQueries({
+    const afterRefresh = new Date("2026-05-21T21:00:01.000Z");
+    mockUpdateBeachForecast.mockImplementationOnce(async () => {
+      jest.setSystemTime(afterRefresh);
+      return {
+        beach: "Mission Beach",
+        forecastsGenerated: 80,
+      };
+    });
+
+    const queries = setupQueries({
       current: [
         { data: null, error: null },
-        { data: currentRow({ forecast_at: "2026-05-21T19:00:00.000Z" }), error: null },
+        { data: currentRow({ forecast_at: "2026-05-21T21:00:00.000Z" }), error: null },
       ],
       latest: [
         { data: null, error: null },
         {
           data: {
-            updated_at: NOW.toISOString(),
+            updated_at: afterRefresh.toISOString(),
             data_source: "NOAA_NWS",
           },
           error: null,
@@ -204,7 +217,8 @@ describe("GET /api/forecasts/current", () => {
 
     expect(response.status).toBe(200);
     expect(mockUpdateBeachForecast).toHaveBeenCalledWith(BEACH_ID);
-    expect(body.data.current.forecast_at).toBe("2026-05-21T19:00:00.000Z");
+    expect(queries.current[1].lte).toHaveBeenCalledWith("forecast_at", afterRefresh.toISOString());
+    expect(body.data.current.forecast_at).toBe("2026-05-21T21:00:00.000Z");
     expect(body.data.metadata).toEqual(
       expect.objectContaining({
         refreshed: true,
@@ -320,5 +334,27 @@ describe("GET /api/forecasts/current", () => {
 
     expect(response.status).toBe(404);
     expect(body.error).toBe("Beach not found");
+  });
+
+  it("returns the wrapper error when the hourly tide query fails", async () => {
+    setupQueries({
+      current: [{ data: currentRow(), error: null }],
+      latest: [
+        {
+          data: {
+            updated_at: new Date(NOW.getTime() - 60 * 60 * 1000).toISOString(),
+            data_source: "OPEN_METEO",
+          },
+          error: null,
+        },
+      ],
+      tide: [{ data: null, error: { message: "tide query failed" } }],
+    });
+
+    await expect(
+      callRoute(
+        `http://localhost:3000/api/forecasts/current?beachId=${BEACH_ID}&refresh=if-stale`,
+      ),
+    ).rejects.toThrow("tide query failed");
   });
 });

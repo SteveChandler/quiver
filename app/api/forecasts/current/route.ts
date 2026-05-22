@@ -106,7 +106,7 @@ async function readLatestHourlyTide(
   now: Date,
 ): Promise<string | null> {
   const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("tide_forecasts")
     .select("tide_ft")
     .eq("beach_id", beachId)
@@ -116,6 +116,7 @@ async function readLatestHourlyTide(
     .limit(1)
     .maybeSingle();
 
+  if (error) throw new Error(error.message);
   return formatTideHeight(data?.tide_ft);
 }
 
@@ -195,7 +196,7 @@ async function currentForecastHandler(
     try {
       await updateBeachForecast(beachId);
       refreshed = true;
-      current = await readCurrentRow(supabase, beachId, now);
+      current = await readCurrentRow(supabase, beachId, new Date());
       freshness = await readLatestMetadata(supabase, beachId);
     } catch (error) {
       refreshError = error instanceof Error ? error.message : "Current conditions refresh failed";
