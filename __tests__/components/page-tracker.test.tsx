@@ -4,8 +4,10 @@ import { PageTracker } from "@/components/page-tracker";
 
 // Mock next/navigation
 const mockUsePathname = jest.fn();
+const mockUseSearchParams = jest.fn(() => new URLSearchParams());
 jest.mock("next/navigation", () => ({
   usePathname: () => mockUsePathname(),
+  useSearchParams: () => mockUseSearchParams(),
 }));
 
 // Mock useTrackEvent hook
@@ -56,6 +58,7 @@ Object.defineProperty(global, "crypto", {
 describe("PageTracker", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseSearchParams.mockReturnValue(new URLSearchParams());
     mockSessionStorage.__quiver_session_id = "";
     delete mockSessionStorage.__quiver_session_id;
     mockRandomUUID.mockClear();
@@ -151,6 +154,11 @@ describe("PageTracker", () => {
         "/sessions/session-1?share_id=share-123&utm_source=quiver_native&utm_medium=share&utm_campaign=session_share"
       );
       mockUsePathname.mockReturnValue("/sessions/session-1");
+      mockUseSearchParams.mockReturnValue(
+        new URLSearchParams(
+          "share_id=share-123&utm_source=quiver_native&utm_medium=share&utm_campaign=session_share"
+        )
+      );
 
       render(<PageTracker />);
 

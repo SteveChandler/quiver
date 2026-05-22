@@ -10,7 +10,8 @@
  */
 
 import { useEffect, useRef } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import type { ReadonlyURLSearchParams } from "next/navigation";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import { getBrowserSessionId } from "@/lib/utils/browser-session-id";
 
@@ -71,14 +72,13 @@ const ATTRIBUTION_QUERY_KEYS = [
   "utm_campaign",
 ] as const;
 
-function getShareAttributionMetadata(): ShareAttributionMetadata {
-  if (typeof window === "undefined") return {};
-
-  const searchParams = new URLSearchParams(window.location.search);
+function getShareAttributionMetadata(
+  searchParams: URLSearchParams | ReadonlyURLSearchParams | null
+): ShareAttributionMetadata {
   const metadata: ShareAttributionMetadata = {};
 
   for (const key of ATTRIBUTION_QUERY_KEYS) {
-    const value = searchParams.get(key);
+    const value = searchParams?.get(key);
     if (value) metadata[key] = value;
   }
 
@@ -94,13 +94,14 @@ function getSharedSessionId(pathname: string): string | null {
 
 export function PageTracker() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { track } = useTrackEvent();
   const prevTrackingKey = useRef<string | null>(null);
   const prevPathname = useRef<string | null>(null);
   const trackedShareIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    const attributionMetadata = getShareAttributionMetadata();
+    const attributionMetadata = getShareAttributionMetadata(searchParams);
     const trackingKey = [
       pathname,
       attributionMetadata.share_id ?? "",
@@ -149,7 +150,7 @@ export function PageTracker() {
 
     prevTrackingKey.current = trackingKey;
     prevPathname.current = pathname;
-  }, [pathname, track]);
+  }, [pathname, searchParams, track]);
 
   return null;
 }
