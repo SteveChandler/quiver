@@ -87,6 +87,7 @@ export default defineConfig({
       name: 'guest',
       testMatch: [
         'e2e/guest-*.spec.ts',
+        'e2e/prod-readonly/guest-*.spec.ts',
         'e2e/invite-flow.spec.ts',
         'e2e/email-core-loop/**/*.spec.ts',
       ],
@@ -99,7 +100,11 @@ export default defineConfig({
     // Authenticated: uses storageState produced by globalSetup
     {
       name: 'auth',
-      testIgnore: ['e2e/guest-*.spec.ts', 'e2e/email-core-loop/**'],
+      testIgnore: [
+        'e2e/guest-*.spec.ts',
+        'e2e/prod-readonly/guest-*.spec.ts',
+        'e2e/email-core-loop/**',
+      ],
       use: { ...devices['Desktop Chrome'], storageState: 'e2e/.auth/state.json' },
     },
   ],

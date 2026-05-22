@@ -16,6 +16,7 @@ interface ZineTabProps {
   waterQuality?: WaterQuality | null;
   beachPhoto?: ZineBeachPhoto | null;
   surfCallReport?: SurfCallResult | null;
+  beachTimezone?: string | null;
   onWriteReview?: () => void;
 }
 
@@ -31,6 +32,7 @@ export function ZineTab({
   waterQuality,
   beachPhoto,
   surfCallReport,
+  beachTimezone,
   onWriteReview,
 }: ZineTabProps) {
   return (
@@ -58,6 +60,7 @@ export function ZineTab({
             waterQuality={waterQuality}
             beachPhoto={beachPhoto}
             surfCallReport={surfCallReport}
+            beachTimezone={beachTimezone}
             onWriteReview={onWriteReview}
           />
           <ZineFooter city={beach.city} state={beach.state} />

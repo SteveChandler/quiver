@@ -93,8 +93,12 @@ export function formatPushNotification(matches: MatchingWindow[]): PushContent {
       typeof snap.wind_speed === "number" && Number.isFinite(snap.wind_speed)
         ? `, ${formatWindSpeed(snap.wind_speed * KNOTS_TO_MPH)}`
         : "";
+    const beginnerReason =
+      typeof snap.beginner_window_reason === "string"
+        ? `, ${snap.beginner_window_reason.replace(/\.$/, "")}`
+        : "";
     const timeWindow = formatTimeRange(topMatch.window_start, topMatch.window_end, topMatch.beach_timezone);
-    let body = `${topMatch.beach_name} ${timeWindow} — ${waveHeight}${period}${wind}`;
+    let body = `${topMatch.beach_name} ${timeWindow} — ${waveHeight}${period}${wind}${beginnerReason}`;
     if (body.length > 150) body = `${topMatch.beach_name} ${timeWindow} — ${waveHeight}${period}`;
     if (body.length > 150) body = body.substring(0, 147) + "...";
     return {

@@ -23,6 +23,10 @@ const REQUIRED_ROUTES = [
   "/beginner/san-diego",
   "/beginner/santa-cruz",
   "/beginner/orange-county",
+  "/beginner/huntington-beach",
+  "/beginner/los-angeles",
+  "/beginner/ventura",
+  "/beginner/santa-barbara",
   "/beginner/honolulu",
   "/beginner/cocoa-beach",
   "/beginner/san-onofre",
@@ -40,7 +44,7 @@ describe("SEO funnel pages", () => {
   it("defines the requested indexable routes and excludes Santa Cruz cams", () => {
     const routes = getIndexableSeoFunnelRoutes();
 
-    expect(routes).toHaveLength(21);
+    expect(routes).toHaveLength(25);
     expect(routes).toEqual(expect.arrayContaining(REQUIRED_ROUTES));
     expect(routes).not.toContain("/surf-cams/santa-cruz");
   });
@@ -141,7 +145,7 @@ describe("SEO funnel pages", () => {
   it("resolves every configured SEO image file", () => {
     const prompts = getSeoFunnelImagePrompts();
 
-    expect(prompts).toHaveLength(63);
+    expect(prompts).toHaveLength(75);
     for (const { image } of prompts) {
       expect(
         existsSync(join(process.cwd(), "public", image.src.slice(1))),
@@ -173,6 +177,78 @@ describe("SEO funnel pages", () => {
     }
   });
 
+  it("uses approved beach-specific photos on SoCal beginner pages where available", () => {
+    const sanDiego = getSeoFunnelPageByTypeAndSlug("beginner", "san-diego");
+    const orangeCounty = getSeoFunnelPageByTypeAndSlug(
+      "beginner",
+      "orange-county",
+    );
+    const huntington = getSeoFunnelPageByTypeAndSlug(
+      "beginner",
+      "huntington-beach",
+    );
+    const losAngeles = getSeoFunnelPageByTypeAndSlug(
+      "beginner",
+      "los-angeles",
+    );
+    const santaBarbara = getSeoFunnelPageByTypeAndSlug(
+      "beginner",
+      "santa-barbara",
+    );
+    const sanOnofre = getSeoFunnelPageByTypeAndSlug(
+      "beginner",
+      "san-onofre",
+    );
+
+    expect(sanDiego?.images.map((image) => image.src)).toEqual(
+      expect.arrayContaining([
+        "/images/seo-dioramas/beginner/socal/la-jolla-shores-photo.webp",
+        "/images/seo-dioramas/beginner/socal/tourmaline-surf-park-photo.webp",
+      ]),
+    );
+    expect(orangeCounty?.images.map((image) => image.src)).toEqual(
+      expect.arrayContaining([
+        "/images/seo-dioramas/beginner/socal/bolsa-chica-photo.webp",
+        "/images/seo-dioramas/beginner/socal/doheny-beach-photo.webp",
+        "/images/seo-dioramas/beginner/socal/san-onofre-state-beach-photo.webp",
+      ]),
+    );
+    expect(huntington?.images.map((image) => image.src)).toEqual(
+      expect.arrayContaining([
+        "/images/seo-dioramas/beginner/socal/bolsa-chica-photo.webp",
+        "/images/seo-dioramas/beginner/socal/huntington-state-beach-photo.webp",
+      ]),
+    );
+    expect(losAngeles?.images.map((image) => image.src)).toEqual([
+      "/images/seo-dioramas/beginner/socal/santa-monica-beach-santa-monica-ca-photo.webp",
+      "/images/seo-dioramas/beginner/socal/will-rogers-state-beach-santa-monica-ca-photo.webp",
+      "/images/seo-dioramas/beginner/socal/dockweiler-state-beach-playa-del-rey-ca-photo.webp",
+    ]);
+    expect(santaBarbara?.images[0].src).toBe(
+      "/images/seo-dioramas/beginner/socal/refugio-state-beach-goleta-ca-photo.webp",
+    );
+    expect(sanOnofre?.images[0].src).toBe(
+      "/images/seo-dioramas/beginner/socal/san-onofre-state-beach-photo.webp",
+    );
+
+    expect(losAngeles?.images.map((image) => image.caption).join(" ")).toContain(
+      "CC BY",
+    );
+    expect(losAngeles?.images.map((image) => image.src).join(" ")).not.toContain(
+      "surf-cams/orange-county",
+    );
+
+    const losAngelesSpotImages = new Map(
+      losAngeles?.nearbySpots.map((spot) => [spot.label, spot.imageSrc]) ?? [],
+    );
+    expect(losAngelesSpotImages.get("Venice Beach")).toBe(
+      "/images/seo-dioramas/beginner/socal/venice-beach-venice-ca-photo.webp",
+    );
+    expect(losAngelesSpotImages.get("Torrance/RAT Beach")).toBe(
+      "/images/seo-dioramas/beginner/socal/torrance-beach-rat-beach-torrance-ca-photo.webp",
+    );
+  });
+
   it("stores image source instructions without mislabeling surf-cam photos", () => {
     const prompts = getSeoFunnelImagePrompts();
     const surfCamPrompts = prompts.filter(({ path }) =>
@@ -185,7 +261,7 @@ describe("SEO funnel pages", () => {
       ({ image }) => image.assetType === "diorama",
     );
 
-    expect(prompts).toHaveLength(63);
+    expect(prompts).toHaveLength(75);
     for (const { image } of prompts) {
       expect(image.prompt).toContain("Use case: ads-marketing");
       expect(image.prompt).toContain("no text");
@@ -214,10 +290,96 @@ describe("SEO funnel pages", () => {
     expect(getSeoFunnelPageByIntentRoute("beginner", "santa-cruz")?.path).toBe(
       "/beginner/santa-cruz",
     );
+    expect(
+      getSeoFunnelPageByIntentRoute("beginner", "huntington-beach")?.path,
+    ).toBe("/beginner/huntington-beach");
+    expect(
+      getSeoFunnelPageByIntentRoute("beginner", "los-angeles")?.path,
+    ).toBe("/beginner/los-angeles");
+    expect(getSeoFunnelPageByIntentRoute("beginner", "ventura")?.path).toBe(
+      "/beginner/ventura",
+    );
+    expect(
+      getSeoFunnelPageByIntentRoute("beginner", "santa-barbara")?.path,
+    ).toBe("/beginner/santa-barbara");
     expect(getSeoFunnelPageByIntentRoute("longboard", "pr")?.path).toBe(
       "/longboard/pr",
     );
     expect(getSeoFunnelPageByIntentRoute("tide", "san-diego")).toBeNull();
+  });
+
+  it("keeps Huntington beginner coverage focused on researched learner zones", () => {
+    const page = getSeoFunnelPageByTypeAndSlug("beginner", "huntington-beach");
+    const localRead = page?.sections.find(
+      (section) => section.heading === "Local read before you drive",
+    )?.body;
+
+    expect(page).not.toBeNull();
+    expect(page!.nearbySpots.map((spot) => spot.href)).toEqual(
+      expect.arrayContaining([
+        "/ca/huntington-beach/bolsa-chica",
+        "/ca/huntington-beach/huntington-state-beach",
+        "/ca/huntington-beach/goldenwest",
+        "/ca/newport-beach/blackies",
+      ]),
+    );
+    expect(localRead).toContain("Newland");
+    expect(localRead).toContain("Huntington St.");
+    expect(localRead).toContain("Cliffs");
+  });
+
+  it("connects the SoCal beginner pages without blanket-promoting conditional spots", () => {
+    const losAngeles = getSeoFunnelPageByTypeAndSlug(
+      "beginner",
+      "los-angeles",
+    );
+    const ventura = getSeoFunnelPageByTypeAndSlug("beginner", "ventura");
+    const santaBarbara = getSeoFunnelPageByTypeAndSlug(
+      "beginner",
+      "santa-barbara",
+    );
+
+    expect(losAngeles).not.toBeNull();
+    expect(ventura).not.toBeNull();
+    expect(santaBarbara).not.toBeNull();
+
+    expect(losAngeles!.internalLinks.map((link) => link.href)).toEqual(
+      expect.arrayContaining([
+        "/beginner/orange-county",
+        "/beginner/san-diego",
+        "/beginner/ventura",
+        "/beginner/santa-barbara",
+      ]),
+    );
+    expect(
+      losAngeles!.sections.find(
+        (section) => section.heading === "Local read before you drive",
+      )?.body,
+    ).toContain("El Porto, Zuma, and Leo Carrillo are small-day conditional");
+
+    expect(ventura!.nearbySpots.map((spot) => spot.href)).toEqual(
+      expect.arrayContaining([
+        "/ca/ventura/mondos-beach-ventura-ca",
+        "/beginner/santa-barbara",
+      ]),
+    );
+    expect(
+      ventura!.sections.find(
+        (section) => section.heading === "Local read before you drive",
+      )?.body,
+    ).toContain("Solimar-style reef rows should not inherit beginner");
+
+    expect(santaBarbara!.nearbySpots.map((spot) => spot.href)).toEqual(
+      expect.arrayContaining([
+        "/ca/goleta/refugio-state-beach-goleta-ca",
+        "/ca/ventura/mondos-beach-ventura-ca",
+      ]),
+    );
+    expect(
+      santaBarbara!.sections.find(
+        (section) => section.heading === "Local read before you drive",
+      )?.body,
+    ).toContain("Refugio is conditional");
   });
 
   it("resolves surf report and cam configs by type and slug", () => {

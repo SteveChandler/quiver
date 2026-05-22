@@ -22,11 +22,11 @@ export interface ConditionsAlertEmailProps {
  */
 function getMotivationalCopy(score: number): string {
   if (score >= 85) {
-    return "This is as good as it gets. Drop what you're doing.";
+    return "Clean window showing. Check the details before you commit.";
   } else if (score >= 70) {
-    return "Conditions are dialed. Worth rearranging your schedule.";
+    return "Looks worth a closer look if the tide and wind still fit.";
   } else {
-    return "Solid conditions today. A good day to shake off the rust.";
+    return "A manageable window may be lining up. Confirm the local details first.";
   }
 }
 
@@ -42,7 +42,11 @@ export function ConditionsAlertEmail({
   unsubscribeUrl,
 }: ConditionsAlertEmailProps) {
   const greeting = displayName ? `Hey ${displayName}!` : "Hey there!";
-  const { label: conditionLabel, color: conditionColor, emoji } = getConditionLabel(conditionsScore);
+  const {
+    label: conditionLabel,
+    color: conditionColor,
+    emoji,
+  } = getConditionLabel(conditionsScore);
   const motivationalCopy = getMotivationalCopy(conditionsScore);
 
   return (
@@ -275,8 +279,8 @@ export function ConditionsAlertEmail({
             margin: "0 0 8px 0",
           }}
         >
-          You&apos;re receiving this because you have forecast alerts enabled for{" "}
-          {beachName}.
+          You&apos;re receiving this because you have forecast alerts enabled
+          for {beachName}.
         </p>
         <a
           href={unsubscribeUrl}

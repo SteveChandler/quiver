@@ -35,6 +35,7 @@ import {
   windQualityScorer,
   tideFitScorer,
   tideDirectionScorer,
+  setupRiskScorer,
   windowStabilityScorer,
   trendPreferenceScorer,
 } from './index';
@@ -51,6 +52,7 @@ export function createDiscoveryScoringEngine(): ScoringEngine {
     windQualityScorer,
     tideFitScorer,
     tideDirectionScorer,
+    setupRiskScorer,
     windowStabilityScorer,
     trendPreferenceScorer,
   ]);

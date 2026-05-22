@@ -3,8 +3,9 @@ import path from "node:path";
 
 import {
   buildPostHogExport,
+  computePostHogWebRows,
+  parsePostHogWebEvents,
   parsePostHogNativeRows,
-  parsePostHogWebRows,
 } from "../../lib/seo/agent-workflow/posthog-export";
 import { currentAuditDate, resolveSeoAuditFile } from "../../lib/seo/agent-workflow/audit-paths";
 import { loadSeoEnv } from "./load-env";
@@ -34,19 +35,17 @@ async function main(): Promise<void> {
   const [web, native] = await Promise.all([
     hogql(`
       SELECT
-        properties.pathname AS path,
-        uniq(person_id) AS visitors,
-        countIf(event = 'page_view' AND properties.referrer != '') / greatest(countIf(event = 'page_view'), 1) AS multi_page_rate,
-        countIf(event IN ('signup_success', 'signup_form_submitted')) / greatest(uniq(person_id), 1) AS signup_rate,
-        countIf(event = 'related_path_click') / greatest(countIf(event = 'page_view'), 1) AS related_path_ctr
+        event,
+        timestamp,
+        coalesce(nullIf(properties.browser_session_id, ''), nullIf(properties.$session_id, '')) AS session_key,
+        properties.pathname AS path
       FROM events
       WHERE timestamp >= toDateTime('${from}')
         AND timestamp <= toDateTime('${to}')
         AND properties.$host = 'www.quiversurf.app'
-        AND event IN ('page_view', 'signup_success', 'signup_form_submitted', 'related_path_click')
-      GROUP BY path
-      ORDER BY visitors DESC
-      LIMIT 100
+        AND event IN ('page_view', 'signup_success')
+      ORDER BY timestamp ASC
+      LIMIT 10000
     `),
     hogql(`
       SELECT
@@ -75,7 +74,7 @@ async function main(): Promise<void> {
   ]);
 
   writeJson(buildPostHogExport(
-    parsePostHogWebRows(web),
+    computePostHogWebRows(parsePostHogWebEvents(web)),
     parsePostHogNativeRows(native),
     new Date().toISOString(),
     { from, to },

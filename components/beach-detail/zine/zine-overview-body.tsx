@@ -17,6 +17,7 @@ interface ZineOverviewBodyProps {
   waterQuality?: WaterQuality | null;
   beachPhoto?: ZineBeachPhoto | null;
   surfCallReport?: SurfCallResult | null;
+  beachTimezone?: string | null;
   onWriteReview?: () => void;
 }
 
@@ -34,11 +35,16 @@ export function ZineOverviewBody({
   waterQuality,
   beachPhoto,
   surfCallReport,
+  beachTimezone,
   onWriteReview,
 }: ZineOverviewBodyProps) {
   return (
     <div className="zine-overview-body">
-      <TodaySurfCall beach={beach} surfCallReport={surfCallReport} />
+      <TodaySurfCall
+        beach={beach}
+        surfCallReport={surfCallReport}
+        beachTimezone={beachTimezone}
+      />
       <ZineMainGrid beach={beach} beachPhoto={beachPhoto} />
       <ZineSpotSummary beach={beach} />
       <ZineUtilityStrip

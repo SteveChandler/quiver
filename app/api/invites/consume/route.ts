@@ -7,17 +7,15 @@ import {
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
 import {
-  verifyEmailToken,
-  getEmailTokenSecret,
-} from "@/lib/utils/email-token";
+  consumeInviteForUser,
+} from "@/lib/invites/consume";
 import { capturePostHogEvent } from "@/lib/posthog-server";
 
 /**
  * POST /api/invites/consume
  *
- * Native JSON endpoint: verify an invite token and insert the
- * follower→inviter `user_follows` row. Idempotent — duplicate rows are
- * rejected by the unique constraint and silently treated as success.
+ * Native JSON endpoint: verify an invite token, create the follower→inviter
+ * crew edge, and record referral attribution through the shared invite RPC.
  *
  * Body: `{ token: string }`
  * Returns: `{ success: true, inviter_id }`
@@ -36,44 +34,41 @@ export const POST = withAuth(
       return createErrorResponse("Missing token", 400);
     }
 
-    const payload = await verifyEmailToken(rawToken, getEmailTokenSecret());
-    if (!payload || payload.purpose !== "invite") {
+    const result = await consumeInviteForUser(supabase, rawToken, user.id);
+
+    if (result.status === "invalid") {
       return createErrorResponse("Invalid or expired invite", 400);
     }
 
-    const inviterId = payload.user_id;
-    if (inviterId === user.id) {
+    if (result.status === "self") {
       // Self-invite: no row write, but not an error — native surface can
       // quietly navigate home.
       return createSuccessResponse({
         success: true,
-        inviter_id: inviterId,
+        inviter_id: result.inviterId,
         self_invite: true,
       });
     }
 
-    const { error: insertError } = await supabase
-      .from("user_follows")
-      .insert({ follower_id: user.id, following_id: inviterId });
-
-    // 23505 is the unique-constraint violation — row already exists.
-    // Treat as success so double-taps don't surface errors to the user.
-    if (insertError && insertError.code !== "23505") {
-      throw insertError;
+    if (result.status === "insert_error") {
+      throw result.error;
     }
 
     await capturePostHogEvent({
       distinctId: user.id,
       event: "invite_consumed",
       properties: {
-        inviter_id: inviterId,
-        duplicate: insertError?.code === "23505",
+        inviter_id: result.inviterId,
+        duplicate: result.followExisting,
+        follow_created: result.followCreated,
+        referral_created: result.referralCreated,
+        referral_existing: result.referralExisting,
       },
     });
 
     return createSuccessResponse({
       success: true,
-      inviter_id: inviterId,
+      inviter_id: result.inviterId,
     });
   },
   { errorMessage: "Failed to consume invite" },

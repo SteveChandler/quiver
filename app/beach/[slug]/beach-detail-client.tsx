@@ -19,7 +19,6 @@ interface BeachDetailClientProps {
   beach: Beach;
   slug: string;
   beachTimezone?: string | null;
-  surfReportSlot?: ReactNode;
   surfCallReport?: SurfCallResult | null;
   surfCallIsTomorrow?: boolean;
   defaultTab?: "overview" | "forecast" | "reviews" | "intel" | "sessions";
@@ -35,7 +34,6 @@ export function BeachDetailClient({
   beach,
   slug,
   beachTimezone,
-  surfReportSlot,
   surfCallReport,
   surfCallIsTomorrow,
   defaultTab,
@@ -167,7 +165,6 @@ export function BeachDetailClient({
         publicMode={!user}
         initialBeach={beach}
         beachTimezone={beachTimezone}
-        surfReportSlot={surfReportSlot}
         surfCallReport={effectiveSurfCallReport}
         surfCallIsTomorrow={effectiveSurfCallIsTomorrow}
         defaultTab={defaultTab}

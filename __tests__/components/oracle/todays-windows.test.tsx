@@ -121,4 +121,85 @@ describe("TodaysWindows", () => {
     // The condition text should be present
     expect(screen.getByText(/14s/)).toBeInTheDocument();
   });
+
+  it("normalizes broad raw ranges and keeps wave, wind, swell, and tide scannable", () => {
+    const windowsWithRawRange: TimeWindow[] = [
+      {
+        time: "8am",
+        label: "Morning glass",
+        height: "0.5-5.5 ft",
+        quality: 0.8,
+        isBest: true,
+        swellPeriod: "14s",
+        swellDirection: "WNW",
+        windSpeed: "8 mph",
+        windDirection: "NW",
+        tideHeight: "3.2 ft",
+        tideStatus: "Rising",
+      },
+    ];
+    const { container } = render(
+      <TodaysWindows windows={windowsWithRawRange} preferredTime={null} />
+    );
+
+    expect(screen.queryByText(/0\.5-5\.5/)).not.toBeInTheDocument();
+    expect(screen.getByText("3ft")).toBeInTheDocument();
+    expect(screen.getByText("Swell WNW @ 14s")).toBeInTheDocument();
+    expect(screen.getByText("Wind NW 8 mph")).toBeInTheDocument();
+    expect(screen.getByText("Tide 3.2 ft Rising")).toBeInTheDocument();
+    expect(container).toMatchSnapshot();
+  });
+
+  it("captures the normal clean-day compact summary hierarchy", () => {
+    const cleanDayWindows: TimeWindow[] = [
+      {
+        time: "6am",
+        label: "Clean early",
+        height: "3-4 ft",
+        quality: 0.86,
+        isBest: true,
+        swellPeriod: "12s",
+        swellDirection: "W",
+        windSpeed: "4 mph",
+        windDirection: "E",
+        tideHeight: "2.8 ft",
+        tideStatus: "Incoming",
+      },
+    ];
+    const { container } = render(
+      <TodaysWindows windows={cleanDayWindows} preferredTime={null} />
+    );
+
+    expect(screen.getByText("3-4 ft")).toBeInTheDocument();
+    expect(screen.getByText("Wind E 4 mph")).toBeInTheDocument();
+    expect(screen.getByText("Swell W @ 12s")).toBeInTheDocument();
+    expect(screen.getByText("Tide 2.8 ft Incoming")).toBeInTheDocument();
+    expect(container).toMatchSnapshot();
+  });
+
+  it("captures tide-sensitive windows with tide visible in the first summary layer", () => {
+    const tideSensitiveWindows: TimeWindow[] = [
+      {
+        time: "10am",
+        label: "Low tide window",
+        height: "2-3 ft",
+        quality: 0.74,
+        isBest: true,
+        swellPeriod: "15s",
+        swellDirection: "SSW",
+        windSpeed: "6 mph",
+        windDirection: "NE",
+        tideHeight: "0.7 ft",
+        tideStatus: "Filling in",
+      },
+    ];
+    const { container } = render(
+      <TodaysWindows windows={tideSensitiveWindows} preferredTime={null} />
+    );
+
+    expect(screen.getByText("Tide 0.7 ft Filling in")).toBeInTheDocument();
+    expect(screen.getByText("Wind NE 6 mph")).toBeInTheDocument();
+    expect(screen.getByText("Swell SSW @ 15s")).toBeInTheDocument();
+    expect(container).toMatchSnapshot();
+  });
 });

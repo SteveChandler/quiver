@@ -173,10 +173,12 @@ export interface VercelExportInput {
 
 export interface PostHogSeoPageMetric {
   path: string;
-  visitors?: number;
+  landingSessions?: number;
   multiPageRate?: number;
-  signupRate?: number;
-  relatedPathCtr?: number;
+  landingSignupRate?: number;
+  assistedSignupRate?: number;
+  topNextPaths?: Array<{ path: string; count: number }>;
+  topExitPaths?: Array<{ path: string; count: number }>;
 }
 
 export interface NativeFunnelMetric {

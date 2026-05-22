@@ -155,11 +155,18 @@ test.describe("Intent City Routes - /[intent]/[state]/[city]/", () => {
     expect(isNotFound).toBe(true);
   });
 
-  test("should have breadcrumb navigation", async ({ page }) => {
+  test("should expose breadcrumb structured data", async ({ page }) => {
     await page.goto("/beginner/ca/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
-    // Look for breadcrumb navigation
-    const breadcrumb = page.getByRole("navigation", { name: /breadcrumb/i });
-    await expect(breadcrumb).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /Beginner Surf Spots in San Diego/i })
+    ).toBeVisible();
+
+    const jsonLdScripts = await page
+      .locator('script[type="application/ld+json"]')
+      .allTextContents();
+    expect(
+      jsonLdScripts.some((script) => script.includes('"@type":"BreadcrumbList"'))
+    ).toBe(true);
   });
 });
 

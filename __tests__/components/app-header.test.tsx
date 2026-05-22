@@ -192,6 +192,7 @@ jest.mock("lucide-react", () => ({
   Users: (props: any) => <svg data-testid="users-icon" {...props} />,
   CalendarDays: (props: any) => <svg data-testid="calendar-days-icon" {...props} />,
   Settings: (props: any) => <svg data-testid="settings-icon" {...props} />,
+  Waves: (props: any) => <svg data-testid="waves-icon" {...props} />,
 }));
 
 // Mock utils
@@ -933,14 +934,16 @@ describe("AppHeader", () => {
         (usePathname as jest.Mock).mockReturnValue("/map");
       });
 
-      it("renders Discover, Sessions, and Community links", () => {
+      it("renders Discover, Alerts, Sessions, and Community links", () => {
         render(<AppHeader />);
 
         const discoverLink = screen.getByRole("link", { name: /discover/i });
+        const alertsLink = screen.getByRole("link", { name: /alerts/i });
         const sessionsLink = screen.getByRole("link", { name: /sessions/i });
         const communityLink = screen.getByRole("link", { name: /community/i });
 
         expect(discoverLink).toBeInTheDocument();
+        expect(alertsLink).toBeInTheDocument();
         expect(sessionsLink).toBeInTheDocument();
         expect(communityLink).toBeInTheDocument();
       });
@@ -950,6 +953,13 @@ describe("AppHeader", () => {
 
         const discoverLink = screen.getByRole("link", { name: /discover/i });
         expect(discoverLink).toHaveAttribute("href", "/map");
+      });
+
+      it("Alerts link points to /alerts route", () => {
+        render(<AppHeader />);
+
+        const alertsLink = screen.getByRole("link", { name: /alerts/i });
+        expect(alertsLink).toHaveAttribute("href", "/alerts");
       });
 
       it("Sessions link points to /profile?tab=sessions route", () => {

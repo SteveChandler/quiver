@@ -31,6 +31,33 @@ const QuerySchema = z.object({
   horizonHours: z.coerce.number().int().min(1).max(72).optional(),
   // Result limits
   maxResults: z.coerce.number().int().min(1).max(10).optional(),
+  // Explicit curated beaches to score in the same batch as nearby discovery.
+  includeBeachIds: z.string().optional().transform((value, ctx) => {
+    if (!value) return [];
+    const ids = Array.from(new Set(
+      value.split(',')
+        .map((id) => id.trim())
+        .filter(Boolean)
+    ));
+    if (ids.length > 12) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'includeBeachIds may include at most 12 beach IDs',
+      });
+      return z.NEVER;
+    }
+    const uuid = z.string().uuid();
+    for (const id of ids) {
+      if (!uuid.safeParse(id).success) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'includeBeachIds must be a comma-separated list of UUIDs',
+        });
+        return z.NEVER;
+      }
+    }
+    return ids;
+  }),
 });
 
 /**
@@ -49,6 +76,7 @@ const QuerySchema = z.object({
  * - radius (optional): Search radius in miles (default: 25, max: 100)
  * - maxResults (optional): Maximum recommendations (default: 5, max: 10)
  * - timeSlot (optional): Time slot preference ('any', 'lunch-session', 'afternoon', 'dawn-patrol', default: 'any')
+ * - includeBeachIds (optional): Comma-separated curated beach UUIDs to score alongside nearby discovery
  *
  * Authentication: Required (user session)
  * Rate Limit: 10 requests/minute
@@ -57,7 +85,7 @@ const QuerySchema = z.object({
  * @example
  * GET /api/surf/discover?lat=32.7157&lon=-117.1611
  * GET /api/surf/discover?lat=32.7157&lon=-117.1611&radius=50&maxResults=10
- * GET /api/surf/discover?lat=32.7157&lon=-117.1611&timeSlot=morning
+ * GET /api/surf/discover?lat=32.7157&lon=-117.1611&timeSlot=dawn-patrol
  */
 async function surfDiscoveryHandler(
   request: NextRequest,
@@ -71,6 +99,7 @@ async function surfDiscoveryHandler(
     radius: searchParams.get('radius') || undefined,
     horizonHours: searchParams.get('horizonHours') || undefined,
     maxResults: searchParams.get('maxResults') || undefined,
+    includeBeachIds: searchParams.get('includeBeachIds') || undefined,
   };
 
   const validationResult = validateOrError(QuerySchema, queryData);
@@ -78,7 +107,7 @@ async function surfDiscoveryHandler(
     return validationResult.error;
   }
 
-  const { lat, lon, radius, horizonHours, maxResults } = validationResult.data;
+  const { lat, lon, radius, horizonHours, maxResults, includeBeachIds } = validationResult.data;
 
   // Parse timeSlot query parameter
   const timeSlotParam = searchParams.get('timeSlot');
@@ -126,6 +155,7 @@ async function surfDiscoveryHandler(
     maxResults,
     timeSlot,
     isPro,
+    includeBeachIds,
   });
 
   // 3a. Stamp empirical shoaling calibration status onto each recommendation's
@@ -134,9 +164,13 @@ async function surfDiscoveryHandler(
   // ~4KB shoaling_factors JSONB stays server-side. One batch query keyed on
   // the recommended beach IDs. Errors default every entry to `false` (safer
   // conservative render).
-  if (discovery.recommendations.length > 0) {
+  const recsForCalibration = [
+    ...discovery.recommendations,
+    ...(discovery.includedRecommendations ?? []),
+  ];
+  if (recsForCalibration.length > 0) {
     const beachIds = Array.from(
-      new Set(discovery.recommendations.map((r) => r.beach.id))
+      new Set(recsForCalibration.map((r) => r.beach.id))
     );
     const calibratedMap = new Map<string, boolean>();
     try {
@@ -158,6 +192,13 @@ async function surfDiscoveryHandler(
       console.warn('[surf/discover] Error fetching calibration status:', err);
     }
     discovery.recommendations = discovery.recommendations.map((rec) => ({
+      ...rec,
+      forecast: {
+        ...rec.forecast,
+        isCalibrated: calibratedMap.get(rec.beach.id) ?? false,
+      },
+    }));
+    discovery.includedRecommendations = discovery.includedRecommendations?.map((rec) => ({
       ...rec,
       forecast: {
         ...rec.forecast,

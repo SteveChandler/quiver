@@ -494,10 +494,10 @@ export function BestSurfWindow({
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1">
                 <CardTitle className="text-xl font-bold text-blue-900">
-                  Best Time to Surf Today
+                  Best Surf Window Today
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Based on forecast data
+                  Based on tide, swell, wind, and spot fit
                 </p>
               </div>
             </div>
@@ -508,7 +508,7 @@ export function BestSurfWindow({
                 <div className="flex items-center gap-2">
                   <Clock className="h-5 w-5 text-green-600" />
                   <h4 className="font-semibold text-green-900">
-                    Best Window Today
+                    Most Favorable Window
                   </h4>
                 </div>
               </div>
@@ -591,7 +591,7 @@ export function BestSurfWindow({
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
             <CardTitle className="text-xl font-bold text-blue-900">
-              Best Time to Surf Today
+              Best Surf Window Today
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-1">
               Updated at {generatedTime}
@@ -735,13 +735,13 @@ export function BestSurfWindow({
           <MagicHourLoadingState />
         )}
 
-        {/* Show next best window if primary has passed */}
+        {/* Show next favorable window if primary has passed */}
         {windowStatus.status === "passed" && nextWindow && (
           <div className="bg-gradient-to-br from-green-50/80 to-blue-50/50 rounded-xl p-4 border border-green-200/60">
             <div className="flex items-center gap-2 mb-2">
               <ChevronRight className="h-5 w-5 text-green-600" />
               <h4 className="font-semibold text-green-900">
-                Next Best Window Today
+                Next Favorable Window Today
               </h4>
             </div>
             {nextWindow.startTime && nextWindow.endTime ? (

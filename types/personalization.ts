@@ -351,6 +351,13 @@ export interface SurfDiscoveryRecommendation {
 export interface SurfDiscoveryResponse {
   /** Ranked list of surf spot recommendations (best first) */
   recommendations: SurfDiscoveryRecommendation[];
+  /**
+   * Scored recommendations explicitly requested by ID that did not already
+   * make the normal top-N `recommendations` list. Existing clients can ignore
+   * this; native Home merges it to keep saved/home beaches visible without
+   * broadening the main discovery result cap.
+   */
+  includedRecommendations?: SurfDiscoveryRecommendation[];
   /** Requesting user's entitlement gate for the discovery contract */
   entitlement?: SurfDiscoveryEntitlement;
   /** Non-identifying teaser for free users when the best spot is locked */
@@ -403,6 +410,11 @@ export interface SurfDiscoveryOptions {
   timeSlot?: TimeSlot;
   /** Maximum recommendations to return (default: 5, max: 10) */
   maxResults?: number;
+  /**
+   * Curated beach IDs that should be scored in the same batch as nearby
+   * discovery candidates, even when outside the GPS radius.
+   */
+  includeBeachIds?: string[];
   /** Maximum concurrent forecast fetches (default: 5) */
   maxConcurrent?: number;
   /** Timeout per beach forecast in ms (default: 5000) */

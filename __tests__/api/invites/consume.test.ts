@@ -15,6 +15,7 @@ import {
 import { NextRequest } from "next/server";
 
 const mockSupabaseClient = createMockSupabaseClient();
+const mockCapturePostHogEvent = jest.fn();
 
 jest.mock("@/lib/middleware/api-wrappers", () => {
   const { NextResponse } = require("next/server");
@@ -67,6 +68,10 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
   };
 });
 
+jest.mock("@/lib/posthog-server", () => ({
+  capturePostHogEvent: (...args: any[]) => mockCapturePostHogEvent(...args),
+}));
+
 const TEST_SECRET = "test-secret-key-that-is-at-least-32-characters-long";
 
 function buildRequest(body: unknown): NextRequest {
@@ -77,15 +82,20 @@ function buildRequest(body: unknown): NextRequest {
   });
 }
 
-// Helper to prime the mock `supabase.from('user_follows').insert(...)` chain
-// to return a given response.
-function mockInsertResult(result: { error: { code: string } | null }) {
-  const insertFn = jest.fn().mockResolvedValue(result);
-  mockSupabaseClient.from.mockReturnValue({
-    // Only insert is used by the consume route.
-    insert: insertFn,
-  } as any);
-  return insertFn;
+function mockAcceptInviteResult(result?: {
+  data?: Record<string, boolean>;
+  error?: { code?: string; message?: string } | null;
+}) {
+  const data = result?.data ?? {
+    follow_created: true,
+    follow_existing: false,
+    referral_created: true,
+    referral_existing: false,
+  };
+  mockSupabaseClient.rpc.mockResolvedValue({
+    data,
+    error: result?.error ?? null,
+  });
 }
 
 describe("POST /api/invites/consume", () => {
@@ -96,6 +106,7 @@ describe("POST /api/invites/consume", () => {
     cleanup = testEnv.cleanup;
     process.env.EMAIL_TOKEN_SECRET = TEST_SECRET;
     jest.clearAllMocks();
+    mockAcceptInviteResult();
   });
 
   afterEach(() => {
@@ -155,11 +166,9 @@ describe("POST /api/invites/consume", () => {
     await expectErrorResponse(response, 400, "Invalid or expired invite");
   });
 
-  it("inserts user_follows row and returns success", async () => {
+  it("accepts the invite through the shared RPC and returns the native response shape", async () => {
     const follower = createMockUser({ id: "follower-uuid" });
     mockAuthenticatedUser(mockSupabaseClient, follower);
-
-    const insertFn = mockInsertResult({ error: null });
 
     const token = await signEmailToken(
       { user_id: "inviter-uuid", purpose: "invite" },
@@ -174,18 +183,42 @@ describe("POST /api/invites/consume", () => {
     }>(response, 200);
 
     expect(data.data.inviter_id).toBe("inviter-uuid");
-    expect(mockSupabaseClient.from).toHaveBeenCalledWith("user_follows");
-    expect(insertFn).toHaveBeenCalledWith({
-      follower_id: "follower-uuid",
-      following_id: "inviter-uuid",
+    expect(data.data).toEqual({
+      success: true,
+      inviter_id: "inviter-uuid",
+    });
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+      "accept_invite_for_user",
+      {
+        inviter: "inviter-uuid",
+        invitee: "follower-uuid",
+      },
+    );
+    expect(mockCapturePostHogEvent).toHaveBeenCalledWith({
+      distinctId: "follower-uuid",
+      event: "invite_consumed",
+      properties: {
+        inviter_id: "inviter-uuid",
+        duplicate: false,
+        follow_created: true,
+        referral_created: true,
+        referral_existing: false,
+      },
     });
   });
 
-  it("treats 23505 unique-violation as success (idempotent double-tap)", async () => {
+  it("treats duplicate follow acceptance as success", async () => {
     const follower = createMockUser({ id: "follower-uuid" });
     mockAuthenticatedUser(mockSupabaseClient, follower);
 
-    mockInsertResult({ error: { code: "23505" } });
+    mockAcceptInviteResult({
+      data: {
+        follow_created: false,
+        follow_existing: true,
+        referral_created: true,
+        referral_existing: false,
+      },
+    });
 
     const token = await signEmailToken(
       { user_id: "inviter-uuid", purpose: "invite" },
@@ -200,13 +233,56 @@ describe("POST /api/invites/consume", () => {
     }>(response, 200);
 
     expect(data.data.inviter_id).toBe("inviter-uuid");
+    expect(mockCapturePostHogEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: expect.objectContaining({
+          duplicate: true,
+          follow_created: false,
+          referral_created: true,
+        }),
+      }),
+    );
   });
 
-  it("skips insert and flags self_invite when follower === inviter", async () => {
+  it("does not surface existing referral attribution as a native error", async () => {
+    const follower = createMockUser({ id: "follower-uuid" });
+    mockAuthenticatedUser(mockSupabaseClient, follower);
+
+    mockAcceptInviteResult({
+      data: {
+        follow_created: true,
+        follow_existing: false,
+        referral_created: false,
+        referral_existing: true,
+      },
+    });
+
+    const token = await signEmailToken(
+      { user_id: "inviter-uuid", purpose: "invite" },
+      TEST_SECRET,
+    );
+
+    const { POST } = require("@/app/api/invites/consume/route");
+    const response = await POST(buildRequest({ token }), { params: {} });
+    const data = await expectSuccessResponse<{
+      success: boolean;
+      inviter_id: string;
+    }>(response, 200);
+
+    expect(data.data.inviter_id).toBe("inviter-uuid");
+    expect(mockCapturePostHogEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: expect.objectContaining({
+          referral_created: false,
+          referral_existing: true,
+        }),
+      }),
+    );
+  });
+
+  it("skips RPC and flags self_invite when follower === inviter", async () => {
     const sameUser = createMockUser({ id: "same-id" });
     mockAuthenticatedUser(mockSupabaseClient, sameUser);
-
-    const insertFn = mockInsertResult({ error: null });
 
     const token = await signEmailToken(
       { user_id: "same-id", purpose: "invite" },
@@ -222,14 +298,16 @@ describe("POST /api/invites/consume", () => {
     }>(response, 200);
 
     expect(data.data.self_invite).toBe(true);
-    expect(insertFn).not.toHaveBeenCalled();
+    expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
   });
 
-  it("bubbles up non-23505 insert errors as 500", async () => {
+  it("bubbles up invite RPC errors as 500", async () => {
     const follower = createMockUser({ id: "follower-uuid" });
     mockAuthenticatedUser(mockSupabaseClient, follower);
 
-    mockInsertResult({ error: { code: "23503" } as any });
+    mockAcceptInviteResult({
+      error: { code: "23503", message: "Foreign key violation" },
+    });
 
     const token = await signEmailToken(
       { user_id: "inviter-uuid", purpose: "invite" },

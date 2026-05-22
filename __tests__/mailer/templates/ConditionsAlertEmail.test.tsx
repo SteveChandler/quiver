@@ -25,7 +25,7 @@ jest.mock("@/lib/email/email-formatters", () => ({
 
 // Helper factory
 function makeProps(
-  overrides: Partial<ConditionsAlertEmailProps> = {}
+  overrides: Partial<ConditionsAlertEmailProps> = {},
 ): ConditionsAlertEmailProps {
   return {
     displayName: "John",
@@ -136,8 +136,8 @@ describe("ConditionsAlertEmail", () => {
 
       expect(
         screen.getByText(
-          /This is as good as it gets\. Drop what you're doing\./i
-        )
+          /Clean window showing\. Check the details before you commit\./i,
+        ),
       ).toBeInTheDocument();
     });
 
@@ -147,8 +147,8 @@ describe("ConditionsAlertEmail", () => {
 
       expect(
         screen.getByText(
-          /Conditions are dialed\. Worth rearranging your schedule\./i
-        )
+          /Looks worth a closer look if the tide and wind still fit\./i,
+        ),
       ).toBeInTheDocument();
     });
 
@@ -158,8 +158,8 @@ describe("ConditionsAlertEmail", () => {
 
       expect(
         screen.getByText(
-          /Solid conditions today\. A good day to shake off the rust\./i
-        )
+          /A manageable window may be lining up\. Confirm the local details first\./i,
+        ),
       ).toBeInTheDocument();
     });
 
@@ -169,8 +169,8 @@ describe("ConditionsAlertEmail", () => {
 
       expect(
         screen.getByText(
-          /Solid conditions today\. A good day to shake off the rust\./i
-        )
+          /A manageable window may be lining up\. Confirm the local details first\./i,
+        ),
       ).toBeInTheDocument();
     });
   });
@@ -248,7 +248,7 @@ describe("ConditionsAlertEmail", () => {
       expect(link).toBeInTheDocument();
       expect(link.closest("a")).toHaveAttribute(
         "href",
-        "https://quiversurf.app/beach/blacks"
+        "https://quiversurf.app/beach/blacks",
       );
     });
 
@@ -262,7 +262,7 @@ describe("ConditionsAlertEmail", () => {
       expect(link).toBeInTheDocument();
       expect(link.closest("a")).toHaveAttribute(
         "href",
-        "https://quiversurf.app/sessions/new"
+        "https://quiversurf.app/sessions/new",
       );
     });
   });
@@ -278,7 +278,7 @@ describe("ConditionsAlertEmail", () => {
       expect(link).toBeInTheDocument();
       expect(link.closest("a")).toHaveAttribute(
         "href",
-        "https://quiversurf.app/profile/notifications"
+        "https://quiversurf.app/profile/notifications",
       );
     });
   });
@@ -298,7 +298,7 @@ describe("ConditionsAlertEmail", () => {
       render(<ConditionsAlertEmail {...props} />);
 
       expect(
-        screen.getByText(/forecast alerts enabled for Trestles/i)
+        screen.getByText(/forecast alerts enabled for Trestles/i),
       ).toBeInTheDocument();
     });
 
@@ -367,8 +367,8 @@ describe("ConditionsAlertEmail", () => {
       // Motivational copy
       expect(
         screen.getByText(
-          /Conditions are dialed\. Worth rearranging your schedule\./i
-        )
+          /Looks worth a closer look if the tide and wind still fit\./i,
+        ),
       ).toBeInTheDocument();
 
       // Conditions table
@@ -382,10 +382,10 @@ describe("ConditionsAlertEmail", () => {
 
       // Footer
       expect(
-        screen.getByText(/forecast alerts enabled for Black's Beach/i)
+        screen.getByText(/forecast alerts enabled for Black's Beach/i),
       ).toBeInTheDocument();
       expect(
-        screen.getByText(/Manage notification preferences/i)
+        screen.getByText(/Manage notification preferences/i),
       ).toBeInTheDocument();
     });
 

@@ -19,6 +19,7 @@
  */
 
 import { track } from "@/lib/analytics";
+import { getBrowserSessionId } from "@/lib/utils/browser-session-id";
 import { getVisitorId } from "@/lib/utils/visitor-id";
 import { captureClientPostHogEvent } from "@/lib/posthog-client";
 
@@ -48,6 +49,17 @@ function fireToUserEvents(eventType: string, params: Record<string, unknown>) {
 
 function fireToPostHog(eventType: string, params: Record<string, unknown>) {
   captureClientPostHogEvent(eventType, params);
+}
+
+function withBrowserSessionId(params: Record<string, unknown>): Record<string, unknown> {
+  const browserSessionId = getBrowserSessionId();
+
+  if (!browserSessionId) return params;
+
+  return {
+    ...params,
+    browser_session_id: browserSessionId,
+  };
 }
 
 /**
@@ -210,10 +222,10 @@ export function trackLoginSuccess(params: {
   method: string;
   duration_ms: number;
 }) {
-  const eventParams = {
+  const eventParams = withBrowserSessionId({
     method: params.method,
     duration_ms: params.duration_ms,
-  };
+  });
   track("login_success", eventParams);
   fireToUserEvents("login_success", eventParams);
   fireToPostHog("user_signed_in", eventParams);
@@ -244,12 +256,12 @@ export function trackSignupStarted(
   method: string,
   options?: { source?: string; landing_page?: string }
 ) {
-  const eventParams = {
+  const eventParams = withBrowserSessionId({
     method,
     timestamp: Date.now(),
     ...(options?.source && { source: options.source }),
     ...(options?.landing_page && { landing_page: options.landing_page }),
-  };
+  });
   track("signup_started", eventParams);
   fireToUserEvents("signup_started", eventParams);
 }
@@ -267,12 +279,12 @@ export function trackSignupSuccess(params: {
   source?: string;
   landing_page?: string;
 }) {
-  const eventParams = {
+  const eventParams = withBrowserSessionId({
     method: params.method,
     requires_verification: params.requires_verification,
     ...(params.source && { source: params.source }),
     ...(params.landing_page && { landing_page: params.landing_page }),
-  };
+  });
   track("signup_success", eventParams);
   fireToUserEvents("signup_success", eventParams);
 }

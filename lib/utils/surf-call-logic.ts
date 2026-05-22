@@ -19,6 +19,7 @@ import {
   forecastToSnapshot,
   createDiscoveryScoringEngine,
   getConditionCharacter,
+  LOW_TIDE_HEAVY_SWELL_WARNING,
   type ConditionCharacter,
 } from '@/lib/domains/scoring';
 import {
@@ -91,6 +92,11 @@ export interface SurfCallResult {
    * web UI to highlight which tier row in `tiers` belongs to the user.
    */
   userTier?: SkillLevel | null;
+  /**
+   * User-facing cautions from setup-specific guardrails. Additive for web and
+   * native consumers; absent/empty means no extra warning needs to be shown.
+   */
+  cautions?: string[];
 }
 
 /**
@@ -496,6 +502,11 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+function extractSetupCautions(warnings: readonly string[] | undefined): string[] {
+  if (!warnings || warnings.length === 0) return [];
+  return warnings.filter((warning) => warning === LOW_TIDE_HEAVY_SWELL_WARNING);
+}
+
 /**
  * Narrow a "best window" to peakTime ± 1h, clamped to the original window bounds.
  * Used when the verdict is MAYBE — a wide daylight span is useless noise, but a
@@ -704,6 +715,7 @@ export function computeSurfCall(
     rideableWavesPerHour: null,
     dominantBeatIntervalS: null,
     character: null,
+    cautions: [],
   };
 
   // Hard NO: no forecasts
@@ -801,6 +813,7 @@ export function computeSurfCall(
   );
   const compositeResult = computeCompositeAndCharacter(beach, representativeForecast);
   const character = compositeResult?.character ?? null;
+  const cautions = extractSetupCautions(compositeResult?.composite.warnings);
 
   // Short window gate - reject if too short. Verdict is NO → suppress the
   // "Best window" so the UI doesn't contradict itself.
@@ -828,6 +841,7 @@ export function computeSurfCall(
       rideableWavesPerHour: freqResult?.rideableWavesPerHour ?? null,
       dominantBeatIntervalS: freqResult?.dominantBeatIntervalS ?? null,
       character,
+      cautions,
     };
   }
 
@@ -850,11 +864,25 @@ export function computeSurfCall(
     }
   }
 
+  if (cautions.length > 0) {
+    verdict = 'NO';
+  }
+
   // Build explanation — override for small-wave MAYBE to explain the nuance
   const smallWaveOverride = (wavesBelowMin || windowWavesBelowMin) && verdict === 'MAYBE'
     ? `Small for this break but conditions look fun — ${waveHeight ?? 'modest swell'} with ${wind.type === 'glassy' || wind.type === 'offshore' ? 'clean winds' : 'manageable wind'}.`
     : undefined;
-  const whySentence = buildWhySentence(verdict, wind, waveHeight, tide, shortWindow, smallWaveOverride);
+  const setupRiskOverride = verdict === 'NO' && cautions.length > 0
+    ? `${cautions[0]}.`
+    : undefined;
+  const whySentence = buildWhySentence(
+    verdict,
+    wind,
+    waveHeight,
+    tide,
+    shortWindow,
+    setupRiskOverride ?? smallWaveOverride
+  );
   const peakTime = window.peakTime instanceof Date && !isNaN(window.peakTime.getTime())
     ? window.peakTime.toISOString()
     : null;
@@ -910,6 +938,7 @@ export function computeSurfCall(
     rideableWavesPerHour: freqResult?.rideableWavesPerHour ?? null,
     dominantBeatIntervalS: freqResult?.dominantBeatIntervalS ?? null,
     character,
+    cautions,
   };
 }
 

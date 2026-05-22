@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
   } else if (result.status === "invalid") {
     redirectTarget = INVITE_EXPIRED_REDIRECT_PATH;
   } else {
-    console.error("[invite/consume] user_follows insert failed:", result.error);
+    console.error("[invite/consume] invite acceptance failed:", result.error);
     redirectTarget = INVITE_ERROR_REDIRECT_PATH;
   }
 

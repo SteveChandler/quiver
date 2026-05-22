@@ -27,12 +27,15 @@ jest.mock("@/hooks/use-pending-action", () => ({
 
 // Mock useDataFetcher — control rule data per test
 let mockRules: any[] = [];
+const mockRefetch = jest.fn();
+const mockInvalidateCache = jest.fn();
 jest.mock("@/hooks/use-data-fetcher", () => ({
   useDataFetcher: (_fetchFn: any, _opts: any) => ({
     data: mockRules,
     loading: false,
     error: null,
-    refetch: jest.fn(),
+    refetch: mockRefetch,
+    invalidateCache: mockInvalidateCache,
   }),
 }));
 
@@ -68,11 +71,13 @@ const authenticatedAuth = {
 describe("BeachAlertCta", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRefetch.mockClear();
+    mockInvalidateCache.mockClear();
     mockPendingAction = null;
     mockRules = [];
   });
 
-  describe("renders Bell icon and Get Alerts text", () => {
+  describe("renders Waves icon and Get Alerts text", () => {
     beforeEach(() => {
       mockUseAuth.mockReturnValue(unauthenticatedAuth);
     });
@@ -84,9 +89,9 @@ describe("BeachAlertCta", () => {
       ).toBeInTheDocument();
     });
 
-    it("renders a Bell icon inside the button", () => {
+    it("renders a Waves icon inside the button", () => {
       const { container } = render(<BeachAlertCta {...defaultProps} />);
-      const icon = container.querySelector(".lucide-bell");
+      const icon = container.querySelector(".lucide-waves");
       expect(icon).toBeInTheDocument();
     });
   });
@@ -156,15 +161,14 @@ describe("BeachAlertCta", () => {
       mockUseAuth.mockReturnValue(authenticatedAuth);
     });
 
-    it("shows BellRing icon and badge when rules exist for this beach", () => {
+    it("shows Waves icon and badge when rules exist for this beach", () => {
       mockRules = [
         { id: "r1", beach_id: "beach-123" },
         { id: "r2", beach_id: "beach-123" },
       ];
       const { container } = render(<BeachAlertCta {...defaultProps} />);
-      // BellRing icon should be present
-      const bellRing = container.querySelector(".lucide-bell-ring");
-      expect(bellRing).toBeInTheDocument();
+      const waves = container.querySelector(".lucide-waves");
+      expect(waves).toBeInTheDocument();
       // Count badge shows 2
       expect(screen.getByText("2")).toBeInTheDocument();
       // Button label shows active state via aria-label
@@ -173,13 +177,11 @@ describe("BeachAlertCta", () => {
       ).toBeInTheDocument();
     });
 
-    it("shows plain Bell icon when no rules exist for this beach", () => {
+    it("shows Waves icon when no rules exist for this beach", () => {
       mockRules = [{ id: "r1", beach_id: "other-beach-456" }];
       const { container } = render(<BeachAlertCta {...defaultProps} />);
-      const bell = container.querySelector(".lucide-bell");
-      expect(bell).toBeInTheDocument();
-      const bellRing = container.querySelector(".lucide-bell-ring");
-      expect(bellRing).not.toBeInTheDocument();
+      const waves = container.querySelector(".lucide-waves");
+      expect(waves).toBeInTheDocument();
     });
 
     it("only counts rules matching the current beach_id", () => {
@@ -190,6 +192,28 @@ describe("BeachAlertCta", () => {
       ];
       render(<BeachAlertCta {...defaultProps} />);
       expect(screen.getByText("2")).toBeInTheDocument();
+    });
+
+    it("does not count similarity alerts as active condition alerts", () => {
+      mockRules = [
+        { id: "r1", beach_id: "beach-123", preset_type: "similarity_match" },
+      ];
+
+      const { container } = render(<BeachAlertCta {...defaultProps} />);
+
+      expect(container.querySelector(".lucide-waves")).toBeInTheDocument();
+      expect(screen.queryByText("1")).not.toBeInTheDocument();
+    });
+
+    it("refreshes cached alert rules when the parent reports a new rule", () => {
+      const { rerender } = render(
+        <BeachAlertCta {...defaultProps} refreshKey={0} />,
+      );
+
+      rerender(<BeachAlertCta {...defaultProps} refreshKey={1} />);
+
+      expect(mockInvalidateCache).toHaveBeenCalledTimes(1);
+      expect(mockRefetch).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -57,10 +57,18 @@ function mockAuthUser(userId: string | null) {
   });
 }
 
-function mockFollowInsert(insertError: { code: string } | null = null) {
-  const insert = jest.fn().mockResolvedValue({ error: insertError });
-  mockSupabaseClient.from.mockReturnValue({ insert } as any);
-  return insert;
+function mockAcceptInviteRpc(error: { code: string } | null = null) {
+  mockSupabaseClient.rpc.mockResolvedValue({
+    data: {
+      follow_created: error ? false : true,
+      follow_existing: error?.code === "23505",
+      referral_created: error ? false : true,
+      referral_existing: false,
+    },
+    error: null,
+  });
+
+  return mockSupabaseClient.rpc;
 }
 
 describe("/invite/[token]", () => {
@@ -98,7 +106,7 @@ describe("/invite/[token]", () => {
 
   it("consumes signed-in invite links and lands on the inviter profile", async () => {
     mockAuthUser("invitee-id");
-    const insert = mockFollowInsert();
+    const rpc = mockAcceptInviteRpc();
     const token = await inviteToken("inviter-id");
 
     await expectRedirect(
@@ -106,16 +114,16 @@ describe("/invite/[token]", () => {
       "/profile/inviter-id?invited=1",
     );
 
-    expect(insert).toHaveBeenCalledWith({
-      follower_id: "invitee-id",
-      following_id: "inviter-id",
+    expect(rpc).toHaveBeenCalledWith("accept_invite_for_user", {
+      invitee: "invitee-id",
+      inviter: "inviter-id",
     });
     expect(mockCookies).not.toHaveBeenCalled();
   });
 
   it("treats an existing follow as accepted and still lands on the inviter profile", async () => {
     mockAuthUser("invitee-id");
-    const insert = mockFollowInsert({ code: "23505" });
+    const rpc = mockAcceptInviteRpc({ code: "23505" });
     const token = await inviteToken("inviter-id");
 
     await expectRedirect(
@@ -123,21 +131,20 @@ describe("/invite/[token]", () => {
       "/profile/inviter-id?invited=1",
     );
 
-    expect(insert).toHaveBeenCalledWith({
-      follower_id: "invitee-id",
-      following_id: "inviter-id",
+    expect(rpc).toHaveBeenCalledWith("accept_invite_for_user", {
+      invitee: "invitee-id",
+      inviter: "inviter-id",
     });
     expect(mockCookies).not.toHaveBeenCalled();
   });
 
   it("redirects self-invites to the friends tab without inserting a follow", async () => {
     mockAuthUser("same-id");
-    const insert = mockFollowInsert();
     const token = await inviteToken("same-id");
 
     await expectRedirect(renderInvitePage(token), "/community?tab=friends");
 
-    expect(insert).not.toHaveBeenCalled();
+    expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
     expect(mockCookies).not.toHaveBeenCalled();
   });
 });

@@ -39,9 +39,10 @@ const CONTEXT_MAP: Record<AlertPageContext, ContextualPresetConfig> = {
   },
   beginner: {
     presets: ["mellow_session"],
-    headline: (name) => `Get alerted when beginner-friendly conditions hit ${name}`,
+    headline: (name) =>
+      `Get alerted when beginner-friendly conditions hit ${name}`,
     description: (name) =>
-      `Small, clean, and fun — we'll let you know when ${name} is mellow enough for learning.`,
+      `Small, clean, low-to-mid tide mornings — we'll let you know when ${name} is mellow enough for learning.`,
     buttonText: "Get Mellow Session Alerts — Free",
   },
   longboard: {
