@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { Bell, BellRing } from "lucide-react";
+import { Waves } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
@@ -9,6 +9,7 @@ import { usePendingAction } from "@/hooks/use-pending-action";
 import { usePathname } from "next/navigation";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
+import { cn } from "@/lib/utils";
 
 interface AlertRule {
   id: string;
@@ -112,6 +113,8 @@ export function BeachAlertCta({
   }
 
   if (compact) {
+    const compactLabel = showAlertCount && hasAlerts ? "Active" : "Alert";
+
     return (
       <>
         <Button
@@ -119,20 +122,26 @@ export function BeachAlertCta({
           size="sm"
           onClick={handleClick}
           aria-label={hasAlerts ? `Alerts active (${ruleCount})` : "Set up alerts"}
-          className={className}
+          className={cn(
+            "group relative h-9 w-[96px] shrink-0 overflow-visible rounded-none border-0 bg-transparent px-0 text-[#11100D] shadow-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-[#F78E42]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] min-[1100px]:h-10 min-[1100px]:w-[132px]",
+            className
+          )}
         >
-          {hasAlerts ? (
-            <BellRing className="h-4 w-4 text-[#F78E42]" />
-          ) : (
-            <Bell className="h-4 w-4 text-[#F78E42]" />
-          )}
-          {showAlertCount && hasAlerts && (
-            <span
-              className="ml-1 inline-flex items-center justify-center rounded-full text-[11px] font-semibold leading-none w-4 h-4 text-white bg-[#F78E42]"
-            >
-              {ruleCount}
+          <span
+            aria-hidden="true"
+            className="absolute inset-x-0 top-1/2 h-[36px] -translate-y-1/2 bg-[url('/images/alerts/condition-watch-button.webp')] bg-contain bg-center bg-no-repeat drop-shadow-[2px_2px_0_rgba(17,16,13,0.25)] transition-transform group-hover:-rotate-1 group-hover:scale-[1.03] min-[1100px]:h-[42px]"
+          />
+          <span className="relative z-10 flex w-full items-center justify-center gap-1 pr-4 pl-[34px] font-mono text-[9px] font-black uppercase leading-none tracking-[0.08em] text-[#11100D] min-[1100px]:gap-1.5 min-[1100px]:pr-7 min-[1100px]:pl-[44px] min-[1100px]:text-[10px] min-[1100px]:tracking-[0.1em]">
+            <span className="min-[1100px]:hidden">{compactLabel}</span>
+            <span className="hidden min-[1100px]:inline">
+              {showAlertCount && hasAlerts ? "Active" : "Set alert"}
             </span>
-          )}
+            {showAlertCount && hasAlerts && (
+              <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-sm border border-[#11100D] bg-[#F78E42] px-1 text-[10px] leading-none text-[#11100D]">
+                {ruleCount}
+              </span>
+            )}
+          </span>
         </Button>
 
         {authModalOpen && (
@@ -165,11 +174,11 @@ export function BeachAlertCta({
               : "border-[#F78E42] text-[#F78E42] hover:bg-[#F78E42]/10"
           } ${className ?? ""}`}
         >
-          {hasAlerts ? (
-            <BellRing className="h-5 w-5 mr-2" />
-          ) : (
-            <Bell className="h-5 w-5 mr-2 text-[#F78E42]" />
-          )}
+          <Waves
+            className={`h-5 w-5 mr-2 ${
+              showAlertCount && hasAlerts ? "" : "text-[#F78E42]"
+            }`}
+          />
           {showAlertCount && hasAlerts ? (
             <span className="flex items-center gap-1.5">
               Alerts active

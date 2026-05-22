@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Bell } from "lucide-react";
+import { Waves } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useAuth } from "@/context/auth-context";
@@ -115,7 +115,7 @@ export function AlertCaptureCta({
           {/* Header */}
           <div className="flex items-start gap-3">
             <div className="rounded-lg bg-[#F78E42]/15 p-2 shrink-0">
-              <Bell className="h-5 w-5 text-[#F78E42]" aria-hidden="true" />
+              <Waves className="h-5 w-5 text-[#F78E42]" aria-hidden="true" />
             </div>
             <div className="min-w-0">
               <h3 className="text-lg md:text-xl font-semibold text-white mb-1">

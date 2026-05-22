@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
-  Bell,
-  BellOff,
   Check,
   Edit3,
   Loader2,
   Mail,
+  Pause,
+  Play,
   Plus,
+  Radio,
   RefreshCw,
   Search,
   Trash2,
@@ -627,7 +628,7 @@ function AlertRuleRow({
           ))}
           {rule.notify_push ? (
             <span className="inline-flex items-center gap-1 rounded-full border border-[#F78E42]/45 bg-[#F78E42]/10 px-2.5 py-1 text-xs text-[#F78E42]">
-              <Bell className="h-3 w-3" />
+              <Radio className="h-3 w-3" />
               Push on
             </span>
           ) : null}
@@ -648,9 +649,9 @@ function AlertRuleRow({
           className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[#B8C7E0] transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50"
         >
           {rule.enabled ? (
-            <BellOff className="h-4 w-4" />
+            <Pause className="h-4 w-4" />
           ) : (
-            <Bell className="h-4 w-4" />
+            <Play className="h-4 w-4" />
           )}
         </button>
         <button
@@ -841,7 +842,7 @@ function AlertRuleEditorDialog({
                   <ChannelButton
                     active={notifyPush}
                     onClick={() => setNotifyPush((prev) => !prev)}
-                    icon={<Bell className="h-3.5 w-3.5" />}
+                    icon={<Radio className="h-3.5 w-3.5" />}
                     label="Push"
                   />
                   <ChannelButton

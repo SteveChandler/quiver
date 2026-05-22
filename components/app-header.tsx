@@ -15,7 +15,7 @@ import {
   Users,
   CalendarDays,
   Settings,
-  Bell,
+  Waves,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -157,7 +157,7 @@ export function AppHeader() {
   const mobileNavItems = [
     { name: "Home", href: "/", icon: Home },
     { name: "Map", href: "/map", icon: Map },
-    { name: "Alerts", href: "/alerts", icon: Bell },
+    { name: "Alerts", href: "/alerts", icon: Waves },
     { name: "Discover", href: "/discover", icon: Users },
     { name: "Sessions", href: "/profile?tab=sessions", icon: CalendarDays },
     { name: "Profile", href: "/profile", icon: User },
@@ -505,7 +505,7 @@ export function AppHeader() {
                     router.push("/alerts");
                   }}
                 >
-                  <Bell className="mr-2 h-4 w-4" />
+                  <Waves className="mr-2 h-4 w-4" />
                   <span>Alerts</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

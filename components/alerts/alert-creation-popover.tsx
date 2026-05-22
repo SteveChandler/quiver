@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Loader2, Mail, Bell as BellIcon } from "lucide-react";
+import { Loader2, Mail, Radio } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -30,6 +31,14 @@ type Stage =
   | { step: "presets" }
   | { step: "customize"; preset: PresetDefinition; conditions: AlertConditions }
   | { step: "custom"; conditions: AlertConditions };
+
+function buildPresetAlertName(presetName: string, beachName: string): string {
+  return `${presetName} at ${beachName}`;
+}
+
+function buildCustomAlertName(beachName: string): string {
+  return `Custom alert at ${beachName}`;
+}
 
 export function AlertCreationPopover({
   beachId,
@@ -84,7 +93,7 @@ export function AlertCreationPopover({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           beach_id: beachId,
-          name: `${preset.name} — ${beachName}`,
+          name: buildPresetAlertName(preset.name, beachName),
           preset_type: preset.type,
           conditions,
           notify_email: notifyEmail,
@@ -108,7 +117,7 @@ export function AlertCreationPopover({
 
   function handleCustomize(preset: PresetDefinition) {
     const conditions = preset.buildConditions(beach);
-    setName(`${preset.name} — ${beachName}`);
+    setName(buildPresetAlertName(preset.name, beachName));
     setStage({ step: "customize", preset, conditions });
   }
 
@@ -120,8 +129,8 @@ export function AlertCreationPopover({
     const ruleName =
       name.trim() ||
       (currentStage.step === "customize"
-        ? `${currentStage.preset.name} — ${beachName}`
-        : `Custom alert — ${beachName}`);
+        ? buildPresetAlertName(currentStage.preset.name, beachName)
+        : buildCustomAlertName(beachName));
 
     setSaving(true);
     try {
@@ -166,34 +175,43 @@ export function AlertCreationPopover({
   const isEditing = stage.step === "customize" || stage.step === "custom";
   const currentConditions = isEditing ? stage.conditions : {};
   const hasConditions = isEditing && Object.keys(currentConditions).length > 0;
+  const headerTitle =
+    stage.step === "presets"
+      ? beachName
+      : stage.step === "customize"
+        ? buildPresetAlertName(stage.preset.name, beachName)
+        : buildCustomAlertName(beachName);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#1E2660] border border-[#404C92] text-white max-w-md w-full p-0 overflow-hidden bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC44IiBudW1PY3RhdmVzPSI0IiBzdGl0Y2hUaWxlcz0ic3RpdGNoIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbHRlcj0idXJsKCNuKSIgb3BhY2l0eT0iMC4wMyIvPjwvc3ZnPg==')]">
-        <DialogHeader className="px-5 pt-5 pb-0 pr-12">
-          <div className="flex items-center gap-2">
+      <DialogContent className="max-w-md overflow-hidden rounded-md border-2 border-[#11100D] bg-[#1E2660] p-0 text-white shadow-[8px_8px_0_rgba(17,16,13,0.75)] sm:rounded-md [&>button]:right-5 [&>button]:top-5 [&>button]:text-[#11100D] [&>button]:opacity-100 [&>button]:ring-offset-[#F4EBD8] [&>button]:hover:bg-[#F78E42]/20">
+        <DialogHeader className="border-b-2 border-[#11100D] bg-[#F4EBD8] px-5 py-4 pr-12 text-left text-[#11100D] shadow-[0_3px_0_rgba(17,16,13,0.55)]">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-sm border-2 border-[#11100D] bg-[#F78E42] px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)]">
+              Condition watch
+            </span>
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#403A2E]">
+              Quiver field guide
+            </span>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
             {isEditing && (
               <button
                 onClick={() => setStage({ step: "presets" })}
                 aria-label="Back to presets"
-                className="text-xs text-gray-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 focus-visible:rounded transition-colors shrink-0"
+                className="shrink-0 rounded-sm border border-[#11100D] bg-[#11100D] px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.08em] text-[#F4EBD8] transition-colors hover:bg-[#F78E42] hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/70"
               >
-                &larr; Back
+                Back
               </button>
             )}
-            <DialogTitle className="text-base font-bold font-[family-name:var(--font-space-grotesk)] text-white tracking-tight truncate">
-              {stage.step === "presets"
-                ? `Alerts for ${beachName}`
-                : stage.step === "customize"
-                  ? `Customize: ${stage.preset.name}`
-                  : "Custom alert"}
+            <DialogTitle className="truncate font-[family-name:var(--font-space-grotesk)] text-2xl font-black uppercase leading-none tracking-[0.02em] text-[#11100D]">
+              {headerTitle}
             </DialogTitle>
           </div>
-          <p className="text-xs text-gray-300 mt-1">
-            {stage.step === "presets"
-              ? "Pick a preset or build your own conditions"
-              : "Customize your alert conditions and channels"}
-          </p>
+          <DialogDescription className="sr-only">
+            Create a surf condition alert by choosing a preset or custom wave,
+            wind, tide, and notification settings.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
@@ -228,7 +246,7 @@ export function AlertCreationPopover({
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="optional — auto-generated if blank"
+                  placeholder="optional, auto generated if blank"
                   maxLength={100}
                   className="w-full bg-[#252D6B] text-white text-sm rounded-lg px-3 py-2 border border-[#404C92] placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#F78E42]/50 focus:border-[#F78E42] transition-colors"
                 />
@@ -259,7 +277,7 @@ export function AlertCreationPopover({
                   />
                   <ToggleChip
                     label="Push"
-                    icon={<BellIcon className="w-3 h-3" />}
+                    icon={<Radio className="w-3 h-3" />}
                     active={notifyPush}
                     onClick={() => setNotifyPush(!notifyPush)}
                   />
@@ -325,7 +343,7 @@ function PresetGroup({
               }}
               disabled={disabled}
               aria-label={`Customize ${preset.name}`}
-              className="absolute right-1 top-1/2 -translate-y-1/2 text-[11px] text-gray-400 hover:text-[#F78E42] focus-visible:text-[#F78E42] focus-visible:opacity-100 focus-visible:outline-none opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              className="absolute right-2 top-1/2 flex min-h-[32px] min-w-[76px] -translate-y-1/2 items-center justify-center rounded-sm border border-[#11100D] bg-[#11100D] px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.08em] text-[#F4EBD8] shadow-[2px_2px_0_rgba(247,142,66,0.45)] transition-colors hover:bg-[#F78E42] hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/70 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Customize
             </button>
