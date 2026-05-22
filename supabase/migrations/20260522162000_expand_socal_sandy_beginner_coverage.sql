@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE TEMP TABLE temp_huntington_beginner_profiles (
+CREATE TEMP TABLE temp_socal_sandy_beginner_profiles (
   canonical_name text PRIMARY KEY,
   aliases text[] NOT NULL,
   slug text NOT NULL,
@@ -36,7 +36,7 @@ CREATE TEMP TABLE temp_huntington_beginner_profiles (
   insert_if_missing boolean NOT NULL DEFAULT false
 ) ON COMMIT DROP;
 
-INSERT INTO temp_huntington_beginner_profiles (
+INSERT INTO temp_socal_sandy_beginner_profiles (
   canonical_name,
   aliases,
   slug,
@@ -73,8 +73,8 @@ INSERT INTO temp_huntington_beginner_profiles (
       ARRAY['Blackie''s Beach', 'Blackies Beach', 'Newport Pier northside', 'Newport Pier north side', 'Newport Municipal Beach northside']::text[],
     'blackies',
     'Newport Beach',
-    33.6103,
-    -117.9289,
+    33.60905,
+    -117.93205,
     'Orange County',
     'add',
     'primary',
@@ -97,7 +97,7 @@ INSERT INTO temp_huntington_beginner_profiles (
       'Treat it like a classic longboard lineup: hold your line, do not snake, and stay clear of surf-school clusters and inside learners.',
       ARRAY['Soft whitewater and slower longboard-friendly peaks on smaller days', 'Wide sandy takeoff and landing zone', 'Easy pier-area access and parking options', 'Strong local tradition of surf instruction nearby']::text[],
       '{"model":"socal_sandy_beginner","beginner_fit":"primary","ideal_wave_height_ft":{"min":0.5,"max":2.5},"acceptable_wave_height_ft":{"min":0.5,"max":3},"preferred_tide_stage":["low","rising","mid"],"avoid_high_tide_under_ft":2,"best_time_local":{"start":"06:00","end":"10:00"},"max_beginner_wind_mph":10,"avoid_tide_notes":"Avoid tiny high-tide sessions and any crowded summer restrictions near the pier; the wave is more forgiving when there is enough shape and not too much backwash."}'::jsonb,
-      ARRAY['https://www.newportbeachca.gov/how-do-i-/find/beach-information', 'https://www.newportbeachca.gov/i-am-a/visitor/parking/city-parking-lots-and-metered-parking', 'https://www.newportbeachca.gov/government/departments/fire-department/marine-operations-division', 'https://www.newportbeachca.gov/government/departments/fire-department/marine-operations-division/blackball', 'https://www.endlesssunsurf.com/', 'https://wavehuggers.com/newport-beach-river-jetties/', 'https://almondsurfboards.com/blogs/news/an-ode-to-blackies', 'https://banzaisurfschool.com/learning-how-to-surf-best-beginner-surfing-areas/']::text[],
+      ARRAY['https://www.wannasurf.com/spot/North_America/USA/California/Orange_County/blackies/', 'https://www.surfline.com/surf-report/blackies/584204204e65fad6a7709115', 'https://www.newportbeachca.gov/how-do-i-/find/beach-information', 'https://www.newportbeachca.gov/i-am-a/visitor/parking/city-parking-lots-and-metered-parking', 'https://www.newportbeachca.gov/government/departments/fire-department/marine-operations-division', 'https://www.newportbeachca.gov/government/departments/fire-department/marine-operations-division/blackball', 'https://www.endlesssunsurf.com/', 'https://wavehuggers.com/newport-beach-river-jetties/', 'https://almondsurfboards.com/blogs/news/an-ode-to-blackies', 'https://banzaisurfschool.com/learning-how-to-surf-best-beginner-surfing-areas/']::text[],
     true
   ),
   (
@@ -105,8 +105,8 @@ INSERT INTO temp_huntington_beginner_profiles (
     ARRAY['Bolsa Chica', 'Bolsa Chica State Beach']::text[],
     'bolsa-chica',
     'Huntington Beach',
-    33.6962,
-    -118.0454,
+    NULL,
+    NULL,
     'Orange County',
     'update',
     'primary',
@@ -137,8 +137,8 @@ INSERT INTO temp_huntington_beginner_profiles (
       ARRAY['Huntington State Beach', 'Huntington State Beach south', 'State Beach', 'Brookhurst', 'Magnolia']::text[],
     'huntington-state-beach',
     'Huntington Beach',
-    33.6418,
-    -117.9739,
+    NULL,
+    NULL,
     'Orange County',
     'update',
     'conditional',
@@ -169,8 +169,8 @@ INSERT INTO temp_huntington_beginner_profiles (
       ARRAY['Goldenwest Street', 'North HB Streets', '17th Street', '20th Street', 'Huntington Streets']::text[],
       'goldenwest',
     'Huntington Beach',
-    33.6805,
-    -118.0113,
+    NULL,
+    NULL,
     'Orange County',
     'update',
     'conditional',
@@ -201,8 +201,8 @@ INSERT INTO temp_huntington_beginner_profiles (
     ARRAY['HB Pier Northside', 'Huntington Pier Northside']::text[],
     'huntington-beach-pier-northside',
     'Huntington Beach',
-    33.6552,
-    -118.0022,
+    NULL,
+    NULL,
     'Orange County',
     'update',
     'conditional',
@@ -233,8 +233,8 @@ INSERT INTO temp_huntington_beginner_profiles (
     ARRAY['HB Pier Southside', 'Huntington Pier Southside']::text[],
     'huntington-beach-pier-southside',
     'Huntington Beach',
-    33.6542,
-    -118.0022,
+    NULL,
+    NULL,
     'Orange County',
     'update',
     'conditional',
@@ -265,8 +265,8 @@ INSERT INTO temp_huntington_beginner_profiles (
       ARRAY['Newland Street', 'Huntington State Beach Newland']::text[],
       'newland-st',
       'Huntington Beach',
-      33.6454,
-      -117.9789,
+      NULL,
+      NULL,
       'Orange County',
       'exclude_from_beginner',
       'no',
@@ -297,8 +297,8 @@ INSERT INTO temp_huntington_beginner_profiles (
       ARRAY['Huntington Street', 'HB South Beach Huntington St.']::text[],
       'huntington-st',
       'Huntington Beach',
-      33.6485,
-      -117.9858,
+      NULL,
+      NULL,
       'Orange County',
       'exclude_from_beginner',
       'no',
@@ -329,8 +329,8 @@ INSERT INTO temp_huntington_beginner_profiles (
       ARRAY['HB Cliffs', 'Huntington Beach Cliffs', 'Huntington Cliffs', 'Seapoint', 'Dog Beach cliffs']::text[],
     'hb-cliffs',
     'Huntington Beach',
-    33.6908,
-    -118.0451,
+    NULL,
+    NULL,
     'Orange County',
     'exclude_from_beginner',
     'no',
@@ -361,8 +361,8 @@ INSERT INTO temp_huntington_beginner_profiles (
       ARRAY['Seal Beach', 'Seal Beach Pier', 'Seal Beach Pier Northside', 'Pier Northside', 'Seal Beach Northside']::text[],
     'seal-beach-pier-seal-beach-ca',
     'Seal Beach',
-    33.7405,
-    -118.1045,
+    NULL,
+    NULL,
     'Orange County',
     'update',
     'conditional',
@@ -387,7 +387,456 @@ INSERT INTO temp_huntington_beginner_profiles (
       '{"model":"socal_sandy_beginner","beginner_fit":"conditional","ideal_wave_height_ft":{"min":0.5,"max":2},"acceptable_wave_height_ft":{"min":0.5,"max":2.5},"preferred_tide_stage":["low","rising","mid"],"avoid_high_tide_under_ft":2,"best_time_local":{"start":"06:00","end":"10:00"},"max_beginner_wind_mph":10,"avoid_tide_notes":"Best treated as a small-day northside option. Avoid post-rain sessions, be careful around the pier and fishing activity, and do not oversell it when the current or tide looks sketchy."}'::jsonb,
       ARRAY['https://www.sealbeachca.gov/Departments/Marine-Safety-Lifeguards', 'https://www.sealbeachca.gov/Departments/Marine-Safety-Lifeguards/Rip-Currents', 'https://www.sealbeachca.gov/Departments/Marine-Safety-Lifeguards/Water-Quality', 'https://www.sealbeachca.gov/Departments/Marine-Safety-Lifeguards/Beach-Rules', 'https://www.sealbeachca.gov/Departments/Parking/Beach-Lot-Parking', 'https://www.sealbeachca.gov/Departments/Parking/Main-Street-Parking', 'https://wavehuggers.com/seal-beach/', 'https://www.surfline.com/travel/united-states/california/orange-county/seal-beach-surfing-and-beaches/5394086']::text[],
     false
+  ),
+  (
+    'Doheny State Beach',
+    ARRAY['Doheny Beach', 'Doheny', 'Doheny State Beach']::text[],
+    'doheny-state-beach',
+    'Dana Point',
+    NULL,
+    NULL,
+    'Orange County',
+    'update',
+    'primary',
+    'beach',
+    'sand and cobble',
+    'beginner',
+    ARRAY['soft rolling waves', 'beginner lessons', 'state beach access', 'longboard friendly', 'inside whitewater']::text[],
+    ARRAY['crowds', 'rocks or cobble in places', 'stingrays', 'water quality after rain', 'stronger south swell sets']::text[],
+    NULL,
+    NULL,
+    NULL,
+    10,
+    10,
+    'Doheny is the clearest South OC beginner profile: slow rolling waves, state-beach logistics, and a long lesson tradition when the surf is small.',
+    'Keep beginners on the soft inside and avoid bigger south-swell days or crowded outside lanes.',
+    'Use Doheny State Beach day-use parking and arrive early on weekends.',
+    'Use official state-beach access and keep learners in the supervised, open sandy sections.',
+    'Crowd pressure is the main limitation; if the inside is packed, wait or move rather than forcing it.',
+    ARRAY['Crowds', 'Rocks or cobble in places', 'Avoid post-rain water-quality windows', 'Bigger south swell can overpower beginners']::text[],
+    'Share the soft inside, yield to surfers already trimming, and keep lessons out of the main outside rotation.',
+    ARRAY['Soft rolling inside waves', 'Well-known lesson zone', 'State-beach parking and facilities', 'Good longboard progression on small days']::text[],
+    '{"model":"socal_sandy_beginner","beginner_fit":"primary","ideal_wave_height_ft":{"min":0.5,"max":2},"acceptable_wave_height_ft":{"min":0.5,"max":3},"preferred_tide_stage":["low","rising","mid"],"avoid_high_tide_under_ft":2,"best_time_local":{"start":"06:00","end":"10:00"},"max_beginner_wind_mph":10,"avoid_tide_notes":"Favor low-to-mid tide and small clean surf; avoid bigger south-swell energy and crowded outside lanes."}'::jsonb,
+    ARRAY['https://www.parks.ca.gov/?page_id=645', 'https://www.theorangecountycityguide.com/articles/best-surf-beaches-in-orange-county']::text[],
+    false
+  ),
+  (
+    'Old Man''s (SanO)',
+    ARRAY['Old Man''s', 'Old Mans', 'San Onofre Old Man''s', 'San Onofre State Beach']::text[],
+    'old-mans-sano',
+    'San Clemente',
+    NULL,
+    NULL,
+    'Orange County',
+    'update',
+    'primary',
+    'point',
+    'sand and cobble',
+    'beginner-intermediate',
+    ARRAY['soft rolling waves', 'longboard friendly', 'classic progression wave', 'state beach access']::text[],
+    ARRAY['rocks or cobble', 'crowds', 'long paddle or walk logistics', 'larger south swell']::text[],
+    NULL,
+    NULL,
+    NULL,
+    10,
+    10,
+    'Old Man''s is source-backed as a beginner and longboard progression wave, but the model should still require small clean surf and room in the lineup.',
+    'Use Old Man''s for rolling waves and controlled longboard practice, not bigger south-swell days.',
+    'San Onofre parking is limited and the walk/carry is part of the session planning.',
+    'Use official San Onofre State Beach access and watch the lineup before paddling out.',
+    'The wave is mellow, but the crowd is real. Beginners should stay away from the main takeoff until they can steer.',
+    ARRAY['Rocks or cobble', 'Crowds', 'Long access logistics', 'Bigger south swell changes the risk profile']::text[],
+    'Wait your turn, use a controlled board, and keep learners clear of the main peak rotation.',
+    ARRAY['Soft rolling longboard waves', 'Classic progression setting', 'State-beach setting', 'Better margin than faster beachbreaks on small days']::text[],
+    '{"model":"socal_sandy_beginner","beginner_fit":"primary","ideal_wave_height_ft":{"min":0.5,"max":2.5},"acceptable_wave_height_ft":{"min":0.5,"max":3},"preferred_tide_stage":["low","rising","mid"],"avoid_high_tide_under_ft":2,"best_time_local":{"start":"06:00","end":"10:00"},"max_beginner_wind_mph":10,"avoid_tide_notes":"Favor small clean rolling surf with enough tide for forgiving takeoffs; do not promote bigger south-swell days to beginners."}'::jsonb,
+    ARRAY['https://www.parks.ca.gov/?page_id=647', 'https://www.theorangecountycityguide.com/articles/best-surf-beaches-in-orange-county']::text[],
+    false
+  ),
+  (
+    'La Jolla Shores',
+    ARRAY['La Jolla Shores Beach', 'Shores']::text[],
+    'la-jolla-shores',
+    'La Jolla',
+    NULL,
+    NULL,
+    'San Diego',
+    'update',
+    'primary',
+    'beach',
+    'sand',
+    'beginner',
+    ARRAY['sand bottom', 'beginner lessons', 'wide beach', 'soft inside whitewater', 'lifeguards']::text[],
+    ARRAY['crowds', 'stingrays', 'rip currents', 'shorebreak on bigger days', 'lesson traffic']::text[],
+    NULL,
+    NULL,
+    NULL,
+    10,
+    10,
+    'La Jolla Shores is the primary San Diego sandy beginner profile when the surf is small, clean, and not overloaded with lessons.',
+    'Use the whitewater and soft inside bars; avoid larger surf, strong drift, or punchy shorebreak.',
+    'Main beach lots and street parking fill early, especially in warm months.',
+    'Use official beach access around Kellogg Park and watch posted lifeguard guidance.',
+    'Lesson density can be high. Choose open space before choosing the most obvious peak.',
+    ARRAY['Crowds', 'Stingrays', 'Rip currents', 'Bigger surf can create shorebreak']::text[],
+    'Stay clear of lesson groups, communicate early, and keep beginner boards under control in the inside.',
+    ARRAY['Wide sand-bottom learner area', 'Reliable whitewater reps', 'Strong lesson ecosystem', 'Clear public beach access']::text[],
+    '{"model":"socal_sandy_beginner","beginner_fit":"primary","ideal_wave_height_ft":{"min":0.5,"max":2},"acceptable_wave_height_ft":{"min":0.5,"max":3},"preferred_tide_stage":["low","rising","mid"],"avoid_high_tide_under_ft":2,"best_time_local":{"start":"06:00","end":"10:00"},"max_beginner_wind_mph":10,"avoid_tide_notes":"Small clean mornings are the beginner window; avoid larger surf, strong drift, and punchy shorebreak."}'::jsonb,
+    ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[],
+    false
+  ),
+  (
+    'Tourmaline Beach',
+    ARRAY['Tourmaline', 'Tourmaline Surf Park', 'Tourmaline Beach']::text[],
+    'tourmaline',
+    'San Diego',
+    NULL,
+    NULL,
+    'San Diego',
+    'update',
+    'primary',
+    'beach',
+    'sand and reef',
+    'beginner-intermediate',
+    ARRAY['soft rolling waves', 'longboard friendly', 'progression wave', 'parking lot access']::text[],
+    ARRAY['crowds', 'mixed craft', 'rocks or reef patches', 'stingrays', 'wind texture']::text[],
+    NULL,
+    NULL,
+    NULL,
+    10,
+    10,
+    'Tourmaline is a strong progression and longboard profile, with beginner use limited to small soft windows and controlled boards.',
+    'Choose Tourmaline for soft rolling waves, not crowded bigger sets or windy texture.',
+    'The main lot is convenient but fills early; parking scarcity is part of the call.',
+    'Use the official access from the Tourmaline lot and avoid rocks or reefy edges.',
+    'Mixed craft and longboard traffic mean learners need spacing and board control.',
+    ARRAY['Crowds', 'Mixed craft', 'Rocks or reef patches', 'Wind texture']::text[],
+    'Yield to the established longboard rotation and keep early learners on the inside shoulder or whitewater.',
+    ARRAY['Soft rolling waves on small days', 'Longboard-friendly pace', 'Clear public access', 'Useful backup when La Jolla Shores is packed']::text[],
+    '{"model":"socal_sandy_beginner","beginner_fit":"primary","ideal_wave_height_ft":{"min":0.5,"max":2},"acceptable_wave_height_ft":{"min":0.5,"max":2.5},"preferred_tide_stage":["low","rising","mid"],"avoid_high_tide_under_ft":2,"best_time_local":{"start":"06:00","end":"10:00"},"max_beginner_wind_mph":10,"avoid_tide_notes":"Promote only small, soft, clean windows; the crowd and mixed-craft lineup can make marginal days a poor beginner call."}'::jsonb,
+    ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[],
+    false
+  ),
+  (
+    'Santa Monica Beach',
+    ARRAY['Santa Monica', 'Santa Monica State Beach']::text[],
+    'santa-monica-beach-santa-monica-ca',
+    'Santa Monica',
+    NULL,
+    NULL,
+    'Los Angeles',
+    'update',
+    'primary',
+    'beach',
+    'sand',
+    'beginner',
+    ARRAY['sand bottom', 'wide beach', 'surf-school presence', 'soft whitewater']::text[],
+    ARRAY['crowds', 'shorebreak', 'rip currents', 'water quality after rain', 'wind']::text[],
+    NULL,
+    NULL,
+    NULL,
+    10,
+    10,
+    'Santa Monica is a source-backed LA beginner beach on small, clean mornings, with the usual caveat that crowds and shorebreak change the call.',
+    'Keep learners in soft whitewater and avoid bigger, steeper inside sections.',
+    'Use official beach lots or nearby paid parking and expect summer congestion.',
+    'Use marked beach access and stay clear of crowded pier-adjacent lanes.',
+    'Space matters more than fame; pick an open sandbar over the busiest zone.',
+    ARRAY['Crowds', 'Shorebreak', 'Rip currents', 'Avoid post-rain water-quality windows']::text[],
+    'Respect lesson zones and do not paddle beginners into tight pier or main-peak traffic.',
+    ARRAY['Wide sand-bottom beach', 'Soft whitewater on small mornings', 'Surf-school ecosystem', 'Easy public access']::text[],
+    '{"model":"socal_sandy_beginner","beginner_fit":"primary","ideal_wave_height_ft":{"min":0.5,"max":2},"acceptable_wave_height_ft":{"min":0.5,"max":2.5},"preferred_tide_stage":["low","rising","mid"],"avoid_high_tide_under_ft":2,"best_time_local":{"start":"06:00","end":"10:00"},"max_beginner_wind_mph":10,"avoid_tide_notes":"Small clean low-to-mid tide mornings only; avoid post-rain water, crowd compression, and punchy shorebreak."}'::jsonb,
+    ARRAY['https://sandermaps.com/blogs/articles/16-best-beginner-surf-spots-in-los-angeles']::text[],
+    false
+  ),
+  (
+    'Venice Beach',
+    ARRAY['Venice', 'Venice Beach']::text[],
+    'venice-beach-venice-ca',
+    'Venice',
+    NULL,
+    NULL,
+    'Los Angeles',
+    'update',
+    'primary',
+    'beach',
+    'sand',
+    'beginner-intermediate',
+    ARRAY['sand bottom', 'wide beach', 'small-day whitewater', 'urban beach access']::text[],
+    ARRAY['crowds', 'shorebreak', 'rip currents', 'wind', 'water quality after rain']::text[],
+    NULL,
+    NULL,
+    NULL,
+    10,
+    10,
+    'Venice can be a beginner sandy option when it is small and clean, but it is not a blanket recommendation on fast or crowded beachbreak days.',
+    'Use Venice only when the inside is soft and organized enough for whitewater practice.',
+    'Parking and beach traffic are heavy; plan around official lots and early arrival.',
+    'Use public beach paths and stay away from dense swimmer or boardwalk traffic.',
+    'If the peak is crowded or closing out, the beginner call is no.',
+    ARRAY['Crowds', 'Shorebreak', 'Rip currents', 'Wind', 'Avoid post-rain water-quality windows']::text[],
+    'Pick open whitewater and stay out of established peak traffic.',
+    ARRAY['Wide sand-bottom beach', 'Can offer soft whitewater', 'Easy public beach access', 'Good backup to compare against Santa Monica and Dockweiler']::text[],
+    '{"model":"socal_sandy_beginner","beginner_fit":"primary","ideal_wave_height_ft":{"min":0.5,"max":2},"acceptable_wave_height_ft":{"min":0.5,"max":2.5},"preferred_tide_stage":["low","rising","mid"],"avoid_high_tide_under_ft":2,"best_time_local":{"start":"06:00","end":"10:00"},"max_beginner_wind_mph":10,"avoid_tide_notes":"Promote only when small, clean, and soft; fast inside bars or crowd compression should suppress beginner routing."}'::jsonb,
+    ARRAY['https://sandermaps.com/blogs/articles/16-best-beginner-surf-spots-in-los-angeles']::text[],
+    false
+  ),
+  (
+    'Dockweiler State Beach',
+    ARRAY['Dockweiler', 'Dockweiler Beach']::text[],
+    'dockweiler-state-beach-playa-del-rey-ca',
+    'Playa Del Rey',
+    NULL,
+    NULL,
+    'Los Angeles',
+    'update',
+    'primary',
+    'beach',
+    'sand',
+    'beginner',
+    ARRAY['sand bottom', 'wide beach', 'official beach access', 'small-day whitewater']::text[],
+    ARRAY['shorebreak', 'rip currents', 'wind', 'water quality after rain', 'airport noise and beach traffic']::text[],
+    NULL,
+    NULL,
+    NULL,
+    10,
+    10,
+    'Dockweiler is a source-backed LA sandy beginner candidate on small clean days, helped by wide beach logistics and official access.',
+    'Use soft inside whitewater only; avoid windy closeouts and heavy shorebreak.',
+    'Use LA County beach lots and check posted parking rules before peak hours.',
+    'Use official access points and avoid fire-pit or crowd-heavy sections when carrying boards.',
+    'Choose open sand and avoid pushing beginners into the densest beach-day traffic.',
+    ARRAY['Shorebreak', 'Rip currents', 'Wind', 'Avoid post-rain water-quality windows']::text[],
+    'Keep learners in open whitewater and away from stronger peak traffic.',
+    ARRAY['Wide sand-bottom beach', 'Official beach facilities', 'Good small-day whitewater space', 'Useful LA fallback when Santa Monica is crowded']::text[],
+    '{"model":"socal_sandy_beginner","beginner_fit":"primary","ideal_wave_height_ft":{"min":0.5,"max":2},"acceptable_wave_height_ft":{"min":0.5,"max":2.5},"preferred_tide_stage":["low","rising","mid"],"avoid_high_tide_under_ft":2,"best_time_local":{"start":"06:00","end":"10:00"},"max_beginner_wind_mph":10,"avoid_tide_notes":"Small, clean, low-to-mid tide mornings only; suppress beginner routing when wind or shorebreak is up."}'::jsonb,
+    ARRAY['https://sandermaps.com/blogs/articles/16-best-beginner-surf-spots-in-los-angeles', 'https://beaches.lacounty.gov/dockweiler-beach/']::text[],
+    false
+  ),
+  (
+    'Will Rogers State Beach',
+    ARRAY['Will Rogers', 'Will Rogers Beach']::text[],
+    'will-rogers-state-beach-santa-monica-ca',
+    'Santa Monica',
+    NULL,
+    NULL,
+    'Los Angeles',
+    'update',
+    'primary',
+    'beach',
+    'sand',
+    'beginner',
+    ARRAY['sand bottom', 'official beach access', 'small-day whitewater', 'gentler LA option']::text[],
+    ARRAY['crowds', 'rip currents', 'shorebreak', 'water quality after rain', 'wind']::text[],
+    NULL,
+    NULL,
+    NULL,
+    10,
+    10,
+    'Will Rogers is a source-backed LA beginner option when the surf stays small, clean, and softer than nearby beachbreaks.',
+    'Use the small soft inside and avoid bigger or windier setups.',
+    'Use LA County beach lots and arrive early during busy beach seasons.',
+    'Use official beach access and watch posted lifeguard guidance.',
+    'It can still crowd up; route beginners to space, not to the most convenient peak.',
+    ARRAY['Crowds', 'Rip currents', 'Shorebreak', 'Avoid post-rain water-quality windows']::text[],
+    'Give lesson groups and existing lineups room; beginner boards need space.',
+    ARRAY['Wide public beach', 'Often softer than punchier LA peaks on small days', 'Official parking and facilities', 'Good low-stress whitewater option']::text[],
+    '{"model":"socal_sandy_beginner","beginner_fit":"primary","ideal_wave_height_ft":{"min":0.5,"max":2},"acceptable_wave_height_ft":{"min":0.5,"max":2.5},"preferred_tide_stage":["low","rising","mid"],"avoid_high_tide_under_ft":2,"best_time_local":{"start":"06:00","end":"10:00"},"max_beginner_wind_mph":10,"avoid_tide_notes":"Keep the beginner call to small, clean, soft mornings with manageable crowd spacing."}'::jsonb,
+    ARRAY['https://sandermaps.com/blogs/articles/16-best-beginner-surf-spots-in-los-angeles', 'https://beaches.lacounty.gov/will-rogers-beach/']::text[],
+    false
+  ),
+  (
+    'Torrance Beach (RAT Beach)',
+    ARRAY['Torrance Beach', 'RAT Beach', 'Rat Beach']::text[],
+    'torrance-beach-rat-beach-torrance-ca',
+    'Torrance',
+    NULL,
+    NULL,
+    'Los Angeles',
+    'update',
+    'primary',
+    'beach',
+    'sand',
+    'beginner',
+    ARRAY['sand bottom', 'South Bay beginner candidate', 'small-day whitewater', 'wide beach']::text[],
+    ARRAY['shorebreak', 'rip currents', 'rocks near edges', 'crowds', 'wind']::text[],
+    NULL,
+    NULL,
+    NULL,
+    10,
+    10,
+    'Torrance/RAT Beach is a source-backed South Bay beginner option when the surf is small, soft, and away from rocky edges.',
+    'Use open sand-bottom whitewater and avoid bigger shorebreak or rocky edges.',
+    'Use Torrance beach parking and plan for the hill/stairs logistics.',
+    'Access through official beach paths and keep beginners in the open sandy sections.',
+    'If local crowd or shorebreak pressure builds, it stops being a beginner call.',
+    ARRAY['Shorebreak', 'Rip currents', 'Rocks near edges', 'Crowds']::text[],
+    'Stay out of established takeoff lanes and keep learners away from rocky boundary zones.',
+    ARRAY['Open sand-bottom beginner space on small days', 'South Bay fallback from busier north LA beaches', 'Good whitewater potential', 'Public parking and beach access']::text[],
+    '{"model":"socal_sandy_beginner","beginner_fit":"primary","ideal_wave_height_ft":{"min":0.5,"max":2},"acceptable_wave_height_ft":{"min":0.5,"max":2.5},"preferred_tide_stage":["low","rising","mid"],"avoid_high_tide_under_ft":2,"best_time_local":{"start":"06:00","end":"10:00"},"max_beginner_wind_mph":10,"avoid_tide_notes":"Small, soft, clean windows only; avoid rocky edges, bigger shorebreak, and crowd compression."}'::jsonb,
+    ARRAY['https://sandermaps.com/blogs/articles/16-best-beginner-surf-spots-in-los-angeles']::text[],
+    false
+  ),
+  (
+    'Mondos Beach',
+    ARRAY['Mondos', 'Mondo''s', 'Mondos Beach']::text[],
+    'mondos-beach-ventura-ca',
+    'Ventura',
+    NULL,
+    NULL,
+    'Ventura',
+    'update',
+    'primary',
+    'point',
+    'sand and cobble',
+    'beginner',
+    ARRAY['soft rolling waves', 'longboard friendly', 'beginner lessons', 'small-day point wave']::text[],
+    ARRAY['rocks or cobble', 'crowds', 'roadside parking', 'larger west swell', 'limited facilities']::text[],
+    NULL,
+    NULL,
+    NULL,
+    10,
+    10,
+    'Mondos is the strongest Ventura/Santa Barbara-adjacent beginner profile: a small-day soft point with a clear learner reputation.',
+    'Use Mondos only when the surf is small, soft, and not packed; bigger west swell and rocks change the risk.',
+    'Roadside parking is limited and fills on good learner days.',
+    'Access is straightforward from PCH pullouts, but beginners should watch footing around cobble and rocks.',
+    'The easy reputation attracts crowds; choose space and patience over the most obvious takeoff.',
+    ARRAY['Rocks or cobble', 'Crowds', 'Roadside parking', 'Larger west swell changes the wave']::text[],
+    'Wait turns, use a controlled board, and stay clear of surfers already trimming from outside.',
+    ARRAY['Soft rolling small-day wave', 'Longboard and soft-top friendly', 'Known lesson destination', 'Useful Ventura/Santa Barbara beginner anchor']::text[],
+    '{"model":"socal_sandy_beginner","beginner_fit":"primary","ideal_wave_height_ft":{"min":0.5,"max":2.5},"acceptable_wave_height_ft":{"min":0.5,"max":3},"preferred_tide_stage":["low","rising","mid"],"avoid_high_tide_under_ft":2,"best_time_local":{"start":"06:00","end":"10:00"},"max_beginner_wind_mph":10,"avoid_tide_notes":"Promote only small clean soft windows; rocks, crowd, and larger west swell make it a different call."}'::jsonb,
+    ARRAY['https://www.surfspots.co/spot/mondos', 'https://www.santabarbarasurfschool.com/surf-locations/']::text[],
+    false
   );
+
+CREATE TEMP TABLE temp_socal_sandy_beginner_classifications (
+  slug text PRIMARY KEY,
+  aliases text[] NOT NULL DEFAULT ARRAY[]::text[],
+  region text NOT NULL,
+  coverage_action text NOT NULL,
+  beginner_fit text NOT NULL CHECK (beginner_fit IN ('primary', 'conditional', 'no')),
+  beginner_window jsonb NOT NULL,
+  source_urls text[] NOT NULL
+) ON COMMIT DROP;
+
+INSERT INTO temp_socal_sandy_beginner_classifications (
+  slug,
+  aliases,
+  region,
+  coverage_action,
+  beginner_fit,
+  beginner_window,
+  source_urls
+)
+SELECT
+  slug,
+  aliases,
+  region,
+  coverage_action,
+  beginner_fit,
+  beginner_window,
+  source_urls
+FROM temp_socal_sandy_beginner_profiles
+ON CONFLICT (slug) DO UPDATE SET
+  aliases = EXCLUDED.aliases,
+  region = EXCLUDED.region,
+  coverage_action = EXCLUDED.coverage_action,
+  beginner_fit = EXCLUDED.beginner_fit,
+  beginner_window = EXCLUDED.beginner_window,
+  source_urls = EXCLUDED.source_urls;
+
+WITH lightweight_rows (
+  slug,
+  aliases,
+  region,
+  beginner_fit,
+  coverage_action,
+  source_urls,
+  avoid_tide_notes
+) AS (
+  VALUES
+    ('scripps', ARRAY['Scripps', 'Scripps Pier']::text[], 'San Diego', 'conditional', 'classify_current_candidate', ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[], 'Use only small, clean, low-wind beachbreak windows; avoid pier-adjacent crowding, closeouts, and larger surf.'),
+    ('mission-beach-central', ARRAY['Mission Beach (Central)', 'Mission Beach']::text[], 'San Diego', 'conditional', 'classify_current_candidate', ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[], 'Small clean whitewater only; suppress beginner routing when the beachbreak is fast, windy, or drifting.'),
+    ('pacific-beach', ARRAY['Pacific Beach', 'PB']::text[], 'San Diego', 'conditional', 'classify_current_candidate', ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[], 'Small clean low-wind mornings only; avoid crowded peak traffic and closeouts.'),
+    ('moonlight-state-beach', ARRAY['Moonlight State Beach', 'Moonlight Beach']::text[], 'San Diego', 'conditional', 'classify_current_candidate', ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[], 'Use only small, soft, supervised whitewater windows; do not promote faster sandbar days.'),
+    ('carlsbad-state-beach', ARRAY['Carlsbad State Beach']::text[], 'San Diego', 'conditional', 'classify_current_candidate', ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[], 'Small clean whitewater only; avoid shorebreak, drift, and crowd pressure.'),
+    ('ponto', ARRAY['Ponto']::text[], 'San Diego', 'conditional', 'classify_current_candidate', ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[], 'Small clean mornings only; avoid stronger bars, closeouts, and rips.'),
+    ('del-mar', ARRAY['Del Mar']::text[], 'San Diego', 'conditional', 'classify_current_candidate', ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[], 'Small, soft, low-wind sandbar windows only; avoid shorebreak and current.'),
+    ('d-street', ARRAY['D Street']::text[], 'San Diego', 'conditional', 'classify_current_candidate', ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[], 'Use only tiny clean whitewater windows; skip faster or crowded peaks.'),
+    ('grandview-beach', ARRAY['Grandview Beach', 'Grandview']::text[], 'San Diego', 'conditional', 'classify_current_candidate', ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[], 'Small clean windows only; avoid reefy or crowded edge behavior and stronger surf.'),
+    ('san-elijo-state-beach', ARRAY['San Elijo State Beach']::text[], 'San Diego', 'conditional', 'classify_current_candidate', ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[], 'Small clean whitewater only; avoid fast bars, reefs, and larger combo swell.'),
+    ('imperial-beach', ARRAY['Imperial Beach']::text[], 'San Diego', 'conditional', 'classify_current_candidate', ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[], 'Small clean windows only; suppress for water-quality, current, or closeout risk.'),
+    ('forster-st-oceanside', ARRAY['Forster St. Oceanside', 'Forster Street Oceanside']::text[], 'San Diego', 'conditional', 'classify_current_candidate', ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[], 'Small clean whitewater only; avoid stronger beachbreak days.'),
+    ('oceanside-pier', ARRAY['Oceanside Pier']::text[], 'San Diego', 'conditional', 'classify_current_candidate', ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[], 'Tiny inside reforms only, well away from pier traffic and stronger peaks.'),
+    ('hotel-del-coronado', ARRAY['Hotel Del Coronado', 'Coronado']::text[], 'San Diego', 'conditional', 'classify_current_candidate', ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[], 'Small clean whitewater only; avoid shorebreak, drift, and crowded swim zones.'),
+    ('silver-strand-state-beach', ARRAY['Silver Strand State Beach']::text[], 'San Diego', 'conditional', 'classify_current_candidate', ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[], 'Small clean whitewater only; avoid exposed closeout or strong-current setups.'),
+    ('torrey-pines-state-beach', ARRAY['Torrey Pines State Beach']::text[], 'San Diego', 'conditional', 'classify_current_candidate', ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[], 'Small clean whitewater only; exposed beachbreak and drift should suppress beginner routing.'),
+    ('solana-beach', ARRAY['Solana Beach']::text[], 'San Diego', 'conditional', 'classify_current_candidate', ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[], 'Small clean whitewater only; avoid steep or rocky-edge sections.'),
+    ('georges', ARRAY['George''s', 'Georges']::text[], 'San Diego', 'conditional', 'classify_current_candidate', ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[], 'Small clean and uncrowded only; do not treat as a default learner call.'),
+    ('marine-street-beach', ARRAY['Marine Street Beach']::text[], 'San Diego', 'no', 'exclude_from_beginner', ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[], 'Keep Marine Street out of sandy beginner promotion; shorebreak and power make the fallback too risky.'),
+    ('new-break-nubes', ARRAY['New Break (Nubes)', 'New Break', 'Nubes']::text[], 'San Diego', 'no', 'exclude_from_beginner', ARRAY['https://www.sandiegosurfrental.com/surf-spot-education']::text[], 'Keep Nubes out of sandy beginner promotion; current metadata is too weak for a learner alert override.'),
+    ('middles', ARRAY['Middles']::text[], 'San Diego', 'no', 'exclude_from_beginner', ARRAY['https://www.parks.ca.gov/?page_id=647']::text[], 'Keep Middles out of sandy beginner promotion; San Onofre learner copy should point beginners toward softer Old Man''s-style windows.'),
+    ('trails', ARRAY['Trails']::text[], 'San Diego', 'no', 'exclude_from_beginner', ARRAY['https://www.parks.ca.gov/?page_id=647']::text[], 'Keep Trails out of sandy beginner promotion; access and setup vary too much for a generic learner alert override.'),
+    ('72nd-place-long-beach-ca', ARRAY['72nd Place']::text[], 'Los Angeles', 'primary', 'classify_current_candidate', ARRAY['https://sandermaps.com/blogs/articles/16-best-beginner-surf-spots-in-los-angeles']::text[], 'Small clean sandy whitewater only; avoid wind, current, or shorebreak.'),
+    ('el-porto-manhattan', ARRAY['El Porto (Manhattan)', 'El Porto']::text[], 'Los Angeles', 'conditional', 'classify_current_candidate', ARRAY['https://sandermaps.com/blogs/articles/16-best-beginner-surf-spots-in-los-angeles']::text[], 'Small clean low-wind windows only; do not promote stronger South Bay beachbreak days.'),
+    ('leo-carrillo-state-beach-malibu-ca', ARRAY['Leo Carrillo State Beach']::text[], 'Los Angeles', 'conditional', 'classify_current_candidate', ARRAY['https://sandermaps.com/blogs/articles/16-best-beginner-surf-spots-in-los-angeles']::text[], 'Small clean and supervised only; rocks, reefs, and stronger swell should suppress beginner routing.'),
+    ('zuma-beach-malibu-ca', ARRAY['Zuma Beach']::text[], 'Los Angeles', 'conditional', 'classify_current_candidate', ARRAY['https://sandermaps.com/blogs/articles/16-best-beginner-surf-spots-in-los-angeles']::text[], 'Small clean whitewater only; avoid exposed shorebreak and larger west swell.'),
+    ('salt-creek', ARRAY['Salt Creek']::text[], 'Orange County', 'no', 'exclude_from_beginner', ARRAY['https://www.theorangecountycityguide.com/articles/best-surf-beaches-in-orange-county']::text[], 'Keep Salt Creek out of sandy beginner promotion; it is too punchy and crowded for fallback beginner alerts.'),
+    ('strands', ARRAY['Strands']::text[], 'Orange County', 'no', 'exclude_from_beginner', ARRAY['https://www.theorangecountycityguide.com/articles/best-surf-beaches-in-orange-county']::text[], 'Keep Strands out of sandy beginner promotion; current source support is not enough for learner alerts.'),
+    ('agate-street', ARRAY['Agate Street']::text[], 'Orange County', 'no', 'exclude_from_beginner', ARRAY['https://www.theorangecountycityguide.com/articles/best-surf-beaches-in-orange-county']::text[], 'Keep Agate out of sandy beginner promotion; reef and local peak behavior make fallback alerts unsafe.'),
+    ('brooks-street', ARRAY['Brooks Street']::text[], 'Orange County', 'no', 'exclude_from_beginner', ARRAY['https://www.theorangecountycityguide.com/articles/best-surf-beaches-in-orange-county']::text[], 'Keep Brooks out of sandy beginner promotion; it is not a broad learner sandbar.'),
+    ('thalia-street', ARRAY['Thalia Street']::text[], 'Orange County', 'no', 'exclude_from_beginner', ARRAY['https://www.theorangecountycityguide.com/articles/best-surf-beaches-in-orange-county']::text[], 'Keep Thalia out of sandy beginner promotion; local peak behavior and rocks are not a default learner setup.'),
+    ('corona-del-mar', ARRAY['Corona del Mar']::text[], 'Orange County', 'no', 'exclude_from_beginner', ARRAY['https://www.theorangecountycityguide.com/articles/best-surf-beaches-in-orange-county']::text[], 'Keep Corona del Mar out of sandy beginner promotion; shorebreak and crowd risk make fallback alerts too broad.'),
+    ('newport-56th-st', ARRAY['Newport 56th St', '56th Street']::text[], 'Orange County', 'no', 'exclude_from_beginner', ARRAY['https://www.surfline.com/surf-report/blackies/584204204e65fad6a7709115']::text[], 'Keep 56th Street out of beginner promotion; Newport jetties and faster sandbars are not Blackies-style learner zones.'),
+    ('newport-lower-jetties', ARRAY['Newport Lower Jetties', 'Lower Jetties']::text[], 'Orange County', 'no', 'exclude_from_beginner', ARRAY['https://www.surfline.com/surf-report/blackies/584204204e65fad6a7709115']::text[], 'Keep Lower Jetties out of beginner promotion; jetties and current risk are not a broad learner alert fit.'),
+    ('newport-upper-jetties', ARRAY['Newport Upper Jetties', 'Upper Jetties']::text[], 'Orange County', 'no', 'exclude_from_beginner', ARRAY['https://www.surfline.com/surf-report/blackies/584204204e65fad6a7709115']::text[], 'Keep Upper Jetties out of beginner promotion; jetties and current risk are not a broad learner alert fit.'),
+    ('river-jetties', ARRAY['River Jetties']::text[], 'Orange County', 'no', 'exclude_from_beginner', ARRAY['https://www.surfline.com/surf-report/blackies/584204204e65fad6a7709115']::text[], 'Keep River Jetties out of beginner promotion; current and jetty behavior should not inherit Blackies metadata.'),
+    ('crystal-cove', ARRAY['Crystal Cove']::text[], 'Orange County', 'no', 'exclude_from_beginner', ARRAY['https://www.theorangecountycityguide.com/articles/best-surf-beaches-in-orange-county']::text[], 'Keep Crystal Cove out of sandy beginner promotion; reef/rock and access complexity do not fit this alert model.'),
+    ('204s', ARRAY['204s']::text[], 'Orange County', 'no', 'exclude_from_beginner', ARRAY['https://www.theorangecountycityguide.com/articles/best-surf-beaches-in-orange-county']::text[], 'Keep 204s out of sandy beginner promotion; current source support is too weak for learner alerts.'),
+    ('poche-beach', ARRAY['Poche Beach']::text[], 'Orange County', 'no', 'exclude_from_beginner', ARRAY['https://www.theorangecountycityguide.com/articles/best-surf-beaches-in-orange-county']::text[], 'Keep Poche out of sandy beginner promotion; do not infer a broad learner alert from weak metadata.'),
+    ('san-clemente-state-beach', ARRAY['San Clemente State Beach']::text[], 'Orange County', 'no', 'exclude_from_beginner', ARRAY['https://www.theorangecountycityguide.com/articles/best-surf-beaches-in-orange-county']::text[], 'Keep San Clemente State Beach out of this sandy learner alert model; treat as a separate researched spot if needed.'),
+    ('t-street', ARRAY['T-Street']::text[], 'Orange County', 'no', 'exclude_from_beginner', ARRAY['https://www.theorangecountycityguide.com/articles/best-surf-beaches-in-orange-county']::text[], 'Keep T-Street out of sandy beginner promotion; it is not a broad learner sandbar.'),
+    ('refugio-state-beach-goleta-ca', ARRAY['Refugio State Beach']::text[], 'Santa Barbara', 'conditional', 'classify_current_candidate', ARRAY['https://www.santabarbarasurfschool.com/surf-locations/']::text[], 'Small clean and supervised only; do not promote stronger point or reef days to beginners.'),
+    ('solimar-reef', ARRAY['Solimar Reef']::text[], 'Ventura', 'no', 'exclude_from_beginner', ARRAY['https://www.surfspots.co/spot/mondos', 'https://www.santabarbarasurfschool.com/surf-locations/']::text[], 'Keep Solimar Reef out of sandy beginner promotion; Mondos is the source-backed soft learner anchor.')
+)
+INSERT INTO temp_socal_sandy_beginner_classifications (
+  slug,
+  aliases,
+  region,
+  coverage_action,
+  beginner_fit,
+  beginner_window,
+  source_urls
+)
+SELECT
+  slug,
+  aliases,
+  region,
+  coverage_action,
+  beginner_fit,
+  jsonb_build_object(
+    'model', 'socal_sandy_beginner',
+    'beginner_fit', beginner_fit,
+    'ideal_wave_height_ft',
+      CASE beginner_fit
+        WHEN 'primary' THEN jsonb_build_object('min', 0.5, 'max', 2)
+        ELSE jsonb_build_object('min', 0.5, 'max', 1.5)
+      END,
+    'acceptable_wave_height_ft',
+      CASE beginner_fit
+        WHEN 'primary' THEN jsonb_build_object('min', 0.5, 'max', 2.5)
+        WHEN 'conditional' THEN jsonb_build_object('min', 0.5, 'max', 2)
+        ELSE jsonb_build_object('min', 0.5, 'max', 1.5)
+      END,
+    'preferred_tide_stage', jsonb_build_array('low', 'rising', 'mid'),
+    'avoid_high_tide_under_ft', 2,
+    'best_time_local', jsonb_build_object('start', '06:00', 'end', '10:00'),
+    'max_beginner_wind_mph', 10,
+    'avoid_tide_notes', avoid_tide_notes
+  ),
+  source_urls
+FROM lightweight_rows
+ON CONFLICT (slug) DO NOTHING;
 
 INSERT INTO public.beaches (
   name,
@@ -453,7 +902,7 @@ SELECT
     'coverage_action', coverage_action
   ),
   false
-FROM temp_huntington_beginner_profiles profile
+FROM temp_socal_sandy_beginner_profiles profile
 WHERE insert_if_missing = true
   AND NOT EXISTS (
     SELECT 1
@@ -521,7 +970,7 @@ SET
     b.description,
     profile.best_conditions_prose
   )
-FROM temp_huntington_beginner_profiles profile
+FROM temp_socal_sandy_beginner_profiles profile
 WHERE b.deleted_at IS NULL
   AND (
     b.slug = profile.slug
@@ -564,9 +1013,9 @@ SELECT
       'winter', 'More variable and often less beginner-friendly; avoid bigger swell and strong drift.',
       'spring', 'Good progression season on small clean mornings before afternoon wind.'
     ),
-    'important_note', 'The shared Huntington learner rule is small, clean, early, and low-to-mid tide. Do not treat high tide on a tiny day as automatically beginner-friendly.'
+    'important_note', 'The shared Southern California sandy learner rule is small, clean, early, and low-to-mid tide. Do not treat high tide on a tiny day as automatically beginner-friendly.'
   )
-FROM temp_huntington_beginner_profiles profile
+FROM temp_socal_sandy_beginner_profiles profile
 JOIN public.beaches b
   ON b.deleted_at IS NULL
   AND (
@@ -584,6 +1033,31 @@ DO UPDATE SET
   updated_at = now(),
   generated_at = now();
 
+UPDATE public.beaches AS b
+SET
+  preference_model =
+    COALESCE(b.preference_model, '{}'::jsonb) ||
+    jsonb_build_object(
+      'beginner_window', classification.beginner_window,
+      'sandy_beginner_inventory',
+        jsonb_build_object(
+          'scope', 'southern_california',
+          'region', classification.region,
+          'beginner_fit', classification.beginner_fit,
+          'coverage_action', classification.coverage_action,
+          'source_urls', to_jsonb(classification.source_urls)
+        )
+    )
+FROM temp_socal_sandy_beginner_classifications classification
+WHERE b.deleted_at IS NULL
+  AND (
+    b.slug = classification.slug
+    OR lower(b.name) IN (
+      SELECT lower(alias_value)
+      FROM unnest(classification.aliases) AS alias_value
+    )
+  );
+
 CREATE OR REPLACE FUNCTION public.preset_default_conditions(p_preset text, p_beach_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -594,10 +1068,6 @@ DECLARE
   v_tide_max numeric;
   v_effective_tide_min numeric;
   v_effective_tide_max numeric;
-  v_skill_level text;
-  v_break_type text;
-  v_features text[];
-  v_features_text text;
   v_preference_model jsonb;
   v_beginner_window jsonb;
   v_beginner_fit text;
@@ -623,21 +1093,14 @@ BEGIN
       SELECT
         b.preferred_tide_ft_min,
         b.preferred_tide_ft_max,
-        b.skill_level,
-        b.break_type,
-        b.features,
         b.preference_model
       INTO
         v_tide_min,
         v_tide_max,
-        v_skill_level,
-        v_break_type,
-        v_features,
         v_preference_model
       FROM public.beaches b
       WHERE b.id = p_beach_id;
 
-      v_features_text := lower(array_to_string(COALESCE(v_features, ARRAY[]::text[]), ' '));
       v_beginner_window := v_preference_model -> 'beginner_window';
       v_beginner_fit := lower(v_beginner_window ->> 'beginner_fit');
       v_effective_tide_min := COALESCE(
@@ -648,19 +1111,9 @@ BEGIN
         NULLIF(v_beginner_window ->> 'preferred_tide_ft_max', '')::numeric,
         v_tide_max
       );
-      v_apply_sandy_beginner := CASE
-        WHEN v_beginner_window IS NOT NULL THEN COALESCE(v_beginner_fit, '') <> 'no'
-        ELSE
-          (
-            COALESCE(v_skill_level, '') ILIKE '%beginner%'
-            OR v_features_text LIKE '%beginner%'
-          )
-          AND (
-            COALESCE(v_break_type, '') ILIKE '%beach%'
-            OR v_features_text LIKE '%sand%'
-            OR v_features_text LIKE '%sandy%'
-          )
-      END;
+      v_apply_sandy_beginner :=
+        v_beginner_window IS NOT NULL
+        AND v_beginner_fit IN ('primary', 'conditional');
 
       IF v_apply_sandy_beginner THEN
         v_wind_mph := COALESCE(
@@ -716,24 +1169,8 @@ WITH sandy_beginner_beaches AS (
   SELECT b.id, b.preferred_tide_ft_min, b.preferred_tide_ft_max
   FROM public.beaches b
   WHERE b.deleted_at IS NULL
-    AND (
-      (
-        b.preference_model ? 'beginner_window'
-        AND lower(COALESCE(b.preference_model #>> '{beginner_window,beginner_fit}', '')) <> 'no'
-      )
-      OR (
-        NOT (COALESCE(b.preference_model, '{}'::jsonb) ? 'beginner_window')
-        AND (
-          COALESCE(b.skill_level, '') ILIKE '%beginner%'
-          OR lower(array_to_string(COALESCE(b.features, ARRAY[]::text[]), ' ')) LIKE '%beginner%'
-        )
-        AND (
-          COALESCE(b.break_type, '') ILIKE '%beach%'
-          OR lower(array_to_string(COALESCE(b.features, ARRAY[]::text[]), ' ')) LIKE '%sand%'
-          OR lower(array_to_string(COALESCE(b.features, ARRAY[]::text[]), ' ')) LIKE '%sandy%'
-        )
-      )
-    )
+    AND b.preference_model ? 'beginner_window'
+    AND lower(COALESCE(b.preference_model #>> '{beginner_window,beginner_fit}', '')) IN ('primary', 'conditional')
 ),
 legacy_mellow_rules AS (
   SELECT r.id

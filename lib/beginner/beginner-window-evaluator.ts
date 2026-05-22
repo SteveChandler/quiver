@@ -79,9 +79,12 @@ export function getSandyBeginnerWindowProfile(
 ): BeginnerWindowProfile | null {
   const beginnerWindow = readBeginnerWindow(beach.preference_model);
   const beginnerFit = readString(beginnerWindow?.beginner_fit)?.toLowerCase();
-  if (beginnerFit === "no") return null;
-
-  if (!beginnerWindow && !isSandyBeginnerBeachMetadata(beach)) return null;
+  if (
+    !beginnerWindow ||
+    (beginnerFit !== "primary" && beginnerFit !== "conditional")
+  ) {
+    return null;
+  }
 
   return {
     idealWaveHeightFt:
@@ -119,23 +122,10 @@ export function isSandyBeginnerBeachMetadata(
   beach: BeginnerBeachMetadata,
 ): boolean {
   const beginnerWindow = readBeginnerWindow(beach.preference_model);
-  if (beginnerWindow) {
-    const fit = readString(beginnerWindow.beginner_fit)?.toLowerCase();
-    return fit !== "no";
-  }
+  if (!beginnerWindow) return false;
 
-  const skill = beach.skill_level?.toLowerCase() ?? "";
-  const breakType = beach.break_type?.toLowerCase() ?? "";
-  const features = (beach.features ?? []).join(" ").toLowerCase();
-
-  const beginnerTagged =
-    skill.includes("beginner") || features.includes("beginner");
-  const sandyBeachbreak =
-    breakType.includes("beach") ||
-    features.includes("sand") ||
-    features.includes("sandy");
-
-  return beginnerTagged && sandyBeachbreak;
+  const fit = readString(beginnerWindow.beginner_fit)?.toLowerCase();
+  return fit === "primary" || fit === "conditional";
 }
 
 export function evaluateBeginnerWindow(

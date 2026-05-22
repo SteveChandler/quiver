@@ -17,6 +17,23 @@ Current config expects three image slots per included page:
 
 `/surf-cams/santa-cruz` is intentionally not included until Quiver has real Santa Cruz cam coverage.
 
+## Beach-Specific Photo Candidate Pipeline
+
+Use the read-only candidate finder before replacing representative SEO images with real beach photos:
+
+```bash
+yarn photos:find:seo \
+  --targets=scripts/data/socal-beginner-photo-targets.json \
+  --out=docs/seo/photo-candidates/socal-beginner-photo-candidates.md \
+  --jsonOut=docs/seo/photo-candidates/socal-beginner-photo-candidates.json \
+  --limit=6 \
+  --perTarget=3 \
+  --source=wikimedia \
+  --minScore=4
+```
+
+The finder queries Openverse for commercial-use Creative Commons images, defaults to Wikimedia, rejects NC/ND licenses, drops low-score matches, and writes local review artifacts only. It does not insert rows into Supabase or approve `beach_photos`; any selected image still needs a manual beach-match and license review before a migration or asset swap.
+
 TODO: Generate any missing `.webp` files from the `prompt` values in
 `lib/seo/funnel-pages.ts`. Missing files are safe in production because
 `SeoImageFrame` renders the branded placeholder card.

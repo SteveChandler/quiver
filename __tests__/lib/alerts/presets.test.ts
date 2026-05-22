@@ -103,6 +103,43 @@ describe("presets", () => {
     expect(conditions.swell_height_max).toBe(4);
   });
 
+  it("does not apply sandy beginner scoring from legacy tags alone", () => {
+    const preset = getPreset("mellow_session")!;
+    const conditions = preset.buildConditions({
+      ...mockBeach,
+      skill_level: "beginner",
+      break_type: "beach",
+      features: ["sand bottom", "beginner sandy beachbreak"],
+      preference_model: {},
+    });
+
+    expect(conditions.beginner_sandy_window).toBeUndefined();
+    expect(conditions.swell_height_min).toBe(1.5);
+    expect(conditions.swell_height_max).toBe(4);
+    expect(conditions.wind_speed_max_kt).toBe(8);
+  });
+
+  it("requires primary or conditional beginner_fit metadata for sandy beginner scoring", () => {
+    const preset = getPreset("mellow_session")!;
+    const conditions = preset.buildConditions({
+      ...mockBeach,
+      skill_level: "beginner",
+      break_type: "beach",
+      features: ["sand bottom", "beginner sandy beachbreak"],
+      preference_model: {
+        beginner_window: {
+          model: "socal_sandy_beginner",
+          acceptable_wave_height_ft: { min: 0.5, max: 3 },
+        },
+      },
+    });
+
+    expect(conditions.beginner_sandy_window).toBeUndefined();
+    expect(conditions.swell_height_min).toBe(1.5);
+    expect(conditions.swell_height_max).toBe(4);
+    expect(conditions.wind_speed_max_kt).toBe(8);
+  });
+
   it("clean_groundswell has 2ft floor + 12s period", () => {
     const preset = getPreset("clean_groundswell")!;
     const conditions = preset.buildConditions(mockBeach);

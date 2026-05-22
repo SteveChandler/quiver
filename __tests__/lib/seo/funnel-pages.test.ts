@@ -24,6 +24,9 @@ const REQUIRED_ROUTES = [
   "/beginner/santa-cruz",
   "/beginner/orange-county",
   "/beginner/huntington-beach",
+  "/beginner/los-angeles",
+  "/beginner/ventura",
+  "/beginner/santa-barbara",
   "/beginner/honolulu",
   "/beginner/cocoa-beach",
   "/beginner/san-onofre",
@@ -41,7 +44,7 @@ describe("SEO funnel pages", () => {
   it("defines the requested indexable routes and excludes Santa Cruz cams", () => {
     const routes = getIndexableSeoFunnelRoutes();
 
-    expect(routes).toHaveLength(22);
+    expect(routes).toHaveLength(25);
     expect(routes).toEqual(expect.arrayContaining(REQUIRED_ROUTES));
     expect(routes).not.toContain("/surf-cams/santa-cruz");
   });
@@ -142,7 +145,7 @@ describe("SEO funnel pages", () => {
   it("resolves every configured SEO image file", () => {
     const prompts = getSeoFunnelImagePrompts();
 
-    expect(prompts).toHaveLength(66);
+    expect(prompts).toHaveLength(75);
     for (const { image } of prompts) {
       expect(
         existsSync(join(process.cwd(), "public", image.src.slice(1))),
@@ -186,7 +189,7 @@ describe("SEO funnel pages", () => {
       ({ image }) => image.assetType === "diorama",
     );
 
-    expect(prompts).toHaveLength(66);
+    expect(prompts).toHaveLength(75);
     for (const { image } of prompts) {
       expect(image.prompt).toContain("Use case: ads-marketing");
       expect(image.prompt).toContain("no text");
@@ -218,6 +221,15 @@ describe("SEO funnel pages", () => {
     expect(
       getSeoFunnelPageByIntentRoute("beginner", "huntington-beach")?.path,
     ).toBe("/beginner/huntington-beach");
+    expect(
+      getSeoFunnelPageByIntentRoute("beginner", "los-angeles")?.path,
+    ).toBe("/beginner/los-angeles");
+    expect(getSeoFunnelPageByIntentRoute("beginner", "ventura")?.path).toBe(
+      "/beginner/ventura",
+    );
+    expect(
+      getSeoFunnelPageByIntentRoute("beginner", "santa-barbara")?.path,
+    ).toBe("/beginner/santa-barbara");
     expect(getSeoFunnelPageByIntentRoute("longboard", "pr")?.path).toBe(
       "/longboard/pr",
     );
@@ -242,6 +254,60 @@ describe("SEO funnel pages", () => {
     expect(localRead).toContain("Newland");
     expect(localRead).toContain("Huntington St.");
     expect(localRead).toContain("Cliffs");
+  });
+
+  it("connects the SoCal beginner pages without blanket-promoting conditional spots", () => {
+    const losAngeles = getSeoFunnelPageByTypeAndSlug(
+      "beginner",
+      "los-angeles",
+    );
+    const ventura = getSeoFunnelPageByTypeAndSlug("beginner", "ventura");
+    const santaBarbara = getSeoFunnelPageByTypeAndSlug(
+      "beginner",
+      "santa-barbara",
+    );
+
+    expect(losAngeles).not.toBeNull();
+    expect(ventura).not.toBeNull();
+    expect(santaBarbara).not.toBeNull();
+
+    expect(losAngeles!.internalLinks.map((link) => link.href)).toEqual(
+      expect.arrayContaining([
+        "/beginner/orange-county",
+        "/beginner/san-diego",
+        "/beginner/ventura",
+        "/beginner/santa-barbara",
+      ]),
+    );
+    expect(
+      losAngeles!.sections.find(
+        (section) => section.heading === "Local read before you drive",
+      )?.body,
+    ).toContain("El Porto, Zuma, and Leo Carrillo are small-day conditional");
+
+    expect(ventura!.nearbySpots.map((spot) => spot.href)).toEqual(
+      expect.arrayContaining([
+        "/ca/ventura/mondos-beach-ventura-ca",
+        "/beginner/santa-barbara",
+      ]),
+    );
+    expect(
+      ventura!.sections.find(
+        (section) => section.heading === "Local read before you drive",
+      )?.body,
+    ).toContain("Solimar-style reef rows should not inherit beginner");
+
+    expect(santaBarbara!.nearbySpots.map((spot) => spot.href)).toEqual(
+      expect.arrayContaining([
+        "/ca/goleta/refugio-state-beach-goleta-ca",
+        "/ca/ventura/mondos-beach-ventura-ca",
+      ]),
+    );
+    expect(
+      santaBarbara!.sections.find(
+        (section) => section.heading === "Local read before you drive",
+      )?.body,
+    ).toContain("Refugio is conditional");
   });
 
   it("resolves surf report and cam configs by type and slug", () => {

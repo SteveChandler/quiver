@@ -120,4 +120,54 @@ describe("beginner sandy-window evaluator", () => {
       }).rating,
     ).toBe("not_applicable");
   });
+
+  it("does not infer the sandy beginner model from legacy tags alone", () => {
+    const legacyBeginnerBeach = {
+      skill_level: "beginner",
+      break_type: "beach",
+      features: ["sand bottom", "beginner sandy beachbreak"],
+      preference_model: {},
+    };
+
+    expect(isSandyBeginnerBeachMetadata(legacyBeginnerBeach)).toBe(false);
+    expect(getSandyBeginnerWindowProfile(legacyBeginnerBeach)).toBeNull();
+    expect(
+      evaluateBeginnerWindow({
+        beach: legacyBeginnerBeach,
+        waveHeightFtMax: 2,
+        windSpeedMph: 4,
+        tideStatus: "Rising",
+        forecastAt: "2026-05-22T14:00:00Z",
+        timezone: "America/Los_Angeles",
+      }).rating,
+    ).toBe("not_applicable");
+  });
+
+  it("requires explicit primary or conditional beginner fit metadata", () => {
+    const missingFitBeach = {
+      ...sandyBeginnerBeach,
+      preference_model: {
+        beginner_window: {
+          model: "socal_sandy_beginner",
+          acceptable_wave_height_ft: { min: 0.5, max: 3 },
+        },
+      },
+    };
+
+    const noFitBeach = {
+      ...sandyBeginnerBeach,
+      preference_model: {
+        beginner_window: {
+          model: "socal_sandy_beginner",
+          beginner_fit: "no",
+          acceptable_wave_height_ft: { min: 0.5, max: 3 },
+        },
+      },
+    };
+
+    expect(isSandyBeginnerBeachMetadata(missingFitBeach)).toBe(false);
+    expect(getSandyBeginnerWindowProfile(missingFitBeach)).toBeNull();
+    expect(isSandyBeginnerBeachMetadata(noFitBeach)).toBe(false);
+    expect(getSandyBeginnerWindowProfile(noFitBeach)).toBeNull();
+  });
 });
