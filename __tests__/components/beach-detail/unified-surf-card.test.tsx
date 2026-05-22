@@ -110,7 +110,7 @@ describe("UnifiedSurfCard", () => {
   });
 
   describe("YES Verdict", () => {
-    it("shows 'Best Time to Surf Today' for YES verdict", () => {
+    it("shows 'Best Surf Window Today' for YES verdict", () => {
       const surfCall = createMockSurfCall({ verdict: "YES" });
 
       render(
@@ -121,7 +121,7 @@ describe("UnifiedSurfCard", () => {
         />
       );
 
-      expect(screen.getByText(/Best Time to Surf Today/i)).toBeInTheDocument();
+      expect(screen.getByText(/Best Surf Window Today/i)).toBeInTheDocument();
     });
 
     it("shows window time range for YES verdict", () => {
@@ -249,6 +249,26 @@ describe("UnifiedSurfCard", () => {
       ).toBeInTheDocument();
     });
 
+    it("shows setup cautions for NO verdict", () => {
+      const surfCall = createMockSurfCall({
+        verdict: "NO",
+        whySentence: "Likely heavy / closing out on the dropping low tide.",
+        cautions: ["Likely heavy / closing out on the dropping low tide"],
+      });
+
+      render(
+        <UnifiedSurfCard
+          surfCall={surfCall}
+          beachName="Test Beach"
+          beachTimezone="America/Los_Angeles"
+        />
+      );
+
+      expect(
+        screen.getByText("Likely heavy / closing out on the dropping low tide")
+      ).toBeInTheDocument();
+    });
+
     it("does not show time window UI for NO verdict", () => {
       const surfCall = createMockSurfCall({
         verdict: "NO",
@@ -282,10 +302,10 @@ describe("UnifiedSurfCard", () => {
       );
 
       expect(
-        screen.getByText(/Best Time to Surf Tomorrow/i)
+        screen.getByText(/Best Surf Window Tomorrow/i)
       ).toBeInTheDocument();
       expect(
-        screen.queryByText(/Best Time to Surf Today/i)
+        screen.queryByText(/Best Surf Window Today/i)
       ).not.toBeInTheDocument();
     });
 
@@ -323,7 +343,7 @@ describe("UnifiedSurfCard", () => {
         />
       );
 
-      expect(screen.getByText(/Best Time to Surf Today/i)).toBeInTheDocument();
+      expect(screen.getByText(/Best Surf Window Today/i)).toBeInTheDocument();
     });
   });
 
@@ -622,7 +642,7 @@ describe("UnifiedSurfCard", () => {
       );
 
       // MAYBE with valid window renders the full card (same as YES)
-      expect(screen.getByText(/Best Time to Surf Today/i)).toBeInTheDocument();
+      expect(screen.getByText(/Best Surf Window Today/i)).toBeInTheDocument();
       expect(
         screen.getByText("Conditions are marginal but potentially surfable.")
       ).toBeInTheDocument();
@@ -633,7 +653,7 @@ describe("UnifiedSurfCard", () => {
   // Calibration honesty layer
   // ==========================================================================
   //
-  // UnifiedSurfCard is the "Best Time to Surf" hero shown on the beach detail
+  // UnifiedSurfCard is the "Best Surf Window" hero shown on the beach detail
   // forecast tab. It renders the Conditions pill through WaveHeightDisplay so
   // the calibration honesty layer flows end-to-end: server action stamps
   // isCalibrated from beach.shoaling_factors → threaded through SurfCallResult

@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import { computeSurfCall, computeSurfCallTiers } from '@/lib/utils/surf-call-logic';
+import { LOW_TIDE_HEAVY_SWELL_WARNING } from '@/lib/domains/scoring';
 import type { PersonalizedForecastWindow } from '@/types/personalization';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { Beach } from '@/types/database';
@@ -122,6 +123,38 @@ describe('computeSurfCall', () => {
       const result = computeSurfCall(null, forecasts, makeBeach());
       expect(result.verdict).toBe('NO');
       expect(result.whySentence).toBe('No viable surf window today.');
+    });
+
+    it('returns NO with a caution for heavy beach-break surf on a dropping low tide', () => {
+      const beach = makeBeach({
+        break_type: 'beach',
+        preferred_tide_ft_min: 2,
+        preferred_tide_ft_max: 6,
+        preferred_tide_direction: 'either',
+      });
+      const forecasts = [
+        makeForecast({
+          wave_height: '7 ft',
+          wave_period: '10s',
+          swell_1_height: '7',
+          swell_1_period: '10s',
+          tide_height: '-0.4',
+          tide_status: 'Falling',
+        }),
+      ];
+      const window = makeWindow({
+        score: 90,
+        waveHeight: '7 ft',
+        wavePeriod: '10s',
+      });
+
+      const result = computeSurfCall(window, forecasts, beach);
+
+      expect(result.verdict).toBe('NO');
+      expect(result.bestWindowStart).toBeNull();
+      expect(result.bestWindowEnd).toBeNull();
+      expect(result.cautions).toContain(LOW_TIDE_HEAVY_SWELL_WARNING);
+      expect(result.whySentence).toBe(`${LOW_TIDE_HEAVY_SWELL_WARNING}.`);
     });
   });
 

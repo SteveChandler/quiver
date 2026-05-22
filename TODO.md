@@ -1,5 +1,12 @@
 # TODO
 
+## Forecast Trust Follow-Ups
+
+- [ ] Draft a forecast-literacy guide.
+  - Working angle: how to read a surf forecast without outsourcing the call.
+  - Cover swell height, period, direction, tide height, tide direction, wind, spot sensitivity, and red flags like heavy/closed-out low-tide beach breaks.
+  - Do not write the article until the product trust language and setup-risk regression have shipped.
+
 ## Web Custom Spots Follow-Ups
 
 - [ ] Decide and implement web custom spot parity.
