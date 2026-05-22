@@ -16,7 +16,7 @@ const MAX_CONTIGUOUS_GAP_MS = 90 * 60 * 1000;
 export function findMatchingWindows(
   conditions: AlertConditions,
   forecasts: ForecastHour[],
-  beach: BeachAlertMeta
+  beach: BeachAlertMeta,
 ): FoundWindow[] {
   const windows: FoundWindow[] = [];
   let currentWindow: ForecastHour[] = [];
@@ -44,14 +44,20 @@ export function findMatchingWindows(
   return windows;
 }
 
-function isSparseGap(previousForecastAt: string, nextForecastAt: string): boolean {
+function isSparseGap(
+  previousForecastAt: string,
+  nextForecastAt: string,
+): boolean {
   const previousMs = new Date(previousForecastAt).getTime();
   const nextMs = new Date(nextForecastAt).getTime();
   if (!Number.isFinite(previousMs) || !Number.isFinite(nextMs)) return false;
   return nextMs - previousMs > MAX_CONTIGUOUS_GAP_MS;
 }
 
-function buildWindow(conditions: AlertConditions, hours: ForecastHour[]): FoundWindow {
+function buildWindow(
+  conditions: AlertConditions,
+  hours: ForecastHour[],
+): FoundWindow {
   let bestIdx = 0;
   let bestScore = -Infinity;
 
@@ -70,7 +76,8 @@ function buildWindow(conditions: AlertConditions, hours: ForecastHour[]): FoundW
   // window_start === window_end (zero-duration), which the surfability gate
   // suppresses as too short, and the email renders as "8:00 AM – 8:00 AM".
   const lastHourEndMs =
-    new Date(hours[hours.length - 1].forecast_at).getTime() + FORECAST_HOUR_DURATION_MS;
+    new Date(hours[hours.length - 1].forecast_at).getTime() +
+    FORECAST_HOUR_DURATION_MS;
 
   return {
     window_start: hours[0].forecast_at,
@@ -87,6 +94,30 @@ function buildWindow(conditions: AlertConditions, hours: ForecastHour[]): FoundW
       wind_direction_deg: best.wind_direction_deg,
       tide_height: best.tide_height,
       tide_status: best.tide_status,
+      ...(conditions.beginner_sandy_window
+        ? {
+            beginner_window_reason: buildBeginnerWindowReason(conditions, best),
+          }
+        : {}),
     },
   };
+}
+
+function buildBeginnerWindowReason(
+  conditions: AlertConditions,
+  forecast: ForecastHour,
+): string {
+  const reasons = ["small waves"];
+  if (forecast.wind_speed != null && conditions.wind_speed_max_kt != null) {
+    reasons.push("light wind");
+  }
+  if (conditions.local_time_start && conditions.local_time_end) {
+    reasons.push("morning window");
+  }
+  if (forecast.tide_status) {
+    reasons.push(`${forecast.tide_status.toLowerCase()} tide`);
+  } else {
+    reasons.push("low-to-mid tide fit");
+  }
+  return `${reasons.join(", ")}.`;
 }

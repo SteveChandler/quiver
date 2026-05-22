@@ -3,12 +3,24 @@ import type { MatchingWindow } from "@/lib/alerts/types";
 
 function makeMatch(overrides: Partial<MatchingWindow> = {}): MatchingWindow {
   return {
-    rule_id: "r1", rule_name: "Glass-Off",
-    beach_id: "b1", beach_name: "Blacks Beach", beach_timezone: "America/Los_Angeles",
-    window_start: "2026-04-01T14:00:00Z", window_end: "2026-04-01T17:00:00Z",
-    best_hour: "2026-04-01T15:30:00Z", best_score: 0.8,
-    conditions_snapshot: { wave_height: 4, swell_1_period: 14, wind_speed: 5, tide_height: 3.2, tide_status: "rising" },
-    notify_email: true, notify_push: true,
+    rule_id: "r1",
+    rule_name: "Glass-Off",
+    beach_id: "b1",
+    beach_name: "Blacks Beach",
+    beach_timezone: "America/Los_Angeles",
+    window_start: "2026-04-01T14:00:00Z",
+    window_end: "2026-04-01T17:00:00Z",
+    best_hour: "2026-04-01T15:30:00Z",
+    best_score: 0.8,
+    conditions_snapshot: {
+      wave_height: 4,
+      swell_1_period: 14,
+      wind_speed: 5,
+      tide_height: 3.2,
+      tide_status: "rising",
+    },
+    notify_email: true,
+    notify_push: true,
     ...overrides,
   };
 }
@@ -55,6 +67,22 @@ describe("formatPushNotification", () => {
     expect(result.body).toContain("@ 12s");
   });
 
+  it("includes beginner rationale when present", () => {
+    const result = formatPushNotification([
+      makeMatch({
+        conditions_snapshot: {
+          wave_height: 1.5,
+          wave_period: 6,
+          wind_speed: 3,
+          beginner_window_reason:
+            "small waves, light wind, morning window, rising tide.",
+        },
+      }),
+    ]);
+
+    expect(result.body).toContain("small waves, light wind, morning window");
+  });
+
   it("falls back to swell_1_period when wave_period is missing", () => {
     const result = formatPushNotification([
       makeMatch({
@@ -69,7 +97,10 @@ describe("formatPushNotification", () => {
   });
 
   it("formats two beaches", () => {
-    const matches = [makeMatch(), makeMatch({ beach_name: "Trestles", beach_id: "b2" })];
+    const matches = [
+      makeMatch(),
+      makeMatch({ beach_name: "Trestles", beach_id: "b2" }),
+    ];
     const result = formatPushNotification(matches);
     expect(result.body).toContain("Blacks Beach");
     expect(result.body).toContain("Trestles");
@@ -89,7 +120,10 @@ describe("formatPushNotification", () => {
   it("body stays under 150 characters", () => {
     const matches = [
       makeMatch({ beach_name: "Very Long Beach Name That Goes On" }),
-      makeMatch({ beach_name: "Another Extremely Long Beach Name Here", beach_id: "b2" }),
+      makeMatch({
+        beach_name: "Another Extremely Long Beach Name Here",
+        beach_id: "b2",
+      }),
     ];
     const result = formatPushNotification(matches);
     expect(result.body.length).toBeLessThanOrEqual(150);

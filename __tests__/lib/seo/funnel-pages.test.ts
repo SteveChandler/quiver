@@ -23,6 +23,7 @@ const REQUIRED_ROUTES = [
   "/beginner/san-diego",
   "/beginner/santa-cruz",
   "/beginner/orange-county",
+  "/beginner/huntington-beach",
   "/beginner/honolulu",
   "/beginner/cocoa-beach",
   "/beginner/san-onofre",
@@ -40,7 +41,7 @@ describe("SEO funnel pages", () => {
   it("defines the requested indexable routes and excludes Santa Cruz cams", () => {
     const routes = getIndexableSeoFunnelRoutes();
 
-    expect(routes).toHaveLength(21);
+    expect(routes).toHaveLength(22);
     expect(routes).toEqual(expect.arrayContaining(REQUIRED_ROUTES));
     expect(routes).not.toContain("/surf-cams/santa-cruz");
   });
@@ -141,7 +142,7 @@ describe("SEO funnel pages", () => {
   it("resolves every configured SEO image file", () => {
     const prompts = getSeoFunnelImagePrompts();
 
-    expect(prompts).toHaveLength(63);
+    expect(prompts).toHaveLength(66);
     for (const { image } of prompts) {
       expect(
         existsSync(join(process.cwd(), "public", image.src.slice(1))),
@@ -185,7 +186,7 @@ describe("SEO funnel pages", () => {
       ({ image }) => image.assetType === "diorama",
     );
 
-    expect(prompts).toHaveLength(63);
+    expect(prompts).toHaveLength(66);
     for (const { image } of prompts) {
       expect(image.prompt).toContain("Use case: ads-marketing");
       expect(image.prompt).toContain("no text");
@@ -214,10 +215,33 @@ describe("SEO funnel pages", () => {
     expect(getSeoFunnelPageByIntentRoute("beginner", "santa-cruz")?.path).toBe(
       "/beginner/santa-cruz",
     );
+    expect(
+      getSeoFunnelPageByIntentRoute("beginner", "huntington-beach")?.path,
+    ).toBe("/beginner/huntington-beach");
     expect(getSeoFunnelPageByIntentRoute("longboard", "pr")?.path).toBe(
       "/longboard/pr",
     );
     expect(getSeoFunnelPageByIntentRoute("tide", "san-diego")).toBeNull();
+  });
+
+  it("keeps Huntington beginner coverage focused on researched learner zones", () => {
+    const page = getSeoFunnelPageByTypeAndSlug("beginner", "huntington-beach");
+    const localRead = page?.sections.find(
+      (section) => section.heading === "Local read before you drive",
+    )?.body;
+
+    expect(page).not.toBeNull();
+    expect(page!.nearbySpots.map((spot) => spot.href)).toEqual(
+      expect.arrayContaining([
+        "/ca/huntington-beach/bolsa-chica",
+        "/ca/huntington-beach/huntington-state-beach",
+        "/ca/huntington-beach/goldenwest",
+        "/ca/newport-beach/blackies",
+      ]),
+    );
+    expect(localRead).toContain("Newland");
+    expect(localRead).toContain("Huntington St.");
+    expect(localRead).toContain("Cliffs");
   });
 
   it("resolves surf report and cam configs by type and slug", () => {

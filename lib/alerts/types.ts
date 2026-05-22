@@ -9,6 +9,10 @@ export interface AlertConditions {
   tide_height_min_ft?: number;
   tide_height_max_ft?: number;
   tide_direction?: "rising" | "falling" | "high" | "low";
+  avoid_tide_statuses?: string[];
+  local_time_start?: string;
+  local_time_end?: string;
+  beginner_sandy_window?: boolean;
 }
 
 export type PresetType =
@@ -45,6 +49,12 @@ export interface BeachAlertMeta {
   preferred_tide_direction: string | null;
   swell_window_center_deg: number | null;
   swell_window_halfwidth_deg: number | null;
+  break_type?: string | null;
+  skill_level?: string | null;
+  features?: string[] | null;
+  preference_model?: unknown;
+  max_wind_any_mph?: number | null;
+  max_wind_onshore_mph?: number | null;
 }
 
 export interface ForecastHour {

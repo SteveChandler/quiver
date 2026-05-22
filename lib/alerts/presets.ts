@@ -4,6 +4,37 @@ import type {
   PresetDefinition,
   PresetType,
 } from "./types";
+import { getSandyBeginnerWindowProfile } from "@/lib/beginner/beginner-window-evaluator";
+
+const MPH_TO_KT = 0.868976;
+
+function buildMellowSessionConditions(beach: BeachAlertMeta): AlertConditions {
+  const beginnerProfile = getSandyBeginnerWindowProfile(beach);
+
+  if (!beginnerProfile) {
+    return {
+      swell_height_min: 1.5,
+      swell_height_max: 4,
+      wind_speed_max_kt: 8,
+      tide_height_min_ft: beach.preferred_tide_ft_min ?? undefined,
+      tide_height_max_ft: beach.preferred_tide_ft_max ?? undefined,
+    };
+  }
+
+  return {
+    swell_height_min: beginnerProfile.acceptableWaveHeightFt.min,
+    swell_height_max: beginnerProfile.acceptableWaveHeightFt.max,
+    wind_speed_max_kt: Math.round(
+      beginnerProfile.maxBeginnerWindMph * MPH_TO_KT,
+    ),
+    tide_height_min_ft: beginnerProfile.preferredTideFt.min ?? undefined,
+    tide_height_max_ft: beginnerProfile.preferredTideFt.max ?? undefined,
+    avoid_tide_statuses: ["high"],
+    local_time_start: beginnerProfile.bestTimeLocal.start,
+    local_time_end: beginnerProfile.bestTimeLocal.end,
+    beginner_sandy_window: true,
+  };
+}
 
 export const PRESETS: PresetDefinition[] = [
   {
@@ -24,13 +55,7 @@ export const PRESETS: PresetDefinition[] = [
     description: "Small, clean, and fun. Good for longboards and learning.",
     conditionsSummary: "1.5 to 4 ft swell, under 8 kt wind, favorable tide",
     group: "popular",
-    buildConditions: (beach: BeachAlertMeta): AlertConditions => ({
-      swell_height_min: 1.5,
-      swell_height_max: 4,
-      wind_speed_max_kt: 8,
-      tide_height_min_ft: beach.preferred_tide_ft_min ?? undefined,
-      tide_height_max_ft: beach.preferred_tide_ft_max ?? undefined,
-    }),
+    buildConditions: buildMellowSessionConditions,
   },
   {
     type: "dawn_patrol",
@@ -99,7 +124,8 @@ export const PRESETS: PresetDefinition[] = [
   {
     type: "epic_conditions",
     name: "Epic Conditions",
-    description: "Everything lines up for the rare days worth dropping everything.",
+    description:
+      "Everything lines up for the rare days worth dropping everything.",
     conditionsSummary: "Ideal wind, ideal swell, ideal tide",
     group: "specific",
     buildConditions: (beach: BeachAlertMeta): AlertConditions => ({
@@ -146,7 +172,7 @@ export function getPreset(type: PresetType): PresetDefinition | undefined {
 }
 
 export function getPresetsForGroup(
-  group: "popular" | "specific"
+  group: "popular" | "specific",
 ): PresetDefinition[] {
   return PRESETS.filter((p) => p.group === group);
 }

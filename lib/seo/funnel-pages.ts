@@ -131,6 +131,18 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
     src: "/images/blacks.webp",
     alt: "Blacks Beach surf lineup",
   },
+  blackies: {
+    src: "/images/seo-dioramas/surf-cams/orange-county/orange-county-open-wave-photo.webp",
+    alt: "Newport and North Orange County sandy beachbreak context near Blackies",
+  },
+  "bolsa-chica": {
+    src: "/images/seo-dioramas/surf-cams/orange-county/orange-county-sunset-beach-photo.webp",
+    alt: "Bolsa Chica and Huntington sandy beachbreak context",
+  },
+  goldenwest: {
+    src: "/images/seo-dioramas/surf-cams/orange-county/orange-county-aerial-shore-photo.webp",
+    alt: "Goldenwest and North Huntington sandy beachbreak context",
+  },
   "capitola-beach": {
     src: "/images/seo-dioramas/beginner/santa-cruz/boardwalk-surf-check-diorama.webp",
     alt: "Santa Cruz beginner surf check near Capitola",
@@ -162,6 +174,10 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
   "malibu-first-point-surfrider": {
     src: "/images/seo-dioramas/surf-report/malibu-today/malibu-point-wave-diorama.webp",
     alt: "Malibu First Point surf context",
+  },
+  "huntington-state-beach": {
+    src: "/images/seo-dioramas/surf-cams/orange-county/orange-county-aerial-shore-photo.webp",
+    alt: "Huntington State Beach sandy surf zone context",
   },
   marias: {
     src: "/images/seo-scenes/rincon-marias.webp",
@@ -511,6 +527,31 @@ function makePhotoImage(
   };
 }
 
+function makeExistingPhotoImage(
+  id: string,
+  src: string,
+  theme: string,
+  alt: string,
+  caption: string,
+): SeoImage {
+  return {
+    assetType: "photo",
+    id,
+    src,
+    alt,
+    caption,
+    prompt: [
+      "Use case: ads-marketing",
+      "Asset type: Quiver SEO landing page real photo image",
+      `Primary request: ${theme}`,
+      `Scene/backdrop: ${theme}`,
+      "Subject: real coastline, beach, and surf-condition reference photography",
+      "Style constraints: preserve the source photo's natural location cues, avoid synthetic effects, no text overlays, no logos, no readable signs, no watermark.",
+      "Avoid: generated-scene claims, invented landmarks, copyrighted logo focus, or implying the photo shows a specific break when it only shows a representative coastline.",
+    ].join("\n"),
+  };
+}
+
 function makeImages(
   type: SeoPageType,
   slug: string,
@@ -556,13 +597,15 @@ interface LocationSeed {
   links: SeoInternalLink[];
   spots: SeoSpotLink[];
   images: SeoImageSeedEntry[];
+  existingImages?: SeoImage[];
 }
 
 function buildLocationPage(seed: LocationSeed): SeoPageConfig {
   const images =
-    seed.imageAssetType === "photo"
+    seed.existingImages ??
+    (seed.imageAssetType === "photo"
       ? makePhotoImages(seed.type, seed.slug, seed.images)
-      : makeImages(seed.type, seed.slug, seed.images);
+      : makeImages(seed.type, seed.slug, seed.images));
   const intentLabel = seed.type === "longboard" ? "longboard" : "beginner";
 
   return {
@@ -1158,30 +1201,46 @@ const BEGINNER_PAGES = [
     locationName: "Orange County",
     title: "Beginner Surf Spots in Orange County | Quiver",
     metaDescription:
-      "Find beginner-friendly Orange County surf zones with Quiver's guide to Doheny, San Clemente, softer inside waves, board choice, and nearby cams.",
+      "Find beginner-friendly Orange County surf zones with Quiver's guide to Bolsa Chica, Huntington Beach, Blackies, Doheny, tide windows, and nearby cams.",
     h1: "Beginner Surf Spots in Orange County",
     intro:
-      "Orange County has plenty of surf, but beginner-friendly usually means choosing the softest corner, not the most famous lineup.",
+      "Orange County has plenty of surf, but beginner-friendly usually means choosing the softest corner, the right tide, and the cleanest morning window.",
     bestZones:
-      "Doheny and mellow San Clemente inside waves are stronger beginner checks than heavy pier or reef days. Look for sand, space, and clear exits.",
+      "Bolsa Chica, small clean Huntington sandbars, and Blackies are the North OC checks when the surf is tiny and organized. Doheny and San Onofre stay useful softer-wave references farther south.",
     conditions:
-      "Small, clean, and soft is the goal. Avoid steep south swell, heavy shorebreak, strong drift, or crowded high-performance peaks.",
+      "For Huntington-style sandy beaches, look for 1-2 ft surf, light wind, 6-10am glass, and low-to-mid tide. Avoid tiny high-tide windows where the waves may not break cleanly.",
     boardCall:
       "A soft-top or stable longboard is the right starting point. Keep learners away from fast inside sections where boards and bodies get pushed into shallow water.",
     localNotes:
-      "Parking varies by beach and weekend timing. If Doheny looks packed, compare Orange County cams and pick the easiest water entry instead of the most famous name.",
+      "Any Huntington sandbar can be usable for learners on a small clean morning, but the pier peaks, Newland, Huntington St., and Cliffs are not blanket beginner calls. If the tide or wind is wrong, wait rather than forcing it.",
     namedBreaks: [
+      "Bolsa Chica",
+      "Blackies",
+      "Huntington State Beach",
       "Doheny",
-      "San Clemente",
       "Old Man's",
-      "Salt Creek on small days",
     ],
     links: [
+      { label: "Huntington beginner surf", href: "/beginner/huntington-beach" },
       { label: "Orange County surf cams", href: "/surf-cams/orange-county" },
       { label: "San Onofre beginner surf", href: "/beginner/san-onofre" },
-      { label: "Encinitas longboard guide", href: "/longboard/encinitas" },
     ],
     spots: [
+      {
+        label: "Bolsa Chica",
+        href: "/ca/huntington-beach/bolsa-chica",
+        beachSlug: "bolsa-chica",
+      },
+      {
+        label: "Blackies",
+        href: "/ca/newport-beach/blackies",
+        beachSlug: "blackies",
+      },
+      {
+        label: "Goldenwest / North HB Streets",
+        href: "/ca/huntington-beach/goldenwest",
+        beachSlug: "goldenwest",
+      },
       {
         label: "Doheny Beach",
         href: "/ca/dana-point/doheny-beach",
@@ -1209,6 +1268,82 @@ const BEGINNER_PAGES = [
         "Miniature Orange County beach parking scene with soft-top board setup",
         "Soft-top setup",
       ],
+    ],
+  }),
+  buildLocationPage({
+    type: "beginner",
+    slug: "huntington-beach",
+    locationName: "Huntington Beach",
+    title: "Beginner Surf Spots in Huntington Beach | Quiver",
+    metaDescription:
+      "Plan beginner surfing in Huntington Beach with Quiver's guide to Bolsa Chica, small HB sandbars, Huntington State Beach, Blackies nearby, tide timing, and morning wind.",
+    h1: "Beginner Surf Spots in Huntington Beach",
+    intro:
+      "Huntington can work for beginners, but the useful filter is practical: small waves, low wind, an early glass window, and low-to-mid tide.",
+    bestZones:
+      "Bolsa Chica is the easiest Huntington-first learner reference. Huntington State Beach and the broader HB sandbars can work on tiny clean mornings, while nearby Blackies in Newport is a strong longboard and learner alternate.",
+    conditions:
+      "The local beginner pattern is 1-2 ft surf, light wind, 6-10am, and low-to-mid tide. High tide on a tiny day can flatten the wave or create awkward shore wash instead of clean whitewater reps.",
+    boardCall:
+      "Use a foam board for first sessions and keep the goal simple: whitewater reps, clean paddles, and predictable takeoffs. A longboard makes sense only when the surfer can control it around other learners.",
+    localNotes:
+      "Do not treat the pier, Newland, Huntington St., or Cliffs as default beginner zones. On the right small morning, Goldenwest and other HB sandbars can be friendly; on the wrong tide or wind, the same beach can be frustrating fast.",
+    namedBreaks: [
+      "Bolsa Chica",
+      "Huntington State Beach",
+      "Goldenwest / North HB Streets",
+      "Blackies",
+    ],
+    links: [
+      { label: "Orange County beginner surf", href: "/beginner/orange-county" },
+      { label: "Orange County surf cams", href: "/surf-cams/orange-county" },
+      { label: "Open Huntington map", href: "/map?search=Huntington%20Beach" },
+    ],
+    spots: [
+      {
+        label: "Bolsa Chica",
+        href: "/ca/huntington-beach/bolsa-chica",
+        beachSlug: "bolsa-chica",
+      },
+      {
+        label: "Huntington State Beach",
+        href: "/ca/huntington-beach/huntington-state-beach",
+        beachSlug: "huntington-state-beach",
+      },
+      {
+        label: "Goldenwest / North HB Streets",
+        href: "/ca/huntington-beach/goldenwest",
+        beachSlug: "goldenwest",
+      },
+      {
+        label: "Blackies",
+        href: "/ca/newport-beach/blackies",
+        beachSlug: "blackies",
+      },
+    ],
+    images: [],
+    existingImages: [
+      makeExistingPhotoImage(
+        "huntington-beginner-open-wave-photo",
+        "/images/seo-dioramas/surf-cams/orange-county/orange-county-open-wave-photo.webp",
+        "Small clean North Orange County beachbreak for beginner surf planning",
+        "Small clean North Orange County beachbreak context for beginner surf planning",
+        "Small clean morning",
+      ),
+      makeExistingPhotoImage(
+        "huntington-beginner-sunset-beach-photo",
+        "/images/seo-dioramas/surf-cams/orange-county/orange-county-sunset-beach-photo.webp",
+        "Huntington and Bolsa Chica sandy beachbreak context",
+        "Huntington and Bolsa Chica sandy beachbreak context",
+        "Huntington sandbar context",
+      ),
+      makeExistingPhotoImage(
+        "huntington-beginner-aerial-shore-photo",
+        "/images/seo-dioramas/surf-cams/orange-county/orange-county-aerial-shore-photo.webp",
+        "North Orange County sandy beach and surf-access context",
+        "North Orange County sandy beach and surf-access context",
+        "Sandy beach access context",
+      ),
     ],
   }),
   buildLocationPage({
