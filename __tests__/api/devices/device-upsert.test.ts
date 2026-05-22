@@ -693,6 +693,36 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       expect(upsertArg).not.toHaveProperty("os_version");
       expect(upsertArg).not.toHaveProperty("expo_sdk");
     });
+
+    it("does NOT include null or blank metadata fields in upsert so existing values are preserved", async () => {
+      const mockUser = createMockUser();
+      mockAuthenticatedUser(mockSupabase, mockUser);
+
+      const { mockUpsert } = mockSuccessfulDeviceRegistration();
+
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "ios",
+            device_token: "tok",
+            app_version: "",
+            build_number: null,
+            os_version: "   ",
+            expo_sdk: " 55.0.0 ",
+          },
+        },
+      );
+
+      await POST(request);
+
+      const upsertArg = mockUpsert.mock.calls[0][0];
+      expect(upsertArg).not.toHaveProperty("app_version");
+      expect(upsertArg).not.toHaveProperty("build_number");
+      expect(upsertArg).not.toHaveProperty("os_version");
+      expect(upsertArg).toHaveProperty("expo_sdk", "55.0.0");
+    });
   });
 
   describe("Request Body Parsing", () => {

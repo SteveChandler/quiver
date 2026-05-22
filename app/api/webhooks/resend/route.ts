@@ -41,8 +41,80 @@ interface ResendWebhookPayload {
       type: "hard" | "soft" | "undetermined";
       message?: string;
     };
+    click?: {
+      link?: string;
+      timestamp?: string;
+      userAgent?: string;
+      ipAddress?: string;
+    };
     [key: string]: unknown;
   };
+}
+
+function normalizeClickLink(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const link = value.trim();
+  if (link.length === 0) return null;
+  return link;
+}
+
+function normalizeClickTimestamp(payload: ResendWebhookPayload): string {
+  const timestamp =
+    typeof payload.data.click?.timestamp === "string"
+      ? payload.data.click.timestamp
+      : payload.data.created_at;
+  return timestamp || new Date().toISOString();
+}
+
+async function recordClickEvent(
+  supabase: Awaited<ReturnType<typeof createSupabaseServiceRoleClient>>,
+  payload: ResendWebhookPayload,
+  link: string,
+  resendMessageId: string,
+  webhookMessageId: string | null,
+  emailSendLogId: string | number | null
+): Promise<void> {
+  const { error } = await (supabase as any)
+    .from("email_click_events")
+    .insert({
+      email_send_log_id: emailSendLogId,
+      resend_message_id: resendMessageId,
+      webhook_message_id: webhookMessageId,
+      clicked_at: normalizeClickTimestamp(payload),
+      link,
+      user_agent:
+        typeof payload.data.click?.userAgent === "string"
+          ? payload.data.click.userAgent
+          : null,
+    });
+
+  if (error && error.code !== "23505") {
+    console.error(
+      `${CONTEXT_TAG} Failed to record click event for ${resendMessageId}:`,
+      error
+    );
+  }
+}
+
+async function findEmailSendLogId(
+  supabase: Awaited<ReturnType<typeof createSupabaseServiceRoleClient>>,
+  resendMessageId: string
+): Promise<string | number | null> {
+  const { data, error } = await supabase
+    .from("email_send_log")
+    .select("id")
+    .eq("resend_message_id", resendMessageId)
+    .maybeSingle();
+
+  if (error) {
+    console.error(
+      `${CONTEXT_TAG} Failed to resolve email_send_log id for ${resendMessageId}:`,
+      error
+    );
+    return null;
+  }
+
+  return data?.id ?? null;
 }
 
 async function handler(request: NextRequest): Promise<NextResponse> {
@@ -105,9 +177,14 @@ async function handler(request: NextRequest): Promise<NextResponse> {
   try {
     const supabase = await createSupabaseServiceRoleClient();
 
+    const eventTimestamp =
+      payload.type === "email.clicked"
+        ? normalizeClickTimestamp(payload)
+        : payload.data.created_at || new Date().toISOString();
+
     const { data, error } = await supabase
       .from("email_send_log")
-      .update({ [column]: payload.data.created_at || new Date().toISOString() })
+      .update({ [column]: eventTimestamp })
       .eq("resend_message_id", resendMessageId)
       .is(column, null)
       .select("id");
@@ -133,6 +210,21 @@ async function handler(request: NextRequest): Promise<NextResponse> {
     } else {
       console.log(
         `${CONTEXT_TAG} Updated ${column} for ${resendMessageId}`
+      );
+    }
+
+    const clickLink = normalizeClickLink(payload.data.click?.link);
+    if (payload.type === "email.clicked" && clickLink) {
+      const emailSendLogId =
+        data?.[0]?.id ?? (await findEmailSendLogId(supabase, resendMessageId));
+
+      await recordClickEvent(
+        supabase,
+        payload,
+        clickLink,
+        resendMessageId,
+        svixId,
+        emailSendLogId
       );
     }
 
