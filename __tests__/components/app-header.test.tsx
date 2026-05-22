@@ -192,6 +192,7 @@ jest.mock("lucide-react", () => ({
   Users: (props: any) => <svg data-testid="users-icon" {...props} />,
   CalendarDays: (props: any) => <svg data-testid="calendar-days-icon" {...props} />,
   Settings: (props: any) => <svg data-testid="settings-icon" {...props} />,
+  Waves: (props: any) => <svg data-testid="waves-icon" {...props} />,
 }));
 
 // Mock utils

@@ -18,7 +18,6 @@ import {
   Users,
   Car,
   Accessibility,
-  Bell,
 } from "lucide-react";
 import {
   removeFavoriteBeach,
@@ -235,10 +234,7 @@ export function FavoriteBeaches() {
             {/* Alert status row */}
             <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/40">
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Bell
-                  className="h-3.5 w-3.5"
-                  fill={(alertCounts[beach.id] ?? 0) > 0 ? "currentColor" : "none"}
-                />
+                <Waves className="h-3.5 w-3.5" />
                 <span>
                   {(alertCounts[beach.id] ?? 0) > 0
                     ? `${alertCounts[beach.id]} alert rule${alertCounts[beach.id] === 1 ? "" : "s"} active`

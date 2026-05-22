@@ -50,10 +50,19 @@ function mockAuthUser(userId: string | null) {
   });
 }
 
-function mockFollowInsert(insertError: { code: string } | null = null) {
-  const insert = jest.fn().mockResolvedValue({ error: insertError });
-  mockSupabaseClient.from.mockReturnValue({ insert } as any);
-  return insert;
+function mockAcceptInviteResult(result?: {
+  data?: Record<string, boolean>;
+  error?: { code?: string; message?: string } | null;
+}) {
+  mockSupabaseClient.rpc.mockResolvedValue({
+    data: result?.data ?? {
+      follow_created: true,
+      follow_existing: false,
+      referral_created: true,
+      referral_existing: false,
+    },
+    error: result?.error ?? null,
+  });
 }
 
 function expectInviteCookieCleared(response: Response) {
@@ -68,6 +77,7 @@ describe("GET /invite/consume", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.EMAIL_TOKEN_SECRET = TEST_SECRET;
+    mockAcceptInviteResult();
   });
 
   afterEach(() => {
@@ -113,9 +123,8 @@ describe("GET /invite/consume", () => {
     expectInviteCookieCleared(response);
   });
 
-  it("inserts user_follows, clears the cookie, and redirects to the inviter profile", async () => {
+  it("creates follow and referral attribution, clears the cookie, and redirects to the inviter profile", async () => {
     mockAuthUser("invitee-id");
-    const insert = mockFollowInsert();
     const token = await inviteToken("inviter-id");
 
     const response = await GET(buildRequest({ invite_token: token }));
@@ -123,16 +132,26 @@ describe("GET /invite/consume", () => {
     const location = getRedirectLocation(response);
     expect(location.pathname).toBe("/profile/inviter-id");
     expect(location.searchParams.get("invited")).toBe("1");
-    expect(insert).toHaveBeenCalledWith({
-      follower_id: "invitee-id",
-      following_id: "inviter-id",
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+      "accept_invite_for_user",
+      {
+        inviter: "inviter-id",
+        invitee: "invitee-id",
+      },
+    );
+    expectInviteCookieCleared(response);
+  });
+
+  it("treats duplicate follows as success, clears the cookie, and redirects to the inviter profile", async () => {
+    mockAuthUser("invitee-id");
+    mockAcceptInviteResult({
+      data: {
+        follow_created: false,
+        follow_existing: true,
+        referral_created: true,
+        referral_existing: false,
+      },
     });
-    expectInviteCookieCleared(response);
-  });
-
-  it("treats 23505 as success, clears the cookie, and redirects to the inviter profile", async () => {
-    mockAuthUser("invitee-id");
-    mockFollowInsert({ code: "23505" });
     const token = await inviteToken("inviter-id");
 
     const response = await GET(buildRequest({ invite_token: token }));
@@ -143,9 +162,35 @@ describe("GET /invite/consume", () => {
     expectInviteCookieCleared(response);
   });
 
-  it("handles self-invites without inserting and clears the cookie", async () => {
+  it("preserves existing referral attribution and still redirects to the inviter profile", async () => {
+    mockAuthUser("invitee-id");
+    mockAcceptInviteResult({
+      data: {
+        follow_created: true,
+        follow_existing: false,
+        referral_created: false,
+        referral_existing: true,
+      },
+    });
+    const token = await inviteToken("inviter-id");
+
+    const response = await GET(buildRequest({ invite_token: token }));
+
+    const location = getRedirectLocation(response);
+    expect(location.pathname).toBe("/profile/inviter-id");
+    expect(location.searchParams.get("invited")).toBe("1");
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+      "accept_invite_for_user",
+      {
+        inviter: "inviter-id",
+        invitee: "invitee-id",
+      },
+    );
+    expectInviteCookieCleared(response);
+  });
+
+  it("handles self-invites without RPC writes and clears the cookie", async () => {
     mockAuthUser("same-id");
-    const insert = mockFollowInsert();
     const token = await inviteToken("same-id");
 
     const response = await GET(buildRequest({ invite_token: token }));
@@ -153,7 +198,7 @@ describe("GET /invite/consume", () => {
     const location = getRedirectLocation(response);
     expect(location.pathname).toBe("/community");
     expect(location.searchParams.get("tab")).toBe("friends");
-    expect(insert).not.toHaveBeenCalled();
+    expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
     expectInviteCookieCleared(response);
   });
 });

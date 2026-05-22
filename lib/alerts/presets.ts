@@ -9,8 +9,8 @@ export const PRESETS: PresetDefinition[] = [
   {
     type: "glass_off",
     name: "Glassy",
-    description: "Light wind and clean waves — smooth as glass",
-    conditionsSummary: "Offshore or <5kt wind, 2ft+ swell",
+    description: "Light wind and clean waves. Smooth as glass.",
+    conditionsSummary: "Offshore or under 5 kt wind, 2 ft plus swell",
     group: "popular",
     buildConditions: (): AlertConditions => ({
       wind_direction: "offshore",
@@ -21,8 +21,8 @@ export const PRESETS: PresetDefinition[] = [
   {
     type: "mellow_session",
     name: "Mellow Session",
-    description: "Small, clean, and fun — great for longboarding or learning",
-    conditionsSummary: "1.5-4ft swell, <8kt wind, favorable tide",
+    description: "Small, clean, and fun. Good for longboards and learning.",
+    conditionsSummary: "1.5 to 4 ft swell, under 8 kt wind, favorable tide",
     group: "popular",
     buildConditions: (beach: BeachAlertMeta): AlertConditions => ({
       swell_height_min: 1.5,
@@ -35,8 +35,8 @@ export const PRESETS: PresetDefinition[] = [
   {
     type: "dawn_patrol",
     name: "Dawn Patrol",
-    description: "Anything rideable at first light — for the daily surfer",
-    conditionsSummary: "1.5ft+ swell, <15kt wind, first 2 hours",
+    description: "Rideable surf at first light for the daily surfer.",
+    conditionsSummary: "1.5 ft plus swell, under 15 kt wind, first 2 hours",
     group: "popular",
     buildConditions: (): AlertConditions => ({
       swell_height_min: 1.5,
@@ -46,8 +46,8 @@ export const PRESETS: PresetDefinition[] = [
   {
     type: "big_day",
     name: "Big Day",
-    description: "Large swell incoming — for experienced surfers chasing size",
-    conditionsSummary: "6ft+ swell, 10s+ period",
+    description: "Large swell for experienced surfers chasing size.",
+    conditionsSummary: "6 ft plus swell, 10 s plus period",
     group: "specific",
     buildConditions: (): AlertConditions => ({
       swell_height_min: 6,
@@ -58,8 +58,9 @@ export const PRESETS: PresetDefinition[] = [
     type: "clean_groundswell",
     name: "Clean Groundswell",
     description:
-      "Long-period swell with clean conditions — quality over quantity",
-    conditionsSummary: "2ft+ swell, 12s+ period, <10kt wind, favorable direction",
+      "Long period swell with clean conditions. Quality over quantity.",
+    conditionsSummary:
+      "2 ft plus swell, 12 s plus period, under 10 kt wind, favorable direction",
     group: "specific",
     buildConditions: (beach: BeachAlertMeta): AlertConditions => ({
       swell_height_min: 2,
@@ -84,8 +85,8 @@ export const PRESETS: PresetDefinition[] = [
   {
     type: "tide_window",
     name: "Tide Window",
-    description: "Optimal tide for this spot — great for reef breaks",
-    conditionsSummary: "Tide in spot's preferred range and direction",
+    description: "Optimal tide for this spot. Good for reef breaks.",
+    conditionsSummary: "Spot's preferred tide range, preferred tide direction",
     group: "specific",
     buildConditions: (beach: BeachAlertMeta): AlertConditions => ({
       tide_height_min_ft: beach.preferred_tide_ft_min ?? undefined,
@@ -98,8 +99,8 @@ export const PRESETS: PresetDefinition[] = [
   {
     type: "epic_conditions",
     name: "Epic Conditions",
-    description: "Everything aligns — the rare days you don't want to miss",
-    conditionsSummary: "All conditions in spot's ideal ranges",
+    description: "Everything lines up for the rare days worth dropping everything.",
+    conditionsSummary: "Ideal wind, ideal swell, ideal tide",
     group: "specific",
     buildConditions: (beach: BeachAlertMeta): AlertConditions => ({
       wind_direction: "offshore",
@@ -126,12 +127,12 @@ export const PRESETS: PresetDefinition[] = [
   },
   {
     type: "daily_check_in",
-    name: "Daily check-in",
+    name: "Daily check in",
     description:
-      "Validation preset — intentionally loose so it fires on most days at most beaches. " +
-      "Used to prove the alert delivery chain end-to-end during Phase-1 rollout. Not " +
+      "Validation preset intentionally loose so it fires on most days at most beaches. " +
+      "Used to prove the alert delivery chain during Phase 1 rollout. Not " +
       "intended for general user creation.",
-    conditionsSummary: "Any rideable surf with non-storm winds",
+    conditionsSummary: "Rideable surf, non storm winds",
     group: "specific",
     buildConditions: (): AlertConditions => ({
       swell_height_min: 0.5,

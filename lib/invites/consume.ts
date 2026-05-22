@@ -12,18 +12,30 @@ export const SELF_INVITE_REDIRECT_PATH = "/community?tab=friends";
 export const INVITE_EXPIRED_REDIRECT_PATH = "/?invite_expired=1";
 export const INVITE_ERROR_REDIRECT_PATH = "/?invite_error=1";
 
-const UNIQUE_VIOLATION = "23505";
-
-type InviteInsertError = {
+type InviteRpcError = {
   code?: string;
   message?: string;
 };
 
+export type InviteAcceptanceFlags = {
+  followCreated: boolean;
+  followExisting: boolean;
+  referralCreated: boolean;
+  referralExisting: boolean;
+};
+
 export type InviteConsumeResult =
-  | { status: "accepted"; inviterId: string }
+  | ({ status: "accepted"; inviterId: string } & InviteAcceptanceFlags)
   | { status: "self"; inviterId: string }
   | { status: "invalid" }
-  | { status: "insert_error"; inviterId: string; error: InviteInsertError };
+  | { status: "insert_error"; inviterId: string; error: InviteRpcError };
+
+type AcceptInviteForUserRpcResult = {
+  follow_created?: boolean;
+  follow_existing?: boolean;
+  referral_created?: boolean;
+  referral_existing?: boolean;
+};
 
 export function buildInviteStartPath(token: string): string {
   const params = new URLSearchParams({ token });
@@ -74,13 +86,23 @@ export async function consumeInviteForUser(
     return { status: "self", inviterId };
   }
 
-  const { error } = await supabase
-    .from("user_follows")
-    .insert({ follower_id: followerId, following_id: inviterId });
+  const { data, error } = await supabase.rpc("accept_invite_for_user" as any, {
+    inviter: inviterId,
+    invitee: followerId,
+  });
 
-  if (error && error.code !== UNIQUE_VIOLATION) {
+  if (error) {
     return { status: "insert_error", inviterId, error };
   }
 
-  return { status: "accepted", inviterId };
+  const flags = (data ?? {}) as AcceptInviteForUserRpcResult;
+
+  return {
+    status: "accepted",
+    inviterId,
+    followCreated: flags.follow_created === true,
+    followExisting: flags.follow_existing === true,
+    referralCreated: flags.referral_created === true,
+    referralExisting: flags.referral_existing === true,
+  };
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Bell, Trash2 } from "lucide-react";
+import { Pause, Play, Trash2 } from "lucide-react";
 import type { PresetType } from "@/lib/alerts/types";
 
 const PRESET_ICONS: Record<PresetType, string> = {
@@ -123,10 +123,11 @@ export function AlertRuleCard({ rule, onToggle, onDelete }: AlertRuleCardProps) 
             rule.enabled ? "text-[#F78E42]" : "text-gray-500"
           }`}
         >
-          <Bell
-            className="w-3.5 h-3.5"
-            fill={rule.enabled ? "currentColor" : "none"}
-          />
+          {rule.enabled ? (
+            <Pause className="w-3.5 h-3.5" />
+          ) : (
+            <Play className="w-3.5 h-3.5" />
+          )}
         </button>
         <button
           onClick={handleDelete}

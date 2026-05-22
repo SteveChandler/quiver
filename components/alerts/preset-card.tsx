@@ -4,16 +4,16 @@ import type { PresetDefinition, PresetType } from "@/lib/alerts/types";
 
 const PRESET_CONFIG: Record<
   PresetType,
-  { icon: string; accentClass: string }
+  { label: string; accentClass: string }
 > = {
-  glass_off: { icon: "\u{1F90C}", accentClass: "border-l-sky-400" },
-  mellow_session: { icon: "\u{1F3C4}", accentClass: "border-l-emerald-400" },
-  dawn_patrol: { icon: "\u{1F305}", accentClass: "border-l-amber-400" },
-  big_day: { icon: "\u{1F30A}", accentClass: "border-l-red-400" },
-  clean_groundswell: { icon: "\u{1F4A0}", accentClass: "border-l-violet-400" },
-  tide_window: { icon: "\u{23F1}\u{FE0F}", accentClass: "border-l-cyan-400" },
-  epic_conditions: { icon: "\u{1F525}", accentClass: "border-l-[#F78E42]" },
-  daily_check_in: { icon: "\u{2705}", accentClass: "border-l-slate-400" },
+  glass_off: { label: "Glass", accentClass: "bg-[#DDEEFF] text-[#173355]" },
+  mellow_session: { label: "Cruise", accentClass: "bg-[#DDF2E7] text-[#183D2B]" },
+  dawn_patrol: { label: "Dawn", accentClass: "bg-[#FFE7BE] text-[#4A2E08]" },
+  big_day: { label: "Size", accentClass: "bg-[#FFD9D0] text-[#5B1D12]" },
+  clean_groundswell: { label: "Period", accentClass: "bg-[#E7DFFF] text-[#2D205F]" },
+  tide_window: { label: "Tide", accentClass: "bg-[#DDF6F3] text-[#16423E]" },
+  epic_conditions: { label: "Epic", accentClass: "bg-[#F78E42] text-[#11100D]" },
+  daily_check_in: { label: "Daily", accentClass: "bg-[#E6E0D1] text-[#2D2A24]" },
 };
 
 interface PresetCardProps {
@@ -25,39 +25,49 @@ interface PresetCardProps {
 
 export function PresetCard({ preset, onSelect, disabled, prominent }: PresetCardProps) {
   const config = PRESET_CONFIG[preset.type];
+  const summaryChips = preset.conditionsSummary
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 
   return (
     <button
       onClick={() => onSelect(preset)}
       disabled={disabled}
       aria-label={`${preset.name}: ${preset.description}`}
-      className={`w-full text-left rounded-lg border-l-[3px] border border-[#404C92] transition-all disabled:opacity-50 disabled:cursor-not-allowed motion-safe:hover:rotate-[0.8deg] motion-safe:hover:scale-[1.015] hover:bg-[#354090] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 ${config.accentClass} ${
+      className={`w-full text-left rounded-md border-2 border-[#11100D] bg-[#F4EBD8] text-[#11100D] shadow-[3px_3px_0_rgba(17,16,13,0.68)] transition-all disabled:opacity-50 disabled:cursor-not-allowed motion-safe:hover:-translate-y-0.5 hover:bg-[#FFF5DF] hover:shadow-[4px_4px_0_rgba(17,16,13,0.78)] active:translate-y-0 active:shadow-[2px_2px_0_rgba(17,16,13,0.68)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/70 ${
         prominent
-          ? "p-4 bg-[#354090]/60"
-          : "p-3 bg-[#354090]/40"
+          ? "px-3.5 py-3"
+          : "px-3 py-2.5"
       }`}
     >
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-start gap-3 pr-20">
         <span
-          className={`shrink-0 select-none ${prominent ? "text-xl" : "text-base"}`}
-          role="img"
+          className={`mt-0.5 inline-flex min-w-[64px] shrink-0 items-center justify-center rounded-sm border-2 border-[#11100D] px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.12em] shadow-[2px_2px_0_rgba(17,16,13,0.35)] ${config.accentClass}`}
           aria-hidden="true"
         >
-          {config.icon}
+          {config.label}
         </span>
-        <div className="min-w-0 pr-16">
+        <div className="min-w-0">
           <div
-            className={`font-semibold text-white font-[family-name:var(--font-space-grotesk)] ${
-              prominent ? "text-sm" : "text-[13px]"
+            className={`font-[family-name:var(--font-space-grotesk)] font-black uppercase leading-tight tracking-[0.03em] text-[#11100D] ${
+              prominent ? "text-[13px]" : "text-xs"
             }`}
           >
             {preset.name}
           </div>
-          <div className="text-gray-300 text-xs mt-0.5 leading-snug">
+          <div className="mt-1 text-xs leading-5 text-[#403A2E]">
             {preset.description}
           </div>
-          <div className="text-gray-400 text-[11px] mt-1.5 font-mono tracking-tight">
-            {preset.conditionsSummary}
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {summaryChips.map((chip) => (
+              <span
+                key={chip}
+                className="rounded-sm border border-[#11100D]/35 bg-[#FFF9EA] px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.04em] text-[#252D6B]"
+              >
+                {chip}
+              </span>
+            ))}
           </div>
         </div>
       </div>

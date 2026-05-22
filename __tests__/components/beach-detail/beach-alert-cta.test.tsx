@@ -77,7 +77,7 @@ describe("BeachAlertCta", () => {
     mockRules = [];
   });
 
-  describe("renders Bell icon and Get Alerts text", () => {
+  describe("renders Waves icon and Get Alerts text", () => {
     beforeEach(() => {
       mockUseAuth.mockReturnValue(unauthenticatedAuth);
     });
@@ -89,9 +89,9 @@ describe("BeachAlertCta", () => {
       ).toBeInTheDocument();
     });
 
-    it("renders a Bell icon inside the button", () => {
+    it("renders a Waves icon inside the button", () => {
       const { container } = render(<BeachAlertCta {...defaultProps} />);
-      const icon = container.querySelector(".lucide-bell");
+      const icon = container.querySelector(".lucide-waves");
       expect(icon).toBeInTheDocument();
     });
   });
@@ -161,15 +161,14 @@ describe("BeachAlertCta", () => {
       mockUseAuth.mockReturnValue(authenticatedAuth);
     });
 
-    it("shows BellRing icon and badge when rules exist for this beach", () => {
+    it("shows Waves icon and badge when rules exist for this beach", () => {
       mockRules = [
         { id: "r1", beach_id: "beach-123" },
         { id: "r2", beach_id: "beach-123" },
       ];
       const { container } = render(<BeachAlertCta {...defaultProps} />);
-      // BellRing icon should be present
-      const bellRing = container.querySelector(".lucide-bell-ring");
-      expect(bellRing).toBeInTheDocument();
+      const waves = container.querySelector(".lucide-waves");
+      expect(waves).toBeInTheDocument();
       // Count badge shows 2
       expect(screen.getByText("2")).toBeInTheDocument();
       // Button label shows active state via aria-label
@@ -178,13 +177,11 @@ describe("BeachAlertCta", () => {
       ).toBeInTheDocument();
     });
 
-    it("shows plain Bell icon when no rules exist for this beach", () => {
+    it("shows Waves icon when no rules exist for this beach", () => {
       mockRules = [{ id: "r1", beach_id: "other-beach-456" }];
       const { container } = render(<BeachAlertCta {...defaultProps} />);
-      const bell = container.querySelector(".lucide-bell");
-      expect(bell).toBeInTheDocument();
-      const bellRing = container.querySelector(".lucide-bell-ring");
-      expect(bellRing).not.toBeInTheDocument();
+      const waves = container.querySelector(".lucide-waves");
+      expect(waves).toBeInTheDocument();
     });
 
     it("only counts rules matching the current beach_id", () => {
@@ -204,8 +201,7 @@ describe("BeachAlertCta", () => {
 
       const { container } = render(<BeachAlertCta {...defaultProps} />);
 
-      expect(container.querySelector(".lucide-bell")).toBeInTheDocument();
-      expect(container.querySelector(".lucide-bell-ring")).not.toBeInTheDocument();
+      expect(container.querySelector(".lucide-waves")).toBeInTheDocument();
       expect(screen.queryByText("1")).not.toBeInTheDocument();
     });
 
