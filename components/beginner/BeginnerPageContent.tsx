@@ -118,6 +118,23 @@ export function BeginnerPageContent({
             <BeginnerSpotList cityName={cityName} stateSlug={stateSlug} citySlug={citySlug} beaches={beaches} />
           </SectionFadeUp>
 
+          <SectionFadeUp delay={0.18}>
+            <aside className="overflow-hidden rounded-2xl border border-sky-200/70 bg-sky-50/70 p-6 shadow-sm">
+              <h2 className="text-lg font-semibold text-slate-900">
+                How to read Quiver wave height
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-700">
+                Use Quiver&apos;s wave number to judge session size. At calibrated beaches it
+                reflects face height at the break. At uncalibrated beaches Quiver labels it as
+                approximate forecast height instead of overclaiming local certainty.
+              </p>
+              <p className="mt-2 text-sm leading-6 text-slate-700">
+                Bigger numbers get more powerful quickly, so treat a jump from 1-2 ft to 3-4 ft
+                as a real step up for a beginner even when the forecast still looks small.
+              </p>
+            </aside>
+          </SectionFadeUp>
+
           {/* Alert Capture CTA */}
           <SectionFadeUp delay={0.1}>
             <AlertCaptureCta

@@ -341,6 +341,11 @@ describe("SpotSurfReport", () => {
       const label = screen.getByTestId("wave-height-label");
       expect(label).toHaveTextContent("Face height");
       expect(screen.queryByText("Forecast height")).toBeNull();
+      expect(
+        screen.getByText(
+          "Face height at this beach. Use this number to judge session size; bigger jumps mean much more power."
+        )
+      ).toBeInTheDocument();
     });
 
     it("renders 'Forecast height' label + ~ prefix when report.isCalibrated is false", () => {
@@ -357,6 +362,11 @@ describe("SpotSurfReport", () => {
       expect(screen.getByText("~")).toBeInTheDocument();
       // Dotted underline is the load-bearing visual marker
       expect(container.querySelector(".border-dotted")).not.toBeNull();
+      expect(
+        screen.getByText(
+          "Approximate forecast height. Use this number to judge session size; bigger jumps mean much more power."
+        )
+      ).toBeInTheDocument();
     });
   });
 });
