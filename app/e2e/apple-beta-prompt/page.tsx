@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { AppleBetaPromptDeviceMode } from "@/lib/app-store/apple-beta-prompt";
 import { AppleBetaPromptHarness } from "./prompt-harness";
@@ -22,7 +23,12 @@ export const metadata: Metadata = {
 export default async function AppleBetaPromptE2EPage({
   searchParams,
 }: AppleBetaPromptE2EPageProps) {
-  if (process.env.VERCEL_ENV === "production") {
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("host") ?? "";
+  const isProductionHost =
+    host === "www.quiversurf.app" || host === "quiversurf.app";
+
+  if (process.env.VERCEL_ENV === "production" && isProductionHost) {
     notFound();
   }
 
