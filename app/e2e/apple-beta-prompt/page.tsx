@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 export default async function AppleBetaPromptE2EPage({
   searchParams,
 }: AppleBetaPromptE2EPageProps) {
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.VERCEL_ENV === "production") {
     notFound();
   }
 
