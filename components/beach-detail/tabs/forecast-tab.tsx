@@ -40,6 +40,7 @@ import { DataErrorBoundary } from "@/components/error-boundaries";
 import { TideStatusStrip } from "@/components/beach-detail/tide-status-strip";
 import { TideChartSection } from "@/components/beach-detail/tide-chart-section";
 import { useAuth } from "@/context/auth-context";
+import { ForecastFeedbackCapture } from "@/components/forecast/forecast-feedback-capture";
 
 const ConditionsOverview = dynamic(
   () =>
@@ -502,6 +503,20 @@ export function ForecastTab({
                 </div>
               </div>
             </section>
+          )}
+
+          {user && currentForecast && (
+            <ForecastFeedbackCapture
+              beach={beach}
+              forecast={currentForecast}
+              forecastMetadata={forecastMetadata}
+              surfCall={surfCall}
+              beachTimezone={beachTimezone}
+              isCalibrated={beachIsCalibrated}
+              isDisplayStaleForecast={isDisplayStaleForecast}
+              forecastTimeLabel={currentForecastTimeLabel}
+              freshnessLabel={freshnessLabel}
+            />
           )}
 
           {/* Yesterday's Accuracy */}
