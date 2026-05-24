@@ -269,17 +269,17 @@ test.describe("Regional Forecast Pages", () => {
   test("should navigate to regional guide when clicking guide link", async ({
     page,
   }) => {
-    // Click the regional guide link
     const guideLink = page.getByRole("link", {
       name: new RegExp(`${testRegionName}.*Surf Guide.*→`, "i"),
     });
-    await guideLink.click();
 
-    // Wait for navigation
+    await expect(guideLink).toHaveAttribute("href", /\/guides\/surfing-/);
+    await guideLink.scrollIntoViewIfNeeded();
+    await Promise.all([
+      page.waitForURL(/\/guides\/surfing-/, { timeout: 30000 }),
+      guideLink.click(),
+    ]);
     await waitForPageLoad(page);
-
-    // Should be on guide page
-    await expect(page).toHaveURL(/\/guides\/surfing-/);
   });
 
   test("should navigate back to forecast hub", async ({ page }) => {
