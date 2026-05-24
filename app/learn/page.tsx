@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
-import { learnArticles } from "@/lib/data/learn-articles";
-import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { QuiverSticker, ZineSurface } from "@/components/zine";
+import { learnArticles } from "@/lib/data/learn-articles";
+import { buildPageMetadata } from "@/lib/seo/meta";
+import type { QuiverStickerKey } from "@/lib/ui/quiver-sticker-assets";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Learn to Surf Smarter",
@@ -23,33 +25,48 @@ export const metadata: Metadata = buildPageMetadata({
   ],
 });
 
-const CROSS_LINKS = [
+const CROSS_LINKS: {
+  href: string;
+  label: string;
+  desc: string;
+  sticker: QuiverStickerKey;
+}[] = [
   {
     href: "/guides",
     label: "Regional Surf Guides",
     desc: "Explore 10+ coastal regions",
+    sticker: "orangeMap",
   },
   {
     href: "/forecast-accuracy",
     label: "Forecast Accuracy",
     desc: "See how our ML corrections perform",
+    sticker: "spotSwellMatch",
   },
   {
     href: "/best-time-to-surf",
     label: "Best Time to Surf",
     desc: "Monthly surf quality by city",
+    sticker: "spotTideWindow",
   },
   {
     href: "/vs/surfline",
     label: "Quiver vs Surfline",
     desc: "See how we compare, feature by feature",
+    sticker: "goldRightArrow",
   },
 ];
 
-const CATEGORIES: { label: string; desc: string; slugs: string[] }[] = [
+const CATEGORIES: {
+  label: string;
+  desc: string;
+  slugs: string[];
+  sticker: QuiverStickerKey;
+}[] = [
   {
     label: "Forecast Fundamentals",
-    desc: "Read forecasts like a local — height, period, direction, wind, and tide.",
+    desc: "Read forecasts like a local: height, period, direction, wind, and tide.",
+    sticker: "spotSwellMatch",
     slugs: [
       "how-to-read-a-surf-forecast",
       "swell-period-explained",
@@ -67,6 +84,7 @@ const CATEGORIES: { label: string; desc: string; slugs: string[] }[] = [
   {
     label: "Timing & Conditions",
     desc: "Know when to paddle out and what to wear.",
+    sticker: "spotWindRead",
     slugs: [
       "best-time-of-day-to-surf",
       "why-waves-better-in-morning",
@@ -77,6 +95,7 @@ const CATEGORIES: { label: string; desc: string; slugs: string[] }[] = [
   {
     label: "Getting Started",
     desc: "Gear, etiquette, and what to expect as a beginner.",
+    sticker: "singleFin",
     slugs: [
       "best-surf-conditions-for-beginners",
       "what-size-surfboard-should-i-get",
@@ -90,7 +109,14 @@ const CATEGORIES: { label: string; desc: string; slugs: string[] }[] = [
   {
     label: "Ocean Science",
     desc: "How waves and tides actually work.",
+    sticker: "breakingWave",
     slugs: ["how-are-ocean-waves-formed", "how-do-tides-work"],
+  },
+  {
+    label: "Local Beginner Breaks",
+    desc: "Beginner-friendly local lineups and what to check before you go.",
+    sticker: "spotLocation",
+    slugs: ["beginner-breaks-san-diego", "beginner-breaks-santa-cruz"],
   },
 ];
 
@@ -101,15 +127,13 @@ export default function LearnHubPage() {
   ];
 
   const featuredArticle = learnArticles[0];
-
-  // Group articles by category, excluding the featured article
   const categorized = CATEGORIES.map((cat) => ({
     ...cat,
     articles: cat.slugs
-      .map((slug) => learnArticles.find((a) => a.slug === slug))
+      .map((slug) => learnArticles.find((article) => article.slug === slug))
       .filter(
-        (a): a is (typeof learnArticles)[number] =>
-          a != null && a.slug !== featuredArticle.slug,
+        (article): article is (typeof learnArticles)[number] =>
+          article != null && article.slug !== featuredArticle.slug,
       ),
   })).filter((cat) => cat.articles.length > 0);
 
@@ -122,196 +146,182 @@ export default function LearnHubPage() {
         url="/learn"
       />
 
-      {/* ------------------------------------------------------------------ */}
-      {/* 1. Full-bleed hero                                                 */}
-      {/* ------------------------------------------------------------------ */}
-      <section className="relative h-[80vh] md:h-[85vh] flex items-center justify-center overflow-hidden bg-[#0A0E27]">
-        {/* 1. Blurred Background layer (fills the wide space) */}
-        <Image
-          src="/3sunset_learn_smarter_best.png"
-          alt=""
-          fill
-          className="object-cover blur-3xl opacity-40 scale-110"
-          unoptimized
-          priority
-        />
-        
-        {/* 2. Main Sharp Image (full-width hero) */}
-        <Image
-          src="/learn-hero-16x9.webp"
-          alt="Surfers walking toward the ocean at sunset with Learn to Surf Smarter text"
-          fill
-          className="object-cover object-bottom contrast-[1.10] saturate-[1.3] brightness-[1.05] drop-shadow-2xl"
-          quality={100}
-          unoptimized
-          priority
-        />
-
-        {/* Lighter gradient overlay since text is baked into image */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#252D6B]/60 via-transparent to-transparent" />
-
-        {/* Noise texture overlay */}
-        <div className="noise-texture-subtle absolute inset-0 pointer-events-none" />
-
-        {/* Hero content - sr-only since typography is already in the image */}
-        <div className="sr-only">
-          <h1>Learn to Surf Smarter</h1>
-        </div>
-      </section>
-
-      <main>
-        {/* Introduction moved below hero image to prevent text overlap */}
-        <section className="mx-auto max-w-6xl px-4 mt-12 mb-16 sm:mt-16 sm:mb-20">
-          <ScrollReveal>
-            <div className="max-w-3xl">
-              <p className="mb-6 inline-block rounded-full bg-[#F78E42]/15 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[#F78E42]">
-                Quiver Guides
-              </p>
-              <p className="text-xl leading-relaxed text-gray-300 sm:text-2xl font-light">
-                Understanding the ocean makes every session better. These guides
-                break down surf forecasting, wave science, and conditions — so you
-                know exactly what to look for before you paddle out.
-              </p>
-            </div>
-          </ScrollReveal>
-        </section>
-
-        {/* ---------------------------------------------------------------- */}
-        {/* 2. Featured article — full-width split card                      */}
-        {/* ---------------------------------------------------------------- */}
-        <ScrollReveal>
-          <div className="relative z-20 mx-auto max-w-6xl px-4">
-            <Link
-              href={`/learn/${featuredArticle.slug}`}
-              className="group grid grid-cols-1 md:grid-cols-2 overflow-hidden rounded-xl border border-white/10 bg-[#252D6B]/60 backdrop-blur-sm transition-all duration-300 hover:border-[#F78E42]/40 hover:shadow-2xl hover:shadow-[#F78E42]/10"
-            >
-              {/* Orange left accent bar */}
-              <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#F78E42] rounded-l-xl" />
-
-              {/* Left: text content */}
-              <div className="flex flex-col justify-center p-8 sm:p-10">
-                <p className="mb-3 inline-block w-fit rounded-full bg-[#F78E42]/15 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#F78E42]">
-                  Featured
+      <ZineSurface
+        sectionLabel="Learn"
+        editionLabel="Forecast field notes"
+        data-testid="learn-zine-surface"
+      >
+        <main>
+          <header className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
+            <ScrollReveal>
+              <div className="relative">
+                <QuiverSticker
+                  sticker="creamTape"
+                  className="absolute -top-8 right-4 hidden w-32 rotate-6 opacity-85 sm:block"
+                />
+                <p className="label-black mb-5">Quiver Guides</p>
+                <h1 className="zine-h1 font-black uppercase leading-[0.88] tracking-normal text-[#11100D]">
+                  Learn to Surf Smarter
+                </h1>
+                <p className="mt-6 max-w-2xl text-xl leading-relaxed text-[#11100D]/75 sm:text-2xl">
+                  Forecast basics, wave science, and beginner field notes for
+                  reading the ocean before you paddle out.
                 </p>
-                <h2 className="font-display text-3xl font-extrabold text-white transition-colors duration-200 group-hover:text-[#F78E42] sm:text-4xl">
-                  {featuredArticle.title}
-                </h2>
-                <p className="mt-4 text-sm leading-relaxed text-gray-400 sm:text-base">
-                  {featuredArticle.description}
-                </p>
-                <div className="mt-6 flex items-center gap-4 text-xs">
-                  <span className="text-gray-500">
-                    {featuredArticle.readingTimeMin} min read
-                  </span>
-                  <span className="font-bold text-[#F78E42] transition-all duration-200 opacity-70 group-hover:opacity-100 group-hover:translate-x-1">
-                    Read guide &rarr;
-                  </span>
+                <div className="mt-6 flex flex-wrap gap-3 font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/65">
+                  <span>{learnArticles.length} guides</span>
+                  <span aria-hidden>/</span>
+                  <span>Updated weekly</span>
+                  <span aria-hidden>/</span>
+                  <span>Made for dawn checks</span>
                 </div>
               </div>
-
-              {/* Right: thumbnail image */}
-              <div className="relative min-h-[18rem] md:min-h-[22rem]">
-                <Image
-                  src={featuredArticle.thumbnailImage}
-                  alt={featuredArticle.title}
-                  width={1200}
-                  height={800}
-                  className="absolute inset-0 h-full w-full object-cover md:rounded-r-xl transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-[#252D6B]/40 to-transparent md:rounded-r-xl" />
-              </div>
-            </Link>
-          </div>
-        </ScrollReveal>
-
-        {/* ---------------------------------------------------------------- */}
-        {/* 3. Categorized articles                                          */}
-        {/* ---------------------------------------------------------------- */}
-        {categorized.map((cat) => (
-          <section key={cat.label} className="mx-auto max-w-6xl px-4 mt-16">
-            <ScrollReveal>
-              <p className="mb-1 text-xs font-bold uppercase tracking-widest text-[#F78E42]">
-                {cat.label}
-              </p>
-              <p className="mb-6 text-sm text-gray-400">{cat.desc}</p>
             </ScrollReveal>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {cat.articles.map((article, i) => (
-                <ScrollReveal key={article.slug} delay={i * 80}>
-                  <Link
-                    href={`/learn/${article.slug}`}
-                    className="group relative flex flex-col justify-end overflow-hidden rounded-xl border border-white/10 min-h-[16rem] sm:min-h-[20rem] transition-all duration-300 hover:border-[#F78E42]/40 hover:-translate-y-1 hover:shadow-xl hover:shadow-[#F78E42]/10"
-                  >
-                    <Image
-                      src={article.thumbnailImage}
-                      alt={article.title}
-                      width={600}
-                      height={400}
-                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#252D6B] via-[#252D6B]/60 to-transparent" />
-                    <span className="absolute top-3 right-3 z-10 rounded-full bg-[#F78E42]/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-lg">
-                      {article.readingTimeMin} min
-                    </span>
-                    <div className="relative z-10 p-5 sm:p-6">
-                      <h2 className="font-display text-lg font-extrabold text-white sm:text-xl drop-shadow-lg line-clamp-2">
-                        {article.title}
-                      </h2>
-                      <p className="mt-2 text-xs leading-relaxed text-gray-200/70 line-clamp-2">
-                        {article.description}
-                      </p>
-                      <span className="mt-3 inline-block text-xs font-bold text-[#F78E42] opacity-0 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-1">
-                        Read &rarr;
-                      </span>
-                    </div>
-                  </Link>
-                </ScrollReveal>
-              ))}
-            </div>
-          </section>
-        ))}
 
-        {/* ---------------------------------------------------------------- */}
-        {/* 4. Cross-links section                                           */}
-        {/* ---------------------------------------------------------------- */}
-        <ScrollReveal>
-          <section className="mx-auto max-w-6xl px-4 mt-20 mb-20">
-            <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#F78E42]">
-              Keep Going
-            </p>
-            <h2 className="mb-8 font-display text-2xl font-extrabold text-white sm:text-3xl">
-              More from Quiver
-            </h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {CROSS_LINKS.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-6 transition-all duration-300 hover:border-[#F78E42]/40 hover:bg-[#F78E42]/[0.06] hover:-translate-y-1"
-                >
-                  {/* Left accent on hover */}
-                  <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-[#F78E42] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                  <div className="flex items-center justify-between">
-                    <span className="block font-display text-base font-bold text-gray-200 transition-colors duration-200 group-hover:text-white">
+            <ScrollReveal delay={80}>
+              <Link
+                href={`/learn/${featuredArticle.slug}`}
+                className="group polaroid rot-2 block"
+              >
+                <div className="photo">
+                  <Image
+                    src={featuredArticle.thumbnailImage}
+                    alt={featuredArticle.title}
+                    fill
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    sizes="(min-width: 1024px) 480px, 100vw"
+                    priority
+                  />
+                  <div className="absolute inset-0 bg-[#252D6B]/20 mix-blend-multiply" />
+                  <QuiverSticker
+                    sticker="breakingWave"
+                    className="absolute -bottom-7 -right-5 w-32 rotate-6 drop-shadow-md"
+                  />
+                </div>
+                <p className="cap">{featuredArticle.title}</p>
+                <p className="mt-2 px-2 pb-2 text-center font-mono text-[11px] uppercase tracking-[0.14em] text-[#11100D]/60">
+                  Featured guide / {featuredArticle.readingTimeMin} min read
+                </p>
+              </Link>
+            </ScrollReveal>
+          </header>
+
+          <ScrollReveal>
+            <section className="torn torn-tb rot-neg mt-12 border-2 border-[#11100D]">
+              <div className="grid gap-5 md:grid-cols-[0.95fr_1.05fr] md:items-center">
+                <div>
+                  <p className="typewriter mb-2">Start here</p>
+                  <h2 className="font-display text-3xl font-black uppercase leading-none text-[#11100D] sm:text-4xl">
+                    {featuredArticle.title}
+                  </h2>
+                  <p className="mt-4 text-base leading-relaxed text-[#11100D]/72">
+                    {featuredArticle.description}
+                  </p>
+                </div>
+                <div className="notebook">
+                  <p className="font-handwritten text-2xl leading-tight text-[#11100D]">
+                    Read height, period, wind, tide, and direction together.
+                  </p>
+                  <Link
+                    href={`/learn/${featuredArticle.slug}`}
+                    className="mt-5 inline-flex items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-4 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
+                  >
+                    Read guide <span className="ml-2">&rarr;</span>
+                  </Link>
+                </div>
+              </div>
+            </section>
+          </ScrollReveal>
+
+          {categorized.map((cat, categoryIndex) => (
+            <section key={cat.label} className="mt-14">
+              <ScrollReveal>
+                <div className="mb-5 flex items-end justify-between gap-4 border-b-2 border-dashed border-[#11100D]/35 pb-4">
+                  <div>
+                    <p className="typewriter mb-2">Stack {categoryIndex + 1}</p>
+                    <h2 className="font-display text-2xl font-black uppercase leading-tight text-[#11100D] sm:text-3xl">
+                      {cat.label}
+                    </h2>
+                    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#11100D]/68">
+                      {cat.desc}
+                    </p>
+                  </div>
+                  <QuiverSticker
+                    sticker={cat.sticker}
+                    className="hidden w-16 shrink-0 rotate-6 drop-shadow-sm sm:block"
+                  />
+                </div>
+              </ScrollReveal>
+
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {cat.articles.map((article, articleIndex) => (
+                  <ScrollReveal key={article.slug} delay={articleIndex * 60}>
+                    <Link
+                      href={`/learn/${article.slug}`}
+                      className="group torn torn-tb flex min-h-[22rem] flex-col overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8] transition-transform hover:-translate-y-1"
+                    >
+                      <div className="relative mb-4 h-36 overflow-hidden border-2 border-[#11100D] bg-[#C8C2B0]">
+                        <Image
+                          src={article.thumbnailImage}
+                          alt={article.title}
+                          fill
+                          className="object-cover saturate-[0.75] transition-transform duration-500 group-hover:scale-105"
+                          sizes="(min-width: 1024px) 340px, (min-width: 640px) 50vw, 100vw"
+                        />
+                        <div className="absolute inset-0 bg-[#F4EBD8]/10 mix-blend-screen" />
+                      </div>
+                      <div className="flex flex-1 flex-col">
+                        <div className="mb-3 flex items-center justify-between gap-3 font-mono text-[11px] uppercase tracking-[0.12em] text-[#11100D]/55">
+                          <span>{article.readingTimeMin} min</span>
+                          <span>Guide {String(articleIndex + 1).padStart(2, "0")}</span>
+                        </div>
+                        <h3 className="font-display text-xl font-black uppercase leading-tight text-[#11100D] transition-colors group-hover:text-[#B56A2B]">
+                          {article.title}
+                        </h3>
+                        <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-[#11100D]/68">
+                          {article.description}
+                        </p>
+                        <span className="mt-auto pt-5 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#B56A2B]">
+                          Open note &rarr;
+                        </span>
+                      </div>
+                    </Link>
+                  </ScrollReveal>
+                ))}
+              </div>
+            </section>
+          ))}
+
+          <ScrollReveal>
+            <section className="mt-16">
+              <p className="label-black mb-6">Keep Going</p>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {CROSS_LINKS.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="group torn torn-tb relative flex min-h-44 flex-col overflow-hidden border-2 border-[#11100D] bg-[#F0E5CC] p-5 transition-transform hover:-translate-y-1"
+                  >
+                    <QuiverSticker
+                      sticker={link.sticker}
+                      className="absolute -right-4 -top-4 w-16 rotate-12 opacity-80 transition-transform group-hover:rotate-6"
+                    />
+                    <span className="relative z-10 font-display text-lg font-black uppercase leading-tight text-[#11100D]">
                       {link.label}
                     </span>
-                    <span className="text-[#F78E42] opacity-0 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-1">
-                      &rarr;
+                    <span className="relative z-10 mt-3 block text-sm leading-relaxed text-[#11100D]/68">
+                      {link.desc}
                     </span>
-                  </div>
-                  <span className="mt-2 block text-sm leading-relaxed text-gray-500">
-                    {link.desc}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </section>
-        </ScrollReveal>
-      </main>
+                    <span className="relative z-10 mt-auto pt-5 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#B56A2B]">
+                      Visit &rarr;
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          </ScrollReveal>
+        </main>
+      </ZineSurface>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* 5. Sticky signup bar                                               */}
-      {/* ------------------------------------------------------------------ */}
       <StickySignupBar source="learn_hub" />
     </>
   );

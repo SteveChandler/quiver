@@ -7,6 +7,8 @@
  * @project auth
  */
 
+/* eslint-disable playwright/no-conditional-in-test -- Existing regional forecast checks branch around data-dependent sections that may or may not render. */
+
 import { test, expect } from "@playwright/test";
 import { waitForPageLoad, dismissOnboardingWizard } from "./utils/test-helpers";
 import {
