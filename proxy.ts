@@ -85,7 +85,7 @@ function log(message: string, data?: any) {
  *
  * Cyclomatic Complexity: Reduced from 37 → 6
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // Canonical domain redirect: non-www → www with 301 (permanent) for SEO link equity
   const hostname = request.headers.get("host") || "";
   if (hostname === "quiversurf.app") {
@@ -684,7 +684,6 @@ function checkAdminPrivileges(user: any) {
 }
 
 export const config = {
-  runtime: "nodejs",
   matcher: [
     /*
      * Match all page routes but exclude:

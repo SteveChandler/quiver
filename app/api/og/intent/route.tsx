@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
 
-export const runtime = 'edge';
+export const runtime = "nodejs";
 
 const INTENT_LABELS: Record<string, string> = {
   "beginner": "Beginner Spots",

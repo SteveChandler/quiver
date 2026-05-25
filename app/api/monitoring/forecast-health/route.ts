@@ -10,7 +10,7 @@ import { checkForecastHealth } from '@/lib/monitoring/forecast-health-check';
 import { forecastLogger } from '@/lib/monitoring/forecast-logger';
 import { withObservedCron } from '@/lib/cron/observability';
 
-export const runtime = 'edge';
+export const runtime = "nodejs";
 export const dynamic = 'force-dynamic';
 
 function formatCoverage(coverage: number): string {
